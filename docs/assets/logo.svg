@@ -2,16 +2,16 @@
   <title>paw</title>
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fbf2e6"/>
-      <stop offset="1" stop-color="#efd9bd"/>
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eeeeee"/>
     </linearGradient>
     <linearGradient id="fur" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="222">
-      <stop offset="0" stop-color="#a06a42"/>
-      <stop offset="1" stop-color="#6f4324"/>
+      <stop offset="0" stop-color="#383838"/>
+      <stop offset="1" stop-color="#121212"/>
     </linearGradient>
     <linearGradient id="bean" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f6c4b6"/>
-      <stop offset="1" stop-color="#e09a8a"/>
+      <stop offset="0" stop-color="#a87650"/>
+      <stop offset="1" stop-color="#734a2c"/>
     </linearGradient>
     <g id="paw">
       <circle cx="66" cy="104" r="30"/>
@@ -24,10 +24,10 @@
   </defs>
 
   <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#tile)"/>
-  <rect x="8.5" y="8.5" width="239" height="239" rx="55.5" fill="none" stroke="#5c3519" stroke-opacity="0.12"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="55.5" fill="none" stroke="#000" stroke-opacity="0.14"/>
 
   <g transform="translate(128 126) scale(0.84) translate(-128 -131)">
-    <use href="#paw" fill="#4a2a12" fill-opacity="0.28" transform="translate(0 8)"/>
+    <use href="#paw" fill="#000" fill-opacity="0.18" transform="translate(0 8)"/>
     <use href="#paw" fill="url(#fur)"/>
 
     <g fill="url(#bean)">
@@ -38,7 +38,7 @@
       <path d="M128 128C153 128 175 151 176 176C177 195 170 207 160 207C152 207 149 200 144 200C139 200 138 210 128 210C118 210 117 200 112 200C107 200 104 207 96 207C86 207 79 195 80 176C81 151 103 128 128 128Z"/>
     </g>
 
-    <g fill="#fff" fill-opacity="0.45">
+    <g fill="#fff" fill-opacity="0.3">
       <ellipse cx="63" cy="100" rx="4.5" ry="6" transform="rotate(-28 63 100)"/>
       <ellipse cx="100" cy="68" rx="5" ry="6.5" transform="rotate(-10 100 68)"/>
       <ellipse cx="146" cy="68" rx="5" ry="6.5" transform="rotate(10 146 68)"/>
