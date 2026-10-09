@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<longdescription lang="en">
+		paw is a mouse-first Wayland desktop on wlroots: floating windows with edge
+		snapping and optional tiling, a Qt Quick shell (taskbar, launcher, notifications,
+		on-screen display), and a Lua configuration that reloads when it is saved.
+	</longdescription>
+	<use>
+		<flag name="notifications">Serve desktop notifications (org.freedesktop.Notifications) from the shell</flag>
+		<flag name="polkit">Make the shell the session's polkit authentication agent, asking for administrator passwords, with <pkg>sys-auth/polkit</pkg></flag>
+		<flag name="shell">Build paw-shell, the Qt Quick panels, launcher and notifications, with <pkg>kde-plasma/layer-shell-qt</pkg></flag>
+	</use>
+	<upstream>
+		<remote-id type="github">Sondre234/paw</remote-id>
+		<bugs-to>https://github.com/Sondre234/paw/issues</bugs-to>
+		<changelog>https://github.com/Sondre234/paw/blob/main/CHANGELOG.md</changelog>
+	</upstream>
+</pkgmetadata>

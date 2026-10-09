@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="paw_window_control_v1">
+  <copyright>
+    SPDX-License-Identifier: GPL-3.0-or-later
+
+    Part of paw. This protocol is private to paw and its shell, and may change with
+    them.
+  </copyright>
+
+  <description summary="workspaces, outputs, tiling and pictures of a taskbar's windows">
+    The window menu of paw's taskbar moves a window to another workspace or output, keeps
+    it on every workspace, or takes it out of the tiling, and the taskbar shows a small picture
+    of a window while the pointer rests on its button. The taskbar knows its windows as
+    zwlr_foreign_toplevel_handle_v1 objects, which have no requests for that and no name a
+    compositor could be asked about elsewhere; this protocol names a window by such a handle.
+
+    It gives a client nothing a foreign-toplevel client cannot already do to the window (close
+    it, minimize it, make it fullscreen) or an ext-foreign-toplevel-list client cannot already
+    see of it (capture it through ext-foreign-toplevel-image-capture-source-v1), and the
+    compositor offers it as it offers zwlr_foreign_toplevel_manager_v1.
+
+    From version 3 it also says which process made each window, for the taskbar to find the
+    sound a window plays among the sound server's streams. A client outside a sandbox can list
+    the user's processes already; what this adds is which window is whose.
+
+    From version 4 the taskbar can peek at a window while the pointer rests on its picture, as
+    Windows does: the other windows fade to show that one alone, wherever it is. This shows a
+    window on the screen for a moment, as the picture shows it already, and changes nothing
+    about it. Version 4 also gives each window's number, by which paw's control socket names
+    windows, so that the shell finds the window its window switcher lists.
+
+    From version 5 it gives the icon a window supplies itself, through xdg-toplevel-icon-v1 or
+    an X11 window's _NET_WM_ICON, for the taskbar to show a window whose application it cannot
+    find among the desktop entries and icon themes, as a game run through Wine often is. A
+    window supplies its icon for taskbars to show, as it does its title.
+
+    From version 6 it says whether a window is kept above the others, and keeps one above or
+    lets it go back among them, for the window menu's Keep Above Others: what the compositor's
+    toggle_above action does to the focused window.
+  </description>
+
+  <interface name="paw_window_control_v1" version="6">
+    <description summary="controls windows named by their taskbar handles">
+      A global for getting the paw_window_v1 of a window, from the
+      zwlr_foreign_toplevel_handle_v1 the client holds for it.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the window control">
+        The paw_window_v1 objects made through it keep working.
+      </description>
+    </request>
+
+    <request name="get_window">
+      <description summary="the window a taskbar handle stands for">
+        Creates a paw_window_v1 for the window `handle` stands for, which sends the
+        window's state at once (output, workspace, state, from version 3 pid, from version 4
+        id, from version 5 its icon, then done; from version 6 the state says whether it is
+        kept above) and again whenever it changes. A handle whose
+        window is gone (one the client was sent closed for) gives an inert object, which sends
+        nothing and whose requests do nothing.
+      </description>
+      <arg name="id" type="new_id" interface="paw_window_v1"/>
+      <arg name="handle" type="object" interface="zwlr_foreign_toplevel_handle_v1"/>
+    </request>
+  </interface>
+
+  <interface name="paw_window_v1" version="6">
+    <description summary="one window's workspace, output and tiling">
+      Where a window is and how it is placed, and requests that move it. It becomes inert when
+      the window's taskbar handle is sent closed; the client then destroys it.
+
+      None of the requests focuses or raises the window. While the session is locked they do
+      nothing.
+    </description>
+
+    <enum name="state" bitfield="true">
+      <entry name="sticky" value="1" summary="shown on every workspace of its output"/>
+      <entry name="floating" value="2"
+             summary="kept out of the tiling: floated by the user, sticky, or a dialog"/>
+      <entry name="tiled" value="4" summary="a tile of its output's tiling"/>
+      <entry name="tiling" value="8"
+             summary="the workspace it is on tiles windows automatically"/>
+      <entry name="above" value="16" since="6"
+             summary="kept above the other windows of its output"/>
+    </enum>
+
+    <enum name="error">
+      <entry name="invalid_size" value="0" since="3"
+             summary="get_scaled_capture_source was given a width or height of 0"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the object">
+        The window is not affected.
+      </description>
+    </request>
+
+    <request name="move_to_workspace">
+      <description summary="move the window to a workspace of its output">
+        Moves the window to workspace `number` (from 1) of the output it is on, as the
+        move_to_workspace action does for the focused window: a sticky window stops being
+        sticky, a tile joins the tiling there or floats where that workspace does not tile, and
+        a focused window that leaves the workspace shown passes the focus on. A number past the
+        configured workspaces does nothing.
+      </description>
+      <arg name="number" type="uint" summary="the workspace, from 1"/>
+    </request>
+
+    <request name="move_to_output">
+      <description summary="move the window to another output">
+        Moves the window onto the workspace output `name` (its connector name, as the output
+        event gives it) shows: a floating window keeps its place relative to the output's
+        usable area, a maximized one is maximized there, and a tile joins the tiling there or
+        floats where that does not tile. A sticky window stays sticky. An output that is not
+        connected, or the one the window is on, does nothing.
+      </description>
+      <arg name="name" type="string" summary="the output's connector name"/>
+    </request>
+
+    <request name="set_sticky">
+      <description summary="show the window on every workspace">
+        As the toggle_sticky action: the window floats and shows on every workspace of its
+        output. Does nothing while features.sticky is off.
+      </description>
+    </request>
+
+    <request name="unset_sticky">
+      <description summary="show the window on one workspace again">
+        The window stays on the workspace its output shows, and tiles again if it was a tile.
+      </description>
+    </request>
+
+    <request name="set_floating">
+      <description summary="take the window out of the tiling">
+        A tile floats where it was before it tiled; a floating window stays out of the tiling
+        when its workspace starts tiling.
+      </description>
+    </request>
+
+    <request name="unset_floating">
+      <description summary="let the window tile">
+        The window joins the tiling of its workspace when that tiles; a sticky one stops being
+        sticky to do so.
+      </description>
+    </request>
+
+    <event name="output">
+      <description summary="the output the window is on">
+        The connector name of the output the window belongs to, "" before it is placed on one.
+        The output may be gone: a window keeps its output while it waits for it to return.
+      </description>
+      <arg name="name" type="string"/>
+    </event>
+
+    <event name="workspace">
+      <description summary="the workspace the window is on">
+        The workspace of its output the window is on, from 1. A sticky window's follows the one
+        its output shows.
+      </description>
+      <arg name="number" type="uint"/>
+    </event>
+
+    <event name="state">
+      <description summary="how the window is placed">
+        A bitfield of the state enum.
+      </description>
+      <arg name="state" type="uint" enum="state"/>
+    </event>
+
+    <event name="done">
+      <description summary="the state is complete">
+        Sent after the output, workspace, state, pid, id, icon and icon_image events that
+        describe one state of the window, so that the client applies them together. Only what
+        changed is sent before it.
+      </description>
+    </event>
+
+    <request name="get_capture_source" since="2">
+      <description summary="a capture source for the window">
+        Creates an ext_image_capture_source_v1 for the window, the one
+        ext_foreign_toplevel_image_capture_source_manager_v1.create_source gives for its
+        ext_foreign_toplevel_handle_v1: the window's own surfaces at its logical size, without
+        the compositor's frame or shadow and without what overlaps it, also while it is
+        minimized or on a workspace not shown. The client captures it with
+        ext-image-copy-capture-v1.
+
+        The source is inert (a session made from it is stopped at once) when the window is gone
+        or the session is locked, and a session stops when the window closes. Unlike the other
+        requests, this one is not ignored on an inert paw_window_v1: it gives an inert
+        source.
+      </description>
+      <arg name="id" type="new_id" interface="ext_image_capture_source_v1"/>
+    </request>
+
+    <request name="get_scaled_capture_source" since="3">
+      <description summary="a capture source for a small picture of the window">
+        Creates an ext_image_capture_source_v1 for what get_capture_source captures, the
+        window's own surfaces, scaled down to fit within `width` by `height` buffer pixels and
+        keeping its aspect ratio. It is never scaled up: a window that fits already is captured
+        at its logical size, as get_capture_source gives it. A frame's size follows the
+        window's, each new one sent as the session's buffer constraints. The compositor scales
+        smoothly, each pixel of a frame standing for all those it covers, so that a frame can
+        be shown at its size as it is. A session's first frame comes at once, and each one
+        after it once the window has changed. A width or height of 0 is an invalid_size error.
+
+        Each request makes a source of its own. Like get_capture_source's, it is inert when the
+        window is gone or the session is locked, also on an inert paw_window_v1, and a
+        session stops when the window closes; it is inert too when the window has many such
+        sources already.
+      </description>
+      <arg name="id" type="new_id" interface="ext_image_capture_source_v1"/>
+      <arg name="width" type="uint" summary="the widest a frame may be, in buffer pixels"/>
+      <arg name="height" type="uint" summary="the tallest a frame may be, in buffer pixels"/>
+    </request>
+
+    <event name="pid" since="3">
+      <description summary="the process the window belongs to">
+        The process id of the client that made the window, as the compositor sees it: the
+        Wayland client's peer credentials, or for an X11 window the process its X client
+        reports. 0 when it is not known. A taskbar matches it with what else names processes,
+        such as the sound server's streams; a process inside a sandbox with a process namespace
+        of its own knows itself by another number.
+
+        Sent with the window's state before done, and again should it change.
+      </description>
+      <arg name="pid" type="uint"/>
+    </event>
+
+    <request name="set_peek" since="4">
+      <description summary="show the window alone over the desktop">
+        Peeks at the window, as a taskbar does while the pointer rests on its picture: every
+        other window fades as the peek action fades them, to show the desktop, and this one
+        shows in its place on its output over all of them, at its own opacity, below the
+        panels. A minimized window shows where it was, and one on a workspace its output does
+        not show shows over the workspace that it does. Nothing about the window changes: it is
+        not focused, raised in the stacking order, restored or moved to the workspace shown, and
+        a window shown only for the peek takes no input.
+
+        One window is peeked at a time. Peeking at another, through this client or another,
+        moves the peek over to it while the other windows stay faded; peeking at the window
+        peeked at already does nothing. The peek ends, with a fade, with unset_peek, or when
+        this object is destroyed (as it is when its client disconnects), the window closes or
+        is focused, the session locks, or the peek action starts.
+      </description>
+    </request>
+
+    <request name="unset_peek" since="4">
+      <description summary="end the peek at the window">
+        Ends the peek set_peek started through this object: the other windows fade back, and
+        the window goes back to how it was, fading out again if it was not shown. Does nothing
+        when that peek has ended, or moved to another window, already.
+      </description>
+    </request>
+
+    <event name="id" since="4">
+      <description summary="the window's number">
+        A number the compositor gives the window as it first appears, and gives no other window
+        while it runs; it is never 0. paw's control socket names windows by it where a
+        handle cannot name them, as the window switcher's lines do.
+
+        Sent once, with the window's first state before done.
+      </description>
+      <arg name="id" type="uint"/>
+    </event>
+
+    <event name="icon" since="5">
+      <description summary="the window's own icon changed">
+        The icon the window supplies itself changed: through xdg-toplevel-icon-v1 for a
+        Wayland window, or _NET_WM_ICON for an X11 one. `name` is the icon theme name it gave
+        (xdg_toplevel_icon_v1.set_name), or null when it gave none, as an X11 window never
+        does. The client drops the icon it had from the window, and an icon_image event follows
+        when the window gave pixels.
+
+        Sent with the window's state before done: with its first state when the window has an
+        icon as the object is made, and again each time the icon changes. When the window drops
+        its icon, `name` is null and no icon_image follows. A window that has never had an icon
+        sends no icon event.
+      </description>
+      <arg name="name" type="string" allow-null="true" summary="an icon theme name, or null"/>
+    </event>
+
+    <event name="icon_image" since="5">
+      <description summary="the pixels of the window's own icon">
+        The pixels of the icon the icon event before it announced: `fd` is a file of width *
+        height * 4 bytes, rows of `width` pixels from the top with no padding between them, in
+        wl_shm's argb8888 format (each pixel a native-endian 32-bit 0xAARRGGBB with its colour
+        premultiplied by its alpha). The client maps it read-only, or reads it, and closes the
+        fd; the compositor does not change the file once it is sent.
+
+        Of the sizes the window gave, the compositor sends one: the largest that fits within
+        256 by 256 pixels, else the smallest of the larger ones.
+      </description>
+      <arg name="fd" type="fd" summary="a file holding the pixels"/>
+      <arg name="width" type="uint" summary="in pixels, at least 1"/>
+      <arg name="height" type="uint" summary="in pixels, at least 1"/>
+    </event>
+
+    <request name="set_above" since="6">
+      <description summary="keep the window above the others">
+        As the toggle_above action: the window stays over the floating windows and tiles of its
+        output, under fullscreen windows, the panels and the overlays. The members of a window
+        group are kept above together.
+      </description>
+    </request>
+
+    <request name="unset_above" since="6">
+      <description summary="let the window go back among the others">
+        The window goes back among the other windows, in front of them.
+      </description>
+    </request>
+  </interface>
+</protocol>

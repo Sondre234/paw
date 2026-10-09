@@ -1,0 +1,15 @@
+# TinyWL provenance
+
+The compositor in `src/compositor/` derives from `tinywl/tinywl.c` at wlroots tag **0.20.2**:
+https://gitlab.freedesktop.org/wlroots/wlroots/-/blob/0.20.2/tinywl/tinywl.c
+
+The tinywl code now lives mostly in `server.c`, with the rest in `toplevel.c`, `input.c`,
+`cursor.c` and `output.c`.
+
+Downloaded on 2026-09-23. The upstream license is preserved in `LICENSE` here.
+Local changes integrate the C++/Lua configuration interface, mouse bindings,
+window arrangement and dwindle tiling, workspaces, layer shell, session lock,
+XWayland, window controls, screen capture, the control socket, background, reload and
+process lifecycle management.
+Upstream tutorial comments have been shortened. This is a modified adapter,
+not an unmodified vendored copy; do not overwrite it when updating wlroots.

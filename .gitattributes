@@ -1,0 +1,2 @@
+# Keep the test drivers and tools out of GitHub's language statistics.
+*.py linguist-detectable=false

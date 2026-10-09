@@ -1,0 +1,734 @@
+From 39c5ecd538ff8726f9ac84b0466050dd79c0fcce Mon Sep 17 00:00:00 2001
+From: Sondre234 <sondrefmyrmel@gmail.com>
+Date: Sat, 3 Oct 2026 05:59:06 +0200
+Subject: [PATCH] render, scene: add rounded clips and rounded rects
+
+wlr_render_pass_set_rounding() shapes what a render pass draws next with an
+anti-aliased rounded clip and an optional rounded hole (GLES2 only; other
+renderers ignore it). The scene uses it for wlr_scene_tree_set_rounded_clip(),
+which rounds everything below a tree, and wlr_scene_rect_set_rounding(), which
+rounds a rect or reduces it to a rounded frame. Both are stored as node addons
+so no public struct changes size.
+
+The fragment shaders work the rounding out from the distances to the boxes'
+edges, which the vertex shader computes. Small where they matter, these stay
+precise at mediump, which NVIDIA runs the shaders at (it leaves
+GL_FRAGMENT_PRECISION_HIGH undefined): buffer coordinates there lose the
+fractions past 1024 px, which stair-stepped the corners.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ include/render/gles2.h                 |  10 ++
+ include/wlr/render/interface.h         |   5 +
+ include/wlr/render/pass.h              |  24 +++
+ include/wlr/types/wlr_scene.h          |  17 ++
+ render/gles2/pass.c                    |  28 +++-
+ render/gles2/renderer.c                |  13 ++
+ render/gles2/shaders/common.vert       |  17 ++
+ render/gles2/shaders/quad.frag         |  29 +++-
+ render/gles2/shaders/tex_external.frag |  29 +++-
+ render/gles2/shaders/tex_rgba.frag     |  29 +++-
+ render/gles2/shaders/tex_rgbx.frag     |  29 +++-
+ render/pass.c                          |   8 +
+ types/scene/wlr_scene.c                | 205 ++++++++++++++++++++++++-
+ 13 files changed, 436 insertions(+), 7 deletions(-)
+
+diff --git a/include/render/gles2.h b/include/render/gles2.h
+index 6b852dc..07e433c 100644
+--- a/include/render/gles2.h
++++ b/include/render/gles2.h
+@@ -28,6 +28,14 @@ struct wlr_gles2_pixel_format {
+ 	GLint gl_format, gl_type;
+ };
+ 
++struct wlr_gles2_rounding_uniforms {
++	GLint pos_box;
++	GLint clip_box;
++	GLint clip_radius;
++	GLint hole_box;
++	GLint hole_radius;
++};
++
+ struct wlr_gles2_tex_shader {
+ 	GLuint program;
+ 	GLint proj;
+@@ -35,6 +43,7 @@ struct wlr_gles2_tex_shader {
+ 	GLint tex;
+ 	GLint alpha;
+ 	GLint pos_attrib;
++	struct wlr_gles2_rounding_uniforms rounding;
+ };
+ 
+ struct wlr_gles2_renderer {
+@@ -79,6 +88,7 @@ struct wlr_gles2_renderer {
+ 			GLint proj;
+ 			GLint color;
+ 			GLint pos_attrib;
++			struct wlr_gles2_rounding_uniforms rounding;
+ 		} quad;
+ 		struct wlr_gles2_tex_shader tex_rgba;
+ 		struct wlr_gles2_tex_shader tex_rgbx;
+diff --git a/include/wlr/render/interface.h b/include/wlr/render/interface.h
+index 89f6de9..ebb107a 100644
+--- a/include/wlr/render/interface.h
++++ b/include/wlr/render/interface.h
+@@ -15,6 +15,7 @@
+ #include <wlr/render/wlr_texture.h>
+ #include <wlr/types/wlr_output.h>
+ #include <wlr/render/dmabuf.h>
++#include <wlr/render/pass.h>
+ 
+ struct wlr_box;
+ struct wlr_fbox;
+@@ -50,6 +51,10 @@ void wlr_texture_init(struct wlr_texture *texture, struct wlr_renderer *rendener
+ 
+ struct wlr_render_pass {
+ 	const struct wlr_render_pass_impl *impl;
++
++	// Set by wlr_render_pass_set_rounding()
++	bool has_rounding;
++	struct wlr_render_rounding rounding;
+ };
+ 
+ void wlr_render_pass_init(struct wlr_render_pass *pass,
+diff --git a/include/wlr/render/pass.h b/include/wlr/render/pass.h
+index 61ab771..3f86a32 100644
+--- a/include/wlr/render/pass.h
++++ b/include/wlr/render/pass.h
+@@ -157,4 +157,28 @@ struct wlr_render_rect_options {
+ void wlr_render_pass_add_rect(struct wlr_render_pass *render_pass,
+ 	const struct wlr_render_rect_options *options);
+ 
++/**
++ * Rounded rectangles that shape what the render pass draws next, in buffer
++ * coordinates like the boxes of the render options.
++ *
++ * Only what lies inside the clip rectangle (with corners of radius
++ * clip_radius) is drawn, and nothing that lies inside the hole rectangle
++ * (corners of radius hole_radius). An empty box disables either part. The
++ * edges are anti-aliased.
++ */
++struct wlr_render_rounding {
++	struct wlr_box clip;
++	int clip_radius;
++	struct wlr_box hole;
++	int hole_radius;
++};
++
++/**
++ * Apply a rounding to the textures and rectangles added to the render pass
++ * from now on, or stop doing so with NULL. Renderers that do not support it
++ * ignore it.
++ */
++void wlr_render_pass_set_rounding(struct wlr_render_pass *render_pass,
++	const struct wlr_render_rounding *rounding);
++
+ #endif
+diff --git a/include/wlr/types/wlr_scene.h b/include/wlr/types/wlr_scene.h
+index 6c627b1..107b110 100644
+--- a/include/wlr/types/wlr_scene.h
++++ b/include/wlr/types/wlr_scene.h
+@@ -469,6 +469,23 @@ void wlr_scene_rect_set_size(struct wlr_scene_rect *rect, int width, int height)
+  */
+ void wlr_scene_rect_set_color(struct wlr_scene_rect *rect, const float color[static 4]);
+ 
++/**
++ * Round the corners of the rectangle with the given radius. With a non-zero
++ * hole_width, only a frame of that width along its edges is drawn, rounded
++ * on the outside with radius and on the inside with radius - hole_width.
++ * Zero for both draws a plain rectangle again.
++ */
++void wlr_scene_rect_set_rounding(struct wlr_scene_rect *rect, int radius,
++	int hole_width);
++
++/**
++ * Clip everything below the tree to a rectangle with corners rounded with the
++ * given radius. The box is in the tree's coordinates. NULL removes the clip.
++ * Only the nearest clipped ancestor of a node applies to it.
++ */
++void wlr_scene_tree_set_rounded_clip(struct wlr_scene_tree *tree,
++	const struct wlr_box *box, int radius);
++
+ /**
+  * Add a node displaying a buffer to the scene-graph.
+  *
+diff --git a/render/gles2/pass.c b/render/gles2/pass.c
+index a70ea13..20d3acc 100644
+--- a/render/gles2/pass.c
++++ b/render/gles2/pass.c
+@@ -153,6 +153,25 @@ static void set_tex_matrix(GLint loc, enum wl_output_transform trans,
+ 	glUniformMatrix3fv(loc, 1, GL_FALSE, tex_matrix);
+ }
+ 
++// A box of the rounding and its corners' radius, negative for an empty box,
++// which the shaders then leave out
++static void set_rounded_box_uniforms(GLint box_loc, GLint radius_loc,
++		const struct wlr_box *box, int radius) {
++	glUniform4f(box_loc, box->x, box->y, box->width, box->height);
++	glUniform1f(radius_loc, wlr_box_empty(box) ? -1 : radius);
++}
++
++// The rounding of the pass, for a draw over box
++static void set_rounding_uniforms(const struct wlr_gles2_rounding_uniforms *uniforms,
++		const struct wlr_render_pass *pass, const struct wlr_box *box) {
++	glUniform4f(uniforms->pos_box, box->x, box->y, box->width, box->height);
++	const struct wlr_render_rounding *rounding = &pass->rounding;
++	set_rounded_box_uniforms(uniforms->clip_box, uniforms->clip_radius,
++		&rounding->clip, rounding->clip_radius);
++	set_rounded_box_uniforms(uniforms->hole_box, uniforms->hole_radius,
++		&rounding->hole, rounding->hole_radius);
++}
++
+ static void setup_blending(enum wlr_render_blend_mode mode) {
+ 	switch (mode) {
+ 	case WLR_RENDER_BLEND_MODE_PREMULTIPLIED:
+@@ -223,8 +242,10 @@ static void render_pass_add_texture(struct wlr_render_pass *wlr_pass,
+ 		}
+ 	}
+ 
+-	setup_blending(!texture->has_alpha && alpha == 1.0 ?
+-		WLR_RENDER_BLEND_MODE_NONE : options->blend_mode);
++	// Rounded corners leave parts of the texture transparent
++	setup_blending(wlr_pass->has_rounding ? WLR_RENDER_BLEND_MODE_PREMULTIPLIED :
++		!texture->has_alpha && alpha == 1.0 ? WLR_RENDER_BLEND_MODE_NONE :
++		options->blend_mode);
+ 
+ 	glUseProgram(shader->program);
+ 
+@@ -246,6 +267,7 @@ static void render_pass_add_texture(struct wlr_render_pass *wlr_pass,
+ 	glUniform1f(shader->alpha, alpha);
+ 	set_proj_matrix(shader->proj, pass->projection_matrix, &dst_box);
+ 	set_tex_matrix(shader->tex_proj, options->transform, &src_fbox);
++	set_rounding_uniforms(&shader->rounding, wlr_pass, &dst_box);
+ 
+ 	render(&dst_box, options->clip, shader->pos_attrib);
+ 
+@@ -265,6 +287,7 @@ static void render_pass_add_rect(struct wlr_render_pass *wlr_pass,
+ 
+ 	push_gles2_debug(renderer);
+ 	enum wlr_render_blend_mode blend_mode =
++		wlr_pass->has_rounding ? WLR_RENDER_BLEND_MODE_PREMULTIPLIED :
+ 		color->a == 1.0 ? WLR_RENDER_BLEND_MODE_NONE : options->blend_mode;
+ 	if (blend_mode == WLR_RENDER_BLEND_MODE_NONE &&
+ 			options->clip == NULL &&
+@@ -278,6 +301,7 @@ static void render_pass_add_rect(struct wlr_render_pass *wlr_pass,
+ 		glUseProgram(renderer->shaders.quad.program);
+ 		set_proj_matrix(renderer->shaders.quad.proj, pass->projection_matrix, &box);
+ 		glUniform4f(renderer->shaders.quad.color, color->r, color->g, color->b, color->a);
++		set_rounding_uniforms(&renderer->shaders.quad.rounding, wlr_pass, &box);
+ 		render(&box, options->clip, renderer->shaders.quad.pos_attrib);
+ 	}
+ 
+diff --git a/render/gles2/renderer.c b/render/gles2/renderer.c
+index e362dae..962a7ce 100644
+--- a/render/gles2/renderer.c
++++ b/render/gles2/renderer.c
+@@ -425,6 +425,15 @@ static GLuint compile_shader(struct wlr_gles2_renderer *renderer,
+ 	return shader;
+ }
+ 
++static void get_rounding_uniforms(GLuint prog,
++		struct wlr_gles2_rounding_uniforms *rounding) {
++	rounding->pos_box = glGetUniformLocation(prog, "pos_box");
++	rounding->clip_box = glGetUniformLocation(prog, "clip_box");
++	rounding->clip_radius = glGetUniformLocation(prog, "clip_radius");
++	rounding->hole_box = glGetUniformLocation(prog, "hole_box");
++	rounding->hole_radius = glGetUniformLocation(prog, "hole_radius");
++}
++
+ static GLuint link_program(struct wlr_gles2_renderer *renderer,
+ 		const GLchar *vert_src, const GLchar *frag_src) {
+ 	push_gles2_debug(renderer);
+@@ -641,6 +650,7 @@ struct wlr_renderer *wlr_gles2_renderer_create(struct wlr_egl *egl) {
+ 	renderer->shaders.quad.proj = glGetUniformLocation(prog, "proj");
+ 	renderer->shaders.quad.color = glGetUniformLocation(prog, "color");
+ 	renderer->shaders.quad.pos_attrib = glGetAttribLocation(prog, "pos");
++	get_rounding_uniforms(prog, &renderer->shaders.quad.rounding);
+ 
+ 	renderer->shaders.tex_rgba.program = prog =
+ 		link_program(renderer, common_vert_src, tex_rgba_frag_src);
+@@ -652,6 +662,7 @@ struct wlr_renderer *wlr_gles2_renderer_create(struct wlr_egl *egl) {
+ 	renderer->shaders.tex_rgba.tex = glGetUniformLocation(prog, "tex");
+ 	renderer->shaders.tex_rgba.alpha = glGetUniformLocation(prog, "alpha");
+ 	renderer->shaders.tex_rgba.pos_attrib = glGetAttribLocation(prog, "pos");
++	get_rounding_uniforms(prog, &renderer->shaders.tex_rgba.rounding);
+ 
+ 	renderer->shaders.tex_rgbx.program = prog =
+ 		link_program(renderer, common_vert_src, tex_rgbx_frag_src);
+@@ -663,6 +674,7 @@ struct wlr_renderer *wlr_gles2_renderer_create(struct wlr_egl *egl) {
+ 	renderer->shaders.tex_rgbx.tex = glGetUniformLocation(prog, "tex");
+ 	renderer->shaders.tex_rgbx.alpha = glGetUniformLocation(prog, "alpha");
+ 	renderer->shaders.tex_rgbx.pos_attrib = glGetAttribLocation(prog, "pos");
++	get_rounding_uniforms(prog, &renderer->shaders.tex_rgbx.rounding);
+ 
+ 	if (renderer->exts.OES_egl_image_external) {
+ 		renderer->shaders.tex_ext.program = prog =
+@@ -675,6 +687,7 @@ struct wlr_renderer *wlr_gles2_renderer_create(struct wlr_egl *egl) {
+ 		renderer->shaders.tex_ext.tex = glGetUniformLocation(prog, "tex");
+ 		renderer->shaders.tex_ext.alpha = glGetUniformLocation(prog, "alpha");
+ 		renderer->shaders.tex_ext.pos_attrib = glGetAttribLocation(prog, "pos");
++		get_rounding_uniforms(prog, &renderer->shaders.tex_ext.rounding);
+ 	}
+ 
+ 	pop_gles2_debug(renderer);
+diff --git a/render/gles2/shaders/common.vert b/render/gles2/shaders/common.vert
+index f51548a..f2717ab 100644
+--- a/render/gles2/shaders/common.vert
++++ b/render/gles2/shaders/common.vert
+@@ -1,10 +1,27 @@
+ uniform mat3 proj;
+ uniform mat3 tex_proj;
++uniform vec4 pos_box;
++uniform vec4 clip_box;
++uniform vec4 hole_box;
+ attribute vec2 pos;
+ varying vec2 v_texcoord;
++varying vec4 v_clip;
++varying vec4 v_hole;
++
++// How far p lies inside the left, top, right and bottom edges of box
++vec4 insets(vec2 p, vec4 box) {
++	return vec4(p - box.xy, box.xy + box.zw - p);
++}
+ 
+ void main() {
+ 	vec3 pos3 = vec3(pos, 1.0);
+ 	gl_Position = vec4(pos3 * proj, 1.0);
+ 	v_texcoord = (pos3 * tex_proj).xy;
++	// For the rounding: distances from the edges of its boxes, in buffer
++	// coordinates. Small where the rounding shapes anything, they keep their
++	// precision in a fragment shader at mediump (16-bit floats on NVIDIA, which
++	// leaves GL_FRAGMENT_PRECISION_HIGH undefined), as coordinates do not
++	vec2 p = pos_box.xy + pos * pos_box.zw;
++	v_clip = insets(p, clip_box);
++	v_hole = insets(p, hole_box);
+ }
+diff --git a/render/gles2/shaders/quad.frag b/render/gles2/shaders/quad.frag
+index 97d3a31..da1e098 100644
+--- a/render/gles2/shaders/quad.frag
++++ b/render/gles2/shaders/quad.frag
+@@ -8,6 +8,33 @@ varying vec4 v_color;
+ varying vec2 v_texcoord;
+ uniform vec4 color;
+ 
++varying vec4 v_clip;
++varying vec4 v_hole;
++uniform float clip_radius;
++uniform float hole_radius;
++
++// Signed distance to a rectangle with rounded corners, negative inside, from
++// how far inside its left, top, right and bottom edges the fragment lies
++float rounded_box(vec4 insets, float radius) {
++	vec2 size = insets.xy + insets.zw;
++	radius = min(radius, 0.5 * min(size.x, size.y));
++	vec2 q = radius - min(insets.xy, insets.zw);
++	return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
++}
++
++// How much of the fragment lies inside the clip and outside the hole; a
++// negative radius leaves either out
++float rounding() {
++	float coverage = 1.0;
++	if (clip_radius >= 0.0) {
++		coverage *= clamp(0.5 - rounded_box(v_clip, clip_radius), 0.0, 1.0);
++	}
++	if (hole_radius >= 0.0) {
++		coverage *= clamp(0.5 + rounded_box(v_hole, hole_radius), 0.0, 1.0);
++	}
++	return coverage;
++}
++
+ void main() {
+-	gl_FragColor = color;
++	gl_FragColor = color * rounding();
+ }
+diff --git a/render/gles2/shaders/tex_external.frag b/render/gles2/shaders/tex_external.frag
+index 73909fe..17c3335 100644
+--- a/render/gles2/shaders/tex_external.frag
++++ b/render/gles2/shaders/tex_external.frag
+@@ -10,6 +10,33 @@ varying vec2 v_texcoord;
+ uniform samplerExternalOES texture0;
+ uniform float alpha;
+ 
++varying vec4 v_clip;
++varying vec4 v_hole;
++uniform float clip_radius;
++uniform float hole_radius;
++
++// Signed distance to a rectangle with rounded corners, negative inside, from
++// how far inside its left, top, right and bottom edges the fragment lies
++float rounded_box(vec4 insets, float radius) {
++	vec2 size = insets.xy + insets.zw;
++	radius = min(radius, 0.5 * min(size.x, size.y));
++	vec2 q = radius - min(insets.xy, insets.zw);
++	return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
++}
++
++// How much of the fragment lies inside the clip and outside the hole; a
++// negative radius leaves either out
++float rounding() {
++	float coverage = 1.0;
++	if (clip_radius >= 0.0) {
++		coverage *= clamp(0.5 - rounded_box(v_clip, clip_radius), 0.0, 1.0);
++	}
++	if (hole_radius >= 0.0) {
++		coverage *= clamp(0.5 + rounded_box(v_hole, hole_radius), 0.0, 1.0);
++	}
++	return coverage;
++}
++
+ void main() {
+-	gl_FragColor = texture2D(texture0, v_texcoord) * alpha;
++	gl_FragColor = texture2D(texture0, v_texcoord) * alpha * rounding();
+ }
+diff --git a/render/gles2/shaders/tex_rgba.frag b/render/gles2/shaders/tex_rgba.frag
+index c0a0dea..9065bc7 100644
+--- a/render/gles2/shaders/tex_rgba.frag
++++ b/render/gles2/shaders/tex_rgba.frag
+@@ -8,6 +8,33 @@ varying vec2 v_texcoord;
+ uniform sampler2D tex;
+ uniform float alpha;
+ 
++varying vec4 v_clip;
++varying vec4 v_hole;
++uniform float clip_radius;
++uniform float hole_radius;
++
++// Signed distance to a rectangle with rounded corners, negative inside, from
++// how far inside its left, top, right and bottom edges the fragment lies
++float rounded_box(vec4 insets, float radius) {
++	vec2 size = insets.xy + insets.zw;
++	radius = min(radius, 0.5 * min(size.x, size.y));
++	vec2 q = radius - min(insets.xy, insets.zw);
++	return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
++}
++
++// How much of the fragment lies inside the clip and outside the hole; a
++// negative radius leaves either out
++float rounding() {
++	float coverage = 1.0;
++	if (clip_radius >= 0.0) {
++		coverage *= clamp(0.5 - rounded_box(v_clip, clip_radius), 0.0, 1.0);
++	}
++	if (hole_radius >= 0.0) {
++		coverage *= clamp(0.5 + rounded_box(v_hole, hole_radius), 0.0, 1.0);
++	}
++	return coverage;
++}
++
+ void main() {
+-	gl_FragColor = texture2D(tex, v_texcoord) * alpha;
++	gl_FragColor = texture2D(tex, v_texcoord) * alpha * rounding();
+ }
+diff --git a/render/gles2/shaders/tex_rgbx.frag b/render/gles2/shaders/tex_rgbx.frag
+index ae40ad5..3f25a3b 100644
+--- a/render/gles2/shaders/tex_rgbx.frag
++++ b/render/gles2/shaders/tex_rgbx.frag
+@@ -8,6 +8,33 @@ varying vec2 v_texcoord;
+ uniform sampler2D tex;
+ uniform float alpha;
+ 
++varying vec4 v_clip;
++varying vec4 v_hole;
++uniform float clip_radius;
++uniform float hole_radius;
++
++// Signed distance to a rectangle with rounded corners, negative inside, from
++// how far inside its left, top, right and bottom edges the fragment lies
++float rounded_box(vec4 insets, float radius) {
++	vec2 size = insets.xy + insets.zw;
++	radius = min(radius, 0.5 * min(size.x, size.y));
++	vec2 q = radius - min(insets.xy, insets.zw);
++	return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
++}
++
++// How much of the fragment lies inside the clip and outside the hole; a
++// negative radius leaves either out
++float rounding() {
++	float coverage = 1.0;
++	if (clip_radius >= 0.0) {
++		coverage *= clamp(0.5 - rounded_box(v_clip, clip_radius), 0.0, 1.0);
++	}
++	if (hole_radius >= 0.0) {
++		coverage *= clamp(0.5 + rounded_box(v_hole, hole_radius), 0.0, 1.0);
++	}
++	return coverage;
++}
++
+ void main() {
+-	gl_FragColor = vec4(texture2D(tex, v_texcoord).rgb, 1.0) * alpha;
++	gl_FragColor = vec4(texture2D(tex, v_texcoord).rgb, 1.0) * alpha * rounding();
+ }
+diff --git a/render/pass.c b/render/pass.c
+index 23bdf96..e20d333 100644
+--- a/render/pass.c
++++ b/render/pass.c
+@@ -10,6 +10,14 @@ void wlr_render_pass_init(struct wlr_render_pass *render_pass,
+ 	};
+ }
+ 
++void wlr_render_pass_set_rounding(struct wlr_render_pass *render_pass,
++		const struct wlr_render_rounding *rounding) {
++	render_pass->has_rounding = rounding != NULL &&
++		(!wlr_box_empty(&rounding->clip) || !wlr_box_empty(&rounding->hole));
++	render_pass->rounding = render_pass->has_rounding ?
++		*rounding : (struct wlr_render_rounding){0};
++}
++
+ bool wlr_render_pass_submit(struct wlr_render_pass *render_pass) {
+ 	return render_pass->impl->submit(render_pass);
+ }
+diff --git a/types/scene/wlr_scene.c b/types/scene/wlr_scene.c
+index 7bc8b76..7139a42 100644
+--- a/types/scene/wlr_scene.c
++++ b/types/scene/wlr_scene.c
+@@ -256,7 +256,80 @@ static bool scene_nodes_in_box(struct wlr_scene_node *node, struct wlr_box *box,
+ 	return _scene_nodes_in_box(node, box, iterator, user_data, x, y);
+ }
+ 
+-static void scene_node_opaque_region(struct wlr_scene_node *node, int x, int y,
++struct scene_rounding {
++	struct wlr_addon addon;
++	// Trees: the clip in the tree's coordinates
++	struct wlr_box box;
++	int radius;
++	// Rects: the width of the frame they are reduced to, 0 for a full rect
++	int hole_width;
++};
++
++static void scene_rounding_destroy(struct wlr_addon *addon) {
++	struct scene_rounding *rounding = wl_container_of(addon, rounding, addon);
++	wlr_addon_finish(addon);
++	free(rounding);
++}
++
++static const struct wlr_addon_interface tree_clip_impl = {
++	.name = "wlr_scene_tree_rounded_clip",
++	.destroy = scene_rounding_destroy,
++};
++
++static const struct wlr_addon_interface rect_rounding_impl = {
++	.name = "wlr_scene_rect_rounding",
++	.destroy = scene_rounding_destroy,
++};
++
++static struct scene_rounding *scene_rounding_find(struct wlr_scene_node *node,
++		const struct wlr_addon_interface *impl) {
++	struct wlr_addon *addon = wlr_addon_find(&node->addons, node, impl);
++	if (addon == NULL) {
++		return NULL;
++	}
++	struct scene_rounding *rounding = wl_container_of(addon, rounding, addon);
++	return rounding;
++}
++
++static struct scene_rounding *scene_rounding_ensure(struct wlr_scene_node *node,
++		const struct wlr_addon_interface *impl) {
++	struct scene_rounding *rounding = scene_rounding_find(node, impl);
++	if (rounding != NULL) {
++		return rounding;
++	}
++	rounding = calloc(1, sizeof(*rounding));
++	if (rounding == NULL) {
++		return NULL;
++	}
++	wlr_addon_init(&rounding->addon, &node->addons, node, impl);
++	return rounding;
++}
++
++/**
++ * The rounded clip that applies to a node: the one of its nearest clipped
++ * ancestor, with the box in layout coordinates.
++ */
++static bool scene_node_rounded_clip(struct wlr_scene_node *node,
++		struct wlr_box *box, int *radius) {
++	for (struct wlr_scene_tree *tree = node->parent; tree != NULL;
++			tree = tree->node.parent) {
++		struct scene_rounding *rounding =
++			scene_rounding_find(&tree->node, &tree_clip_impl);
++		if (rounding == NULL) {
++			continue;
++		}
++		int x, y;
++		wlr_scene_node_coords(&tree->node, &x, &y);
++		*box = rounding->box;
++		box->x += x;
++		box->y += y;
++		*radius = rounding->radius;
++		return true;
++	}
++	return false;
++}
++
++static void scene_node_opaque_region_unclipped(struct wlr_scene_node *node, int x, int y,
+ 		pixman_region32_t *opaque) {
+ 	int width, height;
+ 	scene_node_get_size(node, &width, &height);
+@@ -287,6 +360,39 @@ static void scene_node_opaque_region(struct wlr_scene_node *node, int x, int y,
+ 
+ 	pixman_region32_fini(opaque);
+ 	pixman_region32_init_rect(opaque, x, y, width, height);
++
++	if (node->type == WLR_SCENE_NODE_RECT &&
++			scene_rounding_find(node, &rect_rounding_impl) != NULL) {
++		pixman_region32_clear(opaque);
++	}
++}
++
++static void scene_node_opaque_region(struct wlr_scene_node *node, int x, int y,
++		pixman_region32_t *opaque) {
++	scene_node_opaque_region_unclipped(node, x, y, opaque);
++
++	struct wlr_box clip;
++	int radius;
++	if (pixman_region32_empty(opaque) ||
++			!scene_node_rounded_clip(node, &clip, &radius)) {
++		return;
++	}
++
++	// Only what is inside the clip and clear of its corners stays opaque
++	int lx, ly;
++	wlr_scene_node_coords(node, &lx, &ly);
++	clip.x += x - lx;
++	clip.y += y - ly;
++	int r = radius < clip.width / 2 ? radius : clip.width / 2;
++	r = r < clip.height / 2 ? r : clip.height / 2;
++	r = r > 0 ? r : 0;
++	pixman_region32_t inside;
++	pixman_region32_init_rect(&inside, clip.x + r, clip.y,
++		clip.width - 2 * r, clip.height);
++	pixman_region32_union_rect(&inside, &inside, clip.x, clip.y + r,
++		clip.width, clip.height - 2 * r);
++	pixman_region32_intersect(opaque, opaque, &inside);
++	pixman_region32_fini(&inside);
+ }
+ 
+ struct scene_update_data {
+@@ -799,6 +905,57 @@ void wlr_scene_rect_set_color(struct wlr_scene_rect *rect, const float color[sta
+ 	scene_node_update(&rect->node, NULL);
+ }
+ 
++void wlr_scene_rect_set_rounding(struct wlr_scene_rect *rect, int radius,
++		int hole_width) {
++	radius = radius > 0 ? radius : 0;
++	hole_width = hole_width > 0 ? hole_width : 0;
++	struct scene_rounding *rounding =
++		scene_rounding_find(&rect->node, &rect_rounding_impl);
++	if (radius == 0 && hole_width == 0) {
++		if (rounding == NULL) {
++			return;
++		}
++		scene_rounding_destroy(&rounding->addon);
++	} else {
++		if (rounding != NULL && rounding->radius == radius &&
++				rounding->hole_width == hole_width) {
++			return;
++		}
++		rounding = scene_rounding_ensure(&rect->node, &rect_rounding_impl);
++		if (rounding == NULL) {
++			return;
++		}
++		rounding->radius = radius;
++		rounding->hole_width = hole_width;
++	}
++	scene_node_update(&rect->node, NULL);
++}
++
++void wlr_scene_tree_set_rounded_clip(struct wlr_scene_tree *tree,
++		const struct wlr_box *box, int radius) {
++	struct scene_rounding *rounding =
++		scene_rounding_find(&tree->node, &tree_clip_impl);
++	if (box == NULL) {
++		if (rounding == NULL) {
++			return;
++		}
++		scene_rounding_destroy(&rounding->addon);
++	} else {
++		radius = radius > 0 ? radius : 0;
++		if (rounding != NULL && wlr_box_equal(&rounding->box, box) &&
++				rounding->radius == radius) {
++			return;
++		}
++		rounding = scene_rounding_ensure(&tree->node, &tree_clip_impl);
++		if (rounding == NULL) {
++			return;
++		}
++		rounding->box = *box;
++		rounding->radius = radius;
++	}
++	scene_node_update(&tree->node, NULL);
++}
++
+ static void scene_buffer_handle_buffer_release(struct wl_listener *listener,
+ 		void *data) {
+ 	struct wlr_scene_buffer *scene_buffer =
+@@ -1472,6 +1629,41 @@ static void scene_entry_render(struct render_list_entry *entry, const struct ren
+ 	scene_node_get_size(node, &dst_box.width, &dst_box.height);
+ 	transform_output_box(&dst_box, data);
+ 
++	// Rounded rects shape themselves; anything else follows the rounded clip
++	// of its nearest clipped ancestor
++	struct wlr_render_rounding rounding = {0};
++	struct scene_rounding *rect_rounding = node->type == WLR_SCENE_NODE_RECT ?
++		scene_rounding_find(node, &rect_rounding_impl) : NULL;
++	struct wlr_box clip;
++	int clip_radius;
++	bool rounded = true;
++	if (rect_rounding != NULL) {
++		rounding.clip = dst_box;
++		rounding.clip_radius = round(rect_rounding->radius * data->scale);
++		if (rect_rounding->hole_width > 0) {
++			int inset = round(rect_rounding->hole_width * data->scale);
++			rounding.hole = (struct wlr_box){
++				.x = dst_box.x + inset,
++				.y = dst_box.y + inset,
++				.width = dst_box.width - 2 * inset,
++				.height = dst_box.height - 2 * inset,
++			};
++			int hole_radius = rounding.clip_radius - inset;
++			rounding.hole_radius = hole_radius > 0 ? hole_radius : 0;
++		}
++	} else if (scene_node_rounded_clip(node, &clip, &clip_radius)) {
++		clip.x -= data->logical.x;
++		clip.y -= data->logical.y;
++		transform_output_box(&clip, data);
++		rounding.clip = clip;
++		rounding.clip_radius = round(clip_radius * data->scale);
++	} else {
++		rounded = false;
++	}
++	if (rounded) {
++		wlr_render_pass_set_rounding(data->render_pass, &rounding);
++	}
++
+ 	pixman_region32_t opaque;
+ 	pixman_region32_init(&opaque);
+ 	scene_node_opaque_region(node, x, y, &opaque);
+@@ -1577,6 +1769,10 @@ static void scene_entry_render(struct render_list_entry *entry, const struct ren
+ 		break;
+ 	}
+ 
++	if (rounded) {
++		wlr_render_pass_set_rounding(data->render_pass, NULL);
++	}
++
+ 	pixman_region32_fini(&opaque);
+ 	pixman_region32_fini(&render_region);
+ }
+@@ -2072,6 +2268,13 @@ static enum scene_direct_scanout_result scene_entry_try_direct_scanout(
+ 		return SCANOUT_INELIGIBLE;
+ 	}
+ 
++	struct wlr_box clip;
++	int clip_radius;
++	if (scene_node_rounded_clip(node, &clip, &clip_radius)) {
++		// Planes cannot round corners
++		return SCANOUT_INELIGIBLE;
++	}
++
+ 	if (state->committed & (WLR_OUTPUT_STATE_MODE |
+ 			WLR_OUTPUT_STATE_ENABLED |
+ 			WLR_OUTPUT_STATE_RENDER_FORMAT)) {
+-- 
+2.55.0
+

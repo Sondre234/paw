@@ -1,0 +1,33 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# paw-session [ARGS...]: starts paw as a standalone session, `paw --session ARGS`.
+# Display managers run it through paw.desktop; it also starts the session from a text console.
+#
+# Notifications, the tray and portals need a D-Bus session bus. Without systemd nothing may have
+# started one, so when there is none the session runs under dbus-run-session.
+# What the session prints (paw, its shell and the programs they start) goes to
+# $XDG_STATE_HOME/paw/session.log, ~/.local/state/paw/session.log by default; the
+# previous session's log is kept as session.log.old.
+
+# The paw on PATH, else the one installed beside this script (a display manager's PATH may
+# lack its directory).
+PATH=$PATH:$(dirname -- "$0")
+export PATH
+
+logdir=${XDG_STATE_HOME:-$HOME/.local/state}/paw
+log=$logdir/session.log
+if mkdir -p -- "$logdir" 2>/dev/null; then
+    [ -e "$log" ] && mv -f -- "$log" "$log.old"
+    # Where the log cannot be written, the output stays where it was going.
+    if (: >>"$log") 2>/dev/null; then
+        exec >>"$log" 2>&1
+    fi
+fi
+echo "paw-session: starting $(date '+%F %T')"
+
+# A user bus at $XDG_RUNTIME_DIR/bus, as systemd starts, serves without the variable.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ ! -S "${XDG_RUNTIME_DIR:-}/bus" ] &&
+    command -v dbus-run-session >/dev/null 2>&1; then
+    exec dbus-run-session -- paw --session "$@"
+fi
+exec paw --session "$@"

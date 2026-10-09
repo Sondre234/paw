@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Python syntax check of the test drivers
+        run: python3 -m py_compile tests/*.py
+      - name: Shellcheck the helper scripts and the session wrapper
+        run: shellcheck -S warning -x tools/*.sh packaging/paw-session
+
+  build:
+    # wlroots is pinned to the 0.20 series, which Arch ships as its own package.
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed base-devel git cmake ninja pkgconf python \
+            lua wlroots0.20 wayland wayland-protocols libxkbcommon libinput \
+            xorg-xwayland libxcb xcb-util-wm libpulse systemd-libs dbus \
+            qt6-base qt6-declarative qt6-wayland layer-shell-qt glib2 grim
+      - uses: actions/checkout@v7
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DPAW_BUILD_COMPOSITOR=ON -DPAW_INSTALL_SESSION=ON
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        # Headless tests only; the runner has no GPU or display.
+        run: ctest --test-dir build --output-on-failure
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: Install
+        # A staged install runs and finds its default configuration, and its session entry
+        # starts paw (a stand-in here) through paw-session, on a bus of its own.
+        run: |
+          DESTDIR="$PWD/stage" cmake --install build
+          stage/usr/local/bin/paw --version
+          stage/usr/local/bin/paw-shell --version
+          HOME="$(mktemp -d)" XDG_CONFIG_HOME= \
+            PAW_DEFAULT_CONFIG="$PWD/stage/usr/local/share/paw/init.lua" \
+            stage/usr/local/bin/paw --check-config
+          grep -x "Exec=/usr/local/bin/paw-session" \
+            stage/usr/local/share/wayland-sessions/paw.desktop
+          fake="$(mktemp -d)" state="$(mktemp -d)"
+          printf '#!/bin/sh\necho "paw $* bus=$DBUS_SESSION_BUS_ADDRESS"\n' > "$fake/paw"
+          chmod +x "$fake/paw"
+          PATH="$fake:$PATH" XDG_STATE_HOME="$state" DBUS_SESSION_BUS_ADDRESS= \
+            stage/usr/local/bin/paw-session --config init.lua
+          grep "^paw --session --config init.lua bus=unix:" "$state/paw/session.log"

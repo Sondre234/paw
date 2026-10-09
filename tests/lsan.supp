@@ -1,0 +1,22 @@
+# Leak reports for the test programs themselves. They exit without tearing down their Wayland
+# and Qt state; only leaks the compositor or the shell make are worth failing a run over.
+leak:tests/wayland_probe.c
+leak:tests/output_management_probe.c
+leak:tests/output_power_probe.c
+leak:tests/lock_probe.c
+leak:tests/pointer_probe.c
+leak:tests/idle_probe.c
+leak:tests/x11_probe.c
+leak:tests/clipboard_probe.c
+leak:tests/shell_ui_test.cpp
+leak:tests/task_model_test.cpp
+# fontconfig's pattern cache, filled through Qt's font fallback and never freed; neither the
+# compositor nor the shell calls fontconfig itself.
+leak:libfontconfig.so
+# wlroots 0.20's tablet-v2 pad: wlr_tablet_pad_create allocates pad->groups and the pad's destroy
+# handler never frees it, a few bytes for every pad unplugged.
+leak:wlr_tablet_pad_create
+# Qt's Wayland client makes an xkbcommon compose state as the first key reaches a window and does
+# not free it as the program exits.
+leak:xkb_compose_state_new
+leak:xkb_compose_table_new_from_locale
