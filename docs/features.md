@@ -506,7 +506,9 @@ A window you fullscreen with a binding or its title bar fills its monitor except
 other bars, which stay shown. Fullscreen a program asks for itself, like a video player or a
 browser's fullscreen video, covers the whole monitor, panels included, and keeps covering it
 while you work on another monitor; bringing another window forward on its monitor puts it
-behind that window and shows the panels again. Either kind stays in front of the other windows
+behind that window and shows the panels again. A new window opens in front of it the same way,
+and it stays fullscreen behind; only a new tile, on a workspace that tiles, takes it out of
+fullscreen instead of opening under it. Either kind stays in front of the other windows
 of its monitor, those [kept above](#keeping-windows-above) too, while you work on another
 monitor, until a window of its own monitor is brought forward.
 
