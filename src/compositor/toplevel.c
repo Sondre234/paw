@@ -384,9 +384,10 @@ void map_toplevel(struct sh_toplevel *toplevel, bool fullscreen, bool maximized)
     bool visible = toplevel_visible(toplevel);
     bool focus = visible && !(ruled && rule.no_focus);
     fullscreen = fullscreen || (ruled && rule.fullscreen);
-    // A new window would open over a fullscreen one on its workspace, so that one leaves
-    // fullscreen first, as in Hyprland; dialogs belong to it and may show over it.
-    if (output && !fullscreen && !toplevel->floating && focus)
+    // A new tile would open under a fullscreen one on its workspace, so that one leaves
+    // fullscreen first, as in Hyprland. A floating window opens in front of it instead, as
+    // focusing it lowers the fullscreen one, which stays fullscreen behind it.
+    if (output && !fullscreen && focus && wants_tiling(toplevel, output))
         leave_fullscreen_for(toplevel, output);
     struct sh_toplevel *target = NULL;
     struct wlr_output *tile_output = visible ? new_tile_split(toplevel, output, &target) : output;
