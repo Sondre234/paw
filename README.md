@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="docs/assets/logo.svg" alt="paw's logo: a black cat's paw with brown beans" width="128">
-
 # paw
 
 <i><b>P</b>AW <b>A</b>rranges <b>W</b>indows</i>
