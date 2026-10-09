@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/logo.svg" alt="paw's logo: a brown cat's paw with pink beans" width="128">
+<img src="docs/assets/logo.svg" alt="paw's logo: a black cat's paw with brown beans" width="128">
 
 # paw
 
