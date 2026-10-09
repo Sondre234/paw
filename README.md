@@ -1,18 +1,20 @@
 <div align="center">
 
+<img src="docs/assets/logo.svg" alt="paw's logo: a brown cat's paw with pink beans" width="128">
+
 # paw
 
-**P**AW **A**rranges **W**indows
+<i><b>P</b>AW <b>A</b>rranges <b>W</b>indows</i>
 
 A mouse-first Wayland desktop.<br>
 Floating windows, edge snapping and optional Hyprland-style tiling, a Qt Quick shell laid out
 as macOS's (menu bar, dock, Launchpad) or as a taskbar, and a Lua configuration that reloads when
 you save it.
 
-[![license](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
-[![wlroots](https://img.shields.io/badge/wlroots-0.20-teal)](https://gitlab.freedesktop.org/wlroots/wlroots)
-[![Lua](https://img.shields.io/badge/config-Lua%205.4-navy)](docs/config-reference.md)
-[![release](https://img.shields.io/badge/release-0.1.1%20beta-yellowgreen)](CHANGELOG.md)
+[![license](https://img.shields.io/badge/license-GPL--3.0--or--later-6f4324)](LICENSE)
+[![wlroots](https://img.shields.io/badge/wlroots-0.20-8b5a33)](https://gitlab.freedesktop.org/wlroots/wlroots)
+[![Lua](https://img.shields.io/badge/config-Lua%205.4-a06a42)](docs/config-reference.md)
+[![release](https://img.shields.io/badge/release-0.1.1%20beta-b5655a)](CHANGELOG.md)
 
 [Highlights](#highlights) · [Building](#building) · [Installing](#installing) ·
 [Running](#running) · [Configuration](#configuration) · [Features](docs/features.md) ·
