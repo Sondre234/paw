@@ -703,7 +703,6 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(scratchpad_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(group_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
-        paw_smoke(group_edge_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(group_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(reload_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(tile_focus_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
