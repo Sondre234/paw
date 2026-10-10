@@ -211,6 +211,14 @@ QImage ClipboardHistory::picture(int id) const {
             return entry.picture;
     return {};
 }
+QImage clipboardImage(const ClipboardHistory &history, const QString &id) {
+    QImage image = history.picture(id.section('/', 0, 0).toInt());
+    if (image.isNull()) {
+        image = QImage(1, 1, QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+    }
+    return image;
+}
 
 void ClipboardHistory::toggle(const QString &output) {
     output_ = output_ == output ? QString() : output;

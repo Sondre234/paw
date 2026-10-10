@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "controller.hpp"
-#include "clipboard_images.hpp"
 #include "icons.hpp"
-#include "notification_images.hpp"
-#include "tray_images.hpp"
+#include "image_provider.hpp"
 #include "wallpapers.hpp"
-#include "window_images.hpp"
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QClipboard>
@@ -40,6 +37,30 @@
 #include "polkit_agent.hpp"
 #endif
 
+namespace {
+// image://tray/SERIAL/REVISION: a tray item's icon, or the stand-in for an item without one;
+// image://tray/SERIAL/menu/ID/REVISION: an entry of its menu. The revision only keeps QML from
+// reusing a picture that has changed.
+ImageProvider::Picture trayImage(TrayModel &model) {
+    return [&model](const QString &id, const QSize &requested) {
+        const QSize wanted = requested.isEmpty() ? QSize(22, 22) : requested;
+        const QStringList parts = id.split('/');
+        if (parts.value(1) == "menu") {
+            QImage image =
+                model.menuPicture(parts.value(0).toInt(), parts.value(2).toInt(), wanted);
+            // An icon that is not found leaves the space empty.
+            if (image.isNull()) {
+                image = QImage(wanted, QImage::Format_ARGB32_Premultiplied);
+                image.fill(Qt::transparent);
+            }
+            return image;
+        }
+        QImage image = model.picture(parts.value(0).toInt(), wanted);
+        return image.isNull() ? Icons().requestImage("application-x-executable", nullptr, wanted)
+                              : image;
+    };
+}
+} // namespace
 ShellController::ShellController(std::filesystem::path path, QObject *parent)
     : QObject(parent), path_(std::move(path)), tasks_(this) {
     loadConfig();
@@ -106,11 +127,24 @@ QQmlEngine *ShellController::engine() {
     if (!engine_) {
         engine_ = new QQmlEngine(this);
         engine_->addImageProvider("icons", new Icons);
-        engine_->addImageProvider("notify", new NotificationImages(notifications_));
-        engine_->addImageProvider("tray", new TrayImages(tray_));
+        // image://notify/ID/STAMP: the picture a notification carried in its image-data hint
+        // (the stamp only keeps QML from reusing a cached picture when a notification is
+        // replaced).
+        engine_->addImageProvider("notify", new ImageProvider([this](const QString &id, QSize) {
+            const uint number = id.section('/', 0, 0).toUInt();
+            const Notification *n = notifications_.cards()->find(number);
+            if (!n)
+                n = notifications_.history()->find(number);
+            return n ? n->image : QImage();
+        }));
+        engine_->addImageProvider("tray", new ImageProvider(trayImage(tray_)));
         engine_->addImageProvider("thumbs", new Thumbnails);
-        engine_->addImageProvider("windows", new WindowImages(tasks_));
-        engine_->addImageProvider("clipboard", new ClipboardImages(clipboard_));
+        engine_->addImageProvider("windows", new ImageProvider([this](const QString &id, QSize) {
+            return windowImage(tasks_, id);
+        }));
+        engine_->addImageProvider("clipboard", new ImageProvider([this](const QString &id, QSize) {
+            return clipboardImage(clipboard_, id);
+        }));
         engine_->rootContext()->setContextProperty("shell", this);
     }
     return engine_;

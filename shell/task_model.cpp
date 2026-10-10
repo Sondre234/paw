@@ -240,6 +240,14 @@ void TaskModel::watchPicture(int taskId, int pixelWidth, bool live) {
 }
 void TaskModel::unwatchPicture(int taskId) { pictures_.unwatch(taskId); }
 QImage TaskModel::picture(int taskId) const { return pictures_.picture(taskId); }
+QImage windowImage(const TaskModel &tasks, const QString &id) {
+    QImage image = tasks.picture(id.section('/', 0, 0).toInt());
+    if (image.isNull()) {
+        image = QImage(1, 1, QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+    }
+    return image;
+}
 void TaskModel::peek(int taskId) {
     auto *task = find(taskId);
     if (!task || !task->window || peeked_ == taskId ||

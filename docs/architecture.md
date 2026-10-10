@@ -759,7 +759,7 @@ non-blocking writes, SIGPIPE held off. `locked on|off` in the control socket's s
 `setLocked`, and `clipboard OUTPUT` from the `clipboard_history` action toggles `output`, which a
 `PickerView` (`picker_view.cpp`) follows: an `OverlayView` on every output, as the palette's is,
 showing `ClipboardPicker.qml`, which filters the entries; `image://clipboard/ID/SERIAL`
-(`clipboard_images.hpp`) serves their pictures. Its file is touched only once the history is the
+(`clipboardImage`, through an `ImageProvider`, `image_provider.hpp`) serves their pictures. Its file is touched only once the history is the
 session's (connected) or was given a path, so tests and previews that make a controller never
 read or remove it.
 

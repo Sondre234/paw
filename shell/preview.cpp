@@ -3,6 +3,7 @@
 #include "audio.hpp"
 #include "backlight.hpp"
 #include "controller.hpp"
+#include "image_provider.hpp"
 #include "system_status.hpp"
 #include "view.hpp"
 #include <QBuffer>
@@ -12,7 +13,6 @@
 #include <QPainter>
 #include <QQmlComponent>
 #include <QQmlEngine>
-#include <QQuickImageProvider>
 #include <QQuickItem>
 #include <QQuickView>
 #include <QScreen>
@@ -184,18 +184,6 @@ QImage windowPicture(int id) {
     }
     return image;
 }
-
-// The stand-in windows' pictures, image://preview-windows/ID.
-class PreviewWindows : public QQuickImageProvider {
-  public:
-    PreviewWindows() : QQuickImageProvider(QQuickImageProvider::Image) {}
-    QImage requestImage(const QString &id, QSize *size, const QSize &) override {
-        QImage image = windowPicture(id.section('/', 0, 0).toInt());
-        if (size)
-            *size = image.size();
-        return image;
-    }
-};
 
 Notification notification(const QString &app, const QString &icon, const QString &summary,
                           const QString &body, int urgency = Notification::Normal) {
@@ -392,10 +380,14 @@ PreviewData::PreviewData(ShellController &controller)
           {2, "firmware-2.4.1.zip", "firmware-2.4.1.zip", false, 0},
           {3, "Fireworks.jpg", "fireworks.jpg", false, 0}}});
 
+    // The stand-in windows' pictures, image://preview-windows/ID.
+    controller.engine()->addImageProvider("preview-windows",
+                                          new ImageProvider([](const QString &id, QSize) {
+                                              return windowPicture(id.section('/', 0, 0).toInt());
+                                          }));
     // The windows, as the tests' stand-in model: a ListModel with the roles TaskModel has. The
     // terminals' are stacked, with pictures of two and none yet of the third, and the first
     // playing music. The compositor's numbers for them (windowId) are the switcher's.
-    controller.engine()->addImageProvider("preview-windows", new PreviewWindows);
     QQmlComponent component(controller.engine());
     component.setData(R"(import QtQml.Models
 ListModel {

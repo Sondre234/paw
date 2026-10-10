@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "task_model.hpp"
-#include "window_images.hpp"
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QProcess>
@@ -50,9 +49,8 @@ int main(int argc, char **argv) {
         model.unwatchPicture(id);
         model.unwatchPicture(id); // one more than it was watched
         // QML asking for a picture that is not there gets an empty one, not an error.
-        QSize served;
-        const QImage none = WindowImages(model).requestImage(QString("%1/1").arg(id), &served, {});
-        if (served != QSize(1, 1) || none.size() != served || none.pixelColor(0, 0).alpha() != 0)
+        const QImage none = windowImage(model, QString("%1/1").arg(id));
+        if (none.size() != QSize(1, 1) || none.pixelColor(0, 0).alpha() != 0)
             throw std::runtime_error("a missing picture was not served as an empty one");
         // Where it is comes from the compositor's window control: its only output, the first
         // workspace, floating since the example configuration does not tile.
@@ -189,8 +187,7 @@ int main(int argc, char **argv) {
         if (!url().startsWith(prefix) || model.picture(id).size() != QSize(133, 100) ||
             !isProbe(model.picture(id)))
             throw std::runtime_error("the window's picture is not the probe's window at 133 by 100");
-        if (WindowImages(model).requestImage(url().mid(QString("image://windows/").size()), &served,
-                                             {}) != model.picture(id))
+        if (windowImage(model, url().mid(QString("image://windows/").size())) != model.picture(id))
             throw std::runtime_error("the image provider did not serve the window's picture");
         model.unwatchPicture(id);
         // Watched live, it follows the window as it redraws: maximized, at another size, and back.

@@ -70,12 +70,11 @@ set(PAW_SERVICE_SOURCES media.cpp media.hpp power_mode.cpp power_mode.hpp wifi.c
     row_model.hpp bluetooth.cpp bluetooth.hpp)
 # The clipboard history, its pictures, the emoji picker, and the overlay their popups show in, in
 # everything that builds the controller.
-set(PAW_PICKER_SOURCES clipboard.cpp clipboard.hpp clipboard_images.hpp emoji.cpp emoji.hpp
+set(PAW_PICKER_SOURCES clipboard.cpp clipboard.hpp emoji.cpp emoji.hpp
     picker_view.cpp picker_view.hpp ${PROJECT_BINARY_DIR}/ext-data-control-v1-protocol.c
     ${PROJECT_BINARY_DIR}/ext-data-control-v1-client-protocol.h)
-set(PAW_NOTIFY_SOURCES notifications.cpp notifications.hpp notification_images.cpp
-    notification_images.hpp osd.cpp osd.hpp backlight.cpp backlight.hpp tray.cpp tray.hpp
-    tray_images.cpp tray_images.hpp)
+set(PAW_NOTIFY_SOURCES notifications.cpp notifications.hpp osd.cpp osd.hpp backlight.cpp
+    backlight.hpp tray.cpp tray.hpp)
 # What the compositor passes on from the volume, microphone and brightness keys, which feeds the
 # on-screen display too.
 list(APPEND PAW_NOTIFY_SOURCES volume_keys.cpp volume_keys.hpp)
@@ -163,8 +162,8 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp view.cpp view.hpp
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
     task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp
-    app_match.hpp wallpapers.cpp wallpapers.hpp window_images.cpp window_images.hpp audio.cpp
-    audio.hpp system_status.cpp system_status.hpp power.cpp power.hpp)
+    app_match.hpp wallpapers.cpp wallpapers.hpp image_provider.hpp audio.cpp audio.hpp
+    system_status.cpp system_status.hpp power.cpp power.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
 add_dependencies(paw-shell paw_wlr_client_protocols paw_version)
 set_target_properties(paw-shell PROPERTIES AUTOMOC ON RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
@@ -319,7 +318,7 @@ if(BUILD_TESTING)
         LIBS Qt6::Core Qt6::Gui Qt6::Quick Qt6::Test PkgConfig::GIO)
     add_test(NAME app_icons COMMAND app_icons_test)
     paw_shell_test(task_model_test SOURCES task_model.cpp task_model.hpp window_pictures.cpp
-        window_pictures.hpp window_images.cpp window_images.hpp ${PAW_TASK_PROTOCOL_SOURCES}
+        window_pictures.hpp ${PAW_TASK_PROTOCOL_SOURCES}
         LIBS Qt6::Core Qt6::Gui Qt6::Quick PkgConfig::SHELL_WAYLAND)
     add_test(NAME shell_tasks COMMAND ${Python3_EXECUTABLE}
         ${PROJECT_SOURCE_DIR}/tests/compositor_smoke.py $<TARGET_FILE:paw>
@@ -327,7 +326,7 @@ if(BUILD_TESTING)
         $<TARGET_FILE:task_model_test>)
     set_tests_properties(shell_tasks PROPERTIES TIMEOUT 60)
     # The clipboard history against a private compositor, with clipboard_probe copying.
-    paw_shell_test(clipboard_test SOURCES clipboard.cpp clipboard.hpp clipboard_images.hpp
+    paw_shell_test(clipboard_test SOURCES clipboard.cpp clipboard.hpp
         ${PROJECT_BINARY_DIR}/ext-data-control-v1-protocol.c
         ${PROJECT_BINARY_DIR}/ext-data-control-v1-client-protocol.h
         LIBS Qt6::Gui Qt6::Quick Qt6::Test PkgConfig::SHELL_WAYLAND)
