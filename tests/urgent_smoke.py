@@ -5,7 +5,6 @@ subscription and focus_urgent report and use the marks; and focusing clears them
 pulse is urgent_border_smoke's."""
 from pathlib import Path
 import re
-import socket
 import subprocess
 import sys
 
@@ -46,35 +45,17 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
         client.stdin.write("activate\n")
         client.stdin.flush()
 
-    class Subscriber:
-        """The control socket's state stream: the last complete state received."""
-
-        def __init__(self):
-            self.socket = socket.socket(socket.AF_UNIX)
-            self.socket.connect(desktop.env["PAW_SOCKET"])
-            self.socket.sendall(b"subscribe\n")
-            self.socket.settimeout(0.05)
-            self.buffer = ""
-
-        def state(self):
-            try:
-                while data := self.socket.recv(8192):
-                    self.buffer += data.decode()
-            except socket.timeout:
-                pass
-            blocks = self.buffer.split("tiling ")
-            return "tiling " + blocks[-1] if len(blocks) > 1 else ""
-
-        def received(self, text):
-            """Whether text has arrived at any point, after reading what is waiting."""
-            self.state()
-            return text in self.buffer
-
     assert "xdg_activation_v1" in subprocess.run(
         [probe, "--globals"], env=desktop.env, capture_output=True, text=True).stdout
     assert urgent() == []
-    subscriber = Subscriber()
-    wait_for(lambda: "urgent 0" in subscriber.state(), "first state")
+    subscriber = desktop.subscribe()
+
+    def stream():
+        """The last state the stream sent, from its "tiling" line on."""
+        blocks = subscriber.text().split("tiling ")
+        return "tiling " + blocks[-1] if len(blocks) > 1 else ""
+
+    wait_for(lambda: "urgent 0" in stream(), "first state")
 
     # By default a request marks the window and leaves focus where it is.
     a = start("urgent-a")
@@ -82,16 +63,16 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
     ask(a)
     wait_for(lambda: urgent() == [("urgent-a", 1, False)], "a marked urgent")
     assert focused() == ["urgent-b"]
-    wait_for(lambda: "urgent 1\n" in subscriber.state(), "the subscription reports the count")
+    wait_for(lambda: "urgent 1\n" in stream(), "the subscription reports the count")
     # The window switcher marks it too.
     msg("switcher")
-    wait_for(lambda: subscriber.received("switcher-window"), "the switcher's list")
+    wait_for(lambda: subscriber.lines("switcher-window"), "the switcher's list")
     listed = {f[0]: f for f in (l[len("switcher-window "):].split("\t")
-                                for l in subscriber.buffer.splitlines()
+                                for l in subscriber.lines()
                                 if l.startswith("switcher-window "))}
     assert listed["urgent-a"][5] == "1" and listed["urgent-b"][5] == "0", listed
     msg("switcher_cancel")
-    state = subscriber.state()
+    state = stream()
     assert "urgent-output " in state and re.search(r"urgent-output \S+ 1\n", state), state
     assert re.search(r"urgent-window \S+\t1\turgent-a\tWindow urgent-a\n", state), state
 
@@ -106,16 +87,16 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
     wait_for(lambda: [u[0] for u in urgent()] == ["urgent-a", "urgent-b"], "a then b")
     msg("focus_urgent")
     assert focused() == ["urgent-a"] and [u[0] for u in urgent()] == ["urgent-b"]
-    wait_for(lambda: "urgent 1\n" in subscriber.state() and
-             "urgent-window" in subscriber.state() and
-             "urgent-a" not in subscriber.state().split("urgent-window")[-1],
+    wait_for(lambda: "urgent 1\n" in stream() and
+             "urgent-window" in stream() and
+             "urgent-a" not in stream().split("urgent-window")[-1],
              "focusing clears a's mark in the stream")
     msg("focus_urgent")
     assert focused() == ["urgent-b"] and urgent() == []
     msg("focus_urgent")  # nothing urgent: nothing happens
     assert focused() == ["urgent-b"]
-    wait_for(lambda: "urgent 0\n" in subscriber.state() and
-             "urgent-window" not in subscriber.state(), "all clear in the stream")
+    wait_for(lambda: "urgent 0\n" in stream() and
+             "urgent-window" not in stream(), "all clear in the stream")
 
     # focus_urgent switches workspace, and the indicator's data names the workspace.
     msg("workspace", "2")
@@ -123,7 +104,7 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
     ask(a)
     wait_for(lambda: urgent() == [("urgent-a", 1, False)], "a urgent on workspace 1")
     assert int(msg("get", "workspace")) == 2 and focused() == ["urgent-d"]
-    wait_for(lambda: re.search(r"urgent-output \S+ 1\n", subscriber.state()),
+    wait_for(lambda: re.search(r"urgent-output \S+ 1\n", stream()),
              "workspace 1 is urgent while 2 is shown")
     msg("focus_urgent")
     assert int(msg("get", "workspace")) == 1 and focused() == ["urgent-a"]
@@ -149,7 +130,7 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
     harness.wait_for(lambda: urgent() == [], [p for p in desktop.processes if p is not a],
                      "closing clears the mark")
     assert desktop.reap(a, timeout=5) == 0
-    wait_for(lambda: "urgent 0\n" in subscriber.state(), "the stream is clear")
+    wait_for(lambda: "urgent 0\n" in stream(), "the stream is clear")
 
     # focus: the request focuses the window and switches workspace; ignore: nothing.
     desktop.reload(settings("focus"))

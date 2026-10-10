@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Each of two headless outputs has its own workspaces."""
 from pathlib import Path
-import socket
 import sys
 
 import harness
@@ -35,23 +34,15 @@ with harness.Compositor(compositor, CONFIG % "HEADLESS-1",
         return {name: state[0] for name, state in workspaces().items()}
 
     # A subscriber sees each output's workspace and those holding windows.
-    stream = socket.socket(socket.AF_UNIX)
-    stream.connect(desktop.env["PAW_SOCKET"])
-    stream.sendall(b"subscribe\n")
-    stream.settimeout(.05)
-    received = []
+    subscriber = desktop.subscribe()
 
     def streamed(line):
-        try:
-            received.append(stream.recv(65536).decode())
-        except socket.timeout:
-            pass
-        return line in "".join(received).splitlines()
+        return line in subscriber.lines()
 
     # Both outputs start on workspace 1.
     assert workspaces() == {"HEADLESS-1": (1, True, "-"), "HEADLESS-2": (1, False, "-")}
     desktop.wait_for(lambda: streamed("output HEADLESS-2 1 - on"), "initial state")
-    assert "output HEADLESS-1 1 - on" in "".join(received)
+    assert "output HEADLESS-1 1 - on" in subscriber.lines()
     assert "no such output" in msg("output", "BOGUS-1", "workspace", "2", ok=False)
     assert "needs a name" in msg("output", "HEADLESS-1", ok=False)
 
