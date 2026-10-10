@@ -74,8 +74,7 @@ void reload_config(struct sh_server *server) {
         return;
     set_binding_mode(server, 0);
     struct sh_output *overridden;
-    wl_list_for_each(overridden, &server->outputs, link) overridden->has_override = false;
-    wl_list_for_each(overridden, &server->disabled_outputs, link) overridden->has_override = false;
+    for_each_connected_output(overridden, server) overridden->has_override = false;
     ++server->config_generation;
     display_settings_load(server); // laid over outputs.monitors, so read with them
     configure_animations(server);
@@ -86,12 +85,7 @@ void reload_config(struct sh_server *server) {
     update_keymap(server);
     struct sh_pointer *pointer;
     wl_list_for_each(pointer, &server->pointers, link) configure_pointer(server, pointer->device);
-    // Enable outputs before disabling others, so a swap never leaves none on.
-    struct sh_output *output, *temporary;
-    wl_list_for_each_safe(output, temporary, &server->disabled_outputs, link)
-        configure_output(server, output);
-    wl_list_for_each_safe(output, temporary, &server->outputs, link)
-        configure_output(server, output);
+    configure_outputs(server);
     arrange_outputs(server);
     reconfigure_tiling(server);
     return_home_windows(server);
@@ -125,6 +119,7 @@ void reload_config(struct sh_server *server) {
     refocus_if_hidden(server);
     // Gaps, borders, and opacity may have changed.
     wl_list_for_each(toplevel, &server->toplevels, link) refresh_frame(toplevel);
+    struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) reflow_output(server, output->wlr_output);
     power_reload(server);
     idle_reload(server);

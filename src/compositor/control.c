@@ -116,13 +116,10 @@ static void control_session(struct sh_server *server, int fd, const char *argume
 
 /* An output, enabled or not, by connector name. */
 static struct sh_output *sh_output_for_name(struct sh_server *server, const char *name) {
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        struct sh_output *output;
-        wl_list_for_each(output, lists[i], link) {
-            if (!strcmp(output->wlr_output->name, name))
-                return output;
-        }
+    struct sh_output *output;
+    for_each_connected_output(output, server) {
+        if (output_named(output, name))
+            return output;
     }
     return NULL;
 }

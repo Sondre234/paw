@@ -650,15 +650,19 @@ void output_config_apply(struct wl_listener *listener, void *data) {
     wlr_output_configuration_v1_destroy(config);
 }
 
-/* Configures every output again after their settings changed while running (through
- * wlr-output-management, or display_mode.c), and puts windows, workspaces and focus in order. */
-void apply_output_settings(struct sh_server *server) {
-    // Enable outputs before disabling others, so a swap never leaves none on.
+/* Gives every output the settings in force, those coming on before those going off, so a swap
+ * never leaves none on. */
+void configure_outputs(struct sh_server *server) {
     struct sh_output *output, *temporary;
     wl_list_for_each_safe(output, temporary, &server->disabled_outputs, link)
         configure_output(server, output);
     wl_list_for_each_safe(output, temporary, &server->outputs, link)
         configure_output(server, output);
+}
+
+/* After outputs came on or went off: their arrangement, the tilings, where the windows are and
+ * the keyboard. */
+void settle_outputs(struct sh_server *server) {
     arrange_outputs(server);
     reconfigure_tiling(server);
     return_home_windows(server);
@@ -667,7 +671,15 @@ void apply_output_settings(struct sh_server *server) {
     struct sh_toplevel *toplevel;
     refocus_if_hidden(server);
     wl_list_for_each(toplevel, &server->toplevels, link) refresh_frame(toplevel);
+    struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) reflow_output(server, output->wlr_output);
+}
+
+/* Configures every output again after their settings changed while running (through
+ * wlr-output-management, or display_mode.c), and puts windows, workspaces and focus in order. */
+void apply_output_settings(struct sh_server *server) {
+    configure_outputs(server);
+    settle_outputs(server);
 }
 
 static void output_request_state(struct wl_listener *listener, void *data) {
