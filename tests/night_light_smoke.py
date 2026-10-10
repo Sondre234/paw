@@ -4,7 +4,6 @@ fixed by PAW_NIGHT_LIGHT_TIME) and follows configuration and the toggle actions.
 backend has no gamma hardware and its screen capture is taken before the colour transform, so
 what the screen shows needs a real output and is not covered here."""
 from pathlib import Path
-import signal
 import socket
 import sys
 
@@ -84,8 +83,7 @@ def midnight(desktop):
     msg = desktop.msg
     assert state(msg) == (3400, 0, 1), state(msg)
     # Reloading with the schedule off ends it; the toggle still works.
-    desktop.config.write_text(settings("enabled = false"))
-    desktop.server.send_signal(signal.SIGHUP)
+    desktop.reload(settings("enabled = false"))
     desktop.wait_for(lambda: state(msg) == (6500, 0, 0), "schedule off")
     msg("night_light_toggle")
     assert state(msg) == (3400, 2, 0), state(msg)

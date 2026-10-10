@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Window rules float, size, place, and send new windows elsewhere, unless turned off."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -105,9 +104,7 @@ with harness.Compositor(compositor, settings(True),
     msg("workspace", "1")
 
     # Turned off, the same rules leave new windows to the defaults.
-    desktop.config.write_text(settings(False))
-    desktop.server.send_signal(signal.SIGHUP)
-    wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
+    desktop.reload(settings(False))
     open_window("rule-float", "Floating again")
     wait_for(lambda: window("Floating again")[:3] == (1, True, True),
              "rule actions are off: the window tiles")

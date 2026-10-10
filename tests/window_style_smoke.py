@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Tiled windows keep gap_outer at the edges, gap_inner between them, and their border inside."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -43,11 +42,9 @@ with harness.Compositor(compositor, settings(4, 20, 3)) as desktop:
         desktop.spawn([probe, "--external-control"])
     wait_for(lambda: laid_out(4, 20, 3), "gaps and borders around two tiles")
 
-    desktop.config.write_text(settings(10, 0, 0))
-    desktop.server.send_signal(signal.SIGHUP)
+    desktop.reload(settings(10, 0, 0))
     wait_for(lambda: laid_out(10, 0, 0), "reloaded gaps without borders")
 
-    desktop.config.write_text(settings(0, 12, 5))
-    desktop.server.send_signal(signal.SIGHUP)
+    desktop.reload(settings(0, 12, 5))
     wait_for(lambda: laid_out(0, 12, 5), "reloaded outer gap and thicker border")
 print("Inner and outer gaps, borders, and their reload passed")

@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Each of two headless outputs has its own workspaces."""
 from pathlib import Path
-import signal
 import socket
 import sys
 
@@ -23,7 +22,7 @@ CONFIG = """return {
 
 with harness.Compositor(compositor, CONFIG % "HEADLESS-1",
                         env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
-    msg, log = desktop.msg, desktop.log
+    msg = desktop.msg
 
     def workspaces():
         return {row[0]: (int(row[1]), row[2] == "1", row[3]) for row in desktop.rows("workspaces")}
@@ -61,9 +60,7 @@ with harness.Compositor(compositor, CONFIG % "HEADLESS-1",
                      "first window on HEADLESS-1", detail=windows)
     desktop.wait_for(lambda: streamed("output HEADLESS-1 1 1 on"), "occupied stream")
 
-    desktop.config.write_text(CONFIG % "HEADLESS-2")
-    desktop.server.send_signal(signal.SIGHUP)
-    desktop.wait_for(lambda: "Configuration reloaded" in log.read_text(), "reload")
+    desktop.reload(CONFIG % "HEADLESS-2")
     desktop.spawn([probe, "--external-control"])
     desktop.wait_for(lambda: len(windows()) == 2, "second window")
     assert windows() == [(1, "HEADLESS-1", True), (1, "HEADLESS-2", True)], windows()
@@ -107,11 +104,8 @@ with harness.Compositor(compositor, CONFIG % "HEADLESS-1",
 
     # A window placed on another output joins that output's current workspace: turning
     # HEADLESS-1 off moves its tile into HEADLESS-2's tiling.
-    desktop.config.write_text((CONFIG % "HEADLESS-2").replace(
+    desktop.reload((CONFIG % "HEADLESS-2").replace(
         '["HEADLESS-1"] = { mode = "1280x720" }', '["HEADLESS-1"] = { enabled = false }'))
-    desktop.server.send_signal(signal.SIGHUP)
-    desktop.wait_for(lambda: log.read_text().count("Configuration reloaded") == 2,
-                     "second reload")
     desktop.wait_for(lambda: windows() == [(4, "HEADLESS-2", True)] * 2,
                      "tile joined HEADLESS-2's workspace", detail=windows)
     assert workspaces()["HEADLESS-2"][0::2] == (4, "4"), workspaces()

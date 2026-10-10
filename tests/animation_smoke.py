@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Open, reflow, and close windows with animations on; each animation ends and leaves nothing."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -106,17 +105,14 @@ with harness.Compositor(compositor, settings(True)) as desktop:
     # Turning animations off ends those running.
     windows_open = [launch(), launch()]
     wait_for(lambda: len(windows()) == 2, "two windows")
-    desktop.config.write_text(settings(False))
-    desktop.server.send_signal(signal.SIGHUP)
+    desktop.reload(settings(False))
     wait_for(lambda: state() == (0, 2), "reload ends animations")
     for window in windows_open:
         close(window)
     wait_for(lambda: state() == (0, 0), "closed without animations")
 
     # Quitting mid-animation frees the copies.
-    desktop.config.write_text(settings(True))
-    desktop.server.send_signal(signal.SIGHUP)
-    wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
+    desktop.reload(settings(True))
     window = launch()
     wait_for(lambda: len(windows()) == 1, "window before quitting")
     close(window)
