@@ -25,6 +25,7 @@
 #include <QQuickItem>
 #include <QRegularExpression>
 #include <QSignalSpy>
+#include <QStyleHints>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
@@ -192,6 +193,8 @@ int main(int argc, char **argv) {
     qputenv("XDG_CACHE_HOME", screens.filePath("cache").toLocal8Bit());
     const auto pins = screens.filePath("state/paw/pinned");
     QGuiApplication app(argc, argv);
+    // A press held past the long-press time is held 200 ms here, rather than Qt's 800.
+    QGuiApplication::styleHints()->setMousePressAndHoldInterval(200);
     if (argc != 2)
         return fail("usage: shell_ui_test CMAKE (run by the launcher as CMAKE -E touch FILE)");
     QTemporaryDir directory;
@@ -1217,7 +1220,7 @@ ListModel {
     const QPoint entry = centre(task);
     // Held past the long-press time, which once swallowed the right click.
     QTest::mousePress(&view, Qt::RightButton, Qt::NoModifier, entry);
-    QTest::qWait(1000);
+    QTest::qWait(300);
     QTest::mouseRelease(&view, Qt::RightButton, Qt::NoModifier, centre(task));
     if (!waitFor([&] {
             return view.rootObject()->property("taskMenuId").toInt() == 7 && menuShown();
@@ -5952,7 +5955,7 @@ ListModel {
         const QPoint menuAt = centre(trayButton("menu"));
         // Held past the long-press time, as with the bar's menus.
         QTest::mousePress(&view, Qt::RightButton, Qt::NoModifier, menuAt);
-        QTest::qWait(1000);
+        QTest::qWait(300);
         QTest::mouseRelease(&view, Qt::RightButton, Qt::NoModifier, menuAt);
         if (!trayMenu || !waitFor([&] {
                 return trayMenuShown() && trayLabels() == QStringList{"Open", "More", "Disabled"} &&
