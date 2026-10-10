@@ -499,6 +499,10 @@ shadows.
   `hot_corners.delay`). Those in `windows.swallow`, `windows.magnet`, `windows.snap`,
   `windows.shadow` and `shell.panel_margin` name the table too: `windows.magnet.distance must be
   between 0 and 200`, not `windows.distance`.
+- An error in an entry of `outputs.monitors`, `layout.outputs`, `windows.rules`, `bindings` or a
+  mode names the entry, as `windows.rules[2].opacity` or `outputs.monitors["DP-1"].transform`,
+  where it named a setting outside it (`windows.opacity`, `outputs.transform`) and pointed at
+  that setting's line when the file had one.
 
 ## 0.1.1 (2026-10-05)
 

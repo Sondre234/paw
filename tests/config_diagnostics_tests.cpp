@@ -125,6 +125,14 @@ void locations() {
     at("return {\n  hot_corners = { delay = 100 },\n  shell = {\n    thumbnails = {\n"
        "      delay = 'soon',\n    },\n  },\n}",
        "5: shell.thumbnails.delay must be an integer");
+    // A rule's setting is not taken for the one of the same name outside the rules, nor one
+    // monitor's for another's.
+    at("return {\n  windows = {\n    opacity = 1,\n    rules = {\n"
+       "      { app_id = 'x', opacity = 7 },\n    },\n  },\n}",
+       "5: windows.rules[1].opacity");
+    at("return {\n  outputs = {\n    monitors = {\n      [\"HDMI-A-1\"] = { transform = 1 },\n"
+       "      [\"DP-1\"] = { transform = 9 },\n    },\n  },\n}",
+       "5: outputs.monitors[\"DP-1\"].transform");
     // Lua's own errors already carry file:line.
     at("return {\n  x = = 1,\n}", "2:");
     at("local a = nil\nreturn { shell = a.b }", "2:");
@@ -167,6 +175,19 @@ void ranges() {
     // ... and what follows it goes back to naming the one around it.
     expect("return {windows={magnet={distance=1},drag_strip=999}}",
            "windows.drag_strip must be between 0 and 100, not 999");
+    // An entry of a keyed table names its key, one of a list its number.
+    expect("return {outputs={monitors={['DP-1']={transform=9}}}}",
+           "outputs.monitors[\"DP-1\"].transform must be between 0 and 7, not 9");
+    expect("return {layout={outputs={['DP-1']={master_ratio=5}}}}",
+           "layout.outputs[\"DP-1\"].master_ratio must be between 0.1 and 0.9, not 5");
+    expect("return {windows={rules={{app_id='a'},{app_id='x',opacity=7}}}}",
+           "windows.rules[2].opacity must be between 0.05 and 1, not 7");
+    expect("return {bindings={{key='x',action='volume_up',amount=999}}}",
+           "bindings[1].amount must be between 1 and 100, not 999");
+    expect("return {bindings={{key='r',action='mode',mode='resize'}},"
+           "modes={resize={{key='Escape',action='mode',mode='default'},"
+           "{key='Left',action='resize_left',amount=0}}}}",
+           "modes.resize[2].amount must be between 1 and 4000, not 0");
 }
 void schema_matches_parser() {
     auto options = paw::config_options();
