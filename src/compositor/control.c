@@ -5,6 +5,7 @@
 #include "server.h"
 
 #include <ctype.h>
+#include <stdarg.h>
 
 /* Control socket: one newline-terminated request per connection, answered with
  * "ok\n" plus any output, or "error: ...\n". Lives in the private runtime dir. */
@@ -428,6 +429,21 @@ void copy_field(char *out, size_t size, const char *text) {
     flatten_field(out);
 }
 
+/* Adds to `text`, `size` bytes of which `*length` are used, as snprintf would; `*length` counts
+ * what did not fit too, so that nothing more is added once one part did not. */
+static void append(char *text, size_t size, size_t *length, const char *format, ...)
+    __attribute__((format(printf, 4, 5)));
+static void append(char *text, size_t size, size_t *length, const char *format, ...) {
+    if (*length >= size)
+        return;
+    va_list arguments;
+    va_start(arguments, format);
+    int added = vsnprintf(text + *length, size - *length, format, arguments);
+    va_end(arguments);
+    if (added > 0)
+        *length += (size_t)added;
+}
+
 /* The state subscribers get: "tiling on|off", "workspace N" and "focused NAME" for the focused
  * output, and "output NAME N USED TILING" for each output, with its current workspace, those
  * holding windows ("1,3", or "-"), and whether it tiles ("on" or "off"); then the urgent
@@ -435,18 +451,17 @@ void copy_field(char *out, size_t size, const char *text) {
  * that may run. */
 static void describe_state(struct sh_server *server, char *state, size_t size) {
     struct wlr_output *focused = focused_output(server);
-    size_t length = snprintf(state, size, "tiling %s\nworkspace %d\nfocused %s\n",
-                             output_tiles(server, focused) ? "on" : "off",
-                             focused_workspace(server), focused ? focused->name : "-");
+    size_t length = 0;
+    append(state, size, &length, "tiling %s\nworkspace %d\nfocused %s\n",
+           output_tiles(server, focused) ? "on" : "off", focused_workspace(server),
+           focused ? focused->name : "-");
     struct sh_output *output;
     wl_list_for_each_reverse(output, &server->outputs, link) {
         char used[128];
         occupied_workspaces(server, output->wlr_output, used, sizeof(used));
-        if (length < size)
-            length += snprintf(state + length, size - length, "output %s %d %s %s\n",
-                               output->wlr_output->name,
-                               *output_workspace(server, output->wlr_output->name) + 1, used,
-                               output_tiles(server, output->wlr_output) ? "on" : "off");
+        append(state, size, &length, "output %s %d %s %s\n", output->wlr_output->name,
+               *output_workspace(server, output->wlr_output->name) + 1, used,
+               output_tiles(server, output->wlr_output) ? "on" : "off");
     }
     // "urgent COUNT", then "urgent-output NAME 2,3" for each output with urgent windows, the
     // workspaces they are on, and "urgent-window OUTPUT WORKSPACE APP_ID TITLE" (tab separated
@@ -454,8 +469,7 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
     unsigned count = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) count += toplevel->urgent;
-    if (length < size)
-        length += snprintf(state + length, size - length, "urgent %u\n", count);
+    append(state, size, &length, "urgent %u\n", count);
     wl_list_for_each_reverse(output, &server->outputs, link) {
         unsigned used = 0;
         wl_list_for_each(toplevel, &server->toplevels, link) {
@@ -463,17 +477,16 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
                 !strcmp(toplevel->output, output->wlr_output->name))
                 used |= 1u << toplevel->workspace;
         }
-        if (!used || length >= size)
+        if (!used)
             continue;
-        length += snprintf(state + length, size - length, "urgent-output %s", output->wlr_output->name);
-        for (int i = 0, first = 1; i < 32 && length < size; ++i) {
+        append(state, size, &length, "urgent-output %s", output->wlr_output->name);
+        for (int i = 0, first = 1; i < 32; ++i) {
             if (used & 1u << i) {
-                length += snprintf(state + length, size - length, "%s%d", first ? " " : ",", i + 1);
+                append(state, size, &length, "%s%d", first ? " " : ",", i + 1);
                 first = 0;
             }
         }
-        if (length < size)
-            length += snprintf(state + length, size - length, "\n");
+        append(state, size, &length, "\n");
     }
     unsigned last = 0;
     for (unsigned listed = 0; listed < count && listed < 16 && length < size; ++listed) {
@@ -493,42 +506,35 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
         copy_field(app_id, sizeof(app_id), toplevel_app_id(next));
         copy_field(title, sizeof(title), raw_title ? raw_title : "Untitled");
         drop_partial_utf8(title);
-        length += snprintf(state + length, size - length, "urgent-window %s\t%d\t%s\t%s\n",
-                           next->output, next->workspace + 1, app_id, title);
+        append(state, size, &length, "urgent-window %s\t%d\t%s\t%s\n", next->output,
+               next->workspace + 1, app_id, title);
     }
     // "keyboard-layout N COUNT SHORT NAME": the active keyboard layout (from 1) of how many,
     // its short name ("us") and its name ("English (US)").
-    if (server->keymap && length < size) {
+    if (server->keymap) {
         char code[32], name[256];
         layout_short_name(server, server->keyboard_layout, code, sizeof(code));
         const char *full = xkb_keymap_layout_get_name(server->keymap, server->keyboard_layout);
         copy_field(name, sizeof(name), full);
         drop_partial_utf8(name);
-        length += snprintf(state + length, size - length, "keyboard-layout %u %u %s %s\n",
-                           server->keyboard_layout + 1, xkb_keymap_num_layouts(server->keymap), code,
-                           name);
+        append(state, size, &length, "keyboard-layout %u %u %s %s\n", server->keyboard_layout + 1,
+               xkb_keymap_num_layouts(server->keymap), code, name);
     }
     // "mode NAME": the binding mode in use, "default" outside any.
-    if (length < size)
-        length += snprintf(state + length, size - length, "mode %s\n", binding_mode(server));
+    append(state, size, &length, "mode %s\n", binding_mode(server));
     // "night-light ACTIVE MODE": whether the screen is warmed now ("on" or "off"), and whether
     // the schedule decides ("auto") or an override holds it "on" or "off".
-    if (length < size)
-        length += snprintf(state + length, size - length, "night-light %s %s\n",
-                           server->night_kelvin < SH_KELVIN_NEUTRAL ? "on" : "off",
-                           server->night_mode == SH_NIGHT_ON    ? "on"
-                           : server->night_mode == SH_NIGHT_OFF ? "off"
-                                                                : "auto");
+    append(state, size, &length, "night-light %s %s\n",
+           server->night_kelvin < SH_KELVIN_NEUTRAL ? "on" : "off",
+           server->night_mode == SH_NIGHT_ON    ? "on"
+           : server->night_mode == SH_NIGHT_OFF ? "off"
+                                                : "auto");
     // "locked on|off": whether the session is locked, for the shell to record nothing then.
-    if (length < size)
-        length += snprintf(state + length, size - length, "locked %s\n",
-                           server->locked ? "on" : "off");
+    append(state, size, &length, "locked %s\n", server->locked ? "on" : "off");
     // "power ACTIONS": the power actions that may run, as "lock,suspend,poweroff", or "-".
-    if (length < size) {
-        char actions[128];
-        power_available(server, actions, sizeof(actions));
-        snprintf(state + length, size - length, "power %s\n", actions);
-    }
+    char actions[128];
+    power_available(server, actions, sizeof(actions));
+    append(state, size, &length, "power %s\n", actions);
 }
 
 /* Subscribers get the state after each change, and "launcher OUTPUT" or "palette OUTPUT" when a
