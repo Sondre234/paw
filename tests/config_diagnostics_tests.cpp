@@ -121,6 +121,10 @@ void locations() {
     at("return {\n  modes = {\n    launch = {\n      { key = 'x', action = 'close' },\n    },\n"
        "  },\n}",
        "3: mode 'launch' has no binding");
+    // A setting of a nested section is looked for inside it, not at the same name elsewhere.
+    at("return {\n  hot_corners = { delay = 100 },\n  shell = {\n    thumbnails = {\n"
+       "      delay = 'soon',\n    },\n  },\n}",
+       "5: shell.thumbnails.delay must be an integer");
     // Lua's own errors already carry file:line.
     at("return {\n  x = = 1,\n}", "2:");
     at("local a = nil\nreturn { shell = a.b }", "2:");
