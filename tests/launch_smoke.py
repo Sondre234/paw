@@ -4,8 +4,6 @@ reported to the caller and, as `spawn-error`, to the shell, whether a key bindin
 socket asked for it; and the terminal action finds the configured terminal, else $TERMINAL, else
 the first installed of a list."""
 from pathlib import Path
-import re
-import socket
 import sys
 
 import harness
@@ -39,28 +37,15 @@ with harness.Compositor(compositor, start=False) as desktop:
         for code in reversed(codes):
             key(code, "release")
 
-    class Subscriber:
-        """The control socket's stream, as the shell reads it."""
-
-        def __init__(self):
-            self.socket = socket.socket(socket.AF_UNIX)
-            self.socket.connect(desktop.env["PAW_SOCKET"])
-            self.socket.sendall(b"subscribe\n")
-            self.socket.settimeout(0.05)
-            self.buffer = ""
-
-        def errors(self):
-            try:
-                while data := self.socket.recv(8192):
-                    self.buffer += data.decode()
-            except socket.timeout:
-                pass
-            return re.findall(r"^spawn-error (.*)$", self.buffer, re.M)
-
     desktop.detail = lambda: (calls(), desktop.log.read_text())
     wait_for = desktop.wait_for
     desktop.start(Path(example).read_text().replace("xwayland = true", "xwayland = false"))
-    subscriber = Subscriber()
+    subscriber = desktop.subscribe()
+
+    def errors():
+        """The errors the panel was told of."""
+        return subscriber.values("spawn-error ")
+
     msg("headless_keyboard", "add", "one")
 
     # The control socket: a program that is there starts; one that is not is an error for
@@ -70,7 +55,7 @@ with harness.Compositor(compositor, start=False) as desktop:
     wait_for(lambda: calls() == ["editor notes.txt"], "the editor")
     missing = "no-such-program: No such file or directory"
     assert f"error: cannot launch {missing}" in msg("spawn", "no-such-program", "-v", ok=False)
-    wait_for(lambda: subscriber.errors() == [f"Cannot launch {missing}"], "the panel's error")
+    wait_for(lambda: errors() == [f"Cannot launch {missing}"], "the panel's error")
     assert f"Cannot launch {missing}" in desktop.log.read_text()
 
     # The terminal action, with no terminal installed, from Super + Q and the control
@@ -78,11 +63,11 @@ with harness.Compositor(compositor, start=False) as desktop:
     advice = "o terminal installed: set terminal in the configuration, or install one of " \
         "kitty, foot, alacritty, wezterm, ghostty, konsole, gnome-terminal, xterm"
     press(LEFTMETA, Q)
-    wait_for(lambda: len(subscriber.errors()) == 2, "Super + Q's error on the panel")
-    assert subscriber.errors()[1] == "N" + advice, subscriber.errors()
+    wait_for(lambda: len(errors()) == 2, "Super + Q's error on the panel")
+    assert errors()[1] == "N" + advice, errors()
     assert "$TERMINAL, my-terminal, is not installed" in desktop.log.read_text()
     assert "error: n" + advice in msg("terminal", ok=False)
-    wait_for(lambda: len(subscriber.errors()) == 3, "the second error on the panel")
+    wait_for(lambda: len(errors()) == 3, "the second error on the panel")
 
     # The first of the list that is installed, then $TERMINAL once it is.
     def opens(expected):
