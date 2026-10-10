@@ -153,7 +153,8 @@ class SystemStatusTest : public QObject {
         }
         if (std::system("ip link add name pawtest0 type dummy >/dev/null 2>&1") != 0)
             std::exit(77);
-        std::system("ip link del pawtest0 >/dev/null 2>&1");
+        if (std::system("ip link del pawtest0 >/dev/null 2>&1") != 0)
+            std::exit(77);
         Sysfs sys;
         sys.interface("eth0", "down");
         SystemStatus status(sys.dir.path(), nullptr, true);
