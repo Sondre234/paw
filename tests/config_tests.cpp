@@ -538,11 +538,18 @@ int main(int argc, char **argv) {
                     defaults.mouse_natural_scroll == -1 && defaults.touchpad_tap == -1 &&
                     defaults.focus_follows_mouse,
                 "pointer defaults must leave devices alone");
-        require(defaults.animations && defaults.animation_duration == 120,
+        // Every kind of animation lasts animations.duration unless it has its own.
+        auto lasting = [](const sh_settings &settings, int duration) {
+            for (const auto &style : settings.animation_styles)
+                if (style.duration != duration)
+                    return false;
+            return true;
+        };
+        require(defaults.animations && lasting(defaults, 120),
                 "animations should be on for 120 ms by default");
         require(config.settings.animations, "example turns animations off");
         auto still = paw::parse_config("return {animations={enabled=false,duration=200}}");
-        require(!still.settings.animations && still.settings.animation_duration == 200,
+        require(!still.settings.animations && lasting(still.settings, 200),
                 "animations not parsed");
         require(paw::parse_config("return {animations={duration=80}}").settings.animations,
                 "a duration alone should keep animations on");
