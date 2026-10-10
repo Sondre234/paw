@@ -89,7 +89,7 @@ with harness.Compositor(compositor, CONFIG % "") as desktop:
     swipe("end", after=200)
     assert workspace() == 2 and gesture() == (("none", 0, "none", 0), None), gesture()
     desktop.wait_for(lambda: msg("get", "animations").split("\t")[0] == "0", "the slide done")
-    assert [r[9] for r in desktop.rows("windows") if r[1] == "1"] == ["Two"], desktop.rows("windows")
+    assert [w.title for w in desktop.windows() if w.focused] == ["Two"], desktop.windows()
     # Not half way, slowly: back to workspace 2.
     swipe("begin", "3", after=1000)
     swipe("update", "40", "0")
@@ -195,12 +195,12 @@ with harness.Compositor(compositor, CONFIG % "") as desktop:
     swipe("end", after=200)
     assert workspace() == 3
     msg("workspace", "1")
-    assert [r[9] for r in desktop.rows("windows") if r[1] == "1"] == ["One"], desktop.rows("windows")
+    assert [w.title for w in desktop.windows() if w.focused] == ["One"], desktop.windows()
     swipe("begin", "4", after=1000)
     swipe("update", "0", "150", after=100)
     swipe("end", after=200)
-    assert {r[9]: r[0] for r in desktop.rows("windows")} == {"One": "2", "Two": "2"}, \
-        desktop.rows("windows")
+    assert {w.title: w.workspace for w in desktop.windows()} == {"One": 2, "Two": 2}, \
+        desktop.windows()
 
     # Inverted, fingers going right count as a swipe left.
     desktop.reload(CONFIG % "gestures = { invert = true },")

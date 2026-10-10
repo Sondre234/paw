@@ -26,8 +26,8 @@ with harness.Compositor(compositor, CONFIG % ('"HEADLESS-1", "HEADLESS-2"', ""),
 
     def window():
         """x, y, and output of the only window."""
-        rows = desktop.rows("windows")
-        return (int(rows[0][4]), int(rows[0][5]), rows[0][10]) if len(rows) == 1 else None
+        windows = desktop.windows()
+        return (windows[0].x, windows[0].y, windows[0].output) if len(windows) == 1 else None
 
     desktop.spawn([probe, "--external-control"])
     desktop.wait_for(lambda: window() is not None and window()[2] == "HEADLESS-1",

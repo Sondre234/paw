@@ -20,8 +20,8 @@ with harness.Compositor(compositor, source) as desktop:
         """(workspace, focused, tiled, visible, sticky) of the only window."""
         rows = desktop.rows("windows")
         assert len(rows) == 1 and len(rows[0]) == 16, rows
-        row = rows[0]
-        return (int(row[0]), row[1] == "1", row[3] == "1", row[11] == "1", row[13] == "1")
+        w = harness.Window.parse(rows[0])
+        return (w.workspace, w.focused, w.tiled, w.visible, w.sticky)
 
     def workspace():
         return int(msg("get", "workspace"))

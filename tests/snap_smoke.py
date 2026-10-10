@@ -37,8 +37,7 @@ def session(desktop, layout):
 
     def windows():
         """By title: x, y, width, height, tiled, output."""
-        return {r[9]: (int(r[4]), int(r[5]), int(r[6]), int(r[7]), r[3] == "1", r[10])
-                for r in desktop.rows("windows")}
+        return {w.title: (*w.box, w.tiled, w.output) for w in desktop.windows()}
 
     def snap():
         """The zone, its slot and whether a window is being moved."""
