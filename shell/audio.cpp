@@ -218,13 +218,13 @@ void WindowSound::setWindows(QObject *object) {
         disconnect(connection);
     windowConnections_.clear();
     windows_ = windows;
+    pidRole_ = -1;
     if (windows) {
         // Which processes have windows changes as they come and go, or as one learns its
         // process; a new picture of one, many times a second, changes nothing here.
         auto pidChanged = [this](const QModelIndex &, const QModelIndex &,
                                  const QList<int> &roles) {
-            if (roles.isEmpty() ||
-                (windows_ && roles.contains(windows_->roleNames().key("pid", -1))))
+            if (roles.isEmpty() || roles.contains(pidRole()))
                 update();
         };
         windowConnections_ = {
@@ -235,6 +235,11 @@ void WindowSound::setWindows(QObject *object) {
     }
     Q_EMIT windowsChanged();
     update();
+}
+int WindowSound::pidRole() const {
+    if (pidRole_ < 0 && windows_)
+        pidRole_ = windows_->roleNames().key("pid", -1);
+    return pidRole_;
 }
 void WindowSound::setPid(int pid) {
     if (pid == pid_)
@@ -250,7 +255,7 @@ void WindowSound::update() {
     if (audio_ && pid_ > 1) {
         QSet<int> owners{pid_};
         if (windows_) {
-            const int role = windows_->roleNames().key("pid", -1);
+            const int role = pidRole();
             for (int row = 0; role >= 0 && row < windows_->rowCount(); ++row)
                 if (const int pid = windows_->data(windows_->index(row, 0), role).toInt(); pid > 1)
                     owners.insert(pid);

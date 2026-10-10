@@ -176,5 +176,8 @@ class WindowSound : public QObject {
     int volume_ = 0;
     // The window's streams, as last worked out.
     std::vector<uint32_t> streams_;
+    // The windows' `pid` role, -1 until they have one (a ListModel names its roles as rows come).
+    mutable int pidRole_ = -1;
+    int pidRole() const;
     void update();
 };
