@@ -1193,6 +1193,7 @@ void mirror_frame(struct sh_output *output);
 bool mirror_capture(struct sh_output *output, const char *path, char *error, size_t error_size);
 
 /* output.c */
+bool test_names_output(struct sh_output *output, const char *variable);
 bool output_named(const struct sh_output *output, const char *name);
 void output_description(const struct wlr_output *output, char *text, size_t size);
 bool output_key_matches(const char *key, const struct wlr_output *output);

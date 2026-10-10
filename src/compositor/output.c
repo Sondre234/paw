@@ -316,19 +316,27 @@ bool deep_format(uint32_t format) {
     return format == DRM_FORMAT_XRGB2101010 || format == DRM_FORMAT_XBGR2101010;
 }
 
-/* wlr_output_test_state, but for tests under --headless, whose outputs take any format: the
- * outputs PAW_TEST_REFUSE_10BIT names (separated by commas) refuse 10 bits, as a monitor or
- * a renderer without them does. */
-static bool test_render_format(struct sh_output *output, const struct wlr_output_state *state) {
-    const char *refused = getenv("PAW_TEST_REFUSE_10BIT");
-    if (refused && headless_backend(output->server) && deep_format(state->render_format)) {
-        size_t length = strlen(output->wlr_output->name);
-        for (const char *at = strstr(refused, output->wlr_output->name); at;
-             at = strstr(at + 1, output->wlr_output->name)) {
-            if ((at == refused || at[-1] == ',') && (at[length] == ',' || at[length] == '\0'))
-                return false;
-        }
+/* Whether the environment variable `variable` names `output` among the outputs it lists,
+ * separated by commas, under --headless: how tests make an output act as some hardware does. */
+bool test_names_output(struct sh_output *output, const char *variable) {
+    const char *names = getenv(variable);
+    if (!names || !headless_backend(output->server))
+        return false;
+    const char *name = output->wlr_output->name;
+    size_t length = strlen(name);
+    for (const char *at = strstr(names, name); at; at = strstr(at + 1, name)) {
+        if ((at == names || at[-1] == ',') && (at[length] == ',' || at[length] == '\0'))
+            return true;
     }
+    return false;
+}
+
+/* wlr_output_test_state, but for tests under --headless, whose outputs take any format: the
+ * outputs PAW_TEST_REFUSE_10BIT names refuse 10 bits, as a monitor or a renderer without them
+ * does. */
+static bool test_render_format(struct sh_output *output, const struct wlr_output_state *state) {
+    if (deep_format(state->render_format) && test_names_output(output, "PAW_TEST_REFUSE_10BIT"))
+        return false;
     return wlr_output_test_state(output->wlr_output, state);
 }
 

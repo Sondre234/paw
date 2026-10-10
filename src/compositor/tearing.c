@@ -108,19 +108,11 @@ static struct sh_toplevel *tearing_window(struct sh_output *output, const char *
 }
 
 /* The backend's test of a tearing page flip; under --headless, whose outputs take one, the
- * outputs PAW_TEST_REFUSE_TEARING names (separated by commas) refuse it, as a GPU or driver
- * without asynchronous flips does. */
+ * outputs PAW_TEST_REFUSE_TEARING names refuse it, as a GPU or driver without asynchronous flips
+ * does. */
 static bool test_tearing(struct sh_output *output, const struct wlr_output_state *state) {
-    const char *refused = getenv("PAW_TEST_REFUSE_TEARING");
-    if (refused && headless_backend(output->server)) {
-        const char *name = output->wlr_output->name;
-        size_t length = strlen(name);
-        for (const char *at = strstr(refused, name); at; at = strstr(at + 1, name)) {
-            if ((at == refused || at[-1] == ',') && (at[length] == ',' || at[length] == '\0'))
-                return false;
-        }
-    }
-    return wlr_output_test_state(output->wlr_output, state);
+    return !test_names_output(output, "PAW_TEST_REFUSE_TEARING") &&
+           wlr_output_test_state(output->wlr_output, state);
 }
 
 /* Commits `output`'s next frame with an asynchronous page flip while its fullscreen window may
