@@ -11,7 +11,7 @@ bool gradient_borders(struct sh_server *server) {
            sh_gradient_varies(&settings->border_inactive_gradient);
 }
 
-void remove_gradient_border(struct sh_toplevel *toplevel) {
+static void remove_gradient_border(struct sh_toplevel *toplevel) {
     if (toplevel->gradient)
         wlr_scene_node_destroy(&toplevel->gradient->node);
     toplevel->gradient = NULL;

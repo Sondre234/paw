@@ -173,8 +173,6 @@ struct sh_stats {
 };
 
 enum sh_night_mode { SH_NIGHT_AUTO, SH_NIGHT_OFF, SH_NIGHT_ON };
-#define NIGHT_LIGHT_TICK_MS 10000
-#define NIGHT_LIGHT_LUT 1024
 /* The overview (Expose). Thumbnails are scaled copies of the windows' scene nodes, kept live by
  * copying again when a window's fingerprint changes; see overview_scene.h. */
 enum {
@@ -898,25 +896,6 @@ struct sh_lock {
     struct wl_listener new_surface, unlock, destroy;
 };
 
-struct sh_lock_surface {
-    struct sh_server *server;
-    struct wlr_session_lock_surface_v1 *surface;
-    struct wlr_scene_tree *tree;
-    struct wl_listener map, destroy;
-};
-
-struct sh_inhibitor {
-    struct sh_server *server;
-    struct wl_listener destroy;
-};
-
-struct sh_popup {
-    struct sh_server *server;
-    struct wlr_xdg_popup *xdg_popup;
-    struct wl_listener commit;
-    struct wl_listener destroy;
-};
-
 struct sh_pointer {
     struct wl_list link;
     struct sh_server *server;
@@ -1111,7 +1090,6 @@ void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
 
 /* gradient_border.c */
 bool gradient_borders(struct sh_server *server);
-void remove_gradient_border(struct sh_toplevel *toplevel);
 void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, int radius,
                              double mix, float opacity);
 
@@ -1219,7 +1197,6 @@ void output_description(const struct wlr_output *output, char *text, size_t size
 bool output_key_matches(const char *key, const struct wlr_output *output);
 const struct sh_monitor *monitor_settings(const struct sh_settings *settings,
                                           const struct wlr_output *output);
-const struct sh_monitor *configured_monitor(struct sh_output *output);
 const struct sh_monitor *output_monitor(const struct sh_settings *settings,
                                        struct sh_output *output);
 void arrange_outputs(struct sh_server *server);
@@ -1274,8 +1251,6 @@ void overview_hot_corner(struct sh_server *server);
 bool overview_axis(struct sh_server *server, const struct wlr_pointer_axis_event *event);
 
 /* placement.c */
-struct sh_rect gap_area(const struct sh_settings *settings, struct sh_rect area,
-                        enum sh_action action);
 struct sh_rect tiling_area(struct sh_server *server, struct wlr_output *output, int workspace,
                            int joining, int *gap);
 bool frameless(struct sh_toplevel *toplevel, struct wlr_output *output);
@@ -1307,7 +1282,6 @@ bool power_action(enum sh_action action);
 bool power_start(struct sh_server *server, enum sh_action action, char *error,
                  size_t error_size);
 void power_run(struct sh_server *server, enum sh_action action);
-const char *power_action_name(enum sh_action action);
 bool power_describe(struct sh_server *server, size_t index, const char **name,
                     const char **status);
 const char *power_pending(struct sh_server *server, char *text, size_t size);

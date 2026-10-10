@@ -3,6 +3,13 @@
  * opening new windows by the window rules, and maximize, fullscreen and minimize. */
 #include "server.h"
 
+struct sh_popup {
+    struct sh_server *server;
+    struct wlr_xdg_popup *xdg_popup;
+    struct wl_listener commit;
+    struct wl_listener destroy;
+};
+
 static void set_fullscreen_focus(struct sh_toplevel *toplevel, bool fullscreen, bool focus);
 static void toplevel_request_minimize(struct wl_listener *listener, void *data);
 

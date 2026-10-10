@@ -3,6 +3,9 @@
  * the magnifier, and hot corners. */
 #include "server.h"
 
+#define NIGHT_LIGHT_TICK_MS 10000
+#define NIGHT_LIGHT_LUT 1024
+
 /* Asks every output for a frame, so that fades keep advancing while nothing else changes. */
 static void schedule_frames(struct sh_server *server) {
     struct sh_output *output;

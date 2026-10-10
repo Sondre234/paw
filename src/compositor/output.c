@@ -129,7 +129,7 @@ const struct sh_monitor *monitor_settings(const struct sh_settings *settings,
 /* The settings configured for `output`: its outputs.monitors entry, or what the display settings
  * window kept for this monitor (display_settings.c) laid over it, all but `tiling`, which the
  * window leaves to the configuration. NULL for neither. */
-const struct sh_monitor *configured_monitor(struct sh_output *output) {
+static const struct sh_monitor *configured_monitor(struct sh_output *output) {
     const struct sh_monitor *monitor =
         monitor_settings(server_settings(output->server), output->wlr_output);
     const struct sh_output_saved *saved = saved_output(output);
