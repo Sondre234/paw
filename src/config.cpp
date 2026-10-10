@@ -89,12 +89,6 @@ void table(lua_State *L, int index, const char *label) {
         fail(std::string(label) + " must be a table, not " + kind, last_name(label));
     }
 }
-std::string join(const std::vector<std::string> &names) {
-    std::string result;
-    for (const auto &name : names)
-        result += (result.empty() ? "" : ", ") + name;
-    return result;
-}
 [[noreturn]] void unknown(const std::string &what, const std::string &name,
                           const std::vector<std::string> &valid, const std::string &leaf = "",
                           const std::string &where = "") {
@@ -1079,10 +1073,7 @@ void read_effects(lua_State *L, Config &config) {
                 if (action == SH_SPAWN && words.size() < 2)
                     fail(label + " needs a program after spawn", corners[i]);
                 if (action_takes_workspace(action)) {
-                    std::string name;
-                    for (size_t w = 1; w < words.size(); ++w)
-                        name += (w > 1 ? " " : "") + words[w];
-                    if (!config.workspace_number(name))
+                    if (!config.workspace_number(join(std::span(words).subspan(1), " ")))
                         fail(label + " needs a workspace number or name after " + words[0],
                              corners[i]);
                 }
@@ -1135,10 +1126,7 @@ void read_gestures(lua_State *L, Config &config) {
                 if (swipe.action == SH_SPAWN && words.size() < 2)
                     fail("gestures.swipes action needs a program after spawn", "action");
                 if (action_takes_workspace(swipe.action)) {
-                    std::string name;
-                    for (size_t w = 1; w < words.size(); ++w)
-                        name += (w > 1 ? " " : "") + words[w];
-                    if (!config.workspace_number(name))
+                    if (!config.workspace_number(join(std::span(words).subspan(1), " ")))
                         fail("gestures.swipes action needs a workspace number or name after " +
                                  words[0],
                              "action");
@@ -1887,6 +1875,13 @@ std::vector<std::string> config_action_names() {
     for (const auto &entry : action_table)
         names.emplace_back(entry.first);
     return names;
+}
+
+std::string join(std::span<const std::string> words, std::string_view separator) {
+    std::string result;
+    for (size_t i = 0; i < words.size(); ++i)
+        result += (i ? std::string(separator) : "") + words[i];
+    return result;
 }
 
 sh_action parse_action(const std::string &name) {

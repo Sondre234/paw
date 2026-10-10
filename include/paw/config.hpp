@@ -7,7 +7,9 @@
 #include <filesystem>
 #include <optional>
 #include <regex>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace paw {
@@ -449,6 +451,8 @@ sh_screenshot_mode parse_screenshot_mode(const std::string &name);
 sh_display_mode parse_display_mode(const std::string &name);
 // switch_layout's "next" (0), "prev" (-1), or a layout's number from 1; throws for others.
 int parse_layout_choice(const std::string &word);
+// `words` with `separator` between them.
+std::string join(std::span<const std::string> words, std::string_view separator = ", ");
 
 // Parse into a fresh value; callers replace the active configuration only on success.
 // A configuration's `theme = "FILE"` (relative to `directory`) supplies every setting it omits.

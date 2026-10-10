@@ -16,6 +16,7 @@
 #include <optional>
 #include <set>
 #include <signal.h>
+#include <span>
 #include <spawn.h>
 #include <sstream>
 #include <stdexcept>
@@ -410,37 +411,29 @@ struct Runtime {
                 self.program = {words.begin() + 1, words.end()};
                 return action;
             }
+            // The words after the action's name, for an argument that may hold spaces.
+            auto rest = paw::join(std::span(words).subspan(1), " ");
             if (paw::action_takes_workspace(action)) {
-                // A number, or a name from layout.workspace_names (which may hold spaces).
-                std::string name;
-                for (std::size_t i = 1; i < words.size(); ++i)
-                    name += (i > 1 ? " " : "") + words[i];
-                int number = self.config.workspace_number(name);
+                // A number, or a name from layout.workspace_names.
+                int number = self.config.workspace_number(rest);
                 if (!number)
                     throw std::runtime_error(words[0] + " needs a workspace from 1 to " +
                                              std::to_string(self.config.settings.workspaces) +
                                              ", or a workspace name");
                 *argument = number;
             } else if (paw::action_takes_output(action)) {
-                // A description may hold spaces.
-                std::string target;
-                for (std::size_t i = 1; i < words.size(); ++i)
-                    target += (i > 1 ? " " : "") + words[i];
                 if (words.size() == 1 && action == SH_SWAP_WORKSPACES)
-                    target = "next";
-                if (!paw::valid_output_target(target))
+                    rest = "next";
+                if (!paw::valid_output_target(rest))
                     throw std::runtime_error(words[0] + " takes one output: left, right, next, "
                                                         "prev, or a connector name");
-                self.target = target;
+                self.target = rest;
             } else if (paw::action_takes_display(action)) {
-                // One monitor, or every one without a name; a description may hold spaces.
-                std::string target;
-                for (std::size_t i = 1; i < words.size(); ++i)
-                    target += (i > 1 ? " " : "") + words[i];
-                if (!target.empty() && !paw::valid_output_target(target))
+                // One monitor, or every one without a name.
+                if (!rest.empty() && !paw::valid_output_target(rest))
                     throw std::runtime_error(words[0] + " takes a monitor's connector name, or "
                                                         "none for every monitor");
-                self.target = target;
+                self.target = rest;
             } else if (action == SH_DISPLAY_MODE) {
                 if (words.size() > 2)
                     throw std::runtime_error("display_mode takes one mode: extend, duplicate, "
@@ -474,9 +467,7 @@ struct Runtime {
             } else if (action == SH_MODE) {
                 int number = words.size() == 2 ? self.config.mode_number(words[1]) : -1;
                 if (number < 0) {
-                    std::string names;
-                    for (const auto &name : self.config.mode_names())
-                        names += (names.empty() ? "" : ", ") + name;
+                    auto names = paw::join(self.config.mode_names());
                     throw std::runtime_error(words.size() == 2 ? "no mode " + words[1] +
                                                                      "; the modes are " + names
                                                                : "mode takes a mode's name: " +
@@ -531,10 +522,8 @@ struct Runtime {
                 index = (index + (name == "next" ? 1 : names.size() - 1)) % names.size();
             name = names[index];
         } else if (std::find(names.begin(), names.end(), name) == names.end()) {
-            std::string list;
-            for (const auto &known : names)
-                list += (list.empty() ? "" : ", ") + known;
-            throw std::runtime_error("no profile " + name + "; the profiles are " + list);
+            throw std::runtime_error("no profile " + name + "; the profiles are " +
+                                     paw::join(names));
         }
         paw::save_profile(name);
         return SH_RELOAD;
@@ -778,9 +767,7 @@ struct Runtime {
                 note_started({entry.name.substr(0, entry.name.size() - 8)});
                 if (!entry.wm_class.empty())
                     note_started({entry.wm_class});
-                detail.clear();
-                for (const auto &argument : entry.command)
-                    detail += (detail.empty() ? "" : " ") + argument;
+                detail = paw::join(entry.command, " ");
                 ++started;
             } else {
                 state = "failed";
