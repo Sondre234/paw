@@ -237,7 +237,8 @@ int main(int argc, char **argv) {
                     overlays.emplace_back(screen, loaded(std::move(view)));
                 };
                 add(std::make_unique<SwitcherView>(controller, screen));
-                add(std::make_unique<PaletteView>(controller, screen));
+                add(std::make_unique<PickerView>(controller, screen, "palette", "Palette.qml",
+                                                 controller.palette()));
                 add(std::make_unique<PickerView>(controller, screen, "clipboard",
                                                  "ClipboardPicker.qml", controller.clipboard()));
                 add(std::make_unique<PickerView>(controller, screen, "emoji", "EmojiPicker.qml",

@@ -175,19 +175,6 @@ class OverlayView : public QQuickView {
     void holdKeyboard(bool hold);
 };
 
-// The command palette's overlay on one output: a search box near the top, holding the keyboard
-// while the palette is open there.
-class PaletteView : public OverlayView {
-    Q_OBJECT
-  public:
-    PaletteView(ShellController &controller, QScreen *screen);
-
-  private:
-    bool wasActive_ = false;
-    void update();
-    void place();
-};
-
 // The confirmation of power off, restart and log out on one output: a dimmed cover with the
 // dialog in its middle, holding the keyboard while it waits.
 class PowerView : public OverlayView {

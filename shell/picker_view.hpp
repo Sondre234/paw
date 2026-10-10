@@ -2,8 +2,8 @@
 #pragma once
 #include "view.hpp"
 
-// The overlay of a picker on one output, the clipboard history's or the emoji picker's: a card near
-// the top, as the command palette's, holding the keyboard while its model is open there. The model
+// The overlay of a picker on one output, the command palette's, the clipboard history's or the
+// emoji picker's: a card near the top, holding the keyboard while its model is open there. The model
 // has an `output` property (the output it is open on, empty while closed), an openChanged() signal
 // and close(), and is told keyboardReleased() if it has it once the overlay, closing, has given
 // the keyboard back; the QML root has `screenSize`, `shown`, `progress` and reset(), as Palette.qml

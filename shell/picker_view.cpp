@@ -55,7 +55,7 @@ PickerView::PickerView(ShellController &controller, QScreen *screen, const char 
     connect(model_, SIGNAL(openChanged()), this, SLOT(update()));
 }
 
-// Centred, below the bars as the palette is.
+// Centred, below the bars by ShellController::paletteDrop.
 void PickerView::place() {
 #if PAW_LAYER_SHELL
     if (layer_)

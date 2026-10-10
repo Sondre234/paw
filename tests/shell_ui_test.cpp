@@ -3574,7 +3574,8 @@ ListModel {
     }
     // The command palette: one search over actions, sessions, workspaces, windows and apps.
     {
-        PaletteView paletteView(controller, app.primaryScreen());
+        PickerView paletteView(controller, app.primaryScreen(), "palette", "Palette.qml",
+                               controller.palette());
         if (paletteView.status() != QQuickView::Ready) {
             for (const auto &error : paletteView.errors())
                 std::cerr << error.toString().toStdString() << '\n';

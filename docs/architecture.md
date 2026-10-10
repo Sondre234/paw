@@ -645,7 +645,7 @@ in `aspects` once the picture shows (16:10 until then), and `arrange` lays the c
 at the largest scale, from 1 down to 0.6 in steps of 0.05, at which they fit in the room the
 switcher has; past that a `Flickable` scrolls to keep the selected card in sight. As the cards
 may widen once the surface shows, `SwitcherView` keeps the surface as large as its root whatever
-size the compositor last configured, as `PaletteView` does.
+size the compositor last configured, as a `PickerView` does.
 
 Every listed window's picture is live with `shell.liveThumbnails`, as on Windows 11: a window
 that does not redraw costs nothing, as the compositor makes a frame only once it has changed.
@@ -757,7 +757,7 @@ source is what is copied (`restore()`), the selection announcing it is not read;
 copying cancels that source first. A source hands each program pasting the bytes it asks for with
 non-blocking writes, SIGPIPE held off. `locked on|off` in the control socket's state calls
 `setLocked`, and `clipboard OUTPUT` from the `clipboard_history` action toggles `output`, which a
-`PickerView` (`picker_view.cpp`) follows: an `OverlayView` on every output, like the palette's,
+`PickerView` (`picker_view.cpp`) follows: an `OverlayView` on every output, as the palette's is,
 showing `ClipboardPicker.qml`, which filters the entries; `image://clipboard/ID/SERIAL`
 (`clipboard_images.hpp`) serves their pictures. Its file is touched only once the history is the
 session's (connected) or was given a path, so tests and previews that make a controller never

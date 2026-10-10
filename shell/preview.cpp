@@ -742,7 +742,7 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
     surface_->setSource(QUrl("qrc:/shell/PawShell/" + file));
     if (surface_->status() != QQuickView::Ready)
         return false;
-    // As PaletteView does before it shows, and PowerView once it shows.
+    // As the palette's PickerView does before it shows, and PowerView once it shows.
     if (file == "Palette.qml")
         QMetaObject::invokeMethod(surface_->rootObject(), "reset");
     surface_->show();
@@ -774,7 +774,7 @@ QImage PreviewData::withSurface(QImage desktop) const {
                     controller_.osd()->top() ? 48 : output.height() - controller_.osdBottom() - size.height());
     } else if (surfaceName_.startsWith("palette") || surfaceName_ == "clipboard" ||
                surfaceName_ == "emoji") {
-        // PaletteView: centred, below the bars by ShellController::paletteDrop.
+        // PickerView: centred, below the bars by ShellController::paletteDrop.
         at = QPoint(usable.left() + (usable.width() - size.width()) / 2,
                     usable.top() + controller_.paletteDrop(output.height()));
     } else if (surfaceName_ == "display-mode" || surfaceName_.startsWith("display-settings")) {
