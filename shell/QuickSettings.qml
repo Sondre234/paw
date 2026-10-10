@@ -149,9 +149,8 @@ PopupCard {
                     objectName: "quickTile:wifi"
                     visible: quick.widgets.network === "quick" && quick.wifiManaged
                     Layout.fillWidth: true; Layout.preferredWidth: 1
-                    readonly property int strength: quick.wifi.strength
-                    glyph: !quick.wifi.enabled ? "wifi-off" : quick.wifi.ssid === "" || strength >= 70 ? "wifi"
-                         : strength >= 45 ? "wifi-high" : strength >= 20 ? "wifi-low" : "wifi-zero"
+                    glyph: !quick.wifi.enabled ? "wifi-off"
+                         : Theme.wifiIcon(quick.wifi.ssid === "" ? 100 : quick.wifi.strength)
                     label: "Wi-Fi"
                     detail: !quick.wifi.hardwareEnabled ? "Off by a switch" : !quick.wifi.enabled ? "Off"
                           : quick.wifi.connecting !== "" ? "Connecting…"

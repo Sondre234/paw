@@ -36,7 +36,7 @@ FlatButton {
             anchors.centerIn: parent
             readonly property int strength: network.managed && network.wifi.ssid !== "" ? network.wifi.strength : 100
             name: network.kind === "ethernet" ? "ethernet-port" : network.linkDown ? "wifi-off"
-                : strength >= 70 ? "wifi" : strength >= 45 ? "wifi-high" : strength >= 20 ? "wifi-low" : "wifi-zero"
+                : Theme.wifiIcon(strength)
             color: network.tint
         }
     }

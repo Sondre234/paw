@@ -37,10 +37,6 @@ Column {
             list.rejected = ssid
         }
     }
-    // Ascending bars by signal, as on the bar.
-    function glyph(strength) {
-        return strength >= 70 ? "wifi" : strength >= 45 ? "wifi-high" : strength >= 20 ? "wifi-low" : "wifi-zero"
-    }
 
     // The radio off, or nothing found.
     Text {
@@ -94,7 +90,7 @@ Column {
                         Layout.preferredWidth: Theme.iconSize; Layout.preferredHeight: Theme.iconSize
                         Icon {
                             anchors.centerIn: parent
-                            name: list.glyph(entry.strength)
+                            name: Theme.wifiIcon(entry.strength)
                             color: entry.active ? Theme.accent : Theme.text
                         }
                         Icon {
