@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Effects
 import QtQuick.Layouts
 
 // The polkit authentication dialog, over a dimmed screen: what a program asks to do (polkit's
@@ -73,22 +72,7 @@ Item {
             NumberAnimation { target: shift; property: "x"; to: -Theme.spacingS; duration: Theme.duration(70) }
             NumberAnimation { target: shift; property: "x"; to: 0; duration: Theme.duration(50) }
         }
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.radiusLarge
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.radiusLarge
-            color: Theme.surface
-            border.color: Theme.border
-        }
+        CardFrame { color: Theme.surface; outline: Theme.border }
         MouseArea { anchors.fill: parent }
         ColumnLayout {
             id: column

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Effects
 
 // The clipboard history (shell.clipboard; the clipboard_history action, Super + Shift + V), as
 // Windows' Win + V shows it: what was copied lately, the pinned entries first and each part
@@ -91,29 +90,7 @@ Item {
         opacity: root.progress
         scale: 0.97 + 0.03 * root.progress
         transform: Translate { y: (root.progress - 1) * Theme.spacingM }
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.spotlightRadius
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.spotlightRadius
-            color: Theme.popupSurface
-            border.color: Theme.popupOutline
-            Rectangle {
-                visible: Theme.popupInnerEdge.a > 0
-                anchors.fill: parent; anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.color: Theme.popupInnerEdge
-            }
-        }
+        CardFrame { radius: Theme.spotlightRadius; innerEdge: true }
 
         SearchInput {
             id: search

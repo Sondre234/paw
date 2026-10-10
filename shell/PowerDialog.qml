@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 import QtQuick.Layouts
 
 // The confirmation of power off, restart and log out, over a dimmed screen: the action goes
@@ -61,22 +60,7 @@ Item {
         scale: 0.94 + 0.06 * root.progress
         width: Math.min(420, root.width - 2 * Theme.spacingXL)
         height: column.implicitHeight + 2 * column.anchors.margins
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.radiusLarge
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.radiusLarge
-            color: Theme.surface
-            border.color: Theme.border
-        }
+        CardFrame { color: Theme.surface; outline: Theme.border }
         // A click on the dialog itself gives nothing up.
         MouseArea { anchors.fill: parent }
         ColumnLayout {

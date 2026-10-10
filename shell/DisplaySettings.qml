@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Effects
 import QtQuick.Layouts
 
 // The display settings window, as Windows' Display settings and KDE's Display Configuration: the
@@ -243,22 +242,7 @@ Item {
         height: Math.min(column.implicitHeight + 2 * Theme.spacingXL, root.screenSize.height - 2 * root.margin)
         opacity: root.progress
         scale: 0.96 + 0.04 * root.progress
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.radiusLarge
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.radiusLarge
-            color: Theme.popupSurface
-            border.color: Theme.popupOutline
-        }
+        CardFrame {}
         MouseArea { anchors.fill: parent; onPressed: root.forceActiveFocus() }
         ColumnLayout {
             id: column

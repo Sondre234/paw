@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 
 // The display mode popup, as Windows' Win+P: the four ways to use the monitors side by side, the
 // one the compositor's stepping shows selected and the one in force marked. A click takes one at
@@ -34,22 +33,7 @@ Item {
         height: heading.height + tiles.height + 2 * Theme.spacingL + Theme.spacingM
         opacity: popup.progress
         scale: Theme.growFrom + (1 - Theme.growFrom) * popup.progress
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.radiusLarge
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.radiusLarge
-            color: Theme.popupSurface
-            border.color: Theme.popupOutline
-        }
+        CardFrame {}
         Text {
             id: heading
             x: Theme.spacingL + Theme.spacingS; y: Theme.spacingL

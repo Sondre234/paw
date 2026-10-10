@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 
 // A popup's card: Theme's opaque surface with an outline and rounded corners, and a shadow under
 // it when the GPU draws (Theme.effects). Setting `open` fades it in with a few pixels' slide from
@@ -141,29 +140,12 @@ Item {
         y: card.placedSide === Qt.TopEdge ? distance : card.placedSide === Qt.BottomEdge ? -distance : 0
     }
 
-    Loader {
-        anchors.fill: parent
-        active: Theme.effects && card.framed
-        sourceComponent: RectangularShadow {
-            radius: card.radius
-            blur: Theme.shadowBlur
-            offset: Qt.vector2d(0, Theme.shadowOffset)
-            color: Theme.shadow
-        }
-    }
-    Rectangle {
+    CardFrame {
         visible: card.framed
-        anchors.fill: parent
-        color: card.color
+        shadow: card.framed
         radius: card.radius
-        border.color: Theme.popupOutline
-        Rectangle {
-            visible: Theme.popupInnerEdge.a > 0 && card.color.a > 0
-            anchors.fill: parent; anchors.margins: 1
-            radius: card.radius - 1
-            color: "transparent"
-            border.color: Theme.popupInnerEdge
-        }
+        color: card.color
+        innerEdge: true
     }
     MouseArea {
         anchors.fill: parent

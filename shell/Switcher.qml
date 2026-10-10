@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 
 // The window switcher: every window's icon and title in a grid, most recently focused first,
 // with the selected one's full title and place below, on a card with room around it for its
@@ -61,22 +60,7 @@ Item {
         scale: 0.94 + 0.06 * switcher.progress
         width: switcher.contentWidth + 2 * switcher.padding
         height: switcher.contentHeight + 2 * switcher.padding + caption.height + Theme.spacingM
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.switcherRadius
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.switcherRadius
-            color: Theme.switcherSurface
-            border.color: Theme.popupOutline
-        }
+        CardFrame { radius: Theme.switcherRadius; color: Theme.switcherSurface }
         GridView {
             id: grid
             objectName: "switcherGrid"

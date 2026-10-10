@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 import QtQuick.Layouts
 
 // The on-screen display: a pill with an icon, a label and a level, rising into view from the edge
@@ -32,22 +31,7 @@ Item {
         opacity: osd.progress
         scale: 0.94 + 0.06 * osd.progress
         transform: Translate { y: (1 - osd.progress) * Theme.spacingM * (osd.model.top ? -1 : 1) }
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: pill.height / 2
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: height / 2
-            color: Theme.surface
-            border.color: Theme.border
-        }
+        CardFrame { radius: height / 2; color: Theme.surface; outline: Theme.border }
         RowLayout {
             id: row
             anchors.fill: parent
