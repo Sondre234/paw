@@ -41,10 +41,6 @@ std::string number(double value) {
         result += ".0"; // keep it a float: paw checks integers strictly
     return result;
 }
-std::string lower(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), ::tolower);
-    return text;
-}
 
 struct Entry {
     std::vector<std::string> path;
