@@ -501,6 +501,7 @@ what was there.
 | `TextButton.qml` | A button that is only its text in the accent colour, as Today and Clear all over a card's list. |
 | `CloseButton.qml` | The round cross that closes a card, a notification or a window in a stack's list, or clears the search. |
 | `SearchInput.qml` | The start menu's and the command palette's search field. |
+| `TextEntry.qml` | A field to type into in a list or a dialog: a password, a PIN, a scale. |
 | `EmptyState.qml` | What a list says while it has nothing to show: an icon, a line and a hint. |
 | `PopupCard.qml` | A popup's card: surface, outline, corners, a shadow through the GPU, the open and close animation, and its place beside what it belongs to. |
 | `CardFrame.qml` | A card's shadow, surface, outline and the macOS style's inner edge, beneath what it holds: a popup's, an overlay's, a notification's. |

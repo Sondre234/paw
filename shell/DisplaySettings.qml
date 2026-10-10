@@ -491,24 +491,14 @@ Item {
                         }
                     }
                     // A scale of one's own, in per cent, taken with Enter or as the field is left.
-                    TextField {
+                    TextEntry {
                         id: customScale
                         objectName: "displayScaleCustom"
                         visible: false
                         Layout.fillWidth: true
                         implicitHeight: Theme.buttonHeight
                         validator: IntValidator { bottom: 25; top: 1000 }
-                        color: Theme.text
-                        selectionColor: Theme.accent
-                        selectedTextColor: Theme.textOnAccent
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        verticalAlignment: TextInput.AlignVCenter
-                        leftPadding: Theme.spacingM; rightPadding: Theme.spacingM
-                        background: Rectangle {
-                            radius: Theme.radiusSmall
-                            color: Theme.fieldFill
-                            border.color: customScale.activeFocus ? Theme.accent : Theme.border
-                        }
+                        font.pixelSize: Theme.fontSizeSmall
                         function take() {
                             if (!visible)
                                 return

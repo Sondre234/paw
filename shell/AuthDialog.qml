@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 // The polkit authentication dialog, over a dimmed screen: what a program asks to do (polkit's
@@ -201,27 +200,16 @@ Item {
                     }
                 }
             }
-            TextField {
+            TextEntry {
                 id: field
                 objectName: "authField"
                 Layout.fillWidth: true
-                implicitHeight: Theme.fieldHeight
                 leftPadding: Theme.spacingL; rightPadding: Theme.spacingL
+                radius: Theme.macos ? Theme.radiusSmall + 1 : Theme.radiusSmall
                 enabled: root.auth.open && !root.auth.checking
                 echoMode: root.auth.echo ? TextInput.Normal : TextInput.Password
                 placeholderText: root.auth.prompt
-                color: Theme.text
-                placeholderTextColor: Theme.textMuted
-                selectionColor: Theme.accent
-                selectedTextColor: Theme.textOnAccent
-                verticalAlignment: TextInput.AlignVCenter
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
                 onAccepted: root.submit()
-                background: Rectangle {
-                    radius: Theme.macos ? Theme.radiusSmall + 1 : Theme.radiusSmall
-                    color: Theme.fieldFill
-                    border.color: field.activeFocus ? Theme.accent : Theme.border
-                }
             }
             // What went wrong, else what the helper said, else that it is checking.
             Text {

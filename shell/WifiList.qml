@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 // The Wi-Fi networks in range, as Windows 11 lists them under Quick Settings' tile: each with its
@@ -135,23 +134,14 @@ Column {
                 visible: entry.open
                 width: parent.width
                 spacing: Theme.spacingS
-                TextField {
+                TextEntry {
                     id: password
                     objectName: "wifiPassword"
                     visible: entry.asksPassword
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.spacingM; Layout.rightMargin: Theme.spacingM
-                    implicitHeight: Theme.fieldHeight
                     echoMode: TextInput.Password
                     placeholderText: "Network security key"
-                    placeholderTextColor: Theme.textMuted
-                    color: Theme.text
-                    selectionColor: Theme.accent
-                    selectedTextColor: Theme.textOnAccent
-                    selectByMouse: true
-                    leftPadding: Theme.spacingM; rightPadding: Theme.spacingM
-                    verticalAlignment: TextInput.AlignVCenter
-                    font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily
                     Accessible.name: "Password for " + entry.ssid
                     onVisibleChanged: {
                         text = ""
@@ -160,11 +150,6 @@ Column {
                     }
                     onAccepted: entry.connectNow()
                     Keys.onEscapePressed: list.selected = ""
-                    background: Rectangle {
-                        radius: Theme.radiusSmall
-                        color: Theme.fieldFill
-                        border.color: password.activeFocus ? Theme.accent : Theme.border
-                    }
                 }
                 Text {
                     objectName: "wifiPasswordRefused"
