@@ -135,8 +135,7 @@ static struct sh_output *named_source(struct sh_server *server, struct sh_output
  * the layout is moved to start at 0, 0 (sh_output.x and y), a mirror at its source's. */
 static void shown_settings(struct sh_server *server, struct sh_output *output,
                            struct sh_output_saved *shown) {
-    const struct sh_settings *settings = server_settings(server);
-    const struct sh_monitor *monitor = output_monitor(settings, output);
+    const struct sh_monitor *monitor = output_monitor(output);
     struct wlr_output *o = output->wlr_output;
     memset(shown, 0, sizeof(*shown));
     struct sh_monitor *m = &shown->monitor;
@@ -170,7 +169,7 @@ static void shown_settings(struct sh_server *server, struct sh_output *output,
         snprintf(m->mirror, sizeof(m->mirror), "%s", source->wlr_output->name);
     struct sh_output *placed = source ? source : output;
     const struct sh_monitor *placed_monitor =
-        placed == output ? monitor : output_monitor(settings, placed);
+        placed == output ? monitor : output_monitor(placed);
     m->positioned = true;
     if (!placed->disabled)
         m->x = placed->x, m->y = placed->y;
@@ -196,7 +195,7 @@ static void format_mode(char *text, size_t size, int width, int height, int refr
  * modes it offers. */
 static void describe_monitor(struct sh_server *server, int fd, struct sh_output *output) {
     struct wlr_output *o = output->wlr_output;
-    const struct sh_monitor *monitor = output_monitor(server_settings(server), output);
+    const struct sh_monitor *monitor = output_monitor(output);
     struct sh_output_saved shown;
     shown_settings(server, output, &shown);
     const struct sh_monitor *m = &shown.monitor;
@@ -273,7 +272,7 @@ void describe_monitors_trial(struct sh_server *server, int fd, const char *argum
  * scale and transform they ask for. One the lid holds off, or one turned off, takes them as it
  * comes on, and turning one off cannot fail. */
 static bool took_settings(struct sh_server *server, struct sh_output *output) {
-    const struct sh_monitor *m = output_monitor(server_settings(server), output);
+    const struct sh_monitor *m = output_monitor(output);
     struct wlr_output *o = output->wlr_output;
     if ((m && !m->enabled) || lid_holds_off(server, output) || output->powered_off)
         return true;

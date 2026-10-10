@@ -38,7 +38,7 @@ struct sh_mirror {
  * connector name, else the first a "desc:" key matches. A source that mirrors another itself
  * lends its own. NULL for none. */
 struct sh_output *mirror_source(struct sh_server *server, struct sh_output *output) {
-    const struct sh_monitor *monitor = output_monitor(server_settings(server), output);
+    const struct sh_monitor *monitor = output_monitor(output);
     if (!monitor || !monitor->enabled || !monitor->mirror[0])
         return NULL;
     struct sh_output *named = NULL, *candidate;

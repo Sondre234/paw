@@ -103,12 +103,11 @@ static bool set_mode(struct sh_server *server, enum sh_display_mode mode, char *
         snprintf(error, error_size, "%s needs a second monitor", mode_names[mode]);
         return false;
     }
-    const struct sh_settings *settings = server_settings(server);
     struct sh_output *main = main_output(server), *output;
     struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
     for (size_t i = 0; i < 2; ++i) {
         wl_list_for_each(output, lists[i], link) {
-            const struct sh_monitor *in_force = output_monitor(settings, output);
+            const struct sh_monitor *in_force = output_monitor(output);
             struct sh_monitor monitor;
             if (in_force) {
                 monitor = *in_force;

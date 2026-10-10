@@ -1197,8 +1197,7 @@ void output_description(const struct wlr_output *output, char *text, size_t size
 bool output_key_matches(const char *key, const struct wlr_output *output);
 const struct sh_monitor *monitor_settings(const struct sh_settings *settings,
                                           const struct wlr_output *output);
-const struct sh_monitor *output_monitor(const struct sh_settings *settings,
-                                       struct sh_output *output);
+const struct sh_monitor *output_monitor(struct sh_output *output);
 void arrange_outputs(struct sh_server *server);
 void configure_output(struct sh_server *server, struct sh_output *output);
 void apply_output_settings(struct sh_server *server);

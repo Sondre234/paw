@@ -142,8 +142,7 @@ static const struct sh_monitor *configured_monitor(struct sh_output *output) {
 
 /* The monitor settings in force for `output`: what an output-management client or display_mode
  * applied, else what is configured. */
-const struct sh_monitor *output_monitor(const struct sh_settings *settings,
-                                       struct sh_output *output) {
+const struct sh_monitor *output_monitor(struct sh_output *output) {
     return output->has_override ? &output->override : configured_monitor(output);
 }
 
@@ -228,7 +227,7 @@ void arrange_outputs(struct sh_server *server) {
     int x = 0;
     bool positioned = false;
     wl_list_for_each(output, &server->outputs, link) {
-        const struct sh_monitor *monitor = output_monitor(settings, output);
+        const struct sh_monitor *monitor = output_monitor(output);
         if (monitor == NULL || !monitor->positioned)
             continue;
         int width, height;
@@ -240,7 +239,7 @@ void arrange_outputs(struct sh_server *server) {
     }
     for (int i = 0; i <= settings->output_count; ++i) {
         wl_list_for_each_reverse(output, &server->outputs, link) {
-            const struct sh_monitor *monitor = output_monitor(settings, output);
+            const struct sh_monitor *monitor = output_monitor(output);
             if ((monitor != NULL && monitor->positioned) ||
                 (i < settings->output_count ? !output_named(output, settings->output_order[i])
                                             : output_listed(settings, output)))
@@ -404,7 +403,7 @@ static void destroy_output_layers(struct sh_server *server, struct wlr_output *w
  * needlessly. The last enabled output stays on. Callers arrange the outputs afterwards. */
 void configure_output(struct sh_server *server, struct sh_output *output) {
     struct wlr_output *wlr_output = output->wlr_output;
-    const struct sh_monitor *monitor = output_monitor(server_settings(server), output);
+    const struct sh_monitor *monitor = output_monitor(output);
     // A laptop's panel with its lid closed stays dark while another monitor shows the desktop.
     bool by_lid = lid_holds_off(server, output);
     bool enable = (monitor == NULL || monitor->enabled) && !by_lid;
