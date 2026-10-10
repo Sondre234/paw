@@ -8,7 +8,6 @@ import re
 import socket
 import subprocess
 import sys
-import time
 
 import harness
 
@@ -99,8 +98,7 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
     # Asking again changes nothing; a focused window is never urgent.
     ask(a)
     ask(b)
-    time.sleep(.3)
-    assert urgent() == [("urgent-a", 1, False)]
+    desktop.stays(lambda: urgent() == [("urgent-a", 1, False)], "asking again changed it")
 
     # The window that waited longest is first, and focus_urgent takes them in order.
     c = start("urgent-c")
@@ -171,8 +169,8 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
     desktop.reload(settings("ignore"))
     wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") == 2, "second reload")
     ask(b)
-    time.sleep(.4)
-    assert urgent() == [] and focused() == ["urgent-c"]
+    desktop.stays(lambda: urgent() == [] and focused() == ["urgent-c"],
+                  "an ignored request did something", duration=.4)
     desktop.reload(settings("urgent"))
     wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") == 3, "third reload")
     ask(b)
