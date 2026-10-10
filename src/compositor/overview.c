@@ -519,6 +519,14 @@ static void overview_lower_fullscreen(struct sh_server *server, bool lower) {
     }
 }
 
+/* How long a glide over `fraction` of the way takes, in milliseconds: 0 without animations. */
+static int glide_span(const struct sh_settings *settings, double fraction) {
+    if (!settings->overview_animation || !settings->animations)
+        return 0;
+    double speed = settings->animation_speed > 0 ? settings->animation_speed : 1;
+    return (int)(settings->overview_duration * fraction / speed);
+}
+
 /* Opens the overview on `output`, or Snap Assist when `assist` is set (and `area` its slot);
  * false when there is nothing for Snap Assist to offer. */
 static bool overview_begin(struct sh_server *server, struct wlr_output *output, bool assist,
@@ -581,9 +589,7 @@ static bool overview_begin(struct sh_server *server, struct wlr_output *output, 
     overview->dirty = false;
     overview->from = overview->progress = 0;
     overview->to = 1;
-    overview->span = settings->overview_animation && settings->animations
-                         ? (int)(settings->overview_duration / (settings->animation_speed > 0 ? settings->animation_speed : 1))
-                         : 0;
+    overview->span = glide_span(settings, 1);
     overview->started = now_ms();
     if (overview->span <= 0)
         overview->progress = 1;
@@ -683,9 +689,7 @@ void overview_close(struct sh_server *server, struct sh_toplevel *chosen, int wo
     overview->from = overview->progress;
     overview->to = 0;
     overview->started = now_ms();
-    overview->span = settings->overview_animation && settings->animations
-                         ? (int)(settings->overview_duration * overview->progress / (settings->animation_speed > 0 ? settings->animation_speed : 1))
-                         : 0;
+    overview->span = glide_span(settings, overview->progress);
     send_event(server, "overview-close\n", strlen("overview-close\n"));
     if (overview->span <= 0) {
         overview_hide(server);
@@ -721,10 +725,7 @@ void overview_release(struct sh_server *server, bool open) {
     overview->from = overview->progress;
     overview->to = 1;
     overview->started = now_ms();
-    overview->span = settings->overview_animation && settings->animations
-                         ? (int)(settings->overview_duration * (1 - overview->progress) /
-                                 (settings->animation_speed > 0 ? settings->animation_speed : 1))
-                         : 0;
+    overview->span = glide_span(settings, 1 - overview->progress);
     if (overview->span <= 0)
         overview->progress = 1;
     overview_render(server);
