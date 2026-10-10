@@ -4,7 +4,6 @@ fixed by PAW_NIGHT_LIGHT_TIME) and follows configuration and the toggle actions.
 backend has no gamma hardware and its screen capture is taken before the colour transform, so
 what the screen shows needs a real output and is not covered here."""
 from pathlib import Path
-import socket
 import sys
 
 import harness
@@ -30,27 +29,6 @@ manual = ("enabled = true, night_temperature = 3400, sunrise = '07:00', sunset =
           "transition = 60")
 
 
-class Subscriber:
-    """The night light states the control socket's stream announced, as the shell reads them:
-    "ACTIVE MODE"."""
-
-    def __init__(self, desktop):
-        self.socket = socket.socket(socket.AF_UNIX)
-        self.socket.connect(desktop.env["PAW_SOCKET"])
-        self.socket.sendall(b"subscribe\n")
-        self.socket.settimeout(0.05)
-        self.buffer = ""
-
-    def heard(self):
-        try:
-            while data := self.socket.recv(8192):
-                self.buffer += data.decode()
-        except socket.timeout:
-            pass
-        return [line[len("night-light "):] for line in self.buffer.splitlines()
-                if line.startswith("night-light ")]
-
-
 def run(clock, body, extra=manual):
     """Runs `body` on a compositor with the clock fixed at `clock`."""
     with harness.Compositor(compositor, settings(extra),
@@ -61,9 +39,14 @@ def run(clock, body, extra=manual):
 def noon(desktop):
     msg = desktop.msg
     assert state(msg) == (6500, 0, 1), state(msg)
-    subscriber = Subscriber(desktop)
-    desktop.wait_for(lambda: subscriber.heard() == ["off auto"], "the first state",
-                     detail=subscriber.heard)
+    subscriber = desktop.subscribe()
+
+    def heard():
+        """The night light states subscribers were told of, as the shell reads them: "ACTIVE
+        MODE"."""
+        return subscriber.values("night-light ")
+
+    desktop.wait_for(lambda: heard() == ["off auto"], "the first state", detail=heard)
     # Forcing night, neutral, and back to the schedule; subscribers (the shell's Quick Settings)
     # hear each.
     msg("night_light_on")
@@ -74,9 +57,8 @@ def noon(desktop):
     assert state(msg)[:2] == (3400, 2), state(msg)
     msg("night_light_auto")
     assert state(msg) == (6500, 0, 1), state(msg)
-    desktop.wait_for(lambda: subscriber.heard() == ["off auto", "on on", "off off", "on on",
-                                                     "off auto"],
-                     "subscribers told of each change", detail=subscriber.heard)
+    desktop.wait_for(lambda: heard() == ["off auto", "on on", "off off", "on on", "off auto"],
+                     "subscribers told of each change", detail=heard)
 
 
 def midnight(desktop):

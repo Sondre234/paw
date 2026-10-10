@@ -5,7 +5,6 @@ hears; while no shell listens it runs wpctl and brightnessctl instead, here stan
 down how they were called. The keys bound to them reach them too."""
 from pathlib import Path
 import os
-import socket
 import sys
 
 import harness
@@ -44,25 +43,6 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         return calls.read_text().splitlines()
 
     desktop.detail = lambda: f"called: {called()}"
-
-    class Subscriber:
-        """The control socket's stream: as the shell reads it with `shell`, else as any other
-        client does."""
-
-        def __init__(self, shell):
-            self.socket = socket.socket(socket.AF_UNIX)
-            self.socket.connect(desktop.env["PAW_SOCKET"])
-            self.socket.sendall(b"subscribe shell\n" if shell else b"subscribe\n")
-            self.socket.settimeout(0.05)
-            self.buffer = ""
-
-        def heard(self, *prefixes):
-            try:
-                while data := self.socket.recv(8192):
-                    self.buffer += data.decode()
-            except socket.timeout:
-                pass
-            return [line for line in self.buffer.splitlines() if line.startswith(prefixes)]
 
     def key(name):
         for state in ("press", "release"):
@@ -105,18 +85,18 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     desktop.wait_for(lambda: sorted(called()) == sorted(expected), "the keys ran them")
 
     # Another subscriber hears what was asked, and the stand-ins still run without a shell.
-    other = Subscriber(shell=False)
-    desktop.wait_for(lambda: other.heard("tiling "), "the other subscriber's first state")
+    other = desktop.subscribe()
+    desktop.wait_for(lambda: other.lines("tiling "), "the other subscriber's first state")
     msg("volume_up", "3")
     expected += ["wpctl set-mute @DEFAULT_AUDIO_SINK@ 0",
                  "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 3%+"]
-    desktop.wait_for(lambda: other.heard("volume ") == ["volume up 3"] and
+    desktop.wait_for(lambda: other.lines("volume ") == ["volume up 3"] and
                      sorted(called()) == sorted(expected), "heard, and wpctl run without a shell")
     count = len(called())
 
     # With the shell listening, the shell is told and nothing else runs.
-    shell = Subscriber(shell=True)
-    desktop.wait_for(lambda: shell.heard("tiling "), "the shell's first state")
+    shell = desktop.subscribe(shell=True)
+    desktop.wait_for(lambda: shell.lines("tiling "), "the shell's first state")
     msg("volume_down")
     msg("volume_mute")
     msg("mic_mute")
@@ -124,15 +104,15 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     key("XF86MonBrightnessDown")
     lines = ["volume down 5", "volume mute", "microphone mute", "brightness up 15",
              "brightness down 5"]
-    desktop.wait_for(lambda: shell.heard("volume ", "microphone ", "brightness ") == lines,
-                     "the shell told", detail=lambda: shell.heard("volume ", "microphone ",
+    desktop.wait_for(lambda: shell.lines("volume ", "microphone ", "brightness ") == lines,
+                     "the shell told", detail=lambda: shell.lines("volume ", "microphone ",
                                                                   "brightness "))
-    desktop.wait_for(lambda: other.heard("volume ", "microphone ", "brightness ")[1:] == lines,
+    desktop.wait_for(lambda: other.lines("volume ", "microphone ", "brightness ")[1:] == lines,
                      "the other subscriber told too")
     desktop.stays(lambda: len(called()) == count, "no stand-in run while the shell listens")
 
     # Once the shell has gone, the stand-ins take over again.
-    shell.socket.close()
+    shell.close()
     msg("mic_mute")
     desktop.wait_for(lambda: called()[count:] == ["wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"],
                      "wpctl run once the shell is gone")
