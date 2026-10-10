@@ -136,6 +136,12 @@ static int fail(const char *why) {
     return 1;
 }
 
+// Writes `contents` to the file at `path`, in place of what it held.
+static bool writeFile(const QString &path, const QByteArray &contents) {
+    QFile file(path);
+    return file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(contents) == contents.size();
+}
+
 // Whether `done` comes true within `timeout` milliseconds. QTest::qWaitFor sleeps 10 ms between
 // looks, so each round trip through the stand-in compositor cost a sleep; this looks again as
 // soon as an event has been handled, a 2 ms tick keeping it looking while none come.
@@ -158,35 +164,28 @@ template <typename Predicate> [[nodiscard]] static bool waitFor(Predicate &&done
 int main(int argc, char **argv) {
     // A named screen, as compositor outputs are: the workspace indicator is keyed by it.
     QTemporaryDir screens;
-    QFile layout(screens.filePath("screens.json"));
-    if (!screens.isValid() || !layout.open(QIODevice::WriteOnly) ||
-        layout.write(R"({"screens": [{"name": "TEST-1", "x": 0, "y": 0, "width": 1280,
-                         "height": 720, "logicalDpi": 96, "logicalBaseDpi": 96, "dpr": 1}]})") < 0)
+    const auto layout = screens.filePath("screens.json");
+    if (!screens.isValid() ||
+        !writeFile(layout, R"({"screens": [{"name": "TEST-1", "x": 0, "y": 0, "width": 1280,
+                         "height": 720, "logicalDpi": 96, "logicalBaseDpi": 96, "dpr": 1}]})"))
         return fail("could not write the screens layout");
-    layout.close();
-    qputenv("QT_QPA_PLATFORM", ("offscreen:configfile=" + layout.fileName()).toLocal8Bit());
+    qputenv("QT_QPA_PLATFORM", ("offscreen:configfile=" + layout).toLocal8Bit());
     // One installed application, found by its StartupWMClass, and a private pin store. GLib
     // caches these directories on first use, so they are set before anything starts.
     QDir(screens.path()).mkpath("data/applications");
-    QFile desktopFile(screens.filePath("data/applications/paw-test-app.desktop"));
-    if (!desktopFile.open(QIODevice::WriteOnly) ||
-        desktopFile.write("[Desktop Entry]\nType=Application\nName=Fake app\nExec=true\n"
-                          "StartupWMClass=Fake\n") < 0)
+    if (!writeFile(screens.filePath("data/applications/paw-test-app.desktop"),
+                   "[Desktop Entry]\nType=Application\nName=Fake app\nExec=true\n"
+                   "StartupWMClass=Fake\n"))
         return fail("could not write the fake application");
-    desktopFile.close();
-    QFile otherFile(screens.filePath("data/applications/paw-test-other.desktop"));
-    if (!otherFile.open(QIODevice::WriteOnly) ||
-        otherFile.write("[Desktop Entry]\nType=Application\nName=Other app\nExec=true\n") < 0)
+    if (!writeFile(screens.filePath("data/applications/paw-test-other.desktop"),
+                   "[Desktop Entry]\nType=Application\nName=Other app\nExec=true\n"))
         return fail("could not write the other application");
-    otherFile.close();
     // One the menus leave out, whose icon its windows still get.
-    QFile hiddenFile(screens.filePath("data/applications/paw-test-hidden.desktop"));
-    if (!hiddenFile.open(QIODevice::WriteOnly) ||
-        hiddenFile.write("[Desktop Entry]\nType=Application\nName=Hidden app\nExec=true\n"
-                         "NoDisplay=true\nIcon=paw-hidden-icon\n"
-                         "StartupWMClass=HiddenThing\n") < 0)
+    if (!writeFile(screens.filePath("data/applications/paw-test-hidden.desktop"),
+                   "[Desktop Entry]\nType=Application\nName=Hidden app\nExec=true\n"
+                   "NoDisplay=true\nIcon=paw-hidden-icon\n"
+                   "StartupWMClass=HiddenThing\n"))
         return fail("could not write the hidden application");
-    hiddenFile.close();
     qputenv("XDG_DATA_HOME", screens.filePath("data").toLocal8Bit());
     qputenv("XDG_DATA_DIRS", screens.filePath("none").toLocal8Bit());
     qputenv("XDG_STATE_HOME", screens.filePath("state").toLocal8Bit());
@@ -205,20 +204,18 @@ int main(int argc, char **argv) {
     // An application with desktop actions: one that runs, and one whose program is missing. It
     // is written before the controller first reads the applications.
     const auto actionMarker = directory.filePath("action");
-    QFile actionsFile(screens.filePath("data/applications/paw-test-actions.desktop"));
-    if (!actionsFile.open(QIODevice::WriteOnly) ||
-        actionsFile.write(QString("[Desktop Entry]\nType=Application\nName=Action app\nExec=true\n"
-                                  "GenericName=File toucher\nKeywords=stamp;mark;\n"
-                                  "Comment=Leaves a file behind\n"
-                                  "Actions=touch;missing;\n\n"
-                                  "[Desktop Action touch]\nName=Touch a file\nIcon=document-new\n"
-                                  "Exec=\"%1\" -E touch \"%2\"\n\n"
-                                  "[Desktop Action missing]\nName=Missing program\n"
-                                  "Exec=/nonexistent/paw-missing-program\n")
-                              .arg(QString::fromLocal8Bit(argv[1]), actionMarker)
-                              .toUtf8()) < 0)
+    if (!writeFile(screens.filePath("data/applications/paw-test-actions.desktop"),
+                   QString("[Desktop Entry]\nType=Application\nName=Action app\nExec=true\n"
+                           "GenericName=File toucher\nKeywords=stamp;mark;\n"
+                           "Comment=Leaves a file behind\n"
+                           "Actions=touch;missing;\n\n"
+                           "[Desktop Action touch]\nName=Touch a file\nIcon=document-new\n"
+                           "Exec=\"%1\" -E touch \"%2\"\n\n"
+                           "[Desktop Action missing]\nName=Missing program\n"
+                           "Exec=/nonexistent/paw-missing-program\n")
+                       .arg(QString::fromLocal8Bit(argv[1]), actionMarker)
+                       .toUtf8()))
         return fail("could not write the application with actions");
-    actionsFile.close();
     // Two pictures for the wallpaper picker, in two subfolders.
     const auto walls = directory.filePath("walls");
     for (const auto *name : {"a/one.png", "b/two.png"}) {
@@ -232,13 +229,8 @@ int main(int argc, char **argv) {
     // that nothing of the user's is read.
     const auto files = directory.filePath("files");
     QDir(files).mkpath("Archive");
-    QFile report(files + "/Quarterly report.txt");
-    if (!report.open(QIODevice::WriteOnly) || report.write("quarterly\n") < 0)
+    if (!writeFile(files + "/Quarterly report.txt", "quarterly\n"))
         return fail("could not write a file to search for");
-    report.close();
-    QFile file(config);
-    if (!file.open(QIODevice::WriteOnly))
-        return fail("could not write the configuration");
     // Long Lua strings preserve paths without shell interpolation. The widgets Quick Settings
     // holds by default are on the bar, where most of this test uses them.
     const QString barWidgets = "widgets={network='bar',battery='bar',volume='bar',tiling='bar',profiles='bar'},";
@@ -255,8 +247,8 @@ int main(int argc, char **argv) {
                              "search={directories={[[%4]]}},"
                              "launchers={{name='Test app',command={[[%1]],'-E','touch',[[%2]]}}}}}")
                          .arg(QString::fromLocal8Bit(argv[1]), marker, walls, files);
-    file.write(lua.toUtf8());
-    file.close();
+    if (!writeFile(config, lua.toUtf8()))
+        return fail("could not write the configuration");
     // A stand-in for the compositor's control socket, with this screen as its only output.
     // Tiling is per output; the focused one it reports first is always the opposite of this
     // screen's, as if another monitor had focus, so the panel must show its own.
@@ -400,15 +392,12 @@ int main(int argc, char **argv) {
     {
         const auto theme = screens.filePath("data/icons/hicolor");
         QDir().mkpath(theme + "/16x16/apps");
-        QFile index(theme + "/index.theme");
         QImage picture(16, 16, QImage::Format_ARGB32);
         picture.fill(Qt::red);
-        if (!index.open(QIODevice::WriteOnly) ||
-            index.write("[Icon Theme]\nName=Hicolor\nDirectories=16x16/apps\n\n"
-                        "[16x16/apps]\nSize=16\nType=Fixed\n") < 0 ||
+        if (!writeFile(theme + "/index.theme", "[Icon Theme]\nName=Hicolor\nDirectories=16x16/apps\n\n"
+                                               "[16x16/apps]\nSize=16\nType=Fixed\n") ||
             !picture.save(theme + "/16x16/apps/paw-guessed.png"))
             return fail("could not write the icon theme");
-        index.close();
         QIcon::setThemeSearchPaths({screens.filePath("data/icons")});
         QIcon::setThemeName("hicolor");
         if (controller.iconFor("Paw-Guessed-1.2") != "paw-guessed" ||
@@ -474,14 +463,12 @@ int main(int argc, char **argv) {
             return std::any_of(apps.begin(), apps.end(),
                                [&](const QVariant &app) { return app.toMap()["appId"] == id; });
         };
-        QFile later(screens.filePath("data/applications/paw-test-later.desktop"));
-        if (!later.open(QIODevice::WriteOnly) ||
-            later.write("[Desktop Entry]\nType=Application\nName=Later app\nExec=true\n") < 0)
+        const auto later = screens.filePath("data/applications/paw-test-later.desktop");
+        if (!writeFile(later, "[Desktop Entry]\nType=Application\nName=Later app\nExec=true\n"))
             return fail("could not write an application to install");
-        later.close();
         if (!waitFor([&] { return installed("paw-test-later.desktop"); }, 10000))
             return fail("an application installed while the shell ran was not found");
-        later.remove();
+        QFile::remove(later);
         if (!waitFor([&] { return !installed("paw-test-later.desktop"); }, 10000))
             return fail("an application removed while the shell ran stayed listed");
     }
@@ -835,8 +822,7 @@ int main(int argc, char **argv) {
         QDir sys(screens.filePath("sys"));
         auto put = [&](const QString &path, const QString &text) {
             sys.mkpath(QFileInfo(sys.filePath(path)).path());
-            QFile f(sys.filePath(path));
-            return f.open(QIODevice::WriteOnly | QIODevice::Truncate) && f.write(text.toUtf8()) >= 0;
+            return writeFile(sys.filePath(path), text.toUtf8());
         };
         SystemStatus fake(sys.path());
         QQmlEngine::setObjectOwnership(&fake, QQmlEngine::CppOwnership);
@@ -4090,11 +4076,10 @@ ListModel {
             QStringList extra;
             for (int i = 0; i < 20; ++i) {
                 extra << QString("paw-test-page%1.desktop").arg(i);
-                QFile entry(screens.filePath("data/applications/" + extra.last()));
-                if (!entry.open(QIODevice::WriteOnly) ||
-                    entry.write(QString("[Desktop Entry]\nType=Application\nName=Page app %1\nExec=true\n")
-                                    .arg(i, 2, 10, QChar('0'))
-                                    .toUtf8()) < 0)
+                if (!writeFile(screens.filePath("data/applications/" + extra.last()),
+                               QString("[Desktop Entry]\nType=Application\nName=Page app %1\nExec=true\n")
+                                   .arg(i, 2, 10, QChar('0'))
+                                   .toUtf8()))
                     return fail("could not write an application to pin");
             }
             auto installed = [&](const QString &id) {
@@ -4662,8 +4647,7 @@ ListModel {
         QDir linkSys(screens.filePath("link"));
         linkSys.mkpath("class/net/eth0");
         for (const auto &[name, text] : {std::pair{"device", ""}, {"operstate", "up\n"}}) {
-            QFile file(linkSys.filePath(QString("class/net/eth0/") + name));
-            if (!file.open(QIODevice::WriteOnly) || file.write(text) < 0)
+            if (!writeFile(linkSys.filePath(QString("class/net/eth0/") + name), text))
                 return fail("could not write the fake network interface");
         }
         SystemStatus linked(linkSys.path());
@@ -4796,8 +4780,7 @@ ListModel {
         QDir lightSys(screens.filePath("light"));
         lightSys.mkpath("class/backlight/fake");
         for (const auto &[name, text] : {std::pair{"max_brightness", "200\n"}, {"brightness", "100\n"}}) {
-            QFile level(lightSys.filePath(QString("class/backlight/fake/") + name));
-            if (!level.open(QIODevice::WriteOnly) || level.write(text) < 0)
+            if (!writeFile(lightSys.filePath(QString("class/backlight/fake/") + name), text))
                 return fail("could not write the fake backlight");
         }
         Backlight fakeLight(lightSys.path());
@@ -6305,13 +6288,12 @@ ListModel {
             return fail("the animations did not get the test's speed back");
         // The Trash shows whether it holds anything.
         QDir(screens.path()).mkpath("data/Trash/files");
-        QFile trashed(screens.filePath("data/Trash/files/old.txt"));
-        if (!trashed.open(QIODevice::WriteOnly) || trashed.write("x") < 0)
+        const auto trashed = screens.filePath("data/Trash/files/old.txt");
+        if (!writeFile(trashed, "x"))
             return fail("could not put a file in the trash");
-        trashed.close();
         if (!waitFor([&] { return icon("dockTrash")->property("iconName") == "user-trash-full"; }, 10000))
             return fail("the dock's Trash did not fill as a file went into the trash");
-        trashed.remove();
+        QFile::remove(trashed);
         if (!waitFor([&] { return icon("dockTrash")->property("iconName") == "user-trash"; }, 10000))
             return fail("the dock's Trash did not empty as the trash did");
 
