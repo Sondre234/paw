@@ -71,14 +71,11 @@ const struct sh_output_saved *saved_output(const struct sh_output *output) {
 /* The primary monitor's name: the connected one the window made primary, else outputs.primary
  * (a connector name, or "desc:" and the start of a description); "" for none. */
 const char *primary_output_name(struct sh_server *server) {
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        struct sh_output *output;
-        wl_list_for_each(output, lists[i], link) {
-            const struct sh_output_saved *saved = saved_output(output);
-            if (saved && saved->primary)
-                return output->wlr_output->name;
-        }
+    struct sh_output *output;
+    for_each_connected_output(output, server) {
+        const struct sh_output_saved *saved = saved_output(output);
+        if (saved && saved->primary)
+            return output->wlr_output->name;
     }
     return server_settings(server)->primary_output;
 }

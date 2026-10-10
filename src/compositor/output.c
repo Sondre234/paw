@@ -162,24 +162,21 @@ static void publish_output_configuration(struct sh_server *server) {
     struct wlr_output_configuration_v1 *config = wlr_output_configuration_v1_create();
     if (!config)
         return;
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        struct sh_output *output;
-        wl_list_for_each(output, lists[i], link) {
-            struct wlr_output_configuration_head_v1 *head =
-                wlr_output_configuration_head_v1_create(config, output->wlr_output);
-            if (!head)
-                continue;
-            // A monitor turned off (output_power.c) is still in the layout, as in sway, and a
-            // mirror (mirror.c) is on where its source is.
-            struct sh_output *placed = mirrored_output(output) ? mirrored_output(output) : output;
-            head->state.enabled = (!output->disabled || output->mirror) &&
-                                  (output->wlr_output->enabled || output->powered_off);
-            struct wlr_box box;
-            wlr_output_layout_get_box(server->output_layout, placed->wlr_output, &box);
-            head->state.x = box.x;
-            head->state.y = box.y;
-        }
+    struct sh_output *output;
+    for_each_connected_output(output, server) {
+        struct wlr_output_configuration_head_v1 *head =
+            wlr_output_configuration_head_v1_create(config, output->wlr_output);
+        if (!head)
+            continue;
+        // A monitor turned off (output_power.c) is still in the layout, as in sway, and a
+        // mirror (mirror.c) is on where its source is.
+        struct sh_output *placed = mirrored_output(output) ? mirrored_output(output) : output;
+        head->state.enabled = (!output->disabled || output->mirror) &&
+                              (output->wlr_output->enabled || output->powered_off);
+        struct wlr_box box;
+        wlr_output_layout_get_box(server->output_layout, placed->wlr_output, &box);
+        head->state.x = box.x;
+        head->state.y = box.y;
     }
     wlr_output_manager_v1_set_configuration(server->output_manager, config);
 }
@@ -534,14 +531,20 @@ void configure_output(struct sh_server *server, struct sh_output *output) {
     }
 }
 
+/* The connected output after `output` (the first for NULL): those in the layout, then the
+ * others; NULL after the last. for_each_connected_output walks them. */
+struct sh_output *next_connected(struct sh_server *server, struct sh_output *output) {
+    struct wl_list *link = output ? output->link.next : server->outputs.next;
+    if (link == &server->outputs)
+        link = server->disabled_outputs.next;
+    return link == &server->disabled_outputs ? NULL : wl_container_of(link, output, link);
+}
+
 struct sh_output *sh_output_for(struct sh_server *server, struct wlr_output *wlr_output) {
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        struct sh_output *output;
-        wl_list_for_each(output, lists[i], link) {
-            if (output->wlr_output == wlr_output)
-                return output;
-        }
+    struct sh_output *output;
+    for_each_connected_output(output, server) {
+        if (output->wlr_output == wlr_output)
+            return output;
     }
     return NULL;
 }

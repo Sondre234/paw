@@ -1195,6 +1195,12 @@ void mirror_frame(struct sh_output *output);
 bool mirror_capture(struct sh_output *output, const char *path, char *error, size_t error_size);
 
 /* output.c */
+struct sh_output *next_connected(struct sh_server *server, struct sh_output *output);
+/* Walks every connected output, those in the layout first; the body may move `output` to the
+ * other list only to leave the loop. */
+#define for_each_connected_output(output, server)                                                 \
+    for ((output) = next_connected((server), NULL); (output);                                    \
+         (output) = next_connected((server), (output)))
 bool test_names_output(struct sh_output *output, const char *variable);
 bool output_named(const struct sh_output *output, const char *name);
 void output_description(const struct wlr_output *output, char *text, size_t size);

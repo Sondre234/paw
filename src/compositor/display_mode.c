@@ -27,38 +27,29 @@ static int connected_outputs(struct sh_server *server) {
 static struct sh_output *main_output(struct sh_server *server) {
     const struct sh_settings *settings = server_settings(server);
     const char *primary = primary_output_name(server);
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
     struct sh_output *best = NULL, *output;
-    for (size_t i = 0; i < 2; ++i) {
-        wl_list_for_each(output, lists[i], link) {
-            if (sh_output_built_in(output->wlr_output->name) &&
-                (!best || strcmp(output->wlr_output->name, best->wlr_output->name) < 0))
-                best = output;
-        }
+    for_each_connected_output(output, server) {
+        if (sh_output_built_in(output->wlr_output->name) &&
+            (!best || strcmp(output->wlr_output->name, best->wlr_output->name) < 0))
+            best = output;
     }
-    for (size_t i = 0; i < 2 && !best && primary[0]; ++i) {
-        wl_list_for_each(output, lists[i], link) {
-            if (output_key_matches(primary, output->wlr_output)) {
-                best = output;
-                break;
-            }
-        }
+    for_each_connected_output(output, server) {
+        if (!best && primary[0] && output_key_matches(primary, output->wlr_output))
+            best = output;
     }
     for (int n = 0; n < settings->output_count && !best; ++n) {
-        for (size_t i = 0; i < 2 && !best; ++i) {
-            wl_list_for_each(output, lists[i], link) {
-                if (output_named(output, settings->output_order[n])) {
-                    best = output;
-                    break;
-                }
-            }
-        }
-    }
-    for (size_t i = 0; i < 2 && !best; ++i) {
-        wl_list_for_each(output, lists[i], link) {
-            if (!best || strcmp(output->wlr_output->name, best->wlr_output->name) < 0)
+        for_each_connected_output(output, server) {
+            if (!best && output_named(output, settings->output_order[n]))
                 best = output;
         }
+    }
+    if (best)
+        return best;
+    // The first by name of those in the layout, else of the others: the walk takes them first.
+    for_each_connected_output(output, server) {
+        if (!best || (output->disabled == best->disabled &&
+                      strcmp(output->wlr_output->name, best->wlr_output->name) < 0))
+            best = output;
     }
     return best;
 }
@@ -73,16 +64,13 @@ static bool internal_output(struct sh_output *output, struct sh_output *main) {
 static enum sh_display_mode current_mode(struct sh_server *server) {
     struct sh_output *main = main_output(server), *output;
     int internal_on = 0, internal_off = 0, external_on = 0, external_off = 0;
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        wl_list_for_each(output, lists[i], link) {
-            if (output->mirror)
-                return SH_DISPLAY_MODE_DUPLICATE;
-            if (internal_output(output, main))
-                ++*(output->disabled ? &internal_off : &internal_on);
-            else
-                ++*(output->disabled ? &external_off : &external_on);
-        }
+    for_each_connected_output(output, server) {
+        if (output->mirror)
+            return SH_DISPLAY_MODE_DUPLICATE;
+        if (internal_output(output, main))
+            ++*(output->disabled ? &internal_off : &internal_on);
+        else
+            ++*(output->disabled ? &external_off : &external_on);
     }
     if (internal_on && !external_on && external_off)
         return SH_DISPLAY_MODE_INTERNAL;
@@ -104,28 +92,25 @@ static bool set_mode(struct sh_server *server, enum sh_display_mode mode, char *
         return false;
     }
     struct sh_output *main = main_output(server), *output;
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        wl_list_for_each(output, lists[i], link) {
-            const struct sh_monitor *in_force = output_monitor(output);
-            struct sh_monitor monitor;
-            if (in_force) {
-                monitor = *in_force;
-            } else {
-                memset(&monitor, 0, sizeof(monitor));
-                snprintf(monitor.name, sizeof(monitor.name), "%s", output->wlr_output->name);
-                monitor.tiling = -1;
-            }
-            bool internal = internal_output(output, main);
-            monitor.enabled = mode == SH_DISPLAY_MODE_INTERNAL   ? internal
-                              : mode == SH_DISPLAY_MODE_EXTERNAL ? !internal
-                                                                 : true;
-            monitor.mirror[0] = '\0';
-            if (mode == SH_DISPLAY_MODE_DUPLICATE && output != main)
-                snprintf(monitor.mirror, sizeof(monitor.mirror), "%s", main->wlr_output->name);
-            output->override = monitor;
-            output->has_override = true;
+    for_each_connected_output(output, server) {
+        const struct sh_monitor *in_force = output_monitor(output);
+        struct sh_monitor monitor;
+        if (in_force) {
+            monitor = *in_force;
+        } else {
+            memset(&monitor, 0, sizeof(monitor));
+            snprintf(monitor.name, sizeof(monitor.name), "%s", output->wlr_output->name);
+            monitor.tiling = -1;
         }
+        bool internal = internal_output(output, main);
+        monitor.enabled = mode == SH_DISPLAY_MODE_INTERNAL   ? internal
+                          : mode == SH_DISPLAY_MODE_EXTERNAL ? !internal
+                                                             : true;
+        monitor.mirror[0] = '\0';
+        if (mode == SH_DISPLAY_MODE_DUPLICATE && output != main)
+            snprintf(monitor.mirror, sizeof(monitor.mirror), "%s", main->wlr_output->name);
+        output->override = monitor;
+        output->has_override = true;
     }
     wlr_log(WLR_INFO, "Display mode %s", mode_names[mode]);
     apply_output_settings(server);
