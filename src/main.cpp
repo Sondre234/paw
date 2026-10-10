@@ -184,22 +184,6 @@ void set_window_buttons(const std::string &layout) {
     std::ofstream(profile) << dconf_profile() << "file-db:" << database.string() << '\n';
     setenv("DCONF_PROFILE", profile.c_str(), true);
 }
-// The executable `name` on PATH, or an empty path.
-std::filesystem::path find_program(const std::string &name) {
-    const char *path = std::getenv("PATH");
-    std::istringstream directories(path ? path : "");
-    for (std::string directory; std::getline(directories, directory, ':');) {
-        auto candidate = std::filesystem::path(directory.empty() ? "." : directory) / name;
-        if (access(candidate.c_str(), X_OK) == 0 && !std::filesystem::is_directory(candidate))
-            return candidate;
-    }
-    return {};
-}
-// Whether `program` can be run: a path to an executable, or a name found on PATH.
-bool installed(const std::string &program) {
-    return program.find('/') != std::string::npos ? access(program.c_str(), X_OK) == 0
-                                                   : !find_program(program).empty();
-}
 // The terminals the `terminal` action looks for, in this order, when neither the configuration
 // nor $TERMINAL names one.
 constexpr const char *known_terminals[] = {"kitty",   "foot",    "alacritty",      "wezterm",
@@ -538,12 +522,12 @@ struct Runtime {
         if (!config.terminal.empty())
             return config.terminal;
         if (const char *name = std::getenv("TERMINAL"); name && *name) {
-            if (installed(name))
+            if (paw::executable(name))
                 return {name};
             std::cerr << "$TERMINAL, " << name << ", is not installed; looking for another\n";
         }
         for (const char *name : known_terminals)
-            if (installed(name))
+            if (paw::executable(name))
                 return {name};
         return {};
     }
@@ -589,17 +573,17 @@ struct Runtime {
         try {
             if (self.screenshot_pid > 0)
                 throw std::runtime_error("a screenshot is already being taken");
-            if (find_program("grim").empty() ||
-                (mode == SH_SCREENSHOT_REGION && find_program("slurp").empty()))
+            if (!paw::executable("grim") ||
+                (mode == SH_SCREENSHOT_REGION && !paw::executable("slurp")))
                 throw std::runtime_error(mode == SH_SCREENSHOT_REGION
                                              ? "region screenshots need grim and slurp installed"
                                              : "screenshots need grim installed");
             bool copy = self.config.screenshots.clipboard;
-            if (copy && find_program("wl-copy").empty()) {
+            if (copy && !paw::executable("wl-copy")) {
                 std::cerr << "wl-copy is not installed; the screenshot is saved but not copied\n";
                 copy = false;
             }
-            bool notify = self.config.screenshots.notify && !find_program("notify-send").empty();
+            bool notify = self.config.screenshots.notify && paw::executable("notify-send");
             auto directory = self.screenshot_directory();
             std::error_code failure;
             std::filesystem::create_directories(directory, failure);
@@ -638,7 +622,7 @@ struct Runtime {
         if (!self.locker_problem) {
             if (command.empty())
                 self.locker_problem = "power.lock_command is not set";
-            else if (!installed(command.front()))
+            else if (!paw::executable(command.front()))
                 self.locker_problem = command.front() + " is not installed";
             else
                 self.locker_problem = "";
