@@ -29,6 +29,9 @@ Item {
     readonly property var results: shell.palette.results
     function heading(index) {
         var results = root.results
+        // A row the results no longer have, read again before it goes, has none.
+        if (index >= results.length)
+            return ""
         var searching = shell.palette.query.trim() !== ""
         if (index === 0)
             return searching ? "Top Hit" : groupLabels[results[0].kind] || ""
