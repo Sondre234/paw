@@ -34,13 +34,11 @@ PopupCard {
     // By the bar's start, 640 by 720 pixels, or as tall as the output leaves room for.
     implicitWidth: 640
     implicitHeight: 720
-    // By the start button at the bar's start, or above the dock's applications button, its first.
-    anchorRect: panel.macos ? panel.dockAnchor(panel.bar.x + Theme.dockPadding, 0)
-                            : panel.barAnchor(Theme.spacingL + shell.panelMarginLeft, 0)
+    // By the start button at the bar's start (the macOS style has Launchpad instead).
+    anchorRect: panel.barAnchor(Theme.spacingL + shell.panelMarginLeft, 0)
     alignment: Qt.AlignLeft
     side: panel.dockSide
-    // Between the menu bar and the dock in the macOS style.
-    bounds: panel.macos ? panel.popupArea : Qt.rect(0, 0, parent.width, parent.height)
+    bounds: Qt.rect(0, 0, parent.width, parent.height)
     radius: Theme.radiusLarge
     // The space between the card's edges and what is on it.
     readonly property real padding: Theme.spacingXXL + Theme.spacingL
@@ -158,8 +156,6 @@ PopupCard {
                            run: function() { Qt.callLater(function() { shell.startMenu.movePin(id, first) }) } })
         }
         var taskbar = panel.pinAction(id)
-        var onTaskbar = shell.pinned.some(function(pin) { return pin.appId === id })
-        taskbar.icon = onTaskbar ? "pin-off" : "pin"
         taskbar.objectName = "startMenu:taskbar"
         entries.push(taskbar)
         return entries
