@@ -156,16 +156,18 @@ set(PAW_TASK_PROTOCOL_SOURCES
     ${PROJECT_BINARY_DIR}/ext-image-copy-capture-v1-protocol.c
     ${PROJECT_BINARY_DIR}/ext-image-copy-capture-v1-client-protocol.h
     ${CAPTURE_SOURCE_PROTOCOL_SOURCES})
-add_executable(paw-shell main.cpp ${PAW_NOTIFY_SOURCES} controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp
-    task_filter.cpp task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp window_images.cpp window_images.hpp view.cpp view.hpp audio.cpp audio.hpp system_status.cpp system_status.hpp power.cpp power.hpp
-    preview.cpp preview.hpp
-    ${PAW_TASK_PROTOCOL_SOURCES})
+# The controller, its models and the views: the shell's, and those of the tests that drive its QML,
+# which build them once (paw_shell_test_core).
+set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH_SOURCES}
+    ${PAW_SERVICE_SOURCES} ${PAW_PICKER_SOURCES} ${PAW_TASK_PROTOCOL_SOURCES}
+    controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp view.cpp view.hpp
+    task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
+    task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp
+    app_match.hpp wallpapers.cpp wallpapers.hpp window_images.cpp window_images.hpp audio.cpp
+    audio.hpp system_status.cpp system_status.hpp power.cpp power.hpp)
+add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
 add_dependencies(paw-shell paw_wlr_client_protocols paw_version)
 set_target_properties(paw-shell PROPERTIES AUTOMOC ON RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
-target_sources(paw-shell PRIVATE ${PAW_START_SOURCES})
-target_sources(paw-shell PRIVATE ${PAW_AUTH_SOURCES})
-target_sources(paw-shell PRIVATE ${PAW_SERVICE_SOURCES})
-target_sources(paw-shell PRIVATE ${PAW_PICKER_SOURCES})
 target_include_directories(paw-shell PRIVATE ${PROJECT_BINARY_DIR})
 target_link_libraries(paw-shell PRIVATE paw_config Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick
     PkgConfig::GIO PkgConfig::SHELL_WAYLAND)
@@ -234,39 +236,27 @@ target_link_libraries(paw-shell PRIVATE paw_shell_qml)
 if(BUILD_TESTING)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     find_package(Qt6 6.9 REQUIRED COMPONENTS Test)
-    add_executable(shell_ui_test ${PROJECT_SOURCE_DIR}/tests/shell_ui_test.cpp
-        ${PAW_NOTIFY_SOURCES} controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp view.cpp view.hpp task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp
-        task_filter.cpp task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp window_images.cpp window_images.hpp audio.cpp audio.hpp system_status.cpp system_status.hpp power.cpp power.hpp
-        ${PAW_TASK_PROTOCOL_SOURCES})
+    # The controller and the views, without layer shell and the D-Bus services, built once for the
+    # tests that drive the shell's QML.
+    add_library(paw_shell_test_core OBJECT ${PAW_CONTROLLER_SOURCES})
+    add_dependencies(paw_shell_test_core paw_wlr_client_protocols)
+    set_target_properties(paw_shell_test_core PROPERTIES AUTOMOC ON)
+    target_include_directories(paw_shell_test_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
+    target_compile_definitions(paw_shell_test_core PUBLIC QT_NO_KEYWORDS PAW_LAYER_SHELL=0)
+    target_compile_options(paw_shell_test_core PRIVATE -Wall -Wextra -Wpedantic)
+    target_link_libraries(paw_shell_test_core PUBLIC paw_config Qt6::Network Qt6::Quick Qt6::Qml
+        PkgConfig::GIO PkgConfig::SHELL_WAYLAND paw_shell_qml)
+    add_executable(shell_ui_test ${PROJECT_SOURCE_DIR}/tests/shell_ui_test.cpp)
     set_target_properties(shell_ui_test PROPERTIES AUTOMOC ON)
-    target_sources(shell_ui_test PRIVATE ${PAW_START_SOURCES})
-    target_sources(shell_ui_test PRIVATE ${PAW_AUTH_SOURCES})
-    target_sources(shell_ui_test PRIVATE ${PAW_SERVICE_SOURCES})
-    target_sources(shell_ui_test PRIVATE ${PAW_PICKER_SOURCES})
-    target_include_directories(shell_ui_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
-    target_compile_definitions(shell_ui_test PRIVATE QT_NO_KEYWORDS PAW_LAYER_SHELL=0)
     target_compile_options(shell_ui_test PRIVATE -Wall -Wextra -Wpedantic)
-    target_link_libraries(shell_ui_test PRIVATE paw_config Qt6::Test Qt6::Network Qt6::Quick Qt6::Qml
-        PkgConfig::GIO PkgConfig::SHELL_WAYLAND)
-    target_link_libraries(shell_ui_test PRIVATE paw_shell_qml)
+    target_link_libraries(shell_ui_test PRIVATE paw_shell_test_core Qt6::Test)
     add_test(NAME shell_ui COMMAND shell_ui_test ${CMAKE_COMMAND})
     set_tests_properties(shell_ui PROPERTIES TIMEOUT 240
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
-    add_executable(task_filter_test ${PROJECT_SOURCE_DIR}/tests/task_filter_test.cpp
-        ${PAW_NOTIFY_SOURCES} controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp view.cpp view.hpp task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp
-        task_filter.cpp task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp window_images.cpp window_images.hpp audio.cpp audio.hpp system_status.cpp system_status.hpp power.cpp power.hpp
-        ${PAW_TASK_PROTOCOL_SOURCES})
+    add_executable(task_filter_test ${PROJECT_SOURCE_DIR}/tests/task_filter_test.cpp)
     set_target_properties(task_filter_test PROPERTIES AUTOMOC ON)
-    target_sources(task_filter_test PRIVATE ${PAW_START_SOURCES})
-    target_sources(task_filter_test PRIVATE ${PAW_AUTH_SOURCES})
-    target_sources(task_filter_test PRIVATE ${PAW_SERVICE_SOURCES})
-    target_sources(task_filter_test PRIVATE ${PAW_PICKER_SOURCES})
-    target_include_directories(task_filter_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
-    target_compile_definitions(task_filter_test PRIVATE QT_NO_KEYWORDS PAW_LAYER_SHELL=0)
     target_compile_options(task_filter_test PRIVATE -Wall -Wextra -Wpedantic)
-    target_link_libraries(task_filter_test PRIVATE paw_config Qt6::Test Qt6::Network Qt6::Quick Qt6::Qml
-        PkgConfig::GIO PkgConfig::SHELL_WAYLAND)
-    target_link_libraries(task_filter_test PRIVATE paw_shell_qml)
+    target_link_libraries(task_filter_test PRIVATE paw_shell_test_core Qt6::Test)
     add_test(NAME shell_task_filter COMMAND task_filter_test)
     set_tests_properties(shell_task_filter PROPERTIES TIMEOUT 90
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
@@ -473,37 +463,18 @@ if(BUILD_TESTING)
         set_tests_properties(shell_tray_dbus PROPERTIES TIMEOUT 90
             ENVIRONMENT "QT_QPA_PLATFORM=offscreen;DBUS_SESSION_BUS_ADDRESS=disabled:")
     endif()
-    add_executable(osd_test ${PROJECT_SOURCE_DIR}/tests/osd_test.cpp
-        ${PAW_NOTIFY_SOURCES} controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp view.cpp view.hpp task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp
-        task_filter.cpp task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp window_images.cpp window_images.hpp audio.cpp audio.hpp system_status.cpp system_status.hpp power.cpp power.hpp
-        ${PAW_TASK_PROTOCOL_SOURCES})
+    add_executable(osd_test ${PROJECT_SOURCE_DIR}/tests/osd_test.cpp)
     set_target_properties(osd_test PROPERTIES AUTOMOC ON)
-    target_sources(osd_test PRIVATE ${PAW_START_SOURCES})
-    target_sources(osd_test PRIVATE ${PAW_AUTH_SOURCES})
-    target_sources(osd_test PRIVATE ${PAW_SERVICE_SOURCES})
-    target_sources(osd_test PRIVATE ${PAW_PICKER_SOURCES})
-    target_include_directories(osd_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
-    target_compile_definitions(osd_test PRIVATE QT_NO_KEYWORDS PAW_LAYER_SHELL=0)
     target_compile_options(osd_test PRIVATE -Wall -Wextra -Wpedantic)
-    target_link_libraries(osd_test PRIVATE paw_config Qt6::Test Qt6::Network Qt6::Quick Qt6::Qml
-        PkgConfig::GIO PkgConfig::SHELL_WAYLAND)
-    target_link_libraries(osd_test PRIVATE paw_shell_qml)
+    target_link_libraries(osd_test PRIVATE paw_shell_test_core Qt6::Test)
     add_test(NAME shell_osd COMMAND osd_test)
     set_tests_properties(shell_osd PROPERTIES TIMEOUT 30
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;DBUS_SESSION_BUS_ADDRESS=disabled:")
     # The authentication dialog in its view, with stand-ins for polkit's helper.
-    add_executable(auth_dialog_test ${PROJECT_SOURCE_DIR}/tests/auth_dialog_test.cpp
-        ${PAW_NOTIFY_SOURCES} controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp view.cpp view.hpp task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp
-        task_filter.cpp task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp window_images.cpp window_images.hpp audio.cpp audio.hpp system_status.cpp system_status.hpp power.cpp power.hpp
-        ${PAW_TASK_PROTOCOL_SOURCES})
+    add_executable(auth_dialog_test ${PROJECT_SOURCE_DIR}/tests/auth_dialog_test.cpp)
     set_target_properties(auth_dialog_test PROPERTIES AUTOMOC ON)
-    target_sources(auth_dialog_test PRIVATE ${PAW_START_SOURCES} ${PAW_AUTH_SOURCES}
-                   ${PAW_SERVICE_SOURCES} ${PAW_PICKER_SOURCES})
-    target_include_directories(auth_dialog_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
-    target_compile_definitions(auth_dialog_test PRIVATE QT_NO_KEYWORDS PAW_LAYER_SHELL=0)
     target_compile_options(auth_dialog_test PRIVATE -Wall -Wextra -Wpedantic)
-    target_link_libraries(auth_dialog_test PRIVATE paw_config Qt6::Test Qt6::Network Qt6::Quick Qt6::Qml
-        PkgConfig::GIO PkgConfig::SHELL_WAYLAND paw_shell_qml)
+    target_link_libraries(auth_dialog_test PRIVATE paw_shell_test_core Qt6::Test)
     add_test(NAME shell_auth_dialog COMMAND auth_dialog_test)
     set_tests_properties(shell_auth_dialog PROPERTIES TIMEOUT 60
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;DBUS_SESSION_BUS_ADDRESS=disabled:")
