@@ -409,6 +409,18 @@ void OverlayView::settle() {
         holdKeyboard(true);
     std::cerr << "paw " << name_ << " hidden on " << outputScreen_->name().toStdString() << '\n';
 }
+namespace {
+// Shows `view` while `want` and hides it otherwise, saying so as "paw NAME shown on OUTPUT".
+void showWhile(QQuickView *view, bool want, const char *name, const QScreen *screen) {
+    if (want && !view->isVisible()) {
+        view->show();
+        std::cerr << "paw " << name << " shown on " << screen->name().toStdString() << '\n';
+    } else if (!want && view->isVisible()) {
+        view->hide();
+        std::cerr << "paw " << name << " hidden on " << screen->name().toStdString() << '\n';
+    }
+}
+} // namespace
 void followRoot(QQuickView *view, LayerShellQt::Window *layer, QQuickItem *root) {
     auto fit = [view, layer, root] {
         const QSize wanted(qRound(root->width()), qRound(root->height()));
@@ -599,14 +611,8 @@ void CardsView::placeLayer() {
 #endif
 }
 void CardsView::update() {
-    const bool want = rootObject() && rootObject()->property("active").toBool();
-    if (want && !isVisible()) {
-        show();
-        std::cerr << "paw notifications shown on " << outputScreen_->name().toStdString() << '\n';
-    } else if (!want && isVisible()) {
-        hide();
-        std::cerr << "paw notifications hidden on " << outputScreen_->name().toStdString() << '\n';
-    }
+    showWhile(this, rootObject() && rootObject()->property("active").toBool(), "notifications",
+              outputScreen_);
 }
 OsdView::OsdView(ShellController &controller, QScreen *screen)
     : QQuickView(controller.engine(), nullptr), controller_(controller), outputScreen_(screen) {
@@ -636,14 +642,8 @@ void OsdView::placeLayer() {
 #endif
 }
 void OsdView::update() {
-    const bool want = rootObject() && rootObject()->property("visibleNow").toBool();
-    if (want && !isVisible()) {
-        show();
-        std::cerr << "paw osd shown on " << outputScreen_->name().toStdString() << '\n';
-    } else if (!want && isVisible()) {
-        hide();
-        std::cerr << "paw osd hidden on " << outputScreen_->name().toStdString() << '\n';
-    }
+    showWhile(this, rootObject() && rootObject()->property("visibleNow").toBool(), "osd",
+              outputScreen_);
 }
 DisplayModeView::DisplayModeView(ShellController &controller, QScreen *screen)
     : QQuickView(controller.engine(), nullptr), outputScreen_(screen) {
@@ -666,16 +666,8 @@ DisplayModeView::DisplayModeView(ShellController &controller, QScreen *screen)
     }
 }
 void DisplayModeView::update() {
-    const bool want = rootObject() && rootObject()->property("visibleNow").toBool();
-    if (want && !isVisible()) {
-        show();
-        std::cerr << "paw display mode shown on " << outputScreen_->name().toStdString()
-                  << '\n';
-    } else if (!want && isVisible()) {
-        hide();
-        std::cerr << "paw display mode hidden on " << outputScreen_->name().toStdString()
-                  << '\n';
-    }
+    showWhile(this, rootObject() && rootObject()->property("visibleNow").toBool(), "display mode",
+              outputScreen_);
 }
 ConfigErrorView::ConfigErrorView(ShellController &controller, QScreen *screen)
     : QQuickView(controller.engine(), nullptr), outputScreen_(screen) {
