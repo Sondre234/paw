@@ -7,11 +7,14 @@
  * free or forgotten one for a name not seen before. */
 int output_slot(struct sh_server *server, const char *name) {
     int count = sizeof(server->output_workspaces) / sizeof(server->output_workspaces[0]);
+    for (int i = 0; i < count; ++i) {
+        if (!strcmp(server->output_workspaces[i].name, name))
+            return i;
+    }
+    // Every window's visibility comes here, so only a new name looks for outputs that are gone.
     int unused = -1, gone = -1;
     for (int i = 0; i < count; ++i) {
         const char *known = server->output_workspaces[i].name;
-        if (!strcmp(known, name))
-            return i;
         if (!known[0] && unused < 0)
             unused = i;
         else if (known[0] && gone < 0 && !find_output(server, known))
