@@ -5,13 +5,12 @@
 #include <algorithm>
 #include <vector>
 
-namespace {
-// The words of a query, folded to lower case.
-QStringList words(const QString &query) {
+QStringList fuzzy::words(const QString &query) {
     static const QRegularExpression space("\\s+");
     return query.toCaseFolded().split(space, Qt::SkipEmptyParts);
 }
 
+namespace {
 // Best score of `word` as a subsequence of `text`, or a large negative number. Both are folded
 // to lower case; `original` is the text as written, for spotting word starts.
 double wordScore(const QString &word, const QString &text, const QString &original) {
@@ -86,9 +85,7 @@ int kindOrder(const QString &kind) {
 }
 } // namespace
 
-namespace {
-// The score of a text against words already folded (see `words`).
-double scoreWords(const QStringList &parts, const QString &text) {
+double fuzzy::scoreWords(const QStringList &parts, const QString &text) {
     if (parts.isEmpty())
         return 0;
     const QString folded = text.toCaseFolded();
@@ -104,7 +101,6 @@ double scoreWords(const QStringList &parts, const QString &text) {
     // Between equal matches the shorter text is the closer one.
     return std::max(0.0, total - std::min<qsizetype>(text.size(), 100) * 0.1);
 }
-} // namespace
 
 double fuzzy::score(const QString &query, const QString &text) {
     return scoreWords(words(query), text);

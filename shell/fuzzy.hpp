@@ -9,6 +9,10 @@ namespace fuzzy {
 // subsequence of the text): higher is better, negative when a word does not match. Runs of
 // consecutive letters and letters starting a word score most.
 double score(const QString &query, const QString &text);
+// The words of a query as score() matches them, folded to lower case.
+QStringList words(const QString &query);
+// score() for a query already split into its words(), to match many texts against.
+double scoreWords(const QStringList &words, const QString &text);
 // The entries ({kind, title, subtitle, ...}) matching `query`, best first, each with its `score`
 // added. A leading > @ # or % keeps only actions, windows, workspaces, or sessions. With no
 // words, all of them in their given order (windows, sessions, workspaces, actions, applications

@@ -9,7 +9,6 @@
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QMimeDatabase>
-#include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
 #include <QThread>
@@ -51,12 +50,6 @@ bool leftOut(int folder) {
 }
 
 bool leftOutByName(const QString &name) { return name == "node_modules" || name == "__pycache__"; }
-
-// Words of a query, folded to lower case.
-QStringList words(const QString &query) {
-    static const QRegularExpression space("\\s+");
-    return query.toCaseFolded().split(space, Qt::SkipEmptyParts);
-}
 } // namespace
 
 FileIndex::FileIndex(QObject *parent) : QObject(parent) {}
@@ -293,7 +286,7 @@ QVariantList FileIndex::search(const QString &query, int limit) {
     if (!settings_.enabled)
         return {};
     refresh();
-    const auto parts = words(query);
+    const auto parts = fuzzy::words(query);
     if (parts.isEmpty() || found_.files.empty() || limit <= 0)
         return {};
     // Words with a slash are looked for in the path, the others in the name.
@@ -322,9 +315,8 @@ QVariantList FileIndex::search(const QString &query, int limit) {
     // Scored as the palette scores a title, a file used lately a little ahead, the more so the
     // more lately.
     const auto now = QDateTime::currentMSecsSinceEpoch();
-    const auto nameQuery = inName.join(' ');
     for (auto &hit : hits) {
-        hit.score = inName.isEmpty() ? 10 : std::max(1.0, fuzzy::score(nameQuery, hit.file->name));
+        hit.score = inName.isEmpty() ? 10 : std::max(1.0, fuzzy::scoreWords(inName, hit.file->name));
         if (hit.file->used > 0) {
             const double days = std::max<qint64>(0, now - hit.file->used) / 86400000.0;
             hit.score += 4 + 6 * std::exp(-days / 7);
