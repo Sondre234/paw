@@ -87,11 +87,6 @@ struct sh_view {
  * its relative place on screen (it is the fixed point of the zoom), so the pointer stays
  * under the magnified pointer; the view stays inside the output. */
 struct sh_view sh_zoom_view(double level, double width, double height, double px, double py);
-/* Where the logical point (x, y) appears on screen in `view`, and the reverse. */
-void sh_view_to_screen(const struct sh_view *view, double width, double height, double x,
-                       double y, double *sx, double *sy);
-void sh_view_to_logical(const struct sh_view *view, double width, double height, double sx,
-                        double sy, double *x, double *y);
 /* The level after `steps` zoom steps of a factor `step` each, kept within [1, maximum]. */
 double sh_zoom_level(double level, double step, int steps, double maximum);
 

@@ -201,18 +201,6 @@ struct sh_view sh_zoom_view(double level, double width, double height, double px
                             height / level};
 }
 
-void sh_view_to_screen(const struct sh_view *view, double width, double height, double x,
-                       double y, double *sx, double *sy) {
-    *sx = (x - view->x) * width / view->width;
-    *sy = (y - view->y) * height / view->height;
-}
-
-void sh_view_to_logical(const struct sh_view *view, double width, double height, double sx,
-                        double sy, double *x, double *y) {
-    *x = view->x + sx * view->width / width;
-    *y = view->y + sy * view->height / height;
-}
-
 double sh_zoom_level(double level, double step, int steps, double maximum) {
     return clamp(level * pow(step, steps), 1, fmax(maximum, 1));
 }
