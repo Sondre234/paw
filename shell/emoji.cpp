@@ -89,15 +89,15 @@ QVariantMap EmojiPicker::entry(const Emoji &emoji) const {
 }
 
 const EmojiPicker::Emoji *EmojiPicker::find(const QString &text) const {
-    const auto wanted = plain(text);
-    for (const auto &emoji : emoji_) {
-        if (plain(emoji.text) == wanted)
-            return &emoji;
-        for (const auto &form : emoji.tones)
-            if (plain(form) == wanted)
-                return &emoji;
-    }
-    return nullptr;
+    if (forms_.isEmpty())
+        for (qsizetype i = 0; i < qsizetype(emoji_.size()); ++i) {
+            // A form two emoji share is the first one's.
+            forms_.tryEmplace(plain(emoji_[i].text), i);
+            for (const auto &form : emoji_[i].tones)
+                forms_.tryEmplace(plain(form), i);
+        }
+    const auto found = forms_.constFind(plain(text));
+    return found == forms_.cend() ? nullptr : &emoji_[found.value()];
 }
 
 QVariantList EmojiPicker::recent() const {

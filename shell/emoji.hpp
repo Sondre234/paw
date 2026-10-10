@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include <QHash>
 #include <QObject>
 #include <QStringList>
 #include <QVariantList>
@@ -79,6 +80,9 @@ class EmojiPicker : public QObject {
     QString stateDir_, output_, pending_;
     bool previewOnly_ = false;
     QTimer *typing_ = nullptr;
+    // Each emoji's index in emoji_ by its text and each of its forms in another skin tone, without
+    // the emoji presentation selector; made as find() is first asked.
+    mutable QHash<QString, qsizetype> forms_;
     QVariantMap entry(const Emoji &emoji) const;
     const Emoji *find(const QString &text) const;
     void save() const;
