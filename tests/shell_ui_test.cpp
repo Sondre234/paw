@@ -662,12 +662,18 @@ int main(int argc, char **argv) {
         return again.open(QIODevice::WriteOnly | QIODevice::Truncate) &&
                again.write(source.toUtf8()) >= 0;
     };
+    // Puts `source` in place of the configuration, and has the shell read it again.
+    auto reconfigure = [&](const QString &source) {
+        if (!rewrite(source))
+            return false;
+        controller.reload();
+        return true;
+    };
     // Runs the shell's animations at `speed` times their own speed, in `source`, the configuration
     // in use.
     auto motion = [&](const QString &source, qreal speed) {
-        if (!rewrite(QString(source).replace(fastMotion, QString("animations={speed=%1}").arg(speed))))
+        if (!reconfigure(QString(source).replace(fastMotion, QString("animations={speed=%1}").arg(speed))))
             return false;
-        controller.reload();
         return waitFor([&] { return controller.animationSpeed() == speed; });
     };
     // Slows the shell's animations down to a quarter of their own speed, or brings them back to the
@@ -686,9 +692,8 @@ int main(int argc, char **argv) {
     };
     // shell.workspaces_shown = 3 shows the current workspace with its neighbours, the last
     // three on the last one, and the names follow their workspaces.
-    if (!rewrite(QString(lua).replace("shell={", "shell={workspaces_shown=3,")))
+    if (!reconfigure(QString(lua).replace("shell={", "shell={workspaces_shown=3,")))
         return fail("could not rewrite the configuration");
-    controller.reload();
     if (!waitFor([&] { return controller.workspacesShown() == 3 && !workspace(1); }) ||
         !workspace(2) || !workspace(3) || !workspace(4) || !workspace(4)->property("current").toBool() ||
         workspace(4)->property("label").toString() != "mail")
@@ -703,9 +708,8 @@ int main(int argc, char **argv) {
         for (int n = 1; n <= 4; ++n)
         return 1;
     }
-    if (!rewrite(lua))
+    if (!reconfigure(lua))
         return fail("could not restore the configuration");
-    controller.reload();
     if (!waitFor([&] { return workspace(4) != nullptr; }) || !workspace(1))
         return fail("the workspace indicator did not show every workspace again");
     view.grabWindow();
@@ -792,14 +796,12 @@ int main(int argc, char **argv) {
             layoutSwitches != 1 || controller.keyboardLayout()["number"].toInt() != 2)
             return fail("clicking the keyboard layout did not switch to the next");
         if (!controller.widgets()["keyboard_layout"].toBool() ||
-            !rewrite(QString(lua).replace("widgets={", "widgets={keyboard_layout=false,")))
+            !reconfigure(QString(lua).replace("widgets={", "widgets={keyboard_layout=false,")))
             return fail("the keyboard layout widget was off, or the configuration could not be rewritten");
-        controller.reload();
         if (!waitFor([&] { return !layout->isVisible(); }))
             return fail("shell.widgets.keyboard_layout = false did not hide the indicator");
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
         if (!waitFor([&] { return layout->isVisible(); }))
             return fail("the keyboard layout indicator did not come back");
     }
@@ -1514,9 +1516,8 @@ ListModel {
     // place, the others at the end, and dragging one moves neither the others nor the pin. With no
     // window left, the launcher comes back in its place.
     {
-        if (!rewrite(QString(lua).replace("shell={", "shell={group_windows=false,")))
+        if (!reconfigure(QString(lua).replace("shell={", "shell={group_windows=false,")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return !controller.groupWindows(); }))
             return fail("shell.group_windows = false was not read");
         controller.pin("paw-test-app.desktop");
@@ -1582,9 +1583,8 @@ ListModel {
             return fail("the launcher did not come back in its place once its windows closed");
         editTasks("model.remove(0)");
         controller.unpin("paw-test-app.desktop");
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
         if (!waitFor([&] { return controller.groupWindows() && !pinned(); }))
             return fail("the configuration was not restored");
     }
@@ -2699,9 +2699,8 @@ ListModel {
             if (!waitFor([&] { return !switcherView.isVisible(); }))
                 return fail("the switcher did not go");
             // shell.thumbnails = { live = false }: one picture each.
-            if (!rewrite(QString(lua).replace(quickPictures, "thumbnails={delay=100,live=false}")))
+            if (!reconfigure(QString(lua).replace(quickPictures, "thumbnails={delay=100,live=false}")))
                 return fail("could not rewrite the configuration");
-            controller.reload();
             if (!waitFor([&] { return !controller.liveThumbnails(); }))
                 return fail("shell.thumbnails = { live = false } was not read");
             pictureRequests();
@@ -2711,9 +2710,8 @@ ListModel {
             subscriber->write("switcher-close\n");
             if (!waitFor([&] { return !switcherView.isVisible() && controller.switcherWindows().isEmpty(); }))
                 return fail("the switcher did not go");
-            if (!rewrite(lua))
+            if (!reconfigure(lua))
                 return fail("could not restore the configuration");
-            controller.reload();
             if (!waitFor([&] { return controller.liveThumbnails(); }))
                 return fail("the configuration was not restored");
             // The switcher goes back to the controller's task model, before this one goes.
@@ -2721,9 +2719,8 @@ ListModel {
         }
         // shell.thumbnails = { live = false }: the picture asked for ahead of the card is the one
         // it shows, not followed, and not asked for again as the card opens.
-        if (!rewrite(QString(lua).replace(quickPictures, "thumbnails={delay=100,live=false}")))
+        if (!reconfigure(QString(lua).replace(quickPictures, "thumbnails={delay=100,live=false}")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return !controller.liveThumbnails(); }))
             return fail("shell.thumbnails = { live = false } was not read");
         pictureRequests();
@@ -2742,9 +2739,8 @@ ListModel {
             return fail("without live pictures, the window's picture was not let go as its card closed");
         // shell.thumbnails = { enabled = false }: a window's button has its tooltip and no card,
         // and a stack lists its windows as it did.
-        if (!rewrite(QString(lua).replace(quickPictures, "thumbnails={delay=100,enabled=false}")))
+        if (!reconfigure(QString(lua).replace(quickPictures, "thumbnails={delay=100,enabled=false}")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return !controller.thumbnails(); }))
             return fail("shell.thumbnails = { enabled = false } was not read");
         single = buttonFor(7);
@@ -2913,9 +2909,8 @@ ListModel {
         if (!waitFor([&] { return !popover->isVisible(); }))
             return fail("the list a drag opened stayed once the drag had gone");
     }
-    if (!rewrite(lua))
+    if (!reconfigure(lua))
         return fail("could not restore the configuration");
-    controller.reload();
     if (!waitFor([&] { return controller.thumbnails(); }))
         return fail("the taskbar's window pictures did not come back on");
     // With pictures, a drag resting on a window's button brings it forward after half a second,
@@ -3238,9 +3233,8 @@ ListModel {
 
         // Without pictures, a stack lists its windows, from the row nearest the bar up, and a
         // window's own button shows nothing.
-        if (!rewrite(QString(lua).replace(quickPictures, "thumbnails={delay=100,enabled=false}")))
+        if (!reconfigure(QString(lua).replace(quickPictures, "thumbnails={delay=100,enabled=false}")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return !controller.thumbnails(); }) || !onBar())
             return fail("the buttons were not on the bar without pictures");
         ask();
@@ -3271,9 +3265,8 @@ ListModel {
             return fail("Enter on a window in a stack's list did not bring it up");
 
         // Along the top, Down goes into the card below the bar, and Up comes back.
-        if (!rewrite(QString(lua).replace("shell={", "shell={panel_position='top',")))
+        if (!reconfigure(QString(lua).replace("shell={", "shell={panel_position='top',")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return controller.thumbnails() && controller.panelTop(); }) || !onBar())
             return fail("the buttons were not on a bar along the top");
         ask();
@@ -3291,9 +3284,8 @@ ListModel {
         press(Qt::Key_Escape);
         if (!given() || !taskRequests().isEmpty())
             return fail("Escape did not give the keyboard back from a bar along the top");
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
         if (!waitFor([&] { return controller.thumbnails() && !controller.panelTop(); }) || !onBar())
             return fail("the bar did not come back along the bottom");
         peeks();
@@ -4405,9 +4397,8 @@ ListModel {
         // The bell is off unless shell.widgets.notifications asks for it: the clock does its work.
         QTest::qWait(50);
         if (bell->isVisible() || controller.widgets()["notifications"].toString() != "quick" ||
-            !rewrite(QString(lua).replace("widgets={", "widgets={notifications='bar',")))
+            !reconfigure(QString(lua).replace("widgets={", "widgets={notifications='bar',")))
             return fail("the bell showed by default, or the configuration could not be rewritten");
-        controller.reload();
         if (!waitFor([&] { return bell->isVisible() && bell->x() > 0; }))
             return fail("the bell did not appear once the daemon served and the setting asked");
         CardsView cards(controller, app.primaryScreen());
@@ -4625,9 +4616,8 @@ ListModel {
         click(find(view.rootObject(), "clockButton"), Qt::RightButton);
         if (!waitFor([&] { return !daemon->dnd() && !clockDnd->isVisible(); }))
             return fail("right-clicking the clock again did not turn do-not-disturb off");
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
         if (!waitFor([&] { return !bell->isVisible(); }))
             return fail("the bell stayed once the setting was gone");
     }
@@ -4637,9 +4627,8 @@ ListModel {
         // By default, but for the wallpapers and tiling.
         const QString quickLua =
             QString(lua).replace(barWidgets, "widgets={wallpapers='quick',tiling='quick'},");
-        if (!rewrite(quickLua))
+        if (!reconfigure(quickLua))
             return fail("could not rewrite the configuration");
-        controller.reload();
         // A battery and a link that is down, as the battery test left the fake sysfs.
         SystemStatus fake(screens.filePath("sys"));
         QQmlEngine::setObjectOwnership(&fake, QQmlEngine::CppOwnership);
@@ -4856,14 +4845,12 @@ ListModel {
         view.rootObject()->setProperty("statusSource", QVariant::fromValue(controller.status()));
         // With nothing placed in it (do-not-disturb, which this test's configuration leaves in
         // it, switched off), the button goes.
-        if (!rewrite(QString(lua).replace("widgets={", "widgets={notifications=false,")))
+        if (!reconfigure(QString(lua).replace("widgets={", "widgets={notifications=false,")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return !button->isVisible(); }))
             return fail("the Quick Settings button stayed with nothing placed in it");
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
     }
     // The display settings window. Quick Settings opens it on this monitor, which the compositor
     // says is beside another; a click selects a monitor and a drag moves it, snapping beside the
@@ -5054,9 +5041,8 @@ ListModel {
         QQmlEngine::setObjectOwnership(&media, QQmlEngine::CppOwnership);
         view.rootObject()->setProperty("mediaSource", QVariant::fromValue<QObject *>(&media));
         // With every other widget on the bar, the Quick Settings button is there for a player.
-        if (!rewrite(QString(lua).replace("widgets={", "widgets={notifications=false,")))
+        if (!reconfigure(QString(lua).replace("widgets={", "widgets={notifications=false,")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         auto *button = find(view.rootObject(), "quickSettingsButton");
         if (!waitFor([&] { return !button->isVisible(); }))
             return fail("the Quick Settings button shows with nothing placed in it and no player");
@@ -5133,18 +5119,16 @@ ListModel {
             media.player() != browser.name || find(card, "quickMediaArtist")->isVisible())
             return fail("the media card did not step to the other player");
         // shell.widgets.media off leaves it out.
-        if (!rewrite(QString(lua).replace("widgets={", "widgets={media=false,")))
+        if (!reconfigure(QString(lua).replace("widgets={", "widgets={media=false,")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return !card->isVisible(); }))
             return fail("the media card stayed with shell.widgets.media off");
         QTest::keyClick(popover, Qt::Key_Escape);
         if (!waitFor([&] { return !popover->isVisible(); }))
             return fail("Quick Settings did not close");
         // Gone with the players.
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
         media.removePlayer(music.name);
         media.removePlayer(browser.name);
         if (card->isVisible() || media.available())
@@ -5157,9 +5141,8 @@ ListModel {
         FakePowerMode mode;
         QQmlEngine::setObjectOwnership(&mode, QQmlEngine::CppOwnership);
         view.rootObject()->setProperty("powerModeSource", QVariant::fromValue<QObject *>(&mode));
-        if (!rewrite(QString(lua).replace("widgets={", "widgets={notifications=false,")))
+        if (!reconfigure(QString(lua).replace("widgets={", "widgets={notifications=false,")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         auto *button = find(view.rootObject(), "quickSettingsButton");
         if (!waitFor([&] { return !button->isVisible(); }))
             return fail("the Quick Settings button shows with nothing placed in it and no daemon");
@@ -5190,14 +5173,12 @@ ListModel {
                 return performance->property("modelData").toMap().value("secondary").toString() == "Limited on a lap";
             }))
             return fail("the power modes do not say performance is held back");
-        if (!rewrite(QString(lua).replace("widgets={", "widgets={power_mode=false,")))
+        if (!reconfigure(QString(lua).replace("widgets={", "widgets={power_mode=false,")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return !tile->isVisible(); }))
             return fail("the power mode tile stayed with shell.widgets.power_mode off");
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
         // Gone with the daemon, its list too.
         if (!waitFor([&] { return tile->isVisible(); }))
             return fail("the power mode tile did not come back");
@@ -5326,9 +5307,8 @@ ListModel {
         if (!waitFor([&] { return !popover->isVisible(); }))
             return fail("the Wi-Fi networks did not close");
         // In Quick Settings: the tile in place of the network's state.
-        if (!rewrite(QString(lua).replace("network='bar',", "")))
+        if (!reconfigure(QString(lua).replace("network='bar',", "")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         auto *button = find(view.rootObject(), "quickSettingsButton");
         if (!waitFor([&] { return !widget->isVisible() && button->isVisible(); }))
             return fail("the network widget stayed on the bar");
@@ -5355,9 +5335,8 @@ ListModel {
         QTest::keyClick(popover, Qt::Key_Escape);
         if (!waitFor([&] { return !popover->isVisible(); }))
             return fail("Quick Settings did not close");
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
         view.rootObject()->setProperty("wifiSource", QVariant::fromValue<QObject *>(controller.wifi()));
     }
     // Bluetooth through BlueZ: Quick Settings' tile turns the adapter on and off, and its chevron
@@ -5471,14 +5450,12 @@ ListModel {
         QTest::keyClick(popover, Qt::Key_Escape);
         if (!waitFor([&] { return !popover->isVisible(); }) || bluetooth.requests.last() != "discovery 0")
             return fail("closing Quick Settings did not stop looking for devices");
-        if (!rewrite(QString(lua).replace("widgets={", "widgets={bluetooth=false,")))
+        if (!reconfigure(QString(lua).replace("widgets={", "widgets={bluetooth=false,")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return !tile->isVisible(); }))
             return fail("the Bluetooth tile stayed with shell.widgets.bluetooth off");
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
         bluetooth.update({});
         if (!waitFor([&] { return !tile->isVisible(); }))
             return fail("the Bluetooth tile stayed without BlueZ");
@@ -5747,16 +5724,14 @@ ListModel {
         if (token("durationFast").toInt() != qRound(120 / fastSpeed) || token("light").toBool() ||
             token("surface").value<QColor>() != controller.panelColor())
             return fail("Theme does not follow the default configuration");
-        if (!rewrite(QString(lua).replace(fastMotion, "animations={speed=2}")))
+        if (!reconfigure(QString(lua).replace(fastMotion, "animations={speed=2}")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return token("durationFast").toInt() == 60; }))
             return fail("Theme's durations do not follow animations.speed");
-        if (!rewrite(QString(lua).replace(fastMotion, "animations={enabled=false}").replace(
+        if (!reconfigure(QString(lua).replace(fastMotion, "animations={enabled=false}").replace(
                 "shell={wallpaper", "shell={panel_color='#f3f2fbcc',"
                                     "text_color='#141a48',accent='#4a64dc',wallpaper")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return token("light").toBool(); }) ||
             token("durationFast").toInt() != 0 || token("durationSlow").toInt() != 0 ||
             token("bar").value<QColor>().alpha() != 0xcc ||
@@ -5764,9 +5739,8 @@ ListModel {
             token("hover").value<QColor>().alpha() == 0 ||
             token("textOnAccent").value<QColor>() != token("surface").value<QColor>())
             return fail("Theme does not follow a light, translucent profile without animations");
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
     }
     // Launchpad, the macOS style's launcher: it opens over the whole output with the keyboard in
     // its search; the arrows move its highlight and page past a page's edge, Page Down and Up,
@@ -5789,9 +5763,8 @@ ListModel {
             token("popupSurface") != token("surface") || token("popupOutline") != token("border") ||
             token("textOnAccentFill") != token("textOnAccent") || token("buttonFace") != token("surfaceRaised"))
             return fail("the macOS style's tokens are not the taskbar style's own in that style");
-        if (!rewrite(QString(lua).replace("shell={wallpaper", "shell={style='macos',wallpaper")))
+        if (!reconfigure(QString(lua).replace("shell={wallpaper", "shell={style='macos',wallpaper")))
             return fail("could not rewrite the configuration");
-        controller.reload();
         if (!waitFor([&] { return controller.style() == "macos"; }))
             return fail("the configuration's macOS style was not read");
         // Spotlight lists what it finds by kind after the top hit, each kind once (but for
@@ -5962,9 +5935,8 @@ ListModel {
         if (!waitFor([&] { return QFile::exists(marker); }) || !closed())
             return fail("clicking an application in Launchpad did not launch it and close it");
         QFile::remove(marker);
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
         if (!waitFor([&] { return controller.style() == "taskbar"; }))
             return fail("the configuration's taskbar style was not read back");
     }
@@ -6006,9 +5978,8 @@ ListModel {
     {
         const QString macLua = QString(lua).replace("profiles={", "profiles={mac={shell={style='macos',panel_height=64,"
                                                                    "panel_margin={bottom=6},panel_radius=20}},");
-        if (!rewrite(macLua))
+        if (!reconfigure(macLua))
             return fail("could not rewrite the configuration");
-        controller.reload();
         controller.pickProfile("mac");
         auto *root = view.rootObject();
         MenuBarWindow *menuBar = view.menuBar();
@@ -6397,9 +6368,8 @@ ListModel {
         if (!waitFor([&] { return !menuBar->isVisible() && find(root, "bar") && !find(root, "dock"); }) ||
             view.height() != controller.panelExtent() || !view.inputRegion().isEmpty())
             return fail("the taskbar did not come back in place of the macOS style's bars");
-        if (!rewrite(lua))
+        if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        controller.reload();
     }
     std::cout << "Hover/click, launcher keyboard focus, search, command launch, tiling toggle, and "
                  "workspace indicator, task and bar context menus, pinning a window's application, "
