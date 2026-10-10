@@ -41,7 +41,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
         return [line for line in log(name) if line.startswith(prefix)]
 
     def focused():
-        return next((r[9] for r in desktop.rows("windows") if r[1] == "1"), None)
+        return next((w.title for w in desktop.windows() if w.focused), None)
 
     def shortcuts():
         """Whether the keys go to the focused window, and each inhibitor as (state, focused,

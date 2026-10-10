@@ -21,8 +21,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
 
     def windows():
         """(focused, tiled, x, y, width, height) per window, left to right, then top down."""
-        rows = desktop.rows("windows")
-        return sorted((r[1] == "1", r[3] == "1", *map(int, r[4:8])) for r in rows)
+        return sorted((w.focused, w.tiled, *w.box) for w in desktop.windows())
 
     def by_position():
         return sorted(windows(), key=lambda w: (w[2], w[3]))

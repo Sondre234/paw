@@ -24,7 +24,7 @@ for follow, expected in EXPECTED.items():
     with harness.Compositor(compositor, CONFIG % follow) as desktop:
 
         def windows():
-            return {r[9]: (r[1] == "1", int(r[4])) for r in desktop.rows("windows")}
+            return {w.title: (w.focused, w.x) for w in desktop.windows()}
 
         desktop.detail = lambda: f"{follow}: {windows()}"
 

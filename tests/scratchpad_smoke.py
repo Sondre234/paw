@@ -23,10 +23,10 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     def windows():
         """By title: workspace, focused, minimized, tiled, x, y, width, height, visible,
         scratchpad."""
-        return {r[9]: dict(workspace=int(r[0]), focused=r[1] == "1", minimized=r[2] == "1",
-                           tiled=r[3] == "1", x=int(r[4]), y=int(r[5]), width=int(r[6]),
-                           height=int(r[7]), visible=r[11] == "1", scratchpad=r[12] == "1")
-                for r in desktop.rows("windows")}
+        return {w.title: dict(workspace=w.workspace, focused=w.focused, minimized=w.minimized,
+                              tiled=w.tiled, x=w.x, y=w.y, width=w.width,
+                              height=w.height, visible=w.visible, scratchpad=w.scratchpad)
+                for w in desktop.windows()}
 
     def used():
         return msg("get", "workspaces").split("\t")[3]

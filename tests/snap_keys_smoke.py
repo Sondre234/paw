@@ -24,8 +24,8 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
 
     def windows():
         """By title: x, y, width, height, minimized, output."""
-        return {r[9]: (int(r[4]), int(r[5]), int(r[6]), int(r[7]), r[2] == "1", r[10])
-                for r in desktop.rows("windows")}
+        return {w.title: (w.x, w.y, w.width, w.height, w.minimized, w.output)
+                for w in desktop.windows()}
 
     def placed(box, title="W"):
         desktop.wait_for(lambda: windows()[title][:4] == tuple(box), f"{title} at {box}")

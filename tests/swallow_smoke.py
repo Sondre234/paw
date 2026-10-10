@@ -29,9 +29,9 @@ with harness.Compositor(compositor, with_swallow(True)) as desktop:
     def windows():
         """app_id -> (focused, tiled, x, y, width, height, visible, workspace) of every window."""
         rows = {}
-        for f in desktop.rows("windows"):
-            rows[f[8]] = (f[1] == "1", f[3] == "1", int(f[4]), int(f[5]), int(f[6]), int(f[7]),
-                          f[11] == "1", int(f[0]))
+        for w in desktop.windows():
+            rows[w.app_id] = (w.focused, w.tiled, w.x, w.y, w.width, w.height,
+                              w.visible, w.workspace)
         return rows
 
     def swallow():

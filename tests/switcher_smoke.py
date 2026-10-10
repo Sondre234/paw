@@ -30,9 +30,8 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
 
     def windows():
         """By title: workspace, focused, minimized, output, visible."""
-        rows = desktop.rows("windows")
-        return {r[9]: dict(workspace=int(r[0]), focused=r[1] == "1", minimized=r[2] == "1",
-                           output=r[10], visible=r[11] == "1") for r in rows}
+        return {w.title: dict(workspace=w.workspace, focused=w.focused, minimized=w.minimized,
+                              output=w.output, visible=w.visible) for w in desktop.windows()}
 
     def focused():
         return next((t for t, w in windows().items() if w["focused"]), None)

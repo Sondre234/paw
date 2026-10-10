@@ -22,8 +22,7 @@ with harness.Compositor(compositor, config()) as desktop:
 
     def windows():
         """(workspace, tiled) per window, oldest first."""
-        rows = desktop.rows("windows")
-        return [(int(row[0]), row[3] == "1") for row in rows]
+        return [(w.workspace, w.tiled) for w in desktop.windows()]
 
     desktop.detail = lambda: f"windows: {windows()}, tiling: {msg('get', 'tiling')}"
 

@@ -34,7 +34,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
 
     def windows():
         """(tiled, output) per window, oldest first."""
-        return [(row[3] == "1", row[10]) for row in desktop.rows("windows")]
+        return [(w.tiled, w.output) for w in desktop.windows()]
 
     desktop.detail = lambda: f"windows: {windows()}, tiling: {tiling()}"
 
