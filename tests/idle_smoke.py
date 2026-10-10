@@ -87,12 +87,12 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
         return process
 
     desktop.detail = lambda: f"idle: {idle()}, outputs: {power_of()}"
-    desktop.start(config("{ dim = 1, display_off = 2, lock = 4 }"))
+    desktop.start(config("{ dim = 1, display_off = 2, lock = 3 }"))
     msg("headless_keyboard", "add", "keys")
     pointer = desktop.virtual_pointer(pointer_probe, 2560, 720)
     state = idle()
     assert (state["dim"], state["display_off"], state["lock"], state["suspend"]) == (
-        (1000, False), (2000, False), (4000, False), (0, False)), state
+        (1000, False), (2000, False), (3000, False), (0, False)), state
     assert not state["held"] and not state["battery"] and state["dim_level"] == 0, state
     assert screen() in (None, (128, 128, 128)), screen()
 
@@ -127,7 +127,7 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     key(A)
     inhibitor = spawn_probe("inhibit")
     wait_for(lambda: idle()["held"], "the inhibitor holds the steps")
-    desktop.reload(config("{ dim = 1, display_off = 2, lock = 3 }"))
+    desktop.reload(config("{ dim = 1, display_off = 2, lock = 2 }"))
     desktop.stays(lambda: not any(idle()[step][1] for step in ("dim", "display_off", "lock")),
                   "a step was taken while inhibited", duration=2.5)
     assert all_on() and idle()["idle_ms"] >= 2500, idle()
