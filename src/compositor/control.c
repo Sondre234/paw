@@ -35,6 +35,13 @@ void control_reply(int fd, const char *text) {
     }
 }
 
+/* Answers "ok" for a request carried out, else "error: " and why. */
+static void reply_done(int fd, bool done, const char *error) {
+    char reply[PATH_MAX + 80];
+    snprintf(reply, sizeof(reply), done ? "ok\n" : "error: %s\n", error);
+    control_reply(fd, reply);
+}
+
 static void control_session(struct sh_server *server, int fd, const char *arguments) {
     char verb[16] = "", name[SH_SESSION_NAME_MAX + 8] = "", option[16] = "", extra[8] = "";
     int count = sscanf(arguments, " %15s %71s %15s %7s", verb, name, option, extra);
@@ -350,75 +357,37 @@ static void control_handle(struct sh_server *server, int fd, const char *request
     int argument = 0;
     enum sh_action action = server->callbacks->command(server->callbacks->userdata, request,
                                                        &argument, error, sizeof(error));
-    if (action == SH_NONE) {
-        char reply[300];
-        snprintf(reply, sizeof(reply), "error: %s\n", error[0] ? error : "unknown request");
-        control_reply(fd, reply);
-        return;
-    }
-    if (action == SH_SPAWN || action == SH_TERMINAL) {
-        // The caller hears why the program did not start, as the panel does.
-        if (!launch_program(server, action, error, sizeof(error))) {
-            char reply[300];
-            snprintf(reply, sizeof(reply), "error: %s\n", error);
-            control_reply(fd, reply);
-            return;
-        }
-        control_reply(fd, "ok\n");
-        return;
-    }
-    if (action == SH_SCREENSHOT) {
-        // Report why no screenshot started, such as grim missing, to the caller.
-        if (!take_screenshot(server, (enum sh_screenshot_mode)argument, error, sizeof(error))) {
-            char reply[300];
-            snprintf(reply, sizeof(reply), "error: %s\n", error);
-            control_reply(fd, reply);
-            return;
-        }
-        control_reply(fd, "ok\n");
-        return;
-    }
     xkb_layout_index_t layouts = server->keymap ? xkb_keymap_num_layouts(server->keymap) : 0;
-    if (action == SH_SWITCH_LAYOUT && argument > 0 && (xkb_layout_index_t)argument > layouts) {
-        char reply[96];
-        snprintf(reply, sizeof(reply), "error: the keymap has %u layout%s\n", layouts,
+    // The caller hears why an action did not start where it can be told: a program that did not
+    // start, as the panel does, a screenshot without grim, a power action logind does not allow,
+    // a display mode that cannot be had (one monitor alone) or a monitor that is not there.
+    bool done = false;
+    if (action == SH_NONE) {
+        if (!error[0])
+            snprintf(error, sizeof(error), "unknown request");
+    } else if (action == SH_SWITCH_LAYOUT && argument > 0 &&
+               (xkb_layout_index_t)argument > layouts) {
+        snprintf(error, sizeof(error), "the keymap has %u layout%s", layouts,
                  layouts == 1 ? "" : "s");
-        control_reply(fd, reply);
-        return;
-    }
-    if (power_action(action)) {
-        // The caller hears why it cannot start, such as logind not allowing it.
-        if (!power_start(server, action, error, sizeof(error))) {
-            char reply[300];
-            snprintf(reply, sizeof(reply), "error: %s\n", error);
-            control_reply(fd, reply);
-            return;
-        }
-        control_reply(fd, "ok\n");
-        return;
-    }
-    if (action == SH_DISPLAY_MODE) {
-        // The caller hears of a choice that cannot be had, such as one monitor alone.
-        bool done = display_mode_choose(server, argument, error, sizeof(error));
-        char reply[300];
-        snprintf(reply, sizeof(reply), done ? "ok\n" : "error: %s\n", error);
-        control_reply(fd, reply);
-        return;
-    }
-    if (display_action(action)) {
-        // The caller hears of a monitor that is not there.
+    } else if (action == SH_SPAWN || action == SH_TERMINAL) {
+        done = launch_program(server, action, error, sizeof(error));
+    } else if (action == SH_SCREENSHOT) {
+        done = take_screenshot(server, (enum sh_screenshot_mode)argument, error, sizeof(error));
+    } else if (power_action(action)) {
+        done = power_start(server, action, error, sizeof(error));
+    } else if (action == SH_DISPLAY_MODE) {
+        done = display_mode_choose(server, argument, error, sizeof(error));
+    } else {
         server->target_output = target;
-        bool done = display_power(server, action, error, sizeof(error));
+        if (display_action(action)) {
+            done = display_power(server, action, error, sizeof(error));
+        } else {
+            run_action(server, action, argument);
+            done = true;
+        }
         server->target_output = NULL;
-        char reply[300];
-        snprintf(reply, sizeof(reply), done ? "ok\n" : "error: %s\n", error);
-        control_reply(fd, reply);
-        return;
     }
-    server->target_output = target;
-    run_action(server, action, argument);
-    server->target_output = NULL;
-    control_reply(fd, "ok\n");
+    reply_done(fd, done, error);
 }
 
 static void control_client_close(struct sh_control_client *client) {
