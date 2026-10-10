@@ -33,13 +33,26 @@ struct ConfigError : std::runtime_error {
         : std::runtime_error("configuration: " + message), text(std::move(message)),
           trail(std::move(names)) {}
 };
-// Each table of the current section ("shell", "thumbnails"), then `leaf`.
+// Each table of the current section, then `leaf`: "shell", "thumbnails" for shell.thumbnails;
+// "outputs", "monitors", "DP-1" for outputs.monitors["DP-1"]; an entry of a list by number
+// (windows.rules[2]) has no name in the source, and is left out.
 std::vector<std::string> trail_to(const std::string &leaf) {
     std::vector<std::string> names;
-    for (size_t start = 0; start < current_section.size();) {
-        auto dot = std::min(current_section.find('.', start), current_section.size());
-        names.push_back(current_section.substr(start, dot - start));
-        start = dot + 1;
+    const auto &path = current_section;
+    for (size_t at = 0; at < path.size();) {
+        if (path[at] == '.') {
+            ++at;
+        } else if (path.compare(at, 2, "[\"") == 0) {
+            auto close = std::min(path.find("\"]", at + 2), path.size());
+            names.push_back(path.substr(at + 2, close - at - 2));
+            at = close + 2;
+        } else if (path[at] == '[') {
+            at = std::min(path.find(']', at), path.size()) + 1;
+        } else {
+            auto end = std::min(path.find_first_of(".[", at), path.size());
+            names.push_back(path.substr(at, end - at));
+            at = end;
+        }
     }
     if (!leaf.empty())
         names.push_back(leaf);
@@ -645,6 +658,7 @@ void read_output_layouts(lua_State *L, sh_settings &settings) {
         if (name.empty())
             fail("output name is empty");
         copy_text(name, entry.name, "output name");
+        Named in("layout.outputs[\"" + name + "\"]");
         table(L, -1, "layout.outputs.<name>");
         keys(L, -1, "layout.outputs.<name>");
         auto layout = text(L, "tile_layout");
@@ -691,6 +705,7 @@ void read_monitors(lua_State *L, sh_settings &settings) {
         if (name.empty())
             fail("output name is empty");
         copy_text(name, monitor.name, "output name");
+        Named in("outputs.monitors[\"" + name + "\"]");
         table(L, -1, "monitor settings");
         keys(L, -1, "outputs.monitors.<name>");
         monitor.enabled = true;
@@ -980,6 +995,7 @@ void read_windows(lua_State *L, Config &config) {
         auto size = array_size(L, -1, 256);
         for (size_t i = 1; i <= size; ++i) {
             lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
+            Named in("windows.rules[" + std::to_string(i) + "]");
             table(L, -1, "window rule");
             keys(L, -1, "windows.rules[]");
             config.window_rules.push_back(window_rule(L, config.settings.workspaces));
@@ -1256,6 +1272,7 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
         auto size = array_size(L, -1, 512);
         for (size_t i = 1; i <= size; ++i) {
             lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
+            Named in(current_section + "[" + std::to_string(i) + "]");
             table(L, -1, "binding");
             keys(L, -1, "bindings[]");
             Binding binding{};
@@ -1447,6 +1464,7 @@ void read_mode_names(lua_State *L, Config &config) {
 void read_modes(lua_State *L, Config &config) {
     Named in("modes");
     for (auto &mode : config.modes) {
+        Named in_mode("modes." + mode.name);
         lua_getfield(L, -1, "modes");
         lua_getfield(L, -1, mode.name.c_str());
         table(L, -1, ("modes." + mode.name).c_str());
