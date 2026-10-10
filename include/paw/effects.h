@@ -36,9 +36,6 @@ struct sh_rgb sh_kelvin_to_rgb(int kelvin);
 /* Fills `out` with `3 * size` entries: `size` red, then green, then blue, each a ramp from 0 to
  * the channel's factor, as wlr-gamma-control and DRM expect. */
 void sh_gamma_ramp(struct sh_rgb factors, size_t size, uint16_t *out);
-/* The same factors for a 3x3 matrix in linear light (row major), where a factor f in encoded
- * values is f^2.2. */
-void sh_linear_matrix(struct sh_rgb factors, float matrix[9]);
 
 /* When the temperature changes, in minutes after local midnight, both in [0, 1440). The
  * change is centred on the time and lasts `transition` minutes. `sunset` before `sunrise`

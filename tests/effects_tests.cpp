@@ -93,12 +93,6 @@ static void ramps() {
     uint16_t single[3];
     sh_gamma_ramp({1, 0.5, 0.25}, 1, single);
     CHECK(single[0] == 65535);
-    float matrix[9];
-    sh_linear_matrix({1, 0.5, 0.25}, matrix);
-    NEAR(matrix[0], 1, 1e-6);
-    NEAR(matrix[4], std::pow(0.5, 2.2), 1e-6);
-    NEAR(matrix[8], std::pow(0.25, 2.2), 1e-6);
-    CHECK(matrix[1] == 0 && matrix[3] == 0 && matrix[5] == 0);
 }
 
 static void schedule() {

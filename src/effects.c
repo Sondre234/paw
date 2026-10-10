@@ -68,13 +68,6 @@ void sh_gamma_ramp(struct sh_rgb factors, size_t size, uint16_t *out) {
         }
 }
 
-void sh_linear_matrix(struct sh_rgb factors, float matrix[9]) {
-    memset(matrix, 0, 9 * sizeof(float));
-    matrix[0] = (float)pow(factors.r, 2.2);
-    matrix[4] = (float)pow(factors.g, 2.2);
-    matrix[8] = (float)pow(factors.b, 2.2);
-}
-
 static double smoothstep(double t) {
     t = clamp(t, 0, 1);
     return t * t * (3 - 2 * t);
