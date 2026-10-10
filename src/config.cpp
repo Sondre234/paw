@@ -333,16 +333,21 @@ uint32_t mouse_button(const std::string &name) {
             return code;
     unknown("button", name, config_button_names(), "=" + name);
 }
-Command command(lua_State *L) {
-    auto size = array_size(L, -1, 256);
-    if (size == 0)
-        fail("command must include an executable");
-    Command result;
+// The list of strings on top of the stack, at most `limit` of them, each `label` in errors.
+std::vector<std::string> strings(lua_State *L, size_t limit, const char *label) {
+    auto size = array_size(L, -1, limit);
+    std::vector<std::string> result;
     for (size_t i = 1; i <= size; ++i) {
         lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-        result.push_back(string(L, -1, "command argument"));
+        result.push_back(string(L, -1, label));
         lua_pop(L, 1);
     }
+    return result;
+}
+Command command(lua_State *L) {
+    if (array_size(L, -1, 256) == 0)
+        fail("command must include an executable");
+    auto result = strings(L, 256, "command argument");
     if (result.front().empty())
         fail("command executable is empty");
     return result;
@@ -441,17 +446,12 @@ void read_shell(lua_State *L, ShellConfig &shell) {
         auto &search = shell.search;
         boolean(L, "files", "shell.search.files", search.files);
         lua_getfield(L, -1, "directories");
-        if (!lua_isnil(L, -1)) {
-            auto size = array_size(L, -1, 32);
-            for (size_t i = 1; i <= size; ++i) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-                auto folder = string(L, -1, "shell.search.directories");
-                lua_pop(L, 1);
+        if (!lua_isnil(L, -1))
+            for (auto &folder : strings(L, 32, "shell.search.directories")) {
                 if (!folder.starts_with('/') && !folder.starts_with("~/") && folder != "~")
                     fail("shell.search.directories must be absolute or start with ~/");
                 search.directories.push_back(std::move(folder));
             }
-        }
         lua_pop(L, 1);
         search.depth = integer(L, "depth", search.depth, 1, 10);
         search.max_files = integer(L, "max_files", search.max_files, 100, 200000);
@@ -830,13 +830,9 @@ void swallow_list(lua_State *L, const char *key, char (*names)[64], int &count) 
     lua_getfield(L, -1, key);
     if (!lua_isnil(L, -1)) {
         std::string label = std::string("windows.swallow.") + key;
-        auto size = array_size(L, -1, 32);
         count = 0;
-        for (size_t i = 1; i <= size; ++i) {
-            lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-            copy_text(string(L, -1, label.c_str()), names[count++], label + " entry");
-            lua_pop(L, 1);
-        }
+        for (const auto &name : strings(L, 32, label.c_str()))
+            copy_text(name, names[count++], label + " entry");
     }
     lua_pop(L, 1);
 }
@@ -1326,15 +1322,13 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             auto action = field(L, "action");
             binding.action = action == "none" ? SH_NONE : parse_action(action);
             lua_getfield(L, -1, "mods");
-            auto mods = lua_isnil(L, -1) ? 0 : array_size(L, -1, 4);
-            for (size_t j = 1; j <= mods; ++j) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(j));
-                auto bit = modifier(string(L, -1, "modifier"));
-                if (binding.modifiers & bit)
-                    fail("duplicate modifier");
-                binding.modifiers |= bit;
-                lua_pop(L, 1);
-            }
+            if (!lua_isnil(L, -1))
+                for (const auto &name : strings(L, 4, "modifier")) {
+                    auto bit = modifier(name);
+                    if (binding.modifiers & bit)
+                        fail("duplicate modifier");
+                    binding.modifiers |= bit;
+                }
             lua_pop(L, 1);
             lua_getfield(L, -1, "command");
             if (binding.action == SH_SPAWN)
@@ -1502,12 +1496,7 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     boolean(L, "auto_reload", "auto_reload", config.auto_reload);
     lua_getfield(L, -1, "terminal");
     if (!lua_isnil(L, -1)) {
-        auto size = array_size(L, -1, 64);
-        for (size_t i = 1; i <= size; ++i) {
-            lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-            config.terminal.push_back(string(L, -1, "terminal argument"));
-            lua_pop(L, 1);
-        }
+        config.terminal = strings(L, 64, "terminal argument");
         if (config.terminal.empty() || config.terminal.front().empty())
             fail("terminal needs a program, such as { \"foot\" }", "terminal");
     }
@@ -1575,13 +1564,9 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         config.settings.workspaces = integer(L, "workspaces", 4, 1, 10);
         lua_getfield(L, -1, "workspace_names");
         if (!lua_isnil(L, -1)) {
-            auto size = array_size(L, -1, 10);
-            if (size > static_cast<size_t>(config.settings.workspaces))
+            if (array_size(L, -1, 10) > static_cast<size_t>(config.settings.workspaces))
                 fail("layout.workspace_names has more names than layout.workspaces");
-            for (size_t i = 1; i <= size; ++i) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-                auto name = string(L, -1, "workspace name");
-                lua_pop(L, 1);
+            for (auto &name : strings(L, 10, "workspace name")) {
                 if (name.size() > 32)
                     fail("workspace name '" + name + "' is longer than 32 characters");
                 bool digits = !name.empty() && std::all_of(name.begin(), name.end(), [](char c) {
@@ -1618,19 +1603,16 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         read_monitors(L, config.settings);
         lua_getfield(L, -1, "order");
         if (!lua_isnil(L, -1)) {
-            auto size = array_size(L, -1, std::size(config.settings.output_order));
-            for (size_t i = 1; i <= size; ++i) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-                auto name = string(L, -1, "output name");
-                if (name.empty())
+            auto names = strings(L, std::size(config.settings.output_order), "output name");
+            for (size_t i = 0; i < names.size(); ++i) {
+                if (names[i].empty())
                     fail("output name is empty");
-                for (size_t j = 0; j + 1 < i; ++j)
-                    if (name == config.settings.output_order[j])
-                        fail("duplicate output '" + name + "'");
-                copy_text(name, config.settings.output_order[i - 1], "output name");
-                lua_pop(L, 1);
+                for (size_t j = 0; j < i; ++j)
+                    if (names[i] == config.settings.output_order[j])
+                        fail("duplicate output '" + names[i] + "'");
+                copy_text(names[i], config.settings.output_order[i], "output name");
             }
-            config.settings.output_count = static_cast<int>(size);
+            config.settings.output_count = static_cast<int>(names.size());
         }
         lua_pop(L, 1);
         if (auto name = text(L, "primary")) {
@@ -1699,13 +1681,7 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         lua_getfield(L, -1, "lock_command");
         if (!lua_isnil(L, -1)) {
             // A program and its arguments, or {} for no locker.
-            auto size = array_size(L, -1, 64);
-            Command locker;
-            for (size_t i = 1; i <= size; ++i) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-                locker.push_back(string(L, -1, "power.lock_command argument"));
-                lua_pop(L, 1);
-            }
+            auto locker = strings(L, 64, "power.lock_command argument");
             if (!locker.empty() && locker.front().empty())
                 fail("power.lock_command's program is empty", "lock_command");
             config.power.lock_command = std::move(locker);
@@ -1746,12 +1722,8 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     if (Section in{L, "autostart"}) {
         boolean(L, "xdg", "autostart.xdg", config.autostart.xdg);
         lua_getfield(L, -1, "exclude");
-        if (!lua_isnil(L, -1)) {
-            auto size = array_size(L, -1, 128);
-            for (size_t i = 1; i <= size; ++i) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-                auto name = string(L, -1, "autostart.exclude entry");
-                lua_pop(L, 1);
+        if (!lua_isnil(L, -1))
+            for (auto &name : strings(L, 128, "autostart.exclude entry")) {
                 if (name.find('/') != std::string::npos || !name.ends_with(".desktop") ||
                     name.size() == 8)
                     fail("autostart.exclude names a desktop file by its file name, such as "
@@ -1759,7 +1731,6 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                          "exclude");
                 config.autostart.exclude.push_back(std::move(name));
             }
-        }
         lua_pop(L, 1);
     }
     if (Section in{L, "session"}) {
