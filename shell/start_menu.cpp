@@ -3,6 +3,7 @@
 #include "calculator.hpp"
 #include "file_index.hpp"
 #include "fuzzy.hpp"
+#include "state_files.hpp"
 #include "web_search.hpp"
 #include <QAbstractEventDispatcher>
 #include <QDir>
@@ -28,13 +29,6 @@
 #endif
 
 namespace {
-QString defaultStateDir() {
-    auto state = qEnvironmentVariable("XDG_STATE_HOME");
-    if (state.isEmpty() || QDir::isRelativePath(state))
-        state = QDir::homePath() + "/.local/state";
-    return state + "/paw";
-}
-
 // The words of a text, folded to lower case, as what describes an application is searched: by the
 // words it says, not by letters strewn through a sentence.
 QStringList wordsOf(const QString &text) {
@@ -92,7 +86,7 @@ double StartMenu::Searched::score(const QStringList &parts) const {
 }
 
 StartMenu::StartMenu(QString stateDir, QObject *parent)
-    : QObject(parent), stateDir_(stateDir.isEmpty() ? defaultStateDir() : std::move(stateDir)),
+    : QObject(parent), stateDir_(stateDir.isEmpty() ? ::stateDir() : std::move(stateDir)),
       history_(stateDir_ + "/launches") {
     QFile pins(stateDir_ + "/start-pinned");
     if (pins.open(QIODevice::ReadOnly | QIODevice::Text)) {

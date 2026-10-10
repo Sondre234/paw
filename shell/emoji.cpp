@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "emoji.hpp"
+#include "state_files.hpp"
 #include <QDir>
 #include <QFile>
 #include <QRegularExpression>
@@ -10,13 +11,6 @@
 
 namespace {
 constexpr int recentLimit = 32;
-
-QString defaultStateDir() {
-    auto state = qEnvironmentVariable("XDG_STATE_HOME");
-    if (state.isEmpty() || QDir::isRelativePath(state))
-        state = QDir::homePath() + "/.local/state";
-    return state + "/paw";
-}
 
 // The words of a name, folded to lower case: "flag: Norway" is "flag" and "norway".
 QStringList wordsOf(const QString &text) {
@@ -29,7 +23,7 @@ QString plain(QString text) { return text.remove(QChar(0xfe0f)); }
 } // namespace
 
 EmojiPicker::EmojiPicker(QString table, QString stateDir, QObject *parent)
-    : QObject(parent), stateDir_(stateDir.isEmpty() ? defaultStateDir() : std::move(stateDir)) {
+    : QObject(parent), stateDir_(stateDir.isEmpty() ? ::stateDir() : std::move(stateDir)) {
     emoji_ = read(table.isEmpty() ? QStringLiteral(":/paw/emoji.tsv") : table, &groups_);
     typing_ = new QTimer(this);
     typing_->setSingleShot(true);

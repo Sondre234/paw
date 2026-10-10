@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "clipboard.hpp"
+#include "state_files.hpp"
 #include "ext-data-control-v1-client-protocol.h"
 #include <QClipboard>
 #include <QDataStream>
@@ -139,10 +140,7 @@ QString ClipboardHistory::path() const {
         return settings_.path;
     if (!connected())
         return {};
-    auto state = qEnvironmentVariable("XDG_STATE_HOME");
-    if (state.isEmpty() || QDir::isRelativePath(state))
-        state = QDir::homePath() + "/.local/state";
-    return state + "/paw/clipboard";
+    return stateDir() + "/clipboard";
 }
 
 void ClipboardHistory::configure(const Settings &settings) {

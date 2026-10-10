@@ -3,6 +3,7 @@
 #include "gio_launch.hpp"
 #include "icons.hpp"
 #include "image_provider.hpp"
+#include "state_files.hpp"
 #include "wallpapers.hpp"
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -311,10 +312,7 @@ void ShellController::sortApps() {
     });
 }
 QString ShellController::pinsPath() {
-    auto state = qEnvironmentVariable("XDG_STATE_HOME");
-    if (state.isEmpty() || QDir::isRelativePath(state))
-        state = QDir::homePath() + "/.local/state";
-    return state + "/paw/pinned";
+    return stateDir() + "/pinned";
 }
 void ShellController::savePins() {
     const auto path = pinsPath();
