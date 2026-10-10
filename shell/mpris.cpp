@@ -6,7 +6,6 @@
 #include <QDBusObjectPath>
 #include <QDBusPendingCallWatcher>
 #include <QDBusVariant>
-#include <QFileInfo>
 #include <QUrl>
 #include <iostream>
 
@@ -217,11 +216,8 @@ void Mpris::queryPosition(const QString &name) {
 }
 
 std::unique_ptr<Media> makeMedia() {
-    // Without an address libdbus would start a bus of its own ("autolaunch") that no player
-    // knows of; a session with no bus has no players. A bus that cannot be reached leaves the
-    // backend idle.
-    const bool haveBus = !qEnvironmentVariableIsEmpty("DBUS_SESSION_BUS_ADDRESS") ||
-                         QFileInfo::exists(qEnvironmentVariable("XDG_RUNTIME_DIR") + "/bus");
-    return std::make_unique<Mpris>(haveBus ? QDBusConnection::sessionBus()
-                                           : QDBusConnection(QStringLiteral("paw-no-bus")));
+    // A session with no bus has no players. A bus that cannot be reached leaves the backend idle.
+    return std::make_unique<Mpris>(dbus::haveSessionBus()
+                                       ? QDBusConnection::sessionBus()
+                                       : QDBusConnection(QStringLiteral("paw-no-bus")));
 }

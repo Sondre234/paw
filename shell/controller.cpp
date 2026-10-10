@@ -27,6 +27,9 @@
 #include <gio/gdesktopappinfo.h>
 #include <iostream>
 #include <memory>
+#if PAW_DBUS || PAW_TRAY
+#include "dbus_util.hpp"
+#endif
 #if PAW_DBUS
 #include "notification_service.hpp"
 #endif
@@ -1093,11 +1096,8 @@ void ShellController::updateNotificationService() {
         return;
 #if PAW_DBUS
     if (config_.notifications.enabled && !notificationService_) {
-        // Without an address libdbus would start a bus of its own ("autolaunch") that no other
-        // program knows of; a session with no bus has no notifications to serve.
-        const bool haveBus = !qEnvironmentVariableIsEmpty("DBUS_SESSION_BUS_ADDRESS") ||
-                             QFileInfo::exists(qEnvironmentVariable("XDG_RUNTIME_DIR") + "/bus");
-        if (!haveBus) {
+        // A session with no bus has no notifications to serve.
+        if (!dbus::haveSessionBus()) {
             if (!noBusReported_)
                 std::cerr << "paw notifications: no session bus (DBUS_SESSION_BUS_ADDRESS is unset)\n";
             noBusReported_ = true;
@@ -1135,9 +1135,7 @@ void ShellController::updateTrayHost() {
         delete trayHost_;
         trayHost_ = nullptr;
     } else if (!trayHost_) {
-        // As for notifications: without an address libdbus would start a bus nobody knows of.
-        if (qEnvironmentVariableIsEmpty("DBUS_SESSION_BUS_ADDRESS") &&
-            !QFileInfo::exists(qEnvironmentVariable("XDG_RUNTIME_DIR") + "/bus")) {
+        if (!dbus::haveSessionBus()) {
             if (!trayNoBusReported_)
                 std::cerr << "paw tray: no session bus (DBUS_SESSION_BUS_ADDRESS is unset)\n";
             trayNoBusReported_ = true;
