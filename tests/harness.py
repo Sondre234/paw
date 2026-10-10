@@ -184,11 +184,20 @@ class Compositor:
         """The tab-separated fields of each line `get REQUEST` prints."""
         return [line.split("\t") for line in self.msg("get", request, *words).splitlines()]
 
+    def reloads(self):
+        """How many times the compositor has reloaded its configuration."""
+        return self.log.read_text().count("Configuration reloaded")
+
     def reload(self, config=None):
-        """Writes `config` (if given) to init.lua and reloads it; done when this returns."""
+        """Writes `config` (if given) to init.lua and reloads it; done when this returns. A file
+        with an error reloads as the default configuration; one the compositor keeps the old
+        configuration over fails the test."""
         if config is not None:
             self.config.write_text(config)
+        before = self.reloads()
         self.msg("reload")
+        assert self.reloads() > before, "the reload was rejected: " + "".join(
+            line for line in self.log.read_text().splitlines(True) if "Reload rejected" in line)
 
     def spawn(self, command, env=None, log=None, **options):
         """Starts a client of the compositor, ended on the way out. `env` adds to the
