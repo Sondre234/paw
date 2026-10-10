@@ -874,10 +874,7 @@ void swallow_list(lua_State *L, const char *key, char (*names)[64], int &count) 
     lua_pop(L, 1);
 }
 void read_swallow(lua_State *L, Config &config) {
-    lua_getfield(L, -1, "swallow");
-    if (!lua_isnil(L, -1)) {
-        table(L, -1, "windows.swallow");
-        keys(L, -1, "windows.swallow");
+    if (section(L, "swallow", "windows.swallow")) {
         auto &settings = config.settings;
         boolean(L, "enabled", "windows.swallow.enabled", settings.swallow);
         swallow_list(L, "terminals", settings.swallow_terminals, settings.swallow_terminal_count);
@@ -888,10 +885,7 @@ void read_swallow(lua_State *L, Config &config) {
 }
 // `windows.magnet = { enabled, distance, guides, guide_color, bypass }`.
 void read_magnet(lua_State *L, Config &config) {
-    lua_getfield(L, -1, "magnet");
-    if (!lua_isnil(L, -1)) {
-        table(L, -1, "windows.magnet");
-        keys(L, -1, "windows.magnet");
+    if (section(L, "magnet", "windows.magnet")) {
         auto &settings = config.settings;
         boolean(L, "enabled", "windows.magnet.enabled", settings.magnet);
         settings.magnet_distance = integer(L, "distance", settings.magnet_distance, 0, 200);
@@ -914,10 +908,7 @@ void read_magnet(lua_State *L, Config &config) {
 void read_snap(lua_State *L, Config &config) {
     auto &settings = config.settings;
     bool colored = false;
-    lua_getfield(L, -1, "snap");
-    if (!lua_isnil(L, -1)) {
-        table(L, -1, "windows.snap");
-        keys(L, -1, "windows.snap");
+    if (section(L, "snap", "windows.snap")) {
         boolean(L, "enabled", "windows.snap.enabled", settings.snap);
         settings.snap_distance = integer(L, "distance", settings.snap_distance, 1, 100);
         boolean(L, "corners", "windows.snap.corners", settings.snap_corners);
@@ -939,10 +930,7 @@ void read_snap(lua_State *L, Config &config) {
 // `windows.shadow = { enabled, color, inactive_color, blur, offset }`; the offset is pixels down
 // or { x, y }.
 void read_shadow(lua_State *L, Config &config) {
-    lua_getfield(L, -1, "shadow");
-    if (!lua_isnil(L, -1)) {
-        table(L, -1, "windows.shadow");
-        keys(L, -1, "windows.shadow");
+    if (section(L, "shadow", "windows.shadow")) {
         auto &settings = config.settings;
         boolean(L, "enabled", "windows.shadow.enabled", settings.shadow);
         for (auto [key, target] : {std::pair{"color", &settings.shadow_color},
@@ -1059,6 +1047,7 @@ void read_windows(lua_State *L, Config &config) {
     read_magnet(L, config);
     read_snap(L, config);
     read_shadow(L, config);
+    current_section = "windows";
     lua_getfield(L, -1, "placement");
     if (!lua_isnil(L, -1)) {
         auto name = string(L, -1, "windows.placement");
