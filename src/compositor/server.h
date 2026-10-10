@@ -1431,6 +1431,7 @@ void touch_init(struct sh_server *server);
 void touch_finish(struct sh_server *server);
 
 /* toplevel.c */
+bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rule);
 struct wlr_surface *toplevel_surface(struct sh_toplevel *toplevel);
 bool toplevel_mapped(struct sh_toplevel *toplevel);
 struct wlr_box toplevel_geometry(struct sh_toplevel *toplevel);

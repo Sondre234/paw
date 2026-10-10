@@ -172,12 +172,14 @@ void maximize_toplevel(struct sh_toplevel *toplevel, bool maximized) {
         restore_toplevel(toplevel);
 }
 
-/* The actions windows.rules give a window as it opens; false when none apply. */
-static bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rule) {
+/* The actions windows.rules give a window with its app ID and title now; false when none
+ * apply. */
+bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rule) {
     const struct sh_callbacks *callbacks = toplevel->server->callbacks;
     const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
     *rule = (struct sh_window_rule){.floating = -1};
-    return callbacks->window_rule(callbacks->userdata, app_id ? app_id : "", title ? title : "",
+    return callbacks->window_rule &&
+           callbacks->window_rule(callbacks->userdata, app_id ? app_id : "", title ? title : "",
                                   rule);
 }
 

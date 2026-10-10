@@ -46,11 +46,8 @@ static bool refused(struct sh_shortcuts_inhibitor *inhibitor) {
     struct sh_toplevel *toplevel = surface_toplevel(server, inhibitor->surface);
     if (!toplevel)
         return false;
-    const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
-    struct sh_window_rule rule = {.floating = -1};
-    return server->callbacks->window_rule(server->callbacks->userdata, app_id ? app_id : "",
-                                          title ? title : "", &rule) &&
-           rule.no_shortcuts_inhibit;
+    struct sh_window_rule rule;
+    return window_rule(toplevel, &rule) && rule.no_shortcuts_inhibit;
 }
 
 /* Honours the inhibitor, or stops honouring it, as the settings and the user say; a client's

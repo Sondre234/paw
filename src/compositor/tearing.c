@@ -14,13 +14,8 @@ static bool ruled_to_tear(struct sh_output *output, struct sh_toplevel *toplevel
     if (tearing->rule_window == toplevel && tearing->rule_id == toplevel->id &&
         tearing->rule_generation == server->config_generation)
         return tearing->ruled;
-    const struct sh_callbacks *callbacks = server->callbacks;
-    const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
     struct sh_window_rule rule;
-    tearing->ruled = callbacks->window_rule &&
-                     callbacks->window_rule(callbacks->userdata, app_id ? app_id : "",
-                                            title ? title : "", &rule) &&
-                     rule.allow_tearing;
+    tearing->ruled = window_rule(toplevel, &rule) && rule.allow_tearing;
     tearing->rule_window = toplevel;
     tearing->rule_id = toplevel->id;
     tearing->rule_generation = server->config_generation;
