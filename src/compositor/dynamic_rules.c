@@ -71,7 +71,7 @@ void follow_dynamic_rules(struct sh_toplevel *toplevel) {
  * dynamic rules decide of floating, sticky and above ("on", "off", or "-" when none decides it),
  * and which of them they hold the window to ("floating,sticky,above", "-" for none): one changed
  * by hand while held is no longer. */
-void describe_dynamic_rules(struct sh_server *server, int fd) {
+void describe_dynamic_rules(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {

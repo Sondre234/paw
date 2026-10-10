@@ -173,7 +173,7 @@ bool output_commit_tearing(struct sh_output *output, struct wlr_scene_output *sc
 /* For `get tearing`: a line per output in the layout with what its frames do (`tearing`,
  * `refused` where the backend took no asynchronous flip, or why the window may not tear), the
  * frames flipped at once and refused, and the window's title. */
-void describe_tearing(struct sh_server *server, int fd) {
+void describe_tearing(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_output *output;
     wl_list_for_each_reverse(output, &server->outputs, link) {

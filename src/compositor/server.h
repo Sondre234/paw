@@ -1015,12 +1015,12 @@ void seat_pointer_focus_change(struct wl_listener *listener, void *data);
 /* dynamic_rules.c */
 bool open_dynamic_rules(struct sh_toplevel *toplevel, struct sh_window_rule *rule, bool ruled);
 void follow_dynamic_rules(struct sh_toplevel *toplevel);
-void describe_dynamic_rules(struct sh_server *server, int fd);
+void describe_dynamic_rules(struct sh_server *server, int fd, const char *arguments);
 
 /* display_mode.c */
 bool display_mode_choose(struct sh_server *server, int mode, char *error, size_t error_size);
 bool display_mode_key(struct sh_server *server, xkb_keysym_t sym);
-void describe_display_mode(struct sh_server *server, int fd);
+void describe_display_mode(struct sh_server *server, int fd, const char *arguments);
 void display_mode_finish(struct sh_server *server);
 
 /* display_settings.c */
@@ -1028,8 +1028,8 @@ void display_settings_load(struct sh_server *server);
 const struct sh_output_saved *saved_output(const struct sh_output *output);
 const char *primary_output_name(struct sh_server *server);
 bool hdr_asked(struct sh_server *server);
-void describe_monitors(struct sh_server *server, int fd);
-void describe_monitors_trial(struct sh_server *server, int fd);
+void describe_monitors(struct sh_server *server, int fd, const char *arguments);
+void describe_monitors_trial(struct sh_server *server, int fd, const char *arguments);
 void control_monitors(struct sh_server *server, int fd, const char *arguments);
 void display_settings_finish(struct sh_server *server);
 
@@ -1377,7 +1377,7 @@ bool is_window_layer(struct sh_server *server, const struct wlr_scene_tree *tree
 void restack_toplevel(struct sh_toplevel *toplevel);
 void restack_windows(struct sh_server *server);
 void set_above(struct sh_toplevel *toplevel, bool above);
-void describe_stacking(struct sh_server *server, int fd);
+void describe_stacking(struct sh_server *server, int fd, const char *arguments);
 
 /* swallow.c */
 struct sh_toplevel *swallow_host(struct sh_toplevel *child, bool terminals_only);
@@ -1414,7 +1414,7 @@ void tablet_finish(struct sh_server *server);
 /* tearing.c */
 bool output_commit_tearing(struct sh_output *output, struct wlr_scene_output *scene_output,
                            const struct wlr_scene_output_state_options *options);
-void describe_tearing(struct sh_server *server, int fd);
+void describe_tearing(struct sh_server *server, int fd, const char *arguments);
 
 /* tiling.c */
 struct wlr_output *tiled_output(struct sh_toplevel *toplevel);

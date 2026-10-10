@@ -247,7 +247,7 @@ bool display_mode_key(struct sh_server *server, xkb_keysym_t sym) {
 
 /* For `get display_mode`: the choice in force, and while the popup is open the one it shows and
  * its monitor. */
-void describe_display_mode(struct sh_server *server, int fd) {
+void describe_display_mode(struct sh_server *server, int fd, const char *arguments) {
     char line[160];
     snprintf(line, sizeof(line), "ok\n%s\t%s\t%s\n", mode_names[current_mode(server)],
              server->display_mode.open ? mode_names[server->display_mode.shown] : "-",

@@ -93,7 +93,7 @@ static const char *layer_name(struct sh_server *server, const struct wlr_scene_t
 /* `get stacking`: every window drawn among the windows, front to back: app_id, title, output and
  * the layer it is in (fullscreen_cover, peek, fullscreen, above, floating or normal). Hidden ones
  * count too, where they would show. */
-void describe_stacking(struct sh_server *server, int fd) {
+void describe_stacking(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct wlr_scene_tree *trees[] = {server->fullscreen_cover, server->peek_layer,
                                       server->fullscreen,       server->above_windows,

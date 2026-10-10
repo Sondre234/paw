@@ -251,7 +251,7 @@ static void describe_monitor(struct sh_server *server, int fd, struct sh_output 
 }
 
 /* `get monitors`: a line per monitor connected, in the order of `get outputs`. */
-void describe_monitors(struct sh_server *server, int fd) {
+void describe_monitors(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_output *outputs[SH_OUTPUT_STATE_MAX];
     int count = connected_outputs(server, outputs);
@@ -260,7 +260,7 @@ void describe_monitors(struct sh_server *server, int fd) {
 }
 
 /* `get monitors_trial`: the milliseconds left before the settings on trial go back, or "-". */
-void describe_monitors_trial(struct sh_server *server, int fd) {
+void describe_monitors_trial(struct sh_server *server, int fd, const char *arguments) {
     char reply[32] = "ok\n-\n";
     if (server->display_settings.trial) {
         int64_t left = server->display_settings.trial_ends - now_ms();

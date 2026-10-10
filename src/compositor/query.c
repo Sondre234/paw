@@ -21,7 +21,7 @@ static void control_describe_window(struct sh_server *server, int fd,
     control_reply(fd, line);
 }
 
-static void control_describe_windows(struct sh_server *server, int fd) {
+static void get_windows(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link)
@@ -29,7 +29,7 @@ static void control_describe_windows(struct sh_server *server, int fd) {
 }
 
 /* The urgent windows in the columns of `get windows`, the one that has waited longest first. */
-static void control_describe_urgent(struct sh_server *server, int fd) {
+static void get_urgent(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     unsigned last = 0;
     for (;;) {
@@ -46,7 +46,7 @@ static void control_describe_urgent(struct sh_server *server, int fd) {
     }
 }
 
-static void control_describe_layers(struct sh_server *server, int fd) {
+static void get_layers(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_layer *layer;
     // namespace, output, layer (0 background to 3 overlay), shown, holds the keyboard — one per
@@ -92,22 +92,6 @@ static void get_outputs(struct sh_server *server, int fd, const char *arguments)
         control_describe_output(server, fd, output);
     wl_list_for_each_reverse(output, &server->disabled_outputs, link)
         control_describe_output(server, fd, output);
-}
-
-static void get_tearing(struct sh_server *server, int fd, const char *arguments) {
-    describe_tearing(server, fd);
-}
-
-static void get_display_mode(struct sh_server *server, int fd, const char *arguments) {
-    describe_display_mode(server, fd);
-}
-
-static void get_monitors(struct sh_server *server, int fd, const char *arguments) {
-    describe_monitors(server, fd);
-}
-
-static void get_monitors_trial(struct sh_server *server, int fd, const char *arguments) {
-    describe_monitors_trial(server, fd);
 }
 
 static void get_workspace(struct sh_server *server, int fd, const char *arguments) {
@@ -161,22 +145,6 @@ static void get_layout(struct sh_server *server, int fd, const char *arguments) 
 
 static void get_tiling(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, output_tiles(server, focused_output(server)) ? "ok\non\n" : "ok\noff\n");
-}
-
-static void get_urgent(struct sh_server *server, int fd, const char *arguments) {
-    control_describe_urgent(server, fd);
-}
-
-static void get_windows(struct sh_server *server, int fd, const char *arguments) {
-    control_describe_windows(server, fd);
-}
-
-static void get_stacking(struct sh_server *server, int fd, const char *arguments) {
-    describe_stacking(server, fd);
-}
-
-static void get_dynamic_rules(struct sh_server *server, int fd, const char *arguments) {
-    describe_dynamic_rules(server, fd);
 }
 
 static void get_pid_at(struct sh_server *server, int fd, const char *arguments) {
@@ -402,10 +370,6 @@ static void get_overview(struct sh_server *server, int fd, const char *arguments
         control_reply(fd, text);
     }
     free(text);
-}
-
-static void get_layers(struct sh_server *server, int fd, const char *arguments) {
-    control_describe_layers(server, fd);
 }
 
 /* `mask` (xkb modifiers of `keyboard`'s keymap) as sh_modifier bits: Shift 1, Caps Lock 2,
@@ -688,18 +652,18 @@ static const struct {
     bool arguments;
 } queries[] = {
     {"outputs", get_outputs, false},
-    {"display_mode", get_display_mode, false},
-    {"monitors", get_monitors, false},
-    {"monitors_trial", get_monitors_trial, false},
-    {"tearing", get_tearing, false},
+    {"display_mode", describe_display_mode, false},
+    {"monitors", describe_monitors, false},
+    {"monitors_trial", describe_monitors_trial, false},
+    {"tearing", describe_tearing, false},
     {"workspace", get_workspace, false},
     {"workspaces", get_workspaces, false},
     {"layout", get_layout, true},
     {"tiling", get_tiling, false},
     {"urgent", get_urgent, false},
     {"windows", get_windows, false},
-    {"stacking", get_stacking, false},
-    {"dynamic_rules", get_dynamic_rules, false},
+    {"stacking", describe_stacking, false},
+    {"dynamic_rules", describe_dynamic_rules, false},
     {"pid_at", get_pid_at, true},
     {"swallow", get_swallow, false},
     {"guides", get_guides, false},
