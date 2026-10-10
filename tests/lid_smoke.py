@@ -45,7 +45,7 @@ with harness.Compositor(compositor, config()) as desktop:
 
     def windows():
         """(title, output, workspace) per window, by title."""
-        return sorted((r[9], r[10], int(r[0])) for r in desktop.rows("windows"))
+        return sorted((w.title, w.output, w.workspace) for w in desktop.windows())
 
     def switches():
         return desktop.rows("switches")

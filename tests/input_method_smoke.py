@@ -47,11 +47,11 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         return log(name)[mark:]
 
     def focused():
-        return next((r[9] for r in desktop.rows("windows") if r[1] == "1"), None)
+        return next((w.title for w in desktop.windows() if w.focused), None)
 
     def origin(title):
         """Where the window is in the layout."""
-        return next((int(r[4]), int(r[5])) for r in desktop.rows("windows") if r[9] == title)
+        return next((w.x, w.y) for w in desktop.windows() if w.title == title)
 
     def state():
         """(connected, active, grabbing), the text inputs as (enabled, served, surface's window)

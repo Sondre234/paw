@@ -42,8 +42,8 @@ with harness.Compositor(compositor, CONFIG % ("tiling", GRADIENT)) as desktop:
 
     def windows():
         """title -> (x, y, width, height, focused)."""
-        return {r[9]: (int(r[4]), int(r[5]), int(r[6]), int(r[7]), r[1] == "1")
-                for r in desktop.rows("windows")}
+        return {w.title: (w.x, w.y, w.width, w.height, w.focused)
+                for w in desktop.windows()}
 
     def borders():
         """title -> how its border is drawn, and its corners' radius."""
