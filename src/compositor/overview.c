@@ -167,8 +167,7 @@ static void overview_layout(struct sh_server *server) {
     struct sh_overview *overview = &server->overview;
     const struct sh_settings *settings = server_settings(server);
     int gap = settings->overview_gap;
-    struct sh_rect area = {overview->area.x, overview->area.y, overview->area.width,
-                           overview->area.height};
+    struct sh_rect area = overview->area;
     // Snap Assist has no strip, nor room for a search above its slot.
     int top = area.y + (overview->assist ? gap : OVERVIEW_TOP);
     overview->strip_count = 0;
