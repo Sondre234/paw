@@ -703,6 +703,17 @@ int main(int argc, char **argv) {
     // Slows the shell's animations down to a quarter of their own speed, or brings them back to the
     // test's, so that a test sees what moves on its way.
     auto slowMotion = [&](bool slow) { return motion(lua, slow ? 0.25 : fastSpeed); };
+    // Whether `holds` goes on holding for `ms`, for what must not happen.
+    auto stays = [&](const std::function<bool()> &holds, int ms = 800) {
+        QElapsedTimer waited;
+        waited.start();
+        while (waited.elapsed() < ms) {
+            if (!holds())
+                return false;
+            QTest::qWait(20);
+        }
+        return holds();
+    };
     // shell.workspaces_shown = 3 shows the current workspace with its neighbours, the last
     // three on the last one, and the names follow their workspaces.
     if (!rewrite(QString(lua).replace("shell={", "shell={workspaces_shown=3,")))
@@ -2388,8 +2399,7 @@ ListModel {
             QTest::mouseMove(popover, into + QPoint(0, 30 * (5 - step) / 5));
             QTest::qWait(10);
         }
-        QTest::qWait(600);
-        if (!card->isVisible())
+        if (!stays([&] { return card->isVisible(); }, 400))
             return fail("moving from a button into its card closed it");
         taskRequests();
         QString asked;
@@ -2543,8 +2553,7 @@ ListModel {
         if (!waitFor([&] { return !root->property("groupOpen").toBool(); }))
             return fail("pressing a button did not close the card of its windows' pictures");
         QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, centre(stack));
-        QTest::qWait(600);
-        if (root->property("groupOpen").toBool())
+        if (!stays([&] { return !root->property("groupOpen").toBool(); }, controller.thumbnailDelay() + 200))
             return fail("the card of a pressed button's windows came back while the pointer stayed");
         // Open, the card glides to another button's windows and eases to their width, rather than
         // jumping there; opening, it is in its place from the start. Slowed down, so that it is
@@ -2904,8 +2913,7 @@ ListModel {
         QTest::mouseMove(&view, centre(single));
         if (!waitFor([&] { return tooltip(single); }))
             return fail("without pictures, a window's button has no tooltip");
-        QTest::qWait(600);
-        if (card->isVisible() || root->property("groupOpen").toBool())
+        if (!stays([&] { return !card->isVisible() && !root->property("groupOpen").toBool(); }, 500))
             return fail("without pictures, resting on a window's button opened a card");
         // The reload may have made the buttons anew.
         if (!waitFor([&] { return (stack = listedTask(3)) && stack->property("stacked").toBool(); }))
@@ -2982,8 +2990,7 @@ ListModel {
         QTest::mouseMove(popover, row + QPoint(0, 30 * (5 - step) / 5));
         QTest::qWait(10);
     }
-    QTest::qWait(600);
-    if (!groupList->isVisible()) {
+    if (!stays([&] { return groupList->isVisible(); }, 400)) {
         std::cerr << "moving from a stacked task to its windows hid them\n";
         return 1;
     }
@@ -3037,17 +3044,6 @@ ListModel {
         QCoreApplication::sendEvent(window, &move);
         dragTaken = move.isAccepted() ? move.dropAction() : Qt::IgnoreAction;
         return move.isAccepted();
-    };
-    // Whether `holds` goes on holding for `ms`, for what must not happen.
-    auto stays = [&](const std::function<bool()> &holds, int ms = 800) {
-        QElapsedTimer waited;
-        waited.start();
-        while (waited.elapsed() < ms) {
-            if (!holds())
-                return false;
-            QTest::qWait(20);
-        }
-        return holds();
     };
     // The visible item called `name` under `item` whose window is `id`.
     std::function<QQuickItem *(QQuickItem *, const QString &, int)> windowItem =
