@@ -37,9 +37,8 @@ with harness.Compositor(compositor, settings(True),
     def windows():
         """By title: workspace, focused, tiled, (x, y, width, height), visible, output,
         sticky."""
-        rows = desktop.rows("windows")
-        return {r[9]: (int(r[0]), r[1] == "1", r[3] == "1", tuple(map(int, r[4:8])),
-                       r[11] == "1", r[10], r[13] == "1") for r in rows}
+        return {w.title: (w.workspace, w.focused, w.tiled, w.box,
+                          w.visible, w.output, w.sticky) for w in desktop.windows()}
 
     desktop.detail = lambda: f"windows: {windows()}"
 

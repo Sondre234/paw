@@ -32,7 +32,7 @@ with harness.Compositor(compositor, CONFIG % "") as desktop:
 
     def windows():
         """{title: (focused, x, y)}."""
-        return {r[9]: (r[1] == "1", int(r[4]), int(r[5])) for r in desktop.rows("windows")}
+        return {w.title: (w.focused, w.x, w.y) for w in desktop.windows()}
 
     def log(name):
         return (desktop.root / f"{name}.log").read_text().splitlines()

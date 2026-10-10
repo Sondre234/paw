@@ -36,8 +36,8 @@ PATHS = (("capture",), ("capture-scaled", "4096", "4096"), ("capture-listed",))
 with harness.Compositor(compositor, CONFIG) as desktop:
     def windows():
         """title -> (width, height, minimized, visible, focused)."""
-        return {r[9]: (int(r[6]), int(r[7]), r[2] == "1", r[11] == "1", r[1] == "1")
-                for r in desktop.rows("windows")}
+        return {w.title: (w.width, w.height, w.minimized, w.visible, w.focused)
+                for w in desktop.windows()}
 
     desktop.detail = lambda: f"windows: {windows()}"
 

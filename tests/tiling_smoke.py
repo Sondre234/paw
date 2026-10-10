@@ -15,8 +15,7 @@ with harness.Compositor(compositor, Path(example).read_text()
 
     def windows():
         """(workspace, focused, tiled, x, y, width, height) per window, oldest first."""
-        rows = desktop.rows("windows")
-        return [(int(r[0]), r[1] == "1", r[3] == "1", *map(int, r[4:8])) for r in rows]
+        return [(w.workspace, w.focused, w.tiled, *w.box) for w in desktop.windows()]
 
     desktop.detail = lambda: f"windows: {windows()}"
 

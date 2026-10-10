@@ -48,9 +48,10 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     def windows():
         """{title: (workspace, focused, minimized, centre)} of every window."""
         found = {}
-        for row in desktop.rows("windows"):
-            x, y, w, h = (int(n) for n in row[4:8])
-            found[row[9]] = (int(row[0]), row[1] == "1", row[2] == "1", (str(x + w // 2), str(y + h // 2)))
+        for row in desktop.windows():
+            x, y, w, h = row.box
+            found[row.title] = (row.workspace, row.focused, row.minimized,
+                                (str(x + w // 2), str(y + h // 2)))
         return found
 
     def focused():

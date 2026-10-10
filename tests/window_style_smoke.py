@@ -20,8 +20,7 @@ with harness.Compositor(compositor, settings(4, 20, 3)) as desktop:
     msg, wait_for = desktop.msg, desktop.wait_for
 
     def boxes():
-        rows = desktop.rows("windows")
-        return sorted(tuple(map(int, r[4:8])) for r in rows)
+        return sorted(w.box for w in desktop.windows())
 
     desktop.detail = lambda: f"windows: {boxes()}"
 

@@ -32,8 +32,8 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
 
     def windows():
         """title -> (workspace, focused, tiled, output, visible, sticky)."""
-        return {r[9]: (int(r[0]), r[1] == "1", r[3] == "1", r[10], r[11] == "1", r[13] == "1")
-                for r in desktop.rows("windows")}
+        return {w.title: (w.workspace, w.focused, w.tiled, w.output, w.visible, w.sticky)
+                for w in desktop.windows()}
 
     desktop.detail = lambda: f"windows: {windows()}"
 
@@ -124,7 +124,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     # Kept above and let go again (version 6), the focus staying with B; a client of version 5
     # hears no such state.
     def above(title):
-        return {r[9]: r[15] == "1" for r in desktop.rows("windows")}[title]
+        return {w.title: w.above for w in desktop.windows()}[title]
 
     control("A", "above", "1")
     assert above("A") and windows()["B"][1], windows()
