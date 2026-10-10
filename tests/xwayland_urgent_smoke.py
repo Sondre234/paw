@@ -4,7 +4,6 @@ WM_HINTS) while unfocused follow windows.activation like xdg-activation requests
 from pathlib import Path
 import subprocess
 import sys
-import time
 
 import harness
 
@@ -63,8 +62,7 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
 
     # It is focused, so asking again changes nothing.
     tell(x, "demand")
-    time.sleep(.3)
-    assert urgent() == []
+    desktop.stays(lambda: urgent() == [], "the focused window became urgent")
     tell(x, "undemand")
     subprocess.run([wayland_probe, "--activate", "paw-probe"], env=desktop.env, check=True,
                    timeout=5, stdout=subprocess.DEVNULL)
@@ -96,8 +94,8 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
     desktop.reload(settings("ignore"))
     wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
     tell(x, "demand")
-    time.sleep(.4)
-    assert urgent() == [] and focused() == ["paw-probe"]
+    desktop.stays(lambda: urgent() == [] and focused() == ["paw-probe"],
+                  "an ignored request did something", duration=.4)
     tell(x, "undemand")
     desktop.reload(settings("focus"))
     wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") == 2, "reload")
