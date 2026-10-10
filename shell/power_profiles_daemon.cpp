@@ -46,15 +46,15 @@ PowerProfilesDaemon::PowerProfilesDaemon(const QDBusConnection &bus, QObject *pa
     : PowerMode(parent), bus_(bus) {
     if (!bus_.isConnected())
         return;
-    watcher_ = new QDBusServiceWatcher(this);
-    watcher_->setConnection(bus_);
-    watcher_->setWatchMode(QDBusServiceWatcher::WatchForOwnerChange);
+    auto *watcher = new QDBusServiceWatcher(this);
+    watcher->setConnection(bus_);
+    watcher->setWatchMode(QDBusServiceWatcher::WatchForOwnerChange);
     for (const auto &name : names) {
-        watcher_->addWatchedService(name.service);
+        watcher->addWatchedService(name.service);
         bus_.connect(name.service, name.path, propertiesInterface, "PropertiesChanged", this,
                      SLOT(propertiesChanged(QString, QVariantMap, QStringList)));
     }
-    connect(watcher_, &QDBusServiceWatcher::serviceOwnerChanged, this, [this] { find(); });
+    connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this, [this] { find(); });
     find();
 }
 void PowerProfilesDaemon::find(int from) {

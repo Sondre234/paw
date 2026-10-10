@@ -72,8 +72,8 @@ NetworkManager::NetworkManager(const QDBusConnection &bus, QObject *parent) : Wi
     connect(&publish_, &QTimer::timeout, this, &NetworkManager::publish);
     if (!bus_.isConnected())
         return;
-    watcher_ = new QDBusServiceWatcher(service, bus_, QDBusServiceWatcher::WatchForOwnerChange, this);
-    connect(watcher_, &QDBusServiceWatcher::serviceOwnerChanged, this,
+    auto *watcher = new QDBusServiceWatcher(service, bus_, QDBusServiceWatcher::WatchForOwnerChange, this);
+    connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this,
             [this](const QString &, const QString &, const QString &owner) {
                 stop();
                 if (!owner.isEmpty())

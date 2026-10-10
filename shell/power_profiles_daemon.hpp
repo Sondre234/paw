@@ -4,7 +4,6 @@
 #include <QDBusConnection>
 #include <QVariantMap>
 
-class QDBusServiceWatcher;
 
 // power-profiles-daemon on a system bus: org.freedesktop.UPower.PowerProfiles, or
 // net.hadess.PowerProfiles, the name daemons before 0.20 answer to. Read whole as the daemon
@@ -23,7 +22,6 @@ class PowerProfilesDaemon : public PowerMode {
 
   private:
     QDBusConnection bus_;
-    QDBusServiceWatcher *watcher_ = nullptr;
     // Which of the two names answers (0 the newer, 1 the older), -1 for none, and what it said.
     int daemon_ = -1;
     QVariantMap properties_;
