@@ -2,12 +2,11 @@
 """The overview (Expose): thumbnails of the focused output's workspace in a grid without
 overlaps, live and scaled (checked on a screenshot), a strip of workspaces, typed filtering,
 keyboard and control-socket selection, picking a window (switching workspace if need be),
-cancelling, windows leaving while it is open, and the disabled setting. With wtype installed
-the same is driven from a virtual keyboard."""
+cancelling, windows leaving while it is open, and the disabled setting; and the same from a
+keyboard."""
 from pathlib import Path
 import re
 import shutil
-import subprocess
 import sys
 import time
 
@@ -190,41 +189,36 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     wait_for(lambda: titles() == ["A"], "B left the overview")
     msg("overview_cancel")
 
-    # The keyboard, with wtype: Super+Tab, typing, arrows, Enter, Escape.
-    wtype = shutil.which("wtype")
-    if wtype:
-        def type_keys(*arguments):
-            subprocess.run([wtype, *arguments], env=desktop.env, check=True, timeout=30)
-
-        open_window("Beta")
-        msg("workspace", "1")
-        wait_for(lambda: focused() in ("A", "Beta"), "a window focused")
-        type_keys("-M", "logo", "-k", "Tab", "-m", "logo")
-        wait_for(lambda: overview()[0] == "open", "Super+Tab opens")
-        type_keys("be")
-        wait_for(lambda: overview()[1]["filter"] == "be", "typing filters")
-        assert titles() == ["Beta"], titles()
-        type_keys("-k", "BackSpace")
-        wait_for(lambda: overview()[1]["filter"] == "b", "backspace")
-        type_keys("-k", "Escape")
-        wait_for(lambda: overview()[1]["filter"] == "-", "Escape clears the filter")
-        type_keys("-k", "Right")
-        type_keys("-k", "Return")
-        wait_for(lambda: overview()[0] != "open", "Enter confirms")
-        first = focused()
-        type_keys("-M", "logo", "-k", "Tab", "-m", "logo")
-        wait_for(lambda: overview()[0] == "open", "reopened")
-        type_keys("-M", "logo", "-k", "Tab", "-m", "logo")
-        wait_for(lambda: overview()[0] != "open", "Super+Tab closes")
-        assert focused() == first
-        type_keys("-M", "logo", "-k", "Tab", "-m", "logo")
-        wait_for(lambda: overview()[0] == "open", "reopened to escape")
-        type_keys("-k", "Escape")
-        wait_for(lambda: overview()[0] != "open", "Escape closes")
-        assert focused() == first
-        print("Keyboard overview passed")
-    else:
-        print("wtype not found: keyboard checks skipped")
+    # The keyboard: Super+Tab, typing, arrows, Enter, Escape (evdev's key codes).
+    SUPER, TAB, B, E, BACKSPACE, ESCAPE, RIGHT, ENTER = 125, 15, 48, 18, 14, 1, 106, 28
+    press = desktop.keyboard()
+    open_window("Beta")
+    msg("workspace", "1")
+    wait_for(lambda: focused() in ("A", "Beta"), "a window focused")
+    press(SUPER, TAB)
+    wait_for(lambda: overview()[0] == "open", "Super+Tab opens")
+    press(B)
+    press(E)
+    wait_for(lambda: overview()[1]["filter"] == "be", "typing filters")
+    assert titles() == ["Beta"], titles()
+    press(BACKSPACE)
+    wait_for(lambda: overview()[1]["filter"] == "b", "backspace")
+    press(ESCAPE)
+    wait_for(lambda: overview()[1]["filter"] == "-", "Escape clears the filter")
+    press(RIGHT)
+    press(ENTER)
+    wait_for(lambda: overview()[0] != "open", "Enter confirms")
+    first = focused()
+    press(SUPER, TAB)
+    wait_for(lambda: overview()[0] == "open", "reopened")
+    press(SUPER, TAB)
+    wait_for(lambda: overview()[0] != "open", "Super+Tab closes")
+    assert focused() == first
+    press(SUPER, TAB)
+    wait_for(lambda: overview()[0] == "open", "reopened to escape")
+    press(ESCAPE)
+    wait_for(lambda: overview()[0] != "open", "Escape closes")
+    assert focused() == first
 
     # With animation, thumbnails glide: opening passes through partial progress and
     # ends settled, closing shows "closing" until it is done.

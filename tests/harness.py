@@ -239,6 +239,20 @@ class Compositor:
         pointer.process = process
         return pointer
 
+    def keyboard(self, name="keys"):
+        """Plugs in a headless keyboard. Returns a function that types on it: each argument an
+        evdev key code, pressed in that order and released the other way round, so that
+        press(125, 15) is Super+Tab."""
+        self.msg("headless_keyboard", "add", name)
+
+        def press(*codes):
+            for code in codes:
+                self.msg("headless_keyboard", "key", name, str(code), "press")
+            for code in reversed(codes):
+                self.msg("headless_keyboard", "key", name, str(code), "release")
+
+        return press
+
     def private_bus(self):
         """Starts a dbus-daemon of the test's own as the session bus, for the compositor and
         every client started after this."""
