@@ -321,7 +321,6 @@ struct sh_tablets {
  * which the keyboard's focus decides. */
 struct sh_shortcuts_inhibitor;
 struct sh_shortcuts {
-    struct wlr_keyboard_shortcuts_inhibit_manager_v1 *manager;
     struct wl_list inhibitors; // struct sh_shortcuts_inhibitor
     struct sh_shortcuts_inhibitor *effective;
     struct wl_listener new_inhibitor, keyboard_focus_change;
@@ -938,6 +937,7 @@ static const uint32_t ALL_EDGES = WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT
 uint64_t now_ns(void);
 int64_t now_ms(void);
 int spawn_program(char *const argv[]);
+void destroy_resource(struct wl_client *client, struct wl_resource *resource);
 void add_listener(struct wl_signal *signal, struct wl_listener *listener,
                   wl_notify_func_t notify);
 const struct sh_settings *server_settings(struct sh_server *server);

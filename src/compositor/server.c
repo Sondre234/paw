@@ -45,6 +45,11 @@ int spawn_program(char *const argv[]) {
     return error;
 }
 
+/* A protocol object's destroy request, for one with nothing more to do. */
+void destroy_resource(struct wl_client *client, struct wl_resource *resource) {
+    wl_resource_destroy(resource);
+}
+
 void add_listener(struct wl_signal *signal, struct wl_listener *listener,
                   wl_notify_func_t notify) {
     listener->notify = notify;

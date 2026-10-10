@@ -226,11 +226,8 @@ static void new_inhibitor(struct wl_listener *listener, void *data) {
  * desktop's window, and lets go as the grab ends. While its window has the keyboard, the grab
  * holds the bindings' keys as an inhibitor does; it never takes the keyboard from another window.
  * The global is offered to Xwayland alone. */
-static void grab_handle_destroy(struct wl_client *client, struct wl_resource *resource) {
-    wl_resource_destroy(resource);
-}
 static const struct zwp_xwayland_keyboard_grab_v1_interface grab_implementation = {
-    .destroy = grab_handle_destroy,
+    .destroy = destroy_resource,
 };
 
 static void grab_resource_destroy(struct wl_resource *resource) {
@@ -241,9 +238,6 @@ static void grab_resource_destroy(struct wl_resource *resource) {
     }
 }
 
-static void manager_handle_destroy(struct wl_client *client, struct wl_resource *resource) {
-    wl_resource_destroy(resource);
-}
 
 static void manager_grab_keyboard(struct wl_client *client, struct wl_resource *resource,
                                   uint32_t id, struct wl_resource *surface_resource,
@@ -271,7 +265,7 @@ static void manager_grab_keyboard(struct wl_client *client, struct wl_resource *
 }
 
 static const struct zwp_xwayland_keyboard_grab_manager_v1_interface manager_implementation = {
-    .destroy = manager_handle_destroy,
+    .destroy = destroy_resource,
     .grab_keyboard = manager_grab_keyboard,
 };
 
@@ -337,9 +331,9 @@ void describe_shortcuts_inhibitors(struct sh_server *server, int fd,
 
 void shortcuts_inhibit_init(struct sh_server *server) {
     wl_list_init(&server->shortcuts.inhibitors);
-    server->shortcuts.manager = wlr_keyboard_shortcuts_inhibit_v1_create(server->wl_display);
-    add_listener(&server->shortcuts.manager->events.new_inhibitor, &server->shortcuts.new_inhibitor,
-                 new_inhibitor);
+    struct wlr_keyboard_shortcuts_inhibit_manager_v1 *manager =
+        wlr_keyboard_shortcuts_inhibit_v1_create(server->wl_display);
+    add_listener(&manager->events.new_inhibitor, &server->shortcuts.new_inhibitor, new_inhibitor);
     add_listener(&server->seat->keyboard_state.events.focus_change,
                  &server->shortcuts.keyboard_focus_change, keyboard_focus_change);
 #if WLR_HAS_XWAYLAND
