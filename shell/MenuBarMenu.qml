@@ -43,7 +43,6 @@ PopupMenu {
         // One without an app id stands alone.
         taskId: menuBarMenu.window && menuBarMenu.window.appId === "" ? menuBarMenu.window.taskId : -1
     }
-    TaskFilter { id: everyWindow; sourceModel: menuBarMenu.panel.taskSource }
 
     // A change of menu starts it afresh: no submenu open, nothing highlighted.
     Connections {
@@ -125,7 +124,7 @@ PopupMenu {
                                    run: function() { shell.launch(record.appId) } })
         }
         var mine = windows.map(function(w) { return w.taskId })
-        var others = everyWindow.windows.filter(function(w) {
+        var others = menuBarMenu.panel.allWindows.windows.filter(function(w) {
             return mine.indexOf(w.taskId) < 0 && !w.minimized && (!w.output || w.output === panel.outputName)
         })
         return sections([launches,

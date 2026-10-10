@@ -34,8 +34,7 @@ Rectangle {
     // focused) and a moment after, until the window has it back.
     property int focusedTask: -1
     readonly property bool holding: panel.menuOpen || shell.palette.output !== ""
-    readonly property int activeTask: allWindows.activeTask
-    TaskFilter { id: allWindows; sourceModel: menuBar.panel.taskSource }
+    readonly property int activeTask: panel.allWindows.activeTask
     TaskFilter { id: focused; sourceModel: menuBar.panel.taskSource; taskId: menuBar.focusedTask }
     readonly property var focusedWindow: focusedTask >= 0 && focused.count > 0 ? focused.windows[0] : null
     function syncFocus() {

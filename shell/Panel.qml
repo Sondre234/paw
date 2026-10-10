@@ -80,6 +80,9 @@ Item {
     property string groupIcon: ""
     property real groupX: 0
     property Item groupPending: null
+    // Every window, for which is active and which others there are (the bar's keyboard, the menu
+    // bar and its menus).
+    readonly property TaskFilter allWindows: TaskFilter { sourceModel: root.taskSource }
     readonly property TaskFilter groupWindows: TaskFilter {
         controller: shell; sourceModel: root.taskSource
         app: root.groupSlot; windowApp: root.groupWindowApp; taskId: root.groupTask

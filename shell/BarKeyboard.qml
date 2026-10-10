@@ -37,9 +37,6 @@ Item {
     Accessible.role: window >= 0 ? Accessible.ListItem : Accessible.Button
     Accessible.name: described ? described.Accessible.name : ""
 
-    // Every window, to find the one that had the keyboard.
-    TaskFilter { id: allWindows; sourceModel: keys.panel.taskSource }
-
     // The stops in the bar's order: the dock's items, or the numbers of the task list's rows, as
     // it makes the buttons outside its view only as they come into it.
     function stops() {
@@ -96,7 +93,7 @@ Item {
     }
     // The focused window as the bar shows it, -1 for none.
     function focused() {
-        return allWindows.activeTask
+        return keys.panel.allWindows.activeTask
     }
     // The stop with window `id` among its windows, -1 for none.
     function stopOf(list, id) {
