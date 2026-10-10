@@ -7,7 +7,6 @@ from pathlib import Path
 import re
 import shutil
 import signal
-import socket
 import sys
 
 import harness
@@ -103,28 +102,6 @@ with harness.Compositor(compositor, bus=True, start=False,
         wait_for(lambda: logged()[-1:] == ["unlocked"], "unlocking")
         wait_for(lambda: "Session unlocked" in desktop.log.read_text(), "the session unlocked")
 
-    class Subscriber:
-        """The control socket's stream, as the shell reads it."""
-
-        def __init__(self):
-            self.socket = socket.socket(socket.AF_UNIX)
-            self.socket.connect(env["PAW_SOCKET"])
-            self.socket.sendall(b"subscribe\n")
-            self.socket.settimeout(0.05)
-            self.buffer = ""
-
-        def lines(self, prefix):
-            try:
-                while data := self.socket.recv(8192):
-                    self.buffer += data.decode()
-            except socket.timeout:
-                pass
-            return [line for line in self.buffer.splitlines() if line.startswith(prefix)]
-
-        def last(self, prefix):
-            found = self.lines(prefix)
-            return found[-1] if found else None
-
     login1 = desktop.spawn([fake_login1, address, str(calls), str(answers)])
     wait_for(lambda: "ready" in calls.read_text(), "the fake logind")
 
@@ -135,7 +112,7 @@ with harness.Compositor(compositor, bus=True, start=False,
                        "logout": "yes", "pending": "-"}, power()
     assert "PAW_LOGIN1_BUS" in desktop.log.read_text()
     # Subscribers (the shell) hear which actions may run.
-    listener = Subscriber()
+    listener = desktop.subscribe()
     wait_for(lambda: listener.last("power ") == "power lock,logout",
              "the actions subscribers hear")
     assert "logind is out of reach" in msg("poweroff", ok=False)
@@ -158,7 +135,7 @@ with harness.Compositor(compositor, bus=True, start=False,
     wait_for(answers_are(poweroff="yes", reboot="challenge", suspend="yes",
                          hibernate="na", pending="-"), "logind's answers")
     wait_for(lambda: inhibitors() == 1, "the delay inhibitor")
-    subscriber = Subscriber()
+    subscriber = desktop.subscribe()
     wait_for(lambda: subscriber.last("power ")
              == "power lock,suspend,reboot,poweroff,logout", "the actions subscribers hear")
 
