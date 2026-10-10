@@ -1716,7 +1716,6 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                {"launch", SH_SESSION_RESTORE_LAUNCH}},
               "session.restore must be \"off\", \"windows\" or \"launch\"", "restore");
     }
-    check_keymap(config.settings);
     return config;
 }
 } // namespace
@@ -2448,6 +2447,8 @@ Config parse_config(const std::string &source, const std::string &name,
             return read(L, own, directory);
         };
         auto config = build("");
+        // Profiles leave the keyboard alone, so its keymap is compiled once.
+        check_keymap(config.settings);
         // Every profile is checked, so picking one later cannot fail; the configuration
         // itself is valid by now, so an error belongs to the profile.
         auto active = std::find(names.begin(), names.end(), chosen) != names.end() ? chosen : start;
