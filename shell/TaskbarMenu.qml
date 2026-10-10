@@ -79,7 +79,7 @@ PopupMenu {
                 run: function() { windows.forEach(function(w) { tasks.close(w.taskId) }) } }
             : { text: "Close window", icon: "x", danger: true, objectName: "contextMenuClose",
                 run: function() { tasks.close(lead.taskId) } }
-        return sections([[titleEntry(record, lead.appId, stacked ? windows.length + " windows" : lead.title)],
+        return WindowMenu.sections([[titleEntry(record, lead.appId, stacked ? windows.length + " windows" : lead.title)],
                          launchEntries(record, "New window"),
                          stacked ? stackEntries(windows, tasks) : windowEntries(lead, tasks),
                          (panel.taskMenuApp ? [panel.pinAction(panel.taskMenuApp)] : []).concat([close])
@@ -111,7 +111,7 @@ PopupMenu {
             return { text: w.title || (record ? record.name : w.appId), toggle: "check", checked: w.active === true,
                      objectName: "contextMenuWindow", run: function() { tasks.activate(w.taskId) } }
         })
-        return sections([listed, bare(launchEntries(record, "New Window")),
+        return WindowMenu.sections([listed, bare(launchEntries(record, "New Window")),
                          panel.taskMenuApp ? [panel.pinAction(panel.taskMenuApp)] : [],
                          [{ text: "Hide", objectName: "contextMenuHide",
                             run: function() { windows.forEach(function(w) { if (!w.minimized) tasks.minimize(w.taskId) }) } },
@@ -157,18 +157,6 @@ PopupMenu {
                            run: function() { tasks.setFloating(id, window.floating !== true) } })
         return entries
     }
-    // The groups of entries, with a line between those that have any.
-    function sections(groups) {
-        var entries = []
-        for (var i = 0; i < groups.length; ++i) {
-            if (groups[i].length === 0)
-                continue
-            if (entries.length > 0)
-                entries.push({ separator: true })
-            entries = entries.concat(groups[i])
-        }
-        return entries
-    }
 
     // A task menu acts on the windows through the panel's source of them, which the tests replace
     // with one that notes what it is asked.
@@ -178,8 +166,8 @@ PopupMenu {
         // A pinned application without windows; on the dock without a title, as macOS's.
         var app = panel.pinMenuApp
         if (app !== null)
-            return panel.macos ? sections([bare(launchEntries(app, "Open")), app.configured ? [] : [panel.pinAction(app.appId)]])
-                               : sections([[titleEntry(app, app.appId, "")], launchEntries(app, "Open"),
+            return panel.macos ? WindowMenu.sections([bare(launchEntries(app, "Open")), app.configured ? [] : [panel.pinAction(app.appId)]])
+                               : WindowMenu.sections([[titleEntry(app, app.appId, "")], launchEntries(app, "Open"),
                                            app.configured ? [] : [panel.pinAction(app.appId)]])
         // Icons of what each entry leads to: floating windows or tiles, as the tiling button shows.
         return [{ text: panel.tiling ? "Turn tiling off" : "Turn tiling on",
@@ -189,10 +177,7 @@ PopupMenu {
                 { text: "Show desktop", icon: "minimize-2", run: function() { shell.tasks.showDesktop() } }]
             .concat(shell.profiles.length > 0
                 ? [{ text: "Appearance", icon: "palette", secondary: shell.profile,
-                     submenu: shell.profiles.map(function(name) {
-                         return { text: name, toggle: "radio", checked: name === shell.profile,
-                                  run: function() { if (name !== shell.profile) shell.pickProfile(name) } }
-                     }) }]
+                     submenu: WindowMenu.profileEntries() }]
                 : [])
     }
 }

@@ -69,17 +69,7 @@ PopupMenu {
 
     // The groups of entries, with a line between those that have any, and no icons, as macOS's
     // menus have none.
-    function sections(groups) {
-        var entries = []
-        for (var i = 0; i < groups.length; ++i) {
-            if (groups[i].length === 0)
-                continue
-            if (entries.length > 0)
-                entries.push({ separator: true })
-            entries = entries.concat(groups[i].map(plain))
-        }
-        return entries
-    }
+    function sections(groups) { return WindowMenu.sections(groups, plain) }
     function plain(entry) {
         if (!entry.icon)
             return entry
@@ -92,10 +82,7 @@ PopupMenu {
         var look = []
         if (shell.profiles.length > 0)
             look.push({ text: "Appearance", secondary: shell.profile, objectName: "systemMenuAppearance",
-                        submenu: shell.profiles.map(function(name) {
-                            return { text: name, toggle: "radio", checked: name === shell.profile,
-                                     run: function() { if (name !== shell.profile) shell.pickProfile(name) } }
-                        }) })
+                        submenu: WindowMenu.profileEntries() })
         if (shell.wallpaperFolder !== "")
             look.push({ text: "Wallpaper…", objectName: "systemMenuWallpaper",
                         run: function() { panel.toggleAudioPopup("wallpapers", bar.systemButton) } })

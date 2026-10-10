@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
+import "WindowMenu.js" as WindowMenu
 
 // The profile button's popup: the appearance profiles, the one in use marked.
 PopupMenu {
@@ -16,8 +17,5 @@ PopupMenu {
     bounds: panel.popupArea
     minimumWidth: 240
     onDismissed: panel.audioPopup = ""
-    entries: [{ header: "Appearance" }].concat(shell.profiles.map(function(name) {
-        return { text: name, toggle: "radio", checked: name === shell.profile,
-                 run: function() { if (name !== shell.profile) shell.pickProfile(name) } }
-    }))
+    entries: [{ header: "Appearance" }].concat(WindowMenu.profileEntries())
 }
