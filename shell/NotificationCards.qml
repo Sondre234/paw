@@ -74,14 +74,12 @@ Item {
         displaced: Transition { NumberAnimation { properties: "y"; duration: Theme.durationNormal; easing.type: Theme.easing } }
         delegate: Item {
             id: entry
-            required property int index
             required property int notificationId
             required property string app
             required property string icon
             required property string summary
             required property string body
             required property var actions
-            required property bool hasDefault
             required property int urgency
             required property int progress
             required property bool hasImage
