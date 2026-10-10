@@ -35,50 +35,61 @@ QString defaultStateDir() {
     return state + "/paw";
 }
 
-// Whether every word of `query` starts a word of `text`, as what describes an application is
-// searched: by the words it says, not by letters strewn through a sentence.
-bool startsWords(const QString &query, const QString &text) {
-    static const QRegularExpression space("\\s+"), separators("[^\\w]+");
-    const auto words = text.toCaseFolded().split(separators, Qt::SkipEmptyParts);
-    const auto parts = query.toCaseFolded().split(space, Qt::SkipEmptyParts);
+// The words of a text, folded to lower case, as what describes an application is searched: by the
+// words it says, not by letters strewn through a sentence.
+QStringList wordsOf(const QString &text) {
+    static const QRegularExpression separators("[^\\w]+");
+    return text.toCaseFolded().split(separators, Qt::SkipEmptyParts);
+}
+// Whether every one of the query's `parts` starts one of `words`.
+bool startsWords(const QStringList &parts, const QStringList &words) {
     return std::all_of(parts.begin(), parts.end(), [&](const QString &part) {
         return std::any_of(words.begin(), words.end(),
                            [&](const QString &word) { return word.startsWith(part); });
     });
 }
+} // namespace
 
-// How well an application's record matches `query`, negative when it does not. Its name and id
-// are matched as the palette matches, letter by letter; its generic name, keywords and comment
+StartMenu::Searched::Searched(const QVariantMap &app)
+    : name(app.value("name").toString()), generic(app.value("genericName").toString()),
+      keywords(app.value("keywords").toStringList().join(' ')),
+      description(app.value("description").toString()) {
+    // A configured launcher's id is only its place in the configuration.
+    if (!app.value("configured").toBool()) {
+        id = app.value("appId").toString();
+        if (id.endsWith(".desktop"))
+            id.chop(8);
+    }
+    all = QStringList{name, generic, keywords, id}.join(' ');
+    genericWords = wordsOf(generic);
+    keywordWords = wordsOf(keywords);
+    descriptionWords = wordsOf(description);
+    allWords = wordsOf(all);
+}
+
+// How well an application matches the query's `parts`, negative when it does not. Its name and
+// id are matched as the palette matches, letter by letter; its generic name, keywords and comment
 // by their words, and count less, as the palette counts a subtitle; words found only across them
 // ("firefox browser") count least.
-double appScore(const QString &query, const QVariantMap &app) {
-    const auto name = app["name"].toString(), generic = app["genericName"].toString(),
-               keywords = app["keywords"].toStringList().join(' '),
-               description = app["description"].toString();
-    // A configured launcher's id is only its place in the configuration.
-    auto id = app["configured"].toBool() ? QString() : app["appId"].toString();
-    if (id.endsWith(".desktop"))
-        id.chop(8);
-    const std::tuple<const QString &, double, bool> fields[] = {
-        {name, 1, false}, {generic, 0.8, true}, {keywords, 0.7, true}, {id, 0.6, false},
-        {description, 0.5, true}};
+double StartMenu::Searched::score(const QStringList &parts) const {
+    const std::tuple<const QString &, double, const QStringList *> fields[] = {
+        {name, 1, nullptr}, {generic, 0.8, &genericWords}, {keywords, 0.7, &keywordWords},
+        {id, 0.6, nullptr}, {description, 0.5, &descriptionWords}};
     double best = -1;
-    for (const auto &[text, weight, byWords] : fields) {
-        if (text.isEmpty() || (byWords && !startsWords(query, text)))
+    for (const auto &[text, weight, words] : fields) {
+        if (text.isEmpty() || (words && !startsWords(parts, *words)))
             continue;
-        const double value = fuzzy::score(query, text);
+        const double value = fuzzy::scoreWords(parts, text);
         if (value >= 0)
             best = std::max(best, value * weight);
     }
-    const auto all = QStringList{name, generic, keywords, id}.join(' ');
-    if (best < 0 && startsWords(query, all)) {
-        const double value = fuzzy::score(query, all);
+    if (best < 0 && startsWords(parts, allWords)) {
+        const double value = fuzzy::scoreWords(parts, all);
         if (value >= 0)
             best = value * 0.4;
     }
     return best;
 }
-} // namespace
 
 StartMenu::StartMenu(QString stateDir, QObject *parent)
     : QObject(parent), stateDir_(stateDir.isEmpty() ? defaultStateDir() : std::move(stateDir)),
@@ -134,8 +145,11 @@ void StartMenu::setApps(const QVariantList &apps, const QStringList &taskbarPins
         return QString::localeAwareCompare(a.second["name"].toString(), b.second["name"].toString()) < 0;
     });
     sorted_.clear();
-    for (const auto &item : named)
+    searched_.clear();
+    for (const auto &item : named) {
         sorted_.push_back(item.second);
+        searched_.emplace_back(item.second);
+    }
     if (!ownPins_) {
         QStringList ids;
         for (const auto &app : apps)
@@ -272,11 +286,12 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
     };
     // By name to begin with, the order equal matches keep.
     std::vector<Found> apps;
-    for (const auto &item : sorted_) {
-        auto app = item.toMap();
-        double value = appScore(query, app);
+    const auto parts = fuzzy::words(query);
+    for (qsizetype i = 0; i < sorted_.size(); ++i) {
+        double value = searched_[i].score(parts);
         if (value < 0)
             continue;
+        auto app = sorted_[i].toMap();
         // What is launched often breaks a tie, and comes a little ahead of a close match.
         const auto *launched = history_.find(app["appId"].toString());
         if (launched)
