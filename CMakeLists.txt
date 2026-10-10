@@ -1031,7 +1031,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:paw>)
         set_tests_properties(night_light_smoke PROPERTIES TIMEOUT 90)
         add_test(NAME hot_corners_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/hot_corners_smoke.py $<TARGET_FILE:paw>)
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/hot_corners_smoke.py $<TARGET_FILE:paw>
+            $<TARGET_FILE:pointer_probe>)
         set_tests_properties(hot_corners_smoke PROPERTIES TIMEOUT 60)
         add_test(NAME zoom_smoke COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/zoom_smoke.py
