@@ -33,6 +33,7 @@ struct buffer {
     struct buffer *next;
 };
 struct probe {
+    struct wl_display *display;
     bool list_globals;
     struct wl_compositor *compositor;
     struct zwlr_layer_shell_v1 *layer_shell;
@@ -55,7 +56,8 @@ struct probe {
     bool maximized, fullscreen, handle_fullscreen, done, external_control, external_panel;
     const char *close_app_id;
     bool move_on_press; // PAW_PROBE_MOVE: a button press on the window starts an interactive move
-    int resize_edges;   // PAW_PROBE_RESIZE=EDGE: ... or a resize (xdg_toplevel_resize_edge, or 0)
+    int resize_edges;   // PAW_PROBE_RESIZE=EDGE: ... or a resize (xdg_toplevel_resize_edge, or 0),
+                        // and says "resizing" once the compositor has taken the request up
     bool activate; // --activate: activate the matching window instead of closing it
     bool maximize; // --maximize: ask to maximize the matching window instead of closing it
     struct zwlr_foreign_toplevel_handle_v1 *close_target;
@@ -447,12 +449,19 @@ static void pointer_leave(void *data, struct wl_pointer *pointer, uint32_t seria
                           struct wl_surface *surface) {}
 static void pointer_motion(void *data, struct wl_pointer *pointer, uint32_t time, wl_fixed_t x,
                            wl_fixed_t y) {}
+static void resize_taken(void *data, struct wl_callback *callback, uint32_t time) {
+    wl_callback_destroy(callback);
+    say("resizing");
+}
+static const struct wl_callback_listener resize_taken_listener = {.done = resize_taken};
 static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t serial, uint32_t time,
                            uint32_t button, uint32_t state) {
     struct probe *probe = data;
-    if (probe->resize_edges && state == WL_POINTER_BUTTON_STATE_PRESSED)
+    if (probe->resize_edges && state == WL_POINTER_BUTTON_STATE_PRESSED) {
         xdg_toplevel_resize(probe->toplevel, probe->seat, serial, probe->resize_edges);
-    else if (probe->move_on_press && state == WL_POINTER_BUTTON_STATE_PRESSED)
+        // The compositor answers a sync after the requests before it.
+        wl_callback_add_listener(wl_display_sync(probe->display), &resize_taken_listener, NULL);
+    } else if (probe->move_on_press && state == WL_POINTER_BUTTON_STATE_PRESSED)
         xdg_toplevel_move(probe->toplevel, probe->seat, serial);
     else if (probe->drag_source && state == WL_POINTER_BUTTON_STATE_PRESSED)
         start_drag(probe, serial);
@@ -764,6 +773,7 @@ int main(int argc, char **argv) {
     struct wl_display *display = wl_display_connect(NULL);
     if (!display)
         die("cannot connect to compositor");
+    probe.display = display;
     if (getenv("PAW_PROBE_SPAWN_APP_ID") || getenv("PAW_PROBE_SPAWN_PROGRAM")) {
         static char self[4096];
         ssize_t length = readlink("/proc/self/exe", self, sizeof(self) - 1);
