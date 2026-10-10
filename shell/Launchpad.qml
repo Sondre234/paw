@@ -22,23 +22,9 @@ Item {
     objectName: "launchpad"
     readonly property bool open: panel.launcherOpen
     // How far it is open, from 0 to 1: its opacity, and what is left of the grid's zoom.
-    property real progress: 0
+    property alias progress: reveal.progress
     visible: open || progress > 0
-    states: State {
-        name: "open"
-        when: launchpad.open
-        PropertyChanges { launchpad.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "open"
-            NumberAnimation { property: "progress"; duration: Theme.durationSlow; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "open"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easingExit }
-        }
-    ]
+    Reveal { id: reveal; shown: launchpad.open; enterDuration: Theme.durationSlow; exitDuration: Theme.durationNormal }
     onOpenChanged: {
         if (!open)
             return

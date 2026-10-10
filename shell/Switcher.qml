@@ -51,22 +51,8 @@ Item {
     // normal duration and goes on its fast one, quicker than it came, as the switch it ends is
     // done.
     property bool shown: false
-    property real progress: 0
-    states: State {
-        name: "shown"
-        when: switcher.shown
-        PropertyChanges { switcher.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationFast; easing.type: Theme.easingExit }
-        }
-    ]
+    property alias progress: reveal.progress
+    Reveal { id: reveal; shown: switcher.shown }
 
     Item {
         id: card

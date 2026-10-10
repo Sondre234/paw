@@ -50,22 +50,8 @@ Item {
     // Set by its view as it shows and cleared as it goes (a preview sets it from the start), as
     // the palette's: `progress` follows, from 0 to 1.
     property bool shown: false
-    property real progress: 0
-    states: State {
-        name: "shown"
-        when: root.shown
-        PropertyChanges { root.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationFast; easing.type: Theme.easingExit }
-        }
-    ]
+    property alias progress: reveal.progress
+    Reveal { id: reveal; shown: root.shown }
 
     function reset() {
         search.text = ""

@@ -12,7 +12,7 @@ Item {
     readonly property bool mine: model.active && model.output === outputName
     // How far it is shown, from 0 to 1: its opacity, and what is left of its rise and growth. It
     // comes quickly and goes slowly, both at once with animations off.
-    property real progress: 0
+    property alias progress: reveal.progress
     // True while it is visible, including the fade out; the view hides the surface after that.
     readonly property bool visibleNow: mine || progress > 0
     readonly property bool hasLevel: model.percent >= 0
@@ -20,21 +20,7 @@ Item {
     readonly property int margin: Math.max(Theme.spacingL, Theme.shadowMargin)
     width: pill.width + 2 * margin
     height: pill.height + 2 * margin
-    states: State {
-        name: "shown"
-        when: osd.mine
-        PropertyChanges { osd.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationSlow; easing.type: Theme.easingExit }
-        }
-    ]
+    Reveal { id: reveal; shown: osd.mine; exitDuration: Theme.durationSlow }
 
     Item {
         id: pill

@@ -40,7 +40,7 @@ Item {
     property Item initialFocus: card
     default property alias content: body.data
     // How far it is open, from 0 to 1: its opacity, and what is left of the slide.
-    property real progress: 0
+    property alias progress: reveal.progress
 
     property rect bounds: parent ? Qt.rect(0, 0, parent.width, parent.height) : Qt.rect(0, 0, 0, 0)
 
@@ -133,21 +133,7 @@ Item {
     }
     onVisibleChanged: announce()
     Component.onCompleted: announce()
-    states: State {
-        name: "open"
-        when: card.open
-        PropertyChanges { card.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "open"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "open"
-            NumberAnimation { property: "progress"; duration: Theme.durationFast; easing.type: Theme.easingExit }
-        }
-    ]
+    Reveal { id: reveal; shown: card.open }
     // It slides out from the anchor, a few pixels.
     transform: Translate {
         readonly property real distance: (1 - card.progress) * Theme.spacingM

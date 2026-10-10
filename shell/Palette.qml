@@ -53,22 +53,8 @@ Item {
     // `progress` follows, from 0 to 1: the card's opacity, and what is left of its drop and
     // growth. It goes quicker than it came, what it ran showing through.
     property bool shown: false
-    property real progress: 0
-    states: State {
-        name: "shown"
-        when: root.shown
-        PropertyChanges { root.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationFast; easing.type: Theme.easingExit }
-        }
-    ]
+    property alias progress: reveal.progress
+    Reveal { id: reveal; shown: root.shown }
 
     function reset() {
         input.text = shell.palette.query
@@ -299,8 +285,8 @@ Item {
                     }
                     Text {
                         id: what
-                        anchors.right: reveal.visible ? reveal.left : parent.right
-                        anchors.rightMargin: reveal.visible ? Theme.spacingS : Theme.spacingM
+                        anchors.right: folder.visible ? folder.left : parent.right
+                        anchors.rightMargin: folder.visible ? Theme.spacingS : Theme.spacingM
                         anchors.verticalCenter: parent.verticalCenter
                         width: Math.min(implicitWidth, parent.width / 3)
                         text: result.modelData.subtitle; textFormat: Text.PlainText
@@ -317,7 +303,7 @@ Item {
                     // The chosen file's folder opens from a button at its end, as Ctrl+Enter
                     // opens it.
                     FlatButton {
-                        id: reveal
+                        id: folder
                         objectName: "paletteFolder:" + result.modelData.title
                         visible: result.chosen && result.modelData.kind === "file"
                         anchors.right: parent.right; anchors.rightMargin: Theme.spacingXS

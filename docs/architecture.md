@@ -471,7 +471,7 @@ bars, and the surfaces follow at once.
 The window switcher, the command palette, the power dialog and the overview's text are
 `OverlayView`s (`view.cpp`), a layer surface each on every output's overlay layer. `present()`
 shows one and sets its QML root's `shown`; `dismiss()` clears it, and the root animates its own
-`progress` back to 0 as its transition from the "shown" state says, the view hiding once it is
+`progress` back to 0 as its `Reveal` (`Reveal.qml`) says, the view hiding once it is
 there (at once with animations off). While it goes it is transparent for input and gives up the
 keyboard, so the windows under it have both at once, and shown again it comes back from where it
 was. What the compositor forgets as one closes (the switcher's windows, the power dialog's
@@ -502,6 +502,7 @@ what was there.
 | `SearchInput.qml` | The start menu's and the command palette's search field. |
 | `EmptyState.qml` | What a list says while it has nothing to show: an icon, a line and a hint. |
 | `PopupCard.qml` | A popup's card: surface, outline, corners, a shadow through the GPU, the open and close animation, and its place beside what it belongs to. |
+| `Reveal.qml` | How far an overlay or a card is in view: its `progress`, easing to 1 while `shown` and back to 0 after, which the overlays and `PopupCard` take as their own. |
 | `PopupMenu.qml`, `MenuRow.qml` | A menu of plain entries on popup cards, with cascading submenus and keyboard navigation, and one row of it. |
 | `WindowMenu.js` | The entries of a menu about windows that move them to another workspace or monitor. |
 | `AudioSlider.qml`, `MuteButton.qml`, `StreamRow.qml` | Controls the mixer and Quick Settings use: a volume's slider, a mute button, and an application playing sound. |

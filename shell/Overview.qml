@@ -33,23 +33,9 @@ Item {
     // glide to their places. As they glide back the titles and the strip's labels go with them at
     // once, and the search box and the hint fade out.
     property bool shown: false
-    property real progress: 0
+    property alias progress: reveal.progress
     opacity: progress
-    states: State {
-        name: "shown"
-        when: overview.shown
-        PropertyChanges { overview.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationSlow; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationFast; easing.type: Theme.easingExit }
-        }
-    ]
+    Reveal { id: reveal; shown: overview.shown; enterDuration: Theme.durationSlow }
 
     // The search box, drawn as the palette's and the start menu's fields are (it takes no input):
     // what was typed, or what typing does. It keeps to the room the compositor leaves above the

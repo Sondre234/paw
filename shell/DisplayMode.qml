@@ -11,7 +11,7 @@ Item {
     readonly property var model: shell.displayModes
     readonly property bool mine: model.active && model.output === outputName
     // How far it is shown, from 0 to 1; the view hides the surface once it is back at 0.
-    property real progress: 0
+    property alias progress: reveal.progress
     readonly property bool visibleNow: mine || progress > 0
     // The room around the card, which its shadow takes when there is one.
     readonly property int margin: Math.max(Theme.spacingL, Theme.shadowMargin)
@@ -24,21 +24,7 @@ Item {
     })
     width: card.width + 2 * margin
     height: card.height + 2 * margin
-    states: State {
-        name: "shown"
-        when: popup.mine
-        PropertyChanges { popup.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationSlow; easing.type: Theme.easingExit }
-        }
-    ]
+    Reveal { id: reveal; shown: popup.mine; exitDuration: Theme.durationSlow }
 
     Item {
         id: card
