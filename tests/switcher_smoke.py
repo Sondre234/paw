@@ -5,7 +5,6 @@ output's workspace), cancels, follows windows closing, and tells subscribers eac
 each window by the number the window control gives it too. Alt+Tab from a keyboard confirms on
 releasing Alt."""
 from pathlib import Path
-import socket
 import subprocess
 import sys
 
@@ -40,38 +39,16 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
 
     desktop.detail = lambda: f"windows: {windows()}"
 
-    class Events:
-        """A subscriber's lines other than the state it gets after every change."""
+    def expect(predicate, message):
+        """Waits for the switcher lines heard to satisfy `predicate`, then forgets them."""
+        lines = []
 
-        def __init__(self):
-            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.sock.connect(desktop.env["PAW_SOCKET"])
-            self.sock.sendall(b"subscribe\n")
-            self.sock.settimeout(0.05)
-            self.buffer = b""
-            self.lines = []
-
-        def poll(self):
-            try:
-                while True:
-                    data = self.sock.recv(65536)
-                    if not data:
-                        break
-                    self.buffer += data
-            except socket.timeout:
-                pass
-            *complete, self.buffer = self.buffer.split(b"\n")
-            self.lines += [line.decode() for line in complete
-                           if line.startswith(b"switcher")]
-
-        def expect(self, predicate, message):
-            """Waits for the switcher lines to satisfy `predicate`, then forgets them."""
-            def seen():
-                self.poll()
-                return predicate(self.lines)
-            wait_for(seen, message, detail=lambda: f"events: {self.lines}")
-            lines, self.lines = self.lines, []
-            return lines
+        def seen():
+            lines[:] = events.lines("switcher")
+            return predicate(lines)
+        wait_for(seen, message, detail=lambda: f"events: {lines}")
+        events.forget()
+        return lines
 
     def number(title):
         """The window's number, as the window control gives it a taskbar."""
@@ -89,7 +66,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
         return None
 
     clients = {}
-    events = Events()
+    events = desktop.subscribe()
 
     def open_window(title):
         clients[title] = desktop.spawn([probe, "--window-only"],
@@ -103,17 +80,17 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     open_window("D")
     msg("output", "HEADLESS-1", "workspace", "1")
     msg("switcher")  # Switching back focused B.
-    _, selected, titles, _ = opened(events.expect(opened, "switcher opened"))
+    _, selected, titles, _ = opened(expect(opened, "switcher opened"))
     assert titles == ["B", "D", "A"] and selected == 1, (titles, selected)
     msg("switcher_cancel")
-    events.expect(lambda l: "switcher-close" in l, "switcher cancelled")
+    expect(lambda l: "switcher-close" in l, "switcher cancelled")
     open_window("C")
     wait_for(lambda: windows()["C"]["output"] == "HEADLESS-2" and focused() == "C",
              "C on HEADLESS-2 and focused")
 
     # Every window, most recently focused first, on the focused output.
     msg("switcher")
-    where, selected, titles, entries = opened(events.expect(opened, "switcher opened"))
+    where, selected, titles, entries = opened(expect(opened, "switcher opened"))
     assert where == "HEADLESS-2", where
     assert titles == ["C", "B", "D", "A"], titles
     assert selected == 1, selected
@@ -126,49 +103,49 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     assert ids == {title: number(title) for title in titles}, ids
     assert len(set(ids.values())) == 4 and max(ids.values(), key=int) == ids["C"], ids
     msg("switcher")
-    events.expect(lambda l: l == ["switcher-select 2"], "next")
+    expect(lambda l: l == ["switcher-select 2"], "next")
     msg("switcher_prev")
     msg("switcher_prev")
     msg("switcher_prev")
-    events.expect(lambda l: l == ["switcher-select 1", "switcher-select 0",
+    expect(lambda l: l == ["switcher-select 1", "switcher-select 0",
                                   "switcher-select 3"], "previous, wrapping around")
     assert focused() == "C", "the switcher focused a window before confirming"
 
     # Confirming focuses A, on its output's current workspace.
     msg("switcher_confirm")
-    events.expect(lambda l: l == ["switcher-close"], "switcher closed")
+    expect(lambda l: l == ["switcher-close"], "switcher closed")
     wait_for(lambda: focused() == "A", "A focused")
 
     # D is on a workspace HEADLESS-1 does not show: picking it switches there.
     msg("switcher")
-    _, _, titles, _ = opened(events.expect(opened, "switcher reopened"))
+    _, _, titles, _ = opened(expect(opened, "switcher reopened"))
     assert titles == ["A", "C", "B", "D"], titles
     msg("switcher_confirm", "4")
     wait_for(lambda: focused() == "D" and windows()["D"]["visible"] and
              not windows()["A"]["visible"], "D focused on workspace 2")
-    events.expect(lambda l: "switcher-close" in l, "closed after picking")
+    expect(lambda l: "switcher-close" in l, "closed after picking")
 
     # Cancelling leaves focus alone.
     msg("switcher")
-    events.expect(opened, "switcher opened to cancel")
+    expect(opened, "switcher opened to cancel")
     msg("switcher_cancel")
-    events.expect(lambda l: l == ["switcher-close"], "cancelled")
+    expect(lambda l: l == ["switcher-close"], "cancelled")
     assert focused() == "D"
 
     # A listed window closing leaves the list; the selection stays on its window.
     msg("switcher")
-    _, selected, titles, _ = opened(events.expect(opened, "opened before a close"))
+    _, selected, titles, _ = opened(expect(opened, "opened before a close"))
     assert titles == ["D", "A", "C", "B"] and selected == 1, (titles, selected)
     msg("switcher")  # C selected
-    events.expect(lambda l: l == ["switcher-select 2"], "C selected")
+    expect(lambda l: l == ["switcher-select 2"], "C selected")
     clients["B"].terminate()
     desktop.reap(clients["B"])
-    _, selected, titles, entries = opened(events.expect(opened, "list without B"))
+    _, selected, titles, entries = opened(expect(opened, "list without B"))
     assert titles == ["D", "A", "C"] and selected == 2, (titles, selected)
     assert [e[6] for e in entries] == [ids[t] for t in titles], (entries, ids)
     clients["C"].terminate()
     desktop.reap(clients["C"])
-    _, selected, titles, _ = opened(events.expect(opened, "list without C"))
+    _, selected, titles, _ = opened(expect(opened, "list without C"))
     assert titles == ["D", "A"] and selected == 1, (titles, selected)
     msg("switcher_confirm")
     wait_for(lambda: focused() == "A", "A focused after the list shrank")
@@ -180,16 +157,16 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     # The keyboard: Alt+Tab then releasing Alt; Alt+Shift+Tab; Escape (evdev's key codes).
     ALT, SHIFT, TAB, ESCAPE = 56, 42, 15, 1
     press = desktop.keyboard()
-    events.lines = []
+    events.forget()
     press(ALT, TAB)
     wait_for(lambda: focused() == "D", "Alt+Tab picks the previous window, D")
-    events.expect(lambda l: "switcher-close" in l, "closed on releasing Alt")
+    expect(lambda l: "switcher-close" in l, "closed on releasing Alt")
     press(ALT, SHIFT, TAB)
     wait_for(lambda: focused() == "A", "Alt+Shift+Tab picks the last, A")
     press.down(ALT)
     press(TAB)
     press(ESCAPE)
     press.up(ALT)
-    events.expect(lambda l: "switcher-close" in l, "Escape closes")
+    expect(lambda l: "switcher-close" in l, "Escape closes")
     desktop.stays(lambda: focused() == "A", "Escape still switched")
 print("Window switcher passed")
