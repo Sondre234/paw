@@ -19,9 +19,6 @@ struct sh_control_client {
     char request[4096]; // `monitors apply` names every monitor's settings
 };
 
-static int session_name_compare(const struct dirent **a, const struct dirent **b);
-static int session_name_filter(const struct dirent *entry);
-
 void control_reply(int fd, const char *text) {
     size_t length = strlen(text);
     while (length > 0) {
@@ -40,6 +37,14 @@ static void reply_done(int fd, bool done, const char *error) {
     char reply[PATH_MAX + 80];
     snprintf(reply, sizeof(reply), done ? "ok\n" : "error: %s\n", error);
     control_reply(fd, reply);
+}
+
+/* "session list"'s order and filter for scandir: the saved sessions by name. */
+static int session_name_compare(const struct dirent **a, const struct dirent **b) {
+    return strcmp((*a)->d_name, (*b)->d_name);
+}
+static int session_name_filter(const struct dirent *entry) {
+    return sh_session_valid_name(entry->d_name);
 }
 
 static void control_session(struct sh_server *server, int fd, const char *arguments) {
@@ -720,11 +725,4 @@ void close_control_socket(struct sh_server *server) {
         close(server->control_fd);
     if (server->control_path[0])
         unlink(server->control_path);
-}
-
-static int session_name_compare(const struct dirent **a, const struct dirent **b) {
-    return strcmp((*a)->d_name, (*b)->d_name);
-}
-static int session_name_filter(const struct dirent *entry) {
-    return sh_session_valid_name(entry->d_name);
 }
