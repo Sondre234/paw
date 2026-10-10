@@ -398,7 +398,7 @@ struct Runtime {
             *argument = binding->amount;
         if (binding->action == SH_SWITCH_LAYOUT)
             *argument = binding->layout;
-        if (binding->action == SH_DISPLAY_MODE)
+        if (binding->action == SH_MODE || binding->action == SH_DISPLAY_MODE)
             *argument = binding->mode;
         self.target = binding->output;
         return binding->action;
