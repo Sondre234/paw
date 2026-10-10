@@ -12,21 +12,9 @@
 #include <vector>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "config_check.hpp"
+
 namespace {
-void require(bool condition, const char *message) {
-    if (!condition)
-        throw std::runtime_error(message);
-}
-void rejects(const std::string &source, const std::string &fragment = "") {
-    try {
-        (void)paw::parse_config(source);
-    } catch (const std::exception &error) {
-        if (!fragment.empty() && std::string(error.what()).find(fragment) == std::string::npos)
-            throw std::runtime_error("wrong error for " + source + ": " + error.what());
-        return;
-    }
-    throw std::runtime_error("invalid configuration was accepted: " + source);
-}
 
 void workspace_names() {
     auto config = paw::parse_config(

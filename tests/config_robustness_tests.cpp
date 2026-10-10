@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "config_check.hpp"
+
 // The mutation fuzz's time limit, which catches parsing that turns slow (quadratic or worse). The
 // sanitizers' build unwinds the stack on every allocation for its leak reports and runs dozens of
 // times slower, so it gets room for that; the normal build checks the speed.
@@ -25,10 +27,6 @@ constexpr auto parse_budget = std::chrono::seconds(60);
 #endif
 
 namespace {
-void require(bool condition, const char *message) {
-    if (!condition)
-        throw std::runtime_error(message);
-}
 // Returns true when accepted; anything but a std::exception failing escapes and fails the test.
 bool parses(const std::string &source) {
     try {

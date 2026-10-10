@@ -7,20 +7,8 @@
 #include <stdexcept>
 #include <string>
 
-static void require(bool condition, const std::string &message) {
-    if (!condition)
-        throw std::runtime_error(message);
-}
-static void rejects(const std::string &source, const char *fragment) {
-    try {
-        (void)paw::parse_config(source);
-    } catch (const std::exception &error) {
-        require(std::string(error.what()).find(fragment) != std::string::npos,
-                std::string("the error does not say what is wrong: ") + error.what());
-        return;
-    }
-    throw std::runtime_error("invalid configuration was accepted: " + source);
-}
+#include "config_check.hpp"
+
 static const sh_swipe_binding *find(const sh_gesture_settings &gestures, int fingers,
                                     sh_swipe_direction direction) {
     for (int i = 0; i < gestures.swipe_count; ++i)
