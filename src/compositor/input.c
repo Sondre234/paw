@@ -534,7 +534,6 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
         server->peek_keycode = keycode;
         server->peek_keyboard = keyboard;
         set_peek(server, true);
-        server->peek_keycode = keycode; // set_peek only forgets it when peeking ends
         return true;
     }
     if (action == SH_SWITCHER_NEXT || action == SH_SWITCHER_PREV) {
