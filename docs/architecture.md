@@ -1000,7 +1000,8 @@ those headless outputs refuse a 10-bit render format, as a monitor without one d
 `PAW_TEST_TRIAL_MS` shortens a display settings trial, and `PAW_TEST_REFUSE_MODE=WxH`
 and `PAW_TEST_REFUSE_COMMIT=WxH` make headless outputs refuse that size in the display
 settings' test, or in `configure_output`'s as if the commit failed (see
-`display_settings_smoke.py`).
+`display_settings_smoke.py`). `PAW_TEST_LOCK_TIMEOUT_MS` shortens the time a locker gets to
+lock the screen before a suspend gives up (see `power_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless

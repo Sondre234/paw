@@ -22,8 +22,11 @@ CONFIG = """return {{
     power = {{ lock_command = {locker}, lock_before_sleep = {before}, close_windows = {close},
               close_timeout = 1500, force = {force} }},
 }}"""
+# The time a locker gets to lock (5 s outside tests), waited out once.
+LOCK_TIMEOUT = 2
 
-with harness.Compositor(compositor, bus=True, start=False) as desktop:
+with harness.Compositor(compositor, bus=True, start=False,
+                        env={"PAW_TEST_LOCK_TIMEOUT_MS": str(LOCK_TIMEOUT * 1000)}) as desktop:
     root, config, env, msg = desktop.root, desktop.config, desktop.env, desktop.msg
     calls, answers = root / "login1.log", root / "answers"
     calls.touch()
@@ -307,8 +310,8 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
     mark = len(logged())
     msg("suspend")
     assert power()["pending"] == "suspend locking", power()
-    wait_for(lambda: "Suspend cancelled: the screen did not lock within 5 seconds"
-             in desktop.log.read_text(), "the suspend cancelled", timeout=10)
+    wait_for(lambda: f"Suspend cancelled: the screen did not lock within {LOCK_TIMEOUT} seconds"
+             in desktop.log.read_text(), "the suspend cancelled")
     assert power()["pending"] == "-" and logged(mark) == [], (power(), logged(mark))
     reconfigure()
 
@@ -347,7 +350,7 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
     reported = [line[len("power-error "):] for line in subscriber.lines("power-error ")]
     assert reported == [
         "Reboot cancelled: 1 window is still open (paw-probe)",
-        "Suspend cancelled: the screen did not lock within 5 seconds",
+        f"Suspend cancelled: the screen did not lock within {LOCK_TIMEOUT} seconds",
         "Reboot failed: Access denied by the fake logind"], reported
     desktop.stop()
     wait_for(lambda: inhibitors() == 0, "the delay inhibitor released on exit")
