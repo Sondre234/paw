@@ -134,9 +134,8 @@ class ShellController : public QObject {
     Q_PROPERTY(DisplaySettings *displaySettings READ displaySettings CONSTANT)
     // The system tray's items, empty until startTray().
     Q_PROPERTY(TrayModel *tray READ tray CONSTANT)
-    // The output the compositor says has the focus, and the one showing the notification cards
-    // now: chosen when the first card appears and kept until the last is gone.
-    Q_PROPERTY(QString focusedOutput READ focusedOutput NOTIFY focusedOutputChanged)
+    // The output showing the notification cards now: chosen when the first card appears and kept
+    // until the last is gone.
     Q_PROPERTY(QString cardsOutput READ cardsOutput NOTIFY cardsOutputChanged)
     Q_PROPERTY(bool tiling READ tiling NOTIFY tilingChanged)
     Q_PROPERTY(bool tilingAvailable READ tilingAvailable NOTIFY tilingChanged)
@@ -292,7 +291,6 @@ class ShellController : public QObject {
     Osd *osd() { return &osd_; }
     DisplayModes *displayModes() { return &displayModes_; }
     DisplaySettings *displaySettings() { return &displaySettings_; }
-    QString focusedOutput() const { return focusedOutput_; }
     QString cardsOutput() const { return cardsOutput_; }
     // The output that overlays for the focused monitor belong on: the focused one when it
     // exists, else the primary screen.
@@ -393,7 +391,6 @@ class ShellController : public QObject {
     void switcherSelectedChanged();
     void overviewChanged();
     void overviewSelectedChanged();
-    void focusedOutputChanged();
     void cardsOutputChanged();
     void keyboardLayoutChanged();
     void nightLightChanged();

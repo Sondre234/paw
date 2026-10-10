@@ -756,11 +756,8 @@ void ShellController::subscribe() {
                                                              {"title", fields[3]}});
                 }
             } else if (line.startsWith("focused ")) {
-                const auto name = line.sliced(8) == "-" ? QString() : line.sliced(8);
-                if (name != focusedOutput_) {
-                    focusedOutput_ = name;
-                    Q_EMIT focusedOutputChanged();
-                }
+                // The output the compositor says has the focus, where overlays for it go.
+                focusedOutput_ = line.sliced(8) == "-" ? QString() : line.sliced(8);
             } else if (line.startsWith("keyboard-layout ")) {
                 // keyboard-layout N COUNT SHORT NAME
                 const auto words = line.split(' ');
