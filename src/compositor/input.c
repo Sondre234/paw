@@ -128,6 +128,8 @@ static void server_new_keyboard(struct sh_server *server, struct wlr_input_devic
     struct wlr_keyboard *wlr_keyboard = wlr_keyboard_from_input_device(device);
 
     struct sh_keyboard *keyboard = calloc(1, sizeof(*keyboard));
+    if (!keyboard)
+        return;
     keyboard->server = server;
     keyboard->wlr_keyboard = wlr_keyboard;
 
@@ -244,88 +246,6 @@ void server_new_virtual_keyboard(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, new_virtual_keyboard);
     struct wlr_virtual_keyboard_v1 *keyboard = data;
     server_new_input(&server->new_input, &keyboard->keyboard.base);
-}
-
-/* Keyboards without a device, so tests can type, plug and unplug under --headless:
- * "headless_keyboard add NAME", "headless_keyboard key NAME CODE press|release" (an evdev key
- * code, as from linux/input-event-codes.h) and "headless_keyboard remove NAME". They are
- * keyboards like any other, not virtual ones. */
-struct sh_headless_keyboard {
-    struct wlr_keyboard keyboard;
-    struct wl_list link; // sh_server.headless_keyboards
-};
-static const struct wlr_keyboard_impl headless_keyboard_impl = {.name = "headless-keyboard"};
-
-static struct sh_headless_keyboard *find_headless_keyboard(struct sh_server *server,
-                                                           const char *name) {
-    struct sh_headless_keyboard *keyboard;
-    wl_list_for_each(keyboard, &server->headless_keyboards, link) {
-        if (!strcmp(keyboard->keyboard.base.name, name))
-            return keyboard;
-    }
-    return NULL;
-}
-
-static void remove_headless_keyboard(struct sh_headless_keyboard *keyboard) {
-    wl_list_remove(&keyboard->link);
-    wlr_keyboard_finish(&keyboard->keyboard); // releases its keys and unplugs it
-    free(keyboard);
-}
-
-void control_headless_keyboard(struct sh_server *server, int fd, const char *arguments) {
-    if (!headless_backend(server)) {
-        control_reply(fd, "error: headless_keyboard needs --headless\n");
-        return;
-    }
-    char verb[16] = "", name[64] = "", state[16] = "", extra;
-    unsigned code = 0;
-    int fields = sscanf(arguments, "%15s %63s %u %15s %c", verb, name, &code, state, &extra);
-    struct sh_headless_keyboard *keyboard = fields >= 2 ? find_headless_keyboard(server, name) : NULL;
-    if (!strcmp(verb, "add") && fields == 2) {
-        if (keyboard) {
-            control_reply(fd, "error: a keyboard with that name exists\n");
-            return;
-        }
-        keyboard = calloc(1, sizeof(*keyboard));
-        if (!keyboard) {
-            control_reply(fd, "error: out of memory\n");
-            return;
-        }
-        wlr_keyboard_init(&keyboard->keyboard, &headless_keyboard_impl, name);
-        wl_list_insert(&server->headless_keyboards, &keyboard->link);
-        server_new_input(&server->new_input, &keyboard->keyboard.base);
-        control_reply(fd, "ok\n");
-        return;
-    }
-    if ((!strcmp(verb, "remove") && fields == 2) || (!strcmp(verb, "key") && fields == 4)) {
-        bool pressed = !strcmp(state, "press");
-        if (!keyboard) {
-            control_reply(fd, "error: no such keyboard\n");
-        } else if (!strcmp(verb, "remove")) {
-            remove_headless_keyboard(keyboard);
-            control_reply(fd, "ok\n");
-        } else if (code > KEY_MAX || (!pressed && strcmp(state, "release"))) {
-            control_reply(fd, "error: usage: headless_keyboard key NAME CODE press|release\n");
-        } else {
-            struct wlr_keyboard_key_event event = {
-                .time_msec = (uint32_t)now_ms(),
-                .keycode = code,
-                .update_state = true,
-                .state = pressed ? WL_KEYBOARD_KEY_STATE_PRESSED : WL_KEYBOARD_KEY_STATE_RELEASED,
-            };
-            wlr_keyboard_notify_key(&keyboard->keyboard, &event);
-            control_reply(fd, "ok\n");
-        }
-        return;
-    }
-    control_reply(fd, "error: usage: headless_keyboard add NAME | key NAME CODE press|release | "
-                      "remove NAME\n");
-}
-
-void destroy_headless_keyboards(struct sh_server *server) {
-    struct sh_headless_keyboard *keyboard, *temporary;
-    wl_list_for_each_safe(keyboard, temporary, &server->headless_keyboards, link)
-        remove_headless_keyboard(keyboard);
 }
 
 void server_new_virtual_pointer(struct wl_listener *listener, void *data) {
@@ -534,7 +454,6 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
         server->peek_keycode = keycode;
         server->peek_keyboard = keyboard;
         set_peek(server, true);
-        server->peek_keycode = keycode; // set_peek only forgets it when peeking ends
         return true;
     }
     if (action == SH_SWITCHER_NEXT || action == SH_SWITCHER_PREV) {

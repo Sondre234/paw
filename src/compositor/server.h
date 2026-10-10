@@ -607,16 +607,12 @@ struct sh_server {
     bool keymap_from_file; // keyboard.file, rather than the names
     xkb_layout_index_t keyboard_layout;
     bool syncing_keyboards;
-    struct wl_list headless_keyboards; // added by tests with "headless_keyboard add"
-    struct wl_list headless_pointers;  // and "headless_pointer add" (headless_input.c)
-    struct wl_list headless_touches;   // and "headless_touch add"
-    struct wl_list headless_tablets;   // and "headless_tablet add"
-    /* Switch devices (switches.c), whether any says the lid is closed, and the switches tests
-     * add with "headless_switch add". */
+    /* The devices tests plug in with "headless_keyboard add" and the like (headless_input.c). */
+    struct wl_list headless_devices;
+    /* Switch devices (switches.c), and whether any says the lid is closed. */
     struct wl_list switches;
     bool lid_closed;
-    bool logind_lid_closed; // logind's LidClosed, which counts as one more switch
-    struct wl_list headless_switches;
+    bool logind_lid_closed;  // logind's LidClosed, which counts as one more switch
     struct wl_list pointers; /* struct sh_pointer */
     enum sh_cursor_mode cursor_mode;
     struct sh_toplevel *grabbed_toplevel;
@@ -962,8 +958,6 @@ void request_shell(struct sh_server *server, const char *what);
 void send_shell_line(struct sh_server *server, const char *line);
 bool shell_listening(struct sh_server *server);
 void report_failure(struct sh_server *server, const char *event, const char *text);
-void request_launcher(struct sh_server *server);
-void request_palette(struct sh_server *server);
 void request_taskbar(struct sh_server *server);
 void open_control_socket(struct sh_server *server, const char *wayland_socket);
 void close_control_socket(struct sh_server *server);
@@ -1123,9 +1117,11 @@ bool output_is_hdr(const struct sh_output *output);
 const char *hdr_unavailable(struct sh_output *output);
 
 /* headless_input.c */
+void control_headless_keyboard(struct sh_server *server, int fd, const char *arguments);
 void control_headless_pointer(struct sh_server *server, int fd, const char *arguments);
 void control_headless_touch(struct sh_server *server, int fd, const char *arguments);
 void control_headless_tablet(struct sh_server *server, int fd, const char *arguments);
+void control_headless_switch(struct sh_server *server, int fd, const char *arguments);
 void destroy_headless_inputs(struct sh_server *server);
 
 /* idle.c */
@@ -1142,8 +1138,6 @@ void idle_finish(struct sh_server *server);
 
 /* input.c */
 bool input_activity(struct sh_server *server, bool wakes);
-void control_headless_keyboard(struct sh_server *server, int fd, const char *arguments);
-void destroy_headless_keyboards(struct sh_server *server);
 void configure_pointer(struct sh_server *server, struct wlr_input_device *device);
 void server_new_input(struct wl_listener *listener, void *data);
 void server_new_virtual_keyboard(struct wl_listener *listener, void *data);
@@ -1375,8 +1369,6 @@ bool lid_holds_off(struct sh_server *server, struct sh_output *output);
 void apply_lid(struct sh_server *server);
 void server_new_switch(struct sh_server *server, struct wlr_input_device *input);
 void lid_from_logind(struct sh_server *server, bool closed);
-void control_headless_switch(struct sh_server *server, int fd, const char *arguments);
-void destroy_headless_switches(struct sh_server *server);
 
 /* switcher.c */
 void switcher_close(struct sh_server *server, int index);
