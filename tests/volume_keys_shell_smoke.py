@@ -51,7 +51,9 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         return calls.read_text().splitlines()
 
     def level():
-        return int((backlight / "brightness").read_text())
+        # The fake file is rewritten, so a read can find it empty for a moment; sysfs's never is.
+        text = (backlight / "brightness").read_text()
+        return int(text) if text.strip() else -1
 
     def log():
         return shell_log.read_text()
