@@ -155,6 +155,16 @@ void ranges() {
            "shell.widgets.network must be true, false, \"bar\" or \"quick\", not \"taskbar\"");
     expect("return {shell={widgets={volume=2}}}",
            "shell.widgets.volume must be true, false, \"bar\" or \"quick\", not an integer");
+    // A table inside windows names its own path.
+    expect("return {windows={magnet={distance=999}}}",
+           "windows.magnet.distance must be between 0 and 200, not 999");
+    expect("return {windows={shadow={blur=999}}}",
+           "windows.shadow.blur must be between 0 and 100, not 999");
+    expect("return {windows={snap={distance=0}}}",
+           "windows.snap.distance must be between 1 and 100, not 0");
+    // ... and what follows it in windows goes back to naming windows.
+    expect("return {windows={magnet={distance=1},drag_strip=999}}",
+           "windows.drag_strip must be between 0 and 100, not 999");
 }
 void schema_matches_parser() {
     auto options = paw::config_options();
