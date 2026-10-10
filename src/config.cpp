@@ -414,6 +414,7 @@ void read_shell(lua_State *L, ShellConfig &shell) {
     } else if (!lua_isnil(L, -1)) {
         table(L, -1, "panel_margin");
         keys(L, -1, "shell.panel_margin");
+        Named in("shell.panel_margin");
         int index = 0;
         for (const char *side : {"top", "right", "bottom", "left"})
             shell.panel_margin[index++] = integer(L, side, 0, 0, 200);
