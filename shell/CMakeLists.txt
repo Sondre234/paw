@@ -75,7 +75,7 @@ set(PAW_PICKER_SOURCES clipboard.cpp clipboard.hpp emoji.cpp emoji.hpp
     picker_view.cpp picker_view.hpp ${PROJECT_BINARY_DIR}/ext-data-control-v1-protocol.c
     ${PROJECT_BINARY_DIR}/ext-data-control-v1-client-protocol.h)
 set(PAW_NOTIFY_SOURCES notifications.cpp notifications.hpp osd.cpp osd.hpp backlight.cpp
-    backlight.hpp tray.cpp tray.hpp)
+    backlight.hpp netlink.hpp dbus_util.hpp tray.cpp tray.hpp)
 # What the compositor passes on from the volume, microphone and brightness keys, which feeds the
 # on-screen display too.
 list(APPEND PAW_NOTIFY_SOURCES volume_keys.cpp volume_keys.hpp)
