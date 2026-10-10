@@ -3,17 +3,7 @@
  * clamshell mode turns the panel off. */
 #include "paw/lid.h"
 #include <stdio.h>
-
-static int failures;
-#define CHECK(condition, ...)                                                                      \
-    do {                                                                                           \
-        if (!(condition)) {                                                                        \
-            fprintf(stderr, "%s:%d: %s: ", __FILE__, __LINE__, #condition);                        \
-            fprintf(stderr, __VA_ARGS__);                                                          \
-            fputc('\n', stderr);                                                                   \
-            ++failures;                                                                            \
-        }                                                                                          \
-    } while (0)
+#include "check.h"
 
 int main(void) {
     const char *built_in[] = {"eDP-1", "eDP-2", "LVDS-1", "DSI-1", "eDP"};

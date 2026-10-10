@@ -8,17 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wlr/interfaces/wlr_buffer.h>
-
-static int failures;
-#define CHECK(condition, ...)                                                                      \
-    do {                                                                                           \
-        if (!(condition)) {                                                                        \
-            fprintf(stderr, "%s:%d: %s: ", __FILE__, __LINE__, #condition);                        \
-            fprintf(stderr, __VA_ARGS__);                                                          \
-            fputc('\n', stderr);                                                                   \
-            ++failures;                                                                            \
-        }                                                                                          \
-    } while (0)
+#include "check.h"
 
 static int alpha(uint32_t pixel) { return (int)(pixel >> 24); }
 static int red(uint32_t pixel) { return (int)((pixel >> 16) & 0xff); }

@@ -970,7 +970,7 @@ whether it has, for something the compositor does another way without it, as the
 ### A new test
 
 - A pure function: a unit test next to the others in `tests/*_tests.c(pp)`, registered with
-  `add_executable` and `add_test` in `CMakeLists.txt`.
+  `add_executable` and `add_test` in `CMakeLists.txt`; `tests/check.h` has its `CHECK` and `NEAR`.
 - Compositor behavior: a smoke test, `tests/<name>_smoke.py`. Copy a short one such as
   `sticky_smoke.py`. `with harness.Compositor(compositor, CONFIG) as desktop:` starts a headless
   compositor with the pixman renderer in a temporary `XDG_RUNTIME_DIR`; open windows with
