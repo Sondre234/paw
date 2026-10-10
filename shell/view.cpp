@@ -11,6 +11,20 @@
 #include <iostream>
 #if PAW_LAYER_SHELL
 #include <LayerShellQt/Window>
+
+namespace {
+// The layer surface of `window` on `screen`, called `scope`, in `layer`: one that takes no keyboard.
+LayerShellQt::Window *makeLayer(QWindow *window, QScreen *screen, const char *scope,
+                                LayerShellQt::Window::Layer layer) {
+    auto *surface = LayerShellQt::Window::get(window);
+    surface->setScreen(screen);
+    surface->setScope(scope);
+    surface->setLayer(layer);
+    surface->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    surface->setActivateOnShow(false);
+    return surface;
+}
+} // namespace
 #endif
 
 ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop, bool preview)
@@ -37,13 +51,9 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
 #if PAW_LAYER_SHELL
     if (!preview) {
         using W = LayerShellQt::Window;
-        layer_ = W::get(this);
-        layer_->setScreen(screen);
-        layer_->setScope(desktop ? "paw-desktop" : "paw-panel");
-        layer_->setLayer(desktop ? W::LayerBackground : W::LayerTop);
+        layer_ = makeLayer(this, screen, desktop ? "paw-desktop" : "paw-panel",
+                           desktop ? W::LayerBackground : W::LayerTop);
         placeLayer();
-        layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-        layer_->setActivateOnShow(false);
     }
 #endif
     resizeForContent();
@@ -161,19 +171,14 @@ void PopoverWindow::setPanel(QQuickWindow *panel) {
 #if PAW_LAYER_SHELL
     if (view->layerShell()) {
         using W = LayerShellQt::Window;
-        layer_ = W::get(this);
-        layer_->setScreen(screen);
-        layer_->setScope("paw-popover");
         // Over the panels and the windows, fullscreen ones too: the launcher asked for with
         // Super + R must show over a video.
-        layer_->setLayer(W::LayerOverlay);
+        layer_ = makeLayer(this, screen, "paw-popover", W::LayerOverlay);
         layer_->setAnchors(W::Anchors(W::AnchorTop | W::AnchorBottom | W::AnchorLeft | W::AnchorRight));
         // The whole output, the bar's strip included: a popup is placed by the bar. The
         // compositor sizes it to the output.
         layer_->setExclusiveZone(-1);
         layer_->setDesiredSize(QSize(0, 0));
-        layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-        layer_->setActivateOnShow(false);
     }
 #endif
     fit();
@@ -274,13 +279,8 @@ void MenuBarWindow::setPanel(QQuickWindow *panel) {
 #if PAW_LAYER_SHELL
     if (view->layerShell()) {
         using W = LayerShellQt::Window;
-        layer_ = W::get(this);
-        layer_->setScreen(screen);
-        layer_->setScope("paw-menubar");
-        layer_->setLayer(W::LayerTop);
+        layer_ = makeLayer(this, screen, "paw-menubar", W::LayerTop);
         layer_->setAnchors(W::Anchors(W::AnchorTop | W::AnchorLeft | W::AnchorRight));
-        layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-        layer_->setActivateOnShow(false);
     }
 #endif
     fit();
@@ -577,14 +577,8 @@ CardsView::CardsView(ShellController &controller, QScreen *screen)
     setFlags(Qt::FramelessWindowHint);
     setInitialProperties({{"outputName", screen->name()}});
 #if PAW_LAYER_SHELL
-    using W = LayerShellQt::Window;
-    layer_ = W::get(this);
-    layer_->setScreen(screen);
-    layer_->setScope("paw-notifications");
-    layer_->setLayer(W::LayerOverlay);
+    layer_ = makeLayer(this, screen, "paw-notifications", LayerShellQt::Window::LayerOverlay);
     layer_->setExclusiveZone(0);
-    layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-    layer_->setActivateOnShow(false);
     placeLayer();
 #endif
     setSource(QUrl("qrc:/shell/PawShell/NotificationCards.qml"));
@@ -623,14 +617,8 @@ OsdView::OsdView(ShellController &controller, QScreen *screen)
     setFlags(Qt::FramelessWindowHint | Qt::WindowTransparentForInput);
     setInitialProperties({{"outputName", screen->name()}});
 #if PAW_LAYER_SHELL
-    using W = LayerShellQt::Window;
-    layer_ = W::get(this);
-    layer_->setScreen(screen);
-    layer_->setScope("paw-osd");
-    layer_->setLayer(W::LayerOverlay);
+    layer_ = makeLayer(this, screen, "paw-osd", LayerShellQt::Window::LayerOverlay);
     layer_->setExclusiveZone(-1);
-    layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-    layer_->setActivateOnShow(false);
     placeLayer();
 #endif
     setSource(QUrl("qrc:/shell/PawShell/Osd.qml"));
@@ -667,14 +655,9 @@ DisplayModeView::DisplayModeView(ShellController &controller, QScreen *screen)
     setInitialProperties({{"outputName", screen->name()}});
 #if PAW_LAYER_SHELL
     using W = LayerShellQt::Window;
-    layer_ = W::get(this);
-    layer_->setScreen(screen);
-    layer_->setScope("paw-display-mode");
-    layer_->setLayer(W::LayerOverlay);
+    layer_ = makeLayer(this, screen, "paw-display-mode", W::LayerOverlay);
     layer_->setAnchors(W::Anchors());
     layer_->setExclusiveZone(-1);
-    layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-    layer_->setActivateOnShow(false);
 #endif
     setSource(QUrl("qrc:/shell/PawShell/DisplayMode.qml"));
     if (auto *root = rootObject()) {
@@ -703,14 +686,9 @@ ConfigErrorView::ConfigErrorView(ShellController &controller, QScreen *screen)
     setFlags(Qt::FramelessWindowHint | Qt::WindowTransparentForInput);
 #if PAW_LAYER_SHELL
     using W = LayerShellQt::Window;
-    layer_ = W::get(this);
-    layer_->setScreen(screen);
-    layer_->setScope("paw-config-error");
-    layer_->setLayer(W::LayerOverlay);
+    layer_ = makeLayer(this, screen, "paw-config-error", W::LayerOverlay);
     layer_->setAnchors(W::Anchors(W::AnchorTop) | W::AnchorLeft | W::AnchorRight);
     layer_->setExclusiveZone(-1);
-    layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-    layer_->setActivateOnShow(false);
 #endif
     setSource(QUrl("qrc:/shell/PawShell/ConfigError.qml"));
     if (auto *root = rootObject()) {
