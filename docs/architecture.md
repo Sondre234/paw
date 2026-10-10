@@ -39,10 +39,10 @@ all. In short:
 | --- | --- |
 | `server.c` | Startup (creating every wlroots global and listener), shutdown, config reload, signals. |
 | `server.h` | The shared types (`sh_server`, `sh_output`, `sh_toplevel`, ...) and, under a `/* file.c */` heading, every function one file calls in another. |
-| `actions.c` | `run_action`: one `case` per action, handing it to the module that does it. |
+| `actions.c` | `run_action`: one `case` per action, handing it to the module that does it, and `shell_actions`, those the shell carries out. |
 | `control.c` | The control socket: reading requests, commands that are not actions, subscribers and shell events. |
 | `query.c` | `paw msg get ...`: one function per query, and the table that names them. |
-| `headless_input.c` | Input devices without hardware for tests under `--headless`: pointers that move and make touchpad gestures, touchscreens, and drawing tablets with a pen, an eraser and a pad. |
+| `headless_input.c` | Input devices without hardware for tests under `--headless`: keyboards, pointers that move and make touchpad gestures, touchscreens, drawing tablets with a pen, an eraser and a pad, and lid and tablet-mode switches. |
 | `input.c` | Keyboards, key bindings, pointers' libinput settings, virtual devices, selection and drag-and-drop. |
 | `input_method.c` | Input methods (fcitx5, ibus): text-input-v3 and input-method-v2 relayed between the application with the keyboard and the input method, its keyboard grab, and its popups beside the text cursor. |
 | `keymap.c` | The keymap from the keyboard settings, given to every keyboard but virtual ones. |
@@ -428,7 +428,7 @@ workspaces as when it is unplugged. `apply_lid` configures the built-in panels a
 the outputs and windows when one changed, as the lid changes and after an output is added or
 destroyed (before an empty layout would end a nested or headless session). Each toggle counts
 as input and runs the binding `sh_callbacks.switch_toggled` returns. Under `--headless`,
-`headless_switch` adds switches for the tests (`lid_smoke`).
+`headless_switch` adds switches for the tests (`headless_input.c`, `lid_smoke`).
 
 ## The shell (`shell/`)
 
@@ -916,8 +916,9 @@ touches the session it runs in. The `shell_gallery` test runs it, with `--no-ani
    with "takes no argument". One that starts a program goes through the `launch` callback
    there, as `spawn` and `terminal` do, so a failure reaches the panel.
 4. Add a `case` to `run_action` in `src/compositor/actions.c` that calls the module doing the
-   work. If it acts on the window under the pointer when bound to a button, list it in
-   `action_targets_window` in `cursor.c`.
+   work, or, for one the shell carries out alone, a line or a request for it in
+   `shell_actions` there. If it acts on the window under the pointer when bound to a button,
+   list it in `action_targets_window` in `cursor.c`.
 5. Mention it in `README.md` or `docs/features.md`. The `docs_consistency` test fails until
    you do.
 
@@ -939,8 +940,10 @@ often wants one.
 
 ### A new control command that is not an action
 
-Handle it in `control_handle` in `src/compositor/control.c`, after the session-lock check,
-following `dnd` or `osd`.
+Write `static void control_<name>(struct sh_server *server, int fd, const char *arguments)` in
+`src/compositor/control.c`, following `control_dnd` or `control_osd`, and add it to `commands[]`
+there. `arguments` is the rest of the request from the space after the name, "" for the name
+alone. Commands answer only while the session is unlocked.
 
 ### A new Wayland protocol or global
 

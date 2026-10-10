@@ -46,11 +46,8 @@ static bool refused(struct sh_shortcuts_inhibitor *inhibitor) {
     struct sh_toplevel *toplevel = surface_toplevel(server, inhibitor->surface);
     if (!toplevel)
         return false;
-    const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
-    struct sh_window_rule rule = {.floating = -1};
-    return server->callbacks->window_rule(server->callbacks->userdata, app_id ? app_id : "",
-                                          title ? title : "", &rule) &&
-           rule.no_shortcuts_inhibit;
+    struct sh_window_rule rule;
+    return window_rule(toplevel, &rule) && rule.no_shortcuts_inhibit;
 }
 
 /* Honours the inhibitor, or stops honouring it, as the settings and the user say; a client's
@@ -93,17 +90,8 @@ static void surface_name(struct sh_server *server, struct wlr_surface *surface, 
     struct sh_toplevel *toplevel = surface_toplevel(server, surface);
     const char *title = toplevel ? toplevel_title(toplevel) : NULL;
     const char *app_id = toplevel ? toplevel_app_id(toplevel) : NULL;
-    snprintf(name, size, "%s", title && *title ? title : app_id && *app_id ? app_id : "the window");
-    // A character snprintf cut short at the end goes.
-    size_t length = strlen(name), start = length;
-    while (start > 0 && ((unsigned char)name[start - 1] & 0xC0) == 0x80)
-        --start;
-    unsigned char lead = start > 0 ? (unsigned char)name[start - 1] : 0;
-    if (length - start < (lead >= 0xF0 ? 3u : lead >= 0xE0 ? 2u : lead >= 0xC0 ? 1u : 0u))
-        name[start - 1] = '\0';
-    for (char *c = name; *c; ++c)
-        if (*c == '\n' || *c == '\r' || *c == '\t')
-            *c = ' ';
+    copy_field(name, size, title && *title ? title : app_id && *app_id ? app_id : "the window");
+    drop_partial_utf8(name);
 }
 
 /* Tells the user, once for each window, that it has the shortcuts now and which keys take them
@@ -238,11 +226,8 @@ static void new_inhibitor(struct wl_listener *listener, void *data) {
  * desktop's window, and lets go as the grab ends. While its window has the keyboard, the grab
  * holds the bindings' keys as an inhibitor does; it never takes the keyboard from another window.
  * The global is offered to Xwayland alone. */
-static void grab_handle_destroy(struct wl_client *client, struct wl_resource *resource) {
-    wl_resource_destroy(resource);
-}
 static const struct zwp_xwayland_keyboard_grab_v1_interface grab_implementation = {
-    .destroy = grab_handle_destroy,
+    .destroy = destroy_resource,
 };
 
 static void grab_resource_destroy(struct wl_resource *resource) {
@@ -253,9 +238,6 @@ static void grab_resource_destroy(struct wl_resource *resource) {
     }
 }
 
-static void manager_handle_destroy(struct wl_client *client, struct wl_resource *resource) {
-    wl_resource_destroy(resource);
-}
 
 static void manager_grab_keyboard(struct wl_client *client, struct wl_resource *resource,
                                   uint32_t id, struct wl_resource *surface_resource,
@@ -283,7 +265,7 @@ static void manager_grab_keyboard(struct wl_client *client, struct wl_resource *
 }
 
 static const struct zwp_xwayland_keyboard_grab_manager_v1_interface manager_implementation = {
-    .destroy = manager_handle_destroy,
+    .destroy = destroy_resource,
     .grab_keyboard = manager_grab_keyboard,
 };
 
@@ -349,9 +331,9 @@ void describe_shortcuts_inhibitors(struct sh_server *server, int fd,
 
 void shortcuts_inhibit_init(struct sh_server *server) {
     wl_list_init(&server->shortcuts.inhibitors);
-    server->shortcuts.manager = wlr_keyboard_shortcuts_inhibit_v1_create(server->wl_display);
-    add_listener(&server->shortcuts.manager->events.new_inhibitor, &server->shortcuts.new_inhibitor,
-                 new_inhibitor);
+    struct wlr_keyboard_shortcuts_inhibit_manager_v1 *manager =
+        wlr_keyboard_shortcuts_inhibit_v1_create(server->wl_display);
+    add_listener(&manager->events.new_inhibitor, &server->shortcuts.new_inhibitor, new_inhibitor);
     add_listener(&server->seat->keyboard_state.events.focus_change,
                  &server->shortcuts.keyboard_focus_change, keyboard_focus_change);
 #if WLR_HAS_XWAYLAND

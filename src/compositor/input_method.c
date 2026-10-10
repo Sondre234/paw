@@ -535,11 +535,12 @@ void input_method_init(struct sh_server *server) {
     methods->overlay_popup_tree = wlr_scene_tree_create(&server->scene->tree);
     wlr_scene_node_place_above(&methods->overlay_popup_tree->node,
                                &server->layer_trees[ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY]->node);
-    methods->text_input_manager = wlr_text_input_manager_v3_create(server->wl_display);
-    methods->manager = wlr_input_method_manager_v2_create(server->wl_display);
-    add_listener(&methods->text_input_manager->events.new_text_input, &methods->new_text_input,
-                 new_text_input);
-    add_listener(&methods->manager->events.new_input_method, &methods->new_input_method,
+    struct wlr_text_input_manager_v3 *text_inputs =
+        wlr_text_input_manager_v3_create(server->wl_display);
+    struct wlr_input_method_manager_v2 *input_methods =
+        wlr_input_method_manager_v2_create(server->wl_display);
+    add_listener(&text_inputs->events.new_text_input, &methods->new_text_input, new_text_input);
+    add_listener(&input_methods->events.new_input_method, &methods->new_input_method,
                  new_input_method);
     add_listener(&server->seat->keyboard_state.events.focus_change, &methods->keyboard_focus_change,
                  keyboard_focus_change);

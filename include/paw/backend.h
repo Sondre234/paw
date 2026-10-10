@@ -399,7 +399,6 @@ struct sh_settings {
     int touchpad_natural_scroll, touchpad_tap, touchpad_dwt;
     bool focus_follows_mouse; /* hovering a window focuses it, without raising it */
     bool animations;          /* windows fade in and out, and tiles glide into place */
-    int animation_duration;   /* milliseconds */
     float animation_speed;    /* multiplies the speed of every animation */
     int animation_late_ms;    /* a later frame finishes running animations; 0 never skips */
     float animation_slide;    /* workspace slide distance, as a share of the output's width */

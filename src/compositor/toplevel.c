@@ -3,6 +3,13 @@
  * opening new windows by the window rules, and maximize, fullscreen and minimize. */
 #include "server.h"
 
+struct sh_popup {
+    struct sh_server *server;
+    struct wlr_xdg_popup *xdg_popup;
+    struct wl_listener commit;
+    struct wl_listener destroy;
+};
+
 static void set_fullscreen_focus(struct sh_toplevel *toplevel, bool fullscreen, bool focus);
 static void toplevel_request_minimize(struct wl_listener *listener, void *data);
 
@@ -165,37 +172,21 @@ void maximize_toplevel(struct sh_toplevel *toplevel, bool maximized) {
         restore_toplevel(toplevel);
 }
 
-/* The actions windows.rules give a window as it opens; false when none apply. */
-static bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rule) {
+/* The actions windows.rules give a window with its app ID and title now; false when none
+ * apply. */
+bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rule) {
     const struct sh_callbacks *callbacks = toplevel->server->callbacks;
     const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
     *rule = (struct sh_window_rule){.floating = -1};
-    return callbacks->window_rule(callbacks->userdata, app_id ? app_id : "", title ? title : "",
+    return callbacks->window_rule &&
+           callbacks->window_rule(callbacks->userdata, app_id ? app_id : "", title ? title : "",
                                   rule);
-}
-
-/* The enabled output a window rule names by connector, or by "desc:" and the start of its
- * "make model serial". */
-static struct wlr_output *rule_output(struct sh_server *server, const char *name) {
-    bool described = strncmp(name, "desc:", 5) == 0;
-    struct sh_output *output;
-    wl_list_for_each(output, &server->outputs, link) {
-        if (output->disabled)
-            continue;
-        char description[256];
-        output_description(output->wlr_output, description, sizeof(description));
-        if (described ? strncmp(description, name + 5, strlen(name + 5)) == 0
-                      : output_named(output, name))
-            return output->wlr_output;
-    }
-    return NULL;
 }
 
 /* New windows open on the output under the pointer, as in Hyprland. */
 static struct wlr_output *new_window_output(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
-    struct wlr_output *output =
-        wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+    struct wlr_output *output = pointer_output(server);
     return output ? output : toplevel_output(toplevel);
 }
 
@@ -280,7 +271,7 @@ void map_toplevel(struct sh_toplevel *toplevel, bool fullscreen, bool maximized)
     ruled = open_dynamic_rules(toplevel, &rule, ruled);
     struct wlr_output *output = new_window_output(toplevel);
     if (ruled && rule.output[0]) {
-        struct wlr_output *named = rule_output(server, rule.output);
+        struct wlr_output *named = find_output_key(server, rule.output);
         output = named ? named : output;
     }
     // It opens on that output's current workspace, even if it was mapped there before, unless
@@ -703,8 +694,7 @@ static void xdg_popup_commit(struct wl_listener *listener, void *data) {
         struct wlr_output *output =
             wlr_output_layout_output_at(server->output_layout, root_x, root_y);
         if (!output)
-            output = wlr_output_layout_output_at(server->output_layout, server->cursor->x,
-                                                 server->cursor->y);
+            output = pointer_output(server);
         if (root && output) {
             struct wlr_box box;
             wlr_output_layout_get_box(server->output_layout, output, &box);

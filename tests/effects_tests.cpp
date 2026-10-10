@@ -93,12 +93,6 @@ static void ramps() {
     uint16_t single[3];
     sh_gamma_ramp({1, 0.5, 0.25}, 1, single);
     CHECK(single[0] == 65535);
-    float matrix[9];
-    sh_linear_matrix({1, 0.5, 0.25}, matrix);
-    NEAR(matrix[0], 1, 1e-6);
-    NEAR(matrix[4], std::pow(0.5, 2.2), 1e-6);
-    NEAR(matrix[8], std::pow(0.25, 2.2), 1e-6);
-    CHECK(matrix[1] == 0 && matrix[3] == 0 && matrix[5] == 0);
 }
 
 static void schedule() {
@@ -249,19 +243,14 @@ static void zoom() {
     for (double level : {1.5, 2.0, 3.7, 8.0})
         for (auto [px, py] : {std::pair{0.0, 0.0}, {1920.0, 1080.0}, {960.0, 540.0}, {17.0, 1000.0}}) {
             sh_view view = sh_zoom_view(level, 1920, 1080, px, py);
-            double sx, sy;
-            sh_view_to_screen(&view, 1920, 1080, px, py, &sx, &sy);
-            NEAR(sx, px, 1e-6);
-            NEAR(sy, py, 1e-6);
+            // Where the pointer shows on the screen, which the view fills.
+            NEAR((px - view.x) * 1920 / view.width, px, 1e-6);
+            NEAR((py - view.y) * 1080 / view.height, py, 1e-6);
             NEAR(view.width, 1920 / level, 1e-9);
             // The view never leaves the output.
             CHECK(view.x >= -1e-9 && view.y >= -1e-9);
             CHECK(view.x + view.width <= 1920 + 1e-9);
             CHECK(view.y + view.height <= 1080 + 1e-9);
-            double x, y;
-            sh_view_to_logical(&view, 1920, 1080, sx, sy, &x, &y);
-            NEAR(x, px, 1e-6);
-            NEAR(y, py, 1e-6);
         }
     // In a corner the view is the corner; all four edges of the output stay reachable.
     sh_view corner = sh_zoom_view(4, 1920, 1080, 1920, 1080);

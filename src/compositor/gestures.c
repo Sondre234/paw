@@ -79,8 +79,7 @@ static void decide(struct sh_server *server, uint32_t time) {
     gesture->mode = SH_SWIPE_ACTION;
     if (workspace_step(bound->action) && !server->overview.open) {
         // The monitor under the pointer, as the fingers are there.
-        struct wlr_output *output = wlr_output_layout_output_at(
-            server->output_layout, server->cursor->x, server->cursor->y);
+        struct wlr_output *output = pointer_output(server);
         if (!output)
             output = focused_output(server);
         if (output) {

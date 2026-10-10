@@ -27,12 +27,8 @@ bool is_window_layer(struct sh_server *server, const struct wlr_scene_tree *tree
  * peek's place for it moves instead, so that it returns into the right layer). */
 void restack_toplevel(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
-    if (!toplevel->scene_tree)
+    if (!toplevel->scene_tree || toplevel->unmanaged)
         return;
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return;
-#endif
     struct wlr_scene_node *node = &toplevel->scene_tree->node;
     if (node->parent == server->peek_layer && server->peek_window == toplevel && server->peek_place)
         node = &server->peek_place->node;
@@ -97,7 +93,7 @@ static const char *layer_name(struct sh_server *server, const struct wlr_scene_t
 /* `get stacking`: every window drawn among the windows, front to back: app_id, title, output and
  * the layer it is in (fullscreen_cover, peek, fullscreen, above, floating or normal). Hidden ones
  * count too, where they would show. */
-void describe_stacking(struct sh_server *server, int fd) {
+void describe_stacking(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct wlr_scene_tree *trees[] = {server->fullscreen_cover, server->peek_layer,
                                       server->fullscreen,       server->above_windows,
@@ -112,13 +108,8 @@ void describe_stacking(struct sh_server *server, int fd) {
                 continue;
             struct sh_toplevel *toplevel = owner->owner;
             char line[1024], app_id[256], title[512];
-            const char *raw_app_id = toplevel_app_id(toplevel), *raw_title = toplevel_title(toplevel);
-            snprintf(app_id, sizeof(app_id), "%s", raw_app_id ? raw_app_id : "");
-            snprintf(title, sizeof(title), "%s", raw_title ? raw_title : "");
-            for (char *c = app_id; *c; ++c)
-                *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-            for (char *c = title; *c; ++c)
-                *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
+            copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
+            copy_field(title, sizeof(title), toplevel_title(toplevel));
             snprintf(line, sizeof(line), "%s\t%s\t%s\t%s\n", app_id, title, toplevel->output,
                      layer_name(server, trees[i]));
             control_reply(fd, line);

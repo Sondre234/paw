@@ -91,11 +91,7 @@ void move_toplevel_to_output(struct sh_toplevel *toplevel, struct wlr_output *to
     struct wlr_output *from = find_output(server, toplevel->output);
     if (!from)
         from = toplevel_output(toplevel);
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return;
-#endif
-    if (!to || !from || to == from)
+    if (toplevel->unmanaged || !to || !from || to == from)
         return;
     if (server->grabbed_toplevel == toplevel)
         reset_cursor_mode(server);
@@ -125,22 +121,14 @@ void evacuate_output(struct sh_server *server, const char *name, struct wlr_box 
     if (!target)
         return;
     bool remember = server_settings(server)->return_windows;
-    size_t count = 0, capacity = 0;
-    struct sh_toplevel **moving = NULL, *toplevel;
+    size_t count = 0;
+    struct sh_toplevel *toplevel,
+        **moving = malloc((size_t)wl_list_length(&server->toplevels) * sizeof(*moving));
+    if (!moving)
+        return;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (strcmp(toplevel->output, name) != 0)
-            continue;
-        if (count == capacity) {
-            struct sh_toplevel **grown = realloc(moving, (capacity = capacity ? 2 * capacity : 16) * sizeof(*moving));
-            if (!grown)
-                break;
-            moving = grown;
-        }
-        moving[count++] = toplevel;
+        if (!toplevel->unmanaged && !strcmp(toplevel->output, name))
+            moving[count++] = toplevel;
     }
     if (count == 0) {
         free(moving);
@@ -179,10 +167,7 @@ void evacuate_output(struct sh_server *server, const char *name, struct wlr_box 
     show_workspaces(server);
     reflow_output(server, target);
     refit_fullscreen(server);
-    if (server->focused_toplevel && !toplevel_visible(server->focused_toplevel)) {
-        deactivate_toplevel(server);
-        focus_previous(server);
-    }
+    refocus_if_hidden(server);
 }
 
 struct sh_evacuation {
@@ -319,40 +304,32 @@ static struct wlr_output *resolve_output_target(struct sh_server *server, struct
 
 /* The windows a workspace exchange moves, with where each was drawn, for the glide. */
 struct sh_exchange {
-    struct sh_toplevel **windows;
-    int *x, *y;
+    struct {
+        struct sh_toplevel *toplevel;
+        int x, y;
+    } *windows;
     size_t count, capacity;
 };
 
 static void exchange_note(struct sh_exchange *exchange, struct sh_toplevel *toplevel) {
     if (exchange->count == exchange->capacity) {
         size_t capacity = exchange->capacity ? 2 * exchange->capacity : 32;
-        struct sh_toplevel **windows = realloc(exchange->windows, capacity * sizeof(*windows));
-        int *x = realloc(exchange->x, capacity * sizeof(*x));
-        int *y = realloc(exchange->y, capacity * sizeof(*y));
-        if (windows)
-            exchange->windows = windows;
-        if (x)
-            exchange->x = x;
-        if (y)
-            exchange->y = y;
-        if (!windows || !x || !y)
+        void *windows = realloc(exchange->windows, capacity * sizeof(*exchange->windows));
+        if (!windows)
             return;
+        exchange->windows = windows;
         exchange->capacity = capacity;
     }
-    exchange->windows[exchange->count] = toplevel;
-    exchange->x[exchange->count] = toplevel->scene_tree->node.x;
-    exchange->y[exchange->count++] = toplevel->scene_tree->node.y;
+    exchange->windows[exchange->count].toplevel = toplevel;
+    exchange->windows[exchange->count].x = toplevel->scene_tree->node.x;
+    exchange->windows[exchange->count++].y = toplevel->scene_tree->node.y;
 }
 
 /* Whether a window goes along with its workspace: sticky windows and the scratchpad's belong
  * to their output. */
 static bool travels_with_workspace(struct sh_toplevel *toplevel) {
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return false;
-#endif
-    return toplevel->output[0] && !toplevel->sticky && !toplevel->scratchpad;
+    return !toplevel->unmanaged && toplevel->output[0] && !toplevel->sticky &&
+           !toplevel->scratchpad;
 }
 
 /* Trades what workspace `wa` of output `a` and workspace `wb` of `b` hold: their windows, moved
@@ -384,7 +361,7 @@ static void exchange_workspace_slots(struct sh_server *server, struct wlr_output
         server->output_workspaces[output_slot(server, b->name)].workspace_tiling[wb] = tiles_a;
     }
     for (size_t i = first; i < last; ++i) {
-        toplevel = exchange->windows[i];
+        toplevel = exchange->windows[i].toplevel;
         bool from_a = !strcmp(toplevel->output, a->name);
         struct wlr_output *to = from_a ? b : a;
         struct wlr_box from_box = from_a ? box_a : box_b;
@@ -412,19 +389,21 @@ static void exchange_workspace_slots(struct sh_server *server, struct wlr_output
 }
 
 /* The last steps of an exchange: what is on screen, the arrangement of both outputs, and a glide
- * from where each window was drawn. */
+ * from where each window was drawn. Frees the exchange. */
 static void finish_exchange(struct sh_server *server, struct wlr_output *a, struct wlr_output *b,
                             struct sh_exchange *exchange) {
     show_workspaces(server);
     // Floating windows glide from where they were; tiles glide in reflow_output.
     for (size_t i = 0; i < exchange->count; ++i) {
-        struct sh_toplevel *toplevel = exchange->windows[i];
+        struct sh_toplevel *toplevel = exchange->windows[i].toplevel;
         if (toplevel->tiled || !toplevel->shown || !toplevel_visible(toplevel))
             continue;
         struct wlr_scene_node *node = &toplevel->scene_tree->node;
         sh_anim_glide_kind(server->animator, &toplevel->anim, toplevel->content,
-                           exchange->x[i] - node->x, exchange->y[i] - node->y, SH_ANIM_MOVE);
+                           exchange->windows[i].x - node->x, exchange->windows[i].y - node->y,
+                           SH_ANIM_MOVE);
     }
+    free(exchange->windows);
     reflow_output(server, a);
     reflow_output(server, b);
     refit_fullscreen(server);
@@ -459,9 +438,6 @@ void move_workspace_to_output(struct sh_server *server, const char *target) {
     show_workspace(server, to->name, workspace);
     finish_exchange(server, from, to, &exchange);
     wlr_log(WLR_INFO, "Workspace %d moved from %s to %s", workspace + 1, from->name, to->name);
-    free(exchange.windows);
-    free(exchange.x);
-    free(exchange.y);
 }
 
 /* swap_workspaces: the focused output and another trade all their workspaces, and with them
@@ -487,7 +463,4 @@ void swap_output_workspaces(struct sh_server *server, const char *target) {
     server->output_workspaces[b].previous = previous;
     finish_exchange(server, first, second, &exchange);
     wlr_log(WLR_INFO, "Workspaces of %s and %s swapped", first->name, second->name);
-    free(exchange.windows);
-    free(exchange.x);
-    free(exchange.y);
 }

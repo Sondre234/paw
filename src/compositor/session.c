@@ -66,11 +66,8 @@ static void session_capture(struct sh_server *server, struct sh_session *session
     // Oldest first, so that restoring in this order ends with the newest on top.
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (!toplevel_mapped(toplevel) || toplevel->group_hidden || toplevel->swallowed || session->window_count >= SH_SESSION_MAX_WINDOWS)
+        if (toplevel->unmanaged || !toplevel_mapped(toplevel) || toplevel->group_hidden ||
+            toplevel->swallowed || session->window_count >= SH_SESSION_MAX_WINDOWS)
             continue;
         struct sh_session_window *w = &session->windows[session->window_count++];
         const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
@@ -156,20 +153,8 @@ bool session_save(struct sh_server *server, const char *name, int *windows, char
     return ok;
 }
 
-/* Runs a command with an ordinary signal mask (the compositor blocks signals for its event
- * loop); the child is reaped with the others. */
 static bool session_spawn(char *const *argv) {
-    posix_spawnattr_t attributes;
-    if (posix_spawnattr_init(&attributes) != 0)
-        return false;
-    sigset_t mask;
-    sigemptyset(&mask);
-    posix_spawnattr_setsigmask(&attributes, &mask);
-    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK);
-    pid_t pid;
-    extern char **environ;
-    int error = posix_spawnp(&pid, argv[0], NULL, &attributes, argv, environ);
-    posix_spawnattr_destroy(&attributes);
+    int error = spawn_program(argv);
     if (error)
         wlr_log(WLR_ERROR, "Cannot launch %s: %s", argv[0], strerror(error));
     return error == 0;
@@ -311,11 +296,8 @@ static bool restore_session(struct sh_server *server, const char *name, bool lau
     int live_count = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (!toplevel_mapped(toplevel) || live_count >= SH_SESSION_MAX_WINDOWS * 2)
+        if (toplevel->unmanaged || !toplevel_mapped(toplevel) ||
+            live_count >= SH_SESSION_MAX_WINDOWS * 2)
             continue;
         const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
         live[live_count] = toplevel;
@@ -342,13 +324,11 @@ static bool restore_session(struct sh_server *server, const char *name, bool lau
                        callbacks->started(callbacks->userdata, saved->app_id, argv ? argv[0] : "");
         size_t slot = 0, slots = sizeof(server->session_pending) / sizeof(*server->session_pending);
         int64_t now = now_ms();
-        while (slot < slots && server->session_pending[slot].used &&
-               server->session_pending[slot].deadline >= now)
+        while (slot < slots && server->session_pending[slot].deadline >= now)
             ++slot;
         if (slot < slots && (started || (launch && argv && session_spawn(argv)))) {
             server->session_pending[slot].window = *saved;
             server->session_pending[slot].deadline = now + (login ? LOGIN_PENDING_MS : PENDING_MS);
-            server->session_pending[slot].used = true;
             ++*(started ? waiting : launched);
         } else {
             ++*missing;
@@ -422,16 +402,11 @@ bool session_claim(struct sh_server *server, struct sh_toplevel *toplevel,
     int64_t now = now_ms();
     for (size_t i = 0; i < sizeof(server->session_pending) / sizeof(*server->session_pending);
          ++i) {
-        if (server->session_pending[i].used && server->session_pending[i].deadline < now)
-            server->session_pending[i].used = false;
-    }
-    for (size_t i = 0; i < sizeof(server->session_pending) / sizeof(*server->session_pending);
-         ++i) {
-        if (!server->session_pending[i].used ||
+        if (server->session_pending[i].deadline < now ||
             strcmp(server->session_pending[i].window.app_id, app_id ? app_id : ""))
             continue;
         const struct sh_session_window *saved = &server->session_pending[i].window;
-        server->session_pending[i].used = false;
+        server->session_pending[i].deadline = 0; // claimed
         if (!ruled)
             memset(rule, 0, sizeof(*rule)), rule->floating = -1;
         snprintf(rule->output, sizeof(rule->output), "%s", saved->output);

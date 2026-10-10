@@ -721,7 +721,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(window_rules_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(output_workspace_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(output_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        add_executable(animation_tests tests/animation_tests.c src/animation.c)
+        add_executable(animation_tests tests/animation_tests.c src/animation.c
+            src/overview_scene.c)
         target_compile_definitions(animation_tests PRIVATE WLR_USE_UNSTABLE)
         target_compile_options(animation_tests PRIVATE -Wall -Wextra -Wno-unused-parameter)
         target_link_libraries(animation_tests PRIVATE paw_config PkgConfig::WLROOTS

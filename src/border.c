@@ -3,13 +3,24 @@
 #include "paw/border.h"
 #include <math.h>
 
-double sh_gradient_progress(double angle, double u, double v) {
+/* A gradient's direction, and how far along it a box's farthest corners reach from its centre. */
+struct direction {
+    double dx, dy, reach;
+};
+
+static struct direction direction_of(double angle) {
     double radians = angle * M_PI / 180;
     double dx = cos(radians), dy = sin(radians);
-    // Along the direction from the box's centre, as far as its farthest corners reach.
-    double reach = fabs(dx) + fabs(dy);
-    double t = 0.5 + ((u - 0.5) * dx + (v - 0.5) * dy) / reach;
+    return (struct direction){dx, dy, fabs(dx) + fabs(dy)};
+}
+
+static double progress(struct direction d, double u, double v) {
+    double t = 0.5 + ((u - 0.5) * d.dx + (v - 0.5) * d.dy) / d.reach;
     return t < 0 ? 0 : t > 1 ? 1 : t;
+}
+
+double sh_gradient_progress(double angle, double u, double v) {
+    return progress(direction_of(angle), u, v);
 }
 
 void sh_gradient_color(const struct sh_gradient *gradient, double t, float color[4]) {
@@ -93,14 +104,15 @@ void sh_border_paint(uint32_t *pixels, const struct sh_border_piece *piece, int 
     // A rounded corner's arc is centred `r` in from the window's corner.
     double centre_x = piece->corner == 1 || piece->corner == 3 ? width - r : r;
     double centre_y = piece->corner >= 2 ? height - r : r;
+    struct direction along_from = direction_of(from->angle), along_to = direction_of(to->angle);
     for (int py = 0; py < piece->buffer_height; ++py) {
         for (int px = 0; px < piece->buffer_width; ++px) {
             double x = piece->x + (px + 0.5) * piece->width / piece->buffer_width;
             double y = piece->y + (py + 0.5) * piece->height / piece->buffer_height;
             double u = (x + b) / box_width, v = (y + b) / box_height;
             float a[4], c[4], color[4];
-            sh_gradient_color(from, sh_gradient_progress(from->angle, u, v), a);
-            sh_gradient_color(to, sh_gradient_progress(to->angle, u, v), c);
+            sh_gradient_color(from, progress(along_from, u, v), a);
+            sh_gradient_color(to, progress(along_to, u, v), c);
             for (int i = 0; i < 4; ++i)
                 color[i] = (float)(a[i] + (c[i] - a[i]) * mix);
             double coverage = 1;

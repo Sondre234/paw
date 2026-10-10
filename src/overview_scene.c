@@ -49,11 +49,12 @@ uint64_t sh_thumb_fingerprint(const struct wlr_scene_tree *tree,
 }
 
 /* A scaled span from `start` of `length` on the same grid as its neighbours, so adjoining
- * buffers stay adjoined instead of gaining or losing a pixel to rounding. */
+ * buffers stay adjoined instead of gaining or losing a pixel to rounding. Scaled, it keeps a
+ * pixel at least; unscaled, it is the span itself. */
 static void span(double scale, int start, int length, int *out_start, int *out_length) {
     int from = (int)lround(start * scale), to = (int)lround((start + length) * scale);
     *out_start = from;
-    *out_length = to - from < 1 ? 1 : to - from;
+    *out_length = to - from < 1 && scale != 1 ? 1 : to - from;
 }
 
 static int clone(struct wlr_scene_tree *target, const struct wlr_scene_tree *tree, int ox, int oy,
@@ -104,6 +105,13 @@ static int clone(struct wlr_scene_tree *target, const struct wlr_scene_tree *tre
             wlr_scene_buffer_set_transform(copy, buffer->transform);
             wlr_scene_buffer_set_opacity(copy, buffer->opacity * opacity);
             wlr_scene_buffer_set_filter_mode(copy, buffer->filter_mode);
+            // Unscaled, what the client said is opaque still is.
+            if (scale == 1)
+                wlr_scene_buffer_set_opaque_region(copy, &buffer->opaque_region);
+            wlr_scene_buffer_set_transfer_function(copy, buffer->transfer_function);
+            wlr_scene_buffer_set_primaries(copy, buffer->primaries);
+            wlr_scene_buffer_set_color_encoding(copy, buffer->color_encoding);
+            wlr_scene_buffer_set_color_range(copy, buffer->color_range);
             ++made;
         }
     }

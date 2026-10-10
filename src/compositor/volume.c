@@ -5,20 +5,8 @@
  * brightnessctl do. */
 #include "server.h"
 
-/* Starts a program with an ordinary signal mask (the compositor blocks signals for its event
- * loop); the child is reaped with the others. */
 static bool run_program(const char *const argv[]) {
-    posix_spawnattr_t attributes;
-    if (posix_spawnattr_init(&attributes) != 0)
-        return false;
-    sigset_t mask;
-    sigemptyset(&mask);
-    posix_spawnattr_setsigmask(&attributes, &mask);
-    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK);
-    pid_t pid;
-    extern char **environ;
-    int error = posix_spawnp(&pid, argv[0], NULL, &attributes, (char *const *)argv, environ);
-    posix_spawnattr_destroy(&attributes);
+    int error = spawn_program((char *const *)argv);
     if (error)
         wlr_log(WLR_ERROR, "No shell to change the volume or brightness, and cannot launch %s: %s",
                 argv[0], strerror(error));

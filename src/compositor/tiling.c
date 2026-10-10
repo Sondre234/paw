@@ -321,11 +321,8 @@ void apply_output_layout(struct sh_server *server, const struct wlr_output *outp
 
 /* Gives every connected output its layout.outputs defaults; the caller reflows. */
 static void apply_output_layouts(struct sh_server *server) {
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        struct sh_output *output;
-        wl_list_for_each(output, lists[i], link) apply_output_layout(server, output->wlr_output);
-    }
+    struct sh_output *output;
+    for_each_connected_output(output, server) apply_output_layout(server, output->wlr_output);
 }
 
 void reconfigure_tiling(struct sh_server *server) {

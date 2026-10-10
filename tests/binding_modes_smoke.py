@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Binding modes, as sway's modes and Hyprland's submaps: a binding with the mode action puts a
 mode in use, whose bindings then take the place of the others (bare keys among them), until one
-leaves it. Subscribers hear "mode NAME" and `get mode` says it; `paw msg mode NAME` changes
-it, a reload and locking the session leave it. The bindings are volume actions, without a shell,
-so that a stand-in for wpctl writes down each one that runs."""
+leaves it. Subscribers hear "mode NAME" and `get mode` says it; `paw msg mode NAME` and a
+switch's binding change it, a reload and locking the session leave it. The bindings are volume
+actions, without a shell, so that a stand-in for wpctl writes down each one that runs."""
 from pathlib import Path
 import os
 import sys
@@ -30,6 +30,7 @@ CONFIG = """return {
     bindings = {
         { mods = { "Super" }, key = "s", action = "mode", mode = "sound" },
         { mods = { "Super" }, key = "Up", action = "volume_mute" },
+        { switch = "tablet", state = "on", action = "mode", mode = "resize" },
     },
 }"""
 # evdev's codes
@@ -125,4 +126,10 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
                      "the session unlocked")
     desktop.wait_for(lambda: heard()[6:] == ["resize", "default", "sound", "default", "sound",
                                              "default"], "the later changes heard", detail=heard)
-print("Binding modes: entered, left, their keys their own, by msg, left on reload and lock, passed")
+
+    # A switch's binding enters the mode it names.
+    msg("headless_switch", "add", "tablet", "tablet")
+    msg("headless_switch", "toggle", "tablet", "on")
+    desktop.wait_for(lambda: mode() == "resize", "a switch's binding entering a mode")
+print("Binding modes: entered, left, their keys their own, by msg and switches, left on reload "
+      "and lock, passed")

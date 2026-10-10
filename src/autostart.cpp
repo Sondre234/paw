@@ -111,7 +111,12 @@ bool is_true(const std::string &value) {
 bool is_false(const std::string &value) {
     return value == "false" || value == "0";
 }
-// Whether `program` can be run: an executable path, or a name found on PATH.
+// The name a program goes by: the last part of its path, in lower case.
+std::string program_name(const std::string &program) {
+    return lower(std::filesystem::path(program).filename().string());
+}
+} // namespace
+
 bool executable(const std::string &program) {
     auto runnable = [](const std::filesystem::path &path) {
         std::error_code error;
@@ -128,11 +133,6 @@ bool executable(const std::string &program) {
             return true;
     return false;
 }
-// The name a program goes by: the last part of its path, in lower case.
-std::string program_name(const std::string &program) {
-    return lower(std::filesystem::path(program).filename().string());
-}
-} // namespace
 
 std::vector<std::filesystem::path> autostart_directories() {
     std::vector<std::filesystem::path> directories;
