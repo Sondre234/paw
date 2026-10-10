@@ -136,10 +136,10 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     # Idle, it costs nothing: no frames are drawn while nothing changes.
     def frames():
         return int(msg("get", "stats").split("\t")[0])
-    time.sleep(0.3)
+    wait_for(lambda: msg("get", "animations").split("\t")[0] == "0", "nothing moving")
     before = frames()
-    time.sleep(0.5)
-    assert frames() - before <= 2, f"{frames() - before} frames drawn while idle"
+    desktop.stays(lambda: frames() - before <= 2, "frames drawn while idle", duration=.5,
+                  detail=lambda: f"{frames() - before} frames")
 
     # Selection by control request; picking with confirm.
     msg("overview", "select", "2")
