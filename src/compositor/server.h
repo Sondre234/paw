@@ -975,6 +975,9 @@ void run_action(struct sh_server *server, enum sh_action action, int argument);
 
 /* control.c */
 void control_reply(int fd, const char *text);
+void drop_partial_utf8(char *text);
+void flatten_field(char *text);
+void copy_field(char *out, size_t size, const char *text);
 struct wlr_backend *headless_backend(struct sh_server *server);
 void notify_subscribers(struct sh_server *server);
 void send_event(struct sh_server *server, const char *text, size_t length);

@@ -9,14 +9,8 @@
 static void control_describe_window(struct sh_server *server, int fd,
                                     struct sh_toplevel *toplevel) {
     char line[1024], app_id[256], title[512];
-    const char *raw_app_id = toplevel_app_id(toplevel), *raw_title = toplevel_title(toplevel);
-    snprintf(app_id, sizeof(app_id), "%s", raw_app_id ? raw_app_id : "");
-    snprintf(title, sizeof(title), "%s", raw_title ? raw_title : "");
-    // Neither can break the columns.
-    for (char *c = app_id; *c; ++c)
-        *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-    for (char *c = title; *c; ++c)
-        *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
+    copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
+    copy_field(title, sizeof(title), toplevel_title(toplevel));
     struct wlr_box geometry = toplevel_geometry(toplevel);
     snprintf(line, sizeof(line), "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t%u\t%d\n",
              toplevel->workspace + 1, server->focused_toplevel == toplevel, toplevel->minimized,
@@ -60,10 +54,7 @@ static void control_describe_layers(struct sh_server *server, int fd) {
     wl_list_for_each_reverse(layer, &server->layers, link) {
         struct wlr_layer_surface_v1 *surface = layer->surface;
         char namespace[256], line[512];
-        snprintf(namespace, sizeof(namespace), "%s", surface->namespace);
-        for (char *c = namespace; *c; ++c)
-            if (*c == '\n' || *c == '\r' || *c == '\t')
-                *c = ' ';
+        copy_field(namespace, sizeof(namespace), surface->namespace);
         snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\n", namespace,
                  surface->output ? surface->output->name : "", surface->current.layer,
                  surface->surface->mapped && layer->scene->tree->node.enabled,
@@ -327,13 +318,8 @@ static void get_opacities(struct sh_server *server, int fd, const char *argument
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
         char line[1024], app_id[256], title[512];
-        const char *raw_app_id = toplevel_app_id(toplevel), *raw_title = toplevel_title(toplevel);
-        snprintf(app_id, sizeof(app_id), "%s", raw_app_id ? raw_app_id : "");
-        snprintf(title, sizeof(title), "%s", raw_title ? raw_title : "");
-        for (char *c = app_id; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-        for (char *c = title; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
+        copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
         snprintf(line, sizeof(line), "%s\t%s\t%d\t%.3f\n", app_id, title,
                  server->focused_toplevel == toplevel, toplevel->opacity);
         control_reply(fd, line);
@@ -352,13 +338,8 @@ static void get_frames(struct sh_server *server, int fd, const char *arguments) 
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
         char line[1024], app_id[256], title[512];
-        const char *raw_app_id = toplevel_app_id(toplevel), *raw_title = toplevel_title(toplevel);
-        snprintf(app_id, sizeof(app_id), "%s", raw_app_id ? raw_app_id : "");
-        snprintf(title, sizeof(title), "%s", raw_title ? raw_title : "");
-        for (char *c = app_id; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-        for (char *c = title; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
+        copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
         bool revealed = toplevel->deco && toplevel->deco->node.enabled;
         struct wlr_box shadow = toplevel->shadow ? toplevel->shadow_box : (struct wlr_box){0};
         snprintf(line, sizeof(line), "%s\t%s\t%d\t%s\t%d\t%d\t%d\t%ld\t%d\t%d\t%d\t%d\t%s\n",
@@ -438,12 +419,6 @@ static uint32_t keyboard_modifier_bits(struct wlr_keyboard *keyboard, xkb_mod_ma
     return bits;
 }
 
-/* Replaces what would break a tab-separated line. */
-static void one_field(char *text) {
-    for (char *c = text; *c; ++c)
-        *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-}
-
 static void get_keyboard(struct sh_server *server, int fd, const char *arguments) {
     // Where the keymap comes from, "source rules" or "source file PATH"; a line per layout,
     // "layout N ACTIVE SHORT NAME" (N from 1, ACTIVE 1 or 0, SHORT as the panel shows it);
@@ -453,8 +428,7 @@ static void get_keyboard(struct sh_server *server, int fd, const char *arguments
     // Lock 16). Tab-separated.
     char line[1280], name[sizeof(server_settings(server)->keyboard_file)];
     control_reply(fd, "ok\n");
-    snprintf(name, sizeof(name), "%s", server_settings(server)->keyboard_file);
-    one_field(name);
+    copy_field(name, sizeof(name), server_settings(server)->keyboard_file);
     snprintf(line, sizeof(line), server->keymap_from_file ? "source\tfile\t%s\n" : "source\trules\n",
              name);
     control_reply(fd, line);
@@ -463,8 +437,7 @@ static void get_keyboard(struct sh_server *server, int fd, const char *arguments
         char code[32];
         layout_short_name(server, i, code, sizeof(code));
         const char *full = xkb_keymap_layout_get_name(server->keymap, i);
-        snprintf(name, sizeof(name), "%s", full ? full : "");
-        one_field(name);
+        copy_field(name, sizeof(name), full);
         snprintf(line, sizeof(line), "layout\t%u\t%d\t%s\t%s\n", i + 1,
                  i == server->keyboard_layout, code, name);
         control_reply(fd, line);
@@ -476,8 +449,7 @@ static void get_keyboard(struct sh_server *server, int fd, const char *arguments
             wlr_keyboard->xkb_state
                 ? xkb_state_serialize_layout(wlr_keyboard->xkb_state, XKB_STATE_LAYOUT_LOCKED)
                 : wlr_keyboard->modifiers.group;
-        snprintf(name, sizeof(name), "%s", wlr_keyboard->base.name ? wlr_keyboard->base.name : "");
-        one_field(name);
+        copy_field(name, sizeof(name), wlr_keyboard->base.name);
         snprintf(line, sizeof(line), "keyboard\t%u\t%u\t%d\t%u\t%u\t%s\n", layout + 1,
                  wlr_keyboard->keymap ? xkb_keymap_num_layouts(wlr_keyboard->keymap) : 0,
                  keyboard->is_virtual, wlr_keyboard_get_modifiers(wlr_keyboard),
@@ -532,9 +504,7 @@ static void get_switches(struct sh_server *server, int fd, const char *arguments
     struct sh_switch_device *device;
     wl_list_for_each_reverse(device, &server->switches, link) {
         char name[128], line[192];
-        snprintf(name, sizeof(name), "%s",
-                 device->wlr_switch->base.name ? device->wlr_switch->base.name : "");
-        one_field(name);
+        copy_field(name, sizeof(name), device->wlr_switch->base.name);
         snprintf(line, sizeof(line), "%s\t%d\t%d\n", name, device->lid_closed,
                  device->tablet_mode);
         control_reply(fd, line);
@@ -552,8 +522,7 @@ static void get_pictures(struct sh_server *server, int fd, const char *arguments
         size_t count = list_picture_sources(toplevel, sources, 16);
         count = count < 16 ? count : 16;
         char title[256], line[384];
-        snprintf(title, sizeof(title), "%s", toplevel_title(toplevel) ? toplevel_title(toplevel) : "");
-        one_field(title);
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
         for (size_t i = 0; i < count; ++i) {
             snprintf(line, sizeof(line), "%dx%d\t%dx%d\t%zu\t%s\n", sources[i].box_width,
                      sources[i].box_height, sources[i].width, sources[i].height,
@@ -595,8 +564,7 @@ static void get_window_peek(struct sh_server *server, int fd, const char *argume
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
         char title[512], line[640];
-        snprintf(title, sizeof(title), "%s", toplevel_title(toplevel) ? toplevel_title(toplevel) : "");
-        one_field(title);
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
         snprintf(line, sizeof(line), "%d\t%d\t%d\t%ld\t%ld\t%s\n", server->peek_window == toplevel,
                  toplevel->scene_tree && toplevel->scene_tree->node.enabled,
                  stacked_at(server, toplevel),
@@ -614,12 +582,9 @@ static void get_window_icons(struct sh_server *server, int fd, const char *argum
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
         const struct sh_icon *icon = &toplevel->icon;
-        const char *raw_app_id = toplevel_app_id(toplevel);
         char app_id[256], name[256], size[32], line[640];
-        snprintf(app_id, sizeof(app_id), "%s", raw_app_id ? raw_app_id : "");
-        one_field(app_id);
-        snprintf(name, sizeof(name), "%s", icon->name ? icon->name : "-");
-        one_field(name);
+        copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
+        copy_field(name, sizeof(name), icon->name ? icon->name : "-");
         if (icon->pixels)
             snprintf(size, sizeof(size), "%dx%d", icon->width, icon->height);
         else
@@ -651,8 +616,7 @@ static void describe_surface(struct sh_server *server, int fd, const char *what,
         }
     }
     char name[256], line[320];
-    snprintf(name, sizeof(name), "%s", raw);
-    one_field(name);
+    copy_field(name, sizeof(name), raw);
     snprintf(line, sizeof(line), "%s\t%s\t%s\n", what, kind, name);
     control_reply(fd, line);
 }

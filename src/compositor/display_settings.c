@@ -182,12 +182,6 @@ static void shown_settings(struct sh_server *server, struct sh_output *output,
     shown->primary = primary[0] && output_key_matches(primary, o);
 }
 
-/* Tabs and line breaks in a monitor's description would break the columns. */
-static void plain_text(char *text) {
-    for (char *c = text; *c; ++c)
-        *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-}
-
 /* A mode as outputs.monitors writes it, its refresh in Hz to the thousandth: "2560x1440@143.912",
  * or without one "2560x1440". */
 static void format_mode(char *text, size_t size, int width, int height, int refresh) {
@@ -218,7 +212,7 @@ static void describe_monitor(struct sh_server *server, int fd, struct sh_output 
     // the log (hdr.c).
     const char *why = hdr_unavailable(output);
     char mode[48], line[1024];
-    plain_text(shown.description);
+    flatten_field(shown.description); // tabs and line breaks would break the columns
     format_mode(mode, sizeof(mode), m->width, m->height, m->refresh);
     snprintf(line, sizeof(line),
              "%s\t%s\t%d\t%s\t%d\t%s\t%s\t%d\t%d\t%s\t%.9g\t%d\t%s\t%d\t%d\t%s\t%s\t%s\t%d\t",

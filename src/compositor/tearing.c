@@ -183,10 +183,7 @@ void describe_tearing(struct sh_server *server, int fd) {
     wl_list_for_each_reverse(output, &server->outputs, link) {
         struct sh_tearing *tearing = &output->tearing;
         char line[512], name[256];
-        snprintf(name, sizeof(name), "%s", tearing->title[0] ? tearing->title : "-");
-        for (char *c = name; *c; ++c)
-            if (*c == '\n' || *c == '\r' || *c == '\t')
-                *c = ' ';
+        copy_field(name, sizeof(name), tearing->title[0] ? tearing->title : "-");
         snprintf(line, sizeof(line), "%s\t%s\t%llu\t%llu\t%s\n", output->wlr_output->name,
                  tearing->why ? tearing->why : "off", (unsigned long long)tearing->flips,
                  (unsigned long long)tearing->refused, name);

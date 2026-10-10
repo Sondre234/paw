@@ -359,19 +359,10 @@ size_t overview_describe(struct sh_server *server, char *text, size_t size) {
         struct sh_toplevel *toplevel = overview->windows[i];
         if (!toplevel)
             continue;
-        const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
-        char clean_title[160], clean_app_id[128];
-        snprintf(clean_title, sizeof(clean_title), "%s", title ? title : "");
-        snprintf(clean_app_id, sizeof(clean_app_id), "%s", app_id ? app_id : "");
         // Neither can end the line or the column: a client sets both as it likes.
-        for (char *c = clean_title; *c; ++c) {
-            if (*c == '\t' || *c == '\n' || *c == '\r')
-                *c = ' ';
-        }
-        for (char *c = clean_app_id; *c; ++c) {
-            if (*c == '\t' || *c == '\n' || *c == '\r')
-                *c = ' ';
-        }
+        char clean_title[160], clean_app_id[128];
+        copy_field(clean_title, sizeof(clean_title), toplevel_title(toplevel));
+        copy_field(clean_app_id, sizeof(clean_app_id), toplevel_app_id(toplevel));
         struct sh_rect cell = overview->cells[i];
         length += snprintf(text + length, size - length, "overview-window %d %d %d %d %s\t%s\t%d\t%d\n",
                            cell.x - overview->screen.x, cell.y - overview->screen.y, cell.width,

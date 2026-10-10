@@ -207,10 +207,7 @@ static void control_headless_output(struct sh_server *server, int fd, const char
  * "osd OUTPUT PERCENT TEXT", the percent -1 for none. */
 static void control_osd(struct sh_server *server, int fd, const char *arguments) {
     char text[512];
-    snprintf(text, sizeof(text), "%s", arguments);
-    for (char *c = text; *c; ++c)
-        if (*c == '\n' || *c == '\r' || *c == '\t')
-            *c = ' ';
+    copy_field(text, sizeof(text), arguments);
     size_t length = strlen(text);
     while (length && text[length - 1] == ' ')
         text[--length] = '\0';
@@ -433,7 +430,7 @@ static void control_client_close(struct sh_control_client *client) {
 }
 
 /* Removes a multi-byte character cut short at the end of `text`, as snprintf leaves one. */
-static void drop_partial_utf8(char *text) {
+void drop_partial_utf8(char *text) {
     size_t length = strlen(text), start = length;
     while (start > 0 && ((unsigned char)text[start - 1] & 0xC0) == 0x80)
         --start;
@@ -445,6 +442,19 @@ static void drop_partial_utf8(char *text) {
     size_t needed = lead >= 0xF0 ? 3 : lead >= 0xE0 ? 2 : lead >= 0xC0 ? 1 : 0;
     if (length - start < needed)
         text[start - 1] = '\0';
+}
+
+/* Makes the tabs and line breaks in `text` spaces, so that it stays one column of one line. */
+void flatten_field(char *text) {
+    for (char *c = text; *c; ++c)
+        if (*c == '\t' || *c == '\n' || *c == '\r')
+            *c = ' ';
+}
+
+/* Copies `text` (none for NULL) into `out` as flatten_field leaves it. */
+void copy_field(char *out, size_t size, const char *text) {
+    snprintf(out, size, "%s", text ? text : "");
+    flatten_field(out);
 }
 
 /* The state subscribers get: "tiling on|off", "workspace N" and "focused NAME" for the focused
@@ -508,14 +518,10 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
         // The title as the taskbar has it (the shell finds the window by it), cut short at a
         // character boundary.
         char app_id[64], title[256];
-        const char *raw_app_id = toplevel_app_id(next), *raw_title = toplevel_title(next);
-        snprintf(app_id, sizeof(app_id), "%s", raw_app_id ? raw_app_id : "");
-        snprintf(title, sizeof(title), "%s", raw_title ? raw_title : "Untitled");
+        const char *raw_title = toplevel_title(next);
+        copy_field(app_id, sizeof(app_id), toplevel_app_id(next));
+        copy_field(title, sizeof(title), raw_title ? raw_title : "Untitled");
         drop_partial_utf8(title);
-        for (char *c = app_id; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-        for (char *c = title; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
         length += snprintf(state + length, size - length, "urgent-window %s\t%d\t%s\t%s\n",
                            next->output, next->workspace + 1, app_id, title);
     }
@@ -525,10 +531,8 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
         char code[32], name[256];
         layout_short_name(server, server->keyboard_layout, code, sizeof(code));
         const char *full = xkb_keymap_layout_get_name(server->keymap, server->keyboard_layout);
-        snprintf(name, sizeof(name), "%s", full ? full : "");
+        copy_field(name, sizeof(name), full);
         drop_partial_utf8(name);
-        for (char *c = name; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
         length += snprintf(state + length, size - length, "keyboard-layout %u %u %s %s\n",
                            server->keyboard_layout + 1, xkb_keymap_num_layouts(server->keymap), code,
                            name);
@@ -630,12 +634,9 @@ void report_failure(struct sh_server *server, const char *event, const char *tex
     int start = snprintf(line, sizeof(line), "%s ", event);
     if (start < 0 || (size_t)start + 2 > sizeof(line))
         return;
-    snprintf(line + start, sizeof(line) - (size_t)start - 1, "%s", text); // room for "\n"
+    copy_field(line + start, sizeof(line) - (size_t)start - 1, text); // room for "\n"
     drop_partial_utf8(line);
     line[start] = (char)toupper((unsigned char)line[start]);
-    for (char *c = line + start; *c; ++c)
-        if (*c == '\n' || *c == '\r' || *c == '\t')
-            *c = ' ';
     wlr_log(WLR_ERROR, "%s", line + start);
     strcat(line, "\n");
     send_shell_line(server, line);

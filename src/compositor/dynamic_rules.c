@@ -80,13 +80,8 @@ void describe_dynamic_rules(struct sh_server *server, int fd) {
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
         char line[1024], app_id[256], title[512], held[32] = "";
-        const char *raw_app_id = toplevel_app_id(toplevel), *raw_title = toplevel_title(toplevel);
-        snprintf(app_id, sizeof(app_id), "%s", raw_app_id ? raw_app_id : "");
-        snprintf(title, sizeof(title), "%s", raw_title ? raw_title : "");
-        for (char *c = app_id; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-        for (char *c = title; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
+        copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
         const struct sh_held_value *values[] = {&toplevel->held_floating, &toplevel->held_sticky,
                                                 &toplevel->held_above};
         bool current[] = {toplevel->sticky ? toplevel->sticky_floating : toplevel->floating,

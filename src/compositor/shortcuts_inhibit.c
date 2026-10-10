@@ -93,17 +93,8 @@ static void surface_name(struct sh_server *server, struct wlr_surface *surface, 
     struct sh_toplevel *toplevel = surface_toplevel(server, surface);
     const char *title = toplevel ? toplevel_title(toplevel) : NULL;
     const char *app_id = toplevel ? toplevel_app_id(toplevel) : NULL;
-    snprintf(name, size, "%s", title && *title ? title : app_id && *app_id ? app_id : "the window");
-    // A character snprintf cut short at the end goes.
-    size_t length = strlen(name), start = length;
-    while (start > 0 && ((unsigned char)name[start - 1] & 0xC0) == 0x80)
-        --start;
-    unsigned char lead = start > 0 ? (unsigned char)name[start - 1] : 0;
-    if (length - start < (lead >= 0xF0 ? 3u : lead >= 0xE0 ? 2u : lead >= 0xC0 ? 1u : 0u))
-        name[start - 1] = '\0';
-    for (char *c = name; *c; ++c)
-        if (*c == '\n' || *c == '\r' || *c == '\t')
-            *c = ' ';
+    copy_field(name, size, title && *title ? title : app_id && *app_id ? app_id : "the window");
+    drop_partial_utf8(name);
 }
 
 /* Tells the user, once for each window, that it has the shortcuts now and which keys take them
