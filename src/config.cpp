@@ -1025,6 +1025,24 @@ void read_features(lua_State *L, Config &config) {
     }
     lua_pop(L, 1);
 }
+// The action a hot corner's or a swipe's request runs ("workspace 2"), SH_NONE for "none", once
+// it has what the action needs; `label` names it in errors, which point at `leaf`.
+sh_action request_action(const Config &config, const std::string &request,
+                         const std::string &label, const char *leaf) {
+    std::istringstream stream(request);
+    std::vector<std::string> words{std::istream_iterator<std::string>(stream), {}};
+    if (words.empty())
+        fail(label + " is blank", leaf);
+    if (words[0] == "none")
+        return SH_NONE;
+    auto action = parse_action(words[0]);
+    if (action == SH_SPAWN && words.size() < 2)
+        fail(label + " needs a program after spawn", leaf);
+    if (action_takes_workspace(action) &&
+        !config.workspace_number(join(std::span(words).subspan(1), " ")))
+        fail(label + " needs a workspace number or name after " + words[0], leaf);
+    return action;
+}
 // `peek`, `night_light`, `hot_corners`, `zoom`: the desktop effects.
 void read_effects(lua_State *L, Config &config) {
     auto &effects = config.settings.effects;
@@ -1062,26 +1080,14 @@ void read_effects(lua_State *L, Config &config) {
         effects.corner_delay = integer(L, "delay", effects.corner_delay, 0, 5000);
         constexpr const char *corners[] = {"top_left", "top_right", "bottom_left", "bottom_right"};
         for (size_t i = 0; i < 4; ++i) {
+            // "" sets nothing, as "none" does.
             auto request = text(L, corners[i]);
-            if (!request)
+            if (!request || request->empty() ||
+                request_action(config, *request, std::string("hot_corners.") + corners[i],
+                               corners[i]) == SH_NONE)
                 continue;
-            std::istringstream stream(*request);
-            std::vector<std::string> words{std::istream_iterator<std::string>(stream), {}};
-            std::string label = std::string("hot_corners.") + corners[i];
-            if (!words.empty() && words[0] != "none") {
-                auto action = parse_action(words[0]);
-                if (action == SH_SPAWN && words.size() < 2)
-                    fail(label + " needs a program after spawn", corners[i]);
-                if (action_takes_workspace(action)) {
-                    if (!config.workspace_number(join(std::span(words).subspan(1), " ")))
-                        fail(label + " needs a workspace number or name after " + words[0],
-                             corners[i]);
-                }
-                config.hot_corners[i] = *request;
-                effects.corner_mask |= 1U << i;
-            } else if (words.empty() && !request->empty()) {
-                fail(label + " is blank", corners[i]);
-            }
+            config.hot_corners[i] = *request;
+            effects.corner_mask |= 1U << i;
         }
     }
     if (Section in{L, "zoom"}) {
@@ -1118,19 +1124,7 @@ void read_gestures(lua_State *L, Config &config) {
                 if (!swipe.direction)
                     unknown("direction", direction, {"left", "right", "up", "down"}, "direction");
                 auto request = field(L, "action");
-                std::istringstream stream(request);
-                std::vector<std::string> words{std::istream_iterator<std::string>(stream), {}};
-                if (words.empty())
-                    fail("gestures.swipes action is blank", "action");
-                swipe.action = words[0] == "none" ? SH_NONE : parse_action(words[0]);
-                if (swipe.action == SH_SPAWN && words.size() < 2)
-                    fail("gestures.swipes action needs a program after spawn", "action");
-                if (action_takes_workspace(swipe.action)) {
-                    if (!config.workspace_number(join(std::span(words).subspan(1), " ")))
-                        fail("gestures.swipes action needs a workspace number or name after " +
-                                 words[0],
-                             "action");
-                }
+                swipe.action = request_action(config, request, "gestures.swipes action", "action");
                 copy_text(request, swipe.request, "gestures.swipes action");
                 for (int j = 0; j < gestures.swipe_count; ++j)
                     if (gestures.swipes[j].fingers == swipe.fingers &&
