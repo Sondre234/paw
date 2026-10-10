@@ -1274,16 +1274,8 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 if (present(L, "key"))
                     fail("a binding takes a key or a button, not both");
                 binding.button = mouse_button(field(L, "button"));
-                lua_getfield(L, -1, "app_id");
-                if (!lua_isnil(L, -1)) {
-                    binding.app_id = string(L, -1, "app_id");
-                    try {
-                        binding.pattern = std::regex(binding.app_id, std::regex::ECMAScript);
-                    } catch (const std::regex_error &) {
-                        fail("app_id '" + binding.app_id + "' is not a valid regular expression");
-                    }
-                }
-                lua_pop(L, 1);
+                std::string app_id;
+                binding.pattern = pattern_field(L, "app_id", app_id);
                 boolean(L, "desktop", "desktop", binding.desktop);
                 for (const char *only : {"locked", "repeats"})
                     if (present(L, only))

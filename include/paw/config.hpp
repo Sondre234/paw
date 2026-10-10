@@ -26,10 +26,9 @@ struct Binding {
     uint32_t modifiers;
     uint32_t keysym; // 0 for a mouse button binding
     uint32_t button = 0; // a Linux BTN_* code; 0 for a key binding
-    // A button binding acts only over a window whose app ID matches `app_id` (an ECMAScript
-    // regex, searched) or, with `desktop`, over the bare desktop; with neither, anywhere.
-    // Elsewhere the click reaches the application under the pointer.
-    std::string app_id;
+    // A button binding acts only over a window whose app ID matches `pattern` (its `app_id`, an
+    // ECMAScript regex, searched) or, with `desktop`, over the bare desktop; with neither,
+    // anywhere. Elsewhere the click reaches the application under the pointer.
     std::optional<std::regex> pattern;
     bool desktop = false;
     sh_action action;
