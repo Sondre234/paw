@@ -149,9 +149,6 @@ class MenuBarWindow : public QQuickWindow {
 // it was.
 class OverlayView : public QQuickView {
     Q_OBJECT
-  public:
-    QScreen *outputScreen() const { return outputScreen_; }
-
   protected:
     // `name` is how its log lines call it ("palette" in "paw palette shown on DP-1"), and
     // `keyboard` whether it holds the keyboard while it is on.
@@ -256,7 +253,6 @@ class CardsView : public QQuickView {
     Q_OBJECT
   public:
     CardsView(ShellController &controller, QScreen *screen);
-    QScreen *outputScreen() const { return outputScreen_; }
 
   private Q_SLOTS:
     void update();
@@ -273,7 +269,6 @@ class OsdView : public QQuickView {
     Q_OBJECT
   public:
     OsdView(ShellController &controller, QScreen *screen);
-    QScreen *outputScreen() const { return outputScreen_; }
 
   private Q_SLOTS:
     void update();
@@ -292,7 +287,6 @@ class DisplayModeView : public QQuickView {
     Q_OBJECT
   public:
     DisplayModeView(ShellController &controller, QScreen *screen);
-    QScreen *outputScreen() const { return outputScreen_; }
 
   private Q_SLOTS:
     void update();
@@ -308,7 +302,6 @@ class ConfigErrorView : public QQuickView {
     Q_OBJECT
   public:
     ConfigErrorView(ShellController &controller, QScreen *screen);
-    QScreen *outputScreen() const { return outputScreen_; }
 
   private Q_SLOTS:
     void update();
