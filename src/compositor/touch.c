@@ -96,8 +96,9 @@ static void release_pointer(struct sh_server *server, uint32_t time) {
     pointer_button(server, time, WL_POINTER_BUTTON_STATE_RELEASED);
 }
 
-/* A finger on a window or a panel focuses it, as a click does. */
-static void touch_focus(struct sh_server *server, double x, double y, struct sh_node *owner) {
+/* A finger or a pen's tip at (x, y) on `owner`, a window or a panel, focuses it, as a click
+ * does. */
+void focus_pressed(struct sh_server *server, double x, double y, struct sh_node *owner) {
     struct wlr_output *output = wlr_output_layout_output_at(server->output_layout, x, y);
     if (output)
         set_active_output(server, output->name);
@@ -128,7 +129,7 @@ static void touch_down(struct wl_listener *listener, void *data) {
         }
         if (!point)
             return; // more fingers than any screen has
-        touch_focus(server, x, y, owner);
+        focus_pressed(server, x, y, owner);
         if (!wlr_seat_touch_notify_down(server->seat, surface, event->time_msec, event->touch_id,
                                         sx, sy))
             return;

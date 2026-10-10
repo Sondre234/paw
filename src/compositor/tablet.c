@@ -162,18 +162,10 @@ static void tool_moved(struct sh_server *server, struct sh_tablet *tablet,
 
 /* A tip touching a window or a panel focuses it, as a click does. */
 static void tool_focus(struct sh_server *server) {
-    double sx, sy;
+    double sx, sy, x = server->cursor->x, y = server->cursor->y;
     struct sh_node *owner = NULL;
-    struct wlr_output *output = pointer_output(server);
-    if (output)
-        set_active_output(server, output->name);
-    press_target_at(server, server->cursor->x, server->cursor->y, &sx, &sy, &owner);
-    if (server->locked || !owner)
-        return;
-    if (owner->kind == SH_NODE_TOPLEVEL)
-        focus_toplevel(owner->owner);
-    else
-        focus_layer(owner->owner);
+    press_target_at(server, x, y, &sx, &sy, &owner);
+    focus_pressed(server, x, y, owner);
 }
 
 static void tool_proximity(struct wl_listener *listener, void *data) {

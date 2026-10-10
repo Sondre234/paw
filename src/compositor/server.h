@@ -1425,6 +1425,7 @@ void reconfigure_tiling(struct sh_server *server);
 void layout_action(struct sh_server *server, enum sh_action action);
 
 /* touch.c */
+void focus_pressed(struct sh_server *server, double x, double y, struct sh_node *owner);
 void map_touchscreens(struct sh_server *server);
 void server_new_touch(struct sh_server *server, struct wlr_input_device *input);
 void describe_touch(struct sh_server *server, int fd);
