@@ -126,7 +126,7 @@ Item {
             visible: shell.error.length > 0
             anchors.fill: parent; anchors.margins: Theme.spacingS
             color: Theme.dangerSurface; radius: Theme.radiusSmall
-            Text { anchors.left: parent.left; anchors.right: dismiss.left; anchors.verticalCenter: parent.verticalCenter; anchors.margins: Theme.spacingL; text: shell.error; color: Theme.text; elide: Text.ElideRight; font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily }
+            Text { anchors.left: parent.left; anchors.right: dismiss.left; anchors.verticalCenter: parent.verticalCenter; anchors.margins: Theme.spacingL; text: shell.error; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideRight; font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily }
             CloseButton {
                 id: dismiss
                 anchors.right: parent.right; anchors.rightMargin: Theme.spacingS
