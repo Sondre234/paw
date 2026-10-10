@@ -1036,7 +1036,8 @@ if(PAW_BUILD_COMPOSITOR)
         set_tests_properties(hot_corners_smoke PROPERTIES TIMEOUT 60)
         add_test(NAME zoom_smoke COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/zoom_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>
+            "${GRIM_ARGUMENT}")
         set_tests_properties(zoom_smoke PROPERTIES TIMEOUT 60)
         add_test(NAME zoom_output_smoke COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/zoom_output_smoke.py $<TARGET_FILE:paw>
