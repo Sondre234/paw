@@ -328,19 +328,19 @@ class ShellController : public QObject {
     }
     // By output name: {current: N, occupied: [N, ...], tiling: bool}, numbered from 1.
     QVariantMap workspaces() const { return workspaces_; }
-    QString switcherOutput() const { return switcherOutput_; }
-    QVariantList switcherWindows() const { return switcherWindows_; }
-    int switcherSelected() const { return switcherSelected_; }
+    QString switcherOutput() const { return switcher_.output; }
+    QVariantList switcherWindows() const { return switcher_.windows; }
+    int switcherSelected() const { return switcher_.selected; }
     // Focuses the switcher's window at `index` and closes it.
     Q_INVOKABLE void switcherPick(int index);
-    QString overviewOutput() const { return overviewOutput_; }
-    QVariantList overviewWindows() const { return overviewWindows_; }
-    QVariantList overviewStrip() const { return overviewStrip_; }
-    int overviewViewed() const { return overviewViewed_; }
-    QString overviewFilter() const { return overviewFilter_; }
-    QRect overviewArea() const { return overviewArea_; }
-    int overviewSelected() const { return overviewSelected_; }
-    bool overviewAssist() const { return overviewAssist_; }
+    QString overviewOutput() const { return overview_.output; }
+    QVariantList overviewWindows() const { return overview_.windows; }
+    QVariantList overviewStrip() const { return overview_.strip; }
+    int overviewViewed() const { return overview_.viewed; }
+    QString overviewFilter() const { return overview_.filter; }
+    QRect overviewArea() const { return overview_.area; }
+    int overviewSelected() const { return overview_.selected; }
+    bool overviewAssist() const { return overview_.assist; }
     Q_INVOKABLE bool launch(const QString &id);
     bool trashFull() const { return trashFull_; }
     // Opens the trash in the file manager, as `gio open trash:///` does, or its folder where
@@ -503,16 +503,27 @@ class ShellController : public QObject {
     QVariantMap workspaces_, nextWorkspaces_;
     int urgentCount_ = 0, nextUrgentCount_ = 0;
     QVariantList urgentWindows_, nextUrgentWindows_;
-    QString switcherOutput_, nextSwitcherOutput_;
-    QVariantList switcherWindows_, nextSwitcherWindows_;
-    int switcherSelected_ = 0, nextSwitcherSelected_ = 0, switcherPending_ = 0;
+    // What the switcher and the overview show (their properties above), and what comes in for
+    // them line by line until all of it has (`switcherPending_`, `overviewPending_` lines to go).
+    struct Switcher {
+        QString output = {};
+        QVariantList windows = {};
+        int selected = 0;
+    };
+    Switcher switcher_, nextSwitcher_;
+    int switcherPending_ = 0;
     void showSwitcher();
-    QString overviewOutput_, nextOverviewOutput_, overviewFilter_, nextOverviewFilter_;
-    QVariantList overviewWindows_, nextOverviewWindows_, overviewStrip_, nextOverviewStrip_;
-    int overviewSelected_ = 0, nextOverviewSelected_ = 0, overviewViewed_ = 1,
-        nextOverviewViewed_ = 1, overviewPending_ = 0;
-    QRect overviewArea_, nextOverviewArea_;
-    bool overviewAssist_ = false, nextOverviewAssist_ = false;
+    struct Overview {
+        QString output = {}, filter = {};
+        QVariantList windows = {}, strip = {};
+        int selected = 0, viewed = 1;
+        QRect area = {};
+        bool assist = false;
+    };
+    Overview overview_, nextOverview_;
+    int overviewPending_ = 0;
+    // Shows nextOverview_ once its windows and strip have come, `pending` lines more.
+    void expectOverview(int pending);
     void showOverview();
     void clearOverview();
     void subscribe();

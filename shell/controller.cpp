@@ -729,6 +729,13 @@ void ShellController::loadConfig() {
         std::cerr << "Shell configuration error; using the default configuration: " << error
                   << '\n';
 }
+namespace {
+// The rectangle of the four numbers X Y WIDTH HEIGHT from `words[from]` on.
+QRect rectAt(const QStringList &words, int from) {
+    return QRect(words[from].toInt(), words[from + 1].toInt(), words[from + 2].toInt(),
+                 words[from + 3].toInt());
+}
+} // namespace
 void ShellController::subscribe() {
     const auto path = qEnvironmentVariable("PAW_SOCKET");
     if (path.isEmpty())
@@ -871,10 +878,8 @@ void ShellController::subscribe() {
                 const auto words = line.split(' ');
                 if (words.size() != 4)
                     continue;
-                nextSwitcherOutput_ = words[1];
-                nextSwitcherSelected_ = words[2].toInt();
+                nextSwitcher_ = {.output = words[1], .selected = words[2].toInt()};
                 switcherPending_ = words[3].toInt();
-                nextSwitcherWindows_.clear();
                 if (switcherPending_ <= 0)
                     showSwitcher();
             } else if (line.startsWith("switcher-window ") && switcherPending_ > 0) {
@@ -883,7 +888,7 @@ void ShellController::subscribe() {
                 // more. The line is read untrimmed so an empty app id keeps its place.
                 const auto fields = raw.sliced(16).chopped(1).split('\t');
                 if (fields.size() >= 5)
-                    nextSwitcherWindows_.push_back(QVariantMap{{"appId", fields[0]},
+                    nextSwitcher_.windows.push_back(QVariantMap{{"appId", fields[0]},
                                                                {"title", fields[1]},
                                                                {"output", fields[2]},
                                                                {"workspace", fields[3].toInt()},
@@ -893,7 +898,7 @@ void ShellController::subscribe() {
                 if (--switcherPending_ == 0)
                     showSwitcher();
             } else if (line.startsWith("switcher-select ")) {
-                switcherSelected_ = line.sliced(16).toInt();
+                switcher_.selected = line.sliced(16).toInt();
                 Q_EMIT switcherSelectedChanged();
             } else if (line.startsWith("overview ")) {
                 // overview OUTPUT COUNT SELECTED VIEWED STRIP X Y WIDTH HEIGHT FILTER (the area the
@@ -902,34 +907,25 @@ void ShellController::subscribe() {
                 const auto words = line.split(' ');
                 if (words.size() < 11)
                     continue;
-                nextOverviewArea_ = QRect(words[6].toInt(), words[7].toInt(), words[8].toInt(), words[9].toInt());
-                nextOverviewOutput_ = words[1];
-                nextOverviewSelected_ = words[3].toInt();
-                nextOverviewViewed_ = words[4].toInt();
-                nextOverviewFilter_ = words[10] == "-" && words.size() == 11 ? QString() : QStringList(words.mid(10)).join(' ');
-                nextOverviewAssist_ = false;
-                overviewPending_ = words[2].toInt() + words[5].toInt();
-                nextOverviewWindows_.clear();
-                nextOverviewStrip_.clear();
-                if (overviewPending_ <= 0)
-                    showOverview();
+                const auto filter = QStringList(words.mid(10)).join(' ');
+                nextOverview_ = {.output = words[1],
+                                 .filter = filter == "-" ? QString() : filter,
+                                 .selected = words[3].toInt(),
+                                 .viewed = words[4].toInt(),
+                                 .area = rectAt(words, 6)};
+                expectOverview(words[2].toInt() + words[5].toInt());
             } else if (line.startsWith("overview-assist ")) {
                 // overview-assist OUTPUT COUNT SELECTED X Y WIDTH HEIGHT (the free slot beside a
                 // window just snapped), then COUNT overview-window lines.
                 const auto words = line.split(' ');
                 if (words.size() < 8)
                     continue;
-                nextOverviewArea_ = QRect(words[4].toInt(), words[5].toInt(), words[6].toInt(), words[7].toInt());
-                nextOverviewOutput_ = words[1];
-                nextOverviewSelected_ = words[3].toInt();
-                nextOverviewViewed_ = 0;
-                nextOverviewFilter_.clear();
-                nextOverviewAssist_ = true;
-                overviewPending_ = words[2].toInt();
-                nextOverviewWindows_.clear();
-                nextOverviewStrip_.clear();
-                if (overviewPending_ <= 0)
-                    showOverview();
+                nextOverview_ = {.output = words[1],
+                                 .selected = words[3].toInt(),
+                                 .viewed = 0,
+                                 .area = rectAt(words, 4),
+                                 .assist = true};
+                expectOverview(words[2].toInt());
             } else if ((line.startsWith("overview-window ") || line.startsWith("overview-strip ")) &&
                        overviewPending_ > 0) {
                 // X Y WIDTH HEIGHT, then APP_ID, TITLE, WORKSPACE, URGENT (a window) or WORKSPACE,
@@ -946,23 +942,23 @@ void ShellController::subscribe() {
                     cell.insert("title", fields[1]);
                     cell.insert("workspace", fields[2].toInt());
                     cell.insert("urgent", fields.size() == 4 && fields[3] == "1");
-                    nextOverviewWindows_.push_back(cell);
+                    nextOverview_.windows.push_back(cell);
                 } else if (!window && fields.size() == 2) {
                     cell.insert("workspace", fields[0].toInt());
                     cell.insert("windows", fields[1].toInt());
-                    nextOverviewStrip_.push_back(cell);
+                    nextOverview_.strip.push_back(cell);
                 }
                 if (--overviewPending_ == 0)
                     showOverview();
             } else if (line.startsWith("overview-select ")) {
-                overviewSelected_ = line.sliced(16).toInt();
+                overview_.selected = line.sliced(16).toInt();
                 Q_EMIT overviewSelectedChanged();
             } else if (line == "overview-close") {
                 clearOverview();
             } else if (line == "switcher-close") {
                 switcherPending_ = 0;
-                switcherOutput_.clear();
-                switcherWindows_.clear();
+                switcher_.output.clear();
+                switcher_.windows.clear();
                 Q_EMIT switcherChanged();
             }
         }
@@ -996,9 +992,9 @@ void ShellController::subscribe() {
             Q_EMIT urgentChanged();
         }
         Q_EMIT tilingChanged();
-        if (!switcherOutput_.isEmpty()) {
-            switcherOutput_.clear();
-            switcherWindows_.clear();
+        if (!switcher_.output.isEmpty()) {
+            switcher_.output.clear();
+            switcher_.windows.clear();
             Q_EMIT switcherChanged();
         }
         clearOverview();
@@ -1186,36 +1182,32 @@ void ShellController::updatePolkitAgent() {
 #endif
 }
 void ShellController::showSwitcher() {
-    switcherOutput_ = nextSwitcherOutput_;
-    switcherWindows_ = nextSwitcherWindows_;
-    switcherSelected_ = nextSwitcherSelected_;
+    switcher_ = nextSwitcher_;
     Q_EMIT switcherChanged();
     Q_EMIT switcherSelectedChanged();
 }
+void ShellController::expectOverview(int pending) {
+    overviewPending_ = pending;
+    if (overviewPending_ <= 0)
+        showOverview();
+}
 void ShellController::showOverview() {
-    overviewOutput_ = nextOverviewOutput_;
-    overviewWindows_ = nextOverviewWindows_;
-    overviewStrip_ = nextOverviewStrip_;
-    overviewSelected_ = nextOverviewSelected_;
-    overviewViewed_ = nextOverviewViewed_;
-    overviewFilter_ = nextOverviewFilter_;
-    overviewArea_ = nextOverviewArea_;
-    overviewAssist_ = nextOverviewAssist_;
+    overview_ = nextOverview_;
     Q_EMIT overviewChanged();
     Q_EMIT overviewSelectedChanged();
 }
 void ShellController::clearOverview() {
     overviewPending_ = 0;
-    if (overviewOutput_.isEmpty())
+    if (overview_.output.isEmpty())
         return;
-    overviewOutput_.clear();
-    overviewWindows_.clear();
-    overviewStrip_.clear();
-    overviewFilter_.clear();
+    overview_.output.clear();
+    overview_.windows.clear();
+    overview_.strip.clear();
+    overview_.filter.clear();
     Q_EMIT overviewChanged();
 }
 void ShellController::switcherPick(int index) {
-    if (index >= 0 && index < switcherWindows_.size())
+    if (index >= 0 && index < switcher_.windows.size())
         request(QString("switcher_confirm %1\n").arg(index + 1).toUtf8(),
                 "The window switcher needs a running paw session.");
 }
