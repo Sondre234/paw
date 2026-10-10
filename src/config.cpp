@@ -32,10 +32,14 @@ struct ConfigError : std::runtime_error {
         : std::runtime_error("configuration: " + message), text(std::move(message)),
           trail(std::move(names)) {}
 };
+// Each table of the current section ("shell", "thumbnails"), then `leaf`.
 std::vector<std::string> trail_to(const std::string &leaf) {
     std::vector<std::string> names;
-    if (!current_section.empty())
-        names.push_back(current_section);
+    for (size_t start = 0; start < current_section.size();) {
+        auto dot = std::min(current_section.find('.', start), current_section.size());
+        names.push_back(current_section.substr(start, dot - start));
+        start = dot + 1;
+    }
     if (!leaf.empty())
         names.push_back(leaf);
     return names;
