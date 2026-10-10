@@ -4,8 +4,6 @@ numbered one, from the control socket and from a binding; a keyboard switching b
 takes the others along; virtual keyboards keep theirs; and a reload keeps the active layout by
 name, else by place."""
 from pathlib import Path
-import re
-import socket
 import sys
 
 import harness
@@ -44,32 +42,18 @@ with harness.Compositor(compositor, config("us,no", ",nodeadkeys")) as desktop:
     def key(code, state, keyboard="one"):
         msg("headless_keyboard", "key", keyboard, str(code), state)
 
-    class Subscriber:
-        """The keyboard layouts the control socket's state stream announced, in order, without
-        repeats: "N COUNT SHORT NAME"."""
-
-        def __init__(self):
-            self.socket = socket.socket(socket.AF_UNIX)
-            self.socket.connect(desktop.env["PAW_SOCKET"])
-            self.socket.sendall(b"subscribe\n")
-            self.socket.settimeout(0.05)
-            self.buffer = ""
-
-        def heard(self):
-            try:
-                while data := self.socket.recv(8192):
-                    self.buffer += data.decode()
-            except socket.timeout:
-                pass
-            lines = re.findall(r"^keyboard-layout (.*)$", self.buffer, re.M)
-            return [line for i, line in enumerate(lines) if i == 0 or lines[i - 1] != line]
-
     US, NO = "1 2 us English (US)", "2 2 no Norwegian (no dead keys)"
 
     # Subscribers hear the active layout at once, and again whenever it changes.
-    subscriber = Subscriber()
-    desktop.wait_for(lambda: subscriber.heard() == [US], "the first state",
-                     detail=subscriber.heard)
+    subscriber = desktop.subscribe()
+
+    def heard():
+        """The keyboard layouts subscribers were told of, each once until it changes:
+        "N COUNT SHORT NAME"."""
+        return subscriber.values("keyboard-layout ", changes=True)
+
+    desktop.wait_for(lambda: heard() == [US], "the first state",
+                     detail=heard)
     msg("headless_keyboard", "add", "one")
     msg("headless_keyboard", "add", "two")
     assert keyboard() == ([("us", "English (US)", True),
@@ -92,7 +76,7 @@ with harness.Compositor(compositor, config("us,no", ",nodeadkeys")) as desktop:
     result = desktop.run("switch_layout", "3")
     assert "the keymap has 2 layouts" in result.stdout + result.stderr, result
     assert active() == (1, {"one": 1, "two": 1}), active()
-    assert subscriber.heard() == [US, NO, US, NO, US], subscriber.heard()
+    assert heard() == [US, NO, US, NO, US], heard()
 
     # From a binding, typed on one keyboard: both switch.
     key(LEFTMETA, "press")
@@ -111,7 +95,7 @@ with harness.Compositor(compositor, config("us,no", ",nodeadkeys")) as desktop:
         key(LEFTSHIFT, "release", typed_on)
         key(LEFTALT, "release", typed_on)
         assert active() == (expected, {"one": expected, "two": expected}), (typed_on, active())
-    assert subscriber.heard()[-4:] == [NO, US, NO, US], subscriber.heard()
+    assert heard()[-4:] == [NO, US, NO, US], heard()
     msg("switch_layout", "2")
 
     # A virtual keyboard (from the pointer probe) keeps its own keymap and layout.
@@ -135,8 +119,8 @@ with harness.Compositor(compositor, config("us,no", ",nodeadkeys")) as desktop:
     assert keyboard() == ([("no", "Norwegian", True), ("us", "English (US)", False)],
                           {"one": 1, "two": 1}), keyboard()
     # Subscribers hear of new names and places too.
-    assert subscriber.heard()[-2:] == ["2 2 no Norwegian", "1 2 no Norwegian"], \
-        subscriber.heard()
+    assert heard()[-2:] == ["2 2 no Norwegian", "1 2 no Norwegian"], \
+        heard()
     # A reload that leaves the keymap as it was leaves the layout too.
     msg("switch_layout", "2")
     desktop.reload()

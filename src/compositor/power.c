@@ -7,8 +7,15 @@
 
 #include <stdarg.h>
 
-/* How long a locker gets to lock the screen before a suspend gives up. */
+/* How long a locker gets to lock the screen before a suspend gives up. Under --headless,
+ * PAW_TEST_LOCK_TIMEOUT_MS sets it for tests, in whole seconds as the message about it says. */
 #define LOCK_TIMEOUT_MS 5000
+
+static int lock_timeout_ms(struct sh_server *server) {
+    const char *test = getenv("PAW_TEST_LOCK_TIMEOUT_MS");
+    int ms = test && headless_backend(server) ? atoi(test) : 0;
+    return ms > 0 ? ms : LOCK_TIMEOUT_MS;
+}
 
 /* Each power action, in the order menus list them: its name in the action table and in
  * messages, and the logind method that carries it out (SH_LOGIN1_METHODS for none). */
@@ -36,7 +43,7 @@ bool power_action(enum sh_action action) {
     return action_index(action) >= 0;
 }
 
-const char *power_action_name(enum sh_action action) {
+static const char *power_action_name(enum sh_action action) {
     int index = action_index(action);
     return index >= 0 ? actions[index].name : "";
 }
@@ -83,7 +90,7 @@ static bool power_lock(struct sh_server *server, char *error, size_t error_size)
 /* Starts the locker for a sleep, unless one started for that is still on its way. */
 static bool lock_for_sleep(struct sh_server *server, char *error, size_t error_size) {
     struct sh_power *power = &server->power;
-    if (power->locker_started && now_ms() - power->locker_started < LOCK_TIMEOUT_MS)
+    if (power->locker_started && now_ms() - power->locker_started < lock_timeout_ms(server))
         return true;
     if (!power_lock(server, error, error_size))
         return false;
@@ -404,7 +411,7 @@ static int power_timeout(void *data) {
     if (power->step == SH_POWER_LOCKING) {
         power->step = SH_POWER_IDLE;
         power_report(server, "%s cancelled: the screen did not lock within %d seconds",
-                     action_label(power->action), LOCK_TIMEOUT_MS / 1000);
+                     action_label(power->action), lock_timeout_ms(server) / 1000);
     } else if (power->step == SH_POWER_CLOSING) {
         // The windows left, named by their applications.
         int count = 0;
@@ -483,7 +490,7 @@ bool power_start(struct sh_server *server, enum sh_action action, char *error,
         if (!lock_for_sleep(server, error, error_size))
             return false;
         power->step = SH_POWER_LOCKING;
-        wl_event_source_timer_update(power->timer, LOCK_TIMEOUT_MS);
+        wl_event_source_timer_update(power->timer, lock_timeout_ms(server));
         return true;
     }
     // The session as it is, before its windows go, for the next login to start from.

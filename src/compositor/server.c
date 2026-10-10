@@ -27,6 +27,29 @@ int64_t now_ms(void) {
     return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
 
+/* Starts a program with an ordinary signal mask (the compositor blocks signals for its event
+ * loop); the child is reaped with the others. 0, or why it could not start. */
+int spawn_program(char *const argv[]) {
+    posix_spawnattr_t attributes;
+    int error = posix_spawnattr_init(&attributes);
+    if (error)
+        return error;
+    sigset_t mask;
+    sigemptyset(&mask);
+    posix_spawnattr_setsigmask(&attributes, &mask);
+    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK);
+    pid_t pid;
+    extern char **environ;
+    error = posix_spawnp(&pid, argv[0], NULL, &attributes, argv, environ);
+    posix_spawnattr_destroy(&attributes);
+    return error;
+}
+
+/* A protocol object's destroy request, for one with nothing more to do. */
+void destroy_resource(struct wl_client *client, struct wl_resource *resource) {
+    wl_resource_destroy(resource);
+}
+
 void add_listener(struct wl_signal *signal, struct wl_listener *listener,
                   wl_notify_func_t notify) {
     listener->notify = notify;
@@ -51,8 +74,7 @@ void reload_config(struct sh_server *server) {
         return;
     set_binding_mode(server, 0);
     struct sh_output *overridden;
-    wl_list_for_each(overridden, &server->outputs, link) overridden->has_override = false;
-    wl_list_for_each(overridden, &server->disabled_outputs, link) overridden->has_override = false;
+    for_each_connected_output(overridden, server) overridden->has_override = false;
     ++server->config_generation;
     display_settings_load(server); // laid over outputs.monitors, so read with them
     configure_animations(server);
@@ -63,12 +85,7 @@ void reload_config(struct sh_server *server) {
     update_keymap(server);
     struct sh_pointer *pointer;
     wl_list_for_each(pointer, &server->pointers, link) configure_pointer(server, pointer->device);
-    // Enable outputs before disabling others, so a swap never leaves none on.
-    struct sh_output *output, *temporary;
-    wl_list_for_each_safe(output, temporary, &server->disabled_outputs, link)
-        configure_output(server, output);
-    wl_list_for_each_safe(output, temporary, &server->outputs, link)
-        configure_output(server, output);
+    configure_outputs(server);
     arrange_outputs(server);
     reconfigure_tiling(server);
     return_home_windows(server);
@@ -99,12 +116,10 @@ void reload_config(struct sh_server *server) {
     struct sh_toplevel *next;
     wl_list_for_each_safe(toplevel, next, &server->toplevels, link) follow_dynamic_rules(toplevel);
     show_workspaces(server);
-    if (server->focused_toplevel && !toplevel_visible(server->focused_toplevel)) {
-        deactivate_toplevel(server);
-        focus_previous(server);
-    }
+    refocus_if_hidden(server);
     // Gaps, borders, and opacity may have changed.
     wl_list_for_each(toplevel, &server->toplevels, link) refresh_frame(toplevel);
+    struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) reflow_output(server, output->wlr_output);
     power_reload(server);
     idle_reload(server);
@@ -376,12 +391,8 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     touch_init(&server);
 
     wl_list_init(&server.keyboards);
-    wl_list_init(&server.headless_keyboards);
-    wl_list_init(&server.headless_pointers);
-    wl_list_init(&server.headless_touches);
-    wl_list_init(&server.headless_tablets);
+    wl_list_init(&server.headless_devices);
     wl_list_init(&server.switches);
-    wl_list_init(&server.headless_switches);
     wl_list_init(&server.pointers);
     add_listener(&server.backend->events.new_input, &server.new_input, server_new_input);
     struct wlr_virtual_keyboard_manager_v1 *virtual_keyboards =
@@ -510,9 +521,7 @@ finish:
     wl_event_source_remove(sigterm);
     wl_event_source_remove(sighup);
     wl_event_source_remove(sigchld);
-    destroy_headless_keyboards(&server);
     destroy_headless_inputs(&server);
-    destroy_headless_switches(&server);
     wl_display_destroy_clients(server.wl_display);
 
     wl_list_remove(&server.new_xdg_toplevel.link);

@@ -75,4 +75,7 @@ std::vector<std::string> program_names(const std::vector<std::string> &command);
 // and the program's directory.
 bool started_by(const std::set<std::string> &names, const std::string &app_id,
                 const std::string &program);
+// Whether `program` can be run: an executable file at a path with a slash, or a name found on
+// PATH.
+bool executable(const std::string &program);
 } // namespace paw

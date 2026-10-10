@@ -4,7 +4,6 @@ WM_HINTS) while unfocused follow windows.activation like xdg-activation requests
 from pathlib import Path
 import subprocess
 import sys
-import time
 
 import harness
 
@@ -23,13 +22,13 @@ def settings(activation):
 X11 = "paw-x11-probe"
 
 with harness.Compositor(compositor, settings("urgent")) as desktop:
-    msg, rows, wait_for = desktop.msg, desktop.rows, desktop.wait_for
+    msg, wait_for = desktop.msg, desktop.wait_for
 
     def urgent():
-        return [r[8] for r in rows("urgent")]
+        return [w.app_id for w in desktop.windows("urgent")]
 
     def focused():
-        return [r[8] for r in rows("windows") if r[1] == "1"]
+        return [w.app_id for w in desktop.windows() if w.focused]
 
     desktop.detail = lambda: f"urgent {urgent()} focused {focused()}"
 
@@ -63,8 +62,7 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
 
     # It is focused, so asking again changes nothing.
     tell(x, "demand")
-    time.sleep(.3)
-    assert urgent() == []
+    desktop.stays(lambda: urgent() == [], "the focused window became urgent")
     tell(x, "undemand")
     subprocess.run([wayland_probe, "--activate", "paw-probe"], env=desktop.env, check=True,
                    timeout=5, stdout=subprocess.DEVNULL)
@@ -77,15 +75,15 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
                                "PAW_PROBE_TITLE": "Quiet X11"},
                           stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
     assert "X11 window mapped" in quiet.stdout.readline()
-    wait_for(lambda: [r[9] for r in rows("urgent")] == ["Quiet X11"],
+    wait_for(lambda: [w.title for w in desktop.windows("urgent")] == ["Quiet X11"],
              "the window that asked before it mapped is urgent")
     assert focused() == ["paw-probe"]
     msg("focus_urgent")
-    wait_for(lambda: [r[9] for r in rows("windows") if r[1] == "1"] == ["Quiet X11"] and
+    wait_for(lambda: [w.title for w in desktop.windows() if w.focused] == ["Quiet X11"] and
              urgent() == [], "and focus_urgent takes it")
     msg("close")
     assert desktop.reap(quiet, timeout=10) == 0
-    wait_for(lambda: len(rows("windows")) == 2, "the quiet window closed")
+    wait_for(lambda: len(desktop.windows()) == 2, "the quiet window closed")
     subprocess.run([wayland_probe, "--activate", "paw-probe"], env=desktop.env, check=True,
                    timeout=5, stdout=subprocess.DEVNULL)
     wait_for(lambda: focused() == ["paw-probe"], "back to the Wayland window")
@@ -94,13 +92,11 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
 
     # Under "focus" the request focuses it; under "ignore" nothing happens.
     desktop.reload(settings("ignore"))
-    wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
     tell(x, "demand")
-    time.sleep(.4)
-    assert urgent() == [] and focused() == ["paw-probe"]
+    desktop.stays(lambda: urgent() == [] and focused() == ["paw-probe"],
+                  "an ignored request did something", duration=.4)
     tell(x, "undemand")
     desktop.reload(settings("focus"))
-    wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") == 2, "reload")
     tell(x, "demand")
     wait_for(lambda: focused() == [X11] and urgent() == [], "focus policy focuses it")
 

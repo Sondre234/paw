@@ -8,18 +8,8 @@
 #include <stdexcept>
 #include <unistd.h>
 
-static void require(bool condition, const std::string &message) {
-    if (!condition)
-        throw std::runtime_error(message);
-}
-static std::string error_of(const std::string &source) {
-    try {
-        (void)paw::parse_config(source, "@test.lua");
-    } catch (const std::exception &error) {
-        return error.what();
-    }
-    throw std::runtime_error("invalid configuration was accepted: " + source);
-}
+#include "config_check.hpp"
+
 static void expect(const std::string &source, const std::string &part) {
     auto message = error_of(source);
     require(message.find(part) != std::string::npos,
@@ -74,7 +64,7 @@ int main() {
         expect("return {profiles={dark=3}}", "must be a table");
         expect("return {profiles={'x'}}", "keyed by name");
         expect("return {\n profiles = {\n  dark = {\n   shell = { accent = 'blue' },\n  },\n },\n}",
-               "test.lua:4: profile 'dark'");
+               "init.lua:4: profile 'dark'");
         expect("return {profiles={dark={shell={panel_height=500}}}}",
                "profile 'dark': shell.panel_height must be between");
 

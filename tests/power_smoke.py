@@ -7,7 +7,6 @@ from pathlib import Path
 import re
 import shutil
 import signal
-import socket
 import sys
 
 import harness
@@ -17,13 +16,19 @@ if not shutil.which("dbus-daemon"):
     print("dbus-daemon not found: the power actions were not driven")
     sys.exit(0)
 
+# close_timeout is LONG wherever the windows close, so that one slow to go under load is not
+# taken for one that stays, and SHORT where one stays and the test waits that out.
 CONFIG = """return {{
     xwayland = false,
     power = {{ lock_command = {locker}, lock_before_sleep = {before}, close_windows = {close},
-              close_timeout = 1500, force = {force} }},
+              close_timeout = {timeout}, force = {force} }},
 }}"""
+LONG, SHORT = 10000, 1000
+# The time a locker gets to lock (5 s outside tests), waited out once.
+LOCK_TIMEOUT = 2
 
-with harness.Compositor(compositor, bus=True, start=False) as desktop:
+with harness.Compositor(compositor, bus=True, start=False,
+                        env={"PAW_TEST_LOCK_TIMEOUT_MS": str(LOCK_TIMEOUT * 1000)}) as desktop:
     root, config, env, msg = desktop.root, desktop.config, desktop.env, desktop.msg
     calls, answers = root / "login1.log", root / "answers"
     calls.touch()
@@ -31,7 +36,8 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
     # order of locking and sleeping shows in one place.
     LOCKER = f'{{ [[{lock_probe}]], "hold", [[{calls}]] }}'
     WAITING = f'{{ [[{lock_probe}]], "hold", [[{calls}]], "wait" }}'  # locks on SIGUSR1
-    config.write_text(CONFIG.format(locker=LOCKER, before="true", close="true", force="false"))
+    config.write_text(CONFIG.format(locker=LOCKER, before="true", close="true", force="false",
+                                    timeout=LONG))
     answers.write_text("CanReboot challenge\nCanHibernate na\n")
     env.pop("PAW_LOGIN1_BUS", None)
     address = env["DBUS_SESSION_BUS_ADDRESS"]
@@ -54,9 +60,9 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
         lines = logged()
         return lines.count("Inhibit sleep delay") - lines.count("release sleep delay")
 
-    def reconfigure(locker=None, before="true", close="true", force="false"):
+    def reconfigure(locker=None, before="true", close="true", force="false", timeout=LONG):
         desktop.reload(CONFIG.format(locker=locker or LOCKER, before=before, close=close,
-                                     force=force))
+                                     force=force, timeout=timeout))
 
     def window(title, refuse=False):
         """A probe window; one that refuses to close says so in its output file."""
@@ -96,28 +102,6 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
         wait_for(lambda: logged()[-1:] == ["unlocked"], "unlocking")
         wait_for(lambda: "Session unlocked" in desktop.log.read_text(), "the session unlocked")
 
-    class Subscriber:
-        """The control socket's stream, as the shell reads it."""
-
-        def __init__(self):
-            self.socket = socket.socket(socket.AF_UNIX)
-            self.socket.connect(env["PAW_SOCKET"])
-            self.socket.sendall(b"subscribe\n")
-            self.socket.settimeout(0.05)
-            self.buffer = ""
-
-        def lines(self, prefix):
-            try:
-                while data := self.socket.recv(8192):
-                    self.buffer += data.decode()
-            except socket.timeout:
-                pass
-            return [line for line in self.buffer.splitlines() if line.startswith(prefix)]
-
-        def last(self, prefix):
-            found = self.lines(prefix)
-            return found[-1] if found else None
-
     login1 = desktop.spawn([fake_login1, address, str(calls), str(answers)])
     wait_for(lambda: "ready" in calls.read_text(), "the fake logind")
 
@@ -128,7 +112,7 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
                        "logout": "yes", "pending": "-"}, power()
     assert "PAW_LOGIN1_BUS" in desktop.log.read_text()
     # Subscribers (the shell) hear which actions may run.
-    listener = Subscriber()
+    listener = desktop.subscribe()
     wait_for(lambda: listener.last("power ") == "power lock,logout",
              "the actions subscribers hear")
     assert "logind is out of reach" in msg("poweroff", ok=False)
@@ -151,7 +135,7 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
     wait_for(answers_are(poweroff="yes", reboot="challenge", suspend="yes",
                          hibernate="na", pending="-"), "logind's answers")
     wait_for(lambda: inhibitors() == 1, "the delay inhibitor")
-    subscriber = Subscriber()
+    subscriber = desktop.subscribe()
     wait_for(lambda: subscriber.last("power ")
              == "power lock,suspend,reboot,poweroff,logout", "the actions subscribers hear")
 
@@ -199,6 +183,7 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
         "Asking logind to power off"), text
     # A window that stays open (an application asking whether to save) cancels a reboot
     # once close_timeout has passed, and is left alone; nothing else runs meanwhile.
+    reconfigure(timeout=SHORT)
     stubborn, other = window("stubborn", refuse=True), window("other")
     wait_for(lambda: windows() == 2, "two windows")
     mark = len(logged())
@@ -212,7 +197,7 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
     assert stubborn.poll() is None and windows() == 1
     assert (root / "stubborn.out").read_text() == "close refused\n"
     # With power.force it goes ahead after close_timeout all the same.
-    reconfigure(force="true")
+    reconfigure(force="true", timeout=SHORT)
     mark = len(logged())
     msg("reboot")
     wait_for(lambda: logged(mark) == ["Reboot true"], "the reboot forced")
@@ -263,7 +248,7 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
     wait_for(lambda: "Lock client vanished" in desktop.log.read_text(),
              "the locker gone")
     config.write_text(CONFIG.format(locker=LOCKER, before="true", close="true",
-                                    force="false"))
+                                    force="false", timeout=LONG))
     reloads = desktop.log.read_text().count("Configuration reloaded")
     desktop.server.send_signal(signal.SIGHUP)
     wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") > reloads,
@@ -307,8 +292,8 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
     mark = len(logged())
     msg("suspend")
     assert power()["pending"] == "suspend locking", power()
-    wait_for(lambda: "Suspend cancelled: the screen did not lock within 5 seconds"
-             in desktop.log.read_text(), "the suspend cancelled", timeout=10)
+    wait_for(lambda: f"Suspend cancelled: the screen did not lock within {LOCK_TIMEOUT} seconds"
+             in desktop.log.read_text(), "the suspend cancelled")
     assert power()["pending"] == "-" and logged(mark) == [], (power(), logged(mark))
     reconfigure()
 
@@ -347,7 +332,7 @@ with harness.Compositor(compositor, bus=True, start=False) as desktop:
     reported = [line[len("power-error "):] for line in subscriber.lines("power-error ")]
     assert reported == [
         "Reboot cancelled: 1 window is still open (paw-probe)",
-        "Suspend cancelled: the screen did not lock within 5 seconds",
+        f"Suspend cancelled: the screen did not lock within {LOCK_TIMEOUT} seconds",
         "Reboot failed: Access denied by the fake logind"], reported
     desktop.stop()
     wait_for(lambda: inhibitors() == 0, "the delay inhibitor released on exit")

@@ -178,19 +178,11 @@ static struct sh_toplevel *requested(struct wl_resource *resource) {
     struct sh_toplevel *toplevel = object ? object->toplevel : NULL;
     if (!toplevel || toplevel->server->locked)
         return NULL;
-    if (toplevel->group_hidden) {
-        struct sh_toplevel *member;
-        wl_list_for_each(member, &toplevel->server->toplevels, link) {
-            if (member->group == toplevel->group && !member->group_hidden)
-                return member;
-        }
-    }
-    return toplevel;
+    struct sh_toplevel *shown =
+        toplevel->group_hidden ? group_shown(toplevel->server, toplevel->group) : NULL;
+    return shown ? shown : toplevel;
 }
 
-static void window_destroy(struct wl_client *client, struct wl_resource *resource) {
-    wl_resource_destroy(resource);
-}
 
 static void window_move_to_workspace(struct wl_client *client, struct wl_resource *resource,
                                      uint32_t number) {
@@ -287,7 +279,7 @@ static void window_unset_peek(struct wl_client *client, struct wl_resource *reso
 }
 
 static const struct paw_window_v1_interface window_implementation = {
-    .destroy = window_destroy,
+    .destroy = destroy_resource,
     .move_to_workspace = window_move_to_workspace,
     .move_to_output = window_move_to_output,
     .set_sticky = window_set_sticky,
@@ -334,12 +326,9 @@ static void control_get_window(struct wl_client *client, struct wl_resource *res
     send_window(object);
 }
 
-static void control_destroy(struct wl_client *client, struct wl_resource *resource) {
-    wl_resource_destroy(resource);
-}
 
 static const struct paw_window_control_v1_interface control_implementation = {
-    .destroy = control_destroy,
+    .destroy = destroy_resource,
     .get_window = control_get_window,
 };
 

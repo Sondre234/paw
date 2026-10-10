@@ -5,7 +5,6 @@ with an error, at startup or on a save, gives the default configuration until a 
 it."""
 from pathlib import Path
 import sys
-import time
 
 import harness
 
@@ -29,8 +28,10 @@ with harness.Compositor(compositor, "return { xwayland = false, layout = { gap =
     def errors():
         return log.read_text().count("using the default configuration")
 
-    def settle():
-        time.sleep(0.6)
+    def stays(predicate, message):
+        """Checks that `predicate` holds for longer than the compositor waits after a change
+        before it reloads (150 ms)."""
+        desktop.stays(predicate, message, duration=.35)
 
     assert errors() == 1 and "layout.gap must be between" in log.read_text()
     # Written in place, and fixed.
@@ -41,12 +42,10 @@ with harness.Compositor(compositor, "return { xwayland = false, layout = { gap =
     temporary.write_text("return { xwayland = false, layout = { gap = 4 } }")
     temporary.rename(config)
     desktop.wait_for(lambda: reloads() == 2, "reload after renaming")
-    settle()
-    assert reloads() == 2, "one save reloaded more than once"
+    stays(lambda: reloads() == 2, "one save reloaded more than once")
     # Another Lua file beside it, such as theme.lua, counts; other files do not.
     (root / "notes.txt").write_text("not configuration")
-    settle()
-    assert reloads() == 2, "a file that is not Lua reloaded"
+    stays(lambda: reloads() == 2, "a file that is not Lua reloaded")
     (root / "theme.lua").write_text("return {}")
     desktop.wait_for(lambda: reloads() == 3, "reload after writing theme.lua")
     # An error on a save gives the default configuration again.
@@ -68,14 +67,12 @@ with harness.Compositor(compositor, "return { xwayland = false, layout = { gap =
     assert "init.lua:1: keyboard.file: " in log.read_text()
     keymap.write_text(KEYMAP)
     desktop.wait_for(lambda: reloads() == 9, "reload after fixing the keymap")
-    settle()
-    assert errors() == 4 and reloads() == 9, (errors(), reloads())
+    stays(lambda: errors() == 4 and reloads() == 9, "reloaded again after fixing the keymap")
     # Turned off, saving changes nothing until the next manual reload.
     config.write_text("return { xwayland = false, auto_reload = false }")
     desktop.wait_for(lambda: reloads() == 10, "reload that turns it off")
     config.write_text("return { xwayland = false, auto_reload = false, layout = { gap = 5 } }")
     keymap.write_text(KEYMAP)
-    settle()
-    assert reloads() == 10, "reloaded with auto_reload = false"
+    stays(lambda: reloads() == 10, "reloaded with auto_reload = false")
     assert errors() == 4
 print("Automatic reload on save passed")

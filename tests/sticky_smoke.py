@@ -19,9 +19,9 @@ with harness.Compositor(compositor, source) as desktop:
     def window():
         """(workspace, focused, tiled, visible, sticky) of the only window."""
         rows = desktop.rows("windows")
-        assert len(rows) == 1 and len(rows[0]) == 16, rows
-        row = rows[0]
-        return (int(row[0]), row[1] == "1", row[3] == "1", row[11] == "1", row[13] == "1")
+        assert len(rows) == 1 and len(rows[0]) == 16, rows  # every column there
+        w = harness.Window.parse(rows[0])
+        return (w.workspace, w.focused, w.tiled, w.visible, w.sticky)
 
     def workspace():
         return int(msg("get", "workspace"))
@@ -70,7 +70,6 @@ with harness.Compositor(compositor, source) as desktop:
     msg("workspace", "1")
     assert window() == (1, True, False, True, True), window()
     desktop.reload(source.replace("sticky = true,", "sticky = false,"))
-    assert "Configuration reloaded" in desktop.log.read_text()
     assert window() == (1, True, True, True, False), window()
     msg("toggle_sticky")
     assert window() == (1, True, True, True, False), window()

@@ -40,7 +40,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
 
     def windows():
         """Each window's title, with whether it is focused and whether it is minimized."""
-        return {row[9]: (row[1] == "1", row[2] == "1") for row in desktop.rows("windows")}
+        return {w.title: (w.focused, w.minimized) for w in desktop.windows()}
 
     def key(name):
         for state in ("press", "release"):

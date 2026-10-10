@@ -60,8 +60,10 @@ def config_text(animations, rules, output):
 
 
 class Compositor:
-    def __init__(self, binary, directory, config, wrapper=()):
+    def __init__(self, binary, directory, config, wrapper=(), quiet=0.15):
+        """`quiet`: how long settle() waits without a commit."""
         self.binary = str(binary)
+        self.quiet = quiet
         self.directory = directory
         self.env = dict(os.environ, XDG_RUNTIME_DIR=directory, WLR_RENDERER="pixman")
         for name in ("WAYLAND_DISPLAY", "DISPLAY", "PAW_SOCKET"):
@@ -122,8 +124,9 @@ class Compositor:
         self.clients.append(process)
         return process
 
-    def settle(self, quiet=0.15, timeout=10):
+    def settle(self, timeout=10):
         """Waits until commits stop arriving (clients answered every configure)."""
+        quiet = self.quiet
         deadline = time.monotonic() + timeout
         last, since = self.stats()["commits"], time.monotonic()
         while time.monotonic() < deadline:
@@ -467,7 +470,9 @@ def main():
     with tempfile.TemporaryDirectory(prefix="paw-bench-") as directory:
         config = Path(directory) / "init.lua"
         config.write_text(config_text(args.animations, not args.no_rules, args.output))
-        comp = Compositor(args.compositor, directory, config)
+        # A smoke test trusts no timing: a shorter quiet spell does to settle.
+        quiet = 0.05 if args.quick else 0.15
+        comp = Compositor(args.compositor, directory, config, quiet=quiet)
         try:
             if wanted & {"open", "idle", "ops", "pointer"}:
                 results["open"] = open_windows(comp, args.client, args.windows)
@@ -486,7 +491,7 @@ def main():
             comp.stop()
         if "smooth" in wanted:  # its own compositor: the scenario needs animations on
             config.write_text(config_text(True, not args.no_rules, args.output))
-            comp = Compositor(args.compositor, directory, config)
+            comp = Compositor(args.compositor, directory, config, quiet=quiet)
             try:
                 results["smooth"] = smooth(comp, args.client, args.windows, args.animated,
                                            args.seconds if args.quick else max(args.seconds, 8),

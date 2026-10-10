@@ -17,8 +17,7 @@ with harness.Compositor(compositor, Path(example).read_text()
 
     def windows():
         """(tiled, x, y, width, height) per window, oldest first."""
-        rows = desktop.rows("windows")
-        return [(r[3] == "1", *map(int, r[4:8])) for r in rows]
+        return [(w.tiled, *w.box) for w in desktop.windows()]
 
     def all_tiled(count):
         current = windows()

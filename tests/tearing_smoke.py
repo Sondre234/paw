@@ -57,13 +57,13 @@ with harness.Compositor(compositor, config()) as desktop:
         process = desktop.spawn([probe, *arguments],
                                 env={"PAW_PROBE_APP_ID": app_id,
                                      "PAW_PROBE_TITLE": app_id, **env})
-        wait_for(lambda: any(r[8] == app_id for r in desktop.rows("windows")), f"{app_id} opened")
+        wait_for(lambda: any(w.app_id == app_id for w in desktop.windows()), f"{app_id} opened")
         return process
 
     def close(process):
         process.terminate()
         desktop.reap(process)
-        wait_for(lambda: not desktop.rows("windows"), "the window closed")
+        wait_for(lambda: not desktop.windows(), "the window closed")
 
     desktop.detail = lambda: f"tearing: {tearing()}"
     assert tearing()[0] in ("no fullscreen window", "off"), tearing()

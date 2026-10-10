@@ -8,26 +8,9 @@
 #include <stdexcept>
 #include <string>
 
-namespace fs = std::filesystem;
+#include "config_check.hpp"
 
-static void require(bool condition, const std::string &message) {
-    if (!condition)
-        throw std::runtime_error(message);
-}
-// The error `source` gives; fails the test when it is accepted.
-static std::string error_of(const std::string &source) {
-    try {
-        (void)paw::parse_config(source, "@init.lua");
-    } catch (const std::exception &error) {
-        return error.what();
-    }
-    throw std::runtime_error("invalid configuration was accepted: " + source);
-}
-static void rejects(const std::string &source, const std::string &fragment) {
-    auto message = error_of(source);
-    require(message.find(fragment) != std::string::npos,
-            "expected '" + fragment + "' in: " + message);
-}
+namespace fs = std::filesystem;
 
 static void rules() {
     auto defaults = paw::parse_config("return {}");

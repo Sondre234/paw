@@ -8,8 +8,8 @@ static struct wlr_output *box_output(struct sh_server *server, struct wlr_box bo
 /* Layouts put their gap at the edges as well as between windows. Laying out with gap_inner
  * in an area grown or shrunk by the difference leaves gap_outer at the edges. Maximized
  * windows ignore gaps. */
-struct sh_rect gap_area(const struct sh_settings *settings, struct sh_rect area,
-                        enum sh_action action) {
+static struct sh_rect gap_area(const struct sh_settings *settings, struct sh_rect area,
+                               enum sh_action action) {
     if (action == SH_MAXIMIZE)
         return area;
     int d = settings->gap_outer - settings->gap_inner;

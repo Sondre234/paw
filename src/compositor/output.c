@@ -27,8 +27,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
         .color_transform = output_is_hdr(output) ? NULL : output->server->night_transform};
     double level = zoom_level(output->server, now_ms());
     bool zoomed = false;
-    struct wlr_output *pointed = wlr_output_layout_output_at(
-        output->server->output_layout, output->server->cursor->x, output->server->cursor->y);
+    struct wlr_output *pointed = pointer_output(output->server);
     if (level > 1.0005 && pointed == output->wlr_output && !output->zoom_failed) {
         zoomed = output_commit_zoomed(output, scene_output, &night, level);
         if (!zoomed) {
@@ -107,8 +106,14 @@ bool output_key_matches(const char *key, const struct wlr_output *output) {
     return *prefix && strncmp(description, prefix, strlen(prefix)) == 0;
 }
 
-static bool monitor_matches(const struct sh_monitor *monitor, const struct wlr_output *output) {
-    return output_key_matches(monitor->name, output);
+/* The output in the layout that `key` names, as output_key_matches has it, or NULL. */
+struct wlr_output *find_output_key(struct sh_server *server, const char *key) {
+    struct sh_output *output;
+    wl_list_for_each(output, &server->outputs, link) {
+        if (output_key_matches(key, output->wlr_output))
+            return output->wlr_output;
+    }
+    return NULL;
 }
 
 /* Settings by connector name win over a description match. */
@@ -117,7 +122,7 @@ const struct sh_monitor *monitor_settings(const struct sh_settings *settings,
     const struct sh_monitor *described = NULL;
     for (int i = 0; i < settings->monitor_count; ++i) {
         const struct sh_monitor *monitor = &settings->monitors[i];
-        if (!monitor_matches(monitor, output))
+        if (!output_key_matches(monitor->name, output))
             continue;
         if (strncmp(monitor->name, "desc:", 5) != 0)
             return monitor;
@@ -129,7 +134,7 @@ const struct sh_monitor *monitor_settings(const struct sh_settings *settings,
 /* The settings configured for `output`: its outputs.monitors entry, or what the display settings
  * window kept for this monitor (display_settings.c) laid over it, all but `tiling`, which the
  * window leaves to the configuration. NULL for neither. */
-const struct sh_monitor *configured_monitor(struct sh_output *output) {
+static const struct sh_monitor *configured_monitor(struct sh_output *output) {
     const struct sh_monitor *monitor =
         monitor_settings(server_settings(output->server), output->wlr_output);
     const struct sh_output_saved *saved = saved_output(output);
@@ -142,8 +147,7 @@ const struct sh_monitor *configured_monitor(struct sh_output *output) {
 
 /* The monitor settings in force for `output`: what an output-management client or display_mode
  * applied, else what is configured. */
-const struct sh_monitor *output_monitor(const struct sh_settings *settings,
-                                       struct sh_output *output) {
+const struct sh_monitor *output_monitor(struct sh_output *output) {
     return output->has_override ? &output->override : configured_monitor(output);
 }
 
@@ -154,24 +158,21 @@ static void publish_output_configuration(struct sh_server *server) {
     struct wlr_output_configuration_v1 *config = wlr_output_configuration_v1_create();
     if (!config)
         return;
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        struct sh_output *output;
-        wl_list_for_each(output, lists[i], link) {
-            struct wlr_output_configuration_head_v1 *head =
-                wlr_output_configuration_head_v1_create(config, output->wlr_output);
-            if (!head)
-                continue;
-            // A monitor turned off (output_power.c) is still in the layout, as in sway, and a
-            // mirror (mirror.c) is on where its source is.
-            struct sh_output *placed = mirrored_output(output) ? mirrored_output(output) : output;
-            head->state.enabled = (!output->disabled || output->mirror) &&
-                                  (output->wlr_output->enabled || output->powered_off);
-            struct wlr_box box;
-            wlr_output_layout_get_box(server->output_layout, placed->wlr_output, &box);
-            head->state.x = box.x;
-            head->state.y = box.y;
-        }
+    struct sh_output *output;
+    for_each_connected_output(output, server) {
+        struct wlr_output_configuration_head_v1 *head =
+            wlr_output_configuration_head_v1_create(config, output->wlr_output);
+        if (!head)
+            continue;
+        // A monitor turned off (output_power.c) is still in the layout, as in sway, and a
+        // mirror (mirror.c) is on where its source is.
+        struct sh_output *placed = mirrored_output(output) ? mirrored_output(output) : output;
+        head->state.enabled = (!output->disabled || output->mirror) &&
+                              (output->wlr_output->enabled || output->powered_off);
+        struct wlr_box box;
+        wlr_output_layout_get_box(server->output_layout, placed->wlr_output, &box);
+        head->state.x = box.x;
+        head->state.y = box.y;
     }
     wlr_output_manager_v1_set_configuration(server->output_manager, config);
 }
@@ -200,11 +201,7 @@ static void follow_moved_output(struct sh_server *server, struct sh_output *outp
         return;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (strcmp(toplevel->output, output->wlr_output->name) != 0)
+        if (toplevel->unmanaged || strcmp(toplevel->output, output->wlr_output->name) != 0)
             continue;
         if (toplevel->restore_box.width > 0) {
             toplevel->restore_box.x += dx;
@@ -232,7 +229,7 @@ void arrange_outputs(struct sh_server *server) {
     int x = 0;
     bool positioned = false;
     wl_list_for_each(output, &server->outputs, link) {
-        const struct sh_monitor *monitor = output_monitor(settings, output);
+        const struct sh_monitor *monitor = output_monitor(output);
         if (monitor == NULL || !monitor->positioned)
             continue;
         int width, height;
@@ -244,7 +241,7 @@ void arrange_outputs(struct sh_server *server) {
     }
     for (int i = 0; i <= settings->output_count; ++i) {
         wl_list_for_each_reverse(output, &server->outputs, link) {
-            const struct sh_monitor *monitor = output_monitor(settings, output);
+            const struct sh_monitor *monitor = output_monitor(output);
             if ((monitor != NULL && monitor->positioned) ||
                 (i < settings->output_count ? !output_named(output, settings->output_order[i])
                                             : output_listed(settings, output)))
@@ -262,8 +259,7 @@ void arrange_outputs(struct sh_server *server) {
         origin_y = output->y < origin_y ? output->y : origin_y;
         wlr_output_layout_get_box(server->output_layout, output->wlr_output, &output->previous);
     }
-    struct wlr_output *pointed =
-        wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+    struct wlr_output *pointed = pointer_output(server);
     struct wlr_box pointed_before = {0};
     if (pointed)
         wlr_output_layout_get_box(server->output_layout, pointed, &pointed_before);
@@ -321,19 +317,27 @@ bool deep_format(uint32_t format) {
     return format == DRM_FORMAT_XRGB2101010 || format == DRM_FORMAT_XBGR2101010;
 }
 
-/* wlr_output_test_state, but for tests under --headless, whose outputs take any format: the
- * outputs PAW_TEST_REFUSE_10BIT names (separated by commas) refuse 10 bits, as a monitor or
- * a renderer without them does. */
-static bool test_render_format(struct sh_output *output, const struct wlr_output_state *state) {
-    const char *refused = getenv("PAW_TEST_REFUSE_10BIT");
-    if (refused && headless_backend(output->server) && deep_format(state->render_format)) {
-        size_t length = strlen(output->wlr_output->name);
-        for (const char *at = strstr(refused, output->wlr_output->name); at;
-             at = strstr(at + 1, output->wlr_output->name)) {
-            if ((at == refused || at[-1] == ',') && (at[length] == ',' || at[length] == '\0'))
-                return false;
-        }
+/* Whether the environment variable `variable` names `output` among the outputs it lists,
+ * separated by commas, under --headless: how tests make an output act as some hardware does. */
+bool test_names_output(struct sh_output *output, const char *variable) {
+    const char *names = getenv(variable);
+    if (!names || !headless_backend(output->server))
+        return false;
+    const char *name = output->wlr_output->name;
+    size_t length = strlen(name);
+    for (const char *at = strstr(names, name); at; at = strstr(at + 1, name)) {
+        if ((at == names || at[-1] == ',') && (at[length] == ',' || at[length] == '\0'))
+            return true;
     }
+    return false;
+}
+
+/* wlr_output_test_state, but for tests under --headless, whose outputs take any format: the
+ * outputs PAW_TEST_REFUSE_10BIT names refuse 10 bits, as a monitor or a renderer without them
+ * does. */
+static bool test_render_format(struct sh_output *output, const struct wlr_output_state *state) {
+    if (deep_format(state->render_format) && test_names_output(output, "PAW_TEST_REFUSE_10BIT"))
+        return false;
     return wlr_output_test_state(output->wlr_output, state);
 }
 
@@ -408,7 +412,7 @@ static void destroy_output_layers(struct sh_server *server, struct wlr_output *w
  * needlessly. The last enabled output stays on. Callers arrange the outputs afterwards. */
 void configure_output(struct sh_server *server, struct sh_output *output) {
     struct wlr_output *wlr_output = output->wlr_output;
-    const struct sh_monitor *monitor = output_monitor(server_settings(server), output);
+    const struct sh_monitor *monitor = output_monitor(output);
     // A laptop's panel with its lid closed stays dark while another monitor shows the desktop.
     bool by_lid = lid_holds_off(server, output);
     bool enable = (monitor == NULL || monitor->enabled) && !by_lid;
@@ -523,14 +527,20 @@ void configure_output(struct sh_server *server, struct sh_output *output) {
     }
 }
 
+/* The connected output after `output` (the first for NULL): those in the layout, then the
+ * others; NULL after the last. for_each_connected_output walks them. */
+struct sh_output *next_connected(struct sh_server *server, struct sh_output *output) {
+    struct wl_list *link = output ? output->link.next : server->outputs.next;
+    if (link == &server->outputs)
+        link = server->disabled_outputs.next;
+    return link == &server->disabled_outputs ? NULL : wl_container_of(link, output, link);
+}
+
 struct sh_output *sh_output_for(struct sh_server *server, struct wlr_output *wlr_output) {
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        struct sh_output *output;
-        wl_list_for_each(output, lists[i], link) {
-            if (output->wlr_output == wlr_output)
-                return output;
-        }
+    struct sh_output *output;
+    for_each_connected_output(output, server) {
+        if (output->wlr_output == wlr_output)
+            return output;
     }
     return NULL;
 }
@@ -640,27 +650,36 @@ void output_config_apply(struct wl_listener *listener, void *data) {
     wlr_output_configuration_v1_destroy(config);
 }
 
-/* Configures every output again after their settings changed while running (through
- * wlr-output-management, or display_mode.c), and puts windows, workspaces and focus in order. */
-void apply_output_settings(struct sh_server *server) {
-    // Enable outputs before disabling others, so a swap never leaves none on.
+/* Gives every output the settings in force, those coming on before those going off, so a swap
+ * never leaves none on. */
+void configure_outputs(struct sh_server *server) {
     struct sh_output *output, *temporary;
     wl_list_for_each_safe(output, temporary, &server->disabled_outputs, link)
         configure_output(server, output);
     wl_list_for_each_safe(output, temporary, &server->outputs, link)
         configure_output(server, output);
+}
+
+/* After outputs came on or went off: their arrangement, the tilings, where the windows are and
+ * the keyboard. */
+void settle_outputs(struct sh_server *server) {
     arrange_outputs(server);
     reconfigure_tiling(server);
     return_home_windows(server);
     rehome_tiles(server);
     show_workspaces(server);
     struct sh_toplevel *toplevel;
-    if (server->focused_toplevel && !toplevel_visible(server->focused_toplevel)) {
-        deactivate_toplevel(server);
-        focus_previous(server);
-    }
+    refocus_if_hidden(server);
     wl_list_for_each(toplevel, &server->toplevels, link) refresh_frame(toplevel);
+    struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) reflow_output(server, output->wlr_output);
+}
+
+/* Configures every output again after their settings changed while running (through
+ * wlr-output-management, or display_mode.c), and puts windows, workspaces and focus in order. */
+void apply_output_settings(struct sh_server *server) {
+    configure_outputs(server);
+    settle_outputs(server);
 }
 
 static void output_request_state(struct wl_listener *listener, void *data) {

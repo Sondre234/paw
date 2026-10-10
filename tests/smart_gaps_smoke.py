@@ -36,11 +36,11 @@ with harness.Compositor(compositor, config()) as desktop:
 
     def windows():
         """(x, y, width, height) per window, oldest first."""
-        return [tuple(map(int, row[4:8])) for row in desktop.rows("windows")]
+        return [w.box for w in desktop.windows()]
 
     def focused():
         """The index of the focused window, oldest first."""
-        return [row[1] for row in desktop.rows("windows")].index("1")
+        return [w.focused for w in desktop.windows()].index(True)
 
     def configures(index):
         """The sizes of every xdg_toplevel.configure the `index`th window received."""
@@ -95,7 +95,7 @@ with harness.Compositor(compositor, config()) as desktop:
     desktop.wait_for(lambda: gapped(*sorted(windows())), "dwindle again")
 
     # Closing the second drops the gaps.
-    assert focused() == 1, desktop.rows("windows")
+    assert focused() == 1, desktop.windows()
     msg("close")
     assert desktop.reap(second) == 0
     desktop.wait_for(lambda: windows() == [ALONE], "gaps gone with the other tile")

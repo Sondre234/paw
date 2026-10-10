@@ -6,18 +6,8 @@
 #include <stdexcept>
 #include <string>
 
-static void require(bool condition, const char *message) {
-    if (!condition)
-        throw std::runtime_error(message);
-}
-static void rejects(const std::string &source) {
-    try {
-        (void)paw::parse_config(source);
-    } catch (const std::exception &) {
-        return;
-    }
-    throw std::runtime_error("invalid configuration was accepted: " + source);
-}
+#include "config_check.hpp"
+
 static const sh_monitor &monitor(const paw::Config &config, const std::string &name) {
     for (int i = 0; i < config.settings.monitor_count; ++i)
         if (name == config.settings.monitors[i].name)

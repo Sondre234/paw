@@ -13,15 +13,15 @@ with harness.Compositor(compositor, "return { xwayland = false }") as desktop:
     msg = desktop.msg
 
     def windows():
-        return desktop.rows("windows")
+        return desktop.windows()
 
     def focused():
-        return next((row[9] for row in windows() if row[1] == "1"), None)
+        return next((w.title for w in windows() if w.focused), None)
 
     def fullscreen():
         # Each probe's panel reserves 48 pixels along the bottom.
-        area = ["0", "0", size[0], str(int(size[1]) - 48 * len(desktop.clients))]
-        return [row[9] for row in windows() if row[4:8] == area]
+        area = (0, 0, int(size[0]), int(size[1]) - 48 * len(desktop.clients))
+        return [w.title for w in windows() if w.box == area]
 
     def front():
         """The title of the window drawn in front of the others, and its layer."""
@@ -84,7 +84,7 @@ with harness.Compositor(compositor, "return { xwayland = false }") as desktop:
     msg("fullscreen")
     wait_for(lambda: fullscreen() == ["two"] and shown(), "fullscreen again")
     msg("toggle_tiling")
-    wait_for(lambda: all(row[3] == "1" for row in windows()) and fullscreen() == ["two"],
+    wait_for(lambda: all(w.tiled for w in windows()) and fullscreen() == ["two"],
              "both windows tiled, one fullscreen")
     probe_window("three", 3)
     wait_for(lambda: not fullscreen(), "the new tile ended fullscreen")

@@ -8,7 +8,8 @@ static double clamp(double value, double low, double high) {
     return value < low ? low : value > high ? high : value;
 }
 
-double sh_ease_out(double t) {
+/* Ease-out cubic, t clamped to [0, 1]: fast at first, settling gently. */
+static double ease_out(double t) {
     t = clamp(t, 0, 1);
     return 1 - (1 - t) * (1 - t) * (1 - t);
 }
@@ -20,8 +21,8 @@ void sh_fade_init(struct sh_fade *fade, double value) {
 double sh_fade_value(const struct sh_fade *fade, int64_t now) {
     if (fade->duration <= 0)
         return fade->to;
-    return fade->from + (fade->to - fade->from) * sh_ease_out((double)(now - fade->start) /
-                                                              fade->duration);
+    return fade->from +
+           (fade->to - fade->from) * ease_out((double)(now - fade->start) / fade->duration);
 }
 
 void sh_fade_to(struct sh_fade *fade, double target, int64_t now, int duration) {
@@ -67,13 +68,6 @@ void sh_gamma_ramp(struct sh_rgb factors, size_t size, uint16_t *out) {
         }
 }
 
-void sh_linear_matrix(struct sh_rgb factors, float matrix[9]) {
-    memset(matrix, 0, 9 * sizeof(float));
-    matrix[0] = (float)pow(factors.r, 2.2);
-    matrix[4] = (float)pow(factors.g, 2.2);
-    matrix[8] = (float)pow(factors.b, 2.2);
-}
-
 static double smoothstep(double t) {
     t = clamp(t, 0, 1);
     return t * t * (3 - 2 * t);
@@ -89,7 +83,8 @@ static double around(double minutes) {
     return minutes;
 }
 
-double sh_daylight(const struct sh_night_schedule *schedule, double minute) {
+/* 1 in full day, 0 in full night, smooth in between. */
+static double daylight(const struct sh_night_schedule *schedule, double minute) {
     double day = fmod(schedule->sunset - schedule->sunrise + 1440, 1440);
     if (day == 0)
         return 0;
@@ -105,9 +100,9 @@ double sh_daylight(const struct sh_night_schedule *schedule, double minute) {
 }
 
 int sh_night_kelvin(const struct sh_night_schedule *schedule, double minute) {
-    double daylight = sh_daylight(schedule, minute);
+    double day = daylight(schedule, minute);
     return (int)lround(schedule->night_kelvin +
-                       (schedule->day_kelvin - schedule->night_kelvin) * daylight);
+                       (schedule->day_kelvin - schedule->night_kelvin) * day);
 }
 
 static double radians(double degrees) { return degrees * M_PI / 180; }
@@ -204,18 +199,6 @@ struct sh_view sh_zoom_view(double level, double width, double height, double px
     py = clamp(py, 0, height);
     return (struct sh_view){px * (1 - 1 / level), py * (1 - 1 / level), width / level,
                             height / level};
-}
-
-void sh_view_to_screen(const struct sh_view *view, double width, double height, double x,
-                       double y, double *sx, double *sy) {
-    *sx = (x - view->x) * width / view->width;
-    *sy = (y - view->y) * height / view->height;
-}
-
-void sh_view_to_logical(const struct sh_view *view, double width, double height, double sx,
-                        double sy, double *x, double *y) {
-    *x = view->x + sx * view->width / width;
-    *y = view->y + sy * view->height / height;
 }
 
 double sh_zoom_level(double level, double step, int steps, double maximum) {

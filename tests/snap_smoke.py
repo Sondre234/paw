@@ -37,8 +37,7 @@ def session(desktop, layout):
 
     def windows():
         """By title: x, y, width, height, tiled, output."""
-        return {r[9]: (int(r[4]), int(r[5]), int(r[6]), int(r[7]), r[3] == "1", r[10])
-                for r in desktop.rows("windows")}
+        return {w.title: (*w.box, w.tiled, w.output) for w in desktop.windows()}
 
     def snap():
         """The zone, its slot and whether a window is being moved."""
@@ -79,11 +78,8 @@ def session(desktop, layout):
 # One monitor, with a panel along the bottom of the first (the probe's "P").
 with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "1"}) as desktop:
     windows, snap, pointer, press, to, release, placed = session(desktop, SCREEN)
-    desktop.spawn([probe, "--external-control"], env={"PAW_PROBE_TITLE": "P"})
-    desktop.wait_for(lambda: "P" in windows(), "panel client mapped")
-    desktop.spawn([probe, "--window-only"],
-                  env={"PAW_PROBE_TITLE": "W", "PAW_PROBE_MOVE": "1"})
-    desktop.wait_for(lambda: "W" in windows(), "window mapped")
+    desktop.open_window(probe, "P", args=("--external-control",))
+    desktop.open_window(probe, "W", env={"PAW_PROBE_MOVE": "1"})
     W, H = SCREEN[0], SCREEN[1] - PANEL  # the area the panel leaves
     assert windows()["W"][2:4] == (320, 240), windows()
 
@@ -156,9 +152,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "1"})
 LAYOUT = (2080, 720)
 with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
     windows, snap, pointer, press, to, release, placed = session(desktop, LAYOUT)
-    desktop.spawn([probe, "--window-only"],
-                  env={"PAW_PROBE_TITLE": "W", "PAW_PROBE_MOVE": "1"})
-    desktop.wait_for(lambda: "W" in windows(), "window mapped")
+    desktop.open_window(probe, "W", env={"PAW_PROBE_MOVE": "1"})
     assert windows()["W"][5] == "HEADLESS-1", windows()
 
     press("W")
@@ -208,14 +202,12 @@ with harness.Compositor(compositor, config(tiling="true"),
 # The preview, with animations slowed down to watch it: it eases out of the window into the slot,
 # glides along the edge to a corner, fades out as the pointer leaves the edge, and goes at once as
 # the window is dropped. Its corners are those of a window there.
-SLOW = "speed = 0.1, move = { duration = 300 }, close = { duration = 300 }"
+SLOW = "speed = 0.3, move = { duration = 300 }, close = { duration = 300 }"
 with harness.Compositor(compositor, config(animations=SLOW, windows='round = "always"'),
                         env={"WLR_HEADLESS_OUTPUTS": "1"}) as desktop:
     windows, snap, pointer, press, to, release, placed = session(desktop, SCREEN)
     preview = snap.preview
-    desktop.spawn([probe, "--window-only"],
-                  env={"PAW_PROBE_TITLE": "W", "PAW_PROBE_MOVE": "1"})
-    desktop.wait_for(lambda: "W" in windows(), "window mapped")
+    desktop.open_window(probe, "W", env={"PAW_PROBE_MOVE": "1"})
     assert preview()[0] is False, preview()
     left = (0, 0, 640, 720)
     press("W")

@@ -65,8 +65,7 @@ with harness.Compositor(compositor, start=False) as desktop:
     desktop.spawn([probe, "--external-control"])
 
     def focused():
-        return [tuple(map(int, row[4:8])) for row in desktop.rows("windows")
-                if row[1] == "1"]
+        return [w.box for w in desktop.windows() if w.focused]
     desktop.wait_for(lambda: focused(), "focused window")
     (x, y, width, height), = focused()
     msg("screenshot", "window")

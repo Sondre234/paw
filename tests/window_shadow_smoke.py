@@ -45,7 +45,7 @@ with harness.Compositor(compositor, config(True)) as desktop:
                        "box": tuple(map(int, r[8:12]))} for r in rows}
 
     def windows():
-        return {r[9]: r for r in desktop.rows("windows")}
+        return {w.title: w for w in desktop.windows()}
 
     desktop.detail = lambda: msg("get", "frames")
 
@@ -105,8 +105,7 @@ with harness.Compositor(compositor, config(True)) as desktop:
     # Tiling rounds the window with its own shadow, which cuts that away: it gets one then,
     # where wlroots can round windows.
     msg("toggle_tiling")
-    wait_for(lambda: len({r[3] for r in windows().values()}) == 1 and
-             windows()["own"][3] == "1", "all tiled")
+    wait_for(lambda: all(w.tiled for w in windows().values()), "all tiled")
     rounded = desktop.rows("frames")[0][5] != "0"
     wait_for(lambda: frames()["own"]["shadow"] == rounded, "a clipped window gets a shadow")
     msg("toggle_tiling")

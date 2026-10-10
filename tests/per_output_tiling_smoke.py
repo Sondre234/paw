@@ -2,7 +2,6 @@
 """Tiling is a setting of each output: outputs.monitors overrides layout.tiling, toggling one
 output leaves the others alone, and a reload applies only tiling settings that changed."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -27,7 +26,7 @@ def config(primary="HEADLESS-1", first="tiling = true", second=""):
 
 
 with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
-    msg, log = desktop.msg, desktop.log
+    msg = desktop.msg
 
     def tiling():
         """Whether each output tiles, from `get workspaces`."""
@@ -35,19 +34,9 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
 
     def windows():
         """(tiled, output) per window, oldest first."""
-        return [(row[3] == "1", row[10]) for row in desktop.rows("windows")]
+        return [(w.tiled, w.output) for w in desktop.windows()]
 
     desktop.detail = lambda: f"windows: {windows()}, tiling: {tiling()}"
-
-    reloads = 0
-
-    def reload(text):
-        global reloads
-        reloads += 1
-        desktop.config.write_text(text)
-        desktop.server.send_signal(signal.SIGHUP)
-        desktop.wait_for(lambda: log.read_text().count("Configuration reloaded") == reloads,
-                         "reload")
 
     def launch():
         desktop.spawn([probe, "--external-control"])
@@ -62,7 +51,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
 
     # A window opening on HEADLESS-2 floats there. The reload changes no tiling
     # setting, so neither output changes.
-    reload(config(primary="HEADLESS-2"))
+    desktop.reload(config(primary="HEADLESS-2"))
     launch()
     desktop.wait_for(lambda: len(windows()) == 3, "window 3 mapped")
     desktop.wait_for(lambda: windows()[2] == (False, "HEADLESS-2"), "floating on HEADLESS-2")
@@ -79,16 +68,16 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
                      "HEADLESS-1 floating, HEADLESS-2 still tiled")
 
     # Toggled outputs keep their state while their setting stays the same...
-    reload(config(primary="HEADLESS-2", second="tiling = false"))
+    desktop.reload(config(primary="HEADLESS-2", second="tiling = false"))
     assert tiling() == {"HEADLESS-1": False, "HEADLESS-2": True}, tiling()
     # ...and follow it when it changes.
-    reload(config(primary="HEADLESS-2", first="tiling = false", second="tiling = false"))
-    reload(config(primary="HEADLESS-2", first="tiling = true", second="tiling = false"))
+    desktop.reload(config(primary="HEADLESS-2", first="tiling = false", second="tiling = false"))
+    desktop.reload(config(primary="HEADLESS-2", first="tiling = true", second="tiling = false"))
     desktop.wait_for(lambda: windows() == [(True, "HEADLESS-1")] * 2 + [(True, "HEADLESS-2")],
                      "HEADLESS-1 tiled again by its changed setting")
-    reload(config(primary="HEADLESS-2", first="tiling = true", second="tiling = true"))
+    desktop.reload(config(primary="HEADLESS-2", first="tiling = true", second="tiling = true"))
     assert tiling() == {"HEADLESS-1": True, "HEADLESS-2": True}, tiling()
-    reload(config(primary="HEADLESS-2", first="tiling = true", second="tiling = false"))
+    desktop.reload(config(primary="HEADLESS-2", first="tiling = true", second="tiling = false"))
     desktop.wait_for(lambda: windows()[2] == (False, "HEADLESS-2"),
                      "HEADLESS-2 floating by its changed setting")
     assert windows()[:2] == [(True, "HEADLESS-1")] * 2, windows()

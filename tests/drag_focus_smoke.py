@@ -26,10 +26,10 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         """{title: (workspace, focused, minimized, visible, centre, top middle)} of every
         window."""
         found = {}
-        for row in desktop.rows("windows"):
-            x, y, w, h = (int(n) for n in row[4:8])
-            found[row[9]] = (int(row[0]), row[1] == "1", row[2] == "1", row[11] == "1",
-                             (x + w // 2, y + h // 2), (x + w // 2, y + 2))
+        for row in desktop.windows():
+            x, y, w, h = row.box
+            found[row.title] = (row.workspace, row.focused, row.minimized, row.visible,
+                                (x + w // 2, y + h // 2), (x + w // 2, y + 2))
         return found
 
     def seat():

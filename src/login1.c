@@ -285,47 +285,32 @@ bool sh_login1_ask_lid(struct sh_login1 *login1) {
 #else
 struct sh_login1 *sh_login1_connect(const char *address, const struct sh_login1_handler *handler,
                                     char *error, size_t error_size) {
-    (void)address;
-    (void)handler;
     snprintf(error, error_size, "paw was built without sd-bus");
     return NULL;
 }
-void sh_login1_destroy(struct sh_login1 *login1) {
-    (void)login1;
-}
+void sh_login1_destroy(struct sh_login1 *login1) {}
 int sh_login1_fd(struct sh_login1 *login1) {
-    (void)login1;
     return -1;
 }
 bool sh_login1_wants_write(struct sh_login1 *login1) {
-    (void)login1;
     return false;
 }
 int sh_login1_timeout(struct sh_login1 *login1) {
-    (void)login1;
     return -1;
 }
 bool sh_login1_dispatch(struct sh_login1 *login1) {
-    (void)login1;
     return false;
 }
 bool sh_login1_ask(struct sh_login1 *login1, enum sh_login1_method method) {
-    (void)login1;
-    (void)method;
     return false;
 }
 bool sh_login1_call(struct sh_login1 *login1, enum sh_login1_method method) {
-    (void)login1;
-    (void)method;
     return false;
 }
 bool sh_login1_inhibit_sleep(struct sh_login1 *login1, const char *why) {
-    (void)login1;
-    (void)why;
     return false;
 }
 bool sh_login1_ask_lid(struct sh_login1 *login1) {
-    (void)login1;
     return false;
 }
 #endif

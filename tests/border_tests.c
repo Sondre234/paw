@@ -5,17 +5,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-static int failures;
-#define CHECK(condition, ...)                                                                      \
-    do {                                                                                           \
-        if (!(condition)) {                                                                        \
-            fprintf(stderr, "%s:%d: %s: ", __FILE__, __LINE__, #condition);                        \
-            fprintf(stderr, __VA_ARGS__);                                                          \
-            fputc('\n', stderr);                                                                   \
-            ++failures;                                                                            \
-        }                                                                                          \
-    } while (0)
+#include "check.h"
 
 static bool near(double a, double b) { return fabs(a - b) < 1e-6; }
 

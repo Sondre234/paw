@@ -5,7 +5,7 @@ theme of each style (the taskbar and macOS).
 
 usage: tools/shell_gallery.py BUILD_DIR OUT_DIR [--renderer software|gpu|both]
                               [--theme light|dark|macos-light|macos-dark] [--popup NAME] [--scale FACTOR]
-                              [--icon-theme NAME] [--jobs N]
+                              [--icon-theme NAME] [--jobs N] [--wait MS] [--no-animations]
 
 Each picture is `paw-shell --preview-popup NAME --screenshot`: the taskbar with that popup
 open, or with that overlay (the on-screen display, the cards, the switcher, ...) over it, on
@@ -17,7 +17,9 @@ BUILD_DIR. Nothing touches a real session: no display, session bus, configuratio
 the user's is used, only the icon theme (named in GTK's settings, or by --icon-theme).
 
 Exits with 1, after writing what it could, when a popup failed to render or the shell printed a
-QML warning while rendering it.
+QML warning while rendering it. Each picture is taken 400 ms after its popup opens (600 on the
+GPU), or --wait's; with --no-animations, which the test takes, nothing is still moving by then
+however short it is.
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
@@ -202,7 +204,7 @@ def wallpaper(path, theme):
     png(path, 640, 360, pixel)
 
 
-def config(root, theme_name):
+def config(root, theme_name, animations):
     """The shell's configuration: both themes as profiles, this one in use."""
     profiles = ",\n".join(
         f'        ["{name}"] = {{ appearance = {{ background = "{t["background"]}" }}, '
@@ -210,6 +212,7 @@ def config(root, theme_name):
         f'accent = "{t["accent"]}", {t.get("shell", "")} }} }}' for name, t in THEMES.items())
     return f"""return {{
     profile = "{theme_name}",
+    animations = {{ enabled = {str(animations).lower()} }},
     profiles = {{
 {profiles},
     }},
@@ -239,12 +242,12 @@ def icon_theme():
     return "hicolor"
 
 
-def prepare(root, theme_name):
+def prepare(root, theme_name, animations=True):
     """Writes the configuration, pictures and applications of a theme's runs under `root`, and
     returns the environment the shell runs in."""
     root.mkdir(parents=True)
     theme = THEMES[theme_name]
-    (root / "init.lua").write_text(config(root, theme_name))
+    (root / "init.lua").write_text(config(root, theme_name, animations))
     wallpaper(root / "wallpaper.png", theme)
     for folder, name, color in (("nature", "forest", "#2f6b3a"), ("nature", "lake", "#2d5f8a"),
                                 ("nature", "dunes", "#c49a5a"), ("abstract", "dusk", "#6a3d8f"),
@@ -357,9 +360,9 @@ def run_gpu(build, shell, env, root, jobs, args):
                                 prefix="sd-gal-") as desktop:
             gpu_env = dict(desktop.env, QT_QPA_PLATFORM="wayland")
             gpu_env.pop("PAW_SOCKET", None)  # a preview needs no compositor state
-            return render(shell, gpu_env, root, popup, out, 600, args.icon_theme)
+            return render(shell, gpu_env, root, popup, out, args.wait or 600, args.icon_theme)
 
-    return run_all(shell, env, root, jobs, 600, args, render_one)
+    return run_all(shell, env, root, jobs, args.wait or 600, args, render_one)
 
 
 def main():
@@ -375,6 +378,12 @@ def main():
     parser.add_argument("--icon-theme", default=icon_theme(),
                         help="icon theme (default: the desktop's, from GTK's settings)")
     parser.add_argument("--jobs", type=int, default=min(8, os.cpu_count() or 1))
+    parser.add_argument("--wait", type=int, metavar="MS",
+                        help="how long a popup is open before its picture (default: 400, "
+                             "600 on the GPU)")
+    parser.add_argument("--no-animations", action="store_true",
+                        help="with animations off, so that a short --wait catches nothing "
+                             "moving")
     args = parser.parse_args()
     build = args.build.resolve()
     shell = build / "paw-shell"
@@ -389,7 +398,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="paw-gal-") as directory:
         for theme in args.theme or list(THEMES):
             root = Path(directory) / theme
-            env = prepare(root, theme)
+            env = prepare(root, theme, not args.no_animations)
             if args.scale:
                 env["QT_SCALE_FACTOR"] = args.scale
             for renderer in renderers:
@@ -398,7 +407,7 @@ def main():
                 if renderer == "software":
                     failures.update(run_all(shell, dict(env, QT_QPA_PLATFORM="offscreen",
                                                         QT_QUICK_BACKEND="software"),
-                                            root, jobs, 400, args))
+                                            root, jobs, args.wait or 400, args))
                 else:
                     failures.update(run_gpu(build, shell, env, root, jobs, args))
                 written += sum(path.exists() for _, path in jobs)

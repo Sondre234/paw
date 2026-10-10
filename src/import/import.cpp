@@ -41,10 +41,6 @@ std::string number(double value) {
         result += ".0"; // keep it a float: paw checks integers strictly
     return result;
 }
-std::string lower(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), ::tolower);
-    return text;
-}
 
 struct Entry {
     std::vector<std::string> path;
@@ -317,12 +313,8 @@ class Translator {
         for (const auto &[name, value] : hypr.options)
             if (!used_.contains(name))
                 unused.push_back(name);
-        if (!unused.empty()) {
-            std::string list;
-            for (const auto &name : unused)
-                list += (list.empty() ? "" : ", ") + name;
-            report_.skip(files_, {hypr.file, 0}, "no paw equivalent: " + list);
-        }
+        if (!unused.empty())
+            report_.skip(files_, {hypr.file, 0}, "no paw equivalent: " + join(unused));
     }
 
     void waybar(const std::map<std::string, HyprValue> &bar) {

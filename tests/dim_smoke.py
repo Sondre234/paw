@@ -2,7 +2,6 @@
 """Windows without focus fade toward windows.dim_inactive and back; the state follows the
 configuration and focus, and (with grim) the screen shows it."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -30,7 +29,7 @@ with harness.Compositor(compositor, settings(0.4, 700)) as desktop:
         return [tuple(int(n) for n in row) for row in desktop.rows("dim")]
 
     def windows():
-        return desktop.rows("windows")
+        return desktop.windows()
 
     desktop.detail = lambda: f"dim: {dims()}, windows: {windows()}"
 
@@ -39,9 +38,9 @@ with harness.Compositor(compositor, settings(0.4, 700)) as desktop:
 
     def body_pixel(focused):
         """The screen colour in the middle of the focused (or unfocused) window's body."""
-        for row in windows():
-            if (row[1] == "1") == focused:
-                x, y, w, h = (int(n) for n in row[4:8])
+        for window in windows():
+            if window.focused == focused:
+                x, y, w, h = window.box
                 return harness.grab(grim, desktop.env).at(x + w // 2, y + h // 2) if grim else None
 
     assert dims() == []
@@ -76,16 +75,14 @@ with harness.Compositor(compositor, settings(0.4, 700)) as desktop:
         assert body_pixel(True) == BODY
 
     # Reloading with no dimming fades it out and removes the nodes.
-    desktop.config.write_text(settings(0, 700))
-    desktop.server.send_signal(signal.SIGHUP)
+    desktop.reload(settings(0, 700))
     wait_for(lambda: all(d[2] == 0 for d in dims()), "target cleared")
     wait_for(lambda: all(d[1:] == (0, 0, 0) for d in dims()), "faded out and removed")
     if grim:
         assert body_pixel(False) == BODY
 
     # With animations off the change is immediate.
-    desktop.config.write_text(settings(0.5, 700, animations=False))
-    desktop.server.send_signal(signal.SIGHUP)
+    desktop.reload(settings(0.5, 700, animations=False))
     wait_for(lambda: sorted(d[1:] for d in dims()) == [(0, 0, 0), (500, 500, 1)],
              "immediate dimming")
     msg("focus_left")
@@ -93,8 +90,7 @@ with harness.Compositor(compositor, settings(0.4, 700)) as desktop:
              [(0, 0, 0), (500, 500, 1)], "immediate focus change")
 
     # A zero duration is immediate too, and windows leaving take their node along.
-    desktop.config.write_text(settings(0.25, 0))
-    desktop.server.send_signal(signal.SIGHUP)
+    desktop.reload(settings(0.25, 0))
     wait_for(lambda: sorted(d[1:] for d in dims()) == [(0, 0, 0), (250, 250, 1)],
              "zero duration")
     second.terminate()

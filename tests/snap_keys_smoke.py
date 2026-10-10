@@ -24,15 +24,14 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
 
     def windows():
         """By title: x, y, width, height, minimized, output."""
-        return {r[9]: (int(r[4]), int(r[5]), int(r[6]), int(r[7]), r[2] == "1", r[10])
-                for r in desktop.rows("windows")}
+        return {w.title: (w.x, w.y, w.width, w.height, w.minimized, w.output)
+                for w in desktop.windows()}
 
     def placed(box, title="W"):
         desktop.wait_for(lambda: windows()[title][:4] == tuple(box), f"{title} at {box}")
 
     desktop.detail = lambda: f"windows: {windows()}"
-    desktop.spawn([probe, "--window-only"], env={"PAW_PROBE_TITLE": "W"})
-    desktop.wait_for(lambda: "W" in windows(), "window mapped")
+    desktop.open_window(probe, "W")
     floating = windows()["W"][:4]
     assert floating[2:] == (320, 240) and windows()["W"][5] == "HEADLESS-1", windows()
 
@@ -76,8 +75,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     desktop.wait_for(lambda: windows()["W"][4], "a bottom quarter minimizes")
 
     # Down minimizes a window at its own size; a fullscreen one leaves fullscreen first.
-    desktop.spawn([probe, "--window-only"], env={"PAW_PROBE_TITLE": "V"})
-    desktop.wait_for(lambda: "V" in windows(), "V mapped")
+    desktop.open_window(probe, "V")
     msg("fullscreen")
     desktop.wait_for(lambda: windows()["V"][2:4] == (1280, 720), "V fullscreen")
     msg("snap_cycle_right")

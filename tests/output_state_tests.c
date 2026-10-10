@@ -6,17 +6,7 @@
 #include "paw/output_state.h"
 #include <stdlib.h>
 #include <string.h>
-
-static int failures;
-#define CHECK(condition, ...)                                                                      \
-    do {                                                                                           \
-        if (!(condition)) {                                                                        \
-            fprintf(stderr, "%s:%d: %s: ", __FILE__, __LINE__, #condition);                        \
-            fprintf(stderr, __VA_ARGS__);                                                          \
-            fputc('\n', stderr);                                                                   \
-            ++failures;                                                                            \
-        }                                                                                          \
-    } while (0)
+#include "check.h"
 
 /* Reads `text` as the file. */
 static bool read_text(const char *text, struct sh_output_state *state) {

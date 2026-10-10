@@ -26,9 +26,11 @@ CONFIG = """return {
     layout = { tiling = false, workspaces = 2 },
     outputs = { monitors = { ["HEADLESS-1"] = { mode = "1280x720" }, ["HEADLESS-2"] = { mode = "1280x720" } } },
     notifications = { timeout = 60000 },
-    osd = { timeout = 700 },
+    animations = { speed = 2 },
+    osd = { timeout = 400 },
 }"""
 SCREEN = (2560, 720)  # two outputs side by side; HEADLESS-2 is the one at the origin
+CARD = (1150, 60)  # a point on a card, top right on HEADLESS-2
 PANEL = (21, 30, 44)  # shell.panel_color
 
 with harness.Compositor(compositor, CONFIG, bus=True, start=False) as desktop:
@@ -65,12 +67,18 @@ with harness.Compositor(compositor, CONFIG, bus=True, start=False) as desktop:
             return None
         return harness.grab(grim, env, "HEADLESS-2")
 
-    def close_to(color, at, message, tolerance=8):
+    def looks(color, at, tolerance=8):
+        """Whether HEADLESS-2 shows `color` at `at`; always, without grim."""
         picture = shot()
-        if picture is None:
-            return
-        pixel = picture.at(*at)
-        assert all(abs(a - b) <= tolerance for a, b in zip(pixel, color)), (message, pixel, at)
+        return picture is None or all(abs(a - b) <= tolerance
+                                      for a, b in zip(picture.at(*at), color))
+
+    def shows(color, at, message, tolerance=8):
+        """Waits until HEADLESS-2 shows `color` at `at`, as something slides or fades in."""
+        wait_for(lambda: looks(color, at, tolerance), message)
+
+    def close_to(color, at, message, tolerance=8):
+        assert looks(color, at, tolerance), (message, shot().at(*at), at)
 
     desktop.start()
     panels = desktop.spawn([shell, "--config", str(desktop.config)], log="shell.log")
@@ -114,18 +122,26 @@ with harness.Compositor(compositor, CONFIG, bus=True, start=False) as desktop:
     def layers():
         return msg("get", "layers")
 
+    def pointer_on(namespace):
+        """Whether the pointer is on a layer surface of that namespace."""
+        return ["pointer", "layer", namespace] in desktop.rows("seat")
+
+    def onto_card(what):
+        """Puts the pointer on the card once it has slid in under that point."""
+        shows(PANEL, CARD, what)
+        pointer("move", *(str(n) for n in CARD))
+        wait_for(lambda: pointer_on("paw-notifications"), "the pointer on the card")
+
     # A card appears in the top right corner of the output, on its own layer surface.
     pointer("move", "300", "300")
     first = send("Hi", "--timeout", "0", "--action", "default=Open")
     wait_for(lambda: count("notifications shown on HEADLESS-2") == 1, "the card shown")
     wait_for(lambda: "paw-notifications" in layers(), "the card surface mapped")
-    time.sleep(0.5)  # the slide in
-    close_to(PANEL, (1200, 60), "a card top right")
+    shows(PANEL, (1200, 60), "a card top right")
     close_to((35, 46, 64), (300, 200), "background elsewhere", tolerance=30)
 
     # Clicking it runs its default action and dismisses it.
-    pointer("move", "1150", "60")
-    time.sleep(0.3)  # the surface takes the pointer's entry before a press
+    onto_card("the card under the pointer")
     pointer("click", "left")
     event("action", first, "default")
     event("closed", first, 2)
@@ -147,10 +163,16 @@ with harness.Compositor(compositor, CONFIG, bus=True, start=False) as desktop:
     # leaves.
     fourth = send("Held", "--timeout", "800")
     wait_for(lambda: count("notifications shown") == 4, "fourth card shown")
-    time.sleep(0.35)
-    pointer("move", "1150", "60")
-    time.sleep(1.6)
-    assert not any(e.startswith(f"closed {fourth}") for e in events), events
+    shown_at = time.monotonic()
+    pointer("move", "300", "400")
+    onto_card("the fourth card under the pointer")
+
+    def open_still(number):
+        pump(0)
+        return not any(e.startswith(f"closed {number}") for e in events)
+    # Until well past its timeout.
+    desktop.stays(lambda: open_still(fourth), "the card expired under the pointer",
+                  duration=max(.3, shown_at + 1.3 - time.monotonic()))
     pointer("move", "300", "400")
     event("closed", fourth, 1)
     wait_for(lambda: count("notifications hidden") == 4, "surface gone after hover")
@@ -175,9 +197,7 @@ with harness.Compositor(compositor, CONFIG, bus=True, start=False) as desktop:
              "-h", "int:value:70", "Real client", "with <b>markup</b>"],
             stdout=subprocess.PIPE, text=True)
         wait_for(lambda: count("notifications shown") == shown + 1, "notify-send's card")
-        time.sleep(0.5)
-        pointer("move", "1150", "60")
-        time.sleep(0.3)
+        onto_card("notify-send's card under the pointer")
         pointer("click", "left")
         assert client.stdout.readline().strip() == "default"
         assert desktop.reap(client, timeout=10) == 0
@@ -197,8 +217,8 @@ with harness.Compositor(compositor, CONFIG, bus=True, start=False) as desktop:
             pass
     assert count("osd shown") == osd_before + 1
     send("Quiet", "--timeout", "0")
-    time.sleep(0.8)
-    assert count("notifications shown") == shown_before
+    desktop.stays(lambda: count("notifications shown") == shown_before,
+                  "a card shown in do-not-disturb", duration=.5)
     loud = send("Fire", "--urgency", "2")
     wait_for(lambda: count("notifications shown") == shown_before + 1,
              "a critical card shown in do-not-disturb")
@@ -223,9 +243,8 @@ with harness.Compositor(compositor, CONFIG, bus=True, start=False) as desktop:
     shown = count("osd shown")
     msg("osd", "Volume", "40")
     wait_for(lambda: count("osd shown") == shown + 1, "the display shown")
-    time.sleep(0.3)
     # Above the label and the level: how far the label reaches depends on the fonts.
-    close_to(PANEL, (600, 612), "the display's pill")
+    shows(PANEL, (600, 612), "the display's pill")
     wait_for(lambda: count("osd hidden") == hidden + 1, "the display faded out", timeout=4)
     bare = desktop.run("osd")
     assert "usage" in bare.stdout + bare.stderr, bare
@@ -235,53 +254,40 @@ with harness.Compositor(compositor, CONFIG, bus=True, start=False) as desktop:
     shown = count("osd shown")
     (backlight / "brightness").write_text("20\n")
     wait_for(lambda: count("osd shown") == shown + 1, "the display for a brightness change")
-    time.sleep(0.3)
-    close_to(PANEL, (600, 612), "the brightness display's pill")
+    shows(PANEL, (600, 612), "the brightness display's pill")
     wait_for(lambda: count("osd hidden") == hidden + 1, "the brightness display faded out",
              timeout=4)
 
     # The clock flyout, with the history: opened by the notification_history action.
-    before = shot()
-    for _ in range(20):
-        msg("notification_history")
-        time.sleep(0.3)
-        after = shot()
-        if before is None or after.at(1100, 560) != before.at(1100, 560):
-            break
-    close_to(PANEL, (1100, 560), "the clock flyout", tolerance=10)
+    msg("notification_history")
+    shows(PANEL, (1100, 560), "the clock flyout", tolerance=10)
 
-    # Cards go to the monitor with the focus (a click on its desktop gives it), and stay
-    # there while they last.
-    pointer("move", "1900", "300")
-    time.sleep(0.3)
-    pointer("click", "left")
-    time.sleep(0.4)
+    # Cards and the display go to the monitor with the focus (a click on its desktop gives
+    # it), and the cards stay there while they last. The display showing there says the shell
+    # has heard where the focus is.
+    def focus_on(x, output):
+        before = count(f"osd shown on {output}")
+        pointer("move", str(x), "300", "click", "left")
+        msg("osd", "Focus")
+        wait_for(lambda: count(f"osd shown on {output}") == before + 1,
+                 f"the display on {output}")
+
+    focus_on(1900, "HEADLESS-1")
     other_shown = count("notifications shown on HEADLESS-1")
     moved = send("Elsewhere", "--timeout", "0")
     wait_for(lambda: count("notifications shown on HEADLESS-1") == other_shown + 1,
              "a card on the other monitor")
-    pointer("move", "300", "300")
-    time.sleep(0.3)
-    pointer("click", "left")
-    time.sleep(0.4)
+    focus_on(300, "HEADLESS-2")
     stays = send("Still there", "--timeout", "0")
-    time.sleep(0.5)
+    desktop.stays(lambda: count("notifications shown on HEADLESS-2")
+                  == count("notifications hidden on HEADLESS-2"),
+                  "a card followed the focus while another showed", duration=.5)
     assert count("notifications shown on HEADLESS-1") == other_shown + 1
-    assert count("notifications shown on HEADLESS-2") == count("notifications hidden on HEADLESS-2")
     for number in (moved, stays):
         subprocess.run([notify, "close", str(number)], env=env, check=True, timeout=10)
         event("closed", number, 3)
     wait_for(lambda: count("notifications hidden on HEADLESS-1") == other_shown + 1,
              "the other monitor's cards gone")
-    # The display follows the focus too.
-    pointer("move", "1900", "300")
-    time.sleep(0.3)
-    pointer("click", "left")
-    time.sleep(0.4)
-    elsewhere = count("osd shown on HEADLESS-1")
-    msg("osd", "Elsewhere")
-    wait_for(lambda: count("osd shown on HEADLESS-1") == elsewhere + 1,
-             "the display on the other monitor")
 
     # The setting is followed on reload: off releases the name, on takes it again.
     desktop.config.write_text(CONFIG.replace("notifications = { timeout = 60000 }",

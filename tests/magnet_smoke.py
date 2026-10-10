@@ -5,8 +5,8 @@ bypass modifier and windows.magnet turn it off, and dropping at the top still ma
 Driven by a virtual pointer and keyboard (pointer_probe); the window asks for the move the way a
 client-decorated one does (wayland_probe with PAW_PROBE_MOVE)."""
 from pathlib import Path
+import subprocess
 import sys
-import time
 
 import harness
 
@@ -31,8 +31,8 @@ with harness.Compositor(compositor, config()) as desktop:
 
     def windows():
         """By title: x, y, width, height, tiled."""
-        return {r[9]: (int(r[4]), int(r[5]), int(r[6]), int(r[7]), r[3] == "1")
-                for r in desktop.rows("windows")}
+        return {w.title: (w.x, w.y, w.width, w.height, w.tiled)
+                for w in desktop.windows()}
 
     def where():
         return windows()["W"][:2]
@@ -47,20 +47,21 @@ with harness.Compositor(compositor, config()) as desktop:
     pointer = desktop.virtual_pointer(pointer_probe, *SCREEN)
 
     # A panel along the bottom (with a window of its own, "P"), and the window to drag.
-    desktop.spawn([probe, "--external-control"], env={"PAW_PROBE_TITLE": "P"})
-    wait_for(lambda: "P" in windows(), "panel client mapped")
-    client = desktop.spawn([probe, "--window-only"],
-                           env={"PAW_PROBE_TITLE": "W", "PAW_PROBE_MOVE": "1"})
-    wait_for(lambda: "W" in windows(), "window mapped")
+    desktop.open_window(probe, "P", args=("--external-control",))
+    client = desktop.open_window(probe, "W", env={"PAW_PROBE_MOVE": "1"})
     px, py, pw, ph, _ = windows()["P"]
     ww, wh = windows()["W"][2:4]
     assert (ww, wh) == (320, 240), windows()
 
+    def moving():
+        """Whether a window is being moved with the pointer."""
+        return next(r for r in desktop.rows("snap") if r[0] == "zone")[6] == "1"
+
     def drag():
-        """Presses on W, so it asks to move."""
+        """Presses on W, and waits for the move it asks for."""
         wx, wy = where()
         pointer("move", str(wx + 100), str(wy + 100), "press", "left")
-        time.sleep(0.15)  # the client turns the press into a move request
+        wait_for(moving, "the press turned into a move")
 
     def to(grab_offset, x, y):
         """Moves the pointer so the window would be at (x, y) without magnetism."""
@@ -115,8 +116,8 @@ with harness.Compositor(compositor, config()) as desktop:
     to(100, 6, 200)
     assert where() == (0, 200), where()
     release()
-    time.sleep(0.05)
-    assert where() == (0, 200) and guides()[0][0] == 0, (where(), guides())
+    desktop.stays(lambda: where() == (0, 200) and guides()[0][0] == 0, "the drop moved on",
+                  detail=lambda: f"{where()}, {guides()}")
 
     # Dropping at the top of the screen still maximizes.
     drag()
@@ -157,9 +158,8 @@ with harness.Compositor(compositor, config()) as desktop:
     client.terminate()
     desktop.reap(client, timeout=5)
     wait_for(lambda: "W" not in windows(), "window closed")
-    desktop.spawn([probe, "--window-only"],
-                  env={"PAW_PROBE_TITLE": "W", "PAW_PROBE_RESIZE": "bottom_right"})
-    wait_for(lambda: "W" in windows(), "window mapped")
+    resizer = desktop.open_window(probe, "W", env={"PAW_PROBE_RESIZE": "bottom_right"},
+                                  stdout=subprocess.PIPE, text=True)
     wx, wy = where()
 
     def size():
@@ -171,7 +171,7 @@ with harness.Compositor(compositor, config()) as desktop:
     # Press on the bottom right corner (one pixel inside), and pull it near the corner
     # of the free area: it lands on the output's right edge and above the panel.
     pointer("move", str(wx + 319), str(wy + 239), "press", "left")
-    time.sleep(0.15)
+    assert resizer.stdout.readline().strip() == "resizing"
     pointer("move", str(SCREEN[0] - 5 - 1), str(SCREEN[1] - PANEL - 6 - 1))
     resized(SCREEN[0] - wx, SCREEN[1] - PANEL - wy)
     assert guides()[0][0] == 1 and guides()[1][0] == 1, guides()

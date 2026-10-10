@@ -8,7 +8,6 @@ which keys take them back. keyboard.shortcuts_inhibit = false and a window rule'
 shortcuts_inhibit = false refuse them, a reload applies a change to either, and an inhibitor
 taking effect leaves the binding mode in use. `get shortcuts` shows it all."""
 from pathlib import Path
-import socket
 import subprocess
 import sys
 
@@ -42,7 +41,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
         return [line for line in log(name) if line.startswith(prefix)]
 
     def focused():
-        return next((r[9] for r in desktop.rows("windows") if r[1] == "1"), None)
+        return next((w.title for w in desktop.windows() if w.focused), None)
 
     def shortcuts():
         """Whether the keys go to the focused window, and each inhibitor as (state, focused,
@@ -54,35 +53,6 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     def tiling():
         return msg("get", "tiling").strip() == "on"
 
-    def press(*codes):
-        """Presses the keys in order, then releases them the other way round."""
-        for code in codes:
-            msg("headless_keyboard", "key", "keys", str(code), "press")
-        for code in reversed(codes):
-            msg("headless_keyboard", "key", "keys", str(code), "release")
-
-    class Shell:
-        """The lines a subscriber hears that start with `prefix`."""
-
-        def __init__(self, prefix):
-            self.prefix = prefix.encode()
-            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.sock.connect(desktop.env["PAW_SOCKET"])
-            self.sock.sendall(b"subscribe\n")
-            self.sock.settimeout(0.05)
-            self.buffer = b""
-            self.lines = []
-
-        def heard(self):
-            try:
-                while data := self.sock.recv(65536):
-                    self.buffer += data
-            except socket.timeout:
-                pass
-            *complete, self.buffer = self.buffer.split(b"\n")
-            self.lines += [line.decode() for line in complete if line.startswith(self.prefix)]
-            return self.lines
-
     def window(title, *options, **spawn):
         process = desktop.spawn([probe, "--keys", "--no-gestures", "--no-tablet", *options,
                                  title], log=f"{title}.log", **spawn)
@@ -91,9 +61,9 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
         return process
 
     desktop.detail = lambda: f"shortcuts: {shortcuts()}, focused: {focused()}"
-    msg("headless_keyboard", "add", "keys")
+    press = desktop.keyboard()
     assert shortcuts() == (False, []), shortcuts()
-    notices = Shell("notice ")
+    notices = desktop.subscribe()
 
     def told(*titles):
         return [f"notice Shortcuts go to {title}\tSuper + Shift + Escape gives them back"
@@ -110,7 +80,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
                                                     f"key {T} released", f"key {SUPER} released"],
                      "Super + T in the window")
     assert not tiling()
-    desktop.wait_for(lambda: notices.heard() == told("VM"), "the user told")
+    desktop.wait_for(lambda: notices.lines("notice ") == told("VM"), "the user told")
 
     # Another window has the keyboard: the bindings are back, and its keys stay the compositor's.
     other = window("Other")
@@ -139,13 +109,13 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
 
     # Its binding still runs: it turns the inhibitor off, which the window hears, and the bindings
     # are back; the on-screen display says so. Escape does not reach the window.
-    osd = Shell("osd ")
+    osd = desktop.subscribe()
     press(SUPER, SHIFT, ESCAPE)
     desktop.wait_for(lambda: heard("VM", "shortcuts")[-1] == "shortcuts inactive",
                      "the inhibitor turned off")
     assert shortcuts() == (False, [("off", True, "VM")]), shortcuts()
     assert f"key {ESCAPE} pressed" not in log("VM"), log("VM")
-    desktop.wait_for(lambda: osd.heard() == ["osd HEADLESS-1 -1 Shortcuts back to the desktop"],
+    desktop.wait_for(lambda: osd.lines("osd ") == ["osd HEADLESS-1 -1 Shortcuts back to the desktop"],
                      "the on-screen display saying so")
     press(SUPER, T)
     desktop.wait_for(tiling, "Super + T with the inhibitor off")
@@ -159,7 +129,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     desktop.wait_for(lambda: heard("VM", "shortcuts")[-1] == "shortcuts active",
                      "the inhibitor turned on again")
     assert shortcuts() == (True, [("active", True, "VM")]), shortcuts()
-    desktop.wait_for(lambda: osd.heard()[1:] == ["osd HEADLESS-1 -1 Shortcuts go to VM"],
+    desktop.wait_for(lambda: osd.lines("osd ")[1:] == ["osd HEADLESS-1 -1 Shortcuts go to VM"],
                      "the on-screen display naming the window")
     press(SUPER, T)
     desktop.wait_for(lambda: heard("VM", f"key {T}")[-2:] == [f"key {T} pressed",
@@ -175,7 +145,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
                                                                "shortcuts active"],
                      "the window hearing both")
     # The user heard of it once, however often it took the keys again.
-    assert notices.heard() == told("VM"), notices.heard()
+    assert notices.lines("notice ") == told("VM"), notices.lines("notice ")
 
     # The window gone, the bindings are back.
     vm.terminate()
@@ -216,7 +186,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     desktop.wait_for(lambda: heard("Asking", "shortcuts") == ["shortcuts active"],
                      "the inhibitor active once allowed")
     assert shortcuts() == (True, [("active", True, "Asking")]), shortcuts()
-    desktop.wait_for(lambda: notices.heard() == told("VM", "Asking"), "the user told again")
+    desktop.wait_for(lambda: notices.lines("notice ") == told("VM", "Asking"), "the user told again")
     desktop.reload(CONFIG % "false")
     desktop.wait_for(lambda: heard("Asking", "shortcuts") == ["shortcuts active",
                                                               "shortcuts inactive"],
@@ -228,5 +198,5 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     commands.stdin.flush()
     desktop.wait_for(lambda: shortcuts() == (False, []), "the inhibitor let go")
     commands.stdin.close()
-    assert notices.heard() == told("VM", "Asking"), notices.heard()
+    assert notices.lines("notice ") == told("VM", "Asking"), notices.lines("notice ")
 print("Keyboard shortcuts inhibitors take the bindings' keys while focused, and are refused, passed")

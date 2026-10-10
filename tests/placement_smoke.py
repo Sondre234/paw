@@ -26,8 +26,8 @@ with harness.Compositor(compositor, config(None)) as desktop:
 
     def windows():
         """By title: x, y, width, height, tiled, workspace."""
-        return {r[9]: (int(r[4]), int(r[5]), int(r[6]), int(r[7]), r[3] == "1", int(r[0]))
-                for r in desktop.rows("windows")}
+        return {w.title: (w.x, w.y, w.width, w.height, w.tiled, w.workspace)
+                for w in desktop.windows()}
 
     desktop.detail = lambda: f"windows: {windows()}"
     wait_for = desktop.wait_for

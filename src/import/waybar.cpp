@@ -8,10 +8,6 @@
 
 namespace paw::import {
 namespace {
-std::string lower(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), ::tolower);
-    return text;
-}
 // "window#waybar  >  box" -> "window#waybar>box"
 std::string normalize_selector(std::string_view selector) {
     std::string result;

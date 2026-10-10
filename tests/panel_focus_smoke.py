@@ -22,7 +22,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     msg = desktop.msg
 
     def windows():
-        return {r[9]: dict(focused=r[1] == "1", output=r[10]) for r in desktop.rows("windows")}
+        return {w.title: dict(focused=w.focused, output=w.output) for w in desktop.windows()}
 
     def focused():
         return next((t for t, w in windows().items() if w["focused"]), None)

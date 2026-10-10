@@ -8,7 +8,6 @@ screen only) and takes the one shown once the key rests; the arrows step,
 Return takes it at once and Escape closes it without. Subscribers hear of the popup. Without a
 built-in panel the primary monitor stands in for it, and with one monitor only extend is had."""
 from pathlib import Path
-import socket
 import sys
 
 import harness
@@ -39,33 +38,13 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
         msg("headless_keyboard", "key", "keys", str(KEYS[name]), "press")
         msg("headless_keyboard", "key", "keys", str(KEYS[name]), "release")
 
-    class Events:
-        """A subscriber's display-mode lines."""
-
-        def __init__(self):
-            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.sock.connect(desktop.env["PAW_SOCKET"])
-            self.sock.sendall(b"subscribe\n")
-            self.sock.settimeout(0.05)
-            self.buffer, self.lines = b"", []
-
-        def seen(self, line):
-            try:
-                while data := self.sock.recv(65536):
-                    self.buffer += data
-            except socket.timeout:
-                pass
-            *complete, self.buffer = self.buffer.split(b"\n")
-            self.lines += [text.decode() for text in complete if text.startswith(b"display-mode")]
-            return line in self.lines
-
     ON, OFF = (True, "on", "-"), (False, "off", "-")
     desktop.detail = lambda: f"outputs: {outputs()}, mode: {mode()}"
     msg("headless_output", "add", "eDP-1")
     msg("headless_keyboard", "add", "keys")
     wait_for(lambda: outputs() == {"HEADLESS-1": ON, "HEADLESS-2": ON, "eDP-1": ON}, "three on")
     assert mode() == ("extend", "-", "-"), mode()
-    events = Events()
+    events = desktop.subscribe()
 
     # The choices by name: the panel is the main monitor, which the others mirror.
     msg("display_mode", "duplicate")
@@ -94,14 +73,14 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     focused = next(r[0] for r in desktop.rows("workspaces") if r[2] == "1")
     press("display")
     assert mode() == ("extend", "extend", focused), mode()
-    wait_for(lambda: events.seen(f"display-mode {focused} extend extend "
-                                 "internal,duplicate,extend,external"), "the shell heard of it")
+    wait_for(lambda: f"display-mode {focused} extend extend internal,duplicate,extend,external"
+             in events.lines(), "the shell heard of it")
     press("display")
     press("display")
     assert mode() == ("extend", "internal", focused), mode()
     wait_for(lambda: mode() == ("internal", "-", "-"), "the choice shown was taken")
     assert outputs() == {"HEADLESS-1": OFF, "HEADLESS-2": OFF, "eDP-1": ON}, outputs()
-    wait_for(lambda: events.seen("display-mode-close"), "the shell heard it close")
+    wait_for(lambda: "display-mode-close" in events.lines(), "the shell heard it close")
 
     # The arrows step either way, wrapping; Return takes the choice at once, Escape none.
     focused = next(r[0] for r in desktop.rows("workspaces") if r[2] == "1")
@@ -144,7 +123,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     press("display")
     press("right")
     assert mode() == ("extend", "extend", "HEADLESS-2"), mode()
-    wait_for(lambda: events.seen("display-mode HEADLESS-2 extend extend extend"),
+    wait_for(lambda: "display-mode HEADLESS-2 extend extend extend" in events.lines(),
              "the popup offers extend alone")
     press("escape")
 print("display_mode's choices and popup set the monitors up as Windows' Win+P does")

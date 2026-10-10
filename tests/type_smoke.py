@@ -20,7 +20,7 @@ with harness.Compositor(compositor, "return { xwayland = false }") as desktop:
     msg("headless_keyboard", "add", "keys")
     desktop.spawn([probe, "--window-only"],
                   env={"PAW_PROBE_TYPED": str(typed), "PAW_PROBE_TITLE": "Typing"})
-    desktop.wait_for(lambda: [row[9] for row in desktop.rows("windows") if row[1] == "1"] ==
+    desktop.wait_for(lambda: [w.title for w in desktop.windows() if w.focused] ==
                      ["Typing"], "the window focused")
 
     def written():

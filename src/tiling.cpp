@@ -124,13 +124,18 @@ struct sh_tiling {
     double scroll_width = 0.5, scroll_step = 0.1;
     std::vector<double> presets{1.0 / 3, 0.5, 2.0 / 3, 1.0};
 
-    Mode mode(const Key &key) const {
+    /* What the workspaces of `output` start from: its own defaults, then the global ones. */
+    Mode output_mode(const std::string &output) const {
         Mode result{default_layout, default_ratio, default_count};
-        if (auto own = output_defaults.find(key.first); own != output_defaults.end()) {
+        if (auto own = output_defaults.find(output); own != output_defaults.end()) {
             result.layout = own->second.layout.value_or(result.layout);
             result.ratio = own->second.ratio.value_or(result.ratio);
             result.count = own->second.count.value_or(result.count);
         }
+        return result;
+    }
+    Mode mode(const Key &key) const {
+        Mode result = output_mode(key.first);
         if (auto found = modes.find(key); found != modes.end()) {
             result.layout = found->second.layout.value_or(result.layout);
             result.ratio = found->second.ratio.value_or(result.ratio);
@@ -753,12 +758,7 @@ void sh_tiling_output_defaults(const sh_tiling *tiling, const char *output,
                                enum sh_tile_layout *layout, double *ratio, int *count) {
     if (!tiling || !output)
         return;
-    Mode mode{tiling->default_layout, tiling->default_ratio, tiling->default_count};
-    if (auto own = tiling->output_defaults.find(output); own != tiling->output_defaults.end()) {
-        mode.layout = own->second.layout.value_or(mode.layout);
-        mode.ratio = own->second.ratio.value_or(mode.ratio);
-        mode.count = own->second.count.value_or(mode.count);
-    }
+    Mode mode = tiling->output_mode(output);
     if (layout)
         *layout = mode.layout;
     if (ratio)

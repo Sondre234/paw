@@ -40,13 +40,7 @@ struct sh_tablet_pad {
 
 /* The output tablets are mapped to, or NULL for the whole layout. */
 static struct wlr_output *tablet_output(struct sh_server *server) {
-    const char *setting = server_settings(server)->tablet_output;
-    struct sh_output *output;
-    wl_list_for_each(output, &server->outputs, link) {
-        if (setting[0] && output_key_matches(setting, output->wlr_output))
-            return output->wlr_output;
-    }
-    return NULL;
+    return find_output_key(server, server_settings(server)->tablet_output);
 }
 
 /* Maps every tablet again: the outputs or tablet.output changed. */
@@ -168,19 +162,10 @@ static void tool_moved(struct sh_server *server, struct sh_tablet *tablet,
 
 /* A tip touching a window or a panel focuses it, as a click does. */
 static void tool_focus(struct sh_server *server) {
-    double sx, sy;
+    double sx, sy, x = server->cursor->x, y = server->cursor->y;
     struct sh_node *owner = NULL;
-    struct wlr_output *output =
-        wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
-    if (output)
-        set_active_output(server, output->name);
-    press_target_at(server, server->cursor->x, server->cursor->y, &sx, &sy, &owner);
-    if (server->locked || !owner)
-        return;
-    if (owner->kind == SH_NODE_TOPLEVEL)
-        focus_toplevel(owner->owner);
-    else
-        focus_layer(owner->owner);
+    press_target_at(server, x, y, &sx, &sy, &owner);
+    focus_pressed(server, x, y, owner);
 }
 
 static void tool_proximity(struct wl_listener *listener, void *data) {

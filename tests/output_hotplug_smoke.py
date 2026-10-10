@@ -3,7 +3,6 @@
 tiling; plugging it back in returns them (outputs.return_windows), unless the setting is off or
 they were placed elsewhere by hand. Uses the headless backend's virtual outputs."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -41,8 +40,7 @@ with harness.Compositor(compositor, env={"WLR_HEADLESS_OUTPUTS": "2"}, start=Fal
 
     def windows():
         """One (workspace, tiled, x, y, width, height, output, visible) per window, oldest first."""
-        rows = [line.split("\t") for line in msg("get", "windows").splitlines()]
-        found = [(int(r[0]), r[3] == "1", *map(int, r[4:8]), r[10], r[11] == "1") for r in rows]
+        found = [(w.workspace, w.tiled, *w.box, w.output, w.visible) for w in desktop.windows()]
         return sorted(found, key=lambda w: (w[6], w[0], w[2], w[3]))
 
     def inside(window, output):
@@ -55,16 +53,6 @@ with harness.Compositor(compositor, env={"WLR_HEADLESS_OUTPUTS": "2"}, start=Fal
                 or b[3] + b[5] <= a[3])
 
     desktop.detail = lambda: f"windows: {windows()}, outputs: {outputs()}"
-
-    reloads = 0
-
-    def reload(text):
-        global reloads
-        reloads += 1
-        desktop.config.write_text(text)
-        desktop.server.send_signal(signal.SIGHUP)
-        desktop.wait_for(lambda: log.read_text().count("Configuration reloaded") == reloads,
-                         "reload")
 
     def launch():
         count = len(windows())
@@ -88,13 +76,12 @@ with harness.Compositor(compositor, env={"WLR_HEADLESS_OUTPUTS": "2"}, start=Fal
 
     # Tiled windows on two workspaces of HEADLESS-1, one window on HEADLESS-2.
     desktop.start(config())
-    reloads = 0
     launch()
     launch()
     msg("output", "HEADLESS-1", "workspace", "2")
     launch()
     msg("output", "HEADLESS-1", "workspace", "1")
-    reload(config(primary="HEADLESS-2"))
+    desktop.reload(config(primary="HEADLESS-2"))
     launch()
     assert [(w[0], w[1], w[6]) for w in windows()] == [
         (1, True, "HEADLESS-1"), (1, True, "HEADLESS-1"), (2, True, "HEADLESS-1"),
@@ -127,20 +114,19 @@ with harness.Compositor(compositor, env={"WLR_HEADLESS_OUTPUTS": "2"}, start=Fal
     desktop.wait_for(lambda: [w[6] for w in windows()].count("HEADLESS-1") == 3, "returned again")
 
     # With outputs.return_windows off they stay.
-    reload(config(primary="HEADLESS-2", extra="return_windows = false,"))
+    desktop.reload(config(primary="HEADLESS-2", extra="return_windows = false,"))
     unplug("HEADLESS-1")
     desktop.wait_for(lambda: all(w[6] == "HEADLESS-2" for w in windows()),
                      "windows moved (no return)")
     plug("HEADLESS-1")
     assert all(w[6] == "HEADLESS-2" for w in windows()), windows()
     # Turning it on afterwards does not bring back what was not remembered.
-    reload(config(primary="HEADLESS-2"))
+    desktop.reload(config(primary="HEADLESS-2"))
     assert all(w[6] == "HEADLESS-2" for w in windows()), windows()
     finish()
 
     # Floating windows keep their relative place and size.
     desktop.start(config(tiling="false"))
-    reloads = 0
     launch()
     before = windows()[0]
     assert not before[1] and before[6] == "HEADLESS-1"
@@ -154,10 +140,10 @@ with harness.Compositor(compositor, env={"WLR_HEADLESS_OUTPUTS": "2"}, start=Fal
     desktop.wait_for(lambda: windows()[0][6] == "HEADLESS-1", "floating window returned")
     # Turning an output off in the configuration moves its windows the same way, and turning
     # it on again returns them.
-    reload(config(tiling="false", first="enabled = false"))
+    desktop.reload(config(tiling="false", first="enabled = false"))
     desktop.wait_for(lambda: windows()[0][6] == "HEADLESS-2", "window left the disabled output")
     assert inside(windows()[0], "HEADLESS-2"), windows()
-    reload(config(tiling="false"))
+    desktop.reload(config(tiling="false"))
     desktop.wait_for(lambda: windows()[0][6] == "HEADLESS-1",
                      "window returned to the enabled output")
     back = windows()[0]
@@ -172,7 +158,6 @@ with harness.Compositor(compositor, env={"WLR_HEADLESS_OUTPUTS": "2"}, start=Fal
         return (x, y, width, height - 48 * (name == "HEADLESS-2"))
 
     desktop.start(config(tiling="false"))
-    reloads = 0
     launch()
     msg("fullscreen")
     desktop.wait_for(lambda: windows()[0][4:6] == (1280, 720), "fullscreen")

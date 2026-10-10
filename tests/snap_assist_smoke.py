@@ -54,8 +54,7 @@ class Desktop:
 
     def windows(self):
         """By title: x, y, width, height, focused, minimized."""
-        return {r[9]: (int(r[4]), int(r[5]), int(r[6]), int(r[7]), r[1] == "1", r[2] == "1")
-                for r in self.desktop.rows("windows")}
+        return {w.title: (*w.box, w.focused, w.minimized) for w in self.desktop.windows()}
 
     def assist(self):
         """None while Snap Assist is closed, else its slot, its selection and the titles it lists

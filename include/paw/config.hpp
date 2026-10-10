@@ -7,7 +7,9 @@
 #include <filesystem>
 #include <optional>
 #include <regex>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace paw {
@@ -24,10 +26,9 @@ struct Binding {
     uint32_t modifiers;
     uint32_t keysym; // 0 for a mouse button binding
     uint32_t button = 0; // a Linux BTN_* code; 0 for a key binding
-    // A button binding acts only over a window whose app ID matches `app_id` (an ECMAScript
-    // regex, searched) or, with `desktop`, over the bare desktop; with neither, anywhere.
-    // Elsewhere the click reaches the application under the pointer.
-    std::string app_id;
+    // A button binding acts only over a window whose app ID matches `pattern` (its `app_id`, an
+    // ECMAScript regex, searched) or, with `desktop`, over the bare desktop; with neither,
+    // anywhere. Elsewhere the click reaches the application under the pointer.
     std::optional<std::regex> pattern;
     bool desktop = false;
     sh_action action;
@@ -271,7 +272,6 @@ struct Config {
                          .touchpad_dwt = -1,
                          .focus_follows_mouse = true,
                          .animations = true,
-                         .animation_duration = 120,
                          .animation_speed = 1.0F,
                          .animation_late_ms = 80,
                          .animation_slide = 0.08F,
@@ -449,6 +449,8 @@ sh_screenshot_mode parse_screenshot_mode(const std::string &name);
 sh_display_mode parse_display_mode(const std::string &name);
 // switch_layout's "next" (0), "prev" (-1), or a layout's number from 1; throws for others.
 int parse_layout_choice(const std::string &word);
+// `words` with `separator` between them.
+std::string join(std::span<const std::string> words, std::string_view separator = ", ");
 
 // Parse into a fresh value; callers replace the active configuration only on success.
 // A configuration's `theme = "FILE"` (relative to `directory`) supplies every setting it omits.

@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later AND MIT */
-/* Input devices without hardware, for tests under --headless, as headless keyboards are
- * (input.c): pointers that move and make touchpad gestures, which no virtual-pointer client can
- * send, touchscreens, and drawing tablets with their pads. They are devices like any other once
- * plugged in. */
+/* Input devices without hardware, for tests under --headless: keyboards, pointers that move and
+ * make touchpad gestures, which no virtual-pointer client can send, touchscreens, drawing tablets
+ * with their pads, and switches. They are devices like any other once plugged in. */
 #include "server.h"
 #include <wlr/interfaces/wlr_pointer.h>
+#include <wlr/interfaces/wlr_switch.h>
 #include <wlr/interfaces/wlr_tablet_pad.h>
 #include <wlr/interfaces/wlr_tablet_tool.h>
 #include <wlr/interfaces/wlr_touch.h>
@@ -57,6 +57,98 @@ static bool event_time(char words[][64], int count, int at, uint32_t *time) {
     return true;
 }
 
+/* What each kind of device begins with: its place in sh_server.headless_devices, and its input
+ * device (a tablet's own, not its pad's), whose type and name tell it from the others. */
+struct sh_headless_device {
+    struct wl_list link;
+    struct wlr_input_device *base;
+};
+
+/* The device of a kind (WLR_INPUT_DEVICE_*) by name, as the struct of its kind, or NULL. */
+static void *find_headless(struct sh_server *server, enum wlr_input_device_type type,
+                           const char *name) {
+    struct sh_headless_device *device;
+    wl_list_for_each(device, &server->headless_devices, link) {
+        if (device->base->type == type && !strcmp(device->base->name, name))
+            return device;
+    }
+    return NULL;
+}
+
+/* Plugs in a device once it is set up, `base` its input device. */
+static void plug_headless(struct sh_server *server, struct sh_headless_device *device,
+                          struct wlr_input_device *base) {
+    device->base = base;
+    wl_list_insert(&server->headless_devices, &device->link);
+    server_new_input(&server->new_input, base);
+}
+
+/* Keyboards without a device, so tests can type, plug and unplug under --headless:
+ * "headless_keyboard add NAME", "headless_keyboard key NAME CODE press|release" (an evdev key
+ * code, as from linux/input-event-codes.h) and "headless_keyboard remove NAME". They are
+ * keyboards like any other, not virtual ones. */
+struct sh_headless_keyboard {
+    struct sh_headless_device headless; // first: where find_headless points
+    struct wlr_keyboard keyboard;
+};
+static const struct wlr_keyboard_impl headless_keyboard_impl = {.name = "headless-keyboard"};
+
+static void remove_headless_keyboard(struct sh_headless_keyboard *keyboard) {
+    wl_list_remove(&keyboard->headless.link);
+    wlr_keyboard_finish(&keyboard->keyboard); // releases its keys and unplugs it
+    free(keyboard);
+}
+
+void control_headless_keyboard(struct sh_server *server, int fd, const char *arguments) {
+    if (!headless_backend(server)) {
+        control_reply(fd, "error: headless_keyboard needs --headless\n");
+        return;
+    }
+    char verb[16] = "", name[64] = "", state[16] = "", extra;
+    unsigned code = 0;
+    int fields = sscanf(arguments, "%15s %63s %u %15s %c", verb, name, &code, state, &extra);
+    struct sh_headless_keyboard *keyboard =
+        fields >= 2 ? find_headless(server, WLR_INPUT_DEVICE_KEYBOARD, name) : NULL;
+    if (!strcmp(verb, "add") && fields == 2) {
+        if (keyboard) {
+            control_reply(fd, "error: a keyboard with that name exists\n");
+            return;
+        }
+        keyboard = calloc(1, sizeof(*keyboard));
+        if (!keyboard) {
+            control_reply(fd, "error: out of memory\n");
+            return;
+        }
+        wlr_keyboard_init(&keyboard->keyboard, &headless_keyboard_impl, name);
+        plug_headless(server, &keyboard->headless, &keyboard->keyboard.base);
+        control_reply(fd, "ok\n");
+        return;
+    }
+    if ((!strcmp(verb, "remove") && fields == 2) || (!strcmp(verb, "key") && fields == 4)) {
+        bool pressed = !strcmp(state, "press");
+        if (!keyboard) {
+            control_reply(fd, "error: no such keyboard\n");
+        } else if (!strcmp(verb, "remove")) {
+            remove_headless_keyboard(keyboard);
+            control_reply(fd, "ok\n");
+        } else if (code > KEY_MAX || (!pressed && strcmp(state, "release"))) {
+            control_reply(fd, "error: usage: headless_keyboard key NAME CODE press|release\n");
+        } else {
+            struct wlr_keyboard_key_event event = {
+                .time_msec = (uint32_t)now_ms(),
+                .keycode = code,
+                .update_state = true,
+                .state = pressed ? WL_KEYBOARD_KEY_STATE_PRESSED : WL_KEYBOARD_KEY_STATE_RELEASED,
+            };
+            wlr_keyboard_notify_key(&keyboard->keyboard, &event);
+            control_reply(fd, "ok\n");
+        }
+        return;
+    }
+    control_reply(fd, "error: usage: headless_keyboard add NAME | key NAME CODE press|release | "
+                      "remove NAME\n");
+}
+
 /* Pointers: "headless_pointer add NAME", "headless_pointer remove NAME",
  * "headless_pointer move NAME X Y" (layout coordinates), and gestures, each with an optional
  * event time in milliseconds last, so that a test can say how fast fingers move:
@@ -65,24 +157,14 @@ static bool event_time(char words[][64], int count, int at, uint32_t *time) {
  *   headless_pointer pinch NAME update DX DY SCALE ROTATION [TIME]
  *   headless_pointer swipe|pinch|hold NAME end|cancel [TIME] */
 struct sh_headless_pointer {
+    struct sh_headless_device headless; // first: where find_headless points
     struct wlr_pointer pointer;
     uint32_t fingers; // of the swipe or pinch under way
-    struct wl_list link; // sh_server.headless_pointers
 };
 static const struct wlr_pointer_impl headless_pointer_impl = {.name = "headless-pointer"};
 
-static struct sh_headless_pointer *find_headless_pointer(struct sh_server *server,
-                                                         const char *name) {
-    struct sh_headless_pointer *pointer;
-    wl_list_for_each(pointer, &server->headless_pointers, link) {
-        if (!strcmp(pointer->pointer.base.name, name))
-            return pointer;
-    }
-    return NULL;
-}
-
 static void remove_headless_pointer(struct sh_headless_pointer *pointer) {
-    wl_list_remove(&pointer->link);
+    wl_list_remove(&pointer->headless.link);
     wlr_pointer_finish(&pointer->pointer); // unplugs it
     free(pointer);
 }
@@ -163,7 +245,7 @@ void control_headless_pointer(struct sh_server *server, int fd, const char *argu
         return;
     }
     const char *verb = words[0], *name = words[1];
-    struct sh_headless_pointer *pointer = find_headless_pointer(server, name);
+    struct sh_headless_pointer *pointer = find_headless(server, WLR_INPUT_DEVICE_POINTER, name);
     if (!strcmp(verb, "add") && count == 2) {
         if (pointer) {
             control_reply(fd, "error: a pointer with that name exists\n");
@@ -175,8 +257,7 @@ void control_headless_pointer(struct sh_server *server, int fd, const char *argu
             return;
         }
         wlr_pointer_init(&pointer->pointer, &headless_pointer_impl, name);
-        wl_list_insert(&server->headless_pointers, &pointer->link);
-        server_new_input(&server->new_input, &pointer->pointer.base);
+        plug_headless(server, &pointer->headless, &pointer->pointer.base);
         control_reply(fd, "ok\n");
         return;
     }
@@ -229,22 +310,13 @@ void control_headless_pointer(struct sh_server *server, int fd, const char *argu
  *   headless_touch up|cancel NAME ID [TIME]
  *   headless_touch frame NAME */
 struct sh_headless_touch {
+    struct sh_headless_device headless; // first: where find_headless points
     struct wlr_touch touch;
-    struct wl_list link; // sh_server.headless_touches
 };
 static const struct wlr_touch_impl headless_touch_impl = {.name = "headless-touch"};
 
-static struct sh_headless_touch *find_headless_touch(struct sh_server *server, const char *name) {
-    struct sh_headless_touch *touch;
-    wl_list_for_each(touch, &server->headless_touches, link) {
-        if (!strcmp(touch->touch.base.name, name))
-            return touch;
-    }
-    return NULL;
-}
-
 static void remove_headless_touch(struct sh_headless_touch *touch) {
-    wl_list_remove(&touch->link);
+    wl_list_remove(&touch->headless.link);
     wlr_touch_finish(&touch->touch); // unplugs it, and frees its output's name
     free(touch);
 }
@@ -305,7 +377,7 @@ void control_headless_touch(struct sh_server *server, int fd, const char *argume
         return;
     }
     const char *verb = words[0], *name = words[1];
-    struct sh_headless_touch *touch = find_headless_touch(server, name);
+    struct sh_headless_touch *touch = find_headless(server, WLR_INPUT_DEVICE_TOUCH, name);
     if (!strcmp(verb, "add") && count <= 3) {
         if (touch) {
             control_reply(fd, "error: a touchscreen with that name exists\n");
@@ -319,8 +391,7 @@ void control_headless_touch(struct sh_server *server, int fd, const char *argume
         wlr_touch_init(&touch->touch, &headless_touch_impl, name);
         if (count == 3)
             touch->touch.output_name = strdup(words[2]);
-        wl_list_insert(&server->headless_touches, &touch->link);
-        server_new_input(&server->new_input, &touch->touch.base);
+        plug_headless(server, &touch->headless, &touch->touch.base);
         control_reply(fd, "ok\n");
         return;
     }
@@ -358,27 +429,17 @@ void control_headless_touch(struct sh_server *server, int fd, const char *argume
  *   headless_tablet pad NAME button N press|release [TIME]
  *   headless_tablet pad NAME ring|strip N POSITION [TIME] */
 struct sh_headless_tablet {
+    struct sh_headless_device headless; // first: where find_headless points
     struct wlr_tablet tablet;
     struct wlr_tablet_pad pad;
     struct wlr_tablet_tool tools[2]; // the pen and the eraser
     double x[2], y[2];               // where each tool last was
-    struct wl_list link;             // sh_server.headless_tablets
 };
 static const struct wlr_tablet_impl headless_tablet_impl = {.name = "headless-tablet"};
 static const struct wlr_tablet_pad_impl headless_pad_impl = {.name = "headless-tablet-pad"};
 
-static struct sh_headless_tablet *find_headless_tablet(struct sh_server *server,
-                                                       const char *name) {
-    struct sh_headless_tablet *tablet;
-    wl_list_for_each(tablet, &server->headless_tablets, link) {
-        if (!strcmp(tablet->tablet.base.name, name))
-            return tablet;
-    }
-    return NULL;
-}
-
 static void remove_headless_tablet(struct sh_headless_tablet *tablet) {
-    wl_list_remove(&tablet->link);
+    wl_list_remove(&tablet->headless.link);
     for (int i = 0; i < 2; ++i)
         wl_signal_emit_mutable(&tablet->tools[i].events.destroy, &tablet->tools[i]);
     wlr_tablet_finish(&tablet->tablet);
@@ -404,8 +465,7 @@ static bool add_headless_tablet(struct sh_server *server, const char *name) {
         tool->rotation = tool->slider = tool->wheel = !i;
         wl_signal_init(&tool->events.destroy);
     }
-    wl_list_insert(&server->headless_tablets, &tablet->link);
-    server_new_input(&server->new_input, &tablet->tablet.base);
+    plug_headless(server, &tablet->headless, &tablet->tablet.base);
     server_new_input(&server->new_input, &tablet->pad.base);
     return true;
 }
@@ -578,7 +638,7 @@ void control_headless_tablet(struct sh_server *server, int fd, const char *argum
         return;
     }
     const char *verb = words[0], *name = words[1];
-    struct sh_headless_tablet *tablet = find_headless_tablet(server, name);
+    struct sh_headless_tablet *tablet = find_headless(server, WLR_INPUT_DEVICE_TABLET, name);
     if (!strcmp(verb, "add") && count == 2) {
         if (tablet)
             control_reply(fd, "error: a tablet with that name exists\n");
@@ -611,14 +671,95 @@ void control_headless_tablet(struct sh_server *server, int fd, const char *argum
     control_reply(fd, usage);
 }
 
+/* Switches without a device, so tests can close and open a lid under --headless:
+ * "headless_switch add NAME lid|tablet [on|off]" (on: the lid closed, which libinput reports as
+ * the device appears), "headless_switch toggle NAME on|off" and "headless_switch remove NAME". */
+struct sh_headless_switch {
+    struct sh_headless_device headless; // first: where find_headless points
+    struct wlr_switch wlr_switch;
+    bool lid; // else tablet mode
+};
+static const struct wlr_switch_impl headless_switch_impl = {.name = "headless-switch"};
+
+static void toggle_headless_switch(struct sh_headless_switch *device, bool on) {
+    struct wlr_switch_toggle_event event = {
+        .time_msec = (uint32_t)now_ms(),
+        .switch_type = device->lid ? WLR_SWITCH_TYPE_LID : WLR_SWITCH_TYPE_TABLET_MODE,
+        .switch_state = on ? WLR_SWITCH_STATE_ON : WLR_SWITCH_STATE_OFF,
+    };
+    wl_signal_emit_mutable(&device->wlr_switch.events.toggle, &event);
+}
+
+static void remove_headless_switch(struct sh_headless_switch *device) {
+    wl_list_remove(&device->headless.link);
+    wlr_switch_finish(&device->wlr_switch); // unplugs it
+    free(device);
+}
+
+void control_headless_switch(struct sh_server *server, int fd, const char *arguments) {
+    if (!headless_backend(server)) {
+        control_reply(fd, "error: headless_switch needs --headless\n");
+        return;
+    }
+    char verb[16] = "", name[64] = "", kind[16] = "", state[16] = "", extra;
+    int fields = sscanf(arguments, "%15s %63s %15s %15s %c", verb, name, kind, state, &extra);
+    struct sh_headless_switch *device =
+        fields >= 2 ? find_headless(server, WLR_INPUT_DEVICE_SWITCH, name) : NULL;
+    bool lid = !strcmp(kind, "lid"), tablet = !strcmp(kind, "tablet");
+    bool on = !strcmp(fields == 3 ? kind : state, "on");
+    bool off = !strcmp(fields == 3 ? kind : state, "off");
+    if (!strcmp(verb, "add") && (lid || tablet) && (fields == 3 || (fields == 4 && (on || off)))) {
+        if (device) {
+            control_reply(fd, "error: a switch with that name exists\n");
+            return;
+        }
+        device = calloc(1, sizeof(*device));
+        if (!device) {
+            control_reply(fd, "error: out of memory\n");
+            return;
+        }
+        device->lid = lid;
+        wlr_switch_init(&device->wlr_switch, &headless_switch_impl, name);
+        plug_headless(server, &device->headless, &device->wlr_switch.base);
+        if (fields == 4 && on)
+            toggle_headless_switch(device, true);
+        control_reply(fd, "ok\n");
+    } else if (!strcmp(verb, "toggle") && fields == 3 && (on || off)) {
+        if (device)
+            toggle_headless_switch(device, on);
+        control_reply(fd, device ? "ok\n" : "error: no such switch\n");
+    } else if (!strcmp(verb, "remove") && fields == 2) {
+        if (device)
+            remove_headless_switch(device);
+        control_reply(fd, device ? "ok\n" : "error: no such switch\n");
+    } else {
+        control_reply(fd, "error: usage: headless_switch add NAME lid|tablet [on|off] | toggle "
+                          "NAME on|off | remove NAME\n");
+    }
+}
+
 void destroy_headless_inputs(struct sh_server *server) {
-    struct sh_headless_pointer *pointer, *temporary;
-    wl_list_for_each_safe(pointer, temporary, &server->headless_pointers, link)
-        remove_headless_pointer(pointer);
-    struct sh_headless_touch *touch, *next;
-    wl_list_for_each_safe(touch, next, &server->headless_touches, link)
-        remove_headless_touch(touch);
-    struct sh_headless_tablet *tablet, *following;
-    wl_list_for_each_safe(tablet, following, &server->headless_tablets, link)
-        remove_headless_tablet(tablet);
+    struct sh_headless_device *device, *temporary;
+    wl_list_for_each_safe(device, temporary, &server->headless_devices, link) {
+        void *kind = device; // each kind's struct begins with its sh_headless_device
+        switch (device->base->type) {
+        case WLR_INPUT_DEVICE_KEYBOARD:
+            remove_headless_keyboard(kind);
+            break;
+        case WLR_INPUT_DEVICE_POINTER:
+            remove_headless_pointer(kind);
+            break;
+        case WLR_INPUT_DEVICE_TOUCH:
+            remove_headless_touch(kind);
+            break;
+        case WLR_INPUT_DEVICE_TABLET:
+            remove_headless_tablet(kind);
+            break;
+        case WLR_INPUT_DEVICE_SWITCH:
+            remove_headless_switch(kind);
+            break;
+        default:
+            break; // no other kind is plugged in
+        }
+    }
 }

@@ -48,8 +48,7 @@ void finish_grab(struct sh_server *server) {
     struct sh_toplevel *toplevel = server->grabbed_toplevel;
     if (snap_drop(server))
         return;
-    struct wlr_output *output =
-        wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+    struct wlr_output *output = pointer_output(server);
     // A tile dropped on an output that does not tile floats there.
     if (joins_tiling(server, toplevel, output)) {
         toplevel->floating = toplevel->placed = false;
@@ -198,8 +197,7 @@ static uint32_t held_modifiers(struct sh_server *server) {
 static struct wlr_output *magnet_output(struct sh_server *server, struct sh_toplevel *toplevel) {
     const struct sh_settings *settings = server_settings(server);
     uint32_t mods = held_modifiers(server);
-    struct wlr_output *output =
-        wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+    struct wlr_output *output = pointer_output(server);
     if (!settings->magnet || settings->magnet_distance <= 0 || !output || toplevel->tiled ||
         server->grab_retile || server->grab_fullscreen ||
         (settings->magnet_bypass && (mods & settings->magnet_bypass) == settings->magnet_bypass)) {
@@ -322,9 +320,6 @@ void process_cursor_resize(struct sh_server *server) {
         }
     }
 
-    if (!toplevel->tiled)
-        magnet_snap_resize(server, toplevel, server->resize_edges, &new_left, &new_top,
-                           &new_right, &new_bottom);
     if (toplevel->tiled) {
         // Resizing a tile moves the splits beside the dragged edges instead.
         struct sh_rect rect = {new_left, new_top, new_right - new_left, new_bottom - new_top};
@@ -333,6 +328,8 @@ void process_cursor_resize(struct sh_server *server) {
             reflow_output(server, output);
         return;
     }
+    magnet_snap_resize(server, toplevel, server->resize_edges, &new_left, &new_top, &new_right,
+                       &new_bottom);
     struct wlr_box geo_box = toplevel_geometry(toplevel);
     toplevel_configure(toplevel, new_left - geo_box.x, new_top - geo_box.y, new_right - new_left,
                        new_bottom - new_top);

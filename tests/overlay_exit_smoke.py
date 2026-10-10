@@ -38,7 +38,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         return rows[0] if rows else None
 
     def focused():
-        return [row[9] for row in desktop.rows("windows") if row[1] == "1"]
+        return [w.title for w in desktop.windows() if w.focused]
 
     def escape():
         for state in ("press", "release"):

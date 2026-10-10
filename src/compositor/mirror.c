@@ -38,19 +38,16 @@ struct sh_mirror {
  * connector name, else the first a "desc:" key matches. A source that mirrors another itself
  * lends its own. NULL for none. */
 struct sh_output *mirror_source(struct sh_server *server, struct sh_output *output) {
-    const struct sh_monitor *monitor = output_monitor(server_settings(server), output);
+    const struct sh_monitor *monitor = output_monitor(output);
     if (!monitor || !monitor->enabled || !monitor->mirror[0])
         return NULL;
     struct sh_output *named = NULL, *candidate;
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
     for (int exact = 1; exact >= 0 && !named; --exact) {
-        for (size_t i = 0; i < 2 && !named; ++i) {
-            wl_list_for_each(candidate, lists[i], link) {
-                if (exact ? output_named(candidate, monitor->mirror)
-                          : output_key_matches(monitor->mirror, candidate->wlr_output)) {
-                    named = candidate;
-                    break;
-                }
+        for_each_connected_output(candidate, server) {
+            if (exact ? output_named(candidate, monitor->mirror)
+                      : output_key_matches(monitor->mirror, candidate->wlr_output)) {
+                named = candidate;
+                break;
             }
         }
     }
@@ -160,14 +157,11 @@ void mirror_stop(struct sh_output *output) {
  * mirror shows, first. */
 void mirrors_forget_source(struct sh_output *source) {
     struct sh_server *server = source->server;
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        struct sh_output *output;
-        wl_list_for_each(output, lists[i], link) {
-            if (output->mirror && output->mirror->source == source) {
-                detach_source(output->mirror);
-                wlr_output_schedule_frame(output->wlr_output);
-            }
+    struct sh_output *output;
+    for_each_connected_output(output, server) {
+        if (output->mirror && output->mirror->source == source) {
+            detach_source(output->mirror);
+            wlr_output_schedule_frame(output->wlr_output);
         }
     }
 }
@@ -186,20 +180,17 @@ bool refresh_mirrors(struct sh_server *server) {
     // Each change may change another's source, as one mirroring a mirror takes that one's.
     for (int pass = 0; pass < 8; ++pass) {
         bool changed = false;
-        struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-        for (size_t i = 0; i < 2 && !changed; ++i) {
-            struct sh_output *output;
-            wl_list_for_each(output, lists[i], link) {
-                if ((output->disabled && !output->mirror) || (output->powered_off && !output->mirror))
-                    continue; // turned off: configured again as it comes back
-                // A mirror whose source went (mirrors_forget_source) shows nothing until then.
-                if (mirror_source(server, output) != mirrored_output(output) ||
-                    (output->mirror && !mirrored_output(output))) {
-                    output->powered_off = false; // a mirror off with a source gone comes on
-                    configure_output(server, output);
-                    changed = any = true;
-                    break;
-                }
+        struct sh_output *output;
+        for_each_connected_output(output, server) {
+            if ((output->disabled && !output->mirror) || (output->powered_off && !output->mirror))
+                continue; // turned off: configured again as it comes back
+            // A mirror whose source went (mirrors_forget_source) shows nothing until then.
+            if (mirror_source(server, output) != mirrored_output(output) ||
+                (output->mirror && !mirrored_output(output))) {
+                output->powered_off = false; // a mirror off with a source gone comes on
+                configure_output(server, output); // may move it to the other list: leave
+                changed = any = true;
+                break;
             }
         }
         if (!changed)

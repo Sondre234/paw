@@ -26,7 +26,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
 
     def windows():
         """(focused, output) per window, by output (one window per output here)."""
-        return sorted(((r[1] == "1", r[10]) for r in desktop.rows("windows")), key=lambda w: w[1])
+        return sorted(((r.focused, r.output) for r in desktop.windows()), key=lambda w: w[1])
 
     def focused_output():
         return next(r[0] for r in desktop.rows("workspaces") if r[2] == "1")

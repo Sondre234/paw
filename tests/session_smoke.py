@@ -24,11 +24,10 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
 
     def windows():
         """By title: workspace, focused, minimized, tiled, x, y, width, height, kept above."""
-        rows = desktop.rows("windows")
-        return {r[9]: dict(workspace=int(r[0]), focused=r[1] == "1", tiled=r[3] == "1",
-                           x=int(r[4]), y=int(r[5]), width=int(r[6]), height=int(r[7]),
-                           above=r[15] == "1")
-                for r in rows}
+        return {w.title: dict(workspace=w.workspace, focused=w.focused, tiled=w.tiled,
+                              x=w.x, y=w.y, width=w.width, height=w.height,
+                              above=w.above)
+                for w in desktop.windows()}
 
     def summary():
         return {t: (w["workspace"], w["tiled"]) for t, w in windows().items()}
@@ -49,11 +48,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     assert msg("session", "list") == ""
 
     for title in ("A", "B", "C"):
-        clients[title] = desktop.spawn([probe, "--window-only"],
-                                       env={"PAW_PROBE_TITLE": title,
-                                            "PAW_PROBE_APP_ID": f"app-{title.lower()}"})
-        desktop.wait_for(lambda: title in windows() and windows()[title]["focused"],
-                         f"{title} focused")
+        clients[title] = desktop.open_window(probe, title, f"app-{title.lower()}", focused=True)
     desktop.wait_for(lambda: all(w["tiled"] for w in windows().values()), "all tiled")
 
     # B goes to workspace 2, C floats, A stays; workspace 1 uses the master layout. B and C are

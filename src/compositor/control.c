@@ -5,6 +5,7 @@
 #include "server.h"
 
 #include <ctype.h>
+#include <stdarg.h>
 
 /* Control socket: one newline-terminated request per connection, answered with
  * "ok\n" plus any output, or "error: ...\n". Lives in the private runtime dir. */
@@ -19,9 +20,6 @@ struct sh_control_client {
     char request[4096]; // `monitors apply` names every monitor's settings
 };
 
-static int session_name_compare(const struct dirent **a, const struct dirent **b);
-static int session_name_filter(const struct dirent *entry);
-
 void control_reply(int fd, const char *text) {
     size_t length = strlen(text);
     while (length > 0) {
@@ -33,6 +31,21 @@ void control_reply(int fd, const char *text) {
         text += written;
         length -= (size_t)written;
     }
+}
+
+/* Answers "ok" for a request carried out, else "error: " and why. */
+static void reply_done(int fd, bool done, const char *error) {
+    char reply[PATH_MAX + 80];
+    snprintf(reply, sizeof(reply), done ? "ok\n" : "error: %s\n", error);
+    control_reply(fd, reply);
+}
+
+/* "session list"'s order and filter for scandir: the saved sessions by name. */
+static int session_name_compare(const struct dirent **a, const struct dirent **b) {
+    return strcmp((*a)->d_name, (*b)->d_name);
+}
+static int session_name_filter(const struct dirent *entry) {
+    return sh_session_valid_name(entry->d_name);
 }
 
 static void control_session(struct sh_server *server, int fd, const char *arguments) {
@@ -103,13 +116,10 @@ static void control_session(struct sh_server *server, int fd, const char *argume
 
 /* An output, enabled or not, by connector name. */
 static struct sh_output *sh_output_for_name(struct sh_server *server, const char *name) {
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        struct sh_output *output;
-        wl_list_for_each(output, lists[i], link) {
-            if (!strcmp(output->wlr_output->name, name))
-                return output;
-        }
+    struct sh_output *output;
+    for_each_connected_output(output, server) {
+        if (output_named(output, name))
+            return output;
     }
     return NULL;
 }
@@ -190,12 +200,11 @@ static void control_headless_output(struct sh_server *server, int fd, const char
     sscanf(args, "%*15s %*63s %n", &path_at);
     if (!strcmp(verb, "capture") && fields == 3 && path_at > 0) {
         struct sh_output *output = sh_output_for_name(server, first);
-        char error[PATH_MAX + 64], reply[PATH_MAX + 80];
+        char error[PATH_MAX + 64];
         if (!output)
             snprintf(error, sizeof(error), "no such output");
-        bool done = output && mirror_capture(output, args + path_at, error, sizeof(error));
-        snprintf(reply, sizeof(reply), done ? "ok\n" : "error: %s\n", error);
-        control_reply(fd, reply);
+        reply_done(fd, output && mirror_capture(output, args + path_at, error, sizeof(error)),
+                   error);
         return;
     }
     control_reply(fd, "error: usage: headless_output add [NAME] [WIDTHxHEIGHT] | remove NAME | "
@@ -206,11 +215,9 @@ static void control_headless_output(struct sh_server *server, int fd, const char
  * that is a whole number from 0 to 100, with an optional %, is the level; the shell hears
  * "osd OUTPUT PERCENT TEXT", the percent -1 for none. */
 static void control_osd(struct sh_server *server, int fd, const char *arguments) {
+    arguments += *arguments == ' ';
     char text[512];
-    snprintf(text, sizeof(text), "%s", arguments);
-    for (char *c = text; *c; ++c)
-        if (*c == '\n' || *c == '\r' || *c == '\t')
-            *c = ' ';
+    copy_field(text, sizeof(text), arguments);
     size_t length = strlen(text);
     while (length && text[length - 1] == ' ')
         text[--length] = '\0';
@@ -240,97 +247,97 @@ static void control_osd(struct sh_server *server, int fd, const char *arguments)
     control_reply(fd, "ok\n");
 }
 
+/* What follows `name` in a request that starts with it as a word, from the space after it; NULL
+ * for another request. */
+static const char *arguments_of(const char *request, const char *name) {
+    size_t length = strlen(name);
+    if (strncmp(request, name, length) || (request[length] && request[length] != ' '))
+        return NULL;
+    return request + length;
+}
+
+/* "dnd [on|off|toggle]": the shell's notification daemon stops or resumes its cards. */
+static void control_dnd(struct sh_server *server, int fd, const char *arguments) {
+    const char *verb = *arguments ? arguments + 1 : "toggle";
+    if (strcmp(verb, "on") && strcmp(verb, "off") && strcmp(verb, "toggle")) {
+        control_reply(fd, "error: usage: dnd [on|off|toggle]\n");
+        return;
+    }
+    char line[32];
+    snprintf(line, sizeof(line), "dnd %s\n", verb);
+    send_shell_line(server, line);
+    control_reply(fd, "ok\n");
+}
+
+/* "type TEXT": types TEXT into what has the keyboard (type.c). */
+static void control_type(struct sh_server *server, int fd, const char *arguments) {
+    char error[128];
+    reply_done(fd, type_text(server, arguments + (*arguments == ' '), error, sizeof(error)), error);
+}
+
+/* "overview filter [TEXT]", "overview select N" and "overview view N" (from 1) drive the open
+ * overview, as typing, arrows and the strip do. */
+static void control_overview(struct sh_server *server, int fd, const char *arguments) {
+    const char *verb = arguments + (*arguments == ' ');
+    const char *filter = arguments_of(verb, "filter"), *selection = arguments_of(verb, "select");
+    const char *view = arguments_of(verb, "view");
+    char *end = NULL;
+    long number = strtol(selection ? selection : view ? view : "", &end, 10);
+    bool whole = !*end && number >= 1;
+    if (!server->overview.open) {
+        control_reply(fd, "error: the overview is not open\n");
+    } else if (filter) {
+        overview_set_filter(server, filter + (*filter == ' '));
+        control_reply(fd, "ok\n");
+    } else if (selection && whole && number <= server->overview.count) {
+        overview_select(server, (int)number - 1);
+        control_reply(fd, "ok\n");
+    } else if (view && whole && number <= server->overview.workspaces) {
+        overview_view(server, (int)number - 1);
+        control_reply(fd, "ok\n");
+    } else {
+        control_reply(fd, "error: usage: overview filter [TEXT] | select N | view N\n");
+    }
+}
+
+/* The commands that are not actions, by name. Each hears the rest of the request from the space
+ * after its name ("" for the name alone), which sscanf and split_words skip. */
+static const struct {
+    const char *name;
+    void (*run)(struct sh_server *server, int fd, const char *arguments);
+} commands[] = {
+    {"headless_output", control_headless_output},
+    {"headless_pointer", control_headless_pointer},
+    {"headless_touch", control_headless_touch},
+    {"headless_tablet", control_headless_tablet},
+    {"headless_switch", control_headless_switch},
+    {"session", control_session},
+    {"dnd", control_dnd},
+    {"monitors", control_monitors},
+    {"osd", control_osd},
+    {"type", control_type},
+    {"overview", control_overview},
+};
+
 static void control_handle(struct sh_server *server, int fd, const char *request) {
     if (run_query(server, fd, request))
         return;
     // A test's keyboard types on the lock screen too, as any keyboard does.
-    if (!strncmp(request, "headless_keyboard", 17) && (!request[17] || request[17] == ' ')) {
-        control_headless_keyboard(server, fd, request + (request[17] ? 18 : 17));
+    const char *arguments = arguments_of(request, "headless_keyboard");
+    if (arguments) {
+        control_headless_keyboard(server, fd, arguments);
         return;
     }
     if (server->locked) {
         control_reply(fd, "error: the session is locked\n");
         return;
     }
-    if (!strncmp(request, "headless_output", 15) && (!request[15] || request[15] == ' ')) {
-        control_headless_output(server, fd, request + (request[15] ? 16 : 15));
-        return;
-    }
-    if (!strncmp(request, "headless_pointer", 16) && (!request[16] || request[16] == ' ')) {
-        control_headless_pointer(server, fd, request + (request[16] ? 17 : 16));
-        return;
-    }
-    if (!strncmp(request, "headless_touch", 14) && (!request[14] || request[14] == ' ')) {
-        control_headless_touch(server, fd, request + (request[14] ? 15 : 14));
-        return;
-    }
-    if (!strncmp(request, "headless_tablet", 15) && (!request[15] || request[15] == ' ')) {
-        control_headless_tablet(server, fd, request + (request[15] ? 16 : 15));
-        return;
-    }
-    if (!strncmp(request, "headless_switch", 15) && (!request[15] || request[15] == ' ')) {
-        control_headless_switch(server, fd, request + (request[15] ? 16 : 15));
-        return;
-    }
-    if (!strncmp(request, "session", 7) && (!request[7] || request[7] == ' ')) {
-        control_session(server, fd, request + 7);
-        return;
-    }
-    if (!strncmp(request, "dnd", 3) && (!request[3] || request[3] == ' ')) {
-        // "dnd [on|off|toggle]": the shell's notification daemon stops or resumes its cards.
-        const char *verb = request[3] ? request + 4 : "toggle";
-        if (strcmp(verb, "on") && strcmp(verb, "off") && strcmp(verb, "toggle")) {
-            control_reply(fd, "error: usage: dnd [on|off|toggle]\n");
+    for (size_t i = 0; i < sizeof(commands) / sizeof(*commands); ++i) {
+        arguments = arguments_of(request, commands[i].name);
+        if (arguments) {
+            commands[i].run(server, fd, arguments);
             return;
         }
-        char line[32];
-        snprintf(line, sizeof(line), "dnd %s\n", verb);
-        send_shell_line(server, line);
-        control_reply(fd, "ok\n");
-        return;
-    }
-    if (!strncmp(request, "monitors", 8) && (!request[8] || request[8] == ' ')) {
-        control_monitors(server, fd, request + 8);
-        return;
-    }
-    if (!strncmp(request, "osd", 3) && (!request[3] || request[3] == ' ')) {
-        control_osd(server, fd, request[3] ? request + 4 : "");
-        return;
-    }
-    if (!strncmp(request, "type", 4) && (!request[4] || request[4] == ' ')) {
-        // "type TEXT": types TEXT into what has the keyboard (type.c).
-        char error[128], line[160];
-        if (type_text(server, request[4] ? request + 5 : "", error, sizeof(error))) {
-            control_reply(fd, "ok\n");
-        } else {
-            snprintf(line, sizeof(line), "error: %s\n", error);
-            control_reply(fd, line);
-        }
-        return;
-    }
-    if (!strncmp(request, "overview ", 9) || !strcmp(request, "overview")) {
-        // "overview filter [TEXT]", "overview select N" and "overview view N" (from 1) drive
-        // the open overview, as typing, arrows and the strip do.
-        const char *verb = request + (request[8] ? 9 : 8);
-        char *end = NULL;
-        long number = strtol(verb + (!strncmp(verb, "select ", 7) ? 7 : !strncmp(verb, "view ", 5) ? 5 : 0), &end, 10);
-        if (!server->overview.open) {
-            control_reply(fd, "error: the overview is not open\n");
-        } else if (!strncmp(verb, "filter", 6) && (!verb[6] || verb[6] == ' ')) {
-            overview_set_filter(server, verb[6] ? verb + 7 : "");
-            control_reply(fd, "ok\n");
-        } else if (!strncmp(verb, "select ", 7) && end && !*end && number >= 1 &&
-                   number <= server->overview.count) {
-            overview_select(server, (int)number - 1);
-            control_reply(fd, "ok\n");
-        } else if (!strncmp(verb, "view ", 5) && end && !*end && number >= 1 &&
-                   number <= server->overview.workspaces) {
-            overview_view(server, (int)number - 1);
-            control_reply(fd, "ok\n");
-        } else {
-            control_reply(fd, "error: usage: overview filter [TEXT] | select N | view N\n");
-        }
-        return;
     }
     // "output NAME ACTION": workspace actions switch that output instead of the focused one.
     struct wlr_output *target = NULL;
@@ -341,10 +348,7 @@ static void control_handle(struct sh_server *server, int fd, const char *request
         snprintf(name, sizeof(name), "%.*s", length, request + 7);
         target = action ? find_output(server, name) : NULL;
         if (!target) {
-            char reply[128];
-            snprintf(reply, sizeof(reply), "error: %s\n",
-                     action ? "no such output" : "output needs a name and an action");
-            control_reply(fd, reply);
+            reply_done(fd, false, action ? "no such output" : "output needs a name and an action");
             return;
         }
         request = action + 1;
@@ -353,75 +357,37 @@ static void control_handle(struct sh_server *server, int fd, const char *request
     int argument = 0;
     enum sh_action action = server->callbacks->command(server->callbacks->userdata, request,
                                                        &argument, error, sizeof(error));
-    if (action == SH_NONE) {
-        char reply[300];
-        snprintf(reply, sizeof(reply), "error: %s\n", error[0] ? error : "unknown request");
-        control_reply(fd, reply);
-        return;
-    }
-    if (action == SH_SPAWN || action == SH_TERMINAL) {
-        // The caller hears why the program did not start, as the panel does.
-        if (!launch_program(server, action, error, sizeof(error))) {
-            char reply[300];
-            snprintf(reply, sizeof(reply), "error: %s\n", error);
-            control_reply(fd, reply);
-            return;
-        }
-        control_reply(fd, "ok\n");
-        return;
-    }
-    if (action == SH_SCREENSHOT) {
-        // Report why no screenshot started, such as grim missing, to the caller.
-        if (!take_screenshot(server, (enum sh_screenshot_mode)argument, error, sizeof(error))) {
-            char reply[300];
-            snprintf(reply, sizeof(reply), "error: %s\n", error);
-            control_reply(fd, reply);
-            return;
-        }
-        control_reply(fd, "ok\n");
-        return;
-    }
     xkb_layout_index_t layouts = server->keymap ? xkb_keymap_num_layouts(server->keymap) : 0;
-    if (action == SH_SWITCH_LAYOUT && argument > 0 && (xkb_layout_index_t)argument > layouts) {
-        char reply[96];
-        snprintf(reply, sizeof(reply), "error: the keymap has %u layout%s\n", layouts,
+    // The caller hears why an action did not start where it can be told: a program that did not
+    // start, as the panel does, a screenshot without grim, a power action logind does not allow,
+    // a display mode that cannot be had (one monitor alone) or a monitor that is not there.
+    bool done = false;
+    if (action == SH_NONE) {
+        if (!error[0])
+            snprintf(error, sizeof(error), "unknown request");
+    } else if (action == SH_SWITCH_LAYOUT && argument > 0 &&
+               (xkb_layout_index_t)argument > layouts) {
+        snprintf(error, sizeof(error), "the keymap has %u layout%s", layouts,
                  layouts == 1 ? "" : "s");
-        control_reply(fd, reply);
-        return;
-    }
-    if (power_action(action)) {
-        // The caller hears why it cannot start, such as logind not allowing it.
-        if (!power_start(server, action, error, sizeof(error))) {
-            char reply[300];
-            snprintf(reply, sizeof(reply), "error: %s\n", error);
-            control_reply(fd, reply);
-            return;
-        }
-        control_reply(fd, "ok\n");
-        return;
-    }
-    if (action == SH_DISPLAY_MODE) {
-        // The caller hears of a choice that cannot be had, such as one monitor alone.
-        bool done = display_mode_choose(server, argument, error, sizeof(error));
-        char reply[300];
-        snprintf(reply, sizeof(reply), done ? "ok\n" : "error: %s\n", error);
-        control_reply(fd, reply);
-        return;
-    }
-    if (display_action(action)) {
-        // The caller hears of a monitor that is not there.
+    } else if (action == SH_SPAWN || action == SH_TERMINAL) {
+        done = launch_program(server, action, error, sizeof(error));
+    } else if (action == SH_SCREENSHOT) {
+        done = take_screenshot(server, (enum sh_screenshot_mode)argument, error, sizeof(error));
+    } else if (power_action(action)) {
+        done = power_start(server, action, error, sizeof(error));
+    } else if (action == SH_DISPLAY_MODE) {
+        done = display_mode_choose(server, argument, error, sizeof(error));
+    } else {
         server->target_output = target;
-        bool done = display_power(server, action, error, sizeof(error));
+        if (display_action(action)) {
+            done = display_power(server, action, error, sizeof(error));
+        } else {
+            run_action(server, action, argument);
+            done = true;
+        }
         server->target_output = NULL;
-        char reply[300];
-        snprintf(reply, sizeof(reply), done ? "ok\n" : "error: %s\n", error);
-        control_reply(fd, reply);
-        return;
     }
-    server->target_output = target;
-    run_action(server, action, argument);
-    server->target_output = NULL;
-    control_reply(fd, "ok\n");
+    reply_done(fd, done, error);
 }
 
 static void control_client_close(struct sh_control_client *client) {
@@ -433,7 +399,7 @@ static void control_client_close(struct sh_control_client *client) {
 }
 
 /* Removes a multi-byte character cut short at the end of `text`, as snprintf leaves one. */
-static void drop_partial_utf8(char *text) {
+void drop_partial_utf8(char *text) {
     size_t length = strlen(text), start = length;
     while (start > 0 && ((unsigned char)text[start - 1] & 0xC0) == 0x80)
         --start;
@@ -447,6 +413,34 @@ static void drop_partial_utf8(char *text) {
         text[start - 1] = '\0';
 }
 
+/* Makes the tabs and line breaks in `text` spaces, so that it stays one column of one line. */
+void flatten_field(char *text) {
+    for (char *c = text; *c; ++c)
+        if (*c == '\t' || *c == '\n' || *c == '\r')
+            *c = ' ';
+}
+
+/* Copies `text` (none for NULL) into `out` as flatten_field leaves it. */
+void copy_field(char *out, size_t size, const char *text) {
+    snprintf(out, size, "%s", text ? text : "");
+    flatten_field(out);
+}
+
+/* Adds to `text`, `size` bytes of which `*length` are used, as snprintf would; `*length` counts
+ * what did not fit too, so that nothing more is added once one part did not. */
+static void append(char *text, size_t size, size_t *length, const char *format, ...)
+    __attribute__((format(printf, 4, 5)));
+static void append(char *text, size_t size, size_t *length, const char *format, ...) {
+    if (*length >= size)
+        return;
+    va_list arguments;
+    va_start(arguments, format);
+    int added = vsnprintf(text + *length, size - *length, format, arguments);
+    va_end(arguments);
+    if (added > 0)
+        *length += (size_t)added;
+}
+
 /* The state subscribers get: "tiling on|off", "workspace N" and "focused NAME" for the focused
  * output, and "output NAME N USED TILING" for each output, with its current workspace, those
  * holding windows ("1,3", or "-"), and whether it tiles ("on" or "off"); then the urgent
@@ -454,18 +448,17 @@ static void drop_partial_utf8(char *text) {
  * that may run. */
 static void describe_state(struct sh_server *server, char *state, size_t size) {
     struct wlr_output *focused = focused_output(server);
-    size_t length = snprintf(state, size, "tiling %s\nworkspace %d\nfocused %s\n",
-                             output_tiles(server, focused) ? "on" : "off",
-                             focused_workspace(server), focused ? focused->name : "-");
+    size_t length = 0;
+    append(state, size, &length, "tiling %s\nworkspace %d\nfocused %s\n",
+           output_tiles(server, focused) ? "on" : "off", focused_workspace(server),
+           focused ? focused->name : "-");
     struct sh_output *output;
     wl_list_for_each_reverse(output, &server->outputs, link) {
         char used[128];
         occupied_workspaces(server, output->wlr_output, used, sizeof(used));
-        if (length < size)
-            length += snprintf(state + length, size - length, "output %s %d %s %s\n",
-                               output->wlr_output->name,
-                               *output_workspace(server, output->wlr_output->name) + 1, used,
-                               output_tiles(server, output->wlr_output) ? "on" : "off");
+        append(state, size, &length, "output %s %d %s %s\n", output->wlr_output->name,
+               *output_workspace(server, output->wlr_output->name) + 1, used,
+               output_tiles(server, output->wlr_output) ? "on" : "off");
     }
     // "urgent COUNT", then "urgent-output NAME 2,3" for each output with urgent windows, the
     // workspaces they are on, and "urgent-window OUTPUT WORKSPACE APP_ID TITLE" (tab separated
@@ -473,8 +466,7 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
     unsigned count = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) count += toplevel->urgent;
-    if (length < size)
-        length += snprintf(state + length, size - length, "urgent %u\n", count);
+    append(state, size, &length, "urgent %u\n", count);
     wl_list_for_each_reverse(output, &server->outputs, link) {
         unsigned used = 0;
         wl_list_for_each(toplevel, &server->toplevels, link) {
@@ -482,17 +474,16 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
                 !strcmp(toplevel->output, output->wlr_output->name))
                 used |= 1u << toplevel->workspace;
         }
-        if (!used || length >= size)
+        if (!used)
             continue;
-        length += snprintf(state + length, size - length, "urgent-output %s", output->wlr_output->name);
-        for (int i = 0, first = 1; i < 32 && length < size; ++i) {
+        append(state, size, &length, "urgent-output %s", output->wlr_output->name);
+        for (int i = 0, first = 1; i < 32; ++i) {
             if (used & 1u << i) {
-                length += snprintf(state + length, size - length, "%s%d", first ? " " : ",", i + 1);
+                append(state, size, &length, "%s%d", first ? " " : ",", i + 1);
                 first = 0;
             }
         }
-        if (length < size)
-            length += snprintf(state + length, size - length, "\n");
+        append(state, size, &length, "\n");
     }
     unsigned last = 0;
     for (unsigned listed = 0; listed < count && listed < 16 && length < size; ++listed) {
@@ -508,62 +499,43 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
         // The title as the taskbar has it (the shell finds the window by it), cut short at a
         // character boundary.
         char app_id[64], title[256];
-        const char *raw_app_id = toplevel_app_id(next), *raw_title = toplevel_title(next);
-        snprintf(app_id, sizeof(app_id), "%s", raw_app_id ? raw_app_id : "");
-        snprintf(title, sizeof(title), "%s", raw_title ? raw_title : "Untitled");
+        const char *raw_title = toplevel_title(next);
+        copy_field(app_id, sizeof(app_id), toplevel_app_id(next));
+        copy_field(title, sizeof(title), raw_title ? raw_title : "Untitled");
         drop_partial_utf8(title);
-        for (char *c = app_id; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-        for (char *c = title; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-        length += snprintf(state + length, size - length, "urgent-window %s\t%d\t%s\t%s\n",
-                           next->output, next->workspace + 1, app_id, title);
+        append(state, size, &length, "urgent-window %s\t%d\t%s\t%s\n", next->output,
+               next->workspace + 1, app_id, title);
     }
     // "keyboard-layout N COUNT SHORT NAME": the active keyboard layout (from 1) of how many,
     // its short name ("us") and its name ("English (US)").
-    if (server->keymap && length < size) {
+    if (server->keymap) {
         char code[32], name[256];
         layout_short_name(server, server->keyboard_layout, code, sizeof(code));
         const char *full = xkb_keymap_layout_get_name(server->keymap, server->keyboard_layout);
-        snprintf(name, sizeof(name), "%s", full ? full : "");
+        copy_field(name, sizeof(name), full);
         drop_partial_utf8(name);
-        for (char *c = name; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-        length += snprintf(state + length, size - length, "keyboard-layout %u %u %s %s\n",
-                           server->keyboard_layout + 1, xkb_keymap_num_layouts(server->keymap), code,
-                           name);
+        append(state, size, &length, "keyboard-layout %u %u %s %s\n", server->keyboard_layout + 1,
+               xkb_keymap_num_layouts(server->keymap), code, name);
     }
     // "mode NAME": the binding mode in use, "default" outside any.
-    if (length < size)
-        length += snprintf(state + length, size - length, "mode %s\n", binding_mode(server));
+    append(state, size, &length, "mode %s\n", binding_mode(server));
     // "night-light ACTIVE MODE": whether the screen is warmed now ("on" or "off"), and whether
     // the schedule decides ("auto") or an override holds it "on" or "off".
-    if (length < size)
-        length += snprintf(state + length, size - length, "night-light %s %s\n",
-                           server->night_kelvin < SH_KELVIN_NEUTRAL ? "on" : "off",
-                           server->night_mode == SH_NIGHT_ON    ? "on"
-                           : server->night_mode == SH_NIGHT_OFF ? "off"
-                                                                : "auto");
+    append(state, size, &length, "night-light %s %s\n",
+           server->night_kelvin < SH_KELVIN_NEUTRAL ? "on" : "off",
+           server->night_mode == SH_NIGHT_ON    ? "on"
+           : server->night_mode == SH_NIGHT_OFF ? "off"
+                                                : "auto");
     // "locked on|off": whether the session is locked, for the shell to record nothing then.
-    if (length < size)
-        length += snprintf(state + length, size - length, "locked %s\n",
-                           server->locked ? "on" : "off");
+    append(state, size, &length, "locked %s\n", server->locked ? "on" : "off");
     // "power ACTIONS": the power actions that may run, as "lock,suspend,poweroff", or "-".
-    if (length < size) {
-        char actions[128];
-        power_available(server, actions, sizeof(actions));
-        snprintf(state + length, size - length, "power %s\n", actions);
-    }
+    char actions[128];
+    power_available(server, actions, sizeof(actions));
+    append(state, size, &length, "power %s\n", actions);
 }
 
-/* Subscribers get the state after each change, and "launcher OUTPUT" or "palette OUTPUT" when a binding
- * asks the shell for its application menu or command palette; a subscriber that cannot keep up is dropped rather than
- * blocking the compositor. */
-static bool control_send_state(struct sh_control_client *client, const char *state) {
-    size_t length = strlen(state);
-    return send(client->fd, state, length, MSG_NOSIGNAL | MSG_DONTWAIT) == (ssize_t)length;
-}
-
+/* Subscribers get the state after each change, and "launcher OUTPUT" or "palette OUTPUT" when a
+ * binding asks the shell for its application menu or command palette. */
 void notify_subscribers(struct sh_server *server) {
     overview_touch(server, true); // a change of windows or workspaces, when it is open
     window_objects_changed(server);
@@ -572,14 +544,11 @@ void notify_subscribers(struct sh_server *server) {
     if (!strcmp(state, server->sent_state))
         return;
     strcpy(server->sent_state, state);
-    struct sh_control_client *client, *temporary;
-    wl_list_for_each_safe(client, temporary, &server->subscribers, link) {
-        if (!control_send_state(client, state))
-            control_client_close(client);
-    }
+    send_event(server, state, strlen(state));
 }
 
-/* Sends every subscriber an event, such as a request for the shell. */
+/* Sends every subscriber an event, such as a request for the shell. A subscriber that cannot keep
+ * up is dropped rather than blocking the compositor. */
 void send_event(struct sh_server *server, const char *text, size_t length) {
     struct sh_control_client *client, *temporary;
     wl_list_for_each_safe(client, temporary, &server->subscribers, link) {
@@ -630,23 +599,12 @@ void report_failure(struct sh_server *server, const char *event, const char *tex
     int start = snprintf(line, sizeof(line), "%s ", event);
     if (start < 0 || (size_t)start + 2 > sizeof(line))
         return;
-    snprintf(line + start, sizeof(line) - (size_t)start - 1, "%s", text); // room for "\n"
+    copy_field(line + start, sizeof(line) - (size_t)start - 1, text); // room for "\n"
     drop_partial_utf8(line);
     line[start] = (char)toupper((unsigned char)line[start]);
-    for (char *c = line + start; *c; ++c)
-        if (*c == '\n' || *c == '\r' || *c == '\t')
-            *c = ' ';
     wlr_log(WLR_ERROR, "%s", line + start);
     strcat(line, "\n");
     send_shell_line(server, line);
-}
-
-void request_launcher(struct sh_server *server) {
-    request_shell(server, "launcher");
-}
-
-void request_palette(struct sh_server *server) {
-    request_shell(server, "palette");
 }
 
 /* "taskbar OUTPUT": the panel on the focused output, the one the keyboard was typing on, takes
@@ -684,10 +642,10 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
         client->subscribed = true;
         client->shell = client->request[9] != '\0';
         wl_list_insert(&client->server->subscribers, &client->link);
-        char state[sizeof(client->server->sent_state)];
-        describe_state(client->server, state, sizeof(state));
-        if (send(fd, "ok\n", 3, MSG_NOSIGNAL | MSG_DONTWAIT) != 3 ||
-            !control_send_state(client, state))
+        char state[3 + sizeof(client->server->sent_state)] = "ok\n";
+        describe_state(client->server, state + 3, sizeof(state) - 3);
+        size_t length = strlen(state);
+        if (send(fd, state, length, MSG_NOSIGNAL | MSG_DONTWAIT) != (ssize_t)length)
             control_client_close(client);
         return 0;
     }
@@ -762,11 +720,4 @@ void close_control_socket(struct sh_server *server) {
         close(server->control_fd);
     if (server->control_path[0])
         unlink(server->control_path);
-}
-
-static int session_name_compare(const struct dirent **a, const struct dirent **b) {
-    return strcmp((*a)->d_name, (*b)->d_name);
-}
-static int session_name_filter(const struct dirent *entry) {
-    return sh_session_valid_name(entry->d_name);
 }

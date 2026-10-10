@@ -39,10 +39,10 @@ all. In short:
 | --- | --- |
 | `server.c` | Startup (creating every wlroots global and listener), shutdown, config reload, signals. |
 | `server.h` | The shared types (`sh_server`, `sh_output`, `sh_toplevel`, ...) and, under a `/* file.c */` heading, every function one file calls in another. |
-| `actions.c` | `run_action`: one `case` per action, handing it to the module that does it. |
+| `actions.c` | `run_action`: one `case` per action, handing it to the module that does it, and `shell_actions`, those the shell carries out. |
 | `control.c` | The control socket: reading requests, commands that are not actions, subscribers and shell events. |
 | `query.c` | `paw msg get ...`: one function per query, and the table that names them. |
-| `headless_input.c` | Input devices without hardware for tests under `--headless`: pointers that move and make touchpad gestures, touchscreens, and drawing tablets with a pen, an eraser and a pad. |
+| `headless_input.c` | Input devices without hardware for tests under `--headless`: keyboards, pointers that move and make touchpad gestures, touchscreens, drawing tablets with a pen, an eraser and a pad, and lid and tablet-mode switches. |
 | `input.c` | Keyboards, key bindings, pointers' libinput settings, virtual devices, selection and drag-and-drop. |
 | `input_method.c` | Input methods (fcitx5, ibus): text-input-v3 and input-method-v2 relayed between the application with the keyboard and the input method, its keyboard grab, and its popups beside the text cursor. |
 | `keymap.c` | The keymap from the keyboard settings, given to every keyboard but virtual ones. |
@@ -428,7 +428,7 @@ workspaces as when it is unplugged. `apply_lid` configures the built-in panels a
 the outputs and windows when one changed, as the lid changes and after an output is added or
 destroyed (before an empty layout would end a nested or headless session). Each toggle counts
 as input and runs the binding `sh_callbacks.switch_toggled` returns. Under `--headless`,
-`headless_switch` adds switches for the tests (`lid_smoke`).
+`headless_switch` adds switches for the tests (`headless_input.c`, `lid_smoke`).
 
 ## The shell (`shell/`)
 
@@ -901,7 +901,8 @@ wallpaper it sets for the others, so that the macOS style's drawn one shows).
 theme of each style (`light`, `dark`, `macos-light`, `macos-dark`), both with the software renderer (`light-launcher.png`) and through the GPU
 (`light-launcher-gpu.png`: Qt's OpenGL on Mesa's software implementation, in a private headless
 compositor), in about ten seconds; `--renderer`, `--theme` and `--popup` narrow it down. Nothing
-touches the session it runs in. The `shell_gallery` test runs it and fails on any QML warning.
+touches the session it runs in. The `shell_gallery` test runs it, with `--no-animations` and a
+`--wait` of 150 ms a picture, where 400 is the default, and fails on any QML warning.
 
 ## Recipes
 
@@ -915,8 +916,9 @@ touches the session it runs in. The `shell_gallery` test runs it and fails on an
    with "takes no argument". One that starts a program goes through the `launch` callback
    there, as `spawn` and `terminal` do, so a failure reaches the panel.
 4. Add a `case` to `run_action` in `src/compositor/actions.c` that calls the module doing the
-   work. If it acts on the window under the pointer when bound to a button, list it in
-   `action_targets_window` in `cursor.c`.
+   work, or, for one the shell carries out alone, a line or a request for it in
+   `shell_actions` there. If it acts on the window under the pointer when bound to a button,
+   list it in `action_targets_window` in `cursor.c`.
 5. Mention it in `README.md` or `docs/features.md`. The `docs_consistency` test fails until
    you do.
 
@@ -938,8 +940,10 @@ often wants one.
 
 ### A new control command that is not an action
 
-Handle it in `control_handle` in `src/compositor/control.c`, after the session-lock check,
-following `dnd` or `osd`.
+Write `static void control_<name>(struct sh_server *server, int fd, const char *arguments)` in
+`src/compositor/control.c`, following `control_dnd` or `control_osd`, and add it to `commands[]`
+there. `arguments` is the rest of the request from the space after the name, "" for the name
+alone. Commands answer only while the session is unlocked.
 
 ### A new Wayland protocol or global
 
@@ -965,20 +969,27 @@ whether it has, for something the compositor does another way without it, as the
 
 ### A new test
 
-- A pure function: a unit test next to the others in `tests/*_tests.c(pp)`, registered with
-  `add_executable` and `add_test` in `CMakeLists.txt`.
+- A pure function: a unit test next to the others in `tests/*_tests.c(pp)`, registered in
+  `CMakeLists.txt` with `paw_unit_test(NAME)` for `tests/NAME_tests.cpp` (linked to `paw_config`)
+  or `paw_c_unit_test(NAME)` for `tests/NAME_tests.c` with `src/NAME.c`; `tests/check.h` has its
+  `CHECK` and `NEAR`, and `tests/config_check.hpp` a configuration test's `require`, `error_of`
+  and `rejects`.
 - Compositor behavior: a smoke test, `tests/<name>_smoke.py`. Copy a short one such as
   `sticky_smoke.py`. `with harness.Compositor(compositor, CONFIG) as desktop:` starts a headless
   compositor with the pixman renderer in a temporary `XDG_RUNTIME_DIR`; open windows with
-  `desktop.spawn([probe, ...])` (`wayland_probe` or `x11_probe`), drive it with `desktop.msg`,
-  and read the state back with `get` queries (`desktop.rows("windows")`). On the way out it ends
-  every client, checks that the compositor exits cleanly, and prints the logs if the test
-  failed. Wait with `desktop.wait_for`, never with a fixed sleep; to check that something does
-  not happen, which an animation or a client's commit could do a little later, use
-  `desktop.stays`. Register it with `add_test` and a `TIMEOUT` under
-  `PAW_BUILD_COMPOSITOR` in `CMakeLists.txt`. A temporary directory's prefix stays at 26
-  characters or fewer: the control socket goes in it, a Unix socket's path is limited to about
-  107 bytes, and a Gentoo package build runs the tests in a `TMPDIR` of 43 characters or more.
+  `desktop.open_window(wayland_probe, TITLE)`, or other clients (`x11_probe`) with
+  `desktop.spawn([probe, ...])`, drive it with `desktop.msg` (and `desktop.keyboard()`,
+  `desktop.virtual_pointer(pointer_probe, ...)`), reload it with `desktop.reload(LUA)`, and read
+  the state back with `get` queries (`desktop.windows()` names the columns of `get windows`,
+  `desktop.rows(NAME)` splits any) and what subscribers hear with `desktop.subscribe()`. On the
+  way out it ends every client, checks that the compositor exits cleanly, and prints the logs if
+  the test failed. Wait with `desktop.wait_for`, never with a fixed sleep; to check that
+  something does not happen, which an animation or a client's commit could do a little later,
+  use `desktop.stays`. Register it with `paw_smoke(NAME ARGUMENTS...)` (and `TIMEOUT SECONDS`
+  for more than a minute) under `PAW_BUILD_COMPOSITOR` in `CMakeLists.txt`. A temporary
+  directory's prefix stays at 26 characters or fewer: the control socket goes in it, a Unix
+  socket's path is limited to about 107 bytes, and a Gentoo package build runs the tests in a
+  `TMPDIR` of 43 characters or more.
   Under `--headless`, `paw msg headless_output`, `headless_keyboard`, `headless_pointer`
   and `headless_touch` plug in outputs, keyboards, pointers and touchscreens
   (`headless_keyboard key NAME CODE press` types on one, see `keymap_smoke.py`;
@@ -1000,7 +1011,8 @@ those headless outputs refuse a 10-bit render format, as a monitor without one d
 `PAW_TEST_TRIAL_MS` shortens a display settings trial, and `PAW_TEST_REFUSE_MODE=WxH`
 and `PAW_TEST_REFUSE_COMMIT=WxH` make headless outputs refuse that size in the display
 settings' test, or in `configure_output`'s as if the commit failed (see
-`display_settings_smoke.py`).
+`display_settings_smoke.py`). `PAW_TEST_LOCK_TIMEOUT_MS` shortens the time a locker gets to
+lock the screen before a suspend gives up (see `power_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless

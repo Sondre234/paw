@@ -7,11 +7,14 @@
  * free or forgotten one for a name not seen before. */
 int output_slot(struct sh_server *server, const char *name) {
     int count = sizeof(server->output_workspaces) / sizeof(server->output_workspaces[0]);
+    for (int i = 0; i < count; ++i) {
+        if (!strcmp(server->output_workspaces[i].name, name))
+            return i;
+    }
+    // Every window's visibility comes here, so only a new name looks for outputs that are gone.
     int unused = -1, gone = -1;
     for (int i = 0; i < count; ++i) {
         const char *known = server->output_workspaces[i].name;
-        if (!strcmp(known, name))
-            return i;
         if (!known[0] && unused < 0)
             unused = i;
         else if (known[0] && gone < 0 && !find_output(server, known))
@@ -84,8 +87,7 @@ struct wlr_output *focused_output(struct sh_server *server) {
         return server->target_output;
     struct wlr_output *output = find_output(server, server->active_output);
     if (!output)
-        output = wlr_output_layout_output_at(server->output_layout, server->cursor->x,
-                                             server->cursor->y);
+        output = pointer_output(server);
     return output ? output : first_output(server);
 }
 
@@ -108,11 +110,7 @@ void set_toplevel_output(struct sh_toplevel *toplevel, struct wlr_output *output
 /* Floating windows belong to the output their centre is on, wherever they were moved from:
  * the pointer, a snap, or the client. Tiles belong to the output of their tiling. */
 void follow_output(struct sh_toplevel *toplevel) {
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return;
-#endif
-    if (toplevel->tiled || !toplevel_mapped(toplevel))
+    if (toplevel->unmanaged || toplevel->tiled || !toplevel_mapped(toplevel))
         return;
     struct wlr_box box = toplevel_box(toplevel);
     set_toplevel_output(toplevel, wlr_output_layout_output_at(toplevel->server->output_layout,

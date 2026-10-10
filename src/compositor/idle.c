@@ -86,8 +86,7 @@ static void dim_to(struct sh_server *server, double target) {
                                                          : DIM_FADE_OUT_MS;
     sh_fade_to(&idle->fade, target, now_ms(), duration);
     tick_idle(server);
-    struct sh_output *output;
-    wl_list_for_each(output, &server->outputs, link) wlr_output_schedule_frame(output->wlr_output);
+    schedule_frames(server);
 }
 
 static void take_step(struct sh_server *server, enum sh_idle_step step) {
@@ -138,7 +137,8 @@ static void idle_update(struct sh_server *server) {
             wl_event_source_timer_update(idle->timer, 0);
         return;
     }
-    const struct sh_idle_steps *steps = idle_steps(server, &idle->on_battery);
+    bool battery;
+    const struct sh_idle_steps *steps = idle_steps(server, &battery);
     int64_t idle_for = now_ms() - idle->last_input;
     for (int step = 0; step < SH_IDLE_STEPS; ++step) {
         int timeout = idle_step_timeout(steps, step, NULL);

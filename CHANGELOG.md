@@ -492,6 +492,17 @@ shadows.
   asking for it) has the keyboard once the drag ends, instead of the window the drag came from,
   and a click right after a drop, without moving, reaches the window under the pointer. A drag
   over the top edge of a window paw decorates goes to the window rather than nowhere.
+- A switch's binding to the mode action (`{ switch = "lid", state = "close", action = "mode",
+  mode = "resize" }`) enters the mode it names, where it entered the default one.
+- A configuration error in a table inside another points at its own line, where it pointed at
+  the first setting of that name anywhere in the file (`shell.thumbnails.delay` at
+  `hot_corners.delay`). Those in `windows.swallow`, `windows.magnet`, `windows.snap`,
+  `windows.shadow` and `shell.panel_margin` name the table too: `windows.magnet.distance must be
+  between 0 and 200`, not `windows.distance`.
+- An error in an entry of `outputs.monitors`, `layout.outputs`, `windows.rules`, `bindings` or a
+  mode names the entry, as `windows.rules[2].opacity` or `outputs.monitors["DP-1"].transform`,
+  where it named a setting outside it (`windows.opacity`, `outputs.transform`) and pointed at
+  that setting's line when the file had one.
 
 ## 0.1.1 (2026-10-05)
 

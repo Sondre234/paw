@@ -14,7 +14,8 @@
  *   tool wheel DEGREES CLICKS | tool button CODE pressed|released | tool frame
  *   pad enter | pad leave | pad button N pressed|released
  * (pressure, distance and the slider in 65535ths). Usage: input_probe [--no-gestures]
- * [--no-touch] [--no-tablet] [--layer] [--overlay] [--keys] [--inhibit] [--commands] [TITLE]:
+ * [--no-touch] [--no-tablet] [--layer] [--overlay] [--keys] [--inhibit] [--commands]
+ * [--text-input [--no-enable]] [TITLE]:
  * without the gestures, touch or tablets it never binds them, as most applications; with --layer
  * it is a panel along the bottom of the output, 60 pixels high, rather than a window, and with
  * --overlay such a panel on the overlay layer, as the shell's overlays are. --keys prints the
@@ -25,11 +26,23 @@
  * the compositor says of it:
  *   shortcuts active | shortcuts inactive
  * --commands reads lines on standard input: "inhibit" asks for the shortcuts, "release" lets
- * them go (destroying the inhibitor). */
+ * them go (destroying the inhibitor).
+ *
+ * With --text-input it is instead a window that takes text through text-input-unstable-v3, as
+ * GTK and Qt applications do, for the input method tests, and hears no pointer, gestures, touch
+ * or tablet. As its text input enters the window it enables it (unless --no-enable), with
+ * surrounding text, a content type and the text cursor's rectangle, and prints what it hears:
+ *   enter | leave | preedit TEXT BEGIN END | commit TEXT | delete BEFORE AFTER | done
+ *   key CODE pressed|released (the wl_keyboard's, an evdev code)
+ * (TEXT "-" for none). Lines on standard input change what it tells: "enable" and "disable",
+ * "surrounding TEXT" (the cursor at its end), "cursor X Y WIDTH HEIGHT", each committed at once.
+ * With --overlay it is a search field on the overlay layer, as the shell's start menu is, 400 by
+ * 60 pixels at the top of the output and taking the keyboard. */
 #define _GNU_SOURCE
 #include "keyboard-shortcuts-inhibit-unstable-v1-client-protocol.h"
 #include "pointer-gestures-unstable-v1-client-protocol.h"
 #include "tablet-v2-client-protocol.h"
+#include "text-input-unstable-v3-client-protocol.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
 #include <poll.h>
@@ -73,6 +86,13 @@ struct probe {
     struct zwp_keyboard_shortcuts_inhibit_manager_v1 *inhibit_manager;
     struct zwp_keyboard_shortcuts_inhibitor_v1 *inhibitor;
     bool inhibit; // --inhibit: ask for the shortcuts once ready
+    // --text-input: the text input, whether it enables itself as it enters, and what it tells.
+    bool text;
+    struct zwp_text_input_manager_v3 *text_manager;
+    struct zwp_text_input_v3 *text_input;
+    bool enable_on_enter;
+    char surrounding[256];
+    int cursor[4];
 };
 
 static void die(const char *message) {
@@ -344,11 +364,15 @@ static void keyboard_keymap(void *data, struct wl_keyboard *keyboard, uint32_t f
 }
 static void keyboard_enter(void *data, struct wl_keyboard *keyboard, uint32_t serial,
                            struct wl_surface *surface, struct wl_array *keys) {
-    say("keyboard enter");
+    struct probe *probe = data;
+    if (!probe->text)
+        say("keyboard enter");
 }
 static void keyboard_leave(void *data, struct wl_keyboard *keyboard, uint32_t serial,
                            struct wl_surface *surface) {
-    say("keyboard leave");
+    struct probe *probe = data;
+    if (!probe->text)
+        say("keyboard leave");
 }
 static void keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t time,
                          uint32_t key, uint32_t state) {
@@ -374,6 +398,61 @@ static void inhibitor_inactive(void *data, struct zwp_keyboard_shortcuts_inhibit
 }
 static const struct zwp_keyboard_shortcuts_inhibitor_v1_listener inhibitor_listener = {
     .active = inhibitor_active, .inactive = inhibitor_inactive};
+
+/* Enables the text input with what the probe tells of its text, or disables it. */
+static void enable(struct probe *probe, bool on) {
+    if (on) {
+        zwp_text_input_v3_enable(probe->text_input);
+        size_t length = strlen(probe->surrounding);
+        zwp_text_input_v3_set_surrounding_text(probe->text_input, probe->surrounding,
+                                               (int32_t)length, (int32_t)length);
+        zwp_text_input_v3_set_text_change_cause(probe->text_input,
+                                                ZWP_TEXT_INPUT_V3_CHANGE_CAUSE_OTHER);
+        zwp_text_input_v3_set_content_type(probe->text_input,
+                                           ZWP_TEXT_INPUT_V3_CONTENT_HINT_SPELLCHECK,
+                                           ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NORMAL);
+        zwp_text_input_v3_set_cursor_rectangle(probe->text_input, probe->cursor[0],
+                                               probe->cursor[1], probe->cursor[2],
+                                               probe->cursor[3]);
+    } else {
+        zwp_text_input_v3_disable(probe->text_input);
+    }
+    zwp_text_input_v3_commit(probe->text_input);
+}
+
+static void text_enter(void *data, struct zwp_text_input_v3 *text_input,
+                       struct wl_surface *surface) {
+    struct probe *probe = data;
+    say("enter");
+    if (probe->enable_on_enter)
+        enable(probe, true);
+}
+static void text_leave(void *data, struct zwp_text_input_v3 *text_input,
+                       struct wl_surface *surface) {
+    say("leave");
+}
+static void text_preedit(void *data, struct zwp_text_input_v3 *text_input, const char *text,
+                         int32_t begin, int32_t end) {
+    say("preedit %s %d %d", text ? text : "-", begin, end);
+}
+static void text_commit(void *data, struct zwp_text_input_v3 *text_input, const char *text) {
+    say("commit %s", text ? text : "-");
+}
+static void text_delete(void *data, struct zwp_text_input_v3 *text_input, uint32_t before,
+                        uint32_t after) {
+    say("delete %u %u", before, after);
+}
+static void text_done(void *data, struct zwp_text_input_v3 *text_input, uint32_t serial) {
+    say("done");
+}
+static const struct zwp_text_input_v3_listener text_input_listener = {
+    .enter = text_enter,
+    .leave = text_leave,
+    .preedit_string = text_preedit,
+    .commit_string = text_commit,
+    .delete_surrounding_text = text_delete,
+    .done = text_done,
+};
 
 /* Asks for the compositor's shortcuts on the probe's surface, or lets them go. */
 static void inhibit(struct probe *probe, bool on) {
@@ -401,7 +480,7 @@ static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t capabil
         wl_touch_release(probe->touch);
         probe->touch = NULL;
     }
-    if ((capabilities & WL_SEAT_CAPABILITY_POINTER) && !probe->pointer) {
+    if ((capabilities & WL_SEAT_CAPABILITY_POINTER) && !probe->pointer && !probe->text) {
         probe->pointer = wl_seat_get_pointer(seat);
         wl_pointer_add_listener(probe->pointer, &pointer_listener, probe);
         if (probe->gestures && probe->want_gestures) {
@@ -447,6 +526,9 @@ static void global(void *data, struct wl_registry *registry, uint32_t name, cons
     } else if (!strcmp(interface, zwp_keyboard_shortcuts_inhibit_manager_v1_interface.name)) {
         probe->inhibit_manager = wl_registry_bind(
             registry, name, &zwp_keyboard_shortcuts_inhibit_manager_v1_interface, 1);
+    } else if (!strcmp(interface, zwp_text_input_manager_v3_interface.name)) {
+        probe->text_manager =
+            wl_registry_bind(registry, name, &zwp_text_input_manager_v3_interface, 1);
     } else if (!strcmp(interface, zwp_pointer_gestures_v1_interface.name)) {
         probe->gestures_version = version < 3 ? version : 3;
         probe->gestures = wl_registry_bind(registry, name, &zwp_pointer_gestures_v1_interface,
@@ -466,7 +548,7 @@ static struct wl_buffer *make_buffer(struct probe *probe) {
     if (pixels == MAP_FAILED)
         die("cannot map a buffer");
     for (size_t i = 0; i < size / 4; ++i)
-        pixels[i] = 0xff6a8f3c;
+        pixels[i] = probe->text ? 0xfff4f1e8 : 0xff6a8f3c;
     munmap(pixels, size);
     struct wl_shm_pool *pool = wl_shm_create_pool(probe->shm, fd, (int32_t)size);
     struct wl_buffer *buffer = wl_shm_pool_create_buffer(pool, 0, probe->width, probe->height,
@@ -525,10 +607,34 @@ static void layer_closed(void *data, struct zwlr_layer_surface_v1 *layer) { exit
 static const struct zwlr_layer_surface_v1_listener layer_listener = {.configure = layer_configure,
                                                                      .closed = layer_closed};
 
+static void run_command(struct probe *probe, char *command) {
+    if (!strcmp(command, "inhibit") || !strcmp(command, "release")) {
+        inhibit(probe, !strcmp(command, "inhibit"));
+    } else if (probe->text && (!strcmp(command, "enable") || !strcmp(command, "disable"))) {
+        enable(probe, command[0] == 'e');
+    } else if (probe->text && !strncmp(command, "surrounding ", 12)) {
+        snprintf(probe->surrounding, sizeof(probe->surrounding), "%.255s", command + 12);
+        enable(probe, true);
+    } else if (probe->text && !strncmp(command, "cursor ", 7)) {
+        if (sscanf(command + 7, "%d %d %d %d", &probe->cursor[0], &probe->cursor[1],
+                   &probe->cursor[2], &probe->cursor[3]) != 4)
+            die("usage: cursor X Y WIDTH HEIGHT");
+        enable(probe, true);
+    } else {
+        die("unknown command");
+    }
+}
+
 int main(int argc, char **argv) {
-    struct probe probe = {
-        .want_gestures = true, .want_touch = true, .want_tablet = true, .width = 400, .height = 300};
-    const char *title = "input probe";
+    struct probe probe = {.want_gestures = true,
+                          .want_touch = true,
+                          .want_tablet = true,
+                          .width = 400,
+                          .height = 300,
+                          .enable_on_enter = true,
+                          .surrounding = "hello",
+                          .cursor = {40, 50, 2, 20}};
+    const char *title = NULL;
     bool layer = false, commands = false;
     uint32_t level = ZWLR_LAYER_SHELL_V1_LAYER_TOP;
     for (int i = 1; i < argc; ++i) {
@@ -550,9 +656,19 @@ int main(int argc, char **argv) {
             probe.inhibit = true;
         else if (!strcmp(argv[i], "--commands"))
             commands = true;
+        else if (!strcmp(argv[i], "--text-input"))
+            probe.text = true;
+        else if (!strcmp(argv[i], "--no-enable"))
+            probe.enable_on_enter = false;
         else
             title = argv[i];
     }
+    if (probe.text) {
+        probe.want_gestures = probe.want_touch = probe.want_tablet = false;
+        probe.want_keys = commands = true;
+    }
+    if (!title)
+        title = probe.text ? "text input probe" : "input probe";
     struct wl_display *display = wl_display_connect(NULL);
     if (!display)
         die("cannot connect to the compositor");
@@ -566,8 +682,14 @@ int main(int argc, char **argv) {
         die("zwp_pointer_gestures_v1 is not offered");
     if (probe.want_tablet && !probe.tablets)
         die("zwp_tablet_manager_v2 is not offered");
-    if ((probe.inhibit || commands) && !probe.inhibit_manager)
+    if ((probe.inhibit || (commands && !probe.text)) && !probe.inhibit_manager)
         die("zwp_keyboard_shortcuts_inhibit_manager_v1 is not offered");
+    if (probe.text && !probe.text_manager)
+        die("zwp_text_input_manager_v3 is not offered");
+    if (probe.text) {
+        probe.text_input = zwp_text_input_manager_v3_get_text_input(probe.text_manager, probe.seat);
+        zwp_text_input_v3_add_listener(probe.text_input, &text_input_listener, &probe);
+    }
     if (probe.want_tablet)
         zwp_tablet_seat_v2_add_listener(
             zwp_tablet_manager_v2_get_tablet_seat(probe.tablets, probe.seat),
@@ -579,21 +701,27 @@ int main(int argc, char **argv) {
         probe.layer = zwlr_layer_shell_v1_get_layer_surface(
             probe.layer_shell, probe.surface, NULL, level, title);
         zwlr_layer_surface_v1_add_listener(probe.layer, &layer_listener, &probe);
-        zwlr_layer_surface_v1_set_size(probe.layer, 0, 60);
-        zwlr_layer_surface_v1_set_anchor(probe.layer, ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
-                                                          ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-                                                          ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
-        zwlr_layer_surface_v1_set_exclusive_zone(probe.layer, 60);
+        if (probe.text) { // a search field
+            zwlr_layer_surface_v1_set_size(probe.layer, 400, 60);
+            zwlr_layer_surface_v1_set_anchor(probe.layer, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP);
+            zwlr_layer_surface_v1_set_keyboard_interactivity(probe.layer, 1);
+        } else { // a panel
+            zwlr_layer_surface_v1_set_size(probe.layer, 0, 60);
+            zwlr_layer_surface_v1_set_anchor(probe.layer, ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
+                                                              ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
+                                                              ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
+            zwlr_layer_surface_v1_set_exclusive_zone(probe.layer, 60);
+        }
     } else {
         probe.xdg_surface = xdg_wm_base_get_xdg_surface(probe.shell, probe.surface);
         xdg_surface_add_listener(probe.xdg_surface, &surface_listener, &probe);
         probe.toplevel = xdg_surface_get_toplevel(probe.xdg_surface);
         xdg_toplevel_add_listener(probe.toplevel, &toplevel_listener, &probe);
         xdg_toplevel_set_title(probe.toplevel, title);
-        xdg_toplevel_set_app_id(probe.toplevel, "input-probe");
+        xdg_toplevel_set_app_id(probe.toplevel, probe.text ? "text-input-probe" : "input-probe");
     }
     wl_surface_commit(probe.surface);
-    char pending[256];
+    char pending[512];
     size_t length = 0;
     for (;;) {
         while (wl_display_prepare_read(display) != 0)
@@ -620,10 +748,7 @@ int main(int argc, char **argv) {
         char *newline;
         while ((newline = strchr(pending, '\n'))) {
             *newline = '\0';
-            if (!strcmp(pending, "inhibit") || !strcmp(pending, "release"))
-                inhibit(&probe, !strcmp(pending, "inhibit"));
-            else
-                die("unknown command");
+            run_command(&probe, pending);
             length -= (size_t)(newline + 1 - pending);
             memmove(pending, newline + 1, length + 1);
         }

@@ -18,6 +18,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+#include <utility>
 #include <xkbcommon/xkbcommon.h>
 
 namespace paw {
@@ -32,10 +33,27 @@ struct ConfigError : std::runtime_error {
         : std::runtime_error("configuration: " + message), text(std::move(message)),
           trail(std::move(names)) {}
 };
+// Each table of the current section, then `leaf`: "shell", "thumbnails" for shell.thumbnails;
+// "outputs", "monitors", "DP-1" for outputs.monitors["DP-1"]; an entry of a list by number
+// (windows.rules[2]) has no name in the source, and is left out.
 std::vector<std::string> trail_to(const std::string &leaf) {
     std::vector<std::string> names;
-    if (!current_section.empty())
-        names.push_back(current_section);
+    const auto &path = current_section;
+    for (size_t at = 0; at < path.size();) {
+        if (path[at] == '.') {
+            ++at;
+        } else if (path.compare(at, 2, "[\"") == 0) {
+            auto close = std::min(path.find("\"]", at + 2), path.size());
+            names.push_back(path.substr(at + 2, close - at - 2));
+            at = close + 2;
+        } else if (path[at] == '[') {
+            at = std::min(path.find(']', at), path.size()) + 1;
+        } else {
+            auto end = std::min(path.find_first_of(".[", at), path.size());
+            names.push_back(path.substr(at, end - at));
+            at = end;
+        }
+    }
     if (!leaf.empty())
         names.push_back(leaf);
     return names;
@@ -83,12 +101,6 @@ void table(lua_State *L, int index, const char *label) {
         lua_pop(L, 1);
         fail(std::string(label) + " must be a table, not " + kind, last_name(label));
     }
-}
-std::string join(const std::vector<std::string> &names) {
-    std::string result;
-    for (const auto &name : names)
-        result += (result.empty() ? "" : ", ") + name;
-    return result;
 }
 [[noreturn]] void unknown(const std::string &what, const std::string &name,
                           const std::vector<std::string> &valid, const std::string &leaf = "",
@@ -141,6 +153,22 @@ std::string field(lua_State *L, const char *key) {
     lua_pop(L, 1);
     return result;
 }
+// The string at `key`, named `label` (else `key`) in errors; nothing when it is unset.
+std::optional<std::string> text(lua_State *L, const char *key, const char *label = nullptr) {
+    lua_getfield(L, -1, key);
+    std::optional<std::string> result;
+    if (!lua_isnil(L, -1))
+        result = string(L, -1, label ? label : key);
+    lua_pop(L, 1);
+    return result;
+}
+// Whether the table on top of the stack sets `key`.
+bool present(lua_State *L, const char *key) {
+    lua_getfield(L, -1, key);
+    bool set = !lua_isnil(L, -1);
+    lua_pop(L, 1);
+    return set;
+}
 int integer(lua_State *L, const char *key, int fallback, int min, int max) {
     lua_getfield(L, -1, key);
     if (lua_isnil(L, -1)) {
@@ -155,6 +183,28 @@ int integer(lua_State *L, const char *key, int fallback, int min, int max) {
     lua_pop(L, 1);
     return static_cast<int>(result);
 }
+// The string at `key` (`label` in errors) as what it names among `names`, into `target`, which
+// stays as it is while the string is unset. Another name fails with `message`, pointing at `leaf`,
+// or without a message as an unknown `key`, suggesting one of the names.
+template <typename T>
+void named(lua_State *L, const char *key, const char *label, T &target,
+           std::initializer_list<std::pair<std::string_view, T>> names,
+           const char *message = nullptr, const char *leaf = "") {
+    auto name = text(L, key, label);
+    if (!name)
+        return;
+    for (const auto &[candidate, value] : names)
+        if (*name == candidate) {
+            target = value;
+            return;
+        }
+    if (message)
+        fail(message, leaf);
+    std::vector<std::string> valid;
+    for (const auto &entry : names)
+        valid.emplace_back(entry.first);
+    unknown(key, *name, valid, "=" + *name);
+}
 template <std::size_t N>
 void copy_text(const std::string &value, char (&target)[N], const std::string &label) {
     if (value.size() >= N)
@@ -162,19 +212,23 @@ void copy_text(const std::string &value, char (&target)[N], const std::string &l
     std::memcpy(target, value.c_str(), value.size() + 1);
 }
 template <std::size_t N> void text_field(lua_State *L, const char *key, char (&target)[N]) {
-    lua_getfield(L, -1, key);
-    if (!lua_isnil(L, -1))
-        copy_text(string(L, -1, key), target, key);
-    lua_pop(L, 1);
+    if (auto value = text(L, key))
+        copy_text(*value, target, key);
 }
-void boolean(lua_State *L, const char *key, const char *label, bool &target) {
+// The boolean at `key`, named `label` (else `key`) in errors; nothing when it is unset.
+std::optional<bool> optional_boolean(lua_State *L, const char *key, const char *label = nullptr) {
     lua_getfield(L, -1, key);
+    std::optional<bool> result;
     if (!lua_isnil(L, -1)) {
         if (!lua_isboolean(L, -1))
-            wrong_type(L, label, "a boolean");
-        target = lua_toboolean(L, -1);
+            wrong_type(L, label ? label : key, "a boolean");
+        result = lua_toboolean(L, -1);
     }
     lua_pop(L, 1);
+    return result;
+}
+void boolean(lua_State *L, const char *key, const char *label, bool &target) {
+    target = optional_boolean(L, key, label).value_or(target);
 }
 // A widget that can move: `true` for `place`, its default place, `false` for nowhere, or
 // "bar" or "quick" (Quick Settings).
@@ -200,14 +254,8 @@ void placement(lua_State *L, const char *key, const char *label, WidgetPlace pla
 }
 // A boolean that may be left unset (-1) to keep a device default.
 void tristate(lua_State *L, const char *key, const char *label, int &target) {
-    bool value = false;
-    lua_getfield(L, -1, key);
-    bool present = !lua_isnil(L, -1);
-    lua_pop(L, 1);
-    if (!present)
-        return;
-    boolean(L, key, label, value);
-    target = value;
+    if (auto value = optional_boolean(L, key, label))
+        target = *value;
 }
 bool is_color(const std::string &value, bool alpha = false) {
     return (value.size() == 7 || (alpha && value.size() == 9)) && value[0] == '#' &&
@@ -222,19 +270,40 @@ void premultiplied(const std::string &value, const char *label, float (&target)[
         target[i] = std::stoi(value.substr(1 + 2 * i, 2), nullptr, 16) / 255.0F * alpha;
     target[3] = alpha;
 }
-// Pushes the optional table `name`, checking its keys; returns false when it is absent. The
-// caller pops it either way.
-bool section(lua_State *L, const char *name, const char *path = nullptr) {
-    lua_getfield(L, -1, name);
-    if (lua_isnil(L, -1))
-        return false;
-    if (!path)
-        path = name;
-    current_section = path;
-    table(L, -1, path);
-    keys(L, -1, path);
-    return true;
-}
+// Errors are placed in the section `path` while this lives, then where they were before.
+class Named {
+public:
+    explicit Named(std::string path) : outer(std::exchange(current_section, std::move(path))) {}
+    ~Named() { current_section = std::move(outer); }
+    Named(const Named &) = delete;
+    Named &operator=(const Named &) = delete;
+
+private:
+    std::string outer;
+};
+// The optional table `name` pushed while this lives, false when it is absent. A table there has
+// its keys checked, and errors are placed in it, as `path` (else `name`); leaving pops it.
+class Section {
+public:
+    Section(lua_State *L, const char *name, const char *path = nullptr) : L(L) {
+        lua_getfield(L, -1, name);
+        if (lua_isnil(L, -1))
+            return;
+        if (!path)
+            path = name;
+        named.emplace(path);
+        table(L, -1, path);
+        keys(L, -1, path);
+    }
+    ~Section() { lua_pop(L, 1); }
+    Section(const Section &) = delete;
+    Section &operator=(const Section &) = delete;
+    explicit operator bool() const { return named.has_value(); }
+
+private:
+    lua_State *L;
+    std::optional<Named> named;
+};
 size_t array_size(lua_State *L, int index, size_t limit) {
     table(L, index, "list");
     index = lua_absindex(L, index);
@@ -271,16 +340,21 @@ uint32_t mouse_button(const std::string &name) {
             return code;
     unknown("button", name, config_button_names(), "=" + name);
 }
-Command command(lua_State *L) {
-    auto size = array_size(L, -1, 256);
-    if (size == 0)
-        fail("command must include an executable");
-    Command result;
+// The list of strings on top of the stack, at most `limit` of them, each `label` in errors.
+std::vector<std::string> strings(lua_State *L, size_t limit, const char *label) {
+    auto size = array_size(L, -1, limit);
+    std::vector<std::string> result;
     for (size_t i = 1; i <= size; ++i) {
         lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-        result.push_back(string(L, -1, "command argument"));
+        result.push_back(string(L, -1, label));
         lua_pop(L, 1);
     }
+    return result;
+}
+Command command(lua_State *L) {
+    if (array_size(L, -1, 256) == 0)
+        fail("command must include an executable");
+    auto result = strings(L, 256, "command argument");
     if (result.front().empty())
         fail("command executable is empty");
     return result;
@@ -294,12 +368,7 @@ int idle_dim_before(int display_off) {
 // stay as they are.
 void read_idle_steps(lua_State *L, sh_idle_steps &steps) {
     constexpr int day = 24 * 60 * 60;
-    lua_getfield(L, -1, "dim");
-    bool dim_set = !lua_isnil(L, -1);
-    lua_pop(L, 1);
-    lua_getfield(L, -1, "display_off");
-    bool off_set = !lua_isnil(L, -1);
-    lua_pop(L, 1);
+    bool dim_set = present(L, "dim"), off_set = present(L, "display_off");
     steps.display_off = 1000 * integer(L, "display_off", steps.display_off / 1000, 0, day);
     steps.lock = 1000 * integer(L, "lock", steps.lock / 1000, 0, day);
     steps.suspend = 1000 * integer(L, "suspend", steps.suspend / 1000, 0, day);
@@ -310,24 +379,18 @@ void read_idle_steps(lua_State *L, sh_idle_steps &steps) {
 }
 // `idle`, and `idle.battery`, which starts from it.
 void read_idle(lua_State *L, sh_settings &settings) {
-    if (section(L, "idle")) {
+    if (Section in{L, "idle"}) {
         read_idle_steps(L, settings.idle);
         settings.idle_battery = settings.idle;
-        if (section(L, "battery", "idle.battery"))
+        if (Section battery{L, "battery", "idle.battery"})
             read_idle_steps(L, settings.idle_battery);
-        lua_pop(L, 1);
     }
-    lua_pop(L, 1);
-    current_section.clear();
 }
 // A switch binding, { switch = "lid", state = "close", action = ... }: no key, button or mods.
 void read_switch_binding(lua_State *L, Binding &binding) {
-    for (const char *other : {"key", "button", "mods", "app_id", "desktop"}) {
-        lua_getfield(L, -1, other);
-        if (!lua_isnil(L, -1))
+    for (const char *other : {"key", "button", "mods", "app_id", "desktop"})
+        if (present(L, other))
             fail(std::string(other) + " is not valid with a switch", other);
-        lua_pop(L, 1);
-    }
     auto name = field(L, "switch"), state = field(L, "state");
     if (name == "lid") {
         if (state != "close" && state != "open")
@@ -344,28 +407,15 @@ void read_switch_binding(lua_State *L, Binding &binding) {
     }
 }
 void read_shell(lua_State *L, ShellConfig &shell) {
-    if (!section(L, "shell")) {
-        lua_pop(L, 1);
+    Section section(L, "shell");
+    if (!section)
         return;
-    }
     boolean(L, "enabled", "shell.enabled", shell.enabled);
-    lua_getfield(L, -1, "style");
-    if (!lua_isnil(L, -1)) {
-        auto style = string(L, -1, "style");
-        if (style != "taskbar" && style != "macos")
-            fail("style must be \"taskbar\" or \"macos\"");
-        shell.macos_style = style == "macos";
-    }
-    lua_pop(L, 1);
+    named(L, "style", nullptr, shell.macos_style, {{"taskbar", false}, {"macos", true}},
+          "style must be \"taskbar\" or \"macos\"");
     shell.panel_height = integer(L, "panel_height", 52, 24, 100);
-    lua_getfield(L, -1, "panel_position");
-    if (!lua_isnil(L, -1)) {
-        auto position = string(L, -1, "panel_position");
-        if (position != "top" && position != "bottom")
-            fail("panel_position must be \"top\" or \"bottom\"");
-        shell.panel_top = position == "top";
-    }
-    lua_pop(L, 1);
+    named(L, "panel_position", nullptr, shell.panel_top, {{"top", true}, {"bottom", false}},
+          "panel_position must be \"top\" or \"bottom\"");
     // One number for every side, or { top, right, bottom, left } by name.
     lua_getfield(L, -1, "panel_margin");
     if (lua_isinteger(L, -1)) {
@@ -377,53 +427,39 @@ void read_shell(lua_State *L, ShellConfig &shell) {
     } else if (!lua_isnil(L, -1)) {
         table(L, -1, "panel_margin");
         keys(L, -1, "shell.panel_margin");
+        Named in("shell.panel_margin");
         int index = 0;
         for (const char *side : {"top", "right", "bottom", "left"})
             shell.panel_margin[index++] = integer(L, side, 0, 0, 200);
     }
     lua_pop(L, 1);
     shell.panel_radius = integer(L, "panel_radius", 0, 0, 50);
-    lua_getfield(L, -1, "font");
-    if (!lua_isnil(L, -1))
-        shell.font = string(L, -1, "font");
-    lua_pop(L, 1);
+    if (auto font = text(L, "font"))
+        shell.font = *font;
     shell.font_size = integer(L, "font_size", 12, 6, 48);
-    lua_getfield(L, -1, "renderer");
-    if (!lua_isnil(L, -1)) {
-        auto renderer = string(L, -1, "renderer");
-        if (renderer != "software" && renderer != "gpu")
-            fail("renderer must be \"software\" or \"gpu\"");
-        shell.software_renderer = renderer == "software";
-    }
-    lua_pop(L, 1);
+    named(L, "renderer", nullptr, shell.software_renderer, {{"software", true}, {"gpu", false}},
+          "renderer must be \"software\" or \"gpu\"");
     boolean(L, "icons_only", "shell.icons_only", shell.icons_only);
     boolean(L, "group_windows", "shell.group_windows", shell.group_windows);
     boolean(L, "polkit_agent", "shell.polkit_agent", shell.polkit_agent);
     shell.workspaces_shown = integer(L, "workspaces_shown", 0, 0, 10);
-    if (section(L, "thumbnails", "shell.thumbnails")) {
+    if (Section in{L, "thumbnails", "shell.thumbnails"}) {
         auto &thumbnails = shell.thumbnails;
         boolean(L, "enabled", "shell.thumbnails.enabled", thumbnails.enabled);
         thumbnails.delay = integer(L, "delay", thumbnails.delay, 0, 2000);
         thumbnails.size = integer(L, "size", thumbnails.size, 120, 480);
         boolean(L, "live", "shell.thumbnails.live", thumbnails.live);
     }
-    lua_pop(L, 1);
-    current_section = "shell";
-    if (section(L, "search", "shell.search")) {
+    if (Section in{L, "search", "shell.search"}) {
         auto &search = shell.search;
         boolean(L, "files", "shell.search.files", search.files);
         lua_getfield(L, -1, "directories");
-        if (!lua_isnil(L, -1)) {
-            auto size = array_size(L, -1, 32);
-            for (size_t i = 1; i <= size; ++i) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-                auto folder = string(L, -1, "shell.search.directories");
-                lua_pop(L, 1);
+        if (!lua_isnil(L, -1))
+            for (auto &folder : strings(L, 32, "shell.search.directories")) {
                 if (!folder.starts_with('/') && !folder.starts_with("~/") && folder != "~")
                     fail("shell.search.directories must be absolute or start with ~/");
                 search.directories.push_back(std::move(folder));
             }
-        }
         lua_pop(L, 1);
         search.depth = integer(L, "depth", search.depth, 1, 10);
         search.max_files = integer(L, "max_files", search.max_files, 100, 200000);
@@ -442,18 +478,14 @@ void read_shell(lua_State *L, ShellConfig &shell) {
         }
         lua_pop(L, 1);
     }
-    lua_pop(L, 1);
-    current_section = "shell";
-    if (section(L, "clipboard", "shell.clipboard")) {
+    if (Section in{L, "clipboard", "shell.clipboard"}) {
         auto &clipboard = shell.clipboard;
         boolean(L, "enabled", "shell.clipboard.enabled", clipboard.enabled);
         clipboard.max_entries = integer(L, "max_entries", clipboard.max_entries, 1, 500);
         boolean(L, "images", "shell.clipboard.images", clipboard.images);
         boolean(L, "persist", "shell.clipboard.persist", clipboard.persist);
     }
-    lua_pop(L, 1);
-    current_section = "shell";
-    if (section(L, "widgets", "shell.widgets")) {
+    if (Section in{L, "widgets", "shell.widgets"}) {
         for (auto [key, target] : {std::pair{"workspaces", &shell.widgets.workspaces},
                                    {"clock", &shell.widgets.clock},
                                    {"calendar", &shell.widgets.calendar},
@@ -479,26 +511,21 @@ void read_shell(lua_State *L, ShellConfig &shell) {
                                           {"notifications", &shell.widgets.notifications, WidgetPlace::Quick}})
             placement(L, key, (std::string("shell.widgets.") + key).c_str(), place, *target);
     }
-    lua_pop(L, 1);
     for (auto [key, target] : {std::pair{"accent", &shell.accent},
                                {"panel_color", &shell.panel_color},
                                {"text_color", &shell.text_color},
                                {"wallpaper", &shell.wallpaper}}) {
-        lua_getfield(L, -1, key);
-        if (!lua_isnil(L, -1)) {
-            *target = string(L, -1, key);
+        if (auto value = text(L, key)) {
+            *target = *value;
             if (target != &shell.wallpaper && !is_color(*target, true))
                 fail(std::string(key) + " must be #RRGGBB or #RRGGBBAA");
         }
-        lua_pop(L, 1);
     }
-    lua_getfield(L, -1, "wallpapers");
-    if (!lua_isnil(L, -1)) {
-        shell.wallpapers = string(L, -1, "shell.wallpapers");
+    if (auto folder = text(L, "wallpapers", "shell.wallpapers")) {
+        shell.wallpapers = *folder;
         if (!shell.wallpapers.starts_with('/') && !shell.wallpapers.starts_with("~/"))
             fail("shell.wallpapers must be absolute or start with ~/");
     }
-    lua_pop(L, 1);
     lua_getfield(L, -1, "launchers");
     if (!lua_isnil(L, -1)) {
         auto size = array_size(L, -1, 64);
@@ -510,9 +537,7 @@ void read_shell(lua_State *L, ShellConfig &shell) {
             launcher.name = field(L, "name");
             if (launcher.name.empty() || launcher.name.size() > 128)
                 fail("launcher name must have 1 to 128 bytes");
-            lua_getfield(L, -1, "icon");
-            launcher.icon = lua_isnil(L, -1) ? "application-x-executable" : string(L, -1, "icon");
-            lua_pop(L, 1);
+            launcher.icon = text(L, "icon").value_or("application-x-executable");
             lua_getfield(L, -1, "command");
             launcher.command = command(L);
             lua_pop(L, 1);
@@ -520,7 +545,7 @@ void read_shell(lua_State *L, ShellConfig &shell) {
             lua_pop(L, 1);
         }
     }
-    lua_pop(L, 2);
+    lua_pop(L, 1);
 }
 constexpr const char *tile_layout_names[] = {"dwindle", "master", "spiral", "monocle", "scroll"};
 double number(lua_State *L, const char *key, double fallback, double min, double max) {
@@ -542,23 +567,19 @@ constexpr const char *animation_kinds[SH_ANIM_KINDS] = {"open",       "close", "
                                                         "workspace", "fullscreen", "focus"};
 void read_curve(lua_State *L, const char *key, const std::string &label, sh_curve &target,
                 bool &given) {
-    lua_getfield(L, -1, key);
-    if (!lua_isnil(L, -1)) {
-        auto text = string(L, -1, label.c_str());
-        if (!sh_curve_parse(text.c_str(), &target))
+    if (auto name = text(L, key, label.c_str())) {
+        if (!sh_curve_parse(name->c_str(), &target))
             fail(label + " must be \"linear\", \"ease-in\", \"ease-out\", \"ease-in-out\", "
                          "\"ease-out-quint\", \"overshoot\", \"spring\", or "
-                         "\"bezier(x1, y1, x2, y2)\", not \"" + text + "\"",
+                         "\"bezier(x1, y1, x2, y2)\", not \"" + *name + "\"",
                  key);
         given = true;
     }
-    lua_pop(L, 1);
 }
 // The `animations` table is on top of the stack: a base duration and curve, a speed, and per-kind
 // tables that override the base.
 void read_animations(lua_State *L, sh_settings &settings) {
     int base = integer(L, "duration", 120, 10, 1000);
-    settings.animation_duration = base;
     settings.animation_speed = static_cast<float>(number(L, "speed", 1, 0.1, 10));
     settings.animation_late_ms = integer(L, "late_frame_ms", 80, 0, 1000);
     sh_curve curve{};
@@ -571,36 +592,24 @@ void read_animations(lua_State *L, sh_settings &settings) {
     }
     for (int kind = 0; kind < SH_ANIM_KINDS; ++kind) {
         std::string path = std::string("animations.") + animation_kinds[kind];
-        if (!section(L, animation_kinds[kind], path.c_str())) {
-            lua_pop(L, 1);
-            current_section = "animations";
+        Section in(L, animation_kinds[kind], path.c_str());
+        if (!in)
             continue;
-        }
         auto &style = settings.animation_styles[kind];
         style.duration = integer(L, "duration", style.duration, 0, 1000);
         bool own = false;
         read_curve(L, "curve", path + ".curve", style.curve, own);
         if (kind == SH_ANIM_WORKSPACE)
             settings.animation_slide = static_cast<float>(number(L, "distance", 0.08, 0, 1));
-        lua_pop(L, 1);
-        current_section = "animations";
     }
 }
 // layout.scroll, with its table on top of the stack.
 void read_scroll(lua_State *L, sh_settings &settings) {
-    lua_getfield(L, -1, "follow");
-    if (!lua_isnil(L, -1)) {
-        auto name = string(L, -1, "layout.scroll.follow");
-        if (name == "center")
-            settings.scroll_follow = SH_SCROLL_FOLLOW_CENTER;
-        else if (name == "edge")
-            settings.scroll_follow = SH_SCROLL_FOLLOW_EDGE;
-        else if (name == "never")
-            settings.scroll_follow = SH_SCROLL_FOLLOW_NEVER;
-        else
-            fail("layout.scroll.follow must be \"center\", \"edge\", or \"never\"");
-    }
-    lua_pop(L, 1);
+    named(L, "follow", "layout.scroll.follow", settings.scroll_follow,
+          {{"center", SH_SCROLL_FOLLOW_CENTER},
+           {"edge", SH_SCROLL_FOLLOW_EDGE},
+           {"never", SH_SCROLL_FOLLOW_NEVER}},
+          "layout.scroll.follow must be \"center\", \"edge\", or \"never\"");
     settings.scroll_width = static_cast<float>(number(L, "width", settings.scroll_width, 0.1, 1));
     settings.scroll_step = static_cast<float>(number(L, "step", settings.scroll_step, 0.01, 0.5));
     lua_getfield(L, -1, "presets");
@@ -649,13 +658,11 @@ void read_output_layouts(lua_State *L, sh_settings &settings) {
         if (name.empty())
             fail("output name is empty");
         copy_text(name, entry.name, "output name");
+        Named in("layout.outputs[\"" + name + "\"]");
         table(L, -1, "layout.outputs.<name>");
         keys(L, -1, "layout.outputs.<name>");
-        entry.tile_layout = -1;
-        lua_getfield(L, -1, "tile_layout");
-        if (!lua_isnil(L, -1))
-            entry.tile_layout = tile_layout_index(string(L, -1, "tile_layout"));
-        lua_pop(L, 1);
+        auto layout = text(L, "tile_layout");
+        entry.tile_layout = layout ? tile_layout_index(*layout) : -1;
         entry.master_ratio = static_cast<float>(number(L, "master_ratio", 0, 0.1, 0.9));
         entry.master_count = integer(L, "master_count", 0, 1, 8);
         lua_pop(L, 1);
@@ -698,16 +705,15 @@ void read_monitors(lua_State *L, sh_settings &settings) {
         if (name.empty())
             fail("output name is empty");
         copy_text(name, monitor.name, "output name");
+        Named in("outputs.monitors[\"" + name + "\"]");
         table(L, -1, "monitor settings");
         keys(L, -1, "outputs.monitors.<name>");
         monitor.enabled = true;
         boolean(L, "enabled", "enabled", monitor.enabled);
         monitor.tiling = -1;
         tristate(L, "tiling", "tiling", monitor.tiling);
-        lua_getfield(L, -1, "mode");
-        if (!lua_isnil(L, -1))
-            parse_mode(string(L, -1, "mode"), monitor);
-        lua_pop(L, 1);
+        if (auto mode = text(L, "mode"))
+            parse_mode(*mode, monitor);
         monitor.scale = static_cast<float>(number(L, "scale", 0, 0.25, 10));
         monitor.transform = integer(L, "transform", 0, 0, 7);
         boolean(L, "vrr", "vrr", monitor.vrr);
@@ -715,17 +721,14 @@ void read_monitors(lua_State *L, sh_settings &settings) {
         monitor.bit_depth = integer(L, "bit_depth", 8, 8, 10);
         if (monitor.bit_depth != 8 && monitor.bit_depth != 10)
             fail("bit_depth must be 8 or 10");
-        lua_getfield(L, -1, "mirror");
-        if (!lua_isnil(L, -1)) {
-            auto source = string(L, -1, "mirror");
-            if (!valid_output_target(source))
+        if (auto source = text(L, "mirror")) {
+            if (!valid_output_target(*source))
                 fail("mirror must be a monitor's connector name or \"desc:\" and the start of "
                      "its description");
-            if (source == name)
+            if (*source == name)
                 fail(name + " cannot mirror itself");
-            copy_text(source, monitor.mirror, "mirror");
+            copy_text(*source, monitor.mirror, "mirror");
         }
-        lua_pop(L, 1);
         lua_getfield(L, -1, "position");
         if (!lua_isnil(L, -1)) {
             table(L, -1, "position");
@@ -742,28 +745,16 @@ void read_monitors(lua_State *L, sh_settings &settings) {
     lua_pop(L, 1);
 }
 std::optional<std::regex> pattern_field(lua_State *L, const char *key, std::string &source) {
-    lua_getfield(L, -1, key);
     std::optional<std::regex> result;
-    if (!lua_isnil(L, -1)) {
-        source = string(L, -1, key);
+    if (auto value = text(L, key)) {
+        source = *value;
         try {
             result = std::regex(source, std::regex::ECMAScript);
         } catch (const std::regex_error &) {
             fail(std::string(key) + " '" + source + "' is not a valid regular expression");
         }
     }
-    lua_pop(L, 1);
     return result;
-}
-std::optional<bool> optional_boolean(lua_State *L, const char *key) {
-    lua_getfield(L, -1, key);
-    bool present = !lua_isnil(L, -1);
-    lua_pop(L, 1);
-    if (!present)
-        return std::nullopt;
-    bool value = false;
-    boolean(L, key, key, value);
-    return value;
 }
 // `{ A, B }` or `{ first = A, second = B }`, both integers in [min, max].
 std::pair<int, int> integer_pair(lua_State *L, const char *label, const char *first,
@@ -800,12 +791,7 @@ WindowRule window_rule(lua_State *L, int workspaces) {
     rule.title_pattern = pattern_field(L, "title", rule.title);
     if (!rule.pattern && !rule.title_pattern)
         fail("a window rule needs an app_id or a title");
-    lua_getfield(L, -1, "opacity");
-    bool has_opacity = !lua_isnil(L, -1);
-    lua_pop(L, 1);
-    lua_getfield(L, -1, "inactive_opacity");
-    has_opacity = has_opacity || !lua_isnil(L, -1);
-    lua_pop(L, 1);
+    bool has_opacity = present(L, "opacity") || present(L, "inactive_opacity");
     rule.opacity = static_cast<float>(number(L, "opacity", 1, 0.05, 1));
     rule.inactive_opacity =
         static_cast<float>(number(L, "inactive_opacity", rule.opacity, 0.05, 1));
@@ -818,21 +804,15 @@ WindowRule window_rule(lua_State *L, int workspaces) {
     actions.shortcuts_inhibit = optional_boolean(L, "shortcuts_inhibit");
     actions.above = optional_boolean(L, "above");
     actions.allow_tearing = optional_boolean(L, "allow_tearing");
-    lua_getfield(L, -1, "workspace");
-    bool has_workspace = !lua_isnil(L, -1);
-    lua_pop(L, 1);
-    if (has_workspace)
+    if (present(L, "workspace"))
         actions.workspace = integer(L, "workspace", 0, 1, workspaces);
-    lua_getfield(L, -1, "output");
-    if (!lua_isnil(L, -1)) {
-        auto name = string(L, -1, "output");
-        if (name.empty() || name == "desc:")
+    if (auto name = text(L, "output")) {
+        if (name->empty() || *name == "desc:")
             fail("window rule output is empty");
-        if (name.size() >= sizeof(sh_window_rule{}.output))
+        if (name->size() >= sizeof(sh_window_rule{}.output))
             fail("window rule output is too long");
         actions.output = name;
     }
-    lua_pop(L, 1);
     lua_getfield(L, -1, "size");
     if (!lua_isnil(L, -1))
         actions.size = integer_pair(L, "size", "width", "height", 1, 16384);
@@ -859,74 +839,50 @@ void swallow_list(lua_State *L, const char *key, char (*names)[64], int &count) 
     lua_getfield(L, -1, key);
     if (!lua_isnil(L, -1)) {
         std::string label = std::string("windows.swallow.") + key;
-        auto size = array_size(L, -1, 32);
         count = 0;
-        for (size_t i = 1; i <= size; ++i) {
-            lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-            copy_text(string(L, -1, label.c_str()), names[count++], label + " entry");
-            lua_pop(L, 1);
-        }
+        for (const auto &name : strings(L, 32, label.c_str()))
+            copy_text(name, names[count++], label + " entry");
     }
     lua_pop(L, 1);
 }
 void read_swallow(lua_State *L, Config &config) {
-    lua_getfield(L, -1, "swallow");
-    if (!lua_isnil(L, -1)) {
-        table(L, -1, "windows.swallow");
-        keys(L, -1, "windows.swallow");
+    if (Section in{L, "swallow", "windows.swallow"}) {
         auto &settings = config.settings;
         boolean(L, "enabled", "windows.swallow.enabled", settings.swallow);
         swallow_list(L, "terminals", settings.swallow_terminals, settings.swallow_terminal_count);
         swallow_list(L, "exceptions", settings.swallow_exceptions,
                      settings.swallow_exception_count);
     }
-    lua_pop(L, 1);
 }
 // `windows.magnet = { enabled, distance, guides, guide_color, bypass }`.
 void read_magnet(lua_State *L, Config &config) {
-    lua_getfield(L, -1, "magnet");
-    if (!lua_isnil(L, -1)) {
-        table(L, -1, "windows.magnet");
-        keys(L, -1, "windows.magnet");
+    if (Section in{L, "magnet", "windows.magnet"}) {
         auto &settings = config.settings;
         boolean(L, "enabled", "windows.magnet.enabled", settings.magnet);
         settings.magnet_distance = integer(L, "distance", settings.magnet_distance, 0, 200);
         boolean(L, "guides", "windows.magnet.guides", settings.magnet_guides);
-        lua_getfield(L, -1, "guide_color");
-        if (!lua_isnil(L, -1))
-            premultiplied(string(L, -1, "guide_color"), "guide_color", settings.magnet_guide_color);
-        lua_pop(L, 1);
-        lua_getfield(L, -1, "bypass");
-        if (!lua_isnil(L, -1)) {
-            auto name = string(L, -1, "windows.magnet.bypass");
-            settings.magnet_bypass = name == "none" ? 0 : modifier(name);
-        }
-        lua_pop(L, 1);
+        if (auto color = text(L, "guide_color"))
+            premultiplied(*color, "guide_color", settings.magnet_guide_color);
+        if (auto name = text(L, "bypass", "windows.magnet.bypass"))
+            settings.magnet_bypass = *name == "none" ? 0 : modifier(*name);
     }
-    lua_pop(L, 1);
 }
 // `windows.snap = { enabled, distance, corners, preview, color, assist }`. The preview's colour follows
 // the focused window's border, a quarter opaque, unless it is given.
 void read_snap(lua_State *L, Config &config) {
     auto &settings = config.settings;
     bool colored = false;
-    lua_getfield(L, -1, "snap");
-    if (!lua_isnil(L, -1)) {
-        table(L, -1, "windows.snap");
-        keys(L, -1, "windows.snap");
+    if (Section in{L, "snap", "windows.snap"}) {
         boolean(L, "enabled", "windows.snap.enabled", settings.snap);
         settings.snap_distance = integer(L, "distance", settings.snap_distance, 1, 100);
         boolean(L, "corners", "windows.snap.corners", settings.snap_corners);
         boolean(L, "preview", "windows.snap.preview", settings.snap_preview);
         boolean(L, "assist", "windows.snap.assist", settings.snap_assist);
-        lua_getfield(L, -1, "color");
-        if (!lua_isnil(L, -1)) {
-            premultiplied(string(L, -1, "color"), "color", settings.snap_color);
+        if (auto color = text(L, "color")) {
+            premultiplied(*color, "color", settings.snap_color);
             colored = true;
         }
-        lua_pop(L, 1);
     }
-    lua_pop(L, 1);
     if (!colored) {
         for (int i = 0; i < 4; ++i)
             settings.snap_color[i] = settings.border_active[i] * 0.25F;
@@ -935,19 +891,13 @@ void read_snap(lua_State *L, Config &config) {
 // `windows.shadow = { enabled, color, inactive_color, blur, offset }`; the offset is pixels down
 // or { x, y }.
 void read_shadow(lua_State *L, Config &config) {
-    lua_getfield(L, -1, "shadow");
-    if (!lua_isnil(L, -1)) {
-        table(L, -1, "windows.shadow");
-        keys(L, -1, "windows.shadow");
+    if (Section in{L, "shadow", "windows.shadow"}) {
         auto &settings = config.settings;
         boolean(L, "enabled", "windows.shadow.enabled", settings.shadow);
         for (auto [key, target] : {std::pair{"color", &settings.shadow_color},
-                                   {"inactive_color", &settings.shadow_inactive_color}}) {
-            lua_getfield(L, -1, key);
-            if (!lua_isnil(L, -1))
-                premultiplied(string(L, -1, key), key, *target);
-            lua_pop(L, 1);
-        }
+                                   {"inactive_color", &settings.shadow_inactive_color}})
+            if (auto color = text(L, key))
+                premultiplied(*color, key, *target);
         settings.shadow_blur = integer(L, "blur", settings.shadow_blur, 0, 100);
         lua_getfield(L, -1, "offset");
         if (lua_istable(L, -1)) {
@@ -959,7 +909,6 @@ void read_shadow(lua_State *L, Config &config) {
             settings.shadow_y = integer(L, "offset", settings.shadow_y, -50, 50);
         }
     }
-    lua_pop(L, 1);
 }
 // A border's colours: `#RRGGBB[AA]`, or a gradient `{ "#RRGGBB[AA]", ..., angle = DEGREES }` of
 // 2 to SH_GRADIENT_STOPS colours, whose first colour is also `first`.
@@ -1002,20 +951,13 @@ void border_colors(lua_State *L, const char *key, float (&first)[4], sh_gradient
     lua_pop(L, 1);
 }
 void read_windows(lua_State *L, Config &config) {
-    if (!section(L, "windows")) {
-        lua_pop(L, 1);
+    Section section(L, "windows");
+    if (!section)
         return;
-    }
     config.settings.border_width = integer(L, "border_width", 0, 0, 20);
     config.settings.corner_radius = integer(L, "corner_radius", 10, 0, 40);
-    lua_getfield(L, -1, "round");
-    if (!lua_isnil(L, -1)) {
-        auto name = string(L, -1, "windows.round");
-        if (name != "tiling" && name != "always")
-            unknown("round", name, {"tiling", "always"}, "=" + name);
-        config.settings.round_always = name == "always";
-    }
-    lua_pop(L, 1);
+    named(L, "round", "windows.round", config.settings.round_always,
+          {{"tiling", false}, {"always", true}});
     border_colors(L, "border_color", config.settings.border_active,
                   config.settings.border_active_gradient);
     border_colors(L, "border_inactive_color", config.settings.border_inactive,
@@ -1026,72 +968,41 @@ void read_windows(lua_State *L, Config &config) {
     config.settings.dim_inactive = static_cast<float>(number(L, "dim_inactive", 0, 0, 0.9));
     config.settings.dim_duration = integer(L, "dim_duration", 180, 0, 2000);
     boolean(L, "allow_tearing", "windows.allow_tearing", config.settings.allow_tearing);
-    lua_getfield(L, -1, "activation");
-    if (!lua_isnil(L, -1)) {
-        auto name = string(L, -1, "windows.activation");
-        if (name == "urgent")
-            config.settings.activation = SH_ACTIVATION_URGENT;
-        else if (name == "focus")
-            config.settings.activation = SH_ACTIVATION_FOCUS;
-        else if (name == "ignore")
-            config.settings.activation = SH_ACTIVATION_IGNORE;
-        else
-            fail("windows.activation must be \"focus\", \"urgent\", or \"ignore\"");
-    }
-    lua_pop(L, 1);
-    lua_getfield(L, -1, "urgent_color");
-    if (!lua_isnil(L, -1))
-        premultiplied(string(L, -1, "urgent_color"), "urgent_color", config.settings.urgent_color);
-    lua_pop(L, 1);
-    lua_getfield(L, -1, "buttons");
-    if (!lua_isnil(L, -1)) {
-        config.window_buttons = string(L, -1, "windows.buttons");
+    named(L, "activation", "windows.activation", config.settings.activation,
+          {{"urgent", SH_ACTIVATION_URGENT},
+           {"focus", SH_ACTIVATION_FOCUS},
+           {"ignore", SH_ACTIVATION_IGNORE}},
+          "windows.activation must be \"focus\", \"urgent\", or \"ignore\"");
+    if (auto color = text(L, "urgent_color"))
+        premultiplied(*color, "urgent_color", config.settings.urgent_color);
+    if (auto buttons = text(L, "buttons", "windows.buttons")) {
+        config.window_buttons = *buttons;
         if (config.window_buttons.find_first_not_of("abcdefghijklmnopqrstuvwxyz_,:") !=
             std::string::npos)
             fail("windows.buttons must look like \"appmenu:minimize,maximize,close\"");
     }
-    lua_pop(L, 1);
     read_swallow(L, config);
     read_magnet(L, config);
     read_snap(L, config);
     read_shadow(L, config);
-    lua_getfield(L, -1, "placement");
-    if (!lua_isnil(L, -1)) {
-        auto name = string(L, -1, "windows.placement");
-        if (name == "cascade")
-            config.settings.placement = SH_PLACE_CASCADE;
-        else if (name == "center")
-            config.settings.placement = SH_PLACE_CENTER;
-        else if (name == "smart")
-            config.settings.placement = SH_PLACE_SMART;
-        else
-            unknown("placement", name, {"cascade", "center", "smart"}, "=" + name);
-    }
-    lua_pop(L, 1);
+    named(L, "placement", "windows.placement", config.settings.placement,
+          {{"cascade", SH_PLACE_CASCADE}, {"center", SH_PLACE_CENTER}, {"smart", SH_PLACE_SMART}});
     config.settings.drag_strip = integer(L, "drag_strip", config.settings.drag_strip, 0, 100);
-    lua_getfield(L, -1, "controls");
-    if (!lua_isnil(L, -1)) {
-        auto name = string(L, -1, "windows.controls");
-        if (name == "flat")
-            config.settings.window_controls = SH_CONTROLS_FLAT;
-        else if (name == "traffic_lights")
-            config.settings.window_controls = SH_CONTROLS_TRAFFIC_LIGHTS;
-        else
-            unknown("controls", name, {"flat", "traffic_lights"}, "=" + name);
-    }
-    lua_pop(L, 1);
+    named(L, "controls", "windows.controls", config.settings.window_controls,
+          {{"flat", SH_CONTROLS_FLAT}, {"traffic_lights", SH_CONTROLS_TRAFFIC_LIGHTS}});
     lua_getfield(L, -1, "rules");
     if (!lua_isnil(L, -1)) {
         auto size = array_size(L, -1, 256);
         for (size_t i = 1; i <= size; ++i) {
             lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
+            Named in("windows.rules[" + std::to_string(i) + "]");
             table(L, -1, "window rule");
             keys(L, -1, "windows.rules[]");
             config.window_rules.push_back(window_rule(L, config.settings.workspaces));
             lua_pop(L, 1);
         }
     }
-    lua_pop(L, 2);
+    lua_pop(L, 1);
 }
 // `features = { name = true, ... }`: optional behaviours, each a boolean; unset ones keep
 // their defaults from Config. A new one is one row in the list.
@@ -1107,7 +1018,7 @@ void read_features(lua_State *L, Config &config) {
     };
     lua_getfield(L, -1, "features");
     if (!lua_isnil(L, -1)) {
-        current_section = "features";
+        Named in("features");
         table(L, -1, "features");
         lua_pushnil(L);
         while (lua_next(L, -2)) {
@@ -1130,42 +1041,48 @@ void read_features(lua_State *L, Config &config) {
     }
     lua_pop(L, 1);
 }
+// The action a hot corner's or a swipe's request runs ("workspace 2"), SH_NONE for "none", once
+// it has what the action needs; `label` names it in errors, which point at `leaf`.
+sh_action request_action(const Config &config, const std::string &request,
+                         const std::string &label, const char *leaf) {
+    std::istringstream stream(request);
+    std::vector<std::string> words{std::istream_iterator<std::string>(stream), {}};
+    if (words.empty())
+        fail(label + " is blank", leaf);
+    if (words[0] == "none")
+        return SH_NONE;
+    auto action = parse_action(words[0]);
+    if (action == SH_SPAWN && words.size() < 2)
+        fail(label + " needs a program after spawn", leaf);
+    if (action_takes_workspace(action) &&
+        !config.workspace_number(join(std::span(words).subspan(1), " ")))
+        fail(label + " needs a workspace number or name after " + words[0], leaf);
+    return action;
+}
 // `peek`, `night_light`, `hot_corners`, `zoom`: the desktop effects.
 void read_effects(lua_State *L, Config &config) {
     auto &effects = config.settings.effects;
-    current_section.clear();
-    if (section(L, "peek")) {
+    if (Section in{L, "peek"}) {
         effects.peek_opacity = static_cast<float>(number(L, "opacity", effects.peek_opacity, 0, 0.9));
         effects.peek_duration = integer(L, "duration", effects.peek_duration, 0, 2000);
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "night_light")) {
+    if (Section in{L, "night_light"}) {
         boolean(L, "enabled", "night_light.enabled", effects.night_light);
         effects.day_kelvin = integer(L, "day_temperature", effects.day_kelvin, SH_KELVIN_MIN, SH_KELVIN_MAX);
         effects.night_kelvin = integer(L, "night_temperature", effects.night_kelvin, SH_KELVIN_MIN, SH_KELVIN_MAX);
         effects.transition = number(L, "transition", effects.transition, 0, 240);
         bool seen_sunrise = false, seen_sunset = false;
         for (const char *key : {"sunrise", "sunset"}) {
-            lua_getfield(L, -1, key);
-            if (!lua_isnil(L, -1)) {
-                auto text = string(L, -1, key);
+            if (auto time = text(L, key)) {
                 double minutes = 0;
-                if (!sh_parse_clock(text.c_str(), &minutes))
+                if (!sh_parse_clock(time->c_str(), &minutes))
                     fail(std::string("night_light.") + key + " must be a time like \"19:30\"", key);
                 bool rise = key[3] == 'r';
                 (rise ? effects.sunrise : effects.sunset) = minutes;
                 (rise ? seen_sunrise : seen_sunset) = true;
             }
-            lua_pop(L, 1);
         }
-        lua_getfield(L, -1, "latitude");
-        bool has_latitude = !lua_isnil(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, -1, "longitude");
-        bool has_longitude = !lua_isnil(L, -1);
-        lua_pop(L, 1);
-        if (has_latitude || has_longitude) {
+        if (present(L, "latitude") || present(L, "longitude")) {
             effects.latitude = number(L, "latitude", effects.latitude, -90, 90);
             effects.longitude = number(L, "longitude", effects.longitude, -180, 180);
             effects.located = true;
@@ -1174,68 +1091,40 @@ void read_effects(lua_State *L, Config &config) {
         if (effects.located && !(seen_sunrise && seen_sunset))
             effects.sunrise = effects.sunset = -1;
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "hot_corners")) {
+    if (Section in{L, "hot_corners"}) {
         effects.corner_size = integer(L, "size", effects.corner_size, 1, 64);
         effects.corner_delay = integer(L, "delay", effects.corner_delay, 0, 5000);
         constexpr const char *corners[] = {"top_left", "top_right", "bottom_left", "bottom_right"};
         for (size_t i = 0; i < 4; ++i) {
-            lua_getfield(L, -1, corners[i]);
-            if (!lua_isnil(L, -1)) {
-                auto request = string(L, -1, corners[i]);
-                std::istringstream stream(request);
-                std::vector<std::string> words{std::istream_iterator<std::string>(stream), {}};
-                std::string label = std::string("hot_corners.") + corners[i];
-                if (!words.empty() && words[0] != "none") {
-                    auto action = parse_action(words[0]);
-                    if (action == SH_SPAWN && words.size() < 2)
-                        fail(label + " needs a program after spawn", corners[i]);
-                    if (action_takes_workspace(action)) {
-                        std::string name;
-                        for (size_t w = 1; w < words.size(); ++w)
-                            name += (w > 1 ? " " : "") + words[w];
-                        if (!config.workspace_number(name))
-                            fail(label + " needs a workspace number or name after " + words[0],
-                                 corners[i]);
-                    }
-                    config.hot_corners[i] = request;
-                    effects.corner_mask |= 1U << i;
-                } else if (words.empty() && !request.empty()) {
-                    fail(label + " is blank", corners[i]);
-                }
-            }
-            lua_pop(L, 1);
+            // "" sets nothing, as "none" does.
+            auto request = text(L, corners[i]);
+            if (!request || request->empty() ||
+                request_action(config, *request, std::string("hot_corners.") + corners[i],
+                               corners[i]) == SH_NONE)
+                continue;
+            config.hot_corners[i] = *request;
+            effects.corner_mask |= 1U << i;
         }
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "zoom")) {
+    if (Section in{L, "zoom"}) {
         effects.zoom_step = static_cast<float>(number(L, "step", effects.zoom_step, 1.05, 4));
         effects.zoom_max = static_cast<float>(number(L, "max", effects.zoom_max, 1.5, 32));
         effects.zoom_duration = integer(L, "duration", effects.zoom_duration, 0, 2000);
-        lua_getfield(L, -1, "scroll_modifier");
-        if (!lua_isnil(L, -1)) {
-            auto name = string(L, -1, "scroll_modifier");
-            effects.zoom_scroll_modifier = name.empty() ? 0 : modifier(name);
-        }
-        lua_pop(L, 1);
+        if (auto name = text(L, "scroll_modifier"))
+            effects.zoom_scroll_modifier = name->empty() ? 0 : modifier(*name);
     }
-    lua_pop(L, 1);
-    current_section.clear();
 }
 // `gestures`: the touchpad swipes the compositor takes, each running a request as a hot corner
 // does. A list of swipes replaces the default one.
 void read_gestures(lua_State *L, Config &config) {
     auto &gestures = config.settings.gestures;
-    current_section.clear();
-    if (section(L, "gestures")) {
+    if (Section in{L, "gestures"}) {
         boolean(L, "enabled", "gestures.enabled", gestures.enabled);
         gestures.distance = integer(L, "distance", gestures.distance, 50, 2000);
         boolean(L, "invert", "gestures.invert", gestures.invert);
         lua_getfield(L, -1, "swipes");
         if (!lua_isnil(L, -1)) {
-            current_section = "gestures.swipes";
+            Named swipes("gestures.swipes");
             gestures.swipe_count = 0;
             auto size = array_size(L, -1, std::size(gestures.swipes));
             for (size_t i = 1; i <= size; ++i) {
@@ -1251,22 +1140,7 @@ void read_gestures(lua_State *L, Config &config) {
                 if (!swipe.direction)
                     unknown("direction", direction, {"left", "right", "up", "down"}, "direction");
                 auto request = field(L, "action");
-                std::istringstream stream(request);
-                std::vector<std::string> words{std::istream_iterator<std::string>(stream), {}};
-                if (words.empty())
-                    fail("gestures.swipes action is blank", "action");
-                swipe.action = words[0] == "none" ? SH_NONE : parse_action(words[0]);
-                if (swipe.action == SH_SPAWN && words.size() < 2)
-                    fail("gestures.swipes action needs a program after spawn", "action");
-                if (action_takes_workspace(swipe.action)) {
-                    std::string name;
-                    for (size_t w = 1; w < words.size(); ++w)
-                        name += (w > 1 ? " " : "") + words[w];
-                    if (!config.workspace_number(name))
-                        fail("gestures.swipes action needs a workspace number or name after " +
-                                 words[0],
-                             "action");
-                }
+                swipe.action = request_action(config, request, "gestures.swipes action", "action");
                 copy_text(request, swipe.request, "gestures.swipes action");
                 for (int j = 0; j < gestures.swipe_count; ++j)
                     if (gestures.swipes[j].fingers == swipe.fingers &&
@@ -1280,8 +1154,6 @@ void read_gestures(lua_State *L, Config &config) {
         }
         lua_pop(L, 1);
     }
-    lua_pop(L, 1);
-    current_section.clear();
 }
 // A path as the configuration writes it, made absolute: "~/..." in the home directory, else
 // relative to the configuration file's `directory`.
@@ -1317,7 +1189,7 @@ __attribute__((format(printf, 3, 0))) void keep_xkb_error(xkb_context *context,
 // the keymap file that xkbcommon stopped at. The names are checked with a file too, as they
 // stand in for one that breaks later.
 void check_keymap(const sh_settings &settings) {
-    current_section = "keyboard";
+    Named in("keyboard");
     std::string error;
     std::unique_ptr<xkb_context, decltype(&xkb_context_unref)> context(
         xkb_context_new(XKB_CONTEXT_NO_FLAGS), xkb_context_unref);
@@ -1368,7 +1240,6 @@ void check_keymap(const sh_settings &settings) {
             fail("keyboard.file: " + error, "file");
         }
     }
-    current_section.clear();
 }
 void instruction_limit(lua_State *L, lua_Debug *) {
     auto *remaining = static_cast<int *>(lua_getextraspace(L));
@@ -1401,82 +1272,54 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
         auto size = array_size(L, -1, 512);
         for (size_t i = 1; i <= size; ++i) {
             lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
+            Named in(current_section + "[" + std::to_string(i) + "]");
             table(L, -1, "binding");
             keys(L, -1, "bindings[]");
             Binding binding{};
-            lua_getfield(L, -1, "button");
-            bool is_button = !lua_isnil(L, -1);
-            lua_pop(L, 1);
+            bool is_button = present(L, "button");
             if (is_button && in_mode)
                 fail("a mode's bindings take a key, not a button");
-            lua_getfield(L, -1, "switch");
-            bool is_switch = !lua_isnil(L, -1);
-            lua_pop(L, 1);
+            bool is_switch = present(L, "switch");
             if (is_switch && in_mode)
                 fail("a mode's bindings take a key, not a switch");
             if (is_switch) {
                 read_switch_binding(L, binding);
                 // A switch's binding runs while the session is locked, and never repeats.
-                for (const char *only : {"locked", "repeats"}) {
-                    lua_getfield(L, -1, only);
-                    if (!lua_isnil(L, -1))
+                for (const char *only : {"locked", "repeats"})
+                    if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
-                    lua_pop(L, 1);
-                }
             } else if (is_button) {
-                lua_getfield(L, -1, "key");
-                if (!lua_isnil(L, -1))
+                if (present(L, "key"))
                     fail("a binding takes a key or a button, not both");
-                lua_pop(L, 1);
                 binding.button = mouse_button(field(L, "button"));
-                lua_getfield(L, -1, "app_id");
-                if (!lua_isnil(L, -1)) {
-                    binding.app_id = string(L, -1, "app_id");
-                    try {
-                        binding.pattern = std::regex(binding.app_id, std::regex::ECMAScript);
-                    } catch (const std::regex_error &) {
-                        fail("app_id '" + binding.app_id + "' is not a valid regular expression");
-                    }
-                }
-                lua_pop(L, 1);
+                std::string app_id;
+                binding.pattern = pattern_field(L, "app_id", app_id);
                 boolean(L, "desktop", "desktop", binding.desktop);
-                for (const char *only : {"locked", "repeats"}) {
-                    lua_getfield(L, -1, only);
-                    if (!lua_isnil(L, -1))
+                for (const char *only : {"locked", "repeats"})
+                    if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
-                    lua_pop(L, 1);
-                }
             } else {
-                for (const char *only : {"app_id", "desktop"}) {
-                    lua_getfield(L, -1, only);
-                    if (!lua_isnil(L, -1))
+                for (const char *only : {"app_id", "desktop"})
+                    if (present(L, only))
                         fail(std::string(only) + " is only valid with a button");
-                    lua_pop(L, 1);
-                }
                 auto key = field(L, "key");
                 binding.keysym =
                     xkb_keysym_to_lower(xkb_keysym_from_name(key.c_str(), XKB_KEYSYM_NO_FLAGS));
                 if (binding.keysym == XKB_KEY_NoSymbol)
                     fail("unknown key '" + key + "'");
             }
-            if (!is_switch) {
-                lua_getfield(L, -1, "state");
-                if (!lua_isnil(L, -1))
-                    fail("state is only valid with a switch");
-                lua_pop(L, 1);
-            }
+            if (!is_switch && present(L, "state"))
+                fail("state is only valid with a switch");
             auto action = field(L, "action");
             binding.action = action == "none" ? SH_NONE : parse_action(action);
             lua_getfield(L, -1, "mods");
-            auto mods = lua_isnil(L, -1) ? 0 : array_size(L, -1, 4);
-            for (size_t j = 1; j <= mods; ++j) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(j));
-                auto bit = modifier(string(L, -1, "modifier"));
-                if (binding.modifiers & bit)
-                    fail("duplicate modifier");
-                binding.modifiers |= bit;
-                lua_pop(L, 1);
-            }
+            if (!lua_isnil(L, -1))
+                for (const auto &name : strings(L, 4, "modifier")) {
+                    auto bit = modifier(name);
+                    if (binding.modifiers & bit)
+                        fail("duplicate modifier");
+                    binding.modifiers |= bit;
+                }
             lua_pop(L, 1);
             lua_getfield(L, -1, "command");
             if (binding.action == SH_SPAWN)
@@ -1498,11 +1341,8 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                     binding.workspace = integer(L, "workspace", 0, 1, config.settings.workspaces);
                 if (binding.workspace == 0)
                     fail("workspace actions need a workspace number");
-            } else {
-                lua_getfield(L, -1, "workspace");
-                if (!lua_isnil(L, -1))
-                    fail("workspace is only valid with workspace actions");
-                lua_pop(L, 1);
+            } else if (present(L, "workspace")) {
+                fail("workspace is only valid with workspace actions");
             }
             lua_getfield(L, -1, "output");
             if (action_takes_output(binding.action)) {
@@ -1557,10 +1397,7 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 binding.layout = integer(L, "layout", 0, 1, max_layouts);
             else if (has_layout)
                 binding.layout = parse_layout_choice(choice);
-            lua_getfield(L, -1, "amount");
-            bool has_amount = !lua_isnil(L, -1);
-            lua_pop(L, 1);
-            if (has_amount && !action_takes_amount(binding.action))
+            if (present(L, "amount") && !action_takes_amount(binding.action))
                 fail("amount is only valid with resize, volume and brightness actions");
             binding.amount = integer(L, "amount", default_amount(binding.action), 1,
                                      max_amount(binding.action));
@@ -1585,10 +1422,12 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
     }
 }
 constexpr size_t max_modes = 16;
-// Names travel through `paw msg mode NAME` and the shell's state, so they hold no spaces;
-// "default" is the bindings outside any mode.
-bool valid_mode_name(const std::string &name) {
-    if (name.empty() || name.size() > 32 || name == "default")
+// A mode's or a profile's name: 1 to 32 letters, digits, '-' and '_', and none of `reserved`.
+// Names travel through `paw msg mode NAME`, `paw msg profile NAME` and the shell's state, so
+// they hold no spaces.
+bool valid_name(const std::string &name, std::initializer_list<std::string_view> reserved) {
+    if (name.empty() || name.size() > 32 ||
+        std::find(reserved.begin(), reserved.end(), name) != reserved.end())
         return false;
     return std::all_of(name.begin(), name.end(), [](char c) {
         return std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_';
@@ -1599,14 +1438,15 @@ bool valid_mode_name(const std::string &name) {
 void read_mode_names(lua_State *L, Config &config) {
     lua_getfield(L, -1, "modes");
     if (!lua_isnil(L, -1)) {
-        current_section = "modes";
+        Named in("modes");
         table(L, -1, "modes");
         lua_pushnil(L);
         while (lua_next(L, -2)) {
             if (lua_type(L, -2) != LUA_TSTRING)
                 fail("modes must be keyed by name");
             std::string name = lua_tostring(L, -2);
-            if (!valid_mode_name(name))
+            // "default" is the bindings outside any mode.
+            if (!valid_name(name, {"default"}))
                 fail("mode name '" + name +
                          "' must be 1 to 32 letters, digits, '-' or '_', and not default",
                      name);
@@ -1617,14 +1457,14 @@ void read_mode_names(lua_State *L, Config &config) {
             fail("at most 16 modes");
         std::sort(config.modes.begin(), config.modes.end(),
                   [](const Mode &a, const Mode &b) { return a.name < b.name; });
-        current_section.clear();
     }
     lua_pop(L, 1);
 }
 // Each mode's bindings. A mode that nothing leaves would keep every other key binding away.
 void read_modes(lua_State *L, Config &config) {
+    Named in("modes");
     for (auto &mode : config.modes) {
-        current_section = "modes";
+        Named in_mode("modes." + mode.name);
         lua_getfield(L, -1, "modes");
         lua_getfield(L, -1, mode.name.c_str());
         table(L, -1, ("modes." + mode.name).c_str());
@@ -1643,28 +1483,20 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     Config config;
     table(L, -1, "configuration result");
     keys(L, -1, "");
-    current_section.clear();
     read_shell(L, config.shell);
-    current_section.clear();
     read_features(L, config);
-    current_section.clear();
     if (integer(L, "version", 1, 1, 1) != 1)
         fail("unsupported version");
     boolean(L, "xwayland", "xwayland", config.settings.xwayland);
     boolean(L, "auto_reload", "auto_reload", config.auto_reload);
     lua_getfield(L, -1, "terminal");
     if (!lua_isnil(L, -1)) {
-        auto size = array_size(L, -1, 64);
-        for (size_t i = 1; i <= size; ++i) {
-            lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-            config.terminal.push_back(string(L, -1, "terminal argument"));
-            lua_pop(L, 1);
-        }
+        config.terminal = strings(L, 64, "terminal argument");
         if (config.terminal.empty() || config.terminal.front().empty())
             fail("terminal needs a program, such as { \"foot\" }", "terminal");
     }
     lua_pop(L, 1);
-    if (section(L, "appearance")) {
+    if (Section in{L, "appearance"}) {
         auto color = field(L, "background");
         if (!is_color(color))
             fail("background must be #RRGGBB");
@@ -1672,75 +1504,48 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
             config.settings.background[i] =
                 std::stoi(color.substr(1 + 2 * i, 2), nullptr, 16) / 255.0F;
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "keyboard")) {
+    if (Section in{L, "keyboard"}) {
         text_field(L, "layout", config.settings.keyboard_layout);
         text_field(L, "variant", config.settings.keyboard_variant);
         text_field(L, "model", config.settings.keyboard_model);
         text_field(L, "options", config.settings.keyboard_options);
         text_field(L, "rules", config.settings.keyboard_rules);
-        lua_getfield(L, -1, "file");
-        if (!lua_isnil(L, -1)) {
-            auto file = string(L, -1, "keyboard.file");
-            if (!file.empty())
-                copy_text(config_relative(file, directory).string(), config.settings.keyboard_file,
-                          "keyboard.file");
-        }
-        lua_pop(L, 1);
+        if (auto file = text(L, "file", "keyboard.file"); file && !file->empty())
+            copy_text(config_relative(*file, directory).string(), config.settings.keyboard_file,
+                      "keyboard.file");
         config.settings.repeat_rate = integer(L, "repeat_rate", 25, 0, 100);
         config.settings.repeat_delay = integer(L, "repeat_delay", 600, 0, 5000);
         boolean(L, "shortcuts_inhibit", "keyboard.shortcuts_inhibit",
                 config.settings.shortcuts_inhibit);
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "mouse")) {
-        lua_getfield(L, -1, "modifier");
-        if (!lua_isnil(L, -1))
-            config.settings.mouse_modifier = modifier(string(L, -1, "modifier"));
-        lua_pop(L, 1);
-        lua_getfield(L, -1, "speed");
-        config.settings.pointer_speed_set = !lua_isnil(L, -1);
-        lua_pop(L, 1);
+    if (Section in{L, "mouse"}) {
+        if (auto name = text(L, "modifier"))
+            config.settings.mouse_modifier = modifier(*name);
+        config.settings.pointer_speed_set = present(L, "speed");
         config.settings.pointer_speed = number(L, "speed", 0, -1, 1);
-        lua_getfield(L, -1, "acceleration");
-        if (!lua_isnil(L, -1)) {
-            auto profile = string(L, -1, "acceleration");
-            if (profile != "flat" && profile != "adaptive")
-                fail("mouse.acceleration must be \"flat\" or \"adaptive\"");
-            config.settings.pointer_accel = profile == "adaptive";
-        }
-        lua_pop(L, 1);
+        named(L, "acceleration", nullptr, config.settings.pointer_accel,
+              {{"flat", 0}, {"adaptive", 1}}, "mouse.acceleration must be \"flat\" or \"adaptive\"");
         tristate(L, "natural_scroll", "mouse.natural_scroll", config.settings.mouse_natural_scroll);
         boolean(L, "focus_follows", "mouse.focus_follows", config.settings.focus_follows_mouse);
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "touchpad")) {
+    if (Section in{L, "touchpad"}) {
         tristate(L, "natural_scroll", "touchpad.natural_scroll",
                  config.settings.touchpad_natural_scroll);
         tristate(L, "tap_to_click", "touchpad.tap_to_click", config.settings.touchpad_tap);
         tristate(L, "disable_while_typing", "touchpad.disable_while_typing",
                  config.settings.touchpad_dwt);
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "touch")) {
+    if (Section in{L, "touch"}) {
         text_field(L, "output", config.settings.touch_output);
         if (!std::strcmp(config.settings.touch_output, "desc:"))
             fail("touch.output needs a description after desc:", "output");
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "tablet")) {
+    if (Section in{L, "tablet"}) {
         text_field(L, "output", config.settings.tablet_output);
         if (!std::strcmp(config.settings.tablet_output, "desc:"))
             fail("tablet.output needs a description after desc:", "output");
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "layout")) {
+    if (Section in{L, "layout"}) {
         // gap sets both; gap_inner and gap_outer override it.
         int gap = integer(L, "gap", 8, 0, 100);
         config.settings.gap_inner = integer(L, "gap_inner", gap, 0, 100);
@@ -1754,13 +1559,9 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         config.settings.workspaces = integer(L, "workspaces", 4, 1, 10);
         lua_getfield(L, -1, "workspace_names");
         if (!lua_isnil(L, -1)) {
-            auto size = array_size(L, -1, 10);
-            if (size > static_cast<size_t>(config.settings.workspaces))
+            if (array_size(L, -1, 10) > static_cast<size_t>(config.settings.workspaces))
                 fail("layout.workspace_names has more names than layout.workspaces");
-            for (size_t i = 1; i <= size; ++i) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-                auto name = string(L, -1, "workspace name");
-                lua_pop(L, 1);
+            for (auto &name : strings(L, 10, "workspace name")) {
                 if (name.size() > 32)
                     fail("workspace name '" + name + "' is longer than 32 characters");
                 bool digits = !name.empty() && std::all_of(name.begin(), name.end(), [](char c) {
@@ -1781,159 +1582,101 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
             }
         }
         lua_pop(L, 1);
-        lua_getfield(L, -1, "tile_layout");
-        if (!lua_isnil(L, -1))
-            config.settings.tile_layout = tile_layout_index(string(L, -1, "layout.tile_layout"));
-        lua_pop(L, 1);
+        if (auto layout = text(L, "tile_layout", "layout.tile_layout"))
+            config.settings.tile_layout = tile_layout_index(*layout);
         config.settings.master_ratio = static_cast<float>(number(L, "master_ratio", 0.55, 0.1, 0.9));
         config.settings.master_count = integer(L, "master_count", 1, 1, 8);
-        if (section(L, "scroll", "layout.scroll"))
+        if (Section scroll{L, "scroll", "layout.scroll"})
             read_scroll(L, config.settings);
-        lua_pop(L, 1);
-        current_section = "layout";
         read_output_layouts(L, config.settings);
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "outputs")) {
+    if (Section in{L, "outputs"}) {
         boolean(L, "return_windows", "outputs.return_windows", config.settings.return_windows);
-        lua_getfield(L, -1, "lid");
-        if (!lua_isnil(L, -1)) {
-            auto mode = string(L, -1, "outputs.lid");
-            if (mode != "clamshell" && mode != "ignore")
-                fail("outputs.lid must be \"clamshell\" or \"ignore\"", "lid");
-            config.settings.lid = mode == "ignore" ? SH_LID_IGNORE : SH_LID_CLAMSHELL;
-        }
-        lua_pop(L, 1);
+        named(L, "lid", "outputs.lid", config.settings.lid,
+              {{"clamshell", SH_LID_CLAMSHELL}, {"ignore", SH_LID_IGNORE}},
+              "outputs.lid must be \"clamshell\" or \"ignore\"", "lid");
         read_monitors(L, config.settings);
         lua_getfield(L, -1, "order");
         if (!lua_isnil(L, -1)) {
-            auto size = array_size(L, -1, std::size(config.settings.output_order));
-            for (size_t i = 1; i <= size; ++i) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-                auto name = string(L, -1, "output name");
-                if (name.empty())
+            auto names = strings(L, std::size(config.settings.output_order), "output name");
+            for (size_t i = 0; i < names.size(); ++i) {
+                if (names[i].empty())
                     fail("output name is empty");
-                for (size_t j = 0; j + 1 < i; ++j)
-                    if (name == config.settings.output_order[j])
-                        fail("duplicate output '" + name + "'");
-                copy_text(name, config.settings.output_order[i - 1], "output name");
-                lua_pop(L, 1);
+                for (size_t j = 0; j < i; ++j)
+                    if (names[i] == config.settings.output_order[j])
+                        fail("duplicate output '" + names[i] + "'");
+                copy_text(names[i], config.settings.output_order[i], "output name");
             }
-            config.settings.output_count = static_cast<int>(size);
+            config.settings.output_count = static_cast<int>(names.size());
         }
         lua_pop(L, 1);
-        lua_getfield(L, -1, "primary");
-        if (!lua_isnil(L, -1)) {
-            auto name = string(L, -1, "primary");
-            if (name.empty())
+        if (auto name = text(L, "primary")) {
+            if (name->empty())
                 fail("primary output name is empty");
-            copy_text(name, config.settings.primary_output, "primary output name");
+            copy_text(*name, config.settings.primary_output, "primary output name");
         }
-        lua_pop(L, 1);
     }
-    lua_pop(L, 1);
-    current_section.clear();
     read_windows(L, config);
-    current_section.clear();
-    if (section(L, "animations")) {
+    if (Section in{L, "animations"}) {
         boolean(L, "enabled", "animations.enabled", config.settings.animations);
         read_animations(L, config.settings);
     }
-    lua_pop(L, 1);
-    current_section.clear();
     read_effects(L, config);
     read_gestures(L, config);
-    if (section(L, "overview")) {
+    if (Section in{L, "overview"}) {
         auto &settings = config.settings;
         boolean(L, "enabled", "overview.enabled", settings.overview);
         settings.overview_gap = integer(L, "gap", settings.overview_gap, 0, 200);
         boolean(L, "animation", "overview.animation", settings.overview_animation);
         settings.overview_duration = integer(L, "duration", settings.overview_duration, 10, 1000);
         boolean(L, "strip", "overview.strip", settings.overview_strip);
-        lua_getfield(L, -1, "hot_corner");
-        if (!lua_isnil(L, -1)) {
-            static constexpr const char *corners[] = {"none", "top-left", "top-right",
-                                                      "bottom-left", "bottom-right"};
-            auto name = string(L, -1, "overview.hot_corner");
-            auto found = std::find(std::begin(corners), std::end(corners), name);
-            if (found == std::end(corners))
-                fail("overview.hot_corner must be \"none\", \"top-left\", \"top-right\", "
-                     "\"bottom-left\", or \"bottom-right\"");
-            settings.overview_hot_corner = static_cast<int>(found - std::begin(corners));
-        }
-        lua_pop(L, 1);
+        named(L, "hot_corner", "overview.hot_corner", settings.overview_hot_corner,
+              {{"none", 0}, {"top-left", 1}, {"top-right", 2}, {"bottom-left", 3},
+               {"bottom-right", 4}},
+              "overview.hot_corner must be \"none\", \"top-left\", \"top-right\", "
+              "\"bottom-left\", or \"bottom-right\"");
         settings.overview_dim = static_cast<float>(number(L, "dim", settings.overview_dim, 0, 1));
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "notifications")) {
+    if (Section in{L, "notifications"}) {
         auto &notifications = config.notifications;
         boolean(L, "enabled", "notifications.enabled", notifications.enabled);
-        lua_getfield(L, -1, "position");
-        if (!lua_isnil(L, -1)) {
-            static constexpr std::pair<const char *, Corner> corners[] = {
-                {"top-right", Corner::TopRight},       {"top-left", Corner::TopLeft},
-                {"bottom-right", Corner::BottomRight}, {"bottom-left", Corner::BottomLeft}};
-            auto name = string(L, -1, "notifications.position");
-            auto found = std::find_if(std::begin(corners), std::end(corners),
-                                      [&name](const auto &corner) { return name == corner.first; });
-            if (found == std::end(corners))
-                fail("notifications.position must be \"top-right\", \"top-left\", "
-                     "\"bottom-right\", or \"bottom-left\"", "position");
-            notifications.position = found->second;
-        }
-        lua_pop(L, 1);
+        named(L, "position", "notifications.position", notifications.position,
+              {{"top-right", Corner::TopRight},
+               {"top-left", Corner::TopLeft},
+               {"bottom-right", Corner::BottomRight},
+               {"bottom-left", Corner::BottomLeft}},
+              "notifications.position must be \"top-right\", \"top-left\", \"bottom-right\", or "
+              "\"bottom-left\"",
+              "position");
         notifications.timeout = integer(L, "timeout", notifications.timeout, 0, 600000);
         notifications.max_visible = integer(L, "max_visible", notifications.max_visible, 1, 10);
         boolean(L, "dnd", "notifications.dnd", notifications.dnd);
         notifications.width = integer(L, "width", notifications.width, 200, 800);
         notifications.history = integer(L, "history", notifications.history, 0, 1000);
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "osd")) {
+    if (Section in{L, "osd"}) {
         auto &osd = config.osd;
         boolean(L, "enabled", "osd.enabled", osd.enabled);
-        lua_getfield(L, -1, "position");
-        if (!lua_isnil(L, -1)) {
-            auto name = string(L, -1, "osd.position");
-            if (name != "top" && name != "bottom")
-                fail("osd.position must be \"top\" or \"bottom\"", "position");
-            osd.top = name == "top";
-        }
-        lua_pop(L, 1);
+        named(L, "position", "osd.position", osd.top, {{"top", true}, {"bottom", false}},
+              "osd.position must be \"top\" or \"bottom\"", "position");
         osd.timeout = integer(L, "timeout", osd.timeout, 200, 10000);
         boolean(L, "volume", "osd.volume", osd.volume);
         boolean(L, "brightness", "osd.brightness", osd.brightness);
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "screenshots")) {
-        lua_getfield(L, -1, "directory");
-        if (!lua_isnil(L, -1)) {
-            auto directory = string(L, -1, "screenshots.directory");
-            if (!directory.starts_with('/') && !directory.starts_with("~/"))
+    if (Section in{L, "screenshots"}) {
+        if (auto folder = text(L, "directory", "screenshots.directory")) {
+            if (!folder->starts_with('/') && !folder->starts_with("~/"))
                 fail("screenshots.directory must be absolute or start with ~/");
-            config.screenshots.directory = directory;
+            config.screenshots.directory = *folder;
         }
-        lua_pop(L, 1);
         boolean(L, "clipboard", "screenshots.clipboard", config.screenshots.clipboard);
         boolean(L, "notify", "screenshots.notify", config.screenshots.notify);
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "power")) {
+    if (Section in{L, "power"}) {
         lua_getfield(L, -1, "lock_command");
         if (!lua_isnil(L, -1)) {
             // A program and its arguments, or {} for no locker.
-            auto size = array_size(L, -1, 64);
-            Command locker;
-            for (size_t i = 1; i <= size; ++i) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-                locker.push_back(string(L, -1, "power.lock_command argument"));
-                lua_pop(L, 1);
-            }
+            auto locker = strings(L, 64, "power.lock_command argument");
             if (!locker.empty() && locker.front().empty())
                 fail("power.lock_command's program is empty", "lock_command");
             config.power.lock_command = std::move(locker);
@@ -1947,23 +1690,20 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         boolean(L, "force", "power.force", config.settings.close_force);
         config.power.countdown = integer(L, "countdown", config.power.countdown, 0, 300);
     }
-    lua_pop(L, 1);
-    current_section.clear();
     read_mode_names(L, config);
     read_idle(L, config.settings);
-    lua_getfield(L, -1, "bindings");
-    current_section = "bindings";
-    read_bindings(L, config, config.bindings, own, false);
-    lua_pop(L, 1);
-    current_section.clear();
+    {
+        Named in("bindings");
+        lua_getfield(L, -1, "bindings");
+        read_bindings(L, config, config.bindings, own, false);
+        lua_pop(L, 1);
+    }
     std::erase_if(config.bindings,
                   [](const Binding &binding) {
                       // A button's "none" stays: it hands matching clicks to the application.
                       return binding.action == SH_NONE && !binding.button;
                   });
-    current_section.clear();
     read_modes(L, config);
-    current_section.clear();
     lua_getfield(L, -1, "startup");
     if (!lua_isnil(L, -1)) {
         auto size = array_size(L, -1, 32);
@@ -1974,16 +1714,11 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         }
     }
     lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "autostart")) {
+    if (Section in{L, "autostart"}) {
         boolean(L, "xdg", "autostart.xdg", config.autostart.xdg);
         lua_getfield(L, -1, "exclude");
-        if (!lua_isnil(L, -1)) {
-            auto size = array_size(L, -1, 128);
-            for (size_t i = 1; i <= size; ++i) {
-                lua_rawgeti(L, -1, static_cast<lua_Integer>(i));
-                auto name = string(L, -1, "autostart.exclude entry");
-                lua_pop(L, 1);
+        if (!lua_isnil(L, -1))
+            for (auto &name : strings(L, 128, "autostart.exclude entry")) {
                 if (name.find('/') != std::string::npos || !name.ends_with(".desktop") ||
                     name.size() == 8)
                     fail("autostart.exclude names a desktop file by its file name, such as "
@@ -1991,28 +1726,15 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                          "exclude");
                 config.autostart.exclude.push_back(std::move(name));
             }
-        }
         lua_pop(L, 1);
     }
-    lua_pop(L, 1);
-    current_section.clear();
-    if (section(L, "session")) {
-        lua_getfield(L, -1, "restore");
-        if (!lua_isnil(L, -1)) {
-            auto restore = string(L, -1, "session.restore");
-            if (restore != "off" && restore != "windows" && restore != "launch")
-                fail("session.restore must be \"off\", \"windows\" or \"launch\"", "restore");
-            config.settings.session_restore = restore == "off"       ? SH_SESSION_RESTORE_OFF
-                                              : restore == "windows" ? SH_SESSION_RESTORE_WINDOWS
-                                                                     : SH_SESSION_RESTORE_LAUNCH;
-        }
-        lua_pop(L, 1);
+    if (Section in{L, "session"}) {
+        named(L, "restore", "session.restore", config.settings.session_restore,
+              {{"off", SH_SESSION_RESTORE_OFF},
+               {"windows", SH_SESSION_RESTORE_WINDOWS},
+               {"launch", SH_SESSION_RESTORE_LAUNCH}},
+              "session.restore must be \"off\", \"windows\" or \"launch\"", "restore");
     }
-    lua_pop(L, 1);
-    current_section.clear();
-
-    current_section.clear();
-    check_keymap(config.settings);
     return config;
 }
 } // namespace
@@ -2159,6 +1881,13 @@ std::vector<std::string> config_action_names() {
     for (const auto &entry : action_table)
         names.emplace_back(entry.first);
     return names;
+}
+
+std::string join(std::span<const std::string> words, std::string_view separator) {
+    std::string result;
+    for (size_t i = 0; i < words.size(); ++i)
+        result += (i ? std::string(separator) : "") + words[i];
+    return result;
 }
 
 sh_action parse_action(const std::string &name) {
@@ -2489,37 +2218,31 @@ std::string read_file(const std::filesystem::path &path) {
 bool is_record(lua_State *L, int index) {
     return lua_istable(L, index) && lua_rawlen(L, index) == 0;
 }
-// Copies what `target` lacks from `source`, descending into tables both have as records; lists
-// and values `target` already sets stay as they are.
-void merge(lua_State *L, int target, int source, int depth = 0) {
+// Lays the table at `source` over the one at `target`, descending into records both hold. With
+// `replace` its values replace those of `target`; without, they only fill in what `target` lacks,
+// and lists and values it sets stay as they are. `what` names the tables nested too deeply.
+void overlay(lua_State *L, int target, int source, bool replace, const char *what, int depth = 0) {
     if (depth > 16)
-        fail("theme tables are nested too deeply");
+        fail(std::string(what) + " tables are nested too deeply");
     target = lua_absindex(L, target);
     source = lua_absindex(L, source);
     lua_pushnil(L);
     while (lua_next(L, source)) {
         lua_pushvalue(L, -2);
         lua_rawget(L, target);
-        if (lua_isnil(L, -1)) {
-            lua_pop(L, 1);
-            lua_pushvalue(L, -2);
-            lua_pushvalue(L, -2);
+        if (is_record(L, -1) && is_record(L, -2)) {
+            overlay(L, -1, -2, replace, what, depth + 1);
+        } else if (replace || lua_isnil(L, -1)) {
+            lua_pushvalue(L, -3);
+            lua_pushvalue(L, -3);
             lua_rawset(L, target);
-        } else {
-            if (is_record(L, -1) && is_record(L, -2))
-                merge(L, -1, -2, depth + 1);
-            lua_pop(L, 1);
         }
-        lua_pop(L, 1);
+        lua_pop(L, 2);
     }
 }
 std::filesystem::path theme_path(lua_State *L, const std::filesystem::path &directory) {
-    lua_getfield(L, -1, "theme");
-    std::filesystem::path path;
-    if (!lua_isnil(L, -1))
-        path = directory / string(L, -1, "theme");
-    lua_pop(L, 1);
-    return path;
+    auto name = text(L, "theme");
+    return name ? directory / *name : std::filesystem::path();
 }
 // `theme = "theme.lua"` fills in every setting the configuration leaves out. A missing theme
 // file is not an error, so a configuration can name one before `paw import` writes it.
@@ -2534,7 +2257,7 @@ void include_theme(lua_State *L, const std::filesystem::path &directory) {
     if (!lua_isnil(L, -1))
         fail("a theme cannot include another theme");
     lua_pop(L, 1);
-    merge(L, -2, -1);
+    overlay(L, -2, -1, false, "theme");
     lua_pop(L, 1);
 }
 } // namespace
@@ -2591,58 +2314,27 @@ size_t include_defaults(lua_State *L) {
         }
     }
     lua_pop(L, 2);
-    merge(L, -2, -1);
+    overlay(L, -2, -1, false, "theme");
     lua_pop(L, 1);
     return own;
 }
 // Sections a profile may set: how the desktop looks, not how it behaves.
 const std::vector<std::string> profile_sections = {"appearance", "windows", "shell"};
 constexpr size_t max_profiles = 32;
-// Names travel through `paw msg profile NAME`, so they hold no spaces; "next" and "prev"
-// mean the neighbouring profile there.
-bool valid_profile_name(const std::string &name) {
-    if (name.empty() || name.size() > 32 || name == "next" || name == "prev")
-        return false;
-    return std::all_of(name.begin(), name.end(), [](char c) {
-        return std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_';
-    });
-}
-// Lays the table at `source` over the one at `target`: its values replace those of `target`,
-// and records both hold are laid over each other the same way.
-void overlay(lua_State *L, int target, int source, int depth = 0) {
-    if (depth > 16)
-        fail("profile tables are nested too deeply");
-    target = lua_absindex(L, target);
-    source = lua_absindex(L, source);
-    lua_pushnil(L);
-    while (lua_next(L, source)) {
-        lua_pushvalue(L, -2);
-        lua_rawget(L, target);
-        if (is_record(L, -1) && is_record(L, -2)) {
-            overlay(L, -1, -2, depth + 1);
-            lua_pop(L, 1);
-        } else {
-            lua_pop(L, 1);
-            lua_pushvalue(L, -2);
-            lua_pushvalue(L, -2);
-            lua_rawset(L, target);
-        }
-        lua_pop(L, 1);
-    }
-}
 // The names in `profiles`, sorted, after checking its shape.
 std::vector<std::string> profile_names(lua_State *L) {
     std::vector<std::string> names;
     lua_getfield(L, -1, "profiles");
     if (!lua_isnil(L, -1)) {
-        current_section = "profiles";
+        Named in("profiles");
         table(L, -1, "profiles");
         lua_pushnil(L);
         while (lua_next(L, -2)) {
             if (lua_type(L, -2) != LUA_TSTRING)
                 fail("profiles must be keyed by name");
             std::string name = lua_tostring(L, -2);
-            if (!valid_profile_name(name))
+            // "next" and "prev" mean the neighbouring profile in `paw msg profile`.
+            if (!valid_name(name, {"next", "prev"}))
                 fail("profile name '" + name +
                          "' must be 1 to 32 letters, digits, '-' or '_', and not next or prev",
                      name);
@@ -2653,7 +2345,6 @@ std::vector<std::string> profile_names(lua_State *L) {
         }
         if (names.size() > max_profiles)
             fail("at most 32 profiles");
-        current_section.clear();
     }
     lua_pop(L, 1);
     std::sort(names.begin(), names.end());
@@ -2661,22 +2352,17 @@ std::vector<std::string> profile_names(lua_State *L) {
 }
 // `profile`, the profile the configuration starts with; "" for none.
 std::string starting_profile(lua_State *L, const std::vector<std::string> &names) {
-    lua_getfield(L, -1, "profile");
-    std::string name;
-    if (!lua_isnil(L, -1)) {
-        name = string(L, -1, "profile");
-        if (names.empty())
-            fail("profile '" + name + "' needs a profiles table that defines it", "profile");
-        if (std::find(names.begin(), names.end(), name) == names.end())
-            unknown("profile", name, names, "profile");
-    }
-    lua_pop(L, 1);
-    return name;
+    auto name = text(L, "profile");
+    if (name && names.empty())
+        fail("profile '" + *name + "' needs a profiles table that defines it", "profile");
+    if (name && std::find(names.begin(), names.end(), *name) == names.end())
+        unknown("profile", *name, names, "profile");
+    return name.value_or("");
 }
 void apply_profile(lua_State *L, const std::string &name) {
     lua_getfield(L, -1, "profiles");
     lua_getfield(L, -1, name.c_str());
-    overlay(L, -3, -1);
+    overlay(L, -3, -1, true, "profile");
     lua_pop(L, 2);
 }
 void shadowed(lua_State *L, int config, int theme, const std::string &prefix,
@@ -2770,7 +2456,6 @@ Config parse_config(const std::string &source, const std::string &name,
         auto build = [&](const std::string &profile) {
             auto state = sandbox();
             auto *L = state.get();
-            current_section.clear();
             evaluate(L, source, name);
             include_theme(L, directory);
             auto own = include_defaults(L);
@@ -2781,6 +2466,8 @@ Config parse_config(const std::string &source, const std::string &name,
             return read(L, own, directory);
         };
         auto config = build("");
+        // Profiles leave the keyboard alone, so its keymap is compiled once.
+        check_keymap(config.settings);
         // Every profile is checked, so picking one later cannot fail; the configuration
         // itself is valid by now, so an error belongs to the profile.
         auto active = std::find(names.begin(), names.end(), chosen) != names.end() ? chosen : start;
@@ -2800,7 +2487,6 @@ Config parse_config(const std::string &source, const std::string &name,
         config.profile = active;
         return config;
     } catch (const ConfigError &error) {
-        current_section.clear();
         auto line = locate(source, error.trail);
         if (!line)
             throw;

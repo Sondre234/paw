@@ -2,7 +2,6 @@
 """wlr-output-management: a client (as wlr-randr is) lists the outputs, tests and applies changes,
 and a reload of the Lua configuration takes them back."""
 from pathlib import Path
-import signal
 import subprocess
 import sys
 
@@ -56,8 +55,7 @@ with harness.Compositor(compositor, "return { xwayland = false }",
     assert sum(enabled for enabled, *_ in outputs().values()) == 1
 
     # A reload restores what the configuration says.
-    desktop.server.send_signal(signal.SIGHUP)
-    desktop.wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
+    desktop.reload()
     state = outputs()
     assert all(row[0] and row[5:7] == (1.0, 0) for row in state.values()), state
 print("Output management test, apply, and reload passed")

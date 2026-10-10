@@ -30,8 +30,7 @@ with harness.Compositor(compositor, CONFIG % RULES) as desktop:
 
     def windows():
         """app_id -> (title, tiled, sticky, above)."""
-        return {r[8]: (r[9], r[3] == "1", r[13] == "1", r[15] == "1")
-                for r in desktop.rows("windows")}
+        return {w.app_id: (w.title, w.tiled, w.sticky, w.above) for w in desktop.windows()}
 
     def held(app_id):
         """What the dynamic rules decide of floating, sticky and above, and what they hold."""
@@ -77,7 +76,7 @@ with harness.Compositor(compositor, CONFIG % RULES) as desktop:
     # rule stops matching; what the rule still held is given back.
     retitle("app-mail", "Meeting", (False, False, True))
     focus("app-mail")
-    desktop.wait_for(lambda: {r[8]: r[1] for r in desktop.rows("windows")}["app-mail"] == "1",
+    desktop.wait_for(lambda: {w.app_id: w.focused for w in desktop.windows()}["app-mail"],
                      "app-mail focused")
     msg("toggle_above")
     assert windows()["app-mail"] == ("Meeting", False, False, False)
@@ -101,7 +100,7 @@ with harness.Compositor(compositor, CONFIG % RULES) as desktop:
     desktop.wait_for(lambda: windows()["app-share"] == ("Desk", True, False, False), "tiled")
     retitle("app-share", "Sharing your screen", (False, True, False))
     msg("workspace", "2")
-    assert {r[8]: r[0] for r in desktop.rows("windows")}["app-share"] == "2", windows()
+    assert {w.app_id: w.workspace for w in desktop.windows()}["app-share"] == 2, windows()
     msg("workspace", "1")
     retitle("app-share", "Desk", (True, False, False))
 

@@ -148,6 +148,11 @@ std::string trim(std::string_view text) {
     return std::string(text.substr(first, last - first + 1));
 }
 
+std::string lower(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), ::tolower);
+    return text;
+}
+
 std::vector<std::string> split(std::string_view text, char separator) {
     std::vector<std::string> parts;
     int depth = 0;
@@ -187,8 +192,7 @@ std::optional<double> parse_number(std::string_view text) {
 }
 
 std::optional<bool> parse_bool(std::string_view text) {
-    auto value = trim(text);
-    std::transform(value.begin(), value.end(), value.begin(), ::tolower);
+    auto value = lower(trim(text));
     if (value == "true" || value == "yes" || value == "on" || value == "1")
         return true;
     if (value == "false" || value == "no" || value == "off" || value == "0")

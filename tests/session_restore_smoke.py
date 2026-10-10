@@ -47,20 +47,15 @@ with harness.Compositor(compositor, config(), start=False) as desktop:
 
     def windows():
         """By title: workspace and the place it floats at."""
-        return {r[9]: dict(workspace=int(r[0]), x=int(r[4]), y=int(r[5])) for r in
-                desktop.rows("windows")}
+        return {w.title: dict(workspace=w.workspace, x=w.x, y=w.y) for w in desktop.windows()}
 
     def titles():
-        return sorted(row[9] for row in desktop.rows("windows"))
+        return sorted(w.title for w in desktop.windows())
 
     desktop.detail = lambda: f"windows: {windows()}"
 
     def open_window(title):
-        client = desktop.spawn([probe, "--window-only"],
-                               env={"PAW_PROBE_TITLE": title,
-                                    "PAW_PROBE_APP_ID": f"app-{title.lower()}"})
-        desktop.wait_for(lambda: title in windows(), f"{title} mapped")
-        return client
+        return desktop.open_window(probe, title, f"app-{title.lower()}")
 
     def move(title, workspace):
         subprocess.run([probe, "--activate", f"app-{title.lower()}"], env=env, check=True,

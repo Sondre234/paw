@@ -14,13 +14,8 @@ static bool ruled_to_tear(struct sh_output *output, struct sh_toplevel *toplevel
     if (tearing->rule_window == toplevel && tearing->rule_id == toplevel->id &&
         tearing->rule_generation == server->config_generation)
         return tearing->ruled;
-    const struct sh_callbacks *callbacks = server->callbacks;
-    const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
     struct sh_window_rule rule;
-    tearing->ruled = callbacks->window_rule &&
-                     callbacks->window_rule(callbacks->userdata, app_id ? app_id : "",
-                                            title ? title : "", &rule) &&
-                     rule.allow_tearing;
+    tearing->ruled = window_rule(toplevel, &rule) && rule.allow_tearing;
     tearing->rule_window = toplevel;
     tearing->rule_id = toplevel->id;
     tearing->rule_generation = server->config_generation;
@@ -81,12 +76,8 @@ static struct sh_toplevel *tearing_window(struct sh_output *output, const char *
     }
     struct sh_toplevel *toplevel, *found = NULL;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (toplevel->fullscreen && toplevel_mapped(toplevel) && toplevel_visible(toplevel) &&
-            output_named(output, toplevel->output)) {
+        if (!toplevel->unmanaged && toplevel->fullscreen && toplevel_mapped(toplevel) &&
+            toplevel_visible(toplevel) && output_named(output, toplevel->output)) {
             found = toplevel;
             break;
         }
@@ -112,19 +103,11 @@ static struct sh_toplevel *tearing_window(struct sh_output *output, const char *
 }
 
 /* The backend's test of a tearing page flip; under --headless, whose outputs take one, the
- * outputs PAW_TEST_REFUSE_TEARING names (separated by commas) refuse it, as a GPU or driver
- * without asynchronous flips does. */
+ * outputs PAW_TEST_REFUSE_TEARING names refuse it, as a GPU or driver without asynchronous flips
+ * does. */
 static bool test_tearing(struct sh_output *output, const struct wlr_output_state *state) {
-    const char *refused = getenv("PAW_TEST_REFUSE_TEARING");
-    if (refused && headless_backend(output->server)) {
-        const char *name = output->wlr_output->name;
-        size_t length = strlen(name);
-        for (const char *at = strstr(refused, name); at; at = strstr(at + 1, name)) {
-            if ((at == refused || at[-1] == ',') && (at[length] == ',' || at[length] == '\0'))
-                return false;
-        }
-    }
-    return wlr_output_test_state(output->wlr_output, state);
+    return !test_names_output(output, "PAW_TEST_REFUSE_TEARING") &&
+           wlr_output_test_state(output->wlr_output, state);
 }
 
 /* Commits `output`'s next frame with an asynchronous page flip while its fullscreen window may
@@ -177,16 +160,13 @@ bool output_commit_tearing(struct sh_output *output, struct wlr_scene_output *sc
 /* For `get tearing`: a line per output in the layout with what its frames do (`tearing`,
  * `refused` where the backend took no asynchronous flip, or why the window may not tear), the
  * frames flipped at once and refused, and the window's title. */
-void describe_tearing(struct sh_server *server, int fd) {
+void describe_tearing(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_output *output;
     wl_list_for_each_reverse(output, &server->outputs, link) {
         struct sh_tearing *tearing = &output->tearing;
         char line[512], name[256];
-        snprintf(name, sizeof(name), "%s", tearing->title[0] ? tearing->title : "-");
-        for (char *c = name; *c; ++c)
-            if (*c == '\n' || *c == '\r' || *c == '\t')
-                *c = ' ';
+        copy_field(name, sizeof(name), tearing->title[0] ? tearing->title : "-");
         snprintf(line, sizeof(line), "%s\t%s\t%llu\t%llu\t%s\n", output->wlr_output->name,
                  tearing->why ? tearing->why : "off", (unsigned long long)tearing->flips,
                  (unsigned long long)tearing->refused, name);

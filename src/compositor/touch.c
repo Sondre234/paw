@@ -5,6 +5,7 @@
  * window controls, a drag strip or the bare desktop stands in for the pointer and its left
  * button instead, one finger at a time, as on sway. */
 #include "server.h"
+#include "paw/lid.h"
 
 struct sh_touch_device {
     struct wl_list link; // sh_server.touch.devices
@@ -13,26 +14,17 @@ struct sh_touch_device {
     struct wl_listener destroy;
 };
 
-/* A built-in panel: a laptop's or a tablet's own screen. */
-static bool built_in(const struct wlr_output *output) {
-    return !strncmp(output->name, "eDP", 3) || !strncmp(output->name, "LVDS", 4) ||
-           !strncmp(output->name, "DSI", 3);
-}
-
 /* The output a touchscreen is mapped to, or NULL for the whole layout. A touch.output that is
  * not plugged in leaves the choice to the rest. */
 static struct wlr_output *touch_output(struct sh_server *server, struct wlr_touch *touch) {
-    const char *setting = server_settings(server)->touch_output;
-    struct sh_output *output;
-    wl_list_for_each(output, &server->outputs, link) {
-        if (setting[0] && output_key_matches(setting, output->wlr_output))
-            return output->wlr_output;
-    }
-    struct wlr_output *named = touch->output_name ? find_output(server, touch->output_name) : NULL;
+    struct wlr_output *named = find_output_key(server, server_settings(server)->touch_output);
+    if (!named && touch->output_name)
+        named = find_output(server, touch->output_name);
     if (named)
         return named;
+    struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) {
-        if (built_in(output->wlr_output))
+        if (sh_output_built_in(output->wlr_output->name)) // a laptop's or a tablet's own screen
             return output->wlr_output;
     }
     return NULL;
@@ -104,8 +96,9 @@ static void release_pointer(struct sh_server *server, uint32_t time) {
     pointer_button(server, time, WL_POINTER_BUTTON_STATE_RELEASED);
 }
 
-/* A finger on a window or a panel focuses it, as a click does. */
-static void touch_focus(struct sh_server *server, double x, double y, struct sh_node *owner) {
+/* A finger or a pen's tip at (x, y) on `owner`, a window or a panel, focuses it, as a click
+ * does. */
+void focus_pressed(struct sh_server *server, double x, double y, struct sh_node *owner) {
     struct wlr_output *output = wlr_output_layout_output_at(server->output_layout, x, y);
     if (output)
         set_active_output(server, output->name);
@@ -136,7 +129,7 @@ static void touch_down(struct wl_listener *listener, void *data) {
         }
         if (!point)
             return; // more fingers than any screen has
-        touch_focus(server, x, y, owner);
+        focus_pressed(server, x, y, owner);
         if (!wlr_seat_touch_notify_down(server->seat, surface, event->time_msec, event->touch_id,
                                         sx, sy))
             return;
