@@ -969,9 +969,11 @@ whether it has, for something the compositor does another way without it, as the
 
 ### A new test
 
-- A pure function: a unit test next to the others in `tests/*_tests.c(pp)`, registered with
-  `add_executable` and `add_test` in `CMakeLists.txt`; `tests/check.h` has its `CHECK` and `NEAR`,
-  and `tests/config_check.hpp` a configuration test's `require`, `error_of` and `rejects`.
+- A pure function: a unit test next to the others in `tests/*_tests.c(pp)`, registered in
+  `CMakeLists.txt` with `paw_unit_test(NAME)` for `tests/NAME_tests.cpp` (linked to `paw_config`)
+  or `paw_c_unit_test(NAME)` for `tests/NAME_tests.c` with `src/NAME.c`; `tests/check.h` has its
+  `CHECK` and `NEAR`, and `tests/config_check.hpp` a configuration test's `require`, `error_of`
+  and `rejects`.
 - Compositor behavior: a smoke test, `tests/<name>_smoke.py`. Copy a short one such as
   `sticky_smoke.py`. `with harness.Compositor(compositor, CONFIG) as desktop:` starts a headless
   compositor with the pixman renderer in a temporary `XDG_RUNTIME_DIR`; open windows with
