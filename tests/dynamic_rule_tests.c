@@ -3,17 +3,7 @@
  * they stop, unless it was changed by hand meanwhile. */
 #include "paw/dynamic_rule.h"
 #include <stdio.h>
-
-static int failures;
-#define CHECK(condition, ...)                                                                      \
-    do {                                                                                           \
-        if (!(condition)) {                                                                        \
-            fprintf(stderr, "%s:%d: %s: ", __FILE__, __LINE__, #condition);                        \
-            fprintf(stderr, __VA_ARGS__);                                                          \
-            fputc('\n', stderr);                                                                   \
-            ++failures;                                                                            \
-        }                                                                                          \
-    } while (0)
+#include "check.h"
 
 /* A window's property, and what the rules hold of it, as the compositor keeps them: a step's
  * answer is given to the window. */

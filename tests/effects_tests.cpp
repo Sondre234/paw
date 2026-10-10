@@ -4,16 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
-
-static int failures = 0;
-#define CHECK(condition)                                                                       \
-    do {                                                                                       \
-        if (!(condition)) {                                                                    \
-            std::fprintf(stderr, "%s:%d: check failed: %s\n", __FILE__, __LINE__, #condition); \
-            ++failures;                                                                        \
-        }                                                                                      \
-    } while (0)
-#define NEAR(a, b, tolerance) CHECK(std::fabs((a) - (b)) <= (tolerance))
+#include "check.h"
 
 static void fades() {
     sh_fade fade;

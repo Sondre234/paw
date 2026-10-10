@@ -7,17 +7,7 @@
 #include <string.h>
 #include <wayland-server-core.h>
 #include <wlr/types/wlr_scene.h>
-
-static int failures;
-#define CHECK(condition, ...)                                                                      \
-    do {                                                                                           \
-        if (!(condition)) {                                                                        \
-            fprintf(stderr, "%s:%d: %s: ", __FILE__, __LINE__, #condition);                        \
-            fprintf(stderr, __VA_ARGS__);                                                          \
-            fputc('\n', stderr);                                                                   \
-            ++failures;                                                                            \
-        }                                                                                          \
-    } while (0)
+#include "check.h"
 
 static int64_t clock_now = 1000;
 static int64_t fake_clock(void *data) {
