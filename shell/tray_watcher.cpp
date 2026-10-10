@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "tray_watcher.hpp"
+#include "dbus_util.hpp"
 #include <QDBusConnectionInterface>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
@@ -89,19 +90,18 @@ void TrayWatcher::addHost(const QString &service) {
 void TrayWatcher::whenOwned(const QString &service, std::function<void()> add) {
     setDelayedReply(true);
     const QDBusMessage request = message();
-    auto *call = new QDBusPendingCallWatcher(bus_.interface()->asyncCall("NameHasOwner", service), this);
-    connect(call, &QDBusPendingCallWatcher::finished, this,
-            [this, request, service, add = std::move(add)](QDBusPendingCallWatcher *watch) {
-                watch->deleteLater();
-                const QDBusPendingReply<bool> owned = *watch;
-                if (owned.isError() || !owned.value()) {
-                    bus_.send(request.createErrorReply(QDBusError::ServiceUnknown,
-                                                       service.left(100) + " is not on the bus"));
-                    return;
-                }
-                add();
-                bus_.send(request.createReply());
-            });
+    dbus::whenAnswered(
+        bus_.interface()->asyncCall("NameHasOwner", service), this,
+        [this, request, service, add = std::move(add)](QDBusPendingCallWatcher *watch) {
+            const QDBusPendingReply<bool> owned = *watch;
+            if (owned.isError() || !owned.value()) {
+                bus_.send(request.createErrorReply(QDBusError::ServiceUnknown,
+                                                   service.left(100) + " is not on the bus"));
+                return;
+            }
+            add();
+            bus_.send(request.createReply());
+        });
 }
 void TrayWatcher::serviceGone(const QString &service) {
     QStringList gone;

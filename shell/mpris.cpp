@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "mpris.hpp"
+#include "dbus_util.hpp"
 #include <QDBusArgument>
 #include <QDBusMessage>
 #include <QDBusObjectPath>
@@ -52,9 +53,7 @@ Mpris::Mpris(const QDBusConnection &bus, QObject *parent) : Media(parent), bus_(
     bus_.connect(QString(), objectPath, playerInterface, "Seeked", this, SLOT(seeked(QDBusMessage)));
     // The players there already, each with its owner.
     auto list = QDBusMessage::createMethodCall(busService, busPath, busService, "ListNames");
-    auto *call = new QDBusPendingCallWatcher(bus_.asyncCall(list), this);
-    connect(call, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *done) {
-        done->deleteLater();
+    dbus::whenAnswered(bus_.asyncCall(list), this, [this](QDBusPendingCallWatcher *done) {
         if (done->isError())
             return;
         for (const auto &name : done->reply().arguments().value(0).toStringList()) {
@@ -62,13 +61,13 @@ Mpris::Mpris(const QDBusConnection &bus, QObject *parent) : Media(parent), bus_(
                 continue;
             auto owner = QDBusMessage::createMethodCall(busService, busPath, busService, "GetNameOwner");
             owner << name;
-            auto *ask = new QDBusPendingCallWatcher(bus_.asyncCall(owner), this);
-            connect(ask, &QDBusPendingCallWatcher::finished, this, [this, name](QDBusPendingCallWatcher *answer) {
-                answer->deleteLater();
-                // One that appeared meanwhile is known from NameOwnerChanged already.
-                if (!answer->isError() && !known_.contains(name))
-                    add(name, answer->reply().arguments().value(0).toString());
-            });
+            dbus::whenAnswered(bus_.asyncCall(owner), this,
+                               [this, name](QDBusPendingCallWatcher *answer) {
+                                   // One that appeared meanwhile is known from NameOwnerChanged
+                                   // already.
+                                   if (!answer->isError() && !known_.contains(name))
+                                       add(name, answer->reply().arguments().value(0).toString());
+                               });
         }
     });
 }
@@ -94,29 +93,29 @@ void Mpris::readAll(const QString &name, const QString &interface) {
     auto message = QDBusMessage::createMethodCall(name, objectPath, propertiesInterface, "GetAll");
     message << interface;
     const QString owner = known_.value(name).owner;
-    auto *call = new QDBusPendingCallWatcher(bus_.asyncCall(message), this);
-    connect(call, &QDBusPendingCallWatcher::finished, this,
-            [this, name, owner, interface](QDBusPendingCallWatcher *done) {
-                done->deleteLater();
-                auto it = known_.find(name);
-                // Gone, or owned by another since it was asked.
-                if (it == known_.end() || it->owner != owner)
-                    return;
-                // A player that answers with an error has nothing to show; it is not asked again.
-                auto properties = done->isError() ? QVariantMap()
-                                                  : map(done->reply().arguments().value(0));
-                settle(properties);
-                if (interface == rootInterface) {
-                    it->root = properties;
-                    it->rootRead = true;
-                } else {
-                    it->player = properties;
-                    it->playerRead = true;
-                }
-                publish(name);
-                if (interface == playerInterface)
-                    queryPosition(name);
-            });
+    dbus::whenAnswered(bus_.asyncCall(message), this,
+                       [this, name, owner, interface](QDBusPendingCallWatcher *done) {
+                           auto it = known_.find(name);
+                           // Gone, or owned by another since it was asked.
+                           if (it == known_.end() || it->owner != owner)
+                               return;
+                           // A player that answers with an error has nothing to show; it is not
+                           // asked again.
+                           auto properties = done->isError()
+                                                 ? QVariantMap()
+                                                 : map(done->reply().arguments().value(0));
+                           settle(properties);
+                           if (interface == rootInterface) {
+                               it->root = properties;
+                               it->rootRead = true;
+                           } else {
+                               it->player = properties;
+                               it->playerRead = true;
+                           }
+                           publish(name);
+                           if (interface == playerInterface)
+                               queryPosition(name);
+                       });
 }
 void Mpris::publish(const QString &name, qint64 position) {
     auto it = known_.constFind(name);
@@ -196,13 +195,13 @@ void Mpris::seeked(const QDBusMessage &message) {
 void Mpris::sendCommand(const QString &name, const QString &method) {
     auto message = QDBusMessage::createMethodCall(name, objectPath,
                                                   method == "Raise" ? rootInterface : playerInterface, method);
-    auto *call = new QDBusPendingCallWatcher(bus_.asyncCall(message), this);
-    connect(call, &QDBusPendingCallWatcher::finished, this, [name, method](QDBusPendingCallWatcher *done) {
-        if (done->isError())
-            std::cerr << "paw media: " << name.toStdString() << " refused " << method.toStdString()
-                      << ": " << done->error().message().toStdString() << '\n';
-        done->deleteLater();
-    });
+    dbus::whenAnswered(bus_.asyncCall(message), this,
+                       [name, method](QDBusPendingCallWatcher *done) {
+                           if (done->isError())
+                               std::cerr << "paw media: " << name.toStdString() << " refused "
+                                         << method.toStdString() << ": "
+                                         << done->error().message().toStdString() << '\n';
+                       });
 }
 void Mpris::sendPosition(const QString &name, const QString &trackId, qint64 position) {
     auto message = QDBusMessage::createMethodCall(name, objectPath, playerInterface, "SetPosition");
@@ -212,9 +211,7 @@ void Mpris::sendPosition(const QString &name, const QString &trackId, qint64 pos
 void Mpris::queryPosition(const QString &name) {
     auto message = QDBusMessage::createMethodCall(name, objectPath, propertiesInterface, "Get");
     message << QString(playerInterface) << QStringLiteral("Position");
-    auto *call = new QDBusPendingCallWatcher(bus_.asyncCall(message), this);
-    connect(call, &QDBusPendingCallWatcher::finished, this, [this, name](QDBusPendingCallWatcher *done) {
-        done->deleteLater();
+    dbus::whenAnswered(bus_.asyncCall(message), this, [this, name](QDBusPendingCallWatcher *done) {
         if (done->isError())
             return;
         const auto value = done->reply().arguments().value(0).value<QDBusVariant>().variant();

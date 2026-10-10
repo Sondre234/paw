@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFile>
 #if PAW_DBUS
+#include "dbus_util.hpp"
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
@@ -124,11 +125,9 @@ void Backlight::setPercent(int percent) {
         QStringLiteral("org.freedesktop.login1"), QStringLiteral("/org/freedesktop/login1/session/auto"),
         QStringLiteral("org.freedesktop.login1.Session"), QStringLiteral("SetBrightness"));
     message << QStringLiteral("backlight") << name_ << value;
-    auto *call = new QDBusPendingCallWatcher(connection.asyncCall(message), this);
-    connect(call, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *done) {
+    dbus::whenAnswered(connection.asyncCall(message), this, [this](QDBusPendingCallWatcher *done) {
         if (done->isError())
             Q_EMIT failed("Could not set the brightness: " + done->error().message());
-        done->deleteLater();
     });
 #else
     Q_EMIT failed(QStringLiteral("Could not set the brightness: paw was built without Qt's D-Bus module"));

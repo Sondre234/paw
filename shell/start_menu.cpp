@@ -18,6 +18,7 @@
 #include <pwd.h>
 #include <unistd.h>
 #if PAW_DBUS || PAW_TRAY
+#include "dbus_util.hpp"
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusObjectPath>
@@ -457,9 +458,7 @@ void StartMenu::findUser() {
                                                "org.freedesktop.Accounts", "FindUserById");
     find << qlonglong(getuid());
     find.setAutoStartService(false);
-    auto *found = new QDBusPendingCallWatcher(bus.asyncCall(find), this);
-    connect(found, &QDBusPendingCallWatcher::finished, this, [this, bus](QDBusPendingCallWatcher *call) {
-        call->deleteLater();
+    dbus::whenAnswered(bus.asyncCall(find), this, [this, bus](QDBusPendingCallWatcher *call) {
         QDBusPendingReply<QDBusObjectPath> user = *call;
         if (user.isError() || userSet_)
             return;
@@ -467,9 +466,7 @@ void StartMenu::findUser() {
                                                   "org.freedesktop.DBus.Properties", "Get");
         get << QString("org.freedesktop.Accounts.User") << QString("IconFile");
         get.setAutoStartService(false);
-        auto *read = new QDBusPendingCallWatcher(bus.asyncCall(get), this);
-        connect(read, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
-            call->deleteLater();
+        dbus::whenAnswered(bus.asyncCall(get), this, [this](QDBusPendingCallWatcher *call) {
             QDBusPendingReply<QDBusVariant> icon = *call;
             const auto path = icon.isError() ? QString() : icon.value().variant().toString();
             if (userSet_ || !QFileInfo(path).isFile())
