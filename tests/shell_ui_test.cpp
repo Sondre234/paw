@@ -4675,6 +4675,11 @@ ListModel {
             return daemon->notify(n);
         };
         auto card = [&]() { return find(cards.rootObject(), "notificationCard"); };
+        // Whether the newest card has slid in: its entry in the list in its place, wholly opaque.
+        auto slidIn = [&] {
+            auto *entry = card() ? card()->parentItem() : nullptr;
+            return entry && entry->x() == 0 && entry->opacity() == 1;
+        };
         make("Hello", true);
         if (!waitFor([&] { return cards.isVisible() && card() && card()->height() > 20; }) ||
             controller.cardsOutput() != output) {
@@ -4724,7 +4729,8 @@ ListModel {
             std::cerr << "another notification did not raise a card\n";
             return 1;
         }
-        QTest::qWait(300); // the slide in
+        if (!waitFor(slidIn))
+            return fail("another notification's card did not slide in");
         QTest::mouseClick(&cards, Qt::LeftButton, Qt::NoModifier,
                           card()->mapToScene(QPointF(card()->width() - 60, 12)).toPoint());
         if (!waitFor([&] { return invoked.count() == 1; }) ||
@@ -4744,7 +4750,8 @@ ListModel {
             std::cerr << "a second notification did not raise a card\n";
             return 1;
         }
-        QTest::qWait(300);
+        if (!waitFor(slidIn))
+            return fail("a second notification's card did not slide in");
         auto *close = find(cards.rootObject(), "notificationClose");
         QTest::mouseClick(&cards, Qt::LeftButton, Qt::NoModifier, centre(close));
         if (!waitFor([&] { return closed.count() == 1; }) || invoked.count() != 0) {
@@ -4823,7 +4830,8 @@ ListModel {
             return 1;
         }
         // Asked for, the rest show too.
-        QTest::qWait(300); // the flyout's slide in
+        if (!waitFor([&] { return history->property("progress").toReal() == 1; }))
+            return fail("the history did not slide in");
         click(find(list, "groupToggle"));
         if (!waitFor([&] { return rows().size() == daemon->history()->count(); })) {
             std::cerr << "expanding an application did not list all its notifications\n";
