@@ -2,7 +2,6 @@
 #include "launch_history.hpp"
 #include "state_files.hpp"
 #include <QFile>
-#include <QFileInfo>
 #include <QTimeZone>
 #include <algorithm>
 
