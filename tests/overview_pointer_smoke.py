@@ -5,7 +5,6 @@ switches to a workspace, dragging a thumbnail onto the strip moves the window, a
 the backdrop closes it. Driven by a virtual pointer (pointer_probe)."""
 from pathlib import Path
 import sys
-import time
 
 import harness
 
@@ -86,8 +85,8 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     # Cancelled with the pointer still in the corner, it does not reopen on moving there.
     msg("overview_cancel")
     pointer("move", "1", "1")
-    time.sleep(0.2)
-    assert overview()[0] == "closed", "it reopened without the pointer leaving the corner"
+    desktop.stays(lambda: overview()[0] == "closed",
+                  "it reopened without the pointer leaving the corner")
 
     # A click on the backdrop closes it, changing nothing.
     pointer("move", "640", "360", "move", "0", "0")
@@ -141,8 +140,8 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     pointer("move", *center(thumbs[0]), "press", "left")
     x, y = center(thumbs[0])
     pointer("move", str(int(x) + 60), str(int(y) + 20), "release", "left")
-    time.sleep(0.2)
-    assert overview()[0] == "open" and windows()[remaining]["workspace"] == 1
+    desktop.stays(lambda: overview()[0] == "open" and windows()[remaining]["workspace"] == 1,
+                  "a release over nothing closed the overview or moved the window")
 
     # A middle click closes a window, which leaves the grid.
     _, _, thumbs, _ = overview()
