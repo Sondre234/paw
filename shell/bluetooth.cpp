@@ -173,18 +173,6 @@ void Bluetooth::reject() {
 }
 
 #if !PAW_BLUETOOTH
-namespace {
 // Without Qt's D-Bus module there is no BlueZ to find.
-class NoBluetooth : public Bluetooth {
-  protected:
-    void sendPowered(bool) override {}
-    void sendDiscovery(bool) override {}
-    void sendConnect(const QString &) override {}
-    void sendDisconnect(const QString &) override {}
-    void sendPair(const QString &) override {}
-    void sendForget(const QString &) override {}
-    void sendAnswer(bool, const QString &) override {}
-};
-} // namespace
-std::unique_ptr<Bluetooth> makeBluetooth() { return std::make_unique<NoBluetooth>(); }
+std::unique_ptr<Bluetooth> makeBluetooth() { return std::make_unique<Bluetooth>(); }
 #endif

@@ -26,9 +26,6 @@ class TestAudio : public Audio {
     void sendMute(const QString &output, bool muted) override {
         requests << QString("mute %1 %2").arg(output).arg(muted);
     }
-    void sendOutput(const QString &, const std::vector<uint32_t> &) override {}
-    void sendStreamVolume(uint32_t, int) override {}
-    void sendStreamMute(uint32_t, bool) override {}
     void sendInputMute(const QString &input, bool muted) override {
         requests << QString("input-mute %1 %2").arg(input).arg(muted);
     }

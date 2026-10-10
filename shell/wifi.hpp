@@ -119,12 +119,15 @@ class Wifi : public QObject {
     void passwordRejected(const QString &ssid);
 
   protected:
-    virtual void sendEnabled(bool enabled) = 0;
-    virtual void sendScan() = 0;
+    // What NetworkManager's backend carries out; without one (the preview's, or a build without
+    // Qt's D-Bus module, which finds no NetworkManager) nothing is.
+    virtual void sendEnabled(bool /*enabled*/) {}
+    virtual void sendScan() {}
     // `security` is the network's ("open", "wpa-psk", ...), for one NetworkManager has no
     // connection for; `password` is "" when it needs none.
-    virtual void sendConnect(const QString &ssid, const QString &security, const QString &password) = 0;
-    virtual void sendDisconnect() = 0;
+    virtual void sendConnect(const QString & /*ssid*/, const QString & /*security*/,
+                             const QString & /*password*/) {}
+    virtual void sendDisconnect() {}
 
   private:
     State state_;

@@ -102,13 +102,15 @@ class Media : public QObject {
     void positionChanged();
 
   protected:
+    // What the MPRIS backend carries out; without one (the preview's, or a build without Qt's D-Bus
+    // module, which finds no players) nothing is.
     // Calls a method of org.mpris.MediaPlayer2.Player (PlayPause, Next, Previous, Stop), or Raise
     // of org.mpris.MediaPlayer2, on the player `name`.
-    virtual void sendCommand(const QString &name, const QString &method) = 0;
+    virtual void sendCommand(const QString & /*name*/, const QString & /*method*/) {}
     // SetPosition(trackId, position) on the player.
-    virtual void sendPosition(const QString &name, const QString &trackId, qint64 position) = 0;
+    virtual void sendPosition(const QString & /*name*/, const QString & /*trackId*/, qint64 /*position*/) {}
     // Reads the player's Position, and calls setPosition() with it.
-    virtual void queryPosition(const QString &name) = 0;
+    virtual void queryPosition(const QString & /*name*/) {}
 
   private:
     struct Entry {

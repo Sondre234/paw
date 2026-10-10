@@ -287,18 +287,5 @@ void WindowSound::toggleMute() {
 }
 
 #if !PAW_PULSE
-namespace {
-class NoAudio : public Audio {
-  public:
-    using Audio::Audio;
-
-  protected:
-    void sendVolume(const QString &, int) override {}
-    void sendMute(const QString &, bool) override {}
-    void sendOutput(const QString &, const std::vector<uint32_t> &) override {}
-    void sendStreamVolume(uint32_t, int) override {}
-    void sendStreamMute(uint32_t, bool) override {}
-};
-} // namespace
-std::unique_ptr<Audio> makeAudio() { return std::make_unique<NoAudio>(); }
+std::unique_ptr<Audio> makeAudio() { return std::make_unique<Audio>(); }
 #endif

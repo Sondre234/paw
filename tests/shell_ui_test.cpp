@@ -67,7 +67,6 @@ class FakeMedia : public Media {
     void sendPosition(const QString &name, const QString &trackId, qint64 position) override {
         requests << QString("SetPosition %1 %2 %3").arg(name, trackId).arg(position);
     }
-    void queryPosition(const QString &) override {}
 };
 
 // Records the profiles the panel asks power-profiles-daemon for.

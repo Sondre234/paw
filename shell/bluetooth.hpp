@@ -114,14 +114,16 @@ class Bluetooth : public QObject {
     void failed(const QString &message);
 
   protected:
-    virtual void sendPowered(bool powered) = 0;
-    virtual void sendDiscovery(bool discovering) = 0;
-    virtual void sendConnect(const QString &path) = 0;
-    virtual void sendDisconnect(const QString &path) = 0;
-    virtual void sendPair(const QString &path) = 0;
-    virtual void sendForget(const QString &path) = 0;
+    // What BlueZ's backend carries out; without one (the preview's, or a build without Qt's D-Bus
+    // module, which finds no BlueZ) nothing is.
+    virtual void sendPowered(bool /*powered*/) {}
+    virtual void sendDiscovery(bool /*discovering*/) {}
+    virtual void sendConnect(const QString & /*path*/) {}
+    virtual void sendDisconnect(const QString & /*path*/) {}
+    virtual void sendPair(const QString & /*path*/) {}
+    virtual void sendForget(const QString & /*path*/) {}
     // Answers the request: yes with `input`, or no.
-    virtual void sendAnswer(bool accepted, const QString &input) = 0;
+    virtual void sendAnswer(bool /*accepted*/, const QString & /*input*/) {}
 
   private:
     State state_;

@@ -38,7 +38,9 @@ class PowerMode : public QObject {
     void failed(const QString &message);
 
   protected:
-    virtual void sendProfile(const QString &profile) = 0;
+    // What power-profiles-daemon's backend carries out; without one (the preview's, or a build
+    // without Qt's D-Bus module, which finds no daemon) nothing is.
+    virtual void sendProfile(const QString & /*profile*/) {}
 
   private:
     State state_;

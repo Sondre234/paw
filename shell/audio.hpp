@@ -102,16 +102,14 @@ class Audio : public QObject {
     void changed();
 
   protected:
-    virtual void sendVolume(const QString &output, int percent) = 0;
-    virtual void sendMute(const QString &output, bool muted) = 0;
-    virtual void sendOutput(const QString &output, const std::vector<uint32_t> &streams) = 0;
-    virtual void sendStreamVolume(uint32_t id, int percent) = 0;
-    virtual void sendStreamMute(uint32_t id, bool muted) = 0;
-    // A backend that has no inputs ignores it.
-    virtual void sendInputMute(const QString &input, bool muted) {
-        (void)input;
-        (void)muted;
-    }
+    // What the sound server's backend carries out; without one (the preview's, or a build without
+    // libpulse) nothing is.
+    virtual void sendVolume(const QString & /*output*/, int /*percent*/) {}
+    virtual void sendMute(const QString & /*output*/, bool /*muted*/) {}
+    virtual void sendOutput(const QString & /*output*/, const std::vector<uint32_t> & /*streams*/) {}
+    virtual void sendStreamVolume(uint32_t /*id*/, int /*percent*/) {}
+    virtual void sendStreamMute(uint32_t /*id*/, bool /*muted*/) {}
+    virtual void sendInputMute(const QString & /*input*/, bool /*muted*/) {}
 
   private:
     bool available_ = false;

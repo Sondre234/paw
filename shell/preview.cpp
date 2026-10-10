@@ -19,47 +19,6 @@
 #include <unistd.h>
 
 namespace {
-// A sound server that takes every request and does nothing with it.
-class PreviewAudio : public Audio {
-  protected:
-    void sendVolume(const QString &, int) override {}
-    void sendMute(const QString &, bool) override {}
-    void sendOutput(const QString &, const std::vector<uint32_t> &) override {}
-    void sendStreamVolume(uint32_t, int) override {}
-    void sendStreamMute(uint32_t, bool) override {}
-};
-// Media players that take every request and do nothing with it.
-class PreviewMedia : public Media {
-  protected:
-    void sendCommand(const QString &, const QString &) override {}
-    void sendPosition(const QString &, const QString &, qint64) override {}
-    void queryPosition(const QString &) override {}
-};
-// A power-profiles-daemon that switches as asked.
-class PreviewPowerMode : public PowerMode {
-  protected:
-    void sendProfile(const QString &) override {}
-};
-// BlueZ, taking every request and doing nothing with it.
-class PreviewBluetooth : public Bluetooth {
-  protected:
-    void sendPowered(bool) override {}
-    void sendDiscovery(bool) override {}
-    void sendConnect(const QString &) override {}
-    void sendDisconnect(const QString &) override {}
-    void sendPair(const QString &) override {}
-    void sendForget(const QString &) override {}
-    void sendAnswer(bool, const QString &) override {}
-};
-// NetworkManager, taking every request and doing nothing with it.
-class PreviewWifi : public Wifi {
-  protected:
-    void sendEnabled(bool) override {}
-    void sendScan() override {}
-    void sendConnect(const QString &, const QString &, const QString &) override {}
-    void sendDisconnect() override {}
-};
-
 // A tray icon: a rounded square in `color` with a letter on it.
 QImage trayIcon(const QColor &color, const QString &letter) {
     QImage image(44, 44, QImage::Format_ARGB32_Premultiplied);
@@ -252,9 +211,9 @@ Notification notification(const QString &app, const QString &icon, const QString
 } // namespace
 
 PreviewData::PreviewData(ShellController &controller)
-    : QObject(&controller), controller_(controller), audio_(std::make_unique<PreviewAudio>()),
-      media_(std::make_unique<PreviewMedia>()), powerMode_(std::make_unique<PreviewPowerMode>()),
-      wifi_(std::make_unique<PreviewWifi>()), bluetooth_(std::make_unique<PreviewBluetooth>()) {
+    : QObject(&controller), controller_(controller), audio_(std::make_unique<Audio>()),
+      media_(std::make_unique<Media>()), powerMode_(std::make_unique<PowerMode>()),
+      wifi_(std::make_unique<Wifi>()), bluetooth_(std::make_unique<Bluetooth>()) {
     // Firefox plays from a child process of its window's, and the music player from the shell of
     // the first terminal, which has no window of its own (the processes are the stand-in tasks').
     audio_->update({"speakers",
