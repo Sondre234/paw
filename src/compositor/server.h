@@ -607,7 +607,7 @@ struct sh_server {
     bool keymap_from_file; // keyboard.file, rather than the names
     xkb_layout_index_t keyboard_layout;
     bool syncing_keyboards;
-    // The devices tests plug in with "headless_keyboard add" and the like (headless_input.c).
+    /* The devices tests plug in with "headless_keyboard add" and the like (headless_input.c). */
     struct wl_list headless_devices;
     /* Switch devices (switches.c), and whether any says the lid is closed. */
     struct wl_list switches;
