@@ -168,6 +168,28 @@ int integer(lua_State *L, const char *key, int fallback, int min, int max) {
     lua_pop(L, 1);
     return static_cast<int>(result);
 }
+// The string at `key` (`label` in errors) as what it names among `names`, into `target`, which
+// stays as it is while the string is unset. Another name fails with `message`, pointing at `leaf`,
+// or without a message as an unknown `key`, suggesting one of the names.
+template <typename T>
+void named(lua_State *L, const char *key, const char *label, T &target,
+           std::initializer_list<std::pair<std::string_view, T>> names,
+           const char *message = nullptr, const char *leaf = "") {
+    auto name = text(L, key, label);
+    if (!name)
+        return;
+    for (const auto &[candidate, value] : names)
+        if (*name == candidate) {
+            target = value;
+            return;
+        }
+    if (message)
+        fail(message, leaf);
+    std::vector<std::string> valid;
+    for (const auto &entry : names)
+        valid.emplace_back(entry.first);
+    unknown(key, *name, valid, "=" + *name);
+}
 template <std::size_t N>
 void copy_text(const std::string &value, char (&target)[N], const std::string &label) {
     if (value.size() >= N)
@@ -360,17 +382,11 @@ void read_shell(lua_State *L, ShellConfig &shell) {
         return;
     }
     boolean(L, "enabled", "shell.enabled", shell.enabled);
-    if (auto style = text(L, "style")) {
-        if (*style != "taskbar" && *style != "macos")
-            fail("style must be \"taskbar\" or \"macos\"");
-        shell.macos_style = *style == "macos";
-    }
+    named(L, "style", nullptr, shell.macos_style, {{"taskbar", false}, {"macos", true}},
+          "style must be \"taskbar\" or \"macos\"");
     shell.panel_height = integer(L, "panel_height", 52, 24, 100);
-    if (auto position = text(L, "panel_position")) {
-        if (*position != "top" && *position != "bottom")
-            fail("panel_position must be \"top\" or \"bottom\"");
-        shell.panel_top = *position == "top";
-    }
+    named(L, "panel_position", nullptr, shell.panel_top, {{"top", true}, {"bottom", false}},
+          "panel_position must be \"top\" or \"bottom\"");
     // One number for every side, or { top, right, bottom, left } by name.
     lua_getfield(L, -1, "panel_margin");
     if (lua_isinteger(L, -1)) {
@@ -391,11 +407,8 @@ void read_shell(lua_State *L, ShellConfig &shell) {
     if (auto font = text(L, "font"))
         shell.font = *font;
     shell.font_size = integer(L, "font_size", 12, 6, 48);
-    if (auto renderer = text(L, "renderer")) {
-        if (*renderer != "software" && *renderer != "gpu")
-            fail("renderer must be \"software\" or \"gpu\"");
-        shell.software_renderer = *renderer == "software";
-    }
+    named(L, "renderer", nullptr, shell.software_renderer, {{"software", true}, {"gpu", false}},
+          "renderer must be \"software\" or \"gpu\"");
     boolean(L, "icons_only", "shell.icons_only", shell.icons_only);
     boolean(L, "group_windows", "shell.group_windows", shell.group_windows);
     boolean(L, "polkit_agent", "shell.polkit_agent", shell.polkit_agent);
@@ -579,16 +592,11 @@ void read_animations(lua_State *L, sh_settings &settings) {
 }
 // layout.scroll, with its table on top of the stack.
 void read_scroll(lua_State *L, sh_settings &settings) {
-    if (auto name = text(L, "follow", "layout.scroll.follow")) {
-        if (*name == "center")
-            settings.scroll_follow = SH_SCROLL_FOLLOW_CENTER;
-        else if (*name == "edge")
-            settings.scroll_follow = SH_SCROLL_FOLLOW_EDGE;
-        else if (*name == "never")
-            settings.scroll_follow = SH_SCROLL_FOLLOW_NEVER;
-        else
-            fail("layout.scroll.follow must be \"center\", \"edge\", or \"never\"");
-    }
+    named(L, "follow", "layout.scroll.follow", settings.scroll_follow,
+          {{"center", SH_SCROLL_FOLLOW_CENTER},
+           {"edge", SH_SCROLL_FOLLOW_EDGE},
+           {"never", SH_SCROLL_FOLLOW_NEVER}},
+          "layout.scroll.follow must be \"center\", \"edge\", or \"never\"");
     settings.scroll_width = static_cast<float>(number(L, "width", settings.scroll_width, 0.1, 1));
     settings.scroll_step = static_cast<float>(number(L, "step", settings.scroll_step, 0.01, 0.5));
     lua_getfield(L, -1, "presets");
@@ -960,11 +968,8 @@ void read_windows(lua_State *L, Config &config) {
     }
     config.settings.border_width = integer(L, "border_width", 0, 0, 20);
     config.settings.corner_radius = integer(L, "corner_radius", 10, 0, 40);
-    if (auto name = text(L, "round", "windows.round")) {
-        if (*name != "tiling" && *name != "always")
-            unknown("round", *name, {"tiling", "always"}, "=" + *name);
-        config.settings.round_always = *name == "always";
-    }
+    named(L, "round", "windows.round", config.settings.round_always,
+          {{"tiling", false}, {"always", true}});
     border_colors(L, "border_color", config.settings.border_active,
                   config.settings.border_active_gradient);
     border_colors(L, "border_inactive_color", config.settings.border_inactive,
@@ -975,16 +980,11 @@ void read_windows(lua_State *L, Config &config) {
     config.settings.dim_inactive = static_cast<float>(number(L, "dim_inactive", 0, 0, 0.9));
     config.settings.dim_duration = integer(L, "dim_duration", 180, 0, 2000);
     boolean(L, "allow_tearing", "windows.allow_tearing", config.settings.allow_tearing);
-    if (auto name = text(L, "activation", "windows.activation")) {
-        if (*name == "urgent")
-            config.settings.activation = SH_ACTIVATION_URGENT;
-        else if (*name == "focus")
-            config.settings.activation = SH_ACTIVATION_FOCUS;
-        else if (*name == "ignore")
-            config.settings.activation = SH_ACTIVATION_IGNORE;
-        else
-            fail("windows.activation must be \"focus\", \"urgent\", or \"ignore\"");
-    }
+    named(L, "activation", "windows.activation", config.settings.activation,
+          {{"urgent", SH_ACTIVATION_URGENT},
+           {"focus", SH_ACTIVATION_FOCUS},
+           {"ignore", SH_ACTIVATION_IGNORE}},
+          "windows.activation must be \"focus\", \"urgent\", or \"ignore\"");
     if (auto color = text(L, "urgent_color"))
         premultiplied(*color, "urgent_color", config.settings.urgent_color);
     if (auto buttons = text(L, "buttons", "windows.buttons")) {
@@ -998,25 +998,11 @@ void read_windows(lua_State *L, Config &config) {
     read_snap(L, config);
     read_shadow(L, config);
     current_section = "windows";
-    if (auto name = text(L, "placement", "windows.placement")) {
-        if (*name == "cascade")
-            config.settings.placement = SH_PLACE_CASCADE;
-        else if (*name == "center")
-            config.settings.placement = SH_PLACE_CENTER;
-        else if (*name == "smart")
-            config.settings.placement = SH_PLACE_SMART;
-        else
-            unknown("placement", *name, {"cascade", "center", "smart"}, "=" + *name);
-    }
+    named(L, "placement", "windows.placement", config.settings.placement,
+          {{"cascade", SH_PLACE_CASCADE}, {"center", SH_PLACE_CENTER}, {"smart", SH_PLACE_SMART}});
     config.settings.drag_strip = integer(L, "drag_strip", config.settings.drag_strip, 0, 100);
-    if (auto name = text(L, "controls", "windows.controls")) {
-        if (*name == "flat")
-            config.settings.window_controls = SH_CONTROLS_FLAT;
-        else if (*name == "traffic_lights")
-            config.settings.window_controls = SH_CONTROLS_TRAFFIC_LIGHTS;
-        else
-            unknown("controls", *name, {"flat", "traffic_lights"}, "=" + *name);
-    }
+    named(L, "controls", "windows.controls", config.settings.window_controls,
+          {{"flat", SH_CONTROLS_FLAT}, {"traffic_lights", SH_CONTROLS_TRAFFIC_LIGHTS}});
     lua_getfield(L, -1, "rules");
     if (!lua_isnil(L, -1)) {
         auto size = array_size(L, -1, 256);
@@ -1625,11 +1611,8 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         config.settings.pointer_speed_set = !lua_isnil(L, -1);
         lua_pop(L, 1);
         config.settings.pointer_speed = number(L, "speed", 0, -1, 1);
-        if (auto profile = text(L, "acceleration")) {
-            if (*profile != "flat" && *profile != "adaptive")
-                fail("mouse.acceleration must be \"flat\" or \"adaptive\"");
-            config.settings.pointer_accel = *profile == "adaptive";
-        }
+        named(L, "acceleration", nullptr, config.settings.pointer_accel,
+              {{"flat", 0}, {"adaptive", 1}}, "mouse.acceleration must be \"flat\" or \"adaptive\"");
         tristate(L, "natural_scroll", "mouse.natural_scroll", config.settings.mouse_natural_scroll);
         boolean(L, "focus_follows", "mouse.focus_follows", config.settings.focus_follows_mouse);
     }
@@ -1713,11 +1696,9 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     current_section.clear();
     if (section(L, "outputs")) {
         boolean(L, "return_windows", "outputs.return_windows", config.settings.return_windows);
-        if (auto mode = text(L, "lid", "outputs.lid")) {
-            if (*mode != "clamshell" && *mode != "ignore")
-                fail("outputs.lid must be \"clamshell\" or \"ignore\"", "lid");
-            config.settings.lid = *mode == "ignore" ? SH_LID_IGNORE : SH_LID_CLAMSHELL;
-        }
+        named(L, "lid", "outputs.lid", config.settings.lid,
+              {{"clamshell", SH_LID_CLAMSHELL}, {"ignore", SH_LID_IGNORE}},
+              "outputs.lid must be \"clamshell\" or \"ignore\"", "lid");
         read_monitors(L, config.settings);
         lua_getfield(L, -1, "order");
         if (!lua_isnil(L, -1)) {
@@ -1761,15 +1742,11 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         boolean(L, "animation", "overview.animation", settings.overview_animation);
         settings.overview_duration = integer(L, "duration", settings.overview_duration, 10, 1000);
         boolean(L, "strip", "overview.strip", settings.overview_strip);
-        if (auto name = text(L, "hot_corner", "overview.hot_corner")) {
-            static constexpr const char *corners[] = {"none", "top-left", "top-right",
-                                                      "bottom-left", "bottom-right"};
-            auto found = std::find(std::begin(corners), std::end(corners), *name);
-            if (found == std::end(corners))
-                fail("overview.hot_corner must be \"none\", \"top-left\", \"top-right\", "
-                     "\"bottom-left\", or \"bottom-right\"");
-            settings.overview_hot_corner = static_cast<int>(found - std::begin(corners));
-        }
+        named(L, "hot_corner", "overview.hot_corner", settings.overview_hot_corner,
+              {{"none", 0}, {"top-left", 1}, {"top-right", 2}, {"bottom-left", 3},
+               {"bottom-right", 4}},
+              "overview.hot_corner must be \"none\", \"top-left\", \"top-right\", "
+              "\"bottom-left\", or \"bottom-right\"");
         settings.overview_dim = static_cast<float>(number(L, "dim", settings.overview_dim, 0, 1));
     }
     lua_pop(L, 1);
@@ -1777,17 +1754,14 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     if (section(L, "notifications")) {
         auto &notifications = config.notifications;
         boolean(L, "enabled", "notifications.enabled", notifications.enabled);
-        if (auto name = text(L, "position", "notifications.position")) {
-            static constexpr std::pair<const char *, Corner> corners[] = {
-                {"top-right", Corner::TopRight},       {"top-left", Corner::TopLeft},
-                {"bottom-right", Corner::BottomRight}, {"bottom-left", Corner::BottomLeft}};
-            auto found = std::find_if(std::begin(corners), std::end(corners),
-                                      [&name](const auto &corner) { return *name == corner.first; });
-            if (found == std::end(corners))
-                fail("notifications.position must be \"top-right\", \"top-left\", "
-                     "\"bottom-right\", or \"bottom-left\"", "position");
-            notifications.position = found->second;
-        }
+        named(L, "position", "notifications.position", notifications.position,
+              {{"top-right", Corner::TopRight},
+               {"top-left", Corner::TopLeft},
+               {"bottom-right", Corner::BottomRight},
+               {"bottom-left", Corner::BottomLeft}},
+              "notifications.position must be \"top-right\", \"top-left\", \"bottom-right\", or "
+              "\"bottom-left\"",
+              "position");
         notifications.timeout = integer(L, "timeout", notifications.timeout, 0, 600000);
         notifications.max_visible = integer(L, "max_visible", notifications.max_visible, 1, 10);
         boolean(L, "dnd", "notifications.dnd", notifications.dnd);
@@ -1799,11 +1773,8 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     if (section(L, "osd")) {
         auto &osd = config.osd;
         boolean(L, "enabled", "osd.enabled", osd.enabled);
-        if (auto name = text(L, "position", "osd.position")) {
-            if (*name != "top" && *name != "bottom")
-                fail("osd.position must be \"top\" or \"bottom\"", "position");
-            osd.top = *name == "top";
-        }
+        named(L, "position", "osd.position", osd.top, {{"top", true}, {"bottom", false}},
+              "osd.position must be \"top\" or \"bottom\"", "position");
         osd.timeout = integer(L, "timeout", osd.timeout, 200, 10000);
         boolean(L, "volume", "osd.volume", osd.volume);
         boolean(L, "brightness", "osd.brightness", osd.brightness);
@@ -1895,13 +1866,11 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     lua_pop(L, 1);
     current_section.clear();
     if (section(L, "session")) {
-        if (auto restore = text(L, "restore", "session.restore")) {
-            if (*restore != "off" && *restore != "windows" && *restore != "launch")
-                fail("session.restore must be \"off\", \"windows\" or \"launch\"", "restore");
-            config.settings.session_restore = *restore == "off"       ? SH_SESSION_RESTORE_OFF
-                                              : *restore == "windows" ? SH_SESSION_RESTORE_WINDOWS
-                                                                      : SH_SESSION_RESTORE_LAUNCH;
-        }
+        named(L, "restore", "session.restore", config.settings.session_restore,
+              {{"off", SH_SESSION_RESTORE_OFF},
+               {"windows", SH_SESSION_RESTORE_WINDOWS},
+               {"launch", SH_SESSION_RESTORE_LAUNCH}},
+              "session.restore must be \"off\", \"windows\" or \"launch\"", "restore");
     }
     lua_pop(L, 1);
     current_section.clear();
