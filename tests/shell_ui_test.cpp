@@ -6618,14 +6618,20 @@ ListModel {
         // A pinned application without windows starts on a click and bounces, three times at most,
         // or until a window of it opens.
         auto bouncing = [&](const QString &name) { return icon(name) && icon(name)->property("bouncing").toBool(); };
+        // A bounce can come and go between two looks; a spy sees it.
+        QSignalSpy bounced(icon("dockApp:pinned:0"), SIGNAL(bouncingChanged()));
         click(icon("dockApp:pinned:0"));
-        if (!waitFor([&] { return bouncing("dockApp:pinned:0"); }) ||
+        if (!waitFor([&] { return bounced.count() > 0; }) ||
             !waitFor([&] { return !bouncing("dockApp:pinned:0") && icon("dockApp:pinned:0")->property("lift").toReal() == 0; }, 5000))
             return fail("a pinned application's icon did not bounce as it started, or did not stop");
         controller.pin("paw-test-other.desktop");
+        // Grown in, and laid out after the other pinned applications: the row places a new icon
+        // a moment after it comes, at its start until then.
         if (!waitFor([&] {
-                return icon("dockApp:paw-test-other.desktop") &&
-                       icon("dockApp:paw-test-other.desktop")->property("grow").toReal() == 1;
+                auto *other = icon("dockApp:paw-test-other.desktop");
+                auto *first = icon("dockApp:pinned:0");
+                return other && first && other->property("grow").toReal() == 1 &&
+                       other->mapToScene(QPointF(0, 0)).x() > first->mapToScene(QPointF(first->width(), 0)).x();
             }))
             return fail("a pinned application did not come onto the dock");
         click(icon("dockApp:paw-test-other.desktop"));
