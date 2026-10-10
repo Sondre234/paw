@@ -30,9 +30,8 @@ with harness.Compositor(compositor, CONFIG) as desktop:
 
     def windows():
         """By title: workspace, focused, visible."""
-        rows = desktop.rows("windows")
-        return {r[9]: dict(workspace=int(r[0]), focused=r[1] == "1", visible=r[11] == "1",
-                           width=int(r[6]), height=int(r[7])) for r in rows}
+        return {w.title: dict(workspace=w.workspace, focused=w.focused, visible=w.visible,
+                              width=w.width, height=w.height) for w in desktop.windows()}
 
     def focused():
         return next((t for t, w in windows().items() if w["focused"]), None)

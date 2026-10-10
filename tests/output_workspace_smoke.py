@@ -28,7 +28,7 @@ with harness.Compositor(compositor, CONFIG % "HEADLESS-1",
 
     def windows():
         """(workspace, output, visible) per window, in mapping order."""
-        return [(int(row[0]), row[10], row[11] == "1") for row in desktop.rows("windows")]
+        return [(w.workspace, w.output, w.visible) for w in desktop.windows()]
 
     def current():
         return {name: state[0] for name, state in workspaces().items()}

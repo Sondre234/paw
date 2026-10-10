@@ -32,8 +32,8 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
 
     def windows():
         """title -> (workspace, tiled, x, y, width, height, output, visible)."""
-        return {r[9]: (int(r[0]), r[3] == "1", *map(int, r[4:8]), r[10], r[11] == "1")
-                for r in desktop.rows("windows")}
+        return {w.title: (w.workspace, w.tiled, *w.box, w.output, w.visible)
+                for w in desktop.windows()}
 
     def shown():
         """The workspace each output shows."""

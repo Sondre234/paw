@@ -31,8 +31,8 @@ with harness.Compositor(compositor, config()) as desktop:
 
     def windows():
         """By title: x, y, width, height, tiled."""
-        return {r[9]: (int(r[4]), int(r[5]), int(r[6]), int(r[7]), r[3] == "1")
-                for r in desktop.rows("windows")}
+        return {w.title: (w.x, w.y, w.width, w.height, w.tiled)
+                for w in desktop.windows()}
 
     def where():
         return windows()["W"][:2]

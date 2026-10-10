@@ -34,7 +34,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
         return name, float(ratio), int(count)
 
     def widths():
-        return sorted(int(r[6]) for r in desktop.rows("windows"))
+        return sorted(w.width for w in desktop.windows())
 
     desktop.detail = lambda: f"widths: {widths()}"
 
