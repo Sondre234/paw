@@ -86,8 +86,7 @@ static void dim_to(struct sh_server *server, double target) {
                                                          : DIM_FADE_OUT_MS;
     sh_fade_to(&idle->fade, target, now_ms(), duration);
     tick_idle(server);
-    struct sh_output *output;
-    wl_list_for_each(output, &server->outputs, link) wlr_output_schedule_frame(output->wlr_output);
+    schedule_frames(server);
 }
 
 static void take_step(struct sh_server *server, enum sh_idle_step step) {

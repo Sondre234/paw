@@ -7,7 +7,7 @@
 #define NIGHT_LIGHT_LUT 1024
 
 /* Asks every output for a frame, so that fades keep advancing while nothing else changes. */
-static void schedule_frames(struct sh_server *server) {
+void schedule_frames(struct sh_server *server) {
     struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) wlr_output_schedule_frame(output->wlr_output);
 }
@@ -176,10 +176,7 @@ void night_light_update(struct sh_server *server) {
                 wlr_color_transform_unref(server->night_transform);
             server->night_transform = transform;
             server->night_kelvin = kelvin;
-            struct sh_output *output;
-            wl_list_for_each(output, &server->outputs, link) {
-                wlr_output_schedule_frame(output->wlr_output);
-            }
+            schedule_frames(server);
         }
     }
     if (server->night_timer)

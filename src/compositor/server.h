@@ -1012,6 +1012,7 @@ void control_monitors(struct sh_server *server, int fd, const char *arguments);
 void display_settings_finish(struct sh_server *server);
 
 /* effects.c */
+void schedule_frames(struct sh_server *server);
 void update_dim(struct sh_toplevel *toplevel);
 bool tick_effects(struct sh_server *server);
 void night_light_update(struct sh_server *server);
