@@ -175,6 +175,11 @@ class OverlayView : public QQuickView {
     void holdKeyboard(bool hold);
 };
 
+// Keeps `view` as big as `root`, the item it shows, whatever size the compositor last configured
+// (a surface that opened small would otherwise stay small), asking its layer surface, if any, for
+// that size.
+void followRoot(QQuickView *view, LayerShellQt::Window *layer, QQuickItem *root);
+
 // The confirmation of power off, restart and log out on one output: a dimmed cover with the
 // dialog in its middle, holding the keyboard while it waits.
 class PowerView : public OverlayView {

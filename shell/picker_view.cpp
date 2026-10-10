@@ -21,21 +21,8 @@ PickerView::PickerView(ShellController &controller, QScreen *screen, const char 
     place();
     connect(&controller, &ShellController::configChanged, this, &PickerView::place);
     load(file);
-    // The surface is as big as the card wants, whatever size the compositor last configured.
-    if (auto *root = rootObject()) {
-        auto fit = [this, root] {
-            const QSize wanted(qRound(root->width()), qRound(root->height()));
-            if (size() != wanted)
-                resize(wanted);
-#if PAW_LAYER_SHELL
-            layer_->setDesiredSize(wanted);
-#endif
-        };
-        connect(root, &QQuickItem::widthChanged, this, fit);
-        connect(root, &QQuickItem::heightChanged, this, fit);
-        connect(this, &QWindow::heightChanged, this, fit);
-        fit();
-    }
+    if (auto *root = rootObject())
+        followRoot(this, layer_, root);
     connect(screen, &QScreen::geometryChanged, this, [this] {
         if (rootObject())
             rootObject()->setProperty("screenSize", outputScreen_->geometry().size());
