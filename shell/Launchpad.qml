@@ -314,7 +314,6 @@ Item {
             placeholderTextColor: Theme.alpha(Theme.launchpadText, 0.65)
             selectionColor: Theme.accent
             selectedTextColor: Theme.textOnAccentFill
-            selectByMouse: true
             font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily
             Keys.onPressed: (event) => launchpad.key(event)
             FontMetrics { id: hint; font: search.font }
