@@ -393,10 +393,8 @@ int main(int argc, char **argv) {
     }
     // An application picks its own app ID: a path in it is no icon to load from disk.
     if (controller.iconFor("/etc/hostname") != "application-x-executable" ||
-        controller.iconFor("../../x") != "application-x-executable") {
-        std::cerr << "a window's app ID can name a file for the icon\n";
-        return 1;
-    }
+        controller.iconFor("../../x") != "application-x-executable")
+        return fail("a window's app ID can name a file for the icon");
     // A window no installed application matches gets an icon the theme has by a name guessed
     // from its app ID, else the generic one.
     {
@@ -415,15 +413,11 @@ int main(int argc, char **argv) {
         QIcon::setThemeName("hicolor");
         if (controller.iconFor("Paw-Guessed-1.2") != "paw-guessed" ||
             controller.iconFor("org.example.App") != "application-x-executable" ||
-            controller.iconFor("Fake") != "application-x-executable") {
-            std::cerr << "a window's icon is not guessed from its app ID\n";
-            return 1;
-        }
+            controller.iconFor("Fake") != "application-x-executable")
+            return fail("a window's icon is not guessed from its app ID");
         if (controller.iconFor("HiddenThing") != "paw-hidden-icon" ||
-            !controller.appFor("HiddenThing").isEmpty()) {
-            std::cerr << "a window of an application the menus leave out has not its icon\n";
-            return 1;
-        }
+            !controller.appFor("HiddenThing").isEmpty())
+            return fail("a window of an application the menus leave out has not its icon");
     }
     // An application's desktop actions are listed in its entry's order with their icons, and run
     // as the application is started; a failure, or an action that is not there, shows across the
@@ -436,10 +430,8 @@ int main(int argc, char **argv) {
             actions[1].toMap()["action"] != "missing" || actions[1].toMap()["icon"] != "" ||
             !controller.appActions("paw-test-app.desktop").isEmpty() ||
             !controller.appActions("pinned:0").isEmpty() ||
-            !controller.appActions("not-installed.desktop").isEmpty()) {
-            std::cerr << "the desktop actions are not listed as the entries give them\n";
-            return 1;
-        }
+            !controller.appActions("not-installed.desktop").isEmpty())
+            return fail("the desktop actions are not listed as the entries give them");
         if (!controller.launchAction("paw-test-actions.desktop", "touch") ||
             !waitFor([&] { return QFile::exists(actionMarker); }) ||
             !controller.error().isEmpty()) {
@@ -460,10 +452,8 @@ int main(int argc, char **argv) {
             return 1;
         }
         if (controller.launchAction("paw-test-actions.desktop", "absent") ||
-            controller.error() != "This action is no longer available.") {
-            std::cerr << "an action the entry does not have was not refused\n";
-            return 1;
-        }
+            controller.error() != "This action is no longer available.")
+            return fail("an action the entry does not have was not refused");
         controller.clearError();
     }
     // An installed application's record says what else a search finds it by.
@@ -539,26 +529,18 @@ int main(int argc, char **argv) {
     QTest::mouseMove(&view, start);
     QTest::qWait(200); // Hover first: a tooltip must not swallow the following press.
     QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, start);
-    if (!waitFor([&] { return view.rootObject()->property("launcherOpen").toBool(); })) {
-        std::cerr << "hover then click did not open the launcher\n";
-        return 1;
-    }
+    if (!waitFor([&] { return view.rootObject()->property("launcherOpen").toBool(); }))
+        return fail("hover then click did not open the launcher");
     auto *search = find(view.rootObject(), "applicationSearch");
-    if (!search || !waitFor([&] { return search->hasActiveFocus(); })) {
-        std::cerr << "launcher search did not receive keyboard focus\n";
-        return 1;
-    }
+    if (!search || !waitFor([&] { return search->hasActiveFocus(); }))
+        return fail("launcher search did not receive keyboard focus");
     for (Qt::Key key : {Qt::Key_T, Qt::Key_E, Qt::Key_S, Qt::Key_T})
         QTest::keyClick(search->window(), key);
     QTest::keyClick(search->window(), Qt::Key_Return);
-    if (!waitFor([&] { return QFile::exists(marker); })) {
-        std::cerr << "search and Enter did not launch the configured command\n";
-        return 1;
-    }
-    if (view.rootObject()->property("launcherOpen").toBool()) {
-        std::cerr << "launcher remained open after launching\n";
-        return 1;
-    }
+    if (!waitFor([&] { return QFile::exists(marker); }))
+        return fail("search and Enter did not launch the configured command");
+    if (view.rootObject()->property("launcherOpen").toBool())
+        return fail("launcher remained open after launching");
     // A moment after startup the popups are made ahead of their first use.
     view.rootObject()->setProperty("warm", true);
     if (!waitFor([&] {
@@ -566,24 +548,18 @@ int main(int argc, char **argv) {
                 if (!find(view.rootObject(), popup))
                     return false;
             return true;
-        })) {
-        std::cerr << "the popups were not made ahead of use\n";
-        return 1;
-    }
+        }))
+        return fail("the popups were not made ahead of use");
     auto panelTiling = [&view] { return view.rootObject()->property("tiling").toBool(); };
     auto *tiling = view.rootObject()->findChild<QQuickItem *>("tilingToggle");
     if (!tiling || !waitFor([&] { return controller.tilingAvailable(); }) ||
-        panelTiling()) {
-        std::cerr << "tiling state did not arrive from the control socket\n";
-        return 1;
-    }
+        panelTiling())
+        return fail("tiling state did not arrive from the control socket");
     const QPoint toggle =
         tiling->mapToScene(QPointF(tiling->width() / 2, tiling->height() / 2)).toPoint();
     QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, toggle);
-    if (!waitFor([&] { return toggled && panelTiling(); })) {
-        std::cerr << "the tiling button did not toggle tiling\n";
-        return 1;
-    }
+    if (!waitFor([&] { return toggled && panelTiling(); }))
+        return fail("the tiling button did not toggle tiling");
     // The workspace indicator shows this output's state and switches it.
     auto workspace = [&](int number) {
         return find(view.rootObject(), QString("workspace%1").arg(number));
@@ -591,17 +567,13 @@ int main(int argc, char **argv) {
     if (!workspace(4) || workspace(5) || !workspace(2)->property("current").toBool() ||
         workspace(1)->property("current").toBool() ||
         !workspace(1)->property("occupied").toBool() ||
-        workspace(3)->property("occupied").toBool()) {
-        std::cerr << "the workspace indicator does not show the output's workspaces\n";
-        return 1;
-    }
+        workspace(3)->property("occupied").toBool())
+        return fail("the workspace indicator does not show the output's workspaces");
     if (workspace(1)->property("label").toString() != "web" ||
         workspace(4)->property("label").toString() != "mail" ||
         !workspace(2)->property("label").toString().isEmpty() ||
-        workspace(1)->width() <= workspace(2)->width()) {
-        std::cerr << "the workspace indicator does not show workspace names\n";
-        return 1;
-    }
+        workspace(1)->width() <= workspace(2)->width())
+        return fail("the workspace indicator does not show workspace names");
     auto centre = [&](QQuickItem *item) {
         return item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint();
     };
@@ -611,10 +583,8 @@ int main(int argc, char **argv) {
     };
     click(workspace(3));
     if (!waitFor([&] { return workspace(3)->property("current").toBool(); }) ||
-        switches != QStringList{"output " + output + " workspace 3"}) {
-        std::cerr << "clicking a workspace did not switch to it\n";
-        return 1;
-    }
+        switches != QStringList{"output " + output + " workspace 3"})
+        return fail("clicking a workspace did not switch to it");
     // The current workspace's pill slides over to it, and takes its width.
     {
         auto *pill = find(view.rootObject(), "workspacePill");
@@ -631,10 +601,8 @@ int main(int argc, char **argv) {
     };
     auto scroll = [&](int delta) { scrollAt(centre(workspace(2)), delta); };
     scroll(-120); // down: the next workspace
-    if (!waitFor([&] { return workspace(4)->property("current").toBool(); })) {
-        std::cerr << "scrolling down did not page to the next workspace\n";
-        return 1;
-    }
+    if (!waitFor([&] { return workspace(4)->property("current").toBool(); }))
+        return fail("scrolling down did not page to the next workspace");
     scroll(-120); // already on the last one
     scroll(60);   // half a notch does nothing yet
     scroll(60);
@@ -723,10 +691,8 @@ int main(int argc, char **argv) {
     controller.reload();
     if (!waitFor([&] { return controller.workspacesShown() == 3 && !workspace(1); }) ||
         !workspace(2) || !workspace(3) || !workspace(4) || !workspace(4)->property("current").toBool() ||
-        workspace(4)->property("label").toString() != "mail") {
-        std::cerr << "shell.workspaces_shown = 3 did not show the last three workspaces\n";
-        return 1;
-    }
+        workspace(4)->property("label").toString() != "mail")
+        return fail("shell.workspaces_shown = 3 did not show the last three workspaces");
     // The bar's layout moves the narrower indicator on its next polish, which a grab runs.
     view.grabWindow();
     QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, centre(workspace(2)));
@@ -757,27 +723,21 @@ int main(int argc, char **argv) {
                        "switcher-window fake\tFake\t" + output + "\t3\t0\t1\t12\n"
                        "switcher-window \tNo app id\t" + output + "\t1\t1\t0\t13\tnew\n"
                        "switcher-window old\tOld\t" + output + "\t1\t0\n").toUtf8());
-    if (!waitFor([&] { return controller.switcherWindows().size() == 3; })) {
-        std::cerr << "the switcher's windows were not parsed\n";
-        return 1;
-    }
+    if (!waitFor([&] { return controller.switcherWindows().size() == 3; }))
+        return fail("the switcher's windows were not parsed");
     const auto listed = controller.switcherWindows();
     if (!listed[0].toMap()["urgent"].toBool() || listed[1].toMap()["urgent"].toBool() ||
         listed[2].toMap()["urgent"].toBool() || !listed[1].toMap()["minimized"].toBool() ||
-        !listed[1].toMap()["appId"].toString().isEmpty()) {
-        std::cerr << "the switcher does not say which windows are urgent\n";
-        return 1;
-    }
+        !listed[1].toMap()["appId"].toString().isEmpty())
+        return fail("the switcher does not say which windows are urgent");
     if (listed[0].toMap()["id"].toInt() != 12 || listed[1].toMap()["id"].toInt() != 13 ||
         listed[2].toMap()["id"].toInt() != 0)
         return fail("the switcher's windows' numbers were not parsed");
     if (!waitFor([&] { return switcherView.isVisible() && overlayListed() == 3; }))
         return fail("the switcher's overlay did not show its windows");
     subscriber->write("switcher-close\n");
-    if (!waitFor([&] { return controller.switcherWindows().isEmpty(); })) {
-        std::cerr << "the switcher did not close\n";
-        return 1;
-    }
+    if (!waitFor([&] { return controller.switcherWindows().isEmpty(); }))
+        return fail("the switcher did not close");
     if (overlayListed() != 3 || !waitFor([&] { return !switcherView.isVisible(); }) ||
         overlayListed() != 3)
         return fail("the switcher's overlay did not hold its windows as it went");
@@ -815,45 +775,33 @@ int main(int argc, char **argv) {
     {
         auto *layout = find(view.rootObject(), "keyboardLayout");
         auto *label = find(view.rootObject(), "keyboardLayoutText");
-        if (!layout || !label || layout->isVisible()) {
-            std::cerr << "the keyboard layout indicator shows before the compositor names one\n";
-            return 1;
-        }
+        if (!layout || !label || layout->isVisible())
+            return fail("the keyboard layout indicator shows before the compositor names one");
         subscriber->write("keyboard-layout 1 1 us English (US)\n");
         if (!waitFor([&] { return controller.keyboardLayout()["count"].toInt() == 1; }) ||
-            layout->isVisible()) {
-            std::cerr << "the keyboard layout indicator shows with a single layout\n";
-            return 1;
-        }
+            layout->isVisible())
+            return fail("the keyboard layout indicator shows with a single layout");
         subscriber->write("keyboard-layout 1 2 us English (US)\n");
         if (!waitFor([&] { return layout->isVisible(); }) ||
             label->property("text").toString() != "us" ||
             controller.keyboardLayout()["name"].toString() != "English (US)" ||
-            layout->property("description").toString() != "Keyboard layout: English (US)") {
-            std::cerr << "the keyboard layout indicator does not show the active layout\n";
-            return 1;
-        }
+            layout->property("description").toString() != "Keyboard layout: English (US)")
+            return fail("the keyboard layout indicator does not show the active layout");
         click(layout);
         if (!waitFor([&] { return label->property("text").toString() == "no"; }) ||
-            layoutSwitches != 1 || controller.keyboardLayout()["number"].toInt() != 2) {
-            std::cerr << "clicking the keyboard layout did not switch to the next\n";
-            return 1;
-        }
+            layoutSwitches != 1 || controller.keyboardLayout()["number"].toInt() != 2)
+            return fail("clicking the keyboard layout did not switch to the next");
         if (!controller.widgets()["keyboard_layout"].toBool() ||
             !rewrite(QString(lua).replace("widgets={", "widgets={keyboard_layout=false,")))
             return fail("the keyboard layout widget was off, or the configuration could not be rewritten");
         controller.reload();
-        if (!waitFor([&] { return !layout->isVisible(); })) {
-            std::cerr << "shell.widgets.keyboard_layout = false did not hide the indicator\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !layout->isVisible(); }))
+            return fail("shell.widgets.keyboard_layout = false did not hide the indicator");
         if (!rewrite(lua))
             return fail("could not restore the configuration");
         controller.reload();
-        if (!waitFor([&] { return layout->isVisible(); })) {
-            std::cerr << "the keyboard layout indicator did not come back\n";
-            return 1;
-        }
+        if (!waitFor([&] { return layout->isVisible(); }))
+            return fail("the keyboard layout indicator did not come back");
     }
     // The binding mode in use, on a pill while it is not the default one; a click leaves it.
     {
@@ -893,10 +841,8 @@ int main(int argc, char **argv) {
         view.rootObject()->setProperty("statusSource", QVariant::fromValue(&fake));
         auto *battery = find(view.rootObject(), "batteryWidget");
         auto *network = find(view.rootObject(), "networkWidget");
-        if (!battery || !network || battery->isVisible() || network->isVisible()) {
-            std::cerr << "battery or network widget shown without hardware\n";
-            return 1;
-        }
+        if (!battery || !network || battery->isVisible() || network->isVisible())
+            return fail("battery or network widget shown without hardware");
         if (!put("class/power_supply/BAT0/type", "Battery\n") ||
             !put("class/power_supply/BAT0/capacity", "10\n") ||
             !put("class/power_supply/BAT0/status", "Discharging\n") ||
@@ -907,10 +853,8 @@ int main(int argc, char **argv) {
         auto *level = find(view.rootObject(), "batteryLevel");
         if (!waitFor([&] { return battery->isVisible() && network->isVisible(); }) ||
             !level || battery->property("low").toBool() != true ||
-            network->property("linkDown").toBool()) {
-            std::cerr << "battery and network widgets did not appear from sysfs\n";
-            return 1;
-        }
+            network->property("linkDown").toBool())
+            return fail("battery and network widgets did not appear from sysfs");
         const qreal nearlyEmpty = level->width();
         if (!put("class/power_supply/BAT0/capacity", "90\n") ||
             !put("class/power_supply/BAT0/status", "Charging\n") ||
@@ -918,10 +862,8 @@ int main(int argc, char **argv) {
             return fail("could not update the fake sysfs");
         fake.refresh();
         if (!waitFor([&] { return level->width() > nearlyEmpty * 5; }) ||
-            battery->property("low").toBool() || !network->property("linkDown").toBool()) {
-            std::cerr << "battery and network widgets did not follow sysfs changes\n";
-            return 1;
-        }
+            battery->property("low").toBool() || !network->property("linkDown").toBool())
+            return fail("battery and network widgets did not follow sysfs changes");
         view.rootObject()->setProperty("statusSource", QVariant::fromValue(controller.status()));
     }
     // The clock wakes once a minute, aimed just past the next minute change, not every second.
@@ -938,15 +880,11 @@ int main(int argc, char **argv) {
     {
         auto *clock = find(view.rootObject(), "clockButton");
         auto *calendar = find(view.rootObject(), "calendar");
-        if (!clock || !calendar || calendar->isVisible()) {
-            std::cerr << "calendar missing or open at start\n";
-            return 1;
-        }
+        if (!clock || !calendar || calendar->isVisible())
+            return fail("calendar missing or open at start");
         click(clock);
-        if (!waitFor([&] { return calendar->isVisible(); })) {
-            std::cerr << "clicking the clock did not open the calendar\n";
-            return 1;
-        }
+        if (!waitFor([&] { return calendar->isVisible(); }))
+            return fail("clicking the clock did not open the calendar");
         // Every day of the six-week grid is laid out in its own cell.
         auto *grid = find(view.rootObject(), "monthGrid");
         auto *days = grid ? grid->property("contentItem").value<QQuickItem *>() : nullptr;
@@ -966,10 +904,8 @@ int main(int argc, char **argv) {
         }
         const int month = calendar->property("month").toInt();
         click(find(view.rootObject(), "calendarNext"));
-        if (!waitFor([&] { return calendar->property("month").toInt() == (month + 1) % 12; })) {
-            std::cerr << "the calendar did not page to the next month\n";
-            return 1;
-        }
+        if (!waitFor([&] { return calendar->property("month").toInt() == (month + 1) % 12; }))
+            return fail("the calendar did not page to the next month");
         // A wheel notch down pages to the next month, one up back again.
         auto wheelOn = [&](QQuickItem *item, int delta) {
             QWheelEvent event(centre(item), item->window()->mapToGlobal(centre(item)), {}, {0, delta},
@@ -977,24 +913,18 @@ int main(int argc, char **argv) {
             QCoreApplication::sendEvent(item->window(), &event);
         };
         wheelOn(grid, -120);
-        if (!waitFor([&] { return calendar->property("month").toInt() == (month + 2) % 12; })) {
-            std::cerr << "the wheel did not page the calendar to the next month\n";
-            return 1;
-        }
+        if (!waitFor([&] { return calendar->property("month").toInt() == (month + 2) % 12; }))
+            return fail("the wheel did not page the calendar to the next month");
         wheelOn(grid, 120);
-        if (!waitFor([&] { return calendar->property("month").toInt() == (month + 1) % 12; })) {
-            std::cerr << "the wheel did not page the calendar back\n";
-            return 1;
-        }
+        if (!waitFor([&] { return calendar->property("month").toInt() == (month + 1) % 12; }))
+            return fail("the wheel did not page the calendar back");
         auto *today = find(view.rootObject(), "calendarToday");
         if (!today || !today->isEnabled())
             return fail("the calendar has no Today button, or it does nothing on another month");
         click(today);
         if (!waitFor([&] { return calendar->property("month").toInt() == month; }) ||
-            today->isEnabled()) {
-            std::cerr << "Today did not return the calendar to this month\n";
-            return 1;
-        }
+            today->isEnabled())
+            return fail("Today did not return the calendar to this month");
         // The title zooms out to the year's months, where one is picked, then to a decade's years.
         auto zoomed = [&] { return calendar->property("view").toString(); };
         auto pick = [&](const char *name, const char *property, int value) -> QQuickItem * {
@@ -1016,18 +946,14 @@ int main(int argc, char **argv) {
         click(title);
         auto *months = find(view.rootObject(), "calendarMonths");
         if (!waitFor([&] { return zoomed() == "months" && months && months->isVisible(); }) ||
-            grid->isVisible()) {
-            std::cerr << "the calendar's title did not zoom out to the months\n";
-            return 1;
-        }
+            grid->isVisible())
+            return fail("the calendar's title did not zoom out to the months");
         const int later = (month + 3) % 12;
         if (!waitFor(settled))
             return fail("the months did not zoom into place");
         click(pick("calendarMonth", "month", later));
-        if (!waitFor([&] { return zoomed() == "days" && calendar->property("month").toInt() == later; })) {
-            std::cerr << "picking a month did not show its days\n";
-            return 1;
-        }
+        if (!waitFor([&] { return zoomed() == "days" && calendar->property("month").toInt() == later; }))
+            return fail("picking a month did not show its days");
         click(title);
         if (!waitFor([&] { return zoomed() == "months"; }))
             return fail("the calendar's title did not zoom out to the months again");
@@ -1035,35 +961,25 @@ int main(int argc, char **argv) {
         auto *years = find(view.rootObject(), "calendarYears");
         const int year = calendar->property("year").toInt();
         if (!waitFor([&] { return zoomed() == "years" && years && years->isVisible(); }) ||
-            title->isEnabled()) {
-            std::cerr << "the calendar's title did not zoom out to the years\n";
-            return 1;
-        }
+            title->isEnabled())
+            return fail("the calendar's title did not zoom out to the years");
         click(find(view.rootObject(), "calendarNext"));
-        if (!waitFor([&] { return calendar->property("year").toInt() == year + 10; })) {
-            std::cerr << "the next arrow did not page the years by a decade\n";
-            return 1;
-        }
+        if (!waitFor([&] { return calendar->property("year").toInt() == year + 10; }))
+            return fail("the next arrow did not page the years by a decade");
         if (!waitFor(settled))
             return fail("the years did not slide into place");
         click(pick("calendarYear", "year", year + 11));
-        if (!waitFor([&] { return zoomed() == "months" && calendar->property("year").toInt() == year + 11; })) {
-            std::cerr << "picking a year did not show its months\n";
-            return 1;
-        }
+        if (!waitFor([&] { return zoomed() == "months" && calendar->property("year").toInt() == year + 11; }))
+            return fail("picking a year did not show its months");
         click(today);
         if (!waitFor([&] {
                 return zoomed() == "days" && calendar->property("month").toInt() == month &&
                        calendar->property("year").toInt() == QDate::currentDate().year();
-            })) {
-            std::cerr << "Today did not return from the months to this month's days\n";
-            return 1;
-        }
+            }))
+            return fail("Today did not return from the months to this month's days");
         click(clock);
-        if (!waitFor([&] { return !calendar->isVisible(); })) {
-            std::cerr << "clicking the clock again did not close the calendar\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !calendar->isVisible(); }))
+            return fail("clicking the clock again did not close the calendar");
     }
     // Context menus: a task's, then the bar's. Stand-in tasks replace the Wayland ones.
     auto *tasks = view.rootObject()->findChild<QQuickItem *>("taskList");
@@ -1238,16 +1154,12 @@ ListModel {
     if (!waitFor([&] {
             return view.rootObject()->property("taskMenuId").toInt() == 7 && menuShown();
         }) ||
-        !menuItem("Maximize") || !menuItem("Minimize") || !menuItem("Close window")) {
-        std::cerr << "right-clicking a task did not show its menu\n";
-        return 1;
-    }
+        !menuItem("Maximize") || !menuItem("Minimize") || !menuItem("Close window"))
+        return fail("right-clicking a task did not show its menu");
     click(menuItem("Minimize"));
     if (!waitFor([&] { return !view.rootObject()->property("menuOpen").toBool(); }) ||
-        !waitFor([&] { return !popover->isVisible(); })) {
-        std::cerr << "choosing a task menu item did not close the menu\n";
-        return 1;
-    }
+        !waitFor([&] { return !popover->isVisible(); }))
+        return fail("choosing a task menu item did not close the menu");
     if (const auto asked = taskRequests(); asked != "minimize 7") {
         std::cerr << "minimizing from a task's menu asked " << asked.toStdString() << '\n';
         return 1;
@@ -1485,25 +1397,17 @@ ListModel {
     const int buttons = tasks->property("count").toInt();
     QPointer<QQuickItem> unpinnedButton = task;
     click(task, Qt::RightButton);
-    if (!waitFor([&] { return menuShown() && menuItem("Pin to taskbar"); })) {
-        std::cerr << "a task's menu did not offer to pin its application\n";
-        return 1;
-    }
+    if (!waitFor([&] { return menuShown() && menuItem("Pin to taskbar"); }))
+        return fail("a task's menu did not offer to pin its application");
     click(menuItem("Pin to taskbar"));
     if (!waitFor([&] { return pinnedTask() != nullptr; }) ||
         !controller.isPinned("paw-test-app.desktop") ||
-        readPins() != "paw-test-app.desktop\n") {
-        std::cerr << "pinning a task's application did not pin and save it\n";
-        return 1;
-    }
-    if (pinnedTask() != unpinnedButton || pinned() || tasks->property("count").toInt() != buttons) {
-        std::cerr << "a pinned application's window did not keep its button\n";
-        return 1;
-    }
-    if (!waitFor([&] { return !popover->isVisible(); })) {
-        std::cerr << "the popover did not close after pinning\n";
-        return 1;
-    }
+        readPins() != "paw-test-app.desktop\n")
+        return fail("pinning a task's application did not pin and save it");
+    if (pinnedTask() != unpinnedButton || pinned() || tasks->property("count").toInt() != buttons)
+        return fail("a pinned application's window did not keep its button");
+    if (!waitFor([&] { return !popover->isVisible(); }))
+        return fail("the popover did not close after pinning");
     // Dragging a pinned application's button past another's launcher moves the pin there.
     controller.pin("paw-test-other.desktop");
     auto other = [&] { return find(view.rootObject(), "pinned:paw-test-other.desktop"); };
@@ -1526,16 +1430,12 @@ ListModel {
         !waitFor([&] {
             return pinnedTask() && other() &&
                    other()->mapToScene({0, 0}).x() < pinnedTask()->mapToScene({0, 0}).x();
-        })) {
-        std::cerr << "dragging a pinned application's button past another did not move its pin\n";
-        return 1;
-    }
+        }))
+        return fail("dragging a pinned application's button past another did not move its pin");
     controller.unpin("paw-test-other.desktop");
     editTasks("model.remove(0)");
-    if (!waitFor([&] { return !pinnedTask() && pinned() && pinned()->isVisible(); })) {
-        std::cerr << "a pinned application's button did not become its launcher once its window closed\n";
-        return 1;
-    }
+    if (!waitFor([&] { return !pinnedTask() && pinned() && pinned()->isVisible(); }))
+        return fail("a pinned application's button did not become its launcher once its window closed");
     // Slowed down: a window of a pinned application opening draws its line out under the
     // launcher's icon, which stays, and an application just pinned fades and grows in.
     {
@@ -1568,10 +1468,8 @@ ListModel {
     click(pinned(), Qt::RightButton);
     if (!waitFor([&] { return menuShown() && menuItem("Unpin from taskbar"); }) ||
         !menuItem("Open") || !menuItem("Fake app") ||
-        menuItem("Fake app")->objectName() != "contextMenuTitle") {
-        std::cerr << "a pinned application's menu did not offer to unpin it\n";
-        return 1;
-    }
+        menuItem("Fake app")->objectName() != "contextMenuTitle")
+        return fail("a pinned application's menu did not offer to unpin it");
     // One with desktop actions offers them before opening it, and nothing of a window's.
     {
         QTest::keyClick(popover, Qt::Key_Escape);
@@ -1607,14 +1505,10 @@ ListModel {
     }
     click(menuItem("Unpin from taskbar"));
     if (!waitFor([&] { return pinned() == nullptr; }) || !readPins().isEmpty() ||
-        controller.isPinned("paw-test-app.desktop")) {
-        std::cerr << "unpinning did not remove and forget the taskbar button\n";
-        return 1;
-    }
-    if (!waitFor([&] { return !popover->isVisible(); })) {
-        std::cerr << "the popover did not close after unpinning\n";
-        return 1;
-    }
+        controller.isPinned("paw-test-app.desktop"))
+        return fail("unpinning did not remove and forget the taskbar button");
+    if (!waitFor([&] { return !popover->isVisible(); }))
+        return fail("the popover did not close after unpinning");
     // Apart (shell.group_windows = false), a pinned application's windows have a button each, as
     // any window has, and each moves along the bar on its own: the first opens in the launcher's
     // place, the others at the end, and dragging one moves neither the others nor the pin. With no
@@ -1705,10 +1599,8 @@ ListModel {
         click(task, Qt::RightButton);
         if (!waitFor([&] { return menuShown() && title(); }) ||
             title()->property("text") != "Fake app" ||
-            title()->property("modelData").toMap()["secondary"] != "Fake" || !menuItem("New window")) {
-            std::cerr << "a window's menu is not headed by its application and title\n";
-            return 1;
-        }
+            title()->property("modelData").toMap()["secondary"] != "Fake" || !menuItem("New window"))
+            return fail("a window's menu is not headed by its application and title");
         // The keyboard passes over the title.
         QTest::keyClick(popover, Qt::Key_Home);
         if (!waitFor([&] { return menuItem("New window")->property("highlighted").toBool(); }) ||
@@ -1727,17 +1619,13 @@ ListModel {
                        menuItem("New window");
             }) ||
             menuItem("Touch a file")->objectName() != "contextMenuAction" ||
-            menuItem("Touch a file")->property("modelData").toMap()["icon"] != "document-new") {
-            std::cerr << "a window's menu does not offer its application's desktop actions\n";
-            return 1;
-        }
+            menuItem("Touch a file")->property("modelData").toMap()["icon"] != "document-new")
+            return fail("a window's menu does not offer its application's desktop actions");
         QFile::remove(actionMarker);
         click(menuItem("Touch a file"));
         if (!waitFor([&] { return QFile::exists(actionMarker); }) ||
-            !waitFor([&] { return !view.rootObject()->property("menuOpen").toBool(); })) {
-            std::cerr << "a desktop action in a window's menu did not run\n";
-            return 1;
-        }
+            !waitFor([&] { return !view.rootObject()->property("menuOpen").toBool(); }))
+            return fail("a desktop action in a window's menu did not run");
         editTasks("model.remove(1)");
         // The list drops the button when it next lays itself out.
         QMetaObject::invokeMethod(tasks, "forceLayout");
@@ -1748,53 +1636,41 @@ ListModel {
     QTest::mouseClick(&view, Qt::RightButton, Qt::NoModifier, empty);
     if (!waitFor(
             [&] { return view.rootObject()->property("barMenuOpen").toBool() && menuShown(); }) ||
-        !menuItem("Turn tiling off") || !menuItem("Applications")) {
-        std::cerr << "right-clicking empty bar space did not show the bar menu\n";
-        return 1;
-    }
+        !menuItem("Turn tiling off") || !menuItem("Applications"))
+        return fail("right-clicking empty bar space did not show the bar menu");
     // While a menu is open the popover holds the keyboard and takes the pointer everywhere but
     // over the bar, whose buttons stay reachable: another one opens its popup in one press. A
     // press beside the popups closes them, and the popover goes, taking nothing any more.
     {
         const QRegion outsideBar(0, 0, popover->width(), popover->height() - view.height());
-        if (!popover->keyboard() || popover->inputRegion() != outsideBar) {
-            std::cerr << "an open menu does not take the keyboard and the pointer beside the bar\n";
-            return 1;
-        }
+        if (!popover->keyboard() || popover->inputRegion() != outsideBar)
+            return fail("an open menu does not take the keyboard and the pointer beside the bar");
         auto *calendar = find(view.rootObject(), "calendar");
         click(find(view.rootObject(), "clockButton"));
         if (!waitFor([&] { return calendar && inPopover(calendar); }) ||
-            view.rootObject()->property("barMenuOpen").toBool() || !popover->isVisible()) {
-            std::cerr << "a press on the clock while the bar menu was open did not switch to the calendar\n";
-            return 1;
-        }
+            view.rootObject()->property("barMenuOpen").toBool() || !popover->isVisible())
+            return fail("a press on the clock while the bar menu was open did not switch to the calendar");
         QTest::mouseClick(popover, Qt::LeftButton, Qt::NoModifier, QPoint(5, 5));
         if (!waitFor([&] { return !calendar->isVisible() && !popover->isVisible(); }) ||
             view.rootObject()->property("menuOpen").toBool() || popover->keyboard() ||
-            !popover->inputRegion().isEmpty()) {
-            std::cerr << "a press beside the calendar did not close it and the popover\n";
-            return 1;
-        }
+            !popover->inputRegion().isEmpty())
+            return fail("a press beside the calendar did not close it and the popover");
         QTest::mouseClick(&view, Qt::RightButton, Qt::NoModifier, empty);
         if (!waitFor([&] { return view.rootObject()->property("barMenuOpen").toBool() && menuShown(); }))
             return fail("the bar menu did not open again");
     }
     click(menuItem("Turn tiling off"));
     if (!waitFor([&] { return !toggled && !panelTiling(); }) ||
-        view.rootObject()->property("menuOpen").toBool()) {
-        std::cerr << "the bar menu did not toggle tiling off\n";
-        return 1;
-    }
+        view.rootObject()->property("menuOpen").toBool())
+        return fail("the bar menu did not toggle tiling off");
     // The bar menu's appearance entry opens the profiles beside it, the one in use marked, and
     // the menu stays; picking one switches.
     QTest::mouseClick(&view, Qt::RightButton, Qt::NoModifier, empty);
     if (!waitFor([&] {
             return menuShown() && menuItem("Appearance") &&
                    menuItem("Appearance")->property("modelData").toMap()["secondary"] == "dark";
-        })) {
-        std::cerr << "the bar menu lacks the appearance profiles\n";
-        return 1;
-    }
+        }))
+        return fail("the bar menu lacks the appearance profiles");
     // The card a row is on, and whether one card lies right of another.
     auto cardOf = [](QQuickItem *row) {
         while (row && !row->property("anchorRect").isValid())
@@ -1815,10 +1691,8 @@ ListModel {
                    cardOf(menuItem("dark")) != cardOf(menuItem("Applications")) &&
                    beside(cardOf(menuItem("Applications")), cardOf(menuItem("dark"))) &&
                    inPopover(cardOf(menuItem("dark")));
-        })) {
-        std::cerr << "the appearance entry did not open the profiles beside the menu\n";
-        return 1;
-    }
+        }))
+        return fail("the appearance entry did not open the profiles beside the menu");
     click(menuItem("light"));
     if (!waitFor([&] {
             return requests == QStringList{"profile light"} && controller.profile() == "light" &&
@@ -1834,10 +1708,8 @@ ListModel {
     if (!waitFor([&] {
             return menuShown() && menuItem("Appearance") && !menuItem("dark") &&
                    menuItem("Appearance")->property("modelData").toMap()["secondary"] == "light";
-        })) {
-        std::cerr << "the bar menu did not open without its submenu, with the new profile\n";
-        return 1;
-    }
+        }))
+        return fail("the bar menu did not open without its submenu, with the new profile");
     // The keyboard: nothing is highlighted after a right click; Down and Up move, wrapping and
     // skipping nothing that can be chosen; End and Home go to the ends; Right opens a submenu at
     // its first entry, Left closes it; Escape closes a submenu, then the menu. The pointer rests
@@ -1884,10 +1756,8 @@ ListModel {
             return 1;
         }
         QTest::keyClick(popover, Qt::Key_Escape);
-        if (!waitFor([&] { return !view.rootObject()->property("menuOpen").toBool(); })) {
-            std::cerr << "Escape did not close the bar menu\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !view.rootObject()->property("menuOpen").toBool(); }))
+            return fail("Escape did not close the bar menu");
     }
     // The pointer resting on a submenu's entry opens it, and resting on another closes it; the
     // pointer crossing other entries on its way into the submenu leaves it open.
@@ -1895,22 +1765,16 @@ ListModel {
     if (!waitFor([&] { return menuShown() && menuItem("Appearance") && !menuItem("dark"); }))
         return fail("the bar menu did not open again");
     QTest::mouseMove(popover, centre(menuItem("Appearance")));
-    if (!waitFor([&] { return menuItem("dark") && menuItem("dark")->isVisible(); })) {
-        std::cerr << "resting on the appearance entry did not open its submenu\n";
-        return 1;
-    }
+    if (!waitFor([&] { return menuItem("dark") && menuItem("dark")->isVisible(); }))
+        return fail("resting on the appearance entry did not open its submenu");
     QTest::mouseMove(popover, centre(menuItem("Show desktop")));
     QTest::mouseMove(popover, centre(menuItem("light")));
     QTest::qWait(400);
-    if (!menuItem("light") || !menuItem("Appearance")->property("expanded").toBool()) {
-        std::cerr << "crossing another entry into the submenu closed it\n";
-        return 1;
-    }
+    if (!menuItem("light") || !menuItem("Appearance")->property("expanded").toBool())
+        return fail("crossing another entry into the submenu closed it");
     QTest::mouseMove(popover, centre(menuItem("Show desktop")));
-    if (!waitFor([&] { return !menuItem("light"); })) {
-        std::cerr << "resting on another entry did not close the submenu\n";
-        return 1;
-    }
+    if (!waitFor([&] { return !menuItem("light"); }))
+        return fail("resting on another entry did not close the submenu");
     // Heading for the open submenu across another entry leaves it open, the entry crossed taking
     // over only once the pointer rests on it.
     QTest::mouseMove(popover, centre(menuItem("Appearance")));
@@ -1935,10 +1799,8 @@ ListModel {
     // The profile button on the bar lists the profiles, the one in use marked, and switches.
     auto *profilesButton = find(view.rootObject(), "profilesButton");
     if (!waitFor([&] { return !view.rootObject()->property("menuOpen").toBool(); }) ||
-        !profilesButton || !profilesButton->isVisible()) {
-        std::cerr << "the bar lacks the profile button\n";
-        return 1;
-    }
+        !profilesButton || !profilesButton->isVisible())
+        return fail("the bar lacks the profile button");
     click(profilesButton);
     std::function<QQuickItem *(QQuickItem *, const QString &)> findProfile =
         [&](QQuickItem *parent, const QString &name) -> QQuickItem * {
@@ -1958,26 +1820,20 @@ ListModel {
                    findProfile(profileList, "light")->property("marked").toBool() &&
                    !findProfile(profileList, "dark")->property("marked").toBool() &&
                    inPopover(profileList);
-        })) {
-        std::cerr << "the profile button did not list the profiles\n";
-        return 1;
-    }
+        }))
+        return fail("the profile button did not list the profiles");
     click(findProfile(profileList, "dark"));
     if (!waitFor([&] {
             return requests == QStringList{"profile dark"} && controller.profile() == "dark" &&
                    !profileList->isVisible();
-        })) {
-        std::cerr << "picking a profile from the bar did not switch to it\n";
-        return 1;
-    }
+        }))
+        return fail("picking a profile from the bar did not switch to it");
     requests.clear();
     // The wallpaper button shows the pictures of shell.wallpapers as thumbnails, the one in use
     // marked; clicking another shows it, keeps it for the profile and leaves the picker open.
     auto *wallpapersButton = find(view.rootObject(), "wallpapersButton");
-    if (!wallpapersButton || !wallpapersButton->isVisible()) {
-        std::cerr << "the bar lacks the wallpaper button\n";
-        return 1;
-    }
+    if (!wallpapersButton || !wallpapersButton->isVisible())
+        return fail("the bar lacks the wallpaper button");
     click(wallpapersButton);
     std::function<void(QQuickItem *, QList<QQuickItem *> &)> wallpaperItems =
         [&](QQuickItem *parent, QList<QQuickItem *> &found) {
@@ -2025,39 +1881,27 @@ ListModel {
     }
     if (!waitFor([&] {
             return QDir(screens.filePath("cache/thumbnails/large")).entryList(QDir::Files).size() == 2;
-        })) {
-        std::cerr << "the wallpaper thumbnails were not cached\n";
-        return 1;
-    }
+        }))
+        return fail("the wallpaper thumbnails were not cached");
     controller.pickWallpaper("");
-    if (controller.wallpaperFile() != directory.filePath("walls/a/one.png") || pickedText() != "") {
-        std::cerr << "clearing the picked wallpaper did not go back to the configured one\n";
-        return 1;
-    }
+    if (controller.wallpaperFile() != directory.filePath("walls/a/one.png") || pickedText() != "")
+        return fail("clearing the picked wallpaper did not go back to the configured one");
     click(wallpapersButton);
-    if (!waitFor([&] { return !picker->isVisible(); })) {
-        std::cerr << "the wallpaper button did not close the picker\n";
-        return 1;
-    }
+    if (!waitFor([&] { return !picker->isVisible(); }))
+        return fail("the wallpaper button did not close the picker");
     // A task asking for attention is marked, and unmarked when it stops.
-    if (task->property("shownUrgent").toBool() || find(task, "taskUrgent")->isVisible()) {
-        std::cerr << "a task is marked urgent before it asked\n";
-        return 1;
-    }
+    if (task->property("shownUrgent").toBool() || find(task, "taskUrgent")->isVisible())
+        return fail("a task is marked urgent before it asked");
     editTasks("model.setProperty(0, 'urgent', true)");
     if (!waitFor([&] {
             return task->property("shownUrgent").toBool() && find(task, "taskUrgent")->isVisible();
-        })) {
-        std::cerr << "a task asking for attention is not marked\n";
-        return 1;
-    }
+        }))
+        return fail("a task asking for attention is not marked");
     editTasks("model.setProperty(0, 'urgent', false)");
     if (!waitFor([&] {
             return !task->property("shownUrgent").toBool() && !find(task, "taskUrgent")->isVisible();
-        })) {
-        std::cerr << "a task that stopped asking for attention is still marked\n";
-        return 1;
-    }
+        }))
+        return fail("a task that stopped asking for attention is still marked");
     // Dragging a task along the bar moves it, not the whole list, as far as it is dragged.
     // Each belongs to a different application, or they would share a button.
     editTasks("model.append({ taskId: 8, title: 'Second', appId: 'second', active: false, "
@@ -2085,10 +1929,8 @@ ListModel {
         return button ? button->property("taskId").toInt() : -1;
     };
     if (!waitFor([&] { return shownTaskId(2) == 7; }) || shownTaskId(0) != 8 ||
-        tasks->property("contentX").toReal() != 0) {
-        std::cerr << "dragging a task did not reorder the task list\n";
-        return 1;
-    }
+        tasks->property("contentX").toReal() != 0)
+        return fail("dragging a task did not reorder the task list");
     // An application's windows share one stacked button showing how many there are.
     editTasks("model.append({ taskId: 10, title: 'Group one', appId: 'grouped', active: false, "
               "minimized: false, urgent: false })");
@@ -2101,10 +1943,8 @@ ListModel {
             return windowButtons() == 4 && stackCount &&
                    stack->property("stacked").toBool() && stack->property("shownActive").toBool() &&
                    stackCount->isVisible();
-        })) {
-        std::cerr << "an application's windows did not share one stacked task button\n";
-        return 1;
-    }
+        }))
+        return fail("an application's windows did not share one stacked task button");
     // With shell.thumbnails, on by default, resting on any window's button shows pictures of its
     // windows on a card above it after shell.thumbnails.delay, instead of its tooltip or a
     // stack's list, a tile for each window. Each tile asks the task source for its window's
@@ -2289,10 +2129,8 @@ ListModel {
             return fail("a window without a picture shows one");
         editTasks(QString("model.setProperty(%1, 'picture', 'image://test-windows/320x100')").arg(rowOf(10)));
         if (!waitFor([&] { return shows(10); }) || shows(11) ||
-            find(tileFor(10), "windowThumbnailPicture")->size() != QSizeF(240, 75)) {
-            std::cerr << "a window's picture does not show in its tile, fitted into it\n";
-            return 1;
-        }
+            find(tileFor(10), "windowThumbnailPicture")->size() != QSizeF(240, 75))
+            return fail("a window's picture does not show in its tile, fitted into it");
         // A new picture takes the old one's place, and without one the icon is back.
         editTasks(QString("model.setProperty(%1, 'picture', 'image://test-windows/100x200')").arg(rowOf(10)));
         if (!waitFor([&] {
@@ -2341,10 +2179,8 @@ ListModel {
                           {player(false, false, {4110, 4010, 4011}), paused}});
             if (!waitFor([&] { return speaking(10); }) || !silent(11) ||
                 speaker(10)->property("muted").toBool() ||
-                spoken(speaker(10)) != "Mute Group one") {
-                std::cerr << "the window playing sound has no speaker to mute it, or the other has one\n";
-                return 1;
-            }
+                spoken(speaker(10)) != "Mute Group one")
+                return fail("the window playing sound has no speaker to mute it, or the other has one");
             // Its room comes from the title's end, once laid out: the title starts where it did,
             // the cross keeps its place, and the cross stays while the pointer is on the speaker.
             if (!waitFor([&] { return title->width() < titleWidth; }) || x(title) != titleX ||
@@ -2992,28 +2828,20 @@ ListModel {
         QTest::mouseMove(popover, row + QPoint(0, 30 * (5 - step) / 5));
         QTest::qWait(10);
     }
-    if (!stays([&] { return groupList->isVisible(); }, 400)) {
-        std::cerr << "moving from a stacked task to its windows hid them\n";
-        return 1;
-    }
+    if (!stays([&] { return groupList->isVisible(); }, 400))
+        return fail("moving from a stacked task to its windows hid them");
     QTest::mouseClick(popover, Qt::LeftButton, Qt::NoModifier, row);
-    if (!waitFor([&] { return !groupList->isVisible() && !popover->isVisible(); })) {
-        std::cerr << "choosing one of a stacked task's windows did not hide them\n";
-        return 1;
-    }
+    if (!waitFor([&] { return !groupList->isVisible() && !popover->isVisible(); }))
+        return fail("choosing one of a stacked task's windows did not hide them");
     // Hovered again, the list goes once the pointer leaves.
     QEvent leavePopover(QEvent::Leave);
     QCoreApplication::sendEvent(popover, &leavePopover);
     QTest::mouseMove(&view, centre(stack));
-    if (!waitFor([&] { return groupList->isVisible(); })) {
-        std::cerr << "hovering a stacked task again did not list its windows\n";
-        return 1;
-    }
+    if (!waitFor([&] { return groupList->isVisible(); }))
+        return fail("hovering a stacked task again did not list its windows");
     QTest::mouseMove(&view, empty);
-    if (!waitFor([&] { return !groupList->isVisible() && !popover->isVisible(); })) {
-        std::cerr << "leaving a stacked task did not hide its windows\n";
-        return 1;
-    }
+    if (!waitFor([&] { return !groupList->isVisible() && !popover->isVisible(); }))
+        return fail("leaving a stacked task did not hide its windows");
     // Drags from an application, as Qt's Wayland platform hands them to the window under them:
     // coming into a window, an enter and at once a move, then a move each time they move, and a
     // leave as they go or end. A move the window takes is its answer to the application, taken
@@ -3480,10 +3308,8 @@ ListModel {
         }
         QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, to);
     }
-    if (!waitFor([&] { return shownTaskId(0) == 10 && listedTask(0)->property("stacked").toBool(); })) {
-        std::cerr << "dragging a stacked task did not move all its windows\n";
-        return 1;
-    }
+    if (!waitFor([&] { return shownTaskId(0) == 10 && listedTask(0)->property("stacked").toBool(); }))
+        return fail("dragging a stacked task did not move all its windows");
     // One window left, the button is a plain one again.
     for (int row = 0; row < fakeModel->property("count").toInt(); ++row)
         if (taskIdAt(row) == 10)
@@ -3492,10 +3318,8 @@ ListModel {
             auto *single = listedTask(0);
             return single && single->property("taskId").toInt() == 11 &&
                    !single->property("stacked").toBool();
-        })) {
-        std::cerr << "a stacked task with one window left did not become a plain one\n";
-        return 1;
-    }
+        }))
+        return fail("a stacked task with one window left did not become a plain one");
     // The volume control, fed by a stand-in sound server. Its popups open above it, inside
     // the panel's own surface.
     audio.update({"speakers",
@@ -3505,19 +3329,15 @@ ListModel {
     view.rootObject()->setProperty("audioSource", QVariant::fromValue<QObject *>(&audio));
     auto *volume = view.rootObject()->findChild<QQuickItem *>("audioWidget");
     // Laid out once shown: it sits after the task list, not at the bar's start.
-    if (!volume || !waitFor([&] { return volume->isVisible() && volume->x() > 0; })) {
-        std::cerr << "the volume control did not appear\n";
-        return 1;
-    }
+    if (!volume || !waitFor([&] { return volume->isVisible() && volume->x() > 0; }))
+        return fail("the volume control did not appear");
     // Its tooltip says the volume, not the tooltip's own (empty) accessible name.
     bool tooltipText = false;
     for (auto *child : volume->children())
         if (child->property("text").toString().startsWith("Volume 50%"))
             tooltipText = true;
-    if (!tooltipText) {
-        std::cerr << "the volume control's tooltip does not show the volume\n";
-        return 1;
-    }
+    if (!tooltipText)
+        return fail("the volume control's tooltip does not show the volume");
     auto wheel = [&](int delta) {
         QWheelEvent event(centre(volume), view.mapToGlobal(centre(volume)), {}, {0, delta},
                           Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
@@ -3548,10 +3368,8 @@ ListModel {
     auto *mixer = find(view.rootObject(), "audioMixer");
     click(volume, Qt::RightButton);
     if (!outputs || !waitFor([&] { return above(outputs); }) ||
-        !view.rootObject()->property("menuOpen").toBool()) {
-        std::cerr << "right-clicking the volume control did not show the outputs above it\n";
-        return 1;
-    }
+        !view.rootObject()->property("menuOpen").toBool())
+        return fail("right-clicking the volume control did not show the outputs above it");
     std::function<QQuickItem *(QQuickItem *, const QString &, const QString &)> findNamed =
         [&](QQuickItem *parent, const QString &name, const QString &text) -> QQuickItem * {
         for (auto *item : parent->childItems()) {
@@ -3574,10 +3392,8 @@ ListModel {
     }
     audio.requests.clear();
     click(volume);
-    if (!mixer || !waitFor([&] { return above(mixer); })) {
-        std::cerr << "clicking the volume control did not show the mixer above it\n";
-        return 1;
-    }
+    if (!mixer || !waitFor([&] { return above(mixer); }))
+        return fail("clicking the volume control did not show the mixer above it");
     QQuickItem *streamSlider = nullptr;
     if (!waitFor(
             [&] { return (streamSlider = findNamed(mixer, "audioStreamSlider", {})); }))
@@ -3598,15 +3414,11 @@ ListModel {
                   {{"speakers", "Speakers", 55, false}, {"headset", "Headset", 30, false}},
                   {{41, "Music", "audio-x-generic", 74, false},
                    {42, "Browser", "audio-x-generic", 20, false}}});
-    if (findNamed(mixer, "audioStreamSlider", {}) != streamSlider) {
-        std::cerr << "an update rebuilt the mixer's sliders\n";
-        return 1;
-    }
+    if (findNamed(mixer, "audioStreamSlider", {}) != streamSlider)
+        return fail("an update rebuilt the mixer's sliders");
     QTest::keyClick(mixer->window(), Qt::Key_Escape);
-    if (!waitFor([&] { return !popover->isVisible(); })) {
-        std::cerr << "the mixer did not close\n";
-        return 1;
-    }
+    if (!waitFor([&] { return !popover->isVisible(); }))
+        return fail("the mixer did not close");
     // The command palette: one search over actions, sessions, workspaces, windows and apps.
     {
         PaletteView paletteView(controller, app.primaryScreen());
@@ -3634,20 +3446,16 @@ ListModel {
                 QTest::keyClick(&paletteView, c.toLatin1() ? static_cast<Qt::Key>(c.toUpper().unicode()) : Qt::Key_unknown,
                                 Qt::NoModifier);
         };
-        if (!openPalette()) {
-            std::cerr << "the palette did not open with keyboard focus\n";
-            return 1;
-        }
+        if (!openPalette())
+            return fail("the palette did not open with keyboard focus");
         // Saved sessions arrive from the compositor after it opens.
         if (!waitFor([&] { return titlesNow().contains("Restore session work"); })) {
             std::cerr << "the palette lacks the saved session: " << titlesNow().join("|").toStdString() << '\n';
             return 1;
         }
         if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Fake app") ||
-            !titlesNow().contains("Toggle tiling") || !titlesNow().contains("Appearance: dark")) {
-            std::cerr << "the palette lacks workspaces, apps or actions\n";
-            return 1;
-        }
+            !titlesNow().contains("Toggle tiling") || !titlesNow().contains("Appearance: dark"))
+            return fail("the palette lacks workspaces, apps or actions");
         type("tiling");
         if (!waitFor([&] { return !titlesNow().isEmpty() && titlesNow()[0].contains("tiling", Qt::CaseInsensitive); })) {
             std::cerr << "typing did not filter the palette: " << titlesNow().join("|").toStdString() << '\n';
@@ -3661,14 +3469,10 @@ ListModel {
         }
         // The arrows move the selection; a filter prefix narrows the kind.
         requests.clear();
-        if (!openPalette()) {
-            std::cerr << "the palette did not open again\n";
-            return 1;
-        }
-        if (!palette->query().isEmpty()) {
-            std::cerr << "the palette kept its last search\n";
-            return 1;
-        }
+        if (!openPalette())
+            return fail("the palette did not open again");
+        if (!palette->query().isEmpty())
+            return fail("the palette kept its last search");
         type(">layoutmon");
         QTest::keyClick(&paletteView, Qt::Key_Down);
         QTest::keyClick(&paletteView, Qt::Key_Up);
@@ -3677,15 +3481,11 @@ ListModel {
             return 1;
         }
         QTest::keyClick(&paletteView, Qt::Key_Return);
-        if (!waitFor([&] { return requests == QStringList{"layout_monocle"}; })) {
-            std::cerr << "the layout action was not sent\n";
-            return 1;
-        }
+        if (!waitFor([&] { return requests == QStringList{"layout_monocle"}; }))
+            return fail("the layout action was not sent");
         requests.clear();
-        if (!openPalette()) {
-            std::cerr << "the palette did not open a third time\n";
-            return 1;
-        }
+        if (!openPalette())
+            return fail("the palette did not open a third time");
         type(">open terminal");
         QTest::keyClick(&paletteView, Qt::Key_Return);
         if (!waitFor([&] { return requests == QStringList{"terminal"}; })) {
@@ -3697,18 +3497,14 @@ ListModel {
         // user has reached.
         holdSessions = true;
         pendingSessions = nullptr;
-        if (!openPalette() || !waitFor([&] { return pendingSessions != nullptr; })) {
-            std::cerr << "the palette did not ask for the sessions\n";
-            return 1;
-        }
+        if (!openPalette() || !waitFor([&] { return pendingSessions != nullptr; }))
+            return fail("the palette did not ask for the sessions");
         QTest::keyClick(&paletteView, Qt::Key_Down);
         QTest::keyClick(&paletteView, Qt::Key_Down);
         QTest::keyClick(&paletteView, Qt::Key_Down);
         const auto reached = titlesNow().value(palette->selected());
-        if (palette->selected() != 3 || reached.isEmpty()) {
-            std::cerr << "the arrows did not move the selection\n";
-            return 1;
-        }
+        if (palette->selected() != 3 || reached.isEmpty())
+            return fail("the arrows did not move the selection");
         pendingSessions->write("ok\nwork\t3\t1700000000\n");
         pendingSessions->disconnectFromServer();
         if (!waitFor([&] { return titlesNow().contains("Restore session work"); }) ||
@@ -3732,10 +3528,8 @@ ListModel {
         requests.clear();
         openPalette();
         type("evening");
-        if (!waitFor([&] { return titlesNow().contains("Save session as evening"); })) {
-            std::cerr << "the palette does not offer to save a session by the typed name\n";
-            return 1;
-        }
+        if (!waitFor([&] { return titlesNow().contains("Save session as evening"); }))
+            return fail("the palette does not offer to save a session by the typed name");
         // Searching the web for the words comes just before, at DuckDuckGo by default. (Nothing
         // here runs it: GIO might look the address up.)
         {
@@ -3819,10 +3613,8 @@ ListModel {
         openPalette();
         type("tiling");
         QTest::keyClick(&paletteView, Qt::Key_Escape);
-        if (!waitFor([&] { return !paletteView.isVisible(); }) || !requests.isEmpty()) {
-            std::cerr << "Escape did not close the palette quietly\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !paletteView.isVisible(); }) || !requests.isEmpty())
+            return fail("Escape did not close the palette quietly");
         // Its entries for another search (the start menu's): the windows of the model it is
         // given, no applications; one runs as it would from the palette.
         int windows = 0;
@@ -4370,15 +4162,11 @@ ListModel {
                 QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, start);
             return waitFor([&] { return view.rootObject()->property("launcherOpen").toBool(); });
         };
-        if (!button || !menu || !openLauncher() || button->isVisible()) {
-            std::cerr << "the power button shows before the compositor said what may run\n";
-            return 1;
-        }
+        if (!button || !menu || !openLauncher() || button->isVisible())
+            return fail("the power button shows before the compositor said what may run");
         subscriber->write("power lock,suspend,reboot,poweroff,logout\n");
-        if (!waitFor([&] { return button->isVisible(); })) {
-            std::cerr << "the power button did not appear\n";
-            return 1;
-        }
+        if (!waitFor([&] { return button->isVisible(); }))
+            return fail("the power button did not appear");
         // The footer's layout places the button on its next polish.
         if (!waitFor([&] {
                 auto *launcher = find(view.rootObject(), "launcher");
@@ -4395,10 +4183,8 @@ ListModel {
                 return inPopover(menu);
             });
         };
-        if (!openMenu() || !item("lock") || !item("suspend") || item("hibernate")) {
-            std::cerr << "the power menu does not list what may run\n";
-            return 1;
-        }
+        if (!openMenu() || !item("lock") || !item("suspend") || item("hibernate"))
+            return fail("the power menu does not list what may run");
         // A press beside the menu closes it and leaves the launcher open; the button toggles it.
         click(find(view.rootObject(), "applicationSearch"));
         if (!waitFor([&] { return !menu->isVisible(); }) ||
@@ -4454,24 +4240,18 @@ ListModel {
         QTest::keyClick(&dialog, Qt::Key_Escape);
         // It says what it asked as it fades out, the question over by then.
         if (!gaveUp() || dialog.rootObject()->property("pendingTitle") != "Power off" ||
-            dialog.rootObject()->property("pending") != "poweroff") {
-            std::cerr << "Escape did not give up the power off, or the dialog forgot its question as it went\n";
-            return 1;
-        }
+            dialog.rootObject()->property("pending") != "poweroff")
+            return fail("Escape did not give up the power off, or the dialog forgot its question as it went");
         if (!ask("reboot") || power->message() != "The computer restarts in 2 seconds.")
             return fail("the restart was not asked about");
         QTest::mouseClick(&dialog, Qt::LeftButton, Qt::NoModifier, QPoint(10, 10));
-        if (!gaveUp()) {
-            std::cerr << "a click beside the dialog did not give up the restart\n";
-            return 1;
-        }
+        if (!gaveUp())
+            return fail("a click beside the dialog did not give up the restart");
         if (!ask("logout"))
             return fail("the log out was not asked about");
         QTest::mouseClick(&dialog, Qt::LeftButton, Qt::NoModifier, centre(dialogItem("powerCancel")));
-        if (!gaveUp()) {
-            std::cerr << "Cancel did not give up the log out\n";
-            return 1;
-        }
+        if (!gaveUp())
+            return fail("Cancel did not give up the log out");
         if (!ask("reboot"))
             return fail("the restart was not asked about again");
         QTest::mouseClick(&dialog, Qt::LeftButton, Qt::NoModifier, centre(dialogItem("powerConfirm")));
@@ -4484,10 +4264,8 @@ ListModel {
         if (!ask("logout"))
             return fail("the log out was not asked about again");
         QTest::keyClick(&dialog, Qt::Key_Return);
-        if (!waitFor([&] { return requests == QStringList{"logout"}; }) || !gaveUp()) {
-            std::cerr << "Enter did not log out\n";
-            return 1;
-        }
+        if (!waitFor([&] { return requests == QStringList{"logout"}; }) || !gaveUp())
+            return fail("Enter did not log out");
         // The keyboard starts on the action's button; Tab takes it to Cancel, where Enter gives
         // up.
         requests.clear();
@@ -4516,10 +4294,8 @@ ListModel {
         if (!ask("reboot"))
             return fail("the restart was not asked about a third time");
         subscriber->write("power lock,suspend,poweroff,logout\n");
-        if (!gaveUp() || !requests.contains("poweroff") || requests.size() != 1) {
-            std::cerr << "a restart that may no longer run was still asked about\n";
-            return 1;
-        }
+        if (!gaveUp() || !requests.contains("poweroff") || requests.size() != 1)
+            return fail("a restart that may no longer run was still asked about");
         subscriber->write("power lock,suspend,reboot,poweroff,logout\n");
         // The command palette offers the same, and asks first the same way.
         {
@@ -4547,10 +4323,8 @@ ListModel {
             palette->setQuery(">power off");
             palette->activate(0);
             if (!waitFor([&] { return dialog.isVisible() && power->pending() == "poweroff"; }) ||
-                !requests.isEmpty()) {
-                std::cerr << "power off from the palette did not ask first\n";
-                return 1;
-            }
+                !requests.isEmpty())
+                return fail("power off from the palette did not ask first");
             power->cancel();
             palette->open(output);
             palette->setQuery("lock screen");
@@ -4566,17 +4340,13 @@ ListModel {
         // arrows choose, Enter runs, and asking again closes both.
         requests.clear();
         subscriber->write(("power-menu " + output + "\n").toUtf8());
-        if (!waitFor([&] { return menu->isVisible() && menu->hasActiveFocus(); })) {
-            std::cerr << "power_menu did not open the power menu with the keyboard\n";
-            return 1;
-        }
+        if (!waitFor([&] { return menu->isVisible() && menu->hasActiveFocus(); }))
+            return fail("power_menu did not open the power menu with the keyboard");
         subscriber->write(("power-menu " + output + "\n").toUtf8());
         if (!waitFor([&] {
                 return !menu->isVisible() && !view.rootObject()->property("launcherOpen").toBool();
-            })) {
-            std::cerr << "power_menu again did not close the power menu\n";
-            return 1;
-        }
+            }))
+            return fail("power_menu again did not close the power menu");
         subscriber->write(("power-menu " + output + "\n").toUtf8());
         if (!waitFor([&] { return menu->isVisible() && menu->hasActiveFocus(); }))
             return fail("the power menu did not open from the compositor");
@@ -4607,26 +4377,20 @@ ListModel {
         if (!waitFor([&] {
                 return controller.error() ==
                        "Suspend cancelled: the screen did not lock within 5 seconds";
-            })) {
-            std::cerr << "a power action cancelled later was not reported\n";
-            return 1;
-        }
+            }))
+            return fail("a power action cancelled later was not reported");
         subscriber->write("spawn-error Cannot launch kitty: No such file or directory\n");
         if (!waitFor([&] {
                 return controller.error() == "Cannot launch kitty: No such file or directory";
-            })) {
-            std::cerr << "a program that did not start was not reported\n";
-            return 1;
-        }
+            }))
+            return fail("a program that did not start was not reported");
         controller.clearError();
         // With nothing that may run, the button goes.
         if (!openLauncher() || !button->isVisible())
             return fail("the power button was gone before nothing could run");
         subscriber->write("power -\n");
-        if (!waitFor([&] { return !button->isVisible(); })) {
-            std::cerr << "the power button stayed with nothing to offer\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !button->isVisible(); }))
+            return fail("the power button stayed with nothing to offer");
         view.rootObject()->setProperty("launcherOpen", false);
         subscriber->write("power lock,suspend,reboot,poweroff,logout\n");
     }
@@ -4635,10 +4399,8 @@ ListModel {
     {
         auto *daemon = controller.notifications();
         auto *bell = find(view.rootObject(), "notificationBell");
-        if (!bell || bell->isVisible()) {
-            std::cerr << "the bell shows without a notification daemon\n";
-            return 1;
-        }
+        if (!bell || bell->isVisible())
+            return fail("the bell shows without a notification daemon");
         daemon->setServing(true);
         // The bell is off unless shell.widgets.notifications asks for it: the clock does its work.
         QTest::qWait(50);
@@ -4646,20 +4408,16 @@ ListModel {
             !rewrite(QString(lua).replace("widgets={", "widgets={notifications='bar',")))
             return fail("the bell showed by default, or the configuration could not be rewritten");
         controller.reload();
-        if (!waitFor([&] { return bell->isVisible() && bell->x() > 0; })) {
-            std::cerr << "the bell did not appear once the daemon served and the setting asked\n";
-            return 1;
-        }
+        if (!waitFor([&] { return bell->isVisible() && bell->x() > 0; }))
+            return fail("the bell did not appear once the daemon served and the setting asked");
         CardsView cards(controller, app.primaryScreen());
         if (cards.status() != QQuickView::Ready) {
             for (const auto &error : cards.errors())
                 std::cerr << error.toString().toStdString() << '\n';
             return 1;
         }
-        if (cards.isVisible()) {
-            std::cerr << "the cards' surface is up with nothing to show\n";
-            return 1;
-        }
+        if (cards.isVisible())
+            return fail("the cards' surface is up with nothing to show");
         QSignalSpy invoked(daemon, &NotificationCenter::actionInvoked);
         QSignalSpy closed(daemon, &NotificationCenter::closed);
         auto make = [&](const QString &summary, bool actions) {
@@ -4680,86 +4438,60 @@ ListModel {
         };
         make("Hello", true);
         if (!waitFor([&] { return cards.isVisible() && card() && card()->height() > 20; }) ||
-            controller.cardsOutput() != output) {
-            std::cerr << "a notification did not raise a card on its output\n";
-            return 1;
-        }
+            controller.cardsOutput() != output)
+            return fail("a notification did not raise a card on its output");
         // Top right of the output, inside the surface, whose width is the card and its margins.
         const auto box = card()->mapRectToScene(QRectF(0, 0, card()->width(), card()->height()));
-        if (box.right() > cards.width() || box.left() < 0 || box.width() < 300) {
-            std::cerr << "the card is not laid out inside its surface\n";
-            return 1;
-        }
+        if (box.right() > cards.width() || box.left() < 0 || box.width() < 300)
+            return fail("the card is not laid out inside its surface");
         if (auto *badge = find(view.rootObject(), "notificationBadge");
-            !badge || !waitFor([&] { return badge->isVisible(); })) {
-            std::cerr << "the bell has no badge for an unread notification\n";
-            return 1;
-        }
+            !badge || !waitFor([&] { return badge->isVisible(); }))
+            return fail("the bell has no badge for an unread notification");
         if (auto *badge = find(view.rootObject(), "clockBadge");
-            !badge || !waitFor([&] { return badge->isVisible(); })) {
-            std::cerr << "the clock has no badge for an unread notification\n";
-            return 1;
-        }
+            !badge || !waitFor([&] { return badge->isVisible(); }))
+            return fail("the clock has no badge for an unread notification");
         // (Hovering a card holds its timer; offscreen Qt sends no hover to these items, so
         // notifications_smoke checks that with a real pointer.)
         // An action's button runs it and dismisses the card; the surface goes once it has left.
         auto *button = find(cards.rootObject(), "notificationAction");
-        if (!button || button->property("text").toString() != "Yes") {
-            std::cerr << "the card has no button for its action (and none for the default one)\n";
-            return 1;
-        }
+        if (!button || button->property("text").toString() != "Yes")
+            return fail("the card has no button for its action (and none for the default one)");
         QTest::mouseClick(&cards, Qt::LeftButton, Qt::NoModifier, centre(button));
         if (!waitFor([&] { return invoked.count() == 1; }) ||
             invoked.at(0).at(1).toString() != "yes" || closed.count() != 1 ||
-            closed.at(0).at(1).toUInt() != NotificationCenter::Dismissed) {
-            std::cerr << "clicking an action's button did not run it and dismiss the card\n";
-            return 1;
-        }
-        if (!waitFor([&] { return !cards.isVisible(); }, 3000)) {
-            std::cerr << "the cards' surface stayed up after the last card left\n";
-            return 1;
-        }
+            closed.at(0).at(1).toUInt() != NotificationCenter::Dismissed)
+            return fail("clicking an action's button did not run it and dismiss the card");
+        if (!waitFor([&] { return !cards.isVisible(); }, 3000))
+            return fail("the cards' surface stayed up after the last card left");
         // A click on the card runs its default action.
         invoked.clear();
         closed.clear();
         make("Again", true);
-        if (!waitFor([&] { return cards.isVisible() && card() && card()->height() > 20; })) {
-            std::cerr << "another notification did not raise a card\n";
-            return 1;
-        }
+        if (!waitFor([&] { return cards.isVisible() && card() && card()->height() > 20; }))
+            return fail("another notification did not raise a card");
         if (!waitFor(slidIn))
             return fail("another notification's card did not slide in");
         QTest::mouseClick(&cards, Qt::LeftButton, Qt::NoModifier,
                           card()->mapToScene(QPointF(card()->width() - 60, 12)).toPoint());
         if (!waitFor([&] { return invoked.count() == 1; }) ||
-            invoked.at(0).at(1).toString() != "default") {
-            std::cerr << "clicking a card did not run its default action\n";
-            return 1;
-        }
-        if (!waitFor([&] { return !cards.isVisible(); }, 3000)) {
-            std::cerr << "the clicked card stayed\n";
-            return 1;
-        }
+            invoked.at(0).at(1).toString() != "default")
+            return fail("clicking a card did not run its default action");
+        if (!waitFor([&] { return !cards.isVisible(); }, 3000))
+            return fail("the clicked card stayed");
         // The close button dismisses without running anything.
         invoked.clear();
         closed.clear();
         make("Quiet", false);
-        if (!waitFor([&] { return cards.isVisible() && card() && card()->height() > 20; })) {
-            std::cerr << "a second notification did not raise a card\n";
-            return 1;
-        }
+        if (!waitFor([&] { return cards.isVisible() && card() && card()->height() > 20; }))
+            return fail("a second notification did not raise a card");
         if (!waitFor(slidIn))
             return fail("a second notification's card did not slide in");
         auto *close = find(cards.rootObject(), "notificationClose");
         QTest::mouseClick(&cards, Qt::LeftButton, Qt::NoModifier, centre(close));
-        if (!waitFor([&] { return closed.count() == 1; }) || invoked.count() != 0) {
-            std::cerr << "the close button did not dismiss the card\n";
-            return 1;
-        }
-        if (!waitFor([&] { return !cards.isVisible(); }, 3000)) {
-            std::cerr << "the dismissed card stayed\n";
-            return 1;
-        }
+        if (!waitFor([&] { return closed.count() == 1; }) || invoked.count() != 0)
+            return fail("the close button did not dismiss the card");
+        if (!waitFor([&] { return !cards.isVisible(); }, 3000))
+            return fail("the dismissed card stayed");
         // A card's countdown line runs down with its timer, and both stop while the pointer is
         // on the card.
         {
@@ -4798,17 +4530,13 @@ ListModel {
         }
         // The history opens from the bell, marks what it shows as seen, and clears.
         auto *history = find(view.rootObject(), "notificationHistory");
-        if (!history || history->isVisible()) {
-            std::cerr << "the history is missing or open at start\n";
-            return 1;
-        }
+        if (!history || history->isVisible())
+            return fail("the history is missing or open at start");
         make("Kept one", true);
         make("Kept two", false);
         click(bell);
-        if (!waitFor([&] { return history->isVisible(); }) || daemon->unread() != 0) {
-            std::cerr << "clicking the bell did not open the history and mark it read\n";
-            return 1;
-        }
+        if (!waitFor([&] { return history->isVisible(); }) || daemon->unread() != 0)
+            return fail("clicking the bell did not open the history and mark it read");
         // One application's notifications, under one heading, a row each.
         auto *list = find(view.rootObject(), "notificationList");
         std::function<QList<QQuickItem *>(QQuickItem *, const QString &)> findAll =
@@ -4823,18 +4551,14 @@ ListModel {
         auto rows = [&] { return list ? findAll(list, "notificationRow") : QList<QQuickItem *>(); };
         if (!list || daemon->history()->count() < 3 || !waitFor([&] {
                 return list->property("count").toInt() == 1 && rows().size() == 2;
-            })) {
-            std::cerr << "the history does not list the notifications by application, the newest two of many\n";
-            return 1;
-        }
+            }))
+            return fail("the history does not list the notifications by application, the newest two of many");
         // Asked for, the rest show too.
         if (!waitFor([&] { return history->property("progress").toReal() == 1; }))
             return fail("the history did not slide in");
         click(find(list, "groupToggle"));
-        if (!waitFor([&] { return rows().size() == daemon->history()->count(); })) {
-            std::cerr << "expanding an application did not list all its notifications\n";
-            return 1;
-        }
+        if (!waitFor([&] { return rows().size() == daemon->history()->count(); }))
+            return fail("expanding an application did not list all its notifications");
         // Too many for the room the calendar leaves on this short output: the calendar gives up
         // its time and date to them, and where the list still goes on past the card's edge, that
         // edge fades out.
@@ -4853,10 +4577,8 @@ ListModel {
             return fail("the history has no button for a notification's action");
         click(historyAction);
         if (!waitFor([&] { return invoked.count() == 1; }) ||
-            invoked.at(0).at(1).toString() != "yes") {
-            std::cerr << "the history's action button did not run the action\n";
-            return 1;
-        }
+            invoked.at(0).at(1).toString() != "yes")
+            return fail("the history's action button did not run the action");
         // The pointer over a notification shows its cross, which removes it.
         const int kept = daemon->history()->count();
         QTest::mouseMove(popover, centre(rows().first()));
@@ -4864,68 +4586,50 @@ ListModel {
         if (!remove || !waitFor([&] { return remove->isVisible(); }))
             return fail("the pointer over a notification did not show its cross");
         click(remove);
-        if (!waitFor([&] { return daemon->history()->count() == kept - 1 && rows().size() == kept - 1; })) {
-            std::cerr << "the cross did not remove the notification\n";
-            return 1;
-        }
+        if (!waitFor([&] { return daemon->history()->count() == kept - 1 && rows().size() == kept - 1; }))
+            return fail("the cross did not remove the notification");
         auto *dndSwitch = find(view.rootObject(), "dndSwitch");
         QTest::qWait(300);
         QTest::mouseMove(dndSwitch->window(), centre(dndSwitch));
         QTest::qWait(50);
         click(dndSwitch, Qt::LeftButton, 80);
-        if (!waitFor([&] { return daemon->dnd(); })) {
-            std::cerr << "the do-not-disturb switch did nothing\n";
-            return 1;
-        }
+        if (!waitFor([&] { return daemon->dnd(); }))
+            return fail("the do-not-disturb switch did nothing");
         daemon->setDnd(false);
         click(find(view.rootObject(), "clearNotifications"));
         auto *empty = find(view.rootObject(), "notificationsEmpty");
-        if (!waitFor([&] { return daemon->history()->count() == 0 && empty && empty->isVisible(); })) {
-            std::cerr << "Clear all did not empty the history and say so\n";
-            return 1;
-        }
+        if (!waitFor([&] { return daemon->history()->count() == 0 && empty && empty->isVisible(); }))
+            return fail("Clear all did not empty the history and say so");
         if (!waitFor([&] { return !flyoutCalendar->property("compact").toBool() && calendarTime->isVisible(); }))
             return fail("the calendar did not show its time and date again once the notifications were gone");
         click(bell); // close the popup
         // The compositor's notification_history action (Super + N) opens the flyout on the output
         // it names, and closes it again.
         subscriber->write(("notifications " + output + "\n").toUtf8());
-        if (!waitFor([&] { return inPopover(history); })) {
-            std::cerr << "notification_history did not open the clock flyout\n";
-            return 1;
-        }
+        if (!waitFor([&] { return inPopover(history); }))
+            return fail("notification_history did not open the clock flyout");
         subscriber->write("notifications ELSEWHERE-1\n");
         subscriber->write(("notifications " + output + "\n").toUtf8());
-        if (!waitFor([&] { return !history->isVisible() && !popover->isVisible(); })) {
-            std::cerr << "notification_history did not close the clock flyout\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !history->isVisible() && !popover->isVisible(); }))
+            return fail("notification_history did not close the clock flyout");
         // Right-clicking the bell toggles do-not-disturb.
         click(bell, Qt::RightButton);
-        if (!waitFor([&] { return daemon->dnd(); })) {
-            std::cerr << "right-clicking the bell did not turn do-not-disturb on\n";
-            return 1;
-        }
+        if (!waitFor([&] { return daemon->dnd(); }))
+            return fail("right-clicking the bell did not turn do-not-disturb on");
         daemon->setDnd(false);
         // So does right-clicking the clock, which shows a crossed-out bell while it is on.
         auto *clockDnd = find(view.rootObject(), "clockDnd");
         click(find(view.rootObject(), "clockButton"), Qt::RightButton);
-        if (!waitFor([&] { return daemon->dnd() && clockDnd && clockDnd->isVisible(); })) {
-            std::cerr << "right-clicking the clock did not turn do-not-disturb on\n";
-            return 1;
-        }
+        if (!waitFor([&] { return daemon->dnd() && clockDnd && clockDnd->isVisible(); }))
+            return fail("right-clicking the clock did not turn do-not-disturb on");
         click(find(view.rootObject(), "clockButton"), Qt::RightButton);
-        if (!waitFor([&] { return !daemon->dnd() && !clockDnd->isVisible(); })) {
-            std::cerr << "right-clicking the clock again did not turn do-not-disturb off\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !daemon->dnd() && !clockDnd->isVisible(); }))
+            return fail("right-clicking the clock again did not turn do-not-disturb off");
         if (!rewrite(lua))
             return fail("could not restore the configuration");
         controller.reload();
-        if (!waitFor([&] { return !bell->isVisible(); })) {
-            std::cerr << "the bell stayed once the setting was gone\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !bell->isVisible(); }))
+            return fail("the bell stayed once the setting was gone");
     }
     // Quick Settings: with the widgets placed in it, a button left of the clock shows their state,
     // and its flyout holds a tile for each beside night light; the bar keeps none of their own.
@@ -5786,10 +5490,8 @@ ListModel {
     {
         auto *trayModel = controller.tray();
         auto *trayRow = find(view.rootObject(), "tray");
-        if (!trayRow || trayRow->isVisible()) {
-            std::cerr << "the tray shows without items\n";
-            return 1;
-        }
+        if (!trayRow || trayRow->isVisible())
+            return fail("the tray shows without items");
         auto solid = [](const QColor &color) {
             QImage image(22, 22, QImage::Format_ARGB32);
             image.fill(color);
@@ -5821,20 +5523,16 @@ ListModel {
         if (!waitFor([&] { return trayRow->isVisible() && trayButtons().size() == 2; }) ||
             trayButtons()[0]->property("key").toString() != "first" ||
             trayButtons()[1]->property("key").toString() != "third" ||
-            trayButtons()[0]->property("toolTip").toString() != "First\n<b>not markup</b>") {
-            std::cerr << "the tray does not show its items in order, leaving out the passive one\n";
-            return 1;
-        }
+            trayButtons()[0]->property("toolTip").toString() != "First\n<b>not markup</b>")
+            return fail("the tray does not show its items in order, leaving out the passive one");
         // The icon comes from the model's pixels.
         auto iconColor = [&](QQuickItem *button) {
             const QImage frame = view.grabWindow();
             return frame.pixelColor(centre(button));
         };
         if (!waitFor([&] { return iconColor(trayButtons()[0]) == QColor(Qt::green); }) ||
-            iconColor(trayButtons()[1]) != QColor(Qt::blue)) {
-            std::cerr << "the tray does not draw its items' icons\n";
-            return 1;
-        }
+            iconColor(trayButtons()[1]) != QColor(Qt::blue))
+            return fail("the tray does not draw its items' icons");
         QSignalSpy activated(trayModel, &TrayModel::activateRequested);
         QSignalSpy secondary(trayModel, &TrayModel::secondaryActivateRequested);
         QSignalSpy context(trayModel, &TrayModel::contextMenuRequested);
@@ -5844,20 +5542,14 @@ ListModel {
         const QPoint at = centre(button);
         const QVariantList point{"first", at.x(), 720 - view.height() + at.y()};
         QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, at);
-        if (!waitFor([&] { return activated.size() == 1; }) || activated[0] != point) {
-            std::cerr << "a left click on a tray item did not activate it\n";
-            return 1;
-        }
+        if (!waitFor([&] { return activated.size() == 1; }) || activated[0] != point)
+            return fail("a left click on a tray item did not activate it");
         QTest::mouseClick(&view, Qt::MiddleButton, Qt::NoModifier, at);
-        if (!waitFor([&] { return secondary.size() == 1; }) || secondary[0] != point) {
-            std::cerr << "a middle click on a tray item did not reach its secondary action\n";
-            return 1;
-        }
+        if (!waitFor([&] { return secondary.size() == 1; }) || secondary[0] != point)
+            return fail("a middle click on a tray item did not reach its secondary action");
         QTest::mouseClick(&view, Qt::RightButton, Qt::NoModifier, at);
-        if (!waitFor([&] { return context.size() == 1; }) || context[0] != point) {
-            std::cerr << "a right click on a tray item without a menu did not ask for its own\n";
-            return 1;
-        }
+        if (!waitFor([&] { return context.size() == 1; }) || context[0] != point)
+            return fail("a right click on a tray item without a menu did not ask for its own");
         // The wheel goes to the item a notch at a time, not to the workspaces.
         switches.clear();
         scrollAt(at, -120);
@@ -5869,24 +5561,18 @@ ListModel {
         if (!waitFor([&] { return scrolled.size() == 3; }) ||
             scrolled[0] != QVariantList{"first", -120, "vertical"} ||
             scrolled[1] != QVariantList{"first", 120, "vertical"} ||
-            scrolled[2] != QVariantList{"first", 120, "horizontal"} || !switches.isEmpty()) {
-            std::cerr << "the wheel over a tray item did not scroll it\n";
-            return 1;
-        }
+            scrolled[2] != QVariantList{"first", 120, "horizontal"} || !switches.isEmpty())
+            return fail("the wheel over a tray item did not scroll it");
         // A changed picture is drawn again; an item going passive leaves.
         trayModel->find("first")->icon = {solid(Qt::yellow)};
         trayModel->changed("first", true);
-        if (!waitFor([&] { return iconColor(trayButtons()[0]) == QColor(Qt::yellow); })) {
-            std::cerr << "the tray did not draw an item's new icon\n";
-            return 1;
-        }
+        if (!waitFor([&] { return iconColor(trayButtons()[0]) == QColor(Qt::yellow); }))
+            return fail("the tray did not draw an item's new icon");
         trayModel->find("first")->status = "Passive";
         trayModel->changed("first", true);
         if (!waitFor([&] { return trayButtons().size() == 1; }) ||
-            trayButtons()[0]->property("key").toString() != "third") {
-            std::cerr << "a passive tray item stayed\n";
-            return 1;
-        }
+            trayButtons()[0]->property("key").toString() != "third")
+            return fail("a passive tray item stayed");
         // An item's menu opens on a right press, above the item in the popover; a submenu opens
         // beside its entry, the menu staying, and picking an entry closes it. The application
         // hears of each level as it opens and closes.
@@ -5918,10 +5604,8 @@ ListModel {
                 const auto shown = trayButtons();
                 return shown.size() == 2 && shown[0]->property("key").toString() == "third" &&
                        shown[1]->property("key").toString() == "menu";
-            })) {
-            std::cerr << "a tray item with a menu did not show after the others\n";
-            return 1;
-        }
+            }))
+            return fail("a tray item with a menu did not show after the others");
         QSignalSpy opened(trayModel, &TrayModel::menuOpenRequested);
         QSignalSpy closed(trayModel, &TrayModel::menuCloseRequested);
         QSignalSpy picked(trayModel, &TrayModel::menuClickRequested);
@@ -5974,10 +5658,8 @@ ListModel {
         }
         click(trayEntry("Disabled"));
         QTest::qWait(100);
-        if (!picked.isEmpty() || !trayMenuShown()) {
-            std::cerr << "a disabled tray menu entry could be picked\n";
-            return 1;
-        }
+        if (!picked.isEmpty() || !trayMenuShown())
+            return fail("a disabled tray menu entry could be picked");
         click(trayEntry("More"));
         if (!waitFor([&] {
                 return trayEntry("Deep") && trayEntry("Radio") && trayEntry("Open") &&
@@ -5992,19 +5674,15 @@ ListModel {
         QTest::keyClick(popover, Qt::Key_Left);
         if (!waitFor([&] { return !trayEntry("Deep") && closed.size() == 1; }) ||
             closed[0] != QVariantList{"menu", 3} || !trayMenuShown() ||
-            trayLabels() != QStringList{"Open", "More", "Disabled"}) {
-            std::cerr << "closing a tray submenu did not tell its application, or closed the menu\n";
-            return 1;
-        }
+            trayLabels() != QStringList{"Open", "More", "Disabled"})
+            return fail("closing a tray submenu did not tell its application, or closed the menu");
         // The application changing the menu while it is open shows at once.
         auto &openEntry = trayModel->find("menu")->menu[1];
         openEntry.properties["label"] = "_Reopen";
         openEntry.read();
         trayModel->menuEdited("menu");
-        if (!waitFor([&] { return trayEntry("Reopen") != nullptr; })) {
-            std::cerr << "a tray menu did not follow its application's change\n";
-            return 1;
-        }
+        if (!waitFor([&] { return trayEntry("Reopen") != nullptr; }))
+            return fail("a tray menu did not follow its application's change");
         // Picked with a submenu open, both levels close, the deeper first.
         click(trayEntry("More"));
         if (!waitFor([&] { return trayEntry("Deep") && opened.size() == 3; }))
@@ -6013,35 +5691,27 @@ ListModel {
         if (!waitFor([&] { return picked.size() == 1 && !menuOpen(); }) ||
             picked[0] != QVariantList{"menu", 1} ||
             !waitFor([&] { return !popover->isVisible() && closed.size() == 3; }) ||
-            closed[1] != QVariantList{"menu", 3} || closed[2] != QVariantList{"menu", 0}) {
-            std::cerr << "picking a tray menu entry did not reach the item and close the menu\n";
-            return 1;
-        }
+            closed[1] != QVariantList{"menu", 3} || closed[2] != QVariantList{"menu", 0})
+            return fail("picking a tray menu entry did not reach the item and close the menu");
         // An item that is only a menu opens it on a left click; a second press closes it.
         trayModel->find("menu")->itemIsMenu = true;
         trayModel->changed("menu", false);
         QTest::qWait(50);
         const qsizetype activations = activated.size();
         QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, menuAt);
-        if (!waitFor([&] { return trayMenuShown(); }) || activated.size() != activations) {
-            std::cerr << "a left click on a tray item that is only a menu did not open it\n";
-            return 1;
-        }
+        if (!waitFor([&] { return trayMenuShown(); }) || activated.size() != activations)
+            return fail("a left click on a tray item that is only a menu did not open it");
         // A second right click closes it.
         click(trayButton("menu"), Qt::RightButton);
-        if (!waitFor([&] { return !menuOpen(); })) {
-            std::cerr << "a second right click did not close the tray menu\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !menuOpen(); }))
+            return fail("a second right click did not close the tray menu");
         // Escape closes it too.
         click(trayButton("menu"));
         if (!waitFor([&] { return trayMenuShown(); }))
             return fail("the tray menu did not open again");
         QTest::keyClick(trayMenu->window(), Qt::Key_Escape);
-        if (!waitFor([&] { return !menuOpen(); })) {
-            std::cerr << "Escape did not close the tray menu\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !menuOpen(); }))
+            return fail("Escape did not close the tray menu");
         // An item that cannot be activated shows its menu after a left click.
         trayModel->find("menu")->itemIsMenu = false;
         trayModel->changed("menu", false);
@@ -6050,21 +5720,15 @@ ListModel {
         if (!waitFor([&] { return activated.size() == activations + 1; }))
             return fail("clicking the tray menu's item did not activate it");
         Q_EMIT trayModel->activationRefused("menu");
-        if (!waitFor([&] { return trayMenuShown(); })) {
-            std::cerr << "a tray item that refused activation did not show its menu\n";
-            return 1;
-        }
+        if (!waitFor([&] { return trayMenuShown(); }))
+            return fail("a tray item that refused activation did not show its menu");
         // The menu goes with its item.
         trayModel->remove("menu");
-        if (!waitFor([&] { return !menuOpen() && !popover->isVisible(); })) {
-            std::cerr << "a tray menu stayed open after its item went\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !menuOpen() && !popover->isVisible(); }))
+            return fail("a tray menu stayed open after its item went");
         trayModel->clear();
-        if (!waitFor([&] { return !trayRow->isVisible(); })) {
-            std::cerr << "the tray stayed with no items\n";
-            return 1;
-        }
+        if (!waitFor([&] { return !trayRow->isVisible(); }))
+            return fail("the tray stayed with no items");
     }
     // The design tokens follow the configuration: the animation settings set every duration,
     // popups are opaque over a translucent bar, and a light panel is known for one.
@@ -6098,10 +5762,8 @@ ListModel {
             token("bar").value<QColor>().alpha() != 0xcc ||
             token("surface").value<QColor>().alpha() != 255 ||
             token("hover").value<QColor>().alpha() == 0 ||
-            token("textOnAccent").value<QColor>() != token("surface").value<QColor>()) {
-            std::cerr << "Theme does not follow a light, translucent profile without animations\n";
-            return 1;
-        }
+            token("textOnAccent").value<QColor>() != token("surface").value<QColor>())
+            return fail("Theme does not follow a light, translucent profile without animations");
         if (!rewrite(lua))
             return fail("could not restore the configuration");
         controller.reload();
