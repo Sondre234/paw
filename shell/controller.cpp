@@ -712,7 +712,6 @@ void ShellController::subscribe() {
                 // Each state starts with this line and lists every output after it.
                 tiling_ = line == "tiling on";
                 nextWorkspaces_.clear();
-                nextUrgentCount_ = 0;
                 nextUrgentWindows_.clear();
                 urgentSeen = true;
                 outputs = true;
@@ -732,8 +731,6 @@ void ShellController::subscribe() {
                                                         {"occupied", occupied},
                                                         {"urgent", QVariantList()},
                                                         {"tiling", words[4] == "on"}};
-            } else if (line.startsWith("urgent ")) {
-                nextUrgentCount_ = line.sliced(7).toInt();
             } else if (line.startsWith("urgent-output ")) {
                 // urgent-output NAME 2,3: the workspaces of that output with urgent windows.
                 const auto words = line.split(' ');
@@ -920,8 +917,7 @@ void ShellController::subscribe() {
             workspaces_ = nextWorkspaces_;
             Q_EMIT workspacesChanged();
         }
-        if (urgentSeen && (urgentCount_ != nextUrgentCount_ || urgentWindows_ != nextUrgentWindows_)) {
-            urgentCount_ = nextUrgentCount_;
+        if (urgentSeen && urgentWindows_ != nextUrgentWindows_) {
             urgentWindows_ = nextUrgentWindows_;
             QList<QPair<QString, QString>> windows;
             for (const auto &item : urgentWindows_) {
@@ -929,7 +925,6 @@ void ShellController::subscribe() {
                 windows.push_back({window.value("appId").toString(), window.value("title").toString()});
             }
             tasks_.setUrgent(windows);
-            Q_EMIT urgentChanged();
         }
     });
     connect(state_, &QLocalSocket::disconnected, this, [this] {
@@ -941,11 +936,9 @@ void ShellController::subscribe() {
         power_.setAvailable("-");
         setNightLight(false, {});
         setBindingMode({});
-        if (urgentCount_ != 0 || !urgentWindows_.isEmpty()) {
-            urgentCount_ = 0;
+        if (!urgentWindows_.isEmpty()) {
             urgentWindows_.clear();
             tasks_.setUrgent({});
-            Q_EMIT urgentChanged();
         }
         Q_EMIT tilingChanged();
         if (!switcher_.output.isEmpty()) {

@@ -45,11 +45,6 @@ class ShellController : public QObject {
     Q_PROPERTY(QColor background READ background NOTIFY configChanged)
     // windows.urgent_color, the colour of whatever marks a window that asks for attention.
     Q_PROPERTY(QColor urgentColor READ urgentColor NOTIFY configChanged)
-    // The windows asking for attention, longest waiting first, as {output, workspace, appId,
-    // title}, and how many there are. Each output's entry in `workspaces` also lists the
-    // workspaces they are on, as `urgent`.
-    Q_PROPERTY(int urgentCount READ urgentCount NOTIFY urgentChanged)
-    Q_PROPERTY(QVariantList urgentWindows READ urgentWindows NOTIFY urgentChanged)
     // The wallpaper: one picked from the panel for the profile in use, else shell.wallpaper.
     // wallpaperFile is the same as a path, "" for none.
     Q_PROPERTY(QUrl wallpaper READ wallpaper NOTIFY wallpaperChanged)
@@ -190,7 +185,9 @@ class ShellController : public QObject {
     QColor textColor() const;
     QColor background() const;
     QColor urgentColor() const;
-    int urgentCount() const { return urgentCount_; }
+    // The windows asking for attention, longest waiting first (the first 16), as {output,
+    // workspace, appId, title}, which the taskbar marks. Each output's entry in `workspaces`
+    // lists the workspaces they are on, as `urgent`.
     QVariantList urgentWindows() const { return urgentWindows_; }
     QUrl wallpaper() const;
     QString wallpaperFile() const;
@@ -385,7 +382,6 @@ class ShellController : public QObject {
     void disabled();
     void tilingChanged();
     void workspacesChanged();
-    void urgentChanged();
     void launcherRequested(const QString &output);
     void switcherChanged();
     void switcherSelectedChanged();
@@ -498,7 +494,6 @@ class ShellController : public QObject {
     QLocalSocket *state_ = nullptr;
     bool subscribed_ = false, tiling_ = false;
     QVariantMap workspaces_, nextWorkspaces_;
-    int urgentCount_ = 0, nextUrgentCount_ = 0;
     QVariantList urgentWindows_, nextUrgentWindows_;
     // What the switcher and the overview show (their properties above), and what comes in for
     // them line by line until all of it has (`switcherPending_`, `overviewPending_` lines to go).
