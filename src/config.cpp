@@ -1413,10 +1413,12 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
     }
 }
 constexpr size_t max_modes = 16;
-// Names travel through `paw msg mode NAME` and the shell's state, so they hold no spaces;
-// "default" is the bindings outside any mode.
-bool valid_mode_name(const std::string &name) {
-    if (name.empty() || name.size() > 32 || name == "default")
+// A mode's or a profile's name: 1 to 32 letters, digits, '-' and '_', and none of `reserved`.
+// Names travel through `paw msg mode NAME`, `paw msg profile NAME` and the shell's state, so
+// they hold no spaces.
+bool valid_name(const std::string &name, std::initializer_list<std::string_view> reserved) {
+    if (name.empty() || name.size() > 32 ||
+        std::find(reserved.begin(), reserved.end(), name) != reserved.end())
         return false;
     return std::all_of(name.begin(), name.end(), [](char c) {
         return std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_';
@@ -1434,7 +1436,8 @@ void read_mode_names(lua_State *L, Config &config) {
             if (lua_type(L, -2) != LUA_TSTRING)
                 fail("modes must be keyed by name");
             std::string name = lua_tostring(L, -2);
-            if (!valid_mode_name(name))
+            // "default" is the bindings outside any mode.
+            if (!valid_name(name, {"default"}))
                 fail("mode name '" + name +
                          "' must be 1 to 32 letters, digits, '-' or '_', and not default",
                      name);
@@ -2309,15 +2312,6 @@ size_t include_defaults(lua_State *L) {
 // Sections a profile may set: how the desktop looks, not how it behaves.
 const std::vector<std::string> profile_sections = {"appearance", "windows", "shell"};
 constexpr size_t max_profiles = 32;
-// Names travel through `paw msg profile NAME`, so they hold no spaces; "next" and "prev"
-// mean the neighbouring profile there.
-bool valid_profile_name(const std::string &name) {
-    if (name.empty() || name.size() > 32 || name == "next" || name == "prev")
-        return false;
-    return std::all_of(name.begin(), name.end(), [](char c) {
-        return std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_';
-    });
-}
 // The names in `profiles`, sorted, after checking its shape.
 std::vector<std::string> profile_names(lua_State *L) {
     std::vector<std::string> names;
@@ -2330,7 +2324,8 @@ std::vector<std::string> profile_names(lua_State *L) {
             if (lua_type(L, -2) != LUA_TSTRING)
                 fail("profiles must be keyed by name");
             std::string name = lua_tostring(L, -2);
-            if (!valid_profile_name(name))
+            // "next" and "prev" mean the neighbouring profile in `paw msg profile`.
+            if (!valid_name(name, {"next", "prev"}))
                 fail("profile name '" + name +
                          "' must be 1 to 32 letters, digits, '-' or '_', and not next or prev",
                      name);
