@@ -42,12 +42,8 @@ bool open_dynamic_rules(struct sh_toplevel *toplevel, struct sh_window_rule *rul
  * matching it decide now. A window in a group is left as its group has it, one hidden while a
  * window started from it takes its place or in the scratchpad as it is. */
 void follow_dynamic_rules(struct sh_toplevel *toplevel) {
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return;
-#endif
-    if (!toplevel_mapped(toplevel) || !toplevel->shown || toplevel->group || toplevel->swallowed ||
-        toplevel->scratchpad)
+    if (toplevel->unmanaged || !toplevel_mapped(toplevel) || !toplevel->shown || toplevel->group ||
+        toplevel->swallowed || toplevel->scratchpad)
         return;
     struct sh_server *server = toplevel->server;
     struct sh_dynamic_rule want = dynamic_decision(toplevel);

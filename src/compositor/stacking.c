@@ -27,12 +27,8 @@ bool is_window_layer(struct sh_server *server, const struct wlr_scene_tree *tree
  * peek's place for it moves instead, so that it returns into the right layer). */
 void restack_toplevel(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
-    if (!toplevel->scene_tree)
+    if (!toplevel->scene_tree || toplevel->unmanaged)
         return;
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return;
-#endif
     struct wlr_scene_node *node = &toplevel->scene_tree->node;
     if (node->parent == server->peek_layer && server->peek_window == toplevel && server->peek_place)
         node = &server->peek_place->node;

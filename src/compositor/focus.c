@@ -148,11 +148,7 @@ int urgent_tick(void *data) {
 }
 
 static bool toplevel_can_be_urgent(struct sh_toplevel *toplevel) {
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return false;
-#endif
-    return toplevel_mapped(toplevel);
+    return !toplevel->unmanaged && toplevel_mapped(toplevel);
 }
 
 /* Marks or unmarks `toplevel` as urgent. The focused window never is: it has the attention. */
@@ -251,12 +247,8 @@ void focus_last(struct sh_server *server) {
         return;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (toplevel == server->focused_toplevel || toplevel->minimized || toplevel->swallowed ||
-            !toplevel_mapped(toplevel))
+        if (toplevel->unmanaged || toplevel == server->focused_toplevel || toplevel->minimized ||
+            toplevel->swallowed || !toplevel_mapped(toplevel))
             continue;
         focus_toplevel(toplevel);
         pointer_follow(toplevel);

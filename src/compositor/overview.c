@@ -85,11 +85,7 @@ static void overview_frame_hide(struct wlr_scene_rect *bars[4]) {
 }
 
 static bool overview_listable(struct sh_toplevel *toplevel) {
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return false;
-#endif
-    return toplevel_mapped(toplevel) && !toplevel->swallowed;
+    return !toplevel->unmanaged && toplevel_mapped(toplevel) && !toplevel->swallowed;
 }
 
 /* Whether a window is on `workspace` of the overview's output, for the grid and the strip. */

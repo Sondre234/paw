@@ -108,11 +108,7 @@ void set_toplevel_output(struct sh_toplevel *toplevel, struct wlr_output *output
 /* Floating windows belong to the output their centre is on, wherever they were moved from:
  * the pointer, a snap, or the client. Tiles belong to the output of their tiling. */
 void follow_output(struct sh_toplevel *toplevel) {
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return;
-#endif
-    if (toplevel->tiled || !toplevel_mapped(toplevel))
+    if (toplevel->unmanaged || toplevel->tiled || !toplevel_mapped(toplevel))
         return;
     struct wlr_box box = toplevel_box(toplevel);
     set_toplevel_output(toplevel, wlr_output_layout_output_at(toplevel->server->output_layout,

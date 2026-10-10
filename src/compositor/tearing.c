@@ -81,12 +81,8 @@ static struct sh_toplevel *tearing_window(struct sh_output *output, const char *
     }
     struct sh_toplevel *toplevel, *found = NULL;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (toplevel->fullscreen && toplevel_mapped(toplevel) && toplevel_visible(toplevel) &&
-            output_named(output, toplevel->output)) {
+        if (!toplevel->unmanaged && toplevel->fullscreen && toplevel_mapped(toplevel) &&
+            toplevel_visible(toplevel) && output_named(output, toplevel->output)) {
             found = toplevel;
             break;
         }

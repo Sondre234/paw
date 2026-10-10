@@ -391,10 +391,8 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     if (!toplevel->scene_tree)
         return;
     overview_touch(toplevel->server, false); // a thumbnail of it may need copying again
-#if WLR_HAS_XWAYLAND
     if (toplevel->unmanaged)
         return;
-#endif
     struct sh_server *server = toplevel->server;
     const struct sh_settings *settings = server_settings(server);
     bool mapped = toplevel_mapped(toplevel);

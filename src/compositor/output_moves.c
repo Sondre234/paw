@@ -91,11 +91,7 @@ void move_toplevel_to_output(struct sh_toplevel *toplevel, struct wlr_output *to
     struct wlr_output *from = find_output(server, toplevel->output);
     if (!from)
         from = toplevel_output(toplevel);
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return;
-#endif
-    if (!to || !from || to == from)
+    if (toplevel->unmanaged || !to || !from || to == from)
         return;
     if (server->grabbed_toplevel == toplevel)
         reset_cursor_mode(server);
@@ -128,11 +124,7 @@ void evacuate_output(struct sh_server *server, const char *name, struct wlr_box 
     size_t count = 0, capacity = 0;
     struct sh_toplevel **moving = NULL, *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (strcmp(toplevel->output, name) != 0)
+        if (toplevel->unmanaged || strcmp(toplevel->output, name) != 0)
             continue;
         if (count == capacity) {
             struct sh_toplevel **grown = realloc(moving, (capacity = capacity ? 2 * capacity : 16) * sizeof(*moving));
@@ -348,11 +340,8 @@ static void exchange_note(struct sh_exchange *exchange, struct sh_toplevel *topl
 /* Whether a window goes along with its workspace: sticky windows and the scratchpad's belong
  * to their output. */
 static bool travels_with_workspace(struct sh_toplevel *toplevel) {
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return false;
-#endif
-    return toplevel->output[0] && !toplevel->sticky && !toplevel->scratchpad;
+    return !toplevel->unmanaged && toplevel->output[0] && !toplevel->sticky &&
+           !toplevel->scratchpad;
 }
 
 /* Trades what workspace `wa` of output `a` and workspace `wb` of `b` hold: their windows, moved

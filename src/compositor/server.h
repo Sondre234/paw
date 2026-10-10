@@ -828,9 +828,10 @@ struct sh_toplevel {
     struct wl_list link;
     struct sh_server *server;
     struct wlr_xdg_toplevel *xdg_toplevel; // NULL for X11 windows
+    bool unmanaged;                        // an X11 override-redirect menu or tooltip
 #if WLR_HAS_XWAYLAND
     struct wlr_xwayland_surface *xsurface; // NULL for xdg-shell windows
-    bool unmanaged, associated;            // unmanaged: override-redirect menus and tooltips
+    bool associated;
     struct wl_listener x_associate, x_dissociate, x_configure, x_activate, x_geometry;
     struct wl_listener x_decorations, x_attention, x_hints, x_icon;
     bool x_hint_urgent; // the client's WM_HINTS ask for attention

@@ -66,11 +66,8 @@ static void session_capture(struct sh_server *server, struct sh_session *session
     // Oldest first, so that restoring in this order ends with the newest on top.
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (!toplevel_mapped(toplevel) || toplevel->group_hidden || toplevel->swallowed || session->window_count >= SH_SESSION_MAX_WINDOWS)
+        if (toplevel->unmanaged || !toplevel_mapped(toplevel) || toplevel->group_hidden ||
+            toplevel->swallowed || session->window_count >= SH_SESSION_MAX_WINDOWS)
             continue;
         struct sh_session_window *w = &session->windows[session->window_count++];
         const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
@@ -311,11 +308,8 @@ static bool restore_session(struct sh_server *server, const char *name, bool lau
     int live_count = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (!toplevel_mapped(toplevel) || live_count >= SH_SESSION_MAX_WINDOWS * 2)
+        if (toplevel->unmanaged || !toplevel_mapped(toplevel) ||
+            live_count >= SH_SESSION_MAX_WINDOWS * 2)
             continue;
         const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
         live[live_count] = toplevel;

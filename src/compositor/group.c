@@ -178,11 +178,8 @@ void group_detach(struct sh_toplevel *toplevel) {
 /* Whether a window can be part of a group: an ordinary window on a workspace. */
 bool groupable(struct sh_toplevel *toplevel) {
     return toplevel && toplevel_mapped(toplevel) && !toplevel->sticky && !toplevel->scratchpad &&
-           !toplevel->fullscreen && !toplevel->minimized && !toplevel->group_hidden
-#if WLR_HAS_XWAYLAND
-           && !toplevel->unmanaged
-#endif
-        ;
+           !toplevel->fullscreen && !toplevel->minimized && !toplevel->group_hidden &&
+           !toplevel->unmanaged;
 }
 
 /* Makes `toplevel` a member of `group`, last in tab order. */

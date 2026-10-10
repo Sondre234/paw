@@ -200,11 +200,7 @@ static void follow_moved_output(struct sh_server *server, struct sh_output *outp
         return;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (strcmp(toplevel->output, output->wlr_output->name) != 0)
+        if (toplevel->unmanaged || strcmp(toplevel->output, output->wlr_output->name) != 0)
             continue;
         if (toplevel->restore_box.width > 0) {
             toplevel->restore_box.x += dx;

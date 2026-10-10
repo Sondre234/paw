@@ -70,11 +70,7 @@ void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
     int count = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (toplevel->swallowed)
+        if (toplevel->unmanaged || toplevel->swallowed)
             continue;
         if (count < (int)(sizeof(server->switcher.windows) / sizeof(*server->switcher.windows)))
             server->switcher.windows[count++] = toplevel;
