@@ -529,6 +529,9 @@ class ShellController : public QObject {
     void subscribe();
     void request(const QByteArray &line, const QString &unavailable);
     void report(const QString &message);
+    // Whether `error` is empty, as it is when what was asked went ahead, which clears the error
+    // shown across the panel; else `failure` and the error are shown there.
+    bool succeeded(const QString &error, const QString &failure);
     void clearApps();
     void sortApps();
     // Starts an installed application's `info` with the environment every launch gets, showing a

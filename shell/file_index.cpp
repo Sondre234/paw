@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "file_index.hpp"
 #include "fuzzy.hpp"
+#include "gio_launch.hpp"
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -19,7 +20,6 @@
 #include <deque>
 #include <dirent.h>
 #include <fcntl.h>
-#include <gio/gio.h>
 #include <set>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -360,17 +360,5 @@ QString FileIndex::open(const QString &path, bool folder) {
     const QString target = folder ? QFileInfo(path).absolutePath() : path;
     if (!QFileInfo::exists(target))
         return "it is no longer there";
-    // The shell's own platform settings are not the application's.
-    GAppLaunchContext *context = g_app_launch_context_new();
-    g_app_launch_context_unsetenv(context, "QT_WAYLAND_SHELL_INTEGRATION");
-    GError *error = nullptr;
-    const QByteArray uri = QUrl::fromLocalFile(target).toEncoded();
-    const bool started = g_app_info_launch_default_for_uri(uri.constData(), context, &error);
-    g_object_unref(context);
-    if (started)
-        return {};
-    const auto message = QString::fromUtf8(error ? error->message : "unknown error");
-    if (error)
-        g_error_free(error);
-    return message;
+    return gioOpen(QUrl::fromLocalFile(target).toEncoded());
 }

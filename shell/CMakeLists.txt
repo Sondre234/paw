@@ -61,7 +61,8 @@ endif()
 # the controller, and the calculator, the files and the web search its search and the palette's
 # share.
 set(PAW_START_SOURCES start_menu.cpp start_menu.hpp launch_history.cpp launch_history.hpp
-    calculator.cpp calculator.hpp file_index.cpp file_index.hpp web_search.cpp web_search.hpp)
+    calculator.cpp calculator.hpp file_index.cpp file_index.hpp gio_launch.hpp web_search.cpp
+    web_search.hpp)
 # The authentication dialog's model, which the controller holds, in everything that builds it.
 set(PAW_AUTH_SOURCES authentication.cpp authentication.hpp)
 # The models of the services Quick Settings controls over D-Bus, in everything that builds the

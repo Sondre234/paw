@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "controller.hpp"
+#include "gio_launch.hpp"
 #include "icons.hpp"
 #include "image_provider.hpp"
 #include "wallpapers.hpp"
@@ -450,6 +451,14 @@ void ShellController::clearError() {
     error_.clear();
     Q_EMIT errorChanged();
 }
+bool ShellController::succeeded(const QString &error, const QString &failure) {
+    if (!error.isEmpty()) {
+        report(failure + ": " + error);
+        return false;
+    }
+    clearError();
+    return true;
+}
 bool ShellController::launch(const QString &id) {
     auto it =
         std::find_if(apps_.begin(), apps_.end(), [&id](const App &app) { return app.id == id; });
@@ -509,24 +518,13 @@ void ShellController::watchTrash() {
     }
 }
 bool ShellController::openTrash() {
-    GAppLaunchContext *context = g_app_launch_context_new();
-    g_app_launch_context_unsetenv(context, "QT_WAYLAND_SHELL_INTEGRATION");
-    GError *error = nullptr;
-    bool success = g_app_info_launch_default_for_uri("trash:///", context, nullptr);
-    if (!success) {
+    // The Trash's own location where GIO knows it, else its folder.
+    QString error = gioOpen("trash:///");
+    if (!error.isEmpty()) {
         QDir().mkpath(trashFolder() + "/files");
-        const QByteArray folder = QUrl::fromLocalFile(trashFolder() + "/files").toEncoded();
-        success = g_app_info_launch_default_for_uri(folder.constData(), context, &error);
+        error = gioOpen(QUrl::fromLocalFile(trashFolder() + "/files").toEncoded());
     }
-    g_object_unref(context);
-    if (!success) {
-        report("Could not open the Trash: " + QString::fromUtf8(error ? error->message : "unknown error"));
-        if (error)
-            g_error_free(error);
-        return false;
-    }
-    clearError();
-    return true;
+    return succeeded(error, "Could not open the Trash");
 }
 void ShellController::configureSearch() {
     const auto &search = config_.shell.search;
@@ -567,48 +565,19 @@ void ShellController::configureClipboard() {
     clipboard_.configure(settings);
 }
 bool ShellController::openUrl(const QString &url) {
-    // In the default browser, as the shell's own platform settings are not its.
-    GAppLaunchContext *context = g_app_launch_context_new();
-    g_app_launch_context_unsetenv(context, "QT_WAYLAND_SHELL_INTEGRATION");
-    GError *error = nullptr;
-    const bool success = g_app_info_launch_default_for_uri(url.toUtf8().constData(), context, &error);
-    g_object_unref(context);
-    if (!success) {
-        report("Could not open " + url + ": " +
-               QString::fromUtf8(error ? error->message : "unknown error"));
-        if (error)
-            g_error_free(error);
-        return false;
-    }
-    clearError();
-    return true;
+    // In the default browser.
+    return succeeded(gioOpen(url.toUtf8()), "Could not open " + url);
 }
 bool ShellController::openFile(const QString &path, bool folder) {
-    const auto error = FileIndex::open(path, folder);
-    if (!error.isEmpty()) {
-        const auto name = QFileInfo(path).fileName();
-        report("Could not open " + (folder ? "the folder of " + name : name) + ": " + error);
-        return false;
-    }
-    clearError();
-    return true;
+    const auto name = QFileInfo(path).fileName();
+    return succeeded(FileIndex::open(path, folder),
+                     "Could not open " + (folder ? "the folder of " + name : name));
 }
 bool ShellController::start(GAppInfo *info, const QString &name) {
-    // The shell's own platform settings are not the application's.
-    GAppLaunchContext *context = g_app_launch_context_new();
-    g_app_launch_context_unsetenv(context, "QT_WAYLAND_SHELL_INTEGRATION");
-    GError *error = nullptr;
-    const bool success = g_app_info_launch(info, nullptr, context, &error);
-    g_object_unref(context);
-    if (!success) {
-        report("Could not launch " + name + ": " +
-               QString::fromUtf8(error ? error->message : "unknown error"));
-        if (error)
-            g_error_free(error);
-        return false;
-    }
-    clearError();
-    return true;
+    return succeeded(gioLaunch([info](GAppLaunchContext *context, GError **error) {
+                         return g_app_info_launch(info, nullptr, context, error);
+                     }),
+                     "Could not launch " + name);
 }
 namespace {
 // The key file of an installed application's desktop entry, for what GIO does not read from it;
@@ -667,10 +636,10 @@ bool ShellController::launchAction(const QString &id, const QString &action) {
     // An application started over D-Bus is asked to run the action itself, and reports its own
     // failures.
     if (g_desktop_app_info_get_boolean(info, "DBusActivatable")) {
-        GAppLaunchContext *context = g_app_launch_context_new();
-        g_app_launch_context_unsetenv(context, "QT_WAYLAND_SHELL_INTEGRATION");
-        g_desktop_app_info_launch_action(info, name.constData(), context);
-        g_object_unref(context);
+        gioLaunch([info, &name](GAppLaunchContext *context, GError **) {
+            g_desktop_app_info_launch_action(info, name.constData(), context);
+            return true;
+        });
         clearError();
         startMenu_.record(id);
         return true;
