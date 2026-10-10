@@ -296,7 +296,12 @@ class ShellController : public QObject {
     QString cardsOutput() const { return cardsOutput_; }
     // The output that overlays for the focused monitor belong on: the focused one when it
     // exists, else the primary screen.
-    QString overlayOutput() const;
+    QString overlayOutput() const { return outputOrPrimary(focusedOutput_); }
+    // Whether an output of that name is connected.
+    static bool hasOutput(const QString &name);
+    // `name` while an output of that name is connected, else the primary screen's ("" without
+    // one), as what belongs on an output that has gone shows there.
+    static QString outputOrPrimary(const QString &name);
     // Something the compositor tells the user once ("notice SUMMARY<tab>BODY"), such as a window
     // taking the keyboard's shortcuts: a notification of the desktop's own, kept in the history,
     // and the summary on the on-screen display while no card shows (notifications off, or do not

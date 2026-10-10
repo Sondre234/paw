@@ -1020,26 +1020,24 @@ void ShellController::setNightLight(bool on, const QString &mode) {
     nightLightMode_ = mode;
     Q_EMIT nightLightChanged();
 }
-QString ShellController::overlayOutput() const {
+bool ShellController::hasOutput(const QString &name) {
     const auto screens = QGuiApplication::screens();
-    for (auto *screen : screens)
-        if (screen->name() == focusedOutput_)
-            return focusedOutput_;
+    return std::any_of(screens.begin(), screens.end(),
+                       [&name](const QScreen *screen) { return screen->name() == name; });
+}
+QString ShellController::outputOrPrimary(const QString &name) {
+    if (hasOutput(name))
+        return name;
     auto *primary = QGuiApplication::primaryScreen();
     return primary ? primary->name() : QString();
 }
 // The cards stay on one output while any is showing, so they do not jump about as the focus
-// moves; the next batch goes where the focus is then.
+// moves; the next batch goes where the focus is then. An output that has gone since the cards
+// opened there is not one to keep them on.
 void ShellController::updateCards() {
-    // An output that has gone since the cards opened there is not one to keep them on.
-    auto present = [](const QString &name) {
-        const auto screens = QGuiApplication::screens();
-        return std::any_of(screens.begin(), screens.end(),
-                           [&name](const QScreen *screen) { return screen->name() == name; });
-    };
     const QString next = notifications_.cards()->count() > 0
-                             ? (cardsOutput_.isEmpty() || !present(cardsOutput_) ? overlayOutput()
-                                                                                  : cardsOutput_)
+                             ? (cardsOutput_.isEmpty() || !hasOutput(cardsOutput_) ? overlayOutput()
+                                                                                    : cardsOutput_)
                              : QString();
     if (next == cardsOutput_)
         return;

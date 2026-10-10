@@ -7,7 +7,6 @@
 #include <QQuickItem>
 #include <QSGRendererInterface>
 #include <QScreen>
-#include <algorithm>
 #include <iostream>
 #if PAW_LAYER_SHELL
 #include <LayerShellQt/Window>
@@ -508,12 +507,8 @@ AuthView::AuthView(ShellController &controller, QScreen *screen)
 }
 void AuthView::update() {
     auto *auth = controller_.authentication();
-    const auto screens = QGuiApplication::screens();
-    const bool known = std::any_of(screens.begin(), screens.end(), [auth](QScreen *screen) {
-        return screen->name() == auth->output();
-    });
-    const bool mine = auth->open() && (known ? auth->output() == outputScreen_->name()
-                                             : outputScreen_ == QGuiApplication::primaryScreen());
+    const bool mine = auth->open() &&
+                      ShellController::outputOrPrimary(auth->output()) == outputScreen_->name();
     if (!mine) {
         dismiss();
         return;
@@ -738,12 +733,8 @@ DisplaySettingsView::DisplaySettingsView(ShellController &controller, QScreen *s
 }
 void DisplaySettingsView::update() {
     const auto *settings = controller_.displaySettings();
-    const auto screens = QGuiApplication::screens();
-    const bool known = std::any_of(screens.begin(), screens.end(), [settings](QScreen *screen) {
-        return screen->name() == settings->output();
-    });
-    const bool mine = settings->open() && (known ? settings->output() == outputScreen_->name()
-                                                 : outputScreen_ == QGuiApplication::primaryScreen());
+    const bool mine = settings->open() &&
+                      ShellController::outputOrPrimary(settings->output()) == outputScreen_->name();
     if (!mine) {
         dismiss();
         return;
