@@ -458,11 +458,10 @@ struct sh_server {
 
     /* Windows a session restore launched and has yet to place: the first new window with the
      * app ID takes the saved place, workspace and state, until the deadline (milliseconds on
-     * the monotonic clock). */
+     * the monotonic clock). A slot whose deadline has passed is free. */
     struct {
         struct sh_session_window window;
         int64_t deadline;
-        bool used;
     } session_pending[32];
     /* A login session (standalone, or a test's with PAW_LOGIN_SESSION): it saves itself as
      * it ends and restores that as it starts (session.restore). */

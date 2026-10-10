@@ -324,13 +324,11 @@ static bool restore_session(struct sh_server *server, const char *name, bool lau
                        callbacks->started(callbacks->userdata, saved->app_id, argv ? argv[0] : "");
         size_t slot = 0, slots = sizeof(server->session_pending) / sizeof(*server->session_pending);
         int64_t now = now_ms();
-        while (slot < slots && server->session_pending[slot].used &&
-               server->session_pending[slot].deadline >= now)
+        while (slot < slots && server->session_pending[slot].deadline >= now)
             ++slot;
         if (slot < slots && (started || (launch && argv && session_spawn(argv)))) {
             server->session_pending[slot].window = *saved;
             server->session_pending[slot].deadline = now + (login ? LOGIN_PENDING_MS : PENDING_MS);
-            server->session_pending[slot].used = true;
             ++*(started ? waiting : launched);
         } else {
             ++*missing;
@@ -404,16 +402,11 @@ bool session_claim(struct sh_server *server, struct sh_toplevel *toplevel,
     int64_t now = now_ms();
     for (size_t i = 0; i < sizeof(server->session_pending) / sizeof(*server->session_pending);
          ++i) {
-        if (server->session_pending[i].used && server->session_pending[i].deadline < now)
-            server->session_pending[i].used = false;
-    }
-    for (size_t i = 0; i < sizeof(server->session_pending) / sizeof(*server->session_pending);
-         ++i) {
-        if (!server->session_pending[i].used ||
+        if (server->session_pending[i].deadline < now ||
             strcmp(server->session_pending[i].window.app_id, app_id ? app_id : ""))
             continue;
         const struct sh_session_window *saved = &server->session_pending[i].window;
-        server->session_pending[i].used = false;
+        server->session_pending[i].deadline = 0; // claimed
         if (!ruled)
             memset(rule, 0, sizeof(*rule)), rule->floating = -1;
         snprintf(rule->output, sizeof(rule->output), "%s", saved->output);
