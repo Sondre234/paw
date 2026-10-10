@@ -155,6 +155,13 @@ std::optional<std::string> text(lua_State *L, const char *key, const char *label
     lua_pop(L, 1);
     return result;
 }
+// Whether the table on top of the stack sets `key`.
+bool present(lua_State *L, const char *key) {
+    lua_getfield(L, -1, key);
+    bool set = !lua_isnil(L, -1);
+    lua_pop(L, 1);
+    return set;
+}
 int integer(lua_State *L, const char *key, int fallback, int min, int max) {
     lua_getfield(L, -1, key);
     if (lua_isnil(L, -1)) {
@@ -349,12 +356,7 @@ int idle_dim_before(int display_off) {
 // stay as they are.
 void read_idle_steps(lua_State *L, sh_idle_steps &steps) {
     constexpr int day = 24 * 60 * 60;
-    lua_getfield(L, -1, "dim");
-    bool dim_set = !lua_isnil(L, -1);
-    lua_pop(L, 1);
-    lua_getfield(L, -1, "display_off");
-    bool off_set = !lua_isnil(L, -1);
-    lua_pop(L, 1);
+    bool dim_set = present(L, "dim"), off_set = present(L, "display_off");
     steps.display_off = 1000 * integer(L, "display_off", steps.display_off / 1000, 0, day);
     steps.lock = 1000 * integer(L, "lock", steps.lock / 1000, 0, day);
     steps.suspend = 1000 * integer(L, "suspend", steps.suspend / 1000, 0, day);
@@ -374,12 +376,9 @@ void read_idle(lua_State *L, sh_settings &settings) {
 }
 // A switch binding, { switch = "lid", state = "close", action = ... }: no key, button or mods.
 void read_switch_binding(lua_State *L, Binding &binding) {
-    for (const char *other : {"key", "button", "mods", "app_id", "desktop"}) {
-        lua_getfield(L, -1, other);
-        if (!lua_isnil(L, -1))
+    for (const char *other : {"key", "button", "mods", "app_id", "desktop"})
+        if (present(L, other))
             fail(std::string(other) + " is not valid with a switch", other);
-        lua_pop(L, 1);
-    }
     auto name = field(L, "switch"), state = field(L, "state");
     if (name == "lid") {
         if (state != "close" && state != "open")
@@ -783,12 +782,7 @@ WindowRule window_rule(lua_State *L, int workspaces) {
     rule.title_pattern = pattern_field(L, "title", rule.title);
     if (!rule.pattern && !rule.title_pattern)
         fail("a window rule needs an app_id or a title");
-    lua_getfield(L, -1, "opacity");
-    bool has_opacity = !lua_isnil(L, -1);
-    lua_pop(L, 1);
-    lua_getfield(L, -1, "inactive_opacity");
-    has_opacity = has_opacity || !lua_isnil(L, -1);
-    lua_pop(L, 1);
+    bool has_opacity = present(L, "opacity") || present(L, "inactive_opacity");
     rule.opacity = static_cast<float>(number(L, "opacity", 1, 0.05, 1));
     rule.inactive_opacity =
         static_cast<float>(number(L, "inactive_opacity", rule.opacity, 0.05, 1));
@@ -801,10 +795,7 @@ WindowRule window_rule(lua_State *L, int workspaces) {
     actions.shortcuts_inhibit = optional_boolean(L, "shortcuts_inhibit");
     actions.above = optional_boolean(L, "above");
     actions.allow_tearing = optional_boolean(L, "allow_tearing");
-    lua_getfield(L, -1, "workspace");
-    bool has_workspace = !lua_isnil(L, -1);
-    lua_pop(L, 1);
-    if (has_workspace)
+    if (present(L, "workspace"))
         actions.workspace = integer(L, "workspace", 0, 1, workspaces);
     if (auto name = text(L, "output")) {
         if (name->empty() || *name == "desc:")
@@ -1067,13 +1058,7 @@ void read_effects(lua_State *L, Config &config) {
                 (rise ? seen_sunrise : seen_sunset) = true;
             }
         }
-        lua_getfield(L, -1, "latitude");
-        bool has_latitude = !lua_isnil(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, -1, "longitude");
-        bool has_longitude = !lua_isnil(L, -1);
-        lua_pop(L, 1);
-        if (has_latitude || has_longitude) {
+        if (present(L, "latitude") || present(L, "longitude")) {
             effects.latitude = number(L, "latitude", effects.latitude, -90, 90);
             effects.longitude = number(L, "longitude", effects.longitude, -180, 180);
             effects.located = true;
@@ -1296,30 +1281,21 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             table(L, -1, "binding");
             keys(L, -1, "bindings[]");
             Binding binding{};
-            lua_getfield(L, -1, "button");
-            bool is_button = !lua_isnil(L, -1);
-            lua_pop(L, 1);
+            bool is_button = present(L, "button");
             if (is_button && in_mode)
                 fail("a mode's bindings take a key, not a button");
-            lua_getfield(L, -1, "switch");
-            bool is_switch = !lua_isnil(L, -1);
-            lua_pop(L, 1);
+            bool is_switch = present(L, "switch");
             if (is_switch && in_mode)
                 fail("a mode's bindings take a key, not a switch");
             if (is_switch) {
                 read_switch_binding(L, binding);
                 // A switch's binding runs while the session is locked, and never repeats.
-                for (const char *only : {"locked", "repeats"}) {
-                    lua_getfield(L, -1, only);
-                    if (!lua_isnil(L, -1))
+                for (const char *only : {"locked", "repeats"})
+                    if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
-                    lua_pop(L, 1);
-                }
             } else if (is_button) {
-                lua_getfield(L, -1, "key");
-                if (!lua_isnil(L, -1))
+                if (present(L, "key"))
                     fail("a binding takes a key or a button, not both");
-                lua_pop(L, 1);
                 binding.button = mouse_button(field(L, "button"));
                 lua_getfield(L, -1, "app_id");
                 if (!lua_isnil(L, -1)) {
@@ -1332,31 +1308,21 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 }
                 lua_pop(L, 1);
                 boolean(L, "desktop", "desktop", binding.desktop);
-                for (const char *only : {"locked", "repeats"}) {
-                    lua_getfield(L, -1, only);
-                    if (!lua_isnil(L, -1))
+                for (const char *only : {"locked", "repeats"})
+                    if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
-                    lua_pop(L, 1);
-                }
             } else {
-                for (const char *only : {"app_id", "desktop"}) {
-                    lua_getfield(L, -1, only);
-                    if (!lua_isnil(L, -1))
+                for (const char *only : {"app_id", "desktop"})
+                    if (present(L, only))
                         fail(std::string(only) + " is only valid with a button");
-                    lua_pop(L, 1);
-                }
                 auto key = field(L, "key");
                 binding.keysym =
                     xkb_keysym_to_lower(xkb_keysym_from_name(key.c_str(), XKB_KEYSYM_NO_FLAGS));
                 if (binding.keysym == XKB_KEY_NoSymbol)
                     fail("unknown key '" + key + "'");
             }
-            if (!is_switch) {
-                lua_getfield(L, -1, "state");
-                if (!lua_isnil(L, -1))
-                    fail("state is only valid with a switch");
-                lua_pop(L, 1);
-            }
+            if (!is_switch && present(L, "state"))
+                fail("state is only valid with a switch");
             auto action = field(L, "action");
             binding.action = action == "none" ? SH_NONE : parse_action(action);
             lua_getfield(L, -1, "mods");
@@ -1390,11 +1356,8 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                     binding.workspace = integer(L, "workspace", 0, 1, config.settings.workspaces);
                 if (binding.workspace == 0)
                     fail("workspace actions need a workspace number");
-            } else {
-                lua_getfield(L, -1, "workspace");
-                if (!lua_isnil(L, -1))
-                    fail("workspace is only valid with workspace actions");
-                lua_pop(L, 1);
+            } else if (present(L, "workspace")) {
+                fail("workspace is only valid with workspace actions");
             }
             lua_getfield(L, -1, "output");
             if (action_takes_output(binding.action)) {
@@ -1449,10 +1412,7 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 binding.layout = integer(L, "layout", 0, 1, max_layouts);
             else if (has_layout)
                 binding.layout = parse_layout_choice(choice);
-            lua_getfield(L, -1, "amount");
-            bool has_amount = !lua_isnil(L, -1);
-            lua_pop(L, 1);
-            if (has_amount && !action_takes_amount(binding.action))
+            if (present(L, "amount") && !action_takes_amount(binding.action))
                 fail("amount is only valid with resize, volume and brightness actions");
             binding.amount = integer(L, "amount", default_amount(binding.action), 1,
                                      max_amount(binding.action));
@@ -1577,9 +1537,7 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     if (Section in{L, "mouse"}) {
         if (auto name = text(L, "modifier"))
             config.settings.mouse_modifier = modifier(*name);
-        lua_getfield(L, -1, "speed");
-        config.settings.pointer_speed_set = !lua_isnil(L, -1);
-        lua_pop(L, 1);
+        config.settings.pointer_speed_set = present(L, "speed");
         config.settings.pointer_speed = number(L, "speed", 0, -1, 1);
         named(L, "acceleration", nullptr, config.settings.pointer_accel,
               {{"flat", 0}, {"adaptive", 1}}, "mouse.acceleration must be \"flat\" or \"adaptive\"");
