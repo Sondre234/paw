@@ -19,7 +19,7 @@ CONFIG = """return {
     xwayland = false,
     layout = { tiling = false, workspaces = 4 },
     appearance = { background = '#000000' },
-    peek = { opacity = 0.25, duration = 400 },
+    peek = { opacity = 0.25, duration = 200 },
     animations = { enabled = true, duration = 10 },
 }"""
 FADED = 250  # a window's opacity while another is peeked at, in thousandths
@@ -140,7 +140,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     # and the others stay faded as the peek moves over. C stays minimized.
     peeker("peek", "C")
     desktop.stays(lambda: fade() == (1000, 0), "the others faded while the peek moves",
-                  duration=.6)
+                  duration=.4)
     desktop.wait_for(lambda: peeking("C"), "C peeked at")
     assert peeks()["A"][2] == stacked["A"][2], "A not back in its place"
     assert windows() == before, windows()
