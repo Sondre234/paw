@@ -217,11 +217,13 @@ void hot_corner_check(struct sh_server *server) {
         !server->seat->drag) {
         struct wlr_output *output = pointer_output(server);
         struct wlr_box box;
-        if (output && !output_has_fullscreen(server, output)) {
+        if (output) {
             wlr_output_layout_get_box(server->output_layout, output, &box);
             corner = sh_corner_at(server->cursor->x - box.x, server->cursor->y - box.y, box.width,
                                   box.height, fx->corner_size);
-            if (corner >= 0 && !(fx->corner_mask & (1U << corner)))
+            // Looking for a fullscreen window walks them all: only in a corner that acts.
+            if (corner >= 0 &&
+                (!(fx->corner_mask & (1U << corner)) || output_has_fullscreen(server, output)))
                 corner = -1;
         }
     }
