@@ -741,9 +741,10 @@ void ShellController::subscribe() {
         while (state_->canReadLine()) {
             const auto raw = QString::fromUtf8(state_->readLine());
             const auto line = raw.trimmed();
-            if (line == "ok")
+            if (line == "ok") {
                 subscribed_ = true;
-            else if (line.startsWith("tiling ")) {
+                Q_EMIT tilingChanged();
+            } else if (line.startsWith("tiling ")) {
                 // Each state starts with this line and lists every output after it.
                 tiling_ = line == "tiling on";
                 nextWorkspaces_.clear();
@@ -751,6 +752,7 @@ void ShellController::subscribe() {
                 nextUrgentWindows_.clear();
                 urgentSeen = true;
                 outputs = true;
+                Q_EMIT tilingChanged();
             } else if (line.startsWith("output ")) {
                 outputs = true;
                 // output NAME CURRENT OCCUPIED TILING, where OCCUPIED is "1,3" or "-" and
@@ -766,10 +768,8 @@ void ShellController::subscribe() {
                                                         {"occupied", occupied},
                                                         {"urgent", QVariantList()},
                                                         {"tiling", words[4] == "on"}};
-                continue;
             } else if (line.startsWith("urgent ")) {
                 nextUrgentCount_ = line.sliced(7).toInt();
-                continue;
             } else if (line.startsWith("urgent-output ")) {
                 // urgent-output NAME 2,3: the workspaces of that output with urgent windows.
                 const auto words = line.split(' ');
@@ -781,7 +781,6 @@ void ShellController::subscribe() {
                 auto state = nextWorkspaces_[words[1]].toMap();
                 state["urgent"] = urgent;
                 nextWorkspaces_[words[1]] = state;
-                continue;
             } else if (line.startsWith("urgent-window ")) {
                 // OUTPUT, WORKSPACE, APP_ID, TITLE, separated by tabs; read untrimmed so an
                 // empty app id keeps its place.
@@ -792,14 +791,12 @@ void ShellController::subscribe() {
                                                              {"appId", fields[2]},
                                                              {"title", fields[3]}});
                 }
-                continue;
             } else if (line.startsWith("focused ")) {
                 const auto name = line.sliced(8) == "-" ? QString() : line.sliced(8);
                 if (name != focusedOutput_) {
                     focusedOutput_ = name;
                     Q_EMIT focusedOutputChanged();
                 }
-                continue;
             } else if (line.startsWith("keyboard-layout ")) {
                 // keyboard-layout N COUNT SHORT NAME
                 const auto words = line.split(' ');
@@ -813,28 +810,22 @@ void ShellController::subscribe() {
                     keyboardLayout_ = layout;
                     Q_EMIT keyboardLayoutChanged();
                 }
-                continue;
             } else if (line.startsWith("mode ")) {
                 // mode NAME: the binding mode in use, "default" outside any.
                 setBindingMode(line.sliced(5) == "default" ? QString() : line.sliced(5));
-                continue;
             } else if (line.startsWith("night-light ")) {
                 // night-light ACTIVE MODE
                 const auto words = line.split(' ');
                 if (words.size() == 3)
                     setNightLight(words[1] == "on", words[2]);
-                continue;
             } else if (line.startsWith("notice ")) {
                 const auto fields = line.sliced(7).split('\t');
                 notice(fields[0], fields.value(1));
-                continue;
             } else if (line.startsWith("dnd ")) {
                 handleDnd(line.sliced(4));
-                continue;
             } else if (line.startsWith("volume ") || line.startsWith("microphone ") ||
                        line.startsWith("brightness ")) {
                 volumeKeys_.handle(line);
-                continue;
             } else if (line.startsWith("osd ")) {
                 // osd OUTPUT PERCENT TEXT
                 const auto words = line.split(' ');
@@ -845,52 +836,36 @@ void ShellController::subscribe() {
                         osd_.show(words[1] == "-" ? overlayOutput() : words[1],
                                   QStringList(words.mid(3)).join(' '), percent);
                 }
-                continue;
-            } else if (displayModes_.handle(line)) {
-                continue;
-            } else if (displaySettings_.handle(line)) {
-                // "display-settings OUTPUT", and a trial's lines.
-                continue;
+            } else if (displayModes_.handle(line) || displaySettings_.handle(line)) {
+                // The display mode popup's lines; "display-settings OUTPUT", and a trial's.
             } else if (line.startsWith("notifications ")) {
                 Q_EMIT notificationsRequested(line.sliced(14));
-                continue;
             } else if (line.startsWith("media ")) {
                 // media VERB: a media key, for the current player.
                 media_->command(line.sliced(6));
-                continue;
             } else if (line.startsWith("clipboard ")) {
                 clipboard_.toggle(line.sliced(10));
-                continue;
             } else if (line.startsWith("emoji ")) {
                 emoji_.toggle(line.sliced(6));
-                continue;
             } else if (line.startsWith("locked ")) {
                 // locked on|off: nothing copied while the session is locked is kept.
                 clipboard_.setLocked(line == "locked on");
-                continue;
             } else if (line.startsWith("power ")) {
                 // power ACTIONS: those that may run, as "lock,suspend,logout", or "-".
                 power_.setAvailable(line.sliced(6));
-                continue;
             } else if (line.startsWith("power-menu ")) {
                 Q_EMIT powerMenuRequested(line.sliced(11));
-                continue;
             } else if (line.startsWith("taskbar ")) {
                 Q_EMIT taskbarRequested(line.sliced(8));
-                continue;
             } else if (line.startsWith("power-error ")) {
                 report(line.sliced(12));
-                continue;
             } else if (line.startsWith("spawn-error ")) {
                 // A program a binding, a hot corner or the palette asked for did not start.
                 report(line.sliced(12));
-                continue;
             } else if (line.startsWith("launcher ")) {
                 Q_EMIT launcherRequested(line.sliced(9));
-                continue;
             } else if (line.startsWith("palette ")) {
                 palette_.open(line.sliced(8));
-                continue;
             } else if (line.startsWith("switcher ")) {
                 // switcher OUTPUT SELECTED COUNT, then COUNT switcher-window lines.
                 const auto words = line.split(' ');
@@ -902,7 +877,6 @@ void ShellController::subscribe() {
                 nextSwitcherWindows_.clear();
                 if (switcherPending_ <= 0)
                     showSwitcher();
-                continue;
             } else if (line.startsWith("switcher-window ") && switcherPending_ > 0) {
                 // APP_ID, TITLE, OUTPUT, WORKSPACE, MINIMIZED, URGENT, ID, separated by tabs, of
                 // which an older compositor leaves the last ones out and a newer one may add
@@ -918,11 +892,9 @@ void ShellController::subscribe() {
                                                                {"id", fields.size() >= 7 ? fields[6].toInt() : 0}});
                 if (--switcherPending_ == 0)
                     showSwitcher();
-                continue;
             } else if (line.startsWith("switcher-select ")) {
                 switcherSelected_ = line.sliced(16).toInt();
                 Q_EMIT switcherSelectedChanged();
-                continue;
             } else if (line.startsWith("overview ")) {
                 // overview OUTPUT COUNT SELECTED VIEWED STRIP X Y WIDTH HEIGHT FILTER (the area the
                 // panels leave; the filter is "-" when empty), then COUNT overview-window and
@@ -941,7 +913,6 @@ void ShellController::subscribe() {
                 nextOverviewStrip_.clear();
                 if (overviewPending_ <= 0)
                     showOverview();
-                continue;
             } else if (line.startsWith("overview-assist ")) {
                 // overview-assist OUTPUT COUNT SELECTED X Y WIDTH HEIGHT (the free slot beside a
                 // window just snapped), then COUNT overview-window lines.
@@ -959,7 +930,6 @@ void ShellController::subscribe() {
                 nextOverviewStrip_.clear();
                 if (overviewPending_ <= 0)
                     showOverview();
-                continue;
             } else if ((line.startsWith("overview-window ") || line.startsWith("overview-strip ")) &&
                        overviewPending_ > 0) {
                 // X Y WIDTH HEIGHT, then APP_ID, TITLE, WORKSPACE, URGENT (a window) or WORKSPACE,
@@ -984,23 +954,17 @@ void ShellController::subscribe() {
                 }
                 if (--overviewPending_ == 0)
                     showOverview();
-                continue;
             } else if (line.startsWith("overview-select ")) {
                 overviewSelected_ = line.sliced(16).toInt();
                 Q_EMIT overviewSelectedChanged();
-                continue;
             } else if (line == "overview-close") {
                 clearOverview();
-                continue;
             } else if (line == "switcher-close") {
                 switcherPending_ = 0;
                 switcherOutput_.clear();
                 switcherWindows_.clear();
                 Q_EMIT switcherChanged();
-                continue;
-            } else
-                continue;
-            Q_EMIT tilingChanged();
+            }
         }
         if (outputs && workspaces_ != nextWorkspaces_) {
             workspaces_ = nextWorkspaces_;
