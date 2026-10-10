@@ -94,8 +94,11 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         return process
 
     def activated(name, mark, surrounding="hello"):
-        """What the input method hears as it is activated for a text input."""
-        return since(name, mark)[:5] == [
+        """What the input method hears as it is activated for a text input. One that connects
+        while a text input waits is activated as it connects: its "ready" (counted in `mark`) can
+        come after the activation as well as before it."""
+        heard = [line for line in log(name) if line != "ready"]
+        return heard[mark - 1:][:5] == [
             "activate", f"surrounding {surrounding} {len(surrounding)} {len(surrounding)}",
             f"cause {OTHER}", f"content_type {SPELLCHECK} {NORMAL}", "done"]
 
