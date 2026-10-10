@@ -197,12 +197,11 @@ static void control_headless_output(struct sh_server *server, int fd, const char
     sscanf(args, "%*15s %*63s %n", &path_at);
     if (!strcmp(verb, "capture") && fields == 3 && path_at > 0) {
         struct sh_output *output = sh_output_for_name(server, first);
-        char error[PATH_MAX + 64], reply[PATH_MAX + 80];
+        char error[PATH_MAX + 64];
         if (!output)
             snprintf(error, sizeof(error), "no such output");
-        bool done = output && mirror_capture(output, args + path_at, error, sizeof(error));
-        snprintf(reply, sizeof(reply), done ? "ok\n" : "error: %s\n", error);
-        control_reply(fd, reply);
+        reply_done(fd, output && mirror_capture(output, args + path_at, error, sizeof(error)),
+                   error);
         return;
     }
     control_reply(fd, "error: usage: headless_output add [NAME] [WIDTHxHEIGHT] | remove NAME | "
@@ -345,10 +344,7 @@ static void control_handle(struct sh_server *server, int fd, const char *request
         snprintf(name, sizeof(name), "%.*s", length, request + 7);
         target = action ? find_output(server, name) : NULL;
         if (!target) {
-            char reply[128];
-            snprintf(reply, sizeof(reply), "error: %s\n",
-                     action ? "no such output" : "output needs a name and an action");
-            control_reply(fd, reply);
+            reply_done(fd, false, action ? "no such output" : "output needs a name and an action");
             return;
         }
         request = action + 1;
