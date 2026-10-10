@@ -39,16 +39,8 @@ FlatButton {
         }
     }
     // Five percent a wheel notch, up for louder.
-    WheelHandler {
-        // Qt takes the whole pointer for a touchpad once the compositor offers gestures
-        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        property real travel: 0
-        onWheel: (event) => {
-            travel += event.angleDelta.y !== 0 ? event.angleDelta.y : -event.angleDelta.x
-            var steps = travel > 0 ? Math.floor(travel / 120) : Math.ceil(travel / 120)
-            travel -= steps * 120
-            if (steps !== 0)
-                audioWidget.panel.audioSource.changeVolume(steps * 5)
-        }
+    NotchWheel {
+        invertX: true
+        onNotched: (steps) => audioWidget.panel.audioSource.changeVolume(steps * 5)
     }
 }

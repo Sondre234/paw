@@ -55,18 +55,10 @@ Item {
         // Scrolling the bar anywhere its widgets leave the wheel alone pages through this
         // output's workspaces: a wheel notch (or a touchpad's worth of travel) moves one,
         // stopping at either end; down or right goes to the next.
-        WheelHandler {
-            // Qt takes the whole pointer for a touchpad once the compositor offers gestures
-            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-            property real travel: 0
-            onWheel: (event) => {
-                travel += event.angleDelta.y !== 0 ? event.angleDelta.y : event.angleDelta.x
-                var steps = travel > 0 ? Math.floor(travel / 120) : Math.ceil(travel / 120)
-                travel -= steps * 120
-                if (steps !== 0) {
-                    var target = workspaceIndicator.workspaceState.current - steps
-                    workspaceIndicator.show(Math.max(1, Math.min(shell.workspaceCount, target)))
-                }
+        NotchWheel {
+            onNotched: (steps) => {
+                var target = workspaceIndicator.workspaceState.current - steps
+                workspaceIndicator.show(Math.max(1, Math.min(shell.workspaceCount, target)))
             }
         }
         RowLayout {

@@ -497,6 +497,7 @@ what was there.
 | `FlatButton.qml`, `ButtonFill.qml` | The frameless button of the bar and of menus, and its background, which fades between the hover, pressed and active states. |
 | `PushButton.qml` | A framed button with text: raised, or filled for what a click mostly does or for a destructive action, with a ring for the keyboard; a dialog's, a notification's, the start menu's. |
 | `FocusRing.qml` | The ring that says the keyboard is at something, as `PushButton`'s: around a button on the bar, a picture or a row the keyboard on the bar selects. |
+| `NotchWheel.qml` | The wheel in whole notches, a mouse's or a touchpad's, for what steps by it: workspaces, pages, the volume, the calendar's months. |
 | `TextButton.qml` | A button that is only its text in the accent colour, as Today and Clear all over a card's list. |
 | `CloseButton.qml` | The round cross that closes a card, a notification or a window in a stack's list, or clears the search. |
 | `SearchInput.qml` | The start menu's and the command palette's search field. |
@@ -883,7 +884,8 @@ its own only where all of it does (Launchpad).
 
 A `WheelHandler` takes `acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad`: since the
 compositor offers pointer gestures, Qt puts every event of the seat's pointer down to a touchpad,
-a mouse wheel's too, and a handler left at its default of the mouse alone hears none of them.
+a mouse wheel's too, and a handler left at its default of the mouse alone hears none of them. One
+that steps something by the wheel's notches is a `NotchWheel`, which does.
 
 ### Seeing a change
 
