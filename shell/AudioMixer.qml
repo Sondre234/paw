@@ -8,7 +8,6 @@ import QtQuick.Layouts
 PopupCard {
     id: audioMixer
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "audioMixer"
     readonly property real rowHeight: Theme.rowHeight + Theme.spacingM

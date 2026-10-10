@@ -15,7 +15,6 @@ import "WindowMenu.js" as WindowMenu
 PopupMenu {
     id: contextMenu
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "contextMenu"
     entryName: "contextMenuItem"

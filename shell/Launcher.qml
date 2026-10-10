@@ -7,7 +7,6 @@ import QtQuick
 PopupCard {
     id: launcher
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "launcher"
     open: panel.launcherOpen

@@ -969,7 +969,7 @@ Item {
             PopupLoader {
                 wanted: root.audioPopup === "mixer"
                 early: root.warm
-                sourceComponent: Component { AudioMixer { panel: root; barItem: root.statusBar } }
+                sourceComponent: Component { AudioMixer { panel: root } }
             }
 
             // Clicking the clock: the notifications and a month calendar, at the bar's right end.
@@ -977,34 +977,34 @@ Item {
                 id: clockFlyoutLoader
                 wanted: root.audioPopup === "clock"
                 early: root.warm
-                sourceComponent: Component { ClockFlyout { panel: root; barItem: root.statusBar } }
+                sourceComponent: Component { ClockFlyout { panel: root } }
             }
 
             // Right-clicking the volume control: the outputs to play through.
             PopupLoader {
                 wanted: root.audioPopup === "outputs"
                 early: root.warm
-                sourceComponent: Component { AudioOutputs { panel: root; barItem: root.statusBar } }
+                sourceComponent: Component { AudioOutputs { panel: root } }
             }
 
             // The profile button: the appearance profiles, the one in use marked.
             PopupLoader {
                 wanted: root.audioPopup === "profiles"
                 early: root.warm
-                sourceComponent: Component { ProfileList { panel: root; barItem: root.statusBar } }
+                sourceComponent: Component { ProfileList { panel: root } }
             }
 
             // The network widget's popup, where NetworkManager has Wi-Fi: the radio and the networks.
             PopupLoader {
                 wanted: root.audioPopup === "wifi"
-                sourceComponent: Component { WifiPopup { panel: root; barItem: root.statusBar } }
+                sourceComponent: Component { WifiPopup { panel: root } }
             }
 
             // The wallpaper button: thumbnails of the pictures in shell.wallpapers, by subfolder, with
             // a filter; clicking one shows it at once and keeps the picker open to try another.
             PopupLoader {
                 wanted: root.audioPopup === "wallpapers"
-                sourceComponent: Component { WallpaperPicker { panel: root; barItem: root.statusBar } }
+                sourceComponent: Component { WallpaperPicker { panel: root } }
             }
 
             PopupLoader {
@@ -1013,15 +1013,15 @@ Item {
                 early: root.warm
                 // The start menu, or Launchpad in the macOS style.
                 sourceComponent: Theme.macos ? launchpadComponent : startMenuComponent
-                Component { id: startMenuComponent; Launcher { panel: root; barItem: root.bar } }
-                Component { id: launchpadComponent; Launchpad { panel: root; barItem: root.bar } }
+                Component { id: startMenuComponent; Launcher { panel: root } }
+                Component { id: launchpadComponent; Launchpad { panel: root } }
             }
 
             PopupLoader {
                 id: contextMenuLoader
                 wanted: root.taskMenuId >= 0 || root.pinMenuApp !== null || root.barMenuOpen
                 early: root.warm
-                sourceComponent: Component { TaskbarMenu { panel: root; barItem: root.bar } }
+                sourceComponent: Component { TaskbarMenu { panel: root } }
             }
 
             // A tray item's menu, in the style of the bar's own, its submenus beside it.
@@ -1029,7 +1029,7 @@ Item {
                 id: trayMenuLoader
                 wanted: root.trayMenuKey !== ""
                 early: root.warm
-                sourceComponent: Component { TrayMenu { panel: root; barItem: root.statusBar } }
+                sourceComponent: Component { TrayMenu { panel: root } }
             }
 
             // The windows of the hovered stacked button: clicking one focuses it (or minimizes it when
@@ -1038,7 +1038,7 @@ Item {
                 id: groupListLoader
                 wanted: root.groupOpen
                 early: root.warm
-                sourceComponent: Component { GroupList { panel: root; barItem: root.bar } }
+                sourceComponent: Component { GroupList { panel: root } }
             }
 
             // The pictures of the windows of the button the pointer rests on, with shell.thumbnails
@@ -1047,7 +1047,7 @@ Item {
                 id: thumbnailsLoader
                 wanted: root.thumbnailsOpen
                 early: root.thumbnails && (root.groupOpen || root.warm)
-                sourceComponent: Component { WindowThumbnails { panel: root; barItem: root.bar } }
+                sourceComponent: Component { WindowThumbnails { panel: root } }
             }
 
             // The Quick Settings button: tiles, the volume and brightness, the battery.
@@ -1055,7 +1055,7 @@ Item {
                 id: quickSettingsLoader
                 wanted: root.audioPopup === "quick"
                 early: root.warm
-                sourceComponent: Component { QuickSettings { panel: root; barItem: root.statusBar } }
+                sourceComponent: Component { QuickSettings { panel: root } }
             }
 
             // The menu bar's own menus in the macOS style: the system menu, the focused
@@ -1065,7 +1065,7 @@ Item {
                 wanted: root.menuBarMenu !== ""
                 early: root.warm
                 active: root.macos && (wanted || early || used)
-                sourceComponent: Component { MenuBarMenu { panel: root; barItem: root.statusBar } }
+                sourceComponent: Component { MenuBarMenu { panel: root } }
             }
             // A press anywhere hands the bar back to the pointer from the keyboard, and goes on to
             // what is under it: a picture is clicked, and beside the card it only closes it.

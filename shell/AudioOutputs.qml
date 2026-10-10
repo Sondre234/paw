@@ -5,7 +5,6 @@ import QtQuick
 PopupMenu {
     id: audioOutputs
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "audioOutputs"
     entryName: "audioOutputItem"

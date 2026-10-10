@@ -12,7 +12,6 @@ import Paw
 PopupCard {
     id: groupList
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "groupList"
     readonly property real rowHeight: Theme.rowHeight + Theme.spacingS

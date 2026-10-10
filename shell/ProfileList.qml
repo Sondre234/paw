@@ -5,7 +5,6 @@ import QtQuick
 PopupMenu {
     id: profileList
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "profileList"
     entryName: "profileItem"

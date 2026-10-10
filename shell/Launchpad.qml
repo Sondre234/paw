@@ -16,7 +16,6 @@ import QtQuick.Controls.Basic
 Item {
     id: launchpad
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     anchors.fill: parent
     objectName: "launchpad"

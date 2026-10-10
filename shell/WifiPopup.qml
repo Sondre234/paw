@@ -9,7 +9,6 @@ import QtQuick.Layouts
 PopupCard {
     id: popup
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "wifiPopup"
     readonly property var wifi: panel.wifiSource

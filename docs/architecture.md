@@ -481,7 +481,7 @@ what was there.
 | File | Covers |
 | --- | --- |
 | `Theme.qml` | The design tokens (colours, type, radii, spacing, icon sizes, motion, whether effects can be drawn), derived from the appearance profile. A singleton: every file reads `Theme.surface`, `Theme.hover`, ... instead of colours and sizes of its own. |
-| `Panel.qml` | The panel on one output: which popup is open and where, the bars of the style (a loader for each), and the popover with a loader for each popup. Every part below takes the panel as `panel` (and a popup the bar as `barItem`) and reaches its state and functions through it; a popup is placed in `panel.popupLayer`, beside the part of the bar it belongs to (`panel.barAnchor(x, width)`). |
+| `Panel.qml` | The panel on one output: which popup is open and where, the bars of the style (a loader for each), and the popover with a loader for each popup. Every part below takes the panel as `panel` and reaches its state and functions through it; a popup is placed in `panel.popupLayer`, beside the part of the bar it belongs to (`panel.barAnchor(x, width)`). |
 | `Taskbar.qml` | The taskbar: the bar along the panel's edge with the start button, the row of pinned applications and windows, the widgets and the clock, and its smaller buttons. |
 | `TopMenuBar.qml`, `Dock.qml`, `DockIcon.qml` | The bars of the macOS style (`shell.style`): the menu bar along the top in a `MenuBarWindow` of its own, with the system, application and Window menus, the widgets, search, Quick Settings and the clock; and the dock in the panel's surface, an icon for each application, pinned or running, with the applications button and the Trash. |
 | `BarKeyboard.qml` | The keyboard on the bar (`taskbar_focus`): held in the popover, it walks the taskbar's buttons or the dock's icons and the windows they show. |
@@ -832,8 +832,8 @@ the highlighted one is filled with the accent, its text white, as macOS draws me
 1. In `Panel.qml`, a property saying whether it is open (or a value of `audioPopup`), part of
    `menuOpen` if it takes the keyboard, cleared by `closeMenus()`, and a function that opens it
    by a bar item as `toggleAudioPopup` does: noting where (`audioPopupX`) and closing the others.
-2. Its file: a `PopupCard` or `PopupMenu` with `required property var panel` and
-   `required property Item barItem`, `parent: panel.popupLayer`, `open:` that property,
+2. Its file: a `PopupCard` or `PopupMenu` with `required property var panel`,
+   `parent: panel.popupLayer`, `open:` that property,
    `anchorRect: panel.barAnchor(x, width)`, `side: panel.popupSide` and
    `bounds: panel.popupArea` (the output but the bar), so that it opens away from the bar on a
    top panel as on a bottom one, and below the menu bar in the macOS style; one that belongs to
