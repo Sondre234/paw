@@ -18,7 +18,7 @@ CONFIG = """return {
 
 with harness.Compositor(compositor, CONFIG, start=False,
                         env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
-    root, env, msg = desktop.root, desktop.env, desktop.msg
+    root, env = desktop.root, desktop.env
     env.update(QT_QPA_PLATFORM="wayland", QT_QUICK_BACKEND="software", QT_FORCE_STDERR_LOGGING="1",
                XDG_DATA_HOME=str(root), XDG_DATA_DIRS=str(root),
                DBUS_SESSION_BUS_ADDRESS="disabled:")
@@ -38,11 +38,7 @@ with harness.Compositor(compositor, CONFIG, start=False,
                      "the panels rendered", timeout=30)
     pointer = desktop.virtual_pointer(pointer_probe, 2560, 720)
     pointer("move 640 200")  # the first monitor has the focus
-    msg("headless_keyboard", "add", "keys")
-
-    def key(code):
-        for state in ("press", "release"):
-            msg("headless_keyboard", "key", "keys", str(code), state)
+    key = desktop.keyboard()
 
     def pointer_on():
         return tuple(next(row[1:3] for row in desktop.rows("seat") if row[0] == "pointer"))

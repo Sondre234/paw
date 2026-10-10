@@ -72,10 +72,6 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     def all_off():
         return set(power_of().values()) == {"off"}
 
-    def key(code):
-        msg("headless_keyboard", "key", "keys", str(code), "press")
-        msg("headless_keyboard", "key", "keys", str(code), "release")
-
     def screen():
         """The colour in the middle of HEADLESS-1, or None without grim."""
         shot = harness.grab(grim, desktop.env, "HEADLESS-1")
@@ -88,7 +84,7 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
 
     desktop.detail = lambda: f"idle: {idle()}, outputs: {power_of()}"
     desktop.start(config("{ dim = 1, display_off = 2, lock = 3 }"))
-    msg("headless_keyboard", "add", "keys")
+    key = desktop.keyboard()
     pointer = desktop.virtual_pointer(pointer_probe, 2560, 720)
     state = idle()
     assert (state["dim"], state["display_off"], state["lock"], state["suspend"]) == (

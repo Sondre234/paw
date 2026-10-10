@@ -71,13 +71,6 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         process.stdin.write(command + "\n")
         process.stdin.flush()
 
-    def press(*codes):
-        """Presses the keys in order, then releases them the other way round."""
-        for code in codes:
-            msg("headless_keyboard", "key", "keys", str(code), "press")
-        for code in reversed(codes):
-            msg("headless_keyboard", "key", "keys", str(code), "release")
-
     def window(title):
         process = desktop.spawn([input_probe, "--text-input", title], log=f"{title}.log",
                                 stdin=subprocess.PIPE, text=True, **UTF8)
@@ -99,7 +92,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
             f"cause {OTHER}", f"content_type {SPELLCHECK} {NORMAL}", "done"]
 
     desktop.detail = lambda: f"input method: {state()}, focused: {focused()}"
-    msg("headless_keyboard", "add", "keys")
+    press = desktop.keyboard()
 
     # Without an input method, the text input waits.
     writer = window("Writer")

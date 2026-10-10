@@ -28,15 +28,6 @@ with harness.Compositor(compositor, start=False) as desktop:
 
     desktop.env.update(PATH=str(tools), TOOL_LOG=str(tool_log), TERMINAL="my-terminal")
 
-    def key(code, state):
-        msg("headless_keyboard", "key", "one", str(code), state)
-
-    def press(*codes):
-        for code in codes:
-            key(code, "press")
-        for code in reversed(codes):
-            key(code, "release")
-
     desktop.detail = lambda: (calls(), desktop.log.read_text())
     wait_for = desktop.wait_for
     desktop.start(Path(example).read_text().replace("xwayland = true", "xwayland = false"))
@@ -46,7 +37,7 @@ with harness.Compositor(compositor, start=False) as desktop:
         """The errors the panel was told of."""
         return subscriber.values("spawn-error ")
 
-    msg("headless_keyboard", "add", "one")
+    press = desktop.keyboard("one")
 
     # The control socket: a program that is there starts; one that is not is an error for
     # the caller and for the panel.

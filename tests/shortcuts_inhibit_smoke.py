@@ -53,13 +53,6 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     def tiling():
         return msg("get", "tiling").strip() == "on"
 
-    def press(*codes):
-        """Presses the keys in order, then releases them the other way round."""
-        for code in codes:
-            msg("headless_keyboard", "key", "keys", str(code), "press")
-        for code in reversed(codes):
-            msg("headless_keyboard", "key", "keys", str(code), "release")
-
     def window(title, *options, **spawn):
         process = desktop.spawn([probe, "--keys", "--no-gestures", "--no-tablet", *options,
                                  title], log=f"{title}.log", **spawn)
@@ -68,7 +61,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
         return process
 
     desktop.detail = lambda: f"shortcuts: {shortcuts()}, focused: {focused()}"
-    msg("headless_keyboard", "add", "keys")
+    press = desktop.keyboard()
     assert shortcuts() == (False, []), shortcuts()
     notices = desktop.subscribe()
 
