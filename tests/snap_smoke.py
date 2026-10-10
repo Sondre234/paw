@@ -208,7 +208,7 @@ with harness.Compositor(compositor, config(tiling="true"),
 # The preview, with animations slowed down to watch it: it eases out of the window into the slot,
 # glides along the edge to a corner, fades out as the pointer leaves the edge, and goes at once as
 # the window is dropped. Its corners are those of a window there.
-SLOW = "speed = 0.1, move = { duration = 300 }, close = { duration = 300 }"
+SLOW = "speed = 0.3, move = { duration = 300 }, close = { duration = 300 }"
 with harness.Compositor(compositor, config(animations=SLOW, windows='round = "always"'),
                         env={"WLR_HEADLESS_OUTPUTS": "1"}) as desktop:
     windows, snap, pointer, press, to, release, placed = session(desktop, SCREEN)
