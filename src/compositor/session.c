@@ -153,20 +153,8 @@ bool session_save(struct sh_server *server, const char *name, int *windows, char
     return ok;
 }
 
-/* Runs a command with an ordinary signal mask (the compositor blocks signals for its event
- * loop); the child is reaped with the others. */
 static bool session_spawn(char *const *argv) {
-    posix_spawnattr_t attributes;
-    if (posix_spawnattr_init(&attributes) != 0)
-        return false;
-    sigset_t mask;
-    sigemptyset(&mask);
-    posix_spawnattr_setsigmask(&attributes, &mask);
-    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK);
-    pid_t pid;
-    extern char **environ;
-    int error = posix_spawnp(&pid, argv[0], NULL, &attributes, argv, environ);
-    posix_spawnattr_destroy(&attributes);
+    int error = spawn_program(argv);
     if (error)
         wlr_log(WLR_ERROR, "Cannot launch %s: %s", argv[0], strerror(error));
     return error == 0;

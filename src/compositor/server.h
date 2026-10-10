@@ -938,6 +938,7 @@ static const uint32_t ALL_EDGES = WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT
 /* server.c */
 uint64_t now_ns(void);
 int64_t now_ms(void);
+int spawn_program(char *const argv[]);
 void add_listener(struct wl_signal *signal, struct wl_listener *listener,
                   wl_notify_func_t notify);
 const struct sh_settings *server_settings(struct sh_server *server);

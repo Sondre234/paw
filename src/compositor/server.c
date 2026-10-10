@@ -27,6 +27,24 @@ int64_t now_ms(void) {
     return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
 
+/* Starts a program with an ordinary signal mask (the compositor blocks signals for its event
+ * loop); the child is reaped with the others. 0, or why it could not start. */
+int spawn_program(char *const argv[]) {
+    posix_spawnattr_t attributes;
+    int error = posix_spawnattr_init(&attributes);
+    if (error)
+        return error;
+    sigset_t mask;
+    sigemptyset(&mask);
+    posix_spawnattr_setsigmask(&attributes, &mask);
+    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK);
+    pid_t pid;
+    extern char **environ;
+    error = posix_spawnp(&pid, argv[0], NULL, &attributes, argv, environ);
+    posix_spawnattr_destroy(&attributes);
+    return error;
+}
+
 void add_listener(struct wl_signal *signal, struct wl_listener *listener,
                   wl_notify_func_t notify) {
     listener->notify = notify;
