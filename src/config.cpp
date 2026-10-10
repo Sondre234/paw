@@ -2206,28 +2206,26 @@ std::string read_file(const std::filesystem::path &path) {
 bool is_record(lua_State *L, int index) {
     return lua_istable(L, index) && lua_rawlen(L, index) == 0;
 }
-// Copies what `target` lacks from `source`, descending into tables both have as records; lists
-// and values `target` already sets stay as they are.
-void merge(lua_State *L, int target, int source, int depth = 0) {
+// Lays the table at `source` over the one at `target`, descending into records both hold. With
+// `replace` its values replace those of `target`; without, they only fill in what `target` lacks,
+// and lists and values it sets stay as they are. `what` names the tables nested too deeply.
+void overlay(lua_State *L, int target, int source, bool replace, const char *what, int depth = 0) {
     if (depth > 16)
-        fail("theme tables are nested too deeply");
+        fail(std::string(what) + " tables are nested too deeply");
     target = lua_absindex(L, target);
     source = lua_absindex(L, source);
     lua_pushnil(L);
     while (lua_next(L, source)) {
         lua_pushvalue(L, -2);
         lua_rawget(L, target);
-        if (lua_isnil(L, -1)) {
-            lua_pop(L, 1);
-            lua_pushvalue(L, -2);
-            lua_pushvalue(L, -2);
+        if (is_record(L, -1) && is_record(L, -2)) {
+            overlay(L, -1, -2, replace, what, depth + 1);
+        } else if (replace || lua_isnil(L, -1)) {
+            lua_pushvalue(L, -3);
+            lua_pushvalue(L, -3);
             lua_rawset(L, target);
-        } else {
-            if (is_record(L, -1) && is_record(L, -2))
-                merge(L, -1, -2, depth + 1);
-            lua_pop(L, 1);
         }
-        lua_pop(L, 1);
+        lua_pop(L, 2);
     }
 }
 std::filesystem::path theme_path(lua_State *L, const std::filesystem::path &directory) {
@@ -2247,7 +2245,7 @@ void include_theme(lua_State *L, const std::filesystem::path &directory) {
     if (!lua_isnil(L, -1))
         fail("a theme cannot include another theme");
     lua_pop(L, 1);
-    merge(L, -2, -1);
+    overlay(L, -2, -1, false, "theme");
     lua_pop(L, 1);
 }
 } // namespace
@@ -2304,7 +2302,7 @@ size_t include_defaults(lua_State *L) {
         }
     }
     lua_pop(L, 2);
-    merge(L, -2, -1);
+    overlay(L, -2, -1, false, "theme");
     lua_pop(L, 1);
     return own;
 }
@@ -2319,29 +2317,6 @@ bool valid_profile_name(const std::string &name) {
     return std::all_of(name.begin(), name.end(), [](char c) {
         return std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_';
     });
-}
-// Lays the table at `source` over the one at `target`: its values replace those of `target`,
-// and records both hold are laid over each other the same way.
-void overlay(lua_State *L, int target, int source, int depth = 0) {
-    if (depth > 16)
-        fail("profile tables are nested too deeply");
-    target = lua_absindex(L, target);
-    source = lua_absindex(L, source);
-    lua_pushnil(L);
-    while (lua_next(L, source)) {
-        lua_pushvalue(L, -2);
-        lua_rawget(L, target);
-        if (is_record(L, -1) && is_record(L, -2)) {
-            overlay(L, -1, -2, depth + 1);
-            lua_pop(L, 1);
-        } else {
-            lua_pop(L, 1);
-            lua_pushvalue(L, -2);
-            lua_pushvalue(L, -2);
-            lua_rawset(L, target);
-        }
-        lua_pop(L, 1);
-    }
 }
 // The names in `profiles`, sorted, after checking its shape.
 std::vector<std::string> profile_names(lua_State *L) {
@@ -2383,7 +2358,7 @@ std::string starting_profile(lua_State *L, const std::vector<std::string> &names
 void apply_profile(lua_State *L, const std::string &name) {
     lua_getfield(L, -1, "profiles");
     lua_getfield(L, -1, name.c_str());
-    overlay(L, -3, -1);
+    overlay(L, -3, -1, true, "profile");
     lua_pop(L, 2);
 }
 void shadowed(lua_State *L, int config, int theme, const std::string &prefix,
