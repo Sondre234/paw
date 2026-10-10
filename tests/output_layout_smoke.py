@@ -3,7 +3,6 @@
 hand, reach windows already open when the configuration is reloaded, and never override a
 layout chosen with an action."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -26,7 +25,7 @@ def config(first=""):
 
 
 with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
-    msg, log = desktop.msg, desktop.log
+    msg = desktop.msg
 
     def layout(output, workspace=None):
         """(layout, ratio, master count) of a workspace; the current one by default."""
@@ -39,16 +38,6 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
 
     desktop.detail = lambda: f"widths: {widths()}"
 
-    reloads = 0
-
-    def reload(text):
-        global reloads
-        reloads += 1
-        desktop.config.write_text(text)
-        desktop.server.send_signal(signal.SIGHUP)
-        desktop.wait_for(lambda: log.read_text().count("Configuration reloaded") == reloads,
-                         "reload")
-
     assert layout("HEADLESS-1") == ("dwindle", 0.55, 1)
     for count in (1, 2):
         desktop.spawn([probe, "--external-control"])
@@ -56,7 +45,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
     assert widths() == [640, 640], widths()
 
     # A reload reaches workspaces that are already arranged and hold windows.
-    reload(config("['HEADLESS-1'] = { tile_layout = 'master', master_ratio = 0.6 }"))
+    desktop.reload(config("['HEADLESS-1'] = { tile_layout = 'master', master_ratio = 0.6 }"))
     assert layout("HEADLESS-1") == ("master", 0.6, 1)
     assert layout("HEADLESS-1", 3) == ("master", 0.6, 1)
     assert layout("HEADLESS-2") == ("dwindle", 0.55, 1)
@@ -65,14 +54,14 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
     # An action's choice stays; the other workspaces follow the next reload.
     msg("output", "HEADLESS-1", "layout_monocle")
     assert layout("HEADLESS-1")[0] == "monocle"
-    reload(config("['HEADLESS-1'] = { tile_layout = 'spiral', master_count = 2 },"
+    desktop.reload(config("['HEADLESS-1'] = { tile_layout = 'spiral', master_count = 2 },"
                   "['HEADLESS-2'] = { master_ratio = 0.7 }"))
     assert layout("HEADLESS-1") == ("monocle", 0.55, 2), layout("HEADLESS-1")
     assert layout("HEADLESS-1", 2) == ("spiral", 0.55, 2)
     assert layout("HEADLESS-2") == ("dwindle", 0.7, 1)
 
     # Removing an entry returns its workspaces to the global defaults.
-    reload(config())
+    desktop.reload(config())
     assert layout("HEADLESS-1", 2) == ("dwindle", 0.55, 1)
     assert layout("HEADLESS-1")[0] == "monocle"
     assert layout("HEADLESS-2") == ("dwindle", 0.55, 1)

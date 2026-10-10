@@ -3,7 +3,6 @@
 their output is disabled they join the other one's tiling, fullscreen fits it, and turning
 tiling off leaves them floating inside it."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -26,7 +25,7 @@ def config(primary=None, first="position = { x = 0, y = 0 }", second=""):
 
 
 with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
-    msg, log = desktop.msg, desktop.log
+    msg = desktop.msg
 
     def windows():
         """(focused, tiled, x, y, width, height) per window, oldest first."""
@@ -41,16 +40,6 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
         x, y, width, height = box
         return (x >= area[0] and y >= area[1] and x + width <= area[0] + area[2] and
                 y + height <= area[1] + area[3])
-
-    reloads = 0
-
-    def reload(text):
-        global reloads
-        reloads += 1
-        desktop.config.write_text(text)
-        desktop.server.send_signal(signal.SIGHUP)
-        desktop.wait_for(lambda: log.read_text().count("Configuration reloaded") == reloads,
-                         "reload")
 
     def launch():
         desktop.spawn([probe, "--external-control"])
@@ -69,7 +58,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
 
     # Moving the large output far below takes the pointer, now off every output, to
     # the nearest point of the small one: the next window tiles there.
-    reload(config(first="position = { x = 0, y = 3000 }"))
+    desktop.reload(config(first="position = { x = 0, y = 3000 }"))
     small = outputs()["HEADLESS-2"][1:]
     assert small == (2048, 0, 1600, 900), outputs()
     launch()
@@ -79,7 +68,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
     # Disabling the large output moves its tiles into the small output's tiling. The
     # only output left starts at the origin, far from the tiles at y = 3000, so no
     # leftover coordinates happen to fit.
-    reload(config(first="enabled = false", second="position = { x = 3000, y = 200 }"))
+    desktop.reload(config(first="enabled = false", second="position = { x = 3000, y = 200 }"))
     state = outputs()
     assert state["HEADLESS-1"][0] is False and \
         state["HEADLESS-2"] == (True, 0, 0, 1600, 900), state

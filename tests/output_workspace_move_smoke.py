@@ -2,7 +2,6 @@
 """move_workspace_to_output sends a workspace, with its windows and layout, to another output;
 swap_workspaces trades all workspaces of two outputs and what they show."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -26,7 +25,7 @@ def config(primary="HEADLESS-1", second_tiling="true"):
 
 
 with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
-    msg, log = desktop.msg, desktop.log
+    msg = desktop.msg
 
     def outputs():
         return {row[0]: tuple(int(v) for v in row[2:6]) for row in desktop.rows("outputs")}
@@ -55,16 +54,6 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
 
     desktop.detail = lambda: f"windows: {windows()}, shown: {shown()}"
 
-    reloads = 0
-
-    def reload(text):
-        global reloads
-        reloads += 1
-        desktop.config.write_text(text)
-        desktop.server.send_signal(signal.SIGHUP)
-        desktop.wait_for(lambda: log.read_text().count("Configuration reloaded") == reloads,
-                         "reload")
-
     def launch(title):
         desktop.spawn([probe, "--window-only"],
                       env={"PAW_PROBE_TITLE": title,
@@ -83,7 +72,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
     msg("output", "HEADLESS-1", "workspace", "2")
     launch("C")
     msg("output", "HEADLESS-1", "workspace", "1")
-    reload(config(primary="HEADLESS-2"))
+    desktop.reload(config(primary="HEADLESS-2"))
     launch("D")
     desktop.wait_for(lambda: all(w[1] for w in windows().values()), "all tiled")
     ratio = layout("HEADLESS-1", 1)
@@ -142,7 +131,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
 
     # An output that does not tile: tiles float there, and its floating windows tile.
     msg("output", "HEADLESS-1", "workspace", "1")
-    reload(config(primary="HEADLESS-2", second_tiling="false"))
+    desktop.reload(config(primary="HEADLESS-2", second_tiling="false"))
     desktop.wait_for(lambda: not windows()["D"][1], "D floats on HEADLESS-2")
     msg("output", "HEADLESS-1", "move_workspace_to_output", "HEADLESS-2")
     desktop.wait_for(lambda: place("A") == (1, "HEADLESS-2") and place("D") == (1, "HEADLESS-1"),
