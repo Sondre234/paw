@@ -18,9 +18,8 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     msg, wait_for = desktop.msg, desktop.wait_for
 
     def windows():
-        rows = desktop.rows("windows")
-        return {r[9]: dict(workspace=int(r[0]), focused=r[1] == "1", minimized=r[2] == "1")
-                for r in rows}
+        return {w.title: dict(workspace=w.workspace, focused=w.focused, minimized=w.minimized)
+                for w in desktop.windows()}
 
     def focused():
         return next((t for t, w in windows().items() if w["focused"]), None)

@@ -35,7 +35,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         return {row[1]: (row[2], row[3]) for row in desktop.rows("window_icons")}
 
     def titles():
-        return [row[9] for row in desktop.rows("windows")]
+        return [w.title for w in desktop.windows()]
 
     desktop.detail = lambda: f"icons: {icons()}"
 

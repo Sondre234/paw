@@ -38,14 +38,10 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         return rows[0] if rows else None
 
     def focused():
-        return [row[9] for row in desktop.rows("windows") if row[1] == "1"]
-
-    def key(code):
-        for state in ("press", "release"):
-            msg("headless_keyboard", "key", "keys", str(code), state)
+        return [w.title for w in desktop.windows() if w.focused]
 
     desktop.start()
-    msg("headless_keyboard", "add", "keys")
+    key = desktop.keyboard()
     desktop.spawn([shell, "--config", str(desktop.config)], log="shell.log")
     desktop.detail = lambda: f"layers: {desktop.rows('layers')}\n{log()[-1500:]}"
     desktop.wait_for(lambda: "paw surface rendered: paw taskbar" in log(),

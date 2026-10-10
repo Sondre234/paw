@@ -27,7 +27,7 @@ with harness.Compositor(compositor, CONFIG % "false") as desktop:
 
     def windows():
         """title -> the window's row of `get windows`."""
-        return {row[9]: row for row in desktop.rows("windows")}
+        return {w.title: w for w in desktop.windows()}
 
     def stacking():
         """(title, layer) of every window, front to back."""
@@ -40,10 +40,10 @@ with harness.Compositor(compositor, CONFIG % "false") as desktop:
         return dict(stacking())[title]
 
     def above(title):
-        return windows()[title][15] == "1"
+        return windows()[title].above
 
     def focused():
-        return [title for title, row in windows().items() if row[1] == "1"]
+        return [title for title, w in windows().items() if w.focused]
 
     desktop.detail = lambda: f"stacking: {stacking()}\nwindows: {windows()}"
     clients = {}
@@ -64,7 +64,7 @@ with harness.Compositor(compositor, CONFIG % "false") as desktop:
         launch(title)
     assert order() == ["C", "B", "A"], stacking()
     assert {layer(t) for t in "ABC"} == {"normal"}, stacking()
-    assert len(windows()["A"]) == 16 and not any(above(t) for t in "ABC"), windows()
+    assert not any(above(t) for t in "ABC"), windows()
 
     # Kept above, A stays over the others as they are focused and raised.
     focus("A")
@@ -99,13 +99,13 @@ with harness.Compositor(compositor, CONFIG % "false") as desktop:
     msg("toggle_sticky")
     msg("workspace", "2")
     focus("D")
-    assert windows()["A"][13] == "1" and order()[0] == "A", stacking()
+    assert windows()["A"].sticky and order()[0] == "A", stacking()
     msg("workspace", "1")
     focus("C")
     assert order()[0] == "A", stacking()
     focus("A")
     msg("toggle_sticky")
-    assert windows()["A"][13] == "0" and layer("A") == "above", stacking()
+    assert not windows()["A"].sticky and layer("A") == "above", stacking()
 
     # Snapped, it stays above.
     msg("snap_left")
@@ -122,7 +122,7 @@ with harness.Compositor(compositor, CONFIG % "false") as desktop:
     msg("headless_output", "add", "HEADLESS-2")
     desktop.wait_for(lambda: len(desktop.rows("outputs")) == 2, "the second output")
     launch("F")
-    assert windows()["F"][10] == "HEADLESS-2", windows()
+    assert windows()["F"].output == "HEADLESS-2", windows()
     assert layer("C") == "fullscreen" and order().index("C") < order().index("A"), stacking()
     focus("B")
     assert order()[:2] == ["A", "B"] and layer("C") == "normal", stacking()
@@ -141,12 +141,12 @@ with harness.Compositor(compositor, CONFIG % "false") as desktop:
     focus("A")
     msg("group_toggle")
     launch("E")
-    assert windows()["E"][14] == windows()["A"][14] != "0", windows()
+    assert windows()["E"].group == windows()["A"].group != 0, windows()
     assert above("E") and layer("E") == "above", stacking()
     focus("C")
     assert order()[0] == "E", stacking()
     focus("A")  # the other tab, which takes the slot
-    assert windows()["E"][11] == "0", windows()
+    assert not windows()["E"].visible, windows()
     assert above("A") and order()[0] == "A", stacking()
     # Let go, every member is.
     msg("toggle_above")
@@ -156,10 +156,7 @@ with harness.Compositor(compositor, CONFIG % "false") as desktop:
     # A rule keeps a window above as it opens, focused or not.
     launch("Pinned")
     assert above("Pinned") and stacking()[0] == ("Pinned", "above"), stacking()
-    clients["Quiet"] = desktop.spawn([probe, "--window-only"],
-                                     env={"PAW_PROBE_TITLE": "Quiet",
-                                          "PAW_PROBE_APP_ID": "app-Quiet"})
-    desktop.wait_for(lambda: "Quiet" in windows(), "Quiet open")
+    clients["Quiet"] = desktop.open_window(probe, "Quiet", "app-Quiet")
     assert focused() == ["Pinned"] and above("Quiet"), windows()
     assert stacking()[:2] == [("Quiet", "above"), ("Pinned", "above")], stacking()
     focus("Pinned")
@@ -176,7 +173,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     msg = desktop.msg
 
     def windows():
-        return {row[9]: row for row in desktop.rows("windows")}
+        return {w.title: w for w in desktop.windows()}
 
     def stacking():
         return [(row[1], row[3]) for row in desktop.rows("stacking")]
@@ -186,16 +183,16 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     def focus(title):
         subprocess.run([probe, "--activate", f"app-{title}"], env=desktop.env, check=True,
                        timeout=30, stdout=subprocess.DEVNULL)
-        desktop.wait_for(lambda: windows()[title][1] == "1", f"{title} focused")
+        desktop.wait_for(lambda: windows()[title].focused, f"{title} focused")
 
     for title in "ABC":
         desktop.spawn([probe, "--window-only"], env={"PAW_PROBE_TITLE": title,
                                                      "PAW_PROBE_APP_ID": f"app-{title}"})
-        desktop.wait_for(lambda: title in windows() and windows()[title][3] == "1",
+        desktop.wait_for(lambda: title in windows() and windows()[title].tiled,
                          f"{title} tiled")
     focus("B")
     msg("toggle_above")
-    assert windows()["B"][3] == "1" and stacking()[0] == ("B", "above"), stacking()
+    assert windows()["B"].tiled and stacking()[0] == ("B", "above"), stacking()
     focus("A")
     assert stacking() == [("B", "above"), ("A", "normal"), ("C", "normal")], stacking()
     focus("B")
@@ -221,7 +218,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     assert stacking() == [("B", "floating"), ("C", "floating"), ("A", "normal")], stacking()
     focus("C")
     msg("toggle_floating")
-    assert windows()["C"][3] == "1", windows()
+    assert windows()["C"].tiled, windows()
     assert stacking() == [("B", "floating"), ("C", "normal"), ("A", "normal")], stacking()
     # Off again, the floating windows go back among the tiles, in front.
     desktop.reload(CONFIG % "true")

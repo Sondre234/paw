@@ -34,10 +34,6 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         rows = [row[3:5] for row in desktop.rows("layers") if row[0] == namespace]
         return rows[0] if rows else None
 
-    def key(code):
-        for state in ("press", "release"):
-            msg("headless_keyboard", "key", "keys", str(code), state)
-
     def copy(text, name, previous=None):
         """Copies `text` as a program does, and waits until the shell has read it; the program
         that copied `previous` ends as it is replaced."""
@@ -54,7 +50,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
                               timeout=10).stdout.decode()
 
     desktop.start()
-    msg("headless_keyboard", "add", "keys")
+    key = desktop.keyboard()
     desktop.spawn([shell, "--config", str(desktop.config)], log="shell.log")
     desktop.detail = lambda: f"layers: {desktop.rows('layers')}\n{log()[-1500:]}"
     desktop.wait_for(lambda: "paw surface rendered: paw taskbar" in log(),

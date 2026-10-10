@@ -42,7 +42,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
 
     def windows():
         """By app id: whether the window is shown, and its title."""
-        return {row[8]: (row[11] == "1", row[9]) for row in desktop.rows("windows")}
+        return {w.app_id: (w.visible, w.title) for w in desktop.windows()}
 
     def body_pixels():
         """How many pixels around the switcher have the windows' colour, or None without grim."""

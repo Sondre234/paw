@@ -23,10 +23,10 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     def windows():
         """By title: workspace, focused, minimized, tiled, x, y, width, height, visible,
         scratchpad."""
-        return {r[9]: dict(workspace=int(r[0]), focused=r[1] == "1", minimized=r[2] == "1",
-                           tiled=r[3] == "1", x=int(r[4]), y=int(r[5]), width=int(r[6]),
-                           height=int(r[7]), visible=r[11] == "1", scratchpad=r[12] == "1")
-                for r in desktop.rows("windows")}
+        return {w.title: dict(workspace=w.workspace, focused=w.focused, minimized=w.minimized,
+                              tiled=w.tiled, x=w.x, y=w.y, width=w.width,
+                              height=w.height, visible=w.visible, scratchpad=w.scratchpad)
+                for w in desktop.windows()}
 
     def used():
         return msg("get", "workspaces").split("\t")[3]
@@ -46,9 +46,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
                 abs(w["y"] + w["height"] / 2 - 360) <= 2)
 
     for title in ("A", "B"):
-        desktop.spawn([probe, "--window-only"], env={"PAW_PROBE_TITLE": title})
-        wait_for(lambda: title in windows() and windows()[title]["focused"],
-                 f"{title} mapped")
+        desktop.open_window(probe, title, focused=True)
     wait_for(lambda: all(w["tiled"] for w in windows().values()), "A and B tiled")
 
     # Nothing in the scratchpad: showing it does nothing.
@@ -112,7 +110,6 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     wait_for(lambda: hidden("B"), "B hidden before turning the scratchpad off")
     msg("workspace", "1")
     desktop.reload(CONFIG % "false")
-    wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
     wait_for(lambda: not windows()["B"]["scratchpad"] and windows()["B"]["visible"] and
              not windows()["B"]["minimized"] and windows()["B"]["workspace"] == 1,
              "B back on workspace 1")

@@ -24,9 +24,9 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     def windows():
         """{title: (focused, centre)} of every window."""
         found = {}
-        for row in desktop.rows("windows"):
-            x, y, w, h = (int(n) for n in row[4:8])
-            found[row[9]] = (row[1] == "1", (x + w // 2, y + h // 2))
+        for row in desktop.windows():
+            x, y, w, h = row.box
+            found[row.title] = (row.focused, (x + w // 2, y + h // 2))
         return found
 
     def log(name):

@@ -19,8 +19,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
 
     def windows():
         """(focused, tiled, x, y, width, height) per window."""
-        rows = desktop.rows("windows")
-        return [(r[1] == "1", r[3] == "1", *map(int, r[4:8])) for r in rows]
+        return [(w.focused, w.tiled, *w.box) for w in desktop.windows()]
 
     def rects():
         return sorted(w[2:] for w in windows())

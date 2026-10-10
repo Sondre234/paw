@@ -1,24 +1,22 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Input methods, as fcitx5 and ibus are: the compositor relays between an application's text
-input (text-input-unstable-v3, `text_input_probe`) and the input method (input-method-unstable-v2,
-`input_method_probe`). The text input of the window with the keyboard activates the input method
-as it is enabled, and deactivates it as it is disabled, and tells it its surrounding text, content
-type and text cursor; the input method's preedit,
-committed text and deletions go back to it. Its keyboard grab gets the keys no binding takes, and
-what it passes on through its virtual keyboard reaches the window. Its popup sits under the text
-cursor, kept on the output, above it where there is no room below, drawn over the window and under
-the overlays. Focus moving between windows, either client going away and the session locking leave
-both sides consistent, and a second input method is told it is unavailable. `get input_method`
-shows it all."""
+"""Input methods, as fcitx5 and ibus are: the compositor relays between an application's text input
+(text-input-unstable-v3, `input_probe --text-input`) and the input method (input-method-unstable-v2,
+`input_method_probe`). The text input of the window with the keyboard activates the input method as
+it is enabled, and deactivates it as it is disabled, and tells it its surrounding text, content type
+and text cursor; the input method's preedit, committed text and deletions go back to it. Its
+keyboard grab gets the keys no binding takes, and what it passes on through its virtual keyboard
+reaches the window. Its popup sits under the text cursor, kept on the output, above it where there
+is no room below, drawn over the window and under the overlays. Focus moving between windows, either
+client going away and the session locking leave both sides consistent, and a second input method is
+told it is unavailable. `get input_method` shows it all."""
 from pathlib import Path
 import subprocess
 import sys
 
 import harness
 
-compositor, text_probe, method_probe, lock_probe, input_probe = (
-    str(Path(p).resolve()) for p in sys.argv[1:6])
-grim = sys.argv[6] if len(sys.argv) > 6 else ""
+compositor, method_probe, lock_probe, input_probe = (str(Path(p).resolve()) for p in sys.argv[1:5])
+grim = sys.argv[5] if len(sys.argv) > 5 else ""
 
 CONFIG = """return {
     xwayland = false,
@@ -49,11 +47,11 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         return log(name)[mark:]
 
     def focused():
-        return next((r[9] for r in desktop.rows("windows") if r[1] == "1"), None)
+        return next((w.title for w in desktop.windows() if w.focused), None)
 
     def origin(title):
         """Where the window is in the layout."""
-        return next((int(r[4]), int(r[5])) for r in desktop.rows("windows") if r[9] == title)
+        return next((w.x, w.y) for w in desktop.windows() if w.title == title)
 
     def state():
         """(connected, active, grabbing), the text inputs as (enabled, served, surface's window)
@@ -73,16 +71,9 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         process.stdin.write(command + "\n")
         process.stdin.flush()
 
-    def press(*codes):
-        """Presses the keys in order, then releases them the other way round."""
-        for code in codes:
-            msg("headless_keyboard", "key", "keys", str(code), "press")
-        for code in reversed(codes):
-            msg("headless_keyboard", "key", "keys", str(code), "release")
-
     def window(title):
-        process = desktop.spawn([text_probe, title], log=f"{title}.log", stdin=subprocess.PIPE,
-                                text=True, **UTF8)
+        process = desktop.spawn([input_probe, "--text-input", title], log=f"{title}.log",
+                                stdin=subprocess.PIPE, text=True, **UTF8)
         desktop.wait_for(lambda: "ready" in log(title) and focused() == title,
                          f"{title} mapped and focused")
         return process
@@ -103,7 +94,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
             f"cause {OTHER}", f"content_type {SPELLCHECK} {NORMAL}", "done"]
 
     desktop.detail = lambda: f"input method: {state()}, focused: {focused()}"
-    msg("headless_keyboard", "add", "keys")
+    press = desktop.keyboard()
 
     # Without an input method, the text input waits.
     writer = window("Writer")
@@ -206,8 +197,8 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         desktop.reap(bar)
     # A search field on the overlay layer, as the shell's start menu is, takes the keyboard: the
     # input method serves it, and its popup follows it and is drawn over the overlay.
-    search = desktop.spawn([text_probe, "--overlay", "Search"], log="Search.log",
-                           stdin=subprocess.PIPE, text=True, **UTF8)
+    search = desktop.spawn([input_probe, "--text-input", "--overlay", "Search"],
+                           log="Search.log", stdin=subprocess.PIPE, text=True, **UTF8)
     desktop.wait_for(lambda: served() == "Search", "the input method serving the search field")
     tell(search, "cursor 40 0 2 20")  # the field is 400 by 60 at the middle of the top edge
     desktop.wait_for(lambda: state()[2] == [(True, 480, 20, 200, 100)], "the popup at the field")

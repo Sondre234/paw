@@ -13,8 +13,7 @@ with harness.Compositor(compositor, source) as desktop:
     msg = desktop.msg
 
     def windows():
-        rows = desktop.rows("windows")
-        return {row[8]: (int(row[0]), row[1] == "1") for row in rows}
+        return {w.app_id: (w.workspace, w.focused) for w in desktop.windows()}
 
     assert msg("get", "workspace") == "1\n"
     assert "needs a workspace from 1 to 4" in msg("workspace", "9", ok=False)

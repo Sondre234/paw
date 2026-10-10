@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Verify real Qt layer surfaces, reserved space, and reload on a private compositor."""
 from pathlib import Path
-import shutil
 import signal
 import subprocess
 import sys
@@ -60,7 +59,7 @@ with harness.Compositor(compositor, source, start=False) as desktop:
     desktop.wait_for(lambda: "paw launcher closed on" in shell_log.read_text(),
                      "launcher closed")
     # The palette action opens the command palette as an overlay holding the keyboard;
-    # Escape (typed with wtype where it is installed) closes it again.
+    # Escape closes it again.
     msg("palette")
     desktop.wait_for(lambda: "paw palette shown on" in shell_log.read_text(),
                      "palette shown")
@@ -68,22 +67,20 @@ with harness.Compositor(compositor, source, start=False) as desktop:
         return msg("get", "layers")
     desktop.wait_for(lambda: "paw-palette" in layers(), "palette surface mapped",
                      detail=layers)
-    wtype = shutil.which("wtype")
-    if wtype:
-        # Typed again until it lands: on a loaded machine the palette can map a moment before
-        # it holds the keyboard, and an Escape typed in between goes elsewhere.
-        def hidden():
-            return "paw palette hidden on" in shell_log.read_text()
-        for _ in range(10):
-            subprocess.run([wtype, "-k", "Escape"], env=env, check=True, timeout=30)
-            try:
-                desktop.wait_for(hidden, "palette closed with Escape", timeout=1)
-                break
-            except harness.Timeout:
-                pass
-        assert hidden(), "palette closed with Escape"
-    else:
-        msg("palette")
+    # Typed again until it lands: on a loaded machine the palette can map a moment before it
+    # holds the keyboard, and an Escape typed in between goes elsewhere.
+    press = desktop.keyboard()
+
+    def hidden():
+        return "paw palette hidden on" in shell_log.read_text()
+    for _ in range(10):
+        press(1)  # Escape
+        try:
+            desktop.wait_for(hidden, "palette closed with Escape", timeout=1)
+            break
+        except harness.Timeout:
+            pass
+    assert hidden(), "palette closed with Escape"
     # A live panel-height change must alter maximized client geometry.
     config.write_text(source.replace("panel_height = 52", "panel_height = 72"))
     panels.send_signal(signal.SIGHUP)

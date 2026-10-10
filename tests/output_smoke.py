@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Apply outputs.monitors to three headless outputs, then change them on reload."""
 from pathlib import Path
-import signal
 import subprocess
 import sys
 
@@ -49,12 +48,6 @@ with harness.Compositor(compositor, FIRST, env={"WLR_HEADLESS_OUTPUTS": "3"}) as
                                 text=True, timeout=30, check=True)
         return result.stdout.split().count("wl_output")
 
-    def reload(text, count):
-        desktop.config.write_text(text)
-        desktop.server.send_signal(signal.SIGHUP)
-        desktop.wait_for(lambda: log.read_text().count("Configuration reloaded") == count,
-                         "reload")
-
     state = outputs()
     # 1600x900 at 1.25 is 1280x720 logical; the unpositioned rotated output follows
     # the rightmost positioned one. The layout shifts right by 1280 so it starts at 0:
@@ -67,7 +60,7 @@ with harness.Compositor(compositor, FIRST, env={"WLR_HEADLESS_OUTPUTS": "3"}) as
                                    "1080x1920@0.000"), state
     assert advertised() == 3
 
-    reload(SECOND, 1)
+    desktop.reload(SECOND)
     state = outputs()
     assert state["HEADLESS-2"][0] is False, state
     # Headless outputs have no modes to fall back to, so HEADLESS-3 keeps its custom
@@ -77,13 +70,13 @@ with harness.Compositor(compositor, FIRST, env={"WLR_HEADLESS_OUTPUTS": "3"}) as
     assert state["HEADLESS-1"][5:7] == (1.0, 0), state
     assert advertised() == 2, "a disabled output is still advertised"
 
-    reload(THIRD, 2)
+    desktop.reload(THIRD)
     state = outputs()
     assert sum(enabled for enabled, *_ in state.values()) == 1, state
     assert "it is the only output" in log.read_text()
     assert advertised() == 1
 
-    reload(FIRST, 3)
+    desktop.reload(FIRST)
     state = outputs()
     assert all(enabled for enabled, *_ in state.values()), state
     assert state["HEADLESS-2"][1:3] == (1280, 0), state

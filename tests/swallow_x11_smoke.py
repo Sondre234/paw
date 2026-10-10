@@ -22,9 +22,9 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     def windows():
         """app_id -> (tiled, x, y, width, height, visible, focused)."""
         rows = {}
-        for f in desktop.rows("windows"):
-            rows[f[8]] = (f[3] == "1", int(f[4]), int(f[5]), int(f[6]), int(f[7]), f[11] == "1",
-                          f[1] == "1")
+        for w in desktop.windows():
+            rows[w.app_id] = (w.tiled, w.x, w.y, w.width, w.height, w.visible,
+                              w.focused)
         return rows
 
     terminal = desktop.spawn([wayland_probe, "--window-only"],

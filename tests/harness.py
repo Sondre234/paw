@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Helpers shared by the integration tests."""
+import codecs
 import os
 from pathlib import Path
 import re
+import socket
 import subprocess
 import sys
 import tempfile
 import time
+from typing import NamedTuple
 
 
 class Timeout(AssertionError):
@@ -41,6 +44,86 @@ def disjoint(rects):
     return all(a[0] + a[2] <= b[0] or b[0] + b[2] <= a[0] or
                a[1] + a[3] <= b[1] or b[1] + b[3] <= a[1]
                for i, a in enumerate(rects) for b in rects[i + 1:])
+
+
+class Window(NamedTuple):
+    """A line of `get windows`."""
+    workspace: int
+    focused: bool
+    minimized: bool  # or hidden in the scratchpad
+    tiled: bool
+    x: int
+    y: int
+    width: int
+    height: int
+    app_id: str
+    title: str
+    output: str
+    visible: bool
+    scratchpad: bool
+    sticky: bool
+    group: int  # 0 for none
+    above: bool
+
+    @classmethod
+    def parse(cls, fields):
+        return cls(*(kind(value) if kind is not bool else value == "1"
+                     for kind, value in zip(cls.__annotations__.values(), fields)))
+
+    @property
+    def box(self):
+        """x, y, width and height."""
+        return self.x, self.y, self.width, self.height
+
+
+class Subscriber:
+    """The control socket's stream of events, as the shell hears it (`subscribe`, or
+    `subscribe shell` with shell=True). Nothing blocks: each look takes what has arrived."""
+
+    def __init__(self, path, shell=False):
+        self.socket = socket.socket(socket.AF_UNIX)
+        self.socket.connect(path)
+        self.socket.sendall(b"subscribe shell\n" if shell else b"subscribe\n")
+        self.socket.setblocking(False)
+        self._decoder = codecs.getincrementaldecoder("utf-8")()
+        self._heard = ""
+
+    def text(self):
+        """Everything heard so far (but what forget() let go of)."""
+        try:
+            while data := self.socket.recv(65536):
+                self._heard += self._decoder.decode(data)
+        except BlockingIOError:
+            pass
+        return self._heard
+
+    def lines(self, *prefixes):
+        """The whole lines heard so far, those starting with one of `prefixes` if given."""
+        text = self.text()
+        lines = text[:text.rfind("\n") + 1].splitlines()
+        return [line for line in lines if line.startswith(prefixes)] if prefixes else lines
+
+    def last(self, prefix):
+        """The last line heard that starts with `prefix`, or None."""
+        found = self.lines(prefix)
+        return found[-1] if found else None
+
+    def values(self, prefix, changes=False):
+        """What follows `prefix` on each whole line heard that starts with it; with changes,
+        each once until it changes, as a state the compositor sends after every change of
+        anything repeats."""
+        found = [line[len(prefix):] for line in self.lines(prefix)]
+        if changes:
+            found = [value for i, value in enumerate(found) if i == 0 or found[i - 1] != value]
+        return found
+
+    def forget(self):
+        """Lets go of the whole lines the last look took in (and those before): the next looks
+        start from there."""
+        self._heard = self._heard[self._heard.rfind("\n") + 1:]
+
+    def close(self):
+        self.socket.close()
 
 
 def end(process):
@@ -90,6 +173,7 @@ class Compositor:
         self.server = None
         self.bus = None
         self.clients = []
+        self._subscribers = []
         self._started = []  # everything, to end even after a failure
         # Called for wait_for's and stays' failure messages when they are given none.
         self.detail = None
@@ -120,6 +204,8 @@ class Compositor:
             for process in reversed(self._started):
                 end(process)
             self.clients.clear()
+            for subscriber in self._subscribers:
+                subscriber.close()
             if failed:
                 for path in self.logs:
                     if path.exists():
@@ -184,11 +270,38 @@ class Compositor:
         """The tab-separated fields of each line `get REQUEST` prints."""
         return [line.split("\t") for line in self.msg("get", request, *words).splitlines()]
 
+    def windows(self, request="windows"):
+        """A Window per line of `get windows`, the oldest first; or of `get urgent`, which lists
+        the urgent windows the same way."""
+        return [Window.parse(fields) for fields in self.rows(request)]
+
+    def open_window(self, probe, title, app_id=None, *, focused=False, args=("--window-only",),
+                    env=None, **options):
+        """Starts `probe` (wayland_probe) with `args` as a window titled `title`, of `app_id` if
+        given, and waits until it has mapped, and has the focus if asked; returns its process.
+        `env` and `options` go to spawn()."""
+        env = {"PAW_PROBE_TITLE": title, **({"PAW_PROBE_APP_ID": app_id} if app_id else {}),
+               **(env or {})}
+        process = self.spawn([probe, *args], env=env, **options)
+        self.wait_for(lambda: any(w.title == title and (w.focused or not focused)
+                                  for w in self.windows()),
+                      f"{title} mapped" + (" and focused" if focused else ""))
+        return process
+
+    def reloads(self):
+        """How many times the compositor has reloaded its configuration."""
+        return self.log.read_text().count("Configuration reloaded")
+
     def reload(self, config=None):
-        """Writes `config` (if given) to init.lua and reloads it; done when this returns."""
+        """Writes `config` (if given) to init.lua and reloads it; done when this returns. A file
+        with an error reloads as the default configuration; one the compositor keeps the old
+        configuration over fails the test."""
         if config is not None:
             self.config.write_text(config)
+        before = self.reloads()
         self.msg("reload")
+        assert self.reloads() > before, "the reload was rejected: " + "".join(
+            line for line in self.log.read_text().splitlines(True) if "Reload rejected" in line)
 
     def spawn(self, command, env=None, log=None, **options):
         """Starts a client of the compositor, ended on the way out. `env` adds to the
@@ -238,6 +351,32 @@ class Compositor:
 
         pointer.process = process
         return pointer
+
+    def subscribe(self, shell=False):
+        """A Subscriber to this compositor's events, closed on the way out."""
+        subscriber = Subscriber(self.env["PAW_SOCKET"], shell)
+        self._subscribers.append(subscriber)
+        return subscriber
+
+    def keyboard(self, name="keys"):
+        """Plugs in a headless keyboard. Returns a function that types on it: each argument an
+        evdev key code, pressed in that order and released the other way round, so that
+        press(125, 15) is Super+Tab; press.down(code) and press.up(code) hold a key and let it
+        go."""
+        self.msg("headless_keyboard", "add", name)
+
+        def key(code, state):
+            self.msg("headless_keyboard", "key", name, str(code), state)
+
+        def press(*codes):
+            for code in codes:
+                key(code, "press")
+            for code in reversed(codes):
+                key(code, "release")
+
+        press.down = lambda code: key(code, "press")
+        press.up = lambda code: key(code, "release")
+        return press
 
     def private_bus(self):
         """Starts a dbus-daemon of the test's own as the session bus, for the compositor and

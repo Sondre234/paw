@@ -15,8 +15,7 @@ with harness.Compositor(compositor, Path(example).read_text()
 
     def windows():
         """(workspace, focused, tiled, x, y, width, height) per window, oldest first."""
-        rows = desktop.rows("windows")
-        return [(int(r[0]), r[1] == "1", r[3] == "1", *map(int, r[4:8])) for r in rows]
+        return [(w.workspace, w.focused, w.tiled, *w.box) for w in desktop.windows()]
 
     desktop.detail = lambda: f"windows: {windows()}"
 
@@ -27,22 +26,11 @@ with harness.Compositor(compositor, Path(example).read_text()
         return (left[1] == right[1] and left[3] == right[3] and
                 left[0] + left[2] + GAP == right[0])
 
-    events = b""
-
-    def received(line):
-        global events
-        subscriber.setblocking(False)
-        try:
-            while chunk := subscriber.recv(4096):
-                events += chunk
-        except BlockingIOError:
-            pass
-        return line.encode() in events
+    def received(text):
+        return text in subscriber.text()
 
     assert msg("get", "tiling") == "off\n"
-    subscriber = socket.socket(socket.AF_UNIX)
-    subscriber.connect(env["PAW_SOCKET"])
-    subscriber.sendall(b"subscribe\n")
+    subscriber = desktop.subscribe()
     desktop.wait_for(lambda: received("ok\ntiling off\nworkspace 1\n"), "subscription state")
 
     def launch():

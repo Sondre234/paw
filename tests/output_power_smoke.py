@@ -33,7 +33,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
 
     def windows():
         """(workspace, output, visible) per window."""
-        return [(int(r[0]), r[10], r[11] == "1") for r in desktop.rows("windows")]
+        return [(w.workspace, w.output, w.visible) for w in desktop.windows()]
 
     def frames():
         return int(desktop.rows("stats")[0][0])
@@ -174,7 +174,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     def placed():
         """(output, power of its monitor) per window."""
         power = {r[0]: r[10] for r in desktop.rows("outputs")}
-        return [(r[10], power.get(r[10])) for r in desktop.rows("windows")]
+        return [(w.output, power.get(w.output)) for w in desktop.windows()]
 
     msg("output", "HEADLESS-2", "workspace", "1")
     desktop.spawn([probe, "--window-only"])

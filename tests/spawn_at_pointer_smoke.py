@@ -25,7 +25,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
 
     def windows():
         """By title: x, y, width, height."""
-        return {r[9]: tuple(int(n) for n in r[4:8]) for r in desktop.rows("windows")}
+        return {w.title: w.box for w in desktop.windows()}
 
     desktop.detail = lambda: f"windows: {windows()}"
     wait_for = desktop.wait_for
@@ -48,7 +48,6 @@ with harness.Compositor(compositor, CONFIG) as desktop:
 
     # A window opened otherwise cascades as usual, wherever the pointer is.
     pointer("move", "900", "400")
-    desktop.spawn([probe, "--window-only"], env={"PAW_PROBE_TITLE": "O"})
-    wait_for(lambda: "O" in windows(), "other window mapped")
+    desktop.open_window(probe, "O")
     assert windows()["O"][:2] != (740, 280), windows()
 print("Windows spawned by a button binding open at the pointer")

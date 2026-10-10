@@ -39,14 +39,15 @@ with tempfile.TemporaryDirectory(prefix="paw-ui-") as directory:
         width, height = struct.unpack(">II", image[16:24])
         assert width >= 640 and height >= 300 and len(image) > 1000, "empty or undersized rendering"
     # A wallpaper that is missing when the shell starts is retried until it loads. Random
-    # pixels keep the screenshot large, while the fallback gradient compresses to little.
+    # pixels keep the screenshot large, while the fallback gradient compresses to little. The
+    # retry comes a second after the failure, which comes at once.
     late = root / "late.png"
     late_config = root / "late.lua"
     late_config.write_text(f'return {{ version = 1, shell = {{ wallpaper = "{late}" }} }}\n')
     screenshot = root / "late-desktop.png"
     shell = subprocess.Popen(
         [executable, "--config", str(late_config), "--preview", "--preview-desktop",
-         "--quit-after", "4000", "--screenshot", str(screenshot)],
+         "--quit-after", "2500", "--screenshot", str(screenshot)],
         env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     # Write the file only once the shell has failed to load it, however slowly it starts.
     seen = ""

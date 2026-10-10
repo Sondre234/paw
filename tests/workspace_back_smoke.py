@@ -30,8 +30,7 @@ with harness.Compositor(compositor, CONFIG % "false",
         return current()[output]
 
     def windows():
-        rows = desktop.rows("windows")
-        return {row[8]: (int(row[0]), row[10], row[11] == "1") for row in rows}
+        return {w.app_id: (w.workspace, w.output, w.visible) for w in desktop.windows()}
 
     desktop.wait_for(lambda: len(current()) == 2, "two outputs")
     assert "takes no argument" in msg("workspace_back", "2", ok=False)

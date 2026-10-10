@@ -6,7 +6,6 @@ switch's binding change it, a reload and locking the session leave it. The bindi
 actions, without a shell, so that a stand-in for wpctl writes down each one that runs."""
 from pathlib import Path
 import os
-import socket
 import sys
 
 import harness
@@ -64,29 +63,14 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         for name in reversed(names):
             msg("headless_keyboard", "key", "keys", str(KEYS[name]), "release")
 
-    class Subscriber:
-        """The binding modes the control socket's state stream announced, in order, without
-        repeats."""
-
-        def __init__(self):
-            self.socket = socket.socket(socket.AF_UNIX)
-            self.socket.connect(desktop.env["PAW_SOCKET"])
-            self.socket.sendall(b"subscribe\n")
-            self.socket.settimeout(0.05)
-            self.buffer = ""
-
-        def heard(self):
-            try:
-                while data := self.socket.recv(8192):
-                    self.buffer += data.decode()
-            except socket.timeout:
-                pass
-            lines = [line for line in self.buffer.splitlines() if line.startswith("mode ")]
-            return [line for i, line in enumerate(lines) if i == 0 or lines[i - 1] != line]
-
     desktop.detail = lambda: f"mode {mode()}, called {called()}"
-    subscriber = Subscriber()
-    desktop.wait_for(lambda: subscriber.heard() == ["mode default"], "the first state")
+    subscriber = desktop.subscribe()
+
+    def heard():
+        """The binding modes subscribers were told of, in order, each once until it changes."""
+        return subscriber.values("mode ", changes=True)
+
+    desktop.wait_for(lambda: heard() == ["default"], "the first state")
     msg("headless_keyboard", "add", "keys")
     assert mode() == "default"
 
@@ -114,9 +98,8 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     press("Super", "Up")
     desktop.wait_for(lambda: called()[2:] == ["wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"],
                      "the bindings outside any mode again")
-    desktop.wait_for(lambda: subscriber.heard() == ["mode default", "mode sound", "mode resize",
-                                                    "mode default", "mode sound", "mode default"],
-                     "every change heard", detail=subscriber.heard)
+    desktop.wait_for(lambda: heard() == ["default", "sound", "resize", "default", "sound",
+                                         "default"], "every change heard", detail=heard)
 
     # paw msg names modes as the bindings do.
     msg("mode", "resize")
@@ -141,10 +124,8 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     assert desktop.reap(locker) == 0
     desktop.wait_for(lambda: "Session unlocked" in desktop.log.read_text(),
                      "the session unlocked")
-    desktop.wait_for(lambda: subscriber.heard()[6:] == ["mode resize", "mode default",
-                                                        "mode sound", "mode default",
-                                                        "mode sound", "mode default"],
-                     "the later changes heard", detail=subscriber.heard)
+    desktop.wait_for(lambda: heard()[6:] == ["resize", "default", "sound", "default", "sound",
+                                             "default"], "the later changes heard", detail=heard)
 
     # A switch's binding enters the mode it names.
     msg("headless_switch", "add", "tablet", "tablet")

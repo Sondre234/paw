@@ -19,7 +19,7 @@ CONFIG = """return {
     xwayland = false,
     layout = { tiling = false, workspaces = 4 },
     appearance = { background = '#000000' },
-    peek = { opacity = 0.25, duration = 400 },
+    peek = { opacity = 0.25, duration = 200 },
     animations = { enabled = true, duration = 10 },
 }"""
 FADED = 250  # a window's opacity while another is peeked at, in thousandths
@@ -27,7 +27,7 @@ FADED = 250  # a window's opacity while another is peeked at, in thousandths
 BAND, BODY, BLACK = (0x23, 0x31, 0x4a), (0x41, 0x7b, 0xc4), (0, 0, 0)
 # The windows open cascaded, 320 x 240 from (40, 40) on, each 32 pixels further. Points where
 # one shows, or would: A's body under B's band, and where only A, C or D is.
-CASCADE = {"A": ["40", "40"], "B": ["72", "72"], "C": ["104", "104"], "D": ["136", "136"]}
+CASCADE = {"A": (40, 40), "B": (72, 72), "C": (104, 104), "D": (136, 136)}
 UNDER_B, ONLY_A, ONLY_C, ONLY_D = (200, 90), (56, 200), (120, 328), (440, 256)
 FADED_BODY = tuple(round(c * FADED / 1000) for c in BODY)
 
@@ -35,8 +35,8 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     msg = desktop.msg
 
     def windows():
-        """title -> the window's row of `get windows` (workspace, focus, place, visibility)."""
-        return {row[9]: row for row in desktop.rows("windows")}
+        """title -> the window (workspace, focus, place, visibility)."""
+        return {w.title: w for w in desktop.windows()}
 
     def peeks():
         """title -> (peeked, drawn, stacked at, shown through a peek, opacity)."""
@@ -50,10 +50,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     clients = {}
 
     def launch(title):
-        clients[title] = desktop.spawn([probe, "--window-only"],
-                                       env={"PAW_PROBE_TITLE": title,
-                                            "PAW_PROBE_APP_ID": f"app-{title}"})
-        desktop.wait_for(lambda: title in windows(), f"{title} open")
+        clients[title] = desktop.open_window(probe, title, f"app-{title}")
 
     def control(title, *words):
         subprocess.run([window_probe, title, *words], env=desktop.env, check=True,
@@ -79,11 +76,11 @@ with harness.Compositor(compositor, CONFIG) as desktop:
 
     for title in "ABCD":
         launch(title)
-    assert {title: row[4:6] for title, row in windows().items()} == CASCADE, windows()
+    assert {title: (w.x, w.y) for title, w in windows().items()} == CASCADE, windows()
     # C minimized, D on workspace 2, which the output does not show: neither is drawn.
     control("C", "minimize")
     control("D", "workspace", "2")
-    desktop.wait_for(lambda: windows()["C"][2] == "1" and windows()["D"][0] == "2",
+    desktop.wait_for(lambda: windows()["C"].minimized and windows()["D"].workspace == 2,
                      "C minimized, D on workspace 2")
     desktop.wait_for(lambda: msg("get", "animations").split("\t")[0].strip() == "0",
                      "the windows settled")
@@ -140,7 +137,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     # and the others stay faded as the peek moves over. C stays minimized.
     peeker("peek", "C")
     desktop.stays(lambda: fade() == (1000, 0), "the others faded while the peek moves",
-                  duration=.6)
+                  duration=.4)
     desktop.wait_for(lambda: peeking("C"), "C peeked at")
     assert peeks()["A"][2] == stacked["A"][2], "A not back in its place"
     assert windows() == before, windows()
@@ -225,10 +222,10 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     desktop.wait_for(lambda: peeking("C"), "C peeked at")
     subprocess.run([probe, "--activate", "app-C"], env=desktop.env, check=True, timeout=30,
                    stdout=subprocess.DEVNULL)
-    desktop.wait_for(lambda: windows()["C"][1:3] == ["1", "0"], "C focused and restored")
+    desktop.wait_for(lambda: windows()["C"].focused and not windows()["C"].minimized, "C focused and restored")
     assert peeks()["C"][:3] == (0, 1, top), peeks()
     assert peeks()["C"][4] == 1000, "C dipped as the peek ended"
-    assert windows()["C"][4:8] == before["C"][4:8], (windows()["C"], before["C"])
+    assert windows()["C"].box == before["C"].box, (windows()["C"], before["C"])
     desktop.wait_for(lambda: fade() == (0, 0) and
                      all(row[4] == 1000 and row[3] == 0 for row in peeks().values()),
                      "the others back")

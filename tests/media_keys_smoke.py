@@ -4,7 +4,6 @@ XF86AudioPrev and XF86AudioStop to the media actions, which hand them to the she
 VERB" lines on the control socket's stream; `paw msg media_next` does the same. The shell's
 part, sending them on to a player, is media_smoke's."""
 from pathlib import Path
-import socket
 import sys
 
 import harness
@@ -18,51 +17,32 @@ KEYS = {"XF86AudioPlay": (200, "play-pause"), "XF86AudioPause": (201, "play-paus
 PLAY_PAUSE = 164  # the one key most keyboards have, XF86AudioPlay
 
 
-class Subscriber:
-    """The media lines the control socket's stream sent, as the shell reads them."""
-
-    def __init__(self, desktop):
-        self.socket = socket.socket(socket.AF_UNIX)
-        self.socket.connect(desktop.env["PAW_SOCKET"])
-        self.socket.sendall(b"subscribe\n")
-        self.socket.settimeout(0.05)
-        self.buffer = ""
-
-    def read(self):
-        """Everything heard so far."""
-        try:
-            while data := self.socket.recv(8192):
-                self.buffer += data.decode()
-        except socket.timeout:
-            pass
-        return self.buffer
-
-    def heard(self):
-        return [line[len("media "):] for line in self.read().splitlines()
-                if line.startswith("media ")]
-
-
 CONFIG = 'return { version = 1, extends = "default", xwayland = false }\n'
 
 with harness.Compositor(compositor, CONFIG,
                         env={"PAW_DEFAULT_CONFIG": default_config}) as desktop:
     msg = desktop.msg
-    subscriber = Subscriber(desktop)
-    desktop.wait_for(lambda: "tiling " in subscriber.read(), "the first state",
-                     detail=subscriber.read)
+    subscriber = desktop.subscribe()
+    desktop.wait_for(lambda: "tiling " in subscriber.text(), "the first state",
+                     detail=subscriber.text)
+
+    def heard():
+        """The media lines heard, as the shell reads them."""
+        return subscriber.values("media ")
+
     msg("headless_keyboard", "add", "media")
     expected = []
     for name, (code, verb) in list(KEYS.items()) + [("XF86AudioPlay", (PLAY_PAUSE, "play-pause"))]:
         msg("headless_keyboard", "key", "media", str(code), "press")
         msg("headless_keyboard", "key", "media", str(code), "release")
         expected.append(verb)
-        desktop.wait_for(lambda: subscriber.heard() == expected, f"{name} sent on",
-                         detail=subscriber.heard)
+        desktop.wait_for(lambda: heard() == expected, f"{name} sent on",
+                         detail=heard)
     for action, verb in [("media_play_pause", "play-pause"), ("media_next", "next"),
                          ("media_previous", "previous"), ("media_stop", "stop")]:
         msg(action)
         expected.append(verb)
-        desktop.wait_for(lambda: subscriber.heard() == expected, f"{action} sent on",
-                         detail=subscriber.heard)
+        desktop.wait_for(lambda: heard() == expected, f"{action} sent on",
+                         detail=heard)
     # They take no argument.
     assert "takes no argument" in msg("media_next", "now", ok=False)

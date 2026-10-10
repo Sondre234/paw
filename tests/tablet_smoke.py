@@ -28,7 +28,7 @@ with harness.Compositor(compositor, CONFIG % "") as desktop:
     msg = desktop.msg
 
     def windows():
-        return {r[9]: r[1] == "1" for r in desktop.rows("windows")}
+        return {w.title: w.focused for w in desktop.windows()}
 
     def log(name):
         return (desktop.root / f"{name}.log").read_text().splitlines()

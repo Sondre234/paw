@@ -16,7 +16,9 @@ spec.loader.exec_module(gallery)
 popups = sys.argv[4:] or gallery.POPUPS
 
 with tempfile.TemporaryDirectory(prefix="paw-gallery-") as directory:
-    command = [sys.executable, tool, build, directory, "--renderer", renderer]
+    # With animations off each popup is at rest as it opens.
+    command = [sys.executable, tool, build, directory, "--renderer", renderer,
+               "--no-animations", "--wait", "150"]
     for popup in popups:
         command += ["--popup", popup]
     result = subprocess.run(command, capture_output=True, text=True, timeout=240)

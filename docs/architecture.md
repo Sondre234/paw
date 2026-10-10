@@ -901,7 +901,8 @@ wallpaper it sets for the others, so that the macOS style's drawn one shows).
 theme of each style (`light`, `dark`, `macos-light`, `macos-dark`), both with the software renderer (`light-launcher.png`) and through the GPU
 (`light-launcher-gpu.png`: Qt's OpenGL on Mesa's software implementation, in a private headless
 compositor), in about ten seconds; `--renderer`, `--theme` and `--popup` narrow it down. Nothing
-touches the session it runs in. The `shell_gallery` test runs it and fails on any QML warning.
+touches the session it runs in. The `shell_gallery` test runs it, with `--no-animations` and a
+`--wait` of 150 ms a picture, where 400 is the default, and fails on any QML warning.
 
 ## Recipes
 
@@ -973,15 +974,19 @@ whether it has, for something the compositor does another way without it, as the
 - Compositor behavior: a smoke test, `tests/<name>_smoke.py`. Copy a short one such as
   `sticky_smoke.py`. `with harness.Compositor(compositor, CONFIG) as desktop:` starts a headless
   compositor with the pixman renderer in a temporary `XDG_RUNTIME_DIR`; open windows with
-  `desktop.spawn([probe, ...])` (`wayland_probe` or `x11_probe`), drive it with `desktop.msg`,
-  and read the state back with `get` queries (`desktop.rows("windows")`). On the way out it ends
-  every client, checks that the compositor exits cleanly, and prints the logs if the test
-  failed. Wait with `desktop.wait_for`, never with a fixed sleep; to check that something does
-  not happen, which an animation or a client's commit could do a little later, use
-  `desktop.stays`. Register it with `add_test` and a `TIMEOUT` under
-  `PAW_BUILD_COMPOSITOR` in `CMakeLists.txt`. A temporary directory's prefix stays at 26
-  characters or fewer: the control socket goes in it, a Unix socket's path is limited to about
-  107 bytes, and a Gentoo package build runs the tests in a `TMPDIR` of 43 characters or more.
+  `desktop.open_window(wayland_probe, TITLE)`, or other clients (`x11_probe`) with
+  `desktop.spawn([probe, ...])`, drive it with `desktop.msg` (and `desktop.keyboard()`,
+  `desktop.virtual_pointer(pointer_probe, ...)`), reload it with `desktop.reload(LUA)`, and read
+  the state back with `get` queries (`desktop.windows()` names the columns of `get windows`,
+  `desktop.rows(NAME)` splits any) and what subscribers hear with `desktop.subscribe()`. On the
+  way out it ends every client, checks that the compositor exits cleanly, and prints the logs if
+  the test failed. Wait with `desktop.wait_for`, never with a fixed sleep; to check that
+  something does not happen, which an animation or a client's commit could do a little later,
+  use `desktop.stays`. Register it with `paw_smoke(NAME ARGUMENTS...)` (and `TIMEOUT SECONDS`
+  for more than a minute) under `PAW_BUILD_COMPOSITOR` in `CMakeLists.txt`. A temporary
+  directory's prefix stays at 26 characters or fewer: the control socket goes in it, a Unix
+  socket's path is limited to about 107 bytes, and a Gentoo package build runs the tests in a
+  `TMPDIR` of 43 characters or more.
   Under `--headless`, `paw msg headless_output`, `headless_keyboard`, `headless_pointer`
   and `headless_touch` plug in outputs, keyboards, pointers and touchscreens
   (`headless_keyboard key NAME CODE press` types on one, see `keymap_smoke.py`;
@@ -1003,7 +1008,8 @@ those headless outputs refuse a 10-bit render format, as a monitor without one d
 `PAW_TEST_TRIAL_MS` shortens a display settings trial, and `PAW_TEST_REFUSE_MODE=WxH`
 and `PAW_TEST_REFUSE_COMMIT=WxH` make headless outputs refuse that size in the display
 settings' test, or in `configure_output`'s as if the commit failed (see
-`display_settings_smoke.py`).
+`display_settings_smoke.py`). `PAW_TEST_LOCK_TIMEOUT_MS` shortens the time a locker gets to
+lock the screen before a suspend gives up (see `power_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless

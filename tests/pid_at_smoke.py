@@ -16,9 +16,8 @@ with harness.Compositor(compositor, source) as desktop:
     assert msg("get", "pid_at", "-5000", "-5000") == ""
 
     client = desktop.spawn([probe, "--external-control"])
-    desktop.wait_for(lambda: msg("get", "windows").count("\n") == 1, "window mapped")
-    row = msg("get", "windows").split("\t")
-    x, y, width, height = (int(value) for value in row[4:8])
+    desktop.wait_for(lambda: len(desktop.windows()) == 1, "window mapped")
+    x, y, width, height = desktop.windows()[0].box
     middle = (str(x + width // 2), str(y + height // 2))
     desktop.wait_for(lambda: msg("get", "pid_at", *middle) == f"{client.pid}\n",
                      "the probe's pid at the middle of its window")

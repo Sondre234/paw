@@ -40,10 +40,10 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         return {(row[0], row[1]): row[2:4] for row in desktop.rows("layers")}
 
     def windows():
-        return desktop.rows("windows")
+        return desktop.windows()
 
     def focused():
-        return [row for row in windows() if row[1] == "1"]
+        return [w for w in windows() if w.focused]
 
     def panel_colour(x, y):
         """Whether x, y is in a popup's colour, exactly (the desktop's gradient comes close), or
@@ -66,7 +66,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     # A window that a press reaching it would start dragging.
     desktop.spawn([probe, "--window-only"], env={"PAW_PROBE_MOVE": "1"})
     desktop.wait_for(lambda: len(focused()) == 1, "the window focused")
-    window = windows()[0][4:8]
+    window = windows()[0].box
     x, y, w, h = (int(n) for n in window)
     pointer = desktop.virtual_pointer(pointer_probe, WIDTH, HEIGHT)
     bar_y = HEIGHT - BAR // 2
@@ -99,11 +99,11 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     pointer("move", str(beside[0] + 60), str(beside[1] + 40), "release", "left")
     desktop.wait_for(lambda: "paw popover hidden on HEADLESS-1" in log(), "the popover hidden")
     desktop.wait_for(lambda: len(focused()) == 1, "the keyboard back with the window")
-    assert windows()[0][4:8] == window, (window, windows())
+    assert windows()[0].box == window, (window, windows())
     desktop.wait_for(lambda: layers().get(popover, ["3", "0"])[1] == "0" and
                      not_drawn(*MENU), "the popover unmapped")
     assert layers()[panel] == ["2", "1"], layers()
-    desktop.stays(lambda: windows()[0][4:8] == window, "the window moved after the popover closed")
+    desktop.stays(lambda: windows()[0].box == window, "the window moved after the popover closed")
 
     # A second window of the application stacks its taskbar button. Resting on it lists both in
     # the popover, which leaves the keyboard with the window; leaving it hides them.

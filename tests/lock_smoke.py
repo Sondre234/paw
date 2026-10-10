@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Exercise ext-session-lock-v1 on a private headless compositor."""
 from pathlib import Path
-import re
-import socket
 import subprocess
 import sys
 
@@ -15,24 +13,12 @@ source = Path(example).read_text().replace("xwayland = true", "xwayland = false"
 with harness.Compositor(compositor, source) as desktop:
     # The control socket's subscribers hear whether the session is locked (the shell records no
     # clipboard then), as it locks and as it unlocks.
-    subscriber = socket.socket(socket.AF_UNIX)
-    subscriber.connect(desktop.env["PAW_SOCKET"])
-    subscriber.sendall(b"subscribe\n")
-    subscriber.settimeout(0.05)
-    heard = []
+    subscriber = desktop.subscribe()
 
     def locked():
-        """The locked lines heard so far, without repeats."""
-        buffer = ""
-        try:
-            while data := subscriber.recv(8192):
-                buffer += data.decode()
-        except socket.timeout:
-            pass
-        for line in re.findall(r"^locked (\S+)$", buffer, re.M):
-            if not heard or heard[-1] != line:
-                heard.append(line)
-        return heard
+        """Whether the session is locked, as subscribers heard it, each once until it
+        changes."""
+        return subscriber.values("locked ", changes=True)
 
     desktop.wait_for(lambda: locked() == ["off"], "the first state", detail=locked)
     locker = desktop.spawn([lock_probe, "hold", str(desktop.root / "locker.log")])

@@ -60,7 +60,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
         return harness.Shot(path.read_bytes())
 
     def windows():
-        return sorted((r[9], r[10]) for r in desktop.rows("windows"))
+        return sorted((w.title, w.output) for w in desktop.windows())
 
     desktop.detail = lambda: f"outputs: {outputs()}, windows: {windows()}"
     msg("headless_output", "add", "HEADLESS-3", "1024x768")

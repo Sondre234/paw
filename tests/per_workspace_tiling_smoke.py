@@ -3,7 +3,6 @@
 moved between workspaces tile or float as their new workspace does, and turning the setting off
 puts every workspace back on the output's setting."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -23,20 +22,9 @@ with harness.Compositor(compositor, config()) as desktop:
 
     def windows():
         """(workspace, tiled) per window, oldest first."""
-        rows = desktop.rows("windows")
-        return [(int(row[0]), row[3] == "1") for row in rows]
+        return [(w.workspace, w.tiled) for w in desktop.windows()]
 
     desktop.detail = lambda: f"windows: {windows()}, tiling: {msg('get', 'tiling')}"
-
-    reloads = 0
-
-    def reload(text):
-        global reloads
-        reloads += 1
-        desktop.config.write_text(text)
-        desktop.server.send_signal(signal.SIGHUP)
-        desktop.wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") ==
-                         reloads, "reload")
 
     def launch():
         count = len(windows()) + 1
@@ -68,7 +56,7 @@ with harness.Compositor(compositor, config()) as desktop:
                      "moved window tiled on workspace 1")
 
     # Without the setting every workspace follows the output, and toggling changes all.
-    reload(config(per_workspace=False))
+    desktop.reload(config(per_workspace=False))
     desktop.wait_for(lambda: windows() == [(w, True) for w, _ in windows()],
                      "every workspace tiled by the output's setting")
     msg("toggle_tiling")

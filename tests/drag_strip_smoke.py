@@ -25,7 +25,7 @@ with harness.Compositor(compositor, config()) as desktop:
     msg = desktop.msg
 
     def where():
-        return {r[9]: (int(r[4]), int(r[5])) for r in desktop.rows("windows")}["W"]
+        return {w.title: (w.x, w.y) for w in desktop.windows()}["W"]
 
     desktop.detail = lambda: msg("get", "windows")
     pointer = desktop.virtual_pointer(pointer_probe, *SCREEN)

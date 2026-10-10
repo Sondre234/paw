@@ -54,7 +54,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         return {(row[0], row[1]): row[2:4] for row in desktop.rows("layers")}
 
     def windows():
-        return desktop.rows("windows")
+        return desktop.windows()
 
     def body_pixels():
         """How many pixels above the bar have the window's colour, or None without grim."""
@@ -83,10 +83,10 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
                       stdout=output, stderr=subprocess.STDOUT)
     desktop.wait_for(lambda: "paw surface rendered: paw taskbar" in log(), "the panel")
     desktop.spawn([probe, "--window-only"])
-    desktop.wait_for(lambda: len(windows()) == 1 and windows()[0][2] == "0", "the window")
+    desktop.wait_for(lambda: len(windows()) == 1 and not windows()[0].minimized, "the window")
     subprocess.run([window_probe, "paw protocol probe", "minimize"], env=env, check=True,
                    timeout=30, stdout=subprocess.DEVNULL)
-    desktop.wait_for(lambda: windows()[0][2] == "1", "the window minimized")
+    desktop.wait_for(lambda: windows()[0].minimized, "the window minimized")
     popover = ("paw-popover", "HEADLESS-1")
     assert popover not in layers(), layers()
     assert not body_pixels(), "the window's colour on the screen before any picture"
@@ -107,7 +107,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     # Every other pixel of the 133 x 64 body, at least, in a picture shown at its own size.
     desktop.wait_for(lambda: (pixels := body_pixels()) is None or pixels > 1500,
                      "the window's picture on the card")
-    assert windows()[0][2] == "1", windows()
+    assert windows()[0].minimized, windows()
     # The compositor scales the 320 x 240 window down to the picture's 240 x 150 box itself, and
     # the shell follows it in one session while the card is open.
     desktop.wait_for(lambda: desktop.rows("pictures") ==
@@ -120,14 +120,14 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     assert peek() == (False, False, 0), peek()
     pointer("move", *map(str, PICTURE))
     desktop.wait_for(lambda: peek() == (True, True, 1000), "the window peeked at")
-    assert windows()[0][2] == "1" and layers().get(popover) == ["3", "1"], windows()
+    assert windows()[0].minimized and layers().get(popover) == ["3", "1"], windows()
     desktop.wait_for(lambda: body_at(PICTURE, WINDOW) in (None, [True, True]),
                      "the window shown where it is")
 
     pointer("move", "900", "300")
     desktop.wait_for(lambda: popover not in layers(), "the card gone once the pointer left")
     desktop.wait_for(lambda: peek() == (False, False, 0), "the peek over")
-    assert windows()[0][2] == "1", windows()
+    assert windows()[0].minimized, windows()
     assert not body_pixels() and body_at(WINDOW) in (None, [False]), \
         "the picture or the window left on the screen"
     desktop.wait_for(lambda: not desktop.rows("pictures"), "the picture's source gone with the card")

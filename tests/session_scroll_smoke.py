@@ -22,9 +22,8 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     env["XDG_STATE_HOME"] = str(state)
 
     def windows():
-        rows = desktop.rows("windows")
-        return {r[9]: dict(focused=r[1] == "1", tiled=r[3] == "1", x=int(r[4]), y=int(r[5]),
-                           width=int(r[6]), height=int(r[7])) for r in rows}
+        return {w.title: dict(focused=w.focused, tiled=w.tiled, x=w.x, y=w.y,
+                              width=w.width, height=w.height) for w in desktop.windows()}
 
     def shape():
         """Widths, heights and the arrangement relative to window A, whatever the view shows."""
@@ -41,11 +40,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     desktop.start()
 
     for title in ("A", "B", "C"):
-        desktop.spawn([probe, "--window-only"],
-                      env={"PAW_PROBE_TITLE": title,
-                           "PAW_PROBE_APP_ID": f"app-{title.lower()}"})
-        desktop.wait_for(lambda: title in windows() and windows()[title]["focused"],
-                         f"{title} focused")
+        desktop.open_window(probe, title, f"app-{title.lower()}", focused=True)
     desktop.wait_for(lambda: all(w["tiled"] for w in windows().values()), "all tiled")
 
     # Columns: [A] [B over C]; A is wider than the others.

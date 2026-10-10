@@ -75,7 +75,6 @@ with harness.Compositor(compositor, settings(0.75)) as desktop:
     # A reload with different rules takes effect for windows that did not change.
     activate("retitled")
     wait_for(lambda: opacities()["changed"] == (True, 0.75), "changed focused again")
-    desktop.config.write_text(settings(0.6))
-    desktop.server.send_signal(signal.SIGHUP)
+    desktop.reload(settings(0.6))
     wait_for(lambda: opacities()["changed"] == (True, 0.6), "reload applied")
 print("opacity_rules_smoke passed")

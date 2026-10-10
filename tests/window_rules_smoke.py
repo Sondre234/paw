@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Window rules float, size, place, and send new windows elsewhere, unless turned off."""
 from pathlib import Path
-import signal
 import sys
 
 import harness
@@ -38,16 +37,13 @@ with harness.Compositor(compositor, settings(True),
     def windows():
         """By title: workspace, focused, tiled, (x, y, width, height), visible, output,
         sticky."""
-        rows = desktop.rows("windows")
-        return {r[9]: (int(r[0]), r[1] == "1", r[3] == "1", tuple(map(int, r[4:8])),
-                       r[11] == "1", r[10], r[13] == "1") for r in rows}
+        return {w.title: (w.workspace, w.focused, w.tiled, w.box,
+                          w.visible, w.output, w.sticky) for w in desktop.windows()}
 
     desktop.detail = lambda: f"windows: {windows()}"
 
     def open_window(app_id, title):
-        desktop.spawn([probe, "--window-only"],
-                      env={"PAW_PROBE_APP_ID": app_id, "PAW_PROBE_TITLE": title})
-        wait_for(lambda: title in windows(), f"{title} opens")
+        desktop.open_window(probe, title, app_id)
 
     def window(title):
         return windows().get(title)
@@ -105,9 +101,7 @@ with harness.Compositor(compositor, settings(True),
     msg("workspace", "1")
 
     # Turned off, the same rules leave new windows to the defaults.
-    desktop.config.write_text(settings(False))
-    desktop.server.send_signal(signal.SIGHUP)
-    wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
+    desktop.reload(settings(False))
     open_window("rule-float", "Floating again")
     wait_for(lambda: window("Floating again")[:3] == (1, True, True),
              "rule actions are off: the window tiles")

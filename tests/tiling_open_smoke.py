@@ -20,7 +20,7 @@ with harness.Compositor(compositor, Path(example).read_text()
 
     def windows():
         """(x, y, width, height) per window, oldest first."""
-        return [tuple(map(int, row[4:8])) for row in desktop.rows("windows")]
+        return [w.box for w in desktop.windows()]
 
     def configures(index):
         """The sizes of every xdg_toplevel.configure the `index`th window received."""
