@@ -62,13 +62,14 @@ ListView {
         panel: taskList.panel
         objectName: launcher ? "pinned:" + app.appId : pinned ? "pinnedTask:" + app.appId : ""
         // Grouped, the windows it stands for: its pinned application's, or those with its app id;
-        // windows without one have nothing to group by.
+        // windows without one have nothing to group by. The filter reads them only then.
+        readonly property bool grouping: shell.groupWindows && !launcher && (pinned || appId !== "")
         property TaskFilter appWindows: TaskFilter {
-            controller: shell; sourceModel: taskList.panel.taskSource
+            controller: shell; sourceModel: taskButton.grouping ? taskList.panel.taskSource : null
             app: taskButton.pinned ? taskButton.app.appId : ""
             windowApp: taskButton.pinned ? "" : taskButton.appId
         }
-        group: shell.groupWindows && !launcher && (pinned || appId !== "") ? appWindows : null
+        group: grouping ? appWindows : null
         groupSlot: pinned ? app.appId : ""
         groupWindowApp: pinned ? "" : appId
         width: shell.iconsOnly || launcher ? Theme.barButtonWidth : taskList.windowWidth
