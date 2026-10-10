@@ -187,36 +187,22 @@ void TaskModel::moveToOutput(int id, const QString &output) {
         paw_window_v1_move_to_output(task->window, output.toUtf8().constData());
     flush();
 }
-void TaskModel::setSticky(int id, bool sticky) {
+void TaskModel::setState(int id, bool on, void (*set)(paw_window_v1 *),
+                         void (*unset)(paw_window_v1 *), uint32_t since) {
     auto *task = find(id);
-    if (task && task->window) {
-        if (sticky)
-            paw_window_v1_set_sticky(task->window);
-        else
-            paw_window_v1_unset_sticky(task->window);
-    }
+    if (task && task->window && paw_window_v1_get_version(task->window) >= since)
+        (on ? set : unset)(task->window);
     flush();
+}
+void TaskModel::setSticky(int id, bool sticky) {
+    setState(id, sticky, paw_window_v1_set_sticky, paw_window_v1_unset_sticky);
 }
 void TaskModel::setAbove(int id, bool above) {
-    auto *task = find(id);
-    if (task && task->window &&
-        paw_window_v1_get_version(task->window) >= PAW_WINDOW_V1_SET_ABOVE_SINCE_VERSION) {
-        if (above)
-            paw_window_v1_set_above(task->window);
-        else
-            paw_window_v1_unset_above(task->window);
-    }
-    flush();
+    setState(id, above, paw_window_v1_set_above, paw_window_v1_unset_above,
+             PAW_WINDOW_V1_SET_ABOVE_SINCE_VERSION);
 }
 void TaskModel::setFloating(int id, bool floating) {
-    auto *task = find(id);
-    if (task && task->window) {
-        if (floating)
-            paw_window_v1_set_floating(task->window);
-        else
-            paw_window_v1_unset_floating(task->window);
-    }
-    flush();
+    setState(id, floating, paw_window_v1_set_floating, paw_window_v1_unset_floating);
 }
 void TaskModel::close(int id) {
     if (auto *task = find(id))

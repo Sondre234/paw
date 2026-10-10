@@ -122,6 +122,10 @@ class TaskModel : public QAbstractListModel {
     void setPeeked(int taskId);
     WindowPictures pictures_{[this] { flush(); }};
     Task *find(int id);
+    // Sets or unsets one of the window control's states of window `id`: from version `since` of
+    // the window's object on.
+    void setState(int id, bool on, void (*set)(paw_window_v1 *), void (*unset)(paw_window_v1 *),
+                  uint32_t since = 1);
     void flush();
     // Works out which tasks are urgent; those but `except` that change announce it.
     void matchUrgent(const Task *except = nullptr);
