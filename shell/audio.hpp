@@ -55,8 +55,10 @@ class Audio : public QObject {
     Q_PROPERTY(int volume READ volume NOTIFY changed)
     Q_PROPERTY(bool muted READ muted NOTIFY changed)
     Q_PROPERTY(QString output READ output NOTIFY changed)
-    // [{name, description}], in the server's order.
+    // [{name, description}], in the server's order, and the default output's description, "" for
+    // none.
     Q_PROPERTY(QVariantList outputs READ outputs NOTIFY changed)
+    Q_PROPERTY(QString outputDescription READ outputDescription NOTIFY changed)
     Q_PROPERTY(AudioStreams *streams READ streams CONSTANT)
     // Whether there is a default input, and whether it is muted.
     Q_PROPERTY(bool hasInput READ hasInput NOTIFY changed)
@@ -82,6 +84,7 @@ class Audio : public QObject {
     bool muted() const;
     QString output() const { return state_.output; }
     QVariantList outputs() const;
+    QString outputDescription() const;
     AudioStreams *streams() { return &streams_; }
     bool hasInput() const { return currentInput() != nullptr; }
     bool inputMuted() const;

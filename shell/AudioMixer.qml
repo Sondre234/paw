@@ -12,12 +12,7 @@ PopupCard {
     objectName: "audioMixer"
     readonly property real rowHeight: Theme.rowHeight + Theme.spacingM
     readonly property real padding: Theme.spacingXL
-    readonly property string outputName: {
-        var outputs = panel.audioSource.outputs
-        for (var i = 0; i < outputs.length; ++i)
-            if (outputs[i].name === panel.audioSource.output) return outputs[i].description
-        return "No output"
-    }
+    readonly property string outputName: panel.audioSource.outputDescription || "No output"
     open: panel.audioPopup === "mixer"
     implicitWidth: 340
     implicitHeight: 2 * padding + 2 * Theme.headingHeight + (1 + Math.max(1, streamList.count)) * rowHeight

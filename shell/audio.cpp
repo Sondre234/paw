@@ -96,6 +96,12 @@ QVariantList Audio::outputs() const {
         list.push_back(QVariantMap{{"name", output.name}, {"description", output.description}});
     return list;
 }
+QString Audio::outputDescription() const {
+    for (const auto &output : state_.outputs)
+        if (output.name == state_.output)
+            return output.description;
+    return {};
+}
 void Audio::update(State state) {
     streams_.update(std::move(state.streams));
     state_ = std::move(state);

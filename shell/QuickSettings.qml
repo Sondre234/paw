@@ -52,12 +52,7 @@ PopupCard {
     bounds: panel.popupArea
     radius: Theme.radiusLarge
     color: Theme.controlCenterSurface
-    readonly property string outputName: {
-        var outputs = audio.outputs
-        for (var i = 0; i < outputs.length; ++i)
-            if (outputs[i].name === audio.output) return outputs[i].description
-        return "No output"
-    }
+    readonly property string outputName: audio.outputDescription || "No output"
 
     // A row's chevron that opens or closes a list under it.
     component Expander: FlatButton {
