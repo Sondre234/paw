@@ -70,7 +70,6 @@ class FakeMedia : public Media {
     void sendPosition(const QString &name, const QString &trackId, qint64 position) override {
         requests << QString("SetPosition %1 %2 %3").arg(name, trackId).arg(position);
     }
-    void queryPosition(const QString &) override {}
 };
 
 // Records the profiles the panel asks power-profiles-daemon for.
@@ -609,7 +608,7 @@ int main(int argc, char **argv) {
     }
     // A window asking for attention marks its workspace in the indicator (and is listed); when
     // it is done, the marks go.
-    if (controller.urgentCount() != 0 || workspace(3)->property("urgent").toBool()) {
+    if (!controller.urgentWindows().isEmpty() || workspace(3)->property("urgent").toBool()) {
         std::cerr << "a workspace is urgent before anything asked\n";
         return 1;
     }
@@ -617,7 +616,7 @@ int main(int argc, char **argv) {
                   "urgent-window " + output + "\t3\tfake\tFake\n"
                   "urgent-window " + output + "\t1\t\tNo app id\n";
     subscriber->write(state(toggled, currentWorkspace));
-    if (!waitFor([&] { return controller.urgentCount() == 2; }) ||
+    if (!waitFor([&] { return controller.urgentWindows().size() == 2; }) ||
         !workspace(3)->property("urgent").toBool() || !workspace(1)->property("urgent").toBool() ||
         workspace(2)->property("urgent").toBool() || workspace(4)->property("urgent").toBool()) {
         std::cerr << "the workspace indicator does not mark workspaces with urgent windows\n";
@@ -638,9 +637,8 @@ int main(int argc, char **argv) {
     }
     urgentLines = "urgent 0\n";
     subscriber->write(state(toggled, currentWorkspace));
-    if (!waitFor([&] { return controller.urgentCount() == 0; }) ||
-        workspace(3)->property("urgent").toBool() || workspace(1)->property("urgent").toBool() ||
-        !controller.urgentWindows().isEmpty()) {
+    if (!waitFor([&] { return controller.urgentWindows().isEmpty(); }) ||
+        workspace(3)->property("urgent").toBool() || workspace(1)->property("urgent").toBool()) {
         std::cerr << "the workspace marks did not go when the windows stopped asking\n";
         return 1;
     }
@@ -3399,7 +3397,8 @@ ListModel {
         return fail("the mixer did not close");
     // The command palette: one search over actions, sessions, workspaces, windows and apps.
     {
-        PaletteView paletteView(controller, app.primaryScreen());
+        PickerView paletteView(controller, app.primaryScreen(), "palette", "Palette.qml",
+                               controller.palette());
         if (paletteView.status() != QQuickView::Ready) {
             for (const auto &error : paletteView.errors())
                 std::cerr << error.toString().toStdString() << '\n';

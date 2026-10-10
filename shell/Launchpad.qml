@@ -16,29 +16,14 @@ import QtQuick.Controls.Basic
 Item {
     id: launchpad
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     anchors.fill: parent
     objectName: "launchpad"
     readonly property bool open: panel.launcherOpen
     // How far it is open, from 0 to 1: its opacity, and what is left of the grid's zoom.
-    property real progress: 0
+    property alias progress: reveal.progress
     visible: open || progress > 0
-    states: State {
-        name: "open"
-        when: launchpad.open
-        PropertyChanges { launchpad.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "open"
-            NumberAnimation { property: "progress"; duration: Theme.durationSlow; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "open"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easingExit }
-        }
-    ]
+    Reveal { id: reveal; shown: launchpad.open; enterDuration: Theme.durationSlow; exitDuration: Theme.durationNormal }
     onOpenChanged: {
         if (!open)
             return
@@ -329,7 +314,6 @@ Item {
             placeholderTextColor: Theme.alpha(Theme.launchpadText, 0.65)
             selectionColor: Theme.accent
             selectedTextColor: Theme.textOnAccentFill
-            selectByMouse: true
             font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily
             Keys.onPressed: (event) => launchpad.key(event)
             FontMetrics { id: hint; font: search.font }

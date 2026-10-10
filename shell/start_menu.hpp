@@ -6,6 +6,7 @@
 #include <QStringList>
 #include <QUrl>
 #include <QVariantList>
+#include <vector>
 
 class FileIndex;
 class QTimer;
@@ -110,6 +111,14 @@ class StartMenu : public QObject {
   private:
     QString stateDir_;
     QVariantList apps_, sorted_;
+    // What the search reads of each of sorted_, its words split once.
+    struct Searched {
+        explicit Searched(const QVariantMap &app);
+        double score(const QStringList &parts) const;
+        QString name, generic, keywords, id, description, all;
+        QStringList genericWords, keywordWords, descriptionWords, allWords;
+    };
+    std::vector<Searched> searched_;
     // The pins, of installed applications or not, in their order; own once start-pinned exists.
     QStringList pins_;
     bool ownPins_ = false, previewOnly_ = false, userSet_ = false;

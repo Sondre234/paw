@@ -9,7 +9,6 @@ import QtQuick.Layouts
 PopupCard {
     id: popup
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "wifiPopup"
     readonly property var wifi: panel.wifiSource
@@ -33,7 +32,7 @@ PopupCard {
             text: "Wi-Fi"; elide: Text.ElideRight
             color: Theme.text; font.pixelSize: Theme.fontSizeLarge; font.weight: Font.DemiBold; font.family: Theme.fontFamily
         }
-        Switch {
+        ToggleSwitch {
             id: radio
             objectName: "wifiSwitch"
             checked: popup.wifi.enabled
@@ -41,20 +40,6 @@ PopupCard {
             onToggled: popup.wifi.setEnabled(checked)
             Accessible.name: "Wi-Fi"
             implicitWidth: indicator.width + leftPadding + rightPadding
-            indicator: Rectangle {
-                x: radio.leftPadding; y: parent.height / 2 - height / 2
-                width: 2 * height; height: Theme.iconSize; radius: height / 2
-                color: radio.checked ? Theme.accent : Theme.macos ? Theme.switchTrack : Theme.selected
-                opacity: radio.enabled ? 1 : 0.5
-                Rectangle {
-                    x: radio.checked ? parent.width - width - Theme.spacingXS : Theme.spacingXS
-                    y: Theme.spacingXS; width: parent.height - 2 * Theme.spacingXS; height: width; radius: width / 2
-                    color: Theme.macos ? Theme.knob : radio.checked ? Theme.textOnAccent : Theme.text
-                    border.color: Theme.macos ? Theme.knobOutline : "transparent"
-                    Behavior on x { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
-                }
-            }
-            contentItem: Item {}
         }
     }
     Flickable {

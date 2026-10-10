@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 import QtQuick.Layouts
 
 // The notification cards: a stack of them from a corner of the focused monitor, each sliding in
@@ -75,14 +74,12 @@ Item {
         displaced: Transition { NumberAnimation { properties: "y"; duration: Theme.durationNormal; easing.type: Theme.easing } }
         delegate: Item {
             id: entry
-            required property int index
             required property int notificationId
             required property string app
             required property string icon
             required property string summary
             required property string body
             required property var actions
-            required property bool hasDefault
             required property int urgency
             required property int progress
             required property bool hasImage
@@ -134,30 +131,12 @@ Item {
                 objectName: "notificationCard"
                 width: parent.width
                 height: content.implicitHeight + 2 * content.y
-                Loader {
-                    anchors.fill: parent
-                    active: Theme.effects
-                    sourceComponent: RectangularShadow {
-                        radius: Theme.radiusLarge
-                        blur: Theme.shadowBlur
-                        offset: Qt.vector2d(0, Theme.shadowOffset)
-                        color: Theme.shadow
-                    }
-                }
                 // A critical notification, which stays until it is dismissed, is outlined in the
                 // danger colour, with a band of it down its side.
-                Rectangle {
-                    anchors.fill: parent
-                    radius: Theme.radiusLarge
+                CardFrame {
                     color: entry.critical ? Theme.mix(Theme.popupSurface, Theme.dangerFill, 0.06) : Theme.popupSurface
-                    border.color: entry.critical ? Theme.danger : Theme.popupOutline
-                    Rectangle {
-                        visible: Theme.popupInnerEdge.a > 0
-                        anchors.fill: parent; anchors.margins: 1
-                        radius: parent.radius - 1
-                        color: "transparent"
-                        border.color: Theme.popupInnerEdge
-                    }
+                    outline: entry.critical ? Theme.danger : Theme.popupOutline
+                    innerEdge: true
                 }
                 Item {
                     visible: entry.critical

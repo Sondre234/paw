@@ -103,7 +103,7 @@ QVariantMap DisplaySettings::record(const Monitor &m) const {
                         {"label", QString("%1 × %2").arg(size.width).arg(size.height) +
                                       (size.preferred ? " (recommended)" : "")}});
     std::stable_sort(rates.begin(), rates.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap()["refresh"].toInt() > b.toMap()["refresh"].toInt();
+        return a.toMap().value("refresh").toInt() > b.toMap().value("refresh").toInt();
     });
     QStringList mirroredBy;
     for (const auto &other : monitors_)
@@ -116,9 +116,7 @@ QVariantMap DisplaySettings::record(const Monitor &m) const {
         {"title", m.builtIn               ? QString("Built-in display")
                   : description.isEmpty() ? m.name
                                           : description},
-        {"description", description},
         {"builtIn", m.builtIn},
-        {"source", m.source},
         {"enabled", m.enabled},
         {"state", m.state},
         {"mirror", m.mirror},
@@ -143,8 +141,7 @@ QVariantMap DisplaySettings::record(const Monitor &m) const {
         {"hdrWhy", m.hdrWhy},
         {"primary", m.primary},
         {"resolutions", resolutions},
-        {"rates", rates},
-        {"modeLabel", QString("%1 × %2, %3").arg(m.width).arg(m.height).arg(rateLabel(m.refresh))}};
+        {"rates", rates}};
 }
 
 QVariantList DisplaySettings::monitors() const {

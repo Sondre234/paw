@@ -14,7 +14,6 @@ import QtQuick.Layouts
 PopupCard {
     id: quick
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "quickSettings"
     open: panel.audioPopup === "quick"
@@ -47,18 +46,13 @@ PopupCard {
     // As wide as the clock's flyout, which it lines up with.
     implicitWidth: Theme.macos ? Theme.controlCenterWidth : 7 * (Theme.rowHeight + Theme.spacingL) + 2 * padding
     implicitHeight: content.implicitHeight + 2 * padding + (footer.visible ? footer.height : 0)
-    anchorRect: panel.barAnchor(barItem.x + barItem.width, 0)
+    anchorRect: panel.barAnchor(panel.statusBar.x + panel.statusBar.width, 0)
     side: panel.popupSide
     alignment: Qt.AlignRight
     bounds: panel.popupArea
     radius: Theme.radiusLarge
     color: Theme.controlCenterSurface
-    readonly property string outputName: {
-        var outputs = audio.outputs
-        for (var i = 0; i < outputs.length; ++i)
-            if (outputs[i].name === audio.output) return outputs[i].description
-        return "No output"
-    }
+    readonly property string outputName: audio.outputDescription || "No output"
 
     // A row's chevron that opens or closes a list under it.
     component Expander: FlatButton {
@@ -150,9 +144,8 @@ PopupCard {
                     objectName: "quickTile:wifi"
                     visible: quick.widgets.network === "quick" && quick.wifiManaged
                     Layout.fillWidth: true; Layout.preferredWidth: 1
-                    readonly property int strength: quick.wifi.strength
-                    glyph: !quick.wifi.enabled ? "wifi-off" : quick.wifi.ssid === "" || strength >= 70 ? "wifi"
-                         : strength >= 45 ? "wifi-high" : strength >= 20 ? "wifi-low" : "wifi-zero"
+                    glyph: !quick.wifi.enabled ? "wifi-off"
+                         : Theme.wifiIcon(quick.wifi.ssid === "" ? 100 : quick.wifi.strength)
                     label: "Wi-Fi"
                     detail: !quick.wifi.hardwareEnabled ? "Off by a switch" : !quick.wifi.enabled ? "Off"
                           : quick.wifi.connecting !== "" ? "Connecting…"

@@ -3,6 +3,7 @@
 #include "audio.hpp"
 #include "backlight.hpp"
 #include "controller.hpp"
+#include "image_provider.hpp"
 #include "system_status.hpp"
 #include "view.hpp"
 #include <QBuffer>
@@ -12,54 +13,12 @@
 #include <QPainter>
 #include <QQmlComponent>
 #include <QQmlEngine>
-#include <QQuickImageProvider>
 #include <QQuickItem>
 #include <QQuickView>
 #include <QScreen>
 #include <unistd.h>
 
 namespace {
-// A sound server that takes every request and does nothing with it.
-class PreviewAudio : public Audio {
-  protected:
-    void sendVolume(const QString &, int) override {}
-    void sendMute(const QString &, bool) override {}
-    void sendOutput(const QString &, const std::vector<uint32_t> &) override {}
-    void sendStreamVolume(uint32_t, int) override {}
-    void sendStreamMute(uint32_t, bool) override {}
-};
-// Media players that take every request and do nothing with it.
-class PreviewMedia : public Media {
-  protected:
-    void sendCommand(const QString &, const QString &) override {}
-    void sendPosition(const QString &, const QString &, qint64) override {}
-    void queryPosition(const QString &) override {}
-};
-// A power-profiles-daemon that switches as asked.
-class PreviewPowerMode : public PowerMode {
-  protected:
-    void sendProfile(const QString &) override {}
-};
-// BlueZ, taking every request and doing nothing with it.
-class PreviewBluetooth : public Bluetooth {
-  protected:
-    void sendPowered(bool) override {}
-    void sendDiscovery(bool) override {}
-    void sendConnect(const QString &) override {}
-    void sendDisconnect(const QString &) override {}
-    void sendPair(const QString &) override {}
-    void sendForget(const QString &) override {}
-    void sendAnswer(bool, const QString &) override {}
-};
-// NetworkManager, taking every request and doing nothing with it.
-class PreviewWifi : public Wifi {
-  protected:
-    void sendEnabled(bool) override {}
-    void sendScan() override {}
-    void sendConnect(const QString &, const QString &, const QString &) override {}
-    void sendDisconnect() override {}
-};
-
 // A tray icon: a rounded square in `color` with a letter on it.
 QImage trayIcon(const QColor &color, const QString &letter) {
     QImage image(44, 44, QImage::Format_ARGB32_Premultiplied);
@@ -226,18 +185,6 @@ QImage windowPicture(int id) {
     return image;
 }
 
-// The stand-in windows' pictures, image://preview-windows/ID.
-class PreviewWindows : public QQuickImageProvider {
-  public:
-    PreviewWindows() : QQuickImageProvider(QQuickImageProvider::Image) {}
-    QImage requestImage(const QString &id, QSize *size, const QSize &) override {
-        QImage image = windowPicture(id.section('/', 0, 0).toInt());
-        if (size)
-            *size = image.size();
-        return image;
-    }
-};
-
 Notification notification(const QString &app, const QString &icon, const QString &summary,
                           const QString &body, int urgency = Notification::Normal) {
     Notification n;
@@ -252,9 +199,9 @@ Notification notification(const QString &app, const QString &icon, const QString
 } // namespace
 
 PreviewData::PreviewData(ShellController &controller)
-    : QObject(&controller), controller_(controller), audio_(std::make_unique<PreviewAudio>()),
-      media_(std::make_unique<PreviewMedia>()), powerMode_(std::make_unique<PreviewPowerMode>()),
-      wifi_(std::make_unique<PreviewWifi>()), bluetooth_(std::make_unique<PreviewBluetooth>()) {
+    : QObject(&controller), controller_(controller), audio_(std::make_unique<Audio>()),
+      media_(std::make_unique<Media>()), powerMode_(std::make_unique<PowerMode>()),
+      wifi_(std::make_unique<Wifi>()), bluetooth_(std::make_unique<Bluetooth>()) {
     // Firefox plays from a child process of its window's, and the music player from the shell of
     // the first terminal, which has no window of its own (the processes are the stand-in tasks').
     audio_->update({"speakers",
@@ -433,10 +380,14 @@ PreviewData::PreviewData(ShellController &controller)
           {2, "firmware-2.4.1.zip", "firmware-2.4.1.zip", false, 0},
           {3, "Fireworks.jpg", "fireworks.jpg", false, 0}}});
 
+    // The stand-in windows' pictures, image://preview-windows/ID.
+    controller.engine()->addImageProvider("preview-windows",
+                                          new ImageProvider([](const QString &id, QSize) {
+                                              return windowPicture(id.section('/', 0, 0).toInt());
+                                          }));
     // The windows, as the tests' stand-in model: a ListModel with the roles TaskModel has. The
     // terminals' are stacked, with pictures of two and none yet of the third, and the first
     // playing music. The compositor's numbers for them (windowId) are the switcher's.
-    controller.engine()->addImageProvider("preview-windows", new PreviewWindows);
     QQmlComponent component(controller.engine());
     component.setData(R"(import QtQml.Models
 ListModel {
@@ -742,7 +693,7 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
     surface_->setSource(QUrl("qrc:/shell/PawShell/" + file));
     if (surface_->status() != QQuickView::Ready)
         return false;
-    // As PaletteView does before it shows, and PowerView once it shows.
+    // As the palette's PickerView does before it shows, and PowerView once it shows.
     if (file == "Palette.qml")
         QMetaObject::invokeMethod(surface_->rootObject(), "reset");
     surface_->show();
@@ -774,7 +725,7 @@ QImage PreviewData::withSurface(QImage desktop) const {
                     controller_.osd()->top() ? 48 : output.height() - controller_.osdBottom() - size.height());
     } else if (surfaceName_.startsWith("palette") || surfaceName_ == "clipboard" ||
                surfaceName_ == "emoji") {
-        // PaletteView: centred, below the bars by ShellController::paletteDrop.
+        // PickerView: centred, below the bars by ShellController::paletteDrop.
         at = QPoint(usable.left() + (usable.width() - size.width()) / 2,
                     usable.top() + controller_.paletteDrop(output.height()));
     } else if (surfaceName_ == "display-mode" || surfaceName_.startsWith("display-settings")) {

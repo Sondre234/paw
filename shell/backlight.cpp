@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "backlight.hpp"
+#include "netlink.hpp"
 #include <QDir>
 #include <QFile>
 #if PAW_DBUS
+#include "dbus_util.hpp"
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
 #endif
 #include <algorithm>
 #include <cmath>
-#include <linux/netlink.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 namespace {
 int number(const QString &path, bool *ok) {
@@ -26,38 +25,14 @@ int number(const QString &path, bool *ok) {
 
 Backlight::Backlight(QString root, bool watch, int pollMs, QObject *parent)
     : QObject(parent), root_(std::move(root)) {
-    if (watch) {
-        const int fd = ::socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
-        sockaddr_nl address{};
-        address.nl_family = AF_NETLINK;
-        address.nl_groups = 1; // the kernel's own uevents
-        if (fd >= 0 && ::bind(fd, reinterpret_cast<sockaddr *>(&address), sizeof address) == 0) {
-            notifier_ = new QSocketNotifier(fd, QSocketNotifier::Read, this);
-            connect(notifier_, &QSocketNotifier::activated, this, [this, fd] {
-                bool relevant = false;
-                char buffer[8192];
-                for (ssize_t n; (n = ::recv(fd, buffer, sizeof buffer, MSG_DONTWAIT)) > 0;)
-                    relevant = relevant || relevantUevent(QByteArray(buffer, int(n)));
-                if (relevant)
-                    refresh();
-            });
-        } else if (fd >= 0) {
-            ::close(fd);
-        }
-    }
+    if (watch) // group 1: the kernel's own uevents
+        notifier_ = watchNetlink(NETLINK_KOBJECT_UEVENT, 1, this, relevantUevent, [this] { refresh(); });
     timer_.setInterval(pollMs > 0 ? pollMs : 1000);
     connect(&timer_, &QTimer::timeout, this, &Backlight::refresh);
     refresh();
     // Polling is the fallback, and pointless without a backlight.
     if ((watch && !notifier_ && present_) || pollMs > 0)
         timer_.start();
-}
-Backlight::~Backlight() {
-    if (notifier_) {
-        const int fd = int(notifier_->socket());
-        delete notifier_;
-        ::close(fd);
-    }
 }
 bool Backlight::relevantUevent(const QByteArray &message) {
     for (const auto &field : message.split('\0'))
@@ -124,11 +99,9 @@ void Backlight::setPercent(int percent) {
         QStringLiteral("org.freedesktop.login1"), QStringLiteral("/org/freedesktop/login1/session/auto"),
         QStringLiteral("org.freedesktop.login1.Session"), QStringLiteral("SetBrightness"));
     message << QStringLiteral("backlight") << name_ << value;
-    auto *call = new QDBusPendingCallWatcher(connection.asyncCall(message), this);
-    connect(call, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *done) {
+    dbus::whenAnswered(connection.asyncCall(message), this, [this](QDBusPendingCallWatcher *done) {
         if (done->isError())
             Q_EMIT failed("Could not set the brightness: " + done->error().message());
-        done->deleteLater();
     });
 #else
     Q_EMIT failed(QStringLiteral("Could not set the brightness: paw was built without Qt's D-Bus module"));

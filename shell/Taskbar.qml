@@ -55,18 +55,10 @@ Item {
         // Scrolling the bar anywhere its widgets leave the wheel alone pages through this
         // output's workspaces: a wheel notch (or a touchpad's worth of travel) moves one,
         // stopping at either end; down or right goes to the next.
-        WheelHandler {
-            // Qt takes the whole pointer for a touchpad once the compositor offers gestures
-            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-            property real travel: 0
-            onWheel: (event) => {
-                travel += event.angleDelta.y !== 0 ? event.angleDelta.y : event.angleDelta.x
-                var steps = travel > 0 ? Math.floor(travel / 120) : Math.ceil(travel / 120)
-                travel -= steps * 120
-                if (steps !== 0) {
-                    var target = workspaceIndicator.workspaceState.current - steps
-                    workspaceIndicator.show(Math.max(1, Math.min(shell.workspaceCount, target)))
-                }
+        NotchWheel {
+            onNotched: (steps) => {
+                var target = workspaceIndicator.workspaceState.current - steps
+                workspaceIndicator.show(Math.max(1, Math.min(shell.workspaceCount, target)))
             }
         }
         RowLayout {
@@ -134,7 +126,7 @@ Item {
             visible: shell.error.length > 0
             anchors.fill: parent; anchors.margins: Theme.spacingS
             color: Theme.dangerSurface; radius: Theme.radiusSmall
-            Text { anchors.left: parent.left; anchors.right: dismiss.left; anchors.verticalCenter: parent.verticalCenter; anchors.margins: Theme.spacingL; text: shell.error; color: Theme.text; elide: Text.ElideRight; font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily }
+            Text { anchors.left: parent.left; anchors.right: dismiss.left; anchors.verticalCenter: parent.verticalCenter; anchors.margins: Theme.spacingL; text: shell.error; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideRight; font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily }
             CloseButton {
                 id: dismiss
                 anchors.right: parent.right; anchors.rightMargin: Theme.spacingS

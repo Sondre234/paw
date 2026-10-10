@@ -21,8 +21,12 @@ void NotificationModel::touchGroups() {
     }, Qt::QueuedConnection);
 }
 QVariantList NotificationModel::groups() const {
-    QVariantList groups;
-    QHash<QString, qsizetype> found;
+    struct Group {
+        QVariantMap record;
+        QVariantList notifications;
+    };
+    std::vector<Group> groups;
+    QHash<QString, size_t> found;
     const auto roles = roleNames();
     for (int row = 0; row < int(items_.size()); ++row) {
         const auto &n = items_[size_t(row)];
@@ -33,19 +37,20 @@ QVariantList NotificationModel::groups() const {
         auto at = found.find(key);
         if (at == found.end()) {
             at = found.insert(key, groups.size());
-            groups.push_back(QVariantMap{{"key", key},
-                                         {"app", n.app},
-                                         {"icon", n.icon},
-                                         {"desktopEntry", n.desktopEntry},
-                                         {"notifications", QVariantList()}});
+            groups.push_back({QVariantMap{{"key", key},
+                                          {"app", n.app},
+                                          {"icon", n.icon},
+                                          {"desktopEntry", n.desktopEntry}},
+                              {}});
         }
-        auto group = groups[*at].toMap();
-        auto list = group["notifications"].toList();
-        list.push_back(entry);
-        group["notifications"] = list;
-        groups[*at] = group;
+        groups[*at].notifications.push_back(entry);
     }
-    return groups;
+    QVariantList list;
+    for (auto &group : groups) {
+        group.record.insert("notifications", group.notifications);
+        list.push_back(group.record);
+    }
+    return list;
 }
 int NotificationModel::rowCount(const QModelIndex &parent) const {
     return parent.isValid() ? 0 : int(items_.size());
@@ -143,6 +148,7 @@ QString notificationMarkup(const QString &body) {
         QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression alt(QStringLiteral("alt\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')"),
                                         QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression nameEnd(QStringLiteral("[\\s/]"));
     auto escape = [](QString &out, QChar c) {
         if (c == '&')
             out += QStringLiteral("&amp;");
@@ -155,6 +161,17 @@ QString notificationMarkup(const QString &body) {
     };
     QString out;
     QStringList open;
+    // Closes the open tags, innermost first, up to the first that `last` says is the last one; an
+    // "!a" is a link that was left out, so nothing closes it.
+    auto closeUntil = [&](auto last) {
+        while (!open.isEmpty()) {
+            const QString top = open.takeLast();
+            if (top != "!a")
+                out += "</" + top + '>';
+            if (last(top))
+                break;
+        }
+    };
     for (qsizetype i = 0; i < body.size();) {
         const QChar c = body[i];
         if (c == '<') {
@@ -177,20 +194,14 @@ QString notificationMarkup(const QString &body) {
                 const bool closing = tag.startsWith('/');
                 if (closing)
                     tag.remove(0, 1);
-                const QString name = tag.section(QRegularExpression("[\\s/]"), 0, 0).toLower();
+                const QString name = tag.section(nameEnd, 0, 0).toLower();
                 if (name == "b" || name == "i" || name == "u") {
                     if (!closing) {
                         open.push_back(name);
                         out += '<' + name + '>';
                     } else if (open.contains(name)) {
                         // Close what was opened inside it, then reopen nothing: nesting stays valid.
-                        while (!open.isEmpty()) {
-                            const QString top = open.takeLast();
-                            if (top != "!a")
-                                out += "</" + top + '>';
-                            if (top == name)
-                                break;
-                        }
+                        closeUntil([&name](const QString &top) { return top == name; });
                     }
                 } else if (name == "a") {
                     if (!closing) {
@@ -210,18 +221,9 @@ QString notificationMarkup(const QString &body) {
                             open.push_back("!a");
                         }
                     } else {
-                        const auto found = std::find_if(open.rbegin(), open.rend(), [](const QString &t) {
-                            return t == "a" || t == "!a";
-                        });
-                        if (found != open.rend()) {
-                            while (!open.isEmpty()) {
-                                const QString top = open.takeLast();
-                                if (top != "!a")
-                                    out += "</" + top + '>';
-                                if (top == "a" || top == "!a")
-                                    break;
-                            }
-                        }
+                        auto link = [](const QString &top) { return top == "a" || top == "!a"; };
+                        if (std::any_of(open.begin(), open.end(), link))
+                            closeUntil(link);
                     }
                 } else if (name == "br") {
                     out += QStringLiteral("<br/>");
@@ -274,11 +276,7 @@ QString notificationMarkup(const QString &body) {
             ++i;
         }
     }
-    while (!open.isEmpty()) {
-        const QString top = open.takeLast();
-        if (top != "!a")
-            out += "</" + top + '>';
-    }
+    closeUntil([](const QString &) { return false; });
     return out;
 }
 

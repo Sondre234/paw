@@ -58,8 +58,7 @@ Item {
     property var openEntries: []
     // What makes a submenu's level.
     readonly property Component levelComponent: levelMaker
-    // An entry was chosen (after its run), and the menu wants to be closed.
-    signal triggered(var entry)
+    // The menu wants to be closed: an entry was chosen (after its run), or it was let go.
     signal dismissed()
 
     anchors.fill: parent
@@ -72,7 +71,6 @@ Item {
     }
     function choose(entry) {
         var keep = entry.run ? entry.run() === true : false
-        triggered(entry)
         if (!keep)
             dismissed()
     }

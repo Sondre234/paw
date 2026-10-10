@@ -143,6 +143,8 @@ class ClipboardHistory : public QObject {
     std::vector<std::unique_ptr<Writing>> writings_;
 
     QString path() const;
+    // record() without telling anyone or saving, as the file is read.
+    bool keep(const QList<Format> &formats, const QDateTime &when);
     void changed();
     void save();
     void load();
@@ -156,3 +158,8 @@ class ClipboardHistory : public QObject {
                        uint32_t version);
     static void globalRemoved(void *data, wl_registry *registry, uint32_t name);
 };
+
+// image://clipboard/ID/SERIAL: the picture of the clipboard history's entry ID, as its `image`
+// names it (the serial only keeps QML from reusing a picture that changed); an empty one when the
+// entry has gone.
+QImage clipboardImage(const ClipboardHistory &history, const QString &id);

@@ -8,7 +8,6 @@
 #include <QTimer>
 #include <QVariantMap>
 
-class QDBusServiceWatcher;
 
 // BlueZ on a system bus: its objects (adapters, devices and their batteries) from its
 // ObjectManager, followed through InterfacesAdded, InterfacesRemoved and PropertiesChanged, the
@@ -42,7 +41,6 @@ class BlueZ : public Bluetooth {
   private:
     class Agent;
     QDBusConnection bus_;
-    QDBusServiceWatcher *watcher_ = nullptr;
     Agent *agent_ = nullptr;
     // Counts BlueZ's comings and goings, so that an answer from before one is dropped.
     int generation_ = 0;

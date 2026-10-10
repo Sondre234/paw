@@ -8,7 +8,6 @@ import QtQuick.Layouts
 PopupCard {
     id: wallpaperPicker
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "wallpaperPicker"
     open: panel.audioPopup === "wallpapers"
@@ -33,7 +32,7 @@ PopupCard {
     initialFocus: filter
     implicitWidth: 880
     // As tall as when it shared the bar's surface, which grew to at most 560 pixels.
-    implicitHeight: Math.max(220, Math.min(500, Math.min(560, panel.popupLayer.height) - barItem.height - shell.panelMarginTop - shell.panelMarginBottom - 16))
+    implicitHeight: Math.max(220, Math.min(500, Math.min(560, panel.popupLayer.height) - panel.statusBar.height - shell.panelMarginTop - shell.panelMarginBottom - 16))
     anchorRect: panel.barAnchor(panel.audioPopupX, 0)
     side: panel.popupSide
     ColumnLayout {

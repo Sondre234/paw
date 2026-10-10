@@ -224,14 +224,6 @@ bool Media::command(const QString &verb) {
 }
 
 #if !PAW_MEDIA
-namespace {
 // Without Qt's D-Bus module there are no players to find.
-class NoMedia : public Media {
-  protected:
-    void sendCommand(const QString &, const QString &) override {}
-    void sendPosition(const QString &, const QString &, qint64) override {}
-    void queryPosition(const QString &) override {}
-};
-} // namespace
-std::unique_ptr<Media> makeMedia() { return std::make_unique<NoMedia>(); }
+std::unique_ptr<Media> makeMedia() { return std::make_unique<Media>(); }
 #endif

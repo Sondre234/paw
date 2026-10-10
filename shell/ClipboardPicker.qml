@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Effects
 
 // The clipboard history (shell.clipboard; the clipboard_history action, Super + Shift + V), as
 // Windows' Win + V shows it: what was copied lately, the pinned entries first and each part
@@ -39,22 +38,8 @@ Item {
     // Set by its view as it shows and cleared as it goes (a preview sets it from the start), as
     // the palette's: `progress` follows, from 0 to 1.
     property bool shown: false
-    property real progress: 0
-    states: State {
-        name: "shown"
-        when: root.shown
-        PropertyChanges { root.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationFast; easing.type: Theme.easingExit }
-        }
-    ]
+    property alias progress: reveal.progress
+    Reveal { id: reveal; shown: root.shown }
 
     function reset() {
         search.text = ""
@@ -105,29 +90,7 @@ Item {
         opacity: root.progress
         scale: 0.97 + 0.03 * root.progress
         transform: Translate { y: (root.progress - 1) * Theme.spacingM }
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.spotlightRadius
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.spotlightRadius
-            color: Theme.popupSurface
-            border.color: Theme.popupOutline
-            Rectangle {
-                visible: Theme.popupInnerEdge.a > 0
-                anchors.fill: parent; anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.color: Theme.popupInnerEdge
-            }
-        }
+        CardFrame { radius: Theme.spotlightRadius; innerEdge: true }
 
         SearchInput {
             id: search

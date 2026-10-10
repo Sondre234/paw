@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "power_profiles_daemon.hpp"
+#include "dbus_util.hpp"
 #include <QDBusArgument>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
@@ -45,15 +46,15 @@ PowerProfilesDaemon::PowerProfilesDaemon(const QDBusConnection &bus, QObject *pa
     : PowerMode(parent), bus_(bus) {
     if (!bus_.isConnected())
         return;
-    watcher_ = new QDBusServiceWatcher(this);
-    watcher_->setConnection(bus_);
-    watcher_->setWatchMode(QDBusServiceWatcher::WatchForOwnerChange);
+    auto *watcher = new QDBusServiceWatcher(this);
+    watcher->setConnection(bus_);
+    watcher->setWatchMode(QDBusServiceWatcher::WatchForOwnerChange);
     for (const auto &name : names) {
-        watcher_->addWatchedService(name.service);
+        watcher->addWatchedService(name.service);
         bus_.connect(name.service, name.path, propertiesInterface, "PropertiesChanged", this,
                      SLOT(propertiesChanged(QString, QVariantMap, QStringList)));
     }
-    connect(watcher_, &QDBusServiceWatcher::serviceOwnerChanged, this, [this] { find(); });
+    connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this, [this] { find(); });
     find();
 }
 void PowerProfilesDaemon::find(int from) {
@@ -66,9 +67,7 @@ void PowerProfilesDaemon::find(int from) {
     auto message = QDBusMessage::createMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus",
                                                   "org.freedesktop.DBus", "NameHasOwner");
     message << QString(names[from].service);
-    auto *call = new QDBusPendingCallWatcher(bus_.asyncCall(message), this);
-    connect(call, &QDBusPendingCallWatcher::finished, this, [this, from](QDBusPendingCallWatcher *done) {
-        done->deleteLater();
+    dbus::whenAnswered(bus_.asyncCall(message), this, [this, from](QDBusPendingCallWatcher *done) {
         if (!done->isError() && done->reply().arguments().value(0).toBool()) {
             daemon_ = from;
             read();
@@ -84,20 +83,19 @@ void PowerProfilesDaemon::read() {
     auto message = QDBusMessage::createMethodCall(names[daemon].service, names[daemon].path,
                                                   propertiesInterface, "GetAll");
     message << QString(names[daemon].service);
-    auto *call = new QDBusPendingCallWatcher(bus_.asyncCall(message), this);
-    connect(call, &QDBusPendingCallWatcher::finished, this, [this, daemon](QDBusPendingCallWatcher *done) {
-        done->deleteLater();
-        if (daemon != daemon_)
-            return;
-        if (done->isError()) {
-            properties_.clear();
-            daemon_ = -1;
-        } else {
-            properties_ = qdbus_cast<QVariantMap>(done->reply().arguments().value(0));
-            settle(properties_);
-        }
-        publish();
-    });
+    dbus::whenAnswered(
+        bus_.asyncCall(message), this, [this, daemon](QDBusPendingCallWatcher *done) {
+            if (daemon != daemon_)
+                return;
+            if (done->isError()) {
+                properties_.clear();
+                daemon_ = -1;
+            } else {
+                properties_ = qdbus_cast<QVariantMap>(done->reply().arguments().value(0));
+                settle(properties_);
+            }
+            publish();
+        });
 }
 void PowerProfilesDaemon::publish() {
     State state;
@@ -129,9 +127,7 @@ void PowerProfilesDaemon::sendProfile(const QString &profile) {
                                                   propertiesInterface, "Set");
     message << QString(names[daemon_].service) << QStringLiteral("ActiveProfile")
             << QVariant::fromValue(QDBusVariant(profile));
-    auto *call = new QDBusPendingCallWatcher(bus_.asyncCall(message), this);
-    connect(call, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *done) {
-        done->deleteLater();
+    dbus::whenAnswered(bus_.asyncCall(message), this, [this](QDBusPendingCallWatcher *done) {
         if (!done->isError())
             return;
         Q_EMIT failed("Could not change the power mode: " + done->error().message());

@@ -13,7 +13,6 @@ import QtQuick
 Item {
     id: flyout
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     anchors.fill: parent
     objectName: "clockFlyout"
@@ -21,7 +20,7 @@ Item {
     readonly property bool showCalendar: shell.widgets.calendar
     readonly property bool showNotifications: shell.notifications.serving
     // The bar's right end, which the cards line up with.
-    readonly property rect barEnd: panel.barAnchor(barItem.x + barItem.width, 0)
+    readonly property rect barEnd: panel.barAnchor(panel.statusBar.x + panel.statusBar.width, 0)
     readonly property Item calendar: calendar
     readonly property Item notifications: notifications
 

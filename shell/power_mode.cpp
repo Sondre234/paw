@@ -19,12 +19,6 @@ void PowerMode::setProfile(const QString &profile) {
 }
 
 #if !PAW_POWER_PROFILES
-namespace {
 // Without Qt's D-Bus module there is no daemon to find.
-class NoPowerMode : public PowerMode {
-  protected:
-    void sendProfile(const QString &) override {}
-};
-} // namespace
-std::unique_ptr<PowerMode> makePowerMode() { return std::make_unique<NoPowerMode>(); }
+std::unique_ptr<PowerMode> makePowerMode() { return std::make_unique<PowerMode>(); }
 #endif

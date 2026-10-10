@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 import QtQuick.Layouts
 
 // The on-screen display: a pill with an icon, a label and a level, rising into view from the edge
@@ -12,7 +11,7 @@ Item {
     readonly property bool mine: model.active && model.output === outputName
     // How far it is shown, from 0 to 1: its opacity, and what is left of its rise and growth. It
     // comes quickly and goes slowly, both at once with animations off.
-    property real progress: 0
+    property alias progress: reveal.progress
     // True while it is visible, including the fade out; the view hides the surface after that.
     readonly property bool visibleNow: mine || progress > 0
     readonly property bool hasLevel: model.percent >= 0
@@ -20,21 +19,7 @@ Item {
     readonly property int margin: Math.max(Theme.spacingL, Theme.shadowMargin)
     width: pill.width + 2 * margin
     height: pill.height + 2 * margin
-    states: State {
-        name: "shown"
-        when: osd.mine
-        PropertyChanges { osd.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationSlow; easing.type: Theme.easingExit }
-        }
-    ]
+    Reveal { id: reveal; shown: osd.mine; exitDuration: Theme.durationSlow }
 
     Item {
         id: pill
@@ -46,22 +31,7 @@ Item {
         opacity: osd.progress
         scale: 0.94 + 0.06 * osd.progress
         transform: Translate { y: (1 - osd.progress) * Theme.spacingM * (osd.model.top ? -1 : 1) }
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: pill.height / 2
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: height / 2
-            color: Theme.surface
-            border.color: Theme.border
-        }
+        CardFrame { radius: height / 2; color: Theme.surface; outline: Theme.border }
         RowLayout {
             id: row
             anchors.fill: parent

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "notification_service.hpp"
+#include "dbus_util.hpp"
 #include <QDBusArgument>
 #include <QDBusConnectionInterface>
 #include <QUrl>
@@ -106,20 +107,12 @@ NotificationService::~NotificationService() {
 }
 bool NotificationService::start(const QDBusConnection &bus) {
     bus_ = bus;
-    if (!bus_.isConnected()) {
-        error_ = "no session bus: " + bus_.lastError().message();
+    if (bus_.isConnected())
+        new NotificationsAdaptor(center_, this);
+    error_ = dbus::serve(bus_, serviceName, objectPath, this, QDBusConnection::ExportAdaptors,
+                         "the notification object", "notification daemon");
+    if (!error_.isEmpty())
         return false;
-    }
-    new NotificationsAdaptor(center_, this);
-    if (!bus_.registerObject(objectPath, this, QDBusConnection::ExportAdaptors)) {
-        error_ = "cannot export the notification object: " + bus_.lastError().message();
-        return false;
-    }
-    if (!bus_.registerService(serviceName)) {
-        bus_.unregisterObject(objectPath);
-        error_ = "another notification daemon owns " + QString(serviceName);
-        return false;
-    }
     registered_ = true;
     center_.setServing(true);
     return true;

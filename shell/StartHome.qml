@@ -208,18 +208,9 @@ Item {
             font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily
         }
         // The wheel turns the pages, a notch (or a touchpad's worth of travel) a page.
-        WheelHandler {
-            // Qt takes the whole pointer for a touchpad once the compositor offers gestures
-            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+        NotchWheel {
             enabled: home.pages > 1
-            property real travel: 0
-            onWheel: (event) => {
-                travel += event.angleDelta.y !== 0 ? event.angleDelta.y : event.angleDelta.x
-                var steps = travel > 0 ? Math.floor(travel / 120) : Math.ceil(travel / 120)
-                travel -= steps * 120
-                if (steps !== 0)
-                    home.page = Math.max(0, Math.min(home.pages - 1, home.page - steps))
-            }
+            onNotched: (steps) => home.page = Math.max(0, Math.min(home.pages - 1, home.page - steps))
         }
     }
     // Which page is shown, in the margin beside them; a dot shows its page when clicked.

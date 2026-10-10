@@ -262,6 +262,10 @@ QtObject {
         return Qt.rgba(a.r + (b.r - a.r) * amount, a.g + (b.g - a.g) * amount,
                        a.b + (b.b - a.b) * amount, a.a + (b.a - a.a) * amount)
     }
+    // The Wi-Fi icon for a signal of `strength` per cent: the more bars, the stronger.
+    function wifiIcon(strength) {
+        return strength >= 70 ? "wifi" : strength >= 45 ? "wifi-high" : strength >= 20 ? "wifi-low" : "wifi-zero"
+    }
     // WCAG's relative luminance and contrast ratio.
     function luminance(color) {
         function channel(c) {

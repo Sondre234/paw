@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "network_manager.hpp"
+#include "dbus_util.hpp"
 #include <QDBusArgument>
 #include <QDBusMessage>
 #include <QDBusMetaType>
@@ -29,11 +30,6 @@ constexpr uint activeActivated = 2, activeDeactivated = 4;
 // A connection's settings, a{sa{sv}}.
 using Settings = QMap<QString, QVariantMap>;
 
-QVariantMap map(const QVariant &value) {
-    if (value.metaType() == QMetaType::fromType<QDBusArgument>())
-        return qdbus_cast<QVariantMap>(value.value<QDBusArgument>());
-    return value.toMap();
-}
 QStringList pathList(const QList<QDBusObjectPath> &objects) {
     QStringList list;
     for (const auto &object : objects)
@@ -76,8 +72,8 @@ NetworkManager::NetworkManager(const QDBusConnection &bus, QObject *parent) : Wi
     connect(&publish_, &QTimer::timeout, this, &NetworkManager::publish);
     if (!bus_.isConnected())
         return;
-    watcher_ = new QDBusServiceWatcher(service, bus_, QDBusServiceWatcher::WatchForOwnerChange, this);
-    connect(watcher_, &QDBusServiceWatcher::serviceOwnerChanged, this,
+    auto *watcher = new QDBusServiceWatcher(service, bus_, QDBusServiceWatcher::WatchForOwnerChange, this);
+    connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this,
             [this](const QString &, const QString &, const QString &owner) {
                 stop();
                 if (!owner.isEmpty())
@@ -91,9 +87,7 @@ NetworkManager::NetworkManager(const QDBusConnection &bus, QObject *parent) : Wi
     auto ask = QDBusMessage::createMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus",
                                               "org.freedesktop.DBus", "NameHasOwner");
     ask << QString(service);
-    auto *running = new QDBusPendingCallWatcher(bus_.asyncCall(ask), this);
-    connect(running, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *done) {
-        done->deleteLater();
+    dbus::whenAnswered(bus_.asyncCall(ask), this, [this](QDBusPendingCallWatcher *done) {
         if (!done->isError() && done->reply().arguments().value(0).toBool() && !running_)
             start();
     });
@@ -125,13 +119,13 @@ void NetworkManager::getAll(const QString &path, const QString &interface,
     auto message = call(path, propertiesInterface, "GetAll");
     message << interface;
     const int generation = generation_;
-    auto *watch = new QDBusPendingCallWatcher(bus_.asyncCall(message), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this,
-            [this, generation, done = std::move(done)](QDBusPendingCallWatcher *answer) {
-                answer->deleteLater();
-                if (generation == generation_)
-                    done(answer->isError() ? QVariantMap() : settled(map(answer->reply().arguments().value(0))));
-            });
+    dbus::whenAnswered(bus_.asyncCall(message), this,
+                       [this, generation, done = std::move(done)](QDBusPendingCallWatcher *answer) {
+                           if (generation == generation_)
+                               done(answer->isError()
+                                        ? QVariantMap()
+                                        : settled(dbus::map(answer->reply().arguments().value(0))));
+                       });
 }
 
 void NetworkManager::syncDevices() {
@@ -213,33 +207,33 @@ void NetworkManager::connectionsChanged() {
     if (!running_)
         return;
     const int generation = generation_;
-    auto *watch = new QDBusPendingCallWatcher(
-        bus_.asyncCall(call(settingsPath, settingsInterface, "ListConnections")), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this, [this, generation](QDBusPendingCallWatcher *answer) {
-        answer->deleteLater();
-        if (generation != generation_ || answer->isError())
-            return;
-        const auto listed = plain(answer->reply().arguments().value(0)).toStringList();
-        for (auto it = connections_.begin(); it != connections_.end();)
-            it = listed.contains(it.key()) ? std::next(it) : connections_.erase(it);
-        // Each again, as Updated may have changed one.
-        for (const auto &connection : listed)
-            readConnection(connection);
-        publish_.start();
-    });
+    dbus::whenAnswered(
+        bus_.asyncCall(call(settingsPath, settingsInterface, "ListConnections")), this,
+        [this, generation](QDBusPendingCallWatcher *answer) {
+            if (generation != generation_ || answer->isError())
+                return;
+            const auto listed = plain(answer->reply().arguments().value(0)).toStringList();
+            for (auto it = connections_.begin(); it != connections_.end();)
+                it = listed.contains(it.key()) ? std::next(it) : connections_.erase(it);
+            // Each again, as Updated may have changed one.
+            for (const auto &connection : listed)
+                readConnection(connection);
+            publish_.start();
+        });
 }
 void NetworkManager::readConnection(const QString &path) {
     const int generation = generation_;
-    auto *watch = new QDBusPendingCallWatcher(bus_.asyncCall(call(path, connectionInterface, "GetSettings")), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this, [this, generation, path](QDBusPendingCallWatcher *answer) {
-        answer->deleteLater();
-        if (generation != generation_ || answer->isError())
-            return;
-        const auto settings = qdbus_cast<Settings>(answer->reply().arguments().value(0));
-        connections_[path] = {settings.value("connection").value("type").toString(),
-                              QString::fromUtf8(settings.value("802-11-wireless").value("ssid").toByteArray())};
-        publish_.start();
-    });
+    dbus::whenAnswered(
+        bus_.asyncCall(call(path, connectionInterface, "GetSettings")), this,
+        [this, generation, path](QDBusPendingCallWatcher *answer) {
+            if (generation != generation_ || answer->isError())
+                return;
+            const auto settings = qdbus_cast<Settings>(answer->reply().arguments().value(0));
+            connections_[path] = {
+                settings.value("connection").value("type").toString(),
+                QString::fromUtf8(settings.value("802-11-wireless").value("ssid").toByteArray())};
+            publish_.start();
+        });
 }
 
 void NetworkManager::propertiesChanged(const QDBusMessage &message) {
@@ -247,7 +241,7 @@ void NetworkManager::propertiesChanged(const QDBusMessage &message) {
     if (!running_ || arguments.size() < 2)
         return;
     const auto interface = arguments[0].toString();
-    const auto changed = settled(map(arguments[1]));
+    const auto changed = settled(dbus::map(arguments[1]));
     const auto path = message.path();
     auto merge = [&changed](QVariantMap &into) {
         for (auto it = changed.constBegin(); it != changed.constEnd(); ++it)
@@ -371,15 +365,15 @@ void NetworkManager::publish() {
 void NetworkManager::sendEnabled(bool enabled) {
     auto message = call(managerPath, propertiesInterface, "Set");
     message << QString(managerInterface) << QStringLiteral("WirelessEnabled") << QVariant::fromValue(QDBusVariant(enabled));
-    auto *watch = new QDBusPendingCallWatcher(bus_.asyncCall(message), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this, [this, enabled](QDBusPendingCallWatcher *answer) {
-        answer->deleteLater();
-        if (!answer->isError())
-            return;
-        Q_EMIT failed(QString("Could not turn Wi-Fi %1: ").arg(enabled ? "on" : "off") + answer->error().message());
-        // What NetworkManager has shows again.
-        publish();
-    });
+    dbus::whenAnswered(
+        bus_.asyncCall(message), this, [this, enabled](QDBusPendingCallWatcher *answer) {
+            if (!answer->isError())
+                return;
+            Q_EMIT failed(QString("Could not turn Wi-Fi %1: ").arg(enabled ? "on" : "off") +
+                          answer->error().message());
+            // What NetworkManager has shows again.
+            publish();
+        });
 }
 void NetworkManager::sendScan() {
     for (const auto &device : wifiDevices()) {
@@ -429,34 +423,34 @@ void NetworkManager::sendConnect(const QString &ssid, const QString &security, c
     pending_ = Pending{ssid, {}, {}, !password.isEmpty()};
     const int generation = generation_;
     const bool adding = known.isEmpty();
-    auto *watch = new QDBusPendingCallWatcher(bus_.asyncCall(message), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this,
-            [this, generation, ssid, adding](QDBusPendingCallWatcher *answer) {
-                answer->deleteLater();
-                if (generation != generation_ || !pending_ || pending_->ssid != ssid)
-                    return;
-                if (answer->isError()) {
-                    fail(answer->error().message());
-                    return;
-                }
-                const auto arguments = answer->reply().arguments();
-                // AddAndActivateConnection answers with the connection added, then the active one.
-                pending_->added = adding ? plain(arguments.value(0)).toString() : QString();
-                pending_->active = plain(arguments.value(adding ? 1 : 0)).toString();
-                checkPending();
-            });
+    dbus::whenAnswered(bus_.asyncCall(message), this,
+                       [this, generation, ssid, adding](QDBusPendingCallWatcher *answer) {
+                           if (generation != generation_ || !pending_ || pending_->ssid != ssid)
+                               return;
+                           if (answer->isError()) {
+                               fail(answer->error().message());
+                               return;
+                           }
+                           const auto arguments = answer->reply().arguments();
+                           // AddAndActivateConnection answers with the connection added, then the
+                           // active one.
+                           pending_->added =
+                               adding ? plain(arguments.value(0)).toString() : QString();
+                           pending_->active = plain(arguments.value(adding ? 1 : 0)).toString();
+                           checkPending();
+                       });
 }
 void NetworkManager::sendDisconnect() {
     for (const auto &device : wifiDevices()) {
         const uint state = devices_.value(device).device.value("State").toUInt();
         if (state < devicePrepare || state > deviceActivated)
             continue;
-        auto *watch = new QDBusPendingCallWatcher(bus_.asyncCall(call(device, deviceInterface, "Disconnect")), this);
-        connect(watch, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *answer) {
-            answer->deleteLater();
-            if (answer->isError())
-                Q_EMIT failed("Could not disconnect: " + answer->error().message());
-        });
+        dbus::whenAnswered(bus_.asyncCall(call(device, deviceInterface, "Disconnect")), this,
+                           [this](QDBusPendingCallWatcher *answer) {
+                               if (answer->isError())
+                                   Q_EMIT failed("Could not disconnect: " +
+                                                 answer->error().message());
+                           });
     }
 }
 

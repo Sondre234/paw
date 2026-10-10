@@ -7,10 +7,23 @@
 #include <QQuickItem>
 #include <QSGRendererInterface>
 #include <QScreen>
-#include <algorithm>
 #include <iostream>
 #if PAW_LAYER_SHELL
 #include <LayerShellQt/Window>
+
+namespace {
+// The layer surface of `window` on `screen`, called `scope`, in `layer`: one that takes no keyboard.
+LayerShellQt::Window *makeLayer(QWindow *window, QScreen *screen, const char *scope,
+                                LayerShellQt::Window::Layer layer) {
+    auto *surface = LayerShellQt::Window::get(window);
+    surface->setScreen(screen);
+    surface->setScope(scope);
+    surface->setLayer(layer);
+    surface->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    surface->setActivateOnShow(false);
+    return surface;
+}
+} // namespace
 #endif
 
 ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop, bool preview)
@@ -37,13 +50,9 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
 #if PAW_LAYER_SHELL
     if (!preview) {
         using W = LayerShellQt::Window;
-        layer_ = W::get(this);
-        layer_->setScreen(screen);
-        layer_->setScope(desktop ? "paw-desktop" : "paw-panel");
-        layer_->setLayer(desktop ? W::LayerBackground : W::LayerTop);
+        layer_ = makeLayer(this, screen, desktop ? "paw-desktop" : "paw-panel",
+                           desktop ? W::LayerBackground : W::LayerTop);
         placeLayer();
-        layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-        layer_->setActivateOnShow(false);
     }
 #endif
     resizeForContent();
@@ -161,19 +170,14 @@ void PopoverWindow::setPanel(QQuickWindow *panel) {
 #if PAW_LAYER_SHELL
     if (view->layerShell()) {
         using W = LayerShellQt::Window;
-        layer_ = W::get(this);
-        layer_->setScreen(screen);
-        layer_->setScope("paw-popover");
         // Over the panels and the windows, fullscreen ones too: the launcher asked for with
         // Super + R must show over a video.
-        layer_->setLayer(W::LayerOverlay);
+        layer_ = makeLayer(this, screen, "paw-popover", W::LayerOverlay);
         layer_->setAnchors(W::Anchors(W::AnchorTop | W::AnchorBottom | W::AnchorLeft | W::AnchorRight));
         // The whole output, the bar's strip included: a popup is placed by the bar. The
         // compositor sizes it to the output.
         layer_->setExclusiveZone(-1);
         layer_->setDesiredSize(QSize(0, 0));
-        layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-        layer_->setActivateOnShow(false);
     }
 #endif
     fit();
@@ -274,13 +278,8 @@ void MenuBarWindow::setPanel(QQuickWindow *panel) {
 #if PAW_LAYER_SHELL
     if (view->layerShell()) {
         using W = LayerShellQt::Window;
-        layer_ = W::get(this);
-        layer_->setScreen(screen);
-        layer_->setScope("paw-menubar");
-        layer_->setLayer(W::LayerTop);
+        layer_ = makeLayer(this, screen, "paw-menubar", W::LayerTop);
         layer_->setAnchors(W::Anchors(W::AnchorTop | W::AnchorLeft | W::AnchorRight));
-        layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-        layer_->setActivateOnShow(false);
     }
 #endif
     fit();
@@ -409,6 +408,36 @@ void OverlayView::settle() {
         holdKeyboard(true);
     std::cerr << "paw " << name_ << " hidden on " << outputScreen_->name().toStdString() << '\n';
 }
+namespace {
+// Shows `view` while `want` and hides it otherwise, saying so as "paw NAME shown on OUTPUT".
+void showWhile(QQuickView *view, bool want, const char *name, const QScreen *screen) {
+    if (want && !view->isVisible()) {
+        view->show();
+        std::cerr << "paw " << name << " shown on " << screen->name().toStdString() << '\n';
+    } else if (!want && view->isVisible()) {
+        view->hide();
+        std::cerr << "paw " << name << " hidden on " << screen->name().toStdString() << '\n';
+    }
+}
+} // namespace
+void followRoot(QQuickView *view, LayerShellQt::Window *layer, QQuickItem *root) {
+    auto fit = [view, layer, root] {
+        const QSize wanted(qRound(root->width()), qRound(root->height()));
+        if (view->size() != wanted)
+            view->resize(wanted);
+#if PAW_LAYER_SHELL
+        if (layer)
+            layer->setDesiredSize(wanted);
+#else
+        Q_UNUSED(layer);
+#endif
+    };
+    QObject::connect(root, &QQuickItem::widthChanged, view, fit);
+    QObject::connect(root, &QQuickItem::heightChanged, view, fit);
+    QObject::connect(view, &QWindow::heightChanged, view, fit);
+    QObject::connect(view, &QWindow::widthChanged, view, fit);
+    fit();
+}
 OverviewView::OverviewView(ShellController &controller, QScreen *screen)
     : OverlayView(controller, screen, "overview", false) {
     setTitle("paw overview");
@@ -478,12 +507,8 @@ AuthView::AuthView(ShellController &controller, QScreen *screen)
 }
 void AuthView::update() {
     auto *auth = controller_.authentication();
-    const auto screens = QGuiApplication::screens();
-    const bool known = std::any_of(screens.begin(), screens.end(), [auth](QScreen *screen) {
-        return screen->name() == auth->output();
-    });
-    const bool mine = auth->open() && (known ? auth->output() == outputScreen_->name()
-                                             : outputScreen_ == QGuiApplication::primaryScreen());
+    const bool mine = auth->open() &&
+                      ShellController::outputOrPrimary(auth->output()) == outputScreen_->name();
     if (!mine) {
         dismiss();
         return;
@@ -524,21 +549,8 @@ SwitcherView::SwitcherView(ShellController &controller, QScreen *screen)
     // The surface is as big as the switcher wants, whatever size the compositor last configured:
     // its cards take their widths from their windows' pictures, which may come once it shows,
     // and a configure for the size before would otherwise leave it cut off.
-    if (auto *root = rootObject()) {
-        auto fit = [this, root] {
-            const QSize wanted(qRound(root->width()), qRound(root->height()));
-            if (size() != wanted)
-                resize(wanted);
-#if PAW_LAYER_SHELL
-            layer_->setDesiredSize(wanted);
-#endif
-        };
-        connect(root, &QQuickItem::widthChanged, this, fit);
-        connect(root, &QQuickItem::heightChanged, this, fit);
-        connect(this, &QWindow::widthChanged, this, fit);
-        connect(this, &QWindow::heightChanged, this, fit);
-        fit();
-    }
+    if (auto *root = rootObject())
+        followRoot(this, layer_, root);
     connect(screen, &QScreen::geometryChanged, this, [this] {
         if (rootObject())
             rootObject()->setProperty("screenSize", outputScreen_->geometry().size());
@@ -563,95 +575,6 @@ void SwitcherView::update() {
         delay_->start();
     }
 }
-PaletteView::PaletteView(ShellController &controller, QScreen *screen)
-    : OverlayView(controller, screen, "palette", true) {
-    setTitle("paw palette");
-    setResizeMode(QQuickView::SizeViewToRootObject);
-    setInitialProperties({{"screenSize", screen->geometry().size()}});
-#if PAW_LAYER_SHELL
-    using W = LayerShellQt::Window;
-    layer_->setScope("paw-palette");
-    layer_->setAnchors(W::AnchorTop);
-    layer_->setExclusiveZone(0);
-#endif
-    place();
-    connect(&controller, &ShellController::configChanged, this, &PaletteView::place);
-    load("Palette.qml");
-    // The surface is as big as the palette wants, whatever size the compositor last configured
-    // (a palette that opened small would otherwise stay small).
-    if (auto *root = rootObject()) {
-        auto fit = [this, root] {
-            const QSize wanted(qRound(root->width()), qRound(root->height()));
-            if (size() != wanted)
-                resize(wanted);
-#if PAW_LAYER_SHELL
-            layer_->setDesiredSize(wanted);
-#endif
-        };
-        connect(root, &QQuickItem::widthChanged, this, fit);
-        connect(root, &QQuickItem::heightChanged, this, fit);
-        connect(this, &QWindow::heightChanged, this, fit);
-        fit();
-    }
-    connect(screen, &QScreen::geometryChanged, this, [this] {
-        if (rootObject())
-            rootObject()->setProperty("screenSize", outputScreen_->geometry().size());
-        place();
-    });
-    // Clicking elsewhere takes the keyboard away, which closes the palette; giving it up as it
-    // goes does not.
-    connect(this, &QWindow::activeChanged, this, [this] {
-        if (isActive())
-            wasActive_ = true;
-        else if (wasActive_ && isVisible() && !leaving())
-            controller_.palette()->close();
-    });
-    connect(controller.palette(), &Palette::openChanged, this, &PaletteView::update);
-}
-// Centred, below the bars by controller.paletteDrop.
-void PaletteView::place() {
-#if PAW_LAYER_SHELL
-    if (layer_)
-        layer_->setMargins(QMargins(0, controller_.paletteDrop(outputScreen_->geometry().height()), 0, 0));
-#endif
-}
-void PaletteView::update() {
-    const bool mine = controller_.palette()->output() == outputScreen_->name();
-    if (!mine) {
-        dismiss();
-        return;
-    }
-    // Opened afresh, or again while it was going: it starts from the palette's new query.
-    if (!isVisible() || leaving()) {
-        wasActive_ = false;
-        if (rootObject())
-            QMetaObject::invokeMethod(rootObject(), "reset");
-        present();
-    }
-}
-
-namespace {
-// Makes the surface as big as the item it shows, whatever size the compositor last configured
-// (a surface that opened small would otherwise stay small).
-void followRoot(QQuickView *view, LayerShellQt::Window *layer, QQuickItem *root) {
-    auto fit = [view, layer, root] {
-        const QSize wanted(qRound(root->width()), qRound(root->height()));
-        if (view->size() != wanted)
-            view->resize(wanted);
-#if PAW_LAYER_SHELL
-        if (layer)
-            layer->setDesiredSize(wanted);
-#else
-        Q_UNUSED(layer);
-#endif
-    };
-    QObject::connect(root, &QQuickItem::widthChanged, view, fit);
-    QObject::connect(root, &QQuickItem::heightChanged, view, fit);
-    QObject::connect(view, &QWindow::heightChanged, view, fit);
-    QObject::connect(view, &QWindow::widthChanged, view, fit);
-    fit();
-}
-} // namespace
 CardsView::CardsView(ShellController &controller, QScreen *screen)
     : QQuickView(controller.engine(), nullptr), controller_(controller), outputScreen_(screen) {
     setScreen(screen);
@@ -661,14 +584,8 @@ CardsView::CardsView(ShellController &controller, QScreen *screen)
     setFlags(Qt::FramelessWindowHint);
     setInitialProperties({{"outputName", screen->name()}});
 #if PAW_LAYER_SHELL
-    using W = LayerShellQt::Window;
-    layer_ = W::get(this);
-    layer_->setScreen(screen);
-    layer_->setScope("paw-notifications");
-    layer_->setLayer(W::LayerOverlay);
+    layer_ = makeLayer(this, screen, "paw-notifications", LayerShellQt::Window::LayerOverlay);
     layer_->setExclusiveZone(0);
-    layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-    layer_->setActivateOnShow(false);
     placeLayer();
 #endif
     setSource(QUrl("qrc:/shell/PawShell/NotificationCards.qml"));
@@ -689,14 +606,8 @@ void CardsView::placeLayer() {
 #endif
 }
 void CardsView::update() {
-    const bool want = rootObject() && rootObject()->property("active").toBool();
-    if (want && !isVisible()) {
-        show();
-        std::cerr << "paw notifications shown on " << outputScreen_->name().toStdString() << '\n';
-    } else if (!want && isVisible()) {
-        hide();
-        std::cerr << "paw notifications hidden on " << outputScreen_->name().toStdString() << '\n';
-    }
+    showWhile(this, rootObject() && rootObject()->property("active").toBool(), "notifications",
+              outputScreen_);
 }
 OsdView::OsdView(ShellController &controller, QScreen *screen)
     : QQuickView(controller.engine(), nullptr), controller_(controller), outputScreen_(screen) {
@@ -707,14 +618,8 @@ OsdView::OsdView(ShellController &controller, QScreen *screen)
     setFlags(Qt::FramelessWindowHint | Qt::WindowTransparentForInput);
     setInitialProperties({{"outputName", screen->name()}});
 #if PAW_LAYER_SHELL
-    using W = LayerShellQt::Window;
-    layer_ = W::get(this);
-    layer_->setScreen(screen);
-    layer_->setScope("paw-osd");
-    layer_->setLayer(W::LayerOverlay);
+    layer_ = makeLayer(this, screen, "paw-osd", LayerShellQt::Window::LayerOverlay);
     layer_->setExclusiveZone(-1);
-    layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-    layer_->setActivateOnShow(false);
     placeLayer();
 #endif
     setSource(QUrl("qrc:/shell/PawShell/Osd.qml"));
@@ -732,14 +637,8 @@ void OsdView::placeLayer() {
 #endif
 }
 void OsdView::update() {
-    const bool want = rootObject() && rootObject()->property("visibleNow").toBool();
-    if (want && !isVisible()) {
-        show();
-        std::cerr << "paw osd shown on " << outputScreen_->name().toStdString() << '\n';
-    } else if (!want && isVisible()) {
-        hide();
-        std::cerr << "paw osd hidden on " << outputScreen_->name().toStdString() << '\n';
-    }
+    showWhile(this, rootObject() && rootObject()->property("visibleNow").toBool(), "osd",
+              outputScreen_);
 }
 DisplayModeView::DisplayModeView(ShellController &controller, QScreen *screen)
     : QQuickView(controller.engine(), nullptr), outputScreen_(screen) {
@@ -751,14 +650,9 @@ DisplayModeView::DisplayModeView(ShellController &controller, QScreen *screen)
     setInitialProperties({{"outputName", screen->name()}});
 #if PAW_LAYER_SHELL
     using W = LayerShellQt::Window;
-    layer_ = W::get(this);
-    layer_->setScreen(screen);
-    layer_->setScope("paw-display-mode");
-    layer_->setLayer(W::LayerOverlay);
+    layer_ = makeLayer(this, screen, "paw-display-mode", W::LayerOverlay);
     layer_->setAnchors(W::Anchors());
     layer_->setExclusiveZone(-1);
-    layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-    layer_->setActivateOnShow(false);
 #endif
     setSource(QUrl("qrc:/shell/PawShell/DisplayMode.qml"));
     if (auto *root = rootObject()) {
@@ -767,16 +661,8 @@ DisplayModeView::DisplayModeView(ShellController &controller, QScreen *screen)
     }
 }
 void DisplayModeView::update() {
-    const bool want = rootObject() && rootObject()->property("visibleNow").toBool();
-    if (want && !isVisible()) {
-        show();
-        std::cerr << "paw display mode shown on " << outputScreen_->name().toStdString()
-                  << '\n';
-    } else if (!want && isVisible()) {
-        hide();
-        std::cerr << "paw display mode hidden on " << outputScreen_->name().toStdString()
-                  << '\n';
-    }
+    showWhile(this, rootObject() && rootObject()->property("visibleNow").toBool(), "display mode",
+              outputScreen_);
 }
 ConfigErrorView::ConfigErrorView(ShellController &controller, QScreen *screen)
     : QQuickView(controller.engine(), nullptr), outputScreen_(screen) {
@@ -787,14 +673,9 @@ ConfigErrorView::ConfigErrorView(ShellController &controller, QScreen *screen)
     setFlags(Qt::FramelessWindowHint | Qt::WindowTransparentForInput);
 #if PAW_LAYER_SHELL
     using W = LayerShellQt::Window;
-    layer_ = W::get(this);
-    layer_->setScreen(screen);
-    layer_->setScope("paw-config-error");
-    layer_->setLayer(W::LayerOverlay);
+    layer_ = makeLayer(this, screen, "paw-config-error", W::LayerOverlay);
     layer_->setAnchors(W::Anchors(W::AnchorTop) | W::AnchorLeft | W::AnchorRight);
     layer_->setExclusiveZone(-1);
-    layer_->setKeyboardInteractivity(W::KeyboardInteractivityNone);
-    layer_->setActivateOnShow(false);
 #endif
     setSource(QUrl("qrc:/shell/PawShell/ConfigError.qml"));
     if (auto *root = rootObject()) {
@@ -852,12 +733,8 @@ DisplaySettingsView::DisplaySettingsView(ShellController &controller, QScreen *s
 }
 void DisplaySettingsView::update() {
     const auto *settings = controller_.displaySettings();
-    const auto screens = QGuiApplication::screens();
-    const bool known = std::any_of(screens.begin(), screens.end(), [settings](QScreen *screen) {
-        return screen->name() == settings->output();
-    });
-    const bool mine = settings->open() && (known ? settings->output() == outputScreen_->name()
-                                                 : outputScreen_ == QGuiApplication::primaryScreen());
+    const bool mine = settings->open() &&
+                      ShellController::outputOrPrimary(settings->output()) == outputScreen_->name();
     if (!mine) {
         dismiss();
         return;

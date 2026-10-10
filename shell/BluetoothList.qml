@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 // The Bluetooth devices, under Quick Settings' tile as Windows 11 and GNOME list them: the paired
@@ -182,30 +181,16 @@ Column {
                 font.letterSpacing: Theme.spacingXS
                 font.features: { "tnum": 1 }
             }
-            TextField {
+            TextEntry {
                 id: answer
                 objectName: "bluetoothAnswer"
                 visible: question.typed
                 Layout.fillWidth: true
-                implicitHeight: Theme.fieldHeight
                 placeholderText: question.kind === "pin" ? "PIN" : "Passkey"
-                placeholderTextColor: Theme.textMuted
                 validator: question.kind === "passkey" ? passkeys : pins
                 inputMethodHints: question.kind === "passkey" ? Qt.ImhDigitsOnly : Qt.ImhNone
-                color: Theme.text
-                selectionColor: Theme.accent
-                selectedTextColor: Theme.textOnAccent
-                selectByMouse: true
-                leftPadding: Theme.spacingM; rightPadding: Theme.spacingM
-                verticalAlignment: TextInput.AlignVCenter
-                font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily
                 Accessible.name: placeholderText + " for " + list.bluetooth.requestName
                 onAccepted: question.accept()
-                background: Rectangle {
-                    radius: Theme.radiusSmall
-                    color: Theme.fieldFill
-                    border.color: answer.activeFocus ? Theme.accent : Theme.border
-                }
                 // A passkey is a number of up to six digits; a PIN up to sixteen characters.
                 IntValidator { id: passkeys; bottom: 0; top: 999999 }
                 RegularExpressionValidator { id: pins; regularExpression: /.{1,16}/ }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "tray_host.hpp"
+#include "dbus_util.hpp"
 #include "tray_watcher.hpp"
 #include <QCoreApplication>
 #include <QDBusArgument>
@@ -122,21 +123,22 @@ void TrayItemClient::refresh() {
         readEach();
         return;
     }
-    auto *watch = new QDBusPendingCallWatcher(call(propertiesInterface, "GetAll", {QString(itemInterface)}), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watch) {
-        watch->deleteLater();
-        const QDBusMessage reply = watch->reply();
-        QVariantMap properties;
-        if (reply.type() == QDBusMessage::ReplyMessage && reply.signature() == "a{sv}")
-            properties = qdbus_cast<QVariantMap>(reply.arguments().at(0));
-        // Some items answer GetAll with an error, or with nothing: ask for each property.
-        if (properties.isEmpty()) {
-            getAll_ = false;
-            readEach();
-            return;
-        }
-        apply(properties);
-    });
+    dbus::whenAnswered(call(propertiesInterface, "GetAll", {QString(itemInterface)}), this,
+                       [this](QDBusPendingCallWatcher *watch) {
+                           const QDBusMessage reply = watch->reply();
+                           QVariantMap properties;
+                           if (reply.type() == QDBusMessage::ReplyMessage &&
+                               reply.signature() == "a{sv}")
+                               properties = qdbus_cast<QVariantMap>(reply.arguments().at(0));
+                           // Some items answer GetAll with an error, or with nothing: ask for each
+                           // property.
+                           if (properties.isEmpty()) {
+                               getAll_ = false;
+                               readEach();
+                               return;
+                           }
+                           apply(properties);
+                       });
 }
 void TrayItemClient::readEach() {
     static const QStringList names{"Id",
@@ -155,15 +157,15 @@ void TrayItemClient::readEach() {
     auto gathered = std::make_shared<QVariantMap>();
     auto pending = std::make_shared<int>(int(names.size()));
     for (const auto &name : names) {
-        auto *watch = new QDBusPendingCallWatcher(call(propertiesInterface, "Get", {QString(itemInterface), name}), this);
-        connect(watch, &QDBusPendingCallWatcher::finished, this, [this, name, gathered, pending](QDBusPendingCallWatcher *watch) {
-            watch->deleteLater();
-            const QDBusMessage reply = watch->reply();
-            if (reply.type() == QDBusMessage::ReplyMessage && reply.signature() == "v")
-                (*gathered)[name] = reply.arguments().at(0).value<QDBusVariant>().variant();
-            if (--*pending == 0)
-                apply(*gathered);
-        });
+        dbus::whenAnswered(
+            call(propertiesInterface, "Get", {QString(itemInterface), name}), this,
+            [this, name, gathered, pending](QDBusPendingCallWatcher *watch) {
+                const QDBusMessage reply = watch->reply();
+                if (reply.type() == QDBusMessage::ReplyMessage && reply.signature() == "v")
+                    (*gathered)[name] = reply.arguments().at(0).value<QDBusVariant>().variant();
+                if (--*pending == 0)
+                    apply(*gathered);
+            });
     }
 }
 void TrayItemClient::apply(const QVariantMap &properties) {
@@ -210,14 +212,13 @@ bool TrayItemClient::read(TrayItem &item, const QVariantMap &properties) {
 }
 void TrayItemClient::activate(int x, int y) {
     // Plasma's way: an item that cannot be activated shows its menu instead.
-    auto *watch = new QDBusPendingCallWatcher(call(itemInterface, "Activate", {x, y}), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watch) {
-        watch->deleteLater();
-        const auto type = watch->error().type();
-        if (watch->isError() && type != QDBusError::NoReply && type != QDBusError::Timeout &&
-            type != QDBusError::TimedOut)
-            Q_EMIT model_.activationRefused(key_);
-    });
+    dbus::whenAnswered(call(itemInterface, "Activate", {x, y}), this,
+                       [this](QDBusPendingCallWatcher *watch) {
+                           const auto type = watch->error().type();
+                           if (watch->isError() && type != QDBusError::NoReply &&
+                               type != QDBusError::Timeout && type != QDBusError::TimedOut)
+                               Q_EMIT model_.activationRefused(key_);
+                       });
 }
 void TrayItemClient::secondaryActivate(int x, int y) { call(itemInterface, "SecondaryActivate", {x, y}); }
 void TrayItemClient::contextMenu(int x, int y) { call(itemInterface, "ContextMenu", {x, y}); }
@@ -255,23 +256,23 @@ void TrayItemClient::fetchLayout() {
     if (menuPath_.isEmpty())
         return;
     fetching_ = true;
-    auto *watch = new QDBusPendingCallWatcher(callMenu("GetLayout", {0, -1, QStringList()}), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watch) {
-        watch->deleteLater();
-        fetching_ = false;
-        const QDBusMessage reply = watch->reply();
-        std::map<int, TrayMenuEntry> menu;
-        TrayItem *item = model_.find(key_);
-        if (item && reply.type() == QDBusMessage::ReplyMessage && reply.signature() == "u(ia{sv}av)" &&
-            readLayout(reply.arguments().at(1).value<QDBusArgument>(), menu)) {
-            item->menu = std::move(menu);
-            model_.menuEdited(key_);
-        }
-        if (fetchAgain_) {
-            fetchAgain_ = false;
-            fetchLayout();
-        }
-    });
+    dbus::whenAnswered(callMenu("GetLayout", {0, -1, QStringList()}), this,
+                       [this](QDBusPendingCallWatcher *watch) {
+                           fetching_ = false;
+                           const QDBusMessage reply = watch->reply();
+                           std::map<int, TrayMenuEntry> menu;
+                           TrayItem *item = model_.find(key_);
+                           if (item && reply.type() == QDBusMessage::ReplyMessage &&
+                               reply.signature() == "u(ia{sv}av)" &&
+                               readLayout(reply.arguments().at(1).value<QDBusArgument>(), menu)) {
+                               item->menu = std::move(menu);
+                               model_.menuEdited(key_);
+                           }
+                           if (fetchAgain_) {
+                               fetchAgain_ = false;
+                               fetchLayout();
+                           }
+                       });
 }
 namespace {
 bool readEntry(const QDBusArgument &layout, std::map<int, TrayMenuEntry> &menu, int depth, int &budget, int &id) {
@@ -353,9 +354,7 @@ void TrayItemClient::openMenu(int id) {
     if (menuPath_.isEmpty())
         return;
     // AboutToShow lets the application fill the entries in; it says whether they changed.
-    auto *watch = new QDBusPendingCallWatcher(callMenu("AboutToShow", {id}), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watch) {
-        watch->deleteLater();
+    dbus::whenAnswered(callMenu("AboutToShow", {id}), this, [this](QDBusPendingCallWatcher *watch) {
         const QDBusMessage reply = watch->reply();
         if (reply.type() == QDBusMessage::ReplyMessage && reply.signature() == "b" &&
             reply.arguments().at(0).toBool())
@@ -468,17 +467,16 @@ void TrayHost::followWatcher() {
     bus_.asyncCall(registration, callTimeout);
     auto get = QDBusMessage::createMethodCall(watcherService, watcherPath, propertiesInterface, "Get");
     get.setArguments({QString(watcherService), QString("RegisteredStatusNotifierItems")});
-    auto *watch = new QDBusPendingCallWatcher(bus_.asyncCall(get, callTimeout), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watch) {
-        watch->deleteLater();
-        const QDBusMessage reply = watch->reply();
-        if (reply.type() != QDBusMessage::ReplyMessage || reply.signature() != "v")
-            return;
-        const QVariant items = reply.arguments().at(0).value<QDBusVariant>().variant();
-        if (items.metaType().id() == QMetaType::QStringList)
-            for (const auto &item : items.toStringList())
-                addItem(item);
-    });
+    dbus::whenAnswered(
+        bus_.asyncCall(get, callTimeout), this, [this](QDBusPendingCallWatcher *watch) {
+            const QDBusMessage reply = watch->reply();
+            if (reply.type() != QDBusMessage::ReplyMessage || reply.signature() != "v")
+                return;
+            const QVariant items = reply.arguments().at(0).value<QDBusVariant>().variant();
+            if (items.metaType().id() == QMetaType::QStringList)
+                for (const auto &item : items.toStringList())
+                    addItem(item);
+        });
 }
 void TrayHost::watcherChanged(const QString &, const QString &, const QString &newOwner) {
     if (watcher_)

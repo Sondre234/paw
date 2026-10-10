@@ -34,6 +34,15 @@ void onSignal(int number) {
     }
     errno = previous;
 }
+// The view, once its QML has loaded; Qt's errors are printed when it did not.
+template <class View> std::unique_ptr<View> loaded(std::unique_ptr<View> view) {
+    if (view->status() == QQuickView::Error) {
+        for (const auto &error : view->errors())
+            std::cerr << error.toString().toStdString() << '\n';
+        throw std::runtime_error("could not load shell QML");
+    }
+    return view;
+}
 } // namespace
 int main(int argc, char **argv) {
     // The compositor sets this so libGLX skips loading the GPU driver, which software rendering
@@ -153,17 +162,9 @@ int main(int argc, char **argv) {
         if (parser.isSet("preview-popup"))
             previewData = std::make_unique<PreviewData>(controller);
         std::vector<std::unique_ptr<ShellView>> views;
-        std::vector<std::unique_ptr<SwitcherView>> switchers;
-        std::vector<std::unique_ptr<PaletteView>> palettes;
-        std::vector<std::unique_ptr<PickerView>> pickers;
-        std::vector<std::unique_ptr<PowerView>> powerViews;
-        std::vector<std::unique_ptr<AuthView>> authViews;
-        std::vector<std::unique_ptr<DisplaySettingsView>> displaySettingsViews;
-        std::vector<std::unique_ptr<OverviewView>> overviews;
-        std::vector<std::unique_ptr<CardsView>> cardViews;
-        std::vector<std::unique_ptr<OsdView>> osdViews;
-        std::vector<std::unique_ptr<DisplayModeView>> displayModeViews;
-        std::vector<std::unique_ptr<ConfigErrorView>> errorViews;
+        // The other surfaces of each output: the overlays, the cards, the on-screen display, the
+        // display mode popup and the configuration error banner.
+        std::vector<std::pair<QScreen *, std::unique_ptr<QQuickView>>> overlays;
         // --quit-after's end, with --screenshot's picture of the first view.
         auto quit = [&] {
             if (!parser.isSet("screenshot")) {
@@ -195,12 +196,7 @@ int main(int argc, char **argv) {
             for (bool desktop : {true, false}) {
                 if (preview && desktop != parser.isSet("preview-desktop"))
                     continue;
-                auto view = std::make_unique<ShellView>(controller, screen, desktop, preview);
-                if (view->status() == QQuickView::Error) {
-                    for (const auto &error : view->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
+                auto view = loaded(std::make_unique<ShellView>(controller, screen, desktop, preview));
                 auto reportFrame = [window = view.get()] {
                     QObject::connect(
                         window, &QQuickWindow::frameSwapped, window,
@@ -237,93 +233,24 @@ int main(int argc, char **argv) {
                 views.push_back(std::move(view));
             }
             if (!preview) {
-                auto switcher = std::make_unique<SwitcherView>(controller, screen);
-                if (switcher->status() == QQuickView::Error) {
-                    for (const auto &error : switcher->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                switchers.push_back(std::move(switcher));
-                auto palette = std::make_unique<PaletteView>(controller, screen);
-                if (palette->status() == QQuickView::Error) {
-                    for (const auto &error : palette->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                palettes.push_back(std::move(palette));
-                auto clipboard = std::make_unique<PickerView>(controller, screen, "clipboard",
-                                                              "ClipboardPicker.qml",
-                                                              controller.clipboard());
-                if (clipboard->status() == QQuickView::Error) {
-                    for (const auto &error : clipboard->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                pickers.push_back(std::move(clipboard));
-                auto emoji = std::make_unique<PickerView>(controller, screen, "emoji",
-                                                          "EmojiPicker.qml", controller.emoji());
-                if (emoji->status() == QQuickView::Error) {
-                    for (const auto &error : emoji->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                pickers.push_back(std::move(emoji));
-                auto powerView = std::make_unique<PowerView>(controller, screen);
-                if (powerView->status() == QQuickView::Error) {
-                    for (const auto &error : powerView->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                powerViews.push_back(std::move(powerView));
-                auto authView = std::make_unique<AuthView>(controller, screen);
-                if (authView->status() == QQuickView::Error) {
-                    for (const auto &error : authView->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                authViews.push_back(std::move(authView));
-                auto displaySettingsView = std::make_unique<DisplaySettingsView>(controller, screen);
-                if (displaySettingsView->status() == QQuickView::Error) {
-                    for (const auto &error : displaySettingsView->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                displaySettingsViews.push_back(std::move(displaySettingsView));
-                auto overview = std::make_unique<OverviewView>(controller, screen);
-                if (overview->status() == QQuickView::Error) {
-                    for (const auto &error : overview->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                overviews.push_back(std::move(overview));
-                auto cardView = std::make_unique<CardsView>(controller, screen);
-                if (cardView->status() == QQuickView::Error) {
-                    for (const auto &error : cardView->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                cardViews.push_back(std::move(cardView));
-                auto osdView = std::make_unique<OsdView>(controller, screen);
-                if (osdView->status() == QQuickView::Error) {
-                    for (const auto &error : osdView->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                osdViews.push_back(std::move(osdView));
-                auto displayModeView = std::make_unique<DisplayModeView>(controller, screen);
-                if (displayModeView->status() == QQuickView::Error) {
-                    for (const auto &error : displayModeView->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                displayModeViews.push_back(std::move(displayModeView));
-                auto errorView = std::make_unique<ConfigErrorView>(controller, screen);
-                if (errorView->status() == QQuickView::Error) {
-                    for (const auto &error : errorView->errors())
-                        std::cerr << error.toString().toStdString() << '\n';
-                    throw std::runtime_error("could not load shell QML");
-                }
-                errorViews.push_back(std::move(errorView));
+                auto add = [&](std::unique_ptr<QQuickView> view) {
+                    overlays.emplace_back(screen, loaded(std::move(view)));
+                };
+                add(std::make_unique<SwitcherView>(controller, screen));
+                add(std::make_unique<PickerView>(controller, screen, "palette", "Palette.qml",
+                                                 controller.palette()));
+                add(std::make_unique<PickerView>(controller, screen, "clipboard",
+                                                 "ClipboardPicker.qml", controller.clipboard()));
+                add(std::make_unique<PickerView>(controller, screen, "emoji", "EmojiPicker.qml",
+                                                 controller.emoji()));
+                add(std::make_unique<PowerView>(controller, screen));
+                add(std::make_unique<AuthView>(controller, screen));
+                add(std::make_unique<DisplaySettingsView>(controller, screen));
+                add(std::make_unique<OverviewView>(controller, screen));
+                add(std::make_unique<CardsView>(controller, screen));
+                add(std::make_unique<OsdView>(controller, screen));
+                add(std::make_unique<DisplayModeView>(controller, screen));
+                add(std::make_unique<ConfigErrorView>(controller, screen));
             }
         };
         for (auto *screen : QGuiApplication::screens()) {
@@ -353,27 +280,7 @@ int main(int argc, char **argv) {
         QObject::connect(&app, &QGuiApplication::screenRemoved, &app, [&](QScreen *screen) {
             std::erase_if(views,
                           [screen](const auto &view) { return view->outputScreen() == screen; });
-            std::erase_if(switchers, [screen](const auto &switcher) {
-                return switcher->outputScreen() == screen;
-            });
-            std::erase_if(palettes, [screen](const auto &palette) {
-                return palette->outputScreen() == screen;
-            });
-            std::erase_if(pickers, [screen](const auto &picker) {
-                return picker->outputScreen() == screen;
-            });
-            std::erase_if(powerViews, [screen](const auto &view) { return view->outputScreen() == screen; });
-            std::erase_if(authViews, [screen](const auto &view) { return view->outputScreen() == screen; });
-            std::erase_if(displaySettingsViews,
-                          [screen](const auto &view) { return view->outputScreen() == screen; });
-            std::erase_if(overviews, [screen](const auto &overview) {
-                return overview->outputScreen() == screen;
-            });
-            std::erase_if(cardViews, [screen](const auto &view) { return view->outputScreen() == screen; });
-            std::erase_if(osdViews, [screen](const auto &view) { return view->outputScreen() == screen; });
-            std::erase_if(displayModeViews,
-                          [screen](const auto &view) { return view->outputScreen() == screen; });
-            std::erase_if(errorViews, [screen](const auto &view) { return view->outputScreen() == screen; });
+            std::erase_if(overlays, [screen](const auto &overlay) { return overlay.first == screen; });
         });
         int pipeFds[2];
         if (pipe2(pipeFds, O_NONBLOCK | O_CLOEXEC) < 0)

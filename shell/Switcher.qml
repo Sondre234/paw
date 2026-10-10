@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 
 // The window switcher: every window's icon and title in a grid, most recently focused first,
 // with the selected one's full title and place below, on a card with room around it for its
@@ -51,22 +50,8 @@ Item {
     // normal duration and goes on its fast one, quicker than it came, as the switch it ends is
     // done.
     property bool shown: false
-    property real progress: 0
-    states: State {
-        name: "shown"
-        when: switcher.shown
-        PropertyChanges { switcher.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationFast; easing.type: Theme.easingExit }
-        }
-    ]
+    property alias progress: reveal.progress
+    Reveal { id: reveal; shown: switcher.shown }
 
     Item {
         id: card
@@ -75,22 +60,7 @@ Item {
         scale: 0.94 + 0.06 * switcher.progress
         width: switcher.contentWidth + 2 * switcher.padding
         height: switcher.contentHeight + 2 * switcher.padding + caption.height + Theme.spacingM
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.switcherRadius
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.switcherRadius
-            color: Theme.switcherSurface
-            border.color: Theme.popupOutline
-        }
+        CardFrame { radius: Theme.switcherRadius; color: Theme.switcherSurface }
         GridView {
             id: grid
             objectName: "switcherGrid"

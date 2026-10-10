@@ -122,6 +122,10 @@ class TaskModel : public QAbstractListModel {
     void setPeeked(int taskId);
     WindowPictures pictures_{[this] { flush(); }};
     Task *find(int id);
+    // Sets or unsets one of the window control's states of window `id`: from version `since` of
+    // the window's object on.
+    void setState(int id, bool on, void (*set)(paw_window_v1 *), void (*unset)(paw_window_v1 *),
+                  uint32_t since = 1);
     void flush();
     // Works out which tasks are urgent; those but `except` that change announce it.
     void matchUrgent(const Task *except = nullptr);
@@ -149,3 +153,8 @@ class TaskModel : public QAbstractListModel {
     static void windowIcon(void *, paw_window_v1 *, const char *);
     static void windowIconImage(void *, paw_window_v1 *, int32_t, uint32_t, uint32_t);
 };
+
+// image://windows/ID/SERIAL: the last picture of the window TaskModel numbers ID, as its `picture`
+// role names it (the serial only keeps QML from reusing a picture that has changed); an empty one,
+// a pixel wide, when the window closed as its picture was asked for.
+QImage windowImage(const TaskModel &tasks, const QString &id);

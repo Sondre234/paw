@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
+import "WindowMenu.js" as WindowMenu
 
 Rectangle {
     id: desktop
@@ -123,10 +124,7 @@ Rectangle {
         entries: [{ text: "Show desktop", icon: "minimize-2", run: function() { shell.tasks.showDesktop() } }]
             .concat(shell.profiles.length > 0
                 ? [{ text: "Appearance", icon: "palette", secondary: shell.profile,
-                     submenu: shell.profiles.map(function(name) {
-                         return { text: name, toggle: "radio", checked: name === shell.profile,
-                                  run: function() { if (name !== shell.profile) shell.pickProfile(name) } }
-                     }) }]
+                     submenu: WindowMenu.profileEntries() }]
                 : [])
     }
 }

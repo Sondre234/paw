@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "clipboard.hpp"
+#include "state_files.hpp"
 #include "ext-data-control-v1-client-protocol.h"
 #include <QClipboard>
 #include <QDataStream>
@@ -139,10 +140,7 @@ QString ClipboardHistory::path() const {
         return settings_.path;
     if (!connected())
         return {};
-    auto state = qEnvironmentVariable("XDG_STATE_HOME");
-    if (state.isEmpty() || QDir::isRelativePath(state))
-        state = QDir::homePath() + "/.local/state";
-    return state + "/paw/clipboard";
+    return stateDir() + "/clipboard";
 }
 
 void ClipboardHistory::configure(const Settings &settings) {
@@ -211,6 +209,14 @@ QImage ClipboardHistory::picture(int id) const {
             return entry.picture;
     return {};
 }
+QImage clipboardImage(const ClipboardHistory &history, const QString &id) {
+    QImage image = history.picture(id.section('/', 0, 0).toInt());
+    if (image.isNull()) {
+        image = QImage(1, 1, QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+    }
+    return image;
+}
 
 void ClipboardHistory::toggle(const QString &output) {
     output_ = output_ == output ? QString() : output;
@@ -231,6 +237,12 @@ void ClipboardHistory::changed() {
 }
 
 bool ClipboardHistory::record(const QList<Format> &formats, const QDateTime &when) {
+    if (!keep(formats, when))
+        return false;
+    changed();
+    return true;
+}
+bool ClipboardHistory::keep(const QList<Format> &formats, const QDateTime &when) {
     if (!settings_.enabled || locked_)
         return false;
     if (formatData(formats, secretHint).trimmed() == "secret")
@@ -286,7 +298,6 @@ bool ClipboardHistory::record(const QList<Format> &formats, const QDateTime &whe
             return !other.pinned && ++kept > settings_.limit;
         });
     }
-    changed();
     return true;
 }
 
@@ -299,7 +310,7 @@ void ClipboardHistory::preview(const QList<QList<Format>> &copies, const QList<i
     }
     const auto now = QDateTime::currentDateTime();
     for (qsizetype i = copies.size() - 1; i >= 0; --i)
-        record(copies[i], now.addSecs(-60 * 7 * i));
+        keep(copies[i], now.addSecs(-60 * 7 * i));
     for (auto &entry : entries_)
         entry.pinned = pinned.contains(static_cast<int>(copies.size() - entry.id));
     Q_EMIT entriesChanged();
@@ -689,7 +700,7 @@ void ClipboardHistory::load() {
             stream >> type >> data;
             copy.push_back({type, data});
         }
-        if (stream.status() != QDataStream::Ok || !record(copy, when))
+        if (stream.status() != QDataStream::Ok || !keep(copy, when))
             continue;
         entries_.front().pinned = pinned;
     }

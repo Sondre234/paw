@@ -149,9 +149,6 @@ class MenuBarWindow : public QQuickWindow {
 // it was.
 class OverlayView : public QQuickView {
     Q_OBJECT
-  public:
-    QScreen *outputScreen() const { return outputScreen_; }
-
   protected:
     // `name` is how its log lines call it ("palette" in "paw palette shown on DP-1"), and
     // `keyboard` whether it holds the keyboard while it is on.
@@ -178,18 +175,10 @@ class OverlayView : public QQuickView {
     void holdKeyboard(bool hold);
 };
 
-// The command palette's overlay on one output: a search box near the top, holding the keyboard
-// while the palette is open there.
-class PaletteView : public OverlayView {
-    Q_OBJECT
-  public:
-    PaletteView(ShellController &controller, QScreen *screen);
-
-  private:
-    bool wasActive_ = false;
-    void update();
-    void place();
-};
+// Keeps `view` as big as `root`, the item it shows, whatever size the compositor last configured
+// (a surface that opened small would otherwise stay small), asking its layer surface, if any, for
+// that size.
+void followRoot(QQuickView *view, LayerShellQt::Window *layer, QQuickItem *root);
 
 // The confirmation of power off, restart and log out on one output: a dimmed cover with the
 // dialog in its middle, holding the keyboard while it waits.
@@ -256,7 +245,6 @@ class CardsView : public QQuickView {
     Q_OBJECT
   public:
     CardsView(ShellController &controller, QScreen *screen);
-    QScreen *outputScreen() const { return outputScreen_; }
 
   private Q_SLOTS:
     void update();
@@ -273,7 +261,6 @@ class OsdView : public QQuickView {
     Q_OBJECT
   public:
     OsdView(ShellController &controller, QScreen *screen);
-    QScreen *outputScreen() const { return outputScreen_; }
 
   private Q_SLOTS:
     void update();
@@ -292,7 +279,6 @@ class DisplayModeView : public QQuickView {
     Q_OBJECT
   public:
     DisplayModeView(ShellController &controller, QScreen *screen);
-    QScreen *outputScreen() const { return outputScreen_; }
 
   private Q_SLOTS:
     void update();
@@ -308,7 +294,6 @@ class ConfigErrorView : public QQuickView {
     Q_OBJECT
   public:
     ConfigErrorView(ShellController &controller, QScreen *screen);
-    QScreen *outputScreen() const { return outputScreen_; }
 
   private Q_SLOTS:
     void update();

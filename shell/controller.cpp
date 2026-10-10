@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "controller.hpp"
-#include "clipboard_images.hpp"
+#include "gio_launch.hpp"
 #include "icons.hpp"
-#include "notification_images.hpp"
-#include "tray_images.hpp"
+#include "image_provider.hpp"
+#include "state_files.hpp"
 #include "wallpapers.hpp"
-#include "window_images.hpp"
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QClipboard>
@@ -20,13 +19,15 @@
 #include <QIcon>
 #include <QProcess>
 #include <QProcessEnvironment>
-#include <QSaveFile>
 #include <QTimer>
 #include <algorithm>
 #include <functional>
 #include <gio/gdesktopappinfo.h>
 #include <iostream>
 #include <memory>
+#if PAW_DBUS || PAW_TRAY
+#include "dbus_util.hpp"
+#endif
 #if PAW_DBUS
 #include "notification_service.hpp"
 #endif
@@ -37,8 +38,33 @@
 #include "polkit_agent.hpp"
 #endif
 
+namespace {
+// image://tray/SERIAL/REVISION: a tray item's icon, or the stand-in for an item without one;
+// image://tray/SERIAL/menu/ID/REVISION: an entry of its menu. The revision only keeps QML from
+// reusing a picture that has changed.
+ImageProvider::Picture trayImage(TrayModel &model) {
+    return [&model](const QString &id, const QSize &requested) {
+        const QSize wanted = requested.isEmpty() ? QSize(22, 22) : requested;
+        const QStringList parts = id.split('/');
+        if (parts.value(1) == "menu") {
+            QImage image =
+                model.menuPicture(parts.value(0).toInt(), parts.value(2).toInt(), wanted);
+            // An icon that is not found leaves the space empty.
+            if (image.isNull()) {
+                image = QImage(wanted, QImage::Format_ARGB32_Premultiplied);
+                image.fill(Qt::transparent);
+            }
+            return image;
+        }
+        QImage image = model.picture(parts.value(0).toInt(), wanted);
+        return image.isNull() ? Icons().requestImage("application-x-executable", nullptr, wanted)
+                              : image;
+    };
+}
+} // namespace
 ShellController::ShellController(std::filesystem::path path, QObject *parent)
     : QObject(parent), path_(std::move(path)), tasks_(this) {
+    connect(this, &ShellController::appsChanged, this, [this] { ++appsRevision_; });
     loadConfig();
     watchTrash();
     QFile pins(pinsPath());
@@ -103,11 +129,24 @@ QQmlEngine *ShellController::engine() {
     if (!engine_) {
         engine_ = new QQmlEngine(this);
         engine_->addImageProvider("icons", new Icons);
-        engine_->addImageProvider("notify", new NotificationImages(notifications_));
-        engine_->addImageProvider("tray", new TrayImages(tray_));
+        // image://notify/ID/STAMP: the picture a notification carried in its image-data hint
+        // (the stamp only keeps QML from reusing a cached picture when a notification is
+        // replaced).
+        engine_->addImageProvider("notify", new ImageProvider([this](const QString &id, QSize) {
+            const uint number = id.section('/', 0, 0).toUInt();
+            const Notification *n = notifications_.cards()->find(number);
+            if (!n)
+                n = notifications_.history()->find(number);
+            return n ? n->image : QImage();
+        }));
+        engine_->addImageProvider("tray", new ImageProvider(trayImage(tray_)));
         engine_->addImageProvider("thumbs", new Thumbnails);
-        engine_->addImageProvider("windows", new WindowImages(tasks_));
-        engine_->addImageProvider("clipboard", new ClipboardImages(clipboard_));
+        engine_->addImageProvider("windows", new ImageProvider([this](const QString &id, QSize) {
+            return windowImage(tasks_, id);
+        }));
+        engine_->addImageProvider("clipboard", new ImageProvider([this](const QString &id, QSize) {
+            return clipboardImage(clipboard_, id);
+        }));
         engine_->rootContext()->setContextProperty("shell", this);
     }
     return engine_;
@@ -176,15 +215,11 @@ void ShellController::pickWallpaper(const QString &path) {
         pickedWallpapers_.remove(profile());
     else
         pickedWallpapers_[profile()] = {QString::fromStdString(config_.shell.wallpaper), path};
-    const auto file = pickedWallpapersPath();
-    QDir().mkpath(QFileInfo(file).path());
-    QSaveFile out(file);
-    if (out.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        for (auto it = pickedWallpapers_.begin(); it != pickedWallpapers_.end(); ++it)
-            out.write((it.key() + '\t' + it->configured + '\t' + it->picked + '\n').toUtf8());
-        if (!out.commit())
-            report("Could not save the wallpaper: " + out.errorString());
-    }
+    QByteArray lines;
+    for (auto it = pickedWallpapers_.begin(); it != pickedWallpapers_.end(); ++it)
+        lines += (it.key() + '\t' + it->configured + '\t' + it->picked + '\n').toUtf8();
+    if (const auto error = saveFile(pickedWallpapersPath(), lines); !error.isEmpty())
+        report("Could not save the wallpaper: " + error);
     Q_EMIT wallpaperChanged();
 }
 void ShellController::clearApps() {
@@ -273,22 +308,14 @@ void ShellController::sortApps() {
     });
 }
 QString ShellController::pinsPath() {
-    auto state = qEnvironmentVariable("XDG_STATE_HOME");
-    if (state.isEmpty() || QDir::isRelativePath(state))
-        state = QDir::homePath() + "/.local/state";
-    return state + "/paw/pinned";
+    return stateDir() + "/pinned";
 }
 void ShellController::savePins() {
-    const auto path = pinsPath();
-    QDir().mkpath(QFileInfo(path).path());
-    QSaveFile file(path);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        for (const auto &id : userPins_)
-            file.write(id.toUtf8() + '\n');
-        if (file.commit())
-            return;
-    }
-    report("Could not save pinned applications: " + file.errorString());
+    QByteArray lines;
+    for (const auto &id : userPins_)
+        lines += id.toUtf8() + '\n';
+    if (const auto error = saveFile(pinsPath(), lines); !error.isEmpty())
+        report("Could not save pinned applications: " + error);
 }
 void ShellController::pin(const QString &id) {
     auto it = std::find_if(apps_.begin(), apps_.end(),
@@ -370,6 +397,12 @@ QVariantList ShellController::apps() const {
         list.push_back(record(app));
     return list;
 }
+QVariant ShellController::appRecord(const QString &id) const {
+    for (const auto &app : apps_)
+        if (app.id == id)
+            return record(app);
+    return {};
+}
 QVariantMap ShellController::widgets() const {
     const auto &w = config_.shell.widgets;
     auto place = [](paw::WidgetPlace where) {
@@ -412,6 +445,14 @@ void ShellController::report(const QString &message) {
 void ShellController::clearError() {
     error_.clear();
     Q_EMIT errorChanged();
+}
+bool ShellController::succeeded(const QString &error, const QString &failure) {
+    if (!error.isEmpty()) {
+        report(failure + ": " + error);
+        return false;
+    }
+    clearError();
+    return true;
 }
 bool ShellController::launch(const QString &id) {
     auto it =
@@ -472,24 +513,13 @@ void ShellController::watchTrash() {
     }
 }
 bool ShellController::openTrash() {
-    GAppLaunchContext *context = g_app_launch_context_new();
-    g_app_launch_context_unsetenv(context, "QT_WAYLAND_SHELL_INTEGRATION");
-    GError *error = nullptr;
-    bool success = g_app_info_launch_default_for_uri("trash:///", context, nullptr);
-    if (!success) {
+    // The Trash's own location where GIO knows it, else its folder.
+    QString error = gioOpen("trash:///");
+    if (!error.isEmpty()) {
         QDir().mkpath(trashFolder() + "/files");
-        const QByteArray folder = QUrl::fromLocalFile(trashFolder() + "/files").toEncoded();
-        success = g_app_info_launch_default_for_uri(folder.constData(), context, &error);
+        error = gioOpen(QUrl::fromLocalFile(trashFolder() + "/files").toEncoded());
     }
-    g_object_unref(context);
-    if (!success) {
-        report("Could not open the Trash: " + QString::fromUtf8(error ? error->message : "unknown error"));
-        if (error)
-            g_error_free(error);
-        return false;
-    }
-    clearError();
-    return true;
+    return succeeded(error, "Could not open the Trash");
 }
 void ShellController::configureSearch() {
     const auto &search = config_.shell.search;
@@ -530,48 +560,19 @@ void ShellController::configureClipboard() {
     clipboard_.configure(settings);
 }
 bool ShellController::openUrl(const QString &url) {
-    // In the default browser, as the shell's own platform settings are not its.
-    GAppLaunchContext *context = g_app_launch_context_new();
-    g_app_launch_context_unsetenv(context, "QT_WAYLAND_SHELL_INTEGRATION");
-    GError *error = nullptr;
-    const bool success = g_app_info_launch_default_for_uri(url.toUtf8().constData(), context, &error);
-    g_object_unref(context);
-    if (!success) {
-        report("Could not open " + url + ": " +
-               QString::fromUtf8(error ? error->message : "unknown error"));
-        if (error)
-            g_error_free(error);
-        return false;
-    }
-    clearError();
-    return true;
+    // In the default browser.
+    return succeeded(gioOpen(url.toUtf8()), "Could not open " + url);
 }
 bool ShellController::openFile(const QString &path, bool folder) {
-    const auto error = FileIndex::open(path, folder);
-    if (!error.isEmpty()) {
-        const auto name = QFileInfo(path).fileName();
-        report("Could not open " + (folder ? "the folder of " + name : name) + ": " + error);
-        return false;
-    }
-    clearError();
-    return true;
+    const auto name = QFileInfo(path).fileName();
+    return succeeded(FileIndex::open(path, folder),
+                     "Could not open " + (folder ? "the folder of " + name : name));
 }
 bool ShellController::start(GAppInfo *info, const QString &name) {
-    // The shell's own platform settings are not the application's.
-    GAppLaunchContext *context = g_app_launch_context_new();
-    g_app_launch_context_unsetenv(context, "QT_WAYLAND_SHELL_INTEGRATION");
-    GError *error = nullptr;
-    const bool success = g_app_info_launch(info, nullptr, context, &error);
-    g_object_unref(context);
-    if (!success) {
-        report("Could not launch " + name + ": " +
-               QString::fromUtf8(error ? error->message : "unknown error"));
-        if (error)
-            g_error_free(error);
-        return false;
-    }
-    clearError();
-    return true;
+    return succeeded(gioLaunch([info](GAppLaunchContext *context, GError **error) {
+                         return g_app_info_launch(info, nullptr, context, error);
+                     }),
+                     "Could not launch " + name);
 }
 namespace {
 // The key file of an installed application's desktop entry, for what GIO does not read from it;
@@ -630,10 +631,10 @@ bool ShellController::launchAction(const QString &id, const QString &action) {
     // An application started over D-Bus is asked to run the action itself, and reports its own
     // failures.
     if (g_desktop_app_info_get_boolean(info, "DBusActivatable")) {
-        GAppLaunchContext *context = g_app_launch_context_new();
-        g_app_launch_context_unsetenv(context, "QT_WAYLAND_SHELL_INTEGRATION");
-        g_desktop_app_info_launch_action(info, name.constData(), context);
-        g_object_unref(context);
+        gioLaunch([info, &name](GAppLaunchContext *context, GError **) {
+            g_desktop_app_info_launch_action(info, name.constData(), context);
+            return true;
+        });
         clearError();
         startMenu_.record(id);
         return true;
@@ -692,6 +693,13 @@ void ShellController::loadConfig() {
         std::cerr << "Shell configuration error; using the default configuration: " << error
                   << '\n';
 }
+namespace {
+// The rectangle of the four numbers X Y WIDTH HEIGHT from `words[from]` on.
+QRect rectAt(const QStringList &words, int from) {
+    return QRect(words[from].toInt(), words[from + 1].toInt(), words[from + 2].toInt(),
+                 words[from + 3].toInt());
+}
+} // namespace
 void ShellController::subscribe() {
     const auto path = qEnvironmentVariable("PAW_SOCKET");
     if (path.isEmpty())
@@ -704,16 +712,17 @@ void ShellController::subscribe() {
         while (state_->canReadLine()) {
             const auto raw = QString::fromUtf8(state_->readLine());
             const auto line = raw.trimmed();
-            if (line == "ok")
+            if (line == "ok") {
                 subscribed_ = true;
-            else if (line.startsWith("tiling ")) {
+                Q_EMIT tilingChanged();
+            } else if (line.startsWith("tiling ")) {
                 // Each state starts with this line and lists every output after it.
                 tiling_ = line == "tiling on";
                 nextWorkspaces_.clear();
-                nextUrgentCount_ = 0;
                 nextUrgentWindows_.clear();
                 urgentSeen = true;
                 outputs = true;
+                Q_EMIT tilingChanged();
             } else if (line.startsWith("output ")) {
                 outputs = true;
                 // output NAME CURRENT OCCUPIED TILING, where OCCUPIED is "1,3" or "-" and
@@ -729,10 +738,6 @@ void ShellController::subscribe() {
                                                         {"occupied", occupied},
                                                         {"urgent", QVariantList()},
                                                         {"tiling", words[4] == "on"}};
-                continue;
-            } else if (line.startsWith("urgent ")) {
-                nextUrgentCount_ = line.sliced(7).toInt();
-                continue;
             } else if (line.startsWith("urgent-output ")) {
                 // urgent-output NAME 2,3: the workspaces of that output with urgent windows.
                 const auto words = line.split(' ');
@@ -744,7 +749,6 @@ void ShellController::subscribe() {
                 auto state = nextWorkspaces_[words[1]].toMap();
                 state["urgent"] = urgent;
                 nextWorkspaces_[words[1]] = state;
-                continue;
             } else if (line.startsWith("urgent-window ")) {
                 // OUTPUT, WORKSPACE, APP_ID, TITLE, separated by tabs; read untrimmed so an
                 // empty app id keeps its place.
@@ -755,14 +759,9 @@ void ShellController::subscribe() {
                                                              {"appId", fields[2]},
                                                              {"title", fields[3]}});
                 }
-                continue;
             } else if (line.startsWith("focused ")) {
-                const auto name = line.sliced(8) == "-" ? QString() : line.sliced(8);
-                if (name != focusedOutput_) {
-                    focusedOutput_ = name;
-                    Q_EMIT focusedOutputChanged();
-                }
-                continue;
+                // The output the compositor says has the focus, where overlays for it go.
+                focusedOutput_ = line.sliced(8) == "-" ? QString() : line.sliced(8);
             } else if (line.startsWith("keyboard-layout ")) {
                 // keyboard-layout N COUNT SHORT NAME
                 const auto words = line.split(' ');
@@ -776,28 +775,22 @@ void ShellController::subscribe() {
                     keyboardLayout_ = layout;
                     Q_EMIT keyboardLayoutChanged();
                 }
-                continue;
             } else if (line.startsWith("mode ")) {
                 // mode NAME: the binding mode in use, "default" outside any.
                 setBindingMode(line.sliced(5) == "default" ? QString() : line.sliced(5));
-                continue;
             } else if (line.startsWith("night-light ")) {
                 // night-light ACTIVE MODE
                 const auto words = line.split(' ');
                 if (words.size() == 3)
                     setNightLight(words[1] == "on", words[2]);
-                continue;
             } else if (line.startsWith("notice ")) {
                 const auto fields = line.sliced(7).split('\t');
                 notice(fields[0], fields.value(1));
-                continue;
             } else if (line.startsWith("dnd ")) {
                 handleDnd(line.sliced(4));
-                continue;
             } else if (line.startsWith("volume ") || line.startsWith("microphone ") ||
                        line.startsWith("brightness ")) {
                 volumeKeys_.handle(line);
-                continue;
             } else if (line.startsWith("osd ")) {
                 // osd OUTPUT PERCENT TEXT
                 const auto words = line.split(' ');
@@ -808,71 +801,52 @@ void ShellController::subscribe() {
                         osd_.show(words[1] == "-" ? overlayOutput() : words[1],
                                   QStringList(words.mid(3)).join(' '), percent);
                 }
-                continue;
-            } else if (displayModes_.handle(line)) {
-                continue;
-            } else if (displaySettings_.handle(line)) {
-                // "display-settings OUTPUT", and a trial's lines.
-                continue;
+            } else if (displayModes_.handle(line) || displaySettings_.handle(line)) {
+                // The display mode popup's lines; "display-settings OUTPUT", and a trial's.
             } else if (line.startsWith("notifications ")) {
                 Q_EMIT notificationsRequested(line.sliced(14));
-                continue;
             } else if (line.startsWith("media ")) {
                 // media VERB: a media key, for the current player.
                 media_->command(line.sliced(6));
-                continue;
             } else if (line.startsWith("clipboard ")) {
                 clipboard_.toggle(line.sliced(10));
-                continue;
             } else if (line.startsWith("emoji ")) {
                 emoji_.toggle(line.sliced(6));
-                continue;
             } else if (line.startsWith("locked ")) {
                 // locked on|off: nothing copied while the session is locked is kept.
                 clipboard_.setLocked(line == "locked on");
-                continue;
             } else if (line.startsWith("power ")) {
                 // power ACTIONS: those that may run, as "lock,suspend,logout", or "-".
                 power_.setAvailable(line.sliced(6));
-                continue;
             } else if (line.startsWith("power-menu ")) {
                 Q_EMIT powerMenuRequested(line.sliced(11));
-                continue;
             } else if (line.startsWith("taskbar ")) {
                 Q_EMIT taskbarRequested(line.sliced(8));
-                continue;
             } else if (line.startsWith("power-error ")) {
                 report(line.sliced(12));
-                continue;
             } else if (line.startsWith("spawn-error ")) {
                 // A program a binding, a hot corner or the palette asked for did not start.
                 report(line.sliced(12));
-                continue;
             } else if (line.startsWith("launcher ")) {
                 Q_EMIT launcherRequested(line.sliced(9));
-                continue;
             } else if (line.startsWith("palette ")) {
                 palette_.open(line.sliced(8));
-                continue;
             } else if (line.startsWith("switcher ")) {
                 // switcher OUTPUT SELECTED COUNT, then COUNT switcher-window lines.
                 const auto words = line.split(' ');
                 if (words.size() != 4)
                     continue;
-                nextSwitcherOutput_ = words[1];
-                nextSwitcherSelected_ = words[2].toInt();
+                nextSwitcher_ = {.output = words[1], .selected = words[2].toInt()};
                 switcherPending_ = words[3].toInt();
-                nextSwitcherWindows_.clear();
                 if (switcherPending_ <= 0)
                     showSwitcher();
-                continue;
             } else if (line.startsWith("switcher-window ") && switcherPending_ > 0) {
                 // APP_ID, TITLE, OUTPUT, WORKSPACE, MINIMIZED, URGENT, ID, separated by tabs, of
                 // which an older compositor leaves the last ones out and a newer one may add
                 // more. The line is read untrimmed so an empty app id keeps its place.
                 const auto fields = raw.sliced(16).chopped(1).split('\t');
                 if (fields.size() >= 5)
-                    nextSwitcherWindows_.push_back(QVariantMap{{"appId", fields[0]},
+                    nextSwitcher_.windows.push_back(QVariantMap{{"appId", fields[0]},
                                                                {"title", fields[1]},
                                                                {"output", fields[2]},
                                                                {"workspace", fields[3].toInt()},
@@ -881,11 +855,9 @@ void ShellController::subscribe() {
                                                                {"id", fields.size() >= 7 ? fields[6].toInt() : 0}});
                 if (--switcherPending_ == 0)
                     showSwitcher();
-                continue;
             } else if (line.startsWith("switcher-select ")) {
-                switcherSelected_ = line.sliced(16).toInt();
+                switcher_.selected = line.sliced(16).toInt();
                 Q_EMIT switcherSelectedChanged();
-                continue;
             } else if (line.startsWith("overview ")) {
                 // overview OUTPUT COUNT SELECTED VIEWED STRIP X Y WIDTH HEIGHT FILTER (the area the
                 // panels leave; the filter is "-" when empty), then COUNT overview-window and
@@ -893,36 +865,25 @@ void ShellController::subscribe() {
                 const auto words = line.split(' ');
                 if (words.size() < 11)
                     continue;
-                nextOverviewArea_ = QRect(words[6].toInt(), words[7].toInt(), words[8].toInt(), words[9].toInt());
-                nextOverviewOutput_ = words[1];
-                nextOverviewSelected_ = words[3].toInt();
-                nextOverviewViewed_ = words[4].toInt();
-                nextOverviewFilter_ = words[10] == "-" && words.size() == 11 ? QString() : QStringList(words.mid(10)).join(' ');
-                nextOverviewAssist_ = false;
-                overviewPending_ = words[2].toInt() + words[5].toInt();
-                nextOverviewWindows_.clear();
-                nextOverviewStrip_.clear();
-                if (overviewPending_ <= 0)
-                    showOverview();
-                continue;
+                const auto filter = QStringList(words.mid(10)).join(' ');
+                nextOverview_ = {.output = words[1],
+                                 .filter = filter == "-" ? QString() : filter,
+                                 .selected = words[3].toInt(),
+                                 .viewed = words[4].toInt(),
+                                 .area = rectAt(words, 6)};
+                expectOverview(words[2].toInt() + words[5].toInt());
             } else if (line.startsWith("overview-assist ")) {
                 // overview-assist OUTPUT COUNT SELECTED X Y WIDTH HEIGHT (the free slot beside a
                 // window just snapped), then COUNT overview-window lines.
                 const auto words = line.split(' ');
                 if (words.size() < 8)
                     continue;
-                nextOverviewArea_ = QRect(words[4].toInt(), words[5].toInt(), words[6].toInt(), words[7].toInt());
-                nextOverviewOutput_ = words[1];
-                nextOverviewSelected_ = words[3].toInt();
-                nextOverviewViewed_ = 0;
-                nextOverviewFilter_.clear();
-                nextOverviewAssist_ = true;
-                overviewPending_ = words[2].toInt();
-                nextOverviewWindows_.clear();
-                nextOverviewStrip_.clear();
-                if (overviewPending_ <= 0)
-                    showOverview();
-                continue;
+                nextOverview_ = {.output = words[1],
+                                 .selected = words[3].toInt(),
+                                 .viewed = 0,
+                                 .area = rectAt(words, 4),
+                                 .assist = true};
+                expectOverview(words[2].toInt());
             } else if ((line.startsWith("overview-window ") || line.startsWith("overview-strip ")) &&
                        overviewPending_ > 0) {
                 // X Y WIDTH HEIGHT, then APP_ID, TITLE, WORKSPACE, URGENT (a window) or WORKSPACE,
@@ -939,44 +900,38 @@ void ShellController::subscribe() {
                     cell.insert("title", fields[1]);
                     cell.insert("workspace", fields[2].toInt());
                     cell.insert("urgent", fields.size() == 4 && fields[3] == "1");
-                    nextOverviewWindows_.push_back(cell);
+                    nextOverview_.windows.push_back(cell);
                 } else if (!window && fields.size() == 2) {
                     cell.insert("workspace", fields[0].toInt());
                     cell.insert("windows", fields[1].toInt());
-                    nextOverviewStrip_.push_back(cell);
+                    nextOverview_.strip.push_back(cell);
                 }
                 if (--overviewPending_ == 0)
                     showOverview();
-                continue;
             } else if (line.startsWith("overview-select ")) {
-                overviewSelected_ = line.sliced(16).toInt();
+                overview_.selected = line.sliced(16).toInt();
                 Q_EMIT overviewSelectedChanged();
-                continue;
             } else if (line == "overview-close") {
                 clearOverview();
-                continue;
             } else if (line == "switcher-close") {
                 switcherPending_ = 0;
-                switcherOutput_.clear();
-                switcherWindows_.clear();
+                switcher_.output.clear();
+                switcher_.windows.clear();
                 Q_EMIT switcherChanged();
-                continue;
-            } else
-                continue;
-            Q_EMIT tilingChanged();
+            }
         }
         if (outputs && workspaces_ != nextWorkspaces_) {
             workspaces_ = nextWorkspaces_;
             Q_EMIT workspacesChanged();
         }
-        if (urgentSeen && (urgentCount_ != nextUrgentCount_ || urgentWindows_ != nextUrgentWindows_)) {
-            urgentCount_ = nextUrgentCount_;
+        if (urgentSeen && urgentWindows_ != nextUrgentWindows_) {
             urgentWindows_ = nextUrgentWindows_;
             QList<QPair<QString, QString>> windows;
-            for (const auto &item : urgentWindows_)
-                windows.push_back({item.toMap()["appId"].toString(), item.toMap()["title"].toString()});
+            for (const auto &item : urgentWindows_) {
+                const auto window = item.toMap();
+                windows.push_back({window.value("appId").toString(), window.value("title").toString()});
+            }
             tasks_.setUrgent(windows);
-            Q_EMIT urgentChanged();
         }
     });
     connect(state_, &QLocalSocket::disconnected, this, [this] {
@@ -988,16 +943,14 @@ void ShellController::subscribe() {
         power_.setAvailable("-");
         setNightLight(false, {});
         setBindingMode({});
-        if (urgentCount_ != 0 || !urgentWindows_.isEmpty()) {
-            urgentCount_ = 0;
+        if (!urgentWindows_.isEmpty()) {
             urgentWindows_.clear();
             tasks_.setUrgent({});
-            Q_EMIT urgentChanged();
         }
         Q_EMIT tilingChanged();
-        if (!switcherOutput_.isEmpty()) {
-            switcherOutput_.clear();
-            switcherWindows_.clear();
+        if (!switcher_.output.isEmpty()) {
+            switcher_.output.clear();
+            switcher_.windows.clear();
             Q_EMIT switcherChanged();
         }
         clearOverview();
@@ -1017,26 +970,24 @@ void ShellController::setNightLight(bool on, const QString &mode) {
     nightLightMode_ = mode;
     Q_EMIT nightLightChanged();
 }
-QString ShellController::overlayOutput() const {
+bool ShellController::hasOutput(const QString &name) {
     const auto screens = QGuiApplication::screens();
-    for (auto *screen : screens)
-        if (screen->name() == focusedOutput_)
-            return focusedOutput_;
+    return std::any_of(screens.begin(), screens.end(),
+                       [&name](const QScreen *screen) { return screen->name() == name; });
+}
+QString ShellController::outputOrPrimary(const QString &name) {
+    if (hasOutput(name))
+        return name;
     auto *primary = QGuiApplication::primaryScreen();
     return primary ? primary->name() : QString();
 }
 // The cards stay on one output while any is showing, so they do not jump about as the focus
-// moves; the next batch goes where the focus is then.
+// moves; the next batch goes where the focus is then. An output that has gone since the cards
+// opened there is not one to keep them on.
 void ShellController::updateCards() {
-    // An output that has gone since the cards opened there is not one to keep them on.
-    auto present = [](const QString &name) {
-        const auto screens = QGuiApplication::screens();
-        return std::any_of(screens.begin(), screens.end(),
-                           [&name](const QScreen *screen) { return screen->name() == name; });
-    };
     const QString next = notifications_.cards()->count() > 0
-                             ? (cardsOutput_.isEmpty() || !present(cardsOutput_) ? overlayOutput()
-                                                                                  : cardsOutput_)
+                             ? (cardsOutput_.isEmpty() || !hasOutput(cardsOutput_) ? overlayOutput()
+                                                                                    : cardsOutput_)
                              : QString();
     if (next == cardsOutput_)
         return;
@@ -1093,11 +1044,8 @@ void ShellController::updateNotificationService() {
         return;
 #if PAW_DBUS
     if (config_.notifications.enabled && !notificationService_) {
-        // Without an address libdbus would start a bus of its own ("autolaunch") that no other
-        // program knows of; a session with no bus has no notifications to serve.
-        const bool haveBus = !qEnvironmentVariableIsEmpty("DBUS_SESSION_BUS_ADDRESS") ||
-                             QFileInfo::exists(qEnvironmentVariable("XDG_RUNTIME_DIR") + "/bus");
-        if (!haveBus) {
+        // A session with no bus has no notifications to serve.
+        if (!dbus::haveSessionBus()) {
             if (!noBusReported_)
                 std::cerr << "paw notifications: no session bus (DBUS_SESSION_BUS_ADDRESS is unset)\n";
             noBusReported_ = true;
@@ -1135,9 +1083,7 @@ void ShellController::updateTrayHost() {
         delete trayHost_;
         trayHost_ = nullptr;
     } else if (!trayHost_) {
-        // As for notifications: without an address libdbus would start a bus nobody knows of.
-        if (qEnvironmentVariableIsEmpty("DBUS_SESSION_BUS_ADDRESS") &&
-            !QFileInfo::exists(qEnvironmentVariable("XDG_RUNTIME_DIR") + "/bus")) {
+        if (!dbus::haveSessionBus()) {
             if (!trayNoBusReported_)
                 std::cerr << "paw tray: no session bus (DBUS_SESSION_BUS_ADDRESS is unset)\n";
             trayNoBusReported_ = true;
@@ -1192,36 +1138,32 @@ void ShellController::updatePolkitAgent() {
 #endif
 }
 void ShellController::showSwitcher() {
-    switcherOutput_ = nextSwitcherOutput_;
-    switcherWindows_ = nextSwitcherWindows_;
-    switcherSelected_ = nextSwitcherSelected_;
+    switcher_ = nextSwitcher_;
     Q_EMIT switcherChanged();
     Q_EMIT switcherSelectedChanged();
 }
+void ShellController::expectOverview(int pending) {
+    overviewPending_ = pending;
+    if (overviewPending_ <= 0)
+        showOverview();
+}
 void ShellController::showOverview() {
-    overviewOutput_ = nextOverviewOutput_;
-    overviewWindows_ = nextOverviewWindows_;
-    overviewStrip_ = nextOverviewStrip_;
-    overviewSelected_ = nextOverviewSelected_;
-    overviewViewed_ = nextOverviewViewed_;
-    overviewFilter_ = nextOverviewFilter_;
-    overviewArea_ = nextOverviewArea_;
-    overviewAssist_ = nextOverviewAssist_;
+    overview_ = nextOverview_;
     Q_EMIT overviewChanged();
     Q_EMIT overviewSelectedChanged();
 }
 void ShellController::clearOverview() {
     overviewPending_ = 0;
-    if (overviewOutput_.isEmpty())
+    if (overview_.output.isEmpty())
         return;
-    overviewOutput_.clear();
-    overviewWindows_.clear();
-    overviewStrip_.clear();
-    overviewFilter_.clear();
+    overview_.output.clear();
+    overview_.windows.clear();
+    overview_.strip.clear();
+    overview_.filter.clear();
     Q_EMIT overviewChanged();
 }
 void ShellController::switcherPick(int index) {
-    if (index >= 0 && index < switcherWindows_.size())
+    if (index >= 0 && index < switcher_.windows.size())
         request(QString("switcher_confirm %1\n").arg(index + 1).toUtf8(),
                 "The window switcher needs a running paw session.");
 }

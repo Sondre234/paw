@@ -4,7 +4,6 @@
 // what is copied while the session is locked are not, an entry restored is what a program pastes,
 // and the limit, pinning, the file and turning it off.
 #include "clipboard.hpp"
-#include "clipboard_images.hpp"
 #include <QBuffer>
 #include <QElapsedTimer>
 #include <QFileInfo>
@@ -119,10 +118,9 @@ class ClipboardTest : public QObject {
         QCOMPARE(image["height"].toInt(), 720);
         QCOMPARE(image["text"].toString(), QString());
         QVERIFY(image["image"].toString().startsWith("image://clipboard/"));
-        QSize served;
-        const auto shown = ClipboardImages(history).requestImage(
-            image["image"].toString().sliced(QString("image://clipboard/").size()), &served, {});
-        QCOMPARE(served, QSize(512, 288));
+        const auto shown = clipboardImage(
+            history, image["image"].toString().sliced(QString("image://clipboard/").size()));
+        QCOMPARE(shown.size(), QSize(512, 288));
         QCOMPARE(shown.pixelColor(10, 10), QColor(Qt::darkCyan));
 
         // Restored, an entry is what is pasted, under every name it was copied by, and the newest;

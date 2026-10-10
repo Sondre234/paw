@@ -1,22 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "emoji.hpp"
-#include <QDir>
+#include "state_files.hpp"
 #include <QFile>
 #include <QRegularExpression>
-#include <QSaveFile>
 #include <QTimer>
 #include <algorithm>
 #include <utility>
 
 namespace {
 constexpr int recentLimit = 32;
-
-QString defaultStateDir() {
-    auto state = qEnvironmentVariable("XDG_STATE_HOME");
-    if (state.isEmpty() || QDir::isRelativePath(state))
-        state = QDir::homePath() + "/.local/state";
-    return state + "/paw";
-}
 
 // The words of a name, folded to lower case: "flag: Norway" is "flag" and "norway".
 QStringList wordsOf(const QString &text) {
@@ -29,7 +21,7 @@ QString plain(QString text) { return text.remove(QChar(0xfe0f)); }
 } // namespace
 
 EmojiPicker::EmojiPicker(QString table, QString stateDir, QObject *parent)
-    : QObject(parent), stateDir_(stateDir.isEmpty() ? defaultStateDir() : std::move(stateDir)) {
+    : QObject(parent), stateDir_(stateDir.isEmpty() ? ::stateDir() : std::move(stateDir)) {
     emoji_ = read(table.isEmpty() ? QStringLiteral(":/paw/emoji.tsv") : table, &groups_);
     typing_ = new QTimer(this);
     typing_->setSingleShot(true);
@@ -89,15 +81,15 @@ QVariantMap EmojiPicker::entry(const Emoji &emoji) const {
 }
 
 const EmojiPicker::Emoji *EmojiPicker::find(const QString &text) const {
-    const auto wanted = plain(text);
-    for (const auto &emoji : emoji_) {
-        if (plain(emoji.text) == wanted)
-            return &emoji;
-        for (const auto &form : emoji.tones)
-            if (plain(form) == wanted)
-                return &emoji;
-    }
-    return nullptr;
+    if (forms_.isEmpty())
+        for (qsizetype i = 0; i < qsizetype(emoji_.size()); ++i) {
+            // A form two emoji share is the first one's.
+            forms_.tryEmplace(plain(emoji_[i].text), i);
+            for (const auto &form : emoji_[i].tones)
+                forms_.tryEmplace(plain(form), i);
+        }
+    const auto found = forms_.constFind(plain(text));
+    return found == forms_.cend() ? nullptr : &emoji_[found.value()];
 }
 
 QVariantList EmojiPicker::recent() const {
@@ -225,12 +217,8 @@ void EmojiPicker::preview(const QStringList &recent, int tone) {
 void EmojiPicker::save() const {
     if (previewOnly_)
         return;
-    QDir().mkpath(stateDir_);
-    QSaveFile file(stateDir_ + "/emoji");
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-        return;
-    file.write(QString("tone %1\n").arg(tone_).toUtf8());
+    QByteArray lines = QString("tone %1\n").arg(tone_).toUtf8();
     for (const auto &text : recent_)
-        file.write(text.toUtf8() + '\n');
-    file.commit();
+        lines += text.toUtf8() + '\n';
+    saveFile(stateDir_ + "/emoji", lines);
 }

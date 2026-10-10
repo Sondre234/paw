@@ -100,25 +100,14 @@ PopupCard {
                 text: "Notifications"; elide: Text.ElideRight
                 color: Theme.text; font.pixelSize: Theme.fontSizeLarge; font.weight: Font.DemiBold; font.family: Theme.fontFamily
             }
-            Switch {
+            ToggleSwitch {
                 id: dnd
                 objectName: "dndSwitch"
                 text: "Do not disturb"
                 checked: history.center.dnd
                 onToggled: history.center.dnd = checked
                 spacing: Theme.spacingM
-                indicator: Rectangle {
-                    x: dnd.leftPadding; y: parent.height / 2 - height / 2
-                    width: 2 * height; height: Theme.iconSize; radius: height / 2
-                    color: dnd.checked ? Theme.accent : Theme.macos ? Theme.switchTrack : Theme.selected
-                    Rectangle {
-                        x: dnd.checked ? parent.width - width - Theme.spacingXS : Theme.spacingXS
-                        y: Theme.spacingXS; width: parent.height - 2 * Theme.spacingXS; height: width; radius: width / 2
-                        color: Theme.macos ? Theme.knob : dnd.checked ? Theme.textOnAccent : Theme.text
-                        border.color: Theme.macos ? Theme.knobOutline : "transparent"
-                        Behavior on x { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
-                    }
-                }
+                dimmed: false
                 contentItem: Text {
                     leftPadding: dnd.indicator.width + dnd.spacing
                     text: dnd.text; color: Theme.textMuted

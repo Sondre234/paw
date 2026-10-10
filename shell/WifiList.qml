@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 // The Wi-Fi networks in range, as Windows 11 lists them under Quick Settings' tile: each with its
@@ -37,10 +36,6 @@ Column {
             list.selected = ssid
             list.rejected = ssid
         }
-    }
-    // Ascending bars by signal, as on the bar.
-    function glyph(strength) {
-        return strength >= 70 ? "wifi" : strength >= 45 ? "wifi-high" : strength >= 20 ? "wifi-low" : "wifi-zero"
     }
 
     // The radio off, or nothing found.
@@ -95,7 +90,7 @@ Column {
                         Layout.preferredWidth: Theme.iconSize; Layout.preferredHeight: Theme.iconSize
                         Icon {
                             anchors.centerIn: parent
-                            name: list.glyph(entry.strength)
+                            name: Theme.wifiIcon(entry.strength)
                             color: entry.active ? Theme.accent : Theme.text
                         }
                         Icon {
@@ -135,23 +130,14 @@ Column {
                 visible: entry.open
                 width: parent.width
                 spacing: Theme.spacingS
-                TextField {
+                TextEntry {
                     id: password
                     objectName: "wifiPassword"
                     visible: entry.asksPassword
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.spacingM; Layout.rightMargin: Theme.spacingM
-                    implicitHeight: Theme.fieldHeight
                     echoMode: TextInput.Password
                     placeholderText: "Network security key"
-                    placeholderTextColor: Theme.textMuted
-                    color: Theme.text
-                    selectionColor: Theme.accent
-                    selectedTextColor: Theme.textOnAccent
-                    selectByMouse: true
-                    leftPadding: Theme.spacingM; rightPadding: Theme.spacingM
-                    verticalAlignment: TextInput.AlignVCenter
-                    font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily
                     Accessible.name: "Password for " + entry.ssid
                     onVisibleChanged: {
                         text = ""
@@ -160,11 +146,6 @@ Column {
                     }
                     onAccepted: entry.connectNow()
                     Keys.onEscapePressed: list.selected = ""
-                    background: Rectangle {
-                        radius: Theme.radiusSmall
-                        color: Theme.fieldFill
-                        border.color: password.activeFocus ? Theme.accent : Theme.border
-                    }
                 }
                 Text {
                     objectName: "wifiPasswordRefused"

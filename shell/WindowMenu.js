@@ -2,6 +2,28 @@
 // The entries of a menu about windows that move them to another workspace or monitor, or keep
 // one above the others, as PopupMenu entries, for every menu that has them. `windows` are windows
 // as a TaskFilter lists them, `tasks` the panel's source of windows, which carries the moves out.
+// And what the menus share besides: their sections, and the appearance profiles to pick from.
+
+// The groups of entries, with a line between those that have any, each entry through `map` if
+// one is given.
+function sections(groups, map) {
+    var entries = []
+    for (var i = 0; i < groups.length; ++i) {
+        if (groups[i].length === 0)
+            continue
+        if (entries.length > 0)
+            entries.push({ separator: true })
+        entries = entries.concat(map ? groups[i].map(map) : groups[i])
+    }
+    return entries
+}
+// The appearance profiles, the one in use checked; choosing another switches to it.
+function profileEntries() {
+    return shell.profiles.map(function(name) {
+        return { text: name, toggle: "radio", checked: name === shell.profile,
+                 run: function() { if (name !== shell.profile) shell.pickProfile(name) } }
+    })
+}
 
 // Where the windows can go, once the compositor has said where they are (workspace from 1):
 // the workspaces of their monitors, the one they are all on marked.

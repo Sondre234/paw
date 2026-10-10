@@ -180,15 +180,6 @@ void Wifi::disconnectNetwork() {
 }
 
 #if !PAW_NETWORKMANAGER
-namespace {
 // Without Qt's D-Bus module there is no NetworkManager to find.
-class NoWifi : public Wifi {
-  protected:
-    void sendEnabled(bool) override {}
-    void sendScan() override {}
-    void sendConnect(const QString &, const QString &, const QString &) override {}
-    void sendDisconnect() override {}
-};
-} // namespace
-std::unique_ptr<Wifi> makeWifi() { return std::make_unique<NoWifi>(); }
+std::unique_ptr<Wifi> makeWifi() { return std::make_unique<Wifi>(); }
 #endif

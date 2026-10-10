@@ -21,7 +21,6 @@ import Paw
 PopupCard {
     id: thumbnails
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "windowThumbnails"
     open: panel.thumbnailsOpen

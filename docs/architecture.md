@@ -471,7 +471,7 @@ bars, and the surfaces follow at once.
 The window switcher, the command palette, the power dialog and the overview's text are
 `OverlayView`s (`view.cpp`), a layer surface each on every output's overlay layer. `present()`
 shows one and sets its QML root's `shown`; `dismiss()` clears it, and the root animates its own
-`progress` back to 0 as its transition from the "shown" state says, the view hiding once it is
+`progress` back to 0 as its `Reveal` (`Reveal.qml`) says, the view hiding once it is
 there (at once with animations off). While it goes it is transparent for input and gives up the
 keyboard, so the windows under it have both at once, and shown again it comes back from where it
 was. What the compositor forgets as one closes (the switcher's windows, the power dialog's
@@ -481,7 +481,7 @@ what was there.
 | File | Covers |
 | --- | --- |
 | `Theme.qml` | The design tokens (colours, type, radii, spacing, icon sizes, motion, whether effects can be drawn), derived from the appearance profile. A singleton: every file reads `Theme.surface`, `Theme.hover`, ... instead of colours and sizes of its own. |
-| `Panel.qml` | The panel on one output: which popup is open and where, the bars of the style (a loader for each), and the popover with a loader for each popup. Every part below takes the panel as `panel` (and a popup the bar as `barItem`) and reaches its state and functions through it; a popup is placed in `panel.popupLayer`, beside the part of the bar it belongs to (`panel.barAnchor(x, width)`). |
+| `Panel.qml` | The panel on one output: which popup is open and where, the bars of the style (a loader for each), and the popover with a loader for each popup. Every part below takes the panel as `panel` and reaches its state and functions through it; a popup is placed in `panel.popupLayer`, beside the part of the bar it belongs to (`panel.barAnchor(x, width)`). |
 | `Taskbar.qml` | The taskbar: the bar along the panel's edge with the start button, the row of pinned applications and windows, the widgets and the clock, and its smaller buttons. |
 | `TopMenuBar.qml`, `Dock.qml`, `DockIcon.qml` | The bars of the macOS style (`shell.style`): the menu bar along the top in a `MenuBarWindow` of its own, with the system, application and Window menus, the widgets, search, Quick Settings and the clock; and the dock in the panel's surface, an icon for each application, pinned or running, with the applications button and the Trash. |
 | `BarKeyboard.qml` | The keyboard on the bar (`taskbar_focus`): held in the popover, it walks the taskbar's buttons or the dock's icons and the windows they show. |
@@ -497,13 +497,18 @@ what was there.
 | `FlatButton.qml`, `ButtonFill.qml` | The frameless button of the bar and of menus, and its background, which fades between the hover, pressed and active states. |
 | `PushButton.qml` | A framed button with text: raised, or filled for what a click mostly does or for a destructive action, with a ring for the keyboard; a dialog's, a notification's, the start menu's. |
 | `FocusRing.qml` | The ring that says the keyboard is at something, as `PushButton`'s: around a button on the bar, a picture or a row the keyboard on the bar selects. |
+| `NotchWheel.qml` | The wheel in whole notches, a mouse's or a touchpad's, for what steps by it: workspaces, pages, the volume, the calendar's months. |
 | `TextButton.qml` | A button that is only its text in the accent colour, as Today and Clear all over a card's list. |
 | `CloseButton.qml` | The round cross that closes a card, a notification or a window in a stack's list, or clears the search. |
 | `SearchInput.qml` | The start menu's and the command palette's search field. |
+| `TextEntry.qml` | A field to type into in a list or a dialog: a password, a PIN, a scale. |
+| `ToggleSwitch.qml` | A switch drawn as a track and a knob: Wi-Fi's radio, do not disturb, the display settings'. |
 | `EmptyState.qml` | What a list says while it has nothing to show: an icon, a line and a hint. |
 | `PopupCard.qml` | A popup's card: surface, outline, corners, a shadow through the GPU, the open and close animation, and its place beside what it belongs to. |
+| `CardFrame.qml` | A card's shadow, surface, outline and the macOS style's inner edge, beneath what it holds: a popup's, an overlay's, a notification's. |
+| `Reveal.qml` | How far an overlay or a card is in view: its `progress`, easing to 1 while `shown` and back to 0 after, which the overlays and `PopupCard` take as their own. |
 | `PopupMenu.qml`, `MenuRow.qml` | A menu of plain entries on popup cards, with cascading submenus and keyboard navigation, and one row of it. |
-| `WindowMenu.js` | The entries of a menu about windows that move them to another workspace or monitor. |
+| `WindowMenu.js` | The entries of a menu about windows that move them to another workspace or monitor, and what the menus share: their sections, the appearance profiles. |
 | `AudioSlider.qml`, `MuteButton.qml`, `StreamRow.qml` | Controls the mixer and Quick Settings use: a volume's slider, a mute button, and an application playing sound. |
 | `StartHome.qml`, `StartAllApps.qml`, `StartSearch.qml`, `StartBestMatch.qml`, `StartTile.qml`, `StartRow.qml`, `UserAvatar.qml` | Parts of the start menu (`Launcher.qml`): its pinned and recent applications, every application from A to Z, what its search finds and the best match of it, a pinned application, a row of its lists, the user's picture. |
 | `Launchpad.qml` | The launcher of the macOS style, in the start menu's place: every application on pages of a grid over the whole output, with a search. |
@@ -645,7 +650,7 @@ in `aspects` once the picture shows (16:10 until then), and `arrange` lays the c
 at the largest scale, from 1 down to 0.6 in steps of 0.05, at which they fit in the room the
 switcher has; past that a `Flickable` scrolls to keep the selected card in sight. As the cards
 may widen once the surface shows, `SwitcherView` keeps the surface as large as its root whatever
-size the compositor last configured, as `PaletteView` does.
+size the compositor last configured, as a `PickerView` does.
 
 Every listed window's picture is live with `shell.liveThumbnails`, as on Windows 11: a window
 that does not redraw costs nothing, as the compositor makes a frame only once it has changed.
@@ -757,11 +762,11 @@ source is what is copied (`restore()`), the selection announcing it is not read;
 copying cancels that source first. A source hands each program pasting the bytes it asks for with
 non-blocking writes, SIGPIPE held off. `locked on|off` in the control socket's state calls
 `setLocked`, and `clipboard OUTPUT` from the `clipboard_history` action toggles `output`, which a
-`PickerView` (`picker_view.cpp`) follows: an `OverlayView` on every output, like the palette's,
+`PickerView` (`picker_view.cpp`) follows: an `OverlayView` on every output, as the palette's is,
 showing `ClipboardPicker.qml`, which filters the entries; `image://clipboard/ID/SERIAL`
-(`clipboard_images.hpp`) serves their pictures. Its file is touched only once the history is the
-session's (connected) or was given a path, so tests and previews that make a controller never
-read or remove it.
+(`clipboardImage`, through an `ImageProvider`, `image_provider.hpp`) serves their pictures. Its
+file is touched only once the history is the session's (connected) or was given a path, so tests
+and previews that make a controller never read or remove it.
 
 The emoji picker (`EmojiPicker`, `emoji.cpp`) reads `vendor/emoji/emoji.tsv`, which
 `shell/CMakeLists.txt` compiles into `paw_shell_qml` as `:/paw/emoji.tsv`, and gives
@@ -811,7 +816,7 @@ above its entries: the icon large, the name, and the secondary text under it, el
 the entries need; `toggle` is `"check"` or `"radio"`
 with `checked`; `enabled: false` greys an entry out and `danger: true` draws it in the danger
 colour. `run` is called when the entry is chosen, and the menu then emits `dismissed()` unless it
-returns `true`; `triggered(entry)` comes first. `submenu` is an array of entries, or a function
+returns `true`. `submenu` is an array of entries, or a function
 returning one that is read as it opens and again when what it read changes. Placement is the
 card's: `anchorRect`, `side`, `alignment`, `gap`, `bounds`; `minimumWidth`, `maximumWidth` and
 `rowHeight` size the rows. A submenu opens beside its entry after the pointer rests there for
@@ -830,15 +835,15 @@ the highlighted one is filled with the accent, its text white, as macOS draws me
 1. In `Panel.qml`, a property saying whether it is open (or a value of `audioPopup`), part of
    `menuOpen` if it takes the keyboard, cleared by `closeMenus()`, and a function that opens it
    by a bar item as `toggleAudioPopup` does: noting where (`audioPopupX`) and closing the others.
-2. Its file: a `PopupCard` or `PopupMenu` with `required property var panel` and
-   `required property Item barItem`, `parent: panel.popupLayer`, `open:` that property,
+2. Its file: a `PopupCard` or `PopupMenu` with `required property var panel`,
+   `parent: panel.popupLayer`, `open:` that property,
    `anchorRect: panel.barAnchor(x, width)`, `side: panel.popupSide` and
    `bounds: panel.popupArea` (the output but the bar), so that it opens away from the bar on a
    top panel as on a bottom one, and below the menu bar in the macOS style; one that belongs to
    the dock's icons takes `panel.dockAnchor(x, width)` and `panel.dockSide` instead. A menu's
    `onDismissed` clears the property.
-3. A `Loader` for it in the popover in `Panel.qml`, like the others: made when first opened or a
-   moment after startup (`root.warm`), kept once made.
+3. A `PopupLoader` for it in the popover in `Panel.qml`, like the others: `wanted` while it is open,
+   `early: root.warm` to make it a moment after startup, kept once made.
 4. The file in `QML_FILES` in `shell/CMakeLists.txt` and in the table above; a name in
    `previewPopup` (`Panel.qml`; `previewMacos` for one only the macOS style has, which goes in
    `MACOS_POPUPS` too), `--preview-popup`'s help (`main.cpp`) and `POPUPS`
@@ -881,7 +886,8 @@ its own only where all of it does (Launchpad).
 
 A `WheelHandler` takes `acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad`: since the
 compositor offers pointer gestures, Qt puts every event of the seat's pointer down to a touchpad,
-a mouse wheel's too, and a handler left at its default of the mouse alone hears none of them.
+a mouse wheel's too, and a handler left at its default of the mouse alone hears none of them. One
+that steps something by the wheel's notches is a `NotchWheel`, which does.
 
 ### Seeing a change
 

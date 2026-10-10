@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Controls.Basic
-import QtQuick.Effects
 import QtQuick.Layouts
 
 // The polkit authentication dialog, over a dimmed screen: what a program asks to do (polkit's
@@ -18,22 +16,8 @@ Item {
     focus: true
     // Set by its view as it shows and cleared as it goes (a preview sets it from the start).
     property bool shown: false
-    property real progress: 0
-    states: State {
-        name: "shown"
-        when: root.shown
-        PropertyChanges { root.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationFast; easing.type: Theme.easingExit }
-        }
-    ]
+    property alias progress: reveal.progress
+    Reveal { id: reveal; shown: root.shown }
     readonly property var identities: auth.identities
     readonly property bool choosing: identities.length > 1
 
@@ -87,22 +71,7 @@ Item {
             NumberAnimation { target: shift; property: "x"; to: -Theme.spacingS; duration: Theme.duration(70) }
             NumberAnimation { target: shift; property: "x"; to: 0; duration: Theme.duration(50) }
         }
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.radiusLarge
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.radiusLarge
-            color: Theme.surface
-            border.color: Theme.border
-        }
+        CardFrame { color: Theme.surface; outline: Theme.border }
         MouseArea { anchors.fill: parent }
         ColumnLayout {
             id: column
@@ -231,27 +200,16 @@ Item {
                     }
                 }
             }
-            TextField {
+            TextEntry {
                 id: field
                 objectName: "authField"
                 Layout.fillWidth: true
-                implicitHeight: Theme.fieldHeight
                 leftPadding: Theme.spacingL; rightPadding: Theme.spacingL
+                radius: Theme.macos ? Theme.radiusSmall + 1 : Theme.radiusSmall
                 enabled: root.auth.open && !root.auth.checking
                 echoMode: root.auth.echo ? TextInput.Normal : TextInput.Password
                 placeholderText: root.auth.prompt
-                color: Theme.text
-                placeholderTextColor: Theme.textMuted
-                selectionColor: Theme.accent
-                selectedTextColor: Theme.textOnAccent
-                verticalAlignment: TextInput.AlignVCenter
-                font.family: Theme.fontFamily; font.pixelSize: Theme.fontSize
                 onAccepted: root.submit()
-                background: Rectangle {
-                    radius: Theme.macos ? Theme.radiusSmall + 1 : Theme.radiusSmall
-                    color: Theme.fieldFill
-                    border.color: field.activeFocus ? Theme.accent : Theme.border
-                }
             }
             // What went wrong, else what the helper said, else that it is checking.
             Text {

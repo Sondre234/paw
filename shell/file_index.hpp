@@ -54,9 +54,6 @@ class FileIndex : public QObject {
     ~FileIndex() override;
     // Takes new settings; files are read again on the next search when they changed.
     void configure(const Settings &settings);
-    const Settings &settings() const { return settings_; }
-    // Whether a search finds files at all (shell.search.files).
-    bool enabled() const { return settings_.enabled; }
     // What `query` finds, best first, at most `limit`: {kind: "file", title (its name), subtitle
     // (its folder, ~ for the home folder), icon (its type's, then more generic ones, separated by
     // commas), target (its path), folder (whether it is one), score}. Each word of the query must

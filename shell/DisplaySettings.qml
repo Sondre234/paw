@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Effects
 import QtQuick.Layouts
 
 // The display settings window, as Windows' Display settings and KDE's Display Configuration: the
@@ -21,22 +20,8 @@ Item {
     focus: true
     // Set by its view as it shows and cleared as it goes (a preview sets it from the start).
     property bool shown: false
-    property real progress: 0
-    states: State {
-        name: "shown"
-        when: root.shown
-        PropertyChanges { root.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationFast; easing.type: Theme.easingExit }
-        }
-    ]
+    property alias progress: reveal.progress
+    Reveal { id: reveal; shown: root.shown }
     readonly property int margin: Math.max(Theme.spacingL, Theme.shadowMargin)
     width: card.width + 2 * margin
     height: card.height + 2 * margin
@@ -205,31 +190,17 @@ Item {
     // A switch, as Notification Center's do-not-disturb: `on` is what is in force, and `turned`
     // says what the user made it; what is in force then stays bound, so that a change the model
     // does not take shows as not taken.
-    component Toggle: Switch {
+    component Toggle: ToggleSwitch {
         id: toggle
         property bool on: false
         signal turned(bool on)
+        focusRing: true
         checked: on
         onToggled: {
             toggle.turned(checked)
             checked = Qt.binding(function() { return toggle.on })
         }
         implicitHeight: Theme.buttonHeight
-        indicator: Rectangle {
-            x: toggle.leftPadding; y: parent.height / 2 - height / 2
-            width: 2 * height; height: Theme.iconSize; radius: height / 2
-            opacity: toggle.enabled ? 1 : 0.5
-            color: toggle.checked ? Theme.accent : Theme.macos ? Theme.switchTrack : Theme.selected
-            border.color: toggle.visualFocus ? Theme.focusRing : "transparent"
-            Rectangle {
-                x: toggle.checked ? parent.width - width - Theme.spacingXS : Theme.spacingXS
-                y: Theme.spacingXS; width: parent.height - 2 * Theme.spacingXS; height: width; radius: width / 2
-                color: Theme.macos ? Theme.knob : toggle.checked ? Theme.textOnAccent : Theme.text
-                border.color: Theme.macos ? Theme.knobOutline : "transparent"
-                Behavior on x { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
-            }
-        }
-        contentItem: Item {}
     }
     // A setting's name, before its control.
     component SettingLabel: Text {
@@ -257,22 +228,7 @@ Item {
         height: Math.min(column.implicitHeight + 2 * Theme.spacingXL, root.screenSize.height - 2 * root.margin)
         opacity: root.progress
         scale: 0.96 + 0.04 * root.progress
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.radiusLarge
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.radiusLarge
-            color: Theme.popupSurface
-            border.color: Theme.popupOutline
-        }
+        CardFrame {}
         MouseArea { anchors.fill: parent; onPressed: root.forceActiveFocus() }
         ColumnLayout {
             id: column
@@ -521,24 +477,14 @@ Item {
                         }
                     }
                     // A scale of one's own, in per cent, taken with Enter or as the field is left.
-                    TextField {
+                    TextEntry {
                         id: customScale
                         objectName: "displayScaleCustom"
                         visible: false
                         Layout.fillWidth: true
                         implicitHeight: Theme.buttonHeight
                         validator: IntValidator { bottom: 25; top: 1000 }
-                        color: Theme.text
-                        selectionColor: Theme.accent
-                        selectedTextColor: Theme.textOnAccent
-                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
-                        verticalAlignment: TextInput.AlignVCenter
-                        leftPadding: Theme.spacingM; rightPadding: Theme.spacingM
-                        background: Rectangle {
-                            radius: Theme.radiusSmall
-                            color: Theme.fieldFill
-                            border.color: customScale.activeFocus ? Theme.accent : Theme.border
-                        }
+                        font.pixelSize: Theme.fontSizeSmall
                         function take() {
                             if (!visible)
                                 return

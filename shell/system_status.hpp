@@ -25,7 +25,6 @@ class SystemStatus : public QObject {
   public:
     // `root` holds the sysfs tree; tests point it at a fake one.
     explicit SystemStatus(QString root = "/sys", QObject *parent = nullptr, bool watch = false);
-    ~SystemStatus() override;
     // True when kernel messages, not polling, prompt the reads.
     bool watching() const { return !sockets_.isEmpty(); }
     // The timer's interval in milliseconds, 0 when it is stopped.
@@ -47,7 +46,6 @@ class SystemStatus : public QObject {
     void changed();
 
   private:
-    void openNetlink(int protocol, unsigned groups, bool uevents);
     void updatePolling(bool batteryPresent);
     QString root_;
     QTimer timer_, debounce_;

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "bluez.hpp"
+#include "dbus_util.hpp"
 #include <QDBusArgument>
 #include <QDBusMetaType>
 #include <QDBusObjectPath>
@@ -31,11 +32,6 @@ QVariantMap settled(const QVariantMap &properties) {
                                ? QVariant(it.value().value<QDBusObjectPath>().path())
                                : it.value();
     return values;
-}
-QVariantMap map(const QVariant &value) {
-    if (value.metaType() == QMetaType::fromType<QDBusArgument>())
-        return qdbus_cast<QVariantMap>(value.value<QDBusArgument>());
-    return value.toMap();
 }
 // A passkey as BlueZ shows it: six digits.
 QString digits(uint passkey) { return QString("%1").arg(passkey, 6, 10, QChar('0')); }
@@ -69,8 +65,8 @@ BlueZ::BlueZ(const QDBusConnection &bus, QObject *parent) : Bluetooth(parent), b
         return;
     agent_ = new Agent(*this);
     bus_.registerVirtualObject(agentPath(), agent_);
-    watcher_ = new QDBusServiceWatcher(service, bus_, QDBusServiceWatcher::WatchForOwnerChange, this);
-    connect(watcher_, &QDBusServiceWatcher::serviceOwnerChanged, this,
+    auto *watcher = new QDBusServiceWatcher(service, bus_, QDBusServiceWatcher::WatchForOwnerChange, this);
+    connect(watcher, &QDBusServiceWatcher::serviceOwnerChanged, this,
             [this](const QString &, const QString &, const QString &owner) {
                 stop();
                 if (!owner.isEmpty())
@@ -84,9 +80,7 @@ BlueZ::BlueZ(const QDBusConnection &bus, QObject *parent) : Bluetooth(parent), b
     auto ask = QDBusMessage::createMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus",
                                               "org.freedesktop.DBus", "NameHasOwner");
     ask << QString(service);
-    auto *running = new QDBusPendingCallWatcher(bus_.asyncCall(ask), this);
-    connect(running, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *done) {
-        done->deleteLater();
+    dbus::whenAnswered(bus_.asyncCall(ask), this, [this](QDBusPendingCallWatcher *done) {
         if (!done->isError() && done->reply().arguments().value(0).toBool() && !running_)
             start();
     });
@@ -106,18 +100,18 @@ BlueZ::~BlueZ() {
 void BlueZ::start() {
     running_ = true;
     const int generation = generation_;
-    auto *watch = new QDBusPendingCallWatcher(
-        bus_.asyncCall(QDBusMessage::createMethodCall(service, "/", objectManagerInterface, "GetManagedObjects")), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this, [this, generation](QDBusPendingCallWatcher *done) {
-        done->deleteLater();
-        if (generation != generation_ || done->isError())
-            return;
-        const auto objects = qdbus_cast<Objects>(done->reply().arguments().value(0));
-        for (auto it = objects.constBegin(); it != objects.constEnd(); ++it)
-            for (auto interface = it->constBegin(); interface != it->constEnd(); ++interface)
-                objects_[it.key().path()][interface.key()] = settled(interface.value());
-        publish_.start();
-    });
+    dbus::whenAnswered(
+        bus_.asyncCall(QDBusMessage::createMethodCall(service, "/", objectManagerInterface,
+                                                      "GetManagedObjects")),
+        this, [this, generation](QDBusPendingCallWatcher *done) {
+            if (generation != generation_ || done->isError())
+                return;
+            const auto objects = qdbus_cast<Objects>(done->reply().arguments().value(0));
+            for (auto it = objects.constBegin(); it != objects.constEnd(); ++it)
+                for (auto interface = it->constBegin(); interface != it->constEnd(); ++interface)
+                    objects_[it.key().path()][interface.key()] = settled(interface.value());
+            publish_.start();
+        });
 }
 void BlueZ::stop() {
     ++generation_;
@@ -133,13 +127,11 @@ void BlueZ::call(const QString &path, const QString &interface, const QString &m
     auto message = QDBusMessage::createMethodCall(service, path, interface, method);
     message.setArguments(arguments);
     const int generation = generation_;
-    auto *watch = new QDBusPendingCallWatcher(bus_.asyncCall(message, timeout), this);
-    connect(watch, &QDBusPendingCallWatcher::finished, this,
-            [this, generation, done = std::move(done)](QDBusPendingCallWatcher *answer) {
-                answer->deleteLater();
-                if (generation == generation_)
-                    done(answer->isError() ? answer->error() : QDBusError());
-            });
+    dbus::whenAnswered(bus_.asyncCall(message, timeout), this,
+                       [this, generation, done = std::move(done)](QDBusPendingCallWatcher *answer) {
+                           if (generation == generation_)
+                               done(answer->isError() ? answer->error() : QDBusError());
+                       });
 }
 
 void BlueZ::interfacesAdded(const QDBusMessage &message) {
@@ -173,7 +165,7 @@ void BlueZ::propertiesChanged(const QDBusMessage &message) {
     if (!running_ || arguments.size() < 2 || object == objects_.end())
         return;
     auto &properties = (*object)[arguments[0].toString()];
-    const auto changed = settled(map(arguments[1]));
+    const auto changed = settled(dbus::map(arguments[1]));
     for (auto it = changed.constBegin(); it != changed.constEnd(); ++it)
         properties[it.key()] = it.value();
     // As a device goes out of range, its signal is no longer known.

@@ -65,8 +65,8 @@ QVariantList merged(const QVariantList &ranked, const QVariantList &files, int l
     qsizetype i = 0, j = 0;
     while (list.size() < limit && (i < ranked.size() || j < files.size())) {
         const bool file = j < files.size() &&
-                          (i == ranked.size() || files[j].toMap()["score"].toDouble() >
-                                                     ranked[i].toMap()["score"].toDouble());
+                          (i == ranked.size() || files[j].toMap().value("score").toDouble() >
+                                                     ranked[i].toMap().value("score").toDouble());
         list.push_back(file ? files[j++] : ranked[i++]);
     }
     return list;
@@ -123,20 +123,8 @@ void Palette::open(const QString &output) {
         }
         sessions_ = sessions;
         if (!output_.isEmpty()) {
-            // Someone who has already moved down the list keeps the entry they are on.
-            const auto before = selected_ > 0 && selected_ < results_.size()
-                                    ? results_[selected_].toMap()
-                                    : QVariantMap{};
             collect();
-            refreshResults();
-            for (int i = 0; !before.isEmpty() && i < results_.size(); ++i) {
-                const auto item = results_[i].toMap();
-                if (item["kind"] == before["kind"] && item["target"] == before["target"]) {
-                    selected_ = i;
-                    Q_EMIT selectedChanged();
-                    break;
-                }
-            }
+            refreshKeepingSelection();
         }
     });
 }
@@ -241,11 +229,11 @@ void Palette::refreshResults() {
         QVariantList grouped{results_.first()};
         QStringList kinds;
         for (qsizetype i = 1; i < results_.size(); ++i)
-            if (const auto kind = results_[i].toMap()["kind"].toString(); !kinds.contains(kind))
+            if (const auto kind = results_[i].toMap().value("kind").toString(); !kinds.contains(kind))
                 kinds.push_back(kind);
         for (const auto &kind : kinds)
             for (qsizetype i = 1; i < results_.size(); ++i)
-                if (results_[i].toMap()["kind"] == kind)
+                if (results_[i].toMap().value("kind") == kind)
                     grouped.push_back(results_[i]);
         results_ = grouped;
     }

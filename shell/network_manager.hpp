@@ -8,7 +8,6 @@
 #include <optional>
 
 class QDBusMessage;
-class QDBusServiceWatcher;
 
 // NetworkManager on a system bus: its devices, the access points the Wi-Fi ones see, the
 // connections active and those it knows, each read as it appears and followed through
@@ -33,7 +32,6 @@ class NetworkManager : public Wifi {
 
   private:
     QDBusConnection bus_;
-    QDBusServiceWatcher *watcher_ = nullptr;
     // Counts NetworkManager's comings and goings, so that an answer from before one is dropped.
     int generation_ = 0;
     bool running_ = false, managerRead_ = false;

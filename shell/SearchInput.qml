@@ -19,7 +19,6 @@ TextField {
     placeholderTextColor: Theme.textMuted
     selectionColor: Theme.accent
     selectedTextColor: Theme.textOnAccent
-    selectByMouse: true
     verticalAlignment: TextInput.AlignVCenter
     font.pixelSize: spotlight ? Theme.spotlightFontSize : large ? Theme.fontSizeTitle : Theme.fontSize
     font.family: Theme.fontFamily

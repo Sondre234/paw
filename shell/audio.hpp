@@ -55,8 +55,10 @@ class Audio : public QObject {
     Q_PROPERTY(int volume READ volume NOTIFY changed)
     Q_PROPERTY(bool muted READ muted NOTIFY changed)
     Q_PROPERTY(QString output READ output NOTIFY changed)
-    // [{name, description}], in the server's order.
+    // [{name, description}], in the server's order, and the default output's description, "" for
+    // none.
     Q_PROPERTY(QVariantList outputs READ outputs NOTIFY changed)
+    Q_PROPERTY(QString outputDescription READ outputDescription NOTIFY changed)
     Q_PROPERTY(AudioStreams *streams READ streams CONSTANT)
     // Whether there is a default input, and whether it is muted.
     Q_PROPERTY(bool hasInput READ hasInput NOTIFY changed)
@@ -82,6 +84,7 @@ class Audio : public QObject {
     bool muted() const;
     QString output() const { return state_.output; }
     QVariantList outputs() const;
+    QString outputDescription() const;
     AudioStreams *streams() { return &streams_; }
     bool hasInput() const { return currentInput() != nullptr; }
     bool inputMuted() const;
@@ -102,16 +105,14 @@ class Audio : public QObject {
     void changed();
 
   protected:
-    virtual void sendVolume(const QString &output, int percent) = 0;
-    virtual void sendMute(const QString &output, bool muted) = 0;
-    virtual void sendOutput(const QString &output, const std::vector<uint32_t> &streams) = 0;
-    virtual void sendStreamVolume(uint32_t id, int percent) = 0;
-    virtual void sendStreamMute(uint32_t id, bool muted) = 0;
-    // A backend that has no inputs ignores it.
-    virtual void sendInputMute(const QString &input, bool muted) {
-        (void)input;
-        (void)muted;
-    }
+    // What the sound server's backend carries out; without one (the preview's, or a build without
+    // libpulse) nothing is.
+    virtual void sendVolume(const QString & /*output*/, int /*percent*/) {}
+    virtual void sendMute(const QString & /*output*/, bool /*muted*/) {}
+    virtual void sendOutput(const QString & /*output*/, const std::vector<uint32_t> & /*streams*/) {}
+    virtual void sendStreamVolume(uint32_t /*id*/, int /*percent*/) {}
+    virtual void sendStreamMute(uint32_t /*id*/, bool /*muted*/) {}
+    virtual void sendInputMute(const QString & /*input*/, bool /*muted*/) {}
 
   private:
     bool available_ = false;
@@ -178,5 +179,8 @@ class WindowSound : public QObject {
     int volume_ = 0;
     // The window's streams, as last worked out.
     std::vector<uint32_t> streams_;
+    // The windows' `pid` role, -1 until they have one (a ListModel names its roles as rows come).
+    mutable int pidRole_ = -1;
+    int pidRole() const;
     void update();
 };

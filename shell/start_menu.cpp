@@ -3,6 +3,7 @@
 #include "calculator.hpp"
 #include "file_index.hpp"
 #include "fuzzy.hpp"
+#include "state_files.hpp"
 #include "web_search.hpp"
 #include <QAbstractEventDispatcher>
 #include <QDir>
@@ -10,7 +11,6 @@
 #include <QFileInfo>
 #include <QLocale>
 #include <QRegularExpression>
-#include <QSaveFile>
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
@@ -18,6 +18,7 @@
 #include <pwd.h>
 #include <unistd.h>
 #if PAW_DBUS || PAW_TRAY
+#include "dbus_util.hpp"
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusObjectPath>
@@ -27,60 +28,64 @@
 #endif
 
 namespace {
-QString defaultStateDir() {
-    auto state = qEnvironmentVariable("XDG_STATE_HOME");
-    if (state.isEmpty() || QDir::isRelativePath(state))
-        state = QDir::homePath() + "/.local/state";
-    return state + "/paw";
+// The words of a text, folded to lower case, as what describes an application is searched: by the
+// words it says, not by letters strewn through a sentence.
+QStringList wordsOf(const QString &text) {
+    static const QRegularExpression separators("[^\\w]+");
+    return text.toCaseFolded().split(separators, Qt::SkipEmptyParts);
 }
-
-// Whether every word of `query` starts a word of `text`, as what describes an application is
-// searched: by the words it says, not by letters strewn through a sentence.
-bool startsWords(const QString &query, const QString &text) {
-    static const QRegularExpression space("\\s+"), separators("[^\\w]+");
-    const auto words = text.toCaseFolded().split(separators, Qt::SkipEmptyParts);
-    const auto parts = query.toCaseFolded().split(space, Qt::SkipEmptyParts);
+// Whether every one of the query's `parts` starts one of `words`.
+bool startsWords(const QStringList &parts, const QStringList &words) {
     return std::all_of(parts.begin(), parts.end(), [&](const QString &part) {
         return std::any_of(words.begin(), words.end(),
                            [&](const QString &word) { return word.startsWith(part); });
     });
 }
+} // namespace
 
-// How well an application's record matches `query`, negative when it does not. Its name and id
-// are matched as the palette matches, letter by letter; its generic name, keywords and comment
+StartMenu::Searched::Searched(const QVariantMap &app)
+    : name(app.value("name").toString()), generic(app.value("genericName").toString()),
+      keywords(app.value("keywords").toStringList().join(' ')),
+      description(app.value("description").toString()) {
+    // A configured launcher's id is only its place in the configuration.
+    if (!app.value("configured").toBool()) {
+        id = app.value("appId").toString();
+        if (id.endsWith(".desktop"))
+            id.chop(8);
+    }
+    all = QStringList{name, generic, keywords, id}.join(' ');
+    genericWords = wordsOf(generic);
+    keywordWords = wordsOf(keywords);
+    descriptionWords = wordsOf(description);
+    allWords = wordsOf(all);
+}
+
+// How well an application matches the query's `parts`, negative when it does not. Its name and
+// id are matched as the palette matches, letter by letter; its generic name, keywords and comment
 // by their words, and count less, as the palette counts a subtitle; words found only across them
 // ("firefox browser") count least.
-double appScore(const QString &query, const QVariantMap &app) {
-    const auto name = app["name"].toString(), generic = app["genericName"].toString(),
-               keywords = app["keywords"].toStringList().join(' '),
-               description = app["description"].toString();
-    // A configured launcher's id is only its place in the configuration.
-    auto id = app["configured"].toBool() ? QString() : app["appId"].toString();
-    if (id.endsWith(".desktop"))
-        id.chop(8);
-    const std::tuple<const QString &, double, bool> fields[] = {
-        {name, 1, false}, {generic, 0.8, true}, {keywords, 0.7, true}, {id, 0.6, false},
-        {description, 0.5, true}};
+double StartMenu::Searched::score(const QStringList &parts) const {
+    const std::tuple<const QString &, double, const QStringList *> fields[] = {
+        {name, 1, nullptr}, {generic, 0.8, &genericWords}, {keywords, 0.7, &keywordWords},
+        {id, 0.6, nullptr}, {description, 0.5, &descriptionWords}};
     double best = -1;
-    for (const auto &[text, weight, byWords] : fields) {
-        if (text.isEmpty() || (byWords && !startsWords(query, text)))
+    for (const auto &[text, weight, words] : fields) {
+        if (text.isEmpty() || (words && !startsWords(parts, *words)))
             continue;
-        const double value = fuzzy::score(query, text);
+        const double value = fuzzy::scoreWords(parts, text);
         if (value >= 0)
             best = std::max(best, value * weight);
     }
-    const auto all = QStringList{name, generic, keywords, id}.join(' ');
-    if (best < 0 && startsWords(query, all)) {
-        const double value = fuzzy::score(query, all);
+    if (best < 0 && startsWords(parts, allWords)) {
+        const double value = fuzzy::scoreWords(parts, all);
         if (value >= 0)
             best = value * 0.4;
     }
     return best;
 }
-} // namespace
 
 StartMenu::StartMenu(QString stateDir, QObject *parent)
-    : QObject(parent), stateDir_(stateDir.isEmpty() ? defaultStateDir() : std::move(stateDir)),
+    : QObject(parent), stateDir_(stateDir.isEmpty() ? ::stateDir() : std::move(stateDir)),
       history_(stateDir_ + "/launches") {
     QFile pins(stateDir_ + "/start-pinned");
     if (pins.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -133,13 +138,16 @@ void StartMenu::setApps(const QVariantList &apps, const QStringList &taskbarPins
         return QString::localeAwareCompare(a.second["name"].toString(), b.second["name"].toString()) < 0;
     });
     sorted_.clear();
-    for (const auto &item : named)
+    searched_.clear();
+    for (const auto &item : named) {
         sorted_.push_back(item.second);
+        searched_.emplace_back(item.second);
+    }
     if (!ownPins_) {
         QStringList ids;
         for (const auto &app : apps)
-            if (!app.toMap()["configured"].toBool())
-                ids.push_back(app.toMap()["appId"].toString());
+            if (!app.toMap().value("configured").toBool())
+                ids.push_back(app.toMap().value("appId").toString());
         pins_ = seed(taskbarPins, commonApps(), ids);
     }
     Q_EMIT appsChanged();
@@ -149,7 +157,7 @@ void StartMenu::setApps(const QVariantList &apps, const QStringList &taskbarPins
 
 QVariantMap StartMenu::appRecord(const QString &id) const {
     for (const auto &app : apps_)
-        if (app.toMap()["appId"] == id)
+        if (app.toMap().value("appId") == id)
             return app.toMap();
     return {};
 }
@@ -248,16 +256,11 @@ void StartMenu::savePins() {
     Q_EMIT pinnedChanged();
     if (previewOnly_)
         return;
-    const auto path = stateDir_ + "/start-pinned";
-    QDir().mkpath(stateDir_);
-    QSaveFile file(path);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        for (const auto &id : pins_)
-            file.write(id.toUtf8() + '\n');
-        if (file.commit())
-            return;
-    }
-    Q_EMIT failed("Could not save the start menu's pins: " + file.errorString());
+    QByteArray lines;
+    for (const auto &id : pins_)
+        lines += id.toUtf8() + '\n';
+    if (const auto error = saveFile(stateDir_ + "/start-pinned", lines); !error.isEmpty())
+        Q_EMIT failed("Could not save the start menu's pins: " + error);
 }
 
 QVariantList StartMenu::search(const QString &query, const QVariantList &others) const {
@@ -271,11 +274,12 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
     };
     // By name to begin with, the order equal matches keep.
     std::vector<Found> apps;
-    for (const auto &item : sorted_) {
-        auto app = item.toMap();
-        double value = appScore(query, app);
+    const auto parts = fuzzy::words(query);
+    for (qsizetype i = 0; i < sorted_.size(); ++i) {
+        double value = searched_[i].score(parts);
         if (value < 0)
             continue;
+        auto app = sorted_[i].toMap();
         // What is launched often breaks a tie, and comes a little ahead of a close match.
         const auto *launched = history_.find(app["appId"].toString());
         if (launched)
@@ -297,12 +301,12 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
     // The windows, workspaces and actions, ranked as the palette ranks them.
     QVariantList candidates, windows, actions;
     for (const auto &item : others) {
-        const auto kind = item.toMap()["kind"].toString();
+        const auto kind = item.toMap().value("kind").toString();
         if (kind == "window" || kind == "workspace" || kind == "action")
             candidates.push_back(item);
     }
     for (const auto &item : fuzzy::rank(candidates, query, 40)) {
-        auto &group = item.toMap()["kind"] == "window" ? windows : actions;
+        auto &group = item.toMap().value("kind") == "window" ? windows : actions;
         if (group.size() < 5)
             group.push_back(item);
     }
@@ -318,14 +322,18 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
         windows.clear();
         actions.clear();
     }
+    // The score of a group's first entry, its best; -1 for none.
+    auto scoreOf = [](const QVariantList &group) {
+        return group.isEmpty() ? -1.0 : group.first().toMap().value("score").toDouble();
+    };
     // What matched far worse than the best is left out: letters strewn through a long name.
-    const double best = std::max({apps.empty() ? 0.0 : apps.front().score,
-                                  windows.isEmpty() ? 0.0 : windows.first().toMap()["score"].toDouble(),
-                                  actions.isEmpty() ? 0.0 : actions.first().toMap()["score"].toDouble(),
-                                  files.isEmpty() ? 0.0 : files.first().toMap()["score"].toDouble()});
+    const double best = std::max({apps.empty() ? 0.0 : apps.front().score, scoreOf(windows),
+                                  scoreOf(actions), scoreOf(files)});
     const double least = best * 0.5;
     std::erase_if(apps, [least](const Found &found) { return found.score < least; });
-    auto weak = [least](const QVariant &item) { return item.toMap()["score"].toDouble() < least; };
+    auto weak = [least](const QVariant &item) {
+        return item.toMap().value("score").toDouble() < least;
+    };
     windows.removeIf(weak);
     actions.removeIf(weak);
     QVariantList results;
@@ -335,9 +343,6 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
     };
     // The best match is a calculation's value, else the first of whichever group matched best;
     // an application on a tie, a file only when it matched better than the rest.
-    auto scoreOf = [](const QVariantList &group) {
-        return group.isEmpty() ? -1.0 : group.first().toMap()["score"].toDouble();
-    };
     const double app = apps.empty() ? -1 : apps.front().score;
     const double file = scoreOf(files);
     if (const auto calc = calculator::entry(query); !calc.isEmpty()) {
@@ -457,9 +462,7 @@ void StartMenu::findUser() {
                                                "org.freedesktop.Accounts", "FindUserById");
     find << qlonglong(getuid());
     find.setAutoStartService(false);
-    auto *found = new QDBusPendingCallWatcher(bus.asyncCall(find), this);
-    connect(found, &QDBusPendingCallWatcher::finished, this, [this, bus](QDBusPendingCallWatcher *call) {
-        call->deleteLater();
+    dbus::whenAnswered(bus.asyncCall(find), this, [this, bus](QDBusPendingCallWatcher *call) {
         QDBusPendingReply<QDBusObjectPath> user = *call;
         if (user.isError() || userSet_)
             return;
@@ -467,9 +470,7 @@ void StartMenu::findUser() {
                                                   "org.freedesktop.DBus.Properties", "Get");
         get << QString("org.freedesktop.Accounts.User") << QString("IconFile");
         get.setAutoStartService(false);
-        auto *read = new QDBusPendingCallWatcher(bus.asyncCall(get), this);
-        connect(read, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
-            call->deleteLater();
+        dbus::whenAnswered(bus.asyncCall(get), this, [this](QDBusPendingCallWatcher *call) {
             QDBusPendingReply<QDBusVariant> icon = *call;
             const auto path = icon.isError() ? QString() : icon.value().variant().toString();
             if (userSet_ || !QFileInfo(path).isFile())

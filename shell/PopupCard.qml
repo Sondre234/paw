@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 
 // A popup's card: Theme's opaque surface with an outline and rounded corners, and a shadow under
 // it when the GPU draws (Theme.effects). Setting `open` fades it in with a few pixels' slide from
@@ -40,7 +39,7 @@ Item {
     property Item initialFocus: card
     default property alias content: body.data
     // How far it is open, from 0 to 1: its opacity, and what is left of the slide.
-    property real progress: 0
+    property alias progress: reveal.progress
 
     property rect bounds: parent ? Qt.rect(0, 0, parent.width, parent.height) : Qt.rect(0, 0, 0, 0)
 
@@ -133,21 +132,7 @@ Item {
     }
     onVisibleChanged: announce()
     Component.onCompleted: announce()
-    states: State {
-        name: "open"
-        when: card.open
-        PropertyChanges { card.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "open"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "open"
-            NumberAnimation { property: "progress"; duration: Theme.durationFast; easing.type: Theme.easingExit }
-        }
-    ]
+    Reveal { id: reveal; shown: card.open }
     // It slides out from the anchor, a few pixels.
     transform: Translate {
         readonly property real distance: (1 - card.progress) * Theme.spacingM
@@ -155,29 +140,12 @@ Item {
         y: card.placedSide === Qt.TopEdge ? distance : card.placedSide === Qt.BottomEdge ? -distance : 0
     }
 
-    Loader {
-        anchors.fill: parent
-        active: Theme.effects && card.framed
-        sourceComponent: RectangularShadow {
-            radius: card.radius
-            blur: Theme.shadowBlur
-            offset: Qt.vector2d(0, Theme.shadowOffset)
-            color: Theme.shadow
-        }
-    }
-    Rectangle {
+    CardFrame {
         visible: card.framed
-        anchors.fill: parent
-        color: card.color
+        shadow: card.framed
         radius: card.radius
-        border.color: Theme.popupOutline
-        Rectangle {
-            visible: Theme.popupInnerEdge.a > 0 && card.color.a > 0
-            anchors.fill: parent; anchors.margins: 1
-            radius: card.radius - 1
-            color: "transparent"
-            border.color: Theme.popupInnerEdge
-        }
+        color: card.color
+        innerEdge: true
     }
     MouseArea {
         anchors.fill: parent

@@ -17,7 +17,6 @@ import "WindowMenu.js" as WindowMenu
 PopupMenu {
     id: menuBarMenu
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "menuBarMenu"
     entryName: "menuBarMenuItem"
@@ -44,7 +43,6 @@ PopupMenu {
         // One without an app id stands alone.
         taskId: menuBarMenu.window && menuBarMenu.window.appId === "" ? menuBarMenu.window.taskId : -1
     }
-    TaskFilter { id: everyWindow; sourceModel: menuBarMenu.panel.taskSource }
 
     // A change of menu starts it afresh: no submenu open, nothing highlighted.
     Connections {
@@ -70,17 +68,7 @@ PopupMenu {
 
     // The groups of entries, with a line between those that have any, and no icons, as macOS's
     // menus have none.
-    function sections(groups) {
-        var entries = []
-        for (var i = 0; i < groups.length; ++i) {
-            if (groups[i].length === 0)
-                continue
-            if (entries.length > 0)
-                entries.push({ separator: true })
-            entries = entries.concat(groups[i].map(plain))
-        }
-        return entries
-    }
+    function sections(groups) { return WindowMenu.sections(groups, plain) }
     function plain(entry) {
         if (!entry.icon)
             return entry
@@ -93,10 +81,7 @@ PopupMenu {
         var look = []
         if (shell.profiles.length > 0)
             look.push({ text: "Appearance", secondary: shell.profile, objectName: "systemMenuAppearance",
-                        submenu: shell.profiles.map(function(name) {
-                            return { text: name, toggle: "radio", checked: name === shell.profile,
-                                     run: function() { if (name !== shell.profile) shell.pickProfile(name) } }
-                        }) })
+                        submenu: WindowMenu.profileEntries() })
         if (shell.wallpaperFolder !== "")
             look.push({ text: "Wallpaper…", objectName: "systemMenuWallpaper",
                         run: function() { panel.toggleAudioPopup("wallpapers", bar.systemButton) } })
@@ -139,7 +124,7 @@ PopupMenu {
                                    run: function() { shell.launch(record.appId) } })
         }
         var mine = windows.map(function(w) { return w.taskId })
-        var others = everyWindow.windows.filter(function(w) {
+        var others = menuBarMenu.panel.allWindows.windows.filter(function(w) {
             return mine.indexOf(w.taskId) < 0 && !w.minimized && (!w.output || w.output === panel.outputName)
         })
         return sections([launches,

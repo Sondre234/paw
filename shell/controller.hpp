@@ -45,11 +45,6 @@ class ShellController : public QObject {
     Q_PROPERTY(QColor background READ background NOTIFY configChanged)
     // windows.urgent_color, the colour of whatever marks a window that asks for attention.
     Q_PROPERTY(QColor urgentColor READ urgentColor NOTIFY configChanged)
-    // The windows asking for attention, longest waiting first, as {output, workspace, appId,
-    // title}, and how many there are. Each output's entry in `workspaces` also lists the
-    // workspaces they are on, as `urgent`.
-    Q_PROPERTY(int urgentCount READ urgentCount NOTIFY urgentChanged)
-    Q_PROPERTY(QVariantList urgentWindows READ urgentWindows NOTIFY urgentChanged)
     // The wallpaper: one picked from the panel for the profile in use, else shell.wallpaper.
     // wallpaperFile is the same as a path, "" for none.
     Q_PROPERTY(QUrl wallpaper READ wallpaper NOTIFY wallpaperChanged)
@@ -104,6 +99,9 @@ class ShellController : public QObject {
     // Configured launchers and installed applications, as {appId, name, icon, pinned (to the
     // taskbar), configured, genericName, keywords, description}.
     Q_PROPERTY(QVariantList apps READ apps NOTIFY appsChanged)
+    // Counts the changes of `apps`, for QML that reads one record with appRecord() to follow
+    // them without making all of them.
+    Q_PROPERTY(int appsRevision READ appsRevision NOTIFY appsChanged)
     // Whether the user's trash holds anything, for the dock's Trash: watched once the style is
     // macOS, which has a dock.
     Q_PROPERTY(bool trashFull READ trashFull NOTIFY trashChanged)
@@ -134,9 +132,8 @@ class ShellController : public QObject {
     Q_PROPERTY(DisplaySettings *displaySettings READ displaySettings CONSTANT)
     // The system tray's items, empty until startTray().
     Q_PROPERTY(TrayModel *tray READ tray CONSTANT)
-    // The output the compositor says has the focus, and the one showing the notification cards
-    // now: chosen when the first card appears and kept until the last is gone.
-    Q_PROPERTY(QString focusedOutput READ focusedOutput NOTIFY focusedOutputChanged)
+    // The output showing the notification cards now: chosen when the first card appears and kept
+    // until the last is gone.
     Q_PROPERTY(QString cardsOutput READ cardsOutput NOTIFY cardsOutputChanged)
     Q_PROPERTY(bool tiling READ tiling NOTIFY tilingChanged)
     Q_PROPERTY(bool tilingAvailable READ tilingAvailable NOTIFY tilingChanged)
@@ -191,7 +188,9 @@ class ShellController : public QObject {
     QColor textColor() const;
     QColor background() const;
     QColor urgentColor() const;
-    int urgentCount() const { return urgentCount_; }
+    // The windows asking for attention, longest waiting first (the first 16), as {output,
+    // workspace, appId, title}, which the taskbar marks. Each output's entry in `workspaces`
+    // lists the workspaces they are on, as `urgent`.
     QVariantList urgentWindows() const { return urgentWindows_; }
     QUrl wallpaper() const;
     QString wallpaperFile() const;
@@ -252,6 +251,9 @@ class ShellController : public QObject {
     void setNightLight(bool on, const QString &mode);
     QVariantList pinned() const;
     QVariantList apps() const;
+    int appsRevision() const { return appsRevision_; }
+    // The record of the application `id`, as `apps` has it; undefined in QML for none.
+    Q_INVOKABLE QVariant appRecord(const QString &id) const;
     QString error() const { return error_; }
     QString configError() const { return configError_; }
     TaskModel *tasks() { return &tasks_; }
@@ -292,11 +294,15 @@ class ShellController : public QObject {
     Osd *osd() { return &osd_; }
     DisplayModes *displayModes() { return &displayModes_; }
     DisplaySettings *displaySettings() { return &displaySettings_; }
-    QString focusedOutput() const { return focusedOutput_; }
     QString cardsOutput() const { return cardsOutput_; }
     // The output that overlays for the focused monitor belong on: the focused one when it
     // exists, else the primary screen.
-    QString overlayOutput() const;
+    QString overlayOutput() const { return outputOrPrimary(focusedOutput_); }
+    // Whether an output of that name is connected.
+    static bool hasOutput(const QString &name);
+    // `name` while an output of that name is connected, else the primary screen's ("" without
+    // one), as what belongs on an output that has gone shows there.
+    static QString outputOrPrimary(const QString &name);
     // Something the compositor tells the user once ("notice SUMMARY<tab>BODY"), such as a window
     // taking the keyboard's shortcuts: a notification of the desktop's own, kept in the history,
     // and the summary on the on-screen display while no card shows (notifications off, or do not
@@ -323,19 +329,19 @@ class ShellController : public QObject {
     }
     // By output name: {current: N, occupied: [N, ...], tiling: bool}, numbered from 1.
     QVariantMap workspaces() const { return workspaces_; }
-    QString switcherOutput() const { return switcherOutput_; }
-    QVariantList switcherWindows() const { return switcherWindows_; }
-    int switcherSelected() const { return switcherSelected_; }
+    QString switcherOutput() const { return switcher_.output; }
+    QVariantList switcherWindows() const { return switcher_.windows; }
+    int switcherSelected() const { return switcher_.selected; }
     // Focuses the switcher's window at `index` and closes it.
     Q_INVOKABLE void switcherPick(int index);
-    QString overviewOutput() const { return overviewOutput_; }
-    QVariantList overviewWindows() const { return overviewWindows_; }
-    QVariantList overviewStrip() const { return overviewStrip_; }
-    int overviewViewed() const { return overviewViewed_; }
-    QString overviewFilter() const { return overviewFilter_; }
-    QRect overviewArea() const { return overviewArea_; }
-    int overviewSelected() const { return overviewSelected_; }
-    bool overviewAssist() const { return overviewAssist_; }
+    QString overviewOutput() const { return overview_.output; }
+    QVariantList overviewWindows() const { return overview_.windows; }
+    QVariantList overviewStrip() const { return overview_.strip; }
+    int overviewViewed() const { return overview_.viewed; }
+    QString overviewFilter() const { return overview_.filter; }
+    QRect overviewArea() const { return overview_.area; }
+    int overviewSelected() const { return overview_.selected; }
+    bool overviewAssist() const { return overview_.assist; }
     Q_INVOKABLE bool launch(const QString &id);
     bool trashFull() const { return trashFull_; }
     // Opens the trash in the file manager, as `gio open trash:///` does, or its folder where
@@ -382,13 +388,11 @@ class ShellController : public QObject {
     void disabled();
     void tilingChanged();
     void workspacesChanged();
-    void urgentChanged();
     void launcherRequested(const QString &output);
     void switcherChanged();
     void switcherSelectedChanged();
     void overviewChanged();
     void overviewSelectedChanged();
-    void focusedOutputChanged();
     void cardsOutputChanged();
     void keyboardLayoutChanged();
     void nightLightChanged();
@@ -479,6 +483,7 @@ class ShellController : public QObject {
     void showVolume();
     void handleDnd(const QString &verb);
     std::vector<App> apps_;
+    int appsRevision_ = 0;
     // The desktop entries of apps_, for finding a window's (appFor), and what appFor and
     // iconFor found for each app id since they last changed.
     app_match::Index appIndex_;
@@ -496,23 +501,36 @@ class ShellController : public QObject {
     QLocalSocket *state_ = nullptr;
     bool subscribed_ = false, tiling_ = false;
     QVariantMap workspaces_, nextWorkspaces_;
-    int urgentCount_ = 0, nextUrgentCount_ = 0;
     QVariantList urgentWindows_, nextUrgentWindows_;
-    QString switcherOutput_, nextSwitcherOutput_;
-    QVariantList switcherWindows_, nextSwitcherWindows_;
-    int switcherSelected_ = 0, nextSwitcherSelected_ = 0, switcherPending_ = 0;
+    // What the switcher and the overview show (their properties above), and what comes in for
+    // them line by line until all of it has (`switcherPending_`, `overviewPending_` lines to go).
+    struct Switcher {
+        QString output = {};
+        QVariantList windows = {};
+        int selected = 0;
+    };
+    Switcher switcher_, nextSwitcher_;
+    int switcherPending_ = 0;
     void showSwitcher();
-    QString overviewOutput_, nextOverviewOutput_, overviewFilter_, nextOverviewFilter_;
-    QVariantList overviewWindows_, nextOverviewWindows_, overviewStrip_, nextOverviewStrip_;
-    int overviewSelected_ = 0, nextOverviewSelected_ = 0, overviewViewed_ = 1,
-        nextOverviewViewed_ = 1, overviewPending_ = 0;
-    QRect overviewArea_, nextOverviewArea_;
-    bool overviewAssist_ = false, nextOverviewAssist_ = false;
+    struct Overview {
+        QString output = {}, filter = {};
+        QVariantList windows = {}, strip = {};
+        int selected = 0, viewed = 1;
+        QRect area = {};
+        bool assist = false;
+    };
+    Overview overview_, nextOverview_;
+    int overviewPending_ = 0;
+    // Shows nextOverview_ once its windows and strip have come, `pending` lines more.
+    void expectOverview(int pending);
     void showOverview();
     void clearOverview();
     void subscribe();
     void request(const QByteArray &line, const QString &unavailable);
     void report(const QString &message);
+    // Whether `error` is empty, as it is when what was asked went ahead, which clears the error
+    // shown across the panel; else `failure` and the error are shown there.
+    bool succeeded(const QString &error, const QString &failure);
     void clearApps();
     void sortApps();
     // Starts an installed application's `info` with the environment every launch gets, showing a

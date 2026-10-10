@@ -134,32 +134,12 @@ QList<Token> tokenize(const QString &text) {
     return tokens;
 }
 
-// What a unit measures, for saying that two cannot be converted.
+// What a unit measures, and its name for saying that two cannot be converted.
 enum class Kind { Length, Mass, Temperature, Data, Time, Volume, Speed, Angle, Area, Energy };
 const char *kindName(Kind kind) {
-    switch (kind) {
-    case Kind::Length:
-        return "length";
-    case Kind::Mass:
-        return "mass";
-    case Kind::Temperature:
-        return "temperature";
-    case Kind::Data:
-        return "data";
-    case Kind::Time:
-        return "time";
-    case Kind::Volume:
-        return "volume";
-    case Kind::Speed:
-        return "speed";
-    case Kind::Angle:
-        return "angle";
-    case Kind::Area:
-        return "area";
-    case Kind::Energy:
-        return "energy";
-    }
-    return "";
+    static constexpr const char *names[] = {"length", "mass",  "temperature", "data", "time",
+                                            "volume", "speed", "angle",       "area", "energy"};
+    return names[static_cast<int>(kind)];
 }
 
 // A unit: its names, the first the one shown, separated by spaces; what it measures; and how

@@ -7,7 +7,6 @@ import QtQuick
 PopupMenu {
     id: trayMenu
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "trayMenu"
     entryName: "trayMenuItem"

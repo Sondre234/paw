@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 
 // The display mode popup, as Windows' Win+P: the four ways to use the monitors side by side, the
 // one the compositor's stepping shows selected and the one in force marked. A click takes one at
@@ -11,7 +10,7 @@ Item {
     readonly property var model: shell.displayModes
     readonly property bool mine: model.active && model.output === outputName
     // How far it is shown, from 0 to 1; the view hides the surface once it is back at 0.
-    property real progress: 0
+    property alias progress: reveal.progress
     readonly property bool visibleNow: mine || progress > 0
     // The room around the card, which its shadow takes when there is one.
     readonly property int margin: Math.max(Theme.spacingL, Theme.shadowMargin)
@@ -24,21 +23,7 @@ Item {
     })
     width: card.width + 2 * margin
     height: card.height + 2 * margin
-    states: State {
-        name: "shown"
-        when: popup.mine
-        PropertyChanges { popup.progress: 1 }
-    }
-    transitions: [
-        Transition {
-            to: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationNormal; easing.type: Theme.easing }
-        },
-        Transition {
-            from: "shown"
-            NumberAnimation { property: "progress"; duration: Theme.durationSlow; easing.type: Theme.easingExit }
-        }
-    ]
+    Reveal { id: reveal; shown: popup.mine; exitDuration: Theme.durationSlow }
 
     Item {
         id: card
@@ -48,22 +33,7 @@ Item {
         height: heading.height + tiles.height + 2 * Theme.spacingL + Theme.spacingM
         opacity: popup.progress
         scale: Theme.growFrom + (1 - Theme.growFrom) * popup.progress
-        Loader {
-            anchors.fill: parent
-            active: Theme.effects
-            sourceComponent: RectangularShadow {
-                radius: Theme.radiusLarge
-                blur: Theme.shadowBlur
-                offset: Qt.vector2d(0, Theme.shadowOffset)
-                color: Theme.shadow
-            }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.radiusLarge
-            color: Theme.popupSurface
-            border.color: Theme.popupOutline
-        }
+        CardFrame {}
         Text {
             id: heading
             x: Theme.spacingL + Theme.spacingS; y: Theme.spacingL

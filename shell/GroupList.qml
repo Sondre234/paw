@@ -12,16 +12,16 @@ import Paw
 PopupCard {
     id: groupList
     required property var panel
-    required property Item barItem
     parent: panel.popupLayer
     objectName: "groupList"
     readonly property real rowHeight: Theme.rowHeight + Theme.spacingS
     readonly property real padding: Theme.spacingS
+    readonly property TaskFilter windows: panel.groupWindows
     open: panel.groupListOpen
     // Shown on hover, it leaves the keyboard where it is.
     initialFocus: null
     implicitWidth: 280
-    implicitHeight: 2 * padding + groupWindows.count * rowHeight + Math.max(0, groupWindows.count - 1) * rows.spacing
+    implicitHeight: 2 * padding + windows.count * rowHeight + Math.max(0, windows.count - 1) * rows.spacing
     anchorRect: panel.dockAnchor(panel.groupX, 0)
     side: panel.dockSide
     HoverHandler {
@@ -31,19 +31,20 @@ PopupCard {
     readonly property bool hovered: groupHover.hovered
     // The row of the window at `index`, for the keyboard on the bar (the panel's barKeys).
     function windowAt(index) { return windowRows.itemAt(index) }
-    TaskFilter {
-        id: groupWindows
-        controller: shell; sourceModel: panel.taskSource
-        app: panel.groupSlot; windowApp: panel.groupWindowApp
-        // A window closing may leave nothing to choose between.
-        onCountChanged: if (count < 2 && groupList.open) panel.groupOpen = false
+    // A window closing may leave nothing to choose between.
+    Connections {
+        target: groupList.windows
+        function onCountChanged() {
+            if (groupList.windows.count < 2 && groupList.open)
+                groupList.panel.groupOpen = false
+        }
     }
     Column {
         id: rows
         anchors.fill: parent; anchors.margins: groupList.padding; spacing: Theme.spacingXS
         Repeater {
             id: windowRows
-            model: groupList.visible ? groupWindows : null
+            model: groupList.visible ? groupList.windows : null
             delegate: Button {
                 id: groupWindow
                 required property int index

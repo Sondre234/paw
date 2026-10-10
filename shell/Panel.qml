@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Controls.Basic
-import QtQuick.Layouts
 import Paw
 
 Item {
@@ -16,6 +14,17 @@ Item {
     // finds them ready: what the bar shows first does not wait for them.
     property bool warm: false
     Timer { interval: 1500; running: true; onTriggered: root.warm = true }
+    // A popup's loader in the popover: it makes the popup at once while `wanted`, and in the
+    // background with `early` (as the bar warms up); once made a popup stays, so closing it never
+    // destroys the item its handler runs in.
+    component PopupLoader: Loader {
+        property bool wanted: false
+        property bool early: false
+        property bool used: false
+        asynchronous: !wanted
+        active: wanted || early || used
+        onLoaded: used = true
+    }
     onWarmChanged: if (warm) popover.prepare()
     // The context menu belongs to a task, a pinned application (pinMenuApp), or the bar itself
     // when barMenuOpen is set. A task's menu offers to pin the application it belongs to.
@@ -71,6 +80,9 @@ Item {
     property string groupIcon: ""
     property real groupX: 0
     property Item groupPending: null
+    // Every window, for which is active and which others there are (the bar's keyboard, the menu
+    // bar and its menus).
+    readonly property TaskFilter allWindows: TaskFilter { sourceModel: root.taskSource }
     readonly property TaskFilter groupWindows: TaskFilter {
         controller: shell; sourceModel: root.taskSource
         app: root.groupSlot; windowApp: root.groupWindowApp; taskId: root.groupTask
@@ -254,12 +266,10 @@ Item {
     // An application's record in shell.apps for a window's app id: the application whose pinned
     // slot it takes (a configured launcher too), else the installed one; null when there is none.
     function appRecord(windowAppId) {
+        // Read again as the applications change.
+        void shell.appsRevision
         var id = shell.pinnedAppFor(windowAppId) || shell.appFor(windowAppId)
-        var apps = id !== "" ? shell.apps : []
-        for (var i = 0; i < apps.length; ++i)
-            if (apps[i].appId === id)
-                return apps[i]
-        return null
+        return id !== "" ? shell.appRecord(id) || null : null
     }
     onLauncherOpenChanged: {
         if (launcherOpen) { taskMenuId = -1; pinMenuApp = null; barMenuOpen = false; audioPopup = ""; trayMenuKey = ""; menuBarMenu = "" }
@@ -955,151 +965,106 @@ Item {
             }
 
             // Left-clicking the volume control: the default output's volume, then each application's.
-            Loader {
-                id: mixerLoader
-                asynchronous: !(root.audioPopup === "mixer")
-                active: root.audioPopup === "mixer" || root.warm || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { AudioMixer { panel: root; barItem: root.statusBar } }
+            PopupLoader {
+                wanted: root.audioPopup === "mixer"
+                early: root.warm
+                sourceComponent: Component { AudioMixer { panel: root } }
             }
 
             // Clicking the clock: the notifications and a month calendar, at the bar's right end.
-            Loader {
+            PopupLoader {
                 id: clockFlyoutLoader
-                asynchronous: !(root.audioPopup === "clock")
-                active: root.audioPopup === "clock" || root.warm || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { ClockFlyout { panel: root; barItem: root.statusBar } }
+                wanted: root.audioPopup === "clock"
+                early: root.warm
+                sourceComponent: Component { ClockFlyout { panel: root } }
             }
 
             // Right-clicking the volume control: the outputs to play through.
-            Loader {
-                id: outputsLoader
-                asynchronous: !(root.audioPopup === "outputs")
-                active: root.audioPopup === "outputs" || root.warm || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { AudioOutputs { panel: root; barItem: root.statusBar } }
+            PopupLoader {
+                wanted: root.audioPopup === "outputs"
+                early: root.warm
+                sourceComponent: Component { AudioOutputs { panel: root } }
             }
 
             // The profile button: the appearance profiles, the one in use marked.
-            Loader {
-                id: profilesLoader
-                asynchronous: !(root.audioPopup === "profiles")
-                active: root.audioPopup === "profiles" || root.warm || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { ProfileList { panel: root; barItem: root.statusBar } }
+            PopupLoader {
+                wanted: root.audioPopup === "profiles"
+                early: root.warm
+                sourceComponent: Component { ProfileList { panel: root } }
             }
 
             // The network widget's popup, where NetworkManager has Wi-Fi: the radio and the networks.
-            Loader {
-                id: wifiLoader
-                asynchronous: !(root.audioPopup === "wifi")
-                active: root.audioPopup === "wifi" || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { WifiPopup { panel: root; barItem: root.statusBar } }
+            PopupLoader {
+                wanted: root.audioPopup === "wifi"
+                sourceComponent: Component { WifiPopup { panel: root } }
             }
 
             // The wallpaper button: thumbnails of the pictures in shell.wallpapers, by subfolder, with
             // a filter; clicking one shows it at once and keeps the picker open to try another.
-            Loader {
-                id: wallpapersLoader
-                asynchronous: !(root.audioPopup === "wallpapers")
-                active: root.audioPopup === "wallpapers" || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { WallpaperPicker { panel: root; barItem: root.statusBar } }
+            PopupLoader {
+                wanted: root.audioPopup === "wallpapers"
+                sourceComponent: Component { WallpaperPicker { panel: root } }
             }
 
-            Loader {
+            PopupLoader {
                 id: launcherLoader
-                asynchronous: !(root.launcherOpen)
-                active: root.launcherOpen || root.warm || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
+                wanted: root.launcherOpen
+                early: root.warm
                 // The start menu, or Launchpad in the macOS style.
                 sourceComponent: Theme.macos ? launchpadComponent : startMenuComponent
-                Component { id: startMenuComponent; Launcher { panel: root; barItem: root.bar } }
-                Component { id: launchpadComponent; Launchpad { panel: root; barItem: root.bar } }
+                Component { id: startMenuComponent; Launcher { panel: root } }
+                Component { id: launchpadComponent; Launchpad { panel: root } }
             }
 
-            Loader {
+            PopupLoader {
                 id: contextMenuLoader
-                asynchronous: !(root.taskMenuId >= 0 || root.pinMenuApp !== null || root.barMenuOpen)
-                active: root.taskMenuId >= 0 || root.pinMenuApp !== null || root.barMenuOpen || root.warm || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { TaskbarMenu { panel: root; barItem: root.bar } }
+                wanted: root.taskMenuId >= 0 || root.pinMenuApp !== null || root.barMenuOpen
+                early: root.warm
+                sourceComponent: Component { TaskbarMenu { panel: root } }
             }
 
             // A tray item's menu, in the style of the bar's own, its submenus beside it.
-            Loader {
+            PopupLoader {
                 id: trayMenuLoader
-                asynchronous: root.trayMenuKey === ""
-                active: root.trayMenuKey !== "" || root.warm || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { TrayMenu { panel: root; barItem: root.statusBar } }
+                wanted: root.trayMenuKey !== ""
+                early: root.warm
+                sourceComponent: Component { TrayMenu { panel: root } }
             }
 
             // The windows of the hovered stacked button: clicking one focuses it (or minimizes it when
             // focused already), the cross or a middle click closes it, and a right click opens its menu.
-            Loader {
+            PopupLoader {
                 id: groupListLoader
-                asynchronous: !(root.groupOpen)
-                active: root.groupOpen || root.warm || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { GroupList { panel: root; barItem: root.bar } }
+                wanted: root.groupOpen
+                early: root.warm
+                sourceComponent: Component { GroupList { panel: root } }
             }
 
             // The pictures of the windows of the button the pointer rests on, with shell.thumbnails
             // in the taskbar style.
-            Loader {
+            PopupLoader {
                 id: thumbnailsLoader
-                asynchronous: !(root.thumbnailsOpen)
-                active: root.thumbnails && (root.groupOpen || root.warm) || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { WindowThumbnails { panel: root; barItem: root.bar } }
+                wanted: root.thumbnailsOpen
+                early: root.thumbnails && (root.groupOpen || root.warm)
+                sourceComponent: Component { WindowThumbnails { panel: root } }
             }
 
             // The Quick Settings button: tiles, the volume and brightness, the battery.
-            Loader {
+            PopupLoader {
                 id: quickSettingsLoader
-                asynchronous: !(root.audioPopup === "quick")
-                active: root.audioPopup === "quick" || root.warm || used
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { QuickSettings { panel: root; barItem: root.statusBar } }
+                wanted: root.audioPopup === "quick"
+                early: root.warm
+                sourceComponent: Component { QuickSettings { panel: root } }
             }
 
             // The menu bar's own menus in the macOS style: the system menu, the focused
             // application's and the Window menu.
-            Loader {
+            PopupLoader {
                 id: menuBarMenuLoader
-                asynchronous: root.menuBarMenu === ""
-                active: root.macos && (root.menuBarMenu !== "" || root.warm || used)
-                // Once made, a popup stays, so closing it never destroys the item its handler runs in.
-                property bool used: false
-                onLoaded: used = true
-                sourceComponent: Component { MenuBarMenu { panel: root; barItem: root.statusBar } }
+                wanted: root.menuBarMenu !== ""
+                early: root.warm
+                active: root.macos && (wanted || early || used)
+                sourceComponent: Component { MenuBarMenu { panel: root } }
             }
             // A press anywhere hands the bar back to the pointer from the keyboard, and goes on to
             // what is under it: a picture is clicked, and beside the card it only closes it.
