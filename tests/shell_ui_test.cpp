@@ -246,10 +246,12 @@ int main(int argc, char **argv) {
     // test watches on its way it watches in slow motion (slowMotion).
     const qreal fastSpeed = 10;
     const QString fastMotion = QString("animations={speed=%1}").arg(fastSpeed);
+    // The pictures of a button's windows, a quarter of the usual delay after the pointer rests.
+    const QString quickPictures = "thumbnails={delay=100}";
     const auto lua = QString("return {" + fastMotion + ",layout={workspace_names={'web','','','mail'}},"
                              "power={countdown=2},"
                              "profile='dark',profiles={dark={},light={shell={accent='#336699'}}},"
-                             "shell={wallpaper='walls/a/one.png'," + barWidgets + "wallpapers=[[%3]],"
+                             "shell={wallpaper='walls/a/one.png'," + quickPictures + "," + barWidgets + "wallpapers=[[%3]],"
                              "search={directories={[[%4]]}},"
                              "launchers={{name='Test app',command={[[%1]],'-E','touch',[[%2]]}}}}}")
                          .arg(QString::fromLocal8Bit(argv[1]), marker, walls, files);
@@ -2188,14 +2190,14 @@ ListModel {
         // opens lets them go.
         QTest::mouseMove(&view, centre(single));
         QTest::mouseMove(&view, barSpace);
-        QTest::qWait(300);
-        if (!pictureRequests().isEmpty() || root->property("groupOpen").toBool())
+        if (!stays([&] { return pictureRequests().isEmpty() && !root->property("groupOpen").toBool(); },
+                   controller.thumbnailDelay() * 3 / 4))
             return fail("the pointer crossing a window's button asked for its picture");
         QElapsedTimer resting;
         resting.start();
         QTest::mouseMove(&view, centre(single));
         if (!waitFor([&] { return !pictureRequests().isEmpty(); }) ||
-            pictures != QStringList{"watch 7 240 true"} || resting.elapsed() < 150 ||
+            pictures != QStringList{"watch 7 240 true"} || resting.elapsed() < controller.thumbnailDelay() * 3 / 8 ||
             root->property("groupOpen").toBool()) {
             std::cerr << "halfway into the delay, a window's picture was not asked for ahead of its card: "
                       << pictures.join("|").toStdString() << " after " << resting.elapsed() << " ms\n";
@@ -2205,8 +2207,8 @@ ListModel {
         if (!waitFor([&] { return !pictureRequests().isEmpty(); }) ||
             pictures != QStringList{"watch 7 240 true", "unwatch 7"} || root->property("groupOpen").toBool())
             return fail("leaving a window's button before its card opened did not let its picture go");
-        QTest::qWait(300);
-        if (root->property("groupOpen").toBool() || !pictureRequests().isEmpty())
+        if (!stays([&] { return !root->property("groupOpen").toBool() && pictureRequests().isEmpty(); },
+                   controller.thumbnailDelay() * 3 / 4))
             return fail("the card of a window's button the pointer left opened all the same");
         pictures.clear();
         // Resting there on: a picture that comes ahead of the card shows on it from the start,
@@ -2232,7 +2234,7 @@ ListModel {
                 return inPopover(card) && titles() == "Fake" && !popover->keyboard() &&
                        !root->property("menuOpen").toBool();
             }) ||
-            resting.elapsed() < 350) {
+            resting.elapsed() < controller.thumbnailDelay() * 7 / 8) {
             std::cerr << "resting on a window's button did not show its picture after the delay: "
                       << titles().toStdString() << " after " << resting.elapsed() << " ms\n";
             return 1;
@@ -2861,7 +2863,7 @@ ListModel {
             if (!waitFor([&] { return !switcherView.isVisible(); }))
                 return fail("the switcher did not go");
             // shell.thumbnails = { live = false }: one picture each.
-            if (!rewrite(QString(lua).replace("shell={", "shell={thumbnails={live=false},")))
+            if (!rewrite(QString(lua).replace(quickPictures, "thumbnails={delay=100,live=false}")))
                 return fail("could not rewrite the configuration");
             controller.reload();
             if (!waitFor([&] { return !controller.liveThumbnails(); }))
@@ -2883,7 +2885,7 @@ ListModel {
         }
         // shell.thumbnails = { live = false }: the picture asked for ahead of the card is the one
         // it shows, not followed, and not asked for again as the card opens.
-        if (!rewrite(QString(lua).replace("shell={", "shell={thumbnails={live=false},")))
+        if (!rewrite(QString(lua).replace(quickPictures, "thumbnails={delay=100,live=false}")))
             return fail("could not rewrite the configuration");
         controller.reload();
         if (!waitFor([&] { return !controller.liveThumbnails(); }))
@@ -2904,7 +2906,7 @@ ListModel {
             return fail("without live pictures, the window's picture was not let go as its card closed");
         // shell.thumbnails = { enabled = false }: a window's button has its tooltip and no card,
         // and a stack lists its windows as it did.
-        if (!rewrite(QString(lua).replace("shell={", "shell={thumbnails={enabled=false},")))
+        if (!rewrite(QString(lua).replace(quickPictures, "thumbnails={delay=100,enabled=false}")))
             return fail("could not rewrite the configuration");
         controller.reload();
         if (!waitFor([&] { return !controller.thumbnails(); }))
@@ -3408,7 +3410,7 @@ ListModel {
 
         // Without pictures, a stack lists its windows, from the row nearest the bar up, and a
         // window's own button shows nothing.
-        if (!rewrite(QString(lua).replace("shell={", "shell={thumbnails={enabled=false},")))
+        if (!rewrite(QString(lua).replace(quickPictures, "thumbnails={delay=100,enabled=false}")))
             return fail("could not rewrite the configuration");
         controller.reload();
         if (!waitFor([&] { return !controller.thumbnails(); }) || !onBar())
