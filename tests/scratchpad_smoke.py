@@ -46,9 +46,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
                 abs(w["y"] + w["height"] / 2 - 360) <= 2)
 
     for title in ("A", "B"):
-        desktop.spawn([probe, "--window-only"], env={"PAW_PROBE_TITLE": title})
-        wait_for(lambda: title in windows() and windows()[title]["focused"],
-                 f"{title} mapped")
+        desktop.open_window(probe, title, focused=True)
     wait_for(lambda: all(w["tiled"] for w in windows().values()), "A and B tiled")
 
     # Nothing in the scratchpad: showing it does nothing.

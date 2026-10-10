@@ -40,11 +40,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     desktop.start()
 
     for title in ("A", "B", "C"):
-        desktop.spawn([probe, "--window-only"],
-                      env={"PAW_PROBE_TITLE": title,
-                           "PAW_PROBE_APP_ID": f"app-{title.lower()}"})
-        desktop.wait_for(lambda: title in windows() and windows()[title]["focused"],
-                         f"{title} focused")
+        desktop.open_window(probe, title, f"app-{title.lower()}", focused=True)
     desktop.wait_for(lambda: all(w["tiled"] for w in windows().values()), "all tiled")
 
     # Columns: [A] [B over C]; A is wider than the others.

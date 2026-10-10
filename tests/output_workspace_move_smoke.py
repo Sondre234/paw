@@ -55,10 +55,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
     desktop.detail = lambda: f"windows: {windows()}, shown: {shown()}"
 
     def launch(title):
-        desktop.spawn([probe, "--window-only"],
-                      env={"PAW_PROBE_TITLE": title,
-                           "PAW_PROBE_APP_ID": f"app-{title.lower()}"})
-        desktop.wait_for(lambda: title in windows(), f"{title} mapped")
+        desktop.open_window(probe, title, f"app-{title.lower()}")
 
     def running():
         return int(msg("get", "animations").split()[0])

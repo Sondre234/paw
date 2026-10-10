@@ -50,10 +50,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     clients = {}
 
     def launch(title):
-        clients[title] = desktop.spawn([probe, "--window-only"],
-                                       env={"PAW_PROBE_TITLE": title,
-                                            "PAW_PROBE_APP_ID": f"app-{title}"})
-        desktop.wait_for(lambda: title in windows(), f"{title} open")
+        clients[title] = desktop.open_window(probe, title, f"app-{title}")
 
     def control(title, *words):
         subprocess.run([window_probe, title, *words], env=desktop.env, check=True,

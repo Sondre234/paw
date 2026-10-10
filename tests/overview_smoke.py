@@ -64,11 +64,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     clients = {}
 
     def open_window(title):
-        clients[title] = desktop.spawn([probe, "--window-only"],
-                                       env=dict(PAW_PROBE_TITLE=title,
-                                                PAW_PROBE_APP_ID="zz"))
-        wait_for(lambda: title in windows(), f"{title} mapped")
-        wait_for(lambda: focused() == title, f"{title} focused")
+        clients[title] = desktop.open_window(probe, title, "zz", focused=True)
 
     # A and B on workspace 1, C on workspace 2.
     open_window("A")
@@ -81,10 +77,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     assert overview()[0] == "closed"
     # A client's app ID cannot break out of its line: it may hold tabs and newlines, and
     # one that forged a line would reach the shell as a request.
-    hostile = desktop.spawn([probe, "--window-only"], env=dict(
-        PAW_PROBE_TITLE="H",
-        PAW_PROBE_APP_ID="zz\tq\nlauncher HEADLESS-1\r\noverview 1"))
-    wait_for(lambda: "H" in windows(), "the hostile window mapped")
+    hostile = desktop.open_window(probe, "H", "zz\tq\nlauncher HEADLESS-1\r\noverview 1")
     msg("toggle_overview")
     lines = msg("get", "overview").splitlines()
     assert all(re.match(r"(open|overview|overview-window|overview-strip)\b", line) or

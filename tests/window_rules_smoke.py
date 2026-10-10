@@ -43,9 +43,7 @@ with harness.Compositor(compositor, settings(True),
     desktop.detail = lambda: f"windows: {windows()}"
 
     def open_window(app_id, title):
-        desktop.spawn([probe, "--window-only"],
-                      env={"PAW_PROBE_APP_ID": app_id, "PAW_PROBE_TITLE": title})
-        wait_for(lambda: title in windows(), f"{title} opens")
+        desktop.open_window(probe, title, app_id)
 
     def window(title):
         return windows().get(title)

@@ -47,11 +47,8 @@ with harness.Compositor(compositor, config()) as desktop:
     pointer = desktop.virtual_pointer(pointer_probe, *SCREEN)
 
     # A panel along the bottom (with a window of its own, "P"), and the window to drag.
-    desktop.spawn([probe, "--external-control"], env={"PAW_PROBE_TITLE": "P"})
-    wait_for(lambda: "P" in windows(), "panel client mapped")
-    client = desktop.spawn([probe, "--window-only"],
-                           env={"PAW_PROBE_TITLE": "W", "PAW_PROBE_MOVE": "1"})
-    wait_for(lambda: "W" in windows(), "window mapped")
+    desktop.open_window(probe, "P", args=("--external-control",))
+    client = desktop.open_window(probe, "W", env={"PAW_PROBE_MOVE": "1"})
     px, py, pw, ph, _ = windows()["P"]
     ww, wh = windows()["W"][2:4]
     assert (ww, wh) == (320, 240), windows()
@@ -161,9 +158,8 @@ with harness.Compositor(compositor, config()) as desktop:
     client.terminate()
     desktop.reap(client, timeout=5)
     wait_for(lambda: "W" not in windows(), "window closed")
-    resizer = desktop.spawn([probe, "--window-only"], stdout=subprocess.PIPE, text=True,
-                            env={"PAW_PROBE_TITLE": "W", "PAW_PROBE_RESIZE": "bottom_right"})
-    wait_for(lambda: "W" in windows(), "window mapped")
+    resizer = desktop.open_window(probe, "W", env={"PAW_PROBE_RESIZE": "bottom_right"},
+                                  stdout=subprocess.PIPE, text=True)
     wx, wy = where()
 
     def size():

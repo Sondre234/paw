@@ -55,11 +55,7 @@ with harness.Compositor(compositor, config(), start=False) as desktop:
     desktop.detail = lambda: f"windows: {windows()}"
 
     def open_window(title):
-        client = desktop.spawn([probe, "--window-only"],
-                               env={"PAW_PROBE_TITLE": title,
-                                    "PAW_PROBE_APP_ID": f"app-{title.lower()}"})
-        desktop.wait_for(lambda: title in windows(), f"{title} mapped")
-        return client
+        return desktop.open_window(probe, title, f"app-{title.lower()}")
 
     def move(title, workspace):
         subprocess.run([probe, "--activate", f"app-{title.lower()}"], env=env, check=True,

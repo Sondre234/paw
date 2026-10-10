@@ -78,11 +78,8 @@ def session(desktop, layout):
 # One monitor, with a panel along the bottom of the first (the probe's "P").
 with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "1"}) as desktop:
     windows, snap, pointer, press, to, release, placed = session(desktop, SCREEN)
-    desktop.spawn([probe, "--external-control"], env={"PAW_PROBE_TITLE": "P"})
-    desktop.wait_for(lambda: "P" in windows(), "panel client mapped")
-    desktop.spawn([probe, "--window-only"],
-                  env={"PAW_PROBE_TITLE": "W", "PAW_PROBE_MOVE": "1"})
-    desktop.wait_for(lambda: "W" in windows(), "window mapped")
+    desktop.open_window(probe, "P", args=("--external-control",))
+    desktop.open_window(probe, "W", env={"PAW_PROBE_MOVE": "1"})
     W, H = SCREEN[0], SCREEN[1] - PANEL  # the area the panel leaves
     assert windows()["W"][2:4] == (320, 240), windows()
 
@@ -155,9 +152,7 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "1"})
 LAYOUT = (2080, 720)
 with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
     windows, snap, pointer, press, to, release, placed = session(desktop, LAYOUT)
-    desktop.spawn([probe, "--window-only"],
-                  env={"PAW_PROBE_TITLE": "W", "PAW_PROBE_MOVE": "1"})
-    desktop.wait_for(lambda: "W" in windows(), "window mapped")
+    desktop.open_window(probe, "W", env={"PAW_PROBE_MOVE": "1"})
     assert windows()["W"][5] == "HEADLESS-1", windows()
 
     press("W")
@@ -212,9 +207,7 @@ with harness.Compositor(compositor, config(animations=SLOW, windows='round = "al
                         env={"WLR_HEADLESS_OUTPUTS": "1"}) as desktop:
     windows, snap, pointer, press, to, release, placed = session(desktop, SCREEN)
     preview = snap.preview
-    desktop.spawn([probe, "--window-only"],
-                  env={"PAW_PROBE_TITLE": "W", "PAW_PROBE_MOVE": "1"})
-    desktop.wait_for(lambda: "W" in windows(), "window mapped")
+    desktop.open_window(probe, "W", env={"PAW_PROBE_MOVE": "1"})
     assert preview()[0] is False, preview()
     left = (0, 0, 640, 720)
     press("W")

@@ -60,11 +60,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     clients = {}
 
     def open_window(title):
-        clients[title] = desktop.spawn([probe, "--window-only"],
-                                       env=dict(PAW_PROBE_TITLE=title,
-                                                PAW_PROBE_APP_ID="zz"))
-        wait_for(lambda: title in windows(), f"{title} mapped")
-        wait_for(lambda: focused() == title, f"{title} focused")
+        clients[title] = desktop.open_window(probe, title, "zz", focused=True)
 
     pointer = desktop.virtual_pointer(pointer_probe, *SCREEN)
     open_window("A")

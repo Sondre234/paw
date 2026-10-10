@@ -68,9 +68,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     events = desktop.subscribe()
 
     def open_window(title):
-        clients[title] = desktop.spawn([probe, "--window-only"],
-                                       env={"PAW_PROBE_TITLE": title})
-        wait_for(lambda: title in windows(), f"{title} mapped")
+        clients[title] = desktop.open_window(probe, title)
 
     # A and B on workspace 1 of HEADLESS-1, D on its workspace 2, C on HEADLESS-2.
     open_window("A")

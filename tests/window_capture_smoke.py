@@ -65,9 +65,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         fit = min(1, box_width / width, box_height / height)
         return max(1, math.floor(width * fit + .5)), max(1, math.floor(height * fit + .5))
 
-    a = desktop.spawn([probe, "--window-only"],
-                      env={"PAW_PROBE_TITLE": "A", "PAW_PROBE_APP_ID": "app-A"})
-    desktop.wait_for(lambda: "A" in windows(), "A mapped")
+    a = desktop.open_window(probe, "A", "app-A")
     width, height = windows()["A"][:2]
 
     # The window as it draws itself: its size, its band at the top-left corner where the border

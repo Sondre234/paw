@@ -75,10 +75,8 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     for title, app_id, role in (("Source", "source", "source"), ("Target", "target", "target"),
                                 ("Away", "away", ""), ("Stack one", "stack", ""),
                                 ("Stack two", "stack", "")):
-        desktop.spawn([probe, "--window-only"], log=f"{title.lower().replace(' ', '-')}.log",
-                      env={"PAW_PROBE_TITLE": title, "PAW_PROBE_APP_ID": app_id,
-                           "PAW_PROBE_DRAG": role})
-        desktop.wait_for(lambda: title in windows(), f"{title} mapped")
+        desktop.open_window(probe, title, app_id, env={"PAW_PROBE_DRAG": role},
+                            log=f"{title.lower().replace(' ', '-')}.log")
     for request in (["Target", "minimize"], ["Away", "workspace", "2"]):
         subprocess.run([window_probe, *request], env=env, check=True, timeout=30,
                        stdout=subprocess.DEVNULL)

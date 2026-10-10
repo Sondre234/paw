@@ -156,10 +156,7 @@ with harness.Compositor(compositor, CONFIG % "false") as desktop:
     # A rule keeps a window above as it opens, focused or not.
     launch("Pinned")
     assert above("Pinned") and stacking()[0] == ("Pinned", "above"), stacking()
-    clients["Quiet"] = desktop.spawn([probe, "--window-only"],
-                                     env={"PAW_PROBE_TITLE": "Quiet",
-                                          "PAW_PROBE_APP_ID": "app-Quiet"})
-    desktop.wait_for(lambda: "Quiet" in windows(), "Quiet open")
+    clients["Quiet"] = desktop.open_window(probe, "Quiet", "app-Quiet")
     assert focused() == ["Pinned"] and above("Quiet"), windows()
     assert stacking()[:2] == [("Quiet", "above"), ("Pinned", "above")], stacking()
     focus("Pinned")
