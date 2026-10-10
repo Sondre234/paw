@@ -74,8 +74,7 @@ void reload_config(struct sh_server *server) {
         return;
     set_binding_mode(server, 0);
     struct sh_output *overridden;
-    wl_list_for_each(overridden, &server->outputs, link) overridden->has_override = false;
-    wl_list_for_each(overridden, &server->disabled_outputs, link) overridden->has_override = false;
+    for_each_connected_output(overridden, server) overridden->has_override = false;
     ++server->config_generation;
     display_settings_load(server); // laid over outputs.monitors, so read with them
     configure_animations(server);
