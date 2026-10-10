@@ -385,11 +385,8 @@ if(BUILD_TESTING)
     target_compile_definitions(task_model_test PRIVATE QT_NO_KEYWORDS)
     target_compile_options(task_model_test PRIVATE -Wall -Wextra -Wpedantic)
     target_link_libraries(task_model_test PRIVATE Qt6::Core Qt6::Gui Qt6::Quick PkgConfig::SHELL_WAYLAND)
-    add_test(NAME shell_tasks COMMAND ${Python3_EXECUTABLE}
-        ${PROJECT_SOURCE_DIR}/tests/compositor_smoke.py $<TARGET_FILE:paw>
-        $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG}
-        $<TARGET_FILE:task_model_test>)
-    set_tests_properties(shell_tasks PROPERTIES TIMEOUT 60)
+    paw_smoke(shell_tasks SCRIPT compositor_smoke.py $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        ${EXAMPLE_CONFIG} $<TARGET_FILE:task_model_test>)
     # The clipboard history against a private compositor, with clipboard_probe copying.
     add_executable(clipboard_test ${PROJECT_SOURCE_DIR}/tests/clipboard_test.cpp
         clipboard.cpp clipboard.hpp clipboard_images.hpp
@@ -400,10 +397,8 @@ if(BUILD_TESTING)
     target_compile_definitions(clipboard_test PRIVATE QT_NO_KEYWORDS)
     target_compile_options(clipboard_test PRIVATE -Wall -Wextra -Wpedantic)
     target_link_libraries(clipboard_test PRIVATE Qt6::Gui Qt6::Quick Qt6::Test PkgConfig::SHELL_WAYLAND)
-    add_test(NAME shell_clipboard COMMAND ${Python3_EXECUTABLE}
-        ${PROJECT_SOURCE_DIR}/tests/clipboard_smoke.py $<TARGET_FILE:paw>
+    paw_smoke(shell_clipboard SCRIPT clipboard_smoke.py TIMEOUT 120 $<TARGET_FILE:paw>
         $<TARGET_FILE:clipboard_probe> $<TARGET_FILE:clipboard_test>)
-    set_tests_properties(shell_clipboard PROPERTIES TIMEOUT 120)
     # The window pictures' formats and sizes, without a compositor.
     add_executable(window_pictures_test ${PROJECT_SOURCE_DIR}/tests/window_pictures_test.cpp
         window_pictures.cpp window_pictures.hpp ${PAW_TASK_PROTOCOL_SOURCES})
@@ -633,123 +628,69 @@ if(BUILD_TESTING)
         set_tests_properties(shell_bluez_dbus PROPERTIES TIMEOUT 60
             ENVIRONMENT "DBUS_SESSION_BUS_ADDRESS=disabled:;DBUS_SYSTEM_BUS_ADDRESS=disabled:")
     endif()
-    add_test(NAME shell_preview COMMAND ${Python3_EXECUTABLE}
-        ${PROJECT_SOURCE_DIR}/tests/shell_preview.py $<TARGET_FILE:paw-shell>
-        ${EXAMPLE_CONFIG})
-    set_tests_properties(shell_preview PROPERTIES TIMEOUT 90)
+    paw_smoke(shell_preview TIMEOUT 90 $<TARGET_FILE:paw-shell> ${EXAMPLE_CONFIG})
     # Every popup of tools/shell_gallery.py renders without a QML warning.
-    add_test(NAME shell_gallery COMMAND ${Python3_EXECUTABLE}
-        ${PROJECT_SOURCE_DIR}/tests/shell_gallery.py ${PROJECT_SOURCE_DIR}/tools/shell_gallery.py
+    paw_smoke(shell_gallery TIMEOUT 120 ${PROJECT_SOURCE_DIR}/tools/shell_gallery.py
         ${PROJECT_BINARY_DIR} software)
-    set_tests_properties(shell_gallery PROPERTIES TIMEOUT 120)
     add_test(NAME shell_version COMMAND paw-shell --version)
     set_tests_properties(shell_version PROPERTIES PASS_REGULAR_EXPRESSION "^paw-shell ${PROJECT_VERSION}( \\(git [^)]+\\))?\n$")
     if(NOT PAW_SHELL_PREVIEW_ONLY)
-        add_test(NAME shell_integration COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/shell_integration.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe>
-            ${EXAMPLE_CONFIG})
-        set_tests_properties(shell_integration PROPERTIES TIMEOUT 90)
-        add_test(NAME overview_shell_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/overview_shell_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(overview_shell_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME snap_assist_shell_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/snap_assist_shell_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe>
-            $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(snap_assist_shell_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME overlay_exit_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/overlay_exit_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(overlay_exit_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME clipboard_shell_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/clipboard_shell_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:clipboard_probe>)
-        set_tests_properties(clipboard_shell_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME emoji_shell_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/emoji_shell_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(emoji_shell_smoke PROPERTIES TIMEOUT 60)
+        paw_smoke(shell_integration TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(overview_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe>)
+        paw_smoke(snap_assist_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(overlay_exit_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe>)
+        paw_smoke(clipboard_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:clipboard_probe>)
+        paw_smoke(emoji_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe>)
         # A few of the gallery's popups and overlays through the GPU (Mesa's software OpenGL, in a
         # private compositor), where effects are drawn. Not under the sanitizers: now and then
         # Qt's Wayland platform leaks a surface of a preview that quits soon after showing.
         if(NOT CMAKE_CXX_FLAGS MATCHES "-fsanitize")
-            add_test(NAME shell_gallery_gpu COMMAND ${Python3_EXECUTABLE}
-                ${PROJECT_SOURCE_DIR}/tests/shell_gallery.py
-                ${PROJECT_SOURCE_DIR}/tools/shell_gallery.py ${PROJECT_BINARY_DIR} gpu
-                bar launcher tray-menu notifications osd-volume cards switcher palette power-dialog)
-            set_tests_properties(shell_gallery_gpu PROPERTIES TIMEOUT 120)
+            paw_smoke(shell_gallery_gpu SCRIPT shell_gallery.py TIMEOUT 120
+                ${PROJECT_SOURCE_DIR}/tools/shell_gallery.py ${PROJECT_BINARY_DIR} gpu bar launcher
+                tray-menu notifications osd-volume cards switcher palette power-dialog)
         endif()
         find_program(GRIM grim)
         # A missing grim is an empty argument, which the tests take as leaving out their
         # pixel checks (GRIM itself would be GRIM-NOTFOUND).
         set(GRIM_ARGUMENT "$<$<BOOL:${GRIM}>:${GRIM}>")
-        add_test(NAME urgent_shell_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/urgent_shell_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
-        set_tests_properties(urgent_shell_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME popover_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/popover_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>
+        paw_smoke(urgent_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(popover_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(touch_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
+        paw_smoke(thumbnails_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>
             "${GRIM_ARGUMENT}")
-        set_tests_properties(popover_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME touch_shell_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/touch_shell_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell>)
-        set_tests_properties(touch_shell_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME thumbnails_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/thumbnails_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe>
-            $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
-        set_tests_properties(thumbnails_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME taskbar_drag_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/taskbar_drag_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe>
+        paw_smoke(taskbar_drag_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(taskbar_keyboard_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(switcher_pictures_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(macos_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(volume_keys_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
+        paw_smoke(display_mode_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(taskbar_drag_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME taskbar_keyboard_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/taskbar_keyboard_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(taskbar_keyboard_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME switcher_pictures_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/switcher_pictures_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe>
-            "${GRIM_ARGUMENT}")
-        set_tests_properties(switcher_pictures_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME macos_shell_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/macos_shell_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(macos_shell_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME volume_keys_shell_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/volume_keys_shell_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell>)
-        set_tests_properties(volume_keys_shell_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME display_mode_shell_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/display_mode_shell_smoke.py $<TARGET_FILE:paw>
+        paw_smoke(display_settings_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw>
             $<TARGET_FILE:paw-shell> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(display_mode_shell_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME display_settings_shell_smoke COMMAND ${Python3_EXECUTABLE}
-            ${PROJECT_SOURCE_DIR}/tests/display_settings_shell_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:paw-shell> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(display_settings_shell_smoke PROPERTIES TIMEOUT 90)
         if(PAW_DBUS)
-            add_test(NAME notifications_smoke COMMAND ${Python3_EXECUTABLE}
-                ${PROJECT_SOURCE_DIR}/tests/notifications_smoke.py $<TARGET_FILE:paw>
-                $<TARGET_FILE:paw-shell> $<TARGET_FILE:notify_probe> $<TARGET_FILE:pointer_probe>)
-            set_tests_properties(notifications_smoke PROPERTIES TIMEOUT 90)
+            paw_smoke(notifications_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+                $<TARGET_FILE:notify_probe> $<TARGET_FILE:pointer_probe>)
         endif()
         if(PAW_MEDIA_DBUS)
-            add_test(NAME media_smoke COMMAND ${Python3_EXECUTABLE}
-                ${PROJECT_SOURCE_DIR}/tests/media_smoke.py $<TARGET_FILE:paw>
-                $<TARGET_FILE:paw-shell> $<TARGET_FILE:mpris_probe>)
-            set_tests_properties(media_smoke PROPERTIES TIMEOUT 90)
+            paw_smoke(media_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+                $<TARGET_FILE:mpris_probe>)
         endif()
         if(PAW_TRAY_DBUS)
-            add_test(NAME tray_smoke COMMAND ${Python3_EXECUTABLE}
-                ${PROJECT_SOURCE_DIR}/tests/tray_smoke.py $<TARGET_FILE:paw>
-                $<TARGET_FILE:paw-shell> $<TARGET_FILE:tray_probe> $<TARGET_FILE:pointer_probe>)
-            set_tests_properties(tray_smoke PROPERTIES TIMEOUT 90)
+            paw_smoke(tray_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+                $<TARGET_FILE:tray_probe> $<TARGET_FILE:pointer_probe>)
         endif()
     endif()
 endif()

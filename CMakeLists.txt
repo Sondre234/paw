@@ -69,11 +69,23 @@ if(BUILD_TESTING)
     add_test(NAME config_robustness COMMAND config_robustness_tests ${EXAMPLE_CONFIG})
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
-    add_test(NAME docs_consistency COMMAND ${Python3_EXECUTABLE}
-             ${CMAKE_CURRENT_SOURCE_DIR}/tests/docs_consistency.py ${CMAKE_CURRENT_SOURCE_DIR})
-    add_test(NAME session_wrapper COMMAND ${Python3_EXECUTABLE}
-             ${CMAKE_CURRENT_SOURCE_DIR}/tests/session_wrapper_test.py
-             ${CMAKE_CURRENT_SOURCE_DIR}/packaging/paw-session)
+    # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
+    # tests/NAME.py, or tests/FILE, with the arguments, for at most a minute or the timeout.
+    function(paw_smoke name)
+        cmake_parse_arguments(PARSE_ARGV 1 SMOKE "" "SCRIPT;TIMEOUT" "")
+        if(NOT SMOKE_SCRIPT)
+            set(SMOKE_SCRIPT ${name}.py)
+        endif()
+        if(NOT SMOKE_TIMEOUT)
+            set(SMOKE_TIMEOUT 60)
+        endif()
+        add_test(NAME ${name} COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/${SMOKE_SCRIPT}
+            ${SMOKE_UNPARSED_ARGUMENTS})
+        set_tests_properties(${name} PROPERTIES TIMEOUT ${SMOKE_TIMEOUT})
+    endfunction()
+    paw_smoke(docs_consistency ${CMAKE_CURRENT_SOURCE_DIR})
+    paw_smoke(session_wrapper SCRIPT session_wrapper_test.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/packaging/paw-session)
     add_executable(layout_tests tests/layout_tests.cpp)
     target_link_libraries(layout_tests PRIVATE paw_config)
     add_test(NAME layout COMMAND layout_tests)
@@ -623,51 +635,23 @@ if(PAW_BUILD_COMPOSITOR)
         target_include_directories(clipboard_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
         target_link_libraries(clipboard_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
         target_compile_options(clipboard_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
-        add_test(NAME output_management COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/output_management_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:output_management_probe>)
-        set_tests_properties(output_management PROPERTIES TIMEOUT 60)
-        add_test(NAME output_power_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/output_power_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:output_power_probe>
-            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(output_power_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME mirror_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/mirror_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:lock_probe>
+        paw_smoke(output_management SCRIPT output_management_smoke.py $<TARGET_FILE:paw>
             $<TARGET_FILE:output_management_probe>)
-        set_tests_properties(mirror_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME bit_depth_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/bit_depth_smoke.py $<TARGET_FILE:paw>
+        paw_smoke(output_power_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:output_power_probe> $<TARGET_FILE:lock_probe>
+            $<TARGET_FILE:pointer_probe>)
+        paw_smoke(mirror_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:output_management_probe>)
+        paw_smoke(bit_depth_smoke $<TARGET_FILE:paw> $<TARGET_FILE:output_management_probe>)
+        paw_smoke(hdr_smoke $<TARGET_FILE:paw>)
+        paw_smoke(tearing_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(display_mode_smoke $<TARGET_FILE:paw>)
+        paw_smoke(display_settings_smoke TIMEOUT 90 $<TARGET_FILE:paw>
             $<TARGET_FILE:output_management_probe>)
-        set_tests_properties(bit_depth_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME hdr_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/hdr_smoke.py $<TARGET_FILE:paw>)
-        set_tests_properties(hdr_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME tearing_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/tearing_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(tearing_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME display_mode_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/display_mode_smoke.py $<TARGET_FILE:paw>)
-        set_tests_properties(display_mode_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME display_settings_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/display_settings_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:output_management_probe>)
-        set_tests_properties(display_settings_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME lid_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/lid_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(lid_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME compositor_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/compositor_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(lid_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(compositor_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        set_tests_properties(compositor_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME auto_reload_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/auto_reload_smoke.py $<TARGET_FILE:paw>
-            ${EXAMPLE_CONFIG})
-        set_tests_properties(auto_reload_smoke PROPERTIES TIMEOUT 60)
+        paw_smoke(auto_reload_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         # Without a personal configuration, paw runs the shipped one.
         set(EMPTY_HOME ${CMAKE_CURRENT_BINARY_DIR}/empty-home)
         file(MAKE_DIRECTORY ${EMPTY_HOME})
@@ -678,277 +662,90 @@ if(PAW_BUILD_COMPOSITOR)
         set_tests_properties(default_config PROPERTIES
             ENVIRONMENT "HOME=${EMPTY_HOME};XDG_CONFIG_HOME=${EMPTY_HOME};XDG_STATE_HOME=${EMPTY_STATE};PAW_DEFAULT_CONFIG=${EXAMPLE_CONFIG}"
             PASS_REGULAR_EXPRESSION "Configuration valid: .*example-config/init.lua")
-        add_test(NAME workspaces COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/workspace_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(workspaces SCRIPT workspace_smoke.py $<TARGET_FILE:paw>
+            $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(control_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        set_tests_properties(workspaces PROPERTIES TIMEOUT 60)
-        add_test(NAME control_fuzz_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/control_fuzz_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(swallow_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        set_tests_properties(control_fuzz_smoke PROPERTIES TIMEOUT 120)
-        add_test(NAME swallow_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/swallow_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(pid_at_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(placement_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(sticky_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(dynamic_rules_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(stacking_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(window_control_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe>)
+        paw_smoke(workspace_back_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(tiling_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(tiling_open_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        set_tests_properties(swallow_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME pid_at_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/pid_at_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(smart_gaps_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(maximized_tile_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        set_tests_properties(pid_at_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME placement_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/placement_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(placement_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME sticky_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/sticky_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(screenshot_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        set_tests_properties(sticky_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME dynamic_rules_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/dynamic_rules_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(dynamic_rules_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME stacking_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/stacking_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(stacking_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME window_control_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_control_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe>)
-        set_tests_properties(window_control_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME workspace_back_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/workspace_back_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(workspace_back_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME tiling_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/tiling_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            ${EXAMPLE_CONFIG})
-        set_tests_properties(tiling_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME tiling_open_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/tiling_open_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            ${EXAMPLE_CONFIG})
-        set_tests_properties(tiling_open_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME smart_gaps_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/smart_gaps_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(smart_gaps_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME maximized_tile_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/maximized_tile_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            ${EXAMPLE_CONFIG})
-        set_tests_properties(maximized_tile_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME screenshot_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/screenshot_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            ${EXAMPLE_CONFIG})
-        set_tests_properties(screenshot_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME launch_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/launch_smoke.py
-            $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
-        set_tests_properties(launch_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME autostart_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/autostart_smoke.py $<TARGET_FILE:paw>)
-        set_tests_properties(autostart_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME startup_failure_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/startup_failure_smoke.py
-            $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
-        set_tests_properties(startup_failure_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME output_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/output_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(output_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME output_tiling_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/output_tiling_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(output_tiling_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME per_output_tiling_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/per_output_tiling_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(per_output_tiling_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME per_workspace_tiling_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/per_workspace_tiling_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(per_workspace_tiling_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME output_layout_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/output_layout_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(output_layout_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME output_hotplug_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/output_hotplug_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(output_hotplug_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME output_workspace_move_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/output_workspace_move_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(output_workspace_move_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME move_window_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/move_window_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(move_window_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME focus_output_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/focus_output_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(focus_output_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME workspace_names_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/workspace_names_smoke.py $<TARGET_FILE:paw>)
-        set_tests_properties(workspace_names_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME profile_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/profile_smoke.py $<TARGET_FILE:paw>)
-        set_tests_properties(profile_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME session_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/session_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(session_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME session_scroll_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/session_scroll_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(session_scroll_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME session_restore_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/session_restore_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(session_restore_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME focus_last_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/focus_last_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(focus_last_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME switcher_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/switcher_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe>)
-        set_tests_properties(switcher_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME overview_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/overview_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(overview_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME overview_pointer_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/overview_pointer_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(overview_pointer_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME overview_fuzz_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/overview_fuzz_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(overview_fuzz_smoke PROPERTIES TIMEOUT 120)
-        add_test(NAME overview_output_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/overview_output_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(overview_output_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME panel_focus_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/panel_focus_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(panel_focus_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME drag_strip_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/drag_strip_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(drag_strip_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME drag_focus_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/drag_focus_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe>
+        paw_smoke(launch_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
+        paw_smoke(autostart_smoke $<TARGET_FILE:paw>)
+        paw_smoke(startup_failure_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
+        paw_smoke(output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(output_tiling_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(per_output_tiling_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(per_workspace_tiling_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(output_layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(output_hotplug_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(output_workspace_move_smoke TIMEOUT 90 $<TARGET_FILE:paw>
+            $<TARGET_FILE:wayland_probe>)
+        paw_smoke(move_window_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(focus_output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(workspace_names_smoke $<TARGET_FILE:paw>)
+        paw_smoke(profile_smoke $<TARGET_FILE:paw>)
+        paw_smoke(session_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(session_scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(session_restore_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(focus_last_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(switcher_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe>)
+        paw_smoke(overview_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(overview_pointer_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(drag_focus_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME pointer_gestures_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/pointer_gestures_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
-        set_tests_properties(pointer_gestures_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME touchpad_gestures_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/touchpad_gestures_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
-        set_tests_properties(touchpad_gestures_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME touchscreen_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/touchscreen_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:input_probe> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(touchscreen_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME tablet_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/tablet_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
-        set_tests_properties(tablet_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME spawn_at_pointer_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/spawn_at_pointer_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(spawn_at_pointer_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME scratchpad_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/scratchpad_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(scratchpad_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME group_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/group_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(group_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME group_edge_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/group_edge_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(group_edge_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME group_fuzz_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/group_fuzz_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(group_fuzz_smoke PROPERTIES TIMEOUT 120)
-        add_test(NAME reload_fuzz_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/reload_fuzz_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(reload_fuzz_smoke PROPERTIES TIMEOUT 120)
-        add_test(NAME tile_focus_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/tile_focus_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(tile_focus_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME layout_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/layout_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(layout_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME scroll_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/scroll_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(scroll_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME scroll_follow_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/scroll_follow_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(scroll_follow_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME keyboard_resize_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/keyboard_resize_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(keyboard_resize_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME volume_keys_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/volume_keys_smoke.py $<TARGET_FILE:paw>)
-        set_tests_properties(volume_keys_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME keymap_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/keymap_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>
-            ${EXAMPLE_CONFIG})
-        set_tests_properties(keymap_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME media_keys_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/media_keys_smoke.py
-            $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
-        set_tests_properties(media_keys_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME type_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/type_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(type_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME keyboard_layout_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/keyboard_layout_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(keyboard_layout_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME window_style_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_style_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(window_style_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME window_round_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_round_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(window_round_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME window_rules_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_rules_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(window_rules_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME output_workspace_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/output_workspace_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(output_workspace_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME output_follow_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/output_follow_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(output_follow_smoke PROPERTIES TIMEOUT 60)
+        paw_smoke(overview_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(overview_output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
+        paw_smoke(panel_focus_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
+        paw_smoke(drag_strip_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
+        paw_smoke(drag_focus_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(pointer_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
+        paw_smoke(touchpad_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
+        paw_smoke(touchscreen_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
+            $<TARGET_FILE:wayland_probe>)
+        paw_smoke(tablet_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
+        paw_smoke(spawn_at_pointer_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
+        paw_smoke(scratchpad_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(group_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
+        paw_smoke(group_edge_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(group_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(reload_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(tile_focus_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(scroll_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(keyboard_resize_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(volume_keys_smoke $<TARGET_FILE:paw>)
+        paw_smoke(keymap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(media_keys_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
+        paw_smoke(type_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(keyboard_layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(window_style_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(window_round_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(window_rules_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(output_workspace_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(output_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         add_executable(animation_tests tests/animation_tests.c src/animation.c)
         target_compile_definitions(animation_tests PRIVATE WLR_USE_UNSTABLE)
         target_compile_options(animation_tests PRIVATE -Wall -Wextra -Wno-unused-parameter)
@@ -961,92 +758,39 @@ if(PAW_BUILD_COMPOSITOR)
         target_include_directories(decoration_tests PRIVATE include)
         target_link_libraries(decoration_tests PRIVATE PkgConfig::WLROOTS m)
         add_test(NAME decoration COMMAND decoration_tests)
-        add_test(NAME animation_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/animation_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(animation_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME fullscreen_panel_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fullscreen_panel_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(fullscreen_panel_smoke PROPERTIES TIMEOUT 60)
+        paw_smoke(animation_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(fullscreen_panel_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         find_program(GRIM grim)
         # A missing grim is an empty argument, which the tests take as leaving out their
         # pixel checks (GRIM itself would be GRIM-NOTFOUND).
         set(GRIM_ARGUMENT "$<$<BOOL:${GRIM}>:${GRIM}>")
-        add_test(NAME gradient_border_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/gradient_border_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
-        set_tests_properties(gradient_border_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME dim_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/dim_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
-        set_tests_properties(dim_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME idle_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/idle_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe> $<TARGET_FILE:lock_probe>
+        paw_smoke(gradient_border_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            "${GRIM_ARGUMENT}")
+        paw_smoke(dim_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(idle_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(urgent_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(urgent_border_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            "${GRIM_ARGUMENT}")
+        paw_smoke(window_controls_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
-        set_tests_properties(idle_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME urgent_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/urgent_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(urgent_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME urgent_border_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/urgent_border_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
-        set_tests_properties(urgent_border_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME window_controls_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_controls_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>
-            "${GRIM_ARGUMENT}")
-        set_tests_properties(window_controls_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME window_shadow_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_shadow_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>
-            "${GRIM_ARGUMENT}")
-        set_tests_properties(window_shadow_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME peek_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/peek_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
-        set_tests_properties(peek_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME magnet_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/magnet_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>
-            "${GRIM_ARGUMENT}")
-        set_tests_properties(magnet_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME snap_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/snap_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>
-            "${GRIM_ARGUMENT}")
-        set_tests_properties(snap_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME snap_keys_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/snap_keys_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(snap_keys_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME snap_assist_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/snap_assist_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(snap_assist_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME night_light_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/night_light_smoke.py
-            $<TARGET_FILE:paw>)
-        set_tests_properties(night_light_smoke PROPERTIES TIMEOUT 90)
-        add_test(NAME hot_corners_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/hot_corners_smoke.py $<TARGET_FILE:paw>
+        paw_smoke(window_shadow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(magnet_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(snap_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(snap_keys_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(snap_assist_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(hot_corners_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME zoom_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/zoom_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>
-            "${GRIM_ARGUMENT}")
-        set_tests_properties(zoom_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME zoom_output_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/zoom_output_smoke.py $<TARGET_FILE:paw>
-            $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(zoom_output_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME example_snippets COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/example_snippets.py $<TARGET_FILE:paw>
+        paw_smoke(night_light_smoke TIMEOUT 90 $<TARGET_FILE:paw>)
+        paw_smoke(hot_corners_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(zoom_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(zoom_output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(example_snippets TIMEOUT 120 $<TARGET_FILE:paw>
             ${CMAKE_CURRENT_SOURCE_DIR}/config/init.lua)
-        set_tests_properties(example_snippets PROPERTIES TIMEOUT 120)
         set(LOCK_XML ${PROTOCOL_DIR}/staging/ext-session-lock/ext-session-lock-v1.xml)
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ext-session-lock-v1-client-protocol.h
             COMMAND ${WAYLAND_SCANNER} client-header ${LOCK_XML}
@@ -1064,58 +808,29 @@ if(PAW_BUILD_COMPOSITOR)
         target_include_directories(lock_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
         target_link_libraries(lock_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
         target_compile_options(lock_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
-        add_test(NAME session_lock COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/lock_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>
+        paw_smoke(session_lock SCRIPT lock_smoke.py $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>
             ${EXAMPLE_CONFIG})
-        set_tests_properties(session_lock PROPERTIES TIMEOUT 60)
-        add_test(NAME binding_modes_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/binding_modes_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
-        set_tests_properties(binding_modes_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME locked_bindings_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/locked_bindings_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
-        set_tests_properties(locked_bindings_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME shortcuts_inhibit_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/shortcuts_inhibit_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
-        set_tests_properties(shortcuts_inhibit_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME input_method_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/input_method_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:text_input_probe>
-            $<TARGET_FILE:input_method_probe> $<TARGET_FILE:lock_probe>
-            $<TARGET_FILE:input_probe> "${GRIM_ARGUMENT}")
-        set_tests_properties(input_method_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME window_capture_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_capture_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe>
-            $<TARGET_FILE:lock_probe>)
-        set_tests_properties(window_capture_smoke PROPERTIES TIMEOUT 60)
-        add_test(NAME window_peek_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_peek_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe>
-            $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
-        set_tests_properties(window_peek_smoke PROPERTIES TIMEOUT 60)
+        paw_smoke(binding_modes_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
+        paw_smoke(locked_bindings_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
+        paw_smoke(shortcuts_inhibit_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
+        paw_smoke(input_method_smoke $<TARGET_FILE:paw> $<TARGET_FILE:text_input_probe>
+            $<TARGET_FILE:input_method_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:input_probe>
+            "${GRIM_ARGUMENT}")
+        paw_smoke(window_capture_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe>)
+        paw_smoke(window_peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         if(SDBUS_FOUND)
             # A stand-in for logind on a private bus, so that no power test reaches the real one.
             add_executable(fake_login1 tests/fake_login1.c)
             target_compile_definitions(fake_login1 PRIVATE PAW_SDBUS_${PAW_SDBUS}=1)
             target_link_libraries(fake_login1 PRIVATE PkgConfig::SDBUS)
             target_compile_options(fake_login1 PRIVATE -Wall -Wextra -Wno-unused-parameter)
-            add_test(NAME power_smoke COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/power_smoke.py
-                $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1> $<TARGET_FILE:wayland_probe>
+            paw_smoke(power_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>
+                $<TARGET_FILE:wayland_probe> $<TARGET_FILE:lock_probe>)
+            paw_smoke(idle_suspend_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>
                 $<TARGET_FILE:lock_probe>)
-            set_tests_properties(power_smoke PROPERTIES TIMEOUT 90)
-            add_test(NAME idle_suspend_smoke COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/idle_suspend_smoke.py
-                $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1> $<TARGET_FILE:lock_probe>)
-            set_tests_properties(idle_suspend_smoke PROPERTIES TIMEOUT 60)
-            add_test(NAME lid_logind_smoke COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/lid_logind_smoke.py
-                $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
-            set_tests_properties(lid_logind_smoke PROPERTIES TIMEOUT 60)
+            paw_smoke(lid_logind_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
         endif()
         # The compositor benchmark (tools/bench/bench.py); see docs/performance.md.
         add_executable(paw-bench-client tools/bench/bench_client.c
@@ -1129,42 +844,27 @@ if(PAW_BUILD_COMPOSITOR)
             --compositor $<TARGET_FILE:paw> --client $<TARGET_FILE:paw-bench-client>
             --pointer-probe $<TARGET_FILE:pointer_probe>)
         set_tests_properties(bench_smoke PROPERTIES TIMEOUT 120)
-        add_test(NAME opacity_rules_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/opacity_rules_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:paw-bench-client>
+        paw_smoke(opacity_rules_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-bench-client>
             $<TARGET_FILE:wayland_probe>)
-        set_tests_properties(opacity_rules_smoke PROPERTIES TIMEOUT 60)
         # XWayland coverage needs wlroots built with X support and an Xwayland binary.
         find_program(XWAYLAND_BINARY Xwayland)
         if(PAW_HAS_XWAYLAND AND XWAYLAND_BINARY)
             add_executable(x11_probe tests/x11_probe.c)
             target_link_libraries(x11_probe PRIVATE PkgConfig::XCB)
             target_compile_options(x11_probe PRIVATE -Wall -Wextra)
-            add_test(NAME xwayland_smoke COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/xwayland_smoke.py
-                $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe> $<TARGET_FILE:wayland_probe>
-                ${EXAMPLE_CONFIG})
-            set_tests_properties(xwayland_smoke PROPERTIES TIMEOUT 60)
-            add_test(NAME swallow_x11_smoke COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/swallow_x11_smoke.py
-                $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe> $<TARGET_FILE:wayland_probe>)
-            set_tests_properties(swallow_x11_smoke PROPERTIES TIMEOUT 90)
-            add_test(NAME xwayland_urgent_smoke COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/xwayland_urgent_smoke.py
-                $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe> $<TARGET_FILE:wayland_probe>)
-            set_tests_properties(xwayland_urgent_smoke PROPERTIES TIMEOUT 60)
-            add_test(NAME xwayland_grab_smoke COMMAND ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/xwayland_grab_smoke.py
-                $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe> $<TARGET_FILE:wayland_probe>)
-            set_tests_properties(xwayland_grab_smoke PROPERTIES TIMEOUT 60)
+            paw_smoke(xwayland_smoke $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe>
+                $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+            paw_smoke(swallow_x11_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe>
+                $<TARGET_FILE:wayland_probe>)
+            paw_smoke(xwayland_urgent_smoke $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe>
+                $<TARGET_FILE:wayland_probe>)
+            paw_smoke(xwayland_grab_smoke $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe>
+                $<TARGET_FILE:wayland_probe>)
         else()
             message(STATUS "XWayland test skipped: needs an Xwayland binary and wlroots X support")
         endif()
         # Windows' own icons; an X11 window's only where the X11 probe is built.
-        add_test(NAME window_icon_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_icon_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe>
-            $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
-        set_tests_properties(window_icon_smoke PROPERTIES TIMEOUT 60)
+        paw_smoke(window_icon_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
     endif()
 endif()

@@ -976,8 +976,8 @@ whether it has, for something the compositor does another way without it, as the
   every client, checks that the compositor exits cleanly, and prints the logs if the test
   failed. Wait with `desktop.wait_for`, never with a fixed sleep; to check that something does
   not happen, which an animation or a client's commit could do a little later, use
-  `desktop.stays`. Register it with `add_test` and a `TIMEOUT` under
-  `PAW_BUILD_COMPOSITOR` in `CMakeLists.txt`. A temporary directory's prefix stays at 26
+  `desktop.stays`. Register it with `paw_smoke(NAME ARGUMENTS...)` (and `TIMEOUT SECONDS` for
+  more than a minute) under `PAW_BUILD_COMPOSITOR` in `CMakeLists.txt`. A temporary directory's prefix stays at 26
   characters or fewer: the control socket goes in it, a Unix socket's path is limited to about
   107 bytes, and a Gentoo package build runs the tests in a `TMPDIR` of 43 characters or more.
   Under `--headless`, `paw msg headless_output`, `headless_keyboard`, `headless_pointer`
