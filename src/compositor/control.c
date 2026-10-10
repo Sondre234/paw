@@ -526,14 +526,8 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
     }
 }
 
-/* Subscribers get the state after each change, and "launcher OUTPUT" or "palette OUTPUT" when a binding
- * asks the shell for its application menu or command palette; a subscriber that cannot keep up is dropped rather than
- * blocking the compositor. */
-static bool control_send_state(struct sh_control_client *client, const char *state) {
-    size_t length = strlen(state);
-    return send(client->fd, state, length, MSG_NOSIGNAL | MSG_DONTWAIT) == (ssize_t)length;
-}
-
+/* Subscribers get the state after each change, and "launcher OUTPUT" or "palette OUTPUT" when a
+ * binding asks the shell for its application menu or command palette. */
 void notify_subscribers(struct sh_server *server) {
     overview_touch(server, true); // a change of windows or workspaces, when it is open
     window_objects_changed(server);
@@ -542,14 +536,11 @@ void notify_subscribers(struct sh_server *server) {
     if (!strcmp(state, server->sent_state))
         return;
     strcpy(server->sent_state, state);
-    struct sh_control_client *client, *temporary;
-    wl_list_for_each_safe(client, temporary, &server->subscribers, link) {
-        if (!control_send_state(client, state))
-            control_client_close(client);
-    }
+    send_event(server, state, strlen(state));
 }
 
-/* Sends every subscriber an event, such as a request for the shell. */
+/* Sends every subscriber an event, such as a request for the shell. A subscriber that cannot keep
+ * up is dropped rather than blocking the compositor. */
 void send_event(struct sh_server *server, const char *text, size_t length) {
     struct sh_control_client *client, *temporary;
     wl_list_for_each_safe(client, temporary, &server->subscribers, link) {
@@ -651,10 +642,10 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
         client->subscribed = true;
         client->shell = client->request[9] != '\0';
         wl_list_insert(&client->server->subscribers, &client->link);
-        char state[sizeof(client->server->sent_state)];
-        describe_state(client->server, state, sizeof(state));
-        if (send(fd, "ok\n", 3, MSG_NOSIGNAL | MSG_DONTWAIT) != 3 ||
-            !control_send_state(client, state))
+        char state[3 + sizeof(client->server->sent_state)] = "ok\n";
+        describe_state(client->server, state + 3, sizeof(state) - 3);
+        size_t length = strlen(state);
+        if (send(fd, state, length, MSG_NOSIGNAL | MSG_DONTWAIT) != (ssize_t)length)
             control_client_close(client);
         return 0;
     }
