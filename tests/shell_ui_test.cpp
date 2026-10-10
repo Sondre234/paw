@@ -239,7 +239,11 @@ int main(int argc, char **argv) {
     // Long Lua strings preserve paths without shell interpolation. The widgets Quick Settings
     // holds by default are on the bar, where most of this test uses them.
     const QString barWidgets = "widgets={network='bar',battery='bar',volume='bar',tiling='bar',profiles='bar'},";
-    const auto lua = QString("return {layout={workspace_names={'web','','','mail'}},"
+    // The shell's animations run at ten times their speed, the most the setting allows; what a
+    // test watches on its way it watches in slow motion (slowMotion).
+    const qreal fastSpeed = 10;
+    const QString fastMotion = QString("animations={speed=%1}").arg(fastSpeed);
+    const auto lua = QString("return {" + fastMotion + ",layout={workspace_names={'web','','','mail'}},"
                              "power={countdown=2},"
                              "profile='dark',profiles={dark={},light={shell={accent='#336699'}}},"
                              "shell={wallpaper='walls/a/one.png'," + barWidgets + "wallpapers=[[%3]],"
@@ -685,14 +689,17 @@ int main(int argc, char **argv) {
         return again.open(QIODevice::WriteOnly | QIODevice::Truncate) &&
                again.write(source.toUtf8()) >= 0;
     };
-    // Slows the shell's animations down to a quarter of their speed, or brings them back, so that
-    // a test sees what moves on its way.
-    auto slowMotion = [&](bool slow) {
-        if (!rewrite(slow ? QString(lua).replace("return {", "return {animations={speed=0.25},") : lua))
+    // Runs the shell's animations at `speed` times their own speed, in `source`, the configuration
+    // in use.
+    auto motion = [&](const QString &source, qreal speed) {
+        if (!rewrite(QString(source).replace(fastMotion, QString("animations={speed=%1}").arg(speed))))
             return false;
         controller.reload();
-        return waitFor([&] { return controller.animationSpeed() == (slow ? 0.25 : 1); });
+        return waitFor([&] { return controller.animationSpeed() == speed; });
     };
+    // Slows the shell's animations down to a quarter of their own speed, or brings them back to the
+    // test's, so that a test sees what moves on its way.
+    auto slowMotion = [&](bool slow) { return motion(lua, slow ? 0.25 : fastSpeed); };
     // shell.workspaces_shown = 3 shows the current workspace with its neighbours, the last
     // three on the last one, and the names follow their workspaces.
     if (!rewrite(QString(lua).replace("shell={", "shell={workspaces_shown=3,")))
@@ -3231,6 +3238,9 @@ ListModel {
             QCoreApplication::sendEvent(&view, &leaveBar);
             QCoreApplication::sendEvent(popover, &leavePopover);
         }
+        // At the animations' own speed, at which the card is seen gliding to the next button.
+        if (!motion(lua, 1))
+            return fail("the animations did not get their own speed");
         // Window 11, of the stack, has the keyboard.
         ask();
         if (!waitFor([&] { return on() && popover->keyboard() && popover->isVisible(); }) ||
@@ -3252,6 +3262,8 @@ ListModel {
                        card->property("progress").toReal() == 1;
             }))
             return fail("the card did not come to rest over the next button's window");
+        if (!motion(lua, fastSpeed))
+            return fail("the animations did not get the test's speed back");
         press(Qt::Key_Right);
         if (selected() != stack || !waitFor([&] { return tile(10) && tile(11) && !tile(7); }))
             return fail("Right did not move back to the stack and its pictures");
@@ -6059,16 +6071,16 @@ ListModel {
             return 1;
         }
         auto token =[&](const char *name) { return theme->property(name); };
-        if (token("durationFast").toInt() != 120 || token("light").toBool() ||
+        if (token("durationFast").toInt() != qRound(120 / fastSpeed) || token("light").toBool() ||
             token("surface").value<QColor>() != controller.panelColor())
             return fail("Theme does not follow the default configuration");
-        if (!rewrite(QString(lua).replace("shell={wallpaper", "animations={speed=2},shell={wallpaper")))
+        if (!rewrite(QString(lua).replace(fastMotion, "animations={speed=2}")))
             return fail("could not rewrite the configuration");
         controller.reload();
         if (!waitFor([&] { return token("durationFast").toInt() == 60; }))
             return fail("Theme's durations do not follow animations.speed");
-        if (!rewrite(QString(lua).replace(
-                "shell={wallpaper", "animations={enabled=false},shell={panel_color='#f3f2fbcc',"
+        if (!rewrite(QString(lua).replace(fastMotion, "animations={enabled=false}").replace(
+                "shell={wallpaper", "shell={panel_color='#f3f2fbcc',"
                                     "text_color='#141a48',accent='#4a64dc',wallpaper")))
             return fail("could not rewrite the configuration");
         controller.reload();
@@ -6321,8 +6333,9 @@ ListModel {
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the
     // profile changes and back again.
     {
-        if (!rewrite(QString(lua).replace("profiles={", "profiles={mac={shell={style='macos',panel_height=64,"
-                                                         "panel_margin={bottom=6},panel_radius=20}},")))
+        const QString macLua = QString(lua).replace("profiles={", "profiles={mac={shell={style='macos',panel_height=64,"
+                                                                   "panel_margin={bottom=6},panel_radius=20}},");
+        if (!rewrite(macLua))
             return fail("could not rewrite the configuration");
         controller.reload();
         controller.pickProfile("mac");
@@ -6626,6 +6639,9 @@ ListModel {
         if (!waitFor([&] { return bounced.count() > 0; }) ||
             !waitFor([&] { return !bouncing("dockApp:pinned:0") && icon("dockApp:pinned:0")->property("lift").toReal() == 0; }, 5000))
             return fail("a pinned application's icon did not bounce as it started, or did not stop");
+        // At the animations' own speed, at which its window opens before the bounces run out.
+        if (!motion(macLua, 1))
+            return fail("the animations did not get their own speed");
         controller.pin("paw-test-other.desktop");
         // Grown in, and laid out after the other pinned applications: the row places a new icon
         // a moment after it comes, at its start until then.
@@ -6643,6 +6659,8 @@ ListModel {
         if (!waitFor([&] { return icon("dockApp:paw-test-other.desktop")->property("bouncesLeft").toInt() <= 1; }) ||
             !waitFor([&] { return !bouncing("dockApp:paw-test-other.desktop"); }))
             return fail("an icon went on bouncing after its application's window opened");
+        if (!motion(macLua, fastSpeed))
+            return fail("the animations did not get the test's speed back");
         // The Trash shows whether it holds anything.
         QDir(screens.path()).mkpath("data/Trash/files");
         QFile trashed(screens.filePath("data/Trash/files/old.txt"));
