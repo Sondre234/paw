@@ -5,12 +5,11 @@ neighbour's group, ungroup takes one out, a closing member hands its slot on, an
 features.groups = false dissolves every group."""
 from pathlib import Path
 import shutil
-import subprocess
 import sys
 
 import harness
 
-compositor, probe = (str(Path(p).resolve()) for p in sys.argv[1:3])
+compositor, probe, pointer_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
 
 CONFIG = """return {
     xwayland = false,
@@ -106,28 +105,19 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
         assert shot.at(x0 + third + 1.5, row) != lit[0], "gap painted"
         assert shot.at(x0 + 10, y0 + 20) != lit[0], "strip drawn too tall"
 
-    # Clicking a tab brings that window forward (where wlrctl can drive the pointer).
-    wlrctl = shutil.which("wlrctl")
-    if grim and wlrctl:
-        x0, y0, width, _ = rect("C")
-        third = (width - 6) / 3
+    # Clicking a tab brings that window forward.
+    pointer = desktop.virtual_pointer(pointer_probe, 1280, 720)
+    x0, y0, width, _ = rect("C")
+    third = (width - 6) / 3
 
-        def click_tab(index):
-            subprocess.run([wlrctl, "pointer", "move", "-5000", "-5000"], env=env,
-                           check=True, timeout=30)
-            subprocess.run([wlrctl, "pointer", "move", str(int(x0 + third * (index + .5))),
-                            str(int(y0 + 3))], env=env, check=True, timeout=30)
-            subprocess.run([wlrctl, "pointer", "click", "left"], env=env, check=True,
-                           timeout=30)
-        click_tab(0)
-        desktop.wait_for(lambda: focused() == ["B"] and rect("B") == slot,
-                         "click on the first tab")
-        click_tab(2)
-        desktop.wait_for(lambda: focused() == ["D"] and rect("D") == slot,
-                         "click on the last tab")
-        click_tab(1)
-        desktop.wait_for(lambda: focused() == ["C"] and rect("C") == slot,
-                         "click on the middle tab")
+    def click_tab(index):
+        pointer("move", str(int(x0 + third * (index + .5))), str(int(y0 + 3)), "click", "left")
+    click_tab(0)
+    desktop.wait_for(lambda: focused() == ["B"] and rect("B") == slot, "click on the first tab")
+    click_tab(2)
+    desktop.wait_for(lambda: focused() == ["D"] and rect("D") == slot, "click on the last tab")
+    click_tab(1)
+    desktop.wait_for(lambda: focused() == ["C"] and rect("C") == slot, "click on the middle tab")
 
     # The other windows never moved.
     a = rect("A")

@@ -875,7 +875,7 @@ if(PAW_BUILD_COMPOSITOR)
         set_tests_properties(scratchpad_smoke PROPERTIES TIMEOUT 60)
         add_test(NAME group_smoke COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/group_smoke.py
-            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+            $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
         set_tests_properties(group_smoke PROPERTIES TIMEOUT 60)
         add_test(NAME group_edge_smoke COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/group_edge_smoke.py
