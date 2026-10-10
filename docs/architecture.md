@@ -839,8 +839,8 @@ the highlighted one is filled with the accent, its text white, as macOS draws me
    top panel as on a bottom one, and below the menu bar in the macOS style; one that belongs to
    the dock's icons takes `panel.dockAnchor(x, width)` and `panel.dockSide` instead. A menu's
    `onDismissed` clears the property.
-3. A `Loader` for it in the popover in `Panel.qml`, like the others: made when first opened or a
-   moment after startup (`root.warm`), kept once made.
+3. A `PopupLoader` for it in the popover in `Panel.qml`, like the others: `wanted` while it is open,
+   `early: root.warm` to make it a moment after startup, kept once made.
 4. The file in `QML_FILES` in `shell/CMakeLists.txt` and in the table above; a name in
    `previewPopup` (`Panel.qml`; `previewMacos` for one only the macOS style has, which goes in
    `MACOS_POPUPS` too), `--preview-popup`'s help (`main.cpp`) and `POPUPS`
