@@ -17,11 +17,14 @@ if not shutil.which("dbus-daemon"):
     print("dbus-daemon not found: the power actions were not driven")
     sys.exit(0)
 
+# close_timeout is LONG wherever the windows close, so that one slow to go under load is not
+# taken for one that stays, and SHORT where one stays and the test waits that out.
 CONFIG = """return {{
     xwayland = false,
     power = {{ lock_command = {locker}, lock_before_sleep = {before}, close_windows = {close},
-              close_timeout = 1500, force = {force} }},
+              close_timeout = {timeout}, force = {force} }},
 }}"""
+LONG, SHORT = 10000, 1000
 # The time a locker gets to lock (5 s outside tests), waited out once.
 LOCK_TIMEOUT = 2
 
@@ -34,7 +37,8 @@ with harness.Compositor(compositor, bus=True, start=False,
     # order of locking and sleeping shows in one place.
     LOCKER = f'{{ [[{lock_probe}]], "hold", [[{calls}]] }}'
     WAITING = f'{{ [[{lock_probe}]], "hold", [[{calls}]], "wait" }}'  # locks on SIGUSR1
-    config.write_text(CONFIG.format(locker=LOCKER, before="true", close="true", force="false"))
+    config.write_text(CONFIG.format(locker=LOCKER, before="true", close="true", force="false",
+                                    timeout=LONG))
     answers.write_text("CanReboot challenge\nCanHibernate na\n")
     env.pop("PAW_LOGIN1_BUS", None)
     address = env["DBUS_SESSION_BUS_ADDRESS"]
@@ -57,9 +61,9 @@ with harness.Compositor(compositor, bus=True, start=False,
         lines = logged()
         return lines.count("Inhibit sleep delay") - lines.count("release sleep delay")
 
-    def reconfigure(locker=None, before="true", close="true", force="false"):
+    def reconfigure(locker=None, before="true", close="true", force="false", timeout=LONG):
         desktop.reload(CONFIG.format(locker=locker or LOCKER, before=before, close=close,
-                                     force=force))
+                                     force=force, timeout=timeout))
 
     def window(title, refuse=False):
         """A probe window; one that refuses to close says so in its output file."""
@@ -202,6 +206,7 @@ with harness.Compositor(compositor, bus=True, start=False,
         "Asking logind to power off"), text
     # A window that stays open (an application asking whether to save) cancels a reboot
     # once close_timeout has passed, and is left alone; nothing else runs meanwhile.
+    reconfigure(timeout=SHORT)
     stubborn, other = window("stubborn", refuse=True), window("other")
     wait_for(lambda: windows() == 2, "two windows")
     mark = len(logged())
@@ -215,7 +220,7 @@ with harness.Compositor(compositor, bus=True, start=False,
     assert stubborn.poll() is None and windows() == 1
     assert (root / "stubborn.out").read_text() == "close refused\n"
     # With power.force it goes ahead after close_timeout all the same.
-    reconfigure(force="true")
+    reconfigure(force="true", timeout=SHORT)
     mark = len(logged())
     msg("reboot")
     wait_for(lambda: logged(mark) == ["Reboot true"], "the reboot forced")
@@ -266,7 +271,7 @@ with harness.Compositor(compositor, bus=True, start=False,
     wait_for(lambda: "Lock client vanished" in desktop.log.read_text(),
              "the locker gone")
     config.write_text(CONFIG.format(locker=LOCKER, before="true", close="true",
-                                    force="false"))
+                                    force="false", timeout=LONG))
     reloads = desktop.log.read_text().count("Configuration reloaded")
     desktop.server.send_signal(signal.SIGHUP)
     wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") > reloads,
