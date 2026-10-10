@@ -128,6 +128,8 @@ static void server_new_keyboard(struct sh_server *server, struct wlr_input_devic
     struct wlr_keyboard *wlr_keyboard = wlr_keyboard_from_input_device(device);
 
     struct sh_keyboard *keyboard = calloc(1, sizeof(*keyboard));
+    if (!keyboard)
+        return;
     keyboard->server = server;
     keyboard->wlr_keyboard = wlr_keyboard;
 
