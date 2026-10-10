@@ -42,7 +42,7 @@ all. In short:
 | `actions.c` | `run_action`: one `case` per action, handing it to the module that does it, and `shell_actions`, those the shell carries out. |
 | `control.c` | The control socket: reading requests, commands that are not actions, subscribers and shell events. |
 | `query.c` | `paw msg get ...`: one function per query, and the table that names them. |
-| `headless_input.c` | Input devices without hardware for tests under `--headless`: keyboards, pointers that move and make touchpad gestures, touchscreens, and drawing tablets with a pen, an eraser and a pad. |
+| `headless_input.c` | Input devices without hardware for tests under `--headless`: keyboards, pointers that move and make touchpad gestures, touchscreens, drawing tablets with a pen, an eraser and a pad, and lid and tablet-mode switches. |
 | `input.c` | Keyboards, key bindings, pointers' libinput settings, virtual devices, selection and drag-and-drop. |
 | `input_method.c` | Input methods (fcitx5, ibus): text-input-v3 and input-method-v2 relayed between the application with the keyboard and the input method, its keyboard grab, and its popups beside the text cursor. |
 | `keymap.c` | The keymap from the keyboard settings, given to every keyboard but virtual ones. |
@@ -428,7 +428,7 @@ workspaces as when it is unplugged. `apply_lid` configures the built-in panels a
 the outputs and windows when one changed, as the lid changes and after an output is added or
 destroyed (before an empty layout would end a nested or headless session). Each toggle counts
 as input and runs the binding `sh_callbacks.switch_toggled` returns. Under `--headless`,
-`headless_switch` adds switches for the tests (`lid_smoke`).
+`headless_switch` adds switches for the tests (`headless_input.c`, `lid_smoke`).
 
 ## The shell (`shell/`)
 

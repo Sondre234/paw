@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later AND MIT */
 /* Input devices without hardware, for tests under --headless: keyboards, pointers that move and
- * make touchpad gestures, which no virtual-pointer client can send, touchscreens, and drawing
- * tablets with their pads. They are devices like any other once plugged in. */
+ * make touchpad gestures, which no virtual-pointer client can send, touchscreens, drawing tablets
+ * with their pads, and switches. They are devices like any other once plugged in. */
 #include "server.h"
 #include <wlr/interfaces/wlr_pointer.h>
+#include <wlr/interfaces/wlr_switch.h>
 #include <wlr/interfaces/wlr_tablet_pad.h>
 #include <wlr/interfaces/wlr_tablet_tool.h>
 #include <wlr/interfaces/wlr_touch.h>
@@ -691,6 +692,88 @@ void control_headless_tablet(struct sh_server *server, int fd, const char *argum
         return;
     }
     control_reply(fd, usage);
+}
+
+/* Switches without a device, so tests can close and open a lid under --headless:
+ * "headless_switch add NAME lid|tablet [on|off]" (on: the lid closed, which libinput reports as
+ * the device appears), "headless_switch toggle NAME on|off" and "headless_switch remove NAME". */
+struct sh_headless_switch {
+    struct wlr_switch wlr_switch;
+    bool lid;            // else tablet mode
+    struct wl_list link; // sh_server.headless_switches
+};
+static const struct wlr_switch_impl headless_switch_impl = {.name = "headless-switch"};
+
+static struct sh_headless_switch *find_headless_switch(struct sh_server *server, const char *name) {
+    struct sh_headless_switch *device;
+    wl_list_for_each(device, &server->headless_switches, link) {
+        if (!strcmp(device->wlr_switch.base.name, name))
+            return device;
+    }
+    return NULL;
+}
+
+static void toggle_headless_switch(struct sh_headless_switch *device, bool on) {
+    struct wlr_switch_toggle_event event = {
+        .time_msec = (uint32_t)now_ms(),
+        .switch_type = device->lid ? WLR_SWITCH_TYPE_LID : WLR_SWITCH_TYPE_TABLET_MODE,
+        .switch_state = on ? WLR_SWITCH_STATE_ON : WLR_SWITCH_STATE_OFF,
+    };
+    wl_signal_emit_mutable(&device->wlr_switch.events.toggle, &event);
+}
+
+static void remove_headless_switch(struct sh_headless_switch *device) {
+    wl_list_remove(&device->link);
+    wlr_switch_finish(&device->wlr_switch); // unplugs it
+    free(device);
+}
+
+void control_headless_switch(struct sh_server *server, int fd, const char *arguments) {
+    if (!headless_backend(server)) {
+        control_reply(fd, "error: headless_switch needs --headless\n");
+        return;
+    }
+    char verb[16] = "", name[64] = "", kind[16] = "", state[16] = "", extra;
+    int fields = sscanf(arguments, "%15s %63s %15s %15s %c", verb, name, kind, state, &extra);
+    struct sh_headless_switch *device = fields >= 2 ? find_headless_switch(server, name) : NULL;
+    bool lid = !strcmp(kind, "lid"), tablet = !strcmp(kind, "tablet");
+    bool on = !strcmp(fields == 3 ? kind : state, "on");
+    bool off = !strcmp(fields == 3 ? kind : state, "off");
+    if (!strcmp(verb, "add") && (lid || tablet) && (fields == 3 || (fields == 4 && (on || off)))) {
+        if (device) {
+            control_reply(fd, "error: a switch with that name exists\n");
+            return;
+        }
+        device = calloc(1, sizeof(*device));
+        if (!device) {
+            control_reply(fd, "error: out of memory\n");
+            return;
+        }
+        device->lid = lid;
+        wlr_switch_init(&device->wlr_switch, &headless_switch_impl, name);
+        wl_list_insert(&server->headless_switches, &device->link);
+        server_new_input(&server->new_input, &device->wlr_switch.base);
+        if (fields == 4 && on)
+            toggle_headless_switch(device, true);
+        control_reply(fd, "ok\n");
+    } else if (!strcmp(verb, "toggle") && fields == 3 && (on || off)) {
+        if (device)
+            toggle_headless_switch(device, on);
+        control_reply(fd, device ? "ok\n" : "error: no such switch\n");
+    } else if (!strcmp(verb, "remove") && fields == 2) {
+        if (device)
+            remove_headless_switch(device);
+        control_reply(fd, device ? "ok\n" : "error: no such switch\n");
+    } else {
+        control_reply(fd, "error: usage: headless_switch add NAME lid|tablet [on|off] | toggle "
+                          "NAME on|off | remove NAME\n");
+    }
+}
+
+void destroy_headless_switches(struct sh_server *server) {
+    struct sh_headless_switch *device, *temporary;
+    wl_list_for_each_safe(device, temporary, &server->headless_switches, link)
+        remove_headless_switch(device);
 }
 
 void destroy_headless_inputs(struct sh_server *server) {

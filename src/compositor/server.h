@@ -1125,7 +1125,9 @@ void control_headless_keyboard(struct sh_server *server, int fd, const char *arg
 void control_headless_pointer(struct sh_server *server, int fd, const char *arguments);
 void control_headless_touch(struct sh_server *server, int fd, const char *arguments);
 void control_headless_tablet(struct sh_server *server, int fd, const char *arguments);
+void control_headless_switch(struct sh_server *server, int fd, const char *arguments);
 void destroy_headless_keyboards(struct sh_server *server);
+void destroy_headless_switches(struct sh_server *server);
 void destroy_headless_inputs(struct sh_server *server);
 
 /* idle.c */
@@ -1373,8 +1375,6 @@ bool lid_holds_off(struct sh_server *server, struct sh_output *output);
 void apply_lid(struct sh_server *server);
 void server_new_switch(struct sh_server *server, struct wlr_input_device *input);
 void lid_from_logind(struct sh_server *server, bool closed);
-void control_headless_switch(struct sh_server *server, int fd, const char *arguments);
-void destroy_headless_switches(struct sh_server *server);
 
 /* switcher.c */
 void switcher_close(struct sh_server *server, int index);
