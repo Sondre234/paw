@@ -116,9 +116,7 @@ QVariantMap DisplaySettings::record(const Monitor &m) const {
         {"title", m.builtIn               ? QString("Built-in display")
                   : description.isEmpty() ? m.name
                                           : description},
-        {"description", description},
         {"builtIn", m.builtIn},
-        {"source", m.source},
         {"enabled", m.enabled},
         {"state", m.state},
         {"mirror", m.mirror},
@@ -143,8 +141,7 @@ QVariantMap DisplaySettings::record(const Monitor &m) const {
         {"hdrWhy", m.hdrWhy},
         {"primary", m.primary},
         {"resolutions", resolutions},
-        {"rates", rates},
-        {"modeLabel", QString("%1 × %2, %3").arg(m.width).arg(m.height).arg(rateLabel(m.refresh))}};
+        {"rates", rates}};
 }
 
 QVariantList DisplaySettings::monitors() const {
