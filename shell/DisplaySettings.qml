@@ -190,31 +190,17 @@ Item {
     // A switch, as Notification Center's do-not-disturb: `on` is what is in force, and `turned`
     // says what the user made it; what is in force then stays bound, so that a change the model
     // does not take shows as not taken.
-    component Toggle: Switch {
+    component Toggle: ToggleSwitch {
         id: toggle
         property bool on: false
         signal turned(bool on)
+        focusRing: true
         checked: on
         onToggled: {
             toggle.turned(checked)
             checked = Qt.binding(function() { return toggle.on })
         }
         implicitHeight: Theme.buttonHeight
-        indicator: Rectangle {
-            x: toggle.leftPadding; y: parent.height / 2 - height / 2
-            width: 2 * height; height: Theme.iconSize; radius: height / 2
-            opacity: toggle.enabled ? 1 : 0.5
-            color: toggle.checked ? Theme.accent : Theme.macos ? Theme.switchTrack : Theme.selected
-            border.color: toggle.visualFocus ? Theme.focusRing : "transparent"
-            Rectangle {
-                x: toggle.checked ? parent.width - width - Theme.spacingXS : Theme.spacingXS
-                y: Theme.spacingXS; width: parent.height - 2 * Theme.spacingXS; height: width; radius: width / 2
-                color: Theme.macos ? Theme.knob : toggle.checked ? Theme.textOnAccent : Theme.text
-                border.color: Theme.macos ? Theme.knobOutline : "transparent"
-                Behavior on x { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
-            }
-        }
-        contentItem: Item {}
     }
     // A setting's name, before its control.
     component SettingLabel: Text {
