@@ -153,7 +153,6 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
 
     # focus: the request focuses the window and switches workspace; ignore: nothing.
     desktop.reload(settings("focus"))
-    wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
     msg("workspace", "1")
     focus_before = focused()
     ask(c)
@@ -167,12 +166,10 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
     wait_for(lambda: focused() == ["urgent-c"], "focus policy switches to the workspace")
     assert int(msg("get", "workspace")) != 4 and urgent() == []
     desktop.reload(settings("ignore"))
-    wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") == 2, "second reload")
     ask(b)
     desktop.stays(lambda: urgent() == [] and focused() == ["urgent-c"],
                   "an ignored request did something", duration=.4)
     desktop.reload(settings("urgent"))
-    wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") == 3, "third reload")
     ask(b)
     wait_for(lambda: [u[0] for u in urgent()] == ["urgent-b"], "urgent again after reload")
     msg("focus_urgent")

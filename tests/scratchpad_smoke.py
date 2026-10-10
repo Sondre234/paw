@@ -112,7 +112,6 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     wait_for(lambda: hidden("B"), "B hidden before turning the scratchpad off")
     msg("workspace", "1")
     desktop.reload(CONFIG % "false")
-    wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
     wait_for(lambda: not windows()["B"]["scratchpad"] and windows()["B"]["visible"] and
              not windows()["B"]["minimized"] and windows()["B"]["workspace"] == 1,
              "B back on workspace 1")

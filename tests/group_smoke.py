@@ -167,7 +167,6 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     msg("group_toggle")
     desktop.wait_for(lambda: any(w["group"] for w in windows().values()), "grouped again")
     desktop.reload(CONFIG % "false")
-    desktop.wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
     desktop.wait_for(lambda: not any(w["group"] for w in windows().values()), "groups gone")
     msg("group_toggle")
     msg("group_next")

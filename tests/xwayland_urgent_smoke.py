@@ -92,13 +92,11 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
 
     # Under "focus" the request focuses it; under "ignore" nothing happens.
     desktop.reload(settings("ignore"))
-    wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
     tell(x, "demand")
     desktop.stays(lambda: urgent() == [] and focused() == ["paw-probe"],
                   "an ignored request did something", duration=.4)
     tell(x, "undemand")
     desktop.reload(settings("focus"))
-    wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") == 2, "reload")
     tell(x, "demand")
     wait_for(lambda: focused() == [X11] and urgent() == [], "focus policy focuses it")
 

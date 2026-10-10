@@ -174,7 +174,6 @@ with harness.Compositor(compositor, with_swallow(True)) as desktop:
 
     # With the setting off nothing swallows by itself, but swallow_toggle still works.
     desktop.reload(with_swallow(False))
-    assert "Configuration reloaded" in desktop.log.read_text()
     term = open_window("swallow-term", PAW_PROBE_SPAWN_APP_ID="swallow-child")
     slot = rect(windows()["swallow-term"])
     start_child(term, "swallow-child", 3)

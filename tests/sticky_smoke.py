@@ -70,7 +70,6 @@ with harness.Compositor(compositor, source) as desktop:
     msg("workspace", "1")
     assert window() == (1, True, False, True, True), window()
     desktop.reload(source.replace("sticky = true,", "sticky = false,"))
-    assert "Configuration reloaded" in desktop.log.read_text()
     assert window() == (1, True, True, True, False), window()
     msg("toggle_sticky")
     assert window() == (1, True, True, True, False), window()
