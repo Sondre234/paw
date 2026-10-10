@@ -25,29 +25,20 @@ def config(groups="true", smart_gaps="true"):
 
 def session(desktop):
     def windows():
-        """By title: workspace, focused, tiled, x, y, width, height, visible, group."""
-        rows = desktop.rows("windows")
-        return {r[9]: dict(workspace=int(r[0]), focused=r[1] == "1", tiled=r[3] == "1",
-                           x=int(r[4]), y=int(r[5]), width=int(r[6]), height=int(r[7]),
-                           visible=r[11] == "1", group=int(r[14]))
-                for r in rows}
+        return {w.title: w for w in desktop.windows()}
 
     desktop.detail = lambda: f"windows: {windows()}"
 
     def rect(name):
-        w = windows()[name]
-        return (w["x"], w["y"], w["width"], w["height"])
+        return windows()[name].box
 
     def focused():
-        return [t for t, w in windows().items() if w["focused"]]
+        return [t for t, w in windows().items() if w.focused]
 
     clients = {}
 
     def open_window(title):
-        clients[title] = desktop.spawn([probe, "--window-only"],
-                                       env={"PAW_PROBE_TITLE": title})
-        desktop.wait_for(lambda: title in windows() and windows()[title]["focused"],
-                         f"{title} mapped")
+        clients[title] = desktop.open_window(probe, title, focused=True)
 
     def close_window(title):
         clients[title].kill()
@@ -58,7 +49,7 @@ def session(desktop):
         """The windows are visible and tiled, with a size."""
         def check():
             first = [rect(n) for n in names]
-            return all(windows()[n]["tiled"] and windows()[n]["visible"] for n in names) and \
+            return all(windows()[n].tiled and windows()[n].visible for n in names) and \
                 all(r[2] > 0 for r in first)
         desktop.wait_for(check, f"{names} tiled")
 
@@ -76,30 +67,30 @@ with harness.Compositor(compositor, config()) as desktop:
     # B becomes a group of one; the next window joins it and takes its tile.
     slot = rect("B")
     msg("group_toggle")
-    desktop.wait_for(lambda: windows()["B"]["group"] != 0, "B grouped")
-    group = windows()["B"]["group"]
-    assert windows()["A"]["group"] == 0
+    desktop.wait_for(lambda: windows()["B"].group != 0, "B grouped")
+    group = windows()["B"].group
+    assert windows()["A"].group == 0
     open_window("C")
-    desktop.wait_for(lambda: windows()["C"]["group"] == group and not windows()["B"]["visible"],
+    desktop.wait_for(lambda: windows()["C"].group == group and not windows()["B"].visible,
                      "C joined B's group")
     settled("C")
     desktop.wait_for(lambda: rect("C") == slot, "C fills B's slot")
-    assert not windows()["B"]["tiled"] and windows()["B"]["group"] == group, windows()
-    assert len([w for w in windows().values() if w["visible"]]) == 2, windows()
+    assert not windows()["B"].tiled and windows()["B"].group == group, windows()
+    assert len([w for w in windows().values() if w.visible]) == 2, windows()
 
     # A third tab, then stepping through them and back.
     open_window("D")
-    desktop.wait_for(lambda: windows()["D"]["group"] == group and rect("D") == slot,
+    desktop.wait_for(lambda: windows()["D"].group == group and rect("D") == slot,
                      "D joined")
-    assert not windows()["C"]["visible"], windows()
+    assert not windows()["C"].visible, windows()
     msg("group_next")   # D -> B (tab order B, C, D wraps)
-    desktop.wait_for(lambda: focused() == ["B"] and windows()["B"]["visible"] and
-                     rect("B") == slot and not windows()["D"]["visible"], "B shown")
+    desktop.wait_for(lambda: focused() == ["B"] and windows()["B"].visible and
+                     rect("B") == slot and not windows()["D"].visible, "B shown")
     msg("group_prev")   # B -> D
     desktop.wait_for(lambda: focused() == ["D"] and rect("D") == slot, "D shown again")
     msg("group_prev")
     desktop.wait_for(lambda: focused() == ["C"] and rect("C") == slot, "C shown")
-    assert windows()["A"]["tiled"] and rect("A")[2] > 0, windows()
+    assert windows()["A"].tiled and rect("A")[2] > 0, windows()
 
     # The strip of tabs is drawn over the group's window: one segment per member, the
     # shown one bright blue (only checked where grim is installed).
@@ -137,50 +128,50 @@ with harness.Compositor(compositor, config()) as desktop:
 
     # Ungroup takes D out into a tile of its own; B and C stay a group.
     msg("ungroup")
-    desktop.wait_for(lambda: windows()["D"]["group"] == 0 and windows()["D"]["visible"] and
-                     windows()["D"]["tiled"], "D ungrouped")
-    desktop.wait_for(lambda: windows()["B"]["group"] == group and
-                     windows()["C"]["group"] == group, "B and C still grouped")
+    desktop.wait_for(lambda: windows()["D"].group == 0 and windows()["D"].visible and
+                     windows()["D"].tiled, "D ungrouped")
+    desktop.wait_for(lambda: windows()["B"].group == group and
+                     windows()["C"].group == group, "B and C still grouped")
     assert focused() == ["D"]
-    visible = [t for t, w in windows().items() if w["visible"]]
+    visible = [t for t, w in windows().items() if w.visible]
     assert len(visible) == 3 and "D" in visible, windows()
     d_slot = rect("D")
     assert d_slot != slot and d_slot[2] > 0, (d_slot, slot)
 
     # Closing the shown member hands the slot to the next tab.
-    shown = "C" if windows()["C"]["visible"] else "B"
+    shown = "C" if windows()["C"].visible else "B"
     other = "B" if shown == "C" else "C"
     slot = rect(shown)  # the slot shrank when D took half of it
     close_window(shown)
-    desktop.wait_for(lambda: windows()[other]["visible"] and windows()[other]["tiled"] and
+    desktop.wait_for(lambda: windows()[other].visible and windows()[other].tiled and
                      rect(other) == slot, "the other tab took the slot")
     # A group of one dissolves when its second-to-last member goes.
-    assert windows()[other]["group"] == 0, windows()
+    assert windows()[other].group == 0, windows()
 
     # Merging: D moves into the group of the window beside it (A, to its right).
     assert rect("A")[0] > rect("D")[0], (rect("A"), rect("D"))
     a_slot = rect("A")
     msg("group_merge_right")
-    desktop.wait_for(lambda: windows()["D"]["group"] != 0 and
-                     windows()["D"]["group"] == windows()["A"]["group"], "D merged")
-    assert windows()["D"]["visible"] and not windows()["A"]["visible"], windows()
+    desktop.wait_for(lambda: windows()["D"].group != 0 and
+                     windows()["D"].group == windows()["A"].group, "D merged")
+    assert windows()["D"].visible and not windows()["A"].visible, windows()
     assert focused() == ["D"] and rect("D") == a_slot, (focused(), rect("D"), a_slot)
     # Its old slot went to the other window that was there; nothing is left over.
     desktop.wait_for(lambda: rect(other)[3] > 600, f"{other} fills the freed tile")
 
     # Toggling inside a group dissolves it, the hidden members tile beside the shown.
     msg("group_toggle")
-    desktop.wait_for(lambda: all(w["group"] == 0 and w["visible"] and w["tiled"]
+    desktop.wait_for(lambda: all(w.group == 0 and w.visible and w.tiled
                                  for w in windows().values()), "group dissolved")
 
     # A group of one whose feature is turned off is dissolved on reload.
     msg("group_toggle")
-    desktop.wait_for(lambda: any(w["group"] for w in windows().values()), "grouped again")
+    desktop.wait_for(lambda: any(w.group for w in windows().values()), "grouped again")
     desktop.reload(config(groups="false"))
-    desktop.wait_for(lambda: not any(w["group"] for w in windows().values()), "groups gone")
+    desktop.wait_for(lambda: not any(w.group for w in windows().values()), "groups gone")
     msg("group_toggle")
     msg("group_next")
-    assert not any(w["group"] for w in windows().values()), windows()
+    assert not any(w.group for w in windows().values()), windows()
 
 # The awkward situations. A lone tile keeps its gaps, which tell it from a fullscreen window.
 with harness.Compositor(compositor, config(smart_gaps="false")) as desktop:
@@ -192,76 +183,76 @@ with harness.Compositor(compositor, config(smart_gaps="false")) as desktop:
     settled("A", "B")
     msg("group_toggle")
     open_window("C")
-    desktop.wait_for(lambda: windows()["C"]["group"] == windows()["B"]["group"] != 0,
+    desktop.wait_for(lambda: windows()["C"].group == windows()["B"].group != 0,
                      "C joined")
-    group = windows()["B"]["group"]
+    group = windows()["B"].group
 
     # Moving the shown member to another workspace takes the whole group along: the
     # hidden member is on that workspace too and comes forward there.
     msg("move_to_workspace", "2")
-    desktop.wait_for(lambda: not windows()["C"]["visible"] and windows()["A"]["visible"],
+    desktop.wait_for(lambda: not windows()["C"].visible and windows()["A"].visible,
                      "C left")
     msg("workspace", "2")
-    desktop.wait_for(lambda: windows()["C"]["visible"] and not windows()["B"]["visible"],
+    desktop.wait_for(lambda: windows()["C"].visible and not windows()["B"].visible,
                      "C on workspace 2")
     msg("group_prev")
-    desktop.wait_for(lambda: focused() == ["B"] and windows()["B"]["visible"] and
-                     windows()["B"]["tiled"], "B forward on workspace 2")
-    assert windows()["B"]["workspace"] == 2 and windows()["C"]["workspace"] == 2, windows()
+    desktop.wait_for(lambda: focused() == ["B"] and windows()["B"].visible and
+                     windows()["B"].tiled, "B forward on workspace 2")
+    assert windows()["B"].workspace == 2 and windows()["C"].workspace == 2, windows()
     msg("workspace", "1")
-    desktop.wait_for(lambda: not windows()["B"]["visible"] and windows()["A"]["visible"],
+    desktop.wait_for(lambda: not windows()["B"].visible and windows()["A"].visible,
                      "back on workspace 1")
 
     # Tiling switched off floats the shown member; the hidden one waits, and comes
     # back into the tiling with it.
     msg("workspace", "2")
-    desktop.wait_for(lambda: windows()["B"]["visible"], "on workspace 2 again")
+    desktop.wait_for(lambda: windows()["B"].visible, "on workspace 2 again")
     msg("toggle_tiling")
-    desktop.wait_for(lambda: not windows()["B"]["tiled"] and windows()["B"]["visible"],
+    desktop.wait_for(lambda: not windows()["B"].tiled and windows()["B"].visible,
                      "floated")
-    assert not windows()["C"]["visible"] and windows()["C"]["group"] == group
+    assert not windows()["C"].visible and windows()["C"].group == group
     msg("group_next")
-    desktop.wait_for(lambda: focused() == ["C"] and windows()["C"]["visible"] and
-                     not windows()["B"]["visible"], "C shown while floating")
-    assert not windows()["C"]["tiled"], windows()
+    desktop.wait_for(lambda: focused() == ["C"] and windows()["C"].visible and
+                     not windows()["B"].visible, "C shown while floating")
+    assert not windows()["C"].tiled, windows()
     msg("toggle_tiling")
-    desktop.wait_for(lambda: windows()["C"]["tiled"] and not windows()["B"]["tiled"] and
-                     not windows()["B"]["visible"], "C tiled again, B still hidden")
+    desktop.wait_for(lambda: windows()["C"].tiled and not windows()["B"].tiled and
+                     not windows()["B"].visible, "C tiled again, B still hidden")
 
     # Fullscreen: switching tabs leaves it rather than hiding a fullscreen window.
     msg("fullscreen")
     desktop.wait_for(lambda: rect("C")[2] >= 1270, "C fullscreen")
     msg("group_next")
-    desktop.wait_for(lambda: focused() == ["B"] and windows()["B"]["visible"] and
-                     not windows()["C"]["visible"], "B shown")
+    desktop.wait_for(lambda: focused() == ["B"] and windows()["B"].visible and
+                     not windows()["C"].visible, "B shown")
     desktop.wait_for(lambda: rect("B")[2] < 1270, "B not fullscreen")
     msg("group_next")
-    desktop.wait_for(lambda: focused() == ["C"] and windows()["C"]["visible"],
+    desktop.wait_for(lambda: focused() == ["C"] and windows()["C"].visible,
                      "C shown again")
-    desktop.wait_for(lambda: rect("C")[2] < 1270 and windows()["C"]["tiled"],
+    desktop.wait_for(lambda: rect("C")[2] < 1270 and windows()["C"].tiled,
                      "C left fullscreen")
     msg("group_next")
-    desktop.wait_for(lambda: focused() == ["B"] and windows()["B"]["visible"],
+    desktop.wait_for(lambda: focused() == ["B"] and windows()["B"].visible,
                      "B shown once more")
 
     # Closing a hidden member leaves the shown one alone, and the group of one goes.
     close_window("C")
-    desktop.wait_for(lambda: windows()["B"]["group"] == 0 and windows()["B"]["visible"] and
-                     windows()["B"]["tiled"], "B alone")
+    desktop.wait_for(lambda: windows()["B"].group == 0 and windows()["B"].visible and
+                     windows()["B"].tiled, "B alone")
 
     # The scrolling layout: a group is one column slot.
     msg("layout_scroll")
     msg("group_toggle")
     open_window("E")
-    desktop.wait_for(lambda: windows()["E"]["group"] == windows()["B"]["group"] != 0,
+    desktop.wait_for(lambda: windows()["E"].group == windows()["B"].group != 0,
                      "E joined B in the scroll layout")
-    desktop.wait_for(lambda: not windows()["B"]["visible"] and windows()["E"]["tiled"],
+    desktop.wait_for(lambda: not windows()["B"].visible and windows()["E"].tiled,
                      "E shown")
     columns = rect("E")
     msg("group_prev")
     desktop.wait_for(lambda: focused() == ["B"] and rect("B") == columns, "B in E's column")
     close_window("B")
-    desktop.wait_for(lambda: windows()["E"]["visible"] and windows()["E"]["group"] == 0,
+    desktop.wait_for(lambda: windows()["E"].visible and windows()["E"].group == 0,
                      "E left")
 print("Groups joined, cycled, ungrouped, merged, dissolved, turned off, and followed "
       "workspaces, tiling, fullscreen, the scroll layout, and closing")

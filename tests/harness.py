@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import NamedTuple
 
 
 class Timeout(AssertionError):
@@ -43,6 +44,36 @@ def disjoint(rects):
     return all(a[0] + a[2] <= b[0] or b[0] + b[2] <= a[0] or
                a[1] + a[3] <= b[1] or b[1] + b[3] <= a[1]
                for i, a in enumerate(rects) for b in rects[i + 1:])
+
+
+class Window(NamedTuple):
+    """A line of `get windows`."""
+    workspace: int
+    focused: bool
+    minimized: bool  # or hidden in the scratchpad
+    tiled: bool
+    x: int
+    y: int
+    width: int
+    height: int
+    app_id: str
+    title: str
+    output: str
+    visible: bool
+    scratchpad: bool
+    sticky: bool
+    group: int  # 0 for none
+    above: bool
+
+    @classmethod
+    def parse(cls, fields):
+        return cls(*(kind(value) if kind is not bool else value == "1"
+                     for kind, value in zip(cls.__annotations__.values(), fields)))
+
+    @property
+    def box(self):
+        """x, y, width and height."""
+        return self.x, self.y, self.width, self.height
 
 
 class Subscriber:
@@ -238,6 +269,23 @@ class Compositor:
     def rows(self, request, *words):
         """The tab-separated fields of each line `get REQUEST` prints."""
         return [line.split("\t") for line in self.msg("get", request, *words).splitlines()]
+
+    def windows(self):
+        """A Window per line of `get windows`, the oldest first."""
+        return [Window.parse(fields) for fields in self.rows("windows")]
+
+    def open_window(self, probe, title, app_id=None, *, focused=False, args=("--window-only",),
+                    env=None, **options):
+        """Starts `probe` (wayland_probe) with `args` as a window titled `title`, of `app_id` if
+        given, and waits until it has mapped, and has the focus if asked; returns its process.
+        `env` and `options` go to spawn()."""
+        env = {"PAW_PROBE_TITLE": title, **({"PAW_PROBE_APP_ID": app_id} if app_id else {}),
+               **(env or {})}
+        process = self.spawn([probe, *args], env=env, **options)
+        self.wait_for(lambda: any(w.title == title and (w.focused or not focused)
+                                  for w in self.windows()),
+                      f"{title} mapped" + (" and focused" if focused else ""))
+        return process
 
     def reloads(self):
         """How many times the compositor has reloaded its configuration."""
