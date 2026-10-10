@@ -901,7 +901,8 @@ wallpaper it sets for the others, so that the macOS style's drawn one shows).
 theme of each style (`light`, `dark`, `macos-light`, `macos-dark`), both with the software renderer (`light-launcher.png`) and through the GPU
 (`light-launcher-gpu.png`: Qt's OpenGL on Mesa's software implementation, in a private headless
 compositor), in about ten seconds; `--renderer`, `--theme` and `--popup` narrow it down. Nothing
-touches the session it runs in. The `shell_gallery` test runs it and fails on any QML warning.
+touches the session it runs in. The `shell_gallery` test runs it, with `--no-animations` and a
+`--wait` of 150 ms a picture, where 400 is the default, and fails on any QML warning.
 
 ## Recipes
 
