@@ -43,21 +43,8 @@ void apply_lid(struct sh_server *server) {
             changed |= output->disabled != was_disabled;
         }
     }
-    if (!changed)
-        return;
-    arrange_outputs(server);
-    reconfigure_tiling(server);
-    return_home_windows(server);
-    rehome_tiles(server);
-    show_workspaces(server);
-    if (server->focused_toplevel && !toplevel_visible(server->focused_toplevel)) {
-        deactivate_toplevel(server);
-        focus_previous(server);
-    }
-    struct sh_toplevel *toplevel;
-    wl_list_for_each(toplevel, &server->toplevels, link) refresh_frame(toplevel);
-    struct sh_output *output;
-    wl_list_for_each(output, &server->outputs, link) reflow_output(server, output->wlr_output);
+    if (changed)
+        settle_outputs(server);
 }
 
 static void update_lid(struct sh_server *server) {

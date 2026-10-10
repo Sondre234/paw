@@ -1207,6 +1207,8 @@ const struct sh_monitor *monitor_settings(const struct sh_settings *settings,
 const struct sh_monitor *output_monitor(struct sh_output *output);
 void arrange_outputs(struct sh_server *server);
 void configure_output(struct sh_server *server, struct sh_output *output);
+void configure_outputs(struct sh_server *server);
+void settle_outputs(struct sh_server *server);
 void apply_output_settings(struct sh_server *server);
 bool test_monitor(struct sh_output *output, const struct sh_monitor *monitor);
 bool deep_format(uint32_t format);
