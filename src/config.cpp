@@ -201,14 +201,20 @@ template <std::size_t N> void text_field(lua_State *L, const char *key, char (&t
     if (auto value = text(L, key))
         copy_text(*value, target, key);
 }
-void boolean(lua_State *L, const char *key, const char *label, bool &target) {
+// The boolean at `key`, named `label` (else `key`) in errors; nothing when it is unset.
+std::optional<bool> optional_boolean(lua_State *L, const char *key, const char *label = nullptr) {
     lua_getfield(L, -1, key);
+    std::optional<bool> result;
     if (!lua_isnil(L, -1)) {
         if (!lua_isboolean(L, -1))
-            wrong_type(L, label, "a boolean");
-        target = lua_toboolean(L, -1);
+            wrong_type(L, label ? label : key, "a boolean");
+        result = lua_toboolean(L, -1);
     }
     lua_pop(L, 1);
+    return result;
+}
+void boolean(lua_State *L, const char *key, const char *label, bool &target) {
+    target = optional_boolean(L, key, label).value_or(target);
 }
 // A widget that can move: `true` for `place`, its default place, `false` for nowhere, or
 // "bar" or "quick" (Quick Settings).
@@ -234,14 +240,8 @@ void placement(lua_State *L, const char *key, const char *label, WidgetPlace pla
 }
 // A boolean that may be left unset (-1) to keep a device default.
 void tristate(lua_State *L, const char *key, const char *label, int &target) {
-    bool value = false;
-    lua_getfield(L, -1, key);
-    bool present = !lua_isnil(L, -1);
-    lua_pop(L, 1);
-    if (!present)
-        return;
-    boolean(L, key, label, value);
-    target = value;
+    if (auto value = optional_boolean(L, key, label))
+        target = *value;
 }
 bool is_color(const std::string &value, bool alpha = false) {
     return (value.size() == 7 || (alpha && value.size() == 9)) && value[0] == '#' &&
@@ -747,16 +747,6 @@ std::optional<std::regex> pattern_field(lua_State *L, const char *key, std::stri
         }
     }
     return result;
-}
-std::optional<bool> optional_boolean(lua_State *L, const char *key) {
-    lua_getfield(L, -1, key);
-    bool present = !lua_isnil(L, -1);
-    lua_pop(L, 1);
-    if (!present)
-        return std::nullopt;
-    bool value = false;
-    boolean(L, key, key, value);
-    return value;
 }
 // `{ A, B }` or `{ first = A, second = B }`, both integers in [min, max].
 std::pair<int, int> integer_pair(lua_State *L, const char *label, const char *first,
