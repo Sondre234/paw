@@ -604,14 +604,6 @@ void report_failure(struct sh_server *server, const char *event, const char *tex
     send_shell_line(server, line);
 }
 
-void request_launcher(struct sh_server *server) {
-    request_shell(server, "launcher");
-}
-
-void request_palette(struct sh_server *server) {
-    request_shell(server, "palette");
-}
-
 /* "taskbar OUTPUT": the panel on the focused output, the one the keyboard was typing on, takes
  * the keyboard to walk its buttons, or gives it back when it has it. */
 void request_taskbar(struct sh_server *server) {

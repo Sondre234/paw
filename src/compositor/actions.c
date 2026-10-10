@@ -171,10 +171,10 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         layout_action(server, action);
         break;
     case SH_LAUNCHER:
-        request_launcher(server);
+        request_shell(server, "launcher");
         break;
     case SH_PALETTE:
-        request_palette(server);
+        request_shell(server, "palette");
         break;
     case SH_TASKBAR_FOCUS:
         request_taskbar(server);
