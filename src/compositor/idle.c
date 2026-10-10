@@ -138,7 +138,8 @@ static void idle_update(struct sh_server *server) {
             wl_event_source_timer_update(idle->timer, 0);
         return;
     }
-    const struct sh_idle_steps *steps = idle_steps(server, &idle->on_battery);
+    bool battery;
+    const struct sh_idle_steps *steps = idle_steps(server, &battery);
     int64_t idle_for = now_ms() - idle->last_input;
     for (int step = 0; step < SH_IDLE_STEPS; ++step) {
         int timeout = idle_step_timeout(steps, step, NULL);

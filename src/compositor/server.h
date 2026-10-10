@@ -218,7 +218,6 @@ struct sh_overview {
     struct sh_rect strip_cells[OVERVIEW_WORKSPACES];
     struct wlr_scene_rect *strip_back[OVERVIEW_WORKSPACES], *strip_mark[OVERVIEW_WORKSPACES][4];
     struct sh_thumb minis[OVERVIEW_MINI_MAX];
-    int mini_count;
     int64_t started; /* milliseconds, CLOCK_MONOTONIC */
     int span;        /* milliseconds the current glide takes */
     double from, to, progress; /* 0: windows where they are, 1: thumbnails in the grid */
@@ -269,14 +268,14 @@ struct sh_power {
 };
 
 /* Power saving without an idle daemon (idle.c): when the last input came, the steps taken since
- * (a bit each), the timer for the next and whether it is set, the power the steps were last
- * picked for, and the black laid over every output while the screens dim. */
+ * (a bit each), the timer for the next and whether it is set, and the black laid over every
+ * output while the screens dim. */
 enum sh_idle_step { SH_IDLE_DIM, SH_IDLE_DISPLAY_OFF, SH_IDLE_LOCK, SH_IDLE_SUSPEND, SH_IDLE_STEPS };
 struct sh_idle {
     int64_t last_input; /* milliseconds, CLOCK_MONOTONIC */
     unsigned done;
     struct wl_event_source *timer;
-    bool armed, on_battery;
+    bool armed;
     struct wlr_scene_tree *tree; /* over everything, the lock too */
     struct wlr_scene_buffer *dim; /* NULL while the screens are not dimmed */
     struct sh_fade fade;
@@ -337,8 +336,6 @@ struct sh_shortcuts {
  * for overlays; the listeners on the input method are the connected one's. */
 struct sh_text_input;
 struct sh_input_methods {
-    struct wlr_text_input_manager_v3 *text_input_manager;
-    struct wlr_input_method_manager_v2 *manager;
     struct wl_list text_inputs; // struct sh_text_input
     struct wl_list popups;      // struct sh_input_popup
     struct wlr_input_method_v2 *input_method;

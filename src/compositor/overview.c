@@ -285,7 +285,6 @@ static void overview_render(struct sh_server *server) {
     }
     for (int i = minis; i < OVERVIEW_MINI_MAX; ++i)
         overview_thumb_clear(&overview->minis[i]);
-    overview->mini_count = minis;
 
     for (int i = 0; i < OVERVIEW_MAX; ++i) {
         if (i >= overview->count || !overview->windows[i]) {
@@ -434,7 +433,7 @@ static void overview_hide(struct sh_server *server) {
         overview_thumb_clear(&overview->thumbs[i]);
     for (int i = 0; i < OVERVIEW_MINI_MAX; ++i)
         overview_thumb_clear(&overview->minis[i]);
-    overview->count = overview->mini_count = 0;
+    overview->count = 0;
     if (overview->tree)
         wlr_scene_node_set_enabled(&overview->tree->node, false);
 }
