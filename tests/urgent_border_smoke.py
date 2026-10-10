@@ -37,18 +37,17 @@ with harness.Compositor(compositor, settings(3)) as desktop:
     msg = desktop.msg
 
     def windows():
-        return {r[8]: r for r in desktop.rows("windows")}
+        return {w.app_id: w for w in desktop.windows()}
 
     def edge(app_id, inside):
         """The pixel on the middle of the window's left edge: outside it, or just inside."""
-        row = windows()[app_id]
-        x, y, h = int(row[4]), int(row[5]), int(row[7])
+        x, y, _, h = windows()[app_id].box
         return harness.grab(grim, desktop.env).at(x + (1 if inside else -2), y + h // 2)
 
     def start(app_id):
         client = desktop.spawn([probe, "--commands"], env={"PAW_PROBE_APP_ID": app_id},
                                stdin=subprocess.PIPE, text=True)
-        desktop.wait_for(lambda: windows().get(app_id, [0, "0"])[1] == "1", f"{app_id} focused")
+        desktop.wait_for(lambda: app_id in windows() and windows()[app_id].focused, f"{app_id} focused")
         return client
 
     def ask(client):
@@ -64,13 +63,12 @@ with harness.Compositor(compositor, settings(3)) as desktop:
     msg("move_right")
     subprocess.run([probe, "--activate", "urgent-a"], env=desktop.env, check=True, timeout=5,
                    stdout=subprocess.DEVNULL)
-    desktop.wait_for(lambda: windows()["urgent-a"][1] == "1", "a focused")
+    desktop.wait_for(lambda: windows()["urgent-a"].focused, "a focused")
     msg("move_left")
     subprocess.run([probe, "--activate", "urgent-b"], env=desktop.env, check=True, timeout=5,
                    stdout=subprocess.DEVNULL)
-    desktop.wait_for(lambda: windows()["urgent-b"][1] == "1", "b focused")
-    desktop.wait_for(lambda: int(windows()["urgent-a"][4]) + 400 <
-                     int(windows()["urgent-b"][4]) and
+    desktop.wait_for(lambda: windows()["urgent-b"].focused, "b focused")
+    desktop.wait_for(lambda: windows()["urgent-a"].x + 400 < windows()["urgent-b"].x and
                      near(edge("urgent-b", False), FOCUSED) and
                      near(edge("urgent-a", False), INACTIVE),
                      "a left and inactive, b right and focused",
@@ -116,10 +114,10 @@ with harness.Compositor(compositor, settings(3)) as desktop:
                      detail=lambda: edge("urgent-b", True))
     desktop.stays(lambda: near(edge("urgent-b", True), URGENT), "the inset frame pulses",
                   duration=.5, detail=lambda: edge("urgent-b", True))
-    before = windows()["urgent-b"][4:8]
+    before = windows()["urgent-b"].box
     msg("focus_urgent")
     desktop.wait_for(lambda: not near(edge("urgent-b", True), URGENT),
                      "the inset frame gone", detail=lambda: edge("urgent-b", True))
-    assert windows()["urgent-b"][4:8] == before, "the frame moved the window"
+    assert windows()["urgent-b"].box == before, "the frame moved the window"
 print("Urgent borders pulse, hold the urgent color, sit inside without a border, "
       "and give way to focus")

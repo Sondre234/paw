@@ -31,14 +31,14 @@ with harness.Compositor(compositor, config("traffic_lights")) as desktop:
     msg, wait_for = desktop.msg, desktop.wait_for
 
     def windows():
-        return {r[9]: r for r in desktop.rows("windows")}
+        return {w.title: w for w in desktop.windows()}
 
     def frames():
         return {r[1]: r for r in desktop.rows("frames")}
 
     def where(title):
-        row = windows()[title]
-        return int(row[4]), int(row[5])
+        window = windows()[title]
+        return window.x, window.y
 
     desktop.detail = lambda: msg("get", "windows") + msg("get", "frames")
     pointer = desktop.virtual_pointer(pointer_probe, *SCREEN)
@@ -64,11 +64,11 @@ with harness.Compositor(compositor, config("traffic_lights")) as desktop:
     # Below the lights the pointer reaches the window: a click there focuses it, where a click
     # on what is not a window would focus the desktop.
     second = open_window("B")
-    assert windows()["B"][1] == "1", "the new window has focus"
+    assert windows()["B"].focused, "the new window has focus"
     pointer("move", *point("A", (40, 25)))
     wait_for(lambda: frames()["A"][4] == "1", "A's lights shown")
     pointer("click", "left")
-    wait_for(lambda: windows()["A"][1] == "1", "a click below the lights reached the window")
+    wait_for(lambda: windows()["A"].focused, "a click below the lights reached the window")
 
     # With grim: red, yellow and green on the focused window, grey on another.
     if grim:
@@ -85,7 +85,7 @@ with harness.Compositor(compositor, config("traffic_lights")) as desktop:
 
     # A click on a light acts on the window: minimize, then close.
     pointer("move", *point("A", MINIMIZE), "click", "left")
-    wait_for(lambda: windows()["A"][2] == "1", "minimize light minimized A")
+    wait_for(lambda: windows()["A"].minimized, "minimize light minimized A")
     pointer("move", *point("B", CLOSE), "click", "left")
     # The client exits as its window closes; reaped first, its exit fails no wait.
     assert desktop.reap(second) == 0
@@ -94,14 +94,14 @@ with harness.Compositor(compositor, config("traffic_lights")) as desktop:
     # Fullscreen fills the screen, and the light there brings the window back.
     third = open_window("C")
     pointer("move", *point("C", FULLSCREEN), "click", "left")
-    wait_for(lambda: windows()["C"][6:8] == ["1280", "720"], "fullscreen light filled the screen")
+    wait_for(lambda: windows()["C"].box[2:] == (1280, 720), "fullscreen light filled the screen")
     pointer("move", "100", "300", "move", *(str(n) for n in FULLSCREEN), "click", "left")
-    wait_for(lambda: windows()["C"][6:8] != ["1280", "720"], "fullscreen light restored C")
+    wait_for(lambda: windows()["C"].box[2:] != (1280, 720), "fullscreen light restored C")
 
     # A reload switches to the flat strip at the top-right, whose last button closes.
     desktop.reload(config("flat"))
     wait_for(lambda: frames()["C"][3] == "flat", "reload switched the controls")
-    width = int(windows()["C"][6])
+    width = windows()["C"].width
     pointer("move", *point("C", (100, 100)), "move", *point("C", (width - 20, 20)), "click", "left")
     assert desktop.reap(third) == 0
     wait_for(lambda: "C" not in windows(), "flat close button closed C")
