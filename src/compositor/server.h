@@ -1121,9 +1121,11 @@ bool output_is_hdr(const struct sh_output *output);
 const char *hdr_unavailable(struct sh_output *output);
 
 /* headless_input.c */
+void control_headless_keyboard(struct sh_server *server, int fd, const char *arguments);
 void control_headless_pointer(struct sh_server *server, int fd, const char *arguments);
 void control_headless_touch(struct sh_server *server, int fd, const char *arguments);
 void control_headless_tablet(struct sh_server *server, int fd, const char *arguments);
+void destroy_headless_keyboards(struct sh_server *server);
 void destroy_headless_inputs(struct sh_server *server);
 
 /* idle.c */
@@ -1140,8 +1142,6 @@ void idle_finish(struct sh_server *server);
 
 /* input.c */
 bool input_activity(struct sh_server *server, bool wakes);
-void control_headless_keyboard(struct sh_server *server, int fd, const char *arguments);
-void destroy_headless_keyboards(struct sh_server *server);
 void configure_pointer(struct sh_server *server, struct wlr_input_device *device);
 void server_new_input(struct wl_listener *listener, void *data);
 void server_new_virtual_keyboard(struct wl_listener *listener, void *data);
