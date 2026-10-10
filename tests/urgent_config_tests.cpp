@@ -4,20 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 
-static void require(bool condition, const char *message) {
-    if (!condition)
-        throw std::runtime_error(message);
-}
-static void rejects(const std::string &source, const char *fragment) {
-    try {
-        (void)paw::parse_config(source);
-    } catch (const std::exception &error) {
-        require(std::string(error.what()).find(fragment) != std::string::npos,
-                "the error does not say what is wrong");
-        return;
-    }
-    throw std::runtime_error("invalid configuration was accepted: " + source);
-}
+#include "config_check.hpp"
 
 int main() {
     try {

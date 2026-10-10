@@ -5,21 +5,11 @@
 #include <iostream>
 #include <stdexcept>
 
-static void require(bool condition, const char *message) {
-    if (!condition)
-        throw std::runtime_error(message);
-}
+#include "config_check.hpp"
+
 static bool steps_are(const sh_idle_steps &steps, int dim, int display_off, int lock, int suspend) {
     return steps.dim == dim && steps.display_off == display_off && steps.lock == lock &&
            steps.suspend == suspend;
-}
-static void rejects(const std::string &source) {
-    try {
-        (void)paw::parse_config(source);
-    } catch (const std::exception &) {
-        return;
-    }
-    throw std::runtime_error("invalid configuration was accepted: " + source);
 }
 
 int main() {
