@@ -5,6 +5,7 @@
  * window controls, a drag strip or the bare desktop stands in for the pointer and its left
  * button instead, one finger at a time, as on sway. */
 #include "server.h"
+#include "paw/lid.h"
 
 struct sh_touch_device {
     struct wl_list link; // sh_server.touch.devices
@@ -12,12 +13,6 @@ struct sh_touch_device {
     struct wlr_touch *touch;
     struct wl_listener destroy;
 };
-
-/* A built-in panel: a laptop's or a tablet's own screen. */
-static bool built_in(const struct wlr_output *output) {
-    return !strncmp(output->name, "eDP", 3) || !strncmp(output->name, "LVDS", 4) ||
-           !strncmp(output->name, "DSI", 3);
-}
 
 /* The output a touchscreen is mapped to, or NULL for the whole layout. A touch.output that is
  * not plugged in leaves the choice to the rest. */
@@ -29,7 +24,7 @@ static struct wlr_output *touch_output(struct sh_server *server, struct wlr_touc
         return named;
     struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) {
-        if (built_in(output->wlr_output))
+        if (sh_output_built_in(output->wlr_output->name)) // a laptop's or a tablet's own screen
             return output->wlr_output;
     }
     return NULL;
