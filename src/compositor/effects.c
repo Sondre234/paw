@@ -218,8 +218,7 @@ void hot_corner_check(struct sh_server *server) {
     int corner = -1;
     if (fx->corner_mask && !server->locked && server->cursor_mode == SH_CURSOR_PASSTHROUGH &&
         !server->seat->drag) {
-        struct wlr_output *output =
-            wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+        struct wlr_output *output = pointer_output(server);
         struct wlr_box box;
         if (output && !output_has_fullscreen(server, output)) {
             wlr_output_layout_get_box(server->output_layout, output, &box);

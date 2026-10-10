@@ -84,8 +84,7 @@ struct wlr_output *focused_output(struct sh_server *server) {
         return server->target_output;
     struct wlr_output *output = find_output(server, server->active_output);
     if (!output)
-        output = wlr_output_layout_output_at(server->output_layout, server->cursor->x,
-                                             server->cursor->y);
+        output = pointer_output(server);
     return output ? output : first_output(server);
 }
 

@@ -997,8 +997,7 @@ void overview_hot_corner(struct sh_server *server) {
     struct wlr_output *output = NULL;
     if (settings->overview && corner > 0 && !server->locked &&
         server->cursor_mode == SH_CURSOR_PASSTHROUGH) {
-        output = wlr_output_layout_output_at(server->output_layout, server->cursor->x,
-                                             server->cursor->y);
+        output = pointer_output(server);
         if (output) {
             struct wlr_box box;
             wlr_output_layout_get_box(server->output_layout, output, &box);

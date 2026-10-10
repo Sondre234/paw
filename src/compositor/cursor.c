@@ -5,6 +5,11 @@
 
 static void process_pointer_target(struct sh_server *server, uint32_t time);
 
+/* The output under the pointer, or NULL where it is between outputs. */
+struct wlr_output *pointer_output(struct sh_server *server) {
+    return wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+}
+
 /* Whether `node` is a window's rounded frame and the layout position is inside its hole. */
 static bool in_frame_hole(struct wlr_scene_node *node, double lx, double ly) {
     if (!node || node->type != WLR_SCENE_NODE_RECT)
@@ -430,8 +435,7 @@ static void process_pointer_target(struct sh_server *server, uint32_t time) {
              seat->pointer_state.button_count == 0 && !wlr_seat_pointer_has_grab(seat) &&
              !wlr_seat_keyboard_has_grab(seat) &&
              !panel_at(server, server->cursor->x, server->cursor->y))
-        focus_desktop(server, wlr_output_layout_output_at(server->output_layout,
-                                                          server->cursor->x, server->cursor->y));
+        focus_desktop(server, pointer_output(server));
     // A drag's text or file goes to the window there: the strip is for a press that moves it.
     if (!seat->drag && drag_strip_at(toplevel, surface, server->cursor->y)) {
         set_default_cursor(server);
@@ -663,8 +667,7 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         return;
     }
     if (event->state == WL_POINTER_BUTTON_STATE_PRESSED) {
-        struct wlr_output *clicked = wlr_output_layout_output_at(
-            server->output_layout, server->cursor->x, server->cursor->y);
+        struct wlr_output *clicked = pointer_output(server);
         if (clicked)
             set_active_output(server, clicked->name);
         double sx, sy;

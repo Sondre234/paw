@@ -184,8 +184,7 @@ static bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rul
 /* New windows open on the output under the pointer, as in Hyprland. */
 static struct wlr_output *new_window_output(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
-    struct wlr_output *output =
-        wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+    struct wlr_output *output = pointer_output(server);
     return output ? output : toplevel_output(toplevel);
 }
 
@@ -693,8 +692,7 @@ static void xdg_popup_commit(struct wl_listener *listener, void *data) {
         struct wlr_output *output =
             wlr_output_layout_output_at(server->output_layout, root_x, root_y);
         if (!output)
-            output = wlr_output_layout_output_at(server->output_layout, server->cursor->x,
-                                                 server->cursor->y);
+            output = pointer_output(server);
         if (root && output) {
             struct wlr_box box;
             wlr_output_layout_get_box(server->output_layout, output, &box);

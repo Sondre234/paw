@@ -27,8 +27,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
         .color_transform = output_is_hdr(output) ? NULL : output->server->night_transform};
     double level = zoom_level(output->server, now_ms());
     bool zoomed = false;
-    struct wlr_output *pointed = wlr_output_layout_output_at(
-        output->server->output_layout, output->server->cursor->x, output->server->cursor->y);
+    struct wlr_output *pointed = pointer_output(output->server);
     if (level > 1.0005 && pointed == output->wlr_output && !output->zoom_failed) {
         zoomed = output_commit_zoomed(output, scene_output, &night, level);
         if (!zoomed) {
@@ -267,8 +266,7 @@ void arrange_outputs(struct sh_server *server) {
         origin_y = output->y < origin_y ? output->y : origin_y;
         wlr_output_layout_get_box(server->output_layout, output->wlr_output, &output->previous);
     }
-    struct wlr_output *pointed =
-        wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+    struct wlr_output *pointed = pointer_output(server);
     struct wlr_box pointed_before = {0};
     if (pointed)
         wlr_output_layout_get_box(server->output_layout, pointed, &pointed_before);

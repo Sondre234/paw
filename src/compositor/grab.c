@@ -48,8 +48,7 @@ void finish_grab(struct sh_server *server) {
     struct sh_toplevel *toplevel = server->grabbed_toplevel;
     if (snap_drop(server))
         return;
-    struct wlr_output *output =
-        wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+    struct wlr_output *output = pointer_output(server);
     // A tile dropped on an output that does not tile floats there.
     if (joins_tiling(server, toplevel, output)) {
         toplevel->floating = toplevel->placed = false;
@@ -198,8 +197,7 @@ static uint32_t held_modifiers(struct sh_server *server) {
 static struct wlr_output *magnet_output(struct sh_server *server, struct sh_toplevel *toplevel) {
     const struct sh_settings *settings = server_settings(server);
     uint32_t mods = held_modifiers(server);
-    struct wlr_output *output =
-        wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+    struct wlr_output *output = pointer_output(server);
     if (!settings->magnet || settings->magnet_distance <= 0 || !output || toplevel->tiled ||
         server->grab_retile || server->grab_fullscreen ||
         (settings->magnet_bypass && (mods & settings->magnet_bypass) == settings->magnet_bypass)) {

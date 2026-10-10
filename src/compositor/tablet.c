@@ -164,8 +164,7 @@ static void tool_moved(struct sh_server *server, struct sh_tablet *tablet,
 static void tool_focus(struct sh_server *server) {
     double sx, sy;
     struct sh_node *owner = NULL;
-    struct wlr_output *output =
-        wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+    struct wlr_output *output = pointer_output(server);
     if (output)
         set_active_output(server, output->name);
     press_target_at(server, server->cursor->x, server->cursor->y, &sx, &sy, &owner);
