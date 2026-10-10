@@ -409,6 +409,15 @@ if(PAW_BUILD_COMPOSITOR)
     if(BUILD_TESTING)
         find_package(Python3 COMPONENTS Interpreter REQUIRED)
         pkg_check_modules(WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
+        # A Wayland client for the tests: paw_probe(NAME SOURCES... [LIBRARIES LIBRARY...]), the
+        # client protocols' code among the sources, generated in the build directory.
+        function(paw_probe name)
+            cmake_parse_arguments(PARSE_ARGV 1 PROBE "" "" "LIBRARIES")
+            add_executable(${name} ${PROBE_UNPARSED_ARGUMENTS})
+            target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+            target_link_libraries(${name} PRIVATE PkgConfig::WAYLAND_CLIENT ${PROBE_LIBRARIES})
+            target_compile_options(${name} PRIVATE -Wall -Wextra -Wno-unused-parameter)
+        endfunction()
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
             COMMAND ${WAYLAND_SCANNER} client-header
             ${PROTOCOL_DIR}/stable/xdg-shell/xdg-shell.xml
@@ -455,7 +464,7 @@ if(PAW_BUILD_COMPOSITOR)
             COMMAND ${WAYLAND_SCANNER} private-code ${DECORATION_XML}
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-decoration-unstable-v1-protocol.c
             DEPENDS ${DECORATION_XML})
-        add_executable(wayland_probe tests/wayland_probe.c
+        paw_probe(wayland_probe tests/wayland_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-activation-v1-client-protocol.h
@@ -466,10 +475,8 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-toplevel-icon-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/tearing-control-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/tearing-control-v1-protocol.c
-            ${WLR_CLIENT_PROTOCOL_SOURCES})
-        target_include_directories(wayland_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(wayland_probe PRIVATE PkgConfig::WAYLAND_CLIENT PkgConfig::XKB)
-        target_compile_options(wayland_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
+            ${WLR_CLIENT_PROTOCOL_SOURCES}
+            LIBRARIES PkgConfig::XKB)
         # A window printing the input it gets, for the tests of gestures.
         set(GESTURES_XML ${PROTOCOL_DIR}/unstable/pointer-gestures/pointer-gestures-unstable-v1.xml)
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/pointer-gestures-unstable-v1-client-protocol.h
@@ -499,7 +506,7 @@ if(PAW_BUILD_COMPOSITOR)
             COMMAND ${WAYLAND_SCANNER} private-code ${SHORTCUTS_INHIBIT_XML}
             ${CMAKE_CURRENT_BINARY_DIR}/keyboard-shortcuts-inhibit-unstable-v1-protocol.c
             DEPENDS ${SHORTCUTS_INHIBIT_XML})
-        add_executable(input_probe tests/input_probe.c
+        paw_probe(input_probe tests/input_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/keyboard-shortcuts-inhibit-unstable-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/keyboard-shortcuts-inhibit-unstable-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/tablet-v2-client-protocol.h
@@ -510,9 +517,6 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-layer-shell-unstable-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/pointer-gestures-unstable-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/pointer-gestures-unstable-v1-protocol.c)
-        target_include_directories(input_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(input_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(input_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
         set(VPTR_XML ${CMAKE_CURRENT_SOURCE_DIR}/protocols/wlr-virtual-pointer-unstable-v1.xml)
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/wlr-virtual-pointer-client-protocol.h
             COMMAND ${WAYLAND_SCANNER} client-header ${VPTR_XML}
@@ -531,14 +535,11 @@ if(PAW_BUILD_COMPOSITOR)
             COMMAND ${WAYLAND_SCANNER} private-code ${VKBD_XML}
             ${CMAKE_CURRENT_BINARY_DIR}/virtual-keyboard-protocol.c
             DEPENDS ${VKBD_XML})
-        add_executable(pointer_probe tests/pointer_probe.c
+        paw_probe(pointer_probe tests/pointer_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-virtual-pointer-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-virtual-pointer-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/virtual-keyboard-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/virtual-keyboard-protocol.c)
-        target_include_directories(pointer_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(pointer_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(pointer_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
         # Both sides of input methods, for input_method_smoke: an application's text input
         # (text-input-unstable-v3) and an input method (input-method-unstable-v2).
         set(TEXT_INPUT_XML ${PROTOCOL_DIR}/unstable/text-input/text-input-unstable-v3.xml)
@@ -550,16 +551,13 @@ if(PAW_BUILD_COMPOSITOR)
             COMMAND ${WAYLAND_SCANNER} private-code ${TEXT_INPUT_XML}
             ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-protocol.c
             DEPENDS ${TEXT_INPUT_XML})
-        add_executable(text_input_probe tests/text_input_probe.c
+        paw_probe(text_input_probe tests/text_input_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-layer-shell-unstable-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-layer-shell-unstable-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c)
-        target_include_directories(text_input_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(text_input_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(text_input_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
         set(INPUT_METHOD_XML ${CMAKE_CURRENT_SOURCE_DIR}/protocols/input-method-unstable-v2.xml)
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/input-method-unstable-v2-client-protocol.h
             COMMAND ${WAYLAND_SCANNER} client-header ${INPUT_METHOD_XML}
@@ -569,27 +567,18 @@ if(PAW_BUILD_COMPOSITOR)
             COMMAND ${WAYLAND_SCANNER} private-code ${INPUT_METHOD_XML}
             ${CMAKE_CURRENT_BINARY_DIR}/input-method-unstable-v2-protocol.c
             DEPENDS ${INPUT_METHOD_XML})
-        add_executable(input_method_probe tests/input_method_probe.c
+        paw_probe(input_method_probe tests/input_method_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/input-method-unstable-v2-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/input-method-unstable-v2-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/virtual-keyboard-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/virtual-keyboard-protocol.c)
-        target_include_directories(input_method_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(input_method_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(input_method_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
-        add_executable(output_management_probe tests/output_management_probe.c
+        paw_probe(output_management_probe tests/output_management_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-output-management-unstable-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-output-management-unstable-v1-protocol.c)
-        target_include_directories(output_management_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(output_management_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(output_management_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
         # A wlr-output-power-management client, as wlopm is, for output_power_smoke.
-        add_executable(output_power_probe tests/output_power_probe.c
+        paw_probe(output_power_probe tests/output_power_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-output-power-management-unstable-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-output-power-management-unstable-v1-protocol.c)
-        target_include_directories(output_power_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(output_power_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(output_power_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
         # Clients of idle-inhibit-unstable-v1 and ext-idle-notify-v1, for idle_smoke.
         foreach(PROTOCOL unstable/idle-inhibit/idle-inhibit-unstable-v1
                 staging/ext-idle-notify/ext-idle-notify-v1)
@@ -603,18 +592,15 @@ if(PAW_BUILD_COMPOSITOR)
                 ${CMAKE_CURRENT_BINARY_DIR}/${NAME}-protocol.c
                 DEPENDS ${PROTOCOL_DIR}/${PROTOCOL}.xml)
         endforeach()
-        add_executable(idle_probe tests/idle_probe.c
+        paw_probe(idle_probe tests/idle_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit-unstable-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit-unstable-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-protocol.c)
-        target_include_directories(idle_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(idle_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(idle_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
         # A taskbar's window menu through paw-window-control-v1, for window_control_smoke,
         # its capture of a window, for window_capture_smoke, its peek at one, for
         # window_peek_smoke, and windows' own icons, for window_icon_smoke.
-        add_executable(window_probe tests/window_probe.c
+        paw_probe(window_probe tests/window_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/paw-window-control-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/paw-window-control-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-foreign-toplevel-management-unstable-v1-client-protocol.h
@@ -624,17 +610,11 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_BINARY_DIR}/ext-image-copy-capture-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/ext-image-copy-capture-v1-protocol.c
             ${CAPTURE_SOURCE_PROTOCOL_SOURCES})
-        target_include_directories(window_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(window_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(window_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
         # A program copying and pasting through ext-data-control-v1, for the shell's clipboard
         # history test.
-        add_executable(clipboard_probe tests/clipboard_probe.c
+        paw_probe(clipboard_probe tests/clipboard_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/ext-data-control-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/ext-data-control-v1-protocol.c)
-        target_include_directories(clipboard_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(clipboard_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(clipboard_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
         paw_smoke(output_management SCRIPT output_management_smoke.py $<TARGET_FILE:paw>
             $<TARGET_FILE:output_management_probe>)
         paw_smoke(output_power_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
@@ -800,14 +780,11 @@ if(PAW_BUILD_COMPOSITOR)
             COMMAND ${WAYLAND_SCANNER} private-code ${LOCK_XML}
             ${CMAKE_CURRENT_BINARY_DIR}/ext-session-lock-v1-protocol.c
             DEPENDS ${LOCK_XML})
-        add_executable(lock_probe tests/lock_probe.c
+        paw_probe(lock_probe tests/lock_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/ext-session-lock-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/ext-session-lock-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c)
-        target_include_directories(lock_probe PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(lock_probe PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(lock_probe PRIVATE -Wall -Wextra -Wno-unused-parameter)
         paw_smoke(session_lock SCRIPT lock_smoke.py $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(binding_modes_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
@@ -833,12 +810,9 @@ if(PAW_BUILD_COMPOSITOR)
             paw_smoke(lid_logind_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
         endif()
         # The compositor benchmark (tools/bench/bench.py); see docs/performance.md.
-        add_executable(paw-bench-client tools/bench/bench_client.c
+        paw_probe(paw-bench-client tools/bench/bench_client.c
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c)
-        target_include_directories(paw-bench-client PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-        target_link_libraries(paw-bench-client PRIVATE PkgConfig::WAYLAND_CLIENT)
-        target_compile_options(paw-bench-client PRIVATE -Wall -Wextra -Wno-unused-parameter)
         add_test(NAME bench_smoke COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/bench/bench.py --quick
             --compositor $<TARGET_FILE:paw> --client $<TARGET_FILE:paw-bench-client>
