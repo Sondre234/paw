@@ -94,8 +94,9 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         return process
 
     def activated(name, mark, surrounding="hello"):
-        """What the input method hears as it is activated for a text input."""
-        return since(name, mark)[:5] == [
+        """What the input method hears as it is activated for a text input; one that has just
+        connected may hear it before it says it is ready."""
+        return [line for line in since(name, mark) if line != "ready"][:5] == [
             "activate", f"surrounding {surrounding} {len(surrounding)} {len(surrounding)}",
             f"cause {OTHER}", f"content_type {SPELLCHECK} {NORMAL}", "done"]
 
@@ -110,7 +111,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     # One connects: the text input enters the window with the keyboard and enables itself, which
     # activates the input method with the text input's state.
     ime = method("ime")
-    desktop.wait_for(lambda: activated("ime", 1), "the input method activated")
+    desktop.wait_for(lambda: activated("ime", 0), "the input method activated")
     assert log("Writer")[-1] == "enter", log("Writer")
     assert state() == ((True, True, False), [(True, True, "Writer")], []), state()
 
@@ -275,7 +276,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     desktop.wait_for(lambda: since("Other", mark) == ["leave"], "the text input left")
     assert state() == ((False, False, False), [(True, False, "-")], []), state()
     second = method("second")
-    desktop.wait_for(lambda: activated("second", 1), "the second input method activated")
+    desktop.wait_for(lambda: activated("second", 0), "the second input method activated")
     assert since("Other", mark)[1:] == ["enter"], log("Other")
     third = method("third")
     desktop.wait_for(lambda: "unavailable" in log("third"), "a third told it is unavailable")
