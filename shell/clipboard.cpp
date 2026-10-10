@@ -239,6 +239,12 @@ void ClipboardHistory::changed() {
 }
 
 bool ClipboardHistory::record(const QList<Format> &formats, const QDateTime &when) {
+    if (!keep(formats, when))
+        return false;
+    changed();
+    return true;
+}
+bool ClipboardHistory::keep(const QList<Format> &formats, const QDateTime &when) {
     if (!settings_.enabled || locked_)
         return false;
     if (formatData(formats, secretHint).trimmed() == "secret")
@@ -294,7 +300,6 @@ bool ClipboardHistory::record(const QList<Format> &formats, const QDateTime &whe
             return !other.pinned && ++kept > settings_.limit;
         });
     }
-    changed();
     return true;
 }
 
@@ -307,7 +312,7 @@ void ClipboardHistory::preview(const QList<QList<Format>> &copies, const QList<i
     }
     const auto now = QDateTime::currentDateTime();
     for (qsizetype i = copies.size() - 1; i >= 0; --i)
-        record(copies[i], now.addSecs(-60 * 7 * i));
+        keep(copies[i], now.addSecs(-60 * 7 * i));
     for (auto &entry : entries_)
         entry.pinned = pinned.contains(static_cast<int>(copies.size() - entry.id));
     Q_EMIT entriesChanged();
@@ -697,7 +702,7 @@ void ClipboardHistory::load() {
             stream >> type >> data;
             copy.push_back({type, data});
         }
-        if (stream.status() != QDataStream::Ok || !record(copy, when))
+        if (stream.status() != QDataStream::Ok || !keep(copy, when))
             continue;
         entries_.front().pinned = pinned;
     }
