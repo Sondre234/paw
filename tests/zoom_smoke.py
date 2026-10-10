@@ -33,7 +33,7 @@ with harness.Compositor(compositor, settings()) as desktop:
         return tuple(int(n) for n in msg("get", "zoom").splitlines()[0].split("\t"))
 
     def windows():
-        return desktop.rows("windows")
+        return desktop.windows()
 
     desktop.detail = lambda: f"zoom: {zoom()}, windows: {windows()}"
     pointer = desktop.virtual_pointer(pointer_probe, 1280, 720)
@@ -43,7 +43,7 @@ with harness.Compositor(compositor, settings()) as desktop:
     desktop.wait_for(lambda: len(windows()) == 1, "window")
     desktop.wait_for(lambda: msg("get", "animations").split("\t")[0].strip() == "0",
                      "opening animation over")
-    x0, y0, w, h = (int(n) for n in windows()[0][4:8])
+    x0, y0, w, h = windows()[0].box
     assert x0 >= 50 and y0 >= 50, (x0, y0)
 
     # The pointer 50 px inside the window's left edge, half way down.

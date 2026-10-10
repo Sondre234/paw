@@ -29,7 +29,7 @@ with harness.Compositor(compositor, settings(0.4, 700)) as desktop:
         return [tuple(int(n) for n in row) for row in desktop.rows("dim")]
 
     def windows():
-        return desktop.rows("windows")
+        return desktop.windows()
 
     desktop.detail = lambda: f"dim: {dims()}, windows: {windows()}"
 
@@ -38,9 +38,9 @@ with harness.Compositor(compositor, settings(0.4, 700)) as desktop:
 
     def body_pixel(focused):
         """The screen colour in the middle of the focused (or unfocused) window's body."""
-        for row in windows():
-            if (row[1] == "1") == focused:
-                x, y, w, h = (int(n) for n in row[4:8])
+        for window in windows():
+            if window.focused == focused:
+                x, y, w, h = window.box
                 return harness.grab(grim, desktop.env).at(x + w // 2, y + h // 2) if grim else None
 
     assert dims() == []

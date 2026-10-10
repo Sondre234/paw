@@ -32,13 +32,12 @@ with harness.Compositor(compositor, settings(0.25, 400)) as desktop:
         return tuple(int(n) for n in msg("get", "peek").splitlines()[0].split("\t"))
 
     def windows():
-        return desktop.rows("windows")
+        return desktop.windows()
 
     desktop.detail = lambda: f"peek: {peek()}, windows: {windows()}"
 
     def body_pixel():
-        row = windows()[0]
-        x, y, w, h = (int(n) for n in row[4:8])
+        x, y, w, h = windows()[0].box
         return harness.grab(grim, desktop.env).at(x + w // 2, y + h // 2)
 
     assert peek() == (0, 0, 0), peek()

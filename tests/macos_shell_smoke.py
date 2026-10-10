@@ -43,14 +43,11 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         return {(row[0], row[1]): row[2:4] for row in desktop.rows("layers")}
 
     def windows():
-        return desktop.rows("windows")
-
-    def box(row):
-        return [int(n) for n in row[4:8]]
+        return desktop.windows()
 
     # The windows are listed by focus, so the maximized one is known by where it is.
     def maximized(where):
-        return [row for row in windows() if box(row) == where]
+        return [w for w in windows() if list(w.box) == where]
 
     menu_bar, panel = ("paw-menubar", "HEADLESS-1"), ("paw-panel", "HEADLESS-1")
     desktop.detail = lambda: f"layers: {layers()}, windows: {windows()}\n{log()[-1500:]}"
@@ -77,11 +74,11 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     # A second window takes the focus; a press on the first, under the room the dock's surface
     # leaves above it for an icon to bounce in, reaches it.
     desktop.spawn([probe, "--window-only"])
-    desktop.wait_for(lambda: len(windows()) == 2 and maximized(between)[0][1] == "0",
+    desktop.wait_for(lambda: len(windows()) == 2 and not maximized(between)[0].focused,
                      "a second window focused")
     pointer = desktop.virtual_pointer(pointer_probe, WIDTH, HEIGHT)
     pointer("move", "100", str(HEIGHT - DOCK - 10), "click", "left")
-    desktop.wait_for(lambda: maximized(between)[0][1] == "1", "the press above the dock reaching the window")
+    desktop.wait_for(lambda: maximized(between)[0].focused, "the press above the dock reaching the window")
 
     # A taskbar profile: the menu bar goes with its strip, and the window grows into it.
     profile("plain")
