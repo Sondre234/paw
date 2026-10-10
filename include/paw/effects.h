@@ -11,9 +11,6 @@
 extern "C" {
 #endif
 
-/* Ease-out cubic, t clamped to [0, 1]: fast at first, settling gently. */
-double sh_ease_out(double t);
-
 /* A value moving to a target over a duration. A new target starts from wherever the value is
  * at that moment, so retargeting mid-fade never jumps. */
 struct sh_fade {
@@ -39,9 +36,6 @@ struct sh_rgb sh_kelvin_to_rgb(int kelvin);
 /* Fills `out` with `3 * size` entries: `size` red, then green, then blue, each a ramp from 0 to
  * the channel's factor, as wlr-gamma-control and DRM expect. */
 void sh_gamma_ramp(struct sh_rgb factors, size_t size, uint16_t *out);
-/* The same factors for a 3x3 matrix in linear light (row major), where a factor f in encoded
- * values is f^2.2. */
-void sh_linear_matrix(struct sh_rgb factors, float matrix[9]);
 
 /* When the temperature changes, in minutes after local midnight, both in [0, 1440). The
  * change is centred on the time and lasts `transition` minutes. `sunset` before `sunrise`
@@ -51,8 +45,7 @@ struct sh_night_schedule {
     double sunrise, sunset;
     double transition;
 };
-/* 1 in full day, 0 in full night, smooth in between. */
-double sh_daylight(const struct sh_night_schedule *schedule, double minute);
+/* The day's temperature in full day, the night's in full night, smooth in between. */
 int sh_night_kelvin(const struct sh_night_schedule *schedule, double minute);
 
 /* Sunrise and sunset in minutes after local midnight for a place (degrees, north and east
@@ -69,7 +62,6 @@ enum sh_corner {
     SH_CORNER_TOP_RIGHT,
     SH_CORNER_BOTTOM_LEFT,
     SH_CORNER_BOTTOM_RIGHT,
-    SH_CORNER_COUNT,
 };
 /* The corner of a width x height box whose size x size square holds (x, y), or -1. */
 int sh_corner_at(double x, double y, int width, int height, int size);
@@ -94,11 +86,6 @@ struct sh_view {
  * its relative place on screen (it is the fixed point of the zoom), so the pointer stays
  * under the magnified pointer; the view stays inside the output. */
 struct sh_view sh_zoom_view(double level, double width, double height, double px, double py);
-/* Where the logical point (x, y) appears on screen in `view`, and the reverse. */
-void sh_view_to_screen(const struct sh_view *view, double width, double height, double x,
-                       double y, double *sx, double *sy);
-void sh_view_to_logical(const struct sh_view *view, double width, double height, double sx,
-                        double sy, double *x, double *y);
 /* The level after `steps` zoom steps of a factor `step` each, kept within [1, maximum]. */
 double sh_zoom_level(double level, double step, int steps, double maximum);
 

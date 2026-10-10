@@ -949,7 +949,8 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/output_follow_smoke.py
             $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         set_tests_properties(output_follow_smoke PROPERTIES TIMEOUT 60)
-        add_executable(animation_tests tests/animation_tests.c src/animation.c)
+        add_executable(animation_tests tests/animation_tests.c src/animation.c
+            src/overview_scene.c)
         target_compile_definitions(animation_tests PRIVATE WLR_USE_UNSTABLE)
         target_compile_options(animation_tests PRIVATE -Wall -Wextra -Wno-unused-parameter)
         target_link_libraries(animation_tests PRIVATE paw_config PkgConfig::WLROOTS

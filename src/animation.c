@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "paw/animation.h"
+#include "paw/overview_scene.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -559,53 +560,9 @@ void sh_anim_slide(struct sh_animator *animator, struct sh_anim *anim, struct wl
     step(anim, anim->fx_start);
 }
 
-/* Copies what is visible below `tree` into `target`, flattened. */
-static void copy(struct wlr_scene_tree *target, struct wlr_scene_tree *tree, int ox, int oy) {
-    struct wlr_scene_node *node;
-    wl_list_for_each(node, &tree->children, link) {
-        if (!node->enabled)
-            continue;
-        int x = ox + node->x, y = oy + node->y;
-        if (node->type == WLR_SCENE_NODE_TREE) {
-            copy(target, wlr_scene_tree_from_node(node), x, y);
-        } else if (node->type == WLR_SCENE_NODE_RECT) {
-            struct wlr_scene_rect *rect = wlr_scene_rect_from_node(node);
-            struct wlr_scene_rect *clone =
-                wlr_scene_rect_create(target, rect->width, rect->height, rect->color);
-            if (clone)
-                wlr_scene_node_set_position(&clone->node, x, y);
-        } else if (node->type == WLR_SCENE_NODE_BUFFER) {
-            struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
-            if (!buffer->buffer)
-                continue;
-            // The new node locks the client's buffer, which keeps its texture.
-            struct wlr_scene_buffer *clone = wlr_scene_buffer_create(target, buffer->buffer);
-            if (!clone)
-                continue;
-            int width = buffer->dst_width, height = buffer->dst_height;
-            if (width <= 0 || height <= 0) {
-                bool turned = buffer->transform & WL_OUTPUT_TRANSFORM_90;
-                width = turned ? buffer->buffer->height : buffer->buffer->width;
-                height = turned ? buffer->buffer->width : buffer->buffer->height;
-            }
-            wlr_scene_node_set_position(&clone->node, x, y);
-            wlr_scene_buffer_set_dest_size(clone, width, height);
-            wlr_scene_buffer_set_source_box(clone, &buffer->src_box);
-            wlr_scene_buffer_set_transform(clone, buffer->transform);
-            wlr_scene_buffer_set_opacity(clone, buffer->opacity);
-            wlr_scene_buffer_set_filter_mode(clone, buffer->filter_mode);
-            wlr_scene_buffer_set_opaque_region(clone, &buffer->opaque_region);
-            wlr_scene_buffer_set_transfer_function(clone, buffer->transfer_function);
-            wlr_scene_buffer_set_primaries(clone, buffer->primaries);
-            wlr_scene_buffer_set_color_encoding(clone, buffer->color_encoding);
-            wlr_scene_buffer_set_color_range(clone, buffer->color_range);
-        }
-    }
-}
-
-/* A tree just above `window` holding a copy of what is visible under `content`, where the
- * window is, owned by a new animation that is neither running nor held; NULL if there is nothing
- * to copy. */
+/* A tree just above `window` holding a copy of what is visible under `content` (flattened, as
+ * the overview's thumbnails are, at full size), where the window is, owned by a new animation
+ * that is neither running nor held; NULL if there is nothing to copy. */
 static struct sh_anim *make_copy(struct wlr_scene_node *window, struct wlr_scene_tree *content) {
     struct sh_anim *anim = calloc(1, sizeof(*anim));
     struct wlr_scene_tree *tree = anim ? wlr_scene_tree_create(window->parent) : NULL;
@@ -613,8 +570,7 @@ static struct sh_anim *make_copy(struct wlr_scene_node *window, struct wlr_scene
         free(anim);
         return NULL;
     }
-    copy(tree, content, 0, 0);
-    if (wl_list_empty(&tree->children)) {
+    if (!sh_thumb_clone(tree, content, 1, 1, NULL)) {
         wlr_scene_node_destroy(&tree->node);
         free(anim);
         return NULL;

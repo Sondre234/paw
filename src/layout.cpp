@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "paw/backend.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <utility>
 
 extern "C" bool sh_placement(sh_action action, sh_rect area, int gap, int index, int count,
                              sh_rect *result) {
@@ -124,37 +126,19 @@ extern "C" unsigned sh_snap_quarters(sh_action arrangement) {
 }
 
 extern "C" sh_action sh_snap_assist_slot(sh_action snapped, unsigned taken) {
-    sh_action candidates[3] = {SH_NONE, SH_NONE, SH_NONE};
-    switch (snapped) {
-    case SH_SNAP_LEFT:
-        candidates[0] = SH_SNAP_RIGHT, candidates[1] = SH_SNAP_TOP_RIGHT;
-        candidates[2] = SH_SNAP_BOTTOM_RIGHT;
-        break;
-    case SH_SNAP_RIGHT:
-        candidates[0] = SH_SNAP_LEFT, candidates[1] = SH_SNAP_TOP_LEFT;
-        candidates[2] = SH_SNAP_BOTTOM_LEFT;
-        break;
-    case SH_SNAP_TOP_LEFT:
-        candidates[0] = SH_SNAP_TOP_RIGHT, candidates[1] = SH_SNAP_BOTTOM_LEFT;
-        candidates[2] = SH_SNAP_BOTTOM_RIGHT;
-        break;
-    case SH_SNAP_TOP_RIGHT:
-        candidates[0] = SH_SNAP_TOP_LEFT, candidates[1] = SH_SNAP_BOTTOM_RIGHT;
-        candidates[2] = SH_SNAP_BOTTOM_LEFT;
-        break;
-    case SH_SNAP_BOTTOM_LEFT:
-        candidates[0] = SH_SNAP_BOTTOM_RIGHT, candidates[1] = SH_SNAP_TOP_LEFT;
-        candidates[2] = SH_SNAP_TOP_RIGHT;
-        break;
-    case SH_SNAP_BOTTOM_RIGHT:
-        candidates[0] = SH_SNAP_BOTTOM_LEFT, candidates[1] = SH_SNAP_TOP_RIGHT;
-        candidates[2] = SH_SNAP_TOP_LEFT;
-        break;
-    default:
-        return SH_NONE;
-    }
-    for (sh_action candidate : candidates)
-        if (!(sh_snap_quarters(candidate) & taken))
-            return candidate;
+    // For each arrangement, the places offered beside it, in the order they are tried.
+    static constexpr std::pair<sh_action, std::array<sh_action, 3>> beside[] = {
+        {SH_SNAP_LEFT, {SH_SNAP_RIGHT, SH_SNAP_TOP_RIGHT, SH_SNAP_BOTTOM_RIGHT}},
+        {SH_SNAP_RIGHT, {SH_SNAP_LEFT, SH_SNAP_TOP_LEFT, SH_SNAP_BOTTOM_LEFT}},
+        {SH_SNAP_TOP_LEFT, {SH_SNAP_TOP_RIGHT, SH_SNAP_BOTTOM_LEFT, SH_SNAP_BOTTOM_RIGHT}},
+        {SH_SNAP_TOP_RIGHT, {SH_SNAP_TOP_LEFT, SH_SNAP_BOTTOM_RIGHT, SH_SNAP_BOTTOM_LEFT}},
+        {SH_SNAP_BOTTOM_LEFT, {SH_SNAP_BOTTOM_RIGHT, SH_SNAP_TOP_LEFT, SH_SNAP_TOP_RIGHT}},
+        {SH_SNAP_BOTTOM_RIGHT, {SH_SNAP_BOTTOM_LEFT, SH_SNAP_TOP_RIGHT, SH_SNAP_TOP_LEFT}},
+    };
+    for (const auto &[arrangement, candidates] : beside)
+        if (arrangement == snapped)
+            for (sh_action candidate : candidates)
+                if (!(sh_snap_quarters(candidate) & taken))
+                    return candidate;
     return SH_NONE;
 }

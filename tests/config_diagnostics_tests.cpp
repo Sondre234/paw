@@ -121,6 +121,10 @@ void locations() {
     at("return {\n  modes = {\n    launch = {\n      { key = 'x', action = 'close' },\n    },\n"
        "  },\n}",
        "3: mode 'launch' has no binding");
+    // A setting of a nested section is looked for inside it, not at the same name elsewhere.
+    at("return {\n  hot_corners = { delay = 100 },\n  shell = {\n    thumbnails = {\n"
+       "      delay = 'soon',\n    },\n  },\n}",
+       "5: shell.thumbnails.delay must be an integer");
     // Lua's own errors already carry file:line.
     at("return {\n  x = = 1,\n}", "2:");
     at("local a = nil\nreturn { shell = a.b }", "2:");
@@ -151,6 +155,18 @@ void ranges() {
            "shell.widgets.network must be true, false, \"bar\" or \"quick\", not \"taskbar\"");
     expect("return {shell={widgets={volume=2}}}",
            "shell.widgets.volume must be true, false, \"bar\" or \"quick\", not an integer");
+    // A table inside another names its own path in errors,
+    expect("return {windows={magnet={distance=999}}}",
+           "windows.magnet.distance must be between 0 and 200, not 999");
+    expect("return {windows={shadow={blur=999}}}",
+           "windows.shadow.blur must be between 0 and 100, not 999");
+    expect("return {windows={snap={distance=0}}}",
+           "windows.snap.distance must be between 1 and 100, not 0");
+    expect("return {shell={panel_margin={top=999}}}",
+           "shell.panel_margin.top must be between 0 and 200, not 999");
+    // ... and what follows it goes back to naming the one around it.
+    expect("return {windows={magnet={distance=1},drag_strip=999}}",
+           "windows.drag_strip must be between 0 and 100, not 999");
 }
 void schema_matches_parser() {
     auto options = paw::config_options();

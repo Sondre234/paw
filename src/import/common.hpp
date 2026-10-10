@@ -51,6 +51,7 @@ std::string hex(Color color, bool alpha = true);
 std::optional<Color> parse_hex(std::string_view digits); // "rrggbb", "rgb", "rrggbbaa", ...
 
 std::string trim(std::string_view text);
+std::string lower(std::string text); // ASCII
 // Splits on `separator` outside parentheses and quotes, trimming each part.
 std::vector<std::string> split(std::string_view text, char separator);
 std::optional<double> parse_number(std::string_view text);

@@ -3,7 +3,8 @@
 /* Live thumbnails for the overview, on the plain wlroots scene graph. A thumbnail is a copy of
  * the buffers and rectangles below a window's tree, in a tree of its own, scaled by one factor.
  * The copies share the client's buffers, so a thumbnail costs no more than a few scene nodes;
- * it stays live by being copied again whenever the window's fingerprint changes. */
+ * it stays live by being copied again whenever the window's fingerprint changes. Animations
+ * copy a window the same way at full size, to fade it out once it is gone. */
 #include <stdint.h>
 
 struct wlr_scene_tree;

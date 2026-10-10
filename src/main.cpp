@@ -16,6 +16,7 @@
 #include <optional>
 #include <set>
 #include <signal.h>
+#include <span>
 #include <spawn.h>
 #include <sstream>
 #include <stdexcept>
@@ -183,22 +184,6 @@ void set_window_buttons(const std::string &layout) {
     std::ofstream(profile) << dconf_profile() << "file-db:" << database.string() << '\n';
     setenv("DCONF_PROFILE", profile.c_str(), true);
 }
-// The executable `name` on PATH, or an empty path.
-std::filesystem::path find_program(const std::string &name) {
-    const char *path = std::getenv("PATH");
-    std::istringstream directories(path ? path : "");
-    for (std::string directory; std::getline(directories, directory, ':');) {
-        auto candidate = std::filesystem::path(directory.empty() ? "." : directory) / name;
-        if (access(candidate.c_str(), X_OK) == 0 && !std::filesystem::is_directory(candidate))
-            return candidate;
-    }
-    return {};
-}
-// Whether `program` can be run: a path to an executable, or a name found on PATH.
-bool installed(const std::string &program) {
-    return program.find('/') != std::string::npos ? access(program.c_str(), X_OK) == 0
-                                                   : !find_program(program).empty();
-}
 // The terminals the `terminal` action looks for, in this order, when neither the configuration
 // nor $TERMINAL names one.
 constexpr const char *known_terminals[] = {"kitty",   "foot",    "alacritty",      "wezterm",
@@ -256,7 +241,7 @@ struct Runtime {
     // The running screenshot script; another request is refused until it exits.
     pid_t screenshot_pid = -1;
     std::string target{}; // the output target of the action last resolved
-    unsigned flags = 0;   // the sh_binding_flag bits of the key binding last resolved
+    unsigned flags = 0;   // the sh_binding_flag bits of the binding last resolved
     std::string keys{};   // what binding_keys returned last
     int mode = 0;         // the binding mode `key` looks in: 0 outside any, else modes[mode - 1]
     paw::Command program{}; // the program of the spawn action last resolved
@@ -339,13 +324,13 @@ struct Runtime {
         auto value = [](const std::optional<bool> &decided) { return decided ? *decided : -1; };
         *rule = {value(held.floating), value(held.sticky), value(held.above)};
     }
-    static sh_action key(void *data, uint32_t modifiers, uint32_t keysym, int *argument) {
-        auto &self = *static_cast<Runtime *>(data);
-        auto *binding = self.config.mode_binding(self.mode, modifiers, keysym);
+    /* The action of a key, button or switch binding, or SH_NONE without one; its argument goes
+     * in `argument`, and its program, target and flags are kept for the callbacks after. */
+    sh_action take(const paw::Binding *binding, int *argument) {
         if (!binding)
             return SH_NONE;
         if (binding->action == SH_SPAWN)
-            self.program = binding->command;
+            program = binding->command;
         *argument = binding->action == SH_SCREENSHOT ? binding->screenshot : binding->workspace;
         if (paw::action_takes_amount(binding->action))
             *argument = binding->amount;
@@ -353,10 +338,14 @@ struct Runtime {
             *argument = binding->layout;
         if (binding->action == SH_MODE || binding->action == SH_DISPLAY_MODE)
             *argument = binding->mode;
-        self.target = binding->output;
-        self.flags = (binding->locked ? SH_BINDING_LOCKED : 0) |
-                     (binding->repeats ? SH_BINDING_REPEATS : 0);
+        target = binding->output;
+        flags = (binding->locked ? SH_BINDING_LOCKED : 0) |
+                (binding->repeats ? SH_BINDING_REPEATS : 0);
         return binding->action;
+    }
+    static sh_action key(void *data, uint32_t modifiers, uint32_t keysym, int *argument) {
+        auto &self = *static_cast<Runtime *>(data);
+        return self.take(self.config.mode_binding(self.mode, modifiers, keysym), argument);
     }
     static unsigned binding_flags(void *data) { return static_cast<Runtime *>(data)->flags; }
     static const char *set_mode(void *data, int mode) {
@@ -370,38 +359,12 @@ struct Runtime {
     static sh_action button(void *data, uint32_t modifiers, uint32_t button,
                             sh_pointer_target target, const char *app_id, int *argument) {
         auto &self = *static_cast<Runtime *>(data);
-        auto *binding = self.config.button_binding(modifiers, button, target, app_id);
-        if (!binding)
-            return SH_NONE;
-        if (binding->action == SH_SPAWN)
-            self.program = binding->command;
-        *argument = binding->action == SH_SCREENSHOT ? binding->screenshot : binding->workspace;
-        if (paw::action_takes_amount(binding->action))
-            *argument = binding->amount;
-        if (binding->action == SH_SWITCH_LAYOUT)
-            *argument = binding->layout;
-        if (binding->action == SH_MODE || binding->action == SH_DISPLAY_MODE)
-            *argument = binding->mode;
-        self.target = binding->output;
-        return binding->action;
+        return self.take(self.config.button_binding(modifiers, button, target, app_id), argument);
     }
     /* The same for a switch turning on or off: { switch = "lid", state = "close", ... }. */
     static sh_action switch_toggled(void *data, sh_switch type, bool on, int *argument) {
         auto &self = *static_cast<Runtime *>(data);
-        auto *binding = self.config.switch_binding(type, on);
-        if (!binding)
-            return SH_NONE;
-        if (binding->action == SH_SPAWN)
-            self.program = binding->command;
-        *argument = binding->action == SH_SCREENSHOT ? binding->screenshot : binding->workspace;
-        if (paw::action_takes_amount(binding->action))
-            *argument = binding->amount;
-        if (binding->action == SH_SWITCH_LAYOUT)
-            *argument = binding->layout;
-        if (binding->action == SH_DISPLAY_MODE)
-            *argument = binding->mode;
-        self.target = binding->output;
-        return binding->action;
+        return self.take(self.config.switch_binding(type, on), argument);
     }
     /* The keys bound to an action, for the compositor to tell the user. */
     static const char *binding_keys(void *data, sh_action action) {
@@ -432,37 +395,29 @@ struct Runtime {
                 self.program = {words.begin() + 1, words.end()};
                 return action;
             }
+            // The words after the action's name, for an argument that may hold spaces.
+            auto rest = paw::join(std::span(words).subspan(1), " ");
             if (paw::action_takes_workspace(action)) {
-                // A number, or a name from layout.workspace_names (which may hold spaces).
-                std::string name;
-                for (std::size_t i = 1; i < words.size(); ++i)
-                    name += (i > 1 ? " " : "") + words[i];
-                int number = self.config.workspace_number(name);
+                // A number, or a name from layout.workspace_names.
+                int number = self.config.workspace_number(rest);
                 if (!number)
                     throw std::runtime_error(words[0] + " needs a workspace from 1 to " +
                                              std::to_string(self.config.settings.workspaces) +
                                              ", or a workspace name");
                 *argument = number;
             } else if (paw::action_takes_output(action)) {
-                // A description may hold spaces.
-                std::string target;
-                for (std::size_t i = 1; i < words.size(); ++i)
-                    target += (i > 1 ? " " : "") + words[i];
                 if (words.size() == 1 && action == SH_SWAP_WORKSPACES)
-                    target = "next";
-                if (!paw::valid_output_target(target))
+                    rest = "next";
+                if (!paw::valid_output_target(rest))
                     throw std::runtime_error(words[0] + " takes one output: left, right, next, "
                                                         "prev, or a connector name");
-                self.target = target;
+                self.target = rest;
             } else if (paw::action_takes_display(action)) {
-                // One monitor, or every one without a name; a description may hold spaces.
-                std::string target;
-                for (std::size_t i = 1; i < words.size(); ++i)
-                    target += (i > 1 ? " " : "") + words[i];
-                if (!target.empty() && !paw::valid_output_target(target))
+                // One monitor, or every one without a name.
+                if (!rest.empty() && !paw::valid_output_target(rest))
                     throw std::runtime_error(words[0] + " takes a monitor's connector name, or "
                                                         "none for every monitor");
-                self.target = target;
+                self.target = rest;
             } else if (action == SH_DISPLAY_MODE) {
                 if (words.size() > 2)
                     throw std::runtime_error("display_mode takes one mode: extend, duplicate, "
@@ -496,9 +451,7 @@ struct Runtime {
             } else if (action == SH_MODE) {
                 int number = words.size() == 2 ? self.config.mode_number(words[1]) : -1;
                 if (number < 0) {
-                    std::string names;
-                    for (const auto &name : self.config.mode_names())
-                        names += (names.empty() ? "" : ", ") + name;
+                    auto names = paw::join(self.config.mode_names());
                     throw std::runtime_error(words.size() == 2 ? "no mode " + words[1] +
                                                                      "; the modes are " + names
                                                                : "mode takes a mode's name: " +
@@ -553,10 +506,8 @@ struct Runtime {
                 index = (index + (name == "next" ? 1 : names.size() - 1)) % names.size();
             name = names[index];
         } else if (std::find(names.begin(), names.end(), name) == names.end()) {
-            std::string list;
-            for (const auto &known : names)
-                list += (list.empty() ? "" : ", ") + known;
-            throw std::runtime_error("no profile " + name + "; the profiles are " + list);
+            throw std::runtime_error("no profile " + name + "; the profiles are " +
+                                     paw::join(names));
         }
         paw::save_profile(name);
         return SH_RELOAD;
@@ -571,12 +522,12 @@ struct Runtime {
         if (!config.terminal.empty())
             return config.terminal;
         if (const char *name = std::getenv("TERMINAL"); name && *name) {
-            if (installed(name))
+            if (paw::executable(name))
                 return {name};
             std::cerr << "$TERMINAL, " << name << ", is not installed; looking for another\n";
         }
         for (const char *name : known_terminals)
-            if (installed(name))
+            if (paw::executable(name))
                 return {name};
         return {};
     }
@@ -622,17 +573,17 @@ struct Runtime {
         try {
             if (self.screenshot_pid > 0)
                 throw std::runtime_error("a screenshot is already being taken");
-            if (find_program("grim").empty() ||
-                (mode == SH_SCREENSHOT_REGION && find_program("slurp").empty()))
+            if (!paw::executable("grim") ||
+                (mode == SH_SCREENSHOT_REGION && !paw::executable("slurp")))
                 throw std::runtime_error(mode == SH_SCREENSHOT_REGION
                                              ? "region screenshots need grim and slurp installed"
                                              : "screenshots need grim installed");
             bool copy = self.config.screenshots.clipboard;
-            if (copy && find_program("wl-copy").empty()) {
+            if (copy && !paw::executable("wl-copy")) {
                 std::cerr << "wl-copy is not installed; the screenshot is saved but not copied\n";
                 copy = false;
             }
-            bool notify = self.config.screenshots.notify && !find_program("notify-send").empty();
+            bool notify = self.config.screenshots.notify && paw::executable("notify-send");
             auto directory = self.screenshot_directory();
             std::error_code failure;
             std::filesystem::create_directories(directory, failure);
@@ -671,7 +622,7 @@ struct Runtime {
         if (!self.locker_problem) {
             if (command.empty())
                 self.locker_problem = "power.lock_command is not set";
-            else if (!installed(command.front()))
+            else if (!paw::executable(command.front()))
                 self.locker_problem = command.front() + " is not installed";
             else
                 self.locker_problem = "";
@@ -800,9 +751,7 @@ struct Runtime {
                 note_started({entry.name.substr(0, entry.name.size() - 8)});
                 if (!entry.wm_class.empty())
                     note_started({entry.wm_class});
-                detail.clear();
-                for (const auto &argument : entry.command)
-                    detail += (detail.empty() ? "" : " ") + argument;
+                detail = paw::join(entry.command, " ");
                 ++started;
             } else {
                 state = "failed";
