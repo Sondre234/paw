@@ -103,7 +103,7 @@ QVariantMap DisplaySettings::record(const Monitor &m) const {
                         {"label", QString("%1 × %2").arg(size.width).arg(size.height) +
                                       (size.preferred ? " (recommended)" : "")}});
     std::stable_sort(rates.begin(), rates.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap()["refresh"].toInt() > b.toMap()["refresh"].toInt();
+        return a.toMap().value("refresh").toInt() > b.toMap().value("refresh").toInt();
     });
     QStringList mirroredBy;
     for (const auto &other : monitors_)

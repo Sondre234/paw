@@ -939,8 +939,10 @@ void ShellController::subscribe() {
             urgentCount_ = nextUrgentCount_;
             urgentWindows_ = nextUrgentWindows_;
             QList<QPair<QString, QString>> windows;
-            for (const auto &item : urgentWindows_)
-                windows.push_back({item.toMap()["appId"].toString(), item.toMap()["title"].toString()});
+            for (const auto &item : urgentWindows_) {
+                const auto window = item.toMap();
+                windows.push_back({window.value("appId").toString(), window.value("title").toString()});
+            }
             tasks_.setUrgent(windows);
             Q_EMIT urgentChanged();
         }

@@ -139,8 +139,8 @@ void StartMenu::setApps(const QVariantList &apps, const QStringList &taskbarPins
     if (!ownPins_) {
         QStringList ids;
         for (const auto &app : apps)
-            if (!app.toMap()["configured"].toBool())
-                ids.push_back(app.toMap()["appId"].toString());
+            if (!app.toMap().value("configured").toBool())
+                ids.push_back(app.toMap().value("appId").toString());
         pins_ = seed(taskbarPins, commonApps(), ids);
     }
     Q_EMIT appsChanged();
@@ -150,7 +150,7 @@ void StartMenu::setApps(const QVariantList &apps, const QStringList &taskbarPins
 
 QVariantMap StartMenu::appRecord(const QString &id) const {
     for (const auto &app : apps_)
-        if (app.toMap()["appId"] == id)
+        if (app.toMap().value("appId") == id)
             return app.toMap();
     return {};
 }
@@ -298,12 +298,12 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
     // The windows, workspaces and actions, ranked as the palette ranks them.
     QVariantList candidates, windows, actions;
     for (const auto &item : others) {
-        const auto kind = item.toMap()["kind"].toString();
+        const auto kind = item.toMap().value("kind").toString();
         if (kind == "window" || kind == "workspace" || kind == "action")
             candidates.push_back(item);
     }
     for (const auto &item : fuzzy::rank(candidates, query, 40)) {
-        auto &group = item.toMap()["kind"] == "window" ? windows : actions;
+        auto &group = item.toMap().value("kind") == "window" ? windows : actions;
         if (group.size() < 5)
             group.push_back(item);
     }
@@ -319,14 +319,18 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
         windows.clear();
         actions.clear();
     }
+    // The score of a group's first entry, its best; -1 for none.
+    auto scoreOf = [](const QVariantList &group) {
+        return group.isEmpty() ? -1.0 : group.first().toMap().value("score").toDouble();
+    };
     // What matched far worse than the best is left out: letters strewn through a long name.
-    const double best = std::max({apps.empty() ? 0.0 : apps.front().score,
-                                  windows.isEmpty() ? 0.0 : windows.first().toMap()["score"].toDouble(),
-                                  actions.isEmpty() ? 0.0 : actions.first().toMap()["score"].toDouble(),
-                                  files.isEmpty() ? 0.0 : files.first().toMap()["score"].toDouble()});
+    const double best = std::max({apps.empty() ? 0.0 : apps.front().score, scoreOf(windows),
+                                  scoreOf(actions), scoreOf(files)});
     const double least = best * 0.5;
     std::erase_if(apps, [least](const Found &found) { return found.score < least; });
-    auto weak = [least](const QVariant &item) { return item.toMap()["score"].toDouble() < least; };
+    auto weak = [least](const QVariant &item) {
+        return item.toMap().value("score").toDouble() < least;
+    };
     windows.removeIf(weak);
     actions.removeIf(weak);
     QVariantList results;
@@ -336,9 +340,6 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
     };
     // The best match is a calculation's value, else the first of whichever group matched best;
     // an application on a tie, a file only when it matched better than the rest.
-    auto scoreOf = [](const QVariantList &group) {
-        return group.isEmpty() ? -1.0 : group.first().toMap()["score"].toDouble();
-    };
     const double app = apps.empty() ? -1 : apps.front().score;
     const double file = scoreOf(files);
     if (const auto calc = calculator::entry(query); !calc.isEmpty()) {

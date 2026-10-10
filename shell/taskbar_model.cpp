@@ -265,7 +265,7 @@ void TaskbarModel::attach() {
                 QStringList ids;
                 if (pins)
                     for (const auto &app : pins->pinned())
-                        ids.push_back(app.toMap()["appId"].toString());
+                        ids.push_back(app.toMap().value("appId").toString());
                 return ids;
             },
             [pins](const QString &appId) { return pins ? pins->pinnedAppFor(appId) : QString(); },
