@@ -816,7 +816,7 @@ above its entries: the icon large, the name, and the secondary text under it, el
 the entries need; `toggle` is `"check"` or `"radio"`
 with `checked`; `enabled: false` greys an entry out and `danger: true` draws it in the danger
 colour. `run` is called when the entry is chosen, and the menu then emits `dismissed()` unless it
-returns `true`; `triggered(entry)` comes first. `submenu` is an array of entries, or a function
+returns `true`. `submenu` is an array of entries, or a function
 returning one that is read as it opens and again when what it read changes. Placement is the
 card's: `anchorRect`, `side`, `alignment`, `gap`, `bounds`; `minimumWidth`, `maximumWidth` and
 `rowHeight` size the rows. A submenu opens beside its entry after the pointer rests there for
