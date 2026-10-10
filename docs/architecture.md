@@ -39,7 +39,7 @@ all. In short:
 | --- | --- |
 | `server.c` | Startup (creating every wlroots global and listener), shutdown, config reload, signals. |
 | `server.h` | The shared types (`sh_server`, `sh_output`, `sh_toplevel`, ...) and, under a `/* file.c */` heading, every function one file calls in another. |
-| `actions.c` | `run_action`: one `case` per action, handing it to the module that does it. |
+| `actions.c` | `run_action`: one `case` per action, handing it to the module that does it, and `shell_actions`, those the shell carries out. |
 | `control.c` | The control socket: reading requests, commands that are not actions, subscribers and shell events. |
 | `query.c` | `paw msg get ...`: one function per query, and the table that names them. |
 | `headless_input.c` | Input devices without hardware for tests under `--headless`: pointers that move and make touchpad gestures, touchscreens, and drawing tablets with a pen, an eraser and a pad. |
@@ -915,8 +915,9 @@ touches the session it runs in. The `shell_gallery` test runs it and fails on an
    with "takes no argument". One that starts a program goes through the `launch` callback
    there, as `spawn` and `terminal` do, so a failure reaches the panel.
 4. Add a `case` to `run_action` in `src/compositor/actions.c` that calls the module doing the
-   work. If it acts on the window under the pointer when bound to a button, list it in
-   `action_targets_window` in `cursor.c`.
+   work, or, for one the shell carries out alone, a line or a request for it in
+   `shell_actions` there. If it acts on the window under the pointer when bound to a button,
+   list it in `action_targets_window` in `cursor.c`.
 5. Mention it in `README.md` or `docs/features.md`. The `docs_consistency` test fails until
    you do.
 

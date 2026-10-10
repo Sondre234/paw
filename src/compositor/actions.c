@@ -40,12 +40,43 @@ bool launch_program(struct sh_server *server, enum sh_action action, char *error
     return false;
 }
 
+/* Actions the shell carries out: each sends it a line, or asks it to open something on the output
+ * under the pointer (request_shell). */
+static const struct {
+    enum sh_action action;
+    const char *line, *open;
+} shell_actions[] = {
+    {SH_LAUNCHER, .open = "launcher"},
+    {SH_PALETTE, .open = "palette"},
+    {SH_NOTIFICATION_HISTORY, .open = "notifications"},
+    {SH_CLIPBOARD_HISTORY, .open = "clipboard"},
+    {SH_EMOJI_PICKER, .open = "emoji"},
+    {SH_POWER_MENU, .open = "power-menu"},
+    {SH_DISPLAY_SETTINGS, .open = "display-settings"},
+    {SH_DND_TOGGLE, .line = "dnd toggle\n"},
+    {SH_DND_ON, .line = "dnd on\n"},
+    {SH_DND_OFF, .line = "dnd off\n"},
+    {SH_MEDIA_PLAY_PAUSE, .line = "media play-pause\n"},
+    {SH_MEDIA_NEXT, .line = "media next\n"},
+    {SH_MEDIA_PREVIOUS, .line = "media previous\n"},
+    {SH_MEDIA_STOP, .line = "media stop\n"},
+};
+
 /* Shared by key bindings and the control socket. */
 void run_action(struct sh_server *server, enum sh_action action, int argument) {
     // Snap Assist gives way to any action but those that pick from it or dismiss it.
     if (server->overview.open && server->overview.assist && action != SH_NONE &&
         action != SH_OVERVIEW_CONFIRM && action != SH_OVERVIEW_CANCEL)
         overview_close(server, NULL, -1);
+    for (size_t i = 0; i < sizeof(shell_actions) / sizeof(*shell_actions); ++i) {
+        if (shell_actions[i].action != action)
+            continue;
+        if (shell_actions[i].line)
+            send_shell_line(server, shell_actions[i].line);
+        else
+            request_shell(server, shell_actions[i].open);
+        return;
+    }
     int count = server_settings(server)->workspaces;
     struct sh_toplevel *current = current_toplevel(server);
     switch (action) {
@@ -170,12 +201,6 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_MASTER_LESS:
         layout_action(server, action);
         break;
-    case SH_LAUNCHER:
-        request_shell(server, "launcher");
-        break;
-    case SH_PALETTE:
-        request_shell(server, "palette");
-        break;
     case SH_TASKBAR_FOCUS:
         request_taskbar(server);
         break;
@@ -279,36 +304,6 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
             swap_output_workspaces(server, target);
         break;
     }
-    case SH_DND_TOGGLE:
-        send_shell_line(server, "dnd toggle\n");
-        break;
-    case SH_DND_ON:
-        send_shell_line(server, "dnd on\n");
-        break;
-    case SH_DND_OFF:
-        send_shell_line(server, "dnd off\n");
-        break;
-    case SH_NOTIFICATION_HISTORY:
-        request_shell(server, "notifications");
-        break;
-    case SH_MEDIA_PLAY_PAUSE:
-        send_shell_line(server, "media play-pause\n");
-        break;
-    case SH_MEDIA_NEXT:
-        send_shell_line(server, "media next\n");
-        break;
-    case SH_MEDIA_PREVIOUS:
-        send_shell_line(server, "media previous\n");
-        break;
-    case SH_MEDIA_STOP:
-        send_shell_line(server, "media stop\n");
-        break;
-    case SH_CLIPBOARD_HISTORY:
-        request_shell(server, "clipboard");
-        break;
-    case SH_EMOJI_PICKER:
-        request_shell(server, "emoji");
-        break;
     case SH_POWER_OFF:
     case SH_REBOOT:
     case SH_SUSPEND:
@@ -316,12 +311,6 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_LOGOUT:
     case SH_LOCK:
         power_run(server, action);
-        break;
-    case SH_POWER_MENU:
-        request_shell(server, "power-menu");
-        break;
-    case SH_DISPLAY_SETTINGS:
-        request_shell(server, "display-settings");
         break;
     case SH_DISPLAY_OFF:
     case SH_DISPLAY_ON:
