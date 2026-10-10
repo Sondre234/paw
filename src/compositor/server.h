@@ -974,6 +974,7 @@ void set_binding_mode(struct sh_server *server, int mode);
 
 /* cursor.c */
 struct wlr_output *pointer_output(struct sh_server *server);
+struct sh_node *scene_owner(struct wlr_scene_node *node);
 uint32_t corner_edges(struct sh_toplevel *toplevel, uint32_t edges);
 void cursor_request_set_shape(struct wl_listener *listener, void *data);
 void process_cursor_motion(struct sh_server *server, uint32_t time);

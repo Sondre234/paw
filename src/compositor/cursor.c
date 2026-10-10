@@ -10,14 +10,19 @@ struct wlr_output *pointer_output(struct sh_server *server) {
     return wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
 }
 
+/* What `node` is drawn for: the sh_node of the nearest tree above it that has one, or NULL. */
+struct sh_node *scene_owner(struct wlr_scene_node *node) {
+    struct wlr_scene_tree *tree = node->parent;
+    while (tree && !tree->node.data)
+        tree = tree->node.parent;
+    return tree ? tree->node.data : NULL;
+}
+
 /* Whether `node` is a window's rounded frame and the layout position is inside its hole. */
 static bool in_frame_hole(struct wlr_scene_node *node, double lx, double ly) {
     if (!node || node->type != WLR_SCENE_NODE_RECT)
         return false;
-    struct wlr_scene_tree *tree = node->parent;
-    while (tree && !tree->node.data)
-        tree = tree->node.parent;
-    struct sh_node *owner = tree ? tree->node.data : NULL;
+    struct sh_node *owner = scene_owner(node);
     if (!owner || owner->kind != SH_NODE_TOPLEVEL)
         return false;
     struct sh_toplevel *toplevel = owner->owner;
@@ -98,12 +103,7 @@ static struct sh_node *desktop_node_at(struct sh_server *server, double lx, doub
     }
 
     *surface = scene_surface->surface;
-
-    struct wlr_scene_tree *tree = node->parent;
-    while (tree != NULL && tree->node.data == NULL) {
-        tree = tree->node.parent;
-    }
-    return tree ? tree->node.data : NULL;
+    return scene_owner(node);
 }
 
 static struct sh_toplevel *desktop_toplevel_at(struct sh_server *server, double x, double y,
@@ -202,18 +202,24 @@ void cursor_request_set_shape(struct wl_listener *listener, void *data) {
     }
 }
 
+/* The window whose own buffer, such as its controls or its tabs, is at (x, y): that buffer in
+ * *node, at (*sx, *sy) on it. */
+static struct sh_toplevel *window_buffer_at(struct sh_server *server, double x, double y,
+                                            struct wlr_scene_node **node, double *sx, double *sy) {
+    *node = scene_node_at(server, x, y, sx, sy);
+    if (!*node || (*node)->type != WLR_SCENE_NODE_BUFFER || !(*node)->parent)
+        return NULL;
+    struct sh_node *owner = (*node)->parent->node.data;
+    return owner && owner->kind == SH_NODE_TOPLEVEL ? owner->owner : NULL;
+}
+
 /* The window whose controls are at (x, y), and which part of it. */
 static struct sh_toplevel *deco_at(struct sh_server *server, double x, double y,
                                    enum sh_deco_part *part) {
+    struct wlr_scene_node *node;
     double sx, sy;
-    struct wlr_scene_node *node = scene_node_at(server, x, y, &sx, &sy);
-    if (!node || node->type != WLR_SCENE_NODE_BUFFER || !node->parent)
-        return NULL;
-    struct sh_node *owner = node->parent->node.data;
-    if (!owner || owner->kind != SH_NODE_TOPLEVEL)
-        return NULL;
-    struct sh_toplevel *toplevel = owner->owner;
-    if (!toplevel->deco || &toplevel->deco->node != node)
+    struct sh_toplevel *toplevel = window_buffer_at(server, x, y, &node, &sx, &sy);
+    if (!toplevel || !toplevel->deco || &toplevel->deco->node != node)
         return NULL;
     *part = sh_decoration_part_at(deco_style(server), sx, sy);
     return *part == SH_DECO_NONE ? NULL : toplevel;
@@ -273,15 +279,10 @@ static struct sh_toplevel *resize_band_at(struct sh_server *server, double x, do
 
 /* The window whose tab strip is at (x, y), and which tab, counting from 0. */
 static struct sh_toplevel *tabs_at(struct sh_server *server, double x, double y, int *index) {
+    struct wlr_scene_node *node;
     double sx, sy;
-    struct wlr_scene_node *node = scene_node_at(server, x, y, &sx, &sy);
-    if (!node || node->type != WLR_SCENE_NODE_BUFFER || !node->parent)
-        return NULL;
-    struct sh_node *owner = node->parent->node.data;
-    if (!owner || owner->kind != SH_NODE_TOPLEVEL)
-        return NULL;
-    struct sh_toplevel *toplevel = owner->owner;
-    if (!toplevel->tabs || &toplevel->tabs->node != node)
+    struct sh_toplevel *toplevel = window_buffer_at(server, x, y, &node, &sx, &sy);
+    if (!toplevel || !toplevel->tabs || &toplevel->tabs->node != node)
         return NULL;
     *index = sh_tabs_index_at(toplevel->tabs_width, toplevel->tabs_count, sx);
     return *index < 0 ? NULL : toplevel;
