@@ -22,14 +22,14 @@ def settings(activation):
 
 
 with harness.Compositor(compositor, settings("urgent")) as desktop:
-    msg, rows, wait_for = desktop.msg, desktop.rows, desktop.wait_for
+    msg, wait_for = desktop.msg, desktop.wait_for
 
     def urgent():
         """(app_id, workspace, focused) of each urgent window, longest waiting first."""
-        return [(r[8], int(r[0]), r[1] == "1") for r in rows("urgent")]
+        return [(w.app_id, w.workspace, w.focused) for w in desktop.windows("urgent")]
 
     def focused():
-        return [r[8] for r in rows("windows") if r[1] == "1"]
+        return [w.app_id for w in desktop.windows() if w.focused]
 
     desktop.detail = lambda: f"urgent {urgent()} focused {focused()}"
 
@@ -159,12 +159,12 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
     # focus_urgent, on the workspace being shown.
     wait_for(lambda: focused() == ["urgent-b"], "b focused")
     msg("move_to_scratchpad")
-    wait_for(lambda: [r[2] for r in rows("windows") if r[8] == "urgent-b"] == ["1"],
+    wait_for(lambda: [w.minimized for w in desktop.windows() if w.app_id == "urgent-b"] == [True],
              "b hidden in the scratchpad")
     msg("workspace", "3")
     ask(b)
     wait_for(lambda: [u[0] for u in urgent()] == ["urgent-b"], "hidden b is urgent")
     msg("focus_urgent")
     wait_for(lambda: focused() == ["urgent-b"] and urgent() == [], "b shown by focus_urgent")
-    assert [r[2] for r in rows("windows") if r[8] == "urgent-b"] == ["0"]
+    assert [w.minimized for w in desktop.windows() if w.app_id == "urgent-b"] == [False]
 print("Activation requests mark, focus, or are ignored by policy; focus_urgent works")

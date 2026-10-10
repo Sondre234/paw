@@ -270,9 +270,10 @@ class Compositor:
         """The tab-separated fields of each line `get REQUEST` prints."""
         return [line.split("\t") for line in self.msg("get", request, *words).splitlines()]
 
-    def windows(self):
-        """A Window per line of `get windows`, the oldest first."""
-        return [Window.parse(fields) for fields in self.rows("windows")]
+    def windows(self, request="windows"):
+        """A Window per line of `get windows`, the oldest first; or of `get urgent`, which lists
+        the urgent windows the same way."""
+        return [Window.parse(fields) for fields in self.rows(request)]
 
     def open_window(self, probe, title, app_id=None, *, focused=False, args=("--window-only",),
                     env=None, **options):
