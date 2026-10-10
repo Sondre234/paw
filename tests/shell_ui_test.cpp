@@ -2322,9 +2322,10 @@ ListModel {
                 std::cerr << "the window playing sound has no speaker to mute it, or the other has one\n";
                 return 1;
             }
-            // Its room comes from the title's end: the title starts where it did, the cross
-            // keeps its place, and the cross stays while the pointer is on the speaker.
-            if (x(title) != titleX || title->width() >= titleWidth || x(cross) != crossX)
+            // Its room comes from the title's end, once laid out: the title starts where it did,
+            // the cross keeps its place, and the cross stays while the pointer is on the speaker.
+            if (!waitFor([&] { return title->width() < titleWidth; }) || x(title) != titleX ||
+                x(cross) != crossX)
                 return fail("the speaker moved the title or the cross as it came");
             QTest::mouseMove(popover, centre(speaker(10)));
             if (!waitFor([&] { return cross->isEnabled() && cross->opacity() == 1; }))
