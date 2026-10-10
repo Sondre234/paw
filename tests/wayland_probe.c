@@ -710,7 +710,7 @@ static void prepare_spawn(const char *self, const char *app_id) {
     size_t count = 0;
     while (environ[count])
         ++count;
-    spawn_envp = calloc(count + 3, sizeof(char *));
+    spawn_envp = calloc(count + 2, sizeof(char *)); // and the app_id, and the end
     size_t used = 0;
     for (size_t i = 0; i < count; ++i)
         if (strncmp(environ[i], "PAW_PROBE_APP_ID=", strlen("PAW_PROBE_APP_ID=")) &&
@@ -719,11 +719,6 @@ static void prepare_spawn(const char *self, const char *app_id) {
     char *entry = malloc(strlen(app_id) + 32);
     sprintf(entry, "PAW_PROBE_APP_ID=%s", app_id);
     spawn_envp[used++] = entry;
-    if (getenv("PAW_PROBE_SPAWN_TITLE")) {
-        entry = malloc(strlen(getenv("PAW_PROBE_SPAWN_TITLE")) + 32);
-        sprintf(entry, "PAW_PROBE_TITLE=%s", getenv("PAW_PROBE_SPAWN_TITLE"));
-        spawn_envp[used++] = entry;
-    }
     if (getenv("PAW_PROBE_SPAWN_PROGRAM")) { // another kind of client, e.g. the X11 probe
         spawn_program = getenv("PAW_PROBE_SPAWN_PROGRAM");
         spawn_argv[0] = (char *)spawn_program;
