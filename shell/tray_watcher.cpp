@@ -27,21 +27,12 @@ TrayWatcher::~TrayWatcher() {
 }
 bool TrayWatcher::start(const QDBusConnection &bus) {
     bus_ = bus;
-    if (!bus_.isConnected()) {
-        error_ = "no session bus: " + bus_.lastError().message();
+    error_ = dbus::serve(bus_, serviceName, objectPath, this,
+                         QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals |
+                             QDBusConnection::ExportAllProperties,
+                         "the watcher", "watcher");
+    if (!error_.isEmpty())
         return false;
-    }
-    if (!bus_.registerObject(objectPath, this,
-                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals |
-                                 QDBusConnection::ExportAllProperties)) {
-        error_ = "cannot export the watcher: " + bus_.lastError().message();
-        return false;
-    }
-    if (!bus_.registerService(serviceName)) {
-        bus_.unregisterObject(objectPath);
-        error_ = "another watcher owns " + QString(serviceName);
-        return false;
-    }
     registered_ = true;
     owners_ = new QDBusServiceWatcher(this);
     owners_->setConnection(bus_);
