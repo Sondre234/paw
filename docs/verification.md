@@ -961,8 +961,8 @@ the shortcuts itself (its `locked` bindings still run, by the code, not by a tes
 ## Input methods
 
 Added 2026-10-08. `input_method_smoke` connects `input_method_probe`, an input method speaking
-input-method-unstable-v2 as fcitx5 does, to windows of `text_input_probe`, which take text through
-text-input-unstable-v3 as GTK and Qt do: a text input waits until an input method connects, then
+input-method-unstable-v2 as fcitx5 does, to windows of `input_probe --text-input`, which take
+text through text-input-unstable-v3 as GTK and Qt do: a text input waits until an input method connects, then
 enters the window with the keyboard and activates it with its surrounding text, change cause and
 content type; committed text (Chinese among it), a preedit, the text replacing it and a deletion
 reach the window, and the window's new text reaches the input method; its keyboard grab gets the

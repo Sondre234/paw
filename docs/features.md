@@ -1848,7 +1848,7 @@ applications through its GTK and Qt modules (`GTK_IM_MODULE=ibus`), as on sway.
 whether it is on and whether it grabs the keyboard; a line per text input, `text_input`, whether
 it is enabled, whether the input method serves it, and the surface it is on as `get seat` names
 it (`-` for none); and a line per candidate window, `popup`, whether it shows, its place and its
-size; tab-separated. `input_method_smoke` tests it with `text_input_probe` and
+size; tab-separated. `input_method_smoke` tests it with `input_probe --text-input` and
 `input_method_probe`.
 
 ### Mouse button bindings

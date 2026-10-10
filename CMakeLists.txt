@@ -477,7 +477,8 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_BINARY_DIR}/tearing-control-v1-protocol.c
             ${WLR_CLIENT_PROTOCOL_SOURCES}
             LIBRARIES PkgConfig::XKB)
-        # A window printing the input it gets, for the tests of gestures.
+        # A window printing the input it gets, for the input tests, or with --text-input one
+        # taking text through text-input-unstable-v3, for the input method tests.
         set(GESTURES_XML ${PROTOCOL_DIR}/unstable/pointer-gestures/pointer-gestures-unstable-v1.xml)
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/pointer-gestures-unstable-v1-client-protocol.h
             COMMAND ${WAYLAND_SCANNER} client-header ${GESTURES_XML}
@@ -506,7 +507,18 @@ if(PAW_BUILD_COMPOSITOR)
             COMMAND ${WAYLAND_SCANNER} private-code ${SHORTCUTS_INHIBIT_XML}
             ${CMAKE_CURRENT_BINARY_DIR}/keyboard-shortcuts-inhibit-unstable-v1-protocol.c
             DEPENDS ${SHORTCUTS_INHIBIT_XML})
+        set(TEXT_INPUT_XML ${PROTOCOL_DIR}/unstable/text-input/text-input-unstable-v3.xml)
+        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-client-protocol.h
+            COMMAND ${WAYLAND_SCANNER} client-header ${TEXT_INPUT_XML}
+            ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-client-protocol.h
+            DEPENDS ${TEXT_INPUT_XML})
+        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-protocol.c
+            COMMAND ${WAYLAND_SCANNER} private-code ${TEXT_INPUT_XML}
+            ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-protocol.c
+            DEPENDS ${TEXT_INPUT_XML})
         paw_probe(input_probe tests/input_probe.c
+            ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-client-protocol.h
+            ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/keyboard-shortcuts-inhibit-unstable-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/keyboard-shortcuts-inhibit-unstable-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/tablet-v2-client-protocol.h
@@ -540,24 +552,8 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_BINARY_DIR}/wlr-virtual-pointer-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/virtual-keyboard-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/virtual-keyboard-protocol.c)
-        # Both sides of input methods, for input_method_smoke: an application's text input
-        # (text-input-unstable-v3) and an input method (input-method-unstable-v2).
-        set(TEXT_INPUT_XML ${PROTOCOL_DIR}/unstable/text-input/text-input-unstable-v3.xml)
-        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-client-protocol.h
-            COMMAND ${WAYLAND_SCANNER} client-header ${TEXT_INPUT_XML}
-            ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-client-protocol.h
-            DEPENDS ${TEXT_INPUT_XML})
-        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-protocol.c
-            COMMAND ${WAYLAND_SCANNER} private-code ${TEXT_INPUT_XML}
-            ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-protocol.c
-            DEPENDS ${TEXT_INPUT_XML})
-        paw_probe(text_input_probe tests/text_input_probe.c
-            ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-client-protocol.h
-            ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-protocol.c
-            ${CMAKE_CURRENT_BINARY_DIR}/wlr-layer-shell-unstable-v1-client-protocol.h
-            ${CMAKE_CURRENT_BINARY_DIR}/wlr-layer-shell-unstable-v1-protocol.c
-            ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
-            ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c)
+        # The other side of input methods, for input_method_smoke: an input method
+        # (input-method-unstable-v2); input_probe --text-input is an application's text input.
         set(INPUT_METHOD_XML ${CMAKE_CURRENT_SOURCE_DIR}/protocols/input-method-unstable-v2.xml)
         add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/input-method-unstable-v2-client-protocol.h
             COMMAND ${WAYLAND_SCANNER} client-header ${INPUT_METHOD_XML}
@@ -790,9 +786,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(binding_modes_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(locked_bindings_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(shortcuts_inhibit_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
-        paw_smoke(input_method_smoke $<TARGET_FILE:paw> $<TARGET_FILE:text_input_probe>
-            $<TARGET_FILE:input_method_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:input_probe>
-            "${GRIM_ARGUMENT}")
+        paw_smoke(input_method_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_method_probe>
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:input_probe> "${GRIM_ARGUMENT}")
         paw_smoke(window_capture_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe>)
         paw_smoke(window_peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
