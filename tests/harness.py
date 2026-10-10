@@ -242,15 +242,21 @@ class Compositor:
     def keyboard(self, name="keys"):
         """Plugs in a headless keyboard. Returns a function that types on it: each argument an
         evdev key code, pressed in that order and released the other way round, so that
-        press(125, 15) is Super+Tab."""
+        press(125, 15) is Super+Tab; press.down(code) and press.up(code) hold a key and let it
+        go."""
         self.msg("headless_keyboard", "add", name)
+
+        def key(code, state):
+            self.msg("headless_keyboard", "key", name, str(code), state)
 
         def press(*codes):
             for code in codes:
-                self.msg("headless_keyboard", "key", name, str(code), "press")
+                key(code, "press")
             for code in reversed(codes):
-                self.msg("headless_keyboard", "key", name, str(code), "release")
+                key(code, "release")
 
+        press.down = lambda code: key(code, "press")
+        press.up = lambda code: key(code, "release")
         return press
 
     def private_bus(self):

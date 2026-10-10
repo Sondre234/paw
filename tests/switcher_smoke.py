@@ -2,14 +2,12 @@
 """The window switcher lists every window on every output and workspace, most recently focused
 first, on the focused output; it moves its selection, focuses the chosen window (switching its
 output's workspace), cancels, follows windows closing, and tells subscribers each step, naming
-each window by the number the window control gives it too. With wtype installed, Alt+Tab from a
-virtual keyboard confirms on releasing Alt."""
+each window by the number the window control gives it too. Alt+Tab from a keyboard confirms on
+releasing Alt."""
 from pathlib import Path
-import shutil
 import socket
 import subprocess
 import sys
-import time
 
 import harness
 
@@ -179,23 +177,19 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     assert error.returncode != 0 and "switcher_confirm takes" in error.stdout + \
         error.stderr, (error.stdout, error.stderr)
 
-    # The keyboard: Alt+Tab twice then releasing Alt; Alt+Shift+Tab; Escape.
-    wtype = shutil.which("wtype")
-    if wtype:
-        def type_keys(*arguments):
-            subprocess.run([wtype, *arguments], env=desktop.env, check=True, timeout=30)
-
-        events.lines = []
-        type_keys("-M", "alt", "-k", "Tab", "-m", "alt")
-        wait_for(lambda: focused() == "D", "Alt+Tab picks the previous window, D")
-        events.expect(lambda l: "switcher-close" in l, "closed on releasing Alt")
-        type_keys("-M", "alt", "-M", "shift", "-k", "Tab", "-m", "shift", "-m", "alt")
-        wait_for(lambda: focused() == "A", "Alt+Shift+Tab picks the last, A")
-        type_keys("-M", "alt", "-k", "Tab", "-k", "Escape", "-m", "alt")
-        events.expect(lambda l: "switcher-close" in l, "Escape closes")
-        time.sleep(0.2)
-        assert focused() == "A", "Escape still switched"
-        print("Keyboard switching passed")
-    else:
-        print("wtype not found: keyboard switching skipped")
+    # The keyboard: Alt+Tab then releasing Alt; Alt+Shift+Tab; Escape (evdev's key codes).
+    ALT, SHIFT, TAB, ESCAPE = 56, 42, 15, 1
+    press = desktop.keyboard()
+    events.lines = []
+    press(ALT, TAB)
+    wait_for(lambda: focused() == "D", "Alt+Tab picks the previous window, D")
+    events.expect(lambda l: "switcher-close" in l, "closed on releasing Alt")
+    press(ALT, SHIFT, TAB)
+    wait_for(lambda: focused() == "A", "Alt+Shift+Tab picks the last, A")
+    press.down(ALT)
+    press(TAB)
+    press(ESCAPE)
+    press.up(ALT)
+    events.expect(lambda l: "switcher-close" in l, "Escape closes")
+    desktop.stays(lambda: focused() == "A", "Escape still switched")
 print("Window switcher passed")
