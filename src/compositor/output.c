@@ -116,17 +116,13 @@ struct wlr_output *find_output_key(struct sh_server *server, const char *key) {
     return NULL;
 }
 
-static bool monitor_matches(const struct sh_monitor *monitor, const struct wlr_output *output) {
-    return output_key_matches(monitor->name, output);
-}
-
 /* Settings by connector name win over a description match. */
 const struct sh_monitor *monitor_settings(const struct sh_settings *settings,
                                           const struct wlr_output *output) {
     const struct sh_monitor *described = NULL;
     for (int i = 0; i < settings->monitor_count; ++i) {
         const struct sh_monitor *monitor = &settings->monitors[i];
-        if (!monitor_matches(monitor, output))
+        if (!output_key_matches(monitor->name, output))
             continue;
         if (strncmp(monitor->name, "desc:", 5) != 0)
             return monitor;
