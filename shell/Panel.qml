@@ -266,12 +266,10 @@ Item {
     // An application's record in shell.apps for a window's app id: the application whose pinned
     // slot it takes (a configured launcher too), else the installed one; null when there is none.
     function appRecord(windowAppId) {
+        // Read again as the applications change.
+        void shell.appsRevision
         var id = shell.pinnedAppFor(windowAppId) || shell.appFor(windowAppId)
-        var apps = id !== "" ? shell.apps : []
-        for (var i = 0; i < apps.length; ++i)
-            if (apps[i].appId === id)
-                return apps[i]
-        return null
+        return id !== "" ? shell.appRecord(id) || null : null
     }
     onLauncherOpenChanged: {
         if (launcherOpen) { taskMenuId = -1; pinMenuApp = null; barMenuOpen = false; audioPopup = ""; trayMenuKey = ""; menuBarMenu = "" }

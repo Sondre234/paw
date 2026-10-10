@@ -64,6 +64,7 @@ ImageProvider::Picture trayImage(TrayModel &model) {
 } // namespace
 ShellController::ShellController(std::filesystem::path path, QObject *parent)
     : QObject(parent), path_(std::move(path)), tasks_(this) {
+    connect(this, &ShellController::appsChanged, this, [this] { ++appsRevision_; });
     loadConfig();
     watchTrash();
     QFile pins(pinsPath());
@@ -395,6 +396,12 @@ QVariantList ShellController::apps() const {
     for (const auto &app : apps_)
         list.push_back(record(app));
     return list;
+}
+QVariant ShellController::appRecord(const QString &id) const {
+    for (const auto &app : apps_)
+        if (app.id == id)
+            return record(app);
+    return {};
 }
 QVariantMap ShellController::widgets() const {
     const auto &w = config_.shell.widgets;

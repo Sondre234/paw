@@ -99,6 +99,9 @@ class ShellController : public QObject {
     // Configured launchers and installed applications, as {appId, name, icon, pinned (to the
     // taskbar), configured, genericName, keywords, description}.
     Q_PROPERTY(QVariantList apps READ apps NOTIFY appsChanged)
+    // Counts the changes of `apps`, for QML that reads one record with appRecord() to follow
+    // them without making all of them.
+    Q_PROPERTY(int appsRevision READ appsRevision NOTIFY appsChanged)
     // Whether the user's trash holds anything, for the dock's Trash: watched once the style is
     // macOS, which has a dock.
     Q_PROPERTY(bool trashFull READ trashFull NOTIFY trashChanged)
@@ -248,6 +251,9 @@ class ShellController : public QObject {
     void setNightLight(bool on, const QString &mode);
     QVariantList pinned() const;
     QVariantList apps() const;
+    int appsRevision() const { return appsRevision_; }
+    // The record of the application `id`, as `apps` has it; undefined in QML for none.
+    Q_INVOKABLE QVariant appRecord(const QString &id) const;
     QString error() const { return error_; }
     QString configError() const { return configError_; }
     TaskModel *tasks() { return &tasks_; }
@@ -477,6 +483,7 @@ class ShellController : public QObject {
     void showVolume();
     void handleDnd(const QString &verb);
     std::vector<App> apps_;
+    int appsRevision_ = 0;
     // The desktop entries of apps_, for finding a window's (appFor), and what appFor and
     // iconFor found for each app id since they last changed.
     app_match::Index appIndex_;
