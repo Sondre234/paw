@@ -21,8 +21,12 @@ void NotificationModel::touchGroups() {
     }, Qt::QueuedConnection);
 }
 QVariantList NotificationModel::groups() const {
-    QVariantList groups;
-    QHash<QString, qsizetype> found;
+    struct Group {
+        QVariantMap record;
+        QVariantList notifications;
+    };
+    std::vector<Group> groups;
+    QHash<QString, size_t> found;
     const auto roles = roleNames();
     for (int row = 0; row < int(items_.size()); ++row) {
         const auto &n = items_[size_t(row)];
@@ -33,19 +37,20 @@ QVariantList NotificationModel::groups() const {
         auto at = found.find(key);
         if (at == found.end()) {
             at = found.insert(key, groups.size());
-            groups.push_back(QVariantMap{{"key", key},
-                                         {"app", n.app},
-                                         {"icon", n.icon},
-                                         {"desktopEntry", n.desktopEntry},
-                                         {"notifications", QVariantList()}});
+            groups.push_back({QVariantMap{{"key", key},
+                                          {"app", n.app},
+                                          {"icon", n.icon},
+                                          {"desktopEntry", n.desktopEntry}},
+                              {}});
         }
-        auto group = groups[*at].toMap();
-        auto list = group["notifications"].toList();
-        list.push_back(entry);
-        group["notifications"] = list;
-        groups[*at] = group;
+        groups[*at].notifications.push_back(entry);
     }
-    return groups;
+    QVariantList list;
+    for (auto &group : groups) {
+        group.record.insert("notifications", group.notifications);
+        list.push_back(group.record);
+    }
+    return list;
 }
 int NotificationModel::rowCount(const QModelIndex &parent) const {
     return parent.isValid() ? 0 : int(items_.size());
