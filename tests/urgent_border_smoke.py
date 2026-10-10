@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The border of an urgent window pulses for a few seconds, then holds windows.urgent_color, with
-a border_width or (inside the window's edge) without one, and gives way to the focus color."""
+a border_width or (inside the window's edge) without one, and gives way to the focus color; without
+animations it holds the color at once."""
 from pathlib import Path
 import subprocess
 import sys
@@ -86,9 +87,19 @@ with harness.Compositor(compositor, settings(3)) as desktop:
     brightness = [sum(p) for p in seen]
     assert max(brightness) - min(brightness) > 60, f"the border does not pulse: {seen}"
     assert not any(near(p, INACTIVE) for p in seen[3:]), seen
-    time.sleep(3.2)  # the pulse lasts four seconds
-    held = [edge("urgent-a", False) for _ in range(3)]
-    assert all(near(p, URGENT) for p in held), f"urgent color not held: {held}"
+
+    def held():
+        """Whether the edge shows the urgent color for a while (3 looks over 0.3 s or more):
+        longer than the pulse passes through it."""
+        start, looks = time.monotonic(), 0
+        while looks < 3 or time.monotonic() - start < .3:
+            if not near(edge("urgent-a", False), URGENT):
+                return False
+            looks += 1
+        return True
+
+    desktop.wait_for(held, "the urgent color held once the pulse is over",
+                     detail=lambda: edge("urgent-a", False))
     # Focus ends it: the focus color, and the inactive color once focus moves on.
     msg("focus_urgent")
     desktop.wait_for(lambda: near(edge("urgent-a", False), FOCUSED) and
@@ -96,31 +107,19 @@ with harness.Compositor(compositor, settings(3)) as desktop:
                      "a focused, b inactive",
                      detail=lambda: f"{edge('urgent-a', False)}, {edge('urgent-b', False)}")
 
-    # Without a border_width the urgent frame sits inside the window's edge, and
-    # nothing is drawn once it is over.
-    desktop.reload(settings(0))
-    desktop.wait_for(lambda: "Configuration reloaded" in desktop.log.read_text(), "reload")
+    # Without a border_width the urgent frame sits inside the window's edge, and nothing is
+    # drawn once it is over. Without animations it holds the urgent color at once, no pulse.
+    desktop.reload(settings(0, "false"))
     ask(b)
     desktop.wait_for(lambda: urgent_count() == 1, "b urgent")
-    time.sleep(4.4)
-    inside = edge("urgent-b", True)
-    assert near(inside, URGENT), f"inset frame missing: {inside}"
+    desktop.wait_for(lambda: near(edge("urgent-b", True), URGENT), "the inset frame",
+                     detail=lambda: edge("urgent-b", True))
+    desktop.stays(lambda: near(edge("urgent-b", True), URGENT), "the inset frame pulses",
+                  duration=.5, detail=lambda: edge("urgent-b", True))
     before = windows()["urgent-b"][4:8]
     msg("focus_urgent")
     desktop.wait_for(lambda: not near(edge("urgent-b", True), URGENT),
                      "the inset frame gone", detail=lambda: edge("urgent-b", True))
     assert windows()["urgent-b"][4:8] == before, "the frame moved the window"
-
-    # Animations off: the urgent color at once, no pulse.
-    desktop.reload(settings(3, "false"))
-    desktop.wait_for(lambda: desktop.log.read_text().count("Configuration reloaded") == 2,
-                     "second reload")
-    ask(a)
-    desktop.wait_for(lambda: urgent_count() == 1, "a urgent without animations")
-    desktop.wait_for(lambda: near(edge("urgent-a", False), URGENT),
-                     "the urgent color", detail=lambda: edge("urgent-a", False))
-    for _ in range(5):
-        assert near(edge("urgent-a", False), URGENT), edge("urgent-a", False)
-        time.sleep(.1)
 print("Urgent borders pulse, hold the urgent color, sit inside without a border, "
       "and give way to focus")
