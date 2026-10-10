@@ -123,20 +123,8 @@ void Palette::open(const QString &output) {
         }
         sessions_ = sessions;
         if (!output_.isEmpty()) {
-            // Someone who has already moved down the list keeps the entry they are on.
-            const auto before = selected_ > 0 && selected_ < results_.size()
-                                    ? results_[selected_].toMap()
-                                    : QVariantMap{};
             collect();
-            refreshResults();
-            for (int i = 0; !before.isEmpty() && i < results_.size(); ++i) {
-                const auto item = results_[i].toMap();
-                if (item["kind"] == before["kind"] && item["target"] == before["target"]) {
-                    selected_ = i;
-                    Q_EMIT selectedChanged();
-                    break;
-                }
-            }
+            refreshKeepingSelection();
         }
     });
 }
