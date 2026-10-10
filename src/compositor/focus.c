@@ -148,11 +148,7 @@ int urgent_tick(void *data) {
 }
 
 static bool toplevel_can_be_urgent(struct sh_toplevel *toplevel) {
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return false;
-#endif
-    return toplevel_mapped(toplevel);
+    return !toplevel->unmanaged && toplevel_mapped(toplevel);
 }
 
 /* Marks or unmarks `toplevel` as urgent. The focused window never is: it has the attention. */
@@ -212,6 +208,16 @@ void focus_urgent(struct sh_server *server) {
     pointer_follow(toplevel);
 }
 
+/* The topmost visible window on any output. */
+static struct sh_toplevel *topmost_visible(struct sh_server *server) {
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (toplevel_visible(toplevel))
+            return toplevel;
+    }
+    return NULL;
+}
+
 /* Whether hovering `toplevel` may focus it: not during a drag, a popup or menu grab, or while
  * a panel or launcher holds the keyboard. */
 bool hover_focuses(struct sh_server *server, struct sh_toplevel *toplevel) {
@@ -233,15 +239,21 @@ void focus_previous(struct sh_server *server) {
     if (server->locked)
         return;
     server->focused_layer = NULL;
-    struct sh_toplevel *toplevel;
-    wl_list_for_each(toplevel, &server->toplevels, link) {
-        if (toplevel_visible(toplevel)) {
-            focus_toplevel(toplevel);
-            return;
-        }
+    struct sh_toplevel *top = topmost_visible(server);
+    if (top) {
+        focus_toplevel(top);
+        return;
     }
     deactivate_toplevel(server);
     wlr_seat_keyboard_clear_focus(server->seat);
+}
+
+/* Passes the keyboard on to the topmost visible window when the focused one is out of sight. */
+void refocus_if_hidden(struct sh_server *server) {
+    if (server->focused_toplevel && !toplevel_visible(server->focused_toplevel)) {
+        deactivate_toplevel(server);
+        focus_previous(server);
+    }
 }
 
 /* Focuses the window focused before the current one, wherever it is (its output switches to
@@ -251,12 +263,8 @@ void focus_last(struct sh_server *server) {
         return;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (toplevel == server->focused_toplevel || toplevel->minimized || toplevel->swallowed ||
-            !toplevel_mapped(toplevel))
+        if (toplevel->unmanaged || toplevel == server->focused_toplevel || toplevel->minimized ||
+            toplevel->swallowed || !toplevel_mapped(toplevel))
             continue;
         focus_toplevel(toplevel);
         pointer_follow(toplevel);
@@ -264,15 +272,23 @@ void focus_last(struct sh_server *server) {
     }
 }
 
+/* The topmost visible window whose output is `output` (NULL for one on no output there is). */
+static struct sh_toplevel *topmost_on(struct sh_server *server, struct wlr_output *output) {
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (toplevel_visible(toplevel) && find_output(server, toplevel->output) == output)
+            return toplevel;
+    }
+    return NULL;
+}
+
 /* Focuses the topmost visible window on `output`, else nothing. */
 void focus_top_on(struct sh_server *server, struct wlr_output *output) {
     server->focused_layer = NULL;
-    struct sh_toplevel *toplevel;
-    wl_list_for_each(toplevel, &server->toplevels, link) {
-        if (toplevel_visible(toplevel) && find_output(server, toplevel->output) == output) {
-            focus_toplevel(toplevel);
-            return;
-        }
+    struct sh_toplevel *top = topmost_on(server, output);
+    if (top) {
+        focus_toplevel(top);
+        return;
     }
     deactivate_toplevel(server);
     wlr_seat_keyboard_clear_focus(server->seat);
@@ -307,14 +323,7 @@ void focus_layer(struct sh_layer *layer) {
 
 /* The window keyboard actions apply to: the focused one, else the topmost visible. */
 struct sh_toplevel *current_toplevel(struct sh_server *server) {
-    if (server->focused_toplevel)
-        return server->focused_toplevel;
-    struct sh_toplevel *toplevel;
-    wl_list_for_each(toplevel, &server->toplevels, link) {
-        if (toplevel_visible(toplevel))
-            return toplevel;
-    }
-    return NULL;
+    return server->focused_toplevel ? server->focused_toplevel : topmost_visible(server);
 }
 
 /* The nearest visible window from `from` in a direction (`sign` -1 is left or up): first those
@@ -372,9 +381,7 @@ void pointer_follow(struct sh_toplevel *toplevel) {
     double x = box.x + (width > 2 * inset ? width - inset : width / 2.0);
     double y = box.y + (height > 2 * inset ? height - inset : height / 2.0);
     wlr_cursor_warp(server->cursor, NULL, x, y);
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    process_cursor_motion(server, now.tv_sec * 1000 + now.tv_nsec / 1000000);
+    process_cursor_motion(server, (uint32_t)now_ms());
 }
 
 /* Focus moves to the nearest window that way, from the focused window or else the topmost on
@@ -385,39 +392,27 @@ void focus_direction(struct sh_server *server, enum sh_action action) {
     if (server->locked)
         return;
     struct wlr_output *output = focused_output(server);
-    struct sh_toplevel *current = server->focused_toplevel, *toplevel;
-    if (!current) {
-        wl_list_for_each(toplevel, &server->toplevels, link) {
-            if (toplevel_visible(toplevel) && find_output(server, toplevel->output) == output) {
-                current = toplevel;
-                break;
-            }
-        }
-    }
+    struct sh_toplevel *current = server->focused_toplevel;
+    if (!current)
+        current = topmost_on(server, output);
     bool horizontal = action == SH_FOCUS_LEFT || action == SH_FOCUS_RIGHT;
     int sign = action == SH_FOCUS_LEFT || action == SH_FOCUS_UP ? -1 : 1;
-    struct sh_toplevel *best;
-    if (current && current->tiled && toplevel_layout(current) == SH_LAYOUT_SCROLL)
+    bool monocle = current && current->tiled && toplevel_layout(current) == SH_LAYOUT_MONOCLE;
+    struct sh_toplevel *best = NULL;
+    if (monocle) // every tile covers the same area, so the arrows step through them
+        best = sh_tiling_neighbour(server->tiling, current, sign);
+    else if (current && current->tiled && toplevel_layout(current) == SH_LAYOUT_SCROLL)
         // Columns off the output count too: step through the strip.
         best = sh_tiling_scroll_step(server->tiling, current, horizontal ? sign : 0,
                                      horizontal ? 0 : sign);
-    else
-        best = current ? toplevel_toward(current, horizontal, sign, false) : NULL;
-    if (current && current->tiled && toplevel_layout(current) == SH_LAYOUT_MONOCLE) {
-        // Every tile covers the same area, so the arrows step through them.
-        best = sh_tiling_neighbour(server->tiling, current, sign);
-        if (best) {
-            focus_toplevel(best);
-            pointer_follow(best);
-        }
-        return;
-    }
+    else if (current)
+        best = toplevel_toward(current, horizontal, sign, false);
     if (best) {
         focus_toplevel(best);
         pointer_follow(best);
         return;
     }
-    if (!output)
+    if (monocle || !output)
         return;
     static const enum wlr_direction directions[] = {WLR_DIRECTION_LEFT, WLR_DIRECTION_RIGHT,
                                                     WLR_DIRECTION_UP, WLR_DIRECTION_DOWN};
@@ -440,9 +435,7 @@ void focus_direction(struct sh_server *server, enum sh_action action) {
     struct wlr_box box;
     wlr_output_layout_get_box(server->output_layout, next, &box);
     wlr_cursor_warp(server->cursor, NULL, box.x + box.width / 2.0, box.y + box.height / 2.0);
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    process_cursor_motion(server, now.tv_sec * 1000 + now.tv_nsec / 1000000);
+    process_cursor_motion(server, (uint32_t)now_ms());
 }
 
 static struct sh_toplevel *toplevel_for_surface(struct sh_server *server,

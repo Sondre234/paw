@@ -48,20 +48,12 @@ void color_management_update(struct sh_server *server) {
     wlr_log(WLR_INFO, "Offering color-management-v1");
 }
 
-/* Under --headless, whose outputs have no EDID, the outputs PAW_TEST_HDR names (separated by
- * commas) say they take BT.2020 with PQ, as an HDR monitor's EDID does; for tests. */
+/* Under --headless, whose outputs have no EDID, the outputs PAW_TEST_HDR names say they take
+ * BT.2020 with PQ, as an HDR monitor's EDID does; for tests. */
 static void fake_hdr_monitor(struct sh_output *output) {
-    const char *named = getenv("PAW_TEST_HDR");
-    if (!named || !headless_backend(output->server))
-        return;
-    const char *name = output->wlr_output->name;
-    size_t length = strlen(name);
-    for (const char *at = strstr(named, name); at; at = strstr(at + 1, name)) {
-        if ((at == named || at[-1] == ',') && (at[length] == ',' || at[length] == '\0')) {
-            output->wlr_output->supported_primaries |= WLR_COLOR_NAMED_PRIMARIES_BT2020;
-            output->wlr_output->supported_transfer_functions |=
-                WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ;
-        }
+    if (test_names_output(output, "PAW_TEST_HDR")) {
+        output->wlr_output->supported_primaries |= WLR_COLOR_NAMED_PRIMARIES_BT2020;
+        output->wlr_output->supported_transfer_functions |= WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ;
     }
 }
 

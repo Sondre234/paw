@@ -11,7 +11,7 @@ bool gradient_borders(struct sh_server *server) {
            sh_gradient_varies(&settings->border_inactive_gradient);
 }
 
-void remove_gradient_border(struct sh_toplevel *toplevel) {
+static void remove_gradient_border(struct sh_toplevel *toplevel) {
     if (toplevel->gradient)
         wlr_scene_node_destroy(&toplevel->gradient->node);
     toplevel->gradient = NULL;
@@ -22,10 +22,7 @@ void remove_gradient_border(struct sh_toplevel *toplevel) {
 /* A rounded corner reaches into the window's geometry, where the pointer belongs to the window,
  * as it does through the hole of a rounded border's rect. */
 static bool corner_accepts_input(struct wlr_scene_buffer *buffer, double *sx, double *sy) {
-    struct wlr_scene_tree *tree = buffer->node.parent;
-    while (tree && !tree->node.data)
-        tree = tree->node.parent;
-    struct sh_node *owner = tree ? tree->node.data : NULL;
+    struct sh_node *owner = scene_owner(&buffer->node);
     if (!owner || owner->kind != SH_NODE_TOPLEVEL)
         return true;
     struct sh_toplevel *toplevel = owner->owner;

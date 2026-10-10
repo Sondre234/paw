@@ -91,9 +91,7 @@ static bool type_keys(struct sh_server *server, struct xkb_context *context,
     // The focused client gets the keymap, then the keys with no modifier held.
     wlr_seat_set_keyboard(seat, &keyboard);
     wlr_seat_keyboard_notify_modifiers(seat, &keyboard.modifiers);
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    const uint32_t time = (uint32_t)(now.tv_sec * 1000 + now.tv_nsec / 1000000);
+    const uint32_t time = (uint32_t)now_ms();
     for (int i = 0; i < count; ++i) {
         int key = 0;
         while (key < key_count && keys[key] != typed[i])

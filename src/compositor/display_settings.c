@@ -71,14 +71,11 @@ const struct sh_output_saved *saved_output(const struct sh_output *output) {
 /* The primary monitor's name: the connected one the window made primary, else outputs.primary
  * (a connector name, or "desc:" and the start of a description); "" for none. */
 const char *primary_output_name(struct sh_server *server) {
-    struct wl_list *lists[] = {&server->outputs, &server->disabled_outputs};
-    for (size_t i = 0; i < 2; ++i) {
-        struct sh_output *output;
-        wl_list_for_each(output, lists[i], link) {
-            const struct sh_output_saved *saved = saved_output(output);
-            if (saved && saved->primary)
-                return output->wlr_output->name;
-        }
+    struct sh_output *output;
+    for_each_connected_output(output, server) {
+        const struct sh_output_saved *saved = saved_output(output);
+        if (saved && saved->primary)
+            return output->wlr_output->name;
     }
     return server_settings(server)->primary_output;
 }
@@ -135,8 +132,7 @@ static struct sh_output *named_source(struct sh_server *server, struct sh_output
  * the layout is moved to start at 0, 0 (sh_output.x and y), a mirror at its source's. */
 static void shown_settings(struct sh_server *server, struct sh_output *output,
                            struct sh_output_saved *shown) {
-    const struct sh_settings *settings = server_settings(server);
-    const struct sh_monitor *monitor = output_monitor(settings, output);
+    const struct sh_monitor *monitor = output_monitor(output);
     struct wlr_output *o = output->wlr_output;
     memset(shown, 0, sizeof(*shown));
     struct sh_monitor *m = &shown->monitor;
@@ -170,7 +166,7 @@ static void shown_settings(struct sh_server *server, struct sh_output *output,
         snprintf(m->mirror, sizeof(m->mirror), "%s", source->wlr_output->name);
     struct sh_output *placed = source ? source : output;
     const struct sh_monitor *placed_monitor =
-        placed == output ? monitor : output_monitor(settings, placed);
+        placed == output ? monitor : output_monitor(placed);
     m->positioned = true;
     if (!placed->disabled)
         m->x = placed->x, m->y = placed->y;
@@ -180,12 +176,6 @@ static void shown_settings(struct sh_server *server, struct sh_output *output,
     m->hdr = monitor && monitor->hdr;
     const char *primary = primary_output_name(server);
     shown->primary = primary[0] && output_key_matches(primary, o);
-}
-
-/* Tabs and line breaks in a monitor's description would break the columns. */
-static void plain_text(char *text) {
-    for (char *c = text; *c; ++c)
-        *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
 }
 
 /* A mode as outputs.monitors writes it, its refresh in Hz to the thousandth: "2560x1440@143.912",
@@ -202,7 +192,7 @@ static void format_mode(char *text, size_t size, int width, int height, int refr
  * modes it offers. */
 static void describe_monitor(struct sh_server *server, int fd, struct sh_output *output) {
     struct wlr_output *o = output->wlr_output;
-    const struct sh_monitor *monitor = output_monitor(server_settings(server), output);
+    const struct sh_monitor *monitor = output_monitor(output);
     struct sh_output_saved shown;
     shown_settings(server, output, &shown);
     const struct sh_monitor *m = &shown.monitor;
@@ -218,7 +208,7 @@ static void describe_monitor(struct sh_server *server, int fd, struct sh_output 
     // the log (hdr.c).
     const char *why = hdr_unavailable(output);
     char mode[48], line[1024];
-    plain_text(shown.description);
+    flatten_field(shown.description); // tabs and line breaks would break the columns
     format_mode(mode, sizeof(mode), m->width, m->height, m->refresh);
     snprintf(line, sizeof(line),
              "%s\t%s\t%d\t%s\t%d\t%s\t%s\t%d\t%d\t%s\t%.9g\t%d\t%s\t%d\t%d\t%s\t%s\t%s\t%d\t",
@@ -257,7 +247,7 @@ static void describe_monitor(struct sh_server *server, int fd, struct sh_output 
 }
 
 /* `get monitors`: a line per monitor connected, in the order of `get outputs`. */
-void describe_monitors(struct sh_server *server, int fd) {
+void describe_monitors(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_output *outputs[SH_OUTPUT_STATE_MAX];
     int count = connected_outputs(server, outputs);
@@ -266,7 +256,7 @@ void describe_monitors(struct sh_server *server, int fd) {
 }
 
 /* `get monitors_trial`: the milliseconds left before the settings on trial go back, or "-". */
-void describe_monitors_trial(struct sh_server *server, int fd) {
+void describe_monitors_trial(struct sh_server *server, int fd, const char *arguments) {
     char reply[32] = "ok\n-\n";
     if (server->display_settings.trial) {
         int64_t left = server->display_settings.trial_ends - now_ms();
@@ -275,24 +265,37 @@ void describe_monitors_trial(struct sh_server *server, int fd) {
     control_reply(fd, reply);
 }
 
+/* Whether `output` has a mode `width` by `height`; one without modes (headless) takes any. */
+static bool offers_size(struct wlr_output *output, int width, int height) {
+    bool offered = wl_list_empty(&output->modes);
+    struct wlr_output_mode *mode;
+    wl_list_for_each(mode, &output->modes, link) offered |=
+        mode->width == width && mode->height == height;
+    return offered;
+}
+
+/* Puts the monitors' settings in force, the pointer staying where it is rather than going to a
+ * new primary monitor. */
+static void apply_monitors(struct sh_server *server) {
+    snprintf(server->placed_primary, sizeof(server->placed_primary), "%s",
+             primary_output_name(server));
+    apply_output_settings(server);
+    color_management_update(server);
+}
+
 /* Whether `output` took the settings in force: on, at the mode (where it has one of that size),
  * scale and transform they ask for. One the lid holds off, or one turned off, takes them as it
  * comes on, and turning one off cannot fail. */
 static bool took_settings(struct sh_server *server, struct sh_output *output) {
-    const struct sh_monitor *m = output_monitor(server_settings(server), output);
+    const struct sh_monitor *m = output_monitor(output);
     struct wlr_output *o = output->wlr_output;
     if ((m && !m->enabled) || lid_holds_off(server, output) || output->powered_off)
         return true;
     if (!o->enabled)
         return false;
-    if (m && m->width > 0) {
-        bool offered = wl_list_empty(&o->modes);
-        struct wlr_output_mode *mode;
-        wl_list_for_each(mode, &o->modes, link) offered |=
-            mode->width == m->width && mode->height == m->height;
-        if (offered && (o->width != m->width || o->height != m->height))
-            return false;
-    }
+    if (m && m->width > 0 && offers_size(o, m->width, m->height) &&
+        (o->width != m->width || o->height != m->height))
+        return false;
     float scale = m && m->scale > 0 ? m->scale : 1;
     return fabsf(o->scale - scale) < 0.001f && (int)o->transform == (m ? m->transform : 0);
 }
@@ -317,11 +320,7 @@ static void apply_saved(struct sh_server *server, const struct sh_output_state *
     server->display_settings.saved = *next;
     for (int i = 0; i < count; ++i)
         outputs[i]->has_override = false;
-    // The pointer stays where it is rather than going to a new primary monitor.
-    snprintf(server->placed_primary, sizeof(server->placed_primary), "%s",
-             primary_output_name(server));
-    apply_output_settings(server);
-    color_management_update(server);
+    apply_monitors(server);
 }
 
 /* Ends the trial, putting back what was in force before it, and tells the shell why:
@@ -342,10 +341,7 @@ static void revert_trial(struct sh_server *server, const char *reason) {
             }
         }
     }
-    snprintf(server->placed_primary, sizeof(server->placed_primary), "%s",
-             primary_output_name(server));
-    apply_output_settings(server);
-    color_management_update(server);
+    apply_monitors(server);
     wlr_log(WLR_INFO, "Monitors back as they were before the trial: %s", reason);
     char line[160];
     snprintf(line, sizeof(line), "monitors-reverted %s\n", reason);
@@ -485,12 +481,7 @@ static bool check_apply(struct sh_server *server, const struct sh_output_state *
                 return false;
             }
         }
-        struct wlr_output *o = outputs[i]->wlr_output;
-        bool offered = wl_list_empty(&o->modes);
-        struct wlr_output_mode *mode;
-        wl_list_for_each(mode, &o->modes, link) offered |=
-            mode->width == m->width && mode->height == m->height;
-        if (m->width > 0 && !offered) {
+        if (m->width > 0 && !offers_size(outputs[i]->wlr_output, m->width, m->height)) {
             snprintf(error, error_size, "%s has no %dx%d mode", m->name, m->width, m->height);
             return false;
         }

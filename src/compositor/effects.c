@@ -3,8 +3,11 @@
  * the magnifier, and hot corners. */
 #include "server.h"
 
+#define NIGHT_LIGHT_TICK_MS 10000
+#define NIGHT_LIGHT_LUT 1024
+
 /* Asks every output for a frame, so that fades keep advancing while nothing else changes. */
-static void schedule_frames(struct sh_server *server) {
+void schedule_frames(struct sh_server *server) {
     struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) wlr_output_schedule_frame(output->wlr_output);
 }
@@ -173,10 +176,7 @@ void night_light_update(struct sh_server *server) {
                 wlr_color_transform_unref(server->night_transform);
             server->night_transform = transform;
             server->night_kelvin = kelvin;
-            struct sh_output *output;
-            wl_list_for_each(output, &server->outputs, link) {
-                wlr_output_schedule_frame(output->wlr_output);
-            }
+            schedule_frames(server);
         }
     }
     if (server->night_timer)
@@ -215,14 +215,15 @@ void hot_corner_check(struct sh_server *server) {
     int corner = -1;
     if (fx->corner_mask && !server->locked && server->cursor_mode == SH_CURSOR_PASSTHROUGH &&
         !server->seat->drag) {
-        struct wlr_output *output =
-            wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+        struct wlr_output *output = pointer_output(server);
         struct wlr_box box;
-        if (output && !output_has_fullscreen(server, output)) {
+        if (output) {
             wlr_output_layout_get_box(server->output_layout, output, &box);
             corner = sh_corner_at(server->cursor->x - box.x, server->cursor->y - box.y, box.width,
                                   box.height, fx->corner_size);
-            if (corner >= 0 && !(fx->corner_mask & (1U << corner)))
+            // Looking for a fullscreen window walks them all: only in a corner that acts.
+            if (corner >= 0 &&
+                (!(fx->corner_mask & (1U << corner)) || output_has_fullscreen(server, output)))
                 corner = -1;
         }
     }

@@ -3,6 +3,18 @@
  * sleep inhibitor while this VT is in front. */
 #include "server.h"
 
+struct sh_lock_surface {
+    struct sh_server *server;
+    struct wlr_session_lock_surface_v1 *surface;
+    struct wlr_scene_tree *tree;
+    struct wl_listener map, destroy;
+};
+
+struct sh_inhibitor {
+    struct sh_server *server;
+    struct wl_listener destroy;
+};
+
 /* ext-session-lock-v1: an opaque cover hides the desktop from the moment a lock
  * starts; lock surfaces sit above it, and `locked` is sent once every output has
  * presented a covered frame. A monitor that is off shows nothing to cover, and its first frame

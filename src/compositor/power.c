@@ -36,7 +36,7 @@ bool power_action(enum sh_action action) {
     return action_index(action) >= 0;
 }
 
-const char *power_action_name(enum sh_action action) {
+static const char *power_action_name(enum sh_action action) {
     int index = action_index(action);
     return index >= 0 ? actions[index].name : "";
 }

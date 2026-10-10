@@ -173,8 +173,6 @@ struct sh_stats {
 };
 
 enum sh_night_mode { SH_NIGHT_AUTO, SH_NIGHT_OFF, SH_NIGHT_ON };
-#define NIGHT_LIGHT_TICK_MS 10000
-#define NIGHT_LIGHT_LUT 1024
 /* The overview (Expose). Thumbnails are scaled copies of the windows' scene nodes, kept live by
  * copying again when a window's fingerprint changes; see overview_scene.h. */
 enum {
@@ -218,7 +216,6 @@ struct sh_overview {
     struct sh_rect strip_cells[OVERVIEW_WORKSPACES];
     struct wlr_scene_rect *strip_back[OVERVIEW_WORKSPACES], *strip_mark[OVERVIEW_WORKSPACES][4];
     struct sh_thumb minis[OVERVIEW_MINI_MAX];
-    int mini_count;
     int64_t started; /* milliseconds, CLOCK_MONOTONIC */
     int span;        /* milliseconds the current glide takes */
     double from, to, progress; /* 0: windows where they are, 1: thumbnails in the grid */
@@ -269,14 +266,14 @@ struct sh_power {
 };
 
 /* Power saving without an idle daemon (idle.c): when the last input came, the steps taken since
- * (a bit each), the timer for the next and whether it is set, the power the steps were last
- * picked for, and the black laid over every output while the screens dim. */
+ * (a bit each), the timer for the next and whether it is set, and the black laid over every
+ * output while the screens dim. */
 enum sh_idle_step { SH_IDLE_DIM, SH_IDLE_DISPLAY_OFF, SH_IDLE_LOCK, SH_IDLE_SUSPEND, SH_IDLE_STEPS };
 struct sh_idle {
     int64_t last_input; /* milliseconds, CLOCK_MONOTONIC */
     unsigned done;
     struct wl_event_source *timer;
-    bool armed, on_battery;
+    bool armed;
     struct wlr_scene_tree *tree; /* over everything, the lock too */
     struct wlr_scene_buffer *dim; /* NULL while the screens are not dimmed */
     struct sh_fade fade;
@@ -324,7 +321,6 @@ struct sh_tablets {
  * which the keyboard's focus decides. */
 struct sh_shortcuts_inhibitor;
 struct sh_shortcuts {
-    struct wlr_keyboard_shortcuts_inhibit_manager_v1 *manager;
     struct wl_list inhibitors; // struct sh_shortcuts_inhibitor
     struct sh_shortcuts_inhibitor *effective;
     struct wl_listener new_inhibitor, keyboard_focus_change;
@@ -337,8 +333,6 @@ struct sh_shortcuts {
  * for overlays; the listeners on the input method are the connected one's. */
 struct sh_text_input;
 struct sh_input_methods {
-    struct wlr_text_input_manager_v3 *text_input_manager;
-    struct wlr_input_method_manager_v2 *manager;
     struct wl_list text_inputs; // struct sh_text_input
     struct wl_list popups;      // struct sh_input_popup
     struct wlr_input_method_v2 *input_method;
@@ -463,11 +457,10 @@ struct sh_server {
 
     /* Windows a session restore launched and has yet to place: the first new window with the
      * app ID takes the saved place, workspace and state, until the deadline (milliseconds on
-     * the monotonic clock). */
+     * the monotonic clock). A slot whose deadline has passed is free. */
     struct {
         struct sh_session_window window;
         int64_t deadline;
-        bool used;
     } session_pending[32];
     /* A login session (standalone, or a test's with PAW_LOGIN_SESSION): it saves itself as
      * it ends and restores that as it starts (session.restore). */
@@ -828,9 +821,10 @@ struct sh_toplevel {
     struct wl_list link;
     struct sh_server *server;
     struct wlr_xdg_toplevel *xdg_toplevel; // NULL for X11 windows
+    bool unmanaged;                        // an X11 override-redirect menu or tooltip
 #if WLR_HAS_XWAYLAND
     struct wlr_xwayland_surface *xsurface; // NULL for xdg-shell windows
-    bool unmanaged, associated;            // unmanaged: override-redirect menus and tooltips
+    bool associated;
     struct wl_listener x_associate, x_dissociate, x_configure, x_activate, x_geometry;
     struct wl_listener x_decorations, x_attention, x_hints, x_icon;
     bool x_hint_urgent; // the client's WM_HINTS ask for attention
@@ -900,25 +894,6 @@ struct sh_lock {
     struct wl_listener new_surface, unlock, destroy;
 };
 
-struct sh_lock_surface {
-    struct sh_server *server;
-    struct wlr_session_lock_surface_v1 *surface;
-    struct wlr_scene_tree *tree;
-    struct wl_listener map, destroy;
-};
-
-struct sh_inhibitor {
-    struct sh_server *server;
-    struct wl_listener destroy;
-};
-
-struct sh_popup {
-    struct sh_server *server;
-    struct wlr_xdg_popup *xdg_popup;
-    struct wl_listener commit;
-    struct wl_listener destroy;
-};
-
 struct sh_pointer {
     struct wl_list link;
     struct sh_server *server;
@@ -961,6 +936,8 @@ static const uint32_t ALL_EDGES = WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT
 /* server.c */
 uint64_t now_ns(void);
 int64_t now_ms(void);
+int spawn_program(char *const argv[]);
+void destroy_resource(struct wl_client *client, struct wl_resource *resource);
 void add_listener(struct wl_signal *signal, struct wl_listener *listener,
                   wl_notify_func_t notify);
 const struct sh_settings *server_settings(struct sh_server *server);
@@ -975,6 +952,9 @@ void run_action(struct sh_server *server, enum sh_action action, int argument);
 
 /* control.c */
 void control_reply(int fd, const char *text);
+void drop_partial_utf8(char *text);
+void flatten_field(char *text);
+void copy_field(char *out, size_t size, const char *text);
 struct wlr_backend *headless_backend(struct sh_server *server);
 void notify_subscribers(struct sh_server *server);
 void send_event(struct sh_server *server, const char *text, size_t length);
@@ -993,6 +973,8 @@ const char *binding_mode(struct sh_server *server);
 void set_binding_mode(struct sh_server *server, int mode);
 
 /* cursor.c */
+struct wlr_output *pointer_output(struct sh_server *server);
+struct sh_node *scene_owner(struct wlr_scene_node *node);
 uint32_t corner_edges(struct sh_toplevel *toplevel, uint32_t edges);
 void cursor_request_set_shape(struct wl_listener *listener, void *data);
 void process_cursor_motion(struct sh_server *server, uint32_t time);
@@ -1011,12 +993,12 @@ void seat_pointer_focus_change(struct wl_listener *listener, void *data);
 /* dynamic_rules.c */
 bool open_dynamic_rules(struct sh_toplevel *toplevel, struct sh_window_rule *rule, bool ruled);
 void follow_dynamic_rules(struct sh_toplevel *toplevel);
-void describe_dynamic_rules(struct sh_server *server, int fd);
+void describe_dynamic_rules(struct sh_server *server, int fd, const char *arguments);
 
 /* display_mode.c */
 bool display_mode_choose(struct sh_server *server, int mode, char *error, size_t error_size);
 bool display_mode_key(struct sh_server *server, xkb_keysym_t sym);
-void describe_display_mode(struct sh_server *server, int fd);
+void describe_display_mode(struct sh_server *server, int fd, const char *arguments);
 void display_mode_finish(struct sh_server *server);
 
 /* display_settings.c */
@@ -1024,12 +1006,13 @@ void display_settings_load(struct sh_server *server);
 const struct sh_output_saved *saved_output(const struct sh_output *output);
 const char *primary_output_name(struct sh_server *server);
 bool hdr_asked(struct sh_server *server);
-void describe_monitors(struct sh_server *server, int fd);
-void describe_monitors_trial(struct sh_server *server, int fd);
+void describe_monitors(struct sh_server *server, int fd, const char *arguments);
+void describe_monitors_trial(struct sh_server *server, int fd, const char *arguments);
 void control_monitors(struct sh_server *server, int fd, const char *arguments);
 void display_settings_finish(struct sh_server *server);
 
 /* effects.c */
+void schedule_frames(struct sh_server *server);
 void update_dim(struct sh_toplevel *toplevel);
 bool tick_effects(struct sh_server *server);
 void night_light_update(struct sh_server *server);
@@ -1064,6 +1047,7 @@ bool hover_focuses(struct sh_server *server, struct sh_toplevel *toplevel);
 void focus_previous(struct sh_server *server);
 void focus_last(struct sh_server *server);
 void focus_top_on(struct sh_server *server, struct wlr_output *output);
+void refocus_if_hidden(struct sh_server *server);
 void focus_desktop(struct sh_server *server, struct wlr_output *output);
 void focus_layer(struct sh_layer *layer);
 struct sh_toplevel *current_toplevel(struct sh_server *server);
@@ -1110,11 +1094,11 @@ void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
 
 /* gradient_border.c */
 bool gradient_borders(struct sh_server *server);
-void remove_gradient_border(struct sh_toplevel *toplevel);
 void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, int radius,
                              double mix, float opacity);
 
 /* group.c */
+struct sh_toplevel *group_shown(struct sh_server *server, unsigned group);
 bool groups_enabled(struct sh_server *server);
 int group_size(struct sh_server *server, unsigned group);
 int group_index(struct sh_toplevel *from);
@@ -1213,14 +1197,20 @@ void mirror_frame(struct sh_output *output);
 bool mirror_capture(struct sh_output *output, const char *path, char *error, size_t error_size);
 
 /* output.c */
+struct sh_output *next_connected(struct sh_server *server, struct sh_output *output);
+/* Walks every connected output, those in the layout first; the body may move `output` to the
+ * other list only to leave the loop. */
+#define for_each_connected_output(output, server)                                                 \
+    for ((output) = next_connected((server), NULL); (output);                                    \
+         (output) = next_connected((server), (output)))
+bool test_names_output(struct sh_output *output, const char *variable);
 bool output_named(const struct sh_output *output, const char *name);
 void output_description(const struct wlr_output *output, char *text, size_t size);
 bool output_key_matches(const char *key, const struct wlr_output *output);
+struct wlr_output *find_output_key(struct sh_server *server, const char *key);
 const struct sh_monitor *monitor_settings(const struct sh_settings *settings,
                                           const struct wlr_output *output);
-const struct sh_monitor *configured_monitor(struct sh_output *output);
-const struct sh_monitor *output_monitor(const struct sh_settings *settings,
-                                       struct sh_output *output);
+const struct sh_monitor *output_monitor(struct sh_output *output);
 void arrange_outputs(struct sh_server *server);
 void configure_output(struct sh_server *server, struct sh_output *output);
 void apply_output_settings(struct sh_server *server);
@@ -1273,8 +1263,6 @@ void overview_hot_corner(struct sh_server *server);
 bool overview_axis(struct sh_server *server, const struct wlr_pointer_axis_event *event);
 
 /* placement.c */
-struct sh_rect gap_area(const struct sh_settings *settings, struct sh_rect area,
-                        enum sh_action action);
 struct sh_rect tiling_area(struct sh_server *server, struct wlr_output *output, int workspace,
                            int joining, int *gap);
 bool frameless(struct sh_toplevel *toplevel, struct wlr_output *output);
@@ -1306,7 +1294,6 @@ bool power_action(enum sh_action action);
 bool power_start(struct sh_server *server, enum sh_action action, char *error,
                  size_t error_size);
 void power_run(struct sh_server *server, enum sh_action action);
-const char *power_action_name(enum sh_action action);
 bool power_describe(struct sh_server *server, size_t index, const char **name,
                     const char **status);
 const char *power_pending(struct sh_server *server, char *text, size_t size);
@@ -1373,7 +1360,7 @@ bool is_window_layer(struct sh_server *server, const struct wlr_scene_tree *tree
 void restack_toplevel(struct sh_toplevel *toplevel);
 void restack_windows(struct sh_server *server);
 void set_above(struct sh_toplevel *toplevel, bool above);
-void describe_stacking(struct sh_server *server, int fd);
+void describe_stacking(struct sh_server *server, int fd, const char *arguments);
 
 /* swallow.c */
 struct sh_toplevel *swallow_host(struct sh_toplevel *child, bool terminals_only);
@@ -1410,7 +1397,7 @@ void tablet_finish(struct sh_server *server);
 /* tearing.c */
 bool output_commit_tearing(struct sh_output *output, struct wlr_scene_output *scene_output,
                            const struct wlr_scene_output_state_options *options);
-void describe_tearing(struct sh_server *server, int fd);
+void describe_tearing(struct sh_server *server, int fd, const char *arguments);
 
 /* tiling.c */
 struct wlr_output *tiled_output(struct sh_toplevel *toplevel);
@@ -1438,6 +1425,7 @@ void reconfigure_tiling(struct sh_server *server);
 void layout_action(struct sh_server *server, enum sh_action action);
 
 /* touch.c */
+void focus_pressed(struct sh_server *server, double x, double y, struct sh_node *owner);
 void map_touchscreens(struct sh_server *server);
 void server_new_touch(struct sh_server *server, struct wlr_input_device *input);
 void describe_touch(struct sh_server *server, int fd);
@@ -1445,6 +1433,7 @@ void touch_init(struct sh_server *server);
 void touch_finish(struct sh_server *server);
 
 /* toplevel.c */
+bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rule);
 struct wlr_surface *toplevel_surface(struct sh_toplevel *toplevel);
 bool toplevel_mapped(struct sh_toplevel *toplevel);
 struct wlr_box toplevel_geometry(struct sh_toplevel *toplevel);

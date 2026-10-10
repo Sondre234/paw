@@ -42,12 +42,8 @@ bool open_dynamic_rules(struct sh_toplevel *toplevel, struct sh_window_rule *rul
  * matching it decide now. A window in a group is left as its group has it, one hidden while a
  * window started from it takes its place or in the scratchpad as it is. */
 void follow_dynamic_rules(struct sh_toplevel *toplevel) {
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return;
-#endif
-    if (!toplevel_mapped(toplevel) || !toplevel->shown || toplevel->group || toplevel->swallowed ||
-        toplevel->scratchpad)
+    if (toplevel->unmanaged || !toplevel_mapped(toplevel) || !toplevel->shown || toplevel->group ||
+        toplevel->swallowed || toplevel->scratchpad)
         return;
     struct sh_server *server = toplevel->server;
     struct sh_dynamic_rule want = dynamic_decision(toplevel);
@@ -75,18 +71,13 @@ void follow_dynamic_rules(struct sh_toplevel *toplevel) {
  * dynamic rules decide of floating, sticky and above ("on", "off", or "-" when none decides it),
  * and which of them they hold the window to ("floating,sticky,above", "-" for none): one changed
  * by hand while held is no longer. */
-void describe_dynamic_rules(struct sh_server *server, int fd) {
+void describe_dynamic_rules(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
         char line[1024], app_id[256], title[512], held[32] = "";
-        const char *raw_app_id = toplevel_app_id(toplevel), *raw_title = toplevel_title(toplevel);
-        snprintf(app_id, sizeof(app_id), "%s", raw_app_id ? raw_app_id : "");
-        snprintf(title, sizeof(title), "%s", raw_title ? raw_title : "");
-        for (char *c = app_id; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-        for (char *c = title; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
+        copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
         const struct sh_held_value *values[] = {&toplevel->held_floating, &toplevel->held_sticky,
                                                 &toplevel->held_above};
         bool current[] = {toplevel->sticky ? toplevel->sticky_floating : toplevel->floating,

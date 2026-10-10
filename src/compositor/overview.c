@@ -85,11 +85,7 @@ static void overview_frame_hide(struct wlr_scene_rect *bars[4]) {
 }
 
 static bool overview_listable(struct sh_toplevel *toplevel) {
-#if WLR_HAS_XWAYLAND
-    if (toplevel->unmanaged)
-        return false;
-#endif
-    return toplevel_mapped(toplevel) && !toplevel->swallowed;
+    return !toplevel->unmanaged && toplevel_mapped(toplevel) && !toplevel->swallowed;
 }
 
 /* Whether a window is on `workspace` of the overview's output, for the grid and the strip. */
@@ -171,8 +167,7 @@ static void overview_layout(struct sh_server *server) {
     struct sh_overview *overview = &server->overview;
     const struct sh_settings *settings = server_settings(server);
     int gap = settings->overview_gap;
-    struct sh_rect area = {overview->area.x, overview->area.y, overview->area.width,
-                           overview->area.height};
+    struct sh_rect area = overview->area;
     // Snap Assist has no strip, nor room for a search above its slot.
     int top = area.y + (overview->assist ? gap : OVERVIEW_TOP);
     overview->strip_count = 0;
@@ -289,7 +284,6 @@ static void overview_render(struct sh_server *server) {
     }
     for (int i = minis; i < OVERVIEW_MINI_MAX; ++i)
         overview_thumb_clear(&overview->minis[i]);
-    overview->mini_count = minis;
 
     for (int i = 0; i < OVERVIEW_MAX; ++i) {
         if (i >= overview->count || !overview->windows[i]) {
@@ -359,19 +353,10 @@ size_t overview_describe(struct sh_server *server, char *text, size_t size) {
         struct sh_toplevel *toplevel = overview->windows[i];
         if (!toplevel)
             continue;
-        const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
-        char clean_title[160], clean_app_id[128];
-        snprintf(clean_title, sizeof(clean_title), "%s", title ? title : "");
-        snprintf(clean_app_id, sizeof(clean_app_id), "%s", app_id ? app_id : "");
         // Neither can end the line or the column: a client sets both as it likes.
-        for (char *c = clean_title; *c; ++c) {
-            if (*c == '\t' || *c == '\n' || *c == '\r')
-                *c = ' ';
-        }
-        for (char *c = clean_app_id; *c; ++c) {
-            if (*c == '\t' || *c == '\n' || *c == '\r')
-                *c = ' ';
-        }
+        char clean_title[160], clean_app_id[128];
+        copy_field(clean_title, sizeof(clean_title), toplevel_title(toplevel));
+        copy_field(clean_app_id, sizeof(clean_app_id), toplevel_app_id(toplevel));
         struct sh_rect cell = overview->cells[i];
         length += snprintf(text + length, size - length, "overview-window %d %d %d %d %s\t%s\t%d\t%d\n",
                            cell.x - overview->screen.x, cell.y - overview->screen.y, cell.width,
@@ -447,7 +432,7 @@ static void overview_hide(struct sh_server *server) {
         overview_thumb_clear(&overview->thumbs[i]);
     for (int i = 0; i < OVERVIEW_MINI_MAX; ++i)
         overview_thumb_clear(&overview->minis[i]);
-    overview->count = overview->mini_count = 0;
+    overview->count = 0;
     if (overview->tree)
         wlr_scene_node_set_enabled(&overview->tree->node, false);
 }
@@ -533,6 +518,14 @@ static void overview_lower_fullscreen(struct sh_server *server, bool lower) {
     }
 }
 
+/* How long a glide over `fraction` of the way takes, in milliseconds: 0 without animations. */
+static int glide_span(const struct sh_settings *settings, double fraction) {
+    if (!settings->overview_animation || !settings->animations)
+        return 0;
+    double speed = settings->animation_speed > 0 ? settings->animation_speed : 1;
+    return (int)(settings->overview_duration * fraction / speed);
+}
+
 /* Opens the overview on `output`, or Snap Assist when `assist` is set (and `area` its slot);
  * false when there is nothing for Snap Assist to offer. */
 static bool overview_begin(struct sh_server *server, struct wlr_output *output, bool assist,
@@ -595,9 +588,7 @@ static bool overview_begin(struct sh_server *server, struct wlr_output *output, 
     overview->dirty = false;
     overview->from = overview->progress = 0;
     overview->to = 1;
-    overview->span = settings->overview_animation && settings->animations
-                         ? (int)(settings->overview_duration / (settings->animation_speed > 0 ? settings->animation_speed : 1))
-                         : 0;
+    overview->span = glide_span(settings, 1);
     overview->started = now_ms();
     if (overview->span <= 0)
         overview->progress = 1;
@@ -697,9 +688,7 @@ void overview_close(struct sh_server *server, struct sh_toplevel *chosen, int wo
     overview->from = overview->progress;
     overview->to = 0;
     overview->started = now_ms();
-    overview->span = settings->overview_animation && settings->animations
-                         ? (int)(settings->overview_duration * overview->progress / (settings->animation_speed > 0 ? settings->animation_speed : 1))
-                         : 0;
+    overview->span = glide_span(settings, overview->progress);
     send_event(server, "overview-close\n", strlen("overview-close\n"));
     if (overview->span <= 0) {
         overview_hide(server);
@@ -735,10 +724,7 @@ void overview_release(struct sh_server *server, bool open) {
     overview->from = overview->progress;
     overview->to = 1;
     overview->started = now_ms();
-    overview->span = settings->overview_animation && settings->animations
-                         ? (int)(settings->overview_duration * (1 - overview->progress) /
-                                 (settings->animation_speed > 0 ? settings->animation_speed : 1))
-                         : 0;
+    overview->span = glide_span(settings, 1 - overview->progress);
     if (overview->span <= 0)
         overview->progress = 1;
     overview_render(server);
@@ -1011,8 +997,7 @@ void overview_hot_corner(struct sh_server *server) {
     struct wlr_output *output = NULL;
     if (settings->overview && corner > 0 && !server->locked &&
         server->cursor_mode == SH_CURSOR_PASSTHROUGH) {
-        output = wlr_output_layout_output_at(server->output_layout, server->cursor->x,
-                                             server->cursor->y);
+        output = pointer_output(server);
         if (output) {
             struct wlr_box box;
             wlr_output_layout_get_box(server->output_layout, output, &box);

@@ -27,6 +27,29 @@ int64_t now_ms(void) {
     return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
 
+/* Starts a program with an ordinary signal mask (the compositor blocks signals for its event
+ * loop); the child is reaped with the others. 0, or why it could not start. */
+int spawn_program(char *const argv[]) {
+    posix_spawnattr_t attributes;
+    int error = posix_spawnattr_init(&attributes);
+    if (error)
+        return error;
+    sigset_t mask;
+    sigemptyset(&mask);
+    posix_spawnattr_setsigmask(&attributes, &mask);
+    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK);
+    pid_t pid;
+    extern char **environ;
+    error = posix_spawnp(&pid, argv[0], NULL, &attributes, argv, environ);
+    posix_spawnattr_destroy(&attributes);
+    return error;
+}
+
+/* A protocol object's destroy request, for one with nothing more to do. */
+void destroy_resource(struct wl_client *client, struct wl_resource *resource) {
+    wl_resource_destroy(resource);
+}
+
 void add_listener(struct wl_signal *signal, struct wl_listener *listener,
                   wl_notify_func_t notify) {
     listener->notify = notify;
@@ -99,10 +122,7 @@ void reload_config(struct sh_server *server) {
     struct sh_toplevel *next;
     wl_list_for_each_safe(toplevel, next, &server->toplevels, link) follow_dynamic_rules(toplevel);
     show_workspaces(server);
-    if (server->focused_toplevel && !toplevel_visible(server->focused_toplevel)) {
-        deactivate_toplevel(server);
-        focus_previous(server);
-    }
+    refocus_if_hidden(server);
     // Gaps, borders, and opacity may have changed.
     wl_list_for_each(toplevel, &server->toplevels, link) refresh_frame(toplevel);
     wl_list_for_each(output, &server->outputs, link) reflow_output(server, output->wlr_output);

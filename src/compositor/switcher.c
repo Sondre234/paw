@@ -18,13 +18,8 @@ static void switcher_announce(struct sh_server *server) {
     for (int i = 0; i < server->switcher.count; ++i) {
         struct sh_toplevel *toplevel = server->switcher.windows[i];
         char app_id[256], title[512];
-        const char *raw_app_id = toplevel_app_id(toplevel), *raw_title = toplevel_title(toplevel);
-        snprintf(app_id, sizeof(app_id), "%s", raw_app_id ? raw_app_id : "");
-        snprintf(title, sizeof(title), "%s", raw_title ? raw_title : "");
-        for (char *c = app_id; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
-        for (char *c = title; *c; ++c)
-            *c = *c == '\t' || *c == '\n' || *c == '\r' ? ' ' : *c;
+        copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
         length +=
             snprintf(text + length, size - length, "switcher-window %s\t%s\t%s\t%d\t%d\t%d\t%u\n",
                      app_id, title, toplevel->output, toplevel->workspace + 1, toplevel->minimized,
@@ -75,11 +70,7 @@ void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
     int count = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
-#if WLR_HAS_XWAYLAND
-        if (toplevel->unmanaged)
-            continue;
-#endif
-        if (toplevel->swallowed)
+        if (toplevel->unmanaged || toplevel->swallowed)
             continue;
         if (count < (int)(sizeof(server->switcher.windows) / sizeof(*server->switcher.windows)))
             server->switcher.windows[count++] = toplevel;

@@ -40,11 +40,7 @@ static pid_t process_parent(pid_t pid) {
 /* A window that can lend its slot to another. */
 static bool swallow_hostable(struct sh_toplevel *host) {
     return toplevel_mapped(host) && !host->swallowed && !host->swallow_peer && !host->group &&
-           !host->minimized && !host->scratchpad && !host->sticky
-#if WLR_HAS_XWAYLAND
-           && !host->unmanaged
-#endif
-        ;
+           !host->minimized && !host->scratchpad && !host->sticky && !host->unmanaged;
 }
 
 /* The window `child` was started from: that of its nearest ancestor process which has one
