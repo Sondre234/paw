@@ -5247,8 +5247,10 @@ ListModel {
             return fail("Apply did not put the settings on trial and ask whether to keep them");
         if (item("displayApply")->isEnabled() || item("displayResolution")->isEnabled())
             return fail("the window could be changed while settings were on trial");
+        // Kept, the settings read the monitors again, which a change made meanwhile would lose.
         click(item("displayKeep"));
-        if (!waitFor([&] { return trialGone() && !settings->trial(); }) || !requests.contains("monitors keep"))
+        if (!waitFor([&] { return trialGone() && !settings->trial() && !settings->busy(); }) ||
+            !requests.contains("monitors keep"))
             return fail("Keep did not keep the settings");
         // Again, and Escape takes them back.
         settings->setScale("EXT-1", 1.5);
@@ -5264,7 +5266,7 @@ ListModel {
             !item("displayCountdown")->property("text").toString().contains("1 second."))
             return fail("a trial the compositor told of did not ask whether to keep it");
         subscriber->write("monitors-reverted timeout\n");
-        if (!waitFor([&] { return trialGone(); }) ||
+        if (!waitFor([&] { return trialGone() && !settings->busy(); }) ||
             item("displayMessage")->property("text") != "The settings were not kept; the previous ones are back.")
             return fail("a trial that ran out did not say so");
         // A refusal says why.
