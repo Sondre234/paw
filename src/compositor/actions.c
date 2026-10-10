@@ -263,19 +263,15 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         set_peek(server, !server->peeking);
         break;
     case SH_NIGHT_LIGHT_TOGGLE:
-        server->night_mode = server->night_kelvin < SH_KELVIN_NEUTRAL ? SH_NIGHT_OFF : SH_NIGHT_ON;
-        night_light_update(server);
-        break;
     case SH_NIGHT_LIGHT_ON:
-        server->night_mode = SH_NIGHT_ON;
-        night_light_update(server);
-        break;
     case SH_NIGHT_LIGHT_OFF:
-        server->night_mode = SH_NIGHT_OFF;
-        night_light_update(server);
-        break;
     case SH_NIGHT_LIGHT_AUTO:
-        server->night_mode = SH_NIGHT_AUTO;
+        server->night_mode =
+            action == SH_NIGHT_LIGHT_TOGGLE
+                ? (server->night_kelvin < SH_KELVIN_NEUTRAL ? SH_NIGHT_OFF : SH_NIGHT_ON)
+            : action == SH_NIGHT_LIGHT_ON  ? SH_NIGHT_ON
+            : action == SH_NIGHT_LIGHT_OFF ? SH_NIGHT_OFF
+                                           : SH_NIGHT_AUTO;
         night_light_update(server);
         break;
     case SH_ZOOM_IN:
