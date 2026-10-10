@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "emoji.hpp"
 #include "state_files.hpp"
-#include <QDir>
 #include <QFile>
 #include <QRegularExpression>
-#include <QSaveFile>
 #include <QTimer>
 #include <algorithm>
 #include <utility>
@@ -219,12 +217,8 @@ void EmojiPicker::preview(const QStringList &recent, int tone) {
 void EmojiPicker::save() const {
     if (previewOnly_)
         return;
-    QDir().mkpath(stateDir_);
-    QSaveFile file(stateDir_ + "/emoji");
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-        return;
-    file.write(QString("tone %1\n").arg(tone_).toUtf8());
+    QByteArray lines = QString("tone %1\n").arg(tone_).toUtf8();
     for (const auto &text : recent_)
-        file.write(text.toUtf8() + '\n');
-    file.commit();
+        lines += text.toUtf8() + '\n';
+    saveFile(stateDir_ + "/emoji", lines);
 }

@@ -19,7 +19,6 @@
 #include <QIcon>
 #include <QProcess>
 #include <QProcessEnvironment>
-#include <QSaveFile>
 #include <QTimer>
 #include <algorithm>
 #include <functional>
@@ -215,15 +214,11 @@ void ShellController::pickWallpaper(const QString &path) {
         pickedWallpapers_.remove(profile());
     else
         pickedWallpapers_[profile()] = {QString::fromStdString(config_.shell.wallpaper), path};
-    const auto file = pickedWallpapersPath();
-    QDir().mkpath(QFileInfo(file).path());
-    QSaveFile out(file);
-    if (out.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        for (auto it = pickedWallpapers_.begin(); it != pickedWallpapers_.end(); ++it)
-            out.write((it.key() + '\t' + it->configured + '\t' + it->picked + '\n').toUtf8());
-        if (!out.commit())
-            report("Could not save the wallpaper: " + out.errorString());
-    }
+    QByteArray lines;
+    for (auto it = pickedWallpapers_.begin(); it != pickedWallpapers_.end(); ++it)
+        lines += (it.key() + '\t' + it->configured + '\t' + it->picked + '\n').toUtf8();
+    if (const auto error = saveFile(pickedWallpapersPath(), lines); !error.isEmpty())
+        report("Could not save the wallpaper: " + error);
     Q_EMIT wallpaperChanged();
 }
 void ShellController::clearApps() {
@@ -315,16 +310,11 @@ QString ShellController::pinsPath() {
     return stateDir() + "/pinned";
 }
 void ShellController::savePins() {
-    const auto path = pinsPath();
-    QDir().mkpath(QFileInfo(path).path());
-    QSaveFile file(path);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        for (const auto &id : userPins_)
-            file.write(id.toUtf8() + '\n');
-        if (file.commit())
-            return;
-    }
-    report("Could not save pinned applications: " + file.errorString());
+    QByteArray lines;
+    for (const auto &id : userPins_)
+        lines += id.toUtf8() + '\n';
+    if (const auto error = saveFile(pinsPath(), lines); !error.isEmpty())
+        report("Could not save pinned applications: " + error);
 }
 void ShellController::pin(const QString &id) {
     auto it = std::find_if(apps_.begin(), apps_.end(),

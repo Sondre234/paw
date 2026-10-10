@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "launch_history.hpp"
-#include <QDir>
+#include "state_files.hpp"
 #include <QFile>
 #include <QFileInfo>
-#include <QSaveFile>
 #include <QTimeZone>
 #include <algorithm>
 
@@ -48,20 +47,13 @@ bool LaunchHistory::record(const QString &id, const QDateTime &when) {
         entries_.resize(limit);
     if (path_.isEmpty())
         return true;
-    QDir().mkpath(QFileInfo(path_).path());
-    QSaveFile file(path_);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        for (const auto &item : entries_)
-            file.write(QString("%1\t%2\t%3\n")
-                           .arg(item.id)
-                           .arg(item.count)
-                           .arg(item.last.toSecsSinceEpoch())
-                           .toUtf8());
-        if (file.commit()) {
-            error_.clear();
-            return true;
-        }
-    }
-    error_ = file.errorString();
-    return false;
+    QByteArray lines;
+    for (const auto &item : entries_)
+        lines += QString("%1\t%2\t%3\n")
+                     .arg(item.id)
+                     .arg(item.count)
+                     .arg(item.last.toSecsSinceEpoch())
+                     .toUtf8();
+    error_ = saveFile(path_, lines);
+    return error_.isEmpty();
 }

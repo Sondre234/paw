@@ -11,7 +11,6 @@
 #include <QFileInfo>
 #include <QLocale>
 #include <QRegularExpression>
-#include <QSaveFile>
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
@@ -257,16 +256,11 @@ void StartMenu::savePins() {
     Q_EMIT pinnedChanged();
     if (previewOnly_)
         return;
-    const auto path = stateDir_ + "/start-pinned";
-    QDir().mkpath(stateDir_);
-    QSaveFile file(path);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        for (const auto &id : pins_)
-            file.write(id.toUtf8() + '\n');
-        if (file.commit())
-            return;
-    }
-    Q_EMIT failed("Could not save the start menu's pins: " + file.errorString());
+    QByteArray lines;
+    for (const auto &id : pins_)
+        lines += id.toUtf8() + '\n';
+    if (const auto error = saveFile(stateDir_ + "/start-pinned", lines); !error.isEmpty())
+        Q_EMIT failed("Could not save the start menu's pins: " + error);
 }
 
 QVariantList StartMenu::search(const QString &query, const QVariantList &others) const {
