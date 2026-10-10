@@ -1197,6 +1197,7 @@ bool test_names_output(struct sh_output *output, const char *variable);
 bool output_named(const struct sh_output *output, const char *name);
 void output_description(const struct wlr_output *output, char *text, size_t size);
 bool output_key_matches(const char *key, const struct wlr_output *output);
+struct wlr_output *find_output_key(struct sh_server *server, const char *key);
 const struct sh_monitor *monitor_settings(const struct sh_settings *settings,
                                           const struct wlr_output *output);
 const struct sh_monitor *output_monitor(struct sh_output *output);

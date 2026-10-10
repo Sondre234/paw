@@ -107,6 +107,16 @@ bool output_key_matches(const char *key, const struct wlr_output *output) {
     return *prefix && strncmp(description, prefix, strlen(prefix)) == 0;
 }
 
+/* The output in the layout that `key` names, as output_key_matches has it, or NULL. */
+struct wlr_output *find_output_key(struct sh_server *server, const char *key) {
+    struct sh_output *output;
+    wl_list_for_each(output, &server->outputs, link) {
+        if (output_key_matches(key, output->wlr_output))
+            return output->wlr_output;
+    }
+    return NULL;
+}
+
 static bool monitor_matches(const struct sh_monitor *monitor, const struct wlr_output *output) {
     return output_key_matches(monitor->name, output);
 }

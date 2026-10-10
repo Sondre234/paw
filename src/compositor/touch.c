@@ -22,15 +22,12 @@ static bool built_in(const struct wlr_output *output) {
 /* The output a touchscreen is mapped to, or NULL for the whole layout. A touch.output that is
  * not plugged in leaves the choice to the rest. */
 static struct wlr_output *touch_output(struct sh_server *server, struct wlr_touch *touch) {
-    const char *setting = server_settings(server)->touch_output;
-    struct sh_output *output;
-    wl_list_for_each(output, &server->outputs, link) {
-        if (setting[0] && output_key_matches(setting, output->wlr_output))
-            return output->wlr_output;
-    }
-    struct wlr_output *named = touch->output_name ? find_output(server, touch->output_name) : NULL;
+    struct wlr_output *named = find_output_key(server, server_settings(server)->touch_output);
+    if (!named && touch->output_name)
+        named = find_output(server, touch->output_name);
     if (named)
         return named;
+    struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) {
         if (built_in(output->wlr_output))
             return output->wlr_output;

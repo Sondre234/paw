@@ -40,13 +40,7 @@ struct sh_tablet_pad {
 
 /* The output tablets are mapped to, or NULL for the whole layout. */
 static struct wlr_output *tablet_output(struct sh_server *server) {
-    const char *setting = server_settings(server)->tablet_output;
-    struct sh_output *output;
-    wl_list_for_each(output, &server->outputs, link) {
-        if (setting[0] && output_key_matches(setting, output->wlr_output))
-            return output->wlr_output;
-    }
-    return NULL;
+    return find_output_key(server, server_settings(server)->tablet_output);
 }
 
 /* Maps every tablet again: the outputs or tablet.output changed. */

@@ -181,23 +181,6 @@ static bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rul
                                   rule);
 }
 
-/* The enabled output a window rule names by connector, or by "desc:" and the start of its
- * "make model serial". */
-static struct wlr_output *rule_output(struct sh_server *server, const char *name) {
-    bool described = strncmp(name, "desc:", 5) == 0;
-    struct sh_output *output;
-    wl_list_for_each(output, &server->outputs, link) {
-        if (output->disabled)
-            continue;
-        char description[256];
-        output_description(output->wlr_output, description, sizeof(description));
-        if (described ? strncmp(description, name + 5, strlen(name + 5)) == 0
-                      : output_named(output, name))
-            return output->wlr_output;
-    }
-    return NULL;
-}
-
 /* New windows open on the output under the pointer, as in Hyprland. */
 static struct wlr_output *new_window_output(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
@@ -287,7 +270,7 @@ void map_toplevel(struct sh_toplevel *toplevel, bool fullscreen, bool maximized)
     ruled = open_dynamic_rules(toplevel, &rule, ruled);
     struct wlr_output *output = new_window_output(toplevel);
     if (ruled && rule.output[0]) {
-        struct wlr_output *named = rule_output(server, rule.output);
+        struct wlr_output *named = find_output_key(server, rule.output);
         output = named ? named : output;
     }
     // It opens on that output's current workspace, even if it was mapped there before, unless
