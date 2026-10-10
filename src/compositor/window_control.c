@@ -178,14 +178,9 @@ static struct sh_toplevel *requested(struct wl_resource *resource) {
     struct sh_toplevel *toplevel = object ? object->toplevel : NULL;
     if (!toplevel || toplevel->server->locked)
         return NULL;
-    if (toplevel->group_hidden) {
-        struct sh_toplevel *member;
-        wl_list_for_each(member, &toplevel->server->toplevels, link) {
-            if (member->group == toplevel->group && !member->group_hidden)
-                return member;
-        }
-    }
-    return toplevel;
+    struct sh_toplevel *shown =
+        toplevel->group_hidden ? group_shown(toplevel->server, toplevel->group) : NULL;
+    return shown ? shown : toplevel;
 }
 
 static void window_destroy(struct wl_client *client, struct wl_resource *resource) {

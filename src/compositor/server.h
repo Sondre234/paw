@@ -1097,6 +1097,7 @@ void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, 
                              double mix, float opacity);
 
 /* group.c */
+struct sh_toplevel *group_shown(struct sh_server *server, unsigned group);
 bool groups_enabled(struct sh_server *server);
 int group_size(struct sh_server *server, unsigned group);
 int group_index(struct sh_toplevel *from);

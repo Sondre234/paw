@@ -18,7 +18,7 @@ int group_size(struct sh_server *server, unsigned group) {
 }
 
 /* The member of `group` that is showing. */
-static struct sh_toplevel *group_shown(struct sh_server *server, unsigned group) {
+struct sh_toplevel *group_shown(struct sh_server *server, unsigned group) {
     struct sh_toplevel *member;
     if (group)
         wl_list_for_each(member, &server->toplevels, link) {
@@ -26,6 +26,15 @@ static struct sh_toplevel *group_shown(struct sh_server *server, unsigned group)
                 return member;
         }
     return NULL;
+}
+
+/* Draws the tabs of every member of `group` again. */
+static void refresh_group_tabs(struct sh_server *server, unsigned group) {
+    struct sh_toplevel *member;
+    wl_list_for_each(member, &server->toplevels, link) {
+        if (member->group == group)
+            refresh_tabs(member);
+    }
 }
 
 /* The tab `from` is, counting from 0. */
@@ -127,12 +136,7 @@ void group_show(struct sh_toplevel *toplevel) {
     if (shown->fullscreen)
         set_fullscreen(shown, false); // it could not hide, and would return fullscreen
     group_take_slot(shown, toplevel);
-    // The tabs of the others follow the new count and highlight.
-    struct sh_toplevel *member;
-    wl_list_for_each(member, &toplevel->server->toplevels, link) {
-        if (member->group == toplevel->group)
-            refresh_tabs(member);
-    }
+    refresh_group_tabs(toplevel->server, toplevel->group); // the new count and highlight
 }
 
 /* Takes a window out of its group. A member showing hands its slot to the next tab; a group
@@ -167,10 +171,7 @@ void group_detach(struct sh_toplevel *toplevel) {
         last->group = 0;
         refresh_tabs(last);
     } else if (left > 1) {
-        wl_list_for_each(member, &server->toplevels, link) {
-            if (member->group == group)
-                refresh_tabs(member);
-        }
+        refresh_group_tabs(server, group);
     }
     notify_subscribers(server);
 }
@@ -244,7 +245,7 @@ void ungroup(struct sh_server *server, struct sh_toplevel *current) {
     struct wlr_box box = toplevel_box(current);
     bool floating = !current->tiled;
     group_detach(current);
-    if (!heir || current->group_hidden)
+    if (!heir)
         return;
     // The heir holds the slot now; the window gets a place beside it.
     wlr_scene_node_set_enabled(&current->scene_tree->node, toplevel_visible(current));
@@ -280,13 +281,9 @@ void group_merge(struct sh_server *server, enum sh_action action) {
     group_join(current, group);
     current->group_hidden = true; // hidden until it takes the slot, so the swap is uniform
     wlr_scene_node_set_enabled(&current->scene_tree->node, false);
-    struct sh_toplevel *member;
     group_show(current);
     focus_toplevel(current);
-    wl_list_for_each(member, &server->toplevels, link) {
-        if (member->group == group)
-            refresh_tabs(member);
-    }
+    refresh_group_tabs(server, group);
 }
 
 /* With features.groups off every group dissolves. */
