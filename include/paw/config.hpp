@@ -273,7 +273,6 @@ struct Config {
                          .touchpad_dwt = -1,
                          .focus_follows_mouse = true,
                          .animations = true,
-                         .animation_duration = 120,
                          .animation_speed = 1.0F,
                          .animation_late_ms = 80,
                          .animation_slide = 0.08F,

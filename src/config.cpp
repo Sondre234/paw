@@ -566,7 +566,6 @@ void read_curve(lua_State *L, const char *key, const std::string &label, sh_curv
 // tables that override the base.
 void read_animations(lua_State *L, sh_settings &settings) {
     int base = integer(L, "duration", 120, 10, 1000);
-    settings.animation_duration = base;
     settings.animation_speed = static_cast<float>(number(L, "speed", 1, 0.1, 10));
     settings.animation_late_ms = integer(L, "late_frame_ms", 80, 0, 1000);
     sh_curve curve{};
