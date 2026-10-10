@@ -40,8 +40,7 @@ with harness.Compositor(compositor, env={"WLR_HEADLESS_OUTPUTS": "2"}, start=Fal
 
     def windows():
         """One (workspace, tiled, x, y, width, height, output, visible) per window, oldest first."""
-        rows = [line.split("\t") for line in msg("get", "windows").splitlines()]
-        found = [(int(r[0]), r[3] == "1", *map(int, r[4:8]), r[10], r[11] == "1") for r in rows]
+        found = [(w.workspace, w.tiled, *w.box, w.output, w.visible) for w in desktop.windows()]
         return sorted(found, key=lambda w: (w[6], w[0], w[2], w[3]))
 
     def inside(window, output):

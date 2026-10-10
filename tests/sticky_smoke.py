@@ -19,7 +19,7 @@ with harness.Compositor(compositor, source) as desktop:
     def window():
         """(workspace, focused, tiled, visible, sticky) of the only window."""
         rows = desktop.rows("windows")
-        assert len(rows) == 1 and len(rows[0]) == 16, rows
+        assert len(rows) == 1 and len(rows[0]) == 16, rows  # every column there
         w = harness.Window.parse(rows[0])
         return (w.workspace, w.focused, w.tiled, w.visible, w.sticky)
 
