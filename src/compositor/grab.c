@@ -320,9 +320,6 @@ void process_cursor_resize(struct sh_server *server) {
         }
     }
 
-    if (!toplevel->tiled)
-        magnet_snap_resize(server, toplevel, server->resize_edges, &new_left, &new_top,
-                           &new_right, &new_bottom);
     if (toplevel->tiled) {
         // Resizing a tile moves the splits beside the dragged edges instead.
         struct sh_rect rect = {new_left, new_top, new_right - new_left, new_bottom - new_top};
@@ -331,6 +328,8 @@ void process_cursor_resize(struct sh_server *server) {
             reflow_output(server, output);
         return;
     }
+    magnet_snap_resize(server, toplevel, server->resize_edges, &new_left, &new_top, &new_right,
+                       &new_bottom);
     struct wlr_box geo_box = toplevel_geometry(toplevel);
     toplevel_configure(toplevel, new_left - geo_box.x, new_top - geo_box.y, new_right - new_left,
                        new_bottom - new_top);
