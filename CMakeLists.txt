@@ -1039,7 +1039,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
         set_tests_properties(zoom_smoke PROPERTIES TIMEOUT 60)
         add_test(NAME zoom_output_smoke COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/zoom_output_smoke.py $<TARGET_FILE:paw>)
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/zoom_output_smoke.py $<TARGET_FILE:paw>
+            $<TARGET_FILE:pointer_probe>)
         set_tests_properties(zoom_output_smoke PROPERTIES TIMEOUT 60)
         add_test(NAME example_snippets COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/example_snippets.py $<TARGET_FILE:paw>
