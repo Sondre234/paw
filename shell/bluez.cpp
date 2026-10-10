@@ -33,11 +33,6 @@ QVariantMap settled(const QVariantMap &properties) {
                                : it.value();
     return values;
 }
-QVariantMap map(const QVariant &value) {
-    if (value.metaType() == QMetaType::fromType<QDBusArgument>())
-        return qdbus_cast<QVariantMap>(value.value<QDBusArgument>());
-    return value.toMap();
-}
 // A passkey as BlueZ shows it: six digits.
 QString digits(uint passkey) { return QString("%1").arg(passkey, 6, 10, QChar('0')); }
 } // namespace
@@ -170,7 +165,7 @@ void BlueZ::propertiesChanged(const QDBusMessage &message) {
     if (!running_ || arguments.size() < 2 || object == objects_.end())
         return;
     auto &properties = (*object)[arguments[0].toString()];
-    const auto changed = settled(map(arguments[1]));
+    const auto changed = settled(dbus::map(arguments[1]));
     for (auto it = changed.constBegin(); it != changed.constEnd(); ++it)
         properties[it.key()] = it.value();
     // As a device goes out of range, its signal is no longer known.

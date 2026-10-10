@@ -19,12 +19,6 @@ constexpr auto propertiesInterface = "org.freedesktop.DBus.Properties";
 constexpr auto busService = "org.freedesktop.DBus";
 constexpr auto busPath = "/org/freedesktop/DBus";
 
-// A variant holding a{sv}: a QVariantMap, or a D-Bus argument still to read as one.
-QVariantMap map(const QVariant &value) {
-    if (value.metaType() == QMetaType::fromType<QDBusArgument>())
-        return qdbus_cast<QVariantMap>(value.value<QDBusArgument>());
-    return value.toMap();
-}
 // A string or an object path, which players send track ids as.
 QString text(const QVariant &value) {
     if (value.metaType() == QMetaType::fromType<QDBusObjectPath>())
@@ -34,7 +28,7 @@ QString text(const QVariant &value) {
 // The metadata read as plain values, so that nothing refers to the message it came in.
 void settle(QVariantMap &properties) {
     if (properties.contains("Metadata"))
-        properties["Metadata"] = map(properties.value("Metadata"));
+        properties["Metadata"] = dbus::map(properties.value("Metadata"));
 }
 } // namespace
 
@@ -103,7 +97,7 @@ void Mpris::readAll(const QString &name, const QString &interface) {
                            // asked again.
                            auto properties = done->isError()
                                                  ? QVariantMap()
-                                                 : map(done->reply().arguments().value(0));
+                                                 : dbus::map(done->reply().arguments().value(0));
                            settle(properties);
                            if (interface == rootInterface) {
                                it->root = properties;
@@ -168,7 +162,7 @@ void Mpris::propertiesChanged(const QDBusMessage &message) {
     const auto interface = arguments[0].toString();
     if (interface != rootInterface && interface != playerInterface)
         return;
-    auto changed = map(arguments[1]);
+    auto changed = dbus::map(arguments[1]);
     settle(changed);
     const auto invalidated = arguments.value(2).toStringList();
     for (const auto &name : namesOf(message.service())) {

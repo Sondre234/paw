@@ -30,11 +30,6 @@ constexpr uint activeActivated = 2, activeDeactivated = 4;
 // A connection's settings, a{sa{sv}}.
 using Settings = QMap<QString, QVariantMap>;
 
-QVariantMap map(const QVariant &value) {
-    if (value.metaType() == QMetaType::fromType<QDBusArgument>())
-        return qdbus_cast<QVariantMap>(value.value<QDBusArgument>());
-    return value.toMap();
-}
 QStringList pathList(const QList<QDBusObjectPath> &objects) {
     QStringList list;
     for (const auto &object : objects)
@@ -129,7 +124,7 @@ void NetworkManager::getAll(const QString &path, const QString &interface,
                            if (generation == generation_)
                                done(answer->isError()
                                         ? QVariantMap()
-                                        : settled(map(answer->reply().arguments().value(0))));
+                                        : settled(dbus::map(answer->reply().arguments().value(0))));
                        });
 }
 
@@ -246,7 +241,7 @@ void NetworkManager::propertiesChanged(const QDBusMessage &message) {
     if (!running_ || arguments.size() < 2)
         return;
     const auto interface = arguments[0].toString();
-    const auto changed = settled(map(arguments[1]));
+    const auto changed = settled(dbus::map(arguments[1]));
     const auto path = message.path();
     auto merge = [&changed](QVariantMap &into) {
         for (auto it = changed.constBegin(); it != changed.constEnd(); ++it)
