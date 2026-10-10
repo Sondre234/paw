@@ -62,7 +62,6 @@ enum sh_corner {
     SH_CORNER_TOP_RIGHT,
     SH_CORNER_BOTTOM_LEFT,
     SH_CORNER_BOTTOM_RIGHT,
-    SH_CORNER_COUNT,
 };
 /* The corner of a width x height box whose size x size square holds (x, y), or -1. */
 int sh_corner_at(double x, double y, int width, int height, int size);
