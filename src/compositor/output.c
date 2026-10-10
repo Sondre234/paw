@@ -669,10 +669,7 @@ void apply_output_settings(struct sh_server *server) {
     rehome_tiles(server);
     show_workspaces(server);
     struct sh_toplevel *toplevel;
-    if (server->focused_toplevel && !toplevel_visible(server->focused_toplevel)) {
-        deactivate_toplevel(server);
-        focus_previous(server);
-    }
+    refocus_if_hidden(server);
     wl_list_for_each(toplevel, &server->toplevels, link) refresh_frame(toplevel);
     wl_list_for_each(output, &server->outputs, link) reflow_output(server, output->wlr_output);
 }

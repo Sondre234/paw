@@ -117,10 +117,7 @@ void reload_config(struct sh_server *server) {
     struct sh_toplevel *next;
     wl_list_for_each_safe(toplevel, next, &server->toplevels, link) follow_dynamic_rules(toplevel);
     show_workspaces(server);
-    if (server->focused_toplevel && !toplevel_visible(server->focused_toplevel)) {
-        deactivate_toplevel(server);
-        focus_previous(server);
-    }
+    refocus_if_hidden(server);
     // Gaps, borders, and opacity may have changed.
     wl_list_for_each(toplevel, &server->toplevels, link) refresh_frame(toplevel);
     wl_list_for_each(output, &server->outputs, link) reflow_output(server, output->wlr_output);

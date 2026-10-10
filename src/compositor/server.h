@@ -1046,6 +1046,7 @@ bool hover_focuses(struct sh_server *server, struct sh_toplevel *toplevel);
 void focus_previous(struct sh_server *server);
 void focus_last(struct sh_server *server);
 void focus_top_on(struct sh_server *server, struct wlr_output *output);
+void refocus_if_hidden(struct sh_server *server);
 void focus_desktop(struct sh_server *server, struct wlr_output *output);
 void focus_layer(struct sh_layer *layer);
 struct sh_toplevel *current_toplevel(struct sh_server *server);

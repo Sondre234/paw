@@ -167,10 +167,7 @@ void evacuate_output(struct sh_server *server, const char *name, struct wlr_box 
     show_workspaces(server);
     reflow_output(server, target);
     refit_fullscreen(server);
-    if (server->focused_toplevel && !toplevel_visible(server->focused_toplevel)) {
-        deactivate_toplevel(server);
-        focus_previous(server);
-    }
+    refocus_if_hidden(server);
 }
 
 struct sh_evacuation {

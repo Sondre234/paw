@@ -248,6 +248,14 @@ void focus_previous(struct sh_server *server) {
     wlr_seat_keyboard_clear_focus(server->seat);
 }
 
+/* Passes the keyboard on to the topmost visible window when the focused one is out of sight. */
+void refocus_if_hidden(struct sh_server *server) {
+    if (server->focused_toplevel && !toplevel_visible(server->focused_toplevel)) {
+        deactivate_toplevel(server);
+        focus_previous(server);
+    }
+}
+
 /* Focuses the window focused before the current one, wherever it is (its output switches to
  * its workspace). Windows hidden in the scratchpad or minimized are not in the history. */
 void focus_last(struct sh_server *server) {
