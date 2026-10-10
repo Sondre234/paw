@@ -256,7 +256,7 @@ struct Runtime {
     // The running screenshot script; another request is refused until it exits.
     pid_t screenshot_pid = -1;
     std::string target{}; // the output target of the action last resolved
-    unsigned flags = 0;   // the sh_binding_flag bits of the key binding last resolved
+    unsigned flags = 0;   // the sh_binding_flag bits of the binding last resolved
     std::string keys{};   // what binding_keys returned last
     int mode = 0;         // the binding mode `key` looks in: 0 outside any, else modes[mode - 1]
     paw::Command program{}; // the program of the spawn action last resolved
@@ -339,13 +339,13 @@ struct Runtime {
         auto value = [](const std::optional<bool> &decided) { return decided ? *decided : -1; };
         *rule = {value(held.floating), value(held.sticky), value(held.above)};
     }
-    static sh_action key(void *data, uint32_t modifiers, uint32_t keysym, int *argument) {
-        auto &self = *static_cast<Runtime *>(data);
-        auto *binding = self.config.mode_binding(self.mode, modifiers, keysym);
+    /* The action of a key, button or switch binding, or SH_NONE without one; its argument goes
+     * in `argument`, and its program, target and flags are kept for the callbacks after. */
+    sh_action take(const paw::Binding *binding, int *argument) {
         if (!binding)
             return SH_NONE;
         if (binding->action == SH_SPAWN)
-            self.program = binding->command;
+            program = binding->command;
         *argument = binding->action == SH_SCREENSHOT ? binding->screenshot : binding->workspace;
         if (paw::action_takes_amount(binding->action))
             *argument = binding->amount;
@@ -353,10 +353,14 @@ struct Runtime {
             *argument = binding->layout;
         if (binding->action == SH_MODE || binding->action == SH_DISPLAY_MODE)
             *argument = binding->mode;
-        self.target = binding->output;
-        self.flags = (binding->locked ? SH_BINDING_LOCKED : 0) |
-                     (binding->repeats ? SH_BINDING_REPEATS : 0);
+        target = binding->output;
+        flags = (binding->locked ? SH_BINDING_LOCKED : 0) |
+                (binding->repeats ? SH_BINDING_REPEATS : 0);
         return binding->action;
+    }
+    static sh_action key(void *data, uint32_t modifiers, uint32_t keysym, int *argument) {
+        auto &self = *static_cast<Runtime *>(data);
+        return self.take(self.config.mode_binding(self.mode, modifiers, keysym), argument);
     }
     static unsigned binding_flags(void *data) { return static_cast<Runtime *>(data)->flags; }
     static const char *set_mode(void *data, int mode) {
@@ -370,38 +374,12 @@ struct Runtime {
     static sh_action button(void *data, uint32_t modifiers, uint32_t button,
                             sh_pointer_target target, const char *app_id, int *argument) {
         auto &self = *static_cast<Runtime *>(data);
-        auto *binding = self.config.button_binding(modifiers, button, target, app_id);
-        if (!binding)
-            return SH_NONE;
-        if (binding->action == SH_SPAWN)
-            self.program = binding->command;
-        *argument = binding->action == SH_SCREENSHOT ? binding->screenshot : binding->workspace;
-        if (paw::action_takes_amount(binding->action))
-            *argument = binding->amount;
-        if (binding->action == SH_SWITCH_LAYOUT)
-            *argument = binding->layout;
-        if (binding->action == SH_MODE || binding->action == SH_DISPLAY_MODE)
-            *argument = binding->mode;
-        self.target = binding->output;
-        return binding->action;
+        return self.take(self.config.button_binding(modifiers, button, target, app_id), argument);
     }
     /* The same for a switch turning on or off: { switch = "lid", state = "close", ... }. */
     static sh_action switch_toggled(void *data, sh_switch type, bool on, int *argument) {
         auto &self = *static_cast<Runtime *>(data);
-        auto *binding = self.config.switch_binding(type, on);
-        if (!binding)
-            return SH_NONE;
-        if (binding->action == SH_SPAWN)
-            self.program = binding->command;
-        *argument = binding->action == SH_SCREENSHOT ? binding->screenshot : binding->workspace;
-        if (paw::action_takes_amount(binding->action))
-            *argument = binding->amount;
-        if (binding->action == SH_SWITCH_LAYOUT)
-            *argument = binding->layout;
-        if (binding->action == SH_MODE || binding->action == SH_DISPLAY_MODE)
-            *argument = binding->mode;
-        self.target = binding->output;
-        return binding->action;
+        return self.take(self.config.switch_binding(type, on), argument);
     }
     /* The keys bound to an action, for the compositor to tell the user. */
     static const char *binding_keys(void *data, sh_action action) {
