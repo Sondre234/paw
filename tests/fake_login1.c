@@ -118,9 +118,11 @@ static int can(sd_bus_message *message, void *data, sd_bus_error *error) {
 static void prepare_for_sleep(void) {
     if (sleep_started >= 0)
         return;
+    // Written first, so that it comes before whatever the compositor does about it (the
+    // locker it starts writes to the same log).
+    record("prepare");
     sd_bus_emit_signal(bus, "/org/freedesktop/login1", "org.freedesktop.login1.Manager",
                        "PrepareForSleep", "b", 1);
-    record("prepare");
     sleep_started = now_ms();
 }
 
