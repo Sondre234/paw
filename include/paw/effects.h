@@ -11,9 +11,6 @@
 extern "C" {
 #endif
 
-/* Ease-out cubic, t clamped to [0, 1]: fast at first, settling gently. */
-double sh_ease_out(double t);
-
 /* A value moving to a target over a duration. A new target starts from wherever the value is
  * at that moment, so retargeting mid-fade never jumps. */
 struct sh_fade {
@@ -51,8 +48,7 @@ struct sh_night_schedule {
     double sunrise, sunset;
     double transition;
 };
-/* 1 in full day, 0 in full night, smooth in between. */
-double sh_daylight(const struct sh_night_schedule *schedule, double minute);
+/* The day's temperature in full day, the night's in full night, smooth in between. */
 int sh_night_kelvin(const struct sh_night_schedule *schedule, double minute);
 
 /* Sunrise and sunset in minutes after local midnight for a place (degrees, north and east

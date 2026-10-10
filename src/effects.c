@@ -8,7 +8,8 @@ static double clamp(double value, double low, double high) {
     return value < low ? low : value > high ? high : value;
 }
 
-double sh_ease_out(double t) {
+/* Ease-out cubic, t clamped to [0, 1]: fast at first, settling gently. */
+static double ease_out(double t) {
     t = clamp(t, 0, 1);
     return 1 - (1 - t) * (1 - t) * (1 - t);
 }
@@ -20,8 +21,8 @@ void sh_fade_init(struct sh_fade *fade, double value) {
 double sh_fade_value(const struct sh_fade *fade, int64_t now) {
     if (fade->duration <= 0)
         return fade->to;
-    return fade->from + (fade->to - fade->from) * sh_ease_out((double)(now - fade->start) /
-                                                              fade->duration);
+    return fade->from +
+           (fade->to - fade->from) * ease_out((double)(now - fade->start) / fade->duration);
 }
 
 void sh_fade_to(struct sh_fade *fade, double target, int64_t now, int duration) {
@@ -89,7 +90,8 @@ static double around(double minutes) {
     return minutes;
 }
 
-double sh_daylight(const struct sh_night_schedule *schedule, double minute) {
+/* 1 in full day, 0 in full night, smooth in between. */
+static double daylight(const struct sh_night_schedule *schedule, double minute) {
     double day = fmod(schedule->sunset - schedule->sunrise + 1440, 1440);
     if (day == 0)
         return 0;
@@ -105,9 +107,9 @@ double sh_daylight(const struct sh_night_schedule *schedule, double minute) {
 }
 
 int sh_night_kelvin(const struct sh_night_schedule *schedule, double minute) {
-    double daylight = sh_daylight(schedule, minute);
+    double day = daylight(schedule, minute);
     return (int)lround(schedule->night_kelvin +
-                       (schedule->day_kelvin - schedule->night_kelvin) * daylight);
+                       (schedule->day_kelvin - schedule->night_kelvin) * day);
 }
 
 static double radians(double degrees) { return degrees * M_PI / 180; }
