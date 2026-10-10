@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "system_status.hpp"
+#include "netlink.hpp"
 #include <QDir>
 #include <QFile>
-#include <QSocketNotifier>
 #include <algorithm>
-#include <linux/netlink.h>
 #include <linux/rtnetlink.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 namespace {
 constexpr int pollMs = 5000;      // no kernel messages to rely on
@@ -20,8 +17,14 @@ SystemStatus::SystemStatus(QString root, QObject *parent, bool watch)
     debounce_.setInterval(200); // a burst of messages (an interface coming up) is one read
     connect(&debounce_, &QTimer::timeout, this, &SystemStatus::refresh);
     if (watch) {
-        openNetlink(NETLINK_KOBJECT_UEVENT, 1, true); // group 1: the kernel's own uevents
-        openNetlink(NETLINK_ROUTE, RTMGRP_LINK, false);
+        auto changed = [this] { debounce_.start(); };
+        // Group 1: the kernel's own uevents; every link change.
+        for (auto *notifier :
+             {watchNetlink(NETLINK_KOBJECT_UEVENT, 1, this, relevantUevent, changed),
+              watchNetlink(NETLINK_ROUTE, RTMGRP_LINK, this, [](const QByteArray &) { return true; },
+                           changed)})
+            if (notifier)
+                sockets_.append(notifier);
     }
     connect(&timer_, &QTimer::timeout, this, &SystemStatus::refresh);
     refresh();
@@ -31,35 +34,6 @@ bool SystemStatus::relevantUevent(const QByteArray &message) {
         if (field == "SUBSYSTEM=power_supply" || field == "SUBSYSTEM=net")
             return true;
     return false;
-}
-void SystemStatus::openNetlink(int protocol, unsigned groups, bool uevents) {
-    const int fd = ::socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, protocol);
-    if (fd < 0)
-        return;
-    sockaddr_nl address{};
-    address.nl_family = AF_NETLINK;
-    address.nl_groups = groups;
-    if (::bind(fd, reinterpret_cast<sockaddr *>(&address), sizeof address) < 0) {
-        ::close(fd);
-        return;
-    }
-    auto *notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
-    connect(notifier, &QSocketNotifier::activated, this, [this, fd, uevents] {
-        bool relevant = false;
-        char buffer[8192];
-        for (ssize_t n; (n = ::recv(fd, buffer, sizeof buffer, MSG_DONTWAIT)) > 0;)
-            relevant = relevant || !uevents || relevantUevent(QByteArray(buffer, int(n)));
-        if (relevant)
-            debounce_.start();
-    });
-    sockets_.append(notifier);
-}
-SystemStatus::~SystemStatus() {
-    for (auto *notifier : sockets_) {
-        const int fd = int(notifier->socket());
-        delete notifier;
-        ::close(fd);
-    }
 }
 // Polling is the only source without the sockets; with them a slow timer covers the battery
 // level, which changes without a message, and it is off where there is no battery.

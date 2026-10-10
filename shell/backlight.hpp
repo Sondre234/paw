@@ -18,7 +18,6 @@ class Backlight : public QObject {
     // `pollMs` above 0 polls at that interval whatever else there is, for tests that write the
     // level themselves.
     explicit Backlight(QString root = "/sys", bool watch = false, int pollMs = 0, QObject *parent = nullptr);
-    ~Backlight() override;
     bool present() const { return present_; }
     // 0 to 100; -1 without a backlight.
     int percent() const { return percent_; }
