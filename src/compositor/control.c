@@ -212,6 +212,7 @@ static void control_headless_output(struct sh_server *server, int fd, const char
  * that is a whole number from 0 to 100, with an optional %, is the level; the shell hears
  * "osd OUTPUT PERCENT TEXT", the percent -1 for none. */
 static void control_osd(struct sh_server *server, int fd, const char *arguments) {
+    arguments += *arguments == ' ';
     char text[512];
     copy_field(text, sizeof(text), arguments);
     size_t length = strlen(text);
@@ -243,97 +244,97 @@ static void control_osd(struct sh_server *server, int fd, const char *arguments)
     control_reply(fd, "ok\n");
 }
 
+/* What follows `name` in a request that starts with it as a word, from the space after it; NULL
+ * for another request. */
+static const char *arguments_of(const char *request, const char *name) {
+    size_t length = strlen(name);
+    if (strncmp(request, name, length) || (request[length] && request[length] != ' '))
+        return NULL;
+    return request + length;
+}
+
+/* "dnd [on|off|toggle]": the shell's notification daemon stops or resumes its cards. */
+static void control_dnd(struct sh_server *server, int fd, const char *arguments) {
+    const char *verb = *arguments ? arguments + 1 : "toggle";
+    if (strcmp(verb, "on") && strcmp(verb, "off") && strcmp(verb, "toggle")) {
+        control_reply(fd, "error: usage: dnd [on|off|toggle]\n");
+        return;
+    }
+    char line[32];
+    snprintf(line, sizeof(line), "dnd %s\n", verb);
+    send_shell_line(server, line);
+    control_reply(fd, "ok\n");
+}
+
+/* "type TEXT": types TEXT into what has the keyboard (type.c). */
+static void control_type(struct sh_server *server, int fd, const char *arguments) {
+    char error[128];
+    reply_done(fd, type_text(server, arguments + (*arguments == ' '), error, sizeof(error)), error);
+}
+
+/* "overview filter [TEXT]", "overview select N" and "overview view N" (from 1) drive the open
+ * overview, as typing, arrows and the strip do. */
+static void control_overview(struct sh_server *server, int fd, const char *arguments) {
+    const char *verb = arguments + (*arguments == ' ');
+    const char *filter = arguments_of(verb, "filter"), *selection = arguments_of(verb, "select");
+    const char *view = arguments_of(verb, "view");
+    char *end = NULL;
+    long number = strtol(selection ? selection : view ? view : "", &end, 10);
+    bool whole = !*end && number >= 1;
+    if (!server->overview.open) {
+        control_reply(fd, "error: the overview is not open\n");
+    } else if (filter) {
+        overview_set_filter(server, filter + (*filter == ' '));
+        control_reply(fd, "ok\n");
+    } else if (selection && whole && number <= server->overview.count) {
+        overview_select(server, (int)number - 1);
+        control_reply(fd, "ok\n");
+    } else if (view && whole && number <= server->overview.workspaces) {
+        overview_view(server, (int)number - 1);
+        control_reply(fd, "ok\n");
+    } else {
+        control_reply(fd, "error: usage: overview filter [TEXT] | select N | view N\n");
+    }
+}
+
+/* The commands that are not actions, by name. Each hears the rest of the request from the space
+ * after its name ("" for the name alone), which sscanf and split_words skip. */
+static const struct {
+    const char *name;
+    void (*run)(struct sh_server *server, int fd, const char *arguments);
+} commands[] = {
+    {"headless_output", control_headless_output},
+    {"headless_pointer", control_headless_pointer},
+    {"headless_touch", control_headless_touch},
+    {"headless_tablet", control_headless_tablet},
+    {"headless_switch", control_headless_switch},
+    {"session", control_session},
+    {"dnd", control_dnd},
+    {"monitors", control_monitors},
+    {"osd", control_osd},
+    {"type", control_type},
+    {"overview", control_overview},
+};
+
 static void control_handle(struct sh_server *server, int fd, const char *request) {
     if (run_query(server, fd, request))
         return;
     // A test's keyboard types on the lock screen too, as any keyboard does.
-    if (!strncmp(request, "headless_keyboard", 17) && (!request[17] || request[17] == ' ')) {
-        control_headless_keyboard(server, fd, request + (request[17] ? 18 : 17));
+    const char *arguments = arguments_of(request, "headless_keyboard");
+    if (arguments) {
+        control_headless_keyboard(server, fd, arguments);
         return;
     }
     if (server->locked) {
         control_reply(fd, "error: the session is locked\n");
         return;
     }
-    if (!strncmp(request, "headless_output", 15) && (!request[15] || request[15] == ' ')) {
-        control_headless_output(server, fd, request + (request[15] ? 16 : 15));
-        return;
-    }
-    if (!strncmp(request, "headless_pointer", 16) && (!request[16] || request[16] == ' ')) {
-        control_headless_pointer(server, fd, request + (request[16] ? 17 : 16));
-        return;
-    }
-    if (!strncmp(request, "headless_touch", 14) && (!request[14] || request[14] == ' ')) {
-        control_headless_touch(server, fd, request + (request[14] ? 15 : 14));
-        return;
-    }
-    if (!strncmp(request, "headless_tablet", 15) && (!request[15] || request[15] == ' ')) {
-        control_headless_tablet(server, fd, request + (request[15] ? 16 : 15));
-        return;
-    }
-    if (!strncmp(request, "headless_switch", 15) && (!request[15] || request[15] == ' ')) {
-        control_headless_switch(server, fd, request + (request[15] ? 16 : 15));
-        return;
-    }
-    if (!strncmp(request, "session", 7) && (!request[7] || request[7] == ' ')) {
-        control_session(server, fd, request + 7);
-        return;
-    }
-    if (!strncmp(request, "dnd", 3) && (!request[3] || request[3] == ' ')) {
-        // "dnd [on|off|toggle]": the shell's notification daemon stops or resumes its cards.
-        const char *verb = request[3] ? request + 4 : "toggle";
-        if (strcmp(verb, "on") && strcmp(verb, "off") && strcmp(verb, "toggle")) {
-            control_reply(fd, "error: usage: dnd [on|off|toggle]\n");
+    for (size_t i = 0; i < sizeof(commands) / sizeof(*commands); ++i) {
+        arguments = arguments_of(request, commands[i].name);
+        if (arguments) {
+            commands[i].run(server, fd, arguments);
             return;
         }
-        char line[32];
-        snprintf(line, sizeof(line), "dnd %s\n", verb);
-        send_shell_line(server, line);
-        control_reply(fd, "ok\n");
-        return;
-    }
-    if (!strncmp(request, "monitors", 8) && (!request[8] || request[8] == ' ')) {
-        control_monitors(server, fd, request + 8);
-        return;
-    }
-    if (!strncmp(request, "osd", 3) && (!request[3] || request[3] == ' ')) {
-        control_osd(server, fd, request[3] ? request + 4 : "");
-        return;
-    }
-    if (!strncmp(request, "type", 4) && (!request[4] || request[4] == ' ')) {
-        // "type TEXT": types TEXT into what has the keyboard (type.c).
-        char error[128], line[160];
-        if (type_text(server, request[4] ? request + 5 : "", error, sizeof(error))) {
-            control_reply(fd, "ok\n");
-        } else {
-            snprintf(line, sizeof(line), "error: %s\n", error);
-            control_reply(fd, line);
-        }
-        return;
-    }
-    if (!strncmp(request, "overview ", 9) || !strcmp(request, "overview")) {
-        // "overview filter [TEXT]", "overview select N" and "overview view N" (from 1) drive
-        // the open overview, as typing, arrows and the strip do.
-        const char *verb = request + (request[8] ? 9 : 8);
-        char *end = NULL;
-        long number = strtol(verb + (!strncmp(verb, "select ", 7) ? 7 : !strncmp(verb, "view ", 5) ? 5 : 0), &end, 10);
-        if (!server->overview.open) {
-            control_reply(fd, "error: the overview is not open\n");
-        } else if (!strncmp(verb, "filter", 6) && (!verb[6] || verb[6] == ' ')) {
-            overview_set_filter(server, verb[6] ? verb + 7 : "");
-            control_reply(fd, "ok\n");
-        } else if (!strncmp(verb, "select ", 7) && end && !*end && number >= 1 &&
-                   number <= server->overview.count) {
-            overview_select(server, (int)number - 1);
-            control_reply(fd, "ok\n");
-        } else if (!strncmp(verb, "view ", 5) && end && !*end && number >= 1 &&
-                   number <= server->overview.workspaces) {
-            overview_view(server, (int)number - 1);
-            control_reply(fd, "ok\n");
-        } else {
-            control_reply(fd, "error: usage: overview filter [TEXT] | select N | view N\n");
-        }
-        return;
     }
     // "output NAME ACTION": workspace actions switch that output instead of the focused one.
     struct wlr_output *target = NULL;

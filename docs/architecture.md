@@ -938,8 +938,10 @@ often wants one.
 
 ### A new control command that is not an action
 
-Handle it in `control_handle` in `src/compositor/control.c`, after the session-lock check,
-following `dnd` or `osd`.
+Write `static void control_<name>(struct sh_server *server, int fd, const char *arguments)` in
+`src/compositor/control.c`, following `control_dnd` or `control_osd`, and add it to `commands[]`
+there. `arguments` is the rest of the request from the space after the name, "" for the name
+alone. Commands answer only while the session is unlocked.
 
 ### A new Wayland protocol or global
 
