@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -192,6 +193,94 @@ constexpr const char *known_terminals[] = {"kitty",   "foot",    "alacritty",   
 std::filesystem::path home_directory() {
     const char *home = std::getenv("HOME");
     return home && *home ? home : "/";
+}
+/* What `gsettings get org.gnome.desktop.interface KEY` prints, a string without its quotes; ""
+ * without gsettings or the schema. */
+std::string desktop_interface_setting(const char *key) {
+    if (!paw::executable("gsettings"))
+        return "";
+    auto command = std::string("gsettings get org.gnome.desktop.interface ") + key + " 2>/dev/null";
+    FILE *output = popen(command.c_str(), "r");
+    if (!output)
+        return "";
+    char line[256] = "";
+    std::string value = fgets(line, sizeof(line), output) ? line : "";
+    pclose(output);
+    while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back())))
+        value.pop_back();
+    if (value.size() >= 2 && value.front() == '\'' && value.back() == '\'')
+        value = value.substr(1, value.size() - 2);
+    return value;
+}
+/* A setting in GTK's settings.ini, gtk-4.0's before gtk-3.0's; "" when neither has it. */
+std::string gtk_setting(const std::string &name) {
+    const char *config = std::getenv("XDG_CONFIG_HOME");
+    auto base = config && *config == '/' ? std::filesystem::path(config)
+                                         : home_directory() / ".config";
+    auto trim = [](std::string text) {
+        auto first = text.find_first_not_of(" \t\"\r"), last = text.find_last_not_of(" \t\"\r");
+        return first == std::string::npos ? std::string() : text.substr(first, last - first + 1);
+    };
+    for (const char *version : {"gtk-4.0", "gtk-3.0"}) {
+        std::ifstream file(base / version / "settings.ini");
+        for (std::string line; std::getline(file, line);)
+            if (auto equals = line.find('=');
+                equals != std::string::npos && trim(line.substr(0, equals)) == name)
+                return trim(line.substr(equals + 1));
+    }
+    return "";
+}
+/* Whether a cursor theme of this name is installed where wlroots and libXcursor look for one:
+ * $XCURSOR_PATH, else the icons of $XDG_DATA_HOME and $XDG_DATA_DIRS, ~/.icons and
+ * /usr/share/pixmaps. */
+bool cursor_theme_installed(const std::string &theme) {
+    if (theme.empty() || theme.find('/') != std::string::npos || theme == "." || theme == "..")
+        return false;
+    std::vector<std::filesystem::path> directories;
+    auto add = [&](const std::string &list, const char *below) {
+        std::istringstream entries(list);
+        for (std::string entry; std::getline(entries, entry, ':');)
+            if (entry.starts_with("~/"))
+                directories.push_back(home_directory() / entry.substr(2) / below);
+            else if (entry.starts_with('/'))
+                directories.push_back(std::filesystem::path(entry) / below);
+    };
+    if (const char *path = std::getenv("XCURSOR_PATH"); path && *path) {
+        add(path, "");
+    } else {
+        const char *data_home = std::getenv("XDG_DATA_HOME"), *data = std::getenv("XDG_DATA_DIRS");
+        add(data_home && *data_home ? data_home : "~/.local/share", "icons");
+        add("~/.icons", "");
+        add(data && *data ? data : "/usr/local/share:/usr/share", "icons");
+        add("/usr/share/pixmaps", "");
+    }
+    std::error_code error;
+    for (const auto &directory : directories)
+        if (std::filesystem::is_directory(directory / theme / "cursors", error) ||
+            std::filesystem::exists(directory / theme / "index.theme", error))
+            return true;
+    return false;
+}
+/* Without $XCURSOR_THEME, the cursor theme and size the desktop's settings name, those GTK
+ * applications draw over their windows: gsettings' org.gnome.desktop.interface, else GTK's
+ * settings.ini. The compositor uses and exports them; without any, Adwaita at 24. */
+void follow_desktop_cursor() {
+    if (has_env("XCURSOR_THEME"))
+        return;
+    std::string theme = desktop_interface_setting("cursor-theme");
+    std::string size = desktop_interface_setting("cursor-size");
+    if (theme.empty()) {
+        theme = gtk_setting("gtk-cursor-theme-name");
+        size = gtk_setting("gtk-cursor-theme-size");
+    }
+    if (!cursor_theme_installed(theme))
+        return;
+    setenv("XCURSOR_THEME", theme.c_str(), true);
+    int pixels = 0;
+    auto [end, failure] = std::from_chars(size.data(), size.data() + size.size(), pixels);
+    if (!has_env("XCURSOR_SIZE") && failure == std::errc() && end == size.data() + size.size() &&
+        pixels > 0 && pixels <= 256)
+        setenv("XCURSOR_SIZE", size.c_str(), true);
 }
 /* $XDG_PICTURES_DIR from the environment or user-dirs.dirs, else ~/Pictures. */
 std::filesystem::path pictures_directory() {
@@ -1002,6 +1091,7 @@ int main(int argc, char **argv) {
         if (mode == SH_BACKEND_SESSION && (has_env("WAYLAND_DISPLAY") || has_env("DISPLAY")))
             throw std::runtime_error("start --session from a TTY or a display manager, outside an "
                                      "existing graphical session");
+        follow_desktop_cursor();
         const sh_callbacks callbacks{
             &runtime,           Runtime::settings, Runtime::key,          Runtime::button,
             Runtime::command,   Runtime::reload,   Runtime::startup,      Runtime::child_exited,

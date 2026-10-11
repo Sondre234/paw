@@ -368,8 +368,9 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     wlr_cursor_attach_output_layout(server.cursor, server.output_layout);
 
     /* Without a theme, wlroots draws the bare X11 arrow. Adwaita ships with GTK, so it is
-     * nearly always installed; $XCURSOR_THEME and $XCURSOR_SIZE still win. Exporting both lets
-     * applications draw the same cursor over their windows. */
+     * nearly always installed; $XCURSOR_THEME and $XCURSOR_SIZE still win, and main.cpp sets them
+     * from the desktop's settings when they are not set. Exporting both lets applications draw
+     * the same cursor over their windows. */
     const char *cursor_theme = getenv("XCURSOR_THEME");
     if (!cursor_theme || !*cursor_theme)
         cursor_theme = "Adwaita";
