@@ -17,6 +17,15 @@ struct wlr_scene_tree *window_layer(struct sh_toplevel *toplevel) {
     return server->windows;
 }
 
+/* The trees windows are drawn in, front to back: the fullscreen window kept over the panels, the
+ * one peeked at, fullscreen, kept above, floating and the rest. */
+void window_layers(struct sh_server *server, struct wlr_scene_tree *trees[WINDOW_LAYERS]) {
+    struct wlr_scene_tree *layers[WINDOW_LAYERS] = {
+        server->fullscreen_cover, server->peek_layer,       server->fullscreen,
+        server->above_windows,    server->floating_windows, server->windows};
+    memcpy(trees, layers, sizeof(layers));
+}
+
 bool is_window_layer(struct sh_server *server, const struct wlr_scene_tree *tree) {
     return tree && (tree == server->windows || tree == server->floating_windows ||
                     tree == server->above_windows);
@@ -95,10 +104,9 @@ static const char *layer_name(struct sh_server *server, const struct wlr_scene_t
  * count too, where they would show. */
 void describe_stacking(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
-    struct wlr_scene_tree *trees[] = {server->fullscreen_cover, server->peek_layer,
-                                      server->fullscreen,       server->above_windows,
-                                      server->floating_windows, server->windows};
-    for (size_t i = 0; i < sizeof(trees) / sizeof(*trees); ++i) {
+    struct wlr_scene_tree *trees[WINDOW_LAYERS];
+    window_layers(server, trees);
+    for (size_t i = 0; i < WINDOW_LAYERS; ++i) {
         struct wlr_scene_node *node;
         wl_list_for_each_reverse(node, &trees[i]->children, link) {
             // Closing copies and the node keeping the place of the window peeked at are no

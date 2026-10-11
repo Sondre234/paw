@@ -499,11 +499,10 @@ static void get_pictures(struct sh_server *server, int fd, const char *arguments
 /* Where a window is stacked among the windows, from 0 at the bottom: counting the windows in the
  * trees they are drawn in from the lowest, the one peeked at over the others; -1 for none. */
 static int stacked_at(struct sh_server *server, struct sh_toplevel *toplevel) {
-    struct wlr_scene_tree *trees[] = {server->windows,       server->floating_windows,
-                                      server->above_windows, server->fullscreen,
-                                      server->peek_layer,    server->fullscreen_cover};
+    struct wlr_scene_tree *trees[WINDOW_LAYERS];
+    window_layers(server, trees);
     int index = 0;
-    for (size_t i = 0; i < sizeof(trees) / sizeof(*trees); ++i) {
+    for (size_t i = WINDOW_LAYERS; i-- > 0;) {
         struct wlr_scene_node *node;
         wl_list_for_each(node, &trees[i]->children, link) {
             // Closing copies and the node keeping the place of the window peeked at are no
