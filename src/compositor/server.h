@@ -1351,6 +1351,8 @@ void snap_cycle(struct sh_server *server, enum sh_action direction);
 void snap_assist_offer(struct sh_toplevel *toplevel);
 
 /* stacking.c */
+#define WINDOW_LAYERS 6
+void window_layers(struct sh_server *server, struct wlr_scene_tree *trees[WINDOW_LAYERS]);
 struct wlr_scene_tree *window_layer(struct sh_toplevel *toplevel);
 bool is_window_layer(struct sh_server *server, const struct wlr_scene_tree *tree);
 void restack_toplevel(struct sh_toplevel *toplevel);

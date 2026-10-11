@@ -302,7 +302,7 @@ Edit them in [config/init.lua](config/init.lua).
 | Super + U | Focus the window [asking for attention](docs/features.md#urgent-windows) the longest |
 | Super + N / Super + Shift + N | [Notification](docs/features.md#notifications-and-on-screen-display) history / do-not-disturb |
 | Super + Shift + R | Reload the configuration |
-| Print / Shift + Print / Super + Print | [Screenshot](docs/features.md#screenshots-and-screen-sharing) of a region / the monitor / the focused window |
+| Print / Shift + Print / Super + Print | [Screenshot](docs/features.md#screenshots-and-screen-sharing) of a region dragged or the window or monitor clicked / the monitor / the focused window |
 | Volume up / down / mute keys | [Volume](docs/features.md#volume-and-brightness-keys) of the default output up or down by 5 %, or mute it; on the lock screen too, and held they repeat |
 | Microphone mute key | Mute the default input, or unmute it; on the lock screen too |
 | Brightness up / down keys | The backlight up or down by 5 %; on the lock screen too, and held they repeat |

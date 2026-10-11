@@ -12,8 +12,10 @@ compositor, probe, example = (str(Path(p).resolve()) for p in sys.argv[1:4])
 # are used, because the compositor's PATH holds nothing but these.
 TOOLS = {
     "grim": 'echo "grim $*" >> "$TOOL_LOG"; for last; do :; done; echo "fake png" > "$last"',
-    # Waits, like a user choosing a region, until the test creates $TOOL_LOG.go.
-    "slurp": 'echo "slurp" >> "$TOOL_LOG"; while [ ! -e "$TOOL_LOG.go" ]; do :; done; '
+    # Records the boxes it is given on standard input, each in <>, and waits, like a user
+    # choosing a region, until the test creates $TOOL_LOG.go.
+    "slurp": 'boxes=; while IFS= read -r box || [ -n "$box" ]; do boxes="$boxes<$box>"; done; '
+             'echo "slurp $* $boxes" >> "$TOOL_LOG"; while [ ! -e "$TOOL_LOG.go" ]; do :; done; '
              'echo "10,20 30x40"',
     "wl-copy": 'IFS= read -r data; echo "wl-copy $* <$data>" >> "$TOOL_LOG"',
     "notify-send": 'echo "notify-send $*" >> "$TOOL_LOG"',
@@ -37,6 +39,14 @@ with harness.Compositor(compositor, start=False) as desktop:
 
     def saved():
         return set(shots.glob("Screenshot_*.png"))
+
+    def slurp_boxes(call):
+        """The boxes a slurp call was given, after checking its arguments: monitors to click
+        too, everything greyed but the selection, outlined in an opaque colour."""
+        match = re.fullmatch(
+            r"slurp -o -b ffffff40 -B ffffff40 -s 00000000 -c [0-9a-f]{6}ff (.*)", call)
+        assert match, call
+        return match[1]
 
     desktop.start(Path(example).read_text()
                   .replace("xwayland = true", "xwayland = false")
@@ -86,26 +96,50 @@ with harness.Compositor(compositor, start=False) as desktop:
     desktop.wait_for(lambda: len(calls()) == 6, "two quick screenshots", detail=calls)
     assert len(saved() - before) == 2, saved()
 
-    # A region comes from slurp; without wl-copy the file is still saved.
+    # A region comes from slurp, which offers the window and the monitors to click; without
+    # wl-copy the file is still saved.
     (tools / "wl-copy").unlink()
     tool_log.write_text("")
     before = saved()
     desktop.wait_for(lambda: screenshot_accepted(), "region screenshot start")
-    desktop.wait_for(lambda: calls() == ["slurp"], "slurp", detail=calls)
+    desktop.wait_for(lambda: calls(), "slurp", detail=calls)
+    assert slurp_boxes(calls()[0]) == f"<{x},{y} {width}x{height}>", calls()
     # Pressing Print again while choosing a region takes no second screenshot.
     assert "already being taken" in msg("screenshot", ok=False)
     assert "already being taken" in msg("screenshot", "output", ok=False)
     Path(str(tool_log) + ".go").touch()
     desktop.wait_for(lambda: len(calls()) == 3, "region screenshot", detail=calls)
     (region,) = saved() - before
-    assert calls()[:2] == ["slurp", f"grim -g 10,20 30x40 {region}"], calls()
+    assert calls()[1] == f"grim -g 10,20 30x40 {region}", calls()
     assert calls()[2].startswith("notify-send"), calls()
     assert "wl-copy is not installed" in desktop.log.read_text()
+
+    def offered():
+        """The boxes slurp is given for the next region screenshot."""
+        tool_log.write_text("")
+        desktop.wait_for(lambda: screenshot_accepted("region"), "region screenshot start")
+        desktop.wait_for(lambda: len(calls()) == 3, "region screenshot", detail=calls)
+        return slurp_boxes(calls()[0])
+
+    # Every window shown, the front one first, cut to its monitor.
+    desktop.open_window(probe, "second", focused=True)
+    (front,) = [w.box for w in desktop.windows() if w.title == "second"]
+    assert offered() == "<{},{} {}x{}><{},{} {}x{}>".format(*front, x, y, width, height), calls()
+    # One a window in front covers whole, as a fullscreen one does, is left out: slurp takes the
+    # smallest box under the pointer, which would be the one hidden.
+    msg("fullscreen")
+
+    def covering():
+        (box,) = [w.box for w in desktop.windows() if w.title == "second"]
+        return box if (box[0] <= x and box[1] <= y and box[0] + box[2] >= x + width
+                       and box[1] + box[3] >= y + height) else None
+    desktop.wait_for(covering, "the fullscreen window over the first", detail=desktop.windows)
+    assert offered() == "<{},{} {}x{}>".format(*covering()), calls()
 
     # Missing tools are reported to the caller and nothing runs.
     (tools / "slurp").unlink()
     assert "grim and slurp" in msg("screenshot", "region", ok=False)
     (tools / "grim").unlink()
     assert "need grim" in msg("screenshot", "output", ok=False)
-    assert len(saved()) == 5
+    assert len(saved()) == 7
 print("Output, window, and region screenshots and missing-tool errors passed")

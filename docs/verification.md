@@ -205,6 +205,13 @@ window modes produced a 1280×720 PNG and a 320×240 crop of the probe window. N
 the Print keys and slurp's interactive selection in a nested or physical session, the clipboard
 copy, and the notification.
 
+Since 2026-10-11 `screenshot_smoke` also checks the boxes the region mode gives slurp: every
+window shown, the front one first, and not one a fullscreen window covers. `screenshot_select_smoke`
+runs the real slurp in a headless session with two monitors and a virtual pointer: a click on a
+window took its box, a click on the second monitor's bare desktop that monitor, and a drag the
+region dragged. With the real grim it checks that the window under the pointer keeps its pixels
+while the desktop beside it is greyed, in an outline of the border's colour.
+
 ## Window animation checkpoint
 
 Added 2026-09-25. `animation_smoke` runs a headless compositor with tiling and a

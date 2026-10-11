@@ -233,7 +233,7 @@ enum sh_display_mode {
 };
 
 enum sh_screenshot_mode {
-    SH_SCREENSHOT_REGION, /* the user selects it with slurp */
+    SH_SCREENSHOT_REGION, /* with slurp: a region dragged, or the window or output clicked */
     SH_SCREENSHOT_OUTPUT, /* the output under the pointer */
     SH_SCREENSHOT_WINDOW, /* the focused window */
 };
@@ -575,10 +575,12 @@ struct sh_callbacks {
     /* Opacity for a window with this app ID and title (either may be ""), focused or not. */
     float (*opacity)(void *, const char *app_id, const char *title, bool active);
     /* Captures the screen in the background: `output` names the output for
-     * SH_SCREENSHOT_OUTPUT, `box` is the window in layout coordinates for SH_SCREENSHOT_WINDOW.
-     * Returns false with a message when it cannot start. */
+     * SH_SCREENSHOT_OUTPUT; `boxes` hold `count` windows in layout coordinates, the one to take
+     * for SH_SCREENSHOT_WINDOW and those to pick by a click, front to back, for
+     * SH_SCREENSHOT_REGION. Returns false with a message when it cannot start. */
     bool (*screenshot)(void *, enum sh_screenshot_mode mode, const char *output,
-                       const struct sh_rect *box, char *error, size_t error_size);
+                       const struct sh_rect *boxes, size_t count, char *error,
+                       size_t error_size);
     /* The rules for a window opening with this app ID and title (either may be ""). Returns
      * false, leaving `rule` unset, when none applies. */
     bool (*window_rule)(void *, const char *app_id, const char *title,

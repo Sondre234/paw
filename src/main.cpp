@@ -5,6 +5,7 @@
 #include "version.h"
 #include <wlr/version.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -212,11 +213,17 @@ std::filesystem::path pictures_directory() {
     return home_directory() / "Pictures";
 }
 /* Runs slurp (for a region), grim, wl-copy, and notify-send one after another without blocking
- * the compositor. Arguments: file, mode, grim target (geometry or output name), copy, notify. */
+ * the compositor. Arguments: file, mode, grim target (geometry or output name), copy, notify,
+ * slurp's outline colour (rrggbbaa). For a region the target is the windows' geometries, a line
+ * each, which slurp offers as Hyprland's grimblast does: a click takes the window under the
+ * pointer, or with -o the monitor, and a drag the region dragged. Everything is greyed but what a
+ * click or the drag would take, which shows clear in the outline. */
 constexpr const char *screenshot_script = R"sh(
-file=$1 mode=$2 target=$3 copy=$4 notify=$5
+file=$1 mode=$2 target=$3 copy=$4 notify=$5 outline=$6
 if [ "$mode" = region ]; then
-    target=$(slurp) || { echo "Screenshot cancelled" >&2; exit 0; }
+    target=$(printf '%s' "$target" |
+             slurp -o -b ffffff40 -B ffffff40 -s 00000000 -c "$outline") ||
+        { echo "Screenshot cancelled" >&2; exit 0; }
 fi
 if [ "$mode" = output ]; then
     grim -o "$target" "$file"
@@ -568,7 +575,7 @@ struct Runtime {
         return pictures_directory() / "Screenshots";
     }
     static bool screenshot(void *data, sh_screenshot_mode mode, const char *output,
-                           const sh_rect *box, char *error, size_t error_size) {
+                           const sh_rect *boxes, size_t count, char *error, size_t error_size) {
         auto &self = *static_cast<Runtime *>(data);
         try {
             if (self.screenshot_pid > 0)
@@ -597,16 +604,25 @@ struct Runtime {
             auto file = directory / (std::string(stamp) + ".png");
             for (int i = 2; std::filesystem::exists(file); ++i)
                 file = directory / (std::string(stamp) + "-" + std::to_string(i) + ".png");
-            std::string target;
-            if (mode == SH_SCREENSHOT_OUTPUT)
-                target = output;
-            else if (mode == SH_SCREENSHOT_WINDOW)
-                target = std::to_string(box->x) + "," + std::to_string(box->y) + " " +
-                         std::to_string(box->width) + "x" + std::to_string(box->height);
+            // grim's and slurp's geometry: "x,y wxh"; for a region one line per window.
+            std::string target = mode == SH_SCREENSHOT_OUTPUT ? output : "";
+            for (size_t i = 0; i < count; ++i)
+                target += (i ? "\n" : "") + std::to_string(boxes[i].x) + "," +
+                          std::to_string(boxes[i].y) + " " + std::to_string(boxes[i].width) +
+                          "x" + std::to_string(boxes[i].height);
+            // The focused window's border colour (premultiplied), opaque.
+            const float *border = self.config.settings.border_active;
+            char outline[16];
+            auto channel = [&](int i) {
+                float value = border[3] > 0 ? border[i] / border[3] : 0;
+                return static_cast<int>(std::clamp(value, 0.0F, 1.0F) * 255 + 0.5F);
+            };
+            std::snprintf(outline, sizeof(outline), "%02x%02x%02xff", channel(0), channel(1),
+                          channel(2));
             static constexpr const char *modes[] = {"region", "output", "window"};
             self.screenshot_pid =
                 spawn({"/bin/sh", "-c", screenshot_script, "paw-screenshot", file.string(),
-                       modes[mode], target, copy ? "1" : "0", notify ? "1" : "0"});
+                       modes[mode], target, copy ? "1" : "0", notify ? "1" : "0", outline});
             if (self.screenshot_pid < 0)
                 throw std::runtime_error("cannot start /bin/sh");
             return true;

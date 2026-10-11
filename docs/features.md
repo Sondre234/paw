@@ -2597,9 +2597,14 @@ stand-ins for polkit's helper; none of them reaches the machine's polkit.
 The `screenshot` action (Print, or `paw msg screenshot region|output|window`) runs
 [`grim`](https://sr.ht/~emersion/grim/), with [`slurp`](https://github.com/emersion/slurp)
 to select a region, and saves `Screenshot_<date>_<time>.png` in `$XDG_PICTURES_DIR/Screenshots`
-(from the environment or `user-dirs.dirs`), else `~/Pictures/Screenshots`. The `output` mode
-captures the monitor under the pointer and `window` the focused window's area as it appears on
-screen, including anything overlapping it. It also copies the image to the clipboard with
+(from the environment or `user-dirs.dirs`), else `~/Pictures/Screenshots`. The `region` mode
+works as Hyprland's grimblast does: slurp offers the windows shown and the monitors, so a click
+takes the window under the pointer or, on the bare desktop, the monitor, and a drag takes the
+region dragged; Escape cancels. Everything is greyed but what a click or the drag would take,
+which shows clear, outlined in the focused window's border colour. A window that one in front covers whole,
+as a fullscreen window does, is not offered, and each window is cut to its monitor. The `output`
+mode captures the monitor under the pointer and `window` the focused window's area as it
+appears on screen, including anything overlapping it. It also copies the image to the clipboard with
 `wl-copy` and announces the file with `notify-send`, when they are installed. Lua
 `screenshots = { directory = "~/Shots", clipboard = false, notify = false }` changes that; in a
 binding, `mode = "output"` picks the mode (default `region`). Without grim (or slurp for a
