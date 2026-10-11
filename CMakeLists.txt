@@ -617,9 +617,6 @@ if(PAW_BUILD_COMPOSITOR)
             ${EXAMPLE_CONFIG})
         paw_smoke(screenshot_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        find_program(SLURP slurp)
-        paw_smoke(screenshot_select_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            $<TARGET_FILE:pointer_probe> "$<$<BOOL:${SLURP}>:${SLURP}>" ${EXAMPLE_CONFIG})
         paw_smoke(launch_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         paw_smoke(autostart_smoke $<TARGET_FILE:paw>)
         paw_smoke(startup_failure_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
@@ -703,6 +700,9 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(gradient_border_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")
         paw_smoke(dim_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        find_program(SLURP slurp)
+        paw_smoke(screenshot_select_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> "$<$<BOOL:${SLURP}>:${SLURP}>" "${GRIM_ARGUMENT}")
         paw_smoke(idle_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(urgent_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)

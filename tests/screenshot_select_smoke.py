@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Region screenshots through the real slurp, as on Hyprland with grimblast: a click on a window
-takes the window, a click on the bare desktop the monitor under it, and a drag the region dragged.
-A stand-in grim records what it is asked to take. Left out where slurp is not installed."""
-from pathlib import Path
+takes the window, a click on the bare desktop the monitor under it, and a drag the region dragged;
+what a click would take shows clear of slurp's grey, outlined in the focused border's colour. A
+stand-in grim records what it is asked to take, and the real one, when installed, what is on the
+screen. Left out where slurp is not installed."""
 import sys
 
 import harness
 
-compositor, probe, pointer_probe, slurp, example = sys.argv[1:6]
+compositor, probe, pointer_probe, slurp, grim = sys.argv[1:6]
 if not slurp:
     print("slurp is not installed: region selection not tested")
     sys.exit(0)
@@ -24,10 +25,11 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
                                 'for last; do :; done; echo "fake png" > "$last"\n')
     (tools / "grim").chmod(0o755)
     desktop.env.update(PATH=str(tools), TOOL_LOG=str(tool_log))
-    desktop.start(Path(example).read_text()
-                  .replace("xwayland = true", "xwayland = false")
-                  .replace('-- directory = "~/Pictures/Screenshots"',
-                           f'directory = "{root / "shots"}"'))
+    desktop.start(f"""return {{
+        xwayland = false,
+        windows = {{ border_color = "#ff8000" }},
+        screenshots = {{ directory = "{root / 'shots'}", clipboard = false, notify = false }},
+    }}""")
 
     outputs = [row for row in desktop.rows("outputs")]
     assert len(outputs) == 2, outputs
@@ -42,9 +44,8 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     (window,) = [w for w in desktop.windows() if w.title == "shot"]
     x, y, w, h = window.box
 
-    def select(*moves):
-        """Starts a region screenshot, does `moves` once slurp is up, and returns the geometry
-        grim was given."""
+    def start():
+        """Starts a region screenshot and waits for slurp's layer."""
         tool_log.write_text("")
         # A screenshot is refused until the one before has been reaped.
         desktop.wait_for(lambda: desktop.run("screenshot", "region").returncode == 0,
@@ -52,6 +53,12 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
         desktop.wait_for(lambda: ["selection", "1"] in [[row[0], row[3]]
                                                          for row in desktop.rows("layers")],
                          "slurp's layer shown", detail=lambda: desktop.rows("layers"))
+
+    def select(*moves, started=False):
+        """Starts a region screenshot unless `started`, does `moves` once slurp is up, and
+        returns the geometry grim was given."""
+        if not started:
+            start()
         for move in moves:
             pointer(move)
         desktop.wait_for(lambda: tool_log.read_text().startswith("grim"), "grim run",
@@ -60,8 +67,29 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
         assert words[1] == "-g", words
         return " ".join(words[2:4])
 
+    # Over the window, slurp greys everything but the window, which a click would take, and
+    # outlines it in the focused border's colour; over the bare desktop, everything but the
+    # monitor.
+    middle, beside = (x + w // 2, y + h // 2), (x + w + 100, y + h // 2)
+    clear = harness.grab(grim, desktop.env).at(*beside) if grim else None
+    start()
+    if grim:
+        pointer(f"move {beside[0]} {beside[1] + 100}")
+        desktop.wait_for(lambda: harness.grab(grim, desktop.env).at(*beside) == clear,
+                         "the monitor clear under the pointer")
+        window = harness.grab(grim, desktop.env).at(*middle)
+        pointer(f"move {middle[0]} {middle[1]}")
+        desktop.wait_for(lambda: harness.grab(grim, desktop.env).at(*beside) != clear,
+                         "the desktop greyed once the pointer is over the window")
+        shot = harness.grab(grim, desktop.env)
+        assert shot.at(*middle) == window, (shot.at(*middle), window)
+        grey = shot.at(*beside)
+        assert all(a > b for a, b in zip(grey, clear)), (grey, clear)
+        assert shot.at(x - 1, middle[1]) == shot.at(x, middle[1]) == (255, 128, 0), \
+            [shot.at(i, middle[1]) for i in range(x - 2, x + 2)]
     # A click on the window takes it.
-    assert select(f"move {x + w // 2} {y + h // 2}", "click left") == f"{x},{y} {w}x{h}"
+    assert select(f"move {middle[0]} {middle[1]}", "click left",
+                  started=True) == f"{x},{y} {w}x{h}"
     # A click on the bare desktop takes the monitor under the pointer.
     assert select(f"move {second[0] + second[2] - 20} {second[1] + second[3] - 20}",
                   "click left") == "{},{} {}x{}".format(*second)
