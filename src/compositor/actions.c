@@ -3,13 +3,58 @@
  * each to the module that carries it out. Also screenshots, and starting programs. */
 #include "server.h"
 
-/* Hands the output under the pointer or the focused window's box to the configuration side, which
- * runs grim in the background. */
+/* The windows a region screenshot lets the user click, front to back, into `boxes`: those
+ * shown, each cut to its output, leaving out any that one window in front covers whole (slurp
+ * picks the smallest box under the pointer, which would be one hidden behind a fullscreen
+ * window). None while the overview shows its thumbnails in their place. */
+static size_t screenshot_windows(struct sh_server *server, struct sh_rect *boxes, size_t size) {
+    size_t count = 0;
+    if (server->overview.visible)
+        return 0;
+    struct wlr_scene_tree *trees[WINDOW_LAYERS];
+    window_layers(server, trees);
+    for (size_t i = 0; i < WINDOW_LAYERS; ++i) {
+        struct wlr_scene_node *node;
+        wl_list_for_each_reverse(node, &trees[i]->children, link) {
+            struct sh_node *owner = node->data;
+            if (!node->enabled || !owner || owner->kind != SH_NODE_TOPLEVEL ||
+                !toplevel_visible(owner->owner) || count == size)
+                continue;
+            struct sh_toplevel *toplevel = owner->owner;
+            struct wlr_box box = toplevel_box(toplevel), screen;
+            struct wlr_output *output = find_output(server, toplevel->output);
+            if (output) {
+                struct wlr_box window = box;
+                wlr_output_layout_get_box(server->output_layout, output, &screen);
+                wlr_box_intersection(&box, &window, &screen);
+            }
+            bool covered = wlr_box_empty(&box);
+            for (size_t j = 0; j < count && !covered; ++j)
+                covered = box.x >= boxes[j].x && box.y >= boxes[j].y &&
+                          box.x + box.width <= boxes[j].x + boxes[j].width &&
+                          box.y + box.height <= boxes[j].y + boxes[j].height;
+            if (!covered)
+                boxes[count++] = (struct sh_rect){box.x, box.y, box.width, box.height};
+        }
+    }
+    return count;
+}
+
+/* Hands the output under the pointer, the focused window's box or the boxes of the windows shown
+ * to the configuration side, which runs grim (and slurp) in the background. */
 bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, char *error,
                      size_t error_size) {
     const char *output_name = NULL;
-    struct sh_rect box = {0};
-    if (mode == SH_SCREENSHOT_OUTPUT) {
+    struct sh_rect box = {0}, *boxes = &box;
+    size_t count = 0;
+    if (mode == SH_SCREENSHOT_REGION) {
+        size_t size = wl_list_length(&server->toplevels);
+        if (size && !(boxes = calloc(size, sizeof(*boxes)))) {
+            snprintf(error, error_size, "out of memory");
+            return false;
+        }
+        count = screenshot_windows(server, boxes, size);
+    } else if (mode == SH_SCREENSHOT_OUTPUT) {
         struct wlr_output *output = wlr_output_layout_output_at(
             server->output_layout, server->cursor->x, server->cursor->y);
         if (!output) {
@@ -25,9 +70,13 @@ bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, cha
         }
         struct wlr_box geometry = toplevel_box(current);
         box = (struct sh_rect){geometry.x, geometry.y, geometry.width, geometry.height};
+        count = 1;
     }
-    return server->callbacks->screenshot(server->callbacks->userdata, mode, output_name, &box,
-                                         error, error_size);
+    bool started = server->callbacks->screenshot(server->callbacks->userdata, mode, output_name,
+                                                 boxes, count, error, error_size);
+    if (boxes != &box)
+        free(boxes);
+    return started;
 }
 
 /* Starts the program of a spawn or terminal action. One that cannot start is reported in the
