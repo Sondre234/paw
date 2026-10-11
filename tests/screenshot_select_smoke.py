@@ -7,6 +7,7 @@ frames (a software cursor) leaves it out. A stand-in grim records what it is ask
 whether the cursor shows, and hands the picture to the real grim, with the cursor asked for, when
 that is installed. Left out where slurp is not installed."""
 from pathlib import Path
+import re
 import sys
 
 import harness
@@ -20,7 +21,10 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     root, msg = desktop.root, desktop.msg
     tools = root / "bin"
     tools.mkdir()
-    (tools / "slurp").symlink_to(slurp)
+    # slurp, logging what it is sent.
+    slurp_log = root / "slurp.log"
+    (tools / "slurp").write_text(f'#!/bin/sh\nWAYLAND_DEBUG=1 exec {slurp} "$@" 2>>"{slurp_log}"\n')
+    (tools / "slurp").chmod(0o755)
     tool_log = root / "tools.log"
     tool_log.touch()
     desktop.logs.append(tool_log)
@@ -55,6 +59,7 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
         """Starts a region screenshot and waits for slurp's layer."""
         tool_log.write_text("")
         cursor_log.write_text("")
+        slurp_log.write_text("")
         # A screenshot is refused until the one before has been reaped.
         desktop.wait_for(lambda: desktop.run("screenshot", "region").returncode == 0,
                          "region screenshot started")
@@ -76,6 +81,13 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
                          detail=lambda: tool_log.read_text())
         assert cursor_log.read_text() == "hidden\n", cursor_log.read_text()
         desktop.wait_for(lambda: msg("get", "cursor") == "shown\n", "the cursor shown again")
+        # Each of slurp's layers is configured once: slurp 1.5.0 leaks a frame callback when a
+        # configure comes while it waits for a frame, and crashes on it as it exits, losing the
+        # selection.
+        configures = re.findall(r"\] \{[^}]*\} (zwlr_layer_surface_v1#\d+)\.configure\(",
+                                slurp_log.read_text())
+        assert sorted(set(configures)) == sorted(configures) and len(configures) == len(outputs), \
+            configures
         words = tool_log.read_text().splitlines()[0].split()
         assert words[1] == "-g", words
         return " ".join(words[2:4]), Path(words[-1])
