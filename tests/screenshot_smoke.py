@@ -8,10 +8,12 @@ import harness
 
 compositor, probe, example = (str(Path(p).resolve()) for p in sys.argv[1:4])
 
-# Each stand-in records its arguments; grim writes the file it is given. Only shell builtins
-# are used, because the compositor's PATH holds nothing but these.
+# Each stand-in records its arguments; grim writes the file it is given, and whether the cursor
+# shows as it runs. Only shell builtins and paw are used, because the compositor's PATH holds
+# nothing but these.
 TOOLS = {
-    "grim": 'echo "grim $*" >> "$TOOL_LOG"; for last; do :; done; echo "fake png" > "$last"',
+    "grim": 'echo "grim $*" >> "$TOOL_LOG"; "$PAW" msg get cursor >> "$TOOL_LOG.cursor"; '
+            'for last; do :; done; echo "fake png" > "$last"',
     # Records the boxes it is given on standard input, each in <>, and waits, like a user
     # choosing a region, until the test creates $TOOL_LOG.go.
     "slurp": 'boxes=; while IFS= read -r box || [ -n "$box" ]; do boxes="$boxes<$box>"; done; '
@@ -32,7 +34,15 @@ with harness.Compositor(compositor, start=False) as desktop:
     tool_log.touch()
     desktop.logs.append(tool_log)
     shots = root / "shots"
-    desktop.env.update(PATH=str(tools), TOOL_LOG=str(tool_log))
+    desktop.env.update(PATH=str(tools), TOOL_LOG=str(tool_log), PAW=compositor)
+    cursor_log = Path(str(tool_log) + ".cursor")
+
+    def cursor_hidden_while_grim_ran():
+        """Whether the cursor was hidden while grim ran, and shows again since."""
+        hidden = cursor_log.read_text() == "hidden\n"
+        cursor_log.write_text("")
+        desktop.wait_for(lambda: msg("get", "cursor") == "shown\n", "the cursor shown again")
+        return hidden
 
     def calls():
         return tool_log.read_text().splitlines()
@@ -69,6 +79,8 @@ with harness.Compositor(compositor, start=False) as desktop:
                        f"notify-send -a paw -i {first} Screenshot saved {first}"], \
         calls()
     assert f"Screenshot saved: {first}" in desktop.log.read_text()
+    # The cursor is hidden at once, before grim starts.
+    assert cursor_hidden_while_grim_ran()
 
     # The focused window's box, in layout coordinates.
     tool_log.write_text("")
@@ -82,6 +94,7 @@ with harness.Compositor(compositor, start=False) as desktop:
     desktop.wait_for(lambda: len(calls()) == 3, "window screenshot", detail=calls)
     (second,) = saved() - {first}
     assert calls()[0] == f"grim -g {x},{y} {width}x{height} {second}", calls()
+    assert cursor_hidden_while_grim_ran()
 
     # Screenshots within the same second get distinct names. Each waits for the one
     # before to be reaped, since a request while one is running is refused.
