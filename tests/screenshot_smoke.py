@@ -40,6 +40,14 @@ with harness.Compositor(compositor, start=False) as desktop:
     def saved():
         return set(shots.glob("Screenshot_*.png"))
 
+    def slurp_boxes(call):
+        """The boxes a slurp call was given, after checking its arguments: monitors to click
+        too, everything greyed but the selection, outlined in an opaque colour."""
+        match = re.fullmatch(
+            r"slurp -o -b ffffff40 -B ffffff40 -s 00000000 -c [0-9a-f]{6}ff (.*)", call)
+        assert match, call
+        return match[1]
+
     desktop.start(Path(example).read_text()
                   .replace("xwayland = true", "xwayland = false")
                   .replace('-- directory = "~/Pictures/Screenshots"', f'directory = "{shots}"'))
@@ -94,8 +102,8 @@ with harness.Compositor(compositor, start=False) as desktop:
     tool_log.write_text("")
     before = saved()
     desktop.wait_for(lambda: screenshot_accepted(), "region screenshot start")
-    desktop.wait_for(lambda: calls() == [f"slurp -o <{x},{y} {width}x{height}>"], "slurp",
-                     detail=calls)
+    desktop.wait_for(lambda: calls(), "slurp", detail=calls)
+    assert slurp_boxes(calls()[0]) == f"<{x},{y} {width}x{height}>", calls()
     # Pressing Print again while choosing a region takes no second screenshot.
     assert "already being taken" in msg("screenshot", ok=False)
     assert "already being taken" in msg("screenshot", "output", ok=False)
@@ -111,7 +119,7 @@ with harness.Compositor(compositor, start=False) as desktop:
         tool_log.write_text("")
         desktop.wait_for(lambda: screenshot_accepted("region"), "region screenshot start")
         desktop.wait_for(lambda: len(calls()) == 3, "region screenshot", detail=calls)
-        return calls()[0].removeprefix("slurp -o ")
+        return slurp_boxes(calls()[0])
 
     # Every window shown, the front one first, cut to its monitor.
     desktop.open_window(probe, "second", focused=True)
