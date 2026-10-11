@@ -40,8 +40,52 @@ static size_t screenshot_windows(struct sh_server *server, struct sh_rect *boxes
     return count;
 }
 
+/* How long a screenshot may keep the cursor hidden should its process not end. */
+#define SCREENSHOT_CURSOR_MS 5000
+
+static int screenshot_cursor_timeout(void *data) {
+    cursor_show(data);
+    return 0;
+}
+
+/* Hides the cursor until the screenshot ends: an output that draws it into its frames (a
+ * software cursor, as the headless backend's and some drivers' are) would hand it to grim. */
+static void screenshot_hide_cursor(struct sh_server *server) {
+    cursor_hide(server);
+    if (!server->screenshot.timer)
+        server->screenshot.timer = wl_event_loop_add_timer(
+            wl_display_get_event_loop(server->wl_display), screenshot_cursor_timeout, server);
+    if (server->screenshot.timer)
+        wl_event_source_timer_update(server->screenshot.timer, SCREENSHOT_CURSOR_MS);
+}
+
+/* A layer surface going. slurp's ("selection") goes once the region is chosen, leaving grim to
+ * take it; until then slurp shows a cursor of its own. */
+void screenshot_layer_unmapped(struct sh_server *server, const char *namespace) {
+    if (server->screenshot.pid > 0 && server->screenshot.mode == SH_SCREENSHOT_REGION &&
+        namespace && !strcmp(namespace, "selection"))
+        screenshot_hide_cursor(server);
+}
+
+/* A child process ended; the screenshot's ends the screenshot, and the cursor shows again. */
+void screenshot_exited(struct sh_server *server, int pid) {
+    if (pid <= 0 || pid != server->screenshot.pid)
+        return;
+    server->screenshot.pid = 0;
+    if (server->screenshot.timer)
+        wl_event_source_timer_update(server->screenshot.timer, 0);
+    cursor_show(server);
+}
+
+void screenshot_finish(struct sh_server *server) {
+    if (server->screenshot.timer)
+        wl_event_source_remove(server->screenshot.timer);
+    server->screenshot.timer = NULL;
+}
+
 /* Hands the output under the pointer, the focused window's box or the boxes of the windows shown
- * to the configuration side, which runs grim (and slurp) in the background. */
+ * to the configuration side, which runs grim (and slurp) in the background. The cursor is hidden
+ * while grim takes the picture. */
 bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, char *error,
                      size_t error_size) {
     const char *output_name = NULL;
@@ -72,11 +116,18 @@ bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, cha
         box = (struct sh_rect){geometry.x, geometry.y, geometry.width, geometry.height};
         count = 1;
     }
-    bool started = server->callbacks->screenshot(server->callbacks->userdata, mode, output_name,
-                                                 boxes, count, error, error_size);
+    int pid = server->callbacks->screenshot(server->callbacks->userdata, mode, output_name, boxes,
+                                            count, error, error_size);
     if (boxes != &box)
         free(boxes);
-    return started;
+    if (pid <= 0)
+        return false;
+    server->screenshot.pid = pid;
+    server->screenshot.mode = mode;
+    // grim starts at once for an output or a window, and only connects once this returns.
+    if (mode != SH_SCREENSHOT_REGION)
+        screenshot_hide_cursor(server);
+    return true;
 }
 
 /* Starts the program of a spawn or terminal action. One that cannot start is reported in the

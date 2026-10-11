@@ -150,6 +150,7 @@ static int reap_children(int signal_number, void *data) {
     struct sh_server *server = data;
     pid_t pid;
     while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
+        screenshot_exited(server, pid);
         if (server->callbacks->child_exited)
             server->callbacks->child_exited(server->callbacks->userdata, pid);
     }
@@ -578,6 +579,7 @@ finish:
     if (server.urgent_timer)
         wl_event_source_remove(server.urgent_timer);
     display_mode_finish(&server);
+    screenshot_finish(&server);
     display_settings_finish(&server);
     if (server.config_watch)
         wl_event_source_remove(server.config_watch);

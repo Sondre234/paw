@@ -85,7 +85,7 @@ static void tool_set_cursor(struct wl_listener *listener, void *data) {
     struct wlr_tablet_v2_event_cursor *event = data;
     struct wlr_surface *focus = tool->tool_v2->focused_surface;
     // Only the client the tool is over draws its cursor.
-    if (tool->pointer || !focus || !event->seat_client ||
+    if (tool->pointer || !focus || !event->seat_client || tool->server->cursor_hidden ||
         event->seat_client->client != wl_resource_get_client(focus->resource))
         return;
     wlr_cursor_set_surface(tool->server->cursor, event->surface, event->hotspot_x,

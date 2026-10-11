@@ -563,6 +563,14 @@ struct sh_server {
     struct wl_list toplevels;
 
     struct wlr_cursor *cursor;
+    bool cursor_hidden; /* cursor_hide: no image until cursor_show, whatever asks for one */
+    /* The screenshot being taken (actions.c): its process (0 for none), its mode, and the timer
+     * that shows the cursor again should it not end. */
+    struct {
+        int pid;
+        enum sh_screenshot_mode mode;
+        struct wl_event_source *timer;
+    } screenshot;
     struct wlr_xcursor_manager *cursor_mgr;
     struct wl_listener cursor_motion;
     struct wl_listener cursor_motion_absolute;
@@ -940,6 +948,9 @@ const struct sh_settings *server_settings(struct sh_server *server);
 void reload_config(struct sh_server *server);
 
 /* actions.c */
+void screenshot_layer_unmapped(struct sh_server *server, const char *namespace);
+void screenshot_exited(struct sh_server *server, int pid);
+void screenshot_finish(struct sh_server *server);
 bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, char *error,
                      size_t error_size);
 bool launch_program(struct sh_server *server, enum sh_action action, char *error,
@@ -979,6 +990,8 @@ void server_cursor_axis(struct wl_listener *listener, void *data);
 void server_cursor_frame(struct wl_listener *listener, void *data);
 void seat_request_cursor(struct wl_listener *listener, void *data);
 void set_default_cursor(struct sh_server *server);
+void cursor_hide(struct sh_server *server);
+void cursor_show(struct sh_server *server);
 struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y);
 struct wlr_surface *press_target_at(struct sh_server *server, double x, double y, double *sx,
                                     double *sy, struct sh_node **owner);

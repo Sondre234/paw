@@ -57,6 +57,7 @@ static void layer_unmap(struct wl_listener *listener, void *data) {
     if (layer->server->focused_layer == layer)
         focus_previous(layer->server);
     arrange_layers(layer->server);
+    screenshot_layer_unmapped(layer->server, layer->surface->namespace);
 }
 static void layer_destroy(struct wl_listener *listener, void *data) {
     struct sh_layer *layer = wl_container_of(listener, layer, destroy);
