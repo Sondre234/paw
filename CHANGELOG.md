@@ -370,8 +370,11 @@ shadows.
 - A region screenshot (Print) works as Hyprland's grimblast does: besides dragging out a region,
   a click takes the window under the pointer, or on the bare desktop the monitor. What a click
   would take shows clear of slurp's grey as the pointer passes over it, outlined in the focused
-  window's border colour. A window hidden behind one in front, as behind a
-  fullscreen window, is not offered.
+  window's border colour. A window hidden behind one in front, as behind a fullscreen window, is
+  not offered.
+- Screenshots leave the cursor out: paw hides it while grim takes the picture, where a monitor
+  that draws the cursor into its frames (as with NVIDIA's driver here) put it in every
+  screenshot. `paw msg get cursor` says whether it is hidden.
 
 ### Starting and ending a session
 
@@ -486,6 +489,10 @@ shadows.
 
 ### Fixes
 
+- A region screenshot no longer comes to nothing about one time in fifteen: paw configured every
+  layer surface whenever any of them changed, and a configure arriving while slurp 1.5.0 waits for
+  a frame makes it crash as it exits, losing the selection. A layer surface is now configured
+  only when that tells it something new.
 - A keymap file (`keyboard.file`) saved in place while the compositor read it after a reload
   could end the session with SIGBUS; it is now read into memory before it is compiled.
 - A monitor whose settings turn it off (`enabled = false`) goes off once another monitor

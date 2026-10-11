@@ -574,8 +574,8 @@ struct Runtime {
             return directory;
         return pictures_directory() / "Screenshots";
     }
-    static bool screenshot(void *data, sh_screenshot_mode mode, const char *output,
-                           const sh_rect *boxes, size_t count, char *error, size_t error_size) {
+    static int screenshot(void *data, sh_screenshot_mode mode, const char *output,
+                          const sh_rect *boxes, size_t count, char *error, size_t error_size) {
         auto &self = *static_cast<Runtime *>(data);
         try {
             if (self.screenshot_pid > 0)
@@ -625,10 +625,10 @@ struct Runtime {
                        modes[mode], target, copy ? "1" : "0", notify ? "1" : "0", outline});
             if (self.screenshot_pid < 0)
                 throw std::runtime_error("cannot start /bin/sh");
-            return true;
+            return self.screenshot_pid;
         } catch (const std::exception &failure) {
             std::snprintf(error, error_size, "%s", failure.what());
-            return false;
+            return 0;
         }
     }
     /* power.lock_command: whether it can lock, and with `start` starting it. */

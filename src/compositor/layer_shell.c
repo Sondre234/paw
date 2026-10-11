@@ -22,7 +22,17 @@ void arrange_layers(struct sh_server *server) {
                         (surface->current.exclusive_zone > 0) != (pass == 0))
                         continue;
                     wlr_scene_node_reparent(&layer->scene->tree->node, server->layer_trees[level]);
-                    wlr_scene_layer_surface_v1_configure(layer->scene, &full, &usable);
+                    // A configure that changes nothing is not sent: one arriving while slurp
+                    // waits for a frame makes it leak that frame's callback, which crashes it as
+                    // it exits (fixed after slurp 1.5.0). A surface with an exclusive zone is
+                    // configured every time, as that takes its zone out of `usable`.
+                    struct wlr_box bounds = surface->current.exclusive_zone == -1 ? full : usable;
+                    if (layer->configure_due || surface->current.exclusive_zone > 0 ||
+                        !wlr_box_equal(&layer->bounds, &bounds)) {
+                        wlr_scene_layer_surface_v1_configure(layer->scene, &full, &usable);
+                        layer->configure_due = false;
+                        layer->bounds = bounds;
+                    }
                     if (!exclusive && surface->surface->mapped && level >= 2 &&
                         surface->current.keyboard_interactive ==
                             ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE)
@@ -45,6 +55,14 @@ void arrange_layers(struct sh_server *server) {
 }
 static void layer_commit(struct wl_listener *listener, void *data) {
     struct sh_layer *layer = wl_container_of(listener, layer, commit);
+    // What decides where the surface goes and how large it is.
+    uint32_t placement = WLR_LAYER_SURFACE_V1_STATE_DESIRED_SIZE |
+                         WLR_LAYER_SURFACE_V1_STATE_ANCHOR |
+                         WLR_LAYER_SURFACE_V1_STATE_EXCLUSIVE_ZONE |
+                         WLR_LAYER_SURFACE_V1_STATE_MARGIN |
+                         WLR_LAYER_SURFACE_V1_STATE_EXCLUSIVE_EDGE;
+    if (layer->surface->initial_commit || (layer->surface->current.committed & placement))
+        layer->configure_due = true;
     if (layer->surface->initial_commit || layer->surface->current.committed)
         arrange_layers(layer->server);
 }
@@ -57,6 +75,7 @@ static void layer_unmap(struct wl_listener *listener, void *data) {
     if (layer->server->focused_layer == layer)
         focus_previous(layer->server);
     arrange_layers(layer->server);
+    screenshot_layer_unmapped(layer->server, layer->surface->namespace);
 }
 static void layer_destroy(struct wl_listener *listener, void *data) {
     struct sh_layer *layer = wl_container_of(listener, layer, destroy);

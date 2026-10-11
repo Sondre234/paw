@@ -157,6 +157,12 @@ uint32_t corner_edges(struct sh_toplevel *toplevel, uint32_t edges) {
     return edges;
 }
 
+/* The cursor shows this image, unless it is hidden (cursor_hide). */
+static void show_xcursor(struct sh_server *server, const char *name) {
+    if (!server->cursor_hidden)
+        wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, name);
+}
+
 /* Show a corner cursor wherever an edge grab would become a corner resize, so the pointer
  * matches what dragging will do. */
 static void update_resize_cursor(struct sh_server *server, struct sh_toplevel *toplevel) {
@@ -166,7 +172,7 @@ static void update_resize_cursor(struct sh_server *server, struct sh_toplevel *t
     if (edges == server->shown_edges)
         return;
     server->shown_edges = edges;
-    wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, wlr_xcursor_get_resize_name(edges));
+    show_xcursor(server, wlr_xcursor_get_resize_name(edges));
 }
 
 static uint32_t shape_edges(enum wp_cursor_shape_device_v1_shape shape) {
@@ -192,8 +198,7 @@ void cursor_request_set_shape(struct wl_listener *listener, void *data) {
         return;
     server->shape_edges = shape_edges(event->shape);
     server->shown_edges = 0;
-    wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr,
-                           wlr_cursor_shape_v1_name(event->shape));
+    show_xcursor(server, wlr_cursor_shape_v1_name(event->shape));
     if (server->cursor_mode == SH_CURSOR_PASSTHROUGH) {
         struct wlr_surface *surface;
         double sx, sy;
@@ -424,8 +429,7 @@ static void process_pointer_target(struct sh_server *server, uint32_t time) {
         if (server->shape_edges || server->shown_edges != band_edges) {
             server->shape_edges = 0;
             server->shown_edges = band_edges;
-            wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr,
-                                   wlr_xcursor_get_resize_name(band_edges));
+            show_xcursor(server, wlr_xcursor_get_resize_name(band_edges));
         }
         wlr_seat_pointer_clear_focus(seat);
         return;
@@ -751,7 +755,7 @@ void seat_request_cursor(struct wl_listener *listener, void *data) {
     struct wlr_seat_pointer_request_set_cursor_event *event = data;
     struct wlr_seat_client *focused_client = server->seat->pointer_state.focused_client;
 
-    if (focused_client == event->seat_client) {
+    if (focused_client == event->seat_client && !server->cursor_hidden) {
         server->shape_edges = 0;
         server->shown_edges = 0;
         wlr_cursor_set_surface(server->cursor, event->surface, event->hotspot_x, event->hotspot_y);
@@ -761,7 +765,25 @@ void seat_request_cursor(struct wl_listener *listener, void *data) {
 void set_default_cursor(struct sh_server *server) {
     server->shape_edges = 0;
     server->shown_edges = 0;
-    wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, "default");
+    show_xcursor(server, "default");
+}
+
+/* Takes the cursor's image away until cursor_show; meanwhile neither paw nor a client can give it
+ * one. */
+void cursor_hide(struct sh_server *server) {
+    server->cursor_hidden = true;
+    wlr_cursor_unset_image(server->cursor);
+}
+
+void cursor_show(struct sh_server *server) {
+    if (!server->cursor_hidden)
+        return;
+    server->cursor_hidden = false;
+    set_default_cursor(server);
+    // A client sets its cursor as the pointer enters it, so the one under the pointer is entered
+    // anew to set it again.
+    wlr_seat_pointer_notify_clear_focus(server->seat);
+    process_cursor_motion(server, (uint32_t)now_ms());
 }
 
 void seat_pointer_focus_change(struct wl_listener *listener, void *data) {

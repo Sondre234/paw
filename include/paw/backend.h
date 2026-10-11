@@ -577,10 +577,10 @@ struct sh_callbacks {
     /* Captures the screen in the background: `output` names the output for
      * SH_SCREENSHOT_OUTPUT; `boxes` hold `count` windows in layout coordinates, the one to take
      * for SH_SCREENSHOT_WINDOW and those to pick by a click, front to back, for
-     * SH_SCREENSHOT_REGION. Returns false with a message when it cannot start. */
-    bool (*screenshot)(void *, enum sh_screenshot_mode mode, const char *output,
-                       const struct sh_rect *boxes, size_t count, char *error,
-                       size_t error_size);
+     * SH_SCREENSHOT_REGION. Returns the process taking it, or 0 with a message when it cannot
+     * start. */
+    int (*screenshot)(void *, enum sh_screenshot_mode mode, const char *output,
+                      const struct sh_rect *boxes, size_t count, char *error, size_t error_size);
     /* The rules for a window opening with this app ID and title (either may be ""). Returns
      * false, leaving `rule` unset, when none applies. */
     bool (*window_rule)(void *, const char *app_id, const char *title,

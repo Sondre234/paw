@@ -210,7 +210,12 @@ window shown, the front one first, and not one a fullscreen window covers. `scre
 runs the real slurp in a headless session with two monitors and a virtual pointer: a click on a
 window took its box, a click on the second monitor's bare desktop that monitor, and a drag the
 region dragged. With the real grim it checks that the window under the pointer keeps its pixels
-while the desktop beside it is greyed, in an outline of the border's colour.
+while the desktop beside it is greyed, in an outline of the border's colour. It also checks that
+the cursor has no image while grim runs (a `grim -c` capture holds none) and has one again after,
+and that each of slurp's layers is configured once: with four configures each, slurp 1.5.0
+crashed on exit in 6 runs of 40, and in none of 60 since. The headless outputs leave the cursor
+out of a capture unless asked for it, so that the NVIDIA session's screenshots no longer show
+the cursor is still to be checked there.
 
 ## Window animation checkpoint
 

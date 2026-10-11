@@ -2414,7 +2414,8 @@ far it shows through the peek and its opacity (both in thousandths), and its tit
 msg get seat` prints what has the keyboard, what the pointer is on and, while something is
 dragged, what the drag is over: a line each, `keyboard`, `pointer` or `drag`, followed by
 `window` and its title, `layer` and its namespace, `other` (a popup, the lock screen) and `-`,
-or `-` twice for nothing; during a drag the pointer is on nothing. `paw msg get gesture`,
+or `-` twice for nothing; during a drag the pointer is on nothing. `paw msg get cursor` prints
+`hidden` while a screenshot hides the cursor, else `shown`. `paw msg get gesture`,
 `get touch` and `get tablet` say what a touchpad's swipe, a touchscreen's fingers and a drawing
 tablet's tools are doing (see [Touchpad gestures](#touchpad-gestures),
 [Touchscreens](#touchscreens) and [Drawing tablets](#drawing-tablets)), and `get tearing` what
@@ -2601,10 +2602,13 @@ to select a region, and saves `Screenshot_<date>_<time>.png` in `$XDG_PICTURES_D
 works as Hyprland's grimblast does: slurp offers the windows shown and the monitors, so a click
 takes the window under the pointer or, on the bare desktop, the monitor, and a drag takes the
 region dragged; Escape cancels. Everything is greyed but what a click or the drag would take,
-which shows clear, outlined in the focused window's border colour. A window that one in front covers whole,
-as a fullscreen window does, is not offered, and each window is cut to its monitor. The `output`
-mode captures the monitor under the pointer and `window` the focused window's area as it
-appears on screen, including anything overlapping it. It also copies the image to the clipboard with
+which shows clear, outlined in the focused window's border colour. A window that one in front
+covers whole, as a fullscreen window does, is not offered, and each window is cut to its
+monitor. The `output` mode captures the monitor under the pointer and `window` the focused
+window's area as it appears on screen, including anything overlapping it. The cursor is left
+out: paw hides it while grim takes the picture (for a region, once slurp is done), since a
+monitor that draws it into its frames, as some drivers' do, would hand it to grim. It also
+copies the image to the clipboard with
 `wl-copy` and announces the file with `notify-send`, when they are installed. Lua
 `screenshots = { directory = "~/Shots", clipboard = false, notify = false }` changes that; in a
 binding, `mode = "output"` picks the mode (default `region`). Without grim (or slurp for a

@@ -411,10 +411,12 @@ class Shot:
         return tuple(self.pixels[i:i + 3])
 
 
-def grab(grim, env, output=None):
-    """A Shot of the compositor's output, or None when grim is not installed (`grim` empty)."""
+def grab(grim, env, output=None, cursor=False):
+    """A Shot of the compositor's output, or None when grim is not installed (`grim` empty); with
+    `cursor`, the cursor drawn in (grim -c), as the headless outputs leave it out otherwise."""
     if not grim:
         return None
-    command = [grim, "-t", "ppm"] + (["-o", output] if output else []) + ["-"]
+    command = ([grim, "-t", "ppm"] + (["-c"] if cursor else []) +
+               (["-o", output] if output else []) + ["-"])
     return Shot(subprocess.run(command, env=env, capture_output=True, check=True,
                                timeout=20).stdout)

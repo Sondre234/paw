@@ -643,6 +643,13 @@ static void get_seat(struct sh_server *server, int fd, const char *arguments) {
         describe_surface(server, fd, "drag", seat->drag->focus);
 }
 
+static void get_cursor(struct sh_server *server, int fd, const char *arguments) {
+    // Whether the cursor shows: "hidden" while a screenshot is taken (cursor_hide), else
+    // "shown".
+    control_reply(fd, "ok\n");
+    control_reply(fd, server->cursor_hidden ? "hidden\n" : "shown\n");
+}
+
 /* The queries, "get NAME" (or "get NAME ARGUMENTS" for one that takes them), which answer
  * even while the session is locked. A handler gets NULL for no arguments. */
 static const struct {
@@ -686,6 +693,7 @@ static const struct {
     {"switches", get_switches, false},
     {"pictures", get_pictures, false},
     {"seat", get_seat, false},
+    {"cursor", get_cursor, false},
     {"autostart", get_autostart, false},
     {"gesture", get_gesture, false},
     {"touch", get_touch, false},
