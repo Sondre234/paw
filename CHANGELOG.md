@@ -372,6 +372,9 @@ shadows.
   would take shows clear of slurp's grey as the pointer passes over it, outlined in the focused
   window's border colour. A window hidden behind one in front, as behind a fullscreen window, is
   not offered.
+- The cursor follows the desktop's settings, as GTK applications already did over their windows:
+  without `$XCURSOR_THEME`, paw takes the theme and size gsettings' `org.gnome.desktop.interface`
+  names, else GTK's `settings.ini`, when that theme is installed, where it always took Adwaita.
 - Screenshots leave the cursor out: paw hides it while grim takes the picture, where a monitor
   that draws the cursor into its frames (as with NVIDIA's driver here) put it in every
   screenshot. `paw msg get cursor` says whether it is hidden.

@@ -1784,6 +1784,15 @@ take `touchpad.natural_scroll`, `tap_to_click`, and `disable_while_typing`. Unse
 keep each device's defaults, and a reload applies changes. Nested sessions get their pointer
 from the host, so these do nothing there.
 
+The cursor is the theme and size `$XCURSOR_THEME` and `$XCURSOR_SIZE` name. Without them, paw
+takes those the desktop's settings name, the ones GTK applications draw over their windows:
+`org.gnome.desktop.interface`'s `cursor-theme` and `cursor-size` in gsettings (what GNOME's
+settings, nwg-look or HyDE set), else `gtk-cursor-theme-name` and `gtk-cursor-theme-size` in
+GTK's `settings.ini`, provided the theme is installed (in `~/.local/share/icons`, `~/.icons` or
+`/usr/share/icons`). Failing that it is Adwaita at 24 pixels. paw exports both variables, so that
+the programs it starts draw the same cursor, and reads them as it starts: a change takes a
+restart.
+
 ### Keyboard layouts
 
 Several layouts are a comma-separated list, with variants in the same places:
