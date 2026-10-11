@@ -367,6 +367,10 @@ shadows.
 - `paw msg get layers` says which layer surface holds the keyboard, in a fifth column.
 - `paw msg get seat` says what has the keyboard, what the pointer is on, and what a drag is
   over.
+- A region screenshot (Print) works as Hyprland's grimblast does: besides dragging out a region,
+  a click takes the window under the pointer, or on the bare desktop the monitor, both
+  highlighted as the pointer passes over them. A window hidden behind one in front, as behind a
+  fullscreen window, is not offered.
 
 ### Starting and ending a session
 

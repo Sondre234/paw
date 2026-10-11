@@ -449,7 +449,8 @@ return {
         { mods = { mod, "Shift" }, key = "minus", action = "move_to_scratchpad" },
         { mods = { mod }, key = "minus", action = "scratchpad_show" },
         { mods = { mod, "Shift" }, key = "r", action = "reload" },
-        -- Screenshots run grim (and slurp to select a region).
+        -- Screenshots run grim. With Print, slurp lets you drag out a region or click a window
+        -- or monitor.
         { mods = {}, key = "Print", action = "screenshot", mode = "region" },
         { mods = { "Shift" }, key = "Print", action = "screenshot", mode = "output" },
         { mods = { mod }, key = "Print", action = "screenshot", mode = "window" },
