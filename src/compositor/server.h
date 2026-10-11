@@ -887,6 +887,11 @@ struct sh_layer {
     struct sh_server *server;
     struct wlr_layer_surface_v1 *surface;
     struct wlr_scene_layer_surface_v1 *scene;
+    /* arrange_layers configures a surface only when that would tell it something new: after it
+     * commits its first state or a change to where it goes, or as the area it is placed in
+     * (`bounds`, as last configured) changes. */
+    bool configure_due;
+    struct wlr_box bounds;
     struct wl_list link;
     struct wl_listener commit, map, unmap, destroy, new_popup;
 };
