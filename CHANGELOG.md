@@ -42,12 +42,15 @@ shadows.
   [docs/performance.md](docs/performance.md). It needs Qt 6.9 or newer: its shadows are Qt Quick
   Effects' `RectangularShadow`, new in 6.9.
 - A rice ships with paw: the profiles `washi` (和紙, paper) and `sumi` (墨, ink), handmade paper a
-  cat walked across, by day and by night, with ink outlines, hard printed shadows, the caramel of
-  the logo's toe beans and wallpapers generated from a seed. `rices/washi` holds the wallpapers
+  cat walked across, by day and by night, with ink outlines and hard printed shadows, light blue
+  and pink on sakura paper by day and the caramel of the logo's toe beans by night, a chibi neko
+  on washi's start button, and wallpapers generated from a seed. `rices/washi` holds the wallpapers
   and their generator, and themes for kitty, fastfetch, Firefox (with a start page), Discord,
   Claude Code and cdeck, Neovim and Helix, which its `install.sh` puts in place; it is installed
   beside the shipped configuration. Wallpapers the shipped configuration names relative to itself
   are found there, its profiles' too.
+- `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
+  the accent colour, named as `shell.wallpaper` is.
 - The overview takes the profile's colours: dark shades of the background's hue behind the
   thumbnails, and the focused border's colour around the window and workspace picked, where
   every profile had blue on blue-black.

@@ -698,6 +698,31 @@ int main(int argc, char **argv) {
     if (!waitFor([&] { return workspace(4) != nullptr; }) || !workspace(1))
         return fail("the workspace indicator did not show every workspace again");
     view.grabWindow();
+    // shell.start_icon puts a picture, named relative to the configuration, on the start button
+    // in place of the four squares; one that does not load leaves the squares.
+    {
+        QImage picture(32, 32, QImage::Format_ARGB32);
+        picture.fill(Qt::magenta);
+        if (!picture.save(directory.filePath("cat.png")))
+            return fail("could not write the start button's picture");
+        auto *startIcon = find(view.rootObject(), "startIcon");
+        if (!startIcon || startIcon->isVisible())
+            return fail("the start button shows a picture with none configured");
+        if (!reconfigure(QString(lua).replace("shell={", "shell={start_icon='cat.png',")))
+            return fail("could not rewrite the configuration");
+        if (!waitFor([&] {
+                return startIcon->isVisible() &&
+                       startIcon->property("source").toUrl() ==
+                           QUrl::fromLocalFile(directory.filePath("cat.png"));
+            }))
+            return fail("shell.start_icon did not put its picture on the start button");
+        if (!reconfigure(QString(lua).replace("shell={", "shell={start_icon='missing.png',")))
+            return fail("could not rewrite the configuration");
+        if (!waitFor([&] { return !startIcon->isVisible(); }))
+            return fail("a start button picture that does not load hid the squares");
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+    }
     QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, centre(workspace(4)));
     if (!waitFor([&] { return workspace(4)->property("current").toBool(); }))
         return fail("could not switch back to the last workspace");

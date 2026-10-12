@@ -1,7 +1,7 @@
 /* washi for Firefox: the pages Firefox draws itself, on the same paper as the chrome.
  *
  * about:newtab and about:home are made to look like the washi start page (startpage/): paper,
- * a search card with a hard ink shadow, and the eight shortcuts (pinned by user.js) as stamped
+ * a search card with a hard printed shadow, and the eight shortcuts (pinned by user.js) as stamped
  * cards. about:blank is paper instead of a white flash, and about:preferences, about:addons
  * and Firefox's other settings pages take the palette through their design tokens.
  * sumi (dark) follows prefers-color-scheme. Every colour is a --washi-* token in the palette
@@ -17,29 +17,30 @@
   url-prefix("about:downloads"), url-prefix("about:logins"), url-prefix("about:protections"),
   url-prefix("about:firefoxview"), url-prefix("about:welcome"), url-prefix("about:sessionrestore") {
   :root {
-    --washi-paper: #F3EBDD;
-    --washi-surface: #FBF7EF;
-    --washi-raised: #F1E8D8;
-    --washi-sunken: #EFE6D6;
-    --washi-line: #D6C8B2;
-    --washi-outline: #2B221C;
-    --washi-ink: #2B221C;
-    --washi-muted: #7A6B5E;
-    --washi-accent: #A87650;
-    --washi-accent-text: #9A6438;
-    --washi-accent-deep: #734A2C;
-    --washi-on-accent: #FBF7EF;
-    --washi-seal: #B03A2E;
-    --washi-selection: #EBDCC4;
-    --washi-shadow: 5px 5px 0 var(--washi-outline);
-    --washi-shadow-card: 4px 4px 0 var(--washi-outline);
-    --washi-shadow-lift: 6px 6px 0 var(--washi-outline);
-    --washi-misprint: #A87650;
+    --washi-paper: #F4F0F3;
+    --washi-surface: #FBF9FB;
+    --washi-raised: #F1ECF2;
+    --washi-sunken: #EEE9F0;
+    --washi-line: #DAD3E0;
+    --washi-outline: #4A5170;
+    --washi-ink: #363C58;
+    --washi-muted: #6B708C;
+    --washi-accent: #8FC1EC;
+    --washi-accent-text: #3F7CC0;
+    --washi-accent-deep: #F2A0BE;
+    --washi-on-accent: #363C58;
+    --washi-seal: #D9608C;
+    --washi-selection: #DCEAF8;
+    /* shadows printed in sky blue */
+    --washi-shadow: 5px 5px 0 #A9C9EC;
+    --washi-shadow-card: 4px 4px 0 #A9C9EC;
+    --washi-shadow-lift: 6px 6px 0 #A9C9EC;
+    --washi-misprint: #F2A0BE;
     --washi-radius: 12px;
     --washi-font: "Space Grotesk", "Inter", system-ui, sans-serif;
     --washi-mono: "Maple Mono", "JetBrains Mono", ui-monospace, monospace;
     /* a paper grain, for pages that cannot reach the wallpaper */
-    --washi-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .36 0 0 0 0 .27 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+    --washi-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .29 0 0 0 0 .31 0 0 0 0 .44 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
   @media (prefers-color-scheme: dark) {
@@ -123,7 +124,7 @@
   }
 
   /* Firefox's logo and wordmark give way to the start page's masthead: the seal, "washi" set
-     as large as the start page's clock with the same caramel misprint, and a line of type */
+     as large as the start page's clock with the same misprint, and a line of type */
   .logo-and-wordmark-wrapper {
     display: flex !important;
     flex-direction: column !important;
@@ -140,7 +141,7 @@
     margin-bottom: 6px;
     rotate: -4deg;
     background-color: var(--washi-seal);
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cmask id='c' maskUnits='userSpaceOnUse' x='0' y='0' width='256' height='256'%3E%3Crect width='256' height='256' fill='%23fff'/%3E%3Cg transform='translate(128 130) scale(.9) translate(-128 -133)'%3E%3Cellipse cx='70' cy='110' rx='18.8' ry='22.8' transform='rotate(-28 70 110)'/%3E%3Cellipse cx='106' cy='80' rx='20.1' ry='24.1' transform='rotate(-10 106 80)'/%3E%3Cellipse cx='150' cy='80' rx='20.1' ry='24.1' transform='rotate(10 150 80)'/%3E%3Cellipse cx='186' cy='110' rx='18.8' ry='22.8' transform='rotate(28 186 110)'/%3E%3Cpath d='M128 128C153 128 175 151 176 176C177 195 170 207 160 207C152 207 149 200 144 200C139 200 138 210 128 210C118 210 117 200 112 200C107 200 104 207 96 207C86 207 79 195 80 176C81 151 103 128 128 128Z'/%3E%3C/g%3E%3C/mask%3E%3Crect x='12' y='12' width='232' height='232' rx='36' fill='%23B03A2E' mask='url(%23c)'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cmask id='c' maskUnits='userSpaceOnUse' x='0' y='0' width='256' height='256'%3E%3Crect width='256' height='256' fill='%23fff'/%3E%3Cg transform='translate(128 130) scale(.9) translate(-128 -133)'%3E%3Cellipse cx='70' cy='110' rx='18.8' ry='22.8' transform='rotate(-28 70 110)'/%3E%3Cellipse cx='106' cy='80' rx='20.1' ry='24.1' transform='rotate(-10 106 80)'/%3E%3Cellipse cx='150' cy='80' rx='20.1' ry='24.1' transform='rotate(10 150 80)'/%3E%3Cellipse cx='186' cy='110' rx='18.8' ry='22.8' transform='rotate(28 186 110)'/%3E%3Cpath d='M128 128C153 128 175 151 176 176C177 195 170 207 160 207C152 207 149 200 144 200C139 200 138 210 128 210C118 210 117 200 112 200C107 200 104 207 96 207C86 207 79 195 80 176C81 151 103 128 128 128Z'/%3E%3C/g%3E%3C/mask%3E%3Crect x='12' y='12' width='232' height='232' rx='36' fill='%23D9608C' mask='url(%23c)'/%3E%3C/svg%3E") center / contain no-repeat;
   }
 
   .logo-and-wordmark-wrapper::after {
@@ -437,7 +438,7 @@
     letter-spacing: -0.01em;
   }
 
-  /* the selected category in the settings' side list: a strip of caramel */
+  /* the selected category in the settings' side list: a strip of the accent */
   .category[selected],
   .category:is([selected], .selected),
   #categories > .category[selected] {
@@ -475,7 +476,7 @@
     border-radius: 8px !important;
   }
 
-  /* primary buttons: caramel, outlined in ink */
+  /* primary buttons: the accent, outlined in ink */
   button.primary,
   .primary:is(button, moz-button),
   button[default],

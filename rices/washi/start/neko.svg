@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- washi's start button: a chibi neko in navy ink, with sakura ears and blush, sky-blue
+     anime eyes and an ω mouth. Drawn for paw, GPL-3.0-or-later. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- The outline: the head and ears, inked a little past their fill. -->
+  <g fill="#363c58" stroke="#363c58" stroke-width="6" stroke-linejoin="round">
+    <polygon points="8.5,31 12.5,6.5 30,17.5"/>
+    <polygon points="55.5,31 51.5,6.5 34,17.5"/>
+    <ellipse cx="32" cy="38" rx="25" ry="20"/>
+  </g>
+  <g fill="#fbf9fb">
+    <polygon points="8.5,31 12.5,6.5 30,17.5"/>
+    <polygon points="55.5,31 51.5,6.5 34,17.5"/>
+    <ellipse cx="32" cy="38" rx="25" ry="20"/>
+  </g>
+  <!-- Inside the ears -->
+  <g fill="#f2a0be" stroke="#f2a0be" stroke-width="2.5" stroke-linejoin="round">
+    <polygon points="14.5,22.5 15.8,13 24,18.6"/>
+    <polygon points="49.5,22.5 48.2,13 40,18.6"/>
+  </g>
+  <!-- Anime eyes: ink, a sky-blue iris low in them, and a glint -->
+  <ellipse cx="21" cy="37" rx="4.6" ry="5.8" fill="#363c58"/>
+  <ellipse cx="43" cy="37" rx="4.6" ry="5.8" fill="#363c58"/>
+  <ellipse cx="21" cy="39.4" rx="3.1" ry="2.9" fill="#6aa6e0"/>
+  <ellipse cx="43" cy="39.4" rx="3.1" ry="2.9" fill="#6aa6e0"/>
+  <circle cx="19.3" cy="34.6" r="1.9" fill="#ffffff"/>
+  <circle cx="41.3" cy="34.6" r="1.9" fill="#ffffff"/>
+  <!-- Blush -->
+  <ellipse cx="13.2" cy="45.5" rx="4.2" ry="2.4" fill="#f2a0be"/>
+  <ellipse cx="50.8" cy="45.5" rx="4.2" ry="2.4" fill="#f2a0be"/>
+  <!-- The ω mouth -->
+  <path d="M27 44.2q2.5 3.6 5 0q2.5 3.6 5 0" fill="none" stroke="#363c58" stroke-width="2.4"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

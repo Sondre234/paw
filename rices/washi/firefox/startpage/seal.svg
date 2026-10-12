@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <!-- washi's seal: a vermilion hanko with paw's print cut out of it. The start page's tab icon;
-       vermilion by day (washi), lit vermilion by night (sumi). SPDX-License-Identifier: GPL-3.0-or-later -->
+  <!-- washi's seal: a hanko with paw's print cut out of it. The start page's tab icon; rose by
+       day (washi), lit vermilion by night (sumi). SPDX-License-Identifier: GPL-3.0-or-later -->
   <style>
-    .seal { fill: #B03A2E; }
+    .seal { fill: #D9608C; }
     @media (prefers-color-scheme: dark) { .seal { fill: #D96F5E; } }
   </style>
   <defs>

@@ -2,17 +2,17 @@
  * @name washi
  * @author paw
  * @version 1.0.0
- * @description Washi by day, sumi by night: ink on cream paper with caramel toe beans and a vermilion seal. Discord's light theme becomes washi, every dark theme becomes sumi.
+ * @description Washi by day, sumi by night: navy ink on sakura paper in light blue and pink, then the sheet soaked in ink under a lamp. Discord's light theme becomes washi, every dark theme becomes sumi.
  * @source https://github.com/Sondre234/paw/tree/main/rices/washi/discord
  * @license GPL-3.0-or-later
  */
 
 /* washi (和紙) and sumi (墨) for Discord — part of paw's washi rice.
  *
- * "A cat walked across the paper": handmade cream paper, ink outlines, the paw logo's caramel
- * toe beans as the accent and a vermilion hanko seal for the rare loud thing. Neo-brutalist
- * print: 2px ink outlines and hard offset shadows in washi; in sumi the same sheet is soaked in
- * ink under a lamp, with cream text, brighter caramel and soft deep shadows.
+ * "A cat walked across the paper": handmade sakura paper, navy ink outlines, light blue as the
+ * accent with pink beside it, and a rose hanko seal for the rare loud thing. Neo-brutalist
+ * print: 2px ink outlines and hard offset shadows printed in sky blue in washi; in sumi the
+ * sheet is soaked in ink under a lamp, with cream text, caramel lit bright and soft deep shadows.
  *
  * Built on the design tokens of Discord's 2025+ "visual refresh" UI (checked against web build
  * 634304), with a handful of hash-free structural selectors for the outlines. Pick Discord's
@@ -35,53 +35,54 @@
  *    and the doubled class weight beats Discord's own single-class token rules.
  * ------------------------------------------------------------------------------------------- */
 
-/* washi — ink on cream paper */
+/* washi — navy ink on sakura paper */
 .theme-light:not(.custom-user-profile-theme) {
-    --paw-frame: #EFE6D6;          /* app frame, server rail, title bar: sunken paper */
-    --paw-paper: #F3EBDD;          /* channel list and chat */
-    --paw-sheet: #FBF7EF;          /* cards: message box, popouts, menus, modals, user panel */
-    --paw-sheet-nested: #FBF7EF;   /* a surface on a surface */
-    --paw-raised: #F1E8D8;         /* modal footers, alternate embeds */
-    --paw-sunken: #EFE6D6;         /* inputs, code */
-    --paw-selection: #EBDCC4;
-    --paw-line: #D6C8B2;           /* hairlines */
-    --paw-line-strong: #B9A88F;    /* input borders, scrollbar thumbs */
-    --paw-outline: #2B221C;        /* the brutalist 2px ink outline */
-    --paw-outline-focus: #2B221C;
-    --paw-veil: #2B221C;           /* hover and press tints are this at low alpha */
-    --paw-scrim: rgb(43 34 28 / 0.5);
+    --paw-frame: #EEE9F0;          /* app frame, server rail, title bar: sunken paper */
+    --paw-paper: #F4F0F3;          /* channel list and chat */
+    --paw-sheet: #FBF9FB;          /* cards: message box, popouts, menus, modals, user panel */
+    --paw-sheet-nested: #FBF9FB;   /* a surface on a surface */
+    --paw-raised: #F1ECF2;         /* modal footers, alternate embeds */
+    --paw-sunken: #EEE9F0;         /* inputs, code */
+    --paw-selection: #DCEAF8;
+    --paw-line: #DAD3E0;           /* hairlines */
+    --paw-line-strong: #B4B0C6;    /* input borders, scrollbar thumbs */
+    --paw-outline: #4A5170;        /* the brutalist 2px ink outline */
+    --paw-outline-focus: #4A5170;
+    --paw-veil: #363C58;           /* hover and press tints are this at low alpha */
+    --paw-scrim: rgb(54 60 88 / 0.5);
 
-    --paw-text: #2B221C;           /* ink: 13.2:1 on paper */
-    --paw-text-subtle: #5C4F45;    /* 6.7:1 */
-    --paw-text-muted: #6B5D51;     /* 5.4:1, the palette's #7A6B5E a step darker to clear AA */
-    --paw-text-faint: #928272;     /* muted channels: quiet on purpose (3.1:1) */
+    --paw-text: #363C58;           /* navy ink: 9.6:1 on paper */
+    --paw-text-subtle: #5A607C;    /* 5.5:1 */
+    --paw-text-muted: #636884;     /* 4.8:1, the palette's #6B708C a step darker to clear AA */
+    --paw-text-faint: #858AA2;     /* muted channels: quiet on purpose (3.0:1) */
 
-    --paw-accent: #A87650;         /* caramel: markers, rules, tints */
-    --paw-accent-text: #875630;    /* caramel as text on paper: links, brand text (5.2:1) */
-    --paw-accent-fill: #9A6438;    /* caramel under Discord's white labels (4.9:1) */
-    --paw-accent-fill-hsl: 26.9 46.7% 41.2%;
-    --paw-accent-fill-hover: #8A5A32;
-    --paw-accent-fill-active: #734A2C;
-    --paw-button: #9A6438;         /* primary buttons */
-    --paw-button-hover: #8A5A32;
-    --paw-button-active: #734A2C;
-    --paw-on-button: #FBF7EF;      /* 4.6:1 */
-    --paw-mention-text: #734A2C;
-    --paw-seal: #B03A2E;           /* vermilion: danger, unread, the rare loud thing */
-    --paw-seal-fill: #B03A2E;      /* badges and destructive buttons, under light text */
-    --paw-seal-fill-hover: #96302A;
-    --paw-on-seal-fill: #FBF7EF;
+    --paw-accent: #8FC1EC;         /* sky blue: markers, rules, tints */
+    --paw-accent-text: #3570B3;    /* blue as text on paper: links, brand text (4.5:1) */
+    --paw-accent-fill: #3570B3;    /* blue under Discord's white labels (4.9:1) */
+    --paw-accent-fill-hsl: 211.9 54.3% 45.5%;
+    --paw-accent-fill-hover: #2F659F;
+    --paw-accent-fill-active: #285890;
+    --paw-button: #8FC1EC;         /* primary buttons: sky blue */
+    --paw-button-hover: #80B8E8;
+    --paw-button-active: #72AEE3;
+    --paw-on-button: #363C58;      /* 5.7:1 */
+    --paw-mention-text: #AB3F70;   /* sakura, deep enough to read (5.1:1) */
+    --paw-mention-tint: #F2A0BE;   /* sakura: the mention's pill, its rule and its message */
+    --paw-seal: #B83B63;           /* rose: danger, unread, the rare loud thing (4.8:1) */
+    --paw-seal-fill: #B83B63;      /* badges and destructive buttons, under light text */
+    --paw-seal-fill-hover: #A33356;
+    --paw-on-seal-fill: #FBF9FB;
 
-    --paw-green: #4F6F26;
-    --paw-ochre: #8A5A0E;
-    --paw-indigo: #2D5A82;
-    --paw-plum: #873C66;
-    --paw-teal: #276A61;
+    --paw-green: #3F7D52;
+    --paw-ochre: #C47F00;
+    --paw-indigo: #3570B3;
+    --paw-plum: #A2488C;
+    --paw-teal: #23788A;
 
-    /* card edges: a 2px ink outline and a hard ink offset shadow, no blur */
+    /* card edges: a 2px ink outline and a hard offset shadow printed in sky blue, no blur */
     --paw-ring: 0 0 0 2px var(--paw-outline);
-    --paw-drop: 5px 5px 0 0 var(--paw-outline);
-    --paw-drop-small: 3px 3px 0 0 var(--paw-outline);
+    --paw-drop: 5px 5px 0 0 #A9C9EC;
+    --paw-drop-small: 3px 3px 0 0 #A9C9EC;
     --paw-drop-composer: var(--paw-drop);
     --paw-icon-ring: 2px;          /* the outline round server icons */
 }
@@ -120,6 +121,7 @@
     --paw-button-active: #C8915F;
     --paw-on-button: #1A1613;      /* 7.8:1 */
     --paw-mention-text: #E2B485;
+    --paw-mention-tint: var(--paw-accent);
     --paw-seal: #D96F5E;
     --paw-seal-fill: #BC4436;
     --paw-seal-fill-hover: #A8392D;
@@ -228,7 +230,7 @@
     --input-border-hover: var(--paw-outline);
     --input-border-active: var(--paw-accent);
 
-    /* caramel instead of blurple */
+    /* the accent instead of blurple */
     --brand-500: var(--paw-accent-fill);
     --brand-500-hsl: var(--paw-accent-fill-hsl);
     --brand-560: var(--paw-accent-fill-hover);
@@ -244,7 +246,7 @@
     --badge-notification-background: var(--paw-seal-fill);
     --background-feedback-notification: var(--paw-seal-fill);
 
-    /* buttons: caramel primary with an ink edge, seal for destructive, green for "connected" */
+    /* buttons: the accent as primary with an ink edge, seal for destructive, green for "connected" */
     --control-primary-background-default: var(--paw-button);
     --control-primary-background-hover: var(--paw-button-hover);
     --control-primary-background-active: var(--paw-button-active);
@@ -297,7 +299,7 @@
     --control-connected-icon-hover: var(--paw-sheet);
     --control-connected-icon-active: var(--paw-sheet);
 
-    /* switches, checkboxes, radios: caramel when on */
+    /* switches, checkboxes, radios: the accent when on */
     --switch-background-selected-default: var(--paw-accent-fill);
     --switch-background-selected-hover: var(--paw-accent-fill-hover);
     --switch-thumb-icon-active: var(--paw-accent-fill);
@@ -307,11 +309,12 @@
     --radio-background-selected-hover: var(--paw-accent-fill-hover);
     --radio-foreground-active: var(--paw-accent-fill);
 
-    /* mentions in caramel; a jumped-to or replied-to message on the selection tone */
+    /* mentions in sakura by day, caramel by night; a jumped-to or replied-to message on the
+       selection tone */
     --mention-foreground: var(--paw-mention-text);
-    --mention-background: color-mix(in srgb, var(--paw-accent) 24%, transparent);
-    --message-mentioned-background-default: color-mix(in srgb, var(--paw-accent) 12%, transparent);
-    --message-mentioned-background-hover: color-mix(in srgb, var(--paw-accent) 15%, transparent);
+    --mention-background: color-mix(in srgb, var(--paw-mention-tint) 24%, transparent);
+    --message-mentioned-background-default: color-mix(in srgb, var(--paw-mention-tint) 12%, transparent);
+    --message-mentioned-background-hover: color-mix(in srgb, var(--paw-mention-tint) 15%, transparent);
     --message-highlight-background-default: color-mix(in srgb, var(--paw-selection) 70%, transparent);
     --message-highlight-background-hover: var(--paw-selection);
     --reaction-background-reacted-default: color-mix(in srgb, var(--paw-accent) 18%, transparent);
@@ -386,8 +389,9 @@ body {
 
 
 /* ---------------------------------------------------------------------------------------------
- * 4. Catch-all: Discord's raw colour ramps, warmed. Anything not mapped above still reads as
- *    paper and ink rather than cool grey, and stray blurple turns caramel. Generated: each step
+ * 4. Catch-all: Discord's raw colour ramps, in the palette's hues. Anything not mapped above
+ *    still reads as paper and ink rather than Discord's grey, and stray blurple turns the
+ *    accent: warm paper and caramel for sumi here, and washi's below. Generated: each step
  *    keeps Discord's lightness (OKLab L, ends folded in so paper is never pure white) and takes
  *    the palette's hue and chroma. :root:root outweighs Discord's own :root definitions.
  * ------------------------------------------------------------------------------------------- */
@@ -485,6 +489,97 @@ body {
 }
 
 
+/* washi's: the same steps of lightness in sakura paper, navy ink and sky blue. After the
+   shared block, so on the root it wins at the same weight. */
+.theme-light:not(.custom-user-profile-theme) {
+    --opacity-1-hsl: 231 13% 48%; --opacity-4-hsl: 231 13% 48%; --opacity-8-hsl: 231 13% 48%;
+    --opacity-12-hsl: 231 13% 48%; --opacity-16-hsl: 231 13% 48%; --opacity-20-hsl: 231 13% 48%;
+    --opacity-24-hsl: 231 13% 48%; --opacity-28-hsl: 231 13% 48%; --opacity-32-hsl: 231 13% 48%;
+    --opacity-36-hsl: 231 13% 48%; --opacity-40-hsl: 231 13% 48%; --opacity-44-hsl: 231 13% 48%;
+    --opacity-48-hsl: 231 13% 48%; --opacity-52-hsl: 231 13% 48%; --opacity-56-hsl: 231 13% 48%;
+    --opacity-60-hsl: 231 13% 48%; --opacity-64-hsl: 231 13% 48%; --opacity-68-hsl: 231 13% 48%;
+    --opacity-72-hsl: 231 13% 48%; --opacity-76-hsl: 231 13% 48%; --opacity-80-hsl: 231 13% 48%;
+    --opacity-84-hsl: 231 13% 48%; --opacity-88-hsl: 231 13% 48%; --opacity-92-hsl: 231 13% 48%;
+    --opacity-96-hsl: 231 13% 48%;
+    --opacity-blurple-1-hsl: 209 63% 61%; --opacity-blurple-4-hsl: 209 63% 61%; --opacity-blurple-8-hsl: 209 63% 61%;
+    --opacity-blurple-12-hsl: 209 63% 61%; --opacity-blurple-16-hsl: 209 63% 61%; --opacity-blurple-20-hsl: 209 63% 61%;
+    --opacity-blurple-24-hsl: 209 63% 61%; --opacity-blurple-28-hsl: 209 63% 61%; --opacity-blurple-32-hsl: 209 63% 61%;
+    --opacity-blurple-36-hsl: 209 63% 61%; --opacity-blurple-40-hsl: 209 63% 61%; --opacity-blurple-44-hsl: 209 63% 61%;
+    --opacity-blurple-48-hsl: 209 63% 61%; --opacity-blurple-52-hsl: 209 63% 61%; --opacity-blurple-56-hsl: 209 63% 61%;
+    --opacity-blurple-60-hsl: 209 63% 61%; --opacity-blurple-64-hsl: 209 63% 61%; --opacity-blurple-68-hsl: 209 63% 61%;
+    --opacity-blurple-72-hsl: 209 63% 61%; --opacity-blurple-76-hsl: 209 63% 61%; --opacity-blurple-80-hsl: 209 63% 61%;
+    --opacity-blurple-84-hsl: 209 63% 61%; --opacity-blurple-88-hsl: 209 63% 61%; --opacity-blurple-92-hsl: 209 63% 61%;
+    --opacity-blurple-96-hsl: 209 63% 61%;
+    --neutral-1-hsl: 315.0 calc(var(--saturation-factor, 1)*28.8%) 97.3%; --neutral-2-hsl: 315.0 calc(var(--saturation-factor, 1)*19.9%) 96.0%; --neutral-3-hsl: 314.9 calc(var(--saturation-factor, 1)*15.4%) 94.9%;
+    --neutral-4-hsl: 304.0 calc(var(--saturation-factor, 1)*11.6%) 93.6%; --neutral-5-hsl: 293.6 calc(var(--saturation-factor, 1)*10.5%) 92.5%; --neutral-6-hsl: 286.1 calc(var(--saturation-factor, 1)*10.3%) 91.6%;
+    --neutral-7-hsl: 279.4 calc(var(--saturation-factor, 1)*10.1%) 90.6%; --neutral-8-hsl: 273.1 calc(var(--saturation-factor, 1)*10.0%) 89.4%; --neutral-9-hsl: 268.5 calc(var(--saturation-factor, 1)*9.9%) 88.4%;
+    --neutral-10-hsl: 263.7 calc(var(--saturation-factor, 1)*9.8%) 87.2%; --neutral-11-hsl: 260.1 calc(var(--saturation-factor, 1)*9.7%) 86.0%; --neutral-12-hsl: 256.1 calc(var(--saturation-factor, 1)*9.6%) 84.5%;
+    --neutral-13-hsl: 253.1 calc(var(--saturation-factor, 1)*9.5%) 83.2%; --neutral-14-hsl: 250.3 calc(var(--saturation-factor, 1)*9.5%) 81.8%; --neutral-15-hsl: 248.4 calc(var(--saturation-factor, 1)*9.4%) 80.6%;
+    --neutral-16-hsl: 246.3 calc(var(--saturation-factor, 1)*9.3%) 79.2%; --neutral-17-hsl: 244.5 calc(var(--saturation-factor, 1)*9.3%) 77.8%; --neutral-18-hsl: 242.9 calc(var(--saturation-factor, 1)*9.2%) 76.4%;
+    --neutral-19-hsl: 241.7 calc(var(--saturation-factor, 1)*9.2%) 75.3%; --neutral-20-hsl: 240.2 calc(var(--saturation-factor, 1)*9.1%) 73.7%; --neutral-21-hsl: 239.2 calc(var(--saturation-factor, 1)*9.2%) 72.4%;
+    --neutral-22-hsl: 238.3 calc(var(--saturation-factor, 1)*9.3%) 71.2%; --neutral-23-hsl: 237.3 calc(var(--saturation-factor, 1)*9.4%) 69.7%; --neutral-24-hsl: 236.5 calc(var(--saturation-factor, 1)*9.5%) 68.3%;
+    --neutral-25-hsl: 235.9 calc(var(--saturation-factor, 1)*9.5%) 67.1%; --neutral-26-hsl: 235.3 calc(var(--saturation-factor, 1)*9.6%) 65.6%; --neutral-27-hsl: 234.8 calc(var(--saturation-factor, 1)*9.6%) 64.5%;
+    --neutral-28-hsl: 234.2 calc(var(--saturation-factor, 1)*9.7%) 63.0%; --neutral-29-hsl: 233.8 calc(var(--saturation-factor, 1)*9.7%) 61.8%; --neutral-30-hsl: 233.4 calc(var(--saturation-factor, 1)*9.7%) 60.4%;
+    --neutral-31-hsl: 233.0 calc(var(--saturation-factor, 1)*9.8%) 59.2%; --neutral-32-hsl: 232.6 calc(var(--saturation-factor, 1)*9.8%) 57.8%; --neutral-33-hsl: 232.4 calc(var(--saturation-factor, 1)*9.8%) 56.7%;
+    --neutral-34-hsl: 232.0 calc(var(--saturation-factor, 1)*9.8%) 55.1%; --neutral-35-hsl: 231.8 calc(var(--saturation-factor, 1)*9.8%) 53.9%; --neutral-36-hsl: 231.5 calc(var(--saturation-factor, 1)*9.8%) 52.5%;
+    --neutral-37-hsl: 231.3 calc(var(--saturation-factor, 1)*9.8%) 51.3%; --neutral-38-hsl: 231.0 calc(var(--saturation-factor, 1)*9.8%) 49.9%; --neutral-39-hsl: 230.9 calc(var(--saturation-factor, 1)*10.3%) 48.7%;
+    --neutral-40-hsl: 230.7 calc(var(--saturation-factor, 1)*10.8%) 47.6%; --neutral-41-hsl: 230.5 calc(var(--saturation-factor, 1)*11.4%) 46.0%; --neutral-42-hsl: 230.4 calc(var(--saturation-factor, 1)*11.9%) 45.0%;
+    --neutral-43-hsl: 230.2 calc(var(--saturation-factor, 1)*12.5%) 43.8%; --neutral-44-hsl: 230.1 calc(var(--saturation-factor, 1)*13.2%) 42.4%; --neutral-45-hsl: 230.0 calc(var(--saturation-factor, 1)*13.8%) 41.2%;
+    --neutral-46-hsl: 229.9 calc(var(--saturation-factor, 1)*14.5%) 40.1%; --neutral-47-hsl: 229.8 calc(var(--saturation-factor, 1)*15.1%) 38.9%; --neutral-48-hsl: 229.7 calc(var(--saturation-factor, 1)*16.1%) 37.4%;
+    --neutral-49-hsl: 229.6 calc(var(--saturation-factor, 1)*16.8%) 36.3%; --neutral-50-hsl: 229.6 calc(var(--saturation-factor, 1)*17.6%) 35.1%; --neutral-51-hsl: 229.5 calc(var(--saturation-factor, 1)*18.2%) 34.3%;
+    --neutral-52-hsl: 229.5 calc(var(--saturation-factor, 1)*18.5%) 33.9%; --neutral-53-hsl: 229.5 calc(var(--saturation-factor, 1)*19.0%) 33.2%; --neutral-54-hsl: 229.5 calc(var(--saturation-factor, 1)*19.4%) 32.8%;
+    --neutral-55-hsl: 229.4 calc(var(--saturation-factor, 1)*20.0%) 32.0%; --neutral-56-hsl: 229.4 calc(var(--saturation-factor, 1)*20.4%) 31.6%; --neutral-57-hsl: 229.4 calc(var(--saturation-factor, 1)*21.0%) 30.8%;
+    --neutral-58-hsl: 229.4 calc(var(--saturation-factor, 1)*21.7%) 30.1%; --neutral-59-hsl: 229.4 calc(var(--saturation-factor, 1)*22.2%) 29.6%; --neutral-60-hsl: 229.4 calc(var(--saturation-factor, 1)*22.8%) 28.9%;
+    --neutral-61-hsl: 229.4 calc(var(--saturation-factor, 1)*23.3%) 28.4%; --neutral-62-hsl: 229.4 calc(var(--saturation-factor, 1)*24.0%) 27.7%; --neutral-63-hsl: 229.4 calc(var(--saturation-factor, 1)*24.0%) 27.2%;
+    --neutral-64-hsl: 229.4 calc(var(--saturation-factor, 1)*24.2%) 26.3%; --neutral-65-hsl: 229.4 calc(var(--saturation-factor, 1)*24.2%) 25.9%; --neutral-66-hsl: 229.4 calc(var(--saturation-factor, 1)*24.4%) 25.0%;
+    --neutral-67-hsl: 229.4 calc(var(--saturation-factor, 1)*24.5%) 24.5%; --neutral-68-hsl: 229.4 calc(var(--saturation-factor, 1)*24.6%) 23.7%; --neutral-69-hsl: 229.4 calc(var(--saturation-factor, 1)*24.7%) 23.3%;
+    --neutral-70-hsl: 229.4 calc(var(--saturation-factor, 1)*24.9%) 22.5%; --neutral-71-hsl: 229.4 calc(var(--saturation-factor, 1)*25.0%) 21.9%; --neutral-72-hsl: 229.4 calc(var(--saturation-factor, 1)*25.2%) 21.1%;
+    --neutral-73-hsl: 229.4 calc(var(--saturation-factor, 1)*25.3%) 20.5%; --neutral-74-hsl: 229.4 calc(var(--saturation-factor, 1)*25.5%) 19.9%; --neutral-75-hsl: 229.4 calc(var(--saturation-factor, 1)*25.7%) 19.2%;
+    --neutral-76-hsl: 229.4 calc(var(--saturation-factor, 1)*25.9%) 18.5%; --neutral-77-hsl: 229.4 calc(var(--saturation-factor, 1)*26.1%) 18.1%; --neutral-78-hsl: 229.4 calc(var(--saturation-factor, 1)*26.3%) 17.4%;
+    --neutral-79-hsl: 229.4 calc(var(--saturation-factor, 1)*26.6%) 16.7%; --neutral-80-hsl: 229.4 calc(var(--saturation-factor, 1)*26.8%) 16.1%; --neutral-81-hsl: 229.4 calc(var(--saturation-factor, 1)*27.2%) 15.3%;
+    --neutral-82-hsl: 229.4 calc(var(--saturation-factor, 1)*27.2%) 15.2%; --neutral-83-hsl: 229.4 calc(var(--saturation-factor, 1)*27.3%) 15.0%; --neutral-84-hsl: 229.4 calc(var(--saturation-factor, 1)*27.5%) 14.6%;
+    --neutral-85-hsl: 229.4 calc(var(--saturation-factor, 1)*27.6%) 14.4%; --neutral-86-hsl: 229.4 calc(var(--saturation-factor, 1)*27.7%) 14.2%; --neutral-87-hsl: 229.4 calc(var(--saturation-factor, 1)*27.9%) 14.0%;
+    --neutral-88-hsl: 229.4 calc(var(--saturation-factor, 1)*28.0%) 13.7%; --neutral-89-hsl: 229.4 calc(var(--saturation-factor, 1)*28.2%) 13.4%; --neutral-90-hsl: 229.4 calc(var(--saturation-factor, 1)*28.4%) 13.2%;
+    --neutral-91-hsl: 229.4 calc(var(--saturation-factor, 1)*28.5%) 12.9%; --neutral-92-hsl: 229.4 calc(var(--saturation-factor, 1)*28.7%) 12.7%; --neutral-93-hsl: 229.4 calc(var(--saturation-factor, 1)*29.0%) 12.2%;
+    --neutral-94-hsl: 229.4 calc(var(--saturation-factor, 1)*29.2%) 11.9%; --neutral-95-hsl: 229.4 calc(var(--saturation-factor, 1)*29.5%) 11.5%; --neutral-96-hsl: 229.4 calc(var(--saturation-factor, 1)*29.8%) 11.2%;
+    --neutral-97-hsl: 229.4 calc(var(--saturation-factor, 1)*30.5%) 10.5%; --neutral-98-hsl: 229.4 calc(var(--saturation-factor, 1)*31.0%) 10.0%; --neutral-99-hsl: 229.4 calc(var(--saturation-factor, 1)*32.5%) 8.8%;
+    --neutral-100-hsl: 229.7 calc(var(--saturation-factor, 1)*39.6%) 5.5%;
+    --blurple-1-hsl: 213.0 calc(var(--saturation-factor, 1)*98.8%) 93.6%; --blurple-2-hsl: 213.0 calc(var(--saturation-factor, 1)*100.0%) 92.7%; --blurple-3-hsl: 213.0 calc(var(--saturation-factor, 1)*98.8%) 91.7%;
+    --blurple-4-hsl: 213.0 calc(var(--saturation-factor, 1)*99.9%) 91.0%; --blurple-5-hsl: 213.0 calc(var(--saturation-factor, 1)*98.7%) 90.0%; --blurple-6-hsl: 213.0 calc(var(--saturation-factor, 1)*98.9%) 89.3%;
+    --blurple-7-hsl: 212.9 calc(var(--saturation-factor, 1)*99.8%) 88.4%; --blurple-8-hsl: 212.9 calc(var(--saturation-factor, 1)*99.1%) 87.4%; --blurple-9-hsl: 212.9 calc(var(--saturation-factor, 1)*98.9%) 86.8%;
+    --blurple-10-hsl: 212.9 calc(var(--saturation-factor, 1)*98.8%) 85.9%; --blurple-11-hsl: 212.9 calc(var(--saturation-factor, 1)*99.6%) 85.1%; --blurple-12-hsl: 212.9 calc(var(--saturation-factor, 1)*99.8%) 84.2%;
+    --blurple-13-hsl: 212.8 calc(var(--saturation-factor, 1)*99.9%) 83.2%; --blurple-14-hsl: 212.8 calc(var(--saturation-factor, 1)*98.6%) 82.5%; --blurple-15-hsl: 212.8 calc(var(--saturation-factor, 1)*95.7%) 81.5%;
+    --blurple-16-hsl: 212.8 calc(var(--saturation-factor, 1)*93.9%) 80.8%; --blurple-17-hsl: 212.8 calc(var(--saturation-factor, 1)*91.4%) 79.8%; --blurple-18-hsl: 212.8 calc(var(--saturation-factor, 1)*88.8%) 78.8%;
+    --blurple-19-hsl: 212.8 calc(var(--saturation-factor, 1)*87.2%) 78.0%; --blurple-20-hsl: 212.8 calc(var(--saturation-factor, 1)*85.1%) 77.0%; --blurple-21-hsl: 212.7 calc(var(--saturation-factor, 1)*83.1%) 76.1%;
+    --blurple-22-hsl: 212.7 calc(var(--saturation-factor, 1)*81.7%) 75.3%; --blurple-23-hsl: 212.7 calc(var(--saturation-factor, 1)*80.0%) 74.4%; --blurple-24-hsl: 212.7 calc(var(--saturation-factor, 1)*78.2%) 73.4%;
+    --blurple-25-hsl: 212.7 calc(var(--saturation-factor, 1)*77.1%) 72.7%; --blurple-26-hsl: 212.7 calc(var(--saturation-factor, 1)*75.4%) 71.6%; --blurple-27-hsl: 212.7 calc(var(--saturation-factor, 1)*73.8%) 70.7%;
+    --blurple-28-hsl: 212.7 calc(var(--saturation-factor, 1)*72.8%) 70.0%; --blurple-29-hsl: 212.6 calc(var(--saturation-factor, 1)*71.4%) 68.9%; --blurple-30-hsl: 212.6 calc(var(--saturation-factor, 1)*70.0%) 68.0%;
+    --blurple-31-hsl: 212.6 calc(var(--saturation-factor, 1)*69.0%) 67.2%; --blurple-32-hsl: 212.6 calc(var(--saturation-factor, 1)*67.6%) 66.2%; --blurple-33-hsl: 212.6 calc(var(--saturation-factor, 1)*66.5%) 65.3%;
+    --blurple-34-hsl: 212.5 calc(var(--saturation-factor, 1)*65.2%) 64.2%; --blurple-35-hsl: 212.5 calc(var(--saturation-factor, 1)*64.4%) 63.6%; --blurple-36-hsl: 212.5 calc(var(--saturation-factor, 1)*63.3%) 62.6%;
+    --blurple-37-hsl: 212.5 calc(var(--saturation-factor, 1)*62.2%) 61.6%; --blurple-38-hsl: 212.4 calc(var(--saturation-factor, 1)*61.1%) 60.7%; --blurple-39-hsl: 212.4 calc(var(--saturation-factor, 1)*60.3%) 60.0%;
+    --blurple-40-hsl: 212.4 calc(var(--saturation-factor, 1)*59.3%) 59.0%; --blurple-41-hsl: 212.4 calc(var(--saturation-factor, 1)*58.2%) 58.0%; --blurple-42-hsl: 212.3 calc(var(--saturation-factor, 1)*57.5%) 57.2%;
+    --blurple-43-hsl: 212.3 calc(var(--saturation-factor, 1)*56.5%) 56.2%; --blurple-44-hsl: 212.3 calc(var(--saturation-factor, 1)*55.7%) 55.3%; --blurple-45-hsl: 212.3 calc(var(--saturation-factor, 1)*54.8%) 54.6%;
+    --blurple-46-hsl: 212.2 calc(var(--saturation-factor, 1)*54.0%) 53.8%; --blurple-47-hsl: 212.2 calc(var(--saturation-factor, 1)*53.1%) 52.8%; --blurple-48-hsl: 212.1 calc(var(--saturation-factor, 1)*52.5%) 52.0%;
+    --blurple-49-hsl: 212.1 calc(var(--saturation-factor, 1)*51.7%) 51.0%; --blurple-51-hsl: 212.0 calc(var(--saturation-factor, 1)*51.8%) 49.0%; --blurple-52-hsl: 211.9 calc(var(--saturation-factor, 1)*53.2%) 47.9%;
+    --blurple-53-hsl: 211.9 calc(var(--saturation-factor, 1)*54.6%) 46.7%; --blurple-54-hsl: 211.8 calc(var(--saturation-factor, 1)*56.1%) 45.6%; --blurple-55-hsl: 211.7 calc(var(--saturation-factor, 1)*57.6%) 44.5%;
+    --blurple-56-hsl: 211.7 calc(var(--saturation-factor, 1)*59.1%) 43.3%; --blurple-57-hsl: 211.6 calc(var(--saturation-factor, 1)*60.4%) 42.5%; --blurple-58-hsl: 211.5 calc(var(--saturation-factor, 1)*62.2%) 41.3%;
+    --blurple-59-hsl: 211.4 calc(var(--saturation-factor, 1)*63.9%) 40.2%; --blurple-60-hsl: 211.3 calc(var(--saturation-factor, 1)*65.8%) 39.0%; --blurple-61-hsl: 211.1 calc(var(--saturation-factor, 1)*67.8%) 37.8%;
+    --blurple-62-hsl: 211.0 calc(var(--saturation-factor, 1)*69.9%) 36.7%; --blurple-63-hsl: 210.8 calc(var(--saturation-factor, 1)*72.0%) 35.6%; --blurple-64-hsl: 210.7 calc(var(--saturation-factor, 1)*74.2%) 34.5%;
+    --blurple-65-hsl: 210.5 calc(var(--saturation-factor, 1)*77.1%) 33.3%; --blurple-66-hsl: 210.2 calc(var(--saturation-factor, 1)*79.8%) 32.1%; --blurple-67-hsl: 210.0 calc(var(--saturation-factor, 1)*83.3%) 30.8%;
+    --blurple-68-hsl: 209.6 calc(var(--saturation-factor, 1)*86.9%) 29.6%; --blurple-69-hsl: 209.3 calc(var(--saturation-factor, 1)*91.1%) 28.2%; --blurple-70-hsl: 209.0 calc(var(--saturation-factor, 1)*95.1%) 27.1%;
+    --blurple-71-hsl: 208.9 calc(var(--saturation-factor, 1)*99.0%) 26.0%; --blurple-72-hsl: 209.0 calc(var(--saturation-factor, 1)*98.2%) 25.1%; --blurple-73-hsl: 209.0 calc(var(--saturation-factor, 1)*99.1%) 24.3%;
+    --blurple-74-hsl: 209.2 calc(var(--saturation-factor, 1)*98.2%) 23.6%; --blurple-75-hsl: 209.2 calc(var(--saturation-factor, 1)*98.9%) 22.8%; --blurple-76-hsl: 209.4 calc(var(--saturation-factor, 1)*98.4%) 21.9%;
+    --blurple-77-hsl: 209.5 calc(var(--saturation-factor, 1)*98.2%) 21.4%; --blurple-78-hsl: 209.6 calc(var(--saturation-factor, 1)*98.5%) 20.5%; --blurple-79-hsl: 209.7 calc(var(--saturation-factor, 1)*99.6%) 19.7%;
+    --blurple-80-hsl: 209.8 calc(var(--saturation-factor, 1)*99.7%) 19.0%; --blurple-81-hsl: 210.0 calc(var(--saturation-factor, 1)*98.7%) 18.2%; --blurple-82-hsl: 210.2 calc(var(--saturation-factor, 1)*98.8%) 17.4%;
+    --blurple-83-hsl: 210.4 calc(var(--saturation-factor, 1)*100.0%) 16.5%; --blurple-84-hsl: 210.5 calc(var(--saturation-factor, 1)*99.0%) 15.9%; --blurple-85-hsl: 210.7 calc(var(--saturation-factor, 1)*99.0%) 15.4%;
+    --blurple-86-hsl: 210.9 calc(var(--saturation-factor, 1)*99.7%) 14.6%; --blurple-87-hsl: 211.2 calc(var(--saturation-factor, 1)*98.8%) 13.8%; --blurple-88-hsl: 211.5 calc(var(--saturation-factor, 1)*99.3%) 13.2%;
+    --blurple-89-hsl: 211.8 calc(var(--saturation-factor, 1)*99.6%) 12.4%; --blurple-90-hsl: 212.1 calc(var(--saturation-factor, 1)*99.3%) 11.7%; --blurple-91-hsl: 212.4 calc(var(--saturation-factor, 1)*99.4%) 11.1%;
+    --blurple-92-hsl: 213.0 calc(var(--saturation-factor, 1)*99.7%) 10.3%; --blurple-93-hsl: 213.5 calc(var(--saturation-factor, 1)*99.6%) 9.6%; --blurple-94-hsl: 214.1 calc(var(--saturation-factor, 1)*99.4%) 8.9%;
+    --blurple-95-hsl: 215.0 calc(var(--saturation-factor, 1)*99.6%) 7.9%; --blurple-96-hsl: 216.0 calc(var(--saturation-factor, 1)*99.7%) 7.1%; --blurple-97-hsl: 217.8 calc(var(--saturation-factor, 1)*99.6%) 6.0%;
+    --blurple-98-hsl: 220.8 calc(var(--saturation-factor, 1)*99.6%) 4.7%; --blurple-99-hsl: 224.4 calc(var(--saturation-factor, 1)*99.7%) 2.5%; --blurple-100-hsl: 0.0 calc(var(--saturation-factor, 1)*0.0%) 0.0%;
+}
+
+
 /* ---------------------------------------------------------------------------------------------
  * 5. Structure: the few touches tokens can't express. Hash-free selectors only
  *    ([class*="name_"] survives Discord's daily class-hash churn); #app-mount lifts them over
@@ -529,7 +624,7 @@ body {
     box-shadow: 0 0 0 2px var(--paw-outline);
 }
 
-/* The selected channel (or DM): a paper label with a caramel marker. */
+/* The selected channel (or DM): a paper label with a marker in the accent. */
 #app-mount [class*="sidebarList_"] [class*="interactiveSelected_"],
 #app-mount [class*="sidebarList_"] [class*="modeSelected_"] [class*="link_"] {
     background: var(--paw-sheet);
@@ -537,9 +632,9 @@ body {
     color: var(--paw-text);
 }
 
-/* Messages that mention you: a caramel rule down the margin. */
+/* Messages that mention you: a rule down the margin, sakura by day and caramel by night. */
 #app-mount [class*="message_"][class*="mentioned_"]::before {
-    background: var(--paw-accent);
+    background: var(--paw-mention-tint);
     width: 3px;
 }
 

@@ -824,6 +824,10 @@ const Option options[] = {
     {"shell.wallpaper", "string", "\"\"", "\"\"", none, none,
      "Image path, absolute or relative to the configuration file (one the shipped configuration "
      "names, its profiles' too: relative to that file, also for a file that extends it)."},
+    {"shell.start_icon", "string", "\"\"", "\"neko.svg\"", none, none,
+     "A picture for the taskbar's start button in place of the four squares in the accent "
+     "colour: an SVG, PNG or other image, absolute or relative to the configuration file, as "
+     "`shell.wallpaper` is."},
     {"shell.wallpapers", "string", "unset", "\"~/Pictures/wallpapers\"", none, none,
      "The wallpaper picker's folder, searched with its subfolders: absolute, or starting with "
      "`~/`; unset uses `$XDG_PICTURES_DIR/wallpapers`, else `$XDG_PICTURES_DIR`."},

@@ -54,6 +54,8 @@ class ShellController : public QObject {
     // findWallpapers(), and the folder they come from.
     Q_PROPERTY(QVariantList wallpapers READ wallpapers NOTIFY wallpapersChanged)
     Q_PROPERTY(QString wallpaperFolder READ wallpaperFolder NOTIFY configChanged)
+    // shell.start_icon, the start button's picture; empty for the four squares.
+    Q_PROPERTY(QUrl startIcon READ startIcon NOTIFY configChanged)
     // How the shell is laid out (shell.style): "taskbar" or "macos".
     Q_PROPERTY(QString style READ style NOTIFY configChanged)
     Q_PROPERTY(int panelHeight READ panelHeight NOTIFY configChanged)
@@ -214,6 +216,7 @@ class ShellController : public QObject {
     QString wallpaperFile() const;
     QVariantList wallpapers() const { return wallpapers_; }
     QString wallpaperFolder() const;
+    QUrl startIcon() const;
     // Reads the picker's folder again.
     Q_INVOKABLE void findWallpapers();
     // Shows `path` as the wallpaper of the profile in use, remembered across sessions until the

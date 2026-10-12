@@ -21,13 +21,13 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 VARIANTS = {
     "washi": {
-        "paper": (243, 235, 221),
-        "mottle": 9,                      # how much the paper's brightness wanders, of 255
-        "fibre_light": (255, 251, 242), "fibre_dark": (196, 178, 152),
-        "fleck": (122, 92, 64), "fibre_strength": 1.0,
-        "ink": [(168, 118, 80), (115, 74, 44)],    # the logo's beans, toes to heel
-        "seal": (176, 58, 46),
-        "text": (43, 34, 28),
+        "paper": (244, 240, 243),
+        "mottle": 7,                      # how much the paper's brightness wanders, of 255
+        "fibre_light": (255, 253, 255), "fibre_dark": (186, 180, 206),
+        "fleck": (120, 128, 162), "fibre_strength": 1.0,
+        "ink": [(238, 150, 183), (126, 178, 230)],  # sakura toes, a sky-blue heel
+        "seal": (214, 92, 135),
+        "text": (54, 60, 88),
         "glow": None,
         "vignette": 0.05,
         "grain": 9,

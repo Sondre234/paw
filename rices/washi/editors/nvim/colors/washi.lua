@@ -1,4 +1,4 @@
--- washi (和紙) for Neovim: ink on cream paper, caramel and a vermilion seal.
+-- washi (和紙) for Neovim: navy ink on sakura paper, light blue and pink, a rose seal.
 -- The light half of the washi rice; sumi.lua is the same sheet soaked in ink.
 --
 -- Plugin-free. Copy this file to ~/.config/nvim/colors/ (or put the editors/nvim directory on
@@ -6,69 +6,70 @@
 -- in kitty); without it, the ANSI indices match the washi kitty palette. `:set background=dark`
 -- turns the page to sumi.
 --
--- Print, not neon: ink text, comments pencilled in italic, keywords in plum, strings in moss,
--- functions in indigo, types in teal, numbers in ochre, the preprocessor and the accents in
--- caramel, and vermilion only for the loud things (errors, TODO seals, escapes).
+-- Print, not neon: ink text, comments pencilled in italic, keywords in orchid, strings in mint,
+-- functions in blue, types in teal, numbers in honey, the preprocessor and the accents in
+-- sakura, and raspberry only for the loud things (errors, TODO seals, escapes). The palette
+-- keeps sumi's names (caramel, bean, ...), as the code below it is shared with sumi.lua.
 
 -- Each colour is { truecolor, ANSI index }. An index of nil leaves the terminal's own colour;
 -- 255 is the xterm light grey, for the raised surfaces the 16 colours have nothing close to.
 local p = {
   -- The sheet
-  bg          = { "#FBF7EF" },      -- paper (kitty's background)
-  fold        = { "#F4EDE2" },      -- cursor line: a faint fold in the paper
-  sunken      = { "#EFE6D6" },      -- closed folds
-  raised      = { "#F1E8D8", 255 }, -- floats and menus
-  bar         = { "#EFE6D6", 255 }, -- inactive tabs, menu scrollbar
-  sel         = { "#EBDCC4" },      -- selection, caramel-tinted
-  ref         = { "#EFE5D9" },      -- other uses of the word under the cursor
-  match       = { "#E2D0BF" },      -- matching bracket
-  search      = { "#F2D89E", 11 },  -- search hits, a highlighter stroke
+  bg          = { "#FBF9FB" },      -- paper (kitty's background)
+  fold        = { "#F3EFF5" },      -- cursor line: a faint fold in the paper
+  sunken      = { "#EEE9F0" },      -- closed folds
+  raised      = { "#F1ECF2", 255 }, -- floats and menus
+  bar         = { "#EEE9F0", 255 }, -- inactive tabs, menu scrollbar
+  sel         = { "#DCEAF8" },      -- selection, sky-tinted
+  ref         = { "#EAEFF7" },      -- other uses of the word under the cursor
+  match       = { "#F3D6E2" },      -- matching bracket
+  search      = { "#F7D3E1", 13 },  -- search hits, a sakura highlighter stroke
 
   -- Pencil and ink
-  line        = { "#D6C8B2", 7 },   -- hairlines: separators, whitespace
-  faint       = { "#A89A88", 7 },   -- line numbers
-  muted       = { "#7A6B5E", 7 },   -- comments
-  pencil      = { "#5C4F45", 8 },   -- fields, unhighlighted code blocks
-  fg          = { "#2B221C", 0 },   -- ink
-  ui_fg       = { "#2B221C", 0 },   -- text on floats and menus
-  search_fg   = { "#2B221C", 0 },   -- text on search hits
-  paper       = { "#FBF7EF", 15 },  -- text on ink, caramel and the seal
+  line        = { "#DAD3E0", 7 },   -- hairlines: separators, whitespace
+  faint       = { "#9EA2B8", 7 },   -- line numbers
+  muted       = { "#6B708C", 7 },   -- comments
+  pencil      = { "#5A607C", 8 },   -- fields, unhighlighted code blocks
+  fg          = { "#363C58", 0 },   -- navy ink
+  ui_fg       = { "#363C58", 0 },   -- text on floats and menus
+  search_fg   = { "#363C58", 0 },   -- text on search hits
+  paper       = { "#FBF9FB", 15 },  -- text on ink, sakura and the seal
 
   -- Chrome
-  status      = { "#2B221C", 0 },   -- the current window's status line, inked in
-  status_fg   = { "#FBF7EF", 15 },
-  tab_sel     = { "#2B221C", 0 },   -- the current tab, inked in like kitty's
-  tab_sel_fg  = { "#FBF7EF", 15 },
-  mark        = { "#2B221C", 0 },   -- the selected menu item, inked in
-  mark_accent = { "#D6A06E", 11 },  -- its matched letters
-  outline     = { "#2B221C", 0 },   -- float borders: the 2px ink outline
-  shadow      = { "#2B221C", 0 },   -- border = "shadow": a hard ink offset, no blur
-  cursor      = { "#2B221C", 0 },
+  status      = { "#363C58", 0 },   -- the current window's status line, inked in
+  status_fg   = { "#FBF9FB", 15 },
+  tab_sel     = { "#363C58", 0 },   -- the current tab, inked in like kitty's
+  tab_sel_fg  = { "#FBF9FB", 15 },
+  mark        = { "#363C58", 0 },   -- the selected menu item, inked in
+  mark_accent = { "#F2A0BE", 13 },  -- its matched letters, in sakura
+  outline     = { "#4A5170", 0 },   -- float borders: the 2px ink outline
+  shadow      = { "#A9C9EC", 12 },  -- border = "shadow": a hard offset printed in sky blue
+  cursor      = { "#363C58", 0 },
 
   -- Colour
-  caramel     = { "#9A6438", 11 },  -- the accent as text on paper
-  bean        = { "#A87650", 11 },  -- the accent as a fill (the paw's toe beans)
-  seal        = { "#B03A2E", 1 },   -- vermilion hanko
-  green       = { "#4F6F26", 2 },   -- moss
-  ochre       = { "#8A5A0E", 3 },
-  indigo      = { "#2D5A82", 4 },
-  plum        = { "#873C66", 5 },
-  teal        = { "#276A61", 6 },
+  caramel     = { "#B8467A", 13 },  -- the accent as text on paper: sakura, deep enough to read
+  bean        = { "#B8467A", 13 },  -- the accent as a fill: the same sakura, under paper text
+  seal        = { "#B83B63", 1 },   -- the rose hanko, deepened to raspberry for text
+  green       = { "#3F7D52", 2 },   -- mint
+  ochre       = { "#C47F00", 3 },   -- honey
+  indigo      = { "#3570B3", 4 },   -- blue
+  plum        = { "#A2488C", 5 },   -- orchid
+  teal        = { "#23788A", 6 },
 
   -- Washes of colour behind diagnostics and diffs
-  seal_bg     = { "#F4E4DC" },
-  green_bg    = { "#E5E6D5" },
-  ochre_bg    = { "#F0E5D3" },
-  ochre_bg2   = { "#E5D3B0" },      -- changed text within a changed line
-  indigo_bg   = { "#E6E7E4" },
-  teal_bg     = { "#E6E9E1" },
+  seal_bg     = { "#F9E1EA" },
+  green_bg    = { "#E1EFE5" },
+  ochre_bg    = { "#FBF0D9" },
+  ochre_bg2   = { "#F5DFA8" },      -- changed text within a changed line
+  indigo_bg   = { "#E3ECF8" },
+  teal_bg     = { "#DFEFF1" },
 
   shadow_blend = 0, -- how much the shadow lets through: none
 }
 
 local ansi = {
-  "#2B221C", "#B03A2E", "#4F6F26", "#8A5A0E", "#2D5A82", "#873C66", "#276A61", "#7A6B5E",
-  "#5C4F45", "#C8503D", "#66883A", "#B0782A", "#4473A0", "#A3527E", "#3A857A", "#FBF7EF",
+  "#363C58", "#B83B63", "#3F7D52", "#C47F00", "#3570B3", "#A2488C", "#23788A", "#6B708C",
+  "#5A607C", "#CE5A82", "#529568", "#D4911C", "#4E8BCB", "#B8619F", "#3592A3", "#FBF9FB",
 }
 
 -- `:set background=dark` while washi is up reloads it: turn the page to sumi instead (once the
