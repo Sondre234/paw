@@ -41,6 +41,9 @@ shadows.
   rates; `shell.renderer = "software"` keeps the CPU renderer for a weak machine. See
   [docs/performance.md](docs/performance.md). It needs Qt 6.9 or newer: its shadows are Qt Quick
   Effects' `RectangularShadow`, new in 6.9.
+- `shell.frame = "windows"` frames a floating bar, the dock and the popups as the windows are:
+  their border instead of the shell's hairline, and their shadow, hard ones included, instead of
+  the shell's own.
 - Buttons, search fields, the crosses that close or clear things, and what an empty list says look
   the same everywhere, and a ring in the accent colour shows the button the keyboard is at.
 - Many more windows get their application's icon: the shell matches a window's app id to a

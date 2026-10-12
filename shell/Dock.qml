@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
+import QtQuick.Effects
 import Paw
 
 // The dock of the macOS style: a strip floating in the middle of the panel's surface at the
@@ -60,9 +61,24 @@ Item {
         width: row.implicitWidth * fit + 2 * Theme.dockPadding
         radius: Math.min(shell.panelRadius, height / 2)
         color: Theme.bar
-        // A faint dark line around it, and a light one just inside.
-        border.width: 1; border.color: Theme.dockOuterEdge
+        // A faint dark line around it, and a light one just inside; framed as windows are
+        // (shell.frame), their outline instead, and an unfocused window's shadow under it.
+        border.width: Theme.windowFrames ? Theme.outlineWidth : 1
+        border.color: Theme.windowFrames ? Theme.outline : Theme.dockOuterEdge
+        Loader {
+            objectName: "dockShadow"
+            active: Theme.effects && Theme.barShadow.a > 0
+            anchors.fill: parent
+            z: -1
+            sourceComponent: RectangularShadow {
+                radius: body.radius
+                blur: Theme.shadowBlur
+                offset: Qt.vector2d(Theme.shadowOffsetX, Theme.shadowOffset)
+                color: Theme.barShadow
+            }
+        }
         Rectangle {
+            visible: !Theme.windowFrames
             anchors.fill: parent; anchors.margins: 1
             radius: Math.max(0, parent.radius - 1)
             color: "transparent"

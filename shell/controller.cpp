@@ -167,10 +167,40 @@ QColor color(const std::string &value) {
 }
 } // namespace
 QColor ShellController::accent() const { return color(config_.shell.accent); }
-QColor ShellController::urgentColor() const {
-    const auto &c = config_.settings.urgent_color; // premultiplied
+// A colour of the compositor's settings, which are premultiplied.
+static QColor unpremultiplied(const float (&c)[4]) {
     const float a = c[3];
-    return a > 0 ? QColor::fromRgbF(c[0] / a, c[1] / a, c[2] / a, a) : QColor();
+    return a > 0 ? QColor::fromRgbF(c[0] / a, c[1] / a, c[2] / a, a) : QColor(Qt::transparent);
+}
+QColor ShellController::urgentColor() const {
+    const auto &c = config_.settings.urgent_color;
+    return c[3] > 0 ? unpremultiplied(c) : QColor();
+}
+int ShellController::panelHeadroom() const {
+    const auto &shell = config_.shell;
+    const auto &settings = config_.settings;
+    if (shell.macos_style)
+        return panelHeight() / 2;
+    const bool floating = shell.panel_radius > 0 || shell.panel_margin[0] > 0 ||
+                          shell.panel_margin[1] > 0 || shell.panel_margin[2] > 0 ||
+                          shell.panel_margin[3] > 0;
+    if (!shell.frame_windows || !settings.shadow || !effects_ || !floating)
+        return 0;
+    // A bar along the top casts its shadow down, into the output; one along the bottom, up.
+    const int inwards = shell.panel_top ? settings.shadow_y : -settings.shadow_y;
+    const int margin = shell.panel_top ? shell.panel_margin[2] : shell.panel_margin[0];
+    return std::max(0, settings.shadow_blur + std::max(0, inwards) - margin);
+}
+QColor ShellController::windowBorderColor() const {
+    return unpremultiplied(config_.settings.border_inactive);
+}
+QColor ShellController::windowShadowColor() const {
+    return config_.settings.shadow ? unpremultiplied(config_.settings.shadow_color)
+                                   : QColor(Qt::transparent);
+}
+QColor ShellController::windowShadowInactiveColor() const {
+    return config_.settings.shadow ? unpremultiplied(config_.settings.shadow_inactive_color)
+                                   : QColor(Qt::transparent);
 }
 QColor ShellController::panelColor() const { return color(config_.shell.panel_color); }
 QColor ShellController::textColor() const { return color(config_.shell.text_color); }

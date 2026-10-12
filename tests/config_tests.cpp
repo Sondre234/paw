@@ -786,6 +786,11 @@ int main(int argc, char **argv) {
         require(paw::parse_config("return {shell={style='macos'}}").shell.macos_style &&
                     !paw::parse_config("return {shell={style='taskbar'}}").shell.macos_style,
                 "style not parsed");
+        require(!even.shell.frame_windows &&
+                    paw::parse_config("return {shell={frame='windows'}}").shell.frame_windows &&
+                    !paw::parse_config("return {shell={frame='shell'}}").shell.frame_windows,
+                "frame not parsed");
+        rejects("return {shell={frame='window'}}");
         rejects("return {shell={style='gnome'}}");
         rejects("return {shell={renderer='vulkan'}}");
         rejects("return {shell={workspaces_shown=11}}");

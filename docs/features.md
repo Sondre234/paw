@@ -383,6 +383,23 @@ once, so nothing waits for the fade. All the shell's motion is short and eases o
 `animations.enabled` (off makes every change instant) and `animations.speed`, and nothing moves,
 or wakes the shell, while nothing changes.
 
+`shell.frame = "windows"` frames the shell as the windows are: a floating bar, the dock and
+every popup get the windows' border (`windows.border_width` pixels in `border_inactive_color`,
+a gradient's first colour) in place of the shell's hairline, and with `windows.shadow` on, its
+shadow in place of the shell's own: the focused window's under a popup, an unfocused window's
+under the bar and the dock, as soft, as far off and as dark. So a profile with hard shadows
+(`blur = 0` and an offset) gives the shell the same printed look as its windows. The bar's
+surface reaches past the strip it reserves as far as its shadow falls towards the middle of the
+output, so windows still come up to the bar; that room takes no input.
+
+```lua
+windows = { border_width = 2, border_inactive_color = "#2b221c",
+            shadow = { enabled = true, color = "#2b221cff", inactive_color = "#2b221c66",
+                       blur = 0, offset = { 7, 7 } } },
+shell = { frame = "windows", panel_position = "top", panel_radius = 12,
+          panel_margin = { top = 14, left = 26, right = 26, bottom = 10 } },
+```
+
 The shell draws through the GPU; `renderer = "software"` draws on the CPU instead, for a weak
 machine: it starts faster and uses less memory, but cannot draw effects such as shadows. In a
 nested session, applications that reuse an existing process or D-Bus service can open in the host

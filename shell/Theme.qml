@@ -150,15 +150,28 @@ QtObject {
 
     // Whether shader effects (shadows) can be drawn: only through the GPU.
     readonly property bool effects: shell.effects
+    // shell.frame = "windows": a floating bar, the dock and the popups are framed as windows
+    // are, by their border (windows.border_width in border_inactive_color) and their shadow.
+    readonly property bool windowFrames: shell.frameWindows
+    // The outline of a floating bar, the dock and a popup: how wide, and its colour.
+    readonly property int outlineWidth: windowFrames ? shell.windowBorderWidth : 1
+    readonly property color outline: windowFrames ? shell.windowBorderColor : border
     // The shadow under a popup (PopupCard), drawn only with effects: how dark, how soft and how
-    // far down. A light profile needs less of it to show.
-    readonly property color shadow: Qt.rgba(0, 0, 0, light ? 0.3 : 0.6)
-    readonly property int shadowBlur: 20
-    readonly property int shadowOffset: 6
+    // far down (and right). A light profile needs less of it to show. Framed as windows are, it
+    // is the focused window's.
+    readonly property color shadow: windowFrames ? shell.windowShadowColor
+                                                 : Qt.rgba(0, 0, 0, light ? 0.3 : 0.6)
+    readonly property int shadowBlur: windowFrames ? shell.windowShadowBlur : 20
+    readonly property int shadowOffset: windowFrames ? shell.windowShadowOffset.y : 6
+    readonly property int shadowOffsetX: windowFrames ? shell.windowShadowOffset.x : 0
+    // The shadow under a floating bar and the dock, which never have the focus: an unfocused
+    // window's, framed as windows are, and none otherwise.
+    readonly property color barShadow: windowFrames ? shell.windowShadowInactiveColor : "transparent"
     // The room a shadow needs around what casts it, which a surface of its own (the on-screen
     // display, the cards, the switcher) leaves so that its edge does not cut the shadow off;
     // none without effects.
-    readonly property int shadowMargin: effects ? shadowBlur + shadowOffset : 0
+    readonly property int shadowMargin: effects ? shadowBlur + Math.max(Math.abs(shadowOffset),
+                                                                        Math.abs(shadowOffsetX)) : 0
 
     // The macOS style's popups. A token here that stands for one above is that token in the
     // taskbar style, so that a part uses it in both and the taskbar's looks as it always has.
@@ -186,7 +199,8 @@ QtObject {
     readonly property color popupSurface: macos && !light ? mix(surface, Qt.rgba(1, 1, 1, 1), 0.035) : surface
     // A popup's outline, and in a dark macOS appearance a faint light line inside it, as macOS
     // edges a dark popup on a dark window.
-    readonly property color popupOutline: macos && !light ? Qt.rgba(0, 0, 0, 0.6) : border
+    readonly property color popupOutline: windowFrames ? outline
+                                        : macos && !light ? Qt.rgba(0, 0, 0, 0.6) : border
     readonly property color popupInnerEdge: macos && !light ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
     // Launchpad: its grid, columns by rows a page, and an application's icon there at most; the
     // scrim over the wallpaper behind it; its text, white in both appearances as on macOS; the

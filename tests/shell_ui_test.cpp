@@ -5725,7 +5725,9 @@ ListModel {
         }
         auto token =[&](const char *name) { return theme->property(name); };
         if (token("durationFast").toInt() != qRound(120 / fastSpeed) || token("light").toBool() ||
-            token("surface").value<QColor>() != controller.panelColor())
+            token("surface").value<QColor>() != controller.panelColor() ||
+            token("windowFrames").toBool() || token("outlineWidth").toInt() != 1 ||
+            token("shadowOffsetX").toInt() != 0 || token("barShadow").value<QColor>().alpha() != 0)
             return fail("Theme does not follow the default configuration");
         if (!reconfigure(QString(lua).replace(fastMotion, "animations={speed=2}")))
             return fail("could not rewrite the configuration");
@@ -5742,6 +5744,44 @@ ListModel {
             token("hover").value<QColor>().alpha() == 0 ||
             token("textOnAccent").value<QColor>() != token("surface").value<QColor>())
             return fail("Theme does not follow a light, translucent profile without animations");
+        // Framed as windows are (shell.frame), a floating bar and the popups take the windows'
+        // border, a gradient's first colour, and their shadow: the bar an unfocused window's.
+        // Drawn through the GPU, the bar's shadow falls past the strip it reserves (down, from a
+        // bar along the top) into room of its own, which takes no input.
+        controller.setEffects(true);
+        if (!reconfigure(QString(lua).replace(
+                "shell={wallpaper",
+                "windows={border_width=3,border_inactive_color={'#2b221c','#a87650'},"
+                "shadow={enabled=true,color='#2b221cff',inactive_color='#2b221c66',blur=0,"
+                "offset={5,7}}},shell={frame='windows',panel_radius=12,panel_position='top',"
+                "panel_margin={bottom=2},wallpaper")))
+            return fail("could not rewrite the configuration");
+        auto rgba = [&](const char *name) { return token(name).value<QColor>().rgba(); };
+        auto *framed = find(view.rootObject(), "bar");
+        auto *pen = framed ? framed->property("border").value<QObject *>() : nullptr;
+        if (!waitFor([&] { return token("outlineWidth").toInt() == 3; }) ||
+            rgba("outline") != qRgb(0x2b, 0x22, 0x1c) || rgba("popupOutline") != rgba("outline") ||
+            rgba("shadow") != qRgb(0x2b, 0x22, 0x1c) ||
+            rgba("barShadow") != qRgba(0x2b, 0x22, 0x1c, 0x66) ||
+            token("shadowBlur").toInt() != 0 || token("shadowOffsetX").toInt() != 5 ||
+            token("shadowOffset").toInt() != 7 || !pen || pen->property("width").toInt() != 3 ||
+            pen->property("color").value<QColor>().rgba() != rgba("outline"))
+            return fail("the bar and popups are not framed as windows are");
+        if (controller.panelHeadroom() != 5 || // 7 down, less the bottom margin
+            !waitFor([&] { return view.height() == controller.panelExtent() + 5; }) ||
+            view.inputRegion() != QRegion(0, 0, view.width(), controller.panelExtent()))
+            return fail("the bar's shadow has no room past the strip, or that room takes input");
+        // Without the windows' shadow, none.
+        if (!reconfigure(QString(lua).replace("shell={wallpaper",
+                                              "shell={frame='windows',panel_radius=12,wallpaper")))
+            return fail("could not rewrite the configuration");
+        if (!waitFor([&] { return token("outlineWidth").toInt() == 0; }) ||
+            token("shadow").value<QColor>().alpha() != 0 ||
+            token("barShadow").value<QColor>().alpha() != 0 || controller.panelHeadroom() != 0 ||
+            !waitFor([&] { return view.height() == controller.panelExtent(); }) ||
+            !view.inputRegion().isEmpty())
+            return fail("framed as windows without borders or shadows, the shell drew some");
+        controller.setEffects(false);
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
     }
