@@ -583,6 +583,20 @@ Not checked: any of the motion on a real display at 144 or 200 Hz (how it looks 
 on the GPU), the safe triangle with a real pointer's speed and jitter, and the overlays' exits
 over real applications.
 
+## The shell framed as windows are
+
+Added 2026-10-12. `shell_ui` checks the design tokens of `shell.frame = "windows"`: the
+outline's width and colour from `windows.border_width` and a gradient `border_inactive_color`'s
+first colour, the popups' and the bar's shadows from the focused and unfocused windows' (a hard
+one with an offset sideways), the bar's own border following, and no shadow while
+`windows.shadow` is off; `config` reads the setting and refuses others. A headless compositor
+on the GLES2 renderer of an NVIDIA RTX 4090 at 2560 by 1440 was looked at with a floating bar at
+the top, the start menu and the command palette framed by a 2 pixel ink border with a hard
+shadow offset by 7 pixels.
+
+Not checked: the dock in that frame on screen (only its code path is shared with the bar's), the
+software renderer (which draws no shadows, so the outline alone), and fractional scales.
+
 ## XDG autostart
 
 Added 2026-10-08. `autostart_tests` checks the splitting of `Exec` (double and single quotes,
