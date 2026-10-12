@@ -83,9 +83,9 @@ return {
             shell = { accent = "#3d6fd9", panel_color = "#f4f6fa", text_color = "#1b2230" },
         },
         -- washi (和紙) and sumi (墨): handmade paper a cat walked across, by day and by night.
-        -- washi is soft sakura paper with navy ink, its details in light blue and pink; sumi is
-        -- the sheet soaked in ink under a lamp, in caramel. Outlines and printed shadows, with
-        -- the bar and the popups framed as the windows are. Their wallpapers sit beside this file
+        -- washi is soft sakura paper with navy ink, sumi the same sheet soaked in ink by
+        -- moonlight; both have their details in light blue and pink. Outlines and printed
+        -- shadows, with the bar and the popups framed as the windows are. Their wallpapers sit beside this file
         -- in rices/washi, with themes for kitty, fastfetch, Firefox, Discord, Claude Code and
         -- editors that its install.sh puts in place. They name Space Grotesk (install.sh
         -- --fonts fetches it); without it the default sans-serif stands in.
@@ -112,21 +112,21 @@ return {
             },
         },
         sumi = {
-            appearance = { background = "#161210" },
+            appearance = { background = "#15141d" },
             windows = {
                 border_width = 2, corner_radius = 12, round = "always",
-                border_color = { "#e2ae62", "#a86a3c", angle = 135 },
-                border_inactive_color = "#3a302a",
+                border_color = { "#8fc1ec", "#f2a7c3", angle = 135 },
+                border_inactive_color = "#34334a",
                 shadow = { enabled = true, color = "#000000cc", inactive_color = "#00000080",
                            blur = 36, offset = { 0, 14 } },
                 dim_inactive = 0.12,
-                urgent_color = "#d96f5e",
-                magnet = { guide_color = "#d96f5ecc" },
-                snap = { color = "#d6a06e40" },
+                urgent_color = "#e8789f",
+                magnet = { guide_color = "#e8789fcc" },
+                snap = { color = "#8fc1ec40" },
             },
             shell = {
-                frame = "windows", accent = "#d6a06e", panel_color = "#1d1916f2",
-                text_color = "#e8dccb", font = "Space Grotesk", font_size = 14,
+                frame = "windows", accent = "#8fc1ec", panel_color = "#1b1a25f2",
+                text_color = "#e2e0ee", font = "Space Grotesk", font_size = 14,
                 panel_height = 46, panel_position = "top", panel_radius = 12,
                 panel_margin = { top = 12, left = 24, right = 24 },
                 wallpaper = "rices/washi/wallpaper/sumi.jpg",
