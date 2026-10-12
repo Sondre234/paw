@@ -10,6 +10,7 @@ Item {
     property real radius: Theme.radiusLarge
     property color color: Theme.popupSurface
     property color outline: Theme.popupOutline
+    property int outlineWidth: Theme.outlineWidth
     property bool innerEdge: false
     property bool shadow: true
     anchors.fill: parent
@@ -19,7 +20,7 @@ Item {
         sourceComponent: RectangularShadow {
             radius: frame.radius
             blur: Theme.shadowBlur
-            offset: Qt.vector2d(0, Theme.shadowOffset)
+            offset: Qt.vector2d(Theme.shadowOffsetX, Theme.shadowOffset)
             color: Theme.shadow
         }
     }
@@ -28,10 +29,11 @@ Item {
         radius: frame.radius
         color: frame.color
         border.color: frame.outline
+        border.width: frame.outlineWidth
         Rectangle {
             visible: frame.innerEdge && Theme.popupInnerEdge.a > 0 && frame.color.a > 0
-            anchors.fill: parent; anchors.margins: 1
-            radius: frame.radius - 1
+            anchors.fill: parent; anchors.margins: frame.outlineWidth
+            radius: frame.radius - frame.outlineWidth
             color: "transparent"
             border.color: Theme.popupInnerEdge
         }
