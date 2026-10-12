@@ -1038,11 +1038,17 @@ direction, its colours between the stops, the pieces' places and sizes, and thei
 corners included; `config` the settings and their refusals. A screenshot of rounded gradient
 borders at 45 and 90 degrees was looked at.
 
-Not checked: any of it through the GPU renderer, where the rounded-corners patch clips the
-window's content to the arc the border's corner squares are painted to (pixman leaves the content
-square, so a translucent border shows the content's corner through it); fractional scales, at
-which the corners are painted at the next whole scale and the scene scales them down; NVIDIA; and
-the import of a real Hyprland configuration's gradients.
+With `PAW_TEST_GLES2=1` (2026-10-12) it runs again on the GLES2 renderer, which rounds windows:
+there a rounded window's clip had taken its gradient border away entirely, since the border lies
+outside the window's geometry, and the border now has a clip of its own around the whole frame.
+That ran here on an NVIDIA RTX 4090 (driver 595.99.02), and screenshots of 2 and 6 pixel
+gradient borders around rounded windows were looked at.
+
+Not checked: a translucent border over the window's corner on the GPU, where the rounded-corners
+patch clips the window's content to the arc the border's corner squares are painted to (pixman
+leaves the content square, so a translucent border shows the content's corner through it);
+fractional scales, at which the corners are painted at the next whole scale and the scene scales
+them down; and the import of a real Hyprland configuration's gradients.
 
 ## Mirroring and display modes
 
