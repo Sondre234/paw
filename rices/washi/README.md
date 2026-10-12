@@ -4,9 +4,9 @@
 
 <i>A cat walked across the paper.</i>
 
-A rice for [paw](../../README.md): handmade cream paper with ink outlines, printed shadows and
-the caramel of paw's toe beans by day, and **墨 sumi**, the same sheet soaked in ink under a lamp,
-by night.
+A rice for [paw](../../README.md): soft sakura paper with navy ink outlines, printed shadows and
+details in light blue and pink by day, easy on the eyes, and **墨 sumi**, the same sheet soaked in
+ink under a lamp, in the caramel of paw's toe beans, by night.
 
 ![washi](screenshots/washi.jpg)
 
@@ -15,11 +15,13 @@ by night.
 ## The look
 
 Every part of the desktop is drawn as print: windows, the bar and every menu carry a 2 pixel ink
-outline and a hard shadow set beside them rather than under them, the focused window's border
-runs in the caramel gradient of the logo's toe beans, and the one loud colour is the vermilion of
-a hanko seal. The wallpaper is a sheet of washi with its kozo fibres, the trail of a cat that
-walked across it while the ink was wet, and a seal reading 肉球 (nikukyū, paw pads). It is
-generated from a seed, so it ships with paw under its licence.
+outline and a hard shadow set beside them rather than under them, in pale sky blue by day. The
+focused window's border runs from sky blue to sakura pink, the start button is a chibi neko, and
+the one loud colour is the rose of a hanko seal. The ink is a soft navy rather than black, and the
+paper a faint pink rather than white, so the contrast stays gentle. The wallpaper is a sheet of
+washi with its kozo fibres, the trail of a cat that walked across it while the ink was wet, its
+toes pink and its heels blue, and a seal reading 肉球 (nikukyū, paw pads). It is generated from a
+seed, so it ships with paw under its licence. sumi keeps the caramel of the logo's toe beans.
 
 | | |
 | --- | --- |
@@ -38,14 +40,14 @@ generated from a seed, so it ships with paw under its licence.
 
 | Part | Files | What it does |
 | --- | --- | --- |
-| paw | the `washi` and `sumi` profiles in [`config/init.lua`](../../config/init.lua) | The floating bar, borders, shadows, colours, font and wallpaper. Shipped with paw. |
+| paw | the `washi` and `sumi` profiles in [`config/init.lua`](../../config/init.lua), and [`start/neko.svg`](start/neko.svg) | The floating bar, borders, shadows, colours, font, wallpaper and washi's neko on the start button (`shell.start_icon`). Shipped with paw. |
 | Wallpapers | [`wallpaper/`](wallpaper) | `washi.jpg` and `sumi.jpg` at 3840 by 2160, and `generate.py`, which draws them. |
-| kitty | [`kitty/`](kitty) | Both palettes, Maple Mono, padding, a vermilion (or caramel) cursor trail, a quiet scrollbar and ink tabs. |
-| fastfetch | [`fastfetch/`](fastfetch) | The seal with the paw cut out, shown through kitty's graphics protocol, beside a spec sheet in a box. |
+| kitty | [`kitty/`](kitty) | Both palettes, Maple Mono, padding, a sakura (or caramel) cursor trail, a quiet scrollbar and ink tabs. |
+| fastfetch | [`fastfetch/`](fastfetch) | The rose seal with the paw cut out, shown through kitty's graphics protocol, beside a spec sheet in a box. |
 | Firefox | [`firefox/`](firefox) | `userChrome.css` (the URL bar as a card, tabs as paper labels with a strip of washi tape, menus framed in ink), `userContent.css` (the new tab and settings pages), `user.js`, and a start page: a big clock, a search card, stamped links and a trail of paw prints wherever you click. |
 | Discord | [`discord/washi.theme.css`](discord/washi.theme.css) | One theme for Vencord, Vesktop, Equicord, Equibop and BetterDiscord: Discord's light theme becomes washi and its dark ones sumi. |
 | Claude Code and cdeck | [`claude/`](claude) | Custom themes for Claude Code (`/theme`, then `custom:washi` or `custom:sumi`), which cdeck takes its colours from. |
-| Neovim and Helix | [`editors/`](editors) | Plugin-free colour schemes for both: ink text, plum keywords, moss strings, indigo functions, comments pencilled in. |
+| Neovim and Helix | [`editors/`](editors) | Plugin-free colour schemes for both: ink text, orchid keywords, mint strings and blue functions by day (plum, moss and indigo by night), comments pencilled in. |
 
 ## Using it
 
@@ -74,7 +76,7 @@ It leaves paw's configuration and Discord itself alone.
 - `--fonts` downloads Space Grotesk, Maple Mono and the Nerd Font symbols into
   `~/.local/share/fonts/paw-washi` (all under the SIL Open Font License or MIT).
 - `--icons` downloads the [Tela icon theme](https://github.com/vinceliuice/Tela-icon-theme) and
-  installs its folders in caramel as `Tela-washi-brown`.
+  installs its folders in washi's sky blue as `Tela-washi-blue`.
 - `--cursor` downloads [Bibata Modern Classic](https://github.com/ful1e5/Bibata_Cursor), black as
   ink.
 - `--dark` makes sumi kitty's theme, and `--follow-system` lets kitty switch between the two with
