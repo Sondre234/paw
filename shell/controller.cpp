@@ -224,6 +224,14 @@ QUrl ShellController::wallpaper() const {
     const auto file = wallpaperFile();
     return file.isEmpty() ? QUrl() : QUrl::fromLocalFile(file);
 }
+QUrl ShellController::startIcon() const {
+    if (config_.shell.start_icon.empty())
+        return {};
+    std::filesystem::path file(config_.shell.start_icon);
+    if (file.is_relative())
+        file = std::filesystem::absolute(path_).parent_path() / file;
+    return QUrl::fromLocalFile(QString::fromStdString(file.string()));
+}
 QString ShellController::wallpaperFolder() const {
     auto folder = QString::fromStdString(config_.shell.wallpapers);
     if (folder.startsWith("~/"))

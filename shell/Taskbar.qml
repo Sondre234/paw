@@ -86,14 +86,34 @@ Item {
                 onClicked: taskbar.panel.launcherOpen = !taskbar.panel.launcherOpen
                 Accessible.name: "Applications"
                 BarTip { panel: taskbar.panel; owner: start; text: "Start" }
-                // Four squares in the accent colour, which shrink a little while pressed as an
-                // application's icon does.
+                // Four squares in the accent colour, or the picture shell.start_icon names, which
+                // shrink a little while pressed as an application's icon does.
                 contentItem: Item {
-                    Grid {
-                        anchors.centerIn: parent; columns: 2; spacing: 3
+                    Item {
+                        anchors.centerIn: parent
+                        width: startIcon.visible ? startIcon.width : squares.width
+                        height: startIcon.visible ? startIcon.height : squares.height
                         scale: start.pressed ? Theme.pressScale : 1
                         Behavior on scale { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
-                        Repeater { model: 4; Rectangle { width: 9; height: 9; radius: 2; color: Theme.accent } }
+                        Grid {
+                            id: squares
+                            anchors.centerIn: parent; columns: 2; spacing: 3
+                            visible: !startIcon.visible
+                            Repeater { model: 4; Rectangle { width: 9; height: 9; radius: 2; color: Theme.accent } }
+                        }
+                        Image {
+                            id: startIcon
+                            objectName: "startIcon"
+                            anchors.centerIn: parent
+                            readonly property int side: Math.min(26, start.height - 4)
+                            width: side; height: side
+                            sourceSize: Qt.size(side * 2, side * 2)
+                            source: shell.startIcon
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true; mipmap: true
+                            // A picture that does not load leaves the squares.
+                            visible: status === Image.Ready
+                        }
                     }
                 }
             }
