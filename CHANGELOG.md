@@ -41,6 +41,9 @@ shadows.
   rates; `shell.renderer = "software"` keeps the CPU renderer for a weak machine. See
   [docs/performance.md](docs/performance.md). It needs Qt 6.9 or newer: its shadows are Qt Quick
   Effects' `RectangularShadow`, new in 6.9.
+- The overview takes the profile's colours: dark shades of the background's hue behind the
+  thumbnails, and the focused border's colour around the window and workspace picked, where
+  every profile had blue on blue-black.
 - `shell.frame = "windows"` frames a floating bar, the dock and the popups as the windows are:
   their border instead of the shell's hairline, and their shadow, hard ones included, instead of
   the shell's own.
