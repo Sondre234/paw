@@ -954,6 +954,11 @@ you pick something:
 - Placing the pointer in a screen corner opens it (`overview.hot_corner`; the general
   `hot_corners` table can bind `toggle_overview` to a corner too, with a dwell time).
 
+It takes the appearance profile's colours: the backdrop, the cards behind the thumbnails and
+the strip are dark shades of `appearance.background`'s hue (a warm black on a paper-coloured
+desktop, blue-black on the default one), and the window and workspace picked are ringed in the
+focused window's border colour (a gradient's first).
+
 Keys and the mouse do not reach applications while it is open. Fullscreen windows are lowered
 under it, so it opens over them. Settings are in the `overview` table (`enabled`, `gap`,
 `animation`, `duration`, `strip`, `hot_corner`, `dim`; see the [configuration reference](config-reference.md)).

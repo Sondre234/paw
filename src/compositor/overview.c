@@ -18,6 +18,30 @@ static void overview_colour(float out[4], float r, float g, float b, float a) {
     out[3] = a;
 }
 
+/* A colour as dark as `luminance` (0 to 1) in the hue of the desktop's background
+ * (appearance.background), at alpha `a`: the backdrop, the cards and the strip take the
+ * profile's tint, a warm black on paper, rather than one blue-black for every profile. The
+ * default background gives the blue-black they had. */
+static void overview_tint(float out[4], const struct sh_settings *settings, float luminance,
+                          float a) {
+    const float *bg = settings->background;
+    float own = 0.2126f * bg[0] + 0.7152f * bg[1] + 0.0722f * bg[2];
+    if (own < 0.001f) { // a black background: a grey as light
+        overview_colour(out, luminance, luminance, luminance, a);
+        return;
+    }
+    float k = luminance / own;
+    overview_colour(out, fminf(1, bg[0] * k), fminf(1, bg[1] * k), fminf(1, bg[2] * k), a);
+}
+
+/* What marks the window or workspace picked: the focused window's border colour (its first,
+ * if a gradient), opaque. */
+static void overview_mark(float out[4], const struct sh_settings *settings) {
+    const float *c = settings->border_active; // premultiplied
+    float a = c[3] > 0 ? c[3] : 1;
+    overview_colour(out, c[0] / a, c[1] / a, c[2] / a, 1);
+}
+
 static void overview_thumb_clear(struct sh_thumb *thumb) {
     if (thumb->tree)
         wlr_scene_node_destroy(&thumb->tree->node);
@@ -222,7 +246,7 @@ static void overview_render(struct sh_server *server) {
     double t = overview->progress;
     bool settled = t >= 1;
     float colour[4];
-    overview_colour(colour, 0.04f, 0.05f, 0.08f, (float)(settings->overview_dim * t));
+    overview_tint(colour, settings, 0.05f, (float)(settings->overview_dim * t));
     // Snap Assist darkens its slot alone, rounded as a window there would be.
     struct sh_rect backdrop = overview->assist ? overview->area
                                                : (struct sh_rect){overview->screen.x,
@@ -246,14 +270,13 @@ static void overview_render(struct sh_server *server) {
         }
         struct sh_rect cell = overview->strip_cells[w];
         bool viewed = w == overview->viewed, target = w == overview->drop;
-        overview_colour(colour, viewed ? 0.22f : 0.12f, viewed ? 0.25f : 0.13f,
-                        viewed ? 0.31f : 0.16f, 0.95f);
+        overview_tint(colour, settings, viewed ? 0.25f : 0.13f, 0.95f);
         overview_rect_set(&overview->strip_back[w], overview->strip, cell, colour);
         if (target || viewed || w == overview->current) {
             if (target)
                 overview_colour(colour, 0.35f, 0.85f, 0.5f, 1);
             else if (viewed)
-                overview_colour(colour, 0.36f, 0.6f, 1.0f, 1);
+                overview_mark(colour, settings);
             else
                 overview_colour(colour, 0.8f, 0.8f, 0.85f, 0.5f);
             overview_frame_set(overview->strip_mark[w], overview->strip, cell, target ? 3 : 2,
@@ -300,7 +323,7 @@ static void overview_render(struct sh_server *server) {
         }
         struct sh_rect card = {rect.x - OVERVIEW_PAD, rect.y - OVERVIEW_PAD,
                                rect.width + 2 * OVERVIEW_PAD, rect.height + 2 * OVERVIEW_PAD};
-        overview_colour(colour, 0.1f, 0.11f, 0.14f, 0.85f);
+        overview_tint(colour, settings, 0.11f, 0.85f);
         if (settled && !dragged)
             overview_rect_set(&overview->cards[i], overview->cards_tree, card, colour);
         else if (overview->cards[i])
@@ -313,7 +336,7 @@ static void overview_render(struct sh_server *server) {
     if (settled && overview->selected >= 0 && overview->selected < overview->count &&
         !overview->dragging) {
         struct sh_rect cell = overview->cells[overview->selected];
-        overview_colour(colour, 0.36f, 0.6f, 1.0f, 1);
+        overview_mark(colour, settings);
         overview_frame_set(overview->frame, overview->frames,
                            (struct sh_rect){cell.x - OVERVIEW_PAD, cell.y - OVERVIEW_PAD,
                                             cell.width + 2 * OVERVIEW_PAD,

@@ -228,6 +228,30 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     assert overview()[0] == "closing", overview()[0]
     wait_for(lambda: overview()[0] == "closed", "glided closed")
 
+    # The overview takes the profile's colours: on paper with a caramel border, a backdrop of
+    # warm black and the picked window ringed in caramel, where the default is blue-black and
+    # blue.
+    if grim:
+        desktop.reload(CONFIG.replace("overview = {", 'appearance = { background = "#f3ebdd" },\n'
+                                      '    windows = { border_color = { "#c08a5a", "#734a2c" } },\n'
+                                      '    overview = {'))
+        msg("toggle_overview")
+        wait_for(lambda: overview()[0] == "open" and overview.progress == 1000, "open on paper")
+
+        def tinted():
+            _, info, thumbs, _ = overview()
+            shot = harness.grab(grim, desktop.env)
+            x, y, w, h, _ = thumbs[info["selected"]]
+            # The ring is around the thumbnail's cell, a little left of the thumbnail.
+            ring = any(all(abs(a - b) < 8 for a, b in zip(shot.at(x - d, y + h // 2),
+                                                           (0xc0, 0x8a, 0x5a)))
+                       for d in range(1, 60))
+            backdrop = shot.at(2, SCREEN[1] - 2)
+            return ring and backdrop[0] < 60 and backdrop[0] > backdrop[2]
+        wait_for(tinted, "the overview in the profile's colours")
+        msg("overview_cancel")
+        wait_for(lambda: overview()[0] == "closed", "closed on paper")
+
     # Disabled: the actions do nothing.
     desktop.reload(CONFIG.replace("animation = false,", "enabled = false, animation = false,"))
     msg("toggle_overview")
