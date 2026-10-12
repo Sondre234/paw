@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """A tile maximized by hand floats over the tiling, but a new window opening on its workspace
 brings it back in, as it would a fullscreen one, instead of covering it. Turning tiling off and
-on again also brings back windows that float only because they were maximized."""
+on again also brings back windows that float only because they were maximized, and so it does
+after a session restore put such a window back."""
 from pathlib import Path
 import subprocess
 import sys
@@ -47,4 +48,20 @@ with harness.Compositor(compositor, Path(example).read_text()
     desktop.wait_for(lambda: msg("get", "tiling") == "off\n", "tiling off")
     msg("toggle_tiling")
     desktop.wait_for(lambda: all_tiled(2), "both tiled after tiling is on again")
+
+    # A session saved with a window maximized over the tiling puts it back maximized, still
+    # floating only for that: it comes back into the tiling as tiling turns on again.
+    msg("maximize")
+    desktop.wait_for(lambda: sum(w[0] for w in windows()) == 1, "maximized before saving")
+    maximized = windows()
+    assert "saved last: 2 windows" in msg("session", "save", "last")
+    msg("toggle_tiling")
+    msg("toggle_tiling")
+    desktop.wait_for(lambda: all_tiled(2), "back in the tiling before restoring")
+    assert "restored 2," in msg("session", "restore", "last")
+    desktop.wait_for(lambda: windows() == maximized, "maximized again by the restore")
+    msg("toggle_tiling")
+    desktop.wait_for(lambda: msg("get", "tiling") == "off\n", "tiling off after the restore")
+    msg("toggle_tiling")
+    desktop.wait_for(lambda: all_tiled(2), "both tiled after the restore and tiling on again")
 print("A maximized tile comes back into the tiling")

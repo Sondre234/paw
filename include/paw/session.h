@@ -22,7 +22,7 @@ enum {
 };
 
 enum sh_session_flag {
-    SH_SESSION_TILED = 1,      /* was in the tiling */
+    SH_SESSION_TILED = 1,      /* was in the tiling, or out of it only to be snapped or maximized */
     SH_SESSION_FLOATING = 2,   /* kept out of the tiling by hand */
     SH_SESSION_MINIMIZED = 4,
     SH_SESSION_STICKY = 8,
