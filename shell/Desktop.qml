@@ -81,12 +81,14 @@ Rectangle {
         active: Theme.macos && (shell.wallpaper.toString().length === 0 || wallpaper.status === Image.Error)
         sourceComponent: DrawnWallpaper {}
     }
-    // A right press opens the desktop's menu where it was; any other press closes it.
+    // A right press opens the desktop's menu where it was; any other press closes it where it is,
+    // rather than moving it there as it fades.
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onPressed: function(mouse) {
-            menu.anchorRect = Qt.rect(mouse.x, mouse.y, 0, 0)
+            if (mouse.button === Qt.RightButton)
+                menu.anchorRect = Qt.rect(mouse.x, mouse.y, 0, 0)
             menu.open = mouse.button === Qt.RightButton
         }
     }
