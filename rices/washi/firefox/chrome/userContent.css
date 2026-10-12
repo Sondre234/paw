@@ -1,0 +1,487 @@
+/* washi for Firefox: the pages Firefox draws itself, on the same paper as the chrome.
+ *
+ * about:newtab and about:home are made to look like the washi start page (startpage/): paper,
+ * a search card with a hard ink shadow, and the eight shortcuts (pinned by user.js) as stamped
+ * cards. about:blank is paper instead of a white flash, and about:preferences, about:addons
+ * and Firefox's other settings pages take the palette through their design tokens.
+ * sumi (dark) follows prefers-color-scheme. Every colour is a --washi-* token in the palette
+ * block; it is scoped to these pages so no website ever sees the tokens.
+ * Needs toolkit.legacyUserProfileCustomizations.stylesheets (see user.js) and a restart.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* ================================================================ palette */
+
+@-moz-document url("about:home"), url("about:newtab"), url("about:blank"), url("about:privatebrowsing"),
+  url-prefix("about:preferences"), url-prefix("about:settings"), url-prefix("about:addons"),
+  url-prefix("about:config"), url-prefix("about:support"), url-prefix("about:profiles"),
+  url-prefix("about:downloads"), url-prefix("about:logins"), url-prefix("about:protections"),
+  url-prefix("about:firefoxview"), url-prefix("about:welcome"), url-prefix("about:sessionrestore") {
+  :root {
+    --washi-paper: #F3EBDD;
+    --washi-surface: #FBF7EF;
+    --washi-raised: #F1E8D8;
+    --washi-sunken: #EFE6D6;
+    --washi-line: #D6C8B2;
+    --washi-outline: #2B221C;
+    --washi-ink: #2B221C;
+    --washi-muted: #7A6B5E;
+    --washi-accent: #A87650;
+    --washi-accent-text: #9A6438;
+    --washi-accent-deep: #734A2C;
+    --washi-on-accent: #FBF7EF;
+    --washi-seal: #B03A2E;
+    --washi-selection: #EBDCC4;
+    --washi-shadow: 5px 5px 0 var(--washi-outline);
+    --washi-shadow-card: 4px 4px 0 var(--washi-outline);
+    --washi-shadow-lift: 6px 6px 0 var(--washi-outline);
+    --washi-misprint: #A87650;
+    --washi-radius: 12px;
+    --washi-font: "Space Grotesk", "Inter", system-ui, sans-serif;
+    --washi-mono: "Maple Mono", "JetBrains Mono", ui-monospace, monospace;
+    /* a paper grain, for pages that cannot reach the wallpaper */
+    --washi-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .36 0 0 0 0 .27 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --washi-paper: #161210;
+      --washi-surface: #1D1916;
+      --washi-raised: #26201C;
+      --washi-sunken: #120F0D;
+      --washi-line: #3A302A;
+      --washi-outline: #3A302A;
+      --washi-ink: #E8DCCB;
+      --washi-muted: #A89A88;
+      --washi-accent: #D6A06E;
+      --washi-accent-text: #D6A06E;
+      --washi-accent-deep: #A86A3C;
+      --washi-on-accent: #1A1613;
+      --washi-seal: #D96F5E;
+      --washi-selection: #4A3A2E;
+      /* ink on ink is invisible: lamp-lit depth, and a caramel misprint when lifted */
+      --washi-shadow: 0 14px 40px rgb(0 0 0 / 0.55);
+      --washi-shadow-card: 0 10px 28px rgb(0 0 0 / 0.5);
+      --washi-shadow-lift: 4px 4px 0 var(--washi-accent-deep), 0 14px 34px rgb(0 0 0 / 0.55);
+      --washi-misprint: #A86A3C;
+      --washi-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .9 0 0 0 0 .8 0 0 0 0 .66 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+  }
+}
+
+/* ================================================================ about:blank */
+
+/* paper, not a white flash; only an empty page, so about:blank frames inside sites keep their
+   own background */
+@-moz-document url("about:blank") {
+  :root:has(> body:empty) {
+    background-color: var(--washi-paper);
+    color: var(--washi-ink);
+  }
+}
+
+/* ================================================================ about:newtab, about:home */
+
+@-moz-document url("about:home"), url("about:newtab") {
+  :root,
+  body,
+  body.activity-stream {
+    --newtab-background-color: var(--washi-paper) !important;
+    --newtab-background-color-secondary: var(--washi-surface) !important;
+    --newtab-background-card: var(--washi-surface) !important;
+    --newtab-text-primary-color: var(--washi-ink) !important;
+    --newtab-text-secondary-color: var(--washi-muted) !important;
+    --newtab-contextual-text-primary-color: var(--washi-ink) !important;
+    --newtab-contextual-text-secondary-color: var(--washi-ink) !important;
+    --newtab-primary-action-background: var(--washi-accent) !important;
+    --newtab-primary-element-text-color: var(--washi-on-accent) !important;
+    --newtab-element-hover-color: var(--washi-raised) !important;
+    --newtab-element-active-color: var(--washi-sunken) !important;
+    --newtab-button-background: var(--washi-raised) !important;
+    --newtab-button-hover-background: var(--washi-raised) !important;
+    --newtab-button-active-background: var(--washi-sunken) !important;
+    --newtab-button-focus-background: var(--washi-raised) !important;
+    --newtab-button-text: var(--washi-ink) !important;
+    --newtab-wordmark-color: var(--washi-ink) !important;
+    --newtab-section-card-box-shadow-color: transparent !important;
+    --newtab-wallpaper-color: var(--washi-paper) !important;
+    --background-color-canvas: var(--washi-paper) !important;
+    --background-color-box: var(--washi-surface) !important;
+    --text-color: var(--washi-ink) !important;
+    --text-color-deemphasized: var(--washi-muted) !important;
+    --color-accent-primary: var(--washi-accent) !important;
+    --button-text-color-hover: var(--washi-ink) !important;
+    --focus-outline-color: var(--washi-accent) !important;
+    --border-color-card: var(--washi-line) !important;
+  }
+
+  body,
+  body.activity-stream {
+    background-color: var(--washi-paper) !important;
+    background-image: var(--washi-grain) !important;
+    color: var(--washi-ink) !important;
+    font-family: var(--washi-font) !important;
+  }
+
+  /* Firefox's logo and wordmark give way to the start page's masthead: the seal, "washi" set
+     as large as the start page's clock with the same caramel misprint, and a line of type */
+  .logo-and-wordmark-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    height: auto !important;
+    margin: 0 auto 6px !important;
+    padding: 0 !important;
+  }
+
+  .logo-and-wordmark-wrapper::before {
+    content: "";
+    width: 46px;
+    height: 46px;
+    margin-bottom: 6px;
+    rotate: -4deg;
+    background-color: var(--washi-seal);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cmask id='c' maskUnits='userSpaceOnUse' x='0' y='0' width='256' height='256'%3E%3Crect width='256' height='256' fill='%23fff'/%3E%3Cg transform='translate(128 130) scale(.9) translate(-128 -133)'%3E%3Cellipse cx='70' cy='110' rx='18.8' ry='22.8' transform='rotate(-28 70 110)'/%3E%3Cellipse cx='106' cy='80' rx='20.1' ry='24.1' transform='rotate(-10 106 80)'/%3E%3Cellipse cx='150' cy='80' rx='20.1' ry='24.1' transform='rotate(10 150 80)'/%3E%3Cellipse cx='186' cy='110' rx='18.8' ry='22.8' transform='rotate(28 186 110)'/%3E%3Cpath d='M128 128C153 128 175 151 176 176C177 195 170 207 160 207C152 207 149 200 144 200C139 200 138 210 128 210C118 210 117 200 112 200C107 200 104 207 96 207C86 207 79 195 80 176C81 151 103 128 128 128Z'/%3E%3C/g%3E%3C/mask%3E%3Crect x='12' y='12' width='232' height='232' rx='36' fill='%23B03A2E' mask='url(%23c)'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+
+  .logo-and-wordmark-wrapper::after {
+    content: "washi";
+    font: 700 112px/0.95 var(--washi-font);
+    letter-spacing: -0.045em;
+    color: var(--washi-ink);
+    text-shadow: 6px 6px 0 var(--washi-misprint);
+  }
+
+  /* Firefox's own logo goes; its box carries the line of type under "washi" */
+  .logo-and-wordmark {
+    display: block !important;
+    order: 2;
+    width: auto !important;
+    height: auto !important;
+    margin: 22px 0 0 !important;
+  }
+
+  .logo-and-wordmark > * {
+    display: none !important;
+  }
+
+  .logo-and-wordmark::after {
+    content: "a cat walked across the paper";
+    white-space: nowrap;
+    font: 500 14px/1 var(--washi-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--washi-ink);
+  }
+
+  .logo-and-wordmark-wrapper::after {
+    order: 1;
+  }
+
+  .wallpaper-attribution {
+    display: none !important;
+  }
+
+  /* the customise button in the corner: a small paper card */
+  .personalize-button,
+  .open-customization-button {
+    --button-background-color: var(--washi-surface) !important;
+    --button-background-color-hover: var(--washi-raised) !important;
+    --button-background-color-active: var(--washi-sunken) !important;
+    --button-border-color: var(--washi-outline) !important;
+    --button-text-color: var(--washi-ink) !important;
+    --icon-color: var(--washi-ink) !important;
+  }
+
+  /* the search box: a card on the paper; its button lives in a shadow tree, so it is styled
+     through the variables it reads */
+  content-search-handoff-ui {
+    --content-search-handoff-ui-background-color: var(--washi-surface) !important;
+    --content-search-handoff-ui-color: var(--washi-ink) !important;
+    --content-search-handoff-ui-fill: var(--washi-ink) !important;
+    --content-search-handoff-ui-caret-color: var(--washi-accent) !important;
+    --content-search-handoff-ui-border-width: 2px !important;
+    --content-search-handoff-ui-border-radius: var(--washi-radius) !important;
+    --content-search-handoff-ui-unfocused-border-color: var(--washi-outline) !important;
+    --content-search-handoff-ui-fakefocus-border-color: var(--washi-outline) !important;
+    --content-search-handoff-ui-fakefocus-box-shadow-inner: var(--washi-paper) !important;
+    --content-search-handoff-ui-fakefocus-box-shadow-outer: var(--washi-accent) !important;
+    --box-shadow-level-3: var(--washi-shadow) !important;
+    font-family: var(--washi-font) !important;
+  }
+
+  /* (user sheets do reach into shadow trees: the button would take the system font) */
+  .search-handoff-button,
+  .search-handoff-button .fake-textbox {
+    font-family: var(--washi-font) !important;
+  }
+
+  .search-wrapper .search-inner-wrapper {
+    min-height: 58px !important;
+    max-width: 680px !important;
+    margin-inline: auto !important;
+  }
+
+  /* the shortcuts: the start page's stamped cards, four to a row */
+  .top-sites-list {
+    grid-template-columns: repeat(4, 200px) !important;
+    gap: 22px !important;
+    margin: 8px 0 0 !important;
+  }
+
+  .top-site-outer,
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover, :focus-within, :has(.top-site-inner:hover)) {
+    width: auto !important;
+    margin: 0 !important;
+    background: none !important;
+  }
+
+  .top-site-outer .top-site-inner > a {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    height: auto !important;
+    gap: 14px !important;
+    padding: 14px 16px !important;
+    background-color: var(--washi-surface) !important;
+    border: 2px solid var(--washi-outline) !important;
+    border-radius: var(--washi-radius) !important;
+    box-shadow: var(--washi-shadow-card) !important;
+    transition: translate 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+  }
+
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover, :focus-within) .top-site-inner > a {
+    translate: -2px -2px;
+    background-color: var(--washi-raised) !important;
+    box-shadow: var(--washi-shadow-lift) !important;
+  }
+
+  .top-site-outer .tile,
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover, :focus-within) .tile {
+    flex: none !important;
+    width: 40px !important;
+    height: 40px !important;
+    margin: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 9px !important;
+  }
+
+  /* a site's letter, or its icon, as a hanko pressed a little askew */
+  .top-site-outer .tile .icon-wrapper {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 9px !important;
+    rotate: -5deg;
+    transition: rotate 0.25s cubic-bezier(.3, 1.6, .5, 1);
+  }
+
+  .top-site-outer:nth-child(even) .tile .icon-wrapper {
+    rotate: 4deg;
+  }
+
+  @media (max-width: 960px) {
+    .top-sites-list {
+      grid-template-columns: repeat(2, 200px) !important;
+    }
+
+    .logo-and-wordmark-wrapper::after {
+      font-size: 80px;
+    }
+  }
+
+  .top-site-outer:hover .tile .icon-wrapper {
+    rotate: 0deg;
+  }
+
+  .top-site-outer .tile .icon-wrapper.letter-fallback {
+    background-color: var(--washi-accent) !important;
+    color: var(--washi-on-accent) !important;
+  }
+
+  .top-site-outer .tile .icon-wrapper.letter-fallback::before {
+    font: 700 18px/1 var(--washi-font) !important;
+    text-transform: lowercase;
+  }
+
+  .top-site-outer .title {
+    flex: 1;
+    width: auto !important;
+    min-width: 0;
+    padding: 0 !important;
+    text-align: start !important;
+  }
+
+  .top-site-outer .title,
+  .top-site-outer .title span {
+    min-height: 0 !important;
+    color: var(--washi-ink) !important;
+    font: 700 16px/1.2 var(--washi-font) !important;
+    letter-spacing: -0.01em;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    -webkit-line-clamp: none !important;
+  }
+
+  .top-site-outer .title-label {
+    width: auto !important;
+    max-width: 100% !important;
+  }
+
+  .top-site-outer .icon-pin-small,
+  .top-site-outer .sponsored-label {
+    display: none !important;
+  }
+
+  .top-site-outer .context-menu-button {
+    inset-block-start: 6px !important;
+    inset-inline-end: 6px !important;
+  }
+
+  /* the little menus on shortcuts */
+  .context-menu {
+    background-color: var(--washi-surface) !important;
+    color: var(--washi-ink) !important;
+    border: 2px solid var(--washi-outline) !important;
+    border-radius: 10px !important;
+    box-shadow: var(--washi-shadow-card) !important;
+  }
+
+  .context-menu > ul > li > :is(a, button):is(:hover, :focus) {
+    background-color: var(--washi-selection) !important;
+    color: var(--washi-ink) !important;
+  }
+
+  /* the edit/add shortcut form */
+  .topsite-form .form-wrapper,
+  .modalOverlayInner {
+    background-color: var(--washi-surface) !important;
+    border: 2px solid var(--washi-outline) !important;
+    border-radius: var(--washi-radius) !important;
+    box-shadow: var(--washi-shadow) !important;
+  }
+
+  ::selection {
+    background-color: var(--washi-selection);
+    color: var(--washi-ink);
+  }
+}
+
+/* ================================================================ settings and the like */
+
+@-moz-document url("about:privatebrowsing"),
+  url-prefix("about:preferences"), url-prefix("about:settings"), url-prefix("about:addons"),
+  url-prefix("about:config"), url-prefix("about:support"), url-prefix("about:profiles"),
+  url-prefix("about:downloads"), url-prefix("about:logins"), url-prefix("about:protections"),
+  url-prefix("about:firefoxview"), url-prefix("about:welcome"), url-prefix("about:sessionrestore") {
+  :root {
+    --background-color-canvas: var(--washi-paper) !important;
+    --background-color-box: var(--washi-surface) !important;
+    --text-color: var(--washi-ink) !important;
+    --text-color-deemphasized: var(--washi-muted) !important;
+    --border-color: var(--washi-line) !important;
+    --border-color-card: var(--washi-line) !important;
+    --border-color-interactive: var(--washi-outline) !important;
+    --card-border-color: var(--washi-line) !important;
+    --card-background-color: var(--washi-surface) !important;
+    --color-accent-primary: var(--washi-accent) !important;
+    --color-accent-primary-hover: var(--washi-accent-text) !important;
+    --color-accent-primary-active: var(--washi-accent-deep) !important;
+    --color-accent-primary-selected: var(--washi-accent) !important;
+    --button-text-color-primary: var(--washi-on-accent) !important;
+    --button-background-color: var(--washi-raised) !important;
+    --button-background-color-hover: var(--washi-sunken) !important;
+    --button-background-color-active: var(--washi-line) !important;
+    --button-text-color: var(--washi-ink) !important;
+    --button-border-color: var(--washi-outline) !important;
+    --input-background-color: var(--washi-surface) !important;
+    --input-border-color: var(--washi-outline) !important;
+    --link-color: var(--washi-accent-text) !important;
+    --link-color-hover: var(--washi-accent-deep) !important;
+    --link-color-active: var(--washi-accent-deep) !important;
+    --focus-outline-color: var(--washi-accent) !important;
+    --icon-color: var(--washi-ink) !important;
+    --table-row-background-color: var(--washi-surface) !important;
+    --table-row-background-color-alternate: var(--washi-raised) !important;
+    --in-content-page-background: var(--washi-paper) !important;
+    --in-content-page-color: var(--washi-ink) !important;
+    --in-content-box-background: var(--washi-surface) !important;
+    --in-content-box-border-color: var(--washi-outline) !important;
+    --in-content-item-selected: var(--washi-accent) !important;
+    --in-content-item-selected-text: var(--washi-on-accent) !important;
+    --in-content-item-hover: var(--washi-raised) !important;
+    --in-content-accent-color: var(--washi-accent) !important;
+    --font-family: var(--washi-font);
+  }
+
+  :root,
+  body {
+    background-color: var(--washi-paper) !important;
+    color: var(--washi-ink) !important;
+    font-family: var(--washi-font) !important;
+  }
+
+  ::selection {
+    background-color: var(--washi-selection);
+    color: var(--washi-ink);
+  }
+
+  /* headings in the bold grotesk, the way the start page sets them */
+  h1,
+  .header-name,
+  .main-heading {
+    font-family: var(--washi-font) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em;
+  }
+
+  /* the selected category in the settings' side list: a strip of caramel */
+  .category[selected],
+  .category:is([selected], .selected),
+  #categories > .category[selected] {
+    color: var(--washi-accent-text) !important;
+    box-shadow: inset 3px 0 0 var(--washi-accent);
+  }
+
+  /* cards (add-ons, settings groups): paper in an ink outline */
+  .card,
+  moz-card,
+  addon-card .card {
+    background-color: var(--washi-surface) !important;
+    border: 2px solid var(--washi-outline) !important;
+    border-radius: var(--washi-radius) !important;
+    box-shadow: var(--washi-shadow-card) !important;
+  }
+
+  /* sumi: card outlines are the hairline; ink would vanish on ink */
+  @media (prefers-color-scheme: dark) {
+    .card,
+    moz-card,
+    addon-card .card {
+      border-color: var(--washi-line) !important;
+    }
+  }
+
+  /* text inputs */
+  input:is([type="text"], [type="search"], [type="url"], [type="email"], [type="password"], [type="number"], :not([type])),
+  textarea,
+  select,
+  menulist {
+    background-color: var(--washi-surface) !important;
+    color: var(--washi-ink) !important;
+    border: 2px solid var(--washi-outline) !important;
+    border-radius: 8px !important;
+  }
+
+  /* primary buttons: caramel, outlined in ink */
+  button.primary,
+  .primary:is(button, moz-button),
+  button[default],
+  #searchbutton {
+    background-color: var(--washi-accent) !important;
+    color: var(--washi-on-accent) !important;
+    border: 2px solid var(--washi-outline) !important;
+  }
+}
