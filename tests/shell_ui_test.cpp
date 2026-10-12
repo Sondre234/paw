@@ -5771,6 +5771,22 @@ ListModel {
             !waitFor([&] { return view.height() == controller.panelExtent() + 5; }) ||
             view.inputRegion() != QRegion(0, 0, view.width(), controller.panelExtent()))
             return fail("the bar's shadow has no room past the strip, or that room takes input");
+        // A window reaching the top of the usable area docks the floating bar along it: the bar
+        // fills its strip, squared, a line along its inner edge; once none does, it floats again.
+        auto *edge = find(view.rootObject(), "barEdge");
+        subscriber->write(state(toggled, currentWorkspace) + "touched " + output.toUtf8() + " top\n");
+        if (!waitFor([&] {
+                return framed->property("radius").toReal() == 0 &&
+                       framed->height() == controller.panelExtent() && edge && edge->isVisible() &&
+                       edge->opacity() == 1;
+            }))
+            return fail("a window reaching the bar's edge did not dock it");
+        subscriber->write(state(toggled, currentWorkspace) + "touched " + output.toUtf8() + " bottom\n");
+        if (!waitFor([&] {
+                return framed->property("radius").toReal() == 12 &&
+                       framed->height() == controller.panelHeight() && !edge->isVisible();
+            }))
+            return fail("the bar stayed docked once no window reached its edge");
         // Without the windows' shadow, none.
         if (!reconfigure(QString(lua).replace("shell={wallpaper",
                                               "shell={frame='windows',panel_radius=12,wallpaper")))
@@ -6012,6 +6028,8 @@ ListModel {
             card->mapToScene(QPointF(0, 0)).toPoint() != at)
             return fail("a right press on the desktop did not open its menu there");
         QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, QPoint(600, 500));
+        if (card->mapToScene(QPointF(0, 0)).toPoint() != at)
+            return fail("a left press beside the desktop's menu moved it there as it closed");
         if (!waitFor([&] { return !card->isVisible(); }))
             return fail("a press beside the desktop's menu did not close it");
     }
