@@ -6573,12 +6573,13 @@ ListModel {
         // Drawn through the GPU, the bar's shadow falls past the strip it reserves (down, from a
         // bar along the top) into room of its own, which takes no input.
         controller.setEffects(true);
-        if (!reconfigure(QString(lua).replace(
-                "shell={wallpaper",
-                "windows={border_width=3,border_inactive_color={'#2b221c','#a87650'},"
-                "shadow={enabled=true,color='#2b221cff',inactive_color='#2b221c66',blur=0,"
-                "offset={5,7}}},shell={frame='windows',panel_radius=12,panel_position='top',"
-                "panel_margin={bottom=2},wallpaper")))
+        const QString framedTop = QString(lua).replace(
+            "shell={wallpaper",
+            "windows={border_width=3,border_inactive_color={'#2b221c','#a87650'},"
+            "shadow={enabled=true,color='#2b221cff',inactive_color='#2b221c66',blur=0,"
+            "offset={5,7}}},shell={frame='windows',panel_radius=12,panel_position='top',"
+            "panel_margin={bottom=2},wallpaper");
+        if (!reconfigure(framedTop))
             return fail("could not rewrite the configuration");
         auto rgba = [&](const char *name) { return token(name).value<QColor>().rgba(); };
         auto *framed = find(view.rootObject(), "bar");
@@ -6595,6 +6596,27 @@ ListModel {
             !waitFor([&] { return view.height() == controller.panelExtent() + 5; }) ||
             view.inputRegion() != QRegion(0, 0, view.width(), controller.panelExtent()))
             return fail("the bar's shadow has no room past the strip, or that room takes input");
+        // Moved between the bottom and the top, again and again as profiles do, the bar keeps its
+        // own height at its margin from the edge it is along, with room for its shadow either way.
+        for (bool top : {false, true, false, true}) {
+            if (!reconfigure(QString(framedTop).replace("blur=0", "blur=8").replace(
+                    "panel_position='top',panel_margin={bottom=2}",
+                    top ? "panel_position='top',panel_margin={top=12,bottom=2}"
+                        : "panel_position='bottom',panel_margin={top=12,bottom=2}")))
+                return fail("could not rewrite the configuration");
+            auto *surface = framed->parentItem();
+            if (!waitFor([&] {
+                    const int extent = controller.panelExtent() + controller.panelHeadroom();
+                    const qreal along = top ? controller.panelMarginTop()
+                                            : extent - controller.panelHeight() - controller.panelMarginBottom();
+                    return controller.panelTop() == top && controller.panelMarginTop() == 12 &&
+                           surface->height() == extent && framed->height() == controller.panelHeight() &&
+                           framed->y() == along;
+                }))
+                return fail("the bar moved between the bottom and the top is not its own height by its edge");
+        }
+        if (!reconfigure(framedTop) || !waitFor([&] { return controller.panelMarginTop() == 0; }))
+            return fail("could not restore the configuration");
         // A window reaching the top of the usable area docks the floating bar along it: the bar
         // fills its strip, squared, a line along its inner edge; once none does, it floats again.
         auto *edge = find(view.rootObject(), "barEdge");
