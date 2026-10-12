@@ -63,6 +63,7 @@ class ShellController : public QObject {
     Q_PROPERTY(int panelMarginBottom READ panelMarginBottom NOTIFY configChanged)
     Q_PROPERTY(int panelMarginLeft READ panelMarginLeft NOTIFY configChanged)
     Q_PROPERTY(int panelExtent READ panelExtent NOTIFY configChanged)
+    Q_PROPERTY(int panelHeadroom READ panelHeadroom NOTIFY configChanged)
     Q_PROPERTY(int panelRadius READ panelRadius NOTIFY configChanged)
     // shell.frame = "windows": the bar, the dock and the popups framed as the windows are, by
     // windows.border_width in border_inactive_color (a gradient's first colour) and, while
@@ -226,9 +227,11 @@ class ShellController : public QObject {
     // Whether the panel's surface lies along the output's top edge: as shell.panel_position says,
     // but for the macOS style's dock, which is at the bottom.
     bool panelSurfaceTop() const { return panelTop() && !config_.shell.macos_style; }
-    // The room the panel's surface has above the strip it reserves: the dock's, for an icon to
-    // bounce in; none for the taskbar.
-    int panelHeadroom() const { return config_.shell.macos_style ? panelHeight() / 2 : 0; }
+    // The room the panel's surface has past the strip it reserves, towards the middle of the
+    // output, which takes no input: the dock's, for an icon to bounce in, and a floating bar's
+    // framed as windows are (shell.frame) for its shadow to fall into, as far as the shadow
+    // reaches past the bar less the margin on that side; none otherwise.
+    int panelHeadroom() const;
     // How far below the bars the command palette opens on an output `height` tall: a sixth of
     // it, or a quarter in the macOS style, where Spotlight opens.
     int paletteDrop(int height) const { return height / (config_.shell.macos_style ? 4 : 6); }

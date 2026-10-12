@@ -1114,11 +1114,16 @@ Item {
         }
     }
     // The panel's surface takes the pointer only over the dock (ShellView's inputRects): the
-    // desktop beside it, and the room above it for an icon to bounce in, stay reachable.
+    // desktop beside it, and the room above it for an icon to bounce in, stay reachable. The
+    // taskbar takes it over the strip it reserves, and not in the room past it that its shadow
+    // falls into.
     Binding {
         target: root.shellView
         property: "inputRects"
-        value: root.dock ? [root.dock.area] : []
+        value: root.dock ? [root.dock.area]
+             : shell.panelHeadroom > 0 ? [Qt.rect(0, shell.panelTop ? 0 : shell.panelHeadroom,
+                                                  root.width, shell.panelExtent)]
+             : []
     }
 
     // The menu bar of the macOS style, along the output's top edge in a surface of its own
