@@ -254,7 +254,12 @@ PopupCard {
                             required property var model
                             width: monthGrid.availableWidth / 7; height: monthGrid.availableHeight / 6
                             readonly property bool inMonth: model.month === monthGrid.month
-                            readonly property bool isToday: model.today && inMonth
+                            // From now, not the grid's own today, which it works out only when
+                            // it changes month: in a shell running past midnight it stays on
+                            // yesterday.
+                            readonly property bool isToday: inMonth && model.day === calendar.now.getDate() &&
+                                                            model.month === calendar.now.getMonth() &&
+                                                            model.year === calendar.now.getFullYear()
                             HoverHandler { id: dayHover }
                             Rectangle {
                                 anchors.centerIn: parent
