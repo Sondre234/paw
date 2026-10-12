@@ -192,6 +192,34 @@ void rehome_tiles(struct sh_server *server) {
         refit_fullscreen(server); // Fullscreen tiles follow to their new output.
 }
 
+/* Floating windows of other outputs that reach onto `output`, which now tiles, move wholly onto
+ * their own, so that none is left under its tiles: a window between two outputs belongs to the
+ * one its middle is on. */
+static void keep_out_of_tiling(struct sh_server *server, struct wlr_output *output) {
+    struct wlr_box full;
+    wlr_output_layout_get_box(server->output_layout, output, &full);
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        struct wlr_output *home = home_output(toplevel);
+        struct wlr_box box = toplevel_box(toplevel), shared;
+        if (toplevel->unmanaged || toplevel->tiled || toplevel->fullscreen ||
+            toplevel->group_hidden || toplevel->swallowed || !toplevel_mapped(toplevel) || !home ||
+            home == output || !wlr_box_intersection(&shared, &box, &full))
+            continue;
+        struct sh_rect area = floating_area(server, home);
+        box.width = fmin(box.width, area.width);
+        box.height = fmin(box.height, area.height);
+        box.x = fmax(area.x, fmin(box.x, area.x + area.width - box.width));
+        box.y = fmax(area.y, fmin(box.y, area.y + area.height - box.height));
+        struct wlr_scene_node *node = &toplevel->scene_tree->node;
+        int x = node->x, y = node->y;
+        toplevel_configure_box(toplevel, box);
+        if (toplevel->shown && toplevel_visible(toplevel))
+            sh_anim_glide(server->animator, &toplevel->anim, toplevel->content, x - node->x,
+                          y - node->y);
+    }
+}
+
 /* Tiles or floats the windows of `output` as their workspaces now say. */
 static void apply_tiling(struct sh_server *server, struct wlr_output *output) {
     // Most recently focused first, so the focused window gets the largest tile. Tiles of an
@@ -213,6 +241,8 @@ static void apply_tiling(struct sh_server *server, struct wlr_output *output) {
         else if (!enabled && toplevel->arranged && toplevel->arrangement == SH_NONE)
             restore_toplevel(toplevel); // left the tiling while minimized
     }
+    if (output_tiles(server, output))
+        keep_out_of_tiling(server, output);
     --server->reflow_held;
     reflow_output(server, output); // maximized windows gain or lose their border
     // Floating windows, which no reflow touches, gain or lose their rounded corners.
