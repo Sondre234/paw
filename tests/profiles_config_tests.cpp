@@ -97,6 +97,28 @@ int main() {
         std::ofstream(extending) << "return {extends='default', profiles={mine={}}}";
         require(paw::load_config(extending).profile.empty(),
                 "the default configuration's profile applied to a file with its own profiles");
+        // Wallpapers the default configuration names relative to itself stay beside it.
+        auto shipped = directory / "shipped";
+        std::filesystem::create_directories(shipped);
+        std::ofstream(shipped / "init.lua")
+            << "return {shell={wallpaper='plain.png'}, profile='night', profiles={"
+               "night={shell={wallpaper='rices/night/wallpaper.png'}},"
+               "fixed={shell={wallpaper='/srv/fixed.png'}}, bare={}}}";
+        setenv("PAW_DEFAULT_CONFIG", (shipped / "init.lua").c_str(), 1);
+        paw::save_profile("night");
+        std::ofstream(extending) << "return {extends='default'}";
+        require(paw::load_config(extending).shell.wallpaper ==
+                    (shipped / "rices/night/wallpaper.png").string(),
+                "a shipped profile's wallpaper not found beside the default configuration");
+        paw::save_profile("fixed");
+        require(paw::load_config(extending).shell.wallpaper == "/srv/fixed.png",
+                "an absolute wallpaper moved");
+        paw::save_profile("bare");
+        require(paw::load_config(extending).shell.wallpaper == (shipped / "plain.png").string(),
+                "the default configuration's own wallpaper not found beside it");
+        std::ofstream(extending) << "return {extends='default', shell={wallpaper='mine.png'}}";
+        require(paw::load_config(extending).shell.wallpaper == "mine.png",
+                "the extending configuration's own wallpaper moved");
         std::filesystem::remove_all(directory);
         std::cout << "Profile configuration tests passed\n";
     } catch (const std::exception &error) {
