@@ -810,7 +810,8 @@ const Option options[] = {
     {"shell.text_color", "color", "\"#edf2fa\"", "\"#edf2fa\"", none, none,
      "Panel text color, `#RRGGBB` or `#RRGGBBAA`."},
     {"shell.wallpaper", "string", "\"\"", "\"\"", none, none,
-     "Image path, absolute or relative to the configuration file."},
+     "Image path, absolute or relative to the configuration file (one the shipped configuration "
+     "names, its profiles' too: relative to that file, also for a file that extends it)."},
     {"shell.wallpapers", "string", "unset", "\"~/Pictures/wallpapers\"", none, none,
      "The wallpaper picker's folder, searched with its subfolders: absolute, or starting with "
      "`~/`; unset uses `$XDG_PICTURES_DIR/wallpapers`, else `$XDG_PICTURES_DIR`."},
