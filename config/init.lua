@@ -287,6 +287,8 @@ return {
         --                      the panel settings below applying to the dock
         -- panel_height = 52,
         -- panel_position = "bottom", -- or "top"
+        -- mirror_menus = false, -- true: along the top, the bar's right-click menus run the other
+        --                         way, closing and killing a window the nearest the bar
         -- panel_margin = 0, -- or { top = 8, right = 12, bottom = 0, left = 12 } to float
         -- panel_radius = 0,
         -- font = "", -- family name; empty keeps the default
