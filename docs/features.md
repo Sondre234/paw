@@ -1211,6 +1211,9 @@ scroll layout loses its gaps and keeps its width.
   tiling instead of covering them, as it does fullscreen ones, and turning tiling on brings
   back every window that floated only because it was snapped or maximized
   (`tests/maximized_tile_smoke.py`).
+- A floating window between two monitors belongs to the one its middle is on. Turning tiling
+  on tiles it when that is the monitor turned on; when it is the other one, the window moves
+  wholly onto its own monitor instead of staying under the new tiles.
 - Turning tiling off returns every window of that monitor to its floating position and
   size. A window
   now tiled on another monitor keeps its size and its place relative to that monitor,
