@@ -11,7 +11,8 @@ import "WindowMenu.js" as WindowMenu
 // pinned application's offers what it starts, and unpinning it. On the dock of the macOS style it
 // opens above the icon pressed, and an application's is macOS's: its windows to bring up, what it
 // starts, keeping it in the dock, hiding and quitting it. Each ends with killing the processes
-// of its windows.
+// of its windows. On a bar along the top with shell.mirrorMenus, the first level runs the other
+// way, so that its last entries are still the nearest the bar.
 PopupMenu {
     id: contextMenu
     required property var panel
@@ -158,9 +159,11 @@ PopupMenu {
         return entries
     }
 
+    entries: shell.mirrorMenus && panel.onTop ? menuEntries().reverse() : menuEntries()
+
     // A task menu acts on the windows through the panel's source of them, which the tests replace
     // with one that notes what it is asked.
-    entries: {
+    function menuEntries() {
         if (panel.taskMenuId >= 0)
             return panel.macos ? dockEntries(panel.taskMenuId, panel.taskSource) : taskEntries(panel.taskMenuId, panel.taskSource)
         // A pinned application without windows; on the dock without a title, as macOS's.
