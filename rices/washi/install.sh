@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Puts washi (和紙) on the applications around paw: kitty, fastfetch, Firefox, Discord, Claude
-# Code and cdeck, Neovim and Helix, and with options the fonts, a caramel icon theme and a
+# Code and cdeck, Neovim and Helix, and with options the fonts, a sky-blue icon theme and a
 # cursor. paw itself needs nothing installed: pick the `washi` or `sumi` profile from the panel's
 # Appearance menu, or run `paw msg profile washi`.
 #
@@ -12,7 +12,7 @@
 #   --fonts         also download Space Grotesk, Maple Mono and the Nerd Font symbols (OFL/MIT)
 #                   into ~/.local/share/fonts/paw-washi
 #   --icons         also download the Tela icon theme (GPL-3.0) and install it recoloured in
-#                   caramel as Tela-washi-brown (-light, -dark) in ~/.local/share/icons
+#                   sky blue as Tela-washi-blue (-light, -dark) in ~/.local/share/icons
 #   --cursor        also download the Bibata Modern Classic cursor (GPL-3.0)
 #   --no-reload     leave running kittys alone (they reload on their own once restarted)
 #   --dark          make sumi, the night, kitty's theme rather than washi
@@ -251,12 +251,12 @@ part_icons() {
     fetch "https://github.com/vinceliuice/Tela-icon-theme/archive/refs/tags/$version.tar.gz" "$tmp/tela.tar.gz"
     if [ $dry = 0 ]; then
         tar -xzf "$tmp/tela.tar.gz" -C "$tmp"
-        # Tela's brown folders, in the caramel of paw's toe beans instead.
-        sed -i "s/local -r theme_color='#795548'/local -r theme_color='#a87650'/" \
+        # Tela's blue folders, in washi's sky blue instead.
+        sed -i "s/local -r theme_color='#5677fc'/local -r theme_color='#8fc1ec'/" \
             "$tmp/Tela-icon-theme-$version/install.sh"
-        (cd "$tmp/Tela-icon-theme-$version" && bash ./install.sh -d "$data/icons" -n Tela-washi brown > /dev/null)
-        say "installed Tela-washi-brown (and -light, -dark) in $data/icons"
-        say "use it with: gsettings set org.gnome.desktop.interface icon-theme Tela-washi-brown"
+        (cd "$tmp/Tela-icon-theme-$version" && bash ./install.sh -d "$data/icons" -n Tela-washi blue > /dev/null)
+        say "installed Tela-washi-blue (and -light, -dark) in $data/icons"
+        say "use it with: gsettings set org.gnome.desktop.interface icon-theme Tela-washi-blue"
         say "(paw's shell reads it at its next start)"
     fi
 }
