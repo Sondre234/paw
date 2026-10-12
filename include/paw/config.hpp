@@ -156,6 +156,8 @@ struct ShellConfig {
     bool macos_style = false;           // style = "macos": a menu bar and a dock
     int panel_height = 52;
     bool panel_top = false;             // panel_position = "top"
+    // Along the top, the bar's right-click menus in reverse, their last entries nearest the bar.
+    bool mirror_menus = false;
     int panel_margin[4] = {0, 0, 0, 0}; // top, right, bottom, left: a floating bar
     int panel_radius = 0;
     // frame = "windows": the bar, the dock and the popups take the windows' border and shadow
