@@ -498,6 +498,9 @@ shadows.
 
 ### Fixes
 
+- The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,
+  whose GLES renderer offers the frames only as packed 24-bit BGR888, which the shell did not read,
+  leaving each card its icon.
 - A gradient border (`windows.border_color` as a list of colours) shows on rounded windows
   through the GPU renderer, where the window's rounded clip had taken it away entirely, so
   windows on a monitor that tiles had no border at all.
