@@ -33,14 +33,14 @@ VARIANTS = {
         "grain": 9,
     },
     "sumi": {
-        "paper": (22, 18, 16),
+        "paper": (21, 20, 29),
         "mottle": 6,
-        "fibre_light": (58, 48, 41), "fibre_dark": (8, 6, 5),
-        "fleck": (90, 70, 52), "fibre_strength": 0.5,
-        "ink": [(214, 160, 110), (168, 118, 80)],  # the beans lit by a lamp
-        "seal": (196, 72, 58),
-        "text": (232, 220, 203),
-        "glow": (200, 145, 95),
+        "fibre_light": (54, 52, 74), "fibre_dark": (7, 7, 12),
+        "fleck": (96, 102, 142), "fibre_strength": 0.5,
+        "ink": [(242, 167, 195), (143, 193, 236)],  # sakura toes, a sky-blue heel, moonlit
+        "seal": (222, 104, 146),
+        "text": (226, 224, 238),
+        "glow": (150, 182, 236),
         "vignette": 0.30,
         "grain": 7,
     },
