@@ -699,6 +699,7 @@ if(PAW_BUILD_COMPOSITOR)
         add_test(NAME decoration COMMAND decoration_tests)
         paw_smoke(animation_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(fullscreen_panel_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(touched_edges_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         find_program(GRIM grim)
         # A missing grim is an empty argument, which the tests take as leaving out their
         # pixel checks (GRIM itself would be GRIM-NOTFOUND).

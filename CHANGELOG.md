@@ -51,6 +51,10 @@ shadows.
 - The overview takes the profile's colours: dark shades of the background's hue behind the
   thumbnails, and the focused border's colour around the window and workspace picked, where
   every profile had blue on blue-black.
+- A floating bar docks while a window reaches the edge it is along (maximized, a tile alone
+  without gaps, one snapped against it): it fills the strip it reserves, squared and without its
+  frame, and floats again once no window does, as KDE's floating panels do. Subscribers hear
+  `touched NAME EDGES` for each monitor.
 - `shell.frame = "windows"` frames a floating bar, the dock and the popups as the windows are:
   their border instead of the shell's hairline, and their shadow, hard ones included, instead of
   the shell's own.

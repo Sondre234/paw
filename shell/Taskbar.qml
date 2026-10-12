@@ -27,13 +27,23 @@ Item {
     readonly property bool floating: shell.panelRadius > 0 || shell.panelMarginLeft > 0 ||
                                      shell.panelMarginRight > 0 || shell.panelMarginTop > 0 ||
                                      shell.panelMarginBottom > 0
+    // A floating bar docks while a window reaches the edge of the output's usable area it is
+    // along (a maximized window, a tile without gaps, one snapped against it), as an island over
+    // a window flush beneath it looks out of place: it fills the strip it reserves from edge to
+    // edge, squared, its frame and shadow gone but for a line along its inner edge, its buttons
+    // where they were; and floats again once no window does. `dock` eases from 0 to 1.
+    readonly property bool docked: floating &&
+        ((shell.workspaces[panel.outputName] || {}).touched || []).indexOf(panel.onTop ? "top" : "bottom") >= 0
+    property real dock: docked ? 1 : 0
+    Behavior on dock { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
 
     // Framed as windows are (shell.frame), a floating bar casts an unfocused window's shadow, into
     // the margins around it.
     Loader {
         objectName: "barShadow"
-        active: Theme.effects && taskbar.floating && Theme.barShadow.a > 0
+        active: Theme.effects && taskbar.floating && Theme.barShadow.a > 0 && taskbar.dock < 1
         x: bar.x; y: bar.y; width: bar.width; height: bar.height
+        opacity: 1 - taskbar.dock
         sourceComponent: RectangularShadow {
             radius: bar.radius
             blur: Theme.shadowBlur
@@ -45,21 +55,28 @@ Item {
         id: bar
         objectName: "bar"
         anchors.left: parent.left; anchors.right: parent.right
-        anchors.leftMargin: shell.panelMarginLeft; anchors.rightMargin: shell.panelMarginRight
-        anchors.bottom: taskbar.panel.onTop ? undefined : parent.bottom
-        anchors.top: taskbar.panel.onTop ? parent.top : undefined
-        anchors.bottomMargin: shell.panelMarginBottom; anchors.topMargin: shell.panelMarginTop
-        height: shell.panelHeight
+        anchors.leftMargin: shell.panelMarginLeft * (1 - taskbar.dock)
+        anchors.rightMargin: shell.panelMarginRight * (1 - taskbar.dock)
+        // Placed by y rather than by anchoring an edge, so that moving it from the bottom to the
+        // top never leaves both edges anchored, deciding its height for a moment.
+        y: taskbar.panel.onTop ? shell.panelMarginTop * (1 - taskbar.dock)
+                               : parent.height - height - shell.panelMarginBottom * (1 - taskbar.dock)
+        height: shell.panelHeight + (shell.panelMarginTop + shell.panelMarginBottom) * taskbar.dock
         color: Theme.bar
-        radius: shell.panelRadius
-        // A floating bar gets an outline (as windows have, framed as they are); a docked one a line
-        // along its inner edge.
+        radius: shell.panelRadius * (1 - taskbar.dock)
+        // A floating bar gets an outline (as windows have, framed as they are); one along an edge,
+        // or docked, a line along its inner edge.
         border.width: taskbar.floating ? Theme.outlineWidth : 0
-        border.color: Theme.outline
+        border.color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b,
+                              Theme.outline.a * (1 - taskbar.dock))
         Rectangle {
-            visible: !taskbar.floating
-            y: taskbar.panel.onTop ? parent.height - 1 : 0
-            width: parent.width; height: 1; color: Theme.border
+            objectName: "barEdge"
+            visible: !taskbar.floating || taskbar.dock > 0
+            opacity: taskbar.floating ? taskbar.dock : 1
+            readonly property int thickness: taskbar.floating ? Math.max(1, Theme.outlineWidth) : 1
+            y: taskbar.panel.onTop ? parent.height - thickness : 0
+            width: parent.width; height: thickness
+            color: taskbar.floating ? Theme.outline : Theme.border
         }
         // Right-clicking the bar anywhere but on a task opens the bar's own menu.
         MouseArea {
@@ -77,7 +94,12 @@ Item {
             }
         }
         RowLayout {
-            anchors.fill: parent; anchors.leftMargin: Theme.spacingM; anchors.rightMargin: Theme.spacingM
+            // Docked, inset by the margins the bar grew over, so that its buttons stay put.
+            anchors.fill: parent
+            anchors.leftMargin: Theme.spacingM + shell.panelMarginLeft * taskbar.dock
+            anchors.rightMargin: Theme.spacingM + shell.panelMarginRight * taskbar.dock
+            anchors.topMargin: shell.panelMarginTop * taskbar.dock
+            anchors.bottomMargin: shell.panelMarginBottom * taskbar.dock
             spacing: Theme.spacingS
             FlatButton {
                 id: start

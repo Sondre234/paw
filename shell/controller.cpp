@@ -767,7 +767,21 @@ void ShellController::subscribe() {
                 nextWorkspaces_[words[1]] = QVariantMap{{"current", words[2].toInt()},
                                                         {"occupied", occupied},
                                                         {"urgent", QVariantList()},
+                                                        {"touched", QVariantList()},
                                                         {"tiling", words[4] == "on"}};
+            } else if (line.startsWith("touched ")) {
+                // touched NAME EDGES: the edges of the output's usable area a window reaches,
+                // "top,left" or "-", along which a floating bar docks.
+                const auto words = line.split(' ');
+                if (words.size() != 3 || !nextWorkspaces_.contains(words[1]))
+                    continue;
+                QVariantList edges;
+                for (const auto &edge : words[2].split(',', Qt::SkipEmptyParts))
+                    if (edge != "-")
+                        edges.push_back(edge);
+                auto state = nextWorkspaces_[words[1]].toMap();
+                state["touched"] = edges;
+                nextWorkspaces_[words[1]] = state;
             } else if (line.startsWith("urgent-output ")) {
                 // urgent-output NAME 2,3: the workspaces of that output with urgent windows.
                 const auto words = line.split(' ');

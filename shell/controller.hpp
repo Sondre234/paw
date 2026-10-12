@@ -156,6 +156,8 @@ class ShellController : public QObject {
     Q_PROPERTY(int workspacesShown READ workspacesShown NOTIFY configChanged)
     // layout.workspace_names, padded with "" to workspaceCount.
     Q_PROPERTY(QStringList workspaceNames READ workspaceNames NOTIFY configChanged)
+    // Each output's workspaces by its name: {current, occupied, urgent, tiling, touched}, the
+    // last the edges of its usable area a window reaches ("top", "bottom", "left", "right").
     Q_PROPERTY(QVariantMap workspaces READ workspaces NOTIFY workspacesChanged)
     // The configuration's appearance profiles, sorted, and the one in use ("" for none).
     Q_PROPERTY(QStringList profiles READ profiles NOTIFY configChanged)

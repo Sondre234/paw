@@ -18,6 +18,10 @@ static void output_frame(struct wl_listener *listener, void *data) {
 
     sh_animator_tick(output->server->animator);
     overview_touch(output->server, false); // windows that move or fade move their thumbnails
+    // Whatever moved a window against an edge of the usable area or away from it drew a frame
+    // here; the shell hears of it with the state (describe_state).
+    if (output_touched_edges(output->server, output) != output->touched)
+        notify_subscribers(output->server);
     if (tick_effects(output->server))
         wlr_output_schedule_frame(output->wlr_output);
     if (tick_idle(output->server)) // the screens dimming

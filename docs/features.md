@@ -83,6 +83,12 @@ the pointer rests on it, but for a window's, which shows pictures of its windows
 `#RRGGBBAA` for a translucent panel), wallpaper, and pinned commands, which run from your home
 directory.
 
+A floating bar docks while a window reaches the edge of the monitor's free area it is along (a
+maximized window, a tile alone without gaps around it, one snapped or dragged against that
+edge), as KDE's floating panels do: it eases out to fill the strip it reserves from edge to edge,
+its corners squared and its outline and shadow gone but for a line along its inner edge, its
+buttons where they were, and floats again once no window there does. Windows do not move.
+
 Clicking a window's button focuses it, or minimizes it when it is focused already, as on Windows,
 from any monitor's bar; a middle click closes the window, a right click opens its
 [menu](#taskbar-menus), and dragging the button moves it along the bar. An application's windows
@@ -2462,7 +2468,8 @@ tablet's tools are doing (see [Touchpad gestures](#touchpad-gestures),
 each monitor's frames do (see [Tearing](#tearing)). A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
 `workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
-(as in `get workspaces`), and `keyboard-layout N COUNT SHORT NAME` (the active
+(as in `get workspaces`), one `touched NAME EDGES` line per monitor with the edges of its free
+area a window shown there reaches (`top,left`, or `-`; a floating bar docks along them), and `keyboard-layout N COUNT SHORT NAME` (the active
 [keyboard layout](#keyboard-layouts), from 1, of how many, as in `get keyboard`) after every
 change, plus `launcher OUTPUT` when the `launcher` action
 (Super + R) asks the panel on that monitor to open or close its start menu; the panel uses this. The window switcher sends `switcher OUTPUT SELECTED COUNT` followed by

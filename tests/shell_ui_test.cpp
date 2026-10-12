@@ -5781,12 +5781,14 @@ ListModel {
                        edge->opacity() == 1;
             }))
             return fail("a window reaching the bar's edge did not dock it");
+        // The other edge is not the bar's; and then no window reaches any, as before.
         subscriber->write(state(toggled, currentWorkspace) + "touched " + output.toUtf8() + " bottom\n");
         if (!waitFor([&] {
                 return framed->property("radius").toReal() == 12 &&
                        framed->height() == controller.panelHeight() && !edge->isVisible();
             }))
             return fail("the bar stayed docked once no window reached its edge");
+        subscriber->write(state(toggled, currentWorkspace) + "touched " + output.toUtf8() + " -\n");
         // Without the windows' shadow, none.
         if (!reconfigure(QString(lua).replace("shell={wallpaper",
                                               "shell={frame='windows',panel_radius=12,wallpaper")))

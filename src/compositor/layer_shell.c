@@ -126,3 +126,35 @@ void server_new_layer_surface(struct wl_listener *listener, void *data) {
     add_listener(&surface->events.destroy, &layer->destroy, layer_destroy);
     add_listener(&surface->events.new_popup, &layer->new_popup, layer_new_popup);
 }
+
+/* The edges of `output`'s usable area (what its panels leave free) that a window shown there
+ * reaches, as enum sh_edge bits: a maximized window, a tile alone without gaps around it, a
+ * window snapped against them or dragged there. A floating bar docks while a window reaches the
+ * edge it is along, as one floating over a window flush under it looks out of place. */
+unsigned output_touched_edges(struct sh_server *server, struct sh_output *output) {
+    const struct wlr_box area = output->usable;
+    if (area.width < 1 || area.height < 1)
+        return 0;
+    // A border is drawn around the window, outside it.
+    const int reach = server_settings(server)->border_width + 1;
+    unsigned edges = 0;
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (!toplevel_mapped(toplevel) || !toplevel_visible(toplevel) ||
+            strcmp(toplevel->output, output->wlr_output->name))
+            continue;
+        const struct wlr_box box = toplevel_box(toplevel);
+        if (box.x + box.width <= area.x || box.x >= area.x + area.width ||
+            box.y + box.height <= area.y || box.y >= area.y + area.height)
+            continue;
+        if (box.y - reach <= area.y)
+            edges |= SH_EDGE_TOP;
+        if (box.y + box.height + reach >= area.y + area.height)
+            edges |= SH_EDGE_BOTTOM;
+        if (box.x - reach <= area.x)
+            edges |= SH_EDGE_LEFT;
+        if (box.x + box.width + reach >= area.x + area.width)
+            edges |= SH_EDGE_RIGHT;
+    }
+    return edges;
+}

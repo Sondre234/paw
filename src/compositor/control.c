@@ -443,7 +443,8 @@ static void append(char *text, size_t size, size_t *length, const char *format, 
 
 /* The state subscribers get: "tiling on|off", "workspace N" and "focused NAME" for the focused
  * output, and "output NAME N USED TILING" for each output, with its current workspace, those
- * holding windows ("1,3", or "-"), and whether it tiles ("on" or "off"); then the urgent
+ * holding windows ("1,3", or "-"), and whether it tiles ("on" or "off"), and "touched NAME
+ * EDGES", the edges of its usable area a window reaches; then the urgent
  * windows, the keyboard layout and night light, as described below, and the power actions
  * that may run. */
 static void describe_state(struct sh_server *server, char *state, size_t size) {
@@ -459,6 +460,19 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
         append(state, size, &length, "output %s %d %s %s\n", output->wlr_output->name,
                *output_workspace(server, output->wlr_output->name) + 1, used,
                output_tiles(server, output->wlr_output) ? "on" : "off");
+    }
+    // "touched NAME EDGES" for each output: the edges of its usable area a window shown there
+    // reaches ("top,left", or "-"), along which a floating bar docks.
+    wl_list_for_each_reverse(output, &server->outputs, link) {
+        output->touched = output_touched_edges(server, output);
+        static const char *const names[] = {"top", "bottom", "left", "right"};
+        char edges[32] = "";
+        for (int i = 0; i < 4; ++i)
+            if (output->touched & 1u << i)
+                snprintf(edges + strlen(edges), sizeof(edges) - strlen(edges), "%s%s",
+                         edges[0] ? "," : "", names[i]);
+        append(state, size, &length, "touched %s %s\n", output->wlr_output->name,
+               edges[0] ? edges : "-");
     }
     // "urgent COUNT", then "urgent-output NAME 2,3" for each output with urgent windows, the
     // workspaces they are on, and "urgent-window OUTPUT WORKSPACE APP_ID TITLE" (tab separated
