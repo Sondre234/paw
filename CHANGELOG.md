@@ -492,6 +492,9 @@ shadows.
 
 ### Fixes
 
+- A gradient border (`windows.border_color` as a list of colours) shows on rounded windows
+  through the GPU renderer, where the window's rounded clip had taken it away entirely, so
+  windows on a monitor that tiles had no border at all.
 - A region screenshot no longer comes to nothing about one time in fifteen: paw configured every
   layer surface whenever any of them changed, and a configure arriving while slurp 1.5.0 waits for
   a frame makes it crash as it exits, losing the selection. A layer surface is now configured
