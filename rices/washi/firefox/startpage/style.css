@@ -1,0 +1,484 @@
+/* washi start page: neo-brutalist print on handmade paper. 2px ink outlines, hard offset ink
+ * shadows, flat fills, caramel from paw's toe beans, a vermilion seal. sumi (dark) is the same
+ * sheet soaked in ink: cream text, caramel lit brighter, soft deep shadows and a caramel
+ * misprint where ink would vanish on ink. Every colour is a token in the two blocks below.
+ * Fonts are the installed ones (Space Grotesk, Maple Mono) with fallbacks; a file:// page
+ * cannot load ~/.local/share/fonts by path, so nothing is fetched.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+:root {
+  color-scheme: light;
+  /* washi */
+  --paper: #F3EBDD;
+  --surface: #FBF7EF;
+  --raised: #F1E8D8;
+  --sunken: #EFE6D6;
+  --line: #D6C8B2;
+  --outline: #2B221C;
+  --ink: #2B221C;
+  --muted: #7A6B5E;
+  --accent: #A87650;
+  --accent-text: #9A6438;
+  --accent-deep: #734A2C;
+  --on-accent: #FBF7EF;
+  --seal: #B03A2E;
+  --selection: #EBDCC4;
+  --bean: linear-gradient(#A87650, #734A2C);
+  --print-fill: url(#bean);
+  /* stamp inks for the link cards */
+  --ink-stamp: #2B221C;
+  --green: #4F6F26;
+  --ochre: #8A5A0E;
+  --indigo: #2D5A82;
+  --plum: #873C66;
+  --teal: #276A61;
+  --on-stamp: #FBF7EF;
+  /* the press: resting, lifted under the pointer, pushed down */
+  --shadow: 5px 5px 0 var(--outline);
+  --shadow-lift: 7px 7px 0 var(--outline);
+  --shadow-press: 1px 1px 0 var(--outline);
+  --shadow-card: 4px 4px 0 var(--outline);
+  --shadow-card-lift: 6px 6px 0 var(--outline);
+  --misprint: #A87650;
+  --veil: rgb(243 235 221 / 0.50);
+  --wallpaper: url("../../wallpaper/washi.jpg");
+
+  --font-ui: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-mono: "Maple Mono", "JetBrains Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    /* sumi */
+    --paper: #161210;
+    --surface: #1D1916;
+    --raised: #26201C;
+    --sunken: #120F0D;
+    --line: #3A302A;
+    --outline: #3A302A;
+    --ink: #E8DCCB;
+    --muted: #A89A88;
+    --accent: #D6A06E;
+    --accent-text: #D6A06E;
+    --accent-deep: #A86A3C;
+    --on-accent: #1A1613;
+    --seal: #D96F5E;
+    --selection: #4A3A2E;
+    --bean: linear-gradient(#D6A06E, #A86A3C);
+    --print-fill: url(#bean-lit);
+    --ink-stamp: #CDBFAD;
+    --green: #A3B47A;
+    --ochre: #E2AE62;
+    --indigo: #8EA8BC;
+    --plum: #C98EA4;
+    --teal: #8DB8AA;
+    --on-stamp: #1A1613;
+    /* an ink shadow on ink is invisible: lamp-lit depth, and a caramel misprint when lifted */
+    --shadow: 0 14px 40px rgb(0 0 0 / 0.55);
+    --shadow-lift: 5px 5px 0 var(--accent-deep), 0 18px 44px rgb(0 0 0 / 0.6);
+    --shadow-press: 0 4px 14px rgb(0 0 0 / 0.5);
+    --shadow-card: 0 10px 28px rgb(0 0 0 / 0.5);
+    --shadow-card-lift: 4px 4px 0 var(--accent-deep), 0 14px 34px rgb(0 0 0 / 0.55);
+    --misprint: #A86A3C;
+    --veil: rgb(22 18 16 / 0.42);
+    --wallpaper: url("../../wallpaper/sumi.jpg");
+  }
+}
+
+/* ---------------------------------------------------------------- the sheet */
+
+* { box-sizing: border-box; }
+
+html {
+  min-height: 100%;
+  background-color: var(--paper);
+  /* the rice's wallpaper, the paw trail and the seal included; plain paper if it is missing */
+  background-image: linear-gradient(var(--veil), var(--veil)), var(--wallpaper);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  color: var(--ink);
+  font: 500 16px/1.4 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--selection); color: var(--ink); }
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+kbd {
+  font: 600 11px/1 var(--font-mono);
+  color: var(--muted);
+  border: 1.5px solid var(--line);
+  border-radius: 5px;
+  padding: 3px 5px 2px;
+  background: var(--sunken);
+}
+
+svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* ---------------------------------------------------------------- masthead */
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26px 34px 0;
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.mark-seal {
+  width: 30px;
+  height: 30px;
+  fill: var(--seal);
+  rotate: -4deg;
+  transition: rotate 0.25s cubic-bezier(.3, 1.6, .5, 1);
+}
+.mark:hover .mark-seal { rotate: 6deg; }
+
+.mark-name {
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.mark-sub {
+  font: 500 12px/1 var(--font-mono);
+  color: var(--muted);
+  padding-top: 3px;
+}
+
+.almanac {
+  margin: 0;
+  font: 500 12px/1 var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+.almanac b { color: var(--accent-text); font-weight: 600; }
+
+/* ---------------------------------------------------------------- clock and date */
+
+.sheet {
+  align-self: center;
+  justify-self: center;
+  width: min(920px, 100% - 48px);
+  padding: 24px 0 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.greeting {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: -0.005em;
+}
+.greeting b { color: var(--accent-text); font-weight: 600; }
+
+.clock {
+  margin: 0;
+  font-weight: 700;
+  font-size: clamp(96px, 12vw, 176px);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  /* a riso misprint: the caramel plate landed a little off */
+  text-shadow: 6px 6px 0 var(--misprint);
+  user-select: none;
+}
+
+.colon {
+  display: inline-block;
+  padding: 0 0.02em;
+  translate: 0 -0.06em;
+  color: var(--accent);
+  text-shadow: none;
+  animation: blink 2s steps(1, end) infinite;
+}
+
+@keyframes blink { 50% { opacity: 0.4; } }
+
+.date {
+  margin: 14px 0 0;
+  font: 500 15px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.date::before,
+.date::after {
+  content: "";
+  width: 34px;
+  height: 2px;
+  background: var(--ink);
+}
+.date .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--seal);
+  rotate: 45deg;
+}
+
+/* ---------------------------------------------------------------- search card */
+
+.search {
+  margin-top: 46px;
+  width: min(680px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 18px;
+  background: var(--surface);
+  border: 2px solid var(--outline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: translate 0.12s ease, box-shadow 0.12s ease;
+}
+
+.search:focus-within {
+  translate: -2px -2px;
+  box-shadow: var(--shadow-lift);
+  border-color: var(--accent);
+}
+@media (prefers-color-scheme: light) {
+  .search:focus-within { border-color: var(--outline); outline: 3px solid var(--accent); outline-offset: 3px; }
+}
+
+.search-print {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  fill: var(--print-fill);
+  rotate: 14deg;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 500 18px/1.2 var(--font-ui);
+  padding: 10px 0;
+}
+.search input::placeholder { color: var(--muted); opacity: 1; }
+
+.search-key { flex: none; }
+.search:focus-within .search-key { visibility: hidden; }
+
+.search-go {
+  flex: none;
+  font: 700 15px/1 var(--font-ui);
+  letter-spacing: 0.01em;
+  color: var(--on-accent);
+  background: var(--bean);
+  border: 2px solid var(--outline);
+  border-radius: var(--radius-sm);
+  padding: 11px 18px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--outline);
+  transition: translate 0.08s ease, box-shadow 0.08s ease;
+}
+.search-go:hover { translate: -1px -1px; box-shadow: 3px 3px 0 var(--outline); }
+.search-go:active { translate: 2px 2px; box-shadow: none; }
+@media (prefers-color-scheme: dark) {
+  .search-go { border-color: transparent; box-shadow: none; }
+  .search-go:hover { box-shadow: 2px 2px 0 var(--accent-deep); }
+}
+
+/* ---------------------------------------------------------------- link cards */
+
+.cards {
+  margin-top: 48px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px 22px;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 14px 16px;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--surface);
+  border: 2px solid var(--outline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  transition: translate 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+
+.card:hover,
+.card:focus-visible {
+  translate: -2px -2px;
+  box-shadow: var(--shadow-card-lift);
+  background: var(--raised);
+}
+.card:active {
+  translate: 2px 2px;
+  box-shadow: var(--shadow-press);
+}
+.card:focus-visible { outline-offset: 4px; }
+
+/* a hanko, pressed a little askew, in its own ink */
+.stamp {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background: var(--stamp, var(--accent));
+  color: var(--on-stamp);
+  font: 700 16px/1 var(--font-ui);
+  letter-spacing: -0.02em;
+  rotate: -5deg;
+  transition: rotate 0.25s cubic-bezier(.3, 1.6, .5, 1), scale 0.25s cubic-bezier(.3, 1.6, .5, 1);
+}
+.card:nth-child(even) .stamp { rotate: 4deg; }
+.card:hover .stamp { rotate: 0deg; scale: 1.08; }
+
+.stamp-seal { background: none; }
+.stamp-seal svg { width: 44px; height: 44px; fill: var(--seal); }
+
+.card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.card-name {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-url {
+  font: 500 11.5px/1.2 var(--font-mono);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card kbd {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  padding: 2px 4px 1px;
+  font-size: 10px;
+  border-width: 1px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.card:hover kbd,
+.card:focus-visible kbd,
+body.keys .card kbd { opacity: 1; }
+
+/* ---------------------------------------------------------------- colophon */
+
+.colophon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 0 26px;
+  font: 500 12px/1 var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+.colophon svg {
+  width: 14px;
+  height: 14px;
+  fill: var(--print-fill);
+  rotate: -20deg;
+}
+
+/* ---------------------------------------------------------------- the easter egg: paw prints */
+
+.trail {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.print {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  fill: var(--print-fill);
+  transform: rotate(var(--turn)) scaleX(var(--foot));
+  animation: ink 2.8s cubic-bezier(.2, .7, .3, 1) forwards;
+}
+
+/* pressed in, then soaking into the paper until it is gone */
+@keyframes ink {
+  0%   { opacity: 0;    scale: 1.35; filter: blur(0); }
+  6%   { opacity: 0.95; scale: 1; }
+  45%  { opacity: 0.7;  filter: blur(0.2px); }
+  100% { opacity: 0;    scale: 1.06; filter: blur(1.6px); }
+}
+
+/* ---------------------------------------------------------------- smaller windows */
+
+@media (max-width: 900px) {
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .masthead { padding: 18px 20px 0; }
+}
+
+@media (max-height: 760px) {
+  .search { margin-top: 30px; }
+  .cards { margin-top: 32px; }
+}
+
+@media (max-width: 520px) {
+  .almanac, .mark-sub, .search-key { display: none; }
+  .search-go { padding: 10px 12px; }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .colon { animation: none; }
+  .print { animation-duration: 1.2s; }
+  * { transition: none !important; }
+}
