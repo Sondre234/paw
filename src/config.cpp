@@ -516,10 +516,12 @@ void read_shell(lua_State *L, ShellConfig &shell) {
     for (auto [key, target] : {std::pair{"accent", &shell.accent},
                                {"panel_color", &shell.panel_color},
                                {"text_color", &shell.text_color},
-                               {"wallpaper", &shell.wallpaper}}) {
+                               {"wallpaper", &shell.wallpaper},
+                               {"start_icon", &shell.start_icon}}) {
         if (auto value = text(L, key)) {
             *target = *value;
-            if (target != &shell.wallpaper && !is_color(*target, true))
+            if (target != &shell.wallpaper && target != &shell.start_icon &&
+                !is_color(*target, true))
                 fail(std::string(key) + " must be #RRGGBB or #RRGGBBAA");
         }
     }
@@ -2268,35 +2270,37 @@ std::filesystem::path default_config_path() {
     return variable && *variable ? variable : PAW_DEFAULT_CONFIG;
 }
 namespace {
-// Makes `shell.wallpaper` in the table at `index` absolute when it names a file relative to
-// `directory`.
-void anchor_wallpaper(lua_State *L, int index, const std::filesystem::path &directory) {
+// Makes `shell.wallpaper` and `shell.start_icon` in the table at `index` absolute when they
+// name a file relative to `directory`.
+void anchor_files(lua_State *L, int index, const std::filesystem::path &directory) {
     lua_getfield(L, index, "shell");
     if (lua_istable(L, -1)) {
-        lua_getfield(L, -1, "wallpaper");
-        if (lua_type(L, -1) == LUA_TSTRING) {
-            std::filesystem::path file = lua_tostring(L, -1);
-            if (!file.empty() && file.is_relative()) {
-                lua_pushstring(L, (directory / file).c_str());
-                lua_setfield(L, -3, "wallpaper");
+        for (const char *key : {"wallpaper", "start_icon"}) {
+            lua_getfield(L, -1, key);
+            if (lua_type(L, -1) == LUA_TSTRING) {
+                std::filesystem::path file = lua_tostring(L, -1);
+                if (!file.empty() && file.is_relative()) {
+                    lua_pushstring(L, (directory / file).c_str());
+                    lua_setfield(L, -3, key);
+                }
             }
+            lua_pop(L, 1);
         }
-        lua_pop(L, 1);
     }
     lua_pop(L, 1);
 }
-// The shipped configuration's wallpapers, its profiles' too, may be named relative to it, as
-// any configuration's are; made absolute here, they stay beside it rather than being looked
-// for beside the configuration that extends it.
-void anchor_wallpapers(lua_State *L, const std::filesystem::path &directory) {
+// The shipped configuration's wallpapers and start buttons, its profiles' too, may be named
+// relative to it, as any configuration's are; made absolute here, they stay beside it rather
+// than being looked for beside the configuration that extends it.
+void anchor_shipped_files(lua_State *L, const std::filesystem::path &directory) {
     int index = lua_absindex(L, -1);
-    anchor_wallpaper(L, index, directory);
+    anchor_files(L, index, directory);
     lua_getfield(L, index, "profiles");
     if (lua_istable(L, -1)) {
         lua_pushnil(L);
         while (lua_next(L, -2)) {
             if (lua_istable(L, -1))
-                anchor_wallpaper(L, lua_absindex(L, -1), directory);
+                anchor_files(L, lua_absindex(L, -1), directory);
             lua_pop(L, 1);
         }
     }
@@ -2321,7 +2325,7 @@ size_t include_defaults(lua_State *L) {
     if (!lua_isnil(L, -1))
         fail("the default configuration cannot extend another");
     lua_pop(L, 1);
-    anchor_wallpapers(L, std::filesystem::absolute(path).parent_path());
+    anchor_shipped_files(L, std::filesystem::absolute(path).parent_path());
     lua_pushnil(L);
     lua_setfield(L, -2, "theme");
     // A configuration with profiles of its own offers those alone, not the shipped ones too.

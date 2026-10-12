@@ -177,6 +177,9 @@ struct ShellConfig {
     std::string panel_color = "#151e2c";
     std::string text_color = "#edf2fa";
     std::string wallpaper;
+    // The start button's picture: a file, absolute or relative to the configuration; empty:
+    // four squares in the accent colour.
+    std::string start_icon;
     std::string wallpapers; // the picker's folder: absolute or "~/..."; empty: $XDG_PICTURES_DIR/wallpapers
     ShellWidgets widgets;
     std::vector<Launcher> launchers;

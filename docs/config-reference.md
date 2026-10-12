@@ -426,6 +426,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `shell.panel_color` | color | "#151e2c" | - | Panel color; `#RRGGBBAA` makes it translucent. |
 | `shell.text_color` | color | "#edf2fa" | - | Panel text color, `#RRGGBB` or `#RRGGBBAA`. |
 | `shell.wallpaper` | string | "" | - | Image path, absolute or relative to the configuration file (one the shipped configuration names, its profiles' too: relative to that file, also for a file that extends it). |
+| `shell.start_icon` | string | "" | - | A picture for the taskbar's start button in place of the four squares in the accent colour: an SVG, PNG or other image, absolute or relative to the configuration file, as `shell.wallpaper` is. |
 | `shell.wallpapers` | string | unset | - | The wallpaper picker's folder, searched with its subfolders: absolute, or starting with `~/`; unset uses `$XDG_PICTURES_DIR/wallpapers`, else `$XDG_PICTURES_DIR`. |
 | `shell.widgets` | table | - | - | Panel widgets; each is switched off with `false`. One that can move takes `"bar"` to sit on the bar or `"quick"` to sit in the Quick Settings flyout instead, and `true` puts it in its default place. |
 | `shell.widgets.workspaces` | boolean | true | - | This monitor's workspace numbers. |
