@@ -1,5 +1,5 @@
--- sumi (墨) for Neovim: the washi sheet soaked in ink under a lamp. Cream text on warm
--- brown-black, caramel lit brighter, the vermilion seal kept for the loud things.
+-- sumi (墨) for Neovim: the washi sheet soaked in ink by moonlight. Lavender-white text on
+-- indigo night, light blue and pink lit brighter, the rose seal kept for the loud things.
 -- The dark half of the washi rice; washi.lua is the paper by day.
 --
 -- Plugin-free. Copy this file to ~/.config/nvim/colors/ (or put the editors/nvim directory on
@@ -7,68 +7,70 @@
 -- in kitty); without it, the ANSI indices match the sumi kitty palette. `:set background=light`
 -- turns the page to washi.
 --
--- Print, not neon: cream text, comments pencilled in italic, keywords in plum, strings in moss,
--- functions in indigo, types in teal, numbers in ochre, the preprocessor and the accents in
--- caramel, and vermilion only for the loud things (errors, TODO seals, escapes).
+-- Print, not neon: lavender-white text, comments pencilled in italic, keywords in orchid,
+-- strings in mint, functions in sky blue, types in teal, numbers in honey, the preprocessor and
+-- the accents in sakura, and rose only for the loud things (errors, TODO seals, escapes). The
+-- palette keeps its old names (caramel, bean, ...), as the code below it is shared with washi.lua.
 
 -- Each colour is { truecolor, ANSI index }. An index of nil leaves the terminal's own colour.
 local p = {
   -- The sheet
-  bg          = { "#1A1613" },      -- soaked paper (kitty's background)
-  fold        = { "#241E1A", 0 },   -- cursor line: a faint fold in the paper
-  sunken      = { "#120F0D" },      -- closed folds, pressed into the sheet
-  raised      = { "#26201C", 0 },   -- floats and menus
-  bar         = { "#26201C", 0 },   -- inactive tabs, menu scrollbar
-  sel         = { "#4A3A2E" },      -- selection, caramel-tinted
-  ref         = { "#342920" },      -- other uses of the word under the cursor
-  match       = { "#4E3D2E" },      -- matching bracket
-  search      = { "#66502A", 3 },   -- search hits, a highlighter stroke
+  bg          = { "#181722" },      -- soaked paper, indigo by night (kitty's background)
+  fold        = { "#211F2C", 0 },   -- cursor line: a faint fold in the paper
+  sunken      = { "#100F17" },      -- closed folds, pressed into the sheet
+  raised      = { "#24232F", 0 },   -- floats and menus
+  bar         = { "#24232F", 0 },   -- inactive tabs, menu scrollbar
+  sel         = { "#2E3A55" },      -- selection, sky-tinted
+  ref         = { "#28293B" },      -- other uses of the word under the cursor
+  match       = { "#4A2F42" },      -- matching bracket, sakura-tinted
+  search      = { "#3A4A6A", 4 },   -- search hits, a sky-blue highlighter stroke
 
   -- Pencil and ink
-  line        = { "#3A302A", 8 },   -- hairlines: separators, whitespace
-  faint       = { "#6B5F55", 8 },   -- line numbers
-  muted       = { "#A89A88", 8 },   -- comments
-  pencil      = { "#CDBFAD", 7 },   -- fields, unhighlighted code blocks
-  fg          = { "#E8DCCB", 15 },  -- cream
-  ui_fg       = { "#E8DCCB", 15 },  -- text on floats and menus
-  search_fg   = { "#E8DCCB", 0 },   -- text on search hits
-  paper       = { "#1A1613", 0 },   -- text on caramel and the seal
+  line        = { "#34334A", 8 },   -- hairlines: separators, whitespace
+  faint       = { "#66647F", 8 },   -- line numbers
+  muted       = { "#9D9BB4", 8 },   -- comments
+  pencil      = { "#B8B6CC", 7 },   -- fields, unhighlighted code blocks
+  fg          = { "#E2E0EE", 15 },  -- lavender-white
+  ui_fg       = { "#E2E0EE", 15 },  -- text on floats and menus
+  search_fg   = { "#E2E0EE", 0 },   -- text on search hits
+  paper       = { "#181722", 0 },   -- text on sky, sakura and the seal
 
   -- Chrome
-  status      = { "#3A302A", 8 },   -- the current window's status line
-  status_fg   = { "#E8DCCB", 15 },
-  tab_sel     = { "#3A302A", 8 },   -- the current tab, its name lit in caramel
-  tab_sel_fg  = { "#D6A06E", 11 },
-  mark        = { "#D6A06E", 11 },  -- the selected menu item, lit like kitty's current tab
-  mark_accent = { "#5C3518", 0 },   -- its matched letters
-  outline     = { "#A86A3C", 3 },   -- float borders: caramel, lamp-lit
+  status      = { "#34334A", 8 },   -- the current window's status line
+  status_fg   = { "#E2E0EE", 15 },
+  tab_sel     = { "#34334A", 8 },   -- the current tab, its name lit in sky blue
+  tab_sel_fg  = { "#8FC1EC", 12 },
+  mark        = { "#8FC1EC", 12 },  -- the selected menu item, lit like kitty's current tab
+  mark_accent = { "#7A2850", 0 },   -- its matched letters, in deep rose
+  outline     = { "#6AA6E0", 4 },   -- float borders: sky blue, moonlit
   shadow      = { "#000000", 0 },   -- border = "shadow": a soft dark wash
-  cursor      = { "#E2AE62", 3 },
+  cursor      = { "#8FC1EC", 4 },
 
   -- Colour
-  caramel     = { "#D6A06E", 11 },  -- the accent as text
-  bean        = { "#D6A06E", 11 },  -- the accent as a fill (the paw's toe beans)
-  seal        = { "#D96F5E", 1 },   -- vermilion hanko
-  green       = { "#A3B47A", 2 },   -- moss
-  ochre       = { "#E2AE62", 3 },
-  indigo      = { "#8EA8BC", 4 },
-  plum        = { "#C98EA4", 5 },
-  teal        = { "#8DB8AA", 6 },
+  caramel     = { "#F2A7C3", 13 },  -- the accent as text: sakura
+  bean        = { "#F2A7C3", 13 },  -- the accent as a fill: the same sakura, under paper text
+  seal        = { "#EF7F9F", 1 },   -- the rose hanko
+  green       = { "#9FD4AB", 2 },   -- mint
+  ochre       = { "#F0C27A", 3 },   -- honey
+  indigo      = { "#8FC1EC", 4 },   -- sky blue
+  plum        = { "#D39CE0", 5 },   -- orchid
+  teal        = { "#8CCFD2", 6 },
 
-  -- Washes of colour behind diagnostics and diffs
-  seal_bg     = { "#35221E" },
-  green_bg    = { "#2D2C21" },
-  ochre_bg    = { "#362B1E" },
-  ochre_bg2   = { "#56442B" },      -- changed text within a changed line
-  indigo_bg   = { "#2A2A2B" },
-  teal_bg     = { "#2A2D28" },
+  -- Washes of colour behind diagnostics and diffs. Honey washed over ink turns brown, so
+  -- warnings and changes take a lavender wash instead.
+  seal_bg     = { "#362634" },
+  green_bg    = { "#22312D" },
+  ochre_bg    = { "#2B2940" },
+  ochre_bg2   = { "#433F66" },      -- changed text within a changed line
+  indigo_bg   = { "#292F3E" },
+  teal_bg     = { "#25313A" },
 
   shadow_blend = 50, -- how much the shadow lets through, 0-100
 }
 
 local ansi = {
-  "#221D1A", "#D96F5E", "#A3B47A", "#E2AE62", "#8EA8BC", "#C98EA4", "#8DB8AA", "#CDBFAD",
-  "#6B5F55", "#EC8A78", "#BACB92", "#F2C784", "#A9C1D3", "#DCA7BA", "#A6D0C2", "#F5ECE0",
+  "#262533", "#EF7F9F", "#9FD4AB", "#F0C27A", "#8FC1EC", "#D39CE0", "#8CCFD2", "#B8B6CC",
+  "#66647F", "#F59AB3", "#B6E2BF", "#F6D499", "#ACD3F4", "#E2B6EA", "#A8DFE1", "#F3F1F9",
 }
 
 -- `:set background=light` while sumi is up reloads it: turn the page to washi instead (once the

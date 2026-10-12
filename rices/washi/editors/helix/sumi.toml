@@ -1,11 +1,13 @@
-# sumi (墨) for Helix: the washi sheet soaked in ink under a lamp. Cream text on warm
-# brown-black, caramel lit brighter, the vermilion seal kept for the loud things.
+# sumi (墨) for Helix: the washi sheet soaked in ink by moonlight. Lavender-white text on
+# indigo night, light blue and pink lit brighter, the rose seal kept for the loud things.
 # The dark half of the washi rice; washi.toml is the paper by day.
 # Copy it to ~/.config/helix/themes/ and set `theme = "sumi"` in config.toml.
 #
-# Print, not neon: cream text, comments pencilled in italic, keywords in plum, strings in moss,
-# functions in indigo, types in teal, numbers in ochre, the preprocessor and the accents in
-# caramel, and vermilion only for the loud things (errors, escapes, jump labels).
+# Print, not neon: lavender-white text, comments pencilled in italic, keywords in orchid,
+# strings in mint, functions in sky blue, types in teal, numbers in honey, the preprocessor and
+# the accents in sakura, and rose only for the loud things (errors, escapes, jump labels). The
+# palette at the bottom keeps its old names (caramel, moss, ...), as the rules are shared with
+# washi.toml.
 
 # Syntax ---------------------------------------------------------------------------------------
 "attribute" = "caramel"
@@ -175,36 +177,36 @@
 rainbow = ["caramel", "indigo", "teal", "plum", "ochre", "moss"]
 
 [palette]
-sheet = "#1A1613"     # the soaked paper (kitty's background)
-fold = "#241E1A"      # cursor line: a faint fold in the paper
-raised = "#26201C"    # popups and menus
-bar = "#26201C"       # inactive buffers
-sel = "#4A3A2E"       # the primary selection, caramel-tinted
-sel2 = "#3A2F27"      # the other selections
-ref = "#342920"       # highlighted lines
-match = "#4E3D2E"     # matching bracket
-line = "#3A302A"      # hairlines
-faint = "#6B5F55"     # line numbers
-muted = "#A89A88"     # comments
-pencil = "#CDBFAD"    # fields
-text = "#E8DCCB"      # cream
-on_accent = "#1A1613" # text on caramel and on the seal
-status = "#3A302A"    # the current window's status line
-status_fg = "#E8DCCB"
-tab = "#3A302A"       # the current buffer, its name lit in caramel
-tab_fg = "#D6A06E"
-mark = "#D6A06E"      # the selected menu item, lit caramel like kitty's current tab
-outline = "#A86A3C"   # popup and picker borders: caramel, lamp-lit
-cursor = "#E2AE62"
-caramel = "#D6A06E"   # the accent as text
-bean = "#D6A06E"      # the accent as a fill (the paw's toe beans)
-seal = "#D96F5E"      # vermilion hanko
-moss = "#A3B47A"
-ochre = "#E2AE62"
-indigo = "#8EA8BC"
-plum = "#C98EA4"
-teal = "#8DB8AA"
-seal_bg = "#35221E"   # washes of colour behind inline diagnostics
-ochre_bg = "#362B1E"
-indigo_bg = "#2A2A2B"
-teal_bg = "#2A2D28"
+sheet = "#181722"     # the soaked paper, indigo by night (kitty's background)
+fold = "#211F2C"      # cursor line: a faint fold in the paper
+raised = "#24232F"    # popups and menus
+bar = "#24232F"       # inactive buffers
+sel = "#2E3A55"       # the primary selection, sky-tinted
+sel2 = "#262C40"      # the other selections
+ref = "#28293B"       # highlighted lines
+match = "#4A2F42"     # matching bracket, sakura-tinted
+line = "#34334A"      # hairlines
+faint = "#66647F"     # line numbers
+muted = "#9D9BB4"     # comments
+pencil = "#B8B6CC"    # fields
+text = "#E2E0EE"      # lavender-white
+on_accent = "#181722" # text on sky, sakura and the seal
+status = "#34334A"    # the current window's status line
+status_fg = "#E2E0EE"
+tab = "#34334A"       # the current buffer, its name lit in sky blue
+tab_fg = "#8FC1EC"
+mark = "#8FC1EC"      # the selected menu item, lit sky blue like kitty's current tab
+outline = "#6AA6E0"   # popup and picker borders: sky blue, moonlit
+cursor = "#8FC1EC"
+caramel = "#F2A7C3"   # the accent as text: sakura
+bean = "#F2A7C3"      # the accent as a fill, under paper text
+seal = "#EF7F9F"      # the rose hanko
+moss = "#9FD4AB"      # mint
+ochre = "#F0C27A"     # honey
+indigo = "#8FC1EC"    # sky blue
+plum = "#D39CE0"      # orchid
+teal = "#8CCFD2"
+seal_bg = "#362634"   # washes of colour behind inline diagnostics
+ochre_bg = "#2B2940"  # lavender: honey washed over ink turns brown
+indigo_bg = "#292F3E"
+teal_bg = "#25313A"
