@@ -719,6 +719,9 @@ struct sh_output {
     /* Out of the layout, showing another output's picture (mirror.c); NULL otherwise. */
     struct sh_mirror *mirror;
     struct sh_tearing tearing;
+    /* The edges of its usable area a window reaches (output_touched_edges), as subscribers
+     * were last told. */
+    unsigned touched;
     const char *hdr_refused; // why it stays SDR though asked for HDR, as last logged (hdr.c)
     struct wl_list link;
     struct sh_server *server;
@@ -1187,6 +1190,7 @@ void layout_short_name(struct sh_server *server, xkb_layout_index_t layout, char
 /* layer_shell.c */
 void arrange_layers(struct sh_server *server);
 void server_new_layer_surface(struct wl_listener *listener, void *data);
+unsigned output_touched_edges(struct sh_server *server, struct sh_output *output);
 
 /* lock.c */
 void send_locked_if_presented(struct sh_server *server);
