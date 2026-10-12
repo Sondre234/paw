@@ -2337,7 +2337,9 @@ starts their saved command lines and places each new window as it opens (the fir
 the app ID, within 30 seconds). `session list` prints `NAME`, its window count and when it
 was saved; `session delete NAME` removes one. Names are letters, digits, `.`, `_` and `-`.
 Applications that do not restart from their own command line (Flatpak launchers, single-instance
-programs that hand over to a running copy) are matched but may not relaunch.
+programs that hand over to a running copy) are matched but may not relaunch. A window that
+floated only because it was snapped or maximized on a monitor that tiles is restored as a tile,
+maximized again if it was, so turning tiling on brings it back like any other such window.
 
 For workspaces that tile with the scrolling layout the session also keeps the width of each
 column and which column, and place in its stack, each tile had; a restore puts the windows it
