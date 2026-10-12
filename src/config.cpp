@@ -416,6 +416,7 @@ void read_shell(lua_State *L, ShellConfig &shell) {
     shell.panel_height = integer(L, "panel_height", 52, 24, 100);
     named(L, "panel_position", nullptr, shell.panel_top, {{"top", true}, {"bottom", false}},
           "panel_position must be \"top\" or \"bottom\"");
+    boolean(L, "mirror_menus", "shell.mirror_menus", shell.mirror_menus);
     // One number for every side, or { top, right, bottom, left } by name.
     lua_getfield(L, -1, "panel_margin");
     if (lua_isinteger(L, -1)) {

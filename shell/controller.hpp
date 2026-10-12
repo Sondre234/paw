@@ -58,6 +58,8 @@ class ShellController : public QObject {
     Q_PROPERTY(QString style READ style NOTIFY configChanged)
     Q_PROPERTY(int panelHeight READ panelHeight NOTIFY configChanged)
     Q_PROPERTY(bool panelTop READ panelTop NOTIFY configChanged)
+    // shell.mirror_menus: whether the bar's right-click menus run in reverse along the top.
+    Q_PROPERTY(bool mirrorMenus READ mirrorMenus NOTIFY configChanged)
     Q_PROPERTY(int panelMarginTop READ panelMarginTop NOTIFY configChanged)
     Q_PROPERTY(int panelMarginRight READ panelMarginRight NOTIFY configChanged)
     Q_PROPERTY(int panelMarginBottom READ panelMarginBottom NOTIFY configChanged)
@@ -220,6 +222,7 @@ class ShellController : public QObject {
     QString style() const { return config_.shell.macos_style ? "macos" : "taskbar"; }
     int panelHeight() const { return config_.shell.panel_height; }
     bool panelTop() const { return config_.shell.panel_top; }
+    bool mirrorMenus() const { return config_.shell.mirror_menus; }
     int panelMarginTop() const { return config_.shell.panel_margin[0]; }
     int panelMarginRight() const { return config_.shell.panel_margin[1]; }
     int panelMarginBottom() const { return config_.shell.panel_margin[2]; }

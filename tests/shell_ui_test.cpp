@@ -1340,6 +1340,56 @@ ListModel {
         }
         if (!waitFor([&] { return !popover->isVisible(); }))
             return fail("the popover did not close after killing the process");
+    }
+    // With shell.mirror_menus, a bar along the top lists them the other way, so that killing and
+    // closing the window are still the nearest it and its title the farthest; along the bottom
+    // the order stays.
+    {
+        auto texts = [&] {
+            QStringList texts;
+            const auto entries = menu->property("entries").value<QJSValue>();
+            for (quint32 i = 0; i < entries.property("length").toUInt(); ++i) {
+                const auto entry = entries.property(i);
+                texts << (entry.property("title").isString()
+                              ? "title:" + entry.property("title").toString()
+                              : entry.property("text").toString());
+            }
+            return texts;
+        };
+        auto top = [&](const QString &text) {
+            return menuItem(text)->mapToScene(QPointF(0, 0)).y();
+        };
+        auto opened = [&] {
+            click(task, Qt::RightButton);
+            return waitFor([&] {
+                return menuShown() && menuItem("Kill process") && menuItem("Close window");
+            });
+        };
+        auto shut = [&] {
+            QTest::keyClick(popover, Qt::Key_Escape);
+            return waitFor([&] { return !popover->isVisible(); });
+        };
+        if (!reconfigure(QString(lua).replace("shell={", "shell={mirror_menus=true,")) ||
+            !waitFor([&] { return controller.mirrorMenus(); }))
+            return fail("shell.mirror_menus was not read");
+        if (!opened())
+            return fail("the window's menu did not open with shell.mirror_menus");
+        const QStringList along = texts();
+        if (along.last() != "Kill process" || top("Kill process") < top("Close window") || !shut())
+            return fail("shell.mirror_menus turned the menu of a bar along the bottom around");
+        const QString alongTop =
+            QString(lua).replace("shell={", "shell={mirror_menus=true,panel_position='top',");
+        if (!reconfigure(alongTop) ||
+            !waitFor([&] { return controller.mirrorMenus() && controller.panelTop(); }))
+            return fail("shell.mirror_menus was not read with a bar along the top");
+        QStringList reversed = along;
+        std::reverse(reversed.begin(), reversed.end());
+        if (!opened() || texts() != reversed || top("Kill process") > top("Close window"))
+            return fail("a window's menu on a bar along the top does not run the other way with "
+                        "shell.mirror_menus");
+        if (!shut() || !reconfigure(lua) ||
+            !waitFor([&] { return !controller.mirrorMenus() && !controller.panelTop(); }))
+            return fail("could not restore the configuration");
         editTasks("model.setProperty(0, 'pid', 0)");
     }
     // A stacked button's menu is about all its windows: counted under the title, minimized or

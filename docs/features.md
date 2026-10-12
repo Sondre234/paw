@@ -466,6 +466,11 @@ processes** when they come from more than one). Right-clicking a window in its h
 list opens that window's own menu. A pinned application's button without windows offers its
 desktop actions, **Open** and **Unpin from taskbar**; the bar's own menu has icons too.
 
+These menus open away from the bar, so along the top the title is nearest it and **Kill
+process** farthest. `shell.mirror_menus = true` turns them around there, so they read outwards
+from the bar as they do along the bottom: **Kill process** and **Close window** nearest the bar,
+the title last. Submenus keep their order.
+
 ### Start menu
 
 The bar's first button (or Super + R) opens the start menu, after Windows 11's, above the button.

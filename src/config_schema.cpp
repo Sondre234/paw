@@ -718,6 +718,11 @@ const Option options[] = {
     {"shell.panel_height", "integer", "52", "52", 24, 100, "Panel height in pixels."},
     {"shell.panel_position", "enum", "\"bottom\"", "\"bottom\"", none, none,
      "`\"top\"` or `\"bottom\"`."},
+    {"shell.mirror_menus", "boolean", "false", "false", none, none,
+     "With the panel along the top, its right-click menus list their entries in reverse, so "
+     "they read outwards from the bar as they do from one along the bottom: a window's begins "
+     "with killing its process and closing it, nearest the bar, and ends with its title. "
+     "Submenus keep their order."},
     {"shell.panel_margin", "integer or table", "0", "0", none, none,
      "Pixels around the panel, 0 to 200: one number, or `{ top, right, bottom, left }` by "
      "name, to make it float."},

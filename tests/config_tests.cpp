@@ -762,10 +762,11 @@ int main(int argc, char **argv) {
         rejects("return {version=2}");
         rejects("return {shell={panel_height=0}}");
         auto bar = paw::parse_config(
-            "return {shell={panel_position='top',panel_margin={top=6,left=10,right=10},"
-            "panel_radius=12,font='JetBrainsMono Nerd Font',font_size=13,icons_only=false,"
+            "return {shell={panel_position='top',mirror_menus=true,"
+            "panel_margin={top=6,left=10,right=10},panel_radius=12,"
+            "font='JetBrainsMono Nerd Font',font_size=13,icons_only=false,"
             "group_windows=false,workspaces_shown=3,panel_color='#151e2ccc'}}");
-        require(bar.shell.panel_top && bar.shell.panel_margin[0] == 6 &&
+        require(bar.shell.panel_top && bar.shell.mirror_menus && bar.shell.panel_margin[0] == 6 &&
                     bar.shell.panel_margin[1] == 10 && bar.shell.panel_margin[2] == 0 &&
                     bar.shell.panel_margin[3] == 10 && bar.shell.panel_radius == 12 &&
                     bar.shell.font == "JetBrainsMono Nerd Font" && bar.shell.font_size == 13 &&
@@ -774,7 +775,8 @@ int main(int argc, char **argv) {
                 "bar settings not parsed");
         auto even = paw::parse_config("return {shell={panel_margin=8}}");
         require(even.shell.panel_margin[0] == 8 && even.shell.panel_margin[3] == 8 &&
-                    !even.shell.panel_top && even.shell.icons_only && even.shell.group_windows &&
+                    !even.shell.panel_top && !even.shell.mirror_menus && even.shell.icons_only &&
+                    even.shell.group_windows &&
                     even.shell.workspaces_shown == 0,
                 "single panel margin not parsed");
         require(!even.shell.software_renderer, "the shell does not draw through the GPU by default");
@@ -800,6 +802,7 @@ int main(int argc, char **argv) {
         rejects("return {shell={panel_margin={middle=1}}}");
         rejects("return {shell={font_size=2}}");
         rejects("return {shell={group_windows=1}}");
+        rejects("return {shell={mirror_menus='yes'}}");
         // The taskbar's window pictures: on by default, each setting read, and their ranges.
         require(even.shell.thumbnails.enabled && even.shell.thumbnails.delay == 400 &&
                     even.shell.thumbnails.size == 240 && even.shell.thumbnails.live,

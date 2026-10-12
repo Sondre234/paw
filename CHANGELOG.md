@@ -147,6 +147,9 @@ shadows.
 - A window's menu ends with Kill process (Kill 2 processes on a stack of windows from more than
   one), which ends the process that made it with SIGKILL, for an application that does not
   close; the dock's has macOS's Force Quit.
+- `shell.mirror_menus = true` turns the bar's right-click menus around when the bar is along the
+  top, so that Kill process and Close window are the nearest it there too, and the title the
+  farthest.
 - Menus share one look and the keyboard: Up, Down, Home and End move, Enter or Space chooses, and
   Escape closes. Submenus open beside their entries instead of in their place (the bar menu's
   appearance profiles, a tray item's submenus, whose application hears of each level as it opens
