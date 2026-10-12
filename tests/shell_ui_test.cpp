@@ -888,6 +888,27 @@ int main(int argc, char **argv) {
             std::cerr << '\n';
             return 1;
         }
+        // Today is marked from the calendar's now, so a day passing in a running shell moves it.
+        {
+            const QDate date = QDate::currentDate();
+            const QDate other = date.addDays(date.day() > 1 ? -1 : 1);
+            calendar->setProperty("now", QDateTime(other, QTime(12, 0)));
+            auto marked = [&] {
+                QList<int> found;
+                for (QQuickItem *day : days->childItems())
+                    if (day->property("isToday").toBool())
+                        found << day->property("model").value<QObject *>()->property("day").toInt();
+                return found;
+            };
+            if (!waitFor([&] { return marked() == QList<int>{other.day()}; })) {
+                std::cerr << "the calendar marks as today, not just day " << other.day() << ':';
+                for (int day : marked())
+                    std::cerr << ' ' << day;
+                std::cerr << '\n';
+                return 1;
+            }
+            calendar->setProperty("now", QDateTime::currentDateTime());
+        }
         const int month = calendar->property("month").toInt();
         click(find(view.rootObject(), "calendarNext"));
         if (!waitFor([&] { return calendar->property("month").toInt() == (month + 1) % 12; }))
