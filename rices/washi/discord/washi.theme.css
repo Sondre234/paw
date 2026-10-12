@@ -1,0 +1,550 @@
+/**
+ * @name washi
+ * @author paw
+ * @version 1.0.0
+ * @description Washi by day, sumi by night: ink on cream paper with caramel toe beans and a vermilion seal. Discord's light theme becomes washi, every dark theme becomes sumi.
+ * @source https://github.com/Sondre234/paw/tree/main/rices/washi/discord
+ * @license GPL-3.0-or-later
+ */
+
+/* washi (和紙) and sumi (墨) for Discord — part of paw's washi rice.
+ *
+ * "A cat walked across the paper": handmade cream paper, ink outlines, the paw logo's caramel
+ * toe beans as the accent and a vermilion hanko seal for the rare loud thing. Neo-brutalist
+ * print: 2px ink outlines and hard offset shadows in washi; in sumi the same sheet is soaked in
+ * ink under a lamp, with cream text, brighter caramel and soft deep shadows.
+ *
+ * Built on the design tokens of Discord's 2025+ "visual refresh" UI (checked against web build
+ * 634304), with a handful of hash-free structural selectors for the outlines. Pick Discord's
+ * Light theme for washi and Dark, Darker or Midnight for sumi.
+ *
+ * Fonts: Space Grotesk (UI) and Maple Mono (code), both OFL. Space Grotesk comes from Google
+ * Fonts below; delete the @import if it is installed locally. Maple Mono must be installed.
+ *
+ * Copyright (C) 2026 paw contributors. This file is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option) any later version.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap");
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 1. Palettes. The only place colours are written down; everything below refers to these.
+ *    The :not() keeps Nitro profile themes (custom-user-profile-theme) in their owner's colours,
+ *    and the doubled class weight beats Discord's own single-class token rules.
+ * ------------------------------------------------------------------------------------------- */
+
+/* washi — ink on cream paper */
+.theme-light:not(.custom-user-profile-theme) {
+    --paw-frame: #EFE6D6;          /* app frame, server rail, title bar: sunken paper */
+    --paw-paper: #F3EBDD;          /* channel list and chat */
+    --paw-sheet: #FBF7EF;          /* cards: message box, popouts, menus, modals, user panel */
+    --paw-sheet-nested: #FBF7EF;   /* a surface on a surface */
+    --paw-raised: #F1E8D8;         /* modal footers, alternate embeds */
+    --paw-sunken: #EFE6D6;         /* inputs, code */
+    --paw-selection: #EBDCC4;
+    --paw-line: #D6C8B2;           /* hairlines */
+    --paw-line-strong: #B9A88F;    /* input borders, scrollbar thumbs */
+    --paw-outline: #2B221C;        /* the brutalist 2px ink outline */
+    --paw-outline-focus: #2B221C;
+    --paw-veil: #2B221C;           /* hover and press tints are this at low alpha */
+    --paw-scrim: rgb(43 34 28 / 0.5);
+
+    --paw-text: #2B221C;           /* ink: 13.2:1 on paper */
+    --paw-text-subtle: #5C4F45;    /* 6.7:1 */
+    --paw-text-muted: #6B5D51;     /* 5.4:1, the palette's #7A6B5E a step darker to clear AA */
+    --paw-text-faint: #928272;     /* muted channels: quiet on purpose (3.1:1) */
+
+    --paw-accent: #A87650;         /* caramel: markers, rules, tints */
+    --paw-accent-text: #875630;    /* caramel as text on paper: links, brand text (5.2:1) */
+    --paw-accent-fill: #9A6438;    /* caramel under Discord's white labels (4.9:1) */
+    --paw-accent-fill-hsl: 26.9 46.7% 41.2%;
+    --paw-accent-fill-hover: #8A5A32;
+    --paw-accent-fill-active: #734A2C;
+    --paw-button: #9A6438;         /* primary buttons */
+    --paw-button-hover: #8A5A32;
+    --paw-button-active: #734A2C;
+    --paw-on-button: #FBF7EF;      /* 4.6:1 */
+    --paw-mention-text: #734A2C;
+    --paw-seal: #B03A2E;           /* vermilion: danger, unread, the rare loud thing */
+    --paw-seal-fill: #B03A2E;      /* badges and destructive buttons, under light text */
+    --paw-seal-fill-hover: #96302A;
+    --paw-on-seal-fill: #FBF7EF;
+
+    --paw-green: #4F6F26;
+    --paw-ochre: #8A5A0E;
+    --paw-indigo: #2D5A82;
+    --paw-plum: #873C66;
+    --paw-teal: #276A61;
+
+    /* card edges: a 2px ink outline and a hard ink offset shadow, no blur */
+    --paw-ring: 0 0 0 2px var(--paw-outline);
+    --paw-drop: 5px 5px 0 0 var(--paw-outline);
+    --paw-drop-small: 3px 3px 0 0 var(--paw-outline);
+    --paw-drop-composer: var(--paw-drop);
+    --paw-icon-ring: 2px;          /* the outline round server icons */
+}
+
+/* sumi — the same sheet soaked in ink, under a lamp */
+.theme-dark:not(.custom-user-profile-theme),
+.theme-darker:not(.custom-user-profile-theme),
+.theme-midnight:not(.custom-user-profile-theme) {
+    --paw-frame: #120F0D;
+    --paw-paper: #161210;
+    --paw-sheet: #1D1916;
+    --paw-sheet-nested: #26201C;
+    --paw-raised: #26201C;
+    --paw-sunken: #120F0D;
+    --paw-selection: #3E3128;      /* the palette's #4A3A2E a shade deeper: muted text keeps AA */
+    --paw-line: #3A302A;
+    --paw-line-strong: #54473E;
+    --paw-outline: #3A302A;
+    --paw-outline-focus: #A86A3C;
+    --paw-veil: #E8DCCB;
+    --paw-scrim: rgb(0 0 0 / 0.7);
+
+    --paw-text: #E8DCCB;           /* cream: 13.8:1 on the page */
+    --paw-text-subtle: #CDBFAD;    /* 10.3:1 */
+    --paw-text-muted: #A89A88;     /* 6.8:1 */
+    --paw-text-faint: #6B5F55;     /* muted channels (3.0:1) */
+
+    --paw-accent: #D6A06E;         /* caramel lit brighter */
+    --paw-accent-text: #D6A06E;    /* 8.1:1 */
+    --paw-accent-fill: #9A6438;    /* under Discord's white labels (4.9:1) */
+    --paw-accent-fill-hsl: 26.9 46.7% 41.2%;
+    --paw-accent-fill-hover: #8A5A32;
+    --paw-accent-fill-active: #734A2C;
+    --paw-button: #D6A06E;
+    --paw-button-hover: #E2B485;
+    --paw-button-active: #C8915F;
+    --paw-on-button: #1A1613;      /* 7.8:1 */
+    --paw-mention-text: #E2B485;
+    --paw-seal: #D96F5E;
+    --paw-seal-fill: #BC4436;
+    --paw-seal-fill-hover: #A8392D;
+    --paw-on-seal-fill: #FBF7EF;
+
+    --paw-green: #A3B47A;
+    --paw-ochre: #E2AE62;
+    --paw-indigo: #8EA8BC;
+    --paw-plum: #C98EA4;
+    --paw-teal: #8DB8AA;
+
+    /* an ink shadow on ink is invisible: a hairline edge and a soft, deep shadow instead */
+    --paw-ring: 0 0 0 1px var(--paw-line);
+    --paw-drop: 0 14px 40px 0 rgb(0 0 0 / 0.55);
+    --paw-drop-small: 0 8px 22px 0 rgb(0 0 0 / 0.45);
+    --paw-drop-composer: 4px 4px 0 0 rgb(168 106 60 / 0.5), var(--paw-drop-small);  /* a caramel misprint */
+    --paw-icon-ring: 1px;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 2. Discord's tokens, mapped onto the palette (the same mapping serves both variants).
+ * ------------------------------------------------------------------------------------------- */
+
+.theme-light:not(.custom-user-profile-theme),
+.theme-dark:not(.custom-user-profile-theme),
+.theme-darker:not(.custom-user-profile-theme),
+.theme-midnight:not(.custom-user-profile-theme) {
+    /* surfaces */
+    --background-base-lowest: var(--paw-frame);
+    --background-base-lower: var(--paw-paper);
+    --background-base-low: var(--paw-sheet);
+    --background-surface-high: var(--paw-sheet);
+    --background-surface-higher: var(--paw-sheet-nested);
+    --background-surface-highest: var(--paw-sheet-nested);
+    --app-frame-background: var(--paw-frame);
+    --app-frame-border: var(--paw-line);
+    --chat-background-default: var(--paw-sheet);
+    --channeltextarea-background: var(--paw-sheet);
+    --card-background-default: var(--paw-sheet);
+    --bg-surface-raised: var(--paw-sheet);
+    --modal-background: var(--paw-sheet);
+    --modal-footer-background: var(--paw-raised);
+    --embed-background: var(--paw-sheet);
+    --embed-background-alternate: var(--paw-raised);
+    --background-brand: var(--paw-accent-fill);
+    --background-code: var(--paw-sunken);
+    --background-scrim: var(--paw-scrim);
+
+    /* hover, press and selection tints */
+    --background-mod-subtle: color-mix(in srgb, var(--paw-veil) 7%, transparent);
+    --background-mod-muted: color-mix(in srgb, var(--paw-veil) 5%, transparent);
+    --background-mod-normal: color-mix(in srgb, var(--paw-veil) 11%, transparent);
+    --background-mod-strong: color-mix(in srgb, var(--paw-veil) 16%, transparent);
+    --interactive-background-hover: color-mix(in srgb, var(--paw-veil) 7%, transparent);
+    --interactive-background-active: color-mix(in srgb, var(--paw-veil) 12%, transparent);
+    --interactive-background-selected: var(--paw-selection);
+    --message-background-hover: color-mix(in srgb, var(--paw-veil) 4%, transparent);
+
+    /* text */
+    --text-default: var(--paw-text);
+    --text-strong: var(--paw-text);
+    --text-subtle: var(--paw-text-subtle);
+    --text-muted: var(--paw-text-muted);
+    --text-link: var(--paw-accent-text);
+    --text-brand: var(--paw-accent-text);
+    --text-invert: var(--paw-sheet);
+    --text-feedback-critical: var(--paw-seal);
+    --text-feedback-positive: var(--paw-green);
+    --text-feedback-warning: var(--paw-ochre);
+    --text-feedback-info: var(--paw-indigo);
+    --channels-default: var(--paw-text-subtle);
+    --channel-icon: var(--paw-text-muted);
+    --channel-text-area-placeholder: var(--paw-text-muted);
+    --input-placeholder-text-default: var(--paw-text-muted);
+    --input-text-default: var(--paw-text);
+
+    /* icons and interactive text */
+    --interactive-text-default: var(--paw-text-subtle);
+    --interactive-text-hover: var(--paw-text);
+    --interactive-text-active: var(--paw-text);
+    --interactive-icon-default: var(--paw-text-subtle);
+    --interactive-icon-hover: var(--paw-text);
+    --interactive-icon-active: var(--paw-text);
+    --interactive-muted: var(--paw-text-faint);
+    --icon-default: var(--paw-text-subtle);
+    --icon-strong: var(--paw-text);
+    --icon-subtle: var(--paw-text-subtle);
+    --icon-muted: var(--paw-text-muted);
+    --icon-brand: var(--paw-accent-text);
+    --icon-link: var(--paw-accent-text);
+    --icon-feedback-critical: var(--paw-seal);
+    --icon-feedback-positive: var(--paw-green);
+    --icon-feedback-warning: var(--paw-ochre);
+    --icon-feedback-info: var(--paw-indigo);
+    --icon-feedback-notification: var(--paw-seal);
+
+    /* lines */
+    --border-subtle: var(--paw-line);
+    --border-muted: color-mix(in srgb, var(--paw-line) 70%, transparent);
+    --border-normal: var(--paw-line-strong);
+    --border-strong: var(--paw-outline);
+    --border-focus: var(--paw-accent);
+    --input-background-default: var(--paw-sunken);
+    --input-border-default: var(--paw-line-strong);
+    --input-border-hover: var(--paw-outline);
+    --input-border-active: var(--paw-accent);
+
+    /* caramel instead of blurple */
+    --brand-500: var(--paw-accent-fill);
+    --brand-500-hsl: var(--paw-accent-fill-hsl);
+    --brand-560: var(--paw-accent-fill-hover);
+    --brand-600: var(--paw-accent-fill-active);
+    --brand-360: var(--paw-accent);
+    --blurple-50: var(--paw-accent-fill);
+    --blurple-50-hsl: var(--paw-accent-fill-hsl);
+    --control-brand-foreground: var(--paw-accent-text);
+    --control-brand-foreground-new: var(--paw-accent-text);
+    --tabs-indicator-default: var(--paw-accent);
+    --progressbar-indicator-background: var(--paw-accent);
+    --badge-background-brand: var(--paw-accent-fill);
+    --badge-notification-background: var(--paw-seal-fill);
+    --background-feedback-notification: var(--paw-seal-fill);
+
+    /* buttons: caramel primary with an ink edge, seal for destructive, green for "connected" */
+    --control-primary-background-default: var(--paw-button);
+    --control-primary-background-hover: var(--paw-button-hover);
+    --control-primary-background-active: var(--paw-button-active);
+    --control-primary-border-default: var(--paw-outline);
+    --control-primary-border-hover: var(--paw-outline);
+    --control-primary-border-active: var(--paw-outline);
+    --control-primary-text-default: var(--paw-on-button);
+    --control-primary-text-hover: var(--paw-on-button);
+    --control-primary-text-active: var(--paw-on-button);
+    --control-primary-icon-default: var(--paw-on-button);
+    --control-primary-icon-hover: var(--paw-on-button);
+    --control-primary-icon-active: var(--paw-on-button);
+    --control-secondary-background-default: color-mix(in srgb, var(--paw-veil) 8%, transparent);
+    --control-secondary-background-hover: color-mix(in srgb, var(--paw-veil) 13%, transparent);
+    --control-secondary-background-active: color-mix(in srgb, var(--paw-veil) 18%, transparent);
+    --control-secondary-border-default: var(--paw-line-strong);
+    --control-secondary-border-hover: var(--paw-outline);
+    --control-secondary-border-active: var(--paw-outline);
+    --control-secondary-text-default: var(--paw-text);
+    --control-secondary-text-hover: var(--paw-text);
+    --control-secondary-text-active: var(--paw-text);
+    --control-secondary-icon-default: var(--paw-text);
+    --control-secondary-icon-hover: var(--paw-text);
+    --control-secondary-icon-active: var(--paw-text);
+    --control-critical-primary-background-default: var(--paw-seal-fill);
+    --control-critical-primary-background-hover: var(--paw-seal-fill-hover);
+    --control-critical-primary-background-active: var(--paw-seal-fill-hover);
+    --control-critical-primary-border-default: var(--paw-outline);
+    --control-critical-primary-border-hover: var(--paw-outline);
+    --control-critical-primary-border-active: var(--paw-outline);
+    --control-critical-primary-text-default: var(--paw-on-seal-fill);
+    --control-critical-primary-text-hover: var(--paw-on-seal-fill);
+    --control-critical-primary-text-active: var(--paw-on-seal-fill);
+    --control-critical-primary-icon-default: var(--paw-on-seal-fill);
+    --control-critical-primary-icon-hover: var(--paw-on-seal-fill);
+    --control-critical-primary-icon-active: var(--paw-on-seal-fill);
+    --control-critical-secondary-text-default: var(--paw-seal);
+    --control-critical-secondary-text-hover: var(--paw-seal);
+    --control-critical-secondary-text-active: var(--paw-seal);
+    --control-critical-secondary-icon-default: var(--paw-seal);
+    --control-critical-secondary-icon-hover: var(--paw-seal);
+    --control-critical-secondary-icon-active: var(--paw-seal);
+    --control-connected-background-default: var(--paw-green);
+    --control-connected-background-hover: color-mix(in oklab, var(--paw-green) 85%, var(--paw-text));
+    --control-connected-background-active: color-mix(in oklab, var(--paw-green) 75%, var(--paw-text));
+    --control-connected-text-default: var(--paw-sheet);
+    --control-connected-text-hover: var(--paw-sheet);
+    --control-connected-text-active: var(--paw-sheet);
+    --control-connected-icon-default: var(--paw-sheet);
+    --control-connected-icon-hover: var(--paw-sheet);
+    --control-connected-icon-active: var(--paw-sheet);
+
+    /* switches, checkboxes, radios: caramel when on */
+    --switch-background-selected-default: var(--paw-accent-fill);
+    --switch-background-selected-hover: var(--paw-accent-fill-hover);
+    --switch-thumb-icon-active: var(--paw-accent-fill);
+    --checkbox-background-selected-default: var(--paw-accent-fill);
+    --checkbox-background-selected-hover: var(--paw-accent-fill-hover);
+    --radio-background-selected-default: var(--paw-accent-fill);
+    --radio-background-selected-hover: var(--paw-accent-fill-hover);
+    --radio-foreground-active: var(--paw-accent-fill);
+
+    /* mentions in caramel; a jumped-to or replied-to message on the selection tone */
+    --mention-foreground: var(--paw-mention-text);
+    --mention-background: color-mix(in srgb, var(--paw-accent) 24%, transparent);
+    --message-mentioned-background-default: color-mix(in srgb, var(--paw-accent) 12%, transparent);
+    --message-mentioned-background-hover: color-mix(in srgb, var(--paw-accent) 15%, transparent);
+    --message-highlight-background-default: color-mix(in srgb, var(--paw-selection) 70%, transparent);
+    --message-highlight-background-hover: var(--paw-selection);
+    --reaction-background-reacted-default: color-mix(in srgb, var(--paw-accent) 18%, transparent);
+    --reaction-background-reacted-hover: color-mix(in srgb, var(--paw-accent) 26%, transparent);
+    --reaction-border-reacted-default: var(--paw-accent);
+    --reaction-text-reacted-default: var(--paw-accent-text);
+
+    /* presence and voice */
+    --status-positive: var(--paw-green);
+    --status-online: var(--paw-green);
+    --status-speaking: var(--paw-green);
+    --status-warning: var(--paw-ochre);
+    --status-danger: var(--paw-seal);
+    --text-status-online: var(--paw-green);
+    --text-status-idle: var(--paw-ochre);
+    --text-status-dnd: var(--paw-seal);
+    --text-status-offline: var(--paw-text-muted);
+    --icon-status-online: var(--paw-green);
+    --icon-status-idle: var(--paw-ochre);
+    --icon-status-dnd: var(--paw-seal);
+    --icon-status-offline: var(--paw-text-muted);
+
+    /* code: the kitty palette */
+    --text-code: var(--paw-text);
+    --text-code-comment: var(--paw-text-muted);
+    --text-code-keyword: var(--paw-plum);
+    --text-code-string: var(--paw-green);
+    --text-code-number: var(--paw-ochre);
+    --text-code-title: var(--paw-indigo);
+    --text-code-type: var(--paw-teal);
+    --text-code-builtin: var(--paw-teal);
+    --text-code-property: var(--paw-indigo);
+    --text-code-attribute: var(--paw-ochre);
+    --text-code-variable: var(--paw-text);
+    --text-code-operator: var(--paw-text-subtle);
+    --text-code-tag: var(--paw-seal);
+    --text-code-section: var(--paw-accent-text);
+    --text-code-bullet: var(--paw-accent-text);
+    --text-code-link: var(--paw-indigo);
+    --text-code-addition: var(--paw-green);
+    --text-code-deletion: var(--paw-seal);
+
+    /* scrollbars: quiet */
+    --scrollbar-auto-thumb: var(--paw-line-strong);
+    --scrollbar-auto-track: transparent;
+    --scrollbar-thin-thumb: var(--paw-line-strong);
+    --scrollbar-thin-track: transparent;
+    --scrollbar-auto-scrollbar-color-thumb: var(--paw-line-strong);
+    --scrollbar-auto-scrollbar-color-track: transparent;
+
+    /* shadows: Discord's popouts, menus, tooltips and modals are built from these, so this is
+       what turns them into ink-edged cards in washi and soft floating sheets in sumi */
+    --shadow-border: var(--paw-ring);
+    --shadow-high: var(--paw-ring), var(--paw-drop);
+    --shadow-medium: var(--paw-ring), var(--paw-drop-small);
+    --shadow-low: var(--paw-drop-small);
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 3. Type and shape. On body, so it beats Discord's per-language :root:lang() font stacks.
+ * ------------------------------------------------------------------------------------------- */
+
+body {
+    --font-primary: "Space Grotesk", "Inter", "gg sans", "Noto Sans", system-ui, sans-serif;
+    --font-headline: "Space Grotesk", "Inter", "gg sans", "Noto Sans", system-ui, sans-serif;
+    --font-code: "Maple Mono", "JetBrains Mono", "gg mono", "Source Code Pro", ui-monospace, monospace;
+    --radius-sm: 10px;
+    --radius-md: 12px;
+    --radius-lg: 12px;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 4. Catch-all: Discord's raw colour ramps, warmed. Anything not mapped above still reads as
+ *    paper and ink rather than cool grey, and stray blurple turns caramel. Generated: each step
+ *    keeps Discord's lightness (OKLab L, ends folded in so paper is never pure white) and takes
+ *    the palette's hue and chroma. :root:root outweighs Discord's own :root definitions.
+ * ------------------------------------------------------------------------------------------- */
+
+:root:root {
+    /* the translucent greys behind Discord's hover and border tints */
+    --opacity-1-hsl: 30 12% 55%; --opacity-4-hsl: 30 12% 55%; --opacity-8-hsl: 30 12% 55%;
+    --opacity-12-hsl: 30 12% 55%; --opacity-16-hsl: 30 12% 55%; --opacity-20-hsl: 30 12% 55%;
+    --opacity-24-hsl: 30 12% 55%; --opacity-28-hsl: 30 12% 55%; --opacity-32-hsl: 30 12% 55%;
+    --opacity-36-hsl: 30 12% 55%; --opacity-40-hsl: 30 12% 55%; --opacity-44-hsl: 30 12% 55%;
+    --opacity-48-hsl: 30 12% 55%; --opacity-52-hsl: 30 12% 55%; --opacity-56-hsl: 30 12% 55%;
+    --opacity-60-hsl: 30 12% 55%; --opacity-64-hsl: 30 12% 55%; --opacity-68-hsl: 30 12% 55%;
+    --opacity-72-hsl: 30 12% 55%; --opacity-76-hsl: 30 12% 55%; --opacity-80-hsl: 30 12% 55%;
+    --opacity-84-hsl: 30 12% 55%; --opacity-88-hsl: 30 12% 55%; --opacity-92-hsl: 30 12% 55%;
+    --opacity-96-hsl: 30 12% 55%;
+    /* ...and the translucent blurples behind mention and reaction tints */
+    --opacity-blurple-1-hsl: 26 40% 50%; --opacity-blurple-4-hsl: 26 40% 50%; --opacity-blurple-8-hsl: 26 40% 50%;
+    --opacity-blurple-12-hsl: 26 40% 50%; --opacity-blurple-16-hsl: 26 40% 50%; --opacity-blurple-20-hsl: 26 40% 50%;
+    --opacity-blurple-24-hsl: 26 40% 50%; --opacity-blurple-28-hsl: 26 40% 50%; --opacity-blurple-32-hsl: 26 40% 50%;
+    --opacity-blurple-36-hsl: 26 40% 50%; --opacity-blurple-40-hsl: 26 40% 50%; --opacity-blurple-44-hsl: 26 40% 50%;
+    --opacity-blurple-48-hsl: 26 40% 50%; --opacity-blurple-52-hsl: 26 40% 50%; --opacity-blurple-56-hsl: 26 40% 50%;
+    --opacity-blurple-60-hsl: 26 40% 50%; --opacity-blurple-64-hsl: 26 40% 50%; --opacity-blurple-68-hsl: 26 40% 50%;
+    --opacity-blurple-72-hsl: 26 40% 50%; --opacity-blurple-76-hsl: 26 40% 50%; --opacity-blurple-80-hsl: 26 40% 50%;
+    --opacity-blurple-84-hsl: 26 40% 50%; --opacity-blurple-88-hsl: 26 40% 50%; --opacity-blurple-92-hsl: 26 40% 50%;
+    --opacity-blurple-96-hsl: 26 40% 50%;
+    /* the neutral ramp, as paper and ink */
+    --neutral-1-hsl: 40.0 calc(var(--saturation-factor, 1)*60.0%) 96.1%; --neutral-2-hsl: 39.5 calc(var(--saturation-factor, 1)*54.2%) 94.7%; --neutral-3-hsl: 39.0 calc(var(--saturation-factor, 1)*51.0%) 93.4%;
+    --neutral-4-hsl: 38.5 calc(var(--saturation-factor, 1)*48.9%) 92.0%; --neutral-5-hsl: 38.1 calc(var(--saturation-factor, 1)*47.9%) 90.7%; --neutral-6-hsl: 37.9 calc(var(--saturation-factor, 1)*48.2%) 89.5%;
+    --neutral-7-hsl: 37.6 calc(var(--saturation-factor, 1)*48.6%) 88.2%; --neutral-8-hsl: 37.3 calc(var(--saturation-factor, 1)*48.9%) 86.7%; --neutral-9-hsl: 37.1 calc(var(--saturation-factor, 1)*49.2%) 85.4%;
+    --neutral-10-hsl: 36.9 calc(var(--saturation-factor, 1)*47.2%) 83.9%; --neutral-11-hsl: 36.9 calc(var(--saturation-factor, 1)*43.3%) 82.7%; --neutral-12-hsl: 36.8 calc(var(--saturation-factor, 1)*39.2%) 81.1%;
+    --neutral-13-hsl: 36.8 calc(var(--saturation-factor, 1)*36.0%) 79.7%; --neutral-14-hsl: 36.7 calc(var(--saturation-factor, 1)*32.9%) 78.2%; --neutral-15-hsl: 36.7 calc(var(--saturation-factor, 1)*30.7%) 77.0%;
+    --neutral-16-hsl: 36.4 calc(var(--saturation-factor, 1)*28.5%) 75.5%; --neutral-17-hsl: 36.2 calc(var(--saturation-factor, 1)*26.8%) 74.1%; --neutral-18-hsl: 35.9 calc(var(--saturation-factor, 1)*25.1%) 72.6%;
+    --neutral-19-hsl: 35.7 calc(var(--saturation-factor, 1)*23.8%) 71.4%; --neutral-20-hsl: 35.5 calc(var(--saturation-factor, 1)*22.4%) 69.8%; --neutral-21-hsl: 35.2 calc(var(--saturation-factor, 1)*21.2%) 68.5%;
+    --neutral-22-hsl: 35.0 calc(var(--saturation-factor, 1)*20.3%) 67.2%; --neutral-23-hsl: 34.8 calc(var(--saturation-factor, 1)*19.2%) 65.7%; --neutral-24-hsl: 34.5 calc(var(--saturation-factor, 1)*18.2%) 64.3%;
+    --neutral-25-hsl: 34.3 calc(var(--saturation-factor, 1)*17.4%) 63.1%; --neutral-26-hsl: 34.1 calc(var(--saturation-factor, 1)*16.6%) 61.6%; --neutral-27-hsl: 33.9 calc(var(--saturation-factor, 1)*16.0%) 60.5%;
+    --neutral-28-hsl: 33.5 calc(var(--saturation-factor, 1)*15.2%) 59.0%; --neutral-29-hsl: 33.1 calc(var(--saturation-factor, 1)*14.7%) 57.8%; --neutral-30-hsl: 32.6 calc(var(--saturation-factor, 1)*14.1%) 56.4%;
+    --neutral-31-hsl: 32.2 calc(var(--saturation-factor, 1)*13.6%) 55.2%; --neutral-32-hsl: 31.7 calc(var(--saturation-factor, 1)*13.1%) 53.8%; --neutral-33-hsl: 31.4 calc(var(--saturation-factor, 1)*12.7%) 52.7%;
+    --neutral-34-hsl: 30.8 calc(var(--saturation-factor, 1)*12.2%) 51.2%; --neutral-35-hsl: 30.5 calc(var(--saturation-factor, 1)*11.8%) 50.0%; --neutral-36-hsl: 30.0 calc(var(--saturation-factor, 1)*12.0%) 48.6%;
+    --neutral-37-hsl: 29.6 calc(var(--saturation-factor, 1)*12.1%) 47.4%; --neutral-38-hsl: 29.1 calc(var(--saturation-factor, 1)*12.4%) 46.0%; --neutral-39-hsl: 28.7 calc(var(--saturation-factor, 1)*12.5%) 44.8%;
+    --neutral-40-hsl: 28.3 calc(var(--saturation-factor, 1)*12.7%) 43.7%; --neutral-41-hsl: 27.8 calc(var(--saturation-factor, 1)*13.0%) 42.2%; --neutral-42-hsl: 27.7 calc(var(--saturation-factor, 1)*13.1%) 41.1%;
+    --neutral-43-hsl: 27.5 calc(var(--saturation-factor, 1)*13.2%) 39.9%; --neutral-44-hsl: 27.2 calc(var(--saturation-factor, 1)*13.4%) 38.5%; --neutral-45-hsl: 27.0 calc(var(--saturation-factor, 1)*13.5%) 37.3%;
+    --neutral-46-hsl: 26.8 calc(var(--saturation-factor, 1)*13.6%) 36.2%; --neutral-47-hsl: 26.7 calc(var(--saturation-factor, 1)*13.8%) 35.0%; --neutral-48-hsl: 26.4 calc(var(--saturation-factor, 1)*14.0%) 33.5%;
+    --neutral-49-hsl: 26.2 calc(var(--saturation-factor, 1)*14.2%) 32.4%; --neutral-50-hsl: 26.0 calc(var(--saturation-factor, 1)*14.4%) 31.2%; --neutral-51-hsl: 26.0 calc(var(--saturation-factor, 1)*14.5%) 30.4%;
+    --neutral-52-hsl: 25.9 calc(var(--saturation-factor, 1)*14.6%) 30.0%; --neutral-53-hsl: 25.8 calc(var(--saturation-factor, 1)*14.7%) 29.3%; --neutral-54-hsl: 25.8 calc(var(--saturation-factor, 1)*14.8%) 28.9%;
+    --neutral-55-hsl: 25.7 calc(var(--saturation-factor, 1)*15.0%) 28.1%; --neutral-56-hsl: 25.6 calc(var(--saturation-factor, 1)*15.1%) 27.7%; --neutral-57-hsl: 25.5 calc(var(--saturation-factor, 1)*15.3%) 26.9%;
+    --neutral-58-hsl: 25.5 calc(var(--saturation-factor, 1)*15.4%) 26.2%; --neutral-59-hsl: 25.4 calc(var(--saturation-factor, 1)*15.6%) 25.7%; --neutral-60-hsl: 25.3 calc(var(--saturation-factor, 1)*15.8%) 25.0%;
+    --neutral-61-hsl: 25.3 calc(var(--saturation-factor, 1)*15.9%) 24.5%; --neutral-62-hsl: 25.2 calc(var(--saturation-factor, 1)*16.1%) 23.8%; --neutral-63-hsl: 25.1 calc(var(--saturation-factor, 1)*16.2%) 23.4%;
+    --neutral-64-hsl: 25.0 calc(var(--saturation-factor, 1)*16.5%) 22.6%; --neutral-65-hsl: 25.0 calc(var(--saturation-factor, 1)*16.6%) 22.2%; --neutral-66-hsl: 24.9 calc(var(--saturation-factor, 1)*16.9%) 21.4%;
+    --neutral-67-hsl: 24.9 calc(var(--saturation-factor, 1)*17.1%) 21.0%; --neutral-68-hsl: 24.8 calc(var(--saturation-factor, 1)*17.3%) 20.3%; --neutral-69-hsl: 24.7 calc(var(--saturation-factor, 1)*17.5%) 19.9%;
+    --neutral-70-hsl: 24.6 calc(var(--saturation-factor, 1)*17.8%) 19.2%; --neutral-71-hsl: 24.6 calc(var(--saturation-factor, 1)*18.1%) 18.7%; --neutral-72-hsl: 24.5 calc(var(--saturation-factor, 1)*18.4%) 18.0%;
+    --neutral-73-hsl: 24.4 calc(var(--saturation-factor, 1)*18.7%) 17.5%; --neutral-74-hsl: 24.4 calc(var(--saturation-factor, 1)*19.0%) 16.9%; --neutral-75-hsl: 24.3 calc(var(--saturation-factor, 1)*19.4%) 16.3%;
+    --neutral-76-hsl: 24.2 calc(var(--saturation-factor, 1)*19.8%) 15.7%; --neutral-77-hsl: 24.2 calc(var(--saturation-factor, 1)*20.1%) 15.3%; --neutral-78-hsl: 24.1 calc(var(--saturation-factor, 1)*20.5%) 14.7%;
+    --neutral-79-hsl: 24.0 calc(var(--saturation-factor, 1)*21.0%) 14.1%; --neutral-80-hsl: 24.1 calc(var(--saturation-factor, 1)*20.7%) 13.6%; --neutral-81-hsl: 24.4 calc(var(--saturation-factor, 1)*19.7%) 12.9%;
+    --neutral-82-hsl: 24.5 calc(var(--saturation-factor, 1)*19.5%) 12.8%; --neutral-83-hsl: 24.6 calc(var(--saturation-factor, 1)*19.1%) 12.6%; --neutral-84-hsl: 24.7 calc(var(--saturation-factor, 1)*18.7%) 12.3%;
+    --neutral-85-hsl: 24.8 calc(var(--saturation-factor, 1)*18.3%) 12.1%; --neutral-86-hsl: 24.9 calc(var(--saturation-factor, 1)*17.8%) 11.9%; --neutral-87-hsl: 25.0 calc(var(--saturation-factor, 1)*17.5%) 11.7%;
+    --neutral-88-hsl: 25.1 calc(var(--saturation-factor, 1)*17.1%) 11.5%; --neutral-89-hsl: 25.2 calc(var(--saturation-factor, 1)*16.5%) 11.2%; --neutral-90-hsl: 25.3 calc(var(--saturation-factor, 1)*16.2%) 11.0%;
+    --neutral-91-hsl: 25.3 calc(var(--saturation-factor, 1)*15.7%) 10.8%; --neutral-92-hsl: 25.5 calc(var(--saturation-factor, 1)*15.1%) 10.6%; --neutral-93-hsl: 25.6 calc(var(--saturation-factor, 1)*14.4%) 10.2%;
+    --neutral-94-hsl: 25.5 calc(var(--saturation-factor, 1)*13.8%) 9.9%; --neutral-95-hsl: 24.8 calc(var(--saturation-factor, 1)*14.0%) 9.6%; --neutral-96-hsl: 24.1 calc(var(--saturation-factor, 1)*14.2%) 9.3%;
+    --neutral-97-hsl: 22.9 calc(var(--saturation-factor, 1)*14.7%) 8.7%; --neutral-98-hsl: 21.9 calc(var(--saturation-factor, 1)*15.0%) 8.3%; --neutral-99-hsl: 20.5 calc(var(--saturation-factor, 1)*15.9%) 7.3%;
+    --neutral-100-hsl: 23.3 calc(var(--saturation-factor, 1)*19.1%) 4.3%;
+    /* the blurple ramp, as caramel (blurple-50 itself is set per variant above) */
+    --blurple-1-hsl: 29.9 calc(var(--saturation-factor, 1)*90.2%) 90.7%; --blurple-2-hsl: 29.9 calc(var(--saturation-factor, 1)*85.0%) 89.6%; --blurple-3-hsl: 29.8 calc(var(--saturation-factor, 1)*80.3%) 88.3%;
+    --blurple-4-hsl: 29.7 calc(var(--saturation-factor, 1)*77.3%) 87.4%; --blurple-5-hsl: 29.6 calc(var(--saturation-factor, 1)*74.2%) 86.2%; --blurple-6-hsl: 29.5 calc(var(--saturation-factor, 1)*72.0%) 85.3%;
+    --blurple-7-hsl: 29.4 calc(var(--saturation-factor, 1)*69.6%) 84.2%; --blurple-8-hsl: 29.3 calc(var(--saturation-factor, 1)*67.3%) 83.0%; --blurple-9-hsl: 29.3 calc(var(--saturation-factor, 1)*65.9%) 82.2%;
+    --blurple-10-hsl: 29.2 calc(var(--saturation-factor, 1)*64.1%) 81.1%; --blurple-11-hsl: 29.1 calc(var(--saturation-factor, 1)*62.8%) 80.1%; --blurple-12-hsl: 29.0 calc(var(--saturation-factor, 1)*61.3%) 79.0%;
+    --blurple-13-hsl: 29.0 calc(var(--saturation-factor, 1)*59.8%) 77.9%; --blurple-14-hsl: 28.9 calc(var(--saturation-factor, 1)*58.8%) 77.1%; --blurple-15-hsl: 28.8 calc(var(--saturation-factor, 1)*57.6%) 76.0%;
+    --blurple-16-hsl: 28.8 calc(var(--saturation-factor, 1)*56.8%) 75.2%; --blurple-17-hsl: 28.7 calc(var(--saturation-factor, 1)*55.7%) 74.1%; --blurple-18-hsl: 28.6 calc(var(--saturation-factor, 1)*54.6%) 73.0%;
+    --blurple-19-hsl: 28.5 calc(var(--saturation-factor, 1)*53.9%) 72.2%; --blurple-20-hsl: 28.5 calc(var(--saturation-factor, 1)*52.9%) 71.1%; --blurple-21-hsl: 28.4 calc(var(--saturation-factor, 1)*52.0%) 70.1%;
+    --blurple-22-hsl: 28.3 calc(var(--saturation-factor, 1)*51.4%) 69.3%; --blurple-23-hsl: 28.2 calc(var(--saturation-factor, 1)*50.6%) 68.3%; --blurple-24-hsl: 28.2 calc(var(--saturation-factor, 1)*49.7%) 67.2%;
+    --blurple-25-hsl: 28.1 calc(var(--saturation-factor, 1)*49.2%) 66.5%; --blurple-26-hsl: 28.0 calc(var(--saturation-factor, 1)*48.4%) 65.4%; --blurple-27-hsl: 28.0 calc(var(--saturation-factor, 1)*47.6%) 64.4%;
+    --blurple-28-hsl: 27.9 calc(var(--saturation-factor, 1)*47.1%) 63.7%; --blurple-29-hsl: 27.8 calc(var(--saturation-factor, 1)*46.4%) 62.6%; --blurple-30-hsl: 27.8 calc(var(--saturation-factor, 1)*45.7%) 61.6%;
+    --blurple-31-hsl: 27.7 calc(var(--saturation-factor, 1)*45.2%) 60.8%; --blurple-32-hsl: 27.6 calc(var(--saturation-factor, 1)*44.5%) 59.8%; --blurple-33-hsl: 27.6 calc(var(--saturation-factor, 1)*43.9%) 58.9%;
+    --blurple-34-hsl: 27.5 calc(var(--saturation-factor, 1)*43.2%) 57.8%; --blurple-35-hsl: 27.5 calc(var(--saturation-factor, 1)*42.8%) 57.2%; --blurple-36-hsl: 27.4 calc(var(--saturation-factor, 1)*42.2%) 56.2%;
+    --blurple-37-hsl: 27.3 calc(var(--saturation-factor, 1)*41.6%) 55.2%; --blurple-38-hsl: 27.3 calc(var(--saturation-factor, 1)*41.0%) 54.3%; --blurple-39-hsl: 27.2 calc(var(--saturation-factor, 1)*40.6%) 53.6%;
+    --blurple-40-hsl: 27.2 calc(var(--saturation-factor, 1)*40.0%) 52.6%; --blurple-41-hsl: 27.1 calc(var(--saturation-factor, 1)*39.4%) 51.6%; --blurple-42-hsl: 27.1 calc(var(--saturation-factor, 1)*39.0%) 50.8%;
+    --blurple-43-hsl: 27.0 calc(var(--saturation-factor, 1)*38.6%) 49.9%; --blurple-44-hsl: 27.0 calc(var(--saturation-factor, 1)*39.5%) 49.0%; --blurple-45-hsl: 26.9 calc(var(--saturation-factor, 1)*40.1%) 48.3%;
+    --blurple-46-hsl: 26.9 calc(var(--saturation-factor, 1)*40.9%) 47.5%; --blurple-47-hsl: 26.8 calc(var(--saturation-factor, 1)*41.8%) 46.6%; --blurple-48-hsl: 26.8 calc(var(--saturation-factor, 1)*42.7%) 45.8%;
+    --blurple-49-hsl: 26.7 calc(var(--saturation-factor, 1)*43.7%) 44.9%; --blurple-51-hsl: 26.6 calc(var(--saturation-factor, 1)*45.7%) 43.0%; --blurple-52-hsl: 26.6 calc(var(--saturation-factor, 1)*47.0%) 41.9%;
+    --blurple-53-hsl: 26.5 calc(var(--saturation-factor, 1)*48.3%) 40.8%; --blurple-54-hsl: 26.5 calc(var(--saturation-factor, 1)*49.6%) 39.8%; --blurple-55-hsl: 26.5 calc(var(--saturation-factor, 1)*51.0%) 38.7%;
+    --blurple-56-hsl: 26.4 calc(var(--saturation-factor, 1)*52.3%) 37.7%; --blurple-57-hsl: 26.4 calc(var(--saturation-factor, 1)*53.4%) 36.9%; --blurple-58-hsl: 26.4 calc(var(--saturation-factor, 1)*55.0%) 35.8%;
+    --blurple-59-hsl: 26.4 calc(var(--saturation-factor, 1)*56.5%) 34.8%; --blurple-60-hsl: 26.3 calc(var(--saturation-factor, 1)*58.0%) 33.8%; --blurple-61-hsl: 26.3 calc(var(--saturation-factor, 1)*59.7%) 32.7%;
+    --blurple-62-hsl: 26.3 calc(var(--saturation-factor, 1)*61.4%) 31.7%; --blurple-63-hsl: 26.3 calc(var(--saturation-factor, 1)*63.1%) 30.8%; --blurple-64-hsl: 26.4 calc(var(--saturation-factor, 1)*65.0%) 29.8%;
+    --blurple-65-hsl: 26.5 calc(var(--saturation-factor, 1)*67.3%) 28.7%; --blurple-66-hsl: 26.7 calc(var(--saturation-factor, 1)*69.6%) 27.7%; --blurple-67-hsl: 26.9 calc(var(--saturation-factor, 1)*72.4%) 26.5%;
+    --blurple-68-hsl: 27.2 calc(var(--saturation-factor, 1)*75.3%) 25.5%; --blurple-69-hsl: 27.5 calc(var(--saturation-factor, 1)*78.8%) 24.3%; --blurple-70-hsl: 27.8 calc(var(--saturation-factor, 1)*82.5%) 23.3%;
+    --blurple-71-hsl: 28.2 calc(var(--saturation-factor, 1)*86.9%) 22.1%; --blurple-72-hsl: 28.4 calc(var(--saturation-factor, 1)*90.8%) 21.0%; --blurple-73-hsl: 28.6 calc(var(--saturation-factor, 1)*94.4%) 20.1%;
+    --blurple-74-hsl: 28.7 calc(var(--saturation-factor, 1)*98.1%) 19.2%; --blurple-75-hsl: 28.5 calc(var(--saturation-factor, 1)*96.7%) 18.6%; --blurple-76-hsl: 28.4 calc(var(--saturation-factor, 1)*100.0%) 17.7%;
+    --blurple-77-hsl: 28.3 calc(var(--saturation-factor, 1)*98.1%) 17.3%; --blurple-78-hsl: 28.1 calc(var(--saturation-factor, 1)*96.6%) 16.7%; --blurple-79-hsl: 28.0 calc(var(--saturation-factor, 1)*99.6%) 15.9%;
+    --blurple-80-hsl: 27.7 calc(var(--saturation-factor, 1)*97.7%) 15.4%; --blurple-81-hsl: 27.5 calc(var(--saturation-factor, 1)*100.0%) 14.6%; --blurple-82-hsl: 27.3 calc(var(--saturation-factor, 1)*98.6%) 14.0%;
+    --blurple-83-hsl: 27.0 calc(var(--saturation-factor, 1)*96.7%) 13.4%; --blurple-84-hsl: 26.8 calc(var(--saturation-factor, 1)*98.8%) 12.8%; --blurple-85-hsl: 26.5 calc(var(--saturation-factor, 1)*100.0%) 12.3%;
+    --blurple-86-hsl: 26.3 calc(var(--saturation-factor, 1)*98.2%) 11.7%; --blurple-87-hsl: 25.9 calc(var(--saturation-factor, 1)*100.0%) 11.0%; --blurple-88-hsl: 25.6 calc(var(--saturation-factor, 1)*97.9%) 10.5%;
+    --blurple-89-hsl: 25.1 calc(var(--saturation-factor, 1)*99.6%) 9.8%; --blurple-90-hsl: 24.5 calc(var(--saturation-factor, 1)*100.0%) 9.3%; --blurple-91-hsl: 24.3 calc(var(--saturation-factor, 1)*98.3%) 8.8%;
+    --blurple-92-hsl: 23.5 calc(var(--saturation-factor, 1)*99.7%) 8.1%; --blurple-93-hsl: 22.4 calc(var(--saturation-factor, 1)*100.0%) 7.5%; --blurple-94-hsl: 22.0 calc(var(--saturation-factor, 1)*98.4%) 6.9%;
+    --blurple-95-hsl: 20.6 calc(var(--saturation-factor, 1)*99.7%) 6.1%; --blurple-96-hsl: 18.8 calc(var(--saturation-factor, 1)*100.0%) 5.5%; --blurple-97-hsl: 16.6 calc(var(--saturation-factor, 1)*100.0%) 4.6%;
+    --blurple-98-hsl: 14.3 calc(var(--saturation-factor, 1)*100.0%) 3.5%; --blurple-99-hsl: 12.1 calc(var(--saturation-factor, 1)*100.0%) 1.7%; --blurple-100-hsl: 120.0 calc(var(--saturation-factor, 1)*100.0%) 0.0%;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 5. Structure: the few touches tokens can't express. Hash-free selectors only
+ *    ([class*="name_"] survives Discord's daily class-hash churn); #app-mount lifts them over
+ *    Discord's state rules. If one stops matching, the tokens above still carry the look.
+ * ------------------------------------------------------------------------------------------- */
+
+/* The message box (and the edit, thread and forum composers): a card. The :not() keeps a
+   composer nested in another from getting a second edge. */
+#app-mount [class*="channelTextArea_"]:not([class*="channelTextArea_"] *) {
+    border: 2px solid var(--paw-outline);
+    border-radius: 12px;
+    box-shadow: var(--paw-drop-composer);
+}
+#app-mount [class*="channelTextArea_"]:not([class*="channelTextArea_"] *):focus-within {
+    border-color: var(--paw-outline-focus);
+}
+
+/* Modals: ink-edged sheets (popouts, menus and tooltips get theirs from --shadow-high). */
+#app-mount [class*="rootWithShadow_"] {
+    border: 2px solid var(--paw-outline);
+    border-radius: 12px;
+    box-shadow: var(--paw-drop);
+}
+
+/* The user panel: a small card at the foot of the channel list. */
+#app-mount section[class*="panels_"] {
+    border: 2px solid var(--paw-outline);
+    border-radius: 12px;
+    box-shadow: var(--paw-drop-small);
+}
+
+/* Server icons: an ink ring inside Discord's squircle mask (drawn over the icon, so it holds
+   for transparent icons and letter tiles too; the mask still cuts it round the badges). */
+#app-mount foreignObject [data-list-item-id^="guildsnav___"] {
+    border-radius: 12px;
+    outline: var(--paw-icon-ring) solid var(--paw-outline);
+    outline-offset: calc(-1 * var(--paw-icon-ring));
+}
+
+/* Avatars in chat: inked round. */
+#app-mount [class*="message_"] img[class*="avatar_"] {
+    box-shadow: 0 0 0 2px var(--paw-outline);
+}
+
+/* The selected channel (or DM): a paper label with a caramel marker. */
+#app-mount [class*="sidebarList_"] [class*="interactiveSelected_"],
+#app-mount [class*="sidebarList_"] [class*="modeSelected_"] [class*="link_"] {
+    background: var(--paw-sheet);
+    box-shadow: var(--paw-ring), inset 4px 0 0 0 var(--paw-accent);
+    color: var(--paw-text);
+}
+
+/* Messages that mention you: a caramel rule down the margin. */
+#app-mount [class*="message_"][class*="mentioned_"]::before {
+    background: var(--paw-accent);
+    width: 3px;
+}
+
+/* Code blocks: inked cards in Maple Mono. */
+#app-mount [class*="markup_"] pre > code {
+    border: 2px solid var(--paw-outline);
+    border-radius: 10px;
+}
