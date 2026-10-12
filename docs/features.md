@@ -2153,10 +2153,10 @@ night: a floating bar framed as the windows are (`shell.frame`), hard printed sh
 gradient borders, in light blue and pink on sakura paper by day and in the caramel of the logo's
 toe beans by night, a chibi neko on washi's start button (`shell.start_icon`), and wallpapers of
 their own in [`rices/washi`](../rices/washi/README.md) beside the configuration, with themes
-for kitty,
-fastfetch, Firefox, Discord, Claude Code and editors that its `install.sh` puts in place; a file with `extends = "default"` gets them, and starts on
-`macos-light` unless it sets `profile`, only when it defines no `profiles` of its own. A profile
-wins over a theme.lua that `paw import` wrote, so pick `default` to see that.
+for kitty, fastfetch, Firefox, Discord, Claude Code and editors that its `install.sh` puts in
+place; a file with `extends = "default"` gets them, and starts on `macos-light` unless it sets
+`profile`, only when it defines no `profiles` of its own. A profile wins over a theme.lua that
+`paw import` wrote, so pick `default` to see that.
 
 ## Importing a Hyprland setup
 
