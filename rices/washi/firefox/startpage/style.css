@@ -1,7 +1,7 @@
-/* washi start page: neo-brutalist print on handmade paper. 2px ink outlines, hard offset ink
- * shadows, flat fills, caramel from paw's toe beans, a vermilion seal. sumi (dark) is the same
- * sheet soaked in ink: cream text, caramel lit brighter, soft deep shadows and a caramel
- * misprint where ink would vanish on ink. Every colour is a token in the two blocks below.
+/* washi start page: neo-brutalist print on sakura paper. 2px navy ink outlines, hard offset
+ * shadows printed in sky blue, flat fills, paw prints from sakura to sky, a rose seal. sumi
+ * (dark) is the sheet soaked in ink: cream text, caramel lit bright, soft deep shadows and a
+ * caramel misprint where ink would vanish on ink. Every colour is a token in the two blocks below.
  * Fonts are the installed ones (Space Grotesk, Maple Mono) with fallbacks; a file:// page
  * cannot load ~/.local/share/fonts by path, so nothing is fetched.
  * SPDX-License-Identifier: GPL-3.0-or-later */
@@ -9,38 +9,39 @@
 :root {
   color-scheme: light;
   /* washi */
-  --paper: #F3EBDD;
-  --surface: #FBF7EF;
-  --raised: #F1E8D8;
-  --sunken: #EFE6D6;
-  --line: #D6C8B2;
-  --outline: #2B221C;
-  --ink: #2B221C;
-  --muted: #7A6B5E;
-  --accent: #A87650;
-  --accent-text: #9A6438;
-  --accent-deep: #734A2C;
-  --on-accent: #FBF7EF;
-  --seal: #B03A2E;
-  --selection: #EBDCC4;
-  --bean: linear-gradient(#A87650, #734A2C);
+  --paper: #F4F0F3;
+  --surface: #FBF9FB;
+  --raised: #F1ECF2;
+  --sunken: #EEE9F0;
+  --line: #DAD3E0;
+  --outline: #4A5170;
+  --ink: #363C58;
+  --muted: #6B708C;
+  --accent: #8FC1EC;
+  --accent-text: #3F7CC0;
+  --accent-deep: #F2A0BE;
+  --on-accent: #363C58;
+  --seal: #D9608C;
+  --selection: #DCEAF8;
+  --bean: linear-gradient(#8FC1EC, #F2A0BE);
   --print-fill: url(#bean);
   /* stamp inks for the link cards */
-  --ink-stamp: #2B221C;
-  --green: #4F6F26;
-  --ochre: #8A5A0E;
-  --indigo: #2D5A82;
-  --plum: #873C66;
-  --teal: #276A61;
-  --on-stamp: #FBF7EF;
-  /* the press: resting, lifted under the pointer, pushed down */
-  --shadow: 5px 5px 0 var(--outline);
-  --shadow-lift: 7px 7px 0 var(--outline);
-  --shadow-press: 1px 1px 0 var(--outline);
-  --shadow-card: 4px 4px 0 var(--outline);
-  --shadow-card-lift: 6px 6px 0 var(--outline);
-  --misprint: #A87650;
-  --veil: rgb(243 235 221 / 0.50);
+  --ink-stamp: #4A5170;
+  --green: #3F7D52;
+  --ochre: #C47F00;
+  --indigo: #3570B3;
+  --plum: #A2488C;
+  --teal: #23788A;
+  --on-stamp: #FBF9FB;
+  /* the press, printed in sky blue: resting, lifted under the pointer, pushed down */
+  --print: #A9C9EC;
+  --shadow: 5px 5px 0 var(--print);
+  --shadow-lift: 7px 7px 0 var(--print);
+  --shadow-press: 1px 1px 0 var(--print);
+  --shadow-card: 4px 4px 0 var(--print);
+  --shadow-card-lift: 6px 6px 0 var(--print);
+  --misprint: #F2A0BE;
+  --veil: rgb(244 240 243 / 0.50);
   --wallpaper: url("../../wallpaper/washi.jpg");
 
   --font-ui: "Space Grotesk", "Inter", system-ui, sans-serif;
@@ -307,10 +308,10 @@ svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   border-radius: var(--radius-sm);
   padding: 11px 18px;
   cursor: pointer;
-  box-shadow: 2px 2px 0 var(--outline);
+  box-shadow: 2px 2px 0 var(--print);
   transition: translate 0.08s ease, box-shadow 0.08s ease;
 }
-.search-go:hover { translate: -1px -1px; box-shadow: 3px 3px 0 var(--outline); }
+.search-go:hover { translate: -1px -1px; box-shadow: 3px 3px 0 var(--print); }
 .search-go:active { translate: 2px 2px; box-shadow: none; }
 @media (prefers-color-scheme: dark) {
   .search-go { border-color: transparent; box-shadow: none; }

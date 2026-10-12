@@ -1,10 +1,10 @@
 /* washi for Firefox: the browser chrome as neo-brutalist print on handmade paper.
  *
- * washi (light): cream paper toolbars, ink text, the URL bar a card with a 2px ink outline and
- * a hard offset ink shadow, tabs as paper labels (the selected one a cream card in an ink
- * outline with a strip of caramel washi tape), menus and panels as ink-outlined cards, focus
- * in caramel. sumi (dark, under prefers-color-scheme: dark) is the same sheet soaked in ink:
- * cream text, caramel lit brighter, soft deep shadows and a caramel misprint where an ink
+ * washi (light): sakura paper toolbars, navy ink text, the URL bar a card with a 2px ink outline
+ * and a hard offset shadow printed in sky blue, tabs as paper labels (the selected one a white
+ * card in an ink outline with a strip of sakura washi tape), menus and panels as ink-outlined
+ * cards, focus in sky blue. sumi (dark, under prefers-color-scheme: dark) is the sheet soaked
+ * in ink: cream text, caramel lit bright, soft deep shadows and a caramel misprint where an ink
  * shadow would vanish.
  *
  * Every colour is a --washi-* token in the two palette blocks at the top; the rest maps them
@@ -18,28 +18,29 @@
 /* ================================================================ palette: washi */
 
 :root {
-  --washi-paper: #F3EBDD;          /* toolbars, sidebar, the desk under the page */
-  --washi-surface: #FBF7EF;        /* cards: the URL bar, selected tab, menus, panels */
-  --washi-raised: #F1E8D8;         /* hover */
-  --washi-sunken: #EFE6D6;         /* pressed, inputs inside panels */
-  --washi-line: #D6C8B2;           /* hairlines, separators */
-  --washi-outline: #2B221C;        /* the brutalist 2px outline */
-  --washi-ink: #2B221C;            /* text and icons */
-  --washi-muted: #7A6B5E;          /* unselected tabs, secondary text */
-  --washi-accent: #A87650;         /* caramel fills */
-  --washi-accent-text: #9A6438;    /* caramel text on paper */
-  --washi-accent-deep: #734A2C;
-  --washi-on-accent: #FBF7EF;
-  --washi-seal: #B03A2E;           /* vermilion: attention, the loud thing */
-  --washi-selection: #EBDCC4;
-  --washi-bean: linear-gradient(#A87650, #734A2C);   /* paw's toe beans, the one gradient */
+  --washi-paper: #F4F0F3;          /* toolbars, sidebar, the desk under the page */
+  --washi-surface: #FBF9FB;        /* cards: the URL bar, selected tab, menus, panels */
+  --washi-raised: #F1ECF2;         /* hover */
+  --washi-sunken: #EEE9F0;         /* pressed, inputs inside panels */
+  --washi-line: #DAD3E0;           /* hairlines, separators */
+  --washi-outline: #4A5170;        /* the brutalist 2px outline */
+  --washi-ink: #363C58;            /* text and icons */
+  --washi-muted: #6B708C;          /* unselected tabs, secondary text */
+  --washi-accent: #8FC1EC;         /* sky-blue fills */
+  --washi-accent-text: #3F7CC0;    /* sky blue as text on paper */
+  --washi-accent-deep: #F2A0BE;    /* sakura */
+  --washi-on-accent: #363C58;
+  --washi-seal: #D9608C;           /* rose: attention, the loud thing */
+  --washi-selection: #DCEAF8;
+  --washi-bean: linear-gradient(#8FC1EC, #F2A0BE);   /* sky to sakura, the one gradient */
 
-  --washi-shadow: 4px 4px 0 var(--washi-outline);            /* the URL bar */
-  --washi-shadow-small: 2px 2px 0 var(--washi-outline);      /* pressed toolbar buttons */
-  --washi-shadow-panel: 5px 5px 0 var(--washi-outline);      /* menus, panels, URL results */
-  --washi-shadow-tab: 3px 3px 0 var(--washi-outline);        /* the selected tab */
+  --washi-print: #A9C9EC;                                    /* shadows, printed in sky blue */
+  --washi-shadow: 4px 4px 0 var(--washi-print);              /* the URL bar */
+  --washi-shadow-small: 2px 2px 0 var(--washi-print);        /* pressed toolbar buttons */
+  --washi-shadow-panel: 5px 5px 0 var(--washi-print);        /* menus, panels, URL results */
+  --washi-shadow-tab: 3px 3px 0 var(--washi-print);          /* the selected tab */
   --washi-panel-shadow-room: 8px;                            /* room popups leave for it */
-  --washi-tape: color-mix(in srgb, var(--washi-accent) 82%, transparent);
+  --washi-tape: color-mix(in srgb, var(--washi-accent-deep) 82%, transparent);
 
   --washi-border: 2px;
   --washi-radius: 10px;
@@ -160,7 +161,7 @@
   --button-background-color-active: var(--washi-line) !important;
   --button-text-color: var(--washi-ink) !important;
   --link-color: var(--washi-accent-text) !important;
-  --focus-outline-color: var(--washi-accent) !important;      /* keyboard focus: caramel */
+  --focus-outline-color: var(--washi-accent) !important;      /* keyboard focus: the accent */
   --focus-outline: 2px solid var(--washi-accent) !important;
   --icon-color: var(--washi-ink) !important;
   /* promos (the app menu's sign-in box and the like): paper, not violet */
@@ -276,7 +277,7 @@ findbar .findbar-textbox::selection {
   box-shadow: var(--washi-shadow-small) !important;
 }
 
-/* the badge (downloads, updates): a vermilion seal */
+/* the badge (downloads, updates): the seal */
 .toolbarbutton-badge {
   background-color: var(--washi-seal) !important;
   color: var(--washi-on-accent) !important;
@@ -330,7 +331,7 @@ findbar .findbar-textbox::selection {
   outline: none !important;
 }
 
-/* focused: lifted off the paper, with a caramel ring */
+/* focused: lifted off the paper, with a ring in the accent */
 :is(#urlbar, .urlbar)[focused] > .urlbar-background,
 #searchbar:focus-within {
   outline: 2px solid var(--washi-accent) !important;
@@ -377,7 +378,7 @@ findbar .findbar-textbox::selection {
   color: var(--washi-accent-text) !important;
 }
 
-/* a strip of caramel down the left of the "Search with" one-off row and the selected row */
+/* a strip of the accent down the left of the "Search with" one-off row and the selected row */
 .urlbarView-row[selected] > .urlbarView-row-inner {
   box-shadow: inset 3px 0 0 var(--washi-accent) !important;
 }
@@ -422,7 +423,7 @@ findbar .findbar-textbox::selection {
   border-color: var(--washi-line) !important;
 }
 
-/* the selected label: a cream card in ink, held on by a strip of caramel washi tape */
+/* the selected label: a paper card in ink, held on by a strip of washi tape */
 .tab-background:is([selected], [multiselected]) {
   position: relative;
   background-color: var(--washi-surface) !important;
@@ -486,7 +487,7 @@ sidebar-main,
   padding-inline: 4px 7px !important;
 }
 
-/* the "drag tabs here to pin them" card: paper with a dashed caramel edge, not violet */
+/* the "drag tabs here to pin them" card: paper with a dashed edge in the accent, not violet */
 sidebar-pins-promo {
   --promo-light-background: var(--washi-raised) !important;
   --promo-dark-background: var(--washi-raised) !important;
@@ -583,7 +584,7 @@ toolbarseparator {
   border-image: none !important;
 }
 
-/* Firefox's violet-to-pink "zap" under the account row: the caramel bean instead */
+/* Firefox's violet-to-pink "zap" under the account row: the bean gradient instead */
 .proton-zap::before {
   border-image: linear-gradient(90deg, var(--washi-accent), var(--washi-accent-deep)) 1 !important;
 }
@@ -606,7 +607,7 @@ panelview .panel-header {
   border-radius: var(--washi-radius-small) !important;
 }
 
-/* primary buttons in panels and dialogs: the caramel bean, outlined in ink */
+/* primary buttons in panels and dialogs: the bean gradient, outlined in ink */
 button.primary,
 .button-primary,
 .panel-footer button[default],

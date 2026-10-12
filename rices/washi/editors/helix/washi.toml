@@ -1,10 +1,11 @@
-# washi (和紙) for Helix: ink on cream paper, caramel and a vermilion seal.
+# washi (和紙) for Helix: navy ink on sakura paper, light blue and pink, a rose seal.
 # The light half of the washi rice; sumi.toml is the same sheet soaked in ink.
 # Copy it to ~/.config/helix/themes/ and set `theme = "washi"` in config.toml.
 #
-# Print, not neon: ink text, comments pencilled in italic, keywords in plum, strings in moss,
-# functions in indigo, types in teal, numbers in ochre, the preprocessor and the accents in
-# caramel, and vermilion only for the loud things (errors, escapes, jump labels).
+# Print, not neon: ink text, comments pencilled in italic, keywords in orchid, strings in mint,
+# functions in blue, types in teal, numbers in honey, the preprocessor and the accents in
+# sakura, and raspberry only for the loud things (errors, escapes, jump labels). The palette at
+# the bottom keeps sumi's names (caramel, moss, ...), as the rules are shared with sumi.toml.
 
 # Syntax ---------------------------------------------------------------------------------------
 "attribute" = "caramel"
@@ -174,36 +175,36 @@
 rainbow = ["caramel", "indigo", "teal", "plum", "ochre", "moss"]
 
 [palette]
-sheet = "#FBF7EF"     # the paper (kitty's background)
-fold = "#F4EDE2"      # cursor line: a faint fold in the paper
-raised = "#F1E8D8"    # popups and menus
-bar = "#EFE6D6"       # inactive buffers
-sel = "#EBDCC4"       # the primary selection, caramel-tinted
-sel2 = "#F1E6D3"      # the other selections
-ref = "#EFE5D9"       # highlighted lines
-match = "#E2D0BF"     # matching bracket
-line = "#D6C8B2"      # hairlines
-faint = "#A89A88"     # line numbers
-muted = "#7A6B5E"     # comments
-pencil = "#5C4F45"    # fields
-text = "#2B221C"      # ink
-on_accent = "#FBF7EF" # text on ink and on caramel
-status = "#2B221C"    # the current window's status line, inked in like kitty's current tab
-status_fg = "#FBF7EF"
-tab = "#2B221C"       # the current buffer
-tab_fg = "#FBF7EF"
-mark = "#2B221C"      # the selected menu item
-outline = "#2B221C"   # popup and picker borders: the 2px ink outline
-cursor = "#2B221C"
-caramel = "#9A6438"   # the accent as text on paper
-bean = "#A87650"      # the accent as a fill (the paw's toe beans)
-seal = "#B03A2E"      # vermilion hanko
-moss = "#4F6F26"
-ochre = "#8A5A0E"
-indigo = "#2D5A82"
-plum = "#873C66"
-teal = "#276A61"
-seal_bg = "#F4E4DC"   # washes of colour behind inline diagnostics
-ochre_bg = "#F0E5D3"
-indigo_bg = "#E6E7E4"
-teal_bg = "#E6E9E1"
+sheet = "#FBF9FB"     # the paper (kitty's background)
+fold = "#F3EFF5"      # cursor line: a faint fold in the paper
+raised = "#F1ECF2"    # popups and menus
+bar = "#EEE9F0"       # inactive buffers
+sel = "#DCEAF8"       # the primary selection, sky-tinted
+sel2 = "#EAF1FA"      # the other selections
+ref = "#EAEFF7"       # highlighted lines
+match = "#F3D6E2"     # matching bracket
+line = "#DAD3E0"      # hairlines
+faint = "#9EA2B8"     # line numbers
+muted = "#6B708C"     # comments
+pencil = "#5A607C"    # fields
+text = "#363C58"      # navy ink
+on_accent = "#FBF9FB" # text on ink and on sakura
+status = "#363C58"    # the current window's status line, inked in like kitty's current tab
+status_fg = "#FBF9FB"
+tab = "#363C58"       # the current buffer
+tab_fg = "#FBF9FB"
+mark = "#363C58"      # the selected menu item
+outline = "#4A5170"   # popup and picker borders: the 2px ink outline
+cursor = "#363C58"
+caramel = "#B8467A"   # the accent as text on paper: sakura, deep enough to read
+bean = "#B8467A"      # the accent as a fill, under paper text
+seal = "#B83B63"      # the rose hanko, deepened to raspberry for text
+moss = "#3F7D52"      # mint
+ochre = "#C47F00"     # honey
+indigo = "#3570B3"    # blue
+plum = "#A2488C"      # orchid
+teal = "#23788A"
+seal_bg = "#F9E1EA"   # washes of colour behind inline diagnostics
+ochre_bg = "#FBF0D9"
+indigo_bg = "#E3ECF8"
+teal_bg = "#DFEFF1"
