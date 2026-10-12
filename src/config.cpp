@@ -434,6 +434,8 @@ void read_shell(lua_State *L, ShellConfig &shell) {
     }
     lua_pop(L, 1);
     shell.panel_radius = integer(L, "panel_radius", 0, 0, 50);
+    named(L, "frame", nullptr, shell.frame_windows, {{"shell", false}, {"windows", true}},
+          "frame must be \"shell\" or \"windows\"");
     if (auto font = text(L, "font"))
         shell.font = *font;
     shell.font_size = integer(L, "font_size", 12, 6, 48);

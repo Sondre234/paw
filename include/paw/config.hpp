@@ -158,6 +158,9 @@ struct ShellConfig {
     bool panel_top = false;             // panel_position = "top"
     int panel_margin[4] = {0, 0, 0, 0}; // top, right, bottom, left: a floating bar
     int panel_radius = 0;
+    // frame = "windows": the bar, the dock and the popups take the windows' border and shadow
+    // rather than the shell's own hairline and soft shadow.
+    bool frame_windows = false;
     std::string font;   // family; empty: the Qt default
     int font_size = 12; // taskbar text, in pixels
     bool icons_only = true; // taskbar buttons show the window's icon, its title as a tooltip
