@@ -83,27 +83,28 @@ return {
             shell = { accent = "#3d6fd9", panel_color = "#f4f6fa", text_color = "#1b2230" },
         },
         -- washi (和紙) and sumi (墨): handmade paper a cat walked across, by day and by night.
-        -- Ink outlines, hard printed shadows and the caramel of paw's toe beans, with the bar
-        -- and the popups framed as the windows are. Their wallpapers sit beside this file in
-        -- rices/washi, with themes for kitty, fastfetch, Firefox, Discord, Claude Code and
+        -- washi is soft sakura paper with navy ink, its details in light blue and pink; sumi is
+        -- the sheet soaked in ink under a lamp, in caramel. Outlines and printed shadows, with
+        -- the bar and the popups framed as the windows are. Their wallpapers sit beside this file
+        -- in rices/washi, with themes for kitty, fastfetch, Firefox, Discord, Claude Code and
         -- editors that its install.sh puts in place. They name Space Grotesk (install.sh
         -- --fonts fetches it); without it the default sans-serif stands in.
         washi = {
-            appearance = { background = "#f3ebdd" },
+            appearance = { background = "#f4f0f3" },
             windows = {
                 border_width = 2, corner_radius = 12, round = "always",
-                border_color = { "#c08a5a", "#734a2c", angle = 135 },
-                border_inactive_color = "#2b221c",
+                border_color = { "#8fc1ec", "#f2a0be", angle = 135 },
+                border_inactive_color = "#4a5170",
                 -- No blur and an offset: a shadow printed beside the window, not under it.
-                shadow = { enabled = true, color = "#2b221cff", inactive_color = "#2b221c66",
+                shadow = { enabled = true, color = "#a9c9ecff", inactive_color = "#a9c9ec99",
                            blur = 0, offset = { 7, 7 } },
-                urgent_color = "#b03a2e",
-                magnet = { guide_color = "#b03a2ecc" },
-                snap = { color = "#a8765040" },
+                urgent_color = "#d9608c",
+                magnet = { guide_color = "#d9608ccc" },
+                snap = { color = "#8fc1ec40" },
             },
             shell = {
-                frame = "windows", accent = "#9a6438", panel_color = "#fbf7ef",
-                text_color = "#2b221c", font = "Space Grotesk", font_size = 14,
+                frame = "windows", accent = "#5e9edb", panel_color = "#fbf9fb",
+                text_color = "#363c58", font = "Space Grotesk", font_size = 14,
                 panel_height = 46, panel_position = "top", panel_radius = 12,
                 panel_margin = { top = 12, left = 24, right = 24 },
                 wallpaper = "rices/washi/wallpaper/washi.jpg",
