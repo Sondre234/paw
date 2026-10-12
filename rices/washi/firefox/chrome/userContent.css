@@ -45,26 +45,26 @@
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --washi-paper: #161210;
-      --washi-surface: #1D1916;
-      --washi-raised: #26201C;
-      --washi-sunken: #120F0D;
-      --washi-line: #3A302A;
-      --washi-outline: #3A302A;
-      --washi-ink: #E8DCCB;
-      --washi-muted: #A89A88;
-      --washi-accent: #D6A06E;
-      --washi-accent-text: #D6A06E;
-      --washi-accent-deep: #A86A3C;
-      --washi-on-accent: #1A1613;
-      --washi-seal: #D96F5E;
-      --washi-selection: #4A3A2E;
-      /* ink on ink is invisible: lamp-lit depth, and a caramel misprint when lifted */
+      --washi-paper: #15141D;
+      --washi-surface: #1B1A25;
+      --washi-raised: #24232F;
+      --washi-sunken: #100F17;
+      --washi-line: #34334A;
+      --washi-outline: #34334A;
+      --washi-ink: #E2E0EE;
+      --washi-muted: #9D9BB4;
+      --washi-accent: #8FC1EC;
+      --washi-accent-text: #8FC1EC;
+      --washi-accent-deep: #F2A7C3;
+      --washi-on-accent: #181722;
+      --washi-seal: #E8789F;
+      --washi-selection: #2E3A55;
+      /* ink on ink is invisible: moonlit depth, and a sakura misprint when lifted */
       --washi-shadow: 0 14px 40px rgb(0 0 0 / 0.55);
       --washi-shadow-card: 0 10px 28px rgb(0 0 0 / 0.5);
       --washi-shadow-lift: 4px 4px 0 var(--washi-accent-deep), 0 14px 34px rgb(0 0 0 / 0.55);
-      --washi-misprint: #A86A3C;
-      --washi-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .9 0 0 0 0 .8 0 0 0 0 .66 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+      --washi-misprint: #F2A7C3;
+      --washi-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .86 0 0 0 0 .86 0 0 0 0 .95 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
     }
   }
 }

@@ -1,7 +1,8 @@
 /* washi start page: neo-brutalist print on sakura paper. 2px navy ink outlines, hard offset
  * shadows printed in sky blue, flat fills, paw prints from sakura to sky, a rose seal. sumi
- * (dark) is the sheet soaked in ink: cream text, caramel lit bright, soft deep shadows and a
- * caramel misprint where ink would vanish on ink. Every colour is a token in the two blocks below.
+ * (dark) is the sheet soaked in ink by moonlight: lavender-white text, sky and sakura lit bright,
+ * soft deep shadows and a sakura misprint where ink would vanish on ink. Every colour is a token
+ * in the two blocks below.
  * Fonts are the installed ones (Space Grotesk, Maple Mono) with fallbacks; a file:// page
  * cannot load ~/.local/share/fonts by path, so nothing is fetched.
  * SPDX-License-Identifier: GPL-3.0-or-later */
@@ -54,37 +55,37 @@
   :root {
     color-scheme: dark;
     /* sumi */
-    --paper: #161210;
-    --surface: #1D1916;
-    --raised: #26201C;
-    --sunken: #120F0D;
-    --line: #3A302A;
-    --outline: #3A302A;
-    --ink: #E8DCCB;
-    --muted: #A89A88;
-    --accent: #D6A06E;
-    --accent-text: #D6A06E;
-    --accent-deep: #A86A3C;
-    --on-accent: #1A1613;
-    --seal: #D96F5E;
-    --selection: #4A3A2E;
-    --bean: linear-gradient(#D6A06E, #A86A3C);
+    --paper: #15141D;
+    --surface: #1B1A25;
+    --raised: #24232F;
+    --sunken: #100F17;
+    --line: #34334A;
+    --outline: #34334A;
+    --ink: #E2E0EE;
+    --muted: #9D9BB4;
+    --accent: #8FC1EC;
+    --accent-text: #8FC1EC;
+    --accent-deep: #F2A7C3;
+    --on-accent: #181722;
+    --seal: #E8789F;
+    --selection: #2E3A55;
+    --bean: linear-gradient(#8FC1EC, #F2A7C3);
     --print-fill: url(#bean-lit);
-    --ink-stamp: #CDBFAD;
-    --green: #A3B47A;
-    --ochre: #E2AE62;
-    --indigo: #8EA8BC;
-    --plum: #C98EA4;
-    --teal: #8DB8AA;
-    --on-stamp: #1A1613;
-    /* an ink shadow on ink is invisible: lamp-lit depth, and a caramel misprint when lifted */
+    --ink-stamp: #B8B6CC;
+    --green: #9FD4AB;
+    --ochre: #F0C27A;
+    --indigo: #8FC1EC;
+    --plum: #D39CE0;
+    --teal: #8CCFD2;
+    --on-stamp: #181722;
+    /* an ink shadow on ink is invisible: moonlit depth, and a sakura misprint when lifted */
     --shadow: 0 14px 40px rgb(0 0 0 / 0.55);
     --shadow-lift: 5px 5px 0 var(--accent-deep), 0 18px 44px rgb(0 0 0 / 0.6);
     --shadow-press: 0 4px 14px rgb(0 0 0 / 0.5);
     --shadow-card: 0 10px 28px rgb(0 0 0 / 0.5);
     --shadow-card-lift: 4px 4px 0 var(--accent-deep), 0 14px 34px rgb(0 0 0 / 0.55);
-    --misprint: #A86A3C;
-    --veil: rgb(22 18 16 / 0.42);
+    --misprint: #F2A7C3;
+    --veil: rgb(21 20 29 / 0.42);
     --wallpaper: url("../../wallpaper/sumi.jpg");
   }
 }
@@ -209,7 +210,7 @@ svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   letter-spacing: -0.045em;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
-  /* a riso misprint: the caramel plate landed a little off */
+  /* a riso misprint: the sakura plate landed a little off */
   text-shadow: 6px 6px 0 var(--misprint);
   user-select: none;
 }

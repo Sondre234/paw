@@ -5,7 +5,7 @@
 # Print, not neon: ink text, comments pencilled in italic, keywords in orchid, strings in mint,
 # functions in blue, types in teal, numbers in honey, the preprocessor and the accents in
 # sakura, and raspberry only for the loud things (errors, escapes, jump labels). The palette at
-# the bottom keeps sumi's names (caramel, moss, ...), as the rules are shared with sumi.toml.
+# the bottom keeps the rice's old names (caramel, moss, ...), as the rules are shared with sumi.toml.
 
 # Syntax ---------------------------------------------------------------------------------------
 "attribute" = "caramel"

@@ -9,7 +9,7 @@
 -- Print, not neon: ink text, comments pencilled in italic, keywords in orchid, strings in mint,
 -- functions in blue, types in teal, numbers in honey, the preprocessor and the accents in
 -- sakura, and raspberry only for the loud things (errors, TODO seals, escapes). The palette
--- keeps sumi's names (caramel, bean, ...), as the code below it is shared with sumi.lua.
+-- keeps the rice's old names (caramel, bean, ...), as the code below it is shared with sumi.lua.
 
 -- Each colour is { truecolor, ANSI index }. An index of nil leaves the terminal's own colour;
 -- 255 is the xterm light grey, for the raised surfaces the 16 colours have nothing close to.

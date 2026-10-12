@@ -6,7 +6,7 @@
 
 A rice for [paw](../../README.md): soft sakura paper with navy ink outlines, printed shadows and
 details in light blue and pink by day, easy on the eyes, and **墨 sumi**, the same sheet soaked in
-ink under a lamp, in the caramel of paw's toe beans, by night.
+ink by moonlight, by night.
 
 ![washi](screenshots/washi.jpg)
 
@@ -16,12 +16,17 @@ ink under a lamp, in the caramel of paw's toe beans, by night.
 
 Every part of the desktop is drawn as print: windows, the bar and every menu carry a 2 pixel ink
 outline and a hard shadow set beside them rather than under them, in pale sky blue by day. The
-focused window's border runs from sky blue to sakura pink, the start button is a chibi neko, and
-the one loud colour is the rose of a hanko seal. The ink is a soft navy rather than black, and the
-paper a faint pink rather than white, so the contrast stays gentle. The wallpaper is a sheet of
-washi with its kozo fibres, the trail of a cat that walked across it while the ink was wet, its
-toes pink and its heels blue, and a seal reading 肉球 (nikukyū, paw pads). It is generated from a
-seed, so it ships with paw under its licence. sumi keeps the caramel of the logo's toe beans.
+bar takes the paper's own colour, set apart by its outline and shadow alone. The focused window's
+border runs from sky blue to sakura pink, the start button is a chibi neko, and the one loud
+colour is the rose of a hanko seal. The ink is a soft navy rather than black, and the paper a
+faint pink rather than white, so the contrast stays gentle. The wallpaper is a sheet of washi with
+its kozo fibres, the trail of a cat that walked across it while the ink was wet, its toes pink and
+its heels blue, and a seal reading 肉球 (nikukyū, paw pads). It is generated from a seed, so it
+ships with paw under its licence.
+
+By night the sheet is a deep indigo under the moon, the text a soft lavender white rather than
+white, and the same light blue and pink carry the details; shadows fall soft and deep, since an
+ink shadow on ink would vanish, and the start button is the neko's twin, a kuroneko.
 
 | | |
 | --- | --- |
@@ -40,14 +45,14 @@ seed, so it ships with paw under its licence. sumi keeps the caramel of the logo
 
 | Part | Files | What it does |
 | --- | --- | --- |
-| paw | the `washi` and `sumi` profiles in [`config/init.lua`](../../config/init.lua), and [`start/neko.svg`](start/neko.svg) | The floating bar, borders, shadows, colours, font, wallpaper and washi's neko on the start button (`shell.start_icon`). Shipped with paw. |
+| paw | the `washi` and `sumi` profiles in [`config/init.lua`](../../config/init.lua), and [`start/`](start) | The floating bar, borders, shadows, colours, font, wallpaper and the neko and kuroneko on the start button (`shell.start_icon`). Shipped with paw. |
 | Wallpapers | [`wallpaper/`](wallpaper) | `washi.jpg` and `sumi.jpg` at 3840 by 2160, and `generate.py`, which draws them. |
-| kitty | [`kitty/`](kitty) | Both palettes, Maple Mono, padding, a sakura (or caramel) cursor trail, a quiet scrollbar and ink tabs. |
+| kitty | [`kitty/`](kitty) | Both palettes, Maple Mono, padding, a sakura cursor trail, a quiet scrollbar and ink tabs. |
 | fastfetch | [`fastfetch/`](fastfetch) | The rose seal with the paw cut out, shown through kitty's graphics protocol, beside a spec sheet in a box. |
 | Firefox | [`firefox/`](firefox) | `userChrome.css` (the URL bar as a card, tabs as paper labels with a strip of washi tape, menus framed in ink), `userContent.css` (the new tab and settings pages), `user.js`, and a start page: a big clock, a search card, stamped links and a trail of paw prints wherever you click. |
 | Discord | [`discord/washi.theme.css`](discord/washi.theme.css) | One theme for Vencord, Vesktop, Equicord, Equibop and BetterDiscord: Discord's light theme becomes washi and its dark ones sumi. |
 | Claude Code and cdeck | [`claude/`](claude) | Custom themes for Claude Code (`/theme`, then `custom:washi` or `custom:sumi`), which cdeck takes its colours from. |
-| Neovim and Helix | [`editors/`](editors) | Plugin-free colour schemes for both: ink text, orchid keywords, mint strings and blue functions by day (plum, moss and indigo by night), comments pencilled in. |
+| Neovim and Helix | [`editors/`](editors) | Plugin-free colour schemes for both: ink text, orchid keywords, mint strings and sky-blue functions, comments pencilled in. |
 
 ## Using it
 
