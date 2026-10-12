@@ -103,7 +103,8 @@ return {
                 snap = { color = "#8fc1ec40" },
             },
             shell = {
-                frame = "windows", accent = "#5e9edb", panel_color = "#fbf9fb",
+                -- The bar in the paper's own colour, set apart by its outline and shadow alone.
+                frame = "windows", accent = "#5e9edb", panel_color = "#f0ecf0",
                 text_color = "#363c58", font = "Space Grotesk", font_size = 14,
                 panel_height = 46, panel_position = "top", panel_radius = 12,
                 panel_margin = { top = 12, left = 24, right = 24 },
@@ -125,7 +126,7 @@ return {
                 snap = { color = "#8fc1ec40" },
             },
             shell = {
-                frame = "windows", accent = "#8fc1ec", panel_color = "#1b1a25f2",
+                frame = "windows", accent = "#8fc1ec", panel_color = "#1b1c27",
                 text_color = "#e2e0ee", font = "Space Grotesk", font_size = 14,
                 panel_height = 46, panel_position = "top", panel_radius = 12,
                 panel_margin = { top = 12, left = 24, right = 24 },
