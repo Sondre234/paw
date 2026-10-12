@@ -167,10 +167,25 @@ QColor color(const std::string &value) {
 }
 } // namespace
 QColor ShellController::accent() const { return color(config_.shell.accent); }
-QColor ShellController::urgentColor() const {
-    const auto &c = config_.settings.urgent_color; // premultiplied
+// A colour of the compositor's settings, which are premultiplied.
+static QColor unpremultiplied(const float (&c)[4]) {
     const float a = c[3];
-    return a > 0 ? QColor::fromRgbF(c[0] / a, c[1] / a, c[2] / a, a) : QColor();
+    return a > 0 ? QColor::fromRgbF(c[0] / a, c[1] / a, c[2] / a, a) : QColor(Qt::transparent);
+}
+QColor ShellController::urgentColor() const {
+    const auto &c = config_.settings.urgent_color;
+    return c[3] > 0 ? unpremultiplied(c) : QColor();
+}
+QColor ShellController::windowBorderColor() const {
+    return unpremultiplied(config_.settings.border_inactive);
+}
+QColor ShellController::windowShadowColor() const {
+    return config_.settings.shadow ? unpremultiplied(config_.settings.shadow_color)
+                                   : QColor(Qt::transparent);
+}
+QColor ShellController::windowShadowInactiveColor() const {
+    return config_.settings.shadow ? unpremultiplied(config_.settings.shadow_inactive_color)
+                                   : QColor(Qt::transparent);
 }
 QColor ShellController::panelColor() const { return color(config_.shell.panel_color); }
 QColor ShellController::textColor() const { return color(config_.shell.text_color); }
