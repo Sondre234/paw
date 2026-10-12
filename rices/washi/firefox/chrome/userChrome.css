@@ -4,8 +4,8 @@
  * and a hard offset shadow printed in sky blue, tabs as paper labels (the selected one a white
  * card in an ink outline with a strip of sakura washi tape), menus and panels as ink-outlined
  * cards, focus in sky blue. sumi (dark, under prefers-color-scheme: dark) is the sheet soaked
- * in ink: cream text, caramel lit bright, soft deep shadows and a caramel misprint where an ink
- * shadow would vanish.
+ * in ink by moonlight: lavender-white text, sky and sakura lit bright, soft deep shadows and a
+ * sakura misprint where an ink shadow would vanish.
  *
  * Every colour is a --washi-* token in the two palette blocks at the top; the rest maps them
  * onto Firefox's own variables (156 names, with the 152-and-older and 157 names alongside)
@@ -52,23 +52,23 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --washi-paper: #161210;
-    --washi-surface: #1D1916;
-    --washi-raised: #26201C;
-    --washi-sunken: #120F0D;
-    --washi-line: #3A302A;
-    --washi-outline: #3A302A;
-    --washi-ink: #E8DCCB;
-    --washi-muted: #A89A88;
-    --washi-accent: #D6A06E;
-    --washi-accent-text: #D6A06E;
-    --washi-accent-deep: #A86A3C;
-    --washi-on-accent: #1A1613;
-    --washi-seal: #D96F5E;
-    --washi-selection: #4A3A2E;
-    --washi-bean: linear-gradient(#D6A06E, #A86A3C);
+    --washi-paper: #15141D;
+    --washi-surface: #1B1A25;
+    --washi-raised: #24232F;
+    --washi-sunken: #100F17;
+    --washi-line: #34334A;
+    --washi-outline: #34334A;
+    --washi-ink: #E2E0EE;
+    --washi-muted: #9D9BB4;
+    --washi-accent: #8FC1EC;
+    --washi-accent-text: #8FC1EC;
+    --washi-accent-deep: #F2A7C3;
+    --washi-on-accent: #181722;
+    --washi-seal: #E8789F;
+    --washi-selection: #2E3A55;
+    --washi-bean: linear-gradient(#8FC1EC, #F2A7C3);
 
-    /* ink on ink is invisible: lamp-lit depth, with a caramel misprint on the URL bar */
+    /* ink on ink is invisible: moonlit depth, with a sakura misprint on the URL bar */
     --washi-shadow: 3px 3px 0 var(--washi-accent-deep), 0 8px 22px rgb(0 0 0 / 0.5);
     --washi-shadow-small: 0 2px 6px rgb(0 0 0 / 0.5);
     --washi-shadow-panel: 0 8px 20px rgb(0 0 0 / 0.6);
