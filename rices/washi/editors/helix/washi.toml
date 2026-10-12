@@ -1,0 +1,209 @@
+# washi (和紙) for Helix: ink on cream paper, caramel and a vermilion seal.
+# The light half of the washi rice; sumi.toml is the same sheet soaked in ink.
+# Copy it to ~/.config/helix/themes/ and set `theme = "washi"` in config.toml.
+#
+# Print, not neon: ink text, comments pencilled in italic, keywords in plum, strings in moss,
+# functions in indigo, types in teal, numbers in ochre, the preprocessor and the accents in
+# caramel, and vermilion only for the loud things (errors, escapes, jump labels).
+
+# Syntax ---------------------------------------------------------------------------------------
+"attribute" = "caramel"
+
+"type" = "teal"
+"type.builtin" = "teal"
+"type.parameter" = "teal"
+"type.enum.variant" = "ochre"
+"constructor" = "teal"
+
+"constant" = "ochre"
+"constant.builtin" = "ochre"
+"constant.character" = "moss"
+"constant.character.escape" = "seal"
+"constant.numeric" = "ochre"
+
+"string" = "moss"
+"string.regexp" = "teal"
+"string.special" = "caramel"
+"string.special.path" = { fg = "moss", underline = { style = "line" } }
+"string.special.url" = { fg = "indigo", underline = { style = "line" } }
+"string.special.symbol" = "ochre"
+
+"comment" = { fg = "muted", modifiers = ["italic"] }
+"comment.unused" = { fg = "faint", modifiers = ["italic"] }
+
+"variable" = "text"
+"variable.builtin" = { fg = "plum", modifiers = ["italic"] }
+"variable.parameter" = "text"
+"variable.other.member" = "pencil"
+
+"label" = "caramel"
+
+"punctuation" = "muted"
+"punctuation.delimiter" = "muted"
+"punctuation.bracket" = "muted"
+"punctuation.special" = "caramel"
+
+"keyword" = "plum"
+"keyword.control" = "plum"
+"keyword.control.import" = "caramel"
+"keyword.control.exception" = "seal"
+"keyword.operator" = "plum"
+"keyword.directive" = "caramel"
+"keyword.function" = "plum"
+"keyword.storage" = "plum"
+
+"operator" = "caramel"
+
+"function" = "indigo"
+"function.builtin" = "indigo"
+"function.method" = "indigo"
+"function.macro" = "caramel"
+"function.special" = "caramel"
+
+"tag" = "plum"
+"tag.builtin" = "plum"
+
+"namespace" = "teal"
+"special" = "caramel"
+"embedded" = "text"
+
+"markup.heading" = { fg = "text", modifiers = ["bold"] }
+"markup.heading.marker" = "faint"
+"markup.heading.1" = { fg = "seal", modifiers = ["bold"] }
+"markup.heading.2" = { fg = "caramel", modifiers = ["bold"] }
+"markup.heading.3" = { fg = "indigo", modifiers = ["bold"] }
+"markup.heading.4" = { fg = "teal", modifiers = ["bold"] }
+"markup.heading.5" = { fg = "plum", modifiers = ["bold"] }
+"markup.heading.6" = { fg = "ochre", modifiers = ["bold"] }
+"markup.list" = "caramel"
+"markup.list.checked" = "moss"
+"markup.list.unchecked" = "muted"
+"markup.bold" = { modifiers = ["bold"] }
+"markup.italic" = { modifiers = ["italic"] }
+"markup.strikethrough" = { modifiers = ["crossed_out"] }
+"markup.link.url" = { fg = "muted", underline = { style = "line" } }
+"markup.link.label" = "indigo"
+"markup.link.text" = "indigo"
+"markup.quote" = { fg = "muted", modifiers = ["italic"] }
+"markup.raw" = "teal"
+"markup.raw.block" = "pencil"
+
+"diff.plus" = "moss"
+"diff.minus" = "seal"
+"diff.delta" = "ochre"
+"diff.delta.moved" = "indigo"
+"diff.delta.conflict" = "seal"
+
+# Interface ------------------------------------------------------------------------------------
+"ui.background" = { fg = "outline", bg = "sheet" }
+"ui.background.separator" = "line"
+"ui.text" = "text"
+"ui.text.focus" = { fg = "text", bg = "fold", modifiers = ["bold"] }
+"ui.text.inactive" = "muted"
+"ui.text.info" = "text"
+"ui.text.directory" = "indigo"
+"ui.text.symlink" = "teal"
+
+"ui.cursor" = { fg = "on_accent", bg = "pencil" }
+"ui.cursor.primary" = { fg = "on_accent", bg = "cursor" }
+"ui.cursor.primary.insert" = { fg = "on_accent", bg = "bean" }
+"ui.cursor.primary.select" = { fg = "on_accent", bg = "indigo" }
+"ui.cursor.match" = { bg = "match", modifiers = ["bold"] }
+"ui.cursorline.primary" = { bg = "fold" }
+"ui.cursorcolumn.primary" = { bg = "fold" }
+
+"ui.gutter.selected" = { bg = "fold" }
+"ui.linenr" = "faint"
+"ui.linenr.selected" = { fg = "caramel", modifiers = ["bold"] }
+
+"ui.statusline" = { fg = "status_fg", bg = "status" }
+"ui.statusline.inactive" = { fg = "muted", bg = "fold" }
+"ui.statusline.normal" = { fg = "on_accent", bg = "bean", modifiers = ["bold"] }
+"ui.statusline.insert" = { fg = "on_accent", bg = "moss", modifiers = ["bold"] }
+"ui.statusline.select" = { fg = "on_accent", bg = "indigo", modifiers = ["bold"] }
+"ui.statusline.separator" = "faint"
+
+"ui.bufferline" = { fg = "muted", bg = "bar" }
+"ui.bufferline.active" = { fg = "tab_fg", bg = "tab", modifiers = ["bold"] }
+"ui.bufferline.background" = { bg = "sheet" }
+
+"ui.popup" = { fg = "text", bg = "raised" }
+"ui.popup.info" = { fg = "text", bg = "raised" }
+"ui.help" = { fg = "text", bg = "raised" }
+"ui.window" = "line"
+"ui.picker.header" = { bg = "bar" }
+"ui.picker.header.column" = "muted"
+"ui.picker.header.column.active" = { fg = "caramel", modifiers = ["bold"] }
+
+"ui.menu" = { fg = "text", bg = "raised" }
+"ui.menu.selected" = { fg = "on_accent", bg = "mark" }
+"ui.menu.scroll" = { fg = "faint", bg = "bar" }
+
+"ui.selection" = { bg = "sel2" }
+"ui.selection.primary" = { bg = "sel" }
+"ui.highlight" = { bg = "ref" }
+"ui.highlight.frameline" = { bg = "ochre_bg" }
+
+"ui.virtual.ruler" = { bg = "fold" }
+"ui.virtual.whitespace" = "line"
+"ui.virtual.indent-guide" = "line"
+"ui.virtual.inlay-hint" = { fg = "faint", modifiers = ["italic"] }
+"ui.virtual.wrap" = "faint"
+"ui.virtual.jump-label" = { fg = "seal", modifiers = ["bold"] }
+
+"ui.debug.breakpoint" = "seal"
+"ui.debug.active" = "ochre"
+
+"tabstop" = { bg = "ref" }
+
+"error" = "seal"
+"warning" = "ochre"
+"info" = "indigo"
+"hint" = "teal"
+"error.diagnostic.inline" = { fg = "seal", bg = "seal_bg" }
+"warning.diagnostic.inline" = { fg = "ochre", bg = "ochre_bg" }
+"info.diagnostic.inline" = { fg = "indigo", bg = "indigo_bg" }
+"hint.diagnostic.inline" = { fg = "teal", bg = "teal_bg" }
+"diagnostic.error" = { underline = { color = "seal", style = "curl" } }
+"diagnostic.warning" = { underline = { color = "ochre", style = "curl" } }
+"diagnostic.info" = { underline = { color = "indigo", style = "curl" } }
+"diagnostic.hint" = { underline = { color = "teal", style = "curl" } }
+"diagnostic.unnecessary" = { modifiers = ["dim"] }
+"diagnostic.deprecated" = { modifiers = ["crossed_out"] }
+
+rainbow = ["caramel", "indigo", "teal", "plum", "ochre", "moss"]
+
+[palette]
+sheet = "#FBF7EF"     # the paper (kitty's background)
+fold = "#F4EDE2"      # cursor line: a faint fold in the paper
+raised = "#F1E8D8"    # popups and menus
+bar = "#EFE6D6"       # inactive buffers
+sel = "#EBDCC4"       # the primary selection, caramel-tinted
+sel2 = "#F1E6D3"      # the other selections
+ref = "#EFE5D9"       # highlighted lines
+match = "#E2D0BF"     # matching bracket
+line = "#D6C8B2"      # hairlines
+faint = "#A89A88"     # line numbers
+muted = "#7A6B5E"     # comments
+pencil = "#5C4F45"    # fields
+text = "#2B221C"      # ink
+on_accent = "#FBF7EF" # text on ink and on caramel
+status = "#2B221C"    # the current window's status line, inked in like kitty's current tab
+status_fg = "#FBF7EF"
+tab = "#2B221C"       # the current buffer
+tab_fg = "#FBF7EF"
+mark = "#2B221C"      # the selected menu item
+outline = "#2B221C"   # popup and picker borders: the 2px ink outline
+cursor = "#2B221C"
+caramel = "#9A6438"   # the accent as text on paper
+bean = "#A87650"      # the accent as a fill (the paw's toe beans)
+seal = "#B03A2E"      # vermilion hanko
+moss = "#4F6F26"
+ochre = "#8A5A0E"
+indigo = "#2D5A82"
+plum = "#873C66"
+teal = "#276A61"
+seal_bg = "#F4E4DC"   # washes of colour behind inline diagnostics
+ochre_bg = "#F0E5D3"
+indigo_bg = "#E6E7E4"
+teal_bg = "#E6E9E1"

@@ -1,0 +1,676 @@
+/* washi for Firefox: the browser chrome as neo-brutalist print on handmade paper.
+ *
+ * washi (light): cream paper toolbars, ink text, the URL bar a card with a 2px ink outline and
+ * a hard offset ink shadow, tabs as paper labels (the selected one a cream card in an ink
+ * outline with a strip of caramel washi tape), menus and panels as ink-outlined cards, focus
+ * in caramel. sumi (dark, under prefers-color-scheme: dark) is the same sheet soaked in ink:
+ * cream text, caramel lit brighter, soft deep shadows and a caramel misprint where an ink
+ * shadow would vanish.
+ *
+ * Every colour is a --washi-* token in the two palette blocks at the top; the rest maps them
+ * onto Firefox's own variables (156 names, with the 152-and-older and 157 names alongside)
+ * and touches as few selectors as it can. Horizontal and vertical tabs both work.
+ * Needs toolkit.legacyUserProfileCustomizations.stylesheets (see user.js) and a restart.
+ * No @namespace line: the window root is HTML now and a XUL default namespace would stop
+ * body, moz-urlbar and sidebar-main from matching.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* ================================================================ palette: washi */
+
+:root {
+  --washi-paper: #F3EBDD;          /* toolbars, sidebar, the desk under the page */
+  --washi-surface: #FBF7EF;        /* cards: the URL bar, selected tab, menus, panels */
+  --washi-raised: #F1E8D8;         /* hover */
+  --washi-sunken: #EFE6D6;         /* pressed, inputs inside panels */
+  --washi-line: #D6C8B2;           /* hairlines, separators */
+  --washi-outline: #2B221C;        /* the brutalist 2px outline */
+  --washi-ink: #2B221C;            /* text and icons */
+  --washi-muted: #7A6B5E;          /* unselected tabs, secondary text */
+  --washi-accent: #A87650;         /* caramel fills */
+  --washi-accent-text: #9A6438;    /* caramel text on paper */
+  --washi-accent-deep: #734A2C;
+  --washi-on-accent: #FBF7EF;
+  --washi-seal: #B03A2E;           /* vermilion: attention, the loud thing */
+  --washi-selection: #EBDCC4;
+  --washi-bean: linear-gradient(#A87650, #734A2C);   /* paw's toe beans, the one gradient */
+
+  --washi-shadow: 4px 4px 0 var(--washi-outline);            /* the URL bar */
+  --washi-shadow-small: 2px 2px 0 var(--washi-outline);      /* pressed toolbar buttons */
+  --washi-shadow-panel: 5px 5px 0 var(--washi-outline);      /* menus, panels, URL results */
+  --washi-shadow-tab: 3px 3px 0 var(--washi-outline);        /* the selected tab */
+  --washi-panel-shadow-room: 8px;                            /* room popups leave for it */
+  --washi-tape: color-mix(in srgb, var(--washi-accent) 82%, transparent);
+
+  --washi-border: 2px;
+  --washi-radius: 10px;
+  --washi-radius-small: 7px;
+  --washi-font: "Space Grotesk", "Inter", system-ui, sans-serif;
+}
+
+/* ================================================================ palette: sumi */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --washi-paper: #161210;
+    --washi-surface: #1D1916;
+    --washi-raised: #26201C;
+    --washi-sunken: #120F0D;
+    --washi-line: #3A302A;
+    --washi-outline: #3A302A;
+    --washi-ink: #E8DCCB;
+    --washi-muted: #A89A88;
+    --washi-accent: #D6A06E;
+    --washi-accent-text: #D6A06E;
+    --washi-accent-deep: #A86A3C;
+    --washi-on-accent: #1A1613;
+    --washi-seal: #D96F5E;
+    --washi-selection: #4A3A2E;
+    --washi-bean: linear-gradient(#D6A06E, #A86A3C);
+
+    /* ink on ink is invisible: lamp-lit depth, with a caramel misprint on the URL bar */
+    --washi-shadow: 3px 3px 0 var(--washi-accent-deep), 0 8px 22px rgb(0 0 0 / 0.5);
+    --washi-shadow-small: 0 2px 6px rgb(0 0 0 / 0.5);
+    --washi-shadow-panel: 0 8px 20px rgb(0 0 0 / 0.6);
+    --washi-shadow-tab: 0 4px 14px rgb(0 0 0 / 0.45);
+    --washi-panel-shadow-room: 28px;
+    --washi-tape: color-mix(in srgb, var(--washi-accent) 85%, transparent);
+  }
+}
+
+/* ================================================================ Firefox's variables */
+
+:root {
+  /* the toolbox and toolbars: one sheet of paper */
+  --toolbox-background-color: var(--washi-paper) !important;
+  --toolbox-background-color-inactive: var(--washi-paper) !important;
+  --toolbox-text-color: var(--washi-ink) !important;
+  --toolbox-text-color-inactive: var(--washi-ink) !important;
+  --toolbar-background-color: var(--washi-paper) !important;
+  --toolbar-text-color: var(--washi-ink) !important;
+  --toolbox-bgcolor: var(--washi-paper) !important;                 /* before 152 */
+  --toolbox-bgcolor-inactive: var(--washi-paper) !important;
+  --toolbox-textcolor: var(--washi-ink) !important;
+  --toolbox-textcolor-inactive: var(--washi-ink) !important;
+  --toolbar-bgcolor: var(--washi-paper) !important;
+  --toolbar-color: var(--washi-ink) !important;
+  --tabs-navbar-separator-style: none !important;
+  --tabs-navbar-separator-color: transparent !important;
+  --chrome-content-separator-color: var(--washi-outline) !important;
+
+  /* text fields in toolbars: the URL bar and the search bar */
+  --toolbar-field-background-color: var(--washi-surface) !important;
+  --toolbar-field-background-color-focus: var(--washi-surface) !important;
+  --toolbar-field-text-color: var(--washi-ink) !important;
+  --toolbar-field-text-color-focus: var(--washi-ink) !important;
+  --toolbar-field-border-color: var(--washi-outline) !important;
+  --toolbar-field-border-color-focus: var(--washi-outline) !important;
+  --toolbar-field-color: var(--washi-ink) !important;               /* before 152 */
+  --toolbar-field-focus-background-color: var(--washi-surface) !important;
+  --toolbar-field-focus-color: var(--washi-ink) !important;
+  --toolbar-field-focus-border-color: var(--washi-outline) !important;
+
+  /* toolbar buttons */
+  --toolbarbutton-icon-fill: var(--washi-ink) !important;
+  --toolbarbutton-icon-fill-attention: var(--washi-accent-text) !important;
+  --toolbarbutton-icon-fill-attention-text: var(--washi-on-accent) !important;
+  --toolbarbutton-background-color-hover: var(--washi-raised) !important;
+  --toolbarbutton-background-color-active: var(--washi-sunken) !important;
+  --toolbarbutton-hover-background: var(--washi-raised) !important;   /* before 152 */
+  --toolbarbutton-active-background: var(--washi-sunken) !important;
+  --toolbarbutton-border-radius: var(--washi-radius-small) !important;
+
+  /* tabs */
+  --tab-background-color-selected: var(--washi-surface) !important;
+  --tab-selected-bgcolor: var(--washi-surface) !important;          /* before 152 */
+  --tab-selected-textcolor: var(--washi-ink) !important;            /* 152-156 */
+  --tab-text-color-selected: var(--washi-ink) !important;           /* 157 */
+  --tab-background-color-hover: var(--washi-raised) !important;
+  --tab-box-shadow-selected: none !important;
+  --tab-selected-outline-color: transparent !important;
+  --tab-hover-outline-color: transparent !important;
+  --tab-border-radius: var(--washi-radius-small) !important;
+  --tab-loading-fill: var(--washi-accent) !important;
+  --tab-attention-dot-color: var(--washi-seal) !important;
+  --tab-border-color-accent: none !important;                       /* 157 (Nova) */
+
+  /* the sidebar (tools and vertical tabs) */
+  --sidebar-background-color: var(--washi-paper) !important;
+  --sidebar-text-color: var(--washi-ink) !important;
+  --sidebar-border-color: var(--washi-line) !important;
+
+  /* what shows before a page paints (the about:blank flash) */
+  --tabpanel-background-color: var(--washi-paper) !important;
+
+  /* the design system underneath (dialogs, cards in panels, buttons, links, focus) */
+  --background-color-box: var(--washi-surface) !important;
+  --background-color-canvas: var(--washi-paper) !important;
+  --text-color: var(--washi-ink) !important;
+  --text-color-deemphasized: var(--washi-muted) !important;
+  --border-color: var(--washi-line) !important;
+  --border-color-card: var(--washi-line) !important;
+  --border-color-interactive: var(--washi-outline) !important;
+  --card-border-color: var(--washi-line) !important;
+  --color-accent-primary: var(--washi-accent) !important;
+  --color-accent-primary-hover: var(--washi-accent-text) !important;
+  --color-accent-primary-active: var(--washi-accent-deep) !important;
+  --color-accent-primary-selected: var(--washi-accent) !important;
+  --button-text-color-primary: var(--washi-on-accent) !important;
+  --button-background-color: var(--washi-raised) !important;
+  --button-background-color-hover: var(--washi-sunken) !important;
+  --button-background-color-active: var(--washi-line) !important;
+  --button-text-color: var(--washi-ink) !important;
+  --link-color: var(--washi-accent-text) !important;
+  --focus-outline-color: var(--washi-accent) !important;      /* keyboard focus: caramel */
+  --focus-outline: 2px solid var(--washi-accent) !important;
+  --icon-color: var(--washi-ink) !important;
+  /* promos (the app menu's sign-in box and the like): paper, not violet */
+  --promo-background-color: var(--washi-raised) !important;
+  --promo-background-color-vibrant: var(--washi-raised) !important;
+  --promo-message-text-color: var(--washi-ink) !important;
+  --promo-message-text-color-vibrant: var(--washi-ink) !important;
+}
+
+/* Menus and panels re-declare their colours on themselves, so set them there too. */
+:root,
+menupopup,
+panel {
+  --panel-background-color: var(--washi-surface) !important;
+  --panel-text-color: var(--washi-ink) !important;
+  --panel-border-color: var(--washi-outline) !important;
+  --panel-description-color: var(--washi-muted) !important;
+  --panel-separator-color: var(--washi-line) !important;
+  --panel-item-hover-bgcolor: var(--washi-raised) !important;
+  --panel-item-active-bgcolor: var(--washi-sunken) !important;
+  --panel-border-radius: var(--washi-radius) !important;
+  /* the 1px border the panel draws, plus 1px of spread, is a 2px ink outline; then the press */
+  --panel-box-shadow: 0 0 0 1px var(--washi-outline), var(--washi-shadow-panel) !important;
+  --panel-box-shadow-margin: var(--washi-panel-shadow-room) !important;
+  --arrowpanel-background: var(--washi-surface) !important;          /* before 152 */
+  --arrowpanel-color: var(--washi-ink) !important;
+  --arrowpanel-border-color: var(--washi-outline) !important;
+  --arrowpanel-dimmed: var(--washi-raised) !important;
+  --arrowpanel-dimmed-further: var(--washi-sunken) !important;
+  --arrowpanel-border-radius: var(--washi-radius) !important;
+  --menuitem-border-radius: 6px !important;
+  --menuitem-padding: 5px 10px !important;
+  --panel-menuitem-border-radius: 6px !important;
+  --panel-padding-block: 6px !important;
+}
+
+menupopup,
+panel {
+  --background-color-canvas: var(--washi-surface) !important;
+}
+
+/* ================================================================ the type */
+
+#navigator-toolbox,
+#sidebar-box,
+#sidebar-container,
+sidebar-main,
+#tabbrowser-tabs,
+menupopup,
+panel,
+tooltip,
+#statuspanel-label,
+findbar,
+.urlbarView {
+  font-family: var(--washi-font) !important;
+}
+
+/* ================================================================ the sheet of paper */
+
+body,
+#navigator-toolbox {
+  background-color: var(--washi-paper) !important;
+  color: var(--washi-ink) !important;
+}
+
+#navigator-toolbox {
+  border-bottom: none !important;
+}
+
+#TabsToolbar,
+#nav-bar,
+#PersonalToolbar,
+#toolbar-menubar {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* paw draws the window's frame; no minimise/maximise/close in the tab strip, and no drag
+   spaces either side of the tabs */
+.titlebar-buttonbox-container,
+#TabsToolbar .titlebar-spacer {
+  display: none !important;
+}
+
+::selection,
+#urlbar-input::selection,
+.urlbar-input::selection,
+.searchbar-textbox::selection,
+findbar .findbar-textbox::selection {
+  background-color: var(--washi-selection) !important;
+  color: var(--washi-ink) !important;
+}
+
+/* ================================================================ the navigation bar */
+
+#nav-bar {
+  padding-block: 7px 11px !important;
+  padding-inline: 8px !important;
+}
+
+/* toolbar buttons: quiet on paper, raised under the pointer, a pressed card when open */
+#nav-bar toolbarbutton:not(#urlbar-container *) > .toolbarbutton-icon,
+#nav-bar toolbarbutton:not(#urlbar-container *) > .toolbarbutton-badge-stack,
+#nav-bar toolbarbutton:not(#urlbar-container *) > .toolbarbutton-text {
+  border-radius: var(--washi-radius-small) !important;
+  border: var(--washi-border) solid transparent !important;
+}
+
+#nav-bar toolbarbutton:is([open], [checked], :hover:active):not(#urlbar-container *) > :is(.toolbarbutton-icon, .toolbarbutton-badge-stack, .toolbarbutton-text) {
+  background-color: var(--washi-surface) !important;
+  border-color: var(--washi-outline) !important;
+  box-shadow: var(--washi-shadow-small) !important;
+}
+
+/* the badge (downloads, updates): a vermilion seal */
+.toolbarbutton-badge {
+  background-color: var(--washi-seal) !important;
+  color: var(--washi-on-accent) !important;
+  box-shadow: none !important;
+}
+
+/* ================================================================ the URL bar: a card */
+
+#urlbar,
+#searchbar,
+.urlbar {
+  /* Nova (157) outlines the input container; washi draws one outline, on the background */
+  --urlbar-input-container-border: 0 solid transparent !important;
+  --urlbar-input-container-outline-breakout: none !important;
+  --urlbar-input-container-outline-breakout-focused: none !important;
+  --urlbar-background-border: var(--washi-border) solid var(--washi-outline) !important;
+  --urlbar-background-border-breakout: var(--washi-border) solid var(--washi-outline) !important;
+  --urlbar-background-border-focused: var(--washi-border) solid var(--washi-outline) !important;
+  --urlbar-background-outline-focused: none !important;
+  --urlbar-background-border-radius: var(--washi-radius) !important;
+  --urlbar-border-radius: var(--washi-radius) !important;
+  --urlbarview-border-radius: var(--washi-radius) !important;
+  --urlbar-box-background-color-hover: var(--washi-raised) !important;
+  --urlbar-box-background-color-active: var(--washi-sunken) !important;
+  --urlbar-box-hover-bgcolor: var(--washi-raised) !important;        /* before 152 */
+  --urlbar-box-active-bgcolor: var(--washi-sunken) !important;
+  --urlbar-box-focus-bgcolor: var(--washi-raised) !important;
+  --urlbar-box-text-color-hover: var(--washi-ink) !important;
+  --urlbarView-highlight-background: var(--washi-selection) !important;
+  --urlbarView-highlight-color: var(--washi-ink) !important;
+  --urlbarView-hover-background: var(--washi-raised) !important;
+  --urlbarView-separator-color: var(--washi-line) !important;
+  --urlbarView-action-color: var(--washi-accent-text) !important;
+  --urlbarView-url-color: var(--washi-accent-text) !important;
+  --urlbarView-secondary-text-color: var(--washi-muted) !important;
+  --urlbarView-result-button-selected-color: var(--washi-ink) !important;
+  --urlbarView-result-button-selected-background-color: var(--washi-line) !important;
+  --urlbarView-result-button-hover-color: var(--washi-ink) !important;
+  --urlbarView-result-button-hover-background-color: var(--washi-raised) !important;
+  --urlbar-background-color: var(--washi-surface) !important;
+  --urlbar-background-color-focus: var(--washi-surface) !important;
+  --chrome-box-shadow: transparent !important;
+}
+
+:is(#urlbar, .urlbar) > .urlbar-background,
+#searchbar {
+  background-color: var(--washi-surface) !important;
+  border: var(--washi-border) solid var(--washi-outline) !important;
+  border-radius: var(--washi-radius) !important;
+  box-shadow: var(--washi-shadow) !important;
+  outline: none !important;
+}
+
+/* focused: lifted off the paper, with a caramel ring */
+:is(#urlbar, .urlbar)[focused] > .urlbar-background,
+#searchbar:focus-within {
+  outline: 2px solid var(--washi-accent) !important;
+  outline-offset: 2px !important;
+}
+
+/* open with results: the whole card is a panel, pressed harder */
+:is(#urlbar, .urlbar)[breakout-extend] > .urlbar-background {
+  box-shadow: var(--washi-shadow-panel) !important;
+  outline: none !important;
+}
+
+:is(#urlbar, .urlbar) > .urlbar-input-container {
+  outline: none !important;
+  border: none !important;
+}
+
+#urlbar-input,
+.urlbar-input,
+#searchbar .searchbar-textbox {
+  color: var(--washi-ink) !important;
+  font-family: var(--washi-font) !important;
+}
+
+#urlbar-input::placeholder,
+.urlbar-input::placeholder {
+  color: var(--washi-muted) !important;
+  opacity: 1 !important;
+}
+
+/* the result rows */
+.urlbarView-row[selected] > .urlbarView-row-inner,
+.urlbarView-row:is([selected], [aria-selected="true"]) {
+  color: var(--washi-ink) !important;
+}
+
+.urlbarView-row:not([type="tip"], [type="dynamic"])[selected] > .urlbarView-row-inner,
+.urlbarView-row-inner[selected] {
+  background-color: var(--washi-selection) !important;
+}
+
+.urlbarView-url,
+.urlbarView-action {
+  color: var(--washi-accent-text) !important;
+}
+
+/* a strip of caramel down the left of the "Search with" one-off row and the selected row */
+.urlbarView-row[selected] > .urlbarView-row-inner {
+  box-shadow: inset 3px 0 0 var(--washi-accent) !important;
+}
+
+/* ================================================================ tabs: paper labels */
+
+#TabsToolbar {
+  padding-inline: 6px !important;
+  padding-top: 5px !important;
+}
+
+.tabbrowser-tab {
+  padding-inline: 3px !important;
+}
+
+/* unselected labels: quiet, muted ink */
+.tabbrowser-tab:not([selected], [multiselected]) {
+  color: var(--washi-muted) !important;
+}
+
+.tabbrowser-tab:not([selected], [multiselected]):hover {
+  color: var(--washi-ink) !important;
+}
+
+.tab-label {
+  font-weight: 500;
+}
+
+.tabbrowser-tab[selected] .tab-label {
+  font-weight: 600;
+}
+
+.tab-background {
+  border: var(--washi-border) solid transparent !important;
+  border-radius: var(--washi-radius-small) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.tabbrowser-tab:hover > .tab-stack > .tab-background:not([selected], [multiselected]) {
+  background-color: var(--washi-raised) !important;
+  border-color: var(--washi-line) !important;
+}
+
+/* the selected label: a cream card in ink, held on by a strip of caramel washi tape */
+.tab-background:is([selected], [multiselected]) {
+  position: relative;
+  background-color: var(--washi-surface) !important;
+  border-color: var(--washi-outline) !important;
+  box-shadow: var(--washi-shadow-tab) !important;
+}
+
+.tab-background[selected]::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 34px;
+  height: 9px;
+  translate: -50% 0;
+  rotate: -3deg;
+  background-color: var(--washi-tape);
+  pointer-events: none;
+}
+
+/* multiselected but not the one shown: a dashed outline */
+.tab-background[multiselected]:not([selected]) {
+  border-style: dashed !important;
+  box-shadow: none !important;
+}
+
+/* tab-strip buttons (new tab, all tabs) match the toolbar's */
+#TabsToolbar toolbarbutton > .toolbarbutton-icon,
+#TabsToolbar toolbarbutton > .toolbarbutton-badge-stack,
+#tabs-newtab-button > .toolbarbutton-icon {
+  border-radius: var(--washi-radius-small) !important;
+}
+
+/* tab groups: their labels in paper too */
+.tab-group-label {
+  font-family: var(--washi-font) !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+}
+
+/* ================================================================ vertical tabs and the sidebar */
+
+#sidebar-main,
+#sidebar-container,
+sidebar-main,
+#vertical-tabs {
+  background-color: var(--washi-paper) !important;
+  color: var(--washi-ink) !important;
+}
+
+/* in a column the tape holds the label's left edge */
+#tabbrowser-tabs[orient="vertical"] .tab-background[selected]::before {
+  top: 50%;
+  left: -5px;
+  width: 9px;
+  height: 22px;
+  translate: 0 -50%;
+}
+
+#tabbrowser-tabs[orient="vertical"] .tabbrowser-tab {
+  padding-inline: 4px 7px !important;
+}
+
+/* the "drag tabs here to pin them" card: paper with a dashed caramel edge, not violet */
+sidebar-pins-promo {
+  --promo-light-background: var(--washi-raised) !important;
+  --promo-dark-background: var(--washi-raised) !important;
+  --promo-light-text: var(--washi-ink) !important;
+  --promo-dark-text: var(--washi-ink) !important;
+  --promo-light-icon-border: var(--washi-accent) !important;
+  --promo-dark-icon-border: var(--washi-accent) !important;
+  font-family: var(--washi-font) !important;
+}
+
+/* (user sheets reach into shadow trees, so the promo's icons can be inked too) */
+sidebar-pins-promo .icon-cell > img,
+.promo-card .icon-cell > img {
+  fill: var(--washi-accent-text) !important;
+}
+
+/* collapsed to icons: no tape, the card alone */
+#tabbrowser-tabs[orient="vertical"]:not([expanded]) .tab-background[selected]::before {
+  display: none;
+}
+
+#sidebar-box {
+  background-color: var(--washi-paper) !important;
+  color: var(--washi-ink) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+#sidebar-header {
+  border-bottom-color: var(--washi-line) !important;
+}
+
+#sidebar-splitter,
+#sidebar-launcher-splitter {
+  border-color: transparent !important;
+  background-color: transparent !important;
+}
+
+/* ================================================================ the page: a sheet on the desk */
+
+/* padding, not margin: the expand-on-hover sidebar owns the tabbox's margin */
+#tabbrowser-tabbox {
+  padding: 0 8px 8px !important;
+}
+
+.browserContainer {
+  border: var(--washi-border) solid var(--washi-outline) !important;
+  border-radius: var(--washi-radius) !important;
+  outline: none !important;
+  box-shadow: none !important;
+  overflow: clip !important;
+}
+
+/* full screen: the page alone, edge to edge */
+:root:is([inDOMFullscreen], [inFullscreen]) #tabbrowser-tabbox {
+  padding: 0 !important;
+}
+
+:root:is([inDOMFullscreen], [inFullscreen]) .browserContainer {
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+/* ================================================================ menus and panels: cards */
+
+menupopup,
+panel {
+  color: var(--washi-ink) !important;
+}
+
+menupopup menuitem,
+menupopup menu,
+panel menuitem {
+  border-radius: 6px !important;
+}
+
+menupopup :is(menuitem, menu):where([_moz-menuactive]):not([disabled="true"]) {
+  background-color: var(--washi-selection) !important;
+  color: var(--washi-ink) !important;
+}
+
+menuseparator,
+toolbarseparator {
+  border-color: var(--washi-line) !important;
+  border-top-color: var(--washi-line) !important;
+  appearance: none !important;
+}
+
+menuseparator::before {
+  border-top-color: var(--washi-line) !important;
+}
+
+toolbarseparator {
+  border-image: none !important;
+}
+
+/* Firefox's violet-to-pink "zap" under the account row: the caramel bean instead */
+.proton-zap::before {
+  border-image: linear-gradient(90deg, var(--washi-accent), var(--washi-accent-deep)) 1 !important;
+}
+
+/* the app menu's and other panels' items */
+.subviewbutton:not([disabled], [open], :active):is(:hover) {
+  background-color: var(--washi-raised) !important;
+}
+
+.subviewbutton:not([disabled]):is([open], :hover:active) {
+  background-color: var(--washi-sunken) !important;
+}
+
+panelview .panel-header {
+  font-family: var(--washi-font) !important;
+}
+
+.panel-subview-footer-button,
+.panel-footer button {
+  border-radius: var(--washi-radius-small) !important;
+}
+
+/* primary buttons in panels and dialogs: the caramel bean, outlined in ink */
+button.primary,
+.button-primary,
+.panel-footer button[default],
+.popup-notification-primary-button {
+  background: var(--washi-bean) !important;
+  color: var(--washi-on-accent) !important;
+  border: var(--washi-border) solid var(--washi-outline) !important;
+  border-radius: var(--washi-radius-small) !important;
+}
+
+button.primary:hover,
+.button-primary:hover,
+.panel-footer button[default]:hover,
+.popup-notification-primary-button:hover {
+  background: var(--washi-accent-text) !important;
+}
+
+/* tooltips: small ink-outlined labels */
+tooltip {
+  appearance: none !important;
+  background-color: var(--washi-surface) !important;
+  color: var(--washi-ink) !important;
+  border: 1.5px solid var(--washi-outline) !important;
+  border-radius: 6px !important;
+}
+
+/* ================================================================ the rest of the window */
+
+/* the status text at the bottom corner of a page */
+#statuspanel-label {
+  background-color: var(--washi-surface) !important;
+  color: var(--washi-ink) !important;
+  border: 1.5px solid var(--washi-outline) !important;
+  border-radius: 6px !important;
+}
+
+/* find in page */
+findbar {
+  background-color: var(--washi-paper) !important;
+  color: var(--washi-ink) !important;
+  border-top: var(--washi-border) solid var(--washi-outline) !important;
+}
+
+findbar .findbar-textbox {
+  background-color: var(--washi-surface) !important;
+  color: var(--washi-ink) !important;
+  border: var(--washi-border) solid var(--washi-outline) !important;
+  border-radius: var(--washi-radius-small) !important;
+  outline-offset: 2px !important;
+}
+
+/* notification bars above the page */
+notification-message,
+.notificationbox-stack notification-message {
+  --message-bar-background-color: var(--washi-surface) !important;
+  --message-bar-text-color: var(--washi-ink) !important;
+  border-radius: var(--washi-radius-small) !important;
+}
+
+/* the bookmarks toolbar, when shown */
+#PersonalToolbar {
+  padding-block: 0 6px !important;
+}
+
+#PersonalToolbar toolbarbutton.bookmark-item {
+  border-radius: 6px !important;
+}

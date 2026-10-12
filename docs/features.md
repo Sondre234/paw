@@ -2146,8 +2146,12 @@ configuration, so the compositor and the shell change together, and it stays aft
 While that file names a profile the configuration still has, it wins over `profile`; delete it
 to go back to `profile`. Every profile is checked when the configuration loads, so a mistake in
 one that is not in use is still reported, with its line. The example configuration ships
-`macos-light`, where it starts, and `macos-dark` ([the macOS style](#the-macos-style)), and the
-taskbar's `default` and `light`; a file with `extends = "default"` gets them, and starts on
+`macos-light`, where it starts, and `macos-dark` ([the macOS style](#the-macos-style)), the
+taskbar's `default` and `light`, and `washi` and `sumi`, a rice of paper and ink by day and by
+night: a floating bar framed as the windows are (`shell.frame`), hard printed shadows and
+gradient borders in the caramel of the logo's toe beans, and wallpapers of their own in
+[`rices/washi`](../rices/washi/README.md) beside the configuration, with themes for kitty,
+fastfetch, Firefox, Discord, Claude Code and editors that its `install.sh` puts in place; a file with `extends = "default"` gets them, and starts on
 `macos-light` unless it sets `profile`, only when it defines no `profiles` of its own. A profile
 wins over a theme.lua that `paw import` wrote, so pick `default` to see that.
 

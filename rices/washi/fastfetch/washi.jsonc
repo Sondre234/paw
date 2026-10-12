@@ -1,0 +1,140 @@
+// washi for fastfetch: a seal with the paw cut out, and a spec sheet in ink, ochre and
+// vermilion. Colours are the terminal's own (red, yellow, bright black), so it follows
+// washi's and sumi's kitty palettes alike. Run `fastfetch -c washi` once install.sh has
+// put it in ~/.config/fastfetch/; the logo is drawn through kitty's graphics protocol.
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": {
+    "type": "kitty-direct",
+    "source": "~/.config/fastfetch/washi/logo.png",
+    "width": 18,
+    "height": 9,
+    "padding": {
+      "top": 2,
+      "left": 3,
+      "right": 4
+    }
+  },
+  "display": {
+    "separator": "",
+    "color": {
+      "keys": "yellow",
+      "title": "red",
+      "output": "default"
+    },
+    "constants": [
+      "                                  \u001b[90m│\u001b[35D\u001b[39m"
+    ],
+    "bar": {
+      "char": {
+        "elapsed": "■",
+        "total": "·"
+      },
+      "border": null,
+      "color": {
+        "elapsed": "red",
+        "total": "90"
+      },
+      "width": 12
+    },
+    "percent": {
+      "type": [
+        "bar",
+        "num"
+      ],
+      "color": {
+        "green": "default",
+        "yellow": "default",
+        "red": "red"
+      }
+    },
+    "duration": {
+      "abbreviation": true
+    }
+  },
+  "modules": [
+    {
+      "type": "custom",
+      "format": "{#90}╭─ {#1;31}washi{#0}{#90} ───────────────────────────────────────╮"
+    },
+    {
+      "type": "os",
+      "key": "{#90}│ {#31}{icon}  {#33}os       ",
+      "format": "{$1}{pretty-name:-30}"
+    },
+    {
+      "type": "kernel",
+      "key": "{#90}│ {#31}{icon}  {#33}kernel   ",
+      "format": "{$1}{release:-30}"
+    },
+    {
+      "type": "wm",
+      "key": "{#90}│ {#31}{icon}  {#33}wm       ",
+      "format": "{$1}{pretty-name} {#90}{protocol-name}"
+    },
+    {
+      "type": "shell",
+      "key": "{#90}│ {#31}{icon}  {#33}shell    ",
+      "format": "{$1}{pretty-name} {#90}{version}"
+    },
+    {
+      "type": "terminal",
+      "key": "{#90}│ {#31}{icon}  {#33}term     ",
+      "format": "{$1}{pretty-name} {#90}{version}"
+    },
+    {
+      "type": "terminalfont",
+      "key": "{#90}│ {#31}{icon}  {#33}font     ",
+      "format": "{$1}{name:-24} {#90}{size}pt"
+    },
+    {
+      "type": "uptime",
+      "key": "{#90}│ {#31}{icon}  {#33}uptime   ",
+      "format": "{$1}{?days}{days}d {?}{hours}h {minutes}m"
+    },
+    {
+      "type": "custom",
+      "format": "{#90}├─ {#1;31}paws{#0}{#90} ────────────────────────────────────────┤"
+    },
+    {
+      "type": "cpu",
+      "key": "{#90}│ {#31}{icon}  {#33}cpu      ",
+      "format": "{$1}{name:-30}"
+    },
+    {
+      "type": "gpu",
+      "key": "{#90}│ {#31}{icon}  {#33}gpu      ",
+      "format": "{$1}{name:-30}",
+      "hideType": "integrated"
+    },
+    {
+      "type": "memory",
+      "key": "{#90}│ {#31}{icon}  {#33}memory   ",
+      "format": "{$1}{percentage-bar} {used}"
+    },
+    {
+      "type": "disk",
+      "key": "{#90}│ {#31}{icon}  {#33}disk     ",
+      "format": "{$1}{size-percentage-bar} {size-used}",
+      "folders": "/"
+    },
+    {
+      "type": "custom",
+      "format": "{#90}╰───────────────────────────────────────────────╯"
+    },
+    "break",
+    {
+      "type": "colors",
+      "key": " ",
+      "symbol": "block",
+      "paddingLeft": 1,
+      "block": {
+        "width": 4,
+        "range": [
+          0,
+          7
+        ]
+      }
+    }
+  ]
+}

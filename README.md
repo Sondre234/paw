@@ -18,6 +18,11 @@ you save it.
 [Running](#running) · [Configuration](#configuration) · [Features](docs/features.md) ·
 [Contributing](CONTRIBUTING.md)
 
+![paw in washi, the rice it ships with](rices/washi/screenshots/washi.jpg)
+
+<sub><a href="rices/washi">washi</a>, the rice that ships with paw: paper a cat walked across,
+by day and by night.</sub>
+
 </div>
 
 > **Status:** beta; the latest release is 0.1.1. It is my everyday desktop on Gentoo,
@@ -64,6 +69,9 @@ you save it.
   fingers at once, and drawing tablets give applications pressure and tilt.
 - **Lua configuration** that is validated with file and line, reloads on save, can extend
   the defaults instead of copying them, and switches between appearance profiles.
+- **A rice to start from:** [washi and sumi](rices/washi), paper and ink by day and by night,
+  with the bar and menus framed as the windows are and printed shadows, and themes for kitty,
+  fastfetch, Firefox, Discord, Claude Code, Neovim and Helix that one script puts in place.
   `paw import` carries over an existing Hyprland/Waybar setup.
 - **Scriptable:** every action, plus queries and an event stream, over a control socket
   (`paw msg`).

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- washi's seal: a vermilion hanko with paw's print cut out of it. The start page's tab icon;
+       vermilion by day (washi), lit vermilion by night (sumi). SPDX-License-Identifier: GPL-3.0-or-later -->
+  <style>
+    .seal { fill: #B03A2E; }
+    @media (prefers-color-scheme: dark) { .seal { fill: #D96F5E; } }
+  </style>
+  <defs>
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <rect width="256" height="256" fill="#fff"/>
+      <g fill="#000" transform="translate(128 130) scale(0.9) translate(-128 -133)">
+        <ellipse cx="70" cy="110" rx="18.8" ry="22.8" transform="rotate(-28 70 110)"/>
+        <ellipse cx="106" cy="80" rx="20.1" ry="24.1" transform="rotate(-10 106 80)"/>
+        <ellipse cx="150" cy="80" rx="20.1" ry="24.1" transform="rotate(10 150 80)"/>
+        <ellipse cx="186" cy="110" rx="18.8" ry="22.8" transform="rotate(28 186 110)"/>
+        <path d="M128 128C153 128 175 151 176 176C177 195 170 207 160 207C152 207 149 200 144 200C139 200 138 210 128 210C118 210 117 200 112 200C107 200 104 207 96 207C86 207 79 195 80 176C81 151 103 128 128 128Z"/>
+      </g>
+    </mask>
+  </defs>
+  <rect class="seal" x="12" y="12" width="232" height="232" rx="36" mask="url(#cut)"/>
+</svg>
