@@ -162,7 +162,8 @@ firefox_profile() {
 part_firefox() {
     title "Firefox"
     local root profile found=0
-    local start=$data/paw-washi/startpage
+    # The start page finds the wallpapers two folders up, as it does in the rice itself.
+    local start=$data/paw-washi/firefox/startpage
     for root in "$HOME/.mozilla/firefox" "$config/mozilla/firefox"; do
         profile=$(firefox_profile "$root") || continue
         [ -d "$profile" ] || continue
@@ -172,7 +173,7 @@ part_firefox() {
             place "$here/firefox/chrome/$file" "$profile/chrome/${file#./}"
         done
         local prefs
-        prefs=$(sed "s|@STARTPAGE@|file://$start/index.html|g" "$here/firefox/user.js")
+        prefs=$(sed "s|file:///PATH/TO/startpage/index.html|file://$start/index.html|g" "$here/firefox/user.js")
         block "$profile/user.js" "//" "$prefs"
     done
     if [ $found = 0 ]; then
