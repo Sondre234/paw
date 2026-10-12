@@ -108,6 +108,7 @@ return {
                 panel_height = 46, panel_position = "top", panel_radius = 12,
                 panel_margin = { top = 12, left = 24, right = 24 },
                 wallpaper = "rices/washi/wallpaper/washi.jpg",
+                start_icon = "rices/washi/start/neko.svg",
             },
         },
         sumi = {
