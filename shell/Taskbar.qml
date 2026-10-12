@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
+import QtQuick.Effects
 import QtQuick.Layouts
 import Paw
 
@@ -27,6 +28,19 @@ Item {
                                      shell.panelMarginRight > 0 || shell.panelMarginTop > 0 ||
                                      shell.panelMarginBottom > 0
 
+    // Framed as windows are (shell.frame), a floating bar casts an unfocused window's shadow, into
+    // the margins around it.
+    Loader {
+        objectName: "barShadow"
+        active: Theme.effects && taskbar.floating && Theme.barShadow.a > 0
+        x: bar.x; y: bar.y; width: bar.width; height: bar.height
+        sourceComponent: RectangularShadow {
+            radius: bar.radius
+            blur: Theme.shadowBlur
+            offset: Qt.vector2d(Theme.shadowOffsetX, Theme.shadowOffset)
+            color: Theme.barShadow
+        }
+    }
     Rectangle {
         id: bar
         objectName: "bar"
@@ -38,9 +52,10 @@ Item {
         height: shell.panelHeight
         color: Theme.bar
         radius: shell.panelRadius
-        // A floating bar gets an outline; a docked one a line along its inner edge.
-        border.width: taskbar.floating ? 1 : 0
-        border.color: Theme.border
+        // A floating bar gets an outline (as windows have, framed as they are); a docked one a line
+        // along its inner edge.
+        border.width: taskbar.floating ? Theme.outlineWidth : 0
+        border.color: Theme.outline
         Rectangle {
             visible: !taskbar.floating
             y: taskbar.panel.onTop ? parent.height - 1 : 0
