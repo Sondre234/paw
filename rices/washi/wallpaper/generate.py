@@ -4,6 +4,7 @@
 
     python3 generate.py washi washi.jpg [--size 3840x2160] [--seed 2] [--seal-font FONT]
     python3 generate.py sumi sumi.jpg ...
+    python3 generate.py logo logo.png --size 512x512
 
 washi is cream paper by day, sumi the same sheet soaked in ink by night. The paw prints are
 paw's logo, its four toe beans and its pad, stamped in caramel along a cat's walk; the seal
@@ -288,6 +289,30 @@ def seal(rng, size, colours, scale, font_path, position):
     return layer
 
 
+def logo(rng, side, colours):
+    """A square seal with the paw cut out of it, filling a `side` by `side` picture on nothing:
+    the mark for fastfetch and the like."""
+    scale = side / 512
+    margin = round(28 * scale)
+    block = Image.new("L", (side, side), 0)
+    ImageDraw.Draw(block).rounded_rectangle((margin, margin, side - margin, side - margin),
+                                            radius=round(46 * scale), fill=255)
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, side, side)
+    cr = cairo.Context(surface)
+    unit = (side - 2 * margin) * 0.66 / 160
+    cr.translate(side / 2, side / 2 + 6 * scale)
+    cr.scale(unit, unit)
+    cr.translate(-PRINT_CENTRE[0], -PRINT_CENTRE[1])
+    print_path(cr)
+    cr.set_source_rgba(1, 1, 1, 1)
+    cr.fill()
+    mask = ImageChops.subtract(block, to_pil(surface).getchannel("A"))
+    layer = Image.new("RGBA", (side, side), colours["seal"] + (0,))
+    layer.putalpha(ImageChops.multiply(stamp(rng, mask, scale * 2, roughness=1.4),
+                                       mask.point(lambda v: 245 if v else 0)))
+    return layer
+
+
 def lighting(size, colours):
     """A vignette, and for sumi a lamp's warmth from the top-left corner."""
     width, height = size
@@ -320,7 +345,8 @@ def grain(image, amount):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("variant", choices=sorted(VARIANTS))
+    parser.add_argument("variant", choices=sorted(VARIANTS) + ["logo"],
+                        help="logo: the seal with the paw cut out, square, on nothing")
     parser.add_argument("output")
     parser.add_argument("--size", default="3840x2160")
     parser.add_argument("--seed", type=int, default=2)
@@ -328,6 +354,10 @@ def main():
     args = parser.parse_args()
     size = tuple(int(n) for n in args.size.lower().split("x"))
     scale = size[1] / 2160
+    if args.variant == "logo":
+        logo(random.Random(args.seed), min(size), VARIANTS["washi"]).save(args.output,
+                                                                          optimize=True)
+        return
     colours = VARIANTS[args.variant]
     # One generator per layer, so changing one layer's draws leaves the others as they were.
     seeds = random.Random(args.seed)
