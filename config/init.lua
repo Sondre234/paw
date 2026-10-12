@@ -82,6 +82,54 @@ return {
             windows = { border_color = "#3d6fd9", border_inactive_color = "#c3cad6" },
             shell = { accent = "#3d6fd9", panel_color = "#f4f6fa", text_color = "#1b2230" },
         },
+        -- washi (和紙) and sumi (墨): handmade paper a cat walked across, by day and by night.
+        -- Ink outlines, hard printed shadows and the caramel of paw's toe beans, with the bar
+        -- and the popups framed as the windows are. Their wallpapers sit beside this file in
+        -- rices/washi, with themes for kitty, fastfetch, Firefox, Discord, Claude Code and
+        -- editors that its install.sh puts in place. They name Space Grotesk (install.sh
+        -- --fonts fetches it); without it the default sans-serif stands in.
+        washi = {
+            appearance = { background = "#f3ebdd" },
+            windows = {
+                border_width = 2, corner_radius = 12, round = "always",
+                border_color = { "#c08a5a", "#734a2c", angle = 135 },
+                border_inactive_color = "#2b221c",
+                -- No blur and an offset: a shadow printed beside the window, not under it.
+                shadow = { enabled = true, color = "#2b221cff", inactive_color = "#2b221c66",
+                           blur = 0, offset = { 7, 7 } },
+                urgent_color = "#b03a2e",
+                magnet = { guide_color = "#b03a2ecc" },
+                snap = { color = "#a8765040" },
+            },
+            shell = {
+                frame = "windows", accent = "#9a6438", panel_color = "#fbf7ef",
+                text_color = "#2b221c", font = "Space Grotesk", font_size = 14,
+                panel_height = 46, panel_position = "top", panel_radius = 12,
+                panel_margin = { top = 12, left = 24, right = 24 },
+                wallpaper = "rices/washi/wallpaper/washi.jpg",
+            },
+        },
+        sumi = {
+            appearance = { background = "#161210" },
+            windows = {
+                border_width = 2, corner_radius = 12, round = "always",
+                border_color = { "#e2ae62", "#a86a3c", angle = 135 },
+                border_inactive_color = "#3a302a",
+                shadow = { enabled = true, color = "#000000cc", inactive_color = "#00000080",
+                           blur = 36, offset = { 0, 14 } },
+                dim_inactive = 0.12,
+                urgent_color = "#d96f5e",
+                magnet = { guide_color = "#d96f5ecc" },
+                snap = { color = "#d6a06e40" },
+            },
+            shell = {
+                frame = "windows", accent = "#d6a06e", panel_color = "#1d1916f2",
+                text_color = "#e8dccb", font = "Space Grotesk", font_size = 14,
+                panel_height = 46, panel_position = "top", panel_radius = 12,
+                panel_margin = { top = 12, left = 24, right = 24 },
+                wallpaper = "rices/washi/wallpaper/sumi.jpg",
+            },
+        },
     },
     -- keyboard = { layout = "us", variant = "", model = "", options = "", repeat_rate = 25, repeat_delay = 600 },
     -- Several layouts: layout = "us,no", variant = ",nodeadkeys"; or file = "keymap.xkb", a
