@@ -73,8 +73,11 @@ static void session_capture(struct sh_server *server, struct sh_session *session
         const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
         snprintf(w->output, sizeof(w->output), "%s", toplevel->output);
         w->workspace = toplevel->workspace;
-        w->flags = (toplevel->tiled ? SH_SESSION_TILED : 0) |
-                   (toplevel->floating ? SH_SESSION_FLOATING : 0) |
+        // A window floating only because it was snapped or maximized is saved as the tile it
+        // would be: restored, it tiles and is maximized again, which floats it the same way.
+        bool placed = toplevel->floating && toplevel->placed;
+        w->flags = (toplevel->tiled || placed ? SH_SESSION_TILED : 0) |
+                   (toplevel->floating && !placed ? SH_SESSION_FLOATING : 0) |
                    (toplevel->minimized && !toplevel->scratchpad ? SH_SESSION_MINIMIZED : 0) |
                    (toplevel->sticky ? SH_SESSION_STICKY : 0) |
                    (toplevel->fullscreen ? SH_SESSION_FULLSCREEN : 0) |
