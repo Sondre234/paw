@@ -730,8 +730,9 @@ const Option options[] = {
      "What frames a floating bar, the dock and the popups: `\"shell\"`, a hairline in the text "
      "colour and a soft shadow; `\"windows\"`, the windows' own, `windows.border_width` pixels "
      "of `border_inactive_color` (a gradient's first colour) and, with `windows.shadow`, its "
-     "shadow (`inactive_color` under the bar and the dock, `color` under a popup). Shadows are "
-     "drawn through the GPU, a bar's within `panel_margin`, so leave it room there."},
+     "shadow (`inactive_color` under the bar and the dock, `color` under a popup), drawn through "
+     "the GPU; a floating bar's shadow falls past the strip it reserves without taking input "
+     "there."},
     {"shell.font", "string", "\"\"", "\"\"", none, none,
      "Font family; empty keeps the Qt default."},
     {"shell.font_size", "integer", "12", "12", 6, 48, "Taskbar text size in pixels."},

@@ -389,7 +389,8 @@ a gradient's first colour) in place of the shell's hairline, and with `windows.s
 shadow in place of the shell's own: the focused window's under a popup, an unfocused window's
 under the bar and the dock, as soft, as far off and as dark. So a profile with hard shadows
 (`blur = 0` and an offset) gives the shell the same printed look as its windows. The bar's
-shadow is drawn inside its surface, so give it room in `panel_margin` on the side it falls to.
+surface reaches past the strip it reserves as far as its shadow falls towards the middle of the
+output, so windows still come up to the bar; that room takes no input.
 
 ```lua
 windows = { border_width = 2, border_inactive_color = "#2b221c",

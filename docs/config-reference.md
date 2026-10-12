@@ -398,7 +398,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `shell.panel_margin.bottom` | integer | 0 | 0 to 200 | Bottom margin. |
 | `shell.panel_margin.left` | integer | 0 | 0 to 200 | Left margin. |
 | `shell.panel_radius` | integer | 0 | 0 to 50 | Panel corner radius. |
-| `shell.frame` | enum | "shell" | - | What frames a floating bar, the dock and the popups: `"shell"`, a hairline in the text colour and a soft shadow; `"windows"`, the windows' own, `windows.border_width` pixels of `border_inactive_color` (a gradient's first colour) and, with `windows.shadow`, its shadow (`inactive_color` under the bar and the dock, `color` under a popup). Shadows are drawn through the GPU, a bar's within `panel_margin`, so leave it room there. |
+| `shell.frame` | enum | "shell" | - | What frames a floating bar, the dock and the popups: `"shell"`, a hairline in the text colour and a soft shadow; `"windows"`, the windows' own, `windows.border_width` pixels of `border_inactive_color` (a gradient's first colour) and, with `windows.shadow`, its shadow (`inactive_color` under the bar and the dock, `color` under a popup), drawn through the GPU; a floating bar's shadow falls past the strip it reserves without taking input there. |
 | `shell.font` | string | "" | - | Font family; empty keeps the Qt default. |
 | `shell.font_size` | integer | 12 | 6 to 48 | Taskbar text size in pixels. |
 | `shell.renderer` | enum | "gpu" | - | How the shell draws: `"gpu"` (Qt Quick's OpenGL or Vulkan renderer, which effects such as shadows need) or `"software"` (the CPU, without effects, but it starts about three times faster and uses about half the memory, for a weak machine). Read at shell start, so a change needs a restart. |
