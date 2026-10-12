@@ -194,7 +194,7 @@ def walk(rng, size, scale, steps_wanted):
     return prints
 
 
-def stamp(rng, mask, scale, roughness=1.0):
+def stamp(rng, mask, scale, roughness=1.0, heaviest=175):
     """Ink pressed through paper: rough edges where the paper's tooth caught it, specks where
     it did not take and patches where it took heavier. `mask` is the shape at full strength."""
     size = mask.size
@@ -207,7 +207,7 @@ def stamp(rng, mask, scale, roughness=1.0):
     specks = stretch(Image.effect_noise(size, 60).filter(ImageFilter.GaussianBlur(1.6 * scale)),
                      0, 255)
     specks = specks.point(lambda v: 255 if v < 172 else max(0, 255 - (v - 172) * 12))
-    patches = stretch(smooth_noise(rng, size, 70, 4 * scale), 175, 255)
+    patches = stretch(smooth_noise(rng, size, 70, 4 * scale), heaviest, 255)
     return ImageChops.multiply(ImageChops.multiply(edged, specks), patches)
 
 
@@ -308,8 +308,9 @@ def logo(rng, side, colours):
     cr.fill()
     mask = ImageChops.subtract(block, to_pil(surface).getchannel("A"))
     layer = Image.new("RGBA", (side, side), colours["seal"] + (0,))
-    layer.putalpha(ImageChops.multiply(stamp(rng, mask, scale * 2, roughness=1.4),
-                                       mask.point(lambda v: 245 if v else 0)))
+    # Pressed harder than the wallpaper's seal: a mark small on screen must hold its colour.
+    layer.putalpha(ImageChops.multiply(stamp(rng, mask, scale * 2, roughness=1.4, heaviest=225),
+                                       mask.point(lambda v: 252 if v else 0)))
     return layer
 
 
