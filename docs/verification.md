@@ -592,7 +592,9 @@ one with an offset sideways), the bar's own border following, and no shadow whil
 `windows.shadow` is off; `config` reads the setting and refuses others. A headless compositor
 on the GLES2 renderer of an NVIDIA RTX 4090 at 2560 by 1440 was looked at with a floating bar at
 the top, the start menu and the command palette framed by a 2 pixel ink border with a hard
-shadow offset by 7 pixels.
+shadow offset by 7 pixels, and a bar at the top casting a soft shadow (36 pixels, 14 down) past
+the strip it reserves with no margin below it; `shell_ui` checks that room's size and that it
+takes no input.
 
 Not checked: the dock in that frame on screen (only its code path is shared with the bar's), the
 software renderer (which draws no shadows, so the outline alone), and fractional scales.
