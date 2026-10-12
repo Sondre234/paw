@@ -97,10 +97,33 @@ class WindowPicturesTest : public QObject {
             QCOMPARE(qAlpha(words[1]), 0xff);
         }
     }
+    // The packed 24-bit formats, three bytes a pixel in rows as long as that (NVIDIA's GLES
+    // renderer offers BGR888 alone): read as the bytes they lie in, and opaque.
+    void packedFormats_data() {
+        QTest::addColumn<uint>("format");
+        QTest::addColumn<QByteArray>("bytes");
+        QTest::newRow("BGR888") << uint(WL_SHM_FORMAT_BGR888)
+                                << QByteArray("\x33\x66\x99\x80\x40\x20", 6);
+        QTest::newRow("RGB888") << uint(WL_SHM_FORMAT_RGB888)
+                                << QByteArray("\x99\x66\x33\x20\x40\x80", 6);
+    }
+    void packedFormats() {
+        QFETCH(uint, format);
+        QFETCH(QByteArray, bytes);
+        QCOMPARE(WindowPictures::bytesPerPixel(format), 3);
+        const QImage frame(reinterpret_cast<const uchar *>(bytes.constData()), 2, 1,
+                           2 * WindowPictures::bytesPerPixel(format),
+                           WindowPictures::imageFormat(format));
+        QVERIFY(!frame.isNull());
+        const QImage picture = WindowPictures::scaled(frame, 240);
+        QCOMPARE(picture.format(), QImage::Format_RGB32);
+        QCOMPARE(picture.pixelColor(0, 0), QColor(0x33, 0x66, 0x99));
+        QCOMPARE(picture.pixelColor(1, 0), QColor(0x80, 0x40, 0x20));
+        QCOMPARE(WindowPictures::bytesPerPixel(WL_SHM_FORMAT_XRGB8888), 4);
+    }
     void unknownFormats() {
         for (uint32_t format : {uint32_t(WL_SHM_FORMAT_RGB565), uint32_t(WL_SHM_FORMAT_RGBA8888),
-                                uint32_t(WL_SHM_FORMAT_BGRA8888), uint32_t(WL_SHM_FORMAT_NV12),
-                                uint32_t(WL_SHM_FORMAT_RGB888)})
+                                uint32_t(WL_SHM_FORMAT_BGRA8888), uint32_t(WL_SHM_FORMAT_NV12)})
             QCOMPARE(WindowPictures::imageFormat(format), QImage::Format_Invalid);
     }
     // The box asked of a scaled capture source: 0.625 as tall as it is wide, rounded, never

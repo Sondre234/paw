@@ -1175,3 +1175,15 @@ limit across monitors shows only as a monitor not taking its settings); adaptive
 colour and HDR from the window on monitors that have them; real EDIDs' descriptions keeping a kept
 line to its monitor across docking and undocking; the window on a monitor at a fractional scale;
 and the window moving to another monitor as a trial turns off the one it is on.
+
+## Window pictures through NVIDIA's GLES renderer
+
+Added 2026-10-12. On a headless compositor with the GLES2 renderer of an NVIDIA RTX 4090 (driver
+595.99.02) the capture sessions for windows' pictures offer one shm format, BGR888, the driver's
+own for reading pixels back; the shell read only 32-bit formats, so it never asked for a frame and
+the Alt + Tab switcher and the taskbar's cards kept the windows' icons. `window_pictures_test`
+reads BGR888 and RGB888 frames three bytes a pixel, and the switcher was looked at there with the
+pictures of three kitty windows, in the right colours.
+
+Not checked: other drivers that read back in a packed format, and a real NVIDIA session's taskbar
+cards (the same code path).

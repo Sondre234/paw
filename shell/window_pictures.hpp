@@ -63,6 +63,8 @@ class WindowPictures : public QObject {
     // The QImage format reading a wl_shm buffer of `format` as it lies in memory, Invalid for one
     // this cannot read.
     static QImage::Format imageFormat(uint32_t format);
+    // The bytes a pixel of `format` takes: 3 for the packed 24-bit formats, 4 for the rest.
+    static int bytesPerPixel(uint32_t format);
     // The box a picture fits in: `pixelWidth` (at least 1) by round(`pixelWidth` * 0.625), the
     // size asked of a scaled capture source.
     static QSize pictureBox(int pixelWidth);

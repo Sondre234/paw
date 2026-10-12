@@ -21,7 +21,7 @@ struct WindowPictures::Mapping {
     ~Mapping() { munmap(data, size); }
 };
 // The shared-memory buffer a window is copied into, kept while the constraints it was made for
-// hold. Every format imageFormat reads has four bytes a pixel.
+// hold, its rows as long as the pixels of its format take.
 struct WindowPictures::Buffer {
     wl_buffer *buffer;
     std::shared_ptr<const Mapping> mapping;
@@ -30,7 +30,7 @@ struct WindowPictures::Buffer {
     int stride;
     Buffer(wl_buffer *buffer, std::shared_ptr<const Mapping> mapping, QSize size, uint32_t format)
         : buffer(buffer), mapping(std::move(mapping)), size(size), format(format),
-          stride(size.width() * 4) {}
+          stride(size.width() * bytesPerPixel(format)) {}
     Buffer(const Buffer &) = delete;
     Buffer &operator=(const Buffer &) = delete;
     ~Buffer() { wl_buffer_destroy(buffer); }
@@ -176,7 +176,8 @@ void WindowPictures::capture(Capture &capture) {
     const uint32_t format = *capture.format;
     if (!capture.buffer || capture.buffer->size != size || capture.buffer->format != format) {
         capture.buffer.reset();
-        const size_t bytes = size_t(size.width()) * size_t(size.height()) * 4;
+        const size_t bytes =
+            size_t(size.width()) * size_t(size.height()) * size_t(bytesPerPixel(format));
         if (bytes > size_t(INT_MAX)) // wl_shm takes the size as an int
             return;
         const int fd = memfd_create("paw-window-picture", MFD_CLOEXEC);
@@ -194,7 +195,7 @@ void WindowPictures::capture(Capture &capture) {
         }
         auto *pool = wl_shm_create_pool(shm_, fd, int(bytes));
         auto *buffer = wl_shm_pool_create_buffer(pool, 0, size.width(), size.height(),
-                                                 size.width() * 4, format);
+                                                 size.width() * bytesPerPixel(format), format);
         wl_shm_pool_destroy(pool);
         close(fd);
         capture.buffer = std::make_unique<Buffer>(
@@ -260,6 +261,13 @@ QImage::Format WindowPictures::imageFormat(uint32_t format) {
         return QImage::Format_RGBA8888_Premultiplied;
     case WL_SHM_FORMAT_XBGR8888:
         return QImage::Format_RGBX8888;
+    // The packed 24-bit formats lie in memory as their bytes on any machine: BGR888 as R, G, B,
+    // and RGB888 as B, G, R. The GLES renderer offers only one of these where the driver reads
+    // pixels back as RGB (NVIDIA's).
+    case WL_SHM_FORMAT_BGR888:
+        return QImage::Format_RGB888;
+    case WL_SHM_FORMAT_RGB888:
+        return QImage::Format_BGR888;
 #if Q_BYTE_ORDER == Q_LITTLE_ENDIAN
     // Qt's 32-bit ARGB formats are packed into words of the machine's order, so these match
     // only on a little-endian one.
@@ -279,6 +287,9 @@ QImage::Format WindowPictures::imageFormat(uint32_t format) {
     default:
         return QImage::Format_Invalid;
     }
+}
+int WindowPictures::bytesPerPixel(uint32_t format) {
+    return format == WL_SHM_FORMAT_BGR888 || format == WL_SHM_FORMAT_RGB888 ? 3 : 4;
 }
 QSize WindowPictures::pictureBox(int pixelWidth) {
     const int width = std::max(1, pixelWidth);
