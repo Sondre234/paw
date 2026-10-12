@@ -80,8 +80,9 @@ the pointer rests on it, but for a window's, which shows pictures of its windows
 ([below](#window-pictures)). Lua configures the panel's height, top or bottom placement
 (`panel_position`), margins that make it float (`panel_margin`, one number or
 `{ top, right, bottom, left }`), corner radius, font and text size, colors (`#RRGGBB`, or
-`#RRGGBBAA` for a translucent panel), wallpaper, and pinned commands, which run from your home
-directory.
+`#RRGGBBAA` for a translucent panel), wallpaper, a picture for the start button in place of its
+four squares (`start_icon`, an SVG, PNG or other image), and pinned commands, which run from your
+home directory.
 
 Clicking a window's button focuses it, or minimizes it when it is focused already, as on Windows,
 from any monitor's bar; a middle click closes the window, a right click opens its

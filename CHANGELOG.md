@@ -48,6 +48,8 @@ shadows.
   Claude Code and cdeck, Neovim and Helix, which its `install.sh` puts in place; it is installed
   beside the shipped configuration. Wallpapers the shipped configuration names relative to itself
   are found there, its profiles' too.
+- `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
+  the accent colour, named as `shell.wallpaper` is.
 - The overview takes the profile's colours: dark shades of the background's hue behind the
   thumbnails, and the focused border's colour around the window and workspace picked, where
   every profile had blue on blue-black.
