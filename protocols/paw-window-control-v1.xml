@@ -37,9 +37,14 @@
     From version 6 it says whether a window is kept above the others, and keeps one above or
     lets it go back among them, for the window menu's Keep Above Others: what the compositor's
     toggle_above action does to the focused window.
+
+    From version 7 it lists the windows a workspace of an output shows, where and in which
+    order, for the taskbar to draw a small picture of a whole workspace from the pictures of its
+    windows over the wallpaper. A taskbar knows each window's output and workspace already, and
+    a capture of the screen shows where the windows of the workspace shown are.
   </description>
 
-  <interface name="paw_window_control_v1" version="6">
+  <interface name="paw_window_control_v1" version="7">
     <description summary="controls windows named by their taskbar handles">
       A global for getting the paw_window_v1 of a window, from the
       zwlr_foreign_toplevel_handle_v1 the client holds for it.
@@ -63,9 +68,21 @@
       <arg name="id" type="new_id" interface="paw_window_v1"/>
       <arg name="handle" type="object" interface="zwlr_foreign_toplevel_handle_v1"/>
     </request>
+
+    <request name="get_workspace" since="7">
+      <description summary="the windows a workspace shows">
+        Creates a paw_workspace_v1 for workspace `number` (from 1) of the output named `output`
+        (its connector name, as paw_window_v1.output gives it), which lists the windows that
+        workspace shows at once, and again whenever that changes. A number past the configured
+        workspaces lists no windows, nor does an output that is not in the layout, until it is.
+      </description>
+      <arg name="id" type="new_id" interface="paw_workspace_v1"/>
+      <arg name="output" type="string" summary="the output's connector name"/>
+      <arg name="number" type="uint" summary="the workspace, from 1"/>
+    </request>
   </interface>
 
-  <interface name="paw_window_v1" version="6">
+  <interface name="paw_window_v1" version="7">
     <description summary="one window's workspace, output and tiling">
       Where a window is and how it is placed, and requests that move it. It becomes inert when
       the window's taskbar handle is sent closed; the client then destroys it.
@@ -309,5 +326,56 @@
         The window goes back among the other windows, in front of them.
       </description>
     </request>
+  </interface>
+
+  <interface name="paw_workspace_v1" version="7">
+    <description summary="the windows one workspace of an output shows">
+      The windows a workspace shows while its output shows it, from the bottom up, each with the
+      rectangle its picture covers on the output: where the window's own surfaces, which
+      get_capture_source captures, are drawn. Sticky windows show on every workspace of their
+      output. Minimized windows, the scratchpad's hidden ones, the members of a window group
+      behind the one shown, and windows the taskbar does not list are left out.
+
+      The list comes at once and again, whole, whenever it changes: as a window opens, closes,
+      moves, changes size, goes to another workspace or output, or is raised. A window is
+      listed where it rests, not where an animation draws it on its way there.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the object">
+        The workspace is not affected.
+      </description>
+    </request>
+
+    <event name="size">
+      <description summary="the output's size">
+        The output's size in the layout, in logical pixels: the area the windows' rectangles
+        are placed in. 0 by 0 while the output is not in the layout (not connected, or disabled),
+        when no window events follow.
+      </description>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+    </event>
+
+    <event name="window">
+      <description summary="a window the workspace shows">
+        One window, drawn over those listed before it: its number (paw_window_v1.id) and the
+        rectangle its picture covers, in logical pixels from the output's top-left corner. The
+        rectangle may reach past the output's edges, as the window may; with client-side
+        decorations it takes in the shadow the window draws around itself.
+      </description>
+      <arg name="id" type="uint" summary="the window's number"/>
+      <arg name="x" type="int"/>
+      <arg name="y" type="int"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+    </event>
+
+    <event name="done">
+      <description summary="the list is complete">
+        Sent after the size and the window events of one list, which the client takes in place
+        of the one it had.
+      </description>
+    </event>
   </interface>
 </protocol>

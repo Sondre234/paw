@@ -2,9 +2,39 @@
 /* The taskbar's window menu and pictures: paw-window-control-v1 names a window by its
  * wlr-foreign-toplevel handle, tells the shell which output and workspace each is on, how it is
  * placed, its number and its own icon, moves one to another workspace or output, makes it sticky,
- * floats it or keeps it above, gives its capture source for a picture of it, and peeks at it. */
+ * floats it or keeps it above, gives its capture source for a picture of it, and peeks at it; and
+ * lists the windows a workspace shows, where and in which order, for a picture of the
+ * workspace. */
 #include "server.h"
 #include <sys/mman.h>
+
+/* The most windows a workspace's list holds, as many as restack_windows moves. */
+#define WORKSPACE_WINDOWS 256
+
+/* What a paw_workspace_v1 lists: the output's size, and each window shown, bottom to top, with
+ * the rectangle its picture covers from the output's top-left corner. */
+struct workspace_list {
+    int width, height;
+    size_t count;
+    struct {
+        uint32_t id;
+        struct wlr_box box;
+    } windows[WORKSPACE_WINDOWS];
+};
+
+/* One paw_workspace_v1: the workspace it lists, what it last sent, and the output whose commits
+ * it hears, as a change on a workspace shown comes with one. */
+struct sh_workspace_object {
+    struct wl_resource *resource;
+    struct sh_server *server;
+    struct wl_list link; // sh_server.workspace_objects
+    char output[64];
+    uint32_t number; // from 1
+    bool sent;
+    struct workspace_list last;
+    struct wlr_output *watched;
+    struct wl_listener output_commit, output_destroy;
+};
 
 /* One paw_window_v1: the window it names, NULL once that is gone, and what it last sent
  * (the icon as the window's icon_serial then). */
@@ -148,6 +178,7 @@ static void send_windows(void *data) {
 /* Something about the windows may have changed: their objects hear of it once the change is
  * over, so that a window moving through several steps is described once, as it ends up. */
 void window_objects_changed(struct sh_server *server) {
+    workspace_objects_changed(server);
     if (!server->window_control || server->window_objects_idle ||
         wl_list_empty(&server->window_objects))
         return;
@@ -327,9 +358,215 @@ static void control_get_window(struct wl_client *client, struct wl_resource *res
 }
 
 
+/* Whether the window shows on workspace `workspace` (from 0) of the output named `output`, as
+ * the taskbar lists it: published, mapped, and neither minimized (as a hidden scratchpad window
+ * is), behind another member of its group nor swallowed. A sticky window shows on each. */
+static bool shows_on(struct sh_toplevel *toplevel, const char *output, int workspace) {
+    return toplevel->foreign && toplevel->id && !toplevel->unmanaged && toplevel_mapped(toplevel) &&
+           !toplevel->minimized && !toplevel->group_hidden && !toplevel->swallowed &&
+           !strcmp(toplevel->output, output) &&
+           (toplevel->sticky || toplevel->workspace == workspace);
+}
+
+/* The window whose place among the windows `node` holds: its own tree, or the empty node a peek
+ * leaves in its place while it lifts the window over the others; NULL for none, as for a closing
+ * window's copy. */
+static struct sh_toplevel *placed_window(struct sh_server *server, struct wlr_scene_node *node) {
+    if (server->peek_place && node == &server->peek_place->node)
+        return server->peek_window;
+    struct sh_node *owner = node->data;
+    if (!owner || owner->kind != SH_NODE_TOPLEVEL)
+        return NULL;
+    struct sh_toplevel *toplevel = owner->owner;
+    return toplevel->scene_tree && &toplevel->scene_tree->node == node ? toplevel : NULL;
+}
+
+/* Lists the windows workspace `number` (from 1) of the output named `name` shows, bottom to top
+ * through the layers they are drawn in, each where its picture lies: its surfaces' extents from
+ * where it rests (its tree's place, which animations leave alone), or its own box while it has
+ * drawn nothing. A window peeked at is listed in the place it keeps among the others. */
+static void list_workspace(struct sh_server *server, const char *name, uint32_t number,
+                           struct workspace_list *list) {
+    list->width = list->height = 0;
+    list->count = 0;
+    struct wlr_output *output = find_output(server, name);
+    struct wlr_box area = {0};
+    if (output)
+        wlr_output_layout_get_box(server->output_layout, output, &area);
+    if (wlr_box_empty(&area))
+        return;
+    list->width = area.width;
+    list->height = area.height;
+    if (number < 1 || number > (uint32_t)server_settings(server)->workspaces)
+        return;
+    struct wlr_scene_tree *trees[WINDOW_LAYERS];
+    window_layers(server, trees);
+    for (int i = WINDOW_LAYERS - 1; i >= 0; --i) {
+        if (trees[i] == server->peek_layer)
+            continue;
+        struct wlr_scene_node *node;
+        wl_list_for_each(node, &trees[i]->children, link) {
+            struct sh_toplevel *toplevel = placed_window(server, node);
+            if (!toplevel || !shows_on(toplevel, name, (int)number - 1) ||
+                list->count == WORKSPACE_WINDOWS)
+                continue;
+            struct wlr_box box = toplevel_box(toplevel), extents;
+            if (window_picture_extents(toplevel, &extents)) {
+                box.x += extents.x;
+                box.y += extents.y;
+                box.width = extents.width;
+                box.height = extents.height;
+            }
+            box.x -= area.x;
+            box.y -= area.y;
+            list->windows[list->count].id = toplevel->id;
+            list->windows[list->count++].box = box;
+        }
+    }
+}
+
+static bool same_list(const struct workspace_list *a, const struct workspace_list *b) {
+    if (a->width != b->width || a->height != b->height || a->count != b->count)
+        return false;
+    for (size_t i = 0; i < a->count; ++i) {
+        if (a->windows[i].id != b->windows[i].id ||
+            !wlr_box_equal(&a->windows[i].box, &b->windows[i].box))
+            return false;
+    }
+    return true;
+}
+
+static void workspace_output_commit(struct wl_listener *listener, void *data) {
+    struct sh_workspace_object *object = wl_container_of(listener, object, output_commit);
+    workspace_objects_changed(object->server);
+}
+
+static void unwatch_output(struct sh_workspace_object *object) {
+    wl_list_remove(&object->output_commit.link);
+    wl_list_remove(&object->output_destroy.link);
+    wl_list_init(&object->output_commit.link);
+    wl_list_init(&object->output_destroy.link);
+    object->watched = NULL;
+}
+
+static void workspace_output_destroy(struct wl_listener *listener, void *data) {
+    struct sh_workspace_object *object = wl_container_of(listener, object, output_destroy);
+    unwatch_output(object);
+    workspace_objects_changed(object->server);
+}
+
+/* Hears the commits of the output the object's workspace is on, once it is connected: what
+ * changes on the workspace shown (a window moved, resized by its client, raised) comes with
+ * one. */
+static void watch_output(struct sh_workspace_object *object) {
+    struct wlr_output *output = find_output(object->server, object->output);
+    if (output == object->watched)
+        return;
+    unwatch_output(object);
+    if (!output)
+        return;
+    object->watched = output;
+    object->output_commit.notify = workspace_output_commit;
+    wl_signal_add(&output->events.commit, &object->output_commit);
+    object->output_destroy.notify = workspace_output_destroy;
+    wl_signal_add(&output->events.destroy, &object->output_destroy);
+}
+
+/* Lists the workspace again, and sends the list when it is not what the object last sent. */
+static void send_workspace(struct sh_workspace_object *object) {
+    watch_output(object);
+    static struct workspace_list list;
+    list_workspace(object->server, object->output, object->number, &list);
+    if (object->sent && same_list(&list, &object->last))
+        return;
+    paw_workspace_v1_send_size(object->resource, list.width, list.height);
+    for (size_t i = 0; i < list.count; ++i) {
+        const struct wlr_box *box = &list.windows[i].box;
+        paw_workspace_v1_send_window(object->resource, list.windows[i].id, box->x, box->y,
+                                     box->width, box->height);
+    }
+    paw_workspace_v1_send_done(object->resource);
+    object->last.width = list.width;
+    object->last.height = list.height;
+    object->last.count = list.count;
+    memcpy(object->last.windows, list.windows, list.count * sizeof(*list.windows));
+    object->sent = true;
+}
+
+static void send_workspaces(void *data) {
+    struct sh_server *server = data;
+    server->workspace_objects_idle = NULL;
+    struct sh_workspace_object *object;
+    wl_list_for_each(object, &server->workspace_objects, link) send_workspace(object);
+}
+
+/* The windows may have moved, opened, closed or been raised: the workspaces' objects list them
+ * again once the change is over, sending only a list that changed. Cheap while none is held. */
+void workspace_objects_changed(struct sh_server *server) {
+    if (!server->window_control || server->workspace_objects_idle ||
+        wl_list_empty(&server->workspace_objects))
+        return;
+    server->workspace_objects_idle = wl_event_loop_add_idle(
+        wl_display_get_event_loop(server->wl_display), send_workspaces, server);
+}
+
+/* `get workspace_views`: each paw_workspace_v1 a client holds, as OUTPUT, WORKSPACE (from 1) and
+ * how many windows it last listed. */
+void describe_workspace_views(struct sh_server *server, int fd, const char *arguments) {
+    control_reply(fd, "ok\n");
+    if (!server->window_control)
+        return;
+    struct sh_workspace_object *object;
+    wl_list_for_each(object, &server->workspace_objects, link) {
+        char line[128];
+        snprintf(line, sizeof(line), "%s\t%u\t%zu\n", object->output, object->number,
+                 object->last.count);
+        control_reply(fd, line);
+    }
+}
+
+static const struct paw_workspace_v1_interface workspace_implementation = {
+    .destroy = destroy_resource,
+};
+
+static void workspace_resource_destroy(struct wl_resource *resource) {
+    struct sh_workspace_object *object = wl_resource_get_user_data(resource);
+    unwatch_output(object);
+    wl_list_remove(&object->link);
+    free(object);
+}
+
+/* Lists the workspace at once, and again whenever that changes, until the client destroys it. */
+static void control_get_workspace(struct wl_client *client, struct wl_resource *resource,
+                                  uint32_t id, const char *output, uint32_t number) {
+    struct sh_server *server = wl_resource_get_user_data(resource);
+    struct sh_workspace_object *object = calloc(1, sizeof(*object));
+    if (!object) {
+        wl_client_post_no_memory(client);
+        return;
+    }
+    object->resource = wl_resource_create(client, &paw_workspace_v1_interface,
+                                          wl_resource_get_version(resource), id);
+    if (!object->resource) {
+        free(object);
+        wl_client_post_no_memory(client);
+        return;
+    }
+    wl_resource_set_implementation(object->resource, &workspace_implementation, object,
+                                   workspace_resource_destroy);
+    object->server = server;
+    snprintf(object->output, sizeof(object->output), "%s", output);
+    object->number = number;
+    wl_list_init(&object->output_commit.link);
+    wl_list_init(&object->output_destroy.link);
+    wl_list_insert(&server->workspace_objects, &object->link);
+    send_workspace(object);
+}
+
 static const struct paw_window_control_v1_interface control_implementation = {
     .destroy = destroy_resource,
     .get_window = control_get_window,
+    .get_workspace = control_get_workspace,
 };
 
 static void control_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id) {
@@ -344,13 +581,14 @@ static void control_bind(struct wl_client *client, void *data, uint32_t version,
 
 /* Offered to every client, as wlr-foreign-toplevel-management is: it does nothing to a window a
  * taskbar could not already do, and shows nothing of one that ext-foreign-toplevel-list's
- * capture sources do not, but for which process made it, the number the switcher calls it and
- * the icon it gives for taskbars to show; a peek shows the window for a moment and changes
- * nothing about it. */
+ * capture sources do not, but for which process made it, the number the switcher calls it, the
+ * icon it gives for taskbars to show and where it lies on its workspace; a peek shows the window
+ * for a moment and changes nothing about it. */
 void window_control_init(struct sh_server *server) {
     wl_list_init(&server->window_objects);
+    wl_list_init(&server->workspace_objects);
     server->window_control = wl_global_create(server->wl_display,
-                                              &paw_window_control_v1_interface, 6, server,
+                                              &paw_window_control_v1_interface, 7, server,
                                               control_bind);
     if (!server->window_control)
         wlr_log(WLR_ERROR, "Cannot offer paw-window-control-v1");

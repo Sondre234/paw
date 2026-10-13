@@ -692,6 +692,7 @@ static const struct {
     {"idle", get_idle, false},
     {"switches", get_switches, false},
     {"pictures", get_pictures, false},
+    {"workspace_views", describe_workspace_views, false},
     {"seat", get_seat, false},
     {"cursor", get_cursor, false},
     {"autostart", get_autostart, false},

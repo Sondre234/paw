@@ -491,10 +491,13 @@ struct sh_server {
     uint32_t last_window_id; // the number the last window published was given
     struct wlr_ext_foreign_toplevel_list_v1 *toplevel_list; // windows offered for screen sharing
     /* paw-window-control-v1 (window_control.c): its global, the paw_window_v1 objects
-     * clients hold, and the idle callback that tells them what changed. */
+     * clients hold, and the idle callback that tells them what changed; the paw_workspace_v1
+     * objects, and the idle callback that lists their workspaces again. */
     struct wl_global *window_control;
     struct wl_list window_objects;
     struct wl_event_source *window_objects_idle;
+    struct wl_list workspace_objects;
+    struct wl_event_source *workspace_objects_idle;
     struct wl_listener new_capture_request;
     struct wl_listener set_xdg_icon; // a Wayland window giving its icon (window_icon.c)
     struct wlr_tearing_control_manager_v1 *tearing_control; // windows' tearing hints (tearing.c)
@@ -1347,6 +1350,7 @@ struct sh_picture_source {
 };
 size_t list_picture_sources(struct sh_toplevel *toplevel, struct sh_picture_source *sources,
                             size_t size);
+bool window_picture_extents(struct sh_toplevel *toplevel, struct wlr_box *extents);
 
 /* scratchpad.c */
 bool scratchpad_enabled(struct sh_server *server);
@@ -1509,6 +1513,8 @@ void volume_action(struct sh_server *server, enum sh_action action, int percent)
 /* window_control.c */
 void window_objects_changed(struct sh_server *server);
 void window_objects_forget(struct sh_toplevel *toplevel);
+void workspace_objects_changed(struct sh_server *server);
+void describe_workspace_views(struct sh_server *server, int fd, const char *arguments);
 void window_control_init(struct sh_server *server);
 
 /* window_icon.c */
