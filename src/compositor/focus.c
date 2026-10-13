@@ -55,8 +55,7 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
     // scratchpad_show brings it, and drops in there unless a peek shows it in place already;
     // one still sliding out turns back, peeked at or not.
     bool from_scratchpad = toplevel->scratchpad && toplevel->minimized;
-    bool dropping =
-        from_scratchpad && (server->peek_window != toplevel || toplevel->drop.running);
+    bool dropping = from_scratchpad && (server->peek_window != toplevel || toplevel->drop.running);
     if (from_scratchpad)
         center_scratchpad(toplevel, focused_output(server));
     if (toplevel->output[0] && !toplevel->sticky &&
