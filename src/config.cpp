@@ -1631,6 +1631,14 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     if (Section in{L, "mouse"}) {
         if (auto name = text(L, "modifier"))
             config.settings.mouse_modifier = modifier(*name);
+        lua_getfield(L, -1, "middle_drag");
+        if (!lua_isnil(L, -1)) {
+            config.settings.middle_drag_count = 0;
+            for (const auto &name : strings(L, 32, "mouse.middle_drag"))
+                copy_text(name, config.settings.middle_drag[config.settings.middle_drag_count++],
+                          "mouse.middle_drag entry");
+        }
+        lua_pop(L, 1);
         config.settings.pointer_speed_set = present(L, "speed");
         config.settings.pointer_speed = number(L, "speed", 0, -1, 1);
         named(L, "acceleration", nullptr, config.settings.pointer_accel,
