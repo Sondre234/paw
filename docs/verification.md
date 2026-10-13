@@ -1187,3 +1187,22 @@ pictures of three kitty windows, in the right colours.
 
 Not checked: other drivers that read back in a packed format, and a real NVIDIA session's taskbar
 cards (the same code path).
+
+## Windows gliding to a new size
+
+Added 2026-10-13. On a headless compositor with the GLES2 renderer of an NVIDIA RTX 4090,
+`windows.round = "always"`, a 3-pixel border, shadows and `animations.speed = 0.1`, `grim`
+pictures of foot taken every 120 ms showed a window maximized, restored and dropped into the left
+half gliding there with its size: foot's last picture stretched while it moved, its new one
+crossfading in over the rest of the glide, the border, shadow and rounded corners following the
+size drawn, fading out and squaring on the way to maximized and back in on the way out, and the
+snap preview fading out under the dropped window as it landed. `morph_smoke` follows the same
+changes with `paw msg get drawn`, a client that holds its configures, and interruptions, and two
+headless monitors (the second at a scale of 1.5) were checked by hand to glide a maximized window
+from one to the other. An X11 window (`x11_probe`) glided to maximized, restored, snapped and
+fullscreen as a Wayland one does.
+
+Not checked: real monitors at high refresh rates, where the default 120 ms spring is short;
+applications slow to draw a new size, such as Firefox and Electron ones, against the 300 ms the
+compositor waits for them; GPU clients' (dmabuf) buffers held for the crossfade; and X11
+applications that keep their own size.
