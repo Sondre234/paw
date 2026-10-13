@@ -128,6 +128,7 @@ struct ShellThumbnails {
     int delay = 400; // milliseconds the pointer rests on the button first
     int size = 240;  // width of one picture in pixels; 5/8 of it tall
     bool live = true; // pictures follow the windows while shown; false: one just before the card opens
+    bool workspaces = true; // resting on a workspace of the indicator shows a picture of it
 };
 
 // Lua `shell.search`: what the command palette's and the start menu's search find besides
