@@ -182,9 +182,9 @@ Item {
     // What shows the windows: the card of pictures or the list, and whether the pointer is on it.
     readonly property Item groupPopup: thumbnailsOpen ? thumbnailsLoader.item : groupListLoader.item
     readonly property bool groupListHovered: groupPopup ? groupPopup.hovered : false
-    // Something is open in the popover, or the bar has the keyboard there. The list shown on
-    // hover does not take the keyboard: it opens under a window being typed in.
-    readonly property bool expanded: menuOpen || groupOpen || barKeys.active
+    // Something is open in the popover, or the bar has the keyboard there, or is being dragged.
+    // The list shown on hover does not take the keyboard: it opens under a window being typed in.
+    readonly property bool expanded: menuOpen || groupOpen || barKeys.active || barDragging
     onMenuOpenChanged: {
         if (menuOpen) {
             stopWaiting()
@@ -920,6 +920,22 @@ Item {
     // and always down a side, where no title fits.
     readonly property bool iconsOnly: shell.iconsOnly || vertical
 
+    // Dragging the bar to another edge (shell.panel_draggable): a press on its empty space that
+    // moves starts it here (startBarDrag), the compositor taking the pointer, and every panel's
+    // popover then shows where the bar would go, the edge nearest the pointer on the output it is
+    // over, taking no input; letting go moves it there (shell.movePanel), and Escape leaves it.
+    // The panel it started on holds the keyboard meanwhile, for Escape.
+    readonly property bool barDragging: shell.barDragging
+    property bool barDragOrigin: false
+    onBarDraggingChanged: if (!barDragging) barDragOrigin = false
+    function startBarDrag() {
+        if (!shell.panelDraggable || barDragging)
+            return
+        closeMenus()
+        barDragOrigin = true
+        shell.startBarDrag()
+    }
+
     // A click on the bar's empty space closes what is open.
     MouseArea {
         anchors.fill: parent
@@ -946,11 +962,14 @@ Item {
     PopoverWindow {
         id: popover
         panel: root.shellView
-        keyboard: root.menuOpen || root.barKeys.active
+        keyboard: root.menuOpen || root.barKeys.active || root.barDragOrigin && root.barDragging
         inputRects: root.menuOpen || root.barKeys.active
             ? root.popoverInput
             : root.groupOpen && root.groupPopup ? [root.hoverArea(root.groupPopup)] : []
-        onDismissed: root.closeMenus()
+        onDismissed: {
+            shell.cancelBarDrag()
+            root.closeMenus()
+        }
         Timer { id: closing; interval: Theme.durationNormal; onTriggered: if (!root.expanded) popover.open = false }
         Connections {
             target: root
@@ -964,7 +983,29 @@ Item {
             id: popupLayer
             anchors.fill: parent
             focus: true
-            Keys.onEscapePressed: root.closeMenus()
+            Keys.onEscapePressed: {
+                shell.cancelBarDrag()
+                root.closeMenus()
+            }
+            // Where a dragged bar would go: the strip it would take along the edge the pointer is
+            // nearest, inset by shell.panel_margin as the bar is.
+            Rectangle {
+                objectName: "barDropPreview"
+                readonly property string edge: shell.barDragEdge
+                readonly property bool upright: edge === "left" || edge === "right"
+                visible: root.barDragging
+                x: edge === "right" ? parent.width - width - shell.panelMarginRight : shell.panelMarginLeft
+                y: edge === "bottom" ? parent.height - height - shell.panelMarginBottom : shell.panelMarginTop
+                width: upright ? shell.panelHeight : parent.width - shell.panelMarginLeft - shell.panelMarginRight
+                height: upright ? parent.height - shell.panelMarginTop - shell.panelMarginBottom : shell.panelHeight
+                radius: Math.max(shell.panelRadius, Theme.radiusSmall)
+                color: Theme.alpha(Theme.accent, 0.25)
+                border.width: 2; border.color: Theme.accent
+                Behavior on x { enabled: root.barDragging; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
+                Behavior on y { enabled: root.barDragging; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
+                Behavior on width { enabled: root.barDragging; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
+                Behavior on height { enabled: root.barDragging; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
+            }
             MouseArea {
                 anchors.fill: parent
                 enabled: root.menuOpen

@@ -87,11 +87,31 @@ Item {
             height: taskbar.vertical ? parent.height : thickness
             color: taskbar.floating ? Theme.outline : Theme.border
         }
-        // Right-clicking the bar anywhere but on a task opens the bar's own menu.
+        // Right-clicking the bar anywhere but on a task opens the bar's own menu. With
+        // shell.panel_draggable, pressing it there and moving drags the bar to another edge
+        // (panel.startBarDrag), once a press; the compositor then takes the pointer, and the
+        // press is let go of here.
         MouseArea {
             anchors.fill: parent
-            acceptedButtons: Qt.RightButton
-            onPressed: (mouse) => taskbar.panel.openContextMenu(bar, taskbar.vertical ? mouse.y : mouse.x, -1)
+            enabled: !taskbar.panel.barDragging
+            acceptedButtons: shell.panelDraggable ? Qt.LeftButton | Qt.RightButton : Qt.RightButton
+            property point pressedAt
+            property bool dragging: false
+            onPressed: (mouse) => {
+                if (mouse.button === Qt.RightButton) {
+                    taskbar.panel.openContextMenu(bar, taskbar.vertical ? mouse.y : mouse.x, -1)
+                } else {
+                    pressedAt = Qt.point(mouse.x, mouse.y)
+                    dragging = false
+                }
+            }
+            onPositionChanged: (mouse) => {
+                if (!dragging && (mouse.buttons & Qt.LeftButton) &&
+                    Math.hypot(mouse.x - pressedAt.x, mouse.y - pressedAt.y) >= Qt.styleHints.startDragDistance) {
+                    dragging = true
+                    taskbar.panel.startBarDrag()
+                }
+            }
         }
         // Scrolling the bar anywhere its widgets leave the wheel alone pages through this
         // output's workspaces: a wheel notch (or a touchpad's worth of travel) moves one,
