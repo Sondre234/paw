@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wayland-server-core.h>
+#include <wlr/interfaces/wlr_buffer.h>
 #include <wlr/types/wlr_scene.h>
 #include "check.h"
 
@@ -751,6 +752,71 @@ static void test_morph_rest_and_finish(void) {
     teardown(&m.rig);
 }
 
+/* A buffer of no pixels, as a client's for the scene. */
+static void test_buffer_destroy(struct wlr_buffer *buffer) {
+    free(buffer);
+}
+static const struct wlr_buffer_impl test_buffer_impl = {.destroy = test_buffer_destroy};
+static struct wlr_scene_buffer *client_buffer(struct wlr_scene_tree *parent, int width, int height,
+                                              struct wlr_box opaque) {
+    struct wlr_buffer *buffer = calloc(1, sizeof(*buffer));
+    wlr_buffer_init(buffer, &test_buffer_impl, width, height);
+    struct wlr_scene_buffer *node = wlr_scene_buffer_create(parent, buffer);
+    wlr_buffer_drop(buffer); // the node holds it
+    wlr_scene_buffer_set_dest_size(node, width, height);
+    pixman_region32_t region;
+    pixman_region32_init_rect(&region, opaque.x, opaque.y, opaque.width, opaque.height);
+    wlr_scene_buffer_set_opaque_region(node, &region);
+    pixman_region32_fini(&region);
+    return node;
+}
+static bool opaque_is(struct wlr_scene_buffer *buffer, struct wlr_box box) {
+    if (wlr_box_empty(&box))
+        return !pixman_region32_not_empty(&buffer->opaque_region);
+    pixman_box32_t *extents = pixman_region32_extents(&buffer->opaque_region);
+    return pixman_region32_n_rects(&buffer->opaque_region) == 1 && extents->x1 == box.x &&
+           extents->y1 == box.y && extents->x2 == box.x + box.width &&
+           extents->y2 == box.y + box.height;
+}
+
+/* A buffer drawn at another size than its own has no opaque region meanwhile: the scene would
+ * take it unscaled, and what lies under its translucent edges (a client-side shadow) would go
+ * undrawn. The copy that fades out has none either. */
+static void test_morph_sets_opaque_regions_aside(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    struct wlr_box body = {20, 20, 160, 60}, none = {0};
+    struct wlr_scene_buffer *buffer = client_buffer(m.surfaces, 200, 100, body);
+    morph_to(&m, 0, 0, 400, 300);
+    CHECK(opaque_is(buffer, body), "at its own size, its region stays");
+    advance(&m.rig, 50);
+    CHECK(buffer->dst_width == 300 && opaque_is(buffer, none), "stretched, none");
+    // The client draws its new size, with a region of its own, as the scene gives it.
+    struct wlr_box bigger = {20, 20, 360, 260};
+    sh_anim_morph_commit(m.rig.animator, &m.rig.anim, 400, 300, true);
+    CHECK(opaque_is(buffer, body), "at rest for the commit, its old region is back");
+    struct wlr_scene_tree *copy = fading_copy(&m);
+    struct wlr_scene_buffer *old = NULL;
+    struct wlr_scene_node *node;
+    wl_list_for_each(node, copy ? &copy->children : &m.surfaces->children, link) {
+        if (copy && node->type == WLR_SCENE_NODE_BUFFER)
+            old = wlr_scene_buffer_from_node(node);
+    }
+    CHECK(old && opaque_is(old, none), "the copy of the old picture hides nothing");
+    wlr_scene_rect_set_size(m.surface, 400, 300);
+    wlr_scene_buffer_set_dest_size(buffer, 400, 300);
+    pixman_region32_t region;
+    pixman_region32_init_rect(&region, bigger.x, bigger.y, bigger.width, bigger.height);
+    wlr_scene_buffer_set_opaque_region(buffer, &region);
+    pixman_region32_fini(&region);
+    advance(&m.rig, 10);
+    CHECK(buffer->dst_width == 320 && opaque_is(buffer, none), "shrunk to the size drawn, none");
+    advance(&m.rig, 200);
+    CHECK(sh_animator_running(m.rig.animator) == 0, "done");
+    CHECK(buffer->dst_width == 400 && opaque_is(buffer, bigger), "at rest, the client's new one");
+    teardown(&m.rig);
+}
+
 static void test_morph_off_and_with_open(void) {
     struct morph_rig m;
     struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
@@ -812,6 +878,7 @@ int main(void) {
     test_morph_reverses_smoothly();
     test_morph_rest_and_finish();
     test_morph_off_and_with_open();
+    test_morph_sets_opaque_regions_aside();
     test_finish_all();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
