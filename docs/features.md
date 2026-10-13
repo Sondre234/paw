@@ -2453,6 +2453,17 @@ place; a file with `extends = "default"` gets them, and starts on `macos-light` 
 `profile`, only when it defines no `profiles` of its own. A profile wins over a theme.lua that
 `paw import` wrote, so pick `default` to see that.
 
+A profile can take applications between their light and dark styles with it:
+`appearance.color_scheme = "light"` or `"dark"` sets `org.gnome.desktop.interface color-scheme`
+to `prefer-light` or `prefer-dark` through `gsettings` as the configuration loads and whenever a
+profile with another scheme is picked. xdg-desktop-portal passes it on, so GTK 4 and libadwaita
+applications, Firefox, Chromium and Electron applications such as Discord (with Appearance → Sync
+with computer) change at once, and washi's Firefox and Discord themes turn to sumi and back with
+it. `macos-light`, `light` and `washi` are light, `macos-dark` and `sumi` dark. A profile without
+it leaves the preference as it is, and a choice made in other settings meanwhile stands until a
+profile with another scheme is picked. Only a login session (`--session`) sets it: a nested or
+headless paw leaves the desktop it runs in alone.
+
 Switching profiles is one crossfade on every monitor. Each keeps showing what it showed, a picture
 of it laid over everything, while the compositor and the shell take up the new look under it, so
 that no frame shows the old bar with the new borders; once the shell has drawn the new look, its
