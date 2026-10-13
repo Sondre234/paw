@@ -405,6 +405,9 @@ class ShellController : public QObject {
     int switcherSelected() const { return switcher_.selected; }
     // Focuses the switcher's window at `index` and closes it.
     Q_INVOKABLE void switcherPick(int index);
+    // Tells the compositor that its switcher shows, so that the selected window peeks once the
+    // selection has rested (switcher_peek); nothing without a session.
+    Q_INVOKABLE void switcherShown();
     QString overviewOutput() const { return overview_.output; }
     QVariantList overviewWindows() const { return overview_.windows; }
     QVariantList overviewStrip() const { return overview_.strip; }
