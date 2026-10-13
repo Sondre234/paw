@@ -348,10 +348,16 @@ void process_cursor_resize(struct sh_server *server) {
 void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
                        uint32_t edges) {
     struct sh_server *server = toplevel->server;
+    // A fullscreen window takes only a move, which leaves fullscreen once the pointer has
+    // travelled a little.
+    if (toplevel->fullscreen && mode != SH_CURSOR_MOVE)
+        return;
+    // A grab already under way ends first, as if let go, the window it lifted set down and out
+    // of the tiling it held a place in: a second pointer, a finger, a pen or an X11 client can
+    // ask for a grab during another.
+    if (server->cursor_mode != SH_CURSOR_PASSTHROUGH || server->grabbed_toplevel)
+        reset_cursor_mode(server);
     if (toplevel->fullscreen) {
-        // Only a move, and it leaves fullscreen once the pointer has travelled a little.
-        if (mode != SH_CURSOR_MOVE)
-            return;
         server->grabbed_toplevel = toplevel;
         server->cursor_mode = mode;
         server->grab_fullscreen = true;
