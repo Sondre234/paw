@@ -739,7 +739,8 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
 static const double DROP_IN_STRETCH = 2, DROP_OUT_STRETCH = 1.5;
 /* The share of a drop its fade takes: the start of dropping in, the end of sliding out. */
 static const double DROP_FADE = 0.4;
-/* The share of the speed it had that a drop turning back keeps: it eases round rather than
+/* The share a drop turning back keeps of the speed a glide would carry (what the new curve lacks
+ * of the speed it had, held within twice the distance per duration): it eases round rather than
  * bouncing off, without carrying on far the way it went (all of it would carry a window shown
  * and hidden again a sixth of its height further down before it turned). */
 static const double DROP_KEEP = 0.25;

@@ -159,10 +159,12 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
  * twice the time of `open` and with its curve, fading in over the first part of the way;
  * sh_anim_drop_out takes it to (dx, dy) and keeps it there to the end, in one and a half times
  * the time of `close` with its curve played backwards, speeding away, and fades it out over the
- * last part. Either turns a glide under way on `anim` back from where it is drawn, at the speed
- * it has, and fades from how faded it is; drop_in's (dx, dy) then go unused. A tree sliding out
- * is not there for lookups. When that kind does not animate, whatever ran lands where the tree
- * rests and they return false. */
+ * last part. Either turns a glide under way on `anim` back from where it is drawn and fades from
+ * how faded it is; of the speed it had, it keeps a quarter of what the new curve lacks (that
+ * difference first held within twice the distance per duration, as a glide carries it).
+ * drop_in's (dx, dy) then go unused. A tree sliding out is not there for lookups; another
+ * animation taking it over brings it back, resting at 0, 0 at its full look. When that kind does
+ * not animate, whatever ran lands where the tree rests and they return false. */
 bool sh_anim_drop_in(struct sh_animator *animator, struct sh_anim *anim,
                      struct wlr_scene_tree *tree, int dx, int dy);
 bool sh_anim_drop_out(struct sh_animator *animator, struct sh_anim *anim,
