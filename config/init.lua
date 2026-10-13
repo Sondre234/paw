@@ -312,6 +312,7 @@ return {
         --     delay = 400,    -- milliseconds the pointer rests on the button first (0-2000)
         --     size = 240,     -- width of one picture in pixels (120-480)
         --     live = true,    -- the pictures follow the windows while shown; false takes one
+        --     workspaces = true, -- resting on a workspace shows a picture of it too
         -- },
         -- The command palette's and the start menu's search find files too (a leading / finds
         -- only them): those used lately, and the names in these folders, read in the background:
