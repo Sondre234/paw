@@ -735,6 +735,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(snap_keys_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(snap_assist_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
+        paw_smoke(morph_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(night_light_smoke TIMEOUT 90 $<TARGET_FILE:paw>)
         paw_smoke(hot_corners_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
         paw_smoke(zoom_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
