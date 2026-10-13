@@ -47,6 +47,22 @@ struct sh_anim {
     bool held;
     double held_x, held_y;
     float held_alpha;
+    /* Lifted while dragged (sh_anim_lift): drawn up to `lift_scale` times its size about
+     * (lift_cx, lift_cy), on top of whatever else runs on it; with bounds (lift_bounds: x, y,
+     * width, height; no width for none), only what is inside them grows, and what is outside
+     * moves with their edges. `lift` is how far up it is drawn (0 down, 1 up), easing from
+     * `lift_from` toward `lift_to` since lift_start, with the velocity it had then (per
+     * millisecond); it stays up, what the client draws included, until it is let down. In the
+     * animator's lifted list while not down. */
+    bool lifted, lift_easing, lift_rested;
+    struct wl_list lift_link;
+    double lift, lift_from, lift_to, lift_velocity, lift_scale, lift_cx, lift_cy;
+    int lift_bounds[4];
+    int64_t lift_start;
+    int lift_duration;
+    struct sh_curve lift_curve;
+    void (*lift_update)(void *data);
+    void *lift_data;
     /* Changing size with the glide (sh_anim_morph): the size the window is drawn at eases to
      * `rest_width` by `rest_height` on the glide's time and curve, from `size_x`, `size_y` more
      * than that when the glide started and at the speeds `size_vx`, `size_vy` (pixels per
@@ -191,7 +207,8 @@ void sh_anim_slide_out(struct sh_animator *animator, struct wlr_scene_node *wind
 /* Gestures: a workspace slide held part of the way while fingers move it. A held animation stays
  * where it is put until it is held elsewhere, slid on from there or finished; neither the clock,
  * a late frame nor turning animations off moves it. Holds `tree` offset by (dx, dy) from where
- * it rests, its nodes' opacity multiplied by `alpha`. Whatever ran on `anim` lands first. */
+ * it rests, its nodes' opacity multiplied by `alpha`. Whatever ran on `anim` lands first, but
+ * for a lift (sh_anim_lift), which goes on over the hold. */
 void sh_anim_hold(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
                   double dx, double dy, float alpha);
 /* A copy of what is visible under `content` just above `window`, held as sh_anim_hold holds a
@@ -203,13 +220,37 @@ struct sh_anim *sh_anim_hold_copy(struct sh_animator *animator, struct wlr_scene
                                   float alpha);
 /* As sh_anim_slide, from part of the way: `tree` starts offset by (dx, dy) with its opacity
  * multiplied by `alpha`, and comes to rest in `share` (a quarter to all) of the workspace
- * slide's time. A hold on `anim` ends there. */
+ * slide's time. A hold on `anim` ends there; a lift goes on over the slide. */
 void sh_anim_slide_from(struct sh_animator *animator, struct sh_anim *anim,
                         struct wlr_scene_tree *tree, int dx, int dy, float alpha, double share);
 /* A copy from sh_anim_hold_copy slides on from where it is held to (dx, dy) from its window,
  * its opacity to `alpha`, in `share` of the slide's time, then goes. */
 void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int dx, int dy,
                         float alpha, double share);
+/* Lifts `tree` while its window is dragged (`up`), or lets it down again: its nodes grow to
+ * `scale` times their size about (cx, cy) in tree coordinates, on top of whatever else runs on
+ * it, easing from where they are drawn with the duration and curve of animations.move (half as
+ * long again going down, to settle gently), and stay up, what the client draws included, until
+ * let down. A lift reversed half way turns back from where it is, at the speed it has. With
+ * animations off it goes up and down at once. `update` is called with `data` on each frame the
+ * lift moves, before the nodes are scaled, and as it lands, for what follows it (the window's
+ * shadow). */
+void sh_anim_lift(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                  bool up, double scale, double cx, double cy, void (*update)(void *),
+                  void *data);
+/* The box (in tree coordinates) a lift grows: the window's geometry as it is drawn, around which
+ * its border and shadow are drawn. What is inside it is scaled to the box drawn larger, its
+ * edges on whole pixels; what is outside moves with its nearest edges at its own size, so that a
+ * border keeps its width and meets the window to the pixel. Without bounds (a width of 0)
+ * everything scales about the point. Set it again as the window's size changes. */
+void sh_anim_lift_bounds(struct sh_anim *anim, int x, int y, int width, int height);
+/* How far up the lift is drawn, 0 down to 1 up. */
+double sh_anim_lift_progress(const struct sh_anim *anim);
+/* Where the lift draws a box of the tree now (x, y, width, height), its edges where the animator
+ * puts those of a node there. */
+void sh_anim_lift_box(const struct sh_anim *anim, int box[4]);
+/* Windows lifted, or still settling. */
+size_t sh_animator_lifted(const struct sh_animator *animator);
 /* A hold let go with nowhere to go, as a rubber band: `tree` starts (dx, dy) from where it rests,
  * moving (vx, vy) pixels a millisecond, its opacity multiplied by `alpha`, and springs back with
  * the move animation's time and curve, keeping that speed at first (as far as a glide that long
@@ -240,7 +281,8 @@ bool sh_anim_drop_out(struct sh_animator *animator, struct sh_anim *anim,
                       struct wlr_scene_tree *tree, int dx, int dy);
 /* The factor of its nodes' opacity the animation draws now: 1 at rest. */
 float sh_anim_alpha(const struct sh_anim *anim);
-/* Jumps to the end: every node gets its resting values and the tree its resting position. */
+/* Jumps to the end: every node gets its resting values and the tree its resting position. A
+ * lift ends too, and its update is called once it has, for what follows it to rest as well. */
 void sh_anim_finish(struct sh_anim *anim);
 /* Copies the visible buffers and rectangles under `content` into a new tree just above
  * `window`, which fades out and shrinks about (cx, cy) in `content` coordinates, then goes. */

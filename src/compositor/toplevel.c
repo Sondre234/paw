@@ -466,6 +466,14 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
     toplevel->urgent = false;
     refresh_frame(toplevel);
     untile_toplevel(toplevel, false);
+    // Not tiled, a window moved with the pointer may still hold a place in a tiling
+    // (tile_drop.c), which must not outlive it.
+    if (sh_tiling_output(toplevel->server->tiling, toplevel)) {
+        struct wlr_output *held = tiled_output(toplevel);
+        sh_tiling_remove(toplevel->server->tiling, toplevel);
+        if (held)
+            reflow_output(toplevel->server, held);
+    }
     bool was_focused = toplevel->server->focused_toplevel == toplevel;
     if (was_focused)
         deactivate_toplevel(toplevel->server);

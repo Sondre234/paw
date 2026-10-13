@@ -710,6 +710,102 @@ int main() {
             sh_tiling_destroy(sc);
         }
 
+        // A tile moved with the pointer stays in a tree where a drop would put it.
+        {
+            sh_tiling *drag = sh_tiling_create();
+            int d[4];
+            const sh_rect screen{0, 0, 1200, 800};
+            for (int i = 0; i < 3; ++i)
+                sh_tiling_insert(drag, "DP-1", 0, &d[i], nullptr, false, 0, 0);
+            // d0 on the left, d1 above d2 on the right.
+            auto before = arrange(drag, screen, 0);
+            require(before[&d[0]] == sh_rect{0, 0, 600, 800} &&
+                        before[&d[2]] == sh_rect{600, 400, 600, 400},
+                    "drag: the start");
+            sh_tile_drop drop{&d[1], true};
+            require(!sh_tiling_drop_target(drag, &d[2], "DP-1", 0, 700, 500, screen, &drop),
+                    "drag: on its own tile it goes nowhere");
+            require(!sh_tiling_drop_target(drag, &d[2], "DP-1", 0, -50, 10, screen, &drop),
+                    "drag: off every tile it goes nowhere");
+            // Over d0's lower half: without d2, d0 stays the left half, which splits across.
+            require(sh_tiling_drop_target(drag, &d[2], "DP-1", 0, 500, 600, screen, &drop) &&
+                        drop.split == &d[0] && !drop.first,
+                    "drag: below d0");
+            require(arrange(drag, screen, 0) == before, "drag: asking moved something");
+            sh_tiling_drop(drag, &d[2], "DP-1", 0, &drop);
+            auto after = arrange(drag, screen, 0);
+            require(after[&d[0]] == sh_rect{0, 0, 600, 400} &&
+                        after[&d[2]] == sh_rect{0, 400, 600, 400} &&
+                        after[&d[1]] == sh_rect{600, 0, 600, 800},
+                    "drag: d2 below d0, d1 the right half");
+            // Under the pointer now, it stays; over d1's left half, it goes there.
+            require(!sh_tiling_drop_target(drag, &d[2], "DP-1", 0, 500, 600, screen, &drop),
+                    "drag: it stays under the pointer");
+            require(sh_tiling_drop_target(drag, &d[2], "DP-1", 0, 610, 100, screen, &drop) &&
+                        drop.split == &d[1] && drop.first,
+                    "drag: beside d1, on its left");
+            require(arrange(drag, screen, 0) == after, "drag: asking again moved something");
+            // A place whose window went is left alone.
+            sh_tile_drop gone{&d[3], false};
+            sh_tiling_drop(drag, &d[2], "DP-1", 0, &gone);
+            require(arrange(drag, screen, 0) == after, "drag: a gone window's place taken");
+            // Another monitor's empty tree takes it whole, and its own closes up.
+            require(sh_tiling_drop_target(drag, &d[2], "DP-2", 0, 10, 10, screen, &drop) &&
+                        !drop.split,
+                    "drag: an empty tree");
+            sh_tiling_drop(drag, &d[2], "DP-2", 0, &drop);
+            require(!strcmp(sh_tiling_output(drag, &d[2]), "DP-2") &&
+                        sh_tiling_count(drag, "DP-1", 0) == 2 &&
+                        arrange(drag, screen, 0, "DP-2")[&d[2]] == screen,
+                    "drag: moved to the other tree");
+            // The layouts that keep a list put it at the end, and nowhere when it is there.
+            sh_tiling_drop(drag, &d[2], "DP-1", 0, &drop);
+            sh_tiling_set_layout(drag, "DP-1", 0, SH_LAYOUT_MASTER);
+            auto master = arrange(drag, screen, 0);
+            require(!sh_tiling_drop_target(drag, &d[2], "DP-1", 0, 10, 10, screen, &drop),
+                    "drag: last in the list already");
+            require(sh_tiling_drop_target(drag, &d[0], "DP-1", 0, 1000, 700, screen, &drop) &&
+                        !drop.split,
+                    "drag: the master to the end");
+            sh_tiling_drop(drag, &d[0], "DP-1", 0, &drop);
+            master = arrange(drag, screen, 0);
+            require(master[&d[1]].x == 0 && master[&d[0]].y > master[&d[2]].y,
+                    "drag: d1 the master, d0 last in the stack");
+            sh_tiling_set_layout(drag, "DP-1", 0, SH_LAYOUT_SCROLL);
+            arrange(drag, screen, 0);
+            require(!sh_tiling_drop_target(drag, &d[1], "DP-1", 0, 1000, 700, screen, &drop),
+                    "drag: the scroll layout previews no drop");
+            sh_tiling_destroy(drag);
+        }
+        // A place a drop finds that is where the window is already changes nothing, though the
+        // point lies off its tile (in the outer gap, which the tree without it has not); and the
+        // half nearer the point is the half the split gives, to the pixel.
+        {
+            sh_tiling *drag = sh_tiling_create();
+            int d[2];
+            for (int i = 0; i < 2; ++i)
+                sh_tiling_insert(drag, "DP-1", 0, &d[i], nullptr, false, 0, 0);
+            arrange(drag, {10, 10, 1180, 780}, 0); // d1 on the right, from 600 to 1190
+            sh_tile_drop drop{};
+            require(!sh_tiling_drop_target(drag, &d[1], "DP-1", 0, 1195, 400, {0, 0, 1200, 800},
+                                           &drop),
+                    "drag: the place it holds, from the outer gap");
+            require(sh_tiling_drop_target(drag, &d[1], "DP-1", 0, 5, 400, {0, 0, 1200, 800},
+                                          &drop) &&
+                        drop.split == &d[0] && drop.first,
+                    "drag: the other side of d0, from the outer gap");
+            sh_tiling_remove(drag, &d[1]);
+            arrange(drag, {0, 0, 1201, 800}, 0); // d0 alone, an odd width: halves of 600 and 601
+            require(sh_tiling_drop_target(drag, &d[1], "DP-1", 0, 600.3, 400, {0, 0, 1201, 800},
+                                          &drop) &&
+                        !drop.first,
+                    "drag: a point past the 600th pixel is in the second half");
+            sh_tiling_drop(drag, &d[1], "DP-1", 0, &drop);
+            auto placed = arrange(drag, {0, 0, 1201, 800}, 0);
+            require(placed[&d[1]].x == 600 && placed[&d[1]].width == 601, "drag: the second half");
+            sh_tiling_destroy(drag);
+        }
+
         // Tiny areas still produce positive sizes.
         placed = arrange(tiling, {0, 0, 3, 2}, 100);
         for (auto &[window, rect] : placed)

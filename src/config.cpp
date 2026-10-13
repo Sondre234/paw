@@ -1085,6 +1085,7 @@ void read_windows(lua_State *L, Config &config) {
     read_magnet(L, config);
     read_snap(L, config);
     read_shadow(L, config);
+    boolean(L, "lift", "windows.lift", config.settings.lift);
     named(L, "placement", "windows.placement", config.settings.placement,
           {{"cascade", SH_PLACE_CASCADE}, {"center", SH_PLACE_CENTER}, {"smart", SH_PLACE_SMART}});
     config.settings.drag_strip = integer(L, "drag_strip", config.settings.drag_strip, 0, 100);

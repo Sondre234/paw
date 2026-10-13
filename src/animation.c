@@ -33,6 +33,7 @@ struct sh_animator {
     int64_t last_tick;      // when a frame last advanced the animations; 0 while none run
     struct wl_list running; // struct sh_anim
     struct wl_list held;    // struct sh_anim held by a gesture, whatever the time
+    struct wl_list lifted;  // struct sh_anim lifted while dragged, or settling (lift_link)
     struct wl_list tweens;  // struct sh_tween
     struct wl_event_source *timer;
     bool ticking; // the timer is set
@@ -168,6 +169,31 @@ static void set_paint(struct wlr_scene_node *node, const float value[4]) {
         wlr_scene_buffer_set_opacity(wlr_scene_buffer_from_node(node), value[0]);
 }
 
+/* Where a lift draws a coordinate of its tree along one axis now: its bounds from `low` to `high`
+ * drawn larger about `anchor`, their edges on whole pixels; what is inside them is scaled in
+ * between, what is outside moves with the nearest edge. Without bounds, scaled about the anchor. */
+static double lift_axis(const struct sh_anim *anim, double at, double anchor, int low, int length) {
+    if (!anim->lifted)
+        return at;
+    double scale = 1 + (anim->lift_scale - 1) * anim->lift;
+    if (length <= 0)
+        return anchor + (at - anchor) * scale;
+    int high = low + length;
+    double drawn_low = floor(anchor + (low - anchor) * scale + 0.5);
+    double drawn_high = floor(anchor + (high - anchor) * scale + 0.5);
+    if (at <= low)
+        return drawn_low + (at - low);
+    if (at >= high)
+        return drawn_high + (at - high);
+    return drawn_low + (at - low) * (drawn_high - drawn_low) / length;
+}
+static double lift_x(const struct sh_anim *anim, double x) {
+    return lift_axis(anim, x, anim->lift_cx, anim->lift_bounds[0], anim->lift_bounds[2]);
+}
+static double lift_y(const struct sh_anim *anim, double y) {
+    return lift_axis(anim, y, anim->lift_cy, anim->lift_bounds[1], anim->lift_bounds[3]);
+}
+
 /* What a walk does to the nodes it visits: the fx's scale about the animation's center and its
  * factor of their opacity, after a morph's stretch about the tree's origin (`sx`, `sy`: 1 but
  * for the client's surfaces and their fading copy). `width` and `height` are the size a morph
@@ -202,12 +228,12 @@ static void apply_node(struct sh_anim *anim, struct wlr_scene_node *node, int ox
     }
     if (sized) {
         // Both edges are scaled and rounded, so that nodes that adjoin (the slices of a window's
-        // shadow, its surfaces) stay adjoined at every scale.
+        // shadow, its surfaces) stay adjoined at every scale. A lift moves them on from there.
         double scale = m->scale;
-        double left = anim->cx + ((ox + r->x) * m->sx - anim->cx) * scale;
-        double top = anim->cy + ((oy + r->y) * m->sy - anim->cy) * scale;
-        double right = anim->cx + ((ox + r->x + r->width) * m->sx - anim->cx) * scale;
-        double bottom = anim->cy + ((oy + r->y + r->height) * m->sy - anim->cy) * scale;
+        double left = lift_x(anim, anim->cx + ((ox + r->x) * m->sx - anim->cx) * scale);
+        double top = lift_y(anim, anim->cy + ((oy + r->y) * m->sy - anim->cy) * scale);
+        double right = lift_x(anim, anim->cx + ((ox + r->x + r->width) * m->sx - anim->cx) * scale);
+        double bottom = lift_y(anim, anim->cy + ((oy + r->y + r->height) * m->sy - anim->cy) * scale);
         r->set_x = (int)lround(left) - ox, r->set_y = (int)lround(top) - oy;
         r->set_width = (int)fmax(1, lround(right) - lround(left));
         r->set_height = (int)fmax(1, lround(bottom) - lround(top));
@@ -352,18 +378,20 @@ static void stop(struct sh_anim *anim) {
         free(anim);
         return;
     }
-    free(anim->records);
-    anim->records = NULL;
-    anim->count = anim->capacity = 0;
+    if (!anim->lifted) { // else the lift still needs the resting values
+        free(anim->records);
+        anim->records = NULL;
+        anim->count = anim->capacity = 0;
+    }
     release_track(anim);
 }
 
-/* The glide's offset along one axis at `elapsed` milliseconds, and its velocity. The eased
- * decay carries the offset to 0; a term that is 0 at both ends carries the starting velocity, so
- * a retargeted glide does not jerk. */
-static void glide_axis(const struct sh_anim *anim, double offset, double velocity, int64_t elapsed,
-                       double *position, double *speed) {
-    double d = anim->glide_duration, t = (double)elapsed / d;
+/* An offset easing to 0 along `curve` over `duration` milliseconds: where it is at `elapsed`,
+ * and its velocity. The eased decay carries the offset to 0; a term that is 0 at both ends
+ * carries the starting velocity, so a retargeted motion does not jerk. */
+static void ease_to_rest(const struct sh_curve *curve, int duration, double offset,
+                         double velocity, int64_t elapsed, double *position, double *speed) {
+    double d = duration, t = (double)elapsed / d;
     if (t >= 1) {
         *position = *speed = 0;
         return;
@@ -371,12 +399,18 @@ static void glide_axis(const struct sh_anim *anim, double offset, double velocit
     if (t < 0)
         t = 0;
     const double h = 1e-4;
-    double slope = (sh_curve_eval(&anim->glide_curve, t + h) -
-                    sh_curve_eval(&anim->glide_curve, t > h ? t - h : 0)) /
+    double slope = (sh_curve_eval(curve, t + h) - sh_curve_eval(curve, t > h ? t - h : 0)) /
                    (t > h ? 2 * h : t + h);
     double carry = (1 - t) * (1 - t);
-    *position = offset * (1 - sh_curve_eval(&anim->glide_curve, t)) + velocity * d * t * carry;
+    *position = offset * (1 - sh_curve_eval(curve, t)) + velocity * d * t * carry;
     *speed = -offset * slope / d + velocity * (carry - 2 * t * (1 - t));
+}
+
+/* The glide's offset along one axis at `elapsed` milliseconds, and its velocity. */
+static void glide_axis(const struct sh_anim *anim, double offset, double velocity, int64_t elapsed,
+                       double *position, double *speed) {
+    ease_to_rest(&anim->glide_curve, anim->glide_duration, offset, velocity, elapsed, position,
+                 speed);
 }
 
 /* The size a morph draws the window at `elapsed` milliseconds into the glide, and how fast it
@@ -479,7 +513,33 @@ static bool step(struct sh_anim *anim, int64_t now) {
     return anim->fx || anim->glide || anim->morph;
 }
 
-void sh_anim_finish(struct sh_anim *anim) {
+/* Whether a frame walks the animation's nodes for its own look (an fx's or a morph's), drawing
+ * the lift on top: else the lift draws them itself. */
+static bool drawn_by_others(const struct sh_anim *anim) {
+    return anim->animator && !anim->held && (anim->fx || anim->morph);
+}
+
+/* The lift's end: out of the lifted list, its nodes back at rest with `restore` (else whatever
+ * else runs on them draws them next), and its records freed unless something else runs. */
+static void lift_end(struct sh_anim *anim, bool restore) {
+    if (!anim->lifted)
+        return;
+    wl_list_remove(&anim->lift_link);
+    anim->lifted = anim->lift_easing = anim->lift_rested = false;
+    anim->lift = 0;
+    if (restore)
+        walk(anim, anim->tree, 0, 0, true, NULL);
+    if (!anim->animator) {
+        for (size_t i = 0; i < anim->count; ++i)
+            record_finish(&anim->records[i]);
+        free(anim->records);
+        anim->records = NULL;
+        anim->count = anim->capacity = 0;
+    }
+}
+
+/* Jumps what runs to its end, leaving a lift as it is. */
+static void finish_running(struct sh_anim *anim) {
     if (!anim->animator)
         return;
     if (anim->glide)
@@ -498,6 +558,16 @@ void sh_anim_finish(struct sh_anim *anim) {
     stop(anim);
     if (resized)
         resized(data);
+}
+
+void sh_anim_finish(struct sh_anim *anim) {
+    bool lifted = anim->lifted;
+    void (*update)(void *) = anim->lift_update;
+    void *data = anim->lift_data;
+    lift_end(anim, true);
+    finish_running(anim);
+    if (lifted && update)
+        update(data); // what follows the lift (a shadow, clips) rests too
 }
 
 static void tween_value(const struct sh_tween *tween, double e, float out[SH_TWEEN_VALUES]) {
@@ -585,10 +655,13 @@ static void rest_anim(struct sh_anim *anim) {
         rest_hold(anim);
 }
 
+static void rest_lifts(struct sh_animator *animator, bool at, double px, double py);
+
 void sh_animator_rest(struct sh_animator *animator) {
     struct sh_anim *anim;
     wl_list_for_each(anim, &animator->running, link) rest_anim(anim);
     wl_list_for_each(anim, &animator->held, link) rest_anim(anim);
+    rest_lifts(animator, false, 0, 0);
 }
 
 /* Whether a buffer or rectangle below `tree`, whose parent is at (ox, oy), has a box that
@@ -626,6 +699,25 @@ static bool tree_covers(const struct wlr_scene_tree *tree, double ox, double oy,
     return false;
 }
 
+/* Lifted windows at their own size for a lookup, with `at` only those that could be found at
+ * (px, py): drawn lifted, a window covers all it covers at rest, where it rests or where a glide
+ * draws it. */
+static void rest_lifts(struct sh_animator *animator, bool at, double px, double py) {
+    struct sh_anim *anim;
+    wl_list_for_each(anim, &animator->lifted, lift_link) {
+        int cx, cy;
+        if (at && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
+            double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
+            if (!tree_covers(anim->tree, cx, cy, px, py) &&
+                !tree_covers(anim->tree, parent_x + anim->base_x, parent_y + anim->base_y, px,
+                             py))
+                continue;
+        }
+        anim->lift_rested = true;
+        walk(anim, anim->tree, 0, 0, true, NULL);
+    }
+}
+
 void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
     struct sh_anim *anim;
     wl_list_for_each(anim, &animator->running, link) {
@@ -654,6 +746,7 @@ void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
             rest_anim(anim);
     }
     wl_list_for_each(anim, &animator->held, link) rest_anim(anim);
+    rest_lifts(animator, true, px, py);
 }
 
 void sh_animator_resume(struct sh_animator *animator) {
@@ -677,11 +770,65 @@ void sh_animator_resume(struct sh_animator *animator) {
             wlr_scene_node_set_enabled(&anim->tree->node, true);
         apply_hold(anim);
     }
+    wl_list_for_each(anim, &animator->lifted, lift_link) {
+        if (!anim->lift_rested)
+            continue;
+        anim->lift_rested = false;
+        if (anim->held)
+            continue; // its hold drew it, lifted
+        if (drawn_by_others(anim))
+            step(anim, now); // the lift on top of its own look, as a frame draws it
+        else
+            walk(anim, anim->tree, 0, 0, false, &IDENTITY);
+    }
+}
+
+/* Moves every lift that eases to `now` (to its end with `land`) and tells its owner, before
+ * anything scales its nodes. */
+static void lifts_advance(struct sh_animator *animator, int64_t now, bool land) {
+    struct sh_anim *anim;
+    wl_list_for_each(anim, &animator->lifted, lift_link) {
+        if (!anim->lift_easing)
+            continue;
+        int64_t elapsed = now - anim->lift_start;
+        double offset, speed;
+        ease_to_rest(&anim->lift_curve, anim->lift_duration, anim->lift_from - anim->lift_to,
+                     anim->lift_velocity, elapsed, &offset, &speed);
+        anim->lift_easing = !land && elapsed < anim->lift_duration;
+        anim->lift = anim->lift_easing ? anim->lift_to + offset : anim->lift_to;
+        if (anim->lift_update)
+            anim->lift_update(anim->lift_data);
+    }
+}
+
+/* Draws every lift its window's other animations did not (they scale on top of it), and ends
+ * those that are down. */
+static void lifts_apply(struct sh_animator *animator) {
+    struct sh_anim *anim, *next;
+    wl_list_for_each_safe(anim, next, &animator->lifted, lift_link) {
+        bool drawn = drawn_by_others(anim) || anim->held;
+        if (!anim->lift_easing && anim->lift_to <= 0)
+            lift_end(anim, !drawn);
+        else if (!drawn)
+            walk(anim, anim->tree, 0, 0, false, &IDENTITY);
+    }
+}
+
+static bool lifts_easing(const struct sh_animator *animator) {
+    const struct sh_anim *anim;
+    wl_list_for_each(anim, &animator->lifted, lift_link) {
+        if (anim->lift_easing)
+            return true;
+    }
+    return false;
 }
 
 void sh_animator_finish_all(struct sh_animator *animator) {
     struct sh_anim *anim, *next;
-    wl_list_for_each_safe(anim, next, &animator->running, link) sh_anim_finish(anim);
+    wl_list_for_each_safe(anim, next, &animator->running, link) finish_running(anim);
+    // Lifts land where they were heading: a window still dragged stays up.
+    lifts_advance(animator, 0, true);
+    lifts_apply(animator);
     step_tweens(animator, 0, true);
     animator->last_tick = 0;
 }
@@ -695,6 +842,7 @@ void sh_animator_tick(struct sh_animator *animator) {
         return;
     }
     animator->last_tick = now;
+    lifts_advance(animator, now, false);
     struct sh_anim *anim, *next;
     wl_list_for_each_safe(anim, next, &animator->running, link) {
         if (!step(anim, now))
@@ -704,8 +852,11 @@ void sh_animator_tick(struct sh_animator *animator) {
     }
     // What a client drew since keeps the hold's opacity.
     wl_list_for_each(anim, &animator->held, link) apply_hold(anim);
+    // And a lifted window's size.
+    lifts_apply(animator);
     step_tweens(animator, now, false);
-    if (wl_list_empty(&animator->running) && wl_list_empty(&animator->tweens))
+    if (wl_list_empty(&animator->running) && wl_list_empty(&animator->tweens) &&
+        !lifts_easing(animator))
         animator->last_tick = 0;
 }
 
@@ -713,7 +864,8 @@ static int timer_fired(void *data) {
     struct sh_animator *animator = data;
     animator->ticking = false;
     sh_animator_tick(animator);
-    if (!wl_list_empty(&animator->running) || !wl_list_empty(&animator->tweens))
+    if (!wl_list_empty(&animator->running) || !wl_list_empty(&animator->tweens) ||
+        lifts_easing(animator))
         keep_ticking(animator);
     return 0;
 }
@@ -1037,7 +1189,7 @@ void sh_anim_hold(struct sh_animator *animator, struct sh_anim *anim, struct wlr
     if (anim->owned && !anim->held)
         return; // a copy that is running is the animator's alone
     if (anim->animator && (!anim->held || anim->tree != tree))
-        sh_anim_finish(anim); // what ran lands, and the hold starts from rest
+        finish_running(anim); // what ran lands, and the hold starts from rest, a lift on top
     anim->tree = tree;
     if (!anim->animator) {
         anim->animator = animator;
@@ -1082,7 +1234,7 @@ void sh_anim_slide_from(struct sh_animator *animator, struct sh_anim *anim,
                         struct wlr_scene_tree *tree, int dx, int dy, float alpha, double share) {
     if (anim->owned)
         return;
-    sh_anim_finish(anim); // from rest, as the hold or what ran left it
+    finish_running(anim); // from rest, as the hold or what ran left it, a lift on top
     int duration = slide_duration(animator, share);
     if (!duration || (dx == 0 && dy == 0 && alpha >= 1))
         return;
@@ -1123,6 +1275,91 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
     anim->glide_start = now_ms(animator);
     fx_begin(animator, anim, SH_ANIM_WORKSPACE, duration, 1, 1, from_alpha, alpha, 0, 0);
     step(anim, anim->fx_start);
+}
+
+void sh_anim_lift(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                  bool up, double scale, double cx, double cy, void (*update)(void *),
+                  void *data) {
+    if (anim->owned || (!up && !anim->lifted))
+        return;
+    if (anim->animator && anim->tree != tree)
+        finish_running(anim); // what ran on another tree lands
+    if (anim->lifted && anim->tree != tree)
+        lift_end(anim, true);
+    anim->tree = tree;
+    int64_t now = now_ms(animator);
+    // A lift under way turns from where it is drawn, at the speed it has.
+    double velocity = 0;
+    if (anim->lift_easing) {
+        double offset;
+        ease_to_rest(&anim->lift_curve, anim->lift_duration, anim->lift_from - anim->lift_to,
+                     anim->lift_velocity, now - anim->lift_start, &offset, &velocity);
+        anim->lift = anim->lift_to + offset;
+    }
+    if (up) {
+        anim->lift_scale = scale;
+        anim->lift_cx = cx, anim->lift_cy = cy;
+    }
+    anim->lift_update = update, anim->lift_data = data;
+    if (!anim->lifted) {
+        anim->lifted = true;
+        anim->lift = 0;
+        anim->lift_easing = anim->lift_rested = false;
+        wl_list_insert(animator->lifted.prev, &anim->lift_link);
+    }
+    double target = up ? 1 : 0;
+    int duration = animator->config.enabled ? duration_of(animator, SH_ANIM_MOVE) : 0;
+    if (!up)
+        duration += duration / 2; // settling takes its time
+    bool drawn = drawn_by_others(anim) || anim->held;
+    if (!duration || (!anim->lift_easing && anim->lift == target)) {
+        anim->lift = anim->lift_to = target;
+        anim->lift_easing = false;
+        if (update)
+            update(data);
+        if (!up)
+            lift_end(anim, !drawn);
+        else if (!drawn)
+            walk(anim, anim->tree, 0, 0, false, &IDENTITY);
+        return;
+    }
+    if (anim->lift_easing && anim->lift_to == target)
+        return; // on its way there already
+    anim->lift_from = anim->lift;
+    anim->lift_to = target;
+    anim->lift_start = now;
+    anim->lift_duration = duration;
+    anim->lift_curve = animator->config.styles[SH_ANIM_MOVE].curve;
+    // The curve has a speed of its own to start with; carry only what it lacks.
+    const double h = 1e-4;
+    double offset = anim->lift_from - target;
+    double start_slope = sh_curve_eval(&anim->lift_curve, h) / h / duration;
+    anim->lift_velocity = velocity ? carried(velocity, -offset * start_slope, offset, duration) : 0;
+    anim->lift_easing = true;
+    if (!animator->last_tick)
+        animator->last_tick = now;
+    keep_ticking(animator); // until it lands; up, it then costs nothing
+}
+
+void sh_anim_lift_bounds(struct sh_anim *anim, int x, int y, int width, int height) {
+    anim->lift_bounds[0] = x, anim->lift_bounds[1] = y;
+    anim->lift_bounds[2] = width > 0 ? width : 0, anim->lift_bounds[3] = height > 0 ? height : 0;
+}
+
+double sh_anim_lift_progress(const struct sh_anim *anim) {
+    return anim->lifted ? anim->lift : 0;
+}
+
+void sh_anim_lift_box(const struct sh_anim *anim, int box[4]) {
+    long left = lround(lift_x(anim, box[0])), right = lround(lift_x(anim, box[0] + box[2]));
+    long top = lround(lift_y(anim, box[1])), bottom = lround(lift_y(anim, box[1] + box[3]));
+    box[0] = (int)left, box[1] = (int)top;
+    box[2] = (int)(right - left > 1 ? right - left : 1);
+    box[3] = (int)(bottom - top > 1 ? bottom - top : 1);
+}
+
+size_t sh_animator_lifted(const struct sh_animator *animator) {
+    return (size_t)wl_list_length(&animator->lifted);
 }
 
 void sh_anim_spring_back(struct sh_animator *animator, struct sh_anim *anim,
@@ -1301,6 +1538,7 @@ struct sh_animator *sh_animator_create(struct wl_event_loop *loop) {
         return NULL;
     wl_list_init(&animator->running);
     wl_list_init(&animator->held);
+    wl_list_init(&animator->lifted);
     wl_list_init(&animator->tweens);
     animator->clock = real_clock;
     animator->config.speed = 1;
@@ -1335,6 +1573,7 @@ void sh_animator_destroy(struct sh_animator *animator) {
     sh_animator_finish_all(animator);
     struct sh_anim *anim, *next;
     wl_list_for_each_safe(anim, next, &animator->held, link) sh_anim_finish(anim);
+    wl_list_for_each_safe(anim, next, &animator->lifted, lift_link) lift_end(anim, true);
     wl_event_source_remove(animator->timer);
     free(animator);
 }

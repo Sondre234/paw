@@ -235,10 +235,13 @@ static void remove_shadow(struct sh_toplevel *toplevel) {
  * a shared image laid out around the frame, in a tree at the bottom of the window's. It takes no
  * input, and nothing that places or measures the window counts it. The tree has a clip of its
  * own as large as the shadow, since the one rounding the window would hide it (only the nearest
- * clip applies). Laid out again only when the frame's size or the image changes, so a running
- * animation keeps what it set. */
+ * clip applies). A lifted window's shadow reaches further (sh_shadow_lift): its slices
+ * stretched, or a printed one's image painted further off; but a cast one under a `translucent`
+ * window, through which the stretched image's cut-out, a pixel under the window's edge, would
+ * show as a darker rim, stays as it rests. Laid out again only when the frame's size, the image
+ * or the lift changes, so a running animation keeps what it set. */
 static void refresh_shadow(struct sh_toplevel *toplevel, bool on, int outset, int radius,
-                           float alpha) {
+                           float alpha, bool translucent) {
     struct sh_server *server = toplevel->server;
     const struct sh_settings *settings = server_settings(server);
     struct wlr_box g = frame_geometry(toplevel);
@@ -256,11 +259,18 @@ static void refresh_shadow(struct sh_toplevel *toplevel, bool on, int outset, in
     bool focused = server->focused_toplevel == toplevel;
     memcpy(look.color, focused ? settings->shadow_color : settings->shadow_inactive_color,
            sizeof(look.color));
+    double lift = fmin(1, fmax(0, sh_anim_lift_progress(&toplevel->anim)));
+    if (translucent && !sh_shadow_printed(&look))
+        lift = 0;
+    struct sh_shadow drawn;
+    double spread[4];
+    float fade;
+    sh_shadow_lift(&look, lift, &drawn, spread, &fade);
     struct sh_shadow_layout layout;
-    sh_shadow_layout(&look, &layout);
+    sh_shadow_layout(&drawn, &layout);
     int image_width, image_height;
     sh_shadow_image_size(&layout, width, height, &image_width, &image_height);
-    struct sh_shadow_image *image = shadow_image(server, &look, image_width, image_height);
+    struct sh_shadow_image *image = shadow_image(server, &drawn, image_width, image_height);
     if (!image)
         return;
     if (!toplevel->shadow) {
@@ -279,26 +289,35 @@ static void refresh_shadow(struct sh_toplevel *toplevel, bool on, int outset, in
         }
     }
     for (int i = 0; i < SH_SHADOW_SLICES; ++i)
-        wlr_scene_buffer_set_opacity(toplevel->shadow_slices[i], toplevel->opacity * alpha);
+        wlr_scene_buffer_set_opacity(toplevel->shadow_slices[i], toplevel->opacity * alpha * fade);
     wlr_scene_node_set_position(&toplevel->shadow->node, -outset, -outset);
-    toplevel->shadow_box = (struct wlr_box){-outset - layout.left, -outset - layout.top,
-                                            layout.left + width + layout.right,
-                                            layout.top + height + layout.bottom};
-    toplevel->shadow_alpha = look.color[3];
+    struct sh_shadow_slice slices[SH_SHADOW_SLICES];
+    sh_shadow_slices_scaled(&layout, image_width, image_height, width, height, spread, slices);
+    // What the slices cover, from the frame's top-left corner.
+    int left = 0, top = 0, right = width, bottom = height;
+    for (int i = 0; i < SH_SHADOW_SLICES; ++i) {
+        const struct sh_shadow_slice *s = &slices[i];
+        if (s->to_width <= 0)
+            continue;
+        left = s->to_x < left ? s->to_x : left;
+        top = s->to_y < top ? s->to_y : top;
+        right = s->to_x + s->to_width > right ? s->to_x + s->to_width : right;
+        bottom = s->to_y + s->to_height > bottom ? s->to_y + s->to_height : bottom;
+    }
+    toplevel->shadow_box =
+        (struct wlr_box){-outset + left, -outset + top, right - left, bottom - top};
+    toplevel->shadow_alpha = look.color[3] * fade;
 #ifdef PAW_ROUNDED_CORNERS
     window_clip(toplevel, SH_CLIP_SHADOW,
-                &(struct wlr_box){-layout.left, -layout.top, toplevel->shadow_box.width,
-                                  toplevel->shadow_box.height},
-                0);
+                &(struct wlr_box){left, top, right - left, bottom - top}, 0);
 #endif
     if (toplevel->shadow_image == image->buffer && toplevel->shadow_width == width &&
-        toplevel->shadow_height == height)
+        toplevel->shadow_height == height && toplevel->shadow_lift == lift)
         return;
     toplevel->shadow_image = image->buffer;
     toplevel->shadow_width = width;
     toplevel->shadow_height = height;
-    struct sh_shadow_slice slices[SH_SHADOW_SLICES];
-    sh_shadow_slices(&layout, image_width, image_height, width, height, slices);
+    toplevel->shadow_lift = lift;
     for (int i = 0; i < SH_SHADOW_SLICES; ++i) {
         struct wlr_scene_buffer *slice = toplevel->shadow_slices[i];
         const struct sh_shadow_slice *s = &slices[i];
@@ -436,6 +455,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
     float opacity =
         toplevel->fullscreen || !mapped ? 1 : rule_opacity(toplevel, app_id, title, active);
+    bool translucent = opacity < 1; // as it settles, whatever a fade draws meanwhile
     // Opacity and border color fade when focus changes; a window that is not yet shown, or
     // was hidden, takes them at once.
     int b = settings->border_width;
@@ -498,6 +518,8 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     // takes in everything drawn for them but the border, which rounds itself to match. While the
     // window changes size, the frame goes around the size it is drawn at.
     struct wlr_box g = frame_geometry(toplevel);
+    // A lift draws that box larger, and the frame around it (lift.c).
+    sh_anim_lift_bounds(&toplevel->anim, 0, 0, g.width, g.height);
     bool rounded = mapped && framed > 0 &&
                    (tiles_for(toplevel, output) || (settings->round_always && !own_shadow));
     int round_radius = rounded ? settings->corner_radius : 0;
@@ -513,7 +535,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     // none under a fullscreen or maximized one. It keeps the corners it has in full as it fades.
     refresh_shadow(toplevel,
                    settings->shadow && mapped && framed > 0 && (round_radius > 0 || !own_shadow),
-                   shown && !inset ? b : 0, round_radius, framed);
+                   shown && !inset ? b : 0, round_radius, framed, translucent);
 
     // xdg-shell windows keep their scene tree while unmapped; the border must not. One in
     // gradients is drawn in pieces of its own instead.

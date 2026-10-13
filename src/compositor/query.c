@@ -221,6 +221,27 @@ static void get_snap(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, line);
 }
 
+static void get_lift(struct sh_server *server, int fd, const char *arguments) {
+    // Windows lifted by a move with the pointer, or settling back: title, how far up
+    // (thousandths), the box the window is drawn in from its top-left corner (x, y, width,
+    // height), and the point it grows about.
+    control_reply(fd, "ok\n");
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (!toplevel->anim.lifted)
+            continue;
+        char line[640], title[512];
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        struct wlr_box geometry = toplevel_geometry(toplevel);
+        int box[4] = {0, 0, geometry.width, geometry.height};
+        sh_anim_lift_box(&toplevel->anim, box);
+        snprintf(line, sizeof(line), "%s\t%ld\t%d\t%d\t%d\t%d\t%ld\t%ld\n", title,
+                 lround(1000 * sh_anim_lift_progress(&toplevel->anim)), box[0], box[1], box[2],
+                 box[3], lround(toplevel->anim.lift_cx), lround(toplevel->anim.lift_cy));
+        control_reply(fd, line);
+    }
+}
+
 static void get_animations(struct sh_server *server, int fd, const char *arguments) {
     // Running animations, and the scene trees stacked for windows (with closing copies).
     char reply[64];
@@ -780,6 +801,7 @@ static const struct {
     {"guides", get_guides, false},
     {"snap", get_snap, false},
     {"animations", get_animations, false},
+    {"lift", get_lift, false},
     {"stats", get_stats, false},
     {"frame_times", get_frame_times, false},
     {"output_frames", get_output_frames, false},
