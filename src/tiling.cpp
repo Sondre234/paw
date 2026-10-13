@@ -582,6 +582,13 @@ const char *sh_tiling_output(const sh_tiling *tiling, const void *window) {
     return found == tiling->leaves.end() ? nullptr : found->second.second.first.c_str();
 }
 
+int sh_tiling_workspace(const sh_tiling *tiling, const void *window) {
+    if (!tiling)
+        return -1;
+    auto found = tiling->leaves.find(window);
+    return found == tiling->leaves.end() ? -1 : found->second.second.second;
+}
+
 int sh_tiling_count(const sh_tiling *tiling, const char *output, int workspace) {
     if (!tiling || !output)
         return 0;

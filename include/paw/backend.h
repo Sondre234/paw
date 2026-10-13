@@ -703,6 +703,8 @@ void sh_tiling_insert(struct sh_tiling *tiling, const char *output, int workspac
 void sh_tiling_remove(struct sh_tiling *tiling, const void *window);
 /* The output name of the window's tree, or NULL when it is not tiled. */
 const char *sh_tiling_output(const struct sh_tiling *tiling, const void *window);
+/* The workspace of the window's tree, or -1 when it is not tiled. */
+int sh_tiling_workspace(const struct sh_tiling *tiling, const void *window);
 /* How many windows the tree of `workspace` on `output` holds; a window group is one. */
 int sh_tiling_count(const struct sh_tiling *tiling, const char *output, int workspace);
 typedef void (*sh_tile_place)(void *userdata, void *window, struct sh_rect rect);
