@@ -68,6 +68,9 @@ struct probe {
     // geometry, as a client-side frame draws its shadow.
     int margin;
     bool commands; // --commands: an external-control window that obeys lines on standard input
+    // "hold": configures wait for "answer", as a slow application's do; the last one is `held`.
+    bool hold;
+    uint32_t held;
     bool print_keymap, keymap_seen; // --keymap
     // PAW_PROBE_DRAG=source: a button press on the window drags a line of text from it, as
     // a file manager drags a file; =target: the window takes text dropped on it. Either prints
@@ -391,8 +394,9 @@ static void set_icon(struct probe *probe, const char *spec) {
     xdg_toplevel_icon_manager_v1_set_icon(probe->icons, probe->toplevel, icon);
     xdg_toplevel_icon_v1_destroy(icon);
 }
-/* One line of standard input: "activate", "title TEXT", "app_id TEXT", or "icon SPEC" (see
- * set_icon). */
+static void answer_configure(struct probe *probe, uint32_t serial);
+/* One line of standard input: "activate", "title TEXT", "app_id TEXT", "icon SPEC" (see
+ * set_icon), "hold" (configures wait) or "answer" (the last one held, and those after). */
 static void run_command(struct probe *probe, char *line) {
     line[strcspn(line, "\n")] = '\0';
     if (!strcmp(line, "activate"))
@@ -404,6 +408,13 @@ static void run_command(struct probe *probe, char *line) {
     else if (!strncmp(line, "icon ", 5)) {
         set_icon(probe, line + 5);
         wl_surface_commit(probe->surface);
+    } else if (!strcmp(line, "hold")) {
+        probe->hold = true;
+    } else if (!strcmp(line, "answer")) {
+        probe->hold = false;
+        if (probe->held)
+            answer_configure(probe, probe->held);
+        probe->held = 0;
     } else
         die("unknown command");
 }
@@ -641,12 +652,8 @@ static void panel_closed(void *data, struct zwlr_layer_surface_v1 *panel) {
 }
 static const struct zwlr_layer_surface_v1_listener panel_listener = {.configure = panel_configure,
                                                                      .closed = panel_closed};
-static void surface_configure(void *data, struct xdg_surface *surface, uint32_t serial) {
-    struct probe *probe = data;
-    // Closing, the window has unmapped: a configure sent before the compositor saw that (focus
-    // moving to it as other windows close) is no longer one to acknowledge.
-    if (probe->done)
-        return;
+static void answer_configure(struct probe *probe, uint32_t serial) {
+    struct xdg_surface *surface = probe->xdg_surface;
     xdg_surface_ack_configure(surface, serial);
     if (probe->width < 1 || probe->height < 1 || probe->width > 8192 || probe->height > 8192)
         die("unexpected configure dimensions");
@@ -662,6 +669,17 @@ static void surface_configure(void *data, struct xdg_surface *surface, uint32_t 
         wl_callback_add_listener(probe->frame, &frame_listener, probe);
     }
     wl_surface_commit(probe->surface);
+}
+static void surface_configure(void *data, struct xdg_surface *surface, uint32_t serial) {
+    struct probe *probe = data;
+    // Closing, the window has unmapped: a configure sent before the compositor saw that (focus
+    // moving to it as other windows close) is no longer one to acknowledge.
+    if (probe->done)
+        return;
+    if (probe->hold)
+        probe->held = serial;
+    else
+        answer_configure(probe, serial);
 }
 static const struct xdg_surface_listener surface_listener = {.configure = surface_configure};
 static void toplevel_configure(void *data, struct xdg_toplevel *toplevel, int32_t width,
