@@ -3,11 +3,25 @@
  * ext-foreign-toplevel handles with image capture sources for capturing a single window. */
 #include "server.h"
 
+/* Focuses a window the taskbar brings up. A minimized one comes to the workspace the focused
+ * output shows, as a hidden scratchpad window does, rather than taking an output back to the
+ * workspace it was minimized on; one that is not minimized has its own workspace shown. */
+static void taskbar_focus_toplevel(struct sh_toplevel *toplevel) {
+    struct sh_server *server = toplevel->server;
+    struct wlr_output *output = focused_output(server);
+    if (toplevel->minimized && !toplevel->scratchpad && !toplevel->sticky && output &&
+        !server->locked) {
+        move_toplevel_to_output(toplevel, output); // onto the workspace it shows
+        move_toplevel_to_workspace(server, toplevel, *output_workspace(server, output->name));
+    }
+    focus_toplevel(toplevel);
+}
+
 static void foreign_activate(struct wl_listener *listener, void *data) {
     struct sh_toplevel *toplevel = wl_container_of(listener, toplevel, foreign_activate);
     struct wlr_foreign_toplevel_handle_v1_activated_event *event = data;
     if (event->seat == toplevel->server->seat)
-        focus_toplevel(toplevel);
+        taskbar_focus_toplevel(toplevel);
 }
 static void foreign_close(struct wl_listener *listener, void *data) {
     struct sh_toplevel *toplevel = wl_container_of(listener, toplevel, foreign_close);
@@ -39,7 +53,7 @@ static void foreign_minimize(struct wl_listener *listener, void *data) {
     if (event->minimized)
         minimize_toplevel(toplevel);
     else
-        focus_toplevel(toplevel);
+        taskbar_focus_toplevel(toplevel);
 }
 static void update_listed_state(struct sh_toplevel *toplevel) {
     if (!toplevel->listed)

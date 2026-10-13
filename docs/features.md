@@ -91,7 +91,9 @@ its corners squared and its outline and shadow gone but for a line along its inn
 buttons where they were, and floats again once no window there does. Windows do not move.
 
 Clicking a window's button focuses it, or minimizes it when it is focused already, as on Windows,
-from any monitor's bar; a middle click closes the window, a right click opens its
+from any monitor's bar. A window open on another workspace brings that workspace up, while a
+minimized one comes back onto the workspace the clicked bar's monitor shows, taking a tile there
+where it tiles, wherever it was minimized. A middle click closes the window, a right click opens its
 [menu](#taskbar-menus), and dragging the button moves it along the bar. An application's windows
 share one button, stacked with a count when there are several: clicking it cycles through them,
 and resting on it shows them to pick one, close it with its cross or a middle click, or open its
@@ -110,7 +112,8 @@ place, and dragging it moves the pin.
 
 Something dragged from an application (a file, text, a link) brings windows forward as on Windows:
 resting the drag on a window's button for half a second brings that window to the front, restored
-if it was minimized and its workspace shown, so that the drag goes on onto it and drops there.
+onto the workspace shown if it was minimized, else with its own workspace shown, so that the drag
+goes on onto it and drops there.
 Resting on a stack's button shows its windows, as the pointer resting there does, and resting on
 one of them brings it forward; they stay while the drag is over them or the button, and go once it
 has left both or ended. The button, picture or title under the drag is lit as under the pointer.
@@ -126,9 +129,10 @@ first. A ring in the accent colour marks the selection. Left and Right, Home and
 the buttons of windows and of pinned applications (the start button and the widgets are left out),
 and a button with windows shows them at once, as resting the pointer on it does, the card gliding
 from one button to the next; a pinned application's button shows its name. Enter or Space
-does what a click does and gives the keyboard back: it brings the window up (restored, its
-workspace shown), brings up a stack's next window, starts a pinned application, or minimizes the
-window that had the keyboard, which counts as the focused one. Up (Down on a bar along the top)
+does what a click does and gives the keyboard back: it brings the window up (a minimized one
+restored onto the workspace shown, another with its own workspace shown), brings up a stack's
+next window, starts a pinned application, or minimizes the window that had the keyboard, which
+counts as the focused one. Up (Down on a bar along the top)
 goes into the card of [pictures](#window-pictures) or a stack's list, and Down (Up) back to the
 button. The Menu key or Shift + F10 opens the button's [menu](#taskbar-menus), or the menu of the
 window selected on the card, with its first entry highlighted, and closing it comes back to the

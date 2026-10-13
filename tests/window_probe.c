@@ -28,6 +28,8 @@
  *   window_probe TITLE floating 0|1      set_floating or unset_floating
  *   window_probe TITLE above 0|1         set_above or unset_above (version 6)
  *   window_probe TITLE minimize          minimizes it through its wlr-foreign-toplevel handle
+ *   window_probe TITLE restore           unminimizes and activates it through that handle, as
+ *                                        a click on its taskbar button does
  *   window_probe TITLE pid               prints the process id the pid event gives (version 3)
  *   window_probe TITLE id                prints the number the id event gives (version 4)
  *   window_probe TITLE capture [watch]   captures it through get_capture_source (version 2)
@@ -105,6 +107,7 @@ struct probe {
     struct ext_foreign_toplevel_image_capture_source_manager_v1 *sources;
     struct ext_image_copy_capture_manager_v1 *copy;
     struct wl_shm *shm;
+    struct wl_seat *seat;
     struct handle *handles;
     struct listed *listed;
     bool closed, watch;
@@ -460,6 +463,8 @@ static void registry_global(void *data, struct wl_registry *registry, uint32_t n
             wl_registry_bind(registry, name, &ext_image_copy_capture_manager_v1_interface, 1);
     } else if (!strcmp(interface, wl_shm_interface.name)) {
         probe->shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+    } else if (!strcmp(interface, wl_seat_interface.name) && !probe->seat) {
+        probe->seat = wl_registry_bind(registry, name, &wl_seat_interface, 1);
     }
 }
 static void registry_global_remove(void *data, struct wl_registry *registry, uint32_t name) {}
@@ -575,7 +580,7 @@ static void peek(struct probe *probe, struct wl_display *display, const char *ti
 int main(int argc, char **argv) {
     if (argc < 2 || argc > 6)
         die("usage: window_probe TITLE [watch | workspace N | output NAME | sticky 0|1 | "
-            "floating 0|1 | above 0|1 | minimize | pid | id | capture [watch] | capture-listed [watch] | "
+            "floating 0|1 | above 0|1 | minimize | restore | pid | id | capture [watch] | capture-listed [watch] | "
             "capture-scaled WIDTH HEIGHT [watch | twice | closed] | peek | icon [watch]]");
     const char *title = argv[1], *command = argc > 2 ? argv[2] : "", *argument = argc > 3 ? argv[3] : "";
     struct probe probe = {.watch = !strcmp(command, "watch")};
@@ -631,6 +636,12 @@ int main(int argc, char **argv) {
             paw_window_v1_unset_above(window);
     } else if (!strcmp(command, "minimize")) {
         zwlr_foreign_toplevel_handle_v1_set_minimized(found->object);
+    } else if (!strcmp(command, "restore")) {
+        if (!probe.seat)
+            die("the compositor offers no seat");
+        // What the shell's TaskModel::activate sends.
+        zwlr_foreign_toplevel_handle_v1_unset_minimized(found->object);
+        zwlr_foreign_toplevel_handle_v1_activate(found->object, probe.seat);
     } else if (!strcmp(command, "pid")) {
         if (paw_window_control_v1_get_version(probe.control) < 3)
             die("the compositor's window control gives no process ids");
@@ -715,6 +726,8 @@ int main(int argc, char **argv) {
         ext_image_copy_capture_manager_v1_destroy(probe.copy);
     if (probe.shm)
         wl_shm_destroy(probe.shm);
+    if (probe.seat)
+        wl_seat_destroy(probe.seat);
     wl_registry_destroy(registry);
     wl_display_disconnect(display);
     return 0;
