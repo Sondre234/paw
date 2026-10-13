@@ -397,8 +397,10 @@ void control_profile_drawn(struct sh_server *server, int fd, const char *argumen
         return;
     }
     struct sh_crossfade *fade = server->crossfade;
-    if (fade && fade->holding && !strcmp(name, fade->profile))
+    if (fade && fade->holding && !strcmp(name, fade->profile)) {
+        wlr_log(WLR_INFO, "The shell drew profile %s; crossfading", name);
         release(server);
+    }
     control_reply(fd, "ok\n");
 }
 
