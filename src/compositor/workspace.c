@@ -234,13 +234,15 @@ static void drop_swipe_copies(struct sh_workspace_swipe *swipe) {
 }
 
 /* How far `output`'s windows are drawn from where they rest while they spring back from a
- * rubber band (all of them alike), else 0. */
-static double springing_offset(struct sh_server *server, struct wlr_output *output) {
+ * rubber band in the glide that began at `start` (all of them alike), else 0. */
+static double springing_offset(struct sh_server *server, struct wlr_output *output,
+                               int64_t start) {
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
         struct sh_anim *anim = &toplevel->anim;
         if (slides(server, toplevel, output) && toplevel_visible(toplevel) && anim->animator &&
-            anim->glide && !anim->held && anim->tree == toplevel->content)
+            anim->glide && !anim->held && anim->tree == toplevel->content &&
+            anim->glide_start == start)
             return anim->tree->node.x - anim->base_x;
     }
     return 0;
@@ -254,9 +256,9 @@ void workspace_swipe_begin(struct sh_server *server, struct sh_workspace_swipe *
         reset_cursor_mode(server);
     int from = *output_workspace(server, output->name);
     swipe->caught = swipe->sprung && from == swipe->from && !strcmp(swipe->output, output->name)
-                        ? springing_offset(server, output)
+                        ? springing_offset(server, output, swipe->sprung_at)
                         : 0;
-    swipe->sprung = 0;
+    swipe->sprung = false;
     snprintf(swipe->output, sizeof(swipe->output), "%s", output->name);
     swipe->from = swipe->target = from;
     swipe->copy_count = 0;
@@ -353,14 +355,19 @@ void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *sw
     if (!finish) {
         bool beyond = !real && target != swipe->from;
         double velocity = -sign * swipe->edge.rate * toward; // the windows', pixels a millisecond
+        swipe->sprung = false;
         wl_list_for_each(toplevel, &server->toplevels, link) {
             if (!toplevel->anim.held)
                 continue;
-            if (beyond)
+            if (beyond) {
                 sh_anim_spring_back(server->animator, &toplevel->anim, toplevel->content,
                                     toplevel->anim.held_x, 0, velocity, 0,
                                     toplevel->anim.held_alpha);
-            else
+                if (toplevel->anim.glide) {
+                    swipe->sprung = true;
+                    swipe->sprung_at = toplevel->anim.glide_start;
+                }
+            } else
                 sh_anim_slide_from(server->animator, &toplevel->anim, toplevel->content,
                                    (int)lround(toplevel->anim.held_x), 0, toplevel->anim.held_alpha,
                                    t > 0 ? t : 0.5);
@@ -369,7 +376,6 @@ void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *sw
             sh_anim_slide_away(server->animator, swipe->copies[i], (int)(sign * slide), 0, 0, t);
         swipe->copy_count = 0;
         swipe->shown = 0;
-        swipe->sprung = beyond && swipe->edge.offset >= 1 ? sign : 0;
         swipe->edge = sh_swipe_past_end(0, 0, 0);
         return;
     }

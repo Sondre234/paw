@@ -300,7 +300,10 @@ struct sh_workspace_swipe {
     int toward;    /* the way the fingers head (1 for higher workspaces, -1 lower, 0 neither) */
     double shift;  /* steps toward higher workspaces the slide is ahead of the fingers */
     double caught; /* the offset of windows taken over springing back, until the first hold */
-    int sprung;    /* the way of the rubber band springing back since the swipe ended, or 0 */
+    /* Since the swipe ended, its windows spring back from the rubber band in a glide that began
+     * at `sprung_at` (the animator's clock). */
+    bool sprung;
+    int64_t sprung_at;
 };
 
 /* Touchscreens (touch.c): the devices, the finger standing in for the pointer (-1 for none),
