@@ -19,6 +19,13 @@ Item {
         if (number >= 1 && number <= shell.workspaceCount && number !== workspaceState.current)
             shell.showWorkspace(workspaceIndicator.panel.outputName, number)
     }
+    // A step past the last workspace (`way` 1) or the first (-1): the compositor nudges the
+    // windows a little the way the slide would take them (left for the next) and back, and the
+    // pill bumps toward the workspace that is not there (right for the next) and back.
+    function nudge(way) {
+        shell.nudgeWorkspace(workspaceIndicator.panel.outputName, way)
+        pill.bump(way)
+    }
     visible: shell.workspaceCount > 1 && shell.widgets.workspaces
     implicitWidth: buttons.implicitWidth; implicitHeight: buttons.implicitHeight
     Layout.alignment: Qt.AlignCenter
@@ -40,6 +47,28 @@ Item {
         Behavior on y { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
         Behavior on width { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
         Behavior on height { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
+        // Bumped along the bar by nudge(): out quickly, then back, in the windows' time. Bumped
+        // again on its way out the same way, it goes on as it is.
+        property real bumped: 0
+        property int bumpWay: 0 // the way it is on its way out, else 0
+        function bump(way) {
+            if (bumping.running && bumpWay === way)
+                return
+            bumpWay = way
+            bumpOut.to = way * Theme.spacingS
+            bumping.restart()
+        }
+        transform: Translate {
+            x: Theme.barVertical ? 0 : pill.bumped
+            y: Theme.barVertical ? pill.bumped : 0
+        }
+        SequentialAnimation {
+            id: bumping
+            objectName: "workspacePillBump"
+            NumberAnimation { id: bumpOut; target: pill; property: "bumped"; duration: Theme.duration(80); easing.type: Easing.OutQuad }
+            ScriptAction { script: pill.bumpWay = 0 }
+            NumberAnimation { target: pill; property: "bumped"; to: 0; duration: Theme.duration(160); easing.type: Easing.InOutQuad }
+        }
     }
     // In a row, or a column along a side.
     Grid {

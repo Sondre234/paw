@@ -200,8 +200,8 @@ with harness.Compositor(compositor, config(tiling="true"),
     assert not windows()[right][4], windows()
 
 # The preview, with animations slowed down to watch it: it eases out of the window into the slot,
-# glides along the edge to a corner, fades out as the pointer leaves the edge, and goes at once as
-# the window is dropped. Its corners are those of a window there.
+# glides along the edge to a corner, fades out as the pointer leaves the edge, and fades out under
+# the window dropped into the slot as it glides there. Its corners are those of a window there.
 SLOW = "speed = 0.3, move = { duration = 300 }, close = { duration = 300 }"
 with harness.Compositor(compositor, config(animations=SLOW, windows='round = "always"'),
                         env={"WLR_HEADLESS_OUTPUTS": "1"}) as desktop:
@@ -232,8 +232,10 @@ with harness.Compositor(compositor, config(animations=SLOW, windows='round = "al
     to(0, 360, "left")
     desktop.wait_for(lambda: preview()[1:3] == (left, 1000), "the preview in the slot again")
     release()
-    assert not preview()[0], preview()
+    desktop.wait_for(lambda: preview()[0] and preview()[1] == left and preview()[2] < 1000,
+                     "the preview fading out under the window")
     placed("W", left)
+    desktop.wait_for(lambda: not preview()[0], "the preview gone")
     frames = {r[1]: int(r[5]) for r in desktop.rows("frames")}
     assert radius == frames["W"], (radius, frames)
     desktop.msg("restore")

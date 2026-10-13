@@ -94,6 +94,18 @@ static void get_outputs(struct sh_server *server, int fd, const char *arguments)
         control_describe_output(server, fd, output);
 }
 
+static void get_output_frames(struct sh_server *server, int fd, const char *arguments) {
+    // Each output in the layout and how many frames it has drawn, for tests of what brings them.
+    control_reply(fd, "ok\n");
+    struct sh_output *output;
+    wl_list_for_each_reverse(output, &server->outputs, link) {
+        char line[128];
+        snprintf(line, sizeof(line), "%s\t%llu\n", output->wlr_output->name,
+                 (unsigned long long)output->frames);
+        control_reply(fd, line);
+    }
+}
+
 static void get_workspace(struct sh_server *server, int fd, const char *arguments) {
     char reply[32];
     snprintf(reply, sizeof(reply), "ok\n%d\n", focused_workspace(server));
@@ -209,6 +221,27 @@ static void get_snap(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, line);
 }
 
+static void get_lift(struct sh_server *server, int fd, const char *arguments) {
+    // Windows lifted by a move with the pointer, or settling back: title, how far up
+    // (thousandths), the box the window is drawn in from its top-left corner (x, y, width,
+    // height), and the point it grows about.
+    control_reply(fd, "ok\n");
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (!toplevel->anim.lifted)
+            continue;
+        char line[640], title[512];
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        struct wlr_box geometry = toplevel_geometry(toplevel);
+        int box[4] = {0, 0, geometry.width, geometry.height};
+        sh_anim_lift_box(&toplevel->anim, box);
+        snprintf(line, sizeof(line), "%s\t%ld\t%d\t%d\t%d\t%d\t%ld\t%ld\n", title,
+                 lround(1000 * sh_anim_lift_progress(&toplevel->anim)), box[0], box[1], box[2],
+                 box[3], lround(toplevel->anim.lift_cx), lround(toplevel->anim.lift_cy));
+        control_reply(fd, line);
+    }
+}
+
 static void get_animations(struct sh_server *server, int fd, const char *arguments) {
     // Running animations, and the scene trees stacked for windows (with closing copies).
     char reply[64];
@@ -316,6 +349,57 @@ static void get_frames(struct sh_server *server, int fd, const char *arguments) 
                  toplevel->shadow ? lround(1000 * toplevel->shadow_alpha) : 0, shadow.x, shadow.y,
                  shadow.width, shadow.height,
                  toplevel->gradient ? "gradient" : toplevel->border[0] ? "color" : "none");
+        control_reply(fd, line);
+    }
+}
+
+/* The buffer that draws `surface` below `tree`, or NULL. */
+static struct wlr_scene_buffer *surface_buffer(struct wlr_scene_tree *tree,
+                                               struct wlr_surface *surface) {
+    struct wlr_scene_node *node;
+    wl_list_for_each(node, &tree->children, link) {
+        if (node->type == WLR_SCENE_NODE_TREE) {
+            struct wlr_scene_buffer *found =
+                surface_buffer(wlr_scene_tree_from_node(node), surface);
+            if (found)
+                return found;
+        } else if (node->type == WLR_SCENE_NODE_BUFFER) {
+            struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
+            struct wlr_scene_surface *drawn = wlr_scene_surface_try_from_buffer(buffer);
+            if (drawn && drawn->surface == surface)
+                return buffer;
+        }
+    }
+    return NULL;
+}
+
+static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
+    // Where each window is drawn now, in the order of `get windows`, while `get windows` says
+    // where it is: app_id, title, the place of its geometry's top-left corner and the size it is
+    // drawn at (mid-glide, or changing size), the size its own surface is drawn at (stretched
+    // while it changes size), what a change of size is doing: "rest", "moving", "waiting" for
+    // the client to draw the new size, or "fading" what it drew before, how much of its frame
+    // shows, in thousandths (none while maximized or fullscreen, fading in between), and the
+    // factor an animation or a gesture gives its opacity, in thousandths.
+    control_reply(fd, "ok\n");
+    struct sh_toplevel *toplevel;
+    wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
+        if (!toplevel->scene_tree || !toplevel->content)
+            continue;
+        char line[1024], app_id[256], title[512];
+        copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        struct wlr_box drawn = frame_geometry(toplevel);
+        struct wlr_scene_buffer *buffer =
+            toplevel->surfaces ? surface_buffer(toplevel->surfaces, toplevel_surface(toplevel))
+                               : NULL;
+        const struct sh_tween *frame = &toplevel->frame_fade;
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%ld\t%ld\n", app_id,
+                 title, toplevel->scene_tree->node.x + toplevel->content->node.x,
+                 toplevel->scene_tree->node.y + toplevel->content->node.y, drawn.width,
+                 drawn.height, buffer ? buffer->dst_width : 0, buffer ? buffer->dst_height : 0,
+                 morph_state(toplevel), frame->valid ? lround(1000 * frame->value[0]) : 1000,
+                 lround(1000 * sh_anim_alpha(&toplevel->anim)));
         control_reply(fd, line);
     }
 }
@@ -536,6 +620,49 @@ static void get_window_peek(struct sh_server *server, int fd, const char *argume
     }
 }
 
+static void get_scratchpad(struct sh_server *server, int fd, const char *arguments) {
+    // Per window in the scratchpad or sliding in or out of it, in the order of `get windows`: its
+    // title, whether it is hidden (minimized) and whether it is drawn (its node shown), the drop
+    // under way ("in", "out" or "-"), the edge it goes by ("top", "bottom", "left", "right"), the
+    // offset it is drawn at from its place, the opacity it is drawn at (thousandths), the line it
+    // is cut along ("-" while it is not cut), the clip its content is drawn with, cut or not, in
+    // layout coordinates as X,Y,WIDTH,HEIGHT and the clip's radius, and the box its border's
+    // rounded rect covers (each "-" for none).
+    static const char *edges[] = {"top", "bottom", "left", "right"};
+    control_reply(fd, "ok\n");
+    struct sh_toplevel *toplevel;
+    wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
+        const struct sh_drop *drop = &toplevel->drop;
+        if (!toplevel->scratchpad && !drop->running)
+            continue;
+        char title[512], cut[32] = "-", clip[64] = "-", radius[16] = "-", ring[64] = "-";
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        if (drop->running && drop->plan.clip)
+            snprintf(cut, sizeof(cut), "%d", drop->plan.cut);
+        int x = 0, y = 0;
+        if (toplevel->content)
+            wlr_scene_node_coords(&toplevel->content->node, &x, &y);
+        const struct sh_clip_wish *drawn = &toplevel->content_clip;
+        if (toplevel->content && drawn->set) {
+            snprintf(clip, sizeof(clip), "%d,%d,%d,%d", x + drawn->box.x, y + drawn->box.y,
+                     drawn->box.width, drawn->box.height);
+            snprintf(radius, sizeof(radius), "%d", drawn->radius);
+        }
+        const struct wlr_scene_rect *rect = toplevel->frame_hole > 0 ? toplevel->border[0] : NULL;
+        if (toplevel->content && rect)
+            snprintf(ring, sizeof(ring), "%d,%d,%d,%d", x + rect->node.x, y + rect->node.y,
+                     rect->width, rect->height);
+        const char *phase = !drop->running ? "-" : drop->out ? "out" : "in";
+        char line[900];
+        snprintf(line, sizeof(line), "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%ld\t%s\t%s\t%s\t%s\n", title,
+                 toplevel->minimized, toplevel->scene_tree && toplevel->scene_tree->node.enabled,
+                 phase, edges[drop->plan.edge], toplevel->content ? toplevel->content->node.x : 0,
+                 toplevel->content ? toplevel->content->node.y : 0,
+                 lround(1000 * sh_anim_alpha(&toplevel->anim)), cut, clip, radius, ring);
+        control_reply(fd, line);
+    }
+}
+
 static void get_window_icons(struct sh_server *server, int fd, const char *arguments) {
     // Per window, in the order of `get windows`: its number (0 before it is published), app_id,
     // and the icon it supplies itself (window_icon.c): its name and the size of its pixels as
@@ -674,14 +801,18 @@ static const struct {
     {"guides", get_guides, false},
     {"snap", get_snap, false},
     {"animations", get_animations, false},
+    {"lift", get_lift, false},
     {"stats", get_stats, false},
     {"frame_times", get_frame_times, false},
+    {"output_frames", get_output_frames, false},
     {"dim", get_dim, false},
     {"peek", get_peek, false},
     {"window_peek", get_window_peek, false},
     {"window_icons", get_window_icons, false},
+    {"scratchpad", get_scratchpad, false},
     {"opacities", get_opacities, false},
     {"frames", get_frames, false},
+    {"drawn", get_drawn, false},
     {"zoom", get_zoom, false},
     {"crossfade", describe_crossfade, false},
     {"night_light", get_night_light, false},

@@ -300,6 +300,23 @@ static void control_overview(struct sh_server *server, int fd, const char *argum
     }
 }
 
+/* "workspace_nudge OUTPUT next|prev": a step past OUTPUT's last or first workspace, which the
+ * panel's wheel asks for at either end; the windows there nudge that way and back. */
+static void control_workspace_nudge(struct sh_server *server, int fd, const char *arguments) {
+    char name[64] = "", way[8] = "", extra[2] = "";
+    int words = sscanf(arguments, "%63s %7s %1s", name, way, extra);
+    int step = !strcmp(way, "next") ? 1 : !strcmp(way, "prev") ? -1 : 0;
+    struct wlr_output *output = words == 2 && step ? find_output(server, name) : NULL;
+    if (words != 2 || !step)
+        control_reply(fd, "error: usage: workspace_nudge OUTPUT next|prev\n");
+    else if (!output)
+        control_reply(fd, "error: no such output\n");
+    else {
+        workspace_nudge(server, output, step);
+        control_reply(fd, "ok\n");
+    }
+}
+
 /* "switcher_peek": the shell has drawn the open switcher, whose selected window then peeks
  * once the selection rests (switcher.c). */
 static void control_switcher_peek(struct sh_server *server, int fd, const char *arguments) {
@@ -329,6 +346,7 @@ static const struct {
     {"panel_drag", control_panel_drag},
     {"switcher_peek", control_switcher_peek},
     {"profile_drawn", control_profile_drawn},
+    {"workspace_nudge", control_workspace_nudge},
 };
 
 static void control_handle(struct sh_server *server, int fd, const char *request) {

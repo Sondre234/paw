@@ -169,6 +169,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `windows.shadow.inactive_color` | color | "#00000033" | - | The shadow under other windows, `#RRGGBBAA`. |
 | `windows.shadow.blur` | integer | 30 | 0 to 100 | How soft the shadow's edge is: it fades out over about this many pixels, as CSS's blur radius; 0 for a hard edge. |
 | `windows.shadow.offset` | integer or table | 10 | -50 to 50 | How far the shadow falls below the window in pixels, or `{ x, y }` to move it sideways too (right and down). |
+| `windows.lift` | boolean | true | - | A window moved with the pointer is lifted while it moves: drawn a little larger about where it was taken, its shadow softer and further off (a printed one, without blur, further off), and it settles back as it is dropped, with the duration and curve of `animations.move`. `false` leaves it as it is. |
 | `windows.buttons` | string | "appmenu:minimize,maximize,close" | - | GTK button layout for windows that draw their own frame; lowercase letters, `_`, `,` and `:` only. Restart to change. |
 | `windows.rules` | list of tables | unset | - | Per-application rules, at most 256. Opacity comes from the first matching rule that sets it; actions apply as a window opens, every matching rule in order, later ones winning. A rule needs `app_id` or `title`. |
 | `windows.rules[].app_id` | regex | any | - | ECMAScript regular expression searched in the application ID (X11: the class). |
@@ -250,14 +251,14 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `animations.close` | table | - | - | A window going. Overrides the animation-wide settings. |
 | `animations.close.duration` | integer | `duration` | 0 to 1000 | Length in milliseconds; 0 turns this animation off. |
 | `animations.close.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
-| `animations.move` | table | - | - | A tile or window moving to a new place. Overrides the animation-wide settings. |
+| `animations.move` | table | - | - | A tile or window moving to a new place, and a window maximized, snapped, restored, resized or moved by the keyboard, or dropped into a snap, gliding to its new place and size together. Overrides the animation-wide settings. |
 | `animations.move.duration` | integer | `duration` | 0 to 1000 | Length in milliseconds; 0 turns this animation off. |
 | `animations.move.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
 | `animations.workspace` | table | - | - | The view sliding to another workspace. Overrides the animation-wide settings. |
 | `animations.workspace.duration` | integer | `duration` | 0 to 1000 | Length in milliseconds; 0 turns this animation off. |
 | `animations.workspace.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
 | `animations.workspace.distance` | number | 0.08 | 0 to 1 | How far windows slide when the workspace changes, as a share of the monitor's width; they fade as they go. 0 only fades. Large values slide over neighbouring monitors. |
-| `animations.fullscreen` | table | - | - | A window entering or leaving fullscreen. Overrides the animation-wide settings. |
+| `animations.fullscreen` | table | - | - | A window entering or leaving fullscreen, gliding to its new place and size. Overrides the animation-wide settings. |
 | `animations.fullscreen.duration` | integer | `duration` | 0 to 1000 | Length in milliseconds; 0 turns this animation off. |
 | `animations.fullscreen.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
 | `animations.focus` | table | - | - | Border and opacity changing with focus. Overrides the animation-wide settings. |

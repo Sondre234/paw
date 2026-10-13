@@ -23,6 +23,7 @@
 #include "paw/swipe.h"
 #include "paw/dynamic_rule.h"
 #include "paw/border.h"
+#include "paw/dropdown.h"
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -289,13 +290,27 @@ struct wlr_color_manager_v1;
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
  * workspace it showed as the swipe began and the one the fingers head for (out of range past
  * the first or last, `from` when they head nowhere), how far the slide is held, and held copies
- * of the windows coming in. */
+ * of the windows coming in; past the first or last, what the windows give against the fingers
+ * (a rubber band), toward the workspace that is not there. Fingers that take over windows still
+ * springing back from the last swipe's rubber band start from where those are drawn. */
 struct sh_workspace_swipe {
     char output[64];
     int from, target;
     double shown;
     struct sh_anim *copies[64];
     int copy_count;
+    struct sh_swipe_edge edge;
+    int toward;    /* the way the fingers head (1 for higher workspaces, -1 lower, 0 neither) */
+    double shift;  /* steps toward higher workspaces the slide is ahead of the fingers */
+    /* Windows taken over as they spring back: how far past the end (in steps toward higher
+     * workspaces) the first hold starts the fingers. */
+    bool catching;
+    double caught;
+    /* Since the swipe ended, its windows spring back from the rubber band toward `sprung` (1 for
+     * higher workspaces, -1 lower, 0 none) in an animation that began at `sprung_at` (the
+     * animator's clock). */
+    int sprung;
+    int64_t sprung_at;
 };
 
 /* Touchscreens (touch.c): the devices, the finger standing in for the pointer (-1 for none),
@@ -454,7 +469,8 @@ struct sh_server {
     /* Snapping a dragged window at the edges of its output (snap.c): the zone the pointer is
      * in (the arrangement a drop gives, SH_NONE for none) and its slot, the window's floating
      * box as the drag began, and the preview of the slot, which eases between places in `tween`
-     * (x, y, width, height, opacity), drawn now as `drawn`, with corners of `radius`. */
+     * (x, y, width, height, opacity), drawn now as `drawn`, with corners of `radius`; `landing`
+     * while it fades out under the window dropped into it. */
     struct {
         enum sh_action zone;
         struct sh_rect slot;
@@ -464,7 +480,30 @@ struct sh_server {
         struct sh_tween tween;
         float drawn[SH_TWEEN_VALUES];
         int radius;
+        bool landing;
     } snap;
+    /* Lifting a window moved with the pointer (lift.c): where the move was pressed, whether the
+     * window has been lifted since, and whether it is up (else set down onto an edge its magnet
+     * holds). */
+    struct {
+        double press_x, press_y;
+        bool started, up;
+    } lift;
+    /* A tile moved with the pointer keeping its place in a tiling (tile_drop.c): the place the
+     * pointer rests on, which it moves to when `timer` fires, while `pending`; and its place as
+     * the tiling last arranged it, for the preview. */
+    struct {
+        struct wl_event_source *timer;
+        bool pending;
+        struct sh_drop_place {
+            bool tiles;
+            struct wlr_output *output;
+            int workspace;
+            struct sh_tile_drop drop;
+        } place;
+        struct sh_rect slot;
+        bool has_slot;
+    } tile_drop;
 
     /* Windows a session restore launched and has yet to place: the first new window with the
      * app ID takes the saved place, workspace and state, until the deadline (milliseconds on
@@ -719,6 +758,7 @@ struct sh_output {
     bool powered_off;
     bool idle_off; /* turned off by the idle display_off step (idle.c), which input undoes */
     bool kept_on;  /* on though its settings say off, as the only output (configure_output) */
+    uint64_t frames; /* frames it has drawn (output_frame), for get output_frames */
     /* Settings a wlr-output-management client (wlr-randr, kanshi) or display_mode applied at
      * runtime. They replace the configured monitor until the configuration is reloaded or the
      * display settings window applies its own. */
@@ -774,6 +814,26 @@ struct sh_opacity_rule {
     bool active;
     char *app_id, *title;
     float value;
+};
+
+/* A scratchpad window sliding in or out (scratchpad.c): which way, where it is cut, where the
+ * window was as it started (turning back needs it there still), and the border's rounded rect,
+ * which no clip reaches: its place and size as frame.c lays it out and as the cut leaves it. */
+struct sh_drop {
+    bool running, out;
+    struct sh_drop_plan plan;
+    int place_x, place_y;
+    bool ring;
+    struct wlr_box ring_rest, ring_set;
+};
+
+/* The clips frame.c gives a window's trees (window_clip), kept so that a drop's cut can be laid
+ * over them. */
+enum sh_clip_tree { SH_CLIP_CONTENT, SH_CLIP_SHADOW, SH_CLIP_GRADIENT, SH_CLIP_TREES };
+struct sh_clip_wish {
+    bool set; // else no clip
+    struct wlr_box box;
+    int radius;
 };
 
 struct sh_toplevel {
@@ -859,10 +919,18 @@ struct sh_toplevel {
     bool x_hint_urgent; // the client's WM_HINTS ask for attention
 #endif
     /* scene_tree sits at the window's place; content holds everything drawn for it, so an
-     * animation can move, scale, and fade it without changing where the window is. */
-    struct wlr_scene_tree *scene_tree, *content;
+     * animation can move, scale, and fade it without changing where the window is. surfaces,
+     * in content, holds the client's surfaces, which a change of size stretches (morph.c);
+     * morph_serial is the configure whose answer that waits for (0 for none). */
+    struct wlr_scene_tree *scene_tree, *content, *surfaces;
+    uint32_t morph_serial;
     struct sh_anim anim;
+    struct sh_drop drop;                      // the scratchpad's slide in and out
+    struct sh_clip_wish clips[SH_CLIP_TREES]; // content's, the shadow's and the gradient's
+    struct sh_clip_wish content_clip; // content's as last drawn, cut or not, for get scratchpad
     struct sh_tween fade; // opacity and border color following focus
+    struct sh_tween frame_fade; // how much of its frame shows (frame.c's frame_shown)
+    bool own_shadow, own_shadow_read; // whether it draws its own shadow, as the frame takes it
     bool shown; // has opened (and started its opening animation) since it last mapped
     struct wlr_scene_buffer *deco;    // window controls; NULL when the client decorates itself
     struct wlr_scene_rect *border[4]; // top, bottom, left, right; NULL without a border
@@ -875,12 +943,14 @@ struct sh_toplevel {
     int frame_hole; // with rounded corners, the width of the frame border[0] draws; else 0
     int corner_radius; // of the rounded clip on `content`; 0 while the window is square
     /* The shadow: a tree at the bottom of `content` holding the slices of a shared image, NULL
-     * without one; the image and the size of frame they were laid out for, and for `get frames`
-     * the box they cover (from the window's top-left corner) and how dark they are at most. */
+     * without one; the image, the size of frame and how far the window was lifted (lift.c) they
+     * were laid out for, and for `get frames` the box they cover (from the window's top-left
+     * corner) and how dark they are at most. */
     struct wlr_scene_tree *shadow;
     struct wlr_scene_buffer *shadow_slices[SH_SHADOW_SLICES];
     struct wlr_buffer *shadow_image;
     int shadow_width, shadow_height;
+    double shadow_lift;
     struct wlr_box shadow_box;
     float shadow_alpha;
     float opacity;                    // last applied to the window's buffers
@@ -1138,6 +1208,22 @@ void process_cursor_resize(struct sh_server *server);
 void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
                        uint32_t edges);
 
+/* tile_drop.c */
+void tile_drop_lift(struct sh_toplevel *toplevel);
+void tile_drop_follow(struct sh_server *server);
+void tile_drop_release(struct sh_server *server);
+void tile_drop_end(struct sh_server *server);
+bool tile_drop_place(struct sh_toplevel *toplevel, struct sh_rect rect);
+bool tile_drop_slot(struct sh_server *server, struct sh_rect *slot, struct wlr_output **output);
+void tile_drop_finish(struct sh_server *server);
+
+/* lift.c */
+void lift_press(struct sh_server *server);
+void lift_follow(struct sh_server *server, bool held);
+void lift_drop(struct sh_server *server);
+struct wlr_box lift_box(struct sh_toplevel *toplevel, struct wlr_scene_tree *tree,
+                        struct wlr_box box);
+
 /* gradient_border.c */
 bool gradient_borders(struct sh_server *server);
 void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, int radius,
@@ -1242,6 +1328,13 @@ bool refresh_mirrors(struct sh_server *server);
 void mirrors_follow_power(struct sh_output *source, bool on);
 void mirror_frame(struct sh_output *output);
 bool mirror_capture(struct sh_output *output, const char *path, char *error, size_t error_size);
+
+/* morph.c */
+struct wlr_box morph_from(struct sh_toplevel *toplevel);
+void toplevel_morph(struct sh_toplevel *toplevel, struct wlr_box from, enum sh_anim_kind kind);
+void morph_commit(struct sh_toplevel *toplevel);
+struct wlr_box frame_geometry(struct sh_toplevel *toplevel);
+const char *morph_state(struct sh_toplevel *toplevel);
 
 /* output.c */
 struct sh_output *next_connected(struct sh_server *server, struct sh_output *output);
@@ -1375,7 +1468,11 @@ bool scratchpad_enabled(struct sh_server *server);
 void center_scratchpad(struct sh_toplevel *toplevel, struct wlr_output *output);
 void hide_in_scratchpad(struct sh_toplevel *toplevel);
 void scratchpad_show(struct sh_server *server);
+void scratchpad_drop_in(struct sh_toplevel *toplevel);
 void empty_scratchpad(struct sh_server *server);
+void window_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which, const struct wlr_box *box,
+                 int radius);
+void drop_refresh(struct sh_toplevel *toplevel);
 
 /* session.c */
 bool make_directories(char *path);
@@ -1555,11 +1652,13 @@ void set_toplevel_output(struct sh_toplevel *toplevel, struct wlr_output *output
 void follow_output(struct sh_toplevel *toplevel);
 void set_toplevel_workspace(struct sh_toplevel *toplevel, int workspace);
 void switch_workspace(struct sh_server *server, struct wlr_output *output, int workspace);
+void workspace_nudge(struct sh_server *server, struct wlr_output *output, int way);
 void workspace_swipe_begin(struct sh_server *server, struct sh_workspace_swipe *swipe,
                            struct wlr_output *output);
 void workspace_swipe_hold(struct sh_server *server, struct sh_workspace_swipe *swipe, int target,
                           double t);
-void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *swipe, bool finish);
+void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *swipe,
+                         bool cancelled, double speed, double distance);
 void set_sticky(struct sh_toplevel *toplevel, bool sticky, bool retile);
 void move_toplevel_to_workspace(struct sh_server *server, struct sh_toplevel *toplevel,
                                 int workspace);

@@ -589,6 +589,7 @@ finish:
     switcher_finish(&server);
     crossfade_end(&server);
     screenshot_finish(&server);
+    tile_drop_finish(&server);
     display_settings_finish(&server);
     if (server.config_watch)
         wl_event_source_remove(server.config_watch);

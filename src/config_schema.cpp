@@ -339,6 +339,11 @@ const Option options[] = {
     {"windows.shadow.offset", "integer or table", "10", "10", -50, 50,
      "How far the shadow falls below the window in pixels, or `{ x, y }` to move it sideways "
      "too (right and down)."},
+    {"windows.lift", "boolean", "true", "false", none, none,
+     "A window moved with the pointer is lifted while it moves: drawn a little larger about "
+     "where it was taken, its shadow softer and further off (a printed one, without blur, "
+     "further off), and it settles back as it is dropped, with the duration and curve of "
+     "`animations.move`. `false` leaves it as it is."},
     {"windows.buttons", "string", "\"appmenu:minimize,maximize,close\"",
      "\"appmenu:minimize,maximize,close\"", none, none,
      "GTK button layout for windows that draw their own frame; lowercase letters, `_`, `,` "
@@ -477,7 +482,7 @@ const Option options[] = {
     {"animations.close.duration", "integer", "`duration`", "", 0, 1000,
      "Length in milliseconds; 0 turns this animation off."},
     {"animations.close.curve", "enum", "`curve`", "", none, none, "Easing curve, as `animations.curve`."},
-    {"animations.move", "table", "", "", none, none, "A tile or window moving to a new place. Overrides the animation-wide settings."},
+    {"animations.move", "table", "", "", none, none, "A tile or window moving to a new place, and a window maximized, snapped, restored, resized or moved by the keyboard, or dropped into a snap, gliding to its new place and size together. Overrides the animation-wide settings."},
     {"animations.move.duration", "integer", "`duration`", "", 0, 1000,
      "Length in milliseconds; 0 turns this animation off."},
     {"animations.move.curve", "enum", "`curve`", "", none, none, "Easing curve, as `animations.curve`."},
@@ -488,7 +493,7 @@ const Option options[] = {
     {"animations.workspace.distance", "number", "0.08", "0.08", 0, 1,
      "How far windows slide when the workspace changes, as a share of the monitor's width; they "
      "fade as they go. 0 only fades. Large values slide over neighbouring monitors."},
-    {"animations.fullscreen", "table", "", "", none, none, "A window entering or leaving fullscreen. Overrides the animation-wide settings."},
+    {"animations.fullscreen", "table", "", "", none, none, "A window entering or leaving fullscreen, gliding to its new place and size. Overrides the animation-wide settings."},
     {"animations.fullscreen.duration", "integer", "`duration`", "", 0, 1000,
      "Length in milliseconds; 0 turns this animation off."},
     {"animations.fullscreen.curve", "enum", "`curve`", "", none, none, "Easing curve, as `animations.curve`."},

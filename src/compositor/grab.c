@@ -15,6 +15,8 @@ void reset_cursor_mode(struct sh_server *server) {
     panel_drag_cancel(server);
     magnet_hide_guides(server);
     snap_preview_hide(server);
+    tile_drop_end(server);
+    lift_drop(server);
     // A window dropped on another output takes up that output's corners.
     if (server->grabbed_toplevel)
         refresh_frame(server->grabbed_toplevel);
@@ -50,6 +52,7 @@ void finish_grab(struct sh_server *server) {
     if (panel_drag_drop(server))
         return;
     struct sh_toplevel *toplevel = server->grabbed_toplevel;
+    tile_drop_release(server);
     if (snap_drop(server))
         return;
     struct wlr_output *output = pointer_output(server);
@@ -211,11 +214,11 @@ static struct wlr_output *magnet_output(struct sh_server *server, struct sh_topl
     return output;
 }
 
-/* Adjusts the position (x, y) a drag asks for. */
-static void magnet_snap(struct sh_server *server, struct sh_toplevel *toplevel, int *x, int *y) {
+/* Adjusts the position (x, y) a drag asks for; returns whether an edge holds it. */
+static bool magnet_snap(struct sh_server *server, struct sh_toplevel *toplevel, int *x, int *y) {
     struct wlr_output *output = magnet_output(server, toplevel);
     if (!output)
-        return;
+        return false;
     int distance = server_settings(server)->magnet_distance;
     int border = server_settings(server)->border_width;
     struct wlr_box box = toplevel_box(toplevel);
@@ -233,6 +236,7 @@ static void magnet_snap(struct sh_server *server, struct sh_toplevel *toplevel, 
     if (hy.found)
         *y += hy.delta, frame.y += hy.delta;
     magnet_show(server, frame, hx, hy);
+    return hx.found || hy.found;
 }
 
 /* Adjusts the edges a resize asks for (the sides in `edges` are the ones being moved). */
@@ -287,9 +291,11 @@ void process_cursor_move(struct sh_server *server) {
         begin_interactive(toplevel, SH_CURSOR_MOVE, 0);
     }
     int x = (int)(server->cursor->x - server->grab_x), y = (int)(server->cursor->y - server->grab_y);
-    magnet_snap(server, toplevel, &x, &y);
+    bool held = magnet_snap(server, toplevel, &x, &y);
     toplevel_set_position(toplevel, x, y);
     snap_follow(server);
+    tile_drop_follow(server);
+    lift_follow(server, held);
 }
 
 void process_cursor_resize(struct sh_server *server) {
@@ -342,10 +348,16 @@ void process_cursor_resize(struct sh_server *server) {
 void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
                        uint32_t edges) {
     struct sh_server *server = toplevel->server;
+    // A fullscreen window takes only a move, which leaves fullscreen once the pointer has
+    // travelled a little.
+    if (toplevel->fullscreen && mode != SH_CURSOR_MOVE)
+        return;
+    // A grab already under way ends first, as if let go, the window it lifted set down and out
+    // of the tiling it held a place in: a second pointer, a finger, a pen or an X11 client can
+    // ask for a grab during another.
+    if (server->cursor_mode != SH_CURSOR_PASSTHROUGH || server->grabbed_toplevel)
+        reset_cursor_mode(server);
     if (toplevel->fullscreen) {
-        // Only a move, and it leaves fullscreen once the pointer has travelled a little.
-        if (mode != SH_CURSOR_MOVE)
-            return;
         server->grabbed_toplevel = toplevel;
         server->cursor_mode = mode;
         server->grab_fullscreen = true;
@@ -355,11 +367,15 @@ void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
     }
 
     server->grab_output = toplevel_output(toplevel);
-    // Resizing a tile moves its splits; moving one lifts it out until it is dropped.
+    // A resize goes from the window's own size: a change of size under way lands first.
+    if (mode == SH_CURSOR_RESIZE && toplevel->anim.morph)
+        sh_anim_finish(&toplevel->anim);
+    // Resizing a tile moves its splits; moving one lifts it out until it is dropped, its place
+    // kept in the tiling meanwhile (tile_drop.c).
     bool tiled_resize = toplevel->tiled && mode == SH_CURSOR_RESIZE;
     bool retile = toplevel->tiled && mode == SH_CURSOR_MOVE;
     if (retile)
-        untile_toplevel(toplevel, false);
+        tile_drop_lift(toplevel);
     bool was_arranged = toplevel->arranged;
     if (!tiled_resize) {
         toplevel->arranged = false;
@@ -384,14 +400,18 @@ void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
             from_left = from_left * restore.width / geometry.width;
         if (from_top > restore.height)
             from_top = restore.height / 2.0;
+        // It shrinks into place under the pointer, which it follows meanwhile.
+        struct wlr_box from = morph_from(toplevel);
         toplevel_configure(toplevel, server->cursor->x - from_left, server->cursor->y - from_top,
                            restore.width, restore.height);
+        toplevel_morph(toplevel, from, SH_ANIM_MOVE);
     }
 
     if (mode == SH_CURSOR_MOVE) {
         server->grab_x = server->cursor->x - toplevel->scene_tree->node.x;
         server->grab_y = server->cursor->y - toplevel->scene_tree->node.y;
         server->snap.start = toplevel_box(toplevel); // where a snap restores it to
+        lift_press(server);
     } else {
         struct wlr_box geo_box = toplevel_geometry(toplevel);
 

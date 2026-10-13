@@ -4,6 +4,14 @@
 #include "server.h"
 
 #if WLR_HAS_XWAYLAND
+/* A commit of an X11 window's surface, heard before the scene takes it in: a change of size
+ * crossfades from what it drew before (morph.c). */
+static void xwayland_commit(struct wl_listener *listener, void *data) {
+    struct sh_toplevel *toplevel = wl_container_of(listener, toplevel, commit);
+    if (!toplevel->unmanaged)
+        morph_commit(toplevel);
+}
+
 /* X11 windows: managed ones behave like xdg toplevels; override-redirect ones
  * (menus, tooltips, drag icons) are drawn where they ask and never take part in focus order. */
 static void xwayland_map(struct wl_listener *listener, void *data) {
@@ -14,9 +22,14 @@ static void xwayland_map(struct wl_listener *listener, void *data) {
     toplevel->scene_tree =
         wlr_scene_tree_create(toplevel->unmanaged ? server->unmanaged : server->windows);
     toplevel->content = toplevel->scene_tree ? wlr_scene_tree_create(toplevel->scene_tree) : NULL;
-    if (!toplevel->content ||
-        !wlr_scene_subsurface_tree_create(toplevel->content, xsurface->surface)) {
+    // Before the scene listens, as for xdg-shell windows.
+    add_listener(&xsurface->surface->events.commit, &toplevel->commit, xwayland_commit);
+    toplevel->surfaces =
+        toplevel->content ? wlr_scene_subsurface_tree_create(toplevel->content, xsurface->surface)
+                          : NULL;
+    if (!toplevel->surfaces) {
         wlr_log(WLR_ERROR, "Cannot create scene for X11 window");
+        wl_list_remove(&toplevel->commit.link);
         if (toplevel->scene_tree)
             wlr_scene_node_destroy(&toplevel->scene_tree->node);
         toplevel->scene_tree = toplevel->content = NULL;
@@ -54,8 +67,9 @@ static void xwayland_unmap(struct wl_listener *listener, void *data) {
         unmap_toplevel(toplevel);
     }
     sh_anim_finish(&toplevel->anim);
+    wl_list_remove(&toplevel->commit.link);
     wlr_scene_node_destroy(&toplevel->scene_tree->node);
-    toplevel->scene_tree = toplevel->content = NULL;
+    toplevel->scene_tree = toplevel->content = toplevel->surfaces = NULL;
     toplevel->dim = NULL;
 }
 

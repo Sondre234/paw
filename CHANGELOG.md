@@ -315,6 +315,15 @@ shadows.
   snapped by dragging back where it was before the drag. `windows.snap` turns it off and sets the
   distance, the corners, the preview and its colour; `paw msg get snap` tells the zone and
   the preview.
+- A floating window maximized, restored, snapped (dropped at an edge too, gliding from where it
+  was dropped over the fading preview), dragged off a snap, resized or moved by the keyboard,
+  floated out of the tiling or made fullscreen glides to its new place and size together, as
+  GNOME, KWin and Windows do: what the application drew last is stretched to the size drawn
+  until it draws the new one, which it then crossfades into, and the border, shadow and corners
+  follow, fading out on the way to maximized or fullscreen and back in leaving them. A slow
+  application is waited for, a little; a change reversed part way goes back from where it is
+  drawn. It takes `animations.move` (`animations.fullscreen` for fullscreen), and
+  `paw msg get drawn` shows it.
 - Snapping from the keyboard: `snap_top_left`, `snap_top_right`, `snap_bottom_left` and
   `snap_bottom_right` put the focused window into a quarter, and Super + Alt + arrows
   (`snap_cycle_left`, `snap_cycle_right`, `snap_cycle_up`, `snap_cycle_down`) step it as
@@ -329,6 +338,15 @@ shadows.
   elsewhere or any other binding dismisses it, and `windows.snap.assist = false` turns it off.
   It is the overview in that part alone, so the overview's overlay in the shell now takes no
   input at all.
+- A window moved with the pointer is lifted: once the pointer has taken it a few pixels it grows
+  a touch about where it is held and its shadow grows softer and falls further (a printed one
+  moves further off), easing with `animations.move`; it sets down onto an edge its magnet holds,
+  and settles back gently as it is dropped. `windows.lift = false` turns it off, and `paw msg get
+  lift` tells how far a window is lifted.
+- A tile moved with the pointer keeps its place in the tiling open, so the other tiles stay where
+  they are; once the pointer rests on another tile they glide aside to open the place a drop
+  there gives it, which the snap preview shows, and leaving the tiling closes it again. Clients
+  are asked for a new size only as a place opens.
 - The keyboard's volume, microphone and brightness keys work without setup: the shipped
   configuration binds them to the new actions `volume_up`, `volume_down`, `volume_mute`,
   `mic_mute`, `brightness_up` and `brightness_down` (the steps take `amount` in percent, 5 unless
@@ -371,6 +389,12 @@ shadows.
   take no input and are no part of a window's size. `paw msg get frames` tells each
   window's controls, corners and shadow.
 - Windows no longer show thin seams between their parts while they scale open or closed.
+- The scratchpad drops down as a quake console does: a window shown slides in from behind the
+  bar (up from a bottom bar, down from the top without one), fading in and cut along the bar's
+  edge so it comes out from under it, and slides back out that way as it hides, speeding away;
+  shown or hidden again part way, it turns back from where it is drawn. Focus and the pointer
+  have it in its place at once. It takes the `open` and `close` animations' times and curves;
+  `paw msg get scratchpad` tells each window's drop.
 - Rounded corners are as smooth on the right of a wide monitor as on its left. On NVIDIA,
   wlroots' shaders run at 16-bit precision, which stair-stepped corners and borders more than
   1024 pixels from the monitor's left or top edge; the rounded-corners patch
@@ -451,6 +475,13 @@ shadows.
   sets the swipes the compositor takes (fingers and direction to a request, as hot corners take),
   the distance of a step and inversion; every other gesture still reaches the window.
   `paw msg get gesture` says what the swipe under way does.
+- Past the first or last workspace a swipe stretches the windows like a rubber band, following
+  the fingers less and less the further they go, and lets them spring back as the fingers lift,
+  keeping their speed; fingers that come back meanwhile take them over where they are. Scrolling
+  over the panel or the tiling bar past either end nudges the windows a little the way the slide
+  would take them and back, the taskbar's pill bumping toward the workspace that is not there
+  (`paw msg workspace_nudge OUTPUT next|prev`), and Launchpad's pages stretch past the first and
+  last page the same way.
 - Touchscreens: each finger goes to the window, panel or popup under it through wl_touch, several
   at once, and focuses it as a click would. An application without touch support, the window
   controls, a window's drag strip (which a finger drags the window by), the overview and the

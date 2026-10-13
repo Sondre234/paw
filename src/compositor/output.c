@@ -56,6 +56,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     lock_output_presented(output);
     uint64_t spent = now_ns() - started;
     ++stats->frames;
+    ++output->frames;
     stats->frame_ns += spent;
     if (spent > stats->frame_max_ns)
         stats->frame_max_ns = spent;
