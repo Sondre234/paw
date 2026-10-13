@@ -269,6 +269,17 @@ static bool step(struct sh_anim *anim, int64_t now) {
     return anim->fx || anim->glide;
 }
 
+float sh_anim_alpha(const struct sh_anim *anim) {
+    if (!anim->animator)
+        return 1;
+    if (anim->held)
+        return anim->held_alpha;
+    if (!anim->fx)
+        return 1;
+    double e = eased(&anim->fx_curve, now_ms(anim->animator) - anim->fx_start, anim->fx_duration);
+    return (float)(anim->alpha_from + (anim->alpha_to - anim->alpha_from) * e);
+}
+
 void sh_anim_finish(struct sh_anim *anim) {
     if (!anim->animator)
         return;

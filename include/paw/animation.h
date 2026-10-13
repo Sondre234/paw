@@ -162,6 +162,8 @@ void sh_anim_spring_back(struct sh_animator *animator, struct sh_anim *anim,
  * alone. */
 void sh_anim_nudge(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
                    int dx, int dy);
+/* The factor a hold or a running fade multiplies `anim`'s nodes' opacity by now; 1 for neither. */
+float sh_anim_alpha(const struct sh_anim *anim);
 /* Jumps to the end: every node gets its resting values and the tree its resting position. */
 void sh_anim_finish(struct sh_anim *anim);
 /* Copies the visible buffers and rectangles under `content` into a new tree just above
