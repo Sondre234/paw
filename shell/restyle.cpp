@@ -5,15 +5,51 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 
-namespace {
-// How long no window may draw before the look counts as settled, in milliseconds; and how long
-// after every window drew it, its pictures loaded, it counts as settled anyway, for windows that
-// go on drawing as the pointer moves over them.
-constexpr int quietMs = 50;
-constexpr int settleMs = 150;
+void RestyleWait::start(qint64 now) {
+    windows_.clear();
+    quiet_ = now;
+    drawn_ = -1;
+}
 
+bool RestyleWait::shown(const void *window, bool loading, qint64 now) {
+    auto it = windows_.find(window);
+    if (it == windows_.end()) {
+        windows_.insert(window, {true, loading});
+        return true;
+    }
+    bool loaded = it->loading && !loading;
+    it->loading = loading;
+    if (loading)
+        quiet_ = now;
+    if (loaded)
+        it->owes = true;
+    return loaded;
+}
+
+void RestyleWait::hidden(const void *window) { windows_.remove(window); }
+
+void RestyleWait::swapped(const void *window, qint64 now) {
+    auto it = windows_.find(window);
+    if (it == windows_.end())
+        return;
+    it->owes = false;
+    quiet_ = now;
+}
+
+bool RestyleWait::settled(qint64 now) {
+    bool waiting = false;
+    for (const auto &window : std::as_const(windows_))
+        waiting = waiting || window.owes || window.loading;
+    if (waiting)
+        drawn_ = -1;
+    else if (drawn_ < 0)
+        drawn_ = now;
+    return drawn_ >= 0 && (now - quiet_ >= quietMs || now - drawn_ >= settleMs);
+}
+
+namespace {
 // Whether an image shown under `item` is still loading, such as a new wallpaper, decoded off the
-// GUI thread: the look is not on the screen until it is.
+// GUI thread: the look is not on the screen until it is, and its window has drawn it.
 bool loading(const QQuickItem *item) {
     if (!item || !item->isVisible())
         return false;
@@ -38,33 +74,15 @@ void Restyle::start(int limit) {
         disconnect(connection);
     connections_.clear();
     watched_.clear();
-    waiting_.clear();
     limit_ = limit;
     started_.start();
-    quiet_.start();
-    drawn_.invalidate();
+    wait_.start(0);
     timer_.start();
     poll();
 }
 
-void Restyle::watch(QQuickWindow *window) {
-    watched_.insert(window);
-    waiting_.insert(window);
-    // Emitted from the render thread with the threaded render loop: queued to this one.
-    connections_ << connect(window, &QQuickWindow::frameSwapped, this, [this, window] {
-        waiting_.remove(window);
-        quiet_.restart();
-    });
-    connections_ << connect(window, &QObject::destroyed, this, [this, window] {
-        watched_.remove(window);
-        waiting_.remove(window);
-    });
-    // One that has nothing new to draw draws anyway, which says it is done.
-    window->update();
-}
-
 void Restyle::poll() {
-    bool busy = false;
+    const qint64 now = started_.elapsed();
     const auto windows = QGuiApplication::topLevelWindows();
     for (auto *window : windows) {
         auto *quick = qobject_cast<QQuickWindow *>(window);
@@ -73,24 +91,24 @@ void Restyle::poll() {
         // A window hidden meanwhile draws nothing more; one shown meanwhile, such as the macOS
         // style's menu bar, draws its first frame.
         if (!quick->isVisible() || !quick->isExposed()) {
-            waiting_.remove(quick);
+            wait_.hidden(quick);
             continue;
         }
-        if (!watched_.contains(quick))
-            watch(quick);
-        busy = busy || loading(quick->contentItem());
+        if (!watched_.contains(quick)) {
+            watched_.insert(quick);
+            // Emitted from the render thread with the threaded render loop: queued to this one.
+            connections_ << connect(quick, &QQuickWindow::frameSwapped, this,
+                                    [this, quick] { wait_.swapped(quick, started_.elapsed()); });
+            connections_ << connect(quick, &QObject::destroyed, this, [this, quick] {
+                watched_.remove(quick);
+                wait_.hidden(quick);
+            });
+        }
+        // One that has nothing new to draw draws anyway, which says it is done.
+        if (wait_.shown(quick, loading(quick->contentItem()), now))
+            quick->update();
     }
-    if (busy || !waiting_.isEmpty()) {
-        // A picture shows once it has loaded and its window draws again.
-        if (busy)
-            quiet_.restart();
-        drawn_.invalidate();
-    } else if (!drawn_.isValid()) {
-        drawn_.start();
-    }
-    const bool settled =
-        drawn_.isValid() && (quiet_.elapsed() >= quietMs || drawn_.elapsed() >= settleMs);
-    if (settled || started_.elapsed() >= limit_)
+    if (wait_.settled(now) || now >= limit_)
         finish();
 }
 
@@ -100,6 +118,5 @@ void Restyle::finish() {
         disconnect(connection);
     connections_.clear();
     watched_.clear();
-    waiting_.clear();
     Q_EMIT settled();
 }
