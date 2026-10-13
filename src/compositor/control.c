@@ -462,8 +462,9 @@ static void append(char *text, size_t size, size_t *length, const char *format, 
 
 /* The state subscribers get: "tiling on|off", "workspace N" and "focused NAME" for the focused
  * output, and "output NAME N USED TILING" for each output, with its current workspace, those
- * holding windows ("1,3", or "-"), and whether it tiles ("on" or "off"), and "touched NAME
- * EDGES", the edges of its usable area a window reaches; then the urgent
+ * holding windows ("1,3", or "-"), and whether it tiles ("on" or "off"), "layout NAME LAYOUT",
+ * the tiling layout of its current workspace ("dwindle", ...), and "touched NAME EDGES", the
+ * edges of its usable area a window reaches; then the urgent
  * windows, the keyboard layout and night light, as described below, and the power actions
  * that may run. */
 static void describe_state(struct sh_server *server, char *state, size_t size) {
@@ -479,6 +480,10 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
         append(state, size, &length, "output %s %d %s %s\n", output->wlr_output->name,
                *output_workspace(server, output->wlr_output->name) + 1, used,
                output_tiles(server, output->wlr_output) ? "on" : "off");
+    }
+    wl_list_for_each_reverse(output, &server->outputs, link) {
+        append(state, size, &length, "layout %s %s\n", output->wlr_output->name,
+               tile_layout_name(output_layout(server, output->wlr_output)));
     }
     // "touched NAME EDGES" for each output: the edges of its usable area a window shown there
     // reaches ("top,left", or "-"), along which a floating bar docks.
