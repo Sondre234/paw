@@ -66,9 +66,9 @@ static bool shows_fullscreen(struct sh_output *output) {
 
 /* Draws what the scene shows on `output` into a buffer of its own, as its next frame would be
  * drawn, but for what goes on over the picture once it lies in the scene: night light and the
- * magnifier, which the output's frames apply to the scene, and what follows the pointer (drag
- * icons, which are over the picture, and a software cursor). Always drawn, never a client's
- * buffer scanned out. NULL when it cannot be. */
+ * magnifier, which the output's frames apply to the scene, the idle dimming, whose tree is over
+ * the picture's, and what follows the pointer (drag icons, which are over the picture, and a
+ * software cursor). Always drawn, never a client's buffer scanned out. NULL when it cannot be. */
 static struct wlr_buffer *take_picture(struct sh_output *output) {
     struct sh_server *server = output->server;
     struct wlr_output *wlr_output = output->wlr_output;
@@ -76,6 +76,11 @@ static struct wlr_buffer *take_picture(struct sh_output *output) {
     struct wlr_swapchain *swapchain = NULL;
     if (!scene_output || !wlr_output_configure_primary_swapchain(wlr_output, NULL, &swapchain))
         return NULL;
+    // The dimming is hidden for this drawing alone; what it covers is drawn again once it shows.
+    struct wlr_scene_node *dim = server->idle.tree ? &server->idle.tree->node : NULL;
+    bool dimmed = dim && dim->enabled;
+    if (dimmed)
+        wlr_scene_node_set_enabled(dim, false);
     // Hidden for this drawing only, as hit testing hides nodes: no damage, nothing redrawn.
     bool drag_icons = server->drag_icons->node.enabled;
     server->drag_icons->node.enabled = false;
@@ -101,6 +106,8 @@ static struct wlr_buffer *take_picture(struct sh_output *output) {
     while (hidden_count > 0)
         hidden[--hidden_count]->enabled = true;
     server->drag_icons->node.enabled = drag_icons;
+    if (dimmed)
+        wlr_scene_node_set_enabled(dim, true);
     // The buffer outlives its swapchain while the picture shows.
     wlr_swapchain_destroy(swapchain);
     return picture;
