@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <wayland-server-core.h>
 #include <wlr/interfaces/wlr_buffer.h>
 #include <wlr/types/wlr_scene.h>
@@ -1593,6 +1594,39 @@ static void test_ticks_by_itself(void) {
     teardown(&rig);
 }
 
+/* A lift eases up and settles back by the animator's own ticks, with no frame to bring them, and
+ * once up it leaves the animator idle. */
+static void test_lift_ticks_by_itself(void) {
+    struct rig rig;
+    struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
+    c.late_ms = 30;
+    setup(&rig, c);
+    lift_updates = 0;
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, count_lift, NULL);
+    for (int i = 0; i < 20 && rig.anim.lift_easing; ++i) {
+        clock_now += 10;
+        wl_event_loop_dispatch(rig.loop, 50);
+    }
+    CHECK(!rig.anim.lift_easing && rig.rect->width == 220, "up by itself: %d", rig.rect->width);
+    // Up, nothing ticks: the loop sleeps out its whole wait.
+    int updates = lift_updates;
+    struct timespec before, after;
+    clock_gettime(CLOCK_MONOTONIC, &before);
+    wl_event_loop_dispatch(rig.loop, 120);
+    clock_gettime(CLOCK_MONOTONIC, &after);
+    double waited = (after.tv_sec - before.tv_sec) * 1e3 + (after.tv_nsec - before.tv_nsec) / 1e6;
+    CHECK(waited >= 100 && lift_updates == updates, "idle while up: woke after %.0f ms", waited);
+    // Let down, it settles by itself.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 10, 20, count_lift, NULL);
+    for (int i = 0; i < 40 && sh_animator_lifted(rig.animator); ++i) {
+        clock_now += 10;
+        wl_event_loop_dispatch(rig.loop, 50);
+    }
+    CHECK(sh_animator_lifted(rig.animator) == 0 && rig.rect->width == 200,
+          "settled by itself: %d", rig.rect->width);
+    teardown(&rig);
+}
+
 /* What an animation does to a window's opacity now: a hold's, a running fade's, else nothing. */
 static void test_alpha(void) {
     struct rig rig;
@@ -1635,6 +1669,7 @@ int main(void) {
     test_spring_back();
     test_nudge();
     test_ticks_by_itself();
+    test_lift_ticks_by_itself();
     test_alpha();
     test_morph_stretches_and_waits();
     test_morph_answer_after_an_early_ack();
