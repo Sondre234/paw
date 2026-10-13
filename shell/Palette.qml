@@ -55,6 +55,61 @@ Item {
     property alias progress: reveal.progress
     Reveal { id: reveal; shown: root.shown }
 
+    // The window selected among the results peeks once the selection has rested on it for half
+    // a second, as the switcher's selected window does (peek.switcher): the other windows fade
+    // while it shows alone where it is. With one peeked at, the next window selected takes the
+    // peek over at once; the selection leaving the windows ends it a moment later, time to cross
+    // a result on the way to the next window, and the palette closing ends it once a window it
+    // runs has been focused, which ends a peek at it around it. Typing puts a first peek off
+    // until the typing rests. The macOS style does not peek, nor does a task model without peek.
+    Item {
+        id: peek
+        readonly property var source: shell.tasks
+        readonly property var result: root.results[shell.palette.selected] || null
+        // The window to peek at, by its task; -1 for none.
+        readonly property int wanted: root.shown && shell.peekSelection && !Theme.macos &&
+                                      result !== null && result.kind === "window" &&
+                                      !!source && typeof source.peek === "function"
+                                      ? parseInt(result.target) : -1
+        // The model peeked through and the window, until the peek ends.
+        property var peeking: null
+        property int peekedId: -1
+        function start() {
+            peeking = source
+            peekedId = wanted
+            peeking.peek(peekedId)
+        }
+        function end() {
+            if (peeking)
+                peeking.endPeek(peekedId)
+            peeking = null
+            peekedId = -1
+        }
+        onWantedChanged: {
+            rest.stop()
+            leave.stop()
+            if (wanted < 0) {
+                if (!peeking)
+                    return
+                if (root.shown)
+                    leave.start()
+                else
+                    Qt.callLater(peek.end) // after a window run from it has been focused
+            } else if (peeking || source.peekedTask >= 0) {
+                start()
+            } else {
+                rest.start()
+            }
+        }
+        Timer { id: rest; interval: 500; onTriggered: peek.start() }
+        Timer { id: leave; interval: 150; onTriggered: peek.end() }
+        Connections {
+            target: shell.palette
+            function onQueryChanged() { if (rest.running) rest.restart() }
+        }
+        Component.onDestruction: end()
+    }
+
     function reset() {
         input.text = shell.palette.query
         input.forceActiveFocus()
