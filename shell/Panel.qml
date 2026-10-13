@@ -358,7 +358,11 @@ Item {
         if (number <= 0)
             return Qt.point(0, 0)
         if (card && workspaceCardOpen && workspaceCardNumber === number && card.visible) {
-            void card.x, card.y, card.width, card.height, card.progress
+            void card.x
+            void card.y
+            void card.width
+            void card.height
+            void card.progress
             return card.miniatureItem.mapToItem(popupLayer, card.miniatureItem.width / 2, card.miniatureItem.height / 2)
         }
         return dockPoint(number)
