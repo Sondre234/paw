@@ -1345,6 +1345,10 @@ void ShellController::switcherPick(int index) {
         request(QString("switcher_confirm %1\n").arg(index + 1).toUtf8(),
                 "The window switcher needs a running paw session.");
 }
+void ShellController::switcherShown() {
+    // A switcher closed meanwhile has the request refused, which needs no word.
+    ask("switcher_peek\n", [](const QByteArray &) {});
+}
 QString ShellController::iconFor(const QString &windowAppId) const {
     const auto id = appFor(windowAppId);
     for (const auto &app : apps_)

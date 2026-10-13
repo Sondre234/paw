@@ -1168,6 +1168,7 @@ void read_effects(lua_State *L, Config &config) {
     if (Section in{L, "peek"}) {
         effects.peek_opacity = static_cast<float>(number(L, "opacity", effects.peek_opacity, 0, 0.9));
         effects.peek_duration = integer(L, "duration", effects.peek_duration, 0, 2000);
+        boolean(L, "switcher", "peek.switcher", effects.peek_switcher);
     }
     if (Section in{L, "night_light"}) {
         boolean(L, "enabled", "night_light.enabled", effects.night_light);

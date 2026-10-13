@@ -278,6 +278,7 @@ struct sh_output_layout {
 struct sh_effect_settings {
     float peek_opacity; /* what windows fade to while peeking, 0 to 0.9 */
     int peek_duration;  /* milliseconds */
+    bool peek_switcher; /* the window selected in the switcher or the palette peeks */
     /* night_light: minutes after midnight for sunrise and sunset, or -1 to take them from the
      * location (`located`) for the day. */
     bool night_light;
