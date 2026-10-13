@@ -58,6 +58,7 @@ struct sh_anim {
     struct wlr_scene_tree *surfaces, *fading;
     double size_x, size_y, size_vx, size_vy;
     int rest_width, rest_height, live_width, live_height, fading_width, fading_height;
+    int asked_width, asked_height; // what the surfaces were drawn for when the size was given
     int drawn_width, drawn_height; // as `resized` last heard it; -1 before it has
     int64_t wait_until, fade_start;
     int fade_duration;

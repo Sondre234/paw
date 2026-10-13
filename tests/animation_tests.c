@@ -611,9 +611,15 @@ static void test_morph_stretches_and_waits(void) {
     CHECK(sh_animator_running(m.rig.animator) == 1, "waiting for the client");
     advance(&m.rig, 250);
     CHECK(sh_animator_running(m.rig.animator) == 1 && m.surface->width == 400, "still waiting");
+    // The client had its time: the window eases to the size it drew, rather than jump there.
+    advance(&m.rig, 60);
+    CHECK(sh_animator_running(m.rig.animator) == 1 && m.surface->width == 400, "giving up");
+    advance(&m.rig, 50);
+    CHECK(m.surface->width == 300 && m.surface->height == 200, "easing to the client's size: %d",
+          m.surface->width);
     int heard = m.heard;
     advance(&m.rig, 60);
-    CHECK(sh_animator_running(m.rig.animator) == 0, "the client had its time");
+    CHECK(sh_animator_running(m.rig.animator) == 0, "done");
     CHECK(m.surface->width == 200 && m.surface->height == 100, "drawn as the client drew it");
     CHECK(m.heard == heard + 1 && m.heard_width == 0, "the frame drawn for it again");
     CHECK(m.frame->width == 204, "the frame at rest: %d", m.frame->width);
@@ -837,7 +843,8 @@ static void test_morph_off_and_with_open(void) {
     double scale = 0.94 + 0.06 * 0.5;
     CHECK(abs(m.surface->width - (int)lround(300 * scale)) <= 1, "both: %d", m.surface->width);
     CHECK(m.surface->color[3] > 0.4F && m.surface->color[3] < 0.6F, "fading in");
-    advance(&m.rig, 400);
+    advance(&m.rig, 400); // the client had its time
+    advance(&m.rig, 200);
     CHECK(sh_animator_running(m.rig.animator) == 0 && m.surface->width == 200 &&
               fabsf(m.surface->color[3] - 1) < 1e-6F,
           "both end at rest");

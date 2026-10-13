@@ -373,8 +373,24 @@ static float fade_alpha(const struct sh_anim *anim, int64_t now) {
     return (float)(1 - eased(&FADE_CURVE, now - anim->fade_start, anim->fade_duration));
 }
 
+static void glide_setup(struct sh_animator *animator, struct sh_anim *anim, int dx, int dy,
+                        enum sh_anim_kind kind, int duration, int width, int height, int64_t now);
+
+/* The client had its time to draw the size it was given: the window eases to the size it drew
+ * instead, rather than jumping there. */
+static void morph_give_up(struct sh_anim *anim, int64_t now) {
+    anim->answered = true;
+    int duration = anim->animator ? duration_of(anim->animator, anim->morph_kind) : 0;
+    if (duration > 0 &&
+        (anim->live_width != anim->rest_width || anim->live_height != anim->rest_height))
+        glide_setup(anim->animator, anim, 0, 0, anim->morph_kind, duration, anim->live_width,
+                    anim->live_height, now);
+}
+
 /* Returns whether the animation is still running. */
 static bool step(struct sh_anim *anim, int64_t now) {
+    if (anim->morph && !anim->answered && now >= anim->wait_until)
+        morph_give_up(anim, now);
     struct mapping m = IDENTITY;
     if (anim->morph) {
         double size[2], speed[2];
@@ -394,8 +410,6 @@ static bool step(struct sh_anim *anim, int64_t now) {
     // over and what it drew before has faded out.
     bool ended = false;
     if (anim->morph) {
-        if (!anim->answered && now >= anim->wait_until)
-            anim->answered = true;
         if (anim->fading && now >= anim->fade_start + anim->fade_duration)
             drop_fading(anim);
         if (!anim->glide && anim->answered && !anim->fading) {
@@ -690,11 +704,11 @@ static double carried(double velocity, double curve_velocity, double offset, int
 
 /* Starts (or restarts) the glide by (dx, dy) from where the tree rests, and a morph's size to
  * `width` by `height`. */
-static void glide_begin(struct sh_animator *animator, struct sh_anim *anim,
-                        struct wlr_scene_tree *tree, int dx, int dy, enum sh_anim_kind kind,
-                        int duration, int width, int height) {
-    start(animator, anim, tree, duration);
-    int64_t now = now_ms(animator);
+/* Sets the glide going again at `now`, by (dx, dy) from where the tree rests, and a morph's size
+ * to `width` by `height`, from where they are drawn. */
+static void glide_setup(struct sh_animator *animator, struct sh_anim *anim, int dx, int dy,
+                        enum sh_anim_kind kind, int duration, int width, int height, int64_t now) {
+    struct wlr_scene_tree *tree = anim->tree;
     // A glide under way continues from where the window is drawn now, at the speed it has, and
     // so does the size of one changing size.
     double vx = 0, vy = 0, size[2] = {anim->rest_width, anim->rest_height}, speed[2] = {0, 0};
@@ -723,7 +737,18 @@ static void glide_begin(struct sh_animator *animator, struct sh_anim *anim,
         moving ? carried(speed[1], -anim->size_y * start_slope, anim->size_y, duration) : 0;
     anim->glide = true;
     anim->glide_start = now;
-    step(anim, anim->glide_start);
+    // A client still to draw its new size has the wait past the end of this glide.
+    if (anim->morph)
+        anim->wait_until = now + duration + MORPH_WAIT_MS;
+}
+
+static void glide_begin(struct sh_animator *animator, struct sh_anim *anim,
+                        struct wlr_scene_tree *tree, int dx, int dy, enum sh_anim_kind kind,
+                        int duration, int width, int height) {
+    start(animator, anim, tree, duration);
+    int64_t now = now_ms(animator);
+    glide_setup(animator, anim, dx, dy, kind, duration, width, height, now);
+    step(anim, now);
 }
 
 void sh_anim_glide_kind(struct sh_animator *animator, struct sh_anim *anim,
@@ -763,7 +788,7 @@ void sh_anim_morph(struct sh_animator *animator, struct sh_anim *anim, struct wl
     anim->morph_kind = morph->kind;
     anim->resized = morph->resized, anim->resized_data = morph->data;
     anim->answered = morph->answered;
-    anim->wait_until = now_ms(animator) + duration + MORPH_WAIT_MS;
+    anim->asked_width = morph->live_width, anim->asked_height = morph->live_height;
     glide_begin(animator, anim, tree, morph->dx, morph->dy, morph->kind, duration, morph->width,
                 morph->height);
 }
@@ -809,12 +834,17 @@ void sh_anim_morph_commit(struct sh_animator *animator, struct sh_anim *anim, in
         fade_begin(anim, now);
         anim->live_width = width, anim->live_height = height;
     }
-    if (answered && !anim->answered) {
+    // A client may acknowledge the size it was given on a commit of what it drew before, and draw
+    // the new size on a later one: the size it had when asked counts as its answer only once the
+    // wait is over.
+    bool other = width != anim->rest_width || height != anim->rest_height;
+    bool early = width == anim->asked_width && height == anim->asked_height && other &&
+                 now < anim->wait_until;
+    if (answered && !early) {
         anim->answered = true;
-        // At a size of its own: the window eases on to it from where it is drawn.
+        // At a size of its own, each time: the window eases on to it from where it is drawn.
         int duration = duration_of(animator, anim->morph_kind);
-        if (duration > 0 && width > 0 && height > 0 &&
-            (width != anim->rest_width || height != anim->rest_height))
+        if (duration > 0 && width > 0 && height > 0 && other)
             glide_begin(animator, anim, anim->tree, 0, 0, anim->morph_kind, duration, width,
                         height);
     }
