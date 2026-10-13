@@ -329,8 +329,17 @@ Item {
         }
         windowsDropped(number)
     }
-    // A window's picture being dragged from the card: {taskId, picture, icon}, null for none.
+    // A window's picture being dragged from the card: {taskId, picture, icon}, null for none. It
+    // ends with the drag, with its tile or its window going, or with closeMenus.
     property var pictureDrag: null
+    Connections {
+        target: root.allWindows
+        function onCountChanged() {
+            var drag = root.pictureDrag
+            if (drag && !root.allWindows.windows.some(function(window) { return window.taskId === drag.taskId }))
+                root.endPictureDrag(false)
+        }
+    }
     // The tile's picture `item` taken where it was pressed, the pointer at `at` now, both in the
     // popover's coordinates.
     function startPictureDrag(drag, item, pressed, at) {
@@ -382,7 +391,7 @@ Item {
     }
     // Let go, on a workspace (dropping it there) or not.
     function endPictureDrag(dropped) {
-        var drag = pictureDrag, number = dropped ? dropWorkspace : 0
+        var drag = pictureDrag, number = dropped && drag ? dropWorkspace : 0
         dropWorkspace = 0
         pictureDrag = null
         if (number > 0) {
@@ -576,6 +585,8 @@ Item {
     function closeMenus() {
         launcherOpen = false; taskMenuId = -1; pinMenuApp = null; barMenuOpen = false; audioPopup = ""; groupOpen = false; trayMenuKey = ""; menuBarMenu = ""
         closeWorkspaceCard()
+        if (pictureDrag)
+            endPictureDrag(false)
         barKeys.leave()
     }
     // A change of style lays the panel out anew: what was open belonged to bars that are gone. So

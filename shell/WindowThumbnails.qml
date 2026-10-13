@@ -131,7 +131,15 @@ PopupCard {
                     watched = taskId
                     owner.wantPicture(watched, true)
                 }
-                Component.onDestruction: if (owner) owner.wantPicture(watched, false)
+                // Going while its picture is dragged (its window closing, or no longer the button's),
+                // it ends the drag, which its handler, going too, never says has ended.
+                Component.onDestruction: {
+                    if (!owner)
+                        return
+                    owner.wantPicture(watched, false)
+                    if (owner.pictureDrag && owner.pictureDrag.taskId === watched)
+                        owner.endPictureDrag(false)
+                }
                 readonly property bool marked: active || urgent
                 // The keyboard on the bar is at it, which rings it, peeks at its window as the
                 // pointer resting on its picture does, and shows its cross for Delete; the Menu
