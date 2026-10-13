@@ -15,6 +15,7 @@ static int hold_ms(struct sh_server *server) {
     int ms = test && headless_backend(server) ? atoi(test) : 0;
     return ms > 0 ? ms : HOLD_MS;
 }
+
 /* The picture's opacity while it covers the screen: just below 1, which looks the same, so that
  * the scene does not take it for opaque. Over an opaque node the scene finds the surfaces under
  * it hidden and sends them no frame callbacks, and the shell could not draw the new look. */
