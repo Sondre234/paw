@@ -744,6 +744,87 @@ int main(int argc, char **argv) {
     QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, centre(workspace(4)));
     if (!waitFor([&] { return workspace(4)->property("current").toBool(); }))
         return fail("could not switch back to the last workspace");
+    // shell.tiling_bar: while the output tiles, the tiling bar stands in for the taskbar (kept,
+    // hidden), along the top in a surface as tall as its strip, in its own colours and style with
+    // the modules it names. Its workspaces and layout switch through the compositor, its clock
+    // opens the flyout below it, its power module the power menu, and its tiling module turns
+    // tiling off, the taskbar coming back. tiling_bar = false keeps the taskbar.
+    {
+        auto *strip = find(view.rootObject(), "bar");
+        auto *root = view.rootObject();
+        auto item = [&](const char *name) { return find(root, name); };
+        auto shown = [&](const char *name) { return item(name) && item(name)->isVisible(); };
+        if (!reconfigure(QString(lua).replace(
+                keepTaskbar, "tiling_bar={color='#102030',style='islands',clock_format='HH:mm:ss',"
+                             "modules={left={'workspaces','layout'},center={'clock'},"
+                             "right={'tiling','power'}}},")))
+            return fail("could not rewrite the configuration");
+        if (!waitFor([&] { return shown("tilingBar") && view.tilingBar() && view.height() == 34 + 6; }) ||
+            !strip || strip->isVisible() || shown("tilingWindow") || item("tilingLauncher"))
+            return fail("the tiling bar did not stand in for the taskbar along the top while tiling");
+        if (item("tilingBar")->property("color").value<QColor>().alpha() != 0 ||
+            item("tilingBarLeft")->property("color").value<QColor>() != QColor("#102030"))
+            return fail("the tiling bar's islands do not take its colour");
+        // The workspaces, as the compositor has them.
+        auto *second = item("tilingWorkspace2"), *fourth = item("tilingWorkspace4");
+        if (!second || !fourth || second->property("current").toBool() ||
+            !fourth->property("current").toBool())
+            return fail("the tiling bar does not show the output's workspaces");
+        click(second);
+        if (!waitFor([&] { return second->property("current").toBool(); }) ||
+            switches.last() != "output " + output + " workspace 2")
+            return fail("a workspace on the tiling bar did not switch to it");
+        click(fourth);
+        if (!waitFor([&] { return fourth->property("current").toBool(); }))
+            return fail("could not switch back to the last workspace from the tiling bar");
+        // The layout, stepped on by a click.
+        auto *layout = item("tilingLayout");
+        if (!layout || layout->property("label").toString() != "dwindle")
+            return fail("the tiling bar does not show the output's layout");
+        click(layout);
+        if (!waitFor([&] { return layout->property("label").toString() == "master"; }) ||
+            requests.last() != "output " + output + " layout_next")
+            return fail("the tiling bar's layout did not step to the next one");
+        // The clock, in its format, opening the flyout below the bar.
+        auto *clock = item("tilingClock");
+        if (!clock || !QRegularExpression("^\\d\\d:\\d\\d:\\d\\d$").match(clock->property("label").toString()).hasMatch())
+            return fail("the tiling bar's clock is not in its format");
+        click(clock);
+        if (!waitFor([&] { return root->property("audioPopup").toString() == "clock" && shown("calendar"); }) ||
+            item("calendar")->mapToScene(QPointF(0, 0)).y() < 34 + 6)
+            return fail("the tiling bar's clock did not open the flyout below the bar");
+        QMetaObject::invokeMethod(root, "closeMenus");
+        // The power module, once something may run, opens the power menu by it.
+        if (shown("tilingPower"))
+            return fail("the tiling bar's power module shows with nothing to run");
+        subscriber->write("power lock,suspend\n");
+        if (!waitFor([&] { return shown("tilingPower"); }))
+            return fail("the tiling bar's power module did not appear");
+        // Its row places it on its next polish, which a grab runs.
+        view.grabWindow();
+        click(item("tilingPower"));
+        if (!waitFor([&] { return item("barPowerMenu") && item("barPowerMenu")->property("open").toBool(); }))
+            return fail("the tiling bar's power module did not open the power menu");
+        QMetaObject::invokeMethod(root, "closeMenus");
+        subscriber->write("power -\n");
+        if (!waitFor([&] { return !shown("tilingPower"); }))
+            return fail("the tiling bar's power module stayed with nothing to run");
+        // Tiling off from the bar: the taskbar comes back, and the surface with it.
+        click(item("tilingBarToggle"));
+        if (!waitFor([&] { return !toggled && !panelTiling() && strip->isVisible(); }) ||
+            item("tilingBar") || view.tilingBar() || view.height() != controller.panelExtent())
+            return fail("turning tiling off from the tiling bar did not bring the taskbar back");
+        click(tiling);
+        if (!waitFor([&] { return toggled && shown("tilingBar") && view.height() == 34 + 6; }))
+            return fail("the tiling bar did not come back as tiling did");
+        // tiling_bar = false keeps the taskbar while tiling.
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+        if (!waitFor([&] { return !item("tilingBar") && strip->isVisible() && !view.tilingBar(); }) ||
+            view.height() != controller.panelExtent() || !panelTiling())
+            return fail("shell.tiling_bar = false did not keep the taskbar while tiling");
+        requests.clear();
+    }
     // The window switcher's list says which windows are asking for attention (an older
     // five-field line means none) and each window's number (an older line's is 0; a field past
     // it, from a newer compositor, is passed over). Its overlay shows them, and goes on showing

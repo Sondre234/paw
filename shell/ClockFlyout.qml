@@ -20,8 +20,9 @@ Item {
     readonly property bool open: panel.audioPopup === "clock"
     readonly property bool showCalendar: shell.widgets.calendar
     readonly property bool showNotifications: shell.notifications.serving
-    // The bar's right end (its bottom end along a side), which the cards line up with.
-    readonly property rect barEnd: panel.barAnchor(panel.barEnd, 0)
+    // The bar's right end (its bottom end along a side), which the cards line up with; on the
+    // tiling bar, the module that opened them, which they are centred on (panel.flyoutAnchor).
+    readonly property rect barEnd: panel.flyoutAnchor
     readonly property Item calendar: calendar
     readonly property Item notifications: notifications
 
