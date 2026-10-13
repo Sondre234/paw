@@ -65,6 +65,8 @@ class ShellController : public QObject {
     // whether that is a side, along which the bar stands upright.
     Q_PROPERTY(QString panelEdge READ panelEdge NOTIFY configChanged)
     Q_PROPERTY(bool panelVertical READ panelVertical NOTIFY configChanged)
+    // shell.panel_draggable: whether the taskbar can be dragged to another edge.
+    Q_PROPERTY(bool panelDraggable READ panelDraggable NOTIFY configChanged)
     // shell.mirror_menus: whether the bar's right-click menus run in reverse along the top.
     Q_PROPERTY(bool mirrorMenus READ mirrorMenus NOTIFY configChanged)
     Q_PROPERTY(int panelMarginTop READ panelMarginTop NOTIFY configChanged)
@@ -233,6 +235,7 @@ class ShellController : public QObject {
     paw::PanelEdge panelSurfaceEdge() const {
         return config_.shell.macos_style ? paw::PanelEdge::Bottom : config_.shell.panel_edge;
     }
+    bool panelDraggable() const { return config_.shell.panel_draggable; }
     QString panelEdge() const;
     bool panelVertical() const {
         return panelSurfaceEdge() == paw::PanelEdge::Left ||

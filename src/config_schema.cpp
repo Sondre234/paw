@@ -721,6 +721,12 @@ const Option options[] = {
      "The edge of the monitor the taskbar is along: `\"top\"`, `\"bottom\"`, `\"left\"` or "
      "`\"right\"`. Along a side its buttons and widgets stack from the top down, and its popups "
      "open beside it. The macOS style's dock stays at the bottom."},
+    {"shell.panel_draggable", "boolean", "false", "true", none, none,
+     "The taskbar can be dragged to another edge of the monitor, as on Windows with the taskbar "
+     "unlocked: pressing an empty part of it and dragging shows where it goes, the edge nearest "
+     "the pointer, and letting go there moves it, writing the new `panel_position` into the "
+     "configuration file (where it takes effect: the profile in use when that sets it, else "
+     "the `shell` table, added when missing). Escape or letting go at its own edge leaves it."},
     {"shell.mirror_menus", "boolean", "false", "false", none, none,
      "With the panel along the top, its right-click menus list their entries in reverse, so "
      "they read outwards from the bar as they do from one along the bottom: a window's begins "

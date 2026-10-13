@@ -805,6 +805,10 @@ int main(int argc, char **argv) {
                         paw::PanelEdge::Bottom,
                 "panel_position not parsed");
         rejects("return {shell={panel_position='middle'}}");
+        require(!even.shell.panel_draggable &&
+                    paw::parse_config("return {shell={panel_draggable=true}}").shell.panel_draggable,
+                "panel_draggable not parsed");
+        rejects("return {shell={panel_draggable='yes'}}");
         rejects("return {shell={panel_margin=-1}}");
         rejects("return {shell={panel_margin={middle=1}}}");
         rejects("return {shell={font_size=2}}");
