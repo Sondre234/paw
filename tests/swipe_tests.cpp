@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <initializer_list>
 #include "check.h"
 
 // The direction is the axis the fingers went most along, taken once they are past the
@@ -174,6 +175,23 @@ static void edge() {
     CHECK(sh_swipe_past_end(NAN, 102.4, 1280).offset == 0);
 }
 
+// Fingers taking over windows that spring back start as far past the end as they are drawn.
+static void pull_at() {
+    for (double pull : {0.01, 0.3, 1.0, 1.5}) {
+        for (double slide : {102.4, 1280.0}) {
+            double offset = sh_swipe_past_end(pull, slide, 1280).offset;
+            NEAR(sh_swipe_pull_at(offset, slide, 1280), pull, 1e-9);
+        }
+    }
+    NEAR(sh_swipe_pull_at(0, 102.4, 1280), 0, 1e-12);
+    NEAR(sh_swipe_pull_at(-5, 102.4, 1280), 0, 1e-12);
+    NEAR(sh_swipe_pull_at(5, 0, 1280), 0, 1e-12); // a slide that only fades
+    // At or past the limit, which no pull reaches: just short of it.
+    double far = sh_swipe_pull_at(102.4, 102.4, 1280);
+    CHECK(std::isfinite(far) && far > 5);
+    NEAR(sh_swipe_pull_at(500, 102.4, 1280), far, 1e-12);
+}
+
 static void names() {
     CHECK(!std::strcmp(sh_swipe_direction_name(SH_SWIPE_LEFT), "left"));
     CHECK(!std::strcmp(sh_swipe_direction_name(SH_SWIPE_DOWN), "down"));
@@ -191,6 +209,7 @@ int main() {
     finishing();
     rubber_band();
     edge();
+    pull_at();
     names();
     if (failures)
         std::fprintf(stderr, "%d swipe checks failed\n", failures);
