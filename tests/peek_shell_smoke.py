@@ -7,6 +7,7 @@ the window where it shows. The macOS style peeks at neither, and peek.switcher =
 palette's off too."""
 from pathlib import Path
 import signal
+import subprocess
 import sys
 
 import harness
@@ -117,21 +118,45 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     desktop.wait_for(back, "the palette's peek over once it closed")
     assert focused() == ["Beta"], focused()
 
-    # Moving to another window hands the peek over at once, the others staying faded; Enter
-    # focuses the window peeked at where it shows, the others coming back around it.
+    # Moving to another window hands the peek over at once, the others staying faded; Enter on
+    # Alpha, not focused, focuses it where the peek shows it, the others coming back around it.
     palette("@")
     desktop.wait_for(lambda: peeked() is not None, "the first window peeked at")
     first = peeked()
-    other = "Alpha" if first == "Beta" else "Beta"
     desktop.wait_for(lambda: fade() == 1000, "the others faded")
     key(DOWN)
-    desktop.wait_for(lambda: peeked() == other, "the peek handed over to the next window")
+    desktop.wait_for(lambda: peeked() not in (None, first), "the peek handed over to the next window")
     assert fade() == 1000, "the others came back between the peeks"
-    desktop.wait_for(lambda: peeks()[other][3:] == (1000, 1000), f"{other} shown in full")
+    if peeked() != "Alpha":
+        key(DOWN)  # back round to Alpha
+        desktop.wait_for(lambda: peeked() == "Alpha", "the peek handed back to Alpha")
+    desktop.wait_for(lambda: peeks()["Alpha"][3:] == (1000, 1000), "Alpha shown in full")
     key(ENTER)
-    desktop.wait_for(lambda: focused() == [other], f"{other} focused")
-    assert peeks()[other][4] == 1000, peeks()
+    desktop.wait_for(lambda: focused() == ["Alpha"], "Alpha focused")
+    assert peeks()["Alpha"][4] == 1000, peeks()
     desktop.wait_for(back, "the palette's peek over once the window was focused")
+
+    # A window closing while the palette is open keeps its row, which peeks at nothing: moving
+    # onto it from a window peeked at ends that peek, and closing the palette leaves all as it
+    # was.
+    gamma = desktop.open_window(probe, "Gamma", "app-gamma")
+    desktop.wait_for(lambda: focused() == ["Gamma"], "Gamma focused")
+    palette("@")
+    subprocess.run([probe, "--close", "app-gamma"], env=env, check=True, timeout=30,
+                   stdout=subprocess.DEVNULL)
+    assert desktop.reap(gamma) == 0
+    desktop.wait_for(lambda: "Gamma" not in peeks(), "Gamma closed")
+    desktop.wait_for(lambda: peeked() is not None, "a window peeked at")
+    for _ in range(3):
+        before = peeked()
+        key(DOWN)
+        desktop.wait_for(lambda: peeked() != before, "the peek moved off the last row")
+        if peeked() is None:
+            break
+    desktop.wait_for(back, "the peek over on the closed window's row")
+    key(ESCAPE)
+    desktop.wait_for(lambda: layer("paw-palette") != ["1", "1"], "the palette closed")
+    desktop.stays(back, "a peek left over once the palette closed")
 
     # The macOS style peeks at neither.
     msg("profile", "mac")
