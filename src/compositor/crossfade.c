@@ -242,11 +242,16 @@ static int hold_expired(void *data) {
 /* The appearance profile changed: every monitor in the layout keeps showing what it showed until
  * the new look is drawn under it, then crossfades to it. Called before anything changes, so the
  * scene still shows the old look. A crossfade under way starts again from what it shows. Nothing
- * crossfades without animations or while the session is locked. */
+ * crossfades without animations, without a profile or while the session is locked, and one under
+ * way then ends. */
 void crossfade_start(struct sh_server *server) {
     const struct sh_settings *settings = server_settings(server);
-    if (!settings->animations || server->locked || !settings->profile[0])
+    // One under way for an earlier change shows the look before it: it goes, the new look
+    // showing at once.
+    if (!settings->animations || server->locked || !settings->profile[0]) {
+        crossfade_end(server);
         return;
+    }
     struct sh_crossfade *fade = server->crossfade;
     if (!fade) {
         fade = calloc(1, sizeof(*fade));
