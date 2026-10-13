@@ -510,6 +510,7 @@ void read_shell(lua_State *L, ShellConfig &shell) {
            {"right", PanelEdge::Right}},
           "panel_position must be \"top\", \"bottom\", \"left\" or \"right\"");
     boolean(L, "panel_draggable", "shell.panel_draggable", shell.panel_draggable);
+    boolean(L, "panel_dock", "shell.panel_dock", shell.panel_dock);
     boolean(L, "mirror_menus", "shell.mirror_menus", shell.mirror_menus);
     // One number for every side, or { top, right, bottom, left } by name.
     lua_getfield(L, -1, "panel_margin");

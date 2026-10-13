@@ -6585,6 +6585,21 @@ ListModel {
                        framed->height() == controller.panelHeight() && !edge->isVisible();
             }))
             return fail("the bar stayed docked once no window reached its edge");
+        // With shell.panel_dock = false the bar floats whatever reaches its edge.
+        if (!reconfigure(QString(lua).replace(
+                "shell={wallpaper",
+                "windows={border_width=3,border_inactive_color={'#2b221c','#a87650'},"
+                "shadow={enabled=true,color='#2b221cff',inactive_color='#2b221c66',blur=0,"
+                "offset={5,7}}},shell={frame='windows',panel_radius=12,panel_position='top',"
+                "panel_margin={bottom=2},panel_dock=false,wallpaper")) ||
+            !waitFor([&] { return !controller.panelDock(); }))
+            return fail("shell.panel_dock was not read");
+        framed = find(view.rootObject(), "bar");
+        subscriber->write(state(toggled, currentWorkspace) + "touched " + output.toUtf8() + " top\n");
+        QTest::qWait(400); // past the dock's easing, were it to start
+        if (!framed || framed->property("radius").toReal() != 12 ||
+            framed->height() != controller.panelHeight())
+            return fail("with panel_dock = false a window reaching the bar's edge docked it");
         subscriber->write(state(toggled, currentWorkspace) + "touched " + output.toUtf8() + " -\n");
         // Without the windows' shadow, none.
         if (!reconfigure(QString(lua).replace("shell={wallpaper",
