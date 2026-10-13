@@ -887,6 +887,7 @@ void sh_anim_morph(struct sh_animator *animator, struct sh_anim *anim, struct wl
     }
     if (anim->animator && anim->tree != tree)
         sh_anim_finish(anim);
+    end_fold(anim); // growing out of its taskbar button, it is at rest for the morph
     if (!anim->morph) {
         // From the size its client drew, which it is drawn at now.
         if (morph->from_width < 1 || morph->from_height < 1 || morph->live_width < 1 ||
@@ -1284,6 +1285,10 @@ double sh_anim_settle(struct sh_anim *anim) {
         walk(anim, anim->tree, 0, 0, true, NULL);
     }
     end_fold(anim);
+    if (anim->morph) {
+        sh_anim_finish(anim); // its stretch goes with its glide
+        return at;
+    }
     if (!anim->glide && !anim->held)
         stop(anim);
     return at;

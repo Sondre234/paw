@@ -293,7 +293,8 @@ bool sh_anim_unfold(struct sh_animator *animator, struct sh_anim *anim, struct w
  * -1 when it is not folding. */
 double sh_anim_folded(const struct sh_anim *anim, struct sh_fold *fold);
 /* Ends a window's fold and fade, its nodes back at rest and its owner's update called, but not a
- * glide, which goes on; returns how far into its box the fold was, 0 without one. */
+ * glide, which goes on, unless a morph rides on it, which lands with it; returns how far into its
+ * box the fold was, 0 without one. */
 double sh_anim_settle(struct sh_anim *anim);
 /* Where the fold draws a box of the tree now, given in the tree's coordinates, and a radius of
  * its corners: unchanged when it is not folding. */
