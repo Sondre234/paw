@@ -70,8 +70,8 @@ void sh_animator_destroy(struct sh_animator *animator);
 struct sh_animator_config {
     bool enabled;
     float speed; /* multiplies every animation's speed: 2 makes them twice as fast */
-    /* A frame later than this many milliseconds finishes what is running instead of
-     * stuttering through it; 0 never skips. */
+    /* A tick (a frame, or the animator's own timer while anything runs) later than this many
+     * milliseconds finishes what is running instead of stuttering through it; 0 never skips. */
     int late_ms;
     struct sh_anim_style styles[SH_ANIM_KINDS];
 };
@@ -93,7 +93,10 @@ void sh_animator_rest_at(struct sh_animator *animator, double x, double y);
 void sh_animator_resume(struct sh_animator *animator);
 /* Jumps every running animation to its end; closing snapshots go. */
 void sh_animator_finish_all(struct sh_animator *animator);
-/* Advances every animation to the current time; call right before rendering a frame. */
+/* Advances every animation to the current time; call right before rendering a frame. While
+ * anything runs the animator also ticks by itself, about every frame, so that motion too small
+ * to change a pixel (and so to bring a frame) still goes on, and what it changes brings frames
+ * to the outputs that show it. */
 void sh_animator_tick(struct sh_animator *animator);
 /* Writes to `current` where the value is now on its way to `target`. A change of target
  * starts a fade of `kind` from the current value, unless `animate` is false, which (or a kind

@@ -9,9 +9,14 @@
 
 /* How much smaller a window is when it starts opening or finishes closing. */
 static const float SMALL = 0.94F;
-/* After this much time past the end, a timer finishes animations no frame has advanced, e.g.
- * on a hidden workspace or a switched-off output. */
-enum { SLACK_MS = 50 };
+/* While anything runs, a timer advances it this often besides the outputs' frames. A frame comes
+ * only where the scene changed, and a glide that moves less than a pixel in one (a slow spring's
+ * start, a nudge from rest) changes nothing: frames alone would stall it, and the next tick would
+ * find it late and land it unseen, with whatever started meanwhile. What the timer changes damages
+ * the outputs it shows on, which then draw; nothing asks an output for a frame otherwise, so one
+ * where nothing moves stays still. It also finishes animations no frame advances, as on a hidden
+ * workspace or a switched-off output. */
+enum { TICK_MS = 16 };
 
 struct sh_animator {
     struct sh_animator_config config;
@@ -22,6 +27,7 @@ struct sh_animator {
     struct wl_list held;    // struct sh_anim held by a gesture, whatever the time
     struct wl_list tweens;  // struct sh_tween
     struct wl_event_source *timer;
+    bool ticking; // the timer is set
 };
 
 /* A node's resting values and the values the animation last gave it. */
@@ -40,6 +46,14 @@ static int64_t real_clock(void *data) {
 }
 static int64_t now_ms(const struct sh_animator *animator) {
     return animator->clock(animator->clock_data);
+}
+
+/* Sets the timer for the next tick, unless it is set. */
+static void keep_ticking(struct sh_animator *animator) {
+    if (animator->ticking)
+        return;
+    animator->ticking = true;
+    wl_event_source_timer_update(animator->timer, TICK_MS);
 }
 
 /* A kind's duration after the speed multiplier; 0 means it does not animate. */
@@ -304,7 +318,7 @@ void sh_tween_track(struct sh_animator *animator, struct sh_tween *tween, enum s
             }
             if (!animator->last_tick)
                 animator->last_tick = tween->start;
-            wl_event_source_timer_update(animator->timer, duration + SLACK_MS);
+            keep_ticking(animator);
         }
     }
     memcpy(current, tween->value, sizeof(tween->value));
@@ -456,9 +470,10 @@ void sh_animator_tick(struct sh_animator *animator) {
 
 static int timer_fired(void *data) {
     struct sh_animator *animator = data;
+    animator->ticking = false;
     sh_animator_tick(animator);
     if (!wl_list_empty(&animator->running) || !wl_list_empty(&animator->tweens))
-        wl_event_source_timer_update(animator->timer, SLACK_MS);
+        keep_ticking(animator);
     return 0;
 }
 
@@ -473,7 +488,8 @@ static void start(struct sh_animator *animator, struct sh_anim *anim, struct wlr
     }
     if (!animator->last_tick)
         animator->last_tick = now_ms(animator);
-    wl_event_source_timer_update(animator->timer, duration + SLACK_MS);
+    (void)duration; // the timer ticks until it ends, however long
+    keep_ticking(animator);
 }
 
 /* The velocity a restarted glide adds to its curve's own so the speed stays the same, kept
