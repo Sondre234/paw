@@ -47,9 +47,12 @@ def near(colour, expected, slack=6):
 
 
 def same(a, b):
-    """Whether two pictures are alike to within a step of rounding, at every fifth pixel."""
-    return (a.width, a.height) == (b.width, b.height) and all(
-        abs(x - y) <= 2 for x, y in zip(a.pixels[::15], b.pixels[::15]))
+    """Whether two pictures are alike to within a step of rounding, every channel of every fifth
+    pixel."""
+    if (a.width, a.height) != (b.width, b.height):
+        return False
+    return all(abs(a.pixels[i + c] - b.pixels[i + c]) <= 2
+               for i in range(0, len(a.pixels), 15) for c in range(3))
 
 
 def between(colour, a, b):
