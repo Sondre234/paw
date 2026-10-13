@@ -248,12 +248,24 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     wait_for(lambda: crossfade() == {}, "the crossfade over")
 
     # A reload that keeps the profile changes nothing at once, and nor does one without
-    # animations.
+    # animations; then the crossfade held for the shell goes, the new look showing at once, and
+    # so it does when a reload leaves no profile.
     desktop.reload()
     assert crossfade() == {}, crossfade()
+    shell = desktop.subscribe(shell=True)
+    msg("profile", "blue")
+    assert crossfade(), crossfade()
     desktop.reload(CONFIG.format(animations="false", first=""))
     msg("profile", "red")
     assert crossfade() == {}, crossfade()
+    desktop.reload(CONFIG.format(animations="true", first=""))
+    msg("profile", "green")
+    assert crossfade(), crossfade()
+    unprofiled = CONFIG.format(animations="true", first="")
+    unprofiled = unprofiled[:unprofiled.index("    profile = ")] + "}"
+    desktop.reload(unprofiled)
+    assert crossfade() == {}, crossfade()
+    shell.close()
 
 # A monitor turned and scaled holds a picture of itself that lies exactly where it showed.
 with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2", "PAW_TEST_CROSSFADE_HOLD_MS": "3000"}) as desktop:
