@@ -150,29 +150,55 @@ static void split(int size, int first, int second, int *a, int *b) {
 
 void sh_shadow_slices(const struct sh_shadow_layout *layout, int image_width, int image_height,
                       int width, int height, struct sh_shadow_slice slices[SH_SHADOW_SLICES]) {
+    const double plain[4] = {1, 1, 1, 1};
+    sh_shadow_slices_scaled(layout, image_width, image_height, width, height, plain, slices);
+}
+
+void sh_shadow_slices_scaled(const struct sh_shadow_layout *layout, int image_width,
+                             int image_height, int width, int height, const double scale[4],
+                             struct sh_shadow_slice slices[SH_SHADOW_SLICES]) {
     int left, right, top, bottom; // how much of the window the corners take
     split(width, layout->inner_left, layout->inner_right, &left, &right);
     split(height, layout->inner_top, layout->inner_bottom, &top, &bottom);
     const struct sh_shadow_layout *l = layout;
+    // Scaled about the window's edges, the corners may take no more than the window has.
+    double k_left = fmax(1, scale[0]), k_top = fmax(1, scale[1]), k_right = fmax(1, scale[2]),
+           k_bottom = fmax(1, scale[3]);
+    if (left + right > 0 && k_left * left + k_right * right > width) {
+        double most = fmax(1, (double)width / (left + right));
+        k_left = fmin(k_left, most), k_right = fmin(k_right, most);
+    }
+    if (top + bottom > 0 && k_top * top + k_bottom * bottom > height) {
+        double most = fmax(1, (double)height / (top + bottom));
+        k_top = fmin(k_top, most), k_bottom = fmin(k_bottom, most);
+    }
+    // Where the slices meet, from the window's top-left corner: the shadow's outer edge, the
+    // corners' inner edges, and the shadow's far edge, in whole pixels so that they adjoin.
+    int x0 = -(int)lround(k_left * l->left), x1 = (int)lround(k_left * left);
+    int x2 = width - (int)lround(k_right * right), x3 = width + (int)lround(k_right * l->right);
+    int y0 = -(int)lround(k_top * l->top), y1 = (int)lround(k_top * top);
+    int y2 = height - (int)lround(k_bottom * bottom),
+        y3 = height + (int)lround(k_bottom * l->bottom);
+    if (x2 < x1)
+        x2 = x1;
+    if (y2 < y1)
+        y2 = y1;
     // The image's right and bottom parts start where the window it was painted for ends.
     int image_right = l->left + image_width, image_bottom = l->top + image_height;
     int middle_x = l->left + l->inner_left, middle_y = l->top + l->inner_top;
-    int across = width - left - right, down = height - top - bottom;
     const struct sh_shadow_slice all[SH_SHADOW_SLICES] = {
         // Corners, as painted.
-        {0, 0, l->left + left, l->top + top, -l->left, -l->top, l->left + left, l->top + top},
-        {image_right - right, 0, right + l->right, l->top + top, width - right, -l->top,
-         right + l->right, l->top + top},
-        {0, image_bottom - bottom, l->left + left, bottom + l->bottom, -l->left, height - bottom,
-         l->left + left, bottom + l->bottom},
-        {image_right - right, image_bottom - bottom, right + l->right, bottom + l->bottom,
-         width - right, height - bottom, right + l->right, bottom + l->bottom},
+        {0, 0, l->left + left, l->top + top, x0, y0, x1 - x0, y1 - y0},
+        {image_right - right, 0, right + l->right, l->top + top, x2, y0, x3 - x2, y1 - y0},
+        {0, image_bottom - bottom, l->left + left, bottom + l->bottom, x0, y2, x1 - x0, y3 - y2},
+        {image_right - right, image_bottom - bottom, right + l->right, bottom + l->bottom, x2, y2,
+         x3 - x2, y3 - y2},
         // Edges, outside the window (inside it the shadow is cut out), from the middle column
         // or row, stretched along it.
-        {middle_x, 0, 1, l->top, left, -l->top, across, l->top},
-        {middle_x, image_bottom, 1, l->bottom, left, height, across, l->bottom},
-        {0, middle_y, l->left, 1, -l->left, top, l->left, down},
-        {image_right, middle_y, l->right, 1, width, top, l->right, down},
+        {middle_x, 0, 1, l->top, x1, y0, x2 - x1, -y0},
+        {middle_x, image_bottom, 1, l->bottom, x1, height, x2 - x1, y3 - height},
+        {0, middle_y, l->left, 1, x0, y1, -x0, y2 - y1},
+        {image_right, middle_y, l->right, 1, width, y1, x3 - width, y2 - y1},
     };
     for (int i = 0; i < SH_SHADOW_SLICES; ++i) {
         slices[i] = all[i];
@@ -180,4 +206,31 @@ void sh_shadow_slices(const struct sh_shadow_layout *layout, int image_width, in
             slices[i].to_height <= 0)
             slices[i] = (struct sh_shadow_slice){0};
     }
+}
+
+bool sh_shadow_printed(const struct sh_shadow *shadow) {
+    return shadow->blur <= 4;
+}
+
+void sh_shadow_lift(const struct sh_shadow *shadow, double progress, struct sh_shadow *lifted,
+                    double scale[4], float *opacity) {
+    *lifted = *shadow;
+    for (int i = 0; i < 4; ++i)
+        scale[i] = 1;
+    *opacity = 1;
+    if (sh_shadow_printed(shadow)) {
+        // Printed: two fifths further off, in whole pixels, as crisp and as dark.
+        lifted->offset_x += (int)lround(0.4 * shadow->offset_x * progress);
+        lifted->offset_y += (int)lround(0.4 * shadow->offset_y * progress);
+        return;
+    }
+    // Cast: softer all round, further the way it falls (down when it falls straight), a little
+    // lighter for being spread wider.
+    double toward_x = shadow->offset_x > 0 ? 1 : shadow->offset_x < 0 ? -1 : 0;
+    double toward_y = shadow->offset_y < 0 ? -1 : 1;
+    scale[0] = 1 + (0.5 - 0.15 * toward_x) * progress;
+    scale[1] = 1 + (0.5 - 0.15 * toward_y) * progress;
+    scale[2] = 1 + (0.5 + 0.15 * toward_x) * progress;
+    scale[3] = 1 + (0.5 + 0.15 * toward_y) * progress;
+    *opacity = (float)(1 - 0.12 * progress);
 }
