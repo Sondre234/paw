@@ -728,13 +728,17 @@ static void test_morph_rest_and_finish(void) {
     advance(&m.rig, 20);
     struct wlr_scene_tree *copy = fading_copy(&m);
     CHECK(copy && copy->node.enabled, "copy shown");
-    // Input sees the window where it will be, at the size the client drew, and no copy.
+    // Input sees the window where it will be, at the size the client drew, its frame (the
+    // window's controls) around that, and no copy.
     sh_animator_rest(m.rig.animator);
     CHECK(m.rig.content->node.x == 0 && m.surface->width == 400, "at rest for input");
+    CHECK(m.heard_width == 0 && m.frame->width == 404, "the frame too: %d", m.frame->width);
     CHECK(copy && !copy->node.enabled, "copy hidden");
     sh_animator_resume(m.rig.animator);
     CHECK(m.rig.content->node.x < 0 && m.surface->width < 400 && copy && copy->node.enabled,
           "drawn again");
+    CHECK(m.heard_width == m.surface->width && m.frame->width == m.surface->width + 4,
+          "the frame around it: %d", m.frame->width);
     sh_animator_rest_at(m.rig.animator, 5000, 5000);
     CHECK(m.surface->width == 400, "at rest for any lookup");
     sh_animator_resume(m.rig.animator);
