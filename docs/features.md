@@ -1295,10 +1295,11 @@ workspace, wrapping around from the last to the first and back.
 Where there is nowhere further to go, the windows say so rather than stop dead. Past the first or
 the last workspace a touchpad swipe stretches them like a rubber band (see [Touchpad
 gestures](#touchpad-gestures)), and scrolling over the panel past either end nudges the windows of
-that monitor toward the workspace that is not there and back, as far as the slide would take them
-in a third of a step (2 % of the monitor's width with the default slide), in twice the `workspace`
-animation's time, and the taskbar's mark of the current workspace with them. So do
-`workspace_next` and `workspace_prev` with a single workspace. A slide that only fades
+that monitor a little the way the slide would take them (left past the last workspace, right
+before the first) and back, as far as the rubber band gives a third of a step past the end (2 % of
+the monitor's width with the default slide), in twice the `workspace` animation's time; the
+taskbar's mark of the current workspace bumps toward the workspace that is not there with them. So
+do `workspace_next` and `workspace_prev` with a single workspace. A slide that only fades
 (`animations.workspace.distance = 0`) nudges nothing.
 
 ### Scratchpad
@@ -2060,8 +2061,9 @@ neighbour. There is none before the first workspace or after the last, and rathe
 as `workspace_next` does, the windows stretch that way like a rubber band, showing the desktop
 behind them: they follow the fingers as far as the slide would at first, then less and less the
 further the fingers go, never as far as the slide's whole distance or a tenth of the monitor's
-width (with `animations.workspace.distance = 0`, a slide that only fades, they dim a little
-instead). Back the other way they come back as they went, and on past where they rest the slide
+width, whichever is less, and a whole step of `gestures.distance` takes them half that far (a
+slide longer than a tenth of the width starts as one of a tenth would). With
+`animations.workspace.distance = 0`, a slide that only fades, they dim a little instead. Back the other way they come back as they went, and on past where they rest the slide
 toward the other neighbour begins. Once the fingers lift they spring back with the `move`
 animation, going on at first as fast as the fingers went, and fingers that come back to the
 touchpad meanwhile take them over where they are. Three fingers up open the overview the same way,
@@ -2569,8 +2571,9 @@ what has the keyboard, as wtype does: each character on a key of a keymap made f
 keymap; a longer text takes several), the window's own keymap back after, so that accents, emoji
 and their sequences come out as they are whatever the keyboard layout; the request is a line of at
 most 512 bytes, and it says when nothing has the keyboard. `paw msg workspace_nudge OUTPUT
-next|prev` nudges that monitor's windows toward its next or previous workspace and back, as the
-panel's wheel does past either end (see [Workspaces](#workspaces)). The query
+next|prev` nudges that monitor's windows as a step to its next or previous workspace would start
+to slide them, and back, as the panel's wheel does past either end (see
+[Workspaces](#workspaces)). The query
 `paw msg get workspace` prints the focused monitor's workspace, `paw msg get workspaces`
 prints one tab-separated line per monitor (name, current workspace, focused, the
 workspaces holding windows, such as `1,3`, or `-`, and tiling, `on` or `off`),
@@ -2599,7 +2602,10 @@ the keyboard.
 `na`, `unknown` until it has answered, or `unavailable` without logind.
 `paw msg get animations` prints the number of running animations and of window trees in
 the scene (closing windows count until their animation ends), and of focus fades, mainly
-for tests. `paw msg get pictures` prints one line per capture source a client asked for to
+for tests; `paw msg get drawn` prints one line per window, in the order of `get windows`, with its
+title, how far an animation or a gesture draws it from where it rests (x and y, in pixels) and the
+factor it gives its opacity (in thousandths), and `paw msg get output_frames` each monitor's name
+and how many frames it has drawn, also for tests. `paw msg get pictures` prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
 window_peek` prints one line per window for a peek at one window (the taskbar's card's, the
