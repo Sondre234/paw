@@ -46,12 +46,15 @@ Button {
     onHoveredChanged: if (groupSlot !== "" || groupWindowApp !== "") panel.hoverGroup(dockIcon, hovered)
 
     // Where its windows show, for the compositor to minimize them into and restore them out of:
-    // the icon itself, wherever the dock grows, shrinks or moves it.
+    // the icon itself, wherever the dock grows, shrinks or moves it; nowhere while the tiling bar
+    // stands in for the dock.
     readonly property var placedTasks: windows ? windows.windows.map(function(w) { return w.taskId }) : []
     readonly property rect placedRect: {
         var row = parent, body = row ? row.parent : null
         void [x, y, width, height, row ? [row.x, row.y, row.width, row.scale] : 0, body ? [body.x, body.y, body.width] : 0,
-              panel.surfaceLeft, panel.surfaceTop]
+              panel.surfaceLeft, panel.surfaceTop, visible]
+        if (!visible)
+            return Qt.rect(0, 0, 0, 0)
         var size = Theme.dockIconSize
         var from = mapToItem(panel, (width - size) / 2, (height - size) / 2)
         var to = mapToItem(panel, (width + size) / 2, (height + size) / 2)

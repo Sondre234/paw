@@ -136,13 +136,14 @@ ListView {
         }
         // Where the windows it stands for are, for the compositor to minimize them into and
         // restore them out of: the whole button, as the list scrolls, slides or drags it and
-        // wherever the bar is; nowhere while scrolled out of the list's sight.
+        // wherever the bar is; nowhere while scrolled out of the list's sight, or while the
+        // tiling bar stands in for the taskbar.
         readonly property var placedTasks: launcher ? []
             : group && group.count > 0 ? group.windows.map(function(w) { return w.taskId }) : [taskId]
         readonly property rect placedRect: {
             void [x, y, width, height, moved, taskList.contentX, taskList.contentY, taskList.x, taskList.y,
                   taskList.width, taskList.height, panel.bar.x, panel.bar.y, panel.surfaceLeft, panel.surfaceTop]
-            if (!parent)
+            if (!parent || !taskList.visible)
                 return Qt.rect(0, 0, 0, 0)
             var at = parent.mapToItem(taskList, x + (taskList.vertical ? 0 : moved), y + (taskList.vertical ? moved : 0))
             if (at.x + width <= 0 || at.y + height <= 0 || at.x >= taskList.width || at.y >= taskList.height)
