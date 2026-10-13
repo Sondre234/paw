@@ -280,6 +280,7 @@ struct Config {
                          .gap_inner = 8,
                          .gap_outer = 8,
                          .smart_gaps = true,
+                         .lone_margin = 0,
                          .floating_above_tiles = false,
                          .keyboard_layout = "us",
                          .keyboard_variant = "",

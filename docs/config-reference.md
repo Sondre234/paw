@@ -86,6 +86,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `layout.gap_inner` | integer | `gap` | 0 to 100 | Pixels between tiled windows. |
 | `layout.gap_outer` | integer | `gap` | 0 to 100 | Pixels between tiles and the edges. |
 | `layout.smart_gaps` | boolean | true | - | No gaps around a tiled window that is alone on its workspace. |
+| `layout.lone_margin` | integer | 0 | 0 to 400 | Pixels around a tiled window that is alone on its workspace, in place of the gaps, so it does not fill the screen; 0 leaves it to `smart_gaps`. |
 | `layout.floating_above_tiles` | boolean | false | - | Floating windows always stack over tiles, as in sway and Hyprland; `false` puts the window brought forward last in front, tile or not. |
 | `layout.workspaces` | integer | 4 | 1 to 10 | Workspaces per monitor. |
 | `layout.workspace_names` | list of strings | unset | - | Names for workspaces 1, 2, ...; at most `workspaces` of them, each up to 32 characters, not a number and not repeated ("" leaves one unnamed). The panel shows them, and `workspace` and `move_to_workspace` (bindings with `workspace = "web"`, or `paw msg workspace web`) accept them. |
