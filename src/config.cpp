@@ -497,6 +497,10 @@ void read_tiling_bar(lua_State *L, TilingBar &bar) {
     }
     lua_pop(L, 1);
 }
+// The edges a bar can be along, as shell.panel_positions names them.
+constexpr std::pair<std::string_view, PanelEdge> panel_edges[] = {
+    {"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
+    {"right", PanelEdge::Right}};
 void read_shell(lua_State *L, ShellConfig &shell) {
     Section section(L, "shell");
     if (!section)
@@ -509,6 +513,32 @@ void read_shell(lua_State *L, ShellConfig &shell) {
           {{"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
            {"right", PanelEdge::Right}},
           "panel_position must be \"top\", \"bottom\", \"left\" or \"right\"");
+    boolean(L, "panel_per_monitor", "shell.panel_per_monitor", shell.panel_per_monitor);
+    // { ["DP-1"] = "left", ... }: an edge for each monitor named.
+    lua_getfield(L, -1, "panel_positions");
+    if (!lua_isnil(L, -1)) {
+        table(L, -1, "shell.panel_positions");
+        Named in("shell.panel_positions");
+        const int index = lua_absindex(L, -1);
+        lua_pushnil(L);
+        while (lua_next(L, index)) {
+            if (lua_type(L, -2) != LUA_TSTRING)
+                fail("shell.panel_positions is keyed by output name, e.g. [\"DP-1\"] = \"left\"");
+            const std::string name = lua_tostring(L, -2);
+            if (name.empty())
+                fail("output name is empty");
+            const auto edge = string(L, -1, ("shell.panel_positions[\"" + name + "\"]").c_str());
+            auto found = std::find_if(std::begin(panel_edges), std::end(panel_edges),
+                                      [&](const auto &entry) { return entry.first == edge; });
+            if (found == std::end(panel_edges))
+                fail("shell.panel_positions[\"" + name +
+                         "\"] must be \"top\", \"bottom\", \"left\" or \"right\"",
+                     "=" + edge);
+            shell.panel_positions[name] = found->second;
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
     boolean(L, "panel_draggable", "shell.panel_draggable", shell.panel_draggable);
     // true, false or "maximized".
     lua_getfield(L, -1, "panel_dock");

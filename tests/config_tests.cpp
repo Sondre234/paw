@@ -857,6 +857,24 @@ int main(int argc, char **argv) {
                         paw::PanelEdge::Bottom,
                 "panel_position not parsed");
         rejects("return {shell={panel_position='middle'}}");
+        // Each monitor's own edge, over panel_position, unless panel_per_monitor is off.
+        auto apart = paw::parse_config(
+            "return {shell={panel_position='top',panel_positions={['DP-1']='left',HDMI_1='bottom'}}}");
+        require(apart.shell.panel_per_monitor && apart.shell.panel_positions.size() == 2 &&
+                    apart.shell.edge_of("DP-1") == paw::PanelEdge::Left &&
+                    apart.shell.edge_of("HDMI_1") == paw::PanelEdge::Bottom &&
+                    apart.shell.edge_of("DP-2") == paw::PanelEdge::Top,
+                "panel_positions not parsed");
+        auto together = paw::parse_config(
+            "return {shell={panel_per_monitor=false,panel_positions={['DP-1']='left'}}}");
+        require(!together.shell.panel_per_monitor &&
+                    together.shell.edge_of("DP-1") == paw::PanelEdge::Bottom,
+                "panel_per_monitor = false does not put every bar along panel_position");
+        rejects("return {shell={panel_positions={['DP-1']='middle'}}}");
+        rejects("return {shell={panel_positions={'left'}}}");
+        rejects("return {shell={panel_positions={['DP-1']=true}}}");
+        rejects("return {shell={panel_positions='left'}}");
+        rejects("return {shell={panel_per_monitor='yes'}}");
         require(!even.shell.panel_draggable &&
                     paw::parse_config("return {shell={panel_draggable=true}}").shell.panel_draggable,
                 "panel_draggable not parsed");
