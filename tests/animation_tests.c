@@ -643,6 +643,45 @@ static void test_finish_all(void) {
     teardown(&rig);
 }
 
+/* While anything runs the animator ticks by itself about every frame: a nudge from rest, which
+ * changes no pixel as it starts and so brings no frame, goes on, and an animation started
+ * meanwhile is not taken for a late one and landed. */
+static void test_ticks_by_itself(void) {
+    struct rig rig;
+    struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
+    c.late_ms = 30;
+    setup(&rig, c);
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, -30, 0);
+    CHECK(rig.content->node.x == 0, "starts at rest");
+    // No frame comes; within a frame's time the animator's timer moves it.
+    clock_now += 10;
+    wl_event_loop_dispatch(rig.loop, 50);
+    CHECK(rig.content->node.x < 0, "on its way by itself: %d", rig.content->node.x);
+    for (int i = 0; i < 4; ++i) {
+        clock_now += 10;
+        wl_event_loop_dispatch(rig.loop, 50);
+    }
+    CHECK(rig.content->node.x < -20, "on its way out: %d", rig.content->node.x);
+    // Something starting meanwhile runs, rather than being landed as late.
+    struct wlr_scene_tree *other = wlr_scene_tree_create(&rig.scene->tree);
+    float color[4] = {1, 1, 1, 1};
+    wlr_scene_rect_create(other, 50, 50, color);
+    struct sh_anim opening = {0};
+    sh_anim_open(rig.animator, &opening, other, 25, 25);
+    clock_now += 10;
+    wl_event_loop_dispatch(rig.loop, 50);
+    CHECK(sh_animator_running(rig.animator) == 2 && opening.animator, "the new one runs");
+    // On to the end by the timer alone.
+    for (int i = 0; i < 40 && sh_animator_running(rig.animator); ++i) {
+        clock_now += 10;
+        wl_event_loop_dispatch(rig.loop, 50);
+    }
+    CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 0, "done: %d",
+          rig.content->node.x);
+    sh_anim_finish(&opening);
+    teardown(&rig);
+}
+
 int main(void) {
     test_glide_reaches_rest();
     test_retarget_is_continuous();
@@ -661,6 +700,7 @@ int main(void) {
     test_hold_copy();
     test_spring_back();
     test_nudge();
+    test_ticks_by_itself();
     test_finish_all();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
