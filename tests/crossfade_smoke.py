@@ -272,4 +272,22 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     desktop.stays(lambda: same(shot(desktop), before), "the turned picture held")
     desktop.msg("profile_drawn", "blue")
     desktop.wait_for(lambda: near(shot(desktop).at(640, 700), BLUE), "the blue background")
+
+# The idle dimming lies over the picture as over everything, and is no part of it: the picture of
+# a dimmed monitor is no darker than it showed.
+DIMMING = CONFIG.replace("idle = {{ display_off = 0 }}", "idle = {{ dim = 1, display_off = 0 }}")
+with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2",
+                                                      "PAW_TEST_CROSSFADE_HOLD_MS": "3000"}) as desktop:
+    desktop.env["XDG_STATE_HOME"] = str(desktop.root / "state")
+    desktop.start(DIMMING.format(animations="true", first=""))
+    desktop.msg("headless_output", "add", "HEADLESS-3", "1280x720")
+    desktop.wait_for(lambda: desktop.rows("idle")[0][4] == "500", "the screens dimmed",
+                     detail=lambda: f"{desktop.rows('idle')}")
+    before = shot(desktop)
+    assert all(c < 0x70 for c in before.at(640, 360)), before.at(640, 360)
+    shell = desktop.subscribe(shell=True)
+    desktop.msg("profile", "blue")
+    assert pictures(desktop)["HEADLESS-1"][0] == "held", pictures(desktop)
+    desktop.stays(lambda: same(shot(desktop), before), "the dimmed picture held as it showed",
+                  detail=lambda: f"{shot(desktop).at(640, 360)} for {before.at(640, 360)}")
 print("crossfade passed")
