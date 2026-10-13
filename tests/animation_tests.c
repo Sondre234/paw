@@ -682,6 +682,22 @@ static void test_ticks_by_itself(void) {
     teardown(&rig);
 }
 
+/* What an animation does to a window's opacity now: a hold's, a running fade's, else nothing. */
+static void test_alpha(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    CHECK(sh_anim_alpha(&rig.anim) == 1, "at rest");
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -20, 0, 0.6F);
+    CHECK(fabsf(sh_anim_alpha(&rig.anim) - 0.6F) < 1e-6F, "held: %f", sh_anim_alpha(&rig.anim));
+    sh_anim_spring_back(rig.animator, &rig.anim, rig.content, -20, 0, 0, 0, 0.6F);
+    CHECK(fabsf(sh_anim_alpha(&rig.anim) - 0.6F) < 1e-6F, "let go: %f", sh_anim_alpha(&rig.anim));
+    clock_now += 50; // half way, without a frame
+    CHECK(fabsf(sh_anim_alpha(&rig.anim) - 0.8F) < 1e-3F, "half way: %f", sh_anim_alpha(&rig.anim));
+    advance(&rig, 60);
+    CHECK(sh_anim_alpha(&rig.anim) == 1, "done");
+    teardown(&rig);
+}
+
 int main(void) {
     test_glide_reaches_rest();
     test_retarget_is_continuous();
@@ -701,6 +717,7 @@ int main(void) {
     test_spring_back();
     test_nudge();
     test_ticks_by_itself();
+    test_alpha();
     test_finish_all();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
