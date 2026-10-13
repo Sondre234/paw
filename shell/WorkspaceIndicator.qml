@@ -67,6 +67,8 @@ Item {
                      : label ? Math.max(narrowest, workspaceText.implicitWidth + 2 * Theme.spacingM) : narrowest
                 height: Theme.barVertical ? narrowest : Theme.barButtonHeight - Theme.spacingS
                 onClicked: { workspaceIndicator.panel.closeMenus(); workspaceIndicator.show(number) }
+                // Resting on it shows its card, whatever the platform thinks of hover.
+                hoverEnabled: true
                 onHoveredChanged: workspaceIndicator.panel.hoverWorkspace(workspaceButton, hovered)
                 onPressedChanged: if (pressed) workspaceIndicator.panel.closeWorkspaceCard()
                 Accessible.name: "Workspace " + number + (label ? " " + label : "") + (urgent ? " (needs attention)" : "")
