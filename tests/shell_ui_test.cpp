@@ -233,6 +233,8 @@ int main(int argc, char **argv) {
     // Long Lua strings preserve paths without shell interpolation. The widgets Quick Settings
     // holds by default are on the bar, where most of this test uses them.
     const QString barWidgets = "widgets={network='bar',battery='bar',volume='bar',tiling='bar',profiles='bar'},";
+    // The taskbar stays while the output tiles, but where the tiling bar is tested.
+    const QString keepTaskbar = "tiling_bar=false,";
     // The shell's animations run at ten times their speed, the most the setting allows; what a
     // test watches on its way it watches in slow motion (slowMotion).
     const qreal fastSpeed = 10;
@@ -242,7 +244,7 @@ int main(int argc, char **argv) {
     const auto lua = QString("return {" + fastMotion + ",layout={workspace_names={'web','','','mail'}},"
                              "power={countdown=2},"
                              "profile='dark',profiles={dark={},light={shell={accent='#336699'}}},"
-                             "shell={wallpaper='walls/a/one.png'," + quickPictures + "," + barWidgets + "wallpapers=[[%3]],"
+                             "shell={wallpaper='walls/a/one.png'," + quickPictures + "," + barWidgets + keepTaskbar + "wallpapers=[[%3]],"
                              "search={directories={[[%4]]}},"
                              "launchers={{name='Test app',command={[[%1]],'-E','touch',[[%2]]}}}}}")
                          .arg(QString::fromLocal8Bit(argv[1]), marker, walls, files);
@@ -253,12 +255,14 @@ int main(int argc, char **argv) {
     // screen's, as if another monitor had focus, so the panel must show its own.
     const auto output = app.primaryScreen()->name();
     QString urgentLines; // what a state says about windows asking for attention
-    auto state = [&output, &urgentLines](bool tiling, int workspace) {
-        return (QString("tiling %1\nworkspace %2\noutput %3 %2 1,2 %4\n")
+    QString tileLayout = "dwindle"; // the output's tiling layout, which layout_next steps
+    auto state = [&output, &urgentLines, &tileLayout](bool tiling, int workspace) {
+        return (QString("tiling %1\nworkspace %2\noutput %3 %2 1,2 %4\nlayout %3 %5\n")
                     .arg(tiling ? "off" : "on")
                     .arg(workspace)
                     .arg(output)
-                    .arg(tiling ? "on" : "off") +
+                    .arg(tiling ? "on" : "off")
+                    .arg(tileLayout) +
                 urgentLines)
             .toUtf8();
     };
@@ -289,6 +293,12 @@ int main(int argc, char **argv) {
                 client->write("ok\n" + state(false, 2));
             } else if (request == "output " + output.toUtf8() + " toggle_tiling\n") {
                 toggled = !toggled;
+                client->write("ok\n");
+                client->disconnectFromServer();
+                subscriber->write(state(toggled, currentWorkspace));
+            } else if (request == "output " + output.toUtf8() + " layout_next\n") {
+                requests.push_back(QString::fromUtf8(request).trimmed());
+                tileLayout = tileLayout == "dwindle" ? "master" : "dwindle";
                 client->write("ok\n");
                 client->disconnectFromServer();
                 subscriber->write(state(toggled, currentWorkspace));
