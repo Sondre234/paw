@@ -158,9 +158,12 @@ static void edge() {
     NEAR(step.alpha, 1, 1e-12);
     NEAR(step.rate, 102.4 / 4, 1e-9);
     CHECK(sh_swipe_past_end(50, 102.4, 1280).offset < 102.4);
-    // A long slide, a whole width a step: never past a tenth of the width.
+    // A long slide, a whole width a step: never past a tenth of the width, and a step's pull
+    // gives half of that rather than nearly all, starting as a slide of a tenth would.
     sh_swipe_edge wide = sh_swipe_past_end(1, 1280, 1280);
-    NEAR(wide.offset, 1280 * 128.0 / (1280 + 128), 1e-9);
+    NEAR(wide.offset, 64, 1e-9);
+    NEAR(wide.rate, 128.0 / 4, 1e-9);
+    NEAR(sh_swipe_past_end(0.001, 1280, 1280).rate, 128, 0.3);
     CHECK(sh_swipe_past_end(1000, 1280, 1280).offset < 128);
     // A nudge is a small share of the width: 2 % with the default slide.
     NEAR(sh_swipe_past_end(SH_SWIPE_NUDGE, 0.08 * 1920, 1920).offset / 1920, 0.02, 1e-9);
