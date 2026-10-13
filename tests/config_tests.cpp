@@ -866,6 +866,12 @@ int main(int argc, char **argv) {
                         riced.center.empty() &&
                         riced.right == std::vector<std::string>{"clock", "tray"},
                     "shell.tiling_bar not parsed");
+            // What follows the table, in the shell and after it, is read as before.
+            auto after = paw::parse_config(
+                "return {shell={tiling_bar={height=30},accent='#123456'},layout={gap=3,tiling=true}}");
+            require(after.shell.tiling_bar.height == 30 && after.shell.accent == "#123456" &&
+                        after.settings.gap_inner == 3 && after.settings.tiling,
+                    "the settings read after shell.tiling_bar were lost");
             // Along the bottom, the default margins turn over; one number goes all round.
             auto low = paw::parse_config("return {shell={tiling_bar={position='bottom'}}}").shell.tiling_bar;
             require(low.margin[0] == 0 && low.margin[2] == 6 && low.margin[1] == 8,

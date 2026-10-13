@@ -495,6 +495,7 @@ void read_tiling_bar(lua_State *L, TilingBar &bar) {
                 seen.push_back(module);
             }
     }
+    lua_pop(L, 1);
 }
 void read_shell(lua_State *L, ShellConfig &shell) {
     Section section(L, "shell");
