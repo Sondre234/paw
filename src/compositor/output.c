@@ -17,10 +17,6 @@ static void output_frame(struct wl_listener *listener, void *data) {
     uint64_t started = now_ns();
 
     sh_animator_tick(output->server->animator);
-    // Frames come as the scene changes, and a slow glide may not move a whole pixel in one: ask
-    // for the next frame while anything runs, so that it neither stalls nor lands late.
-    if (sh_animator_running(output->server->animator))
-        wlr_output_schedule_frame(output->wlr_output);
     overview_touch(output->server, false); // windows that move or fade move their thumbnails
     // Whatever moved a window against an edge of the usable area or away from it drew a frame
     // here; the shell hears of it with the state (describe_state).
