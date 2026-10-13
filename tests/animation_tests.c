@@ -735,6 +735,28 @@ static void test_tween_redraws_under_a_fold(void) {
     teardown(&rig);
 }
 
+/* Landing what runs on a window lands its glide and fade, but lets a fold go on. */
+static void test_land_keeps_a_fold(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    struct sh_fold fold = button_fold(NULL, NULL);
+    sh_anim_glide(rig.animator, &rig.anim, rig.content, 300, 0);
+    sh_anim_unfold(rig.animator, &rig.anim, rig.content, &fold, 1);
+    advance(&rig, 50);
+    sh_anim_land(&rig.anim);
+    CHECK(rig.content->node.x == 0 && folded_at(rig.rect, 0, 0, 0.5) &&
+              sh_animator_running(rig.animator) == 1,
+          "the glide landed, the fold half way still: %d %d", rig.content->node.x, rig.rect->width);
+    advance(&rig, 51);
+    CHECK(rig.rect->width == 200 && sh_animator_running(rig.animator) == 0, "the fold ends at rest");
+    sh_anim_open(rig.animator, &rig.anim, rig.content, 100, 50);
+    sh_anim_land(&rig.anim);
+    CHECK(rig.rect->width == 200 && fabsf(rig.rect->color[3] - 1) < 1e-6F &&
+              sh_animator_running(rig.animator) == 0,
+          "an opening lands at once");
+    teardown(&rig);
+}
+
 int main(void) {
     test_glide_reaches_rest();
     test_retarget_is_continuous();
@@ -755,6 +777,7 @@ int main(void) {
     test_fold_away();
     test_unfold();
     test_tween_redraws_under_a_fold();
+    test_land_keeps_a_fold();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
     return failures ? 1 : 0;
