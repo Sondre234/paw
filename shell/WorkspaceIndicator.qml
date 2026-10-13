@@ -19,6 +19,12 @@ Item {
         if (number >= 1 && number <= shell.workspaceCount && number !== workspaceState.current)
             shell.showWorkspace(workspaceIndicator.panel.outputName, number)
     }
+    // A step past the last workspace (`way` 1) or the first (-1): the compositor nudges the
+    // windows toward the one that is not there and back, and the pill bumps that way with them.
+    function nudge(way) {
+        shell.nudgeWorkspace(workspaceIndicator.panel.outputName, way)
+        pill.bump(way)
+    }
     visible: shell.workspaceCount > 1 && shell.widgets.workspaces
     implicitWidth: buttons.implicitWidth; implicitHeight: buttons.implicitHeight
     Layout.alignment: Qt.AlignCenter
@@ -40,6 +46,24 @@ Item {
         Behavior on y { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
         Behavior on width { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
         Behavior on height { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
+        // Bumped along the bar by nudge(): out quickly, then back, as the windows are. Bumped again
+        // on its way out the same way, it goes on as it is.
+        property real bumped: 0
+        function bump(way) {
+            if (bumpOut.running && Math.sign(bumpOut.to) === way)
+                return
+            bumpOut.to = way * Theme.spacingXS * 1.5
+            bumping.restart()
+        }
+        transform: Translate {
+            x: Theme.barVertical ? 0 : pill.bumped
+            y: Theme.barVertical ? pill.bumped : 0
+        }
+        SequentialAnimation {
+            id: bumping
+            NumberAnimation { id: bumpOut; target: pill; property: "bumped"; duration: Theme.duration(80); easing.type: Easing.OutQuad }
+            NumberAnimation { target: pill; property: "bumped"; to: 0; duration: Theme.duration(160); easing.type: Easing.InOutQuad }
+        }
     }
     // In a row, or a column along a side.
     Grid {

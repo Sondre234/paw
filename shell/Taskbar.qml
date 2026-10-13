@@ -115,11 +115,16 @@ Item {
         }
         // Scrolling the bar anywhere its widgets leave the wheel alone pages through this
         // output's workspaces: a wheel notch (or a touchpad's worth of travel) moves one,
-        // stopping at either end; down or right goes to the next.
+        // stopping at either end, where the windows nudge toward the workspace that is not there;
+        // down or right goes to the next.
         NotchWheel {
             onNotched: (steps) => {
-                var target = workspaceIndicator.workspaceState.current - steps
-                workspaceIndicator.show(Math.max(1, Math.min(shell.workspaceCount, target)))
+                var current = workspaceIndicator.workspaceState.current
+                var target = Math.max(1, Math.min(shell.workspaceCount, current - steps))
+                if (target === current)
+                    workspaceIndicator.nudge(steps < 0 ? 1 : -1)
+                else
+                    workspaceIndicator.show(target)
             }
         }
         // A row, or along a side a column as wide as a button (the bar but a small margin either
