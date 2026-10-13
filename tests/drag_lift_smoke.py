@@ -148,6 +148,20 @@ with harness.Compositor(compositor, config(animations="enabled = false", shadow=
     desktop.wait_for(lambda: not lift(), "W down at once")
     assert shadow("W") == (0, 0, ww + 7, wh + 7), shadow("W")
 
+# A translucent window keeps its cast shadow as it rests while lifted: stretched, its cut-out would
+# show through the window's edge.
+with harness.Compositor(compositor, config().replace('round = "always",',
+                                                     'round = "always", opacity = 0.8,'),
+                        env={"WLR_HEADLESS_OUTPUTS": "1"}) as desktop:
+    windows, lift, shadow, pointer, press, release = session(desktop)
+    desktop.open_window(probe, "W", env={"PAW_PROBE_MOVE": "1"})
+    rest = shadow("W")
+    px, py = press("W")
+    pointer("move", str(px + 30), str(py + 30))
+    desktop.wait_for(lambda: lift().get("W", (0,))[0] == 1000, "W lifted")
+    assert shadow("W") == rest, (shadow("W"), rest)
+    release()
+
 # windows.lift = false, and shadows off: a window moved is lifted without its shadow, or not.
 for setting, expected in (("true", True), ("false", False)):
     with harness.Compositor(compositor, config(shadow="enabled = false", lift=setting),
