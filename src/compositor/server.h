@@ -23,6 +23,7 @@
 #include "paw/swipe.h"
 #include "paw/dynamic_rule.h"
 #include "paw/border.h"
+#include "paw/dropdown.h"
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -452,7 +453,8 @@ struct sh_server {
     /* Snapping a dragged window at the edges of its output (snap.c): the zone the pointer is
      * in (the arrangement a drop gives, SH_NONE for none) and its slot, the window's floating
      * box as the drag began, and the preview of the slot, which eases between places in `tween`
-     * (x, y, width, height, opacity), drawn now as `drawn`, with corners of `radius`. */
+     * (x, y, width, height, opacity), drawn now as `drawn`, with corners of `radius`; `landing`
+     * while it fades out under the window dropped into it. */
     struct {
         enum sh_action zone;
         struct sh_rect slot;
@@ -462,6 +464,7 @@ struct sh_server {
         struct sh_tween tween;
         float drawn[SH_TWEEN_VALUES];
         int radius;
+        bool landing;
     } snap;
     /* Lifting a window moved with the pointer (lift.c): where the move was pressed, whether the
      * window has been lifted since, and whether it is up (else set down onto an edge its magnet
@@ -791,6 +794,26 @@ struct sh_opacity_rule {
     float value;
 };
 
+/* A scratchpad window sliding in or out (scratchpad.c): which way, where it is cut, where the
+ * window was as it started (turning back needs it there still), and the border's rounded rect,
+ * which no clip reaches: its place and size as frame.c lays it out and as the cut leaves it. */
+struct sh_drop {
+    bool running, out;
+    struct sh_drop_plan plan;
+    int place_x, place_y;
+    bool ring;
+    struct wlr_box ring_rest, ring_set;
+};
+
+/* The clips frame.c gives a window's trees (window_clip), kept so that a drop's cut can be laid
+ * over them. */
+enum sh_clip_tree { SH_CLIP_CONTENT, SH_CLIP_SHADOW, SH_CLIP_GRADIENT, SH_CLIP_TREES };
+struct sh_clip_wish {
+    bool set; // else no clip
+    struct wlr_box box;
+    int radius;
+};
+
 struct sh_toplevel {
     struct sh_node node;
     enum sh_action arrangement;
@@ -874,10 +897,18 @@ struct sh_toplevel {
     bool x_hint_urgent; // the client's WM_HINTS ask for attention
 #endif
     /* scene_tree sits at the window's place; content holds everything drawn for it, so an
-     * animation can move, scale, and fade it without changing where the window is. */
-    struct wlr_scene_tree *scene_tree, *content;
+     * animation can move, scale, and fade it without changing where the window is. surfaces,
+     * in content, holds the client's surfaces, which a change of size stretches (morph.c);
+     * morph_serial is the configure whose answer that waits for (0 for none). */
+    struct wlr_scene_tree *scene_tree, *content, *surfaces;
+    uint32_t morph_serial;
     struct sh_anim anim;
+    struct sh_drop drop;                      // the scratchpad's slide in and out
+    struct sh_clip_wish clips[SH_CLIP_TREES]; // content's, the shadow's and the gradient's
+    struct sh_clip_wish content_clip; // content's as last drawn, cut or not, for get scratchpad
     struct sh_tween fade; // opacity and border color following focus
+    struct sh_tween frame_fade; // how much of its frame shows (frame.c's frame_shown)
+    bool own_shadow, own_shadow_read; // whether it draws its own shadow, as the frame takes it
     bool shown; // has opened (and started its opening animation) since it last mapped
     struct wlr_scene_buffer *deco;    // window controls; NULL when the client decorates itself
     struct wlr_scene_rect *border[4]; // top, bottom, left, right; NULL without a border
@@ -1130,8 +1161,6 @@ bool in_deco_corner(struct sh_toplevel *toplevel, double x, double y);
 void refresh_decoration(struct sh_toplevel *toplevel);
 void refresh_tabs(struct sh_toplevel *toplevel);
 void refresh_frame(struct sh_toplevel *toplevel);
-void window_clip(struct sh_toplevel *toplevel, struct wlr_scene_tree *tree,
-                 const struct wlr_box *box, int radius);
 void forget_decoration(struct sh_toplevel *toplevel);
 void server_new_decoration(struct wl_listener *listener, void *data);
 
@@ -1162,6 +1191,8 @@ void tile_drop_finish(struct sh_server *server);
 void lift_press(struct sh_server *server);
 void lift_follow(struct sh_server *server, bool held);
 void lift_drop(struct sh_server *server);
+struct wlr_box lift_box(struct sh_toplevel *toplevel, struct wlr_scene_tree *tree,
+                        struct wlr_box box);
 
 /* gradient_border.c */
 bool gradient_borders(struct sh_server *server);
@@ -1267,6 +1298,13 @@ bool refresh_mirrors(struct sh_server *server);
 void mirrors_follow_power(struct sh_output *source, bool on);
 void mirror_frame(struct sh_output *output);
 bool mirror_capture(struct sh_output *output, const char *path, char *error, size_t error_size);
+
+/* morph.c */
+struct wlr_box morph_from(struct sh_toplevel *toplevel);
+void toplevel_morph(struct sh_toplevel *toplevel, struct wlr_box from, enum sh_anim_kind kind);
+void morph_commit(struct sh_toplevel *toplevel);
+struct wlr_box frame_geometry(struct sh_toplevel *toplevel);
+const char *morph_state(struct sh_toplevel *toplevel);
 
 /* output.c */
 struct sh_output *next_connected(struct sh_server *server, struct sh_output *output);
@@ -1400,7 +1438,11 @@ bool scratchpad_enabled(struct sh_server *server);
 void center_scratchpad(struct sh_toplevel *toplevel, struct wlr_output *output);
 void hide_in_scratchpad(struct sh_toplevel *toplevel);
 void scratchpad_show(struct sh_server *server);
+void scratchpad_drop_in(struct sh_toplevel *toplevel);
 void empty_scratchpad(struct sh_server *server);
+void window_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which, const struct wlr_box *box,
+                 int radius);
+void drop_refresh(struct sh_toplevel *toplevel);
 
 /* session.c */
 bool make_directories(char *path);

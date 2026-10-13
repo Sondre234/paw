@@ -37,7 +37,7 @@ static bool corner_accepts_input(struct wlr_scene_buffer *buffer, double *sx, do
 void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, int radius,
                              double mix, float opacity) {
     struct sh_server *server = toplevel->server;
-    struct wlr_box g = toplevel_geometry(toplevel);
+    struct wlr_box g = frame_geometry(toplevel);
     if (!on || border <= 0 || g.width < 1 || g.height < 1) {
         remove_gradient_border(toplevel);
         return;
@@ -67,7 +67,7 @@ void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, 
     // The window's rounded clip would take the border, which lies outside its geometry, so the
     // pieces get a clip of their own around the whole frame, as the shadow does; the corners
     // round themselves. It follows the window's lift whatever the pieces show.
-    window_clip(toplevel, toplevel->gradient,
+    window_clip(toplevel, SH_CLIP_GRADIENT,
                 &(struct wlr_box){-border, -border, g.width + 2 * border, g.height + 2 * border},
                 0);
 #endif

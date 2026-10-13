@@ -21,7 +21,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | Where | Language | What |
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -62,6 +62,7 @@ all. In short:
 | `frame.c` | Borders, opacity, rounded corners, window controls, shadows, tab strips. |
 | `gradient_border.c` | Borders in gradients: the pieces `src/border.c` paints, a strip along each side the scene stretches and a square at each corner, in place of the border's rects. |
 | `placement.c` | Snapping, maximizing, reflowing, moving and resizing by keyboard. |
+| `morph.c` | A window gliding to a new place and size together (maximized, snapped, restored, made fullscreen, moved or resized by keyboard), its client's commits meanwhile, and the size its frame is drawn at. |
 | `tiling.c` | Glue between windows and the layouts in `src/tiling.cpp`. |
 | `workspace.c` | Workspaces per output, sticky windows. |
 | `output.c`, `output_moves.c` | Monitors and their configuration; windows and workspaces moving between outputs. |
@@ -311,17 +312,20 @@ as a glide does, keeping its velocity as it turns), the scale and the point it g
 its bounds, the window's geometry. Every walk of its nodes, the opening animation's and a
 gesture's hold too, draws them through the lift on top: what is inside the bounds scaled to the
 bounds drawn larger, their edges on whole pixels, and what is outside (the border's hollow rect,
-the shadow's slices, a client's own frame) moved with the nearest edge at its own size, so that a
-border meets the window to the pixel. A lifted window sits in the animator's `lifted` list, whose
-lifts every frame draws again (a client's commit puts its nodes back) apart from the running
-animations: neither the timer nor a late frame touches one that is up, and it costs nothing while
-nothing is drawn. Lookups put it at rest as they do running animations. Its `update`, on each
-frame it moves, is `refresh_frame`, which draws the shadow as `sh_shadow_lift` (`src/shadow.c`)
-says: a cast shadow's slices stretched away from the window (`sh_shadow_slices_scaled`, the
-image's cut-out a pixel under the window, where sampling between pixels would otherwise show a
-light seam), a printed one's image painted further off in whole pixels; and `window_clip` lays the
-rounded clips of the window, its shadow and its gradient border over the box drawn, since wlroots'
-clips take no part in the scaling.
+the shadow's slices, a client's own frame) moved with the nearest edge at its own size, so that
+a border meets the window to the pixel. A lifted window sits in the animator's `lifted` list,
+whose lifts every frame draws again (a client's commit puts its nodes back) apart from the
+running animations: neither the timer nor a late frame touches one that is up, and it costs
+nothing while nothing is drawn. Lookups put it at rest as they do running animations. Its
+`update`, on each frame it moves, is `refresh_frame`, which draws the shadow as `sh_shadow_lift`
+(`src/shadow.c`) says: a cast shadow's slices stretched away from the window
+(`sh_shadow_slices_scaled`, the image's cut-out a pixel under the window, where sampling between
+pixels would otherwise show a light seam), a printed one's image painted further off in whole
+pixels; and the rounded clips frame.c asks for through `window_clip`, the window's, its shadow's
+and its gradient border's, are laid over the box drawn (`lift_box`, from `apply_clip` in
+`scratchpad.c`, under a drop's cut), since wlroots' clips take no part in the scaling. The
+lift's bounds are the size a change of size draws the window at (`frame_geometry`), so that a
+lift draws on top of a morph's stretch.
 
 A tile moved with the pointer stays a leaf of its tree (`tile_drop_lift` takes it out of the
 tiling but for that), which `place_tiled` passes over (`tile_drop_place`, noting its rect for the
@@ -333,6 +337,93 @@ only as a place opens. `tile_drop_release` makes the move at once as the window 
 takes it out of a tiling the drop does not put it in, before `finish_grab` tiles it
 (`tile_toplevel_at` finds it in the tree already) or snaps it; `tile_drop_end`, from
 `reset_cursor_mode`, takes a window still holding a place out of its tiling.
+
+### Changing size
+
+A window placed again at another size (`place_toplevel`, `restore_toplevel`, `unarrange_in_place`,
+the keyboard's moves and resizes, a drag off a snap, floating a tile, fullscreen) glides there
+with `toplevel_morph` (`morph.c`): its caller notes `morph_from` (where the window is drawn and
+at what size) before it configures the window, and the morph starts from there with
+`sh_anim_morph` (`src/animation.c`), so that a placement made within another (a reflow as
+fullscreen ends) does not count the offset twice. That is the tiles' glide with a size along: the
+drawn size eases on the glide's time and curve, and a retarget carries its speed as the place's
+does, but for a glide begun in the same millisecond, which was never drawn. The client draws the
+new size only after the configure, so the animator stretches its surfaces (`sh_toplevel.surfaces`,
+the scene's tree of them in `content`) from the size they were drawn for to the size drawn, about
+the window's corner, setting each stretched buffer's opaque region aside meanwhile (the scene takes
+it unscaled), and leaves the rest of `content`, the frame, to `refresh_frame`, which the morph
+calls as the drawn size changes and draws around `frame_geometry`, the geometry at that size.
+
+The window's commit listener runs before the scene's on the window's own surface (an X11 window
+has one from its map for this) and calls `morph_commit`: a new size makes a flattened copy of the
+surfaces as they were (`sh_thumb_clone`, without opaque regions) just over them, which fades out
+over the rest of the glide or half its time, unless one is fading already, and the surfaces go back
+to rest and lose their records, since what the client draws next can be the very size the
+animation drew. Subsurfaces in synchronized mode have taken their new buffers by then, before
+their parent's commit is heard, so the copy can pair the window's old buffer with their new ones.
+Each commit answering the configure (`morph_serial` acknowledged, or an X11 surface at its
+configured size) at a size other than the one given retargets the morph to it; one at the size the
+surfaces had when asked counts only once the wait is over, since a client may acknowledge first
+and draw the new size later. With no answer `MORPH_WAIT_MS` past the glide (the wait follows each
+retarget), the window eases to what the client last drew. A resize with the pointer lands the morph
+first. A lookup that could find the window, drawn or where it rests (`MORPH_REACH` around the size
+given or drawn by the client), rests the morph, its frame too, laid out for the size the client
+last drew, and hides the copy.
+
+`frame_shown` eases how much of the frame shows over a change into or out of being frameless
+(maximized on a monitor without tiling, or fullscreen), on the morph's kind, scaling the border's
+colour, the shadow's opacity and the corners' radius. Whether the window draws its own shadow
+(`frame_own_shadow`), which decides paw's shadow and corners for it, is read afresh only while it
+rests with a frame, so that a client-side frame dropping its shadow as the window is maximized does
+not turn paw's on and off on the way. Input and `get windows` use the final place at once;
+`get drawn` reports the drawn one.
+
+### The scratchpad's drop-down
+
+`scratchpad.c` slides a window shown from the scratchpad in from the edge of its monitor's usable
+area along the bar, and one hidden back out there. Where it goes is arithmetic in
+`src/dropdown.c` (`sh_drop_plan`, tested by `dropdown_tests`): the edge (the top where a bar
+reserves a strip along it, else the side with the widest strip, else the top), the offset at which
+its frame, its geometry and border, lies wholly past the cut, and the cut: the usable area's edge
+moved into the bar's strip as deep as the window's rounded corners reach, no deeper than the
+strip, so that the corners pass behind the bar while the sides come out straight.
+`sh_drop_swept` gives the part of the way past the monitor's own edge, where another monitor
+(`other_output_in`) would show the window: there it is cut at that edge, or, without clips,
+stops at it.
+
+The motion is `sh_anim_drop_in` and `sh_anim_drop_out` (`animation.c`) on the window's `content`,
+the tree the other animations move: a glide in twice `open`'s time with its curve, or out in one
+and a half times `close`'s with its curve played backwards (`SH_CURVE_REVERSED`, `curve.c`), and a
+linear fade over its first or last 40 %. A drop under way turns back from where it is drawn and
+as faded as it is, keeping a quarter of the speed a glide would carry (what the new curve lacks of
+the speed it had, held within twice the distance per duration). A window sliding out rests where
+it slides to (`base_x`, `base_y`) and is `absent`: `sh_animator_rest_at` hides it for lookups as it
+hides closing copies; any other animation that takes the tree over (`start`) brings it back,
+present for lookups, resting at 0, 0, its fade landed. Activating a window as it slides out turns
+it back in (`focus_toplevel_raise`), also while a peek shows it, and turning the scratchpad off
+lands its slide. `hide_in_scratchpad` minimizes the window at once, so focus and the taskbar
+move on, then shows its node again for the slide, offset to where it was drawn before it floated
+(a tile leaves from its tile). The animation's `track` callback, which the animator calls after
+each frame and once more as the animation stops or another takes the tree over, hides the node
+once it is out of sight and puts `content` back at 0, 0; it also asks the output for the next
+frame, since a window wholly past the cut damages nothing as it moves and would leave the
+animation waiting.
+
+The cut is drawn with the rounded-corners patch's `wlr_scene_tree_set_rounded_clip`, which only
+the GLES2 renderer honours (`can_clip`). Only the nearest clipped ancestor of a node applies to
+it, so the cut cannot be one clip around the window: every clip `frame.c` gives the window's trees
+(`content`'s rounded corners, and the shadow's and the gradient border's own) goes through
+`window_clip`, which keeps it in `sh_toplevel.clips` and, while a drop runs, takes off what lies
+past the cut, in the tree's coordinates as the animation draws it; `track` lays the clips again
+after each frame. A rounded rect shapes itself and no clip reaches it, so the border's hollow rect
+(`frame_hole`) is cut by its size instead (`cut_ring`, also after `refresh_frame` lays it out,
+through `drop_refresh`). What else the window draws (controls, tab strip, dim, surfaces) is below
+`content` and its clip. Where no bar is deep enough to hide the corners (the plan's `square`: a
+thin bar, or a monitor's edge with another monitor beyond), the window crossing the cut is clipped
+square and its border's rounded rect left out, rather than draw rounded corners and a line of
+border along the cut. `paw msg get scratchpad` lists each window's drop, offset, opacity and cut,
+the clip its content is drawn with and its radius, and the border's rounded rect, and
+`tests/scratchpad_drop_smoke.py` tests them.
 
 ### Monitors turned off
 
@@ -1101,6 +1192,9 @@ those headless outputs refuse a 10-bit render format, as a monitor without one d
 `bit_depth_smoke.py`), and `PAW_TEST_REFUSE_TEARING` refuses their asynchronous page flips
 (see `tearing_smoke.py`, whose windows ask for them with `PAW_PROBE_TEARING=async`);
 `PAW_TEST_HDR` makes outputs claim HDR in their EDID (see `hdr_smoke.py`).
+`PAW_TEST_DROP_CLIP` makes the scratchpad's drop-down cut windows on pixman as it does on GLES2,
+and `PAW_PROBE_PANEL=top` stands a `wayland_probe`'s panel along the top (see
+`scratchpad_drop_smoke.py`).
 `PAW_TEST_TRIAL_MS` shortens a display settings trial, and `PAW_TEST_REFUSE_MODE=WxH`
 and `PAW_TEST_REFUSE_COMMIT=WxH` make headless outputs refuse that size in the display
 settings' test, or in `configure_output`'s as if the commit failed (see

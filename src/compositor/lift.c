@@ -29,7 +29,7 @@ static double lift_scale(struct sh_toplevel *toplevel) {
 /* Lifts the grabbed window, or sets it down, about the point the pointer holds it by: of the
  * window where it is, whatever a glide still draws it on the way there. */
 static void lift_set(struct sh_server *server, struct sh_toplevel *toplevel, bool up) {
-    struct wlr_box geometry = toplevel_geometry(toplevel);
+    struct wlr_box geometry = frame_geometry(toplevel); // as drawn, while it changes size
     sh_anim_lift_bounds(&toplevel->anim, 0, 0, geometry.width, geometry.height);
     sh_anim_lift(server->animator, &toplevel->anim, toplevel->content, up, lift_scale(toplevel),
                  server->grab_x, server->grab_y, lift_changed, toplevel);
@@ -69,4 +69,20 @@ void lift_drop(struct sh_server *server) {
     if (toplevel && server->lift.started && toplevel->scene_tree)
         lift_set(server, toplevel, false);
     server->lift.started = server->lift.up = false;
+}
+
+/* Where the window's lift draws `box`, in the coordinates of `tree` (its content or a tree in
+ * it), its edges where the animator puts those of a node there: for the rounded clips, which take
+ * no part in the animations' scaling and would cut a lifted window short. As it is without a
+ * lift. */
+struct wlr_box lift_box(struct sh_toplevel *toplevel, struct wlr_scene_tree *tree,
+                        struct wlr_box box) {
+    if (!toplevel->anim.lifted || !toplevel->content)
+        return box;
+    int ox = 0, oy = 0; // the tree's place in the content, which the lift draws larger
+    for (struct wlr_scene_tree *t = tree; t && t != toplevel->content; t = t->node.parent)
+        ox += t->node.x, oy += t->node.y;
+    int lifted[4] = {ox + box.x, oy + box.y, box.width, box.height};
+    sh_anim_lift_box(&toplevel->anim, lifted);
+    return (struct wlr_box){lifted[0] - ox, lifted[1] - oy, lifted[2], lifted[3]};
 }

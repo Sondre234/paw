@@ -75,7 +75,8 @@ static enum sh_action snap_zone(struct sh_server *server, struct wlr_output **wh
 /* The preview: a translucent rectangle of the slot in windows.snap.color, outlined in the same
  * colour more opaque and rounded as a window there is, just under the dragged window. It eases
  * out of the window's frame into the slot as the pointer comes to an edge, from slot to slot as
- * it goes along, and fades out where it is as the pointer leaves; the drop hides it at once. */
+ * it goes along, and fades out where it is as the pointer leaves, or as the window dropped
+ * glides into the slot over it. */
 static bool preview_create(struct sh_server *server) {
     if (server->snap.preview)
         return true;
@@ -98,6 +99,7 @@ static bool preview_create(struct sh_server *server) {
 /* Out of sight, among the guides, until the next drag shows it. */
 static void preview_put_away(struct sh_server *server) {
     struct wlr_scene_node *node = &server->snap.preview->node;
+    server->snap.landing = false;
     wlr_scene_node_set_enabled(node, false);
     if (node->parent != server->guide_layer)
         wlr_scene_node_reparent(node, server->guide_layer);
@@ -174,6 +176,7 @@ static void preview_stack(struct sh_server *server) {
 static void preview_show(struct sh_server *server, struct sh_rect slot) {
     if (!preview_create(server))
         return;
+    server->snap.landing = false;
     if (!server->snap.preview->node.enabled && !server->snap.tween.animator) {
         int border = server_settings(server)->border_width;
         struct wlr_box box = toplevel_box(server->grabbed_toplevel);
@@ -240,10 +243,13 @@ void snap_follow(struct sh_server *server) {
     }
 }
 
-/* Forgets the zone and takes the preview away at once, as the drag ends. */
+/* Forgets the zone and takes the preview away at once, as the drag ends; one fading out under
+ * the window dropped into it fades on. */
 void snap_preview_hide(struct sh_server *server) {
     server->snap.zone = SH_NONE;
     server->snap.slot = (struct sh_rect){0};
+    if (server->snap.landing && server->snap.tween.animator)
+        return;
     sh_tween_stop(&server->snap.tween);
     memset(server->snap.drawn, 0, sizeof(server->snap.drawn));
     if (server->snap.preview)
@@ -257,6 +263,12 @@ bool snap_drop(struct sh_server *server) {
     struct sh_toplevel *toplevel = server->grabbed_toplevel;
     struct wlr_output *output;
     enum sh_action zone = snap_zone(server, &output);
+    // The window glides from where it is dropped into the slot (toplevel_morph), over the
+    // preview, which fades out under it meanwhile.
+    if (zone != SH_NONE && server->snap.preview && server->snap.preview->node.enabled) {
+        preview_fade(server);
+        server->snap.landing = server->snap.tween.animator != NULL;
+    }
     snap_preview_hide(server);
     if (zone == SH_NONE)
         return false;

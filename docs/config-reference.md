@@ -251,14 +251,14 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `animations.close` | table | - | - | A window going. Overrides the animation-wide settings. |
 | `animations.close.duration` | integer | `duration` | 0 to 1000 | Length in milliseconds; 0 turns this animation off. |
 | `animations.close.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
-| `animations.move` | table | - | - | A tile or window moving to a new place. Overrides the animation-wide settings. |
+| `animations.move` | table | - | - | A tile or window moving to a new place, and a window maximized, snapped, restored, resized or moved by the keyboard, or dropped into a snap, gliding to its new place and size together. Overrides the animation-wide settings. |
 | `animations.move.duration` | integer | `duration` | 0 to 1000 | Length in milliseconds; 0 turns this animation off. |
 | `animations.move.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
 | `animations.workspace` | table | - | - | The view sliding to another workspace. Overrides the animation-wide settings. |
 | `animations.workspace.duration` | integer | `duration` | 0 to 1000 | Length in milliseconds; 0 turns this animation off. |
 | `animations.workspace.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
 | `animations.workspace.distance` | number | 0.08 | 0 to 1 | How far windows slide when the workspace changes, as a share of the monitor's width; they fade as they go. 0 only fades. Large values slide over neighbouring monitors. |
-| `animations.fullscreen` | table | - | - | A window entering or leaving fullscreen. Overrides the animation-wide settings. |
+| `animations.fullscreen` | table | - | - | A window entering or leaving fullscreen, gliding to its new place and size. Overrides the animation-wide settings. |
 | `animations.fullscreen.duration` | integer | `duration` | 0 to 1000 | Length in milliseconds; 0 turns this animation off. |
 | `animations.fullscreen.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
 | `animations.focus` | table | - | - | Border and opacity changing with focus. Overrides the animation-wide settings. |
