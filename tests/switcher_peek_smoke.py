@@ -257,6 +257,43 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     msg("switcher_cancel")
     desktop.wait_for(lambda: fade() == (0, 0) and peeked() is None, "the others back")
 
+    # The same when the window was focused too: focus goes to the window selected in its place,
+    # and the peek still moves on to it.
+    launch("G")
+    order = open_switcher()
+    msg("switcher_peek")
+    while order[0] != "G":
+        msg("switcher")
+        order = order[1:] + order[:1]
+    desktop.wait_for(lambda: peeking("G") and windows()["G"].focused, "the focused G peeked at")
+    events.forget()
+    subprocess.run([probe, "--close", "app-G"], env=desktop.env, check=True, timeout=30,
+                   stdout=subprocess.DEVNULL)
+    assert desktop.reap(clients.pop("G")) == 0
+    desktop.wait_for(listed, "the list without G")
+    titles, selected = listed()
+    desktop.wait_for(lambda: windows()[titles[selected]].focused, "the selection focused")
+    desktop.wait_for(lambda: peeking(titles[selected]), f"{titles[selected]} peeked at")
+    msg("switcher_cancel")
+    desktop.wait_for(lambda: fade() == (0, 0) and peeked() is None, "the others back")
+
+    # Something else ending the peek, here the desktop peek, has the next selection rest again
+    # before it peeks.
+    order = open_switcher()
+    msg("switcher_peek")
+    desktop.wait_for(lambda: peeking(order[0]), f"{order[0]} peeked at")
+    msg("peek_toggle")
+    desktop.wait_for(lambda: fade() == (1000, 1) and peeked() is None, "the desktop peek")
+    msg("peek_toggle")
+    desktop.wait_for(lambda: fade() == (0, 0), "the desktop peek over")
+    rested = time.monotonic()
+    msg("switcher")
+    assert peeked() is None, "the peek came back at once"
+    desktop.wait_for(lambda: peeked() == order[1], f"{order[1]} peeked at")
+    assert time.monotonic() - rested >= REST - .01, "the peek came before the selection rested"
+    msg("switcher_cancel")
+    desktop.wait_for(lambda: fade() == (0, 0) and peeked() is None, "the others back")
+
     # A second monitor: the others fade on both, the switcher on the one with the focus, and a
     # window on the other peeks there.
     msg("headless_output", "add", "HEADLESS-2", "800x600")
