@@ -28,9 +28,13 @@ Item {
 
     readonly property var source: panel.taskSource
     readonly property bool listing: !!source && typeof source.workspaceLayout === "function"
+    // The list as the source has it now, which `layout` follows.
+    function current() {
+        return listing && number > 0 ? source.workspaceLayout(panel.outputName, number) : ({})
+    }
     readonly property var layout: {
         void (source ? source.workspaceRevision : 0)
-        return listing && number > 0 ? source.workspaceLayout(panel.outputName, number) : ({})
+        return current()
     }
     onLayoutChanged: sync()
 
@@ -74,8 +78,8 @@ Item {
     ListModel { id: windows }
     property bool settled: false
     function sync() {
-        // Read here rather than through `known`, which may not have followed the layout yet.
-        var list = layout.windows, wanted = {}, i, j
+        // Read here rather than through `layout`, which may not have followed the number yet.
+        var list = current().windows, wanted = {}, i, j
         if (list === undefined)
             return
         for (i = 0; i < list.length; ++i)
