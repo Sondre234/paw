@@ -383,9 +383,11 @@ findbar .findbar-textbox::selection {
 
 /* ================================================================ tabs: paper labels */
 
+/* no space above the tabs: they reach the window's top edge, so a click at the very top of
+   the screen still switches tabs */
 #TabsToolbar {
   padding-inline: 6px !important;
-  padding-top: 5px !important;
+  padding-top: 0 !important;
 }
 
 .tabbrowser-tab {
