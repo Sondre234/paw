@@ -279,6 +279,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/output_state.c)
     target_sources(paw PRIVATE src/dynamic_rule.c)
     target_sources(paw PRIVATE src/border.c)
+    target_sources(paw PRIVATE src/dropdown.c)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
     # version.h, for --version: the project version, and `git describe` in a git checkout.
