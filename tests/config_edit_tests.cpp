@@ -21,7 +21,8 @@ std::string set_position(const std::string &source, const std::string &value,
                          const std::string &chosen = "") {
     return paw::edit_setting(source, position, '"' + value + '"', [&](const std::string &text) {
         try {
-            return paw::parse_config(text, "config", {}, chosen).shell.panel_top == (value == "top");
+            return (paw::parse_config(text, "config", {}, chosen).shell.panel_edge ==
+                    paw::PanelEdge::Top) == (value == "top");
         } catch (const std::exception &) {
             return false;
         }
@@ -51,7 +52,7 @@ std::string read(const std::filesystem::path &path) {
 void write(const std::filesystem::path &path, const std::string &text) {
     std::ofstream(path, std::ios::binary | std::ios::trunc) << text;
 }
-bool on_top(const paw::Config &config) { return config.shell.panel_top; }
+bool on_top(const paw::Config &config) { return config.shell.panel_edge == paw::PanelEdge::Top; }
 } // namespace
 
 int main(int argc, char **argv) {
@@ -256,7 +257,7 @@ int main(int argc, char **argv) {
         write(config, profiles);
         paw::save_profile("sumi");
         paw::save_setting(config, position, "\"top\"", on_top);
-        require(read(config) == set_position(profiles, "top", "sumi") && paw::load_config(config).shell.panel_top,
+        require(read(config) == set_position(profiles, "top", "sumi") && on_top(paw::load_config(config)),
                 "save_setting did not edit the saved profile's setting");
         // A link's target is edited, keeping its permissions, and the link stays; no file is left
         // beside it.
