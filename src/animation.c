@@ -473,9 +473,15 @@ static void rest_anim(struct sh_anim *anim) {
         wlr_scene_node_set_position(&anim->tree->node, anim->base_x, anim->base_y);
     if ((anim->fx || anim->morph) && !anim->owned)
         walk(anim, anim->tree, 0, 0, true, NULL);
-    // A morph's copy is no window to point at.
+    // A morph's copy is no window to point at, and its frame (the window's controls) is where
+    // it will be: the next step draws it at the size drawn again.
     if (anim->fading)
         wlr_scene_node_set_enabled(&anim->fading->node, false);
+    if (anim->morph) {
+        anim->drawn_width = anim->drawn_height = -1;
+        if (anim->resized)
+            anim->resized(anim->resized_data);
+    }
     if (anim->held && !anim->owned)
         rest_hold(anim);
 }
