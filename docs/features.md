@@ -2607,8 +2607,8 @@ mainly for tests. `paw msg get minimize` prints where the taskbars show each win
 line per window and monitor (the window's number, the monitor, and x, y, width and height in the
 monitor's coordinates, the one that counts first), then a `fold` line per window on its way into
 or out of its button (its number, `minimize` or `restore`, how far into the button it is drawn in
-thousandths, the box in layout coordinates, and what that box is: `button`, `panel` or `place`),
-also mainly for tests. `paw msg get pictures` prints one line per capture source a client asked for to
+thousandths, the box in layout coordinates, what that box is: `button`, `panel` or `place`, and
+where the window's box is drawn now), also mainly for tests. `paw msg get pictures` prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
 window_peek` prints one line per window for a peek at one window (the taskbar's card's, the

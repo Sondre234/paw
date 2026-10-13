@@ -799,13 +799,11 @@ struct sh_toplevel {
     struct wl_listener foreign_activate, foreign_close, foreign_maximize, foreign_minimize;
     struct wl_listener foreign_fullscreen, foreign_rectangle;
     /* Where clients show the window on each output, its taskbar buttons, the last set first;
-     * a copy of it minimizing into one, while it runs; and where it last minimized into or
-     * restored out of, in layout coordinates, and what that was: "button", "panel" or "place"
-     * (minimize.c). */
+     * a copy of it minimizing into one, while it runs; and what it last minimized into and
+     * restored out of: "button", "panel" or "place" (minimize.c). */
     struct sh_window_rect *rects;
     struct sh_anim *minimizing;
-    struct wlr_box fold_into;
-    const char *fold_target;
+    const char *minimize_target, *restore_target;
     bool fullscreen;
     bool fullscreen_cover; // the client asked for fullscreen itself, so it covers the panels too
     struct wlr_box fullscreen_restore;

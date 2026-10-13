@@ -370,6 +370,7 @@ void minimize_animate(struct sh_toplevel *toplevel) {
     if (from >= 0) {
         into = (struct wlr_box){rest_x + restoring.into_x, rest_y + restoring.into_y,
                                 restoring.into_width, restoring.into_height};
+        toplevel->minimize_target = toplevel->restore_target;
     } else {
         from = 0;
         struct wlr_output *output = toplevel_output(toplevel);
@@ -378,9 +379,8 @@ void minimize_animate(struct sh_toplevel *toplevel) {
             return;
         }
         into = fold_target(toplevel, output, (struct wlr_box){x, y, g.width, g.height},
-                           &toplevel->fold_target);
+                           &toplevel->minimize_target);
     }
-    toplevel->fold_into = into;
     struct sh_fold fold = {0, 0, g.width, g.height, into.x - x, into.y - y,
                            into.width, into.height, copy_folded, made};
     sh_anim_fold_away(server->animator, copy, &fold, from, &toplevel->minimizing);
@@ -413,6 +413,7 @@ void restore_animate(struct sh_toplevel *toplevel) {
         minimizing.rest_height == g.height) {
         into = (struct wlr_box){copy_x + minimizing.into_x, copy_y + minimizing.into_y,
                                 minimizing.into_width, minimizing.into_height};
+        toplevel->restore_target = toplevel->minimize_target;
         sh_anim_finish(copy);
     } else {
         // Anywhere else, the copy goes on in, and the window comes out of its button.
@@ -421,9 +422,8 @@ void restore_animate(struct sh_toplevel *toplevel) {
         if (!output)
             return;
         into = fold_target(toplevel, output, (struct wlr_box){x, y, g.width, g.height},
-                           &toplevel->fold_target);
+                           &toplevel->restore_target);
     }
-    toplevel->fold_into = into;
     // From its place: a glide that would bring it from where it was minimized lands first.
     sh_anim_finish(&toplevel->anim);
     struct sh_fold fold = {0, 0, g.width, g.height, into.x - x, into.y - y,
@@ -439,10 +439,32 @@ void minimize_forget(struct sh_toplevel *toplevel) {
     forget_window_rects(toplevel);
 }
 
+/* A line of `get minimize` for a fold: the box it folds into and where it draws the window's box
+ * now, both in layout coordinates, from where the tree it folds is drawn. */
+static void describe_fold(int fd, struct sh_toplevel *toplevel, const struct sh_anim *anim,
+                          const char *kind, const char *target) {
+    struct sh_fold fold;
+    double at = sh_anim_folded(anim, &fold);
+    if (at < 0)
+        return;
+    int x, y;
+    wlr_scene_node_coords(&anim->tree->node, &x, &y);
+    int drawn_x = fold.rest_x, drawn_y = fold.rest_y, drawn_width = fold.rest_width,
+        drawn_height = fold.rest_height;
+    sh_anim_fold_map(anim, &drawn_x, &drawn_y, &drawn_width, &drawn_height, NULL);
+    char line[256];
+    snprintf(line, sizeof(line), "fold\t%u\t%s\t%ld\t%d\t%d\t%d\t%d\t%s\t%d\t%d\t%d\t%d\n",
+             toplevel->id, kind, lround(1000 * at), x + fold.into_x, y + fold.into_y,
+             fold.into_width, fold.into_height, target ? target : "-", x + drawn_x, y + drawn_y,
+             drawn_width, drawn_height);
+    control_reply(fd, line);
+}
+
 /* `get minimize`: "rect ID OUTPUT X Y WIDTH HEIGHT" for where clients show each window, the
  * one that counts first, in its output's coordinates; then "fold ID minimize|restore AT X Y
- * WIDTH HEIGHT TARGET" for each window on its way in or out: AT in thousandths of the way into
- * the box, the box in layout coordinates, TARGET "button", "panel" or "place". */
+ * WIDTH HEIGHT TARGET X Y WIDTH HEIGHT" for each window on its way in or out (a copy of it, or
+ * itself): AT in thousandths of the way into the box, the box in layout coordinates, TARGET
+ * "button", "panel" or "place", and where the window's box is drawn now. */
 void describe_minimize(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
@@ -457,18 +479,9 @@ void describe_minimize(struct sh_server *server, int fd, const char *arguments) 
         }
     }
     wl_list_for_each(toplevel, &server->toplevels, link) {
-        double minimizing = toplevel->minimizing ? sh_anim_folded(toplevel->minimizing, NULL) : -1;
-        double restoring = sh_anim_folded(&toplevel->anim, NULL);
-        struct wlr_box into = toplevel->fold_into;
-        for (int restore = 0; restore < 2; ++restore) {
-            double at = restore ? restoring : minimizing;
-            if (at < 0)
-                continue;
-            snprintf(line, sizeof(line), "fold\t%u\t%s\t%ld\t%d\t%d\t%d\t%d\t%s\n",
-                     toplevel->id, restore ? "restore" : "minimize", lround(1000 * at), into.x,
-                     into.y, into.width, into.height,
-                     toplevel->fold_target ? toplevel->fold_target : "-");
-            control_reply(fd, line);
-        }
+        if (toplevel->minimizing)
+            describe_fold(fd, toplevel, toplevel->minimizing, "minimize",
+                          toplevel->minimize_target);
+        describe_fold(fd, toplevel, &toplevel->anim, "restore", toplevel->restore_target);
     }
 }
