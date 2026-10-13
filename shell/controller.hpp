@@ -449,6 +449,9 @@ class ShellController : public QObject {
     // Toggles tiling on `output`, or on the focused output when it is empty.
     Q_INVOKABLE void toggleTiling(const QString &output = {});
     Q_INVOKABLE void showWorkspace(const QString &output, int number);
+    // A step past `output`'s last workspace (`way` 1) or its first (-1), which the compositor
+    // answers by nudging that output's windows that way and back; nothing without a compositor.
+    Q_INVOKABLE void nudgeWorkspace(const QString &output, int way);
   Q_SIGNALS:
     void configChanged();
     void barDragChanged();
