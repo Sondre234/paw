@@ -1366,8 +1366,9 @@ scroll layout loses its gaps and keeps its width.
   do when the move is cut short (switching workspace, locking), the window floating then where
   it is. In the master, spiral and monocle layouts the place opens at the end of the list, and
   dropping a tile where it was lifted from keeps its place there too. The scrolling layout keeps
-  no place: its tile leaves the strip as it is lifted, and a drop gives it a column at the end.
-  A window dropped on another monitor that tiles joins the tiling there even if snapping or
+  no place: its tile leaves the strip as it is lifted, and a drop gives it a column of its own,
+  at the end of the strip on its own monitor and right of the focused column on another. A
+  window dropped on another monitor that tiles joins the tiling there even if snapping or
   maximizing, or its old monitor not tiling, had floated it; one floated with Super + V stays
   floating. A tile dropped on a monitor that does not tile floats there.
 - Dialogs and fixed-size windows float. Super + V (`toggle_floating`) floats
