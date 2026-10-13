@@ -372,6 +372,12 @@ shadows.
   take no input and are no part of a window's size. `paw msg get frames` tells each
   window's controls, corners and shadow.
 - Windows no longer show thin seams between their parts while they scale open or closed.
+- The scratchpad drops down as a quake console does: a window shown slides in from behind the
+  bar (up from a bottom bar, down from the top without one), fading in and cut along the bar's
+  edge so it comes out from under it, and slides back out that way as it hides, speeding away;
+  shown or hidden again part way, it turns back from where it is drawn. Focus and the pointer
+  have it in its place at once. It takes the `open` and `close` animations' times and curves;
+  `paw msg get scratchpad` tells each window's drop.
 - Rounded corners are as smooth on the right of a wide monitor as on its left. On NVIDIA,
   wlroots' shaders run at 16-bit precision, which stair-stepped corners and borders more than
   1024 pixels from the monitor's left or top edge; the rounded-corners patch

@@ -70,10 +70,9 @@ void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, 
     // The window's rounded clip would take the border, which lies outside its geometry, so the
     // pieces get a clip of their own around the whole frame, as the shadow does; the corners
     // round themselves.
-    wlr_scene_tree_set_rounded_clip(toplevel->gradient,
-                                    &(struct wlr_box){-border, -border, g.width + 2 * border,
-                                                      g.height + 2 * border},
-                                    0);
+    window_clip(toplevel, SH_CLIP_GRADIENT,
+                &(struct wlr_box){-border, -border, g.width + 2 * border, g.height + 2 * border},
+                0);
 #endif
     struct sh_border_piece pieces[SH_BORDER_PIECES];
     sh_border_pieces(g.width, g.height, border, radius, scale, pieces);
