@@ -363,13 +363,17 @@ void minimize_animate(struct sh_toplevel *toplevel) {
     struct wlr_scene_tree *copy = copy_window(toplevel, &made);
     if (!copy)
         return;
-    int x, y, rest_x, rest_y;
+    int x, y;
     wlr_scene_node_coords(&copy->node, &x, &y);
-    wlr_scene_node_coords(&toplevel->scene_tree->node, &rest_x, &rest_y);
-    struct wlr_box g = toplevel_geometry(toplevel), into;
+    struct wlr_box g = toplevel_geometry(toplevel);
+    struct sh_fold fold = {0, 0, g.width, g.height, 0, 0, 0, 0, copy_folded, made};
     if (from >= 0) {
-        into = (struct wlr_box){rest_x + restoring.into_x, rest_y + restoring.into_y,
-                                restoring.into_width, restoring.into_height};
+        // On its way out: the copy, whose origin is where the window's is drawn, glide and all,
+        // goes back in the window's own way, drawn just as the window was.
+        fold.rest_x = restoring.rest_x, fold.rest_y = restoring.rest_y;
+        fold.rest_width = restoring.rest_width, fold.rest_height = restoring.rest_height;
+        fold.into_x = restoring.into_x, fold.into_y = restoring.into_y;
+        fold.into_width = restoring.into_width, fold.into_height = restoring.into_height;
         toplevel->minimize_target = toplevel->restore_target;
     } else {
         from = 0;
@@ -378,11 +382,12 @@ void minimize_animate(struct sh_toplevel *toplevel) {
             wlr_scene_node_destroy(&copy->node);
             return;
         }
-        into = fold_target(toplevel, output, (struct wlr_box){x, y, g.width, g.height},
-                           &toplevel->minimize_target);
+        struct wlr_box into = fold_target(toplevel, output,
+                                          (struct wlr_box){x, y, g.width, g.height},
+                                          &toplevel->minimize_target);
+        fold.into_x = into.x - x, fold.into_y = into.y - y;
+        fold.into_width = into.width, fold.into_height = into.height;
     }
-    struct sh_fold fold = {0, 0, g.width, g.height, into.x - x, into.y - y,
-                           into.width, into.height, copy_folded, made};
     sh_anim_fold_away(server->animator, copy, &fold, from, &toplevel->minimizing);
 }
 
