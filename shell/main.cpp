@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
                                                                         : QImage(),
                                         menuBar && menuBar->isVisible() ? menuBar->grabWindow()
                                                                         : QImage(),
-                                        controller.panelSurfaceTop(), controller);
+                                        controller);
                 if (previewData)
                     shot = previewData->withSurface(shot);
             }

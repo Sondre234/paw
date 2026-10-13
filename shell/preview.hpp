@@ -69,5 +69,4 @@ class PreviewData : public QObject {
 // the background colour), the bar along its edge, the menu bar of the macOS style along the top,
 // and the popover with its popups over them all, so that a translucent colour shows what it would
 // show there. `popover` is null while nothing is open, `menuBar` without a menu bar.
-QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, bool panelTop,
-                        ShellController &controller);
+QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, ShellController &controller);

@@ -424,8 +424,18 @@ PreviewData::~PreviewData() = default;
 QRect PreviewData::usableArea() const {
     const int panel = controller_.panelExtent();
     const int menuBar = panel_ ? panel_->property("menuBarHeight").toInt() : 0;
-    const bool top = controller_.panelSurfaceTop();
-    return QRect(QPoint(0, 0), ShellView::previewSize()).adjusted(0, top ? panel : menuBar, 0, top ? 0 : -panel);
+    const QRect output(QPoint(0, 0), ShellView::previewSize());
+    switch (controller_.panelSurfaceEdge()) {
+    case paw::PanelEdge::Top:
+        return output.adjusted(0, panel, 0, 0);
+    case paw::PanelEdge::Left:
+        return output.adjusted(panel, menuBar, 0, 0);
+    case paw::PanelEdge::Right:
+        return output.adjusted(0, menuBar, -panel, 0);
+    case paw::PanelEdge::Bottom:
+        break;
+    }
+    return output.adjusted(0, menuBar, 0, -panel);
 }
 
 void PreviewData::fill(QQuickItem *panel) {
@@ -809,13 +819,14 @@ QImage PreviewData::withSurface(QImage desktop) const {
     return desktop;
 }
 
-QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, bool panelTop,
-                        ShellController &controller) {
+QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, ShellController &controller) {
     panel.setDevicePixelRatio(1);
     popover.setDevicePixelRatio(1);
     menuBar.setDevicePixelRatio(1);
     // As large as the output a preview stands for, in the bar's pixels.
-    const QSize output = ShellView::previewSize() * (panel.width() / qreal(ShellView::previewSize().width()));
+    const QSize preview = ShellView::previewSize();
+    const QSize output = preview * (controller.panelVertical() ? panel.height() / qreal(preview.height())
+                                                               : panel.width() / qreal(preview.width()));
     QImage desktop(output, QImage::Format_ARGB32_Premultiplied);
     QPainter painter(&desktop);
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
@@ -846,12 +857,17 @@ QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, bool panel
         gradient.setColorAt(1, controller.background());
         painter.fillRect(desktop.rect(), gradient);
     }
-    painter.drawImage(0, panelTop ? 0 : desktop.height() - panel.height(), panel);
+    // An image along the panel's edge: the panel, and the popover, as the popups are placed by
+    // the bar, should a compositor have made the window smaller.
+    const auto edge = controller.panelSurfaceEdge();
+    const auto along = [&](const QImage &image) {
+        return QPoint(edge == paw::PanelEdge::Right ? desktop.width() - image.width() : 0,
+                      edge == paw::PanelEdge::Bottom ? desktop.height() - image.height() : 0);
+    };
+    painter.drawImage(along(panel), panel);
     if (!menuBar.isNull())
         painter.drawImage(0, 0, menuBar);
-    // Along the bar's edge, as the popups are placed by it, should a compositor have made the
-    // window smaller.
     if (!popover.isNull())
-        painter.drawImage(0, panelTop ? 0 : desktop.height() - popover.height(), popover);
+        painter.drawImage(along(popover), popover);
     return desktop;
 }
