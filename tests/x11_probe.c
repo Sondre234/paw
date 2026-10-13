@@ -12,7 +12,7 @@
 struct probe {
     xcb_connection_t *connection;
     xcb_window_t root, window;
-    xcb_atom_t protocols, delete_window, state, fullscreen, attention, hints, icon;
+    xcb_atom_t protocols, delete_window, state, fullscreen, attention, hints, icon, moveresize;
     int width, height;
     bool mapped, closed;
 };
@@ -148,6 +148,7 @@ int main(int argc, char **argv) {
     probe.attention = atom(probe.connection, "_NET_WM_STATE_DEMANDS_ATTENTION");
     probe.hints = atom(probe.connection, "WM_HINTS");
     probe.icon = atom(probe.connection, "_NET_WM_ICON");
+    probe.moveresize = atom(probe.connection, "_NET_WM_MOVERESIZE");
 
     probe.window = xcb_generate_id(probe.connection);
     uint32_t values[] = {screen->white_pixel, XCB_EVENT_MASK_STRUCTURE_NOTIFY};
@@ -211,12 +212,13 @@ int main(int argc, char **argv) {
 
     if (!strcmp(command, "commands")) {
         // Lines on standard input ask for attention the two ways X11 clients do: "demand" and
-        // "undemand" add and remove _NET_WM_STATE_DEMANDS_ATTENTION, "hint" and "unhint" set
-        // and clear the urgency flag of WM_HINTS. "icon SPEC" sets _NET_WM_ICON (see set_icon)
-        // and "unicon" deletes it. "grab" takes an active grab of the keyboard, as a virtual
-        // machine's window does, saying "grab taken" (or "grab refused"), after which the keys
-        // print as "key CODE pressed|released" (evdev's codes); "ungrab" ends it. Closing the
-        // window ends it.
+        // "undemand" add and remove _NET_WM_STATE_DEMANDS_ATTENTION, "hint" and "unhint" set and
+        // clear the urgency flag of WM_HINTS. "icon SPEC" sets _NET_WM_ICON (see set_icon) and
+        // "unicon" deletes it. "move" asks to be moved with the pointer (_NET_WM_MOVERESIZE), as a
+        // title bar the client draws itself does while a button is held. "grab" takes an active
+        // grab of the keyboard, as a virtual machine's window does, saying "grab taken" (or "grab
+        // refused"), after which the keys print as "key CODE pressed|released" (evdev's codes);
+        // "ungrab" ends it. Closing the window ends it.
         puts("waiting for commands");
         fflush(stdout);
         char pending[128];
@@ -264,6 +266,19 @@ int main(int argc, char **argv) {
                                         probe.hints, probe.hints, 32, 9, hints);
                 } else if (!strncmp(pending, "icon ", 5)) {
                     set_icon(&probe, pending + 5);
+                } else if (!strcmp(pending, "move")) {
+                    // Where the pointer is, _NET_WM_MOVERESIZE_MOVE (8), button 1, from an
+                    // application (1).
+                    xcb_client_message_event_t message = {
+                        .response_type = XCB_CLIENT_MESSAGE,
+                        .format = 32,
+                        .window = probe.window,
+                        .type = probe.moveresize,
+                        .data.data32 = {0, 0, 8, 1, 1}};
+                    xcb_send_event(probe.connection, false, probe.root,
+                                   XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY |
+                                       XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT,
+                                   (const char *)&message);
                 } else if (!strcmp(pending, "unicon")) {
                     xcb_delete_property(probe.connection, probe.window, probe.icon);
                 } else if (!strcmp(pending, "grab")) {
