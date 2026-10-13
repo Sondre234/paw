@@ -118,6 +118,42 @@ int main(int argc, char **argv) {
         wait([&] { return value(TaskModel::Minimized).toBool(); }, "show desktop failed");
         model.activate(id);
         wait([&] { return value(TaskModel::Active).toBool(); }, "second activation failed");
+        // The windows a workspace shows, through version 7: the probe's 320 by 240 window on
+        // the first, by its number, and none on the second; they follow it to another workspace
+        // while watched, and the last list stays once they are not. What the compositor lists is
+        // workspace_view_smoke's.
+        auto layout = [&](int number) { return model.workspaceLayout("HEADLESS-1", number); };
+        auto listed = [&](int number) { return layout(number).value("windows").toList(); };
+        if (!layout(1).isEmpty())
+            throw std::runtime_error("a workspace's windows are known before it was watched");
+        int revisions = 0;
+        QObject::connect(&model, &TaskModel::workspaceRevisionChanged, &model,
+                         [&] { ++revisions; });
+        model.watchWorkspace("HEADLESS-1", 1);
+        model.watchWorkspace("HEADLESS-1", 2);
+        model.watchWorkspace("HEADLESS-1", 2);
+        model.watchWorkspace("", 1); // no such output: nothing is asked
+        wait([&] { return listed(1).size() == 1 && !layout(2).isEmpty(); },
+             "the workspaces' windows did not arrive");
+        const QVariantMap window = listed(1).first().toMap();
+        if (layout(1).value("width").toInt() <= 0 || layout(1).value("height").toInt() <= 0 ||
+            window.value("windowId").toInt() != value(TaskModel::WindowId).toInt() ||
+            window.value("width").toInt() != 320 || window.value("height").toInt() != 240 ||
+            !listed(2).isEmpty() || revisions != 2 || model.workspaceRevision() < 2)
+            throw std::runtime_error("the workspaces' windows are not as the compositor has them");
+        model.moveToWorkspace(id, 2);
+        wait([&] { return listed(1).isEmpty() && listed(2).size() == 1; },
+             "the workspaces' windows did not follow the window to another workspace");
+        model.unwatchWorkspace("HEADLESS-1", 1);
+        model.unwatchWorkspace("HEADLESS-1", 2);
+        model.unwatchWorkspace("HEADLESS-1", 2);
+        model.unwatchWorkspace("HEADLESS-1", 2); // one more than it was watched
+        model.moveToWorkspace(id, 1);
+        wait([&] { return value(TaskModel::Workspace).toInt() == 1; }, "moving back failed");
+        if (listed(2).size() != 1 || listed(1).size() != 0)
+            throw std::runtime_error("a workspace no longer watched did not keep its windows");
+        model.activate(id);
+        wait([&] { return value(TaskModel::Active).toBool(); }, "activation after moving failed");
         // The model peeks at one window at a time, and says which; ending a peek at another
         // window, or at none, leaves it. What the compositor shows is window_peek_smoke's.
         int peekSignals = 0;
