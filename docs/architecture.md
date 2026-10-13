@@ -258,6 +258,15 @@ that neither pulling further nor coming back jumps. `tests/touchpad_gestures_smo
 of it with a headless pointer, at the event times it gives, and `tests/rubber_band_smoke.py` the
 rubber band.
 
+A step with nowhere to go, the panel's wheel past either end (`workspace_nudge` on the control
+socket, which `ShellController::nudgeWorkspace` sends) or `workspace_next` with a single
+workspace, nudges the output's windows (`workspace_nudge`, `workspace.c`) as far as the rubber band
+gives a third of a step past the end. `sh_anim_nudge` starts a glide with no offset of its own but
+a speed, which the glide's velocity term carries out to a turning point a third of the way through
+and back to rest, in twice the workspace slide's time; a window gliding already starts from where
+it is drawn and aims for the same turning point, and one on its way out that way goes on as it
+is, so that a quick wheel does not pile nudges up.
+
 ### Touchscreens
 
 `touch.c` hears the cursor's touch events. A finger coming down asks `press_target_at`
