@@ -52,9 +52,11 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
     if (toplevel->group_hidden)
         group_show(toplevel); // another tab of its group: it takes the group's slot
     // A hidden scratchpad window activated from the taskbar comes to the focused output, as
-    // scratchpad_show brings it, and drops in there unless a peek shows it already.
+    // scratchpad_show brings it, and drops in there unless a peek shows it in place already;
+    // one still sliding out turns back, peeked at or not.
     bool from_scratchpad = toplevel->scratchpad && toplevel->minimized;
-    bool dropping = from_scratchpad && server->peek_window != toplevel;
+    bool dropping =
+        from_scratchpad && (server->peek_window != toplevel || toplevel->drop.running);
     if (from_scratchpad)
         center_scratchpad(toplevel, focused_output(server));
     if (toplevel->output[0] && !toplevel->sticky &&
