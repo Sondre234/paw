@@ -2497,7 +2497,9 @@ tablet's tools are doing (see [Touchpad gestures](#touchpad-gestures),
 each monitor's frames do (see [Tearing](#tearing)). A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
 `workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
-(as in `get workspaces`), one `touched NAME EDGES` line per monitor with the edges of its free
+(as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of
+the workspace it shows (`dwindle`, `master`, `spiral`, `monocle` or `scroll`, as in
+`get layout NAME`), one `touched NAME EDGES` line per monitor with the edges of its free
 area a window shown there reaches (`top,left`, or `-`; a floating bar docks along them), and `keyboard-layout N COUNT SHORT NAME` (the active
 [keyboard layout](#keyboard-layouts), from 1, of how many, as in `get keyboard`) after every
 change, plus `launcher OUTPUT` when the `launcher` action

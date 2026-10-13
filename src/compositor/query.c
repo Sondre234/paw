@@ -120,7 +120,6 @@ static void get_workspaces(struct sh_server *server, int fd, const char *argumen
 static void get_layout(struct sh_server *server, int fd, const char *arguments) {
     // Layout, master ratio and master count of the focused output's current workspace, or
     // of "get layout OUTPUT [WORKSPACE]" (from 1).
-    static const char *const names[] = {"dwindle", "master", "spiral", "monocle", "scroll"};
     struct wlr_output *output = focused_output(server);
     int workspace = output ? *output_workspace(server, output->name) : 0;
     if (arguments) {
@@ -136,7 +135,7 @@ static void get_layout(struct sh_server *server, int fd, const char *arguments) 
     char reply[96] = "ok\ndwindle\t0.55\t1\n";
     if (output) {
         snprintf(reply, sizeof(reply), "ok\n%s\t%.2f\t%d\n",
-                 names[sh_tiling_layout(server->tiling, output->name, workspace)],
+                 tile_layout_name(sh_tiling_layout(server->tiling, output->name, workspace)),
                  sh_tiling_ratio(server->tiling, output->name, workspace),
                  sh_tiling_master_count(server->tiling, output->name, workspace));
     }
