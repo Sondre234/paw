@@ -213,6 +213,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/actions.c
         src/compositor/binding_mode.c
         src/compositor/control.c
+        src/compositor/crossfade.c
         src/compositor/cursor.c
         src/compositor/display_mode.c
         src/compositor/display_settings.c

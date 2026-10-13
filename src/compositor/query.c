@@ -684,6 +684,7 @@ static const struct {
     {"opacities", get_opacities, false},
     {"frames", get_frames, false},
     {"zoom", get_zoom, false},
+    {"crossfade", describe_crossfade, false},
     {"night_light", get_night_light, false},
     {"overview", get_overview, false},
     {"layers", get_layers, false},

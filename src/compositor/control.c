@@ -318,6 +318,7 @@ static const struct {
     {"type", control_type},
     {"overview", control_overview},
     {"panel_drag", control_panel_drag},
+    {"profile_drawn", control_profile_drawn},
 };
 
 static void control_handle(struct sh_server *server, int fd, const char *request) {

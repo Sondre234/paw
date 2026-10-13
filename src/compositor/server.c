@@ -70,8 +70,14 @@ static void configure_animations(struct sh_server *server) {
 }
 
 void reload_config(struct sh_server *server) {
+    char profile[sizeof(server_settings(server)->profile)];
+    snprintf(profile, sizeof(profile), "%s", server_settings(server)->profile);
     if (!server->callbacks->reload(server->callbacks->userdata))
         return;
+    // A new appearance profile crossfades in from a picture of the old look, taken before
+    // anything here changes it.
+    if (strcmp(profile, server_settings(server)->profile) != 0)
+        crossfade_start(server);
     set_binding_mode(server, 0);
     struct sh_output *overridden;
     for_each_connected_output(overridden, server) overridden->has_override = false;
@@ -580,6 +586,7 @@ finish:
     if (server.urgent_timer)
         wl_event_source_remove(server.urgent_timer);
     display_mode_finish(&server);
+    crossfade_end(&server);
     screenshot_finish(&server);
     display_settings_finish(&server);
     if (server.config_watch)
