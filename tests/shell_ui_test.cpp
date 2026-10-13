@@ -791,6 +791,12 @@ int main(int argc, char **argv) {
         click(fourth);
         if (!waitFor([&] { return fourth->property("current").toBool(); }))
             return fail("could not switch back to the last workspace from the tiling bar");
+        // Past the last one, the wheel nudges the windows toward the next instead.
+        nudges.clear();
+        scrollAt(fourth->mapToScene(QPointF(fourth->width() / 2, fourth->height() / 2)).toPoint(), -120);
+        if (!waitFor([&] { return nudges == QStringList{"workspace_nudge " + output + " next"}; }) ||
+            !fourth->property("current").toBool())
+            return fail("the wheel past the last workspace on the tiling bar did not nudge");
         // The layout, stepped on by a click.
         auto *layout = item("tilingLayout");
         if (!layout || layout->property("label").toString() != "dwindle")
