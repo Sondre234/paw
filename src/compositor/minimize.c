@@ -328,7 +328,8 @@ static struct wlr_scene_tree *copy_window(struct sh_toplevel *toplevel, struct f
 }
 
 /* Whether the window minimizes and restores with a fold: shown on its output, not in the
- * scratchpad, which has its own way in and out, nor peeked at, which shows it already. */
+ * scratchpad, which has its own way in and out, nor peeked at (by the taskbar's picture or the
+ * switcher), which shows it where it is already. */
 static bool folds(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
     return !server->locked && server->running && toplevel->shown && toplevel->scene_tree &&
@@ -388,7 +389,8 @@ void minimize_raise(struct sh_toplevel *toplevel) {
  * was on its way in and is back in the same place, out from where it is drawn. */
 void restore_animate(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
-    if (!folds(toplevel) || !server_settings(server)->animations)
+    // One the peek showed while minimized, still fading out of it, is where it is already.
+    if (!folds(toplevel) || toplevel->peek_lent || !server_settings(server)->animations)
         return;
     int x, y;
     wlr_scene_node_coords(&toplevel->scene_tree->node, &x, &y);
