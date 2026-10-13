@@ -613,14 +613,20 @@ int main(int argc, char **argv) {
     if (!waitFor([&] { return workspace(4)->property("current").toBool(); }))
         return fail("scrolling down did not page to the next workspace");
     {
-        // Already on the last one: the windows nudge toward the next, and the pill bumps along.
+        // Already on the last one: the compositor nudges the windows, and the pill bumps toward
+        // the next workspace; a second notch while it is on its way out leaves it going.
         auto *pill = find(view.rootObject(), "workspacePill");
-        QSignalSpy bumps(pill, SIGNAL(bumpedChanged()));
+        auto *bumping = pill ? pill->findChild<QObject *>("workspacePillBump") : nullptr;
+        if (!bumping)
+            return fail("the workspace pill has no bump");
+        QSignalSpy bumps(pill, SIGNAL(bumpedChanged())), starts(bumping, SIGNAL(started()));
         scroll(-120);
-        if (!waitFor([&] { return nudges == QStringList{"workspace_nudge " + output + " next"}; }) ||
+        scroll(-120);
+        const QString next = "workspace_nudge " + output + " next";
+        if (!waitFor([&] { return nudges == QStringList{next, next}; }) ||
             !waitFor([&] { return bumps.count() >= 2 && pill->property("bumped").toReal() == 0; }) ||
-            switches.size() != 2)
-            return fail("scrolling past the last workspace did not nudge");
+            starts.count() != 1 || switches.size() != 2)
+            return fail("scrolling past the last workspace did not nudge once");
     }
     scroll(60); // half a notch does nothing yet
     scroll(60);
@@ -6104,14 +6110,19 @@ ListModel {
         wheel(120);
         if (launchpad->property("page").toInt() != 0)
             return fail("a wheel notch up did not show the page before");
-        // There is no page before the first: the wheel bumps the pages instead.
+        // There is no page before the first: the wheel bumps the pages instead, once for two
+        // notches while it is on its way out.
         {
             auto *pages = find(root, "launchpadPages");
-            QSignalSpy bumps(pages, SIGNAL(bumpedChanged()));
+            auto *bumping = pages ? pages->findChild<QObject *>("launchpadPagesBump") : nullptr;
+            if (!bumping)
+                return fail("Launchpad's pages have no bump");
+            QSignalSpy bumps(pages, SIGNAL(bumpedChanged())), starts(bumping, SIGNAL(started()));
+            wheel(120);
             wheel(120);
             if (!waitFor([&] { return bumps.count() >= 2 && pages->property("bumped").toReal() == 0; }) ||
-                launchpad->property("page").toInt() != 0)
-                return fail("a wheel notch up on the first page did not bump the pages");
+                starts.count() != 1 || launchpad->property("page").toInt() != 0)
+                return fail("wheel notches up on the first page did not bump the pages once");
         }
         // Dragged right on the first page, the pages follow less and less, never an eighth of the
         // width, and come back.
