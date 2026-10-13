@@ -89,6 +89,33 @@ bool sh_swipe_finishes(double progress, double speed) {
     return progress >= 0.5;
 }
 
+double sh_rubber_band(double pull, double limit) {
+    if (!(limit > 0) || !isfinite(pull))
+        return 0;
+    return pull * limit / (fabs(pull) + limit);
+}
+
+double sh_rubber_band_slope(double pull, double limit) {
+    if (!(limit > 0) || !isfinite(pull))
+        return 0;
+    double share = limit / (fabs(pull) + limit);
+    return share * share;
+}
+
+struct sh_swipe_edge sh_swipe_past_end(double pull, double slide, double width) {
+    struct sh_swipe_edge edge = {.offset = 0, .alpha = 1, .rate = 0};
+    if (!(pull > 0) || !isfinite(pull))
+        return edge;
+    if (slide > 0) {
+        double limit = fmin(slide, SH_SWIPE_EDGE_LIMIT * fmax(width, 0));
+        edge.offset = sh_rubber_band(pull * slide, limit);
+        edge.rate = sh_rubber_band_slope(pull * slide, limit) * slide;
+    } else {
+        edge.alpha = 1 - sh_rubber_band(pull, SH_SWIPE_EDGE_FADE);
+    }
+    return edge;
+}
+
 enum sh_swipe_direction sh_swipe_opposite(enum sh_swipe_direction direction) {
     switch (direction) {
     case SH_SWIPE_LEFT:
