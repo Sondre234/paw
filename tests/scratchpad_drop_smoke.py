@@ -284,6 +284,12 @@ def monitor_above(clipped):
         else:
             assert top == 720 and d.cut is None and top - (s.y - BORDER) <= d.dy < 0, (d, s)
         desktop.wait_for(lambda: settled() and drop().dy == 0, "in place")
+        # Hidden, it slides out absent for the pointer, also over where it slides to.
+        cut = clipped and corner(desktop)
+        target = top - (s.y + s.height + BORDER) if cut else top - (s.y - BORDER)
+        msg("scratchpad_show")
+        assert pid_at(s.x + 10, s.y + target + 20) == "" and drop().drop == "out", drop()
+        desktop.wait_for(lambda: settled() and not drop().drawn, "hidden")
     return check
 
 
