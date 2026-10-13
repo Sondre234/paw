@@ -162,6 +162,29 @@ with harness.Compositor(compositor, config(animations="speed = 0.3"),
     release()
     desktop.wait_for(lambda: windows()["A"][:5] == (*RIGHT, True), "A tiled on the right")
 
+# A tile taken while it glides to a new place grows about the point the pointer holds it by, of
+# the tile where it is, not where the glide draws it.
+with harness.Compositor(compositor, config(animations="speed = 0.1"),
+                        env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
+    windows, preview, configures, pointer, press, release, tiles = session(desktop)
+    tiles("A", "B")
+    desktop.wait_for(lambda: desktop.rows("animations")[0][0] == "0", "settled")
+    focused = next(w.title for w in desktop.windows() if w.focused)
+    before = windows()[focused][0]
+    desktop.msg("swap_next")
+    desktop.wait_for(lambda: windows()[focused][0] != before, "the tiles trading places")
+    x, y = windows()[focused][:2]
+    pointer("key", "alt", "down")
+    pointer("move", str(x + 100), str(y + 100), "press", "left")
+    pointer("key", "alt", "up")
+    pointer("move", str(x + 130), str(y + 120))
+    desktop.wait_for(lambda: any(r[0] == focused for r in desktop.rows("lift")), "lifted")
+    assert int(desktop.rows("animations")[0][0]) > 0, "the glide is over already"
+    wx, wy = windows()[focused][:2]
+    anchor = next(tuple(int(n) for n in r[6:8]) for r in desktop.rows("lift") if r[0] == focused)
+    assert anchor == (x + 130 - wx, y + 120 - wy), (anchor, (x, y), (wx, wy))
+    release()
+
 # The master layout opens the place at the end of its list; the scrolling layout keeps none.
 with harness.Compositor(compositor, config(layout="master"),
                         env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
