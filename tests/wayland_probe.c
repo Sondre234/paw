@@ -833,7 +833,11 @@ int main(int argc, char **argv) {
             "paw-test-panel");
         zwlr_layer_surface_v1_add_listener(probe.panel, &panel_listener, &probe);
         zwlr_layer_surface_v1_set_size(probe.panel, 0, 48);
-        zwlr_layer_surface_v1_set_anchor(probe.panel, ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
+        // PAW_PROBE_PANEL=top puts the panel along the top edge rather than the bottom.
+        const char *edge = getenv("PAW_PROBE_PANEL");
+        zwlr_layer_surface_v1_set_anchor(probe.panel, (edge && !strcmp(edge, "top")
+                                                           ? ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+                                                           : ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM) |
                                                           ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
                                                           ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
         zwlr_layer_surface_v1_set_exclusive_zone(probe.panel, 48);
