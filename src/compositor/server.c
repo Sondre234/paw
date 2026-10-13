@@ -581,6 +581,7 @@ finish:
         wl_event_source_remove(server.urgent_timer);
     display_mode_finish(&server);
     screenshot_finish(&server);
+    tile_drop_finish(&server);
     display_settings_finish(&server);
     if (server.config_watch)
         wl_event_source_remove(server.config_watch);

@@ -236,6 +236,8 @@ void arrange_windows(struct sh_server *server, enum sh_action action) {
 
 static void place_tiled(void *data, void *window, struct sh_rect rect) {
     struct sh_toplevel *toplevel = window;
+    if (tile_drop_place(toplevel, rect))
+        return; // moved with the pointer, it only holds its place
     if (toplevel->fullscreen)
         return; // It returns to its tile when it leaves fullscreen.
     toplevel_set_states(toplevel, false, ALL_EDGES);

@@ -463,6 +463,21 @@ struct sh_server {
         double press_x, press_y;
         bool started, up;
     } lift;
+    /* A tile moved with the pointer keeping its place in a tiling (tile_drop.c): the place the
+     * pointer rests on, which it moves to when `timer` fires, while `pending`; and its place as
+     * the tiling last arranged it, for the preview. */
+    struct {
+        struct wl_event_source *timer;
+        bool pending;
+        struct sh_drop_place {
+            bool tiles;
+            struct wlr_output *output;
+            int workspace;
+            struct sh_tile_drop drop;
+        } place;
+        struct sh_rect slot;
+        bool has_slot;
+    } tile_drop;
 
     /* Windows a session restore launched and has yet to place: the first new window with the
      * app ID takes the saved place, workspace and state, until the deadline (milliseconds on
@@ -1126,6 +1141,15 @@ void process_cursor_move(struct sh_server *server);
 void process_cursor_resize(struct sh_server *server);
 void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
                        uint32_t edges);
+
+/* tile_drop.c */
+void tile_drop_lift(struct sh_toplevel *toplevel);
+void tile_drop_follow(struct sh_server *server);
+void tile_drop_release(struct sh_server *server);
+void tile_drop_end(struct sh_server *server);
+bool tile_drop_place(struct sh_toplevel *toplevel, struct sh_rect rect);
+bool tile_drop_slot(struct sh_server *server, struct sh_rect *slot, struct wlr_output **output);
+void tile_drop_finish(struct sh_server *server);
 
 /* lift.c */
 void lift_press(struct sh_server *server);

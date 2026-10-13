@@ -15,6 +15,7 @@ void reset_cursor_mode(struct sh_server *server) {
     panel_drag_cancel(server);
     magnet_hide_guides(server);
     snap_preview_hide(server);
+    tile_drop_end(server);
     lift_drop(server);
     // A window dropped on another output takes up that output's corners.
     if (server->grabbed_toplevel)
@@ -51,6 +52,7 @@ void finish_grab(struct sh_server *server) {
     if (panel_drag_drop(server))
         return;
     struct sh_toplevel *toplevel = server->grabbed_toplevel;
+    tile_drop_release(server);
     if (snap_drop(server))
         return;
     struct wlr_output *output = pointer_output(server);
@@ -292,6 +294,7 @@ void process_cursor_move(struct sh_server *server) {
     bool held = magnet_snap(server, toplevel, &x, &y);
     toplevel_set_position(toplevel, x, y);
     snap_follow(server);
+    tile_drop_follow(server);
     lift_follow(server, held);
 }
 
@@ -358,11 +361,12 @@ void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
     }
 
     server->grab_output = toplevel_output(toplevel);
-    // Resizing a tile moves its splits; moving one lifts it out until it is dropped.
+    // Resizing a tile moves its splits; moving one lifts it out until it is dropped, its place
+    // kept in the tiling meanwhile (tile_drop.c).
     bool tiled_resize = toplevel->tiled && mode == SH_CURSOR_RESIZE;
     bool retile = toplevel->tiled && mode == SH_CURSOR_MOVE;
     if (retile)
-        untile_toplevel(toplevel, false);
+        tile_drop_lift(toplevel);
     bool was_arranged = toplevel->arranged;
     if (!tiled_resize) {
         toplevel->arranged = false;
