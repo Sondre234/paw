@@ -278,6 +278,8 @@ int main(int argc, char **argv) {
     QString monitorsRefusal;
     // What the compositor does with "profile NAME": saves it and reloads the shell.
     std::function<void(const QString &)> pickProfile;
+    // The profiles the shell said it has drawn (profile_drawn), for the compositor's crossfade.
+    QStringList drawnProfiles;
     QObject::connect(&compositor, &QLocalServer::newConnection, [&] {
         auto *client = compositor.nextPendingConnection();
         QObject::connect(client, &QLocalSocket::readyRead, [&, client] {
@@ -297,6 +299,10 @@ int main(int argc, char **argv) {
                 client->write("ok\n");
                 client->disconnectFromServer();
                 pickProfile(QString::fromUtf8(request).trimmed().section(' ', 1));
+            } else if (request.startsWith("profile_drawn ")) {
+                drawnProfiles.push_back(QString::fromUtf8(request).trimmed().section(' ', 1));
+                client->write("ok\n");
+                client->disconnectFromServer();
             } else if (request == "night_light_toggle\n") {
                 requests.push_back("night_light_toggle");
                 nightLight = !nightLight;
@@ -1781,11 +1787,14 @@ ListModel {
                    inPopover(cardOf(menuItem("dark")));
         }))
         return fail("the appearance entry did not open the profiles beside the menu");
+    // The shell takes it up, and once the new look is drawn says so, for the compositor's
+    // crossfade from the old one.
     click(menuItem("light"));
     if (!waitFor([&] {
             return requests == QStringList{"profile light"} && controller.profile() == "light" &&
                    controller.accent() == QColor("#336699") &&
-                   !view.rootObject()->property("barMenuOpen").toBool();
+                   !view.rootObject()->property("barMenuOpen").toBool() &&
+                   !controller.restyling() && drawnProfiles == QStringList{"light"};
         })) {
         std::cerr << "picking a profile did not switch to it: " << requests.join("|").toStdString()
                   << " " << controller.profile().toStdString() << '\n';
@@ -1913,7 +1922,7 @@ ListModel {
     click(findProfile(profileList, "dark"));
     if (!waitFor([&] {
             return requests == QStringList{"profile dark"} && controller.profile() == "dark" &&
-                   !profileList->isVisible();
+                   !profileList->isVisible() && !controller.restyling();
         }))
         return fail("picking a profile from the bar did not switch to it");
     requests.clear();
@@ -4819,11 +4828,11 @@ ListModel {
         if (!light)
             return fail("the light profile is not listed in Quick Settings");
         click(light);
-        if (!waitFor([&] { return controller.profile() == "light"; }) ||
+        if (!waitFor([&] { return controller.profile() == "light" && !controller.restyling(); }) ||
             requests != QStringList{"profile light"})
             return fail("picking a profile in Quick Settings did not switch to it");
         controller.pickProfile("dark");
-        if (!waitFor([&] { return controller.profile() == "dark"; }))
+        if (!waitFor([&] { return controller.profile() == "dark" && !controller.restyling(); }))
             return fail("the dark profile did not come back");
         // The volume: its slider and mute, the outputs to pick from, and the applications'.
         auto *sound = find(quick, "quickSound");
