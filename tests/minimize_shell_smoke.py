@@ -3,7 +3,8 @@
 window to minimize into and restore out of: the window minimizes into its button on its own
 monitor's bar. While the card of its pictures is open, the window's picture counts over its
 button, which counts again once the card has closed. The bar moved to the top edge takes the
-buttons with it, and a window that closes takes its buttons away."""
+buttons with it; while the monitors tile, the tiling bar's title of the focused window is where
+it minimizes into; and a window that closes takes its buttons away."""
 from pathlib import Path
 import signal
 import subprocess
@@ -80,6 +81,7 @@ with harness.Compositor(compositor, CONFIG % "", start=False,
     fold = folds()
     assert not fold or (fold[0][2] == "minimize" and tuple(map(int, fold[0][4:8])) == button and
                         fold[0][8] == "button"), fold
+    desktop.wait_for(lambda: not folds(), "the window in its button")
 
     # While its card is open, its picture counts; once the card has closed, its button again.
     pointer = desktop.virtual_pointer(pointer_probe, 2 * WIDTH, HEIGHT)
@@ -97,6 +99,7 @@ with harness.Compositor(compositor, CONFIG % "", start=False,
     desktop.wait_for(lambda: not windows()[0].minimized, "the window restored")
     fold = folds()
     assert not fold or (fold[0][2] == "restore" and tuple(map(int, fold[0][4:8])) == button), fold
+    desktop.wait_for(lambda: not folds(), "the window back in its place")
 
     # The bar along the top edge takes its buttons along.
     desktop.reload(CONFIG % ', panel_position = "top"')
@@ -104,6 +107,26 @@ with harness.Compositor(compositor, CONFIG % "", start=False,
     desktop.wait_for(lambda: set(rects()) == {"HEADLESS-1", "HEADLESS-2"} and
                      all(on_bar(rect, top=True) for rect in rects().values()),
                      "the buttons along the top")
+    top_button = rects()["HEADLESS-1"]
+
+    # While the monitors tile, the tiling bar along the top shows the focused window's title,
+    # which it minimizes into.
+    desktop.reload(CONFIG.replace("tiling = false", "tiling = true") % "")
+    panels.send_signal(signal.SIGHUP)
+    desktop.wait_for(lambda: windows()[0].tiled and windows()[0].focused and
+                     "HEADLESS-1" in rects() and rects()["HEADLESS-1"] != top_button and
+                     rects()["HEADLESS-1"][1] + rects()["HEADLESS-1"][3] <= 52,
+                     "the window's title on the tiling bar")
+    title = rects()["HEADLESS-1"]
+    subprocess.run([window_probe, "paw protocol probe", "minimize"], env=env, check=True,
+                   timeout=30)
+    desktop.wait_for(lambda: windows()[0].minimized, "the tile minimized")
+    fold = folds()
+    assert not fold or (fold[0][2] == "minimize" and tuple(map(int, fold[0][4:8])) == title and
+                        fold[0][8] == "button"), (fold, title)
+    subprocess.run([window_probe, "paw protocol probe", "restore"], env=env, check=True,
+                   timeout=30)
+    desktop.wait_for(lambda: not windows()[0].minimized, "the tile restored")
 
     # Closing the window takes its buttons away with its handles.
     subprocess.run([probe, "--close", "paw-probe"], env=env, check=True, timeout=30,
