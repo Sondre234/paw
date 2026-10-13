@@ -267,6 +267,19 @@ with harness.Compositor(compositor, config()) as desktop:
     pointer("move", "600", "300", "release", "left")
     wait_for(lambda: drawn()["D"][2] == "rest" and drawn()["D"][0][2:] == (w, h), "D floating")
 
+    # A resize with the pointer begun as a window changes size lands the change first, slowed
+    # down here to seconds.
+    desktop.reload(config(speed=0.1))
+    desktop.open_window(probe, "R", focused=True, env={"PAW_PROBE_RESIZE": "right"})
+    wait_for(lambda: drawn()["R"][2] == "rest", "R open")
+    msg("snap_right")
+    msg("overview_cancel")  # Snap Assist
+    wait_for(lambda: drawn()["R"][2] == "moving", "R gliding into the right half")
+    x, y, w, h = windows()["R"].box
+    pointer("move", str(x + w // 2), str(y + h // 2), "press", "left")
+    wait_for(lambda: drawn()["R"][2] == "rest", "R at rest for its resize", timeout=3)
+    pointer("release", "left")
+
 # Leaving fullscreen for a slot that moved meanwhile (a panel came along the bottom), slowed down
 # to see where it starts: from the whole output, where it is drawn, not from the old slot too.
 RULES = 'rules = { { title = "^P$", focus = false } },'
