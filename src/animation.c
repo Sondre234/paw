@@ -492,6 +492,9 @@ void sh_animator_tick(struct sh_animator *animator) {
         return;
     }
     animator->last_tick = now;
+    // The tweens' owners redraw a window's frame at rest first (its focus fade), and the
+    // animations then draw that where they have the window.
+    step_tweens(animator, now, false);
     struct sh_anim *anim, *next;
     wl_list_for_each_safe(anim, next, &animator->running, link) {
         if (!step(anim, now))
@@ -499,7 +502,6 @@ void sh_animator_tick(struct sh_animator *animator) {
     }
     // What a client drew since keeps the hold's opacity.
     wl_list_for_each(anim, &animator->held, link) apply_hold(anim);
-    step_tweens(animator, now, false);
     if (wl_list_empty(&animator->running) && wl_list_empty(&animator->tweens))
         animator->last_tick = 0;
 }
