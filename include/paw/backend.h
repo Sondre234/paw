@@ -341,9 +341,12 @@ struct sh_gradient {
 enum sh_lid_mode { SH_LID_CLAMSHELL, SH_LID_IGNORE };
 /* The switches bindings act on: a laptop's lid (on: closed) and tablet mode (on: folded). */
 enum sh_switch { SH_SWITCH_LID, SH_SWITCH_TABLET };
+/* Lua appearance.color_scheme: the light or dark preference applications are told to follow. */
+enum sh_color_scheme { SH_COLOR_SCHEME_UNSET, SH_COLOR_SCHEME_LIGHT, SH_COLOR_SCHEME_DARK };
 
 struct sh_settings {
     float background[4];
+    int color_scheme; /* enum sh_color_scheme */
     /* The appearance profile in use, from `profiles`: the one picked, else `profile`; "" for
      * none. A new one crossfades in (crossfade.c). */
     char profile[40];

@@ -788,6 +788,17 @@ int main(int argc, char **argv) {
         // An appearance table may leave the background out.
         require(paw::parse_config("return {appearance={}}").settings.background[2] == 46 / 255.0F,
                 "appearance without a background rejected");
+        // appearance.color_scheme: unset unless named, and a profile's takes the file's place.
+        require(paw::parse_config("return {}").settings.color_scheme == SH_COLOR_SCHEME_UNSET &&
+                    paw::parse_config("return {appearance={color_scheme='dark'}}")
+                            .settings.color_scheme == SH_COLOR_SCHEME_DARK &&
+                    paw::parse_config("return {appearance={color_scheme='dark'},"
+                                      "profiles={day={appearance={color_scheme='light'}}}}",
+                                      "config", {}, "day")
+                            .settings.color_scheme == SH_COLOR_SCHEME_LIGHT,
+                "appearance.color_scheme not parsed");
+        rejects("return {appearance={color_scheme='auto'}}");
+        rejects("return {appearance={color_scheme=true}}");
         rejects("return {layuot={gap=2}}");
         rejects("return {version=2}");
         rejects("return {shell={panel_height=0}}");

@@ -1610,6 +1610,9 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                 config.settings.background[i] =
                     std::stoi(color->substr(1 + 2 * i, 2), nullptr, 16) / 255.0F;
         }
+        named(L, "color_scheme", "appearance.color_scheme", config.settings.color_scheme,
+              {{"light", SH_COLOR_SCHEME_LIGHT}, {"dark", SH_COLOR_SCHEME_DARK}},
+              "appearance.color_scheme must be \"light\" or \"dark\"", "color_scheme");
     }
     if (Section in{L, "keyboard"}) {
         text_field(L, "layout", config.settings.keyboard_layout);

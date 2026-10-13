@@ -272,6 +272,7 @@ struct OsdConfig {
 
 struct Config {
     sh_settings settings{.background = {25 / 255.0F, 33 / 255.0F, 46 / 255.0F, 1.0F},
+                         .color_scheme = SH_COLOR_SCHEME_UNSET,
                          .profile = "",
                          .mouse_modifier = SH_ALT,
                          .repeat_rate = 25,
