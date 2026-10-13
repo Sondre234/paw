@@ -28,11 +28,12 @@ CONFIG = """return {
     } },
     animations = { enabled = %s, speed = %s, open = { duration = 600 },
                    close = { duration = 600 } },
+    features = { scratchpad = %s },
 }"""
 
 
-def config(enabled=True, speed=1):
-    return CONFIG % (str(enabled).lower(), speed)
+def config(enabled=True, speed=1, scratchpad=True):
+    return CONFIG % (str(enabled).lower(), speed, str(scratchpad).lower())
 BORDER = 2
 
 
@@ -201,6 +202,17 @@ def bottom_bar(desktop, top):
     msg("scratchpad_show")
     assert settled() and drop().drawn and drop().dy == 0 and window().focused, drop()
     assert msg("get", "animations").split("\t")[0] == "0"
+
+    # The scratchpad turned off as S slides out: it is back in its place at once, out of the
+    # scratchpad, there for the pointer.
+    desktop.reload(config(speed=0.3))
+    msg("scratchpad_show")
+    desktop.wait_for(lambda: drop().drop == "out" and drop().dy > 5, "sliding out")
+    desktop.reload(config(speed=0.3, scratchpad=False))
+    s = window()
+    assert not s.scratchpad and not s.minimized and s.visible, s
+    assert not [r for r in desktop.rows("scratchpad") if r[0] == "S"], desktop.rows("scratchpad")
+    assert pid_at(s.x + s.width // 2, s.y + s.height // 2) == str(shown.pid)
 
 
 def top_bar(desktop, top):
