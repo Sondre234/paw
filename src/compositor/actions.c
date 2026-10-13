@@ -265,6 +265,11 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         struct wlr_output *output = focused_output(server);
         if (!output)
             break;
+        // They wrap around, so only a single workspace leaves them nowhere to go.
+        if (count <= 1) {
+            workspace_nudge(server, output, action == SH_WORKSPACE_NEXT ? 1 : -1);
+            break;
+        }
         int step = action == SH_WORKSPACE_NEXT ? 1 : count - 1;
         switch_workspace(server, output, (*output_workspace(server, output->name) + step) % count);
         break;

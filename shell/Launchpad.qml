@@ -331,15 +331,42 @@ Item {
         }
 
         // The pages, side by side, each as wide as the output; the one shown slides into place,
-        // following a drag.
+        // following a drag. Past the first or last page a drag moves them less and less, as a
+        // rubber band does, never an eighth of the width; and the wheel bumps them a little the
+        // way they would go to show a page that is not there, and back.
         Row {
             id: strip
             objectName: "launchpadPages"
+            readonly property real dragged: {
+                var moved = drag.moved
+                var limit = launchpad.width / 8
+                var beyond = moved > 0 ? launchpad.page === 0 : launchpad.page === launchpad.pageCount - 1
+                return beyond && limit > 0 ? moved * limit / (Math.abs(moved) + limit) : moved
+            }
+            property real bumped: 0
+            property int bumpWay: 0 // the way it is on its way out, else 0
+            // Toward the next page (`way` 1) or the one before (-1); bumped again on its way out
+            // that way, it goes on as it is.
+            function bump(way) {
+                if (bumping.running && bumpWay === way)
+                    return
+                bumpWay = way
+                bumpOut.to = -way * Math.round(launchpad.width / 50)
+                bumping.restart()
+            }
             y: launchpad.gridTop
-            x: -launchpad.page * launchpad.width + drag.moved
+            x: -launchpad.page * launchpad.width + dragged
+            transform: Translate { x: strip.bumped }
             Behavior on x {
                 enabled: !drag.active
                 NumberAnimation { duration: Theme.durationSlow; easing.type: Theme.easing }
+            }
+            SequentialAnimation {
+                id: bumping
+                objectName: "launchpadPagesBump"
+                NumberAnimation { id: bumpOut; target: strip; property: "bumped"; duration: Theme.duration(80); easing.type: Easing.OutQuad }
+                ScriptAction { script: strip.bumpWay = 0 }
+                NumberAnimation { target: strip; property: "bumped"; to: 0; duration: Theme.duration(160); easing.type: Easing.InOutQuad }
             }
             Repeater {
                 id: pages
@@ -411,6 +438,7 @@ Item {
             }
         }
         // A wheel notch, or a touchpad's swipe of as much, pages once: down or right to the next.
+        // Past either end it bumps the pages instead.
         WheelHandler {
             // Qt takes the whole pointer for a touchpad once the compositor offers gestures
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
@@ -421,8 +449,11 @@ Item {
                 travel += delta
                 var steps = travel > 0 ? Math.floor(travel / 120) : Math.ceil(travel / 120)
                 travel -= steps * 120
-                if (steps !== 0)
-                    launchpad.showPage(launchpad.page - steps)
+                var next = Math.max(0, Math.min(launchpad.pageCount - 1, launchpad.page - steps))
+                if (steps !== 0 && next === launchpad.page)
+                    strip.bump(steps < 0 ? 1 : -1) // no page there
+                else if (steps !== 0)
+                    launchpad.showPage(next)
             }
         }
 

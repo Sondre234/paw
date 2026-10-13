@@ -126,6 +126,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(output_state)
     paw_c_unit_test(border)
     paw_c_unit_test(dynamic_rule)
+    paw_c_unit_test(dropdown)
 endif()
 option(PAW_BUILD_COMPOSITOR "Build the wlroots compositor" ON)
 if(PAW_BUILD_COMPOSITOR)
@@ -235,6 +236,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/lock.c
         src/compositor/minimize.c
         src/compositor/mirror.c
+        src/compositor/morph.c
         src/compositor/output.c
         src/compositor/output_moves.c
         src/compositor/output_power.c
@@ -280,6 +282,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/output_state.c)
     target_sources(paw PRIVATE src/dynamic_rule.c)
     target_sources(paw PRIVATE src/border.c)
+    target_sources(paw PRIVATE src/dropdown.c)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
     # version.h, for --version: the project version, and `git describe` in a git checkout.
@@ -666,6 +669,7 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(pointer_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
         paw_smoke(touchpad_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
+        paw_smoke(rubber_band_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(touchscreen_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
             $<TARGET_FILE:wayland_probe>)
         paw_smoke(panel_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
@@ -674,6 +678,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(spawn_at_pointer_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(scratchpad_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(scratchpad_drop_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe>)
         paw_smoke(group_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(group_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
@@ -699,7 +705,7 @@ if(PAW_BUILD_COMPOSITOR)
         target_compile_definitions(animation_tests PRIVATE WLR_USE_UNSTABLE)
         target_compile_options(animation_tests PRIVATE -Wall -Wextra -Wno-unused-parameter)
         target_link_libraries(animation_tests PRIVATE paw_config PkgConfig::WLROOTS
-            PkgConfig::WAYLAND m)
+            PkgConfig::WAYLAND PkgConfig::PIXMAN m)
         add_test(NAME animation COMMAND animation_tests)
         add_executable(decoration_tests tests/decoration_tests.c src/decoration.c src/shadow.c)
         target_compile_definitions(decoration_tests PRIVATE WLR_USE_UNSTABLE)
@@ -737,6 +743,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(snap_keys_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(snap_assist_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
+        paw_smoke(morph_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(night_light_smoke TIMEOUT 90 $<TARGET_FILE:paw>)
         paw_smoke(hot_corners_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)

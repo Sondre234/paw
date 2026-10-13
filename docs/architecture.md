@@ -21,7 +21,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | Where | Language | What |
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -60,6 +60,7 @@ all. In short:
 | `frame.c` | Borders, opacity, rounded corners, window controls, shadows, tab strips. |
 | `gradient_border.c` | Borders in gradients: the pieces `src/border.c` paints, a strip along each side the scene stretches and a square at each corner, in place of the border's rects. |
 | `placement.c` | Snapping, maximizing, reflowing, moving and resizing by keyboard. |
+| `morph.c` | A window gliding to a new place and size together (maximized, snapped, restored, made fullscreen, moved or resized by keyboard), its client's commits meanwhile, and the size its frame is drawn at. |
 | `tiling.c` | Glue between windows and the layouts in `src/tiling.cpp`. |
 | `workspace.c` | Workspaces per output, sticky windows. |
 | `output.c`, `output_moves.c` | Monitors and their configuration; windows and workspaces moving between outputs. |
@@ -308,12 +309,55 @@ output's workspace with `sh_anim_hold` (`animation.c`), its `content` offset and
 faded as far as the slide would have them, and the windows of the workspace it heads for, hidden
 still, as held copies of their buffers (`sh_anim_hold_copy`). A held animation lies outside the
 animator's running list, so neither the clock, a late frame nor turning animations off moves it,
-and each frame lays the hold again over what a client drew. `workspace_swipe_end` either switches
-(the leaving windows going on as copies with `sh_anim_slide_away`, the arriving ones taking over
-from their copies with `sh_anim_slide_from`, each in what remains of the slide's time) or slides
-everything back. The overview follows them through `overview_hold` and `overview_release`, which
-set its `progress` in place of its timer's. `tests/touchpad_gestures_smoke.py` drives all of it
-with a headless pointer, at the event times it gives.
+and each frame lays the hold again over what a client drew. `workspace_swipe_end`, given the
+fingers' speed as they lift, either switches (the leaving windows going on as copies with
+`sh_anim_slide_away`, the arriving ones taking over from their copies with `sh_anim_slide_from`,
+each in what remains of the slide's time) or slides everything back. The overview follows them
+through `overview_hold` and `overview_release`, which set its `progress` in place of its timer's.
+
+Past the first or the last workspace the target is out of range, and `workspace_swipe_hold` pulls
+the output's windows toward it as a rubber band: `sh_swipe_past_end` (`swipe.c`) says how far,
+the fingers' pull in steps times the limit L given as a rubber band gives it (p × L / (p + L)),
+L being the slide's distance or a tenth of the output's width, whichever is less, so that the
+windows start as the slide would (or as a slide of a tenth of the width would, for a longer one)
+and a whole step takes them half of L; for a slide that only fades it dims them instead. Let go,
+they glide back with `sh_anim_spring_back` (`animation.c`) in the `move` animation's time and
+curve, from where they were held and at first as fast as the fingers moved them (their speed
+through the band's slope, `rate`). The swipe notes the band's way and when its spring began
+(`sprung`, `sprung_at`), and the next one on that output and workspace that finds the windows
+still in that spring (`springing`) takes them over where they are drawn: `sh_swipe_pull_at` says
+how far past the end fingers would be for their offset (or their opacity, for a slide that only
+fades), and the first hold keeps the slide that far ahead of the fingers (`shift`) until they
+lift, so that neither pulling further nor coming back jumps. `tests/touchpad_gestures_smoke.py`
+drives all of it with a headless pointer, at the event times it gives, and
+`tests/rubber_band_smoke.py` the rubber band, checking where the windows are drawn with `get
+drawn`.
+
+A step with nowhere to go, the panel's wheel past either end (`workspace_nudge` on the control
+socket, which `ShellController::nudgeWorkspace` sends) or `workspace_next` with a single
+workspace, nudges the output's windows (`workspace_nudge`, `workspace.c`) as far as the rubber band
+gives a third of a step past the end. `sh_anim_nudge` starts a glide with no offset of its own but
+a speed, which the glide's velocity term carries out to a turning point a third of the way through
+and back to rest, in twice the workspace slide's time; a window gliding already starts from where
+it is drawn and aims for the same turning point, and one on its way out that way goes on as it
+is, so that a quick wheel does not pile nudges up.
+
+### Animations and frames
+
+An output draws a frame only when the scene changed on it (wlroots' scene damage asks for one),
+and `output_frame` first advances every animation to the frame's time (`sh_animator_tick`). A
+glide that moves less than a pixel between two frames, as a slow spring's start or a nudge from
+rest does, changes nothing and so brings no frame: it would stall, and the late-frame rule would
+land it unseen at the next tick, with anything started meanwhile. So while anything runs the
+animator also ticks by itself from a timer every 16 ms (`TICK_MS`, `animation.c`; half of
+`late_ms` when that is shorter, so that no tick of its own is taken for a late one), set as an
+animation starts from idle and again from each tick until nothing runs; a window changing size that
+waits for its client to draw the new size goes on the same way. What a tick changes damages
+the outputs it shows on, which then draw at their own rate; an output where nothing moves draws
+nothing, a commit that failed (a VT switched away) is not tried again for an animation, and a
+tearing output's asynchronous flips come only as its picture changes. Nothing else asks outputs for
+frames for animations. `get output_frames` counts each output's frames and `get drawn` says where
+each window is drawn and how faded, for tests.
 
 ### Touchscreens
 
@@ -352,6 +396,93 @@ it lists other windows, has no strip, draws its backdrop over the slot alone, le
 outside the slot to the rest of the compositor, closes at once, and puts the window picked into
 the slot. It announces itself as `overview-assist` rather than `overview`; the shell's
 `OverviewView` draws both, and takes no input for either.
+
+### Changing size
+
+A window placed again at another size (`place_toplevel`, `restore_toplevel`, `unarrange_in_place`,
+the keyboard's moves and resizes, a drag off a snap, floating a tile, fullscreen) glides there
+with `toplevel_morph` (`morph.c`): its caller notes `morph_from` (where the window is drawn and
+at what size) before it configures the window, and the morph starts from there with
+`sh_anim_morph` (`src/animation.c`), so that a placement made within another (a reflow as
+fullscreen ends) does not count the offset twice. That is the tiles' glide with a size along: the
+drawn size eases on the glide's time and curve, and a retarget carries its speed as the place's
+does, but for a glide begun in the same millisecond, which was never drawn. The client draws the
+new size only after the configure, so the animator stretches its surfaces (`sh_toplevel.surfaces`,
+the scene's tree of them in `content`) from the size they were drawn for to the size drawn, about
+the window's corner, setting each stretched buffer's opaque region aside meanwhile (the scene takes
+it unscaled), and leaves the rest of `content`, the frame, to `refresh_frame`, which the morph
+calls as the drawn size changes and draws around `frame_geometry`, the geometry at that size.
+
+The window's commit listener runs before the scene's on the window's own surface (an X11 window
+has one from its map for this) and calls `morph_commit`: a new size makes a flattened copy of the
+surfaces as they were (`sh_thumb_clone`, without opaque regions) just over them, which fades out
+over the rest of the glide or half its time, unless one is fading already, and the surfaces go back
+to rest and lose their records, since what the client draws next can be the very size the
+animation drew. Subsurfaces in synchronized mode have taken their new buffers by then, before
+their parent's commit is heard, so the copy can pair the window's old buffer with their new ones.
+Each commit answering the configure (`morph_serial` acknowledged, or an X11 surface at its
+configured size) at a size other than the one given retargets the morph to it; one at the size the
+surfaces had when asked counts only once the wait is over, since a client may acknowledge first
+and draw the new size later. With no answer `MORPH_WAIT_MS` past the glide (the wait follows each
+retarget), the window eases to what the client last drew. A resize with the pointer lands the morph
+first. A lookup that could find the window, drawn or where it rests (`MORPH_REACH` around the size
+given or drawn by the client), rests the morph, its frame too, laid out for the size the client
+last drew, and hides the copy.
+
+`frame_shown` eases how much of the frame shows over a change into or out of being frameless
+(maximized on a monitor without tiling, or fullscreen), on the morph's kind, scaling the border's
+colour, the shadow's opacity and the corners' radius. Whether the window draws its own shadow
+(`frame_own_shadow`), which decides paw's shadow and corners for it, is read afresh only while it
+rests with a frame, so that a client-side frame dropping its shadow as the window is maximized does
+not turn paw's on and off on the way. Input and `get windows` use the final place at once;
+`get drawn` reports the drawn one.
+
+### The scratchpad's drop-down
+
+`scratchpad.c` slides a window shown from the scratchpad in from the edge of its monitor's usable
+area along the bar, and one hidden back out there. Where it goes is arithmetic in
+`src/dropdown.c` (`sh_drop_plan`, tested by `dropdown_tests`): the edge (the top where a bar
+reserves a strip along it, else the side with the widest strip, else the top), the offset at which
+its frame, its geometry and border, lies wholly past the cut, and the cut: the usable area's edge
+moved into the bar's strip as deep as the window's rounded corners reach, no deeper than the
+strip, so that the corners pass behind the bar while the sides come out straight.
+`sh_drop_swept` gives the part of the way past the monitor's own edge, where another monitor
+(`other_output_in`) would show the window: there it is cut at that edge, or, without clips,
+stops at it.
+
+The motion is `sh_anim_drop_in` and `sh_anim_drop_out` (`animation.c`) on the window's `content`,
+the tree the other animations move: a glide in twice `open`'s time with its curve, or out in one
+and a half times `close`'s with its curve played backwards (`SH_CURVE_REVERSED`, `curve.c`), and a
+linear fade over its first or last 40 %. A drop under way turns back from where it is drawn and
+as faded as it is, keeping a quarter of the speed a glide would carry (what the new curve lacks of
+the speed it had, held within twice the distance per duration). A window sliding out rests where
+it slides to (`base_x`, `base_y`) and is `absent`: `sh_animator_rest_at` hides it for lookups as it
+hides closing copies; any other animation that takes the tree over (`start`) brings it back,
+present for lookups, resting at 0, 0, its fade landed. Activating a window as it slides out turns
+it back in (`focus_toplevel_raise`), also while a peek shows it, and turning the scratchpad off
+lands its slide. `hide_in_scratchpad` minimizes the window at once, so focus and the taskbar
+move on, then shows its node again for the slide, offset to where it was drawn before it floated
+(a tile leaves from its tile). The animation's `track` callback, which the animator calls after
+each frame and once more as the animation stops or another takes the tree over, hides the node
+once it is out of sight and puts `content` back at 0, 0; it also asks the output for the next
+frame, since a window wholly past the cut damages nothing as it moves and would leave the
+animation waiting.
+
+The cut is drawn with the rounded-corners patch's `wlr_scene_tree_set_rounded_clip`, which only
+the GLES2 renderer honours (`can_clip`). Only the nearest clipped ancestor of a node applies to
+it, so the cut cannot be one clip around the window: every clip `frame.c` gives the window's trees
+(`content`'s rounded corners, and the shadow's and the gradient border's own) goes through
+`window_clip`, which keeps it in `sh_toplevel.clips` and, while a drop runs, takes off what lies
+past the cut, in the tree's coordinates as the animation draws it; `track` lays the clips again
+after each frame. A rounded rect shapes itself and no clip reaches it, so the border's hollow rect
+(`frame_hole`) is cut by its size instead (`cut_ring`, also after `refresh_frame` lays it out,
+through `drop_refresh`). What else the window draws (controls, tab strip, dim, surfaces) is below
+`content` and its clip. Where no bar is deep enough to hide the corners (the plan's `square`: a
+thin bar, or a monitor's edge with another monitor beyond), the window crossing the cut is clipped
+square and its border's rounded rect left out, rather than draw rounded corners and a line of
+border along the cut. `paw msg get scratchpad` lists each window's drop, offset, opacity and cut,
+the clip its content is drawn with and its radius, and the border's rounded rect, and
+`tests/scratchpad_drop_smoke.py` tests them.
 
 ### Monitors turned off
 
@@ -1134,6 +1265,9 @@ those headless outputs refuse a 10-bit render format, as a monitor without one d
 `bit_depth_smoke.py`), and `PAW_TEST_REFUSE_TEARING` refuses their asynchronous page flips
 (see `tearing_smoke.py`, whose windows ask for them with `PAW_PROBE_TEARING=async`);
 `PAW_TEST_HDR` makes outputs claim HDR in their EDID (see `hdr_smoke.py`).
+`PAW_TEST_DROP_CLIP` makes the scratchpad's drop-down cut windows on pixman as it does on GLES2,
+and `PAW_PROBE_PANEL=top` stands a `wayland_probe`'s panel along the top (see
+`scratchpad_drop_smoke.py`).
 `PAW_TEST_TRIAL_MS` shortens a display settings trial, and `PAW_TEST_REFUSE_MODE=WxH`
 and `PAW_TEST_REFUSE_COMMIT=WxH` make headless outputs refuse that size in the display
 settings' test, or in `configure_output`'s as if the commit failed (see

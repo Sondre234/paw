@@ -19,8 +19,13 @@ enum sh_curve_kind {
     SH_CURVE_BEZIER          /* CSS-style cubic-bezier(x1, y1, x2, y2) */
 };
 
+/* Or'ed into a curve's kind: the curve played backwards, 1 - f(1 - t), so an ease-out becomes the
+ * matching ease-in. No name parses to it; the compositor makes one where a motion runs the other
+ * way, as a window sliding out where it slid in. */
+enum { SH_CURVE_REVERSED = 0x100 };
+
 struct sh_curve {
-    int kind; /* enum sh_curve_kind */
+    int kind; /* enum sh_curve_kind, maybe with SH_CURVE_REVERSED */
     float p[4];
 };
 

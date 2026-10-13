@@ -89,6 +89,49 @@ bool sh_swipe_finishes(double progress, double speed) {
     return progress >= 0.5;
 }
 
+double sh_rubber_band(double pull, double limit) {
+    if (!(limit > 0) || !isfinite(pull))
+        return 0;
+    return pull * limit / (fabs(pull) + limit);
+}
+
+double sh_rubber_band_slope(double pull, double limit) {
+    if (!(limit > 0) || !isfinite(pull))
+        return 0;
+    double share = limit / (fabs(pull) + limit);
+    return share * share;
+}
+
+/* How far the windows give at most past the end, in pixels. */
+static double edge_limit(double slide, double width) {
+    return fmin(slide, SH_SWIPE_EDGE_LIMIT * fmax(width, 0));
+}
+
+struct sh_swipe_edge sh_swipe_past_end(double pull, double slide, double width) {
+    struct sh_swipe_edge edge = {.offset = 0, .alpha = 1, .rate = 0};
+    if (!(pull > 0) || !isfinite(pull))
+        return edge;
+    if (slide > 0) {
+        // A step pulls as far as the slide, or the limit for a longer one.
+        double limit = edge_limit(slide, width);
+        edge.offset = sh_rubber_band(pull * limit, limit);
+        edge.rate = sh_rubber_band_slope(pull * limit, limit) * limit;
+    } else {
+        edge.alpha = 1 - sh_rubber_band(pull, SH_SWIPE_EDGE_FADE);
+    }
+    return edge;
+}
+
+double sh_swipe_pull_at(double offset, double alpha, double slide, double width) {
+    // How far it gave of how far it could, in the units the step's pull is.
+    double gave = slide > 0 ? offset : 1 - alpha;
+    double limit = slide > 0 ? edge_limit(slide, width) : SH_SWIPE_EDGE_FADE;
+    if (!(gave > 0) || !(limit > 0) || !isfinite(gave))
+        return 0;
+    gave = fmin(gave, 0.95 * limit);
+    return slide > 0 ? gave / (limit - gave) : gave * limit / (limit - gave);
+}
+
 enum sh_swipe_direction sh_swipe_opposite(enum sh_swipe_direction direction) {
     switch (direction) {
     case SH_SWIPE_LEFT:

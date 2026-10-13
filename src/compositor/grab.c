@@ -355,6 +355,9 @@ void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
     }
 
     server->grab_output = toplevel_output(toplevel);
+    // A resize goes from the window's own size: a change of size under way lands first.
+    if (mode == SH_CURSOR_RESIZE && toplevel->anim.morph)
+        sh_anim_finish(&toplevel->anim);
     // Resizing a tile moves its splits; moving one lifts it out until it is dropped.
     bool tiled_resize = toplevel->tiled && mode == SH_CURSOR_RESIZE;
     bool retile = toplevel->tiled && mode == SH_CURSOR_MOVE;
@@ -384,8 +387,11 @@ void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
             from_left = from_left * restore.width / geometry.width;
         if (from_top > restore.height)
             from_top = restore.height / 2.0;
+        // It shrinks into place under the pointer, which it follows meanwhile.
+        struct wlr_box from = morph_from(toplevel);
         toplevel_configure(toplevel, server->cursor->x - from_left, server->cursor->y - from_top,
                            restore.width, restore.height);
+        toplevel_morph(toplevel, from, SH_ANIM_MOVE);
     }
 
     if (mode == SH_CURSOR_MOVE) {

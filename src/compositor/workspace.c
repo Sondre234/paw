@@ -142,6 +142,14 @@ static int slide_distance(struct sh_server *server, struct wlr_output *output) {
     return (int)(box.width * server_settings(server)->animation_slide);
 }
 
+/* What `output`'s windows give with the fingers `pull` steps past its first or last workspace. */
+static struct sh_swipe_edge past_end(struct sh_server *server, struct wlr_output *output,
+                                     double pull) {
+    struct wlr_box box;
+    wlr_output_layout_get_box(server->output_layout, output, &box);
+    return sh_swipe_past_end(pull, box.width * server_settings(server)->animation_slide, box.width);
+}
+
 /* Windows that come and go with a workspace, not sticky ones, which stay. */
 static bool slides(struct sh_server *server, struct sh_toplevel *toplevel,
                    struct wlr_output *output) {
@@ -195,6 +203,21 @@ void switch_workspace(struct sh_server *server, struct wlr_output *output, int w
     }
 }
 
+/* A step toward `way` (1 for the next workspace, -1 the previous) with nowhere to go: `output`'s
+ * windows nudge as the slide would take them and come back, as far as fingers a third of a step
+ * past the end would pull them. A slide that only fades does not nudge. */
+void workspace_nudge(struct sh_server *server, struct wlr_output *output, int way) {
+    if (!output || !way)
+        return;
+    int offset = (int)lround(past_end(server, output, SH_SWIPE_NUDGE).offset);
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (offset && slides(server, toplevel, output) && toplevel_visible(toplevel))
+            sh_anim_nudge(server->animator, &toplevel->anim, toplevel->content,
+                          way > 0 ? -offset : offset, 0);
+    }
+}
+
 /* The workspace slide driven by a touchpad swipe (gestures.c): the output's windows held part of
  * the way through the slide of switch_workspace, and copies of the windows of the workspace it
  * heads for coming in, until the fingers lift and the slide goes on or back from there. */
@@ -210,27 +233,74 @@ static void drop_swipe_copies(struct sh_workspace_swipe *swipe) {
         sh_anim_finish(swipe->copies[--swipe->copy_count]);
 }
 
-/* Starts a slide on `output`, from the workspace it shows. */
+/* Whether `output`'s windows spring back from a rubber band in the animation that began at
+ * `start` (all of them alike), and then how far past the end that is, in steps. */
+static bool springing(struct sh_server *server, struct wlr_output *output, int64_t start,
+                      double *pull) {
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        struct sh_anim *anim = &toplevel->anim;
+        if (!slides(server, toplevel, output) || !toplevel_visible(toplevel) || !anim->animator ||
+            anim->held || anim->tree != toplevel->content ||
+            !((anim->glide && anim->glide_start == start) || (anim->fx && anim->fx_start == start)))
+            continue;
+        struct wlr_box box;
+        wlr_output_layout_get_box(server->output_layout, output, &box);
+        *pull = sh_swipe_pull_at(fabs((double)(anim->tree->node.x - anim->base_x)),
+                                 sh_anim_alpha(anim),
+                                 box.width * server_settings(server)->animation_slide, box.width);
+        return true;
+    }
+    return false;
+}
+
+/* Starts a slide on `output`, from the workspace it shows. Windows still springing back there
+ * from the last swipe's rubber band are taken over where they are drawn. */
 void workspace_swipe_begin(struct sh_server *server, struct sh_workspace_swipe *swipe,
                            struct wlr_output *output) {
     if (server->grabbed_toplevel)
         reset_cursor_mode(server);
+    int from = *output_workspace(server, output->name);
+    double pull = 0;
+    swipe->catching = swipe->sprung && from == swipe->from &&
+                      !strcmp(swipe->output, output->name) &&
+                      springing(server, output, swipe->sprung_at, &pull);
+    swipe->caught = swipe->sprung * pull;
+    swipe->sprung = 0;
     snprintf(swipe->output, sizeof(swipe->output), "%s", output->name);
-    swipe->from = swipe->target = *output_workspace(server, output->name);
+    swipe->from = swipe->target = from;
     swipe->copy_count = 0;
     swipe->shown = 0;
+    swipe->edge = sh_swipe_past_end(0, 0, 0);
+    swipe->toward = 0;
+    swipe->shift = 0;
 }
 
 /* Holds the slide `t` of the way (0 to 1) to `target`. A target past the first or the last
- * workspace pulls the windows a little that way, against a growing resistance, and one that is
- * the workspace shown holds them at rest. */
+ * workspace pulls the windows that way, however far `t` goes, against a resistance that grows as
+ * it goes (a rubber band), and one that is the workspace shown holds them at rest. */
 void workspace_swipe_hold(struct sh_server *server, struct sh_workspace_swipe *swipe, int target,
                           double t) {
     struct wlr_output *output = find_output(server, swipe->output);
     if (!output)
         return;
     int count = server_settings(server)->workspaces;
-    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    // Where the fingers are along the workspaces, in steps toward higher ones.
+    swipe->toward = target == swipe->from ? 0 : target > swipe->from ? 1 : -1;
+    double fingers = swipe->toward * (t > 0 ? t : 0);
+    if (swipe->catching) {
+        // Windows taken over as they spring back: the fingers move them on from there.
+        swipe->shift = swipe->caught - fingers;
+        swipe->catching = false;
+    }
+    // Ahead of the fingers, the slide is on the side of the rubber band it took over until they
+    // come back past where it rests.
+    double along = fingers + swipe->shift;
+    int side = along > 0 ? 1 : along < 0 ? -1 : 0;
+    if (side != swipe->toward)
+        target = swipe->from + side;
+    double pull = fabs(along);
+    t = pull > 1 ? 1 : pull;
     int sign = target > swipe->from ? 1 : -1;
     bool real = target >= 0 && target < count && target != swipe->from;
     if (target != swipe->target)
@@ -238,13 +308,16 @@ void workspace_swipe_hold(struct sh_server *server, struct sh_workspace_swipe *s
     swipe->target = target;
     swipe->shown = real ? t : 0;
     double distance = slide_distance(server, output);
-    // Out of workspaces: the windows give a little and no more.
-    double offset = real ? t : target == swipe->from ? 0 : 0.5 * t / (1 + t);
+    // Out of workspaces: the windows give against the fingers, less and less (or dim, when the
+    // slide only fades).
+    swipe->edge = past_end(server, output, real || target == swipe->from ? 0 : pull);
+    double offset = real ? t * distance : swipe->edge.offset;
+    float alpha = real ? (float)(1 - t) : (float)swipe->edge.alpha;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
         if (slides(server, toplevel, output) && toplevel_visible(toplevel))
-            sh_anim_hold(server->animator, &toplevel->anim, toplevel->content,
-                         -sign * offset * distance, 0, real ? 1 - t : 1);
+            sh_anim_hold(server->animator, &toplevel->anim, toplevel->content, -sign * offset, 0,
+                         alpha);
     }
     if (!real)
         return;
@@ -265,28 +338,49 @@ void workspace_swipe_hold(struct sh_server *server, struct sh_workspace_swipe *s
                      sign * (1 - t) * distance, 0, t);
 }
 
-/* Lets the slide go: with `finish`, the output switches to the workspace it heads for, the
- * slide going on from where it was held; else everything slides back. */
-void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *swipe, bool finish) {
+/* Lets the slide go as the fingers lift, moving `speed` units a millisecond toward the workspace
+ * they head for, `distance` units a step. Past half way, or flicked toward it, the output
+ * switches to the workspace the slide heads for, the slide going on from where it was held;
+ * else, or `cancelled`, everything slides back, and from past the first or last workspace springs
+ * back as a rubber band does, moving as the fingers did at first. */
+void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *swipe, bool cancelled,
+                         double speed, double distance) {
     struct wlr_output *output = find_output(server, swipe->output);
     int count = server_settings(server)->workspaces;
     int target = swipe->target, sign = target > swipe->from ? 1 : -1;
-    double t = swipe->shown, distance = output ? slide_distance(server, output) : 0;
-    finish = finish && output && target >= 0 && target < count && target != swipe->from &&
-             *output_workspace(server, output->name) == swipe->from;
+    bool real = target >= 0 && target < count && target != swipe->from;
+    // The fingers' speed toward the workspace the slide heads for, and in steps a millisecond.
+    double fingers = swipe->toward * sign * speed;
+    double toward = fingers / (distance > 1 ? distance : 1);
+    double t = swipe->shown, slide = output ? slide_distance(server, output) : 0;
+    bool finish = !cancelled && output && real && sh_swipe_finishes(t, fingers) &&
+                  *output_workspace(server, output->name) == swipe->from;
     struct sh_toplevel *toplevel;
     if (!finish) {
+        bool beyond = !real && target != swipe->from;
+        double velocity = -sign * swipe->edge.rate * toward; // the windows', pixels a millisecond
+        swipe->sprung = 0;
         wl_list_for_each(toplevel, &server->toplevels, link) {
-            if (toplevel->anim.held)
+            if (!toplevel->anim.held)
+                continue;
+            if (beyond) {
+                struct sh_anim *anim = &toplevel->anim;
+                sh_anim_spring_back(server->animator, anim, toplevel->content, anim->held_x, 0,
+                                    velocity, 0, anim->held_alpha);
+                if (anim->glide || anim->fx) {
+                    swipe->sprung = sign;
+                    swipe->sprung_at = anim->glide ? anim->glide_start : anim->fx_start;
+                }
+            } else
                 sh_anim_slide_from(server->animator, &toplevel->anim, toplevel->content,
-                                   (int)lround(toplevel->anim.held_x), 0,
-                                   toplevel->anim.held_alpha, t > 0 ? t : 0.5);
+                                   (int)lround(toplevel->anim.held_x), 0, toplevel->anim.held_alpha,
+                                   t > 0 ? t : 0.5);
         }
         for (int i = 0; i < swipe->copy_count; ++i)
-            sh_anim_slide_away(server->animator, swipe->copies[i], (int)(sign * distance), 0, 0,
-                               t);
+            sh_anim_slide_away(server->animator, swipe->copies[i], (int)(sign * slide), 0, 0, t);
         swipe->copy_count = 0;
         swipe->shown = 0;
+        swipe->edge = sh_swipe_past_end(0, 0, 0);
         return;
     }
     // The windows leaving go on as copies, from where they were held.
@@ -299,7 +393,7 @@ void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *sw
         struct sh_anim *away = sh_anim_hold_copy(server->animator, &toplevel->scene_tree->node,
                                                  toplevel->content, x, 0, alpha);
         if (away)
-            sh_anim_slide_away(server->animator, away, (int)(-sign * distance), 0, 0, 1 - t);
+            sh_anim_slide_away(server->animator, away, (int)(-sign * slide), 0, 0, 1 - t);
     }
     drop_swipe_copies(swipe);
     struct sh_toplevel *focused = server->focused_toplevel;
@@ -311,7 +405,7 @@ void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *sw
     wl_list_for_each(toplevel, &server->toplevels, link) {
         if (slides(server, toplevel, output) && toplevel_visible(toplevel))
             sh_anim_slide_from(server->animator, &toplevel->anim, toplevel->content,
-                               (int)lround(sign * (1 - t) * distance), 0, (float)t, 1 - t);
+                               (int)lround(sign * (1 - t) * slide), 0, (float)t, 1 - t);
     }
     if (refocus) {
         focus_top_on(server, output);

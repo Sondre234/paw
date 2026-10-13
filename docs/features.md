@@ -56,7 +56,8 @@ the dock.
   on pages of a 7 × 5 grid over the whole screen. Type to search, use the arrows, Page Up and
   Page Down, the wheel, dragging or the dots to page, Enter to launch, and right-click for an
   application's actions or Keep in Dock; Escape clears the search and then closes it, as does a
-  click beside the icons.
+  click beside the icons. Past the first or last page a drag stretches the pages like a rubber
+  band and the wheel bumps them, rather than stop dead.
 - **Spotlight** is the command palette (Super + P) as a large search field a quarter of the way
   down the screen, its results grouped by kind under headings after the top hit; **Control Center** is Quick Settings as
   rounded modules, with Display and Sound under their own headings; notifications show as banners
@@ -83,7 +84,7 @@ leaves, and its popups are the taskbar's: the start menu, Quick Settings, the cl
 the calendar and the notifications, the volume's, the Wi-Fi networks, the tray's menus, the
 appearance profiles and the wallpapers, each opening by its module, and a right click beside the
 modules opens the bar's menu (tiling off, the start menu, show desktop, the profiles). The wheel
-on the bar pages through the workspaces.
+on the bar pages through the workspaces, nudging the windows past either end as the taskbar's does.
 
 Everything about it is set in `shell.tiling_bar`, unset values following the shell's own
 (`panel_color`, `text_color`, `accent`, `font`, `font_size`), so it takes an appearance profile's
@@ -819,7 +820,8 @@ While a drop would snap, a translucent preview of the slot shows under the dragg
 `windows.snap.color` (the focused border's colour, a quarter opaque) with an outline of the same
 colour, more opaque, and rounded as a window there would be. It grows out of the window into
 the slot as the pointer reaches the edge, glides to the next slot as the pointer moves into a
-corner, fades out where it is as the pointer leaves the edge, and goes as the window is dropped.
+corner, fades out where it is as the pointer leaves the edge, and fades out under the window
+dropped into the slot as the window glides there from where it was dropped.
 It moves with the duration and curve of `animations.move` and fades with those of
 `animations.close`, at once with animations off. The outline needs the GLES2 renderer and
 wlroots with the rounded-corners patch; elsewhere the preview is the fill alone, and square
@@ -1290,7 +1292,18 @@ the `workspace_back` action (Super + Tab) returns to it, like sway's
 does the same, so pressing Super + 2 twice flips between workspace 2 and the one before.
 It is off by default.
 
-`workspace_prev` and `workspace_next` (Super + Ctrl + Left / Right) step to the previous and next workspace.
+`workspace_prev` and `workspace_next` (Super + Ctrl + Left / Right) step to the previous and next
+workspace, wrapping around from the last to the first and back.
+
+Where there is nowhere further to go, the windows say so rather than stop dead. Past the first or
+the last workspace a touchpad swipe stretches them like a rubber band (see [Touchpad
+gestures](#touchpad-gestures)), and scrolling over the panel past either end nudges the windows of
+that monitor a little the way the slide would take them (left past the last workspace, right
+before the first) and back, as far as the rubber band gives a third of a step past the end (2 % of
+the monitor's width with the default slide), in twice the `workspace` animation's time; the
+taskbar's mark of the current workspace bumps toward the workspace that is not there with them. So
+do `workspace_next` and `workspace_prev` with a single workspace. A slide that only fades
+(`animations.workspace.distance = 0`) nudges nothing.
 
 ### Scratchpad
 
@@ -1303,6 +1316,30 @@ to a workspace or tiled (Super + V). Hidden windows stay in the taskbar as minim
 so the mouse can still find them; activating one there shows it as `scratchpad_show` would.
 `features = { scratchpad = false }` turns both actions off, and a reload then brings hidden
 windows back to the current workspace.
+
+It drops down as a quake console does. A window shown slides in from the edge of the monitor's
+free area along the bar: down from under a bar along the top (the macOS style's menu bar
+counts), up from a bar along the bottom, in from a bar along a side, and down from the top of
+the monitor without a bar. It fades in over the first part of the way and is cut along the bar's
+edge, so that it comes out from behind the bar rather than across it; the cut lies a little
+inside the bar, as deep as the window's rounded corners reach, so that its sides come out
+straight. Hidden, it slides back out the same way, speeding up as it goes and fading at the end:
+from where it is drawn, so a tile moved to the scratchpad leaves straight from its tile. Shown or
+hidden again part way, it turns back from where it is drawn, keeping a little of its speed. It is
+in its place for everything but the drawing at once: focus moves to it, or away from it, as the
+key is pressed, clicks and the pointer find it where it lands, and one sliding out is no longer
+there for them. A scratchpad window always floats, so none slides into a tile: Super + V on a
+shown one tiles it, gliding there as tiles move if it is still dropping in, and takes it out of
+the scratchpad. Dropping in takes twice
+`animations.open`'s duration with its curve, and sliding out one and a half times
+`animations.close`'s, with its curve played backwards (an ease-in, by default); `animations.speed`
+scales both, and with animations off, or either duration 0, the window shows or hides at once.
+Only the GLES2 renderer with the rounded-corners patch for wlroots draws the cut; under other
+renderers the window slides uncut behind the bar, and goes no further than its own monitor's
+edge where another monitor lies beyond it. Along a monitor's edge with no bar but another monitor
+beyond, or a bar too thin to hide the corners, it is cut square while it crosses the line, its
+rounded corners and a plain border left out there. `paw msg get scratchpad` tells each window's
+drop.
 
 ### Sticky windows
 
@@ -1540,6 +1577,29 @@ length in milliseconds (default 120, 10–1000). Window positions reported by `p
 always the final ones, and clicks and hovering use them too: input never waits for an
 animation or lands in the middle of one.
 
+A window that gets another place and size glides to them together, its size easing on the same
+curve as its place: maximized and restored (by a binding, the application's own title bar or
+button, or the taskbar), snapped from the keyboard or by Super + Alt + arrows, dropped into a snap at an
+edge (gliding from where it was dropped into the slot, over the preview fading out under it),
+dragged off a snap (shrinking back to its own size under the pointer), resized or moved by the
+keyboard, floated out of the tiling, moved to the next monitor floating, or made fullscreen and
+back.
+These take `animations.move`, and fullscreen `animations.fullscreen`. An application draws its
+new size only once it is told it, so meanwhile what it drew last is stretched to the size the
+window is drawn at, and once it draws the new size what it drew before fades out over it, so
+that neither the size nor the picture jumps. The border, the shadow and the rounded corners
+follow the size drawn; becoming maximized or fullscreen, where a window has none, they fade out
+and the corners square on the way, and fade back in leaving it. Past the glide, a window waits
+at its new size for an application slow to draw it, up to 300 milliseconds, and then eases to
+the size the application last drew, until it draws the new one; an application that answers at
+its own size instead has the window ease to that. Reversed or changed again part way, a window goes on from
+where it is drawn, at the speed it has. `paw msg get drawn` prints where each window is drawn
+now, in the order of `get windows`: app ID, title, its place and size as drawn, the size its
+surface is drawn at, what its change of size does (`rest`, `moving`, `waiting` for the
+application, `fading` what it drew before), how much of its frame shows and the factor an
+animation or a gesture gives its opacity (both in thousandths), for tests; `tests/morph_smoke.py`
+follows the changes with it.
+
 Animations are interruptible: a tile that is gliding when the layout changes again continues
 from where it is drawn, at the speed it has, and never snaps. Each kind (`open`, `close`,
 `move`, `workspace`, `fullscreen`, `focus`, `minimize`) can have its own `duration` (0 turns just
@@ -1550,7 +1610,8 @@ than `late_frame_ms` (default 80) finishes what is running rather than stutterin
 Switching workspace slides the old windows out (copies of their last frames) and the new
 ones in, fading, toward the side of the higher-numbered workspace; `animations.workspace.distance`
 sets the slide as a share of the monitor's width (default 0.08, 0 only fades). Sticky windows
-stay put.
+stay put. A [scratchpad](#scratchpad) window drops in from behind the bar and slides back out
+there, on the `open` and `close` kinds.
 When focus moves, a window's opacity and border color fade to their new values (the `focus`
 kind) instead of switching.
 
@@ -2070,11 +2131,19 @@ workspace slide (`animations.workspace`), sliding and fading out as the next wor
 and once the fingers lift the slide goes on to that workspace if they went past half of
 `gestures.distance`, or back if not. A flick, a quick swipe however short, goes on; one flicked
 back the other way at the end stays. Back past where they began, the fingers head for the other
-neighbour. There is none before the first workspace or after the last: the windows give a little
-against the fingers and come back, rather than wrap around as `workspace_next` does. Three fingers
-up open the overview the same way, the windows gliding into its grid with the fingers, and down
-close it; sideways while it is open, it shows the next or previous workspace as the fingers lift,
-as its strip does. These are the defaults; `gestures` changes them:
+neighbour. There is none before the first workspace or after the last, and rather than wrap around
+as `workspace_next` does, the windows stretch that way like a rubber band, showing the desktop
+behind them: they follow the fingers as far as the slide would at first, then less and less the
+further the fingers go, never as far as the slide's whole distance or a tenth of the monitor's
+width, whichever is less, and a whole step of `gestures.distance` takes them half that far (a
+slide longer than a tenth of the width starts as one of a tenth would). With
+`animations.workspace.distance = 0`, a slide that only fades, they dim a little instead. Back the other way they come back as they went, and on past where they rest the slide
+toward the other neighbour begins. Once the fingers lift they spring back with the `move`
+animation, going on at first as fast as the fingers went, and fingers that come back to the
+touchpad meanwhile take them over where they are. Three fingers up open the overview the same way,
+the windows gliding into its grid with the fingers, and down close it; sideways while it is open,
+it shows the next or previous workspace as the fingers lift, as its strip does. These are the
+defaults; `gestures` changes them:
 
 ```lua
 gestures = {
@@ -2102,8 +2171,9 @@ every pinch and every hold goes to the window, as does everything with `gestures
 or while the screen is locked. `paw msg get gesture` says what the swipe under way is
 (`waiting`, `passed`, `workspace`, `overview`, `action`, or `none`), with its fingers, direction
 and progress in thousandths of a step, and for workspaces a line with the output, the workspace
-it began on and the one it heads for (from 1, 0 for none), how far the slide is held, and how
-many windows are held and coming in.
+it began on and the one it heads for (from 1, 0 for none), how far the slide is held, how many
+windows are held and coming in, and past the first or last workspace how far the windows stretch
+(in pixels, negative to the left) and their opacity (in thousandths).
 
 Swipes of three or more fingers, pinches and holds the compositor does not take go to the window
 under the pointer through pointer-gestures-unstable-v1: Firefox and Chromium zoom a page on a
@@ -2574,7 +2644,10 @@ one: `paw msg output HDMI-A-1 workspace_next`. `paw msg type TEXT` types TEXT in
 what has the keyboard, as wtype does: each character on a key of a keymap made for it (200 to a
 keymap; a longer text takes several), the window's own keymap back after, so that accents, emoji
 and their sequences come out as they are whatever the keyboard layout; the request is a line of at
-most 512 bytes, and it says when nothing has the keyboard. The query
+most 512 bytes, and it says when nothing has the keyboard. `paw msg workspace_nudge OUTPUT
+next|prev` nudges that monitor's windows as a step to its next or previous workspace would start
+to slide them, and back, as the panel's wheel does past either end (see
+[Workspaces](#workspaces)). The query
 `paw msg get workspace` prints the focused monitor's workspace, `paw msg get workspaces`
 prints one tab-separated line per monitor (name, current workspace, focused, the
 workspaces holding windows, such as `1,3`, or `-`, and tiling, `on` or `off`),
@@ -2603,18 +2676,27 @@ the keyboard.
 `na`, `unknown` until it has answered, or `unavailable` without logind.
 `paw msg get animations` prints the number of running animations and of window trees in
 the scene (closing and minimizing windows count until their animation ends), and of focus fades,
-mainly for tests. `paw msg get minimize` prints where the taskbars show each window, a `rect`
-line per window and monitor (the window's number, the monitor, and x, y, width and height in the
-monitor's coordinates, the one that counts first), then a `fold` line per window on its way into
-or out of its button (its number, `minimize` or `restore`, how far into the button it is drawn in
-thousandths, the box in layout coordinates, what that box is: `button`, `panel` or `place`, and
-where the window's box is drawn now), also mainly for tests. `paw msg get pictures` prints one line per capture source a client asked for to
+mainly for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
+and size (see [Animations](#animations)), and `paw msg get output_frames` each monitor's name and
+how many frames it has drawn. `paw msg get minimize` prints where the taskbars show each window, a
+`rect` line per window and monitor (the window's number, the monitor, and x, y, width and height
+in the monitor's coordinates, the one that counts first), then a `fold` line per window on its
+way into or out of its button (its number, `minimize` or `restore`, how far into the button it
+is drawn in thousandths, the box in layout coordinates, what that box is: `button`, `panel` or
+`place`, and where the window's box is drawn now), also mainly for tests. `paw msg get pictures`
+prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
 window_peek` prints one line per window for a peek at one window (the taskbar's card's, the
 switcher's, the palette's): whether it is the
 one peeked at, whether it is drawn, where it is stacked among the windows (0 at the bottom), how
-far it shows through the peek and its opacity (both in thousandths), and its title. `paw
+far it shows through the peek and its opacity (both in thousandths), and its title. `paw msg
+get scratchpad` prints one line per window in the [scratchpad](#scratchpad) or sliding in or out
+of it: its title, whether it is hidden and whether it is drawn, the drop under way (`in`, `out`
+or `-`), the edge it goes by (`top`, `bottom`, `left` or `right`), the offset from its place it
+is drawn at (x and y), how opaque it is drawn (thousandths), the line it is cut along (`-` while
+nothing is cut), the clip its content is drawn with, cut or not (`X,Y,WIDTH,HEIGHT`), and its
+radius, and the box its border's rounded rect covers (each `-` for none). `paw
 msg get seat` prints what has the keyboard, what the pointer is on and, while something is
 dragged, what the drag is over: a line each, `keyboard`, `pointer` or `drag`, followed by
 `window` and its title, `layer` and its namespace, `other` (a popup, the lock screen) and `-`,

@@ -271,6 +271,7 @@ int main(int argc, char **argv) {
     bool toggled = false;
     int currentWorkspace = 2;
     QStringList switches, requests;
+    QStringList nudges; // "workspace_nudge OUTPUT next|prev", the panel's wheel past either end
     int layoutSwitches = 0; // "switch_layout next" requests, answered with the second layout
     bool nightLight = false; // what "night_light_toggle" turns, and the state it then announces
     bool holdSessions = false;
@@ -364,6 +365,10 @@ int main(int argc, char **argv) {
                 // Typing what the emoji picker picked; 🙃 has nothing to type into.
                 requests.push_back(QString::fromUtf8(request).trimmed());
                 client->write(request.contains("🙃") ? "error: nothing has the keyboard\n" : "ok\n");
+                client->disconnectFromServer();
+            } else if (request.startsWith("workspace_nudge ")) {
+                nudges.push_back(QString::fromUtf8(request).trimmed());
+                client->write("ok\n");
                 client->disconnectFromServer();
             } else if (request.startsWith("output ") || request.startsWith("session ") ||
                        request.startsWith("switcher_confirm ") ||
@@ -607,8 +612,23 @@ int main(int argc, char **argv) {
     scroll(-120); // down: the next workspace
     if (!waitFor([&] { return workspace(4)->property("current").toBool(); }))
         return fail("scrolling down did not page to the next workspace");
-    scroll(-120); // already on the last one
-    scroll(60);   // half a notch does nothing yet
+    {
+        // Already on the last one: the compositor nudges the windows, and the pill bumps toward
+        // the next workspace; a second notch while it is on its way out leaves it going.
+        auto *pill = find(view.rootObject(), "workspacePill");
+        auto *bumping = pill ? pill->findChild<QObject *>("workspacePillBump") : nullptr;
+        if (!bumping)
+            return fail("the workspace pill has no bump");
+        QSignalSpy bumps(pill, SIGNAL(bumpedChanged())), starts(bumping, SIGNAL(started()));
+        scroll(-120);
+        scroll(-120);
+        const QString next = "workspace_nudge " + output + " next";
+        if (!waitFor([&] { return nudges == QStringList{next, next}; }) ||
+            !waitFor([&] { return bumps.count() >= 2 && pill->property("bumped").toReal() == 0; }) ||
+            starts.count() != 1 || switches.size() != 2)
+            return fail("scrolling past the last workspace did not nudge once");
+    }
+    scroll(60); // half a notch does nothing yet
     scroll(60);
     if (!waitFor([&] { return workspace(3)->property("current").toBool(); }) ||
         switches.size() != 3 || switches.last() != "output " + output + " workspace 3") {
@@ -777,6 +797,12 @@ int main(int argc, char **argv) {
         click(fourth);
         if (!waitFor([&] { return fourth->property("current").toBool(); }))
             return fail("could not switch back to the last workspace from the tiling bar");
+        // Past the last one, the wheel nudges the windows toward the next instead.
+        nudges.clear();
+        scrollAt(fourth->mapToScene(QPointF(fourth->width() / 2, fourth->height() / 2)).toPoint(), -120);
+        if (!waitFor([&] { return nudges == QStringList{"workspace_nudge " + output + " next"}; }) ||
+            !fourth->property("current").toBool())
+            return fail("the wheel past the last workspace on the tiling bar did not nudge");
         // The layout, stepped on by a click.
         auto *layout = item("tilingLayout");
         if (!layout || layout->property("label").toString() != "dwindle")
@@ -6086,6 +6112,38 @@ ListModel {
         wheel(120);
         if (launchpad->property("page").toInt() != 0)
             return fail("a wheel notch up did not show the page before");
+        // There is no page before the first: the wheel bumps the pages instead, once for two
+        // notches while it is on its way out.
+        {
+            auto *pages = find(root, "launchpadPages");
+            auto *bumping = pages ? pages->findChild<QObject *>("launchpadPagesBump") : nullptr;
+            if (!bumping)
+                return fail("Launchpad's pages have no bump");
+            QSignalSpy bumps(pages, SIGNAL(bumpedChanged())), starts(bumping, SIGNAL(started()));
+            wheel(120);
+            wheel(120);
+            if (!waitFor([&] { return bumps.count() >= 2 && pages->property("bumped").toReal() == 0; }) ||
+                starts.count() != 1 || launchpad->property("page").toInt() != 0)
+                return fail("wheel notches up on the first page did not bump the pages once");
+        }
+        // Dragged right on the first page, the pages follow less and less, never an eighth of the
+        // width, and come back.
+        {
+            auto *pages = find(root, "launchpadPages");
+            const int y = launchpad->property("gridTop").toInt() - 10;
+            const QPoint from(50, y), to(450, y);
+            QTest::mousePress(popover, Qt::LeftButton, Qt::NoModifier, from);
+            for (int step = 1; step <= 10; ++step) {
+                QTest::mouseMove(popover, from + (to - from) * step / 10);
+                QTest::qWait(10);
+            }
+            const qreal stretched = pages->x(), eighth = launchpad->width() / 8;
+            QTest::mouseRelease(popover, Qt::LeftButton, Qt::NoModifier, to);
+            if (!(stretched > eighth / 2 && stretched < eighth) ||
+                launchpad->property("page").toInt() != 0 ||
+                !waitFor([&] { return pages->x() == 0; }))
+                return fail("dragging the first page right did not stretch it as a rubber band");
+        }
         // Dragging beside the applications, to the left, shows the next page.
         {
             const int y = launchpad->property("gridTop").toInt() - 10;
