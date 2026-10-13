@@ -510,6 +510,129 @@ static void test_hold_copy(void) {
     teardown(&rig);
 }
 
+static int lift_updates;
+static void count_lift(void *data) {
+    ++lift_updates;
+}
+
+/* A dragged window is lifted: it grows about the point it was taken by and stays so, what the
+ * client draws included, until it is let down again. */
+static void test_lift(void) {
+    struct rig rig;
+    struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
+    c.late_ms = 30;
+    setup(&rig, c);
+    lift_updates = 0;
+    // The rect rests at (10, 20), 200 by 100; it is lifted by its top-left corner.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, count_lift, NULL);
+    CHECK(sh_animator_lifted(rig.animator) == 1 && sh_animator_running(rig.animator) == 0,
+          "lifted, and nothing else runs");
+    CHECK(rig.rect->width == 200 && sh_anim_lift_progress(&rig.anim) == 0, "starts down");
+    advance(&rig, 25);
+    advance(&rig, 25);
+    CHECK(rig.rect->width == 210 && rig.rect->height == 105 && rig.rect->node.x == 10 &&
+              rig.rect->node.y == 20,
+          "half way up, about its corner: %d by %d at %d, %d", rig.rect->width,
+          rig.rect->height, rig.rect->node.x, rig.rect->node.y);
+    advance(&rig, 25);
+    advance(&rig, 26);
+    CHECK(rig.rect->width == 220 && rig.rect->height == 110 && sh_anim_lift_progress(&rig.anim) == 1,
+          "up: %d", rig.rect->width);
+    int updates = lift_updates;
+    CHECK(updates == 4, "told on each frame: %d", updates);
+    advance(&rig, 500); // a late frame lands what eases, and this is up already
+    advance(&rig, 16);
+    CHECK(rig.rect->width == 220 && lift_updates == updates, "stays up, quietly");
+    double scale, dx, dy;
+    sh_anim_lift_transform(&rig.anim, &scale, &dx, &dy);
+    CHECK(fabs(scale - 1.1) < 1e-9 && fabs(dx + 1) < 1e-9 && fabs(dy + 2) < 1e-9,
+          "transform: %f %f %f", scale, dx, dy);
+    // The client draws at another size: that is lifted too.
+    wlr_scene_rect_set_size(rig.rect, 300, 100);
+    advance(&rig, 16);
+    CHECK(rig.rect->width == 330 && rig.rect->height == 110, "a new size lifted: %d",
+          rig.rect->width);
+    // Input sees it at its own size.
+    sh_animator_rest(rig.animator);
+    CHECK(rig.rect->width == 300 && rig.rect->height == 100, "at rest for input");
+    sh_animator_resume(rig.animator);
+    CHECK(rig.rect->width == 330, "lifted again");
+    // Let down, it settles in half as long again, from where it is.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 10, 20, count_lift, NULL);
+    CHECK(rig.rect->width == 330, "no jump as it starts down");
+    for (int i = 0; i < 3; ++i)
+        advance(&rig, 25);
+    CHECK(rig.rect->width == 315, "half way down: %d", rig.rect->width);
+    for (int i = 0; i < 3; ++i)
+        advance(&rig, 26);
+    CHECK(rig.rect->width == 300 && rig.rect->height == 100 && rig.rect->node.x == 10 &&
+              sh_animator_lifted(rig.animator) == 0 && !rig.anim.records,
+          "down and gone: %d", rig.rect->width);
+    // Reversed half way up, it turns back from where it is.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, NULL, NULL);
+    advance(&rig, 25);
+    advance(&rig, 25);
+    int half = rig.rect->width;
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 10, 20, NULL, NULL);
+    CHECK(rig.rect->width == half && half > 300 && half < 330, "turns where it is: %d", half);
+    advance(&rig, 25);
+    CHECK(rig.rect->width < half + 3, "and comes back down: %d", rig.rect->width);
+    for (int i = 0; i < 8; ++i)
+        advance(&rig, 25);
+    CHECK(rig.rect->width == 300 && sh_animator_lifted(rig.animator) == 0, "down");
+    teardown(&rig);
+}
+
+/* A lift goes on through other animations, at once without animations, and ends when the
+ * window's animations are finished. */
+static void test_lift_with_others(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    // Over an opening window, the two scales multiply.
+    sh_anim_open(rig.animator, &rig.anim, rig.content, 110, 70);
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 110, 70, NULL, NULL);
+    advance(&rig, 50);
+    CHECK(rig.rect->width == 204, "open and lift: %d", rig.rect->width); // 200 * 0.97 * 1.05
+    advance(&rig, 60);
+    CHECK(rig.rect->width == 220 && rig.rect->node.x == 0 && sh_animator_running(rig.animator) == 0,
+          "opened, still lifted: %d at %d", rig.rect->width, rig.rect->node.x);
+    // A glide moves it, lifted.
+    sh_anim_glide(rig.animator, &rig.anim, rig.content, 40, 0);
+    CHECK(rig.content->node.x == 40 && rig.rect->width == 220, "glides lifted");
+    // A late frame or turning animations off lands what runs; the lift stays up.
+    sh_animator_finish_all(rig.animator);
+    CHECK(rig.content->node.x == 0 && rig.rect->width == 220, "still up after finishing all");
+    struct sh_animator_config off = config(100, SH_CURVE_LINEAR);
+    off.enabled = false;
+    sh_animator_configure(rig.animator, &off);
+    CHECK(rig.rect->width == 220, "and with animations off");
+    // Without animations it goes down at once, and up again at once.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 110, 70, NULL, NULL);
+    CHECK(rig.rect->width == 200 && sh_animator_lifted(rig.animator) == 0, "down at once");
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 110, 70, NULL, NULL);
+    CHECK(rig.rect->width == 220 && rig.rect->node.x == 0, "up at once: %d", rig.rect->width);
+    // Finishing the window's animations ends it.
+    sh_anim_finish(&rig.anim);
+    CHECK(rig.rect->width == 200 && rig.rect->node.x == 10 && sh_animator_lifted(rig.animator) == 0,
+          "finished: %d", rig.rect->width);
+    // Letting down what is not lifted does nothing.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 110, 70, NULL, NULL);
+    CHECK(sh_animator_lifted(rig.animator) == 0, "nothing to let down");
+    // A window held by a gesture is held lifted.
+    sh_animator_configure(rig.animator, &(struct sh_animator_config){0});
+    struct sh_animator_config on = config(100, SH_CURVE_LINEAR);
+    sh_animator_configure(rig.animator, &on);
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 110, 70, NULL, NULL);
+    advance(&rig, 120);
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -30, 0, 0.5F);
+    advance(&rig, 16);
+    CHECK(rig.content->node.x == -30 && rig.rect->width == 220 &&
+              fabsf(rig.rect->color[3] - 0.5F) < 1e-6F,
+          "held lifted: %d", rig.rect->width);
+    teardown(&rig);
+    CHECK(true, "a lifted window's animator goes cleanly");
+}
+
 static void test_finish_all(void) {
     struct rig rig;
     setup(&rig, config(300, SH_CURVE_EASE_OUT));
@@ -537,6 +660,8 @@ int main(void) {
     test_workspace_slide();
     test_hold_and_slide_from();
     test_hold_copy();
+    test_lift();
+    test_lift_with_others();
     test_finish_all();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
