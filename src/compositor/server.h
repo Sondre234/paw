@@ -445,7 +445,8 @@ struct sh_server {
     /* Snapping a dragged window at the edges of its output (snap.c): the zone the pointer is
      * in (the arrangement a drop gives, SH_NONE for none) and its slot, the window's floating
      * box as the drag began, and the preview of the slot, which eases between places in `tween`
-     * (x, y, width, height, opacity), drawn now as `drawn`, with corners of `radius`. */
+     * (x, y, width, height, opacity), drawn now as `drawn`, with corners of `radius`; `landing`
+     * while it fades out under the window dropped into it. */
     struct {
         enum sh_action zone;
         struct sh_rect slot;
@@ -455,6 +456,7 @@ struct sh_server {
         struct sh_tween tween;
         float drawn[SH_TWEEN_VALUES];
         int radius;
+        bool landing;
     } snap;
 
     /* Windows a session restore launched and has yet to place: the first new window with the
