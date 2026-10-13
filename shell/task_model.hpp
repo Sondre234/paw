@@ -5,7 +5,11 @@
 #include "window_pictures.hpp"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include <QAbstractListModel>
+#include <QPointer>
+#include <QRect>
+#include <QSet>
 #include <QSocketNotifier>
+#include <QTimer>
 #include <memory>
 #include <vector>
 #include <wayland-client.h>
@@ -18,7 +22,8 @@
 // process that made it, 0 until it is known; and from version 4 each has its `windowId`, the
 // number the compositor's control socket names it by (as the window switcher does), 0 until it
 // is known, and the model can peek at one; from version 6 whether it is kept `above` the others,
-// undefined below it; and from version 8 it can say which windows a workspace shows, and where
+// undefined below it; from version 7 it tells the compositor where the taskbar shows each window
+// (place); and from version 8 it can say which windows a workspace shows, and where
 // (workspaceLayout).
 class TaskModel : public QAbstractListModel {
     Q_OBJECT
@@ -84,6 +89,16 @@ class TaskModel : public QAbstractListModel {
     Q_INVOKABLE void peek(int taskId);
     Q_INVOKABLE void endPeek(int taskId);
     int peekedTask() const { return peeked_; }
+    // Where `owner` (a button on the bar, a picture on its card) shows the windows `taskIds` on
+    // the output named `output`, in the output's logical coordinates, for the compositor to
+    // minimize each into and restore it out of (the window control's version 7): it replaces what
+    // the owner placed before, and windows the owner no longer names are taken back. On an
+    // output, the rectangle of the highest `layer` counts, of one layer the owner's that began
+    // placing the window last (moving it later keeps its turn); an empty rectangle, or the owner
+    // going, takes the owner's back. Sent once a change is over, and before activating or
+    // minimizing a window or showing the desktop.
+    Q_INVOKABLE void place(QObject *owner, const QVariantList &taskIds, const QString &output,
+                           const QRectF &rect, int layer = 0);
     // Through the window control's version 8, counted per workspace: while watched, the
     // compositor says which windows workspace `number` (from 1) of output `output` shows, and
     // again whenever that changes. The last unwatch lets it go, keeping what it said last.
@@ -114,6 +129,14 @@ class TaskModel : public QAbstractListModel {
         int pid = 0;
         int windowId = 0;
     };
+    // Where an owner shows a window (place), in the order placed.
+    struct Placed {
+        QPointer<QObject> owner;
+        QString output;
+        QRect rect;
+        int layer = 0;
+        quint64 order = 0;
+    };
     struct Task {
         TaskModel *model;
         zwlr_foreign_toplevel_handle_v1 *handle;
@@ -122,6 +145,9 @@ class TaskModel : public QAbstractListModel {
         State state;
         // What the model last announced; a `done` that changes none of it announces nothing.
         State shown;
+        std::vector<Placed> placed;
+        // The rectangle the compositor was last told of on each output.
+        QHash<QString, QRect> told;
     };
     std::vector<std::unique_ptr<Task>> tasks_;
     // A workspace watched now or before: its object while watched, the list being sent, and the
@@ -150,6 +176,13 @@ class TaskModel : public QAbstractListModel {
     QList<QPair<QString, QString>> urgent_;
     int nextId_ = 1;
     int peeked_ = -1;
+    quint64 placeOrder_ = 0;
+    QTimer placing_;
+    QSet<QObject *> placers_;
+    // Drops what `owner` placed, as it goes.
+    void unplace(QObject *owner);
+    // Tells the compositor where the windows are, as far as that changed.
+    void sendPlaces();
     void setPeeked(int taskId);
     WindowPictures pictures_{[this] { flush(); }};
     Task *find(int id);

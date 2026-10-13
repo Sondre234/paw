@@ -18,6 +18,7 @@
 #include "palette.hpp"
 #include "power.hpp"
 #include "paw/config.hpp"
+#include "restyle.hpp"
 #include "start_menu.hpp"
 #include "system_status.hpp"
 #include "task_model.hpp"
@@ -99,6 +100,10 @@ class ShellController : public QObject {
     // animations.enabled and animations.speed, which the shell's animations follow too.
     Q_PROPERTY(bool animations READ animations NOTIFY configChanged)
     Q_PROPERTY(qreal animationSpeed READ animationSpeed NOTIFY configChanged)
+    // While a new appearance profile comes in, from the reload that brings it until it is on the
+    // screen (Restyle): the compositor shows a picture of the old look meanwhile and crossfades
+    // from it, so the shell's own motion waits and the new look shows at once.
+    Q_PROPERTY(bool restyling READ restyling NOTIFY restylingChanged)
     // Whether Qt Quick draws through the GPU, which shader effects such as shadows need; its
     // software renderer cannot draw them. Set from what the views actually use.
     Q_PROPERTY(bool effects READ effects NOTIFY effectsChanged)
@@ -311,6 +316,7 @@ class ShellController : public QObject {
     bool iconsOnly() const { return config_.shell.icons_only; }
     bool animations() const { return config_.settings.animations; }
     qreal animationSpeed() const { return config_.settings.animation_speed; }
+    bool restyling() const { return restyling_; }
     bool effects() const { return effects_; }
     void setEffects(bool effects);
     bool groupWindows() const { return config_.shell.group_windows; }
@@ -478,8 +484,12 @@ class ShellController : public QObject {
     // Toggles tiling on `output`, or on the focused output when it is empty.
     Q_INVOKABLE void toggleTiling(const QString &output = {});
     Q_INVOKABLE void showWorkspace(const QString &output, int number);
+    // A step past `output`'s last workspace (`way` 1) or its first (-1), which the compositor
+    // answers by nudging that output's windows that way and back; nothing without a compositor.
+    Q_INVOKABLE void nudgeWorkspace(const QString &output, int way);
   Q_SIGNALS:
     void configChanged();
+    void restylingChanged();
     void barDragChanged();
     void effectsChanged();
     void wallpaperChanged();
@@ -527,6 +537,10 @@ class ShellController : public QObject {
     void configureClipboard();
     std::filesystem::path path_;
     paw::Config config_;
+    bool restyling_ = false;
+    Restyle restyle_;
+    // Restyle settled: tells the compositor the profile's look is drawn.
+    void restyled();
     TaskModel tasks_;
     FileIndex files_;
     Palette palette_{*this};

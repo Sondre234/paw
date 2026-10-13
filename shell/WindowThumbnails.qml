@@ -131,7 +131,20 @@ PopupCard {
                     owner = thumbnails.panel
                     watched = taskId
                     owner.wantPicture(watched, true)
+                    placeWindow()
                 }
+                // Where its window shows while the card is open, over its button: the compositor
+                // restores the window out of its picture, or minimizes it into it.
+                readonly property rect placedRect: {
+                    void [thumbnails.x, thumbnails.y, thumbnails.width, thumbnails.height, thumbnails.progress,
+                          thumbnails.open, tile.x, tile.y]
+                    if (!thumbnails.open)
+                        return Qt.rect(0, 0, 0, 0)
+                    var point = box.mapToItem(thumbnails.panel.popupLayer, 0, 0)
+                    return Qt.rect(point.x, point.y, box.width, box.height)
+                }
+                function placeWindow() { thumbnails.panel.placeWindows(tile, [taskId], placedRect, 1) }
+                onPlacedRectChanged: placeWindow()
                 // Going while its picture is dragged (its window closing, or no longer the button's),
                 // it ends the drag, which its handler, going too, never says has ended.
                 Component.onDestruction: {

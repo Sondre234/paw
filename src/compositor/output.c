@@ -16,14 +16,17 @@ static void output_frame(struct wl_listener *listener, void *data) {
     struct sh_stats *stats = &output->server->stats;
     uint64_t started = now_ns();
 
+    // The fades redraw windows' frames at rest (a peek's), which the animations then draw
+    // where they have the windows.
+    if (tick_effects(output->server))
+        wlr_output_schedule_frame(output->wlr_output);
     sh_animator_tick(output->server->animator);
     overview_touch(output->server, false); // windows that move or fade move their thumbnails
     // Whatever moved a window against an edge of the usable area or away from it drew a frame
     // here; the shell hears of it with the state (describe_state).
     if (output_touched_edges(output->server, output) != output->touched)
         notify_subscribers(output->server);
-    if (tick_effects(output->server))
-        wlr_output_schedule_frame(output->wlr_output);
+    crossfade_tick(output->server); // a new appearance profile fading in
     if (tick_idle(output->server)) // the screens dimming
         wlr_output_schedule_frame(output->wlr_output);
     // Night light's colours do not go with an HDR output's, which the scene converts to itself.
@@ -55,6 +58,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     lock_output_presented(output);
     uint64_t spent = now_ns() - started;
     ++stats->frames;
+    ++output->frames;
     stats->frame_ns += spent;
     if (spent > stats->frame_max_ns)
         stats->frame_max_ns = spent;
@@ -702,6 +706,7 @@ static void output_destroy(struct wl_listener *listener, void *data) {
     wl_list_remove(&output->link);
     mirror_stop(output);
     mirrors_forget_source(output);
+    crossfade_forget_output(output);
     output_release_zoom(output);
     destroy_output_layers(output->server, output->wlr_output);
     wlr_scene_node_destroy(&output->background->node);

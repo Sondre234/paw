@@ -56,6 +56,27 @@ enum { SH_SHADOW_SLICES = 8 };
  * that is not needed has no size. */
 void sh_shadow_slices(const struct sh_shadow_layout *layout, int image_width, int image_height,
                       int width, int height, struct sh_shadow_slice slices[SH_SHADOW_SLICES]);
+/* As sh_shadow_slices, with the shadow reaching further on each side, `scale` (left, top,
+ * right, bottom; 1 or more) times as far from the window's edge there: each corner is drawn
+ * that much larger about the window's corner, the edges that much thicker. A blurred edge
+ * stretched so is as good as one blurred that much more, and a hard one moves that much
+ * further off, so a shadow grows softer and falls further with nothing painted again. A window
+ * too small for its corners at that scale has them as large as it holds. */
+void sh_shadow_slices_scaled(const struct sh_shadow_layout *layout, int image_width,
+                             int image_height, int width, int height, const double scale[4],
+                             struct sh_shadow_slice slices[SH_SHADOW_SLICES]);
+
+/* Whether a shadow is printed beside the window rather than cast under it: hard, with little or
+ * no blur, as an offset print is. */
+bool sh_shadow_printed(const struct sh_shadow *shadow);
+/* The shadow of a window lifted off the screen as it is dragged, `progress` of the way (0 at
+ * rest, 1 lifted), from its resting one. A cast shadow is drawn from the resting one's image,
+ * stretched away from the window `scale` times as far on each side (left, top, right, bottom;
+ * sh_shadow_slices_scaled): half as soft again, further the way it falls, its opacity times
+ * `opacity`, a little lighter. A printed one is painted two fifths further off instead, in whole
+ * pixels (`lifted`), as crisp and as dark: stretched, its corners would round. */
+void sh_shadow_lift(const struct sh_shadow *shadow, double progress, struct sh_shadow *lifted,
+                    double scale[4], float *opacity);
 
 #ifdef __cplusplus
 }

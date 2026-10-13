@@ -685,7 +685,11 @@ void overview_close(struct sh_server *server, struct sh_toplevel *chosen, int wo
     overview->dragged = NULL;
     overview_lower_fullscreen(server, false);
     if (chosen && !server->locked) {
+        bool minimized = chosen->minimized;
         focus_toplevel(chosen);
+        // A minimized one does not grow out of its taskbar button: its thumbnail glides there.
+        if (minimized)
+            sh_anim_finish(&chosen->anim);
         struct wlr_box box = toplevel_box(chosen);
         if (!wlr_box_contains_point(&box, server->cursor->x, server->cursor->y))
             pointer_follow(chosen);

@@ -664,8 +664,9 @@ double number(lua_State *L, const char *key, double fallback, double min, double
     return result;
 }
 // animations.<kind> names, in enum sh_anim_kind order.
-constexpr const char *animation_kinds[SH_ANIM_KINDS] = {"open",       "close", "move",
-                                                        "workspace", "fullscreen", "focus"};
+constexpr const char *animation_kinds[SH_ANIM_KINDS] = {"open",      "close",      "move",
+                                                        "workspace", "fullscreen", "focus",
+                                                        "minimize"};
 void read_curve(lua_State *L, const char *key, const std::string &label, sh_curve &target,
                 bool &given) {
     if (auto name = text(L, key, label.c_str())) {
@@ -691,6 +692,8 @@ void read_animations(lua_State *L, sh_settings &settings) {
         if (curved)
             style.curve = curve;
     }
+    // A window travels to its taskbar button and back, further than the others go.
+    settings.animation_styles[SH_ANIM_MINIMIZE].duration = std::min(1000, base * 5 / 2);
     for (int kind = 0; kind < SH_ANIM_KINDS; ++kind) {
         std::string path = std::string("animations.") + animation_kinds[kind];
         Section in(L, animation_kinds[kind], path.c_str());
@@ -1086,6 +1089,7 @@ void read_windows(lua_State *L, Config &config) {
     read_magnet(L, config);
     read_snap(L, config);
     read_shadow(L, config);
+    boolean(L, "lift", "windows.lift", config.settings.lift);
     named(L, "placement", "windows.placement", config.settings.placement,
           {{"cascade", SH_PLACE_CASCADE}, {"center", SH_PLACE_CENTER}, {"smart", SH_PLACE_SMART}});
     config.settings.drag_strip = integer(L, "drag_strip", config.settings.drag_strip, 0, 100);
@@ -1860,6 +1864,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"snap_cycle_down", SH_SNAP_CYCLE_DOWN},
         {"maximize", SH_MAXIMIZE},
         {"restore", SH_RESTORE},
+        {"minimize", SH_MINIMIZE},
         {"tile", SH_TILE},
         {"reload", SH_RELOAD},
         {"fullscreen", SH_FULLSCREEN},
@@ -2632,6 +2637,7 @@ Config parse_config(const std::string &source, const std::string &name,
         }
         config.profiles = std::move(all);
         config.profile = active;
+        copy_text(active, config.settings.profile, "profile");
         return config;
     } catch (const ConfigError &error) {
         auto line = locate(source, error.trail);

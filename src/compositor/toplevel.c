@@ -446,7 +446,7 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
     // The client's buffers go with this commit; the closing animation draws a copy of them.
     struct sh_server *server = toplevel->server;
     if (toplevel->shown && server->running && toplevel_visible(toplevel)) {
-        struct wlr_box box = toplevel_geometry(toplevel);
+        struct wlr_box box = frame_geometry(toplevel); // about its middle as drawn
         sh_anim_close(server->animator, &toplevel->scene_tree->node, toplevel->content,
                       box.width / 2.0, box.height / 2.0);
     }
@@ -466,6 +466,14 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
     toplevel->urgent = false;
     refresh_frame(toplevel);
     untile_toplevel(toplevel, false);
+    // Not tiled, a window moved with the pointer may still hold a place in a tiling
+    // (tile_drop.c), which must not outlive it.
+    if (sh_tiling_output(toplevel->server->tiling, toplevel)) {
+        struct wlr_output *held = tiled_output(toplevel);
+        sh_tiling_remove(toplevel->server->tiling, toplevel);
+        if (held)
+            reflow_output(toplevel->server, held);
+    }
     bool was_focused = toplevel->server->focused_toplevel == toplevel;
     if (was_focused)
         deactivate_toplevel(toplevel->server);
@@ -496,6 +504,7 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
                                                     decoration_mode(toplevel->decoration));
     } else if (toplevel->xdg_toplevel->base->surface->mapped) {
         uint64_t started = now_ns();
+        morph_commit(toplevel); // before the scene takes in what it drew
         workspace_window_committed(toplevel);
         refresh_frame(toplevel);
         ++toplevel->server->stats.commits;
@@ -506,7 +515,9 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
 /* Frees a window after removing the listeners xdg-shell and X11 windows have in common. */
 void free_toplevel(struct sh_toplevel *toplevel) {
     sh_anim_finish(&toplevel->anim);
+    minimize_forget(toplevel);
     sh_tween_stop(&toplevel->fade);
+    sh_tween_stop(&toplevel->frame_fade);
     free(toplevel->opacity_rule.app_id);
     free(toplevel->opacity_rule.title);
     free_icon(&toplevel->icon);
@@ -596,8 +607,7 @@ static void set_fullscreen_focus(struct sh_toplevel *toplevel, bool fullscreen, 
     }
     if (server->grabbed_toplevel == toplevel)
         reset_cursor_mode(server);
-    struct wlr_scene_node *node = &toplevel->scene_tree->node;
-    int from_x = node->x, from_y = node->y;
+    struct wlr_box from = morph_from(toplevel);
     if (fullscreen)
         toplevel->fullscreen_restore = toplevel_box(toplevel);
     toplevel->fullscreen = fullscreen;
@@ -619,10 +629,8 @@ static void set_fullscreen_focus(struct sh_toplevel *toplevel, bool fullscreen, 
         if ((toplevel->arranged || toplevel->tiled) && output)
             reflow_output(server, output);
     }
-    // The window glides from where it was drawn; the size follows when the client draws it.
-    if (toplevel->shown && toplevel_visible(toplevel))
-        sh_anim_glide_kind(server->animator, &toplevel->anim, toplevel->content,
-                           from_x - node->x, from_y - node->y, SH_ANIM_FULLSCREEN);
+    // The window glides from where it was drawn to its new place and size.
+    toplevel_morph(toplevel, from, SH_ANIM_FULLSCREEN);
     if (server->focused_toplevel == toplevel || (fullscreen && focus))
         focus_toplevel(toplevel);
     refresh_decoration(toplevel);
@@ -650,14 +658,15 @@ void server_new_xdg_toplevel(struct wl_listener *listener, void *data) {
     toplevel->xdg_toplevel = xdg_toplevel;
 
     // Listen before the scene does, so the surfaces are still shown when the window unmaps
-    // and the closing animation can copy them.
+    // and the closing animation can copy them, and as it commits a new size, which a change of
+    // size crossfades from what it drew before (morph.c).
     struct wlr_surface *surface = xdg_toplevel->base->surface;
     add_listener(&surface->events.map, &toplevel->map, xdg_toplevel_map);
     add_listener(&surface->events.unmap, &toplevel->unmap, xdg_toplevel_unmap);
     add_listener(&surface->events.commit, &toplevel->commit, xdg_toplevel_commit);
     toplevel->scene_tree = wlr_scene_tree_create(toplevel->server->windows);
     toplevel->content = wlr_scene_tree_create(toplevel->scene_tree);
-    wlr_scene_xdg_surface_create(toplevel->content, xdg_toplevel->base);
+    toplevel->surfaces = wlr_scene_xdg_surface_create(toplevel->content, xdg_toplevel->base);
     toplevel->node = (struct sh_node){SH_NODE_TOPLEVEL, toplevel};
     toplevel->scene_tree->node.data = &toplevel->node;
     toplevel->content->node.data = &toplevel->node;
@@ -738,6 +747,7 @@ void server_new_xdg_popup(struct wl_listener *listener, void *data) {
 }
 
 void minimize_toplevel(struct sh_toplevel *toplevel) {
+    minimize_animate(toplevel); // a copy of it shrinks into its taskbar button
     group_detach(toplevel); // a minimized window keeps no slot to share
     toplevel->minimized = true;
     untile_toplevel(toplevel, false);
@@ -746,6 +756,7 @@ void minimize_toplevel(struct sh_toplevel *toplevel) {
         wlr_foreign_toplevel_handle_v1_set_minimized(toplevel->foreign, true);
     if (toplevel->server->focused_toplevel == toplevel)
         focus_previous(toplevel->server);
+    minimize_raise(toplevel); // over the window that came forward for the focus
 }
 
 /* Fullscreen the client asked for covers the whole output; fullscreen from a binding or the

@@ -47,7 +47,8 @@ static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx,
         *sy = server->hit.sy;
         return server->hit.node;
     }
-    bool animating = sh_animator_running(server->animator) > 0;
+    bool animating = sh_animator_running(server->animator) > 0 ||
+                     sh_animator_lifted(server->animator) > 0;
     if (animating)
         sh_animator_rest_at(server->animator, lx, ly);
     // A window on the screen only for a peek at it is not there to point at.
@@ -509,6 +510,7 @@ static bool action_targets_window(enum sh_action action) {
     case SH_TOGGLE_FLOATING:
     case SH_TOGGLE_STICKY:
     case SH_TOGGLE_ABOVE:
+    case SH_MINIMIZE:
     case SH_SWALLOW_TOGGLE:
     case SH_GROUP_TOGGLE:
     case SH_GROUP_NEXT:

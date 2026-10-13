@@ -67,6 +67,7 @@ ImageProvider::Picture trayImage(TrayModel &model) {
 ShellController::ShellController(std::filesystem::path path, QObject *parent)
     : QObject(parent), path_(std::move(path)), tasks_(this) {
     connect(this, &ShellController::appsChanged, this, [this] { ++appsRevision_; });
+    connect(&restyle_, &Restyle::settled, this, &ShellController::restyled);
     loadConfig();
     watchTrash();
     QFile pins(pinsPath());
@@ -814,7 +815,9 @@ bool ShellController::launchAction(const QString &id, const QString &action) {
 }
 void ShellController::reload() {
     try {
+        const auto before = config_.profile;
         loadConfig();
+        const bool restyle = !config_.profile.empty() && config_.profile != before;
         watchTrash();
         notifications_.configure(config_.notifications);
         osd_.configure(config_.osd);
@@ -825,17 +828,39 @@ void ShellController::reload() {
         updateTrayHost();
         updatePolkitAgent();
         refreshApps();
+        // A new appearance profile shows at once, under the compositor's picture of the old one,
+        // which crossfades to it once Restyle finds it on the screen. Any reload says which
+        // profile is drawn once it is: switched there and back, the compositor waits for the one
+        // the shell had all along.
+        if (restyle && !restyling_) {
+            restyling_ = true;
+            Q_EMIT restylingChanged();
+        }
         Q_EMIT configChanged();
         Q_EMIT wallpaperChanged();
         // Tiling follows layout.tiling until the compositor says.
         if (!tilingKnown_)
             Q_EMIT tilingChanged();
+        if (!config_.profile.empty())
+            restyle_.start();
         if (!enabled())
             Q_EMIT disabled();
     } catch (const std::exception &error) {
         std::cerr << "Shell reload rejected: " << error.what() << '\n';
         report("Configuration unchanged: " + QString::fromUtf8(error.what()));
     }
+}
+void ShellController::restyled() {
+    if (restyling_) {
+        restyling_ = false;
+        Q_EMIT restylingChanged();
+    }
+    // None, when a reload since left the configuration without profiles: nothing to tell.
+    if (config_.profile.empty())
+        return;
+    // Quietly: a shell without a compositor, or one that does not crossfade, has no one to tell.
+    const auto name = QString::fromStdString(config_.profile);
+    ask(("profile_drawn " + name + "\n").toUtf8(), [](const QByteArray &) {});
 }
 void ShellController::loadConfig() {
     std::string error;
@@ -1375,6 +1400,11 @@ void ShellController::showWorkspace(const QString &output, int number) {
     if (!output.isEmpty() && number >= 1 && number <= workspaceCount())
         request(QString("output %1 workspace %2\n").arg(output).arg(number).toUtf8(),
                 "Workspaces need a running paw session.");
+}
+void ShellController::nudgeWorkspace(const QString &output, int way) {
+    if (!output.isEmpty() && way && !qEnvironmentVariable("PAW_SOCKET").isEmpty())
+        request(QString("workspace_nudge %1 %2\n").arg(output, way > 0 ? "next" : "prev").toUtf8(),
+                {});
 }
 void ShellController::send(const QString &line) {
     request(line.toUtf8() + "\n", "The compositor needs a running paw session.");

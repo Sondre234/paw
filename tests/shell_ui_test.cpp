@@ -271,6 +271,7 @@ int main(int argc, char **argv) {
     bool toggled = false;
     int currentWorkspace = 2;
     QStringList switches, requests;
+    QStringList nudges; // "workspace_nudge OUTPUT next|prev", the panel's wheel past either end
     int layoutSwitches = 0; // "switch_layout next" requests, answered with the second layout
     bool nightLight = false; // what "night_light_toggle" turns, and the state it then announces
     bool holdSessions = false;
@@ -282,6 +283,8 @@ int main(int argc, char **argv) {
     QString monitorsRefusal;
     // What the compositor does with "profile NAME": saves it and reloads the shell.
     std::function<void(const QString &)> pickProfile;
+    // The profiles the shell said it has drawn (profile_drawn), for the compositor's crossfade.
+    QStringList drawnProfiles;
     QObject::connect(&compositor, &QLocalServer::newConnection, [&] {
         auto *client = compositor.nextPendingConnection();
         QObject::connect(client, &QLocalSocket::readyRead, [&, client] {
@@ -307,6 +310,10 @@ int main(int argc, char **argv) {
                 client->write("ok\n");
                 client->disconnectFromServer();
                 pickProfile(QString::fromUtf8(request).trimmed().section(' ', 1));
+            } else if (request.startsWith("profile_drawn")) {
+                drawnProfiles.push_back(QString::fromUtf8(request).trimmed().section(' ', 1));
+                client->write("ok\n");
+                client->disconnectFromServer();
             } else if (request == "night_light_toggle\n") {
                 requests.push_back("night_light_toggle");
                 nightLight = !nightLight;
@@ -364,6 +371,10 @@ int main(int argc, char **argv) {
                 // Typing what the emoji picker picked; 🙃 has nothing to type into.
                 requests.push_back(QString::fromUtf8(request).trimmed());
                 client->write(request.contains("🙃") ? "error: nothing has the keyboard\n" : "ok\n");
+                client->disconnectFromServer();
+            } else if (request.startsWith("workspace_nudge ")) {
+                nudges.push_back(QString::fromUtf8(request).trimmed());
+                client->write("ok\n");
                 client->disconnectFromServer();
             } else if (request.startsWith("output ") || request.startsWith("session ") ||
                        request.startsWith("switcher_confirm ") ||
@@ -607,8 +618,23 @@ int main(int argc, char **argv) {
     scroll(-120); // down: the next workspace
     if (!waitFor([&] { return workspace(4)->property("current").toBool(); }))
         return fail("scrolling down did not page to the next workspace");
-    scroll(-120); // already on the last one
-    scroll(60);   // half a notch does nothing yet
+    {
+        // Already on the last one: the compositor nudges the windows, and the pill bumps toward
+        // the next workspace; a second notch while it is on its way out leaves it going.
+        auto *pill = find(view.rootObject(), "workspacePill");
+        auto *bumping = pill ? pill->findChild<QObject *>("workspacePillBump") : nullptr;
+        if (!bumping)
+            return fail("the workspace pill has no bump");
+        QSignalSpy bumps(pill, SIGNAL(bumpedChanged())), starts(bumping, SIGNAL(started()));
+        scroll(-120);
+        scroll(-120);
+        const QString next = "workspace_nudge " + output + " next";
+        if (!waitFor([&] { return nudges == QStringList{next, next}; }) ||
+            !waitFor([&] { return bumps.count() >= 2 && pill->property("bumped").toReal() == 0; }) ||
+            starts.count() != 1 || switches.size() != 2)
+            return fail("scrolling past the last workspace did not nudge once");
+    }
+    scroll(60); // half a notch does nothing yet
     scroll(60);
     if (!waitFor([&] { return workspace(3)->property("current").toBool(); }) ||
         switches.size() != 3 || switches.last() != "output " + output + " workspace 3") {
@@ -777,6 +803,12 @@ int main(int argc, char **argv) {
         click(fourth);
         if (!waitFor([&] { return fourth->property("current").toBool(); }))
             return fail("could not switch back to the last workspace from the tiling bar");
+        // Past the last one, the wheel nudges the windows toward the next instead.
+        nudges.clear();
+        scrollAt(fourth->mapToScene(QPointF(fourth->width() / 2, fourth->height() / 2)).toPoint(), -120);
+        if (!waitFor([&] { return nudges == QStringList{"workspace_nudge " + output + " next"}; }) ||
+            !fourth->property("current").toBool())
+            return fail("the wheel past the last workspace on the tiling bar did not nudge");
         // Resting on one shows its card below the bar, as on the taskbar, and leaving closes it.
         QTest::mouseMove(&view, centre(second));
         if (!waitFor([&] {
@@ -1903,11 +1935,15 @@ ListModel {
                    inPopover(cardOf(menuItem("dark")));
         }))
         return fail("the appearance entry did not open the profiles beside the menu");
+    // The shell takes it up, and once the new look is drawn says so, for the compositor's
+    // crossfade from the old one.
+    drawnProfiles.clear();
     click(menuItem("light"));
     if (!waitFor([&] {
             return requests == QStringList{"profile light"} && controller.profile() == "light" &&
                    controller.accent() == QColor("#336699") &&
-                   !view.rootObject()->property("barMenuOpen").toBool();
+                   !view.rootObject()->property("barMenuOpen").toBool() &&
+                   !controller.restyling() && drawnProfiles == QStringList{"light"};
         })) {
         std::cerr << "picking a profile did not switch to it: " << requests.join("|").toStdString()
                   << " " << controller.profile().toStdString() << '\n';
@@ -2035,7 +2071,7 @@ ListModel {
     click(findProfile(profileList, "dark"));
     if (!waitFor([&] {
             return requests == QStringList{"profile dark"} && controller.profile() == "dark" &&
-                   !profileList->isVisible();
+                   !profileList->isVisible() && !controller.restyling();
         }))
         return fail("picking a profile from the bar did not switch to it");
     requests.clear();
@@ -4375,14 +4411,16 @@ ListModel {
         // Its entries for another search (the start menu's): the windows of the model it is
         // given, no applications; one runs as it would from the palette.
         int windows = 0;
-        bool apps = false, tiling = false;
+        bool apps = false, tiling = false, minimize = false;
         for (const auto &item : palette->entries(fakeModel)) {
             windows += item.toMap()["kind"] == "window";
             apps = apps || item.toMap()["kind"] == "app";
             tiling = tiling || item.toMap()["title"] == "Toggle tiling";
+            minimize = minimize || (item.toMap()["title"] == "Minimize window" &&
+                                    item.toMap()["target"] == "minimize");
         }
         const int rows = qobject_cast<QAbstractItemModel *>(fakeModel)->rowCount();
-        if (rows == 0 || windows != rows || apps || !tiling)
+        if (rows == 0 || windows != rows || apps || !tiling || !minimize)
             return fail("the palette's entries for another search are not its windows and actions");
         palette->run({{"kind", "action"}, {"target", "toggle_tiling"}}, output);
         if (!waitFor([&] { return requests == QStringList{"toggle_tiling"}; }))
@@ -5495,11 +5533,11 @@ ListModel {
         if (!light)
             return fail("the light profile is not listed in Quick Settings");
         click(light);
-        if (!waitFor([&] { return controller.profile() == "light"; }) ||
+        if (!waitFor([&] { return controller.profile() == "light" && !controller.restyling(); }) ||
             requests != QStringList{"profile light"})
             return fail("picking a profile in Quick Settings did not switch to it");
         controller.pickProfile("dark");
-        if (!waitFor([&] { return controller.profile() == "dark"; }))
+        if (!waitFor([&] { return controller.profile() == "dark" && !controller.restyling(); }))
             return fail("the dark profile did not come back");
         // The volume: its slider and mute, the outputs to pick from, and the applications'.
         auto *sound = find(quick, "quickSound");
@@ -6669,6 +6707,38 @@ ListModel {
         wheel(120);
         if (launchpad->property("page").toInt() != 0)
             return fail("a wheel notch up did not show the page before");
+        // There is no page before the first: the wheel bumps the pages instead, once for two
+        // notches while it is on its way out.
+        {
+            auto *pages = find(root, "launchpadPages");
+            auto *bumping = pages ? pages->findChild<QObject *>("launchpadPagesBump") : nullptr;
+            if (!bumping)
+                return fail("Launchpad's pages have no bump");
+            QSignalSpy bumps(pages, SIGNAL(bumpedChanged())), starts(bumping, SIGNAL(started()));
+            wheel(120);
+            wheel(120);
+            if (!waitFor([&] { return bumps.count() >= 2 && pages->property("bumped").toReal() == 0; }) ||
+                starts.count() != 1 || launchpad->property("page").toInt() != 0)
+                return fail("wheel notches up on the first page did not bump the pages once");
+        }
+        // Dragged right on the first page, the pages follow less and less, never an eighth of the
+        // width, and come back.
+        {
+            auto *pages = find(root, "launchpadPages");
+            const int y = launchpad->property("gridTop").toInt() - 10;
+            const QPoint from(50, y), to(450, y);
+            QTest::mousePress(popover, Qt::LeftButton, Qt::NoModifier, from);
+            for (int step = 1; step <= 10; ++step) {
+                QTest::mouseMove(popover, from + (to - from) * step / 10);
+                QTest::qWait(10);
+            }
+            const qreal stretched = pages->x(), eighth = launchpad->width() / 8;
+            QTest::mouseRelease(popover, Qt::LeftButton, Qt::NoModifier, to);
+            if (!(stretched > eighth / 2 && stretched < eighth) ||
+                launchpad->property("page").toInt() != 0 ||
+                !waitFor([&] { return pages->x() == 0; }))
+                return fail("dragging the first page right did not stretch it as a rubber band");
+        }
         // Dragging beside the applications, to the left, shows the next page.
         {
             const int y = launchpad->property("gridTop").toInt() - 10;
@@ -6793,6 +6863,81 @@ ListModel {
             return fail("a left press beside the desktop's menu moved it there as it closed");
         if (!waitFor([&] { return !card->isVisible(); }))
             return fail("a press beside the desktop's menu did not close it");
+    }
+    // The wallpaper: a new one is laid over the one shown and fades in once it has loaded, the
+    // one under it going as it is covered; one picked during that is laid over both.
+    {
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *backdrop = find(desktop.rootObject(), "backdrop");
+        auto shows = [&](const QString &path) {
+            const auto layers = backdrop ? backdrop->childItems() : QList<QQuickItem *>{};
+            return layers.size() == 1 && layers[0]->opacity() == 1 &&
+                   layers[0]->property("source") == QUrl::fromLocalFile(path).toString();
+        };
+        const auto first = controller.wallpaperFile(), two = walls + "/b/two.png";
+        if (!waitFor([&] { return shows(first); }))
+            return fail("the desktop did not show its wallpaper");
+        controller.pickWallpaper(two);
+        if (backdrop->childItems().size() != 2 || backdrop->childItems()[1]->opacity() != 0 ||
+            !waitFor([&] { return shows(two); }))
+            return fail("a new wallpaper did not come in over the one shown");
+        controller.pickWallpaper(first);
+        controller.pickWallpaper(two);
+        if (backdrop->childItems().size() != 3 || !waitFor([&] { return shows(two); }))
+            return fail("a wallpaper picked as another came in did not go over both");
+        controller.pickWallpaper("");
+        if (!waitFor([&] { return shows(first); }))
+            return fail("the configured wallpaper did not come back");
+        // A reload that keeps the wallpaper keeps its layer, decoding nothing again; one that
+        // leaves none lays the gradient over it, once.
+        auto *kept = backdrop->childItems().value(0);
+        controller.reload();
+        if (backdrop->childItems() != QList<QQuickItem *>{kept})
+            return fail("a reload keeping the wallpaper laid it again");
+        if (!reconfigure(QString(lua).replace("wallpaper='walls/a/one.png',", "")) ||
+            backdrop->childItems().size() != 2 || !waitFor([&] { return shows(""); }))
+            return fail("a reload without a wallpaper did not lay the gradient over it once");
+        if (!reconfigure(lua) || !waitFor([&] { return shows(first); }))
+            return fail("the configured wallpaper did not come back after the gradient");
+        // A profile with a wallpaper of its own is drawn, as the shell tells the compositor, only
+        // once that wallpaper has loaded and shows; meanwhile nothing in the shell moves.
+        const auto profiled = QString(lua).replace(
+            "light={shell={accent='#336699'}}",
+            "light={shell={accent='#336699',wallpaper='walls/b/two.png'}}");
+        auto *theme = view.engine()->singletonInstance<QObject *>("PawShell", "Theme");
+        QList<qreal> motion;   // Theme.motionScale as restyling started
+        QList<bool> wallpaper; // whether the new wallpaper showed as it ended
+        const auto restyled = QObject::connect(&controller, &ShellController::restylingChanged, [&] {
+            if (controller.restyling())
+                motion << theme->property("motionScale").toReal();
+            else
+                wallpaper << shows(two);
+        });
+        const auto profileBefore = controller.profile();
+        drawnProfiles.clear();
+        if (!reconfigure(profiled))
+            return fail("could not rewrite the configuration");
+        pickProfile("light");
+        if (!waitFor([&] { return !controller.restyling() && drawnProfiles.contains("light"); }) ||
+            motion != QList<qreal>{0} || wallpaper != QList<bool>{true} ||
+            theme->property("motionScale").toReal() <= 0)
+            return fail("a new profile was said drawn before its wallpaper showed, or moved meanwhile");
+        QObject::disconnect(restyled);
+        // A reload that leaves no profile while one is being drawn names none to the compositor.
+        drawnProfiles.clear();
+        pickProfile(profileBefore);
+        if (!controller.restyling() ||
+            !reconfigure(QString(lua).replace(
+                "profile='dark',profiles={dark={},light={shell={accent='#336699'}}},", "")) ||
+            !waitFor([&] { return !controller.restyling(); }) || controller.profile() != "" ||
+            QTest::qWaitFor([&] { return !drawnProfiles.isEmpty(); }, 300))
+            return fail("a reload that left no profile said one was drawn");
+        if (!reconfigure(lua) ||
+            !waitFor([&] { return controller.profile() == profileBefore && !controller.restyling(); }))
+            return fail("the profile in use did not come back");
     }
     // The macOS style, from a profile: the menu bar along the top in a surface of its own and the
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the

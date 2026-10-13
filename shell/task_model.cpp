@@ -13,6 +13,10 @@ TaskModel::TaskModel(QObject *parent) : QAbstractListModel(parent) {
             if (tasks_[i]->id == id)
                 Q_EMIT dataChanged(index(i), index(i), {Picture});
     });
+    // Buttons slide along the bar a step a frame: what they place is sent once they have moved.
+    placing_.setSingleShot(true);
+    placing_.setInterval(0);
+    connect(&placing_, &QTimer::timeout, this, [this] { sendPlaces(); });
 }
 TaskModel::~TaskModel() {
     read_.reset();
@@ -146,6 +150,8 @@ void TaskModel::activate(int id) {
     auto *task = find(id);
     if (!task || !seat_)
         return;
+    sendPlaces(); // where it restores out of or minimizes into
+
     if (task->state.active && !task->state.minimized)
         zwlr_foreign_toplevel_handle_v1_set_minimized(task->handle);
     else {
@@ -155,6 +161,7 @@ void TaskModel::activate(int id) {
     flush();
 }
 void TaskModel::minimize(int id) {
+    sendPlaces();
     if (auto *task = find(id))
         zwlr_foreign_toplevel_handle_v1_set_minimized(task->handle);
     flush();
@@ -219,9 +226,93 @@ void TaskModel::kill(int id) {
         ::kill(pid, SIGKILL);
 }
 void TaskModel::showDesktop() {
+    sendPlaces();
     for (const auto &task : tasks_)
         zwlr_foreign_toplevel_handle_v1_set_minimized(task->handle);
     flush();
+}
+void TaskModel::place(QObject *owner, const QVariantList &taskIds, const QString &output,
+                      const QRectF &rect, int layer) {
+    if (!owner)
+        return;
+    QList<int> wanted;
+    for (const auto &id : taskIds)
+        wanted.push_back(id.toInt());
+    const QRect at(qRound(rect.x()), qRound(rect.y()), qRound(rect.width()), qRound(rect.height()));
+    const bool shown = !output.isEmpty() && !at.isEmpty();
+    bool changed = false;
+    for (auto &task : tasks_) {
+        auto &placed = task->placed;
+        auto found = std::find_if(placed.begin(), placed.end(),
+                                  [owner](const Placed &each) { return each.owner == owner; });
+        if (shown && wanted.contains(task->id)) {
+            if (found == placed.end()) {
+                placed.push_back({owner, output, at, layer, ++placeOrder_});
+                changed = true;
+            } else if (found->output != output || found->rect != at || found->layer != layer) {
+                found->output = output, found->rect = at, found->layer = layer;
+                changed = true;
+            }
+        } else if (found != placed.end()) {
+            placed.erase(found);
+            changed = true;
+        }
+    }
+    if (!placers_.contains(owner)) {
+        placers_.insert(owner);
+        connect(owner, &QObject::destroyed, this, [this, owner] { unplace(owner); });
+    }
+    if (changed && !placing_.isActive())
+        placing_.start();
+}
+void TaskModel::unplace(QObject *owner) {
+    placers_.remove(owner);
+    for (auto &task : tasks_)
+        std::erase_if(task->placed, [owner](const Placed &each) {
+            return !each.owner || each.owner == owner;
+        });
+    if (!placing_.isActive())
+        placing_.start();
+}
+void TaskModel::sendPlaces() {
+    placing_.stop();
+    bool sent = false;
+    for (auto &task : tasks_) {
+        if (!task->window ||
+            paw_window_v1_get_version(task->window) < PAW_WINDOW_V1_SET_RECTANGLE_SINCE_VERSION)
+            continue;
+        // On each output, the highest layer's, of one layer the owner's that began placing the
+        // window last.
+        QHash<QString, const Placed *> best;
+        for (const auto &each : task->placed) {
+            if (!each.owner)
+                continue;
+            const Placed *&chosen = best[each.output];
+            if (!chosen || each.layer > chosen->layer ||
+                (each.layer == chosen->layer && each.order > chosen->order))
+                chosen = &each;
+        }
+        for (auto it = best.cbegin(); it != best.cend(); ++it) {
+            const QRect &rect = it.value()->rect;
+            if (task->told.value(it.key()) == rect)
+                continue;
+            task->told.insert(it.key(), rect);
+            paw_window_v1_set_rectangle(task->window, it.key().toUtf8().constData(), rect.x(),
+                                        rect.y(), rect.width(), rect.height());
+            sent = true;
+        }
+        for (auto it = task->told.begin(); it != task->told.end();) {
+            if (best.contains(it.key())) {
+                ++it;
+                continue;
+            }
+            paw_window_v1_set_rectangle(task->window, it.key().toUtf8().constData(), 0, 0, 0, 0);
+            it = task->told.erase(it);
+            sent = true;
+        }
+    }
+    if (sent)
+        flush();
 }
 void TaskModel::watchPicture(int taskId, int pixelWidth, bool live) {
     if (auto *task = find(taskId))
@@ -404,8 +495,9 @@ void TaskModel::global(void *data, wl_registry *registry, uint32_t name, const c
         // Version 2 gives the windows' capture sources, for their pictures, version 3 ones
         // scaled down to the pictures' size and the windows' processes, for the sound they play,
         // version 4 peeks at a window and gives the windows' numbers, for the window
-        // switcher's pictures, version 6 keeps a window above the others, and version 8 says
-        // which windows a workspace shows, for its picture.
+        // switcher's pictures, version 6 keeps a window above the others, version 7 takes where
+        // the taskbar shows each window, and version 8 says which windows a workspace shows, for
+        // its picture.
         self.control_ = static_cast<paw_window_control_v1 *>(wl_registry_bind(
             registry, name, &paw_window_control_v1_interface, std::min(version, 8u)));
         for (auto &task : self.tasks_)
@@ -431,6 +523,10 @@ void TaskModel::watch(Task *task) {
                                                       windowDone,   windowPid,       windowId,
                                                       windowIcon,   windowIconImage};
     paw_window_v1_add_listener(task->window, &listener, task);
+    // What was placed before the window control came is sent now.
+    task->told.clear();
+    if (!task->placed.empty() && !placing_.isActive())
+        placing_.start();
 }
 void TaskModel::globalRemoved(void *, wl_registry *, uint32_t) {}
 void TaskModel::newTask(void *data, zwlr_foreign_toplevel_manager_v1 *,

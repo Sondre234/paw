@@ -50,9 +50,11 @@ struct sh_rect inside_border(struct sh_server *server, struct sh_rect rect) {
     return (struct sh_rect){rect.x + b, rect.y + b, rect.width - 2 * b, rect.height - 2 * b};
 }
 
-/* Preserve the original floating rectangle across repeated snap operations. */
+/* Preserve the original floating rectangle across repeated snap operations. The window glides
+ * into its slot from where it was drawn, growing or shrinking to it on the way. */
 static void place_toplevel(struct sh_toplevel *toplevel, enum sh_action action,
                            struct sh_rect target) {
+    struct wlr_box from = morph_from(toplevel);
     if (!toplevel->arranged)
         toplevel->restore_box = toplevel_box(toplevel);
     toplevel->arranged = true;
@@ -62,6 +64,7 @@ static void place_toplevel(struct sh_toplevel *toplevel, enum sh_action action,
         target = inside_border(toplevel->server, target);
     toplevel_set_states(toplevel, action == SH_MAXIMIZE, action == SH_MAXIMIZE ? 0 : ALL_EDGES);
     toplevel_configure(toplevel, target.x, target.y, target.width, target.height);
+    toplevel_morph(toplevel, from, SH_ANIM_MOVE);
 }
 
 /* The output a box shares the most area with, or NULL when it is on none. */
@@ -131,11 +134,13 @@ struct wlr_box rebase_box(struct sh_server *server, struct wlr_box box,
 void restore_toplevel(struct sh_toplevel *toplevel) {
     if (!toplevel->arranged)
         return;
+    struct wlr_box from = morph_from(toplevel);
     struct wlr_output *output = toplevel_output(toplevel);
     toplevel->arranged = false;
     toplevel_set_states(toplevel, false, 0);
     toplevel->restore_box = rebase_box(toplevel->server, toplevel->restore_box, output);
     toplevel_configure_box(toplevel, toplevel->restore_box);
+    toplevel_morph(toplevel, from, SH_ANIM_MOVE);
 }
 
 void place_maximized(struct sh_toplevel *toplevel) {
@@ -236,16 +241,22 @@ void arrange_windows(struct sh_server *server, enum sh_action action) {
 
 static void place_tiled(void *data, void *window, struct sh_rect rect) {
     struct sh_toplevel *toplevel = window;
+    if (tile_drop_place(toplevel, rect))
+        return; // moved with the pointer, it only holds its place
     if (toplevel->fullscreen)
         return; // It returns to its tile when it leaves fullscreen.
     toplevel_set_states(toplevel, false, ALL_EDGES);
     rect = inside_border(toplevel->server, rect);
     struct wlr_scene_node *node = &toplevel->scene_tree->node;
     int x = node->x, y = node->y;
+    struct wlr_box from = morph_from(toplevel);
     toplevel_configure(toplevel, rect.x, rect.y, rect.width, rect.height);
     // Tiles already on screen glide to their new place; the size follows when the client
-    // draws it.
-    if (toplevel->shown && toplevel_visible(toplevel))
+    // draws it. One changing size already, as it went from its slot into the tiling, goes on
+    // changing size into its tile.
+    if (toplevel->anim.morph)
+        toplevel_morph(toplevel, from, SH_ANIM_MOVE);
+    else if (toplevel->shown && toplevel_visible(toplevel))
         sh_anim_glide(toplevel->server->animator, &toplevel->anim, toplevel->content, x - node->x,
                       y - node->y);
 }
@@ -322,6 +333,7 @@ static struct wlr_box against_edge(struct wlr_box box, struct sh_rect area, bool
 void unarrange_in_place(struct sh_toplevel *toplevel) {
     if (!toplevel->arranged)
         return;
+    struct wlr_box from = morph_from(toplevel);
     struct wlr_box box = toplevel_box(toplevel);
     if (toplevel->restore_box.width > 0 && toplevel->restore_box.height > 0) {
         box.width = toplevel->restore_box.width;
@@ -330,6 +342,7 @@ void unarrange_in_place(struct sh_toplevel *toplevel) {
     toplevel->arranged = false;
     toplevel_set_states(toplevel, false, 0);
     toplevel_configure_box(toplevel, box);
+    toplevel_morph(toplevel, from, SH_ANIM_MOVE);
 }
 
 /* Moves the window over to `next`, onto the side facing where it came from: into its tiling
@@ -339,6 +352,7 @@ static void move_to_output(struct sh_toplevel *toplevel, struct wlr_output *next
                            int sign) {
     struct sh_server *server = toplevel->server;
     struct sh_rect area = usable_area(server, next);
+    struct wlr_box from = morph_from(toplevel);
     struct wlr_box box = toplevel_box(toplevel);
     untile_toplevel(toplevel, false);
     if (wants_tiling(toplevel, next)) {
@@ -359,6 +373,7 @@ static void move_to_output(struct sh_toplevel *toplevel, struct wlr_output *next
     box = rebase_box(server, toplevel_box(toplevel), next);
     toplevel_configure_box(toplevel, against_edge(box, floating_area(server, next), horizontal,
                                                   -sign));
+    toplevel_morph(toplevel, from, SH_ANIM_MOVE);
 }
 
 /* Hyprland's movewindow. A tile trades places with the nearest tile that way; a floating
@@ -406,12 +421,14 @@ void move_window(struct sh_server *server, enum sh_action action) {
             return;
         }
     } else if (!toplevel->arranged || toplevel->arrangement != SH_MAXIMIZE) {
+        struct wlr_box from = morph_from(toplevel);
         unarrange_in_place(toplevel);
         struct wlr_box box = toplevel_box(toplevel);
         struct wlr_box moved =
             against_edge(box, floating_area(server, output), horizontal, sign);
         if (moved.x != box.x || moved.y != box.y) {
             toplevel_set_position(toplevel, moved.x, moved.y);
+            toplevel_morph(toplevel, from, SH_ANIM_MOVE);
             pointer_follow(toplevel);
             return;
         }
@@ -474,6 +491,7 @@ void resize_window(struct sh_server *server, enum sh_action action, int amount) 
     int resized = fmax(end - start, fmin(least, size));
     if (resized == size)
         return;
+    struct wlr_box from = morph_from(toplevel);
     if (toplevel->arranged) {
         toplevel->arranged = false;
         toplevel_set_states(toplevel, false, 0);
@@ -483,4 +501,5 @@ void resize_window(struct sh_server *server, enum sh_action action, int amount) 
     else
         box.height = resized;
     toplevel_configure_box(toplevel, box);
+    toplevel_morph(toplevel, from, SH_ANIM_MOVE);
 }

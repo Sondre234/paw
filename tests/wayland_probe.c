@@ -45,6 +45,10 @@ struct probe {
     struct wl_output *output;
     int output_width, output_height, panel_height;
     bool panel_ready, handle_minimized, handle_active, handle_closed, title_seen;
+    /* PAW_PROBE_BUTTON="X Y WIDTH HEIGHT": where the panel shows the probe's own window, which
+     * it tells the compositor (set_rectangle) once its handle has said its title. */
+    const char *button;
+    struct zwlr_foreign_toplevel_handle_v1 *own_handle;
     struct wl_shm *shm;
     struct xdg_wm_base *shell;
     struct wl_surface *surface;
@@ -65,9 +69,17 @@ struct probe {
     struct zxdg_decoration_manager_v1 *decorations;
     struct zxdg_toplevel_decoration_v1 *decoration; // with PAW_PROBE_SSD
     // PAW_PROBE_SHADOW=N: a translucent margin N pixels wide around the window, outside its
-    // geometry, as a client-side frame draws its shadow.
+    // geometry, as a client-side frame draws its shadow; with PAW_PROBE_SHADOW_FLOATING only
+    // while it is neither maximized nor fullscreen.
     int margin;
+    bool shadow_floating;
     bool commands; // --commands: an external-control window that obeys lines on standard input
+    // "hold": configures wait for "answer", as a slow application's do; the last one is `held`.
+    // "ack" acknowledges it with what was drawn before (`drawn_*`), as one drawing later does, or
+    // the next one held (`ack_next`).
+    bool hold, acked, ack_next;
+    uint32_t held;
+    int drawn_width, drawn_height;
     bool print_keymap, keymap_seen; // --keymap
     // PAW_PROBE_DRAG=source: a button press on the window drags a line of text from it, as
     // a file manager drags a file; =target: the window takes text dropped on it. Either prints
@@ -98,6 +110,9 @@ static void handle_title(void *data, struct zwlr_foreign_toplevel_handle_v1 *han
                          const char *title) {
     struct probe *probe = data;
     probe->title_seen = !strcmp(title, "paw protocol probe");
+    const char *own = getenv("PAW_PROBE_TITLE");
+    if (!strcmp(title, own && *own ? own : "paw protocol probe"))
+        probe->own_handle = handle;
 }
 static void handle_app_id(void *data, struct zwlr_foreign_toplevel_handle_v1 *handle,
                           const char *app_id) {
@@ -123,6 +138,13 @@ static void handle_state(void *data, struct zwlr_foreign_toplevel_handle_v1 *han
 }
 static void handle_done(void *data, struct zwlr_foreign_toplevel_handle_v1 *handle) {
     struct probe *probe = data;
+    int x, y, width, height;
+    if (probe->button && probe->panel_surface && handle == probe->own_handle &&
+        sscanf(probe->button, "%d %d %d %d", &x, &y, &width, &height) == 4) {
+        zwlr_foreign_toplevel_handle_v1_set_rectangle(handle, probe->panel_surface, x, y, width,
+                                                      height);
+        probe->button = NULL;
+    }
     if (probe->stage == 3 && probe->handle_minimized) {
         probe->stage = 4;
         zwlr_foreign_toplevel_handle_v1_unset_minimized(handle);
@@ -392,9 +414,20 @@ static void set_icon(struct probe *probe, const char *spec) {
     xdg_toplevel_icon_v1_destroy(icon);
 }
 static struct wl_buffer *make_buffer(struct probe *probe, int width, int height, int margin);
+static void answer_configure(struct probe *probe, uint32_t serial);
+static void draw(struct probe *probe, int width, int height);
+/* Acknowledges the configure held with what was drawn before. */
+static void ack_early(struct probe *probe) {
+    xdg_surface_ack_configure(probe->xdg_surface, probe->held);
+    draw(probe, probe->drawn_width, probe->drawn_height);
+    probe->acked = true;
+    probe->held = 0;
+}
 /* One line of standard input: "activate", "title TEXT", "app_id TEXT", "icon SPEC" (see
- * set_icon), "draw WIDTH HEIGHT" (the window draws itself at that size, unasked, as a client may),
- * or "fullscreen 1|0" (it asks to be fullscreen, or no longer). */
+ * set_icon), "hold" (configures wait), "ack" (the last one held, or the next, acknowledged with
+ * the size drawn before), "answer" (the size it asked for drawn, and configures answered), "draw
+ * WIDTH HEIGHT" (the window draws itself at that size, unasked, as a client may) or "fullscreen
+ * 1|0" (it asks to be fullscreen, or no longer). */
 static void run_command(struct probe *probe, char *line) {
     line[strcspn(line, "\n")] = '\0';
     int width, height, on;
@@ -417,6 +450,20 @@ static void run_command(struct probe *probe, char *line) {
     else if (!strncmp(line, "icon ", 5)) {
         set_icon(probe, line + 5);
         wl_surface_commit(probe->surface);
+    } else if (!strcmp(line, "hold")) {
+        probe->hold = true;
+    } else if (!strcmp(line, "ack")) {
+        probe->ack_next = !probe->held;
+        if (probe->held)
+            ack_early(probe);
+    } else if (!strcmp(line, "answer")) {
+        probe->hold = false;
+        if (probe->held)
+            answer_configure(probe, probe->held);
+        else if (probe->acked)
+            draw(probe, probe->width, probe->height);
+        probe->held = 0;
+        probe->acked = false;
     } else
         die("unknown command");
 }
@@ -654,20 +701,24 @@ static void panel_closed(void *data, struct zwlr_layer_surface_v1 *panel) {
 }
 static const struct zwlr_layer_surface_v1_listener panel_listener = {.configure = panel_configure,
                                                                      .closed = panel_closed};
-static void surface_configure(void *data, struct xdg_surface *surface, uint32_t serial) {
-    struct probe *probe = data;
-    // Closing, the window has unmapped: a configure sent before the compositor saw that (focus
-    // moving to it as other windows close) is no longer one to acknowledge.
-    if (probe->done)
-        return;
-    xdg_surface_ack_configure(surface, serial);
-    if (probe->width < 1 || probe->height < 1 || probe->width > 8192 || probe->height > 8192)
+static void answer_configure(struct probe *probe, uint32_t serial) {
+    xdg_surface_ack_configure(probe->xdg_surface, serial);
+    draw(probe, probe->width, probe->height);
+}
+/* Draws the window at `width` by `height` and commits it. */
+static void draw(struct probe *probe, int window_width, int window_height) {
+    struct xdg_surface *surface = probe->xdg_surface;
+    if (window_width < 1 || window_height < 1 || window_width > 8192 || window_height > 8192)
         die("unexpected configure dimensions");
-    int margin = probe->margin, width = probe->width + 2 * margin;
-    int height = probe->height + 2 * margin;
+    probe->drawn_width = window_width, probe->drawn_height = window_height;
+    // With PAW_PROBE_SHADOW_FLOATING, maximized and fullscreen it draws no shadow, as GTK does.
+    int margin = probe->margin;
+    if (probe->shadow_floating && (probe->maximized || probe->fullscreen))
+        margin = 0;
+    int width = window_width + 2 * margin, height = window_height + 2 * margin;
     struct wl_buffer *buffer = make_buffer(probe, width, height, margin);
-    if (margin)
-        xdg_surface_set_window_geometry(surface, margin, margin, probe->width, probe->height);
+    if (probe->margin)
+        xdg_surface_set_window_geometry(surface, margin, margin, window_width, window_height);
     wl_surface_attach(probe->surface, buffer, 0, 0);
     wl_surface_damage_buffer(probe->surface, 0, 0, width, height);
     if (!probe->frame) {
@@ -675,6 +726,21 @@ static void surface_configure(void *data, struct xdg_surface *surface, uint32_t 
         wl_callback_add_listener(probe->frame, &frame_listener, probe);
     }
     wl_surface_commit(probe->surface);
+}
+static void surface_configure(void *data, struct xdg_surface *surface, uint32_t serial) {
+    struct probe *probe = data;
+    // Closing, the window has unmapped: a configure sent before the compositor saw that (focus
+    // moving to it as other windows close) is no longer one to acknowledge.
+    if (probe->done)
+        return;
+    if (probe->hold) {
+        probe->held = serial;
+        if (probe->ack_next)
+            ack_early(probe);
+        probe->ack_next = false;
+    } else {
+        answer_configure(probe, serial);
+    }
 }
 static const struct xdg_surface_listener surface_listener = {.configure = surface_configure};
 static void toplevel_configure(void *data, struct xdg_toplevel *toplevel, int32_t width,
@@ -752,7 +818,8 @@ static void prepare_spawn(const char *self, const char *app_id) {
     signal(SIGCHLD, SIG_IGN);
 }
 int main(int argc, char **argv) {
-    struct probe probe = {.width = 320, .height = 240, .panel_height = 48};
+    struct probe probe = {.width = 320, .height = 240, .panel_height = 48,
+                          .button = getenv("PAW_PROBE_BUTTON")};
     if (argc == 2 && !strcmp(argv[1], "--external-control"))
         probe.external_control = true;
     else if (argc == 2 && !strcmp(argv[1], "--window-only")) // external control, no panel
@@ -846,7 +913,11 @@ int main(int argc, char **argv) {
             "paw-test-panel");
         zwlr_layer_surface_v1_add_listener(probe.panel, &panel_listener, &probe);
         zwlr_layer_surface_v1_set_size(probe.panel, 0, 48);
-        zwlr_layer_surface_v1_set_anchor(probe.panel, ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
+        // PAW_PROBE_PANEL=top puts the panel along the top edge rather than the bottom.
+        const char *edge = getenv("PAW_PROBE_PANEL");
+        zwlr_layer_surface_v1_set_anchor(probe.panel, (edge && !strcmp(edge, "top")
+                                                           ? ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP
+                                                           : ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM) |
                                                           ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
                                                           ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
         zwlr_layer_surface_v1_set_exclusive_zone(probe.panel, 48);
@@ -865,6 +936,7 @@ int main(int argc, char **argv) {
     // PAW_PROBE_SSD leaves the frame to the compositor, as kitty does.
     if (getenv("PAW_PROBE_SHADOW"))
         probe.margin = atoi(getenv("PAW_PROBE_SHADOW"));
+    probe.shadow_floating = getenv("PAW_PROBE_SHADOW_FLOATING") != NULL;
     if (getenv("PAW_PROBE_SSD") && probe.decorations) {
         probe.decoration =
             zxdg_decoration_manager_v1_get_toplevel_decoration(probe.decorations, probe.toplevel);

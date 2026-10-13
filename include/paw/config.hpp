@@ -272,6 +272,7 @@ struct OsdConfig {
 
 struct Config {
     sh_settings settings{.background = {25 / 255.0F, 33 / 255.0F, 46 / 255.0F, 1.0F},
+                         .profile = "",
                          .mouse_modifier = SH_ALT,
                          .repeat_rate = 25,
                          .repeat_delay = 600,
@@ -329,7 +330,8 @@ struct Config {
                                               {120, {SH_CURVE_SPRING, {}}},          // move
                                               {120, {SH_CURVE_EASE_OUT_QUINT, {}}},  // workspace
                                               {120, {SH_CURVE_EASE_OUT, {}}},        // fullscreen
-                                              {120, {SH_CURVE_EASE_OUT, {}}}},       // focus
+                                              {120, {SH_CURVE_EASE_OUT, {}}},        // focus
+                                              {300, {SH_CURVE_BEZIER, {0.2F, 0, 0, 1}}}}, // minimize
                          .workspace_back_and_forth = false,
                          .scratchpad = true,
                          .sticky = true,
@@ -396,6 +398,7 @@ struct Config {
                          .shadow_y = 10,
                          .shadow_color = {0, 0, 0, 0x59 / 255.0F},
                          .shadow_inactive_color = {0, 0, 0, 0x33 / 255.0F},
+                         .lift = true,
                          .lock_before_sleep = true,
                          .close_windows = true,
                          .close_timeout = 5000,

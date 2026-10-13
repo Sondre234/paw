@@ -265,6 +265,11 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         struct wlr_output *output = focused_output(server);
         if (!output)
             break;
+        // They wrap around, so only a single workspace leaves them nowhere to go.
+        if (count <= 1) {
+            workspace_nudge(server, output, action == SH_WORKSPACE_NEXT ? 1 : -1);
+            break;
+        }
         int step = action == SH_WORKSPACE_NEXT ? 1 : count - 1;
         switch_workspace(server, output, (*output_workspace(server, output->name) + step) % count);
         break;
@@ -429,6 +434,10 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_TOGGLE_ABOVE:
         if (current)
             set_above(current, !current->above);
+        break;
+    case SH_MINIMIZE:
+        if (current && !current->minimized && toplevel_mapped(current))
+            minimize_toplevel(current);
         break;
     case SH_TOGGLE_FLOATING:
         if (current)

@@ -38,6 +38,12 @@
     lets it go back among them, for the window menu's Keep Above Others: what the compositor's
     toggle_above action does to the focused window.
 
+    From version 7 the taskbar says where it shows each window's button on each output, for the
+    compositor to minimize the window into it and restore it out of it, as
+    zwlr_foreign_toplevel_handle_v1.set_rectangle does for a taskbar whose buttons are on the same
+    Wayland connection as its handles: paw's shell keeps its handles on a connection of their
+    own, apart from its surfaces.
+
     From version 8 it lists the windows a workspace of an output shows, where and in which
     order, for the taskbar to draw a small picture of a whole workspace from the pictures of its
     windows over the wallpaper. A taskbar knows each window's output and workspace already, and
@@ -325,6 +331,25 @@
       <description summary="let the window go back among the others">
         The window goes back among the other windows, in front of them.
       </description>
+    </request>
+
+    <request name="set_rectangle" since="7">
+      <description summary="where the window's button is on an output">
+        Says where this client shows the window on output `output` (its connector name), in
+        the output's logical coordinates: its button on a taskbar, or a picture of it. The
+        compositor minimizes the window into that rectangle and restores it out of it while
+        the window is on that output. The rectangle is cut to the output; a width or height of 0
+        or less, a rectangle wholly off the output, or an output that is not connected takes
+        this client's rectangle on that output away. The rectangle lasts until another replaces
+        it or this object is destroyed; of several clients' rectangles on one output, the last
+        one set counts. Unlike the other requests, this one is heard while the session is
+        locked.
+      </description>
+      <arg name="output" type="string" summary="the output's connector name"/>
+      <arg name="x" type="int"/>
+      <arg name="y" type="int"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
     </request>
   </interface>
 

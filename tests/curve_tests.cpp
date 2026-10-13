@@ -65,6 +65,23 @@ int main() {
         for (int i = 0; i <= 10; ++i)
             require(std::fabs(sh_curve_eval(&identity, i / 10.0) - i / 10.0) < 1e-3,
                     "bezier identity");
+        // Played backwards, an ease-out is the matching ease-in, and the ends stay exact.
+        sh_curve back = out;
+        back.kind |= SH_CURVE_REVERSED;
+        require(sh_curve_eval(&back, 0) == 0 && sh_curve_eval(&back, 1) == 1, "reversed ends");
+        require(sh_curve_eval(&back, -1) == 0 && sh_curve_eval(&back, 2) == 1, "reversed clamps");
+        for (int i = 0; i <= 10; ++i) {
+            double t = i / 10.0;
+            require(std::fabs(sh_curve_eval(&back, t) - t * t * t) < 1e-12,
+                    "reversed ease-out is the cubic ease-in");
+        }
+        auto bent = parsed("bezier(0.2, 0.9, 0.1, 1)");
+        sh_curve unbent = bent;
+        unbent.kind |= SH_CURVE_REVERSED;
+        for (int i = 1; i < 10; ++i)
+            require(std::fabs(sh_curve_eval(&unbent, i / 10.0) +
+                              sh_curve_eval(&bent, 1 - i / 10.0) - 1) < 1e-9,
+                    "a reversed bezier mirrors it");
         // Malformed text is refused and leaves the curve alone.
         sh_curve kept{SH_CURVE_LINEAR, {}};
         for (const char *bad : {"", "fast", "bezier", "bezier(1,2,3)", "bezier(1,2,3,4,5)",

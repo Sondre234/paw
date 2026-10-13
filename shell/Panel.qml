@@ -105,6 +105,14 @@ Item {
         var room = popupArea.width - 2 * Theme.spacingM - (count + 1) * thumbnailGap
         return Math.min(shell.thumbnailSize, Math.floor(room / count) - 2 * thumbnailPadding)
     }
+    // Where windows show on this output (the task source's place, which a stand-in may not
+    // have): `owner`'s rectangle, in the output's coordinates as the popover's are, for the
+    // compositor to minimize the windows `taskIds` into and restore them out of. Of `layer` 1, a
+    // picture on the card counts over the window's button while it is there.
+    function placeWindows(owner, taskIds, rect, layer) {
+        if (taskSource && typeof taskSource.place === "function")
+            taskSource.place(owner, taskIds, outputName, rect, layer)
+    }
     // Whether `count` windows' pictures fit on the card, else their list shows.
     function picturesFit(count) { return count < 2 || thumbnailWidthFor(count) >= 0.6 * shell.thumbnailSize }
     readonly property bool thumbnailsOpen: groupOpen && thumbnails && picturesFit(groupWindows.count)

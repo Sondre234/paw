@@ -52,8 +52,11 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
     if (toplevel->group_hidden)
         group_show(toplevel); // another tab of its group: it takes the group's slot
     // A hidden scratchpad window activated from the taskbar comes to the focused output, as
-    // scratchpad_show brings it.
-    if (toplevel->scratchpad && toplevel->minimized)
+    // scratchpad_show brings it, and drops in there unless a peek shows it in place already;
+    // one still sliding out turns back, peeked at or not.
+    bool from_scratchpad = toplevel->scratchpad && toplevel->minimized;
+    bool dropping = from_scratchpad && (server->peek_window != toplevel || toplevel->drop.running);
+    if (from_scratchpad)
         center_scratchpad(toplevel, focused_output(server));
     if (toplevel->output[0] && !toplevel->sticky &&
         toplevel->workspace != *output_workspace(server, toplevel->output)) {
@@ -79,6 +82,8 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
                                 toplevel->fullscreen ? fullscreen_tree(toplevel) : window_layer(toplevel));
         wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
     }
+    if (was_minimized)
+        restore_animate(toplevel); // it grows out of its taskbar button into its place
     wl_list_remove(&toplevel->link);
     wl_list_insert(&server->toplevels, &toplevel->link);
     toplevel_set_activated(toplevel, true);
@@ -104,6 +109,8 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
     // peek showed it: the others fade back around it.
     if (server->peek_window == toplevel)
         end_window_peek(server, true);
+    if (dropping)
+        scratchpad_drop_in(toplevel);
 }
 
 void focus_toplevel(struct sh_toplevel *toplevel) { focus_toplevel_raise(toplevel, true); }
@@ -381,15 +388,12 @@ struct sh_toplevel *toplevel_toward(struct sh_toplevel *from_toplevel, bool hori
 
 /* Focus follows the mouse on its next move, so keyboard actions take the pointer along to the
  * window they focus or move: just inside its bottom-right corner, out of the way of what is
- * being read or typed. Windows still opening or gliding are not yet drawn where they are, so
- * they land first; otherwise the pointer could hover, and focus, whichever window is passing
- * its destination. */
+ * being read or typed. Windows still opening or gliding go on: the pointer finds them where
+ * they will be (sh_animator_rest_at), never a window passing its destination. */
 void pointer_follow(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
     if (!server_settings(server)->focus_follows_mouse)
         return;
-    struct sh_toplevel *other;
-    wl_list_for_each(other, &server->toplevels, link) sh_anim_finish(&other->anim);
     // The corner of the smaller of its drawn and requested sizes, so the pointer is inside the
     // window both before and after a pending resize.
     struct wlr_box box = toplevel_box(toplevel), drawn = toplevel_geometry(toplevel);
