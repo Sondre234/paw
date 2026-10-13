@@ -326,15 +326,30 @@ struct sh_toplevel *current_toplevel(struct sh_server *server) {
     return server->focused_toplevel ? server->focused_toplevel : topmost_visible(server);
 }
 
+/* The output next to `output` in a direction (`sign` -1 is left or up), seen from the centre
+ * of `from`. */
+static struct wlr_output *output_toward(struct sh_server *server, struct wlr_output *output,
+                                        struct wlr_box from, bool horizontal, int sign) {
+    enum wlr_direction direction =
+        horizontal ? (sign < 0 ? WLR_DIRECTION_LEFT : WLR_DIRECTION_RIGHT)
+                   : (sign < 0 ? WLR_DIRECTION_UP : WLR_DIRECTION_DOWN);
+    return wlr_output_layout_adjacent_output(server->output_layout, direction, output,
+                                             from.x + from.width / 2.0,
+                                             from.y + from.height / 2.0);
+}
+
 /* The nearest visible window from `from` in a direction (`sign` -1 is left or up): first those
- * level with it (overlapping across the direction), then by distance between centres.
- * `tiles_only` looks only at tiles sharing its tiling. */
+ * level with it (overlapping across the direction), then by distance between centres. Only
+ * windows on its own output and the next one that way count, so an empty output between is
+ * never skipped. `tiles_only` looks only at tiles sharing its tiling. */
 struct sh_toplevel *toplevel_toward(struct sh_toplevel *from_toplevel, bool horizontal,
                                     int sign, bool tiles_only) {
     struct sh_server *server = from_toplevel->server;
     struct wlr_output *tiling = tiles_only ? tiled_output(from_toplevel) : NULL;
     struct wlr_box from = toplevel_box(from_toplevel);
     double from_x = from.x + from.width / 2.0, from_y = from.y + from.height / 2.0;
+    struct wlr_output *own = find_output(server, from_toplevel->output);
+    struct wlr_output *next = own ? output_toward(server, own, from, horizontal, sign) : NULL;
     struct sh_toplevel *best = NULL, *toplevel;
     bool best_level = false;
     double best_distance = 0;
@@ -343,6 +358,9 @@ struct sh_toplevel *toplevel_toward(struct sh_toplevel *from_toplevel, bool hori
             continue;
         if (tiles_only && (!toplevel->tiled || toplevel->fullscreen ||
                            tiled_output(toplevel) != tiling))
+            continue;
+        if (own && strcmp(toplevel->output, own->name) &&
+            (!next || strcmp(toplevel->output, next->name)))
             continue;
         struct wlr_box box = toplevel_box(toplevel);
         double x = box.x + box.width / 2.0, y = box.y + box.height / 2.0;
@@ -385,9 +403,10 @@ void pointer_follow(struct sh_toplevel *toplevel) {
 }
 
 /* Focus moves to the nearest window that way, from the focused window or else the topmost on
- * the focused output. With none there, it moves to the next output that way, as sway does, so
- * an empty output can be reached from the keyboard: its topmost window, else its bare desktop
- * with the pointer at its centre, where new windows open. */
+ * the focused output, no further than the next output. With none there, it moves to the next
+ * output that way, as sway does, so an empty output can be reached from the keyboard: its
+ * topmost window, else its bare desktop with the pointer at its centre, where new windows
+ * open. */
 void focus_direction(struct sh_server *server, enum sh_action action) {
     if (server->locked)
         return;
@@ -414,16 +433,12 @@ void focus_direction(struct sh_server *server, enum sh_action action) {
     }
     if (monocle || !output)
         return;
-    static const enum wlr_direction directions[] = {WLR_DIRECTION_LEFT, WLR_DIRECTION_RIGHT,
-                                                    WLR_DIRECTION_UP, WLR_DIRECTION_DOWN};
     struct wlr_box from;
     if (current)
         from = toplevel_box(current);
     else
         wlr_output_layout_get_box(server->output_layout, output, &from);
-    struct wlr_output *next = wlr_output_layout_adjacent_output(
-        server->output_layout, directions[action - SH_FOCUS_LEFT], output,
-        from.x + from.width / 2.0, from.y + from.height / 2.0);
+    struct wlr_output *next = output_toward(server, output, from, horizontal, sign);
     if (!next)
         return;
     set_active_output(server, next->name);
