@@ -521,6 +521,186 @@ static void test_finish_all(void) {
     teardown(&rig);
 }
 
+/* rig.rect's box, folding into a 40 by 40 button below and to the right of it: it fits the button
+ * at a fifth of its size. */
+static struct sh_fold button_fold(void (*update)(void *), void *data) {
+    return (struct sh_fold){10, 20, 200, 100, 500, 400, 40, 40, update, data};
+}
+
+/* Where a rect folding as button_fold has it should be `at` of the way: its middle on the line
+ * from its own to the button's, its size shrinking evenly to a fifth. */
+static bool folded_at(const struct wlr_scene_rect *rect, int ox, int oy, double at) {
+    double scale = 1 - 0.8 * at;
+    double x = 110 + 410 * at, y = 70 + 350 * at;
+    double width = 200 * scale, height = 100 * scale;
+    return fabs(ox + rect->node.x - (x - width / 2)) <= 1 && fabs(oy + rect->node.y - (y - height / 2)) <= 1 &&
+           fabs(rect->width - width) <= 1 && fabs(rect->height - height) <= 1;
+}
+
+/* A copy of a window shrinks into its button, fading out, and goes. */
+static void test_fold_away(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    int before = wl_list_length(&rig.scene->tree.children);
+    struct wlr_scene_tree *copy = wlr_scene_tree_create(&rig.scene->tree);
+    float color[4] = {0.2F, 0.4F, 0.6F, 1};
+    struct wlr_scene_rect *shown = wlr_scene_rect_create(copy, 200, 100, color);
+    wlr_scene_node_set_position(&shown->node, 10, 20);
+    struct sh_anim *ref = NULL;
+    updates = 0;
+    struct sh_fold fold = button_fold(count_update, NULL);
+    struct sh_anim *anim = sh_anim_fold_away(rig.animator, copy, &fold, 0, &ref);
+    CHECK(anim && ref == anim && sh_animator_running(rig.animator) == 1, "the copy folds");
+    CHECK(folded_at(shown, 0, 0, 0) && shown->color[3] > 0.99F, "starts where the window is");
+    CHECK(sh_anim_folded(anim, NULL) == 0, "none of the way yet");
+    advance(&rig, 50);
+    CHECK(folded_at(shown, 0, 0, 0.5), "half way along, at %d,%d %dx%d", shown->node.x,
+          shown->node.y, shown->width, shown->height);
+    CHECK(fabsf(shown->color[3] - 0.75F) < 0.01F, "still mostly there half way: %f",
+          shown->color[3]);
+    CHECK(fabs(sh_anim_folded(anim, NULL) - 0.5) < 1e-9, "half way in");
+    advance(&rig, 49);
+    CHECK(folded_at(shown, 0, 0, 0.99) && shown->color[3] < 0.03F, "at the button, nearly gone");
+    CHECK(updates == 3, "the owner redrew at every step: %d", updates);
+    advance(&rig, 2);
+    CHECK(!ref && sh_animator_running(rig.animator) == 0, "done, and the owner told");
+    CHECK(wl_list_length(&rig.scene->tree.children) == before, "the copy is gone");
+    // Without animations, or without a box to go to, the copy goes at once.
+    struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
+    c.styles[SH_ANIM_MINIMIZE].duration = 0;
+    sh_animator_configure(rig.animator, &c);
+    copy = wlr_scene_tree_create(&rig.scene->tree);
+    CHECK(!sh_anim_fold_away(rig.animator, copy, &fold, 0, &ref) && !ref &&
+              wl_list_length(&rig.scene->tree.children) == before,
+          "off: no fold, no copy");
+    sh_animator_configure(rig.animator, &(struct sh_animator_config){.enabled = false});
+    CHECK(!sh_anim_fold_away(rig.animator, wlr_scene_tree_create(&rig.scene->tree), &fold, 0, &ref),
+          "disabled: no fold");
+    sh_animator_configure(rig.animator, &(struct sh_animator_config){.enabled = true, .speed = 1});
+    struct sh_animator_config on = config(100, SH_CURVE_LINEAR);
+    sh_animator_configure(rig.animator, &on);
+    struct sh_fold empty = fold;
+    empty.into_width = 0;
+    CHECK(!sh_anim_fold_away(rig.animator, wlr_scene_tree_create(&rig.scene->tree), &empty, 0, &ref) &&
+              wl_list_length(&rig.scene->tree.children) == before,
+          "an empty box: no fold");
+    // One that started part of the way takes the time that part takes.
+    copy = wlr_scene_tree_create(&rig.scene->tree);
+    shown = wlr_scene_rect_create(copy, 200, 100, color);
+    wlr_scene_node_set_position(&shown->node, 10, 20);
+    sh_anim_fold_away(rig.animator, copy, &fold, 0.75, &ref);
+    CHECK(ref && folded_at(shown, 0, 0, 0.75), "starts three quarters of the way");
+    advance(&rig, 49);
+    CHECK(ref != NULL, "running for half the time");
+    advance(&rig, 2);
+    CHECK(!ref, "the last quarter takes half the time");
+    // A copy still folding when the animator goes goes with it.
+    copy = wlr_scene_tree_create(&rig.scene->tree);
+    wlr_scene_rect_create(copy, 200, 100, color);
+    sh_anim_fold_away(rig.animator, copy, &fold, 0, &ref);
+    teardown(&rig);
+    CHECK(!ref, "told as the animator goes");
+}
+
+static struct sh_anim *mapped_anim;
+static int mapped_wrong;
+static void check_mapped(void *data) {
+    const struct wlr_scene_rect *rect = data;
+    int x = 10, y = 20, width = 200, height = 100, radius = 10;
+    sh_anim_fold_map(mapped_anim, &x, &y, &width, &height, &radius);
+    mapped_wrong += x != rect->node.x || y != rect->node.y || width != rect->width ||
+                    height != rect->height;
+    ++updates;
+}
+
+/* A window grows out of its button back to rest; one turned back on its way into the button goes
+ * back from where it is drawn. */
+static void test_unfold(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    mapped_anim = &rig.anim;
+    mapped_wrong = updates = 0;
+    struct sh_fold fold = button_fold(check_mapped, rig.rect);
+    CHECK(sh_anim_unfold(rig.animator, &rig.anim, rig.content, &fold, 1), "it unfolds");
+    CHECK(folded_at(rig.rect, 0, 0, 1) && rig.rect->node.x == 500 && rig.rect->width == 40,
+          "starts fitting the button: %d %d", rig.rect->node.x, rig.rect->width);
+    CHECK(rig.rect->color[3] < 0.01F, "and unseen");
+    advance(&rig, 50);
+    CHECK(folded_at(rig.rect, 0, 0, 0.5) && fabsf(rig.rect->color[3] - 0.75F) < 0.01F,
+          "half way out: %d %f", rig.rect->node.x, rig.rect->color[3]);
+    // Input finds it at rest.
+    sh_animator_rest_at(rig.animator, 900, 900);
+    CHECK(rig.rect->node.x == 10 && rig.rect->width == 200, "at rest for any lookup");
+    sh_animator_resume(rig.animator);
+    CHECK(folded_at(rig.rect, 0, 0, 0.5), "and drawn on its way again");
+    advance(&rig, 51);
+    CHECK(rig.rect->node.x == 10 && rig.rect->node.y == 20 && rig.rect->width == 200 &&
+              rig.rect->height == 100 && fabsf(rig.rect->color[3] - 1) < 1e-6F &&
+              fabsf(rig.rect->color[0] - 0.2F) < 1e-6F,
+          "at rest");
+    CHECK(sh_animator_running(rig.animator) == 0 && sh_anim_folded(&rig.anim, NULL) < 0, "done");
+    CHECK(updates == 4 && mapped_wrong == 0, "the owner redrew what the fold maps, as drawn: %d %d",
+          updates, mapped_wrong);
+
+    // Minimizing turned back: the copy going into the button is replaced by the window coming
+    // out of it from the very place the copy was drawn.
+    struct wlr_scene_tree *copy = wlr_scene_tree_create(&rig.scene->tree);
+    float color[4] = {0.2F, 0.4F, 0.6F, 1};
+    struct wlr_scene_rect *shown = wlr_scene_rect_create(copy, 200, 100, color);
+    wlr_scene_node_set_position(&shown->node, 10, 20);
+    struct sh_anim *ref = NULL;
+    struct sh_fold plain = button_fold(NULL, NULL);
+    sh_anim_fold_away(rig.animator, copy, &plain, 0, &ref);
+    advance(&rig, 30);
+    struct sh_fold taken;
+    double at = sh_anim_folded(ref, &taken);
+    CHECK(fabs(at - 0.3) < 1e-9 && taken.into_x == 500, "three tenths of the way in");
+    int x = shown->node.x, width = shown->width;
+    float alpha = shown->color[3];
+    sh_anim_finish(ref);
+    CHECK(!ref, "the copy goes");
+    sh_anim_unfold(rig.animator, &rig.anim, rig.content, &taken, at);
+    CHECK(rig.rect->node.x == x && rig.rect->width == width && rig.rect->color[3] == alpha,
+          "the window takes over where the copy was: %d %d %f", rig.rect->node.x,
+          rig.rect->width, rig.rect->color[3]);
+    // Turned back after 3 tenths, it takes the time a spring would: sqrt(0.3) of the whole.
+    advance(&rig, 54);
+    CHECK(sh_animator_running(rig.animator) == 1 && rig.rect->width > 190, "nearly back");
+    advance(&rig, 2);
+    CHECK(sh_animator_running(rig.animator) == 0 && rig.rect->width == 200, "back");
+
+    // A glide goes on beneath the fold, and settling ends the fold alone.
+    sh_anim_glide(rig.animator, &rig.anim, rig.content, 300, 0);
+    sh_anim_unfold(rig.animator, &rig.anim, rig.content, &plain, 1);
+    advance(&rig, 20);
+    CHECK(rig.content->node.x > 0 && folded_at(rig.rect, 0, 0, 0.8), "gliding while folded");
+    at = sh_anim_settle(&rig.anim);
+    CHECK(fabs(at - 0.8) < 1e-9 && rig.rect->width == 200 && fabsf(rig.rect->color[3] - 1) < 1e-6F,
+          "settled at rest from 0.8: %f", at);
+    CHECK(rig.content->node.x > 0 && sh_animator_running(rig.animator) == 1, "still gliding");
+    advance(&rig, 100);
+    CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 0, "glide over");
+    CHECK(sh_anim_settle(&rig.anim) == 0, "nothing to settle");
+
+    // A slide (a workspace switch) takes over a fold from rest.
+    sh_anim_unfold(rig.animator, &rig.anim, rig.content, &plain, 1);
+    advance(&rig, 30);
+    sh_anim_slide(rig.animator, &rig.anim, rig.content, 40, 0);
+    advance(&rig, 200);
+    CHECK(rig.rect->node.x == 10 && rig.rect->width == 200 && fabsf(rig.rect->color[3] - 1) < 1e-6F,
+          "rest values survive a fold cut short");
+    // Finishing lands it, as does turning animations off; neither starts it.
+    sh_anim_unfold(rig.animator, &rig.anim, rig.content, &plain, 1);
+    sh_anim_finish(&rig.anim);
+    CHECK(rig.rect->width == 200 && fabsf(rig.rect->color[3] - 1) < 1e-6F, "finished at rest");
+    CHECK(!sh_anim_unfold(rig.animator, &rig.anim, rig.content, &plain, 0), "at rest already");
+    sh_animator_configure(rig.animator, &(struct sh_animator_config){.enabled = false});
+    CHECK(!sh_anim_unfold(rig.animator, &rig.anim, rig.content, &plain, 1) &&
+              rig.rect->width == 200,
+          "off: at rest at once");
+    teardown(&rig);
+}
+
 int main(void) {
     test_glide_reaches_rest();
     test_retarget_is_continuous();
@@ -538,6 +718,8 @@ int main(void) {
     test_hold_and_slide_from();
     test_hold_copy();
     test_finish_all();
+    test_fold_away();
+    test_unfold();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
     return failures ? 1 : 0;
