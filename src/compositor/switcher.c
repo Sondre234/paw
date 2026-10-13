@@ -8,27 +8,29 @@
  * list, fades nothing. */
 enum { SWITCHER_PEEK_MS = 500 };
 
-/* Whether the peek at a window is the switcher's: it peeked, and nothing took it over since (a
- * taskbar's picture, the desktop peek, the window closing). */
+/* Whether the peek at a window is the switcher's: at the window it peeked at, and nothing took
+ * it over or ended it since (focus, the desktop peek, a taskbar's picture). */
 static bool switcher_peeks(struct sh_server *server) {
-    return server->switcher.peeking && server->peek_window && !server->peek_object;
+    return server->switcher.peeked && server->peek_window == server->switcher.peeked &&
+           !server->peek_object;
 }
 
 /* Peeks at the selected window (effects.c), taking the peek over from whatever peeks now; the
- * switcher's own peek, which no window object ends. With peek.switcher turned off meanwhile, it
- * ends its peek instead. */
+ * switcher's own peek, which no window object ends. With peek.switcher turned off meanwhile (a
+ * reload), it ends its peek instead, at the next step the switcher takes. */
 static void peek_at_selected(struct sh_server *server) {
     if (!server_settings(server)->effects.peek_switcher) {
         if (switcher_peeks(server))
             end_window_peek(server, true);
-        server->switcher.peeking = false;
+        server->switcher.peeked = NULL;
         return;
     }
     if (server->locked || server->peeking)
         return;
-    peek_at_window(server->switcher.windows[server->switcher.selected]);
+    struct sh_toplevel *selected = server->switcher.windows[server->switcher.selected];
+    peek_at_window(selected);
     server->peek_object = NULL;
-    server->switcher.peeking = true;
+    server->switcher.peeked = selected;
 }
 
 static int switcher_peek_due(void *data) {
@@ -38,22 +40,27 @@ static int switcher_peek_due(void *data) {
     return 0;
 }
 
-/* The selection moved, or the shell showed the switcher: the first peek waits until the
- * selection has rested SWITCHER_PEEK_MS, and from then on the peek follows it at once, the
- * others staying faded, as on the taskbar's card. */
-static void switcher_follow(struct sh_server *server) {
-    if (!server->switcher.open || !server->switcher.peek_asked)
-        return;
-    if (server->switcher.peeking) {
-        peek_at_selected(server);
-        return;
-    }
+/* Peeks at the selection `wait` milliseconds from now. */
+static void peek_after(struct sh_server *server, int64_t wait) {
     if (!server->switcher.peek_timer)
         server->switcher.peek_timer = wl_event_loop_add_timer(
             wl_display_get_event_loop(server->wl_display), switcher_peek_due, server);
-    int64_t wait = server->switcher.selected_at + SWITCHER_PEEK_MS - now_ms();
     if (server->switcher.peek_timer)
         wl_event_source_timer_update(server->switcher.peek_timer, wait > 1 ? (int)wait : 1);
+}
+
+/* The selection moved, or the shell showed the switcher: while the switcher's peek goes on, it
+ * follows the selection at once, the others staying faded, as on the taskbar's card; otherwise,
+ * the first time or after something else ended it, the selection rests SWITCHER_PEEK_MS first. */
+static void switcher_follow(struct sh_server *server) {
+    if (!server->switcher.open || !server->switcher.peek_asked)
+        return;
+    if (switcher_peeks(server)) {
+        peek_at_selected(server);
+        return;
+    }
+    server->switcher.peeked = NULL;
+    peek_after(server, server->switcher.selected_at + SWITCHER_PEEK_MS - now_ms());
 }
 
 /* "switcher_peek": the shell has drawn the switcher, so its selected window may peek. Without
@@ -121,7 +128,7 @@ void switcher_close(struct sh_server *server, int index) {
     server->switcher.open = false;
     server->switcher.count = 0;
     server->switcher.peek_asked = false;
-    server->switcher.peeking = false;
+    server->switcher.peeked = NULL;
     if (server->switcher.peek_timer)
         wl_event_source_timer_update(server->switcher.peek_timer, 0);
     send_event(server, "switcher-close\n", strlen("switcher-close\n"));
@@ -166,7 +173,7 @@ void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
     server->switcher.modifiers = modifiers;
     server->switcher.key = key;
     server->switcher.peek_asked = false;
-    server->switcher.peeking = false;
+    server->switcher.peeked = NULL;
     server->switcher.selected_at = now_ms();
     snprintf(server->switcher.output, sizeof(server->switcher.output), "%s", output->name);
     // The first window is the focused one unless focus is on the bare desktop.
@@ -183,6 +190,10 @@ void switcher_forget(struct sh_toplevel *toplevel) {
     for (int i = 0; i < server->switcher.count; ++i) {
         if (server->switcher.windows[i] != toplevel)
             continue;
+        // Its closing ended the switcher's peek at it, if any.
+        bool peeked = server->switcher.peeked == toplevel;
+        if (peeked)
+            server->switcher.peeked = NULL;
         memmove(&server->switcher.windows[i], &server->switcher.windows[i + 1],
                 (size_t)(server->switcher.count - i - 1) * sizeof(*server->switcher.windows));
         if (--server->switcher.count == 0) {
@@ -193,11 +204,15 @@ void switcher_forget(struct sh_toplevel *toplevel) {
         if (server->switcher.selected > i || server->switcher.selected == server->switcher.count)
             server->switcher.selected--;
         switcher_announce(server);
-        // The selected window gone, the selection is on another, which the peek follows.
-        if (moved) {
-            server->switcher.selected_at = now_ms();
+        if (!moved)
+            return;
+        // The selected window gone, the selection is on another. The peek moves on to it once
+        // the window has closed, as focus may go there too, which would end a peek begun before.
+        server->switcher.selected_at = now_ms();
+        if (peeked && server->switcher.peek_asked)
+            peek_after(server, 1);
+        else
             switcher_follow(server);
-        }
         return;
     }
 }

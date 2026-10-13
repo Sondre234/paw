@@ -438,8 +438,9 @@ struct sh_server {
         char output[64];
         /* Its peek at the selected window (switcher.c): asked for once the shell has drawn it,
          * waiting on `peek_timer` until the selection has rested since `selected_at`, then
-         * following the selection while `peeking`. */
-        bool peek_asked, peeking;
+         * following the selection from the window `peeked` at while that peek goes on. */
+        bool peek_asked;
+        struct sh_toplevel *peeked;
         int64_t selected_at;
         struct wl_event_source *peek_timer;
     } switcher;
