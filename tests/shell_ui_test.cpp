@@ -6007,6 +6007,33 @@ ListModel {
         wheel(120);
         if (launchpad->property("page").toInt() != 0)
             return fail("a wheel notch up did not show the page before");
+        // There is no page before the first: the wheel bumps the pages instead.
+        {
+            auto *pages = find(root, "launchpadPages");
+            QSignalSpy bumps(pages, SIGNAL(bumpedChanged()));
+            wheel(120);
+            if (!waitFor([&] { return bumps.count() >= 2 && pages->property("bumped").toReal() == 0; }) ||
+                launchpad->property("page").toInt() != 0)
+                return fail("a wheel notch up on the first page did not bump the pages");
+        }
+        // Dragged right on the first page, the pages follow less and less, never an eighth of the
+        // width, and come back.
+        {
+            auto *pages = find(root, "launchpadPages");
+            const int y = launchpad->property("gridTop").toInt() - 10;
+            const QPoint from(50, y), to(450, y);
+            QTest::mousePress(popover, Qt::LeftButton, Qt::NoModifier, from);
+            for (int step = 1; step <= 10; ++step) {
+                QTest::mouseMove(popover, from + (to - from) * step / 10);
+                QTest::qWait(10);
+            }
+            const qreal stretched = pages->x(), eighth = launchpad->width() / 8;
+            QTest::mouseRelease(popover, Qt::LeftButton, Qt::NoModifier, to);
+            if (!(stretched > eighth / 2 && stretched < eighth) ||
+                launchpad->property("page").toInt() != 0 ||
+                !waitFor([&] { return pages->x() == 0; }))
+                return fail("dragging the first page right did not stretch it as a rubber band");
+        }
         // Dragging beside the applications, to the left, shows the next page.
         {
             const int y = launchpad->property("gridTop").toInt() - 10;
