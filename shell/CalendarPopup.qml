@@ -99,7 +99,7 @@ PopupCard {
     implicitWidth: 7 * cellWidth + 2 * padding
     implicitHeight: content.implicitHeight + 2 * padding
     side: panel.popupSide
-    alignment: Qt.AlignRight
+    alignment: panel.flyoutAlignment
     bounds: panel.popupArea
     radius: Theme.radiusLarge
     Timer {

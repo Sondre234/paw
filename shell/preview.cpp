@@ -422,10 +422,12 @@ PreviewData::~PreviewData() = default;
 // What the panel leaves of the output a preview stands for, where a layer surface that keeps clear
 // of it (an exclusive zone of 0) goes: the output but the bar's strip, and the menu bar's.
 QRect PreviewData::usableArea() const {
-    const int panel = controller_.panelExtent();
+    // The bar the panel shows: the taskbar or the dock, or the tiling bar while its output tiles.
+    const auto *view = panel_ ? qobject_cast<const ShellView *>(panel_->window()) : nullptr;
+    const int panel = view ? view->extent() : controller_.panelExtent();
     const int menuBar = panel_ ? panel_->property("menuBarHeight").toInt() : 0;
     const QRect output(QPoint(0, 0), ShellView::previewSize());
-    switch (controller_.panelSurfaceEdge()) {
+    switch (view ? view->edge() : controller_.panelSurfaceEdge()) {
     case paw::PanelEdge::Top:
         return output.adjusted(0, panel, 0, 0);
     case paw::PanelEdge::Left:
@@ -819,14 +821,16 @@ QImage PreviewData::withSurface(QImage desktop) const {
     return desktop;
 }
 
-QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, ShellController &controller) {
+QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, paw::PanelEdge edge,
+                        ShellController &controller) {
     panel.setDevicePixelRatio(1);
     popover.setDevicePixelRatio(1);
     menuBar.setDevicePixelRatio(1);
     // As large as the output a preview stands for, in the bar's pixels.
     const QSize preview = ShellView::previewSize();
-    const QSize output = preview * (controller.panelVertical() ? panel.height() / qreal(preview.height())
-                                                               : panel.width() / qreal(preview.width()));
+    const bool vertical = edge == paw::PanelEdge::Left || edge == paw::PanelEdge::Right;
+    const QSize output = preview * (vertical ? panel.height() / qreal(preview.height())
+                                             : panel.width() / qreal(preview.width()));
     QImage desktop(output, QImage::Format_ARGB32_Premultiplied);
     QPainter painter(&desktop);
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
@@ -859,7 +863,6 @@ QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, ShellContr
     }
     // An image along the panel's edge: the panel, and the popover, as the popups are placed by
     // the bar, should a compositor have made the window smaller.
-    const auto edge = controller.panelSurfaceEdge();
     const auto along = [&](const QImage &image) {
         return QPoint(edge == paw::PanelEdge::Right ? desktop.width() - image.width() : 0,
                       edge == paw::PanelEdge::Bottom ? desktop.height() - image.height() : 0);
