@@ -19,8 +19,9 @@ CONFIG = """return {
     outputs = { monitors = { ["HEADLESS-1"] = { mode = "1280x720" } } },
     animations = { %s },
 }"""
-# The spring back takes ten seconds, so that it is still under way as the test looks.
-SLOW = "speed = 0.1, move = { duration = 1000 }"
+# The spring back takes ten seconds, so that it is still under way as the test looks; on a busy
+# machine a late tick lands nothing.
+SLOW = "speed = 0.1, late_frame_ms = 1000, move = { duration = 1000 }"
 SLIDE = 1280 * 0.08  # a step of the workspace slide, which is also as far as the windows give
 
 
@@ -46,6 +47,19 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
 
     def running():
         return int(msg("get", "animations").split("\t")[0])
+
+    def drawn(title="One"):
+        """How far the window is drawn from where it rests (x, y) and its opacity's factor."""
+        for row in desktop.rows("drawn"):
+            if row[0] == title:
+                return tuple(int(n) for n in row[1:])
+        raise AssertionError(f"no window {title}")
+
+    def held():
+        """The band the fingers hold, checked against where the window is drawn."""
+        now = band()
+        assert drawn() == (now[3], 0, now[4]), (now, drawn())
+        return now
 
     def output_frames():
         """The frames each monitor has drawn, by name."""
@@ -75,44 +89,47 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
     # right with the fingers, at first as far as the slide would, then less and less.
     begin()
     to(20)
-    assert band() == (0, 0, 1, give(20 / 300), 1000), band()
+    assert held() == (0, 0, 1, give(20 / 300), 1000), band()
     pulls = (60, 150, 300, 600, 1200)
     gave = []
     for units in pulls:
         to(units)
         gave.append(band()[3])
-        assert band() == (0, 0, 1, give(units / 300), 1000), (units, band())
+        assert held() == (0, 0, 1, give(units / 300), 1000), (units, band())
     gains = [(b - a) / (v - u) for a, b, u, v in zip(gave, gave[1:], pulls, pulls[1:])]
     assert all(b < a for a, b in zip(gains, gains[1:])) and gave[-1] < SLIDE, gave
     # Back toward where it began, it comes back the same way, and on past it toward the next
     # workspace the slide begins: nothing jumps on the way.
     to(150)
-    assert band()[3] == gave[1], band()
+    assert held()[3] == gave[1], band()
     to(0)
-    assert band() == (0, 0, 1, 0, 1000), band()
+    assert held() == (0, 0, 1, 0, 1000), band()
     to(-60)
     assert band() == (2, 200, 1, 0, 1000), band()
     # Past the end again and let go: it stays on the first workspace, and the window springs
     # back, slowly here.
     to(300, after=100)
-    assert band() == (0, 0, 1, give(1), 1000), band()
+    assert held() == (0, 0, 1, give(1), 1000), band()
     swipe("end", after=300)
     assert workspace() == 1 and desktop.rows("gesture")[0][0] == "none"
     assert running() == 1, msg("get", "animations")
-    # Fingers coming back take it over where it is drawn, nearly as far as it was let go, and
-    # move it on from there.
+    frames = output_frames()["HEADLESS-1"]
+    desktop.wait_for(lambda: drawn()[0] <= give(1) - 3, "springing back")
+    assert output_frames()["HEADLESS-1"] > frames, "the spring drew nothing"
+    # Fingers coming back take it over where it is drawn, and move it on from there.
+    where = drawn()[0]
     begin()
     to(20)
-    caught = band()
-    assert caught[:3] == (0, 0, 1) and give(1) - 4 <= caught[3] <= give(1), caught
+    caught = held()
+    assert caught[:3] == (0, 0, 1) and where - 2 <= caught[3] <= where, (where, caught)
     assert running() == 0, "held, not springing"
     to(50)
-    assert caught[3] < band()[3] <= caught[3] + 4, (caught, band())
+    assert caught[3] < held()[3] <= caught[3] + 4, (caught, band())
     # Back the other way it comes back to rest before the slide toward the next workspace
     # begins, as far on as the fingers went past that.
     to(-300)
-    target, shown, held, offset, alpha = band()
-    assert (target, held, offset, alpha) == (2, 1, 0, 1000) and 0 < shown < 200, band()
+    target, shown, holds, offset, alpha = band()
+    assert (target, holds, offset, alpha) == (2, 1, 0, 1000) and 0 < shown < 200, band()
     swipe("end", after=300)
     assert workspace() == 1
     desktop.wait_for(lambda: running() == 0, "the slide back done", timeout=30)
@@ -122,7 +139,7 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
     msg("workspace", "2")
     begin()
     to(-150)
-    assert band() == (0, 0, 1, give(-0.5), 1000), band()
+    assert held() == (0, 0, 1, give(-0.5), 1000), band()
     swipe("end", after=300)
     assert workspace() == 2
 
@@ -131,28 +148,50 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
     assert running() == 0, msg("get", "animations")
     begin()
     to(-300)
-    assert band() == (0, 0, 1, give(-1), 1000), band()
+    assert held() == (0, 0, 1, give(-1), 1000), band()
     swipe("end", after=300)
-    assert workspace() == 2 and running() == 0, msg("get", "animations")
+    assert workspace() == 2 and running() == 0 and drawn() == (0, 0, 1000), drawn()
 
     # A slide that only fades: the window dims instead, and brightens again as it is let go.
     desktop.reload(CONFIG % "move = { duration = 1000 }, workspace = { distance = 0 }")
     begin()
     to(-300)
-    assert band() == (0, 0, 1, 0, round(1000 * (1 - 0.2 / 1.2))), band()
+    assert held() == (0, 0, 1, 0, round(1000 * (1 - 0.2 / 1.2))), band()
     swipe("end", after=300)
     assert workspace() == 2 and running() == 1, msg("get", "animations")
     desktop.wait_for(lambda: running() == 0, "brightened again")
 
     # A step with nowhere to go, as the panel's wheel asks for past either end, nudges the windows
-    # of that output that way and back; with a slide that only fades, nothing moves.
+    # of that output the way the slide would take them, and back; with a slide that only fades,
+    # nothing moves.
     msg("workspace_nudge", "HEADLESS-1", "next")
-    assert running() == 0, msg("get", "animations")
+    assert running() == 0 and drawn() == (0, 0, 1000), drawn()
     desktop.reload(CONFIG % SLOW)
+    frames = output_frames()["HEADLESS-1"]
     msg("workspace_nudge", "HEADLESS-1", "next")
     assert running() == 1, msg("get", "animations")
-    msg("workspace_nudge", "HEADLESS-1", "prev")  # the other way: from where it is, at once
-    assert running() == 1, msg("get", "animations")
+    # Out to the left as far as fingers a third of a step past the end would pull it (25.6
+    # pixels), and back to rest, drawn all the way.
+    seen = []
+
+    def over():
+        seen.append(drawn()[0])
+        return running() == 0
+
+    desktop.wait_for(over, "the nudge over")
+    assert drawn() == (0, 0, 1000) and max(seen) <= 0 and -26 <= min(seen) <= -23, seen
+    assert output_frames()["HEADLESS-1"] >= frames + 20, (frames, output_frames())
+    # Nudged the other way on its way out, it turns there from where it is.
+    msg("workspace_nudge", "HEADLESS-1", "next")
+    desktop.wait_for(lambda: drawn()[0] <= -10, "nudged left")
+    msg("workspace_nudge", "HEADLESS-1", "prev")
+    desktop.wait_for(lambda: drawn()[0] >= 10, "turned to the right")
+    desktop.wait_for(lambda: running() == 0, "the nudges over")
+    # A window opening during a nudge opens as it would, not landed at once as late.
+    msg("workspace_nudge", "HEADLESS-1", "next")
+    desktop.wait_for(lambda: drawn()[0] <= -20, "nudged again")
+    desktop.open_window(probe, "Two")
+    assert running() == 2 and drawn("Two")[2] < 1000, (msg("get", "animations"), drawn("Two"))
     assert "usage" in msg("workspace_nudge", "HEADLESS-1", ok=False)
     assert "usage" in msg("workspace_nudge", "HEADLESS-1", "up", ok=False)
     assert "usage" in msg("workspace_nudge", "HEADLESS-1", "next", "now", ok=False)
@@ -164,7 +203,8 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
     desktop.reload((CONFIG % SLOW).replace("workspaces = 2", "workspaces = 1"))
     assert workspace() == 1
     msg("workspace_next")
-    assert workspace() == 1 and running() == 1, msg("get", "animations")
+    assert workspace() == 1 and running() == 2, msg("get", "animations")
+    desktop.wait_for(lambda: drawn()[0] < 0 and drawn("Two")[0] < 0, "both nudged left")
 
     # Frames come only where something changes: the nudge brings this monitor's, and another
     # monitor draws what the pointer passing over it changed and nothing more meanwhile.
@@ -178,6 +218,6 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
     desktop.wait_for(lambda: output_frames()["eDP-1"] > there, "the pointer drawn on eDP-1")
     there = output_frames()["eDP-1"]
     desktop.wait_for(lambda: output_frames()["HEADLESS-1"] >= here + 10, "the nudge drawn")
-    assert running() == 1, msg("get", "animations")
+    assert running() == 2, msg("get", "animations")
     desktop.stays(lambda: output_frames()["eDP-1"] <= there + 2, "eDP-1 drawing nothing new",
                   duration=0.5)
