@@ -1571,8 +1571,8 @@ buttons are) shrinks toward the middle of the strip a panel keeps along an edge 
 or, with no panel, where it is. It is the `minimize` kind, which lasts 300 ms unless set (two and
 a half times `duration`, at most 1000) on `"bezier(0.2, 0, 0, 1)"`: a moment to set off, then
 most of the way at once and a long, soft settle. A window in the [scratchpad](#scratchpad) comes
-and goes its own way, one a peek shows (the taskbar's picture peeking at it), or still shows as
-it fades, comes back where it shows it, and one picked in the [overview](#overview) comes back
+and goes its own way, one a peek shows (the taskbar's picture's, the window switcher's or the
+palette's), or still shows as it fades, comes back where it shows it, and one picked in the [overview](#overview) comes back
 with its thumbnail. Other taskbars say where their buttons are with wlr-foreign-toplevel's
 `set_rectangle`; paw's shell says where its buttons, its pictures and the dock's icons are as
 they move.
