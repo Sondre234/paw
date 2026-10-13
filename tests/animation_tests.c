@@ -626,6 +626,53 @@ static void test_morph_stretches_and_waits(void) {
     teardown(&m.rig);
 }
 
+/* A client that acknowledges the size it was given with what it drew before, and draws the new
+ * size on a later commit, as some video players do: the window does not head back to the old
+ * size meanwhile, nor squeeze the new picture and pop at the end. */
+static void test_morph_answer_after_an_early_ack(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    morph_to(&m, 0, 0, 400, 300);
+    advance(&m.rig, 20);
+    client_draws(&m, 200, 100, true); // acknowledged, at the old size
+    int last = m.surface->width;
+    bool shrank = false;
+    for (int i = 0; i < 12; ++i) {
+        advance(&m.rig, 10);
+        shrank |= m.surface->width < last;
+        last = m.surface->width;
+    }
+    CHECK(!shrank && m.surface->width == 400, "on to the new size: %d", m.surface->width);
+    CHECK(sh_animator_running(m.rig.animator) == 1, "waiting for the new picture");
+    client_draws(&m, 400, 300, true);
+    CHECK(fading_copy(&m) != NULL, "the old picture fades into it");
+    advance(&m.rig, 100);
+    CHECK(sh_animator_running(m.rig.animator) == 0 && m.surface->width == 400, "at rest");
+    teardown(&m.rig);
+}
+
+/* Each answer at a size of its own retargets the window, not only the first. */
+static void test_morph_follows_every_answer(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    morph_to(&m, 0, 0, 400, 300);
+    advance(&m.rig, 30);
+    client_draws(&m, 380, 280, true);
+    advance(&m.rig, 30);
+    client_draws(&m, 360, 260, true);
+    int before_end = 0;
+    for (int i = 0; i < 60 && sh_animator_running(m.rig.animator); ++i) {
+        before_end = m.surface->width;
+        advance(&m.rig, 5);
+    }
+    CHECK(abs(before_end - 360) <= 6, "easing to it, no jump at the end: %d", before_end);
+    CHECK(sh_animator_running(m.rig.animator) == 0, "done");
+    CHECK(m.surface->width == 360 && m.surface->height == 260, "at the last answer's size: %d",
+          m.surface->width);
+    CHECK(m.frame->width == 364, "its frame too: %d", m.frame->width);
+    teardown(&m.rig);
+}
+
 static void test_morph_crossfades_the_answer(void) {
     struct morph_rig m;
     morph_setup(&m, config(100, SH_CURVE_LINEAR));
@@ -879,6 +926,8 @@ int main(void) {
     test_hold_and_slide_from();
     test_hold_copy();
     test_morph_stretches_and_waits();
+    test_morph_answer_after_an_early_ack();
+    test_morph_follows_every_answer();
     test_morph_crossfades_the_answer();
     test_morph_late_answer_at_drawn_size();
     test_morph_answer_of_its_own();
