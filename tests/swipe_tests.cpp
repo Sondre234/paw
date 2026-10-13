@@ -111,6 +111,69 @@ static void finishing() {
     CHECK(!sh_swipe_finishes(-0.7, 0));
 }
 
+// A rubber band gives as far as it is pulled at first, then less and less, approaching its
+// limit and never reaching it.
+static void rubber_band() {
+    NEAR(sh_rubber_band(0, 100), 0, 1e-12);
+    NEAR(sh_rubber_band_slope(0, 100), 1, 1e-12);
+    NEAR(sh_rubber_band(1, 100), 1, 0.01);    // at first it follows
+    NEAR(sh_rubber_band(100, 100), 50, 1e-9); // pulled as far as the limit: half of it
+    NEAR(sh_rubber_band(300, 100), 75, 1e-9);
+    CHECK(sh_rubber_band(1e9, 100) < 100);
+    NEAR(sh_rubber_band(1e9, 100), 100, 1e-3);
+    // Each unit further gives less than the one before, and the slope says how much.
+    double last = 0, gain = 10;
+    for (int pull = 10; pull <= 1000; pull += 10) {
+        double now = sh_rubber_band(pull, 100);
+        CHECK(now > last && now - last < gain);
+        gain = now - last;
+        last = now;
+        double h = 1e-4;
+        NEAR(sh_rubber_band_slope(pull, 100),
+             (sh_rubber_band(pull + h, 100) - sh_rubber_band(pull - h, 100)) / (2 * h), 1e-6);
+    }
+    // The other way, the same the other way.
+    NEAR(sh_rubber_band(-300, 100), -75, 1e-9);
+    NEAR(sh_rubber_band_slope(-300, 100), sh_rubber_band_slope(300, 100), 1e-12);
+    // No limit, no give; and numbers that are none give nothing.
+    NEAR(sh_rubber_band(50, 0), 0, 1e-12);
+    NEAR(sh_rubber_band_slope(50, -1), 0, 1e-12);
+    NEAR(sh_rubber_band(NAN, 100), 0, 1e-12);
+    NEAR(sh_rubber_band(INFINITY, 100), 0, 1e-12);
+}
+
+// Past the last workspace the windows follow the fingers as the slide would at first, then
+// resist, never reaching the slide's distance or a tenth of the width.
+static void edge() {
+    // A slide of 8 % of 1280 pixels: 102.4 pixels a step, and that is the limit too.
+    sh_swipe_edge start = sh_swipe_past_end(0, 102.4, 1280);
+    NEAR(start.offset, 0, 1e-12);
+    NEAR(start.alpha, 1, 1e-12);
+    sh_swipe_edge little = sh_swipe_past_end(0.01, 102.4, 1280);
+    NEAR(little.offset, 1.024, 0.02); // as far as the slide, at first
+    NEAR(little.rate, 102.4, 3);
+    sh_swipe_edge step = sh_swipe_past_end(1, 102.4, 1280);
+    NEAR(step.offset, 51.2, 1e-9); // a whole step's pull gives half the slide
+    NEAR(step.alpha, 1, 1e-12);
+    NEAR(step.rate, 102.4 / 4, 1e-9);
+    CHECK(sh_swipe_past_end(50, 102.4, 1280).offset < 102.4);
+    // A long slide, a whole width a step: never past a tenth of the width.
+    sh_swipe_edge wide = sh_swipe_past_end(1, 1280, 1280);
+    NEAR(wide.offset, 1280 * 128.0 / (1280 + 128), 1e-9);
+    CHECK(sh_swipe_past_end(1000, 1280, 1280).offset < 128);
+    // A nudge is a small share of the width: 2 % with the default slide.
+    NEAR(sh_swipe_past_end(SH_SWIPE_NUDGE, 0.08 * 1920, 1920).offset / 1920, 0.02, 1e-9);
+    // A slide that only fades: the windows dim instead, never by a fifth.
+    sh_swipe_edge fade = sh_swipe_past_end(1, 0, 1280);
+    NEAR(fade.offset, 0, 1e-12);
+    NEAR(fade.alpha, 1 - 0.2 / 1.2, 1e-9);
+    CHECK(sh_swipe_past_end(1e6, 0, 1280).alpha > 1 - SH_SWIPE_EDGE_FADE);
+    // Not past the end, or a pull that is no number: nothing.
+    sh_swipe_edge back = sh_swipe_past_end(-1, 102.4, 1280);
+    CHECK(back.offset == 0 && back.alpha == 1 && back.rate == 0);
+    CHECK(sh_swipe_past_end(NAN, 102.4, 1280).offset == 0);
+}
+
 static void names() {
     CHECK(!std::strcmp(sh_swipe_direction_name(SH_SWIPE_LEFT), "left"));
     CHECK(!std::strcmp(sh_swipe_direction_name(SH_SWIPE_DOWN), "down"));
@@ -126,6 +189,8 @@ int main() {
     progress();
     speed();
     finishing();
+    rubber_band();
+    edge();
     names();
     if (failures)
         std::fprintf(stderr, "%d swipe checks failed\n", failures);
