@@ -154,6 +154,23 @@ void sh_shadow_slices(const struct sh_shadow_layout *layout, int image_width, in
     sh_shadow_slices_scaled(layout, image_width, image_height, width, height, plain, slices);
 }
 
+/* How one side of a stretched shadow is drawn: how far it reaches outside the window, how far
+ * its corners reach into it, and how far into it the edge between them runs. */
+struct side {
+    int outer, inner, margin;
+};
+
+/* A side reaching `outer` past the window, with corners `inner` into it, stretched `k` times.
+ * Stretched, the image's edge where the window is cut out lands a pixel inside the window,
+ * where the window covers it: a renderer sampling the stretched image between pixels would
+ * otherwise blend the cut-out into a light seam along the window's edge. */
+static struct side stretch(int outer, int inner, double k) {
+    if (k <= 1 || outer <= 0)
+        return (struct side){(int)lround(k * outer), (int)lround(k * inner), 0};
+    double inside = (k * outer + 1) / outer; // the stretch that puts the cut a pixel in
+    return (struct side){(int)lround(k * outer), (int)lround(1 + inside * inner), 1};
+}
+
 void sh_shadow_slices_scaled(const struct sh_shadow_layout *layout, int image_width,
                              int image_height, int width, int height, const double scale[4],
                              struct sh_shadow_slice slices[SH_SHADOW_SLICES]) {
@@ -172,17 +189,16 @@ void sh_shadow_slices_scaled(const struct sh_shadow_layout *layout, int image_wi
         double most = fmax(1, (double)height / (top + bottom));
         k_top = fmin(k_top, most), k_bottom = fmin(k_bottom, most);
     }
+    struct side sl = stretch(l->left, left, k_left), sr = stretch(l->right, right, k_right);
+    struct side st = stretch(l->top, top, k_top), sb = stretch(l->bottom, bottom, k_bottom);
     // Where the slices meet, from the window's top-left corner: the shadow's outer edge, the
     // corners' inner edges, and the shadow's far edge, in whole pixels so that they adjoin.
-    int x0 = -(int)lround(k_left * l->left), x1 = (int)lround(k_left * left);
-    int x2 = width - (int)lround(k_right * right), x3 = width + (int)lround(k_right * l->right);
-    int y0 = -(int)lround(k_top * l->top), y1 = (int)lround(k_top * top);
-    int y2 = height - (int)lround(k_bottom * bottom),
-        y3 = height + (int)lround(k_bottom * l->bottom);
+    int x0 = -sl.outer, x1 = sl.inner, x2 = width - sr.inner, x3 = width + sr.outer;
+    int y0 = -st.outer, y1 = st.inner, y2 = height - sb.inner, y3 = height + sb.outer;
     if (x2 < x1)
-        x2 = x1;
+        x1 = x2 = (x1 + x2) / 2;
     if (y2 < y1)
-        y2 = y1;
+        y1 = y2 = (y1 + y2) / 2;
     // The image's right and bottom parts start where the window it was painted for ends.
     int image_right = l->left + image_width, image_bottom = l->top + image_height;
     int middle_x = l->left + l->inner_left, middle_y = l->top + l->inner_top;
@@ -195,10 +211,12 @@ void sh_shadow_slices_scaled(const struct sh_shadow_layout *layout, int image_wi
          x3 - x2, y3 - y2},
         // Edges, outside the window (inside it the shadow is cut out), from the middle column
         // or row, stretched along it.
-        {middle_x, 0, 1, l->top, x1, y0, x2 - x1, -y0},
-        {middle_x, image_bottom, 1, l->bottom, x1, height, x2 - x1, y3 - height},
-        {0, middle_y, l->left, 1, x0, y1, -x0, y2 - y1},
-        {image_right, middle_y, l->right, 1, width, y1, x3 - width, y2 - y1},
+        {middle_x, 0, 1, l->top, x1, y0, x2 - x1, st.margin - y0},
+        {middle_x, image_bottom, 1, l->bottom, x1, height - sb.margin, x2 - x1,
+         y3 - height + sb.margin},
+        {0, middle_y, l->left, 1, x0, y1, sl.margin - x0, y2 - y1},
+        {image_right, middle_y, l->right, 1, width - sr.margin, y1, x3 - width + sr.margin,
+         y2 - y1},
     };
     for (int i = 0; i < SH_SHADOW_SLICES; ++i) {
         slices[i] = all[i];

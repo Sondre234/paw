@@ -408,16 +408,25 @@ static void shadow_lift(void) {
                 holes += !inside && !covered[y * fw + x];
             }
         }
-        // Down the middle and across it, away from the corners.
+        // Down the middle and across it, away from the corners, outside the window (which
+        // covers the stretched image's cut-out, a pixel in).
         int cx = (l.left + width / 2) * scale, cy = (l.top + height / 2) * scale;
-        for (int y = 0; y < fh; ++y)
-            worst = abs(drawn[y * fw + cx] - alpha(whole[y * fw + cx])) > worst
-                        ? abs(drawn[y * fw + cx] - alpha(whole[y * fw + cx]))
-                        : worst;
-        for (int x = 0; x < fw; ++x)
-            worst = abs(drawn[cy * fw + x] - alpha(whole[cy * fw + x])) > worst
-                        ? abs(drawn[cy * fw + x] - alpha(whole[cy * fw + x]))
-                        : worst;
+        int inside = 0;
+        for (int y = 0; y < fh; ++y) {
+            int difference = abs(drawn[y * fw + cx] - alpha(whole[y * fw + cx]));
+            if (y >= l.top * scale && y < (l.top + height) * scale)
+                inside += drawn[y * fw + cx] > 0;
+            else if (difference > worst)
+                worst = difference;
+        }
+        for (int x = 0; x < fw; ++x) {
+            int difference = abs(drawn[cy * fw + x] - alpha(whole[cy * fw + x]));
+            if (x >= l.left * scale && x < (l.left + width) * scale)
+                inside += drawn[cy * fw + x] > 0;
+            else if (difference > worst)
+                worst = difference;
+        }
+        CHECK(inside <= 4 * scale, "%d pixels drawn inside the window at scale %d", inside, scale);
         CHECK(overlaps == 0 && holes == 0, "scaled slices at scale %d: %d overlap, %d left out",
               scale, overlaps, holes);
         CHECK(worst <= 4, "stretched, the shadow differs from a softer one by %d at scale %d",
