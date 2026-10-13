@@ -56,7 +56,7 @@ PopupCard {
     implicitHeight: Math.min(maximumHeight, 2 * padding + heading.implicitHeight + inset + layout.spacing +
                                             (center.history.count > 0 ? list.contentHeight : empty.implicitHeight))
     side: panel.popupSide
-    alignment: Qt.AlignRight
+    alignment: panel.flyoutAlignment
     bounds: panel.popupArea
     radius: Theme.radiusLarge
     // The card's colour over the list's edge where it goes on past it, fading into the list over a

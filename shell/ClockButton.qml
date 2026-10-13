@@ -34,9 +34,11 @@ FlatButton {
         onPressed: clockButton.center.toggleDnd()
     }
     // The compositor's notification_history action opens the flyout on the output under the
-    // pointer, whether or not the clock is on the bar.
+    // pointer, whether or not the clock is on the bar; the tiling bar does while it stands in for
+    // this one.
     Connections {
         target: shell
+        enabled: !clockButton.panel.tilingBarShown
         function onNotificationsRequested(output) {
             if (output === clockButton.panel.outputName) clockButton.panel.toggleAudioPopup("clock", clockButton)
         }

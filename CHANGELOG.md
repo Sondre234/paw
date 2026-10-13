@@ -73,6 +73,16 @@ shadows.
   `kdeglobals`) when no Qt platform theme names one, rather than hicolor alone, and fall back to
   Breeze, Adwaita or Papirus, so that generic icons are found.
 
+### The tiling bar
+
+- While a monitor tiles, its taskbar (or the dock and menu bar) gives way to a bar in Hyprland's
+  style, as Waybar draws it: thin and floating along the top, with the workspaces, the tiling
+  layout, the focused window's title, the clock and the system's state, and the taskbar's popups
+  opening by its modules. `shell.tiling_bar` sets its position, size, margins, corners, colours,
+  font, style (one bar, islands or pills), workspace numbers or dots, clock format and which
+  modules go where; `shell.tiling_bar = false` keeps the taskbar. Subscribers to the control
+  socket hear each monitor's tiling layout as `layout NAME LAYOUT`.
+
 ### The taskbar
 
 - The taskbar's popups open in a surface of their own over the whole monitor instead of growing

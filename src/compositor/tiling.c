@@ -9,6 +9,17 @@ struct wlr_output *tiled_output(struct sh_toplevel *toplevel) {
     return name ? find_output(toplevel->server, name) : NULL;
 }
 
+/* The name `layout` has in the configuration and in what the control socket says. */
+const char *tile_layout_name(enum sh_tile_layout layout) {
+    static const char *const names[] = {"dwindle", "master", "spiral", "monocle", "scroll"};
+    return (unsigned)layout < sizeof(names) / sizeof(*names) ? names[layout] : "dwindle";
+}
+
+/* The layout of `output`'s current workspace. */
+enum sh_tile_layout output_layout(struct sh_server *server, struct wlr_output *output) {
+    return sh_tiling_layout(server->tiling, output->name, *output_workspace(server, output->name));
+}
+
 enum sh_tile_layout toplevel_layout(struct sh_toplevel *toplevel) {
     const char *name = sh_tiling_output(toplevel->server->tiling, toplevel);
     return name ? sh_tiling_layout(toplevel->server->tiling, name, toplevel->workspace)
@@ -480,4 +491,5 @@ void layout_action(struct sh_server *server, enum sh_action action) {
     // Monocle stacks the tiles: keep the focused one on top.
     if (current)
         focus_toplevel(current);
+    notify_subscribers(server); // the layout's name, for the tiling bar
 }
