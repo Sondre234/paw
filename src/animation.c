@@ -405,21 +405,13 @@ static void rest_anim(struct sh_anim *anim) {
         rest_hold(anim);
 }
 
-/* Lifted windows at their own size for a lookup: they grow about a point, so any might be in
- * the way. */
-static void rest_lifts(struct sh_animator *animator) {
-    struct sh_anim *anim;
-    wl_list_for_each(anim, &animator->lifted, lift_link) {
-        anim->lift_rested = true;
-        walk(anim, anim->tree, 0, 0, true, 1, 1);
-    }
-}
+static void rest_lifts(struct sh_animator *animator, bool at, double px, double py);
 
 void sh_animator_rest(struct sh_animator *animator) {
     struct sh_anim *anim;
     wl_list_for_each(anim, &animator->running, link) rest_anim(anim);
     wl_list_for_each(anim, &animator->held, link) rest_anim(anim);
-    rest_lifts(animator);
+    rest_lifts(animator, false, 0, 0);
 }
 
 /* Whether a buffer or rectangle below `tree`, whose parent is at (ox, oy), has a box that
@@ -457,6 +449,25 @@ static bool tree_covers(const struct wlr_scene_tree *tree, double ox, double oy,
     return false;
 }
 
+/* Lifted windows at their own size for a lookup, with `at` only those that could be found at
+ * (px, py): drawn lifted, a window covers all it covers at rest, where it rests or where a glide
+ * draws it. */
+static void rest_lifts(struct sh_animator *animator, bool at, double px, double py) {
+    struct sh_anim *anim;
+    wl_list_for_each(anim, &animator->lifted, lift_link) {
+        int cx, cy;
+        if (at && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
+            double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
+            if (!tree_covers(anim->tree, cx, cy, px, py) &&
+                !tree_covers(anim->tree, parent_x + anim->base_x, parent_y + anim->base_y, px,
+                             py))
+                continue;
+        }
+        anim->lift_rested = true;
+        walk(anim, anim->tree, 0, 0, true, 1, 1);
+    }
+}
+
 void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
     struct sh_anim *anim;
     wl_list_for_each(anim, &animator->running, link) {
@@ -476,7 +487,7 @@ void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
             rest_anim(anim);
     }
     wl_list_for_each(anim, &animator->held, link) rest_anim(anim);
-    rest_lifts(animator);
+    rest_lifts(animator, true, px, py);
 }
 
 void sh_animator_resume(struct sh_animator *animator) {
