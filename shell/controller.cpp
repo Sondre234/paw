@@ -1376,6 +1376,11 @@ void ShellController::showWorkspace(const QString &output, int number) {
         request(QString("output %1 workspace %2\n").arg(output).arg(number).toUtf8(),
                 "Workspaces need a running paw session.");
 }
+void ShellController::nudgeWorkspace(const QString &output, int way) {
+    if (!output.isEmpty() && way && !qEnvironmentVariable("PAW_SOCKET").isEmpty())
+        request(QString("workspace_nudge %1 %2\n").arg(output, way > 0 ? "next" : "prev").toUtf8(),
+                {});
+}
 void ShellController::send(const QString &line) {
     request(line.toUtf8() + "\n", "The compositor needs a running paw session.");
 }

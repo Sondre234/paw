@@ -94,6 +94,18 @@ static void get_outputs(struct sh_server *server, int fd, const char *arguments)
         control_describe_output(server, fd, output);
 }
 
+static void get_output_frames(struct sh_server *server, int fd, const char *arguments) {
+    // Each output in the layout and how many frames it has drawn, for tests of what brings them.
+    control_reply(fd, "ok\n");
+    struct sh_output *output;
+    wl_list_for_each_reverse(output, &server->outputs, link) {
+        char line[128];
+        snprintf(line, sizeof(line), "%s\t%llu\n", output->wlr_output->name,
+                 (unsigned long long)output->frames);
+        control_reply(fd, line);
+    }
+}
+
 static void get_workspace(struct sh_server *server, int fd, const char *arguments) {
     char reply[32];
     snprintf(reply, sizeof(reply), "ok\n%d\n", focused_workspace(server));
@@ -345,8 +357,9 @@ static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
     // where it is: app_id, title, the place of its geometry's top-left corner and the size it is
     // drawn at (mid-glide, or changing size), the size its own surface is drawn at (stretched
     // while it changes size), what a change of size is doing: "rest", "moving", "waiting" for
-    // the client to draw the new size, or "fading" what it drew before, and how much of its
-    // frame shows, in thousandths (none while maximized or fullscreen, fading in between).
+    // the client to draw the new size, or "fading" what it drew before, how much of its frame
+    // shows, in thousandths (none while maximized or fullscreen, fading in between), and the
+    // factor an animation or a gesture gives its opacity, in thousandths.
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
@@ -360,11 +373,12 @@ static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
             toplevel->surfaces ? surface_buffer(toplevel->surfaces, toplevel_surface(toplevel))
                                : NULL;
         const struct sh_tween *frame = &toplevel->frame_fade;
-        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%ld\n", app_id, title,
-                 toplevel->scene_tree->node.x + toplevel->content->node.x,
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%ld\t%ld\n", app_id,
+                 title, toplevel->scene_tree->node.x + toplevel->content->node.x,
                  toplevel->scene_tree->node.y + toplevel->content->node.y, drawn.width,
                  drawn.height, buffer ? buffer->dst_width : 0, buffer ? buffer->dst_height : 0,
-                 morph_state(toplevel), frame->valid ? lround(1000 * frame->value[0]) : 1000);
+                 morph_state(toplevel), frame->valid ? lround(1000 * frame->value[0]) : 1000,
+                 lround(1000 * sh_anim_alpha(&toplevel->anim)));
         control_reply(fd, line);
     }
 }
@@ -768,6 +782,7 @@ static const struct {
     {"animations", get_animations, false},
     {"stats", get_stats, false},
     {"frame_times", get_frame_times, false},
+    {"output_frames", get_output_frames, false},
     {"dim", get_dim, false},
     {"peek", get_peek, false},
     {"window_peek", get_window_peek, false},

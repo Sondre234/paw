@@ -458,6 +458,13 @@ shadows.
   sets the swipes the compositor takes (fingers and direction to a request, as hot corners take),
   the distance of a step and inversion; every other gesture still reaches the window.
   `paw msg get gesture` says what the swipe under way does.
+- Past the first or last workspace a swipe stretches the windows like a rubber band, following
+  the fingers less and less the further they go, and lets them spring back as the fingers lift,
+  keeping their speed; fingers that come back meanwhile take them over where they are. Scrolling
+  over the panel or the tiling bar past either end nudges the windows a little the way the slide
+  would take them and back, the taskbar's pill bumping toward the workspace that is not there
+  (`paw msg workspace_nudge OUTPUT next|prev`), and Launchpad's pages stretch past the first and
+  last page the same way.
 - Touchscreens: each finger goes to the window, panel or popup under it through wl_touch, several
   at once, and focuses it as a click would. An application without touch support, the window
   controls, a window's drag strip (which a finger drags the window by), the overview and the

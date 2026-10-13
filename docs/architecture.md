@@ -257,12 +257,55 @@ output's workspace with `sh_anim_hold` (`animation.c`), its `content` offset and
 faded as far as the slide would have them, and the windows of the workspace it heads for, hidden
 still, as held copies of their buffers (`sh_anim_hold_copy`). A held animation lies outside the
 animator's running list, so neither the clock, a late frame nor turning animations off moves it,
-and each frame lays the hold again over what a client drew. `workspace_swipe_end` either switches
-(the leaving windows going on as copies with `sh_anim_slide_away`, the arriving ones taking over
-from their copies with `sh_anim_slide_from`, each in what remains of the slide's time) or slides
-everything back. The overview follows them through `overview_hold` and `overview_release`, which
-set its `progress` in place of its timer's. `tests/touchpad_gestures_smoke.py` drives all of it
-with a headless pointer, at the event times it gives.
+and each frame lays the hold again over what a client drew. `workspace_swipe_end`, given the
+fingers' speed as they lift, either switches (the leaving windows going on as copies with
+`sh_anim_slide_away`, the arriving ones taking over from their copies with `sh_anim_slide_from`,
+each in what remains of the slide's time) or slides everything back. The overview follows them
+through `overview_hold` and `overview_release`, which set its `progress` in place of its timer's.
+
+Past the first or the last workspace the target is out of range, and `workspace_swipe_hold` pulls
+the output's windows toward it as a rubber band: `sh_swipe_past_end` (`swipe.c`) says how far,
+the fingers' pull in steps times the limit L given as a rubber band gives it (p × L / (p + L)),
+L being the slide's distance or a tenth of the output's width, whichever is less, so that the
+windows start as the slide would (or as a slide of a tenth of the width would, for a longer one)
+and a whole step takes them half of L; for a slide that only fades it dims them instead. Let go,
+they glide back with `sh_anim_spring_back` (`animation.c`) in the `move` animation's time and
+curve, from where they were held and at first as fast as the fingers moved them (their speed
+through the band's slope, `rate`). The swipe notes the band's way and when its spring began
+(`sprung`, `sprung_at`), and the next one on that output and workspace that finds the windows
+still in that spring (`springing`) takes them over where they are drawn: `sh_swipe_pull_at` says
+how far past the end fingers would be for their offset (or their opacity, for a slide that only
+fades), and the first hold keeps the slide that far ahead of the fingers (`shift`) until they
+lift, so that neither pulling further nor coming back jumps. `tests/touchpad_gestures_smoke.py`
+drives all of it with a headless pointer, at the event times it gives, and
+`tests/rubber_band_smoke.py` the rubber band, checking where the windows are drawn with `get
+drawn`.
+
+A step with nowhere to go, the panel's wheel past either end (`workspace_nudge` on the control
+socket, which `ShellController::nudgeWorkspace` sends) or `workspace_next` with a single
+workspace, nudges the output's windows (`workspace_nudge`, `workspace.c`) as far as the rubber band
+gives a third of a step past the end. `sh_anim_nudge` starts a glide with no offset of its own but
+a speed, which the glide's velocity term carries out to a turning point a third of the way through
+and back to rest, in twice the workspace slide's time; a window gliding already starts from where
+it is drawn and aims for the same turning point, and one on its way out that way goes on as it
+is, so that a quick wheel does not pile nudges up.
+
+### Animations and frames
+
+An output draws a frame only when the scene changed on it (wlroots' scene damage asks for one),
+and `output_frame` first advances every animation to the frame's time (`sh_animator_tick`). A
+glide that moves less than a pixel between two frames, as a slow spring's start or a nudge from
+rest does, changes nothing and so brings no frame: it would stall, and the late-frame rule would
+land it unseen at the next tick, with anything started meanwhile. So while anything runs the
+animator also ticks by itself from a timer every 16 ms (`TICK_MS`, `animation.c`; half of
+`late_ms` when that is shorter, so that no tick of its own is taken for a late one), set as an
+animation starts from idle and again from each tick until nothing runs; a window changing size that
+waits for its client to draw the new size goes on the same way. What a tick changes damages
+the outputs it shows on, which then draw at their own rate; an output where nothing moves draws
+nothing, a commit that failed (a VT switched away) is not tried again for an animation, and a
+tearing output's asynchronous flips come only as its picture changes. Nothing else asks outputs for
+frames for animations. `get output_frames` counts each output's frames and `get drawn` says where
+each window is drawn and how faded, for tests.
 
 ### Touchscreens
 

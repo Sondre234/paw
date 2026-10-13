@@ -9,9 +9,14 @@
 
 /* How much smaller a window is when it starts opening or finishes closing. */
 static const float SMALL = 0.94F;
-/* After this much time past the end, a timer finishes animations no frame has advanced, e.g.
- * on a hidden workspace or a switched-off output. */
-enum { SLACK_MS = 50 };
+/* While anything runs, a timer advances it this often besides the outputs' frames. A frame comes
+ * only where the scene changed, and a glide that moves less than a pixel in one (a slow spring's
+ * start, a nudge from rest) changes nothing: frames alone would stall it, and the next tick would
+ * find it late and land it unseen, with whatever started meanwhile. What the timer changes damages
+ * the outputs it shows on, which then draw; nothing asks an output for a frame otherwise, so one
+ * where nothing moves stays still. It also finishes animations no frame advances, as on a hidden
+ * workspace or a switched-off output. */
+enum { TICK_MS = 16 };
 /* How long a window that changed size waits, stretched to its new size, for its client to draw
  * that size once the glide is over; a slower one is then drawn as it is until it does. */
 enum { MORPH_WAIT_MS = 300 };
@@ -30,6 +35,7 @@ struct sh_animator {
     struct wl_list held;    // struct sh_anim held by a gesture, whatever the time
     struct wl_list tweens;  // struct sh_tween
     struct wl_event_source *timer;
+    bool ticking; // the timer is set
 };
 
 /* A node's resting values and the values the animation last gave it. */
@@ -86,11 +92,19 @@ static int64_t now_ms(const struct sh_animator *animator) {
     return animator->clock(animator->clock_data);
 }
 
-/* How often the timer advances animations no frame does: soon enough after the last frame that
- * its tick is never taken for a late frame. */
-static int idle_tick(const struct sh_animator *animator) {
+/* How often the timer ticks: every TICK_MS, or sooner when a tick later than half of
+ * `late_ms` after the last would be taken for a late frame. */
+static int tick_interval(const struct sh_animator *animator) {
     int late = animator->config.late_ms;
-    return late > 0 && late / 2 < SLACK_MS ? (late / 2 > 1 ? late / 2 : 1) : SLACK_MS;
+    return late > 0 && late / 2 < TICK_MS ? (late / 2 > 1 ? late / 2 : 1) : TICK_MS;
+}
+
+/* Sets the timer for the next tick, unless it is set. */
+static void keep_ticking(struct sh_animator *animator) {
+    if (animator->ticking)
+        return;
+    animator->ticking = true;
+    wl_event_source_timer_update(animator->timer, tick_interval(animator));
 }
 
 /* A kind's duration after the speed multiplier; 0 means it does not animate. */
@@ -431,7 +445,7 @@ static bool step(struct sh_anim *anim, int64_t now) {
             // Waiting for the client, the window may draw nothing new for a while: the timer
             // keeps it going meanwhile.
             if (!anim->glide && anim->animator)
-                wl_event_source_timer_update(anim->animator->timer, idle_tick(anim->animator));
+                keep_ticking(anim->animator);
             m.fade = anim->fading ? fade_alpha(anim, now) : 1;
             int width = (int)lround(m.width), height = (int)lround(m.height);
             if (width != anim->drawn_width || height != anim->drawn_height) {
@@ -523,7 +537,7 @@ void sh_tween_track(struct sh_animator *animator, struct sh_tween *tween, enum s
             }
             if (!animator->last_tick)
                 animator->last_tick = tween->start;
-            wl_event_source_timer_update(animator->timer, duration + SLACK_MS);
+            keep_ticking(animator);
         }
     }
     memcpy(current, tween->value, sizeof(tween->value));
@@ -697,9 +711,10 @@ void sh_animator_tick(struct sh_animator *animator) {
 
 static int timer_fired(void *data) {
     struct sh_animator *animator = data;
+    animator->ticking = false;
     sh_animator_tick(animator);
     if (!wl_list_empty(&animator->running) || !wl_list_empty(&animator->tweens))
-        wl_event_source_timer_update(animator->timer, idle_tick(animator));
+        keep_ticking(animator);
     return 0;
 }
 
@@ -724,7 +739,8 @@ static void start(struct sh_animator *animator, struct sh_anim *anim, struct wlr
     }
     if (!animator->last_tick)
         animator->last_tick = now_ms(animator);
-    wl_event_source_timer_update(animator->timer, duration + SLACK_MS);
+    (void)duration; // the timer ticks until it ends, however long
+    keep_ticking(animator);
 }
 
 /* The velocity a restarted glide adds to its curve's own so the speed stays the same, kept
@@ -1107,6 +1123,69 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
     anim->glide_start = now_ms(animator);
     fx_begin(animator, anim, SH_ANIM_WORKSPACE, duration, 1, 1, from_alpha, alpha, 0, 0);
     step(anim, anim->fx_start);
+}
+
+void sh_anim_spring_back(struct sh_animator *animator, struct sh_anim *anim,
+                         struct wlr_scene_tree *tree, double dx, double dy, double vx, double vy,
+                         float alpha) {
+    if (anim->owned)
+        return;
+    sh_anim_finish(anim); // from rest, as the hold left it
+    int duration = animator->config.enabled ? duration_of(animator, SH_ANIM_MOVE) : 0;
+    bool moved = lround(dx) || lround(dy);
+    if (!duration || (!moved && alpha >= 1))
+        return;
+    start(animator, anim, tree, duration);
+    int64_t now = now_ms(animator);
+    if (moved) {
+        anim->glide_x = tree->node.x - anim->base_x + dx;
+        anim->glide_y = tree->node.y - anim->base_y + dy;
+        anim->glide_duration = duration;
+        anim->glide_curve = animator->config.styles[SH_ANIM_MOVE].curve;
+        // The curve starts at a speed of its own; the release adds what it lacks.
+        const double h = 1e-4;
+        double start_slope = sh_curve_eval(&anim->glide_curve, h) / h / duration;
+        anim->glide_vx = carried(vx, -anim->glide_x * start_slope, anim->glide_x, duration);
+        anim->glide_vy = carried(vy, -anim->glide_y * start_slope, anim->glide_y, duration);
+        anim->glide = true;
+        anim->glide_start = now;
+    }
+    if (alpha < 1)
+        fx_begin(animator, anim, SH_ANIM_MOVE, duration, 1, 1, alpha, 1, 0, 0);
+    step(anim, now);
+}
+
+void sh_anim_nudge(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                   int dx, int dy) {
+    int duration = animator->config.enabled ? duration_of(animator, SH_ANIM_WORKSPACE) : 0;
+    if (!duration || (!dx && !dy) || anim->owned || anim->held)
+        return;
+    duration *= 2; // there and back
+    int64_t now = now_ms(animator);
+    bool gliding = anim->animator && anim->glide && anim->tree == tree;
+    if (gliding) {
+        double x, y, vx, vy;
+        glide_axis(anim, anim->glide_x, anim->glide_vx, now - anim->glide_start, &x, &vx);
+        glide_axis(anim, anim->glide_y, anim->glide_vy, now - anim->glide_start, &y, &vy);
+        if (vx * dx + vy * dy > 0)
+            return; // on its way there already
+    }
+    start(animator, anim, tree, duration);
+    // From where it is drawn: what is left of that offset at the turning point, a third of the
+    // way through, plus the push makes (dx, dy) there. A glide with no offset of its own and a
+    // starting speed v goes out to v * duration * 4/27 at that point and comes back to rest.
+    double x = gliding ? tree->node.x - anim->base_x : 0;
+    double y = gliding ? tree->node.y - anim->base_y : 0;
+    anim->glide_duration = duration;
+    anim->glide_curve = animator->config.styles[SH_ANIM_WORKSPACE].curve;
+    double left = 1 - sh_curve_eval(&anim->glide_curve, 1.0 / 3);
+    anim->glide_x = x;
+    anim->glide_y = y;
+    anim->glide_vx = (dx - x * left) * 27 / (4.0 * duration);
+    anim->glide_vy = (dy - y * left) * 27 / (4.0 * duration);
+    anim->glide = true;
+    anim->glide_start = now;
+    step(anim, now);
 }
 
 /* A drop goes further than anything else moves, the window's own height and more: dropping in
