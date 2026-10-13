@@ -88,6 +88,10 @@ It leaves paw's configuration and Discord itself alone.
   the system's light or dark preference (these auto themes override every colour kitty.conf sets
   while the system has a preference).
 
+Firefox and Discord show washi or sumi as the system's light or dark style says, and the two
+profiles set that style themselves (`appearance.color_scheme`), so picking sumi in paw turns
+them to sumi too; in Discord, set Appearance to Sync with computer.
+
 Firefox picks the theme up when it restarts; its start page is the home page, and the new tab
 page is styled to match it (Firefox lets a setting change neither). Discord itself cannot load a
 theme: `install.sh` puts it in the themes folder of Vencord, Vesktop, Equicord, Equibop or

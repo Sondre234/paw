@@ -60,6 +60,24 @@ const struct sh_settings *server_settings(struct sh_server *server) {
     return server->callbacks->settings(server->callbacks->userdata);
 }
 
+/* Tells applications the light or dark style appearance.color_scheme names, through gsettings'
+ * org.gnome.desktop.interface color-scheme, which xdg-desktop-portal passes on to Firefox,
+ * Chromium, Electron and GTK. Only a login session speaks for the user's desktop (a nested or
+ * headless one is a test or a preview), and only when the setting changed, a profile with
+ * another scheme picked, so a choice made meanwhile in other settings stands until then. */
+static void update_color_scheme(struct sh_server *server) {
+    int scheme = server_settings(server)->color_scheme;
+    if (!server->login_session || scheme == SH_COLOR_SCHEME_UNSET ||
+        scheme == server->color_scheme_set)
+        return;
+    server->color_scheme_set = scheme;
+    const char *argv[] = {"gsettings", "set", "org.gnome.desktop.interface", "color-scheme",
+                          scheme == SH_COLOR_SCHEME_DARK ? "prefer-dark" : "prefer-light", NULL};
+    int error = spawn_program((char *const *)argv);
+    if (error)
+        wlr_log(WLR_ERROR, "Cannot run gsettings to set the color scheme: %s", strerror(error));
+}
+
 static void configure_animations(struct sh_server *server) {
     const struct sh_settings *settings = server_settings(server);
     struct sh_animator_config config = {.enabled = settings->animations,
@@ -86,6 +104,7 @@ void reload_config(struct sh_server *server) {
     configure_animations(server);
     night_light_update(server);
     color_management_update(server);
+    update_color_scheme(server);
     if (!server_settings(server)->overview)
         overview_dismiss(server);
     update_keymap(server);
@@ -502,6 +521,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     server.running = true;
     server.login_session = mode == SH_BACKEND_SESSION ||
                            (getenv("PAW_LOGIN_SESSION") && *getenv("PAW_LOGIN_SESSION"));
+    update_color_scheme(&server);
     callbacks->startup(callbacks->userdata);
     session_restore_last(&server);
 

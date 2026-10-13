@@ -51,6 +51,13 @@ const Option options[] = {
     {"appearance", "table", "", "", none, none, "Desktop look."},
     {"appearance.background", "color", "\"#19212e\"", "\"#19212e\"", none, none,
      "Background color behind everything, `#RRGGBB`."},
+    {"appearance.color_scheme", "enum", "unset", "\"dark\"", none, none,
+     "The light or dark style applications follow: `\"light\"` or `\"dark\"` sets "
+     "`org.gnome.desktop.interface color-scheme` to `prefer-light` or `prefer-dark` with "
+     "`gsettings` as the setting loads and whenever it changes, as a profile is picked, which "
+     "GTK and libadwaita applications, Firefox, Chromium and Electron applications such as "
+     "Discord read through xdg-desktop-portal. Only a login session (`--session`) sets it. "
+     "Unset, paw leaves the preference as it is."},
 
     {"keyboard", "table", "", "", none, none, "Keyboard layout and key repeat."},
     {"keyboard.layout", "string", "\"us\"", "\"us\"", none, none,
