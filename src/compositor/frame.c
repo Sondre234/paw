@@ -599,6 +599,8 @@ void forget_decoration(struct sh_toplevel *toplevel) {
         server->deco_revealed = NULL;
     if (server->deco_pressed == toplevel)
         server->deco_pressed = NULL;
+    if (server->middle_pressed == toplevel)
+        server->middle_pressed = NULL;
     if (server->tabs_hovered == toplevel)
         server->tabs_hovered = NULL;
     if (toplevel->xdg_toplevel && toplevel->tabs)

@@ -425,7 +425,10 @@ the slot. It announces itself as `overview-assist` rather than `overview`; the s
 
 ### Moving a window with the pointer
 
-`grab.c` follows the move; `lift.c` and `tile_drop.c` add to it. The lift is the animator's
+`grab.c` follows the move; `lift.c` and `tile_drop.c` add to it. A middle press in a window
+`mouse.middle_drag` lists is held back from the client (`middle_pressed`, `cursor.c`): travelling
+`SH_DRAG_THRESHOLD` starts the move, as if from the press, and a release before that, or another
+button, sends the press after all, so that a click still pastes. The lift is the animator's
 (`sh_anim_lift`, `src/animation.c`): a window's `sh_anim` holds how far up it is (`lift`, easing
 as a glide does, keeping its velocity as it turns), the scale and the point it grows about, and
 its bounds, the window's geometry. Every walk of its nodes, the opening animation's and a

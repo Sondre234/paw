@@ -674,6 +674,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(drag_strip_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
+        paw_smoke(middle_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(drag_focus_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(pointer_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
