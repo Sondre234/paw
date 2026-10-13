@@ -583,6 +583,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(mirror_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:output_management_probe>)
+        paw_smoke(crossfade_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe>)
         paw_smoke(bit_depth_smoke $<TARGET_FILE:paw> $<TARGET_FILE:output_management_probe>)
         paw_smoke(hdr_smoke $<TARGET_FILE:paw>)
         paw_smoke(tearing_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
