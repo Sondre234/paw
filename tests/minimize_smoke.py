@@ -5,15 +5,15 @@ panel's surface); a copy of a window minimizing shrinks into its button on the w
 output, and a window restored grows out of it, both while input already has the window where it
 ends up; the minimize action does the same. Minimizing turned back half way goes back from where
 it is drawn. Without a button the window goes to the middle of the panel's strip, or shrinks where
-it is. Animations off, nothing animates; a window closing as it minimizes or is restored leaves
-nothing behind."""
+it is. Animations off, or the session locked, nothing animates; a window closing as it minimizes
+or is restored leaves nothing behind."""
 from pathlib import Path
 import subprocess
 import sys
 
 import harness
 
-compositor, probe, window_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
+compositor, probe, window_probe, lock_probe = (str(Path(p).resolve()) for p in sys.argv[1:5])
 
 # HEADLESS-2, right of HEADLESS-1, is scaled: 640 by 360 logical pixels. Minimizing takes 900 ms
 # along a straight line in time, long enough to look at it on its way.
@@ -241,3 +241,34 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     desktop.reload(CONFIG.replace("duration = 900", "duration = 0"))
     subprocess.run([window_probe, "P", "restore"], env=desktop.env, check=True, timeout=30)
     desktop.stays(lambda: not folds() and animations()[0] == 0, "nothing folds")
+
+# Behind the lock screen nothing folds: a window minimized meanwhile is minimized at once. (The
+# locker covers one output, so this session has one.)
+ONE = CONFIG.replace('''            ["HEADLESS-2"] = { mode = "1280x720", scale = 2 },
+''', "")
+with harness.Compositor(compositor, ONE) as desktop:
+    msg, wait_for = desktop.msg, desktop.wait_for
+
+    def windows():
+        return {w.title: w for w in desktop.windows()}
+
+    def folds():
+        return [row for row in desktop.rows("minimize") if row[0] == "fold"]
+
+    def settled():
+        running, trees, _ = (int(n) for n in msg("get", "animations").split())
+        return not folds() and running == 0 and trees == len(windows())
+
+    desktop.open_window(probe, "E", "app-e", focused=True)
+    wait_for(settled, "E opened")
+    locker = desktop.spawn([lock_probe, "hold", str(desktop.root / "locker.log")])
+    wait_for(lambda: "Session locked" in desktop.log.read_text(), "the session locked")
+    subprocess.run([window_probe, "E", "minimize"], env=desktop.env, check=True, timeout=30)
+    wait_for(lambda: windows()["E"].minimized, "E minimized while locked")
+    desktop.stays(lambda: not folds(), "nothing folds behind the lock screen")
+    locker.terminate()
+    assert desktop.reap(locker) == 0
+    wait_for(lambda: "Session unlocked" in desktop.log.read_text(), "the session unlocked")
+    subprocess.run([window_probe, "E", "restore"], env=desktop.env, check=True, timeout=30)
+    assert [row[2] for row in folds()] == ["restore"], folds()
+    wait_for(settled, "E restored once unlocked")
