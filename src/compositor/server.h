@@ -436,6 +436,13 @@ struct sh_server {
         struct sh_toplevel *windows[128];
         int count, selected;
         char output[64];
+        /* Its peek at the selected window (switcher.c): asked for once the shell has drawn it,
+         * waiting on `peek_timer` until the selection has rested since `selected_at`, then
+         * following the selection from the window `peeked` at while that peek goes on. */
+        bool peek_asked;
+        struct sh_toplevel *peeked;
+        int64_t selected_at;
+        struct wl_event_source *peek_timer;
     } switcher;
     struct sh_overview overview;
     struct wlr_scene_tree *overview_layer;
@@ -1417,6 +1424,8 @@ void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
                    xkb_keysym_t key);
 void switcher_forget(struct sh_toplevel *toplevel);
 void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
+bool switcher_ask_peek(struct sh_server *server);
+void switcher_finish(struct sh_server *server);
 
 /* tablet.c */
 void map_tablets(struct sh_server *server);
