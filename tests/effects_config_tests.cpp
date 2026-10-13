@@ -31,11 +31,15 @@ int main() {
         // Peek.
         require(defaults.settings.effects.peek_opacity > 0.11F &&
                     defaults.settings.effects.peek_opacity < 0.13F &&
-                    defaults.settings.effects.peek_duration == 150,
+                    defaults.settings.effects.peek_duration == 150 &&
+                    defaults.settings.effects.peek_switcher,
                 "peek defaults");
-        auto peek = paw::parse_config("return {peek={opacity=0,duration=0}}");
-        require(peek.settings.effects.peek_opacity == 0 && peek.settings.effects.peek_duration == 0,
+        auto peek = paw::parse_config("return {peek={opacity=0,duration=0,switcher=false}}");
+        require(peek.settings.effects.peek_opacity == 0 &&
+                    peek.settings.effects.peek_duration == 0 &&
+                    !peek.settings.effects.peek_switcher,
                 "peek not parsed");
+        rejects("return {peek={switcher='yes'}}");
         rejects("return {peek={opacity=0.95}}");
         rejects("return {peek={opacity=-0.1}}");
         rejects("return {peek={size=3}}");
