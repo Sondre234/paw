@@ -30,14 +30,16 @@ static void test_top_bar(void) {
     struct sh_drop_plan plan = sh_drop_plan(OUTPUT, area, frame, 14, false, true);
     CHECK(plan.edge == SH_DROP_TOP && plan.clip);
     CHECK(plan.cut == 58 - 14, "cut as deep into the strip as the corners reach: %d", plan.cut);
+    CHECK(!plan.square, "the bar hides the corners");
     CHECK(plan.dx == 0 && plan.dy == plan.cut - (268 + 604), "out of sight past the cut: %d",
           plan.dy);
     // A thin strip takes the corner's depth no further.
     plan = sh_drop_plan(OUTPUT, usable(8, 0, 0, 0), frame, 14, false, true);
     CHECK(plan.cut == 0 && plan.dy == -(268 + 604), "%d %d", plan.cut, plan.dy);
+    CHECK(plan.square, "corners deeper than the bar: cut square");
     // Square windows are cut at the bar.
     plan = sh_drop_plan(OUTPUT, area, frame, 0, false, true);
-    CHECK(plan.cut == 58);
+    CHECK(plan.cut == 58 && !plan.square);
     // Unable to clip, it still slides the whole way: past the top there is nothing to show it.
     plan = sh_drop_plan(OUTPUT, area, frame, 14, false, false);
     CHECK(!plan.clip && plan.dy == 58 - 14 - (268 + 604), "%d", plan.dy);
@@ -63,7 +65,7 @@ static void test_no_bar(void) {
     CHECK(plan.edge == SH_DROP_TOP && !plan.clip && plan.cut == 0 && plan.dy == -800);
     // Another monitor above: cut at the edge, or without clips, stop at it.
     plan = sh_drop_plan(OUTPUT, OUTPUT, frame, 14, true, true);
-    CHECK(plan.clip && plan.cut == 0 && plan.dy == -800);
+    CHECK(plan.clip && plan.cut == 0 && plan.dy == -800 && plan.square);
     plan = sh_drop_plan(OUTPUT, OUTPUT, frame, 14, true, false);
     CHECK(!plan.clip && plan.dy == -300, "stops at the monitor's top: %d", plan.dy);
     // Another monitor below a bottom bar, unable to clip: the frame's bottom stops at the edge.
