@@ -193,6 +193,13 @@ static void pull_at() {
     double far = sh_swipe_pull_at(102.4, 1, 102.4, 1280);
     CHECK(std::isfinite(far) && far > 5);
     NEAR(sh_swipe_pull_at(500, 1, 102.4, 1280), far, 1e-12);
+    // A slide that only fades: from how far the windows dimmed.
+    for (double pull : {0.01, 0.3, 1.0, 1.5}) {
+        double alpha = sh_swipe_past_end(pull, 0, 1280).alpha;
+        NEAR(sh_swipe_pull_at(0, alpha, 0, 1280), pull, 1e-9);
+    }
+    // As dim as it never gets: just short of that, nineteen times the limit's pull.
+    NEAR(sh_swipe_pull_at(0, 0, 0, 1280), 0.19 * 0.2 / 0.01, 1e-9);
 }
 
 static void names() {
