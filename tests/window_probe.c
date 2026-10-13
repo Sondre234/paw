@@ -583,6 +583,39 @@ static void peek(struct probe *probe, struct wl_display *display, const char *ti
             paw_window_v1_destroy(objects[i].object);
 }
 
+/* Destroys what the probe holds, the globals it bound and the windows' handles, and disconnects. */
+static void disconnect_probe(struct probe *probe, struct wl_registry *registry,
+                             struct wl_display *display) {
+    if (probe->control)
+        paw_window_control_v1_destroy(probe->control);
+    for (struct handle *handle = probe->handles, *next; handle; handle = next) {
+        next = handle->next;
+        zwlr_foreign_toplevel_handle_v1_destroy(handle->object);
+        free(handle->title);
+        free(handle);
+    }
+    if (probe->manager)
+        zwlr_foreign_toplevel_manager_v1_destroy(probe->manager);
+    for (struct listed *listed = probe->listed, *next; listed; listed = next) {
+        next = listed->next;
+        ext_foreign_toplevel_handle_v1_destroy(listed->object);
+        free(listed->title);
+        free(listed);
+    }
+    if (probe->list)
+        ext_foreign_toplevel_list_v1_destroy(probe->list);
+    if (probe->sources)
+        ext_foreign_toplevel_image_capture_source_manager_v1_destroy(probe->sources);
+    if (probe->copy)
+        ext_image_copy_capture_manager_v1_destroy(probe->copy);
+    if (probe->shm)
+        wl_shm_destroy(probe->shm);
+    if (probe->seat)
+        wl_seat_destroy(probe->seat);
+    wl_registry_destroy(registry);
+    wl_display_disconnect(display);
+}
+
 /* A workspace's list as the events bring it, printed at each done. */
 struct workspace {
     char line[8192];
@@ -637,10 +670,9 @@ static int watch_workspace(int argc, char **argv) {
         if (wl_display_dispatch(display) < 0)
             die("dispatch failed");
     paw_workspace_v1_destroy(object);
-    paw_window_control_v1_destroy(probe.control);
     if (wl_display_roundtrip(display) < 0)
         die("request failed");
-    wl_display_disconnect(display);
+    disconnect_probe(&probe, registry, display);
     return 0;
 }
 
@@ -773,31 +805,6 @@ int main(int argc, char **argv) {
         die("request failed");
     if (window)
         paw_window_v1_destroy(window);
-    paw_window_control_v1_destroy(probe.control);
-    for (struct handle *handle = probe.handles, *next; handle; handle = next) {
-        next = handle->next;
-        zwlr_foreign_toplevel_handle_v1_destroy(handle->object);
-        free(handle->title);
-        free(handle);
-    }
-    zwlr_foreign_toplevel_manager_v1_destroy(probe.manager);
-    for (struct listed *listed = probe.listed, *next; listed; listed = next) {
-        next = listed->next;
-        ext_foreign_toplevel_handle_v1_destroy(listed->object);
-        free(listed->title);
-        free(listed);
-    }
-    if (probe.list)
-        ext_foreign_toplevel_list_v1_destroy(probe.list);
-    if (probe.sources)
-        ext_foreign_toplevel_image_capture_source_manager_v1_destroy(probe.sources);
-    if (probe.copy)
-        ext_image_copy_capture_manager_v1_destroy(probe.copy);
-    if (probe.shm)
-        wl_shm_destroy(probe.shm);
-    if (probe.seat)
-        wl_seat_destroy(probe.seat);
-    wl_registry_destroy(registry);
-    wl_display_disconnect(display);
+    disconnect_probe(&probe, registry, display);
     return 0;
 }
