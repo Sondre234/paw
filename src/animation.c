@@ -854,8 +854,12 @@ void sh_anim_morph_commit(struct sh_animator *animator, struct sh_anim *anim, in
         return;
     int64_t now = now_ms(animator);
     if ((width != anim->live_width || height != anim->live_height) && width > 0 && height > 0) {
-        walk(anim, anim->surfaces, 0, 0, true, NULL); // copied as the client drew it
-        fade_begin(anim, now);
+        // A copy fading already goes on fading: what it shows is the farthest from what the
+        // client draws now, and dropping it, or another copy over it at full opacity, would pop.
+        if (!anim->fading) {
+            walk(anim, anim->surfaces, 0, 0, true, NULL); // copied as the client drew it
+            fade_begin(anim, now);
+        }
         anim->live_width = width, anim->live_height = height;
     }
     // A client may acknowledge the size it was given on a commit of what it drew before, and draw
