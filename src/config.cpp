@@ -1769,6 +1769,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"snap_cycle_down", SH_SNAP_CYCLE_DOWN},
         {"maximize", SH_MAXIMIZE},
         {"restore", SH_RESTORE},
+        {"minimize", SH_MINIMIZE},
         {"tile", SH_TILE},
         {"reload", SH_RELOAD},
         {"fullscreen", SH_FULLSCREEN},
