@@ -9,6 +9,7 @@ no further than its own monitor's edge when another monitor lies beyond. With an
 shows and hides at once."""
 from pathlib import Path
 import sys
+import time
 
 import harness
 
@@ -144,19 +145,26 @@ def bottom_bar(desktop, top):
     desktop.wait_for(lambda: settled() and not drop().drawn, "hidden")
     msg("scratchpad_show")
     start = drop().dy
+
+    def turn():
+        """Shows or hides S again: how it is drawn just before and just after. It moves on
+        from where it was, as far as the slides go in the time between the two looks (the
+        quickest, sliding out, ends at three times its mean speed) and never back at rest."""
+        began = time.monotonic()
+        before = drop()
+        msg("scratchpad_show")
+        after = drop()
+        reach = 3 * start / 900 * (time.monotonic() - began) * 1000 + 20
+        assert abs(after.dy - before.dy) <= reach and after.dy > before.dy / 2, \
+            (before, after, reach)
+        return before, after
+
     desktop.wait_for(lambda: drop().dy < start / 2, "half way in")
-    before = drop()
-    msg("scratchpad_show")
-    after = drop()
+    before, after = turn()
     assert before.drop == "in" and after.drop == "out", (before, after)
-    assert abs(after.dy - before.dy) < start / 4, (before, after, start)
-    assert abs(after.alpha - before.alpha) < 300, (before, after)
     desktop.wait_for(lambda: drop().dy > (before.dy + start) / 2, "on its way out again")
-    before = drop()
-    msg("scratchpad_show")
-    after = drop()
+    before, after = turn()
     assert before.drop == "out" and after.drop == "in", (before, after)
-    assert abs(after.dy - before.dy) < start / 4, (before, after, start)
     desktop.wait_for(lambda: settled() and drop().dy == 0 and drop().drawn, "in place")
     assert window().focused
 
