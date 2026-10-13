@@ -215,7 +215,7 @@ static bool plan_drop(struct sh_toplevel *toplevel, struct sh_drop_plan *plan) {
 
 /* Slides the window in, or out once it is minimized; false when nothing slides. A drop under way
  * turns back from where it is drawn while the window rests where it did, else lands first. */
-static bool drop(struct sh_toplevel *toplevel, bool out) {
+static bool start_drop(struct sh_toplevel *toplevel, bool out) {
     struct sh_server *server = toplevel->server;
     struct sh_drop *drop = &toplevel->drop;
     struct sh_anim *anim = &toplevel->anim;
@@ -259,7 +259,7 @@ static bool drop(struct sh_toplevel *toplevel, bool out) {
 void scratchpad_drop_in(struct sh_toplevel *toplevel) {
     if (toplevel->shown && toplevel->server->running && toplevel_mapped(toplevel) &&
         toplevel_visible(toplevel))
-        drop(toplevel, false);
+        start_drop(toplevel, false);
 }
 
 bool scratchpad_enabled(struct sh_server *server) {
@@ -319,7 +319,7 @@ void hide_in_scratchpad(struct sh_toplevel *toplevel) {
         struct wlr_scene_node *place = &toplevel->scene_tree->node;
         wlr_scene_node_set_position(&toplevel->content->node, drawn_x - place->x,
                                     drawn_y - place->y);
-        if (drop(toplevel, true)) {
+        if (start_drop(toplevel, true)) {
             // Drawn over the window that took the focus until it is out of sight.
             wlr_scene_node_set_enabled(place, true);
             wlr_scene_node_raise_to_top(place);
