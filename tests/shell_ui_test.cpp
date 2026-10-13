@@ -3337,6 +3337,99 @@ ListModel {
                     return fail("letting go of a closed window's button asked something of it");
             }
             QTest::mouseMove(&view, barSpace);
+            // What a drag carries lands where it docked, and taken off a workspace it heads for
+            // the pointer, never for the output's corner: slowed down, it is seen on its way.
+            if (!slowMotion(true))
+                return fail("the animations were not slowed down");
+            auto ghostCentre = [&] {
+                const qreal scale = ghost->scale();
+                return QPointF(ghost->x() + ghost->width() * scale / 2,
+                               ghost->y() + ghost->height() * scale / 2);
+            };
+            auto dock = [&] {
+                return QPointF(ghost->property("dockX").toReal(), ghost->property("dockY").toReal());
+            };
+            // Every place it passes until `done`, at most `ms` long, is inside `area`.
+            auto keepsTo = [&](const QRectF &area, const std::function<bool()> &done, int ms) {
+                QElapsedTimer waited;
+                waited.start();
+                while (!done() && waited.elapsed() < ms) {
+                    if (ghost->isVisible() && !area.contains(ghostCentre())) {
+                        std::cerr << "what the drag carried passed " << ghostCentre().x() << ","
+                                  << ghostCentre().y() << " outside " << area.x() << "," << area.y()
+                                  << " " << area.width() << "x" << area.height() << '\n';
+                        return false;
+                    }
+                    QTest::qWait(10);
+                }
+                return done();
+            };
+            editTasks(QString("model.setProperty(%1, 'picture', 'image://test-windows/320x200')").arg(rowOf(7)));
+            QTest::mouseMove(&view, centre(buttonFor(7)));
+            QQuickItem *sevenPicture = nullptr;
+            if (!waitFor([&] {
+                    return inPopover(card) && titles() == "Fake" && tileFor(7) &&
+                           (sevenPicture = find(tileFor(7), "windowThumbnailPicture")) &&
+                           sevenPicture->isVisible();
+                }))
+                return fail("the card of a window's pictures did not open in slow motion");
+            {
+                const QPoint from = centre(sevenPicture), to = centre(workspace(2)) + below,
+                             away = from + QPoint(-40, -60);
+                QTest::mousePress(popover, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 12; ++step) {
+                    QTest::mouseMove(popover, from + (to - from) * step / 12);
+                    QTest::qWait(15);
+                }
+                if (!waitFor([&] {
+                        return ghost->property("docked").toBool() &&
+                               ghost->property("blend").toReal() == 1 && ghostCentre() == dock();
+                    }))
+                    return fail("a picture dragged over a workspace did not dock by it in slow motion");
+                const QPointF docked = dock();
+                QTest::mouseMove(popover, away);
+                if (!keepsTo(QRectF(QPointF(std::min<qreal>(docked.x(), away.x()), std::min<qreal>(docked.y(), away.y())),
+                                    QPointF(std::max<qreal>(docked.x(), away.x()), std::max<qreal>(docked.y(), away.y())))
+                                 .adjusted(-40, -40, 40, 40),
+                             [&] { return ghost->property("blend").toReal() == 0; }, 3000))
+                    return fail("a picture taken off a workspace did not head for the pointer");
+                QTest::mouseRelease(popover, Qt::LeftButton, Qt::NoModifier, away);
+                if (!waitFor([&] { return !ghost->isVisible(); }) ||
+                    !stays([&] { return taskRequests().isEmpty(); }, 300))
+                    return fail("a picture let go off the workspaces moved its window, or stayed");
+            }
+            // Off the card first: moving into the bar's window tells the popover nothing here.
+            QTest::mouseMove(popover, QPoint(5, 5));
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("the card of a window's pictures did not close in slow motion");
+            {
+                const QPoint from = centre(buttonFor(7)), to = centre(workspace(3));
+                QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 12; ++step) {
+                    QTest::mouseMove(&view, from + (to - from) * step / 12);
+                    QTest::qWait(15);
+                }
+                if (!waitFor([&] {
+                        return ghost->property("docked").toBool() &&
+                               ghost->property("blend").toReal() == 1 && ghostCentre() == dock();
+                    }))
+                    return fail("a button dragged over a workspace did not dock by it in slow motion");
+                // Resting there opens the workspace's card, and it may be on its way into its
+                // picture: it lands where the panel docks it, from where it is.
+                const QPointF at = ghostCentre(), docked = root->property("dropDock").toPointF();
+                QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, to);
+                if (!keepsTo(QRectF(QPointF(std::min(at.x(), docked.x()), std::min(at.y(), docked.y())),
+                                    QPointF(std::max(at.x(), docked.x()), std::max(at.y(), docked.y())))
+                                 .adjusted(-20, -20, 20, 20),
+                             [&] { return !ghost->isVisible(); }, 3000))
+                    return fail("what a button's drag carried did not land where it docked");
+                if (!waitFor([&] { return taskRequests() == QString(moved); }))
+                    return fail("a button let go on a workspace in slow motion did not move its window");
+            }
+            editTasks(QString("model.setProperty(%1, 'picture', '')").arg(rowOf(7)));
+            if (!slowMotion(false))
+                return fail("the animations did not get their speed back");
         }
         // shell.thumbnails = { live = false }: the picture asked for ahead of the card is the one
         // it shows, not followed, and not asked for again as the card opens.
