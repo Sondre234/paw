@@ -6246,6 +6246,17 @@ ListModel {
         controller.pickWallpaper("");
         if (!waitFor([&] { return shows(first); }))
             return fail("the configured wallpaper did not come back");
+        // A reload that keeps the wallpaper keeps its layer, decoding nothing again; one that
+        // leaves none lays the gradient over it, once.
+        auto *kept = backdrop->childItems().value(0);
+        controller.reload();
+        if (backdrop->childItems() != QList<QQuickItem *>{kept})
+            return fail("a reload keeping the wallpaper laid it again");
+        if (!reconfigure(QString(lua).replace("wallpaper='walls/a/one.png',", "")) ||
+            backdrop->childItems().size() != 2 || !waitFor([&] { return shows(""); }))
+            return fail("a reload without a wallpaper did not lay the gradient over it once");
+        if (!reconfigure(lua) || !waitFor([&] { return shows(first); }))
+            return fail("the configured wallpaper did not come back after the gradient");
         // A profile with a wallpaper of its own is drawn, as the shell tells the compositor, only
         // once that wallpaper has loaded and shows; meanwhile nothing in the shell moves.
         const auto profiled = QString(lua).replace(
