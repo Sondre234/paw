@@ -648,8 +648,10 @@ it never covers text. With `windows.controls = "traffic_lights"` they are macOS'
 green circles (close, minimize, fullscreen) at the top-left instead, grey while the window has
 no focus and showing their symbols while the pointer is on one. Dragging the window's top edge (its top 6 pixels, as a title bar would;
 `windows.drag_strip` changes how many) moves the window; a file or text dragged from another
-window over it goes to the window. Other windows, and windows that ask to draw their own frame, decorate
-themselves. The `minimize` action (`paw msg minimize`, or a binding) minimizes the focused window
+window over it goes to the window. In a terminal, holding the middle button and dragging moves
+the window from anywhere on it, while a middle click let go in place still pastes
+(`mouse.middle_drag` lists the windows; a modifier held passes the press to the terminal). Other
+windows, and windows that ask to draw their own frame, decorate themselves. The `minimize` action (`paw msg minimize`, or a binding) minimizes the focused window
 as its minimize button does, into its taskbar button (see [Animations](#animations)).
 
 Dropping a dragged window with the pointer at the top edge of the screen, or on a panel along
