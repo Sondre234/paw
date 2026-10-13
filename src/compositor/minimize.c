@@ -276,7 +276,8 @@ static void copy_subtree(struct wlr_scene_tree *parent, struct wlr_scene_tree *s
  * it inside a clip that rounds its corners as the window's own does, then the borders, which
  * round themselves outside that clip. The clip and the frame then follow the fold. NULL when
  * there is nothing to copy. */
-static struct wlr_scene_tree *copy_window(struct sh_toplevel *toplevel, struct fold_copy **made) {
+static struct wlr_scene_tree *copy_window(struct sh_toplevel *toplevel, struct wlr_box g,
+                                          struct fold_copy **made) {
     struct wlr_scene_node *window = &toplevel->scene_tree->node;
     struct wlr_scene_tree *content = toplevel->content;
     struct fold_copy *copy = calloc(1, sizeof(*copy));
@@ -314,7 +315,6 @@ static struct wlr_scene_tree *copy_window(struct sh_toplevel *toplevel, struct f
         wlr_scene_node_destroy(&tree->node);
         return NULL;
     }
-    struct wlr_box g = toplevel_geometry(toplevel);
     copy->rounding = (struct fold_rounding){.clipped = body,
                                             .clip = {0, 0, g.width, g.height},
                                             .radius = toplevel->corner_radius};
@@ -360,15 +360,23 @@ void minimize_animate(struct sh_toplevel *toplevel) {
         return;
     struct sh_fold restoring;
     double from = sh_anim_folded(&toplevel->anim, &restoring);
-    // Drawn at rest, though gliding still, for the copy.
-    sh_anim_settle(&toplevel->anim);
+    // Drawn at rest, though gliding still, for the copy; but stretched as it is drawn while it
+    // changes size (maximized, snapped or restored), which lands once copied.
+    struct wlr_box g = toplevel_geometry(toplevel);
+    bool stretched = toplevel->anim.morph && toplevel->anim.drawn_width > 0 &&
+                     toplevel->anim.drawn_height > 0;
+    if (stretched)
+        g.width = toplevel->anim.drawn_width, g.height = toplevel->anim.drawn_height;
+    else
+        sh_anim_settle(&toplevel->anim);
     struct fold_copy *made = NULL;
-    struct wlr_scene_tree *copy = copy_window(toplevel, &made);
+    struct wlr_scene_tree *copy = copy_window(toplevel, g, &made);
+    if (stretched)
+        sh_anim_finish(&toplevel->anim);
     if (!copy)
         return;
     int x, y;
     wlr_scene_node_coords(&copy->node, &x, &y);
-    struct wlr_box g = toplevel_geometry(toplevel);
     struct sh_fold fold = {0, 0, g.width, g.height, 0, 0, 0, 0, copy_folded, made};
     if (from >= 0) {
         // On its way out: the copy, whose origin is where the window's is drawn, glide and all,
