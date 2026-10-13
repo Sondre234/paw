@@ -186,15 +186,20 @@ window, and `tests/window_peek_smoke.py` tests it.
 
 The window switcher peeks at its selected window through the same functions (`switcher.c`). The
 shell's `Switcher.qml` asks for it as the switcher shows (`ShellController::switcherShown`, the
-`switcher_peek` request, which `switcher_ask_peek` takes), but not in the macOS style. The first
-peek waits on `switcher.peek_timer` until `SWITCHER_PEEK_MS` after the selection last moved
-(`selected_at`); from then on (`switcher.peeking`) `switcher_select` moves the peek at once, as
-does `switcher_forget` when the selected window closes. Its peek has no `peek_object`, so no
-window object ends it, and it takes the peek over from a taskbar's; `switcher_close` ends it,
+`switcher_peek` request, which `switcher_ask_peek` takes), but not in the macOS style nor with
+`peek.switcher` off. The first peek waits on `switcher.peek_timer` until `SWITCHER_PEEK_MS` after
+the selection last moved (`selected_at`); while that peek goes on (`switcher_peeks`: the peek is
+still at `switcher.peeked`, the window it peeked at), `switcher_select` moves it at once, and once
+something else ended it (focus, the desktop peek, a taskbar's picture) the selection rests again
+first. The selected window closing ends the peek (`forget_window_peek`); `switcher_forget` peeks
+at the window selected in its place a millisecond later, once `unmap_toplevel` has moved the focus,
+which may go to that window and would end a peek begun before. Its peek has no `peek_object`, so
+no window object ends it, and it takes the peek over from a taskbar's; `switcher_close` ends it,
 through `focus_toplevel_raise` when the window chosen is the one peeked at (in front already, the
 others coming back around it), and otherwise with `end_window_peek` before focusing the window
 chosen. The lock ends a peek before closing the switcher, so that it ends at once.
-`peek.switcher` turns it off. `tests/switcher_peek_smoke.py` tests it without the shell, sending
+`peek.switcher` turned off by a reload ends the switcher's peek at its next step, a selection or
+its closing. `tests/switcher_peek_smoke.py` tests it without the shell, sending
 `switcher_peek` itself, and `tests/peek_shell_smoke.py` with it.
 
 Version 4 also sends the window's `id` once, with its first state: `sh_toplevel.id`, a number
