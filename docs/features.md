@@ -55,7 +55,8 @@ the dock.
   on pages of a 7 × 5 grid over the whole screen. Type to search, use the arrows, Page Up and
   Page Down, the wheel, dragging or the dots to page, Enter to launch, and right-click for an
   application's actions or Keep in Dock; Escape clears the search and then closes it, as does a
-  click beside the icons.
+  click beside the icons. Past the first or last page a drag stretches the pages like a rubber
+  band and the wheel bumps them, rather than stop dead.
 - **Spotlight** is the command palette (Super + P) as a large search field a quarter of the way
   down the screen, its results grouped by kind under headings after the top hit; **Control Center** is Quick Settings as
   rounded modules, with Display and Sound under their own headings; notifications show as banners
