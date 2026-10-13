@@ -1049,9 +1049,23 @@ ListModel {
     function setSticky(id, on) { note("sticky " + id + " " + on) }
     function setFloating(id, on) { note("floating " + id + " " + on) }
     function setAbove(id, on) { note("above " + id + " " + on) }
+    // What the card of a workspace asks of the windows a workspace shows, as "watch OUTPUT 2"
+    // and "unwatch OUTPUT 2", and the lists setLayout gives, by workspace.
+    property var workspaces: []
+    property var layouts: ({})
+    property int workspaceRevision: 0
+    function watchWorkspace(output, number) { workspaces = workspaces.concat(["watch " + output + " " + number]) }
+    function unwatchWorkspace(output, number) { workspaces = workspaces.concat(["unwatch " + output + " " + number]) }
+    function workspaceLayout(output, number) { return layouts[number] || ({}) }
+    function setLayout(number, windows) {
+        var copy = Object.assign({}, layouts)
+        copy[number] = { width: 1100, height: 720, windows: windows }
+        layouts = copy
+        ++workspaceRevision
+    }
     ListElement { taskId: 7; title: 'Fake'; appId: 'fake'; active: false; minimized: false; urgent: false
                   maximized: false; fullscreen: false; output: 'TEST-1'; workspace: 2; sticky: false
-                  floating: false; tiling: false; above: false; picture: ''; pid: 0 }
+                  floating: false; tiling: false; above: false; picture: ''; pid: 0; windowId: 70 }
 })",
                       QUrl());
     QObject *fakeModel = fakeTasks.create();
@@ -2804,6 +2818,192 @@ ListModel {
                 return fail("the configuration was not restored");
             // The switcher goes back to the controller's task model, before this one goes.
             switcherRoot->setProperty("taskSource", QVariant::fromValue<QObject *>(controller.tasks()));
+        }
+        // Resting on a workspace of the indicator shows a picture of it on a card above it, in
+        // place of its tooltip: its windows where the task source's workspaceLayout says, each from
+        // its picture, which is asked for halfway into the delay as the workspace is, at the width
+        // the card's picture needs. Moving on, the card shows the next workspace at once, letting
+        // the first go; a window coming there comes in, one moving glides; the pointer on one names
+        // it, and a click brings it up. The card of a button's windows and this one take turns.
+        {
+            auto *workspaceCard = find(root, "workspaceCard");
+            if (!workspaceCard)
+                return fail("the card of a workspace was not made ahead of use");
+            const QString outputName = root->property("outputName").toString();
+            const int pixelWidth = root->property("workspacePictureWidth").toInt();
+            const qreal factor = root->property("workspaceScale").toReal();
+            if (pixelWidth < 240 || factor <= 0 || factor >= 1)
+                return fail("the card of a workspace has no size for its picture");
+            // What the card asked of the workspaces since the last clear, and in all.
+            QStringList workspaceAsked, allWorkspaceAsked;
+            auto workspaceRequests = [&] {
+                const auto asked = fakeModel->property("workspaces").value<QJSValue>().toVariant().toStringList();
+                fakeModel->setProperty("workspaces", QVariant::fromValue(view.engine()->newArray()));
+                workspaceAsked += asked;
+                allWorkspaceAsked += asked;
+                return asked;
+            };
+            auto copies = [&] { return named(workspaceCard, "workspaceWindow"); };
+            auto text = [&](const char *name) { return find(workspaceCard, name)->property("text").toString(); };
+            auto scaled = [&](qreal value) { return qreal(qRound(value * factor)); };
+            // The workspaces' lists name windows by the compositor's numbers.
+            editTasks(QString("model.setProperty(%1, 'windowId', 70)").arg(rowOf(7)));
+            editTasks("model.setLayout(1, [{ windowId: 70, x: 110, y: 40, width: 440, height: 330 }])");
+            editTasks("model.setLayout(2, [])");
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("something was open before a workspace was hovered");
+            workspaceRequests();
+            workspaceAsked.clear();
+            pictureRequests();
+            pictures.clear();
+            QElapsedTimer resting;
+            resting.start();
+            QTest::mouseMove(&view, centre(workspace(1)));
+            if (!waitFor([&] {
+                    workspaceRequests();
+                    pictureRequests();
+                    return workspaceAsked.contains("watch " + outputName + " 1") &&
+                           pictures.contains(QString("watch 7 %1 true").arg(pixelWidth));
+                }) ||
+                workspaceCard->isVisible() || resting.elapsed() < controller.thumbnailDelay() * 3 / 8) {
+                std::cerr << "halfway into the delay, a workspace and its windows' pictures were not asked for "
+                             "ahead of its card: " << workspaceAsked.join("|").toStdString() << " "
+                          << pictures.join("|").toStdString() << " warm " << root->property("workspaceWarm").toInt()
+                          << " open " << root->property("workspaceCardOpen").toBool() << " hovered "
+                          << workspace(1)->property("hovered").toBool() << " visible " << workspaceCard->isVisible()
+                          << " after " << resting.elapsed() << '\n';
+                return 1;
+            }
+            if (!waitFor([&] { return inPopover(workspaceCard); }) || tooltip(workspace(1)))
+                return fail("resting on a workspace did not show its card, in place of its tooltip");
+            {
+                const auto shown = copies();
+                if (shown.size() != 1 || shown[0]->x() != scaled(110) || shown[0]->y() != scaled(40) ||
+                    shown[0]->width() != scaled(550) - scaled(110) || shown[0]->height() != scaled(370) - scaled(40) ||
+                    text("workspaceCardTitle") != "web" || text("workspaceCardDetail") != "1 window") {
+                    std::cerr << "the card of a workspace does not show its window where it is: " << shown.size()
+                              << " " << text("workspaceCardTitle").toStdString() << " "
+                              << text("workspaceCardDetail").toStdString() << '\n';
+                    return 1;
+                }
+                // Over its workspace, as far as the output's edge lets it.
+                const QRectF area = workspaceCard->mapRectToScene(QRectF(0, 0, workspaceCard->width(), workspaceCard->height()));
+                const qreal middle = workspace(1)->mapToScene(QPointF(workspace(1)->width() / 2, 0)).x();
+                if (qAbs(area.center().x() - middle) > 1 && qAbs(area.right() - (popover->width() - 12)) > 1)
+                    return fail("the card of a workspace is not over its workspace");
+            }
+            // Its window's picture shows over the icon standing in for it.
+            {
+                auto *picture = find(copies().value(0), "workspaceWindowPicture");
+                editTasks(QString("model.setProperty(%1, 'picture', 'image://test-windows/320x240')").arg(rowOf(7)));
+                if (!picture || !waitFor([&] { return picture->isVisible() && picture->opacity() == 1; }) ||
+                    picture->size() != copies().value(0)->size())
+                    return fail("a window's picture does not cover its place on the card of a workspace");
+                editTasks(QString("model.setProperty(%1, 'picture', '')").arg(rowOf(7)));
+            }
+            // Onto the next workspace: its windows at once, the first workspace and its window let
+            // go once it has faded.
+            workspaceRequests();
+            pictureRequests();
+            workspaceAsked.clear();
+            pictures.clear();
+            QTest::mouseMove(&view, centre(workspace(2)));
+            if (!root->property("workspaceCardOpen").toBool() || root->property("workspaceCardNumber").toInt() != 2)
+                return fail("moving onto the next workspace did not show it at once");
+            if (!waitFor([&] {
+                    workspaceRequests();
+                    pictureRequests();
+                    return copies().isEmpty() && text("workspaceCardDetail") == "Empty" &&
+                           text("workspaceCardTitle") == "Workspace 2" &&
+                           workspaceAsked == QStringList{"watch " + outputName + " 2", "unwatch " + outputName + " 1"} &&
+                           pictures == QStringList{"unwatch 7"};
+                })) {
+                std::cerr << "the card did not take the next workspace over: " << workspaceAsked.join("|").toStdString()
+                          << " " << pictures.join("|").toStdString() << " " << copies().size() << '\n';
+                return 1;
+            }
+            // A window coming onto it comes in where it is; moving, it glides there, slowed down
+            // here so that it is seen on its way.
+            editTasks("model.setLayout(2, [{ windowId: 70, x: 0, y: 0, width: 550, height: 360 }])");
+            if (!waitFor([&] { return copies().size() == 1 && copies()[0]->opacity() == 1 && text("workspaceCardDetail") == "1 window"; }))
+                return fail("a window coming onto the workspace shown did not come onto its card");
+            if (!slowMotion(true))
+                return fail("the animations were not slowed down");
+            editTasks("model.setLayout(2, [{ windowId: 70, x: 550, y: 360, width: 550, height: 360 }])");
+            {
+                auto *copy = copies().value(0);
+                if (!copy || copy->x() != 0 || !waitFor([&] { return copy->x() > 0 && copy->x() < scaled(550); }) ||
+                    !waitFor([&] { return copy->x() == scaled(550) && copy->y() == scaled(360); }))
+                    return fail("a window moving on the workspace shown did not glide there on its card");
+            }
+            if (!slowMotion(false))
+                return fail("the animations did not get their speed back");
+            // The pointer on the window rings it and names it; a click brings it up and closes the
+            // card.
+            taskRequests();
+            QTest::mouseMove(popover, centre(copies().value(0)));
+            if (!waitFor([&] {
+                    return text("workspaceCardDetail") == "Fake" &&
+                           find(copies().value(0), "workspaceWindowRing")->opacity() == 1;
+                }))
+                return fail("the pointer on a window on the card of a workspace did not name and ring it");
+            QTest::mouseClick(popover, Qt::LeftButton, Qt::NoModifier, centre(copies().value(0)));
+            if (!waitFor([&] { return taskRequests() == "activate 7"; }) ||
+                !waitFor([&] { return !root->property("workspaceCardOpen").toBool(); }))
+                return fail("a click on a window on the card of a workspace did not bring it up and close the card");
+            // A click beside the windows shows the workspace.
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("the card of a workspace did not close once the pointer left");
+            switches.clear();
+            QTest::mouseMove(&view, centre(workspace(1)));
+            if (!waitFor([&] { return inPopover(workspaceCard); }))
+                return fail("resting on a workspace again did not show its card");
+            {
+                auto *miniature = find(workspaceCard, "workspaceMiniature");
+                const QPoint corner = miniature->mapToScene(QPointF(miniature->width() - 4, miniature->height() - 4)).toPoint();
+                QTest::mouseMove(popover, corner);
+                QTest::mouseClick(popover, Qt::LeftButton, Qt::NoModifier, corner);
+                if (!waitFor([&] { return switches == QStringList{"output " + output + " workspace 1"}; }) ||
+                    !waitFor([&] { return !root->property("workspaceCardOpen").toBool(); }))
+                    return fail("a click on the card of a workspace beside its windows did not show the workspace");
+            }
+            // Pressing a workspace closes its card; and the cards of a button's windows and of a
+            // workspace give way to each other at once.
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("the card of a workspace did not close");
+            QTest::mouseMove(&view, centre(workspace(2)));
+            if (!waitFor([&] { return inPopover(workspaceCard); }))
+                return fail("resting on a workspace did not show its card");
+            single = buttonFor(7);
+            QTest::mouseMove(&view, centre(single));
+            if (root->property("workspaceCardOpen").toBool() || !root->property("groupOpen").toBool())
+                return fail("moving from a workspace onto a window's button did not show its windows at once");
+            QTest::mouseMove(&view, centre(workspace(2)));
+            if (!root->property("workspaceCardOpen").toBool() || root->property("groupOpen").toBool())
+                return fail("moving from a window's button onto a workspace did not show it at once");
+            QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, centre(workspace(2)));
+            if (!waitFor([&] { return !root->property("workspaceCardOpen").toBool(); }))
+                return fail("pressing a workspace did not close its card");
+            QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, centre(workspace(2)));
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] {
+                    workspaceRequests();
+                    pictureRequests();
+                    return !popover->isVisible() && !workspaceCard->isVisible();
+                }))
+                return fail("the card of a workspace did not go");
+            // Once it has gone, nothing is watched any more.
+            {
+                QMap<QString, int> watched;
+                for (const auto &request : allWorkspaceAsked)
+                    watched[request.section(' ', 1)] += request.startsWith("watch") ? 1 : -1;
+                for (auto it = watched.begin(); it != watched.end(); ++it)
+                    if (it.value() != 0)
+                        return fail("the card of a workspace left one watched as it went");
+            }
         }
         // shell.thumbnails = { live = false }: the picture asked for ahead of the card is the one
         // it shows, not followed, and not asked for again as the card opens.
