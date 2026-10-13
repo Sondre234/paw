@@ -121,7 +121,9 @@ Rectangle {
         alignment: Qt.AlignLeft
         gap: 0
         bounds: Theme.macos ? Qt.rect(0, Theme.menuBarHeight, desktop.width, desktop.height - Theme.menuBarHeight - shell.panelExtent)
-                            : Qt.rect(0, shell.panelTop ? shell.panelExtent : 0, desktop.width, desktop.height - shell.panelExtent)
+              : shell.panelVertical ? Qt.rect(shell.panelEdge === "left" ? shell.panelExtent : 0, 0,
+                                              desktop.width - shell.panelExtent, desktop.height)
+              : Qt.rect(0, shell.panelTop ? shell.panelExtent : 0, desktop.width, desktop.height - shell.panelExtent)
         onDismissed: open = false
         entries: [{ text: "Show desktop", icon: "minimize-2", run: function() { shell.tasks.showDesktop() } }]
             .concat(shell.profiles.length > 0
