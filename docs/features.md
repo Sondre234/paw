@@ -130,8 +130,9 @@ the buttons of windows and of pinned applications (the start button and the widg
 and a button with windows shows them at once, as resting the pointer on it does, the card gliding
 from one button to the next; a pinned application's button shows its name. Enter or Space
 does what a click does and gives the keyboard back: it brings the window up (a minimized one
-restored onto the workspace shown, another with its own workspace shown), brings up a stack's next window, starts a pinned application, or minimizes the
-window that had the keyboard, which counts as the focused one. Up (Down on a bar along the top)
+restored onto the workspace shown, another with its own workspace shown), brings up a stack's
+next window, starts a pinned application, or minimizes the window that had the keyboard, which
+counts as the focused one. Up (Down on a bar along the top)
 goes into the card of [pictures](#window-pictures) or a stack's list, and Down (Up) back to the
 button. The Menu key or Shift + F10 opens the button's [menu](#taskbar-menus), or the menu of the
 window selected on the card, with its first entry highlighted, and closing it comes back to the
