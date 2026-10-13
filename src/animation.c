@@ -478,6 +478,15 @@ static void start(struct sh_animator *animator, struct sh_anim *anim, struct wlr
     if (anim->animator && anim->tree != tree)
         sh_anim_finish(anim);
     release_track(anim); // another animation takes the tree over
+    if (anim->absent) {
+        // A slide out of sight taken over: the window is there again, to rest where it does and
+        // at its full look, unless the new animation fades it itself.
+        anim->absent = false;
+        anim->base_x = anim->base_y = 0;
+        if (anim->fx)
+            walk(anim, anim->tree, 0, 0, true, 1, 1);
+        anim->fx = false;
+    }
     anim->tree = tree;
     if (!anim->animator) {
         anim->animator = animator;
