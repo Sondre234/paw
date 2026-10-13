@@ -779,8 +779,6 @@ struct sh_drop {
     int place_x, place_y;
     bool ring;
     struct wlr_box ring_rest, ring_set;
-    bool cut;              // content's clip was last cut, for `get scratchpad`:
-    struct wlr_box cut_to; // to this, in layout coordinates
 };
 
 /* The clips frame.c gives a window's trees (window_clip), kept so that a drop's cut can be laid
@@ -880,6 +878,7 @@ struct sh_toplevel {
     struct sh_anim anim;
     struct sh_drop drop;                      // the scratchpad's slide in and out
     struct sh_clip_wish clips[SH_CLIP_TREES]; // content's, the shadow's and the gradient's
+    struct sh_clip_wish content_clip; // content's as last drawn, cut or not, for get scratchpad
     struct sh_tween fade; // opacity and border color following focus
     bool shown; // has opened (and started its opening animation) since it last mapped
     struct wlr_scene_buffer *deco;    // window controls; NULL when the client decorates itself

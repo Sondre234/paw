@@ -57,12 +57,12 @@ static struct wlr_scene_tree *clip_tree(struct sh_toplevel *toplevel, enum sh_cl
 static void apply_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which) {
     struct wlr_scene_tree *tree = clip_tree(toplevel, which);
     const struct sh_clip_wish *wish = &toplevel->clips[which];
-    if (which == SH_CLIP_CONTENT)
-        toplevel->drop.cut = false;
     if (!tree)
         return;
     if (!cutting(toplevel)) {
         wlr_scene_tree_set_rounded_clip(tree, wish->set ? &wish->box : NULL, wish->radius);
+        if (which == SH_CLIP_CONTENT)
+            toplevel->content_clip = *wish;
         return;
     }
     int x, y;
@@ -75,10 +75,8 @@ static void apply_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which) {
     if (sh_drop_cut(&toplevel->drop.plan, &box))
         clip = (struct wlr_box){box.x - x, box.y - y, box.width, box.height};
     wlr_scene_tree_set_rounded_clip(tree, &clip, wish->radius);
-    if (which == SH_CLIP_CONTENT) {
-        toplevel->drop.cut = true;
-        toplevel->drop.cut_to = (struct wlr_box){clip.x + x, clip.y + y, clip.width, clip.height};
-    }
+    if (which == SH_CLIP_CONTENT)
+        toplevel->content_clip = (struct sh_clip_wish){true, clip, wish->radius};
 }
 
 /* The border's rounded rect (`frame_hole`), cut short of the cut by its own size while a drop

@@ -541,8 +541,9 @@ static void get_scratchpad(struct sh_server *server, int fd, const char *argumen
     // title, whether it is hidden (minimized) and whether it is drawn (its node shown), the drop
     // under way ("in", "out" or "-"), the edge it goes by ("top", "bottom", "left", "right"), the
     // offset it is drawn at from its place, the opacity it is drawn at (thousandths), the line it
-    // is cut along ("-" while it is not cut) and the box its content is cut to in layout
-    // coordinates as X,Y,WIDTH,HEIGHT ("-" for none).
+    // is cut along ("-" while it is not cut), the clip its content is drawn with, cut or not, in
+    // layout coordinates as X,Y,WIDTH,HEIGHT and the clip's radius, and the box its border's
+    // rounded rect covers (each "-" for none).
     static const char *edges[] = {"top", "bottom", "left", "right"};
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
@@ -550,19 +551,30 @@ static void get_scratchpad(struct sh_server *server, int fd, const char *argumen
         const struct sh_drop *drop = &toplevel->drop;
         if (!toplevel->scratchpad && !drop->running)
             continue;
-        char title[512], cut[32] = "-", box[64] = "-", line[768];
+        char title[512], cut[32] = "-", clip[64] = "-", radius[16] = "-", ring[64] = "-";
         copy_field(title, sizeof(title), toplevel_title(toplevel));
         if (drop->running && drop->plan.clip)
             snprintf(cut, sizeof(cut), "%d", drop->plan.cut);
-        if (drop->running && drop->cut)
-            snprintf(box, sizeof(box), "%d,%d,%d,%d", drop->cut_to.x, drop->cut_to.y,
-                     drop->cut_to.width, drop->cut_to.height);
+        int x = 0, y = 0;
+        if (toplevel->content)
+            wlr_scene_node_coords(&toplevel->content->node, &x, &y);
+        const struct sh_clip_wish *drawn = &toplevel->content_clip;
+        if (toplevel->content && drawn->set) {
+            snprintf(clip, sizeof(clip), "%d,%d,%d,%d", x + drawn->box.x, y + drawn->box.y,
+                     drawn->box.width, drawn->box.height);
+            snprintf(radius, sizeof(radius), "%d", drawn->radius);
+        }
+        const struct wlr_scene_rect *rect = toplevel->frame_hole > 0 ? toplevel->border[0] : NULL;
+        if (toplevel->content && rect)
+            snprintf(ring, sizeof(ring), "%d,%d,%d,%d", x + rect->node.x, y + rect->node.y,
+                     rect->width, rect->height);
         const char *phase = !drop->running ? "-" : drop->out ? "out" : "in";
-        snprintf(line, sizeof(line), "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%ld\t%s\t%s\n", title,
+        char line[900];
+        snprintf(line, sizeof(line), "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%ld\t%s\t%s\t%s\t%s\n", title,
                  toplevel->minimized, toplevel->scene_tree && toplevel->scene_tree->node.enabled,
                  phase, edges[drop->plan.edge], toplevel->content ? toplevel->content->node.x : 0,
                  toplevel->content ? toplevel->content->node.y : 0,
-                 lround(1000 * sh_anim_alpha(&toplevel->anim)), cut, box);
+                 lround(1000 * sh_anim_alpha(&toplevel->anim)), cut, clip, radius, ring);
         control_reply(fd, line);
     }
 }

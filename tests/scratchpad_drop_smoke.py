@@ -45,7 +45,9 @@ class Drop:
         self.hidden, self.drawn = hidden == "1", drawn == "1"
         self.dx, self.dy, self.alpha = (int(v) for v in fields[5:8])
         self.cut = None if fields[8] == "-" else int(fields[8])
-        self.box = None if fields[9] == "-" else tuple(int(v) for v in fields[9].split(","))
+        self.box, self.ring = (None if f == "-" else tuple(int(v) for v in f.split(","))
+                               for f in (fields[9], fields[11]))
+        self.radius = None if fields[10] == "-" else int(fields[10])
 
     def __repr__(self):
         return repr(self.__dict__)
@@ -233,27 +235,35 @@ def top_bar(desktop, top):
     cut = top + 48 - rounded
     assert d.cut == cut and d.dy >= cut - (s.y + s.height + BORDER), (d, s, cut)
     def follow(phase):
-        """Samples the drop until it ends: the content is cut along the line while it crosses
-        it, and not where it is past it. Returns the last sample."""
+        """Samples the drop until it ends: the content and the border's rounded rect are cut
+        along the line while they cross it, and not where they are past it. Returns the last
+        sample."""
         crossing = None
         while (d := drop()).drop == phase:
             drawn = s.y + d.dy
-            if d.box and d.box[3] > 1 and drawn < cut:
+            if d.box[3] > 1 and drawn < cut:
                 crossing = d
                 assert d.box[:3] == (s.x, cut, s.width), (d, s)
                 assert d.box[1] + d.box[3] == drawn + s.height, (d, s)
-            elif d.box and drawn >= cut:
+            elif drawn >= cut:
                 assert d.box == (s.x, drawn, s.width, s.height), (d, s)
+            if d.ring[3] > 0 and drawn - BORDER < cut:
+                assert d.ring[1] == cut and d.ring[1] + d.ring[3] == drawn + s.height + BORDER, d
+            elif drawn - BORDER >= cut:
+                assert d.ring == (s.x - BORDER, drawn - BORDER) + frame, (d, s)
         assert crossing, f"seen crossing the cut on the way {phase}"
         return d
 
+    # At rest: clipped to its rounded corners alone, its border whole.
+    frame = (s.width + 2 * BORDER, s.height + 2 * BORDER)
+    whole = ((s.x, s.y, s.width, s.height), rounded - BORDER, (s.x - BORDER, s.y - BORDER) + frame)
     d = follow("in")
-    assert d.cut is None and d.box is None and d.dy == 0 and d.drawn, d
-    # Out the same way, cut the same way, and hidden at the end.
+    assert d.cut is None and d.dy == 0 and d.drawn and (d.box, d.radius, d.ring) == whole, d
+    # Out the same way, cut the same way, and hidden at the end, its clips whole again.
     msg("scratchpad_show")
     assert drop().drop == "out" and drop().cut == cut, drop()
     d = follow("out")
-    assert d.box is None and not d.drawn, d
+    assert not d.drawn and (d.box, d.radius, d.ring) == whole, d
 
 
 def monitor_above(clipped):
