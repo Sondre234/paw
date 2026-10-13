@@ -232,6 +232,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/input_method.c
         src/compositor/keymap.c
         src/compositor/layer_shell.c
+        src/compositor/lift.c
         src/compositor/lock.c
         src/compositor/mirror.c
         src/compositor/output.c

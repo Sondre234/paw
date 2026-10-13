@@ -456,6 +456,13 @@ struct sh_server {
         float drawn[SH_TWEEN_VALUES];
         int radius;
     } snap;
+    /* Lifting a window moved with the pointer (lift.c): where the move was pressed, whether the
+     * window has been lifted since, and whether it is up (else set down onto an edge its magnet
+     * holds). */
+    struct {
+        double press_x, press_y;
+        bool started, up;
+    } lift;
 
     /* Windows a session restore launched and has yet to place: the first new window with the
      * app ID takes the saved place, workspace and state, until the deadline (milliseconds on
@@ -1119,6 +1126,11 @@ void process_cursor_move(struct sh_server *server);
 void process_cursor_resize(struct sh_server *server);
 void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
                        uint32_t edges);
+
+/* lift.c */
+void lift_press(struct sh_server *server);
+void lift_follow(struct sh_server *server, bool held);
+void lift_drop(struct sh_server *server);
 
 /* gradient_border.c */
 bool gradient_borders(struct sh_server *server);

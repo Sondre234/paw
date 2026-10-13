@@ -15,6 +15,7 @@ void reset_cursor_mode(struct sh_server *server) {
     panel_drag_cancel(server);
     magnet_hide_guides(server);
     snap_preview_hide(server);
+    lift_drop(server);
     // A window dropped on another output takes up that output's corners.
     if (server->grabbed_toplevel)
         refresh_frame(server->grabbed_toplevel);
@@ -211,11 +212,11 @@ static struct wlr_output *magnet_output(struct sh_server *server, struct sh_topl
     return output;
 }
 
-/* Adjusts the position (x, y) a drag asks for. */
-static void magnet_snap(struct sh_server *server, struct sh_toplevel *toplevel, int *x, int *y) {
+/* Adjusts the position (x, y) a drag asks for; returns whether an edge holds it. */
+static bool magnet_snap(struct sh_server *server, struct sh_toplevel *toplevel, int *x, int *y) {
     struct wlr_output *output = magnet_output(server, toplevel);
     if (!output)
-        return;
+        return false;
     int distance = server_settings(server)->magnet_distance;
     int border = server_settings(server)->border_width;
     struct wlr_box box = toplevel_box(toplevel);
@@ -233,6 +234,7 @@ static void magnet_snap(struct sh_server *server, struct sh_toplevel *toplevel, 
     if (hy.found)
         *y += hy.delta, frame.y += hy.delta;
     magnet_show(server, frame, hx, hy);
+    return hx.found || hy.found;
 }
 
 /* Adjusts the edges a resize asks for (the sides in `edges` are the ones being moved). */
@@ -287,9 +289,10 @@ void process_cursor_move(struct sh_server *server) {
         begin_interactive(toplevel, SH_CURSOR_MOVE, 0);
     }
     int x = (int)(server->cursor->x - server->grab_x), y = (int)(server->cursor->y - server->grab_y);
-    magnet_snap(server, toplevel, &x, &y);
+    bool held = magnet_snap(server, toplevel, &x, &y);
     toplevel_set_position(toplevel, x, y);
     snap_follow(server);
+    lift_follow(server, held);
 }
 
 void process_cursor_resize(struct sh_server *server) {
@@ -392,6 +395,7 @@ void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
         server->grab_x = server->cursor->x - toplevel->scene_tree->node.x;
         server->grab_y = server->cursor->y - toplevel->scene_tree->node.y;
         server->snap.start = toplevel_box(toplevel); // where a snap restores it to
+        lift_press(server);
     } else {
         struct wlr_box geo_box = toplevel_geometry(toplevel);
 
