@@ -499,9 +499,8 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     // takes in everything drawn for them but the border, which rounds itself to match. While the
     // window changes size, the frame goes around the size it is drawn at.
     struct wlr_box g = frame_geometry(toplevel);
-    bool rounded =
-        mapped && framed > 0 &&
-        (tiles_for(toplevel, output) || (settings->round_always && !own_shadow));
+    bool rounded = mapped && framed > 0 &&
+                   (tiles_for(toplevel, output) || (settings->round_always && !own_shadow));
     int round_radius = rounded ? settings->corner_radius : 0;
     int radius = (int)lroundf(round_radius * framed);
 #ifdef PAW_ROUNDED_CORNERS
@@ -514,8 +513,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     // A shadow under every window that has none of its own, or whose own the clip cut away;
     // none under a fullscreen or maximized one. It keeps the corners it has in full as it fades.
     refresh_shadow(toplevel,
-                   settings->shadow && mapped && framed > 0 &&
-                       (round_radius > 0 || !own_shadow),
+                   settings->shadow && mapped && framed > 0 && (round_radius > 0 || !own_shadow),
                    shown && !inset ? b : 0, round_radius, framed);
 
     // xdg-shell windows keep their scene tree while unmapped; the border must not. One in
