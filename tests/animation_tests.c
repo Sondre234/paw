@@ -510,6 +510,138 @@ static void test_hold_copy(void) {
     teardown(&rig);
 }
 
+static int tracked, tracked_done;
+static void count_track(void *data, bool done) {
+    ++tracked;
+    tracked_done += done;
+}
+
+/* The scratchpad's drop-down: in from out of sight in twice the open time, fading over the
+ * first 40 % of it; out in 1.5 times the close time, speeding away, fading over the last 40 %. */
+static void test_drop_in(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_EASE_OUT));
+    CHECK(sh_anim_drop_in(rig.animator, &rig.anim, rig.content, 0, -500));
+    rig.anim.track = count_track;
+    tracked = tracked_done = 0;
+    CHECK(rig.content->node.y == -500 && rig.rect->color[3] < 0.01F, "out of sight: %d",
+          rig.content->node.y);
+    CHECK(!rig.anim.absent, "there for lookups");
+    advance(&rig, 40);
+    // Ease-out over 200 ms: a fifth of the way in time is 1 - 0.8^3 of the way.
+    NEAR(rig.content->node.y, -500 * 0.512, 1);
+    NEAR(sh_anim_alpha(&rig.anim), 0.5, 0.01);
+    NEAR(rig.rect->color[3], 0.5, 0.01);
+    advance(&rig, 40);
+    CHECK(fabsf(rig.rect->color[3] - 1) < 1e-6F, "faded in by 80 ms: %f", rig.rect->color[3]);
+    CHECK(rig.content->node.y < 0, "still sliding: %d", rig.content->node.y);
+    CHECK(tracked == 2 && !tracked_done, "tracked each frame: %d", tracked);
+    advance(&rig, 120);
+    CHECK(rig.content->node.y == 0 && sh_animator_running(rig.animator) == 0, "lands");
+    CHECK(tracked == 3 && tracked_done == 1 && !rig.anim.track, "told it is done once");
+    teardown(&rig);
+}
+
+static void test_drop_out(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_EASE_OUT));
+    double sx, sy;
+    CHECK(sh_anim_drop_out(rig.animator, &rig.anim, rig.content, 0, -500));
+    rig.anim.track = count_track;
+    tracked = tracked_done = 0;
+    CHECK(rig.content->node.y == 0 && fabsf(rig.rect->color[3] - 1) < 1e-6F, "from where it rests");
+    advance(&rig, 75);
+    // Half of 150 ms with the ease-out played backwards: 0.5^3 of the way.
+    NEAR(rig.content->node.y, -500 * 0.125, 1);
+    CHECK(fabsf(rig.rect->color[3] - 1) < 1e-6F, "not fading yet: %f", rig.rect->color[3]);
+    // Drawn where the pointer is, it is not there for it.
+    sh_animator_rest_at(rig.animator, 50, 50);
+    CHECK(wlr_scene_node_at(&rig.scene->tree.node, 50, 50, &sx, &sy) == NULL, "absent");
+    sh_animator_resume(rig.animator);
+    CHECK(rig.content->node.enabled && rig.content->node.y < -50, "drawn again after");
+    advance(&rig, 45);
+    NEAR(rig.content->node.y, -500 * 0.512, 1);
+    NEAR(rig.rect->color[3], 0.5, 0.01);
+    advance(&rig, 30);
+    // Its owner hides the window as it is told the slide is done; the tree is where it went.
+    CHECK(sh_animator_running(rig.animator) == 0 && tracked_done == 1, "done");
+    CHECK(rig.content->node.y == -500 && !rig.anim.absent, "out of sight: %d",
+          rig.content->node.y);
+    CHECK(fabsf(rig.rect->color[3] - 1) < 1e-6F, "its look back at rest");
+    teardown(&rig);
+}
+
+static void test_drop_turns_back(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_EASE_OUT));
+    sh_anim_drop_in(rig.animator, &rig.anim, rig.content, 0, -500);
+    advance(&rig, 30);
+    advance(&rig, 1);
+    int y = rig.content->node.y;
+    float alpha = sh_anim_alpha(&rig.anim);
+    CHECK(y > -400 && y < -100 && alpha > 0.2F && alpha < 0.6F, "on its way in: %d, %f", y,
+          alpha);
+    // Hidden again half way: it carries on a little, as fast as it went, then turns back.
+    CHECK(sh_anim_drop_out(rig.animator, &rig.anim, rig.content, 0, -500));
+    CHECK(rig.content->node.y == y, "from where it is drawn: %d, not %d", rig.content->node.y, y);
+    NEAR(sh_anim_alpha(&rig.anim), alpha, 0.01);
+    advance(&rig, 1);
+    CHECK(rig.content->node.y > y, "with the speed it had: %d after %d", rig.content->node.y, y);
+    advance(&rig, 100);
+    int out = rig.content->node.y;
+    CHECK(out < y, "then away: %d", out);
+    // And shown again on its way out.
+    alpha = sh_anim_alpha(&rig.anim);
+    CHECK(sh_anim_drop_in(rig.animator, &rig.anim, rig.content, 0, -500));
+    CHECK(rig.content->node.y == out, "from where it is drawn: %d", rig.content->node.y);
+    NEAR(sh_anim_alpha(&rig.anim), alpha, 0.01);
+    advance(&rig, 200);
+    CHECK(rig.content->node.y == 0 && sh_animator_running(rig.animator) == 0 &&
+              fabsf(rig.rect->color[3] - 1) < 1e-6F,
+          "lands at rest");
+    // Another animation taking the tree over tells the owner, as finishing does.
+    sh_anim_drop_in(rig.animator, &rig.anim, rig.content, 0, -500);
+    rig.anim.track = count_track;
+    tracked = tracked_done = 0;
+    sh_anim_glide(rig.animator, &rig.anim, rig.content, 0, 40);
+    CHECK(tracked_done == 1 && !rig.anim.track, "released as a glide takes over");
+    sh_anim_drop_out(rig.animator, &rig.anim, rig.content, 0, -500);
+    rig.anim.track = count_track;
+    sh_anim_finish(&rig.anim);
+    CHECK(tracked_done == 2 && rig.content->node.y == -500 && !rig.anim.absent,
+          "finished where it slid to");
+    teardown(&rig);
+}
+
+static void test_drop_off(void) {
+    struct rig rig;
+    struct sh_animator_config c = config(100, SH_CURVE_EASE_OUT);
+    c.styles[SH_ANIM_CLOSE].duration = 0;
+    setup(&rig, c);
+    CHECK(sh_anim_drop_in(rig.animator, &rig.anim, rig.content, 0, -500));
+    advance(&rig, 50);
+    // Closing does not animate: the drop under way lands where the window rests.
+    CHECK(!sh_anim_drop_out(rig.animator, &rig.anim, rig.content, 0, -500));
+    CHECK(rig.content->node.y == 0 && sh_animator_running(rig.animator) == 0 &&
+              fabsf(rig.rect->color[3] - 1) < 1e-6F,
+          "at rest: %d", rig.content->node.y);
+    c.enabled = false;
+    sh_animator_configure(rig.animator, &c);
+    CHECK(!sh_anim_drop_in(rig.animator, &rig.anim, rig.content, 0, -500) &&
+              rig.content->node.y == 0,
+          "animations off: nothing moves");
+    // Speed scales a drop as it does everything else.
+    c = config(100, SH_CURVE_LINEAR);
+    c.speed = 2;
+    sh_animator_configure(rig.animator, &c);
+    sh_anim_drop_in(rig.animator, &rig.anim, rig.content, 0, -500);
+    advance(&rig, 50);
+    CHECK(rig.content->node.y == -250, "half way at 50 of 100 ms: %d", rig.content->node.y);
+    advance(&rig, 50);
+    CHECK(rig.content->node.y == 0 && sh_animator_running(rig.animator) == 0, "lands at 100 ms");
+    teardown(&rig);
+}
+
 static void test_finish_all(void) {
     struct rig rig;
     setup(&rig, config(300, SH_CURVE_EASE_OUT));
@@ -537,6 +669,10 @@ int main(void) {
     test_workspace_slide();
     test_hold_and_slide_from();
     test_hold_copy();
+    test_drop_in();
+    test_drop_out();
+    test_drop_turns_back();
+    test_drop_off();
     test_finish_all();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
