@@ -341,6 +341,9 @@ static bool folds(struct sh_toplevel *toplevel) {
  * where it is drawn, or, if it was on its way out of the button, back in from there. */
 void minimize_animate(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
+    // Minimized already (showing the desktop asks again of every window): its copy goes on.
+    if (toplevel->minimized)
+        return;
     if (toplevel->minimizing) {
         toplevel->minimizing->ref = NULL; // an earlier copy goes on by itself
         toplevel->minimizing = NULL;
