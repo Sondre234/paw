@@ -505,6 +505,8 @@ if(BUILD_TESTING)
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> "${GRIM_ARGUMENT}")
         paw_smoke(macos_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(peek_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe>)
         paw_smoke(volume_keys_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
         paw_smoke(display_mode_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:pointer_probe>)
