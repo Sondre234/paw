@@ -754,6 +754,11 @@ const Option options[] = {
      "The edge of the monitor the taskbar is along: `\"top\"`, `\"bottom\"`, `\"left\"` or "
      "`\"right\"`. Along a side its buttons and widgets stack from the top down, and its popups "
      "open beside it. The macOS style's dock stays at the bottom."},
+    {"shell.panel_dock", "boolean", "true", "false", none, none,
+     "A floating taskbar (rounded or inset by `panel_margin`) docks while a window reaches the "
+     "edge it is along, as any tile and a maximized window do: it fills its strip from edge to "
+     "edge, squared, its shadow gone, and floats again once no window does. `false` keeps it "
+     "floating whatever the windows do."},
     {"shell.panel_draggable", "boolean", "false", "true", none, none,
      "The taskbar can be dragged to another edge of the monitor, as on Windows with the taskbar "
      "unlocked: pressing an empty part of it and dragging shows where it goes, the edge nearest "

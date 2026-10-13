@@ -33,8 +33,9 @@ Item {
     // along (a maximized window, any tile, one snapped against it), as an island over
     // a window flush beneath it looks out of place: it fills the strip it reserves from edge to
     // edge, squared, its frame and shadow gone but for a line along its inner edge, its buttons
-    // where they were; and floats again once no window does. `dock` eases from 0 to 1.
-    readonly property bool docked: floating &&
+    // where they were; and floats again once no window does (shell.panel_dock = false: it
+    // always floats). `dock` eases from 0 to 1.
+    readonly property bool docked: floating && shell.panelDock &&
         ((shell.workspaces[panel.outputName] || {}).touched || []).indexOf(panel.edge) >= 0
     property real dock: docked ? 1 : 0
     Behavior on dock { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
