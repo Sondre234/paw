@@ -318,9 +318,13 @@ The motion is `sh_anim_drop_in` and `sh_anim_drop_out` (`animation.c`) on the wi
 the tree the other animations move: a glide in twice `open`'s time with its curve, or out in one
 and a half times `close`'s with its curve played backwards (`SH_CURVE_REVERSED`, `curve.c`), and a
 linear fade over its first or last 40 %. A drop under way turns back from where it is drawn and
-as faded as it is, keeping a quarter of the glide's speed. A window sliding out rests where it
-slides to (`base_x`, `base_y`) and is `absent`: `sh_animator_rest_at` hides it for lookups as it
-hides closing copies. `hide_in_scratchpad` minimizes the window at once, so focus and the taskbar
+as faded as it is, keeping a quarter of the speed a glide would carry (what the new curve lacks of
+the speed it had, held within twice the distance per duration). A window sliding out rests where
+it slides to (`base_x`, `base_y`) and is `absent`: `sh_animator_rest_at` hides it for lookups as it
+hides closing copies; any other animation that takes the tree over (`start`) brings it back,
+present for lookups, resting at 0, 0, its fade landed. Activating a window as it slides out turns
+it back in (`focus_toplevel_raise`), also while a peek shows it, and turning the scratchpad off
+lands its slide. `hide_in_scratchpad` minimizes the window at once, so focus and the taskbar
 move on, then shows its node again for the slide, offset to where it was drawn before it floated
 (a tile leaves from its tile). The animation's `track` callback, which the animator calls after
 each frame and once more as the animation stops or another takes the tree over, hides the node
@@ -337,8 +341,12 @@ past the cut, in the tree's coordinates as the animation draws it; `track` lays 
 after each frame. A rounded rect shapes itself and no clip reaches it, so the border's hollow rect
 (`frame_hole`) is cut by its size instead (`cut_ring`, also after `refresh_frame` lays it out,
 through `drop_refresh`). What else the window draws (controls, tab strip, dim, surfaces) is below
-`content` and its clip. `paw msg get scratchpad` lists each window's drop, offset, opacity, cut
-and content's box, and `tests/scratchpad_drop_smoke.py` tests them.
+`content` and its clip. Where no bar is deep enough to hide the corners (the plan's `square`: a
+thin bar, or a monitor's edge with another monitor beyond), the window crossing the cut is clipped
+square and its border's rounded rect left out, rather than draw rounded corners and a line of
+border along the cut. `paw msg get scratchpad` lists each window's drop, offset, opacity and cut,
+the clip its content is drawn with and its radius, and the border's rounded rect, and
+`tests/scratchpad_drop_smoke.py` tests them.
 
 ### Monitors turned off
 

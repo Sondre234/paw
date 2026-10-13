@@ -1314,13 +1314,17 @@ hidden again part way, it turns back from where it is drawn, keeping a little of
 in its place for everything but the drawing at once: focus moves to it, or away from it, as the
 key is pressed, clicks and the pointer find it where it lands, and one sliding out is no longer
 there for them. A scratchpad window always floats, so none slides into a tile: Super + V on a
-shown one tiles it at once and takes it out of the scratchpad. Dropping in takes twice
+shown one tiles it, gliding there as tiles move if it is still dropping in, and takes it out of
+the scratchpad. Dropping in takes twice
 `animations.open`'s duration with its curve, and sliding out one and a half times
 `animations.close`'s, with its curve played backwards (an ease-in, by default); `animations.speed`
 scales both, and with animations off, or either duration 0, the window shows or hides at once.
 Only the GLES2 renderer with the rounded-corners patch for wlroots draws the cut; under other
 renderers the window slides uncut behind the bar, and goes no further than its own monitor's
-edge where another monitor lies beyond it. `paw msg get scratchpad` tells each window's drop.
+edge where another monitor lies beyond it. Along a monitor's edge with no bar but another monitor
+beyond, or a bar too thin to hide the corners, it is cut square while it crosses the line, its
+rounded corners and a plain border left out there. `paw msg get scratchpad` tells each window's
+drop.
 
 ### Sticky windows
 
@@ -2610,7 +2614,8 @@ get scratchpad` prints one line per window in the [scratchpad](#scratchpad) or s
 of it: its title, whether it is hidden and whether it is drawn, the drop under way (`in`, `out`
 or `-`), the edge it goes by (`top`, `bottom`, `left` or `right`), the offset from its place it
 is drawn at (x and y), how opaque it is drawn (thousandths), the line it is cut along (`-` while
-nothing is cut) and the box its content is cut to (`X,Y,WIDTH,HEIGHT`, or `-`). `paw
+nothing is cut), the clip its content is drawn with, cut or not (`X,Y,WIDTH,HEIGHT`), and its
+radius, and the box its border's rounded rect covers (each `-` for none). `paw
 msg get seat` prints what has the keyboard, what the pointer is on and, while something is
 dragged, what the drag is over: a line each, `keyboard`, `pointer` or `drag`, followed by
 `window` and its title, `layer` and its namespace, `other` (a popup, the lock screen) and `-`,
