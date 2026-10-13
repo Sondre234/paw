@@ -4,7 +4,8 @@ button is on each output (the window control's set_rectangle, or wlr-foreign-top
 panel's surface); a copy of a window minimizing shrinks into its button on the window's own
 output, and a window restored grows out of it, both while input already has the window where it
 ends up; the minimize action does the same. Minimizing turned back half way goes back from where
-it is drawn, and a window a peek shows already comes back where it is. Without a button the window goes to the middle of the panel's strip, or shrinks where
+it is drawn, and a window a peek shows already (the taskbar's picture's, the switcher's) comes back
+where it is. Without a button the window goes to the middle of the panel's strip, or shrinks where
 it is. Animations off, or the session locked, nothing animates; a window closing as it minimizes
 or is restored leaves nothing behind."""
 from pathlib import Path
@@ -181,6 +182,36 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     desktop.stays(lambda: not folds(), "A restored where the peek's fade shows it")
     peeker.finish()
     wait_for(settled, "the peek over")
+
+    # The window switcher peeks at its selected window once it rests, a minimized one where it
+    # was: confirmed while that shows it, the window stays there; confirmed before any peek, it
+    # grows out of its button.
+    events = desktop.subscribe()
+
+    def switcher_opened():
+        """Opens the switcher on A, the only window, and waits for its list."""
+        events.forget()
+        msg("switcher")
+        wait_for(lambda: any(line.startswith("switcher-window ") and "\tA\t" in line
+                             for line in events.lines("switcher-window ")), "the switcher's list")
+
+    wait_for(lambda: peek_at_a() == (False, True, 0), "the taskbar's peek over")
+    taskbar("minimize", "A")
+    wait_for(settled, "A minimized for the switcher")
+    switcher_opened()
+    msg("switcher_confirm")
+    assert [kind for _, kind in folds()] == ["restore"], folds()
+    wait_for(settled, "A out of its button")
+    taskbar("minimize", "A")
+    wait_for(settled, "A minimized for the switcher's peek")
+    switcher_opened()
+    msg("switcher_peek")
+    wait_for(lambda: peek_at_a() == (True, True, 1000), "A peeked at by the switcher")
+    msg("switcher_confirm")
+    wait_for(lambda: windows()["A"].focused and not windows()["A"].minimized,
+             "A restored from the switcher")
+    desktop.stays(lambda: not folds(), "A restored where the switcher's peek shows it")
+    wait_for(lambda: peek_at_a() == (False, True, 0), "the switcher's peek over")
 
     # The minimize action does what the taskbar does, to the focused window.
     assert windows()["A"].focused, windows()
