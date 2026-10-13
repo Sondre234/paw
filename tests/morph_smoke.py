@@ -202,7 +202,7 @@ with harness.Compositor(compositor, config()) as desktop:
     # back into its slot.
     msg("snap_left")
     wait_for(lambda: drawn()["W"][2] == "moving" and
-             between(start[2] + 60, LEFT[2] - 60, drawn()["W"][0][2]), "W snapping")
+             between(start[3] + 60, LEFT[3] - 60, drawn()["W"][0][3]), "W snapping")
     before = drawn()["W"][0]
     msg("fullscreen")
     after = drawn()["W"][0]
