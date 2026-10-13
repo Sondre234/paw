@@ -971,8 +971,9 @@ pressed on through the list, fades nothing. The others fade on every monitor, so
 window stands out wherever it is, the switcher on its own monitor over them. Releasing Alt, or
 Return, focuses the window where the peek shows it, already in front, as the others come back
 around it; a click on another window brings that one up as they come back, and Escape fades them
-back. Nothing about a window changes until it is chosen, and a window closing, the session
-locking or the desktop peek end the peek as they end the card's. The shell tells the compositor
+back. Nothing about a window changes until it is chosen. The selected window closing moves the
+peek on with the selection, and the session locking or the desktop peek end it as they end the
+card's. The shell tells the compositor
 as it shows the switcher (`paw msg switcher_peek`), so without the shell nothing peeks; the macOS
 style's switcher, which switches applications as macOS does, does not peek either.
 `peek.switcher = false` turns the peek off, the palette's too.
