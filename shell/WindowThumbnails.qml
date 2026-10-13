@@ -99,7 +99,20 @@ PopupCard {
                     owner = thumbnails.panel
                     watched = taskId
                     owner.wantPicture(watched, true)
+                    placeWindow()
                 }
+                // Where its window shows while the card is open, over its button: the compositor
+                // restores the window out of its picture, or minimizes it into it.
+                readonly property rect placedRect: {
+                    void [thumbnails.x, thumbnails.y, thumbnails.width, thumbnails.height, thumbnails.progress,
+                          thumbnails.open, tile.x, tile.y]
+                    if (!thumbnails.open)
+                        return Qt.rect(0, 0, 0, 0)
+                    var point = box.mapToItem(thumbnails.panel.popupLayer, 0, 0)
+                    return Qt.rect(point.x, point.y, box.width, box.height)
+                }
+                function placeWindow() { thumbnails.panel.placeWindows(tile, [taskId], placedRect, 1) }
+                onPlacedRectChanged: placeWindow()
                 Component.onDestruction: if (owner) owner.wantPicture(watched, false)
                 readonly property bool marked: active || urgent
                 // The keyboard on the bar is at it, which rings it, peeks at its window as the

@@ -45,6 +45,22 @@ Button {
     Accessible.name: name
     onHoveredChanged: if (groupSlot !== "" || groupWindowApp !== "") panel.hoverGroup(dockIcon, hovered)
 
+    // Where its windows show, for the compositor to minimize them into and restore them out of:
+    // the icon itself, wherever the dock grows, shrinks or moves it.
+    readonly property var placedTasks: windows ? windows.windows.map(function(w) { return w.taskId }) : []
+    readonly property rect placedRect: {
+        var row = parent, body = row ? row.parent : null
+        void [x, y, width, height, row ? [row.x, row.y, row.width, row.scale] : 0, body ? [body.x, body.y, body.width] : 0,
+              panel.surfaceLeft, panel.surfaceTop]
+        var size = Theme.dockIconSize
+        var from = mapToItem(panel, (width - size) / 2, (height - size) / 2)
+        var to = mapToItem(panel, (width + size) / 2, (height + size) / 2)
+        return Qt.rect(panel.surfaceLeft + from.x, panel.surfaceTop + from.y, to.x - from.x, to.y - from.y)
+    }
+    function placeWindows() { if (windows) panel.placeWindows(dockIcon, placedTasks, placedRect, 0) }
+    onPlacedRectChanged: placeWindows()
+    onPlacedTasksChanged: placeWindows()
+
     NumberAnimation on grow {
         id: growing
         running: false
@@ -83,7 +99,10 @@ Button {
     // A window asking for attention as the dock is made has been asking a while; one that starts
     // asking later is bounced for.
     property bool made: false
-    Component.onCompleted: Qt.callLater(function() { dockIcon.made = true })
+    Component.onCompleted: {
+        placeWindows()
+        Qt.callLater(function() { dockIcon.made = true })
+    }
     onUrgentChanged: if (urgent && made) bounce(Theme.dockBounces)
 
     BarTip {

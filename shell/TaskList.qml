@@ -134,6 +134,26 @@ ListView {
                     taskList.model.move(from, to)
             }
         }
+        // Where the windows it stands for are, for the compositor to minimize them into and
+        // restore them out of: the whole button, as the list scrolls, slides or drags it and
+        // wherever the bar is; nowhere while scrolled out of the list's sight.
+        readonly property var placedTasks: launcher ? []
+            : group && group.count > 0 ? group.windows.map(function(w) { return w.taskId }) : [taskId]
+        readonly property rect placedRect: {
+            void [x, y, width, height, moved, taskList.contentX, taskList.contentY, taskList.x, taskList.y,
+                  taskList.width, taskList.height, panel.bar.x, panel.bar.y, panel.surfaceLeft, panel.surfaceTop]
+            if (!parent)
+                return Qt.rect(0, 0, 0, 0)
+            var at = parent.mapToItem(taskList, x + (taskList.vertical ? 0 : moved), y + (taskList.vertical ? moved : 0))
+            if (at.x + width <= 0 || at.y + height <= 0 || at.x >= taskList.width || at.y >= taskList.height)
+                return Qt.rect(0, 0, 0, 0)
+            var point = taskList.mapToItem(panel, at.x, at.y)
+            return Qt.rect(panel.surfaceLeft + point.x, panel.surfaceTop + point.y, width, height)
+        }
+        function placeWindows() { panel.placeWindows(taskButton, placedTasks, placedRect, 0) }
+        onPlacedRectChanged: placeWindows()
+        onPlacedTasksChanged: placeWindows()
+        Component.onCompleted: placeWindows()
         // The button, whose press the drag takes over, still hears the drag's moves, each of which
         // would press it again and leave it pressed past the drop: while dragged, it holds no point.
         containmentMask: reorder.active ? holdsNone : null
