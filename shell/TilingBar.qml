@@ -322,9 +322,13 @@ Item {
                             if (!current)
                                 shell.showWorkspace(tilingBar.panel.outputName, number)
                         }
+                        // Resting on it shows a picture of it, as on the taskbar (WorkspaceCard.qml).
+                        onHoveredChanged: tilingBar.panel.hoverWorkspace(workspace, hovered)
+                        onPressedChanged: if (pressed) tilingBar.panel.closeWorkspaceCard()
                         Accessible.name: "Workspace " + number + (name ? " " + name : "") + (urgent ? " (needs attention)" : "")
                         BarTip {
                             panel: tilingBar.panel; owner: workspace
+                            visible: !tilingBar.panel.workspaceCards && owner.hovered && !owner.pressed && !panel.menuOpen
                             text: "Workspace " + workspace.number + (workspace.name ? ": " + workspace.name : "") +
                                   (workspace.occupied ? "" : " (empty)") + (workspace.urgent ? ", needs attention" : "")
                         }
