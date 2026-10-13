@@ -784,6 +784,10 @@ int main(int argc, char **argv) {
         rejects("return {keyboard={repeat_rate='25'}}");
         rejects("return {keyboard={layout='us',variant='nosuchvariant'}}");
         rejects("return {appearance={background='#oops00'}}");
+        rejects("return {appearance={background=true}}");
+        // An appearance table may leave the background out.
+        require(paw::parse_config("return {appearance={}}").settings.background[2] == 46 / 255.0F,
+                "appearance without a background rejected");
         rejects("return {layuot={gap=2}}");
         rejects("return {version=2}");
         rejects("return {shell={panel_height=0}}");
