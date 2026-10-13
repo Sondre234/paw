@@ -1275,7 +1275,8 @@ scroll layout loses its gaps and keeps its width.
 - Minimized windows leave the tiling and rejoin it when restored; windows moved to
   another workspace join that workspace's tiling on the same output.
 - Super + arrows focus the neighbouring tile that way, or the next monitor that way when
-  there is none, even an empty one, where new windows then open; Super + Shift + arrows swap
+  there is none, even an empty one, where new windows then open; a window on a monitor
+  further on never skips the empty one between. Super + Shift + arrows swap
   the focused tile with it (`focus_left` … `focus_down`, `move_left` … `move_down`). With
   `focus_follows` on, these and Alt+Tab put the pointer just inside the window's bottom-right
   corner, out of the way.
