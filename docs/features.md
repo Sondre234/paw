@@ -1042,10 +1042,9 @@ Return, focuses the window where the peek shows it, already in front, as the oth
 around it; a click on another window brings that one up as they come back, and Escape fades them
 back. Nothing about a window changes until it is chosen. The selected window closing moves the
 peek on with the selection, and the session locking or the desktop peek end it as they end the
-card's. The shell tells the compositor
-as it shows the switcher (`paw msg switcher_peek`), so without the shell nothing peeks; the macOS
-style's switcher, which switches applications as macOS does, does not peek either.
-`peek.switcher = false` turns the peek off, the palette's too.
+card's. The shell tells the compositor as it shows the switcher (`paw msg switcher_peek`), so
+without the shell nothing peeks; the macOS style's switcher, which switches applications as macOS
+does, does not peek either. `peek.switcher = false` turns the peek off, the palette's too.
 
 ## Overview
 
