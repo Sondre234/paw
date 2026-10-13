@@ -33,7 +33,9 @@ return {
     -- Appearance profiles: each lays its appearance, windows and shell settings over the rest
     -- of the configuration while it is in use. Pick one from the panel's right-click menu
     -- ("Appearance"), the command palette, or `paw msg profile NAME|next|prev`; the choice
-    -- is kept across restarts. `profile` is the one to start with.
+    -- is kept across restarts. `profile` is the one to start with. A profile's
+    -- `appearance.color_scheme` ("light" or "dark") switches applications that follow the
+    -- system's style with it: GTK, Firefox, Chromium, Discord and other Electron apps.
     --
     -- paw starts in the macOS style: a menu bar along the top, a dock at the bottom,
     -- Launchpad, Spotlight, traffic-light window controls and soft window shadows. `default` and
@@ -44,7 +46,8 @@ return {
     profile = "macos-light",
     profiles = {
         ["macos-light"] = {
-            appearance = { background = "#9dbbe6" }, -- the drawn wallpaper's sky
+            -- The drawn wallpaper's sky, and applications in their light style
+            appearance = { background = "#9dbbe6", color_scheme = "light" },
             windows = {
                 controls = "traffic_lights", round = "always", shadow = { enabled = true },
                 -- Close, minimize and maximize on the left of GTK's own title bars too (read
@@ -62,7 +65,7 @@ return {
             },
         },
         ["macos-dark"] = {
-            appearance = { background = "#1b2440" },
+            appearance = { background = "#1b2440", color_scheme = "dark" },
             windows = {
                 controls = "traffic_lights", round = "always", shadow = { enabled = true },
                 buttons = "close,minimize,maximize:",
@@ -78,7 +81,7 @@ return {
         },
         default = {}, -- the taskbar: this file and its theme as they are
         light = {
-            appearance = { background = "#dfe4ec" },
+            appearance = { background = "#dfe4ec", color_scheme = "light" },
             windows = { border_color = "#3d6fd9", border_inactive_color = "#c3cad6" },
             shell = { accent = "#3d6fd9", panel_color = "#f4f6fa", text_color = "#1b2230" },
         },
@@ -90,7 +93,7 @@ return {
         -- editors that its install.sh puts in place. They name Space Grotesk (install.sh
         -- --fonts fetches it); without it the default sans-serif stands in.
         washi = {
-            appearance = { background = "#f4f0f3" },
+            appearance = { background = "#f4f0f3", color_scheme = "light" },
             windows = {
                 border_width = 2, corner_radius = 12, round = "always",
                 border_color = { "#8fc1ec", "#f2a0be", angle = 135 },
@@ -113,7 +116,7 @@ return {
             },
         },
         sumi = {
-            appearance = { background = "#15141d" },
+            appearance = { background = "#15141d", color_scheme = "dark" },
             windows = {
                 border_width = 2, corner_radius = 12, round = "always",
                 border_color = { "#8fc1ec", "#f2a7c3", angle = 135 },
