@@ -331,9 +331,10 @@ A window's button dragged onto a workspace of the indicator, or its picture drag
 card of its windows, moves the window to that workspace of the monitor, as dropping a thumbnail
 on the overview's strip does; a stack's button moves all its windows. The workspace under the
 drag grows a little and lights up, and what the drag carries, the window's picture or its icon,
-docks beside it, gliding from one workspace to the next; resting there opens the workspace's
-card, and the picture of the window then floats into it. Let go there, it drops into the
-workspace, which pops, and the card shows the window arriving. Over a workspace a dragged
+docks beside it, gliding from one workspace to the next. A button's drag resting there opens the
+workspace's card, and the window's icon then floats into its picture; a picture's drag keeps the
+card of its windows open instead. Let go there, it drops into the workspace, which pops, and an
+open card shows the window arriving. Over a workspace a dragged
 button goes back to its place in the row; let go anywhere else, the drag moves no window.
 
 ### Clock and calendar
