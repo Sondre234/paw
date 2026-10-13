@@ -116,16 +116,30 @@ Item {
     // task id and asked of the source once a change is over (syncPictures), so that as the card
     // opens its tiles take over the panel's wants without the windows being let go and asked for
     // again: their captures go on, and without shell.liveThumbnails no window's one picture is
-    // taken twice.
+    // taken twice. A want may name the width in device pixels it wants the picture (0, or none,
+    // for shell.thumbnailSize's), as the card of a workspace does, and a window is asked for at
+    // the widest it is wanted: watched again at a new width before its last watch goes, so that
+    // its capture goes on.
     property var pictureWants: ({})
-    // The windows asked for, as {taskId: true}, and the source they were asked of.
+    // The windows asked for, as {taskId: width}, and the source they were asked of.
     property var pictureWatches: ({})
     property var pictureSource: null
-    function wantPicture(taskId, wanted) {
-        var count = (pictureWants[taskId] || 0) + (wanted ? 1 : -1)
-        if (count > 0) pictureWants[taskId] = count
+    function wantPicture(taskId, wanted, width) {
+        width = width || 0
+        var wants = pictureWants[taskId] || {}
+        var count = (wants[width] || 0) + (wanted ? 1 : -1)
+        if (count > 0) wants[width] = count
+        else delete wants[width]
+        if (Object.keys(wants).length > 0) pictureWants[taskId] = wants
         else delete pictureWants[taskId]
         Qt.callLater(syncPictures)
+    }
+    // The widest a window's picture is wanted, in device pixels.
+    function wantedWidth(taskId) {
+        var widest = 0
+        for (var width in pictureWants[taskId])
+            widest = Math.max(widest, Number(width) || Math.round(shell.thumbnailSize * Screen.devicePixelRatio))
+        return widest
     }
     function syncPictures() {
         var source = taskSource, id
@@ -142,12 +156,15 @@ Item {
             }
         if (!source || typeof source.watchPicture !== "function")
             return
-        for (id in pictureWants)
-            if (!pictureWatches[id]) {
-                source.watchPicture(Number(id), Math.round(shell.thumbnailSize * Screen.devicePixelRatio),
-                                    shell.liveThumbnails)
-                pictureWatches[id] = true
-            }
+        for (id in pictureWants) {
+            var width = wantedWidth(id)
+            if (pictureWatches[id] === width)
+                continue
+            source.watchPicture(Number(id), width, shell.liveThumbnails)
+            if (pictureWatches[id])
+                source.unwatchPicture(Number(id))
+            pictureWatches[id] = width
+        }
     }
     // The windows of the button the pointer rests on, warmed up for its card, as windowsOf gives
     // them; null while none are.
