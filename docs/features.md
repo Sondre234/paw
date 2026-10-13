@@ -1947,11 +1947,18 @@ workspace slide (`animations.workspace`), sliding and fading out as the next wor
 and once the fingers lift the slide goes on to that workspace if they went past half of
 `gestures.distance`, or back if not. A flick, a quick swipe however short, goes on; one flicked
 back the other way at the end stays. Back past where they began, the fingers head for the other
-neighbour. There is none before the first workspace or after the last: the windows give a little
-against the fingers and come back, rather than wrap around as `workspace_next` does. Three fingers
-up open the overview the same way, the windows gliding into its grid with the fingers, and down
-close it; sideways while it is open, it shows the next or previous workspace as the fingers lift,
-as its strip does. These are the defaults; `gestures` changes them:
+neighbour. There is none before the first workspace or after the last, and rather than wrap around
+as `workspace_next` does, the windows stretch that way like a rubber band, showing the desktop
+behind them: they follow the fingers as far as the slide would at first, then less and less the
+further the fingers go, never as far as the slide's whole distance or a tenth of the monitor's
+width (with `animations.workspace.distance = 0`, a slide that only fades, they dim a little
+instead). Back the other way they come back as they went, and on past where they rest the slide
+toward the other neighbour begins. Once the fingers lift they spring back with the `move`
+animation, going on at first as fast as the fingers went, and fingers that come back to the
+touchpad meanwhile take them over where they are. Three fingers up open the overview the same way,
+the windows gliding into its grid with the fingers, and down close it; sideways while it is open,
+it shows the next or previous workspace as the fingers lift, as its strip does. These are the
+defaults; `gestures` changes them:
 
 ```lua
 gestures = {
@@ -1979,8 +1986,9 @@ every pinch and every hold goes to the window, as does everything with `gestures
 or while the screen is locked. `paw msg get gesture` says what the swipe under way is
 (`waiting`, `passed`, `workspace`, `overview`, `action`, or `none`), with its fingers, direction
 and progress in thousandths of a step, and for workspaces a line with the output, the workspace
-it began on and the one it heads for (from 1, 0 for none), how far the slide is held, and how
-many windows are held and coming in.
+it began on and the one it heads for (from 1, 0 for none), how far the slide is held, how many
+windows are held and coming in, and past the first or last workspace how far the windows stretch
+(in pixels, negative to the left) and their opacity (in thousandths).
 
 Swipes of three or more fingers, pinches and holds the compositor does not take go to the window
 under the pointer through pointer-gestures-unstable-v1: Firefox and Chromium zoom a page on a
