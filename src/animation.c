@@ -47,6 +47,13 @@ static int64_t now_ms(const struct sh_animator *animator) {
     return animator->clock(animator->clock_data);
 }
 
+/* How often the timer advances animations no frame does: soon enough after the last frame that
+ * its tick is never taken for a late frame. */
+static int idle_tick(const struct sh_animator *animator) {
+    int late = animator->config.late_ms;
+    return late > 0 && late / 2 < SLACK_MS ? (late / 2 > 1 ? late / 2 : 1) : SLACK_MS;
+}
+
 /* A kind's duration after the speed multiplier; 0 means it does not animate. */
 static int duration_of(const struct sh_animator *animator, enum sh_anim_kind kind) {
     const struct sh_anim_style *style = &animator->config.styles[kind];
@@ -347,6 +354,10 @@ static bool step(struct sh_anim *anim, int64_t now) {
             ended = true;
             anim->morph = false;
         } else {
+            // Waiting for the client, the window may draw nothing new for a while: the timer
+            // keeps it going meanwhile.
+            if (!anim->glide && anim->animator)
+                wl_event_source_timer_update(anim->animator->timer, idle_tick(anim->animator));
             m.fade = anim->fading ? fade_alpha(anim, now) : 1;
             int width = (int)lround(m.width), height = (int)lround(m.height);
             if (width != anim->drawn_width || height != anim->drawn_height) {
@@ -604,7 +615,7 @@ static int timer_fired(void *data) {
     struct sh_animator *animator = data;
     sh_animator_tick(animator);
     if (!wl_list_empty(&animator->running) || !wl_list_empty(&animator->tweens))
-        wl_event_source_timer_update(animator->timer, SLACK_MS);
+        wl_event_source_timer_update(animator->timer, idle_tick(animator));
     return 0;
 }
 
