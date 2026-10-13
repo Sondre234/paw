@@ -475,14 +475,20 @@ static void shadow_lift(void) {
         free(drawn);
         free(covered);
     }
-    // Unstretched, the slices are the plain ones.
+    // Unstretched, the edges meet the window's sides; stretched, they run a pixel under it, where
+    // the window covers the image's cut-out.
     struct sh_shadow_layout l;
     sh_shadow_layout(&soft, &l);
-    struct sh_shadow_slice plain[SH_SHADOW_SLICES], scaled[SH_SHADOW_SLICES];
-    const double one[4] = {1, 1, 1, 1};
-    sh_shadow_slices(&l, l.width, l.height, 500, 300, plain);
-    sh_shadow_slices_scaled(&l, l.width, l.height, 500, 300, one, scaled);
-    CHECK(!memcmp(plain, scaled, sizeof(plain)), "a scale of 1 changes nothing");
+    struct sh_shadow_slice s[SH_SHADOW_SLICES];
+    const double one[4] = {1, 1, 1, 1}, wider[4] = {1.5, 1.5, 1.5, 1.5};
+    sh_shadow_slices_scaled(&l, l.width, l.height, 500, 300, one, s);
+    CHECK(s[4].to_y + s[4].to_height == 0 && s[5].to_y == 300 && s[6].to_x + s[6].to_width == 0 &&
+              s[7].to_x == 500,
+          "unstretched, the edges meet the window");
+    sh_shadow_slices_scaled(&l, l.width, l.height, 500, 300, wider, s);
+    CHECK(s[4].to_y + s[4].to_height == 1 && s[5].to_y == 299 && s[6].to_x + s[6].to_width == 1 &&
+              s[7].to_x == 499,
+          "stretched, the edges run a pixel under the window");
 }
 
 int main(void) {
