@@ -345,8 +345,9 @@ static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
     // Where each window is drawn now, in the order of `get windows`, while `get windows` says
     // where it is: app_id, title, the place of its geometry's top-left corner and the size it is
     // drawn at (mid-glide, or changing size), the size its own surface is drawn at (stretched
-    // while it changes size), and what a change of size is doing: "rest", "moving", "waiting"
-    // for the client to draw the new size, or "fading" what it drew before.
+    // while it changes size), what a change of size is doing: "rest", "moving", "waiting" for
+    // the client to draw the new size, or "fading" what it drew before, and how much of its
+    // frame shows, in thousandths (none while maximized or fullscreen, fading in between).
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
@@ -359,11 +360,12 @@ static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
         struct wlr_scene_buffer *buffer =
             toplevel->surfaces ? surface_buffer(toplevel->surfaces, toplevel_surface(toplevel))
                                : NULL;
-        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\n", app_id, title,
+        const struct sh_tween *frame = &toplevel->frame_fade;
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%ld\n", app_id, title,
                  toplevel->scene_tree->node.x + toplevel->content->node.x,
                  toplevel->scene_tree->node.y + toplevel->content->node.y, drawn.width,
                  drawn.height, buffer ? buffer->dst_width : 0, buffer ? buffer->dst_height : 0,
-                 morph_state(toplevel));
+                 morph_state(toplevel), frame->valid ? lround(1000 * frame->value[0]) : 1000);
         control_reply(fd, line);
     }
 }
