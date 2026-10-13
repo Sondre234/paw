@@ -271,8 +271,8 @@ draws as it is and takes input where it ends up (`sh_animator_rest_at` puts a fo
 rest for a lookup). Neither runs while the session is locked, for a window in the scratchpad, or
 for one peeked at (by the taskbar's picture, the switcher or the palette), which is shown
 already, and no restore for one a peek showed while hidden and still shows as it fades
-(`peek_lent`); the overview lands the restore of the window it picks, whose thumbnail glides
-there.
+(`peek_lent`), whose copy still on its way in goes at once; the overview lands the restore of the
+window it picks, whose thumbnail glides there.
 
 A fold scales the tree's nodes about one point, so that the window's box shrinks evenly, keeping
 its proportions, to fit the target box as its middle slides on a straight line to the box's

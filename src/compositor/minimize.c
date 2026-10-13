@@ -402,9 +402,14 @@ void minimize_raise(struct sh_toplevel *toplevel) {
  * was on its way in and is back in the same place, out from where it is drawn. */
 void restore_animate(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
-    // One the peek showed while minimized, still fading out of it, is where it is already.
-    if (!folds(toplevel) || toplevel->peek_lent || !server_settings(server)->animations)
+    // One the peek showed while minimized, still fading out of it, is where it is already. Back
+    // without a fold, a copy of it still on its way into the button goes at once rather than
+    // haunt the window.
+    if (!folds(toplevel) || toplevel->peek_lent || !server_settings(server)->animations) {
+        if (toplevel->minimizing)
+            sh_anim_finish(toplevel->minimizing);
         return;
+    }
     int x, y;
     wlr_scene_node_coords(&toplevel->scene_tree->node, &x, &y);
     struct wlr_box g = toplevel_geometry(toplevel), into;
