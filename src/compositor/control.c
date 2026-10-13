@@ -317,6 +317,7 @@ static const struct {
     {"osd", control_osd},
     {"type", control_type},
     {"overview", control_overview},
+    {"panel_drag", control_panel_drag},
 };
 
 static void control_handle(struct sh_server *server, int fd, const char *request) {

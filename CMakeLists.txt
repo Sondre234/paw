@@ -238,6 +238,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/output_moves.c
         src/compositor/output_power.c
         src/compositor/overview.c
+        src/compositor/panel_drag.c
         src/compositor/placement.c
         src/compositor/power.c
         src/compositor/query.c
@@ -664,6 +665,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(touchpad_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
         paw_smoke(touchscreen_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
             $<TARGET_FILE:wayland_probe>)
+        paw_smoke(panel_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(tablet_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
         paw_smoke(spawn_at_pointer_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)

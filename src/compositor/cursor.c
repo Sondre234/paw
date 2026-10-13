@@ -158,7 +158,7 @@ uint32_t corner_edges(struct sh_toplevel *toplevel, uint32_t edges) {
 }
 
 /* The cursor shows this image, unless it is hidden (cursor_hide). */
-static void show_xcursor(struct sh_server *server, const char *name) {
+void show_xcursor(struct sh_server *server, const char *name) {
     if (!server->cursor_hidden)
         wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, name);
 }
@@ -366,6 +366,10 @@ static void deco_activate(struct sh_toplevel *toplevel, enum sh_deco_part part) 
 }
 
 void process_cursor_motion(struct sh_server *server, uint32_t time) {
+    if (server->cursor_mode == SH_CURSOR_PANEL) {
+        panel_drag_motion(server);
+        return;
+    }
     hot_corner_check(server);
     zoom_moved(server);
     if (server->seat->drag)
@@ -598,6 +602,13 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_button);
     struct wlr_pointer_button_event *event = data;
     input_activity(server, event->state == WL_POINTER_BUTTON_STATE_PRESSED);
+    if (event->button >= BTN_MOUSE && event->button < BTN_MOUSE + 32) {
+        const uint32_t bit = 1u << (event->button - BTN_MOUSE);
+        if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
+            server->held_buttons |= bit;
+        else
+            server->held_buttons &= ~bit;
+    }
     if ((server->overview.open || server->overview.pressed) && overview_button(server, event))
         return;
     if (server->deco_pressed && event->button == BTN_LEFT &&

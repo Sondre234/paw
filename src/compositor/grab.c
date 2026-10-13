@@ -11,6 +11,8 @@ static void magnet_hide_guides(struct sh_server *server) {
 }
 
 void reset_cursor_mode(struct sh_server *server) {
+    // A drag of the taskbar ending otherwise than by its drop leaves the bar where it is.
+    panel_drag_cancel(server);
     magnet_hide_guides(server);
     snap_preview_hide(server);
     // A window dropped on another output takes up that output's corners.
@@ -45,6 +47,8 @@ bool drop_tiles(struct sh_server *server, struct wlr_output *output) {
  * at an edge of the screen snaps it there instead (snap.c), at the top maximized below the
  * panels, like Super+Shift+Up. */
 void finish_grab(struct sh_server *server) {
+    if (panel_drag_drop(server))
+        return;
     struct sh_toplevel *toplevel = server->grabbed_toplevel;
     if (snap_drop(server))
         return;
