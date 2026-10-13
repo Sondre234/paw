@@ -49,9 +49,11 @@ Item {
         // Bumped along the bar by nudge(): out quickly, then back, as the windows are. Bumped again
         // on its way out the same way, it goes on as it is.
         property real bumped: 0
+        property int bumpWay: 0 // the way it is on its way out, else 0
         function bump(way) {
-            if (bumpOut.running && Math.sign(bumpOut.to) === way)
+            if (bumping.running && bumpWay === way)
                 return
+            bumpWay = way
             bumpOut.to = way * Theme.spacingXS * 1.5
             bumping.restart()
         }
@@ -61,7 +63,9 @@ Item {
         }
         SequentialAnimation {
             id: bumping
+            objectName: "workspacePillBump"
             NumberAnimation { id: bumpOut; target: pill; property: "bumped"; duration: Theme.duration(80); easing.type: Easing.OutQuad }
+            ScriptAction { script: pill.bumpWay = 0 }
             NumberAnimation { target: pill; property: "bumped"; to: 0; duration: Theme.duration(160); easing.type: Easing.InOutQuad }
         }
     }

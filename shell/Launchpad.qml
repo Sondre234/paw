@@ -344,11 +344,13 @@ Item {
                 return beyond && limit > 0 ? moved * limit / (Math.abs(moved) + limit) : moved
             }
             property real bumped: 0
+            property int bumpWay: 0 // the way it is on its way out, else 0
             // Toward the next page (`way` 1) or the one before (-1); bumped again on its way out
             // that way, it goes on as it is.
             function bump(way) {
-                if (bumpOut.running && Math.sign(bumpOut.to) === -way)
+                if (bumping.running && bumpWay === way)
                     return
+                bumpWay = way
                 bumpOut.to = -way * Math.round(launchpad.width / 50)
                 bumping.restart()
             }
@@ -361,7 +363,9 @@ Item {
             }
             SequentialAnimation {
                 id: bumping
+                objectName: "launchpadPagesBump"
                 NumberAnimation { id: bumpOut; target: strip; property: "bumped"; duration: Theme.duration(80); easing.type: Easing.OutQuad }
+                ScriptAction { script: strip.bumpWay = 0 }
                 NumberAnimation { target: strip; property: "bumped"; to: 0; duration: Theme.duration(160); easing.type: Easing.InOutQuad }
             }
             Repeater {
