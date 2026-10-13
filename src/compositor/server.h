@@ -852,6 +852,7 @@ struct sh_toplevel {
     uint32_t morph_serial;
     struct sh_anim anim;
     struct sh_tween fade; // opacity and border color following focus
+    struct sh_tween frame_fade; // how much of its frame shows (frame.c's frame_shown)
     bool shown; // has opened (and started its opening animation) since it last mapped
     struct wlr_scene_buffer *deco;    // window controls; NULL when the client decorates itself
     struct wlr_scene_rect *border[4]; // top, bottom, left, right; NULL without a border

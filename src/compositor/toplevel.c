@@ -507,6 +507,7 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
 void free_toplevel(struct sh_toplevel *toplevel) {
     sh_anim_finish(&toplevel->anim);
     sh_tween_stop(&toplevel->fade);
+    sh_tween_stop(&toplevel->frame_fade);
     free(toplevel->opacity_rule.app_id);
     free(toplevel->opacity_rule.title);
     free_icon(&toplevel->icon);
