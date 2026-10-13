@@ -78,7 +78,7 @@ all. In short:
 | `idle.c` | Power saving after a while without input: dimming, monitors off, locking, suspending. |
 | `power.c` | The power actions: suspend, hibernate, reboot and power off through logind (`src/login1.c`), locking first, closing windows first, log out. |
 | `foreign_toplevel.c` | Window lists for taskbars and single-window capture. |
-| `window_control.c` | The shell's window menu, window pictures and windows' own icons: paw-window-control-v1, which names a window by its taskbar handle. |
+| `window_control.c` | The shell's window menu, window pictures and windows' own icons, and the windows each workspace shows: paw-window-control-v1, which names a window by its taskbar handle. |
 | `scaled_capture.c` | The capture source for a window's picture: the window scaled down to fit a size on the renderer, smoothly. |
 | `type.c` | Typing text into what has the keyboard (`paw msg type`), on a keyboard and keymap of its own. |
 | `window_icon.c` | The icons windows supply themselves (xdg-toplevel-icon-v1; X11 windows' from `xwayland.c`), kept for the window control to send the shell. |
@@ -116,7 +116,7 @@ and do nothing while the session is locked. A change reaches the objects through
 from an idle callback, once the change is over. Like the foreign-toplevel manager, the global is
 offered to every client; it lets a client do nothing to a window a taskbar cannot already do.
 `tests/window_probe.c` is a client of it for `window_control_smoke`, `window_capture_smoke`,
-`window_peek_smoke` and `window_icon_smoke`, and `TaskModel` the shell's.
+`window_peek_smoke`, `window_icon_smoke` and `workspace_view_smoke`, and `TaskModel` the shell's.
 
 A window's capture source is the one screen sharing gets for its ext-foreign-toplevel-list
 handle, from `toplevel_capture_source` (`foreign_toplevel.c`): made from a private scene that
