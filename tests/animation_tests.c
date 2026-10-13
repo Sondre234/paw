@@ -706,6 +706,35 @@ static void test_unfold(void) {
     teardown(&rig);
 }
 
+/* A tween's owner redrawing the window at rest on each frame (its focus fade) does so before the
+ * animations draw it where they have it, so that the frame shows it where the fold has it. */
+static struct wlr_scene_rect *redrawn;
+static void redraw_at_rest(void *data) {
+    wlr_scene_node_set_position(&redrawn->node, 10, 20);
+    wlr_scene_rect_set_size(redrawn, 200, 100);
+}
+
+static void test_tween_redraws_under_a_fold(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    redrawn = rig.rect;
+    struct sh_tween tween = {0};
+    float target[SH_TWEEN_VALUES] = {1}, current[SH_TWEEN_VALUES];
+    sh_tween_track(rig.animator, &tween, SH_ANIM_FOCUS, true, target, current, redraw_at_rest, NULL);
+    target[0] = 0;
+    sh_tween_track(rig.animator, &tween, SH_ANIM_FOCUS, true, target, current, redraw_at_rest, NULL);
+    struct sh_fold fold = button_fold(NULL, NULL);
+    sh_anim_unfold(rig.animator, &rig.anim, rig.content, &fold, 1);
+    advance(&rig, 50);
+    CHECK(sh_animator_tweens(rig.animator) == 1 && folded_at(rig.rect, 0, 0, 0.5),
+          "drawn half way out after its owner redrew it: %d %d", rig.rect->node.x,
+          rig.rect->width);
+    advance(&rig, 60);
+    CHECK(rig.rect->width == 200 && rig.rect->node.x == 10, "at rest after");
+    sh_tween_stop(&tween);
+    teardown(&rig);
+}
+
 int main(void) {
     test_glide_reaches_rest();
     test_retarget_is_continuous();
@@ -725,6 +754,7 @@ int main(void) {
     test_finish_all();
     test_fold_away();
     test_unfold();
+    test_tween_redraws_under_a_fold();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
     return failures ? 1 : 0;
