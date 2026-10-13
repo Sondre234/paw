@@ -246,10 +246,13 @@ void window_clip(struct sh_toplevel *toplevel, struct wlr_scene_tree *tree,
  * bottom of the window's. It takes no input, and nothing that places or measures the window
  * counts it. The tree has a clip of its own as large as the shadow, since the one rounding the
  * window would hide it (only the nearest clip applies). A lifted window's shadow reaches further
- * (sh_shadow_lift): its slices stretched, or a printed one's image painted further off. Laid
+ * (sh_shadow_lift): its slices stretched, or a printed one's image painted further off; but a
+ * cast one under a `translucent` window, through which the stretched image's cut-out, a pixel
+ * under the window's edge, would show as a darker rim, stays as it rests. Laid
  * out again only when the frame's size, the image or the lift changes, so a running animation
  * keeps what it set. */
-static void refresh_shadow(struct sh_toplevel *toplevel, bool on, int outset, int radius) {
+static void refresh_shadow(struct sh_toplevel *toplevel, bool on, int outset, int radius,
+                           bool translucent) {
     struct sh_server *server = toplevel->server;
     const struct sh_settings *settings = server_settings(server);
     struct wlr_box g = toplevel_geometry(toplevel);
@@ -268,6 +271,8 @@ static void refresh_shadow(struct sh_toplevel *toplevel, bool on, int outset, in
     memcpy(look.color, focused ? settings->shadow_color : settings->shadow_inactive_color,
            sizeof(look.color));
     double lift = fmin(1, fmax(0, sh_anim_lift_progress(&toplevel->anim)));
+    if (translucent && !sh_shadow_printed(&look))
+        lift = 0;
     struct sh_shadow drawn;
     double spread[4];
     float fade;
@@ -437,6 +442,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
     float opacity =
         toplevel->fullscreen || !mapped ? 1 : rule_opacity(toplevel, app_id, title, active);
+    bool translucent = opacity < 1; // as it settles, whatever a fade draws meanwhile
     // Opacity and border color fade when focus changes; a window that is not yet shown, or
     // was hidden, takes them at once.
     int b = settings->border_width;
@@ -513,7 +519,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     refresh_shadow(toplevel,
                    settings->shadow && mapped && !frameless(toplevel, output) &&
                        (radius > 0 || !draws_own_shadow(toplevel)),
-                   shown && !inset ? b : 0, radius);
+                   shown && !inset ? b : 0, radius, translucent);
 
     // xdg-shell windows keep their scene tree while unmapped; the border must not. One in
     // gradients is drawn in pieces of its own instead.
