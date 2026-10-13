@@ -719,6 +719,33 @@ static void test_lift_through_gestures(void) {
     teardown(&rig);
 }
 
+/* A lookup puts a lifted window at its own size only when it could be found at the point. */
+static void test_lift_rest_at_point(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, NULL, NULL);
+    for (int i = 0; i < 6; ++i)
+        advance(&rig, 20);
+    CHECK(rig.rect->width == 220, "lifted: %d", rig.rect->width);
+    // Far from it: left alone, nothing to draw again.
+    sh_animator_rest_at(rig.animator, 900, 600);
+    CHECK(rig.rect->width == 220 && !rig.anim.lift_rested, "far from the point: left alone");
+    sh_animator_resume(rig.animator);
+    CHECK(rig.rect->width == 220, "and resume leaves it alone");
+    // Over the part only the lift draws, and over the window: at its own size for the lookup.
+    double sx, sy;
+    sh_animator_rest_at(rig.animator, 225, 60);
+    CHECK(rig.rect->width == 200 &&
+              wlr_scene_node_at(&rig.scene->tree.node, 225, 60, &sx, &sy) == NULL,
+          "at rest where only the lift reaches");
+    sh_animator_resume(rig.animator);
+    CHECK(rig.rect->width == 220 && !rig.anim.lift_rested, "lifted again");
+    sh_animator_rest_at(rig.animator, 50, 50);
+    CHECK(rig.rect->width == 200, "at rest over the window");
+    sh_animator_resume(rig.animator);
+    teardown(&rig);
+}
+
 static void test_finish_all(void) {
     struct rig rig;
     setup(&rig, config(300, SH_CURVE_EASE_OUT));
@@ -750,6 +777,7 @@ int main(void) {
     test_lift_with_others();
     test_lift_bounds();
     test_lift_through_gestures();
+    test_lift_rest_at_point();
     test_finish_all();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
