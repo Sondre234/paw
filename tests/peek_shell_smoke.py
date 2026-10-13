@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The shell's peeks at a selected window in a session. The switcher, once it shows, tells the
 compositor so, and its selected window then peeks; the command palette peeks at the window result
-selected once the selection rests, hands the peek over at once as the selection moves to another
-window, and ends it as it closes, Enter focusing the window where it shows. The macOS style
-peeks at neither, and peek.switcher = false turns the palette's off too."""
+selected once something was typed or the selection moved and the selection rests, hands the peek
+over at once as the selection moves to another window, and ends it as it closes, Enter focusing
+the window where it shows. The macOS style peeks at neither, and peek.switcher = false turns the
+palette's off too."""
 from pathlib import Path
 import signal
 import sys
@@ -78,7 +79,8 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
             except harness.Timeout:
                 pass
         assert layer("paw-palette") == ["1", "1"], desktop.rows("layers")
-        msg("type", text)
+        if text:
+            msg("type", text)
 
     def switcher():
         """Opens the switcher until the shell shows it."""
@@ -99,8 +101,15 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     msg("switcher_cancel")
     desktop.wait_for(back, "the switcher's peek over")
 
-    # The palette: the window found peeks once the selection rests on it; Escape ends the peek,
-    # changing nothing.
+    # The palette opens on the windows, the first selected, which does not peek unasked.
+    palette("")
+    desktop.stays(lambda: peeked() is None, "the palette peeked before anything was typed",
+                  duration=REST + .3)
+    key(ESCAPE)
+    desktop.wait_for(lambda: layer("paw-palette") != ["1", "1"], "the palette closed")
+
+    # The window found peeks once the selection rests on it; Escape ends the peek, changing
+    # nothing.
     palette("@Alpha")
     desktop.wait_for(lambda: peeked() == "Alpha", "the palette's window peeked at")
     assert fade() > 0, fade()
