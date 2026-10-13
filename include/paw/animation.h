@@ -155,13 +155,14 @@ struct sh_morph {
  * size meanwhile; the rest of the tree, the window's frame, is the owner's to draw at that size
  * from `resized`. Past the glide, the window stays at its new size, stretched, until the client
  * draws it (sh_anim_morph_commit) or for a few hundred milliseconds at most, which a client that
- * never does gets; it is then drawn as the client drew it. */
+ * never does gets; it then eases to the size the client drew. */
 void sh_anim_morph(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
                    const struct sh_morph *morph);
 /* The client is about to show what it drew for `width` by `height`, the answer to the size it
- * was given with `answered` (at that size or another, which the size drawn then eases to). What
- * it drew before, at another size, fades out over it, so that the change of size never jumps.
- * Call before the scene takes the new buffers in. */
+ * was given with `answered` (at that size or another, which the size drawn then eases to, each
+ * time; at the size it had when asked only once the wait is over, since it may draw the new size
+ * later). What it drew before, at another size, fades out over it, so that the change of size
+ * never jumps. Call before the scene takes the new buffers in. */
 void sh_anim_morph_commit(struct sh_animator *animator, struct sh_anim *anim, int width, int height,
                           bool answered);
 /* The size a morph draws the window at, false when it is not changing size. */
