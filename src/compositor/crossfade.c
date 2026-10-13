@@ -22,12 +22,14 @@ static int hold_ms(struct sh_server *server) {
 #define COVER 0.9999f
 
 /* A monitor's picture over its part of the scene, and the output's place, size and transform as
- * it was taken: it goes as soon as one of them changes. */
+ * it was taken: it goes as soon as one of them changes, or the monitor turns off (`commit`). */
 struct sh_crossfade_picture {
+    struct sh_output *output;
     struct wlr_scene_buffer *node;
     struct wlr_box box;
     int width, height;
     enum wl_output_transform transform;
+    struct wl_listener commit;
 };
 
 struct sh_crossfade {
@@ -39,6 +41,8 @@ struct sh_crossfade {
     int64_t start; // when the fade began, in milliseconds; 0 until its first frame
     int duration;
     float opacity; // the pictures' opacity now
+    /* A monitor with a picture turned off: its picture goes once the commit is over. */
+    struct wl_event_source *dark;
 };
 
 static bool no_input(struct wlr_scene_buffer *buffer, double *sx, double *sy) {
@@ -106,6 +110,7 @@ static void drop_picture(struct sh_output *output) {
     struct sh_crossfade_picture *picture = output->crossfade;
     if (!picture)
         return;
+    wl_list_remove(&picture->commit.link);
     wlr_scene_node_destroy(&picture->node->node);
     free(picture);
     output->crossfade = NULL;
@@ -118,6 +123,38 @@ static bool any_picture(struct sh_server *server) {
             return true;
     }
     return false;
+}
+
+/* Takes away the pictures of the monitors that are off, which draw no frames for them to fade
+ * in and would show them again, stale, as they come back on; and the crossfade with the last.
+ * False when it ended. */
+static bool drop_dark_pictures(struct sh_server *server) {
+    struct sh_output *output;
+    for_each_connected_output(output, server) {
+        if (output->crossfade && !output->wlr_output->enabled)
+            drop_picture(output);
+    }
+    if (any_picture(server))
+        return true;
+    crossfade_end(server);
+    return false;
+}
+
+static void dark_idle(void *data) {
+    struct sh_server *server = data;
+    server->crossfade->dark = NULL;
+    drop_dark_pictures(server);
+}
+
+/* A monitor with a picture committed: turned off (by display_off, the idle step, its settings,
+ * the lid or wlr-output-management), its picture goes as soon as that commit is over. */
+static void picture_commit(struct wl_listener *listener, void *data) {
+    struct sh_crossfade_picture *picture = wl_container_of(listener, picture, commit);
+    struct sh_server *server = picture->output->server;
+    struct sh_crossfade *fade = server->crossfade;
+    if (!picture->output->wlr_output->enabled && fade && !fade->dark)
+        fade->dark = wl_event_loop_add_idle(wl_display_get_event_loop(server->wl_display),
+                                            dark_idle, server);
 }
 
 /* Lays a picture of what `output` shows now over it, or a new one in place of the one there (the
@@ -146,6 +183,8 @@ static void lay_picture(struct sh_crossfade *fade, struct sh_output *output) {
             return;
         }
         picture->node->point_accepts_input = no_input;
+        picture->output = output;
+        add_listener(&wlr_output->events.commit, &picture->commit, picture_commit);
         output->crossfade = picture;
     }
     wlr_scene_buffer_set_buffer(picture->node, buffer);
@@ -169,6 +208,8 @@ static void lay_picture(struct sh_crossfade *fade, struct sh_output *output) {
 
 /* The pictures start fading at their next frame. */
 static void release(struct sh_server *server) {
+    if (!drop_dark_pictures(server))
+        return;
     struct sh_crossfade *fade = server->crossfade;
     fade->holding = false;
     fade->start = 0;
@@ -250,6 +291,8 @@ void crossfade_end(struct sh_server *server) {
     wlr_scene_node_destroy(&fade->tree->node);
     if (fade->timer)
         wl_event_source_remove(fade->timer);
+    if (fade->dark)
+        wl_event_source_remove(fade->dark);
     free(fade);
     server->crossfade = NULL;
 }
@@ -274,7 +317,8 @@ void crossfade_tick(struct sh_server *server) {
             continue;
         struct wlr_box box;
         wlr_output_layout_get_box(server->output_layout, output->wlr_output, &box);
-        if (!wlr_box_equal(&box, &picture->box) || output->wlr_output->width != picture->width ||
+        if (!output->wlr_output->enabled || !wlr_box_equal(&box, &picture->box) ||
+            output->wlr_output->width != picture->width ||
             output->wlr_output->height != picture->height ||
             output->wlr_output->transform != picture->transform)
             drop_picture(output);
