@@ -526,6 +526,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
 #endif
         raise_frame_node(toplevel, &toplevel->border[i]->node);
     }
+    drop_refresh(toplevel); // a drop past the bar cuts the rounded border by its size
 }
 
 void forget_decoration(struct sh_toplevel *toplevel) {
