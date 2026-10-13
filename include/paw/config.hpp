@@ -360,6 +360,7 @@ struct Config {
                          .shadow_y = 10,
                          .shadow_color = {0, 0, 0, 0x59 / 255.0F},
                          .shadow_inactive_color = {0, 0, 0, 0x33 / 255.0F},
+                         .lift = true,
                          .lock_before_sleep = true,
                          .close_windows = true,
                          .close_timeout = 5000,

@@ -339,6 +339,11 @@ const Option options[] = {
     {"windows.shadow.offset", "integer or table", "10", "10", -50, 50,
      "How far the shadow falls below the window in pixels, or `{ x, y }` to move it sideways "
      "too (right and down)."},
+    {"windows.lift", "boolean", "true", "false", none, none,
+     "A window moved with the pointer is lifted while it moves: drawn a little larger about "
+     "where it was taken, its shadow softer and further off (a printed one, without blur, "
+     "further off), and it settles back as it is dropped, with the duration and curve of "
+     "`animations.move`. `false` leaves it as it is."},
     {"windows.buttons", "string", "\"appmenu:minimize,maximize,close\"",
      "\"appmenu:minimize,maximize,close\"", none, none,
      "GTK button layout for windows that draw their own frame; lowercase letters, `_`, `,` "

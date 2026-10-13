@@ -169,6 +169,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `windows.shadow.inactive_color` | color | "#00000033" | - | The shadow under other windows, `#RRGGBBAA`. |
 | `windows.shadow.blur` | integer | 30 | 0 to 100 | How soft the shadow's edge is: it fades out over about this many pixels, as CSS's blur radius; 0 for a hard edge. |
 | `windows.shadow.offset` | integer or table | 10 | -50 to 50 | How far the shadow falls below the window in pixels, or `{ x, y }` to move it sideways too (right and down). |
+| `windows.lift` | boolean | true | - | A window moved with the pointer is lifted while it moves: drawn a little larger about where it was taken, its shadow softer and further off (a printed one, without blur, further off), and it settles back as it is dropped, with the duration and curve of `animations.move`. `false` leaves it as it is. |
 | `windows.buttons` | string | "appmenu:minimize,maximize,close" | - | GTK button layout for windows that draw their own frame; lowercase letters, `_`, `,` and `:` only. Restart to change. |
 | `windows.rules` | list of tables | unset | - | Per-application rules, at most 256. Opacity comes from the first matching rule that sets it; actions apply as a window opens, every matching rule in order, later ones winning. A rule needs `app_id` or `title`. |
 | `windows.rules[].app_id` | regex | any | - | ECMAScript regular expression searched in the application ID (X11: the class). |

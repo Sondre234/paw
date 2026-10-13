@@ -484,6 +484,10 @@ struct sh_settings {
     int shadow_blur;
     int shadow_x, shadow_y;
     float shadow_color[4], shadow_inactive_color[4];
+    /* windows.lift: a window moved with the pointer is lifted while it moves, drawn a little
+     * larger about where it was taken and its shadow softer and further off, and settles as it
+     * is dropped. */
+    bool lift;
     /* power.lock_before_sleep: the screen locks with power.lock_command before the machine
      * sleeps. */
     bool lock_before_sleep;
