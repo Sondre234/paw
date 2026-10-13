@@ -105,7 +105,8 @@ its corners squared and its outline and shadow gone but for a line along its inn
 buttons where they were, and floats again once no window there does. Windows do not move.
 
 Clicking a window's button focuses it, or minimizes it when it is focused already, as on Windows,
-from any monitor's bar. A window open on another workspace brings that workspace up, while a
+from any monitor's bar: it shrinks into its button, and grows out of it as it comes back
+([Animations](#animations)). A window open on another workspace brings that workspace up, while a
 minimized one comes back onto the workspace the clicked bar's monitor shows, taking a tile there
 where it tiles, wherever it was minimized. A middle click closes the window, a right click opens its
 [menu](#taskbar-menus), and dragging the button moves it along the bar. An application's windows
@@ -543,7 +544,8 @@ green circles (close, minimize, fullscreen) at the top-left instead, grey while 
 no focus and showing their symbols while the pointer is on one. Dragging the window's top edge (its top 6 pixels, as a title bar would;
 `windows.drag_strip` changes how many) moves the window; a file or text dragged from another
 window over it goes to the window. Other windows, and windows that ask to draw their own frame, decorate
-themselves.
+themselves. The `minimize` action (`paw msg minimize`, or a binding) minimizes the focused window
+as its minimize button does, into its taskbar button (see [Animations](#animations)).
 
 Dropping a dragged window with the pointer at the top edge of the screen, or on a panel along
 it, maximizes it below the panels, and at a side or in a corner snaps it into that half or
@@ -1444,8 +1446,8 @@ animation or lands in the middle of one.
 
 Animations are interruptible: a tile that is gliding when the layout changes again continues
 from where it is drawn, at the speed it has, and never snaps. Each kind (`open`, `close`,
-`move`, `workspace`, `fullscreen`, `focus`) can have its own `duration` (0 turns just that
-kind off) and easing `curve`: `"linear"`, `"ease-in"`, `"ease-out"`, `"ease-in-out"`,
+`move`, `workspace`, `fullscreen`, `focus`, `minimize`) can have its own `duration` (0 turns just
+that kind off) and easing `curve`: `"linear"`, `"ease-in"`, `"ease-out"`, `"ease-in-out"`,
 `"ease-out-quint"`, `"overshoot"`, `"spring"`, or `"bezier(x1, y1, x2, y2)"`. Moves use the
 spring by default. `speed` scales every animation (2 is twice as fast), and a frame later
 than `late_frame_ms` (default 80) finishes what is running rather than stuttering through it.
@@ -1455,6 +1457,27 @@ sets the slide as a share of the monitor's width (default 0.08, 0 only fades). S
 stay put.
 When focus moves, a window's opacity and border color fade to their new values (the `focus`
 kind) instead of switching.
+
+Minimizing a window shrinks it into its button on the taskbar of its monitor, as on Windows 11
+and macOS: a copy of its last frame slides on a straight line to the button as it shrinks to the
+button's size, keeping its proportions, its rounded corners and its border, and fades out over
+the last part of the way. Restoring it grows it out of its button into its place, from where it
+is restored to, fading in over the first part. Restored by a click on its picture on the
+taskbar's [card](#window-pictures), it grows out of the picture instead, and minimized from there
+it goes into it; in the macOS style it goes into its application's icon on the dock. Restored
+while still on its way in (a second click on its button), it turns back from where it is drawn,
+and so does one minimized again on its way out; minimizing or restoring all of a stack's windows,
+or showing the desktop, sends each into its own button at once. The window is minimized, or
+back in its place, at once: input never waits for the animation. A window whose button the
+taskbar does not show (the shell is not running, or another taskbar does not say where its
+buttons are) shrinks toward the middle of the strip a panel keeps along an edge of its monitor,
+or, with no panel, where it is. It is the `minimize` kind, which lasts 300 ms unless set (two and
+a half times `duration`, at most 1000) on `"bezier(0.2, 0, 0, 1)"`: a moment to set off, then
+most of the way at once and a long, soft settle. A window in the [scratchpad](#scratchpad) comes
+and goes its own way, one the taskbar's picture peeks at is shown already and comes back as it
+is, and one picked in the [overview](#overview) comes back with its thumbnail. Other taskbars say
+where their buttons are with wlr-foreign-toplevel's `set_rectangle`; paw's shell says where its
+buttons, its pictures and the dock's icons are as they move.
 The shell's own motion (the taskbar's buttons coming, going and sliding aside, its fills, lines,
 counts and icons, the popups, the notification cards, the on-screen display, and the switcher,
 the palette, the power dialog and the overview coming in and going) follows `enabled` and `speed`
@@ -2479,8 +2502,13 @@ the keyboard.
 `reboot`, `suspend`, `hibernate`) with its answer: `yes`, `no`, `challenge` (after a password),
 `na`, `unknown` until it has answered, or `unavailable` without logind.
 `paw msg get animations` prints the number of running animations and of window trees in
-the scene (closing windows count until their animation ends), and of focus fades, mainly
-for tests. `paw msg get pictures` prints one line per capture source a client asked for to
+the scene (closing and minimizing windows count until their animation ends), and of focus fades,
+mainly for tests. `paw msg get minimize` prints where the taskbars show each window, a `rect`
+line per window and monitor (the window's number, the monitor, and x, y, width and height in the
+monitor's coordinates, the one that counts first), then a `fold` line per window on its way into
+or out of its button (its number, `minimize` or `restore`, how far into the button it is drawn in
+thousandths, the box in layout coordinates, and what that box is: `button`, `panel` or `place`),
+also mainly for tests. `paw msg get pictures` prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
 window_peek` prints one line per window for the taskbar's peek at a window: whether it is the

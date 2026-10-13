@@ -223,6 +223,55 @@ windows (`windows`, and `floating_windows` with `layout.floating_above_tiles`) a
 fullscreen ones; `window_layer` names the tree a window belongs in, and everything that puts a
 window back among the others (focus, leaving fullscreen, the overview, the peek) puts it there.
 
+Since version 7 `set_rectangle(output, x, y, width, height)` says where the client shows the
+window on an output, in its logical coordinates, for the window to minimize into and restore out
+of: what `zwlr_foreign_toplevel_handle_v1.set_rectangle` says on a surface of the client's, which
+paw's shell cannot send, its handles living on a Wayland connection apart from its surfaces.
+`minimize.c` keeps both kinds on the window (`sh_window_rect`, a list with the last set first), one
+per resource and output, until the resource that gave it goes (the window control object, or the
+taskbar's surface); a foreign-toplevel rectangle on a layer surface becomes its output's
+coordinates as it comes (`surface_place`), and one on any other surface is passed over. Unlike the
+other requests it is heard while the session is locked, as it changes nothing of the window. The
+rectangles go as the window's handles close (`unpublish_toplevel`). `paw msg get minimize` lists
+them, and `tests/minimize_smoke.py` (with `window_probe`'s `taskbar` and `wayland_probe`'s
+`PAW_PROBE_BUTTON`) tests them.
+
+### Minimizing into the taskbar
+
+`minimize_toplevel` calls `minimize_animate` first, while the window still shows as it is:
+`copy_window` copies what `content` shows into a tree just above the window, at its place (the
+shadow on its own, then the window and what is drawn on it in a tree with the window's rounded
+clip, then the gradient border's pieces and the rounded frame, which round themselves outside
+that clip, as on the window), and `sh_anim_fold_away` (`src/animation.c`) folds it into the box
+`fold_target` gives, then destroys it: the window's button on its output, from the rectangles
+above, else the middle of the strip a panel keeps along the output's edge (what `usable_area`
+leaves out), else a third of the window's size below its middle. Once the focus has passed on,
+`minimize_raise` puts the copy back over the window that came forward. Restored,
+`focus_toplevel_raise` calls `restore_animate` once the window is shown where it goes, which
+lands what ran on it and has `sh_anim_unfold` grow `content` itself out of the box: the window
+draws as it is and takes input where it ends up (`sh_animator_rest_at` puts a folding window at
+rest for a lookup). Neither runs while the session is locked, for a window in the scratchpad, or
+for one peeked at, which is shown already; the overview lands the restore of the window it picks,
+whose thumbnail glides there.
+
+A fold scales the tree's nodes about one point, so that the window's box shrinks evenly, keeping
+its proportions, to fit the target box as its middle slides on a straight line to the box's
+middle: at `at` of the way the scale is `1 + (s - 1) * at`, for `s` the scale at which the window
+fits the box (kept between 0.001 and 0.8), about the point `rest + (into - rest) / (1 - s)` of
+the line through the two middles, which that scaling leaves in place. Its opacity is `1 - at²`,
+nearly whole for the first part of the way.
+`sh_anim_folded` says how far along a fold is drawn and with which boxes, and a fold that turns
+back goes from there in `sqrt` of the share of the time the way back takes: restoring a window
+whose copy is still on its way in, at the same place, finishes the copy and grows the window from
+as far in as the copy was (`restore_animate`); minimizing a window still growing out
+(`sh_anim_settle`, which ends a fold and a fade but leaves a glide) folds its copy from there.
+The rounded clip, the frame's rounding and the shadow's and gradient border's clips are not
+nodes the animation moves: a fold calls back its owner after each step and as it ends
+(`sh_fold.update`), which maps them with `sh_anim_fold_map` (`window_folded` for a window,
+`copy_folded` for a copy, whose rounding is freed with its tree). For what is redrawn at rest on
+every frame to be drawn folded, the animator steps its tweens (a focus fade, which redraws the
+frame) before its animations, and `output_frame` ticks the effects' fades before the animator.
+
 ### Touchpad swipes
 
 `gestures.c` hears the cursor's swipes. One of as many fingers as a swipe of `gestures` has waits
@@ -636,6 +685,18 @@ ext-image-copy-capture into shared memory, scales the picture down off the GUI t
 frame is larger than that (only ever a copy with version 3), and, when `live`, takes the next as
 the window redraws, every 33 ms at most (100 ms at the window's size). The last picture stays until
 the window closes, so the card opens with it.
+
+Where the bar shows each window goes to the compositor through `TaskModel::place(owner, taskIds,
+output, rect, layer)` and the window control's `set_rectangle` (version 7), for the window to
+minimize into and restore out of: each `TaskButton` of the task list places the windows it stands
+for (its stack's) at its rectangle on the output, as the list scrolls, slides and drags it and
+the bar moves; a tile of the card places its window at its picture, at layer 1 so that it counts
+over the button while the card is open; and a dock icon places its application's windows at its
+icon. Each reads what moves it (`placedRect`) and calls the panel's `placeWindows`, which a
+stand-in model without `place` leaves alone. The model keeps each owner's rectangles, drops them
+as the owner goes, and sends the one that counts on each output (the highest layer's, of a layer
+the last placed) once a change is over, and before any request about a window, so that a click
+on a picture restores the window out of it. `tests/minimize_shell_smoke.py` follows it.
 
 On the taskbar `Panel.qml` alone calls them, for what tells it that it wants a window's picture
 with `wantPicture(taskId, wanted)`: a tile of the card as it appears and as it goes, and the panel
