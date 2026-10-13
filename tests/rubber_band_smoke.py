@@ -47,6 +47,10 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
     def running():
         return int(msg("get", "animations").split("\t")[0])
 
+    def output_frames():
+        """The frames each monitor has drawn, by name."""
+        return {name: int(frames) for name, frames in desktop.rows("output_frames")}
+
     desktop.detail = lambda: f"gesture: {desktop.rows('gesture')}"
     desktop.open_window(probe, "One", focused=True)
     msg("headless_pointer", "add", "touchpad")
@@ -161,3 +165,19 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
     assert workspace() == 1
     msg("workspace_next")
     assert workspace() == 1 and running() == 1, msg("get", "animations")
+
+    # Frames come only where something changes: the nudge brings this monitor's, and another
+    # monitor draws what the pointer passing over it changed and nothing more meanwhile.
+    desktop.reload(CONFIG % SLOW)
+    msg("headless_output", "add", "eDP-1", "800x600")
+    desktop.wait_for(lambda: "eDP-1" in output_frames(), "a second monitor")
+
+    msg("workspace_nudge", "HEADLESS-1", "next")
+    here, there = output_frames()["HEADLESS-1"], output_frames()["eDP-1"]
+    msg("headless_pointer", "move", "touchpad", str(1280 + 400), "300")
+    desktop.wait_for(lambda: output_frames()["eDP-1"] > there, "the pointer drawn on eDP-1")
+    there = output_frames()["eDP-1"]
+    desktop.wait_for(lambda: output_frames()["HEADLESS-1"] >= here + 10, "the nudge drawn")
+    assert running() == 1, msg("get", "animations")
+    desktop.stays(lambda: output_frames()["eDP-1"] <= there + 2, "eDP-1 drawing nothing new",
+                  duration=0.5)
