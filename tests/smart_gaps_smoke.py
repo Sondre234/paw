@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """layout.smart_gaps: a tiled window alone on its workspace has no gaps and fills the usable area
 inside its border, from its first configure on; a second tile brings the gaps back for both, and
-they go again as it closes or floats. Turned off, a lone tile keeps them."""
+they go again as it closes or floats. Turned off, a lone tile keeps them. layout.lone_margin
+frames a lone tile instead."""
 from pathlib import Path
 import re
 import subprocess
@@ -113,4 +114,25 @@ with harness.Compositor(compositor, config()) as desktop:
                      "lone tile inside the gaps with smart_gaps off")
     desktop.reload(config())
     desktop.wait_for(lambda: windows() == [ALONE], "smart gaps on again")
-print("A lone tile has no gaps; two and more keep them; smart_gaps = false keeps them always")
+
+    # lone_margin keeps a lone tile that far from the edges, whatever smart_gaps says; a second
+    # tile brings the usual gaps back. Too large a margin still leaves a quarter of the screen.
+    MARGIN = 48
+    for smart in ("", ", smart_gaps = false"):
+        desktop.reload(config(f", lone_margin = {MARGIN}{smart}"))
+        desktop.wait_for(lambda: windows() == [(MARGIN + BORDER, MARGIN + BORDER,
+                                                WIDTH - 2 * (MARGIN + BORDER),
+                                                HEIGHT - 2 * (MARGIN + BORDER))],
+                         f"lone tile inside lone_margin{smart}")
+    second = launch()
+    desktop.wait_for(lambda: len(windows()) == 2 and gapped(*sorted(windows())),
+                     "gaps, not the margin, around two tiles")
+    msg("close")
+    assert desktop.reap(second) == 0
+    # 400 fits across 1280 but not down 720, which keeps a quarter of its height.
+    desktop.reload(config(", lone_margin = 400"))
+    desktop.wait_for(lambda: windows() == [(400 + BORDER, HEIGHT * 3 // 8 + BORDER,
+                                            WIDTH - 800 - 2 * BORDER, HEIGHT // 4 - 2 * BORDER)],
+                     "a quarter of the output's height left")
+print("A lone tile has no gaps; two and more keep them; smart_gaps = false keeps them always; "
+      "lone_margin frames a lone tile")
