@@ -5,9 +5,16 @@
 #include "server.h"
 
 /* How long the picture takes to fade before animations.speed, and how long it waits at most for
- * the shell to draw the new look. */
+ * the shell to draw the new look; under --headless, PAW_TEST_CROSSFADE_HOLD_MS sets that for
+ * tests. */
 #define CROSSFADE_MS 400
 #define HOLD_MS 1000
+
+static int hold_ms(struct sh_server *server) {
+    const char *test = getenv("PAW_TEST_CROSSFADE_HOLD_MS");
+    int ms = test && headless_backend(server) ? atoi(test) : 0;
+    return ms > 0 ? ms : HOLD_MS;
+}
 /* The picture's opacity while it covers the screen: just below 1, which looks the same, so that
  * the scene does not take it for opaque. Over an opaque node the scene finds the surfaces under
  * it hidden and sends them no frame callbacks, and the shell could not draw the new look. */
@@ -229,7 +236,7 @@ void crossfade_start(struct sh_server *server) {
         return;
     }
     fade->holding = true;
-    wl_event_source_timer_update(fade->timer, HOLD_MS);
+    wl_event_source_timer_update(fade->timer, hold_ms(server));
 }
 
 /* Takes the pictures away at once, as the session locks or the compositor stops. */
