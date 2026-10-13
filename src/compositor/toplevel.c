@@ -496,6 +496,7 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
                                                     decoration_mode(toplevel->decoration));
     } else if (toplevel->xdg_toplevel->base->surface->mapped) {
         uint64_t started = now_ns();
+        morph_commit(toplevel); // before the scene takes in what it drew
         refresh_frame(toplevel);
         ++toplevel->server->stats.commits;
         toplevel->server->stats.commit_ns += now_ns() - started;
@@ -649,14 +650,15 @@ void server_new_xdg_toplevel(struct wl_listener *listener, void *data) {
     toplevel->xdg_toplevel = xdg_toplevel;
 
     // Listen before the scene does, so the surfaces are still shown when the window unmaps
-    // and the closing animation can copy them.
+    // and the closing animation can copy them, and as it commits a new size, which a change of
+    // size crossfades from what it drew before (morph.c).
     struct wlr_surface *surface = xdg_toplevel->base->surface;
     add_listener(&surface->events.map, &toplevel->map, xdg_toplevel_map);
     add_listener(&surface->events.unmap, &toplevel->unmap, xdg_toplevel_unmap);
     add_listener(&surface->events.commit, &toplevel->commit, xdg_toplevel_commit);
     toplevel->scene_tree = wlr_scene_tree_create(toplevel->server->windows);
     toplevel->content = wlr_scene_tree_create(toplevel->scene_tree);
-    wlr_scene_xdg_surface_create(toplevel->content, xdg_toplevel->base);
+    toplevel->surfaces = wlr_scene_xdg_surface_create(toplevel->content, xdg_toplevel->base);
     toplevel->node = (struct sh_node){SH_NODE_TOPLEVEL, toplevel};
     toplevel->scene_tree->node.data = &toplevel->node;
     toplevel->content->node.data = &toplevel->node;

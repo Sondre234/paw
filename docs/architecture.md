@@ -60,6 +60,7 @@ all. In short:
 | `frame.c` | Borders, opacity, rounded corners, window controls, shadows, tab strips. |
 | `gradient_border.c` | Borders in gradients: the pieces `src/border.c` paints, a strip along each side the scene stretches and a square at each corner, in place of the border's rects. |
 | `placement.c` | Snapping, maximizing, reflowing, moving and resizing by keyboard. |
+| `morph.c` | A window gliding to a new place and size together (maximized, snapped, restored, made fullscreen, moved or resized by keyboard), its client's commits meanwhile, and the size its frame is drawn at. |
 | `tiling.c` | Glue between windows and the layouts in `src/tiling.cpp`. |
 | `workspace.c` | Workspaces per output, sticky windows. |
 | `output.c`, `output_moves.c` | Monitors and their configuration; windows and workspaces moving between outputs. |

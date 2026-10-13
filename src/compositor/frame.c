@@ -78,11 +78,9 @@ static struct wlr_buffer *deco_buffer(struct sh_server *server, struct sh_deco_l
     return server->deco_buffers[index];
 }
 
-/* The controls' place inside the window's scene tree: the flat strip at its top-right corner,
- * the traffic lights at its top-left. */
-static void deco_position(struct sh_toplevel *toplevel, enum sh_deco_style style, int *x,
-                          int *y) {
-    struct wlr_box geometry = toplevel_geometry(toplevel);
+/* The controls' place inside the window's scene tree for its `geometry`: the flat strip at its
+ * top-right corner, the traffic lights at its top-left. */
+static void deco_position(struct wlr_box geometry, enum sh_deco_style style, int *x, int *y) {
     if (style == SH_DECO_TRAFFIC_LIGHTS) {
         *x = geometry.x;
         *y = geometry.y;
@@ -98,7 +96,7 @@ static void deco_position(struct sh_toplevel *toplevel, enum sh_deco_style style
 bool in_deco_corner(struct sh_toplevel *toplevel, double x, double y) {
     enum sh_deco_style style = deco_style(toplevel->server);
     int dx, dy, width, height;
-    deco_position(toplevel, style, &dx, &dy);
+    deco_position(toplevel_geometry(toplevel), style, &dx, &dy);
     sh_decoration_size(style, &width, &height);
     double left = toplevel->scene_tree->node.x + dx - SH_DECO_MARGIN;
     double top = toplevel->scene_tree->node.y + dy - SH_DECO_MARGIN;
@@ -163,7 +161,7 @@ void refresh_decoration(struct sh_toplevel *toplevel) {
     toplevel->deco->point_accepts_input =
         look.style == SH_DECO_TRAFFIC_LIGHTS ? lights_accept_input : NULL;
     int x, y;
-    deco_position(toplevel, look.style, &x, &y);
+    deco_position(frame_geometry(toplevel), look.style, &x, &y); // as drawn, while it morphs
     wlr_scene_node_set_position(&toplevel->deco->node, x, y);
     raise_frame_node(toplevel, &toplevel->deco->node);
     wlr_scene_node_set_enabled(&toplevel->deco->node, server->deco_revealed == toplevel);
@@ -227,7 +225,7 @@ static void remove_shadow(struct sh_toplevel *toplevel) {
 static void refresh_shadow(struct sh_toplevel *toplevel, bool on, int outset, int radius) {
     struct sh_server *server = toplevel->server;
     const struct sh_settings *settings = server_settings(server);
-    struct wlr_box g = toplevel_geometry(toplevel);
+    struct wlr_box g = frame_geometry(toplevel);
     int width = g.width + 2 * outset, height = g.height + 2 * outset;
     if (!on || width < 1 || height < 1) {
         remove_shadow(toplevel);
@@ -344,17 +342,20 @@ void refresh_tabs(struct sh_toplevel *toplevel) {
         toplevel->tabs_active = active;
         toplevel->tabs_hover = hover;
         toplevel->tabs_scale = scale;
-        wlr_scene_buffer_set_dest_size(toplevel->tabs, g.width, SH_TABS_HEIGHT);
     }
+    // Painted for the window's width, stretched to the width drawn while it changes size.
+    wlr_scene_buffer_set_dest_size(toplevel->tabs, frame_geometry(toplevel).width, SH_TABS_HEIGHT);
     wlr_scene_node_set_position(&toplevel->tabs->node, g.x, g.y);
     wlr_scene_node_raise_to_top(&toplevel->tabs->node);
 }
 
 static void set_buffer_opacity(struct wlr_scene_buffer *buffer, int sx, int sy, void *data) {
     struct sh_toplevel *toplevel = data;
-    // The border keeps its own colours, as its rects do.
+    // The border keeps its own colours, as its rects do, and the copy a change of size fades
+    // out its own opacity.
     if (buffer != toplevel->deco && buffer != toplevel->dim && buffer != toplevel->tabs &&
-        (!toplevel->gradient || buffer->node.parent != toplevel->gradient))
+        (!toplevel->gradient || buffer->node.parent != toplevel->gradient) &&
+        (!toplevel->anim.fading || buffer->node.parent != toplevel->anim.fading))
         wlr_scene_buffer_set_opacity(buffer, toplevel->opacity);
 }
 
@@ -455,8 +456,9 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     // Windows on an output that tiles get rounded corners, floating ones too, and with
     // windows.round = "always" so does every other window but one that draws a shadow of its
     // own, which has corners of its own too (and would lose that shadow to the clip). The clip
-    // takes in everything drawn for them but the border, which rounds itself to match.
-    struct wlr_box g = toplevel_geometry(toplevel);
+    // takes in everything drawn for them but the border, which rounds itself to match. While the
+    // window changes size, the frame goes around the size it is drawn at.
+    struct wlr_box g = frame_geometry(toplevel);
     struct wlr_output *output = toplevel_output(toplevel);
     bool rounded = mapped && !frameless(toplevel, output) &&
                    (tiles_for(toplevel, output) ||

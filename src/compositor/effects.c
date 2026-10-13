@@ -33,8 +33,9 @@ static void apply_dim(struct sh_toplevel *toplevel, int64_t now) {
         if (!toplevel->dim)
             return;
     }
-    // The scene tree's origin is the top-left corner of the window geometry.
-    struct wlr_box g = toplevel_geometry(toplevel);
+    // The scene tree's origin is the top-left corner of the window geometry; it is drawn at the
+    // size the window is drawn at.
+    struct wlr_box g = frame_geometry(toplevel);
     wlr_scene_node_set_position(&toplevel->dim->node, 0, 0);
     wlr_scene_buffer_set_dest_size(toplevel->dim, g.width, g.height);
     // Peeking clears the dimming with everything else, and a window shown only for a peek at it

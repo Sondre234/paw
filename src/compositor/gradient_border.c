@@ -37,7 +37,7 @@ static bool corner_accepts_input(struct wlr_scene_buffer *buffer, double *sx, do
 void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, int radius,
                              double mix, float opacity) {
     struct sh_server *server = toplevel->server;
-    struct wlr_box g = toplevel_geometry(toplevel);
+    struct wlr_box g = frame_geometry(toplevel);
     if (!on || border <= 0 || g.width < 1 || g.height < 1) {
         remove_gradient_border(toplevel);
         return;
