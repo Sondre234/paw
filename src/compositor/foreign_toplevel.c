@@ -154,6 +154,8 @@ void publish_toplevel(struct sh_toplevel *toplevel) {
                  foreign_minimize);
     add_listener(&toplevel->foreign->events.request_fullscreen, &toplevel->foreign_fullscreen,
                  foreign_fullscreen);
+    add_listener(&toplevel->foreign->events.set_rectangle, &toplevel->foreign_rectangle,
+                 foreign_set_rectangle);
     wlr_foreign_toplevel_handle_v1_set_fullscreen(toplevel->foreign, toplevel->fullscreen);
     struct wlr_output *output = toplevel_output(toplevel);
     if (output)
@@ -169,6 +171,8 @@ void unpublish_toplevel(struct sh_toplevel *toplevel) {
     wl_list_remove(&toplevel->foreign_maximize.link);
     wl_list_remove(&toplevel->foreign_minimize.link);
     wl_list_remove(&toplevel->foreign_fullscreen.link);
+    wl_list_remove(&toplevel->foreign_rectangle.link);
+    forget_window_rects(toplevel); // the taskbars' handles for it close
     wlr_foreign_toplevel_handle_v1_destroy(toplevel->foreign);
     toplevel->foreign = NULL;
 }

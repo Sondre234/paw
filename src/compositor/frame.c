@@ -547,7 +547,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
             if (toplevel->border[i])
                 wlr_scene_node_destroy(&toplevel->border[i]->node);
             toplevel->border[i] = NULL;
-            toplevel->frame_hole = 0;
+            toplevel->frame_hole = toplevel->frame_radius = 0;
             continue;
         }
         if (!toplevel->border[i])
@@ -578,12 +578,12 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     if (radius > 0)
         sides = frame;
     toplevel->frame_hole = radius > 0 ? b : 0;
+    toplevel->frame_radius = radius > 0 ? radius + (inset ? 0 : b) : 0;
     for (int i = 0; i < 4; ++i) {
         wlr_scene_node_set_position(&toplevel->border[i]->node, sides[i].x, sides[i].y);
         wlr_scene_rect_set_size(toplevel->border[i], sides[i].width, sides[i].height);
 #ifdef PAW_ROUNDED_CORNERS
-        wlr_scene_rect_set_rounding(toplevel->border[i],
-                                    i == 0 && radius > 0 ? radius + (inset ? 0 : b) : 0,
+        wlr_scene_rect_set_rounding(toplevel->border[i], i == 0 ? toplevel->frame_radius : 0,
                                     i == 0 && radius > 0 ? b : 0);
 #endif
         raise_frame_node(toplevel, &toplevel->border[i]->node);

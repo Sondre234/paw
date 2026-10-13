@@ -368,11 +368,13 @@ static void stop(struct sh_anim *anim) {
     wl_list_remove(&anim->link);
     anim->animator = NULL;
     drop_fading(anim);
-    anim->fx = anim->glide = anim->held = anim->morph = anim->absent = false;
+    anim->fx = anim->glide = anim->held = anim->morph = anim->absent = anim->fold = false;
     anim->drawn_width = anim->drawn_height = -1;
     for (size_t i = 0; i < anim->count; ++i)
         record_finish(&anim->records[i]);
     if (anim->owned) {
+        if (anim->ref)
+            *anim->ref = NULL;
         wlr_scene_node_destroy(&anim->tree->node);
         free(anim->records);
         free(anim);
@@ -404,6 +406,43 @@ static void ease_to_rest(const struct sh_curve *curve, int duration, double offs
     double carry = (1 - t) * (1 - t);
     *position = offset * (1 - sh_curve_eval(curve, t)) + velocity * d * t * carry;
     *speed = -offset * slope / d + velocity * (carry - 2 * t * (1 - t));
+}
+
+/* How opaque a fold is `at` of the way into its box: nearly whole for the first part of the way,
+ * then fading out as it gets there, so that it reaches the box but is gone in it. */
+static float fold_alpha(double at) {
+    at = at < 0 ? 0 : at > 1 ? 1 : at;
+    return (float)(1 - at * at);
+}
+
+/* A fold's scale `at` of the way: from 1 at rest to fold_scale inside the box. Scaling about the
+ * fold's point takes the window's middle along a straight line to the box's. */
+static double fold_scale_at(const struct sh_anim *anim, double at) {
+    return 1 + (anim->fold_scale - 1) * at;
+}
+
+static void fold_apply(struct sh_anim *anim) {
+    struct mapping m = IDENTITY;
+    m.scale = (float)fold_scale_at(anim, anim->fold_at);
+    m.alpha = fold_alpha(anim->fold_at);
+    walk(anim, anim->tree, 0, 0, false, &m);
+}
+
+/* The fold's owner redraws what follows it; a copy that has gone has nothing left to draw. */
+static void fold_updated(struct sh_anim *anim) {
+    if (anim->folding.update)
+        anim->folding.update(anim, anim->folding.data);
+}
+
+/* A window's fold stops where it is, its nodes back at rest. */
+static void end_fold(struct sh_anim *anim) {
+    if (!anim->fold)
+        return;
+    anim->fold = false;
+    if (anim->owned)
+        return;
+    walk(anim, anim->tree, 0, 0, true, NULL);
+    fold_updated(anim);
 }
 
 /* The glide's offset along one axis at `elapsed` milliseconds, and its velocity. */
@@ -510,7 +549,20 @@ static bool step(struct sh_anim *anim, int64_t now) {
         if (anim->resized)
             anim->resized(anim->resized_data);
     }
-    return anim->fx || anim->glide || anim->morph;
+    // A fold runs alone on the nodes: neither a fade nor a morph runs beside it.
+    if (anim->fold) {
+        int64_t elapsed = now - anim->fold_start;
+        double e = eased(&anim->fold_curve, elapsed, anim->fold_duration);
+        anim->fold_at = anim->fold_from + (anim->fold_to - anim->fold_from) * e;
+        if (elapsed < anim->fold_duration || anim->owned) {
+            fold_apply(anim);
+            fold_updated(anim);
+        }
+        if (elapsed >= anim->fold_duration)
+            end_fold(anim);
+        anim->fold = elapsed < anim->fold_duration;
+    }
+    return anim->fx || anim->glide || anim->morph || anim->fold;
 }
 
 /* Whether a frame walks the animation's nodes for its own look (an fx's or a morph's), drawing
@@ -551,6 +603,7 @@ static void finish_running(struct sh_anim *anim) {
     }
     if ((anim->fx || morphed) && !anim->owned)
         walk(anim, anim->tree, 0, 0, true, NULL);
+    end_fold(anim);
     if (anim->held && !anim->owned)
         rest_hold(anim);
     void (*resized)(void *) = morphed ? anim->resized : NULL;
@@ -640,7 +693,7 @@ static void rest_anim(struct sh_anim *anim) {
         wlr_scene_node_set_enabled(&anim->tree->node, false);
     if (anim->glide)
         wlr_scene_node_set_position(&anim->tree->node, anim->base_x, anim->base_y);
-    if ((anim->fx || anim->morph) && !anim->owned)
+    if ((anim->fx || anim->morph || anim->fold) && !anim->owned)
         walk(anim, anim->tree, 0, 0, true, NULL);
     // A morph's copy is no window to point at, and its frame (the window's controls) is where
     // it will be: the next step draws it at the size drawn again.
@@ -725,7 +778,7 @@ void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
         bool matters = true;
         // A fade that only changes opacity and a glide keep their boxes' sizes; growing ones
         // and their scale-about-a-center are put at rest without asking.
-        bool sizes_change = anim->fx && anim->scale_from != anim->scale_to;
+        bool sizes_change = (anim->fx && anim->scale_from != anim->scale_to) || anim->fold;
         if (!sizes_change && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
             double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
             double rest_x = parent_x + anim->base_x, rest_y = parent_y + anim->base_y;
@@ -842,6 +895,9 @@ void sh_animator_tick(struct sh_animator *animator) {
         return;
     }
     animator->last_tick = now;
+    // The tweens' owners redraw a window's frame at rest first (its focus fade), and the
+    // animations and the lifts then draw that where they have the window.
+    step_tweens(animator, now, false);
     lifts_advance(animator, now, false);
     struct sh_anim *anim, *next;
     wl_list_for_each_safe(anim, next, &animator->running, link) {
@@ -854,7 +910,6 @@ void sh_animator_tick(struct sh_animator *animator) {
     wl_list_for_each(anim, &animator->held, link) apply_hold(anim);
     // And a lifted window's size.
     lifts_apply(animator);
-    step_tweens(animator, now, false);
     if (wl_list_empty(&animator->running) && wl_list_empty(&animator->tweens) &&
         !lifts_easing(animator))
         animator->last_tick = 0;
@@ -984,6 +1039,7 @@ void sh_anim_morph(struct sh_animator *animator, struct sh_anim *anim, struct wl
     }
     if (anim->animator && anim->tree != tree)
         sh_anim_finish(anim);
+    end_fold(anim); // growing out of its taskbar button, it is at rest for the morph
     if (!anim->morph) {
         // From the size its client drew, which it is drawn at now.
         if (morph->from_width < 1 || morph->from_height < 1 || morph->live_width < 1 ||
@@ -1091,6 +1147,7 @@ static void fx_begin(struct sh_animator *animator, struct sh_anim *anim, enum sh
                      float alpha_to, double cx, double cy) {
     if (anim->fx && !anim->owned)
         walk(anim, anim->tree, 0, 0, true, NULL); // what it shows now is not its resting look
+    end_fold(anim);
     anim->fx = true;
     anim->fx_start = now_ms(animator);
     anim->fx_duration = duration;
@@ -1275,6 +1332,134 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
     anim->glide_start = now_ms(animator);
     fx_begin(animator, anim, SH_ANIM_WORKSPACE, duration, 1, 1, from_alpha, alpha, 0, 0);
     step(anim, anim->fx_start);
+}
+
+/* The scale a fold reaches inside its box and the point it scales about, so that the window
+ * shrinks to fit the box, keeping its proportions, as its middle slides on a straight line to the
+ * box's; false when either box is empty. It always shrinks some, and never to nothing. */
+static bool fold_geometry(const struct sh_fold *fold, float *scale, double *cx, double *cy) {
+    if (fold->rest_width <= 0 || fold->rest_height <= 0 || fold->into_width <= 0 ||
+        fold->into_height <= 0)
+        return false;
+    double s = fmin((double)fold->into_width / fold->rest_width,
+                    (double)fold->into_height / fold->rest_height);
+    s = fmax(0.001, fmin(s, 0.8));
+    double rest_x = fold->rest_x + fold->rest_width / 2.0;
+    double rest_y = fold->rest_y + fold->rest_height / 2.0;
+    double into_x = fold->into_x + fold->into_width / 2.0;
+    double into_y = fold->into_y + fold->into_height / 2.0;
+    *scale = (float)s;
+    *cx = rest_x + (into_x - rest_x) / (1 - s);
+    *cy = rest_y + (into_y - rest_y) / (1 - s);
+    return true;
+}
+
+/* The minimize time for `share` of the way: a fold that turns back early has less to undo, and
+ * takes about the time a spring would for that distance. */
+static int fold_duration(const struct sh_animator *animator, double share) {
+    int duration = animator->config.enabled ? duration_of(animator, SH_ANIM_MINIMIZE) : 0;
+    share = fabs(share);
+    if (!duration || share <= 0)
+        return 0;
+    return (int)fmax(1, lround(duration * sqrt(fmin(share, 1))));
+}
+
+static void fold_begin(struct sh_animator *animator, struct sh_anim *anim,
+                       const struct sh_fold *fold, float scale, double cx, double cy,
+                       double from, double to, int duration) {
+    anim->fold = true;
+    anim->fold_from = anim->fold_at = from;
+    anim->fold_to = to;
+    anim->fold_start = now_ms(animator);
+    anim->fold_duration = duration;
+    anim->fold_curve = animator->config.styles[SH_ANIM_MINIMIZE].curve;
+    anim->fold_scale = scale;
+    anim->folding = *fold;
+    anim->cx = cx, anim->cy = cy;
+}
+
+struct sh_anim *sh_anim_fold_away(struct sh_animator *animator, struct wlr_scene_tree *copy,
+                                  const struct sh_fold *fold, double from, struct sh_anim **ref) {
+    from = fmax(0, from);
+    int duration = fold_duration(animator, 1 - from);
+    float scale;
+    double cx, cy;
+    struct sh_anim *anim = NULL;
+    if (duration && fold_geometry(fold, &scale, &cx, &cy))
+        anim = calloc(1, sizeof(*anim));
+    if (!anim) {
+        wlr_scene_node_destroy(&copy->node);
+        return NULL;
+    }
+    anim->owned = true;
+    anim->tree = copy;
+    start(animator, anim, copy, duration);
+    fold_begin(animator, anim, fold, scale, cx, cy, from, 1, duration);
+    anim->ref = ref;
+    if (ref)
+        *ref = anim;
+    step(anim, anim->fold_start);
+    return anim;
+}
+
+bool sh_anim_unfold(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                    const struct sh_fold *fold, double from) {
+    from = fmin(1, from);
+    int duration = fold_duration(animator, from);
+    float scale;
+    double cx, cy;
+    if (anim->owned || !duration || !fold_geometry(fold, &scale, &cx, &cy))
+        return false;
+    if (anim->held || (anim->animator && anim->tree != tree))
+        sh_anim_finish(anim); // a gesture's hold, or another tree's animation, lands
+    else
+        sh_anim_settle(anim); // a glide goes on beneath the fold
+    start(animator, anim, tree, duration);
+    fold_begin(animator, anim, fold, scale, cx, cy, from, 0, duration);
+    step(anim, anim->fold_start);
+    return true;
+}
+
+double sh_anim_folded(const struct sh_anim *anim, struct sh_fold *fold) {
+    if (!anim->animator || !anim->fold)
+        return -1;
+    if (fold)
+        *fold = anim->folding;
+    return anim->fold_at;
+}
+
+double sh_anim_settle(struct sh_anim *anim) {
+    if (!anim->animator || anim->owned)
+        return 0;
+    double at = anim->fold ? anim->fold_at : 0;
+    if (anim->fx) {
+        anim->fx = false;
+        walk(anim, anim->tree, 0, 0, true, NULL);
+    }
+    end_fold(anim);
+    if (anim->morph) {
+        sh_anim_finish(anim); // its stretch goes with its glide
+        return at;
+    }
+    if (!anim->glide && !anim->held)
+        stop(anim);
+    return at;
+}
+
+void sh_anim_fold_map(const struct sh_anim *anim, int *x, int *y, int *width, int *height,
+                      int *radius) {
+    if (!anim->animator || !anim->fold)
+        return;
+    // As apply_node scales a node: both edges, rounded, so that the box stays on the node's.
+    double scale = fold_scale_at(anim, anim->fold_at);
+    long left = lround(anim->cx + (*x - anim->cx) * scale);
+    long top = lround(anim->cy + (*y - anim->cy) * scale);
+    long right = lround(anim->cx + (*x + *width - anim->cx) * scale);
+    long bottom = lround(anim->cy + (*y + *height - anim->cy) * scale);
+    *x = (int)left, *y = (int)top;
+    *width = (int)fmax(1, right - left), *height = (int)fmax(1, bottom - top);
+    if (radius)
+        *radius = (int)lround(*radius * scale);
 }
 
 void sh_anim_lift(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,

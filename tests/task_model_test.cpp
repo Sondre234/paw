@@ -4,9 +4,40 @@
 #include <QElapsedTimer>
 #include <QProcess>
 #include <QThread>
+#include <cstring>
 #include <functional>
 #include <iostream>
 #include <stdexcept>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+
+// What the compositor's control socket answers `request` with, as `paw msg` reads it.
+static std::string ask(const std::string &request) {
+    const char *path = std::getenv("PAW_SOCKET");
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    if (!path || std::strlen(path) >= sizeof(address.sun_path))
+        throw std::runtime_error("no control socket");
+    std::strcpy(address.sun_path, path);
+    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (fd < 0 || connect(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) {
+        if (fd >= 0)
+            close(fd);
+        throw std::runtime_error("cannot reach the control socket");
+    }
+    const std::string line = request + "\n";
+    if (write(fd, line.data(), line.size()) != static_cast<ssize_t>(line.size())) {
+        close(fd);
+        throw std::runtime_error("cannot ask the control socket");
+    }
+    std::string reply;
+    char buffer[4096];
+    for (ssize_t count; (count = read(fd, buffer, sizeof(buffer))) > 0;)
+        reply.append(buffer, static_cast<size_t>(count));
+    close(fd);
+    return reply;
+}
 
 // Exercise the model used by QML against an actual compositor and xdg client.
 // No fake protocol callbacks: every state change must come back over Wayland.
@@ -90,6 +121,32 @@ int main(int argc, char **argv) {
         wait([&] { return value(TaskModel::Above).toBool(); }, "keeping the window above failed");
         model.setAbove(id, false);
         wait([&] { return !value(TaskModel::Above).toBool(); }, "letting the window go failed");
+        // Where the bar shows the window goes to the compositor, through version 7, once a change
+        // is over: a picture over the button while there is one, then the button again, and
+        // nothing once the button is gone.
+        auto rects = [&] {
+            std::string reply = ask("get minimize"), found;
+            for (size_t at = reply.find("rect\t"); at != std::string::npos;
+                 at = reply.find("rect\t", at + 1))
+                found += reply.substr(at, reply.find('\n', at) - at) + ";";
+            return found;
+        };
+        auto placed = [&](const std::string &expected, const char *message) {
+            wait([&] { return rects() == expected; }, message);
+        };
+        {
+            QObject button, picture;
+            model.place(&button, {id, id + 100}, "HEADLESS-1", QRectF(10.4, 680, 40, 40));
+            placed("rect\t1\tHEADLESS-1\t10\t680\t40\t40;", "the button's place was not sent");
+            model.place(&picture, {id}, "HEADLESS-1", QRectF(200, 400, 240, 150), 1);
+            model.place(&button, {id}, "HEADLESS-1", QRectF(60, 680, 40, 40));
+            placed("rect\t1\tHEADLESS-1\t200\t400\t240\t150;", "the picture did not count");
+            model.place(&picture, {id}, "HEADLESS-1", QRectF());
+            placed("rect\t1\tHEADLESS-1\t60\t680\t40\t40;", "the button did not count again");
+            model.place(&picture, {id}, "HEADLESS-1", QRectF(200, 400, 240, 150), 1);
+            placed("rect\t1\tHEADLESS-1\t200\t400\t240\t150;", "the picture did not count again");
+        }
+        placed("", "the places did not go with their owners");
         model.moveToOutput(id, "HEADLESS-1"); // the one it is on: nothing changes
         // Moved away, it lost the focus, and none of these gave it back.
         if (value(TaskModel::Active).toBool())
@@ -250,7 +307,7 @@ int main(int argc, char **argv) {
             throw std::runtime_error("a closed window's picture stayed");
         std::cout
             << "Task model metadata, place, minimize, restore, maximize, fullscreen, show desktop, "
-               "pictures, close passed\n";
+               "pictures, buttons' places, close passed\n";
         return 0;
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n' << client.readAllStandardError().toStdString();

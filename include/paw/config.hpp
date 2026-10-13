@@ -328,7 +328,8 @@ struct Config {
                                               {120, {SH_CURVE_SPRING, {}}},          // move
                                               {120, {SH_CURVE_EASE_OUT_QUINT, {}}},  // workspace
                                               {120, {SH_CURVE_EASE_OUT, {}}},        // fullscreen
-                                              {120, {SH_CURVE_EASE_OUT, {}}}},       // focus
+                                              {120, {SH_CURVE_EASE_OUT, {}}},        // focus
+                                              {300, {SH_CURVE_BEZIER, {0.2F, 0, 0, 1}}}}, // minimize
                          .workspace_back_and_forth = false,
                          .scratchpad = true,
                          .sticky = true,

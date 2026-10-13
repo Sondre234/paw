@@ -235,6 +235,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/layer_shell.c
         src/compositor/lift.c
         src/compositor/lock.c
+        src/compositor/minimize.c
         src/compositor/mirror.c
         src/compositor/morph.c
         src/compositor/output.c
@@ -623,6 +624,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(workspace_back_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(taskbar_restore_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe>)
+        paw_smoke(minimize_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(tiling_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
         paw_smoke(tiling_open_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})

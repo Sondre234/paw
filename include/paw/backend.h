@@ -221,6 +221,8 @@ enum sh_action {
     SH_EMOJI_PICKER,
     /* Asks the shell for its display settings window on the output under the pointer. */
     SH_DISPLAY_SETTINGS,
+    /* Minimizes the focused window into its taskbar button, as its own minimize button does. */
+    SH_MINIMIZE,
 };
 
 /* The display_mode action's choices. */

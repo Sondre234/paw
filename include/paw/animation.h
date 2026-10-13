@@ -2,8 +2,9 @@
 #pragma once
 /* Short window animations on the plain wlroots scene graph: a window fades in and grows
  * slightly when it opens, a snapshot of its last frame fades out and shrinks when it closes,
- * tiles glide to their new place when the layout changes, and a window maximized, snapped or
- * restored glides to its new place and size together.
+ * tiles glide to their new place when the layout changes, a window maximized, snapped or
+ * restored glides to its new place and size together, and a window folds into its taskbar
+ * button as it is minimized and out of it as it is restored.
  *
  * Each animation owns one scene tree and changes only what is below it: the tree's own
  * position (the glide), and the position, destination size, and opacity (or color, for
@@ -21,7 +22,21 @@
 struct wlr_scene_node;
 struct wlr_scene_tree;
 struct sh_animator;
+struct sh_anim;
 struct sh_anim_record;
+
+/* A window minimizing into a box, its button on a taskbar, or restoring out of it (a fold): the
+ * box the window rests in and the one it shrinks into, keeping its proportions, both in the
+ * animated tree's coordinates, and what the owner redraws as the window moves, which is not one
+ * of its nodes (a rounded clip, with sh_anim_fold_map). */
+struct sh_fold {
+    int rest_x, rest_y, rest_width, rest_height;
+    int into_x, into_y, into_width, into_height;
+    /* Called with the animation after each step and as a window's fold ends, NULL for
+     * nothing. */
+    void (*update)(const struct sh_anim *anim, void *data);
+    void *data;
+};
 
 /* One window's running animation, embedded in the window and zeroed with it. */
 struct sh_anim {
@@ -47,6 +62,17 @@ struct sh_anim {
     bool held;
     double held_x, held_y;
     float held_alpha;
+    /* A fold: drawn `fold_at` of the way into the box (0 at rest, 1 inside it), on its way from
+     * fold_from to fold_to, scaled about (cx, cy) by 1 at rest down to fold_scale inside it. */
+    bool fold;
+    double fold_from, fold_to, fold_at;
+    int64_t fold_start;
+    int fold_duration;
+    struct sh_curve fold_curve;
+    float fold_scale;
+    struct sh_fold folding;
+    /* A copy's owner's pointer to it, set to NULL as the copy goes; NULL for none. */
+    struct sh_anim **ref;
     /* Lifted while dragged (sh_anim_lift): drawn up to `lift_scale` times its size about
      * (lift_cx, lift_cy), on top of whatever else runs on it; with bounds (lift_bounds: x, y,
      * width, height; no width for none), only what is inside them grows, and what is outside
@@ -288,3 +314,31 @@ void sh_anim_finish(struct sh_anim *anim);
  * `window`, which fades out and shrinks about (cx, cy) in `content` coordinates, then goes. */
 void sh_anim_close(struct sh_animator *animator, struct wlr_scene_node *window,
                    struct wlr_scene_tree *content, double cx, double cy);
+
+/* Minimizing and restoring, with the duration and curve of SH_ANIM_MINIMIZE. Along the way the
+ * window shrinks about one point, so that it slides on a straight line into the box as it
+ * shrinks to fit it, and fades out over the last part of the way. A fold that turns back goes
+ * from where it is drawn, in the share of the time the way back takes.
+ *
+ * A copy of a window minimizing (`copy`, a tree the caller made and positioned, which the
+ * animation takes over) folds from `from` of the way into the box, then goes with its tree. The
+ * returned animation is the animator's; `*ref`, when given, points to it until it goes. NULL
+ * and the tree destroyed at once when animations are off or the boxes are empty. */
+struct sh_anim *sh_anim_fold_away(struct sh_animator *animator, struct wlr_scene_tree *copy,
+                                  const struct sh_fold *fold, double from, struct sh_anim **ref);
+/* A window restoring: `tree` grows from `from` of the way into the box (1 for all of it) back
+ * to rest, whatever else ran on its nodes landing first; a glide goes on. Returns whether it
+ * runs. */
+bool sh_anim_unfold(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                    const struct sh_fold *fold, double from);
+/* How far into its box the fold draws the window now, with the fold in `fold` when not NULL;
+ * -1 when it is not folding. */
+double sh_anim_folded(const struct sh_anim *anim, struct sh_fold *fold);
+/* Ends a window's fold and fade, its nodes back at rest and its owner's update called, but not a
+ * glide, which goes on, unless a morph rides on it, which lands with it; returns how far into its
+ * box the fold was, 0 without one. */
+double sh_anim_settle(struct sh_anim *anim);
+/* Where the fold draws a box of the tree now, given in the tree's coordinates, and a radius of
+ * its corners: unchanged when it is not folding. */
+void sh_anim_fold_map(const struct sh_anim *anim, int *x, int *y, int *width, int *height,
+                      int *radius);

@@ -470,7 +470,8 @@ const Option options[] = {
      "Easing for every animation that does not set its own: `\"linear\"`, `\"ease-in\"`, "
      "`\"ease-out\"`, `\"ease-in-out\"`, `\"ease-out-quint\"`, `\"overshoot\"`, `\"spring\"`, or "
      "`\"bezier(x1, y1, x2, y2)\"` (x between 0 and 1, y between -2 and 3). Unset, moves use "
-     "`\"spring\"`, workspace slides `\"ease-out-quint\"`, and the rest `\"ease-out\"`."},
+     "`\"spring\"`, workspace slides `\"ease-out-quint\"`, minimizing "
+     "`\"bezier(0.2, 0, 0, 1)\"`, and the rest `\"ease-out\"`."},
     {"animations.late_frame_ms", "integer", "80", "80", 0, 1000,
      "A frame later than this finishes running animations instead of stuttering through them; "
      "0 never skips."},
@@ -501,6 +502,15 @@ const Option options[] = {
     {"animations.focus.duration", "integer", "`duration`", "", 0, 1000,
      "Length in milliseconds; 0 turns this animation off."},
     {"animations.focus.curve", "enum", "`curve`", "", none, none, "Easing curve, as `animations.curve`."},
+    {"animations.minimize", "table", "", "", none, none,
+     "A window shrinking into its taskbar button as it is minimized, and growing out of it as it "
+     "is restored. Overrides the animation-wide settings."},
+    {"animations.minimize.duration", "integer", "`duration` × 2.5", "", 0, 1000,
+     "Length in milliseconds; 0 turns this animation off. Unset, it is two and a half times "
+     "`duration` (at most 1000), as a window goes further than the other animations take it."},
+    {"animations.minimize.curve", "enum", "`curve`", "", none, none,
+     "Easing curve, as `animations.curve`, which it follows when that is set; with neither set, "
+     "`\"bezier(0.2, 0, 0, 1)\"`, a moment to set off and a long settle."},
 
     {"overview", "table", "", "", none, none,
      "The overview: every window of a monitor's workspace as a live thumbnail, opened by the "

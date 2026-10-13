@@ -435,6 +435,10 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         if (current)
             set_above(current, !current->above);
         break;
+    case SH_MINIMIZE:
+        if (current && !current->minimized && toplevel_mapped(current))
+            minimize_toplevel(current);
+        break;
     case SH_TOGGLE_FLOATING:
         if (current)
             set_floating(current, current->tiled, true);

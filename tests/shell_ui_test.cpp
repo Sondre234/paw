@@ -3816,14 +3816,16 @@ ListModel {
         // Its entries for another search (the start menu's): the windows of the model it is
         // given, no applications; one runs as it would from the palette.
         int windows = 0;
-        bool apps = false, tiling = false;
+        bool apps = false, tiling = false, minimize = false;
         for (const auto &item : palette->entries(fakeModel)) {
             windows += item.toMap()["kind"] == "window";
             apps = apps || item.toMap()["kind"] == "app";
             tiling = tiling || item.toMap()["title"] == "Toggle tiling";
+            minimize = minimize || (item.toMap()["title"] == "Minimize window" &&
+                                    item.toMap()["target"] == "minimize");
         }
         const int rows = qobject_cast<QAbstractItemModel *>(fakeModel)->rowCount();
-        if (rows == 0 || windows != rows || apps || !tiling)
+        if (rows == 0 || windows != rows || apps || !tiling || !minimize)
             return fail("the palette's entries for another search are not its windows and actions");
         palette->run({{"kind", "action"}, {"target", "toggle_tiling"}}, output);
         if (!waitFor([&] { return requests == QStringList{"toggle_tiling"}; }))
