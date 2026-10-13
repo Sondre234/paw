@@ -357,7 +357,6 @@ static void control_get_window(struct wl_client *client, struct wl_resource *res
     send_window(object);
 }
 
-
 /* Whether the window shows on workspace `workspace` (from 0) of the output named `output`, as
  * the taskbar lists it: published, mapped, and neither minimized (as a hidden scratchpad window
  * is), behind another member of its group nor swallowed. A sticky window shows on each. */
@@ -587,9 +586,8 @@ static void control_bind(struct wl_client *client, void *data, uint32_t version,
 void window_control_init(struct sh_server *server) {
     wl_list_init(&server->window_objects);
     wl_list_init(&server->workspace_objects);
-    server->window_control = wl_global_create(server->wl_display,
-                                              &paw_window_control_v1_interface, 8, server,
-                                              control_bind);
+    server->window_control = wl_global_create(server->wl_display, &paw_window_control_v1_interface,
+                                              8, server, control_bind);
     if (!server->window_control)
         wlr_log(WLR_ERROR, "Cannot offer paw-window-control-v1");
 }

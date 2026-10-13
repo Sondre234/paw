@@ -511,8 +511,8 @@ void TaskModel::workspaceSize(void *data, paw_workspace_v1 *, int32_t width, int
     workspace.next = {{"width", width}, {"height", height}};
     workspace.nextWindows.clear();
 }
-void TaskModel::workspaceWindow(void *data, paw_workspace_v1 *, uint32_t id, int32_t x,
-                                int32_t y, int32_t width, int32_t height) {
+void TaskModel::workspaceWindow(void *data, paw_workspace_v1 *, uint32_t id, int32_t x, int32_t y,
+                                int32_t width, int32_t height) {
     auto &workspace = *static_cast<WorkspaceList *>(data);
     workspace.nextWindows.push_back(QVariantMap{{"windowId", id <= INT_MAX ? int(id) : 0},
                                                 {"x", x},

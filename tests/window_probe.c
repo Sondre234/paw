@@ -625,16 +625,16 @@ struct workspace {
 static void workspace_size(void *data, struct paw_workspace_v1 *object, int32_t width,
                            int32_t height) {
     struct workspace *workspace = data;
-    workspace->length = (size_t)snprintf(workspace->line, sizeof(workspace->line), "%dx%d", width,
-                                         height);
+    workspace->length =
+        (size_t)snprintf(workspace->line, sizeof(workspace->line), "%dx%d", width, height);
 }
-static void workspace_window(void *data, struct paw_workspace_v1 *object, uint32_t id,
-                             int32_t x, int32_t y, int32_t width, int32_t height) {
+static void workspace_window(void *data, struct paw_workspace_v1 *object, uint32_t id, int32_t x,
+                             int32_t y, int32_t width, int32_t height) {
     struct workspace *workspace = data;
     if (workspace->length < sizeof(workspace->line))
-        workspace->length += (size_t)snprintf(
-            workspace->line + workspace->length, sizeof(workspace->line) - workspace->length,
-            " %u:%d,%d,%dx%d", id, x, y, width, height);
+        workspace->length += (size_t)snprintf(workspace->line + workspace->length,
+                                              sizeof(workspace->line) - workspace->length,
+                                              " %u:%d,%d,%dx%d", id, x, y, width, height);
 }
 static void workspace_done(void *data, struct paw_workspace_v1 *object) {
     struct workspace *workspace = data;
@@ -661,7 +661,7 @@ static int watch_workspace(int argc, char **argv) {
     if (wl_display_roundtrip(display) < 0)
         die("roundtrip failed");
     if (!probe.control || paw_window_control_v1_get_version(probe.control) <
-                                PAW_WINDOW_CONTROL_V1_GET_WORKSPACE_SINCE_VERSION)
+                              PAW_WINDOW_CONTROL_V1_GET_WORKSPACE_SINCE_VERSION)
         die("the compositor's window control lists no workspaces");
     struct workspace workspace = {0};
     struct paw_workspace_v1 *object = paw_window_control_v1_get_workspace(

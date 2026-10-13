@@ -98,8 +98,8 @@ bool window_picture_extents(struct sh_toplevel *toplevel, struct wlr_box *box) {
     wlr_scene_node_for_each_buffer(&toplevel->capture_scene->tree.node, add_extents, &extents);
     if (extents.x2 <= extents.x1 || extents.y2 <= extents.y1)
         return false;
-    *box = (struct wlr_box){extents.x1, extents.y1, extents.x2 - extents.x1,
-                            extents.y2 - extents.y1};
+    *box =
+        (struct wlr_box){extents.x1, extents.y1, extents.x2 - extents.x1, extents.y2 - extents.y1};
     return true;
 }
 
