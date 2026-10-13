@@ -730,6 +730,10 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
 static const double DROP_IN_STRETCH = 2, DROP_OUT_STRETCH = 1.5;
 /* The share of a drop its fade takes: the start of dropping in, the end of sliding out. */
 static const double DROP_FADE = 0.4;
+/* The share of the speed it had that a drop turning back keeps: it eases round rather than
+ * bouncing off, without carrying on far the way it went (all of it would carry a window shown
+ * and hidden again a sixth of its height further down before it turned). */
+static const double DROP_KEEP = 0.25;
 
 /* The factor of its nodes' opacity the animation draws at `now`; 1 at rest. A fade that has yet
  * to start draws where it starts. */
@@ -781,11 +785,15 @@ static bool drop(struct sh_animator *animator, struct sh_anim *anim, struct wlr_
     anim->glide_curve = animator->config.styles[kind].curve;
     if (out)
         anim->glide_curve.kind |= SH_CURVE_REVERSED;
-    // The curve has a speed of its own to start with; carry only what it lacks.
+    // The curve has a speed of its own to start with; carry some of what it lacks.
     const double h = 1e-4;
     double start_slope = sh_curve_eval(&anim->glide_curve, h) / h / duration;
-    anim->glide_vx = moving ? carried(vx, -anim->glide_x * start_slope, anim->glide_x, duration) : 0;
-    anim->glide_vy = moving ? carried(vy, -anim->glide_y * start_slope, anim->glide_y, duration) : 0;
+    anim->glide_vx = moving ? DROP_KEEP * carried(vx, -anim->glide_x * start_slope, anim->glide_x,
+                                                  duration)
+                            : 0;
+    anim->glide_vy = moving ? DROP_KEEP * carried(vy, -anim->glide_y * start_slope, anim->glide_y,
+                                                  duration)
+                            : 0;
     anim->glide = true;
     anim->glide_start = now;
     int fade = (int)fmax(1, lround(duration * DROP_FADE));
