@@ -1576,16 +1576,18 @@ A window moved with the pointer is lifted once the pointer has taken it a few pi
 its title bar does not lift it): it grows by a fortieth, but no more than 24 pixels along its
 longer side, about the point the pointer holds it by, so it stays under the pointer as it was
 taken, and its shadow grows half as soft again and falls further, a little lighter. A printed
-shadow (with no blur) moves two fifths further off instead, as crisp. Its border and rounded
-corners stay as they are around it. It eases up with the duration and curve of `move`, stays up
-while the window is moved (drawing nothing while the pointer rests), sets down onto an edge its
-[magnet](#magnetic-edges) holds and lifts again as the pointer pulls it away, and settles back
-as it is dropped, in half as long again, from wherever it is drawn; a drop that snaps or
-maximizes it settles it as it moves to its place. Where the window is and what the pointer
-reaches are those of the window at its own size throughout. Resizing does not lift a window.
-`windows = { lift = false }` turns this off; with animations off the window lifts and settles at
-once. `paw msg get lift` lists the windows lifted or settling: title, how far up (thousandths),
-the box the window is drawn in from its top-left corner, and the point it grows about.
+shadow (with no blur) moves two fifths further off instead, as crisp. A translucent window's
+cast shadow stays as it rests, as stretched it would show through the window's edge. Its border
+and rounded corners stay as they are around it. It eases up with the duration and curve of
+`move`, stays up while the window is moved (drawing nothing while the pointer rests), sets down
+onto an edge its [magnet](#magnetic-edges) holds and lifts again as the pointer pulls it away,
+and settles back as it is dropped, in half as long again, from wherever it is drawn; a drop that
+snaps or maximizes it settles it as it moves to its place. Where the window is and what the
+pointer reaches are those of the window at its own size throughout. Resizing does not lift a
+window. `windows = { lift = false }` turns this off; with animations off the window lifts and
+settles at once. `paw msg get lift` lists the windows lifted or settling: title, how far up
+(thousandths), the box the window is drawn in from its top-left corner, and the point it grows
+about.
 
 ## Effects
 
