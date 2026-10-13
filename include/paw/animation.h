@@ -142,7 +142,8 @@ void sh_anim_slide_out(struct sh_animator *animator, struct wlr_scene_node *wind
 /* Gestures: a workspace slide held part of the way while fingers move it. A held animation stays
  * where it is put until it is held elsewhere, slid on from there or finished; neither the clock,
  * a late frame nor turning animations off moves it. Holds `tree` offset by (dx, dy) from where
- * it rests, its nodes' opacity multiplied by `alpha`. Whatever ran on `anim` lands first. */
+ * it rests, its nodes' opacity multiplied by `alpha`. Whatever ran on `anim` lands first, but
+ * for a lift (sh_anim_lift), which goes on over the hold. */
 void sh_anim_hold(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
                   double dx, double dy, float alpha);
 /* A copy of what is visible under `content` just above `window`, held as sh_anim_hold holds a
@@ -154,7 +155,7 @@ struct sh_anim *sh_anim_hold_copy(struct sh_animator *animator, struct wlr_scene
                                   float alpha);
 /* As sh_anim_slide, from part of the way: `tree` starts offset by (dx, dy) with its opacity
  * multiplied by `alpha`, and comes to rest in `share` (a quarter to all) of the workspace
- * slide's time. A hold on `anim` ends there. */
+ * slide's time. A hold on `anim` ends there; a lift goes on over the slide. */
 void sh_anim_slide_from(struct sh_animator *animator, struct sh_anim *anim,
                         struct wlr_scene_tree *tree, int dx, int dy, float alpha, double share);
 /* A copy from sh_anim_hold_copy slides on from where it is held to (dx, dy) from its window,
@@ -186,7 +187,7 @@ void sh_anim_lift_box(const struct sh_anim *anim, int box[4]);
 /* Windows lifted, or still settling. */
 size_t sh_animator_lifted(const struct sh_animator *animator);
 /* Jumps to the end: every node gets its resting values and the tree its resting position. A
- * lift ends too, without calling its update. */
+ * lift ends too, and its update is called once it has, for what follows it to rest as well. */
 void sh_anim_finish(struct sh_anim *anim);
 /* Copies the visible buffers and rectangles under `content` into a new tree just above
  * `window`, which fades out and shrinks about (cx, cy) in `content` coordinates, then goes. */

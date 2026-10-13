@@ -320,8 +320,13 @@ static void finish_running(struct sh_anim *anim) {
 }
 
 void sh_anim_finish(struct sh_anim *anim) {
+    bool lifted = anim->lifted;
+    void (*update)(void *) = anim->lift_update;
+    void *data = anim->lift_data;
     lift_end(anim, true);
     finish_running(anim);
+    if (lifted && update)
+        update(data); // what follows the lift (a shadow, clips) rests too
 }
 
 static void tween_value(const struct sh_tween *tween, double e, float out[SH_TWEEN_VALUES]) {
@@ -757,7 +762,7 @@ void sh_anim_hold(struct sh_animator *animator, struct sh_anim *anim, struct wlr
     if (anim->owned && !anim->held)
         return; // a copy that is running is the animator's alone
     if (anim->animator && (!anim->held || anim->tree != tree))
-        sh_anim_finish(anim); // what ran lands, and the hold starts from rest
+        finish_running(anim); // what ran lands, and the hold starts from rest, a lift on top
     anim->tree = tree;
     if (!anim->animator) {
         anim->animator = animator;
@@ -802,7 +807,7 @@ void sh_anim_slide_from(struct sh_animator *animator, struct sh_anim *anim,
                         struct wlr_scene_tree *tree, int dx, int dy, float alpha, double share) {
     if (anim->owned)
         return;
-    sh_anim_finish(anim); // from rest, as the hold or what ran left it
+    finish_running(anim); // from rest, as the hold or what ran left it, a lift on top
     int duration = slide_duration(animator, share);
     if (!duration || (dx == 0 && dy == 0 && alpha >= 1))
         return;
