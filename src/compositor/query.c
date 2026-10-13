@@ -320,6 +320,55 @@ static void get_frames(struct sh_server *server, int fd, const char *arguments) 
     }
 }
 
+/* The buffer that draws `surface` below `tree`, or NULL. */
+static struct wlr_scene_buffer *surface_buffer(struct wlr_scene_tree *tree,
+                                               struct wlr_surface *surface) {
+    struct wlr_scene_node *node;
+    wl_list_for_each(node, &tree->children, link) {
+        if (node->type == WLR_SCENE_NODE_TREE) {
+            struct wlr_scene_buffer *found =
+                surface_buffer(wlr_scene_tree_from_node(node), surface);
+            if (found)
+                return found;
+        } else if (node->type == WLR_SCENE_NODE_BUFFER) {
+            struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
+            struct wlr_scene_surface *drawn = wlr_scene_surface_try_from_buffer(buffer);
+            if (drawn && drawn->surface == surface)
+                return buffer;
+        }
+    }
+    return NULL;
+}
+
+static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
+    // Where each window is drawn now, in the order of `get windows`, while `get windows` says
+    // where it is: app_id, title, the place of its geometry's top-left corner and the size it is
+    // drawn at (mid-glide, or changing size), the size its own surface is drawn at (stretched
+    // while it changes size), what a change of size is doing: "rest", "moving", "waiting" for
+    // the client to draw the new size, or "fading" what it drew before, and how much of its
+    // frame shows, in thousandths (none while maximized or fullscreen, fading in between).
+    control_reply(fd, "ok\n");
+    struct sh_toplevel *toplevel;
+    wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
+        if (!toplevel->scene_tree || !toplevel->content)
+            continue;
+        char line[1024], app_id[256], title[512];
+        copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        struct wlr_box drawn = frame_geometry(toplevel);
+        struct wlr_scene_buffer *buffer =
+            toplevel->surfaces ? surface_buffer(toplevel->surfaces, toplevel_surface(toplevel))
+                               : NULL;
+        const struct sh_tween *frame = &toplevel->frame_fade;
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%ld\n", app_id, title,
+                 toplevel->scene_tree->node.x + toplevel->content->node.x,
+                 toplevel->scene_tree->node.y + toplevel->content->node.y, drawn.width,
+                 drawn.height, buffer ? buffer->dst_width : 0, buffer ? buffer->dst_height : 0,
+                 morph_state(toplevel), frame->valid ? lround(1000 * frame->value[0]) : 1000);
+        control_reply(fd, line);
+    }
+}
+
 static void get_zoom(struct sh_server *server, int fd, const char *arguments) {
     // The magnification now and its target (thousandths), and the number of outputs that
     // drew the last frame magnified.
@@ -726,6 +775,7 @@ static const struct {
     {"scratchpad", get_scratchpad, false},
     {"opacities", get_opacities, false},
     {"frames", get_frames, false},
+    {"drawn", get_drawn, false},
     {"zoom", get_zoom, false},
     {"night_light", get_night_light, false},
     {"overview", get_overview, false},

@@ -453,7 +453,8 @@ struct sh_server {
     /* Snapping a dragged window at the edges of its output (snap.c): the zone the pointer is
      * in (the arrangement a drop gives, SH_NONE for none) and its slot, the window's floating
      * box as the drag began, and the preview of the slot, which eases between places in `tween`
-     * (x, y, width, height, opacity), drawn now as `drawn`, with corners of `radius`. */
+     * (x, y, width, height, opacity), drawn now as `drawn`, with corners of `radius`; `landing`
+     * while it fades out under the window dropped into it. */
     struct {
         enum sh_action zone;
         struct sh_rect slot;
@@ -463,6 +464,7 @@ struct sh_server {
         struct sh_tween tween;
         float drawn[SH_TWEEN_VALUES];
         int radius;
+        bool landing;
     } snap;
 
     /* Windows a session restore launched and has yet to place: the first new window with the
@@ -873,13 +875,18 @@ struct sh_toplevel {
     bool x_hint_urgent; // the client's WM_HINTS ask for attention
 #endif
     /* scene_tree sits at the window's place; content holds everything drawn for it, so an
-     * animation can move, scale, and fade it without changing where the window is. */
-    struct wlr_scene_tree *scene_tree, *content;
+     * animation can move, scale, and fade it without changing where the window is. surfaces,
+     * in content, holds the client's surfaces, which a change of size stretches (morph.c);
+     * morph_serial is the configure whose answer that waits for (0 for none). */
+    struct wlr_scene_tree *scene_tree, *content, *surfaces;
+    uint32_t morph_serial;
     struct sh_anim anim;
     struct sh_drop drop;                      // the scratchpad's slide in and out
     struct sh_clip_wish clips[SH_CLIP_TREES]; // content's, the shadow's and the gradient's
     struct sh_clip_wish content_clip; // content's as last drawn, cut or not, for get scratchpad
     struct sh_tween fade; // opacity and border color following focus
+    struct sh_tween frame_fade; // how much of its frame shows (frame.c's frame_shown)
+    bool own_shadow, own_shadow_read; // whether it draws its own shadow, as the frame takes it
     bool shown; // has opened (and started its opening animation) since it last mapped
     struct wlr_scene_buffer *deco;    // window controls; NULL when the client decorates itself
     struct wlr_scene_rect *border[4]; // top, bottom, left, right; NULL without a border
@@ -1251,6 +1258,13 @@ bool refresh_mirrors(struct sh_server *server);
 void mirrors_follow_power(struct sh_output *source, bool on);
 void mirror_frame(struct sh_output *output);
 bool mirror_capture(struct sh_output *output, const char *path, char *error, size_t error_size);
+
+/* morph.c */
+struct wlr_box morph_from(struct sh_toplevel *toplevel);
+void toplevel_morph(struct sh_toplevel *toplevel, struct wlr_box from, enum sh_anim_kind kind);
+void morph_commit(struct sh_toplevel *toplevel);
+struct wlr_box frame_geometry(struct sh_toplevel *toplevel);
+const char *morph_state(struct sh_toplevel *toplevel);
 
 /* output.c */
 struct sh_output *next_connected(struct sh_server *server, struct sh_output *output);

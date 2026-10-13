@@ -817,7 +817,8 @@ While a drop would snap, a translucent preview of the slot shows under the dragg
 `windows.snap.color` (the focused border's colour, a quarter opaque) with an outline of the same
 colour, more opaque, and rounded as a window there would be. It grows out of the window into
 the slot as the pointer reaches the edge, glides to the next slot as the pointer moves into a
-corner, fades out where it is as the pointer leaves the edge, and goes as the window is dropped.
+corner, fades out where it is as the pointer leaves the edge, and fades out under the window
+dropped into the slot as the window glides there from where it was dropped.
 It moves with the duration and curve of `animations.move` and fades with those of
 `animations.close`, at once with animations off. The outline needs the GLES2 renderer and
 wlroots with the rounded-corners patch; elsewhere the preview is the fill alone, and square
@@ -1561,6 +1562,28 @@ window's center. `animations = { enabled = false }` turns this off, and `duratio
 length in milliseconds (default 120, 10–1000). Window positions reported by `paw msg` are
 always the final ones, and clicks and hovering use them too: input never waits for an
 animation or lands in the middle of one.
+
+A window that gets another place and size glides to them together, its size easing on the same
+curve as its place: maximized and restored (by a binding, the application's own title bar or
+button, or the taskbar), snapped from the keyboard or by Super + Alt + arrows, dropped into a snap at an
+edge (gliding from where it was dropped into the slot, over the preview fading out under it),
+dragged off a snap (shrinking back to its own size under the pointer), resized or moved by the
+keyboard, floated out of the tiling, moved to the next monitor floating, or made fullscreen and
+back.
+These take `animations.move`, and fullscreen `animations.fullscreen`. An application draws its
+new size only once it is told it, so meanwhile what it drew last is stretched to the size the
+window is drawn at, and once it draws the new size what it drew before fades out over it, so
+that neither the size nor the picture jumps. The border, the shadow and the rounded corners
+follow the size drawn; becoming maximized or fullscreen, where a window has none, they fade out
+and the corners square on the way, and fade back in leaving it. Past the glide, a window waits
+at its new size for an application slow to draw it, up to 300 milliseconds, and then eases to
+the size the application last drew, until it draws the new one; an application that answers at
+its own size instead has the window ease to that. Reversed or changed again part way, a window goes on from
+where it is drawn, at the speed it has. `paw msg get drawn` prints where each window is drawn
+now, in the order of `get windows`: app ID, title, its place and size as drawn, the size its
+surface is drawn at, what its change of size does (`rest`, `moving`, `waiting` for the
+application, `fading` what it drew before) and how much of its frame shows (in thousandths), for
+tests; `tests/morph_smoke.py` follows the changes with it.
 
 Animations are interruptible: a tile that is gliding when the layout changes again continues
 from where it is drawn, at the speed it has, and never snaps. Each kind (`open`, `close`,
@@ -2603,7 +2626,8 @@ the keyboard.
 `na`, `unknown` until it has answered, or `unavailable` without logind.
 `paw msg get animations` prints the number of running animations and of window trees in
 the scene (closing windows count until their animation ends), and of focus fades, mainly
-for tests. `paw msg get pictures` prints one line per capture source a client asked for to
+for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
+and size (see [Animations](#animations)). `paw msg get pictures` prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
 window_peek` prints one line per window for a peek at one window (the taskbar's card's, the
