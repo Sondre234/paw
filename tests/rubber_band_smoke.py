@@ -132,9 +132,32 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
     assert workspace() == 2 and running() == 0, msg("get", "animations")
 
     # A slide that only fades: the window dims instead, and brightens again as it is let go.
-    desktop.reload(CONFIG % (SLOW + ", workspace = { distance = 0 }"))
+    desktop.reload(CONFIG % "move = { duration = 1000 }, workspace = { distance = 0 }")
     begin()
     to(-300)
     assert band() == (0, 0, 1, 0, round(1000 * (1 - 0.2 / 1.2))), band()
     swipe("end", after=300)
     assert workspace() == 2 and running() == 1, msg("get", "animations")
+    desktop.wait_for(lambda: running() == 0, "brightened again")
+
+    # A step with nowhere to go, as the panel's wheel asks for past either end, nudges the windows
+    # of that output that way and back; with a slide that only fades, nothing moves.
+    msg("workspace_nudge", "HEADLESS-1", "next")
+    assert running() == 0, msg("get", "animations")
+    desktop.reload(CONFIG % SLOW)
+    msg("workspace_nudge", "HEADLESS-1", "next")
+    assert running() == 1, msg("get", "animations")
+    msg("workspace_nudge", "HEADLESS-1", "prev")  # the other way: from where it is, at once
+    assert running() == 1, msg("get", "animations")
+    assert "usage" in msg("workspace_nudge", "HEADLESS-1", ok=False)
+    assert "usage" in msg("workspace_nudge", "HEADLESS-1", "up", ok=False)
+    assert "usage" in msg("workspace_nudge", "HEADLESS-1", "next", "now", ok=False)
+    assert "no such output" in msg("workspace_nudge", "HDMI-9", "next", ok=False)
+    desktop.reload(CONFIG % "enabled = false")
+    msg("workspace_nudge", "HEADLESS-1", "prev")
+    assert running() == 0, msg("get", "animations")
+    # workspace_next and workspace_prev wrap around, so only a single workspace nudges.
+    desktop.reload((CONFIG % SLOW).replace("workspaces = 2", "workspaces = 1"))
+    assert workspace() == 1
+    msg("workspace_next")
+    assert workspace() == 1 and running() == 1, msg("get", "animations")
