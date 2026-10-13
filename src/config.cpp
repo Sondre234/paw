@@ -1661,6 +1661,7 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         config.settings.gap_inner = integer(L, "gap_inner", gap, 0, 100);
         config.settings.gap_outer = integer(L, "gap_outer", gap, 0, 100);
         boolean(L, "smart_gaps", "layout.smart_gaps", config.settings.smart_gaps);
+        config.settings.lone_margin = integer(L, "lone_margin", 0, 0, 400);
         boolean(L, "floating_above_tiles", "layout.floating_above_tiles",
                 config.settings.floating_above_tiles);
         boolean(L, "tiling", "layout.tiling", config.settings.tiling);

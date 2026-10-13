@@ -17,15 +17,26 @@ static struct sh_rect gap_area(const struct sh_settings *settings, struct sh_rec
 }
 
 /* The area the tiling of `workspace` on `output` is arranged in, and in `gap` the gap between
- * its tiles, while it holds its windows and `joining` more. With layout.smart_gaps a lone tile
- * has no gaps and fills the usable area. Every arrangement of a workspace's tiling and the
+ * its tiles, while it holds its windows and `joining` more. A lone tile keeps layout.lone_margin
+ * from the edges of the usable area where that is set (never shrinking below a quarter of it),
+ * and with layout.smart_gaps alone has no gaps and fills it. Every arrangement of a workspace's tiling and the
  * preview of a new tile take them from here, so a lone window stays where it is however it is
  * arranged, and the gaps come and go with its neighbours. */
 struct sh_rect tiling_area(struct sh_server *server, struct wlr_output *output, int workspace,
                            int joining, int *gap) {
     const struct sh_settings *settings = server_settings(server);
-    if (settings->smart_gaps &&
-        sh_tiling_count(server->tiling, output->name, workspace) + joining == 1) {
+    bool lone = sh_tiling_count(server->tiling, output->name, workspace) + joining == 1;
+    if (lone && settings->lone_margin > 0) {
+        struct sh_rect area = usable_area(server, output);
+        int mx = settings->lone_margin, my = settings->lone_margin;
+        if (mx > area.width * 3 / 8)
+            mx = area.width * 3 / 8;
+        if (my > area.height * 3 / 8)
+            my = area.height * 3 / 8;
+        *gap = 0;
+        return (struct sh_rect){area.x + mx, area.y + my, area.width - 2 * mx, area.height - 2 * my};
+    }
+    if (settings->smart_gaps && lone) {
         *gap = 0;
         return usable_area(server, output);
     }
