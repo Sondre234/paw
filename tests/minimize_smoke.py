@@ -6,7 +6,8 @@ output, and a window restored grows out of it, both while input already has the 
 ends up; the minimize action does the same. Minimizing turned back half way goes back from where
 it is drawn, and a window a peek shows already (the taskbar's picture's, the switcher's) comes back
 where it is. Without a button the window goes to the middle of the panel's strip, or shrinks where
-it is. Animations off, or the session locked, nothing animates; a window closing as it minimizes
+it is. Windows in the scratchpad come and go its own way. Animations off, or the session locked,
+nothing animates; a window closing as it minimizes
 or is restored leaves nothing behind."""
 from pathlib import Path
 import subprocess
@@ -222,6 +223,22 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     msg("minimize")  # nothing focused: nothing to minimize
     taskbar("restore", "A")
     wait_for(settled, "A restored again")
+
+    # The scratchpad hides and brings back its windows its own way: neither into nor out of a
+    # button, from the taskbar too.
+    desktop.open_window(probe, "S", "app-s", focused=True)
+    wait_for(settled, "S opened")
+    msg("move_to_scratchpad")
+    wait_for(lambda: windows()["S"].scratchpad and windows()["S"].minimized, "S in the scratchpad")
+    desktop.stays(lambda: not folds(), "S hidden in the scratchpad its own way")
+    taskbar("restore", "S")
+    wait_for(lambda: windows()["S"].visible, "S shown from the scratchpad")
+    desktop.stays(lambda: not folds(), "S shown from the scratchpad its own way")
+    msg("scratchpad_show")
+    wait_for(lambda: windows()["S"].minimized, "S hidden again")
+    desktop.stays(lambda: not folds(), "S hidden again its own way")
+    taskbar("restore", "A")
+    wait_for(lambda: windows()["A"].focused and settled(), "A focused again")
 
     # On another output, the button there counts: A moves to the scaled HEADLESS-2.
     subprocess.run([window_probe, "A", "output", "HEADLESS-2"], env=desktop.env, check=True,
