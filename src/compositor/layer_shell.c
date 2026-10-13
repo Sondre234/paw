@@ -128,8 +128,8 @@ void server_new_layer_surface(struct wl_listener *listener, void *data) {
 }
 
 /* The edges of `output`'s usable area (what its panels leave free) that a window shown there
- * reaches, as enum sh_edge bits: a maximized window, a tile alone without gaps around it, a
- * window snapped against them or dragged there. A floating bar docks while a window reaches the
+ * reaches, as enum sh_edge bits: a maximized window, a window snapped against them or dragged
+ * there, and every edge for a tile, gaps or not. A floating bar docks while a window reaches the
  * edge it is along, as one floating over a window flush under it looks out of place. */
 unsigned output_touched_edges(struct sh_server *server, struct sh_output *output) {
     const struct wlr_box area = output->usable;
@@ -147,6 +147,13 @@ unsigned output_touched_edges(struct sh_server *server, struct sh_output *output
         if (box.x + box.width <= area.x || box.x >= area.x + area.width ||
             box.y + box.height <= area.y || box.y >= area.y + area.height)
             continue;
+        // The tiles fill the usable area between them, their gaps but part of the layout, so a
+        // bar floating an outer gap away from them looks as out of place as over a maximized
+        // window.
+        if (toplevel->tiled) {
+            edges |= SH_EDGE_TOP | SH_EDGE_BOTTOM | SH_EDGE_LEFT | SH_EDGE_RIGHT;
+            continue;
+        }
         if (box.y - reach <= area.y)
             edges |= SH_EDGE_TOP;
         if (box.y + box.height + reach >= area.y + area.height)

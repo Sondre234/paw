@@ -30,7 +30,7 @@ Item {
                                      shell.panelMarginRight > 0 || shell.panelMarginTop > 0 ||
                                      shell.panelMarginBottom > 0
     // A floating bar docks while a window reaches the edge of the output's usable area it is
-    // along (a maximized window, a tile without gaps, one snapped against it), as an island over
+    // along (a maximized window, any tile, one snapped against it), as an island over
     // a window flush beneath it looks out of place: it fills the strip it reserves from edge to
     // edge, squared, its frame and shadow gone but for a line along its inner edge, its buttons
     // where they were; and floats again once no window does. `dock` eases from 0 to 1.
