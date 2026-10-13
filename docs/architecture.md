@@ -424,10 +424,14 @@ before and after the configuration is read again, and calls `crossfade_start` (`
 when it changed, before the rest of the reload changes anything in the scene. For each output in
 the layout that is on and does not show a fullscreen window, `take_picture` draws the scene into a
 buffer of its own through `wlr_scene_output_build_state` and a swapchain made for it, as the
-magnifier draws (`effects.c`), with direct scan-out locked out (`wlr_output_lock_attach_render`)
-and the drag icons and any software cursor hidden for that drawing alone (a hardware cursor is in
-no frame); the swapchain goes at once, the buffer staying while the picture shows. It is given no
-colour transform, so the picture is in the scene's colours: laid back in the scene as a
+magnifier draws (`effects.c`), with direct scan-out locked out (`wlr_output_lock_attach_render`),
+and the idle dimming, the drag icons and any software cursor hidden for that drawing alone (a
+hardware cursor is in no frame), since they go on over the picture; the swapchain goes at once,
+the buffer staying while the picture shows. A gamma table a client set is set aside for the
+drawing too (fields wlroots keeps to itself): the scene would hand one not applied yet to the
+drawing's state, which goes unused, and draw it into the picture on an output without gamma
+hardware. The picture is in the scene's colours, given only the encoding wlroots uses anyway (or
+an HDR output's image description), which has the scene put its colour transforms together again: laid back in the scene as a
 `wlr_scene_buffer` in a tree just under the drag icons, and so under the lock, turned as its output
 is (`transform`) and filling the output's box, it gets night light and the magnifier from the
 output's frames as everything else does, and a mirror copies it with them. An HDR output's
@@ -442,27 +446,32 @@ While the shell is subscribed (`shell_listening`) the pictures are held until it
 at once. Then `crossfade_tick`, which `output_frame` calls before each frame, fades them out from
 the next frame over 400 ms divided by `animations.speed`, easing in and out, and takes them away at
 the end. Held, nothing changes and no frame is drawn. The tick also takes away a picture whose
-output moved, turned, or changed size or scale since, `crossfade_forget_output` one whose output
-goes, and `crossfade_end` all of them as the session locks. A switch while they fade takes them
+output moved, turned, or changed size or scale since, a picture's listener on its output's
+commits one whose output turns off (it draws no frames to fade it in, and would show it stale once
+on again), from an idle callback once that commit is over, `crossfade_forget_output` one whose
+output goes, and `crossfade_end` all of them as the session locks; the last to go ends the
+crossfade. A switch that cannot crossfade (without animations or a profile, or while locked)
+ends one under way, the new look showing at once. A switch while they fade takes them
 again from the scene, which shows the old ones as they are; one while they are held keeps them and
 waits for the newer profile. `get crossfade` lists them.
 
 The shell's side is `Restyle` (`shell/restyle.cpp`). `ShellController::reload` notes a change of
 profile and sets `restyling` before it tells the QML of the new configuration, which zeroes
 `Theme.motionScale`, so that the new look shows at once without transitions of its own. Then, after
-any reload with a profile, `Restyle` follows every `QQuickWindow` shown (asking each to draw) until
-each has swapped a frame since, no image shown in them is loading (a wallpaper decodes off the GUI
-thread), and none has drawn for 50 ms, or 150 ms have passed since that held, as a bar the
+any reload with a profile, `Restyle` follows every `QQuickWindow` shown (asking each to draw)
+until, as `RestyleWait` decides (tested by `restyle_test`), each has swapped a frame since, and
+again since an image in it finished loading (a wallpaper decodes off the GUI thread), none is
+loading, and none has drawn for 50 ms, or 150 ms have passed since that held, as a bar the
 compositor configures anew draws twice; 900 ms at most. `restyled` then clears `restyling` and
-sends `profile_drawn` through `ask`, which says nothing when the compositor is not there. It says
+sends `profile_drawn` through `ask`, which says nothing when the compositor is not there (and nothing without a profile). It says
 so after a reload that kept the profile too: switched there and back before the shell read the
 file, the compositor waits for the profile the shell has had all along.
 
 The desktop (`Desktop.qml`) draws the wallpaper, or the gradient (the macOS style's drawn
 wallpaper) without one, in layers under `backdrop`: each change lays a new one on top, at no
 opacity until its picture has loaded or failed, which then fades in over 450 ms (at once for the
-first, and for the same picture read again as the configuration reloads) and takes away the layers
-under it once it covers them. A change during a fade lays another layer over both, so that nothing
+first) and takes away the layers under it once it covers them; a reload that keeps the wallpaper
+keeps its layer, reading and decoding nothing again. A change during a fade lays another layer over both, so that nothing
 jumps. A layer whose picture failed shows the gradient, and lays a new one for it after a second,
 then twice as long each time up to a minute, while it is the one wanted.
 

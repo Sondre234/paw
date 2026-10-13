@@ -2301,7 +2301,8 @@ new look at once, as with every animation: the pointer moves over the picture, a
 it takes the clicks. Without the shell the picture fades at once, and a shell that has not drawn
 the new look within a second is not waited for longer. A monitor that is off, or shows a
 fullscreen window (outside the overview and the window switcher), gets no picture, so that a
-video plays on; a mirror shows its monitor's crossfade, and a magnified, turned or scaled
+video plays on, and one turned off meanwhile loses its own; the idle dimming lies over the picture
+as over everything; a mirror shows its monitor's crossfade, and a magnified, turned or scaled
 monitor's picture lies exactly where the monitor showed it. Switching again during the fade
 starts from what shows. Locking the session takes the picture away at once, and no profile
 crossfades in while the session is locked.
