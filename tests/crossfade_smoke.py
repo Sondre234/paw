@@ -188,6 +188,45 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     wait_for(lambda: crossfade() == {}, "the crossfade over")
     msg("display_on", "HEADLESS-2")
 
+    # One turned off loses its picture at once: it draws no frames for it to fade in, and would
+    # show it, stale, once on again. The last picture going ends the crossfade, held or fading.
+    msg("profile", "green")
+    assert set(crossfade()) == {"HEADLESS-1", "HEADLESS-2"}, crossfade()
+    msg("display_off", "HEADLESS-2")
+    wait_for(lambda: set(crossfade()) == {"HEADLESS-1"}, "the picture gone with its monitor")
+    msg("display_on", "HEADLESS-2")
+    stays(lambda: set(crossfade()) == {"HEADLESS-1"}, "the picture back with its monitor")
+    msg("profile_drawn", "green")
+    wait_for(lambda: crossfade() == {}, "the crossfade over")
+    msg("display_off", "HEADLESS-2")
+    msg("profile", "blue")
+    msg("profile_drawn", "blue")
+    assert crossfade() == {"HEADLESS-1": ("fading", "blue", 1000)}, crossfade()
+    msg("display_off", "HEADLESS-1")
+    wait_for(lambda: crossfade() == {}, "the crossfade over with its last monitor")
+    msg("display_on")
+    stays(lambda: crossfade() == {}, "a picture back with the monitors")
+    wait_for(lambda: near(colour(), BLUE), "the blue background")
+
+    # A monitor unplugged takes its picture with it, held or fading.
+    def plug(name):
+        msg("headless_output", "add", name, "800x600")
+        wait_for(lambda: name in [row[0] for row in desktop.rows("workspaces")], f"{name} in")
+    plug("HEADLESS-4")
+    msg("profile", "red")
+    assert set(crossfade()) == {"HEADLESS-1", "HEADLESS-2", "HEADLESS-4"}, crossfade()
+    msg("headless_output", "remove", "HEADLESS-4")
+    assert set(crossfade()) == {"HEADLESS-1", "HEADLESS-2"}, crossfade()
+    msg("profile_drawn", "red")
+    plug("HEADLESS-5")
+    msg("profile", "green")
+    msg("profile_drawn", "green")
+    assert {name: state for name, (state, _, _) in crossfade().items()} == {
+        "HEADLESS-1": "fading", "HEADLESS-2": "fading", "HEADLESS-5": "fading"}, crossfade()
+    msg("headless_output", "remove", "HEADLESS-5")
+    assert set(crossfade()) == {"HEADLESS-1", "HEADLESS-2"}, crossfade()
+    wait_for(lambda: crossfade() == {} and near(colour(), GREEN), "the green background")
+
     # Locking the session takes the pictures away at once.
     msg("profile", "blue")
     assert crossfade(), crossfade()
