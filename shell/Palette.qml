@@ -77,13 +77,22 @@ Item {
                                       result !== null && result.kind === "window" &&
                                       !!source && typeof source.peek === "function"
                                       ? parseInt(result.target) : -1
-        // The model peeked through and the window, until the peek ends.
+        // The model peeked through and the window it peeks at, until the peek ends.
         property var peeking: null
         property int peekedId: -1
         function start() {
+            var before = peeking ? peekedId : -1
             peeking = source
-            peekedId = wanted
-            peeking.peek(peekedId)
+            peeking.peek(wanted)
+            if (peeking.peekedTask === wanted) {
+                peekedId = wanted
+            } else {
+                // The model peeks at nothing for a window that is gone, whose row outlives it as
+                // the results are read when the palette opens: the window peeked at so far no
+                // longer stands for the selection, so its peek ends too.
+                peekedId = before
+                end()
+            }
         }
         function end() {
             if (peeking)
