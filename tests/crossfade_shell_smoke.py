@@ -2,7 +2,7 @@
 """The shell and the compositor crossfade to a new appearance profile together: the compositor
 holds a picture of the old look while the shell, reloading, draws the new one (its wallpaper
 loaded), and lets it fade as soon as the shell says it has (`profile_drawn`), well before it would
-give up on it."""
+give up on it; also when the profile went there and back before the shell reloaded."""
 from pathlib import Path
 import signal
 import sys
@@ -67,6 +67,15 @@ with harness.Compositor(compositor, start=False) as desktop:
 
     profile("ink")
     profile("paper")
+
+    # Switched there and back before the shell reads the configuration again, the shell has the
+    # look the compositor waits for already, and says so.
+    msg("profile", "ink")
+    msg("profile", "paper")
+    assert crossfade() == {"HEADLESS-1": ("held", "paper")}, crossfade()
+    shell_process.send_signal(signal.SIGHUP)
+    desktop.wait_for(lambda: crossfade() == {}, "the crossfade over")
+    assert "did not draw profile" not in desktop.log.read_text()
     for message in ("ReferenceError", "TypeError", "is not defined", "Cannot read"):
         assert message not in log(), log()
 print("the shell draws a new profile under the compositor's picture and says so")
