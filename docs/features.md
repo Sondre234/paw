@@ -1194,7 +1194,17 @@ the `workspace_back` action (Super + Tab) returns to it, like sway's
 does the same, so pressing Super + 2 twice flips between workspace 2 and the one before.
 It is off by default.
 
-`workspace_prev` and `workspace_next` (Super + Ctrl + Left / Right) step to the previous and next workspace.
+`workspace_prev` and `workspace_next` (Super + Ctrl + Left / Right) step to the previous and next
+workspace, wrapping around from the last to the first and back.
+
+Where there is nowhere further to go, the windows say so rather than stop dead. Past the first or
+the last workspace a touchpad swipe stretches them like a rubber band (see [Touchpad
+gestures](#touchpad-gestures)), and scrolling over the panel past either end nudges the windows of
+that monitor toward the workspace that is not there and back, as far as the slide would take them
+in a third of a step (2 % of the monitor's width with the default slide), in twice the `workspace`
+animation's time, and the mark of the current workspace on the panel with them. So do
+`workspace_next` and `workspace_prev` with a single workspace. A slide that only fades
+(`animations.workspace.distance = 0`) nudges nothing.
 
 ### Scratchpad
 
@@ -2459,7 +2469,9 @@ one: `paw msg output HDMI-A-1 workspace_next`. `paw msg type TEXT` types TEXT in
 what has the keyboard, as wtype does: each character on a key of a keymap made for it (200 to a
 keymap; a longer text takes several), the window's own keymap back after, so that accents, emoji
 and their sequences come out as they are whatever the keyboard layout; the request is a line of at
-most 512 bytes, and it says when nothing has the keyboard. The query
+most 512 bytes, and it says when nothing has the keyboard. `paw msg workspace_nudge OUTPUT
+next|prev` nudges that monitor's windows toward its next or previous workspace and back, as the
+panel's wheel does past either end (see [Workspaces](#workspaces)). The query
 `paw msg get workspace` prints the focused monitor's workspace, `paw msg get workspaces`
 prints one tab-separated line per monitor (name, current workspace, focused, the
 workspaces holding windows, such as `1,3`, or `-`, and tiling, `on` or `off`),
