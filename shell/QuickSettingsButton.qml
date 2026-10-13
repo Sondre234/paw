@@ -47,8 +47,7 @@ FlatButton {
             id: icons
             anchors.centerIn: parent
             spacing: Theme.spacingM
-            rows: Theme.barVertical ? -1 : 1
-            columns: Theme.barVertical ? 1 : -1
+            columns: Theme.barVertical ? 1 : 4
             horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
             Icon {
                 objectName: "quickSettingsNetwork"

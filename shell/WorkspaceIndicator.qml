@@ -45,8 +45,7 @@ Item {
     Grid {
         id: buttons
         spacing: Theme.spacingXS
-        rows: Theme.barVertical ? -1 : 1
-        columns: Theme.barVertical ? 1 : -1
+        columns: Theme.barVertical ? 1 : Math.max(1, repeater.count)
         Repeater {
             id: repeater
             model: workspaceIndicator.shown

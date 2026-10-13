@@ -133,8 +133,6 @@ Item {
             anchors.bottomMargin: (taskbar.vertical ? Theme.spacingM : 0) + shell.panelMarginBottom * taskbar.dock
             rowSpacing: Theme.spacingS; columnSpacing: Theme.spacingS
             flow: taskbar.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
-            rows: taskbar.vertical ? -1 : 1
-            columns: taskbar.vertical ? 1 : -1
             FlatButton {
                 id: start
                 Layout.preferredWidth: Theme.barItemWidth; Layout.preferredHeight: Theme.barItemHeight
@@ -186,9 +184,9 @@ Item {
                 objectName: "tray"
                 visible: shell.widgets.tray && shell.tray.shown > 0
                 Layout.alignment: Qt.AlignCenter
-                rows: taskbar.vertical ? -1 : 1
-                columns: taskbar.vertical ? 1 : -1
+                columns: taskbar.vertical ? 1 : Math.max(1, trayItems.count)
                 Repeater {
+                    id: trayItems
                     model: shell.tray
                     delegate: TrayButton { panel: taskbar.panel }
                 }

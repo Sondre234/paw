@@ -47,8 +47,7 @@ FlatButton {
             id: content
             anchors.centerIn: parent
             spacing: Theme.spacingS
-            rows: Theme.barVertical ? -1 : 1
-            columns: Theme.barVertical ? 1 : -1
+            columns: Theme.barVertical ? 1 : 3
             horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
             Text {
                 id: clock
