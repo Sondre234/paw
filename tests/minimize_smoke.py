@@ -448,3 +448,48 @@ with harness.Compositor(compositor, TILES) as desktop:
     tell("restore", "G")
     taskbar.stdin.close()
     assert desktop.reap(taskbar) == 0
+
+# A window changing size as it is maximized or restored (a morph): minimized on its way, its copy
+# shrinks from the size and place it is drawn at; restored and then maximized or restored again
+# as it grows out of its button, the change of size takes over from its place.
+MORPHS = ONE.replace("animations = { minimize = { duration = 900, curve = \"linear\" } },",
+                     "animations = { duration = 700, speed = 0.5, late_frame_ms = 0,"
+                     " minimize = { duration = 900, curve = \"linear\" } },")
+assert "speed = 0.5" in MORPHS
+with harness.Compositor(compositor, MORPHS) as desktop:
+    msg, wait_for = desktop.msg, desktop.wait_for
+
+    def windows():
+        return {w.title: w for w in desktop.windows()}
+
+    def folds():
+        """kind -> (at, box folded into, drawn box), for the only window that folds."""
+        return {row[2]: (int(row[3]), tuple(map(int, row[4:8])), tuple(map(int, row[9:13])))
+                for row in desktop.rows("minimize") if row[0] == "fold"}
+
+    def drawn():
+        """Where W is drawn (x, y, width, height), and what its change of size does."""
+        row = next(r for r in desktop.rows("drawn") if r[1] == "W")
+        return tuple(int(n) for n in row[2:6]), row[8]
+
+    def settled():
+        running, trees, _ = (int(n) for n in msg("get", "animations").split())
+        return not folds() and running == 0 and trees == len(windows())
+
+    desktop.detail = lambda: f"windows: {windows()}, folds: {folds()}, drawn: {drawn()}"
+    desktop.open_window(probe, "W", "app-w", focused=True)
+    wait_for(settled, "W opened")
+    start = drawn()[0]
+    msg("maximize")
+    wait_for(lambda: start[2] + 200 < drawn()[0][2] < 1000, "W growing to fill the output")
+    before = drawn()[0]
+    msg("minimize")
+    taken = folds()["minimize"][2]
+    assert all(abs(a - b) <= 60 for a, b in zip(before, taken)), (before, taken)
+    wait_for(settled, "W minimized")
+    subprocess.run([window_probe, "W", "restore"], env=desktop.env, check=True, timeout=30)
+    assert "restore" in folds(), folds()
+    msg("restore")
+    assert "restore" not in folds() and drawn()[1] != "rest", (folds(), drawn())
+    wait_for(lambda: settled() and drawn()[1] == "rest", "W back to its own size")
+    assert drawn()[0][2:] == start[2:], (drawn(), start)
