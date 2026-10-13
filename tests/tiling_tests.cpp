@@ -777,6 +777,24 @@ int main() {
                     "drag: the scroll layout previews no drop");
             sh_tiling_destroy(drag);
         }
+        // A place a drop finds that is where the window is already changes nothing, though the
+        // point lies off its tile (in the outer gap, which the tree without it has not).
+        {
+            sh_tiling *drag = sh_tiling_create();
+            int d[2];
+            for (int i = 0; i < 2; ++i)
+                sh_tiling_insert(drag, "DP-1", 0, &d[i], nullptr, false, 0, 0);
+            arrange(drag, {10, 10, 1180, 780}, 0); // d1 on the right, from 600 to 1190
+            sh_tile_drop drop{};
+            require(!sh_tiling_drop_target(drag, &d[1], "DP-1", 0, 1195, 400, {0, 0, 1200, 800},
+                                           &drop),
+                    "drag: the place it holds, from the outer gap");
+            require(sh_tiling_drop_target(drag, &d[1], "DP-1", 0, 5, 400, {0, 0, 1200, 800},
+                                          &drop) &&
+                        drop.split == &d[0] && drop.first,
+                    "drag: the other side of d0, from the outer gap");
+            sh_tiling_destroy(drag);
+        }
 
         // Tiny areas still produce positive sizes.
         placed = arrange(tiling, {0, 0, 3, 2}, 100);
