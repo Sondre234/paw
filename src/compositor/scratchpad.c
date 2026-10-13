@@ -221,6 +221,13 @@ static bool drop(struct sh_toplevel *toplevel, bool out) {
     struct sh_drop_plan plan = {0};
     bool started = false;
     if (plan_drop(toplevel, &plan)) {
+        // Out straight from where it is drawn, which a tile hidden is, away from its floating
+        // place.
+        bool across = plan.edge == SH_DROP_TOP || plan.edge == SH_DROP_BOTTOM;
+        if (out && across)
+            plan.dx = toplevel->content->node.x;
+        else if (out)
+            plan.dy = toplevel->content->node.y;
         started = out ? sh_anim_drop_out(server->animator, anim, toplevel->content, plan.dx,
                                          plan.dy)
                       : sh_anim_drop_in(server->animator, anim, toplevel->content, plan.dx,
@@ -277,11 +284,17 @@ void center_scratchpad(struct sh_toplevel *toplevel, struct wlr_output *output) 
 }
 
 /* Floats the window at its own size and hides it in the scratchpad, behind the others. Seen
- * going, it slides out the way a window shown there comes in, from its floating place. */
+ * going, it slides out the way a window shown there comes in, from where it is drawn: a tile, or
+ * a window maximized or fullscreen, does not jump to its floating place first. */
 void hide_in_scratchpad(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
     bool seen = toplevel->shown && server->running && toplevel_mapped(toplevel) &&
                 toplevel_visible(toplevel);
+    int drawn_x = 0, drawn_y = 0;
+    if (seen) {
+        drawn_x = toplevel->scene_tree->node.x + toplevel->content->node.x;
+        drawn_y = toplevel->scene_tree->node.y + toplevel->content->node.y;
+    }
     if (server->grabbed_toplevel == toplevel)
         reset_cursor_mode(server);
     if (toplevel->fullscreen)
@@ -297,10 +310,17 @@ void hide_in_scratchpad(struct sh_toplevel *toplevel) {
     toplevel->scratchpad = true;
     toplevel->scratchpad_order = ++server->scratchpad_serial;
     minimize_toplevel(toplevel);
-    if (seen && drop(toplevel, true)) {
-        // Drawn over the window that took the focus until it is out of sight.
-        wlr_scene_node_set_enabled(&toplevel->scene_tree->node, true);
-        wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
+    if (seen) {
+        struct wlr_scene_node *place = &toplevel->scene_tree->node;
+        wlr_scene_node_set_position(&toplevel->content->node, drawn_x - place->x,
+                                    drawn_y - place->y);
+        if (drop(toplevel, true)) {
+            // Drawn over the window that took the focus until it is out of sight.
+            wlr_scene_node_set_enabled(place, true);
+            wlr_scene_node_raise_to_top(place);
+        } else {
+            wlr_scene_node_set_position(&toplevel->content->node, 0, 0);
+        }
     }
     notify_subscribers(server); // its workspace may be empty now
 }
