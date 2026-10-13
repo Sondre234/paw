@@ -927,7 +927,12 @@ Item {
     // The panel it started on holds the keyboard meanwhile, for Escape.
     readonly property bool barDragging: shell.barDragging
     property bool barDragOrigin: false
-    onBarDraggingChanged: if (!barDragging) barDragOrigin = false
+    onBarDraggingChanged: {
+        if (!barDragging)
+            barDragOrigin = false
+        else if (barDragOrigin)
+            popupLayer.forceActiveFocus()
+    }
     function startBarDrag() {
         if (!shell.panelDraggable || barDragging)
             return
