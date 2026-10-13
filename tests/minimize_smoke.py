@@ -102,6 +102,14 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     taskbar("rect", "A", "HEADLESS-1", 620, 680, 40, 40)
     taskbar("rect", "A", "HEADLESS-2", 0, 0, 0, 0)
     assert minimize_state()[0] == {a: [("HEADLESS-1", 620, 680, 40, 40)]}, minimize_state()
+    # A rectangle is cut to its output (HEADLESS-2 is 640 by 360); one off it, or on an output
+    # that is not there, is no rectangle, however large the numbers.
+    taskbar("rect", "A", "NOPE-1", 0, 0, 40, 40)
+    taskbar("rect", "A", "HEADLESS-2", 600, 340, 2147483000, 2147483000)
+    assert minimize_state()[0] == {a: [("HEADLESS-2", 600, 340, 40, 20),
+                                       ("HEADLESS-1", 620, 680, 40, 40)]}, minimize_state()
+    taskbar("rect", "A", "HEADLESS-2", 2147483000, -2147483000, 2147483000, 2147483000)
+    assert minimize_state()[0] == {a: [("HEADLESS-1", 620, 680, 40, 40)]}, minimize_state()
 
     # Minimizing: the window is minimized and out of the way of input at once, while a copy of
     # it shrinks into its button on HEADLESS-1.
