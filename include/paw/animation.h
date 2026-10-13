@@ -43,6 +43,19 @@ struct sh_anim {
     bool held;
     double held_x, held_y;
     float held_alpha;
+    /* Lifted while dragged (sh_anim_lift): drawn up to `lift_scale` times its size about
+     * (lift_cx, lift_cy), on top of whatever else runs on it. `lift` is how far up it is drawn
+     * (0 down, 1 up), easing from `lift_from` toward `lift_to` since lift_start, with the
+     * velocity it had then (per millisecond); it stays up, what the client draws included,
+     * until it is let down. In the animator's lifted list while not down. */
+    bool lifted, lift_easing, lift_rested;
+    struct wl_list lift_link;
+    double lift, lift_from, lift_to, lift_velocity, lift_scale, lift_cx, lift_cy;
+    int64_t lift_start;
+    int lift_duration;
+    struct sh_curve lift_curve;
+    void (*lift_update)(void *data);
+    void *lift_data;
     struct sh_anim_record *records;
     size_t count, capacity;
 };
@@ -145,7 +158,25 @@ void sh_anim_slide_from(struct sh_animator *animator, struct sh_anim *anim,
  * its opacity to `alpha`, in `share` of the slide's time, then goes. */
 void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int dx, int dy,
                         float alpha, double share);
-/* Jumps to the end: every node gets its resting values and the tree its resting position. */
+/* Lifts `tree` while its window is dragged (`up`), or lets it down again: its nodes grow to
+ * `scale` times their size about (cx, cy) in tree coordinates, on top of whatever else runs on
+ * it, easing from where they are drawn with the duration and curve of animations.move (half as
+ * long again going down, to settle gently), and stay up, what the client draws included, until
+ * let down. A lift reversed half way turns back from where it is, at the speed it has. With
+ * animations off it goes up and down at once. `update` is called with `data` on each frame the
+ * lift moves, before the nodes are scaled, and as it lands, for what follows it (the window's
+ * shadow). */
+void sh_anim_lift(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                  bool up, double scale, double cx, double cy, void (*update)(void *),
+                  void *data);
+/* How far up the lift is drawn, 0 down to 1 up. */
+double sh_anim_lift_progress(const struct sh_anim *anim);
+/* Where the lift draws a point (x, y) of the tree now: at x * scale + dx, y * scale + dy. */
+void sh_anim_lift_transform(const struct sh_anim *anim, double *scale, double *dx, double *dy);
+/* Windows lifted, or still settling. */
+size_t sh_animator_lifted(const struct sh_animator *animator);
+/* Jumps to the end: every node gets its resting values and the tree its resting position. A
+ * lift ends too, without calling its update. */
 void sh_anim_finish(struct sh_anim *anim);
 /* Copies the visible buffers and rectangles under `content` into a new tree just above
  * `window`, which fades out and shrinks about (cx, cy) in `content` coordinates, then goes. */
