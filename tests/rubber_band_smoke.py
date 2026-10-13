@@ -126,10 +126,13 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
     to(50)
     assert caught[3] < held()[3] <= caught[3] + 4, (caught, band())
     # Back the other way it comes back to rest before the slide toward the next workspace
-    # begins, as far on as the fingers went past that.
+    # begins, as far on as the fingers went past that: a whole step back from where they took
+    # it over (as far past the end as its offset then says) and the 20 units they pulled first.
     to(-300)
     target, shown, holds, offset, alpha = band()
-    assert (target, holds, offset, alpha) == (2, 1, 0, 1000) and 0 < shown < 200, band()
+    pulled = caught[3] / (SLIDE - caught[3])
+    assert (target, holds, offset, alpha) == (2, 1, 0, 1000), band()
+    assert abs(shown - 1000 * (1 + 20 / 300 - pulled)) <= 25, (caught, band())
     swipe("end", after=300)
     assert workspace() == 1
     desktop.wait_for(lambda: running() == 0, "the slide back done", timeout=30)
