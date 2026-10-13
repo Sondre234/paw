@@ -390,8 +390,8 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `shell` | table | - | - | The desktop shell: panel, wallpaper, launchers. |
 | `shell.enabled` | boolean | true | - | Start the shell with the compositor. |
 | `shell.style` | enum | "taskbar" | - | How the shell is laid out: `"taskbar"` (one bar with a start menu, as on Windows) or `"macos"` (a menu bar along the top and a dock at the bottom, the panel settings applying to the dock). |
-| `shell.panel_height` | integer | 52 | 24 to 100 | Panel height in pixels. |
-| `shell.panel_position` | enum | "bottom" | - | `"top"` or `"bottom"`. |
+| `shell.panel_height` | integer | 52 | 24 to 100 | Panel height in pixels; its width along the left or right edge. |
+| `shell.panel_position` | enum | "bottom" | - | The edge of the monitor the taskbar is along: `"top"`, `"bottom"`, `"left"` or `"right"`. Along a side its buttons and widgets stack from the top down, and its popups open beside it. The macOS style's dock stays at the bottom. |
 | `shell.mirror_menus` | boolean | false | - | With the panel along the top, its right-click menus list their entries in reverse, so they read outwards from the bar as they do from one along the bottom: a window's begins with killing its process and closing it, nearest the bar, and ends with its title. Submenus keep their order. |
 | `shell.panel_margin` | integer or table | 0 | - | Pixels around the panel, 0 to 200: one number, or `{ top, right, bottom, left }` by name, to make it float. |
 | `shell.panel_margin.top` | integer | 0 | 0 to 200 | Top margin. |

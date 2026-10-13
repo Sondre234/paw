@@ -186,10 +186,37 @@ int ShellController::panelHeadroom() const {
                           shell.panel_margin[3] > 0;
     if (!shell.frame_windows || !settings.shadow || !effects_ || !floating)
         return 0;
-    // A bar along the top casts its shadow down, into the output; one along the bottom, up.
-    const int inwards = shell.panel_top ? settings.shadow_y : -settings.shadow_y;
-    const int margin = shell.panel_top ? shell.panel_margin[2] : shell.panel_margin[0];
+    // A bar along the top casts its shadow down, into the output; one along the bottom, up; one
+    // along a side, across. The margin on the side towards the middle is room it has already.
+    int inwards = 0, margin = 0;
+    switch (shell.panel_edge) {
+    case paw::PanelEdge::Top:
+        inwards = settings.shadow_y, margin = shell.panel_margin[2];
+        break;
+    case paw::PanelEdge::Bottom:
+        inwards = -settings.shadow_y, margin = shell.panel_margin[0];
+        break;
+    case paw::PanelEdge::Left:
+        inwards = settings.shadow_x, margin = shell.panel_margin[1];
+        break;
+    case paw::PanelEdge::Right:
+        inwards = -settings.shadow_x, margin = shell.panel_margin[3];
+        break;
+    }
     return std::max(0, settings.shadow_blur + std::max(0, inwards) - margin);
+}
+QString ShellController::panelEdge() const {
+    switch (panelSurfaceEdge()) {
+    case paw::PanelEdge::Top:
+        return "top";
+    case paw::PanelEdge::Left:
+        return "left";
+    case paw::PanelEdge::Right:
+        return "right";
+    case paw::PanelEdge::Bottom:
+        break;
+    }
+    return "bottom";
 }
 QColor ShellController::windowBorderColor() const {
     return unpremultiplied(config_.settings.border_inactive);

@@ -715,9 +715,12 @@ const Option options[] = {
      "How the shell is laid out: `\"taskbar\"` (one bar with a start menu, as on Windows) or "
      "`\"macos\"` (a menu bar along the top and a dock at the bottom, the panel settings "
      "applying to the dock)."},
-    {"shell.panel_height", "integer", "52", "52", 24, 100, "Panel height in pixels."},
+    {"shell.panel_height", "integer", "52", "52", 24, 100,
+     "Panel height in pixels; its width along the left or right edge."},
     {"shell.panel_position", "enum", "\"bottom\"", "\"bottom\"", none, none,
-     "`\"top\"` or `\"bottom\"`."},
+     "The edge of the monitor the taskbar is along: `\"top\"`, `\"bottom\"`, `\"left\"` or "
+     "`\"right\"`. Along a side its buttons and widgets stack from the top down, and its popups "
+     "open beside it. The macOS style's dock stays at the bottom."},
     {"shell.mirror_menus", "boolean", "false", "false", none, none,
      "With the panel along the top, its right-click menus list their entries in reverse, so "
      "they read outwards from the bar as they do from one along the bottom: a window's begins "
