@@ -770,7 +770,8 @@ what the last `done` completed, `{width, height, windows: [{windowId, x, y, widt
 kept once unwatched so that the card opens on it; `workspaceRevision` changes with each. The
 panel holds the card's state (`workspaceCardOpen`, `workspaceCardNumber`, the workspace warmed up
 halfway into the delay, `workspaceWarm`) as it holds the card of a button's windows, and the two
-close each other: `openGroup` closes the one, `openWorkspaceCard` the other. The card's picture is
+close each other: `openGroup` closes the one, `openWorkspaceCard` the other. The workspaces of
+the taskbar's indicator and of the tiling bar call the same `hoverWorkspace`. The card's picture is
 the output's proportions within one and a half times `shell.thumbnailSize` by 5/8 of that
 (`workspaceMiniature`, `workspaceScale` card pixels to a logical one), the wallpaper drawn as the
 desktop draws it, and two `WorkspaceWindows` layers over it, the one in front showing the card's

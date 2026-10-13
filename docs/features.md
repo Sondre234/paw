@@ -94,7 +94,7 @@ leaves out being empty:
 | Module | What it shows, and does |
 | --- | --- |
 | `launcher` | The start menu (Launchpad in the macOS style), as `shell.start_icon`, else a grid in the accent colour. |
-| `workspaces` | The monitor's workspaces (`shell.workspaces_shown` of them), the current one on a pill in the accent colour (`workspace_style = "numbers"`, their names from `layout.workspace_names`) or drawn long (`"dots"`); a click shows one. |
+| `workspaces` | The monitor's workspaces (`shell.workspaces_shown` of them), the current one on a pill in the accent colour (`workspace_style = "numbers"`, their names from `layout.workspace_names`) or drawn long (`"dots"`); a click shows one, and resting on one shows a [picture of it](#workspace-pictures). |
 | `layout` | The [tiling layout](#tiling-layouts) of the workspace shown: a click steps to the next, a right click to the one before, the wheel either way. |
 | `mode` | The [binding mode](#binding-modes), while it is not the default one; a click leaves it. |
 | `window` | The focused window's title, cut short past a third of the bar. |
