@@ -77,7 +77,9 @@ double sh_rubber_band_slope(double pull, double limit);
 
 /* Past the first and the last workspace there is nowhere to go, and the windows give against the
  * fingers instead: as far as the slide would take them at first, then less and less, never as
- * far as the slide's whole distance or this share of the output's width, whichever is less. */
+ * far as the slide's whole distance or this share of the output's width, whichever is less (the
+ * limit), and a whole step's pull half of that. A slide longer than the limit starts no faster
+ * than a slide of the limit would, so that a step's pull still has room to give. */
 #define SH_SWIPE_EDGE_LIMIT 0.1
 /* With a slide that only fades (a distance of 0), they dim instead, never by this much. */
 #define SH_SWIPE_EDGE_FADE 0.2
