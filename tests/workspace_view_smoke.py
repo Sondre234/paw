@@ -42,15 +42,19 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
 
     desktop.detail = lambda: f"windows: {windows()}"
 
+    def probed(*words):
+        """What the window probe prints; it must exit cleanly, else what it said is the failure."""
+        result = subprocess.run([window_probe, *words], env=desktop.env, capture_output=True,
+                                text=True, timeout=30)
+        assert result.returncode == 0, (words, result.returncode, result.stdout, result.stderr)
+        return result.stdout.strip()
+
     def control(title, *words):
-        return subprocess.run([window_probe, title, *words], env=desktop.env, check=True,
-                              capture_output=True, text=True, timeout=30).stdout.strip()
+        return probed(title, *words)
 
     def listed(output, number):
         """What a new paw_workspace_v1 lists first, as the probe prints it."""
-        return subprocess.run([window_probe, "--workspace", output, str(number)],
-                              env=desktop.env, check=True, capture_output=True, text=True,
-                              timeout=30).stdout.strip()
+        return probed("--workspace", output, str(number))
 
     ids = {}
 
