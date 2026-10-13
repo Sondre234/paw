@@ -713,6 +713,10 @@ static void glide_setup(struct sh_animator *animator, struct sh_anim *anim, int 
     // so does the size of one changing size.
     double vx = 0, vy = 0, size[2] = {anim->rest_width, anim->rest_height}, speed[2] = {0, 0};
     bool moving = anim->glide;
+    // One started this very millisecond, as by a placement within another, was never drawn:
+    // only the speed it carried from before is the window's.
+    bool unseen = moving && now == anim->glide_start;
+    double carried_v[4] = {anim->glide_vx, anim->glide_vy, anim->size_vx, anim->size_vy};
     if (moving) {
         double x, y;
         glide_axis(anim, anim->glide_x, anim->glide_vx, now - anim->glide_start, &x, &vx);
@@ -727,14 +731,23 @@ static void glide_setup(struct sh_animator *animator, struct sh_anim *anim, int 
     // The new curve has a speed of its own to start with; carry only what it lacks.
     const double h = 1e-4;
     double start_slope = (sh_curve_eval(&anim->glide_curve, h) - 0) / h / duration;
-    anim->glide_vx = moving ? carried(vx, -anim->glide_x * start_slope, anim->glide_x, duration) : 0;
-    anim->glide_vy = moving ? carried(vy, -anim->glide_y * start_slope, anim->glide_y, duration) : 0;
     anim->rest_width = width, anim->rest_height = height;
     anim->size_x = size[0] - width, anim->size_y = size[1] - height;
-    anim->size_vx =
-        moving ? carried(speed[0], -anim->size_x * start_slope, anim->size_x, duration) : 0;
-    anim->size_vy =
-        moving ? carried(speed[1], -anim->size_y * start_slope, anim->size_y, duration) : 0;
+    if (unseen) {
+        anim->glide_vx = carried(carried_v[0], 0, anim->glide_x, duration);
+        anim->glide_vy = carried(carried_v[1], 0, anim->glide_y, duration);
+        anim->size_vx = carried(carried_v[2], 0, anim->size_x, duration);
+        anim->size_vy = carried(carried_v[3], 0, anim->size_y, duration);
+    } else {
+        anim->glide_vx =
+            moving ? carried(vx, -anim->glide_x * start_slope, anim->glide_x, duration) : 0;
+        anim->glide_vy =
+            moving ? carried(vy, -anim->glide_y * start_slope, anim->glide_y, duration) : 0;
+        anim->size_vx =
+            moving ? carried(speed[0], -anim->size_x * start_slope, anim->size_x, duration) : 0;
+        anim->size_vy =
+            moving ? carried(speed[1], -anim->size_y * start_slope, anim->size_y, duration) : 0;
+    }
     anim->glide = true;
     anim->glide_start = now;
     // A client still to draw its new size has the wait past the end of this glide.

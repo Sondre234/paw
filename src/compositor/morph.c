@@ -22,10 +22,11 @@ static void live_size(struct sh_toplevel *toplevel, int *width, int *height) {
 #endif
 }
 
-/* Where the window rests and the size it is drawn at, to glide from (toplevel_morph) once it is
- * placed again. */
+/* Where the window is drawn and at what size, to glide from (toplevel_morph) once it is placed
+ * again. */
 struct wlr_box morph_from(struct sh_toplevel *toplevel) {
-    struct wlr_box box = {toplevel->scene_tree->node.x, toplevel->scene_tree->node.y, 0, 0};
+    struct wlr_box box = {toplevel->scene_tree->node.x + toplevel->content->node.x,
+                          toplevel->scene_tree->node.y + toplevel->content->node.y, 0, 0};
     if (!sh_anim_drawn_size(&toplevel->anim, &box.width, &box.height))
         live_size(toplevel, &box.width, &box.height);
     return box;
@@ -68,7 +69,10 @@ void toplevel_morph(struct sh_toplevel *toplevel, struct wlr_box from, enum sh_a
         return;
     struct wlr_scene_node *node = &toplevel->scene_tree->node;
     struct wlr_box to = toplevel_box(toplevel);
-    int dx = from.x - node->x, dy = from.y - node->y;
+    // It starts where it was drawn: what it is drawn off where it rests now already (a placement
+    // within this one may have started a glide) does not count twice.
+    int dx = from.x - node->x - toplevel->content->node.x;
+    int dy = from.y - node->y - toplevel->content->node.y;
     struct sh_anim *anim = &toplevel->anim;
     bool sized = from.width != to.width || from.height != to.height;
     // Placed where it is going already, as a reflow places it again and again.

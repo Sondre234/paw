@@ -139,7 +139,7 @@ void sh_anim_glide_kind(struct sh_animator *animator, struct sh_anim *anim,
 /* A window placed again at another size, as sh_anim_morph has it. */
 struct sh_morph {
     struct wlr_scene_tree *surfaces; // the client's, inside the animated tree, at its origin
-    int dx, dy;                      // where it rested before, from where it rests now
+    int dx, dy;                      // further off where it rests now than it is drawn
     int from_width, from_height;     // the size it was drawn at, unless it is changing already
     int width, height;               // the size it comes to rest at
     int live_width, live_height;     // the size its surfaces are drawn for now
