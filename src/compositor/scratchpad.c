@@ -139,6 +139,14 @@ void drop_refresh(struct sh_toplevel *toplevel) {
 #endif
 }
 
+/* Asks for the next frame on the window's output: a window wholly past the cut or the monitor's
+ * edge damages nothing as it moves, which would leave the animation waiting for a frame. */
+static void next_frame(struct sh_toplevel *toplevel) {
+    struct wlr_output *output = find_output(toplevel->server, toplevel->output);
+    if (output)
+        wlr_output_schedule_frame(output);
+}
+
 /* The animation's frames: the cut follows the window; and once it is over, a window that slid
  * out of sight hides, back where it rests. */
 static void drop_track(void *data, bool done) {
@@ -156,6 +164,8 @@ static void drop_track(void *data, bool done) {
     }
     if (done || cutting(toplevel))
         follow_cut(toplevel);
+    if (!done)
+        next_frame(toplevel);
 }
 
 /* Whether another output than `output` takes in any of `box`. */
@@ -226,6 +236,7 @@ static bool drop(struct sh_toplevel *toplevel, bool out) {
     if (started) {
         anim->track = drop_track;
         anim->track_data = toplevel;
+        next_frame(toplevel);
     }
     follow_cut(toplevel);
     return started;
