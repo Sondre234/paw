@@ -297,6 +297,15 @@ shadows.
   snapped by dragging back where it was before the drag. `windows.snap` turns it off and sets the
   distance, the corners, the preview and its colour; `paw msg get snap` tells the zone and
   the preview.
+- A floating window maximized, restored, snapped (dropped at an edge too, gliding from where it
+  was dropped over the fading preview), dragged off a snap, resized or moved by the keyboard,
+  floated out of the tiling or made fullscreen glides to its new place and size together, as
+  GNOME, KWin and Windows do: what the application drew last is stretched to the size drawn
+  until it draws the new one, which it then crossfades into, and the border, shadow and corners
+  follow, fading out on the way to maximized or fullscreen and back in leaving them. A slow
+  application is waited for, a little; a change reversed part way goes back from where it is
+  drawn. It takes `animations.move` (`animations.fullscreen` for fullscreen), and
+  `paw msg get drawn` shows it.
 - Snapping from the keyboard: `snap_top_left`, `snap_top_right`, `snap_bottom_left` and
   `snap_bottom_right` put the focused window into a quarter, and Super + Alt + arrows
   (`snap_cycle_left`, `snap_cycle_right`, `snap_cycle_up`, `snap_cycle_down`) step it as
