@@ -148,6 +148,14 @@ ListView {
                     taskList.model.move(from, to)
             }
         }
+        // Going while it is dragged (its window closing), it takes back what the drag lit and moved
+        // aside, which its handler, going too, never says has ended.
+        Component.onDestruction: {
+            if (!reorder.active)
+                return
+            taskList.dragFrom = taskList.dragTo = -1
+            taskList.panel.cancelButtonDrag()
+        }
         // The button, whose press the drag takes over, still hears the drag's moves, each of which
         // would press it again and leave it pressed past the drop: while dragged, it holds no point.
         containmentMask: reorder.active ? holdsNone : null

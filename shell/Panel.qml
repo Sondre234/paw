@@ -421,6 +421,13 @@ Item {
         }
         return dropWorkspace
     }
+    // The drag of a button ended without dropping anything: the workspace goes dark and what it
+    // carried goes.
+    function cancelButtonDrag() {
+        dropWorkspace = 0
+        if (dropGhost.carried)
+            dropGhost.back(dropGhost.x, dropGhost.y)
+    }
     // Let go: the windows ({taskId} each) go to the workspace under it, if any, which it returns.
     function endButtonDrag(windows) {
         var number = dropWorkspace
