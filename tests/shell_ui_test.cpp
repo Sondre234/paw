@@ -3430,6 +3430,30 @@ ListModel {
             editTasks(QString("model.setProperty(%1, 'picture', '')").arg(rowOf(7)));
             if (!slowMotion(false))
                 return fail("the animations did not get their speed back");
+            // A drag over a workspace that is cancelled rather than let go (here a finger's, which
+            // the touchscreen cancels, as the compositor's wl_touch.cancel does) moves no window:
+            // Qt says the drag ended before it says why.
+            {
+                static QPointingDevice *touchscreen = QTest::createTouchDevice();
+                const QPoint from = centre(buttonFor(7)), to = centre(workspace(3));
+                QTest::touchEvent(&view, touchscreen).press(0, from);
+                for (int step = 1; step <= 12; ++step) {
+                    QTest::touchEvent(&view, touchscreen).move(0, from + (to - from) * step / 12);
+                    QTest::qWait(15);
+                }
+                if (!waitFor([&] { return root->property("dropWorkspace").toInt() == 3 && ghost->isVisible(); }))
+                    return fail("a button dragged over a workspace by a finger did not carry its window there");
+                taskRequests();
+                QTouchEvent cancel(QEvent::TouchCancel, touchscreen);
+                QCoreApplication::sendEvent(&view, &cancel);
+                if (!waitFor([&] { return root->property("dropWorkspace").toInt() == 0 && !ghost->isVisible(); }) ||
+                    !stays([&] { return taskRequests().isEmpty(); }, 300))
+                    return fail("a cancelled drag of a button over a workspace moved its window, or "
+                                "left what it carried");
+            }
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("something stayed open after a cancelled drag");
         }
         // shell.thumbnails = { live = false }: the picture asked for ahead of the card is the one
         // it shows, not followed, and not asked for again as the card opens.
