@@ -142,10 +142,16 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     assert "did not draw profile red in time" in desktop.log.read_text()
     wait_for(lambda: crossfade() == {} and near(colour(), RED), "the red background")
 
-    # A magnified monitor's picture is magnified as the monitor was.
+    # A magnified monitor's picture is magnified as the monitor was: the window in its corner
+    # as large and where it showed.
+    corner = desktop.open_window(probe, "corner")
+    wait_for(lambda: any(w.title == "corner" and w.box == (30, 50, 200, 300)
+                         for w in desktop.windows()), "a window in the corner")
     msg("zoom_in")
-    wait_for(lambda: desktop.rows("zoom") == [["1250", "1250", "1"]], "the monitor magnified")
+    wait_for(lambda: desktop.rows("zoom") == [["1250", "1250", "1"]] and
+             desktop.rows("animations")[0][0] == "0", "the monitor magnified, the window open")
     before = shot(desktop)
+    assert not near(before.at(100, 200), RED), "the window is not in the magnified picture"
     msg("profile", "green")
     assert crossfade()["HEADLESS-1"][0] == "held", crossfade()
     stays(lambda: same(shot(desktop), before), "the magnified picture held")
@@ -153,6 +159,9 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     wait_for(lambda: crossfade() == {} and near(colour(), GREEN), "the green background")
     msg("zoom_reset")
     wait_for(lambda: desktop.rows("zoom") == [["1000", "1000", "0"]], "the magnifier off")
+    corner.terminate()
+    desktop.reap(corner)
+    wait_for(lambda: all(w.title != "corner" for w in desktop.windows()), "the window closed")
 
     # The pointer is no part of the picture: it moves on over it, and leaves nothing behind.
     def cursor_at(picture, x, y):
