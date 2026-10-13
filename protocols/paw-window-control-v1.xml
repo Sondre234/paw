@@ -37,9 +37,15 @@
     From version 6 it says whether a window is kept above the others, and keeps one above or
     lets it go back among them, for the window menu's Keep Above Others: what the compositor's
     toggle_above action does to the focused window.
+
+    From version 7 the taskbar says where it shows each window's button on each output, for the
+    compositor to minimize the window into it and restore it out of it, as
+    zwlr_foreign_toplevel_handle_v1.set_rectangle does for a taskbar whose buttons are on the same
+    Wayland connection as its handles: paw's shell keeps its handles on a connection of their
+    own, apart from its surfaces.
   </description>
 
-  <interface name="paw_window_control_v1" version="6">
+  <interface name="paw_window_control_v1" version="7">
     <description summary="controls windows named by their taskbar handles">
       A global for getting the paw_window_v1 of a window, from the
       zwlr_foreign_toplevel_handle_v1 the client holds for it.
@@ -65,7 +71,7 @@
     </request>
   </interface>
 
-  <interface name="paw_window_v1" version="6">
+  <interface name="paw_window_v1" version="7">
     <description summary="one window's workspace, output and tiling">
       Where a window is and how it is placed, and requests that move it. It becomes inert when
       the window's taskbar handle is sent closed; the client then destroys it.
@@ -308,6 +314,23 @@
       <description summary="let the window go back among the others">
         The window goes back among the other windows, in front of them.
       </description>
+    </request>
+
+    <request name="set_rectangle" since="7">
+      <description summary="where the window's button is on an output">
+        Says where this client shows the window on output `output` (its connector name), in
+        the output's logical coordinates: its button on a taskbar, or a picture of it. The
+        compositor minimizes the window into that rectangle and restores it out of it while
+        the window is on that output. A width or height of 0 or less takes this client's
+        rectangle on that output away. The rectangle lasts until another replaces it or this
+        object is destroyed; of several clients' rectangles on one output, the last one set
+        counts. Unlike the other requests, this one is heard while the session is locked.
+      </description>
+      <arg name="output" type="string" summary="the output's connector name"/>
+      <arg name="x" type="int"/>
+      <arg name="y" type="int"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
     </request>
   </interface>
 </protocol>

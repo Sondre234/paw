@@ -278,6 +278,17 @@ static void window_unset_peek(struct wl_client *client, struct wl_resource *reso
         end_window_peek(object->server, true);
 }
 
+/* Where the client shows the window on an output, for minimizing into and restoring out of
+ * (minimize.c); heard while the session is locked too, as it changes nothing of the window. */
+static void window_set_rectangle(struct wl_client *client, struct wl_resource *resource,
+                                 const char *output, int32_t x, int32_t y, int32_t width,
+                                 int32_t height) {
+    struct sh_window_object *object = wl_resource_get_user_data(resource);
+    if (object && object->toplevel)
+        set_window_rect(object->toplevel, output, (struct wlr_box){x, y, width, height},
+                        resource);
+}
+
 static const struct paw_window_v1_interface window_implementation = {
     .destroy = destroy_resource,
     .move_to_workspace = window_move_to_workspace,
@@ -292,6 +303,7 @@ static const struct paw_window_v1_interface window_implementation = {
     .unset_peek = window_unset_peek,
     .set_above = window_set_above,
     .unset_above = window_unset_above,
+    .set_rectangle = window_set_rectangle,
 };
 
 /* Destroyed by its client, or as the client disconnects: a peek it asked for ends. */
@@ -350,7 +362,7 @@ static void control_bind(struct wl_client *client, void *data, uint32_t version,
 void window_control_init(struct sh_server *server) {
     wl_list_init(&server->window_objects);
     server->window_control = wl_global_create(server->wl_display,
-                                              &paw_window_control_v1_interface, 6, server,
+                                              &paw_window_control_v1_interface, 7, server,
                                               control_bind);
     if (!server->window_control)
         wlr_log(WLR_ERROR, "Cannot offer paw-window-control-v1");

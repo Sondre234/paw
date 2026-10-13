@@ -281,6 +281,7 @@ struct sh_idle {
 };
 
 struct sh_window_object; // a paw_window_v1 (window_control.c)
+struct sh_window_rect;   // where a client shows a window on an output (minimize.c)
 struct sh_mirror;        // what a mirroring output shows (mirror.c)
 struct wlr_color_manager_v1;
 
@@ -789,7 +790,10 @@ struct sh_toplevel {
     unsigned icon_serial;
     struct wl_listener title_changed, app_id_changed;
     struct wl_listener foreign_activate, foreign_close, foreign_maximize, foreign_minimize;
-    struct wl_listener foreign_fullscreen;
+    struct wl_listener foreign_fullscreen, foreign_rectangle;
+    /* Where clients show the window on each output, its taskbar buttons, the last set first
+     * (minimize.c). */
+    struct sh_window_rect *rects;
     bool fullscreen;
     bool fullscreen_cover; // the client asked for fullscreen itself, so it covers the panels too
     struct wlr_box fullscreen_restore;
@@ -1209,6 +1213,13 @@ void server_new_lock(struct wl_listener *listener, void *data);
 void session_active(struct wl_listener *listener, void *data);
 #endif
 void server_new_inhibitor(struct wl_listener *listener, void *data);
+
+/* minimize.c */
+void set_window_rect(struct sh_toplevel *toplevel, const char *output, struct wlr_box box,
+                     struct wl_resource *owner);
+void forget_window_rects(struct sh_toplevel *toplevel);
+void foreign_set_rectangle(struct wl_listener *listener, void *data);
+void describe_minimize(struct sh_server *server, int fd, const char *arguments);
 
 /* mirror.c */
 struct sh_output *mirror_source(struct sh_server *server, struct sh_output *output);

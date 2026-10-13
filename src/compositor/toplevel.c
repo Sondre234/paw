@@ -505,6 +505,7 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
 /* Frees a window after removing the listeners xdg-shell and X11 windows have in common. */
 void free_toplevel(struct sh_toplevel *toplevel) {
     sh_anim_finish(&toplevel->anim);
+    forget_window_rects(toplevel);
     sh_tween_stop(&toplevel->fade);
     free(toplevel->opacity_rule.app_id);
     free(toplevel->opacity_rule.title);

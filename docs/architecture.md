@@ -79,6 +79,7 @@ all. In short:
 | `power.c` | The power actions: suspend, hibernate, reboot and power off through logind (`src/login1.c`), locking first, closing windows first, log out. |
 | `foreign_toplevel.c` | Window lists for taskbars and single-window capture. |
 | `window_control.c` | The shell's window menu, window pictures and windows' own icons: paw-window-control-v1, which names a window by its taskbar handle. |
+| `minimize.c` | Minimizing into the taskbar and restoring out of it: where taskbars show each window on each output (wlr-foreign-toplevel's `set_rectangle`, the window control's). |
 | `scaled_capture.c` | The capture source for a window's picture: the window scaled down to fit a size on the renderer, smoothly. |
 | `type.c` | Typing text into what has the keyboard (`paw msg type`), on a keyboard and keymap of its own. |
 | `window_icon.c` | The icons windows supply themselves (xdg-toplevel-icon-v1; X11 windows' from `xwayland.c`), kept for the window control to send the shell. |
