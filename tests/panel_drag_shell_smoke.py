@@ -91,6 +91,8 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     # Escape leaves it where it is.
     keys = desktop.keyboard()
     drag(("600", row), ("640", row), ("1260", "360"))
+    desktop.wait_for(lambda: seat().get("keyboard") == ("layer", "paw-popover"),
+                     "the popover holding the keyboard, for Escape")
     keys(ESCAPE)
     desktop.wait_for(lambda: not popover(), "the popover gone after Escape")
     pointer("release", "left")
