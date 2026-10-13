@@ -8,12 +8,13 @@ the GLES2 renderer) it is cut inside the bar, as deep as its corners reach; with
 no further than its own monitor's edge when another monitor lies beyond. With animations off it
 shows and hides at once."""
 from pathlib import Path
+import subprocess
 import sys
 import time
 
 import harness
 
-compositor, probe = (str(Path(p).resolve()) for p in sys.argv[1:3])
+compositor, probe, window_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
 
 # The drop in takes twice `open`, the slide out one and a half times `close`: 1.2 and 0.9 s, slow
 # enough to look at part way, under ASan too.
@@ -25,8 +26,13 @@ CONFIG = """return {
         ["HEADLESS-1"] = { mode = "1280x720", position = { x = 0, y = 720 } },
         ["HEADLESS-2"] = { mode = "1280x720", position = { x = 0, y = 0 } },
     } },
-    animations = { enabled = %s, open = { duration = 600 }, close = { duration = 600 } },
+    animations = { enabled = %s, speed = %s, open = { duration = 600 },
+                   close = { duration = 600 } },
 }"""
+
+
+def config(enabled=True, speed=1):
+    return CONFIG % (str(enabled).lower(), speed)
 BORDER = 2
 
 
@@ -47,7 +53,7 @@ class Drop:
 def run(outputs, env, check):
     """`check(desktop, top)` on a compositor with `outputs` headless outputs, the pointer on
     HEADLESS-1, whose top edge is at `top`: 720 under HEADLESS-2, where there is one."""
-    with harness.Compositor(compositor, CONFIG % "true",
+    with harness.Compositor(compositor, config(),
                             env={"WLR_HEADLESS_OUTPUTS": str(outputs), **env}) as desktop:
         top = int(next(r for r in desktop.rows("outputs") if r[0] == "HEADLESS-1")[3])
         desktop.msg("headless_pointer", "add", "mouse")
@@ -168,8 +174,28 @@ def bottom_bar(desktop, top):
     desktop.wait_for(lambda: settled() and drop().dy == 0 and drop().drawn, "in place")
     assert window().focused
 
+    # Peeked at from the taskbar's picture of it as it slides out (slowly, 3 s, so as not to
+    # end meanwhile), and activated there as a click on the picture does: it turns back and comes
+    # in, and the pointer finds it in its place.
+    desktop.reload(config(speed=0.3))
+    msg("scratchpad_show")
+    desktop.wait_for(lambda: drop().drop == "out" and drop().dy > 5, "sliding out")
+    peeker = desktop.spawn([window_probe, "S", "peek"], stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, text=True)
+    assert peeker.stdout.readline().strip() == "ok", "the probe did not peek"
+    assert drop().drop == "out", drop()
+    subprocess.run([window_probe, "S", "restore"], env=desktop.env, check=True, timeout=30,
+                   stdout=subprocess.DEVNULL)
+    s, d = window(), drop()
+    assert s.focused and not s.minimized and d.drop == "in" and d.drawn, (s, d)
+    assert pid_at(s.x + s.width // 2, s.y + s.height // 2) == str(shown.pid)
+    peeker.stdin.close()
+    assert desktop.reap(peeker) == 0
+    desktop.reload(config())
+    desktop.wait_for(lambda: settled() and drop().dy == 0 and drop().alpha == 1000, "in place")
+
     # Animations off: shown and hidden at once.
-    desktop.reload(CONFIG % "false")
+    desktop.reload(config(enabled=False))
     msg("scratchpad_show")
     assert settled() and not drop().drawn and window().minimized, drop()
     msg("scratchpad_show")
