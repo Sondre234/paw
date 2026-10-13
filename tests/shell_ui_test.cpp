@@ -309,7 +309,7 @@ int main(int argc, char **argv) {
                 client->write("ok\n");
                 client->disconnectFromServer();
                 pickProfile(QString::fromUtf8(request).trimmed().section(' ', 1));
-            } else if (request.startsWith("profile_drawn ")) {
+            } else if (request.startsWith("profile_drawn")) {
                 drawnProfiles.push_back(QString::fromUtf8(request).trimmed().section(' ', 1));
                 client->write("ok\n");
                 client->disconnectFromServer();
@@ -6270,7 +6270,15 @@ ListModel {
             theme->property("motionScale").toReal() <= 0)
             return fail("a new profile was said drawn before its wallpaper showed, or moved meanwhile");
         QObject::disconnect(restyled);
+        // A reload that leaves no profile while one is being drawn names none to the compositor.
+        drawnProfiles.clear();
         pickProfile(profileBefore);
+        if (!controller.restyling() ||
+            !reconfigure(QString(lua).replace(
+                "profile='dark',profiles={dark={},light={shell={accent='#336699'}}},", "")) ||
+            !waitFor([&] { return !controller.restyling(); }) || controller.profile() != "" ||
+            QTest::qWaitFor([&] { return !drawnProfiles.isEmpty(); }, 300))
+            return fail("a reload that left no profile said one was drawn");
         if (!reconfigure(lua) ||
             !waitFor([&] { return controller.profile() == profileBefore && !controller.restyling(); }))
             return fail("the profile in use did not come back");
