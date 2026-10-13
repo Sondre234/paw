@@ -35,7 +35,8 @@ int main() {
                     defaults.settings.effects.peek_switcher,
                 "peek defaults");
         auto peek = paw::parse_config("return {peek={opacity=0,duration=0,switcher=false}}");
-        require(peek.settings.effects.peek_opacity == 0 && peek.settings.effects.peek_duration == 0 &&
+        require(peek.settings.effects.peek_opacity == 0 &&
+                    peek.settings.effects.peek_duration == 0 &&
                     !peek.settings.effects.peek_switcher,
                 "peek not parsed");
         rejects("return {peek={switcher='yes'}}");
