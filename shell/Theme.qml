@@ -141,7 +141,10 @@ QtObject {
     // Motion, following animations.enabled and animations.speed: every duration is 0 while
     // animations are off.
     readonly property bool animations: shell.animations
-    readonly property real motionScale: animations ? 1 / Math.max(0.1, shell.animationSpeed) : 0
+    // While a new appearance profile comes in (shell.restyling), under the compositor's picture
+    // of the old look, nothing moves: the new look shows at once, and the picture crossfades to it.
+    readonly property real motionScale: animations && !shell.restyling
+                                        ? 1 / Math.max(0.1, shell.animationSpeed) : 0
     readonly property int durationFast: duration(120)
     readonly property int durationNormal: duration(180)
     readonly property int durationSlow: duration(300)

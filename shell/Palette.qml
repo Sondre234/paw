@@ -28,8 +28,9 @@ Item {
     readonly property var results: shell.palette.results
     function heading(index) {
         var results = root.results
-        // A row the results no longer have, read again before it goes, has none.
-        if (index >= results.length)
+        // A row the results no longer have, read again before it goes (its index -1 as it is
+        // taken away, as it is at once with motion off), has none.
+        if (index < 0 || index >= results.length)
             return ""
         var searching = shell.palette.query.trim() !== ""
         if (index === 0)

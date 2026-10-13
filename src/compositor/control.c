@@ -345,6 +345,7 @@ static const struct {
     {"overview", control_overview},
     {"panel_drag", control_panel_drag},
     {"switcher_peek", control_switcher_peek},
+    {"profile_drawn", control_profile_drawn},
     {"workspace_nudge", control_workspace_nudge},
 };
 

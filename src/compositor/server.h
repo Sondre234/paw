@@ -284,6 +284,8 @@ struct sh_idle {
 struct sh_window_object; // a paw_window_v1 (window_control.c)
 struct sh_window_rect;   // where a client shows a window on an output (minimize.c)
 struct sh_mirror;        // what a mirroring output shows (mirror.c)
+struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c)
+struct sh_crossfade_picture; // what an output showed as it began
 struct wlr_color_manager_v1;
 
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
@@ -709,6 +711,8 @@ struct sh_server {
      * matrix for it (NULL at neutral), handed to every output commit. */
     struct wl_event_source *night_timer;
     struct sh_fade zoom_fade; // the magnification, 1 for none
+    /* A new appearance profile crossfading in (crossfade.c); NULL otherwise. */
+    struct sh_crossfade *crossfade;
     double zoom_target, zoom_scroll;
     struct sh_corner_dwell corner_dwell; // hot corners
     struct wl_event_source *corner_timer;
@@ -774,6 +778,9 @@ struct sh_output {
     bool zoom_failed; // it could not be magnified this time; it shows 1x until the zoom is reset
     /* Out of the layout, showing another output's picture (mirror.c); NULL otherwise. */
     struct sh_mirror *mirror;
+    /* What it showed as the appearance profile changed, laid over it until the new look has
+     * crossfaded in (crossfade.c); NULL otherwise. */
+    struct sh_crossfade_picture *crossfade;
     struct sh_tearing tearing;
     /* The edges of its usable area a window reaches (output_touched_edges), as subscribers
      * were last told. */
@@ -1077,6 +1084,14 @@ void close_control_socket(struct sh_server *server);
 /* binding_mode.c */
 const char *binding_mode(struct sh_server *server);
 void set_binding_mode(struct sh_server *server, int mode);
+
+/* crossfade.c */
+void crossfade_start(struct sh_server *server);
+void crossfade_end(struct sh_server *server);
+void crossfade_forget_output(struct sh_output *output);
+void crossfade_tick(struct sh_server *server);
+void control_profile_drawn(struct sh_server *server, int fd, const char *arguments);
+void describe_crossfade(struct sh_server *server, int fd, const char *arguments);
 
 /* cursor.c */
 struct wlr_output *pointer_output(struct sh_server *server);

@@ -164,7 +164,7 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
     task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp
     app_match.hpp wallpapers.cpp wallpapers.hpp image_provider.hpp audio.cpp audio.hpp
-    system_status.cpp system_status.hpp power.cpp power.hpp)
+    system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
 add_dependencies(paw-shell paw_wlr_client_protocols paw_version)
 set_target_properties(paw-shell PROPERTIES AUTOMOC ON RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
@@ -287,6 +287,10 @@ if(BUILD_TESTING)
     paw_shell_test(display_layout_test SOURCES display_layout.cpp display_layout.hpp
         LIBS Qt6::Core Qt6::Test)
     add_test(NAME shell_display_layout COMMAND display_layout_test)
+    # What the shell waits for before it says a new appearance profile is drawn.
+    paw_shell_test(restyle_test SOURCES restyle.cpp restyle.hpp
+        LIBS Qt6::Core Qt6::Gui Qt6::Quick Qt6::Test)
+    add_test(NAME shell_restyle COMMAND restyle_test)
     # The display settings window's model, against a stand-in for the compositor.
     paw_shell_test(display_settings_test
         SOURCES display_settings.cpp display_settings.hpp display_layout.cpp display_layout.hpp
@@ -509,6 +513,8 @@ if(BUILD_TESTING)
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> "${GRIM_ARGUMENT}")
         paw_smoke(macos_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(crossfade_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:paw-shell>)
         paw_smoke(peek_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe>)
         paw_smoke(volume_keys_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)

@@ -26,6 +26,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     // here; the shell hears of it with the state (describe_state).
     if (output_touched_edges(output->server, output) != output->touched)
         notify_subscribers(output->server);
+    crossfade_tick(output->server); // a new appearance profile fading in
     if (tick_idle(output->server)) // the screens dimming
         wlr_output_schedule_frame(output->wlr_output);
     // Night light's colours do not go with an HDR output's, which the scene converts to itself.
@@ -705,6 +706,7 @@ static void output_destroy(struct wl_listener *listener, void *data) {
     wl_list_remove(&output->link);
     mirror_stop(output);
     mirrors_forget_source(output);
+    crossfade_forget_output(output);
     output_release_zoom(output);
     destroy_output_layers(output->server, output->wlr_output);
     wlr_scene_node_destroy(&output->background->node);

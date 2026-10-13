@@ -214,6 +214,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/actions.c
         src/compositor/binding_mode.c
         src/compositor/control.c
+        src/compositor/crossfade.c
         src/compositor/cursor.c
         src/compositor/display_mode.c
         src/compositor/display_settings.c
@@ -588,6 +589,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(mirror_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:output_management_probe>)
+        paw_smoke(crossfade_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe>)
         paw_smoke(bit_depth_smoke $<TARGET_FILE:paw> $<TARGET_FILE:output_management_probe>)
         paw_smoke(hdr_smoke $<TARGET_FILE:paw>)
         paw_smoke(tearing_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)

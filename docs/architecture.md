@@ -77,6 +77,7 @@ all. In short:
 | `group.c`, `scratchpad.c`, `swallow.c`, `switcher.c`, `overview.c`, `session.c` | One feature each. `session.c` also saves a login session as `last` as it ends (`session_save_last`, from the power actions and quit) and restores it after `startup` (`session_restore_last`, from `sh_run`), asking `sh_callbacks.started` which missing windows startup and autostart will open. |
 | `switches.c` | Switch devices: the lid turning a laptop's panel off and on (clamshell), switches' bindings. |
 | `effects.c` | Dimming, peeking at the desktop or at one window, night light, magnifier, hot corners. |
+| `crossfade.c` | A new appearance profile crossfading in: a picture of what each monitor showed, held over the scene until the shell has drawn the new look, then faded out. |
 | `lock.c` | Session lock and idle/sleep inhibitors. |
 | `idle.c` | Power saving after a while without input: dimming, monitors off, locking, suspending. |
 | `power.c` | The power actions: suspend, hibernate, reboot and power off through logind (`src/login1.c`), locking first, closing windows first, log out. |
@@ -636,6 +637,64 @@ describes and tells clients the image description their outputs prefer. `PAW_TES
 headless outputs claim BT.2020 with PQ, but the headless backend takes no image description, so a
 test reaches the commit test's refusal at most.
 
+### Crossfading to a new appearance profile
+
+`reload_config` compares the profile in use (`sh_settings.profile`, which `parse_config` fills)
+before and after the configuration is read again, and calls `crossfade_start` (`crossfade.c`)
+when it changed, before the rest of the reload changes anything in the scene. For each output in
+the layout that is on and does not show a fullscreen window, `take_picture` draws the scene into a
+buffer of its own through `wlr_scene_output_build_state` and a swapchain made for it, as the
+magnifier draws (`effects.c`), with direct scan-out locked out (`wlr_output_lock_attach_render`),
+and the idle dimming, the drag icons and any software cursor hidden for that drawing alone (a
+hardware cursor is in no frame), since they go on over the picture; the swapchain goes at once,
+the buffer staying while the picture shows. A gamma table a client set is set aside for the
+drawing too (fields wlroots keeps to itself): the scene would hand one not applied yet to the
+drawing's state, which goes unused, and draw it into the picture on an output without gamma
+hardware. The picture is in the scene's colours, given only the encoding wlroots uses anyway (or
+an HDR output's image description), which has the scene put its colour transforms together again: laid back in the scene as a
+`wlr_scene_buffer` in a tree just under the drag icons, and so under the lock, turned as its output
+is (`transform`) and filling the output's box, it gets night light and the magnifier from the
+output's frames as everything else does, and a mirror copies it with them. An HDR output's
+picture is drawn in its image description, which the buffer is tagged with
+(`wlr_scene_buffer_set_transfer_function`, `set_primaries`), so that the scene converts it back
+into itself. Its opacity stays below 1 (0.9999): the scene takes an opaque buffer at 1 to hide
+what is under it, whose surfaces then get no frame callbacks, and the shell could not draw under
+it. The pictures take no input.
+
+While the shell is subscribed (`shell_listening`) the pictures are held until it sends
+`profile_drawn NAME` for the new profile, or for a second (`HOLD_MS`); otherwise they are let go
+at once. Then `crossfade_tick`, which `output_frame` calls before each frame, fades them out from
+the next frame over 400 ms divided by `animations.speed`, easing in and out, and takes them away at
+the end. Held, nothing changes and no frame is drawn. The tick also takes away a picture whose
+output moved, turned, or changed size or scale since, a picture's listener on its output's
+commits one whose output turns off (it draws no frames to fade it in, and would show it stale once
+on again), from an idle callback once that commit is over, `crossfade_forget_output` one whose
+output goes, and `crossfade_end` all of them as the session locks; the last to go ends the
+crossfade. A switch that cannot crossfade (without animations or a profile, or while locked)
+ends one under way, the new look showing at once. A switch while they fade takes them
+again from the scene, which shows the old ones as they are; one while they are held keeps them and
+waits for the newer profile. `get crossfade` lists them.
+
+The shell's side is `Restyle` (`shell/restyle.cpp`). `ShellController::reload` notes a change of
+profile and sets `restyling` before it tells the QML of the new configuration, which zeroes
+`Theme.motionScale`, so that the new look shows at once without transitions of its own. Then, after
+any reload with a profile, `Restyle` follows every `QQuickWindow` shown (asking each to draw)
+until, as `RestyleWait` decides (tested by `restyle_test`), each has swapped a frame since, and
+again since an image in it finished loading (a wallpaper decodes off the GUI thread), none is
+loading, and none has drawn for 50 ms, or 150 ms have passed since that held, as a bar the
+compositor configures anew draws twice; 900 ms at most. `restyled` then clears `restyling` and
+sends `profile_drawn` through `ask`, which says nothing when the compositor is not there (and nothing without a profile). It says
+so after a reload that kept the profile too: switched there and back before the shell read the
+file, the compositor waits for the profile the shell has had all along.
+
+The desktop (`Desktop.qml`) draws the wallpaper, or the gradient (the macOS style's drawn
+wallpaper) without one, in layers under `backdrop`: each change lays a new one on top, at no
+opacity until its picture has loaded or failed, which then fades in over 450 ms (at once for the
+first) and takes away the layers under it once it covers them; a reload that keeps the wallpaper
+keeps its layer, reading and decoding nothing again. A change during a fade lays another layer over both, so that nothing
+jumps. A layer whose picture failed shows the gradient, and lays a new one for it after a second,
+then twice as long each time up to a minute, while it is the one wanted.
+
 ### Power saving when idle
 
 `idle.c` takes the `idle` steps (`enum sh_idle_step`: dim, display_off, lock, suspend) with one
@@ -777,7 +836,7 @@ what was there.
 | `AudioSlider.qml`, `MuteButton.qml`, `StreamRow.qml` | Controls the mixer and Quick Settings use: a volume's slider, a mute button, and an application playing sound. |
 | `StartHome.qml`, `StartAllApps.qml`, `StartSearch.qml`, `StartBestMatch.qml`, `StartTile.qml`, `StartRow.qml`, `UserAvatar.qml` | Parts of the start menu (`Launcher.qml`): its pinned and recent applications, every application from A to Z, what its search finds and the best match of it, a pinned application, a row of its lists, the user's picture. |
 | `Launchpad.qml` | The launcher of the macOS style, in the start menu's place: every application on pages of a grid over the whole output, with a search. |
-| `Desktop.qml` | The wallpaper and the desktop's launchers, on the background layer. |
+| `Desktop.qml` | The wallpaper, each new one fading in over those before, and the desktop's launchers, on the background layer. |
 | `DrawnWallpaper.qml` | The wallpaper the macOS style draws while none is set, light or dark, from the background colour and the accent. |
 | `Switcher.qml`, `Overview.qml`, `Palette.qml`, `PowerDialog.qml`, `NotificationCards.qml`, `Osd.qml`, `ConfigError.qml` | One overlay surface each. |
 | `DisplayMode.qml` | The display mode popup (Windows' Win+P, `shell.displayModes`), an overlay surface of its own in the middle of the output: the four choices, the one the compositor's stepping shows selected; a click takes one. |
@@ -1309,7 +1368,9 @@ and `PAW_PROBE_PANEL=top` stands a `wayland_probe`'s panel along the top (see
 and `PAW_TEST_REFUSE_COMMIT=WxH` make headless outputs refuse that size in the display
 settings' test, or in `configure_output`'s as if the commit failed (see
 `display_settings_smoke.py`). `PAW_TEST_LOCK_TIMEOUT_MS` shortens the time a locker gets to
-lock the screen before a suspend gives up (see `power_smoke.py`).
+lock the screen before a suspend gives up (see `power_smoke.py`), and
+`PAW_TEST_CROSSFADE_HOLD_MS` sets how long a profile's crossfade waits for the shell (see
+`crossfade_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless

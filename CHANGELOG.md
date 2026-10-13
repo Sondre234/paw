@@ -54,6 +54,14 @@ shadows.
 - The overview takes the profile's colours: dark shades of the background's hue behind the
   thumbnails, and the focused border's colour around the window and workspace picked, where
   every profile had blue on blue-black.
+- Switching appearance profiles is one crossfade on every monitor: each holds a picture of the
+  old look while the compositor and the shell take up the new one, until the shell says it has
+  drawn it, then fades it out over 400 ms, easing in and out (`animations.speed` scales it,
+  `animations.enabled = false` switches at once), so no frame shows the old bar with the new
+  borders. Input reaches the new look at once; monitors that are off or show a fullscreen window
+  are left alone, and locking ends it. A new wallpaper fades in over the one shown, also from or
+  to none, and one picked during the fade comes in over both. `paw msg get crossfade` lists the
+  pictures.
 - A floating bar docks while a window reaches the edge it is along (maximized, one snapped
   against it, or any tile, gaps or not): it fills the strip it reserves, squared and without its
   frame, and floats again once no window does, as KDE's floating panels do. Subscribers hear

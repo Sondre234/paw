@@ -344,6 +344,9 @@ enum sh_switch { SH_SWITCH_LID, SH_SWITCH_TABLET };
 
 struct sh_settings {
     float background[4];
+    /* The appearance profile in use, from `profiles`: the one picked, else `profile`; "" for
+     * none. A new one crossfades in (crossfade.c). */
+    char profile[40];
     uint32_t mouse_modifier;
     int repeat_rate;
     int repeat_delay;
