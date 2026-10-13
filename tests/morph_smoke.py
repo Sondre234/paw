@@ -22,14 +22,14 @@ SCREEN = (1280, 720)
 FULL = (0, 0, 1280, 720)
 BORDER = 2
 # Long enough that the test sees each change on its way, under AddressSanitizer too, where a
-# query takes some 30 ms.
+# query takes some 30 ms; and no frame there, however late, lands an animation.
 DURATION = 700
 
 
 def config(enabled=True):
     return f"""return {{
     xwayland = false,
-    animations = {{ enabled = {str(enabled).lower()}, duration = {DURATION},
+    animations = {{ enabled = {str(enabled).lower()}, duration = {DURATION}, late_frame_ms = 0,
                     open = {{ duration = 0 }}, close = {{ duration = 0 }},
                     focus = {{ duration = 0 }} }},
     layout = {{ tiling = false, gap = 0 }},
