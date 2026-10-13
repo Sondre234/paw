@@ -815,8 +815,15 @@ static void test_morph_rest_and_finish(void) {
           "drawn again");
     CHECK(m.heard_width == m.surface->width && m.frame->width == m.surface->width + 4,
           "the frame around it: %d", m.frame->width);
+    // A lookup far from where it is drawn and from where it rests leaves it alone; one where it
+    // rests and is not drawn puts it at rest.
+    int drawn = m.surface->width, heard = m.heard;
     sh_animator_rest_at(m.rig.animator, 5000, 5000);
-    CHECK(m.surface->width == 400, "at rest for any lookup");
+    CHECK(m.surface->width == drawn && m.heard == heard && !m.rig.anim.rested,
+          "left alone far away");
+    sh_animator_resume(m.rig.animator);
+    sh_animator_rest_at(m.rig.animator, 395, 295);
+    CHECK(m.surface->width == 400 && m.rig.anim.rested, "at rest where it will be");
     sh_animator_resume(m.rig.animator);
     // Finishing lands it, and the frame is drawn at rest.
     sh_anim_finish(&m.rig.anim);

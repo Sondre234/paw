@@ -15,6 +15,9 @@ enum { SLACK_MS = 50 };
 /* How long a window that changed size waits, stretched to its new size, for its client to draw
  * that size once the glide is over; a slower one is then drawn as it is until it does. */
 enum { MORPH_WAIT_MS = 300 };
+/* How far past its geometry a window changing size may take input at rest: its frame, and the
+ * shadow a client-side frame draws around it. */
+enum { MORPH_REACH = 128 };
 /* The fade of a copy of what a client drew before its size changed. */
 static const struct sh_curve FADE_CURVE = {SH_CURVE_EASE_IN_OUT, {0}};
 
@@ -606,15 +609,23 @@ void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
         int cx, cy;
         bool matters = true;
         // A fade that only changes opacity and a glide keep their boxes' sizes; growing ones
-        // and their scale-about-a-center, and windows changing size, are put at rest without
-        // asking.
-        bool sizes_change = (anim->fx && anim->scale_from != anim->scale_to) || anim->morph;
+        // and their scale-about-a-center are put at rest without asking.
+        bool sizes_change = anim->fx && anim->scale_from != anim->scale_to;
         if (!sizes_change && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
             double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
+            double rest_x = parent_x + anim->base_x, rest_y = parent_y + anim->base_y;
             matters = tree_covers(anim->tree, cx, cy, px, py) ||
-                      (!anim->owned &&
-                       tree_covers(anim->tree, parent_x + anim->base_x, parent_y + anim->base_y, px,
-                                   py));
+                      (!anim->owned && tree_covers(anim->tree, rest_x, rest_y, px, py));
+            // One changing size covers at rest the size its client drew, or the one it was
+            // given, and what reaches past them.
+            if (anim->morph && !anim->owned && !matters) {
+                int width =
+                    anim->live_width > anim->rest_width ? anim->live_width : anim->rest_width;
+                int height =
+                    anim->live_height > anim->rest_height ? anim->live_height : anim->rest_height;
+                matters = px >= rest_x - MORPH_REACH && px < rest_x + width + MORPH_REACH &&
+                          py >= rest_y - MORPH_REACH && py < rest_y + height + MORPH_REACH;
+            }
         }
         if (matters)
             rest_anim(anim);
