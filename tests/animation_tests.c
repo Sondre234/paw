@@ -111,6 +111,28 @@ static void test_retarget_keeps_velocity(void) {
     teardown(&rig);
 }
 
+/* A glide started again in the millisecond it began, as by a placement within another, was never
+ * drawn: it goes as one glide of the two offsets would, with no speed of its own. */
+static void test_unseen_glide_carries_nothing(void) {
+    struct rig twice, once;
+    setup(&twice, config(400, SH_CURVE_SPRING));
+    sh_anim_glide(twice.animator, &twice.anim, twice.content, 100, 0);
+    sh_anim_glide(twice.animator, &twice.anim, twice.content, 50, -30);
+    setup(&once, config(400, SH_CURVE_SPRING)); // the same clock, back at the same time
+    sh_anim_glide(once.animator, &once.anim, once.content, 150, -30);
+    CHECK(twice.content->node.x == 150 && twice.content->node.y == -30, "drawn where both put it");
+    for (int i = 0; i < 10; ++i) {
+        advance(&twice, 16);
+        sh_animator_tick(once.animator);
+        CHECK(twice.content->node.x == once.content->node.x &&
+                  twice.content->node.y == once.content->node.y,
+              "as one glide: %d, %d against %d, %d", twice.content->node.x, twice.content->node.y,
+              once.content->node.x, once.content->node.y);
+    }
+    teardown(&once);
+    teardown(&twice);
+}
+
 static void test_glide_kind_uses_its_own_style(void) {
     struct rig rig;
     struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
@@ -913,6 +935,7 @@ int main(void) {
     test_glide_reaches_rest();
     test_retarget_is_continuous();
     test_retarget_keeps_velocity();
+    test_unseen_glide_carries_nothing();
     test_glide_kind_uses_its_own_style();
     test_speed_and_disabled();
     test_open_restores_rest_values();
