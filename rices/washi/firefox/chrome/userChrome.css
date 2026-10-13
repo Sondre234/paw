@@ -2,10 +2,10 @@
  *
  * washi (light): sakura paper toolbars, navy ink text, the URL bar a card with a 2px ink outline
  * and a hard offset shadow printed in sky blue, tabs as paper labels (the selected one a white
- * card in an ink outline with a strip of sakura washi tape), menus and panels as ink-outlined
- * cards, focus in sky blue. sumi (dark, under prefers-color-scheme: dark) is the sheet soaked
- * in ink by moonlight: lavender-white text, sky and sakura lit bright, soft deep shadows and a
- * sakura misprint where an ink shadow would vanish.
+ * card in an ink outline), menus and panels as ink-outlined cards, focus in sky blue. sumi
+ * (dark, under prefers-color-scheme: dark) is the sheet soaked in ink by moonlight:
+ * lavender-white text, sky and sakura lit bright, soft deep shadows and a sakura misprint where
+ * an ink shadow would vanish.
  *
  * Every colour is a --washi-* token in the two palette blocks at the top; the rest maps them
  * onto Firefox's own variables (156 names, with the 152-and-older and 157 names alongside)
@@ -40,7 +40,6 @@
   --washi-shadow-panel: 5px 5px 0 var(--washi-print);        /* menus, panels, URL results */
   --washi-shadow-tab: 3px 3px 0 var(--washi-print);          /* the selected tab */
   --washi-panel-shadow-room: 8px;                            /* room popups leave for it */
-  --washi-tape: color-mix(in srgb, var(--washi-accent-deep) 82%, transparent);
 
   --washi-border: 2px;
   --washi-radius: 10px;
@@ -74,7 +73,6 @@
     --washi-shadow-panel: 0 8px 20px rgb(0 0 0 / 0.6);
     --washi-shadow-tab: 0 4px 14px rgb(0 0 0 / 0.45);
     --washi-panel-shadow-room: 28px;
-    --washi-tape: color-mix(in srgb, var(--washi-accent) 85%, transparent);
   }
 }
 
@@ -385,9 +383,11 @@ findbar .findbar-textbox::selection {
 
 /* ================================================================ tabs: paper labels */
 
+/* no space above the tabs: they reach the window's top edge, so a click at the very top of
+   the screen still switches tabs */
 #TabsToolbar {
   padding-inline: 6px !important;
-  padding-top: 5px !important;
+  padding-top: 0 !important;
 }
 
 .tabbrowser-tab {
@@ -423,25 +423,11 @@ findbar .findbar-textbox::selection {
   border-color: var(--washi-line) !important;
 }
 
-/* the selected label: a paper card in ink, held on by a strip of washi tape */
+/* the selected label: a paper card in ink */
 .tab-background:is([selected], [multiselected]) {
-  position: relative;
   background-color: var(--washi-surface) !important;
   border-color: var(--washi-outline) !important;
   box-shadow: var(--washi-shadow-tab) !important;
-}
-
-.tab-background[selected]::before {
-  content: "";
-  position: absolute;
-  top: -5px;
-  left: 50%;
-  width: 34px;
-  height: 9px;
-  translate: -50% 0;
-  rotate: -3deg;
-  background-color: var(--washi-tape);
-  pointer-events: none;
 }
 
 /* multiselected but not the one shown: a dashed outline */
@@ -474,15 +460,6 @@ sidebar-main,
   color: var(--washi-ink) !important;
 }
 
-/* in a column the tape holds the label's left edge */
-#tabbrowser-tabs[orient="vertical"] .tab-background[selected]::before {
-  top: 50%;
-  left: -5px;
-  width: 9px;
-  height: 22px;
-  translate: 0 -50%;
-}
-
 #tabbrowser-tabs[orient="vertical"] .tabbrowser-tab {
   padding-inline: 4px 7px !important;
 }
@@ -502,11 +479,6 @@ sidebar-pins-promo {
 sidebar-pins-promo .icon-cell > img,
 .promo-card .icon-cell > img {
   fill: var(--washi-accent-text) !important;
-}
-
-/* collapsed to icons: no tape, the card alone */
-#tabbrowser-tabs[orient="vertical"]:not([expanded]) .tab-background[selected]::before {
-  display: none;
 }
 
 #sidebar-box {
