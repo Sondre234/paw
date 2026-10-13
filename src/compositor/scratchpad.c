@@ -359,13 +359,16 @@ void scratchpad_show(struct sh_server *server) {
     notify_subscribers(server);
 }
 
-/* With features.scratchpad turned off, its windows come back to the focused output. */
+/* With features.scratchpad turned off, its windows come back to the focused output, at once:
+ * one sliding in or out lands first. */
 void empty_scratchpad(struct sh_server *server) {
     struct wlr_output *output = focused_output(server);
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
         if (!toplevel->scratchpad)
             continue;
+        if (toplevel->drop.running)
+            sh_anim_finish(&toplevel->anim);
         toplevel->scratchpad = false;
         if (!toplevel->minimized)
             continue;
