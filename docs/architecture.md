@@ -755,7 +755,10 @@ by the task id that is the result's target: 500 ms after the selection comes to 
 typing), once something was typed or the selection moved since the palette opened (`engaged`), and
 at once while it peeks at another, ended 150 ms after the selection leaves the windows
 and, as the palette closes, once the event loop has run the result (`Qt.callLater`), so that a
-window it focuses ends the peek around itself first. `shell.peekSelection` is `peek.switcher`.
+window it focuses ends the peek around itself first. The results are read as the palette opens,
+so a window that closed meanwhile keeps its row; the model takes no peek at it (`peekedTask`
+stays as it was), and the window peeked at so far is let go, as it no longer stands for the
+selection. `shell.peekSelection` is `peek.switcher`.
 
 The keyboard on the bar (`BarKeyboard.qml`, the panel's `barKeys`) is held in the popover. The
 `taskbar_focus` action sends the shell `taskbar OUTPUT` for the focused output (`request_taskbar`,
