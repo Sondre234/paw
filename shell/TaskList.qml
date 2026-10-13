@@ -137,13 +137,17 @@ ListView {
                 taskList.dragTo = to
                 taskList.dragFrom = taskButton.index
             }
+            // Cancelled rather than let go, it drops nothing on a workspace.
+            onCanceled: taskList.panel.cancelButtonDrag()
             onActiveChanged: {
                 if (active)
                     return
                 var from = taskList.dragFrom, to = taskList.dragTo
                 taskList.dragFrom = taskList.dragTo = -1
-                if (!taskButton.launcher && taskList.panel.endButtonDrag(taskButton.dragWindows()) > 0)
+                if (!taskButton.launcher && taskList.panel.dropWorkspace > 0) {
+                    taskList.panel.releaseButtonDrag(taskButton.dragWindows())
                     return
+                }
                 if (from >= 0 && to >= 0 && to !== from)
                     taskList.model.move(from, to)
             }

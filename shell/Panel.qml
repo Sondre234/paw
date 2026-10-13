@@ -424,9 +424,36 @@ Item {
         }
         return dropWorkspace
     }
+    // A drag let go: what it drops waits for the end of the event, as Qt says that a drag was
+    // cancelled (something else taking the pointer) only after it says that it ended.
+    property var pendingButtonDrop: null
+    property bool pictureReleased: false
+    function releaseButtonDrag(windows) {
+        pendingButtonDrop = windows
+        Qt.callLater(dropReleased)
+    }
+    function releasePictureDrag() {
+        pictureReleased = true
+        Qt.callLater(dropReleased)
+    }
+    function dropReleased() {
+        var windows = pendingButtonDrop
+        pendingButtonDrop = null
+        if (windows)
+            endButtonDrag(windows)
+        if (pictureReleased && pictureDrag)
+            endPictureDrag(true)
+        pictureReleased = false
+    }
+    function cancelPictureDrag() {
+        pictureReleased = false
+        if (pictureDrag)
+            endPictureDrag(false)
+    }
     // The drag of a button ended without dropping anything: the workspace goes dark and what it
     // carried goes.
     function cancelButtonDrag() {
+        pendingButtonDrop = null
         dropWorkspace = 0
         if (dropGhost.carried)
             dropGhost.back(dropGhost.x, dropGhost.y)

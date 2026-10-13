@@ -106,11 +106,12 @@ PopupCard {
                                   icon: thumbnails.panel.groupIcon },
                                 taken, centroid.scenePressPosition, centroid.scenePosition)
                         } else if (thumbnails.panel.pictureDrag) {
-                            thumbnails.panel.endPictureDrag(true)
+                            thumbnails.panel.releasePictureDrag()
                         }
                     }
                     onCentroidChanged: if (active) thumbnails.panel.movePictureDrag(centroid.scenePosition.x, centroid.scenePosition.y)
-                    onCanceled: if (thumbnails.panel.pictureDrag) thumbnails.panel.endPictureDrag(false)
+                    // Cancelled rather than let go, it drops nothing on a workspace.
+                    onCanceled: thumbnails.panel.cancelPictureDrag()
                 }
                 // The button, whose press the drag takes over, still hears the drag's moves, each of
                 // which would press it again: while dragged, it holds no point.
