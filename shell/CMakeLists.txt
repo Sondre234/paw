@@ -287,6 +287,10 @@ if(BUILD_TESTING)
     paw_shell_test(display_layout_test SOURCES display_layout.cpp display_layout.hpp
         LIBS Qt6::Core Qt6::Test)
     add_test(NAME shell_display_layout COMMAND display_layout_test)
+    # What the shell waits for before it says a new appearance profile is drawn.
+    paw_shell_test(restyle_test SOURCES restyle.cpp restyle.hpp
+        LIBS Qt6::Core Qt6::Gui Qt6::Quick Qt6::Test)
+    add_test(NAME shell_restyle COMMAND restyle_test)
     # The display settings window's model, against a stand-in for the compositor.
     paw_shell_test(display_settings_test
         SOURCES display_settings.cpp display_settings.hpp display_layout.cpp display_layout.hpp
