@@ -391,11 +391,24 @@ static void set_icon(struct probe *probe, const char *spec) {
     xdg_toplevel_icon_manager_v1_set_icon(probe->icons, probe->toplevel, icon);
     xdg_toplevel_icon_v1_destroy(icon);
 }
-/* One line of standard input: "activate", "title TEXT", "app_id TEXT", or "icon SPEC" (see
- * set_icon). */
+static struct wl_buffer *make_buffer(struct probe *probe, int width, int height, int margin);
+/* One line of standard input: "activate", "title TEXT", "app_id TEXT", "icon SPEC" (see
+ * set_icon), "draw WIDTH HEIGHT" (the window draws itself at that size, unasked, as a client may),
+ * or "fullscreen 1|0" (it asks to be fullscreen, or no longer). */
 static void run_command(struct probe *probe, char *line) {
     line[strcspn(line, "\n")] = '\0';
-    if (!strcmp(line, "activate"))
+    int width, height, on;
+    if (sscanf(line, "draw %d %d", &width, &height) == 2 && width > 0 && height > 0 &&
+        width <= 8192 && height <= 8192) {
+        wl_surface_attach(probe->surface, make_buffer(probe, width, height, 0), 0, 0);
+        wl_surface_damage_buffer(probe->surface, 0, 0, width, height);
+        wl_surface_commit(probe->surface);
+    } else if (sscanf(line, "fullscreen %d", &on) == 1) {
+        if (on)
+            xdg_toplevel_set_fullscreen(probe->toplevel, NULL);
+        else
+            xdg_toplevel_unset_fullscreen(probe->toplevel);
+    } else if (!strcmp(line, "activate"))
         request_activation(probe);
     else if (!strncmp(line, "title ", 6))
         xdg_toplevel_set_title(probe->toplevel, line + 6);
