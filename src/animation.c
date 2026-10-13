@@ -192,12 +192,20 @@ static void rest_hold(struct sh_anim *anim) {
         walk(anim, anim->tree, 0, 0, true, 1, 1);
 }
 
+/* Tells the owner tracking the tree that this animation is over for it. */
+static void release_track(struct sh_anim *anim) {
+    void (*track)(void *, bool) = anim->track;
+    anim->track = NULL;
+    if (track)
+        track(anim->track_data, true);
+}
+
 static void stop(struct sh_anim *anim) {
     if (!anim->animator)
         return;
     wl_list_remove(&anim->link);
     anim->animator = NULL;
-    anim->fx = anim->glide = anim->held = false;
+    anim->fx = anim->glide = anim->held = anim->absent = false;
     if (anim->owned) {
         wlr_scene_node_destroy(&anim->tree->node);
         free(anim->records);
@@ -207,6 +215,7 @@ static void stop(struct sh_anim *anim) {
     free(anim->records);
     anim->records = NULL;
     anim->count = anim->capacity = 0;
+    release_track(anim);
 }
 
 /* The glide's offset along one axis at `elapsed` milliseconds, and its velocity. The eased
@@ -333,7 +342,7 @@ size_t sh_animator_tweens(const struct sh_animator *animator) {
 
 static void rest_anim(struct sh_anim *anim) {
     anim->rested = true;
-    if (anim->owned)
+    if (anim->owned || anim->absent)
         wlr_scene_node_set_enabled(&anim->tree->node, false);
     if (anim->glide)
         wlr_scene_node_set_position(&anim->tree->node, anim->base_x, anim->base_y);
@@ -412,7 +421,7 @@ void sh_animator_resume(struct sh_animator *animator) {
         if (!anim->rested)
             continue;
         anim->rested = false;
-        if (anim->owned)
+        if (anim->owned || anim->absent)
             wlr_scene_node_set_enabled(&anim->tree->node, true);
         step(anim, now);
     }
@@ -446,6 +455,8 @@ void sh_animator_tick(struct sh_animator *animator) {
     wl_list_for_each_safe(anim, next, &animator->running, link) {
         if (!step(anim, now))
             stop(anim);
+        else if (anim->track)
+            anim->track(anim->track_data, false);
     }
     // What a client drew since keeps the hold's opacity.
     wl_list_for_each(anim, &animator->held, link) apply_hold(anim);
@@ -466,6 +477,16 @@ static void start(struct sh_animator *animator, struct sh_anim *anim, struct wlr
                   int duration) {
     if (anim->animator && anim->tree != tree)
         sh_anim_finish(anim);
+    release_track(anim); // another animation takes the tree over
+    if (anim->absent) {
+        // A slide out of sight taken over: the window is there again, to rest where it does and
+        // at its full look, unless the new animation fades it itself.
+        anim->absent = false;
+        anim->base_x = anim->base_y = 0;
+        if (anim->fx)
+            walk(anim, anim->tree, 0, 0, true, 1, 1);
+        anim->fx = false;
+    }
     anim->tree = tree;
     if (!anim->animator) {
         anim->animator = animator;
@@ -710,6 +731,97 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
     anim->glide_start = now_ms(animator);
     fx_begin(animator, anim, SH_ANIM_WORKSPACE, duration, 1, 1, from_alpha, alpha, 0, 0);
     step(anim, anim->fx_start);
+}
+
+/* A drop goes further than anything else moves, the window's own height and more: dropping in
+ * takes this many times as long as opening a window, and sliding out (quicker, as leaving
+ * should be) as long as closing one. */
+static const double DROP_IN_STRETCH = 2, DROP_OUT_STRETCH = 1.5;
+/* The share of a drop its fade takes: the start of dropping in, the end of sliding out. */
+static const double DROP_FADE = 0.4;
+/* The share a drop turning back keeps of the speed a glide would carry (what the new curve lacks
+ * of the speed it had, held within twice the distance per duration): it eases round rather than
+ * bouncing off, without carrying on far the way it went (all of it would carry a window shown
+ * and hidden again a sixth of its height further down before it turned). */
+static const double DROP_KEEP = 0.25;
+
+/* The factor of its nodes' opacity the animation draws at `now`; 1 at rest. A fade that has yet
+ * to start draws where it starts. */
+static float drawn_alpha(const struct sh_anim *anim, int64_t now) {
+    if (anim->held)
+        return anim->held_alpha;
+    if (!anim->animator || !anim->fx)
+        return 1;
+    double e = eased(&anim->fx_curve, now - anim->fx_start, anim->fx_duration);
+    return (float)(anim->alpha_from + (anim->alpha_to - anim->alpha_from) * e);
+}
+
+float sh_anim_alpha(const struct sh_anim *anim) {
+    return anim->animator ? drawn_alpha(anim, now_ms(anim->animator)) : 1;
+}
+
+static bool drop(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                 int dx, int dy, bool out) {
+    if (anim->owned)
+        return false;
+    enum sh_anim_kind kind = out ? SH_ANIM_CLOSE : SH_ANIM_OPEN;
+    int length = animator->config.enabled ? duration_of(animator, kind) : 0;
+    if (anim->held || (anim->animator && anim->tree != tree))
+        sh_anim_finish(anim); // from rest, as the gesture or what ran elsewhere leaves it
+    if (!length) {
+        anim->base_x = anim->base_y = 0; // a slide out under way lands where the tree rests
+        sh_anim_finish(anim);
+        return false;
+    }
+    int duration = (int)fmax(1, lround(length * (out ? DROP_OUT_STRETCH : DROP_IN_STRETCH)));
+    int64_t now = now_ms(animator);
+    // From where it is drawn and as faded as it is, at the speed it has; dropping in afresh,
+    // from out of sight.
+    bool moving = anim->animator && anim->glide;
+    float alpha = out ? drawn_alpha(anim, now) : moving ? drawn_alpha(anim, now) : 0;
+    double vx = 0, vy = 0;
+    if (moving) {
+        double x, y;
+        glide_axis(anim, anim->glide_x, anim->glide_vx, now - anim->glide_start, &x, &vx);
+        glide_axis(anim, anim->glide_y, anim->glide_vy, now - anim->glide_start, &y, &vy);
+    }
+    int from_x = moving || out ? tree->node.x : dx, from_y = moving || out ? tree->node.y : dy;
+    start(animator, anim, tree, duration);
+    anim->base_x = out ? dx : 0;
+    anim->base_y = out ? dy : 0;
+    anim->glide_x = from_x - anim->base_x;
+    anim->glide_y = from_y - anim->base_y;
+    anim->glide_duration = duration;
+    anim->glide_curve = animator->config.styles[kind].curve;
+    if (out)
+        anim->glide_curve.kind |= SH_CURVE_REVERSED;
+    // The curve has a speed of its own to start with; carry some of what it lacks.
+    const double h = 1e-4;
+    double start_slope = sh_curve_eval(&anim->glide_curve, h) / h / duration;
+    anim->glide_vx =
+        moving ? DROP_KEEP * carried(vx, -anim->glide_x * start_slope, anim->glide_x, duration) : 0;
+    anim->glide_vy =
+        moving ? DROP_KEEP * carried(vy, -anim->glide_y * start_slope, anim->glide_y, duration) : 0;
+    anim->glide = true;
+    anim->glide_start = now;
+    int fade = (int)fmax(1, lround(duration * DROP_FADE));
+    fx_begin(animator, anim, kind, fade, 1, 1, alpha, out ? 0 : 1, 0, 0);
+    anim->fx_curve = (struct sh_curve){.kind = SH_CURVE_LINEAR};
+    // Sliding out, the fade ends as the slide does, and the tree hides with both done.
+    anim->fx_start = out ? now + duration - fade : now;
+    anim->absent = out;
+    step(anim, now);
+    return true;
+}
+
+bool sh_anim_drop_in(struct sh_animator *animator, struct sh_anim *anim,
+                     struct wlr_scene_tree *tree, int dx, int dy) {
+    return drop(animator, anim, tree, dx, dy, false);
+}
+
+bool sh_anim_drop_out(struct sh_animator *animator, struct sh_anim *anim,
+                      struct wlr_scene_tree *tree, int dx, int dy) {
+    return drop(animator, anim, tree, dx, dy, true);
 }
 
 struct sh_animator *sh_animator_create(struct wl_event_loop *loop) {
