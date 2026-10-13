@@ -481,6 +481,19 @@ sends move the outline every panel's popover shows, taking no input, and `panel-
 `ShellController::movePanel` write `shell.panel_position` with `paw::save_setting`
 (`src/config_edit.cpp`) and load the file again.
 
+While the panel's output tiles, with `shell.tiling_bar` on, `Panel.qml` shows the tiling bar
+(`TilingBar.qml`) instead (`tilingBarShown`). The style's bars stay meanwhile, hidden and null
+through `taskbar`, `dock` and `menuBar`, so that bars switch at once as tiling goes on and off,
+and `macos` reads false, so that the popups are placed as on the taskbar while drawn in the
+style's own way. The panel sets its `ShellView`'s `tilingBar`, which lays the surface along the
+tiling bar's edge (`ShellView::edge`) and as tall as the strip it reserves
+(`ShellController::tilingBarExtent`), without headroom. A module is a `Module`, a button in the
+bar's own colours (`shell.tilingBar`, which `ShellController::tilingBar` resolves against the
+shell's own), made by name in its group's row (`componentFor`) and found by the panel through
+`module(name)` for the popups it opens: Quick Settings and the clock's flyout open centred on
+theirs (`flyoutAnchor`), the power menu by its own (`barPowerMenu`). The `layout` module reads
+the `layout NAME LAYOUT` lines of the compositor's state (`describe_state`, `control.c`).
+
 The window switcher, the command palette, the power dialog and the overview's text are
 `OverlayView`s (`view.cpp`), a layer surface each on every output's overlay layer. `present()`
 shows one and sets its QML root's `shown`; `dismiss()` clears it, and the root animates its own
@@ -496,6 +509,7 @@ what was there.
 | `Theme.qml` | The design tokens (colours, type, radii, spacing, icon sizes, motion, whether effects can be drawn), derived from the appearance profile. A singleton: every file reads `Theme.surface`, `Theme.hover`, ... instead of colours and sizes of its own. |
 | `Panel.qml` | The panel on one output: which popup is open and where, the bars of the style (a loader for each), and the popover with a loader for each popup. Every part below takes the panel as `panel` and reaches its state and functions through it; a popup is placed in `panel.popupLayer`, beside the part of the bar it belongs to (`panel.barAnchor(x, width)`). |
 | `Taskbar.qml` | The taskbar: the bar along the panel's edge with the start button, the row of pinned applications and windows, the widgets and the clock, and its smaller buttons. |
+| `TilingBar.qml` | The tiling bar (`shell.tiling_bar`), in the taskbar's place (or the dock's and the menu bar's) while the output tiles: its modules in three groups along it, as one bar, an island for each group or a pill for each module, in colours and type of its own. |
 | `TopMenuBar.qml`, `Dock.qml`, `DockIcon.qml` | The bars of the macOS style (`shell.style`): the menu bar along the top in a `MenuBarWindow` of its own, with the system, application and Window menus, the widgets, search, Quick Settings and the clock; and the dock in the panel's surface, an icon for each application, pinned or running, with the applications button and the Trash. |
 | `BarKeyboard.qml` | The keyboard on the bar (`taskbar_focus`): held in the popover, it walks the taskbar's buttons or the dock's icons and the windows they show. |
 | `BindingMode.qml` | The name of the binding mode in use, on the bar while it is not the default one. |

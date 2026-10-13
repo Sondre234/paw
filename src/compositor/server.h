@@ -1434,6 +1434,8 @@ void describe_tearing(struct sh_server *server, int fd, const char *arguments);
 
 /* tiling.c */
 struct wlr_output *tiled_output(struct sh_toplevel *toplevel);
+const char *tile_layout_name(enum sh_tile_layout layout);
+enum sh_tile_layout output_layout(struct sh_server *server, struct wlr_output *output);
 enum sh_tile_layout toplevel_layout(struct sh_toplevel *toplevel);
 bool output_default_tiling(struct sh_server *server, struct wlr_output *output);
 bool workspace_tiles(struct sh_server *server, struct wlr_output *output, int workspace);
