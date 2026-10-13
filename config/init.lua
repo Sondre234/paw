@@ -290,7 +290,9 @@ return {
         -- style = "taskbar", -- or "macos": a menu bar along the top and a dock at the bottom,
         --                      the panel settings below applying to the dock
         -- panel_height = 52,
-        -- panel_position = "bottom", -- or "top"
+        -- panel_position = "bottom", -- or "top", "left" or "right"
+        -- panel_draggable = false, -- true: drag the bar by its empty space to another edge,
+        --                            which is written back into this file as panel_position
         -- mirror_menus = false, -- true: along the top, the bar's right-click menus run the other
         --                         way, closing and killing a window the nearest the bar
         -- panel_margin = 0, -- or { top = 8, right = 12, bottom = 0, left = 12 } to float

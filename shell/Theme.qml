@@ -96,6 +96,12 @@ QtObject {
     readonly property real barButtonHeight: macos ? menuBarHeight - 2 * menuBarInset
                                                   : Math.max(0, shell.panelHeight - 2 * spacingS)
     readonly property int barButtonWidth: macos ? menuBarIconSize + 2 * menuBarPadding - spacingS : 40
+    // The taskbar stands upright along a side of the output (shell.panel_position "left" or
+    // "right"): its buttons and widgets stack from the top down, a button as wide as the bar
+    // leaves and as tall as one along the bottom is wide, barItemWidth by barItemHeight.
+    readonly property bool barVertical: shell.panelVertical
+    readonly property real barItemWidth: barVertical ? barButtonHeight : barButtonWidth
+    readonly property real barItemHeight: barVertical ? barButtonWidth : barButtonHeight
 
     // The macOS style's menu bar and dock.
     // The menu bar: as tall as macOS's for the font size (28 pixels for 13), its items padded on

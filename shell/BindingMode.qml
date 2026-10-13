@@ -10,8 +10,9 @@ FlatButton {
     objectName: "bindingMode"
     readonly property string mode: shell.bindingMode
     visible: mode !== ""
-    Layout.preferredWidth: pill.width + 2 * Theme.spacingXS
-    Layout.preferredHeight: Theme.barButtonHeight
+    // Along a side the pill is turned on its side, reading upwards.
+    Layout.preferredWidth: Theme.barVertical ? Theme.barItemWidth : pill.width + 2 * Theme.spacingXS
+    Layout.preferredHeight: Theme.barVertical ? pill.width + 2 * Theme.spacingXS : Theme.barButtonHeight
     onClicked: { panel.closeMenus(); shell.send("mode default") }
     Accessible.name: "Binding mode: " + mode
     BarTip {
@@ -25,6 +26,7 @@ FlatButton {
             width: label.implicitWidth + 2 * Theme.spacingS
             height: label.implicitHeight + Theme.spacingXS
             radius: height / 2
+            rotation: Theme.barVertical ? -90 : 0
             color: Theme.accent
             Text {
                 id: label

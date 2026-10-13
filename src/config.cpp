@@ -414,8 +414,11 @@ void read_shell(lua_State *L, ShellConfig &shell) {
     named(L, "style", nullptr, shell.macos_style, {{"taskbar", false}, {"macos", true}},
           "style must be \"taskbar\" or \"macos\"");
     shell.panel_height = integer(L, "panel_height", 52, 24, 100);
-    named(L, "panel_position", nullptr, shell.panel_top, {{"top", true}, {"bottom", false}},
-          "panel_position must be \"top\" or \"bottom\"");
+    named(L, "panel_position", nullptr, shell.panel_edge,
+          {{"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
+           {"right", PanelEdge::Right}},
+          "panel_position must be \"top\", \"bottom\", \"left\" or \"right\"");
+    boolean(L, "panel_draggable", "shell.panel_draggable", shell.panel_draggable);
     boolean(L, "mirror_menus", "shell.mirror_menus", shell.mirror_menus);
     // One number for every side, or { top, right, bottom, left } by name.
     lua_getfield(L, -1, "panel_margin");

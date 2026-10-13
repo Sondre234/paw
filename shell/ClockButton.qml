@@ -15,7 +15,8 @@ FlatButton {
         : (center.dnd ? "Do not disturb, " : "") +
           (unread > 0 ? unread + (unread === 1 ? " unread notification" : " unread notifications") : "No new notifications")
     visible: shell.widgets.clock
-    Layout.preferredWidth: content.implicitWidth + 2 * Theme.spacingM; Layout.preferredHeight: Theme.barButtonHeight
+    Layout.preferredWidth: Theme.barVertical ? Theme.barItemWidth : content.implicitWidth + 2 * Theme.spacingM
+    Layout.preferredHeight: Theme.barVertical ? content.implicitHeight + 2 * Theme.spacingS : Theme.barButtonHeight
     hoverEnabled: true
     enabled: shell.widgets.calendar || center.serving
     onClicked: clockButton.panel.toggleAudioPopup("clock", clockButton)
@@ -41,20 +42,25 @@ FlatButton {
         }
     }
     contentItem: Item {
-        Row {
+        // In a row, or a column along a side, where the hours stand over the minutes.
+        Grid {
             id: content
             anchors.centerIn: parent
             spacing: Theme.spacingS
+            columns: Theme.barVertical ? 1 : 3
+            horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
             Text {
                 id: clock
                 objectName: "clock"
                 property date now: new Date()
-                anchors.verticalCenter: parent.verticalCenter
                 // The macOS style's menu bar has the date before the time, with the day and the
                 // month in the order the locale writes them: "Tue 6 Oct  14:32".
                 readonly property string shortDate: Qt.locale().dateFormat(Locale.ShortFormat)
                 readonly property string dateFormat: shortDate.indexOf("d") < shortDate.indexOf("M") ? "ddd d MMM" : "ddd MMM d"
-                text: Theme.macos ? Qt.formatDate(now, dateFormat) + "  " + Qt.formatTime(now, "HH:mm") : Qt.formatTime(now, "HH:mm")
+                text: Theme.macos ? Qt.formatDate(now, dateFormat) + "  " + Qt.formatTime(now, "HH:mm")
+                    : Qt.formatTime(now, Theme.barVertical ? "HH\nmm" : "HH:mm")
+                horizontalAlignment: Text.AlignHCenter
+                lineHeight: Theme.barVertical ? 0.9 : 1
                 color: Theme.text
                 font.pixelSize: Theme.fontSize; font.weight: Theme.macos ? Font.Normal : Font.DemiBold; font.family: Theme.fontFamily
                 // The clock shows minutes, so it wakes once a minute, just after the minute changes.
@@ -69,14 +75,12 @@ FlatButton {
             Icon {
                 objectName: "clockDnd"
                 visible: clockButton.center.serving && clockButton.center.dnd
-                anchors.verticalCenter: parent.verticalCenter
                 name: "bell-off"; size: Theme.iconSizeSmall; color: Theme.textMuted
             }
             // The unread count, in the accent colour, or muted while do-not-disturb holds the
             // cards back.
             Badge {
                 objectName: "clockBadge"
-                anchors.verticalCenter: parent.verticalCenter
                 count: clockButton.unread
                 muted: clockButton.center.dnd
             }

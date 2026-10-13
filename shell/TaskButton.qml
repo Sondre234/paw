@@ -5,7 +5,7 @@ import QtQuick.Layouts
 import Paw
 
 // A button on the taskbar (a row of TaskbarModel): a window's, its icon with its title beside it
-// unless shell.iconsOnly, else as a tooltip; or a pinned application's launcher (`app`, taskId -1),
+// unless panel.iconsOnly, else as a tooltip; or a pinned application's launcher (`app`, taskId -1),
 // its icon alone, its name as a tooltip, which starts it.
 // With shell.groupWindows the button stands for all its application's windows, `group`, a pinned
 // one's showing its launcher's icon: stacked when there are several, it cycles through them and
@@ -53,7 +53,7 @@ Button {
     function openMenu() {
         if (launcher) panel.openContextMenu(task, 0, -1, app); else panel.openContextMenu(task, 0, taskId, appId)
     }
-    height: Theme.barButtonHeight
+    height: Theme.barItemHeight
     // Hovering a stacked button lists its windows, whatever the platform thinks of hover.
     hoverEnabled: true
     // The icon sits above the activity line, fitting however short the bar is.
@@ -77,7 +77,7 @@ Button {
     BarTip {
         panel: task.panel; owner: task
         visible: task.launcher ? (task.hovered || task.keySelected) && !task.pressed && text.length > 0 && !task.panel.menuOpen
-                               : shell.iconsOnly && !task.stacked && !task.panel.thumbnails && !task.pressed &&
+                               : panel.iconsOnly && !task.stacked && !task.panel.thumbnails && !task.pressed &&
                                  (task.hovered && !task.panel.expanded || task.keySelected && !task.panel.groupOpen && !task.panel.menuOpen)
         text: task.title
     }
@@ -127,7 +127,7 @@ Button {
             id: line
             objectName: "taskLine"
             visible: !task.launcher
-            readonly property real segment: task.shownActive ? (shell.iconsOnly ? 18 : 28) / (task.stacked ? 2 : 1)
+            readonly property real segment: task.shownActive ? (panel.iconsOnly ? 18 : 28) / (task.stacked ? 2 : 1)
                                                              : (task.stacked ? 6 : 10)
             property real first: segment
             property real second: task.stacked ? segment : 0
@@ -171,15 +171,15 @@ Button {
     }
     contentItem: RowLayout {
         spacing: Theme.spacingS + Theme.spacingXS
-        Item { Layout.fillWidth: shell.iconsOnly || task.launcher }
+        Item { Layout.fillWidth: panel.iconsOnly || task.launcher }
         BarAppIcon {
             name: task.iconName
             pressed: task.pressed
             size: Math.min(Theme.appIconSize, task.availableHeight)
             Layout.preferredWidth: size; Layout.preferredHeight: size
         }
-        Text { visible: !shell.iconsOnly && !task.launcher; text: task.title; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideRight; Layout.fillWidth: true; font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily }
-        Item { Layout.fillWidth: shell.iconsOnly || task.launcher }
+        Text { visible: !panel.iconsOnly && !task.launcher; text: task.title; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideRight; Layout.fillWidth: true; font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily }
+        Item { Layout.fillWidth: panel.iconsOnly || task.launcher }
     }
     // Right-click opens the button's menu; middle-click closes a window.
     MouseArea {

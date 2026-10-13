@@ -104,7 +104,7 @@ void hyprlang(const fs::path &root) {
 
     require(config.shell.panel_color == "#1e1e2e80", "alpha(@base, 0.5) not resolved");
     require(config.shell.text_color == "#cdd6f4", "rgb() text color not resolved");
-    require(config.shell.panel_radius == 6 && !config.shell.panel_top &&
+    require(config.shell.panel_radius == 6 && config.shell.panel_edge == paw::PanelEdge::Bottom &&
                 config.shell.panel_height == 30,
             "bar radius, position, or height not imported");
     const int margins[4] = {4, 8, 4, 8};
@@ -151,7 +151,7 @@ void lua(const fs::path &root) {
     require(config.shell.panel_color == "#1c0d18cc" && config.shell.panel_radius == 16,
             "window#waybar > box look not preferred over a transparent window");
     require(config.shell.text_color == "#ffffff", "wallbash @define-color not resolved");
-    require(config.shell.panel_top && config.shell.panel_margin[1] == 10 &&
+    require(config.shell.panel_edge == paw::PanelEdge::Top && config.shell.panel_margin[1] == 10 &&
                 config.shell.panel_margin[0] == 0,
             "Waybar array config not read");
     require(near(s.background[0], 0x37 / 255.0F), "wallbash background not imported");

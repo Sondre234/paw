@@ -3,6 +3,7 @@
 #include "gio_launch.hpp"
 #include "icons.hpp"
 #include "image_provider.hpp"
+#include "paw/config_edit.hpp"
 #include "state_files.hpp"
 #include "wallpapers.hpp"
 #include <QQmlContext>
@@ -24,6 +25,7 @@
 #include <functional>
 #include <gio/gdesktopappinfo.h>
 #include <iostream>
+#include <map>
 #include <memory>
 #if PAW_DBUS || PAW_TRAY
 #include "dbus_util.hpp"
@@ -186,10 +188,37 @@ int ShellController::panelHeadroom() const {
                           shell.panel_margin[3] > 0;
     if (!shell.frame_windows || !settings.shadow || !effects_ || !floating)
         return 0;
-    // A bar along the top casts its shadow down, into the output; one along the bottom, up.
-    const int inwards = shell.panel_top ? settings.shadow_y : -settings.shadow_y;
-    const int margin = shell.panel_top ? shell.panel_margin[2] : shell.panel_margin[0];
+    // A bar along the top casts its shadow down, into the output; one along the bottom, up; one
+    // along a side, across. The margin on the side towards the middle is room it has already.
+    int inwards = 0, margin = 0;
+    switch (shell.panel_edge) {
+    case paw::PanelEdge::Top:
+        inwards = settings.shadow_y, margin = shell.panel_margin[2];
+        break;
+    case paw::PanelEdge::Bottom:
+        inwards = -settings.shadow_y, margin = shell.panel_margin[0];
+        break;
+    case paw::PanelEdge::Left:
+        inwards = settings.shadow_x, margin = shell.panel_margin[1];
+        break;
+    case paw::PanelEdge::Right:
+        inwards = -settings.shadow_x, margin = shell.panel_margin[3];
+        break;
+    }
     return std::max(0, settings.shadow_blur + std::max(0, inwards) - margin);
+}
+QString ShellController::panelEdge() const {
+    switch (panelSurfaceEdge()) {
+    case paw::PanelEdge::Top:
+        return "top";
+    case paw::PanelEdge::Left:
+        return "left";
+    case paw::PanelEdge::Right:
+        return "right";
+    case paw::PanelEdge::Bottom:
+        break;
+    }
+    return "bottom";
 }
 QColor ShellController::windowBorderColor() const {
     return unpremultiplied(config_.settings.border_inactive);
@@ -479,6 +508,51 @@ void ShellController::report(const QString &message) {
         if (error_ == message)
             clearError();
     });
+}
+void ShellController::startBarDrag() {
+    if (!panelDraggable() || barDragging_)
+        return;
+    // Refused once the button is let go, or while the pointer is busy: then there is no drag.
+    ask("panel_drag\n", [](const QByteArray &reply) {
+        if (!reply.startsWith("ok"))
+            std::cerr << "paw taskbar not dragged: " << reply.trimmed().toStdString() << '\n';
+    });
+}
+void ShellController::cancelBarDrag() {
+    if (barDragging_)
+        ask("panel_drag cancel\n", [](const QByteArray &) {});
+}
+// "panel-drag OUTPUT EDGE", "panel-dropped OUTPUT EDGE" or "panel-drag-cancelled".
+void ShellController::handleBarDrag(const QString &line) {
+    const auto words = line.split(' ');
+    const bool dropped = words[0] == "panel-dropped";
+    barDragging_ = words[0] == "panel-drag" && words.size() == 3;
+    if (words.size() == 3)
+        barDragEdge_ = words[2];
+    Q_EMIT barDragChanged();
+    if (dropped && words.size() == 3)
+        movePanel(words[2]);
+}
+void ShellController::movePanel(const QString &edge) {
+    static const std::map<QString, paw::PanelEdge> edges{{"top", paw::PanelEdge::Top},
+                                                         {"bottom", paw::PanelEdge::Bottom},
+                                                         {"left", paw::PanelEdge::Left},
+                                                         {"right", paw::PanelEdge::Right}};
+    const auto it = edges.find(edge);
+    if (it == edges.end() || it->second == config_.shell.panel_edge)
+        return;
+    try {
+        paw::save_setting(path_, {"shell", "panel_position"}, '"' + edge.toStdString() + '"',
+                          [&](const paw::Config &config) {
+                              return config.shell.panel_edge == it->second;
+                          });
+    } catch (const std::exception &error) {
+        report("Could not move the taskbar: " + QString::fromUtf8(error.what()));
+        return;
+    }
+    std::cerr << "paw taskbar moved to the " << edge.toStdString() << " edge\n";
+    // At once, rather than waiting for the compositor, which reloads too while it watches the file.
+    reload();
 }
 void ShellController::clearError() {
     error_.clear();
@@ -840,6 +914,8 @@ void ShellController::subscribe() {
                 notice(fields[0], fields.value(1));
             } else if (line.startsWith("dnd ")) {
                 handleDnd(line.sliced(4));
+            } else if (line.startsWith("panel-drag") || line.startsWith("panel-dropped ")) {
+                handleBarDrag(line);
             } else if (line.startsWith("volume ") || line.startsWith("microphone ") ||
                        line.startsWith("brightness ")) {
                 volumeKeys_.handle(line);

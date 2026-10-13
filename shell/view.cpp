@@ -95,9 +95,10 @@ PopoverWindow *ShellView::popover() const {
 MenuBarWindow *ShellView::menuBar() const {
     return rootObject() ? rootObject()->findChild<MenuBarWindow *>() : nullptr;
 }
-// The panel's surface spans the output's width and the bar's margins; the bar is drawn inset. The
-// macOS style's dock is at the bottom whatever shell.panel_position says, and its surface reaches
-// above the strip it reserves by half its height, room for an icon to bounce in.
+// The panel's surface spans the output's width, or its height along a side, and the bar's margins
+// across; the bar is drawn inset. The macOS style's dock is at the bottom whatever
+// shell.panel_position says, and its surface reaches above the strip it reserves by half its
+// height, room for an icon to bounce in.
 void ShellView::placeLayer() {
 #if PAW_LAYER_SHELL
     if (!layer_)
@@ -109,19 +110,38 @@ void ShellView::placeLayer() {
         layer_->setExclusiveZone(-1);
         return;
     }
-    layer_->setAnchors(W::Anchors(W::AnchorLeft | W::AnchorRight |
-                                  (controller_.panelSurfaceTop() ? W::AnchorTop : W::AnchorBottom)));
+    W::Anchors anchors;
+    switch (controller_.panelSurfaceEdge()) {
+    case paw::PanelEdge::Top:
+        anchors = W::Anchors(W::AnchorLeft | W::AnchorRight | W::AnchorTop);
+        break;
+    case paw::PanelEdge::Bottom:
+        anchors = W::Anchors(W::AnchorLeft | W::AnchorRight | W::AnchorBottom);
+        break;
+    case paw::PanelEdge::Left:
+        anchors = W::Anchors(W::AnchorTop | W::AnchorBottom | W::AnchorLeft);
+        break;
+    case paw::PanelEdge::Right:
+        anchors = W::Anchors(W::AnchorTop | W::AnchorBottom | W::AnchorRight);
+        break;
+    }
+    layer_->setAnchors(anchors);
     layer_->setExclusiveZone(controller_.panelExtent());
 #endif
 }
 void ShellView::resizeForContent() {
-    int width = preview_ ? previewSize().width() : screen()->geometry().width();
-    int height = desktop_ ? (preview_ ? 680 : screen()->geometry().height())
-                          : controller_.panelExtent() + controller_.panelHeadroom();
-    resize(width, height);
+    const QSize output = preview_ ? previewSize() : screen()->geometry().size();
+    const int across = controller_.panelExtent() + controller_.panelHeadroom();
+    QSize size = desktop_ ? QSize(output.width(), preview_ ? 680 : output.height())
+               : controller_.panelVertical() ? QSize(across, output.height())
+                                             : QSize(output.width(), across);
+    resize(size);
 #if PAW_LAYER_SHELL
+    // The compositor stretches it along the edge it is anchored to.
     if (layer_)
-        layer_->setDesiredSize(QSize(0, desktop_ ? 0 : height));
+        layer_->setDesiredSize(desktop_ ? QSize(0, 0)
+                               : controller_.panelVertical() ? QSize(across, 0)
+                                                             : QSize(0, across));
 #endif
 }
 

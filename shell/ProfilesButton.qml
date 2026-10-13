@@ -9,15 +9,17 @@ FlatButton {
     required property var panel
     objectName: "profilesButton"
     visible: shell.widgets.profiles === "bar" && shell.profiles.length > 1
-    Layout.preferredWidth: Theme.barButtonWidth; Layout.preferredHeight: Theme.barButtonHeight
+    Layout.preferredWidth: Theme.barItemWidth; Layout.preferredHeight: Theme.barItemHeight
     active: panel.audioPopup === "profiles"
     onClicked: panel.toggleAudioPopup("profiles", profilesButton)
     Accessible.name: "Appearance: " + (shell.profile || "none")
     BarTip { panel: profilesButton.panel; owner: profilesButton; text: "Appearance: " + (shell.profile || "none") }
-    // Three swatches of the profile in use: accent, desktop background, text.
+    // Three swatches of the profile in use: accent, desktop background, text; one above the
+    // other along a side.
     contentItem: Item {
-        Row {
+        Grid {
             anchors.centerIn: parent; spacing: Theme.spacingXS
+            columns: Theme.barVertical ? 1 : 3
             Repeater {
                 model: [shell.accent, shell.background, shell.textColor]
                 // A ring in the text colour keeps a swatch close to the panel's own

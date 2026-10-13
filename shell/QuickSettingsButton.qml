@@ -34,22 +34,24 @@ FlatButton {
     visible: showMedia || showPowerMode || showBluetooth ||
              ["network", "battery", "volume", "tiling", "profiles", "wallpapers", "notifications"]
                  .some(function(name) { return button.widgets[name] === "quick" })
-    Layout.preferredWidth: icons.implicitWidth + 2 * Theme.spacingM
-    Layout.preferredHeight: Theme.barButtonHeight
+    Layout.preferredWidth: Theme.barVertical ? Theme.barItemWidth : icons.implicitWidth + 2 * Theme.spacingM
+    Layout.preferredHeight: Theme.barVertical ? icons.implicitHeight + 2 * Theme.spacingM : Theme.barButtonHeight
     hoverEnabled: true
     active: panel.audioPopup === "quick"
     onClicked: panel.toggleAudioPopup("quick", button)
     Accessible.name: "Quick settings: " + description
     BarTip { panel: button.panel; owner: button; text: button.description }
     contentItem: Item {
-        Row {
+        // In a row, or a column along a side.
+        Grid {
             id: icons
             anchors.centerIn: parent
             spacing: Theme.spacingM
+            columns: Theme.barVertical ? 1 : 4
+            horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
             Icon {
                 objectName: "quickSettingsNetwork"
                 visible: button.showNetwork
-                anchors.verticalCenter: parent.verticalCenter
                 size: Theme.iconSize
                 name: "wifi-off"
                 color: Theme.textMuted
@@ -57,7 +59,6 @@ FlatButton {
             SpeakerIcon {
                 objectName: "quickSettingsVolume"
                 visible: button.showVolume
-                anchors.verticalCenter: parent.verticalCenter
                 level: button.showVolume ? button.audio.volume : 0
                 muted: button.showVolume && button.audio.muted
                 color: muted ? Theme.textMuted : Theme.text
@@ -65,14 +66,12 @@ FlatButton {
             BatteryIcon {
                 objectName: "quickSettingsBattery"
                 visible: button.showBattery
-                anchors.verticalCenter: parent.verticalCenter
                 status: button.status
             }
             // With none of those to show, a sign that settings are behind it.
             Icon {
                 objectName: "quickSettingsSliders"
                 visible: !button.showNetwork && !button.showVolume && !button.showBattery
-                anchors.verticalCenter: parent.verticalCenter
                 name: "sliders-horizontal"
             }
         }

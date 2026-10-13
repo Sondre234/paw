@@ -27,7 +27,8 @@ option(PAW_INSTALL_SESSION "Install the display-manager session entry" OFF)
 option(PAW_BUILD_SHELL "Build the Qt Quick desktop shell" ON)
 option(PAW_SHELL_PREVIEW_ONLY "Build only the shell UI preview without LayerShellQt" OFF)
 
-add_library(paw_config STATIC src/curve.c src/session.c src/tabs.c src/config.cpp src/config_schema.cpp src/layout.cpp src/tiling.cpp
+add_library(paw_config STATIC src/curve.c src/session.c src/tabs.c src/config.cpp src/config_edit.cpp
+    src/config_schema.cpp src/layout.cpp src/tiling.cpp
     src/overview_layout.cpp src/window_placement.cpp
     src/import/common.cpp src/import/hyprland.cpp src/import/waybar.cpp src/import/import.cpp
     src/autostart.cpp)
@@ -111,6 +112,7 @@ if(BUILD_TESTING)
     paw_unit_test(keyboard_config)
     paw_unit_test(notifications_config)
     paw_unit_test(profiles_config)
+    paw_unit_test(config_edit ${EXAMPLE_CONFIG})
     paw_unit_test(window_features)
     paw_unit_test(import ${CMAKE_CURRENT_SOURCE_DIR}/tests/import)
     paw_unit_test(urgent_config)
@@ -236,6 +238,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/output_moves.c
         src/compositor/output_power.c
         src/compositor/overview.c
+        src/compositor/panel_drag.c
         src/compositor/placement.c
         src/compositor/power.c
         src/compositor/query.c
@@ -662,6 +665,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(touchpad_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
         paw_smoke(touchscreen_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
             $<TARGET_FILE:wayland_probe>)
+        paw_smoke(panel_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(tablet_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
         paw_smoke(spawn_at_pointer_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)

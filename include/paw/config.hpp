@@ -151,11 +151,17 @@ struct ShellClipboard {
     bool persist = false; // kept across sessions in $XDG_STATE_HOME/paw/clipboard
 };
 
+// Lua `shell.panel_position`: the edge of the output the taskbar is along.
+enum class PanelEdge { Top, Bottom, Left, Right };
+
 struct ShellConfig {
     bool enabled = true;
     bool macos_style = false;           // style = "macos": a menu bar and a dock
     int panel_height = 52;
-    bool panel_top = false;             // panel_position = "top"
+    PanelEdge panel_edge = PanelEdge::Bottom; // panel_position
+    // panel_draggable: the taskbar is dragged by its empty space to another edge, and the
+    // configuration file's panel_position follows.
+    bool panel_draggable = false;
     // Along the top, the bar's right-click menus in reverse, their last entries nearest the bar.
     bool mirror_menus = false;
     int panel_margin[4] = {0, 0, 0, 0}; // top, right, bottom, left: a floating bar

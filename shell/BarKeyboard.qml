@@ -281,9 +281,14 @@ Item {
 
     Keys.onPressed: (event) => { event.accepted = keys.active && keys.key(event) }
     function key(event) {
-        // Away from the bar, toward the card, and back.
-        var away = panel.dockSide === Qt.TopEdge ? Qt.Key_Up : Qt.Key_Down
-        var toward = away === Qt.Key_Up ? Qt.Key_Down : Qt.Key_Up
+        // Away from the bar, toward the card, and back; and along the bar, Left and Right, or Up
+        // and Down along a side.
+        var side = panel.dockSide
+        var away = side === Qt.TopEdge ? Qt.Key_Up : side === Qt.BottomEdge ? Qt.Key_Down
+                 : side === Qt.LeftEdge ? Qt.Key_Left : Qt.Key_Right
+        var toward = { [Qt.Key_Up]: Qt.Key_Down, [Qt.Key_Down]: Qt.Key_Up,
+                       [Qt.Key_Left]: Qt.Key_Right, [Qt.Key_Right]: Qt.Key_Left }[away]
+        var back = panel.vertical ? Qt.Key_Up : Qt.Key_Left, on = panel.vertical ? Qt.Key_Down : Qt.Key_Right
         var count = panel.groupOpen ? panel.groupWindows.count : 0
         var enter = event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space
         if (event.key === Qt.Key_Escape) {
@@ -291,8 +296,8 @@ Item {
         } else if (event.key === Qt.Key_Menu || event.key === Qt.Key_F10 && (event.modifiers & Qt.ShiftModifier)) {
             openMenu()
         } else if (window < 0) {
-            if (event.key === Qt.Key_Left || event.key === Qt.Key_Right)
-                move(event.key === Qt.Key_Left ? -1 : 1)
+            if (event.key === back || event.key === on)
+                move(event.key === back ? -1 : 1)
             else if (event.key === Qt.Key_Home)
                 select(stops(), 0)
             else if (event.key === Qt.Key_End)
@@ -300,8 +305,10 @@ Item {
             else if (enter)
                 activate()
             else if (event.key === away && count > 0)
-                // The list's row nearest the bar, or the card's first picture.
-                window = panel.groupListOpen && away === Qt.Key_Up ? count - 1 : 0
+                // The list's row nearest the bar, or the card's picture nearest it (its first,
+                // but beside a bar along the right).
+                window = panel.groupListOpen ? (away === Qt.Key_Up ? count - 1 : 0)
+                       : away === Qt.Key_Left ? count - 1 : 0
             else
                 return false
         } else if (enter) {
@@ -313,11 +320,21 @@ Item {
         } else if (event.key === Qt.Key_Home || event.key === Qt.Key_End) {
             window = event.key === Qt.Key_Home ? 0 : count - 1
         } else if (!panel.groupListOpen) {
-            // The pictures side by side.
-            if (event.key === Qt.Key_Left || event.key === Qt.Key_Right)
-                window = Math.max(0, Math.min(count - 1, window + (event.key === Qt.Key_Left ? -1 : 1)))
-            else if (event.key === toward)
+            // The pictures side by side; beside a bar along a side, the one nearest it goes back
+            // to the bar toward it.
+            var nearestPicture = away === Qt.Key_Left ? count - 1 : 0
+            if (event.key === toward && (!panel.vertical || window === nearestPicture))
                 window = -1
+            else if (event.key === Qt.Key_Left || event.key === Qt.Key_Right)
+                window = Math.max(0, Math.min(count - 1, window + (event.key === Qt.Key_Left ? -1 : 1)))
+            else
+                return event.key === away || event.key === Qt.Key_Up || event.key === Qt.Key_Down
+        } else if (panel.vertical) {
+            // The rows, one above the other beside the bar.
+            if (event.key === toward)
+                window = -1
+            else if (event.key === Qt.Key_Up || event.key === Qt.Key_Down)
+                window = Math.max(0, Math.min(count - 1, window + (event.key === Qt.Key_Up ? -1 : 1)))
             else
                 return event.key === away
         } else {

@@ -77,12 +77,26 @@ Along the bar, from the left: the start button, one row of the pinned applicatio
 windows, the workspace indicator, the widgets placed on the bar, the tray, the Quick Settings
 button, the clock, and a sliver at the end that shows the desktop. A button shows a tooltip when
 the pointer rests on it, but for a window's, which shows pictures of its windows instead
-([below](#window-pictures)). Lua configures the panel's height, top or bottom placement
-(`panel_position`), margins that make it float (`panel_margin`, one number or
-`{ top, right, bottom, left }`), corner radius, font and text size, colors (`#RRGGBB`, or
-`#RRGGBBAA` for a translucent panel), wallpaper, a picture for the start button in place of its
-four squares (`start_icon`, an SVG, PNG or other image), and pinned commands, which run from your
-home directory.
+([below](#window-pictures)). Lua configures the panel's height, the edge of the monitor it is
+along (`panel_position`: top, bottom, left or right), margins that make it float (`panel_margin`,
+one number or `{ top, right, bottom, left }`), corner radius, font and text size, colors
+(`#RRGGBB`, or `#RRGGBBAA` for a translucent panel), wallpaper, a picture for the start button in
+place of its four squares (`start_icon`, an SVG, PNG or other image), and pinned commands, which
+run from your home directory.
+
+Along the left or right edge the bar stands upright, as Windows 10's could: the start button at
+the top, the buttons of pinned applications and windows below it as icons alone (their titles in
+tooltips), then the widgets one above the other, the clock with the hours over the minutes, and
+the sliver at the bottom; tooltips and popups open beside it, the clock's notifications above its
+calendar.
+
+With `panel_draggable = true` the bar can be dragged to another edge, as on Windows with the
+taskbar unlocked: press an empty part of it and drag, and an outline shows where it goes, the
+edge of the monitor nearest the pointer. Let go there and it moves, and paw writes the new
+`panel_position` into your configuration file where it takes effect: the profile in use, when
+that sets it, else the `shell` table, which gains the setting (or is added) when it lacks it. The
+rest of the file is left as it was, comments and all. Escape, or letting go at its own edge,
+leaves the bar where it was.
 
 A floating bar docks while a window reaches the edge of the monitor's free area it is along (a
 maximized window, a tile alone without gaps around it, one snapped or dragged against that
@@ -134,7 +148,9 @@ restored onto the workspace shown, another with its own workspace shown), brings
 next window, starts a pinned application, or minimizes the window that had the keyboard, which
 counts as the focused one. Up (Down on a bar along the top)
 goes into the card of [pictures](#window-pictures) or a stack's list, and Down (Up) back to the
-button. The Menu key or Shift + F10 opens the button's [menu](#taskbar-menus), or the menu of the
+button; along a side Up and Down move along the bar, and Right (Left beside a bar along the right)
+goes into the card or the list. The Menu key or Shift + F10 opens the button's
+[menu](#taskbar-menus), or the menu of the
 window selected on the card, with its first entry highlighted, and closing it comes back to the
 bar. Escape, or Super + B again, gives the keyboard back to the window that had it and changes
 nothing. Moving the pointer over the bar or the card, or a press anywhere, hands the bar back to

@@ -9,18 +9,21 @@ FlatButton {
     required property var panel
     objectName: "audioWidget"
     visible: audioWidget.panel.audioSource.available && shell.widgets.volume === "bar"
-    Layout.preferredWidth: level.implicitWidth + 2 * Theme.spacingM; Layout.preferredHeight: Theme.barButtonHeight
+    Layout.preferredWidth: Theme.barVertical ? Theme.barItemWidth : level.implicitWidth + 2 * Theme.spacingM
+    Layout.preferredHeight: Theme.barVertical ? level.implicitHeight + 2 * Theme.spacingS : Theme.barButtonHeight
     onClicked: audioWidget.panel.toggleAudioPopup("mixer", audioWidget)
     Accessible.name: "Volume " + audioWidget.panel.audioSource.volume + "%" + (audioWidget.panel.audioSource.muted ? ", muted" : "")
     BarTip { panel: audioWidget.panel; owner: audioWidget; text: audioWidget.Accessible.name }
     active: audioWidget.panel.audioPopup === "mixer" || audioWidget.panel.audioPopup === "outputs"
     contentItem: Item {
-        Row {
+        // The level beside the speaker, or under it along a side.
+        Grid {
             id: level
             anchors.centerIn: parent; spacing: Theme.spacingS
-            SpeakerIcon { anchors.verticalCenter: parent.verticalCenter; level: audioWidget.panel.audioSource.volume; muted: audioWidget.panel.audioSource.muted; color: audioWidget.panel.audioSource.muted ? Theme.textMuted : Theme.text }
+            columns: Theme.barVertical ? 1 : 2
+            horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
+            SpeakerIcon { level: audioWidget.panel.audioSource.volume; muted: audioWidget.panel.audioSource.muted; color: audioWidget.panel.audioSource.muted ? Theme.textMuted : Theme.text }
             Text {
-                anchors.verticalCenter: parent.verticalCenter
                 text: audioWidget.panel.audioSource.volume + "%"
                 color: audioWidget.panel.audioSource.muted ? Theme.textMuted : Theme.text
                 font.pixelSize: Theme.fontSizeSmall; font.family: Theme.fontFamily

@@ -139,6 +139,7 @@ enum sh_cursor_mode {
     SH_CURSOR_PASSTHROUGH,
     SH_CURSOR_MOVE,
     SH_CURSOR_RESIZE,
+    SH_CURSOR_PANEL, /* the taskbar dragged to another edge (panel_drag.c) */
 };
 
 enum sh_node_kind { SH_NODE_TOPLEVEL, SH_NODE_LAYER };
@@ -370,6 +371,7 @@ struct sh_server {
     bool running;
     uint32_t grab_button;
     uint32_t bound_buttons; /* bit (code - BTN_MOUSE): pressed buttons a binding consumed */
+    uint32_t held_buttons;  /* bit (code - BTN_MOUSE): the buttons down now, whoever heard them */
     /* Where a button binding last spawned a program: the next window to open before
      * `spawn_until` (now_ms) is centered there. */
     double spawn_x, spawn_y;
@@ -623,6 +625,12 @@ struct sh_server {
     bool logind_lid_closed;  // logind's LidClosed, which counts as one more switch
     struct wl_list pointers; /* struct sh_pointer */
     enum sh_cursor_mode cursor_mode;
+    /* A drag of the taskbar (SH_CURSOR_PANEL): the output and the edge the shell was told of
+     * last. */
+    struct {
+        char output[64];
+        int edge;
+    } panel_drag;
     struct sh_toplevel *grabbed_toplevel;
     double grab_x, grab_y;
     struct wlr_box grab_geobox;
@@ -998,6 +1006,7 @@ void server_cursor_axis(struct wl_listener *listener, void *data);
 void server_cursor_frame(struct wl_listener *listener, void *data);
 void seat_request_cursor(struct wl_listener *listener, void *data);
 void set_default_cursor(struct sh_server *server);
+void show_xcursor(struct sh_server *server, const char *name);
 void cursor_hide(struct sh_server *server);
 void cursor_show(struct sh_server *server);
 struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y);
@@ -1279,6 +1288,12 @@ bool overview_button(struct sh_server *server, const struct wlr_pointer_button_e
 bool overview_motion(struct sh_server *server);
 void overview_hot_corner(struct sh_server *server);
 bool overview_axis(struct sh_server *server, const struct wlr_pointer_axis_event *event);
+
+/* panel_drag.c */
+void control_panel_drag(struct sh_server *server, int fd, const char *arguments);
+void panel_drag_motion(struct sh_server *server);
+bool panel_drag_drop(struct sh_server *server);
+void panel_drag_cancel(struct sh_server *server);
 
 /* placement.c */
 struct sh_rect tiling_area(struct sh_server *server, struct wlr_output *output, int workspace,

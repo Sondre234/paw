@@ -22,7 +22,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
 | `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back. Several are unit tested. |
-| `src/config.cpp`, `src/config_schema.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema. |
+| `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
 | `shell/` | C++/QML | The shell. |
@@ -70,6 +70,7 @@ all. In short:
 | `display_mode.c` | The display_mode action (Windows' Win+P): extend, duplicate, internal, external, and the popup that steps through them. |
 | `display_settings.c` | The display settings window's monitors: the settings it kept (`src/output_state.c`), laid over `outputs.monitors`, the primary monitor, `get monitors`, and `monitors apply` trying every monitor's settings at once, kept or taken back. |
 | `layer_shell.c` | Panels and other layer surfaces. |
+| `panel_drag.c` | The taskbar dragged to another edge (`shell.panel_draggable`): `panel_drag` takes the pointer while the left button is held, as a window move does, and tells the shell the edge nearest it and where it is let go. |
 | `group.c`, `scratchpad.c`, `swallow.c`, `switcher.c`, `overview.c`, `session.c` | One feature each. `session.c` also saves a login session as `last` as it ends (`session_save_last`, from the power actions and quit) and restores it after `startup` (`session_restore_last`, from `sh_run`), asking `sh_callbacks.started` which missing windows startup and autostart will open. |
 | `switches.c` | Switch devices: the lid turning a laptop's panel off and on (clamshell), switches' bindings. |
 | `effects.c` | Dimming, peeking at the desktop or at one window, night light, magnifier, hot corners. |
@@ -467,6 +468,18 @@ of the bar with the widgets opens by `panel.barAnchor`, below the menu bar in th
 one of the dock (an application's menu, the windows of one) by `panel.dockAnchor` and
 `panel.dockSide`, which on the taskbar are the bar's. A change of style makes and drops the
 bars, and the surfaces follow at once.
+
+Along a side (`shell.panelEdge` "left" or "right", `panel.vertical`), the panel's surface runs down
+the output and the taskbar stands upright: its `GridLayout` is a column, and the widgets stack what
+they show by `Theme.barVertical`, a button `Theme.barItemWidth` by `barItemHeight`. A popup's place
+along the bar is then a y: `panel.alongBar(item, offset)` and `panel.lengthAlong(item)` say where
+something on the bar is along it, which `barAnchor` and `dockAnchor` turn into the rectangle a popup
+opens beside, on `popupSide`. A drag of the bar to another edge (`shell.panel_draggable`) asks the
+compositor for the pointer (`panel_drag`, `src/compositor/panel_drag.c`), as a window's move takes
+it: a surface the pointer went on to would never hear the button let go. The `panel-drag` lines it
+sends move the outline every panel's popover shows, taking no input, and `panel-dropped` has
+`ShellController::movePanel` write `shell.panel_position` with `paw::save_setting`
+(`src/config_edit.cpp`) and load the file again.
 
 The window switcher, the command palette, the power dialog and the overview's text are
 `OverlayView`s (`view.cpp`), a layer surface each on every output's overlay layer. `present()`

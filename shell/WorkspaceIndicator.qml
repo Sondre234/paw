@@ -21,9 +21,9 @@ Item {
     }
     visible: shell.workspaceCount > 1 && shell.widgets.workspaces
     implicitWidth: buttons.implicitWidth; implicitHeight: buttons.implicitHeight
-    Layout.alignment: Qt.AlignVCenter
+    Layout.alignment: Qt.AlignCenter
     // Behind the buttons, under the current workspace's: it slides to the next one and takes its
-    // width.
+    // width (its height, down a side).
     Rectangle {
         id: pill
         objectName: "workspacePill"
@@ -31,16 +31,21 @@ Item {
         readonly property Item target: repeater.count > 0 ? repeater.itemAt(workspaceIndicator.workspaceState.current - workspaceIndicator.first) : null
         visible: target !== null
         x: target ? target.x : 0
+        y: target ? target.y : 0
         width: target ? target.width : 0
-        height: buttons.height
+        height: target ? target.height : 0
         radius: Theme.radiusSmall
         color: Theme.selected
         Behavior on x { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
+        Behavior on y { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
         Behavior on width { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
+        Behavior on height { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
     }
-    Row {
+    // In a row, or a column along a side.
+    Grid {
         id: buttons
         spacing: Theme.spacingXS
+        columns: Theme.barVertical ? 1 : Math.max(1, repeater.count)
         Repeater {
             id: repeater
             model: workspaceIndicator.shown
@@ -54,10 +59,12 @@ Item {
                 readonly property bool urgent: (workspaceIndicator.workspaceState.urgent || []).indexOf(number) >= 0
                 readonly property string label: shell.workspaceNames[number - 1] || ""
                 objectName: "workspace" + number
-                // A number with room around it, or a name with a little more.
+                // A number with room around it, or a name with a little more; along a side as wide
+                // as the bar leaves, a name cut short.
                 readonly property real narrowest: Theme.iconSize + Theme.spacingM
-                width: label ? Math.max(narrowest, workspaceText.implicitWidth + 2 * Theme.spacingM) : narrowest
-                height: Theme.barButtonHeight - Theme.spacingS
+                width: Theme.barVertical ? Theme.barButtonHeight - Theme.spacingS
+                     : label ? Math.max(narrowest, workspaceText.implicitWidth + 2 * Theme.spacingM) : narrowest
+                height: Theme.barVertical ? narrowest : Theme.barButtonHeight - Theme.spacingS
                 onClicked: { workspaceIndicator.panel.closeMenus(); workspaceIndicator.show(number) }
                 Accessible.name: "Workspace " + number + (label ? " " + label : "") + (urgent ? " (needs attention)" : "")
                 BarTip { panel: workspaceIndicator.panel; owner: workspaceButton; text: "Workspace " + number + (label ? ": " + label : "") + (occupied ? "" : " (empty)") + (urgent ? ", needs attention" : "") }
@@ -65,6 +72,8 @@ Item {
                     Text {
                         id: workspaceText
                         anchors.centerIn: parent
+                        width: Theme.barVertical ? Math.min(implicitWidth, parent.width - Theme.spacingXS) : implicitWidth
+                        elide: Text.ElideRight
                         text: workspaceButton.label ? workspaceButton.label : workspaceButton.number
                         color: workspaceButton.urgent && !workspaceButton.current ? Theme.urgent : workspaceButton.current ? Theme.accent : Theme.text
                         Behavior on color { ColorAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }

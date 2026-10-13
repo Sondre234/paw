@@ -8,7 +8,7 @@ FlatButton {
     required property var panel
     objectName: "wallpapersButton"
     visible: shell.widgets.wallpapers === "bar"
-    Layout.preferredWidth: Theme.barButtonWidth; Layout.preferredHeight: Theme.barButtonHeight
+    Layout.preferredWidth: Theme.barItemWidth; Layout.preferredHeight: Theme.barItemHeight
     active: panel.audioPopup === "wallpapers"
     onClicked: panel.toggleAudioPopup("wallpapers", wallpapersButton)
     Accessible.name: "Wallpapers"
