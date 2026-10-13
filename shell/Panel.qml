@@ -202,8 +202,9 @@ Item {
     // wallpaper and the windows it shows where they are, each from its own picture. It opens,
     // glides to the next workspace the pointer rests on and closes as the card of a button's
     // windows does, and the two take turns: while one is open, the pointer moving onto the
-    // other's buttons shows that one at once. From halfway into the delay the workspace is warmed up (workspaceWarm): the
-    // card, made by then, lists its windows and wants their pictures, so that it opens on them.
+    // other's buttons shows that one at once. From halfway into the delay the workspace is warmed
+    // up (workspaceWarm): the card, made by then, lists its windows and wants their pictures, so
+    // that it opens on them.
     readonly property bool workspaceCards: thumbnails && shell.workspaceThumbnails
     property bool workspaceCardOpen: false
     property int workspaceCardNumber: 0
@@ -213,8 +214,8 @@ Item {
     // A workspace's picture on its card: the output's proportions, one and a half times as wide as
     // a window's picture (shell.thumbnailSize) but no taller than 5/8 of that, as a monitor on its
     // side is narrower; `workspaceScale` card pixels to a logical pixel of the output. Its
-    // windows' pictures are asked for as wide as holds the whole picture in the box of 5/8 of the
-    // width they fit, in device pixels, so any window of the output.
+    // windows' pictures are asked for at the width, in device pixels, whose box (5/8 of it tall)
+    // holds the whole picture, and so any window of the output.
     readonly property size workspaceMiniature: {
         var widest = Math.round(shell.thumbnailSize * 1.5), tallest = Math.round(widest * 0.625)
         var width = popover.width, height = popover.height
