@@ -278,7 +278,8 @@ void TaskModel::sendPlaces() {
         if (!task->window ||
             paw_window_v1_get_version(task->window) < PAW_WINDOW_V1_SET_RECTANGLE_SINCE_VERSION)
             continue;
-        // On each output, the highest layer's, of one layer the last placed.
+        // On each output, the highest layer's, of one layer the owner's that began placing the
+        // window last.
         QHash<QString, const Placed *> best;
         for (const auto &each : task->placed) {
             if (!each.owner)

@@ -89,9 +89,10 @@ class TaskModel : public QAbstractListModel {
     // the output named `output`, in the output's logical coordinates, for the compositor to
     // minimize each into and restore it out of (the window control's version 7): it replaces what
     // the owner placed before, and windows the owner no longer names are taken back. On an
-    // output, the rectangle of the highest `layer` counts, of one layer the last placed; an empty
-    // rectangle, or the owner going, takes the owner's back. Sent once a change is over, and
-    // before any request about a window.
+    // output, the rectangle of the highest `layer` counts, of one layer the owner's that began
+    // placing the window last (moving it later keeps its turn); an empty rectangle, or the owner
+    // going, takes the owner's back. Sent once a change is over, and before activating or
+    // minimizing a window or showing the desktop.
     Q_INVOKABLE void place(QObject *owner, const QVariantList &taskIds, const QString &output,
                            const QRectF &rect, int layer = 0);
     // The windows the compositor says are asking for attention, as {appId, title} pairs: the

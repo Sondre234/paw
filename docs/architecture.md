@@ -728,10 +728,11 @@ the bar moves; a tile of the card places its window at its picture, at layer 1 s
 over the button while the card is open; a dock icon places its application's windows at its
 icon; and the tiling bar's window module places the focused window at its title. Each reads what
 moves it (`placedRect`) and calls the panel's `placeWindows`, which a stand-in model without
-`place` leaves alone; a bar hidden while the tiling bar stands in for it places nothing. The model keeps each owner's rectangles, drops them
-as the owner goes, and sends the one that counts on each output (the highest layer's, of a layer
-the last placed) once a change is over, and before any request about a window, so that a click
-on a picture restores the window out of it. `tests/minimize_shell_smoke.py` follows it.
+`place` leaves alone; a bar hidden while the tiling bar stands in for it places nothing. The model
+keeps each owner's rectangles, drops them as the owner goes, and sends the one that counts on each
+output (the highest layer's, of a layer the owner that began placing the window last) once a
+change is over, and before it activates or minimizes a window or shows the desktop, so that a
+click on a picture restores the window out of it. `tests/minimize_shell_smoke.py` follows it.
 
 On the taskbar `Panel.qml` alone calls them, for what tells it that it wants a window's picture
 with `wantPicture(taskId, wanted)`: a tile of the card as it appears and as it goes, and the panel
