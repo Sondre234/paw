@@ -102,18 +102,31 @@ double sh_rubber_band_slope(double pull, double limit) {
     return share * share;
 }
 
+/* How far the windows give at most past the end, in pixels. */
+static double edge_limit(double slide, double width) {
+    return fmin(slide, SH_SWIPE_EDGE_LIMIT * fmax(width, 0));
+}
+
 struct sh_swipe_edge sh_swipe_past_end(double pull, double slide, double width) {
     struct sh_swipe_edge edge = {.offset = 0, .alpha = 1, .rate = 0};
     if (!(pull > 0) || !isfinite(pull))
         return edge;
     if (slide > 0) {
-        double limit = fmin(slide, SH_SWIPE_EDGE_LIMIT * fmax(width, 0));
+        double limit = edge_limit(slide, width);
         edge.offset = sh_rubber_band(pull * slide, limit);
         edge.rate = sh_rubber_band_slope(pull * slide, limit) * slide;
     } else {
         edge.alpha = 1 - sh_rubber_band(pull, SH_SWIPE_EDGE_FADE);
     }
     return edge;
+}
+
+double sh_swipe_pull_at(double offset, double slide, double width) {
+    double limit = slide > 0 ? edge_limit(slide, width) : 0;
+    if (!(offset > 0) || !(limit > 0) || !isfinite(offset))
+        return 0;
+    offset = fmin(offset, 0.95 * limit);
+    return offset * limit / (limit - offset) / slide;
 }
 
 enum sh_swipe_direction sh_swipe_opposite(enum sh_swipe_direction direction) {
