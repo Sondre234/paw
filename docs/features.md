@@ -649,7 +649,10 @@ own, following its corners: `color` under the focused window, the lighter `inact
 under the others, fading out over `blur` pixels and falling `offset` pixels down (or
 `{ x, y }`). Fullscreen and maximized windows have none, and a shadow takes no input and is no
 part of the window's size, so snapping, tiling and the magnet ignore it. The shadow is cut from
-one blurred image, so resizing a window costs nothing. Blur is not available.
+one blurred image, so resizing a window costs nothing. Blur is not available. While a window is
+moved with the pointer its shadow grows softer and falls further, or a printed one moves further
+off (`windows.lift`, see [Animations](#animations)); stretching the same image away from the
+window does that without blurring again.
 
 ### Window rules
 
@@ -827,19 +830,19 @@ beginning with an `overview-assist` line (the slot, in the monitor's coordinates
 
 A floating window that is dragged (Alt + left drag, or a client-decorated window's own title
 bar) or resized (Alt + right drag, or its border) sticks to nearby edges, so windows line up
-without pixel hunting. Within
-`windows.magnet.distance` (12 px by default) an edge of the window lands on the edge of the
-output, of the area the panels leave free, or of another window, and a translucent guide line
-(`guide_color`) is drawn along the edge that holds it, from one window to the other. It works
-per axis (a corner can catch both), and against a window only where the two overlap in the other
-direction, so a window far above or below does not pull. The window follows the pointer's own
-position, so it stays held until the pointer has moved the distance away, then follows it again;
-hold the `bypass` modifier (Shift by default; `"none"` for no modifier) to drag freely.
-`windows.magnet = { enabled = false }` turns it off, and `guides = false` leaves the lines out.
-Tiles and windows lifted out of the tiling to be dropped somewhere are not affected, and
-dropping a window at an edge of the screen still snaps it (that goes by the pointer). When
-resizing, only the edges being pulled stick. It does not act on keyboard moves or resizes, or on
-snap actions. Tested headless with a virtual
+without pixel hunting. Within `windows.magnet.distance` (12 px by default) an edge of the window
+lands on the edge of the output, of the area the panels leave free, or of another window, and a
+translucent guide line (`guide_color`) is drawn along the edge that holds it, from one window to
+the other. It works per axis (a corner can catch both), and against a window only where the two
+overlap in the other direction, so a window far above or below does not pull. The window follows
+the pointer's own position, so it stays held until the pointer has moved the distance away, then
+follows it again; hold the `bypass` modifier (Shift by default; `"none"` for no modifier) to
+drag freely. `windows.magnet = { enabled = false }` turns it off, and `guides = false` leaves
+the lines out. Tiles and windows lifted out of the tiling to be dropped somewhere are not
+affected, and dropping a window at an edge of the screen still snaps it (that goes by the
+pointer). A window [lifted](#animations) as it is dragged sets down onto the edge that holds it,
+and lifts again as the pointer pulls it away. When resizing, only the edges being pulled stick.
+It does not act on keyboard moves or resizes, or on snap actions. Tested headless with a virtual
 pointer and keyboard, including the guide's pixels (`tests/magnet_smoke.py`); the feel of the
 distance with a real mouse has not been judged.
 
@@ -1254,11 +1257,23 @@ maximized windows are not tiles, and two windows in monocle keep their gaps. A l
 scroll layout loses its gaps and keeps its width.
 
 - Mod + right drag on a tile, or dragging its edge, moves the split lines around it.
-- Moving a tile (Mod + left drag or its title bar) lifts it out; dropping it splits
-  the tile under the pointer. A window dropped on another monitor that tiles joins the
-  tiling there even if snapping or maximizing, or its old monitor not tiling, had floated
-  it; one floated with Super + V stays floating. A tile dropped on a monitor that does not
-  tile floats there.
+- Moving a tile (Mod + left drag or its title bar) lifts it out, its place in the tiling kept
+  open, so that the other tiles stay where they are; the [snap preview](#snapping) shows the
+  place. Once the pointer rests a moment (150 ms) on another tile, the tiles glide aside (with
+  `animations.move`) to open the place a drop there gives it, splitting that tile on the side
+  nearer the pointer, as the tiling will be after the drop, and the preview glides there;
+  crossing tiles on the way moves nothing, and clients are asked for a new size only as a place
+  opens, not at every motion. Dropping it puts it in the place it holds, at once where the
+  pointer is if the tiles have not moved yet; dropped back on its own place, it is as it was.
+  Over another monitor that tiles the place opens there; taken to a monitor that does not tile,
+  or to the top edge, which maximizes it, the place closes and the tiles fill it again, as they
+  do when the move is cut short (switching workspace, locking), the window floating then where
+  it is. In the master, spiral and monocle layouts the place opens at the end of the list, and
+  dropping a tile where it was lifted from keeps its place there too. The scrolling layout keeps
+  no place: its tile leaves the strip as it is lifted, and a drop gives it a column at the end.
+  A window dropped on another monitor that tiles joins the tiling there even if snapping or
+  maximizing, or its old monitor not tiling, had floated it; one floated with Super + V stays
+  floating. A tile dropped on a monitor that does not tile floats there.
 - Dialogs and fixed-size windows float. Super + V (`toggle_floating`) floats
   or tiles the focused window; snapping or maximizing a tile also floats it. A window
   opening into the tiling of a workspace brings the windows maximized there back into the
@@ -1459,6 +1474,21 @@ The shell's own motion (the taskbar's buttons coming, going and sliding aside, i
 counts and icons, the popups, the notification cards, the on-screen display, and the switcher,
 the palette, the power dialog and the overview coming in and going) follows `enabled` and `speed`
 too.
+
+A window moved with the pointer is lifted once the pointer has taken it a few pixels (a click on
+its title bar does not lift it): it grows by a fortieth, but no more than 24 pixels along its
+longer side, about the point the pointer holds it by, so it stays under the pointer as it was
+taken, and its shadow grows half as soft again and falls further, a little lighter. A printed
+shadow (with no blur) moves two fifths further off instead, as crisp. Its border and rounded
+corners stay as they are around it. It eases up with the duration and curve of `move`, stays up
+while the window is moved (drawing nothing while the pointer rests), sets down onto an edge its
+[magnet](#magnetic-edges) holds and lifts again as the pointer pulls it away, and settles back
+as it is dropped, in half as long again, from wherever it is drawn; a drop that snaps or
+maximizes it settles it as it moves to its place. Where the window is and what the pointer
+reaches are those of the window at its own size throughout. Resizing does not lift a window.
+`windows = { lift = false }` turns this off; with animations off the window lifts and settles at
+once. `paw msg get lift` lists the windows lifted or settling: title, how far up (thousandths),
+the box the window is drawn in from its top-left corner, and the point it grows about.
 
 ## Effects
 
