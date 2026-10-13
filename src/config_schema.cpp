@@ -391,7 +391,8 @@ const Option options[] = {
     {"peek.opacity", "number", "0.12", "0.12", 0, 0.9,
      "Opacity windows fade to while peeking; 0 hides them completely."},
     {"peek.duration", "integer", "150", "150", 0, 2000,
-     "Milliseconds of the fade in and out; 0, or `animations.enabled = false`, switches at once."},
+     "Milliseconds of the fade in and out, at `animations.speed`; 0, or `animations.enabled = "
+     "false`, switches at once."},
 
     {"night_light", "table", "", "", none, none,
      "Night light: the screen turns warm after sunset, easing over `transition` minutes. The "
