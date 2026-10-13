@@ -744,6 +744,29 @@ static void test_morph_late_answer_at_drawn_size(void) {
     teardown(&m.rig);
 }
 
+/* A second change of size while the first fades keeps that fade going, at the opacity it has. */
+static void test_morph_keeps_one_fade(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    morph_to(&m, 0, 0, 400, 300);
+    advance(&m.rig, 10);
+    client_draws(&m, 300, 200, false);
+    struct wlr_scene_tree *copy = fading_copy(&m);
+    advance(&m.rig, 40);
+    struct wlr_scene_rect *old = fading_rect(&m);
+    float alpha = old ? old->color[3] : 0;
+    CHECK(copy && alpha < 0.9F && alpha > 0.2F, "half faded: %f", alpha);
+    client_draws(&m, 400, 300, true);
+    advance(&m.rig, 1);
+    CHECK(fading_copy(&m) == copy, "the same copy");
+    old = fading_rect(&m);
+    CHECK(old && old->color[3] <= alpha, "fading on from where it was: %f after %f",
+          old ? old->color[3] : 0, alpha);
+    advance(&m.rig, 200);
+    CHECK(sh_animator_running(m.rig.animator) == 0 && !fading_copy(&m), "done");
+    teardown(&m.rig);
+}
+
 /* Drawn at another size than asked, the window eases on to it rather than jumping. */
 static void test_morph_answer_of_its_own(void) {
     struct morph_rig m;
@@ -961,6 +984,7 @@ int main(void) {
     test_morph_crossfades_the_answer();
     test_morph_late_answer_at_drawn_size();
     test_morph_answer_of_its_own();
+    test_morph_keeps_one_fade();
     test_morph_reverses_smoothly();
     test_morph_rest_and_finish();
     test_morph_off_and_with_open();
