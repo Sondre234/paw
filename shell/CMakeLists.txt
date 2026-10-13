@@ -117,7 +117,7 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     WindowMenu.js
     TrayMenu.qml
     GroupList.qml
-    WindowThumbnails.qml
+    WindowThumbnails.qml WorkspaceCard.qml WorkspaceWindows.qml
     BarKeyboard.qml
     FocusRing.qml
 

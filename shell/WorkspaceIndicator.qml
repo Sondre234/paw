@@ -5,7 +5,8 @@ import QtQuick.Layouts
 // This output's workspaces: the current one on a pill that slides from workspace to workspace,
 // a dot under those with windows. Clicking a number switches to it; scrolling pages through
 // them, as it does anywhere on the bar. With shell.workspacesShown set, only that many show,
-// around the current one.
+// around the current one. With the panel's workspaceCards, resting on one shows a picture of it
+// (WorkspaceCard.qml) in place of its tooltip.
 Item {
     id: workspaceIndicator
     required property var panel
@@ -66,8 +67,14 @@ Item {
                      : label ? Math.max(narrowest, workspaceText.implicitWidth + 2 * Theme.spacingM) : narrowest
                 height: Theme.barVertical ? narrowest : Theme.barButtonHeight - Theme.spacingS
                 onClicked: { workspaceIndicator.panel.closeMenus(); workspaceIndicator.show(number) }
+                onHoveredChanged: workspaceIndicator.panel.hoverWorkspace(workspaceButton, hovered)
+                onPressedChanged: if (pressed) workspaceIndicator.panel.closeWorkspaceCard()
                 Accessible.name: "Workspace " + number + (label ? " " + label : "") + (urgent ? " (needs attention)" : "")
-                BarTip { panel: workspaceIndicator.panel; owner: workspaceButton; text: "Workspace " + number + (label ? ": " + label : "") + (occupied ? "" : " (empty)") + (urgent ? ", needs attention" : "") }
+                BarTip {
+                    panel: workspaceIndicator.panel; owner: workspaceButton
+                    visible: !workspaceIndicator.panel.workspaceCards && owner.hovered && !owner.pressed && !panel.menuOpen
+                    text: "Workspace " + number + (label ? ": " + label : "") + (occupied ? "" : " (empty)") + (urgent ? ", needs attention" : "")
+                }
                 contentItem: Item {
                     Text {
                         id: workspaceText

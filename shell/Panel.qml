@@ -95,7 +95,7 @@ Item {
     // are listed after all.
     readonly property bool thumbnails: shell.thumbnails && !macos
     // What shows a button's windows changes with it, and what was shown goes.
-    onThumbnailsChanged: closeGroup()
+    onThumbnailsChanged: { closeGroup(); closeWorkspaceCard() }
     readonly property int thumbnailGap: Theme.spacingS
     readonly property int thumbnailPadding: Theme.spacingM
     readonly property real thumbnailWidth: thumbnailWidthFor(groupWindows.count)
@@ -196,16 +196,117 @@ Item {
     }
     Timer { id: pictureWarmup; interval: shell.thumbnailDelay / 2; onTriggered: root.warmPictures() }
     readonly property bool groupListOpen: groupOpen && !thumbnailsOpen
+    // In the taskbar style with shell.thumbnails, resting on a workspace of the indicator for
+    // shell.thumbnailDelay shows a picture of it (WorkspaceCard.qml): its wallpaper and the
+    // windows it shows where they are, each from its own picture. It opens, glides to the next
+    // workspace the pointer rests on and closes as the card of a button's windows does, and the
+    // two take turns: while one is open, the pointer moving onto the other's buttons shows that
+    // one at once. From halfway into the delay the workspace is warmed up (workspaceWarm): the
+    // card, made by then, lists its windows and wants their pictures, so that it opens on them.
+    readonly property bool workspaceCards: thumbnails
+    property bool workspaceCardOpen: false
+    property int workspaceCardNumber: 0
+    property real workspaceCardX: 0
+    property int workspaceWarm: 0
+    property Item workspacePending: null
+    // A workspace's picture on its card: the output's proportions, one and a half times as wide as
+    // a window's picture (shell.thumbnailSize) but no taller than 5/8 of that, as a monitor on its
+    // side is narrower; `workspaceScale` card pixels to a logical pixel of the output. Its
+    // windows' pictures are asked for as wide as holds the whole picture in the box of 5/8 of the
+    // width they fit, in device pixels, so any window of the output.
+    readonly property size workspaceMiniature: {
+        var widest = Math.round(shell.thumbnailSize * 1.5), tallest = Math.round(widest * 0.625)
+        var width = popover.width, height = popover.height
+        if (width <= 0 || height <= 0)
+            return Qt.size(widest, tallest)
+        var fit = Math.min(widest / width, tallest / height)
+        return Qt.size(Math.round(width * fit), Math.round(height * fit))
+    }
+    readonly property real workspaceScale: popover.width > 0 ? workspaceMiniature.width / popover.width : 1
+    readonly property int workspacePictureWidth: Math.ceil(Math.max(workspaceMiniature.width, workspaceMiniature.height / 0.625) *
+                                                           Screen.devicePixelRatio)
+    readonly property Item workspaceCard: workspaceCardLoader.item
+    readonly property bool workspaceCardHovered: workspaceCard ? workspaceCard.hovered : false
+    function hoverWorkspace(button, hovered) {
+        // The keyboard on the bar holds what it shows until the pointer moves.
+        if (barKeys.active || !workspaceCards)
+            return
+        if (hovered && !menuOpen && !button.pressed) {
+            workspacePending = button
+            workspaceHide.stop()
+            if (workspaceCardOpen || groupOpen) {
+                openWorkspaceCard(button)
+            } else {
+                workspaceWarm = 0
+                workspaceShow.restart()
+                workspaceWarmup.restart()
+            }
+        } else if (!hovered && button === workspacePending) {
+            // Entering the next workspace can come before leaving this one.
+            stopWaitingWorkspace()
+            if (workspaceCardOpen) workspaceHide.restart()
+        }
+    }
+    function stopWaitingWorkspace() {
+        workspaceShow.stop()
+        workspaceWarmup.stop()
+        workspaceWarm = 0
+    }
+    function warmWorkspace() {
+        var button = workspacePending
+        if (workspaceShow.running && !workspaceCardOpen && button && button.hovered)
+            workspaceWarm = button.number
+    }
+    function showWorkspaceCard() {
+        var button = workspacePending
+        if (button && button.hovered && !button.pressed && !menuOpen && workspaceCards)
+            openWorkspaceCard(button)
+        workspaceWarm = 0
+    }
+    function openWorkspaceCard(button) {
+        closeGroup()
+        workspaceCardNumber = button.number
+        workspaceCardX = alongBar(button, lengthAlong(button) / 2)
+        workspaceCardOpen = true
+        workspaceWarm = 0
+    }
+    function closeWorkspaceCard() {
+        stopWaitingWorkspace()
+        workspaceCardOpen = false
+    }
+    // The pointer entering the card keeps it, and leaving it closes it a moment later.
+    function hoverWorkspaceCard(hovered) {
+        if (barKeys.active)
+            return
+        if (hovered) workspaceHide.stop(); else workspaceHide.restart()
+    }
+    // A click on the card: on a window, which it brings up (unless it is in front already, which
+    // that would minimize), else anywhere, which shows the workspace.
+    function pickWorkspace(number, window) {
+        closeWorkspaceCard()
+        if (window && window.taskId !== undefined && (!window.active || window.minimized))
+            taskSource.activate(window.taskId)
+        else if (number >= 1 && number <= shell.workspaceCount)
+            shell.showWorkspace(outputName, number)
+    }
+    Timer { id: workspaceShow; interval: shell.thumbnailDelay; onTriggered: root.showWorkspaceCard() }
+    Timer { id: workspaceWarmup; interval: shell.thumbnailDelay / 2; onTriggered: root.warmWorkspace() }
+    Timer {
+        id: workspaceHide; interval: 300
+        onTriggered: if (!root.workspaceCardHovered && !(root.workspacePending && root.workspacePending.hovered) &&
+                         !root.barKeys.active) root.workspaceCardOpen = false
+    }
     // What shows the windows: the card of pictures or the list, and whether the pointer is on it.
     readonly property Item groupPopup: thumbnailsOpen ? thumbnailsLoader.item : groupListLoader.item
     readonly property bool groupListHovered: groupPopup ? groupPopup.hovered : false
     // Something is open in the popover, or the bar has the keyboard there, or is being dragged.
     // The list shown on hover does not take the keyboard: it opens under a window being typed in.
-    readonly property bool expanded: menuOpen || groupOpen || barKeys.active || barDragging
+    readonly property bool expanded: menuOpen || groupOpen || workspaceCardOpen || barKeys.active || barDragging
     onMenuOpenChanged: {
         if (menuOpen) {
             stopWaiting()
             groupOpen = false
+            closeWorkspaceCard()
             // One opened otherwise than from the keyboard on the bar takes the keyboard over.
             if (!barKeys.menuOpened)
                 barKeys.leave()
@@ -217,6 +318,11 @@ Item {
     // popover and walks the bar's buttons and the windows they show.
     readonly property Item barKeys: barKeyboard
     function toggleBarKeyboard() { barKeyboard.toggle() }
+    // The keyboard on the bar walks the buttons, not the workspaces: the card of one goes.
+    Connections {
+        target: root.barKeys
+        function onActiveChanged() { if (root.barKeys.active) root.closeWorkspaceCard() }
+    }
     // What the keyboard on the bar shows closing by itself (its last window gone, a menu opening
     // in its place) leaves the keyboard on its button.
     onGroupOpenChanged: if (!groupOpen && barKeys.active && !barKeys.menuOpened) barKeys.window = -1
@@ -318,6 +424,7 @@ Item {
     }
     function closeMenus() {
         launcherOpen = false; taskMenuId = -1; pinMenuApp = null; barMenuOpen = false; audioPopup = ""; groupOpen = false; trayMenuKey = ""; menuBarMenu = ""
+        closeWorkspaceCard()
         barKeys.leave()
     }
     // A change of style lays the panel out anew: what was open belonged to bars that are gone.
@@ -334,7 +441,8 @@ Item {
         if (hovered && showsWindows(button) && !menuOpen && !button.pressed) {
             groupPending = button
             groupHide.stop()
-            if (groupOpen) {
+            // Open, the card of a workspace gives way to this one at once.
+            if (groupOpen || workspaceCardOpen) {
                 showGroup()
             } else {
                 warmGroup = null
@@ -370,6 +478,7 @@ Item {
                  task: button.group === null ? button.taskId : -1 }
     }
     function openGroup(button) {
+        closeWorkspaceCard()
         var windows = windowsOf(button)
         groupTask = windows.task
         groupSlot = windows.slot
@@ -433,6 +542,18 @@ Item {
     function showsWindowsOf(button) {
         var windows = windowsOf(button)
         return windows.slot === groupSlot && windows.windowApp === groupWindowApp && windows.task === groupTask
+    }
+    // The first of `item`'s descendants that `matches`, depth first; null for none.
+    function findItem(item, matches) {
+        var children = item.children
+        for (var i = 0; i < children.length; ++i) {
+            if (matches(children[i]))
+                return children[i]
+            var found = findItem(children[i], matches)
+            if (found)
+                return found
+        }
+        return null
     }
     // The topmost item at (x, y) in `reference`'s coordinates among `item`'s descendants that
     // `matches`, looking only inside items that hold the point; null for none.
@@ -656,6 +777,12 @@ Item {
             return false
         case "keyboard":
             return previewKeyboard()
+        case "workspace":
+            // The card of the second workspace, with the windows the stand-ins put there.
+            var workspaceButton = findItem(bar, function(item) { return item.objectName === "workspace2" })
+            if (workspaceButton && workspaceCards)
+                openWorkspaceCard(workspaceButton)
+            return workspaceCardOpen
         case "tray-menu":
         case "tray-submenu":
             for (i = 0; i < tray.children.length; ++i)
@@ -987,7 +1114,8 @@ Item {
         keyboard: root.menuOpen || root.barKeys.active || root.barDragOrigin && root.barDragging
         inputRects: root.menuOpen || root.barKeys.active
             ? root.popoverInput
-            : root.groupOpen && root.groupPopup ? [root.hoverArea(root.groupPopup)] : []
+            : root.groupOpen && root.groupPopup ? [root.hoverArea(root.groupPopup)]
+            : root.workspaceCardOpen && root.workspaceCard ? [root.hoverArea(root.workspaceCard)] : []
         onDismissed: {
             shell.cancelBarDrag()
             root.closeMenus()
@@ -1132,6 +1260,16 @@ Item {
                 wanted: root.groupOpen
                 early: root.warm
                 sourceComponent: Component { GroupList { panel: root } }
+            }
+
+            // The picture of the workspace the pointer rests on in the indicator, with
+            // shell.thumbnails in the taskbar style; made as the pointer starts resting there.
+            PopupLoader {
+                id: workspaceCardLoader
+                wanted: root.workspaceCardOpen || root.workspaceWarm > 0
+                early: root.workspaceCards && root.warm
+                active: root.workspaceCards && (wanted || early || used)
+                sourceComponent: Component { WorkspaceCard { panel: root } }
             }
 
             // The pictures of the windows of the button the pointer rests on, with shell.thumbnails
