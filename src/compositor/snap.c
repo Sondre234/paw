@@ -230,8 +230,13 @@ void snap_follow(struct sh_server *server) {
         zone = SH_NONE;
     server->snap.zone = zone;
     server->snap.slot = slot;
-    if (zone != SH_NONE && server_settings(server)->snap_preview) {
+    bool preview = server_settings(server)->snap_preview;
+    if (zone != SH_NONE && preview) {
         server->snap.radius = slot_radius(server, zone, output);
+        preview_show(server, slot);
+    } else if (zone == SH_NONE && preview && tile_drop_slot(server, &slot, &output)) {
+        // A tile moved with the pointer: the place it holds in the tiling (tile_drop.c).
+        server->snap.radius = slot_radius(server, SH_TILE, output);
         preview_show(server, slot);
     } else {
         preview_fade(server);

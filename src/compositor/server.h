@@ -481,6 +481,28 @@ struct sh_server {
         int radius;
         bool landing;
     } snap;
+    /* Lifting a window moved with the pointer (lift.c): where the move was pressed, whether the
+     * window has been lifted since, and whether it is up (else set down onto an edge its magnet
+     * holds). */
+    struct {
+        double press_x, press_y;
+        bool started, up;
+    } lift;
+    /* A tile moved with the pointer keeping its place in a tiling (tile_drop.c): the place the
+     * pointer rests on, which it moves to when `timer` fires, while `pending`; and its place as
+     * the tiling last arranged it, for the preview. */
+    struct {
+        struct wl_event_source *timer;
+        bool pending;
+        struct sh_drop_place {
+            bool tiles;
+            struct wlr_output *output;
+            int workspace;
+            struct sh_tile_drop drop;
+        } place;
+        struct sh_rect slot;
+        bool has_slot;
+    } tile_drop;
 
     /* Windows a session restore launched and has yet to place: the first new window with the
      * app ID takes the saved place, workspace and state, until the deadline (milliseconds on
@@ -922,12 +944,14 @@ struct sh_toplevel {
     int frame_radius; // with rounded corners, the radius border[0] rounds that frame with
     int corner_radius; // of the rounded clip on `content`; 0 while the window is square
     /* The shadow: a tree at the bottom of `content` holding the slices of a shared image, NULL
-     * without one; the image and the size of frame they were laid out for, and for `get frames`
-     * the box they cover (from the window's top-left corner) and how dark they are at most. */
+     * without one; the image, the size of frame and how far the window was lifted (lift.c) they
+     * were laid out for, and for `get frames` the box they cover (from the window's top-left
+     * corner) and how dark they are at most. */
     struct wlr_scene_tree *shadow;
     struct wlr_scene_buffer *shadow_slices[SH_SHADOW_SLICES];
     struct wlr_buffer *shadow_image;
     int shadow_width, shadow_height;
+    double shadow_lift;
     struct wlr_box shadow_box;
     float shadow_alpha;
     float opacity;                    // last applied to the window's buffers
@@ -1176,6 +1200,22 @@ void process_cursor_move(struct sh_server *server);
 void process_cursor_resize(struct sh_server *server);
 void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
                        uint32_t edges);
+
+/* tile_drop.c */
+void tile_drop_lift(struct sh_toplevel *toplevel);
+void tile_drop_follow(struct sh_server *server);
+void tile_drop_release(struct sh_server *server);
+void tile_drop_end(struct sh_server *server);
+bool tile_drop_place(struct sh_toplevel *toplevel, struct sh_rect rect);
+bool tile_drop_slot(struct sh_server *server, struct sh_rect *slot, struct wlr_output **output);
+void tile_drop_finish(struct sh_server *server);
+
+/* lift.c */
+void lift_press(struct sh_server *server);
+void lift_follow(struct sh_server *server, bool held);
+void lift_drop(struct sh_server *server);
+struct wlr_box lift_box(struct sh_toplevel *toplevel, struct wlr_scene_tree *tree,
+                        struct wlr_box box);
 
 /* gradient_border.c */
 bool gradient_borders(struct sh_server *server);

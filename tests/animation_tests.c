@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <wayland-server-core.h>
 #include <wlr/interfaces/wlr_buffer.h>
 #include <wlr/types/wlr_scene.h>
@@ -530,6 +531,242 @@ static void test_hold_copy(void) {
     wlr_scene_node_set_enabled(&rig.rect->node, true);
     // A copy still held when the animator goes goes with it.
     sh_anim_hold_copy(rig.animator, &rig.window->node, rig.content, 5, 0, 1);
+    teardown(&rig);
+}
+
+static int lift_updates;
+static void count_lift(void *data) {
+    ++lift_updates;
+}
+
+/* A dragged window is lifted: it grows about the point it was taken by and stays so, what the
+ * client draws included, until it is let down again. */
+static void test_lift(void) {
+    struct rig rig;
+    struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
+    c.late_ms = 30;
+    setup(&rig, c);
+    lift_updates = 0;
+    // The rect rests at (10, 20), 200 by 100; it is lifted by its top-left corner.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, count_lift, NULL);
+    CHECK(sh_animator_lifted(rig.animator) == 1 && sh_animator_running(rig.animator) == 0,
+          "lifted, and nothing else runs");
+    CHECK(rig.rect->width == 200 && sh_anim_lift_progress(&rig.anim) == 0, "starts down");
+    advance(&rig, 25);
+    advance(&rig, 25);
+    CHECK(rig.rect->width == 210 && rig.rect->height == 105 && rig.rect->node.x == 10 &&
+              rig.rect->node.y == 20,
+          "half way up, about its corner: %d by %d at %d, %d", rig.rect->width,
+          rig.rect->height, rig.rect->node.x, rig.rect->node.y);
+    advance(&rig, 25);
+    advance(&rig, 26);
+    CHECK(rig.rect->width == 220 && rig.rect->height == 110 && sh_anim_lift_progress(&rig.anim) == 1,
+          "up: %d", rig.rect->width);
+    int updates = lift_updates;
+    CHECK(updates == 4, "told on each frame: %d", updates);
+    advance(&rig, 500); // a late frame lands what eases, and this is up already
+    advance(&rig, 16);
+    CHECK(rig.rect->width == 220 && lift_updates == updates, "stays up, quietly");
+    int box[4] = {0, 0, 100, 100};
+    sh_anim_lift_box(&rig.anim, box);
+    CHECK(box[0] == -1 && box[1] == -2 && box[2] == 110 && box[3] == 110,
+          "a box drawn as the nodes are: %d %d %d %d", box[0], box[1], box[2], box[3]);
+    // The client draws at another size: that is lifted too.
+    wlr_scene_rect_set_size(rig.rect, 300, 100);
+    advance(&rig, 16);
+    CHECK(rig.rect->width == 330 && rig.rect->height == 110, "a new size lifted: %d",
+          rig.rect->width);
+    // Input sees it at its own size.
+    sh_animator_rest(rig.animator);
+    CHECK(rig.rect->width == 300 && rig.rect->height == 100, "at rest for input");
+    sh_animator_resume(rig.animator);
+    CHECK(rig.rect->width == 330, "lifted again");
+    // Let down, it settles in half as long again, from where it is.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 10, 20, count_lift, NULL);
+    CHECK(rig.rect->width == 330, "no jump as it starts down");
+    for (int i = 0; i < 3; ++i)
+        advance(&rig, 25);
+    CHECK(rig.rect->width == 315, "half way down: %d", rig.rect->width);
+    for (int i = 0; i < 3; ++i)
+        advance(&rig, 26);
+    CHECK(rig.rect->width == 300 && rig.rect->height == 100 && rig.rect->node.x == 10 &&
+              sh_animator_lifted(rig.animator) == 0 && !rig.anim.records,
+          "down and gone: %d", rig.rect->width);
+    // Reversed half way up, it turns back from where it is.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, NULL, NULL);
+    advance(&rig, 25);
+    advance(&rig, 25);
+    int half = rig.rect->width;
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 10, 20, NULL, NULL);
+    CHECK(rig.rect->width == half && half > 300 && half < 330, "turns where it is: %d", half);
+    advance(&rig, 25);
+    CHECK(rig.rect->width < half + 3, "and comes back down: %d", rig.rect->width);
+    for (int i = 0; i < 8; ++i)
+        advance(&rig, 25);
+    CHECK(rig.rect->width == 300 && sh_animator_lifted(rig.animator) == 0, "down");
+    teardown(&rig);
+}
+
+/* A lift goes on through other animations, at once without animations, and ends when the
+ * window's animations are finished. */
+static void test_lift_with_others(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    // Over an opening window, the two scales multiply.
+    sh_anim_open(rig.animator, &rig.anim, rig.content, 110, 70);
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 110, 70, NULL, NULL);
+    advance(&rig, 50);
+    CHECK(rig.rect->width == 204, "open and lift: %d", rig.rect->width); // 200 * 0.97 * 1.05
+    advance(&rig, 60);
+    CHECK(rig.rect->width == 220 && rig.rect->node.x == 0 && sh_animator_running(rig.animator) == 0,
+          "opened, still lifted: %d at %d", rig.rect->width, rig.rect->node.x);
+    // A glide moves it, lifted.
+    sh_anim_glide(rig.animator, &rig.anim, rig.content, 40, 0);
+    CHECK(rig.content->node.x == 40 && rig.rect->width == 220, "glides lifted");
+    // A late frame or turning animations off lands what runs; the lift stays up.
+    sh_animator_finish_all(rig.animator);
+    CHECK(rig.content->node.x == 0 && rig.rect->width == 220, "still up after finishing all");
+    struct sh_animator_config off = config(100, SH_CURVE_LINEAR);
+    off.enabled = false;
+    sh_animator_configure(rig.animator, &off);
+    CHECK(rig.rect->width == 220, "and with animations off");
+    // Without animations it goes down at once, and up again at once.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 110, 70, NULL, NULL);
+    CHECK(rig.rect->width == 200 && sh_animator_lifted(rig.animator) == 0, "down at once");
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 110, 70, NULL, NULL);
+    CHECK(rig.rect->width == 220 && rig.rect->node.x == 0, "up at once: %d", rig.rect->width);
+    // Finishing the window's animations ends it.
+    sh_anim_finish(&rig.anim);
+    CHECK(rig.rect->width == 200 && rig.rect->node.x == 10 && sh_animator_lifted(rig.animator) == 0,
+          "finished: %d", rig.rect->width);
+    // Letting down what is not lifted does nothing.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 110, 70, NULL, NULL);
+    CHECK(sh_animator_lifted(rig.animator) == 0, "nothing to let down");
+    // A window held by a gesture is held lifted.
+    sh_animator_configure(rig.animator, &(struct sh_animator_config){0});
+    struct sh_animator_config on = config(100, SH_CURVE_LINEAR);
+    sh_animator_configure(rig.animator, &on);
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 110, 70, NULL, NULL);
+    advance(&rig, 120);
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -30, 0, 0.5F);
+    advance(&rig, 16);
+    CHECK(rig.content->node.x == -30 && rig.rect->width == 220 &&
+              fabsf(rig.rect->color[3] - 0.5F) < 1e-6F,
+          "held lifted: %d", rig.rect->width);
+    teardown(&rig);
+    CHECK(true, "a lifted window's animator goes cleanly");
+}
+
+/* With bounds, a lift draws them larger with their edges on whole pixels, and what lies outside
+ * them (a border, a shadow) at its own size around them. */
+static void test_lift_bounds(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    // A border two pixels wide around the window's rect.
+    float red[4] = {1, 0, 0, 1};
+    struct wlr_scene_rect *border = wlr_scene_rect_create(rig.content, 204, 104, red);
+    wlr_scene_node_set_position(&border->node, 8, 18);
+    sh_anim_lift_bounds(&rig.anim, 10, 20, 200, 100);
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 110, 70, NULL, NULL);
+    for (int i = 0; i < 6; ++i)
+        advance(&rig, 20);
+    CHECK(rig.rect->node.x == 0 && rig.rect->node.y == 15 && rig.rect->width == 220 &&
+              rig.rect->height == 110,
+          "the window drawn larger: %d, %d, %d by %d", rig.rect->node.x, rig.rect->node.y,
+          rig.rect->width, rig.rect->height);
+    CHECK(border->node.x == -2 && border->node.y == 13 && border->width == 224 &&
+              border->height == 114,
+          "its border as wide around it: %d, %d, %d by %d", border->node.x, border->node.y,
+          border->width, border->height);
+    int box[4] = {8, 18, 204, 104};
+    sh_anim_lift_box(&rig.anim, box);
+    CHECK(box[0] == -2 && box[1] == 13 && box[2] == 224 && box[3] == 114,
+          "a box drawn as the border is: %d %d %d %d", box[0], box[1], box[2], box[3]);
+    // Half way, the window's edges are still on whole pixels and the border meets them.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 110, 70, NULL, NULL);
+    for (int step = 0; step < 8; ++step) {
+        advance(&rig, 19);
+        CHECK(border->node.x == rig.rect->node.x - 2 && border->width == rig.rect->width + 4 &&
+                  border->node.y == rig.rect->node.y - 2 && border->height == rig.rect->height + 4,
+              "the border meets the window settling: %d %d %d %d against %d %d %d %d",
+              border->node.x, border->node.y, border->width, border->height, rig.rect->node.x,
+              rig.rect->node.y, rig.rect->width, rig.rect->height);
+    }
+    CHECK(rig.rect->width == 200 && border->width == 204 && border->node.x == 8, "down");
+    teardown(&rig);
+}
+
+/* A gesture holding or sliding a window lets its lift go on over it; finishing the window's
+ * animations ends the lift and tells its owner, so that what follows the lift rests too. */
+static void test_lift_through_gestures(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    lift_updates = 0;
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, count_lift, NULL);
+    for (int i = 0; i < 6; ++i)
+        advance(&rig, 20);
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 10, 20, count_lift, NULL);
+    advance(&rig, 20);
+    int settling = rig.rect->width;
+    CHECK(settling > 200 && settling < 220, "settling: %d", settling);
+    // Gliding as it settles, as a dropped tile does into its place, a swipe holds it part of the
+    // way: the glide lands, and it settles on under the hold and tells its owner.
+    sh_anim_glide(rig.animator, &rig.anim, rig.content, 40, 0);
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -30, 0, 0.5F);
+    CHECK(sh_animator_lifted(rig.animator) == 1 && rig.content->node.x == -30 &&
+              rig.rect->width == settling,
+          "the lift goes on under the hold: %zu, %d", sh_animator_lifted(rig.animator),
+          rig.rect->width);
+    int updates = lift_updates;
+    for (int i = 0; i < 9; ++i)
+        advance(&rig, 20);
+    CHECK(sh_animator_lifted(rig.animator) == 0 && rig.rect->width == 200 &&
+              rig.content->node.x == -30 && lift_updates > updates,
+          "settled under the hold, its owner told: %d, %d updates", rig.rect->width,
+          lift_updates - updates);
+    // Slid on from a hold, a lift going up goes on too.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, count_lift, NULL);
+    advance(&rig, 20);
+    sh_anim_slide_from(rig.animator, &rig.anim, rig.content, -30, 0, 0.5F, 1);
+    CHECK(sh_animator_lifted(rig.animator) == 1 && rig.rect->width > 200,
+          "the lift goes on over the slide: %d", rig.rect->width);
+    for (int i = 0; i < 12; ++i)
+        advance(&rig, 20);
+    CHECK(rig.rect->width == 220 && rig.content->node.x == 0, "slid home, lifted: %d at %d",
+          rig.rect->width, rig.content->node.x);
+    // Finished, the lift ends, and its owner hears of it.
+    updates = lift_updates;
+    sh_anim_finish(&rig.anim);
+    CHECK(rig.rect->width == 200 && sh_animator_lifted(rig.animator) == 0 &&
+              lift_updates == updates + 1 && sh_anim_lift_progress(&rig.anim) == 0,
+          "finished, its owner told once: %d updates", lift_updates - updates);
+    teardown(&rig);
+}
+
+/* A lookup puts a lifted window at its own size only when it could be found at the point. */
+static void test_lift_rest_at_point(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, NULL, NULL);
+    for (int i = 0; i < 6; ++i)
+        advance(&rig, 20);
+    CHECK(rig.rect->width == 220, "lifted: %d", rig.rect->width);
+    // Far from it: left alone, nothing to draw again.
+    sh_animator_rest_at(rig.animator, 900, 600);
+    CHECK(rig.rect->width == 220 && !rig.anim.lift_rested, "far from the point: left alone");
+    sh_animator_resume(rig.animator);
+    CHECK(rig.rect->width == 220, "and resume leaves it alone");
+    // Over the part only the lift draws, and over the window: at its own size for the lookup.
+    double sx, sy;
+    sh_animator_rest_at(rig.animator, 225, 60);
+    CHECK(rig.rect->width == 200 &&
+              wlr_scene_node_at(&rig.scene->tree.node, 225, 60, &sx, &sy) == NULL,
+          "at rest where only the lift reaches");
+    sh_animator_resume(rig.animator);
+    CHECK(rig.rect->width == 220 && !rig.anim.lift_rested, "lifted again");
+    sh_animator_rest_at(rig.animator, 50, 50);
+    CHECK(rig.rect->width == 200, "at rest over the window");
+    sh_animator_resume(rig.animator);
     teardown(&rig);
 }
 
@@ -1257,6 +1494,56 @@ static void test_drop_off(void) {
     teardown(&rig);
 }
 
+/* What the owner of a lifted window changing size does as it hears of the size drawn: the frame
+ * around it, and the lift's bounds that size. */
+static void lift_morph_resized(void *data) {
+    struct morph_rig *m = data;
+    morph_resized(m);
+    int width = m->surface->width, height = m->surface->height;
+    sh_anim_drawn_size(&m->rig.anim, &width, &height);
+    sh_anim_lift_bounds(&m->rig.anim, 0, 0, width, height);
+}
+
+/* A lift draws on top of a change of size: the size drawn grows, and the frame keeps its width
+ * around it; let down, the change of size goes on as it would have. */
+static void test_lift_over_morph(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    sh_anim_lift_bounds(&m.rig.anim, 0, 0, 200, 100);
+    sh_anim_lift(m.rig.animator, &m.rig.anim, m.rig.content, true, 1.1, 0, 0, NULL, NULL);
+    for (int i = 0; i < 6; ++i)
+        advance(&m.rig, 20);
+    CHECK(m.surface->width == 220 && m.frame->width == 224 && m.frame->node.x == -2,
+          "lifted: %d in %d", m.surface->width, m.frame->width);
+    struct sh_morph morph = {
+        .surfaces = m.surfaces, .from_width = 200, .from_height = 100, .width = 400,
+        .height = 300, .live_width = 200, .live_height = 100, .kind = SH_ANIM_MOVE,
+        .resized = lift_morph_resized, .data = &m,
+    };
+    sh_anim_morph(m.rig.animator, &m.rig.anim, m.rig.content, &morph);
+    CHECK(sh_animator_lifted(m.rig.animator) == 1, "still lifted as it changes size");
+    advance(&m.rig, 25);
+    advance(&m.rig, 25);
+    CHECK(m.surface->width == 330 && m.surface->height == 220,
+          "half way to 400 by 300, lifted: %d by %d", m.surface->width, m.surface->height);
+    CHECK(m.frame->node.x == -2 && m.frame->width == 334 && m.frame->height == 224,
+          "the frame as wide around it: %d by %d at %d", m.frame->width, m.frame->height,
+          m.frame->node.x);
+    sh_anim_lift(m.rig.animator, &m.rig.anim, m.rig.content, false, 1.1, 0, 0, NULL, NULL);
+    for (int i = 0; i < 10; ++i)
+        advance(&m.rig, 20);
+    CHECK(sh_animator_lifted(m.rig.animator) == 0 && m.surface->width == 400 &&
+              m.surface->height == 300 && m.frame->width == 404,
+          "let down, at the size it changes to: %d by %d", m.surface->width, m.surface->height);
+    client_draws(&m, 400, 300, true);
+    for (int i = 0; i < 10; ++i)
+        advance(&m.rig, 20);
+    CHECK(sh_animator_running(m.rig.animator) == 0 && m.surface->width == 400 &&
+              m.frame->width == 404,
+          "done: %d", m.surface->width);
+    teardown(&m.rig);
+}
+
 static void test_finish_all(void) {
     struct rig rig;
     setup(&rig, config(300, SH_CURVE_EASE_OUT));
@@ -1521,6 +1808,39 @@ static void test_ticks_by_itself(void) {
     teardown(&rig);
 }
 
+/* A lift eases up and settles back by the animator's own ticks, with no frame to bring them, and
+ * once up it leaves the animator idle. */
+static void test_lift_ticks_by_itself(void) {
+    struct rig rig;
+    struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
+    c.late_ms = 30;
+    setup(&rig, c);
+    lift_updates = 0;
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, count_lift, NULL);
+    for (int i = 0; i < 20 && rig.anim.lift_easing; ++i) {
+        clock_now += 10;
+        wl_event_loop_dispatch(rig.loop, 50);
+    }
+    CHECK(!rig.anim.lift_easing && rig.rect->width == 220, "up by itself: %d", rig.rect->width);
+    // Up, nothing ticks: the loop sleeps out its whole wait.
+    int updates = lift_updates;
+    struct timespec before, after;
+    clock_gettime(CLOCK_MONOTONIC, &before);
+    wl_event_loop_dispatch(rig.loop, 120);
+    clock_gettime(CLOCK_MONOTONIC, &after);
+    double waited = (after.tv_sec - before.tv_sec) * 1e3 + (after.tv_nsec - before.tv_nsec) / 1e6;
+    CHECK(waited >= 100 && lift_updates == updates, "idle while up: woke after %.0f ms", waited);
+    // Let down, it settles by itself.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 10, 20, count_lift, NULL);
+    for (int i = 0; i < 40 && sh_animator_lifted(rig.animator); ++i) {
+        clock_now += 10;
+        wl_event_loop_dispatch(rig.loop, 50);
+    }
+    CHECK(sh_animator_lifted(rig.animator) == 0 && rig.rect->width == 200,
+          "settled by itself: %d", rig.rect->width);
+    teardown(&rig);
+}
+
 /* What an animation does to a window's opacity now: a hold's, a running fade's, else nothing. */
 static void test_alpha(void) {
     struct rig rig;
@@ -1554,9 +1874,16 @@ int main(void) {
     test_workspace_slide();
     test_hold_and_slide_from();
     test_hold_copy();
+    test_lift();
+    test_lift_with_others();
+    test_lift_bounds();
+    test_lift_through_gestures();
+    test_lift_rest_at_point();
+    test_lift_over_morph();
     test_spring_back();
     test_nudge();
     test_ticks_by_itself();
+    test_lift_ticks_by_itself();
     test_alpha();
     test_morph_stretches_and_waits();
     test_morph_answer_after_an_early_ack();

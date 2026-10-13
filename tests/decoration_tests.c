@@ -316,11 +316,187 @@ static void shadows(void) {
     }
 }
 
+/* The shadow of a window of `width` by `height` drawn from its slices scaled by `k` (left, top,
+ * right, bottom), into `drawn` (alpha per device pixel, the window's top-left corner at
+ * (`ox`, `oy`) logical pixels, `fw` by `fh`); how often each pixel was drawn goes in `covered`. */
+static void draw_scaled(const struct sh_shadow *shadow, int width, int height, int scale,
+                        const double k[4], int ox, int oy, int fw, int fh, int *drawn,
+                        int *covered) {
+    struct sh_shadow_layout l;
+    sh_shadow_layout(shadow, &l);
+    int image_width, image_height;
+    sh_shadow_image_size(&l, width, height, &image_width, &image_height);
+    int iw = (l.left + image_width + l.right) * scale, ih = (l.top + image_height + l.bottom) * scale;
+    uint32_t *image = calloc((size_t)iw * ih, sizeof(*image));
+    sh_shadow_paint(image, shadow, image_width, image_height, scale);
+    struct sh_shadow_slice slices[SH_SHADOW_SLICES];
+    sh_shadow_slices_scaled(&l, image_width, image_height, width, height, k, slices);
+    for (int i = 0; i < SH_SHADOW_SLICES; ++i) {
+        const struct sh_shadow_slice *s = &slices[i];
+        for (int dy = 0; dy < s->to_height * scale; ++dy) {
+            for (int dx = 0; dx < s->to_width * scale; ++dx) {
+                // The middle of the drawn pixel, sampled from the image as a GPU does: between
+                // the four nearest pixels, those outside the slice's part of the image too.
+                double u = s->x * scale + (dx + 0.5) * s->width / s->to_width - 0.5;
+                double v = s->y * scale + (dy + 0.5) * s->height / s->to_height - 0.5;
+                int x = (ox + s->to_x) * scale + dx, y = (oy + s->to_y) * scale + dy;
+                if (x < 0 || y < 0 || x >= fw || y >= fh)
+                    continue;
+                int u0 = (int)floor(u), v0 = (int)floor(v);
+                double fu = u - u0, fv = v - v0, sum = 0;
+                for (int j = 0; j < 2; ++j) {
+                    for (int i = 0; i < 2; ++i) {
+                        int sx = u0 + i < 0 ? 0 : u0 + i >= iw ? iw - 1 : u0 + i;
+                        int sy = v0 + j < 0 ? 0 : v0 + j >= ih ? ih - 1 : v0 + j;
+                        sum += alpha(image[sy * iw + sx]) * (i ? fu : 1 - fu) * (j ? fv : 1 - fv);
+                    }
+                }
+                drawn[y * fw + x] = (int)lround(sum);
+                ++covered[y * fw + x];
+            }
+        }
+    }
+    free(image);
+}
+
+/* A lifted window's shadow: a cast one is the resting one's slices stretched away from the
+ * window, which looks as a shadow blurred that much more and falling that much further would; a
+ * printed one is printed further off. */
+static void shadow_lift(void) {
+    struct sh_shadow soft = {.radius = 10, .blur = 30, .offset_x = 0, .offset_y = 10,
+                             .color = {0, 0, 0, 0.35F}};
+    struct sh_shadow printed = {.radius = 12, .blur = 0, .offset_x = 7, .offset_y = 7,
+                                .color = {0.66F, 0.79F, 0.93F, 1}};
+    CHECK(!sh_shadow_printed(&soft) && sh_shadow_printed(&printed), "which is printed");
+    double k[4];
+    float opacity;
+    struct sh_shadow look;
+    sh_shadow_lift(&soft, 0, &look, k, &opacity);
+    CHECK(k[0] == 1 && k[1] == 1 && k[2] == 1 && k[3] == 1 && opacity == 1 &&
+              !memcmp(&look, &soft, sizeof(look)),
+          "at rest, as it is");
+    sh_shadow_lift(&soft, 1, &look, k, &opacity);
+    CHECK(fabs(k[0] - 1.5) < 1e-9 && fabs(k[2] - 1.5) < 1e-9 && k[3] > k[0] && k[1] < k[0] &&
+              opacity < 1 && opacity > 0.8F && !memcmp(&look, &soft, sizeof(look)),
+          "softer, falling further down, lighter: %f %f %f %f %f", k[0], k[1], k[2], k[3],
+          opacity);
+    sh_shadow_lift(&printed, 1, &look, k, &opacity);
+    CHECK(look.offset_x == 10 && look.offset_y == 10 && look.blur == 0 && k[0] == 1 &&
+              k[3] == 1 && opacity == 1,
+          "printed: 10 pixels off for 7, as crisp and as dark: %d %d", look.offset_x,
+          look.offset_y);
+    sh_shadow_lift(&printed, 0.5, &look, k, &opacity);
+    CHECK(look.offset_x == 8 && look.offset_y == 8, "in whole pixels on the way: %d",
+          look.offset_x);
+    struct sh_shadow up_left = printed;
+    up_left.offset_x = -5, up_left.offset_y = 0;
+    sh_shadow_lift(&up_left, 1, &look, k, &opacity);
+    CHECK(look.offset_x == -7 && look.offset_y == 0, "away the way it falls: %d %d",
+          look.offset_x, look.offset_y);
+
+    for (int scale = 1; scale <= 2; ++scale) {
+        // Stretched half again on every side, the soft shadow is the one blurred and offset half
+        // again, but at the corners, within a few levels of alpha.
+        struct sh_shadow wider = soft;
+        wider.blur = 45, wider.offset_y = 15;
+        struct sh_shadow_layout l;
+        sh_shadow_layout(&wider, &l);
+        int width = 400, height = 250;
+        int fw = (l.left + width + l.right) * scale, fh = (l.top + height + l.bottom) * scale;
+        int *drawn = calloc((size_t)fw * fh, sizeof(*drawn));
+        int *covered = calloc((size_t)fw * fh, sizeof(*covered));
+        uint32_t *whole = calloc((size_t)fw * fh, sizeof(*whole));
+        sh_shadow_paint(whole, &wider, width, height, scale);
+        const double half_again[4] = {1.5, 1.5, 1.5, 1.5};
+        draw_scaled(&soft, width, height, scale, half_again, l.left, l.top, fw, fh, drawn, covered);
+        int worst = 0, overlaps = 0, holes = 0;
+        for (int y = 0; y < fh; ++y) {
+            for (int x = 0; x < fw; ++x) {
+                bool inside = x >= l.left * scale && x < (l.left + width) * scale &&
+                              y >= l.top * scale && y < (l.top + height) * scale;
+                overlaps += covered[y * fw + x] > 1;
+                holes += !inside && !covered[y * fw + x];
+            }
+        }
+        // Down the middle and across it, away from the corners, outside the window (which
+        // covers the stretched image's cut-out, a pixel in).
+        int cx = (l.left + width / 2) * scale, cy = (l.top + height / 2) * scale;
+        int inside = 0;
+        for (int y = 0; y < fh; ++y) {
+            int difference = abs(drawn[y * fw + cx] - alpha(whole[y * fw + cx]));
+            if (y >= l.top * scale && y < (l.top + height) * scale)
+                inside += drawn[y * fw + cx] > 0;
+            else if (difference > worst)
+                worst = difference;
+        }
+        for (int x = 0; x < fw; ++x) {
+            int difference = abs(drawn[cy * fw + x] - alpha(whole[cy * fw + x]));
+            if (x >= l.left * scale && x < (l.left + width) * scale)
+                inside += drawn[cy * fw + x] > 0;
+            else if (difference > worst)
+                worst = difference;
+        }
+        CHECK(inside <= 4 * scale, "%d pixels drawn inside the window at scale %d", inside, scale);
+        // Along the window's edges, in the middle and by the corners, the shadow is darkest
+        // right outside the window: no light seam where the image cuts the window out.
+        int seams = 0;
+        for (int along = 12; along <= width / 2; along += width / 2 - 12) {
+            int x = (l.left + along) * scale, below = (l.top + height) * scale;
+            seams += drawn[below * fw + x] + 2 < drawn[(below + 1) * fw + x];
+            int y = (l.top + along * height / width) * scale, beside = (l.left + width) * scale;
+            seams += drawn[y * fw + beside] + 2 < drawn[y * fw + beside + 1];
+            int above = l.top * scale - 1;
+            seams += drawn[above * fw + x] + 2 < drawn[(above - 1) * fw + x];
+        }
+        CHECK(seams == 0, "%d light seams along the window's edges at scale %d", seams, scale);
+        CHECK(overlaps == 0 && holes == 0, "scaled slices at scale %d: %d overlap, %d left out",
+              scale, overlaps, holes);
+        CHECK(worst <= 4, "stretched, the shadow differs from a softer one by %d at scale %d",
+              worst, scale);
+        free(drawn);
+        free(covered);
+        free(whole);
+
+        // A window too small for its corners stretched keeps them apart.
+        sh_shadow_layout(&soft, &l);
+        int small_width = l.inner_left + l.inner_right + 4, small_height = 60;
+        fw = (2 * l.left + small_width + 2 * l.right) * scale;
+        fh = (2 * l.top + small_height + 2 * l.bottom) * scale;
+        drawn = calloc((size_t)fw * fh, sizeof(*drawn));
+        covered = calloc((size_t)fw * fh, sizeof(*covered));
+        const double lifted[4] = {1.5, 1.35, 1.5, 1.65};
+        draw_scaled(&soft, small_width, small_height, scale, lifted, 2 * l.left, 2 * l.top, fw, fh,
+                    drawn, covered);
+        overlaps = 0;
+        for (int i = 0; i < fw * fh; ++i)
+            overlaps += covered[i] > 1;
+        CHECK(overlaps == 0, "a small window's stretched corners overlap by %d at scale %d",
+              overlaps, scale);
+        free(drawn);
+        free(covered);
+    }
+    // Unstretched, the edges meet the window's sides; stretched, they run a pixel under it, where
+    // the window covers the image's cut-out.
+    struct sh_shadow_layout l;
+    sh_shadow_layout(&soft, &l);
+    struct sh_shadow_slice s[SH_SHADOW_SLICES];
+    const double one[4] = {1, 1, 1, 1}, wider[4] = {1.5, 1.5, 1.5, 1.5};
+    sh_shadow_slices_scaled(&l, l.width, l.height, 500, 300, one, s);
+    CHECK(s[4].to_y + s[4].to_height == 0 && s[5].to_y == 300 && s[6].to_x + s[6].to_width == 0 &&
+              s[7].to_x == 500,
+          "unstretched, the edges meet the window");
+    sh_shadow_slices_scaled(&l, l.width, l.height, 500, 300, wider, s);
+    CHECK(s[4].to_y + s[4].to_height == 1 && s[5].to_y == 299 && s[6].to_x + s[6].to_width == 1 &&
+              s[7].to_x == 499,
+          "stretched, the edges run a pixel under the window");
+}
+
 int main(void) {
     flat_strip();
     traffic_lights();
     rendered_buffer();
     shadows();
+    shadow_lift();
     if (failures) {
         fprintf(stderr, "%d decoration checks failed\n", failures);
         return EXIT_FAILURE;

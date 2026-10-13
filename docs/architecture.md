@@ -52,6 +52,8 @@ all. In short:
 | `touch.c` | Touchscreens: fingers to the surfaces under them (wl_touch), the pointer for clients without touch and the compositor's own controls, and the output each screen is mapped to. |
 | `grab.c` | Moving and resizing with the pointer, magnetic edges, dropping. |
 | `snap.c` | Snapping a window dragged to an edge of its output: the zones, the preview, the drop. |
+| `tile_drop.c` | A tile moved with the pointer holding its place in a tiling, the other tiles gliding aside to open the place a drop would give it, and the drop into it. |
+| `lift.c` | Lifting a window moved with the pointer: drawn a little larger about where it was taken, its shadow softer and further off, set down onto an edge its magnet holds, settling as it is dropped. |
 | `stacking.c` | The layers windows are drawn in among themselves (tiles, floating windows over them with `layout.floating_above_tiles`, windows kept above the others) and keeping a window above. |
 | `dynamic_rules.c` | Dynamic window rules: what they hold a window to as its title and app ID change, given back as they stop (with `src/dynamic_rule.c`). |
 | `focus.c` | Keyboard focus and urgent windows. |
@@ -397,6 +399,40 @@ it lists other windows, has no strip, draws its backdrop over the slot alone, le
 outside the slot to the rest of the compositor, closes at once, and puts the window picked into
 the slot. It announces itself as `overview-assist` rather than `overview`; the shell's
 `OverviewView` draws both, and takes no input for either.
+
+### Moving a window with the pointer
+
+`grab.c` follows the move; `lift.c` and `tile_drop.c` add to it. The lift is the animator's
+(`sh_anim_lift`, `src/animation.c`): a window's `sh_anim` holds how far up it is (`lift`, easing
+as a glide does, keeping its velocity as it turns), the scale and the point it grows about, and
+its bounds, the window's geometry. Every walk of its nodes, the opening animation's and a
+gesture's hold too, draws them through the lift on top: what is inside the bounds scaled to the
+bounds drawn larger, their edges on whole pixels, and what is outside (the border's hollow rect,
+the shadow's slices, a client's own frame) moved with the nearest edge at its own size, so that
+a border meets the window to the pixel. A lifted window sits in the animator's `lifted` list,
+whose lifts every frame draws again (a client's commit puts its nodes back) apart from the
+running animations: neither the timer nor a late frame touches one that is up, and it costs
+nothing while nothing is drawn. Lookups put it at rest as they do running animations. Its
+`update`, on each frame it moves, is `refresh_frame`, which draws the shadow as `sh_shadow_lift`
+(`src/shadow.c`) says: a cast shadow's slices stretched away from the window
+(`sh_shadow_slices_scaled`, the image's cut-out a pixel under the window, where sampling between
+pixels would otherwise show a light seam), a printed one's image painted further off in whole
+pixels; and the rounded clips frame.c asks for through `window_clip`, the window's, its shadow's
+and its gradient border's, are laid over the box drawn (`lift_box`, from `apply_clip` in
+`scratchpad.c`, under a drop's cut), since wlroots' clips take no part in the scaling. The
+lift's bounds are the size a change of size draws the window at (`frame_geometry`), so that a
+lift draws on top of a morph's stretch.
+
+A tile moved with the pointer stays a leaf of its tree (`tile_drop_lift` takes it out of the
+tiling but for that), which `place_tiled` passes over (`tile_drop_place`, noting its rect for the
+snap preview, `tile_drop_slot`). `sh_tiling_drop_target` (`src/tiling.cpp`) says where a drop at
+a point would put it, found in the arrangement without it (taken out and put back exactly, its
+boxes too). `tile_drop_follow` waits `DROP_DWELL_MS` with the pointer on one such place before
+`sh_tiling_drop` moves the window there and the outputs reflow, so that clients are configured
+only as a place opens. `tile_drop_release` makes the move at once as the window is dropped, or
+takes it out of a tiling the drop does not put it in, before `finish_grab` tiles it
+(`tile_toplevel_at` finds it in the tree already) or snaps it; `tile_drop_end`, from
+`reset_cursor_mode`, takes a window still holding a place out of its tiling.
 
 ### Changing size
 

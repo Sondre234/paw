@@ -63,17 +63,17 @@ void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, 
     const struct sh_settings *settings = server_settings(server);
     struct sh_gradient_drawn drawn = {g.width, g.height, border,     radius,
                                       scale,   (float)mix, server->config_generation};
-    if (!memcmp(&drawn, &toplevel->gradient_drawn, sizeof(drawn)))
-        return;
-    toplevel->gradient_drawn = drawn;
 #ifdef PAW_ROUNDED_CORNERS
     // The window's rounded clip would take the border, which lies outside its geometry, so the
     // pieces get a clip of their own around the whole frame, as the shadow does; the corners
-    // round themselves.
+    // round themselves. It follows the window's lift whatever the pieces show.
     window_clip(toplevel, SH_CLIP_GRADIENT,
                 &(struct wlr_box){-border, -border, g.width + 2 * border, g.height + 2 * border},
                 0);
 #endif
+    if (!memcmp(&drawn, &toplevel->gradient_drawn, sizeof(drawn)))
+        return;
+    toplevel->gradient_drawn = drawn;
     struct sh_border_piece pieces[SH_BORDER_PIECES];
     sh_border_pieces(g.width, g.height, border, radius, scale, pieces);
     for (int i = 0; i < SH_BORDER_PIECES; ++i) {

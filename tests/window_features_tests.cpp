@@ -157,6 +157,11 @@ int main() {
         rejects("return {windows={shadow={offset='down'}}}");
         rejects("return {windows={shadow={color='black'}}}");
         rejects("return {windows={shadow={spread=3}}}");
+        // windows.lift: a dragged window is lifted unless told otherwise.
+        require(defaults.settings.lift, "lift default");
+        require(!paw::parse_config("return {windows={lift=false}}").settings.lift,
+                "lift = false not read");
+        rejects("return {windows={lift='yes'}}");
         rejects("return {windows={controls='macos'}}");
         rejects("return {windows={controls=true}}");
         std::cout << "Window feature configuration passed\n";

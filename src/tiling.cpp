@@ -346,6 +346,22 @@ struct sh_tiling {
         return result;
     }
 
+    /* Puts `leaf` beside the leaf `split` of the tree `key`, the two sharing its box: `leaf` in
+     * its first half with `first`, else in its second. */
+    void split_leaf(const Key &key, Node *split, std::unique_ptr<Node> leaf, bool first) {
+        const sh_rect box = split->box;
+        auto &place = slot(split, key);
+        auto parent = std::make_unique<Node>();
+        parent->parent = split->parent;
+        parent->box = box;
+        parent->horizontal = splits_horizontally(box);
+        leaf->box = box;
+        split->parent = leaf->parent = parent.get();
+        parent->children[first ? 1 : 0] = std::move(place);
+        parent->children[first ? 0 : 1] = std::move(leaf);
+        place = std::move(parent);
+    }
+
     void layout(Node *node, sh_rect box, const sh_rect &area, int gap, sh_tile_place place,
                 void *userdata) {
         node->box = box;
@@ -431,18 +447,113 @@ void sh_tiling_insert(sh_tiling *tiling, const char *output, int workspace, void
     if (has_point && contains(box, x, y))
         first =
             splits_horizontally(box) ? x < box.x + box.width / 2.0 : y < box.y + box.height / 2.0;
-    auto &slot = tiling->slot(split, key);
-    auto parent = std::make_unique<Node>();
-    parent->parent = split->parent;
-    parent->box = box;
-    parent->horizontal = splits_horizontally(box);
-    leaf->box = box;
-    split->parent = leaf->parent = parent.get();
-    parent->children[first ? 1 : 0] = std::move(slot);
-    parent->children[first ? 0 : 1] = std::move(leaf);
-    slot = std::move(parent);
+    tiling->split_leaf(key, split, std::move(leaf), first);
     tiling->leaves[window] = {added, key};
     open_column();
+}
+
+bool sh_tiling_drop_target(sh_tiling *tiling, const void *window, const char *output,
+                           int workspace, double x, double y, sh_rect area, sh_tile_drop *drop) {
+    if (!tiling || !window || !output || !drop)
+        return false;
+    Key key{output, workspace};
+    Mode mode = tiling->mode(key);
+    if (mode.layout == SH_LAYOUT_SCROLL)
+        return false;
+    auto own = tiling->leaves.find(window);
+    Node *node = own != tiling->leaves.end() && own->second.second == key ? own->second.first
+                                                                           : nullptr;
+    if (node && contains(node->box, x, y))
+        return false; // on its own tile, where it is already
+    *drop = {nullptr, false};
+    auto root = tiling->roots.find(key);
+    if (root == tiling->roots.end() || !root->second)
+        return true; // an empty tree, which it fills
+    if (mode.layout != SH_LAYOUT_DWINDLE) {
+        // The list's end, unless it is there already.
+        std::vector<Node *> order;
+        collect(root->second.get(), order);
+        return !node || order.back() != node;
+    }
+    // The half nearer the point, split where the arrangement splits a box in two: after the
+    // first half's whole pixels.
+    auto half = [x, y](const sh_rect &box) {
+        auto first = [](int length) {
+            return std::clamp(static_cast<int>(length * 0.5), 1, std::max(1, length - 1));
+        };
+        return splits_horizontally(box) ? x < box.x + first(box.width)
+                                        : y < box.y + first(box.height);
+    };
+    if (!node) {
+        Node *leaf = leaf_at(root->second.get(), x, y);
+        if (!leaf)
+            return false;
+        *drop = {leaf->window, half(leaf->box)};
+        return true;
+    }
+    Node *parent = node->parent;
+    if (!parent)
+        return false; // alone in its tree, it goes nowhere else there
+    // Where it lands is found in the arrangement without it: take it out, arrange the rest, and
+    // put it back exactly as it was, every box with it.
+    std::vector<std::pair<Node *, sh_rect>> boxes;
+    std::vector<Node *> all{root->second.get()};
+    for (size_t i = 0; i < all.size(); ++i) {
+        boxes.push_back({all[i], all[i]->box});
+        if (!all[i]->window)
+            all.insert(all.end(), {all[i]->children[0].get(), all[i]->children[1].get()});
+    }
+    std::vector<bool> horizontal;
+    for (Node *each : all)
+        horizontal.push_back(each->horizontal);
+    int side = parent->children[0].get() == node ? 0 : 1;
+    const Node *beside = parent->children[1 - side].get();
+    std::unique_ptr<Node> &place = tiling->slot(parent, key);
+    std::unique_ptr<Node> taken = std::move(place);
+    std::unique_ptr<Node> sibling = std::move(parent->children[1 - side]);
+    sibling->parent = parent->parent;
+    place = std::move(sibling);
+    tiling->layout(root->second.get(), area, area, 0, [](void *, void *, sh_rect) {}, nullptr);
+    Node *leaf = leaf_at(root->second.get(), x, y);
+    if (leaf)
+        *drop = {leaf->window, half(leaf->box)};
+    sibling = std::move(place);
+    sibling->parent = parent;
+    parent->children[1 - side] = std::move(sibling);
+    place = std::move(taken);
+    for (size_t i = 0; i < all.size(); ++i) {
+        all[i]->box = boxes[i].second;
+        all[i]->horizontal = horizontal[i];
+    }
+    // Beside that window on that side already, it stays: the point may lie just off its tile,
+    // in a gap or a pixel the arrangement without it gives the window beside it.
+    if (leaf && leaf == beside && drop->first == (side == 0))
+        return false;
+    return leaf != nullptr;
+}
+
+void sh_tiling_drop(sh_tiling *tiling, void *window, const char *output, int workspace,
+                    const sh_tile_drop *drop) {
+    if (!tiling || !window || !output || !drop)
+        return;
+    Key key{output, workspace};
+    Node *split = nullptr;
+    if (drop->split) {
+        auto found = tiling->leaves.find(drop->split);
+        if (drop->split == window || found == tiling->leaves.end() || found->second.second != key)
+            return; // a place that is gone
+        split = found->second.first;
+    }
+    sh_tiling_remove(tiling, window);
+    if (!split) {
+        sh_tiling_insert(tiling, output, workspace, window, nullptr, false, 0, 0);
+        return;
+    }
+    auto leaf = std::make_unique<Node>();
+    leaf->window = window;
+    Node *added = leaf.get();
+    tiling->split_leaf(key, split, std::move(leaf), drop->first);
+    tiling->leaves[window] = {added, key};
 }
 
 void sh_tiling_remove(sh_tiling *tiling, const void *window) {
@@ -480,6 +591,13 @@ const char *sh_tiling_output(const sh_tiling *tiling, const void *window) {
         return nullptr;
     auto found = tiling->leaves.find(window);
     return found == tiling->leaves.end() ? nullptr : found->second.second.first.c_str();
+}
+
+int sh_tiling_workspace(const sh_tiling *tiling, const void *window) {
+    if (!tiling)
+        return -1;
+    auto found = tiling->leaves.find(window);
+    return found == tiling->leaves.end() ? -1 : found->second.second.second;
 }
 
 int sh_tiling_count(const sh_tiling *tiling, const char *output, int workspace) {

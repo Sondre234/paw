@@ -53,12 +53,16 @@ static struct wlr_scene_tree *clip_tree(struct sh_toplevel *toplevel, enum sh_cl
     }
 }
 
-/* The clip frame.c asked for, with what lies past the cut taken off while a drop runs. */
+/* The clip frame.c asked for, where a lift draws it (lift.c), with what lies past the cut taken
+ * off while a drop runs. */
 static void apply_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which) {
     struct wlr_scene_tree *tree = clip_tree(toplevel, which);
-    const struct sh_clip_wish *wish = &toplevel->clips[which];
     if (!tree)
         return;
+    struct sh_clip_wish lifted = toplevel->clips[which];
+    if (lifted.set)
+        lifted.box = lift_box(toplevel, tree, lifted.box);
+    const struct sh_clip_wish *wish = &lifted;
     if (!cutting(toplevel)) {
         wlr_scene_tree_set_rounded_clip(tree, wish->set ? &wish->box : NULL, wish->radius);
         if (which == SH_CLIP_CONTENT)

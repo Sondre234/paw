@@ -233,6 +233,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/input_method.c
         src/compositor/keymap.c
         src/compositor/layer_shell.c
+        src/compositor/lift.c
         src/compositor/lock.c
         src/compositor/minimize.c
         src/compositor/mirror.c
@@ -256,6 +257,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/switches.c
         src/compositor/tablet.c
         src/compositor/tearing.c
+        src/compositor/tile_drop.c
         src/compositor/tiling.c
         src/compositor/touch.c
         src/compositor/toplevel.c
@@ -741,6 +743,10 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(snap_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(drag_lift_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(tile_drop_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
         paw_smoke(snap_keys_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(snap_assist_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
