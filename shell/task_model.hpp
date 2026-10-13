@@ -22,12 +22,16 @@
 // process that made it, 0 until it is known; and from version 4 each has its `windowId`, the
 // number the compositor's control socket names it by (as the window switcher does), 0 until it
 // is known, and the model can peek at one; from version 6 whether it is kept `above` the others,
-// undefined below it; and from version 7 it tells the compositor where the taskbar shows each
-// window (place).
+// undefined below it; from version 7 it tells the compositor where the taskbar shows each window
+// (place); and from version 8 it can say which windows a workspace shows, and where
+// (workspaceLayout).
 class TaskModel : public QAbstractListModel {
     Q_OBJECT
     // The window the model peeks at, -1 for none.
     Q_PROPERTY(int peekedTask READ peekedTask NOTIFY peekedTaskChanged)
+    // Counts the changes of the workspaces' layouts, for a binding that reads workspaceLayout to
+    // read it again.
+    Q_PROPERTY(int workspaceRevision READ workspaceRevision NOTIFY workspaceRevisionChanged)
   public:
     enum Role {
         TaskId = Qt::UserRole + 1,
@@ -95,6 +99,17 @@ class TaskModel : public QAbstractListModel {
     // minimizing a window or showing the desktop.
     Q_INVOKABLE void place(QObject *owner, const QVariantList &taskIds, const QString &output,
                            const QRectF &rect, int layer = 0);
+    // Through the window control's version 8, counted per workspace: while watched, the
+    // compositor says which windows workspace `number` (from 1) of output `output` shows, and
+    // again whenever that changes. The last unwatch lets it go, keeping what it said last.
+    Q_INVOKABLE void watchWorkspace(const QString &output, int number);
+    Q_INVOKABLE void unwatchWorkspace(const QString &output, int number);
+    // What the compositor last said of a workspace watched now or before: {width, height,
+    // windows}, the output's size in logical pixels and the windows it shows from the bottom up,
+    // each {windowId, x, y, width, height} with the rectangle its picture covers from the
+    // output's top-left corner; {} until it has said.
+    Q_INVOKABLE QVariantMap workspaceLayout(const QString &output, int number) const;
+    int workspaceRevision() const { return workspaceRevision_; }
     // The windows the compositor says are asking for attention, as {appId, title} pairs: the
     // foreign-toplevel protocol has no such state, so a task is urgent when a pair matches its
     // app id and title (each pair marks one task, the first not marked already).
@@ -102,6 +117,7 @@ class TaskModel : public QAbstractListModel {
   Q_SIGNALS:
     void disconnected();
     void peekedTaskChanged();
+    void workspaceRevisionChanged();
 
   private:
     // What a window is, as the compositor last said.
@@ -134,6 +150,21 @@ class TaskModel : public QAbstractListModel {
         QHash<QString, QRect> told;
     };
     std::vector<std::unique_ptr<Task>> tasks_;
+    // A workspace watched now or before: its object while watched, the list being sent, and the
+    // one the last done completed.
+    struct WorkspaceList {
+        TaskModel *model;
+        QString output;
+        int number;
+        int watchers = 0;
+        paw_workspace_v1 *object = nullptr;
+        QVariantMap next, layout;
+        QVariantList nextWindows;
+    };
+    std::vector<std::unique_ptr<WorkspaceList>> workspaces_;
+    int workspaceRevision_ = 0;
+    WorkspaceList *findWorkspace(const QString &output, int number) const;
+    void startWorkspace(WorkspaceList &workspace);
     wl_display *display_ = nullptr;
     wl_registry *registry_ = nullptr;
     wl_seat *seat_ = nullptr;
@@ -185,6 +216,10 @@ class TaskModel : public QAbstractListModel {
     static void windowId(void *, paw_window_v1 *, uint32_t);
     static void windowIcon(void *, paw_window_v1 *, const char *);
     static void windowIconImage(void *, paw_window_v1 *, int32_t, uint32_t, uint32_t);
+    static void workspaceSize(void *, paw_workspace_v1 *, int32_t, int32_t);
+    static void workspaceWindow(void *, paw_workspace_v1 *, uint32_t, int32_t, int32_t, int32_t,
+                                int32_t);
+    static void workspaceDone(void *, paw_workspace_v1 *);
 };
 
 // image://windows/ID/SERIAL: the last picture of the window TaskModel numbers ID, as its `picture`

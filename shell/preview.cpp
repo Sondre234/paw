@@ -387,10 +387,25 @@ PreviewData::PreviewData(ShellController &controller)
                                           }));
     // The windows, as the tests' stand-in model: a ListModel with the roles TaskModel has. The
     // terminals' are stacked, with pictures of two and none yet of the third, and the first
-    // playing music. The compositor's numbers for them (windowId) are the switcher's.
+    // playing music. The compositor's numbers for them (windowId) are the switcher's. Where they
+    // lie on the workspaces, as workspaceLayout gives it: the browser across the first, the
+    // terminals side by side on the second with htop floating over them, and the sticky kitty
+    // in a corner of each, over the others.
     QQmlComponent component(controller.engine());
     component.setData(R"(import QtQml.Models
 ListModel {
+    property int workspaceRevision: 0
+    function watchWorkspace(output, number) {}
+    function unwatchWorkspace(output, number) {}
+    function workspaceLayout(output, number) {
+        var sticky = { windowId: 45, x: 790, y: 420, width: 290, height: 200 }
+        var windows = number === 1 ? [{ windowId: 41, x: 10, y: 10, width: 1080, height: 650 }]
+                    : number === 2 ? [{ windowId: 42, x: 10, y: 10, width: 535, height: 650 },
+                                      { windowId: 46, x: 555, y: 10, width: 535, height: 650 },
+                                      { windowId: 43, x: 330, y: 150, width: 300, height: 400 }]
+                    : []
+        return { width: 1100, height: 720, windows: windows.concat([sticky]) }
+    }
     ListElement { taskId: 1; title: "Release notes - Mozilla Firefox"; appId: "firefox"; active: true; minimized: false; urgent: false
                   maximized: false; fullscreen: false; output: ""; workspace: 1; sticky: false; floating: false; tiling: true; above: false
                   windowId: 41; pid: 1001; picture: "image://preview-windows/1" }

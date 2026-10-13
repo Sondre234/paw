@@ -809,6 +809,23 @@ int main(int argc, char **argv) {
         if (!waitFor([&] { return nudges == QStringList{"workspace_nudge " + output + " next"}; }) ||
             !fourth->property("current").toBool())
             return fail("the wheel past the last workspace on the tiling bar did not nudge");
+        // Resting on one shows its card below the bar, as on the taskbar, and leaving closes it.
+        QTest::mouseMove(&view, centre(second));
+        if (!waitFor([&] {
+                auto *card = item("workspaceCard");
+                return card && card->isVisible() && card->property("progress").toReal() == 1 &&
+                       root->property("workspaceCardNumber").toInt() == 2 &&
+                       card->mapToScene(QPointF(0, 0)).y() >= 34 + 6;
+            }))
+            return fail(
+                "resting on a workspace of the tiling bar did not show its card below the bar");
+        QTest::mouseMove(&view, centre(item("tilingClock")));
+        if (!waitFor([&] {
+                return !root->property("workspaceCardOpen").toBool() &&
+                       !item("workspaceCard")->isVisible();
+            }))
+            return fail(
+                "the card of a workspace of the tiling bar did not close as the pointer left");
         // The layout, stepped on by a click.
         auto *layout = item("tilingLayout");
         if (!layout || layout->property("label").toString() != "dwindle")
@@ -1172,9 +1189,23 @@ ListModel {
     function setSticky(id, on) { note("sticky " + id + " " + on) }
     function setFloating(id, on) { note("floating " + id + " " + on) }
     function setAbove(id, on) { note("above " + id + " " + on) }
+    // What the card of a workspace asks of the windows a workspace shows, as "watch OUTPUT 2"
+    // and "unwatch OUTPUT 2", and the lists setLayout gives, by workspace.
+    property var workspaces: []
+    property var layouts: ({})
+    property int workspaceRevision: 0
+    function watchWorkspace(output, number) { workspaces = workspaces.concat(["watch " + output + " " + number]) }
+    function unwatchWorkspace(output, number) { workspaces = workspaces.concat(["unwatch " + output + " " + number]) }
+    function workspaceLayout(output, number) { return layouts[number] || ({}) }
+    function setLayout(number, windows) {
+        var copy = Object.assign({}, layouts)
+        copy[number] = { width: 1100, height: 720, windows: windows }
+        layouts = copy
+        ++workspaceRevision
+    }
     ListElement { taskId: 7; title: 'Fake'; appId: 'fake'; active: false; minimized: false; urgent: false
                   maximized: false; fullscreen: false; output: 'TEST-1'; workspace: 2; sticky: false
-                  floating: false; tiling: false; above: false; picture: ''; pid: 0 }
+                  floating: false; tiling: false; above: false; picture: ''; pid: 0; windowId: 70 }
 })",
                       QUrl());
     QObject *fakeModel = fakeTasks.create();
@@ -2932,6 +2963,534 @@ ListModel {
             // The switcher goes back to the controller's task model, before this one goes.
             switcherRoot->setProperty("taskSource", QVariant::fromValue<QObject *>(controller.tasks()));
         }
+        // Resting on a workspace of the indicator shows a picture of it on a card above it, in
+        // place of its tooltip: its windows where the task source's workspaceLayout says, each from
+        // its picture, which is asked for halfway into the delay as the workspace is, at the width
+        // the card's picture needs. Moving on, the card shows the next workspace at once, letting
+        // the first go; a window coming there comes in, one moving glides; the pointer on one names
+        // it, and a click brings it up. The card of a button's windows and this one take turns.
+        {
+            auto *workspaceCard = find(root, "workspaceCard");
+            if (!workspaceCard)
+                return fail("the card of a workspace was not made ahead of use");
+            const QString outputName = root->property("outputName").toString();
+            const int pixelWidth = root->property("workspacePictureWidth").toInt();
+            const qreal factor = root->property("workspaceScale").toReal();
+            if (pixelWidth < 240 || factor <= 0 || factor >= 1)
+                return fail("the card of a workspace has no size for its picture");
+            // What the card asked of the workspaces since the last clear, and in all.
+            QStringList workspaceAsked, allWorkspaceAsked;
+            auto workspaceRequests = [&] {
+                const auto asked =
+                    fakeModel->property("workspaces").value<QJSValue>().toVariant().toStringList();
+                fakeModel->setProperty("workspaces",
+                                       QVariant::fromValue(view.engine()->newArray()));
+                workspaceAsked += asked;
+                allWorkspaceAsked += asked;
+                return asked;
+            };
+            auto copies = [&] { return named(workspaceCard, "workspaceWindow"); };
+            auto text = [&](const char *name) {
+                return find(workspaceCard, name)->property("text").toString();
+            };
+            auto scaled = [&](qreal value) { return qreal(qRound(value * factor)); };
+            // The workspaces' lists name windows by the compositor's numbers.
+            editTasks(QString("model.setProperty(%1, 'windowId', 70)").arg(rowOf(7)));
+            editTasks(
+                "model.setLayout(1, [{ windowId: 70, x: 110, y: 40, width: 440, height: 330 }])");
+            editTasks("model.setLayout(2, [])");
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("something was open before a workspace was hovered");
+            workspaceRequests();
+            workspaceAsked.clear();
+            pictureRequests();
+            pictures.clear();
+            QElapsedTimer resting;
+            resting.start();
+            QTest::mouseMove(&view, centre(workspace(1)));
+            if (!waitFor([&] {
+                    workspaceRequests();
+                    pictureRequests();
+                    return workspaceAsked.contains("watch " + outputName + " 1") &&
+                           pictures.contains(QString("watch 7 %1 true").arg(pixelWidth));
+                }) ||
+                workspaceCard->isVisible() ||
+                resting.elapsed() < controller.thumbnailDelay() * 3 / 8) {
+                std::cerr << "halfway into the delay, a workspace and its windows' pictures were "
+                             "not asked for ahead of its card: "
+                          << workspaceAsked.join("|").toStdString() << " "
+                          << pictures.join("|").toStdString() << " warm "
+                          << root->property("workspaceWarm").toInt() << " open "
+                          << root->property("workspaceCardOpen").toBool() << " hovered "
+                          << workspace(1)->property("hovered").toBool() << " visible "
+                          << workspaceCard->isVisible() << " after " << resting.elapsed() << '\n';
+                return 1;
+            }
+            if (!waitFor([&] { return inPopover(workspaceCard); }) || tooltip(workspace(1)))
+                return fail(
+                    "resting on a workspace did not show its card, in place of its tooltip");
+            {
+                const auto shown = copies();
+                if (shown.size() != 1 || shown[0]->x() != scaled(110) ||
+                    shown[0]->y() != scaled(40) || shown[0]->width() != scaled(550) - scaled(110) ||
+                    shown[0]->height() != scaled(370) - scaled(40) ||
+                    text("workspaceCardTitle") != "web" ||
+                    text("workspaceCardDetail") != "1 window") {
+                    std::cerr << "the card of a workspace does not show its window where it is: "
+                              << shown.size() << " " << text("workspaceCardTitle").toStdString()
+                              << " " << text("workspaceCardDetail").toStdString() << '\n';
+                    return 1;
+                }
+                // Over its workspace, as far as the output's edge lets it.
+                const QRectF area = workspaceCard->mapRectToScene(
+                    QRectF(0, 0, workspaceCard->width(), workspaceCard->height()));
+                const qreal middle =
+                    workspace(1)->mapToScene(QPointF(workspace(1)->width() / 2, 0)).x();
+                if (qAbs(area.center().x() - middle) > 1 &&
+                    qAbs(area.right() - (popover->width() - 12)) > 1)
+                    return fail("the card of a workspace is not over its workspace");
+            }
+            // Its window's picture shows over the icon standing in for it.
+            {
+                auto *picture = find(copies().value(0), "workspaceWindowPicture");
+                editTasks(
+                    QString("model.setProperty(%1, 'picture', 'image://test-windows/320x240')")
+                        .arg(rowOf(7)));
+                if (!picture ||
+                    !waitFor([&] { return picture->isVisible() && picture->opacity() == 1; }) ||
+                    picture->size() != copies().value(0)->size())
+                    return fail(
+                        "a window's picture does not cover its place on the card of a workspace");
+                editTasks(QString("model.setProperty(%1, 'picture', '')").arg(rowOf(7)));
+            }
+            // Onto the next workspace: its windows at once, the first workspace and its window let
+            // go once it has faded.
+            workspaceRequests();
+            pictureRequests();
+            workspaceAsked.clear();
+            pictures.clear();
+            QTest::mouseMove(&view, centre(workspace(2)));
+            if (!root->property("workspaceCardOpen").toBool() ||
+                root->property("workspaceCardNumber").toInt() != 2)
+                return fail("moving onto the next workspace did not show it at once");
+            if (!waitFor([&] {
+                    workspaceRequests();
+                    pictureRequests();
+                    return copies().isEmpty() && text("workspaceCardDetail") == "Empty" &&
+                           text("workspaceCardTitle") == "Workspace 2" &&
+                           workspaceAsked == QStringList{"watch " + outputName + " 2",
+                                                         "unwatch " + outputName + " 1"} &&
+                           pictures == QStringList{"unwatch 7"};
+                })) {
+                std::cerr << "the card did not take the next workspace over: "
+                          << workspaceAsked.join("|").toStdString() << " "
+                          << pictures.join("|").toStdString() << " " << copies().size() << '\n';
+                return 1;
+            }
+            // A window coming onto it comes in where it is; moving, it glides there, slowed down
+            // here so that it is seen on its way.
+            editTasks(
+                "model.setLayout(2, [{ windowId: 70, x: 0, y: 0, width: 550, height: 360 }])");
+            if (!waitFor([&] {
+                    return copies().size() == 1 && copies()[0]->opacity() == 1 &&
+                           text("workspaceCardDetail") == "1 window";
+                }))
+                return fail("a window coming onto the workspace shown did not come onto its card");
+            if (!slowMotion(true))
+                return fail("the animations were not slowed down");
+            editTasks(
+                "model.setLayout(2, [{ windowId: 70, x: 550, y: 360, width: 550, height: 360 }])");
+            {
+                auto *copy = copies().value(0);
+                if (!copy || copy->x() != 0 ||
+                    !waitFor([&] { return copy->x() > 0 && copy->x() < scaled(550); }) ||
+                    !waitFor([&] { return copy->x() == scaled(550) && copy->y() == scaled(360); }))
+                    return fail(
+                        "a window moving on the workspace shown did not glide there on its card");
+            }
+            if (!slowMotion(false))
+                return fail("the animations did not get their speed back");
+            // The pointer on the window rings it and names it; a click brings it up and closes the
+            // card.
+            taskRequests();
+            QTest::mouseMove(popover, centre(copies().value(0)));
+            if (!waitFor([&] {
+                    return text("workspaceCardDetail") == "Fake" &&
+                           find(copies().value(0), "workspaceWindowRing")->opacity() == 1;
+                }))
+                return fail(
+                    "the pointer on a window on the card of a workspace did not name and ring it");
+            QTest::mouseClick(popover, Qt::LeftButton, Qt::NoModifier, centre(copies().value(0)));
+            if (!waitFor([&] { return taskRequests() == "activate 7"; }) ||
+                !waitFor([&] { return !root->property("workspaceCardOpen").toBool(); }))
+                return fail("a click on a window on the card of a workspace did not bring it up "
+                            "and close the card");
+            // A click beside the windows shows the workspace.
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("the card of a workspace did not close once the pointer left");
+            switches.clear();
+            QTest::mouseMove(&view, centre(workspace(1)));
+            if (!waitFor([&] { return inPopover(workspaceCard); }))
+                return fail("resting on a workspace again did not show its card");
+            {
+                auto *miniature = find(workspaceCard, "workspaceMiniature");
+                const QPoint corner =
+                    miniature->mapToScene(QPointF(miniature->width() - 4, miniature->height() - 4))
+                        .toPoint();
+                QTest::mouseMove(popover, corner);
+                QTest::mouseClick(popover, Qt::LeftButton, Qt::NoModifier, corner);
+                if (!waitFor([&] {
+                        return switches == QStringList{"output " + output + " workspace 1"};
+                    }) ||
+                    !waitFor([&] { return !root->property("workspaceCardOpen").toBool(); }))
+                    return fail("a click on the card of a workspace beside its windows did not "
+                                "show the workspace");
+            }
+            // Pressing a workspace closes its card; and the cards of a button's windows and of a
+            // workspace give way to each other at once.
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("the card of a workspace did not close");
+            QTest::mouseMove(&view, centre(workspace(2)));
+            if (!waitFor([&] { return inPopover(workspaceCard); }))
+                return fail("resting on a workspace did not show its card");
+            single = buttonFor(7);
+            QTest::mouseMove(&view, centre(single));
+            if (root->property("workspaceCardOpen").toBool() ||
+                !root->property("groupOpen").toBool())
+                return fail("moving from a workspace onto a window's button did not show its "
+                            "windows at once");
+            QTest::mouseMove(&view, centre(workspace(2)));
+            if (!root->property("workspaceCardOpen").toBool() ||
+                root->property("groupOpen").toBool())
+                return fail(
+                    "moving from a window's button onto a workspace did not show it at once");
+            QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, centre(workspace(2)));
+            if (!waitFor([&] { return !root->property("workspaceCardOpen").toBool(); }))
+                return fail("pressing a workspace did not close its card");
+            QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, centre(workspace(2)));
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] {
+                    workspaceRequests();
+                    pictureRequests();
+                    return !popover->isVisible() && !workspaceCard->isVisible();
+                }))
+                return fail("the card of a workspace did not go");
+            // Once it has gone, nothing is watched any more.
+            {
+                QMap<QString, int> watched;
+                for (const auto &request : allWorkspaceAsked)
+                    watched[request.section(' ', 1)] += request.startsWith("watch") ? 1 : -1;
+                for (auto it = watched.begin(); it != watched.end(); ++it)
+                    if (it.value() != 0)
+                        return fail("the card of a workspace left one watched as it went");
+            }
+            // A window's button dragged onto a workspace and let go there moves the window to that
+            // workspace of this output, the workspace lit while the drag is over it, what the drag
+            // carries docked by it; the button stays where it was in the list.
+            auto *ghost = find(root, "dropGhost");
+            if (!ghost)
+                return fail("nothing to carry a window dragged onto a workspace");
+            // What moving task 7 to workspace `number` asks of the source: through this output
+            // first, should the window be on another.
+            const QString moved = [&](int number) {
+                return (outputName != "TEST-1" ? "output 7 " + outputName + "|" : QString()) +
+                       QString("workspace 7 %1").arg(number);
+            }(3);
+            auto dragAlong = [&](QWindow *window, QPoint from, QPoint to,
+                                 const std::function<bool()> &over) {
+                QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 12; ++step) {
+                    QTest::mouseMove(window, from + (to - from) * step / 12);
+                    QTest::qWait(15);
+                }
+                const bool lit = waitFor(over);
+                QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, to);
+                return lit;
+            };
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("something was open before a window's button was dragged");
+            taskRequests();
+            const auto orderBefore = [&] {
+                QList<int> ids;
+                for (int i = 0; i < windowButtons(); ++i)
+                    ids << (listedTask(i) ? listedTask(i)->property("taskId").toInt() : -1);
+                return ids;
+            };
+            const QList<int> buttonsBefore = orderBefore();
+            single = buttonFor(7);
+            if (!dragAlong(&view, centre(single), centre(workspace(3)), [&] {
+                    return root->property("dropWorkspace").toInt() == 3 &&
+                           workspace(3)->property("dropTarget").toBool() && ghost->isVisible() &&
+                           ghost->property("docked").toBool();
+                }))
+                return fail("a window's button dragged over a workspace did not light it, or carry "
+                            "the window there");
+            if (!waitFor([&] { return taskRequests() == moved; }) ||
+                root->property("dropWorkspace").toInt() != 0) {
+                std::cerr
+                    << "a window's button let go on a workspace did not move the window there\n";
+                return 1;
+            }
+            if (!waitFor([&] { return !ghost->isVisible() && orderBefore() == buttonsBefore; }))
+                return fail("dropping a window's button on a workspace left what it carried, or "
+                            "moved the button");
+            // Let go off the workspaces (here straight off the bar, which moves it nowhere in the
+            // list either), it moves nothing.
+            single = buttonFor(7);
+            dragAlong(&view, centre(single), centre(single) + QPoint(0, -40),
+                      [&] { return root->property("dropWorkspace").toInt() == 0; });
+            if (!stays([&] { return taskRequests().isEmpty(); }, 300) ||
+                orderBefore() != buttonsBefore)
+                return fail(
+                    "a window's button let go off the workspaces moved the window, or its button");
+            // Its picture dragged from the card onto a workspace does the same, the card staying
+            // open while the drag lasts; it goes in the popover, which covers the bar.
+            editTasks(QString("model.setProperty(%1, 'picture', 'image://test-windows/320x200')")
+                          .arg(rowOf(7)));
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("something was open before a window's picture was dragged");
+            QTest::mouseMove(&view, centre(buttonFor(7)));
+            auto *picture = [&]() -> QQuickItem * {
+                return waitFor([&] { return inPopover(card) && titles() == "Fake"; }) && tileFor(7)
+                           ? find(tileFor(7), "windowThumbnailPicture")
+                           : nullptr;
+            }();
+            if (!picture || !waitFor([&] { return picture->isVisible(); }))
+                return fail("the card of a window's picture did not open to drag it from");
+            const QPoint below(0, popover->height() - view.height());
+            if (!dragAlong(popover, centre(picture), centre(workspace(2)) + below, [&] {
+                    return root->property("dropWorkspace").toInt() == 2 &&
+                           root->property("groupOpen").toBool() && ghost->isVisible() &&
+                           ghost->property("docked").toBool() &&
+                           ghost->property("picture").toString() == "image://test-windows/320x200";
+                }))
+                return fail("a window's picture dragged over a workspace did not light it, or "
+                            "carry the picture there");
+            if (!waitFor([&] {
+                    return taskRequests() ==
+                           QString(moved).replace("workspace 7 3", "workspace 7 2");
+                }))
+                return fail(
+                    "a window's picture let go on a workspace did not move the window there");
+            // Let go elsewhere, it goes back to its card and moves nothing.
+            QTest::mouseMove(popover, centre(picture));
+            if (!waitFor([&] { return !ghost->isVisible() && inPopover(card); }))
+                return fail("the card of a window's pictures did not stay as its picture dropped");
+            dragAlong(popover, centre(picture), centre(picture) + QPoint(0, -150),
+                      [&] { return ghost->isVisible() && !ghost->property("docked").toBool(); });
+            if (!stays([&] { return taskRequests().isEmpty(); }, 300) ||
+                !waitFor([&] { return !ghost->isVisible(); }))
+                return fail(
+                    "a window's picture let go beside the workspaces moved the window, or stayed");
+            editTasks(QString("model.setProperty(%1, 'picture', '')").arg(rowOf(7)));
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail(
+                    "the card of a window's pictures did not close after its picture was dragged");
+            // A window closing while its picture is dragged, its tile going with it, ends the
+            // drag: the popover gives the pointer back to the output and what the drag carried
+            // goes, though the drag never says it ended.
+            auto pictureDragging = [&] {
+                const QVariant drag = root->property("pictureDrag");
+                return drag.isValid() && !drag.isNull();
+            };
+            auto takesWholeOutput = [&] {
+                const QRectF whole(0, 0, popover->width(), popover->height());
+                const auto rects = popover->inputRects();
+                return std::any_of(rects.begin(), rects.end(),
+                                   [&](const QVariant &rect) { return rect.toRectF() == whole; });
+            };
+            editTasks("model.append({ taskId: 30, title: 'Passing', appId: 'passing', active: false, "
+                      "minimized: false, urgent: false, picture: 'image://test-windows/320x200' })");
+            QQuickItem *passing = nullptr;
+            if (!waitFor([&] { return (passing = buttonFor(30)) != nullptr; }))
+                return fail("a window opening did not get a button");
+            QTest::mouseMove(&view, centre(passing));
+            QQuickItem *passingPicture = nullptr;
+            if (!waitFor([&] {
+                    return inPopover(card) && titles() == "Passing" && tileFor(30) &&
+                           (passingPicture = find(tileFor(30), "windowThumbnailPicture")) &&
+                           passingPicture->isVisible();
+                }))
+                return fail("the card of a window about to close did not show its picture");
+            {
+                const QPoint from = centre(passingPicture);
+                QTest::mousePress(popover, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 6; ++step) {
+                    QTest::mouseMove(popover, from + QPoint(0, -12 * step));
+                    QTest::qWait(15);
+                }
+                if (!waitFor([&] { return pictureDragging() && takesWholeOutput() && ghost->isVisible(); }))
+                    return fail("the picture of a window about to close could not be dragged");
+                editTasks(QString("model.remove(%1)").arg(rowOf(30)));
+                if (!waitFor([&] {
+                        return !pictureDragging() && !takesWholeOutput() && !ghost->isVisible() &&
+                               root->property("dropWorkspace").toInt() == 0;
+                    }))
+                    return fail("a window closing while its picture was dragged left the drag "
+                                "holding the output's pointer");
+                QTest::mouseRelease(popover, Qt::LeftButton, Qt::NoModifier, from + QPoint(0, -72));
+                if (!stays([&] { return taskRequests().isEmpty(); }, 300))
+                    return fail("letting go of a closed window's picture asked something of it");
+            }
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("the card of a closed window did not go");
+            // So does a window closing while its button is dragged over a workspace: the
+            // workspace is no longer lit, what the drag carried goes, and the buttons stay put.
+            editTasks("model.append({ taskId: 31, title: 'Leaving', appId: 'leaving', active: false, "
+                      "minimized: false, urgent: false })");
+            QQuickItem *leaving = nullptr;
+            if (!waitFor([&] { return (leaving = buttonFor(31)) != nullptr; }))
+                return fail("a window opening did not get a button");
+            {
+                const QPoint from = centre(leaving), to = centre(workspace(3));
+                QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 12; ++step) {
+                    QTest::mouseMove(&view, from + (to - from) * step / 12);
+                    QTest::qWait(15);
+                }
+                if (!waitFor([&] {
+                        return root->property("dropWorkspace").toInt() == 3 && ghost->isVisible() &&
+                               workspace(3)->property("dropTarget").toBool();
+                    }))
+                    return fail("the button of a window about to close did not carry it over a workspace");
+                editTasks(QString("model.remove(%1)").arg(rowOf(31)));
+                if (!waitFor([&] {
+                        return root->property("dropWorkspace").toInt() == 0 && !ghost->isVisible() &&
+                               !workspace(3)->property("dropTarget").toBool() &&
+                               tasks->property("dragFrom").toInt() == -1 && !popover->isVisible();
+                    }))
+                    return fail("a window closing while its button was dragged over a workspace left "
+                                "the workspace lit or what the drag carried");
+                QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, to);
+                if (!stays([&] { return taskRequests().isEmpty(); }, 300))
+                    return fail("letting go of a closed window's button asked something of it");
+            }
+            QTest::mouseMove(&view, barSpace);
+            // What a drag carries lands where it docked, and taken off a workspace it heads for
+            // the pointer, never for the output's corner: slowed down, it is seen on its way.
+            if (!slowMotion(true))
+                return fail("the animations were not slowed down");
+            auto ghostCentre = [&] {
+                const qreal scale = ghost->scale();
+                return QPointF(ghost->x() + ghost->width() * scale / 2,
+                               ghost->y() + ghost->height() * scale / 2);
+            };
+            auto dock = [&] {
+                return QPointF(ghost->property("dockX").toReal(), ghost->property("dockY").toReal());
+            };
+            // Every place it passes until `done`, at most `ms` long, is inside `area`.
+            auto keepsTo = [&](const QRectF &area, const std::function<bool()> &done, int ms) {
+                QElapsedTimer waited;
+                waited.start();
+                while (!done() && waited.elapsed() < ms) {
+                    if (ghost->isVisible() && !area.contains(ghostCentre())) {
+                        std::cerr << "what the drag carried passed " << ghostCentre().x() << ","
+                                  << ghostCentre().y() << " outside " << area.x() << "," << area.y()
+                                  << " " << area.width() << "x" << area.height() << '\n';
+                        return false;
+                    }
+                    QTest::qWait(10);
+                }
+                return done();
+            };
+            editTasks(QString("model.setProperty(%1, 'picture', 'image://test-windows/320x200')").arg(rowOf(7)));
+            QTest::mouseMove(&view, centre(buttonFor(7)));
+            QQuickItem *sevenPicture = nullptr;
+            if (!waitFor([&] {
+                    return inPopover(card) && titles() == "Fake" && tileFor(7) &&
+                           (sevenPicture = find(tileFor(7), "windowThumbnailPicture")) &&
+                           sevenPicture->isVisible();
+                }))
+                return fail("the card of a window's pictures did not open in slow motion");
+            {
+                const QPoint from = centre(sevenPicture), to = centre(workspace(2)) + below,
+                             away = from + QPoint(-40, -60);
+                QTest::mousePress(popover, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 12; ++step) {
+                    QTest::mouseMove(popover, from + (to - from) * step / 12);
+                    QTest::qWait(15);
+                }
+                if (!waitFor([&] {
+                        return ghost->property("docked").toBool() &&
+                               ghost->property("blend").toReal() == 1 && ghostCentre() == dock();
+                    }))
+                    return fail("a picture dragged over a workspace did not dock by it in slow motion");
+                const QPointF docked = dock();
+                QTest::mouseMove(popover, away);
+                if (!keepsTo(QRectF(QPointF(std::min<qreal>(docked.x(), away.x()), std::min<qreal>(docked.y(), away.y())),
+                                    QPointF(std::max<qreal>(docked.x(), away.x()), std::max<qreal>(docked.y(), away.y())))
+                                 .adjusted(-40, -40, 40, 40),
+                             [&] { return ghost->property("blend").toReal() == 0; }, 3000))
+                    return fail("a picture taken off a workspace did not head for the pointer");
+                QTest::mouseRelease(popover, Qt::LeftButton, Qt::NoModifier, away);
+                if (!waitFor([&] { return !ghost->isVisible(); }) ||
+                    !stays([&] { return taskRequests().isEmpty(); }, 300))
+                    return fail("a picture let go off the workspaces moved its window, or stayed");
+            }
+            // Off the card first: moving into the bar's window tells the popover nothing here.
+            QTest::mouseMove(popover, QPoint(5, 5));
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("the card of a window's pictures did not close in slow motion");
+            {
+                const QPoint from = centre(buttonFor(7)), to = centre(workspace(3));
+                QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 12; ++step) {
+                    QTest::mouseMove(&view, from + (to - from) * step / 12);
+                    QTest::qWait(15);
+                }
+                if (!waitFor([&] {
+                        return ghost->property("docked").toBool() &&
+                               ghost->property("blend").toReal() == 1 && ghostCentre() == dock();
+                    }))
+                    return fail("a button dragged over a workspace did not dock by it in slow motion");
+                // Resting there opens the workspace's card, and it may be on its way into its
+                // picture: it lands where the panel docks it, from where it is.
+                const QPointF at = ghostCentre(), docked = root->property("dropDock").toPointF();
+                QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, to);
+                if (!keepsTo(QRectF(QPointF(std::min(at.x(), docked.x()), std::min(at.y(), docked.y())),
+                                    QPointF(std::max(at.x(), docked.x()), std::max(at.y(), docked.y())))
+                                 .adjusted(-20, -20, 20, 20),
+                             [&] { return !ghost->isVisible(); }, 3000))
+                    return fail("what a button's drag carried did not land where it docked");
+                if (!waitFor([&] { return taskRequests() == QString(moved); }))
+                    return fail("a button let go on a workspace in slow motion did not move its window");
+            }
+            editTasks(QString("model.setProperty(%1, 'picture', '')").arg(rowOf(7)));
+            if (!slowMotion(false))
+                return fail("the animations did not get their speed back");
+            // A drag over a workspace that is cancelled rather than let go (here a finger's, which
+            // the touchscreen cancels, as the compositor's wl_touch.cancel does) moves no window:
+            // Qt says the drag ended before it says why.
+            {
+                static QPointingDevice *touchscreen = QTest::createTouchDevice();
+                const QPoint from = centre(buttonFor(7)), to = centre(workspace(3));
+                QTest::touchEvent(&view, touchscreen).press(0, from);
+                for (int step = 1; step <= 12; ++step) {
+                    QTest::touchEvent(&view, touchscreen).move(0, from + (to - from) * step / 12);
+                    QTest::qWait(15);
+                }
+                if (!waitFor([&] { return root->property("dropWorkspace").toInt() == 3 && ghost->isVisible(); }))
+                    return fail("a button dragged over a workspace by a finger did not carry its window there");
+                taskRequests();
+                QTouchEvent cancel(QEvent::TouchCancel, touchscreen);
+                QCoreApplication::sendEvent(&view, &cancel);
+                if (!waitFor([&] { return root->property("dropWorkspace").toInt() == 0 && !ghost->isVisible(); }) ||
+                    !stays([&] { return taskRequests().isEmpty(); }, 300))
+                    return fail("a cancelled drag of a button over a workspace moved its window, or "
+                                "left what it carried");
+            }
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("something stayed open after a cancelled drag");
+        }
         // shell.thumbnails = { live = false }: the picture asked for ahead of the card is the one
         // it shows, not followed, and not asked for again as the card opens.
         if (!reconfigure(QString(lua).replace(quickPictures, "thumbnails={delay=100,live=false}")))
@@ -2952,6 +3511,32 @@ ListModel {
         if (!waitFor([&] { pictureRequests(); return !popover->isVisible() && pictures.size() == 2; }) ||
             pictures.last() != "unwatch 7")
             return fail("without live pictures, the window's picture was not let go as its card closed");
+        // shell.thumbnails = { workspaces = false }: a workspace has its tooltip and no card, while
+        // a window's button still has its pictures.
+        if (!reconfigure(
+                QString(lua).replace(quickPictures, "thumbnails={delay=100,workspaces=false}")))
+            return fail("could not rewrite the configuration");
+        if (!waitFor([&] { return !controller.workspaceThumbnails() && controller.thumbnails(); }))
+            return fail("shell.thumbnails = { workspaces = false } was not read");
+        QTest::mouseMove(&view, centre(workspace(2)));
+        if (!waitFor([&] { return tooltip(workspace(2)); }))
+            return fail("without pictures of workspaces, a workspace has no tooltip");
+        if (!stays(
+                [&] {
+                    return !root->property("workspaceCardOpen").toBool() &&
+                           !root->property("workspaceWarm").toInt();
+                },
+                400))
+            return fail("without pictures of workspaces, resting on a workspace opened its card");
+        QTest::mouseMove(&view, barSpace);
+        if (!waitFor([&] {
+                const auto windows = QGuiApplication::topLevelWindows();
+                return std::none_of(windows.begin(), windows.end(), [&](QWindow *window) {
+                    return window->isVisible() && window != &view && window != popover;
+                });
+            }))
+            return fail("the tooltip of a workspace did not go once the pointer left it");
+        QTest::mouseMove(&view, barSpace + QPoint(1, 0));
         // shell.thumbnails = { enabled = false }: a window's button has its tooltip and no card,
         // and a stack lists its windows as it did.
         if (!reconfigure(QString(lua).replace(quickPictures, "thumbnails={delay=100,enabled=false}")))

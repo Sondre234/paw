@@ -27,6 +27,9 @@ TaskModel::~TaskModel() {
             paw_window_v1_destroy(task->window);
         zwlr_foreign_toplevel_handle_v1_destroy(task->handle);
     }
+    for (auto &workspace : workspaces_)
+        if (workspace->object)
+            paw_workspace_v1_destroy(workspace->object);
     if (control_)
         paw_window_control_v1_destroy(control_);
     if (captureManager_)
@@ -343,6 +346,55 @@ void TaskModel::endPeek(int taskId) {
     setPeeked(-1);
     flush();
 }
+TaskModel::WorkspaceList *TaskModel::findWorkspace(const QString &output, int number) const {
+    for (const auto &workspace : workspaces_)
+        if (workspace->output == output && workspace->number == number)
+            return workspace.get();
+    return nullptr;
+}
+void TaskModel::watchWorkspace(const QString &output, int number) {
+    if (output.isEmpty() || number < 1)
+        return;
+    auto *workspace = findWorkspace(output, number);
+    if (!workspace) {
+        workspaces_.push_back(std::make_unique<WorkspaceList>());
+        workspace = workspaces_.back().get();
+        workspace->model = this;
+        workspace->output = output;
+        workspace->number = number;
+    }
+    if (!workspace->watchers++)
+        startWorkspace(*workspace);
+}
+// Asks the compositor for a watched workspace's windows, with the window control's version 8.
+void TaskModel::startWorkspace(WorkspaceList &workspace) {
+    if (workspace.object || !control_ ||
+        paw_window_control_v1_get_version(control_) <
+            PAW_WINDOW_CONTROL_V1_GET_WORKSPACE_SINCE_VERSION)
+        return;
+    workspace.object = paw_window_control_v1_get_workspace(
+        control_, workspace.output.toUtf8().constData(), static_cast<uint32_t>(workspace.number));
+    static const paw_workspace_v1_listener listener{workspaceSize, workspaceWindow, workspaceDone};
+    paw_workspace_v1_add_listener(workspace.object, &listener, &workspace);
+    flush();
+}
+void TaskModel::unwatchWorkspace(const QString &output, int number) {
+    auto *workspace = findWorkspace(output, number);
+    if (!workspace || !workspace->watchers || --workspace->watchers)
+        return;
+    if (workspace->object) {
+        paw_workspace_v1_destroy(workspace->object);
+        workspace->object = nullptr;
+        flush();
+    }
+    // A list half sent is not kept.
+    workspace->next.clear();
+    workspace->nextWindows.clear();
+}
+QVariantMap TaskModel::workspaceLayout(const QString &output, int number) const {
+    auto *workspace = findWorkspace(output, number);
+    return workspace ? workspace->layout : QVariantMap();
+}
 void TaskModel::setPeeked(int taskId) {
     if (peeked_ == taskId)
         return;
@@ -443,12 +495,16 @@ void TaskModel::global(void *data, wl_registry *registry, uint32_t name, const c
         // Version 2 gives the windows' capture sources, for their pictures, version 3 ones
         // scaled down to the pictures' size and the windows' processes, for the sound they play,
         // version 4 peeks at a window and gives the windows' numbers, for the window
-        // switcher's pictures, version 6 keeps a window above the others, and version 7 takes
-        // where the taskbar shows each window.
+        // switcher's pictures, version 6 keeps a window above the others, version 7 takes where
+        // the taskbar shows each window, and version 8 says which windows a workspace shows, for
+        // its picture.
         self.control_ = static_cast<paw_window_control_v1 *>(wl_registry_bind(
-            registry, name, &paw_window_control_v1_interface, std::min(version, 7u)));
+            registry, name, &paw_window_control_v1_interface, std::min(version, 8u)));
         for (auto &task : self.tasks_)
             self.watch(task.get());
+        for (auto &workspace : self.workspaces_)
+            if (workspace->watchers)
+                self.startWorkspace(*workspace);
     } else if (!std::strcmp(interface, "wl_shm") && !self.shm_) {
         self.shm_ = static_cast<wl_shm *>(wl_registry_bind(registry, name, &wl_shm_interface, 1));
         self.pictures_.setGlobals(self.shm_, self.captureManager_);
@@ -545,4 +601,27 @@ void TaskModel::windowId(void *data, paw_window_v1 *, uint32_t id) {
 void TaskModel::windowIcon(void *, paw_window_v1 *, const char *) {}
 void TaskModel::windowIconImage(void *, paw_window_v1 *, int32_t fd, uint32_t, uint32_t) {
     ::close(fd);
+}
+void TaskModel::workspaceSize(void *data, paw_workspace_v1 *, int32_t width, int32_t height) {
+    auto &workspace = *static_cast<WorkspaceList *>(data);
+    workspace.next = {{"width", width}, {"height", height}};
+    workspace.nextWindows.clear();
+}
+void TaskModel::workspaceWindow(void *data, paw_workspace_v1 *, uint32_t id, int32_t x, int32_t y,
+                                int32_t width, int32_t height) {
+    auto &workspace = *static_cast<WorkspaceList *>(data);
+    workspace.nextWindows.push_back(QVariantMap{{"windowId", id <= INT_MAX ? int(id) : 0},
+                                                {"x", x},
+                                                {"y", y},
+                                                {"width", width},
+                                                {"height", height}});
+}
+void TaskModel::workspaceDone(void *data, paw_workspace_v1 *) {
+    auto &workspace = *static_cast<WorkspaceList *>(data);
+    workspace.next.insert("windows", workspace.nextWindows);
+    workspace.layout = workspace.next;
+    workspace.next.clear();
+    workspace.nextWindows.clear();
+    ++workspace.model->workspaceRevision_;
+    Q_EMIT workspace.model->workspaceRevisionChanged();
 }

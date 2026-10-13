@@ -114,6 +114,8 @@ class ShellController : public QObject {
     Q_PROPERTY(int thumbnailDelay READ thumbnailDelay NOTIFY configChanged)
     Q_PROPERTY(int thumbnailSize READ thumbnailSize NOTIFY configChanged)
     Q_PROPERTY(bool liveThumbnails READ liveThumbnails NOTIFY configChanged)
+    // shell.thumbnails.workspaces: whether resting on a workspace shows a picture of it.
+    Q_PROPERTY(bool workspaceThumbnails READ workspaceThumbnails NOTIFY configChanged)
     // peek.switcher: whether the window selected in the switcher or the palette peeks.
     Q_PROPERTY(bool peekSelection READ peekSelection NOTIFY configChanged)
     // features.sticky: whether a window can be shown on every workspace of its monitor.
@@ -322,6 +324,7 @@ class ShellController : public QObject {
     int thumbnailDelay() const { return config_.shell.thumbnails.delay; }
     int thumbnailSize() const { return config_.shell.thumbnails.size; }
     bool liveThumbnails() const { return config_.shell.thumbnails.live; }
+    bool workspaceThumbnails() const { return config_.shell.thumbnails.workspaces; }
     bool peekSelection() const { return config_.settings.effects.peek_switcher; }
     bool stickyWindows() const { return config_.settings.sticky; }
     bool enabled() const { return config_.shell.enabled; }

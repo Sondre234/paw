@@ -842,12 +842,15 @@ int main(int argc, char **argv) {
         rejects("return {shell={mirror_menus='yes'}}");
         // The taskbar's window pictures: on by default, each setting read, and their ranges.
         require(even.shell.thumbnails.enabled && even.shell.thumbnails.delay == 400 &&
-                    even.shell.thumbnails.size == 240 && even.shell.thumbnails.live,
-                "the taskbar's window pictures do not default to on, 400 ms, 240 pixels and live");
+                    even.shell.thumbnails.size == 240 && even.shell.thumbnails.live &&
+                    even.shell.thumbnails.workspaces,
+                "the taskbar's window pictures do not default to on, 400 ms, 240 pixels, live and "
+                "for workspaces too");
         auto pictures = paw::parse_config(
-            "return {shell={thumbnails={enabled=false,delay=0,size=480,live=false}}}");
+            "return {shell={thumbnails={enabled=false,delay=0,size=480,live=false,workspaces=false}}}");
         require(!pictures.shell.thumbnails.enabled && pictures.shell.thumbnails.delay == 0 &&
-                    pictures.shell.thumbnails.size == 480 && !pictures.shell.thumbnails.live,
+                    pictures.shell.thumbnails.size == 480 && !pictures.shell.thumbnails.live &&
+                    !pictures.shell.thumbnails.workspaces,
                 "shell.thumbnails not parsed");
         require(paw::parse_config("return {shell={thumbnails={size=120}}}").shell.thumbnails.enabled,
                 "a partial shell.thumbnails table does not keep the other defaults");
@@ -855,6 +858,7 @@ int main(int argc, char **argv) {
         rejects("return {shell={thumbnails={delay=2001}}}");
         rejects("return {shell={thumbnails={size=119}}}");
         rejects("return {shell={thumbnails={live='yes'}}}");
+        rejects("return {shell={thumbnails={workspaces=1}}}");
         rejects("return {shell={thumbnails={width=240}}}");
         // The bar shown while a monitor tiles: on by default, along the top, floating away from
         // the monitor's edges but not towards the windows; false keeps the taskbar.

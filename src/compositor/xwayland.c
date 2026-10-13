@@ -145,8 +145,10 @@ static void xwayland_set_geometry(struct wl_listener *listener, void *data) {
     if (toplevel->unmanaged && toplevel->scene_tree)
         wlr_scene_node_set_position(&toplevel->scene_tree->node, toplevel->xsurface->x,
                                     toplevel->xsurface->y);
-    else if (xwayland_managed(toplevel))
+    else if (xwayland_managed(toplevel)) {
         refresh_frame(toplevel);
+        workspace_objects_changed(toplevel->server); // it may have changed size by itself
+    }
 }
 
 static void xwayland_request_activate(struct wl_listener *listener, void *data) {

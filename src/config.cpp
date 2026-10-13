@@ -546,6 +546,7 @@ void read_shell(lua_State *L, ShellConfig &shell) {
         thumbnails.delay = integer(L, "delay", thumbnails.delay, 0, 2000);
         thumbnails.size = integer(L, "size", thumbnails.size, 120, 480);
         boolean(L, "live", "shell.thumbnails.live", thumbnails.live);
+        boolean(L, "workspaces", "shell.thumbnails.workspaces", thumbnails.workspaces);
     }
     if (Section in{L, "search", "shell.search"}) {
         auto &search = shell.search;

@@ -117,7 +117,7 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     WindowMenu.js
     TrayMenu.qml
     GroupList.qml
-    WindowThumbnails.qml
+    WindowThumbnails.qml WorkspaceCard.qml WorkspaceWindows.qml DropGhost.qml
     BarKeyboard.qml
     FocusRing.qml
 
@@ -499,6 +499,8 @@ if(BUILD_TESTING)
         paw_smoke(thumbnails_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>
             "${GRIM_ARGUMENT}")
+        paw_smoke(workspace_card_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(taskbar_drag_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(taskbar_keyboard_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>

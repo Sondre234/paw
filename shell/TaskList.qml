@@ -95,13 +95,18 @@ ListView {
         }
         property real shiftX: shift
         Behavior on shiftX { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
-        // Along the list: across, or down a side.
-        readonly property real moved: reorder.active ? (taskList.vertical ? reorder.activeTranslation.y : reorder.activeTranslation.x)
+        // Along the list: across, or down a side. Over a workspace it settles back into its place,
+        // what it carries floating on at the pointer.
+        property real lift: reorder.active && taskList.panel.dropWorkspace > 0 ? 1 : 0
+        Behavior on lift { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
+        readonly property real moved: reorder.active ? (1 - lift) * (taskList.vertical ? reorder.activeTranslation.y : reorder.activeTranslation.x)
                                                      : taskButton.shiftX
         transform: Translate { x: taskList.vertical ? 0 : taskButton.moved; y: taskList.vertical ? taskButton.moved : 0 }
         // The button follows the pointer through the list, the buttons whose middles it passes
         // making way, and moves on release, on every taskbar; the press never becomes a click.
-        // Only a launcher's drag moves its pin.
+        // Only a launcher's drag moves its pin. Over a workspace of the indicator a window's
+        // button moves nothing in the list: let go there, its windows go to that workspace (the
+        // panel's moveButtonDrag and endButtonDrag).
         DragHandler {
             id: reorder
             target: null
@@ -110,6 +115,13 @@ ListView {
             onActiveTranslationChanged: {
                 if (!active)
                     return
+                if (!taskButton.launcher) {
+                    const at = taskList.panel.mapFromItem(null, centroid.scenePosition.x, centroid.scenePosition.y)
+                    if (taskList.panel.moveButtonDrag(taskButton.iconName, at.x, at.y) > 0) {
+                        taskList.dragFrom = taskList.dragTo = taskButton.index
+                        return
+                    }
+                }
                 // A button's start and length along the list.
                 function start(item) { return taskList.vertical ? item.y : item.x }
                 function length(item) { return taskList.vertical ? item.height : item.width }
@@ -125,11 +137,17 @@ ListView {
                 taskList.dragTo = to
                 taskList.dragFrom = taskButton.index
             }
+            // Cancelled rather than let go, it drops nothing on a workspace.
+            onCanceled: taskList.panel.cancelButtonDrag()
             onActiveChanged: {
                 if (active)
                     return
                 var from = taskList.dragFrom, to = taskList.dragTo
                 taskList.dragFrom = taskList.dragTo = -1
+                if (!taskButton.launcher && taskList.panel.dropWorkspace > 0) {
+                    taskList.panel.releaseButtonDrag(taskButton.dragWindows())
+                    return
+                }
                 if (from >= 0 && to >= 0 && to !== from)
                     taskList.model.move(from, to)
             }
@@ -155,6 +173,14 @@ ListView {
         onPlacedRectChanged: placeWindows()
         onPlacedTasksChanged: placeWindows()
         Component.onCompleted: placeWindows()
+        // Going while it is dragged (its window closing), it takes back what the drag lit and moved
+        // aside, which its handler, going too, never says has ended.
+        Component.onDestruction: {
+            if (!reorder.active)
+                return
+            taskList.dragFrom = taskList.dragTo = -1
+            taskList.panel.cancelButtonDrag()
+        }
         // The button, whose press the drag takes over, still hears the drag's moves, each of which
         // would press it again and leave it pressed past the drop: while dragged, it holds no point.
         containmentMask: reorder.active ? holdsNone : null

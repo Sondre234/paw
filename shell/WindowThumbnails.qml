@@ -17,7 +17,8 @@ import Paw
 // the cross or a middle click closes it, and a right click opens its menu. How wide the pictures
 // are, and whether there is room for them at all rather than the list, is the panel's
 // (thumbnailWidth). While a window's process plays sound, a speaker before the cross says so and
-// mutes it, crossed out while muted (WindowSound).
+// mutes it, crossed out while muted (WindowSound). A picture dragged onto a workspace of the
+// indicator and let go there moves its window to that workspace (the panel's pictureDrag).
 PopupCard {
     id: thumbnails
     required property var panel
@@ -90,6 +91,37 @@ PopupCard {
                 Accessible.name: title
                 // Closing the card destroys this tile, so it goes last.
                 onClicked: { thumbnails.panel.taskSource.activate(taskId); thumbnails.panel.groupOpen = false }
+                // Dragged, its picture (or its icon, without one) goes with the pointer, the tile
+                // fading while it is away; let go on a workspace of the indicator, the window goes
+                // there. The press never becomes a click.
+                DragHandler {
+                    id: carry
+                    target: null
+                    enabled: thumbnails.panel.workspaceDrops
+                    onActiveChanged: {
+                        if (active) {
+                            const taken = picture.visible ? picture : box
+                            thumbnails.panel.startPictureDrag(
+                                { taskId: tile.taskId, picture: picture.visible ? picture.source : "",
+                                  icon: thumbnails.panel.groupIcon },
+                                taken, centroid.scenePressPosition, centroid.scenePosition)
+                        } else if (thumbnails.panel.pictureDrag) {
+                            thumbnails.panel.releasePictureDrag()
+                        }
+                    }
+                    onCentroidChanged: if (active) thumbnails.panel.movePictureDrag(centroid.scenePosition.x, centroid.scenePosition.y)
+                    // Cancelled rather than let go, it drops nothing on a workspace.
+                    onCanceled: thumbnails.panel.cancelPictureDrag()
+                }
+                // The button, whose press the drag takes over, still hears the drag's moves, each of
+                // which would press it again: while dragged, it holds no point.
+                containmentMask: carry.active ? holdsNone : null
+                QtObject {
+                    id: holdsNone
+                    function contains(point: point): bool { return false }
+                }
+                opacity: carry.active ? 0.4 : 1
+                Behavior on opacity { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
                 // The tile wants its window's picture while it is there (the panel's
                 // wantPicture), taking over from the panel's own want as the card opens: the
                 // window it wanted, of the panel it asked.
@@ -113,7 +145,15 @@ PopupCard {
                 }
                 function placeWindow() { thumbnails.panel.placeWindows(tile, [taskId], placedRect, 1) }
                 onPlacedRectChanged: placeWindow()
-                Component.onDestruction: if (owner) owner.wantPicture(watched, false)
+                // Going while its picture is dragged (its window closing, or no longer the button's),
+                // it ends the drag, which its handler, going too, never says has ended.
+                Component.onDestruction: {
+                    if (!owner)
+                        return
+                    owner.wantPicture(watched, false)
+                    if (owner.pictureDrag && owner.pictureDrag.taskId === watched)
+                        owner.endPictureDrag(false)
+                }
                 readonly property bool marked: active || urgent
                 // The keyboard on the bar is at it, which rings it, peeks at its window as the
                 // pointer resting on its picture does, and shows its cross for Delete; the Menu
@@ -289,7 +329,7 @@ PopupCard {
                             interval: 500
                             readonly property bool resting: (thumbnails.panel.barKeys.active ? tile.keySelected
                                                                                             : pictureHover.hovered) &&
-                                                            thumbnails.open
+                                                            thumbnails.open && !carry.active
                             readonly property var source: thumbnails.panel.taskSource
                             // The model this tile peeked through and the window, until it ends
                             // the peek, should either change meanwhile.

@@ -19,8 +19,12 @@
 
 struct scaled_source {
     struct wlr_ext_image_capture_source_v1 base;
+    struct sh_server *server;
     struct wlr_scene *scene; // the window's capture scene
     int max_width, max_height;
+    /* What the window's surfaces covered as it was last rendered: a change moves or resizes its
+     * picture on the workspace, which the paw_workspace_v1 objects then list. */
+    struct wlr_box extents;
     struct wlr_backend backend;
     struct wlr_output output;
     struct wlr_scene_output *scene_output;
@@ -84,6 +88,21 @@ static void add_extents(struct wlr_scene_buffer *buffer, int sx, int sy, void *d
     extents->density = fmax(extents->density, fmax(across / width, down / height));
 }
 
+/* What the window's surfaces cover in its capture scene, where (0, 0) is the top-left corner of
+ * the window's own box, as where the window rests is in the layout: the part of the layout its
+ * picture shows. False while it has drawn nothing. */
+bool window_picture_extents(struct sh_toplevel *toplevel, struct wlr_box *box) {
+    if (!toplevel->capture_scene)
+        return false;
+    struct extents extents = {INT_MAX, INT_MAX, INT_MIN, INT_MIN, 1};
+    wlr_scene_node_for_each_buffer(&toplevel->capture_scene->tree.node, add_extents, &extents);
+    if (extents.x2 <= extents.x1 || extents.y2 <= extents.y1)
+        return false;
+    *box =
+        (struct wlr_box){extents.x1, extents.y1, extents.x2 - extents.x1, extents.y2 - extents.y1};
+    return true;
+}
+
 static void drop_steps(struct scaled_source *source) {
     for (int i = 0; i < MAX_STEPS; ++i) {
         wlr_swapchain_destroy(source->steps[i].swapchain);
@@ -102,6 +121,11 @@ static void source_render(struct scaled_source *source) {
     if (extents.x2 <= extents.x1 || extents.y2 <= extents.y1)
         return;
     int width = extents.x2 - extents.x1, height = extents.y2 - extents.y1;
+    struct wlr_box covered = {extents.x1, extents.y1, width, height};
+    if (!wlr_box_equal(&covered, &source->extents)) {
+        source->extents = covered;
+        workspace_objects_changed(source->server);
+    }
     // The frame: scaled down to fit, never up. The scene rounds a node's size at a scale as
     // this does.
     float fit = (float)fmin(1, fmin((double)source->max_width / width,
@@ -391,6 +415,7 @@ static struct scaled_source *source_create(struct sh_toplevel *toplevel, int max
     struct scaled_source *source = calloc(1, sizeof(*source));
     if (!source)
         return NULL;
+    source->server = server;
     source->scene = toplevel->capture_scene;
     source->max_width = max_width;
     source->max_height = max_height;

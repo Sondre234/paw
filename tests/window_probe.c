@@ -61,6 +61,10 @@
  *                                        does, or destroying that object, and prints "ok" once
  *                                        the compositor has had each; it exits at the end of its
  *                                        input
+ *   window_probe --workspace OUTPUT N [watch]
+ *                                        prints the windows workspace N of OUTPUT shows, from
+ *                                        get_workspace (version 8), and with watch again after
+ *                                        each done, until it is ended
  *
  * STATE is the flags joined by commas ("floating,tiling"), or "-" for none; OUTPUT is "-" before
  * the window is on one.
@@ -68,6 +72,8 @@
  * An icon is printed as "NAME SIZE FIRST SUM": its name or "-" for none, then for its pixels
  * WIDTHxHEIGHT, the first pixel and the sum of all of them as 0xAARRGGBB words (modulo 2^32),
  * each "-" without pixels; "none" when the first state brings no icon.
+ * A workspace is printed as "WIDTHxHEIGHT ID:X,Y,WxH ...": the output's size, then each window
+ * from the bottom up, its number and the rectangle its picture covers on the output.
  * PAW_WINDOW_PROBE_VERSION binds the window control at that version at most.
  *
  * A capture copies a frame into shared memory with ext-image-copy-capture-v1 and prints
@@ -455,8 +461,8 @@ static void registry_global(void *data, struct wl_registry *registry, uint32_t n
         zwlr_foreign_toplevel_manager_v1_add_listener(probe->manager, &manager_listener, probe);
     } else if (!strcmp(interface, paw_window_control_v1_interface.name)) {
         const char *cap = getenv("PAW_WINDOW_PROBE_VERSION");
-        uint32_t most = cap ? (uint32_t)strtoul(cap, NULL, 10) : 7;
-        most = most < 7 ? most : 7;
+        uint32_t most = cap ? (uint32_t)strtoul(cap, NULL, 10) : 8;
+        most = most < 8 ? most : 8;
         probe->control = wl_registry_bind(registry, name, &paw_window_control_v1_interface,
                                           version < most ? version : most);
     } else if (!strcmp(interface, ext_foreign_toplevel_list_v1_interface.name)) {
@@ -655,7 +661,103 @@ static void taskbar(struct probe *probe, struct wl_display *display) {
             paw_window_v1_destroy(objects[i].object);
 }
 
+/* Destroys what the probe holds, the globals it bound and the windows' handles, and disconnects. */
+static void disconnect_probe(struct probe *probe, struct wl_registry *registry,
+                             struct wl_display *display) {
+    if (probe->control)
+        paw_window_control_v1_destroy(probe->control);
+    for (struct handle *handle = probe->handles, *next; handle; handle = next) {
+        next = handle->next;
+        zwlr_foreign_toplevel_handle_v1_destroy(handle->object);
+        free(handle->title);
+        free(handle);
+    }
+    if (probe->manager)
+        zwlr_foreign_toplevel_manager_v1_destroy(probe->manager);
+    for (struct listed *listed = probe->listed, *next; listed; listed = next) {
+        next = listed->next;
+        ext_foreign_toplevel_handle_v1_destroy(listed->object);
+        free(listed->title);
+        free(listed);
+    }
+    if (probe->list)
+        ext_foreign_toplevel_list_v1_destroy(probe->list);
+    if (probe->sources)
+        ext_foreign_toplevel_image_capture_source_manager_v1_destroy(probe->sources);
+    if (probe->copy)
+        ext_image_copy_capture_manager_v1_destroy(probe->copy);
+    if (probe->shm)
+        wl_shm_destroy(probe->shm);
+    if (probe->seat)
+        wl_seat_destroy(probe->seat);
+    wl_registry_destroy(registry);
+    wl_display_disconnect(display);
+}
+
+/* A workspace's list as the events bring it, printed at each done. */
+struct workspace {
+    char line[8192];
+    size_t length;
+    bool done;
+};
+static void workspace_size(void *data, struct paw_workspace_v1 *object, int32_t width,
+                           int32_t height) {
+    struct workspace *workspace = data;
+    workspace->length =
+        (size_t)snprintf(workspace->line, sizeof(workspace->line), "%dx%d", width, height);
+}
+static void workspace_window(void *data, struct paw_workspace_v1 *object, uint32_t id, int32_t x,
+                             int32_t y, int32_t width, int32_t height) {
+    struct workspace *workspace = data;
+    if (workspace->length < sizeof(workspace->line))
+        workspace->length += (size_t)snprintf(workspace->line + workspace->length,
+                                              sizeof(workspace->line) - workspace->length,
+                                              " %u:%d,%d,%dx%d", id, x, y, width, height);
+}
+static void workspace_done(void *data, struct paw_workspace_v1 *object) {
+    struct workspace *workspace = data;
+    puts(workspace->line);
+    fflush(stdout);
+    workspace->length = 0;
+    workspace->line[0] = 0;
+    workspace->done = true;
+}
+static const struct paw_workspace_v1_listener workspace_listener = {
+    .size = workspace_size, .window = workspace_window, .done = workspace_done};
+
+/* window_probe --workspace OUTPUT N [watch]: the first list, or every list until it is ended. */
+static int watch_workspace(int argc, char **argv) {
+    if (argc < 4 || argc > 5)
+        die("usage: window_probe --workspace OUTPUT N [watch]");
+    bool watch = argc == 5 && !strcmp(argv[4], "watch");
+    struct probe probe = {0};
+    struct wl_display *display = wl_display_connect(NULL);
+    if (!display)
+        die("cannot connect to the compositor");
+    struct wl_registry *registry = wl_display_get_registry(display);
+    wl_registry_add_listener(registry, &registry_listener, &probe);
+    if (wl_display_roundtrip(display) < 0)
+        die("roundtrip failed");
+    if (!probe.control || paw_window_control_v1_get_version(probe.control) <
+                              PAW_WINDOW_CONTROL_V1_GET_WORKSPACE_SINCE_VERSION)
+        die("the compositor's window control lists no workspaces");
+    struct workspace workspace = {0};
+    struct paw_workspace_v1 *object = paw_window_control_v1_get_workspace(
+        probe.control, argv[2], (uint32_t)strtoul(argv[3], NULL, 10));
+    paw_workspace_v1_add_listener(object, &workspace_listener, &workspace);
+    while (watch || !workspace.done)
+        if (wl_display_dispatch(display) < 0)
+            die("dispatch failed");
+    paw_workspace_v1_destroy(object);
+    if (wl_display_roundtrip(display) < 0)
+        die("request failed");
+    disconnect_probe(&probe, registry, display);
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc > 1 && !strcmp(argv[1], "--workspace"))
+        return watch_workspace(argc, argv);
     if (argc < 2 || argc > 6)
         die("usage: window_probe TITLE [watch | workspace N | output NAME | sticky 0|1 | "
             "floating 0|1 | above 0|1 | minimize | restore | pid | id | capture [watch] | capture-listed [watch] | "
@@ -787,31 +889,6 @@ int main(int argc, char **argv) {
         die("request failed");
     if (window)
         paw_window_v1_destroy(window);
-    paw_window_control_v1_destroy(probe.control);
-    for (struct handle *handle = probe.handles, *next; handle; handle = next) {
-        next = handle->next;
-        zwlr_foreign_toplevel_handle_v1_destroy(handle->object);
-        free(handle->title);
-        free(handle);
-    }
-    zwlr_foreign_toplevel_manager_v1_destroy(probe.manager);
-    for (struct listed *listed = probe.listed, *next; listed; listed = next) {
-        next = listed->next;
-        ext_foreign_toplevel_handle_v1_destroy(listed->object);
-        free(listed->title);
-        free(listed);
-    }
-    if (probe.list)
-        ext_foreign_toplevel_list_v1_destroy(probe.list);
-    if (probe.sources)
-        ext_foreign_toplevel_image_capture_source_manager_v1_destroy(probe.sources);
-    if (probe.copy)
-        ext_image_copy_capture_manager_v1_destroy(probe.copy);
-    if (probe.shm)
-        wl_shm_destroy(probe.shm);
-    if (probe.seat)
-        wl_seat_destroy(probe.seat);
-    wl_registry_destroy(registry);
-    wl_display_disconnect(display);
+    disconnect_probe(&probe, registry, display);
     return 0;
 }

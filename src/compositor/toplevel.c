@@ -505,6 +505,7 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
     } else if (toplevel->xdg_toplevel->base->surface->mapped) {
         uint64_t started = now_ns();
         morph_commit(toplevel); // before the scene takes in what it drew
+        workspace_window_committed(toplevel);
         refresh_frame(toplevel);
         ++toplevel->server->stats.commits;
         toplevel->server->stats.commit_ns += now_ns() - started;
