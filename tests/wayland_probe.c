@@ -45,6 +45,10 @@ struct probe {
     struct wl_output *output;
     int output_width, output_height, panel_height;
     bool panel_ready, handle_minimized, handle_active, handle_closed, title_seen;
+    /* PAW_PROBE_BUTTON="X Y WIDTH HEIGHT": where the panel shows the probe's own window, which
+     * it tells the compositor (set_rectangle) once its handle has said its title. */
+    const char *button;
+    struct zwlr_foreign_toplevel_handle_v1 *own_handle;
     struct wl_shm *shm;
     struct xdg_wm_base *shell;
     struct wl_surface *surface;
@@ -98,6 +102,9 @@ static void handle_title(void *data, struct zwlr_foreign_toplevel_handle_v1 *han
                          const char *title) {
     struct probe *probe = data;
     probe->title_seen = !strcmp(title, "paw protocol probe");
+    const char *own = getenv("PAW_PROBE_TITLE");
+    if (!strcmp(title, own && *own ? own : "paw protocol probe"))
+        probe->own_handle = handle;
 }
 static void handle_app_id(void *data, struct zwlr_foreign_toplevel_handle_v1 *handle,
                           const char *app_id) {
@@ -123,6 +130,13 @@ static void handle_state(void *data, struct zwlr_foreign_toplevel_handle_v1 *han
 }
 static void handle_done(void *data, struct zwlr_foreign_toplevel_handle_v1 *handle) {
     struct probe *probe = data;
+    int x, y, width, height;
+    if (probe->button && probe->panel_surface && handle == probe->own_handle &&
+        sscanf(probe->button, "%d %d %d %d", &x, &y, &width, &height) == 4) {
+        zwlr_foreign_toplevel_handle_v1_set_rectangle(handle, probe->panel_surface, x, y, width,
+                                                      height);
+        probe->button = NULL;
+    }
     if (probe->stage == 3 && probe->handle_minimized) {
         probe->stage = 4;
         zwlr_foreign_toplevel_handle_v1_unset_minimized(handle);
@@ -739,7 +753,8 @@ static void prepare_spawn(const char *self, const char *app_id) {
     signal(SIGCHLD, SIG_IGN);
 }
 int main(int argc, char **argv) {
-    struct probe probe = {.width = 320, .height = 240, .panel_height = 48};
+    struct probe probe = {.width = 320, .height = 240, .panel_height = 48,
+                          .button = getenv("PAW_PROBE_BUTTON")};
     if (argc == 2 && !strcmp(argv[1], "--external-control"))
         probe.external_control = true;
     else if (argc == 2 && !strcmp(argv[1], "--window-only")) // external control, no panel
