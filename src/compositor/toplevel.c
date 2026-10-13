@@ -596,8 +596,7 @@ static void set_fullscreen_focus(struct sh_toplevel *toplevel, bool fullscreen, 
     }
     if (server->grabbed_toplevel == toplevel)
         reset_cursor_mode(server);
-    struct wlr_scene_node *node = &toplevel->scene_tree->node;
-    int from_x = node->x, from_y = node->y;
+    struct wlr_box from = morph_from(toplevel);
     if (fullscreen)
         toplevel->fullscreen_restore = toplevel_box(toplevel);
     toplevel->fullscreen = fullscreen;
@@ -619,10 +618,8 @@ static void set_fullscreen_focus(struct sh_toplevel *toplevel, bool fullscreen, 
         if ((toplevel->arranged || toplevel->tiled) && output)
             reflow_output(server, output);
     }
-    // The window glides from where it was drawn; the size follows when the client draws it.
-    if (toplevel->shown && toplevel_visible(toplevel))
-        sh_anim_glide_kind(server->animator, &toplevel->anim, toplevel->content,
-                           from_x - node->x, from_y - node->y, SH_ANIM_FULLSCREEN);
+    // The window glides from where it was drawn to its new place and size.
+    toplevel_morph(toplevel, from, SH_ANIM_FULLSCREEN);
     if (server->focused_toplevel == toplevel || (fullscreen && focus))
         focus_toplevel(toplevel);
     refresh_decoration(toplevel);
