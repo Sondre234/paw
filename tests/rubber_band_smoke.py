@@ -152,14 +152,26 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
     swipe("end", after=300)
     assert workspace() == 2 and running() == 0 and drawn() == (0, 0, 1000), drawn()
 
-    # A slide that only fades: the window dims instead, and brightens again as it is let go.
-    desktop.reload(CONFIG % "move = { duration = 1000 }, workspace = { distance = 0 }")
+    # A slide that only fades: the window dims instead, and brightens again as it is let go;
+    # fingers coming back meanwhile take it over as dim as it is.
+    desktop.reload(CONFIG % (SLOW + ", workspace = { distance = 0 }"))
     begin()
     to(-300)
-    assert held() == (0, 0, 1, 0, round(1000 * (1 - 0.2 / 1.2))), band()
+    dim = round(1000 * (1 - 0.2 / 1.2))
+    assert held() == (0, 0, 1, 0, dim), band()
     swipe("end", after=300)
     assert workspace() == 2 and running() == 1, msg("get", "animations")
-    desktop.wait_for(lambda: running() == 0, "brightened again")
+    desktop.wait_for(lambda: drawn()[2] >= dim + 5, "brightening")
+    where = drawn()[2]
+    begin()
+    to(-20)
+    caught = held()
+    assert caught[:4] == (0, 0, 1, 0) and where <= caught[4] <= where + 3, (where, caught)
+    to(-60)
+    assert held()[4] < caught[4], band()  # dimmer again as the fingers pull on
+    swipe("end", after=300)
+    desktop.reload(CONFIG % "enabled = false")  # the brightening ends at once
+    assert running() == 0 and drawn() == (0, 0, 1000), drawn()
 
     # A step with nowhere to go, as the panel's wheel asks for past either end, nudges the windows
     # of that output the way the slide would take them, and back; with a slide that only fades,
