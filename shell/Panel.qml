@@ -96,6 +96,7 @@ Item {
     readonly property bool thumbnails: shell.thumbnails && !macos
     // What shows a button's windows changes with it, and what was shown goes.
     onThumbnailsChanged: { closeGroup(); closeWorkspaceCard() }
+    onWorkspaceCardsChanged: closeWorkspaceCard()
     readonly property int thumbnailGap: Theme.spacingS
     readonly property int thumbnailPadding: Theme.spacingM
     readonly property real thumbnailWidth: thumbnailWidthFor(groupWindows.count)
@@ -196,14 +197,14 @@ Item {
     }
     Timer { id: pictureWarmup; interval: shell.thumbnailDelay / 2; onTriggered: root.warmPictures() }
     readonly property bool groupListOpen: groupOpen && !thumbnailsOpen
-    // In the taskbar style with shell.thumbnails, resting on a workspace of the indicator for
-    // shell.thumbnailDelay shows a picture of it (WorkspaceCard.qml): its wallpaper and the
-    // windows it shows where they are, each from its own picture. It opens, glides to the next
-    // workspace the pointer rests on and closes as the card of a button's windows does, and the
-    // two take turns: while one is open, the pointer moving onto the other's buttons shows that
-    // one at once. From halfway into the delay the workspace is warmed up (workspaceWarm): the
+    // In the taskbar style with shell.thumbnails (and its `workspaces`), resting on a workspace of
+    // the indicator for shell.thumbnailDelay shows a picture of it (WorkspaceCard.qml): its
+    // wallpaper and the windows it shows where they are, each from its own picture. It opens,
+    // glides to the next workspace the pointer rests on and closes as the card of a button's
+    // windows does, and the two take turns: while one is open, the pointer moving onto the
+    // other's buttons shows that one at once. From halfway into the delay the workspace is warmed up (workspaceWarm): the
     // card, made by then, lists its windows and wants their pictures, so that it opens on them.
-    readonly property bool workspaceCards: thumbnails
+    readonly property bool workspaceCards: thumbnails && shell.workspaceThumbnails
     property bool workspaceCardOpen: false
     property int workspaceCardNumber: 0
     property real workspaceCardX: 0
