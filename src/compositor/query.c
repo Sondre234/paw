@@ -537,6 +537,37 @@ static void get_window_peek(struct sh_server *server, int fd, const char *argume
     }
 }
 
+static void get_scratchpad(struct sh_server *server, int fd, const char *arguments) {
+    // Per window in the scratchpad or sliding in or out of it, in the order of `get windows`: its
+    // title, whether it is hidden (minimized) and whether it is drawn (its node shown), the drop
+    // under way ("in", "out" or "-"), the edge it goes by ("top", "bottom", "left", "right"), the
+    // offset it is drawn at from its place, the opacity it is drawn at (thousandths), the line it
+    // is cut along ("-" while it is not cut) and the box its content is cut to in layout
+    // coordinates as X,Y,WIDTH,HEIGHT ("-" for none).
+    static const char *edges[] = {"top", "bottom", "left", "right"};
+    control_reply(fd, "ok\n");
+    struct sh_toplevel *toplevel;
+    wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
+        const struct sh_drop *drop = &toplevel->drop;
+        if (!toplevel->scratchpad && !drop->running)
+            continue;
+        char title[512], cut[32] = "-", box[64] = "-", line[768];
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        if (drop->running && drop->plan.clip)
+            snprintf(cut, sizeof(cut), "%d", drop->plan.cut);
+        if (drop->running && drop->cut)
+            snprintf(box, sizeof(box), "%d,%d,%d,%d", drop->cut_to.x, drop->cut_to.y,
+                     drop->cut_to.width, drop->cut_to.height);
+        snprintf(line, sizeof(line), "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%ld\t%s\t%s\n", title,
+                 toplevel->minimized, toplevel->scene_tree && toplevel->scene_tree->node.enabled,
+                 !drop->running ? "-" : drop->out ? "out" : "in", edges[drop->plan.edge],
+                 toplevel->content ? toplevel->content->node.x : 0,
+                 toplevel->content ? toplevel->content->node.y : 0,
+                 lround(1000 * sh_anim_alpha(&toplevel->anim)), cut, box);
+        control_reply(fd, line);
+    }
+}
+
 static void get_window_icons(struct sh_server *server, int fd, const char *arguments) {
     // Per window, in the order of `get windows`: its number (0 before it is published), app_id,
     // and the icon it supplies itself (window_icon.c): its name and the size of its pixels as
@@ -681,6 +712,7 @@ static const struct {
     {"peek", get_peek, false},
     {"window_peek", get_window_peek, false},
     {"window_icons", get_window_icons, false},
+    {"scratchpad", get_scratchpad, false},
     {"opacities", get_opacities, false},
     {"frames", get_frames, false},
     {"zoom", get_zoom, false},
