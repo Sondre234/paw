@@ -1789,6 +1789,7 @@ ListModel {
         return fail("the appearance entry did not open the profiles beside the menu");
     // The shell takes it up, and once the new look is drawn says so, for the compositor's
     // crossfade from the old one.
+    drawnProfiles.clear();
     click(menuItem("light"));
     if (!waitFor([&] {
             return requests == QStringList{"profile light"} && controller.profile() == "light" &&

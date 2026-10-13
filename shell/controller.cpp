@@ -791,14 +791,16 @@ void ShellController::reload() {
         updatePolkitAgent();
         refreshApps();
         // A new appearance profile shows at once, under the compositor's picture of the old one,
-        // which crossfades to it once Restyle finds it on the screen.
+        // which crossfades to it once Restyle finds it on the screen. Any reload says which
+        // profile is drawn once it is: switched there and back, the compositor waits for the one
+        // the shell had all along.
         if (restyle && !restyling_) {
             restyling_ = true;
             Q_EMIT restylingChanged();
         }
         Q_EMIT configChanged();
         Q_EMIT wallpaperChanged();
-        if (restyle)
+        if (!config_.profile.empty())
             restyle_.start();
         if (!enabled())
             Q_EMIT disabled();
@@ -808,8 +810,10 @@ void ShellController::reload() {
     }
 }
 void ShellController::restyled() {
-    restyling_ = false;
-    Q_EMIT restylingChanged();
+    if (restyling_) {
+        restyling_ = false;
+        Q_EMIT restylingChanged();
+    }
     const auto name = QString::fromStdString(config_.profile);
     std::cerr << "paw profile drawn: " << name.toStdString() << '\n';
     // Quietly: a shell without a compositor, or one that does not crossfade, has no one to tell.
