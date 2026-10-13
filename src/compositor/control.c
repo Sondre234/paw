@@ -317,6 +317,15 @@ static void control_workspace_nudge(struct sh_server *server, int fd, const char
     }
 }
 
+/* "switcher_peek": the shell has drawn the open switcher, whose selected window then peeks
+ * once the selection rests (switcher.c). */
+static void control_switcher_peek(struct sh_server *server, int fd, const char *arguments) {
+    if (*arguments)
+        control_reply(fd, "error: usage: switcher_peek\n");
+    else
+        reply_done(fd, switcher_ask_peek(server), "the switcher is not open");
+}
+
 /* The commands that are not actions, by name. Each hears the rest of the request from the space
  * after its name ("" for the name alone), which sscanf and split_words skip. */
 static const struct {
@@ -335,6 +344,7 @@ static const struct {
     {"type", control_type},
     {"overview", control_overview},
     {"panel_drag", control_panel_drag},
+    {"switcher_peek", control_switcher_peek},
     {"workspace_nudge", control_workspace_nudge},
 };
 

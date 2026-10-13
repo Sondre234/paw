@@ -109,6 +109,8 @@ class ShellController : public QObject {
     Q_PROPERTY(int thumbnailDelay READ thumbnailDelay NOTIFY configChanged)
     Q_PROPERTY(int thumbnailSize READ thumbnailSize NOTIFY configChanged)
     Q_PROPERTY(bool liveThumbnails READ liveThumbnails NOTIFY configChanged)
+    // peek.switcher: whether the window selected in the switcher or the palette peeks.
+    Q_PROPERTY(bool peekSelection READ peekSelection NOTIFY configChanged)
     // features.sticky: whether a window can be shown on every workspace of its monitor.
     Q_PROPERTY(bool stickyWindows READ stickyWindows NOTIFY configChanged)
     // Which panel widgets Lua enables, and where: {workspaces, clock, calendar, keyboard_layout,
@@ -314,6 +316,7 @@ class ShellController : public QObject {
     int thumbnailDelay() const { return config_.shell.thumbnails.delay; }
     int thumbnailSize() const { return config_.shell.thumbnails.size; }
     bool liveThumbnails() const { return config_.shell.thumbnails.live; }
+    bool peekSelection() const { return config_.settings.effects.peek_switcher; }
     bool stickyWindows() const { return config_.settings.sticky; }
     bool enabled() const { return config_.shell.enabled; }
     QStringList profiles() const;
@@ -425,6 +428,9 @@ class ShellController : public QObject {
     int switcherSelected() const { return switcher_.selected; }
     // Focuses the switcher's window at `index` and closes it.
     Q_INVOKABLE void switcherPick(int index);
+    // Tells the compositor that its switcher shows, so that the selected window peeks once the
+    // selection has rested (switcher_peek); nothing without a session.
+    Q_INVOKABLE void switcherShown();
     QString overviewOutput() const { return overview_.output; }
     QVariantList overviewWindows() const { return overview_.windows; }
     QVariantList overviewStrip() const { return overview_.strip; }

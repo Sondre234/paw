@@ -52,6 +52,11 @@ Item {
     property bool shown: false
     property alias progress: reveal.progress
     Reveal { id: reveal; shown: switcher.shown }
+    // Shown, the compositor hears so, and its selected window then peeks once the selection has
+    // rested, as on Windows (peek.switcher); not in a preview, nor in the macOS style, which
+    // switches applications, as macOS does.
+    onShownChanged: if (shown && open && outputName !== "" && !Theme.macos && shell.peekSelection)
+                        shell.switcherShown()
 
     Item {
         id: card

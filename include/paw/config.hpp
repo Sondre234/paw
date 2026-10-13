@@ -350,6 +350,7 @@ struct Config {
                          .urgent_color = {1.0F, 0.62F, 0.39F, 1.0F},
                          .effects = {.peek_opacity = 0.12F,
                                      .peek_duration = 150,
+                                     .peek_switcher = true,
                                      .night_light = false,
                                      .day_kelvin = 6500,
                                      .night_kelvin = 3400,
