@@ -87,6 +87,14 @@ const Option options[] = {
     {"mouse.modifier", "enum", "\"Alt\"", "\"Super\"", none, none,
      "Modifier for window drags: modifier + left drag moves, right drag resizes. One of "
      "`Alt`, `Super`, `Ctrl`, `Shift`."},
+    {"mouse.middle_drag", "list of strings", "kitty, foot, footclient, Alacritty, "
+     "org.wezfurlong.wezterm, com.mitchellh.ghostty, xterm, URxvt, org.kde.konsole, "
+     "org.gnome.Terminal",
+     "{ \"kitty\", \"foot\" }", none, none,
+     "The `app_id`s (X11 class) of windows a middle-button drag moves, compared without regard "
+     "to case; `\"*\"` for every window, `{}` for none; at most 32. A middle click let go "
+     "without moving still reaches the window (to paste), and so does every middle press "
+     "with a modifier held."},
     {"mouse.speed", "number", "unset", "0.0", -1, 1,
      "Pointer speed in standalone sessions; unset keeps the device default."},
     {"mouse.acceleration", "enum", "unset", "\"flat\"", none, none,

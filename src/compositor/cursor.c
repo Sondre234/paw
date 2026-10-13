@@ -366,6 +366,44 @@ static void deco_activate(struct sh_toplevel *toplevel, enum sh_deco_part part) 
     }
 }
 
+/* Whether a middle drag moves this window (mouse.middle_drag). */
+static bool middle_drags(struct sh_toplevel *toplevel) {
+    const struct sh_settings *settings = server_settings(toplevel->server);
+    const char *app_id = toplevel_app_id(toplevel);
+    for (int i = 0; i < settings->middle_drag_count; ++i) {
+        if (!strcmp(settings->middle_drag[i], "*") ||
+            (app_id && !strcasecmp(settings->middle_drag[i], app_id)))
+            return true;
+    }
+    return false;
+}
+
+/* The held-back middle press reaches the window after all, as pressed. */
+static void middle_send_press(struct sh_server *server) {
+    server->middle_pressed = NULL;
+    wlr_seat_pointer_notify_button(server->seat, server->middle_time, BTN_MIDDLE,
+                                   WL_POINTER_BUTTON_STATE_PRESSED);
+}
+
+/* A held-back middle press that has travelled far enough moves its window. */
+static bool middle_drag_motion(struct sh_server *server) {
+    struct sh_toplevel *toplevel = server->middle_pressed;
+    if (!toplevel)
+        return false;
+    double dx = server->cursor->x - server->middle_x, dy = server->cursor->y - server->middle_y;
+    if (hypot(dx, dy) < SH_DRAG_THRESHOLD)
+        return false;
+    server->middle_pressed = NULL;
+    server->grab_button = BTN_MIDDLE;
+    begin_interactive(toplevel, SH_CURSOR_MOVE, 0);
+    if (server->grabbed_toplevel == toplevel && !server->grab_fullscreen) {
+        // Held from where it was pressed, so the window catches up with the travel so far.
+        server->grab_x -= dx;
+        server->grab_y -= dy;
+    }
+    return true;
+}
+
 void process_cursor_motion(struct sh_server *server, uint32_t time) {
     if (server->cursor_mode == SH_CURSOR_PANEL) {
         panel_drag_motion(server);
@@ -379,6 +417,7 @@ void process_cursor_motion(struct sh_server *server, uint32_t time) {
     overview_hot_corner(server);
     if (overview_motion(server))
         return;
+    middle_drag_motion(server);
     if (server->cursor_mode == SH_CURSOR_MOVE) {
         process_cursor_move(server);
         return;
@@ -613,6 +652,15 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     }
     if ((server->overview.open || server->overview.pressed) && overview_button(server, event))
         return;
+    if (server->middle_pressed) {
+        bool middle = event->button == BTN_MIDDLE;
+        middle_send_press(server); // released in place, or another button joined it
+        if (middle && event->state == WL_POINTER_BUTTON_STATE_RELEASED) {
+            wlr_seat_pointer_notify_button(server->seat, event->time_msec, event->button,
+                                           event->state);
+            return;
+        }
+    }
     if (server->deco_pressed && event->button == BTN_LEFT &&
         event->state == WL_POINTER_BUTTON_STATE_RELEASED) {
         // A dot acts on release, and only if the pointer is still on it.
@@ -720,6 +768,15 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
             }
             begin_interactive(toplevel,
                               event->button == BTN_LEFT ? SH_CURSOR_MOVE : SH_CURSOR_RESIZE, edges);
+            return;
+        }
+        if (toplevel && !(mods & (SH_SHIFT | SH_CTRL | SH_ALT | SH_LOGO)) &&
+            event->button == BTN_MIDDLE && middle_drags(toplevel)) {
+            // Held back until it either moves the window or is let go as a click.
+            server->middle_pressed = toplevel;
+            server->middle_x = server->cursor->x;
+            server->middle_y = server->cursor->y;
+            server->middle_time = event->time_msec;
             return;
         }
     }

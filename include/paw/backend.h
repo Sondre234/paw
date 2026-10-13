@@ -351,6 +351,10 @@ struct sh_settings {
      * none. A new one crossfades in (crossfade.c). */
     char profile[40];
     uint32_t mouse_modifier;
+    /* mouse.middle_drag: in these windows (app_id, without regard to case; "*" for all) a middle
+     * press that moves a few pixels moves the window, and one let go in place clicks as usual. */
+    char middle_drag[32][64];
+    int middle_drag_count;
     int repeat_rate;
     int repeat_delay;
     int gap_inner; /* between neighbouring windows */

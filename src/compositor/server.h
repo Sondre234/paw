@@ -729,6 +729,11 @@ struct sh_server {
     struct wlr_color_transform *night_transform;
     struct wlr_buffer *black;   // stretched over windows to dim them; made on first use
     struct sh_toplevel *deco_hovered, *deco_revealed, *deco_pressed;
+    /* A middle press held back from this window (mouse.middle_drag): moving SH_DRAG_THRESHOLD from
+     * where it was pressed starts a move, letting go sooner sends the click after all. */
+    struct sh_toplevel *middle_pressed;
+    double middle_x, middle_y;
+    uint32_t middle_time;
     enum sh_deco_part deco_hovered_part;
     enum sh_deco_part deco_pressed_part;
     unsigned group_serial;              // counts group members and groups, to name and order them
@@ -1217,6 +1222,8 @@ void gestures_init(struct sh_server *server);
 void gestures_finish(struct sh_server *server);
 
 /* grab.c */
+/* Pointer travel that turns a press into a drag: out of fullscreen, or a middle drag's move. */
+#define SH_DRAG_THRESHOLD 8
 void reset_cursor_mode(struct sh_server *server);
 bool drop_tiles(struct sh_server *server, struct wlr_output *output);
 void finish_grab(struct sh_server *server);

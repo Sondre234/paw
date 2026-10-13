@@ -66,9 +66,6 @@ void finish_grab(struct sh_server *server) {
     server->grab_retile = false;
 }
 
-/* Pointer travel that turns a press on a fullscreen window into a drag out of fullscreen. */
-#define SH_DRAG_THRESHOLD 8
-
 /* Magnetic edges (windows.magnet). While a floating window is dragged or resized, an edge of it
  * that comes within `distance` of an edge of the output, of the area panels leave free, or of
  * another window (one whose extent beside it overlaps the dragged window's) lands on it. The

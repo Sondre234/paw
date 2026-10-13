@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -529,6 +530,16 @@ int main(int argc, char **argv) {
                     defaults.mouse_natural_scroll == -1 && defaults.touchpad_tap == -1 &&
                     defaults.focus_follows_mouse,
                 "pointer defaults must leave devices alone");
+        // A middle drag moves terminals by default; a list replaces them, {} turns it off.
+        require(defaults.middle_drag_count == 10 && !std::strcmp(defaults.middle_drag[0], "kitty"),
+                "middle_drag defaults changed");
+        auto middle = paw::parse_config("return {mouse={middle_drag={'foot','*'}}}");
+        require(middle.settings.middle_drag_count == 2 &&
+                    !std::strcmp(middle.settings.middle_drag[1], "*"),
+                "mouse.middle_drag not read");
+        require(paw::parse_config("return {mouse={middle_drag={}}}").settings.middle_drag_count == 0,
+                "an empty mouse.middle_drag should turn it off");
+        rejects("return {mouse={middle_drag='kitty'}}");
         // Every kind of animation lasts animations.duration unless it has its own, but for
         // minimizing, which takes two and a half times as long.
         auto lasting = [](const sh_settings &settings, int duration) {
