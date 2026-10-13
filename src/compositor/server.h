@@ -1228,8 +1228,8 @@ void session_active(struct wl_listener *listener, void *data);
 void server_new_inhibitor(struct wl_listener *listener, void *data);
 
 /* minimize.c */
-void set_window_rect(struct sh_toplevel *toplevel, const char *output, struct wlr_box box,
-                     struct wl_resource *owner);
+void set_window_rect(struct sh_toplevel *toplevel, const char *output, int64_t x, int64_t y,
+                     int64_t width, int64_t height, struct wl_resource *owner);
 void forget_window_rects(struct sh_toplevel *toplevel);
 void foreign_set_rectangle(struct wl_listener *listener, void *data);
 void minimize_animate(struct sh_toplevel *toplevel);

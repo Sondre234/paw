@@ -285,8 +285,7 @@ static void window_set_rectangle(struct wl_client *client, struct wl_resource *r
                                  int32_t height) {
     struct sh_window_object *object = wl_resource_get_user_data(resource);
     if (object && object->toplevel)
-        set_window_rect(object->toplevel, output, (struct wlr_box){x, y, width, height},
-                        resource);
+        set_window_rect(object->toplevel, output, x, y, width, height, resource);
 }
 
 static const struct paw_window_v1_interface window_implementation = {

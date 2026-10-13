@@ -321,10 +321,12 @@
         Says where this client shows the window on output `output` (its connector name), in
         the output's logical coordinates: its button on a taskbar, or a picture of it. The
         compositor minimizes the window into that rectangle and restores it out of it while
-        the window is on that output. A width or height of 0 or less takes this client's
-        rectangle on that output away. The rectangle lasts until another replaces it or this
-        object is destroyed; of several clients' rectangles on one output, the last one set
-        counts. Unlike the other requests, this one is heard while the session is locked.
+        the window is on that output. The rectangle is cut to the output; a width or height of 0
+        or less, a rectangle wholly off the output, or an output that is not connected takes
+        this client's rectangle on that output away. The rectangle lasts until another replaces
+        it or this object is destroyed; of several clients' rectangles on one output, the last
+        one set counts. Unlike the other requests, this one is heard while the session is
+        locked.
       </description>
       <arg name="output" type="string" summary="the output's connector name"/>
       <arg name="x" type="int"/>

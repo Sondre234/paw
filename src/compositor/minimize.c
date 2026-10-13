@@ -39,28 +39,34 @@ static struct sh_window_rect *owned_rect(struct sh_toplevel *toplevel, const cha
     return NULL;
 }
 
-/* Where `owner` shows the window on `output`, which goes first among the window's rectangles: of
- * several clients' rectangles on one output, the last one set counts. An empty box takes the
- * owner's rectangle away, on every output when `output` is NULL. */
-void set_window_rect(struct sh_toplevel *toplevel, const char *output, struct wlr_box box,
-                     struct wl_resource *owner) {
-    struct sh_window_rect *rect = owned_rect(toplevel, output, owner);
-    if (box.width <= 0 || box.height <= 0) {
-        for (; rect; rect = owned_rect(toplevel, output, owner))
+/* Where `owner` shows the window on `output`, in the output's coordinates, which goes first among
+ * the window's rectangles: of several clients' rectangles on one output, the last one set counts.
+ * It is cut to the output; an empty box, one off the output or one on an output that is not
+ * there takes the owner's rectangle away, on every output when `output` is NULL. */
+void set_window_rect(struct sh_toplevel *toplevel, const char *output, int64_t x, int64_t y,
+                     int64_t width, int64_t height, struct wl_resource *owner) {
+    struct wlr_output *known = output ? find_output(toplevel->server, output) : NULL;
+    struct wlr_box full = {0};
+    if (known)
+        wlr_output_layout_get_box(toplevel->server->output_layout, known, &full);
+    // Clients say anything: in 64 bits, nothing they say overflows.
+    int64_t left = x > 0 ? x : 0, top = y > 0 ? y : 0;
+    int64_t right = x + width < full.width ? x + width : full.width;
+    int64_t bottom = y + height < full.height ? y + height : full.height;
+    struct sh_window_rect *rect = owned_rect(toplevel, known ? known->name : output, owner);
+    if (!known || width <= 0 || height <= 0 || right <= left || bottom <= top) {
+        for (; rect; rect = owned_rect(toplevel, known ? known->name : output, owner))
             free_rect(rect);
         return;
     }
-    if (!output || !output[0])
-        return;
-    if (rect) {
+    if (rect)
         free_rect(rect);
-        rect = NULL;
-    }
+    struct wlr_box box = {(int)left, (int)top, (int)(right - left), (int)(bottom - top)};
     rect = calloc(1, sizeof(*rect));
     if (!rect)
         return;
     rect->toplevel = toplevel;
-    snprintf(rect->output, sizeof(rect->output), "%s", output);
+    snprintf(rect->output, sizeof(rect->output), "%s", known->name);
     rect->box = box;
     rect->owner = owner;
     rect->owner_destroy.notify = rect_owner_destroyed;
@@ -78,8 +84,8 @@ void forget_window_rects(struct sh_toplevel *toplevel) {
 /* Where a client's surface is on its output, in the output's logical coordinates: a layer
  * surface, a taskbar's, or one of its subsurfaces. False for any other. */
 static bool surface_place(struct sh_server *server, struct wlr_surface *surface,
-                          struct wlr_output **output, int *x, int *y) {
-    int dx = 0, dy = 0;
+                          struct wlr_output **output, int64_t *x, int64_t *y) {
+    int64_t dx = 0, dy = 0;
     struct wlr_subsurface *subsurface;
     while ((subsurface = wlr_subsurface_try_from_wlr_surface(surface))) {
         dx += subsurface->current.x;
@@ -109,14 +115,13 @@ void foreign_set_rectangle(struct wl_listener *listener, void *data) {
     if (!event->surface)
         return;
     struct wl_resource *owner = event->surface->resource;
-    set_window_rect(toplevel, NULL, (struct wlr_box){0}, owner);
+    set_window_rect(toplevel, NULL, 0, 0, 0, 0, owner);
     struct wlr_output *output;
-    int x, y;
+    int64_t x, y;
     if (event->width > 0 && event->height > 0 &&
         surface_place(toplevel->server, event->surface, &output, &x, &y))
-        set_window_rect(toplevel, output->name,
-                        (struct wlr_box){x + event->x, y + event->y, event->width, event->height},
-                        owner);
+        set_window_rect(toplevel, output->name, x + event->x, y + event->y, event->width,
+                        event->height, owner);
 }
 
 /* The box the window shrinks into from `window` (its box in layout coordinates) on `output`, in
@@ -134,11 +139,11 @@ static struct wlr_box fold_target(struct sh_toplevel *toplevel, struct wlr_outpu
         struct wlr_box box = {full.x + rect->box.x, full.y + rect->box.y, rect->box.width,
                               rect->box.height},
                        shared;
-        // A rectangle off the output is no button of it.
+        // A rectangle off the output, which has shrunk since, is no button of it.
         if (!wlr_box_intersection(&shared, &box, &full))
             break;
         *from = "button";
-        return box;
+        return shared;
     }
     struct sh_rect usable = usable_area(server, output);
     int strips[4] = {usable.y - full.y, full.y + full.height - (usable.y + usable.height),
