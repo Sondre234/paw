@@ -53,6 +53,14 @@
  *                                        icon and icon_image events of its first state (version
  *                                        5), and with watch again after each done that brings
  *                                        them, until the window closes
+ *   window_probe TITLE taskbar           a taskbar with buttons: reads lines "rect OTHER OUTPUT X
+ *                                        Y WIDTH HEIGHT", "minimize OTHER", "restore OTHER" and
+ *                                        "destroy OTHER", each sending set_rectangle (version 7)
+ *                                        on the object of the window titled OTHER (made the
+ *                                        first time), minimizing or restoring it as the shell
+ *                                        does, or destroying that object, and prints "ok" once
+ *                                        the compositor has had each; it exits at the end of its
+ *                                        input
  *
  * STATE is the flags joined by commas ("floating,tiling"), or "-" for none; OUTPUT is "-" before
  * the window is on one.
@@ -447,8 +455,8 @@ static void registry_global(void *data, struct wl_registry *registry, uint32_t n
         zwlr_foreign_toplevel_manager_v1_add_listener(probe->manager, &manager_listener, probe);
     } else if (!strcmp(interface, paw_window_control_v1_interface.name)) {
         const char *cap = getenv("PAW_WINDOW_PROBE_VERSION");
-        uint32_t most = cap ? (uint32_t)strtoul(cap, NULL, 10) : 6;
-        most = most < 6 ? most : 6;
+        uint32_t most = cap ? (uint32_t)strtoul(cap, NULL, 10) : 7;
+        most = most < 7 ? most : 7;
         probe->control = wl_registry_bind(registry, name, &paw_window_control_v1_interface,
                                           version < most ? version : most);
     } else if (!strcmp(interface, ext_foreign_toplevel_list_v1_interface.name)) {
@@ -577,11 +585,82 @@ static void peek(struct probe *probe, struct wl_display *display, const char *ti
             paw_window_v1_destroy(objects[i].object);
 }
 
+/* A taskbar with a button for each window the input names (see the usage above), its rectangles
+ * lasting while the object it set them through does. */
+static void taskbar(struct probe *probe, struct wl_display *display) {
+    struct {
+        char title[128];
+        struct handle *handle;
+        struct paw_window_v1 *object;
+    } objects[16];
+    size_t count = 0;
+    struct probe others = {0}; // what the objects send, which nothing reads
+    char line[512];
+    for (;;) {
+        if (wl_display_roundtrip(display) < 0)
+            die("roundtrip failed");
+        puts("ok");
+        fflush(stdout);
+        if (!fgets(line, sizeof(line), stdin))
+            break;
+        line[strcspn(line, "\n")] = '\0';
+        char request[16], name[128], output[64];
+        int x, y, width, height;
+        int words = sscanf(line, "%15s %127s %63s %d %d %d %d", request, name, output, &x, &y,
+                           &width, &height);
+        if (words < 2)
+            die("taskbar takes \"rect TITLE OUTPUT X Y WIDTH HEIGHT\", \"minimize TITLE\", "
+                "\"restore TITLE\" or \"destroy TITLE\"");
+        size_t index = 0;
+        while (index < count && strcmp(objects[index].title, name))
+            ++index;
+        if (index == count) {
+            // Hearing of the windows opened since.
+            if (wl_display_roundtrip(display) < 0)
+                die("roundtrip failed");
+            struct handle *found = NULL;
+            for (struct handle *handle = probe->handles; handle; handle = handle->next)
+                if (handle->title && !strcmp(handle->title, name))
+                    found = handle;
+            if (!found || count == sizeof(objects) / sizeof(*objects))
+                die("no window has that title");
+            objects[count].handle = found;
+            objects[count].object = paw_window_control_v1_get_window(probe->control,
+                                                                          found->object);
+            paw_window_v1_add_listener(objects[count].object, &window_listener, &others);
+            snprintf(objects[count].title, sizeof(objects[count].title), "%s", name);
+            ++count;
+        }
+        if (!strcmp(request, "rect") && words == 7) {
+            if (!objects[index].object)
+                die("that window's object is destroyed");
+            paw_window_v1_set_rectangle(objects[index].object, output, x, y, width, height);
+        } else if (!strcmp(request, "minimize")) {
+            zwlr_foreign_toplevel_handle_v1_set_minimized(objects[index].handle->object);
+        } else if (!strcmp(request, "restore")) {
+            if (!probe->seat)
+                die("the compositor offers no seat");
+            zwlr_foreign_toplevel_handle_v1_unset_minimized(objects[index].handle->object);
+            zwlr_foreign_toplevel_handle_v1_activate(objects[index].handle->object, probe->seat);
+        } else if (!strcmp(request, "destroy") && objects[index].object) {
+            paw_window_v1_destroy(objects[index].object);
+            objects[index].object = NULL;
+        } else {
+            die("taskbar takes \"rect TITLE OUTPUT X Y WIDTH HEIGHT\", \"minimize TITLE\", "
+                "\"restore TITLE\" or \"destroy TITLE\"");
+        }
+    }
+    for (size_t i = 0; i < count; ++i)
+        if (objects[i].object)
+            paw_window_v1_destroy(objects[i].object);
+}
+
 int main(int argc, char **argv) {
     if (argc < 2 || argc > 6)
         die("usage: window_probe TITLE [watch | workspace N | output NAME | sticky 0|1 | "
             "floating 0|1 | above 0|1 | minimize | restore | pid | id | capture [watch] | capture-listed [watch] | "
-            "capture-scaled WIDTH HEIGHT [watch | twice | closed] | peek | icon [watch]]");
+            "capture-scaled WIDTH HEIGHT [watch | twice | closed] | peek | icon [watch] | "
+            "taskbar]");
     const char *title = argv[1], *command = argc > 2 ? argv[2] : "", *argument = argc > 3 ? argv[3] : "";
     struct probe probe = {.watch = !strcmp(command, "watch")};
     struct wl_display *display = wl_display_connect(NULL);
@@ -688,6 +767,10 @@ int main(int argc, char **argv) {
         if (paw_window_control_v1_get_version(probe.control) < 4)
             die("the compositor's window control does not peek");
         peek(&probe, display, title, &window);
+    } else if (!strcmp(command, "taskbar")) {
+        if (paw_window_control_v1_get_version(probe.control) < 7)
+            die("the compositor's window control takes no rectangles");
+        taskbar(&probe, display);
     } else if (!strcmp(command, "icon")) {
         // Below version 5 no icon comes, which the tests check too.
         print_icon(&probe);

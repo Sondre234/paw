@@ -801,6 +801,7 @@ static const struct {
     {"guides", get_guides, false},
     {"snap", get_snap, false},
     {"animations", get_animations, false},
+    {"minimize", describe_minimize, false},
     {"lift", get_lift, false},
     {"stats", get_stats, false},
     {"frame_times", get_frame_times, false},

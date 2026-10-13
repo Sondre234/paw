@@ -282,6 +282,7 @@ struct sh_idle {
 };
 
 struct sh_window_object; // a paw_window_v1 (window_control.c)
+struct sh_window_rect;   // where a client shows a window on an output (minimize.c)
 struct sh_mirror;        // what a mirroring output shows (mirror.c)
 struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c)
 struct sh_crossfade_picture; // what an output showed as it began
@@ -863,7 +864,13 @@ struct sh_toplevel {
     unsigned icon_serial;
     struct wl_listener title_changed, app_id_changed;
     struct wl_listener foreign_activate, foreign_close, foreign_maximize, foreign_minimize;
-    struct wl_listener foreign_fullscreen;
+    struct wl_listener foreign_fullscreen, foreign_rectangle;
+    /* Where clients show the window on each output, its taskbar buttons, the last set first;
+     * a copy of it minimizing into one, while it runs; and what it last minimized into and
+     * restored out of: "button", "panel" or "place" (minimize.c). */
+    struct sh_window_rect *rects;
+    struct sh_anim *minimizing;
+    const char *minimize_target, *restore_target;
     bool fullscreen;
     bool fullscreen_cover; // the client asked for fullscreen itself, so it covers the panels too
     struct wlr_box fullscreen_restore;
@@ -941,6 +948,7 @@ struct sh_toplevel {
     struct sh_gradient_drawn gradient_drawn;
     bool border_gradient; // the focus fade last eased between gradients, not colours
     int frame_hole; // with rounded corners, the width of the frame border[0] draws; else 0
+    int frame_radius; // with rounded corners, the radius border[0] rounds that frame with
     int corner_radius; // of the rounded clip on `content`; 0 while the window is square
     /* The shadow: a tree at the bottom of `content` holding the slices of a shared image, NULL
      * without one; the image, the size of frame and how far the window was lifted (lift.c) they
@@ -1317,6 +1325,17 @@ void server_new_lock(struct wl_listener *listener, void *data);
 void session_active(struct wl_listener *listener, void *data);
 #endif
 void server_new_inhibitor(struct wl_listener *listener, void *data);
+
+/* minimize.c */
+void set_window_rect(struct sh_toplevel *toplevel, const char *output, int64_t x, int64_t y,
+                     int64_t width, int64_t height, struct wl_resource *owner);
+void forget_window_rects(struct sh_toplevel *toplevel);
+void foreign_set_rectangle(struct wl_listener *listener, void *data);
+void minimize_animate(struct sh_toplevel *toplevel);
+void minimize_raise(struct sh_toplevel *toplevel);
+void restore_animate(struct sh_toplevel *toplevel);
+void minimize_forget(struct sh_toplevel *toplevel);
+void describe_minimize(struct sh_server *server, int fd, const char *arguments);
 
 /* mirror.c */
 struct sh_output *mirror_source(struct sh_server *server, struct sh_output *output);
