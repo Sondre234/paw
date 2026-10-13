@@ -509,6 +509,19 @@ void workspace_objects_changed(struct sh_server *server) {
         wl_display_get_event_loop(server->wl_display), send_workspaces, server);
 }
 
+/* A window committed: one that drew itself at another size moves its picture on its workspace,
+ * which, while no output shows the workspace and nothing captures the window, nothing else would
+ * tell the lists of. */
+void workspace_window_committed(struct sh_toplevel *toplevel) {
+    struct wlr_surface *surface = toplevel_surface(toplevel);
+    if (!surface || (surface->current.width == toplevel->committed_width &&
+                     surface->current.height == toplevel->committed_height))
+        return;
+    toplevel->committed_width = surface->current.width;
+    toplevel->committed_height = surface->current.height;
+    workspace_objects_changed(toplevel->server);
+}
+
 /* `get workspace_views`: each paw_workspace_v1 a client holds, as OUTPUT, WORKSPACE (from 1) and
  * how many windows it last listed. */
 void describe_workspace_views(struct sh_server *server, int fd, const char *arguments) {

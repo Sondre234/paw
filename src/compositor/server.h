@@ -793,6 +793,9 @@ struct sh_toplevel {
     struct wlr_ext_foreign_toplevel_handle_v1 *listed;
     struct wlr_scene *capture_scene;
     struct wlr_ext_image_capture_source_v1 *capture_source;
+    /* The size the window's surface last committed at, which the workspaces' lists of windows
+     * follow (window_control.c), whether an output shows it or not. */
+    int committed_width, committed_height;
     /* The icon the window supplies itself, and how many times it has changed, which the window
      * control's objects hold against what they last sent. */
     struct sh_icon icon;
@@ -1525,6 +1528,7 @@ void volume_action(struct sh_server *server, enum sh_action action, int percent)
 void window_objects_changed(struct sh_server *server);
 void window_objects_forget(struct sh_toplevel *toplevel);
 void workspace_objects_changed(struct sh_server *server);
+void workspace_window_committed(struct sh_toplevel *toplevel);
 void describe_workspace_views(struct sh_server *server, int fd, const char *arguments);
 void window_control_init(struct sh_server *server);
 

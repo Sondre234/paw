@@ -496,6 +496,7 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
                                                     decoration_mode(toplevel->decoration));
     } else if (toplevel->xdg_toplevel->base->surface->mapped) {
         uint64_t started = now_ns();
+        workspace_window_committed(toplevel);
         refresh_frame(toplevel);
         ++toplevel->server->stats.commits;
         toplevel->server->stats.commit_ns += now_ns() - started;
