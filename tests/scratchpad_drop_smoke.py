@@ -243,7 +243,7 @@ def top_bar(desktop, top):
             drawn = s.y + d.dy
             if d.box[3] > 1 and drawn < cut:
                 crossing = d
-                assert d.box[:3] == (s.x, cut, s.width), (d, s)
+                assert d.box[:3] == (s.x, cut, s.width) and d.radius == rounded - BORDER, (d, s)
                 assert d.box[1] + d.box[3] == drawn + s.height, (d, s)
             elif drawn >= cut:
                 assert d.box == (s.x, drawn, s.width, s.height), (d, s)
@@ -278,9 +278,22 @@ def monitor_above(clipped):
         msg("scratchpad_show")
         s, d = window(), drop()
         assert d.drop == "in" and d.edge == "top", d
-        if clipped and corner(desktop):
+        rounded = corner(desktop)
+        if clipped and rounded:
             # The whole way, from wholly above the monitor's top: well past where it would stop.
             assert top == 720 and d.cut == top and d.dy < top - (s.y - BORDER) - 100, (d, s)
+            # No bar hides the cut, so crossing it, it is cut square, its border's rounded rect
+            # left out, rather than show rounded corners and a border along the monitor's edge.
+            crossing = None
+            while (d := drop()).drop == "in":
+                drawn = s.y + d.dy
+                if d.box[3] > 1 and drawn < top:
+                    crossing = d
+                    assert d.box[1] == top and d.radius == 0 and d.ring[2:] == (0, 0), (d, s)
+                elif drawn - BORDER >= top:
+                    assert d.radius == rounded - BORDER and \
+                        d.ring[2:] == (s.width + 2 * BORDER, s.height + 2 * BORDER), (d, s)
+            assert crossing, "seen crossing the cut"
         else:
             assert top == 720 and d.cut is None and top - (s.y - BORDER) <= d.dy < 0, (d, s)
         desktop.wait_for(lambda: settled() and drop().dy == 0, "in place")
