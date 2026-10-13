@@ -620,7 +620,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(taskbar_restore_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe>)
         paw_smoke(minimize_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe>)
+            $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(tiling_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
         paw_smoke(tiling_open_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})

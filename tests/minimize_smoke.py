@@ -15,7 +15,8 @@ import sys
 
 import harness
 
-compositor, probe, window_probe, lock_probe = (str(Path(p).resolve()) for p in sys.argv[1:5])
+compositor, probe, window_probe, lock_probe, pointer_probe = (str(Path(p).resolve())
+                                                              for p in sys.argv[1:6])
 
 # HEADLESS-2, right of HEADLESS-1, is scaled: 640 by 360 logical pixels. Minimizing takes 900 ms
 # along a straight line in time, long enough to look at it on its way.
@@ -199,6 +200,10 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     wait_for(lambda: peek_at_a() == (False, True, 0), "the taskbar's peek over")
     taskbar("minimize", "A")
     wait_for(settled, "A minimized for the switcher")
+    # With the pointer off where A comes back, confirming takes the pointer there, which lands
+    # what glides but not A growing out of its button.
+    pointer = desktop.virtual_pointer(pointer_probe, 1920, 720)
+    pointer("move", "1000", "600")
     switcher_opened()
     msg("switcher_confirm")
     assert [kind for _, kind in folds()] == ["restore"], folds()
