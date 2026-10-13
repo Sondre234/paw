@@ -71,16 +71,23 @@ static void apply_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which) {
     if (wish->set)
         box = (struct sh_drop_box){x + wish->box.x, y + wish->box.y, wish->box.width,
                                    wish->box.height};
+    struct sh_drop_box whole = box;
     struct wlr_box clip = {-FAR, -FAR, 1, 1}; // all of it past the cut
-    if (sh_drop_cut(&toplevel->drop.plan, &box))
+    int radius = wish->radius;
+    if (sh_drop_cut(&toplevel->drop.plan, &box)) {
         clip = (struct wlr_box){box.x - x, box.y - y, box.width, box.height};
-    wlr_scene_tree_set_rounded_clip(tree, &clip, wish->radius);
+        // Rounded corners along a cut no bar hides would show there: crossing it, it is square.
+        if (toplevel->drop.plan.square && memcmp(&box, &whole, sizeof(box)))
+            radius = 0;
+    }
+    wlr_scene_tree_set_rounded_clip(tree, &clip, radius);
     if (which == SH_CLIP_CONTENT)
-        toplevel->content_clip = (struct sh_clip_wish){true, clip, wish->radius};
+        toplevel->content_clip = (struct sh_clip_wish){true, clip, radius};
 }
 
 /* The border's rounded rect (`frame_hole`), cut short of the cut by its own size while a drop
- * runs: a size frame.c gave it since the drop last cut it is where it rests. */
+ * runs: a size frame.c gave it since the drop last cut it is where it rests. Crossing a cut no bar
+ * hides, it would draw a line along it and round its corners there, so it is left out. */
 static void cut_ring(struct sh_toplevel *toplevel) {
     struct sh_drop *drop = &toplevel->drop;
     struct wlr_scene_rect *ring = toplevel->frame_hole > 0 ? toplevel->border[0] : NULL;
@@ -96,9 +103,10 @@ static void cut_ring(struct sh_toplevel *toplevel) {
     if (drop->ring) {
         int x, y;
         wlr_scene_node_coords(&toplevel->content->node, &x, &y);
-        struct sh_drop_box box = {x + set.x, y + set.y, set.width, set.height};
+        struct sh_drop_box box = {x + set.x, y + set.y, set.width, set.height}, whole = box;
         set = (struct wlr_box){set.x, set.y, 0, 0};
-        if (sh_drop_cut(&drop->plan, &box))
+        if (sh_drop_cut(&drop->plan, &box) &&
+            !(drop->plan.square && memcmp(&box, &whole, sizeof(box))))
             set = (struct wlr_box){box.x - x, box.y - y, box.width, box.height};
     }
     drop->ring_set = set;
