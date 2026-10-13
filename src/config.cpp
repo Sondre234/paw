@@ -406,6 +406,97 @@ void read_switch_binding(lua_State *L, Binding &binding) {
         unknown("switch", name, {"lid", "tablet"}, "switch");
     }
 }
+// shell.tiling_bar: false, true, or the bar's table on top of the stack.
+void read_tiling_bar(lua_State *L, TilingBar &bar) {
+    lua_getfield(L, -1, "tiling_bar");
+    if (lua_isboolean(L, -1) || lua_isnil(L, -1)) {
+        if (lua_isboolean(L, -1))
+            bar.enabled = lua_toboolean(L, -1);
+        lua_pop(L, 1);
+        return;
+    }
+    if (!lua_istable(L, -1))
+        wrong_type(L, "tiling_bar", "true, false or a table");
+    keys(L, -1, "shell.tiling_bar");
+    Named in("shell.tiling_bar");
+    boolean(L, "enabled", "shell.tiling_bar.enabled", bar.enabled);
+    named(L, "position", nullptr, bar.top, {{"top", true}, {"bottom", false}},
+          "shell.tiling_bar.position must be \"top\" or \"bottom\"", "position");
+    bar.height = integer(L, "height", bar.height, 20, 100);
+    // One number for every side, or { top, right, bottom, left } by name, the sides left out 0;
+    // unset, away from the monitor's edges but not towards the windows.
+    lua_getfield(L, -1, "margin");
+    if (lua_isinteger(L, -1)) {
+        auto margin = lua_tointeger(L, -1);
+        if (margin < 0 || margin > 200)
+            out_of_range("margin", static_cast<double>(margin), 0, 200);
+        for (auto &side : bar.margin)
+            side = static_cast<int>(margin);
+    } else if (!lua_isnil(L, -1)) {
+        table(L, -1, "shell.tiling_bar.margin");
+        keys(L, -1, "shell.tiling_bar.margin");
+        Named margin("shell.tiling_bar.margin");
+        int index = 0;
+        for (const char *side : {"top", "right", "bottom", "left"})
+            bar.margin[index++] = integer(L, side, 0, 0, 200);
+    } else if (!bar.top) {
+        std::swap(bar.margin[0], bar.margin[2]);
+    }
+    lua_pop(L, 1);
+    bar.radius = integer(L, "radius", bar.radius, 0, 50);
+    named(L, "style", nullptr, bar.style,
+          {{"bar", TilingBarStyle::Bar}, {"islands", TilingBarStyle::Islands},
+           {"pills", TilingBarStyle::Pills}},
+          "shell.tiling_bar.style must be \"bar\", \"islands\" or \"pills\"", "style");
+    for (auto [key, target] : {std::pair{"color", &bar.color},
+                               {"text_color", &bar.text_color},
+                               {"accent", &bar.accent},
+                               {"border_color", &bar.border_color}}) {
+        if (auto value = text(L, key)) {
+            if (!is_color(*value, true))
+                fail("shell.tiling_bar." + std::string(key) + " must be #RRGGBB or #RRGGBBAA", key);
+            *target = *value;
+        }
+    }
+    bar.border_width = integer(L, "border_width", bar.border_width, 0, 10);
+    if (auto font = text(L, "font"))
+        bar.font = *font;
+    bar.font_size = integer(L, "font_size", bar.font_size, 6, 48);
+    bar.spacing = integer(L, "spacing", bar.spacing, 0, 40);
+    named(L, "workspace_style", nullptr, bar.workspace_dots, {{"numbers", false}, {"dots", true}},
+          "shell.tiling_bar.workspace_style must be \"numbers\" or \"dots\"", "workspace_style");
+    if (auto format = text(L, "clock_format")) {
+        if (format->empty() || format->size() > 64)
+            fail("shell.tiling_bar.clock_format must have 1 to 64 bytes", "clock_format");
+        bar.clock_format = *format;
+    }
+    // A table of them lays out the whole bar: a group it leaves out is empty.
+    if (Section modules{L, "modules", "shell.tiling_bar.modules"}) {
+        const auto &known = tiling_bar_modules();
+        for (auto [key, target] :
+             {std::pair{"left", &bar.left}, {"center", &bar.center}, {"right", &bar.right}}) {
+            target->clear();
+            lua_getfield(L, -1, key);
+            if (!lua_isnil(L, -1)) {
+                auto label = "shell.tiling_bar.modules." + std::string(key);
+                *target = strings(L, 16, label.c_str());
+                for (const auto &module : *target)
+                    if (std::find(known.begin(), known.end(), module) == known.end())
+                        unknown("module", module, known, key, label);
+            }
+            lua_pop(L, 1);
+        }
+        // One place along the bar for each.
+        std::vector<std::string> seen;
+        for (const auto *group : {&bar.left, &bar.center, &bar.right})
+            for (const auto &module : *group) {
+                if (std::find(seen.begin(), seen.end(), module) != seen.end())
+                    fail("shell.tiling_bar.modules names '" + module + "' twice", module);
+                seen.push_back(module);
+            }
+    }
+    lua_pop(L, 1);
+}
 void read_shell(lua_State *L, ShellConfig &shell) {
     Section section(L, "shell");
     if (!section)
@@ -517,6 +608,7 @@ void read_shell(lua_State *L, ShellConfig &shell) {
                                           {"notifications", &shell.widgets.notifications, WidgetPlace::Quick}})
             placement(L, key, (std::string("shell.widgets.") + key).c_str(), place, *target);
     }
+    read_tiling_bar(L, shell.tiling_bar);
     for (auto [key, target] : {std::pair{"accent", &shell.accent},
                                {"panel_color", &shell.panel_color},
                                {"text_color", &shell.text_color},
@@ -1887,6 +1979,14 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"media_stop", SH_MEDIA_STOP},
 };
 } // namespace
+
+const std::vector<std::string> &tiling_bar_modules() {
+    static const std::vector<std::string> modules{
+        "launcher", "workspaces", "layout",        "mode",           "window",   "clock",
+        "tray",     "keyboard",   "network",       "volume",         "battery",  "notifications",
+        "tiling",   "profiles",   "wallpapers",    "quick_settings", "power"};
+    return modules;
+}
 
 std::vector<std::string> config_action_names() {
     std::vector<std::string> names;

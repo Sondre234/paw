@@ -450,6 +450,31 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `shell.widgets.media` | boolean | true | - | The now-playing card at the top of Quick Settings: the cover, title and artist of the media player playing most lately (MPRIS), with previous, play or pause, next and the position; shown while a player is there. |
 | `shell.widgets.power_mode` | boolean | true | - | The power mode tile in Quick Settings: Power saver, Balanced or Performance, through power-profiles-daemon; shown while the daemon runs. |
 | `shell.widgets.bluetooth` | boolean | true | - | The Bluetooth tile in Quick Settings, through BlueZ: it turns the adapter on and off, and lists the paired devices to connect and those in range to pair with; shown while BlueZ has an adapter. |
+| `shell.tiling_bar` | boolean or table | true | - | A bar in Hyprland's style, as Waybar draws it, in place of the taskbar (or the macOS style's dock and menu bar) on a monitor while it tiles: its workspaces, tiling layout, the focused window's title, the clock and the system's state, in modules laid out and coloured as this table says. It gives way to the taskbar again as tiling is turned off. `false` keeps the taskbar whether the monitor tiles or not. |
+| `shell.tiling_bar.enabled` | boolean | true | - | Show the bar while tiling; `false` is `tiling_bar = false`, the table kept. |
+| `shell.tiling_bar.position` | enum | "top" | - | The monitor's edge it is along: `"top"` or `"bottom"`, whatever `panel_position` says for the taskbar. |
+| `shell.tiling_bar.height` | integer | 34 | 20 to 100 | Height in pixels. |
+| `shell.tiling_bar.margin` | integer or table | unset | - | Pixels around the bar, 0 to 200: one number, or `{ top, right, bottom, left }` by name, the sides left out 0. Unset, 6 from the monitor's edge and 8 from its sides, and none towards the windows, whose tiling keeps `layout.gap_outer` from it. |
+| `shell.tiling_bar.margin.top` | integer | 0 | 0 to 200 | Top margin. |
+| `shell.tiling_bar.margin.right` | integer | 0 | 0 to 200 | Right margin. |
+| `shell.tiling_bar.margin.bottom` | integer | 0 | 0 to 200 | Bottom margin. |
+| `shell.tiling_bar.margin.left` | integer | 0 | 0 to 200 | Left margin. |
+| `shell.tiling_bar.radius` | integer | 10 | 0 to 50 | Corner radius of the bar, or of each island or pill. |
+| `shell.tiling_bar.style` | enum | "bar" | - | `"bar"`, one bar across; `"islands"`, the left, center and right modules each on a pill of their own with the wallpaper between them; `"pills"`, every module on its own. |
+| `shell.tiling_bar.color` | color | unset | - | The bar's colour (each island's or pill's); unset uses `shell.panel_color`. `#RRGGBBAA` makes it translucent, `"#00000000"` leaves only the modules. |
+| `shell.tiling_bar.text_color` | color | unset | - | Text and icon colour; unset uses `shell.text_color`. |
+| `shell.tiling_bar.accent` | color | unset | - | The current workspace's, and what is on; unset uses `shell.accent`. |
+| `shell.tiling_bar.border_width` | integer | 0 | 0 to 10 | Outline in pixels around the bar (each island or pill). |
+| `shell.tiling_bar.border_color` | color | unset | - | The outline's colour; unset uses the accent. |
+| `shell.tiling_bar.font` | string | unset | - | Font family; unset uses `shell.font`. |
+| `shell.tiling_bar.font_size` | integer | unset | 6 to 48 | Text size in pixels; unset uses `shell.font_size`. |
+| `shell.tiling_bar.spacing` | integer | 4 | 0 to 40 | Pixels between modules (twice that between pills). |
+| `shell.tiling_bar.workspace_style` | enum | "numbers" | - | `"numbers"`: each workspace's number, or its name from `layout.workspace_names`, the current one on a pill in the accent colour; `"dots"`: a dot for each, the current one drawn long, those with windows brighter. |
+| `shell.tiling_bar.clock_format` | string | "HH:mm" | - | The clock's text, in Qt's date and time format (`HH:mm:ss`, `h:mm AP`, `dddd d MMMM`), 1 to 64 bytes. |
+| `shell.tiling_bar.modules` | table | - | - | What the bar shows, in three groups: `left` from its left end, `center` in its middle and `right` up to its right end, each a list of at most 16 modules, none named twice; a group the table leaves out is empty. The modules: `launcher` (the start menu), `workspaces`, `layout` (the tiling layout; a click steps to the next), `mode` (the binding mode, while it is not the default), `window` (the focused window's title), `clock` (its flyout with the calendar and notifications), `tray`, `keyboard` (the layout, while there are two or more), `network`, `volume`, `battery`, `notifications` (the unread count and do-not-disturb), `tiling` (back to floating windows), `profiles`, `wallpapers`, `quick_settings` and `power` (the power menu). |
+| `shell.tiling_bar.modules.left` | list of strings | launcher, workspaces, layout, mode | - | The modules from the bar's left end; the default is that of a bar without `modules`. |
+| `shell.tiling_bar.modules.center` | list of strings | window | - | The modules in the bar's middle. |
+| `shell.tiling_bar.modules.right` | list of strings | tray, keyboard, network, volume, battery, tiling, quick_settings, clock, power | - | The modules up to the bar's right end, the last nearest it. |
 | `shell.launchers` | list of tables | unset | - | Pinned commands for programs without a desktop file, at most 64. |
 | `shell.launchers[].name` | string | - | - | Label, 1 to 128 bytes. Required. |
 | `shell.launchers[].icon` | string | "application-x-executable" | - | Icon theme name. |

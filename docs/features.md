@@ -10,7 +10,8 @@ and every Lua setting, with its type, default and range, is in the
 [the macOS style](#the-macos-style), where the shipped configuration starts, or a taskbar with its
 [start menu](#start-menu) (`shell.style = "taskbar"`, the profiles `default` and `light`). Both
 have [Quick Settings](#quick-settings), the [clock's flyout](#clock-and-calendar) and the
-[system tray](#system-tray), and the shell draws the overlays the compositor asks for: the
+[system tray](#system-tray). While a monitor [tiles](#tiling), its bars give way to the
+[tiling bar](#the-tiling-bar), a bar in Hyprland's style. The shell draws the overlays the compositor asks for: the
 [window switcher](#window-switcher), the [overview](#overview)'s text, the
 [command palette](#command-palette), the [power](#power) dialog, and the
 [notification cards and on-screen display](#notifications-and-on-screen-display). The desktop
@@ -70,6 +71,74 @@ The shipped macOS profiles also give windows macOS's controls and shadows
 the left (`windows.buttons`, read as paw starts). They name the Inter font, the closest free
 match for macOS's; without it the default sans-serif stands in. Switching to or from a macOS
 profile re-lays the shell out at once.
+
+### The tiling bar
+
+While a monitor [tiles](#tiling), its taskbar (or the macOS style's dock and menu bar) gives way to
+the tiling bar, a bar in Hyprland's style as Waybar draws it: thin, floating along the top, with
+the workspaces at the left, the focused window's title in the middle and the system's state at
+the right. Turning tiling off brings the taskbar back at once; with
+`layout.tiling_per_workspace`, the bar follows the workspace shown. The windows tile in the room it
+leaves, and its popups are the taskbar's: the start menu, Quick Settings, the clock's flyout with
+the calendar and the notifications, the volume's, the Wi-Fi networks, the tray's menus, the
+appearance profiles and the wallpapers, each opening by its module, and a right click beside the
+modules opens the bar's menu (tiling off, the start menu, show desktop, the profiles). The wheel
+on the bar pages through the workspaces.
+
+Everything about it is set in `shell.tiling_bar`, unset values following the shell's own
+(`panel_color`, `text_color`, `accent`, `font`, `font_size`), so it takes an appearance profile's
+colours by itself; `shell.tiling_bar = false` keeps the taskbar while tiling. The modules stand in
+three groups, `left`, `center` and `right`; a `modules` table lays out the whole bar, a group it
+leaves out being empty:
+
+| Module | What it shows, and does |
+| --- | --- |
+| `launcher` | The start menu (Launchpad in the macOS style), as `shell.start_icon`, else a grid in the accent colour. |
+| `workspaces` | The monitor's workspaces (`shell.workspaces_shown` of them), the current one on a pill in the accent colour (`workspace_style = "numbers"`, their names from `layout.workspace_names`) or drawn long (`"dots"`); a click shows one. |
+| `layout` | The [tiling layout](#tiling-layouts) of the workspace shown: a click steps to the next, a right click to the one before, the wheel either way. |
+| `mode` | The [binding mode](#binding-modes), while it is not the default one; a click leaves it. |
+| `window` | The focused window's title, cut short past a third of the bar. |
+| `clock` | The time, in `clock_format` (Qt's format: `HH:mm`, `ddd d MMM  HH:mm`, `h:mm:ss AP`); a click opens the calendar and the notifications below it, a right click toggles do-not-disturb. |
+| `tray` | The [system tray](#system-tray), while it has icons. |
+| `keyboard` | The [keyboard layout](#keyboard-layouts), while there are two or more; a click switches. |
+| `network` | Wi-Fi, a wired link or none; a click lists the [Wi-Fi](#wi-fi) networks. |
+| `volume` | The volume: a click shows each application's, a right click the outputs, a middle click mutes, the wheel turns it. |
+| `battery` | The charge, only where there is a battery. |
+| `notifications` | A bell with the unread count; a click opens them, a right click toggles do-not-disturb. |
+| `tiling` | Tiling, which a click turns off. |
+| `profiles`, `wallpapers` | The [appearance profiles](#appearance-profiles) (with two or more) and the wallpaper picker. |
+| `quick_settings` | [Quick Settings](#quick-settings). |
+| `power` | The [power](#power) menu by it. |
+
+```lua
+shell = {
+    tiling_bar = {
+        position = "top",         -- or "bottom"
+        height = 34,              -- 20 to 100
+        margin = { top = 6, right = 8, bottom = 0, left = 8 }, -- or one number all round
+        radius = 10,
+        style = "islands",        -- "bar": one bar; "islands": a pill for each group; "pills": one each
+        color = "#1e1e2ecc",      -- unset: shell.panel_color
+        text_color = "#cdd6f4",   -- unset: shell.text_color
+        accent = "#f5c2e7",       -- unset: shell.accent
+        border_width = 2,
+        border_color = "#89b4fa", -- unset: the accent
+        font = "JetBrainsMono Nerd Font", font_size = 13,
+        spacing = 4,
+        workspace_style = "dots", -- or "numbers"
+        clock_format = "ddd d MMM  HH:mm",
+        modules = {
+            left = { "workspaces", "layout", "mode", "window" },
+            center = { "clock" },
+            right = { "tray", "network", "volume", "battery", "power" },
+        },
+    },
+}
+```
+
+The taskbar is kept, hidden, while the tiling bar shows, so that the bars switch at once. The
+keyboard on the bar (Super + B) walks the taskbar alone, and does nothing while the tiling bar
+shows.
 
 ### Taskbar
 
@@ -1224,7 +1293,9 @@ off, and a reload that sets it returns sticky windows to their monitor's current
 ## Tiling
 
 Tiling is a setting of each monitor. The tiling button on a monitor's panel (next to the
-clock) switches that monitor between floating windows and automatic tiling; Super + S
+clock) switches that monitor between floating windows and automatic tiling, and while it tiles
+the panel is the [tiling bar](#the-tiling-bar) (`shell.tiling_bar = false` keeps the taskbar);
+Super + S
 or `paw msg toggle_tiling` switches the focused monitor, and
 `paw msg output HDMI-A-1 toggle_tiling` a named one. Lua `layout.tiling = true` starts
 every monitor tiled, and `tiling` in a monitor's `outputs.monitors` entry overrides it:
@@ -2526,7 +2597,9 @@ tablet's tools are doing (see [Touchpad gestures](#touchpad-gestures),
 each monitor's frames do (see [Tearing](#tearing)). A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
 `workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
-(as in `get workspaces`), one `touched NAME EDGES` line per monitor with the edges of its free
+(as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of
+the workspace it shows (`dwindle`, `master`, `spiral`, `monocle` or `scroll`, as in
+`get layout NAME`), one `touched NAME EDGES` line per monitor with the edges of its free
 area a window shown there reaches (`top,left`, or `-`; a floating bar docks along them), and `keyboard-layout N COUNT SHORT NAME` (the active
 [keyboard layout](#keyboard-layouts), from 1, of how many, as in `get keyboard`) after every
 change, plus `launcher OUTPUT` when the `launcher` action

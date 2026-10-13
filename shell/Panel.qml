@@ -213,19 +213,25 @@ Item {
     onGroupOpenChanged: if (!groupOpen && barKeys.active && !barKeys.menuOpened) barKeys.window = -1
     // The bars the style has: the taskbar (Taskbar.qml), or in the macOS style the dock
     // (Dock.qml) in the panel's surface and the menu bar (TopMenuBar.qml) in a surface of its own
-    // along the output's top edge.
-    readonly property bool macos: Theme.macos
-    readonly property Item taskbar: taskbarLoader.item
-    readonly property Item dock: dockLoader.item
-    readonly property Item menuBar: menuBarLoader.item
+    // along the output's top edge. While the output tiles, the tiling bar (TilingBar.qml,
+    // shell.tiling_bar) stands in for them in the panel's surface, along its own edge, and
+    // `macos` is false: the popups are placed as on the taskbar, drawn in the style's own way.
+    // The style's bars are kept meanwhile, hidden and null here, so that tiling turned on and off
+    // (or workspaces that tile and those that do not) switch bars at once.
+    readonly property bool tilingBarShown: shell.tilingBar.enabled && tiling
+    readonly property bool macos: Theme.macos && !tilingBarShown
+    readonly property Item taskbar: tilingBarShown ? null : taskbarLoader.item
+    readonly property Item dock: tilingBarShown ? null : dockLoader.item
+    readonly property Item tilingBar: tilingBarLoader.item
+    readonly property Item menuBar: tilingBarShown ? null : menuBarLoader.item
     readonly property MenuBarWindow menuBarWindow: menuBarWindow
     // The bar along the panel's edge, which its popups open by; the panel itself while it is
     // being made.
-    readonly property Item bar: taskbar ? taskbar.barItem : dock ? dock.barItem : root
+    readonly property Item bar: taskbar ? taskbar.barItem : dock ? dock.barItem : tilingBar ? tilingBar.barItem : root
     // The bar with the status widgets (the clock, Quick Settings, the tray, ...), whose popups
     // open by it, and the part that holds them and names the buttons they open by.
     readonly property Item statusBar: macos ? menuBar || root : bar
-    readonly property Item statusArea: macos ? menuBar : taskbar
+    readonly property Item statusArea: macos ? menuBar : taskbar || tilingBar
     // The surface the popups are drawn in, and the bar's top and left edges in its coordinates:
     // the bar's surface lies along its edge `edge`, across its width or along a side its height,
     // where it begins at surfaceLeft, surfaceTop.
@@ -246,7 +252,8 @@ Item {
     function lengthAlong(item) { return vertical ? item.height : item.width }
     // Where the bar's buttons begin, past the start button's inset, and where its widgets end,
     // which the start menu and the clock's and Quick Settings' cards line up with.
-    readonly property real barStart: Theme.spacingL + (vertical ? shell.panelMarginTop : shell.panelMarginLeft)
+    readonly property real barStart: tilingBarShown ? shell.tilingBar.marginLeft
+        : Theme.spacingL + (vertical ? shell.panelMarginTop : shell.panelMarginLeft)
     readonly property real barEnd: vertical ? barTop + bar.height : statusBar.x + statusBar.width
     // The menu bar's strip along the output's top edge, none without one.
     readonly property real menuBarHeight: macos ? Theme.menuBarHeight : 0
@@ -258,6 +265,12 @@ Item {
     readonly property int popupSide: macos ? Qt.BottomEdge
         : edge === "top" ? Qt.BottomEdge : edge === "left" ? Qt.RightEdge : edge === "right" ? Qt.LeftEdge : Qt.TopEdge
     function barAnchor(along, length) { return macos ? Qt.rect(along, 0, length, menuBarHeight) : dockAnchor(along, length) }
+    // Where Quick Settings and the clock's flyout open: lined up with the bar's right end, as on
+    // Windows; on the tiling bar, whose modules may stand anywhere along it, centred on the one
+    // opening them.
+    readonly property rect flyoutAnchor: tilingBarShown ? barAnchor(audioPopupX - audioPopupWidth / 2, audioPopupWidth)
+                                                        : barAnchor(barEnd, 0)
+    readonly property int flyoutAlignment: tilingBarShown ? Qt.AlignHCenter : Qt.AlignRight
     readonly property int dockSide: macos ? Qt.TopEdge : popupSide
     function dockAnchor(along, length) {
         return vertical ? Qt.rect(barLeft, along, bar.width, length) : Qt.rect(along, barTop, length, bar.height)
@@ -287,7 +300,7 @@ Item {
     // Launchpad covers both bars, and takes every press.
     readonly property var popoverInput: {
         if (!macos)
-            return [popupArea]
+            return launcherOpen && Theme.macos ? [Qt.rect(0, 0, popover.width, popover.height)] : [popupArea]
         var top = menuBarHeight, w = popover.width, h = popover.height
         if (launcherOpen)
             return [Qt.rect(0, 0, w, h)]
@@ -311,8 +324,10 @@ Item {
         launcherOpen = false; taskMenuId = -1; pinMenuApp = null; barMenuOpen = false; audioPopup = ""; groupOpen = false; trayMenuKey = ""; menuBarMenu = ""
         barKeys.leave()
     }
-    // A change of style lays the panel out anew: what was open belonged to bars that are gone.
+    // A change of style lays the panel out anew: what was open belonged to bars that are gone. So
+    // does the tiling bar coming or going.
     onMacosChanged: closeMenus()
+    onTilingBarShownChanged: closeMenus()
     // A stacked button hovered for a moment, or at once while another's list is open, shows its
     // windows; leaving both it and the list hides them again. With thumbnails any window's button
     // does, after shell.thumbnailDelay. Pressing the button hides them until the pointer comes
@@ -919,10 +934,11 @@ Item {
         return state && state.tiling !== undefined ? state.tiling : shell.tiling
     }
     // The output's edge the bar is along (shell.panelEdge; the dock is at the bottom whatever
-    // shell.panel_position says), and whether that is a side, where the bar stands upright and
-    // things on it are placed by their y rather than their x.
-    readonly property string edge: shell.panelEdge
-    readonly property bool vertical: shell.panelVertical
+    // shell.panel_position says, and the tiling bar where shell.tiling_bar says), and whether
+    // that is a side, where the bar stands upright and things on it are placed by their y rather
+    // than their x.
+    readonly property string edge: tilingBarShown ? (shell.tilingBar.top ? "top" : "bottom") : shell.panelEdge
+    readonly property bool vertical: !tilingBarShown && shell.panelVertical
     readonly property bool onTop: edge === "top"
     // Taskbar buttons show only the window's icon, its title as a tooltip: with shell.iconsOnly,
     // and always down a side, where no title fits.
@@ -1134,6 +1150,24 @@ Item {
                 sourceComponent: Component { WindowThumbnails { panel: root } }
             }
 
+            // The tiling bar's power module: the power menu by it.
+            PopupLoader {
+                wanted: root.audioPopup === "power"
+                sourceComponent: Component {
+                    PowerMenu {
+                        objectName: "barPowerMenu"
+                        panel: root
+                        parent: root.popupLayer
+                        open: root.audioPopup === "power"
+                        anchorRect: root.barAnchor(root.audioPopupX - root.audioPopupWidth / 2, root.audioPopupWidth)
+                        side: root.popupSide
+                        alignment: Qt.AlignRight
+                        bounds: root.popupArea
+                        onDismissed: root.audioPopup = ""
+                    }
+                }
+            }
+
             // The Quick Settings button: tiles, the volume and brightness, the battery.
             PopupLoader {
                 id: quickSettingsLoader
@@ -1169,18 +1203,27 @@ Item {
         }
     }
 
-    // The taskbar along the panel's edge, or the dock, as the style has it.
+    // The taskbar along the panel's edge, or the dock, as the style has it, hidden while the
+    // tiling bar stands in for them as the output tiles.
     Loader {
         id: taskbarLoader
         anchors.fill: parent
-        active: !root.macos
+        active: !Theme.macos
+        visible: !root.tilingBarShown
         sourceComponent: Component { Taskbar { panel: root } }
     }
     Loader {
         id: dockLoader
         anchors.fill: parent
-        active: root.macos
+        active: Theme.macos
+        visible: !root.tilingBarShown
         sourceComponent: Component { Dock { panel: root } }
+    }
+    Loader {
+        id: tilingBarLoader
+        anchors.fill: parent
+        active: root.tilingBarShown
+        sourceComponent: Component { TilingBar { panel: root } }
     }
     // The pointer moving over the bar hands it back from the keyboard (barKeys), as a press on it
     // does, which goes on to what is under it.
@@ -1207,9 +1250,17 @@ Item {
         target: root.shellView
         property: "inputRects"
         value: root.dock ? [root.dock.area]
-             : shell.panelHeadroom <= 0 ? []
+             : root.tilingBarShown || shell.panelHeadroom <= 0 ? []
              : root.vertical ? [Qt.rect(root.edge === "left" ? 0 : shell.panelHeadroom, 0, shell.panelExtent, root.height)]
              : [Qt.rect(0, root.onTop ? 0 : shell.panelHeadroom, root.width, shell.panelExtent)]
+    }
+
+    // The surface lies along the tiling bar's edge, as tall as the strip it reserves, while it
+    // shows.
+    Binding {
+        target: root.shellView
+        property: "tilingBar"
+        value: root.tilingBarShown
     }
 
     // The menu bar of the macOS style, along the output's top edge in a surface of its own
@@ -1222,7 +1273,7 @@ Item {
         Loader {
             id: menuBarLoader
             anchors.fill: parent
-            active: root.macos
+            active: Theme.macos
             sourceComponent: Component { TopMenuBar { panel: root } }
         }
     }
