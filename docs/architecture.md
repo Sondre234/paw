@@ -285,6 +285,37 @@ outside the slot to the rest of the compositor, closes at once, and puts the win
 the slot. It announces itself as `overview-assist` rather than `overview`; the shell's
 `OverviewView` draws both, and takes no input for either.
 
+### Moving a window with the pointer
+
+`grab.c` follows the move; `lift.c` and `tile_drop.c` add to it. The lift is the animator's
+(`sh_anim_lift`, `src/animation.c`): a window's `sh_anim` holds how far up it is (`lift`, easing
+as a glide does, keeping its velocity as it turns), the scale and the point it grows about, and
+its bounds, the window's geometry. Every walk of its nodes, the opening animation's and a
+gesture's hold too, draws them through the lift on top: what is inside the bounds scaled to the
+bounds drawn larger, their edges on whole pixels, and what is outside (the border's hollow rect,
+the shadow's slices, a client's own frame) moved with the nearest edge at its own size, so that a
+border meets the window to the pixel. A lifted window sits in the animator's `lifted` list, whose
+lifts every frame draws again (a client's commit puts its nodes back) apart from the running
+animations: neither the timer nor a late frame touches one that is up, and it costs nothing while
+nothing is drawn. Lookups put it at rest as they do running animations. Its `update`, on each
+frame it moves, is `refresh_frame`, which draws the shadow as `sh_shadow_lift` (`src/shadow.c`)
+says: a cast shadow's slices stretched away from the window (`sh_shadow_slices_scaled`, the
+image's cut-out a pixel under the window, where sampling between pixels would otherwise show a
+light seam), a printed one's image painted further off in whole pixels; and `window_clip` lays the
+rounded clips of the window, its shadow and its gradient border over the box drawn, since wlroots'
+clips take no part in the scaling.
+
+A tile moved with the pointer stays a leaf of its tree (`tile_drop_lift` takes it out of the
+tiling but for that), which `place_tiled` passes over (`tile_drop_place`, noting its rect for the
+snap preview, `tile_drop_slot`). `sh_tiling_drop_target` (`src/tiling.cpp`) says where a drop at
+a point would put it, found in the arrangement without it (taken out and put back exactly, its
+boxes too). `tile_drop_follow` waits `DROP_DWELL_MS` with the pointer on one such place before
+`sh_tiling_drop` moves the window there and the outputs reflow, so that clients are configured
+only as a place opens. `tile_drop_release` makes the move at once as the window is dropped, or
+takes it out of a tiling the drop does not put it in, before `finish_grab` tiles it
+(`tile_toplevel_at` finds it in the tree already) or snaps it; `tile_drop_end`, from
+`reset_cursor_mode`, takes a window still holding a place out of its tiling.
+
 ### Monitors turned off
 
 An output in `outputs` (the layout) may be `powered_off` (`output_power.c`): its `wlr_output` is
