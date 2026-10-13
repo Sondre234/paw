@@ -672,6 +672,53 @@ static void test_lift_bounds(void) {
     teardown(&rig);
 }
 
+/* A gesture holding or sliding a window lets its lift go on over it; finishing the window's
+ * animations ends the lift and tells its owner, so that what follows the lift rests too. */
+static void test_lift_through_gestures(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    lift_updates = 0;
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, count_lift, NULL);
+    for (int i = 0; i < 6; ++i)
+        advance(&rig, 20);
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 10, 20, count_lift, NULL);
+    advance(&rig, 20);
+    int settling = rig.rect->width;
+    CHECK(settling > 200 && settling < 220, "settling: %d", settling);
+    // Gliding as it settles, as a dropped tile does into its place, a swipe holds it part of the
+    // way: the glide lands, and it settles on under the hold and tells its owner.
+    sh_anim_glide(rig.animator, &rig.anim, rig.content, 40, 0);
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -30, 0, 0.5F);
+    CHECK(sh_animator_lifted(rig.animator) == 1 && rig.content->node.x == -30 &&
+              rig.rect->width == settling,
+          "the lift goes on under the hold: %zu, %d", sh_animator_lifted(rig.animator),
+          rig.rect->width);
+    int updates = lift_updates;
+    for (int i = 0; i < 9; ++i)
+        advance(&rig, 20);
+    CHECK(sh_animator_lifted(rig.animator) == 0 && rig.rect->width == 200 &&
+              rig.content->node.x == -30 && lift_updates > updates,
+          "settled under the hold, its owner told: %d, %d updates", rig.rect->width,
+          lift_updates - updates);
+    // Slid on from a hold, a lift going up goes on too.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 10, 20, count_lift, NULL);
+    advance(&rig, 20);
+    sh_anim_slide_from(rig.animator, &rig.anim, rig.content, -30, 0, 0.5F, 1);
+    CHECK(sh_animator_lifted(rig.animator) == 1 && rig.rect->width > 200,
+          "the lift goes on over the slide: %d", rig.rect->width);
+    for (int i = 0; i < 12; ++i)
+        advance(&rig, 20);
+    CHECK(rig.rect->width == 220 && rig.content->node.x == 0, "slid home, lifted: %d at %d",
+          rig.rect->width, rig.content->node.x);
+    // Finished, the lift ends, and its owner hears of it.
+    updates = lift_updates;
+    sh_anim_finish(&rig.anim);
+    CHECK(rig.rect->width == 200 && sh_animator_lifted(rig.animator) == 0 &&
+              lift_updates == updates + 1 && sh_anim_lift_progress(&rig.anim) == 0,
+          "finished, its owner told once: %d updates", lift_updates - updates);
+    teardown(&rig);
+}
+
 static void test_finish_all(void) {
     struct rig rig;
     setup(&rig, config(300, SH_CURVE_EASE_OUT));
@@ -702,6 +749,7 @@ int main(void) {
     test_lift();
     test_lift_with_others();
     test_lift_bounds();
+    test_lift_through_gestures();
     test_finish_all();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
