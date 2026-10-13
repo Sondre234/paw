@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """focus_left/right, as sway's focus: with no window that way, focus moves on to the next
-output, so an empty output can be reached from the keyboard and new windows open there."""
+output, so an empty output can be reached from the keyboard and new windows open there. A
+window on an output further on never skips the empty one between."""
 from pathlib import Path
 import sys
 
@@ -8,20 +9,21 @@ import harness
 
 compositor, probe = (str(Path(p).resolve()) for p in sys.argv[1:3])
 
-# HEADLESS-1 sits left of HEADLESS-2.
+# HEADLESS-1, HEADLESS-2 and HEADLESS-3 sit left to right.
 CONFIG = """return {
     xwayland = false,
     layout = { tiling = false },
     outputs = {
-        order = { "HEADLESS-1", "HEADLESS-2" },
+        order = { "HEADLESS-1", "HEADLESS-2", "HEADLESS-3" },
         monitors = {
             ["HEADLESS-1"] = { mode = "1280x720" },
             ["HEADLESS-2"] = { mode = "1280x720" },
+            ["HEADLESS-3"] = { mode = "1280x720" },
         },
     },
 }"""
 
-with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
+with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "3"}) as desktop:
     msg = desktop.msg
 
     def windows():
@@ -30,6 +32,10 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
 
     def focused_output():
         return next(r[0] for r in desktop.rows("workspaces") if r[2] == "1")
+
+    def desktop_focused(output):
+        """`output` focused with no window: its bare desktop."""
+        return lambda: focused_output() == output and not any(w[0] for w in windows())
 
     desktop.detail = lambda: f"windows: {windows()}, output: {focused_output()}"
 
@@ -44,8 +50,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     # No window to the right: focus moves to the empty HEADLESS-2, and the next window
     # opens there.
     msg("focus_right")
-    desktop.wait_for(lambda: focused_output() == "HEADLESS-2" and not windows()[0][0],
-                     "empty HEADLESS-2 focused")
+    desktop.wait_for(desktop_focused("HEADLESS-2"), "empty HEADLESS-2 focused")
     open_window()
     desktop.wait_for(lambda: windows()[1] == (True, "HEADLESS-2"), "B focused on HEADLESS-2")
 
@@ -56,16 +61,29 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     msg("focus_right")
     desktop.wait_for(lambda: windows() == [(False, "HEADLESS-1"), (True, "HEADLESS-2")],
                      "B focused")
+
+    # On to the empty HEADLESS-3 for a third window.
+    msg("focus_right")
+    desktop.wait_for(desktop_focused("HEADLESS-3"), "empty HEADLESS-3 focused")
+    open_window()
+    desktop.wait_for(lambda: windows()[2] == (True, "HEADLESS-3"), "C focused on HEADLESS-3")
     # Past the last output nothing happens.
     msg("focus_right")
-    assert windows()[1][0] and focused_output() == "HEADLESS-2", windows()
+    assert windows()[2][0] and focused_output() == "HEADLESS-3", windows()
 
-    # From an empty output with nothing focused, back to the window on the other.
-    desktop.clients.pop().kill()
-    desktop.wait_for(lambda: windows() == [(True, "HEADLESS-1")], "B closed")
-    msg("focus_right")
-    desktop.wait_for(lambda: focused_output() == "HEADLESS-2" and not windows()[0][0],
-                     "empty HEADLESS-2 focused again")
+    # With B closed, HEADLESS-2 between A and C is empty: focus stops there both ways
+    # instead of jumping over it to the window on the far side.
+    desktop.clients.pop(1).kill()
+    desktop.wait_for(lambda: windows() == [(False, "HEADLESS-1"), (True, "HEADLESS-3")],
+                     "B closed")
     msg("focus_left")
-    desktop.wait_for(lambda: windows() == [(True, "HEADLESS-1")], "A focused from empty output")
-print("Focus moved between windows and onto an empty output")
+    desktop.wait_for(desktop_focused("HEADLESS-2"), "empty HEADLESS-2 focused from C")
+    msg("focus_left")
+    desktop.wait_for(lambda: windows() == [(True, "HEADLESS-1"), (False, "HEADLESS-3")],
+                     "A focused from empty output")
+    msg("focus_right")
+    desktop.wait_for(desktop_focused("HEADLESS-2"), "empty HEADLESS-2 focused from A")
+    msg("focus_right")
+    desktop.wait_for(lambda: windows() == [(False, "HEADLESS-1"), (True, "HEADLESS-3")],
+                     "C focused from empty output")
+print("Focus moved between windows and onto empty outputs without skipping any")
