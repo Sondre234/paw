@@ -26,15 +26,15 @@ BORDER = 2
 DURATION = 700
 
 
-def config(enabled=True):
+def config(enabled=True, speed=1, windows=""):
     return f"""return {{
     xwayland = false,
     animations = {{ enabled = {str(enabled).lower()}, duration = {DURATION}, late_frame_ms = 0,
-                    open = {{ duration = 0 }}, close = {{ duration = 0 }},
+                    speed = {speed}, open = {{ duration = 0 }}, close = {{ duration = 0 }},
                     focus = {{ duration = 0 }} }},
     layout = {{ tiling = false, gap = 0 }},
     outputs = {{ monitors = {{ ["HEADLESS-1"] = {{ mode = "1280x720" }} }} }},
-    windows = {{ border_width = {BORDER}, magnet = {{ enabled = false }} }},
+    windows = {{ border_width = {BORDER}, magnet = {{ enabled = false }}, {windows} }},
 }}"""
 
 
@@ -266,4 +266,33 @@ with harness.Compositor(compositor, config()) as desktop:
     wait_for(lambda: drawn()["D"][2] == "moving" and drawn()["D"][0][2] > w, "D shrinking")
     pointer("move", "600", "300", "release", "left")
     wait_for(lambda: drawn()["D"][2] == "rest" and drawn()["D"][0][2:] == (w, h), "D floating")
+
+# Leaving fullscreen for a slot that moved meanwhile (a panel came along the bottom), slowed down
+# to see where it starts: from the whole output, where it is drawn, not from the old slot too.
+RULES = 'rules = { { title = "^P$", focus = false } },'
+with harness.Compositor(compositor, config(windows=RULES)) as desktop:
+    msg, wait_for = desktop.msg, desktop.wait_for
+
+    def windows():
+        return {w.title: w for w in desktop.windows()}
+
+    def drawn():
+        return {r[1]: (tuple(int(n) for n in r[2:6]), r[8]) for r in desktop.rows("drawn")}
+
+    desktop.detail = lambda: f"windows: {msg('get', 'windows')}drawn: {msg('get', 'drawn')}"
+    desktop.open_window(probe, "W", focused=True)
+    corner = inside((0, 360, 640, 360))
+    msg("snap_bottom_left")
+    wait_for(lambda: drawn()["W"] == (corner, "rest"), "W in the bottom left quarter")
+    msg("fullscreen")
+    wait_for(lambda: drawn()["W"] == (FULL, "rest"), "W fullscreen")
+    desktop.spawn([probe, "--external-control"], env={"PAW_PROBE_TITLE": "P"})
+    above_panel = (0, 0, 1280, 720 - 48)
+    wait_for(lambda: "P" in windows() and drawn()["W"][0] == above_panel, "W above the panel")
+    assert windows()["W"].focused, windows()
+    desktop.reload(config(speed=0.1, windows=RULES))
+    msg("fullscreen")
+    box, state = drawn()["W"]
+    assert state == "moving" and abs(box[0]) <= 2 and abs(box[1]) <= 4, (box, state)
+    wait_for(lambda: windows()["W"].box == inside((0, 336, 640, 336)), "W in the moved quarter")
 print("Windows glide to their new place and size together, wait for slow clients, and turn back")
