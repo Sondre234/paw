@@ -725,6 +725,7 @@ struct sh_output {
     bool powered_off;
     bool idle_off; /* turned off by the idle display_off step (idle.c), which input undoes */
     bool kept_on;  /* on though its settings say off, as the only output (configure_output) */
+    uint64_t frames; /* frames it has drawn (output_frame), for get output_frames */
     /* Settings a wlr-output-management client (wlr-randr, kanshi) or display_mode applied at
      * runtime. They replace the configured monitor until the configuration is reloaded or the
      * display settings window applies its own. */

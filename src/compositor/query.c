@@ -94,6 +94,18 @@ static void get_outputs(struct sh_server *server, int fd, const char *arguments)
         control_describe_output(server, fd, output);
 }
 
+static void get_output_frames(struct sh_server *server, int fd, const char *arguments) {
+    // Each output in the layout and how many frames it has drawn, for tests of what brings them.
+    control_reply(fd, "ok\n");
+    struct sh_output *output;
+    wl_list_for_each_reverse(output, &server->outputs, link) {
+        char line[128];
+        snprintf(line, sizeof(line), "%s\t%llu\n", output->wlr_output->name,
+                 (unsigned long long)output->frames);
+        control_reply(fd, line);
+    }
+}
+
 static void get_workspace(struct sh_server *server, int fd, const char *arguments) {
     char reply[32];
     snprintf(reply, sizeof(reply), "ok\n%d\n", focused_workspace(server));
@@ -676,6 +688,7 @@ static const struct {
     {"animations", get_animations, false},
     {"stats", get_stats, false},
     {"frame_times", get_frame_times, false},
+    {"output_frames", get_output_frames, false},
     {"dim", get_dim, false},
     {"peek", get_peek, false},
     {"window_peek", get_window_peek, false},
