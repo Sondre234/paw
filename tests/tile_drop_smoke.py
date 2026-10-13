@@ -4,21 +4,24 @@ other tiles stay where they are as it is lifted, and once the pointer rests a mo
 tile they glide aside to open the place a drop there would give it, without the clients being
 asked for a new size at every motion; dropped, it tiles there. Leaving the tiling, for a monitor
 that floats or the top edge that maximizes, closes its place; a drag cut short does too. The
-layouts that keep a list open it at the end, and the scrolling layout keeps no place. Driven by a
-virtual pointer and keyboard (pointer_probe), Alt + drag."""
+layouts that keep a list open it at the end, and the scrolling layout keeps no place. A grab
+another starts meanwhile (an X11 window asking to be moved, with x11_probe) ends it first. Driven
+by a virtual pointer and keyboard (pointer_probe), Alt + drag."""
 from pathlib import Path
+import subprocess
 import sys
 
 import harness
 
 compositor, probe, pointer_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
+x11_probe = str(Path(sys.argv[4]).resolve()) if len(sys.argv) > 4 else ""
 
 SCREEN = (1280 + 800, 720)
 
 
-def config(animations="enabled = false", layout="dwindle"):
+def config(animations="enabled = false", layout="dwindle", xwayland="false"):
     return """return {
-    xwayland = false,
+    xwayland = %s,
     animations = { %s },
     layout = { gap = 0, tile_layout = "%s", master_ratio = 0.5 },
     outputs = { order = { "HEADLESS-1", "HEADLESS-2" },
@@ -26,7 +29,7 @@ def config(animations="enabled = false", layout="dwindle"):
                              ["HEADLESS-2"] = { mode = "800x600", tiling = false } } },
     windows = { magnet = { enabled = false } },
     mouse = { focus_follows = false },
-}""" % (animations, layout)
+}""" % (xwayland, animations, layout)
 
 
 def session(desktop):
@@ -183,3 +186,48 @@ with harness.Compositor(compositor, config(layout="master"),
     desktop.wait_for(lambda: any(windows()[t][:4] != before[t] for t in others),
                      "the scrolling layout closes up as the tile is lifted")
     release()
+
+# A grab another starts while it is under way ends first, as if let go: an X11 window asking to be
+# moved while a tile is (a held button lets it) leaves the tile set down and out of the tiling, and
+# closing the tile's window then leaves nothing of it in the tiling.
+with harness.Compositor(compositor, config(xwayland="true"),
+                        env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
+    if not x11_probe or "DISPLAY" not in desktop.env:
+        print("XWayland is not available: the second grab is not tested")
+    else:
+        windows, preview, configures, pointer, press, release, tiles = session(desktop)
+
+        def lift():
+            return {r[0]: int(r[1]) for r in desktop.rows("lift")}
+
+        pointer("move", "1200", "360")
+        tile = desktop.open_window(probe, "A", env={"PAW_PROBE_MOVE": "1"})
+        desktop.wait_for(lambda: windows()["A"][4], "A tiled")
+        x11 = desktop.spawn([x11_probe, "commands"], env={"PAW_PROBE_TITLE": "X"},
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert x11.stdout.readline().strip() == "X11 window mapped and focused"
+        assert x11.stdout.readline().strip() == "waiting for commands"
+        desktop.wait_for(lambda: "X" in windows() and windows()["X"][4], "X tiled")
+        # A press on A, which asks to be moved, and a move: A is lifted and holds its place.
+        ax, ay = windows()["A"][:2]
+        pointer("move", str(ax + 100), str(ay + 100), "press", "left")
+        desktop.wait_for(lambda: next(r for r in desktop.rows("snap") if r[0] == "zone")[6] == "1",
+                         "A is moved")
+        pointer("move", str(ax + 130), str(ay + 120))
+        desktop.wait_for(lambda: lift().get("A") == 1000, "A lifted")
+        # X asks to be moved: A's move ends, A set down and out of the tiling; X, moved instead,
+        # holds the whole tiling, where it goes back as the button is let go.
+        x11.stdin.write("move\n")
+        x11.stdin.flush()
+        desktop.wait_for(lambda: "A" not in lift() and not windows()["A"][4],
+                         "A set down and floating")
+        pointer("move", str(ax + 140), str(ay + 130))
+        desktop.wait_for(lambda: preview() == (True, (0, 0, 1280, 720)), "X's place the monitor")
+        pointer("release", "left")
+        desktop.wait_for(lambda: windows()["X"][:5] == (0, 0, 1280, 720, True), "X tiled again")
+        # A's window closing, and the tiling arranged again, touch nothing of it.
+        tile.terminate()
+        desktop.reap(tile)
+        desktop.wait_for(lambda: "A" not in windows(), "A closed")
+        tiles("B")
+        desktop.wait_for(lambda: windows()["X"][2] == 640, "X and B side by side")
