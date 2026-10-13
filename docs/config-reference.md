@@ -193,9 +193,10 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `peek` | table | - | - | Peek: `peek` (hold a key) and `peek_toggle` make every window nearly transparent to show the desktop, with borders and the panel left alone. Resting on a window's picture on the taskbar's card fades every other window the same way. |
+| `peek` | table | - | - | Peek: `peek` (hold a key) and `peek_toggle` make every window nearly transparent to show the desktop, with borders and the panel left alone. Resting on a window's picture on the taskbar's card fades every other window the same way, and so does the window selected in the window switcher or the command palette. |
 | `peek.opacity` | number | 0.12 | 0 to 0.9 | Opacity windows fade to while peeking; 0 hides them completely. |
 | `peek.duration` | integer | 150 | 0 to 2000 | Milliseconds of the fade in and out, at `animations.speed`; 0, or `animations.enabled = false`, switches at once. |
+| `peek.switcher` | boolean | true | - | The window selected in the window switcher (Alt + Tab), or among the command palette's results, peeks once the selection has rested for half a second, as a window's picture on the taskbar's card does: the other windows fade while it shows alone where it is, and the peek follows the selection from then on. The taskbar style only; false leaves the windows as they are. |
 
 ## `night_light`
 
