@@ -288,13 +288,27 @@ struct wlr_color_manager_v1;
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
  * workspace it showed as the swipe began and the one the fingers head for (out of range past
  * the first or last, `from` when they head nowhere), how far the slide is held, and held copies
- * of the windows coming in. */
+ * of the windows coming in; past the first or last, what the windows give against the fingers
+ * (a rubber band), toward the workspace that is not there. Fingers that take over windows still
+ * springing back from the last swipe's rubber band start from where those are drawn. */
 struct sh_workspace_swipe {
     char output[64];
     int from, target;
     double shown;
     struct sh_anim *copies[64];
     int copy_count;
+    struct sh_swipe_edge edge;
+    int toward;    /* the way the fingers head (1 for higher workspaces, -1 lower, 0 neither) */
+    double shift;  /* steps toward higher workspaces the slide is ahead of the fingers */
+    /* Windows taken over as they spring back: how far past the end (in steps toward higher
+     * workspaces) the first hold starts the fingers. */
+    bool catching;
+    double caught;
+    /* Since the swipe ended, its windows spring back from the rubber band toward `sprung` (1 for
+     * higher workspaces, -1 lower, 0 none) in an animation that began at `sprung_at` (the
+     * animator's clock). */
+    int sprung;
+    int64_t sprung_at;
 };
 
 /* Touchscreens (touch.c): the devices, the finger standing in for the pointer (-1 for none),
@@ -740,6 +754,7 @@ struct sh_output {
     bool powered_off;
     bool idle_off; /* turned off by the idle display_off step (idle.c), which input undoes */
     bool kept_on;  /* on though its settings say off, as the only output (configure_output) */
+    uint64_t frames; /* frames it has drawn (output_frame), for get output_frames */
     /* Settings a wlr-output-management client (wlr-randr, kanshi) or display_mode applied at
      * runtime. They replace the configured monitor until the configuration is reloaded or the
      * display settings window applies its own. */
@@ -1622,11 +1637,13 @@ void set_toplevel_output(struct sh_toplevel *toplevel, struct wlr_output *output
 void follow_output(struct sh_toplevel *toplevel);
 void set_toplevel_workspace(struct sh_toplevel *toplevel, int workspace);
 void switch_workspace(struct sh_server *server, struct wlr_output *output, int workspace);
+void workspace_nudge(struct sh_server *server, struct wlr_output *output, int way);
 void workspace_swipe_begin(struct sh_server *server, struct sh_workspace_swipe *swipe,
                            struct wlr_output *output);
 void workspace_swipe_hold(struct sh_server *server, struct sh_workspace_swipe *swipe, int target,
                           double t);
-void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *swipe, bool finish);
+void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *swipe,
+                         bool cancelled, double speed, double distance);
 void set_sticky(struct sh_toplevel *toplevel, bool sticky, bool retile);
 void move_toplevel_to_workspace(struct sh_server *server, struct sh_toplevel *toplevel,
                                 int workspace);

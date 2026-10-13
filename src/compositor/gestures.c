@@ -124,14 +124,11 @@ static void finish_swipe(struct sh_server *server, uint32_t time, bool cancelled
     double progress = sh_swipe_progress(&gesture->swipe);
     double speed = sh_swipe_speed(&gesture->swipe, time);
     switch (gesture->mode) {
-    case SH_SWIPE_WORKSPACE: {
+    case SH_SWIPE_WORKSPACE:
         // Toward whichever workspace the fingers are on the side of.
-        bool forward = progress >= 0;
-        workspace_swipe_end(server, &gesture->workspace,
-                            !cancelled && sh_swipe_finishes(forward ? progress : -progress,
-                                                            forward ? speed : -speed));
+        workspace_swipe_end(server, &gesture->workspace, cancelled, progress >= 0 ? speed : -speed,
+                            gesture->swipe.distance);
         break;
-    }
     case SH_SWIPE_OVERVIEW: {
         bool done = !cancelled && sh_swipe_finishes(progress, speed);
         overview_release(server, gesture->opening ? done : !done);
@@ -258,7 +255,8 @@ static void hold_end(struct wl_listener *listener, void *data) {
 /* `get gesture`: the swipe under way (what it is, its fingers, direction and progress in
  * thousandths of a step), and for workspaces following it, the output, the workspace it began
  * on and the one it heads for (from 1; 0 for none), how far the slide is held (thousandths),
- * and how many windows are held and coming in as copies. */
+ * how many windows are held and coming in as copies, and past the first or last workspace how
+ * far the windows give (pixels, negative to the left) and their opacity (thousandths). */
 void describe_gesture(struct sh_server *server, int fd) {
     struct sh_gesture *gesture = &server->gesture;
     char line[256];
@@ -274,12 +272,14 @@ void describe_gesture(struct sh_server *server, int fd) {
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) held += toplevel->anim.held;
     int count = server_settings(server)->workspaces;
-    snprintf(line, sizeof(line), "workspace\t%s\t%d\t%d\t%ld\t%d\t%d\n", swipe->output,
+    int sign = swipe->target > swipe->from ? 1 : -1;
+    snprintf(line, sizeof(line), "workspace\t%s\t%d\t%d\t%ld\t%d\t%d\t%ld\t%ld\n", swipe->output,
              swipe->from + 1,
              swipe->target >= 0 && swipe->target < count && swipe->target != swipe->from
                  ? swipe->target + 1
                  : 0,
-             lround(swipe->shown * 1000), held, swipe->copy_count);
+             lround(swipe->shown * 1000), held, swipe->copy_count,
+             lround(-sign * swipe->edge.offset), lround(swipe->edge.alpha * 1000));
     control_reply(fd, line);
 }
 

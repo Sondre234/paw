@@ -769,6 +769,128 @@ static void test_lift_rest_at_point(void) {
     teardown(&rig);
 }
 
+/* A hold let go with nowhere to go springs back with the move animation, from where it was held,
+ * keeping the speed it was let go at. */
+static void test_spring_back(void) {
+    struct rig rig;
+    struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
+    c.styles[SH_ANIM_MOVE] = (struct sh_anim_style){200, {SH_CURVE_SPRING, {0}}};
+    setup(&rig, c);
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -60, 0, 0.8F);
+    sh_anim_spring_back(rig.animator, &rig.anim, rig.content, -60, 0, 0, 0, 0.8F);
+    CHECK(!rig.anim.held && sh_animator_running(rig.animator) == 1, "running from the hold");
+    CHECK(rig.content->node.x == -60 && fabsf(rig.rect->color[3] - 0.8F) < 0.01F,
+          "starts where it was held: %d %f", rig.content->node.x, rig.rect->color[3]);
+    // Still, it comes straight back, never past where it rests.
+    int last = -60;
+    for (int i = 0; i < 19; ++i) {
+        advance(&rig, 10);
+        CHECK(rig.content->node.x >= last && rig.content->node.x <= 0, "on its way: %d",
+              rig.content->node.x);
+        last = rig.content->node.x;
+    }
+    CHECK(last > -3, "nearly there by the end: %d", last);
+    advance(&rig, 10);
+    CHECK(rig.content->node.x == 0 && fabsf(rig.rect->color[3] - 1) < 1e-6F &&
+              sh_animator_running(rig.animator) == 0,
+          "at rest");
+    // Let go moving away, it goes on a little that way before it comes back.
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -60, 0, 1);
+    sh_anim_spring_back(rig.animator, &rig.anim, rig.content, -60, 0, -0.3, 0, 1);
+    advance(&rig, 4);
+    CHECK(rig.content->node.x < -60, "carried on: %d", rig.content->node.x);
+    advance(&rig, 200);
+    CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 0, "back");
+    // However fast it was let go, it goes only a little further.
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -60, 0, 1);
+    sh_anim_spring_back(rig.animator, &rig.anim, rig.content, -60, 0, -100, 0, 1);
+    int furthest = 0;
+    for (int i = 0; i < 21; ++i) {
+        advance(&rig, 10);
+        furthest = rig.content->node.x < furthest ? rig.content->node.x : furthest;
+    }
+    CHECK(furthest > -80 && rig.content->node.x == 0, "a flick carries it so far: %d", furthest);
+    // Moves off, or animations off: at rest at once.
+    c.styles[SH_ANIM_MOVE].duration = 0;
+    sh_animator_configure(rig.animator, &c);
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -60, 0, 0.5F);
+    sh_anim_spring_back(rig.animator, &rig.anim, rig.content, -60, 0, 0, 0, 0.5F);
+    CHECK(rig.content->node.x == 0 && fabsf(rig.rect->color[3] - 1) < 1e-6F &&
+              sh_animator_running(rig.animator) == 0,
+          "lands at once without moves");
+    c.styles[SH_ANIM_MOVE].duration = 200;
+    c.enabled = false;
+    sh_animator_configure(rig.animator, &c);
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -60, 0, 0.5F);
+    sh_anim_spring_back(rig.animator, &rig.anim, rig.content, -60, 0, 0, 0, 0.5F);
+    CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 0,
+          "lands at once without animations");
+    teardown(&rig);
+}
+
+/* A step with nowhere to go nudges a window toward it and back. */
+static void test_nudge(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, -30, 0);
+    CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 1, "starts at rest");
+    // Out to 30 a third of the way through twice the slide's time, and back.
+    int furthest = 0, first = 0, last = 0;
+    for (int ms = 5; ms <= 200; ms += 5) {
+        advance(&rig, 5);
+        if (rig.content->node.x < furthest)
+            furthest = rig.content->node.x, first = ms;
+        if (rig.content->node.x == furthest)
+            last = ms;
+        CHECK(rig.content->node.x <= 0, "only that way: %d", rig.content->node.x);
+    }
+    CHECK(furthest == -30 && abs((first + last) / 2 - 67) <= 5,
+          "turns at 30 at a third: %d from %d to %d", furthest, first, last);
+    CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 0, "back at rest");
+    // Nudged again on its way back, it goes out from where it is, as far as before.
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, -30, 0);
+    advance(&rig, 120);
+    int from = rig.content->node.x;
+    CHECK(from < -10, "on its way back: %d", from);
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, -30, 0);
+    CHECK(abs(rig.content->node.x - from) <= 1, "from where it is: %d", rig.content->node.x);
+    furthest = 0;
+    for (int ms = 5; ms <= 200; ms += 5) {
+        advance(&rig, 5);
+        furthest = rig.content->node.x < furthest ? rig.content->node.x : furthest;
+    }
+    CHECK(furthest >= -32 && furthest <= -28, "as far as before: %d", furthest);
+    CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 0, "back again");
+    // Nudged again on its way out, it goes on as it was.
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, -30, 0);
+    advance(&rig, 20);
+    int64_t started = rig.anim.glide_start;
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, -30, 0);
+    CHECK(rig.anim.glide_start == started, "a push the way it goes adds nothing");
+    // The other way, it turns.
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, 30, 0);
+    CHECK(rig.anim.glide_start != started && rig.anim.glide_vx > 0, "turned");
+    advance(&rig, 200);
+    CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 0, "back once more");
+    // Held, or with the slide or animations off, nothing moves.
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -10, 0, 1);
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, -30, 0);
+    CHECK(rig.content->node.x == -10 && rig.anim.held && sh_animator_running(rig.animator) == 0,
+          "a held window stays held");
+    sh_anim_finish(&rig.anim);
+    struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
+    c.styles[SH_ANIM_WORKSPACE].duration = 0;
+    sh_animator_configure(rig.animator, &c);
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, -30, 0);
+    CHECK(sh_animator_running(rig.animator) == 0, "no slide, no nudge");
+    c = config(100, SH_CURVE_LINEAR);
+    c.enabled = false;
+    sh_animator_configure(rig.animator, &c);
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, -30, 0);
+    CHECK(sh_animator_running(rig.animator) == 0, "no animations, no nudge");
+    teardown(&rig);
+}
+
 /* A window changing size: `surfaces` holds the client's surface (a rect standing for its buffer,
  * 200 by 100 at the origin), and `frame` the frame the owner draws around the size drawn, as
  * frame.c does from the morph's `resized`. */
@@ -1432,6 +1554,61 @@ static void test_finish_all(void) {
     teardown(&rig);
 }
 
+/* While anything runs the animator ticks by itself about every frame: a nudge from rest, which
+ * changes no pixel as it starts and so brings no frame, goes on, and an animation started
+ * meanwhile is not taken for a late one and landed. */
+static void test_ticks_by_itself(void) {
+    struct rig rig;
+    struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
+    c.late_ms = 30;
+    setup(&rig, c);
+    sh_anim_nudge(rig.animator, &rig.anim, rig.content, -30, 0);
+    CHECK(rig.content->node.x == 0, "starts at rest");
+    // No frame comes; within a frame's time the animator's timer moves it.
+    clock_now += 10;
+    wl_event_loop_dispatch(rig.loop, 50);
+    CHECK(rig.content->node.x < 0, "on its way by itself: %d", rig.content->node.x);
+    for (int i = 0; i < 4; ++i) {
+        clock_now += 10;
+        wl_event_loop_dispatch(rig.loop, 50);
+    }
+    CHECK(rig.content->node.x < -20, "on its way out: %d", rig.content->node.x);
+    // Something starting meanwhile runs, rather than being landed as late.
+    struct wlr_scene_tree *other = wlr_scene_tree_create(&rig.scene->tree);
+    float color[4] = {1, 1, 1, 1};
+    wlr_scene_rect_create(other, 50, 50, color);
+    struct sh_anim opening = {0};
+    sh_anim_open(rig.animator, &opening, other, 25, 25);
+    clock_now += 10;
+    wl_event_loop_dispatch(rig.loop, 50);
+    CHECK(sh_animator_running(rig.animator) == 2 && opening.animator, "the new one runs");
+    // On to the end by the timer alone.
+    for (int i = 0; i < 40 && sh_animator_running(rig.animator); ++i) {
+        clock_now += 10;
+        wl_event_loop_dispatch(rig.loop, 50);
+    }
+    CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 0, "done: %d",
+          rig.content->node.x);
+    sh_anim_finish(&opening);
+    teardown(&rig);
+}
+
+/* What an animation does to a window's opacity now: a hold's, a running fade's, else nothing. */
+static void test_alpha(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    CHECK(sh_anim_alpha(&rig.anim) == 1, "at rest");
+    sh_anim_hold(rig.animator, &rig.anim, rig.content, -20, 0, 0.6F);
+    CHECK(fabsf(sh_anim_alpha(&rig.anim) - 0.6F) < 1e-6F, "held: %f", sh_anim_alpha(&rig.anim));
+    sh_anim_spring_back(rig.animator, &rig.anim, rig.content, -20, 0, 0, 0, 0.6F);
+    CHECK(fabsf(sh_anim_alpha(&rig.anim) - 0.6F) < 1e-6F, "let go: %f", sh_anim_alpha(&rig.anim));
+    clock_now += 50; // half way, without a frame
+    CHECK(fabsf(sh_anim_alpha(&rig.anim) - 0.8F) < 1e-3F, "half way: %f", sh_anim_alpha(&rig.anim));
+    advance(&rig, 60);
+    CHECK(sh_anim_alpha(&rig.anim) == 1, "done");
+    teardown(&rig);
+}
+
 int main(void) {
     test_glide_reaches_rest();
     test_retarget_is_continuous();
@@ -1455,6 +1632,10 @@ int main(void) {
     test_lift_through_gestures();
     test_lift_rest_at_point();
     test_lift_over_morph();
+    test_spring_back();
+    test_nudge();
+    test_ticks_by_itself();
+    test_alpha();
     test_morph_stretches_and_waits();
     test_morph_answer_after_an_early_ack();
     test_morph_follows_every_answer();

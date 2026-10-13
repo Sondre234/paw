@@ -56,7 +56,8 @@ the dock.
   on pages of a 7 × 5 grid over the whole screen. Type to search, use the arrows, Page Up and
   Page Down, the wheel, dragging or the dots to page, Enter to launch, and right-click for an
   application's actions or Keep in Dock; Escape clears the search and then closes it, as does a
-  click beside the icons.
+  click beside the icons. Past the first or last page a drag stretches the pages like a rubber
+  band and the wheel bumps them, rather than stop dead.
 - **Spotlight** is the command palette (Super + P) as a large search field a quarter of the way
   down the screen, its results grouped by kind under headings after the top hit; **Control Center** is Quick Settings as
   rounded modules, with Display and Sound under their own headings; notifications show as banners
@@ -83,7 +84,7 @@ leaves, and its popups are the taskbar's: the start menu, Quick Settings, the cl
 the calendar and the notifications, the volume's, the Wi-Fi networks, the tray's menus, the
 appearance profiles and the wallpapers, each opening by its module, and a right click beside the
 modules opens the bar's menu (tiling off, the start menu, show desktop, the profiles). The wheel
-on the bar pages through the workspaces.
+on the bar pages through the workspaces, nudging the windows past either end as the taskbar's does.
 
 Everything about it is set in `shell.tiling_bar`, unset values following the shell's own
 (`panel_color`, `text_color`, `accent`, `font`, `font_size`), so it takes an appearance profile's
@@ -1292,7 +1293,18 @@ the `workspace_back` action (Super + Tab) returns to it, like sway's
 does the same, so pressing Super + 2 twice flips between workspace 2 and the one before.
 It is off by default.
 
-`workspace_prev` and `workspace_next` (Super + Ctrl + Left / Right) step to the previous and next workspace.
+`workspace_prev` and `workspace_next` (Super + Ctrl + Left / Right) step to the previous and next
+workspace, wrapping around from the last to the first and back.
+
+Where there is nowhere further to go, the windows say so rather than stop dead. Past the first or
+the last workspace a touchpad swipe stretches them like a rubber band (see [Touchpad
+gestures](#touchpad-gestures)), and scrolling over the panel past either end nudges the windows of
+that monitor a little the way the slide would take them (left past the last workspace, right
+before the first) and back, as far as the rubber band gives a third of a step past the end (2 % of
+the monitor's width with the default slide), in twice the `workspace` animation's time; the
+taskbar's mark of the current workspace bumps toward the workspace that is not there with them. So
+do `workspace_next` and `workspace_prev` with a single workspace. A slide that only fades
+(`animations.workspace.distance = 0`) nudges nothing.
 
 ### Scratchpad
 
@@ -1598,8 +1610,9 @@ its own size instead has the window ease to that. Reversed or changed again part
 where it is drawn, at the speed it has. `paw msg get drawn` prints where each window is drawn
 now, in the order of `get windows`: app ID, title, its place and size as drawn, the size its
 surface is drawn at, what its change of size does (`rest`, `moving`, `waiting` for the
-application, `fading` what it drew before) and how much of its frame shows (in thousandths), for
-tests; `tests/morph_smoke.py` follows the changes with it.
+application, `fading` what it drew before), how much of its frame shows and the factor an
+animation or a gesture gives its opacity (both in thousandths), for tests; `tests/morph_smoke.py`
+follows the changes with it.
 
 Animations are interruptible: a tile that is gliding when the layout changes again continues
 from where it is drawn, at the speed it has, and never snaps. Each kind (`open`, `close`,
@@ -2126,11 +2139,19 @@ workspace slide (`animations.workspace`), sliding and fading out as the next wor
 and once the fingers lift the slide goes on to that workspace if they went past half of
 `gestures.distance`, or back if not. A flick, a quick swipe however short, goes on; one flicked
 back the other way at the end stays. Back past where they began, the fingers head for the other
-neighbour. There is none before the first workspace or after the last: the windows give a little
-against the fingers and come back, rather than wrap around as `workspace_next` does. Three fingers
-up open the overview the same way, the windows gliding into its grid with the fingers, and down
-close it; sideways while it is open, it shows the next or previous workspace as the fingers lift,
-as its strip does. These are the defaults; `gestures` changes them:
+neighbour. There is none before the first workspace or after the last, and rather than wrap around
+as `workspace_next` does, the windows stretch that way like a rubber band, showing the desktop
+behind them: they follow the fingers as far as the slide would at first, then less and less the
+further the fingers go, never as far as the slide's whole distance or a tenth of the monitor's
+width, whichever is less, and a whole step of `gestures.distance` takes them half that far (a
+slide longer than a tenth of the width starts as one of a tenth would). With
+`animations.workspace.distance = 0`, a slide that only fades, they dim a little instead. Back the other way they come back as they went, and on past where they rest the slide
+toward the other neighbour begins. Once the fingers lift they spring back with the `move`
+animation, going on at first as fast as the fingers went, and fingers that come back to the
+touchpad meanwhile take them over where they are. Three fingers up open the overview the same way,
+the windows gliding into its grid with the fingers, and down close it; sideways while it is open,
+it shows the next or previous workspace as the fingers lift, as its strip does. These are the
+defaults; `gestures` changes them:
 
 ```lua
 gestures = {
@@ -2158,8 +2179,9 @@ every pinch and every hold goes to the window, as does everything with `gestures
 or while the screen is locked. `paw msg get gesture` says what the swipe under way is
 (`waiting`, `passed`, `workspace`, `overview`, `action`, or `none`), with its fingers, direction
 and progress in thousandths of a step, and for workspaces a line with the output, the workspace
-it began on and the one it heads for (from 1, 0 for none), how far the slide is held, and how
-many windows are held and coming in.
+it began on and the one it heads for (from 1, 0 for none), how far the slide is held, how many
+windows are held and coming in, and past the first or last workspace how far the windows stretch
+(in pixels, negative to the left) and their opacity (in thousandths).
 
 Swipes of three or more fingers, pinches and holds the compositor does not take go to the window
 under the pointer through pointer-gestures-unstable-v1: Firefox and Chromium zoom a page on a
@@ -2630,7 +2652,10 @@ one: `paw msg output HDMI-A-1 workspace_next`. `paw msg type TEXT` types TEXT in
 what has the keyboard, as wtype does: each character on a key of a keymap made for it (200 to a
 keymap; a longer text takes several), the window's own keymap back after, so that accents, emoji
 and their sequences come out as they are whatever the keyboard layout; the request is a line of at
-most 512 bytes, and it says when nothing has the keyboard. The query
+most 512 bytes, and it says when nothing has the keyboard. `paw msg workspace_nudge OUTPUT
+next|prev` nudges that monitor's windows as a step to its next or previous workspace would start
+to slide them, and back, as the panel's wheel does past either end (see
+[Workspaces](#workspaces)). The query
 `paw msg get workspace` prints the focused monitor's workspace, `paw msg get workspaces`
 prints one tab-separated line per monitor (name, current workspace, focused, the
 workspaces holding windows, such as `1,3`, or `-`, and tiling, `on` or `off`),
@@ -2660,7 +2685,8 @@ the keyboard.
 `paw msg get animations` prints the number of running animations and of window trees in
 the scene (closing windows count until their animation ends), and of focus fades, mainly
 for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
-and size (see [Animations](#animations)). `paw msg get pictures` prints one line per capture source a client asked for to
+and size (see [Animations](#animations)), and `paw msg get output_frames` each monitor's name and
+how many frames it has drawn. `paw msg get pictures` prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
 window_peek` prints one line per window for a peek at one window (the taskbar's card's, the

@@ -65,6 +65,42 @@ double sh_swipe_speed(const struct sh_swipe *swipe, uint32_t time);
  * a flick toward it does from anywhere on its side, a flick away never does, and otherwise it
  * finishes from half way. */
 bool sh_swipe_finishes(double progress, double speed);
+
+/* How far something pulled `pull` past where it can go gives, against a resistance that grows as
+ * it goes (a rubber band): as far as pulled at first, then less and less, approaching `limit`
+ * and never reaching it (pull·limit / (pull + limit)). A negative pull gives the other way; a
+ * limit of 0 or less gives nothing. */
+double sh_rubber_band(double pull, double limit);
+/* How much further it gives for each unit pulled further at `pull`: 1 at first, falling toward
+ * 0 as the pull grows. */
+double sh_rubber_band_slope(double pull, double limit);
+
+/* Past the first and the last workspace there is nowhere to go, and the windows give against the
+ * fingers instead: as far as the slide would take them at first, then less and less, never as
+ * far as the slide's whole distance or this share of the output's width, whichever is less (the
+ * limit), and a whole step's pull half of that. A slide longer than the limit starts no faster
+ * than a slide of the limit would, so that a step's pull still has room to give. */
+#define SH_SWIPE_EDGE_LIMIT 0.1
+/* With a slide that only fades (a distance of 0), they dim instead, never by this much. */
+#define SH_SWIPE_EDGE_FADE 0.2
+/* A step asked for with nowhere to go (the wheel over the bar's workspaces at either end) nudges
+ * the windows as far as the fingers this many steps past the end would. */
+#define SH_SWIPE_NUDGE (1.0 / 3)
+
+/* What the windows give with the fingers `pull` steps past the end (0 and up), a step being
+ * `slide` pixels of the workspace slide on an output `width` pixels wide. */
+struct sh_swipe_edge {
+    double offset; /* how far they move with the fingers, in pixels */
+    double alpha;  /* the factor of their opacity */
+    double rate;   /* how many pixels further they move for each step pulled further */
+};
+struct sh_swipe_edge sh_swipe_past_end(double pull, double slide, double width);
+/* The other way round: how many steps past the end the fingers are when the windows have given
+ * `offset` pixels (0 and up), or with a slide that only fades have dimmed to `alpha`, for fingers
+ * that take over windows still springing back. Nearly as far as they give counts as just short
+ * of that. */
+double sh_swipe_pull_at(double offset, double alpha, double slide, double width);
+
 /* The direction opposite `direction`, along the same axis. */
 enum sh_swipe_direction sh_swipe_opposite(enum sh_swipe_direction direction);
 /* "left", "right", "up", "down", or "none". */
