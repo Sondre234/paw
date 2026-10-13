@@ -295,4 +295,32 @@ with harness.Compositor(compositor, config(windows=RULES)) as desktop:
     box, state = drawn()["W"]
     assert state == "moving" and abs(box[0]) <= 2 and abs(box[1]) <= 4, (box, state)
     wait_for(lambda: windows()["W"].box == inside((0, 336, 640, 336)), "W in the moved quarter")
+# A window drawing its own shadow while it floats and none maximized, as GTK's do: paw draws no
+# shadow nor rounded corners for it on the way to maximized and back, as it draws none at either
+# end, though the window drops its shadow part way.
+OWN = 'round = "always", corner_radius = 12, shadow = { enabled = true },'
+with harness.Compositor(compositor, config(windows=OWN)) as desktop:
+    msg, wait_for = desktop.msg, desktop.wait_for
+
+    def frames():
+        """By title: the radius of the corners paw rounds, and whether it draws a shadow."""
+        return {r[1]: (int(r[5]), r[6] == "1") for r in desktop.rows("frames")}
+
+    def state():
+        return next(r[8] for r in desktop.rows("drawn") if r[1] == "G")
+
+    desktop.detail = lambda: f"frames: {msg('get', 'frames')}drawn: {msg('get', 'drawn')}"
+    desktop.open_window(probe, "G", focused=True,
+                        env={"PAW_PROBE_SHADOW": "12", "PAW_PROBE_SHADOW_FLOATING": "1"})
+    wait_for(lambda: frames().get("G") == (0, False) and state() == "rest", "G floating")
+    for action in ("maximize", "restore"):
+        msg(action)
+        seen = set()
+
+        def done():
+            seen.add(frames()["G"])
+            return state() == "rest" and int(msg("get", "animations").split("\t")[0]) == 0
+
+        wait_for(done, f"G {action}d")
+        assert seen == {(0, False)}, (action, seen)
 print("Windows glide to their new place and size together, wait for slow clients, and turn back")
