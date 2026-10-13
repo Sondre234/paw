@@ -115,6 +115,18 @@ shadows.
   moves at once to the next picture and ends with a fade as the pointer leaves the pictures, and
   clicking the picture focuses the window where it shows. `paw-window-control-v1` version 4
   peeks with `set_peek` and `unset_peek`, and `paw msg get window_peek` shows what it does.
+- Resting the pointer on a workspace of the taskbar's indicator shows a picture of it on a card
+  above it, as the windows' pictures do: its wallpaper and its windows where they are, in their
+  order, each from its live picture, so that they redraw, glide as they move and fade in as they
+  come. The card glides from workspace to workspace, the windows of one crossfading into the
+  other's, and takes turns with the card of a button's windows; a click on a window brings it up,
+  and elsewhere shows the workspace. `shell.thumbnails.workspaces = false` gives the workspaces
+  their tooltips back. `paw-window-control-v1` version 7's `get_workspace` lists the windows a
+  workspace shows and where, and `paw msg get workspace_views` lists those lists.
+- A window's taskbar button, or its picture on the card, dragged onto a workspace of the
+  indicator moves the window there, as the overview's strip does: the workspace lights up and the
+  window's picture or icon docks by it, floating into the workspace's picture once its card opens,
+  and drops into it as it is let go.
 - Something dragged from an application (a file, text, a link) brings windows forward as on
   Windows: resting it half a second on a window's taskbar button brings that window to the front,
   restored and its workspace shown, to carry the drag on and drop it there; on a stack's button
