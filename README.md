@@ -36,7 +36,9 @@ by day and by night.</sub>
 - **Floating first.** Focus follows the mouse, Super + drag moves and resizes, windows snap
   and stick to edges, and new windows are placed where they cover the least.
 - **Tiling when you want it**, per monitor: dwindle (as in Hyprland), master, spiral, monocle,
-  and a niri/PaperWM-style scrolling layout.
+  and a niri/PaperWM-style scrolling layout, with a [bar in Hyprland's
+  style](docs/features.md#the-tiling-bar) in the taskbar's place while it tiles, its modules,
+  colours, font and shape all set in Lua.
 - **Per-monitor workspaces**, a scratchpad, sticky windows, tab groups, window rules,
   terminal swallowing, and saved sessions you can restore, the last one at the next login.
 - **A Qt Quick shell** on every monitor, in [the macOS style](docs/features.md#the-macos-style)
