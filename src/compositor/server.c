@@ -586,6 +586,7 @@ finish:
     if (server.urgent_timer)
         wl_event_source_remove(server.urgent_timer);
     display_mode_finish(&server);
+    switcher_finish(&server);
     crossfade_end(&server);
     screenshot_finish(&server);
     display_settings_finish(&server);

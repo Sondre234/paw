@@ -169,7 +169,14 @@ class Compositor:
                         XDG_STATE_HOME=str(self.root / "state"), WLR_RENDERER="pixman")
         for name in ("WAYLAND_DISPLAY", "DISPLAY", "PAW_SOCKET"):
             self.env.pop(name, None)
+        private = {name: self.env[name] for name in ("XDG_RUNTIME_DIR", "XDG_STATE_HOME")}
         self.env.update(env or {})
+        # An `env` copied from os.environ hands the developer's own directories back: kept, a
+        # `profile NAME` would overwrite their saved profile, and kitty-theme-sync recolours
+        # their terminals to match. A test that wants other directories names its own.
+        for name, value in private.items():
+            if self.env[name] == os.environ.get(name):
+                self.env[name] = value
         self.server = None
         self.bus = None
         self.clients = []

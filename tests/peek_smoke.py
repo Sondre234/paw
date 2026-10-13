@@ -13,13 +13,13 @@ BODY = (0x41, 0x7b, 0xc4)  # what the probe paints below its title bar
 F9 = 67  # its evdev key code
 
 
-def settings(opacity, duration, animations=True):
+def settings(opacity, duration, animations=True, speed=1):
     return f"""return {{
     xwayland = false,
     layout = {{ tiling = true, gap = 4 }},
     appearance = {{ background = '#000000' }},
     peek = {{ opacity = {opacity}, duration = {duration} }},
-    animations = {{ enabled = {str(animations).lower()}, duration = 10 }},
+    animations = {{ enabled = {str(animations).lower()}, duration = 10, speed = {speed} }},
     bindings = {{ {{ mods = {{}}, key = 'F9', action = 'peek' }} }},
 }}"""
 
@@ -75,5 +75,15 @@ with harness.Compositor(compositor, settings(0.25, 400)) as desktop:
         assert peek() == (1000, 1, 0), peek()
         msg("peek_toggle")
         assert peek() == (0, 0, 0), peek()
+
+    # animations.speed scales the fade: 200 ms at a tenth of the speed is still under way well
+    # after 200 ms. Without animations it then ends at once.
+    desktop.reload(settings(0.25, 200, speed=0.1))
+    msg("peek_toggle")
+    desktop.stays(lambda: peek()[0] < 1000 and peek()[1] == 1, "the slowed fade still under way",
+                  duration=.5)
+    desktop.reload(settings(0.25, 200, animations=False))
+    msg("peek_toggle")
+    assert peek() == (0, 0, 0), peek()
 print("Peek fades windows out and back, held or toggled"
       + ("" if grim else " (pixels not checked: grim missing)"))
