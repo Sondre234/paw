@@ -419,6 +419,22 @@ Item {
             readonly property string title: task >= 0 && focused.count > 0 ? focused.windows[0].title : ""
             TaskFilter { id: focused; sourceModel: tilingBar.panel.taskSource; taskId: window.task }
             shown: title !== ""
+            // Where the focused window shows, for the compositor to minimize it into: its title,
+            // wherever the modules around it move it.
+            readonly property rect placedRect: {
+                for (var item = window; item && item !== tilingBar.panel; item = item.parent)
+                    void [item.x, item.y, item.width, item.height]
+                void [tilingBar.panel.surfaceLeft, tilingBar.panel.surfaceTop, shown, visible]
+                if (!shown || !visible)
+                    return Qt.rect(0, 0, 0, 0)
+                var point = mapToItem(tilingBar.panel, 0, 0)
+                return Qt.rect(tilingBar.panel.surfaceLeft + point.x, tilingBar.panel.surfaceTop + point.y,
+                               width, height)
+            }
+            function placeWindow() { tilingBar.panel.placeWindows(window, task >= 0 ? [task] : [], placedRect, 0) }
+            onPlacedRectChanged: placeWindow()
+            onTaskChanged: placeWindow()
+            Component.onCompleted: placeWindow()
             tip: titleText.truncated ? title : ""
             contentItem: Text {
                 id: titleText
