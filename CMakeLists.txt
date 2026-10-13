@@ -766,6 +766,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe>)
         paw_smoke(window_peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(switcher_peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         if(SDBUS_FOUND)
             # A stand-in for logind on a private bus, so that no power test reaches the real one.
             add_executable(fake_login1 tests/fake_login1.c)
