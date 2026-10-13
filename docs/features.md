@@ -1535,10 +1535,11 @@ button's size, keeping its proportions, its rounded corners and its border, and 
 the last part of the way. Restoring it grows it out of its button into its place, from where it
 is restored to, fading in over the first part. Restored by a click on its picture on the
 taskbar's [card](#window-pictures), it grows out of the picture instead, and minimized from there
-it goes into it; in the macOS style it goes into its application's icon on the dock. Restored
-while still on its way in (a second click on its button), it turns back from where it is drawn,
-and so does one minimized again on its way out; minimizing or restoring all of a stack's windows,
-or showing the desktop, sends each into its own button at once. The window is minimized, or
+it goes into it; in the macOS style it goes into its application's icon on the dock, and on the
+tiling bar the focused window goes into its title. Restored while still on its way in (a second
+click on its button), it turns back from where it is drawn, and so does one minimized again on
+its way out; minimizing or restoring all of a stack's windows, or showing the desktop, sends each
+into its own button at once. The window is minimized, or
 back in its place, at once: input never waits for the animation. A window whose button the
 taskbar does not show (the shell is not running, or another taskbar does not say where its
 buttons are) shrinks toward the middle of the strip a panel keeps along an edge of its monitor,
