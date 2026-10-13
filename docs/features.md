@@ -1519,15 +1519,17 @@ curve as its place: maximized and restored (by a binding, the application's own 
 button, or the taskbar), snapped from the keyboard or by Super + Alt + arrows, dropped into a snap at an
 edge (gliding from where it was dropped into the slot, over the preview fading out under it),
 dragged off a snap (shrinking back to its own size under the pointer), resized or moved by the
-keyboard, floated out of the tiling, moved to the next monitor, or made fullscreen and back.
+keyboard, floated out of the tiling, moved to the next monitor floating, or made fullscreen and
+back.
 These take `animations.move`, and fullscreen `animations.fullscreen`. An application draws its
 new size only once it is told it, so meanwhile what it drew last is stretched to the size the
 window is drawn at, and once it draws the new size what it drew before fades out over it, so
 that neither the size nor the picture jumps. The border, the shadow and the rounded corners
 follow the size drawn; becoming maximized or fullscreen, where a window has none, they fade out
 and the corners square on the way, and fade back in leaving it. Past the glide, a window waits
-at its new size for an application slow to draw it, up to 300 milliseconds, and then shows it
-as the application last drew it. Reversed or changed again part way, a window goes on from
+at its new size for an application slow to draw it, up to 300 milliseconds, and then eases to
+the size the application last drew, until it draws the new one; an application that answers at
+its own size instead has the window ease to that. Reversed or changed again part way, a window goes on from
 where it is drawn, at the speed it has. `paw msg get drawn` prints where each window is drawn
 now, in the order of `get windows`: app ID, title, its place and size as drawn, the size its
 surface is drawn at, what its change of size does (`rest`, `moving`, `waiting` for the

@@ -288,26 +288,40 @@ the slot. It announces itself as `overview-assist` rather than `overview`; the s
 
 A window placed again at another size (`place_toplevel`, `restore_toplevel`, `unarrange_in_place`,
 the keyboard's moves and resizes, a drag off a snap, floating a tile, fullscreen) glides there
-with `toplevel_morph` (`morph.c`): its caller notes `morph_from` (where the window rests and the
-size it is drawn at) before it configures the window, and the morph starts from there with
-`sh_anim_morph` (`src/animation.c`). That is the tiles' glide with a size along: the drawn size
-eases on the glide's time and curve, and a retarget carries its speed as the place's does. The
-client draws the new size only after the configure, so the animator stretches its surfaces
-(`sh_toplevel.surfaces`, the scene's tree of them in `content`) from the size they were drawn for
-to the size drawn, about the window's corner, and leaves the rest of `content`, the frame, to
-`refresh_frame`, which the morph calls as the drawn size changes and draws around
-`frame_geometry`, the geometry at that size. The window's commit listener, which runs before the
-scene's, calls `morph_commit` (an X11 window has one from its map for this): a new size makes a
-flattened copy of the surfaces as they were (`sh_thumb_clone`) just over them, which fades out
-over the rest of the glide or half its time, and the surfaces go back to rest and lose their
-records, since what the client draws next can be the very size the animation drew. A configure
-answered (`morph_serial` acknowledged, or an X11 surface at its configured size) at a size
-other than asked retargets the morph to it; one unanswered `MORPH_WAIT_MS` past the glide ends
-it, and the window shows what the client last drew. A lookup rests the morph, its frame too (so
-the window controls are where they will be), and hides the copy. `frame_shown` eases
-how much of the frame shows over a change into or out of being frameless (maximized on a
-monitor without tiling, or fullscreen), on the morph's kind, scaling the border's colour, the
-shadow's opacity and the corners' radius. Input and `get windows` use the final place at once;
+with `toplevel_morph` (`morph.c`): its caller notes `morph_from` (where the window is drawn and
+at what size) before it configures the window, and the morph starts from there with
+`sh_anim_morph` (`src/animation.c`), so that a placement made within another (a reflow as
+fullscreen ends) does not count the offset twice. That is the tiles' glide with a size along: the
+drawn size eases on the glide's time and curve, and a retarget carries its speed as the place's
+does, but for a glide begun in the same millisecond, which was never drawn. The client draws the
+new size only after the configure, so the animator stretches its surfaces (`sh_toplevel.surfaces`,
+the scene's tree of them in `content`) from the size they were drawn for to the size drawn, about
+the window's corner, setting each stretched buffer's opaque region aside meanwhile (the scene takes
+it unscaled), and leaves the rest of `content`, the frame, to `refresh_frame`, which the morph
+calls as the drawn size changes and draws around `frame_geometry`, the geometry at that size.
+
+The window's commit listener runs before the scene's on the window's own surface (an X11 window
+has one from its map for this) and calls `morph_commit`: a new size makes a flattened copy of the
+surfaces as they were (`sh_thumb_clone`, without opaque regions) just over them, which fades out
+over the rest of the glide or half its time, unless one is fading already, and the surfaces go back
+to rest and lose their records, since what the client draws next can be the very size the
+animation drew. Subsurfaces in synchronized mode have taken their new buffers by then, before
+their parent's commit is heard, so the copy can pair the window's old buffer with their new ones.
+Each commit answering the configure (`morph_serial` acknowledged, or an X11 surface at its
+configured size) at a size other than the one given retargets the morph to it; one at the size the
+surfaces had when asked counts only once the wait is over, since a client may acknowledge first
+and draw the new size later. With no answer `MORPH_WAIT_MS` past the glide (the wait follows each
+retarget), the window eases to what the client last drew. A resize with the pointer lands the morph
+first. A lookup that could find the window, drawn or where it rests (`MORPH_REACH` around the size
+given or drawn by the client), rests the morph, its frame too, laid out for the size the client
+last drew, and hides the copy.
+
+`frame_shown` eases how much of the frame shows over a change into or out of being frameless
+(maximized on a monitor without tiling, or fullscreen), on the morph's kind, scaling the border's
+colour, the shadow's opacity and the corners' radius. Whether the window draws its own shadow
+(`frame_own_shadow`), which decides paw's shadow and corners for it, is read afresh only while it
+rests with a frame, so that a client-side frame dropping its shadow as the window is maximized does
+not turn paw's on and off on the way. Input and `get windows` use the final place at once;
 `get drawn` reports the drawn one.
 
 ### Monitors turned off
