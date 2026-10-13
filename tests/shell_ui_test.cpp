@@ -267,6 +267,7 @@ int main(int argc, char **argv) {
     bool toggled = false;
     int currentWorkspace = 2;
     QStringList switches, requests;
+    QStringList nudges; // "workspace_nudge OUTPUT next|prev", the panel's wheel past either end
     int layoutSwitches = 0; // "switch_layout next" requests, answered with the second layout
     bool nightLight = false; // what "night_light_toggle" turns, and the state it then announces
     bool holdSessions = false;
@@ -354,6 +355,10 @@ int main(int argc, char **argv) {
                 // Typing what the emoji picker picked; 🙃 has nothing to type into.
                 requests.push_back(QString::fromUtf8(request).trimmed());
                 client->write(request.contains("🙃") ? "error: nothing has the keyboard\n" : "ok\n");
+                client->disconnectFromServer();
+            } else if (request.startsWith("workspace_nudge ")) {
+                nudges.push_back(QString::fromUtf8(request).trimmed());
+                client->write("ok\n");
                 client->disconnectFromServer();
             } else if (request.startsWith("output ") || request.startsWith("session ") ||
                        request.startsWith("switcher_confirm ") ||
@@ -597,8 +602,17 @@ int main(int argc, char **argv) {
     scroll(-120); // down: the next workspace
     if (!waitFor([&] { return workspace(4)->property("current").toBool(); }))
         return fail("scrolling down did not page to the next workspace");
-    scroll(-120); // already on the last one
-    scroll(60);   // half a notch does nothing yet
+    {
+        // Already on the last one: the windows nudge toward the next, and the pill bumps along.
+        auto *pill = find(view.rootObject(), "workspacePill");
+        QSignalSpy bumps(pill, SIGNAL(bumpedChanged()));
+        scroll(-120);
+        if (!waitFor([&] { return nudges == QStringList{"workspace_nudge " + output + " next"}; }) ||
+            !waitFor([&] { return bumps.count() >= 2 && pill->property("bumped").toReal() == 0; }) ||
+            switches.size() != 2)
+            return fail("scrolling past the last workspace did not nudge");
+    }
+    scroll(60); // half a notch does nothing yet
     scroll(60);
     if (!waitFor([&] { return workspace(3)->property("current").toBool(); }) ||
         switches.size() != 3 || switches.last() != "output " + output + " workspace 3") {
