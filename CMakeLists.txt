@@ -710,6 +710,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(animation_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(fullscreen_panel_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(touched_edges_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(layout_state_smoke $<TARGET_FILE:paw>)
         find_program(GRIM grim)
         # A missing grim is an empty argument, which the tests take as leaving out their
         # pixel checks (GRIM itself would be GRIM-NOTFOUND).
@@ -768,6 +769,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(window_capture_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe>)
         paw_smoke(window_peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(switcher_peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         if(SDBUS_FOUND)
             # A stand-in for logind on a private bus, so that no power test reaches the real one.

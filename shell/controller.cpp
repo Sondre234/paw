@@ -488,6 +488,44 @@ QVariantMap ShellController::widgets() const {
             {"power_mode", w.power_mode},
             {"bluetooth", w.bluetooth}};
 }
+QVariantMap ShellController::tilingBar() const {
+    const auto &shell = config_.shell;
+    const auto &bar = shell.tiling_bar;
+    auto own = [](const std::string &value, const std::string &fallback) {
+        return color(value.empty() ? fallback : value);
+    };
+    auto names = [](const std::vector<std::string> &modules) {
+        QStringList list;
+        for (const auto &module : modules)
+            list << QString::fromStdString(module);
+        return list;
+    };
+    const auto accent = own(bar.accent, shell.accent);
+    return {{"enabled", bar.enabled},
+            {"top", bar.top},
+            {"height", bar.height},
+            {"marginTop", bar.margin[0]},
+            {"marginRight", bar.margin[1]},
+            {"marginBottom", bar.margin[2]},
+            {"marginLeft", bar.margin[3]},
+            {"radius", bar.radius},
+            {"style", bar.style == paw::TilingBarStyle::Islands ? "islands"
+                      : bar.style == paw::TilingBarStyle::Pills ? "pills"
+                                                                : "bar"},
+            {"color", own(bar.color, shell.panel_color)},
+            {"textColor", own(bar.text_color, shell.text_color)},
+            {"accent", accent},
+            {"borderColor", bar.border_color.empty() ? accent : color(bar.border_color)},
+            {"borderWidth", bar.border_width},
+            {"font", QString::fromStdString(bar.font.empty() ? shell.font : bar.font)},
+            {"fontSize", bar.font_size > 0 ? bar.font_size : shell.font_size},
+            {"spacing", bar.spacing},
+            {"dots", bar.workspace_dots},
+            {"clockFormat", QString::fromStdString(bar.clock_format)},
+            {"left", names(bar.left)},
+            {"center", names(bar.center)},
+            {"right", names(bar.right)}};
+}
 QStringList ShellController::profiles() const {
     QStringList names;
     for (const auto &name : config_.profiles)
@@ -789,6 +827,9 @@ void ShellController::reload() {
         refreshApps();
         Q_EMIT configChanged();
         Q_EMIT wallpaperChanged();
+        // Tiling follows layout.tiling until the compositor says.
+        if (!tilingKnown_)
+            Q_EMIT tilingChanged();
         if (!enabled())
             Q_EMIT disabled();
     } catch (const std::exception &error) {
@@ -830,6 +871,7 @@ void ShellController::subscribe() {
             } else if (line.startsWith("tiling ")) {
                 // Each state starts with this line and lists every output after it.
                 tiling_ = line == "tiling on";
+                tilingKnown_ = true;
                 nextWorkspaces_.clear();
                 nextUrgentWindows_.clear();
                 urgentSeen = true;
@@ -851,6 +893,14 @@ void ShellController::subscribe() {
                                                         {"urgent", QVariantList()},
                                                         {"touched", QVariantList()},
                                                         {"tiling", words[4] == "on"}};
+            } else if (line.startsWith("layout ")) {
+                // layout NAME LAYOUT: the tiling layout of the workspace the output shows.
+                const auto words = line.split(' ');
+                if (words.size() != 3 || !nextWorkspaces_.contains(words[1]))
+                    continue;
+                auto state = nextWorkspaces_[words[1]].toMap();
+                state["layout"] = words[2];
+                nextWorkspaces_[words[1]] = state;
             } else if (line.startsWith("touched ")) {
                 // touched NAME EDGES: the edges of the output's usable area a window reaches,
                 // "top,left" or "-", along which a floating bar docks.
@@ -1294,6 +1344,10 @@ void ShellController::switcherPick(int index) {
     if (index >= 0 && index < switcher_.windows.size())
         request(QString("switcher_confirm %1\n").arg(index + 1).toUtf8(),
                 "The window switcher needs a running paw session.");
+}
+void ShellController::switcherShown() {
+    // A switcher closed meanwhile has the request refused, which needs no word.
+    ask("switcher_peek\n", [](const QByteArray &) {});
 }
 QString ShellController::iconFor(const QString &windowAppId) const {
     const auto id = appFor(windowAppId);

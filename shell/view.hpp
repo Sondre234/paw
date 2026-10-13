@@ -15,6 +15,10 @@ class ShellView : public QQuickView {
     // there are none, as for the taskbar. The dock lists only its own rectangle, so that the
     // desktop beside it and under its surface's headroom stays reachable.
     Q_PROPERTY(QVariantList inputRects READ inputRects WRITE setInputRects NOTIFY inputRectsChanged)
+    // Whether the panel shows the tiling bar (shell.tiling_bar) for its output's tiling, rather
+    // than the taskbar or the dock: the surface then lies along the tiling bar's edge and is as
+    // tall as the strip it reserves. Panel.qml sets it.
+    Q_PROPERTY(bool tilingBar READ tilingBar WRITE setTilingBar NOTIFY tilingBarChanged)
   public:
     ShellView(ShellController &controller, QScreen *screen, bool desktop, bool preview);
     QScreen *outputScreen() const { return outputScreen_; }
@@ -31,17 +35,27 @@ class ShellView : public QQuickView {
     // inputRects as a region, empty for the whole surface. Applied to the surface with layer shell
     // only, as a preview's platform may have no input regions.
     QRegion inputRegion() const { return inputRegion_; }
+    bool tilingBar() const { return tilingBar_; }
+    void setTilingBar(bool shown);
+    // The output's edge the panel's surface is along, and the strip it reserves there, as the bar
+    // it shows has them.
+    paw::PanelEdge edge() const;
+    int extent() const;
 
   Q_SIGNALS:
     void inputRectsChanged();
+    void tilingBarChanged();
 
   private:
     ShellController &controller_;
-    bool desktop_, preview_;
+    bool desktop_, preview_, tilingBar_ = false;
     LayerShellQt::Window *layer_ = nullptr;
     QScreen *outputScreen_;
     QVariantList inputRects_;
     QRegion inputRegion_;
+    // The room past the strip (ShellController::panelHeadroom), which the tiling bar has none of.
+    int headroom() const;
+    bool vertical() const { return edge() == paw::PanelEdge::Left || edge() == paw::PanelEdge::Right; }
     void placeLayer();
     void resizeForContent();
     void applyInput();

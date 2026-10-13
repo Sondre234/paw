@@ -10,7 +10,8 @@ and every Lua setting, with its type, default and range, is in the
 [the macOS style](#the-macos-style), where the shipped configuration starts, or a taskbar with its
 [start menu](#start-menu) (`shell.style = "taskbar"`, the profiles `default` and `light`). Both
 have [Quick Settings](#quick-settings), the [clock's flyout](#clock-and-calendar) and the
-[system tray](#system-tray), and the shell draws the overlays the compositor asks for: the
+[system tray](#system-tray). While a monitor [tiles](#tiling), its bars give way to the
+[tiling bar](#the-tiling-bar), a bar in Hyprland's style. The shell draws the overlays the compositor asks for: the
 [window switcher](#window-switcher), the [overview](#overview)'s text, the
 [command palette](#command-palette), the [power](#power) dialog, and the
 [notification cards and on-screen display](#notifications-and-on-screen-display). The desktop
@@ -70,6 +71,74 @@ The shipped macOS profiles also give windows macOS's controls and shadows
 the left (`windows.buttons`, read as paw starts). They name the Inter font, the closest free
 match for macOS's; without it the default sans-serif stands in. Switching to or from a macOS
 profile re-lays the shell out at once.
+
+### The tiling bar
+
+While a monitor [tiles](#tiling), its taskbar (or the macOS style's dock and menu bar) gives way to
+the tiling bar, a bar in Hyprland's style as Waybar draws it: thin, floating along the top, with
+the workspaces at the left, the focused window's title in the middle and the system's state at
+the right. Turning tiling off brings the taskbar back at once; with
+`layout.tiling_per_workspace`, the bar follows the workspace shown. The windows tile in the room it
+leaves, and its popups are the taskbar's: the start menu, Quick Settings, the clock's flyout with
+the calendar and the notifications, the volume's, the Wi-Fi networks, the tray's menus, the
+appearance profiles and the wallpapers, each opening by its module, and a right click beside the
+modules opens the bar's menu (tiling off, the start menu, show desktop, the profiles). The wheel
+on the bar pages through the workspaces.
+
+Everything about it is set in `shell.tiling_bar`, unset values following the shell's own
+(`panel_color`, `text_color`, `accent`, `font`, `font_size`), so it takes an appearance profile's
+colours by itself; `shell.tiling_bar = false` keeps the taskbar while tiling. The modules stand in
+three groups, `left`, `center` and `right`; a `modules` table lays out the whole bar, a group it
+leaves out being empty:
+
+| Module | What it shows, and does |
+| --- | --- |
+| `launcher` | The start menu (Launchpad in the macOS style), as `shell.start_icon`, else a grid in the accent colour. |
+| `workspaces` | The monitor's workspaces (`shell.workspaces_shown` of them), the current one on a pill in the accent colour (`workspace_style = "numbers"`, their names from `layout.workspace_names`) or drawn long (`"dots"`); a click shows one. |
+| `layout` | The [tiling layout](#tiling-layouts) of the workspace shown: a click steps to the next, a right click to the one before, the wheel either way. |
+| `mode` | The [binding mode](#binding-modes), while it is not the default one; a click leaves it. |
+| `window` | The focused window's title, cut short past a third of the bar. |
+| `clock` | The time, in `clock_format` (Qt's format: `HH:mm`, `ddd d MMM  HH:mm`, `h:mm:ss AP`); a click opens the calendar and the notifications below it, a right click toggles do-not-disturb. |
+| `tray` | The [system tray](#system-tray), while it has icons. |
+| `keyboard` | The [keyboard layout](#keyboard-layouts), while there are two or more; a click switches. |
+| `network` | Wi-Fi, a wired link or none; a click lists the [Wi-Fi](#wi-fi) networks. |
+| `volume` | The volume: a click shows each application's, a right click the outputs, a middle click mutes, the wheel turns it. |
+| `battery` | The charge, only where there is a battery. |
+| `notifications` | A bell with the unread count; a click opens them, a right click toggles do-not-disturb. |
+| `tiling` | Tiling, which a click turns off. |
+| `profiles`, `wallpapers` | The [appearance profiles](#appearance-profiles) (with two or more) and the wallpaper picker. |
+| `quick_settings` | [Quick Settings](#quick-settings). |
+| `power` | The [power](#power) menu by it. |
+
+```lua
+shell = {
+    tiling_bar = {
+        position = "top",         -- or "bottom"
+        height = 34,              -- 20 to 100
+        margin = { top = 6, right = 8, bottom = 0, left = 8 }, -- or one number all round
+        radius = 10,
+        style = "islands",        -- "bar": one bar; "islands": a pill for each group; "pills": one each
+        color = "#1e1e2ecc",      -- unset: shell.panel_color
+        text_color = "#cdd6f4",   -- unset: shell.text_color
+        accent = "#f5c2e7",       -- unset: shell.accent
+        border_width = 2,
+        border_color = "#89b4fa", -- unset: the accent
+        font = "JetBrainsMono Nerd Font", font_size = 13,
+        spacing = 4,
+        workspace_style = "dots", -- or "numbers"
+        clock_format = "ddd d MMM  HH:mm",
+        modules = {
+            left = { "workspaces", "layout", "mode", "window" },
+            center = { "clock" },
+            right = { "tray", "network", "volume", "battery", "power" },
+        },
+    },
+}
+```
+
+The taskbar is kept, hidden, while the tiling bar shows, so that the bars switch at once. The
+keyboard on the bar (Super + B) walks the taskbar alone, and does nothing while the tiling bar
+shows.
 
 ### Taskbar
 
@@ -224,7 +293,8 @@ takes the peek over at once, without the others coming back in between; leaving 
 the card closing, ends it with a fade. A picture the keyboard on the bar selects peeks the same
 way, half a second after the selection comes to it, and at once while another is peeked at.
 Clicking the picture focuses the window where the peek shows it. The peek also ends as the window closes or is focused another way, as the session
-locks, or as the desktop peek starts. The macOS style's dock and a stack's list of titles have no
+locks, or as the desktop peek starts. The [switcher](#window-switcher) and the
+[palette](#command-palette) peek at their selected window the same way. The macOS style's dock and a stack's list of titles have no
 pictures, and do not peek.
 
 ```lua
@@ -991,6 +1061,23 @@ and until one has come the application's icon stands in, the first fading in ove
 caption, the keys, the mouse and the moment it shows are as with the grid. The macOS style keeps its large icons, as macOS switches
 applications.
 
+Resting on a window in the switcher peeks at it, as Windows' Alt + Tab does: once the switcher has
+shown and the selection has stayed on a window for half a second, every other window fades to
+`peek.opacity` over `peek.duration` and the selected one shows over them in full where it is, a
+minimized one where it was and one on another workspace over the workspace shown, as for a
+picture on the taskbar's [card](#window-pictures). From then on the peek follows the selection at
+once as Tab or the arrows move it, the others staying faded, while a quick Alt + Tab, or Tab
+pressed on through the list, fades nothing. The others fade on every monitor, so that the selected
+window stands out wherever it is, the switcher on its own monitor over them. Releasing Alt, or
+Return, focuses the window where the peek shows it, already in front, as the others come back
+around it; a click on another window brings that one up as they come back, and Escape fades them
+back. Nothing about a window changes until it is chosen. The selected window closing moves the
+peek on with the selection, to the window selected in its place, and the session locking or the
+desktop peek end it as they end the card's; after the desktop peek, or the window focused another
+way, the next selection rests again before it peeks. The shell tells the compositor as it shows the switcher (`paw msg switcher_peek`), so
+without the shell nothing peeks; the macOS style's switcher, which switches applications as macOS
+does, does not peek either. `peek.switcher = false` turns the peek off, the palette's too.
+
 ## Overview
 
 Super + O (`toggle_overview`) shows the focused monitor's workspace as an Exposé: every
@@ -1045,7 +1132,14 @@ runs of letters and word starts (`gc` finds Google Chrome, `lay mon` finds Layou
 Up and Down, Tab and Shift + Tab, Ctrl + N and Ctrl + P, or the pointer select; Enter or a click
 runs the entry; Escape, or clicking elsewhere, closes it. A leading `>` searches only actions, `@`
 windows, `#` workspaces and `%` sessions, `/` [files](#files) and `=` asks the
-[calculator](#calculator); when nothing matches, the palette says so and lists these. The palette needs the shell (`paw-shell`), which
+[calculator](#calculator); when nothing matches, the palette says so and lists these. A window
+selected among the results peeks after half a second, as in the [switcher](#window-switcher):
+the others fade while it shows alone where it is, a minimized one where it was. Moving the
+selection to another window moves the peek at once; leaving the windows, or Escape, fades the
+others back, and Enter focuses the window where the peek shows it. The window selected as the
+palette opens does not peek until something is typed or the selection moves, and typing puts the
+first peek off until it pauses. Spotlight, the macOS style's palette, does not peek, and
+`peek.switcher = false` turns it off. The palette needs the shell (`paw-shell`), which
 draws it, and the compositor's control socket for actions and sessions. On a machine with 600
 entries a keystroke re-ranks them in under a millisecond (an optimized build; see
 `tests/palette_test.cpp`). Super + P used to toggle sticky windows; that moved to Super + Shift + P.
@@ -1255,7 +1349,9 @@ off, and a reload that sets it returns sticky windows to their monitor's current
 ## Tiling
 
 Tiling is a setting of each monitor. The tiling button on a monitor's panel (next to the
-clock) switches that monitor between floating windows and automatic tiling; Super + S
+clock) switches that monitor between floating windows and automatic tiling, and while it tiles
+the panel is the [tiling bar](#the-tiling-bar) (`shell.tiling_bar = false` keeps the taskbar);
+Super + S
 or `paw msg toggle_tiling` switches the focused monitor, and
 `paw msg output HDMI-A-1 toggle_tiling` a named one. Lua `layout.tiling = true` starts
 every monitor tiled, and `tiling` in a monitor's `outputs.monitors` entry overrides it:
@@ -1507,9 +1603,11 @@ through the black to the window.
 **Peek.** Bind `peek` to a key and every window fades to `peek.opacity` (0.12 by default; 0 hides
 them) for as long as the key is held, showing the desktop behind them; borders, the panel and
 dimming go with it. `peek_toggle` (and `paw msg peek_toggle`) switches it on and off instead.
-The fade takes `peek.duration` milliseconds. Resting on a window's picture on the taskbar's card
-peeks at that window the same way, the others fading while it shows over them (see
-[Window pictures](#window-pictures)); the desktop peek takes over from it.
+The fade takes `peek.duration` milliseconds, at `animations.speed`. Resting on a window's picture
+on the taskbar's card peeks at that window the same way, the others fading while it shows over
+them (see [Window pictures](#window-pictures)), and so does resting on a window in the
+[switcher](#window-switcher) or the [palette](#command-palette); the desktop peek takes over from
+them.
 
 **Night light.** `night_light = { enabled = true, night_temperature = 3400 }` turns the screen
 warm in the evening and neutral again in the morning, easing over `transition` minutes around
@@ -2499,7 +2597,7 @@ visible, scratchpad (a window hidden there is also minimized), sticky, its windo
 (a number; 0 for none), and whether it is [kept above](#keeping-windows-above). `paw msg
 get stacking` lists the windows front to back as they are drawn, hidden ones where they would
 be: app ID, title, monitor, and the layer it is in (`fullscreen_cover` for fullscreen over the
-panels, `peek` for the window the taskbar peeks at, `fullscreen`, `above`, `floating` for floating
+panels, `peek` for the window peeked at, `fullscreen`, `above`, `floating` for floating
 windows kept over tiles, `normal`). `paw msg get dynamic_rules` prints a line per window in
 the order of `get windows`: app ID, title, what the [dynamic rules](#window-rules) decide of
 floating, sticky and kept above (`on`, `off`, or `-` while none decides it), and which of them
@@ -2516,7 +2614,8 @@ the scene (closing windows count until their animation ends), and of focus fades
 for tests. `paw msg get pictures` prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
-window_peek` prints one line per window for the taskbar's peek at a window: whether it is the
+window_peek` prints one line per window for a peek at one window (the taskbar's card's, the
+switcher's, the palette's): whether it is the
 one peeked at, whether it is drawn, where it is stacked among the windows (0 at the bottom), how
 far it shows through the peek and its opacity (both in thousandths), and its title. `paw
 msg get seat` prints what has the keyboard, what the pointer is on and, while something is
@@ -2530,7 +2629,9 @@ tablet's tools are doing (see [Touchpad gestures](#touchpad-gestures),
 each monitor's frames do (see [Tearing](#tearing)). A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
 `workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
-(as in `get workspaces`), one `touched NAME EDGES` line per monitor with the edges of its free
+(as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of
+the workspace it shows (`dwindle`, `master`, `spiral`, `monocle` or `scroll`, as in
+`get layout NAME`), one `touched NAME EDGES` line per monitor with the edges of its free
 area a window shown there reaches (`top,left`, or `-`; a floating bar docks along them), and `keyboard-layout N COUNT SHORT NAME` (the active
 [keyboard layout](#keyboard-layouts), from 1, of how many, as in `get keyboard`) after every
 change, plus `launcher OUTPUT` when the `launcher` action
@@ -2540,7 +2641,9 @@ opens or a listed window closes, `switcher-select N` as the selection moves (bot
 from 0), and `switcher-close`. ID is the window's number, which the compositor gives each window as
 it appears and never gives another; a taskbar gets the same number for its handle of the window
 from `paw-window-control-v1` (version 4), and so finds the window the line means where two
-share a title. The state tells whether the session is locked, `locked on|off`, again as it locks
+share a title. The shell sends `switcher_peek` once it has drawn the switcher, whose selected
+window then peeks once the selection rests ([above](#window-switcher)); while the switcher is
+closed the request is refused. The state tells whether the session is locked, `locked on|off`, again as it locks
 and unlocks (the shell's clipboard history records nothing meanwhile), and ends with
 `power ACTIONS`, the power actions that may
 run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power

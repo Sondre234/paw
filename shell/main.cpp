@@ -181,7 +181,7 @@ int main(int argc, char **argv) {
                                                                         : QImage(),
                                         menuBar && menuBar->isVisible() ? menuBar->grabWindow()
                                                                         : QImage(),
-                                        controller);
+                                        views.front()->edge(), controller);
                 if (previewData)
                     shot = previewData->withSurface(shot);
             }

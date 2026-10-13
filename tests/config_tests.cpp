@@ -834,6 +834,73 @@ int main(int argc, char **argv) {
         rejects("return {shell={thumbnails={live='yes'}}}");
         rejects("return {shell={thumbnails={workspaces=1}}}");
         rejects("return {shell={thumbnails={width=240}}}");
+        // The bar shown while a monitor tiles: on by default, along the top, floating away from
+        // the monitor's edges but not towards the windows; false keeps the taskbar.
+        {
+            const auto &bar = even.shell.tiling_bar;
+            require(bar.enabled && bar.top && bar.height == 34 && bar.margin[0] == 6 &&
+                        bar.margin[1] == 8 && bar.margin[2] == 0 && bar.margin[3] == 8 &&
+                        bar.radius == 10 && bar.style == paw::TilingBarStyle::Bar &&
+                        bar.color.empty() && bar.font_size == 0 && !bar.workspace_dots &&
+                        bar.clock_format == "HH:mm" && bar.left.front() == "launcher" &&
+                        bar.center == std::vector<std::string>{"window"} &&
+                        bar.right.back() == "power",
+                    "the tiling bar's defaults are not as documented");
+            require(!paw::parse_config("return {shell={tiling_bar=false}}").shell.tiling_bar.enabled &&
+                        paw::parse_config("return {shell={tiling_bar=true}}").shell.tiling_bar.enabled &&
+                        !paw::parse_config("return {shell={tiling_bar={enabled=false}}}")
+                             .shell.tiling_bar.enabled,
+                    "shell.tiling_bar = false does not keep the taskbar");
+            auto riced = paw::parse_config(
+                "return {shell={tiling_bar={position='bottom',height=28,margin={left=4,right=4},"
+                "radius=0,style='islands',color='#1e1e2ecc',text_color='#cdd6f4',"
+                "accent='#f5c2e7',border_width=2,border_color='#89b4fa',font='Iosevka',"
+                "font_size=14,spacing=8,workspace_style='dots',clock_format='ddd HH:mm',"
+                "modules={left={'workspaces'},right={'clock','tray'}}}}}")
+                             .shell.tiling_bar;
+            require(!riced.top && riced.height == 28 && riced.margin[0] == 0 &&
+                        riced.margin[1] == 4 && riced.margin[2] == 0 && riced.margin[3] == 4 &&
+                        riced.radius == 0 && riced.style == paw::TilingBarStyle::Islands &&
+                        riced.color == "#1e1e2ecc" && riced.text_color == "#cdd6f4" &&
+                        riced.accent == "#f5c2e7" && riced.border_width == 2 &&
+                        riced.border_color == "#89b4fa" && riced.font == "Iosevka" &&
+                        riced.font_size == 14 && riced.spacing == 8 && riced.workspace_dots &&
+                        riced.clock_format == "ddd HH:mm" &&
+                        riced.left == std::vector<std::string>{"workspaces"} &&
+                        riced.center.empty() &&
+                        riced.right == std::vector<std::string>{"clock", "tray"},
+                    "shell.tiling_bar not parsed");
+            // What follows the table, in the shell and after it, is read as before.
+            auto after = paw::parse_config(
+                "return {shell={tiling_bar={height=30},accent='#123456'},layout={gap=3,tiling=true}}");
+            require(after.shell.tiling_bar.height == 30 && after.shell.accent == "#123456" &&
+                        after.settings.gap_inner == 3 && after.settings.tiling,
+                    "the settings read after shell.tiling_bar were lost");
+            // Along the bottom, the default margins turn over; one number goes all round.
+            auto low = paw::parse_config("return {shell={tiling_bar={position='bottom'}}}").shell.tiling_bar;
+            require(low.margin[0] == 0 && low.margin[2] == 6 && low.margin[1] == 8,
+                    "the tiling bar's default margins do not follow it to the bottom");
+            auto even_margin = paw::parse_config("return {shell={tiling_bar={margin=3}}}").shell.tiling_bar;
+            require(even_margin.margin[0] == 3 && even_margin.margin[2] == 3,
+                    "one tiling bar margin does not go all round");
+            require(paw::parse_config("return {shell={tiling_bar={style='pills'}}}")
+                            .shell.tiling_bar.style == paw::TilingBarStyle::Pills,
+                    "the tiling bar's pills not parsed");
+            rejects("return {shell={tiling_bar='yes'}}");
+            rejects("return {shell={tiling_bar={position='left'}}}");
+            rejects("return {shell={tiling_bar={height=19}}}");
+            rejects("return {shell={tiling_bar={margin=-1}}}");
+            rejects("return {shell={tiling_bar={margin={middle=1}}}}");
+            rejects("return {shell={tiling_bar={style='floating'}}}");
+            rejects("return {shell={tiling_bar={color='blue'}}}");
+            rejects("return {shell={tiling_bar={workspace_style='roman'}}}");
+            rejects("return {shell={tiling_bar={clock_format=''}}}");
+            rejects("return {shell={tiling_bar={modules={left={'clok'}}}}}");
+            rejects("return {shell={tiling_bar={modules={left={'clock'},right={'clock'}}}}}");
+            rejects("return {shell={tiling_bar={modules={top={'clock'}}}}}");
+            rejects("return {shell={tiling_bar={modules={left='clock'}}}}");
+            rejects("return {shell={tiling_bar={colour='#000000'}}}");
+        }
         // What the search finds besides applications: files, by default in the home and user
         // folders, four levels down and 20000 names at most.
         require(even.shell.search.files && even.shell.search.directories.empty() &&

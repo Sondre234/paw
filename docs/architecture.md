@@ -184,6 +184,24 @@ focused (`focus_toplevel_raise`, which a click on its picture does), as the sess
 once), and as the desktop peek starts. `paw msg get window_peek` lists what it does to each
 window, and `tests/window_peek_smoke.py` tests it.
 
+The window switcher peeks at its selected window through the same functions (`switcher.c`). The
+shell's `Switcher.qml` asks for it as the switcher shows (`ShellController::switcherShown`, the
+`switcher_peek` request, which `switcher_ask_peek` takes), but not in the macOS style nor with
+`peek.switcher` off. The first peek waits on `switcher.peek_timer` until `SWITCHER_PEEK_MS` after
+the selection last moved (`selected_at`); while that peek goes on (`switcher_peeks`: the peek is
+still at `switcher.peeked`, the window it peeked at), `switcher_select` moves it at once, and once
+something else ended it (focus, the desktop peek, a taskbar's picture) the selection rests again
+first. The selected window closing ends the peek (`forget_window_peek`); `switcher_forget` peeks
+at the window selected in its place a millisecond later, once `unmap_toplevel` has moved the focus,
+which may go to that window and would end a peek begun before. Its peek has no `peek_object`, so
+no window object ends it, and it takes the peek over from a taskbar's; `switcher_close` ends it,
+through `focus_toplevel_raise` when the window chosen is the one peeked at (in front already, the
+others coming back around it), and otherwise with `end_window_peek` before focusing the window
+chosen. The lock ends a peek before closing the switcher, so that it ends at once.
+`peek.switcher` turned off by a reload ends the switcher's peek at its next step, a selection or
+its closing. `tests/switcher_peek_smoke.py` tests it without the shell, sending
+`switcher_peek` itself, and `tests/peek_shell_smoke.py` with it.
+
 Version 4 also sends the window's `id` once, with its first state: `sh_toplevel.id`, a number
 `publish_toplevel` gives a window the first time it publishes it (counting up from 1 in
 `sh_server.last_window_id`) and gives no other window while the compositor runs. A window keeps
@@ -501,6 +519,19 @@ sends move the outline every panel's popover shows, taking no input, and `panel-
 `ShellController::movePanel` write `shell.panel_position` with `paw::save_setting`
 (`src/config_edit.cpp`) and load the file again.
 
+While the panel's output tiles, with `shell.tiling_bar` on, `Panel.qml` shows the tiling bar
+(`TilingBar.qml`) instead (`tilingBarShown`). The style's bars stay meanwhile, hidden and null
+through `taskbar`, `dock` and `menuBar`, so that bars switch at once as tiling goes on and off,
+and `macos` reads false, so that the popups are placed as on the taskbar while drawn in the
+style's own way. The panel sets its `ShellView`'s `tilingBar`, which lays the surface along the
+tiling bar's edge (`ShellView::edge`) and as tall as the strip it reserves
+(`ShellController::tilingBarExtent`), without headroom. A module is a `Module`, a button in the
+bar's own colours (`shell.tilingBar`, which `ShellController::tilingBar` resolves against the
+shell's own), made by name in its group's row (`componentFor`) and found by the panel through
+`module(name)` for the popups it opens: Quick Settings and the clock's flyout open centred on
+theirs (`flyoutAnchor`), the power menu by its own (`barPowerMenu`). The `layout` module reads
+the `layout NAME LAYOUT` lines of the compositor's state (`describe_state`, `control.c`).
+
 The window switcher, the command palette, the power dialog and the overview's text are
 `OverlayView`s (`view.cpp`), a layer surface each on every output's overlay layer. `present()`
 shows one and sets its QML root's `shown`; `dismiss()` clears it, and the root animates its own
@@ -516,6 +547,7 @@ what was there.
 | `Theme.qml` | The design tokens (colours, type, radii, spacing, icon sizes, motion, whether effects can be drawn), derived from the appearance profile. A singleton: every file reads `Theme.surface`, `Theme.hover`, ... instead of colours and sizes of its own. |
 | `Panel.qml` | The panel on one output: which popup is open and where, the bars of the style (a loader for each), and the popover with a loader for each popup. Every part below takes the panel as `panel` and reaches its state and functions through it; a popup is placed in `panel.popupLayer`, beside the part of the bar it belongs to (`panel.barAnchor(x, width)`). |
 | `Taskbar.qml` | The taskbar: the bar along the panel's edge with the start button, the row of pinned applications and windows, the widgets and the clock, and its smaller buttons. |
+| `TilingBar.qml` | The tiling bar (`shell.tiling_bar`), in the taskbar's place (or the dock's and the menu bar's) while the output tiles: its modules in three groups along it, as one bar, an island for each group or a pill for each module, in colours and type of its own. |
 | `TopMenuBar.qml`, `Dock.qml`, `DockIcon.qml` | The bars of the macOS style (`shell.style`): the menu bar along the top in a `MenuBarWindow` of its own, with the system, application and Window menus, the widgets, search, Quick Settings and the clock; and the dock in the panel's surface, an icon for each application, pinned or running, with the applications button and the Trash. |
 | `BarKeyboard.qml` | The keyboard on the bar (`taskbar_focus`): held in the popover, it walks the taskbar's buttons or the dock's icons and the windows they show. |
 | `BindingMode.qml` | The name of the binding mode in use, on the bar while it is not the default one. |
@@ -776,7 +808,16 @@ the way to the cross, the speaker or another tile does not fade every window on 
 `TaskModel` sends `set_peek` and `unset_peek` (version 4) for them; the compositor ends a peek by
 itself too, as the window is focused (a click on the picture), which the model does not hear, so
 `peekedTask` names the last window it peeked at until `endPeek`. A stand-in without `peek` peeks
-at nothing, and the macOS style's dock and the stack's list of titles do not peek.
+at nothing, and the macOS style's dock and the stack's list of titles do not peek. The command
+palette (`Palette.qml`) peeks through the task model the same way at the window result selected,
+by the task id that is the result's target: 500 ms after the selection comes to it (restarted by
+typing), once something was typed or the selection moved since the palette opened (`engaged`), and
+at once while it peeks at another, ended 150 ms after the selection leaves the windows
+and, as the palette closes, once the event loop has run the result (`Qt.callLater`), so that a
+window it focuses ends the peek around itself first. The results are read as the palette opens,
+so a window that closed meanwhile keeps its row; the model takes no peek at it (`peekedTask`
+stays as it was), and the window peeked at so far is let go, as it no longer stands for the
+selection. `shell.peekSelection` is `peek.switcher`.
 
 The keyboard on the bar (`BarKeyboard.qml`, the panel's `barKeys`) is held in the popover. The
 `taskbar_focus` action sends the shell `taskbar OUTPUT` for the focused output (`request_taskbar`,

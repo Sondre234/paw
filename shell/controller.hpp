@@ -111,6 +111,8 @@ class ShellController : public QObject {
     Q_PROPERTY(bool liveThumbnails READ liveThumbnails NOTIFY configChanged)
     // shell.thumbnails.workspaces: whether resting on a workspace shows a picture of it.
     Q_PROPERTY(bool workspaceThumbnails READ workspaceThumbnails NOTIFY configChanged)
+    // peek.switcher: whether the window selected in the switcher or the palette peeks.
+    Q_PROPERTY(bool peekSelection READ peekSelection NOTIFY configChanged)
     // features.sticky: whether a window can be shown on every workspace of its monitor.
     Q_PROPERTY(bool stickyWindows READ stickyWindows NOTIFY configChanged)
     // Which panel widgets Lua enables, and where: {workspaces, clock, calendar, keyboard_layout,
@@ -118,6 +120,13 @@ class ShellController : public QObject {
     // profiles, wallpapers, notifications}, which can move, as "bar", "quick" (Quick Settings) or
     // "" (hidden).
     Q_PROPERTY(QVariantMap widgets READ widgets NOTIFY configChanged)
+    // shell.tiling_bar, the bar in Hyprland's style shown in place of the taskbar on a monitor
+    // while it tiles: {enabled, top, height, marginTop, marginRight, marginBottom, marginLeft,
+    // radius, style ("bar", "islands" or "pills"), color, textColor, accent, borderColor,
+    // borderWidth, font, fontSize, spacing, dots, clockFormat, and left, center and right, the
+    // module names of each group}. The colours and the type are the shell's where it sets none,
+    // but the font, "" for Qt's default as Theme has it.
+    Q_PROPERTY(QVariantMap tilingBar READ tilingBar NOTIFY configChanged)
     // The compositor's active keyboard layout: {number (from 1), count, short ("us"), name}, or
     // empty without a compositor.
     Q_PROPERTY(QVariantMap keyboardLayout READ keyboardLayout NOTIFY keyboardLayoutChanged)
@@ -310,6 +319,7 @@ class ShellController : public QObject {
     int thumbnailSize() const { return config_.shell.thumbnails.size; }
     bool liveThumbnails() const { return config_.shell.thumbnails.live; }
     bool workspaceThumbnails() const { return config_.shell.thumbnails.workspaces; }
+    bool peekSelection() const { return config_.settings.effects.peek_switcher; }
     bool stickyWindows() const { return config_.settings.sticky; }
     bool enabled() const { return config_.shell.enabled; }
     QStringList profiles() const;
@@ -317,6 +327,16 @@ class ShellController : public QObject {
     // Switches to another appearance profile: the compositor saves the choice and reloads.
     Q_INVOKABLE void pickProfile(const QString &name) { send("profile " + name); }
     QVariantMap widgets() const;
+    QVariantMap tilingBar() const;
+    // The edge the tiling bar is along, and the strip it reserves there: the bar and its margins
+    // across it.
+    paw::PanelEdge tilingBarEdge() const {
+        return config_.shell.tiling_bar.top ? paw::PanelEdge::Top : paw::PanelEdge::Bottom;
+    }
+    int tilingBarExtent() const {
+        const auto &bar = config_.shell.tiling_bar;
+        return bar.height + bar.margin[0] + bar.margin[2];
+    }
     QVariantMap keyboardLayout() const { return keyboardLayout_; }
     bool nightLight() const { return nightLight_; }
     QString nightLightMode() const { return nightLightMode_; }
@@ -389,7 +409,9 @@ class ShellController : public QObject {
     // Starts the tray's host on the session bus when QtDBus is built in and shell.widgets.tray
     // is on; later configuration reloads follow the setting. Returns whether it is running.
     bool startTray();
-    bool tiling() const { return tiling_; }
+    // Whether the focused output tiles, as the compositor says; until it has, as layout.tiling
+    // says, which a preview without a compositor shows.
+    bool tiling() const { return tilingKnown_ ? tiling_ : config_.settings.tiling; }
     bool tilingAvailable() const { return subscribed_; }
     int workspaceCount() const { return config_.settings.workspaces; }
     int workspacesShown() const { return config_.shell.workspaces_shown; }
@@ -401,13 +423,17 @@ class ShellController : public QObject {
                           : QString());
         return names;
     }
-    // By output name: {current: N, occupied: [N, ...], tiling: bool}, numbered from 1.
+    // By output name: {current: N, occupied: [N, ...], tiling: bool, layout: "dwindle", ...},
+    // numbered from 1.
     QVariantMap workspaces() const { return workspaces_; }
     QString switcherOutput() const { return switcher_.output; }
     QVariantList switcherWindows() const { return switcher_.windows; }
     int switcherSelected() const { return switcher_.selected; }
     // Focuses the switcher's window at `index` and closes it.
     Q_INVOKABLE void switcherPick(int index);
+    // Tells the compositor that its switcher shows, so that the selected window peeks once the
+    // selection has rested (switcher_peek); nothing without a session.
+    Q_INVOKABLE void switcherShown();
     QString overviewOutput() const { return overview_.output; }
     QVariantList overviewWindows() const { return overview_.windows; }
     QVariantList overviewStrip() const { return overview_.strip; }
@@ -577,7 +603,7 @@ class ShellController : public QObject {
     bool effects_ = false;
     // Compositor state from its control socket ($PAW_SOCKET), kept open by "subscribe".
     QLocalSocket *state_ = nullptr;
-    bool subscribed_ = false, tiling_ = false;
+    bool subscribed_ = false, tiling_ = false, tilingKnown_ = false;
     QVariantMap workspaces_, nextWorkspaces_;
     QVariantList urgentWindows_, nextUrgentWindows_;
     // What the switcher and the overview show (their properties above), and what comes in for
