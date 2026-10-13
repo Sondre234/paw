@@ -5,7 +5,8 @@ panel's surface); a copy of a window minimizing shrinks into its button on the w
 output, and a window restored grows out of it, both while input already has the window where it
 ends up; the minimize action does the same. Minimizing turned back half way goes back from where
 it is drawn. Without a button the window goes to the middle of the panel's strip, or shrinks where
-it is. Animations off, nothing animates; a window closing as it minimizes leaves nothing behind."""
+it is. Animations off, nothing animates; a window closing as it minimizes or is restored leaves
+nothing behind."""
 from pathlib import Path
 import subprocess
 import sys
@@ -217,6 +218,17 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     desktop.reap(closing)
     wait_for(lambda: "C" not in windows(), "C closed")
     wait_for(settled, "C's copy gone")
+    # And as it is restored: it closes from where it is drawn.
+    closing = desktop.open_window(probe, "D", "app-d", focused=True)
+    wait_for(settled, "D opened")
+    subprocess.run([window_probe, "D", "minimize"], env=desktop.env, check=True, timeout=30)
+    wait_for(settled, "D minimized")
+    subprocess.run([window_probe, "D", "restore"], env=desktop.env, check=True, timeout=30)
+    assert any(kind == "restore" for _, kind in folds()), folds()
+    closing.terminate()
+    desktop.reap(closing)
+    wait_for(lambda: "D" not in windows(), "D closed")
+    wait_for(settled, "D gone")
 
     # Animations off: minimizing and restoring are instant.
     desktop.reload(CONFIG.replace("animations = {", "animations = { enabled = false,"))
