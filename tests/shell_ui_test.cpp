@@ -3113,6 +3113,26 @@ ListModel {
         if (!waitFor([&] { pictureRequests(); return !popover->isVisible() && pictures.size() == 2; }) ||
             pictures.last() != "unwatch 7")
             return fail("without live pictures, the window's picture was not let go as its card closed");
+        // shell.thumbnails = { workspaces = false }: a workspace has its tooltip and no card, while
+        // a window's button still has its pictures.
+        if (!reconfigure(QString(lua).replace(quickPictures, "thumbnails={delay=100,workspaces=false}")))
+            return fail("could not rewrite the configuration");
+        if (!waitFor([&] { return !controller.workspaceThumbnails() && controller.thumbnails(); }))
+            return fail("shell.thumbnails = { workspaces = false } was not read");
+        QTest::mouseMove(&view, centre(workspace(2)));
+        if (!waitFor([&] { return tooltip(workspace(2)); }))
+            return fail("without pictures of workspaces, a workspace has no tooltip");
+        if (!stays([&] { return !root->property("workspaceCardOpen").toBool() && !root->property("workspaceWarm").toInt(); }, 400))
+            return fail("without pictures of workspaces, resting on a workspace opened its card");
+        QTest::mouseMove(&view, barSpace);
+        if (!waitFor([&] {
+                const auto windows = QGuiApplication::topLevelWindows();
+                return std::none_of(windows.begin(), windows.end(), [&](QWindow *window) {
+                    return window->isVisible() && window != &view && window != popover;
+                });
+            }))
+            return fail("the tooltip of a workspace did not go once the pointer left it");
+        QTest::mouseMove(&view, barSpace + QPoint(1, 0));
         // shell.thumbnails = { enabled = false }: a window's button has its tooltip and no card,
         // and a stack lists its windows as it did.
         if (!reconfigure(QString(lua).replace(quickPictures, "thumbnails={delay=100,enabled=false}")))
