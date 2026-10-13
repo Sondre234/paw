@@ -26,6 +26,7 @@ CONFIG = """return {
         },
     },
     notifications = { enabled = false },
+    animations = { minimize = { duration = 900, curve = "linear" } },
     shell = { panel_height = 52, thumbnails = { delay = 300 }%s },
 }"""
 WIDTH, HEIGHT, BAR = 1280, 720, 52
@@ -79,8 +80,8 @@ with harness.Compositor(compositor, CONFIG % "", start=False,
                    timeout=30)
     desktop.wait_for(lambda: windows()[0].minimized, "the window minimized")
     fold = folds()
-    assert not fold or (fold[0][2] == "minimize" and tuple(map(int, fold[0][4:8])) == button and
-                        fold[0][8] == "button"), fold
+    assert len(fold) == 1 and fold[0][2] == "minimize" and \
+        tuple(map(int, fold[0][4:8])) == button and fold[0][8] == "button", fold
     desktop.wait_for(lambda: not folds(), "the window in its button")
 
     # While its card is open, its picture counts; once the card has closed, its button again.
@@ -98,7 +99,8 @@ with harness.Compositor(compositor, CONFIG % "", start=False,
                    timeout=30)
     desktop.wait_for(lambda: not windows()[0].minimized, "the window restored")
     fold = folds()
-    assert not fold or (fold[0][2] == "restore" and tuple(map(int, fold[0][4:8])) == button), fold
+    assert len(fold) == 1 and fold[0][2] == "restore" and \
+        tuple(map(int, fold[0][4:8])) == button, fold
     desktop.wait_for(lambda: not folds(), "the window back in its place")
 
     # The bar along the top edge takes its buttons along.
@@ -122,8 +124,8 @@ with harness.Compositor(compositor, CONFIG % "", start=False,
                    timeout=30)
     desktop.wait_for(lambda: windows()[0].minimized, "the tile minimized")
     fold = folds()
-    assert not fold or (fold[0][2] == "minimize" and tuple(map(int, fold[0][4:8])) == title and
-                        fold[0][8] == "button"), (fold, title)
+    assert len(fold) == 1 and fold[0][2] == "minimize" and \
+        tuple(map(int, fold[0][4:8])) == title and fold[0][8] == "button", (fold, title)
     subprocess.run([window_probe, "paw protocol probe", "restore"], env=env, check=True,
                    timeout=30)
     desktop.wait_for(lambda: not windows()[0].minimized, "the tile restored")
