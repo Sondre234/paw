@@ -792,9 +792,9 @@ const Option options[] = {
      "times a second; `false` takes one of each window just before the card opens, or as the "
      "switcher opens."},
     {"shell.thumbnails.workspaces", "boolean", "true", "true", none, none,
-     "Resting on a workspace of the workspace indicator shows a card with a picture of it, its "
-     "wallpaper and its windows where they are, after the same delay; `false` gives the "
-     "workspaces their tooltips again. Off too with `enabled = false`."},
+     "Resting on a workspace of the taskbar's workspace indicator, or of the tiling bar, shows a "
+     "card with a picture of it, its wallpaper and its windows where they are, after the same "
+     "delay; `false` gives the workspaces their tooltips again. Off too with `enabled = false`."},
     {"shell.search", "table", "", "", none, none,
      "What the command palette's and the start menu's search find besides applications, "
      "windows, workspaces and actions."},
