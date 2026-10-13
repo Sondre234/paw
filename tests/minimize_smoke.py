@@ -130,9 +130,19 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
              "A on its way in")
     taskbar("restore", "A")
     state = folds()
-    assert (a, "minimize") not in state, state
-    assert (a, "restore") not in state or 250 <= state[(a, "restore")][0] < 900, state
+    assert (a, "minimize") not in state and 250 <= state[(a, "restore")][0] < 900, state
     wait_for(settled, "A back out")
+
+    # Minimized again on its way in, as showing the desktop asks of every window, it goes on in,
+    # and turned back, it still comes out from as far in as it was.
+    taskbar("minimize", "A")
+    taskbar("minimize", "A")
+    wait_for(lambda: (a, "minimize") in folds() and folds()[(a, "minimize")][0] >= 300,
+             "A on its way in, minimized twice")
+    taskbar("restore", "A")
+    state = folds()
+    assert (a, "minimize") not in state and 250 <= state[(a, "restore")][0] < 900, state
+    wait_for(settled, "A back out again")
 
     # Restoring takes over from minimizing turned back at once too.
     taskbar("minimize", "A")
