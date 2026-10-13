@@ -2181,21 +2181,7 @@ pointing at **Appearance** lists them too, beside the menu (the one in use is ma
 configuration, so the compositor and the shell change together, and it stays after a restart.
 While that file names a profile the configuration still has, it wins over `profile`; delete it
 to go back to `profile`. Every profile is checked when the configuration loads, so a mistake in
-one that is not in use is still reported, with its line.
-
-Switching profiles is one crossfade on every monitor. Each keeps showing what it showed, a picture
-of it laid over everything, while the compositor and the shell take up the new look under it, so
-that no frame shows the old bar with the new borders; once the shell has drawn the new look, its
-wallpaper loaded (a moment, typically a quarter of a second), the picture fades out over 400
-milliseconds, easing in and out. `animations.speed` scales the fade, and with `animations.enabled
-= false` the profile changes at once. The pointer and the keyboard reach the new look at once, as
-with every animation: the pointer moves over the picture, and what is under it takes the clicks.
-Without the shell the picture fades at once, and a shell that has not drawn the new look within a
-second is not waited for longer. A monitor that is off, or shows a fullscreen window and nothing
-over it, keeps its picture out of it, so a video plays on; a mirror shows its monitor's
-crossfade, and a magnified, turned or scaled monitor's picture lies exactly where the monitor
-showed it. Switching again during the fade starts from what shows. Locking the session takes the
-picture away at once, and no profile crossfades in while the session is locked. The example configuration ships
+one that is not in use is still reported, with its line. The example configuration ships
 `macos-light`, where it starts, and `macos-dark` ([the macOS style](#the-macos-style)), the
 taskbar's `default` and `light`, and `washi` and `sumi`, a rice of paper and ink by day and by
 night: a floating bar framed as the windows are (`shell.frame`), hard printed shadows and
@@ -2206,6 +2192,21 @@ for kitty, fastfetch, Firefox, Discord, Claude Code and editors that its `instal
 place; a file with `extends = "default"` gets them, and starts on `macos-light` unless it sets
 `profile`, only when it defines no `profiles` of its own. A profile wins over a theme.lua that
 `paw import` wrote, so pick `default` to see that.
+
+Switching profiles is one crossfade on every monitor. Each keeps showing what it showed, a picture
+of it laid over everything, while the compositor and the shell take up the new look under it, so
+that no frame shows the old bar with the new borders; once the shell has drawn the new look, its
+wallpaper loaded (a moment, typically a quarter of a second), the picture fades out over 400
+milliseconds, easing in and out. `animations.speed` scales the fade, and with
+`animations.enabled = false` the profile changes at once. The pointer and the keyboard reach the
+new look at once, as with every animation: the pointer moves over the picture, and what is under
+it takes the clicks. Without the shell the picture fades at once, and a shell that has not drawn
+the new look within a second is not waited for longer. A monitor that is off, or shows a
+fullscreen window (outside the overview and the window switcher), gets no picture, so that a
+video plays on; a mirror shows its monitor's crossfade, and a magnified, turned or scaled
+monitor's picture lies exactly where the monitor showed it. Switching again during the fade
+starts from what shows. Locking the session takes the picture away at once, and no profile
+crossfades in while the session is locked.
 
 ## Importing a Hyprland setup
 
