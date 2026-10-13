@@ -663,6 +663,7 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(pointer_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
         paw_smoke(touchpad_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
+        paw_smoke(rubber_band_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(touchscreen_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
             $<TARGET_FILE:wayland_probe>)
         paw_smoke(panel_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
