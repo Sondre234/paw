@@ -106,6 +106,22 @@ static void get_output_frames(struct sh_server *server, int fd, const char *argu
     }
 }
 
+static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
+    // Where each window is drawn against where it rests, in the order of `get windows`: its
+    // title, how far an animation or a gesture has moved its contents (x and y, in pixels) and
+    // the factor they give its opacity (thousandths).
+    control_reply(fd, "ok\n");
+    struct sh_toplevel *toplevel;
+    wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
+        char line[640], title[512];
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        struct wlr_scene_node *content = toplevel->content ? &toplevel->content->node : NULL;
+        snprintf(line, sizeof(line), "%s\t%d\t%d\t%ld\n", title, content ? content->x : 0,
+                 content ? content->y : 0, lround(1000 * sh_anim_alpha(&toplevel->anim)));
+        control_reply(fd, line);
+    }
+}
+
 static void get_workspace(struct sh_server *server, int fd, const char *arguments) {
     char reply[32];
     snprintf(reply, sizeof(reply), "ok\n%d\n", focused_workspace(server));
@@ -689,6 +705,7 @@ static const struct {
     {"stats", get_stats, false},
     {"frame_times", get_frame_times, false},
     {"output_frames", get_output_frames, false},
+    {"drawn", get_drawn, false},
     {"dim", get_dim, false},
     {"peek", get_peek, false},
     {"window_peek", get_window_peek, false},
