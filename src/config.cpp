@@ -2530,6 +2530,7 @@ Config parse_config(const std::string &source, const std::string &name,
         }
         config.profiles = std::move(all);
         config.profile = active;
+        copy_text(active, config.settings.profile, "profile");
         return config;
     } catch (const ConfigError &error) {
         auto line = locate(source, error.trail);
