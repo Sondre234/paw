@@ -22,6 +22,10 @@ struct sh_drop_plan {
      * edges, an x along the sides), toward the edge. */
     int cut;
     bool clip;
+    /* The cut lies short of where the corners reach (a bar too thin to hide them, or none):
+     * what crosses it is cut square, with neither rounded corners nor the border's rounded rect
+     * drawn along the line. */
+    bool square;
     /* Where the window is out of sight, from its place: it slides in from there and out to
      * there. */
     int dx, dy;

@@ -60,6 +60,7 @@ struct sh_drop_plan sh_drop_plan(struct sh_drop_box output, struct sh_drop_box u
         break;
     }
     plan.clip = can_clip && (reserved > 0 || beyond);
+    plan.square = overlap < corner;
     if (can_clip || !beyond)
         return plan;
     // Nothing cuts it, so its far side stops at the monitor's edge rather than cross another.
