@@ -712,6 +712,69 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
     step(anim, anim->fx_start);
 }
 
+void sh_anim_spring_back(struct sh_animator *animator, struct sh_anim *anim,
+                         struct wlr_scene_tree *tree, double dx, double dy, double vx, double vy,
+                         float alpha) {
+    if (anim->owned)
+        return;
+    sh_anim_finish(anim); // from rest, as the hold left it
+    int duration = animator->config.enabled ? duration_of(animator, SH_ANIM_MOVE) : 0;
+    bool moved = lround(dx) || lround(dy);
+    if (!duration || (!moved && alpha >= 1))
+        return;
+    start(animator, anim, tree, duration);
+    int64_t now = now_ms(animator);
+    if (moved) {
+        anim->glide_x = tree->node.x - anim->base_x + dx;
+        anim->glide_y = tree->node.y - anim->base_y + dy;
+        anim->glide_duration = duration;
+        anim->glide_curve = animator->config.styles[SH_ANIM_MOVE].curve;
+        // The curve starts at a speed of its own; the release adds what it lacks.
+        const double h = 1e-4;
+        double start_slope = sh_curve_eval(&anim->glide_curve, h) / h / duration;
+        anim->glide_vx = carried(vx, -anim->glide_x * start_slope, anim->glide_x, duration);
+        anim->glide_vy = carried(vy, -anim->glide_y * start_slope, anim->glide_y, duration);
+        anim->glide = true;
+        anim->glide_start = now;
+    }
+    if (alpha < 1)
+        fx_begin(animator, anim, SH_ANIM_MOVE, duration, 1, 1, alpha, 1, 0, 0);
+    step(anim, now);
+}
+
+void sh_anim_nudge(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                   int dx, int dy) {
+    int duration = animator->config.enabled ? duration_of(animator, SH_ANIM_WORKSPACE) : 0;
+    if (!duration || (!dx && !dy) || anim->owned || anim->held)
+        return;
+    duration *= 2; // there and back
+    int64_t now = now_ms(animator);
+    bool gliding = anim->animator && anim->glide && anim->tree == tree;
+    if (gliding) {
+        double x, y, vx, vy;
+        glide_axis(anim, anim->glide_x, anim->glide_vx, now - anim->glide_start, &x, &vx);
+        glide_axis(anim, anim->glide_y, anim->glide_vy, now - anim->glide_start, &y, &vy);
+        if (vx * dx + vy * dy > 0)
+            return; // on its way there already
+    }
+    start(animator, anim, tree, duration);
+    // From where it is drawn: what is left of that offset at the turning point, a third of the
+    // way through, plus the push makes (dx, dy) there. A glide with no offset of its own and a
+    // starting speed v goes out to v * duration * 4/27 at that point and comes back to rest.
+    double x = gliding ? tree->node.x - anim->base_x : 0;
+    double y = gliding ? tree->node.y - anim->base_y : 0;
+    anim->glide_duration = duration;
+    anim->glide_curve = animator->config.styles[SH_ANIM_WORKSPACE].curve;
+    double left = 1 - sh_curve_eval(&anim->glide_curve, 1.0 / 3);
+    anim->glide_x = x;
+    anim->glide_y = y;
+    anim->glide_vx = (dx - x * left) * 27 / (4.0 * duration);
+    anim->glide_vy = (dy - y * left) * 27 / (4.0 * duration);
+    anim->glide = true;
+    anim->glide_start = now;
+    step(anim, now);
+}
+
 struct sh_animator *sh_animator_create(struct wl_event_loop *loop) {
     struct sh_animator *animator = calloc(1, sizeof(*animator));
     if (!animator)

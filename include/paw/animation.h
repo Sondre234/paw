@@ -145,6 +145,20 @@ void sh_anim_slide_from(struct sh_animator *animator, struct sh_anim *anim,
  * its opacity to `alpha`, in `share` of the slide's time, then goes. */
 void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int dx, int dy,
                         float alpha, double share);
+/* A hold let go with nowhere to go, as a rubber band: `tree` starts (dx, dy) from where it rests,
+ * moving (vx, vy) pixels a millisecond, its opacity multiplied by `alpha`, and springs back with
+ * the move animation's time and curve, keeping that speed at first (as far as a glide that long
+ * plausibly could). A hold on `anim` ends there. */
+void sh_anim_spring_back(struct sh_animator *animator, struct sh_anim *anim,
+                         struct wlr_scene_tree *tree, double dx, double dy, double vx, double vy,
+                         float alpha);
+/* A step asked for with nowhere to go: `tree` moves toward (dx, dy) from where it rests and
+ * back, a quick start easing out to it a third of the way through and settling back (a spring's
+ * answer to a push), in twice the workspace slide's time. One gliding already moves from where
+ * it is drawn, aiming for the same turning point; one moving that way already, or held, is left
+ * alone. */
+void sh_anim_nudge(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                   int dx, int dy);
 /* Jumps to the end: every node gets its resting values and the tree its resting position. */
 void sh_anim_finish(struct sh_anim *anim);
 /* Copies the visible buffers and rectangles under `content` into a new tree just above
