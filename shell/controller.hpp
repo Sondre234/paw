@@ -65,8 +65,13 @@ class ShellController : public QObject {
     // whether that is a side, along which the bar stands upright.
     Q_PROPERTY(QString panelEdge READ panelEdge NOTIFY configChanged)
     Q_PROPERTY(bool panelVertical READ panelVertical NOTIFY configChanged)
-    // shell.panel_draggable: whether the taskbar can be dragged to another edge.
+    // shell.panel_draggable: whether the taskbar can be dragged to another edge (not the macOS
+    // style's dock). While it is dragged, the compositor has the pointer and tells where it is,
+    // and every panel shows where the bar would go: barDragEdge, the edge nearest the pointer on
+    // the output it is over.
     Q_PROPERTY(bool panelDraggable READ panelDraggable NOTIFY configChanged)
+    Q_PROPERTY(bool barDragging READ barDragging NOTIFY barDragChanged)
+    Q_PROPERTY(QString barDragEdge READ barDragEdge NOTIFY barDragChanged)
     // shell.mirror_menus: whether the bar's right-click menus run in reverse along the top.
     Q_PROPERTY(bool mirrorMenus READ mirrorMenus NOTIFY configChanged)
     Q_PROPERTY(int panelMarginTop READ panelMarginTop NOTIFY configChanged)
@@ -235,7 +240,22 @@ class ShellController : public QObject {
     paw::PanelEdge panelSurfaceEdge() const {
         return config_.shell.macos_style ? paw::PanelEdge::Bottom : config_.shell.panel_edge;
     }
-    bool panelDraggable() const { return config_.shell.panel_draggable; }
+    bool panelDraggable() const {
+        return config_.shell.panel_draggable && !config_.shell.macos_style;
+    }
+    bool barDragging() const { return barDragging_; }
+    QString barDragEdge() const { return barDragEdge_; }
+    // Asks the compositor to take the pointer for a drag of the bar, the left button held on it
+    // (`panel_drag`): it says "panel-drag OUTPUT EDGE" as the edge nearest the pointer changes,
+    // and "panel-dropped OUTPUT EDGE" as the button is let go, which moves the bar there
+    // (movePanel), or "panel-drag-cancelled", which leaves it, after cancelBarDrag (Escape).
+    Q_INVOKABLE void startBarDrag();
+    Q_INVOKABLE void cancelBarDrag();
+    // Moves the taskbar to `edge` ("top", "bottom", "left" or "right"): writes it as
+    // shell.panel_position into the configuration file, where it takes effect (the profile in use
+    // when that sets it), and loads the file again, as the compositor does once it sees the file
+    // change. A failure leaves the file as it was and is shown across the panel.
+    Q_INVOKABLE void movePanel(const QString &edge);
     QString panelEdge() const;
     bool panelVertical() const {
         return panelSurfaceEdge() == paw::PanelEdge::Left ||
@@ -431,6 +451,7 @@ class ShellController : public QObject {
     Q_INVOKABLE void showWorkspace(const QString &output, int number);
   Q_SIGNALS:
     void configChanged();
+    void barDragChanged();
     void effectsChanged();
     void wallpaperChanged();
     void wallpapersChanged();
@@ -533,6 +554,7 @@ class ShellController : public QObject {
     void updateNotificationService();
     void showVolume();
     void handleDnd(const QString &verb);
+    void handleBarDrag(const QString &line);
     std::vector<App> apps_;
     int appsRevision_ = 0;
     // The desktop entries of apps_, for finding a window's (appFor), and what appFor and
@@ -546,6 +568,8 @@ class ShellController : public QObject {
     QStringList userPins_;
     QString error_;
     QString configError_;
+    bool barDragging_ = false;
+    QString barDragEdge_;
     QQmlEngine *engine_ = nullptr;
     bool effects_ = false;
     // Compositor state from its control socket ($PAW_SOCKET), kept open by "subscribe".
