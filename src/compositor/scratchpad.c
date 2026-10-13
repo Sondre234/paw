@@ -158,7 +158,8 @@ static void drop_track(void *data, bool done) {
             toplevel->anim.base_x = toplevel->anim.base_y = 0;
             if (toplevel->content)
                 wlr_scene_node_set_position(&toplevel->content->node, 0, 0);
-            if (toplevel->scene_tree && !toplevel_visible(toplevel))
+            // Unless it is shown again meanwhile, or lent to a peek at it, which hides it after.
+            if (toplevel->scene_tree && !toplevel_visible(toplevel) && !toplevel->peek_lent)
                 wlr_scene_node_set_enabled(&toplevel->scene_tree->node, false);
         }
     }
