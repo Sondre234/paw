@@ -431,12 +431,14 @@ waits for the newer profile. `get crossfade` lists them.
 
 The shell's side is `Restyle` (`shell/restyle.cpp`). `ShellController::reload` notes a change of
 profile and sets `restyling` before it tells the QML of the new configuration, which zeroes
-`Theme.motionScale`, so that the new look shows at once without transitions of its own; then
-`Restyle` follows every `QQuickWindow` shown (asking each to draw) until each has swapped a frame
-since, no image shown in them is loading (a wallpaper decodes off the GUI thread), and none has
-drawn for 50 ms, or 150 ms have passed since that held, as a bar the compositor configures anew
-draws twice; 900 ms at most. `restyled` then clears `restyling` and sends `profile_drawn` through
-`ask`, which says nothing when the compositor is not there.
+`Theme.motionScale`, so that the new look shows at once without transitions of its own. Then, after
+any reload with a profile, `Restyle` follows every `QQuickWindow` shown (asking each to draw) until
+each has swapped a frame since, no image shown in them is loading (a wallpaper decodes off the GUI
+thread), and none has drawn for 50 ms, or 150 ms have passed since that held, as a bar the
+compositor configures anew draws twice; 900 ms at most. `restyled` then clears `restyling` and
+sends `profile_drawn` through `ask`, which says nothing when the compositor is not there. It says
+so after a reload that kept the profile too: switched there and back before the shell read the
+file, the compositor waits for the profile the shell has had all along.
 
 The desktop (`Desktop.qml`) draws the wallpaper, or the gradient (the macOS style's drawn
 wallpaper) without one, in layers under `backdrop`: each change lays a new one on top, at no
