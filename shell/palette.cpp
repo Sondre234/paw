@@ -25,6 +25,7 @@ constexpr Action actions[] = {
     {"fullscreen", "Toggle fullscreen"},
     {"maximize", "Maximize window"},
     {"restore", "Restore window"},
+    {"minimize", "Minimize window"},
     {"snap_left", "Snap window left"},
     {"snap_right", "Snap window right"},
     {"snap_top_left", "Snap window to the top-left quarter"},
