@@ -65,8 +65,10 @@ struct probe {
     struct zxdg_decoration_manager_v1 *decorations;
     struct zxdg_toplevel_decoration_v1 *decoration; // with PAW_PROBE_SSD
     // PAW_PROBE_SHADOW=N: a translucent margin N pixels wide around the window, outside its
-    // geometry, as a client-side frame draws its shadow.
+    // geometry, as a client-side frame draws its shadow; with PAW_PROBE_SHADOW_FLOATING only
+    // while it is neither maximized nor fullscreen.
     int margin;
+    bool shadow_floating;
     bool commands; // --commands: an external-control window that obeys lines on standard input
     // "hold": configures wait for "answer", as a slow application's do; the last one is `held`.
     // "ack" acknowledges it with what was drawn before (`drawn_*`), as one drawing later does, or
@@ -681,10 +683,13 @@ static void draw(struct probe *probe, int window_width, int window_height) {
     if (window_width < 1 || window_height < 1 || window_width > 8192 || window_height > 8192)
         die("unexpected configure dimensions");
     probe->drawn_width = window_width, probe->drawn_height = window_height;
-    int margin = probe->margin, width = window_width + 2 * margin;
-    int height = window_height + 2 * margin;
+    // With PAW_PROBE_SHADOW_FLOATING, maximized and fullscreen it draws no shadow, as GTK does.
+    int margin = probe->margin;
+    if (probe->shadow_floating && (probe->maximized || probe->fullscreen))
+        margin = 0;
+    int width = window_width + 2 * margin, height = window_height + 2 * margin;
     struct wl_buffer *buffer = make_buffer(probe, width, height, margin);
-    if (margin)
+    if (probe->margin)
         xdg_surface_set_window_geometry(surface, margin, margin, window_width, window_height);
     wl_surface_attach(probe->surface, buffer, 0, 0);
     wl_surface_damage_buffer(probe->surface, 0, 0, width, height);
@@ -898,6 +903,7 @@ int main(int argc, char **argv) {
     // PAW_PROBE_SSD leaves the frame to the compositor, as kitty does.
     if (getenv("PAW_PROBE_SHADOW"))
         probe.margin = atoi(getenv("PAW_PROBE_SHADOW"));
+    probe.shadow_floating = getenv("PAW_PROBE_SHADOW_FLOATING") != NULL;
     if (getenv("PAW_PROBE_SSD") && probe.decorations) {
         probe.decoration =
             zxdg_decoration_manager_v1_get_toplevel_decoration(probe.decorations, probe.toplevel);
