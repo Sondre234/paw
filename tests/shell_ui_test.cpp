@@ -3004,6 +3004,94 @@ ListModel {
                     if (it.value() != 0)
                         return fail("the card of a workspace left one watched as it went");
             }
+            // A window's button dragged onto a workspace and let go there moves the window to that
+            // workspace of this output, the workspace lit while the drag is over it, what the drag
+            // carries docked by it; the button stays where it was in the list.
+            auto *ghost = find(root, "dropGhost");
+            if (!ghost)
+                return fail("nothing to carry a window dragged onto a workspace");
+            // What moving task 7 to workspace `number` asks of the source: through this output
+            // first, should the window be on another.
+            const QString moved = [&](int number) {
+                return (outputName != "TEST-1" ? "output 7 " + outputName + "|" : QString()) +
+                       QString("workspace 7 %1").arg(number);
+            }(3);
+            auto dragAlong = [&](QWindow *window, QPoint from, QPoint to, const std::function<bool()> &over) {
+                QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 12; ++step) {
+                    QTest::mouseMove(window, from + (to - from) * step / 12);
+                    QTest::qWait(15);
+                }
+                const bool lit = waitFor(over);
+                QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, to);
+                return lit;
+            };
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("something was open before a window's button was dragged");
+            taskRequests();
+            const auto orderBefore = [&] {
+                QList<int> ids;
+                for (int i = 0; i < windowButtons(); ++i)
+                    ids << (listedTask(i) ? listedTask(i)->property("taskId").toInt() : -1);
+                return ids;
+            };
+            const QList<int> buttonsBefore = orderBefore();
+            single = buttonFor(7);
+            if (!dragAlong(&view, centre(single), centre(workspace(3)), [&] {
+                    return root->property("dropWorkspace").toInt() == 3 && workspace(3)->property("dropTarget").toBool() &&
+                           ghost->isVisible() && ghost->property("docked").toBool();
+                }))
+                return fail("a window's button dragged over a workspace did not light it, or carry the window there");
+            if (!waitFor([&] { return taskRequests() == moved; }) || root->property("dropWorkspace").toInt() != 0) {
+                std::cerr << "a window's button let go on a workspace did not move the window there\n";
+                return 1;
+            }
+            if (!waitFor([&] { return !ghost->isVisible() && orderBefore() == buttonsBefore; }))
+                return fail("dropping a window's button on a workspace left what it carried, or moved the button");
+            // Let go off the workspaces (here straight off the bar, which moves it nowhere in the
+            // list either), it moves nothing.
+            single = buttonFor(7);
+            dragAlong(&view, centre(single), centre(single) + QPoint(0, -40), [&] {
+                return root->property("dropWorkspace").toInt() == 0;
+            });
+            if (!stays([&] { return taskRequests().isEmpty(); }, 300) || orderBefore() != buttonsBefore)
+                return fail("a window's button let go off the workspaces moved the window, or its button");
+            // Its picture dragged from the card onto a workspace does the same, the card staying
+            // open while the drag lasts; it goes in the popover, which covers the bar.
+            editTasks(QString("model.setProperty(%1, 'picture', 'image://test-windows/320x200')").arg(rowOf(7)));
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("something was open before a window's picture was dragged");
+            QTest::mouseMove(&view, centre(buttonFor(7)));
+            auto *picture = [&]() -> QQuickItem * {
+                return waitFor([&] { return inPopover(card) && titles() == "Fake"; }) && tileFor(7)
+                           ? find(tileFor(7), "windowThumbnailPicture") : nullptr;
+            }();
+            if (!picture || !waitFor([&] { return picture->isVisible(); }))
+                return fail("the card of a window's picture did not open to drag it from");
+            const QPoint below(0, popover->height() - view.height());
+            if (!dragAlong(popover, centre(picture), centre(workspace(2)) + below, [&] {
+                    return root->property("dropWorkspace").toInt() == 2 && root->property("groupOpen").toBool() &&
+                           ghost->isVisible() && ghost->property("docked").toBool() &&
+                           ghost->property("picture").toString() == "image://test-windows/320x200";
+                }))
+                return fail("a window's picture dragged over a workspace did not light it, or carry the picture there");
+            if (!waitFor([&] { return taskRequests() == QString(moved).replace("workspace 7 3", "workspace 7 2"); }))
+                return fail("a window's picture let go on a workspace did not move the window there");
+            // Let go elsewhere, it goes back to its card and moves nothing.
+            QTest::mouseMove(popover, centre(picture));
+            if (!waitFor([&] { return !ghost->isVisible() && inPopover(card); }))
+                return fail("the card of a window's pictures did not stay as its picture dropped");
+            dragAlong(popover, centre(picture), centre(picture) + QPoint(0, -150), [&] {
+                return ghost->isVisible() && !ghost->property("docked").toBool();
+            });
+            if (!stays([&] { return taskRequests().isEmpty(); }, 300) || !waitFor([&] { return !ghost->isVisible(); }))
+                return fail("a window's picture let go beside the workspaces moved the window, or stayed");
+            editTasks(QString("model.setProperty(%1, 'picture', '')").arg(rowOf(7)));
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("the card of a window's pictures did not close after its picture was dragged");
         }
         // shell.thumbnails = { live = false }: the picture asked for ahead of the card is the one
         // it shows, not followed, and not asked for again as the card opens.
