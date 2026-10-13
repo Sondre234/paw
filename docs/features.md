@@ -2618,7 +2618,9 @@ sessions capture it, and the window's title, also mainly for tests. `paw msg get
 window_peek` prints one line per window for a peek at one window (the taskbar's card's, the
 switcher's, the palette's): whether it is the
 one peeked at, whether it is drawn, where it is stacked among the windows (0 at the bottom), how
-far it shows through the peek and its opacity (both in thousandths), and its title. `paw
+far it shows through the peek and its opacity (both in thousandths), and its title. `paw msg get
+workspace_views` prints one line per list of a workspace's windows a client watches, as the
+card of a workspace does: the output, the workspace and how many windows it last listed. `paw
 msg get seat` prints what has the keyboard, what the pointer is on and, while something is
 dragged, what the drag is over: a line each, `keyboard`, `pointer` or `drag`, followed by
 `window` and its title, `layer` and its namespace, `other` (a popup, the lock screen) and `-`,
