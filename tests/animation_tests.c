@@ -950,6 +950,25 @@ static void test_morph_off_and_with_open(void) {
     teardown(&m.rig);
 }
 
+/* A window changing size sent to the scratchpad: the change of size lands where it is and the
+ * slide goes on from there, its surfaces at the size the client drew and its frame around it. */
+static void test_morph_lands_for_a_drop(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    morph_to(&m, 0, 0, 400, 300);
+    advance(&m.rig, 30);
+    CHECK(m.surface->width > 200, "stretched");
+    sh_anim_drop_out(m.rig.animator, &m.rig.anim, m.rig.content, 0, -500);
+    int width, height;
+    CHECK(!sh_anim_drawn_size(&m.rig.anim, &width, &height) && !m.rig.anim.morph, "landed");
+    CHECK(m.surface->width == 200 && m.heard_width == 0 && m.frame->width == 204,
+          "at the client's size, framed for it: %d", m.surface->width);
+    CHECK(sh_animator_running(m.rig.animator) == 1 && m.rig.anim.absent, "sliding out");
+    advance(&m.rig, 50);
+    CHECK(m.surface->width == 200, "the slide changes no size: %d", m.surface->width);
+    teardown(&m.rig);
+}
+
 static int tracked, tracked_done;
 static void count_track(void *data, bool done) {
     ++tracked;
@@ -1155,6 +1174,7 @@ int main(void) {
     test_morph_rest_and_finish();
     test_morph_off_and_with_open();
     test_morph_sets_opaque_regions_aside();
+    test_morph_lands_for_a_drop();
     test_drop_in();
     test_drop_out();
     test_drop_turns_back();
