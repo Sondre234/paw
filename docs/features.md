@@ -1035,8 +1035,9 @@ windows, `#` workspaces and `%` sessions, `/` [files](#files) and `=` asks the
 selected among the results peeks after half a second, as in the [switcher](#window-switcher):
 the others fade while it shows alone where it is, a minimized one where it was. Moving the
 selection to another window moves the peek at once; leaving the windows, or Escape, fades the
-others back, and Enter focuses the window where the peek shows it. Typing puts the first peek off
-until the typing pauses. Spotlight, the macOS style's palette, does not peek, and
+others back, and Enter focuses the window where the peek shows it. The window selected as the
+palette opens does not peek until something is typed or the selection moves, and typing puts the
+first peek off until it pauses. Spotlight, the macOS style's palette, does not peek, and
 `peek.switcher = false` turns it off. The palette needs the shell (`paw-shell`), which
 draws it, and the compositor's control socket for actions and sessions. On a machine with 600
 entries a keystroke re-ranks them in under a millisecond (an optimized build; see

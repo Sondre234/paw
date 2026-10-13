@@ -733,7 +733,8 @@ itself too, as the window is focused (a click on the picture), which the model d
 at nothing, and the macOS style's dock and the stack's list of titles do not peek. The command
 palette (`Palette.qml`) peeks through the task model the same way at the window result selected,
 by the task id that is the result's target: 500 ms after the selection comes to it (restarted by
-typing), at once while it peeks at another, ended 150 ms after the selection leaves the windows
+typing), once something was typed or the selection moved since the palette opened (`engaged`), and
+at once while it peeks at another, ended 150 ms after the selection leaves the windows
 and, as the palette closes, once the event loop has run the result (`Qt.callLater`), so that a
 window it focuses ends the peek around itself first. `shell.peekSelection` is `peek.switcher`.
 
