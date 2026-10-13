@@ -222,6 +222,26 @@ windows (`windows`, and `floating_windows` with `layout.floating_above_tiles`) a
 fullscreen ones; `window_layer` names the tree a window belongs in, and everything that puts a
 window back among the others (focus, leaving fullscreen, the overview, the peek) puts it there.
 
+Since version 7 `paw_window_control_v1.get_workspace(output, number)` gives a
+`paw_workspace_v1`, which lists the windows that workspace of the output shows, for the taskbar's
+card of a workspace: the output's size, then each window from the bottom up by its `id`, with the
+rectangle its picture covers from the output's corner, then `done`. `list_workspace`
+(`window_control.c`) walks the trees `window_layers` names from the back, taking the empty node a
+peek leaves in its place (`peek_place`) for the window peeked at, and keeps a window that is
+published, mapped and neither minimized (as a hidden scratchpad window is), behind another
+member of its group nor swallowed, on that output and workspace or sticky. A window's rectangle is
+where it rests (its tree's place, which animations leave alone) moved by the extents of its
+surfaces in its capture scene (`window_picture_extents`, `scaled_capture.c`), which start at its
+geometry's corner as the window's tree does: exactly what its picture shows, a client-side shadow
+included. The list is sent at once, and again, whole, only when it differs from the last one the
+object sent; `workspace_objects_changed` lists every object's workspace again from an idle
+callback, and is called by `window_objects_changed` (so by `notify_subscribers` and the tiling),
+by each object's listener on its output's commits (what changes on the workspace shown, moving or
+redrawing, comes with one), and by a scaled capture source whose window's extents changed as it
+rendered (a window not shown resizing itself). While no object is held this costs one check of an
+empty list. `paw msg get workspace_views` lists the objects, and `tests/workspace_view_smoke.py`
+tests them with `window_probe --workspace`.
+
 ### Touchpad swipes
 
 `gestures.c` hears the cursor's swipes. One of as many fingers as a swipe of `gestures` has waits
@@ -708,6 +728,43 @@ started in a terminal in the terminal's, unless the player has a window. `playin
 the window's that is open and not paused (corked) or muted, `muted` one that is muted while none
 plays, and `toggleMute()` mutes or unmutes all of them through `Audio::setStreamMuted`. The
 preview's and the tests' stand-ins give the `pid` roles, and the streams' `processes`, themselves.
+
+The card of a workspace (`WorkspaceCard.qml`, `shell.thumbnails.workspaces`) is drawn by the shell
+from the windows' pictures rather than captured whole: the compositor's scene shows only the
+workspace each output shows, and a picture made of the windows' own lets the shell move each one
+as the list changes. `TaskModel` keeps the lists: `watchWorkspace(output, number)`, counted, asks
+`get_workspace` (version 7) until `unwatchWorkspace`, and `workspaceLayout(output, number)` gives
+what the last `done` completed, `{width, height, windows: [{windowId, x, y, width, height}]}`,
+kept once unwatched so that the card opens on it; `workspaceRevision` changes with each. The
+panel holds the card's state (`workspaceCardOpen`, `workspaceCardNumber`, the workspace warmed up
+halfway into the delay, `workspaceWarm`) as it holds the card of a button's windows, and the two
+close each other: `openGroup` closes the one, `openWorkspaceCard` the other. The card's picture is
+the output's proportions within one and a half times `shell.thumbnailSize` by 5/8 of that
+(`workspaceMiniature`, `workspaceScale` card pixels to a logical one), the wallpaper drawn as the
+desktop draws it, and two `WorkspaceWindows` layers over it, the one in front showing the card's
+workspace: another workspace goes into the one behind, which comes forward once its list is in
+(150 ms at most), the two crossfading, and the one behind lets its workspace go once it has faded
+out. A layer is live, watching its workspace, from the warm-up until the card has faded out; it
+keeps a `ListModel` of copies in step with the list by window number, so that each window keeps
+its copy and glides as it moves, fades in as it comes, restacks as it is raised; each copy finds
+its task with a `TaskFilter` by `windowId` and wants its picture through the panel's `wantPicture`
+at `workspacePictureWidth`, the width whose box of 5/8 of it holds the whole card's picture, so
+any window. The panel watches a window's picture at the widest any want asks (`wantedWidth`),
+watching again at a new width before letting the old watch go so that the capture goes on.
+
+A window's button dragged onto a workspace, or its picture dragged from the card of its windows,
+moves the window there (`dropOnWorkspace`: `moveToOutput` first for a window on another output,
+then `moveToWorkspace`). `workspaceAt` finds the workspace under a point of the panel's surface
+(a workspace button has `dropsWindows`), which `dropWorkspace` lights. A button's drag is its
+`DragHandler` in `TaskList.qml`, in the bar's surface: over a workspace it reorders nothing and
+the button eases back into its row (`lift`), and letting go calls `endButtonDrag`. A picture's
+drag is a `DragHandler` on its tile, in the popover: the compositor gives the pointer to whichever
+surface is under it, button held or not, so while `pictureDrag` lasts the popover takes the
+pointer over the whole output, the bar included, and keeps the card open (`groupHide`). What both
+carry is the popover's `DropGhost`: the picture, or the icon on a card, under the pointer as it
+was taken, docking (`dropDock`) beside the workspace's button off the bar, or in the middle of the
+workspace's picture while its card is open (resting there opens it, the bar's buttons still
+hearing the pointer during a button's drag), and landing into it.
 
 A tile peeks at its window while the pointer rests on its picture: a `HoverHandler` on the
 picture's box and a timer call the task source's `peek(taskId)` after 500 ms, or at once while
