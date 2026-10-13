@@ -2,6 +2,7 @@
 #pragma once
 #include <QImage>
 #include <QObject>
+#include <paw/config.hpp>
 #include <QStringList>
 #include <QTemporaryDir>
 #include <memory>
@@ -68,5 +69,7 @@ class PreviewData : public QObject {
 // A screenshot of the panel's preview as the output would show it: the desktop (the wallpaper, or
 // the background colour), the bar along its edge, the menu bar of the macOS style along the top,
 // and the popover with its popups over them all, so that a translucent colour shows what it would
-// show there. `popover` is null while nothing is open, `menuBar` without a menu bar.
-QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, ShellController &controller);
+// show there. `popover` is null while nothing is open, `menuBar` without a menu bar; `edge` is the
+// one the panel's surface is along (ShellView::edge).
+QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, paw::PanelEdge edge,
+                        ShellController &controller);
