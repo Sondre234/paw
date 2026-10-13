@@ -294,9 +294,13 @@ void crossfade_tick(struct sh_server *server) {
     }
     static const struct sh_curve ease = {.kind = SH_CURVE_EASE_IN_OUT};
     fade->opacity = (float)(COVER * (1 - sh_curve_eval(&ease, progress)));
+    // Each frame asks for the next while the fade lasts, also the first, whose opacity is the
+    // one the pictures have, which damages nothing.
     for_each_connected_output(output, server) {
-        if (output->crossfade)
+        if (output->crossfade) {
             wlr_scene_buffer_set_opacity(output->crossfade->node, fade->opacity);
+            wlr_output_schedule_frame(output->wlr_output);
+        }
     }
 }
 
