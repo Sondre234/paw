@@ -565,8 +565,7 @@ static void test_drop_out(void) {
     advance(&rig, 30);
     // Its owner hides the window as it is told the slide is done; the tree is where it went.
     CHECK(sh_animator_running(rig.animator) == 0 && tracked_done == 1, "done");
-    CHECK(rig.content->node.y == -500 && !rig.anim.absent, "out of sight: %d",
-          rig.content->node.y);
+    CHECK(rig.content->node.y == -500 && !rig.anim.absent, "out of sight: %d", rig.content->node.y);
     CHECK(fabsf(rig.rect->color[3] - 1) < 1e-6F, "its look back at rest");
     teardown(&rig);
 }
@@ -579,8 +578,7 @@ static void test_drop_turns_back(void) {
     advance(&rig, 1);
     int y = rig.content->node.y;
     float alpha = sh_anim_alpha(&rig.anim);
-    CHECK(y > -400 && y < -100 && alpha > 0.2F && alpha < 0.6F, "on its way in: %d, %f", y,
-          alpha);
+    CHECK(y > -400 && y < -100 && alpha > 0.2F && alpha < 0.6F, "on its way in: %d, %f", y, alpha);
     // Hidden again half way: it carries on a little, as fast as it went, then turns back.
     CHECK(sh_anim_drop_out(rig.animator, &rig.anim, rig.content, 0, -500));
     CHECK(rig.content->node.y == y, "from where it is drawn: %d, not %d", rig.content->node.y, y);
@@ -593,8 +591,8 @@ static void test_drop_turns_back(void) {
         advance(&rig, 1);
         lowest = rig.content->node.y > lowest ? rig.content->node.y : lowest;
     }
-    CHECK(lowest < y + 25 && rig.content->node.y < lowest, "turned: %d after %d, now %d", lowest,
-          y, rig.content->node.y);
+    CHECK(lowest < y + 25 && rig.content->node.y < lowest, "turned: %d after %d, now %d", lowest, y,
+          rig.content->node.y);
     advance(&rig, 39);
     int out = rig.content->node.y;
     CHECK(out < y, "then away: %d", out);

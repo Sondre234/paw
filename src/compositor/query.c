@@ -558,10 +558,10 @@ static void get_scratchpad(struct sh_server *server, int fd, const char *argumen
         if (drop->running && drop->cut)
             snprintf(box, sizeof(box), "%d,%d,%d,%d", drop->cut_to.x, drop->cut_to.y,
                      drop->cut_to.width, drop->cut_to.height);
+        const char *phase = !drop->running ? "-" : drop->out ? "out" : "in";
         snprintf(line, sizeof(line), "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%ld\t%s\t%s\n", title,
                  toplevel->minimized, toplevel->scene_tree && toplevel->scene_tree->node.enabled,
-                 !drop->running ? "-" : drop->out ? "out" : "in", edges[drop->plan.edge],
-                 toplevel->content ? toplevel->content->node.x : 0,
+                 phase, edges[drop->plan.edge], toplevel->content ? toplevel->content->node.x : 0,
                  toplevel->content ? toplevel->content->node.y : 0,
                  lround(1000 * sh_anim_alpha(&toplevel->anim)), cut, box);
         control_reply(fd, line);

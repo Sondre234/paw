@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "paw/dropdown.h"
 
-static int min(int a, int b) {
-    return a < b ? a : b;
-}
-static int max(int a, int b) {
-    return a > b ? a : b;
-}
+static int min(int a, int b) { return a < b ? a : b; }
+static int max(int a, int b) { return a > b ? a : b; }
 
 /* How wide a strip the bars reserve along `edge`. */
 static int strip(struct sh_drop_box output, struct sh_drop_box usable, enum sh_drop_edge edge) {
@@ -86,8 +82,7 @@ struct sh_drop_plan sh_drop_plan(struct sh_drop_box output, struct sh_drop_box u
 
 struct sh_drop_box sh_drop_swept(const struct sh_drop_plan *plan, struct sh_drop_box output,
                                  struct sh_drop_box frame) {
-    struct sh_drop_box moved = {frame.x + plan->dx, frame.y + plan->dy, frame.width,
-                                frame.height};
+    struct sh_drop_box moved = {frame.x + plan->dx, frame.y + plan->dy, frame.width, frame.height};
     switch (plan->edge) {
     case SH_DROP_BOTTOM: {
         int edge = output.y + output.height;

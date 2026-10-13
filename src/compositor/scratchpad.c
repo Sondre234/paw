@@ -228,10 +228,9 @@ static bool drop(struct sh_toplevel *toplevel, bool out) {
             plan.dx = toplevel->content->node.x;
         else if (out)
             plan.dy = toplevel->content->node.y;
-        started = out ? sh_anim_drop_out(server->animator, anim, toplevel->content, plan.dx,
-                                         plan.dy)
-                      : sh_anim_drop_in(server->animator, anim, toplevel->content, plan.dx,
-                                        plan.dy);
+        started =
+            out ? sh_anim_drop_out(server->animator, anim, toplevel->content, plan.dx, plan.dy)
+                : sh_anim_drop_in(server->animator, anim, toplevel->content, plan.dx, plan.dy);
     } else if (turning) {
         anim->base_x = anim->base_y = 0; // what slid out lands where the window rests
         sh_anim_finish(anim);

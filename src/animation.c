@@ -788,12 +788,10 @@ static bool drop(struct sh_animator *animator, struct sh_anim *anim, struct wlr_
     // The curve has a speed of its own to start with; carry some of what it lacks.
     const double h = 1e-4;
     double start_slope = sh_curve_eval(&anim->glide_curve, h) / h / duration;
-    anim->glide_vx = moving ? DROP_KEEP * carried(vx, -anim->glide_x * start_slope, anim->glide_x,
-                                                  duration)
-                            : 0;
-    anim->glide_vy = moving ? DROP_KEEP * carried(vy, -anim->glide_y * start_slope, anim->glide_y,
-                                                  duration)
-                            : 0;
+    anim->glide_vx =
+        moving ? DROP_KEEP * carried(vx, -anim->glide_x * start_slope, anim->glide_x, duration) : 0;
+    anim->glide_vy =
+        moving ? DROP_KEEP * carried(vy, -anim->glide_y * start_slope, anim->glide_y, duration) : 0;
     anim->glide = true;
     anim->glide_start = now;
     int fade = (int)fmax(1, lround(duration * DROP_FADE));

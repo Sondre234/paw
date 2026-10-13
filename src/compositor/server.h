@@ -871,7 +871,7 @@ struct sh_toplevel {
      * animation can move, scale, and fade it without changing where the window is. */
     struct wlr_scene_tree *scene_tree, *content;
     struct sh_anim anim;
-    struct sh_drop drop;                     // the scratchpad's slide in and out
+    struct sh_drop drop;                      // the scratchpad's slide in and out
     struct sh_clip_wish clips[SH_CLIP_TREES]; // content's, the shadow's and the gradient's
     struct sh_tween fade; // opacity and border color following focus
     bool shown; // has opened (and started its opening animation) since it last mapped
