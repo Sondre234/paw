@@ -76,18 +76,23 @@ static struct wlr_buffer *take_picture(struct sh_output *output) {
     struct wlr_swapchain *swapchain = NULL;
     if (!scene_output || !wlr_output_configure_primary_swapchain(wlr_output, NULL, &swapchain))
         return NULL;
-    // The dimming is hidden for this drawing alone; what it covers is drawn again once it shows.
-    struct wlr_scene_node *dim = server->idle.tree ? &server->idle.tree->node : NULL;
-    bool dimmed = dim && dim->enabled;
-    if (dimmed)
-        wlr_scene_node_set_enabled(dim, false);
-    // Hidden for this drawing only, as hit testing hides nodes: no damage, nothing redrawn.
-    bool drag_icons = server->drag_icons->node.enabled;
-    server->drag_icons->node.enabled = false;
-    struct wlr_output_cursor *cursor, *hidden[8];
-    size_t hidden_count = 0;
+    // The dimming and the drag icons are hidden for this drawing alone, the scene working out
+    // again what they no longer cover (an opaque icon's hole would show black); what they cover
+    // is drawn again once they show.
+    struct wlr_scene_node *hide[] = {server->idle.tree ? &server->idle.tree->node : NULL,
+                                     &server->drag_icons->node};
+    bool shown[2];
+    for (size_t i = 0; i < 2; ++i) {
+        shown[i] = hide[i] && hide[i]->enabled;
+        if (shown[i])
+            wlr_scene_node_set_enabled(hide[i], false);
+    }
+    // Software cursors too, by a flag set back before any frame of the output could see it.
+    size_t cursors = (size_t)wl_list_length(&wlr_output->cursors), hidden_count = 0;
+    struct wlr_output_cursor *cursor,
+        **hidden = cursors ? calloc(cursors, sizeof(*hidden)) : NULL;
     wl_list_for_each(cursor, &wlr_output->cursors, link) {
-        if (cursor->enabled && cursor != wlr_output->hardware_cursor && hidden_count < 8) {
+        if (hidden && cursor->enabled && cursor != wlr_output->hardware_cursor) {
             cursor->enabled = false;
             hidden[hidden_count++] = cursor;
         }
@@ -125,9 +130,11 @@ static struct wlr_buffer *take_picture(struct sh_output *output) {
     wlr_output_lock_attach_render(wlr_output, false);
     while (hidden_count > 0)
         hidden[--hidden_count]->enabled = true;
-    server->drag_icons->node.enabled = drag_icons;
-    if (dimmed)
-        wlr_scene_node_set_enabled(dim, true);
+    free(hidden);
+    for (size_t i = 0; i < 2; ++i) {
+        if (shown[i])
+            wlr_scene_node_set_enabled(hide[i], true);
+    }
     // The buffer outlives its swapchain while the picture shows.
     wlr_swapchain_destroy(swapchain);
     return picture;
