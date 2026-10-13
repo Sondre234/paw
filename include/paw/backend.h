@@ -713,6 +713,28 @@ void sh_tiling_arrange(struct sh_tiling *tiling, const char *output, int workspa
 bool sh_tiling_preview(struct sh_tiling *tiling, const char *output, int workspace, void *window,
                        const void *target, bool has_point, double x, double y, struct sh_rect area,
                        int gap, struct sh_rect *result);
+/* Moving a tile with the pointer: the window stays in a tree while it is dragged, where a drop
+ * would put it, and moves as the pointer goes. A place to drop a window: beside the window
+ * `split` (in its first half with `first`), or with no split at the end of the tree's list (the
+ * layouts other than dwindle) or alone in an empty tree. */
+struct sh_tile_drop {
+    const void *split;
+    bool first;
+};
+/* Where dropping `window` with the pointer at (x, y) puts it in the tree of `workspace` on
+ * `output`, as sh_tiling_insert at a point would there: in dwindle beside the window under the
+ * point in the arrangement without it (in `area`, sh_tiling_arrange's for the tree without it),
+ * on the side nearer the point; in the other layouts at the end. False when that changes
+ * nothing (the point is on its own tile there, or it ends the list already), when the point is on
+ * no tile, or in the scroll layout, which takes no drop preview. Leaves the tree as it was. */
+bool sh_tiling_drop_target(struct sh_tiling *tiling, const void *window, const char *output,
+                           int workspace, double x, double y, struct sh_rect area,
+                           struct sh_tile_drop *drop);
+/* Moves `window` to `drop` in the tree of `workspace` on `output`, out of any tree it was in;
+ * nothing when the window it splits is no longer there. Nothing is arranged until
+ * sh_tiling_arrange. */
+void sh_tiling_drop(struct sh_tiling *tiling, void *window, const char *output, int workspace,
+                    const struct sh_tile_drop *drop);
 /* Moves the splits beside the window's given edges (enum sh_edge bits) to those edges of
  * `rect`, in the coordinates of the last arrangement. Returns whether anything changed. */
 bool sh_tiling_resize(struct sh_tiling *tiling, const void *window, uint32_t edges,
