@@ -335,13 +335,23 @@ static void draw_scaled(const struct sh_shadow *shadow, int width, int height, i
         const struct sh_shadow_slice *s = &slices[i];
         for (int dy = 0; dy < s->to_height * scale; ++dy) {
             for (int dx = 0; dx < s->to_width * scale; ++dx) {
-                // The middle of the drawn pixel, sampled from the image as a renderer would.
-                double u = (dx + 0.5) * s->width / s->to_width, v = (dy + 0.5) * s->height / s->to_height;
-                int sx = s->x * scale + (int)u, sy = s->y * scale + (int)v;
+                // The middle of the drawn pixel, sampled from the image as a GPU does: between
+                // the four nearest pixels, those outside the slice's part of the image too.
+                double u = s->x * scale + (dx + 0.5) * s->width / s->to_width - 0.5;
+                double v = s->y * scale + (dy + 0.5) * s->height / s->to_height - 0.5;
                 int x = (ox + s->to_x) * scale + dx, y = (oy + s->to_y) * scale + dy;
-                if (x < 0 || y < 0 || x >= fw || y >= fh || sx >= iw || sy >= ih)
+                if (x < 0 || y < 0 || x >= fw || y >= fh)
                     continue;
-                drawn[y * fw + x] = alpha(image[sy * iw + sx]);
+                int u0 = (int)floor(u), v0 = (int)floor(v);
+                double fu = u - u0, fv = v - v0, sum = 0;
+                for (int j = 0; j < 2; ++j) {
+                    for (int i = 0; i < 2; ++i) {
+                        int sx = u0 + i < 0 ? 0 : u0 + i >= iw ? iw - 1 : u0 + i;
+                        int sy = v0 + j < 0 ? 0 : v0 + j >= ih ? ih - 1 : v0 + j;
+                        sum += alpha(image[sy * iw + sx]) * (i ? fu : 1 - fu) * (j ? fv : 1 - fv);
+                    }
+                }
+                drawn[y * fw + x] = (int)lround(sum);
                 ++covered[y * fw + x];
             }
         }
@@ -427,6 +437,18 @@ static void shadow_lift(void) {
                 worst = difference;
         }
         CHECK(inside <= 4 * scale, "%d pixels drawn inside the window at scale %d", inside, scale);
+        // Along the window's edges, in the middle and by the corners, the shadow is darkest
+        // right outside the window: no light seam where the image cuts the window out.
+        int seams = 0;
+        for (int along = 12; along <= width / 2; along += width / 2 - 12) {
+            int x = (l.left + along) * scale, below = (l.top + height) * scale;
+            seams += drawn[below * fw + x] + 2 < drawn[(below + 1) * fw + x];
+            int y = (l.top + along * height / width) * scale, beside = (l.left + width) * scale;
+            seams += drawn[y * fw + beside] + 2 < drawn[y * fw + beside + 1];
+            int above = l.top * scale - 1;
+            seams += drawn[above * fw + x] + 2 < drawn[(above - 1) * fw + x];
+        }
+        CHECK(seams == 0, "%d light seams along the window's edges at scale %d", seams, scale);
         CHECK(overlaps == 0 && holes == 0, "scaled slices at scale %d: %d overlap, %d left out",
               scale, overlaps, holes);
         CHECK(worst <= 4, "stretched, the shadow differs from a softer one by %d at scale %d",
