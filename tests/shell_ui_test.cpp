@@ -3305,6 +3305,38 @@ ListModel {
             QTest::mouseMove(&view, barSpace);
             if (!waitFor([&] { return !popover->isVisible(); }))
                 return fail("the card of a closed window did not go");
+            // So does a window closing while its button is dragged over a workspace: the
+            // workspace is no longer lit, what the drag carried goes, and the buttons stay put.
+            editTasks("model.append({ taskId: 31, title: 'Leaving', appId: 'leaving', active: false, "
+                      "minimized: false, urgent: false })");
+            QQuickItem *leaving = nullptr;
+            if (!waitFor([&] { return (leaving = buttonFor(31)) != nullptr; }))
+                return fail("a window opening did not get a button");
+            {
+                const QPoint from = centre(leaving), to = centre(workspace(3));
+                QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 12; ++step) {
+                    QTest::mouseMove(&view, from + (to - from) * step / 12);
+                    QTest::qWait(15);
+                }
+                if (!waitFor([&] {
+                        return root->property("dropWorkspace").toInt() == 3 && ghost->isVisible() &&
+                               workspace(3)->property("dropTarget").toBool();
+                    }))
+                    return fail("the button of a window about to close did not carry it over a workspace");
+                editTasks(QString("model.remove(%1)").arg(rowOf(31)));
+                if (!waitFor([&] {
+                        return root->property("dropWorkspace").toInt() == 0 && !ghost->isVisible() &&
+                               !workspace(3)->property("dropTarget").toBool() &&
+                               tasks->property("dragFrom").toInt() == -1 && !popover->isVisible();
+                    }))
+                    return fail("a window closing while its button was dragged over a workspace left "
+                                "the workspace lit or what the drag carried");
+                QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, to);
+                if (!stays([&] { return taskRequests().isEmpty(); }, 300))
+                    return fail("letting go of a closed window's button asked something of it");
+            }
+            QTest::mouseMove(&view, barSpace);
         }
         // shell.thumbnails = { live = false }: the picture asked for ahead of the card is the one
         // it shows, not followed, and not asked for again as the card opens.
