@@ -251,7 +251,8 @@ leaves out), else a third of the window's size below its middle. Once the focus 
 lands what ran on it and has `sh_anim_unfold` grow `content` itself out of the box: the window
 draws as it is and takes input where it ends up (`sh_animator_rest_at` puts a folding window at
 rest for a lookup). Neither runs while the session is locked, for a window in the scratchpad, or
-for one peeked at, which is shown already; the overview lands the restore of the window it picks,
+for one peeked at, which is shown already, and no restore for one a peek showed while hidden and
+still shows as it fades (`peek_lent`); the overview lands the restore of the window it picks,
 whose thumbnail glides there.
 
 A fold scales the tree's nodes about one point, so that the window's box shrinks evenly, keeping
