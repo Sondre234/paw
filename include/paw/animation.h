@@ -37,12 +37,22 @@ struct sh_anim {
     /* The glide's offset and velocity (pixels per millisecond) when it started; the offset
      * ends at 0, 0. A retargeted glide starts from the velocity the last one had. */
     double glide_x, glide_y, glide_vx, glide_vy;
-    int base_x, base_y; // where the tree rests: 0, 0, except a snapshot sliding away
+    // Where the tree rests: 0, 0, except a snapshot sliding away and a window sliding out of
+    // sight (sh_anim_drop_out), which rest where they slide to while they run.
+    int base_x, base_y;
     /* Held by a gesture (sh_anim_hold): the tree's offset from where it rests and the factor of
      * its nodes' opacity, which stay as they are whatever the time. */
     bool held;
     double held_x, held_y;
     float held_alpha;
+    /* Sliding out of sight (sh_anim_drop_out): the tree is not there for lookups, which
+     * sh_animator_rest_at hides it from as it hides closing snapshots. */
+    bool absent;
+    /* Told after each frame that moves the tree, and once more with `done` as the animation
+     * stops or another one takes the tree over: for an owner that draws along with the tree, as
+     * the scratchpad's cut follows a window sliding past a bar. Set after starting. */
+    void (*track)(void *data, bool done);
+    void *track_data;
     struct sh_anim_record *records;
     size_t count, capacity;
 };
@@ -162,7 +172,21 @@ void sh_anim_spring_back(struct sh_animator *animator, struct sh_anim *anim,
  * alone. */
 void sh_anim_nudge(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
                    int dx, int dy);
-/* The factor a hold or a running fade multiplies `anim`'s nodes' opacity by now; 1 for neither. */
+/* The scratchpad's drop-down. sh_anim_drop_in brings `tree` to rest from (dx, dy) off it, in
+ * twice the time of `open` and with its curve, fading in over the first part of the way;
+ * sh_anim_drop_out takes it to (dx, dy) and keeps it there to the end, in one and a half times
+ * the time of `close` with its curve played backwards, speeding away, and fades it out over the
+ * last part. Either turns a glide under way on `anim` back from where it is drawn and fades from
+ * how faded it is; of the speed it had, it keeps a quarter of what the new curve lacks (that
+ * difference first held within twice the distance per duration, as a glide carries it).
+ * drop_in's (dx, dy) then go unused. A tree sliding out is not there for lookups; another
+ * animation taking it over brings it back, resting at 0, 0 at its full look. When that kind does
+ * not animate, whatever ran lands where the tree rests and they return false. */
+bool sh_anim_drop_in(struct sh_animator *animator, struct sh_anim *anim,
+                     struct wlr_scene_tree *tree, int dx, int dy);
+bool sh_anim_drop_out(struct sh_animator *animator, struct sh_anim *anim,
+                      struct wlr_scene_tree *tree, int dx, int dy);
+/* The factor of its nodes' opacity the animation draws now: 1 at rest. */
 float sh_anim_alpha(const struct sh_anim *anim);
 /* Jumps to the end: every node gets its resting values and the tree its resting position. */
 void sh_anim_finish(struct sh_anim *anim);

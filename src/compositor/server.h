@@ -23,6 +23,7 @@
 #include "paw/swipe.h"
 #include "paw/dynamic_rule.h"
 #include "paw/border.h"
+#include "paw/dropdown.h"
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -784,6 +785,26 @@ struct sh_opacity_rule {
     float value;
 };
 
+/* A scratchpad window sliding in or out (scratchpad.c): which way, where it is cut, where the
+ * window was as it started (turning back needs it there still), and the border's rounded rect,
+ * which no clip reaches: its place and size as frame.c lays it out and as the cut leaves it. */
+struct sh_drop {
+    bool running, out;
+    struct sh_drop_plan plan;
+    int place_x, place_y;
+    bool ring;
+    struct wlr_box ring_rest, ring_set;
+};
+
+/* The clips frame.c gives a window's trees (window_clip), kept so that a drop's cut can be laid
+ * over them. */
+enum sh_clip_tree { SH_CLIP_CONTENT, SH_CLIP_SHADOW, SH_CLIP_GRADIENT, SH_CLIP_TREES };
+struct sh_clip_wish {
+    bool set; // else no clip
+    struct wlr_box box;
+    int radius;
+};
+
 struct sh_toplevel {
     struct sh_node node;
     enum sh_action arrangement;
@@ -870,6 +891,9 @@ struct sh_toplevel {
      * animation can move, scale, and fade it without changing where the window is. */
     struct wlr_scene_tree *scene_tree, *content;
     struct sh_anim anim;
+    struct sh_drop drop;                      // the scratchpad's slide in and out
+    struct sh_clip_wish clips[SH_CLIP_TREES]; // content's, the shadow's and the gradient's
+    struct sh_clip_wish content_clip; // content's as last drawn, cut or not, for get scratchpad
     struct sh_tween fade; // opacity and border color following focus
     bool shown; // has opened (and started its opening animation) since it last mapped
     struct wlr_scene_buffer *deco;    // window controls; NULL when the client decorates itself
@@ -1375,7 +1399,11 @@ bool scratchpad_enabled(struct sh_server *server);
 void center_scratchpad(struct sh_toplevel *toplevel, struct wlr_output *output);
 void hide_in_scratchpad(struct sh_toplevel *toplevel);
 void scratchpad_show(struct sh_server *server);
+void scratchpad_drop_in(struct sh_toplevel *toplevel);
 void empty_scratchpad(struct sh_server *server);
+void window_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which, const struct wlr_box *box,
+                 int radius);
+void drop_refresh(struct sh_toplevel *toplevel);
 
 /* session.c */
 bool make_directories(char *path);

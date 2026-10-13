@@ -564,6 +564,49 @@ static void get_window_peek(struct sh_server *server, int fd, const char *argume
     }
 }
 
+static void get_scratchpad(struct sh_server *server, int fd, const char *arguments) {
+    // Per window in the scratchpad or sliding in or out of it, in the order of `get windows`: its
+    // title, whether it is hidden (minimized) and whether it is drawn (its node shown), the drop
+    // under way ("in", "out" or "-"), the edge it goes by ("top", "bottom", "left", "right"), the
+    // offset it is drawn at from its place, the opacity it is drawn at (thousandths), the line it
+    // is cut along ("-" while it is not cut), the clip its content is drawn with, cut or not, in
+    // layout coordinates as X,Y,WIDTH,HEIGHT and the clip's radius, and the box its border's
+    // rounded rect covers (each "-" for none).
+    static const char *edges[] = {"top", "bottom", "left", "right"};
+    control_reply(fd, "ok\n");
+    struct sh_toplevel *toplevel;
+    wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
+        const struct sh_drop *drop = &toplevel->drop;
+        if (!toplevel->scratchpad && !drop->running)
+            continue;
+        char title[512], cut[32] = "-", clip[64] = "-", radius[16] = "-", ring[64] = "-";
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        if (drop->running && drop->plan.clip)
+            snprintf(cut, sizeof(cut), "%d", drop->plan.cut);
+        int x = 0, y = 0;
+        if (toplevel->content)
+            wlr_scene_node_coords(&toplevel->content->node, &x, &y);
+        const struct sh_clip_wish *drawn = &toplevel->content_clip;
+        if (toplevel->content && drawn->set) {
+            snprintf(clip, sizeof(clip), "%d,%d,%d,%d", x + drawn->box.x, y + drawn->box.y,
+                     drawn->box.width, drawn->box.height);
+            snprintf(radius, sizeof(radius), "%d", drawn->radius);
+        }
+        const struct wlr_scene_rect *rect = toplevel->frame_hole > 0 ? toplevel->border[0] : NULL;
+        if (toplevel->content && rect)
+            snprintf(ring, sizeof(ring), "%d,%d,%d,%d", x + rect->node.x, y + rect->node.y,
+                     rect->width, rect->height);
+        const char *phase = !drop->running ? "-" : drop->out ? "out" : "in";
+        char line[900];
+        snprintf(line, sizeof(line), "%s\t%d\t%d\t%s\t%s\t%d\t%d\t%ld\t%s\t%s\t%s\t%s\n", title,
+                 toplevel->minimized, toplevel->scene_tree && toplevel->scene_tree->node.enabled,
+                 phase, edges[drop->plan.edge], toplevel->content ? toplevel->content->node.x : 0,
+                 toplevel->content ? toplevel->content->node.y : 0,
+                 lround(1000 * sh_anim_alpha(&toplevel->anim)), cut, clip, radius, ring);
+        control_reply(fd, line);
+    }
+}
+
 static void get_window_icons(struct sh_server *server, int fd, const char *arguments) {
     // Per window, in the order of `get windows`: its number (0 before it is published), app_id,
     // and the icon it supplies itself (window_icon.c): its name and the size of its pixels as
@@ -710,6 +753,7 @@ static const struct {
     {"peek", get_peek, false},
     {"window_peek", get_window_peek, false},
     {"window_icons", get_window_icons, false},
+    {"scratchpad", get_scratchpad, false},
     {"opacities", get_opacities, false},
     {"frames", get_frames, false},
     {"zoom", get_zoom, false},
