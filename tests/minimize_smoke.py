@@ -185,6 +185,11 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     taskbar("restore", "A")
     assert windows()["A"].visible and not windows()["A"].minimized, windows()
     desktop.stays(lambda: not folds(), "A restored where the peek shows it")
+    # Peeked at and restored still on its way in, its copy goes at once.
+    taskbar("minimize", "A")
+    peeker("peek")
+    taskbar("restore", "A")
+    desktop.stays(lambda: not folds(), "no copy left going into the button")
     taskbar("minimize", "A")
     wait_for(settled, "A minimized again")
 
