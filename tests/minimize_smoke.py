@@ -4,7 +4,7 @@ button is on each output (the window control's set_rectangle, or wlr-foreign-top
 panel's surface); a copy of a window minimizing shrinks into its button on the window's own
 output, and a window restored grows out of it, both while input already has the window where it
 ends up; the minimize action does the same. Minimizing turned back half way goes back from where
-it is drawn. Without a button the window goes to the middle of the panel's strip, or shrinks where
+it is drawn, and a window a peek shows already comes back where it is. Without a button the window goes to the middle of the panel's strip, or shrinks where
 it is. Animations off, or the session locked, nothing animates; a window closing as it minimizes
 or is restored leaves nothing behind."""
 from pathlib import Path
@@ -20,6 +20,7 @@ compositor, probe, window_probe, lock_probe = (str(Path(p).resolve()) for p in s
 CONFIG = """return {
     xwayland = false,
     animations = { minimize = { duration = 900, curve = "linear" } },
+    peek = { duration = 1500 },
     outputs = {
         order = { "HEADLESS-1", "HEADLESS-2" },
         monitors = {
@@ -135,6 +136,51 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     taskbar("restore", "A")
     assert (a, "minimize") not in folds(), folds()
     wait_for(settled, "A back at once")
+
+    # A window peeked at, as the taskbar's picture and the switcher do, is shown where it is
+    # already: restored, it stays there rather than coming out of its button; and so does one
+    # still fading out of a peek.
+    class Peeker:
+        def __init__(self):
+            self.process = desktop.spawn([window_probe, "A", "peek"], stdin=subprocess.PIPE,
+                                         stdout=subprocess.PIPE, text=True)
+            self.answered()
+
+        def answered(self):
+            assert self.process.stdout.readline().strip() == "ok", "the peeker did not answer"
+
+        def __call__(self, request):
+            self.process.stdin.write(f"{request} A\n")
+            self.process.stdin.flush()
+            self.answered()
+
+        def finish(self):
+            self.process.stdin.close()
+            assert desktop.reap(self.process) == 0
+
+    taskbar("minimize", "A")
+    wait_for(settled, "A minimized to peek at")
+    peeker = Peeker()
+    taskbar("restore", "A")
+    assert windows()["A"].visible and not windows()["A"].minimized, windows()
+    desktop.stays(lambda: not folds(), "A restored where the peek shows it")
+    taskbar("minimize", "A")
+    wait_for(settled, "A minimized again")
+
+    def peek_at_a():
+        """(peeked at, drawn, how far it shows in thousandths) of A."""
+        row = next(row for row in desktop.rows("window_peek") if row[5] == "A")
+        return row[0] == "1", row[1] == "1", int(row[3])
+
+    wait_for(lambda: peek_at_a() == (False, False, 0), "the first peek over")
+    peeker("peek")
+    wait_for(lambda: peek_at_a() == (True, True, 1000), "A peeked at")
+    peeker("unpeek")  # fading out, over peek.duration
+    assert peek_at_a()[1], "A no longer shown as its peek fades"
+    taskbar("restore", "A")
+    desktop.stays(lambda: not folds(), "A restored where the peek's fade shows it")
+    peeker.finish()
+    wait_for(settled, "the peek over")
 
     # The minimize action does what the taskbar does, to the focused window.
     assert windows()["A"].focused, windows()
