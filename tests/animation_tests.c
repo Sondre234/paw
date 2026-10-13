@@ -1371,6 +1371,56 @@ static void test_drop_off(void) {
     teardown(&rig);
 }
 
+/* What the owner of a lifted window changing size does as it hears of the size drawn: the frame
+ * around it, and the lift's bounds that size. */
+static void lift_morph_resized(void *data) {
+    struct morph_rig *m = data;
+    morph_resized(m);
+    int width = m->surface->width, height = m->surface->height;
+    sh_anim_drawn_size(&m->rig.anim, &width, &height);
+    sh_anim_lift_bounds(&m->rig.anim, 0, 0, width, height);
+}
+
+/* A lift draws on top of a change of size: the size drawn grows, and the frame keeps its width
+ * around it; let down, the change of size goes on as it would have. */
+static void test_lift_over_morph(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    sh_anim_lift_bounds(&m.rig.anim, 0, 0, 200, 100);
+    sh_anim_lift(m.rig.animator, &m.rig.anim, m.rig.content, true, 1.1, 0, 0, NULL, NULL);
+    for (int i = 0; i < 6; ++i)
+        advance(&m.rig, 20);
+    CHECK(m.surface->width == 220 && m.frame->width == 224 && m.frame->node.x == -2,
+          "lifted: %d in %d", m.surface->width, m.frame->width);
+    struct sh_morph morph = {
+        .surfaces = m.surfaces, .from_width = 200, .from_height = 100, .width = 400,
+        .height = 300, .live_width = 200, .live_height = 100, .kind = SH_ANIM_MOVE,
+        .resized = lift_morph_resized, .data = &m,
+    };
+    sh_anim_morph(m.rig.animator, &m.rig.anim, m.rig.content, &morph);
+    CHECK(sh_animator_lifted(m.rig.animator) == 1, "still lifted as it changes size");
+    advance(&m.rig, 25);
+    advance(&m.rig, 25);
+    CHECK(m.surface->width == 330 && m.surface->height == 220,
+          "half way to 400 by 300, lifted: %d by %d", m.surface->width, m.surface->height);
+    CHECK(m.frame->node.x == -2 && m.frame->width == 334 && m.frame->height == 224,
+          "the frame as wide around it: %d by %d at %d", m.frame->width, m.frame->height,
+          m.frame->node.x);
+    sh_anim_lift(m.rig.animator, &m.rig.anim, m.rig.content, false, 1.1, 0, 0, NULL, NULL);
+    for (int i = 0; i < 10; ++i)
+        advance(&m.rig, 20);
+    CHECK(sh_animator_lifted(m.rig.animator) == 0 && m.surface->width == 400 &&
+              m.surface->height == 300 && m.frame->width == 404,
+          "let down, at the size it changes to: %d by %d", m.surface->width, m.surface->height);
+    client_draws(&m, 400, 300, true);
+    for (int i = 0; i < 10; ++i)
+        advance(&m.rig, 20);
+    CHECK(sh_animator_running(m.rig.animator) == 0 && m.surface->width == 400 &&
+              m.frame->width == 404,
+          "done: %d", m.surface->width);
+    teardown(&m.rig);
+}
+
 static void test_finish_all(void) {
     struct rig rig;
     setup(&rig, config(300, SH_CURVE_EASE_OUT));
@@ -1404,6 +1454,7 @@ int main(void) {
     test_lift_bounds();
     test_lift_through_gestures();
     test_lift_rest_at_point();
+    test_lift_over_morph();
     test_morph_stretches_and_waits();
     test_morph_answer_after_an_early_ack();
     test_morph_follows_every_answer();
