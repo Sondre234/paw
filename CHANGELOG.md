@@ -446,8 +446,9 @@ shadows.
 - Past the first or last workspace a swipe stretches the windows like a rubber band, following
   the fingers less and less the further they go, and lets them spring back as the fingers lift,
   keeping their speed; fingers that come back meanwhile take them over where they are. Scrolling
-  over the panel past either end nudges the windows toward the workspace that is not there and
-  back, the current workspace's pill with them (`paw msg workspace_nudge OUTPUT next|prev`).
+  over the panel or the tiling bar past either end nudges the windows toward the workspace that is
+  not there and back, the taskbar's pill with them (`paw msg workspace_nudge OUTPUT next|prev`),
+  and Launchpad's pages stretch past the first and last page the same way.
 - Touchscreens: each finger goes to the window, panel or popup under it through wl_touch, several
   at once, and focuses it as a click would. An application without touch support, the window
   controls, a window's drag strip (which a finger drags the window by), the overview and the
