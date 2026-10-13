@@ -389,3 +389,57 @@ with harness.Compositor(compositor, ONE) as desktop:
     subprocess.run([window_probe, "E", "restore"], env=desktop.env, check=True, timeout=30)
     assert [row[2] for row in folds()] == ["restore"], folds()
     wait_for(settled, "E restored once unlocked")
+
+# Minimized again on its way out while its tile glides (a window opening beside it), the copy
+# takes over from where the window is drawn, glide and all. Everything a quarter as fast, the
+# glide and the fold slow enough to look at between two requests.
+TILES = CONFIG.replace("animations = { minimize = { duration = 900, curve = \"linear\" } },",
+                       "animations = { speed = 0.25, minimize = { duration = 900, curve = \"linear\" },"
+                       " move = { duration = 1000, curve = \"linear\" } },\n"
+                       "    layout = { tiling = true },").replace(
+    '''            ["HEADLESS-2"] = { mode = "1280x720", scale = 2 },
+''', "")
+assert "tiling = true" in TILES and "speed = 0.25" in TILES
+with harness.Compositor(compositor, TILES) as desktop:
+    msg, wait_for = desktop.msg, desktop.wait_for
+
+    def windows():
+        return {w.title: w for w in desktop.windows()}
+
+    def folds():
+        """kind -> (at, box folded into, drawn box), for the only window that folds."""
+        return {row[2]: (int(row[3]), tuple(map(int, row[4:8])), tuple(map(int, row[9:13])))
+                for row in desktop.rows("minimize") if row[0] == "fold"}
+
+    def settled():
+        running, trees, _ = (int(n) for n in msg("get", "animations").split())
+        return not folds() and running == 0 and trees == len(windows())
+
+    desktop.detail = lambda: f"windows: {windows()}, folds: {folds()}"
+    desktop.open_window(probe, "B", "app-b", focused=True)
+    desktop.open_window(probe, "G", "app-g", focused=True)
+    wait_for(lambda: settled() and windows()["G"].tiled, "G tiled beside B")
+    left = windows()["G"].x
+    taskbar = desktop.spawn([window_probe, "G", "taskbar"], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, text=True)
+
+    def tell(*words):
+        if words:
+            taskbar.stdin.write(" ".join(words) + "\n")
+            taskbar.stdin.flush()
+        assert taskbar.stdout.readline().strip() == "ok", "the taskbar did not answer"
+
+    tell()
+    tell("minimize", "G")
+    wait_for(settled, "G minimized")
+    tell("restore", "G")
+    wait_for(lambda: "restore" in folds() and folds()["restore"][0] <= 700, "G on its way out")
+    desktop.open_window(probe, "C", "app-c", focused=True)
+    wait_for(lambda: windows()["G"].x != left, "G moved aside for C")
+    drawn = folds()["restore"][2]
+    tell("minimize", "G")
+    taken = folds()["minimize"][2]
+    assert all(abs(a - b) <= 60 for a, b in zip(drawn, taken)), (drawn, taken)
+    tell("restore", "G")
+    taskbar.stdin.close()
+    assert desktop.reap(taskbar) == 0
