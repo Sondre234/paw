@@ -159,9 +159,11 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     wait_for(lambda: cursor_at(shot(desktop), 300, 300), "the pointer shown")
     msg("profile", "blue")
     msg("headless_pointer", "move", "mouse", "900", "400")
-    stays(lambda: (lambda picture: cursor_at(picture, 900, 400) and
-                   not cursor_at(picture, 300, 300))(shot(desktop)),
-          "the pointer moving over the picture alone")
+    def moved():
+        picture = shot(desktop)
+        return cursor_at(picture, 900, 400) and not cursor_at(picture, 300, 300)
+    wait_for(moved, "the pointer moved over the picture")  # the mirror draws it a frame later
+    stays(moved, "the pointer moving over the picture alone")
     msg("profile_drawn", "blue")
     wait_for(lambda: crossfade() == {}, "the crossfade over")
     msg("headless_pointer", "remove", "mouse")
