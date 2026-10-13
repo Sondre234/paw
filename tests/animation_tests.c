@@ -633,6 +633,45 @@ static void test_lift_with_others(void) {
     CHECK(true, "a lifted window's animator goes cleanly");
 }
 
+/* With bounds, a lift draws them larger with their edges on whole pixels, and what lies outside
+ * them (a border, a shadow) at its own size around them. */
+static void test_lift_bounds(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    // A border two pixels wide around the window's rect.
+    float red[4] = {1, 0, 0, 1};
+    struct wlr_scene_rect *border = wlr_scene_rect_create(rig.content, 204, 104, red);
+    wlr_scene_node_set_position(&border->node, 8, 18);
+    sh_anim_lift_bounds(&rig.anim, 10, 20, 200, 100);
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 110, 70, NULL, NULL);
+    for (int i = 0; i < 6; ++i)
+        advance(&rig, 20);
+    CHECK(rig.rect->node.x == 0 && rig.rect->node.y == 15 && rig.rect->width == 220 &&
+              rig.rect->height == 110,
+          "the window drawn larger: %d, %d, %d by %d", rig.rect->node.x, rig.rect->node.y,
+          rig.rect->width, rig.rect->height);
+    CHECK(border->node.x == -2 && border->node.y == 13 && border->width == 224 &&
+              border->height == 114,
+          "its border as wide around it: %d, %d, %d by %d", border->node.x, border->node.y,
+          border->width, border->height);
+    int box[4] = {8, 18, 204, 104};
+    sh_anim_lift_box(&rig.anim, box);
+    CHECK(box[0] == -2 && box[1] == 13 && box[2] == 224 && box[3] == 114,
+          "a box drawn as the border is: %d %d %d %d", box[0], box[1], box[2], box[3]);
+    // Half way, the window's edges are still on whole pixels and the border meets them.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, false, 1.1, 110, 70, NULL, NULL);
+    for (int step = 0; step < 8; ++step) {
+        advance(&rig, 19);
+        CHECK(border->node.x == rig.rect->node.x - 2 && border->width == rig.rect->width + 4 &&
+                  border->node.y == rig.rect->node.y - 2 && border->height == rig.rect->height + 4,
+              "the border meets the window settling: %d %d %d %d against %d %d %d %d",
+              border->node.x, border->node.y, border->width, border->height, rig.rect->node.x,
+              rig.rect->node.y, rig.rect->width, rig.rect->height);
+    }
+    CHECK(rig.rect->width == 200 && border->width == 204 && border->node.x == 8, "down");
+    teardown(&rig);
+}
+
 static void test_finish_all(void) {
     struct rig rig;
     setup(&rig, config(300, SH_CURVE_EASE_OUT));
@@ -662,6 +701,7 @@ int main(void) {
     test_hold_copy();
     test_lift();
     test_lift_with_others();
+    test_lift_bounds();
     test_finish_all();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
