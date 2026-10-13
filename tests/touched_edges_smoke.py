@@ -2,8 +2,10 @@
 """The edges of an output's usable area a window shown there reaches, which subscribers hear as
 `touched NAME EDGES` and a floating bar docks along: none for a window in the middle; every one
 for a maximized window, its bottom the top of the panel there; the top, bottom and left for one
-snapped to the left half without gaps (none with them); every one for a tile alone with smart
-gaps, none with gaps around it; and none once the window is on another workspace."""
+snapped to the left half without gaps (none with them); every one for a tile, gaps around it or
+not, and for two tiles with gaps between and around them, a window floating beside them or not;
+none once the tiles are floated in the middle, though the workspace tiles; and none once the
+window is on another workspace."""
 from pathlib import Path
 import sys
 
@@ -51,11 +53,33 @@ with harness.Compositor(compositor, CONFIG % (0, "true")) as desktop:
     wait_for(lambda: touched() == "-", "snapped inside the gaps, reaching no edge")
     msg("restore")
 
-    # Tiling: a tile alone fills the area without gaps (smart gaps); with them, it reaches none.
+    # Tiling: a tile alone fills the area without gaps (smart gaps); with them it still counts as
+    # reaching every edge, the gaps but part of the layout.
     msg("toggle_tiling")
     wait_for(lambda: touched() == "top,bottom,left,right", "a tile alone, without gaps")
     desktop.reload(CONFIG % (20, "false"))
-    wait_for(lambda: touched() == "-", "a tile with gaps around it")
+    wait_for(lambda: desktop.windows()[0].box[:2] == (20, 20), "a tile with gaps around it")
+    wait_for(lambda: touched() == "top,bottom,left,right", "a tile with gaps around it reaching every edge")
+
+    # Gaps between tiles as well: the tiles still fill the area between them, as the bar docks
+    # over them. A window floating beside them changes nothing; floated too, they reach none.
+    two = desktop.open_window(probe, "two", focused=True)
+    wait_for(lambda: [w.tiled for w in desktop.windows()] == [True, True], "two tiles")
+    wait_for(lambda: touched() == "top,bottom,left,right", "two tiles with gaps reaching every edge")
+    msg("toggle_floating")
+    wait_for(lambda: [w.title for w in desktop.windows() if w.tiled] == ["one"], "two floating")
+    desktop.stays(lambda: touched() == "top,bottom,left,right", "one tile beside a floating window")
+    msg("focus_last")
+    msg("toggle_floating")
+    wait_for(lambda: not any(w.tiled for w in desktop.windows()), "both floating")
+    wait_for(lambda: touched() == "-", "floating windows in the middle on a tiling workspace")
+    msg("focus_last")
+    msg("close")
+    desktop.reap(two)
+    wait_for(lambda: [w.title for w in desktop.windows()] == ["one"], "two closed")
+    wait_for(lambda: desktop.windows()[0].focused, "one focused")
+    msg("toggle_floating")
+    wait_for(lambda: [w.tiled for w in desktop.windows()] == [True], "one tiled again")
 
     # Moved to another workspace, nothing is shown there to reach an edge.
     desktop.reload(CONFIG % (20, "true"))

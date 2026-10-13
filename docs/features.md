@@ -168,8 +168,8 @@ rest of the file is left as it was, comments and all. Escape, or letting go at i
 leaves the bar where it was.
 
 A floating bar docks while a window reaches the edge of the monitor's free area it is along (a
-maximized window, a tile alone without gaps around it, one snapped or dragged against that
-edge), as KDE's floating panels do: it eases out to fill the strip it reserves from edge to edge,
+maximized window, one snapped or dragged against that edge, and any tile, gaps or not, so on a
+tiling workspace it docks whenever a window there is not floating), as KDE's floating panels do: it eases out to fill the strip it reserves from edge to edge,
 its corners squared and its outline and shadow gone but for a line along its inner edge, its
 buttons where they were, and floats again once no window there does. Windows do not move.
 
