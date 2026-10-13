@@ -164,7 +164,7 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
     task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp
     app_match.hpp wallpapers.cpp wallpapers.hpp image_provider.hpp audio.cpp audio.hpp
-    system_status.cpp system_status.hpp power.cpp power.hpp)
+    system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
 add_dependencies(paw-shell paw_wlr_client_protocols paw_version)
 set_target_properties(paw-shell PROPERTIES AUTOMOC ON RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
