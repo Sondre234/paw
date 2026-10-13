@@ -185,6 +185,24 @@ focused (`focus_toplevel_raise`, which a click on its picture does), as the sess
 once), and as the desktop peek starts. `paw msg get window_peek` lists what it does to each
 window, and `tests/window_peek_smoke.py` tests it.
 
+The window switcher peeks at its selected window through the same functions (`switcher.c`). The
+shell's `Switcher.qml` asks for it as the switcher shows (`ShellController::switcherShown`, the
+`switcher_peek` request, which `switcher_ask_peek` takes), but not in the macOS style nor with
+`peek.switcher` off. The first peek waits on `switcher.peek_timer` until `SWITCHER_PEEK_MS` after
+the selection last moved (`selected_at`); while that peek goes on (`switcher_peeks`: the peek is
+still at `switcher.peeked`, the window it peeked at), `switcher_select` moves it at once, and once
+something else ended it (focus, the desktop peek, a taskbar's picture) the selection rests again
+first. The selected window closing ends the peek (`forget_window_peek`); `switcher_forget` peeks
+at the window selected in its place a millisecond later, once `unmap_toplevel` has moved the focus,
+which may go to that window and would end a peek begun before. Its peek has no `peek_object`, so
+no window object ends it, and it takes the peek over from a taskbar's; `switcher_close` ends it,
+through `focus_toplevel_raise` when the window chosen is the one peeked at (in front already, the
+others coming back around it), and otherwise with `end_window_peek` before focusing the window
+chosen. The lock ends a peek before closing the switcher, so that it ends at once.
+`peek.switcher` turned off by a reload ends the switcher's peek at its next step, a selection or
+its closing. `tests/switcher_peek_smoke.py` tests it without the shell, sending
+`switcher_peek` itself, and `tests/peek_shell_smoke.py` with it.
+
 Version 4 also sends the window's `id` once, with its first state: `sh_toplevel.id`, a number
 `publish_toplevel` gives a window the first time it publishes it (counting up from 1 in
 `sh_server.last_window_id`) and gives no other window while the compositor runs. A window keeps
@@ -772,7 +790,16 @@ the way to the cross, the speaker or another tile does not fade every window on 
 `TaskModel` sends `set_peek` and `unset_peek` (version 4) for them; the compositor ends a peek by
 itself too, as the window is focused (a click on the picture), which the model does not hear, so
 `peekedTask` names the last window it peeked at until `endPeek`. A stand-in without `peek` peeks
-at nothing, and the macOS style's dock and the stack's list of titles do not peek.
+at nothing, and the macOS style's dock and the stack's list of titles do not peek. The command
+palette (`Palette.qml`) peeks through the task model the same way at the window result selected,
+by the task id that is the result's target: 500 ms after the selection comes to it (restarted by
+typing), once something was typed or the selection moved since the palette opened (`engaged`), and
+at once while it peeks at another, ended 150 ms after the selection leaves the windows
+and, as the palette closes, once the event loop has run the result (`Qt.callLater`), so that a
+window it focuses ends the peek around itself first. The results are read as the palette opens,
+so a window that closed meanwhile keeps its row; the model takes no peek at it (`peekedTask`
+stays as it was), and the window peeked at so far is let go, as it no longer stands for the
+selection. `shell.peekSelection` is `peek.switcher`.
 
 The keyboard on the bar (`BarKeyboard.qml`, the panel's `barKeys`) is held in the popover. The
 `taskbar_focus` action sends the shell `taskbar OUTPUT` for the focused output (`request_taskbar`,

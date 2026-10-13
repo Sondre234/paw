@@ -351,10 +351,14 @@ out:
     return done;
 }
 
-/* How long the peeks' fades take: peek.duration, or nothing without animations. */
+/* How long the peeks' fades take: peek.duration at animations.speed, or nothing without
+ * animations. */
 static int peek_duration(struct sh_server *server) {
     const struct sh_settings *settings = server_settings(server);
-    return settings->animations ? settings->effects.peek_duration : 0;
+    if (!settings->animations)
+        return 0;
+    double speed = settings->animation_speed > 0 ? settings->animation_speed : 1;
+    return (int)lround(settings->effects.peek_duration / speed);
 }
 
 /* Points the fades where the peeks now want them, over `duration`: the windows faded while a
