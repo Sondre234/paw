@@ -446,7 +446,7 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
     // The client's buffers go with this commit; the closing animation draws a copy of them.
     struct sh_server *server = toplevel->server;
     if (toplevel->shown && server->running && toplevel_visible(toplevel)) {
-        struct wlr_box box = toplevel_geometry(toplevel);
+        struct wlr_box box = frame_geometry(toplevel); // about its middle as drawn
         sh_anim_close(server->animator, &toplevel->scene_tree->node, toplevel->content,
                       box.width / 2.0, box.height / 2.0);
     }
