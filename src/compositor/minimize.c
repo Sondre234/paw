@@ -195,7 +195,21 @@ static void round_fold(const struct sh_anim *anim, const struct fold_rounding *r
 #endif
 }
 
-/* A window's own fold, as it restores: its clip and frame as frame.c last set them. */
+/* The clip of `tree`, a subtree of a window's content that keeps what it holds from the
+ * window's own clip, where the fold has what it holds: `box`, in the content's coordinates. */
+static void clip_fold(const struct sh_anim *anim, struct wlr_scene_tree *tree, struct wlr_box box) {
+#ifdef PAW_ROUNDED_CORNERS
+    sh_anim_fold_map(anim, &box.x, &box.y, &box.width, &box.height, NULL);
+    box.x -= tree->node.x;
+    box.y -= tree->node.y;
+    wlr_scene_tree_set_rounded_clip(tree, &box, 0);
+#else
+    (void)anim, (void)tree, (void)box;
+#endif
+}
+
+/* A window's own fold, as it restores: its clip and frame, its shadow's and its gradient
+ * border's clips, as frame.c last set them. */
 static void window_folded(const struct sh_anim *anim, void *data) {
     struct sh_toplevel *toplevel = data;
     if (!toplevel->content)
@@ -210,6 +224,15 @@ static void window_folded(const struct sh_anim *anim, void *data) {
         .hole = toplevel->frame_hole,
     };
     round_fold(anim, &rounding);
+    if (toplevel->shadow)
+        clip_fold(anim, toplevel->shadow, toplevel->shadow_box);
+    const struct sh_gradient_drawn *drawn = &toplevel->gradient_drawn;
+    if (toplevel->gradient)
+        clip_fold(anim, toplevel->gradient,
+                  (struct wlr_box){toplevel->gradient->node.x - drawn->border,
+                                   toplevel->gradient->node.y - drawn->border,
+                                   drawn->width + 2 * drawn->border,
+                                   drawn->height + 2 * drawn->border});
 }
 
 /* A copy of a window minimizing, and what of it rounds itself; freed with the copy's tree. */
