@@ -2,9 +2,10 @@
 """Drag and drop with a real button press, driven by a virtual pointer (pointer_probe): one
 window probe drags a line of text from its window, another takes it. A window activated while the
 drag lasts, through the taskbar protocol as the shell brings one forward under a drag resting on
-its button, comes forward at once: restored if minimized, its workspace shown. Once the drag ends
-it has the keyboard, which the drag held, and the pointer is on what lies under it at once rather
-than once it next moves. Dropped where nothing takes it, the drag is cancelled."""
+its button, comes forward at once: restored onto the workspace shown if minimized, else with its
+workspace shown. Once the drag ends it has the keyboard, which the drag held, and the pointer is on
+what lies under it at once rather than once it next moves. Dropped where nothing takes it, the drag
+is cancelled."""
 from pathlib import Path
 import subprocess
 import sys
@@ -69,10 +70,11 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     activate("away")
     desktop.wait_for(lambda: windows()["Away"][1] and windows()["Away"][3] and
                      msg("get", "workspace").strip() == "2", "Away brought forward mid-drag")
-    # And a minimized one, back on the first workspace, over the windows there.
+    # And a minimized one, onto the workspace shown, over the windows there.
     activate("target")
     desktop.wait_for(lambda: windows()["Target"][1] and not windows()["Target"][2] and
-                     msg("get", "workspace").strip() == "1", "Target restored mid-drag")
+                     windows()["Target"][0] == 2 and msg("get", "workspace").strip() == "2",
+                     "Target restored mid-drag")
     # The drag goes on onto it, its top too, where a press would move it, and it takes the
     # text as it is dropped.
     pointer("move", *map(str, windows()["Target"][5]))
