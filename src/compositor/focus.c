@@ -386,15 +386,12 @@ struct sh_toplevel *toplevel_toward(struct sh_toplevel *from_toplevel, bool hori
 
 /* Focus follows the mouse on its next move, so keyboard actions take the pointer along to the
  * window they focus or move: just inside its bottom-right corner, out of the way of what is
- * being read or typed. Windows still opening or gliding are not yet drawn where they are, so
- * they land first; otherwise the pointer could hover, and focus, whichever window is passing
- * its destination. */
+ * being read or typed. Windows still opening or gliding go on: the pointer finds them where
+ * they will be (sh_animator_rest_at), never a window passing its destination. */
 void pointer_follow(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
     if (!server_settings(server)->focus_follows_mouse)
         return;
-    struct sh_toplevel *other;
-    wl_list_for_each(other, &server->toplevels, link) sh_anim_finish(&other->anim);
     // The corner of the smaller of its drawn and requested sizes, so the pointer is inside the
     // window both before and after a pending resize.
     struct wlr_box box = toplevel_box(toplevel), drawn = toplevel_geometry(toplevel);

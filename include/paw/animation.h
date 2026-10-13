@@ -2,14 +2,16 @@
 #pragma once
 /* Short window animations on the plain wlroots scene graph: a window fades in and grows
  * slightly when it opens, a snapshot of its last frame fades out and shrinks when it closes,
- * and tiles glide to their new place when the layout changes.
+ * tiles glide to their new place when the layout changes, and a window maximized, snapped or
+ * restored glides to its new place and size together.
  *
  * Each animation owns one scene tree and changes only what is below it: the tree's own
  * position (the glide), and the position, destination size, and opacity (or color, for
  * rectangles) of every buffer and rectangle inside it. The scene has no transform for a whole
- * subtree, so scaling moves and resizes each buffer about a common center. Clients and the
- * rest of the compositor keep writing to those nodes while an animation runs; a value that
- * differs from what the animation last set is taken as the node's new resting value. */
+ * subtree, so scaling moves and resizes each buffer about a common center, and a change of
+ * size stretches the client's buffers about the window's corner. Clients and the rest of the
+ * compositor keep writing to those nodes while an animation runs; a value that differs from
+ * what the animation last set is taken as the node's new resting value. */
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -45,6 +47,25 @@ struct sh_anim {
     bool held;
     double held_x, held_y;
     float held_alpha;
+    /* Changing size with the glide (sh_anim_morph): the size the window is drawn at eases to
+     * `rest_width` by `rest_height` on the glide's time and curve, from `size_x`, `size_y` more
+     * than that when the glide started and at the speeds `size_vx`, `size_vy` (pixels per
+     * millisecond), and the client's surfaces under `surfaces` are stretched to it from the size
+     * they are drawn for (`live_*`). It lasts past the glide until the client has drawn the size
+     * it was asked for (`answered`) or `wait_until` passes, and while `fading`, a copy of the
+     * surfaces as they were before their size last changed (drawn for `fading_*`), fades out
+     * over them. `resized` hears each change of the size drawn (`drawn_*`), and its end. */
+    bool morph, answered;
+    enum sh_anim_kind morph_kind;
+    struct wlr_scene_tree *surfaces, *fading;
+    double size_x, size_y, size_vx, size_vy;
+    int rest_width, rest_height, live_width, live_height, fading_width, fading_height;
+    int asked_width, asked_height; // what the surfaces were drawn for when the size was given
+    int drawn_width, drawn_height; // as `resized` last heard it; -1 before it has
+    int64_t wait_until, fade_start;
+    int fade_duration;
+    void (*resized)(void *data);
+    void *resized_data;
     /* Sliding out of sight (sh_anim_drop_out): the tree is not there for lookups, which
      * sh_animator_rest_at hides it from as it hides closing snapshots. */
     bool absent;
@@ -128,6 +149,37 @@ void sh_anim_glide(struct sh_animator *animator, struct sh_anim *anim, struct wl
 /* As sh_anim_glide, with the duration and curve of `kind`. */
 void sh_anim_glide_kind(struct sh_animator *animator, struct sh_anim *anim,
                         struct wlr_scene_tree *tree, int dx, int dy, enum sh_anim_kind kind);
+/* A window placed again at another size, as sh_anim_morph has it. */
+struct sh_morph {
+    struct wlr_scene_tree *surfaces; // the client's, inside the animated tree, at its origin
+    int dx, dy;                      // further off where it rests now than it is drawn
+    int from_width, from_height;     // the size it was drawn at, unless it is changing already
+    int width, height;               // the size it comes to rest at
+    int live_width, live_height;     // the size its surfaces are drawn for now
+    bool answered;                   // they need not be drawn again for the new size
+    enum sh_anim_kind kind;
+    void (*resized)(void *data); // the size drawn changed (sh_anim_drawn_size), or went back
+    void *data;
+};
+/* A window going to another place and size, as maximizing, snapping and restoring move it: the
+ * tree glides by (dx, dy) to where it rests, as with sh_anim_glide_kind, while the size it is
+ * drawn at eases on the same curve from where it was (the size drawn now, and its speed, when
+ * it is changing already) to `width` by `height`. The client's surfaces are stretched to that
+ * size meanwhile; the rest of the tree, the window's frame, is the owner's to draw at that size
+ * from `resized`. Past the glide, the window stays at its new size, stretched, until the client
+ * draws it (sh_anim_morph_commit) or for a few hundred milliseconds at most, which a client that
+ * never does gets; it then eases to the size the client drew. */
+void sh_anim_morph(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                   const struct sh_morph *morph);
+/* The client is about to show what it drew for `width` by `height`, the answer to the size it
+ * was given with `answered` (at that size or another, which the size drawn then eases to, each
+ * time; at the size it had when asked only once the wait is over, since it may draw the new size
+ * later). What it drew before, at another size, fades out over it, so that the change of size
+ * never jumps. Call before the scene takes the new buffers in. */
+void sh_anim_morph_commit(struct sh_animator *animator, struct sh_anim *anim, int width, int height,
+                          bool answered);
+/* The size a morph draws the window at, false when it is not changing size. */
+bool sh_anim_drawn_size(const struct sh_anim *anim, int *width, int *height);
 /* A window arriving with its workspace: offsets `tree` by (dx, dy) and glides it back while it
  * fades in. */
 void sh_anim_slide(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,

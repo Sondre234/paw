@@ -50,10 +50,9 @@ with harness.Compositor(compositor, CONFIG % SLOW) as desktop:
 
     def drawn(title="One"):
         """How far the window is drawn from where it rests (x, y) and its opacity's factor."""
-        for row in desktop.rows("drawn"):
-            if row[0] == title:
-                return tuple(int(n) for n in row[1:])
-        raise AssertionError(f"no window {title}")
+        rest = next(w for w in desktop.windows() if w.title == title)
+        row = next(r for r in desktop.rows("drawn") if r[1] == title)
+        return int(row[2]) - rest.x, int(row[3]) - rest.y, int(row[10])
 
     def held():
         """The band the fingers hold, checked against where the window is drawn."""
