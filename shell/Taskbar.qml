@@ -115,8 +115,8 @@ Item {
         }
         // Scrolling the bar anywhere its widgets leave the wheel alone pages through this
         // output's workspaces: a wheel notch (or a touchpad's worth of travel) moves one,
-        // stopping at either end, where the windows nudge toward the workspace that is not there;
-        // down or right goes to the next.
+        // stopping at either end, where the windows nudge a little the way the slide would take
+        // them and the pill toward the workspace that is not there; down or right goes to the next.
         NotchWheel {
             onNotched: (steps) => {
                 var current = workspaceIndicator.workspaceState.current

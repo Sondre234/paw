@@ -332,8 +332,8 @@ Item {
 
         // The pages, side by side, each as wide as the output; the one shown slides into place,
         // following a drag. Past the first or last page a drag moves them less and less, as a
-        // rubber band does, never an eighth of the width; and the wheel bumps them toward the page
-        // that is not there and back.
+        // rubber band does, never an eighth of the width; and the wheel bumps them a little the
+        // way they would go to show a page that is not there, and back.
         Row {
             id: strip
             objectName: "launchpadPages"

@@ -60,7 +60,7 @@ Item {
     readonly property real titleWidth: Math.max(120, bar.width / 3)
 
     // Steps `steps` workspaces of this output on, stopping at either end, where the windows nudge
-    // toward the workspace that is not there, as the taskbar's wheel.
+    // a little the way the slide would take them, as the taskbar's wheel.
     function stepWorkspace(steps) {
         var state = shell.workspaces[panel.outputName] || ({ current: 1 })
         var target = Math.max(1, Math.min(shell.workspaceCount, state.current + steps))

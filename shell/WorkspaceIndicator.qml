@@ -20,7 +20,8 @@ Item {
             shell.showWorkspace(workspaceIndicator.panel.outputName, number)
     }
     // A step past the last workspace (`way` 1) or the first (-1): the compositor nudges the
-    // windows toward the one that is not there and back, and the pill bumps that way with them.
+    // windows a little the way the slide would take them (left for the next) and back, and the
+    // pill bumps toward the workspace that is not there (right for the next) and back.
     function nudge(way) {
         shell.nudgeWorkspace(workspaceIndicator.panel.outputName, way)
         pill.bump(way)
@@ -46,8 +47,8 @@ Item {
         Behavior on y { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
         Behavior on width { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
         Behavior on height { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
-        // Bumped along the bar by nudge(): out quickly, then back, as the windows are. Bumped again
-        // on its way out the same way, it goes on as it is.
+        // Bumped along the bar by nudge(): out quickly, then back, in the windows' time. Bumped
+        // again on its way out the same way, it goes on as it is.
         property real bumped: 0
         property int bumpWay: 0 // the way it is on its way out, else 0
         function bump(way) {
