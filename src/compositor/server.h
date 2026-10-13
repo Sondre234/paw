@@ -861,12 +861,14 @@ struct sh_toplevel {
     int frame_hole; // with rounded corners, the width of the frame border[0] draws; else 0
     int corner_radius; // of the rounded clip on `content`; 0 while the window is square
     /* The shadow: a tree at the bottom of `content` holding the slices of a shared image, NULL
-     * without one; the image and the size of frame they were laid out for, and for `get frames`
-     * the box they cover (from the window's top-left corner) and how dark they are at most. */
+     * without one; the image, the size of frame and how far the window was lifted (lift.c) they
+     * were laid out for, and for `get frames` the box they cover (from the window's top-left
+     * corner) and how dark they are at most. */
     struct wlr_scene_tree *shadow;
     struct wlr_scene_buffer *shadow_slices[SH_SHADOW_SLICES];
     struct wlr_buffer *shadow_image;
     int shadow_width, shadow_height;
+    double shadow_lift;
     struct wlr_box shadow_box;
     float shadow_alpha;
     float opacity;                    // last applied to the window's buffers
@@ -1099,6 +1101,8 @@ bool in_deco_corner(struct sh_toplevel *toplevel, double x, double y);
 void refresh_decoration(struct sh_toplevel *toplevel);
 void refresh_tabs(struct sh_toplevel *toplevel);
 void refresh_frame(struct sh_toplevel *toplevel);
+void window_clip(struct sh_toplevel *toplevel, struct wlr_scene_tree *tree,
+                 const struct wlr_box *box, int radius);
 void forget_decoration(struct sh_toplevel *toplevel);
 void server_new_decoration(struct wl_listener *listener, void *data);
 
