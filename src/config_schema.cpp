@@ -504,8 +504,8 @@ const Option options[] = {
      "Length in milliseconds; 0 turns this animation off. Unset, it is two and a half times "
      "`duration` (at most 1000), as a window goes further than the other animations take it."},
     {"animations.minimize.curve", "enum", "`curve`", "", none, none,
-     "Easing curve, as `animations.curve`; unset, `\"bezier(0.2, 0, 0, 1)\"`, a moment to set off "
-     "and a long settle."},
+     "Easing curve, as `animations.curve`, which it follows when that is set; with neither set, "
+     "`\"bezier(0.2, 0, 0, 1)\"`, a moment to set off and a long settle."},
 
     {"overview", "table", "", "", none, none,
      "The overview: every window of a monitor's workspace as a live thumbnail, opened by the "

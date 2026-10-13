@@ -265,7 +265,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `animations.focus.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
 | `animations.minimize` | table | - | - | A window shrinking into its taskbar button as it is minimized, and growing out of it as it is restored. Overrides the animation-wide settings. |
 | `animations.minimize.duration` | integer | `duration` × 2.5 | 0 to 1000 | Length in milliseconds; 0 turns this animation off. Unset, it is two and a half times `duration` (at most 1000), as a window goes further than the other animations take it. |
-| `animations.minimize.curve` | enum | `curve` | - | Easing curve, as `animations.curve`; unset, `"bezier(0.2, 0, 0, 1)"`, a moment to set off and a long settle. |
+| `animations.minimize.curve` | enum | `curve` | - | Easing curve, as `animations.curve`, which it follows when that is set; with neither set, `"bezier(0.2, 0, 0, 1)"`, a moment to set off and a long settle. |
 
 ## `overview`
 
