@@ -203,6 +203,21 @@ void switch_workspace(struct sh_server *server, struct wlr_output *output, int w
     }
 }
 
+/* A step toward `way` (1 for the next workspace, -1 the previous) with nowhere to go: `output`'s
+ * windows nudge as the slide would take them and come back, as far as fingers a third of a step
+ * past the end would pull them. A slide that only fades does not nudge. */
+void workspace_nudge(struct sh_server *server, struct wlr_output *output, int way) {
+    if (!output || !way)
+        return;
+    int offset = (int)lround(past_end(server, output, SH_SWIPE_NUDGE).offset);
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (offset && slides(server, toplevel, output) && toplevel_visible(toplevel))
+            sh_anim_nudge(server->animator, &toplevel->anim, toplevel->content,
+                          way > 0 ? -offset : offset, 0);
+    }
+}
+
 /* The workspace slide driven by a touchpad swipe (gestures.c): the output's windows held part of
  * the way through the slide of switch_workspace, and copies of the windows of the workspace it
  * heads for coming in, until the fingers lift and the slide goes on or back from there. */

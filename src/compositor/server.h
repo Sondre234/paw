@@ -1536,6 +1536,7 @@ void set_toplevel_output(struct sh_toplevel *toplevel, struct wlr_output *output
 void follow_output(struct sh_toplevel *toplevel);
 void set_toplevel_workspace(struct sh_toplevel *toplevel, int workspace);
 void switch_workspace(struct sh_server *server, struct wlr_output *output, int workspace);
+void workspace_nudge(struct sh_server *server, struct wlr_output *output, int way);
 void workspace_swipe_begin(struct sh_server *server, struct sh_workspace_swipe *swipe,
                            struct wlr_output *output);
 void workspace_swipe_hold(struct sh_server *server, struct sh_workspace_swipe *swipe, int target,
