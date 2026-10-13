@@ -3,9 +3,9 @@
 button is on each output (the window control's set_rectangle, or wlr-foreign-toplevel's on a
 panel's surface); a copy of a window minimizing shrinks into its button on the window's own
 output, and a window restored grows out of it, both while input already has the window where it
-ends up. Minimizing turned back half way goes back from where it is drawn. Without a button the
-window goes to the middle of the panel's strip, or shrinks where it is. Animations off, nothing
-animates; a window closing as it minimizes leaves nothing behind."""
+ends up; the minimize action does the same. Minimizing turned back half way goes back from where
+it is drawn. Without a button the window goes to the middle of the panel's strip, or shrinks where
+it is. Animations off, nothing animates; a window closing as it minimizes leaves nothing behind."""
 from pathlib import Path
 import subprocess
 import sys
@@ -134,6 +134,16 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     taskbar("restore", "A")
     assert (a, "minimize") not in folds(), folds()
     wait_for(settled, "A back at once")
+
+    # The minimize action does what the taskbar does, to the focused window.
+    assert windows()["A"].focused, windows()
+    msg("minimize")
+    assert windows()["A"].minimized, windows()
+    assert folds()[(a, "minimize")][1:] == ((620, 680, 40, 40), "button"), folds()
+    wait_for(settled, "A minimized by the action")
+    msg("minimize")  # nothing focused: nothing to minimize
+    taskbar("restore", "A")
+    wait_for(settled, "A restored again")
 
     # On another output, the button there counts: A moves to the scaled HEADLESS-2.
     subprocess.run([window_probe, "A", "output", "HEADLESS-2"], env=desktop.env, check=True,
