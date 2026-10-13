@@ -27,7 +27,8 @@ option(PAW_INSTALL_SESSION "Install the display-manager session entry" OFF)
 option(PAW_BUILD_SHELL "Build the Qt Quick desktop shell" ON)
 option(PAW_SHELL_PREVIEW_ONLY "Build only the shell UI preview without LayerShellQt" OFF)
 
-add_library(paw_config STATIC src/curve.c src/session.c src/tabs.c src/config.cpp src/config_schema.cpp src/layout.cpp src/tiling.cpp
+add_library(paw_config STATIC src/curve.c src/session.c src/tabs.c src/config.cpp src/config_edit.cpp
+    src/config_schema.cpp src/layout.cpp src/tiling.cpp
     src/overview_layout.cpp src/window_placement.cpp
     src/import/common.cpp src/import/hyprland.cpp src/import/waybar.cpp src/import/import.cpp
     src/autostart.cpp)
