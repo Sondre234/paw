@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "paw/config.hpp"
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -528,10 +529,12 @@ int main(int argc, char **argv) {
                     defaults.mouse_natural_scroll == -1 && defaults.touchpad_tap == -1 &&
                     defaults.focus_follows_mouse,
                 "pointer defaults must leave devices alone");
-        // Every kind of animation lasts animations.duration unless it has its own.
+        // Every kind of animation lasts animations.duration unless it has its own, but for
+        // minimizing, which takes two and a half times as long.
         auto lasting = [](const sh_settings &settings, int duration) {
-            for (const auto &style : settings.animation_styles)
-                if (style.duration != duration)
+            for (int kind = 0; kind < SH_ANIM_KINDS; ++kind)
+                if (settings.animation_styles[kind].duration !=
+                    (kind == SH_ANIM_MINIMIZE ? std::min(1000, duration * 5 / 2) : duration))
                     return false;
             return true;
         };
@@ -593,6 +596,7 @@ int main(int argc, char **argv) {
         rejects("return {animations={open={curve='sluggish'}}}");
         rejects("return {animations={open={speed=2}}}");
         rejects("return {animations={fade={duration=100}}}");
+        rejects("return {animations={minimize={duration=1200}}}");
         {
             const auto &s = defaults;
             require(s.animation_speed == 1 && s.animation_late_ms == 80, "animation defaults");
@@ -619,6 +623,28 @@ int main(int argc, char **argv) {
             require(unset.animation_styles[SH_ANIM_MOVE].curve.kind == SH_CURVE_SPRING &&
                         unset.animation_styles[SH_ANIM_MOVE].duration == 90,
                     "kinds keep their default curve when only the duration is set");
+            const auto &minimize = s.animation_styles[SH_ANIM_MINIMIZE];
+            require(minimize.duration == 300 && minimize.curve.kind == SH_CURVE_BEZIER &&
+                        minimize.curve.p[0] == 0.2F && minimize.curve.p[3] == 1,
+                    "minimizing takes 300 ms on its own curve by default");
+            require(st[SH_ANIM_MINIMIZE].duration == 500 &&
+                        st[SH_ANIM_MINIMIZE].curve.kind == SH_CURVE_LINEAR,
+                    "minimizing follows the base duration and curve");
+            require(unset.animation_styles[SH_ANIM_MINIMIZE].duration == 225 &&
+                        unset.animation_styles[SH_ANIM_MINIMIZE].curve.kind == SH_CURVE_BEZIER,
+                    "minimizing keeps its curve when only the duration is set");
+            auto own = paw::parse_config(
+                "return {animations={duration=900, minimize={duration=0}}}").settings;
+            require(own.animation_styles[SH_ANIM_MINIMIZE].duration == 0,
+                    "minimizing can be turned off alone");
+            require(paw::parse_config("return {animations={duration=900}}")
+                            .settings.animation_styles[SH_ANIM_MINIMIZE]
+                            .duration == 1000,
+                    "minimizing lasts a second at most");
+            require(paw::parse_config("return {animations={minimize={duration=180, curve='spring'}}}")
+                            .settings.animation_styles[SH_ANIM_MINIMIZE]
+                            .curve.kind == SH_CURVE_SPRING,
+                    "minimizing takes a curve of its own");
         }
         rejects("return {animations=true}");
         rejects("return {mouse={speed=2}}");

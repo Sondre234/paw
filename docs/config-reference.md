@@ -241,7 +241,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `animations.enabled` | boolean | true | - | Windows fade in and out and tiles glide into place; `false` also stills the shell's animations. |
 | `animations.duration` | integer | 120 | 10 to 1000 | Animation length in milliseconds. |
 | `animations.speed` | number | 1.0 | 0.1 to 10 | Speed multiplier for every animation, the shell's too: 2 makes them twice as fast, 0.5 half as fast. |
-| `animations.curve` | enum | per kind | - | Easing for every animation that does not set its own: `"linear"`, `"ease-in"`, `"ease-out"`, `"ease-in-out"`, `"ease-out-quint"`, `"overshoot"`, `"spring"`, or `"bezier(x1, y1, x2, y2)"` (x between 0 and 1, y between -2 and 3). Unset, moves use `"spring"`, workspace slides `"ease-out-quint"`, and the rest `"ease-out"`. |
+| `animations.curve` | enum | per kind | - | Easing for every animation that does not set its own: `"linear"`, `"ease-in"`, `"ease-out"`, `"ease-in-out"`, `"ease-out-quint"`, `"overshoot"`, `"spring"`, or `"bezier(x1, y1, x2, y2)"` (x between 0 and 1, y between -2 and 3). Unset, moves use `"spring"`, workspace slides `"ease-out-quint"`, minimizing `"bezier(0.2, 0, 0, 1)"`, and the rest `"ease-out"`. |
 | `animations.late_frame_ms` | integer | 80 | 0 to 1000 | A frame later than this finishes running animations instead of stuttering through them; 0 never skips. |
 | `animations.open` | table | - | - | A window appearing. Overrides the animation-wide settings. |
 | `animations.open.duration` | integer | `duration` | 0 to 1000 | Length in milliseconds; 0 turns this animation off. |
@@ -262,6 +262,9 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `animations.focus` | table | - | - | Border and opacity changing with focus. Overrides the animation-wide settings. |
 | `animations.focus.duration` | integer | `duration` | 0 to 1000 | Length in milliseconds; 0 turns this animation off. |
 | `animations.focus.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
+| `animations.minimize` | table | - | - | A window shrinking into its taskbar button as it is minimized, and growing out of it as it is restored. Overrides the animation-wide settings. |
+| `animations.minimize.duration` | integer | `duration` × 2.5 | 0 to 1000 | Length in milliseconds; 0 turns this animation off. Unset, it is two and a half times `duration` (at most 1000), as a window goes further than the other animations take it. |
+| `animations.minimize.curve` | enum | `curve` | - | Easing curve, as `animations.curve`; unset, `"bezier(0.2, 0, 0, 1)"`, a moment to set off and a long settle. |
 
 ## `overview`
 

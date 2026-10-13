@@ -571,8 +571,9 @@ double number(lua_State *L, const char *key, double fallback, double min, double
     return result;
 }
 // animations.<kind> names, in enum sh_anim_kind order.
-constexpr const char *animation_kinds[SH_ANIM_KINDS] = {"open",       "close", "move",
-                                                        "workspace", "fullscreen", "focus"};
+constexpr const char *animation_kinds[SH_ANIM_KINDS] = {"open",      "close",      "move",
+                                                        "workspace", "fullscreen", "focus",
+                                                        "minimize"};
 void read_curve(lua_State *L, const char *key, const std::string &label, sh_curve &target,
                 bool &given) {
     if (auto name = text(L, key, label.c_str())) {
@@ -598,6 +599,8 @@ void read_animations(lua_State *L, sh_settings &settings) {
         if (curved)
             style.curve = curve;
     }
+    // A window travels to its taskbar button and back, further than the others go.
+    settings.animation_styles[SH_ANIM_MINIMIZE].duration = std::min(1000, base * 5 / 2);
     for (int kind = 0; kind < SH_ANIM_KINDS; ++kind) {
         std::string path = std::string("animations.") + animation_kinds[kind];
         Section in(L, animation_kinds[kind], path.c_str());
