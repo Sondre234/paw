@@ -1136,6 +1136,20 @@ float sh_anim_alpha(const struct sh_anim *anim) {
     return anim->animator ? drawn_alpha(anim, now_ms(anim->animator)) : 1;
 }
 
+/* A change of size landed where it is, the glide going on: the client's surfaces drawn at the
+ * size they were drawn for, the copy gone, and the frame drawn for them again. */
+static void morph_end(struct sh_anim *anim) {
+    if (!anim->morph)
+        return;
+    drop_fading(anim);
+    anim->morph = false;
+    if (anim->surfaces)
+        walk(anim, anim->surfaces, 0, 0, true, NULL);
+    anim->drawn_width = anim->drawn_height = -1;
+    if (anim->resized)
+        anim->resized(anim->resized_data);
+}
+
 static bool drop(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
                  int dx, int dy, bool out) {
     if (anim->owned)
@@ -1144,6 +1158,8 @@ static bool drop(struct sh_animator *animator, struct sh_anim *anim, struct wlr_
     int length = animator->config.enabled ? duration_of(animator, kind) : 0;
     if (anim->held || (anim->animator && anim->tree != tree))
         sh_anim_finish(anim); // from rest, as the gesture or what ran elsewhere leaves it
+    // A change of size lands; the slide goes on from where the window is.
+    morph_end(anim);
     if (!length) {
         anim->base_x = anim->base_y = 0; // a slide out under way lands where the tree rests
         sh_anim_finish(anim);
