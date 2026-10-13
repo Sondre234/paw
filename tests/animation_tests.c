@@ -587,7 +587,15 @@ static void test_drop_turns_back(void) {
     NEAR(sh_anim_alpha(&rig.anim), alpha, 0.01);
     advance(&rig, 1);
     CHECK(rig.content->node.y > y, "with the speed it had: %d after %d", rig.content->node.y, y);
-    advance(&rig, 100);
+    // Some of it: it turns within a few pixels rather than carrying on far.
+    int lowest = rig.content->node.y;
+    for (int i = 0; i < 60; ++i) {
+        advance(&rig, 1);
+        lowest = rig.content->node.y > lowest ? rig.content->node.y : lowest;
+    }
+    CHECK(lowest < y + 25 && rig.content->node.y < lowest, "turned: %d after %d, now %d", lowest,
+          y, rig.content->node.y);
+    advance(&rig, 39);
     int out = rig.content->node.y;
     CHECK(out < y, "then away: %d", out);
     // And shown again on its way out.
