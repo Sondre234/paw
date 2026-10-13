@@ -288,7 +288,8 @@ as far in as the copy was (`restore_animate`); minimizing a window still growing
 (`sh_anim_settle`, which ends a fold and a fade but leaves a glide) folds its copy from there.
 The rounded clip, the frame's rounding and the shadow's and gradient border's clips are not
 nodes the animation moves: a fold calls back its owner after each step and as it ends
-(`sh_fold.update`), which maps them with `sh_anim_fold_map` (`window_folded` for a window,
+(`sh_fold.update`), which maps them with `sh_anim_fold_map` (`window_folded` for a window, from
+the clips `window_clip` keeps as frame.c asked for them, which it puts back once the fold is over;
 `copy_folded` for a copy, whose rounding is freed with its tree). For what is redrawn at rest on
 every frame to be drawn folded, the animator steps its tweens (a focus fade, which redraws the
 frame) before its animations, and `output_frame` ticks the effects' fades before the animator.
