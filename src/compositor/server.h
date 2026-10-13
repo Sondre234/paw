@@ -299,10 +299,14 @@ struct sh_workspace_swipe {
     struct sh_swipe_edge edge;
     int toward;    /* the way the fingers head (1 for higher workspaces, -1 lower, 0 neither) */
     double shift;  /* steps toward higher workspaces the slide is ahead of the fingers */
-    double caught; /* the offset of windows taken over springing back, until the first hold */
-    /* Since the swipe ended, its windows spring back from the rubber band in a glide that began
-     * at `sprung_at` (the animator's clock). */
-    bool sprung;
+    /* Windows taken over as they spring back: how far past the end (in steps toward higher
+     * workspaces) the first hold starts the fingers. */
+    bool catching;
+    double caught;
+    /* Since the swipe ended, its windows spring back from the rubber band toward `sprung` (1 for
+     * higher workspaces, -1 lower, 0 none) in an animation that began at `sprung_at` (the
+     * animator's clock). */
+    int sprung;
     int64_t sprung_at;
 };
 

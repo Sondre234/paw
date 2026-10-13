@@ -233,19 +233,25 @@ static void drop_swipe_copies(struct sh_workspace_swipe *swipe) {
         sh_anim_finish(swipe->copies[--swipe->copy_count]);
 }
 
-/* How far `output`'s windows are drawn from where they rest while they spring back from a
- * rubber band in the glide that began at `start` (all of them alike), else 0. */
-static double springing_offset(struct sh_server *server, struct wlr_output *output,
-                               int64_t start) {
+/* Whether `output`'s windows spring back from a rubber band in the animation that began at
+ * `start` (all of them alike), and then how far past the end that is, in steps. */
+static bool springing(struct sh_server *server, struct wlr_output *output, int64_t start,
+                      double *pull) {
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
         struct sh_anim *anim = &toplevel->anim;
-        if (slides(server, toplevel, output) && toplevel_visible(toplevel) && anim->animator &&
-            anim->glide && !anim->held && anim->tree == toplevel->content &&
-            anim->glide_start == start)
-            return anim->tree->node.x - anim->base_x;
+        if (!slides(server, toplevel, output) || !toplevel_visible(toplevel) || !anim->animator ||
+            anim->held || anim->tree != toplevel->content ||
+            !((anim->glide && anim->glide_start == start) || (anim->fx && anim->fx_start == start)))
+            continue;
+        struct wlr_box box;
+        wlr_output_layout_get_box(server->output_layout, output, &box);
+        *pull = sh_swipe_pull_at(fabs((double)(anim->tree->node.x - anim->base_x)),
+                                 sh_anim_alpha(anim),
+                                 box.width * server_settings(server)->animation_slide, box.width);
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* Starts a slide on `output`, from the workspace it shows. Windows still springing back there
@@ -255,10 +261,12 @@ void workspace_swipe_begin(struct sh_server *server, struct sh_workspace_swipe *
     if (server->grabbed_toplevel)
         reset_cursor_mode(server);
     int from = *output_workspace(server, output->name);
-    swipe->caught = swipe->sprung && from == swipe->from && !strcmp(swipe->output, output->name)
-                        ? springing_offset(server, output, swipe->sprung_at)
-                        : 0;
-    swipe->sprung = false;
+    double pull = 0;
+    swipe->catching = swipe->sprung && from == swipe->from &&
+                      !strcmp(swipe->output, output->name) &&
+                      springing(server, output, swipe->sprung_at, &pull);
+    swipe->caught = swipe->sprung * pull;
+    swipe->sprung = 0;
     snprintf(swipe->output, sizeof(swipe->output), "%s", output->name);
     swipe->from = swipe->target = from;
     swipe->copy_count = 0;
@@ -280,15 +288,10 @@ void workspace_swipe_hold(struct sh_server *server, struct sh_workspace_swipe *s
     // Where the fingers are along the workspaces, in steps toward higher ones.
     swipe->toward = target == swipe->from ? 0 : target > swipe->from ? 1 : -1;
     double fingers = swipe->toward * (t > 0 ? t : 0);
-    if (swipe->caught) {
+    if (swipe->catching) {
         // Windows taken over as they spring back: the fingers move them on from there.
-        struct wlr_box box;
-        wlr_output_layout_get_box(server->output_layout, output, &box);
-        double pull = sh_swipe_pull_at(fabs(swipe->caught), 1,
-                                       box.width * server_settings(server)->animation_slide,
-                                       box.width);
-        swipe->shift = (swipe->caught < 0 ? pull : -pull) - fingers;
-        swipe->caught = 0;
+        swipe->shift = swipe->caught - fingers;
+        swipe->catching = false;
     }
     // Ahead of the fingers, the slide is on the side of the rubber band it took over until they
     // come back past where it rests.
@@ -356,17 +359,17 @@ void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *sw
     if (!finish) {
         bool beyond = !real && target != swipe->from;
         double velocity = -sign * swipe->edge.rate * toward; // the windows', pixels a millisecond
-        swipe->sprung = false;
+        swipe->sprung = 0;
         wl_list_for_each(toplevel, &server->toplevels, link) {
             if (!toplevel->anim.held)
                 continue;
             if (beyond) {
-                sh_anim_spring_back(server->animator, &toplevel->anim, toplevel->content,
-                                    toplevel->anim.held_x, 0, velocity, 0,
-                                    toplevel->anim.held_alpha);
-                if (toplevel->anim.glide) {
-                    swipe->sprung = true;
-                    swipe->sprung_at = toplevel->anim.glide_start;
+                struct sh_anim *anim = &toplevel->anim;
+                sh_anim_spring_back(server->animator, anim, toplevel->content, anim->held_x, 0,
+                                    velocity, 0, anim->held_alpha);
+                if (anim->glide || anim->fx) {
+                    swipe->sprung = sign;
+                    swipe->sprung_at = anim->glide ? anim->glide_start : anim->fx_start;
                 }
             } else
                 sh_anim_slide_from(server->animator, &toplevel->anim, toplevel->content,
