@@ -57,6 +57,20 @@ static bool draws_own_shadow(struct sh_toplevel *toplevel) {
            g.y + g.height < base->surface->current.height;
 }
 
+/* draws_own_shadow as the frame takes it: read afresh while the window rests with a frame, and
+ * kept while it changes size or goes without one. A client-side frame drops its shadow as the
+ * window is maximized (GTK's does), part way through the change, and draws it again as it is
+ * restored: paw's shadow and corners then neither come nor go on the way, and a window maximized
+ * keeps what it drew floating, for its way back. */
+static bool frame_own_shadow(struct sh_toplevel *toplevel, bool framed) {
+    bool morphing = toplevel->anim.animator && toplevel->anim.morph;
+    if (!toplevel->own_shadow_read || (framed && !morphing)) {
+        toplevel->own_shadow = draws_own_shadow(toplevel);
+        toplevel->own_shadow_read = true;
+    }
+    return toplevel->own_shadow;
+}
+
 /* The shared buffer for a look of the controls, drawn when first needed and again once an
  * output's scale asks for more pixels. */
 static struct wlr_buffer *deco_buffer(struct sh_server *server, struct sh_deco_look look) {
@@ -431,7 +445,9 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     bool urgent = toplevel->urgent && !active;
     bool inset = urgent && b == 0;
     struct wlr_output *output = toplevel_output(toplevel);
-    float framed = frame_shown(toplevel, mapped && !frameless(toplevel, output));
+    bool framed_at_rest = mapped && !frameless(toplevel, output);
+    float framed = frame_shown(toplevel, framed_at_rest);
+    bool own_shadow = frame_own_shadow(toplevel, framed_at_rest);
     bool bordered = (b > 0 || inset) && mapped, shown = bordered && framed > 0;
     const float *color = urgent ? settings->urgent_color
                                 : active ? settings->border_active : settings->border_inactive;
@@ -485,7 +501,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     struct wlr_box g = frame_geometry(toplevel);
     bool rounded =
         mapped && framed > 0 &&
-        (tiles_for(toplevel, output) || (settings->round_always && !draws_own_shadow(toplevel)));
+        (tiles_for(toplevel, output) || (settings->round_always && !own_shadow));
     int round_radius = rounded ? settings->corner_radius : 0;
     int radius = (int)lroundf(round_radius * framed);
 #ifdef PAW_ROUNDED_CORNERS
@@ -499,7 +515,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     // none under a fullscreen or maximized one. It keeps the corners it has in full as it fades.
     refresh_shadow(toplevel,
                    settings->shadow && mapped && framed > 0 &&
-                       (round_radius > 0 || !draws_own_shadow(toplevel)),
+                       (round_radius > 0 || !own_shadow),
                    shown && !inset ? b : 0, round_radius, framed);
 
     // xdg-shell windows keep their scene tree while unmapped; the border must not. One in
