@@ -161,6 +161,38 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     desktop.wait_for(lambda: "D" not in windows(), "D closed")
     hears(expected("HEADLESS-1", entry("C"), entry("A")), "D gone")
 
+    # A window on a workspace not shown that draws itself at another size, unasked, is listed at
+    # it, though no output shows it and nothing takes its picture.
+    third = desktop.spawn([window_probe, "--workspace", "HEADLESS-1", "3", "watch"],
+                          stdout=subprocess.PIPE, text=True)
+    third_lines = queue.Queue()
+    threading.Thread(target=lambda: [third_lines.put(line.strip()) for line in third.stdout],
+                     daemon=True).start()
+    third_heard = []
+
+    def third_listed(title):
+        """The rectangle the third workspace's watcher last heard for the window, or None."""
+        while not third_lines.empty():
+            third_heard.append(third_lines.get())
+        words = third_heard[-1].split()[1:] if third_heard else []
+        return next((word for word in words if word.startswith(f"{ids[title]}:")), None)
+
+    desktop.msg("workspace", "3")
+    e = desktop.open_window(probe, "E", "app-E", args=("--commands",), stdin=subprocess.PIPE,
+                            text=True)
+    ids["E"] = int(control("E", "id"))
+    desktop.msg("workspace", "1")
+    desktop.wait_for(lambda: not windows()["E"].visible, "E out of sight")
+    desktop.wait_for(lambda: third_listed("E") == entry("E"), "E listed on workspace 3",
+                     detail=lambda: f"heard {third_heard[-2:]}, windows: {windows()}")
+    e.stdin.write("draw 400 300\n")
+    e.stdin.flush()
+    desktop.wait_for(lambda: windows()["E"].box[2:] == (400, 300), "E drawn at 400 by 300")
+    desktop.wait_for(lambda: third_listed("E") == entry("E"), "E listed at its new size",
+                     detail=lambda: f"heard {third_heard[-2:]}, windows: {windows()}")
+    third.terminate()
+    assert desktop.reap(third) in (0, -15)
+
     # On the second output, at a scale of 2, windows are placed from its corner, in logical
     # pixels; it tiles, and they are listed where the tiling put them.
     control("A", "output", "HEADLESS-2")
