@@ -59,12 +59,15 @@ Item {
     // The focused window's title is cut short past a third of the bar.
     readonly property real titleWidth: Math.max(120, bar.width / 3)
 
-    // Steps `steps` workspaces of this output on, stopping at either end, as the taskbar's wheel.
+    // Steps `steps` workspaces of this output on, stopping at either end, where the windows nudge
+    // toward the workspace that is not there, as the taskbar's wheel.
     function stepWorkspace(steps) {
         var state = shell.workspaces[panel.outputName] || ({ current: 1 })
         var target = Math.max(1, Math.min(shell.workspaceCount, state.current + steps))
         if (target !== state.current)
             shell.showWorkspace(panel.outputName, target)
+        else if (steps !== 0)
+            shell.nudgeWorkspace(panel.outputName, steps > 0 ? 1 : -1)
     }
     // A layout action on this output: layout_next, layout_prev, ...
     function layoutAction(action) {
