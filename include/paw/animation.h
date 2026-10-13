@@ -173,6 +173,9 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
                         float alpha, double share);
 /* Jumps to the end: every node gets its resting values and the tree its resting position. */
 void sh_anim_finish(struct sh_anim *anim);
+/* As sh_anim_finish, but a fold (a window minimizing or restoring) goes on, its glide landed:
+ * input finds a folding window at rest already (sh_animator_rest_at). */
+void sh_anim_land(struct sh_anim *anim);
 /* Copies the visible buffers and rectangles under `content` into a new tree just above
  * `window`, which fades out and shrinks about (cx, cy) in `content` coordinates, then goes. */
 void sh_anim_close(struct sh_animator *animator, struct wlr_scene_node *window,

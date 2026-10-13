@@ -317,6 +317,17 @@ void sh_anim_finish(struct sh_anim *anim) {
     stop(anim);
 }
 
+void sh_anim_land(struct sh_anim *anim) {
+    if (!anim->fold || anim->owned) {
+        sh_anim_finish(anim);
+        return;
+    }
+    // A fold runs alone on the nodes; a glide beneath it moves only the tree.
+    if (anim->glide)
+        wlr_scene_node_set_position(&anim->tree->node, anim->base_x, anim->base_y);
+    anim->glide = false;
+}
+
 static void tween_value(const struct sh_tween *tween, double e, float out[SH_TWEEN_VALUES]) {
     for (int i = 0; i < SH_TWEEN_VALUES; ++i)
         out[i] = (float)(tween->from[i] + (tween->to[i] - tween->from[i]) * e);
