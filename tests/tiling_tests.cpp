@@ -778,7 +778,8 @@ int main() {
             sh_tiling_destroy(drag);
         }
         // A place a drop finds that is where the window is already changes nothing, though the
-        // point lies off its tile (in the outer gap, which the tree without it has not).
+        // point lies off its tile (in the outer gap, which the tree without it has not); and the
+        // half nearer the point is the half the split gives, to the pixel.
         {
             sh_tiling *drag = sh_tiling_create();
             int d[2];
@@ -793,6 +794,15 @@ int main() {
                                           &drop) &&
                         drop.split == &d[0] && drop.first,
                     "drag: the other side of d0, from the outer gap");
+            sh_tiling_remove(drag, &d[1]);
+            arrange(drag, {0, 0, 1201, 800}, 0); // d0 alone, an odd width: halves of 600 and 601
+            require(sh_tiling_drop_target(drag, &d[1], "DP-1", 0, 600.3, 400, {0, 0, 1201, 800},
+                                          &drop) &&
+                        !drop.first,
+                    "drag: a point past the 600th pixel is in the second half");
+            sh_tiling_drop(drag, &d[1], "DP-1", 0, &drop);
+            auto placed = arrange(drag, {0, 0, 1201, 800}, 0);
+            require(placed[&d[1]].x == 600 && placed[&d[1]].width == 601, "drag: the second half");
             sh_tiling_destroy(drag);
         }
 
