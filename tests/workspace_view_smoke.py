@@ -193,6 +193,38 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     third.terminate()
     assert desktop.reap(third) in (0, -15)
 
+    # A window peeked at that leaves fullscreen meanwhile, the peek keeping its place among the
+    # others, is listed once.
+    f = desktop.open_window(probe, "F", "app-F", args=("--commands",), stdin=subprocess.PIPE,
+                            text=True, focused=True)
+    ids["F"] = int(control("F", "id"))
+    f.stdin.write("fullscreen 1\n")
+    f.stdin.flush()
+    desktop.wait_for(lambda: windows()["F"].box == first, "F fullscreen")
+    control("A", "restore")
+    desktop.wait_for(lambda: windows()["A"].focused and windows()["F"].box == first,
+                     "A focused over F still fullscreen")
+    peeker = desktop.spawn([window_probe, "F", "peek"], stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE, text=True)
+
+    def peeked():
+        return {row[5]: row[0] == "1" for row in desktop.rows("window_peek")}.get("F", False)
+
+    desktop.wait_for(peeked, "F peeked at")
+    f.stdin.write("fullscreen 0\n")
+    f.stdin.flush()
+    desktop.wait_for(lambda: windows()["F"].box != first, "F out of fullscreen")
+    assert peeked(), "the peek ended as F left fullscreen"
+    words = listed("HEADLESS-1", 1).split()[1:]
+    assert sum(word.startswith(f"{ids['F']}:") for word in words) == 1, words
+    peeker.stdin.close()
+    assert desktop.reap(peeker) == 0
+    control("F", "restore")
+    desktop.wait_for(lambda: windows()["F"].focused, "F focused")
+    desktop.msg("close")
+    assert desktop.reap(f) == 0
+    desktop.wait_for(lambda: "F" not in windows(), "F closed")
+
     # On the second output, at a scale of 2, windows are placed from its corner, in logical
     # pixels; it tiles, and they are listed where the tiling put them.
     control("A", "output", "HEADLESS-2")
