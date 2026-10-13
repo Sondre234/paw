@@ -475,8 +475,14 @@ bool sh_tiling_drop_target(sh_tiling *tiling, const void *window, const char *ou
         collect(root->second.get(), order);
         return !node || order.back() != node;
     }
+    // The half nearer the point, split where the arrangement splits a box in two: after the
+    // first half's whole pixels.
     auto half = [x, y](const sh_rect &box) {
-        return splits_horizontally(box) ? x < box.x + box.width / 2.0 : y < box.y + box.height / 2.0;
+        auto first = [](int length) {
+            return std::clamp(static_cast<int>(length * 0.5), 1, std::max(1, length - 1));
+        };
+        return splits_horizontally(box) ? x < box.x + first(box.width)
+                                        : y < box.y + first(box.height);
     };
     if (!node) {
         Node *leaf = leaf_at(root->second.get(), x, y);
