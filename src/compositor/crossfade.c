@@ -95,13 +95,33 @@ static struct wlr_buffer *take_picture(struct sh_output *output) {
     wlr_output_lock_attach_render(wlr_output, true);
     struct wlr_output_state state;
     wlr_output_state_init(&state);
+    // A gamma table a client set (wlr-gamma-control) is the output's to apply, to the picture as
+    // to everything else: wlroots would hand a table not applied yet to this drawing's state,
+    // which goes unused, and draw the table into the picture on an output without gamma
+    // hardware. It keeps both to itself, so they are set aside by hand for this drawing; a
+    // colour encoding given (the one wlroots uses anyway), or an HDR output's own image
+    // description, has it put the output's colour transforms together again without the table.
+    bool gamma_changed = scene_output->WLR_PRIVATE.gamma_lut_changed;
+    struct wlr_color_transform *gamma = scene_output->WLR_PRIVATE.gamma_lut_color_transform;
+    scene_output->WLR_PRIVATE.gamma_lut_changed = false;
+    scene_output->WLR_PRIVATE.gamma_lut_color_transform = NULL;
+    struct wlr_color_transform *encoding = NULL;
+    if (wlr_output->image_description)
+        wlr_output_state_set_image_description(&state, wlr_output->image_description);
+    else
+        encoding = wlr_color_transform_init_linear_to_inverse_eotf(
+            WLR_COLOR_TRANSFER_FUNCTION_GAMMA22);
     struct wlr_buffer *picture = NULL;
     if (wlr_scene_output_build_state(scene_output, &state,
                                      &(struct wlr_scene_output_state_options){
-                                         .swapchain = swapchain}) &&
+                                         .swapchain = swapchain, .color_transform = encoding}) &&
         (state.committed & WLR_OUTPUT_STATE_BUFFER) && state.buffer)
         picture = wlr_buffer_lock(state.buffer);
     wlr_output_state_finish(&state);
+    if (encoding)
+        wlr_color_transform_unref(encoding);
+    scene_output->WLR_PRIVATE.gamma_lut_changed = gamma_changed;
+    scene_output->WLR_PRIVATE.gamma_lut_color_transform = gamma;
     wlr_output_lock_attach_render(wlr_output, false);
     while (hidden_count > 0)
         hidden[--hidden_count]->enabled = true;
