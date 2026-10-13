@@ -287,13 +287,20 @@ struct wlr_color_manager_v1;
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
  * workspace it showed as the swipe began and the one the fingers head for (out of range past
  * the first or last, `from` when they head nowhere), how far the slide is held, and held copies
- * of the windows coming in. */
+ * of the windows coming in; past the first or last, what the windows give against the fingers
+ * (a rubber band), toward the workspace that is not there. Fingers that take over windows still
+ * springing back from the last swipe's rubber band start from where those are drawn. */
 struct sh_workspace_swipe {
     char output[64];
     int from, target;
     double shown;
     struct sh_anim *copies[64];
     int copy_count;
+    struct sh_swipe_edge edge;
+    int toward;    /* the way the fingers head (1 for higher workspaces, -1 lower, 0 neither) */
+    double shift;  /* steps toward higher workspaces the slide is ahead of the fingers */
+    double caught; /* the offset of windows taken over springing back, until the first hold */
+    int sprung;    /* the way of the rubber band springing back since the swipe ended, or 0 */
 };
 
 /* Touchscreens (touch.c): the devices, the finger standing in for the pointer (-1 for none),
@@ -1533,7 +1540,8 @@ void workspace_swipe_begin(struct sh_server *server, struct sh_workspace_swipe *
                            struct wlr_output *output);
 void workspace_swipe_hold(struct sh_server *server, struct sh_workspace_swipe *swipe, int target,
                           double t);
-void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *swipe, bool finish);
+void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *swipe,
+                         bool cancelled, double speed, double distance);
 void set_sticky(struct sh_toplevel *toplevel, bool sticky, bool retile);
 void move_toplevel_to_workspace(struct sh_server *server, struct sh_toplevel *toplevel,
                                 int workspace);

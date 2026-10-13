@@ -124,14 +124,11 @@ static void finish_swipe(struct sh_server *server, uint32_t time, bool cancelled
     double progress = sh_swipe_progress(&gesture->swipe);
     double speed = sh_swipe_speed(&gesture->swipe, time);
     switch (gesture->mode) {
-    case SH_SWIPE_WORKSPACE: {
+    case SH_SWIPE_WORKSPACE:
         // Toward whichever workspace the fingers are on the side of.
-        bool forward = progress >= 0;
-        workspace_swipe_end(server, &gesture->workspace,
-                            !cancelled && sh_swipe_finishes(forward ? progress : -progress,
-                                                            forward ? speed : -speed));
+        workspace_swipe_end(server, &gesture->workspace, cancelled, progress >= 0 ? speed : -speed,
+                            gesture->swipe.distance);
         break;
-    }
     case SH_SWIPE_OVERVIEW: {
         bool done = !cancelled && sh_swipe_finishes(progress, speed);
         overview_release(server, gesture->opening ? done : !done);
