@@ -619,6 +619,34 @@ static void test_drop_turns_back(void) {
     teardown(&rig);
 }
 
+/* A window sliding out is not there for lookups, even where it slides to; once another
+ * animation takes it over, it is there again where it rests, at its full look. */
+static void test_drop_absent(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_EASE_OUT));
+    double sx, sy;
+    // Out by 30 only: where it slides to still covers (50, 60), as where it rests does.
+    CHECK(sh_anim_drop_out(rig.animator, &rig.anim, rig.content, 0, 30));
+    advance(&rig, 120);
+    CHECK(rig.rect->color[3] < 0.9F, "fading out: %f", rig.rect->color[3]);
+    sh_animator_rest_at(rig.animator, 50, 60);
+    CHECK(wlr_scene_node_at(&rig.scene->tree.node, 50, 60, &sx, &sy) == NULL, "absent");
+    sh_animator_resume(rig.animator);
+    CHECK(rig.content->node.enabled, "drawn again after the lookup");
+    sh_anim_glide(rig.animator, &rig.anim, rig.content, 5, 0);
+    CHECK(!rig.anim.absent && rig.anim.base_x == 0 && rig.anim.base_y == 0, "there again");
+    CHECK(fabsf(rig.rect->color[3] - 1) < 1e-6F, "at its full look: %f", rig.rect->color[3]);
+    sh_animator_rest_at(rig.animator, 50, 60);
+    CHECK(wlr_scene_node_at(&rig.scene->tree.node, 50, 60, &sx, &sy) == &rig.rect->node,
+          "found where it rests");
+    sh_animator_resume(rig.animator);
+    advance(&rig, 200);
+    CHECK(rig.content->node.x == 0 && rig.content->node.y == 0 &&
+              fabsf(rig.rect->color[3] - 1) < 1e-6F && sh_animator_running(rig.animator) == 0,
+          "lands where it rests: %d, %d", rig.content->node.x, rig.content->node.y);
+    teardown(&rig);
+}
+
 static void test_drop_off(void) {
     struct rig rig;
     struct sh_animator_config c = config(100, SH_CURVE_EASE_OUT);
@@ -678,6 +706,7 @@ int main(void) {
     test_drop_in();
     test_drop_out();
     test_drop_turns_back();
+    test_drop_absent();
     test_drop_off();
     test_finish_all();
     if (!failures)
