@@ -53,8 +53,9 @@ POPUPS += MACOS_POPUPS
 # The desktop alone, without the wallpaper made for the gallery: the style's own background.
 POPUPS += ["desktop"]
 # The switcher's icon grid, which the taskbar style shows without pictures of the windows; the
-# macOS style always does, as its "switcher".
-TASKBAR_POPUPS = ["switcher-icons"]
+# macOS style always does, as its "switcher". And the card of a workspace, which the macOS style
+# has not.
+TASKBAR_POPUPS = ["switcher-icons", "workspace"]
 POPUPS += TASKBAR_POPUPS
 
 # Pictures taken with settings of their own, put in the shell table: name -> (popup, settings).
