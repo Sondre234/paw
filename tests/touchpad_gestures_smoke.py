@@ -29,7 +29,8 @@ with harness.Compositor(compositor, CONFIG % "") as desktop:
 
     def gesture():
         """The swipe under way: (mode, fingers, direction, progress in thousandths), and with
-        workspaces following it (output, from, target, shown, held windows, copies)."""
+        workspaces following it (output, from, target, shown, held windows, copies, how far the
+        windows give past the end and their opacity)."""
         rows = desktop.rows("gesture")
         swipe = (rows[0][0], int(rows[0][1]), rows[0][2], int(rows[0][3]))
         return swipe, tuple(rows[1][1:2] + [int(n) for n in rows[1][2:]]) if len(rows) > 1 else None
@@ -76,16 +77,18 @@ with harness.Compositor(compositor, CONFIG % "") as desktop:
     assert gesture() == (("waiting", 3, "none", 0), None), gesture()
     # Past it, the workspaces follow the fingers: One held a fifth of the way out, Two coming in.
     swipe("update", "-54", "-1")
-    assert gesture() == (("workspace", 3, "left", 200), ("HEADLESS-1", 1, 2, 200, 1, 1)), gesture()
+    assert gesture() == (("workspace", 3, "left", 200), ("HEADLESS-1", 1, 2, 200, 1, 1, 0, 1000)), \
+        gesture()
     swipe("update", "-60", "0", after=100)
-    assert gesture()[1] == ("HEADLESS-1", 1, 2, 400, 1, 1), gesture()
+    assert gesture()[1] == ("HEADLESS-1", 1, 2, 400, 1, 1, 0, 1000), gesture()
     # Back past where they began, toward the previous workspace, which there is none of: no
-    # copies, and the windows give a little.
+    # copies, and the windows give a little, to the right.
     swipe("update", "150", "0", after=100)
-    assert gesture() == (("workspace", 3, "left", -100), ("HEADLESS-1", 1, 0, 0, 1, 0)), gesture()
+    assert gesture() == (("workspace", 3, "left", -100), ("HEADLESS-1", 1, 0, 0, 1, 0, 9, 1000)), \
+        gesture()
     # Lifted past half way toward the next, slowly: workspace 2, its window focused.
     swipe("update", "-210", "0", after=200)
-    assert gesture()[1] == ("HEADLESS-1", 1, 2, 600, 1, 1), gesture()
+    assert gesture()[1] == ("HEADLESS-1", 1, 2, 600, 1, 1, 0, 1000), gesture()
     swipe("end", after=200)
     assert workspace() == 2 and gesture() == (("none", 0, "none", 0), None), gesture()
     desktop.wait_for(lambda: msg("get", "animations").split("\t")[0] == "0", "the slide done")
@@ -117,7 +120,7 @@ with harness.Compositor(compositor, CONFIG % "") as desktop:
     msg("workspace", "3")
     swipe("begin", "3", after=1000)
     swipe("update", "-290", "0", after=200)
-    assert gesture()[1] == ("HEADLESS-1", 3, 0, 0, 0, 0), gesture()
+    assert gesture()[1] == ("HEADLESS-1", 3, 0, 0, 0, 0, -50, 1000), gesture()
     swipe("end", after=200)
     assert workspace() == 3
     msg("workspace", "1")
