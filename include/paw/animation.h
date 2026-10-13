@@ -2,7 +2,8 @@
 #pragma once
 /* Short window animations on the plain wlroots scene graph: a window fades in and grows
  * slightly when it opens, a snapshot of its last frame fades out and shrinks when it closes,
- * and tiles glide to their new place when the layout changes.
+ * tiles glide to their new place when the layout changes, and a window folds into its taskbar
+ * button as it is minimized and out of it as it is restored.
  *
  * Each animation owns one scene tree and changes only what is below it: the tree's own
  * position (the glide), and the position, destination size, and opacity (or color, for
