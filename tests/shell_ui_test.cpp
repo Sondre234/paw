@@ -3256,6 +3256,55 @@ ListModel {
             if (!waitFor([&] { return !popover->isVisible(); }))
                 return fail(
                     "the card of a window's pictures did not close after its picture was dragged");
+            // A window closing while its picture is dragged, its tile going with it, ends the
+            // drag: the popover gives the pointer back to the output and what the drag carried
+            // goes, though the drag never says it ended.
+            auto pictureDragging = [&] {
+                const QVariant drag = root->property("pictureDrag");
+                return drag.isValid() && !drag.isNull();
+            };
+            auto takesWholeOutput = [&] {
+                const QRectF whole(0, 0, popover->width(), popover->height());
+                const auto rects = popover->inputRects();
+                return std::any_of(rects.begin(), rects.end(),
+                                   [&](const QVariant &rect) { return rect.toRectF() == whole; });
+            };
+            editTasks("model.append({ taskId: 30, title: 'Passing', appId: 'passing', active: false, "
+                      "minimized: false, urgent: false, picture: 'image://test-windows/320x200' })");
+            QQuickItem *passing = nullptr;
+            if (!waitFor([&] { return (passing = buttonFor(30)) != nullptr; }))
+                return fail("a window opening did not get a button");
+            QTest::mouseMove(&view, centre(passing));
+            QQuickItem *passingPicture = nullptr;
+            if (!waitFor([&] {
+                    return inPopover(card) && titles() == "Passing" && tileFor(30) &&
+                           (passingPicture = find(tileFor(30), "windowThumbnailPicture")) &&
+                           passingPicture->isVisible();
+                }))
+                return fail("the card of a window about to close did not show its picture");
+            {
+                const QPoint from = centre(passingPicture);
+                QTest::mousePress(popover, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 6; ++step) {
+                    QTest::mouseMove(popover, from + QPoint(0, -12 * step));
+                    QTest::qWait(15);
+                }
+                if (!waitFor([&] { return pictureDragging() && takesWholeOutput() && ghost->isVisible(); }))
+                    return fail("the picture of a window about to close could not be dragged");
+                editTasks(QString("model.remove(%1)").arg(rowOf(30)));
+                if (!waitFor([&] {
+                        return !pictureDragging() && !takesWholeOutput() && !ghost->isVisible() &&
+                               root->property("dropWorkspace").toInt() == 0;
+                    }))
+                    return fail("a window closing while its picture was dragged left the drag "
+                                "holding the output's pointer");
+                QTest::mouseRelease(popover, Qt::LeftButton, Qt::NoModifier, from + QPoint(0, -72));
+                if (!stays([&] { return taskRequests().isEmpty(); }, 300))
+                    return fail("letting go of a closed window's picture asked something of it");
+            }
+            QTest::mouseMove(&view, barSpace);
+            if (!waitFor([&] { return !popover->isVisible(); }))
+                return fail("the card of a closed window did not go");
         }
         // shell.thumbnails = { live = false }: the picture asked for ahead of the card is the one
         // it shows, not followed, and not asked for again as the card opens.
