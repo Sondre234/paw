@@ -12,8 +12,8 @@ FlatButton {
     readonly property string label: layout.short || ""
     readonly property string description: "Keyboard layout: " + (layout.name || label)
     visible: shell.widgets.keyboard_layout && (layout.count || 0) > 1
-    Layout.preferredWidth: Math.max(Theme.barButtonWidth, text.implicitWidth + 2 * Theme.spacingM)
-    Layout.preferredHeight: Theme.barButtonHeight
+    Layout.preferredWidth: Theme.barVertical ? Theme.barItemWidth : Math.max(Theme.barButtonWidth, text.implicitWidth + 2 * Theme.spacingM)
+    Layout.preferredHeight: Theme.barItemHeight
     hoverEnabled: true
     onClicked: { panel.closeMenus(); shell.send("switch_layout next") }
     Accessible.name: description

@@ -13,7 +13,7 @@ FlatButton {
     readonly property string description: (center.dnd ? "Do not disturb, " : "") +
         (center.unread > 0 ? center.unread + " unread notifications" : "No new notifications")
     visible: shell.widgets.notifications === "bar" && center.serving
-    Layout.preferredWidth: Theme.barButtonWidth; Layout.preferredHeight: Theme.barButtonHeight
+    Layout.preferredWidth: Theme.barItemWidth; Layout.preferredHeight: Theme.barItemHeight
     hoverEnabled: true
     onClicked: panel.toggleAudioPopup("clock", bell)
     Accessible.name: description

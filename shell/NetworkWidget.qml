@@ -25,7 +25,7 @@ FlatButton {
         : !wifi.hasWifi || wifi.enabled ? "Not connected" : "Wi-Fi is off"
     readonly property color tint: linkDown ? Theme.textMuted : Theme.text
     visible: shell.widgets.network === "bar" && (status.networkState !== "none" || (managed && wifi.hasWifi))
-    Layout.preferredWidth: Theme.barButtonWidth; Layout.preferredHeight: Theme.barButtonHeight
+    Layout.preferredWidth: Theme.barItemWidth; Layout.preferredHeight: Theme.barItemHeight
     hoverEnabled: true
     active: panel.audioPopup === "wifi"
     onClicked: if (managed && wifi.hasWifi) panel.toggleAudioPopup("wifi", network)
