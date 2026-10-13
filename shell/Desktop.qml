@@ -14,13 +14,13 @@ Rectangle {
         id: backdrop
         objectName: "backdrop"
         anchors.fill: parent
-        // A layer for shell.wallpaper, unless the top one is for it and still loading. The first
-        // shows at once, and so does the same picture read again; `retry` is how long a picture
-        // that fails to load waits before it is tried again.
+        // A layer for shell.wallpaper, unless the top one is for it already: a reload that keeps
+        // the wallpaper reads and decodes nothing again. The first shows at once, and so does a
+        // picture that failed, tried again after `retry` milliseconds, which doubles each time.
         function show(retry) {
             const url = shell.wallpaper.toString()
             const top = children.length > 0 ? children[children.length - 1] : null
-            if (top && top.source === url && !top.ready)
+            if (top && top.source === url && !retry)
                 return
             backdropLayer.createObject(backdrop, { source: url, instant: !top || top.source === url,
                                                    retry: retry || 1000 })
@@ -28,7 +28,6 @@ Rectangle {
         Component.onCompleted: show()
         Connections {
             target: shell
-            // The file is read again whenever the configuration changes, as it may have.
             function onConfigChanged() { backdrop.show() }
             function onWallpaperChanged() { backdrop.show() }
         }
