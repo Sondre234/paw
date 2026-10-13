@@ -60,14 +60,20 @@ Item {
     // while it shows alone where it is. With one peeked at, the next window selected takes the
     // peek over at once; the selection leaving the windows ends it a moment later, time to cross
     // a result on the way to the next window, and the palette closing ends it once a window it
-    // runs has been focused, which ends a peek at it around it. Typing puts a first peek off
-    // until the typing rests. The macOS style does not peek, nor does a task model without peek.
+    // runs has been focused, which ends a peek at it around it. Nothing peeks until something is
+    // typed or the selection moved, so that the first window, selected as the palette opens,
+    // does not fade the screen behind it unasked, and typing puts a first peek off until it
+    // rests. The macOS style does not peek, nor does a task model without peek.
+    onShownChanged: if (shown) peek.engaged = false
     Item {
         id: peek
         readonly property var source: shell.tasks
         readonly property var result: root.results[shell.palette.selected] || null
+        // Whether something was typed, or the selection moved off the first result, since the
+        // palette opened.
+        property bool engaged: false
         // The window to peek at, by its task; -1 for none.
-        readonly property int wanted: root.shown && shell.peekSelection && !Theme.macos &&
+        readonly property int wanted: root.shown && engaged && shell.peekSelection && !Theme.macos &&
                                       result !== null && result.kind === "window" &&
                                       !!source && typeof source.peek === "function"
                                       ? parseInt(result.target) : -1
@@ -105,7 +111,14 @@ Item {
         Timer { id: leave; interval: 150; onTriggered: peek.end() }
         Connections {
             target: shell.palette
-            function onQueryChanged() { if (rest.running) rest.restart() }
+            function onQueryChanged() {
+                if (shell.palette.query !== "")
+                    peek.engaged = true
+                if (rest.running)
+                    rest.restart()
+            }
+            // A new search selects the first result again; any other is the selection moved.
+            function onSelectedChanged() { if (shell.palette.selected !== 0) peek.engaged = true }
         }
         Component.onDestruction: end()
     }
