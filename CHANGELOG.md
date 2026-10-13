@@ -311,6 +311,15 @@ shadows.
   elsewhere or any other binding dismisses it, and `windows.snap.assist = false` turns it off.
   It is the overview in that part alone, so the overview's overlay in the shell now takes no
   input at all.
+- A window moved with the pointer is lifted: once the pointer has taken it a few pixels it grows
+  a touch about where it is held and its shadow grows softer and falls further (a printed one
+  moves further off), easing with `animations.move`; it sets down onto an edge its magnet holds,
+  and settles back gently as it is dropped. `windows.lift = false` turns it off, and `paw msg get
+  lift` tells how far a window is lifted.
+- A tile moved with the pointer keeps its place in the tiling open, so the other tiles stay where
+  they are; once the pointer rests on another tile they glide aside to open the place a drop
+  there gives it, which the snap preview shows, and leaving the tiling closes it again. Clients
+  are asked for a new size only as a place opens.
 - The keyboard's volume, microphone and brightness keys work without setup: the shipped
   configuration binds them to the new actions `volume_up`, `volume_down`, `volume_mute`,
   `mic_mute`, `brightness_up` and `brightness_down` (the steps take `amount` in percent, 5 unless
