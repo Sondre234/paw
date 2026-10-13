@@ -14,9 +14,12 @@ ToolTip {
     delay: 500
     width: Math.min(implicitWidth, 420)
     // Below what is on a bar along the top: the taskbar there, or the menu bar, which is in a
-    // surface of its own.
-    readonly property bool below: panel.onTop || (panel.menuBarWindow !== null && owner.Window.window === panel.menuBarWindow)
-    y: below ? owner.height + Theme.spacingM : -implicitHeight - Theme.spacingM
+    // surface of its own; beside what is on one along a side.
+    readonly property bool onMenuBar: panel.menuBarWindow !== null && owner.Window.window === panel.menuBarWindow
+    readonly property bool beside: panel.vertical && !onMenuBar
+    readonly property bool below: panel.onTop || onMenuBar
+    x: !beside ? (owner.width - width) / 2 : panel.edge === "left" ? owner.width + Theme.spacingM : -width - Theme.spacingM
+    y: beside ? (owner.height - implicitHeight) / 2 : below ? owner.height + Theme.spacingM : -implicitHeight - Theme.spacingM
     enter: Transition {
         NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.durationFast; easing.type: Theme.easing }
     }
