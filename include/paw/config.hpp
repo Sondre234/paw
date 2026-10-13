@@ -154,6 +154,39 @@ struct ShellClipboard {
 // Lua `shell.panel_position`: the edge of the output the taskbar is along.
 enum class PanelEdge { Top, Bottom, Left, Right };
 
+// Lua `shell.tiling_bar.style`: one bar, a pill for each of its three groups of modules with
+// nothing between them, or a pill for every module.
+enum class TilingBarStyle { Bar, Islands, Pills };
+
+// Lua `shell.tiling_bar`: the bar in Hyprland's style (as Waybar draws it) shown in place of the
+// taskbar, or the macOS style's dock and menu bar, on a monitor while it tiles. Its modules are
+// among tiling_bar_modules(), in three groups along it.
+struct TilingBar {
+    bool enabled = true; // false (or `tiling_bar = false`): the taskbar stays while tiling
+    bool top = true;     // position = "top"; false along the bottom
+    int height = 34;
+    // top, right, bottom, left; unset: 6 from the monitor's edge, 8 from its sides and none
+    // towards the windows, whose tiling has gaps of its own.
+    int margin[4] = {6, 8, 0, 8};
+    int radius = 10;
+    TilingBarStyle style = TilingBarStyle::Bar;
+    // Colours, #RRGGBB or #RRGGBBAA; empty for the shell's panel_color, text_color and accent,
+    // and the border's for the accent.
+    std::string color, text_color, accent, border_color;
+    int border_width = 0;
+    std::string font;  // family; empty: shell.font
+    int font_size = 0; // in pixels; 0: shell.font_size
+    int spacing = 4;   // pixels between modules
+    bool workspace_dots = false; // workspace_style = "dots": a dot for each, the current one long
+    std::string clock_format = "HH:mm"; // Qt's date and time format
+    std::vector<std::string> left{"launcher", "workspaces", "layout", "mode"};
+    std::vector<std::string> center{"window"};
+    std::vector<std::string> right{"tray",   "keyboard",       "network", "volume", "battery",
+                                   "tiling", "quick_settings", "clock",   "power"};
+};
+// The modules shell.tiling_bar.modules may name.
+const std::vector<std::string> &tiling_bar_modules();
+
 struct ShellConfig {
     bool enabled = true;
     bool macos_style = false;           // style = "macos": a menu bar and a dock
@@ -190,6 +223,7 @@ struct ShellConfig {
     std::string start_icon;
     std::string wallpapers; // the picker's folder: absolute or "~/..."; empty: $XDG_PICTURES_DIR/wallpapers
     ShellWidgets widgets;
+    TilingBar tiling_bar;
     std::vector<Launcher> launchers;
 };
 
