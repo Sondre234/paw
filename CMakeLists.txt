@@ -559,7 +559,8 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-protocol.c)
         # A taskbar's window menu through paw-window-control-v1, for window_control_smoke,
         # its capture of a window, for window_capture_smoke, its peek at one, for
-        # window_peek_smoke, and windows' own icons, for window_icon_smoke.
+        # window_peek_smoke, windows' own icons, for window_icon_smoke, and the windows a
+        # workspace shows, for workspace_view_smoke.
         paw_probe(window_probe tests/window_probe.c
             ${CMAKE_CURRENT_BINARY_DIR}/paw-window-control-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/paw-window-control-v1-protocol.c
@@ -614,6 +615,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(dynamic_rules_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(stacking_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(window_control_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:window_probe>)
+        paw_smoke(workspace_view_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe>)
         paw_smoke(workspace_back_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(taskbar_restore_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
