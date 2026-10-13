@@ -64,13 +64,13 @@ Item {
     // typed or the selection moved, so that the first window, selected as the palette opens,
     // does not fade the screen behind it unasked, and typing puts a first peek off until it
     // rests. The macOS style does not peek, nor does a task model without peek.
-    onShownChanged: if (shown) peek.engaged = false
+    onShownChanged: peek.engaged = false
     Item {
         id: peek
         readonly property var source: shell.tasks
         readonly property var result: root.results[shell.palette.selected] || null
         // Whether something was typed, or the selection moved off the first result, since the
-        // palette opened.
+        // palette opened; cleared as it shows and as it goes.
         property bool engaged: false
         // The window to peek at, by its task; -1 for none.
         readonly property int wanted: root.shown && engaged && shell.peekSelection && !Theme.macos &&
