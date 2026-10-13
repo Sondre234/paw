@@ -48,6 +48,11 @@ double sh_curve_eval(const struct sh_curve *curve, double t) {
         return 0; // also NaN
     if (t >= 1)
         return 1;
+    if (curve->kind & SH_CURVE_REVERSED) {
+        struct sh_curve forward = *curve;
+        forward.kind &= ~SH_CURVE_REVERSED;
+        return 1 - sh_curve_eval(&forward, 1 - t);
+    }
     double u = 1 - t;
     switch (curve->kind) {
     case SH_CURVE_LINEAR:
