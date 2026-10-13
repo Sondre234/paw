@@ -238,12 +238,25 @@ output's workspace with `sh_anim_hold` (`animation.c`), its `content` offset and
 faded as far as the slide would have them, and the windows of the workspace it heads for, hidden
 still, as held copies of their buffers (`sh_anim_hold_copy`). A held animation lies outside the
 animator's running list, so neither the clock, a late frame nor turning animations off moves it,
-and each frame lays the hold again over what a client drew. `workspace_swipe_end` either switches
-(the leaving windows going on as copies with `sh_anim_slide_away`, the arriving ones taking over
-from their copies with `sh_anim_slide_from`, each in what remains of the slide's time) or slides
-everything back. The overview follows them through `overview_hold` and `overview_release`, which
-set its `progress` in place of its timer's. `tests/touchpad_gestures_smoke.py` drives all of it
-with a headless pointer, at the event times it gives.
+and each frame lays the hold again over what a client drew. `workspace_swipe_end`, given the
+fingers' speed as they lift, either switches (the leaving windows going on as copies with
+`sh_anim_slide_away`, the arriving ones taking over from their copies with `sh_anim_slide_from`,
+each in what remains of the slide's time) or slides everything back. The overview follows them
+through `overview_hold` and `overview_release`, which set its `progress` in place of its timer's.
+
+Past the first or the last workspace the target is out of range, and `workspace_swipe_hold` pulls
+the output's windows toward it as a rubber band: `sh_swipe_past_end` (`swipe.c`) says how far, as
+far as the slide would at first and less and less after (pull × limit / (pull + limit)), the limit
+being the slide's distance or a tenth of the output's width, whichever is less; for a slide that
+only fades it dims them instead. Let go, they glide back with `sh_anim_spring_back` (`animation.c`)
+in the `move` animation's time and curve, from where they were held and at first as fast as the
+fingers moved them (their speed through the band's slope, `rate`). The swipe notes that in
+`sprung`, and the next one on that output and workspace takes the windows over where they are drawn
+(`springing_offset`): its first hold works out with `sh_swipe_pull_at` how far past the end fingers
+would be for that, and keeps the slide that far ahead of the fingers (`shift`) until they lift, so
+that neither pulling further nor coming back jumps. `tests/touchpad_gestures_smoke.py` drives all
+of it with a headless pointer, at the event times it gives, and `tests/rubber_band_smoke.py` the
+rubber band.
 
 ### Touchscreens
 
