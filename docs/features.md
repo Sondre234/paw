@@ -161,7 +161,8 @@ button or window as the selection moves.
 
 The workspace indicator lists the monitor's workspaces, the current one on a pill, with a dot
 under those with windows: click one to switch to it, or scroll anywhere on the bar to page through
-them. A right click on the bar's empty space opens its menu: tiling on or off, the start menu,
+them. Resting the pointer on one shows a picture of it ([below](#workspace-pictures)), and
+dragging a window's button onto one moves the window there. A right click on the bar's empty space opens its menu: tiling on or off, the start menu,
 show desktop, and the appearance profiles beside their entry.
 
 The bar moves with what happens on it, briefly and without holding anything up: a button's fill
@@ -169,7 +170,8 @@ fades in under the pointer and out after it, an application's icon shrinks a lit
 pressed, a window's button fades and grows in as the window opens and shrinks away as it closes
 while the others slide over, an application just pinned grows in, the
 line under a button eases to its new length and colour, the workspace pill slides to the workspace
-shown, a count grows in and pops as it goes up, and an icon that follows a state (the network, the
+shown, a workspace a window is dragged onto grows a little and lights up and pops as the window
+drops into it, a count grows in and pops as it goes up, and an icon that follows a state (the network, the
 volume, do-not-disturb, tiling) crossfades as the state changes.
 
 ### Window pictures
@@ -191,7 +193,8 @@ the card, which closes a moment after it has left both, or at once when a button
 menu opens; moving onto another button shows that one's windows at once, the card gliding over
 to it and easing to their width, as it eases to a new width when a window opens or closes. A
 drag resting on a stack's button opens the card too, and resting on a picture brings its window
-forward ([above](#taskbar)). From the keyboard on the bar ([above](#taskbar)), Left and Right
+forward ([above](#taskbar)). Dragging a picture onto a workspace of the indicator moves its window
+there ([below](#workspace-pictures)). From the keyboard on the bar ([above](#taskbar)), Left and Right
 move between the pictures, the selected one ringed and showing its cross; Delete closes its
 window, as the cross does, and Enter brings it up. The pictures get narrower when more windows
 than fit across the monitor share a button, down to 60 % of their width, and past that the stack
@@ -231,9 +234,37 @@ shell = {
         delay = 400,    -- milliseconds the pointer rests on the button first (0 to 2000)
         size = 240,     -- width of one picture in pixels (120 to 480), 5/8 of it tall
         live = true,    -- false takes one picture of each window just before the card opens
+        workspaces = true, -- false: a workspace of the indicator has its tooltip instead
     },
 }
 ```
+
+### Workspace pictures
+
+Resting the pointer on a workspace of the indicator opens a card above it (below a bar along the
+top), as a window's button does: a picture of the workspace under its name, its wallpaper and
+the windows it shows where they are, in the order they are drawn, at the monitor's proportions.
+Each window is drawn from its own picture, so the picture follows the windows as they redraw (30
+times a second at most) and as they open, close, move, change size or are raised: a window that
+comes onto the workspace fades in, one that moves glides there. A sticky window shows on every
+workspace, a fullscreen one covers it, and minimized ones and those in the scratchpad do not
+show. The workspace shown on the monitor is ringed in the accent colour, and the header says
+how many windows the workspace has. The pictures are taken from halfway into the delay, so the
+card opens on them; moving along the indicator shows the next workspace at once, the card gliding
+over to it while one workspace's windows crossfade into the other's, and moving onto a window's
+button shows its windows' card instead, and back. The pointer can cross onto the card, which
+closes a moment after it has left both, or at once when a workspace is pressed. The pointer on a
+window rings it and names it in the header; a click brings that window up, and a click elsewhere
+on the card shows the workspace.
+
+A window's button dragged onto a workspace of the indicator, or its picture dragged there from the
+card of its windows, moves the window to that workspace of the monitor, as dropping a thumbnail
+on the overview's strip does; a stack's button moves all its windows. The workspace under the
+drag grows a little and lights up, and what the drag carries, the window's picture or its icon,
+docks beside it, gliding from one workspace to the next; resting there opens the workspace's
+card, and the picture of the window then floats into it. Let go there, it drops into the
+workspace, which pops, and the card shows the window arriving. Over a workspace a dragged
+button goes back to its place in the row; let go anywhere else, the drag moves no window.
 
 ### Clock and calendar
 
@@ -1179,7 +1210,9 @@ focuses that monitor, and the window on the other monitor loses the keyboard, so
 or Super + R then act on the empty monitor. A window belongs to the
 monitor it is on; moved to another monitor, it joins the workspace showing there. The
 panel on each monitor shows that monitor's workspaces, marking the current one and those
-with windows; scrolling over it pages through them and clicking a number switches to it.
+with windows; scrolling over it pages through them and clicking a number switches to it. Resting
+on one shows a picture of it, and a window's button or picture dragged onto one moves the window
+there ([Workspace pictures](#workspace-pictures)).
 `layout.workspace_names = { "web", "code" }` labels workspaces 1, 2, ...: the panel shows the name
 instead of the number, and `workspace` and `move_to_workspace` accept it, in bindings
 (`workspace = "web"`) and from the control socket (`paw msg workspace web`; a name with spaces
