@@ -342,6 +342,14 @@ int main(int argc, char **argv) {
                 }
                 client->write("ok\nwork\t3\t1700000000\n");
                 client->disconnectFromServer();
+            } else if (request == "panel_drag\n" || request == "panel_drag cancel\n") {
+                // A drag of the bar: the compositor takes the pointer and says which edge it is
+                // nearest, here the top; or it lets the drag go.
+                requests.push_back(QString::fromUtf8(request).trimmed());
+                client->write("ok\n");
+                client->disconnectFromServer();
+                subscriber->write(request == "panel_drag\n" ? ("panel-drag " + output + " top\n").toUtf8()
+                                                            : QByteArray("panel-drag-cancelled\n"));
             } else if (request.startsWith("type ")) {
                 // Typing what the emoji picker picked; 🙃 has nothing to type into.
                 requests.push_back(QString::fromUtf8(request).trimmed());
@@ -6506,6 +6514,100 @@ ListModel {
             view.height() != controller.panelExtent() || !view.inputRegion().isEmpty())
             return fail("the taskbar did not come back in place of the macOS style's bars");
         if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+    }
+    // Along a side the bar stands upright, its buttons in a column and its popups beside it. With
+    // shell.panel_draggable, a press on its empty space that moves has the compositor take the
+    // pointer for a drag of it; the popover shows where the bar would go, taking nothing, and the
+    // drop writes shell.panel_position into the configuration file where it takes effect, the
+    // bar then going there. Escape lets the drag go, and without the setting there is none.
+    {
+        auto *root = view.rootObject();
+        requests.clear();
+        const QString alongLeft = QString(lua).replace("shell={", "shell={panel_position='left',");
+        if (!reconfigure(alongLeft) || !waitFor([&] { return controller.panelEdge() == "left"; }))
+            return fail("shell.panel_position = 'left' was not read");
+        auto *bar = find(root, "bar");
+        auto *tasks = find(root, "taskList");
+        auto *clock = find(root, "clock");
+        if (!waitFor([&] {
+                return view.width() == controller.panelExtent() &&
+                       view.height() == ShellView::previewSize().height() &&
+                       bar->width() == controller.panelHeight() && bar->height() == view.height();
+            }) ||
+            tasks->property("orientation").toInt() != Qt::Vertical ||
+            !clock->property("text").toString().contains('\n'))
+            return fail("a bar along the left edge does not stand upright, its tasks and clock in a column");
+        // The bar's menu opens beside it, by where it was pressed.
+        const QPoint empty = tasks->mapToScene(QPointF(tasks->width() / 2, tasks->height() - 10)).toPoint();
+        QTest::mouseClick(&view, Qt::RightButton, Qt::NoModifier, empty);
+        auto *barMenu = find(root, "contextMenu");
+        if (!waitFor([&] { return root->property("barMenuOpen").toBool() && barMenu && barMenu->isVisible(); }))
+            return fail("right-clicking a bar along the left did not open its menu");
+        auto *card = barMenu->property("card").value<QQuickItem *>();
+        const QRectF placed = (card ? card : barMenu)->mapRectToScene(QRectF(0, 0, barMenu->width(), barMenu->height()));
+        if (placed.left() < bar->width() || placed.top() > empty.y() || placed.bottom() < empty.y())
+            return fail("the menu of a bar along the left does not open beside it, by the press");
+        QTest::keyClick(popover, Qt::Key_Escape);
+        if (!waitFor([&] { return !popover->isVisible(); }))
+            return fail("the bar menu did not close");
+
+        // Not draggable, a press that moves is only a press.
+        auto pressAndMove = [&] {
+            QTest::mousePress(&view, Qt::LeftButton, Qt::NoModifier, empty);
+            for (int step = 1; step <= 4; ++step) {
+                QTest::mouseMove(&view, empty + QPoint(0, -10 * step));
+                QTest::qWait(10);
+            }
+        };
+        pressAndMove();
+        QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, empty + QPoint(0, -40));
+        if (!stays([&] { return !requests.contains("panel_drag"); }, 300))
+            return fail("a bar not draggable asked to be dragged");
+
+        const QString draggable = QString(alongLeft).replace("shell={", "shell={panel_draggable=true,");
+        if (!reconfigure(draggable) || !waitFor([&] { return controller.panelDraggable(); }))
+            return fail("shell.panel_draggable was not read");
+        auto *preview = find(root, "barDropPreview");
+        pressAndMove();
+        if (!waitFor([&] { return controller.barDragging() && preview->isVisible() && popover->isVisible(); }) ||
+            requests.count("panel_drag") != 1 || !popover->inputRegion().isEmpty() ||
+            preview->y() != 0 || preview->height() != controller.panelHeight() ||
+            preview->width() != popover->width())
+            return fail("dragging the bar did not ask the compositor for the pointer, or show the top edge");
+        QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, empty + QPoint(0, -40));
+        subscriber->write(("panel-drag " + output + " right\n").toUtf8());
+        if (!waitFor([&] {
+                return controller.barDragEdge() == "right" && preview->width() == controller.panelHeight() &&
+                       preview->x() == popover->width() - controller.panelHeight();
+            }))
+            return fail("the drop preview did not follow the drag to the right edge");
+        // Escape lets the drag go, the configuration as it was.
+        QTest::keyClick(popover, Qt::Key_Escape);
+        if (!waitFor([&] { return !controller.barDragging() && !popover->isVisible(); }) ||
+            !requests.contains("panel_drag cancel"))
+            return fail("Escape did not let the bar's drag go");
+        QFile file(config);
+        if (!file.open(QIODevice::ReadOnly) || QString::fromUtf8(file.readAll()) != draggable)
+            return fail("a drag let go of changed the configuration");
+        file.close();
+
+        // Dropped at the right edge, the setting is written and the bar goes there.
+        pressAndMove();
+        if (!waitFor([&] { return controller.barDragging(); }))
+            return fail("the bar could not be dragged a second time");
+        QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, empty + QPoint(0, -40));
+        subscriber->write(("panel-dropped " + output + " right\n").toUtf8());
+        if (!waitFor([&] { return !controller.barDragging() && controller.panelEdge() == "right"; }) ||
+            !waitFor([&] { return !popover->isVisible() && bar->x() == view.width() - bar->width(); }))
+            return fail("the bar dropped at the right edge did not go there");
+        // The base shell table's, the profile in use (dark) setting none; the light profile's stays.
+        const QString base = "},shell={panel_draggable=true,panel_position=";
+        if (!file.open(QIODevice::ReadOnly) ||
+            QString::fromUtf8(file.readAll()) != QString(draggable).replace(base + "'left'", base + "\"right\""))
+            return fail("the drop did not write shell.panel_position = \"right\" in place of 'left'");
+        file.close();
+        if (!reconfigure(lua) || !waitFor([&] { return controller.panelEdge() == "bottom" && !controller.panelDraggable(); }))
             return fail("could not restore the configuration");
     }
     std::cout << "Hover/click, launcher keyboard focus, search, command launch, tiling toggle, and "
