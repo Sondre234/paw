@@ -95,14 +95,26 @@ def bottom_bar(desktop, top):
     under, shown = open_scratch()
     rounded = corner(desktop)
 
+    # A floating place of its own, away from its tile.
+    msg("toggle_floating")
+    desktop.wait_for(lambda: not window().tiled, "S floating")
+    for _ in range(3):
+        msg("move_right")
+    msg("toggle_floating")
+    desktop.wait_for(lambda: window().tiled and
+                     msg("get", "animations").split("\t")[0] == "0", "S tiled again")
+    tile = window()
+
     # Hidden: minimized and the focus gone at once, but drawn while it slides down out of sight,
-    # and the pointer passes over it to U.
+    # straight from its tile rather than its floating place, and the pointer passes over it to U.
     msg("move_to_scratchpad")
     s, d = window(), drop()
     assert s.minimized and not s.focused and window("U").focused, desktop.windows()
     assert d.drop == "out" and d.edge == "bottom" and d.hidden and d.drawn and d.cut is None, d
+    assert s.x != tile.x and s.x + d.dx == tile.x and 0 <= s.y + d.dy - tile.y < 60, (s, d, tile)
     assert pid_at(s.x + s.width // 2, s.y + s.height // 2) == str(under.pid)
-    desktop.wait_for(lambda: drop().dy > 30, "sliding down")
+    assert pid_at(tile.x + 10, tile.y + 10) == str(under.pid)
+    desktop.wait_for(lambda: drop().dy > d.dy + 30 and drop().dx == d.dx, "sliding down")
     desktop.wait_for(lambda: settled() and not drop().drawn and drop().dy == 0,
                      "hidden once out of sight")
 
