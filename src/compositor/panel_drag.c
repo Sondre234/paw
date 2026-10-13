@@ -32,7 +32,8 @@ static void report_edge(struct sh_server *server, const char *event, bool always
     if (!output)
         return;
     const int edge = nearest_edge(server, output);
-    if (!always && edge == server->panel_drag.edge && !strcmp(output->name, server->panel_drag.output))
+    if (!always && edge == server->panel_drag.edge &&
+        !strcmp(output->name, server->panel_drag.output))
         return;
     server->panel_drag.edge = edge;
     snprintf(server->panel_drag.output, sizeof(server->panel_drag.output), "%s", output->name);
@@ -55,9 +56,7 @@ static bool panel_drag_begin(struct sh_server *server) {
     return true;
 }
 
-void panel_drag_motion(struct sh_server *server) {
-    report_edge(server, "panel-drag", false);
-}
+void panel_drag_motion(struct sh_server *server) { report_edge(server, "panel-drag", false); }
 
 bool panel_drag_drop(struct sh_server *server) {
     if (server->cursor_mode != SH_CURSOR_PANEL)
