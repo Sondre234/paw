@@ -855,9 +855,11 @@ void ShellController::restyled() {
         restyling_ = false;
         Q_EMIT restylingChanged();
     }
-    const auto name = QString::fromStdString(config_.profile);
-    std::cerr << "paw profile drawn: " << name.toStdString() << '\n';
+    // None, when a reload since left the configuration without profiles: nothing to tell.
+    if (config_.profile.empty())
+        return;
     // Quietly: a shell without a compositor, or one that does not crossfade, has no one to tell.
+    const auto name = QString::fromStdString(config_.profile);
     ask(("profile_drawn " + name + "\n").toUtf8(), [](const QByteArray &) {});
 }
 void ShellController::loadConfig() {
