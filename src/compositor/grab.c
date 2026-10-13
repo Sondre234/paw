@@ -384,8 +384,11 @@ void begin_interactive(struct sh_toplevel *toplevel, enum sh_cursor_mode mode,
             from_left = from_left * restore.width / geometry.width;
         if (from_top > restore.height)
             from_top = restore.height / 2.0;
+        // It shrinks into place under the pointer, which it follows meanwhile.
+        struct wlr_box from = morph_from(toplevel);
         toplevel_configure(toplevel, server->cursor->x - from_left, server->cursor->y - from_top,
                            restore.width, restore.height);
+        toplevel_morph(toplevel, from, SH_ANIM_MOVE);
     }
 
     if (mode == SH_CURSOR_MOVE) {
