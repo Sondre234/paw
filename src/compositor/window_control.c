@@ -378,6 +378,10 @@ static struct sh_toplevel *placed_window(struct sh_server *server, struct wlr_sc
     if (!owner || owner->kind != SH_NODE_TOPLEVEL)
         return NULL;
     struct sh_toplevel *toplevel = owner->owner;
+    // The window peeked at has its place where the peek left it; its tree may have gone back
+    // among the others meanwhile (leaving fullscreen), and is not listed a second time there.
+    if (server->peek_place && toplevel == server->peek_window)
+        return NULL;
     return toplevel->scene_tree && &toplevel->scene_tree->node == node ? toplevel : NULL;
 }
 
