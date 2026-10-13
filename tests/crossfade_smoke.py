@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """A new appearance profile crossfades in: each monitor keeps showing a picture of the old look
-while the shell draws the new one, until it says so (`profile_drawn NAME`) or a second has passed,
-then the picture fades out; without a shell it fades at once. (The test gives the shell three
-seconds, so that a slow machine has the time to look at the picture held.) The picture is what the monitor
-showed, to the pixel, magnified or turned and scaled as it was, and takes no input. A switch
-during the fade starts again from what shows, the session locking takes the pictures away at
-once, and nothing crossfades without animations, without a change of profile, on a monitor that
-is off or over a fullscreen window. The pictures are read on a mirror of the first monitor."""
+while the shell draws the new one, until it says so (`profile_drawn NAME`) or a second has passed
+(three seconds here, time enough on a slow machine to look at it held), then the picture fades
+out; without a shell it fades at once. The picture is what the monitor showed, to the pixel,
+magnified or turned and scaled as it was; it takes no input, and the pointer moves on over it. A
+switch during the fade starts again from what shows, the session locking takes the pictures away
+at once, and nothing crossfades without animations, without a change of profile, on a monitor
+that is off or over a fullscreen window. The pictures are read on a mirror of the first monitor."""
 from pathlib import Path
 import sys
 
@@ -150,6 +150,21 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     wait_for(lambda: crossfade() == {} and near(colour(), GREEN), "the green background")
     msg("zoom_reset")
     wait_for(lambda: desktop.rows("zoom") == [["1000", "1000", "0"]], "the magnifier off")
+
+    # The pointer is no part of the picture: it moves on over it, and leaves nothing behind.
+    def cursor_at(picture, x, y):
+        return any(not near(picture.at(x + dx, y + dy), GREEN) for dx in range(10) for dy in range(14))
+    msg("headless_pointer", "add", "mouse")
+    msg("headless_pointer", "move", "mouse", "300", "300")
+    wait_for(lambda: cursor_at(shot(desktop), 300, 300), "the pointer shown")
+    msg("profile", "blue")
+    msg("headless_pointer", "move", "mouse", "900", "400")
+    stays(lambda: (lambda picture: cursor_at(picture, 900, 400) and
+                   not cursor_at(picture, 300, 300))(shot(desktop)),
+          "the pointer moving over the picture alone")
+    msg("profile_drawn", "blue")
+    wait_for(lambda: crossfade() == {}, "the crossfade over")
+    msg("headless_pointer", "remove", "mouse")
 
     # A monitor that is off gets no picture.
     msg("display_off", "HEADLESS-2")
