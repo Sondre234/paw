@@ -85,6 +85,16 @@ void tile_toplevel_at(struct sh_toplevel *toplevel, struct wlr_output *output,
     if (!output || toplevel->tiled)
         return;
     set_toplevel_output(toplevel, output);
+    // A window moved with the pointer holds a place in a tiling (tile_drop.c): it takes that
+    // place when it is in this one, and leaves it otherwise.
+    const char *held = sh_tiling_output(server->tiling, toplevel);
+    if (held && (strcmp(held, output->name) ||
+                 sh_tiling_workspace(server->tiling, toplevel) != toplevel->workspace)) {
+        struct wlr_output *from = find_output(server, held);
+        sh_tiling_remove(server->tiling, toplevel);
+        if (from)
+            reflow_output(server, from);
+    }
     if (!toplevel->arranged)
         toplevel->restore_box =
             toplevel->fullscreen ? toplevel->fullscreen_restore : toplevel_box(toplevel);
