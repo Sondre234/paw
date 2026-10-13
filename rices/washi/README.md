@@ -49,7 +49,7 @@ ink shadow on ink would vanish, and the start button is the neko's twin, a kuron
 | Wallpapers | [`wallpaper/`](wallpaper) | `washi.jpg` and `sumi.jpg` at 3840 by 2160, and `generate.py`, which draws them. |
 | kitty | [`kitty/`](kitty) | Both palettes, Maple Mono, padding, a sakura cursor trail, a quiet scrollbar and ink tabs. |
 | fastfetch | [`fastfetch/`](fastfetch) | The rose seal with the paw cut out, shown through kitty's graphics protocol, beside a spec sheet in a box. |
-| Firefox | [`firefox/`](firefox) | `userChrome.css` (the URL bar as a card, tabs as paper labels with a strip of washi tape, menus framed in ink), `userContent.css` (the new tab and settings pages), `user.js`, and a start page: a big clock, a search card, stamped links and a trail of paw prints wherever you click. |
+| Firefox | [`firefox/`](firefox) | `userChrome.css` (the URL bar as a card, tabs as paper labels, menus framed in ink), `userContent.css` (the new tab and settings pages), `user.js`, and a start page: a big clock, a search card, stamped links and a trail of paw prints wherever you click. |
 | Discord | [`discord/washi.theme.css`](discord/washi.theme.css) | One theme for Vencord, Vesktop, Equicord, Equibop and BetterDiscord: Discord's light theme becomes washi and its dark ones sumi. |
 | Claude Code and cdeck | [`claude/`](claude) | Custom themes for Claude Code (`/theme`, then `custom:washi` or `custom:sumi`), which cdeck takes its colours from. |
 | Neovim and Helix | [`editors/`](editors) | Plugin-free colour schemes for both: ink text, orchid keywords, mint strings and sky-blue functions, comments pencilled in. |
