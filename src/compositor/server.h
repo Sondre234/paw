@@ -762,6 +762,15 @@ struct sh_opacity_rule {
     float value;
 };
 
+/* The clips frame.c gives a window's trees (window_clip), kept so that a drop's cut can be laid
+ * over them. */
+enum sh_clip_tree { SH_CLIP_CONTENT, SH_CLIP_SHADOW, SH_CLIP_GRADIENT, SH_CLIP_TREES };
+struct sh_clip_wish {
+    bool set; // else no clip
+    struct wlr_box box;
+    int radius;
+};
+
 struct sh_toplevel {
     struct sh_node node;
     enum sh_action arrangement;
@@ -848,6 +857,7 @@ struct sh_toplevel {
      * animation can move, scale, and fade it without changing where the window is. */
     struct wlr_scene_tree *scene_tree, *content;
     struct sh_anim anim;
+    struct sh_clip_wish clips[SH_CLIP_TREES]; // content's, the shadow's and the gradient's
     struct sh_tween fade; // opacity and border color following focus
     bool shown; // has opened (and started its opening animation) since it last mapped
     struct wlr_scene_buffer *deco;    // window controls; NULL when the client decorates itself
@@ -1354,6 +1364,8 @@ void center_scratchpad(struct sh_toplevel *toplevel, struct wlr_output *output);
 void hide_in_scratchpad(struct sh_toplevel *toplevel);
 void scratchpad_show(struct sh_server *server);
 void empty_scratchpad(struct sh_server *server);
+void window_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which, const struct wlr_box *box,
+                 int radius);
 
 /* session.c */
 bool make_directories(char *path);

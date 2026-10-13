@@ -271,11 +271,10 @@ static void refresh_shadow(struct sh_toplevel *toplevel, bool on, int outset, in
                                             layout.top + height + layout.bottom};
     toplevel->shadow_alpha = look.color[3];
 #ifdef PAW_ROUNDED_CORNERS
-    wlr_scene_tree_set_rounded_clip(toplevel->shadow,
-                                    &(struct wlr_box){-layout.left, -layout.top,
-                                                      toplevel->shadow_box.width,
-                                                      toplevel->shadow_box.height},
-                                    0);
+    window_clip(toplevel, SH_CLIP_SHADOW,
+                &(struct wlr_box){-layout.left, -layout.top, toplevel->shadow_box.width,
+                                  toplevel->shadow_box.height},
+                0);
 #endif
     if (toplevel->shadow_image == image->buffer && toplevel->shadow_width == width &&
         toplevel->shadow_height == height)
@@ -463,8 +462,8 @@ void refresh_frame(struct sh_toplevel *toplevel) {
                     (settings->round_always && !draws_own_shadow(toplevel)));
     int radius = rounded ? settings->corner_radius : 0;
 #ifdef PAW_ROUNDED_CORNERS
-    wlr_scene_tree_set_rounded_clip(
-        toplevel->content, radius > 0 ? &(struct wlr_box){0, 0, g.width, g.height} : NULL, radius);
+    window_clip(toplevel, SH_CLIP_CONTENT,
+                radius > 0 ? &(struct wlr_box){0, 0, g.width, g.height} : NULL, radius);
 #else
     radius = 0;
 #endif

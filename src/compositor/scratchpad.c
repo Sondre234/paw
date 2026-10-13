@@ -5,6 +5,39 @@
  * workspace or tiled. */
 #include "server.h"
 
+#ifdef PAW_ROUNDED_CORNERS
+static struct wlr_scene_tree *clip_tree(struct sh_toplevel *toplevel, enum sh_clip_tree which) {
+    switch (which) {
+    case SH_CLIP_SHADOW:
+        return toplevel->shadow;
+    case SH_CLIP_GRADIENT:
+        return toplevel->gradient;
+    default:
+        return toplevel->content;
+    }
+}
+
+/* The clip frame.c asked for. */
+static void apply_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which) {
+    struct wlr_scene_tree *tree = clip_tree(toplevel, which);
+    const struct sh_clip_wish *wish = &toplevel->clips[which];
+    if (tree)
+        wlr_scene_tree_set_rounded_clip(tree, wish->set ? &wish->box : NULL, wish->radius);
+}
+#endif
+
+/* Every clip frame.c gives a window's trees, kept for what is laid over it. */
+void window_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which, const struct wlr_box *box,
+                 int radius) {
+    struct sh_clip_wish *wish = &toplevel->clips[which];
+    wish->set = box != NULL;
+    wish->box = box ? *box : (struct wlr_box){0};
+    wish->radius = radius;
+#ifdef PAW_ROUNDED_CORNERS
+    apply_clip(toplevel, which);
+#endif
+}
+
 bool scratchpad_enabled(struct sh_server *server) {
     if (server_settings(server)->scratchpad)
         return true;
