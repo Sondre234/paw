@@ -211,8 +211,9 @@ static void get_snap(struct sh_server *server, int fd, const char *arguments) {
 }
 
 static void get_lift(struct sh_server *server, int fd, const char *arguments) {
-    // Windows lifted by a move with the pointer, or settling back: title, how far up and the
-    // scale drawn (thousandths), and the point it grows about, from its top-left corner.
+    // Windows lifted by a move with the pointer, or settling back: title, how far up
+    // (thousandths), the box the window is drawn in from its top-left corner (x, y, width,
+    // height), and the point it grows about.
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
@@ -220,11 +221,12 @@ static void get_lift(struct sh_server *server, int fd, const char *arguments) {
             continue;
         char line[640], title[512];
         copy_field(title, sizeof(title), toplevel_title(toplevel));
-        double scale, dx, dy;
-        sh_anim_lift_transform(&toplevel->anim, &scale, &dx, &dy);
-        snprintf(line, sizeof(line), "%s\t%ld\t%ld\t%ld\t%ld\n", title,
-                 lround(1000 * sh_anim_lift_progress(&toplevel->anim)), lround(1000 * scale),
-                 lround(toplevel->anim.lift_cx), lround(toplevel->anim.lift_cy));
+        struct wlr_box geometry = toplevel_geometry(toplevel);
+        int box[4] = {0, 0, geometry.width, geometry.height};
+        sh_anim_lift_box(&toplevel->anim, box);
+        snprintf(line, sizeof(line), "%s\t%ld\t%d\t%d\t%d\t%d\t%ld\t%ld\n", title,
+                 lround(1000 * sh_anim_lift_progress(&toplevel->anim)), box[0], box[1], box[2],
+                 box[3], lround(toplevel->anim.lift_cx), lround(toplevel->anim.lift_cy));
         control_reply(fd, line);
     }
 }

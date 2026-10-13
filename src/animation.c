@@ -104,6 +104,31 @@ static void set_paint(struct wlr_scene_node *node, const float value[4]) {
         wlr_scene_buffer_set_opacity(wlr_scene_buffer_from_node(node), value[0]);
 }
 
+/* Where a lift draws a coordinate of its tree along one axis now: its bounds from `low` to `high`
+ * drawn larger about `anchor`, their edges on whole pixels; what is inside them is scaled in
+ * between, what is outside moves with the nearest edge. Without bounds, scaled about the anchor. */
+static double lift_axis(const struct sh_anim *anim, double at, double anchor, int low, int length) {
+    if (!anim->lifted)
+        return at;
+    double scale = 1 + (anim->lift_scale - 1) * anim->lift;
+    if (length <= 0)
+        return anchor + (at - anchor) * scale;
+    int high = low + length;
+    double drawn_low = floor(anchor + (low - anchor) * scale + 0.5);
+    double drawn_high = floor(anchor + (high - anchor) * scale + 0.5);
+    if (at <= low)
+        return drawn_low + (at - low);
+    if (at >= high)
+        return drawn_high + (at - high);
+    return drawn_low + (at - low) * (drawn_high - drawn_low) / length;
+}
+static double lift_x(const struct sh_anim *anim, double x) {
+    return lift_axis(anim, x, anim->lift_cx, anim->lift_bounds[0], anim->lift_bounds[2]);
+}
+static double lift_y(const struct sh_anim *anim, double y) {
+    return lift_axis(anim, y, anim->lift_cy, anim->lift_bounds[1], anim->lift_bounds[3]);
+}
+
 /* Scales the node about the center and multiplies its opacity. `ox, oy` is the position of
  * its parent in the animated tree. */
 static void apply_node(struct sh_anim *anim, struct wlr_scene_node *node, int ox, int oy,
@@ -126,13 +151,11 @@ static void apply_node(struct sh_anim *anim, struct wlr_scene_node *node, int ox
     }
     if (sized) {
         // Both edges are scaled and rounded, so that nodes that adjoin (the slices of a window's
-        // shadow, its surfaces) stay adjoined at every scale. A lift scales on top of that.
-        double lift, lift_x, lift_y;
-        sh_anim_lift_transform(anim, &lift, &lift_x, &lift_y);
-        double left = (anim->cx + (ox + r->x - anim->cx) * scale) * lift + lift_x;
-        double top = (anim->cy + (oy + r->y - anim->cy) * scale) * lift + lift_y;
-        double right = (anim->cx + (ox + r->x + r->width - anim->cx) * scale) * lift + lift_x;
-        double bottom = (anim->cy + (oy + r->y + r->height - anim->cy) * scale) * lift + lift_y;
+        // shadow, its surfaces) stay adjoined at every scale. A lift moves them on from there.
+        double left = lift_x(anim, anim->cx + (ox + r->x - anim->cx) * scale);
+        double top = lift_y(anim, anim->cy + (oy + r->y - anim->cy) * scale);
+        double right = lift_x(anim, anim->cx + (ox + r->x + r->width - anim->cx) * scale);
+        double bottom = lift_y(anim, anim->cy + (oy + r->y + r->height - anim->cy) * scale);
         r->set_x = (int)lround(left) - ox, r->set_y = (int)lround(top) - oy;
         r->set_width = (int)fmax(1, lround(right) - lround(left));
         r->set_height = (int)fmax(1, lround(bottom) - lround(top));
@@ -885,15 +908,21 @@ void sh_anim_lift(struct sh_animator *animator, struct sh_anim *anim, struct wlr
     wl_event_source_timer_update(animator->timer, duration + SLACK_MS);
 }
 
+void sh_anim_lift_bounds(struct sh_anim *anim, int x, int y, int width, int height) {
+    anim->lift_bounds[0] = x, anim->lift_bounds[1] = y;
+    anim->lift_bounds[2] = width > 0 ? width : 0, anim->lift_bounds[3] = height > 0 ? height : 0;
+}
+
 double sh_anim_lift_progress(const struct sh_anim *anim) {
     return anim->lifted ? anim->lift : 0;
 }
 
-void sh_anim_lift_transform(const struct sh_anim *anim, double *scale, double *dx, double *dy) {
-    double s = anim->lifted ? 1 + (anim->lift_scale - 1) * anim->lift : 1;
-    *scale = s;
-    *dx = s == 1 ? 0 : anim->lift_cx * (1 - s);
-    *dy = s == 1 ? 0 : anim->lift_cy * (1 - s);
+void sh_anim_lift_box(const struct sh_anim *anim, int box[4]) {
+    long left = lround(lift_x(anim, box[0])), right = lround(lift_x(anim, box[0] + box[2]));
+    long top = lround(lift_y(anim, box[1])), bottom = lround(lift_y(anim, box[1] + box[3]));
+    box[0] = (int)left, box[1] = (int)top;
+    box[2] = (int)(right - left > 1 ? right - left : 1);
+    box[3] = (int)(bottom - top > 1 ? bottom - top : 1);
 }
 
 size_t sh_animator_lifted(const struct sh_animator *animator) {

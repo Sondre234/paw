@@ -225,21 +225,17 @@ static void remove_shadow(struct sh_toplevel *toplevel) {
 void window_clip(struct sh_toplevel *toplevel, struct wlr_scene_tree *tree,
                  const struct wlr_box *box, int radius) {
 #ifdef PAW_ROUNDED_CORNERS
-    double scale, dx, dy;
-    sh_anim_lift_transform(&toplevel->anim, &scale, &dx, &dy);
-    if (!box || scale == 1) {
+    if (!box || !toplevel->anim.lifted) {
         wlr_scene_tree_set_rounded_clip(tree, box, radius);
         return;
     }
-    int ox = 0, oy = 0; // the tree's place in the content, which the lift scales
+    int ox = 0, oy = 0; // the tree's place in the content, which the lift draws larger
     for (struct wlr_scene_tree *t = tree; t && t != toplevel->content; t = t->node.parent)
         ox += t->node.x, oy += t->node.y;
-    long left = lround((ox + box->x) * scale + dx), top = lround((oy + box->y) * scale + dy);
-    long right = lround((ox + box->x + box->width) * scale + dx);
-    long bottom = lround((oy + box->y + box->height) * scale + dy);
-    struct wlr_box lifted = {(int)left - ox, (int)top - oy, (int)fmax(1, right - left),
-                             (int)fmax(1, bottom - top)};
-    wlr_scene_tree_set_rounded_clip(tree, &lifted, radius);
+    int lifted[4] = {ox + box->x, oy + box->y, box->width, box->height};
+    sh_anim_lift_box(&toplevel->anim, lifted);
+    wlr_scene_tree_set_rounded_clip(
+        tree, &(struct wlr_box){lifted[0] - ox, lifted[1] - oy, lifted[2], lifted[3]}, radius);
 #else
     (void)toplevel, (void)tree, (void)box, (void)radius;
 #endif
@@ -498,6 +494,8 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     // own, which has corners of its own too (and would lose that shadow to the clip). The clip
     // takes in everything drawn for them but the border, which rounds itself to match.
     struct wlr_box g = toplevel_geometry(toplevel);
+    // A lift draws the window's geometry larger, and its frame around that (lift.c).
+    sh_anim_lift_bounds(&toplevel->anim, 0, 0, g.width, g.height);
     struct wlr_output *output = toplevel_output(toplevel);
     bool rounded = mapped && !frameless(toplevel, output) &&
                    (tiles_for(toplevel, output) ||

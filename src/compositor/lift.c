@@ -29,6 +29,8 @@ static double lift_scale(struct sh_toplevel *toplevel) {
 /* Lifts the grabbed window, or sets it down, about the point the pointer holds it by. */
 static void lift_set(struct sh_server *server, struct sh_toplevel *toplevel, bool up) {
     struct wlr_scene_node *content = &toplevel->content->node;
+    struct wlr_box geometry = toplevel_geometry(toplevel);
+    sh_anim_lift_bounds(&toplevel->anim, 0, 0, geometry.width, geometry.height);
     sh_anim_lift(server->animator, &toplevel->anim, toplevel->content, up, lift_scale(toplevel),
                  server->grab_x - content->x, server->grab_y - content->y, lift_changed,
                  toplevel);

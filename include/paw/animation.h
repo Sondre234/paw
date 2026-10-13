@@ -44,13 +44,16 @@ struct sh_anim {
     double held_x, held_y;
     float held_alpha;
     /* Lifted while dragged (sh_anim_lift): drawn up to `lift_scale` times its size about
-     * (lift_cx, lift_cy), on top of whatever else runs on it. `lift` is how far up it is drawn
-     * (0 down, 1 up), easing from `lift_from` toward `lift_to` since lift_start, with the
-     * velocity it had then (per millisecond); it stays up, what the client draws included,
-     * until it is let down. In the animator's lifted list while not down. */
+     * (lift_cx, lift_cy), on top of whatever else runs on it; with bounds (lift_bounds: x, y,
+     * width, height; no width for none), only what is inside them grows, and what is outside
+     * moves with their edges. `lift` is how far up it is drawn (0 down, 1 up), easing from
+     * `lift_from` toward `lift_to` since lift_start, with the velocity it had then (per
+     * millisecond); it stays up, what the client draws included, until it is let down. In the
+     * animator's lifted list while not down. */
     bool lifted, lift_easing, lift_rested;
     struct wl_list lift_link;
     double lift, lift_from, lift_to, lift_velocity, lift_scale, lift_cx, lift_cy;
+    int lift_bounds[4];
     int64_t lift_start;
     int lift_duration;
     struct sh_curve lift_curve;
@@ -169,10 +172,17 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
 void sh_anim_lift(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
                   bool up, double scale, double cx, double cy, void (*update)(void *),
                   void *data);
+/* The box (in tree coordinates) a lift grows: the window's geometry, around which its border and
+ * shadow are drawn. What is inside it is scaled to the box drawn larger, its edges on whole
+ * pixels; what is outside moves with its nearest edges at its own size, so that a border keeps
+ * its width and meets the window to the pixel. Without bounds (a width of 0) everything scales
+ * about the point. Set it again as the window's size changes. */
+void sh_anim_lift_bounds(struct sh_anim *anim, int x, int y, int width, int height);
 /* How far up the lift is drawn, 0 down to 1 up. */
 double sh_anim_lift_progress(const struct sh_anim *anim);
-/* Where the lift draws a point (x, y) of the tree now: at x * scale + dx, y * scale + dy. */
-void sh_anim_lift_transform(const struct sh_anim *anim, double *scale, double *dx, double *dy);
+/* Where the lift draws a box of the tree now (x, y, width, height), its edges where the animator
+ * puts those of a node there. */
+void sh_anim_lift_box(const struct sh_anim *anim, int box[4]);
 /* Windows lifted, or still settling. */
 size_t sh_animator_lifted(const struct sh_animator *animator);
 /* Jumps to the end: every node gets its resting values and the tree its resting position. A

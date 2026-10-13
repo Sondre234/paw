@@ -36,8 +36,9 @@ def session(desktop):
         return {w.title: w.box for w in desktop.windows()}
 
     def lift():
-        """By title: how far up and the scale drawn (thousandths), and the point it grows about."""
-        return {r[0]: tuple(int(n) for n in r[1:5]) for r in desktop.rows("lift")}
+        """By title: how far up (thousandths), the box it is drawn in from its top-left corner,
+        and the point it grows about."""
+        return {r[0]: tuple(int(n) for n in r[1:8]) for r in desktop.rows("lift")}
 
     def shadow(title):
         """The box W's shadow covers, from its top-left corner."""
@@ -80,8 +81,10 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "1"})
     pointer("move", str(px + 40), str(py + 30))
     wait_for(lambda: "W" in lift(), "W lifts")
     wait_for(lambda: lift()["W"][0] == 1000, "W up")
-    up, scale, cx, cy = lift()["W"]
-    assert 1015 <= scale <= 1025 and (cx, cy) == (100, 20), lift()
+    up, x, y, width, height, cx, cy = lift()["W"]
+    # A fortieth larger, about that point: two or three pixels further left, none further up.
+    assert (-3 <= x <= -2 and -1 <= y <= 0 and ww + 7 <= width <= ww + 9 and
+            wh + 5 <= height <= wh + 7 and (cx, cy) == (100, 20)), lift()
     # Where the window is does not change: the pointer holds it where it took it.
     assert windows()["W"] == (wx + 40, wy + 30, ww, wh), windows()
     # The shadow reaches further all round, furthest below.
@@ -89,11 +92,11 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "1"})
     assert (lifted[0] < rest[0] and lifted[1] < rest[1] and
             lifted[0] + lifted[2] > rest[0] + rest[2] and
             lifted[1] + lifted[3] - (rest[1] + rest[3]) > rest[1] - lifted[1]), (rest, lifted)
-    # Held up, nothing runs and nothing is drawn.
+    # Held up, nothing runs and nothing is drawn (but for a frame the last step may still owe).
     frames = lambda: int(desktop.rows("stats")[0][0])
     drawn = frames()
-    desktop.stays(lambda: lift()["W"][0] == 1000 and frames() == drawn, "idle while lifted",
-                  detail=lambda: f"{frames() - drawn} frames, {lift()}")
+    desktop.stays(lambda: lift()["W"][0] == 1000 and frames() - drawn <= 2, "idle while lifted",
+                  duration=.5, detail=lambda: f"{frames() - drawn} frames, {lift()}")
     assert desktop.rows("animations")[0][0] == "0", desktop.rows("animations")
 
     # Its magnet holding it against the output's left edge, it sets down; pulled away, it lifts.

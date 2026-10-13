@@ -543,10 +543,10 @@ static void test_lift(void) {
     advance(&rig, 500); // a late frame lands what eases, and this is up already
     advance(&rig, 16);
     CHECK(rig.rect->width == 220 && lift_updates == updates, "stays up, quietly");
-    double scale, dx, dy;
-    sh_anim_lift_transform(&rig.anim, &scale, &dx, &dy);
-    CHECK(fabs(scale - 1.1) < 1e-9 && fabs(dx + 1) < 1e-9 && fabs(dy + 2) < 1e-9,
-          "transform: %f %f %f", scale, dx, dy);
+    int box[4] = {0, 0, 100, 100};
+    sh_anim_lift_box(&rig.anim, box);
+    CHECK(box[0] == -1 && box[1] == -2 && box[2] == 110 && box[3] == 110,
+          "a box drawn as the nodes are: %d %d %d %d", box[0], box[1], box[2], box[3]);
     // The client draws at another size: that is lifted too.
     wlr_scene_rect_set_size(rig.rect, 300, 100);
     advance(&rig, 16);
