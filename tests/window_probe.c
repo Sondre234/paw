@@ -55,7 +55,7 @@
  *                                        them, until the window closes
  *   window_probe --workspace OUTPUT N [watch]
  *                                        prints the windows workspace N of OUTPUT shows, from
- *                                        get_workspace (version 7), and with watch again after
+ *                                        get_workspace (version 8), and with watch again after
  *                                        each done, until it is ended
  *
  * STATE is the flags joined by commas ("floating,tiling"), or "-" for none; OUTPUT is "-" before
@@ -453,8 +453,8 @@ static void registry_global(void *data, struct wl_registry *registry, uint32_t n
         zwlr_foreign_toplevel_manager_v1_add_listener(probe->manager, &manager_listener, probe);
     } else if (!strcmp(interface, paw_window_control_v1_interface.name)) {
         const char *cap = getenv("PAW_WINDOW_PROBE_VERSION");
-        uint32_t most = cap ? (uint32_t)strtoul(cap, NULL, 10) : 7;
-        most = most < 7 ? most : 7;
+        uint32_t most = cap ? (uint32_t)strtoul(cap, NULL, 10) : 8;
+        most = most < 8 ? most : 8;
         probe->control = wl_registry_bind(registry, name, &paw_window_control_v1_interface,
                                           version < most ? version : most);
     } else if (!strcmp(interface, ext_foreign_toplevel_list_v1_interface.name)) {
@@ -660,7 +660,8 @@ static int watch_workspace(int argc, char **argv) {
     wl_registry_add_listener(registry, &registry_listener, &probe);
     if (wl_display_roundtrip(display) < 0)
         die("roundtrip failed");
-    if (!probe.control || paw_window_control_v1_get_version(probe.control) < 7)
+    if (!probe.control || paw_window_control_v1_get_version(probe.control) <
+                                PAW_WINDOW_CONTROL_V1_GET_WORKSPACE_SINCE_VERSION)
         die("the compositor's window control lists no workspaces");
     struct workspace workspace = {0};
     struct paw_workspace_v1 *object = paw_window_control_v1_get_workspace(

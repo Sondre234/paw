@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
         wait([&] { return value(TaskModel::Minimized).toBool(); }, "show desktop failed");
         model.activate(id);
         wait([&] { return value(TaskModel::Active).toBool(); }, "second activation failed");
-        // The windows a workspace shows, through version 7: the probe's 320 by 240 window on
+        // The windows a workspace shows, through version 8: the probe's 320 by 240 window on
         // the first, by its number, and none on the second; they follow it to another workspace
         // while watched, and the last list stays once they are not. What the compositor lists is
         // workspace_view_smoke's.

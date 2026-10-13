@@ -131,7 +131,7 @@ shadows.
   come. The card glides from workspace to workspace, the windows of one crossfading into the
   other's, and takes turns with the card of a button's windows; a click on a window brings it up,
   and elsewhere shows the workspace. `shell.thumbnails.workspaces = false` gives the workspaces
-  their tooltips back. `paw-window-control-v1` version 7's `get_workspace` lists the windows a
+  their tooltips back. `paw-window-control-v1` version 8's `get_workspace` lists the windows a
   workspace shows and where, and `paw msg get workspace_views` lists those lists.
 - A window's taskbar button, or its picture on the card, dragged onto a workspace of the
   indicator moves the window there, as the overview's strip does: the workspace lights up and the

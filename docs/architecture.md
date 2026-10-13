@@ -240,7 +240,7 @@ windows (`windows`, and `floating_windows` with `layout.floating_above_tiles`) a
 fullscreen ones; `window_layer` names the tree a window belongs in, and everything that puts a
 window back among the others (focus, leaving fullscreen, the overview, the peek) puts it there.
 
-Since version 7 `paw_window_control_v1.get_workspace(output, number)` gives a
+Since version 8 `paw_window_control_v1.get_workspace(output, number)` gives a
 `paw_workspace_v1`, which lists the windows that workspace of the output shows, for the taskbar's
 card of a workspace: the output's size, then each window from the bottom up by its `id`, with the
 rectangle its picture covers from the output's corner, then `done`. `list_workspace`
@@ -765,7 +765,7 @@ The card of a workspace (`WorkspaceCard.qml`, `shell.thumbnails.workspaces`) is 
 from the windows' pictures rather than captured whole: the compositor's scene shows only the
 workspace each output shows, and a picture made of the windows' own lets the shell move each one
 as the list changes. `TaskModel` keeps the lists: `watchWorkspace(output, number)`, counted, asks
-`get_workspace` (version 7) until `unwatchWorkspace`, and `workspaceLayout(output, number)` gives
+`get_workspace` (version 8) until `unwatchWorkspace`, and `workspaceLayout(output, number)` gives
 what the last `done` completed, `{width, height, windows: [{windowId, x, y, width, height}]}`,
 kept once unwatched so that the card opens on it; `workspaceRevision` changes with each. The
 panel holds the card's state (`workspaceCardOpen`, `workspaceCardNumber`, the workspace warmed up

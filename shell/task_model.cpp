@@ -275,7 +275,7 @@ void TaskModel::watchWorkspace(const QString &output, int number) {
     if (!workspace->watchers++)
         startWorkspace(*workspace);
 }
-// Asks the compositor for a watched workspace's windows, with the window control's version 7.
+// Asks the compositor for a watched workspace's windows, with the window control's version 8.
 void TaskModel::startWorkspace(WorkspaceList &workspace) {
     if (workspace.object || !control_ ||
         paw_window_control_v1_get_version(control_) <
@@ -404,10 +404,10 @@ void TaskModel::global(void *data, wl_registry *registry, uint32_t name, const c
         // Version 2 gives the windows' capture sources, for their pictures, version 3 ones
         // scaled down to the pictures' size and the windows' processes, for the sound they play,
         // version 4 peeks at a window and gives the windows' numbers, for the window
-        // switcher's pictures, version 6 keeps a window above the others, and version 7 says
+        // switcher's pictures, version 6 keeps a window above the others, and version 8 says
         // which windows a workspace shows, for its picture.
         self.control_ = static_cast<paw_window_control_v1 *>(wl_registry_bind(
-            registry, name, &paw_window_control_v1_interface, std::min(version, 7u)));
+            registry, name, &paw_window_control_v1_interface, std::min(version, 8u)));
         for (auto &task : self.tasks_)
             self.watch(task.get());
         for (auto &workspace : self.workspaces_)

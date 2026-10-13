@@ -18,7 +18,7 @@
 // process that made it, 0 until it is known; and from version 4 each has its `windowId`, the
 // number the compositor's control socket names it by (as the window switcher does), 0 until it
 // is known, and the model can peek at one; from version 6 whether it is kept `above` the others,
-// undefined below it; and from version 7 it can say which windows a workspace shows, and where
+// undefined below it; and from version 8 it can say which windows a workspace shows, and where
 // (workspaceLayout).
 class TaskModel : public QAbstractListModel {
     Q_OBJECT
@@ -84,7 +84,7 @@ class TaskModel : public QAbstractListModel {
     Q_INVOKABLE void peek(int taskId);
     Q_INVOKABLE void endPeek(int taskId);
     int peekedTask() const { return peeked_; }
-    // Through the window control's version 7, counted per workspace: while watched, the
+    // Through the window control's version 8, counted per workspace: while watched, the
     // compositor says which windows workspace `number` (from 1) of output `output` shows, and
     // again whenever that changes. The last unwatch lets it go, keeping what it said last.
     Q_INVOKABLE void watchWorkspace(const QString &output, int number);
