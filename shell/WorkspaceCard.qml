@@ -28,12 +28,12 @@ PopupCard {
     bounds: panel.popupArea
     // Open, it glides to another workspace's place.
     glides: true
-    readonly property real gap: panel.thumbnailGap
+    readonly property real tileGap: panel.thumbnailGap
     readonly property real padding: panel.thumbnailPadding
     readonly property real headerHeight: Theme.iconSize + Theme.spacingS
     readonly property size miniature: panel.workspaceMiniature
-    implicitWidth: 2 * gap + 2 * padding + miniature.width
-    implicitHeight: 2 * gap + 2 * padding + headerHeight + Theme.spacingS + miniature.height
+    implicitWidth: 2 * tileGap + 2 * padding + miniature.width
+    implicitHeight: 2 * tileGap + 2 * padding + headerHeight + Theme.spacingS + miniature.height
     HoverHandler {
         id: hover
         onHoveredChanged: card.panel.hoverWorkspaceCard(hovered)
@@ -92,7 +92,7 @@ PopupCard {
     Button {
         id: tile
         objectName: "workspaceTile"
-        anchors.fill: parent; anchors.margins: card.gap
+        anchors.fill: parent; anchors.margins: card.tileGap
         padding: card.padding
         hoverEnabled: true
         focusPolicy: Qt.NoFocus
