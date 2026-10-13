@@ -48,6 +48,11 @@ def between(a, b, value):
     return min(a, b) < value < max(a, b)
 
 
+def between_or_at(start, end, box):
+    """Whether each of `box`'s values lies from `start`'s to `end`'s, either included."""
+    return all(min(s, e) <= v <= max(s, e) for s, e, v in zip(start, end, box))
+
+
 def on_the_way(start, end, box):
     """Whether `box` lies on the way from `start` to `end`: strictly between them where they are
     far apart, else at either or between."""
@@ -196,20 +201,27 @@ with harness.Compositor(compositor, config()) as desktop:
     # Going fullscreen part way: it goes on from where it is drawn to the whole output, and
     # back into its slot.
     msg("snap_left")
-    wait_for(lambda: drawn()["W"][2] == "moving", "W snapping")
+    wait_for(lambda: drawn()["W"][2] == "moving" and
+             between(start[2] + 60, LEFT[2] - 60, drawn()["W"][0][2]), "W snapping")
+    before = drawn()["W"][0]
     msg("fullscreen")
+    after = drawn()["W"][0]
+    # Snapping and fullscreen both take it left, up and wider here: it goes on from before.
+    assert between_or_at(before, FULL, after) and after != FULL, (before, after)
     assert windows()["W"].box[:2] == FULL[:2], windows()
     wait_for(lambda: resting("W", FULL) and drawn()["W"][3] == 0, "W fullscreen")
     msg("fullscreen")
     wait_for(lambda: growing("W", FULL, LEFT, stretched=False), "W shrinking into its slot")
     wait_for(lambda: resting("W", LEFT), "W in its slot")
 
-    # Moving to another workspace part way: it lands there; turning animations off part way
-    # lands it too.
+    # Moved to another workspace part way, it goes on hidden to its end; turning animations off
+    # part way lands it at once.
     msg("restore")
     wait_for(lambda: drawn()["W"][2] == "moving", "W restoring")
     msg("move_to_workspace", "2")
-    wait_for(lambda: animations()[0] == 0, "nothing runs for a hidden window")
+    assert drawn()["W"][2] == "moving" and not windows()["W"].visible, drawn()
+    wait_for(lambda: animations()[0] == 0 and drawn()["W"][2] == "rest",
+             "W at rest, hidden")
     msg("workspace", "2")
     wait_for(lambda: resting("W", start), "W at rest on workspace 2")
     msg("maximize")
