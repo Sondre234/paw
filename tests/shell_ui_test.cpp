@@ -6127,6 +6127,34 @@ ListModel {
         if (!waitFor([&] { return !card->isVisible(); }))
             return fail("a press beside the desktop's menu did not close it");
     }
+    // The wallpaper: a new one is laid over the one shown and fades in once it has loaded, the
+    // one under it going as it is covered; one picked during that is laid over both.
+    {
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *backdrop = find(desktop.rootObject(), "backdrop");
+        auto shows = [&](const QString &path) {
+            const auto layers = backdrop ? backdrop->childItems() : QList<QQuickItem *>{};
+            return layers.size() == 1 && layers[0]->opacity() == 1 &&
+                   layers[0]->property("source") == QUrl::fromLocalFile(path).toString();
+        };
+        const auto first = controller.wallpaperFile(), two = walls + "/b/two.png";
+        if (!waitFor([&] { return shows(first); }))
+            return fail("the desktop did not show its wallpaper");
+        controller.pickWallpaper(two);
+        if (backdrop->childItems().size() != 2 || backdrop->childItems()[1]->opacity() != 0 ||
+            !waitFor([&] { return shows(two); }))
+            return fail("a new wallpaper did not come in over the one shown");
+        controller.pickWallpaper(first);
+        controller.pickWallpaper(two);
+        if (backdrop->childItems().size() != 3 || !waitFor([&] { return shows(two); }))
+            return fail("a wallpaper picked as another came in did not go over both");
+        controller.pickWallpaper("");
+        if (!waitFor([&] { return shows(first); }))
+            return fail("the configured wallpaper did not come back");
+    }
     // The macOS style, from a profile: the menu bar along the top in a surface of its own and the
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the
     // profile changes and back again.
