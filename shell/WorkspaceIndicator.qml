@@ -54,7 +54,7 @@ Item {
             if (bumping.running && bumpWay === way)
                 return
             bumpWay = way
-            bumpOut.to = way * Theme.spacingXS * 1.5
+            bumpOut.to = way * Theme.spacingS
             bumping.restart()
         }
         transform: Translate {
