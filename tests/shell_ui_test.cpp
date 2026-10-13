@@ -6246,6 +6246,34 @@ ListModel {
         controller.pickWallpaper("");
         if (!waitFor([&] { return shows(first); }))
             return fail("the configured wallpaper did not come back");
+        // A profile with a wallpaper of its own is drawn, as the shell tells the compositor, only
+        // once that wallpaper has loaded and shows; meanwhile nothing in the shell moves.
+        const auto profiled = QString(lua).replace(
+            "light={shell={accent='#336699'}}",
+            "light={shell={accent='#336699',wallpaper='walls/b/two.png'}}");
+        auto *theme = view.engine()->singletonInstance<QObject *>("PawShell", "Theme");
+        QList<qreal> motion;   // Theme.motionScale as restyling started
+        QList<bool> wallpaper; // whether the new wallpaper showed as it ended
+        const auto restyled = QObject::connect(&controller, &ShellController::restylingChanged, [&] {
+            if (controller.restyling())
+                motion << theme->property("motionScale").toReal();
+            else
+                wallpaper << shows(two);
+        });
+        const auto profileBefore = controller.profile();
+        drawnProfiles.clear();
+        if (!reconfigure(profiled))
+            return fail("could not rewrite the configuration");
+        pickProfile("light");
+        if (!waitFor([&] { return !controller.restyling() && drawnProfiles.contains("light"); }) ||
+            motion != QList<qreal>{0} || wallpaper != QList<bool>{true} ||
+            theme->property("motionScale").toReal() <= 0)
+            return fail("a new profile was said drawn before its wallpaper showed, or moved meanwhile");
+        QObject::disconnect(restyled);
+        pickProfile(profileBefore);
+        if (!reconfigure(lua) ||
+            !waitFor([&] { return controller.profile() == profileBefore && !controller.restyling(); }))
+            return fail("the profile in use did not come back");
     }
     // The macOS style, from a profile: the menu bar along the top in a surface of its own and the
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the
