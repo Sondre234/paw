@@ -31,6 +31,7 @@ struct sh_workspace_object {
     char output[64];
     uint32_t number; // from 1
     bool sent;
+    bool dirty; // to be listed again from the idle callback
     struct workspace_list last;
     struct wlr_output *watched;
     struct wl_listener output_commit, output_destroy;
@@ -435,9 +436,13 @@ static bool same_list(const struct workspace_list *a, const struct workspace_lis
     return true;
 }
 
+static void schedule_workspaces(struct sh_server *server);
+
+/* What its output shows changed: the object lists its workspace again, the others need not. */
 static void workspace_output_commit(struct wl_listener *listener, void *data) {
     struct sh_workspace_object *object = wl_container_of(listener, object, output_commit);
-    workspace_objects_changed(object->server);
+    object->dirty = true;
+    schedule_workspaces(object->server);
 }
 
 static void unwatch_output(struct sh_workspace_object *object) {
@@ -496,17 +501,29 @@ static void send_workspaces(void *data) {
     struct sh_server *server = data;
     server->workspace_objects_idle = NULL;
     struct sh_workspace_object *object;
-    wl_list_for_each(object, &server->workspace_objects, link) send_workspace(object);
+    wl_list_for_each(object, &server->workspace_objects, link) {
+        if (object->dirty) {
+            object->dirty = false;
+            send_workspace(object);
+        }
+    }
+}
+
+static void schedule_workspaces(struct sh_server *server) {
+    if (server->workspace_objects_idle)
+        return;
+    server->workspace_objects_idle = wl_event_loop_add_idle(
+        wl_display_get_event_loop(server->wl_display), send_workspaces, server);
 }
 
 /* The windows may have moved, opened, closed or been raised: the workspaces' objects list them
  * again once the change is over, sending only a list that changed. Cheap while none is held. */
 void workspace_objects_changed(struct sh_server *server) {
-    if (!server->window_control || server->workspace_objects_idle ||
-        wl_list_empty(&server->workspace_objects))
+    if (!server->window_control || wl_list_empty(&server->workspace_objects))
         return;
-    server->workspace_objects_idle = wl_event_loop_add_idle(
-        wl_display_get_event_loop(server->wl_display), send_workspaces, server);
+    struct sh_workspace_object *object;
+    wl_list_for_each(object, &server->workspace_objects, link) object->dirty = true;
+    schedule_workspaces(server);
 }
 
 /* A window committed: one that drew itself at another size moves its picture on its workspace,
