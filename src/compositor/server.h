@@ -516,6 +516,9 @@ struct sh_server {
     /* A login session (standalone, or a test's with PAW_LOGIN_SESSION): it saves itself as
      * it ends and restores that as it starts (session.restore). */
     bool login_session;
+    /* The appearance.color_scheme a login session last told applications to follow (enum
+     * sh_color_scheme); SH_COLOR_SCHEME_UNSET before the first. */
+    int color_scheme_set;
 
     /* Urgent windows (see windows.activation): the last order number given, and the timer that
      * redraws their pulsing borders while they pulse. */
