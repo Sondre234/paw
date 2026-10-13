@@ -510,6 +510,270 @@ static void test_hold_copy(void) {
     teardown(&rig);
 }
 
+/* A window changing size: `surfaces` holds the client's surface (a rect standing for its buffer,
+ * 200 by 100 at the origin), and `frame` the frame the owner draws around the size drawn, as
+ * frame.c does from the morph's `resized`. */
+struct morph_rig {
+    struct rig rig;
+    struct wlr_scene_tree *surfaces;
+    struct wlr_scene_rect *surface, *frame;
+    int heard, heard_width, heard_height; // what `resized` heard last; 0 by 0 for rest
+};
+
+static void morph_resized(void *data) {
+    struct morph_rig *m = data;
+    ++m->heard;
+    int width, height;
+    if (sh_anim_drawn_size(&m->rig.anim, &width, &height)) {
+        m->heard_width = width, m->heard_height = height;
+    } else {
+        m->heard_width = m->heard_height = 0;
+        width = m->surface->width, height = m->surface->height;
+    }
+    wlr_scene_rect_set_size(m->frame, width + 4, height + 4);
+}
+
+static void morph_setup(struct morph_rig *m, struct sh_animator_config c) {
+    setup(&m->rig, c);
+    float color[4] = {0.2F, 0.4F, 0.6F, 1}, black[4] = {0, 0, 0, 1};
+    // The frame below, at the window's size and two pixels past it.
+    wlr_scene_rect_set_size(m->rig.rect, 204, 104);
+    wlr_scene_rect_set_color(m->rig.rect, black);
+    wlr_scene_node_set_position(&m->rig.rect->node, -2, -2);
+    m->frame = m->rig.rect;
+    m->surfaces = wlr_scene_tree_create(m->rig.content);
+    m->surface = wlr_scene_rect_create(m->surfaces, 200, 100, color);
+    m->heard = m->heard_width = m->heard_height = 0;
+}
+
+/* Glides by (dx, dy) from 200 by 100 to `width` by `height`. */
+static void morph_to(struct morph_rig *m, int dx, int dy, int width, int height) {
+    struct sh_morph morph = {
+        .surfaces = m->surfaces,
+        .dx = dx,
+        .dy = dy,
+        .from_width = 200,
+        .from_height = 100,
+        .width = width,
+        .height = height,
+        .live_width = 200,
+        .live_height = 100,
+        .kind = SH_ANIM_MOVE,
+        .resized = morph_resized,
+        .data = m,
+    };
+    sh_anim_morph(m->rig.animator, &m->rig.anim, m->rig.content, &morph);
+}
+
+/* The client draws `width` by `height`: the animator hears of it before the scene takes it. */
+static void client_draws(struct morph_rig *m, int width, int height, bool answered) {
+    sh_anim_morph_commit(m->rig.animator, &m->rig.anim, width, height, answered);
+    wlr_scene_rect_set_size(m->surface, width, height);
+}
+
+/* The tree just above the surfaces, a copy of what the client drew before; NULL for none. */
+static struct wlr_scene_tree *fading_copy(struct morph_rig *m) {
+    struct wl_list *next = m->surfaces->node.link.next;
+    if (next == &m->rig.content->children)
+        return NULL;
+    struct wlr_scene_node *node = wl_container_of(next, node, link);
+    return node->type == WLR_SCENE_NODE_TREE ? wlr_scene_tree_from_node(node) : NULL;
+}
+
+/* The copy's rect, or NULL. */
+static struct wlr_scene_rect *fading_rect(struct morph_rig *m) {
+    struct wlr_scene_tree *copy = fading_copy(m);
+    if (!copy || wl_list_empty(&copy->children))
+        return NULL;
+    struct wlr_scene_node *node = wl_container_of(copy->children.next, node, link);
+    return node->type == WLR_SCENE_NODE_RECT ? wlr_scene_rect_from_node(node) : NULL;
+}
+
+static void test_morph_stretches_and_waits(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    morph_to(&m, -50, -20, 400, 300);
+    CHECK(sh_animator_running(m.rig.animator) == 1, "running");
+    CHECK(m.rig.content->node.x == -50 && m.rig.content->node.y == -20, "drawn where it was");
+    CHECK(m.surface->width == 200 && m.surface->height == 100, "at its old size");
+    CHECK(m.heard >= 1 && m.heard_width == 200 && m.heard_height == 100,
+          "the frame is drawn for that size: %d by %d", m.heard_width, m.heard_height);
+    advance(&m.rig, 50);
+    CHECK(m.rig.content->node.x == -25 && m.rig.content->node.y == -10, "half way: %d, %d",
+          m.rig.content->node.x, m.rig.content->node.y);
+    CHECK(m.surface->width == 300 && m.surface->height == 200, "stretched half way: %d by %d",
+          m.surface->width, m.surface->height);
+    CHECK(m.frame->width == 304 && m.frame->height == 204, "the frame follows");
+    advance(&m.rig, 50);
+    CHECK(m.rig.content->node.x == 0 && m.surface->width == 400 && m.surface->height == 300,
+          "the glide is over, the client's old picture stretched to the new size");
+    CHECK(sh_animator_running(m.rig.animator) == 1, "waiting for the client");
+    advance(&m.rig, 250);
+    CHECK(sh_animator_running(m.rig.animator) == 1 && m.surface->width == 400, "still waiting");
+    int heard = m.heard;
+    advance(&m.rig, 60);
+    CHECK(sh_animator_running(m.rig.animator) == 0, "the client had its time");
+    CHECK(m.surface->width == 200 && m.surface->height == 100, "drawn as the client drew it");
+    CHECK(m.heard == heard + 1 && m.heard_width == 0, "the frame drawn for it again");
+    CHECK(m.frame->width == 204, "the frame at rest: %d", m.frame->width);
+    teardown(&m.rig);
+}
+
+static void test_morph_crossfades_the_answer(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    int children = wl_list_length(&m.rig.content->children);
+    morph_to(&m, 0, 0, 400, 300);
+    advance(&m.rig, 20);
+    CHECK(m.surface->width == 240 && m.surface->height == 140, "a fifth of the way: %d by %d",
+          m.surface->width, m.surface->height);
+    client_draws(&m, 400, 300, true);
+    CHECK(fading_copy(&m) && wl_list_length(&m.rig.content->children) == children + 1,
+          "a copy of the old picture over the new one");
+    struct wlr_scene_rect *old = fading_rect(&m);
+    CHECK(old && old->width == 200 && old->height == 100, "the old picture as the client drew it");
+    advance(&m.rig, 20);
+    CHECK(m.surface->width == 280 && m.surface->height == 180,
+          "the new picture shrunk to the size drawn: %d by %d", m.surface->width,
+          m.surface->height);
+    CHECK(old && old->width == 280 && old->height == 180, "the old one stretched to it");
+    CHECK(old && old->color[3] < 1 && old->color[3] > 0.5F, "fading: %f", old ? old->color[3] : 0);
+    advance(&m.rig, 40);
+    CHECK(old && old->color[3] < 0.5F, "mostly gone: %f", old ? old->color[3] : 0);
+    advance(&m.rig, 50);
+    CHECK(sh_animator_running(m.rig.animator) == 0, "done once the glide and the fade are");
+    CHECK(!fading_copy(&m) && wl_list_length(&m.rig.content->children) == children,
+          "the copy is gone");
+    CHECK(m.surface->width == 400 && m.surface->height == 300, "the new picture at rest");
+    CHECK(m.frame->width == 404 && m.heard_width == 0, "and the frame");
+    teardown(&m.rig);
+}
+
+/* The client answers once the glide is over, at the very size its old picture was stretched
+ * to, which the records could take for the animation's own: it rests at that size. */
+static void test_morph_late_answer_at_drawn_size(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    morph_to(&m, 0, 0, 400, 300);
+    advance(&m.rig, 150);
+    CHECK(m.surface->width == 400 && sh_animator_running(m.rig.animator) == 1, "waiting");
+    client_draws(&m, 400, 300, true);
+    CHECK(fading_copy(&m) != NULL, "the old picture fades");
+    advance(&m.rig, 20);
+    CHECK(m.surface->width == 400 && m.surface->height == 300, "the new one at its size");
+    advance(&m.rig, 40);
+    CHECK(sh_animator_running(m.rig.animator) == 0, "it fades in half the glide's time");
+    CHECK(m.surface->width == 400 && m.surface->height == 300, "and rests there: %d by %d",
+          m.surface->width, m.surface->height);
+    teardown(&m.rig);
+}
+
+/* Drawn at another size than asked, the window eases on to it rather than jumping. */
+static void test_morph_answer_of_its_own(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    morph_to(&m, 0, 0, 400, 300);
+    advance(&m.rig, 50);
+    int width = m.surface->width;
+    client_draws(&m, 380, 250, true);
+    advance(&m.rig, 1);
+    CHECK(abs(m.surface->width - width) <= 3, "no jump: %d after %d", m.surface->width, width);
+    advance(&m.rig, 200);
+    CHECK(sh_animator_running(m.rig.animator) == 0, "done");
+    CHECK(m.surface->width == 380 && m.surface->height == 250, "at the client's size");
+    teardown(&m.rig);
+}
+
+/* Reversed half way (maximized, then restored), it goes back from where it is drawn, at the
+ * speed it has. */
+static void test_morph_reverses_smoothly(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(400, SH_CURVE_SPRING));
+    morph_to(&m, 0, 0, 1200, 900);
+    advance(&m.rig, 60);
+    int before = m.surface->width;
+    advance(&m.rig, 16);
+    int speed = m.surface->width - before;
+    CHECK(speed > 0, "growing");
+    struct sh_morph back = {.surfaces = m.surfaces,
+                            .from_width = 1,
+                            .from_height = 1,
+                            .width = 200,
+                            .height = 100,
+                            .live_width = 1,
+                            .live_height = 1,
+                            .kind = SH_ANIM_MOVE,
+                            .resized = morph_resized,
+                            .data = &m};
+    int drawn = m.surface->width;
+    sh_anim_morph(m.rig.animator, &m.rig.anim, m.rig.content, &back);
+    CHECK(m.surface->width == drawn, "starts where it is drawn, not from the size given: %d, %d",
+          m.surface->width, drawn);
+    advance(&m.rig, 16);
+    int next = m.surface->width - drawn;
+    CHECK(next > 0 && next <= 2 * speed, "still growing at first, no faster: %d after %d", next,
+          speed);
+    advance(&m.rig, 1000);
+    CHECK(sh_animator_running(m.rig.animator) == 0 && m.surface->width == 200, "back: %d",
+          m.surface->width);
+    teardown(&m.rig);
+}
+
+static void test_morph_rest_and_finish(void) {
+    struct morph_rig m;
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    morph_to(&m, -100, 0, 400, 300);
+    advance(&m.rig, 20);
+    client_draws(&m, 400, 300, true);
+    advance(&m.rig, 20);
+    struct wlr_scene_tree *copy = fading_copy(&m);
+    CHECK(copy && copy->node.enabled, "copy shown");
+    // Input sees the window where it will be, at the size the client drew, and no copy.
+    sh_animator_rest(m.rig.animator);
+    CHECK(m.rig.content->node.x == 0 && m.surface->width == 400, "at rest for input");
+    CHECK(copy && !copy->node.enabled, "copy hidden");
+    sh_animator_resume(m.rig.animator);
+    CHECK(m.rig.content->node.x < 0 && m.surface->width < 400 && copy && copy->node.enabled,
+          "drawn again");
+    sh_animator_rest_at(m.rig.animator, 5000, 5000);
+    CHECK(m.surface->width == 400, "at rest for any lookup");
+    sh_animator_resume(m.rig.animator);
+    // Finishing lands it, and the frame is drawn at rest.
+    sh_anim_finish(&m.rig.anim);
+    CHECK(sh_animator_running(m.rig.animator) == 0 && !fading_copy(&m), "landed");
+    CHECK(m.surface->width == 400 && m.rig.content->node.x == 0 && m.heard_width == 0 &&
+              m.frame->width == 404,
+          "at rest");
+    teardown(&m.rig);
+}
+
+static void test_morph_off_and_with_open(void) {
+    struct morph_rig m;
+    struct sh_animator_config c = config(100, SH_CURVE_LINEAR);
+    c.enabled = false;
+    morph_setup(&m, c);
+    morph_to(&m, 30, 0, 400, 300);
+    CHECK(sh_animator_running(m.rig.animator) == 0 && m.heard == 0 && m.surface->width == 200 &&
+              m.rig.content->node.x == 0,
+          "nothing with animations off");
+    sh_anim_morph_commit(m.rig.animator, &m.rig.anim, 400, 300, true);
+    CHECK(!fading_copy(&m), "nor on the client's answer");
+    teardown(&m.rig);
+    // Opening and changing size at once: the surfaces are stretched, then scaled with the rest.
+    morph_setup(&m, config(100, SH_CURVE_LINEAR));
+    sh_anim_open(m.rig.animator, &m.rig.anim, m.rig.content, 0, 0);
+    morph_to(&m, 0, 0, 400, 300);
+    advance(&m.rig, 50);
+    double scale = 0.94 + 0.06 * 0.5;
+    CHECK(abs(m.surface->width - (int)lround(300 * scale)) <= 1, "both: %d", m.surface->width);
+    CHECK(m.surface->color[3] > 0.4F && m.surface->color[3] < 0.6F, "fading in");
+    advance(&m.rig, 400);
+    CHECK(sh_animator_running(m.rig.animator) == 0 && m.surface->width == 200 &&
+              fabsf(m.surface->color[3] - 1) < 1e-6F,
+          "both end at rest");
+    teardown(&m.rig);
+}
+
 static void test_finish_all(void) {
     struct rig rig;
     setup(&rig, config(300, SH_CURVE_EASE_OUT));
@@ -537,6 +801,13 @@ int main(void) {
     test_workspace_slide();
     test_hold_and_slide_from();
     test_hold_copy();
+    test_morph_stretches_and_waits();
+    test_morph_crossfades_the_answer();
+    test_morph_late_answer_at_drawn_size();
+    test_morph_answer_of_its_own();
+    test_morph_reverses_smoothly();
+    test_morph_rest_and_finish();
+    test_morph_off_and_with_open();
     test_finish_all();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
