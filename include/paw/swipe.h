@@ -96,9 +96,10 @@ struct sh_swipe_edge {
 };
 struct sh_swipe_edge sh_swipe_past_end(double pull, double slide, double width);
 /* The other way round: how many steps past the end the fingers are when the windows have given
- * `offset` pixels (0 and up), for fingers that take over windows still springing back. Nearly as
- * far as they give counts as just short of that; a slide that only fades gives no offset. */
-double sh_swipe_pull_at(double offset, double slide, double width);
+ * `offset` pixels (0 and up), or with a slide that only fades have dimmed to `alpha`, for fingers
+ * that take over windows still springing back. Nearly as far as they give counts as just short
+ * of that. */
+double sh_swipe_pull_at(double offset, double alpha, double slide, double width);
 
 /* The direction opposite `direction`, along the same axis. */
 enum sh_swipe_direction sh_swipe_opposite(enum sh_swipe_direction direction);

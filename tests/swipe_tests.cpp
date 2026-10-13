@@ -183,16 +183,16 @@ static void pull_at() {
     for (double pull : {0.01, 0.3, 1.0, 1.5}) {
         for (double slide : {102.4, 1280.0}) {
             double offset = sh_swipe_past_end(pull, slide, 1280).offset;
-            NEAR(sh_swipe_pull_at(offset, slide, 1280), pull, 1e-9);
+            NEAR(sh_swipe_pull_at(offset, 1, slide, 1280), pull, 1e-9);
         }
     }
-    NEAR(sh_swipe_pull_at(0, 102.4, 1280), 0, 1e-12);
-    NEAR(sh_swipe_pull_at(-5, 102.4, 1280), 0, 1e-12);
-    NEAR(sh_swipe_pull_at(5, 0, 1280), 0, 1e-12); // a slide that only fades
+    NEAR(sh_swipe_pull_at(0, 1, 102.4, 1280), 0, 1e-12);
+    NEAR(sh_swipe_pull_at(-5, 1, 102.4, 1280), 0, 1e-12);
+    NEAR(sh_swipe_pull_at(5, 1, 0, 1280), 0, 1e-12); // a slide that only fades, not dimmed
     // At or past the limit, which no pull reaches: just short of it.
-    double far = sh_swipe_pull_at(102.4, 102.4, 1280);
+    double far = sh_swipe_pull_at(102.4, 1, 102.4, 1280);
     CHECK(std::isfinite(far) && far > 5);
-    NEAR(sh_swipe_pull_at(500, 102.4, 1280), far, 1e-12);
+    NEAR(sh_swipe_pull_at(500, 1, 102.4, 1280), far, 1e-12);
 }
 
 static void names() {

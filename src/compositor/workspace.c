@@ -284,8 +284,9 @@ void workspace_swipe_hold(struct sh_server *server, struct sh_workspace_swipe *s
         // Windows taken over as they spring back: the fingers move them on from there.
         struct wlr_box box;
         wlr_output_layout_get_box(server->output_layout, output, &box);
-        double pull = sh_swipe_pull_at(
-            fabs(swipe->caught), box.width * server_settings(server)->animation_slide, box.width);
+        double pull = sh_swipe_pull_at(fabs(swipe->caught), 1,
+                                       box.width * server_settings(server)->animation_slide,
+                                       box.width);
         swipe->shift = (swipe->caught < 0 ? pull : -pull) - fingers;
         swipe->caught = 0;
     }

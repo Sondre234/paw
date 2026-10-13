@@ -122,12 +122,14 @@ struct sh_swipe_edge sh_swipe_past_end(double pull, double slide, double width) 
     return edge;
 }
 
-double sh_swipe_pull_at(double offset, double slide, double width) {
-    double limit = slide > 0 ? edge_limit(slide, width) : 0;
-    if (!(offset > 0) || !(limit > 0) || !isfinite(offset))
+double sh_swipe_pull_at(double offset, double alpha, double slide, double width) {
+    // How far it gave of how far it could, in the units the step's pull is.
+    double gave = slide > 0 ? offset : 1 - alpha;
+    double limit = slide > 0 ? edge_limit(slide, width) : SH_SWIPE_EDGE_FADE;
+    if (!(gave > 0) || !(limit > 0) || !isfinite(gave))
         return 0;
-    offset = fmin(offset, 0.95 * limit);
-    return offset / (limit - offset);
+    gave = fmin(gave, 0.95 * limit);
+    return slide > 0 ? gave / (limit - gave) : gave * limit / (limit - gave);
 }
 
 enum sh_swipe_direction sh_swipe_opposite(enum sh_swipe_direction direction) {
