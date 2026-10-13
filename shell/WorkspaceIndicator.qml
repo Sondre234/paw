@@ -71,6 +71,38 @@ Item {
                 hoverEnabled: true
                 onHoveredChanged: workspaceIndicator.panel.hoverWorkspace(workspaceButton, hovered)
                 onPressedChanged: if (pressed) workspaceIndicator.panel.closeWorkspaceCard()
+                // A window dragged from the bar drops onto it (the panel's workspaceAt): while the
+                // drag is over it, it is lit and grows a little; as windows drop onto it, it pops.
+                readonly property bool dropsWindows: true
+                readonly property bool dropTarget: workspaceIndicator.panel.dropWorkspace === number
+                property real popped: 1
+                scale: (dropTarget ? 1.12 : 1) * popped
+                Behavior on scale { enabled: !pop.running; NumberAnimation { duration: Theme.durationFast; easing.type: Easing.OutBack } }
+                SequentialAnimation {
+                    id: pop
+                    NumberAnimation { target: workspaceButton; property: "popped"; to: 1.25; duration: Theme.durationFast; easing.type: Theme.easing }
+                    NumberAnimation { target: workspaceButton; property: "popped"; to: 1; duration: Theme.durationSlow; easing.type: Easing.OutBack }
+                }
+                Connections {
+                    target: workspaceIndicator.panel
+                    function onWindowsDropped(number) { if (number === workspaceButton.number && Theme.durationFast > 0) pop.restart() }
+                }
+                background: ButtonFill {
+                    radius: workspaceButton.radius
+                    hovered: workspaceButton.hovered
+                    pressed: workspaceButton.pressed
+                    active: workspaceButton.active
+                    color: workspaceButton.dropTarget ? Theme.accentSubtle : stateColor
+                    Rectangle {
+                        objectName: "workspaceDropRing"
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: "transparent"
+                        border.width: 2; border.color: Theme.accent
+                        opacity: workspaceButton.dropTarget ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
+                    }
+                }
                 Accessible.name: "Workspace " + number + (label ? " " + label : "") + (urgent ? " (needs attention)" : "")
                 BarTip {
                     panel: workspaceIndicator.panel; owner: workspaceButton

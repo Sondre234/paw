@@ -39,6 +39,8 @@ PopupCard {
         onHoveredChanged: card.panel.hoverWorkspaceCard(hovered)
     }
     readonly property bool hovered: hover.hovered
+    // The picture of the workspace, which a window dragged onto the workspace drops into.
+    readonly property Item miniatureItem: picture
 
     // The workspace it shows: the one open, else the one warmed up, kept while it fades out; and
     // whether its windows are watched, from the warm-up until it has faded out.
