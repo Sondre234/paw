@@ -469,6 +469,18 @@ one of the dock (an application's menu, the windows of one) by `panel.dockAnchor
 `panel.dockSide`, which on the taskbar are the bar's. A change of style makes and drops the
 bars, and the surfaces follow at once.
 
+Along a side (`shell.panelEdge` "left" or "right", `panel.vertical`), the panel's surface runs down
+the output and the taskbar stands upright: its `GridLayout` is a column, and the widgets stack what
+they show by `Theme.barVertical`, a button `Theme.barItemWidth` by `barItemHeight`. A popup's place
+along the bar is then a y: `panel.alongBar(item, offset)` and `panel.lengthAlong(item)` say where
+something on the bar is along it, which `barAnchor` and `dockAnchor` turn into the rectangle a popup
+opens beside, on `popupSide`. A drag of the bar to another edge (`shell.panel_draggable`) asks the
+compositor for the pointer (`panel_drag`, `src/compositor/panel_drag.c`), as a window's move takes
+it: a surface the pointer went on to would never hear the button let go. The `panel-drag` lines it
+sends move the outline every panel's popover shows, taking no input, and `panel-dropped` has
+`ShellController::movePanel` write `shell.panel_position` with `paw::save_setting`
+(`src/config_edit.cpp`) and load the file again.
+
 The window switcher, the command palette, the power dialog and the overview's text are
 `OverlayView`s (`view.cpp`), a layer surface each on every output's overlay layer. `present()`
 shows one and sets its QML root's `shown`; `dismiss()` clears it, and the root animates its own
