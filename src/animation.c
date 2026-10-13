@@ -36,7 +36,43 @@ struct sh_anim_record {
     int x, y, width, height;
     int set_x, set_y, set_width, set_height;
     float paint[4], set_paint[4]; // opacity in [0], or a rectangle's color
+    /* A buffer's opaque region, set aside while it is drawn at another size than its own: the
+     * scene takes the region as it is, unscaled, and would leave what lies under a part of it
+     * that is not opaque where the buffer is drawn undrawn. */
+    bool cleared;
+    pixman_region32_t opaque;
 };
+
+/* A record no longer needed. */
+static void record_finish(struct sh_anim_record *r) {
+    if (r->cleared)
+        pixman_region32_fini(&r->opaque);
+    r->cleared = false;
+}
+
+/* The buffer's opaque region set aside while it is drawn at another size; a region the client
+ * gave since takes the place of the one set aside. */
+static void clear_opaque(struct sh_anim_record *r, struct wlr_scene_buffer *buffer) {
+    if (!pixman_region32_not_empty(&buffer->opaque_region))
+        return;
+    if (!r->cleared)
+        pixman_region32_init(&r->opaque);
+    r->cleared = true;
+    pixman_region32_copy(&r->opaque, &buffer->opaque_region);
+    pixman_region32_t empty;
+    pixman_region32_init(&empty);
+    wlr_scene_buffer_set_opaque_region(buffer, &empty);
+    pixman_region32_fini(&empty);
+}
+
+/* The opaque region set aside given back, unless the client gave another meanwhile. */
+static void restore_opaque(struct sh_anim_record *r, struct wlr_scene_buffer *buffer) {
+    if (!r->cleared)
+        return;
+    if (!pixman_region32_not_empty(&buffer->opaque_region))
+        wlr_scene_buffer_set_opaque_region(buffer, &r->opaque);
+    record_finish(r);
+}
 
 static int64_t real_clock(void *data) {
     struct timespec now;
@@ -162,6 +198,13 @@ static void apply_node(struct sh_anim *anim, struct wlr_scene_node *node, int ox
     } else {
         r->set_x = r->x, r->set_y = r->y, r->set_width = width, r->set_height = height;
     }
+    if (node->type == WLR_SCENE_NODE_BUFFER) {
+        struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
+        if (r->set_width != r->width || r->set_height != r->height)
+            clear_opaque(r, buffer);
+        else
+            restore_opaque(r, buffer);
+    }
     // Opacity is a factor; a premultiplied color fades by multiplying every channel.
     for (int i = 0; i < 4; ++i)
         r->set_paint[i] = r->paint[i] * m->alpha;
@@ -185,6 +228,8 @@ static void restore_node(struct sh_anim *anim, struct wlr_scene_node *node) {
     paint(node, current);
     if (r->painted && !memcmp(current, r->set_paint, sizeof(current)))
         set_paint(node, r->paint);
+    if (node->type == WLR_SCENE_NODE_BUFFER)
+        restore_opaque(r, wlr_scene_buffer_from_node(node));
 }
 
 /* `m` with what was drawn for `width` by `height` stretched to the size the morph draws. */
@@ -232,6 +277,7 @@ static void forget(struct sh_anim *anim, struct wlr_scene_tree *tree) {
         }
         for (size_t i = 0; i < anim->count; ++i) {
             if (anim->records[i].node == node) {
+                record_finish(&anim->records[i]);
                 anim->records[i] = anim->records[--anim->count];
                 break;
             }
@@ -273,6 +319,8 @@ static void stop(struct sh_anim *anim) {
     drop_fading(anim);
     anim->fx = anim->glide = anim->held = anim->morph = false;
     anim->drawn_width = anim->drawn_height = -1;
+    for (size_t i = 0; i < anim->count; ++i)
+        record_finish(&anim->records[i]);
     if (anim->owned) {
         wlr_scene_node_destroy(&anim->tree->node);
         free(anim->records);
@@ -732,6 +780,15 @@ static void fade_begin(struct sh_anim *anim, int64_t now) {
         wlr_scene_node_destroy(&copy->node);
         return;
     }
+    // Drawn at other sizes than its buffers' and fading, no part of it hides what is under it.
+    pixman_region32_t empty;
+    pixman_region32_init(&empty);
+    struct wlr_scene_node *node;
+    wl_list_for_each(node, &copy->children, link) {
+        if (node->type == WLR_SCENE_NODE_BUFFER)
+            wlr_scene_buffer_set_opaque_region(wlr_scene_buffer_from_node(node), &empty);
+    }
+    pixman_region32_fini(&empty);
     wlr_scene_node_place_above(&copy->node, surfaces);
     wlr_scene_node_set_position(&copy->node, surfaces->x, surfaces->y);
     anim->fading = copy;
