@@ -6900,7 +6900,9 @@ ListModel {
             card->mapToScene(QPointF(0, 0)).toPoint() != at)
             return fail("a right press on the desktop did not open its menu there");
         QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, QPoint(600, 500));
-        if (card->mapToScene(QPointF(0, 0)).toPoint() != at)
+        // Where it is placed, leaving out the few pixels it slides as it closes, which on a busy
+        // machine it has begun to by now.
+        if (card->parentItem()->mapToScene(card->position()).toPoint() != at)
             return fail("a left press beside the desktop's menu moved it there as it closed");
         if (!waitFor([&] { return !card->isVisible(); }))
             return fail("a press beside the desktop's menu did not close it");
