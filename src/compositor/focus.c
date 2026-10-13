@@ -79,6 +79,8 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
                                 toplevel->fullscreen ? fullscreen_tree(toplevel) : window_layer(toplevel));
         wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
     }
+    if (was_minimized)
+        restore_animate(toplevel); // it grows out of its taskbar button into its place
     wl_list_remove(&toplevel->link);
     wl_list_insert(&server->toplevels, &toplevel->link);
     toplevel_set_activated(toplevel, true);

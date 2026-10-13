@@ -505,7 +505,7 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
 /* Frees a window after removing the listeners xdg-shell and X11 windows have in common. */
 void free_toplevel(struct sh_toplevel *toplevel) {
     sh_anim_finish(&toplevel->anim);
-    forget_window_rects(toplevel);
+    minimize_forget(toplevel);
     sh_tween_stop(&toplevel->fade);
     free(toplevel->opacity_rule.app_id);
     free(toplevel->opacity_rule.title);
@@ -738,6 +738,7 @@ void server_new_xdg_popup(struct wl_listener *listener, void *data) {
 }
 
 void minimize_toplevel(struct sh_toplevel *toplevel) {
+    minimize_animate(toplevel); // a copy of it shrinks into its taskbar button
     group_detach(toplevel); // a minimized window keeps no slot to share
     toplevel->minimized = true;
     untile_toplevel(toplevel, false);
@@ -746,6 +747,7 @@ void minimize_toplevel(struct sh_toplevel *toplevel) {
         wlr_foreign_toplevel_handle_v1_set_minimized(toplevel->foreign, true);
     if (toplevel->server->focused_toplevel == toplevel)
         focus_previous(toplevel->server);
+    minimize_raise(toplevel); // over the window that came forward for the focus
 }
 
 /* Fullscreen the client asked for covers the whole output; fullscreen from a binding or the

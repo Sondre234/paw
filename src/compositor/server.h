@@ -791,9 +791,14 @@ struct sh_toplevel {
     struct wl_listener title_changed, app_id_changed;
     struct wl_listener foreign_activate, foreign_close, foreign_maximize, foreign_minimize;
     struct wl_listener foreign_fullscreen, foreign_rectangle;
-    /* Where clients show the window on each output, its taskbar buttons, the last set first
+    /* Where clients show the window on each output, its taskbar buttons, the last set first;
+     * a copy of it minimizing into one, while it runs; and where it last minimized into or
+     * restored out of, in layout coordinates, and what that was: "button", "panel" or "place"
      * (minimize.c). */
     struct sh_window_rect *rects;
+    struct sh_anim *minimizing;
+    struct wlr_box fold_into;
+    const char *fold_target;
     bool fullscreen;
     bool fullscreen_cover; // the client asked for fullscreen itself, so it covers the panels too
     struct wlr_box fullscreen_restore;
@@ -863,6 +868,7 @@ struct sh_toplevel {
     struct sh_gradient_drawn gradient_drawn;
     bool border_gradient; // the focus fade last eased between gradients, not colours
     int frame_hole; // with rounded corners, the width of the frame border[0] draws; else 0
+    int frame_radius; // with rounded corners, the radius border[0] rounds that frame with
     int corner_radius; // of the rounded clip on `content`; 0 while the window is square
     /* The shadow: a tree at the bottom of `content` holding the slices of a shared image, NULL
      * without one; the image and the size of frame they were laid out for, and for `get frames`
@@ -1219,6 +1225,10 @@ void set_window_rect(struct sh_toplevel *toplevel, const char *output, struct wl
                      struct wl_resource *owner);
 void forget_window_rects(struct sh_toplevel *toplevel);
 void foreign_set_rectangle(struct wl_listener *listener, void *data);
+void minimize_animate(struct sh_toplevel *toplevel);
+void minimize_raise(struct sh_toplevel *toplevel);
+void restore_animate(struct sh_toplevel *toplevel);
+void minimize_forget(struct sh_toplevel *toplevel);
 void describe_minimize(struct sh_server *server, int fd, const char *arguments);
 
 /* mirror.c */
