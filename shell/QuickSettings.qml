@@ -46,7 +46,7 @@ PopupCard {
     // As wide as the clock's flyout, which it lines up with.
     implicitWidth: Theme.macos ? Theme.controlCenterWidth : 7 * (Theme.rowHeight + Theme.spacingL) + 2 * padding
     implicitHeight: content.implicitHeight + 2 * padding + (footer.visible ? footer.height : 0)
-    anchorRect: panel.barAnchor(panel.statusBar.x + panel.statusBar.width, 0)
+    anchorRect: panel.barAnchor(panel.barEnd, 0)
     side: panel.popupSide
     alignment: Qt.AlignRight
     bounds: panel.popupArea

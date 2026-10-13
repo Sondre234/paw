@@ -55,7 +55,7 @@ Item {
     // Bluetooth (BlueZ), swapped the same way.
     property var bluetoothSource: shell.bluetooth
     property string audioPopup: ""
-    // The middle of the item it opens by, and the item's width.
+    // The middle of the item it opens by along the bar (alongBar), and the item's length there.
     property real audioPopupX: 0
     property real audioPopupWidth: 0
     // A tray item's menu: the item it belongs to ("" while closed), and where its icon is.
@@ -218,33 +218,57 @@ Item {
     // open by it, and the part that holds them and names the buttons they open by.
     readonly property Item statusBar: macos ? menuBar || root : bar
     readonly property Item statusArea: macos ? menuBar : taskbar
-    // The surface the popups are drawn in, and the bar's top edge in its coordinates: the bar's
-    // surface lies along its top or bottom edge, across its width, where it begins at surfaceTop.
+    // The surface the popups are drawn in, and the bar's top and left edges in its coordinates:
+    // the bar's surface lies along its edge `edge`, across its width or along a side its height,
+    // where it begins at surfaceLeft, surfaceTop.
     readonly property Item popupLayer: popupLayer
     // What Quick Settings opens the wallpaper picker by.
     readonly property Item quickSettingsButton: statusArea ? statusArea.quickSettings : null
-    readonly property real surfaceTop: onTop ? 0 : popover.height - height
+    readonly property real surfaceTop: edge === "bottom" ? popover.height - height : 0
+    readonly property real surfaceLeft: edge === "right" ? popover.width - width : 0
     readonly property real barTop: surfaceTop + bar.y
+    readonly property real barLeft: surfaceLeft + bar.x
+    // Where something on the bar is along it, in the popover's coordinates: its x, or its y along a
+    // side, `offset` into it that way; and its length that way. The bar's surface and the popover
+    // both begin at the output's edge across which the bar runs, so mapping to the panel will do.
+    function alongBar(item, offset) {
+        var point = item.mapToItem(root, vertical ? 0 : offset, vertical ? offset : 0)
+        return vertical ? point.y : point.x
+    }
+    function lengthAlong(item) { return vertical ? item.height : item.width }
+    // Where the bar's buttons begin, past the start button's inset, and where its widgets end,
+    // which the start menu and the clock's and Quick Settings' cards line up with.
+    readonly property real barStart: Theme.spacingL + (vertical ? shell.panelMarginTop : shell.panelMarginLeft)
+    readonly property real barEnd: vertical ? barTop + bar.height : statusBar.x + statusBar.width
     // The menu bar's strip along the output's top edge, none without one.
     readonly property real menuBarHeight: macos ? Theme.menuBarHeight : 0
     // A popup of the bar opens away from the screen edge the bar is on (PopupCard's side), beside
-    // the rectangle barAnchor gives: from `x`, `width` wide, and across the bar. In the macOS
-    // style the bar with the widgets is the menu bar, and the dock's popups (an application's
-    // menu, the windows of one) open above the dock by dockAnchor, which on the taskbar is the
-    // bar's.
-    readonly property int popupSide: onTop || macos ? Qt.BottomEdge : Qt.TopEdge
-    function barAnchor(x, width) { return macos ? Qt.rect(x, 0, width, menuBarHeight) : dockAnchor(x, width) }
+    // the rectangle barAnchor gives: from `along` (alongBar), `length` long, and across the bar.
+    // In the macOS style the bar with the widgets is the menu bar, and the dock's popups (an
+    // application's menu, the windows of one) open above the dock by dockAnchor, which on the
+    // taskbar is the bar's.
+    readonly property int popupSide: macos ? Qt.BottomEdge
+        : edge === "top" ? Qt.BottomEdge : edge === "left" ? Qt.RightEdge : edge === "right" ? Qt.LeftEdge : Qt.TopEdge
+    function barAnchor(along, length) { return macos ? Qt.rect(along, 0, length, menuBarHeight) : dockAnchor(along, length) }
     readonly property int dockSide: macos ? Qt.TopEdge : popupSide
-    function dockAnchor(x, width) { return Qt.rect(x, barTop, width, bar.height) }
+    function dockAnchor(along, length) {
+        return vertical ? Qt.rect(barLeft, along, bar.width, length) : Qt.rect(along, barTop, length, bar.height)
+    }
     // The output but the bar's strip, where popups stay (PopupCard's bounds); between the menu
     // bar and the dock's strip in the macOS style.
     readonly property rect popupArea: macos
         ? Qt.rect(0, menuBarHeight, popover.width, popover.height - menuBarHeight - shell.panelExtent)
+        : vertical ? Qt.rect(edge === "left" ? width : 0, 0, popover.width - width, popover.height)
         : Qt.rect(0, onTop ? height : 0, popover.width, popover.height - height)
-    // Where a list shown on hover takes the pointer: over it and down to the bar, so that the
+    // Where a list shown on hover takes the pointer: over it and across to the bar, so that the
     // pointer crossing from its button never lands on a window between (which, with focus
     // following the pointer, would take the keyboard).
     function hoverArea(item) {
+        if (vertical) {
+            var left = edge === "left" ? popupArea.x : item.x
+            var right = edge === "left" ? item.x + item.width : popupArea.x + popupArea.width
+            return Qt.rect(left, item.y, right - left, item.height)
+        }
         var top = onTop ? popupArea.y : item.y
         var bottom = onTop ? item.y + item.height : macos ? barTop : popupArea.y + popupArea.height
         return Qt.rect(item.x, top, item.width, bottom - top)
@@ -334,7 +358,7 @@ Item {
         groupSlot = windows.slot
         groupWindowApp = windows.windowApp
         groupIcon = button.iconName
-        groupX = button.mapToItem(root, button.width / 2, 0).x
+        groupX = alongBar(button, lengthAlong(button) / 2)
         groupOpen = true
     }
     Timer { id: groupShow; interval: root.thumbnails ? shell.thumbnailDelay : 350; onTriggered: root.showGroup() }
@@ -480,9 +504,9 @@ Item {
     Timer { id: dragWarmup; interval: root.dragDelay / 2; onTriggered: root.warmDragged() }
     // Opens on press, as a desktop context menu does: waiting for a tap lost a press held
     // past the long-press time or moved while held. The new menu opens before the old one
-    // closes, so the popover stays up in between.
-    function openContextMenu(item, x, taskId, app) {
-        contextMenuX = item.mapToItem(root, x, 0).x
+    // closes, so the popover stays up in between. It opens by `along` into the item along the bar.
+    function openContextMenu(item, along, taskId, app) {
+        contextMenuX = alongBar(item, along)
         taskMenuGroup = taskId >= 0 && item.stacked === true ? { slot: item.groupSlot, windowApp: item.groupWindowApp } : null
         if (taskId >= 0) { taskMenuId = taskId; taskMenuApp = shell.appFor(app || ""); pinMenuApp = null; barMenuOpen = false }
         else if (app) { pinMenuApp = app; taskMenuId = -1; barMenuOpen = false }
@@ -492,8 +516,8 @@ Item {
     // Opens (or, when it is already open, closes) one of the volume control's popups.
     function toggleAudioPopup(kind, item) {
         if (audioPopup === kind) { audioPopup = ""; return }
-        audioPopupX = item.mapToItem(root, item.width / 2, 0).x
-        audioPopupWidth = item.width
+        audioPopupX = alongBar(item, lengthAlong(item) / 2)
+        audioPopupWidth = lengthAlong(item)
         audioPopup = kind
         launcherOpen = false; taskMenuId = -1; pinMenuApp = null; barMenuOpen = false; trayMenuKey = ""; menuBarMenu = ""
     }
@@ -560,11 +584,11 @@ Item {
             togglePowerMenu()
             return powerOpen
         case "bar-menu":
-            openContextMenu(bar, bar.width / 2, -1)
+            openContextMenu(bar, lengthAlong(bar) / 2, -1)
             return true
         case "bar-submenu":
             // The appearance profiles beside the bar menu.
-            openContextMenu(bar, bar.width / 2, -1)
+            openContextMenu(bar, lengthAlong(bar) / 2, -1)
             previewSubmenu.menu = contextMenuLoader
             previewSubmenu.start()
             return shell.profiles.length > 0
@@ -761,12 +785,12 @@ Item {
         }
     }
     // Where a tray item's icon is on the screen, which some applications place a window by: the
-    // panel spans its output's width, at its top or bottom edge, and the menu bar along its top.
+    // panel lies along its output's edge (surfaceLeft, surfaceTop), and the menu bar along its top.
     function trayPoint(item) {
         var p = item.mapToItem(root, item.width / 2, item.height / 2)
         var inMenuBar = item.Window.window === menuBarWindow
-        return Qt.point(Math.round(Screen.virtualX + p.x),
-                        Math.round(Screen.virtualY + (inMenuBar || onTop ? p.y : Screen.height - height + p.y)))
+        return Qt.point(Math.round(Screen.virtualX + (inMenuBar ? p.x : surfaceLeft + p.x)),
+                        Math.round(Screen.virtualY + (inMenuBar ? p.y : surfaceTop + p.y)))
     }
     // An item that is only a menu opens it; one that cannot be activated opens it after all.
     property Item trayActivating: null
@@ -799,8 +823,8 @@ Item {
             closeMenus()
             return
         }
-        trayMenuX = button.mapToItem(root, button.width / 2, 0).x
-        trayMenuWidth = button.width
+        trayMenuX = alongBar(button, lengthAlong(button) / 2)
+        trayMenuWidth = lengthAlong(button)
         trayMenuKey = button.key
         launcherOpen = false; taskMenuId = -1; pinMenuApp = null; barMenuOpen = false; audioPopup = ""; groupOpen = false; menuBarMenu = ""
     }
@@ -886,8 +910,15 @@ Item {
         var state = shell.workspaces[outputName]
         return state && state.tiling !== undefined ? state.tiling : shell.tiling
     }
-    // The dock is at the bottom whatever shell.panel_position says.
-    readonly property bool onTop: shell.panelTop && !macos
+    // The output's edge the bar is along (shell.panelEdge; the dock is at the bottom whatever
+    // shell.panel_position says), and whether that is a side, where the bar stands upright and
+    // things on it are placed by their y rather than their x.
+    readonly property string edge: shell.panelEdge
+    readonly property bool vertical: shell.panelVertical
+    readonly property bool onTop: edge === "top"
+    // Taskbar buttons show only the window's icon, its title as a tooltip: with shell.iconsOnly,
+    // and always down a side, where no title fits.
+    readonly property bool iconsOnly: shell.iconsOnly || vertical
 
     // A click on the bar's empty space closes what is open.
     MouseArea {
@@ -1101,7 +1132,8 @@ Item {
     // does, which goes on to what is under it.
     HoverHandler {
         enabled: root.barKeys.active
-        onPointChanged: if (hovered) root.barKeys.pointerAt(point.scenePosition.x, root.surfaceTop + point.scenePosition.y)
+        onPointChanged: if (hovered) root.barKeys.pointerAt(root.surfaceLeft + point.scenePosition.x,
+                                                            root.surfaceTop + point.scenePosition.y)
     }
     MouseArea {
         anchors.fill: parent
@@ -1121,9 +1153,9 @@ Item {
         target: root.shellView
         property: "inputRects"
         value: root.dock ? [root.dock.area]
-             : shell.panelHeadroom > 0 ? [Qt.rect(0, shell.panelTop ? 0 : shell.panelHeadroom,
-                                                  root.width, shell.panelExtent)]
-             : []
+             : shell.panelHeadroom <= 0 ? []
+             : root.vertical ? [Qt.rect(root.edge === "left" ? 0 : shell.panelHeadroom, 0, shell.panelExtent, root.height)]
+             : [Qt.rect(0, root.onTop ? 0 : shell.panelHeadroom, root.width, shell.panelExtent)]
     }
 
     // The menu bar of the macOS style, along the output's top edge in a surface of its own

@@ -35,7 +35,7 @@ PopupCard {
     implicitWidth: 640
     implicitHeight: 720
     // By the start button at the bar's start (the macOS style has Launchpad instead).
-    anchorRect: panel.barAnchor(Theme.spacingL + shell.panelMarginLeft, 0)
+    anchorRect: panel.barAnchor(panel.barStart, 0)
     alignment: Qt.AlignLeft
     side: panel.dockSide
     bounds: Qt.rect(0, 0, parent.width, parent.height)
