@@ -501,6 +501,7 @@ bool sh_tiling_drop_target(sh_tiling *tiling, const void *window, const char *ou
     for (Node *each : all)
         horizontal.push_back(each->horizontal);
     int side = parent->children[0].get() == node ? 0 : 1;
+    const Node *beside = parent->children[1 - side].get();
     std::unique_ptr<Node> &place = tiling->slot(parent, key);
     std::unique_ptr<Node> taken = std::move(place);
     std::unique_ptr<Node> sibling = std::move(parent->children[1 - side]);
@@ -518,6 +519,10 @@ bool sh_tiling_drop_target(sh_tiling *tiling, const void *window, const char *ou
         all[i]->box = boxes[i].second;
         all[i]->horizontal = horizontal[i];
     }
+    // Beside that window on that side already, it stays: the point may lie just off its tile,
+    // in a gap or a pixel the arrangement without it gives the window beside it.
+    if (leaf && leaf == beside && drop->first == (side == 0))
+        return false;
     return leaf != nullptr;
 }
 
