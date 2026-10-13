@@ -253,7 +253,7 @@ static void fold_apply(struct sh_anim *anim) {
 /* The fold's owner redraws what follows it; a copy that has gone has nothing left to draw. */
 static void fold_updated(struct sh_anim *anim) {
     if (anim->folding.update)
-        anim->folding.update(anim->folding.data);
+        anim->folding.update(anim, anim->folding.data);
 }
 
 /* A window's fold stops where it is, its nodes back at rest. */

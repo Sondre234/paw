@@ -521,9 +521,13 @@ static void test_finish_all(void) {
     teardown(&rig);
 }
 
+static void count_fold(const struct sh_anim *anim, void *data) {
+    ++updates;
+}
+
 /* rig.rect's box, folding into a 40 by 40 button below and to the right of it: it fits the button
  * at a fifth of its size. */
-static struct sh_fold button_fold(void (*update)(void *), void *data) {
+static struct sh_fold button_fold(void (*update)(const struct sh_anim *, void *), void *data) {
     return (struct sh_fold){10, 20, 200, 100, 500, 400, 40, 40, update, data};
 }
 
@@ -548,7 +552,7 @@ static void test_fold_away(void) {
     wlr_scene_node_set_position(&shown->node, 10, 20);
     struct sh_anim *ref = NULL;
     updates = 0;
-    struct sh_fold fold = button_fold(count_update, NULL);
+    struct sh_fold fold = button_fold(count_fold, NULL);
     struct sh_anim *anim = sh_anim_fold_away(rig.animator, copy, &fold, 0, &ref);
     CHECK(anim && ref == anim && sh_animator_running(rig.animator) == 1, "the copy folds");
     CHECK(folded_at(shown, 0, 0, 0) && shown->color[3] > 0.99F, "starts where the window is");
@@ -602,12 +606,13 @@ static void test_fold_away(void) {
     CHECK(!ref, "told as the animator goes");
 }
 
-static struct sh_anim *mapped_anim;
+static const struct sh_anim *mapped_anim;
 static int mapped_wrong;
-static void check_mapped(void *data) {
+static void check_mapped(const struct sh_anim *anim, void *data) {
     const struct wlr_scene_rect *rect = data;
     int x = 10, y = 20, width = 200, height = 100, radius = 10;
-    sh_anim_fold_map(mapped_anim, &x, &y, &width, &height, &radius);
+    mapped_wrong += anim != mapped_anim;
+    sh_anim_fold_map(anim, &x, &y, &width, &height, &radius);
     mapped_wrong += x != rect->node.x || y != rect->node.y || width != rect->width ||
                     height != rect->height;
     ++updates;

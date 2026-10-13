@@ -19,6 +19,7 @@
 struct wlr_scene_node;
 struct wlr_scene_tree;
 struct sh_animator;
+struct sh_anim;
 struct sh_anim_record;
 
 /* A window minimizing into a box, its button on a taskbar, or restoring out of it (a fold): the
@@ -28,8 +29,9 @@ struct sh_anim_record;
 struct sh_fold {
     int rest_x, rest_y, rest_width, rest_height;
     int into_x, into_y, into_width, into_height;
-    /* Called after each step and as a window's fold ends, NULL for nothing. */
-    void (*update)(void *data);
+    /* Called with the animation after each step and as a window's fold ends, NULL for
+     * nothing. */
+    void (*update)(const struct sh_anim *anim, void *data);
     void *data;
 };
 
