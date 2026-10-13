@@ -7,14 +7,17 @@ import Paw
 // no window, and every window, pinned or not, in the order they were dragged into. A pinned
 // application's first window opens in its launcher's place, any other at the end. Grouped
 // (shell.groupWindows), an application's windows share a button, a pinned one's in its place.
+// Along a side the row is a column, of icons alone.
 ListView {
     id: taskList
     required property var panel
     objectName: "taskList"
-    // As tall as a button: a horizontal list places each delegate at its top, whatever the
-    // delegate's own y.
-    Layout.fillWidth: true; Layout.preferredHeight: Theme.barButtonHeight
-    orientation: ListView.Horizontal; spacing: Theme.spacingS; clip: true
+    readonly property bool vertical: panel.vertical
+    // As tall as a button (as wide, down a side): a horizontal list places each delegate at its
+    // top, whatever the delegate's own y.
+    Layout.fillWidth: !vertical; Layout.preferredHeight: vertical ? -1 : Theme.barButtonHeight
+    Layout.fillHeight: vertical; Layout.preferredWidth: vertical ? Theme.barItemWidth : -1
+    orientation: vertical ? ListView.Vertical : ListView.Horizontal; spacing: Theme.spacingS; clip: true
     // Dragging moves a single button, not the list; the wheel scrolls an overflowing one.
     interactive: false
     // The button being dragged, the button whose place it takes, and how far the buttons
@@ -42,18 +45,24 @@ ListView {
     }
     // A button displaced while it was still coming in ends whole.
     displaced: Transition {
-        NumberAnimation { property: "x"; duration: Theme.durationNormal; easing.type: Theme.easing }
+        NumberAnimation { property: taskList.vertical ? "y" : "x"; duration: Theme.durationNormal; easing.type: Theme.easing }
         NumberAnimation { properties: "opacity,scale,reveal"; to: 1; duration: Theme.durationNormal; easing.type: Theme.easing }
     }
-    moveDisplaced: Transition { NumberAnimation { property: "x"; duration: Theme.durationFast; easing.type: Theme.easing } }
+    moveDisplaced: Transition {
+        NumberAnimation { property: taskList.vertical ? "y" : "x"; duration: Theme.durationFast; easing.type: Theme.easing }
+    }
     WheelHandler {
         // Qt takes the whole pointer for a touchpad once the compositor offers gestures
         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-        enabled: taskList.contentWidth > taskList.width
+        enabled: taskList.vertical ? taskList.contentHeight > taskList.height : taskList.contentWidth > taskList.width
         onWheel: (event) => {
             var delta = event.angleDelta.y !== 0 ? event.angleDelta.y : event.angleDelta.x
-            taskList.contentX = Math.max(0, Math.min(taskList.contentWidth - taskList.width,
-                                                     taskList.contentX - delta / 2))
+            if (taskList.vertical)
+                taskList.contentY = Math.max(0, Math.min(taskList.contentHeight - taskList.height,
+                                                         taskList.contentY - delta / 2))
+            else
+                taskList.contentX = Math.max(0, Math.min(taskList.contentWidth - taskList.width,
+                                                         taskList.contentX - delta / 2))
         }
     }
     delegate: TaskButton {
@@ -72,7 +81,7 @@ ListView {
         group: grouping ? appWindows : null
         groupSlot: pinned ? app.appId : ""
         groupWindowApp: pinned ? "" : appId
-        width: shell.iconsOnly || launcher ? Theme.barButtonWidth : taskList.windowWidth
+        width: taskList.vertical ? Theme.barItemWidth : panel.iconsOnly || launcher ? Theme.barButtonWidth : taskList.windowWidth
         z: reorder.active ? 1 : 0
         readonly property real shift: {
             var from = taskList.dragFrom, to = taskList.dragTo
@@ -86,25 +95,33 @@ ListView {
         }
         property real shiftX: shift
         Behavior on shiftX { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
-        transform: Translate { x: reorder.active ? reorder.activeTranslation.x : taskButton.shiftX }
+        // Along the list: across, or down a side.
+        readonly property real moved: reorder.active ? (taskList.vertical ? reorder.activeTranslation.y : reorder.activeTranslation.x)
+                                                     : taskButton.shiftX
+        transform: Translate { x: taskList.vertical ? 0 : taskButton.moved; y: taskList.vertical ? taskButton.moved : 0 }
         // The button follows the pointer through the list, the buttons whose middles it passes
         // making way, and moves on release, on every taskbar; the press never becomes a click.
         // Only a launcher's drag moves its pin.
         DragHandler {
             id: reorder
             target: null
-            yAxis.enabled: false
+            xAxis.enabled: !taskList.vertical
+            yAxis.enabled: taskList.vertical
             onActiveTranslationChanged: {
                 if (!active)
                     return
-                var centre = taskButton.x + taskButton.width / 2 + activeTranslation.x, to = taskButton.index
+                // A button's start and length along the list.
+                function start(item) { return taskList.vertical ? item.y : item.x }
+                function length(item) { return taskList.vertical ? item.height : item.width }
+                var along = taskList.vertical ? activeTranslation.y : activeTranslation.x
+                var centre = start(taskButton) + length(taskButton) / 2 + along, to = taskButton.index
                 for (var i = 0; i < taskList.count; ++i) {
                     var other = taskList.itemAtIndex(i)
-                    if (other && ((i > taskButton.index && centre >= other.x + other.width / 2) ||
-                                  (i < taskButton.index && centre <= other.x + other.width / 2 && to === taskButton.index)))
+                    if (other && ((i > taskButton.index && centre >= start(other) + length(other) / 2) ||
+                                  (i < taskButton.index && centre <= start(other) + length(other) / 2 && to === taskButton.index)))
                         to = i
                 }
-                taskList.dragStep = taskButton.width + taskList.spacing
+                taskList.dragStep = length(taskButton) + taskList.spacing
                 taskList.dragTo = to
                 taskList.dragFrom = taskButton.index
             }
