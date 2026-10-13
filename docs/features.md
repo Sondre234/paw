@@ -84,7 +84,7 @@ leaves, and its popups are the taskbar's: the start menu, Quick Settings, the cl
 the calendar and the notifications, the volume's, the Wi-Fi networks, the tray's menus, the
 appearance profiles and the wallpapers, each opening by its module, and a right click beside the
 modules opens the bar's menu (tiling off, the start menu, show desktop, the profiles). The wheel
-on the bar pages through the workspaces.
+on the bar pages through the workspaces, nudging the windows past either end as the taskbar's does.
 
 Everything about it is set in `shell.tiling_bar`, unset values following the shell's own
 (`panel_color`, `text_color`, `accent`, `font`, `font_size`), so it takes an appearance profile's
@@ -1272,7 +1272,7 @@ the last workspace a touchpad swipe stretches them like a rubber band (see [Touc
 gestures](#touchpad-gestures)), and scrolling over the panel past either end nudges the windows of
 that monitor toward the workspace that is not there and back, as far as the slide would take them
 in a third of a step (2 % of the monitor's width with the default slide), in twice the `workspace`
-animation's time, and the mark of the current workspace on the panel with them. So do
+animation's time, and the taskbar's mark of the current workspace with them. So do
 `workspace_next` and `workspace_prev` with a single workspace. A slide that only fades
 (`animations.workspace.distance = 0`) nudges nothing.
 
