@@ -777,6 +777,18 @@ int main(int argc, char **argv) {
         click(fourth);
         if (!waitFor([&] { return fourth->property("current").toBool(); }))
             return fail("could not switch back to the last workspace from the tiling bar");
+        // Resting on one shows its card below the bar, as on the taskbar, and leaving closes it.
+        QTest::mouseMove(&view, centre(second));
+        if (!waitFor([&] {
+                auto *card = item("workspaceCard");
+                return card && card->isVisible() && card->property("progress").toReal() == 1 &&
+                       root->property("workspaceCardNumber").toInt() == 2 &&
+                       card->mapToScene(QPointF(0, 0)).y() >= 34 + 6;
+            }))
+            return fail("resting on a workspace of the tiling bar did not show its card below the bar");
+        QTest::mouseMove(&view, centre(item("tilingClock")));
+        if (!waitFor([&] { return !root->property("workspaceCardOpen").toBool() && !item("workspaceCard")->isVisible(); }))
+            return fail("the card of a workspace of the tiling bar did not close as the pointer left");
         // The layout, stepped on by a click.
         auto *layout = item("tilingLayout");
         if (!layout || layout->property("label").toString() != "dwindle")
