@@ -93,7 +93,8 @@ const Option options[] = {
      "{ \"kitty\", \"foot\" }", none, none,
      "The `app_id`s (X11 class) of windows a middle-button drag moves, compared without regard "
      "to case; `\"*\"` for every window, `{}` for none; at most 32. A middle click let go "
-     "without moving still reaches the window (to paste)."},
+     "without moving still reaches the window (to paste), and so does every middle press "
+     "with a modifier held."},
     {"mouse.speed", "number", "unset", "0.0", -1, 1,
      "Pointer speed in standalone sessions; unset keeps the device default."},
     {"mouse.acceleration", "enum", "unset", "\"flat\"", none, none,
