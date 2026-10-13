@@ -158,25 +158,40 @@ with harness.Compositor(compositor, config()) as desktop:
     wait_for(lambda: drawn()["S held"][2] == "fading", "S crossfading into its new picture")
     wait_for(lambda: resting("S held", FULL), "S maximized")
 
-    # One that does not draw in time is drawn as it last drew, at its new place.
+    # One that does not draw in time eases back to what it last drew, at its new place.
     tell("hold", "title S still")
     wait_for(lambda: "S still" in windows(), "S holding again")
     msg("restore")
     assert windows()["S still"].box[:2] == start_s[:2], windows()
     wait_for(lambda: drawn()["S still"][:3] == (start_s, start_s[2:], "waiting"),
              "S waiting, shrunk to its old size")
+    wait_for(lambda: drawn()["S still"][2] == "moving" and
+             between(start_s[2], FULL[2], drawn()["S still"][0][2]),
+             "S easing back to the size it last drew")
     wait_for(lambda: resting("S still", (*start_s[:2], *FULL[2:])),
              "S drawn as it last drew, where it now is")
     tell("answer")
     wait_for(lambda: resting("S still", start_s), "S restored once it draws")
 
-    # Closing part way leaves nothing behind.
+    # One that acknowledges its new size with what it drew before and draws it later, as some
+    # video players do: the window goes on to the new size and waits there, rather than turn
+    # back to the old one, and crossfades into the new picture once it comes.
+    tell("hold", "ack", "title S late")
+    wait_for(lambda: "S late" in windows(), "S to acknowledge early")
     msg("maximize")
-    wait_for(lambda: drawn()["S still"][2] == "moving", "S growing")
+    wait_for(lambda: drawn()["S late"][:3] == (FULL, FULL[2:], "waiting"),
+             "S waiting at the new size, past its early acknowledgement")
+    tell("answer")
+    wait_for(lambda: drawn()["S late"][2] == "fading", "S crossfading into its new picture")
+    wait_for(lambda: resting("S late", FULL), "S maximized")
+
+    # Closing part way leaves nothing behind.
+    msg("restore")
+    wait_for(lambda: drawn()["S late"][2] == "moving", "S shrinking")
     slow.stdin.close()
     slow.terminate()
     desktop.reap(slow)
-    wait_for(lambda: "S still" not in windows() and animations() == (0, 1), "S gone, cleanly")
+    wait_for(lambda: "S late" not in windows() and animations() == (0, 1), "S gone, cleanly")
 
     # Going fullscreen part way: it goes on from where it is drawn to the whole output, and
     # back into its slot.
