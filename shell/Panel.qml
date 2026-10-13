@@ -362,11 +362,14 @@ Item {
     // Where what a drag carries docks while over a workspace, in the popover's coordinates: in
     // the middle of the workspace's picture while its card is open (resting there opens it, as
     // on hover), following the card as it glides; else beside the workspace's button, just off
-    // the bar.
-    readonly property point dropDock: {
+    // the bar. dropDock keeps the last place while no workspace is under the drag, so that what
+    // it carries, leaving one or dropped into it, never heads for anywhere else.
+    property point dropDock
+    onDropDockNowChanged: if (dropWorkspace > 0) dropDock = dropDockNow
+    readonly property point dropDockNow: {
         var number = dropWorkspace, card = workspaceCard
         if (number <= 0)
-            return Qt.point(0, 0)
+            return dropDock
         if (card && workspaceCardOpen && workspaceCardNumber === number && card.visible) {
             void card.x
             void card.y
@@ -391,11 +394,11 @@ Item {
     }
     // Let go, on a workspace (dropping it there) or not.
     function endPictureDrag(dropped) {
-        var drag = pictureDrag, number = dropped && drag ? dropWorkspace : 0
+        var drag = pictureDrag, number = dropped && drag ? dropWorkspace : 0, at = dropDock
         dropWorkspace = 0
         pictureDrag = null
         if (number > 0) {
-            dropGhost.land(dropDock.x, dropDock.y)
+            dropGhost.land(at.x, at.y)
             dropOnWorkspace([{ taskId: drag.taskId }], number)
         } else {
             dropGhost.back(dropGhost.home.x, dropGhost.home.y)
@@ -430,10 +433,10 @@ Item {
     }
     // Let go: the windows ({taskId} each) go to the workspace under it, if any, which it returns.
     function endButtonDrag(windows) {
-        var number = dropWorkspace
+        var number = dropWorkspace, at = dropDock
         dropWorkspace = 0
         if (number > 0) {
-            dropGhost.land(dropDock.x, dropDock.y)
+            dropGhost.land(at.x, at.y)
             dropOnWorkspace(windows, number)
         } else if (dropGhost.carried) {
             dropGhost.back(dropGhost.x, dropGhost.y)
