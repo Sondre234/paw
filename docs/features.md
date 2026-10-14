@@ -3354,13 +3354,13 @@ the clicks in place of the rest, and `--output NAME` one monitor alone. The coun
 compositor only that way, to the terminal or the file named.
 ### paw tour
 
-`paw tour` shows paw off on the running desktop in about a minute and a quarter, and then puts it
+`paw tour` shows paw off on the running desktop in about a minute and a half, and then puts it
 back as it was. On an empty workspace of the focused monitor it opens three terminals of its own
 (`paw fetch`'s card where there is one, a clock and drifting colours) and takes them through
-fifteen steps: windows placing themselves and a grid, snapping with Snap Assist, tiling, the
+nineteen steps: windows placing themselves and a grid, snapping with Snap Assist, tiling, the
 tiling layouts, the scrolling layout, the overview with its search, the window switcher, a tab
-group, the scratchpad's drop-down, workspaces, a sticky window, appearance profiles crossfading
-and night light. Each step has a caption, a title and a sentence with the keys that do it as
+group, the scratchpad's drop-down, workspaces, a sticky window, appearance profiles crossfading,
+night light, the desktop cat, the x-ray view, the toys and the pointer heatmap. Each step has a caption, a title and a sentence with the keys that do it as
 your configuration binds them (`paw msg ACTION` for an action bound to none), which the shell
 shows as a card near the bottom of the screen ([`caption`](#notifications-and-on-screen-display))
 and the terminal prints.
