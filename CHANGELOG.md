@@ -646,6 +646,17 @@ wrong with it, and toys the compositor plays with the windows.
   which the compositor counts for each monitor in memory alone: over the desktop, blurred and
   coloured from cold to hot with a legend, in the terminal with `--term`, or as a PNG, PAM or PPM
   with `--export FILE`. `paw msg get heatmap` prints the counts.
+- `paw tour` shows paw off on the running desktop in about a minute and a half: on an empty workspace it
+  opens three terminals of its own and takes them through placement and a grid, snapping,
+  tiling and its layouts, the scrolling layout, the overview, the switcher, a tab group, the
+  scratchpad, workspaces, a sticky window, appearance profiles, night light, the desktop cat,
+  the x-ray view, the toys and the pointer heatmap, each step with a
+  caption naming your own keys for it, then closes its windows and puts back everything it
+  changed, also when stopped with Ctrl+C or by closing one of its windows. `--list`, `--step`,
+  `--from N`, `--speed FACTOR`, `--no-restore` and `--client COMMAND` change how. The shell shows
+  its captions as a card near the bottom (`paw msg caption SECONDS TITLE<tab>SENTENCE<tab>KEYS`),
+  and `paw msg get actions`, `get profiles` and `get terminal` tell scripts every action with
+  its keys, the appearance profiles, and the terminal the `terminal` action starts.
 
 ### Fixes
 

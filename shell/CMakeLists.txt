@@ -85,6 +85,8 @@ list(APPEND PAW_NOTIFY_SOURCES display_modes.cpp display_modes.hpp display_setti
     display_settings.hpp display_layout.cpp display_layout.hpp)
 # The question while a rice is on trial (`paw rice try`).
 list(APPEND PAW_NOTIFY_SOURCES rice_trial.cpp rice_trial.hpp)
+# The caption `paw tour` narrates itself with.
+list(APPEND PAW_NOTIFY_SOURCES caption.cpp caption.hpp)
 # The QML is compiled ahead of time into the binary (qmlcachegen), so starting the shell parses
 # and compiles none of it. It lives at qrc:/shell/PawShell/*.qml.
 qt_add_library(paw_shell_qml STATIC)
@@ -148,7 +150,8 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     EmojiPicker.qml
     DisplaySettings.qml
     RiceTrial.qml
-    Xray.qml)
+    Xray.qml
+    Caption.qml)
 # The emoji picker's table (vendor/emoji), compiled in as :/paw/emoji.tsv.
 qt_add_resources(paw_shell_qml "emoji_table" PREFIX "/paw"
     BASE ${PROJECT_SOURCE_DIR}/vendor/emoji FILES ${PROJECT_SOURCE_DIR}/vendor/emoji/emoji.tsv)
@@ -536,6 +539,7 @@ if(BUILD_TESTING)
         paw_smoke(display_settings_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw>
             $<TARGET_FILE:paw-shell> $<TARGET_FILE:pointer_probe>)
         paw_smoke(rice_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
+        paw_smoke(caption_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
         if(PAW_DBUS)
             paw_smoke(notifications_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
                 $<TARGET_FILE:notify_probe> $<TARGET_FILE:pointer_probe>)

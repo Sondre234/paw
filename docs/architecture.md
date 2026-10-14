@@ -1092,6 +1092,7 @@ what was there.
 | `ClipboardPicker.qml`, `EmojiPicker.qml` | The clipboard history's popup and the emoji picker, each in an overlay surface of its own (`PickerView`, `picker_view.cpp`). |
 | `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style. |
 | `Xray.qml` | The names of the exploded view's sheets (`paw xray`), an overlay surface of its own over the compositor's stack: a legend of every sheet in its layer's colour, top first, and a caption for the one under the pointer. |
+| `Caption.qml` | The caption `paw tour` narrates itself with (`shell.caption`, `caption.cpp`, from the compositor's `caption` lines), an overlay surface of its own (`CaptionView`) where the on-screen display shows, taking no input. |
 
 The authentication dialog's model is `Authentication` (`authentication.cpp`): polkit's requests,
 one at a time, each answered through an `AuthConversation` for the chosen user. The agent
@@ -1126,7 +1127,7 @@ The models behind them: `task_model.cpp` (windows, from foreign-toplevel), `task
 (the taskbar's one row of pinned applications and windows, in an order every panel shares, a
 `TaskbarOrder` the source model owns) and `task_filter.cpp` (an application's windows, for its
 groups and menus), `audio.cpp` with `pulse_audio.cpp`, `system_status.cpp`
-(battery, network), `tray*.cpp`, `notification*.cpp`, `osd.cpp` and `backlight.cpp`,
+(battery, network), `tray*.cpp`, `notification*.cpp`, `osd.cpp`, `caption.cpp` and `backlight.cpp`,
 `volume_keys.cpp` (what the compositor passes on from the volume, microphone and brightness keys),
 `power.cpp`, `palette.cpp` (with `fuzzy.cpp`, and `calculator.cpp`, `file_index.cpp` and
 `web_search.cpp`, which the start menu's search shares), `media.cpp` with `mpris.cpp`,
@@ -1533,6 +1534,7 @@ surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `card
 `power-dialog`, `palette`, `palette-empty`, `switcher`, `overview`, `snap-assist`, `display-mode`,
 `display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 `display-settings`, `display-settings-trial`, `xray`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
+`display-settings`, `display-settings-trial`, `caption`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 bar alone, with stand-ins for what the compositor would tell it, and the screenshot draws it where
 its layer surface would be (the overview over stand-ins for the compositor's thumbnails, the
 exploded view's names over its sheets as `src/xray_layout.c` lays them out).

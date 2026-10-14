@@ -1244,6 +1244,11 @@ void ShellController::subscribe() {
                 Q_EMIT xrayHoveredChanged();
             } else if (line == "xray-close") {
                 clearXray();
+            } else if (line.startsWith("caption ")) {
+                // caption OUTPUT MILLISECONDS TITLE<tab>BODY<tab>KEYS, "-" for the focused output.
+                caption_.showLine(line.sliced(8), overlayOutput());
+            } else if (line == "caption-hide") {
+                caption_.hide();
             }
         }
         if (outputs && workspaces_ != nextWorkspaces_) {
@@ -1269,6 +1274,7 @@ void ShellController::subscribe() {
         power_.setAvailable("-");
         setNightLight(false, {});
         setBindingMode({});
+        caption_.hide(); // nothing narrates it any more
         if (!urgentWindows_.isEmpty()) {
             urgentWindows_.clear();
             tasks_.setUrgent({});

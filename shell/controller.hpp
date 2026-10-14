@@ -5,6 +5,7 @@
 #include "authentication.hpp"
 #include "backlight.hpp"
 #include "bluetooth.hpp"
+#include "caption.hpp"
 #include "clipboard.hpp"
 #include "display_modes.hpp"
 #include "display_settings.hpp"
@@ -178,6 +179,8 @@ class ShellController : public QObject {
     // The notification daemon (cards, history, do-not-disturb) and the on-screen display.
     Q_PROPERTY(NotificationCenter *notifications READ notifications CONSTANT)
     Q_PROPERTY(Osd *osd READ osd CONSTANT)
+    // The caption `paw tour` narrates itself with (the compositor's `caption`).
+    Q_PROPERTY(Caption *caption READ caption CONSTANT)
     // The display mode popup (Windows' Win+P), which the compositor opens and steps.
     Q_PROPERTY(DisplayModes *displayModes READ displayModes CONSTANT)
     // The display settings window: the monitors' settings, tried and kept.
@@ -440,6 +443,7 @@ class ShellController : public QObject {
     Bluetooth *bluetooth() { return bluetooth_.get(); }
     NotificationCenter *notifications() { return &notifications_; }
     Osd *osd() { return &osd_; }
+    Caption *caption() { return &caption_; }
     DisplayModes *displayModes() { return &displayModes_; }
     DisplaySettings *displaySettings() { return &displaySettings_; }
     RiceTrial *riceTrial() { return &riceTrial_; }
@@ -614,6 +618,7 @@ class ShellController : public QObject {
     SystemStatus status_{"/sys", nullptr, true};
     NotificationCenter notifications_;
     Osd osd_;
+    Caption caption_;
     DisplayModes displayModes_;
     DisplaySettings displaySettings_{[this](const QByteArray &line,
                                             std::function<void(const QByteArray &)> done) {
