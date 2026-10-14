@@ -162,12 +162,13 @@ int main() {
     CHECK(scale(1000, 16667) == 5000, "a quarter of the budget at least, made round");
     CHECK(scale(20001, 16667) == 25000);
     CHECK(scale(0, 0) == 1);
-    CHECK(graph_height(0, 2) == 3, "a printout");
-    CHECK(graph_height(50, 1) == 4);
-    CHECK(graph_height(24, 1) == 4);
-    CHECK(graph_height(24, 2) == 4);
-    CHECK(graph_height(24, 3) == 2);
-    CHECK(graph_height(20, 3) == 1);
+    CHECK(graph_height(0, 10, 2) == 3, "a printout");
+    CHECK(graph_height(50, 12, 1) == 4);
+    CHECK(graph_height(24, 18, 1) == 4);
+    CHECK(graph_height(24, 18, 2) == 3);
+    CHECK(graph_height(24, 18, 3) == 2);
+    CHECK(graph_height(24, 22, 3) == 1);
+    CHECK(graph_height(10, 30, 3) == 1, "one row each even where there is no room");
 
     // Text that fits.
     CHECK(width_of("abc") == 3 && width_of("µs") == 2 && width_of("日本") == 4);
@@ -244,9 +245,13 @@ int main() {
     CHECK(contains(lines, "paused") && contains(lines, "\x1b[31m"), "the slow frame in red");
     for (const auto &line : lines)
         CHECK(width_of(line) <= 60, "%s", line.c_str());
-    view.height = 12; // too short for every window
+    view.height = 12; // too short for the windows
     lines = draw(history(), view);
     CHECK(lines.size() == 12);
+    view.height = 14; // room for one, and a line saying how many more there are
+    lines = draw(history(), view);
+    CHECK(lines.size() == 14 && lines[12].find("… 2 more") != std::string::npos, "%s",
+          lines[12].c_str());
     view.height = 24;
     view.error = "cannot connect to /run/paw.sock";
     lines = draw({}, view);

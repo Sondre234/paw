@@ -382,15 +382,12 @@ double scale(double worst, double budget) {
     return 10 * magnitude;
 }
 
-size_t graph_height(size_t rows, size_t monitors) {
+size_t graph_height(size_t rows, size_t used, size_t monitors) {
     if (rows == 0)
         return 3;
-    // The header, two lines per monitor (a blank one and its numbers), two of activity, the
-    // table's head and three of its rows, the keys, and the blank lines between.
-    size_t fixed = 10 + 2 * monitors;
-    if (monitors == 0 || rows <= fixed + monitors)
+    if (monitors == 0 || rows <= used + monitors)
         return 1;
-    return std::clamp<size_t>((rows - fixed) / monitors, 1, 4);
+    return std::clamp<size_t>((rows - used) / monitors, 1, 4);
 }
 
 size_t width_of(const std::string &text) {
@@ -557,12 +554,10 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
     const Sample &newest = history.back(), &from = reference(history, view.window);
     const double seconds = newest.time - from.time;
 
-    // Each monitor: its frames each second, what drawing them took against its budget, and
-    // a graph of its last frames.
-    const size_t height = graph_height(view.height, newest.monitors.size());
-    const size_t gutter = width >= 40 ? 8 : 0;
+    // Each monitor's numbers: the frames it draws each second, and what drawing its last ones
+    // took against its budget.
+    std::vector<std::vector<std::string>> numbers;
     for (const auto &monitor : newest.monitors) {
-        lines.emplace_back();
         const double budget = 1e6 / (monitor.refresh > 0 ? monitor.refresh : 60);
         const Monitor *before = find_monitor(from, monitor.name);
         std::vector<std::string> cells{
@@ -570,7 +565,7 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
             rate(before ? per_second(before->frames, monitor.frames, seconds) : 0) + " fps"};
         if (!monitor.timed) {
             cells.push_back("its frame times need a newer compositor");
-            add(cells, "  ");
+            numbers.push_back(wrap(cells, width, "  "));
             continue;
         }
         auto summary = summarize(monitor.spent);
@@ -583,7 +578,73 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
         cells.push_back(paint("2", "budget " + duration(budget)));
         if (wrap(cells, width, "  ").size() > 1) // the refresh rate alone, to keep to one line
             cells[0] = paint("1", cut(monitor.name, width)) + " " + mode_text(monitor, false);
-        add(cells, "  ");
+        numbers.push_back(wrap(cells, width, "  "));
+    }
+
+    // What the compositor did each second, and how long it took.
+    auto each = [&](size_t field) {
+        const auto &a = from.stats, &b = newest.stats;
+        return field < a.size() && field < b.size() ? per_second(a[field], b[field], seconds) : 0;
+    };
+    auto counted = [&](const char *label, size_t field) {
+        return paint("2", label) + " " + rate(each(field)) + "/s";
+    };
+    auto timed = [&](const char *label, size_t field, size_t ns) {
+        return counted(label, field) + " " + duration(each(ns) / 1e3) + "/s";
+    };
+    auto activity = wrap({paint("1", "Activity"), timed("frames", 0, 1), timed("commits", 3, 4),
+                          counted("configures", 5), timed("motions", 7, 8), timed("reflows", 9, 10),
+                          counted("rule matches", 6)},
+                         width, "  ");
+
+    // Who makes the compositor work: each window's and panel's commits and the time handling
+    // them took, each second; the table's head and a line each.
+    std::vector<std::string> table;
+    if (!newest.listed)
+        table.push_back(cut("Windows' commits need a newer compositor.", width));
+    else {
+        const Columns layout = columns(width);
+        auto line_of = [&](const std::string &commits, const std::string &time,
+                           const std::string &each_one, const std::string &workspace,
+                           const std::string &name, const std::string &title) {
+            std::string line = fit_right(commits, 9) + " " + fit_right(time, 8);
+            if (layout.each)
+                line += " " + fit_right(each_one, 7);
+            if (layout.workspace)
+                line += " " + fit_right(workspace, 3);
+            line += " " + fit(name, layout.name);
+            if (layout.title)
+                line += " " + fit(title, layout.title);
+            return line;
+        };
+        table.push_back(
+            paint("7", line_of("COMMITS/s", "TIME/s", "EACH", "WS", "APP ID", "TITLE")));
+        for (const auto &row : rows(history, view.window, view.sort)) {
+            const Client &client = row.client;
+            auto line = line_of(rate(row.commits), row.ns > 0 ? duration(row.ns / 1e3) : "0",
+                                row.commits > 0 ? duration(row.ns / row.commits / 1e3) : "-",
+                                client.layer ? "-" : std::to_string(client.workspace), client.name,
+                                client.layer ? "layer surface on " + client.output : client.title);
+            table.push_back(row.commits < 0.05 ? paint("2", line) : line);
+        }
+        if (table.size() == 1)
+            table.push_back(cut("No windows.", width));
+    }
+
+    // The graphs get the rows the rest leaves, but for three of the table's.
+    size_t used = lines.size() + activity.size() + std::min<size_t>(table.size(), 4) + 3;
+    for (const auto &lines_of_one : numbers)
+        used += 1 + lines_of_one.size();
+    const size_t height = graph_height(view.height, used, newest.monitors.size());
+    const size_t gutter = width >= 40 ? 8 : 0;
+    for (size_t m = 0; m < newest.monitors.size(); ++m) {
+        const Monitor &monitor = newest.monitors[m];
+        lines.emplace_back();
+        lines.insert(lines.end(), numbers[m].begin(), numbers[m].end());
+        if (!monitor.timed)
+            continue;
+        // Its last frames, the newest on the right, in the colours of their grades.
+        const double budget = 1e6 / (monitor.refresh > 0 ? monitor.refresh : 60);
         const size_t span = width - gutter;
         const size_t shown = std::min(monitor.spent.size(), span);
         const auto newer = monitor.spent.end() - static_cast<long>(shown);
@@ -608,64 +669,18 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
             lines.push_back(std::move(line));
         }
     }
-
-    // What the compositor did each second, and how long it took.
     lines.emplace_back();
-    auto each = [&](size_t field) {
-        const auto &a = from.stats, &b = newest.stats;
-        return field < a.size() && field < b.size() ? per_second(a[field], b[field], seconds) : 0;
-    };
-    auto counted = [&](const char *label, size_t field) {
-        return paint("2", label) + " " + rate(each(field)) + "/s";
-    };
-    auto timed = [&](const char *label, size_t field, size_t ns) {
-        return counted(label, field) + " " + duration(each(ns) / 1e3) + "/s";
-    };
-    add({paint("1", "Activity"), timed("frames", 0, 1), timed("commits", 3, 4),
-         counted("configures", 5), timed("motions", 7, 8), timed("reflows", 9, 10),
-         counted("rule matches", 6)},
-        "  ");
-
-    // Who makes the compositor work: each window's and panel's commits and the time handling
-    // them took, each second.
+    lines.insert(lines.end(), activity.begin(), activity.end());
     lines.emplace_back();
-    if (!newest.listed) {
-        lines.push_back(cut("Windows' commits need a newer compositor.", width));
-        return finish();
-    }
-    const Columns layout = columns(width);
-    auto line_of = [&](const std::string &commits, const std::string &time,
-                       const std::string &each_one, const std::string &workspace,
-                       const std::string &name, const std::string &title) {
-        std::string line = fit_right(commits, 9) + " " + fit_right(time, 8);
-        if (layout.each)
-            line += " " + fit_right(each_one, 7);
-        if (layout.workspace)
-            line += " " + fit_right(workspace, 3);
-        line += " " + fit(name, layout.name);
-        if (layout.title)
-            line += " " + fit(title, layout.title);
-        return line;
-    };
-    lines.push_back(paint("7", line_of("COMMITS/s", "TIME/s", "EACH", "WS", "APP ID", "TITLE")));
-    auto table = rows(history, view.window, view.sort);
-    if (table.empty())
-        lines.push_back(cut("No windows.", width));
+    // As many of the table's lines as there is room for, the last saying how many more there
+    // are where some do not fit.
     size_t room = table.size();
     if (view.height) {
         size_t left = view.height > lines.size() + 1 ? view.height - lines.size() - 1 : 0;
-        room = table.size() > left ? (left ? left - 1 : 0) : table.size();
+        room = table.size() > left ? (left > 1 ? left - 1 : left) : table.size();
     }
-    for (size_t i = 0; i < room; ++i) {
-        const Row &row = table[i];
-        const Client &client = row.client;
-        auto line = line_of(rate(row.commits), row.ns > 0 ? duration(row.ns / 1e3) : "0",
-                            row.commits > 0 ? duration(row.ns / row.commits / 1e3) : "-",
-                            client.layer ? "-" : std::to_string(client.workspace), client.name,
-                            client.layer ? "layer surface on " + client.output : client.title);
-        lines.push_back(row.commits < 0.05 ? paint("2", line) : line);
-    }
-    if (room < table.size())
+    lines.insert(lines.end(), table.begin(), table.begin() + static_cast<long>(room));
+    if (room < table.size() && room > 0)
         lines.push_back(
             paint("2", cut("… " + std::to_string(table.size() - room) + " more", width)));
     return finish();

@@ -91,8 +91,9 @@ const char *glyph(double value, size_t row, size_t height, double top);
 // The top of a graph's scale: a round number of microseconds at or over `worst`, and over a
 // quarter of `budget` so that small frames look small.
 double scale(double worst, double budget);
-// How many text rows each monitor's graph gets on a terminal `rows` high (0 for a printout).
-size_t graph_height(size_t rows, size_t monitors);
+// How many text rows each monitor's graph gets on a terminal `rows` high (0 for a printout) where
+// the rest takes `used` of them: what is left, between one and four.
+size_t graph_height(size_t rows, size_t used, size_t monitors);
 
 // How many columns `text` (UTF-8) takes on a terminal.
 size_t width_of(const std::string &text);
