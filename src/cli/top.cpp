@@ -52,8 +52,11 @@ uint64_t number(const std::string &text) {
 char32_t decode(const std::string &text, size_t &at) {
     auto byte = [&](size_t i) { return static_cast<unsigned char>(text[i]); };
     unsigned char first = byte(at);
-    size_t length = first < 0x80 ? 1 : (first >> 5) == 6 ? 2 : (first >> 4) == 14 ? 3
-                                     : (first >> 3) == 30 ? 4 : 0;
+    size_t length = first < 0x80         ? 1
+                    : (first >> 5) == 6  ? 2
+                    : (first >> 4) == 14 ? 3
+                    : (first >> 3) == 30 ? 4
+                                         : 0;
     if (!length || at + length > text.size()) {
         ++at;
         return 0xFFFD;
@@ -73,14 +76,14 @@ char32_t decode(const std::string &text, size_t &at) {
 // Columns a code point takes: none for a combining mark or a joiner, two for East Asian wide
 // characters and emoji, one for the rest.
 size_t columns_of(char32_t point) {
-    static const char32_t none[][2] = {{0x0300, 0x036F}, {0x1AB0, 0x1AFF}, {0x1DC0, 0x1DFF},
-                                       {0x200B, 0x200F}, {0x20D0, 0x20FF}, {0xFE00, 0xFE0F},
+    static const char32_t none[][2] = {{0x0300, 0x036F},  {0x1AB0, 0x1AFF}, {0x1DC0, 0x1DFF},
+                                       {0x200B, 0x200F},  {0x20D0, 0x20FF}, {0xFE00, 0xFE0F},
                                        {0xE0100, 0xE01EF}};
-    static const char32_t wide[][2] = {
-        {0x1100, 0x115F},   {0x2E80, 0x303E},   {0x3041, 0x33FF},   {0x3400, 0x4DBF},
-        {0x4E00, 0x9FFF},   {0xA000, 0xA4CF},   {0xAC00, 0xD7A3},   {0xF900, 0xFAFF},
-        {0xFE30, 0xFE4F},   {0xFF00, 0xFF60},   {0xFFE0, 0xFFE6},   {0x1F300, 0x1F64F},
-        {0x1F900, 0x1F9FF}, {0x20000, 0x2FFFD}, {0x30000, 0x3FFFD}};
+    static const char32_t wide[][2] = {{0x1100, 0x115F},   {0x2E80, 0x303E},   {0x3041, 0x33FF},
+                                       {0x3400, 0x4DBF},   {0x4E00, 0x9FFF},   {0xA000, 0xA4CF},
+                                       {0xAC00, 0xD7A3},   {0xF900, 0xFAFF},   {0xFE30, 0xFE4F},
+                                       {0xFF00, 0xFF60},   {0xFFE0, 0xFFE6},   {0x1F300, 0x1F64F},
+                                       {0x1F900, 0x1F9FF}, {0x20000, 0x2FFFD}, {0x30000, 0x3FFFD}};
     for (const auto &range : none)
         if (point >= range[0] && point <= range[1])
             return 0;
@@ -527,10 +530,10 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
             return lines;
         // The keys on the last line, under whatever fits above them.
         lines.resize(view.height - 1);
-        lines.push_back(paint("2", cut(std::string("q quit  p ") +
-                                           (view.paused ? "resume" : "pause") + "  s sort: " +
-                                           sort_name(view.sort),
-                                       width)));
+        lines.push_back(
+            paint("2", cut(std::string("q quit  p ") + (view.paused ? "resume" : "pause") +
+                               "  s sort: " + sort_name(view.sort),
+                           width)));
         return lines;
     };
 
@@ -584,8 +587,7 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
         const size_t span = width - gutter;
         const size_t shown = std::min(monitor.spent.size(), span);
         const auto newer = monitor.spent.end() - static_cast<long>(shown);
-        const double top =
-            scale(shown ? *std::max_element(newer, monitor.spent.end()) : 0, budget);
+        const double top = scale(shown ? *std::max_element(newer, monitor.spent.end()) : 0, budget);
         for (size_t row = 0; row < height; ++row) {
             std::string line;
             if (gutter)
@@ -664,8 +666,8 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
         lines.push_back(row.commits < 0.05 ? paint("2", line) : line);
     }
     if (room < table.size())
-        lines.push_back(paint("2", cut("… " + std::to_string(table.size() - room) + " more",
-                                       width)));
+        lines.push_back(
+            paint("2", cut("… " + std::to_string(table.size() - room) + " more", width)));
     return finish();
 }
 
@@ -989,7 +991,8 @@ int top(int argc, char **argv) {
                 throw std::runtime_error("--interval takes milliseconds from 50 to 60000");
             options.interval = static_cast<int>(interval);
         } else if (arg == "--help" || arg == "-h") {
-            std::cout << usage << "\n"
+            std::cout << usage
+                      << "\n"
                          "Shows the running session's frames, what the compositor does each "
                          "second and the windows\nthat make it work. q, Escape or Ctrl+C quits, "
                          "p pauses, s changes the order of the windows.\n"

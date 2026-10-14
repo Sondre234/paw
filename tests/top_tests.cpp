@@ -134,9 +134,9 @@ int main() {
     CHECK(table[0].client.name == "Editor", "%s", table[0].client.name.c_str());
 
     // What get commits and get outputs say.
-    auto clients = parse_clients({{"window", "3", "42", "120", "560000", "DP-1", "2", "firefox",
-                                   "Mozilla Firefox"},
-                                  {"layer", "1", "40", "8", "900", "DP-1", "0", "paw-shell", ""}});
+    auto clients = parse_clients(
+        {{"window", "3", "42", "120", "560000", "DP-1", "2", "firefox", "Mozilla Firefox"},
+         {"layer", "1", "40", "8", "900", "DP-1", "0", "paw-shell", ""}});
     CHECK(clients.size() == 2);
     CHECK(!clients[0].layer && clients[0].id == 3 && clients[0].pid == 42);
     CHECK(clients[0].commits == 120 && clients[0].commit_ns == 560000);
@@ -182,10 +182,9 @@ int main() {
           "a title cannot send the terminal escape sequences");
     CHECK(fit("\xff\xfe", 2) == "??", "bytes that are not UTF-8");
     CHECK(fit("x", 0).empty());
-    CHECK(wrap({"aa", "bb", "cc"}, 6, " ") ==
-          (std::vector<std::string>{"aa bb", "cc"}));
-    CHECK(wrap({"a long cell", "b"}, 4, " ") ==
-          (std::vector<std::string>{"a long cell", "b"}), "a cell longer than a line alone");
+    CHECK(wrap({"aa", "bb", "cc"}, 6, " ") == (std::vector<std::string>{"aa bb", "cc"}));
+    CHECK(wrap({"a long cell", "b"}, 4, " ") == (std::vector<std::string>{"a long cell", "b"}),
+          "a cell longer than a line alone");
 
     // Numbers.
     CHECK(duration(850) == "850µs" && duration(1240) == "1.24ms" && duration(16667) == "16.7ms");
@@ -217,8 +216,7 @@ int main() {
     view.uptime = "1:00:00";
     view.profile = "washi";
     auto lines = draw(history(), view);
-    CHECK(lines[0] == "paw 0.1.1 · up 1:00:00 · 1 monitor · profile washi", "%s",
-          lines[0].c_str());
+    CHECK(lines[0] == "paw 0.1.1 · up 1:00:00 · 1 monitor · profile washi", "%s", lines[0].c_str());
     CHECK(contains(lines, "DP-1 2560x1440 60Hz  60 fps  avg 854µs  p99 20.0ms  worst 20.0ms"));
     CHECK(contains(lines, "worst 20.0ms") && contains(lines, "budget 16.7ms"));
     CHECK(contains(lines, "commits 62/s 500µs/s") && contains(lines, "motions 100/s 40µs/s"));
@@ -228,8 +226,7 @@ int main() {
     CHECK(contains(lines, "layer surface on DP-1"));
     for (const auto &line : lines) {
         CHECK(width_of(line) <= 80, "%s", line.c_str());
-        CHECK(line.find('\x1b') == std::string::npos, "no colour in a printout: %s",
-              line.c_str());
+        CHECK(line.find('\x1b') == std::string::npos, "no colour in a printout: %s", line.c_str());
     }
     auto renamed = history();
     renamed[1].monitors[0].name = renamed[0].monitors[0].name = "HDMI-A-1-long";

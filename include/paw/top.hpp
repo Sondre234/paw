@@ -28,7 +28,7 @@ struct Client {
     int pid = 0;
     uint64_t commits = 0, commit_ns = 0;
     std::string output;
-    int workspace = 0; // from 1; 0 for a layer surface
+    int workspace = 0;       // from 1; 0 for a layer surface
     std::string name, title; // app ID or namespace, and title
 };
 
