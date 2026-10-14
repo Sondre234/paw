@@ -2559,8 +2559,8 @@ A caption is a larger card in the same place, a title with the keys that do what
 sentence under them, for as long as it is asked: `paw msg caption SECONDS
 TITLE<tab>SENTENCE<tab>KEYS` shows one on the focused monitor for 1 to 600 seconds (the sentence
 and the keys may be left out), a new one taking its place, and `paw msg caption hide` takes it
-away. `paw tour` narrates itself with it. It is refused while the shell is not running, so that a
-script says it another way.
+away. [`paw tour`](#paw-tour) narrates itself with it. It is refused while the shell is not
+running, so that a script says it another way.
 
 ```lua
 notifications = { position = "top-right", timeout = 6000, max_visible = 4, dnd = false },
@@ -2878,6 +2878,46 @@ refused while the session is locked.
 Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the desktop off
 and to find out what is wrong with it. They talk to the running session through its control
 socket, as `paw msg` does; `paw --help` lists them.
+
+### paw tour
+
+`paw tour` shows paw off on the running desktop in about a minute and a quarter, and then puts it
+back as it was. On an empty workspace of the focused monitor it opens three terminals of its own
+(`paw fetch`'s card where there is one, a clock and drifting colours) and takes them through
+fifteen steps: windows placing themselves and a grid, snapping with Snap Assist, tiling, the
+tiling layouts, the scrolling layout, the overview with its search, the window switcher, a tab
+group, the scratchpad's drop-down, workspaces, a sticky window, appearance profiles crossfading
+and night light. Each step has a caption, a title and a sentence with the keys that do it as
+your configuration binds them (`paw msg ACTION` for an action bound to none), which the shell
+shows as a card near the bottom of the screen ([`caption`](#notifications-and-on-screen-display))
+and the terminal prints.
+
+Before it starts it saves the arrangement as the session `tour` (see [Sessions](#sessions)) and
+notes the workspace, the monitor's tiling and the layout of its workspace, night light and the
+appearance profile. At the end it closes its own windows, and only those, puts each of those back
+(the profile's saved choice in `~/.local/state/paw/profile` and the light or dark preference
+applications were told too), restores the session and deletes it. It does the same when stopped:
+Ctrl+C in its terminal, closing one of its windows, an error, or the session locking (it then
+waits for the unlock to put things back). It refuses to start while the session is locked, while
+a window of an earlier tour is open, and when every workspace of the monitor holds windows, and
+asks first when a fullscreen window has the focus.
+
+| Option | Does |
+| --- | --- |
+| `--list` | Prints the steps, with the keys and the steps this session would skip when it can ask one |
+| `--step` | Waits for Enter after each step instead of going on by itself |
+| `--from N` | Starts at step N |
+| `--speed FACTOR` | Goes FACTOR times as fast (0.25 to 100) |
+| `--no-restore` | Leaves the desktop as the tour leaves it, for a recording; `paw msg session restore tour` puts the windows back later |
+| `--client COMMAND` | Opens the windows with COMMAND, run by `sh`, instead of the terminal; `{title}` in it stands for the window's title, which the tour knows its windows by |
+
+A step needs nothing but what paw has: one that needs a second empty workspace, another
+appearance profile, or the scratchpad (while windows of yours are in it) is skipped without it.
+The steps are a table in `src/cli/tour_steps.cpp`, one line each: the caption, the actions whose
+keys it names, the control requests it runs, how long it stays, and the actions a step for a
+newer feature needs (`needs ACTION`), without which it is skipped. `tests/tour_smoke.py` runs the
+tour quickly against a headless compositor, interrupted and not, and checks that it leaves
+everything as it was.
 
 ## Screen locking and idle
 
