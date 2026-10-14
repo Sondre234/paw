@@ -803,6 +803,22 @@ sends move the outline every panel's popover shows, taking no input, and `panel-
 `ShellController::movePanel` write `shell.panel_position` with `paw::save_setting`
 (`src/config_edit.cpp`) and load the file again.
 
+A press on the bar's inner edge (the `barResizeEdge` strip in `Taskbar.qml`, under the same
+setting) resizes it the same way: `panel.startBarResize` works out how far the press is from the
+output's edge the bar is along and asks `panel_drag resize EDGE`, and the compositor's
+`panel-resize OUTPUT DISTANCE` lines, the pointer's distance from that edge of the output the
+press was on, set `ShellController::panelHeight` to the height at the press plus the distance
+travelled since, within the schema's range for `shell.panel_height`, in place of the
+configuration's until the drag ends (`barResizing`). `panelHeight`, `panelExtent` and
+`panelHeadroom` notify with `panelSizeChanged`, which every configuration loaded brings too, and
+each `ShellView` lays out its surface again on it, so every bar and the exclusive zone it reserves
+follow the drag, and the compositor makes the windows room as it goes. `panel-resized` has
+`resizePanel` write `shell.panel_height` and load the file while the bar is still drawn at that
+height, and `panel-drag-cancelled` (Escape, through `cancelBarDrag`) gives the configuration's back.
+Qt never hears the button let go, so a MouseArea pressed when the compositor took the pointer
+stays pressed and would take no new press: the strip is a `Loader`'s, made anew once the drag is
+over.
+
 While the panel's output tiles, with `shell.tiling_bar` on, `Panel.qml` shows the tiling bar
 (`TilingBar.qml`) instead (`tilingBarShown`). The style's bars stay meanwhile, hidden and null
 through `taskbar`, `dock` and `menuBar`, so that bars switch at once as tiling goes on and off,
