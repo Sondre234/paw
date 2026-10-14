@@ -2,6 +2,8 @@
 /* The control socket's queries (`paw msg get ...`): what the windows, outputs, workspaces
  * and effects are doing, for scripts, the shell and the tests. */
 #include "server.h"
+#include "version.h"
+#include <wlr/version.h>
 
 /* workspace, focused, minimized, tiled, x, y, width, height, app_id, title, output,
  * visible, scratchpad, sticky, group (0 for none), kept above — one line. A window hidden in
@@ -787,6 +789,19 @@ static void get_cursor_image(struct sh_server *server, int fd, const char *argum
     control_reply(fd, line);
 }
 
+/* What `paw fetch` shows of the session, a line each: "version", as `paw --version` names it,
+ * "wlroots", the version of the library loaded (which may be newer than the one paw was built
+ * with), "uptime", the milliseconds since the compositor started, and "profile", the appearance
+ * profile in use ("" for none). */
+static void get_about(struct sh_server *server, int fd, const char *arguments) {
+    char reply[256];
+    snprintf(reply, sizeof(reply),
+             "ok\nversion\t%s\nwlroots\t%d.%d.%d\nuptime\t%lld\nprofile\t%s\n", PAW_VERSION,
+             wlr_version_get_major(), wlr_version_get_minor(), wlr_version_get_micro(),
+             (long long)(now_ms() - server->started), server_settings(server)->profile);
+    control_reply(fd, reply);
+}
+
 /* The queries, "get NAME" (or "get NAME ARGUMENTS" for one that takes them), which answer
  * even while the session is locked. A handler gets NULL for no arguments. */
 static const struct {
@@ -846,6 +861,7 @@ static const struct {
     {"mode", get_mode, false},
     {"shortcuts", get_shortcuts, false},
     {"input_method", get_input_method, false},
+    {"about", get_about, false},
 };
 
 /* Answers `request` if it is a query; false if it is not one. */

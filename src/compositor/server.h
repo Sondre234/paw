@@ -405,6 +405,7 @@ struct sh_server {
     struct wlr_scene_tree *unmanaged;
     struct sh_animator *animator;
     struct sh_stats stats;
+    int64_t started; /* now_ms() as sh_run began, for `get about`'s uptime */
     unsigned config_generation; /* counts configurations loaded, starting at 1 */
     struct {                    /* one hit test shared by the steps of a motion event */
         bool caching, valid;
