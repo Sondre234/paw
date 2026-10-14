@@ -151,6 +151,7 @@ struct sh_node {
 };
 
 #define SH_FRAME_RING 4096
+#define SH_OUTPUT_FRAMES 512
 
 /* A shadow image, painted for a look, a window size and a scale (sh_shadow_image_size's) and
  * shared by the windows showing it; `used` orders them for the cache to drop the oldest. */
@@ -287,6 +288,8 @@ struct sh_window_rect;   // where a client shows a window on an output (minimize
 struct sh_mirror;        // what a mirroring output shows (mirror.c)
 struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c)
 struct sh_crossfade_picture; // what an output showed as it began
+struct sh_toys;              // the toy playing (toys.c)
+struct sh_cat_view;          // the desktop cat (cat.c)
 struct sh_wrapped;       // what paw wrapped counts (wrapped.c)
 struct wlr_color_manager_v1;
 
@@ -407,6 +410,7 @@ struct sh_server {
     struct wlr_scene_tree *unmanaged;
     struct sh_animator *animator;
     struct sh_stats stats;
+    int64_t started; /* now_ms() as sh_run began, for `get about`'s uptime */
     unsigned config_generation; /* counts configurations loaded, starting at 1 */
     struct {                    /* one hit test shared by the steps of a motion event */
         bool caching, valid;
@@ -543,6 +547,7 @@ struct sh_server {
     struct sh_toplevel *focused_toplevel;
     struct wlr_foreign_toplevel_manager_v1 *foreign_manager;
     uint32_t last_window_id; // the number the last window published was given
+    uint32_t last_layer_id;  // the number the last layer surface created was given
     struct wlr_ext_foreign_toplevel_list_v1 *toplevel_list; // windows offered for screen sharing
     /* paw-window-control-v1 (window_control.c): its global, the paw_window_v1 objects
      * clients hold, and the idle callback that tells them what changed; the paw_workspace_v1
@@ -685,11 +690,13 @@ struct sh_server {
     bool logind_lid_closed;  // logind's LidClosed, which counts as one more switch
     struct wl_list pointers; /* struct sh_pointer */
     enum sh_cursor_mode cursor_mode;
-    /* A drag of the taskbar (SH_CURSOR_PANEL): the output and the edge the shell was told of
-     * last. A drag of its inner edge resizes it instead: `resize` is the output's edge the bar
-     * is along (else -1), `box` that output's as the resize began, and `distance` the pointer's
-     * distance from that edge the shell was told of last. */
+    /* A drag of the taskbar (SH_CURSOR_PANEL): the output whose bar it is ("" for the one the
+     * pointer is over), and the output and the edge the shell was told of last. A drag of its
+     * inner edge resizes it instead: `resize` is the output's edge the bar is along (else -1),
+     * `box` that output's as the resize began, and `distance` the pointer's distance from that
+     * edge the shell was told of last. */
     struct {
+        char bar[64];
         char output[64];
         int edge;
         int resize;
@@ -754,6 +761,16 @@ struct sh_server {
     struct wl_list outputs;          /* enabled, in the layout */
     struct wl_list disabled_outputs; /* turned off by outputs.monitors */
     struct wl_listener new_output;
+    struct sh_toys *toys; /* the toy playing (toys.c), NULL for none */
+    /* A rice on trial (rice.c): its name, and the timer that takes it back at `ends` (now_ms())
+     * unless it is kept. */
+    struct {
+        bool trial;
+        char name[64];
+        struct wl_event_source *timer;
+        int64_t ends;
+    } rice;
+    struct sh_cat_view *cat; /* the desktop cat (cat.c); NULL if it could not be made */
     struct sh_wrapped *wrapped; // NULL while wrapped.enabled is off
 };
 
@@ -782,6 +799,10 @@ struct sh_output {
     bool idle_off; /* turned off by the idle display_off step (idle.c), which input undoes */
     bool kept_on;  /* on though its settings say off, as the only output (configure_output) */
     uint64_t frames; /* frames it has drawn (output_frame), for get output_frames */
+    /* The last SH_OUTPUT_FRAMES of them: time spent in output_frame and time since its previous
+     * frame, in microseconds, for `get frame_times NAME` (paw top's graphs). */
+    uint32_t frame_us[SH_OUTPUT_FRAMES], interval_us[SH_OUTPUT_FRAMES];
+    uint64_t last_frame_ns;
     /* Settings a wlr-output-management client (wlr-randr, kanshi) or display_mode applied at
      * runtime. They replace the configured monitor until the configuration is reloaded or the
      * display settings window applies its own. */
@@ -960,6 +981,11 @@ struct sh_toplevel {
     struct sh_drop drop;                      // the scratchpad's slide in and out
     struct sh_clip_wish clips[SH_CLIP_TREES]; // content's, the shadow's and the gradient's
     struct sh_clip_wish content_clip; // content's as last drawn, cut or not, for get scratchpad
+    /* A tile of the scrolling layout keeps to its monitor, whose box is `bound` (placement.c's
+     * bound_tile): what crosses its edges is cut there (scratchpad.c), and wholly past them its
+     * content hides and the pointer passes it by (cursor.c). */
+    bool bounded;
+    struct wlr_box bound;
     struct sh_tween fade; // opacity and border color following focus
     struct sh_tween frame_fade; // how much of its frame shows (frame.c's frame_shown)
     bool own_shadow, own_shadow_read; // whether it draws its own shadow, as the frame takes it
@@ -1008,6 +1034,9 @@ struct sh_toplevel {
     struct wl_listener request_resize;
     struct wl_listener request_maximize;
     struct wl_listener request_fullscreen;
+    /* Commits of its surface handled since it opened, and the time handling them took (ns),
+     * for `get commits` (paw top). */
+    uint64_t commits, commit_ns;
 };
 
 struct sh_layer {
@@ -1022,6 +1051,10 @@ struct sh_layer {
     struct wlr_box bounds;
     struct wl_list link;
     struct wl_listener commit, map, unmap, destroy, new_popup;
+    /* Its number, given as it is created and to no other layer surface, and its commits
+     * handled and the time that took (ns), for `get commits` (paw top). */
+    uint32_t id;
+    uint64_t commits, commit_ns;
 };
 
 struct sh_lock {
@@ -1089,6 +1122,8 @@ bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, cha
 bool launch_program(struct sh_server *server, enum sh_action action, char *error,
                     size_t error_size);
 void run_action(struct sh_server *server, enum sh_action action, int argument);
+void screenshot_hide_cursor(struct sh_server *server);
+void screenshot_show_cursor(struct sh_server *server);
 
 /* control.c */
 void control_reply(int fd, const char *text);
@@ -1477,6 +1512,7 @@ struct sh_rect floating_area(struct sh_server *server, struct wlr_output *output
 void unarrange_in_place(struct sh_toplevel *toplevel);
 void move_window(struct sh_server *server, enum sh_action action);
 void resize_window(struct sh_server *server, enum sh_action action, int amount);
+void bound_tile(struct sh_toplevel *toplevel);
 
 /* power.c */
 void power_init(struct sh_server *server);
@@ -1520,6 +1556,7 @@ void empty_scratchpad(struct sh_server *server);
 void window_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which, const struct wlr_box *box,
                  int radius);
 void drop_refresh(struct sh_toplevel *toplevel);
+void window_cut(struct sh_toplevel *toplevel);
 
 /* session.c */
 bool make_directories(char *path);
@@ -1719,6 +1756,10 @@ void occupied_workspaces(struct sh_server *server, struct wlr_output *output, ch
                          size_t size);
 int focused_workspace(struct sh_server *server);
 
+/* rice.c */
+void control_rice(struct sh_server *server, int fd, const char *arguments);
+void describe_rice_trial(struct sh_server *server, int fd, const char *arguments);
+void rice_finish(struct sh_server *server);
 /* wrapped.c */
 void wrapped_init(struct sh_server *server);
 void wrapped_finish(struct sh_server *server);
@@ -1746,3 +1787,23 @@ void close_xwm_waker(struct sh_server *server);
 #endif
 void xwayland_ready(struct wl_listener *listener, void *data);
 #endif
+
+/* toys.c */
+void toys_shake(struct sh_server *server, struct sh_toplevel *toplevel);
+void toys_start(struct sh_server *server, enum sh_action action, int argument);
+void toys_tick(struct sh_server *server);
+void toys_press(struct sh_server *server);
+void toys_end(struct sh_server *server);
+void toys_forget(struct sh_toplevel *toplevel);
+bool toys_border(struct sh_toplevel *toplevel, float color[4]);
+struct wlr_scene_node *toys_confetti(struct sh_server *server);
+void describe_toys(struct sh_server *server, int fd, const char *arguments);
+/* cat.c */
+void cat_init(struct sh_server *server);
+void cat_finish(struct sh_server *server);
+void cat_reload(struct sh_server *server);
+void cat_switch(struct sh_server *server, int choice);
+void cat_frame(struct sh_server *server);
+void cat_input(struct sh_server *server);
+void cat_pointer_moved(struct sh_server *server);
+void describe_cat(struct sh_server *server, int fd, const char *arguments);

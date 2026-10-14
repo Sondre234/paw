@@ -9,8 +9,8 @@ FlatButton {
     required property var panel
     objectName: "audioWidget"
     visible: audioWidget.panel.audioSource.available && shell.widgets.volume === "bar"
-    Layout.preferredWidth: Theme.barVertical ? Theme.barItemWidth : level.implicitWidth + 2 * Theme.spacingM
-    Layout.preferredHeight: Theme.barVertical ? level.implicitHeight + 2 * Theme.spacingS : Theme.barButtonHeight
+    Layout.preferredWidth: panel.vertical ? panel.barItemWidth : level.implicitWidth + 2 * Theme.spacingM
+    Layout.preferredHeight: panel.vertical ? level.implicitHeight + 2 * Theme.spacingS : Theme.barButtonHeight
     onClicked: audioWidget.panel.toggleAudioPopup("mixer", audioWidget)
     Accessible.name: "Volume " + audioWidget.panel.audioSource.volume + "%" + (audioWidget.panel.audioSource.muted ? ", muted" : "")
     BarTip { panel: audioWidget.panel; owner: audioWidget; text: audioWidget.Accessible.name }
@@ -20,7 +20,7 @@ FlatButton {
         Grid {
             id: level
             anchors.centerIn: parent; spacing: Theme.spacingS
-            columns: Theme.barVertical ? 1 : 2
+            columns: panel.vertical ? 1 : 2
             horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
             SpeakerIcon { level: audioWidget.panel.audioSource.volume; muted: audioWidget.panel.audioSource.muted; color: audioWidget.panel.audioSource.muted ? Theme.textMuted : Theme.text }
             Text {

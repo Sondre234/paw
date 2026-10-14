@@ -19,6 +19,14 @@ class ShellView : public QQuickView {
     // than the taskbar or the dock: the surface then lies along the tiling bar's edge and is as
     // tall as the strip it reserves. Panel.qml sets it.
     Q_PROPERTY(bool tilingBar READ tilingBar WRITE setTilingBar NOTIFY tilingBarChanged)
+    // Where the taskbar or the dock of its output goes (ShellController::panelEdge and the rest
+    // for that output): along `panelEdge` ("top", "bottom", "left" or "right"), upright along a
+    // side (`panelVertical`), reserving `panelExtent` pixels across it, with `panelHeadroom` more
+    // for its shadow or, the dock's, for an icon to bounce in.
+    Q_PROPERTY(QString panelEdge READ panelEdge NOTIFY panelPlacementChanged)
+    Q_PROPERTY(bool panelVertical READ panelVertical NOTIFY panelPlacementChanged)
+    Q_PROPERTY(int panelExtent READ panelExtent NOTIFY panelPlacementChanged)
+    Q_PROPERTY(int panelHeadroom READ panelHeadroom NOTIFY panelPlacementChanged)
   public:
     ShellView(ShellController &controller, QScreen *screen, bool desktop, bool preview);
     QScreen *outputScreen() const { return outputScreen_; }
@@ -41,10 +49,15 @@ class ShellView : public QQuickView {
     // it shows has them.
     paw::PanelEdge edge() const;
     int extent() const;
+    QString panelEdge() const { return controller_.panelEdge(outputScreen_->name()); }
+    bool panelVertical() const { return controller_.panelVertical(outputScreen_->name()); }
+    int panelExtent() const { return controller_.panelExtent(outputScreen_->name()); }
+    int panelHeadroom() const { return controller_.panelHeadroom(outputScreen_->name()); }
 
   Q_SIGNALS:
     void inputRectsChanged();
     void tilingBarChanged();
+    void panelPlacementChanged();
 
   private:
     ShellController &controller_;
@@ -225,6 +238,18 @@ class DisplaySettingsView : public OverlayView {
     Q_OBJECT
   public:
     DisplaySettingsView(ShellController &controller, QScreen *screen);
+
+  private:
+    void update();
+};
+
+// The question while a rice is on trial (`paw rice try`) on one output, in its middle, holding
+// the keyboard: on the output overlays belonged on as the trial started, or on the primary screen
+// once that one is gone.
+class RiceTrialView : public OverlayView {
+    Q_OBJECT
+  public:
+    RiceTrialView(ShellController &controller, QScreen *screen);
 
   private:
     void update();

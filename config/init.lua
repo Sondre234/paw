@@ -156,7 +156,8 @@ return {
     layout = {
         -- gap = 8, -- sets both; or gap_inner (between windows) and gap_outer (at the edges)
         -- smart_gaps = true, -- no gaps around a tiled window alone on its workspace
-        -- lone_margin = 0, -- pixels around a tiled window alone on its workspace instead
+        -- lone_margin = 0, -- pixels around a tiled window alone on its workspace instead;
+        --                     or by side: { top = 12, right = 160, bottom = 12, left = 160 }
         workspaces = 4,
         tiling = false, -- automatic tiling on every monitor; outputs.monitors can override it,
         -- and each monitor's panel button toggles it there
@@ -295,9 +296,12 @@ return {
         --                      the panel settings below applying to the dock
         -- panel_height = 52,
         -- panel_position = "bottom", -- or "top", "left" or "right"
+        -- panel_positions = { ["DP-1"] = "left" }, -- a monitor's own edge, by its name
+        -- panel_per_monitor = true, -- false: every monitor's bar along panel_position
         -- panel_draggable = false, -- true: drag the bar by its empty space to another edge, or
         --                            by its inner edge to resize it, which is written back into
-        --                            this file as panel_position or panel_height
+        --                            this file as its monitor's panel_positions entry (or
+        --                            panel_position) or panel_height
         -- panel_dock = true, -- false: a floating bar stays floating while windows reach it;
         --                       "maximized": it docks only for a maximized window, not tiling
         -- mirror_menus = false, -- true: along the top, the bar's right-click menus run the other
@@ -543,5 +547,8 @@ return {
         -- one shown once the key rests. mode = "duplicate" (or "extend", "internal", "external")
         -- picks one at once.
         { mods = {}, key = "XF86Display", action = "display_mode" },
+        -- A desktop cat that lives on the focused window's top edge (cat.enabled lets it out as
+        -- the session starts; mode = "on" or "off" rather than toggling):
+        -- { mods = { mod, "Ctrl" }, key = "n", action = "cat" },
     },
 }

@@ -73,11 +73,11 @@ void lift_drop(struct sh_server *server) {
 
 /* Where the window's lift draws `box`, in the coordinates of `tree` (its content or a tree in
  * it), its edges where the animator puts those of a node there: for the rounded clips, which take
- * no part in the animations' scaling and would cut a lifted window short. As it is without a
- * lift. */
+ * no part in the animations' scaling and would cut a lifted window short. A toy's stretch
+ * (toys.c) draws it the same way. As it is without either. */
 struct wlr_box lift_box(struct sh_toplevel *toplevel, struct wlr_scene_tree *tree,
                         struct wlr_box box) {
-    if (!toplevel->anim.lifted || !toplevel->content)
+    if ((!toplevel->anim.lifted && !sh_anim_posed(&toplevel->anim)) || !toplevel->content)
         return box;
     int ox = 0, oy = 0; // the tree's place in the content, which the lift draws larger
     for (struct wlr_scene_tree *t = tree; t && t != toplevel->content; t = t->node.parent)

@@ -15,8 +15,8 @@ FlatButton {
         : (center.dnd ? "Do not disturb, " : "") +
           (unread > 0 ? unread + (unread === 1 ? " unread notification" : " unread notifications") : "No new notifications")
     visible: shell.widgets.clock
-    Layout.preferredWidth: Theme.barVertical ? Theme.barItemWidth : content.implicitWidth + 2 * Theme.spacingM
-    Layout.preferredHeight: Theme.barVertical ? content.implicitHeight + 2 * Theme.spacingS : Theme.barButtonHeight
+    Layout.preferredWidth: panel.vertical ? panel.barItemWidth : content.implicitWidth + 2 * Theme.spacingM
+    Layout.preferredHeight: panel.vertical ? content.implicitHeight + 2 * Theme.spacingS : Theme.barButtonHeight
     hoverEnabled: true
     enabled: shell.widgets.calendar || center.serving
     onClicked: clockButton.panel.toggleAudioPopup("clock", clockButton)
@@ -49,7 +49,7 @@ FlatButton {
             id: content
             anchors.centerIn: parent
             spacing: Theme.spacingS
-            columns: Theme.barVertical ? 1 : 3
+            columns: panel.vertical ? 1 : 3
             horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
             Text {
                 id: clock
@@ -60,9 +60,9 @@ FlatButton {
                 readonly property string shortDate: Qt.locale().dateFormat(Locale.ShortFormat)
                 readonly property string dateFormat: shortDate.indexOf("d") < shortDate.indexOf("M") ? "ddd d MMM" : "ddd MMM d"
                 text: Theme.macos ? Qt.formatDate(now, dateFormat) + "  " + Qt.formatTime(now, "HH:mm")
-                    : Qt.formatTime(now, Theme.barVertical ? "HH\nmm" : "HH:mm")
+                    : Qt.formatTime(now, panel.vertical ? "HH\nmm" : "HH:mm")
                 horizontalAlignment: Text.AlignHCenter
-                lineHeight: Theme.barVertical ? 0.9 : 1
+                lineHeight: panel.vertical ? 0.9 : 1
                 color: Theme.text
                 font.pixelSize: Theme.fontSize; font.weight: Theme.macos ? Font.Normal : Font.DemiBold; font.family: Theme.fontFamily
                 // The clock shows minutes, so it wakes once a minute, just after the minute changes.

@@ -26,15 +26,21 @@ struct sh_rect tiling_area(struct sh_server *server, struct wlr_output *output, 
                            int joining, int *gap) {
     const struct sh_settings *settings = server_settings(server);
     bool lone = sh_tiling_count(server->tiling, output->name, workspace) + joining == 1;
-    if (lone && settings->lone_margin > 0) {
+    const int *margin = settings->lone_margin; /* top, right, bottom, left */
+    if (lone && (margin[0] > 0 || margin[1] > 0 || margin[2] > 0 || margin[3] > 0)) {
         struct sh_rect area = usable_area(server, output);
-        int mx = settings->lone_margin, my = settings->lone_margin;
-        if (mx > area.width * 3 / 8)
-            mx = area.width * 3 / 8;
-        if (my > area.height * 3 / 8)
-            my = area.height * 3 / 8;
+        int top = margin[0], right = margin[1], bottom = margin[2], left = margin[3];
+        if (top > area.height * 3 / 8)
+            top = area.height * 3 / 8;
+        if (bottom > area.height * 3 / 8)
+            bottom = area.height * 3 / 8;
+        if (left > area.width * 3 / 8)
+            left = area.width * 3 / 8;
+        if (right > area.width * 3 / 8)
+            right = area.width * 3 / 8;
         *gap = 0;
-        return (struct sh_rect){area.x + mx, area.y + my, area.width - 2 * mx, area.height - 2 * my};
+        return (struct sh_rect){area.x + left, area.y + top, area.width - left - right,
+                                area.height - top - bottom};
     }
     if (settings->smart_gaps && lone) {
         *gap = 0;
@@ -252,12 +258,51 @@ void arrange_windows(struct sh_server *server, enum sh_action action) {
     }
 }
 
+/* A tile of the scrolling layout keeps to its monitor: its columns lie on a strip wider than the
+ * monitor, and those past its edges would show on the monitors beside it. While its frame crosses
+ * an edge nothing of it is drawn past it (scratchpad.c cuts its clips there, following it as it
+ * glides); at rest wholly past one its content hides, so that the other monitor neither shows it
+ * nor counts it as shown there (its scale, its frames), and the pointer passes it by there
+ * (cursor.c). Any other window is bound by nothing. */
+void bound_tile(struct sh_toplevel *toplevel) {
+    struct sh_server *server = toplevel->server;
+    struct wlr_output *output = toplevel->tiled ? tiled_output(toplevel) : NULL;
+    struct wlr_box bound = {0};
+    if (output && toplevel_layout(toplevel) == SH_LAYOUT_SCROLL)
+        wlr_output_layout_get_box(server->output_layout, output, &bound);
+    toplevel->bounded = !wlr_box_empty(&bound);
+    toplevel->bound = bound;
+    if (!toplevel->content)
+        return;
+    window_cut(toplevel);
+    bool past = false;
+    if (toplevel->bounded && !toplevel->anim.animator) {
+        int b = server_settings(server)->border_width;
+        struct wlr_box g = toplevel_box(toplevel), both;
+        struct wlr_box frame = {g.x - b, g.y - b, g.width + 2 * b, g.height + 2 * b};
+        past = !wlr_box_intersection(&both, &frame, &bound);
+    }
+    wlr_scene_node_set_enabled(&toplevel->content->node, !past);
+}
+
+/* Each frame of a bounded tile's glide: the cut follows it, and once it stops it hides if it
+ * came to rest past its monitor's edge. */
+static void bound_track(void *data, bool done) {
+    struct sh_toplevel *toplevel = data;
+    if (done)
+        bound_tile(toplevel);
+    else
+        window_cut(toplevel);
+}
+
 static void place_tiled(void *data, void *window, struct sh_rect rect) {
     struct sh_toplevel *toplevel = window;
     if (tile_drop_place(toplevel, rect))
         return; // moved with the pointer, it only holds its place
-    if (toplevel->fullscreen)
+    if (toplevel->fullscreen) {
+        bound_tile(toplevel);
         return; // It returns to its tile when it leaves fullscreen.
+    }
     toplevel_set_states(toplevel, false, ALL_EDGES);
     rect = inside_border(toplevel->server, rect);
     struct wlr_scene_node *node = &toplevel->scene_tree->node;
@@ -272,6 +317,11 @@ static void place_tiled(void *data, void *window, struct sh_rect rect) {
     else if (toplevel->shown && toplevel_visible(toplevel))
         sh_anim_glide(toplevel->server->animator, &toplevel->anim, toplevel->content, x - node->x,
                       y - node->y);
+    bound_tile(toplevel);
+    if (toplevel->bounded && toplevel->anim.animator && !toplevel->anim.track) {
+        toplevel->anim.track = bound_track;
+        toplevel->anim.track_data = toplevel;
+    }
 }
 
 /* Snapped, maximized, or grid-arranged windows that follow changes to the usable area. */

@@ -134,5 +134,10 @@ with harness.Compositor(compositor, config()) as desktop:
     desktop.wait_for(lambda: windows() == [(400 + BORDER, HEIGHT * 3 // 8 + BORDER,
                                             WIDTH - 800 - 2 * BORDER, HEIGHT // 4 - 2 * BORDER)],
                      "a quarter of the output's height left")
+    # By side, the sides left out 0.
+    desktop.reload(config(", lone_margin = { top = 10, right = 200, left = 100 }"))
+    desktop.wait_for(lambda: windows() == [(100 + BORDER, 10 + BORDER,
+                                            WIDTH - 300 - 2 * BORDER, HEIGHT - 10 - 2 * BORDER)],
+                     "lone tile inside lone_margin by side")
 print("A lone tile has no gaps; two and more keep them; smart_gaps = false keeps them always; "
       "lone_margin frames a lone tile")

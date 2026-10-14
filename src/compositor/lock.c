@@ -140,6 +140,7 @@ void server_new_lock(struct wl_listener *listener, void *data) {
     switcher_close(server, -1);
     overview_dismiss(server);
     crossfade_end(server); // its pictures show the session as it was
+    toys_end(server);
     add_listener(&wlr_lock->events.new_surface, &lock->new_surface, lock_new_surface);
     add_listener(&wlr_lock->events.unlock, &lock->unlock, lock_unlock);
     add_listener(&wlr_lock->events.destroy, &lock->destroy, lock_destroy);

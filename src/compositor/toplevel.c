@@ -452,6 +452,7 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
         sh_anim_close(server->animator, &toplevel->scene_tree->node, toplevel->content,
                       box.width / 2.0, box.height / 2.0);
     }
+    toys_forget(toplevel); // closing where a toy drew it, it plays no more
     sh_anim_finish(&toplevel->anim);
     toplevel->shown = false;
     swallow_end(toplevel);
@@ -509,8 +510,11 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
         morph_commit(toplevel); // before the scene takes in what it drew
         workspace_window_committed(toplevel);
         refresh_frame(toplevel);
+        uint64_t spent = now_ns() - started;
         ++toplevel->server->stats.commits;
-        toplevel->server->stats.commit_ns += now_ns() - started;
+        toplevel->server->stats.commit_ns += spent;
+        ++toplevel->commits;
+        toplevel->commit_ns += spent;
     }
 }
 

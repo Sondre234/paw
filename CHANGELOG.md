@@ -579,6 +579,56 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
 wrong with it, and toys the compositor plays with the windows.
 
+- `paw doctor` looks the session over for what has gone wrong in paw desktops before and prints,
+  for each check, ✓, ! or ✗ and the command that fixes it: the desktop shell gone (`kill -HUP`
+  with the compositor's PID), a session bus that no longer answers, PipeWire left on Dummy Output
+  or WirePlumber on a dead bus, `paw-portals.conf` where xdg-desktop-portal does not look (the
+  `ln -s` that puts it there), a compositor older than the paw installed since, a failed update,
+  an invalid configuration, another notification daemon or polkit agent, logind and Xwayland
+  missing. It only looks, and fixes nothing itself; `--plain` is for scripts.
+- `paw fetch` is a fastfetch of paw's own: a paw print in the appearance profile's colours (its
+  border's gradient), and beside it the profile, the session's uptime and frames drawn, frame
+  times, windows and workspaces, the tiling layout, monitors, the idle timeouts, the application
+  launched most and the saved sessions. Outside a session it shows what the configuration and
+  the state files tell; through a pipe, with `--no-color` or `NO_COLOR` it writes no colours,
+  and `--no-logo` leaves the print out. `paw msg get about` and `get palette` are the queries it
+  adds.
+- `paw showcase` takes a screenshot to post: the terminal opens among the windows with `paw fetch`
+  in it, grim takes the monitor into `~/Pictures/paw-showcase-DATE-TIME.png` (`-o FILE`, `--output
+  NAME`, `--delay SECONDS`), and the terminal closes again, the windows put back as they were,
+  after a failure or Ctrl+C too; `--keep` leaves the terminal open. `paw msg cursor hide` hides the
+  cursor for such a screenshot, until `cursor show` or for five seconds at most.
+- `paw top` shows what the compositor is doing, as htop shows processes: each monitor's frames a
+  second and the time drawing its last frames took against its refresh interval, with a graph of
+  them; what the compositor did each second; and the windows and panels whose commits make it
+  work, the costliest first. `paw top --once` prints one look. Two queries feed it: `get
+  commits`, each window's and layer surface's commits and the time handling them took, and `get
+  frame_times OUTPUT`, a monitor's own last 512 frames.
+- `paw shake`, `paw gravity` and `paw party`, and the binding actions `shake`, `gravity` and
+  `party`: toys that only draw. A shake wobbles the focused window from side to side (or a
+  numbered one, or from a mouse button the one under the pointer); gravity drops every window of
+  the focused monitor's workspace to the bottom, where they pile up, bounce, squash and glide back
+  up; a party bobs them under rainbow borders while confetti falls. No window moves or changes
+  size, and one that does anything else meanwhile drops out back in its place. The command
+  palette offers them too, and `paw msg get toys` says what plays.
+- `paw rice pack [PROFILE]` packs an appearance profile's look into one file to share: the
+  settings that say how the desktop looks, its wallpaper and start button, a kitty theme named
+  for it and any `--extra` file, with a name, an author and a description. `paw rice try` takes
+  one from a file, a directory or an https URL, says what it changes, installs it as a profile
+  and crossfades to it; "Keep this look?" then counts 15 seconds down, and unless it is kept
+  (there, or with `paw rice keep`) the previous look comes back, also after a crash. A rice is
+  data, never run: a parser of Lua's table syntax alone reads its `rice.lua`, which may set only
+  the look and name only files inside it. `paw rice list` and `paw rice remove` look after the
+  installed ones.
+- `paw cat` lets a pixel-art cat out onto the desktop, drawn by the compositor as oneko is by a
+  client, but knowing the windows: it sits on the focused window's top edge, wanders along it,
+  grooms, scratches and yawns, hops over to the window the focus moves to, falls with gravity onto
+  the next window top below (or above the taskbar) when the window under it goes, chases a pointer
+  flicked past it, pats the top of a window that asks for attention, and curls up asleep while
+  nobody uses the computer. It takes no input, hides under fullscreen windows, the overview and the
+  lock, draws frames only while it moves, and wears a black coat on light profiles and a cream one
+  on dark ones. The `cat` action (`paw cat [on|off|toggle]`), `cat.enabled`, `cat.coat`,
+  `cat.scale` and `cat.sleep_after`, and `paw msg get cat`.
 - `paw wrapped` tells you about your time at the desktop as Spotify Wrapped does about a year of
   music, in bold, coloured cards: how far the mouse travelled ("about 39 football pitches"),
   clicks, scrolling, key presses against a novel, windows opened, dragged and snapped, workspace
