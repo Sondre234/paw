@@ -321,6 +321,9 @@ if(PAW_BUILD_COMPOSITOR)
         string(REPLACE "LIB" "" PAW_SDBUS ${PAW_SDBUS})
         target_compile_definitions(paw PRIVATE PAW_SDBUS_${PAW_SDBUS}=1)
         target_link_libraries(paw PRIVATE PkgConfig::SDBUS)
+        # paw doctor asks the session and system buses through it too.
+        target_compile_definitions(paw_cli PRIVATE PAW_SDBUS_${PAW_SDBUS}=1)
+        target_link_libraries(paw_cli PRIVATE PkgConfig::SDBUS)
     else()
         message(STATUS "No sd-bus (libsystemd, libelogind, basu); other desktops may suspend "
             "the machine while paw is on screen")

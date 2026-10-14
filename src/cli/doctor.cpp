@@ -1,11 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* `paw doctor [--plain] [--no-color]`: looks the running session over for what has gone wrong
- * in paw desktops before (the shell gone, a compositor older than the paw installed since, an
- * update that failed, ...) and prints each finding with the command that fixes it. It only
- * looks: a get query to the compositor, files and /proc, and `paw --version`. */
+ * in paw desktops before (the shell gone, the session bus dead, a compositor older than the paw
+ * installed since, ...) and prints each finding with the command that fixes it. It only looks: a
+ * get query to the compositor, files and /proc, `paw --version`, and D-Bus calls that change
+ * nothing and start no service. */
+#include "paw/autostart.hpp"
 #include "paw/cli.hpp"
 #include "paw/config.hpp"
 #include "paw/doctor.hpp"
+
+#if PAW_SDBUS_SYSTEMD
+#include <systemd/sd-bus.h>
+#elif PAW_SDBUS_ELOGIND
+#include <elogind/sd-bus.h>
+#elif PAW_SDBUS_BASU
+#include <basu/sd-bus.h>
+#endif
+#if PAW_SDBUS_SYSTEMD || PAW_SDBUS_ELOGIND || PAW_SDBUS_BASU
+#define PAW_DOCTOR_BUS 1
+#endif
 
 #include <algorithm>
 #include <cerrno>
@@ -37,7 +50,7 @@ namespace fs = std::filesystem;
 using doctor::Result;
 using doctor::Status;
 
-const char *const session_section = "Session";
+const char *const session_section = "Session", *const bus_section = "D-Bus";
 
 std::string read_file(const fs::path &path) {
     std::ifstream file(path, std::ios::binary);
@@ -198,6 +211,126 @@ std::vector<Process> user_processes() {
     return found;
 }
 
+#if PAW_DOCTOR_BUS
+constexpr uint64_t bus_timeout = 2'000'000; // microseconds
+using Message = std::unique_ptr<sd_bus_message, sd_bus_message *(*)(sd_bus_message *)>;
+// A connection to a bus that asks only what changes nothing, and has no service started for it.
+class Bus {
+  public:
+    // The bus at `address`, or the system bus for "system"; null, with `error`, when there is none.
+    static std::unique_ptr<Bus> connect(const std::string &address, std::string &error) {
+        sd_bus *bus = nullptr;
+        int result = 0;
+        if (address == "system") {
+            result = sd_bus_open_system(&bus);
+        } else {
+            result = sd_bus_new(&bus);
+            if (result >= 0)
+                result = sd_bus_set_address(bus, address.c_str());
+            if (result >= 0)
+                result = sd_bus_set_bus_client(bus, 1);
+            if (result >= 0)
+                result = sd_bus_start(bus);
+        }
+        if (result < 0) {
+            error = std::strerror(-result);
+            sd_bus_unref(bus);
+            return nullptr;
+        }
+        return std::unique_ptr<Bus>(new Bus(bus));
+    }
+    ~Bus() { sd_bus_flush_close_unref(bus_); }
+    // Whether the bus answers its own GetId.
+    bool answers(std::string &error) {
+        return call("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "GetId",
+                    nullptr, error) != nullptr;
+    }
+    // The connection that owns `name`, "" for none.
+    std::string owner(const std::string &name) {
+        std::string error;
+        auto reply = call("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+                          "GetNameOwner", name.c_str(), error);
+        const char *owner = nullptr;
+        if (!reply || sd_bus_message_read(reply.get(), "s", &owner) < 0 || !owner)
+            return {};
+        return owner;
+    }
+    // The process of `connection`, 0 when the bus does not say.
+    int pid(const std::string &connection) {
+        std::string error;
+        auto reply = call("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+                          "GetConnectionUnixProcessID", connection.c_str(), error);
+        uint32_t pid = 0;
+        if (!reply || sd_bus_message_read(reply.get(), "u", &pid) < 0)
+            return 0;
+        return static_cast<int>(pid);
+    }
+    // Whether the bus would start a service for `name` (which this never asks it to).
+    bool activatable(const std::string &name) {
+        std::string error;
+        auto reply = call("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+                          "ListActivatableNames", nullptr, error);
+        if (!reply || sd_bus_message_enter_container(reply.get(), 'a', "s") < 0)
+            return false;
+        for (const char *found = nullptr; sd_bus_message_read(reply.get(), "s", &found) > 0;)
+            if (found && name == found)
+                return true;
+        return false;
+    }
+    // A property of type u; nothing, with `error`, when it cannot be read.
+    std::optional<uint32_t> unsigned_property(const char *destination, const char *path,
+                                              const char *interface, const char *property,
+                                              std::string &error) {
+        auto reply = call(destination, path, "org.freedesktop.DBus.Properties", "Get",
+                          interface, error, property);
+        uint32_t value = 0;
+        if (!reply)
+            return std::nullopt;
+        if (sd_bus_message_read(reply.get(), "v", "u", &value) < 0) {
+            error = "no such property";
+            return std::nullopt;
+        }
+        return value;
+    }
+    // The string a method without arguments returns; nothing, with `error`, when it fails.
+    std::optional<std::string> string_call(const char *destination, const char *path,
+                                           const char *interface, const char *method,
+                                           std::string &error) {
+        auto reply = call(destination, path, interface, method, nullptr, error);
+        const char *value = nullptr;
+        if (!reply || sd_bus_message_read(reply.get(), "s", &value) < 0 || !value)
+            return std::nullopt;
+        return value;
+    }
+
+  private:
+    explicit Bus(sd_bus *bus) : bus_(bus) {}
+    // Calls `method` with up to two string arguments, never starting a service for it.
+    Message call(const char *destination, const char *path, const char *interface,
+                 const char *method, const char *first, std::string &error,
+                 const char *second = nullptr) {
+        sd_bus_message *message = nullptr, *reply = nullptr;
+        sd_bus_error failure = SD_BUS_ERROR_NULL;
+        int result =
+            sd_bus_message_new_method_call(bus_, &message, destination, path, interface, method);
+        if (result >= 0)
+            result = sd_bus_message_set_auto_start(message, 0);
+        if (result >= 0 && first)
+            result = sd_bus_message_append(message, "s", first);
+        if (result >= 0 && second)
+            result = sd_bus_message_append(message, "s", second);
+        if (result >= 0)
+            result = sd_bus_call(bus_, message, bus_timeout, &failure, &reply);
+        if (result < 0)
+            error = failure.message ? failure.message : std::strerror(-result);
+        sd_bus_error_free(&failure);
+        sd_bus_message_unref(message);
+        return Message(result < 0 ? nullptr : reply, sd_bus_message_unref);
+    }
+    sd_bus *bus_;
+};
+#endif
+
 // What the checks look at, gathered once.
 struct Context {
     std::vector<Process> processes;
@@ -216,6 +349,10 @@ struct Context {
     std::string config_error;
     // session.log since the compositor started, in a login session that writes one.
     std::optional<std::string> log;
+#if PAW_DOCTOR_BUS
+    std::unique_ptr<Bus> bus; // the session bus, when it answers
+#endif
+    std::string bus_error;
 
     // Where the compositor's program is installed: PREFIX of PREFIX/bin/paw; "" when unknown.
     fs::path prefix() const {
@@ -346,6 +483,13 @@ Context gather() {
     if (context.compositor && context.compositor->has_argument("--session"))
         if (auto state = state_directory(); !state.empty())
             context.log = doctor::since_last_start(read_file(state / "session.log"));
+#if PAW_DOCTOR_BUS
+    if (auto address = variable("DBUS_SESSION_BUS_ADDRESS"); !address.empty()) {
+        auto bus = Bus::connect(address, context.bus_error);
+        if (bus && bus->answers(context.bus_error))
+            context.bus = std::move(bus);
+    }
+#endif
     return context;
 }
 
@@ -544,6 +688,184 @@ std::optional<Result> check_profile(const Context &context) {
     return result;
 }
 
+// D-Bus
+
+#if PAW_DOCTOR_BUS
+// The program that owns `name` on `bus`, as "mako (PID 123)"; its process's program in `program`.
+std::string owner_of(Bus &bus, const Context &context, const std::string &name,
+                     std::string &program, int &pid) {
+    auto owner = bus.owner(name);
+    if (owner.empty())
+        return {};
+    pid = bus.pid(owner);
+    auto *process = context.process(pid);
+    program = process ? process->program() : "";
+    // Another user's process (logind's is root's) shows only its name.
+    if (program.empty() && pid > 0) {
+        program = read_file("/proc/" + std::to_string(pid) + "/comm");
+        if (!program.empty() && program.back() == '\n')
+            program.pop_back();
+    }
+    if (program.empty())
+        return owner + (pid ? " (PID " + std::to_string(pid) + ")" : "");
+    return program + " (PID " + std::to_string(pid) + ")";
+}
+#endif
+
+Result check_bus(const Context &context) {
+    Result result{bus_section, "bus"};
+    auto address = variable("DBUS_SESSION_BUS_ADDRESS");
+    if (address.empty()) {
+        result.status = Status::error;
+        result.finding = "DBUS_SESSION_BUS_ADDRESS is unset: no notifications, tray, portals or "
+                         "sound settings";
+        result.fix = "Start the session with paw-session, which starts a session bus where "
+                     "there is none (dbus-run-session paw --session)";
+        return result;
+    }
+#if PAW_DOCTOR_BUS
+    if (context.bus) {
+        result.finding = "The session bus answers (" + address + ")";
+        return result;
+    }
+    result.status = Status::error;
+    result.finding = "The session bus at " + address + " does not answer (" + context.bus_error +
+                     "): notifications, the tray, portals and sound settings stop working";
+    result.fix = "Log out and back in: the session lost its bus";
+#else
+    (void)context;
+    result.status = Status::warning;
+    result.finding = "D-Bus was not checked: this paw was built without sd-bus";
+    result.fix = "Rebuild paw with libsystemd, libelogind or basu installed";
+#endif
+    return result;
+}
+
+std::optional<Result> check_notifications(const Context &context) {
+#if PAW_DOCTOR_BUS
+    if (!context.bus)
+        return std::nullopt;
+    Result result{bus_section, "notifications"};
+    bool ours = !context.config || context.config->notifications.enabled;
+    std::string program;
+    int pid = 0;
+    auto owner = owner_of(*context.bus, context, "org.freedesktop.Notifications", program, pid);
+    if (owner.empty()) {
+        result.status = Status::warning;
+        if (!ours) {
+            result.finding = "Nothing shows notifications: paw's are off (notifications.enabled "
+                             "= false) and no other notification daemon runs";
+            result.fix = "Set notifications.enabled = true, or start a notification daemon";
+        } else {
+            auto why = context.logged("paw notifications: ");
+            result.finding = "Nothing shows notifications" +
+                             (why.empty() ? std::string(": paw's shell does not serve them")
+                                          : ": paw's shell says " + why) +
+                             "; reloading paw starts them again";
+            result.fix = context.reload();
+        }
+    } else if (program == "paw-shell") {
+        result.finding = "paw's shell shows notifications (PID " + std::to_string(pid) + ")";
+    } else if (!ours) {
+        result.finding = owner + " shows notifications (paw's are off)";
+    } else {
+        result.status = Status::warning;
+        result.finding = owner + " shows notifications instead of paw's shell (to keep it, set "
+                                 "notifications.enabled = false)";
+        result.fix = (pid ? "kill " + std::to_string(pid) + " && " : std::string()) +
+                     context.reload() + "\nTake " + (program.empty() ? "it" : program) +
+                     " out of your autostart and startup commands";
+    }
+    return result;
+#else
+    (void)context;
+    return std::nullopt;
+#endif
+}
+
+std::optional<Result> check_polkit(const Context &context) {
+    if (!context.compositor)
+        return std::nullopt;
+    Result result{bus_section, "polkit"};
+    if (!context.login) {
+        result.finding = "Password prompts are left to the host's polkit agent (a nested session)";
+        return result;
+    }
+    std::vector<const Process *> agents;
+    for (const auto &process : context.processes)
+        if (process.running() && process.program() != "paw-shell" &&
+            process.program() != "polkit-agent-helper-1" &&
+            autostart_role(process.program(), {doctor::program_path(process.exe)}) == "polkit")
+            agents.push_back(&process);
+    std::string names;
+    for (const auto *agent : agents)
+        names += (names.empty() ? "" : ", ") + agent->program() + " (PID " +
+                 std::to_string(agent->pid) + ")";
+    if (context.config && !context.config->shell.polkit_agent) {
+        result.finding = agents.empty() ? "paw's polkit agent is off (shell.polkit_agent = false)"
+                                        : names + " asks for passwords (paw's agent is off)";
+        return result;
+    }
+    auto said = context.logged("paw polkit: ");
+    if (agents.empty() && (said.empty() || said == "the session's authentication agent")) {
+        result.finding = "paw's shell asks for passwords (polkit)";
+        return result;
+    }
+    result.status = Status::warning;
+    if (!agents.empty()) {
+        result.finding = names + " runs beside paw's shell, and only the polkit agent that "
+                                 "came first asks for passwords (to keep it, set "
+                                 "shell.polkit_agent = false)";
+        std::string pids;
+        for (const auto *agent : agents)
+            pids += " " + std::to_string(agent->pid);
+        result.fix = "kill" + pids + " && " + context.reload() +
+                     "\nTake it out of your autostart and startup commands";
+    } else {
+        result.finding = "paw's shell is not the polkit agent: " + said +
+                         "; reloading paw has it try again";
+        result.fix = context.reload();
+    }
+    return result;
+}
+
+std::optional<Result> check_logind(const Context &context) {
+#if PAW_DOCTOR_BUS
+    Result result{bus_section, "logind"};
+    // As the compositor finds it: the bus PAW_LOGIN1_BUS names, else the system bus.
+    auto address = variable("PAW_LOGIN1_BUS");
+    bool system = address.empty();
+    std::string error;
+    auto bus = Bus::connect(system ? "system" : address, error);
+    if (bus && !bus->answers(error))
+        bus.reset();
+    bool openrc = fs::exists("/run/openrc");
+    if (!bus) {
+        result.status = Status::error;
+        result.finding = std::string(system ? "The system bus" : "The bus at " + address) +
+                         " does not answer (" + error + "): no suspend, reboot or power off from paw";
+        result.fix = openrc ? "sudo rc-service dbus start" : "sudo systemctl start dbus";
+        return result;
+    }
+    std::string program;
+    int pid = 0;
+    auto owner = owner_of(*bus, context, "org.freedesktop.login1", program, pid);
+    if (owner.empty()) {
+        result.status = Status::error;
+        result.finding = "logind is not running: suspend, reboot and power off from paw fail";
+        result.fix = openrc ? "sudo rc-service elogind start" : "sudo systemctl start systemd-logind";
+        return result;
+    }
+    auto can = bus->string_call("org.freedesktop.login1", "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager", "CanSuspend", error);
+    result.finding = owner + " answers" + (can ? " (suspend: " + *can + ")" : "");
+    return result;
+#else
+    (void)context;
+    return std::nullopt;
+#endif
+}
+
 } // namespace
 
 int doctor(int argc, char **argv) {
@@ -570,6 +892,10 @@ int doctor(int argc, char **argv) {
     add(check_update(context));
     add(check_config(context));
     add(check_profile(context));
+    add(check_bus(context));
+    add(check_notifications(context));
+    add(check_polkit(context));
+    add(check_logind(context));
     std::cout << (plain ? doctor::plain_report(results) : doctor::report(results, color));
     return std::any_of(results.begin(), results.end(),
                        [](const Result &result) { return result.status == Status::error; })
