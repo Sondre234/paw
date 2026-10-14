@@ -4,7 +4,9 @@ left button is held, and is refused otherwise. The panel pressed hears the point
 neither it nor a window under the pointer hears anything more until the drag is over; the shell
 hears the output under the pointer and the edge of it nearest the pointer whenever either changes,
 and where the button is let go. `panel_drag cancel` ends a drag without a drop, and the button let
-go after it reaches no one."""
+go after it reaches no one. `panel_drag resize EDGE`, for the bar's inner edge, takes the pointer
+the same way and tells the shell the pointer's distance from that edge of the output it began on,
+wherever the pointer goes, and where it is let go."""
 from pathlib import Path
 import sys
 
@@ -80,5 +82,37 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     desktop.stays(lambda: not shell.lines("panel-dropped"), "a cancelled drag was dropped")
     assert "pointer button 272 released" not in heard("panel") + heard("window"), heard("window")
     assert "usage" in msg("panel_drag", "sideways", ok=False)
+    assert "usage" in msg("panel_drag", "resize", "middle", ok=False)
+
+    # The inner edge pressed and dragged: the shell hears the pointer's distance from the bottom
+    # of the output it began on as it changes, on the other output too, and where it is let go.
+    shell.forget()
+    assert "left button is not held" in msg("panel_drag", "resize", "bottom", ok=False)
+    pointer("move", "640", str(720 - PANEL + 2), "press", "left")
+    desktop.wait_for(lambda: heard("panel")[-1:] == ["pointer button 272 pressed"], "the press on the edge")
+    msg("panel_drag", "resize", "bottom")
+    desktop.wait_for(lambda: heard("panel")[-1:] == ["pointer leave"], "the panel left for the resize")
+    assert drags() == [f"panel-resize HEADLESS-1 {PANEL - 2}"], drags()
+    assert "busy" in msg("panel_drag", "resize", "bottom", ok=False)
+    pointer("move", "640", "620")
+    desktop.wait_for(lambda: drags()[-1:] == ["panel-resize HEADLESS-1 100"], "the edge dragged up")
+    pointer("move", "1500", "300")
+    desktop.wait_for(lambda: drags()[-1:] == ["panel-resize HEADLESS-1 420"], "the edge dragged onto the other output")
+    pointer("release", "left")
+    desktop.wait_for(lambda: drags()[-1:] == ["panel-resized HEADLESS-1 420"], "the resize let go")
+    assert "pointer button 272 released" not in heard("panel"), heard("panel")
+
+    # Along a side, the distance from that side; cancelled, it is not let go.
+    shell.forget()
+    pointer("move", "1270", str(720 - PANEL // 2), "press", "left")
+    msg("panel_drag", "resize", "right")
+    desktop.wait_for(lambda: drags() == ["panel-resize HEADLESS-1 10"], "a resize from the right")
+    pointer("move", "1200", str(720 - PANEL // 2))
+    desktop.wait_for(lambda: drags()[-1:] == ["panel-resize HEADLESS-1 80"], "the right edge dragged in")
+    msg("panel_drag", "cancel")
+    desktop.wait_for(lambda: drags()[-1:] == ["panel-drag-cancelled"], "the resize cancelled")
+    pointer("release", "left")
+    desktop.stays(lambda: not shell.lines("panel-resized"), "a cancelled resize was let go")
 print("panel_drag takes the pointer while the left button is held, tells the shell the edge "
-      "nearest it and where it is let go, and is cancelled on request")
+      "nearest it, or for a resize the distance from the bar's edge, and where it is let go, and "
+      "is cancelled on request")
