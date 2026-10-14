@@ -13,13 +13,13 @@ extern "C" {
 enum { SH_CAT_ART_WIDTH = 20, SH_CAT_ART_HEIGHT = 16, SH_CAT_Z_SIZE = 5 };
 
 enum sh_cat_frame {
-    SH_CAT_FRAME_SIT,     /* sitting, facing out of the screen */
-    SH_CAT_FRAME_BLINK,   /* the same with its eyes shut */
-    SH_CAT_FRAME_ALERT,   /* ears up, eyes wide: it noticed something */
-    SH_CAT_FRAME_LOOK,    /* sitting sideways, looking ahead */
-    SH_CAT_FRAME_WALK_1,  /* the two steps of a walk */
+    SH_CAT_FRAME_SIT,    /* sitting, facing out of the screen */
+    SH_CAT_FRAME_BLINK,  /* the same with its eyes shut */
+    SH_CAT_FRAME_ALERT,  /* ears up, eyes wide: it noticed something */
+    SH_CAT_FRAME_LOOK,   /* sitting sideways, looking ahead */
+    SH_CAT_FRAME_WALK_1, /* the two steps of a walk */
     SH_CAT_FRAME_WALK_2,
-    SH_CAT_FRAME_RUN_1,   /* the two strides of a run, the second one a leap */
+    SH_CAT_FRAME_RUN_1, /* the two strides of a run, the second one a leap */
     SH_CAT_FRAME_RUN_2,
     SH_CAT_FRAME_GROOM_1, /* licking a raised paw, tongue out and in */
     SH_CAT_FRAME_GROOM_2,
@@ -28,9 +28,9 @@ enum sh_cat_frame {
     SH_CAT_FRAME_SLEEP_2,
     SH_CAT_FRAME_SCRATCH_1, /* scratching behind an ear with a hind leg */
     SH_CAT_FRAME_SCRATCH_2,
-    SH_CAT_FRAME_PAW_1,   /* patting what it sits on, paw up and down */
+    SH_CAT_FRAME_PAW_1, /* patting what it sits on, paw up and down */
     SH_CAT_FRAME_PAW_2,
-    SH_CAT_FRAME_FALL,    /* legs spread, falling */
+    SH_CAT_FRAME_FALL, /* legs spread, falling */
     SH_CAT_FRAMES,
 };
 

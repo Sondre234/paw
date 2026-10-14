@@ -27,11 +27,16 @@ static void build(struct scene *scene) {
     int tops, ledges;
     sh_cat_ledges(scene->windows, scene->count, scene->areas, scene->area_count, H, scene->tops,
                   &tops, scene->ledges, &ledges, MAX);
-    scene->world = (struct sh_cat_world){
-        .areas = scene->areas, .area_count = scene->area_count,
-        .focused_area = scene->focused_area, .tops = scene->tops, .ledges = scene->ledges,
-        .top_count = tops, .ledge_count = ledges, .focused = scene->focused,
-        .urgent = scene->urgent, .idle = scene->idle};
+    scene->world = (struct sh_cat_world){.areas = scene->areas,
+                                         .area_count = scene->area_count,
+                                         .focused_area = scene->focused_area,
+                                         .tops = scene->tops,
+                                         .ledges = scene->ledges,
+                                         .top_count = tops,
+                                         .ledge_count = ledges,
+                                         .focused = scene->focused,
+                                         .urgent = scene->urgent,
+                                         .idle = scene->idle};
 }
 
 static struct scene monitors(int count) {
@@ -81,12 +86,12 @@ static struct sh_cat settled(struct scene *scene, double x, int64_t *now) {
 
 static void test_ledges(void) {
     struct scene scene = monitors(1);
-    add(&scene, 1, 100, 300, 600, 400);  // in front
-    add(&scene, 2, 400, 200, 800, 600);  // behind it, its top showing right of it
-    add(&scene, 3, 0, 0, 1920, 1032);    // maximized, at the back
+    add(&scene, 1, 100, 300, 600, 400); // in front
+    add(&scene, 2, 400, 200, 800, 600); // behind it, its top showing right of it
+    add(&scene, 3, 0, 0, 1920, 1032);   // maximized, at the back
     const struct sh_cat_world *world = &scene.world;
-    CHECK(world->top_count == 4 && world->ledge_count == 4, "%d tops, %d ledges",
-          world->top_count, world->ledge_count);
+    CHECK(world->top_count == 4 && world->ledge_count == 4, "%d tops, %d ledges", world->top_count,
+          world->ledge_count);
     CHECK(world->tops[0].window == 1 && world->tops[0].y == 300 && world->tops[0].left == 100 &&
           world->tops[0].right == 700);
     // Window 1 in front covers nothing of 2's top at 200, which lies above it.
@@ -451,8 +456,8 @@ static void test_arrives(void) {
     scene.focused_area = 0;
     build(&scene);
     sh_cat_arrive(&cat, &scene.world, now);
-    CHECK(run_until(&cat, &scene, &now, SH_CAT_LAND, 2000) && cat.on == 2 && cat.y == 600,
-          "on %u", cat.on);
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_LAND, 2000) && cat.on == 2 && cat.y == 600, "on %u",
+          cat.on);
     // Unless that one goes meanwhile: then the first top below will do.
     sh_cat_arrive(&cat, &scene.world, now);
     run(&cat, &scene, &now, 100);

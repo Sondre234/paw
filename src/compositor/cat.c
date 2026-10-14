@@ -42,9 +42,9 @@ struct sh_cat_view {
     struct wlr_scene_tree *tree;
     struct wlr_scene_buffer *sprite, *z;
     struct wlr_buffer *frames[SH_CAT_FRAMES], *z_buffer;
-    int coat, scale;    // what the buffers are painted in, and the size of a cell
-    int drawn_frame;    // the frame the sprite shows, -1 for none
-    int64_t sleep_ms;   // without input this long, it sleeps
+    int coat, scale;  // what the buffers are painted in, and the size of a cell
+    int drawn_frame;  // the frame the sprite shows, -1 for none
+    int64_t sleep_ms; // without input this long, it sleeps
 };
 
 static const char *const coat_names[SH_CAT_COATS] = {"ginger", "black", "cream", "grey"};
@@ -87,8 +87,8 @@ static struct wlr_buffer *frame_buffer(struct sh_cat_view *view, enum sh_cat_fra
 static struct wlr_box window_box(struct sh_toplevel *toplevel) {
     struct wlr_box geometry = frame_geometry(toplevel);
     struct wlr_box box = {toplevel->scene_tree->node.x + toplevel->content->node.x,
-                          toplevel->scene_tree->node.y + toplevel->content->node.y,
-                          geometry.width, geometry.height};
+                          toplevel->scene_tree->node.y + toplevel->content->node.y, geometry.width,
+                          geometry.height};
     int border = server_settings(toplevel->server)->border_width;
     if (border > 0 && !frameless(toplevel, toplevel_output(toplevel))) {
         box.x -= border;
@@ -149,7 +149,9 @@ static struct sh_output *cat_output(struct sh_cat_view *view) {
         wlr_output_layout_get_box(server->output_layout, output->wlr_output, &box);
         double x = view->cat.x, y = view->cat.y - 0.5;
         double dx = x < box.x ? box.x - x : x >= box.x + box.width ? x - box.x - box.width + 1 : 0;
-        double dy = y < box.y ? box.y - y : y >= box.y + box.height ? y - box.y - box.height + 1 : 0;
+        double dy = y < box.y                 ? box.y - y
+                    : y >= box.y + box.height ? y - box.y - box.height + 1
+                                              : 0;
         if (dx + dy < best) {
             best = dx + dy;
             nearest = output;
@@ -224,9 +226,8 @@ static void look(struct sh_cat_view *view) {
         struct sh_rect usable = usable_area(server, output->wlr_output);
         if (output->wlr_output == focused)
             focused_area = sight->area_count;
-        sight->areas[sight->area_count++] =
-            (struct sh_cat_area){box.x, box.y, box.width, box.height, usable.y,
-                                 usable.y + usable.height};
+        sight->areas[sight->area_count++] = (struct sh_cat_area){
+            box.x, box.y, box.width, box.height, usable.y, usable.y + usable.height};
     }
     // The windows front to back, as they are drawn.
     sight->window_count = 0;
@@ -261,8 +262,7 @@ static void look(struct sh_cat_view *view) {
         .ledge_count = ledges,
         .focused = current && standable(current) ? current->id : 0,
         .urgent = urgent_window(server),
-        .idle = now_ms() - idle->last_input >= view->sleep_ms ||
-                (idle->done & (1u << SH_IDLE_DIM)),
+        .idle = now_ms() - idle->last_input >= view->sleep_ms || (idle->done & (1u << SH_IDLE_DIM)),
     };
 }
 
@@ -457,8 +457,8 @@ void cat_init(struct sh_server *server) {
     view->server = server;
     view->coat = -1;
     view->drawn_frame = -1;
-    view->timer = wl_event_loop_add_timer(wl_display_get_event_loop(server->wl_display),
-                                          cat_timer, view);
+    view->timer =
+        wl_event_loop_add_timer(wl_display_get_event_loop(server->wl_display), cat_timer, view);
     // Over every window but fullscreen ones, under the panels, the overlays and the lock.
     view->tree = wlr_scene_tree_create(&server->scene->tree);
     view->sprite = view->tree ? wlr_scene_buffer_create(view->tree, NULL) : NULL;
@@ -496,8 +496,9 @@ void cat_finish(struct sh_server *server) {
 
 void describe_cat(struct sh_server *server, int fd, const char *arguments) {
     // Whether it is turned on; "shown", or why it is not drawn (off, locked, away, no_output,
-    // overview, display_off, fullscreen); the output it is on, where its feet are, what it does, the frame
-    // it shows, its coat, and what it stands on: the window's title, "floor", or "-" in the air.
+    // overview, display_off, fullscreen); the output it is on, where its feet are, what it does,
+    // the frame it shows, its coat, and what it stands on: the window's title, "floor", or "-" in
+    // the air.
     struct sh_cat_view *view = server->cat;
     if (!view) {
         control_reply(fd, "error: there is no cat\n");
@@ -517,10 +518,12 @@ void describe_cat(struct sh_server *server, int fd, const char *arguments) {
     sh_cat_pose(cat, now_ms(), &pose);
     char line[512];
     snprintf(line, sizeof(line), "ok\n%s\t%s\t%s\t%ld\t%ld\t%s\t%s\t%s\t%s\n",
-             view->shown ? "on" : "off", hidden ? hidden : view->placed ? "shown" : "waiting",
+             view->shown ? "on" : "off",
+             hidden         ? hidden
+             : view->placed ? "shown"
+                            : "waiting",
              output ? output->wlr_output->name : "-", view->placed ? lround(cat->x) : 0,
-             view->placed ? lround(cat->y) : 0,
-             view->placed ? sh_cat_state_name(cat->state) : "-",
+             view->placed ? lround(cat->y) : 0, view->placed ? sh_cat_state_name(cat->state) : "-",
              view->placed ? sh_cat_frame_name(pose.frame) : "-",
              view->coat >= 0 ? coat_names[view->coat] : "-", title);
     control_reply(fd, line);

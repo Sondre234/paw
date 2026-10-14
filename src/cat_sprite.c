@@ -8,6 +8,9 @@
 
 typedef const char *const art[SH_CAT_ART_HEIGHT];
 
+/* One row of cells a line, which clang-format would run together. */
+// clang-format off
+
 static art sit = {
     "....................",
     ".....k.......k......",
@@ -369,6 +372,7 @@ static const char *const z_art[SH_CAT_Z_SIZE] = {
     ".k...",
     "kkkkk",
 };
+// clang-format on
 
 /* A coat's colours, 0xRRGGBB, for the letters of the art. */
 struct coat {
@@ -417,9 +421,9 @@ void sh_cat_paint_z(uint32_t *pixels, enum sh_cat_coat coat) {
 
 const char *sh_cat_frame_name(enum sh_cat_frame frame) {
     static const char *const names[SH_CAT_FRAMES] = {
-        "sit",     "blink",     "alert",     "look",  "walk_1", "walk_2",
-        "run_1",   "run_2",     "groom_1",   "groom_2", "yawn", "sleep_1",
-        "sleep_2", "scratch_1", "scratch_2", "paw_1", "paw_2",  "fall",
+        "sit",     "blink",     "alert",     "look",    "walk_1", "walk_2",
+        "run_1",   "run_2",     "groom_1",   "groom_2", "yawn",   "sleep_1",
+        "sleep_2", "scratch_1", "scratch_2", "paw_1",   "paw_2",  "fall",
     };
     return (unsigned)frame < SH_CAT_FRAMES ? names[frame] : "sit";
 }

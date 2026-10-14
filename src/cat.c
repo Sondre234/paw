@@ -28,9 +28,9 @@ enum {
     LOOK_MS = 3000,
     BLINK_MS = 160,
     BREATH_MS = 2200,
-    REST_MS = 350,   /* the pointer resting this long ends a chase */
+    REST_MS = 350, /* the pointer resting this long ends a chase */
     CHASE_MS = 10000,
-    AWAY_MS = 1200,  /* off the focused monitor this long, it goes there */
+    AWAY_MS = 1200, /* off the focused monitor this long, it goes there */
 };
 
 /* A flick past the cat: the pointer's travel, decaying with a time constant of TRAVEL_MS, beyond
@@ -62,8 +62,8 @@ static int between(struct sh_cat *cat, int low, int high) {
 
 const char *sh_cat_state_name(enum sh_cat_state state) {
     static const char *const names[SH_CAT_STATES] = {
-        "sit",  "look", "walk", "groom",  "scratch", "yawn",  "sleep", "wake",
-        "jump", "fall", "land", "chase", "pounce",  "rush",  "knock",
+        "sit",  "look", "walk", "groom", "scratch", "yawn", "sleep", "wake",
+        "jump", "fall", "land", "chase", "pounce",  "rush", "knock",
     };
     return (unsigned)state < SH_CAT_STATES ? names[state] : "sit";
 }
@@ -74,10 +74,12 @@ int sh_cat_area_at(const struct sh_cat_world *world, double x, double y) {
     for (int i = 0; i < world->area_count; ++i) {
         const struct sh_cat_area *area = &world->areas[i];
         // Its feet stand on the area's bottom edge, which is the area's.
-        double dx = x < area->x ? area->x - x : x >= area->x + area->width ? x - (area->x + area->width) + 1 : 0;
-        double dy = y - 0.5 < area->y ? area->y - (y - 0.5)
+        double dx = x < area->x                  ? area->x - x
+                    : x >= area->x + area->width ? x - (area->x + area->width) + 1
+                                                 : 0;
+        double dy = y - 0.5 < area->y                   ? area->y - (y - 0.5)
                     : y - 0.5 >= area->y + area->height ? y - 0.5 - (area->y + area->height) + 1
-                                                         : 0;
+                                                        : 0;
         if (dx == 0 && dy == 0)
             return i;
         if (dx + dy < best) {
@@ -88,7 +90,8 @@ int sh_cat_area_at(const struct sh_cat_world *world, double x, double y) {
     return nearest;
 }
 
-static const struct sh_cat_area *area_of(const struct sh_cat *cat, const struct sh_cat_world *world) {
+static const struct sh_cat_area *area_of(const struct sh_cat *cat,
+                                         const struct sh_cat_world *world) {
     int index = sh_cat_area_at(world, cat->x, cat->y);
     return index < 0 ? NULL : &world->areas[index];
 }
@@ -197,7 +200,8 @@ static bool spot_on(const struct sh_cat *cat, const struct sh_cat_world *world, 
 void sh_cat_arrive(struct sh_cat *cat, const struct sh_cat_world *world, int64_t now) {
     if (world->area_count < 1)
         return;
-    const struct sh_cat_area *area = &world->areas[world->focused_area >= 0 ? world->focused_area : 0];
+    const struct sh_cat_area *area =
+        &world->areas[world->focused_area >= 0 ? world->focused_area : 0];
     double x = area->x + area->width / 2;
     uint32_t aim = 0;
     for (int i = 0; i < world->ledge_count; ++i) {
@@ -287,7 +291,8 @@ static void choose(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
         cat->away_since = 0;
     }
     double x = 0, y = 0;
-    if (world->focused && world->focused != cat->on && spot_on(cat, world, world->focused, &x, &y)) {
+    if (world->focused && world->focused != cat->on &&
+        spot_on(cat, world, world->focused, &x, &y)) {
         jump(cat, x, y, world->focused, now);
         return;
     }
@@ -417,7 +422,8 @@ static int advance(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
         return next_beat(now, cat->since, BREATH_MS);
     case SH_CAT_WALK: {
         double step = WALK_SPEED * dt;
-        double ahead = cat->x + (cat->target_x > cat->x ? 1 : -1) * fmin(step, fabs(cat->target_x - cat->x));
+        double ahead =
+            cat->x + (cat->target_x > cat->x ? 1 : -1) * fmin(step, fabs(cat->target_x - cat->x));
         // It stops at the end of what it walks on.
         if (!ledge_at(world->tops, world->top_count, cat->on, ahead, cat->y)) {
             sit(cat, now);
@@ -437,8 +443,8 @@ static int advance(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
         if (p >= 1) {
             cat->x = cat->target_x;
             cat->y = cat->target_y;
-            const struct sh_cat_ledge *ledge = ledge_at(world->tops, world->top_count,
-                                                        cat->target_window, cat->x, cat->y);
+            const struct sh_cat_ledge *ledge =
+                ledge_at(world->tops, world->top_count, cat->target_window, cat->x, cat->y);
             if (ledge)
                 land(cat, ledge, now);
             else // it went while the cat was on its way: on down from there
@@ -486,8 +492,8 @@ static int advance(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
                 return STEP_MS;
             }
             if (approach(cat, cat->target_x, cat->target_y, RUN_SPEED * dt)) {
-                const struct sh_cat_ledge *ledge = ledge_at(world->tops, world->top_count,
-                                                            cat->target_window, cat->x, cat->y);
+                const struct sh_cat_ledge *ledge =
+                    ledge_at(world->tops, world->top_count, cat->target_window, cat->x, cat->y);
                 if (ledge) {
                     cat->grounded = true;
                     cat->on = ledge->window;
@@ -550,8 +556,8 @@ static int advance(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
 
 void sh_cat_init(struct sh_cat *cat, double width, double height, const struct sh_cat_area *area,
                  double x, uint32_t seed, int64_t now) {
-    *cat = (struct sh_cat){.facing = 1, .width = width, .height = height, .time = now,
-                           .random = seed ? seed : 1};
+    *cat = (struct sh_cat){
+        .facing = 1, .width = width, .height = height, .time = now, .random = seed ? seed : 1};
     cat->x = x;
     cat->y = area ? area->top + height : height;
     cat->blink_at = now + between(cat, 2500, 5500);
@@ -663,7 +669,7 @@ void sh_cat_pose(const struct sh_cat *cat, int64_t now, struct sh_cat_pose *pose
     }
     case SH_CAT_CHASE:
     case SH_CAT_RUSH:
-        pose->frame = t < NOTICE_MS ? SH_CAT_FRAME_ALERT
+        pose->frame = t < NOTICE_MS  ? SH_CAT_FRAME_ALERT
                       : (t / 90) % 2 ? SH_CAT_FRAME_RUN_2
                                      : SH_CAT_FRAME_RUN_1;
         break;
@@ -725,8 +731,8 @@ void sh_cat_ledges(const struct sh_cat_window *windows, int window_count,
             continue; // its top is past the bottom of the free area
         if (y > window->y + window->height)
             continue; // too near the top of the free area to stand on
-        tops[(*top_count)++] = (struct sh_cat_ledge){window->window, window->x,
-                                                     window->x + window->width, y};
+        tops[(*top_count)++] =
+            (struct sh_cat_ledge){window->window, window->x, window->x + window->width, y};
         // What shows of it: nothing in front reaches into the band the cat's lower half covers.
         double spans[64][2] = {{window->x, window->x + window->width}};
         int count = 1;

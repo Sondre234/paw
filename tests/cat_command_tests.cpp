@@ -7,7 +7,9 @@
 #include <stdexcept>
 #include <string>
 
-static std::string said(const std::string &line) { return paw::cli::cat_said(paw::cli::rows(line)); }
+static std::string said(const std::string &line) {
+    return paw::cli::cat_said(paw::cli::rows(line));
+}
 
 int main() {
     CHECK(said("off\toff\t-\t0\t0\t-\t-\tginger\t-") == "The cat is away.");
