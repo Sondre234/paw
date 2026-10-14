@@ -579,6 +579,13 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
 wrong with it, and toys the compositor plays with the windows.
 
+- `paw top` shows what the compositor is doing, as htop shows processes: each monitor's frames a
+  second and the time drawing its last frames took against its refresh interval, with a graph of
+  them; what the compositor did each second; and the windows and panels whose commits make it
+  work, the costliest first. `paw top --once` prints one look. Two queries feed it: `get
+  commits`, each window's and layer surface's commits and the time handling them took, and `get
+  frame_times OUTPUT`, a monitor's own last 512 frames.
+
 ### Fixes
 
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,
