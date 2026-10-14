@@ -582,6 +582,7 @@ struct sh_server {
 
     int control_fd;
     struct wl_list subscribers; // control clients receiving state changes
+    struct wl_list control_pending; // control clients whose request has not come in whole yet
     char sent_state[8192];      // the state they last received
     char control_path[108];
     struct wl_event_source *control_source;
