@@ -116,6 +116,10 @@ struct sh_cat_pose {
 void sh_cat_init(struct sh_cat *cat, double width, double height, const struct sh_cat_area *area,
                  double x, uint32_t seed, int64_t now);
 
+/* Has the cat turn up on the focused monitor (else the first), falling from the top of its free
+ * area over the focused window where that shows there. */
+void sh_cat_arrive(struct sh_cat *cat, const struct sh_cat_world *world, int64_t now);
+
 /* Steps the cat to `now` in `world`. Returns the milliseconds after which it next changes or
  * decides something (at least 1). */
 int sh_cat_step(struct sh_cat *cat, const struct sh_cat_world *world, int64_t now);

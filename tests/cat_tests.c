@@ -407,7 +407,7 @@ static void test_follows_the_focused_monitor(void) {
     int64_t start = now;
     CHECK(run_until(&cat, &scene, &now, SH_CAT_FALL, 12000));
     CHECK(now - start >= 1200, "not at once");
-    CHECK(sh_cat_area_at(&scene.world, cat.x, cat.y) == 1 && cat.x == 2600);
+    CHECK(sh_cat_area_at(&scene.world, cat.x, cat.y) == 1 && cat.x == 2600 && cat.y == H);
     CHECK(run_until(&cat, &scene, &now, SH_CAT_LAND, 2000));
     CHECK(cat.on == 2 && cat.y == 400);
 
@@ -424,6 +424,25 @@ static void test_follows_the_focused_monitor(void) {
     CHECK(cat.target_x > 1920, "%g", cat.target_x);
     CHECK(run_until(&cat, &scene, &now, SH_CAT_SIT, 20000));
     CHECK(sh_cat_area_at(&scene.world, cat.x, cat.y) == 1 && cat.on == 3);
+}
+
+static void test_arrives(void) {
+    struct scene scene = monitors(2);
+    add(&scene, 1, 2200, 400, 600, 400);
+    scene.focused = 1;
+    scene.focused_area = 1;
+    build(&scene);
+    int64_t now = 0;
+    struct sh_cat cat;
+    sh_cat_init(&cat, W, H, &scene.areas[0], 100, 7, now);
+    sh_cat_arrive(&cat, &scene.world, now);
+    CHECK(cat.state == SH_CAT_FALL && cat.x == 2500 && cat.y == H, "%g, %g", cat.x, cat.y);
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_LAND, 2000) && cat.on == 1);
+    // Without a focused window, over the middle of the focused monitor.
+    scene.focused = 0;
+    build(&scene);
+    sh_cat_arrive(&cat, &scene.world, now);
+    CHECK(cat.x == 1920 + 960, "%g", cat.x);
 }
 
 static void test_stays_on_its_monitor(void) {
@@ -463,6 +482,7 @@ int main(void) {
     test_chases_the_pointer();
     test_paws_at_an_urgent_window();
     test_follows_the_focused_monitor();
+    test_arrives();
     test_stays_on_its_monitor();
     test_names();
     if (failures)

@@ -193,10 +193,10 @@ static bool spot_on(const struct sh_cat *cat, const struct sh_cat_world *world, 
     return found;
 }
 
-/* Turns up on the focused monitor: from the top of its free area, over the focused window when
- * that shows there, falling. */
-static void drop_in(struct sh_cat *cat, const struct sh_cat_world *world, int64_t now) {
-    const struct sh_cat_area *area = &world->areas[world->focused_area];
+void sh_cat_arrive(struct sh_cat *cat, const struct sh_cat_world *world, int64_t now) {
+    if (world->area_count < 1)
+        return;
+    const struct sh_cat_area *area = &world->areas[world->focused_area >= 0 ? world->focused_area : 0];
     double x = area->x + area->width / 2;
     for (int i = 0; i < world->ledge_count; ++i) {
         const struct sh_cat_ledge *ledge = &world->ledges[i];
@@ -261,7 +261,7 @@ static void choose(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
                 cat->facing = cat->target_x > cat->x ? 1 : -1;
                 enter(cat, SH_CAT_WALK, now, 0);
             } else {
-                drop_in(cat, world, now);
+                sh_cat_arrive(cat, world, now);
             }
             return;
         }
