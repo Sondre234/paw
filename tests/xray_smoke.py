@@ -256,6 +256,37 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     wait_for(lambda: xray()["state"] == "closed", "closed with its output")
     msg("xray")
     assert xray()["output"] == "HEADLESS-1"
+
+    # Open and still, it draws nothing: the copies are made again only as what they copy changes.
+    def frames():
+        return int(desktop.rows("output_frames")[0][1])
+
+    def still():
+        """Whether no frame comes for a moment: what opening or closing drew is done."""
+        drawn = frames()
+        try:
+            harness.stays(lambda: frames() == drawn, desktop.processes, "", duration=.15)
+            return True
+        except AssertionError:
+            return False
+    wait_for(still, "the opening drawn")
+    drawn = frames()
+    desktop.stays(lambda: frames() == drawn, "no frame drawn while nothing changes", duration=.5)
     msg("xray")
     assert {t: w[:4] for t, w in windows().items()} == {t: w[:4] for t, w in before[0].items()}
+    wait_for(still, "the closing drawn")
+    drawn = frames()
+    desktop.stays(lambda: frames() == drawn, "no frame drawn once closed", duration=.5)
+
+    # With animations the sheets come apart from the screen and go back into it.
+    desktop.reload(CONFIG.replace("enabled = false", "enabled = true, minimize = { duration = 400 }"))
+    settled = (windows(), stacking())
+    msg("xray")
+    view = xray()
+    assert view["state"] == "open" and view["progress"] < 1000, view
+    wait_for(lambda: xray()["progress"] == 1000, "fanned out")
+    msg("xray")
+    assert xray()["state"] == "closing", xray()
+    wait_for(lambda: xray()["state"] == "closed", "closed back into the screen")
+    assert (windows(), stacking()) == settled
 print("X-ray passed")
