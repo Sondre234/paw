@@ -722,6 +722,41 @@ keeps its layer, reading and decoding nothing again. A change during a fade lays
 jumps. A layer whose picture failed shows the gradient, and lays a new one for it after a second,
 then twice as long each time up to a minute, while it is the one wanted.
 
+### A rice on trial
+
+A rice (`src/rice.cpp`, `include/paw/rice.hpp`, tested by `rice_tests`) is a directory with
+`rice.lua` and the files it names. `parse_rice_data` reads `rice.lua` with a parser of Lua's
+table syntax of its own, so nothing in it runs, and `parse_rice` checks its shape: the settings
+`rice_setting_allowed` lets through, and paths `rice_path_valid` takes, which `read_rice` finds
+inside the directory as plain files, not through a link. `installed_rices` reads
+`$XDG_STATE_HOME/paw/rices/*`, and `load_config` hands them to `parse_config`, which builds each
+as a profile named after its directory (`rice_profile` makes its pictures' paths absolute) before
+the configuration's own; one the configuration refuses, or whose name it has, goes to
+`Config::rice_problems` instead, which `main.cpp` logs. `configured_look` gives the look settings
+a profile has over the configuration, its theme and the defaults, for `paw rice pack`.
+
+`paw rice try` (`src/cli/rice.cpp`; the archive in `src/cli/rice_archive.cpp`) asks `get
+rice_trial` first, so that nothing changes outside a session, reads the rice into memory
+(`rice_archive_files` takes only plain files inside the archive; `gzip` unpacks a compressed one
+into memory), writes it into a hidden directory beside the installed rices (`stage_rice`, only the
+files `rice.lua` names), checks that the configuration takes it with `parse_config`, and then
+`begin_rice_trial` writes the trial down in `$XDG_STATE_HOME/paw/rice-trial` (the rice, the saved
+profile before it, whether an installed rice of its name waits aside as `.NAME.previous`) before
+it moves the rice into place and saves its name as the profile. Then it sends `rice try NAME`.
+`control_rice` (`rice.c`) has `sh_callbacks.rice` note the compositor's pid in the record, reloads
+the configuration, which crossfades to the profile, takes it back at once unless the profile in
+use is the rice's, and otherwise sets a timer for `RICE_TRIAL_MS` and sends the shell `rice-trial
+MILLISECONDS NAME`. `rice keep` drops the rice set aside and the record (`keep_rice_trial`); `rice
+revert` and the timer write the previous profile back, remove the rice and put the one set aside
+in its place (`revert_rice_trial`), then reload. The compositor ending during a trial reverts it as
+it goes (`rice_finish`), and `main` reverts a record left by one that died
+(`recover_rice_trial`) before it loads the configuration, unless the pid in it is a running
+`paw`, a session a nested compositor runs in.
+
+The shell's side is `RiceTrial` (`shell/rice_trial.cpp`), which reads the rice's author and
+description from its `rice.lua` and counts the seconds down, and `RiceTrialView`, an overlay in the
+middle of the output overlays belong on, holding the keyboard on Revert.
+
 ### Power saving when idle
 
 `idle.c` takes the `idle` steps (`enum sh_idle_step`: dim, display_off, lock, suspend) with one
