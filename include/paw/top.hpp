@@ -33,9 +33,10 @@ struct Client {
 };
 
 // What one look at the session found, `time` seconds into the run. `stats` are the fields of
-// `get stats`; `listed` is false when the compositor does not answer `get commits`.
+// `get stats`; `listed` is false when the compositor does not answer `get commits`; `cpu` is the
+// processor time the compositor has used, in seconds, negative when that cannot be told.
 struct Sample {
-    double time = 0;
+    double time = 0, cpu = -1;
     std::vector<uint64_t> stats;
     std::vector<Monitor> monitors;
     std::vector<Client> clients;
@@ -116,6 +117,8 @@ std::string rate(double value);
 std::string uptime(double seconds);
 // The start time in clock ticks after boot in the text of /proc/PID/stat; 0 if it has none.
 uint64_t start_ticks(const std::string &stat);
+// The processor time, user and system, in clock ticks in the same text; 0 if it has none.
+uint64_t cpu_ticks(const std::string &stat);
 
 // The columns of the table of clients a terminal `width` wide has room for: the app ID's and
 // title's widths (the title 0 when it has none) and whether each commit's time and the workspace

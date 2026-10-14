@@ -199,6 +199,8 @@ int main() {
     CHECK(start_ticks("7 (a) b (c) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 77 1") == 77,
           "a process name with parentheses and spaces");
     CHECK(start_ticks("garbage") == 0 && start_ticks("1 (x) S 1 2") == 0);
+    CHECK(cpu_ticks("1234 (paw) S 1 2 3 4 5 6 7 8 9 10 300 45 13 14 15 16 17 18 4242 99 0") == 345,
+          "user and system time");
 
     // The table's columns at a few widths: every line as wide as the terminal.
     for (size_t width : {24, 30, 44, 60, 80, 120, 200}) {
@@ -218,6 +220,11 @@ int main() {
     view.profile = "washi";
     auto lines = draw(history(), view);
     CHECK(lines[0] == "paw 0.1.1 · up 1:00:00 · 1 monitor · profile washi", "%s", lines[0].c_str());
+    auto busy = history();
+    busy[0].cpu = 10;
+    busy[1].cpu = 10.075;
+    CHECK(draw(busy, view)[0] == "paw 0.1.1 · up 1:00:00 · cpu 7.5% · 1 monitor · profile washi",
+          "%s", draw(busy, view)[0].c_str());
     CHECK(contains(lines, "DP-1 2560x1440 60Hz  60 fps  avg 854µs  p99 20.0ms  worst 20.0ms"));
     CHECK(contains(lines, "worst 20.0ms") && contains(lines, "budget 16.7ms"));
     CHECK(contains(lines, "commits 62/s 500µs/s") && contains(lines, "motions 100/s 40µs/s"));

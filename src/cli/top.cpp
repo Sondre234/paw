@@ -483,21 +483,29 @@ std::string uptime(double seconds) {
     return text;
 }
 
-uint64_t start_ticks(const std::string &stat) {
-    // pid (comm) state ppid ...: the 22nd field, the 20th after the name, which may hold
-    // spaces and parentheses itself.
+namespace {
+
+// Field `number` (from 1) of /proc/PID/stat's text: pid (comm) state ppid ..., the name in
+// parentheses holding spaces and parentheses itself maybe. 0 if it has none.
+uint64_t stat_field(const std::string &stat, int number) {
     auto close = stat.rfind(')');
-    if (close == std::string::npos)
+    if (close == std::string::npos || number < 3)
         return 0;
     std::istringstream fields(stat.substr(close + 1));
     std::string field;
-    for (int i = 0; i < 20; ++i)
+    for (int i = 3; i <= number; ++i)
         if (!(fields >> field))
             return 0;
     char *end = nullptr;
-    uint64_t ticks = std::strtoull(field.c_str(), &end, 10);
-    return *end ? 0 : ticks;
+    uint64_t value = std::strtoull(field.c_str(), &end, 10);
+    return *end ? 0 : value;
 }
+
+} // namespace
+
+uint64_t start_ticks(const std::string &stat) { return stat_field(stat, 22); }
+
+uint64_t cpu_ticks(const std::string &stat) { return stat_field(stat, 14) + stat_field(stat, 15); }
 
 Columns columns(size_t width) {
     Columns result;
@@ -544,6 +552,15 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
         paint("1", cut(view.version.empty() ? "paw" : "paw " + view.version, width))};
     if (!view.uptime.empty())
         header.push_back(cut("up " + view.uptime, width));
+    if (history.size() > 1) {
+        const Sample &newest = history.back(), &from = reference(history, view.window);
+        if (from.cpu >= 0 && newest.cpu >= from.cpu && newest.time > from.time) {
+            char cpu[32];
+            std::snprintf(cpu, sizeof(cpu), "cpu %.1f%%",
+                          100 * (newest.cpu - from.cpu) / (newest.time - from.time));
+            header.push_back(cpu);
+        }
+    }
     if (!history.empty()) {
         size_t count = history.back().monitors.size();
         header.push_back(std::to_string(count) + (count == 1 ? " monitor" : " monitors"));
@@ -731,19 +748,35 @@ double since_boot() {
     return static_cast<double>(now.tv_sec) + static_cast<double>(now.tv_nsec) / 1e9;
 }
 
-// When the compositor started, in seconds after boot; negative if that cannot be told.
-double compositor_started() {
-    pid_t pid = compositor_pid();
+// The text of /proc/PID/stat, "" for none.
+std::string process_stat(pid_t pid) {
+    if (pid <= 0)
+        return "";
     std::ifstream file("/proc/" + std::to_string(pid) + "/stat");
-    uint64_t ticks = start_ticks({std::istreambuf_iterator<char>(file), {}});
-    long hertz = sysconf(_SC_CLK_TCK);
-    if (pid <= 0 || !ticks || hertz <= 0)
-        return -1;
-    return static_cast<double>(ticks) / static_cast<double>(hertz);
+    return {std::istreambuf_iterator<char>(file), {}};
 }
 
-std::string session_uptime(double started) {
-    return started < 0 ? "" : uptime(since_boot() - started);
+double seconds_of(uint64_t ticks) {
+    long hertz = sysconf(_SC_CLK_TCK);
+    return ticks && hertz > 0 ? static_cast<double>(ticks) / static_cast<double>(hertz) : -1;
+}
+
+// The compositor's process, and when it started in seconds after boot (negative if that cannot
+// be told).
+struct Process {
+    pid_t pid = 0;
+    double started = -1;
+};
+
+Process compositor_process() {
+    Process process;
+    process.pid = compositor_pid();
+    process.started = seconds_of(start_ticks(process_stat(process.pid)));
+    return process;
+}
+
+std::string session_uptime(const Process &process) {
+    return process.started < 0 ? "" : uptime(since_boot() - process.started);
 }
 
 // The appearance profile paw last saved, "" for none.
@@ -757,11 +790,13 @@ std::string saved_profile() {
     return name;
 }
 
-// One look at the session. A query an older compositor does not answer leaves its part out;
-// a session that cannot be reached throws.
-Sample look(double time) {
+// One look at the session, whose compositor is `process`. A query an older compositor does
+// not answer leaves its part out; a session that cannot be reached throws.
+Sample look(double time, const Process &process) {
     Sample sample;
     sample.time = time;
+    if (uint64_t ticks = cpu_ticks(process_stat(process.pid)))
+        sample.cpu = seconds_of(ticks);
     for (const auto &row : query("stats"))
         for (const auto &field : row)
             sample.stats.push_back(number(field));
@@ -865,10 +900,11 @@ int print_once(const Options &options) {
         view.width = terminal_size().first;
     else if (const char *columns = std::getenv("COLUMNS"); columns && std::atoi(columns) > 0)
         view.width = static_cast<size_t>(std::atoi(columns));
-    std::vector<Sample> history{look(0)};
+    Process process = compositor_process();
+    std::vector<Sample> history{look(0, process)};
     std::this_thread::sleep_for(std::chrono::milliseconds(options.interval));
-    history.push_back(look(options.interval / 1e3));
-    view.uptime = session_uptime(compositor_started());
+    history.push_back(look(options.interval / 1e3, process));
+    view.uptime = session_uptime(process);
     view.profile = saved_profile();
     std::string text;
     for (auto line : draw(history, view)) {
@@ -911,20 +947,20 @@ int run_live(const Options &options) {
     view.color = options.color;
     view.window = std::max(1.0, interval);
     std::vector<Sample> history;
-    double started = -1;
+    Process process;
     auto sample = [&] {
         // A compositor that has not answered in two seconds is reported rather than waited on,
         // and a signal to quit ends the wait.
         sigprocmask(SIG_SETMASK, &waiting, nullptr);
         alarm(2);
         try {
-            history.push_back(look(now()));
+            if (!process.pid || !view.error.empty()) // first, or a compositor started since
+                process = compositor_process();
+            history.push_back(look(now(), process));
             // Keep what rates are measured from: the newest look a window old, and later ones.
             while (history.size() > 2 && history.back().time - history[1].time >= view.window)
                 history.erase(history.begin());
-            if (started < 0 || !view.error.empty()) // first, or a compositor started since
-                started = compositor_started();
-            view.uptime = session_uptime(started);
+            view.uptime = session_uptime(process);
             view.error.clear();
             view.profile = saved_profile();
         } catch (const std::runtime_error &error) {
