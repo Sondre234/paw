@@ -621,6 +621,9 @@ struct sh_server {
 
     struct wlr_cursor *cursor;
     bool cursor_hidden; /* cursor_hide: no image until cursor_show, whatever asks for one */
+    /* The image the cursor was given last: an xcursor name (show_xcursor), "client" for a
+     * client's own surface, or NULL for none yet (get cursor_image). */
+    const char *cursor_image;
     /* The screenshot being taken (actions.c): its process (0 for none), its mode, and the timer
      * that shows the cursor again should it not end. */
     struct {

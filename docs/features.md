@@ -2802,7 +2802,9 @@ msg get seat` prints what has the keyboard, what the pointer is on and, while so
 dragged, what the drag is over: a line each, `keyboard`, `pointer` or `drag`, followed by
 `window` and its title, `layer` and its namespace, `other` (a popup, the lock screen) and `-`,
 or `-` twice for nothing; during a drag the pointer is on nothing. `paw msg get cursor` prints
-`hidden` while a screenshot hides the cursor, else `shown`. `paw msg get crossfade` prints one
+`hidden` while a screenshot hides the cursor, else `shown`, and `paw msg get cursor_image` the
+image it shows: the name of an xcursor (`default`, `grabbing`, `ns-resize`, ..., one paw shows or
+a shape a client asks for), `client` for a client's own picture, or `none`. `paw msg get crossfade` prints one
 line per monitor with a picture of the old look over it while an
 [appearance profile](#appearance-profiles) crossfades in: the monitor, `held` while it waits for
 the shell or `fading`, the profile, and the picture's opacity in thousandths; the shell tells the
