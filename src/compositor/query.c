@@ -718,6 +718,14 @@ static void get_autostart(struct sh_server *server, int fd, const char *argument
         control_reply(fd, callbacks->autostart(callbacks->userdata));
 }
 
+static void get_actions(struct sh_server *server, int fd, const char *arguments) {
+    // Every action the configuration knows, and the keys bound to it (sh_callbacks.actions).
+    const struct sh_callbacks *callbacks = server->callbacks;
+    control_reply(fd, "ok\n");
+    if (callbacks->actions)
+        control_reply(fd, callbacks->actions(callbacks->userdata));
+}
+
 static void get_gesture(struct sh_server *server, int fd, const char *arguments) {
     // The touchpad swipe under way, and the workspaces following it (see describe_gesture).
     control_reply(fd, "ok\n");
@@ -846,6 +854,7 @@ static const struct {
     {"mode", get_mode, false},
     {"shortcuts", get_shortcuts, false},
     {"input_method", get_input_method, false},
+    {"actions", get_actions, false},
 };
 
 /* Answers `request` if it is a query; false if it is not one. */

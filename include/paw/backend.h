@@ -646,6 +646,10 @@ struct sh_callbacks {
      * decide now; every field -1 when none matches. */
     void (*dynamic_rule)(void *, const char *app_id, const char *title,
                          struct sh_dynamic_rule *rule);
+    /* Every action the configuration knows, for `get actions`: a line each with its name and the
+     * keys of its first key binding outside any mode, as binding_keys gives them, or "-",
+     * separated by a tab. Valid until the next call. */
+    const char *(*actions)(void *);
 };
 
 enum sh_backend_mode { SH_BACKEND_NESTED, SH_BACKEND_HEADLESS, SH_BACKEND_SESSION };

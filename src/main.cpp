@@ -2,6 +2,7 @@
 #include "paw/autostart.hpp"
 #include "paw/cli.hpp"
 #include "paw/config.hpp"
+#include "paw/config_schema.hpp"
 #include "paw/import.hpp"
 #include "version.h"
 #include <wlr/version.h>
@@ -343,6 +344,7 @@ struct Runtime {
     std::string target{}; // the output target of the action last resolved
     unsigned flags = 0;   // the sh_binding_flag bits of the binding last resolved
     std::string keys{};   // what binding_keys returned last
+    std::string action_list{}; // what `get actions` prints
     int mode = 0;         // the binding mode `key` looks in: 0 outside any, else modes[mode - 1]
     paw::Command program{}; // the program of the spawn action last resolved
     bool watch = false; // whether saving a configuration file reloads (off in headless tests)
@@ -477,6 +479,16 @@ struct Runtime {
         auto &self = *static_cast<Runtime *>(data);
         self.keys = self.config.binding_keys(action);
         return self.keys.c_str();
+    }
+    /* Every action and the keys bound to it, for `get actions`. */
+    static const char *actions(void *data) {
+        auto &self = *static_cast<Runtime *>(data);
+        self.action_list.clear();
+        for (const auto &name : paw::config_action_names()) {
+            auto keys = self.config.binding_keys(paw::parse_action(name));
+            self.action_list += name + '\t' + (keys.empty() ? "-" : keys) + '\n';
+        }
+        return self.action_list.c_str();
     }
     /* Control requests: "<action> [workspace]", "screenshot [region|output|window]",
      * "resize_<direction> [pixels]", "volume_up|volume_down|brightness_up|brightness_down
@@ -1089,7 +1101,7 @@ int main(int argc, char **argv) {
             Runtime::hot_corner, Runtime::action_target, Runtime::config_watch,
             Runtime::config_changed, Runtime::lock, Runtime::launch, Runtime::autostart,
             Runtime::started, Runtime::binding_flags, Runtime::set_mode, Runtime::switch_toggled,
-            Runtime::binding_keys, Runtime::dynamic_rule};
+            Runtime::binding_keys, Runtime::dynamic_rule, Runtime::actions};
         int result = sh_run(&callbacks, mode);
         if (runtime.shell_pid > 0)
             kill(runtime.shell_pid, SIGTERM);
