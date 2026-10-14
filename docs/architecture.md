@@ -548,6 +548,18 @@ border along the cut. `paw msg get scratchpad` lists each window's drop, offset,
 the clip its content is drawn with and its radius, and the border's rounded rect, and
 `tests/scratchpad_drop_smoke.py` tests them.
 
+The same cut keeps a tile of the scrolling layout to its monitor, whose columns lie on a strip
+wider than it, past edges where other monitors would show them. `bound_tile` (`placement.c`, from
+`place_tiled` and wherever a window leaves the tiling) sets the window's `bounded` and `bound`,
+its monitor's box. While the frame, where it is drawn, crosses that box's edges, `cut_box`
+intersects each clip with it, square, and `place_tiled` sets the glide's `track` so the cut
+follows each frame. At rest wholly past the edges, `content` is disabled, so the other monitor
+neither draws it nor sends the surface its enter, scale and frames, and `scene_node_at`
+(`cursor.c`) looks again past a bounded tile at a point outside its bound, as it does through a
+border's hole. A tile inside its bound is not clipped at all, so a fullscreen one still scans
+out. `paw msg get bounds` lists each window's bound, whether its content is drawn and its clip,
+and `tests/scroll_bound_smoke.py` tests them.
+
 ### Monitors turned off
 
 An output in `outputs` (the layout) may be `powered_off` (`output_power.c`): its `wlr_output` is
