@@ -441,6 +441,8 @@ void process_cursor_motion(struct sh_server *server, uint32_t time) {
     if (server->seat->drag)
         wlr_scene_node_set_position(&server->drag_icons->node, server->cursor->x,
                                     server->cursor->y);
+    if (xray_motion(server))
+        return;
     overview_hot_corner(server);
     if (overview_motion(server))
         return;
@@ -681,6 +683,8 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         else
             server->held_buttons &= ~bit;
     }
+    if ((server->xray.open || server->xray.pressed) && xray_button(server, event))
+        return;
     if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
         toys_press(server); // windows a toy pulled down come back to where the press lands
     if ((server->overview.open || server->overview.pressed) && overview_button(server, event))
@@ -825,6 +829,8 @@ void server_cursor_axis(struct wl_listener *listener, void *data) {
     struct wlr_pointer_axis_event *event = data;
     input_activity(server, true);
     wrapped_axis(server, event);
+    if (xray_axis(server, event))
+        return;
     if (overview_axis(server, event))
         return;
     struct wlr_keyboard *held = wlr_seat_get_keyboard(server->seat);

@@ -141,8 +141,9 @@ static void tool_moved(struct sh_server *server, struct sh_tablet *tablet,
         double sx = 0, sy = 0;
         struct sh_node *owner = NULL;
         struct wlr_surface *surface =
-            server->overview.open ? NULL
-                                  : press_target_at(server, cursor->x, cursor->y, &sx, &sy, &owner);
+            server->overview.open || server->xray.open
+                ? NULL
+                : press_target_at(server, cursor->x, cursor->y, &sx, &sy, &owner);
         if (surface && wlr_surface_accepts_tablet_v2(surface, tablet->tablet_v2)) {
             if (tool->pointer)
                 wlr_seat_pointer_notify_clear_focus(server->seat); // the tool's now, not the pointer's

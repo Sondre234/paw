@@ -22,6 +22,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
 | `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, the desktop cat's ways and its pixel art. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -95,6 +96,7 @@ all. In short:
 | `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
 | `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
+| `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
 the file that defines it. The build warns (`-Wmissing-prototypes`) about one that is neither.
@@ -903,6 +905,52 @@ once the wall clock passes midnight, the time since it last counted split at mid
 wrapped` (`describe_wrapped`) lists what is not saved yet, the time up to then included, without
 changing anything, and `paw wrapped` (`src/cli/wrapped.cpp`) reads it between two looks at the
 number of saves, so that a save meanwhile counts nothing twice.
+### The exploded view
+
+`xray.c` takes the focused output apart into the layers paw draws (`paw xray`, the `xray` action).
+`xray_collect` walks the scene's trees bottom to top: the output's background colour, the layer
+shell's background and bottom layers, `windows`, `floating_windows`, `above_windows`, `fullscreen`,
+`peek_layer`, the top layer, `fullscreen_cover`, `unmanaged` and the overlay layer, keeping each
+layer surface on that output and each window whose box reaches into it, shown. `xray_plan` puts
+them on sheets (`struct sh_xray_sheet`): one per layer with anything on it, and one per window
+while six or fewer show. A sheet is known by its layer and its window, a pointer it only
+compares, never follows, so a window gone meanwhile leaves nothing dangling; the sheets are planned
+again whenever that changes, and kept as they are while the view closes, so that a window raised by
+a click keeps its sheet on the way back. Where each sheet goes is `src/xray_layout.c`'s
+(`sh_xray_layout`, tested by `xray_layout_tests`): the output scaled down to fit the area left
+beside the shell's legend and above its caption (`sh_xray_area`), each sheet a gap further along
+the way the stack rises, foreshortened that way and a little larger than the one under it, and
+part of the way to there from the whole output as the view opens and closes. The pointer's travel
+since it opened turns the stack (`sh_xray_tilt`), away from the pointer so that the low sheets'
+edges come out under it, the wheel spreads it (`sh_xray_spread`), and the hovered sheet is lifted
+along the way it rises while those over it fade, each easing with `sh_xray_ease` from the view's
+own 16 ms timer. The pointer is tested against where the sheets rest fanned out, not where a lift
+or the opening draws them, so that nothing under it moves away from it.
+
+The view is a tree of its own placed just over `overview_layer`, under the overlay layer, which
+holds the shell's text, and is destroyed as the view closes: the copies lock the clients' buffers.
+A sheet's tree holds the shadow's slices (the windows' shadow images, `shadow_image` in
+`frame.c`), a card (the background colour for the bottom sheet, else dark glass in its layer's
+colour with a sheen, a one-pixel-wide gradient the scene stretches), the copy and an outline. The
+copy is `sh_thumb_clone_cut` (`src/overview_scene.c`) of each surface's or window's tree, cut to
+the output and scaled across and down apart, made again only when the trees' fingerprints, the
+scale or the opacity change. Nothing of the view is quite opaque (0.9999 at most, as the
+crossfade's pictures): the scene would hide what lies under an opaque node, and its surfaces,
+getting no frame callbacks, would stop drawing what the copies show. `output_frame` and
+`notify_subscribers` call `xray_touch`, which arms the timer, so that the copies follow the
+clients and the sheets follow windows coming and going; while nothing changes nothing is drawn,
+and while the view is closed `xray_touch` returns at once. The view takes the keyboard in
+`handle_keybinding` (its own binding still closes it) and the pointer before the overview does in
+`cursor.c`, and touch and tablet input as the pointer; a click on a window's sheet maps the
+pointer back onto the output to find the window there. `xray_dismiss` closes it at once as the
+session locks or its output goes, and it does not open while locked.
+
+It tells subscribers what to name the sheets: `xray OUTPUT COUNT HOVERED X Y WIDTH HEIGHT LEGEND`
+(the area and the legend's column) and a `xray-sheet LAYER\tCOLOUR\tNAME\tDETAIL` line per
+sheet, again whenever they change; `xray-hover N` as the hovered sheet changes and `xray-close`.
+The shell draws them with `Xray.qml` in an overlay surface whose namespace, `paw-xray`, no sheet
+copies. `get xray` lists every output's stack with the sheet showing each part, which
+`paw xray --list` (`src/cli/xray.cpp`) prints top first, and `tests/xray_smoke.py` tests it.
 
 ## The shell (`shell/`)
 
@@ -1042,6 +1090,7 @@ what was there.
 | `RiceTrial.qml` | The question while a rice is on trial (`shell.riceTrial`), a card in the middle of the output, an overlay surface of its own: the rice's name, author and description, the countdown, Revert and Keep. |
 | `ClipboardPicker.qml`, `EmojiPicker.qml` | The clipboard history's popup and the emoji picker, each in an overlay surface of its own (`PickerView`, `picker_view.cpp`). |
 | `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style. |
+| `Xray.qml` | The names of the exploded view's sheets (`paw xray`), an overlay surface of its own over the compositor's stack: a legend of every sheet in its layer's colour, top first, and a caption for the one under the pointer. |
 
 The authentication dialog's model is `Authentication` (`authentication.cpp`): polkit's requests,
 one at a time, each answered through an `AuthConversation` for the chosen user. The agent
@@ -1482,8 +1531,10 @@ menu bar's menus as `system-menu`, `app-menu`, `window-menu` and `window-submenu
 surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `cards`,
 `power-dialog`, `palette`, `palette-empty`, `switcher`, `overview`, `snap-assist`, `display-mode`,
 `display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
+`display-settings`, `display-settings-trial`, `xray`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 bar alone, with stand-ins for what the compositor would tell it, and the screenshot draws it where
-its layer surface would be (the overview over stand-ins for the compositor's thumbnails).
+its layer surface would be (the overview over stand-ins for the compositor's thumbnails, the
+exploded view's names over its sheets as `src/xray_layout.c` lays them out).
 `--preview --preview-desktop` draws the desktop instead (the gallery's `desktop`, without the
 wallpaper it sets for the others, so that the macOS style's drawn one shows).
 `tools/shell_gallery.py BUILD_DIR OUT_DIR` does that for every popup in a light and a dark

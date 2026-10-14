@@ -2078,6 +2078,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"gravity", SH_GRAVITY},
         {"party", SH_PARTY},
         {"cat", SH_CAT},
+        {"xray", SH_XRAY},
 };
 } // namespace
 

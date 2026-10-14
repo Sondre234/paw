@@ -23,6 +23,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     toys_tick(output->server); // poses the windows a toy plays with, which the animator draws
     sh_animator_tick(output->server->animator);
     overview_touch(output->server, false); // windows that move or fade move their thumbnails
+    xray_touch(output->server); // and the copies of their layers
     // Whatever moved a window against an edge of the usable area or away from it drew a frame
     // here; the shell hears of it with the state (describe_state).
     if (output_touched_edges(output->server, output) != output->touched)
@@ -721,6 +722,8 @@ static void output_destroy(struct wl_listener *listener, void *data) {
     struct sh_server *server = output->server;
     if (!strcmp(server->overview.output, output->wlr_output->name))
         overview_dismiss(server);
+    if (!strcmp(server->xray.output, output->wlr_output->name))
+        xray_dismiss(server);
     if (server->running)
         schedule_evacuation(server, output);
     // A laptop's panel the lid held off comes back when the last other monitor goes.

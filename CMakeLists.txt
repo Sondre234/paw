@@ -71,6 +71,7 @@ target_sources(paw_cli PRIVATE src/cli/cat.cpp)
 # paw wrapped's day files, which the compositor writes and `paw wrapped` reads.
 target_sources(paw_cli PRIVATE src/wrapped_day.c)
 target_sources(paw_cli PRIVATE src/cli/wrapped.cpp)
+target_sources(paw_cli PRIVATE src/cli/xray.cpp)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -111,6 +112,7 @@ if(BUILD_TESTING)
     paw_unit_test(top LIBRARY paw_cli)
     paw_unit_test(toy_command LIBRARY paw_cli)
     paw_unit_test(wrapped LIBRARY paw_cli)
+    paw_unit_test(xray LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
@@ -163,6 +165,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(cat_sprite)
     paw_c_unit_test(cat)
     paw_unit_test(cat_command LIBRARY paw_cli)
+    paw_c_unit_test(xray_layout)
 endif()
 option(PAW_BUILD_COMPOSITOR "Build the wlroots compositor" ON)
 if(PAW_BUILD_COMPOSITOR)
@@ -308,6 +311,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/toys.c
         src/compositor/rice.c
         src/compositor/cat.c
+        src/compositor/xray.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
         ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h ${WLR_PROTOCOL_HEADERS})
@@ -328,6 +332,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/dropdown.c)
     target_sources(paw PRIVATE src/toys.c)
     target_sources(paw PRIVATE src/cat.c src/cat_sprite.c)
+    target_sources(paw PRIVATE src/xray_layout.c)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
     # version.h, for --version: the project version, and `git describe` in a git checkout.
@@ -906,5 +911,7 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(wrapped_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:idle_probe>)
+        paw_smoke(xray_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
     endif()
 endif()

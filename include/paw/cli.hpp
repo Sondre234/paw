@@ -64,5 +64,12 @@ int cat(int argc, char **argv);
 std::string cat_said(const std::vector<std::vector<std::string>> &rows);
 // `paw wrapped`: a report of time at the desktop from what the compositor counts.
 int wrapped(int argc, char **argv);
+// `paw xray [--list]`: the exploded view of the focused output's layers, or (--list) what each
+// output draws, layer by layer.
+int xray(int argc, char **argv);
+// `get xray`'s rows as `paw xray --list` prints them: each output's surfaces and windows from the
+// top down, with their layer, kind, name and place; `colour` puts a square of each layer's
+// colour before it.
+std::string xray_list(const std::vector<std::vector<std::string>> &rows, bool colour);
 
 } // namespace paw::cli

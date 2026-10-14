@@ -1070,7 +1070,8 @@ void usage() {
            "paw rice list lists the installed rices, and paw rice remove NAME removes one.\n"
            "paw cat [on|off|toggle] lets the desktop cat out, or calls it in.\n"
            "paw wrapped [--today|--week|--month|--year|--all|--since DATE] [--plain|--json]\n"
-           "reports your time at the desktop from what paw counts (wrapped.enabled).\n";
+           "reports your time at the desktop from what paw counts (wrapped.enabled).\n"
+           "paw xray [--list] takes the focused monitor apart into its layers, or prints them.\n";
 }
 /* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
  * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */
@@ -1091,6 +1092,7 @@ const Subcommand subcommands[] = {
     {"rice", paw::cli::rice},
     {"cat", paw::cli::cat},
     {"wrapped", paw::cli::wrapped},
+    {"xray", paw::cli::xray},
 };
 } // namespace
 int main(int argc, char **argv) {

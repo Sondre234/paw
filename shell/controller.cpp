@@ -1215,6 +1215,35 @@ void ShellController::subscribe() {
                 switcher_.output.clear();
                 switcher_.windows.clear();
                 Q_EMIT switcherChanged();
+            } else if (line.startsWith("xray ")) {
+                // xray OUTPUT COUNT HOVERED X Y WIDTH HEIGHT LEGEND (the area the stack keeps to
+                // and the legend's column left of it), then COUNT xray-sheet lines.
+                const auto words = line.split(' ');
+                if (words.size() < 9)
+                    continue;
+                nextXray_ = {.output = words[1],
+                             .hovered = words[3].toInt(),
+                             .area = rectAt(words, 4),
+                             .legend = words[8].toInt()};
+                xrayPending_ = words[2].toInt();
+                if (xrayPending_ <= 0)
+                    showXray();
+            } else if (line.startsWith("xray-sheet ") && xrayPending_ > 0) {
+                // LAYER, COLOUR (#rrggbb), NAME, DETAIL, separated by tabs; read untrimmed so an
+                // empty field keeps its place.
+                const auto fields = raw.sliced(11).chopped(1).split('\t');
+                if (fields.size() >= 4)
+                    nextXray_.sheets.push_back(QVariantMap{{"layer", fields[0]},
+                                                           {"colour", QColor(fields[1])},
+                                                           {"name", fields[2]},
+                                                           {"detail", fields[3]}});
+                if (--xrayPending_ == 0)
+                    showXray();
+            } else if (line.startsWith("xray-hover ")) {
+                xray_.hovered = line.sliced(11).toInt();
+                Q_EMIT xrayHoveredChanged();
+            } else if (line == "xray-close") {
+                clearXray();
             }
         }
         if (outputs && workspaces_ != nextWorkspaces_) {
@@ -1251,6 +1280,7 @@ void ShellController::subscribe() {
             Q_EMIT switcherChanged();
         }
         clearOverview();
+        clearXray();
     });
     state_->connectToServer(path);
 }
@@ -1448,6 +1478,19 @@ void ShellController::showOverview() {
     overview_ = nextOverview_;
     Q_EMIT overviewChanged();
     Q_EMIT overviewSelectedChanged();
+}
+void ShellController::showXray() {
+    xray_ = nextXray_;
+    Q_EMIT xrayChanged();
+    Q_EMIT xrayHoveredChanged();
+}
+void ShellController::clearXray() {
+    xrayPending_ = 0;
+    if (xray_.output.isEmpty())
+        return;
+    xray_ = {};
+    Q_EMIT xrayChanged();
+    Q_EMIT xrayHoveredChanged();
 }
 void ShellController::clearOverview() {
     overviewPending_ = 0;

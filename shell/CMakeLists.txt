@@ -146,7 +146,8 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     ClipboardPicker.qml
     EmojiPicker.qml
     DisplaySettings.qml
-    RiceTrial.qml)
+    RiceTrial.qml
+    Xray.qml)
 # The emoji picker's table (vendor/emoji), compiled in as :/paw/emoji.tsv.
 qt_add_resources(paw_shell_qml "emoji_table" PREFIX "/paw"
     BASE ${PROJECT_SOURCE_DIR}/vendor/emoji FILES ${PROJECT_SOURCE_DIR}/vendor/emoji/emoji.tsv)
@@ -169,6 +170,8 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     app_match.hpp wallpapers.cpp wallpapers.hpp image_provider.hpp audio.cpp audio.hpp
     system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
+# The exploded view's preview lays out its stand-in sheets as the compositor does.
+target_sources(paw-shell PRIVATE ${PROJECT_SOURCE_DIR}/src/xray_layout.c)
 add_dependencies(paw-shell paw_wlr_client_protocols paw_version)
 set_target_properties(paw-shell PROPERTIES AUTOMOC ON RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 target_include_directories(paw-shell PRIVATE ${PROJECT_BINARY_DIR})

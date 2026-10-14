@@ -232,6 +232,8 @@ enum sh_action {
     SH_PARTY,
     /* The desktop cat (src/compositor/cat.c): argument an sh_cat_switch. */
     SH_CAT,
+    /* Opens the exploded view of the focused output's layers (paw xray), or closes it. */
+    SH_XRAY,
 };
 
 /* The cat action's choices: show it or hide it, whichever it is not, or say which. */

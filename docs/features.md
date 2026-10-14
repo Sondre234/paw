@@ -3251,6 +3251,45 @@ machine sleeps, and as it ends, so that a crash loses a few minutes at most; one
 midnight starts the next day's file. `paw wrapped` adds what the running session counted since it
 last saved, which `paw msg get wrapped` lists. `wrapped = { enabled = false }` stops the counting,
 saving what was counted first; deleting the directory forgets what was.
+### paw xray
+
+The `xray` action takes the focused monitor apart into the layers paw draws, so that what lies
+over what shows, and closes it again; bind it as `{ mods = { "Super" }, key = "x", action = "xray"
+}`. The picture comes apart into a stack of sheets, bottom to top: the background (the desktop's
+colour and the wallpaper), the bottom layer, the windows, floating windows (with
+`layout.floating_above_tiles`), windows kept above, fullscreen windows, the panels (the top
+layer), a fullscreen window covering the panels, X11 menus and the overlays. A layer with nothing
+on that monitor has no sheet, and while six windows or fewer show, each has a sheet of its own.
+Each sheet is a live copy of what its layer draws there, scaled down, on a card edged in the
+layer's colour with a shadow, fanned out from the one under it like a deck of cards seen from the
+side. It comes apart from the flat screen and goes back into it in `animations.minimize`'s time
+and curve, half as long again to open, and at once with `animations.enabled = false`.
+
+Moving the pointer turns the stack: it leans away from the pointer, so that the edges of the
+sheets low in it come out where the pointer is. The wheel, or + and -, spreads the sheets apart and
+together, and 0 sets the stack straight again. The sheet under the pointer is lifted out of the
+stack and those over it fade, and the shell names it under the stack ("Windows · firefox — Mozilla
+Firefox"), beside a legend of every sheet, top first, in its layer's colour. The arrow keys and Tab go up and down the stack, Return or a click
+on a window goes to that window, and Escape, a click beside the stack or the action again closes
+the view. While open it takes the keyboard and the pointer, as the overview does, and changes
+nothing else; closed, nothing of it is left. It does not open while the session is locked, and
+closes as the session locks or its monitor goes. `paw xray` sends the action from a terminal.
+
+`paw xray --list` prints what every monitor draws as text, layer by layer from the top down, with
+each surface's or window's kind, namespace or app id, title and place, which says why one thing is
+drawn over another (in a terminal, a square of each layer's colour leads its line):
+
+    HEADLESS-1, top first:
+      top         surface  paw-panel                  1600×52 at 0,848
+      above       window   firefox — Mozilla Firefox  320×240 at 72,72
+      windows     window   kitty — ~/dev              320×240 at 40,40
+      background  surface  paw-desktop                1600×900 at 0,0
+      background  colour   paw — #19212e              1600×900 at 0,0
+
+`paw msg get xray` gives the same as tab-separated lines, bottom to top, after a line saying
+whether the view is open: output, layer, its colour, kind (colour, surface, window or x11), name,
+title, place, and while the view shows that monitor the sheet showing it and where that is
+drawn.
 
 ## Screen locking and idle
 

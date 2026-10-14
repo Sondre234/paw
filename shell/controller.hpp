@@ -236,6 +236,16 @@ class ShellController : public QObject {
     // Snap Assist: the overview in the free slot beside a window just snapped, `overviewArea`
     // being that slot; it has no strip and no search.
     Q_PROPERTY(bool overviewAssist READ overviewAssist NOTIFY overviewChanged)
+    // The compositor's exploded view (paw xray): the output showing it, empty while closed; the
+    // area its stack of sheets keeps to and the width of the column left of it for a legend (0
+    // for none), in the output's coordinates; the sheets, bottom first, as {layer, colour, name,
+    // detail}; and the one under the pointer (-1 for none). The compositor draws the sheets; the
+    // shell names them.
+    Q_PROPERTY(QString xrayOutput READ xrayOutput NOTIFY xrayChanged)
+    Q_PROPERTY(QRect xrayArea READ xrayArea NOTIFY xrayChanged)
+    Q_PROPERTY(int xrayLegend READ xrayLegend NOTIFY xrayChanged)
+    Q_PROPERTY(QVariantList xraySheets READ xraySheets NOTIFY xrayChanged)
+    Q_PROPERTY(int xrayHovered READ xrayHovered NOTIFY xrayHoveredChanged)
   public:
     explicit ShellController(std::filesystem::path path, QObject *parent = nullptr);
     ~ShellController() override;
@@ -487,6 +497,11 @@ class ShellController : public QObject {
     QRect overviewArea() const { return overview_.area; }
     int overviewSelected() const { return overview_.selected; }
     bool overviewAssist() const { return overview_.assist; }
+    QString xrayOutput() const { return xray_.output; }
+    QRect xrayArea() const { return xray_.area; }
+    int xrayLegend() const { return xray_.legend; }
+    QVariantList xraySheets() const { return xray_.sheets; }
+    int xrayHovered() const { return xray_.hovered; }
     Q_INVOKABLE bool launch(const QString &id);
     bool trashFull() const { return trashFull_; }
     // Opens the trash in the file manager, as `gio open trash:///` does, or its folder where
@@ -544,6 +559,8 @@ class ShellController : public QObject {
     void switcherSelectedChanged();
     void overviewChanged();
     void overviewSelectedChanged();
+    void xrayChanged();
+    void xrayHoveredChanged();
     void cardsOutputChanged();
     void keyboardLayoutChanged();
     void nightLightChanged();
@@ -691,6 +708,18 @@ class ShellController : public QObject {
     void expectOverview(int pending);
     void showOverview();
     void clearOverview();
+    // The exploded view, and what comes in for it until its sheets have (`xrayPending_` lines).
+    struct Xray {
+        QString output = {};
+        int hovered = -1;
+        QRect area = {};
+        int legend = 0;
+        QVariantList sheets = {};
+    };
+    Xray xray_, nextXray_;
+    int xrayPending_ = 0;
+    void showXray();
+    void clearXray();
     void subscribe();
     void request(const QByteArray &line, const QString &unavailable);
     void report(const QString &message);
