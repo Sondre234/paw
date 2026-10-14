@@ -613,6 +613,7 @@ finish:
     tile_drop_finish(&server);
     display_settings_finish(&server);
     toys_end(&server);
+    rice_finish(&server);
     if (server.config_watch)
         wl_event_source_remove(server.config_watch);
     if (server.config_timer)

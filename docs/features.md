@@ -2484,7 +2484,8 @@ their own in [`rices/washi`](../rices/washi/README.md) beside the configuration,
 for kitty, fastfetch, Firefox, Discord, Claude Code and editors that its `install.sh` puts in
 place; a file with `extends = "default"` gets them, and starts on `macos-light` unless it sets
 `profile`, only when it defines no `profiles` of its own. A profile wins over a theme.lua that
-`paw import` wrote, so pick `default` to see that.
+`paw import` wrote, so pick `default` to see that. A rice installed with [`paw rice`](#paw-rice)
+is a profile too, named after it, and `paw rice pack` packs a profile into a file to share.
 
 A profile can take applications between their light and dark styles with it:
 `appearance.color_scheme = "light"` or `"dark"` sets `org.gnome.desktop.interface color-scheme`
@@ -3077,6 +3078,83 @@ workspace; a `window` line for each window in it, with its number, its title, wh
 draws it yet, the offset it is drawn at (x and y), how it is stretched (across and down, in
 thousandths) and its border's colour (`#rrggbb`, or `-` for its own); and a `confetti` line with
 how many pieces show. `tests/toys_smoke.py` tests them.
+### paw rice
+
+A rice is a look to share: an appearance profile's settings and its pictures, in one file.
+`paw rice pack` packs the profile in use, or the one it names, into `NAME.rice.tar` in the
+current directory (`-o FILE` names another, compressed when it ends in `.gz`):
+
+```sh
+paw rice pack                     # the profile in use
+paw rice pack sumi -o sumi.tar.gz --author "me" --description "Ink by moonlight."
+paw rice pack sumi --extra ~/.config/foot/sumi.ini
+```
+
+It takes every `appearance`, `windows` and `shell` setting that says how the desktop looks, as
+the profile has it over the configuration, its `theme.lua` and the default configuration it
+extends; the wallpaper (the one picked for that profile in the wallpaper picker, if any) and the
+start button's picture; a kitty theme named for the profile (`~/.config/kitty/themes/NAME.conf`);
+and each `--extra` file. It prints what went in and which settings it left out. `--name` names
+the rice (the profile's name), `--author` gives its author (your login name) and `--description`
+says what it is.
+
+`paw rice try` tries one on: an archive (`.tar` or `.tar.gz`), a directory holding a
+`rice.lua`, or an `https://` URL, which `curl` downloads (50 MB at most).
+
+```sh
+paw rice try sumi.tar.gz
+paw rice try https://example.org/washi.rice.tar
+```
+
+It checks the rice and prints its name, author and description and each setting it changes,
+from what to what; installs it in `$XDG_STATE_HOME/paw/rices/NAME` (`~/.local/state/paw/rices`)
+as a profile of its name (`NAME-2` where the configuration has a profile of that name; one
+installed already of that name waits aside meanwhile); and switches to it, crossfading as a
+profile does. In the middle of the screen, "Keep this look?" counts 15 seconds down: **Keep this
+look** keeps it, and **Revert**, Escape or the time running out bring back the profile in use
+before (with its wallpaper), the rice going again. `paw rice keep` and `paw rice revert` do the
+same from a terminal. A kept rice is a profile like the others, in the profile menus and the
+command palette, and `paw msg profile NAME` picks it; what the shell writes into the
+configuration (the taskbar dragged to another edge or resized) cannot change it, so copy its
+settings from its `rice.lua` into a profile of your own to make it yours. The trial is written
+down before anything changes, so a session that ends during it starts again in the previous look.
+
+`paw rice list` lists the installed rices, saying which is in use or on trial, and `paw rice
+remove NAME` removes one that is neither. `paw msg get rice_trial` prints the rice on trial and
+the milliseconds before it goes back, by a tab, or `-`; subscribers hear `rice-trial MILLISECONDS
+NAME`, `rice-kept NAME` and `rice-reverted REASON` (`asked`, `timeout`, or `refused` when the
+configuration did not take it).
+
+A rice's `rice.lua` names it and holds the profile:
+
+```
+return {
+    format = 1,
+    name = "washi",
+    author = "shao",
+    description = "Sakura paper and navy ink.",
+    profile = {
+        appearance = { background = "#f6eef0", color_scheme = "light" },
+        windows = { border_width = 2, border_color = { "#8cc8ff", "#ffb7c5", angle = 45 } },
+        shell = { accent = "#e0607e", wallpaper = "wallpaper.jpg", start_icon = "start.svg" },
+    },
+    extras = { "kitty/washi.conf" },
+}
+```
+
+A rice is data: it cannot run anything, or reach outside itself. `rice.lua` is never run as Lua,
+but read by a parser of Lua's table syntax alone, which takes strings, numbers, booleans and
+tables and refuses names, calls and operators, so `os.execute`, `io.open`, `require` or `load` in
+it are errors, not calls. It sets only how the desktop looks: colours, borders, corners,
+opacity, shadows, the bar's style, size, place, font and widgets, the tiling bar, the wallpaper
+and the start button. Launchers, window rules, the search's folders and web address, the
+clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other
+section are refused, and `paw rice pack` leaves them out. The pictures and other files it names
+are paths inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor
+through one; an archive holding a link, a device or a path out of it is refused whole, and only
+the files `rice.lua` names are taken from it. Its pictures are PNG, JPEG, WebP or SVG, which the
+shell opens as it opens any wallpaper. Files for other programs, such as a terminal's colours,
+stay in its directory for you to put in place; `paw rice try` says where.
 
 ## Screen locking and idle
 

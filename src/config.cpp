@@ -2433,6 +2433,72 @@ void overlay(lua_State *L, int target, int source, bool replace, const char *wha
         lua_pop(L, 2);
     }
 }
+// Pushes `data`, a rice's, as a Lua value.
+void push_data(lua_State *L, const RiceData &data) {
+    switch (data.type) {
+    case RiceData::Type::Boolean: lua_pushboolean(L, data.boolean); return;
+    case RiceData::Type::Integer: lua_pushinteger(L, data.integer); return;
+    case RiceData::Type::Number: lua_pushnumber(L, data.number); return;
+    case RiceData::Type::String: lua_pushlstring(L, data.string.data(), data.string.size()); return;
+    case RiceData::Type::Table: break;
+    }
+    luaL_checkstack(L, 3, "rice tables are nested too deeply");
+    lua_createtable(L, static_cast<int>(data.items.size()), static_cast<int>(data.fields.size()));
+    for (size_t i = 0; i < data.items.size(); ++i) {
+        push_data(L, data.items[i]);
+        lua_rawseti(L, -2, static_cast<lua_Integer>(i + 1));
+    }
+    for (const auto &[key, value] : data.fields) {
+        push_data(L, value);
+        lua_setfield(L, -2, key.c_str());
+    }
+}
+// The value at `index` as a rice holds it: a table's list, then its names in order.
+RiceData data_of(lua_State *L, int index, const std::string &what, int depth = 0) {
+    index = lua_absindex(L, index);
+    switch (lua_type(L, index)) {
+    case LUA_TBOOLEAN: return RiceData::boolean_of(lua_toboolean(L, index));
+    case LUA_TNUMBER:
+        if (lua_isinteger(L, index))
+            return RiceData::integer_of(lua_tointeger(L, index));
+        else {
+            RiceData number;
+            number.type = RiceData::Type::Number;
+            number.number = lua_tonumber(L, index);
+            return number;
+        }
+    case LUA_TSTRING: {
+        size_t length = 0;
+        const char *text = lua_tolstring(L, index, &length);
+        return RiceData::string_of(std::string(text, length));
+    }
+    case LUA_TTABLE: break;
+    default: fail(what + " is " + described(L, index) + ", which a rice cannot hold");
+    }
+    if (depth > 16)
+        fail(what + " is nested too deeply");
+    RiceData table;
+    auto length = static_cast<lua_Integer>(lua_rawlen(L, index));
+    for (lua_Integer i = 1; i <= length; ++i) {
+        lua_rawgeti(L, index, i);
+        table.items.push_back(data_of(L, -1, what, depth + 1));
+        lua_pop(L, 1);
+    }
+    lua_pushnil(L);
+    while (lua_next(L, index)) {
+        if (lua_type(L, -2) == LUA_TSTRING) {
+            std::string key = lua_tostring(L, -2);
+            table.fields.emplace_back(key, data_of(L, -1, what + "." + key, depth + 1));
+        } else if (!lua_isinteger(L, -2) || lua_tointeger(L, -2) < 1 ||
+                   lua_tointeger(L, -2) > length) {
+            fail(what + " has a key a rice cannot hold");
+        }
+        lua_pop(L, 1);
+    }
+    std::sort(table.fields.begin(), table.fields.end(),
+              [](const auto &a, const auto &b) { return a.first < b.first; });
+    return table;
+}
 std::filesystem::path theme_path(lua_State *L, const std::filesystem::path &directory) {
     auto name = text(L, "theme");
     return name ? directory / *name : std::filesystem::path();
@@ -2677,13 +2743,15 @@ size_t locate(const std::string &source, const std::vector<std::string> &trail) 
 } // namespace
 
 Config parse_config(const std::string &source, const std::string &name,
-                    const std::filesystem::path &directory, const std::string &chosen) {
+                    const std::filesystem::path &directory, const std::string &chosen,
+                    const std::vector<Rice> &rices) {
     current_section.clear();
     try {
         // The configuration with its theme and defaults, then with `profile` laid over them.
         std::vector<std::string> names;
         std::string start;
-        auto build = [&](const std::string &profile) {
+        // A profile of the configuration's by name, or a rice's settings.
+        auto build = [&](const std::string &profile, const RiceData *rice = nullptr) {
             auto state = sandbox();
             auto *L = state.get();
             evaluate(L, source, name);
@@ -2691,16 +2759,50 @@ Config parse_config(const std::string &source, const std::string &name,
             auto own = include_defaults(L);
             names = profile_names(L);
             start = starting_profile(L, names);
-            if (!profile.empty())
+            if (rice) {
+                push_data(L, *rice);
+                overlay(L, -2, -1, true, "profile");
+                lua_pop(L, 1);
+            } else if (!profile.empty()) {
                 apply_profile(L, profile);
+            }
             return read(L, own, directory);
         };
         auto config = build("");
         // Profiles leave the keyboard alone, so its keymap is compiled once.
         check_keymap(config.settings);
+        auto has = [](const std::vector<std::string> &list, const std::string &item) {
+            return std::find(list.begin(), list.end(), item) != list.end();
+        };
+        // The installed rices, checked first: one the configuration refuses is passed over.
+        std::vector<std::string> rice_names, rice_problems;
+        std::optional<Config> chosen_rice;
+        for (const auto &rice : rices) {
+            auto rice_name = rice.directory.filename().string();
+            if (has(names, rice_name)) {
+                rice_problems.push_back(rice_name + ": the configuration has a profile of that "
+                                                    "name");
+                continue;
+            }
+            if (names.size() + rice_names.size() >= max_profiles) {
+                rice_problems.push_back(rice_name + ": there are 32 profiles already");
+                continue;
+            }
+            try {
+                auto profile = rice_profile(rice);
+                auto layered = build("", &profile);
+                if (rice_name == chosen)
+                    chosen_rice = std::move(layered);
+                rice_names.push_back(rice_name);
+            } catch (const ConfigError &error) {
+                rice_problems.push_back(rice_name + ": " + error.text);
+            } catch (const std::exception &error) {
+                rice_problems.push_back(rice_name + ": " + error.what());
+            }
+        }
         // Every profile is checked, so picking one later cannot fail; the configuration
         // itself is valid by now, so an error belongs to the profile.
-        auto active = std::find(names.begin(), names.end(), chosen) != names.end() ? chosen : start;
+        auto active = has(names, chosen) || chosen_rice ? chosen : start;
         auto all = names;
         for (const auto &profile : all) {
             try {
@@ -2713,7 +2815,13 @@ Config parse_config(const std::string &source, const std::string &name,
                 throw ConfigError("profile '" + profile + "': " + error.text, trail);
             }
         }
+        if (chosen_rice && active == chosen)
+            config = std::move(*chosen_rice);
+        all.insert(all.end(), rice_names.begin(), rice_names.end());
+        std::sort(all.begin(), all.end());
         config.profiles = std::move(all);
+        config.rices = std::move(rice_names);
+        config.rice_problems = std::move(rice_problems);
         config.profile = active;
         copy_text(active, config.settings.profile, "profile");
         return config;
@@ -2767,7 +2875,12 @@ void save_profile(const std::string &name) {
 }
 
 Config load_config(const std::filesystem::path &path) {
-    return parse_config(read_file(path), "@" + path.string(), path.parent_path(), saved_profile());
+    std::vector<std::string> unread;
+    auto rices = installed_rices(&unread);
+    auto config = parse_config(read_file(path), "@" + path.string(), path.parent_path(),
+                               saved_profile(), rices);
+    config.rice_problems.insert(config.rice_problems.end(), unread.begin(), unread.end());
+    return config;
 }
 
 Config load_config_or_default(const std::filesystem::path &path, std::string &error) {
@@ -2807,5 +2920,36 @@ std::optional<std::vector<std::string>> shadowed_settings(const std::filesystem:
     shadowed(L, -2, -1, "", result);
     std::sort(result.begin(), result.end());
     return result;
+}
+
+RiceData configured_look(const std::filesystem::path &path, const std::string &profile) {
+    auto state = sandbox();
+    auto *L = state.get();
+    current_section.clear();
+    evaluate(L, read_file(path), "@" + path.string());
+    include_theme(L, path.parent_path());
+    include_defaults(L);
+    auto names = profile_names(L);
+    if (std::find(names.begin(), names.end(), profile) != names.end()) {
+        apply_profile(L, profile);
+    } else if (!profile.empty()) {
+        auto rices = installed_rices();
+        auto rice = std::find_if(rices.begin(), rices.end(), [&](const Rice &rice) {
+            return rice.directory.filename() == profile;
+        });
+        if (rice == rices.end())
+            throw std::runtime_error("no profile " + profile);
+        push_data(L, rice_profile(*rice));
+        overlay(L, -2, -1, true, "profile");
+        lua_pop(L, 1);
+    }
+    RiceData look;
+    for (const char *section : {"appearance", "windows", "shell"}) {
+        lua_getfield(L, -1, section);
+        if (lua_istable(L, -1))
+            look.fields.emplace_back(section, data_of(L, -1, section));
+        lua_pop(L, 1);
+    }
+    return look;
 }
 } // namespace paw

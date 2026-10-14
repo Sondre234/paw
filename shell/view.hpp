@@ -243,6 +243,18 @@ class DisplaySettingsView : public OverlayView {
     void update();
 };
 
+// The question while a rice is on trial (`paw rice try`) on one output, in its middle, holding
+// the keyboard: on the output overlays belonged on as the trial started, or on the primary screen
+// once that one is gone.
+class RiceTrialView : public OverlayView {
+    Q_OBJECT
+  public:
+    RiceTrialView(ShellController &controller, QScreen *screen);
+
+  private:
+    void update();
+};
+
 // The overview's overlay on one output: the text over the compositor's thumbnails (titles,
 // workspace labels, the search box), covering the output while the overview is open there.
 class OverviewView : public OverlayView {

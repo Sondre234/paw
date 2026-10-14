@@ -2,6 +2,7 @@
 #pragma once
 
 #include "paw/backend.h"
+#include "paw/rice.hpp"
 #include "paw/swipe.h"
 #include <array>
 #include <filesystem>
@@ -464,6 +465,9 @@ struct Config {
     // profiles: their names, sorted, and the one in use ("" for none).
     std::vector<std::string> profiles;
     std::string profile;
+    // The installed rices among the profiles, and why others were passed over ("NAME: WHY").
+    std::vector<std::string> rices;
+    std::vector<std::string> rice_problems;
     // auto_reload: reload when a Lua file beside the configuration is saved.
     bool auto_reload = true;
 
@@ -539,9 +543,13 @@ Config load_config(const std::filesystem::path &path);
 // what was wrong, or "" when `path` loaded.
 Config load_config_or_default(const std::filesystem::path &path, std::string &error);
 // `profiles` lay settings over everything else: the one named `chosen` when there is such a
-// profile, else the one `profile` names. load_config chooses the saved profile.
+// profile, else the one `profile` names. load_config chooses the saved profile. Each of
+// `rices` is a profile too, named as its directory, unless the configuration has a profile of
+// that name; one whose settings the configuration refuses is passed over, and said in
+// `rice_problems`, rather than an error. load_config gives the installed rices.
 Config parse_config(const std::string &source, const std::string &name = "config",
-                    const std::filesystem::path &directory = {}, const std::string &chosen = {});
+                    const std::filesystem::path &directory = {}, const std::string &chosen = {},
+                    const std::vector<Rice> &rices = {});
 // The shipped default configuration: $PAW_DEFAULT_CONFIG, else the installed one.
 std::filesystem::path default_config_path();
 // Where the profile picked from the shell or `paw msg profile` is kept:
@@ -554,4 +562,9 @@ void save_profile(const std::string &name);
 // Settings, as "shell.accent", that the configuration at `path` sets itself although its theme
 // file sets them too. Nothing when the configuration names no theme.
 std::optional<std::vector<std::string>> shadowed_settings(const std::filesystem::path &path);
+// The appearance, windows and shell settings the configuration at `path` gives with `profile`
+// in use (one of its profiles, or an installed rice; "" for none), as a table of the three:
+// what it sets, its theme, the default configuration it extends and the profile, as they set
+// it, files named as they name them. Settings left at their defaults are not in it.
+RiceData configured_look(const std::filesystem::path &path, const std::string &profile);
 } // namespace paw

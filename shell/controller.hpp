@@ -19,6 +19,7 @@
 #include "power.hpp"
 #include "paw/config.hpp"
 #include "restyle.hpp"
+#include "rice_trial.hpp"
 #include "start_menu.hpp"
 #include "system_status.hpp"
 #include "task_model.hpp"
@@ -181,6 +182,8 @@ class ShellController : public QObject {
     Q_PROPERTY(DisplayModes *displayModes READ displayModes CONSTANT)
     // The display settings window: the monitors' settings, tried and kept.
     Q_PROPERTY(DisplaySettings *displaySettings READ displaySettings CONSTANT)
+    // A rice on trial (`paw rice try`), and the question whether to keep it.
+    Q_PROPERTY(RiceTrial *riceTrial READ riceTrial CONSTANT)
     // The system tray's items, empty until startTray().
     Q_PROPERTY(TrayModel *tray READ tray CONSTANT)
     // The output showing the notification cards now: chosen when the first card appears and kept
@@ -429,6 +432,7 @@ class ShellController : public QObject {
     Osd *osd() { return &osd_; }
     DisplayModes *displayModes() { return &displayModes_; }
     DisplaySettings *displaySettings() { return &displaySettings_; }
+    RiceTrial *riceTrial() { return &riceTrial_; }
     QString cardsOutput() const { return cardsOutput_; }
     // The output that overlays for the focused monitor belong on: the focused one when it
     // exists, else the primary screen.
@@ -595,6 +599,8 @@ class ShellController : public QObject {
                                             std::function<void(const QByteArray &)> done) {
         ask(line, std::move(done));
     }};
+    RiceTrial riceTrial_{[this](const QByteArray &line) { send(QString::fromUtf8(line)); },
+                         [this] { return overlayOutput(); }};
     // $PAW_SYSFS names another sysfs tree, polled, for tests.
     Backlight backlight_{qEnvironmentVariable("PAW_SYSFS", "/sys"), !qEnvironmentVariableIsSet("PAW_SYSFS"),
                          qEnvironmentVariableIsSet("PAW_SYSFS") ? 100 : 0};

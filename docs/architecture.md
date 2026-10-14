@@ -92,6 +92,7 @@ all. In short:
 | `binding_mode.c` | Binding modes: which set of key bindings is in use. |
 | `shortcuts_inhibit.c` | Keyboard shortcuts inhibitors (keyboard-shortcuts-inhibit-unstable-v1): the keys the bindings take going to a virtual machine, a remote desktop or a game while it has the keyboard. |
 | `toys.c` | Toys, which only draw: `shake`, `gravity` and `party` posing windows through the animator, a party's rainbow borders and confetti, each window let go as anything else happens to it; `get toys`. |
+| `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
 the file that defines it. The build warns (`-Wmissing-prototypes`) about one that is neither.
@@ -734,6 +735,41 @@ keeps its layer, reading and decoding nothing again. A change during a fade lays
 jumps. A layer whose picture failed shows the gradient, and lays a new one for it after a second,
 then twice as long each time up to a minute, while it is the one wanted.
 
+### A rice on trial
+
+A rice (`src/rice.cpp`, `include/paw/rice.hpp`, tested by `rice_tests`) is a directory with
+`rice.lua` and the files it names. `parse_rice_data` reads `rice.lua` with a parser of Lua's
+table syntax of its own, so nothing in it runs, and `parse_rice` checks its shape: the settings
+`rice_setting_allowed` lets through, and paths `rice_path_valid` takes, which `read_rice` finds
+inside the directory as plain files, not through a link. `installed_rices` reads
+`$XDG_STATE_HOME/paw/rices/*`, and `load_config` hands them to `parse_config`, which builds each
+as a profile named after its directory (`rice_profile` makes its pictures' paths absolute) before
+the configuration's own; one the configuration refuses, or whose name it has, goes to
+`Config::rice_problems` instead, which `main.cpp` logs. `configured_look` gives the look settings
+a profile has over the configuration, its theme and the defaults, for `paw rice pack`.
+
+`paw rice try` (`src/cli/rice.cpp`; the archive in `src/cli/rice_archive.cpp`) asks `get
+rice_trial` first, so that nothing changes outside a session, reads the rice into memory
+(`rice_archive_files` takes only plain files inside the archive; `gzip` unpacks a compressed one
+into memory), writes it into a hidden directory beside the installed rices (`stage_rice`, only the
+files `rice.lua` names), checks that the configuration takes it with `parse_config`, and then
+`begin_rice_trial` writes the trial down in `$XDG_STATE_HOME/paw/rice-trial` (the rice, the saved
+profile before it, whether an installed rice of its name waits aside as `.NAME.previous`) before
+it moves the rice into place and saves its name as the profile. Then it sends `rice try NAME`.
+`control_rice` (`rice.c`) has `sh_callbacks.rice` note the compositor's pid in the record, reloads
+the configuration, which crossfades to the profile, takes it back at once unless the profile in
+use is the rice's, and otherwise sets a timer for `RICE_TRIAL_MS` and sends the shell `rice-trial
+MILLISECONDS NAME`. `rice keep` drops the rice set aside and the record (`keep_rice_trial`); `rice
+revert` and the timer write the previous profile back, remove the rice and put the one set aside
+in its place (`revert_rice_trial`), then reload. The compositor ending during a trial reverts it as
+it goes (`rice_finish`), and `main` reverts a record left by one that died
+(`recover_rice_trial`) before it loads the configuration, unless the pid in it is a running
+`paw`, a session a nested compositor runs in.
+
+The shell's side is `RiceTrial` (`shell/rice_trial.cpp`), which reads the rice's author and
+description from its `rice.lua` and counts the seconds down, and `RiceTrialView`, an overlay in the
+middle of the output overlays belong on, holding the keyboard on Revert.
+
 ### Power saving when idle
 
 `idle.c` takes the `idle` steps (`enum sh_idle_step`: dim, display_off, lock, suspend) with one
@@ -943,6 +979,7 @@ what was there.
 | `DisplayMode.qml` | The display mode popup (Windows' Win+P, `shell.displayModes`), an overlay surface of its own in the middle of the output: the four choices, the one the compositor's stepping shows selected; a click takes one. |
 | `DisplaySettings.qml` | The display settings window (`shell.displaySettings`), an overlay surface of its own in the middle of the output: the monitors' arrangement to drag, the selected monitor's settings, Apply, and the question while they are on trial. |
 | `AuthDialog.qml` | The polkit authentication dialog (`shell.authentication`), an overlay surface of its own: the request, the user to answer as, the password. |
+| `RiceTrial.qml` | The question while a rice is on trial (`shell.riceTrial`), a card in the middle of the output, an overlay surface of its own: the rice's name, author and description, the countdown, Revert and Keep. |
 | `ClipboardPicker.qml`, `EmojiPicker.qml` | The clipboard history's popup and the emoji picker, each in an overlay surface of its own (`PickerView`, `picker_view.cpp`). |
 | `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style. |
 
@@ -1384,7 +1421,7 @@ style the dock and the menu bar, over the style's drawn wallpaper while none is 
 menu bar's menus as `system-menu`, `app-menu`, `window-menu` and `window-submenu`. The overlay
 surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `cards`,
 `power-dialog`, `palette`, `palette-empty`, `switcher`, `overview`, `snap-assist`, `display-mode`,
-`display-settings`, `display-settings-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
+`display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 bar alone, with stand-ins for what the compositor would tell it, and the screenshot draws it where
 its layer surface would be (the overview over stand-ins for the compositor's thumbnails).
 `--preview --preview-desktop` draws the desktop instead (the gallery's `desktop`, without the
@@ -1519,7 +1556,8 @@ settings' test, or in `configure_output`'s as if the commit failed (see
 `display_settings_smoke.py`). `PAW_TEST_LOCK_TIMEOUT_MS` shortens the time a locker gets to
 lock the screen before a suspend gives up (see `power_smoke.py`), and
 `PAW_TEST_CROSSFADE_HOLD_MS` sets how long a profile's crossfade waits for the shell (see
-`crossfade_smoke.py`).
+`crossfade_smoke.py`), and `PAW_TEST_RICE_TRIAL_MS` how long a rice is on trial (see
+`rice_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless

@@ -40,6 +40,8 @@ target_compile_options(paw_config PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(paw_config PRIVATE
     PAW_DEFAULT_CONFIG="${CMAKE_INSTALL_FULL_DATADIR}/paw/init.lua"
     PAW_SOURCE_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/config/init.lua")
+# Rices: rice.lua read as data, what a rice may hold, the installed ones and a trial's record.
+target_sources(paw_config PRIVATE src/rice.cpp)
 
 # Arithmetic of the desktop effects (fades, night light, corners, zoom) and of touchpad swipes;
 # no wlroots.
@@ -58,10 +60,13 @@ target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
 target_sources(paw_cli PRIVATE src/cli/doctor.cpp src/cli/doctor_parse.cpp)
 target_sources(paw_cli PRIVATE src/cli/fetch.cpp)
 target_sources(paw_cli PRIVATE src/cli/showcase.cpp)
-# paw doctor and paw fetch read the configuration, fetch outside a session.
-target_link_libraries(paw_cli PRIVATE paw_config)
 target_sources(paw_cli PRIVATE src/cli/top.cpp)
 target_sources(paw_cli PRIVATE src/cli/toys.cpp)
+# paw rice: packing a look into a file and trying one on.
+target_sources(paw_cli PRIVATE src/cli/rice.cpp src/cli/rice_archive.cpp)
+# paw doctor, paw fetch and paw rice read the configuration, fetch outside a session; a rice's
+# tests reach paw_config through paw_cli.
+target_link_libraries(paw_cli PUBLIC paw_config)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -149,6 +154,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(dynamic_rule)
     paw_c_unit_test(dropdown)
     paw_c_unit_test(toys)
+    paw_unit_test(rice LIBRARY paw_cli)
 endif()
 option(PAW_BUILD_COMPOSITOR "Build the wlroots compositor" ON)
 if(PAW_BUILD_COMPOSITOR)
@@ -291,6 +297,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/workspace.c
         src/compositor/xwayland.c
         src/compositor/toys.c
+        src/compositor/rice.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
         ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h ${WLR_PROTOCOL_HEADERS})
@@ -883,5 +890,6 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:paw-bench-client>)
         paw_smoke(toys_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(rice_smoke TIMEOUT 120 $<TARGET_FILE:paw>)
     endif()
 endif()
