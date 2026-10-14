@@ -345,6 +345,7 @@ struct Runtime {
     unsigned flags = 0;   // the sh_binding_flag bits of the binding last resolved
     std::string keys{};   // what binding_keys returned last
     std::string action_list{}; // what `get actions` prints
+    std::string profile_list{}; // what `get profiles` prints
     int mode = 0;         // the binding mode `key` looks in: 0 outside any, else modes[mode - 1]
     paw::Command program{}; // the program of the spawn action last resolved
     bool watch = false; // whether saving a configuration file reloads (off in headless tests)
@@ -489,6 +490,14 @@ struct Runtime {
             self.action_list += name + '\t' + (keys.empty() ? "-" : keys) + '\n';
         }
         return self.action_list.c_str();
+    }
+    /* The profiles and the one in use, for `get profiles`. */
+    static const char *profiles(void *data) {
+        auto &self = *static_cast<Runtime *>(data);
+        self.profile_list.clear();
+        for (const auto &name : self.config.profiles)
+            self.profile_list += name + '\t' + (name == self.config.profile ? "1" : "0") + '\n';
+        return self.profile_list.c_str();
     }
     /* Control requests: "<action> [workspace]", "screenshot [region|output|window]",
      * "resize_<direction> [pixels]", "volume_up|volume_down|brightness_up|brightness_down
@@ -1101,7 +1110,7 @@ int main(int argc, char **argv) {
             Runtime::hot_corner, Runtime::action_target, Runtime::config_watch,
             Runtime::config_changed, Runtime::lock, Runtime::launch, Runtime::autostart,
             Runtime::started, Runtime::binding_flags, Runtime::set_mode, Runtime::switch_toggled,
-            Runtime::binding_keys, Runtime::dynamic_rule, Runtime::actions};
+            Runtime::binding_keys, Runtime::dynamic_rule, Runtime::actions, Runtime::profiles};
         int result = sh_run(&callbacks, mode);
         if (runtime.shell_pid > 0)
             kill(runtime.shell_pid, SIGTERM);

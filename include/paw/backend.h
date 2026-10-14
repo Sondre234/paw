@@ -650,6 +650,10 @@ struct sh_callbacks {
      * keys of its first key binding outside any mode, as binding_keys gives them, or "-",
      * separated by a tab. Valid until the next call. */
     const char *(*actions)(void *);
+    /* The configuration's appearance profiles, for `get profiles`: a line each, in name order,
+     * with its name and 1 for the one in use, else 0, separated by a tab. Valid until the next
+     * call. */
+    const char *(*profiles)(void *);
 };
 
 enum sh_backend_mode { SH_BACKEND_NESTED, SH_BACKEND_HEADLESS, SH_BACKEND_SESSION };

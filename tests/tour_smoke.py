@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The queries `paw tour` reads, on a headless compositor: every action and the keys of its
-first key binding."""
+first key binding, and the appearance profiles."""
 from pathlib import Path
 import sys
 
@@ -29,3 +29,4 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     assert actions["move_to_scratchpad"] == "Super + Shift + minus"
     assert actions["toggle_tiling"] == "-", "unbound here"
     assert len(actions) > 100 and all(len(row) == 2 for row in desktop.rows("actions"))
+    assert desktop.rows("profiles") == [["day", "1"], ["night", "0"]], desktop.rows("profiles")
