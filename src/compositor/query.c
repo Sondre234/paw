@@ -846,6 +846,7 @@ static const struct {
     {"mode", get_mode, false},
     {"shortcuts", get_shortcuts, false},
     {"input_method", get_input_method, false},
+    {"wrapped", describe_wrapped, false},
 };
 
 /* Answers `request` if it is a query; false if it is not one. */

@@ -149,6 +149,7 @@ void reload_config(struct sh_server *server) {
     power_reload(server);
     idle_reload(server);
     shortcuts_reload(server);
+    wrapped_reload(server);
 }
 
 static int terminate_signal(int signal_number, void *data) {
@@ -518,6 +519,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     server.power.system_bus = mode != SH_BACKEND_HEADLESS;
     power_init(&server);
     idle_init(&server);
+    wrapped_init(&server);
     server.running = true;
     server.login_session = mode == SH_BACKEND_SESSION ||
                            (getenv("PAW_LOGIN_SESSION") && *getenv("PAW_LOGIN_SESSION"));
@@ -542,6 +544,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
 #endif
     power_finish(&server);
     idle_finish(&server);
+    wrapped_finish(&server);
     close_control_socket(&server);
 
 finish:

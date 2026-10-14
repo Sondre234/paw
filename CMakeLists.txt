@@ -277,6 +277,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/window_control.c
         src/compositor/window_icon.c
         src/compositor/workspace.c
+        src/compositor/wrapped.c
         src/compositor/xwayland.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c

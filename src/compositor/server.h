@@ -24,6 +24,7 @@
 #include "paw/dynamic_rule.h"
 #include "paw/border.h"
 #include "paw/dropdown.h"
+#include "paw/wrapped_day.h"
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -286,6 +287,7 @@ struct sh_window_rect;   // where a client shows a window on an output (minimize
 struct sh_mirror;        // what a mirroring output shows (mirror.c)
 struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c)
 struct sh_crossfade_picture; // what an output showed as it began
+struct sh_wrapped;       // what paw wrapped counts (wrapped.c)
 struct wlr_color_manager_v1;
 
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
@@ -752,6 +754,7 @@ struct sh_server {
     struct wl_list outputs;          /* enabled, in the layout */
     struct wl_list disabled_outputs; /* turned off by outputs.monitors */
     struct wl_listener new_output;
+    struct sh_wrapped *wrapped; // NULL while wrapped.enabled is off
 };
 
 /* Tearing on an output (tearing.c): what its frames do now (`tearing`, `refused`, or why its
@@ -1715,6 +1718,25 @@ void move_to_workspace(struct sh_server *server, int workspace);
 void occupied_workspaces(struct sh_server *server, struct wlr_output *output, char *text,
                          size_t size);
 int focused_workspace(struct sh_server *server);
+
+/* wrapped.c */
+void wrapped_init(struct sh_server *server);
+void wrapped_finish(struct sh_server *server);
+void wrapped_reload(struct sh_server *server);
+/* Each hook counts one thing: input coming, the state the time counts by (focus, the lock, an
+ * idle inhibitor, the monitors) after it changed, or an event. */
+void wrapped_input(struct sh_server *server);
+void wrapped_follow(struct sh_server *server);
+void wrapped_count(struct sh_server *server, enum sh_wrapped_counter counter);
+void wrapped_motion(struct sh_server *server, double dx, double dy);
+void wrapped_motion_absolute(struct sh_server *server,
+                             const struct wlr_pointer_motion_absolute_event *event);
+void wrapped_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
+void wrapped_axis(struct sh_server *server, const struct wlr_pointer_axis_event *event);
+void wrapped_grab_done(struct sh_server *server);
+/* Saves what was counted now: the session goes idle, locks or sleeps. */
+void wrapped_save(struct sh_server *server);
+void describe_wrapped(struct sh_server *server, int fd, const char *arguments);
 
 /* xwayland.c */
 #if WLR_HAS_XWAYLAND

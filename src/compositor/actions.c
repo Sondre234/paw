@@ -134,8 +134,10 @@ bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, cha
  * log and across the panel, and in `error`. */
 bool launch_program(struct sh_server *server, enum sh_action action, char *error,
                     size_t error_size) {
-    if (server->callbacks->launch(server->callbacks->userdata, action, error, error_size))
+    if (server->callbacks->launch(server->callbacks->userdata, action, error, error_size)) {
+        wrapped_count(server, SH_WRAPPED_LAUNCHES);
         return true;
+    }
     report_failure(server, "spawn-error", error);
     return false;
 }

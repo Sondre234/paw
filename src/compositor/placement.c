@@ -213,6 +213,8 @@ void place_by_hand_on(struct sh_toplevel *toplevel, enum sh_action action,
     struct sh_rect target;
     if (!placed_slot(toplevel->server, action, output, &target))
         return;
+    if (action != SH_MAXIMIZE) // as a window opens or a session is restored too
+        wrapped_count(toplevel->server, SH_WRAPPED_SNAPS);
     place_toplevel(toplevel, action, target);
     snap_assist_offer(toplevel);
 }

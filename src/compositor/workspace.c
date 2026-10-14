@@ -66,8 +66,10 @@ void set_active_output(struct sh_server *server, const char *name) {
  * output remembers the workspace it showed before for workspace_back. */
 void show_workspace(struct sh_server *server, const char *output, int workspace) {
     int slot = output_slot(server, output);
-    if (server->output_workspaces[slot].current != workspace)
+    if (server->output_workspaces[slot].current != workspace) {
         server->output_workspaces[slot].previous = server->output_workspaces[slot].current;
+        wrapped_count(server, SH_WRAPPED_WORKSPACE_SWITCHES);
+    }
     server->output_workspaces[slot].current = workspace;
     wlr_log(WLR_INFO, "Workspace %d on %s", workspace + 1, output);
     show_workspaces(server);
