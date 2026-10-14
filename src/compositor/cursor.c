@@ -589,6 +589,7 @@ static bool action_targets_window(enum sh_action action) {
     case SH_RESIZE_RIGHT:
     case SH_RESIZE_UP:
     case SH_RESIZE_DOWN:
+    case SH_SHAKE:
         return true;
     default:
         return false;

@@ -585,6 +585,18 @@ struct Runtime {
                     throw std::runtime_error(
                         words[0] + " takes a window's place in the list, from 1");
                 *argument = number;
+            } else if (action == SH_SHAKE && words.size() == 2) {
+                // A window's number, as `get window_icons` lists it.
+                std::size_t used = 0;
+                int number = 0;
+                try {
+                    number = std::stoi(words[1], &used);
+                } catch (const std::logic_error &) {
+                }
+                if (used != words[1].size() || number < 1)
+                    throw std::runtime_error("shake takes a window's number, from 1, or none "
+                                             "for the focused window");
+                *argument = number;
             } else if (words.size() != 1) {
                 throw std::runtime_error(words[0] + " takes no argument");
             }
