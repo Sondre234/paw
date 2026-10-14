@@ -145,7 +145,7 @@ Item {
             flow: taskbar.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
             FlatButton {
                 id: start
-                Layout.preferredWidth: Theme.barItemWidth; Layout.preferredHeight: Theme.barItemHeight
+                Layout.preferredWidth: panel.barItemWidth; Layout.preferredHeight: panel.barItemHeight
                 active: taskbar.panel.launcherOpen
                 onClicked: taskbar.panel.launcherOpen = !taskbar.panel.launcherOpen
                 Accessible.name: "Applications"

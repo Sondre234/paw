@@ -18,8 +18,8 @@ FlatButton {
     required property Item panel
     objectName: "trayItem"
     visible: status !== "Passive"
-    width: Theme.barVertical ? Theme.barItemWidth : Theme.barButtonWidth - Theme.spacingM
-    height: Theme.barVertical ? Theme.barButtonWidth - Theme.spacingM : Theme.barButtonHeight
+    width: panel.vertical ? panel.barItemWidth : Theme.barButtonWidth - Theme.spacingM
+    height: panel.vertical ? Theme.barButtonWidth - Theme.spacingM : Theme.barButtonHeight
     hoverEnabled: true
     active: panel.trayMenuKey === key
     Accessible.name: title

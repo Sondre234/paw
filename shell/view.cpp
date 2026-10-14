@@ -47,6 +47,8 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
     // outputName matches the compositor's output name, which the workspace state is keyed by.
     if (!desktop)
         setInitialProperties({{"shellView", QVariant::fromValue(this)}, {"outputName", screen->name()}});
+    else
+        setInitialProperties({{"shellView", QVariant::fromValue(this)}});
 #if PAW_LAYER_SHELL
     if (!preview) {
         using W = LayerShellQt::Window;
@@ -62,6 +64,7 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
     connect(&controller, &ShellController::panelSizeChanged, this, [this] {
         placeLayer();
         resizeForContent();
+        Q_EMIT panelPlacementChanged();
     });
     connect(&controller, &ShellController::launcherRequested, this, [this](const QString &output) {
         if (desktop_ || !rootObject() || outputScreen_->name() != output)
@@ -98,12 +101,13 @@ MenuBarWindow *ShellView::menuBar() const {
     return rootObject() ? rootObject()->findChild<MenuBarWindow *>() : nullptr;
 }
 paw::PanelEdge ShellView::edge() const {
-    return tilingBar_ ? controller_.tilingBarEdge() : controller_.panelSurfaceEdge();
+    return tilingBar_ ? controller_.tilingBarEdge()
+                      : controller_.panelSurfaceEdge(outputScreen_->name());
 }
 int ShellView::extent() const {
-    return tilingBar_ ? controller_.tilingBarExtent() : controller_.panelExtent();
+    return tilingBar_ ? controller_.tilingBarExtent() : panelExtent();
 }
-int ShellView::headroom() const { return tilingBar_ ? 0 : controller_.panelHeadroom(); }
+int ShellView::headroom() const { return tilingBar_ ? 0 : panelHeadroom(); }
 void ShellView::setTilingBar(bool shown) {
     if (shown == tilingBar_)
         return;
