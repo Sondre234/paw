@@ -1558,6 +1558,11 @@ MASTER_COUNT`.
 
 - **scroll**: see [Scrolling layout](#scrolling-layout).
 
+A right click on the panel's tiling button opens its menu: what the workspace the monitor shows
+does now, Floating or the layout it tiles with, at the top with its icon, then the other
+layouts, each with an icon of how it lays windows out, and Floating while it tiles. A layout
+picked while the workspace floats turns tiling on with it.
+
 The layouts other than dwindle order the tiles as a list (the dwindle tree read left to
 right): a new window joins the end wherever it is opened or dropped, and Super + Shift +
 arrows trade places with the next or previous one in the list rather than the geometric
