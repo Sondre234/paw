@@ -584,8 +584,8 @@ wrong with it, and toys the compositor plays with the windows.
   numbered one, or from a mouse button the one under the pointer); gravity drops every window of
   the focused monitor's workspace to the bottom, where they pile up, bounce, squash and glide back
   up; a party bobs them under rainbow borders while confetti falls. No window moves or changes
-  size, and one that does anything else meanwhile drops out back in its place. `paw msg get toys`
-  says what plays.
+  size, and one that does anything else meanwhile drops out back in its place. The command
+  palette offers them too, and `paw msg get toys` says what plays.
 
 ### Fixes
 
