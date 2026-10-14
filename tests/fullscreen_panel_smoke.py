@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """A fullscreen window covers the output except the bars, which stay shown whether it has focus
 or not. A new window opens in front of it while it stays fullscreen, unless the new window
-tiles: then it takes it out of fullscreen instead of opening under it."""
+tiles: then it takes it out of fullscreen instead of opening under it. Turning tiling on takes
+it out of fullscreen too, into the tiling."""
 from pathlib import Path
 import sys
 
@@ -80,13 +81,32 @@ with harness.Compositor(compositor, "return { xwayland = false }") as desktop:
     msg("fullscreen")
     wait_for(lambda: not fullscreen() and shown(), "panels back after leaving fullscreen")
 
-    # A new tile would open under it, so with tiling it leaves fullscreen first.
+    def tiled_apart():
+        return (all(w.tiled for w in windows()) and not fullscreen() and
+                harness.disjoint([w.box for w in windows()]))
+
+    # Turning tiling on brings it into the tiling as a tile, out of fullscreen, both in front
+    # and lowered behind another window, where it would be left fullscreen behind the tiles.
     msg("fullscreen")
     wait_for(lambda: fullscreen() == ["two"] and shown(), "fullscreen again")
     msg("toggle_tiling")
-    wait_for(lambda: all(w.tiled for w in windows()) and fullscreen() == ["two"],
-             "both windows tiled, one fullscreen")
+    wait_for(tiled_apart, "both windows tiled, none fullscreen")
+    msg("toggle_tiling")
+    wait_for(lambda: not any(w.tiled for w in windows()), "both windows floating again")
+    msg("fullscreen")
+    wait_for(lambda: fullscreen() == ["two"], "fullscreen once more")
+    msg("cycle")
+    wait_for(lambda: focused() == "one" and front() == ("one", "normal") and
+             fullscreen() == ["two"], "the fullscreen window lowered behind the other")
+    msg("toggle_tiling")
+    wait_for(tiled_apart, "both windows tiled, the lowered one out of fullscreen")
+    msg("cycle")
+    wait_for(lambda: focused() == "two", "the former fullscreen tile focused")
+
+    # A new tile would open under it, so with tiling it leaves fullscreen first.
+    msg("fullscreen")
+    wait_for(lambda: fullscreen() == ["two"] and shown(), "a tile fullscreen")
     probe_window("three", 3)
     wait_for(lambda: not fullscreen(), "the new tile ended fullscreen")
 print("Fullscreen windows leave the bars shown, focused or not, stay fullscreen under new "
-      "windows and leave it for new tiles")
+      "windows and leave it for new tiles and as tiling turns on")

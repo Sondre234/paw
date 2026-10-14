@@ -251,16 +251,21 @@ static void apply_tiling(struct sh_server *server, struct wlr_output *output) {
     // Placing every window after each one joins or leaves would take time quadratic in the
     // number of windows; the reflow after the loop places them once.
     ++server->reflow_held;
-    struct sh_toplevel *toplevel;
-    wl_list_for_each(toplevel, &server->toplevels, link) {
+    // Leaving fullscreen refocuses the focused window, which moves it to the front of the list.
+    struct sh_toplevel *toplevel, *tmp;
+    wl_list_for_each_safe(toplevel, tmp, &server->toplevels, link) {
         if (toplevel->tiled ? tiled_output(toplevel) != output : home_output(toplevel) != output)
             continue;
         bool enabled = tiles_for(toplevel, output);
         if (enabled && toplevel->placed) // floating only because it was snapped or maximized
             toplevel->floating = toplevel->placed = false;
-        if (enabled && wants_tiling(toplevel, output))
+        if (enabled && wants_tiling(toplevel, output)) {
             tile_toplevel(toplevel, output, NULL, false);
-        else if (!enabled && toplevel->tiled)
+            // A fullscreen window joins as a tile too, rather than staying fullscreen in front
+            // of the tiles or, lowered, behind them.
+            if (toplevel->fullscreen)
+                set_fullscreen(toplevel, false);
+        } else if (!enabled && toplevel->tiled)
             untile_toplevel(toplevel, true);
         else if (!enabled && toplevel->arranged && toplevel->arrangement == SH_NONE)
             restore_toplevel(toplevel); // left the tiling while minimized

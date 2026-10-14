@@ -674,7 +674,8 @@ browser's fullscreen video, covers the whole monitor, panels included, and keeps
 while you work on another monitor; bringing another window forward on its monitor puts it
 behind that window and shows the panels again. A new window opens in front of it the same way,
 and it stays fullscreen behind; only a new tile, on a workspace that tiles, takes it out of
-fullscreen instead of opening under it. Either kind stays in front of the other windows
+fullscreen instead of opening under it, and turning tiling on takes it out of fullscreen into a
+tile, in front of the others or behind them. Either kind stays in front of the other windows
 of its monitor, those [kept above](#keeping-windows-above) too, while you work on another
 monitor, until a window of its own monitor is brought forward. Behind that window, it takes no
 focus from the pointer hovering it, as the focus would bring it back in front: a click on it, its
@@ -1464,7 +1465,8 @@ scroll layout loses its gaps and keeps its width.
   windows maximized there back into the tiling instead of covering them, as it does
   fullscreen ones, and turning tiling on brings
   back every window that floated only because it was snapped or maximized
-  (`tests/maximized_tile_smoke.py`).
+  (`tests/maximized_tile_smoke.py`), and fullscreen ones into tiles of their own
+  (`tests/fullscreen_panel_smoke.py`).
 - A floating window between two monitors belongs to the one its middle is on. Turning tiling
   on tiles it when that is the monitor turned on; when it is the other one, the window moves
   wholly onto its own monitor instead of staying under the new tiles.
