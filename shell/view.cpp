@@ -743,6 +743,37 @@ void ConfigErrorView::update() {
         hide();
     }
 }
+CaptionView::CaptionView(ShellController &controller, QScreen *screen)
+    : QQuickView(controller.engine(), nullptr), controller_(controller), outputScreen_(screen) {
+    setScreen(screen);
+    setTitle("paw caption");
+    setColor(Qt::transparent);
+    setResizeMode(QQuickView::SizeViewToRootObject);
+    setFlags(Qt::FramelessWindowHint | Qt::WindowTransparentForInput);
+    setInitialProperties({{"outputName", screen->name()}});
+#if PAW_LAYER_SHELL
+    layer_ = makeLayer(this, screen, "paw-caption", LayerShellQt::Window::LayerOverlay);
+    layer_->setExclusiveZone(-1);
+    placeLayer();
+#endif
+    setSource(QUrl("qrc:/shell/PawShell/Caption.qml"));
+    if (auto *root = rootObject()) {
+        connect(root, SIGNAL(visibleNowChanged()), this, SLOT(update()));
+        followRoot(this, layer_, root);
+    }
+    connect(&controller, &ShellController::configChanged, this, [this] { placeLayer(); });
+}
+void CaptionView::placeLayer() {
+#if PAW_LAYER_SHELL
+    // As far from the bottom edge as the on-screen display, clear of the bar or the dock.
+    layer_->setAnchors(LayerShellQt::Window::AnchorBottom);
+    layer_->setMargins(QMargins(0, 0, 0, controller_.osdBottom()));
+#endif
+}
+void CaptionView::update() {
+    showWhile(this, rootObject() && rootObject()->property("visibleNow").toBool(), "caption",
+              outputScreen_);
+}
 DisplaySettingsView::DisplaySettingsView(ShellController &controller, QScreen *screen)
     : OverlayView(controller, screen, "display settings", true) {
     setTitle("paw display settings");

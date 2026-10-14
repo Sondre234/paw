@@ -316,3 +316,21 @@ class ConfigErrorView : public QQuickView {
     LayerShellQt::Window *layer_ = nullptr;
     QScreen *outputScreen_;
 };
+
+// The caption `paw tour` narrates itself with, on one output: a card near the bottom edge, where
+// the on-screen display shows, for as long as the compositor's `caption` asks. Clicks pass
+// through it.
+class CaptionView : public QQuickView {
+    Q_OBJECT
+  public:
+    CaptionView(ShellController &controller, QScreen *screen);
+
+  private Q_SLOTS:
+    void update();
+
+  private:
+    ShellController &controller_;
+    LayerShellQt::Window *layer_ = nullptr;
+    QScreen *outputScreen_;
+    void placeLayer();
+};

@@ -2555,6 +2555,13 @@ keys, `brightnessctl`); when do-not-disturb changes; and for
 level, e.g. `paw msg osd "Keyboard light" 60`. Set `osd.enabled = false`, or only
 `osd.volume`/`osd.brightness` to false, to turn it off.
 
+A caption is a larger card in the same place, a title with the keys that do what it tells of and a
+sentence under them, for as long as it is asked: `paw msg caption SECONDS
+TITLE<tab>SENTENCE<tab>KEYS` shows one on the focused monitor for 1 to 600 seconds (the sentence
+and the keys may be left out), a new one taking its place, and `paw msg caption hide` takes it
+away. `paw tour` narrates itself with it. It is refused while the shell is not running, so that a
+script says it another way.
+
 ```lua
 notifications = { position = "top-right", timeout = 6000, max_visible = 4, dnd = false },
 osd = { position = "bottom", timeout = 1500 },
