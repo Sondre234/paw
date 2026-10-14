@@ -608,6 +608,10 @@ shadows.
   mode names the entry, as `windows.rules[2].opacity` or `outputs.monitors["DP-1"].transform`,
   where it named a setting outside it (`windows.opacity`, `outputs.transform`) and pointed at
   that setting's line when the file had one.
+- A configuration saved while the shell is still starting, as right after a restart, no longer
+  ends the shell and leaves the desktop bare: the reload's SIGHUP came before the shell caught
+  it. The compositor starts the shell with SIGHUP blocked, and the shell catches it before
+  anything else and reloads once it runs.
 
 ## 0.1.1 (2026-10-05)
 

@@ -65,6 +65,27 @@ int main(int argc, char **argv) {
             std::cout << "paw-shell " PAW_VERSION "\n";
             return 0;
         }
+    // The compositor sends SIGHUP to reload as soon as its configuration changes, which can be
+    // while this shell is still starting: catch it before the slow part, as a signal's default
+    // action would end the shell. What arrives early waits in the pipe until the event loop
+    // runs. The compositor starts the shell with SIGHUP blocked, so that one sent before main
+    // waits too; unblocking here delivers it.
+    int pipeFds[2];
+    if (pipe2(pipeFds, O_NONBLOCK | O_CLOEXEC) < 0) {
+        std::cerr << "paw-shell: cannot create signal pipe\n";
+        return 1;
+    }
+    signalFd = pipeFds[1];
+    struct sigaction action{};
+    action.sa_handler = onSignal;
+    sigemptyset(&action.sa_mask);
+    sigset_t handled;
+    sigemptyset(&handled);
+    for (int signal : {SIGHUP, SIGTERM, SIGINT}) {
+        sigaction(signal, &action, nullptr);
+        sigaddset(&handled, signal);
+    }
+    sigprocmask(SIG_UNBLOCK, &handled, nullptr);
     QGuiApplication app(argc, argv);
     // Views come and go with outputs (all of them during a VT switch); the shell's lifetime
     // follows the compositor connection instead.
@@ -283,23 +304,15 @@ int main(int argc, char **argv) {
                           [screen](const auto &view) { return view->outputScreen() == screen; });
             std::erase_if(overlays, [screen](const auto &overlay) { return overlay.first == screen; });
         });
-        int pipeFds[2];
-        if (pipe2(pipeFds, O_NONBLOCK | O_CLOEXEC) < 0)
-            throw std::runtime_error("cannot create signal pipe");
-        signalFd = pipeFds[1];
-        struct sigaction action{};
-        action.sa_handler = onSignal;
-        sigemptyset(&action.sa_mask);
-        for (int signal : {SIGHUP, SIGTERM, SIGINT})
-            sigaction(signal, &action, nullptr);
         QSocketNotifier notifier(pipeFds[0], QSocketNotifier::Read);
         QObject::connect(&notifier, &QSocketNotifier::activated, &app, [&] {
             char bytes[64];
             ssize_t count = read(pipeFds[0], bytes, sizeof(bytes));
             for (ssize_t i = 0; i < count; ++i)
-                if (bytes[i] == 'r')
+                if (bytes[i] == 'r') {
+                    std::cerr << "paw shell reloading on SIGHUP\n";
                     controller.reload();
-                else
+                } else
                     app.quit();
         });
         // A previewed popup starts the clock when it opens instead.
