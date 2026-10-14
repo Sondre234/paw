@@ -265,7 +265,7 @@ static void choose(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
     } else {
         cat->away_since = 0;
     }
-    double x, y;
+    double x = 0, y = 0;
     if (world->focused && world->focused != cat->on && spot_on(cat, world, world->focused, &x, &y)) {
         jump(cat, x, y, world->focused, now);
         return;
