@@ -74,7 +74,9 @@ by day and by night.</sub>
 - **A rice to start from:** [washi and sumi](rices/washi), paper and ink by day and by night,
   with the bar and menus framed as the windows are and printed shadows, and themes for kitty,
   fastfetch, Firefox, Discord, Claude Code, Neovim and Helix that one script puts in place.
-  `paw import` carries over an existing Hyprland/Waybar setup.
+  `paw import` carries over an existing Hyprland/Waybar setup, and
+  [`paw rice`](docs/features.md#paw-rice) packs a look into one file to share and tries one on
+  for 15 seconds before you keep it.
 - **Scriptable:** every action, plus queries and an event stream, over a control socket
   (`paw msg`).
 - **Works with everyday applications:** XWayland, screen sharing through portals,
