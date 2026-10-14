@@ -39,12 +39,12 @@ static void build(struct scene *scene) {
                                          .idle = scene->idle};
 }
 
-static struct scene monitors(int count) {
-    struct scene scene = {.area_count = count};
+/* Fills `scene` in place: its world points into it, so a copy would point into the one copied. */
+static void monitors(struct scene *scene, int count) {
+    *scene = (struct scene){.area_count = count};
     for (int i = 0; i < count; ++i)
-        scene.areas[i] = (struct sh_cat_area){1920.0 * i, 0, 1920, 1080, 0, 1080 - 48};
-    build(&scene);
-    return scene;
+        scene->areas[i] = (struct sh_cat_area){1920.0 * i, 0, 1920, 1080, 0, 1080 - 48};
+    build(scene);
 }
 
 static void add(struct scene *scene, uint32_t window, double x, double y, double width,
@@ -85,7 +85,8 @@ static struct sh_cat settled(struct scene *scene, double x, int64_t *now) {
 }
 
 static void test_ledges(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     add(&scene, 1, 100, 300, 600, 400); // in front
     add(&scene, 2, 400, 200, 800, 600); // behind it, its top showing right of it
     add(&scene, 3, 0, 0, 1920, 1032);   // maximized, at the back
@@ -106,7 +107,7 @@ static void test_ledges(void) {
           world->tops[3].right == 1920);
 
     // A window in front reaching over a top hides that part of it.
-    scene = monitors(1);
+    monitors(&scene, 1);
     add(&scene, 1, 300, 250, 200, 400);
     add(&scene, 2, 100, 300, 800, 400);
     CHECK(scene.world.ledge_count == 4, "%d", scene.world.ledge_count);
@@ -115,13 +116,13 @@ static void test_ledges(void) {
     CHECK(scene.world.ledges[2].window == 2 && scene.world.ledges[2].left == 500 &&
           scene.world.ledges[2].right == 900);
     // One whose bottom is well above it does not.
-    scene = monitors(1);
+    monitors(&scene, 1);
     add(&scene, 1, 300, 50, 200, 200);
     add(&scene, 2, 100, 300, 800, 400);
     CHECK(scene.world.ledges[1].left == 100 && scene.world.ledges[1].right == 900);
 
     // Two monitors: each its own floor.
-    scene = monitors(2);
+    monitors(&scene, 2);
     CHECK(scene.world.top_count == 2 && scene.world.tops[1].left == 1920);
     CHECK(sh_cat_area_at(&scene.world, 2000, 1032) == 1);
     CHECK(sh_cat_area_at(&scene.world, 1919, 1032) == 0);
@@ -129,7 +130,8 @@ static void test_ledges(void) {
 }
 
 static void test_lands_on_a_window(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     add(&scene, 1, 600, 400, 700, 500);
     scene.focused = 1;
     build(&scene);
@@ -151,7 +153,8 @@ static void test_lands_on_a_window(void) {
 }
 
 static void test_falls_when_the_window_moves(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     add(&scene, 2, 500, 700, 900, 200); // below, behind
     add(&scene, 1, 600, 400, 700, 200);
     scene.focused = 1;
@@ -183,7 +186,8 @@ static void test_falls_when_the_window_moves(void) {
 }
 
 static void test_lands_only_where_the_top_shows(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     add(&scene, 1, 700, 300, 400, 600); // in front, covering part of 2's top
     add(&scene, 2, 500, 500, 900, 300);
     int64_t now = 0;
@@ -201,7 +205,8 @@ static void test_lands_only_where_the_top_shows(void) {
 }
 
 static void test_jumps_to_the_focused_window(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     add(&scene, 1, 100, 600, 600, 300);
     add(&scene, 2, 1000, 300, 600, 500);
     scene.focused = 1;
@@ -237,7 +242,8 @@ static void test_jumps_to_the_focused_window(void) {
 }
 
 static void test_walks_without_falling_off(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     add(&scene, 1, 800, 500, 200, 300);
     scene.focused = 1;
     build(&scene);
@@ -258,7 +264,8 @@ static void test_walks_without_falling_off(void) {
 }
 
 static void test_sleeps_while_idle(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     add(&scene, 1, 600, 400, 700, 500);
     scene.focused = 1;
     build(&scene);
@@ -292,7 +299,8 @@ static void test_sleeps_while_idle(void) {
 }
 
 static void test_sits_seldom_stepped(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     add(&scene, 1, 600, 400, 40, 500); // too narrow to walk along
     scene.focused = 1;
     build(&scene);
@@ -306,7 +314,8 @@ static void test_sits_seldom_stepped(void) {
 }
 
 static void test_chases_the_pointer(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     add(&scene, 1, 600, 400, 700, 500);
     scene.focused = 1;
     build(&scene);
@@ -354,7 +363,8 @@ static void test_chases_the_pointer(void) {
 }
 
 static void test_paws_at_an_urgent_window(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     add(&scene, 1, 100, 400, 600, 500);
     add(&scene, 2, 1100, 200, 700, 500);
     scene.focused = 1;
@@ -397,7 +407,8 @@ static void test_paws_at_an_urgent_window(void) {
 }
 
 static void test_follows_the_focused_monitor(void) {
-    struct scene scene = monitors(2);
+    struct scene scene;
+    monitors(&scene, 2);
     add(&scene, 1, 300, 500, 600, 400);
     add(&scene, 2, 2300, 400, 600, 400);
     scene.focused = 1;
@@ -417,7 +428,7 @@ static void test_follows_the_focused_monitor(void) {
     CHECK(cat.on == 2 && cat.y == 400);
 
     // A window across both monitors takes it over by walking.
-    scene = monitors(2);
+    monitors(&scene, 2);
     add(&scene, 3, 1500, 500, 1000, 400);
     scene.focused = 3;
     scene.focused_area = 0;
@@ -432,7 +443,8 @@ static void test_follows_the_focused_monitor(void) {
 }
 
 static void test_arrives(void) {
-    struct scene scene = monitors(2);
+    struct scene scene;
+    monitors(&scene, 2);
     add(&scene, 1, 2200, 400, 600, 400);
     scene.focused = 1;
     scene.focused_area = 1;
@@ -449,7 +461,7 @@ static void test_arrives(void) {
     sh_cat_arrive(&cat, &scene.world, now);
     CHECK(cat.x == 1920 + 960, "%g", cat.x);
     // It drops in front of the windows whose tops lie above the focused one's.
-    scene = monitors(1);
+    monitors(&scene, 1);
     add(&scene, 2, 900, 600, 400, 200);
     add(&scene, 3, 100, 100, 1600, 800);
     scene.focused = 2;
@@ -467,7 +479,8 @@ static void test_arrives(void) {
 }
 
 static void test_stays_on_its_monitor(void) {
-    struct scene scene = monitors(1);
+    struct scene scene;
+    monitors(&scene, 1);
     int64_t now = 0;
     struct sh_cat cat;
     sh_cat_init(&cat, W, H, &scene.areas[0], 1910, 7, now);
