@@ -1329,7 +1329,7 @@ style the dock and the menu bar, over the style's drawn wallpaper while none is 
 menu bar's menus as `system-menu`, `app-menu`, `window-menu` and `window-submenu`. The overlay
 surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `cards`,
 `power-dialog`, `palette`, `palette-empty`, `switcher`, `overview`, `snap-assist`, `display-mode`,
-`display-settings`, `display-settings-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
+`display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 bar alone, with stand-ins for what the compositor would tell it, and the screenshot draws it where
 its layer surface would be (the overview over stand-ins for the compositor's thumbnails).
 `--preview --preview-desktop` draws the desktop instead (the gallery's `desktop`, without the
