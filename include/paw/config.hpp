@@ -514,6 +514,8 @@ sh_screenshot_mode parse_screenshot_mode(const std::string &name);
 sh_display_mode parse_display_mode(const std::string &name);
 // switch_layout's "next" (0), "prev" (-1), or a layout's number from 1; throws for others.
 int parse_layout_choice(const std::string &word);
+// "toggle", "motion", "clicks" or "reset"; throws for other names.
+sh_heatmap_choice parse_heatmap_choice(const std::string &name);
 // `words` with `separator` between them.
 std::string join(std::span<const std::string> words, std::string_view separator = ", ");
 

@@ -1500,9 +1500,13 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 // Without one, the popup that steps through them.
                 if (!lua_isnil(L, -1))
                     binding.mode = parse_display_mode(string(L, -1, "mode"));
+            } else if (binding.action == SH_HEATMAP) {
+                // Without one, it toggles.
+                if (!lua_isnil(L, -1))
+                    binding.mode = parse_heatmap_choice(string(L, -1, "mode"));
             } else if (!lua_isnil(L, -1)) {
                 if (binding.action != SH_SCREENSHOT)
-                    fail("mode is only valid with screenshot, mode and display_mode");
+                    fail("mode is only valid with screenshot, mode, display_mode and heatmap");
                 binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
             }
             lua_pop(L, 1);
@@ -2008,6 +2012,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"media_next", SH_MEDIA_NEXT},
         {"media_previous", SH_MEDIA_PREVIOUS},
         {"media_stop", SH_MEDIA_STOP},
+        {"heatmap", SH_HEATMAP},
 };
 } // namespace
 
@@ -2144,6 +2149,15 @@ sh_screenshot_mode parse_screenshot_mode(const std::string &name) {
         if (name == candidate)
             return mode;
     fail("screenshot mode must be \"region\", \"output\", or \"window\"");
+}
+
+sh_heatmap_choice parse_heatmap_choice(const std::string &name) {
+    for (auto [candidate, choice] :
+         {std::pair{"toggle", SH_HEATMAP_TOGGLE}, {"motion", SH_HEATMAP_MOTION},
+          {"clicks", SH_HEATMAP_CLICKS}, {"reset", SH_HEATMAP_RESET}})
+        if (name == candidate)
+            return choice;
+    fail("heatmap must be \"toggle\", \"motion\", \"clicks\" or \"reset\"");
 }
 
 bool WindowRule::matches(const std::string &app_id, const std::string &title) const {

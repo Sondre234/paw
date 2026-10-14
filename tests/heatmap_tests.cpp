@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* The pointer heatmap's arithmetic (src/heatmap.c): the grid's counts and their resizing, the
- * blur, the scale and its colours, resampling, and the legend's text. */
+ * blur, the scale and its colours, resampling, and the legend's text; and the heatmap action's
+ * choices in bindings. */
 #include "check.h"
+#include "config_check.hpp"
 #include "paw/heatmap.h"
 
 #include <algorithm>
@@ -244,6 +246,23 @@ void legend() {
     }
 }
 
+void bindings() {
+    // The action takes its choice from `mode`; without one it toggles.
+    auto config = paw::parse_config(
+        "return {bindings={{mods={'Super'},key='h',action='heatmap'},"
+        "{mods={'Super'},key='j',action='heatmap',mode='clicks'},"
+        "{mods={'Super'},key='k',action='heatmap',mode='reset'},"
+        "{mods={'Super'},key='l',action='heatmap',mode='motion'}}}");
+    const auto &b = config.bindings;
+    CHECK(b.size() == 4 && b[0].action == SH_HEATMAP && b[0].mode == SH_HEATMAP_TOGGLE &&
+          b[1].mode == SH_HEATMAP_CLICKS && b[2].mode == SH_HEATMAP_RESET &&
+          b[3].mode == SH_HEATMAP_MOTION);
+    CHECK(paw::parse_heatmap_choice("toggle") == SH_HEATMAP_TOGGLE);
+    auto refused = error_of("return {bindings={{key='h',action='heatmap',mode='hot'}}}");
+    CHECK(refused.find("heatmap must be") != std::string::npos, "%s", refused.c_str());
+    error_of("return {bindings={{key='h',action='heatmap',mode=1}}}");
+}
+
 } // namespace
 
 int main() {
@@ -252,5 +271,11 @@ int main() {
     scale();
     resample();
     legend();
+    try {
+        bindings();
+    } catch (const std::exception &error) {
+        fprintf(stderr, "%s\n", error.what());
+        return 1;
+    }
     return failures != 0;
 }

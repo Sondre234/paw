@@ -1739,3 +1739,6 @@ void heatmap_arrange(struct sh_server *server);
 void heatmap_forget_output(struct sh_output *output);
 void heatmap_finish(struct sh_server *server);
 void describe_heatmap(struct sh_server *server, int fd, const char *arguments);
+void heatmap_action(struct sh_server *server, int choice);
+bool heatmap_tick(struct sh_server *server);
+void describe_heatmap_overlay(struct sh_server *server, int fd, const char *arguments);

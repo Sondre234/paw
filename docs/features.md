@@ -2867,6 +2867,42 @@ Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the
 and to find out what is wrong with it. They talk to the running session through its control
 socket, as `paw msg` does; `paw --help` lists them.
 
+### paw heatmap
+
+Where the pointer has been. While the session runs, the compositor counts for each monitor how
+long the pointer rested in each part of it and how often it was clicked there, in a grid of cells
+8 logical pixels square. A pointer at rest counts for at most ten seconds after it last moved or
+clicked, so that time away from the desktop does not outweigh everything else, and nothing
+counts while the session is locked. The counts stay in the compositor's memory: they are never
+written to disk, and they are gone when the session ends or with `heatmap reset`.
+
+The `heatmap` action shows them over every monitor, over the windows and panels and under the
+lock screen: the grid blurred and coloured from cold to hot (clear, blue, cyan, green, yellow,
+red, white) on one scale for every monitor, up to the hottest place, the desktop showing
+through, with a legend in the bottom-right corner that says what it shows and how much the
+hottest cell holds. The scale is logarithmic, so that a path the pointer only passed along
+shows beside a place it rested at for minutes. The overlay takes no input, so the desktop works
+as usual under it; it is drawn again twice a second while it shows, the rest under way included,
+and fades in and out with the [animations](#animations). `heatmap` (or `heatmap toggle`) shows
+where the pointer rested, or the clicks if those showed last, and hides it again; `heatmap
+motion` and `heatmap clicks` show that one, from the other too, or hide it; `heatmap reset`
+forgets everything counted. In a binding, `mode` gives the choice:
+
+```lua
+bindings = {
+    { mods = { "Super", "Shift" }, key = "h", action = "heatmap" },
+    { mods = { "Super", "Shift", "Ctrl" }, key = "h", action = "heatmap", mode = "clicks" },
+},
+```
+
+`paw msg get heatmap [OUTPUT] [motion|clicks]` prints, for each monitor in the layout or the one
+named, a line with its name, `motion` or `clicks`, the grid's columns and rows, the cell's size,
+and the monitor's place and size in the layout, then a line for each row of cells: the
+milliseconds the pointer rested in each, or the clicks there, tab-separated. `paw msg get
+heatmap_overlay` prints a line per monitor while the overlay is there: the monitor, `shown`, or
+`hiding` while it fades out, what it shows, its opacity in thousandths, what the legend says at
+the hot end, and how many times it has been drawn.
+
 ## Screen locking and idle
 
 Screen locking uses the standard `ext-session-lock-v1` protocol, so lockers such

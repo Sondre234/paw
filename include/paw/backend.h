@@ -223,6 +223,9 @@ enum sh_action {
     SH_DISPLAY_SETTINGS,
     /* Minimizes the focused window into its taskbar button, as its own minimize button does. */
     SH_MINIMIZE,
+    /* The pointer heatmap over every output: where the pointer rested or clicked (enum
+     * sh_heatmap_choice), or forgetting it all. */
+    SH_HEATMAP,
 };
 
 /* The display_mode action's choices. */
@@ -238,6 +241,15 @@ enum sh_screenshot_mode {
     SH_SCREENSHOT_REGION, /* with slurp: a region dragged, or the window or output clicked */
     SH_SCREENSHOT_OUTPUT, /* the output under the pointer */
     SH_SCREENSHOT_WINDOW, /* the focused window */
+};
+
+/* The heatmap action's choices. */
+enum sh_heatmap_choice {
+    SH_HEATMAP_TOGGLE, /* shows the overlay of what it showed last (where the pointer rested at
+                          first), or hides it */
+    SH_HEATMAP_MOTION, /* where the pointer rested, or hides it while that shows */
+    SH_HEATMAP_CLICKS, /* where it clicked, or hides it while that shows */
+    SH_HEATMAP_RESET,  /* forgets everything counted */
 };
 
 /* Modifier and edge bits intentionally match wlroots, without importing its headers. */

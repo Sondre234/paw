@@ -847,6 +847,7 @@ static const struct {
     {"shortcuts", get_shortcuts, false},
     {"input_method", get_input_method, false},
     {"heatmap", describe_heatmap, true},
+    {"heatmap_overlay", describe_heatmap_overlay, false},
 };
 
 /* Answers `request` if it is a query; false if it is not one. */

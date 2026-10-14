@@ -142,6 +142,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(dynamic_rule)
     paw_c_unit_test(dropdown)
     paw_unit_test(heatmap LIBRARY paw_heatmap)
+    target_link_libraries(heatmap_tests PRIVATE paw_config) # the action's bindings
 endif()
 option(PAW_BUILD_COMPOSITOR "Build the wlroots compositor" ON)
 if(PAW_BUILD_COMPOSITOR)
@@ -859,6 +860,6 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(window_icon_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
         paw_smoke(heatmap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
-            $<TARGET_FILE:lock_probe>)
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
     endif()
 endif()

@@ -617,7 +617,8 @@ const Option options[] = {
      "With `screenshot`: `\"region\"`, `\"output\"`, or `\"window\"`. With `mode` (required): "
      "`\"default\"` or the name of one of `modes`. With `display_mode`: `\"extend\"`, "
      "`\"duplicate\"`, `\"internal\"` or `\"external\"`; without one, the popup that steps "
-     "through them."},
+     "through them. With `heatmap`: `\"toggle\"`, `\"motion\"`, `\"clicks\"` or "
+     "`\"reset\"`; without one, toggle."},
     {"bindings[].amount", "integer", "40; 5 for volume and brightness", "", 1, 4000,
      "With `resize_*`: pixels moved per press. With `volume_up`, `volume_down`, `brightness_up` "
      "and `brightness_down`: percent per press, up to 100."},
