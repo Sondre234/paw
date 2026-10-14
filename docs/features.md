@@ -2884,7 +2884,8 @@ and curve, half as long again to open, and at once with `animations.enabled = fa
 Moving the pointer turns the stack: it leans away from the pointer, so that the edges of the
 sheets low in it come out where the pointer is. The wheel, or + and -, spreads the sheets apart and
 together, and 0 sets the stack straight again. The sheet under the pointer is lifted out of the
-stack and those over it fade. The arrow keys and Tab go up and down the stack, Return or a click
+stack and those over it fade, and the shell names it under the stack ("Windows · firefox — Mozilla
+Firefox"), beside a legend of every sheet, top first, in its layer's colour. The arrow keys and Tab go up and down the stack, Return or a click
 on a window goes to that window, and Escape, a click beside the stack or the action again closes
 the view. While open it takes the keyboard and the pointer, as the overview does, and changes
 nothing else; closed, nothing of it is left. It does not open while the session is locked, and

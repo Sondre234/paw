@@ -784,3 +784,34 @@ void DisplaySettingsView::update() {
     if ((present() || again) && rootObject())
         QMetaObject::invokeMethod(rootObject(), "reset");
 }
+XrayView::XrayView(ShellController &controller, QScreen *screen)
+    : OverlayView(controller, screen, "xray", false) {
+    setTitle("paw xray");
+    resize(screen->geometry().size());
+    setInitialProperties({{"screenSize", screen->geometry().size()}});
+#if PAW_LAYER_SHELL
+    using W = LayerShellQt::Window;
+    // The compositor leaves the surface of this namespace off its sheets.
+    layer_->setScope("paw-xray");
+    layer_->setAnchors(W::Anchors(W::AnchorTop | W::AnchorBottom | W::AnchorLeft | W::AnchorRight));
+    layer_->setExclusiveZone(-1);
+#endif
+    load("Xray.qml");
+    connect(screen, &QScreen::geometryChanged, this, [this] {
+        resize(outputScreen_->geometry().size());
+        if (rootObject())
+            rootObject()->setProperty("screenSize", outputScreen_->geometry().size());
+    });
+    connect(&controller, &ShellController::xrayChanged, this, &XrayView::update);
+}
+void XrayView::update() {
+    if (controller_.xrayOutput() == outputScreen_->name()) {
+        // It takes no input: the compositor keeps the pointer and the keyboard while the view is
+        // open. present() gives input back to a view it keeps as it goes.
+        setFlag(Qt::WindowTransparentForInput, true);
+        present();
+        setFlag(Qt::WindowTransparentForInput, true);
+    } else {
+        dismiss();
+    }
+}

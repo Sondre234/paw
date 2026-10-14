@@ -273,6 +273,7 @@ int main(int argc, char **argv) {
                 add(std::make_unique<OsdView>(controller, screen));
                 add(std::make_unique<DisplayModeView>(controller, screen));
                 add(std::make_unique<ConfigErrorView>(controller, screen));
+                add(std::make_unique<XrayView>(controller, screen));
             }
         };
         for (auto *screen : QGuiApplication::screens()) {
