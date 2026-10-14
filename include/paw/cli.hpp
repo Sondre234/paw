@@ -31,5 +31,7 @@ int fetch(int argc, char **argv);
 // The configuration paw starts with when given none: $XDG_CONFIG_HOME/paw/init.lua (or
 // ~/.config's) where it exists, else the shipped one.
 std::filesystem::path configuration_path();
+// `paw showcase`: a screenshot with paw fetch open in a terminal (src/cli/showcase.cpp).
+int showcase(int argc, char **argv);
 
 } // namespace paw::cli
