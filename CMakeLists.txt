@@ -55,6 +55,7 @@ target_include_directories(paw_cli PUBLIC include)
 target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
 # paw wrapped's day files, which the compositor writes and `paw wrapped` reads.
 target_sources(paw_cli PRIVATE src/wrapped_day.c)
+target_sources(paw_cli PRIVATE src/cli/wrapped.cpp)
 
 include(CTest)
 if(BUILD_TESTING)
