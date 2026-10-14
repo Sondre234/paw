@@ -53,6 +53,10 @@ target_compile_options(paw_effects PRIVATE -Wall -Wextra -Wpedantic)
 add_library(paw_cli STATIC src/cli/control_client.cpp)
 target_include_directories(paw_cli PUBLIC include)
 target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
+# paw doctor: its checks, which read the configuration as --check-config does, and how it reads
+# what other programs say.
+target_sources(paw_cli PRIVATE src/cli/doctor.cpp src/cli/doctor_parse.cpp)
+target_link_libraries(paw_cli PRIVATE paw_config)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -128,6 +132,7 @@ if(BUILD_TESTING)
     paw_unit_test(autostart)
     paw_unit_test(display_power_config)
     paw_unit_test(output_config)
+    paw_unit_test(doctor LIBRARY paw_cli)
     paw_c_unit_test(power_supply)
     paw_c_unit_test(lid)
     paw_c_unit_test(output_state)
@@ -316,6 +321,9 @@ if(PAW_BUILD_COMPOSITOR)
         string(REPLACE "LIB" "" PAW_SDBUS ${PAW_SDBUS})
         target_compile_definitions(paw PRIVATE PAW_SDBUS_${PAW_SDBUS}=1)
         target_link_libraries(paw PRIVATE PkgConfig::SDBUS)
+        # paw doctor asks the session and system buses through it too.
+        target_compile_definitions(paw_cli PRIVATE PAW_SDBUS_${PAW_SDBUS}=1)
+        target_link_libraries(paw_cli PRIVATE PkgConfig::SDBUS)
     else()
         message(STATUS "No sd-bus (libsystemd, libelogind, basu); other desktops may suspend "
             "the machine while paw is on screen")
@@ -816,6 +824,7 @@ if(PAW_BUILD_COMPOSITOR)
             paw_smoke(idle_suspend_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>
                 $<TARGET_FILE:lock_probe>)
             paw_smoke(lid_logind_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
+            paw_smoke(doctor_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
         endif()
         # The compositor benchmark (tools/bench/bench.py); see docs/performance.md.
         paw_probe(paw-bench-client tools/bench/bench_client.c

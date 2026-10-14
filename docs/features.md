@@ -2874,6 +2874,42 @@ Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the
 and to find out what is wrong with it. They talk to the running session through its control
 socket, as `paw msg` does; `paw --help` lists them.
 
+### paw doctor
+
+`paw doctor` looks the running session over for what has gone wrong in paw desktops before, and
+prints a line per check under a heading for each part: ✓ where all is well, ! for something to
+look at and ✗ for something broken, the last two followed by the command or step that fixes it.
+It fixes nothing itself, and only looks: a `get` query to the compositor, files and `/proc`,
+`wpctl status`, `paw --version`, and D-Bus calls that change nothing and start no service. Run it
+in a terminal of the session; it checks:
+
+- **Session**: that the compositor answers on `PAW_SOCKET`, and which version it is; that the
+  desktop shell runs (when it has gone, the screen shows only the background colour, and the fix
+  is `kill -HUP` with the compositor's PID, a reload, which starts it again); that the
+  compositor runs the paw installed, not an older build replaced since; when an update script
+  keeps a log in `$XDG_STATE_HOME/paw/update.log` (lines `update-paw: DATE TIME building COMMIT`
+  and `update-paw: DATE TIME installed COMMIT`), that its last update was installed; that the
+  configuration is valid, as `paw --check-config` says, and has the appearance profile last
+  picked.
+- **D-Bus**: that the session bus answers; that paw's shell shows the notifications, not another
+  notification daemon such as mako, dunst or swaync; in a session started with `--session`, that
+  no other polkit agent runs beside the shell's; and that logind answers, for suspending.
+- **Sound**: that PipeWire and WirePlumber run, WirePlumber on a session bus that still answers,
+  and that there is a sound output, not only PipeWire's Dummy Output; the fix restarts them with
+  `gentoo-pipewire-launcher restart` where that is installed, else with systemd's user units.
+- **Screen sharing**: that `XDG_CURRENT_DESKTOP` has `paw`; that xdg-desktop-portal finds paw's
+  `paw-portals.conf`, looked for as it does (portals.conf(5)) with the environment it runs in, the
+  fix linking the one paw installed into `$XDG_CONFIG_HOME/xdg-desktop-portal`; that the backend
+  it names for screen sharing is installed; and that a running xdg-desktop-portal started with
+  `paw` in its `XDG_CURRENT_DESKTOP` and offers screen sharing.
+- **X11**: that Xwayland is installed, unless `xwayland = false`.
+
+In a [nested session](#nested-sessions) notifications, password prompts and screen sharing are the
+host desktop's, and it says so instead of checking them. On a terminal the report is in colour, unless `NO_COLOR` is set or `--no-color` given. `--plain`
+prints a line per check for scripts instead: `ok`, `warning` or `error`, the check's name
+(`shell`, `portal-config`, ...), the finding and the fix, separated by tabs. `paw doctor` exits
+with 1 when something is broken, else 0.
+
 ## Screen locking and idle
 
 Screen locking uses the standard `ext-session-lock-v1` protocol, so lockers such
