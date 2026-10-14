@@ -1027,6 +1027,12 @@ Item {
         case "wallpapers":
             toggleAudioPopup("wallpapers", wallpapersButton)
             return wallpapersButton.visible
+        case "tiling-menu":
+            // The tiling button's menu; the tiling bar has none.
+            var tilingButton = statusArea.tiling || null
+            if (tilingButton)
+                toggleAudioPopup("tiling", tilingButton)
+            return tilingButton !== null && tilingButton.visible
         case "quick-settings":
         case "quick-settings-mixer":
         case "quick-settings-power":
