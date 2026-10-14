@@ -2879,7 +2879,8 @@ socket, as `paw msg` does; `paw --help` lists them.
 
 `paw top` shows what the compositor is doing, as htop shows a machine's processes: it looks at
 the running session four times a second and redraws the terminal until `q`, Escape or Ctrl+C. `p`
-pauses it, and `s` changes the order of the windows.
+pauses it, and `s` changes the order of the windows. A compositor that has not answered in two
+seconds is reported under the first line, and the keys still work.
 
 - The first line names the version, how long the compositor has run, how much of a processor it
   used over the last second, how many monitors it drives and the appearance profile saved last.
