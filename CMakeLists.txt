@@ -56,7 +56,7 @@ add_library(paw_cli STATIC src/cli/control_client.cpp)
 target_include_directories(paw_cli PUBLIC include)
 target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
 # paw rice: packing a look into a file and trying one on; it reads the configuration.
-target_sources(paw_cli PRIVATE src/cli/rice_archive.cpp)
+target_sources(paw_cli PRIVATE src/cli/rice.cpp src/cli/rice_archive.cpp)
 target_link_libraries(paw_cli PUBLIC paw_config)
 
 include(CTest)
