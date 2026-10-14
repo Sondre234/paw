@@ -91,5 +91,8 @@ Heatmap heatmap_from(const std::vector<std::vector<std::string>> &rows);
 std::string heatmap_text(const Heatmap &heatmap, int columns, int lines, bool colour);
 // The heatmap as an image file, a pixel a logical pixel: "png", "pam" or "ppm".
 std::string heatmap_image(const Heatmap &heatmap, const std::string &format);
+// `paw tour [--list] [--step] [--from N] [--speed FACTOR] [--no-restore] [--client COMMAND]`: a
+// narrated demo of paw that drives the running session, then puts it back as it was.
+int tour(int argc, char **argv);
 
 } // namespace paw::cli

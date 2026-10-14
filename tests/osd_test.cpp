@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The on-screen display: its own timing, and what feeds it (the sound server's volume and a
-// backlight); and the compositor's notices, which it says while no notification card shows.
+// backlight); the compositor's notices, which it says while no notification card shows; and the
+// caption `paw tour` narrates itself with, in its place.
 #include "backlight.hpp"
+#include "caption.hpp"
 #include "controller.hpp"
 #include "osd.hpp"
 #include <QDir>
@@ -239,6 +241,36 @@ class OsdTest : public QObject {
         none.setPercent(50);
         QCOMPARE(none.percent(), -1);
         QCOMPARE(noneLevel.count(), 0);
+    }
+    // The compositor's caption line: its output ("-" for the focused one), its time, a title, a
+    // sentence and keys; a new one takes its place and its time starts anew.
+    void captionLine() {
+        Caption caption;
+        QSignalSpy changed(&caption, &Caption::changed);
+        QVERIFY(caption.showLine("DP-1 300 Tiling\tWindows split the screen.\tSuper + S", "X"));
+        QVERIFY(caption.active());
+        QCOMPARE(caption.output(), QString("DP-1"));
+        QCOMPARE(caption.title(), QString("Tiling"));
+        QCOMPARE(caption.body(), QString("Windows split the screen."));
+        QCOMPARE(caption.keys(), QString("Super + S"));
+        QTest::qWait(200);
+        QVERIFY(caption.showLine("- 300 Welcome", "HDMI-A-1"));
+        QCOMPARE(caption.output(), QString("HDMI-A-1"));
+        QCOMPARE(caption.title(), QString("Welcome"));
+        QCOMPARE(caption.body(), QString());
+        QCOMPARE(caption.keys(), QString());
+        QTest::qWait(200);
+        QVERIFY(caption.active()); // 400 ms after the first, 200 after the second
+        QTRY_VERIFY_WITH_TIMEOUT(!caption.active(), 2000);
+        QCOMPARE(changed.count(), 3);
+        // What is not a caption shows nothing.
+        for (const char *line : {"", "DP-1", "DP-1 0 Title", "DP-1 x Title", "DP-1 300 ",
+                                 "DP-1 300 \tBody"})
+            QVERIFY2(!caption.showLine(line, "X"), line);
+        QVERIFY(!caption.active());
+        caption.show("A", "Title", "Body", "Keys", 60000);
+        caption.hide();
+        QVERIFY(!caption.active());
     }
     void noticeIsANotification() {
         ShellController controller(config("").toStdString());

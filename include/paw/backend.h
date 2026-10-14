@@ -690,6 +690,17 @@ struct sh_callbacks {
      * "revert" puts the previous profile back and the rice away. False, with why, when it
      * cannot. */
     bool (*rice)(void *, const char *request, char *error, size_t error_size);
+    /* Every action the configuration knows, for `get actions`: a line each with its name and the
+     * keys of its first key binding outside any mode, as binding_keys gives them, or "-",
+     * separated by a tab. Valid until the next call. */
+    const char *(*actions)(void *);
+    /* The configuration's appearance profiles, for `get profiles`: a line each, in name order,
+     * with its name and 1 for the one in use, else 0, separated by a tab. Valid until the next
+     * call. */
+    const char *(*profiles)(void *);
+    /* What the terminal action starts, for `get terminal`: its words on one line, separated by
+     * tabs; "" when there is no terminal to start. Valid until the next call. */
+    const char *(*terminal)(void *);
 };
 
 enum sh_backend_mode { SH_BACKEND_NESTED, SH_BACKEND_HEADLESS, SH_BACKEND_SESSION };

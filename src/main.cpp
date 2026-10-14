@@ -2,6 +2,7 @@
 #include "paw/autostart.hpp"
 #include "paw/cli.hpp"
 #include "paw/config.hpp"
+#include "paw/config_schema.hpp"
 #include "paw/import.hpp"
 #include "version.h"
 #include <wlr/version.h>
@@ -343,6 +344,9 @@ struct Runtime {
     std::string target{}; // the output target of the action last resolved
     unsigned flags = 0;   // the sh_binding_flag bits of the binding last resolved
     std::string keys{};   // what binding_keys returned last
+    std::string action_list{}; // what `get actions` prints
+    std::string profile_list{}; // what `get profiles` prints
+    std::string terminal_line{}; // what `get terminal` prints
     int mode = 0;         // the binding mode `key` looks in: 0 outside any, else modes[mode - 1]
     paw::Command program{}; // the program of the spawn action last resolved
     bool watch = false; // whether saving a configuration file reloads (off in headless tests)
@@ -478,6 +482,31 @@ struct Runtime {
         auto &self = *static_cast<Runtime *>(data);
         self.keys = self.config.binding_keys(action);
         return self.keys.c_str();
+    }
+    /* Every action and the keys bound to it, for `get actions`. */
+    static const char *actions(void *data) {
+        auto &self = *static_cast<Runtime *>(data);
+        self.action_list.clear();
+        for (const auto &name : paw::config_action_names()) {
+            auto keys = self.config.binding_keys(paw::parse_action(name));
+            self.action_list += name + '\t' + (keys.empty() ? "-" : keys) + '\n';
+        }
+        return self.action_list.c_str();
+    }
+    /* The profiles and the one in use, for `get profiles`. */
+    static const char *profiles(void *data) {
+        auto &self = *static_cast<Runtime *>(data);
+        self.profile_list.clear();
+        for (const auto &name : self.config.profiles)
+            self.profile_list += name + '\t' + (name == self.config.profile ? "1" : "0") + '\n';
+        return self.profile_list.c_str();
+    }
+    /* The command line of the terminal, for `get terminal`. */
+    static const char *terminal_command(void *data) {
+        auto &self = *static_cast<Runtime *>(data);
+        auto words = self.terminal();
+        self.terminal_line = words.empty() ? "" : paw::join(words, "\t") + '\n';
+        return self.terminal_line.c_str();
     }
     /* Control requests: "<action> [workspace]", "screenshot [region|output|window]",
      * "resize_<direction> [pixels]", "volume_up|volume_down|brightness_up|brightness_down
@@ -1080,7 +1109,9 @@ void usage() {
            "paw xray [--list] takes the focused monitor apart into its layers, or prints them.\n"
            "paw heatmap [toggle|motion|clicks|reset] shows where the pointer rested or clicked\n"
            "over the desktop, or hides it; --term draws it in the terminal and --export FILE\n"
-           "writes it to a .png, .pam or .ppm image, with --clicks and --output NAME.\n";
+           "writes it to a .png, .pam or .ppm image, with --clicks and --output NAME.\n"
+           "paw tour [--list] [--step] [--from N] [--speed FACTOR] [--no-restore] [--client CMD]\n"
+           "shows paw off in the running session, then puts everything back as it was.\n";
 }
 /* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
  * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */
@@ -1103,6 +1134,7 @@ const Subcommand subcommands[] = {
     {"wrapped", paw::cli::wrapped},
     {"xray", paw::cli::xray},
     {"heatmap", paw::cli::heatmap},
+    {"tour", paw::cli::tour},
 };
 } // namespace
 int main(int argc, char **argv) {
@@ -1189,7 +1221,8 @@ int main(int argc, char **argv) {
             Runtime::hot_corner, Runtime::action_target, Runtime::config_watch,
             Runtime::config_changed, Runtime::lock, Runtime::launch, Runtime::autostart,
             Runtime::started, Runtime::binding_flags, Runtime::set_mode, Runtime::switch_toggled,
-            Runtime::binding_keys, Runtime::dynamic_rule, Runtime::rice};
+            Runtime::binding_keys, Runtime::dynamic_rule, Runtime::rice, Runtime::actions,
+            Runtime::profiles, Runtime::terminal_command};
         int result = sh_run(&callbacks, mode);
         if (runtime.shell_pid > 0)
             kill(runtime.shell_pid, SIGTERM);

@@ -801,6 +801,30 @@ static void get_autostart(struct sh_server *server, int fd, const char *argument
         control_reply(fd, callbacks->autostart(callbacks->userdata));
 }
 
+static void get_actions(struct sh_server *server, int fd, const char *arguments) {
+    // Every action the configuration knows, and the keys bound to it (sh_callbacks.actions).
+    const struct sh_callbacks *callbacks = server->callbacks;
+    control_reply(fd, "ok\n");
+    if (callbacks->actions)
+        control_reply(fd, callbacks->actions(callbacks->userdata));
+}
+
+static void get_profiles(struct sh_server *server, int fd, const char *arguments) {
+    // The appearance profiles and the one in use (sh_callbacks.profiles).
+    const struct sh_callbacks *callbacks = server->callbacks;
+    control_reply(fd, "ok\n");
+    if (callbacks->profiles)
+        control_reply(fd, callbacks->profiles(callbacks->userdata));
+}
+
+static void get_terminal(struct sh_server *server, int fd, const char *arguments) {
+    // The command line the terminal action starts (sh_callbacks.terminal).
+    const struct sh_callbacks *callbacks = server->callbacks;
+    control_reply(fd, "ok\n");
+    if (callbacks->terminal)
+        control_reply(fd, callbacks->terminal(callbacks->userdata));
+}
+
 static void get_gesture(struct sh_server *server, int fd, const char *arguments) {
     // The touchpad swipe under way, and the workspaces following it (see describe_gesture).
     control_reply(fd, "ok\n");
@@ -1001,6 +1025,9 @@ static const struct {
     {"xray", describe_xray, false},
     {"heatmap", describe_heatmap, true},
     {"heatmap_overlay", describe_heatmap_overlay, false},
+    {"actions", get_actions, false},
+    {"profiles", get_profiles, false},
+    {"terminal", get_terminal, false},
 };
 
 /* Answers `request` if it is a query; false if it is not one. */

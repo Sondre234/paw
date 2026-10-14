@@ -81,6 +81,8 @@ target_link_libraries(paw_heatmap PRIVATE m)
 target_compile_options(paw_heatmap PRIVATE -Wall -Wextra -Wpedantic)
 target_sources(paw_cli PRIVATE src/cli/heatmap.cpp)
 target_link_libraries(paw_cli PUBLIC paw_heatmap)
+# `paw tour`: its runner, what of it needs no session, and its table of steps.
+target_sources(paw_cli PRIVATE src/cli/tour.cpp src/cli/tour_plan.cpp src/cli/tour_steps.cpp)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -122,6 +124,7 @@ if(BUILD_TESTING)
     paw_unit_test(toy_command LIBRARY paw_cli)
     paw_unit_test(wrapped LIBRARY paw_cli)
     paw_unit_test(xray LIBRARY paw_cli)
+    paw_unit_test(tour LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
@@ -928,5 +931,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(heatmap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        # `paw tour` driving a session, its windows the probe's; and the queries it reads.
+        paw_smoke(tour_smoke TIMEOUT 180 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe>)
     endif()
 endif()
