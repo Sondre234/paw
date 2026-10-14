@@ -2884,8 +2884,8 @@ heatmap = { enabled = false },
 The `heatmap` action shows them over every monitor, over the windows and panels and under the
 lock screen: the grid blurred and coloured from cold to hot (clear, blue, cyan, green, yellow,
 red, white) on one scale for every monitor, up to the hottest place, the desktop showing
-through, with a legend in the bottom-right corner that says what it shows and how much the
-hottest cell holds. The scale is logarithmic, so that a path the pointer only passed along
+through, with a legend that says what it shows and how much the hottest cell holds, in the
+bottom-right corner unless another corner hides much less of the heat. The scale is logarithmic, so that a path the pointer only passed along
 shows beside a place it rested at for minutes. The overlay takes no input, so the desktop works
 as usual under it; it is drawn again twice a second while it shows, the rest under way included,
 and fades in and out with the [animations](#animations). `heatmap` (or `heatmap toggle`) shows

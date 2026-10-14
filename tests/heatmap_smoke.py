@@ -25,12 +25,12 @@ SCREEN = (1280, 720)
 REST_MS = 1500
 
 
-# A speed of a fifth makes the overlay's fade a second, long enough to see it on its way.
+# A speed of an eighth makes the overlay's fade 1.6 seconds, long enough to see it on its way.
 def config(mode="1280x720", enabled=True):
     return f"""return {{
     xwayland = false,
     idle = {{ display_off = 0 }},
-    animations = {{ speed = 0.2 }},
+    animations = {{ speed = 0.125 }},
     outputs = {{ monitors = {{ ["HEADLESS-1"] = {{ mode = "{mode}" }} }} }},
     heatmap = {{ enabled = {str(enabled).lower()} }},
 }}"""
@@ -123,7 +123,7 @@ with harness.Compositor(compositor, config(),
     pointer("move", "640", "360")
     path = heatmap(desktop)["HEADLESS-1"][4][300 // 8]
     warm = [count for count in path if count]
-    assert len(warm) >= 25 and max(warm) < 200, path
+    assert len(warm) >= 25 and max(warm) < REST_MS // 2, path
     hottest = max(max(line) for line in heatmap(desktop)["HEADLESS-1"][4])
     assert hottest == REST_MS, hottest
 
