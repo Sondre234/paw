@@ -250,12 +250,51 @@ void arrange_windows(struct sh_server *server, enum sh_action action) {
     }
 }
 
+/* A tile of the scrolling layout keeps to its monitor: its columns lie on a strip wider than the
+ * monitor, and those past its edges would show on the monitors beside it. While its frame crosses
+ * an edge nothing of it is drawn past it (scratchpad.c cuts its clips there, following it as it
+ * glides); at rest wholly past one its content hides, so that the other monitor neither shows it
+ * nor counts it as shown there (its scale, its frames), and the pointer passes it by there
+ * (cursor.c). Any other window is bound by nothing. */
+void bound_tile(struct sh_toplevel *toplevel) {
+    struct sh_server *server = toplevel->server;
+    struct wlr_output *output = toplevel->tiled ? tiled_output(toplevel) : NULL;
+    struct wlr_box bound = {0};
+    if (output && toplevel_layout(toplevel) == SH_LAYOUT_SCROLL)
+        wlr_output_layout_get_box(server->output_layout, output, &bound);
+    toplevel->bounded = !wlr_box_empty(&bound);
+    toplevel->bound = bound;
+    if (!toplevel->content)
+        return;
+    window_cut(toplevel);
+    bool past = false;
+    if (toplevel->bounded && !toplevel->anim.animator) {
+        int b = server_settings(server)->border_width;
+        struct wlr_box g = toplevel_box(toplevel), both;
+        struct wlr_box frame = {g.x - b, g.y - b, g.width + 2 * b, g.height + 2 * b};
+        past = !wlr_box_intersection(&both, &frame, &bound);
+    }
+    wlr_scene_node_set_enabled(&toplevel->content->node, !past);
+}
+
+/* Each frame of a bounded tile's glide: the cut follows it, and once it stops it hides if it
+ * came to rest past its monitor's edge. */
+static void bound_track(void *data, bool done) {
+    struct sh_toplevel *toplevel = data;
+    if (done)
+        bound_tile(toplevel);
+    else
+        window_cut(toplevel);
+}
+
 static void place_tiled(void *data, void *window, struct sh_rect rect) {
     struct sh_toplevel *toplevel = window;
     if (tile_drop_place(toplevel, rect))
         return; // moved with the pointer, it only holds its place
-    if (toplevel->fullscreen)
+    if (toplevel->fullscreen) {
+        bound_tile(toplevel);
         return; // It returns to its tile when it leaves fullscreen.
+    }
     toplevel_set_states(toplevel, false, ALL_EDGES);
     rect = inside_border(toplevel->server, rect);
     struct wlr_scene_node *node = &toplevel->scene_tree->node;
@@ -270,6 +309,11 @@ static void place_tiled(void *data, void *window, struct sh_rect rect) {
     else if (toplevel->shown && toplevel_visible(toplevel))
         sh_anim_glide(toplevel->server->animator, &toplevel->anim, toplevel->content, x - node->x,
                       y - node->y);
+    bound_tile(toplevel);
+    if (toplevel->bounded && toplevel->anim.animator && !toplevel->anim.track) {
+        toplevel->anim.track = bound_track;
+        toplevel->anim.track_data = toplevel;
+    }
 }
 
 /* Snapped, maximized, or grid-arranged windows that follow changes to the usable area. */

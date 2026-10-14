@@ -959,6 +959,11 @@ struct sh_toplevel {
     struct sh_drop drop;                      // the scratchpad's slide in and out
     struct sh_clip_wish clips[SH_CLIP_TREES]; // content's, the shadow's and the gradient's
     struct sh_clip_wish content_clip; // content's as last drawn, cut or not, for get scratchpad
+    /* A tile of the scrolling layout keeps to its monitor, whose box is `bound` (placement.c's
+     * bound_tile): what crosses its edges is cut there (scratchpad.c), and wholly past them its
+     * content hides and the pointer passes it by (cursor.c). */
+    bool bounded;
+    struct wlr_box bound;
     struct sh_tween fade; // opacity and border color following focus
     struct sh_tween frame_fade; // how much of its frame shows (frame.c's frame_shown)
     bool own_shadow, own_shadow_read; // whether it draws its own shadow, as the frame takes it
@@ -1476,6 +1481,7 @@ struct sh_rect floating_area(struct sh_server *server, struct wlr_output *output
 void unarrange_in_place(struct sh_toplevel *toplevel);
 void move_window(struct sh_server *server, enum sh_action action);
 void resize_window(struct sh_server *server, enum sh_action action, int amount);
+void bound_tile(struct sh_toplevel *toplevel);
 
 /* power.c */
 void power_init(struct sh_server *server);
@@ -1519,6 +1525,7 @@ void empty_scratchpad(struct sh_server *server);
 void window_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which, const struct wlr_box *box,
                  int radius);
 void drop_refresh(struct sh_toplevel *toplevel);
+void window_cut(struct sh_toplevel *toplevel);
 
 /* session.c */
 bool make_directories(char *path);

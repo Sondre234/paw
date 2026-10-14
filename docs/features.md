@@ -1637,6 +1637,13 @@ With `mouse.focus_follows` on, columns that scroll under a still pointer can tak
 its next move; keyboard-driven scrolling takes the pointer along, but if the mouse causes
 trouble, use `follow = "edge"`, which moves the view least.
 
+Columns past the screen's edges stay on their own monitor: nothing of them shows on the monitor
+beside it, a column sliding past an edge is cut there (square while it crosses, its rounded
+border left out, where the GLES2 renderer draws clips), one at rest wholly past it is not drawn,
+and the pointer passes it by to reach the other monitor's windows there. With `width = 0.5`
+and `follow = "edge"` the view shows two whole columns and scrolls by one as focus moves past
+them.
+
 The scroll layout is per workspace like the others; windows opened under another layout get
 a column each, at the end, when it is switched to. The columns are remembered when you
 switch away and back. Only the scroll actions need key bindings, none are bound by default
@@ -2817,7 +2824,11 @@ of it: its title, whether it is hidden and whether it is drawn, the drop under w
 or `-`), the edge it goes by (`top`, `bottom`, `left` or `right`), the offset from its place it
 is drawn at (x and y), how opaque it is drawn (thousandths), the line it is cut along (`-` while
 nothing is cut), the clip its content is drawn with, cut or not (`X,Y,WIDTH,HEIGHT`), and its
-radius, and the box its border's rounded rect covers (each `-` for none). `paw msg get
+radius, and the box its border's rounded rect covers (each `-` for none). `paw msg get bounds`
+prints one line per window: its title, the box of the monitor it keeps to as a tile of the
+[scrolling layout](#scrolling-layout) (`X,Y,WIDTH,HEIGHT`, or `-`), whether its content is drawn
+(`0` while it rests past that monitor's edges), and the clip its content is drawn with
+(`X,Y,WIDTH,HEIGHT`) and its radius (each `-` for none). `paw msg get
 workspace_views` prints one line per list of a workspace's windows a client watches, as the
 card of a workspace does: the output, the workspace and how many windows it last listed. `paw
 msg get seat` prints what has the keyboard, what the pointer is on and, while something is
