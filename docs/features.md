@@ -2887,8 +2887,8 @@ It stays on the focused monitor: it crosses to another only along a window that 
 both, and otherwise drops in from the top of the monitor the focus moves to. It takes no input, so
 it never comes between a click and a window, and it is drawn over the windows but under fullscreen
 windows, the panels, the launcher and other overlays, and the lock screen. It hides while the
-session is locked, while its monitor or the focused one shows a fullscreen window, and while its
-monitor is off, and then nothing of it runs. It draws frames only while it moves: sitting, it
+session is locked, while its monitor or the focused one shows a fullscreen window, while the
+overview shows and while its monitor is off, and then nothing of it runs. It draws frames only while it moves: sitting, it
 wakes a few times a minute to blink or to think of something to do, and asleep once every two
 seconds for its "z".
 
@@ -2909,7 +2909,8 @@ cat = { enabled = true, coat = "auto", scale = 2, sleep_after = 90 },
 ```
 
 `paw msg get cat` prints a line: `on` or `off`; `shown`, or why it is not drawn (`off`, `locked`,
-`fullscreen`, `display_off`, `no_output`); the monitor it is on, where its feet are (x and y in
+`away` while another VT is on the screen, `no_output`, `overview` while the overview shows,
+`display_off`, `fullscreen`); the monitor it is on, where its feet are (x and y in
 layout coordinates), what it is doing (`sit`, `look`, `walk`, `groom`, `scratch`, `yawn`, `sleep`,
 `wake`, `jump`, `fall`, `land`, `chase`, `pounce`, `rush`, `knock`), the picture it shows, its
 coat, and what it stands on: the window's title, `floor`, or `-` while it is in the air.

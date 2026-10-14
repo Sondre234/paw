@@ -3,7 +3,8 @@
 top, taking no input there; it falls onto the window below as that window is minimized, and on to
 the floor above the taskbar as that one is; nobody using the computer (PAW_TEST_CAT_SLEEP_MS), it
 sleeps, drawing a frame only now and then, and input wakes it; a pointer flicked past it sets it
-running; it hides behind a fullscreen window and under the lock; and it goes as it is called in, by
+running; it hides behind a fullscreen window, under the overview and under the lock; and it goes
+as it is called in, by
 `paw cat`, a binding or cat.enabled changing in a reload. With grim, the screen shows it."""
 from pathlib import Path
 import subprocess
@@ -110,11 +111,15 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
     wait_for(lambda: cat()["state"] in ("chase", "pounce", "fall"), "the cat chases the pointer")
     wait_for(lambda: cat()["on"] != "-", "the cat comes down again")
 
-    # A fullscreen window hides it, and so does the lock.
+    # A fullscreen window hides it, and so do the overview and the lock.
     msg("fullscreen")
     wait_for(lambda: cat()["drawn"] == "fullscreen", "hidden behind a fullscreen window")
     msg("fullscreen")
     wait_for(lambda: cat()["drawn"] == "shown", "shown again")
+    msg("toggle_overview")
+    wait_for(lambda: cat()["drawn"] == "overview", "hidden under the overview")
+    msg("overview_cancel")
+    wait_for(lambda: cat()["drawn"] == "shown", "shown as the overview closes")
     locker = desktop.spawn([lock_probe, "hold", str(desktop.root / "locker.log")])
     wait_for(lambda: cat()["drawn"] == "locked", "hidden under the lock")
     locker.terminate()

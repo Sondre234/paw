@@ -182,8 +182,14 @@ static const char *hidden_why(struct sh_cat_view *view) {
         return "off";
     if (server->locked)
         return "locked";
+#if WLR_HAS_SESSION
+    if (server->session && !server->session->active)
+        return "away"; // another VT is on the screen
+#endif
     if (wl_list_empty(&server->outputs))
         return "no_output";
+    if (server->overview.visible) // its thumbnails have the windows the cat sits on
+        return "overview";
     if (!view->placed)
         return NULL;
     struct sh_output *output = cat_output(view);
@@ -483,8 +489,8 @@ void cat_finish(struct sh_server *server) {
 }
 
 void describe_cat(struct sh_server *server, int fd, const char *arguments) {
-    // Whether it is turned on; "shown", or why it is not drawn (off, locked, fullscreen,
-    // display_off, no_output); the output it is on, where its feet are, what it does, the frame
+    // Whether it is turned on; "shown", or why it is not drawn (off, locked, away, no_output,
+    // overview, display_off, fullscreen); the output it is on, where its feet are, what it does, the frame
     // it shows, its coat, and what it stands on: the window's title, "floor", or "-" in the air.
     struct sh_cat_view *view = server->cat;
     if (!view) {
