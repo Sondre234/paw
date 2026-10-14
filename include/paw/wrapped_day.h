@@ -90,7 +90,7 @@ void sh_wrapped_day_sort(struct sh_wrapped_day *day);
 bool sh_wrapped_day_read_line(struct sh_wrapped_day *day, const char *line);
 /* Adds every line of `file`. */
 void sh_wrapped_day_read(struct sh_wrapped_day *day, FILE *file);
-/* Writes the day as its file holds it: a comment, every counter, the streak if any, and the
+/* Writes the day's lines as its file holds them: every counter, the streak if any, and the
  * applications in the order they are in. */
 bool sh_wrapped_day_write(const struct sh_wrapped_day *day, FILE *file);
 

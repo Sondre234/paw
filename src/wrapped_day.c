@@ -175,7 +175,6 @@ void sh_wrapped_day_read(struct sh_wrapped_day *day, FILE *file) {
 }
 
 bool sh_wrapped_day_write(const struct sh_wrapped_day *day, FILE *file) {
-    fputs("# paw wrapped: what the desktop counted this day; `paw wrapped` reads it\n", file);
     for (int counter = 0; counter < SH_WRAPPED_COUNTERS; ++counter)
         fprintf(file, "%s\t%" PRId64 "\n", names[counter], day->counters[counter]);
     if (day->streak.seconds > 0)
@@ -265,6 +264,7 @@ bool sh_wrapped_save(const char *date, const struct sh_wrapped_day *day) {
         errno = error;
         return false;
     }
+    fputs("# paw wrapped: what the desktop counted this day; `paw wrapped` reads it\n", file);
     bool written = sh_wrapped_day_write(&merged, file) && fflush(file) == 0 &&
                    fsync(fileno(file)) == 0;
     int error = errno;

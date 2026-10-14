@@ -120,6 +120,7 @@ void saving() {
     std::ifstream file(path);
     std::stringstream text;
     text << file.rdbuf();
+    CHECK(text.str().starts_with("# "), "a comment says what the file is");
     auto saved = read(text.str());
     CHECK(saved.counters[SH_WRAPPED_KEYS] == 20, "a save adds to the day's file");
     CHECK(saved.app_count == 1 && saved.apps[0].seconds == 120);
