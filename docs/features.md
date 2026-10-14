@@ -2792,7 +2792,15 @@ the keyboard.
 the scene (closing and minimizing windows count until their animation ends), and of focus fades,
 mainly for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
 and size (see [Animations](#animations)), and `paw msg get output_frames` each monitor's name and
-how many frames it has drawn. `paw msg get minimize` prints where the taskbars show each window, a
+how many frames it has drawn. `paw msg get frame_times OUTPUT` prints how many frames that
+monitor has drawn, then a line for each of its last 512: the time drawing it took and the time
+since its previous frame, in microseconds; without OUTPUT it prints the last 4096 frames of every
+monitor together. `paw msg get commits` prints a line per window, the oldest first, then one per
+panel or other layer surface: `window` or `layer`, its number (a window's is the one the switcher
+and the window control give it), its process ID, how many commits of its surface the compositor
+has handled and the time handling them took in nanoseconds, its monitor, its workspace (0 for a
+layer surface), its app ID or namespace, and its title (empty for a layer surface).
+[`paw top`](#paw-top) shows both. `paw msg get minimize` prints where the taskbars show each window, a
 `rect` line per window and monitor (the window's number, the monitor, and x, y, width and height
 in the monitor's coordinates, the one that counts first), then a `fold` line per window on its
 way into or out of its button (its number, `minimize` or `restore`, how far into the button it
