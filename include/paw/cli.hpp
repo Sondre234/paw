@@ -26,4 +26,10 @@ std::vector<std::vector<std::string>> query(const std::string &name);
 // $XDG_STATE_HOME/paw, else ~/.local/state/paw; empty without either.
 std::filesystem::path state_directory();
 
+// `paw cat [on|off|toggle]`: shows or hides the desktop cat, toggling without a word, and says
+// what it is up to.
+int cat(int argc, char **argv);
+// That sentence, for the rows of `get cat`.
+std::string cat_said(const std::vector<std::vector<std::string>> &rows);
+
 } // namespace paw::cli
