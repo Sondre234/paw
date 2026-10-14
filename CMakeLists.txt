@@ -53,8 +53,10 @@ target_compile_options(paw_effects PRIVATE -Wall -Wextra -Wpedantic)
 add_library(paw_cli STATIC src/cli/control_client.cpp)
 target_include_directories(paw_cli PUBLIC include)
 target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
-# paw doctor: how it reads what other programs say.
-target_sources(paw_cli PRIVATE src/cli/doctor_parse.cpp)
+# paw doctor: its checks, which read the configuration as --check-config does, and how it reads
+# what other programs say.
+target_sources(paw_cli PRIVATE src/cli/doctor.cpp src/cli/doctor_parse.cpp)
+target_link_libraries(paw_cli PRIVATE paw_config)
 
 include(CTest)
 if(BUILD_TESTING)

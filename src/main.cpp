@@ -1004,7 +1004,9 @@ void usage() {
            "paw msg [output NAME] ACTION [ARGUMENT] runs an action in the running session;\n"
            "paw msg get workspace|workspaces|tiling|windows|outputs|animations prints its state.\n"
            "paw import [--config PATH] [--dry-run] DIR writes theme.lua beside the\n"
-           "configuration from the Hyprland, Waybar, wallbash, and pywal files in DIR.\n";
+           "configuration from the Hyprland, Waybar, wallbash, and pywal files in DIR.\n"
+           "paw doctor [--plain] [--no-color] checks the session for what often goes wrong\n"
+           "and says how to fix each; it changes nothing.\n";
 }
 /* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
  * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */
@@ -1015,6 +1017,7 @@ struct Subcommand {
 const Subcommand subcommands[] = {
     {"msg", send_message},
     {"import", import_dotfiles},
+    {"doctor", paw::cli::doctor},
 };
 } // namespace
 int main(int argc, char **argv) {
