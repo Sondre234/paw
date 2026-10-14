@@ -406,6 +406,7 @@ struct sh_server {
     struct wlr_scene_tree *unmanaged;
     struct sh_animator *animator;
     struct sh_stats stats;
+    int64_t started; /* now_ms() as sh_run began, for `get about`'s uptime */
     unsigned config_generation; /* counts configurations loaded, starting at 1 */
     struct {                    /* one hit test shared by the steps of a motion event */
         bool caching, valid;
@@ -685,11 +686,13 @@ struct sh_server {
     bool logind_lid_closed;  // logind's LidClosed, which counts as one more switch
     struct wl_list pointers; /* struct sh_pointer */
     enum sh_cursor_mode cursor_mode;
-    /* A drag of the taskbar (SH_CURSOR_PANEL): the output and the edge the shell was told of
-     * last. A drag of its inner edge resizes it instead: `resize` is the output's edge the bar
-     * is along (else -1), `box` that output's as the resize began, and `distance` the pointer's
-     * distance from that edge the shell was told of last. */
+    /* A drag of the taskbar (SH_CURSOR_PANEL): the output whose bar it is ("" for the one the
+     * pointer is over), and the output and the edge the shell was told of last. A drag of its
+     * inner edge resizes it instead: `resize` is the output's edge the bar is along (else -1),
+     * `box` that output's as the resize began, and `distance` the pointer's distance from that
+     * edge the shell was told of last. */
     struct {
+        char bar[64];
         char output[64];
         int edge;
         int resize;
@@ -963,6 +966,11 @@ struct sh_toplevel {
     struct sh_drop drop;                      // the scratchpad's slide in and out
     struct sh_clip_wish clips[SH_CLIP_TREES]; // content's, the shadow's and the gradient's
     struct sh_clip_wish content_clip; // content's as last drawn, cut or not, for get scratchpad
+    /* A tile of the scrolling layout keeps to its monitor, whose box is `bound` (placement.c's
+     * bound_tile): what crosses its edges is cut there (scratchpad.c), and wholly past them its
+     * content hides and the pointer passes it by (cursor.c). */
+    bool bounded;
+    struct wlr_box bound;
     struct sh_tween fade; // opacity and border color following focus
     struct sh_tween frame_fade; // how much of its frame shows (frame.c's frame_shown)
     bool own_shadow, own_shadow_read; // whether it draws its own shadow, as the frame takes it
@@ -1099,6 +1107,8 @@ bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, cha
 bool launch_program(struct sh_server *server, enum sh_action action, char *error,
                     size_t error_size);
 void run_action(struct sh_server *server, enum sh_action action, int argument);
+void screenshot_hide_cursor(struct sh_server *server);
+void screenshot_show_cursor(struct sh_server *server);
 
 /* control.c */
 void control_reply(int fd, const char *text);
@@ -1487,6 +1497,7 @@ struct sh_rect floating_area(struct sh_server *server, struct wlr_output *output
 void unarrange_in_place(struct sh_toplevel *toplevel);
 void move_window(struct sh_server *server, enum sh_action action);
 void resize_window(struct sh_server *server, enum sh_action action, int amount);
+void bound_tile(struct sh_toplevel *toplevel);
 
 /* power.c */
 void power_init(struct sh_server *server);
@@ -1530,6 +1541,7 @@ void empty_scratchpad(struct sh_server *server);
 void window_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which, const struct wlr_box *box,
                  int radius);
 void drop_refresh(struct sh_toplevel *toplevel);
+void window_cut(struct sh_toplevel *toplevel);
 
 /* session.c */
 bool make_directories(char *path);

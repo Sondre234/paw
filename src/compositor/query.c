@@ -2,6 +2,8 @@
 /* The control socket's queries (`paw msg get ...`): what the windows, outputs, workspaces
  * and effects are doing, for scripts, the shell and the tests. */
 #include "server.h"
+#include "version.h"
+#include <wlr/version.h>
 
 /* workspace, focused, minimized, tiled, x, y, width, height, app_id, title, output,
  * visible, scratchpad, sticky, group (0 for none), kept above — one line. A window hidden in
@@ -713,6 +715,37 @@ static void get_scratchpad(struct sh_server *server, int fd, const char *argumen
     }
 }
 
+static void get_bounds(struct sh_server *server, int fd, const char *arguments) {
+    // Per window, in the order of `get windows`: its title, the box of the monitor it keeps to as
+    // a tile of the scrolling layout (placement.c's bound_tile) as X,Y,WIDTH,HEIGHT, or "-",
+    // whether its content is drawn (0 while it rests past that monitor's edges), and the clip its
+    // content is drawn with, cut or not, in layout coordinates as X,Y,WIDTH,HEIGHT, and the
+    // clip's radius (each "-" for none).
+    control_reply(fd, "ok\n");
+    struct sh_toplevel *toplevel;
+    wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
+        if (!toplevel->content)
+            continue;
+        char title[512], bound[64] = "-", clip[64] = "-", radius[16] = "-";
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        const struct wlr_box *b = &toplevel->bound;
+        if (toplevel->bounded)
+            snprintf(bound, sizeof(bound), "%d,%d,%d,%d", b->x, b->y, b->width, b->height);
+        int x, y;
+        wlr_scene_node_coords(&toplevel->content->node, &x, &y);
+        const struct sh_clip_wish *drawn = &toplevel->content_clip;
+        if (drawn->set) {
+            snprintf(clip, sizeof(clip), "%d,%d,%d,%d", x + drawn->box.x, y + drawn->box.y,
+                     drawn->box.width, drawn->box.height);
+            snprintf(radius, sizeof(radius), "%d", drawn->radius);
+        }
+        char line[800];
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%s\t%s\n", title, bound,
+                 toplevel->content->node.enabled, clip, radius);
+        control_reply(fd, line);
+    }
+}
+
 static void get_window_icons(struct sh_server *server, int fd, const char *arguments) {
     // Per window, in the order of `get windows`: its number (0 before it is published), app_id,
     // and the icon it supplies itself (window_icon.c): its name and the size of its pixels as
@@ -837,6 +870,67 @@ static void get_cursor_image(struct sh_server *server, int fd, const char *argum
     control_reply(fd, line);
 }
 
+/* What `paw fetch` shows of the session, a line each: "version", as `paw --version` names it,
+ * "wlroots", the version of the library loaded (which may be newer than the one paw was built
+ * with), "uptime", the milliseconds since the compositor started, and "profile", the appearance
+ * profile in use ("" for none). */
+static void get_about(struct sh_server *server, int fd, const char *arguments) {
+    char reply[256];
+    snprintf(reply, sizeof(reply),
+             "ok\nversion\t%s\nwlroots\t%d.%d.%d\nuptime\t%lld\nprofile\t%s\n", PAW_VERSION,
+             wlr_version_get_major(), wlr_version_get_minor(), wlr_version_get_micro(),
+             (long long)(now_ms() - server->started), server_settings(server)->profile);
+    control_reply(fd, reply);
+}
+
+/* A premultiplied colour as #RRGGBBAA, its channels taken back out of the alpha. */
+static void hex_color(const float color[4], char text[10]) {
+    long channels[4];
+    for (int i = 0; i < 4; ++i) {
+        float value = i == 3 ? color[3] : color[3] > 0 ? color[i] / color[3] : 0;
+        channels[i] = lroundf(fminf(fmaxf(value, 0), 1) * 255);
+    }
+    snprintf(text, 10, "#%02lx%02lx%02lx%02lx", channels[0], channels[1], channels[2],
+             channels[3]);
+}
+
+/* A line of a border's colours: its name, the gradient's angle and its stops (one for a single
+ * colour). */
+static void describe_gradient(int fd, const char *name, const struct sh_gradient *gradient) {
+    char line[256], color[10];
+    int used = snprintf(line, sizeof(line), "%s\t%g", name, gradient->angle);
+    for (int i = 0; i < gradient->count && used < (int)sizeof(line); ++i) {
+        hex_color(gradient->stops[i], color);
+        used += snprintf(line + used, sizeof(line) - used, "\t%s", color);
+    }
+    if (used < (int)sizeof(line) - 1)
+        snprintf(line + used, sizeof(line) - used, "\n");
+    control_reply(fd, line);
+}
+
+/* The colours of the appearance in use, for `paw fetch` to draw in, as #RRGGBBAA: "scheme" and
+ * the color_scheme applications are told (light, dark or "-"), "background", "border" and
+ * "border_inactive" with their angle and colours, "urgent" and "shadow". */
+static void get_palette(struct sh_server *server, int fd, const char *arguments) {
+    const struct sh_settings *settings = server_settings(server);
+    static const char *const schemes[] = {"-", "light", "dark"};
+    char line[64], color[10];
+    snprintf(line, sizeof(line), "ok\nscheme\t%s\n",
+             (unsigned)settings->color_scheme < 3 ? schemes[settings->color_scheme] : "-");
+    control_reply(fd, line);
+    hex_color(settings->background, color);
+    snprintf(line, sizeof(line), "background\t%s\n", color);
+    control_reply(fd, line);
+    describe_gradient(fd, "border", &settings->border_active_gradient);
+    describe_gradient(fd, "border_inactive", &settings->border_inactive_gradient);
+    hex_color(settings->urgent_color, color);
+    snprintf(line, sizeof(line), "urgent\t%s\n", color);
+    control_reply(fd, line);
+    hex_color(settings->shadow_color, color);
+    snprintf(line, sizeof(line), "shadow\t%s\n", color);
+    control_reply(fd, line);
+}
+
 /* The queries, "get NAME" (or "get NAME ARGUMENTS" for one that takes them), which answer
  * even while the session is locked. A handler gets NULL for no arguments. */
 static const struct {
@@ -872,6 +966,7 @@ static const struct {
     {"window_peek", get_window_peek, false},
     {"window_icons", get_window_icons, false},
     {"scratchpad", get_scratchpad, false},
+    {"bounds", get_bounds, false},
     {"opacities", get_opacities, false},
     {"frames", get_frames, false},
     {"drawn", get_drawn, false},
@@ -896,6 +991,8 @@ static const struct {
     {"mode", get_mode, false},
     {"shortcuts", get_shortcuts, false},
     {"input_method", get_input_method, false},
+    {"about", get_about, false},
+    {"palette", get_palette, false},
     {"commits", get_commits, false},
 };
 

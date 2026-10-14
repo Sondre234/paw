@@ -155,4 +155,15 @@ with harness.Compositor(compositor, start=False) as desktop:
     (tools / "grim").unlink()
     assert "need grim" in msg("screenshot", "output", ok=False)
     assert len(saved()) == 7
+
+    # A screenshot taken without the action, as paw showcase takes one, hides the cursor too,
+    # until it says so or for five seconds at most.
+    msg("cursor", "hide")
+    assert msg("get", "cursor") == "hidden\n"
+    msg("cursor", "show")
+    assert msg("get", "cursor") == "shown\n"
+    assert "usage: cursor hide|show" in msg("cursor", "away", ok=False)
+    msg("cursor", "hide")
+    desktop.wait_for(lambda: msg("get", "cursor") == "shown\n", "the cursor back by itself",
+                     timeout=15)
 print("Output, window, and region screenshots and missing-tool errors passed")

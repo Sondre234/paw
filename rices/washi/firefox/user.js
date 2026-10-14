@@ -10,10 +10,14 @@
 // Load chrome/userChrome.css and chrome/userContent.css (off by default; needs a restart).
 user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
 
-// --- the start page ---------------------------------------------------------------------
+// --- the home page -----------------------------------------------------------------------
 
-// Home (the Home button, Alt+Home and new windows) is the washi start page.
-user_pref("browser.startup.homepage", "file:///PATH/TO/startpage/index.html");
+// Home (the Home button, Alt+Home and new windows) is about:home, which userContent.css paints
+// like the new tab page, so the first tab and every new one look the same.
+user_pref("browser.startup.homepage", "about:home");
+// Or make home the washi start page instead (a big clock and paw prints; new tabs stay as they
+// are, since prefs cannot point them at a file):
+// user_pref("browser.startup.homepage", "file:///PATH/TO/startpage/index.html");
 // Open the home page at startup (1), not the last session (3) or a blank page (0).
 user_pref("browser.startup.page", 1);
 

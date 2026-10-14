@@ -34,8 +34,8 @@ FlatButton {
     visible: showMedia || showPowerMode || showBluetooth ||
              ["network", "battery", "volume", "tiling", "profiles", "wallpapers", "notifications"]
                  .some(function(name) { return button.widgets[name] === "quick" })
-    Layout.preferredWidth: Theme.barVertical ? Theme.barItemWidth : icons.implicitWidth + 2 * Theme.spacingM
-    Layout.preferredHeight: Theme.barVertical ? icons.implicitHeight + 2 * Theme.spacingM : Theme.barButtonHeight
+    Layout.preferredWidth: panel.vertical ? panel.barItemWidth : icons.implicitWidth + 2 * Theme.spacingM
+    Layout.preferredHeight: panel.vertical ? icons.implicitHeight + 2 * Theme.spacingM : Theme.barButtonHeight
     hoverEnabled: true
     active: panel.audioPopup === "quick"
     onClicked: panel.toggleAudioPopup("quick", button)
@@ -47,7 +47,7 @@ FlatButton {
             id: icons
             anchors.centerIn: parent
             spacing: Theme.spacingM
-            columns: Theme.barVertical ? 1 : 4
+            columns: panel.vertical ? 1 : 4
             horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
             Icon {
                 objectName: "quickSettingsNetwork"

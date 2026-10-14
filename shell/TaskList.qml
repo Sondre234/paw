@@ -16,7 +16,7 @@ ListView {
     // As tall as a button (as wide, down a side): a horizontal list places each delegate at its
     // top, whatever the delegate's own y.
     Layout.fillWidth: !vertical; Layout.preferredHeight: vertical ? -1 : Theme.barButtonHeight
-    Layout.fillHeight: vertical; Layout.preferredWidth: vertical ? Theme.barItemWidth : -1
+    Layout.fillHeight: vertical; Layout.preferredWidth: vertical ? panel.barItemWidth : -1
     orientation: vertical ? ListView.Vertical : ListView.Horizontal; spacing: Theme.spacingS; clip: true
     // Dragging moves a single button, not the list; the wheel scrolls an overflowing one.
     interactive: false
@@ -81,7 +81,7 @@ ListView {
         group: grouping ? appWindows : null
         groupSlot: pinned ? app.appId : ""
         groupWindowApp: pinned ? "" : appId
-        width: taskList.vertical ? Theme.barItemWidth : panel.iconsOnly || launcher ? Theme.barButtonWidth : taskList.windowWidth
+        width: taskList.vertical ? panel.barItemWidth : panel.iconsOnly || launcher ? Theme.barButtonWidth : taskList.windowWidth
         z: reorder.active ? 1 : 0
         readonly property real shift: {
             var from = taskList.dragFrom, to = taskList.dragTo

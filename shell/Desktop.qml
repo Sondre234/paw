@@ -5,6 +5,8 @@ import "WindowMenu.js" as WindowMenu
 
 Rectangle {
     id: desktop
+    // Set by the view: itself, which says where its output's bar is.
+    required property var shellView
     color: shell.background
     // The wallpaper, or without one the gradient (the macOS style's drawn wallpaper), in layers:
     // each new one is laid over what shows, and once it is drawn (its picture loaded, or failed and
@@ -131,10 +133,11 @@ Rectangle {
         side: Qt.BottomEdge
         alignment: Qt.AlignLeft
         gap: 0
-        bounds: Theme.macos ? Qt.rect(0, Theme.menuBarHeight, desktop.width, desktop.height - Theme.menuBarHeight - shell.panelExtent)
-              : shell.panelVertical ? Qt.rect(shell.panelEdge === "left" ? shell.panelExtent : 0, 0,
-                                              desktop.width - shell.panelExtent, desktop.height)
-              : Qt.rect(0, shell.panelTop ? shell.panelExtent : 0, desktop.width, desktop.height - shell.panelExtent)
+        readonly property int panel: desktop.shellView.panelExtent
+        bounds: Theme.macos ? Qt.rect(0, Theme.menuBarHeight, desktop.width, desktop.height - Theme.menuBarHeight - panel)
+              : desktop.shellView.panelVertical ? Qt.rect(desktop.shellView.panelEdge === "left" ? panel : 0, 0,
+                                                          desktop.width - panel, desktop.height)
+              : Qt.rect(0, desktop.shellView.panelEdge === "top" ? panel : 0, desktop.width, desktop.height - panel)
         onDismissed: open = false
         entries: [{ text: "Show desktop", icon: "minimize-2", run: function() { shell.tasks.showDesktop() } }]
             .concat(shell.profiles.length > 0
