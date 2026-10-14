@@ -579,6 +579,17 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
 wrong with it, and toys the compositor plays with the windows.
 
+- `paw tour` shows paw off on the running desktop in about a minute: on an empty workspace it
+  opens three terminals of its own and takes them through placement and a grid, snapping,
+  tiling and its layouts, the scrolling layout, the overview, the switcher, a tab group, the
+  scratchpad, workspaces, a sticky window, appearance profiles and night light, each step with a
+  caption naming your own keys for it, then closes its windows and puts back everything it
+  changed, also when stopped with Ctrl+C or by closing one of its windows. `--list`, `--step`,
+  `--from N`, `--speed FACTOR`, `--no-restore` and `--client COMMAND` change how. The shell shows
+  its captions as a card near the bottom (`paw msg caption SECONDS TITLE<tab>SENTENCE<tab>KEYS`),
+  and `paw msg get actions`, `get profiles` and `get terminal` tell scripts every action with
+  its keys, the appearance profiles, and the terminal the `terminal` action starts.
+
 ### Fixes
 
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,
