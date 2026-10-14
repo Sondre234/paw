@@ -586,6 +586,11 @@ wrong with it, and toys the compositor plays with the windows.
   the state files tell; through a pipe, with `--no-color` or `NO_COLOR` it writes no colours,
   and `--no-logo` leaves the print out. `paw msg get about` and `get palette` are the queries it
   adds.
+- `paw showcase` takes a screenshot to post: the terminal opens among the windows with `paw fetch`
+  in it, grim takes the monitor into `~/Pictures/paw-showcase-DATE-TIME.png` (`-o FILE`, `--output
+  NAME`, `--delay SECONDS`), and the terminal closes again, the windows put back as they were,
+  after a failure or Ctrl+C too; `--keep` leaves the terminal open. `paw msg cursor hide` hides the
+  cursor for such a screenshot, until `cursor show` or for five seconds at most.
 
 ### Fixes
 
