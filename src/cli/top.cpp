@@ -182,6 +182,12 @@ std::string mode_text(const Monitor &monitor, bool size) {
     return text.empty() ? refresh : text + " " + refresh;
 }
 
+// A monitor's frame budget in microseconds: its refresh interval, 60 Hz's where it has no
+// refresh rate (a headless output's).
+double budget_of(const Monitor &monitor) {
+    return 1e6 / (monitor.refresh > 0 ? monitor.refresh : 60);
+}
+
 const Monitor *find_monitor(const Sample &sample, const std::string &name) {
     for (const auto &monitor : sample.monitors)
         if (monitor.name == name)
@@ -558,7 +564,7 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
     // took against its budget.
     std::vector<std::vector<std::string>> numbers;
     for (const auto &monitor : newest.monitors) {
-        const double budget = 1e6 / (monitor.refresh > 0 ? monitor.refresh : 60);
+        const double budget = budget_of(monitor);
         const Monitor *before = find_monitor(from, monitor.name);
         std::vector<std::string> cells{
             paint("1", cut(monitor.name, width)) + " " + cut(mode_text(monitor, true), width),
@@ -644,7 +650,7 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
         if (!monitor.timed)
             continue;
         // Its last frames, the newest on the right, in the colours of their grades.
-        const double budget = 1e6 / (monitor.refresh > 0 ? monitor.refresh : 60);
+        const double budget = budget_of(monitor);
         const size_t span = width - gutter;
         const size_t shown = std::min(monitor.spent.size(), span);
         const auto newer = monitor.spent.end() - static_cast<long>(shown);
