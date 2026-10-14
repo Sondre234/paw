@@ -225,14 +225,29 @@ static struct sh_toplevel *topmost_visible(struct sh_server *server) {
     return NULL;
 }
 
+/* Whether a fullscreen window was put down among the others (lower_fullscreen_covers, the
+ * overview) rather than resting in its fullscreen tree, or in the peek's place there while it is
+ * peeked at. */
+static bool fullscreen_lowered(struct sh_toplevel *toplevel) {
+    struct sh_server *server = toplevel->server;
+    if (!toplevel->fullscreen || !toplevel->scene_tree)
+        return false;
+    struct wlr_scene_node *node = &toplevel->scene_tree->node;
+    if (node->parent == server->peek_layer && server->peek_window == toplevel && server->peek_place)
+        node = &server->peek_place->node;
+    return node->parent != fullscreen_tree(toplevel);
+}
+
 /* Whether hovering `toplevel` may focus it: not during a drag, a popup or menu grab, or while
- * a panel or launcher holds the keyboard. */
+ * a panel or launcher holds the keyboard. Nor a fullscreen window another one was raised over:
+ * focus would bring it back in front, so it takes a click, the taskbar or the keyboard. */
 bool hover_focuses(struct sh_server *server, struct sh_toplevel *toplevel) {
     struct wlr_seat *seat = server->seat;
     if (!server_settings(server)->focus_follows_mouse || server->locked ||
         toplevel == server->focused_toplevel || server->focused_layer ||
-        !toplevel_visible(toplevel) || seat->pointer_state.button_count > 0 ||
-        wlr_seat_pointer_has_grab(seat) || wlr_seat_keyboard_has_grab(seat))
+        !toplevel_visible(toplevel) || fullscreen_lowered(toplevel) ||
+        seat->pointer_state.button_count > 0 || wlr_seat_pointer_has_grab(seat) ||
+        wlr_seat_keyboard_has_grab(seat))
         return false;
 #if WLR_HAS_XWAYLAND
     // X11 menus are override-redirect windows that grab inside the X server, unseen here.
