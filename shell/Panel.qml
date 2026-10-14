@@ -489,9 +489,11 @@ Item {
     readonly property Item groupPopup: thumbnailsOpen ? thumbnailsLoader.item : groupListLoader.item
     readonly property bool groupListHovered: groupPopup ? groupPopup.hovered : false
     // Something is open in the popover, or the bar has the keyboard there, or is being dragged
-    // or resized. The list shown on hover does not take the keyboard: it opens under a window
-    // being typed in.
-    readonly property bool expanded: menuOpen || groupOpen || workspaceCardOpen || barKeys.active || barHeld ||
+    // (every panel's shows where it would go), or resized from this panel (whose popover holds
+    // the keyboard for Escape). The list shown on hover does not take the keyboard: it opens under
+    // a window being typed in.
+    readonly property bool expanded: menuOpen || groupOpen || workspaceCardOpen || barKeys.active || barDragging ||
+                                     barDragOrigin && barResizing ||
                                      dropGhostShown
     // What a window dragged onto a workspace carries shows in the popover, over the bar.
     readonly property bool dropGhostShown: dropGhost.visible
