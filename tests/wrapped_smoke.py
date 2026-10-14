@@ -3,10 +3,13 @@
 scrolls, keys are pressed, touchpad gestures begin, windows open, move, resize, snap and close,
 workspaces switch and the overview and the switcher open; the time an application has the focus,
 its streak, and idle time; the day's file written as the session ends, added to by the next
-session and every few minutes, and split at midnight; and wrapped.enabled turning it off."""
+session and every few minutes, and split at midnight; wrapped.enabled turning it off; and
+`paw wrapped` reporting on the files and the running session's count."""
 from datetime import date, timedelta
+import json
 from pathlib import Path
 import stat
+import subprocess
 import sys
 
 import harness
@@ -225,3 +228,42 @@ with harness.Compositor(compositor, CONFIG % "",
     stop()
     assert day_file(files, tomorrow)["sessions"] == 0
     assert sorted(path.name for path in files.iterdir()) == [today.isoformat(), tomorrow]
+
+    def wrapped(*words, session=True):
+        """`paw wrapped WORDS`' output, in the session or outside it."""
+        env = dict(desktop.env)
+        if not session:
+            env.pop("PAW_SOCKET", None)
+        result = subprocess.run([compositor, "wrapped", *words], env=env, capture_output=True,
+                                text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    # The report adds up the files, outside a session too.
+    report = json.loads(wrapped("--all", "--json", session=False))
+    assert report["days"] == 2 and report["from"] is None, report
+    assert report["counters"]["keys"] == second["keys"], report
+    assert report["counters"]["sessions"] == 3 and report["apps"][0]["id"] == "app.a", report
+    assert report["streak"]["app"] == "app.a" and report["busiest_day"] == today.isoformat()
+    text = wrapped("--plain", session=False)
+    assert text.startswith("paw wrapped %d: " % today.year), text
+    assert "\nTop apps: Your top app was app.a: " in text, text
+    assert "\nKeyboard: You pressed %d keys." % second["keys"] in text, text
+    assert "\nWindows: You opened 2 windows and closed 1.\n" in text, text
+    assert "\nThat's a wrap: See you next time.\n" in text, text
+    assert wrapped(session=False) == text, "plain without a terminal"
+    assert wrapped("--since", tomorrow, session=False).startswith("Nothing counted in that time")
+
+    # In a session, what it counted and has not saved joins the files, once, though it saves
+    # every 300 ms meanwhile.
+    del desktop.env["PAW_TEST_WRAPPED_MIDNIGHT"]
+    desktop.start()
+    keys = desktop.keyboard()
+    keys(30, 31, 32)
+    desktop.wait_for(lambda: json.loads(wrapped("--today", "--json"))["counters"]["keys"] ==
+                     second["keys"] + 3, "the session's keys in the report")
+    for _ in range(5):
+        assert json.loads(wrapped("--today", "--json"))["counters"]["keys"] == second["keys"] + 3
+    desktop.reload(CONFIG % "\n    wrapped = { enabled = false },")
+    assert "\n  Counting is off now: wrapped.enabled is false.\n" in wrapped("--plain")
+    stop()
