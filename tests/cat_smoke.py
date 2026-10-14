@@ -89,8 +89,8 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
     wait_for(lambda: cat()["on"] == "floor", "the cat falls to the floor")
     assert cat()["y"] == 672, cat()
 
-    # Nobody has used the computer since it started: it sleeps, and the output draws a frame only
-    # for its breaths.
+    # Nobody has used the computer since it started: it sleeps, and the output draws only for its
+    # breaths, one every 2.2 seconds, each change costing a headless output two frames.
     wait_for(lambda: cat()["state"] == "sleep", "the cat sleeps", timeout=30)
     assert cat()["frame"] in ("sleep_1", "sleep_2"), cat()
 
@@ -99,7 +99,7 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
 
     before = frames()
     time.sleep(4.5)
-    assert cat()["state"] == "sleep" and frames() - before <= 4, (frames() - before, cat())
+    assert cat()["state"] == "sleep" and frames() - before <= 6, (frames() - before, cat())
 
     # Input wakes it, and a flick of the pointer past it sets it running after the pointer.
     pointer = desktop.virtual_pointer(pointer_probe, 1280, 720)
