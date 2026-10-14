@@ -40,6 +40,8 @@ target_compile_options(paw_config PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(paw_config PRIVATE
     PAW_DEFAULT_CONFIG="${CMAKE_INSTALL_FULL_DATADIR}/paw/init.lua"
     PAW_SOURCE_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/config/init.lua")
+# Rices: rice.lua read as data, what a rice may hold, the installed ones and a trial's record.
+target_sources(paw_config PRIVATE src/rice.cpp)
 
 # Arithmetic of the desktop effects (fades, night light, corners, zoom) and of touchpad swipes;
 # no wlroots.
@@ -134,6 +136,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(border)
     paw_c_unit_test(dynamic_rule)
     paw_c_unit_test(dropdown)
+    paw_unit_test(rice)
 endif()
 option(PAW_BUILD_COMPOSITOR "Build the wlroots compositor" ON)
 if(PAW_BUILD_COMPOSITOR)
