@@ -4,6 +4,7 @@
 #include "check.h"
 #include "paw/heatmap.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -66,28 +67,29 @@ void grid() {
 }
 
 void blur() {
-    // A point spreads evenly about itself, keeping what it held while it stays clear of the
-    // edges, where a cell averages fewer cells.
-    int columns = 21, rows = 19;
+    // A point spreads evenly about itself, round, keeping what it held while it stays clear of
+    // the edges, where a cell weighs fewer cells.
+    int columns = 25, rows = 25;
     std::vector<float> values(columns * rows), scratch(columns);
-    values[9 * columns + 10] = 1000;
-    sh_heat_blur(values.data(), columns, rows, 2, scratch.data());
+    values[12 * columns + 12] = 1000;
+    sh_heat_blur(values.data(), columns, rows, 1, scratch.data());
     auto at = [&](int column, int row) { return values[row * columns + column]; };
     float sum = std::accumulate(values.begin(), values.end(), 0.0F);
     NEAR(sum, 1000, 0.01);
-    CHECK(at(10, 9) == sh_heat_peak(values.data(), values.size()), "the middle stays hottest");
-    NEAR(at(8, 9), at(12, 9), 1e-3);
-    NEAR(at(10, 6), at(10, 12), 1e-3);
-    NEAR(at(8, 9), at(10, 7), 1e-3);
-    CHECK(at(9, 9) < at(10, 9) && at(8, 9) < at(9, 9) && at(4, 9) < at(8, 9),
+    CHECK(at(12, 12) == sh_heat_peak(values.data(), values.size()), "the middle stays hottest");
+    NEAR(at(10, 12), at(14, 12), 1e-4);
+    NEAR(at(12, 9), at(12, 15), 1e-4);
+    NEAR(at(10, 12), at(12, 10), 1e-4);
+    NEAR(at(12 + 3, 12 + 4), at(12 + 5, 12), 1e-6); // as far, 5 cells, so as warm: round
+    CHECK(at(11, 12) < at(12, 12) && at(10, 12) < at(11, 12) && at(6, 12) < at(10, 12),
           "it cools away from the middle");
-    CHECK(at(10 + 7, 9) < 1e-3F && at(10, 9 + 7) < 1e-3F && at(10 + 6, 9) > 1e-3F,
-          "three boxes reach six cells");
-    CHECK(at(10, 9) < 200, "a point spreads: %g", at(10, 9));
+    CHECK(at(12 + 7, 12) == 0 && at(12, 12 + 7) == 0 && at(12 + 6, 12) > 0,
+          "a gaussian of 1 reaches 6 cells");
+    NEAR(at(12, 12), 1000 / (2 * M_PI), 1); // a gaussian's middle: 1 / (2 pi sigma squared)
 
     // An even field stays even, also at the edges.
     std::vector<float> even(columns * rows, 3);
-    sh_heat_blur(even.data(), columns, rows, 2, scratch.data());
+    sh_heat_blur(even.data(), columns, rows, 3, scratch.data());
     bool flat = true;
     for (float value : even)
         flat = flat && std::fabs(value - 3) < 1e-4;
@@ -96,9 +98,12 @@ void blur() {
     // The field is the grid's counts blurred.
     sh_heat_grid grid{};
     sh_heat_grid_resize(&grid, columns, rows);
-    sh_heat_add(&grid, SH_HEAT_CLICKS, 10, 9, 1000);
+    sh_heat_add(&grid, SH_HEAT_CLICKS, 12, 12, 1000);
     std::vector<float> field(columns * rows);
     sh_heat_field(&grid, SH_HEAT_CLICKS, field.data(), scratch.data());
+    std::fill(values.begin(), values.end(), 0.0F);
+    values[12 * columns + 12] = 1000;
+    sh_heat_blur(values.data(), columns, rows, SH_HEAT_BLUR, scratch.data());
     CHECK(field == values, "the field blurs by SH_HEAT_BLUR");
     sh_heat_field(&grid, SH_HEAT_MOTION, field.data(), scratch.data());
     CHECK(sh_heat_peak(field.data(), field.size()) == 0);

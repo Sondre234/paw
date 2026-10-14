@@ -46,12 +46,14 @@ void sh_heat_add(struct sh_heat_grid *grid, enum sh_heat_kind kind, int column, 
 /* The largest count of `kind` in `grid`, 0 for an empty one. */
 uint32_t sh_heat_most(const struct sh_heat_grid *grid, enum sh_heat_kind kind);
 
-/* Blurs `values` (`columns` by `rows`, row by row) with a box `2 * radius + 1` cells across, each
- * way, three times over, which comes close to a gaussian; a cell averages only the cells inside
- * the grid, so that the edges do not cool. `scratch` holds as many floats as the longer side. */
-void sh_heat_blur(float *values, int columns, int rows, int radius, float *scratch);
-/* How far sh_heat_field blurs: SH_HEAT_BLUR cells each way, a spread of about 20 logical pixels. */
-enum { SH_HEAT_BLUR = 2 };
+/* Blurs `values` (`columns` by `rows`, row by row) with a gaussian `sigma` cells wide, along the
+ * rows and then the columns, cut off where it falls below a millionth of its middle: far enough
+ * out that the logarithmic scale shows no edge, and round where the corners of boxes would show
+ * as squares. A cell weighs only the cells inside the grid, so that the edges do not cool.
+ * `scratch` holds as many floats as the longer side. */
+void sh_heat_blur(float *values, int columns, int rows, double sigma, float *scratch);
+/* How wide sh_heat_field blurs, in cells: 12 logical pixels. */
+#define SH_HEAT_BLUR 1.5
 /* The counts of `kind` as `grid`'s size of floats in `field`, blurred. `scratch` holds as many
  * floats as the grid's longer side. */
 void sh_heat_field(const struct sh_heat_grid *grid, enum sh_heat_kind kind, float *field,

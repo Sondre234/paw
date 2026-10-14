@@ -76,33 +76,44 @@ uint32_t sh_heat_most(const struct sh_heat_grid *grid, enum sh_heat_kind kind) {
     return most;
 }
 
-/* One pass of the box along a line of `count` values `stride` apart: each the average of those
- * within `radius` of it, inside the line. */
-static void box_line(float *line, int count, size_t stride, int radius, float *scratch) {
-    for (int i = 0; i < count; ++i)
-        scratch[i] = line[(size_t)i * stride];
-    double sum = 0;
-    int from = 0, to = -1; // the values in `sum`
+/* The farthest a blur reaches, in cells. */
+enum { REACH_MAX = 48 };
+
+/* The gaussian of `weights` (by distance, up to `reach`) along a line of `count` values `stride`
+ * apart, weighing those inside the line alone. A line of nothing stays as it is. */
+static void blur_line(float *line, int count, size_t stride, const double *weights, int reach,
+                      float *scratch) {
+    bool any = false;
     for (int i = 0; i < count; ++i) {
-        int low = i - radius < 0 ? 0 : i - radius;
-        int high = i + radius >= count ? count - 1 : i + radius;
-        while (to < high)
-            sum += scratch[++to];
-        while (from < low)
-            sum -= scratch[from++];
-        line[(size_t)i * stride] = (float)(sum / (high - low + 1));
+        scratch[i] = line[(size_t)i * stride];
+        any = any || scratch[i] != 0;
+    }
+    for (int i = 0; any && i < count; ++i) {
+        int low = i - reach < 0 ? 0 : i - reach;
+        int high = i + reach >= count ? count - 1 : i + reach;
+        double sum = 0, weight = 0;
+        for (int j = low; j <= high; ++j) {
+            double w = weights[j < i ? i - j : j - i];
+            sum += w * scratch[j];
+            weight += w;
+        }
+        line[(size_t)i * stride] = (float)(sum / weight);
     }
 }
 
-void sh_heat_blur(float *values, int columns, int rows, int radius, float *scratch) {
-    if (radius < 1 || columns < 1 || rows < 1)
+void sh_heat_blur(float *values, int columns, int rows, double sigma, float *scratch) {
+    if (!(sigma > 0) || columns < 1 || rows < 1)
         return;
-    for (int pass = 0; pass < 3; ++pass) {
-        for (int row = 0; row < rows; ++row)
-            box_line(values + (size_t)row * columns, columns, 1, radius, scratch);
-        for (int column = 0; column < columns; ++column)
-            box_line(values + column, rows, (size_t)columns, radius, scratch);
-    }
+    // exp(-r² / 2σ²) falls below a millionth past r = σ √(2 ln 10⁶).
+    int reach = (int)ceil(sigma * sqrt(2 * log(1e6)));
+    reach = reach > REACH_MAX ? REACH_MAX : reach;
+    double weights[REACH_MAX + 1];
+    for (int r = 0; r <= reach; ++r)
+        weights[r] = exp(-r * r / (2 * sigma * sigma));
+    for (int row = 0; row < rows; ++row)
+        blur_line(values + (size_t)row * columns, columns, 1, weights, reach, scratch);
+    for (int column = 0; column < columns; ++column)
+        blur_line(values + column, rows, (size_t)columns, weights, reach, scratch);
 }
 
 void sh_heat_field(const struct sh_heat_grid *grid, enum sh_heat_kind kind, float *field,
