@@ -54,6 +54,13 @@ add_library(paw_cli STATIC src/cli/control_client.cpp)
 target_include_directories(paw_cli PUBLIC include)
 target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
 
+# The pointer heatmap's grid, blur, colours and pictures, which the compositor's overlay and
+# `paw heatmap` share; no wlroots.
+add_library(paw_heatmap STATIC src/heatmap.c)
+target_include_directories(paw_heatmap PUBLIC include)
+target_link_libraries(paw_heatmap PRIVATE m)
+target_compile_options(paw_heatmap PRIVATE -Wall -Wextra -Wpedantic)
+
 include(CTest)
 if(BUILD_TESTING)
     # Tests read a copy of the example so a theme.lua generated beside it by `paw import`
@@ -134,6 +141,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(border)
     paw_c_unit_test(dynamic_rule)
     paw_c_unit_test(dropdown)
+    paw_unit_test(heatmap LIBRARY paw_heatmap)
 endif()
 option(PAW_BUILD_COMPOSITOR "Build the wlroots compositor" ON)
 if(PAW_BUILD_COMPOSITOR)
