@@ -34,10 +34,13 @@ enum {
 };
 
 /* A flick past the cat: the pointer's travel, decaying with a time constant of TRAVEL_MS, beyond
- * FLICK pixels while it is within NEAR pixels of the cat. */
+ * FLICK pixels in at least FLICK_MOTIONS motions each within MOTION_MS of the last, while it is
+ * within NEAR pixels of the cat. */
 #define TRAVEL_MS 120.0
 #define FLICK 90.0
 #define NEAR 320.0
+#define FLICK_MOTIONS 3
+#define MOTION_MS 100
 
 static double clamp(double value, double low, double high) {
     return value < low ? low : value > high ? high : value;
@@ -559,14 +562,16 @@ int sh_cat_step(struct sh_cat *cat, const struct sh_cat_world *world, int64_t no
 bool sh_cat_pointer(struct sh_cat *cat, double x, double y, int64_t now) {
     if (cat->pointer_known) {
         double dx = x - cat->pointer_x, dy = y - cat->pointer_y;
-        double elapsed = (double)(now - cat->pointer_at);
-        cat->travel = cat->travel * exp(-(elapsed > 0 ? elapsed : 0) / TRAVEL_MS) + sqrt(dx * dx + dy * dy);
+        double elapsed = now > cat->pointer_at ? (double)(now - cat->pointer_at) : 0;
+        cat->travel = cat->travel * exp(-elapsed / TRAVEL_MS) + sqrt(dx * dx + dy * dy);
+        cat->motions = elapsed <= MOTION_MS ? cat->motions + 1 : 1;
     }
     cat->pointer_known = true;
     cat->pointer_x = x;
     cat->pointer_y = y;
     cat->pointer_at = now;
-    if (cat->travel < FLICK || !(calm(cat->state) || cat->state == SH_CAT_POUNCE) ||
+    if (cat->travel < FLICK || cat->motions < FLICK_MOTIONS ||
+        !(calm(cat->state) || cat->state == SH_CAT_POUNCE) ||
         (cat->state == SH_CAT_YAWN && cat->drowsy))
         return false;
     double dx = x - cat->x, dy = y - (cat->y - cat->height / 2);

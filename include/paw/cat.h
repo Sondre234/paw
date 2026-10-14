@@ -90,10 +90,12 @@ struct sh_cat {
     int64_t blink_at;      /* when it next blinks */
     int64_t away_since;    /* since when it has been off the focused monitor, 0 while on it */
     uint32_t knocked;      /* the urgent window it last pawed at, which it leaves be after */
-    /* The pointer as last seen: where, when it last moved, and how far it went lately (decaying),
-     * which tells a flick past the cat from an ordinary move. */
+    /* The pointer as last seen: where, when it last moved, how far it went lately (decaying) and
+     * in how many motions one soon after another, which tell a flick past the cat from an
+     * ordinary move and from the pointer put somewhere at once. */
     double pointer_x, pointer_y, travel;
     int64_t pointer_at;
+    int motions;
     bool pointer_known;
     uint32_t random;
 };

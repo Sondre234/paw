@@ -307,7 +307,10 @@ static void test_chases_the_pointer(void) {
     build(&scene);
     int64_t now = 0;
     struct sh_cat cat = settled(&scene, 900, &now);
-    // A slow move nearby is no flick; a fast one far away is none it sees.
+    // The pointer put by the cat at once is no flick, nor is a slow move nearby; a fast one far
+    // away is none it sees.
+    CHECK(!sh_cat_pointer(&cat, 1500, 900, now - 2000));
+    CHECK(!sh_cat_pointer(&cat, 950, 300, now - 1990));
     for (int i = 0; i < 20; ++i)
         CHECK(!sh_cat_pointer(&cat, 950 + i, 300, now + 16 * i));
     for (int i = 0; i < 20; ++i)
