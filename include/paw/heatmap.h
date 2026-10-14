@@ -50,12 +50,12 @@ uint32_t sh_heat_most(const struct sh_heat_grid *grid, enum sh_heat_kind kind);
  * rows and then the columns, cut off where it falls below a millionth of its middle: far enough
  * out that the logarithmic scale shows no edge, and round where the corners of boxes would show
  * as squares. A cell weighs only the cells inside the grid, so that the edges do not cool.
- * `scratch` holds as many floats as the longer side. */
+ * `scratch` holds `columns * rows` floats. */
 void sh_heat_blur(float *values, int columns, int rows, double sigma, float *scratch);
 /* How wide sh_heat_field blurs, in cells: 12 logical pixels. */
 #define SH_HEAT_BLUR 1.5
 /* The counts of `kind` as `grid`'s size of floats in `field`, blurred. `scratch` holds as many
- * floats as the grid's longer side. */
+ * floats as the grid has cells. */
 void sh_heat_field(const struct sh_heat_grid *grid, enum sh_heat_kind kind, float *field,
                    float *scratch);
 /* The largest of `count` values, 0 for none. */
@@ -83,7 +83,8 @@ void sh_heat_resample(const float *from, int columns, int rows, float *to, int t
                       int to_rows, float *scratch);
 
 /* The overlay's picture of `field` (`columns` by `rows`), its hottest value `most`: a
- * premultiplied ARGB pixel a cell, at `opacity`, which the scene stretches over the output. */
+ * premultiplied ARGB pixel a cell, at `opacity`, which the scene stretches over the output; the
+ * colours of 1024 levels, which no eye tells apart from the scale's own. */
 void sh_heat_paint(const float *field, int columns, int rows, float most, double opacity,
                    uint32_t *pixels);
 

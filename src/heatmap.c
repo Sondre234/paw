@@ -79,25 +79,29 @@ uint32_t sh_heat_most(const struct sh_heat_grid *grid, enum sh_heat_kind kind) {
 /* The farthest a blur reaches, in cells. */
 enum { REACH_MAX = 48 };
 
-/* The gaussian of `weights` (by distance, up to `reach`) along a line of `count` values `stride`
- * apart, weighing those inside the line alone. A line of nothing stays as it is. */
-static void blur_line(float *line, int count, size_t stride, const double *weights, int reach,
-                      float *scratch) {
+/* The gaussian of `weights` (by distance, up to `reach`) along a row of `count` values, weighing
+ * those inside the row alone: `sums[r]` adds up `weights` 1 to r, for the share of the kernel a
+ * cell near an end has. A row of nothing stays as it is. Each shift of the row is added whole,
+ * which runs along memory. */
+static void blur_row(float *row, int count, const float *weights, const float *sums, int reach,
+                     float *scratch) {
     bool any = false;
     for (int i = 0; i < count; ++i) {
-        scratch[i] = line[(size_t)i * stride];
-        any = any || scratch[i] != 0;
+        scratch[i] = row[i];
+        any = any || row[i] != 0;
     }
-    for (int i = 0; any && i < count; ++i) {
-        int low = i - reach < 0 ? 0 : i - reach;
-        int high = i + reach >= count ? count - 1 : i + reach;
-        double sum = 0, weight = 0;
-        for (int j = low; j <= high; ++j) {
-            double w = weights[j < i ? i - j : j - i];
-            sum += w * scratch[j];
-            weight += w;
-        }
-        line[(size_t)i * stride] = (float)(sum / weight);
+    if (!any)
+        return;
+    memset(row, 0, (size_t)count * sizeof(*row));
+    for (int shift = -reach; shift <= reach; ++shift) {
+        float w = weights[shift < 0 ? -shift : shift];
+        int from = shift < 0 ? -shift : 0, to = shift > 0 ? count - shift : count;
+        for (int i = from; i < to; ++i)
+            row[i] += w * scratch[i + shift];
+    }
+    for (int i = 0; i < count; ++i) {
+        int left = i < reach ? i : reach, right = count - 1 - i < reach ? count - 1 - i : reach;
+        row[i] /= weights[0] + sums[left] + sums[right];
     }
 }
 
@@ -107,13 +111,27 @@ void sh_heat_blur(float *values, int columns, int rows, double sigma, float *scr
     // exp(-r² / 2σ²) falls below a millionth past r = σ √(2 ln 10⁶).
     int reach = (int)ceil(sigma * sqrt(2 * log(1e6)));
     reach = reach > REACH_MAX ? REACH_MAX : reach;
-    double weights[REACH_MAX + 1];
-    for (int r = 0; r <= reach; ++r)
-        weights[r] = exp(-r * r / (2 * sigma * sigma));
+    float weights[REACH_MAX + 1], sums[REACH_MAX + 1] = {0};
+    for (int r = 0; r <= reach; ++r) {
+        weights[r] = (float)exp(-r * r / (2 * sigma * sigma));
+        sums[r] = r ? sums[r - 1] + weights[r] : 0;
+    }
     for (int row = 0; row < rows; ++row)
-        blur_line(values + (size_t)row * columns, columns, 1, weights, reach, scratch);
-    for (int column = 0; column < columns; ++column)
-        blur_line(values + column, rows, (size_t)columns, weights, reach, scratch);
+        blur_row(values + (size_t)row * columns, columns, weights, sums, reach, scratch);
+    // Down the columns as sums of whole rows, which run along memory too.
+    memcpy(scratch, values, (size_t)columns * rows * sizeof(*values));
+    for (int row = 0; row < rows; ++row) {
+        int up = row < reach ? row : reach, down = rows - 1 - row < reach ? rows - 1 - row : reach;
+        float weight = weights[0] + sums[up] + sums[down];
+        float *out = values + (size_t)row * columns;
+        memset(out, 0, (size_t)columns * sizeof(*out));
+        for (int from = row - up; from <= row + down; ++from) {
+            float w = weights[from < row ? row - from : from - row] / weight;
+            const float *in = scratch + (size_t)from * columns;
+            for (int column = 0; column < columns; ++column)
+                out[column] += w * in[column];
+        }
+    }
 }
 
 void sh_heat_field(const struct sh_heat_grid *grid, enum sh_heat_kind kind, float *field,
@@ -220,11 +238,22 @@ void sh_heat_resample(const float *from, int columns, int rows, float *to, int t
                       (size_t)to_columns);
 }
 
+/* How finely sh_heat_paint tells levels apart: finer than a colour's 256 steps. */
+enum { PAINT_LEVELS = 1024 };
+
 void sh_heat_paint(const float *field, int columns, int rows, float most, double opacity,
                    uint32_t *pixels) {
+    // The colour of each level once, and a cell's level as sh_heat_level gives it.
+    uint32_t colors[PAINT_LEVELS + 1];
+    for (int i = 0; i <= PAINT_LEVELS; ++i)
+        colors[i] = sh_heat_pixel((double)i / PAINT_LEVELS, opacity);
+    float scale = most > 0 ? (float)(SPAN / most) : 0;
+    float steps = (float)(PAINT_LEVELS / log1p(SPAN));
     size_t count = (size_t)columns * rows;
-    for (size_t i = 0; i < count; ++i)
-        pixels[i] = sh_heat_pixel(sh_heat_level(field[i], most), opacity);
+    for (size_t i = 0; i < count; ++i) {
+        float level = field[i] > 0 ? log1pf(field[i] * scale) * steps + 0.5F : 0;
+        pixels[i] = colors[level < PAINT_LEVELS ? (int)level : PAINT_LEVELS];
+    }
 }
 
 /* The legend's glyphs, 5 dots wide (fewer for '.' and ' ') and 7 high, a row a byte, its dots in

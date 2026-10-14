@@ -76,7 +76,7 @@ void blur() {
     // A point spreads evenly about itself, round, keeping what it held while it stays clear of
     // the edges, where a cell weighs fewer cells.
     int columns = 25, rows = 25;
-    std::vector<float> values(columns * rows), scratch(columns);
+    std::vector<float> values(columns * rows), scratch(columns * rows);
     values[12 * columns + 12] = 1000;
     sh_heat_blur(values.data(), columns, rows, 1, scratch.data());
     auto at = [&](int column, int row) { return values[row * columns + column]; };
@@ -306,7 +306,7 @@ void layout() {
     // Each output blurred on its own, at its place.
     uint32_t counts[9] = {0, 0, 0, 0, 0, 0, 0, 0, 5};
     sh_heat_grid grid{3, 3, {counts, nullptr}};
-    float field[9], scratch[3];
+    float field[9], scratch[9];
     sh_heat_field(&grid, SH_HEAT_MOTION, field, scratch);
     bool placed = true;
     for (int row = 0; row < 3; ++row)

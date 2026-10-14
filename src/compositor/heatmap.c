@@ -259,15 +259,15 @@ static void place_legend(struct sh_heatmap *heat, struct sh_output *output, cons
 static void draw_overlay(struct sh_server *server) {
     struct sh_heatmap *heat = server->heatmap;
     count_rest(server, now_ms());
-    size_t cells = 0, side = 0;
+    size_t cells = 0, largest = 0;
     struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) {
         const struct sh_heat_grid *grid = output->heat ? &output->heat->grid : NULL;
         if (!grid || wlr_box_empty(&output->heat->box) || !grid->cells[0])
             continue;
-        cells += (size_t)grid->columns * grid->rows;
-        size_t longer = (size_t)(grid->columns > grid->rows ? grid->columns : grid->rows);
-        side = longer > side ? longer : side;
+        size_t count = (size_t)grid->columns * grid->rows;
+        cells += count;
+        largest = count > largest ? count : largest;
     }
     if (cells > heat->fields_size) {
         float *fields = realloc(heat->fields, cells * sizeof(*fields));
@@ -276,12 +276,12 @@ static void draw_overlay(struct sh_server *server) {
         heat->fields = fields;
         heat->fields_size = cells;
     }
-    if (side > heat->scratch_size) {
-        float *scratch = realloc(heat->scratch, side * sizeof(*scratch));
+    if (largest > heat->scratch_size) {
+        float *scratch = realloc(heat->scratch, largest * sizeof(*scratch));
         if (!scratch)
             return;
         heat->scratch = scratch;
-        heat->scratch_size = side;
+        heat->scratch_size = largest;
     }
     float most = 0;
     uint32_t hottest = 0;

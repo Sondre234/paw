@@ -378,8 +378,7 @@ Heatmap heatmap_from(const std::vector<std::vector<std::string>> &rows) {
         auto kind = heatmap.clicks ? SH_HEAT_CLICKS : SH_HEAT_MOTION;
         grid.cells[kind] = counts.data();
         heatmap.hottest = std::max<double>(heatmap.hottest, sh_heat_most(&grid, kind));
-        std::vector<float> field(counts.size()),
-            scratch(static_cast<std::size_t>(std::max(part.columns, part.rows)));
+        std::vector<float> field(counts.size()), scratch(counts.size());
         sh_heat_field(&grid, kind, field.data(), scratch.data());
         // Its place, to the nearest cell.
         int x0 = (part.x - left + SH_HEAT_CELL / 2) / SH_HEAT_CELL;
