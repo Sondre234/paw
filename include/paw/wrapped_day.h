@@ -31,7 +31,7 @@ enum sh_wrapped_counter {
     SH_WRAPPED_CLICKS_OTHER,
     SH_WRAPPED_SCROLL_PX, /* scrolling, in the units a wheel's notch is 15 of */
     SH_WRAPPED_SCROLL_MM,
-    SH_WRAPPED_KEYS, /* key presses, never which keys */
+    SH_WRAPPED_KEYS,     /* key presses, never which keys */
     SH_WRAPPED_GESTURES, /* touchpad swipes and pinches */
     SH_WRAPPED_WINDOWS_OPENED,
     SH_WRAPPED_WINDOWS_CLOSED,
@@ -72,8 +72,7 @@ const char *sh_wrapped_counter_name(enum sh_wrapped_counter counter);
 /* Frees the applications and empties the day. */
 void sh_wrapped_day_clear(struct sh_wrapped_day *day);
 /* Adds `value` to the counter, or for SH_WRAPPED_STARTED keeps the earlier time (0 is none). */
-void sh_wrapped_day_add(struct sh_wrapped_day *day, enum sh_wrapped_counter counter,
-                        int64_t value);
+void sh_wrapped_day_add(struct sh_wrapped_day *day, enum sh_wrapped_counter counter, int64_t value);
 /* Adds `seconds` to the application's focused time; "" stands for a window without an app ID,
  * and a tab or a line break in one becomes a space. False when out of memory. */
 bool sh_wrapped_day_add_app(struct sh_wrapped_day *day, const char *id, int64_t seconds);

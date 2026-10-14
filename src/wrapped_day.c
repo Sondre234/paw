@@ -10,11 +10,10 @@
 #include <unistd.h>
 
 static const char *const names[SH_WRAPPED_COUNTERS] = {
-    "sessions",      "started",        "active",         "idle",
-    "pointer_px",    "pointer_mm",     "clicks_left",    "clicks_right",
-    "clicks_middle", "clicks_other",   "scroll_px",      "scroll_mm",
-    "keys",          "gestures",       "windows_opened", "windows_closed",
-    "moves",         "resizes",        "snaps",          "workspace_switches",
+    "sessions",       "started",        "active",       "idle",          "pointer_px",
+    "pointer_mm",     "clicks_left",    "clicks_right", "clicks_middle", "clicks_other",
+    "scroll_px",      "scroll_mm",      "keys",         "gestures",      "windows_opened",
+    "windows_closed", "moves",          "resizes",      "snaps",         "workspace_switches",
     "overview_opens", "switcher_opens", "launches",
 };
 
@@ -95,8 +94,7 @@ bool sh_wrapped_day_merge(struct sh_wrapped_day *into, const struct sh_wrapped_d
     for (size_t i = 0; i < from->app_count; ++i)
         done &= sh_wrapped_day_add_app(into, from->apps[i].id, from->apps[i].seconds);
     if (from->streak.seconds > 0)
-        sh_wrapped_day_add_streak(into, from->streak.app, from->streak.seconds,
-                                  from->streak.start);
+        sh_wrapped_day_add_streak(into, from->streak.app, from->streak.seconds, from->streak.start);
     return done;
 }
 
@@ -189,8 +187,8 @@ bool sh_wrapped_path(const char *date, char *path, size_t size) {
     const char *state = getenv("XDG_STATE_HOME"), *home = getenv("HOME");
     int length;
     if (state && state[0] == '/')
-        length = snprintf(path, size, "%s/paw/wrapped%s%s", state, date ? "/" : "",
-                          date ? date : "");
+        length =
+            snprintf(path, size, "%s/paw/wrapped%s%s", state, date ? "/" : "", date ? date : "");
     else if (home && home[0] == '/')
         length = snprintf(path, size, "%s/.local/state/paw/wrapped%s%s", home, date ? "/" : "",
                           date ? date : "");
@@ -265,8 +263,8 @@ bool sh_wrapped_save(const char *date, const struct sh_wrapped_day *day) {
         return false;
     }
     fputs("# paw wrapped: what the desktop counted this day; `paw wrapped` reads it\n", file);
-    bool written = sh_wrapped_day_write(&merged, file) && fflush(file) == 0 &&
-                   fsync(fileno(file)) == 0;
+    bool written =
+        sh_wrapped_day_write(&merged, file) && fflush(file) == 0 && fsync(fileno(file)) == 0;
     int error = errno;
     if (fclose(file) != 0 && written) {
         written = false;
