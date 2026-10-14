@@ -225,7 +225,7 @@ void schema_matches_parser() {
             found = found || std::string(child->path) == name;
         require(found, std::string(name) + " missing from the schema");
     }
-    require(paw::config_children("").size() == 37, "the schema has an unknown top-level key");
+    require(paw::config_children("").size() == 38, "the schema has an unknown top-level key");
     // A key that is in the schema is accepted by keys(), however deeply nested.
     require(accepted("return {windows={rules={{app_id='x',sticky=true,focus=false}}}}"),
             "rule keys rejected");
