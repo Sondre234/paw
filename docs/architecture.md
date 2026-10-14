@@ -91,6 +91,7 @@ all. In short:
 | `volume.c` | The volume, microphone and brightness actions, which the shell carries out. |
 | `binding_mode.c` | Binding modes: which set of key bindings is in use. |
 | `shortcuts_inhibit.c` | Keyboard shortcuts inhibitors (keyboard-shortcuts-inhibit-unstable-v1): the keys the bindings take going to a virtual machine, a remote desktop or a game while it has the keyboard. |
+| `toys.c` | Toys, which only draw: `shake`, `gravity` and `party` posing windows through the animator, a party's rainbow borders and confetti, each window let go as anything else happens to it; `get toys`. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
 the file that defines it. The build warns (`-Wmissing-prototypes`) about one that is neither.

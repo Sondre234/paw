@@ -286,6 +286,7 @@ struct sh_window_rect;   // where a client shows a window on an output (minimize
 struct sh_mirror;        // what a mirroring output shows (mirror.c)
 struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c)
 struct sh_crossfade_picture; // what an output showed as it began
+struct sh_toys;              // the toy playing (toys.c)
 struct wlr_color_manager_v1;
 
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
@@ -752,6 +753,7 @@ struct sh_server {
     struct wl_list outputs;          /* enabled, in the layout */
     struct wl_list disabled_outputs; /* turned off by outputs.monitors */
     struct wl_listener new_output;
+    struct sh_toys *toys; /* the toy playing (toys.c), NULL for none */
 };
 
 /* Tearing on an output (tearing.c): what its frames do now (`tearing`, `refused`, or why its
@@ -1724,3 +1726,14 @@ void close_xwm_waker(struct sh_server *server);
 #endif
 void xwayland_ready(struct wl_listener *listener, void *data);
 #endif
+
+/* toys.c */
+void toys_shake(struct sh_server *server, struct sh_toplevel *toplevel);
+void toys_start(struct sh_server *server, enum sh_action action, int argument);
+void toys_tick(struct sh_server *server);
+void toys_press(struct sh_server *server);
+void toys_end(struct sh_server *server);
+void toys_forget(struct sh_toplevel *toplevel);
+bool toys_border(struct sh_toplevel *toplevel, float color[4]);
+struct wlr_scene_node *toys_confetti(struct sh_server *server);
+void describe_toys(struct sh_server *server, int fd, const char *arguments);

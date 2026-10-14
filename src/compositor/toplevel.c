@@ -450,6 +450,7 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
         sh_anim_close(server->animator, &toplevel->scene_tree->node, toplevel->content,
                       box.width / 2.0, box.height / 2.0);
     }
+    toys_forget(toplevel); // closing where a toy drew it, it plays no more
     sh_anim_finish(&toplevel->anim);
     toplevel->shown = false;
     swallow_end(toplevel);
