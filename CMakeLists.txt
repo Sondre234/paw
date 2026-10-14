@@ -824,6 +824,7 @@ if(PAW_BUILD_COMPOSITOR)
             paw_smoke(idle_suspend_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>
                 $<TARGET_FILE:lock_probe>)
             paw_smoke(lid_logind_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
+            paw_smoke(doctor_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
         endif()
         # The compositor benchmark (tools/bench/bench.py); see docs/performance.md.
         paw_probe(paw-bench-client tools/bench/bench_client.c
