@@ -665,6 +665,37 @@ static void get_scratchpad(struct sh_server *server, int fd, const char *argumen
     }
 }
 
+static void get_bounds(struct sh_server *server, int fd, const char *arguments) {
+    // Per window, in the order of `get windows`: its title, the box of the monitor it keeps to as
+    // a tile of the scrolling layout (placement.c's bound_tile) as X,Y,WIDTH,HEIGHT, or "-",
+    // whether its content is drawn (0 while it rests past that monitor's edges), and the clip its
+    // content is drawn with, cut or not, in layout coordinates as X,Y,WIDTH,HEIGHT, and the
+    // clip's radius (each "-" for none).
+    control_reply(fd, "ok\n");
+    struct sh_toplevel *toplevel;
+    wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
+        if (!toplevel->content)
+            continue;
+        char title[512], bound[64] = "-", clip[64] = "-", radius[16] = "-";
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        const struct wlr_box *b = &toplevel->bound;
+        if (toplevel->bounded)
+            snprintf(bound, sizeof(bound), "%d,%d,%d,%d", b->x, b->y, b->width, b->height);
+        int x, y;
+        wlr_scene_node_coords(&toplevel->content->node, &x, &y);
+        const struct sh_clip_wish *drawn = &toplevel->content_clip;
+        if (drawn->set) {
+            snprintf(clip, sizeof(clip), "%d,%d,%d,%d", x + drawn->box.x, y + drawn->box.y,
+                     drawn->box.width, drawn->box.height);
+            snprintf(radius, sizeof(radius), "%d", drawn->radius);
+        }
+        char line[800];
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%s\t%s\n", title, bound,
+                 toplevel->content->node.enabled, clip, radius);
+        control_reply(fd, line);
+    }
+}
+
 static void get_window_icons(struct sh_server *server, int fd, const char *arguments) {
     // Per window, in the order of `get windows`: its number (0 before it is published), app_id,
     // and the icon it supplies itself (window_icon.c): its name and the size of its pixels as
@@ -885,6 +916,7 @@ static const struct {
     {"window_peek", get_window_peek, false},
     {"window_icons", get_window_icons, false},
     {"scratchpad", get_scratchpad, false},
+    {"bounds", get_bounds, false},
     {"opacities", get_opacities, false},
     {"frames", get_frames, false},
     {"drawn", get_drawn, false},

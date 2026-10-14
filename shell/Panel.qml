@@ -489,10 +489,10 @@ Item {
     readonly property Item groupPopup: thumbnailsOpen ? thumbnailsLoader.item : groupListLoader.item
     readonly property bool groupListHovered: groupPopup ? groupPopup.hovered : false
     // Something is open in the popover, or the bar has the keyboard there, or is being dragged
-    // (every panel's shows where it would go), or resized from this panel (whose popover holds
-    // the keyboard for Escape). The list shown on hover does not take the keyboard: it opens under
-    // a window being typed in.
-    readonly property bool expanded: menuOpen || groupOpen || workspaceCardOpen || barKeys.active || barDragging ||
+    // (showsBarDrop: the popover shows where it would go), or resized from this panel (whose
+    // popover holds the keyboard for Escape). The list shown on hover does not take the keyboard:
+    // it opens under a window being typed in.
+    readonly property bool expanded: menuOpen || groupOpen || workspaceCardOpen || barKeys.active || showsBarDrop ||
                                      barDragOrigin && barResizing ||
                                      dropGhostShown
     // What a window dragged onto a workspace carries shows in the popover, over the bar.
@@ -588,7 +588,7 @@ Item {
     // The output but the bar's strip, where popups stay (PopupCard's bounds); between the menu
     // bar and the dock's strip in the macOS style.
     readonly property rect popupArea: macos
-        ? Qt.rect(0, menuBarHeight, popover.width, popover.height - menuBarHeight - shell.panelExtent)
+        ? Qt.rect(0, menuBarHeight, popover.width, popover.height - menuBarHeight - shellView.panelExtent)
         : vertical ? Qt.rect(edge === "left" ? width : 0, 0, popover.width - width, popover.height)
         : Qt.rect(0, onTop ? height : 0, popover.width, popover.height - height)
     // Where a list shown on hover takes the pointer: over it and across to the bar, so that the
@@ -1266,27 +1266,35 @@ Item {
         var state = shell.workspaces[outputName]
         return state && state.tiling !== undefined ? state.tiling : shell.tiling
     }
-    // The output's edge the bar is along (shell.panelEdge; the dock is at the bottom whatever
-    // shell.panel_position says, and the tiling bar where shell.tiling_bar says), and whether
-    // that is a side, where the bar stands upright and things on it are placed by their y rather
-    // than their x.
-    readonly property string edge: tilingBarShown ? (shell.tilingBar.top ? "top" : "bottom") : shell.panelEdge
-    readonly property bool vertical: !tilingBarShown && shell.panelVertical
+    // The output's edge the bar is along (its view's: shell.panel_positions' for this output, or
+    // shell.panel_position; the dock is at the bottom whatever they say, and the tiling bar where
+    // shell.tiling_bar says), and whether that is a side, where the bar stands upright and things
+    // on it are placed by their y rather than their x.
+    readonly property string edge: tilingBarShown ? (shell.tilingBar.top ? "top" : "bottom") : shellView.panelEdge
+    readonly property bool vertical: !tilingBarShown && shellView.panelVertical
     readonly property bool onTop: edge === "top"
+    // A button on the bar as it stands: Theme.barButtonWidth by barButtonHeight, or along a side
+    // as wide as the bar leaves and as tall as one along the bottom is wide. The widgets stack
+    // what they show along a side (vertical).
+    readonly property real barItemWidth: vertical ? Theme.barButtonHeight : Theme.barButtonWidth
+    readonly property real barItemHeight: vertical ? Theme.barButtonWidth : Theme.barButtonHeight
     // Taskbar buttons show only the window's icon, its title as a tooltip: with shell.iconsOnly,
     // and always down a side, where no title fits.
     readonly property bool iconsOnly: shell.iconsOnly || vertical
 
     // Dragging the bar to another edge (shell.panel_draggable): a press on its empty space that
-    // moves starts it here (startBarDrag), the compositor taking the pointer, and every panel's
-    // popover then shows where the bar would go, the edge nearest the pointer on the output it is
-    // over, taking no input; letting go moves it there (shell.movePanel), and Escape leaves it.
+    // moves starts it here (startBarDrag), the compositor taking the pointer, and the popover
+    // then shows where the bar would go (showsBarDrop), the edge of its output nearest the
+    // pointer, taking no input: this panel's alone, or every panel's when every bar moves
+    // (shell.panelPerMonitor off). Letting go moves it there (shell.movePanel), and Escape leaves
+    // it.
     // Resizing it by its inner edge (the same setting) starts with a press there
     // (startBarResize), the compositor taking the pointer too, and every bar is as tall as
     // shell.panelHeight says as the edge is dragged (as wide down a side); letting go keeps that
     // (shell.resizePanel), and Escape puts the old size back. The panel either started on holds
     // the keyboard meanwhile, for Escape.
     readonly property bool barDragging: shell.barDragging
+    readonly property bool showsBarDrop: barDragging && (!shell.panelPerMonitor || shell.barDragOutput === outputName)
     readonly property bool barResizing: shell.barResizing
     readonly property bool barHeld: barDragging || barResizing
     property bool barDragOrigin: false
@@ -1301,7 +1309,7 @@ Item {
             return
         closeMenus()
         barDragOrigin = true
-        shell.startBarDrag()
+        shell.startBarDrag(outputName)
     }
     // The bar's inner edge pressed at `point`, in the panel's coordinates: how far that is from
     // the output's edge the bar is along, from which the bar follows the pointer.
@@ -1310,7 +1318,8 @@ Item {
             return
         closeMenus()
         barDragOrigin = true
-        shell.startBarResize(Math.round(edge === "top" ? point.y : edge === "bottom" ? height - point.y
+        shell.startBarResize(outputName,
+                             Math.round(edge === "top" ? point.y : edge === "bottom" ? height - point.y
                                         : edge === "left" ? point.x : width - point.x))
     }
 
@@ -1373,7 +1382,7 @@ Item {
                 objectName: "barDropPreview"
                 readonly property string edge: shell.barDragEdge
                 readonly property bool upright: edge === "left" || edge === "right"
-                visible: root.barDragging
+                visible: root.showsBarDrop
                 x: edge === "right" ? parent.width - width - shell.panelMarginRight : shell.panelMarginLeft
                 y: edge === "bottom" ? parent.height - height - shell.panelMarginBottom : shell.panelMarginTop
                 width: upright ? shell.panelHeight : parent.width - shell.panelMarginLeft - shell.panelMarginRight
@@ -1381,10 +1390,10 @@ Item {
                 radius: Math.max(shell.panelRadius, Theme.radiusSmall)
                 color: Theme.alpha(Theme.accent, 0.25)
                 border.width: 2; border.color: Theme.accent
-                Behavior on x { enabled: root.barDragging; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
-                Behavior on y { enabled: root.barDragging; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
-                Behavior on width { enabled: root.barDragging; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
-                Behavior on height { enabled: root.barDragging; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
+                Behavior on x { enabled: root.showsBarDrop; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
+                Behavior on y { enabled: root.showsBarDrop; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
+                Behavior on width { enabled: root.showsBarDrop; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
+                Behavior on height { enabled: root.showsBarDrop; NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
             }
             MouseArea {
                 anchors.fill: parent
@@ -1620,9 +1629,9 @@ Item {
         target: root.shellView
         property: "inputRects"
         value: root.dock ? [root.dock.area]
-             : root.tilingBarShown || shell.panelHeadroom <= 0 ? []
-             : root.vertical ? [Qt.rect(root.edge === "left" ? 0 : shell.panelHeadroom, 0, shell.panelExtent, root.height)]
-             : [Qt.rect(0, root.onTop ? 0 : shell.panelHeadroom, root.width, shell.panelExtent)]
+             : root.tilingBarShown || root.shellView.panelHeadroom <= 0 ? []
+             : root.vertical ? [Qt.rect(root.edge === "left" ? 0 : root.shellView.panelHeadroom, 0, root.shellView.panelExtent, root.height)]
+             : [Qt.rect(0, root.onTop ? 0 : root.shellView.panelHeadroom, root.width, root.shellView.panelExtent)]
     }
 
     // The surface lies along the tiling bar's edge, as tall as the strip it reserves, while it

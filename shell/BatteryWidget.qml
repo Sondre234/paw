@@ -11,8 +11,8 @@ FlatButton {
     readonly property bool low: icon.low
     readonly property color tint: icon.tint
     visible: shell.widgets.battery === "bar" && status.batteryPresent
-    Layout.preferredWidth: Theme.barVertical ? Theme.barItemWidth : charge.implicitWidth + 2 * Theme.spacingM
-    Layout.preferredHeight: Theme.barVertical ? charge.implicitHeight + 2 * Theme.spacingS : Theme.barButtonHeight
+    Layout.preferredWidth: panel.vertical ? panel.barItemWidth : charge.implicitWidth + 2 * Theme.spacingM
+    Layout.preferredHeight: panel.vertical ? charge.implicitHeight + 2 * Theme.spacingS : Theme.barButtonHeight
     hoverEnabled: true
     Accessible.name: status.batteryText
     BarTip { panel: battery.panel; owner: battery; text: battery.status.batteryText }
@@ -21,7 +21,7 @@ FlatButton {
         id: charge
         spacing: Theme.spacingS
         anchors.centerIn: parent
-        columns: Theme.barVertical ? 1 : 2
+        columns: panel.vertical ? 1 : 2
         horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
         BatteryIcon {
             id: icon
