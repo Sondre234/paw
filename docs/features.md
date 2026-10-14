@@ -162,20 +162,27 @@ tooltips), then the widgets one above the other, the clock with the hours over t
 the sliver at the bottom; tooltips and popups open beside it, the clock's notifications above its
 calendar.
 
+Each monitor's bar can have its own edge: `panel_positions = { ["DP-1"] = "left", ["HDMI-A-1"] =
+"top" }` names them by the monitors' names (`paw msg get outputs`), and `panel_position` stays the
+edge of the monitors left out. `panel_per_monitor = false` puts every bar along `panel_position`
+instead.
+
 With `panel_draggable = true` the bar can be dragged to another edge, as on Windows with the
 taskbar unlocked: press an empty part of it and drag, and an outline shows where it goes, the
-edge of the monitor nearest the pointer. Let go there and it moves, and paw writes the new
-`panel_position` into your configuration file where it takes effect: the profile in use, when
-that sets it, else the `shell` table, which gains the setting (or is added) when it lacks it. The
-rest of the file is left as it was, comments and all. Escape, or letting go at its own edge,
-leaves the bar where it was.
+edge of its monitor nearest the pointer (past an edge it shares with another monitor, that edge).
+Let go there and it moves, and paw writes the new edge into your configuration file: that
+monitor's `panel_positions` entry, the other monitors' bars staying where they are, or with
+`panel_per_monitor = false` the `panel_position` of every bar. It goes where it takes effect: the
+profile in use, when that sets it, else the `shell` table, which gains the setting (or is added)
+when it lacks it. The rest of the file is left as it was, comments and all. Escape, or letting go
+at its own edge, leaves the bar where it was.
 
 The same setting lets you resize the bar by its inner edge, the one facing the desktop (its top
 edge along the bottom of the monitor): the pointer turns into a resize cursor over it, and dragging
 it makes the bar taller or shorter, or wider or narrower down a side, between 24 and 100 pixels.
 Every monitor's bar follows as you drag, its buttons growing with it, and maximized and tiled
 windows make room as it goes. Let go and paw writes the new `panel_height` into your configuration
-file the way it writes `panel_position`; Escape puts the old size back. The macOS style's dock and
+file the way it writes the bar's edge; Escape puts the old size back. The macOS style's dock and
 the tiling bar keep their sizes.
 
 A floating bar docks while a window reaches the edge of the monitor's free area it is along (a

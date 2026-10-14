@@ -792,16 +792,19 @@ one of the dock (an application's menu, the windows of one) by `panel.dockAnchor
 `panel.dockSide`, which on the taskbar are the bar's. A change of style makes and drops the
 bars, and the surfaces follow at once.
 
-Along a side (`shell.panelEdge` "left" or "right", `panel.vertical`), the panel's surface runs down
-the output and the taskbar stands upright: its `GridLayout` is a column, and the widgets stack what
-they show by `Theme.barVertical`, a button `Theme.barItemWidth` by `barItemHeight`. A popup's place
-along the bar is then a y: `panel.alongBar(item, offset)` and `panel.lengthAlong(item)` say where
-something on the bar is along it, which `barAnchor` and `dockAnchor` turn into the rectangle a popup
-opens beside, on `popupSide`. A drag of the bar to another edge (`shell.panel_draggable`) asks the
-compositor for the pointer (`panel_drag`, `src/compositor/panel_drag.c`), as a window's move takes
-it: a surface the pointer went on to would never hear the button let go. The `panel-drag` lines it
-sends move the outline every panel's popover shows, taking no input, and `panel-dropped` has
-`ShellController::movePanel` write `shell.panel_position` with `paw::save_setting`
+Each monitor's bar has its own edge (`shell.panel_positions` over `panel_position`), which its
+`ShellView` says as `panelEdge`, with `panelVertical`, `panelExtent` and `panelHeadroom`; the panel
+reads them as `panel.edge` and the rest. Along a side (`panel.vertical`), the panel's surface runs
+down the output and the taskbar stands upright: its `GridLayout` is a column, and the widgets stack
+what they show by `panel.vertical`, a button `panel.barItemWidth` by `barItemHeight`. A popup's
+place along the bar is then a y: `panel.alongBar(item, offset)` and `panel.lengthAlong(item)` say
+where something on the bar is along it, which `barAnchor` and `dockAnchor` turn into the rectangle a
+popup opens beside, on `popupSide`. A drag of the bar to another edge (`shell.panel_draggable`) asks
+the compositor for the pointer (`panel_drag OUTPUT`, `src/compositor/panel_drag.c`), as a window's
+move takes it: a surface the pointer went on to would never hear the button let go. The
+`panel-drag` lines it sends move the outline the dragged bar's popover shows (every panel's while
+every bar moves), taking no input, and `panel-dropped` has `ShellController::movePanel` write the
+monitor's `shell.panel_positions` entry, or `shell.panel_position`, with `paw::save_setting`
 (`src/config_edit.cpp`) and load the file again.
 
 A press on the bar's inner edge (the `barResizeEdge` strip in `Taskbar.qml`, under the same
