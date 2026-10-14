@@ -1278,6 +1278,32 @@ ListModel {
         }
         editTasks("model.remove(1)");
     }
+    // A window's button takes its application's icon anew when the desktop entry names another,
+    // as a script following the appearance profile has it do.
+    {
+        const auto entry = screens.filePath("data/applications/paw-test-restyled.desktop");
+        auto restyle = [&](const QString &icon) {
+            return writeFile(entry, ("[Desktop Entry]\nType=Application\nName=Restyled app\n"
+                                     "Exec=true\nIcon=" + icon + "\n").toUtf8());
+        };
+        if (!restyle("paw-restyled-day"))
+            return fail("could not write the restyled application");
+        editTasks("model.append({taskId: 97, title: 'Restyled', appId: 'paw-test-restyled', "
+                  "active: false, minimized: false, urgent: false})");
+        auto icon = [&] {
+            auto *button = listedTask(1);
+            return button ? button->property("iconName").toString() : QString();
+        };
+        if (!waitFor([&] { return icon() == "paw-restyled-day"; }, 10000))
+            return fail("a window's button has not its application's icon");
+        if (!restyle("paw-restyled-night") ||
+            !waitFor([&] { return icon() == "paw-restyled-night"; }, 10000))
+            return fail("a window's button kept the icon its desktop entry no longer names");
+        editTasks("model.remove(1)");
+        QFile::remove(entry);
+        if (!waitFor([&] { return controller.appFor("paw-test-restyled").isEmpty(); }, 10000))
+            return fail("the restyled application stayed installed");
+    }
     // A window's button fades and grows in as its window opens, its line drawn out, and shrinks
     // away as it closes, taking no more clicks. Slowed down, so that it is seen on its way.
     {
