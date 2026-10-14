@@ -4,9 +4,8 @@ top, taking no input there; it falls onto the window below as that window is min
 the floor above the taskbar as that one is; nobody using the computer (PAW_TEST_CAT_SLEEP_MS), it
 sleeps, drawing a frame only now and then, and input wakes it; a pointer flicked past it sets it
 running; it hides behind a fullscreen window, under the overview and under the lock; it pats the
-top of a window that asks for attention; and it goes
-as it is called in, by
-`paw cat`, a binding or cat.enabled changing in a reload. With grim, the screen shows it."""
+top of a window that asks for attention; and it goes as it is called in, by `paw cat`, a binding
+or cat.enabled changing in a reload. With grim, the screen shows it."""
 from pathlib import Path
 import subprocess
 import sys
