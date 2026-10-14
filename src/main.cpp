@@ -38,11 +38,12 @@ bool has_env(const char *name) {
     const char *value = std::getenv(name);
     return value && *value;
 }
-/* Starts `command`, with `extra_env` laid over the environment and in `directory` when one is
- * given: its pid, or -1 with `failure` saying why. */
+/* Starts `command`, with `extra_env` laid over the environment, in `directory` when one is
+ * given and with the signals of `blocked` blocked when it is not null: its pid, or -1 with
+ * `failure` saying why. */
 pid_t start_program(const paw::Command &command, std::string &failure,
                     const std::vector<std::string> &extra_env = {},
-                    const std::string &directory = {}) {
+                    const std::string &directory = {}, const sigset_t *blocked = nullptr) {
     std::vector<char *> argv;
     for (const auto &arg : command)
         argv.push_back(const_cast<char *>(arg.c_str()));
@@ -70,7 +71,10 @@ pid_t start_program(const paw::Command &command, std::string &failure,
         return -1;
     }
     sigset_t mask;
-    sigemptyset(&mask);
+    if (blocked)
+        mask = *blocked;
+    else
+        sigemptyset(&mask);
     error = posix_spawnattr_setsigmask(&attributes, &mask);
     if (!error)
         error = posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK);
@@ -94,9 +98,10 @@ pid_t start_program(const paw::Command &command, std::string &failure,
     return error ? -1 : pid;
 }
 /* start_program, saying on standard error when it fails. */
-pid_t spawn(const paw::Command &command, const std::vector<std::string> &extra_env = {}) {
+pid_t spawn(const paw::Command &command, const std::vector<std::string> &extra_env = {},
+            const sigset_t *blocked = nullptr) {
     std::string failure;
-    pid_t pid = start_program(command, failure, extra_env);
+    pid_t pid = start_program(command, failure, extra_env, {}, blocked);
     if (pid < 0)
         std::cerr << static_cast<char>(std::toupper(static_cast<unsigned char>(failure[0])))
                   << failure.substr(1) << '\n';
@@ -383,8 +388,14 @@ struct Runtime {
             // the host's agent.
             if (login)
                 extra_env.push_back("PAW_POLKIT_AGENT=1");
+            // A reload (SIGHUP) sent before the shell catches it would end the shell: blocked, it
+            // waits until the shell unblocks it with its handler in place.
+            sigset_t blocked;
+            sigemptyset(&blocked);
+            sigaddset(&blocked, SIGHUP);
             shell_pid = spawn(
-                {binary.string(), "-platform", "wayland", "--config", path.string()}, extra_env);
+                {binary.string(), "-platform", "wayland", "--config", path.string()}, extra_env,
+                &blocked);
         } catch (const std::exception &error) {
             std::cerr << "Cannot start desktop shell: " << error.what() << '\n';
         }
