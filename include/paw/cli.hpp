@@ -26,4 +26,9 @@ std::vector<std::vector<std::string>> query(const std::string &name);
 // $XDG_STATE_HOME/paw, else ~/.local/state/paw; empty without either.
 std::filesystem::path state_directory();
 
+// `paw shake [WINDOW]`, `paw gravity` and `paw party` (src/cli/toys.cpp), and the request line
+// each sends.
+int toy(int argc, char **argv);
+std::string toy_request(int argc, char **argv);
+
 } // namespace paw::cli
