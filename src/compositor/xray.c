@@ -213,12 +213,13 @@ static struct sh_output *xray_output(struct sh_server *server) {
     return output ? sh_output_for(server, output) : NULL;
 }
 
-/* The colour paw draws under every surface, as #rrggbb. */
-static void xray_background(const struct sh_settings *settings, char *text, size_t size) {
+/* The colour paw draws under every surface, as 0xRRGGBB. */
+static uint32_t xray_background(const struct sh_settings *settings) {
     const float *bg = settings->background; // premultiplied
     float a = bg[3] > 0 ? bg[3] : 1;
-    snprintf(text, size, "#%02x%02x%02x", (int)lroundf(fminf(1, bg[0] / a) * 255),
-             (int)lroundf(fminf(1, bg[1] / a) * 255), (int)lroundf(fminf(1, bg[2] / a) * 255));
+    return (uint32_t)lroundf(fminf(1, bg[0] / a) * 255) << 16 |
+           (uint32_t)lroundf(fminf(1, bg[1] / a) * 255) << 8 |
+           (uint32_t)lroundf(fminf(1, bg[2] / a) * 255);
 }
 
 /* The name a sheet goes by in the shell: the app ids and namespaces of what it shows, and a
@@ -251,7 +252,7 @@ static void xray_label(const struct xray_entry *entries, int count, int sheet, c
     if (!shown) {
         // The colour alone: what paw draws under every surface.
         snprintf(name, name_size, "paw");
-        xray_background(settings, detail, detail_size);
+        snprintf(detail, detail_size, "#%06x", (unsigned)xray_background(settings));
     } else if (shown == 1 && only->window) {
         copy_field(detail, detail_size, toplevel_title(only->window));
     } else if (shown == 1) {
@@ -478,9 +479,7 @@ static void xray_sheet_draw(struct sh_server *server, const struct xray_entry *e
     float colour[4];
     uint32_t tint = xray_layers[sheet->layer].colour;
     if (sheet->layer == XRAY_BACKGROUND) {
-        char hex[16];
-        xray_background(settings, hex, sizeof(hex));
-        xray_colour(colour, (uint32_t)strtoul(hex + 1, NULL, 16), fade);
+        xray_colour(colour, xray_background(settings), fade);
     } else {
         float dark[4];
         overview_tint(dark, settings, 0.05f, 1);
@@ -621,6 +620,9 @@ static bool xray_refresh(struct sh_server *server) {
         sheet->veil = sh_xray_ease(sheet->veil, veil, elapsed, settle, 1e-3);
         moving |= sheet->lift != lift || sheet->veil != veil;
     }
+    // Closed back into the screen, it goes, whatever still eases.
+    if (xray->closing && xray->progress == xray->to)
+        moving = false;
     xray_layout(xray);
     if (xray->pointing && xray->open)
         xray_hover(server, xray_sheet_at_pointer(server));
@@ -995,7 +997,8 @@ void describe_xray(struct sh_server *server, int fd, const char *arguments) {
             char name[128], title[256];
             if (entry->kind == XRAY_COLOUR) {
                 snprintf(name, sizeof(name), "paw");
-                xray_background(server_settings(server), title, sizeof(title));
+                snprintf(title, sizeof(title), "#%06x",
+                         (unsigned)xray_background(server_settings(server)));
             } else {
                 copy_field(name, sizeof(name),
                            entry->surface ? entry->surface->surface->namespace
