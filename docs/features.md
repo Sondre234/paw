@@ -2903,6 +2903,12 @@ heatmap_overlay` prints a line per monitor while the overlay is there: the monit
 `hiding` while it fades out, what it shows, its opacity in thousandths, what the legend says at
 the hot end, and how many times it has been drawn.
 
+`paw heatmap [toggle|motion|clicks|reset]` runs the action from a terminal or a script. `paw
+heatmap --term` draws the heatmap there instead, every monitor at its place in the layout,
+fitted to the terminal: two pixels a character, in 24-bit colour with half blocks (▀), or in
+shades (░ ▒ ▓ █) when `NO_COLOR` is set, with the scale and the hottest cell's count below.
+`--clicks` shows the clicks in place of the rest, and `--output NAME` one monitor alone.
+
 ## Screen locking and idle
 
 Screen locking uses the standard `ext-session-lock-v1` protocol, so lockers such

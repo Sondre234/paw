@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* The pointer heatmap's arithmetic (src/heatmap.c): the grid's counts and their resizing, the
- * blur, the scale and its colours, resampling, and the legend's text; and the heatmap action's
- * choices in bindings. */
+ * blur, the scale and its colours, resampling, and the legend's text; the heatmap action's
+ * choices in bindings; and `paw heatmap`'s layout of the outputs and its pictures in a terminal
+ * (src/cli/heatmap.cpp). */
 #include "check.h"
 #include "config_check.hpp"
+#include "paw/cli.hpp"
 #include "paw/heatmap.h"
 
 #include <algorithm>
@@ -248,11 +250,10 @@ void legend() {
 
 void bindings() {
     // The action takes its choice from `mode`; without one it toggles.
-    auto config = paw::parse_config(
-        "return {bindings={{mods={'Super'},key='h',action='heatmap'},"
-        "{mods={'Super'},key='j',action='heatmap',mode='clicks'},"
-        "{mods={'Super'},key='k',action='heatmap',mode='reset'},"
-        "{mods={'Super'},key='l',action='heatmap',mode='motion'}}}");
+    auto config = paw::parse_config("return {bindings={{mods={'Super'},key='h',action='heatmap'},"
+                                    "{mods={'Super'},key='j',action='heatmap',mode='clicks'},"
+                                    "{mods={'Super'},key='k',action='heatmap',mode='reset'},"
+                                    "{mods={'Super'},key='l',action='heatmap',mode='motion'}}}");
     const auto &b = config.bindings;
     CHECK(b.size() == 4 && b[0].action == SH_HEATMAP && b[0].mode == SH_HEATMAP_TOGGLE &&
           b[1].mode == SH_HEATMAP_CLICKS && b[2].mode == SH_HEATMAP_RESET &&
@@ -261,6 +262,127 @@ void bindings() {
     auto refused = error_of("return {bindings={{key='h',action='heatmap',mode='hot'}}}");
     CHECK(refused.find("heatmap must be") != std::string::npos, "%s", refused.c_str());
     error_of("return {bindings={{key='h',action='heatmap',mode=1}}}");
+}
+
+// Two outputs side by side, 32 by 16 and 24 by 24 logical pixels: a place where the pointer
+// rested 900 ms on the first, 5 ms on the second.
+const char *const two_outputs = "A\tmotion\t4\t2\t8\t0\t0\t32\t16\n"
+                                "0\t0\t0\t0\n"
+                                "0\t0\t0\t900\n"
+                                "B\tmotion\t3\t3\t8\t32\t0\t24\t24\n"
+                                "0\t0\t0\n"
+                                "0\t0\t0\n"
+                                "0\t0\t5\n";
+
+bool throws(auto &&call) {
+    try {
+        call();
+    } catch (const std::runtime_error &) {
+        return true;
+    }
+    return false;
+}
+
+void layout() {
+    auto heatmap = paw::cli::heatmap_from(paw::cli::rows(two_outputs));
+    CHECK(heatmap.columns == 7 && heatmap.rows == 3 && heatmap.width == 56 && heatmap.height == 24);
+    CHECK((heatmap.outputs == std::vector<std::string>{"A", "B"}) && !heatmap.clicks &&
+          heatmap.hottest == 900);
+    auto at = [&](const std::vector<float> &cells, int column, int row) {
+        return cells[row * heatmap.columns + column];
+    };
+    CHECK(at(heatmap.inside, 0, 0) == 1 && at(heatmap.inside, 3, 1) == 1 &&
+              at(heatmap.inside, 0, 2) == 0 && at(heatmap.inside, 3, 2) == 0 &&
+              at(heatmap.inside, 4, 2) == 1 && at(heatmap.inside, 6, 0) == 1,
+          "the cells on an output, and between them below the first");
+    // Each output blurred on its own, at its place.
+    uint32_t counts[9] = {0, 0, 0, 0, 0, 0, 0, 0, 5};
+    sh_heat_grid grid{3, 3, {counts, nullptr}};
+    float field[9], scratch[3];
+    sh_heat_field(&grid, SH_HEAT_MOTION, field, scratch);
+    bool placed = true;
+    for (int row = 0; row < 3; ++row)
+        for (int column = 0; column < 3; ++column)
+            placed = placed && at(heatmap.field, 4 + column, row) == field[row * 3 + column];
+    CHECK(placed, "the second output's field beside the first's, apart from it");
+    CHECK(at(heatmap.field, 3, 1) == sh_heat_peak(heatmap.field.data(), heatmap.field.size()));
+
+    auto clicks = paw::cli::heatmap_from(paw::cli::rows("A\tclicks\t1\t1\t8\t0\t0\t8\t8\n3\n"));
+    CHECK(clicks.clicks && clicks.hottest == 3 && clicks.columns == 1);
+    CHECK(paw::cli::heatmap_from({}).columns == 0, "no output, no picture");
+    CHECK(throws([] { paw::cli::heatmap_from(paw::cli::rows("A\tmotion\t2\t1\t8\t0\t0\n")); }),
+          "a header cut short");
+    CHECK(throws([] {
+              paw::cli::heatmap_from(paw::cli::rows("A\tmotion\t2\t2\t8\t0\t0\t16\t16\n1\t2\n"));
+          }),
+          "rows cut short");
+    CHECK(throws([] {
+              paw::cli::heatmap_from(paw::cli::rows("A\tmotion\t2\t1\t8\t0\t0\t16\t8\n1\n"));
+          }),
+          "a row cut short");
+}
+
+std::vector<std::string> lines_of(const std::string &text) {
+    std::vector<std::string> lines;
+    for (size_t start = 0, end; start < text.size(); start = end + 1) {
+        end = text.find('\n', start);
+        lines.push_back(text.substr(start, end - start));
+    }
+    return lines;
+}
+
+// How many characters of the picture's: half blocks, shades and spaces, not escapes.
+size_t characters(const std::string &line) {
+    size_t count = 0;
+    for (size_t i = 0; i < line.size();) {
+        if (line[i] == '\x1b') {
+            i = line.find('m', i) + 1;
+            continue;
+        }
+        ++count;
+        i += (static_cast<unsigned char>(line[i]) & 0xe0) == 0xe0 ? 3 : 1;
+    }
+    return count;
+}
+
+void terminal() {
+    auto heatmap = paw::cli::heatmap_from(paw::cli::rows(two_outputs));
+    CHECK(paw::cli::heatmap_text(paw::cli::Heatmap{}, 80, 24, true) == "No output in the layout\n");
+    // 7 by 3 cells in 14 characters by 3 lines, two pixels a character: twice as many each way.
+    auto lines = lines_of(paw::cli::heatmap_text(heatmap, 14, 5, true));
+    CHECK(lines.size() == 4, "%zu lines", lines.size());
+    for (size_t i = 0; i < 3; ++i)
+        CHECK(characters(lines[i]) == 14 && lines[i].ends_with("\x1b[0m"), "%s", lines[i].c_str());
+    CHECK(lines[0].find("\x1b[38;2;") != std::string::npos &&
+          lines[0].find("▀") != std::string::npos);
+    // Below the first output, between it and nothing, the terminal's own background shows.
+    CHECK(lines[2].find("\x1b[49m        ") != std::string::npos, "%s", lines[2].c_str());
+    CHECK(lines[3].ends_with("900 ms  pointer rest on A, B"), "%s", lines[3].c_str());
+    // Fitted to the terminal, in proportion.
+    CHECK(characters(lines_of(paw::cli::heatmap_text(heatmap, 200, 5, true))[0]) == 14);
+    auto narrow = lines_of(paw::cli::heatmap_text(heatmap, 7, 50, true));
+    CHECK(narrow.size() == 3 && characters(narrow[0]) == 7, "%zu", narrow.size());
+
+    // Without colour, a shade a character, as tall as it is.
+    auto plain = paw::cli::heatmap_text(heatmap, 14, 5, false);
+    CHECK(plain.find('\x1b') == std::string::npos, "no escapes without colour");
+    lines = lines_of(plain);
+    CHECK(lines.size() == 4 && lines[1].find("█") != std::string::npos, "%s", plain.c_str());
+    CHECK(lines[3].starts_with("0  ") && lines[3].find("░▒") != std::string::npos &&
+              lines[3].ends_with("█ 900 ms  pointer rest on A, B"),
+          "%s", lines[3].c_str());
+}
+
+void arguments() {
+    auto refused = [](std::vector<const char *> words) {
+        words.insert(words.begin(), {"paw", "heatmap"});
+        return throws([&] {
+            paw::cli::heatmap(static_cast<int>(words.size()), const_cast<char **>(words.data()));
+        });
+    };
+    CHECK(refused({"hot"}) && refused({"toggle", "motion"}) && refused({"--clicks"}) &&
+              refused({"reset", "--term"}) && refused({"--output", "A"}),
+          "usage errors");
 }
 
 } // namespace
@@ -272,6 +394,9 @@ int main() {
     resample();
     legend();
     try {
+        layout();
+        terminal();
+        arguments();
         bindings();
     } catch (const std::exception &error) {
         fprintf(stderr, "%s\n", error.what());

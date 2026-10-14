@@ -1463,7 +1463,8 @@ settings' test, or in `configure_output`'s as if the commit failed (see
 `display_settings_smoke.py`). `PAW_TEST_LOCK_TIMEOUT_MS` shortens the time a locker gets to
 lock the screen before a suspend gives up (see `power_smoke.py`), and
 `PAW_TEST_CROSSFADE_HOLD_MS` sets how long a profile's crossfade waits for the shell (see
-`crossfade_smoke.py`).
+`crossfade_smoke.py`), and `PAW_TEST_HEATMAP_REST_MS` how long a resting pointer counts in the
+heatmap (see `heatmap_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless

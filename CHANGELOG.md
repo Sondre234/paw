@@ -579,6 +579,11 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
 wrong with it, and toys the compositor plays with the windows.
 
+- `paw heatmap` and the `heatmap` action show where the pointer rested and clicked this session,
+  which the compositor counts for each monitor in memory alone: over the desktop, blurred and
+  coloured from cold to hot with a legend, or in the terminal with `--term`. `paw msg get
+  heatmap` prints the counts.
+
 ### Fixes
 
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,

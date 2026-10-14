@@ -7,8 +7,11 @@ output's size, keeping its heat where it was. The heatmap action shows the grids
 output, fading in and out, drawn again twice a second but not under the lock, input going
 through to the window under it (and, with grim, hot colours where the pointer rested, the
 desktop as it was elsewhere, and the legend); it switches between rest and clicks, and reset
-forgets everything. The pointer is a virtual one (pointer_probe)."""
+forgets everything. `paw heatmap` runs the action, and draws the heatmap in a terminal of the
+size $COLUMNS and $LINES say, in colour or, with NO_COLOR, in shades. The pointer is a virtual
+one (pointer_probe)."""
 from pathlib import Path
+import subprocess
 import sys
 
 import harness
@@ -55,6 +58,14 @@ def total(desktop, kind="motion"):
 with harness.Compositor(compositor, config(),
                         env={"PAW_TEST_HEATMAP_REST_MS": str(REST_MS)}) as desktop:
     msg, wait_for = desktop.msg, desktop.wait_for
+
+    def paw_heatmap(*words, env=None, ok=True):
+        """`paw heatmap WORDS`: what it prints, or with ok=False what it says as it fails."""
+        result = subprocess.run([compositor, "heatmap", *words], capture_output=True, text=True,
+                                env={**desktop.env, **(env or {})}, timeout=30)
+        assert (result.returncode == 0) == ok, (words, result.stdout, result.stderr)
+        return result.stdout if ok else result.stderr
+
     grids = heatmap(desktop)
     assert list(grids) == ["HEADLESS-1"], grids
     columns, rows, size, box, counts = grids["HEADLESS-1"]
@@ -172,8 +183,8 @@ with harness.Compositor(compositor, config(),
     state = overlay()
     assert state["HEADLESS-1"][0] == "hiding" and int(state["HEADLESS-1"][2]) < 1000, state
     wait_for(lambda: overlay() == {}, "the overlay gone")
-    # Toggled, it shows what it showed last.
-    msg("heatmap", "toggle")
+    # Toggled, by `paw heatmap` too, it shows what it showed last.
+    assert paw_heatmap() == ""
     wait_for(lambda: overlay() and overlay()["HEADLESS-1"][:2] == ("shown", "clicks"),
              "the clicks shown again")
 
@@ -187,13 +198,32 @@ with harness.Compositor(compositor, config(),
     assert desktop.reap(locker) == 0
     wait_for(lambda: overlay()["HEADLESS-1"][4] != drawn, "drawn again after the lock")
 
+    # In the terminal: the layout's 180 by 75 cells in 72 columns and 18 lines, half blocks
+    # of two pixels each, then the legend.
+    lines = paw_heatmap("--term", env={"COLUMNS": "72", "LINES": "20"}).splitlines()
+    assert len(lines) == 16 and all(line.endswith("\x1b[0m") for line in lines[:15]), lines
+    assert "▀" in "".join(lines) and "\x1b[38;2;" in lines[2], lines
+    assert lines[15].endswith(" 1.5 s  pointer rest on HEADLESS-1, HEADLESS-2"), lines[15]
+    plain = paw_heatmap("--term", env={"COLUMNS": "72", "LINES": "20", "NO_COLOR": "1"})
+    lines = plain.splitlines()
+    assert "\x1b" not in plain and len(lines) == 16 and "█" in plain, plain
+    assert all(len(line) <= 72 for line in lines[:15]), plain
+    lines = paw_heatmap("--term", "--clicks", "--output", "HEADLESS-1",
+                        env={"COLUMNS": "40", "LINES": "30"}).splitlines()
+    # 80 by 45 cells in 40 columns: 40 by 23 pixels (one more row to fill the last line).
+    assert len(lines) == 13 and lines[12].endswith(" 3 clicks  clicks on HEADLESS-1"), lines
+    assert "usage" in paw_heatmap("--clicks", ok=False)
+    assert "usage" in paw_heatmap("hot", ok=False)
+    assert "no such output" in paw_heatmap("--term", "--output", "HEADLESS-9", ok=False)
+    assert "PAW_SOCKET" in paw_heatmap("--term", env={"PAW_SOCKET": ""}, ok=False)
+
     # Reset forgets everything, on every output, and the overlay shows it; the pointer's rest
     # starts again.
     msg("heatmap", "reset")
     assert total(desktop) < 200 and total(desktop, "clicks") == 0
     assert overlay()["HEADLESS-1"][3] == "0 clicks", overlay()
-    msg("heatmap", "motion")
+    paw_heatmap("motion")
     assert overlay()["HEADLESS-1"][1] == "motion"
-    msg("heatmap", "motion")
+    paw_heatmap("motion")
     wait_for(lambda: overlay() == {}, "the overlay gone again")
     assert "heatmap" in msg("heatmap", "hot", ok=False)
