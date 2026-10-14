@@ -852,6 +852,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(window_icon_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
         # `paw tour` driving a session, its windows the probe's; and the queries it reads.
-        paw_smoke(tour_smoke TIMEOUT 180 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(tour_smoke TIMEOUT 180 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe>)
     endif()
 endif()

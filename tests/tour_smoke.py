@@ -4,7 +4,8 @@ it reads (actions and their keys, profiles, the terminal), and the caption it wo
 without the shell. It runs on an empty workspace, opens its windows there and closes them, leaves
 the window that was there before as it was, and puts the workspace, the tiling and its layout,
 night light, the appearance profile and its saved choice back; interrupted with SIGINT midway, or
-with one of its windows closed, it cleans up the same way. --list works without a session."""
+with one of its windows closed, it cleans up the same way, and locked midway once it is unlocked.
+It refuses to start while the session is locked. --list works without a session."""
 import os
 from pathlib import Path
 import signal
@@ -13,7 +14,7 @@ import sys
 
 import harness
 
-compositor, probe = (str(Path(p).resolve()) for p in sys.argv[1:3])
+compositor, probe, lock_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
 
 CONFIG = """return {
     xwayland = false,
@@ -149,6 +150,35 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     os.kill(probe_of("paw tour 2"), signal.SIGTERM)
     assert process.wait(timeout=60) == 1, (root / "closed.log").read_text()
     assert "the window paw tour 2 was closed" in (root / "closed.log").read_text()
+    unchanged()
+
+    # Locked midway, it stops, and puts things back once the session is unlocked.
+    process = tour("--speed", "2", "--from", "4", log="locked.log")
+    desktop.detail = lambda: (root / "locked.log").read_text()
+    desktop.wait_for(lambda: len(tour_windows()) == 3 and all(w.tiled for w in tour_windows()),
+                     "the windows tiled", timeout=60)
+    locker = desktop.spawn([lock_probe, "hold", str(root / "locker.log")])
+    desktop.wait_for(lambda: "once it is unlocked" in (root / "locked.log").read_text(),
+                     "the tour waits for the unlock")
+    assert not tour_windows(), "its windows closed meanwhile"
+    desktop.stays(lambda: process.poll() is None, "the tour waits", duration=1)
+    locker.terminate()
+    desktop.reap(locker)
+    assert process.wait(timeout=60) == 1, (root / "locked.log").read_text()
+    assert "Stopping: the session was locked." in (root / "locked.log").read_text()
+    unchanged()
+
+    # Locked, it does not start.
+    locker = desktop.spawn([lock_probe, "hold", str(root / "locker.log")])
+    desktop.wait_for(lambda: desktop.log.read_text().count("Session locked") == 2,
+                     "the session locked again")
+    refused = subprocess.run([compositor, "tour", "--client", CLIENT], env=desktop.env,
+                             text=True, capture_output=True, timeout=30)
+    assert refused.returncode == 1 and "locked" in refused.stderr, refused
+    locker.terminate()
+    desktop.reap(locker)
+    desktop.wait_for(lambda: desktop.log.read_text().count("Session unlocked") == 2,
+                     "the session unlocked")
     unchanged()
 
     # The list of steps, with the keys of this configuration, and without a session.
