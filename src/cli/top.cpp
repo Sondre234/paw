@@ -680,6 +680,7 @@ using namespace paw::top;
 volatile sig_atomic_t quitting = 0, resized = 0;
 void on_quit(int) { quitting = 1; }
 void on_resize(int) { resized = 1; }
+void on_alarm(int) {}
 
 // The running compositor's process: the peer of a connection to its control socket.
 pid_t compositor_pid() {
@@ -856,11 +857,12 @@ int print_once(const Options &options) {
 int run_live(const Options &options) {
     if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
         throw std::runtime_error("paw top draws on a terminal; paw top --once prints one look");
-    // Quitting and resizing arrive only while ppoll waits, so neither slips in between a check
-    // and the wait.
-    struct sigaction quit{}, resize{}, ignore{};
+    // Quitting and resizing arrive only while ppoll waits (or a look at the session), so
+    // neither slips in between a check and the wait.
+    struct sigaction quit{}, resize{}, alarm_clock{}, ignore{};
     quit.sa_handler = on_quit;
     resize.sa_handler = on_resize;
+    alarm_clock.sa_handler = on_alarm;
     ignore.sa_handler = SIG_IGN;
     sigset_t handled, waiting;
     sigemptyset(&handled);
@@ -870,6 +872,7 @@ int run_live(const Options &options) {
     for (int signal : {SIGINT, SIGTERM, SIGHUP, SIGQUIT})
         sigaction(signal, &quit, nullptr);
     sigaction(SIGWINCH, &resize, nullptr);
+    sigaction(SIGALRM, &alarm_clock, nullptr);
     sigaction(SIGPIPE, &ignore, nullptr); // a compositor gone mid-request is an error, not death
 
     const auto start = std::chrono::steady_clock::now();
@@ -884,6 +887,10 @@ int run_live(const Options &options) {
     std::vector<Sample> history;
     double started = -1;
     auto sample = [&] {
+        // A compositor that has not answered in two seconds is reported rather than waited on,
+        // and a signal to quit ends the wait.
+        sigprocmask(SIG_SETMASK, &waiting, nullptr);
+        alarm(2);
         try {
             history.push_back(look(now()));
             // Keep what rates are measured from: the newest look a window old, and later ones.
@@ -897,6 +904,8 @@ int run_live(const Options &options) {
         } catch (const std::runtime_error &error) {
             view.error = error.what();
         }
+        alarm(0);
+        sigprocmask(SIG_BLOCK, &handled, nullptr);
     };
 
     Screen screen;
@@ -912,12 +921,9 @@ int run_live(const Options &options) {
                 resized = 0;
                 break;
             }
-            if (!view.paused && now() >= due) {
-                sample();
-                due = std::max(due + interval, now());
-                break;
-            }
-            double wait = view.paused ? 0 : due - now();
+            // Keys first, even when a look is due at once: a look that took long (at a
+            // compositor that does not answer) must not keep q from being read.
+            double wait = view.paused ? 0 : std::max(0.0, due - now());
             timespec timeout{static_cast<time_t>(wait),
                              static_cast<long>((wait - std::floor(wait)) * 1e9)};
             pollfd input{STDIN_FILENO, POLLIN, 0};
@@ -925,30 +931,36 @@ int run_live(const Options &options) {
             if (ready < 0 && errno != EINTR)
                 throw std::runtime_error(std::string("cannot wait for keys: ") +
                                          std::strerror(errno));
-            if (ready <= 0)
-                continue;
-            if (input.revents & (POLLHUP | POLLERR))
-                return 0;
-            char keys[64];
-            ssize_t count = read(STDIN_FILENO, keys, sizeof(keys));
-            for (ssize_t i = 0; i < count; ++i) {
-                char key = keys[i];
-                if (key == '\x1b' && i + 1 < count && (keys[i + 1] == '[' || keys[i + 1] == 'O')) {
-                    // An arrow or function key: through the sequence's final byte.
-                    for (i += 2; i < count && !(keys[i] >= 0x40 && keys[i] <= 0x7E); ++i) {
-                    }
-                    continue;
-                }
-                if (key == 'q' || key == 'Q' || key == '\x1b' || key == '\x03')
+            if (ready > 0) {
+                if (input.revents & (POLLHUP | POLLERR))
                     return 0;
-                if (key == 'p' || key == 'P' || key == ' ') {
-                    view.paused = !view.paused;
-                    due = now(); // a look at once on resuming
-                    redraw = true;
-                } else if (key == 's' || key == 'S') {
-                    view.sort = next(view.sort);
-                    redraw = true;
+                char keys[64];
+                ssize_t count = read(STDIN_FILENO, keys, sizeof(keys));
+                for (ssize_t i = 0; i < count; ++i) {
+                    char key = keys[i];
+                    if (key == '\x1b' && i + 1 < count &&
+                        (keys[i + 1] == '[' || keys[i + 1] == 'O')) {
+                        // An arrow or function key: through the sequence's final byte.
+                        for (i += 2; i < count && !(keys[i] >= 0x40 && keys[i] <= 0x7E); ++i) {
+                        }
+                        continue;
+                    }
+                    if (key == 'q' || key == 'Q' || key == '\x1b' || key == '\x03')
+                        return 0;
+                    if (key == 'p' || key == 'P') {
+                        view.paused = !view.paused;
+                        due = now(); // a look at once on resuming
+                        redraw = true;
+                    } else if (key == 's' || key == 'S') {
+                        view.sort = next(view.sort);
+                        redraw = true;
+                    }
                 }
+            }
+            if (!view.paused && now() >= due) {
+                sample();
+                due = std::max(due + interval, now());
+                redraw = true;
             }
         }
     }
