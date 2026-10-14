@@ -20,7 +20,11 @@
  * focus moving on, but its node stays shown while it slides out, absent for lookups, and hides
  * when the slide ends. Only the GLES2 renderer with the rounded-corners patch clips; elsewhere
  * the window slides uncut, behind the bar, and no further than its monitor's edge where another
- * monitor would show it. */
+ * monitor would show it.
+ *
+ * The same cut keeps a tile of the scrolling layout to its monitor (`bounded`, set by
+ * placement.c's bound_tile): while its frame crosses the monitor's edges, nothing of it is drawn
+ * past them, square there as no bar hides the line. */
 
 /* Far enough past anything a window draws: a clip box that holds none of it. */
 enum { FAR = 1 << 20 };
@@ -37,11 +41,48 @@ static bool can_clip(struct sh_server *server) {
     return false;
 }
 
-static bool cutting(struct sh_toplevel *toplevel) {
+static bool dropping(struct sh_toplevel *toplevel) {
     return toplevel->drop.running && toplevel->drop.plan.clip;
 }
 
+/* Whether the window's frame, where it is drawn, crosses the edges of its bound. */
+static bool crossing(struct sh_toplevel *toplevel) {
+    if (!toplevel->bounded || !toplevel->content || !can_clip(toplevel->server))
+        return false;
+    int x, y, b = server_settings(toplevel->server)->border_width;
+    wlr_scene_node_coords(&toplevel->content->node, &x, &y);
+    struct wlr_box g = frame_geometry(toplevel), both;
+    struct wlr_box frame = {x - b, y - b, g.width + 2 * b, g.height + 2 * b};
+    return !wlr_box_intersection(&both, &frame, &toplevel->bound) ||
+           !wlr_box_equal(&both, &frame);
+}
+
+static bool cutting(struct sh_toplevel *toplevel) {
+    return dropping(toplevel) || crossing(toplevel);
+}
+
 #ifdef PAW_ROUNDED_CORNERS
+/* Takes off `box`, in layout coordinates, what lies past the drop's cut and past the bound the
+ * window crosses; false when nothing is left. `square` says whether it lost a side to a line no
+ * bar hides, where its rounded corners would show. */
+static bool cut_box(struct sh_toplevel *toplevel, struct sh_drop_box *box, bool *square) {
+    const struct sh_drop_box whole = *box;
+    *square = false;
+    if (dropping(toplevel)) {
+        if (!sh_drop_cut(&toplevel->drop.plan, box))
+            return false;
+        *square = toplevel->drop.plan.square && memcmp(box, &whole, sizeof(*box));
+    }
+    if (crossing(toplevel)) {
+        struct wlr_box in = {box->x, box->y, box->width, box->height}, left;
+        if (!wlr_box_intersection(&left, &in, &toplevel->bound))
+            return false;
+        *square = *square || !wlr_box_equal(&left, &in);
+        *box = (struct sh_drop_box){left.x, left.y, left.width, left.height};
+    }
+    return true;
+}
+
 static struct wlr_scene_tree *clip_tree(struct sh_toplevel *toplevel, enum sh_clip_tree which) {
     switch (which) {
     case SH_CLIP_SHADOW:
@@ -75,13 +116,13 @@ static void apply_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which) {
     if (wish->set)
         box = (struct sh_drop_box){x + wish->box.x, y + wish->box.y, wish->box.width,
                                    wish->box.height};
-    struct sh_drop_box whole = box;
     struct wlr_box clip = {-FAR, -FAR, 1, 1}; // all of it past the cut
     int radius = wish->radius;
-    if (sh_drop_cut(&toplevel->drop.plan, &box)) {
+    bool square;
+    if (cut_box(toplevel, &box, &square)) {
         clip = (struct wlr_box){box.x - x, box.y - y, box.width, box.height};
         // Rounded corners along a cut no bar hides would show there: crossing it, it is square.
-        if (toplevel->drop.plan.square && memcmp(&box, &whole, sizeof(box)))
+        if (square)
             radius = 0;
     }
     wlr_scene_tree_set_rounded_clip(tree, &clip, radius);
@@ -90,8 +131,9 @@ static void apply_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which) {
 }
 
 /* The border's rounded rect (`frame_hole`), cut short of the cut by its own size while a drop
- * runs: a size frame.c gave it since the drop last cut it is where it rests. Crossing a cut no bar
- * hides, it would draw a line along it and round its corners there, so it is left out. */
+ * runs or the window crosses its bound: a size frame.c gave it since it was last cut is where it
+ * rests. Crossing a cut no bar hides, it would draw a line along it and round its corners there,
+ * so it is left out. */
 static void cut_ring(struct sh_toplevel *toplevel) {
     struct sh_drop *drop = &toplevel->drop;
     struct wlr_scene_rect *ring = toplevel->frame_hole > 0 ? toplevel->border[0] : NULL;
@@ -107,10 +149,10 @@ static void cut_ring(struct sh_toplevel *toplevel) {
     if (drop->ring) {
         int x, y;
         wlr_scene_node_coords(&toplevel->content->node, &x, &y);
-        struct sh_drop_box box = {x + set.x, y + set.y, set.width, set.height}, whole = box;
+        struct sh_drop_box box = {x + set.x, y + set.y, set.width, set.height};
         set = (struct wlr_box){set.x, set.y, 0, 0};
-        if (sh_drop_cut(&drop->plan, &box) &&
-            !(drop->plan.square && memcmp(&box, &whole, sizeof(box))))
+        bool square;
+        if (cut_box(toplevel, &box, &square) && !square)
             set = (struct wlr_box){box.x - x, box.y - y, box.width, box.height};
     }
     drop->ring_set = set;
@@ -129,6 +171,12 @@ static void follow_cut(struct sh_toplevel *toplevel) {
 #endif
 }
 
+/* The clips again with what the cuts leave where the window is drawn now: after it moved, or its
+ * bound changed. */
+void window_cut(struct sh_toplevel *toplevel) {
+    follow_cut(toplevel);
+}
+
 /* Every clip frame.c gives a window's trees, kept for a drop's cut to be laid over it. */
 void window_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which, const struct wlr_box *box,
                  int radius) {
@@ -141,7 +189,8 @@ void window_clip(struct sh_toplevel *toplevel, enum sh_clip_tree which, const st
 #endif
 }
 
-/* After frame.c laid the border out again: cut the rounded one while a drop runs. */
+/* After frame.c laid the border out again: cut the rounded one while a drop runs or the window
+ * crosses its bound. */
 void drop_refresh(struct sh_toplevel *toplevel) {
 #ifdef PAW_ROUNDED_CORNERS
     if (cutting(toplevel) || toplevel->drop.ring)
