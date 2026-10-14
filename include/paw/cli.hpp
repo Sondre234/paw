@@ -26,4 +26,7 @@ std::vector<std::vector<std::string>> query(const std::string &name);
 // $XDG_STATE_HOME/paw, else ~/.local/state/paw; empty without either.
 std::filesystem::path state_directory();
 
+// `paw fetch`: a paw print and what paw knows of the session (src/cli/fetch.cpp).
+int fetch(int argc, char **argv);
+
 } // namespace paw::cli

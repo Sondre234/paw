@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* `paw fetch`: a paw print in the colours of the appearance in use, and beside it what only paw
  * knows of the session (its profile, uptime, frames, windows, monitors, the application launched
- * most). */
+ * most), asked of the running compositor, or read from the configuration and paw's state files
+ * outside a session. */
 #include "paw/fetch.hpp"
 #include "paw/cli.hpp"
+#include "paw/config.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -11,11 +13,25 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
+#include <iostream>
 #include <map>
 #include <numbers>
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <sys/ioctl.h>
+#include <unistd.h>
+
+// The build paw fetch is part of; the compositor's build gives version.h and wlroots' headers.
+#if __has_include("version.h")
+#include "version.h"
+#else
+#define PAW_VERSION "unknown"
+#endif
+#if __has_include(<wlr/version.h>)
+#include <wlr/version.h>
+#endif
 
 namespace paw::fetch {
 namespace {
@@ -521,3 +537,202 @@ std::string render(const Palette &palette, const std::string &title,
 }
 
 } // namespace paw::fetch
+
+namespace paw::cli {
+namespace {
+
+using fetch::Field;
+using fetch::Rows;
+
+// A query's rows, or nothing when the session cannot answer it (an older compositor).
+std::optional<Rows> ask(const std::string &name) {
+    try {
+        return query(name);
+    } catch (const std::exception &) {
+        return std::nullopt;
+    }
+}
+
+std::string value_of(const Rows &rows, const std::string &name) {
+    for (const auto &row : rows)
+        if (row.size() >= 2 && row[0] == name)
+            return row[1];
+    return "";
+}
+
+std::string read_text(const std::filesystem::path &path) {
+    std::ifstream file(path);
+    std::stringstream text;
+    text << file.rdbuf();
+    return text.str();
+}
+
+// The configuration paw would start with: --config's, else the personal one, else the shipped one.
+std::filesystem::path configuration(const std::filesystem::path &chosen) {
+    if (!chosen.empty())
+        return chosen;
+    std::filesystem::path personal;
+    if (const auto *xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg)
+        personal = std::filesystem::path(xdg) / "paw/init.lua";
+    else if (const auto *home = std::getenv("HOME"); home && *home)
+        personal = std::filesystem::path(home) / ".config/paw/init.lua";
+    std::error_code failure;
+    if (!personal.empty() && std::filesystem::exists(personal, failure))
+        return personal;
+    return default_config_path();
+}
+
+// The name an application's desktop entry gives it, looked for where the XDG specification says.
+std::string application_name(const std::string &id) {
+    std::vector<std::filesystem::path> directories;
+    if (const auto *home = std::getenv("XDG_DATA_HOME"); home && *home == '/')
+        directories.emplace_back(home);
+    else if (const auto *user = std::getenv("HOME"); user && *user)
+        directories.push_back(std::filesystem::path(user) / ".local/share");
+    std::string system = "/usr/local/share:/usr/share";
+    if (const auto *dirs = std::getenv("XDG_DATA_DIRS"); dirs && *dirs)
+        system = dirs;
+    std::stringstream list(system);
+    for (std::string directory; std::getline(list, directory, ':');)
+        if (!directory.empty())
+            directories.emplace_back(directory);
+    for (const auto &directory : directories) {
+        std::error_code failure;
+        auto path = directory / "applications" / id;
+        if (std::filesystem::is_regular_file(path, failure))
+            if (auto name = fetch::desktop_name(read_text(path)); !name.empty())
+                return name;
+    }
+    return fetch::app_label(id);
+}
+
+} // namespace
+
+int fetch(int argc, char **argv) {
+    fetch::Style style;
+    std::filesystem::path chosen;
+    for (int i = 2; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--no-color" || arg == "--no-colour")
+            style.color = false;
+        else if (arg == "--no-logo")
+            style.logo = false;
+        else if (arg == "--config" && i + 1 < argc)
+            chosen = argv[++i];
+        else
+            throw std::runtime_error("usage: paw fetch [--no-logo] [--no-color] [--config PATH]");
+    }
+    // https://no-color.org: any value but an empty one.
+    if (const auto *no_color = std::getenv("NO_COLOR"); no_color && *no_color)
+        style.color = false;
+    if (!isatty(STDOUT_FILENO))
+        style.color = false;
+    else if (winsize size{}; ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) == 0)
+        style.columns = size.ws_col;
+
+    std::string wlroots;
+#ifdef WLR_VERSION_STR
+    wlroots = WLR_VERSION_STR;
+#endif
+    std::string title = "paw " + fetch::version_text(PAW_VERSION);
+    if (!wlroots.empty())
+        title += " · wlroots " + wlroots;
+
+    // The session answers for itself; outside one, or from a compositor that does not know the
+    // queries, the configuration and the state files stand in.
+    std::optional<Rows> about;
+    bool session = true;
+    try {
+        if (auto reply = request("get about"); reply.ok)
+            about = rows(reply.body);
+    } catch (const std::exception &) {
+        session = false;
+    }
+    std::string profile;
+    auto defaults = fetch::palette_of(Config{}.settings);
+    std::optional<fetch::Palette> palette;
+    if (about)
+        profile = value_of(*about, "profile");
+    if (auto reply = session ? ask("palette") : std::nullopt)
+        palette = fetch::palette_of(*reply, defaults);
+    if (!palette) {
+        // A configuration with an error gives paw's own colours, not those of another one.
+        try {
+            auto config = load_config(configuration(chosen));
+            palette = fetch::palette_of(config.settings);
+            if (!about)
+                profile = config.profile;
+        } catch (const std::exception &) {
+            palette = defaults;
+            if (!about)
+                profile = saved_profile();
+        }
+    }
+
+    std::vector<Field> fields;
+    if (!profile.empty())
+        fields.push_back({"profile", profile + (palette->scheme.empty() ? "" : " · " + palette->scheme)});
+    if (!session)
+        fields.push_back({"session", "not in a paw session"});
+    else {
+        auto stats = ask("stats");
+        uint64_t frames = 0;
+        if (stats && !stats->empty() && !(*stats)[0].empty())
+            frames = std::strtoull((*stats)[0][0].c_str(), nullptr, 10);
+        if (auto uptime = about ? value_of(*about, "uptime") : ""; !uptime.empty())
+            fields.push_back(
+                {"session", fetch::session_text(std::strtoll(uptime.c_str(), nullptr, 10), frames)});
+        if (auto times = ask("frame_times"); stats)
+            if (auto text = fetch::frames_text(*stats, times.value_or(Rows{})); !text.empty())
+                fields.push_back({"frames", text});
+        if (auto windows = ask("windows")) {
+            auto tiling = ask("tiling");
+            auto layout = ask("layout");
+            bool tiles = tiling && !tiling->empty() && (*tiling)[0][0] == "on";
+            fields.push_back({"windows", fetch::windows_text(*windows, tiles,
+                                                            layout && !layout->empty()
+                                                                ? (*layout)[0][0]
+                                                                : "tiling")});
+        }
+        if (auto outputs = ask("outputs")) {
+            auto monitors = fetch::monitors_text(*outputs);
+            for (size_t i = 0; i < monitors.size(); ++i)
+                fields.push_back({i ? "" : monitors.size() == 1 ? "monitor" : "monitors",
+                                  monitors[i]});
+        }
+        if (auto idle = ask("idle"))
+            if (auto text = fetch::idle_text(*idle); !text.empty())
+                fields.push_back({"idle", text});
+        if (auto night = ask("night_light"))
+            if (auto text = fetch::night_text(*night); !text.empty())
+                fields.push_back({"night light", text});
+        if (auto mode = ask("mode"); mode && !mode->empty() && (*mode)[0][0] != "default")
+            fields.push_back({"mode", (*mode)[0][0]});
+        if (about) {
+            auto version = value_of(*about, "version");
+            auto library = value_of(*about, "wlroots");
+            if ((!version.empty() && version != PAW_VERSION) ||
+                (!library.empty() && !wlroots.empty() && library != wlroots))
+                fields.push_back({"running", "paw " + fetch::version_text(version) +
+                                                 " · wlroots " + library});
+        }
+    }
+    auto state = state_directory();
+    if (!state.empty()) {
+        if (auto top = fetch::top_app(read_text(state / "launches")))
+            fields.push_back({"top app", application_name(top->id) + " · " +
+                                             std::to_string(top->count) +
+                                             (top->count == 1 ? " launch" : " launches")});
+        std::vector<std::string> names;
+        std::error_code failure;
+        for (const auto &entry : std::filesystem::directory_iterator(state / "sessions", failure))
+            if (entry.is_regular_file(failure))
+                names.push_back(entry.path().filename().string());
+        if (!names.empty())
+            fields.push_back({"sessions", fetch::sessions_text(names)});
+    }
+    std::cout << fetch::render(*palette, title, fields, style);
+    return 0;
+}
+
+} // namespace paw::cli
