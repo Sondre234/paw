@@ -307,6 +307,36 @@ static void get_frame_times(struct sh_server *server, int fd, const char *argume
     control_reply(fd, "error: no output in the layout is named that\n");
 }
 
+static void get_commits(struct sh_server *server, int fd, const char *arguments) {
+    // Per window, oldest first, then per layer surface: "window" or "layer", its number, its
+    // process, the commits of its surface handled so far and the time that took (ns), its
+    // output, its workspace (0 for a layer surface), its app ID or namespace, and its title.
+    control_reply(fd, "ok\n");
+    char line[1024], name[256], title[512];
+    struct sh_toplevel *toplevel;
+    wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
+        copy_field(name, sizeof(name), toplevel_app_id(toplevel));
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        snprintf(line, sizeof(line), "window\t%u\t%d\t%llu\t%llu\t%s\t%d\t%s\t%s\n", toplevel->id,
+                 (int)toplevel_pid(toplevel), (unsigned long long)toplevel->commits,
+                 (unsigned long long)toplevel->commit_ns, toplevel->output,
+                 toplevel->workspace + 1, name, title);
+        control_reply(fd, line);
+    }
+    struct sh_layer *layer;
+    wl_list_for_each_reverse(layer, &server->layers, link) {
+        pid_t pid = 0;
+        wl_client_get_credentials(wl_resource_get_client(layer->surface->resource), &pid, NULL,
+                                  NULL);
+        copy_field(name, sizeof(name), layer->surface->namespace);
+        snprintf(line, sizeof(line), "layer\t%u\t%d\t%llu\t%llu\t%s\t0\t%s\t\n", layer->id,
+                 (int)pid, (unsigned long long)layer->commits,
+                 (unsigned long long)layer->commit_ns,
+                 layer->surface->output ? layer->surface->output->name : "", name);
+        control_reply(fd, line);
+    }
+}
+
 static void get_dim(struct sh_server *server, int fd, const char *arguments) {
     // Per window, front to back: focused, how opaque its dimming is now, and where that is
     // heading (both in thousandths), and whether a dimming node exists.
@@ -866,6 +896,7 @@ static const struct {
     {"mode", get_mode, false},
     {"shortcuts", get_shortcuts, false},
     {"input_method", get_input_method, false},
+    {"commits", get_commits, false},
 };
 
 /* Answers `request` if it is a query; false if it is not one. */
