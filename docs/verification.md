@@ -1206,3 +1206,20 @@ Not checked: real monitors at high refresh rates, where the default 120 ms sprin
 applications slow to draw a new size, such as Firefox and Electron ones, against the 300 ms the
 compositor waits for them; GPU clients' (dmabuf) buffers held for the crossfade; and X11
 applications that keep their own size.
+
+## paw wrapped
+
+Added 2026-10-14. `wrapped_smoke` has a headless compositor count as a standalone session does
+(`PAW_TEST_WRAPPED`) through a virtual pointer, a headless keyboard and touchpad and
+`wayland_probe` windows: the pointer's travel to the pixel and at 96 dots an inch, clicks by
+button, scrolling, keys (not a virtual keyboard's), gestures, moves and resizes (not a press let go
+in place), snaps, workspace switches, the overview, the switcher, a launch, windows opened and
+closed, focused time, a streak, and idle time; the day's file across three sessions, saves every
+300 ms, a pretend midnight, and `wrapped.enabled` turned off and on; and `paw wrapped` on the files,
+alone and with a running session that saves meanwhile. The report was looked at in a terminal,
+coloured and plain, on made-up day files.
+
+Not checked: a standalone session on real hardware (counting starting there, the millimetres from
+a real monitor's EDID, a touchpad's scrolling and gestures, logind's sleep saving the day first),
+the lock, an idle inhibitor and the monitors turning off counting as away or active, and a session
+running past a real midnight.
