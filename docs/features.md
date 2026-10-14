@@ -2881,8 +2881,8 @@ socket, as `paw msg` does; `paw --help` lists them.
 the running session four times a second and redraws the terminal until `q`, Escape or Ctrl+C. `p`
 pauses it, and `s` changes the order of the windows.
 
-- The first line names the version, how long the compositor has run, how many monitors it drives
-  and the appearance profile saved last.
+- The first line names the version, how long the compositor has run, how much of a processor it
+  used over the last second, how many monitors it drives and the appearance profile saved last.
 - Each monitor has a line with its mode, the frames it draws a second, and the average, 99th
   percentile and worst time the compositor took to draw one of its last 512 frames: green under
   half of the monitor's frame budget (its refresh interval), yellow up to all of it, red over
