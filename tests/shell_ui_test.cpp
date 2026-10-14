@@ -305,6 +305,13 @@ int main(int argc, char **argv) {
                 client->write("ok\n");
                 client->disconnectFromServer();
                 subscriber->write(state(toggled, currentWorkspace));
+            } else if (request.startsWith("output " + output.toUtf8() + " layout_")) {
+                // A layout by name, as the tiling button's menu picks one.
+                requests.push_back(QString::fromUtf8(request).trimmed());
+                tileLayout = QString::fromUtf8(request).trimmed().section(" layout_", 1);
+                client->write("ok\n");
+                client->disconnectFromServer();
+                subscriber->write(state(toggled, currentWorkspace));
             } else if (request.startsWith("profile ")) {
                 requests.push_back(QString::fromUtf8(request).trimmed());
                 client->write("ok\n");
@@ -597,6 +604,87 @@ int main(int argc, char **argv) {
     auto click = [&](QQuickItem *item, Qt::MouseButton button = Qt::LeftButton, int delay = -1) {
         QTest::mouseClick(item->window(), button, Qt::NoModifier, centre(item), delay);
     };
+    // A right click on the tiling button opens its menu: the layout in use as its title, then the
+    // others, each with its icon, and floating. Picking a layout sets it, and while floating turns
+    // tiling on with it too.
+    {
+        auto *root = view.rootObject();
+        auto menuOpen = [&] {
+            auto *menu = find(root, "tilingMenu");
+            return root->property("audioPopup").toString() == "tiling" && menu &&
+                   menu->property("open").toBool() && inPopover(menu);
+        };
+        auto title = [&] {
+            auto *row = find(root, "tilingMenuTitle");
+            return row && row->isVisible() ? row->property("text").toString() : QString();
+        };
+        // An entry's row, by its text.
+        std::function<QQuickItem *(QQuickItem *, const QString &)> row =
+            [&](QQuickItem *parent, const QString &text) -> QQuickItem * {
+            for (auto *item : parent->childItems()) {
+                if (item->objectName() == "tilingMenuItem" && item->property("text") == text)
+                    return item;
+                if (auto *found = row(item, text))
+                    return found;
+            }
+            return nullptr;
+        };
+        auto entry = [&](const QString &text) {
+            auto *menu = find(root, "tilingMenu");
+            return menu ? row(menu, text) : nullptr;
+        };
+        // Whether an item draws line icon `name`, one Icon knows.
+        std::function<bool(QQuickItem *, const QString &)> draws = [&](QQuickItem *item,
+                                                                        const QString &name) {
+            if (item->isVisible() && item->property("name") == name && item->property("known").toBool())
+                return true;
+            for (auto *child : item->childItems())
+                if (draws(child, name))
+                    return true;
+            return false;
+        };
+        // The layout the shell has heard of, which the menu shows.
+        auto shellLayout = [&] {
+            return controller.workspaces().value(output).toMap().value("layout").toString();
+        };
+        auto openMenu = [&] {
+            click(tiling, Qt::RightButton);
+            return waitFor(menuOpen);
+        };
+        if (!openMenu() || title() != "Dwindle" || entry("Dwindle") || !entry("Floating"))
+            return fail("right-clicking the tiling button did not show the layout in use");
+        for (const char *name : {"master", "spiral", "monocle", "scroll"}) {
+            auto *layout = entry(QString(name).left(1).toUpper() + QString(name).mid(1));
+            if (!layout || !draws(layout, QString("tiling-") + name)) {
+                std::cerr << name << " is not in the tiling button's menu with its icon\n";
+                return 1;
+            }
+        }
+        if (!draws(find(root, "tilingMenuTitle"), "tiling-dwindle"))
+            return fail("the tiling button's menu does not show the icon of the layout in use");
+        click(entry("Master"));
+        if (!waitFor([&] { return shellLayout() == "master" && !menuOpen(); }) ||
+            requests.last() != "output " + output + " layout_master" || !toggled)
+            return fail("picking a layout in the tiling button's menu did not switch to it");
+        if (!openMenu() || title() != "Master" || entry("Master") || !entry("Dwindle"))
+            return fail("the tiling button's menu did not follow the layout");
+        click(entry("Floating"));
+        if (!waitFor([&] { return !toggled && !panelTiling() && !menuOpen(); }))
+            return fail("Floating in the tiling button's menu did not turn tiling off");
+        if (!openMenu() || title() != "Floating" || entry("Floating") || !entry("Master") ||
+            !entry("Dwindle") || !draws(find(root, "tilingMenuTitle"), "copy"))
+            return fail("the tiling button's menu did not show floating, with every layout");
+        click(entry("Spiral"));
+        if (!waitFor([&] { return shellLayout() == "spiral" && toggled && panelTiling(); }) ||
+            requests.last() != "output " + output + " layout_spiral")
+            return fail("picking a layout while floating did not tile with it");
+        // Back to dwindle, which the tiling bar's tests below start from.
+        if (!openMenu())
+            return fail("the tiling button's menu did not open again");
+        click(entry("Dwindle"));
+        if (!waitFor([&] { return shellLayout() == "dwindle" && !menuOpen(); }))
+            return fail("the tiling button's menu did not switch back to dwindle");
+    }
     click(workspace(3));
     if (!waitFor([&] { return workspace(3)->property("current").toBool(); }) ||
         switches != QStringList{"output " + output + " workspace 3"})
