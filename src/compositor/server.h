@@ -683,11 +683,13 @@ struct sh_server {
     bool logind_lid_closed;  // logind's LidClosed, which counts as one more switch
     struct wl_list pointers; /* struct sh_pointer */
     enum sh_cursor_mode cursor_mode;
-    /* A drag of the taskbar (SH_CURSOR_PANEL): the output and the edge the shell was told of
-     * last. A drag of its inner edge resizes it instead: `resize` is the output's edge the bar
-     * is along (else -1), `box` that output's as the resize began, and `distance` the pointer's
-     * distance from that edge the shell was told of last. */
+    /* A drag of the taskbar (SH_CURSOR_PANEL): the output whose bar it is ("" for the one the
+     * pointer is over), and the output and the edge the shell was told of last. A drag of its
+     * inner edge resizes it instead: `resize` is the output's edge the bar is along (else -1),
+     * `box` that output's as the resize began, and `distance` the pointer's distance from that
+     * edge the shell was told of last. */
     struct {
+        char bar[64];
         char output[64];
         int edge;
         int resize;
