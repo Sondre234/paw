@@ -443,6 +443,22 @@ static void test_arrives(void) {
     build(&scene);
     sh_cat_arrive(&cat, &scene.world, now);
     CHECK(cat.x == 1920 + 960, "%g", cat.x);
+    // It drops in front of the windows whose tops lie above the focused one's.
+    scene = monitors(1);
+    add(&scene, 2, 900, 600, 400, 200);
+    add(&scene, 3, 100, 100, 1600, 800);
+    scene.focused = 2;
+    scene.focused_area = 0;
+    build(&scene);
+    sh_cat_arrive(&cat, &scene.world, now);
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_LAND, 2000) && cat.on == 2 && cat.y == 600,
+          "on %u", cat.on);
+    // Unless that one goes meanwhile: then the first top below will do.
+    sh_cat_arrive(&cat, &scene.world, now);
+    run(&cat, &scene, &now, 100);
+    scene.windows[0].x = 1500;
+    build(&scene);
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_LAND, 2000) && cat.on == 3, "on %u", cat.on);
 }
 
 static void test_stays_on_its_monitor(void) {

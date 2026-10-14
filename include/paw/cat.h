@@ -83,6 +83,7 @@ struct sh_cat {
     double target_x, target_y;
     uint32_t target_window;
     double from_x, from_y; /* where a jump began */
+    uint32_t aim;          /* the window a fall that drops it in lands on, passing the others */
     int jump_ms;
     double jump_arc;
     double walked;         /* pixels walked, for the steps' frames */

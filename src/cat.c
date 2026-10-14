@@ -139,6 +139,7 @@ static void land(struct sh_cat *cat, const struct sh_cat_ledge *ledge, int64_t n
 /* Falls from where it is, starting at a vertical speed of `vy`. */
 static void fall(struct sh_cat *cat, double vy, int64_t now) {
     cat->grounded = false;
+    cat->aim = 0;
     cat->vx = 0;
     cat->vy = vy;
     enter(cat, SH_CAT_FALL, now, 0);
@@ -198,11 +199,13 @@ void sh_cat_arrive(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
         return;
     const struct sh_cat_area *area = &world->areas[world->focused_area >= 0 ? world->focused_area : 0];
     double x = area->x + area->width / 2;
+    uint32_t aim = 0;
     for (int i = 0; i < world->ledge_count; ++i) {
         const struct sh_cat_ledge *ledge = &world->ledges[i];
         double left = fmax(ledge->left, area->x), right = fmin(ledge->right, area->x + area->width);
         if (world->focused && ledge->window == world->focused && right - left >= cat->width) {
             x = (left + right) / 2;
+            aim = ledge->window;
             break;
         }
     }
@@ -210,6 +213,18 @@ void sh_cat_arrive(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
     cat->y = area->top + cat->height;
     cat->away_since = 0;
     fall(cat, 0, now);
+    cat->aim = aim; // it drops in front of the windows above that one
+}
+
+/* Whether the window a fall aims for still has its top below `y`, under the cat. */
+static bool aimed_below(const struct sh_cat *cat, const struct sh_cat_world *world, double y) {
+    for (int i = 0; i < world->top_count; ++i) {
+        const struct sh_cat_ledge *top = &world->tops[i];
+        if (top->window == cat->aim && top->y >= y - 0.01 && cat->x >= top->left &&
+            cat->x <= top->right)
+            return true;
+    }
+    return false;
 }
 
 /* Whether a cat in `state` is free to take up something else. */
@@ -436,13 +451,16 @@ static int advance(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
         cat->vy = fmin(cat->vy + GRAVITY * dt, FALL_MAX);
         cat->x = inside_x(cat, area, cat->x + cat->vx * dt);
         cat->y += cat->vy * dt;
+        if (cat->aim && !aimed_below(cat, world, previous))
+            cat->aim = 0; // what it aimed for went: anything below will do
         if (cat->vy > 0) {
             // The first ledge it passes on the way down.
             const struct sh_cat_ledge *landing = NULL;
             for (int i = 0; i < world->ledge_count; ++i) {
                 const struct sh_cat_ledge *ledge = &world->ledges[i];
                 if (ledge->y >= previous - 0.01 && ledge->y <= cat->y && cat->x >= ledge->left &&
-                    cat->x <= ledge->right && (!landing || ledge->y < landing->y))
+                    cat->x <= ledge->right && (!landing || ledge->y < landing->y) &&
+                    (!cat->aim || ledge->window == cat->aim || !ledge->window))
                     landing = ledge;
             }
             struct sh_cat_ledge floor = {0, cat->x, cat->x, area ? area->bottom : cat->y};
