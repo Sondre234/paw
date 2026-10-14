@@ -190,8 +190,8 @@ static bool same_look(const struct sh_shadow *a, const struct sh_shadow *b) {
 
 /* The shadow image of a look for windows of `width` by `height` (sh_shadow_image_size's) at
  * the scale the outputs ask for, painted when first needed. */
-static struct sh_shadow_image *shadow_image(struct sh_server *server, const struct sh_shadow *look,
-                                            int width, int height) {
+struct sh_shadow_image *shadow_image(struct sh_server *server, const struct sh_shadow *look,
+                                     int width, int height) {
     int scale = pixel_scale(server);
     struct sh_shadow_image *images = server->shadow_images, *oldest = &images[0];
     size_t count = sizeof(server->shadow_images) / sizeof(*server->shadow_images);

@@ -9,7 +9,7 @@
  * window). None while the overview shows its thumbnails in their place. */
 static size_t screenshot_windows(struct sh_server *server, struct sh_rect *boxes, size_t size) {
     size_t count = 0;
-    if (server->overview.visible)
+    if (server->overview.visible || server->xray.visible)
         return 0;
     struct wlr_scene_tree *trees[WINDOW_LAYERS];
     window_layers(server, trees);
@@ -145,8 +145,10 @@ bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, cha
  * log and across the panel, and in `error`. */
 bool launch_program(struct sh_server *server, enum sh_action action, char *error,
                     size_t error_size) {
-    if (server->callbacks->launch(server->callbacks->userdata, action, error, error_size))
+    if (server->callbacks->launch(server->callbacks->userdata, action, error, error_size)) {
+        wrapped_count(server, SH_WRAPPED_LAUNCHES);
         return true;
+    }
     report_failure(server, "spawn-error", error);
     return false;
 }
@@ -179,6 +181,10 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     if (server->overview.open && server->overview.assist && action != SH_NONE &&
         action != SH_OVERVIEW_CONFIRM && action != SH_OVERVIEW_CANCEL)
         overview_close(server, NULL, -1);
+    // The exploded view gives way to the overview and the switcher, which would show under it.
+    if (server->xray.open && (action == SH_OVERVIEW_TOGGLE || action == SH_SWITCHER_NEXT ||
+                              action == SH_SWITCHER_PREV))
+        xray_close(server, NULL);
     for (size_t i = 0; i < sizeof(shell_actions) / sizeof(*shell_actions); ++i) {
         if (shell_actions[i].action != action)
             continue;
@@ -481,6 +487,12 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         break;
     case SH_CAT:
         cat_switch(server, argument);
+        break;
+    case SH_XRAY:
+        xray_toggle(server);
+        break;
+    case SH_HEATMAP:
+        heatmap_action(server, argument);
         break;
     default:
         arrange_windows(server, action);

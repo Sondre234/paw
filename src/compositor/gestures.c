@@ -156,6 +156,7 @@ static void swipe_begin(struct wl_listener *listener, void *data) {
                    event->time_msec);
     gesture->began = event->time_msec;
     gesture->dx = gesture->dy = 0;
+    wrapped_count(server, SH_WRAPPED_GESTURES);
     if (takes_fingers(server, (int)event->fingers)) {
         gesture->mode = SH_SWIPE_WAITING;
         return;
@@ -214,6 +215,7 @@ static void pinch_begin(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, pinch_begin);
     struct wlr_pointer_pinch_begin_event *event = data;
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    wrapped_count(server, SH_WRAPPED_GESTURES);
     wlr_pointer_gestures_v1_send_pinch_begin(server->pointer_gestures, server->seat,
                                              event->time_msec, event->fingers);
 }

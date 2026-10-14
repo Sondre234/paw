@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
                       "osd-volume, osd-text, osd-microphone, cards, power-dialog, auth-dialog, "
                       "palette, palette-empty, palette-calculator, switcher, overview, "
                       "snap-assist, display-mode, palette-files, clipboard, emoji, display-settings, "
-                      "display-settings-trial or rice-trial",
+                      "display-settings-trial, rice-trial or xray",
                       "name"});
     parser.addOption(
         {"quit-after",
@@ -274,6 +274,7 @@ int main(int argc, char **argv) {
                 add(std::make_unique<DisplayModeView>(controller, screen));
                 add(std::make_unique<ConfigErrorView>(controller, screen));
                 add(std::make_unique<RiceTrialView>(controller, screen));
+                add(std::make_unique<XrayView>(controller, screen));
             }
         };
         for (auto *screen : QGuiApplication::screens()) {

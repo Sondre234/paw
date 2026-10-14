@@ -431,6 +431,7 @@ static bool middle_drag_motion(struct sh_server *server) {
 }
 
 void process_cursor_motion(struct sh_server *server, uint32_t time) {
+    heatmap_motion(server); // where the pointer rests, for the heatmap
     if (server->cursor_mode == SH_CURSOR_PANEL) {
         panel_drag_motion(server);
         return;
@@ -441,6 +442,8 @@ void process_cursor_motion(struct sh_server *server, uint32_t time) {
     if (server->seat->drag)
         wlr_scene_node_set_position(&server->drag_icons->node, server->cursor->x,
                                     server->cursor->y);
+    if (xray_motion(server))
+        return;
     overview_hot_corner(server);
     if (overview_motion(server))
         return;
@@ -532,6 +535,7 @@ void server_cursor_motion(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_motion);
     struct wlr_pointer_motion_event *event = data;
     input_activity(server, true);
+    wrapped_motion(server, event->delta_x, event->delta_y);
     wlr_relative_pointer_manager_v1_send_relative_motion(
         server->relative_pointer, server->seat, (uint64_t)event->time_msec * 1000, event->delta_x,
         event->delta_y, event->unaccel_dx, event->unaccel_dy);
@@ -560,6 +564,7 @@ void server_cursor_motion_absolute(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_motion_absolute);
     struct wlr_pointer_motion_absolute_event *event = data;
     input_activity(server, true);
+    wrapped_motion_absolute(server, event);
     uint64_t started = now_ns();
     wlr_cursor_warp_absolute(server->cursor, &event->pointer->base, event->x, event->y);
     process_cursor_motion(server, event->time_msec);
@@ -671,6 +676,8 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_button);
     struct wlr_pointer_button_event *event = data;
     input_activity(server, event->state == WL_POINTER_BUTTON_STATE_PRESSED);
+    wrapped_button(server, event);
+    heatmap_button(server, event); // a click, for the heatmap
     if (event->button >= BTN_MOUSE && event->button < BTN_MOUSE + 32) {
         const uint32_t bit = 1u << (event->button - BTN_MOUSE);
         if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
@@ -678,6 +685,8 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         else
             server->held_buttons &= ~bit;
     }
+    if ((server->xray.open || server->xray.pressed) && xray_button(server, event))
+        return;
     if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
         toys_press(server); // windows a toy pulled down come back to where the press lands
     if ((server->overview.open || server->overview.pressed) && overview_button(server, event))
@@ -821,6 +830,9 @@ void server_cursor_axis(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_axis);
     struct wlr_pointer_axis_event *event = data;
     input_activity(server, true);
+    wrapped_axis(server, event);
+    if (xray_axis(server, event))
+        return;
     if (overview_axis(server, event))
         return;
     struct wlr_keyboard *held = wlr_seat_get_keyboard(server->seat);

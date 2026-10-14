@@ -70,7 +70,8 @@ static struct sh_toplevel *tearing_window(struct sh_output *output, const char *
         *why = "magnified";
         return NULL;
     }
-    if (server->overview.visible || server->switcher.open || server->peeking || server->peek_window) {
+    if (server->overview.visible || server->switcher.open || server->peeking || server->peek_window ||
+        server->xray.visible) {
         *why = "overlay";
         return NULL;
     }

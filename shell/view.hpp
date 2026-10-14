@@ -341,3 +341,15 @@ class ConfigErrorView : public QQuickView {
     LayerShellQt::Window *layer_ = nullptr;
     QScreen *outputScreen_;
 };
+
+// The names of the exploded view's sheets (paw xray) on one output, over the compositor's stack
+// while the view is open there: a legend of every sheet and a caption for the one under the
+// pointer. It takes no input.
+class XrayView : public OverlayView {
+    Q_OBJECT
+  public:
+    XrayView(ShellController &controller, QScreen *screen);
+
+  private:
+    void update();
+};

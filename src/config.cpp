@@ -1534,9 +1534,13 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             } else if (binding.action == SH_CAT) {
                 binding.mode = lua_isnil(L, -1) ? SH_CAT_TOGGLE
                                                 : parse_cat_switch(string(L, -1, "mode"));
+            } else if (binding.action == SH_HEATMAP) {
+                // Without one, it toggles.
+                if (!lua_isnil(L, -1))
+                    binding.mode = parse_heatmap_choice(string(L, -1, "mode"));
             } else if (!lua_isnil(L, -1)) {
                 if (binding.action != SH_SCREENSHOT)
-                    fail("mode is only valid with screenshot, mode, display_mode and cat");
+                    fail("mode is only valid with screenshot, mode, display_mode, cat and heatmap");
                 binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
             }
             lua_pop(L, 1);
@@ -1933,6 +1937,10 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
               "cat.coat must be \"auto\", \"ginger\", \"black\", \"cream\" or \"grey\"", "coat");
         settings.cat_sleep = integer(L, "sleep_after", settings.cat_sleep, 5, 3600);
     }
+    if (Section in{L, "wrapped"})
+        boolean(L, "enabled", "wrapped.enabled", config.settings.wrapped);
+    if (Section in{L, "heatmap"})
+        boolean(L, "enabled", "heatmap.enabled", config.settings.heatmap);
     return config;
 }
 } // namespace
@@ -2076,6 +2084,8 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"gravity", SH_GRAVITY},
         {"party", SH_PARTY},
         {"cat", SH_CAT},
+        {"xray", SH_XRAY},
+        {"heatmap", SH_HEATMAP},
 };
 } // namespace
 
@@ -2220,6 +2230,15 @@ sh_screenshot_mode parse_screenshot_mode(const std::string &name) {
         if (name == candidate)
             return mode;
     fail("screenshot mode must be \"region\", \"output\", or \"window\"");
+}
+
+sh_heatmap_choice parse_heatmap_choice(const std::string &name) {
+    for (auto [candidate, choice] :
+         {std::pair{"toggle", SH_HEATMAP_TOGGLE}, {"motion", SH_HEATMAP_MOTION},
+          {"clicks", SH_HEATMAP_CLICKS}, {"reset", SH_HEATMAP_RESET}})
+        if (name == candidate)
+            return choice;
+    fail("heatmap must be \"toggle\", \"motion\", \"clicks\" or \"reset\"");
 }
 
 bool WindowRule::matches(const std::string &app_id, const std::string &title) const {

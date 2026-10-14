@@ -368,6 +368,9 @@ return {
     -- What a standalone session restores of the last one: "windows" puts back the windows
     -- that open again, "launch" also starts the programs of the others, "off" nothing:
     -- session = { restore = "windows" },
+    -- `paw wrapped` reports a year at the desktop from what paw counts on this machine (never
+    -- which keys), in ~/.local/state/paw/wrapped; false counts nothing:
+    -- wrapped = { enabled = true },
     -- Binding modes, as sway's modes and Hyprland's submaps: while one is in use its bindings take
     -- the place of those below, so bare keys can do the work, and the bar shows its name. A
     -- binding with action = "mode" enters one, and mode = "default" leaves it; each mode needs

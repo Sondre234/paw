@@ -14,6 +14,7 @@ void deactivate_toplevel(struct sh_server *server) {
         wlr_foreign_toplevel_handle_v1_set_activated(old->foreign, false);
     server->focused_toplevel = NULL;
     refresh_frame(old);
+    wrapped_follow(server);
 }
 
 /* Puts the fullscreen windows on `toplevel`'s output down among the others, so that it can come
@@ -67,6 +68,7 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
     deactivate_toplevel(server);
     server->focused_layer = NULL;
     server->focused_toplevel = toplevel;
+    wrapped_follow(server);
     bool was_urgent = toplevel->urgent;
     toplevel->urgent = false; // it has the user's attention now
     bool was_minimized = toplevel->minimized;

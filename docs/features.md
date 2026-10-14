@@ -2861,7 +2861,12 @@ compositor it has drawn a profile's look with `paw msg profile_drawn NAME`. `paw
 `get touch` and `get tablet` say what a touchpad's swipe, a touchscreen's fingers and a drawing
 tablet's tools are doing (see [Touchpad gestures](#touchpad-gestures),
 [Touchscreens](#touchscreens) and [Drawing tablets](#drawing-tablets)), and `get tearing` what
-each monitor's frames do (see [Tearing](#tearing)). A client
+each monitor's frames do (see [Tearing](#tearing)). `paw msg get wrapped` prints whether [paw
+wrapped](#paw-wrapped) counts, `enabled yes`, or `enabled no` and why, and while it does the day it counts
+for (`day YYYY-MM-DD`), how many times this session saved and when it last did (`saves N`, `saved
+SECONDS` since 1970, 0 for never), what the time counts as now (`state active`, `idle` or `away`),
+the focused application and its streak so far in seconds (`focus APP SECONDS`, `-` for none), and
+then what it counted and has not saved yet, as the lines of a day file. A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
 `workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
 (as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of
@@ -3207,6 +3212,138 @@ cat = { enabled = true, coat = "auto", scale = 2, sleep_after = 90 },
 layout coordinates), what it is doing (`sit`, `look`, `walk`, `groom`, `scratch`, `yawn`, `sleep`,
 `wake`, `jump`, `fall`, `land`, `chase`, `pounce`, `rush`, `knock`), the picture it shows, its
 coat, and what it stands on: the window's title, `floor`, or `-` while it is in the air.
+### paw wrapped
+
+`paw wrapped` tells you about your time at the desktop as Spotify Wrapped tells you about a year
+of music: a bold, coloured card for each thing worth saying, with a comparison to go with it.
+"You moved your mouse 4.1 km — about 39 football pitches", your top applications by the time
+they had the focus, with bars, your longest focus streak and when it was, your busiest day, how
+many keys you pressed against the length of a novel, how often you clicked, scrolled, switched
+workspaces and dragged windows about. A card shows only when there is something on it; with
+nothing counted yet it says so.
+
+```sh
+paw wrapped           # the last 365 days, or all there is when that is less
+paw wrapped --today   # or --week and --month (the last 7 and 30 days), --all, --since 2026-03-01
+paw wrapped --plain   # lines instead of boxes, as without a terminal or with NO_COLOR set
+paw wrapped --json    # the totals, day by day too, for scripts
+```
+
+A standalone session (`paw --session`, from a display manager or a TTY) counts, while
+`wrapped.enabled` is on, which it is unless the configuration says otherwise; a nested paw counts
+nothing, its input being the desktop's it runs in. It counts:
+
+- how far the pointer travelled, in layout pixels and in millimetres on the monitor (from the
+  size its EDID gives, else at 96 dots an inch), clicks by button, and how far you scrolled;
+- how many keys were pressed: a count only, never which keys, and not those a virtual keyboard
+  such as wtype types;
+- touchpad swipes and pinches;
+- windows opened and closed, moved and resized with the pointer (a press let go in place is not
+  a move), and snapped to a half or a quarter by pointer or key; workspace switches; the overview
+  and the window switcher opened; programs the `spawn` and `terminal` actions started;
+- the time each application, by its app ID, had the focus while you were at the desktop, and the
+  longest the focus stayed with one application without a break, and when that began;
+- when each session started, and the time active (input in the last two minutes, or something
+  keeping the screen awake, as a video playing does) against the time idle, away, locked, with
+  every monitor off or another VT in front, none of which counts for an application.
+
+It stays on this machine, in plain text: a file per day in `$XDG_STATE_HOME/paw/wrapped`
+(`~/.local/state/paw/wrapped` without it), named `YYYY-MM-DD` and readable by you alone, each line
+tab-separated: a counter and its value (`keys 1234`), an application and its seconds (`app firefox
+3600`), or the day's longest streak (`streak kitty 8040 START`, START in seconds since 1970). A
+session adds what it counted to the day's file every five minutes, as it goes idle, locks or the
+machine sleeps, and as it ends, so that a crash loses a few minutes at most; one that runs past
+midnight starts the next day's file. `paw wrapped` adds what the running session counted since it
+last saved, which `paw msg get wrapped` lists. `wrapped = { enabled = false }` stops the counting,
+saving what was counted first; deleting the directory forgets what was.
+### paw xray
+
+The `xray` action takes the focused monitor apart into the layers paw draws, so that what lies
+over what shows, and closes it again; bind it as `{ mods = { "Super" }, key = "x", action = "xray"
+}`. The picture comes apart into a stack of sheets, bottom to top: the background (the desktop's
+colour and the wallpaper), the bottom layer, the windows, floating windows (with
+`layout.floating_above_tiles`), windows kept above, fullscreen windows, the panels (the top
+layer), a fullscreen window covering the panels, X11 menus and the overlays. A layer with nothing
+on that monitor has no sheet, and while six windows or fewer show, each has a sheet of its own.
+Each sheet is a live copy of what its layer draws there, scaled down, on a card edged in the
+layer's colour with a shadow, fanned out from the one under it like a deck of cards seen from the
+side. It comes apart from the flat screen and goes back into it in `animations.minimize`'s time
+and curve, half as long again to open, and at once with `animations.enabled = false`.
+
+Moving the pointer turns the stack: it leans away from the pointer, so that the edges of the
+sheets low in it come out where the pointer is. The wheel, or + and -, spreads the sheets apart and
+together, and 0 sets the stack straight again. The sheet under the pointer is lifted out of the
+stack and those over it fade, and the shell names it under the stack ("Windows · firefox — Mozilla
+Firefox"), beside a legend of every sheet, top first, in its layer's colour. The arrow keys and Tab go up and down the stack, Return or a click
+on a window goes to that window, and Escape, a click beside the stack or the action again closes
+the view. While open it takes the keyboard and the pointer, as the overview does, and changes
+nothing else; closed, nothing of it is left. It does not open while the session is locked, and
+closes as the session locks or its monitor goes. `paw xray` sends the action from a terminal.
+
+`paw xray --list` prints what every monitor draws as text, layer by layer from the top down, with
+each surface's or window's kind, namespace or app id, title and place, which says why one thing is
+drawn over another (in a terminal, a square of each layer's colour leads its line):
+
+    HEADLESS-1, top first:
+      top         surface  paw-panel                  1600×52 at 0,848
+      above       window   firefox — Mozilla Firefox  320×240 at 72,72
+      windows     window   kitty — ~/dev              320×240 at 40,40
+      background  surface  paw-desktop                1600×900 at 0,0
+      background  colour   paw — #19212e              1600×900 at 0,0
+
+`paw msg get xray` gives the same as tab-separated lines, bottom to top, after a line saying
+whether the view is open: output, layer, its colour, kind (colour, surface, window or x11), name,
+title, place, and while the view shows that monitor the sheet showing it and where that is
+drawn.
+### paw heatmap
+
+Where the pointer has been. While the session runs, the compositor counts for each monitor how
+long the pointer rested in each part of it and how often it was clicked there, in a grid of cells
+8 logical pixels square. A pointer at rest counts for at most ten seconds after it last moved or
+clicked, so that time away from the desktop does not outweigh everything else, and nothing
+counts while the session is locked. The counts stay in the compositor's memory: they are never
+written to disk, and they are gone when the session ends or with `heatmap reset`. Nothing is
+counted at all with
+
+```lua
+heatmap = { enabled = false },
+```
+
+The `heatmap` action shows them over every monitor, over the windows and panels and under the
+lock screen: the grid blurred and coloured from cold to hot (clear, blue, cyan, green, yellow,
+red, white) on one scale for every monitor, up to the hottest place, the desktop showing
+through, with a legend that says what it shows and how much the hottest cell holds, in the
+bottom-right corner unless another corner hides much less of the heat. The scale is logarithmic, so that a path the pointer only passed along
+shows beside a place it rested at for minutes. The overlay takes no input, so the desktop works
+as usual under it; it is drawn again twice a second while it shows, the rest under way included,
+and fades in and out with the [animations](#animations). `heatmap` (or `heatmap toggle`) shows
+where the pointer rested, or the clicks if those showed last, and hides it again; `heatmap
+motion` and `heatmap clicks` show that one, from the other too, or hide it; `heatmap reset`
+forgets everything counted. In a binding, `mode` gives the choice:
+
+```lua
+bindings = {
+    { mods = { "Super", "Shift" }, key = "h", action = "heatmap" },
+    { mods = { "Super", "Shift", "Ctrl" }, key = "h", action = "heatmap", mode = "clicks" },
+},
+```
+
+`paw msg get heatmap [OUTPUT] [motion|clicks]` prints, for each monitor in the layout or the one
+named, a line with its name, `motion` or `clicks`, the grid's columns and rows, the cell's size,
+and the monitor's place and size in the layout, then a line for each row of cells: the
+milliseconds the pointer rested in each, or the clicks there, tab-separated. `paw msg get
+heatmap_overlay` prints a line per monitor while the overlay is there: the monitor, `shown`, or
+`hiding` while it fades out, what it shows, its opacity in thousandths, what the legend says at
+the hot end, and how many times it has been drawn.
+
+`paw heatmap [toggle|motion|clicks|reset]` runs the action from a terminal or a script. `paw
+heatmap --term` draws the heatmap there instead, every monitor at its place in the layout,
+fitted to the terminal: two pixels a character, in 24-bit colour with half blocks (▀), or in
+shades (░ ▒ ▓ █) when `NO_COLOR` is set, with the scale and the hottest cell's count below. `paw
+heatmap --export FILE` writes it as an image of a pixel for each logical pixel of the layout: a
+`.png` or a `.pam`, clear where the pointer never was, or a `.ppm` over black. `--clicks` shows
+the clicks in place of the rest, and `--output NAME` one monitor alone. The counts leave the
+compositor only that way, to the terminal or the file named.
 
 ## Screen locking and idle
 

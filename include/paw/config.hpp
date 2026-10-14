@@ -445,7 +445,9 @@ struct Config {
                          .cat = false,
                          .cat_scale = 2,
                          .cat_coat = -1,
-                         .cat_sleep = 90};
+                         .cat_sleep = 90,
+                         .wrapped = true,
+                         .heatmap = true};
     // layout.workspace_names: the label of workspace N is names[N - 1]; "" or past the end: none.
     std::vector<std::string> workspace_names;
     // hot_corners: what each corner runs, as a control request; "" for nothing.
@@ -534,6 +536,8 @@ sh_display_mode parse_display_mode(const std::string &name);
 sh_cat_switch parse_cat_switch(const std::string &name);
 // switch_layout's "next" (0), "prev" (-1), or a layout's number from 1; throws for others.
 int parse_layout_choice(const std::string &word);
+// "toggle", "motion", "clicks" or "reset"; throws for other names.
+sh_heatmap_choice parse_heatmap_choice(const std::string &name);
 // `words` with `separator` between them.
 std::string join(std::span<const std::string> words, std::string_view separator = ", ");
 

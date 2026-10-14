@@ -24,6 +24,8 @@
 #include "paw/dynamic_rule.h"
 #include "paw/border.h"
 #include "paw/dropdown.h"
+#include "paw/wrapped_day.h"
+#include "paw/xray_layout.h"
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -289,7 +291,10 @@ struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c
 struct sh_crossfade_picture; // what an output showed as it began
 struct sh_toys;              // the toy playing (toys.c)
 struct sh_cat_view;          // the desktop cat (cat.c)
+struct sh_wrapped;       // what paw wrapped counts (wrapped.c)
 struct wlr_color_manager_v1;
+struct sh_heatmap;     // where the pointer rests and clicks, and the overlay (heatmap.c)
+struct sh_heat_output; // an output's grid and its part of the overlay
 
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
  * workspace it showed as the swipe began and the one the fingers head for (out of range past
@@ -385,6 +390,48 @@ struct sh_gesture {
     bool has_opposite;
     struct sh_workspace_swipe workspace;
     bool opening; /* the overview swipe opens it, rather than closing it */
+};
+
+/* The exploded view (xray.c): the layers an output draws as a stack of sheets fanned out, each a
+ * live copy of its layer's surfaces over a card, with an outline and a shadow. A sheet is known
+ * by its layer and the window it shows alone (NULL for a whole layer's), a pointer only compared,
+ * as the window may be gone. */
+enum { XRAY_SHEETS = 16 };
+struct sh_xray_sheet {
+    int layer; /* enum xray_layer (xray.c) */
+    struct sh_toplevel *window;
+    struct wlr_scene_tree *tree, *shadow, *content;
+    struct wlr_scene_rect *card, *outline[4];
+    struct wlr_scene_buffer *sheen, *slices[SH_SHADOW_SLICES];
+    uint64_t print; /* what its copy was made from, its scale and opacity; 0 to make it again */
+    double lift, veil; /* easing to 1 while it is hovered, and while it is over the hovered one */
+    struct sh_xray_box rest, drawn; /* where it rests fanned out and is drawn, on the output */
+};
+struct sh_xray {
+    bool open;    /* taking input */
+    bool visible; /* drawn: open, or gliding closed */
+    bool closing;
+    bool armed; /* a step is scheduled */
+    char output[64];
+    struct wlr_box screen;   /* the output, in layout coordinates */
+    struct sh_xray_box area; /* what the stack keeps to, and the legend's column left of it */
+    double legend;
+    struct wlr_scene_tree *tree, *sheets_tree; /* NULL while closed */
+    struct wlr_scene_rect *backdrop;
+    struct wlr_buffer *sheen; /* the light down a card's top, made once */
+    struct wl_event_source *timer;
+    int64_t started, ticked; /* milliseconds: the glide's start, the last step */
+    int span;                /* milliseconds the glide takes */
+    double from, to, progress; /* 0: flat on the output, 1: fanned out */
+    double origin_x, origin_y; /* the pointer as it opened, which the tilt is measured from */
+    double tilt_x, tilt_y, aim_x, aim_y; /* the tilt, and the one it eases toward */
+    double spread, spread_aim, scroll;
+    int hovered;   /* the sheet lifted and named, else -1 */
+    bool pointing; /* the pointer says which (the keys did last otherwise) */
+    uint32_t pressed; /* buttons the view took; their releases are its too */
+    uint64_t announced; /* what the shell was told last */
+    int count;
+    struct sh_xray_sheet sheets[XRAY_SHEETS];
 };
 
 struct sh_server {
@@ -769,6 +816,10 @@ struct sh_server {
         int64_t ends;
     } rice;
     struct sh_cat_view *cat; /* the desktop cat (cat.c); NULL if it could not be made */
+    struct sh_wrapped *wrapped; // NULL while wrapped.enabled is off
+    struct sh_xray xray;
+    /* The pointer heatmap (heatmap.c); NULL until the first output is laid out. */
+    struct sh_heatmap *heatmap;
 };
 
 /* Tearing on an output (tearing.c): what its frames do now (`tearing`, `refused`, or why its
@@ -832,6 +883,9 @@ struct sh_output {
     struct wl_listener frame;
     struct wl_listener request_state;
     struct wl_listener destroy;
+    /* Its grid of the pointer heatmap and its part of the overlay (heatmap.c); NULL until it is
+     * first laid out. */
+    struct sh_heat_output *heat;
 };
 
 /* An icon a window supplies itself (window_icon.c): the icon theme name it gave, and the pixels
@@ -1248,6 +1302,8 @@ void unpublish_toplevel(struct sh_toplevel *toplevel);
 
 /* frame.c */
 int pixel_scale(struct sh_server *server);
+struct sh_shadow_image *shadow_image(struct sh_server *server, const struct sh_shadow *look,
+                                     int width, int height);
 enum wlr_xdg_toplevel_decoration_v1_mode
 decoration_mode(struct wlr_xdg_toplevel_decoration_v1 *decoration);
 bool wants_decoration(struct sh_toplevel *toplevel);
@@ -1462,6 +1518,7 @@ bool display_power(struct sh_server *server, enum sh_action action, char *error,
 bool wake_displays(struct sh_server *server);
 
 /* overview.c */
+void overview_tint(float out[4], const struct sh_settings *settings, float luminance, float a);
 size_t overview_describe(struct sh_server *server, char *text, size_t size);
 void overview_select(struct sh_server *server, int index);
 void overview_touch(struct sh_server *server, bool relayout);
@@ -1757,6 +1814,24 @@ int focused_workspace(struct sh_server *server);
 void control_rice(struct sh_server *server, int fd, const char *arguments);
 void describe_rice_trial(struct sh_server *server, int fd, const char *arguments);
 void rice_finish(struct sh_server *server);
+/* wrapped.c */
+void wrapped_init(struct sh_server *server);
+void wrapped_finish(struct sh_server *server);
+void wrapped_reload(struct sh_server *server);
+/* Each hook counts one thing: input coming, the state the time counts by (focus, the lock, an
+ * idle inhibitor, the monitors) after it changed, or an event. */
+void wrapped_input(struct sh_server *server);
+void wrapped_follow(struct sh_server *server);
+void wrapped_count(struct sh_server *server, enum sh_wrapped_counter counter);
+void wrapped_motion(struct sh_server *server, double dx, double dy);
+void wrapped_motion_absolute(struct sh_server *server,
+                             const struct wlr_pointer_motion_absolute_event *event);
+void wrapped_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
+void wrapped_axis(struct sh_server *server, const struct wlr_pointer_axis_event *event);
+void wrapped_grab_done(struct sh_server *server);
+/* Saves what was counted now: the session goes idle, locks or sleeps. */
+void wrapped_save(struct sh_server *server);
+void describe_wrapped(struct sh_server *server, int fd, const char *arguments);
 
 /* xwayland.c */
 #if WLR_HAS_XWAYLAND
@@ -1786,3 +1861,25 @@ void cat_frame(struct sh_server *server);
 void cat_input(struct sh_server *server);
 void cat_pointer_moved(struct sh_server *server);
 void describe_cat(struct sh_server *server, int fd, const char *arguments);
+/* xray.c */
+void xray_touch(struct sh_server *server);
+void xray_open(struct sh_server *server);
+void xray_close(struct sh_server *server, struct sh_toplevel *chosen);
+void xray_dismiss(struct sh_server *server);
+void xray_toggle(struct sh_server *server);
+void xray_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
+bool xray_motion(struct sh_server *server);
+bool xray_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
+bool xray_axis(struct sh_server *server, const struct wlr_pointer_axis_event *event);
+void xray_finish(struct sh_server *server);
+void describe_xray(struct sh_server *server, int fd, const char *arguments);
+/* heatmap.c */
+void heatmap_motion(struct sh_server *server);
+void heatmap_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
+void heatmap_arrange(struct sh_server *server);
+void heatmap_forget_output(struct sh_output *output);
+void heatmap_finish(struct sh_server *server);
+void describe_heatmap(struct sh_server *server, int fd, const char *arguments);
+void heatmap_action(struct sh_server *server, int choice);
+bool heatmap_tick(struct sh_server *server);
+void describe_heatmap_overlay(struct sh_server *server, int fd, const char *arguments);

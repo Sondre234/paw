@@ -23,6 +23,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     toys_tick(output->server); // poses the windows a toy plays with, which the animator draws
     sh_animator_tick(output->server->animator);
     overview_touch(output->server, false); // windows that move or fade move their thumbnails
+    xray_touch(output->server); // and the copies of their layers
     // Whatever moved a window against an edge of the usable area or away from it drew a frame
     // here; the shell hears of it with the state (describe_state).
     if (output_touched_edges(output->server, output) != output->touched)
@@ -31,6 +32,8 @@ static void output_frame(struct wl_listener *listener, void *data) {
     if (tick_idle(output->server)) // the screens dimming
         wlr_output_schedule_frame(output->wlr_output);
     cat_frame(output->server); // whatever moved under the cat drew this frame
+    if (heatmap_tick(output->server)) // the pointer heatmap fading in or out
+        wlr_output_schedule_frame(output->wlr_output);
     // Night light's colours do not go with an HDR output's, which the scene converts to itself.
     struct wlr_scene_output_state_options night = {
         .color_transform = output_is_hdr(output) ? NULL : output->server->night_transform};
@@ -302,6 +305,7 @@ void arrange_outputs(struct sh_server *server) {
     map_tablets(server);
     publish_output_configuration(server);
     notify_subscribers(server); // the list of outputs and their workspaces
+    heatmap_arrange(server);    // the pointer heatmap's grids for the outputs' sizes
     // A mirror whose source came or went joins or leaves the layout, laid out again then.
     if (refresh_mirrors(server))
         arrange_outputs(server);
@@ -714,6 +718,7 @@ static void output_destroy(struct wl_listener *listener, void *data) {
     mirror_stop(output);
     mirrors_forget_source(output);
     crossfade_forget_output(output);
+    heatmap_forget_output(output);
     output_release_zoom(output);
     destroy_output_layers(output->server, output->wlr_output);
     wlr_scene_node_destroy(&output->background->node);
@@ -721,6 +726,8 @@ static void output_destroy(struct wl_listener *listener, void *data) {
     struct sh_server *server = output->server;
     if (!strcmp(server->overview.output, output->wlr_output->name))
         overview_dismiss(server);
+    if (!strcmp(server->xray.output, output->wlr_output->name))
+        xray_dismiss(server);
     if (server->running)
         schedule_evacuation(server, output);
     // A laptop's panel the lid held off comes back when the last other monitor goes.

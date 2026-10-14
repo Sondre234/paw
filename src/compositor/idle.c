@@ -91,6 +91,7 @@ static void dim_to(struct sh_server *server, double target) {
 
 static void take_step(struct sh_server *server, enum sh_idle_step step) {
     struct sh_output *output, *temporary;
+    wrapped_save(server); // the session went idle
     switch (step) {
     case SH_IDLE_DIM:
         wlr_log(WLR_INFO, "Idle: dimming the screens");
@@ -195,6 +196,7 @@ bool idle_activity(struct sh_server *server) {
  * from then. */
 void idle_hold_changed(struct sh_server *server) {
     struct sh_idle *idle = &server->idle;
+    wrapped_follow(server);
     if (idle_held(server)) {
         dim_to(server, 0);
         idle->done &= ~(1u << SH_IDLE_DIM);
