@@ -14,7 +14,6 @@ enum { CAT_AREAS = 16, CAT_WINDOWS = 128, CAT_LEDGES = 512 };
 /* What the cat sees, made afresh for each step. */
 struct sight {
     struct sh_cat_area areas[CAT_AREAS];
-    struct sh_output *outputs[CAT_AREAS];
     int area_count;
     struct sh_cat_window windows[CAT_WINDOWS];
     int window_count;
@@ -225,7 +224,6 @@ static void look(struct sh_cat_view *view) {
         struct sh_rect usable = usable_area(server, output->wlr_output);
         if (output->wlr_output == focused)
             focused_area = sight->area_count;
-        sight->outputs[sight->area_count] = output;
         sight->areas[sight->area_count++] =
             (struct sh_cat_area){box.x, box.y, box.width, box.height, usable.y,
                                  usable.y + usable.height};
@@ -292,12 +290,15 @@ static void draw(struct sh_cat_view *view, int64_t now) {
             view->drawn_frame = pose.frame;
         }
     }
-    wlr_scene_buffer_set_transform(view->sprite, pose.left ? WL_OUTPUT_TRANSFORM_FLIPPED
-                                                           : WL_OUTPUT_TRANSFORM_NORMAL);
+    enum wl_output_transform facing =
+        pose.left ? WL_OUTPUT_TRANSFORM_FLIPPED : WL_OUTPUT_TRANSFORM_NORMAL;
+    if (view->sprite->transform != facing)
+        wlr_scene_buffer_set_transform(view->sprite, facing);
     // Squashed about its feet, as it lands.
     int width = (int)lround(SH_CAT_ART_WIDTH * view->scale * (1 + pose.squash));
     int height = (int)lround(SH_CAT_ART_HEIGHT * view->scale * (1 - pose.squash));
-    wlr_scene_buffer_set_dest_size(view->sprite, width, height);
+    if (view->sprite->dst_width != width || view->sprite->dst_height != height)
+        wlr_scene_buffer_set_dest_size(view->sprite, width, height);
     wlr_scene_node_set_position(&view->sprite->node, (int)lround(cat->x - width / 2.0),
                                 (int)lround(cat->y) - height);
     // The "z" rises from its head, which lies forward as it sleeps.
@@ -313,7 +314,8 @@ static void draw(struct sh_cat_view *view, int64_t now) {
         if (view->z->buffer != view->z_buffer)
             wlr_scene_buffer_set_buffer(view->z, view->z_buffer);
         int size = SH_CAT_Z_SIZE * view->scale;
-        wlr_scene_buffer_set_dest_size(view->z, size, size);
+        if (view->z->dst_width != size)
+            wlr_scene_buffer_set_dest_size(view->z, size, size);
         // From just over its head (cells 11 to 17 of its art, its ears 11 cells up), each
         // breath a little higher and further.
         int forward = (pose.left ? -1 : 1) * (5 + pose.z_step) * view->scale;
