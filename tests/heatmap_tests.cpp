@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* The pointer heatmap's arithmetic (src/heatmap.c): the grid's counts and their resizing, the
  * blur, the scale and its colours, resampling, and the legend's text; the heatmap action's
- * choices in bindings; and `paw heatmap`'s layout of the outputs and its pictures in a terminal
- * (src/cli/heatmap.cpp). */
+ * choices in bindings; and `paw heatmap`'s layout of the outputs, its pictures in a terminal and
+ * its images (src/cli/heatmap.cpp). */
 #include "check.h"
 #include "config_check.hpp"
 #include "paw/cli.hpp"
@@ -15,6 +15,8 @@
 #include <numeric>
 #include <string>
 #include <vector>
+
+using namespace std::string_literals;
 
 namespace {
 
@@ -373,6 +375,35 @@ void terminal() {
           "%s", lines[3].c_str());
 }
 
+void images() {
+    auto heatmap = paw::cli::heatmap_from(paw::cli::rows(two_outputs));
+    // A pixel a logical pixel: the hot place on the first output, nothing between the two.
+    auto ppm = paw::cli::heatmap_image(heatmap, "ppm");
+    std::string header = "P6\n56 24\n255\n";
+    CHECK(ppm.starts_with(header) && ppm.size() == header.size() + 56 * 24 * 3);
+    auto rgb = [&](int x, int y) { return ppm.substr(header.size() + (y * 56 + x) * 3, 3); };
+    auto hot = rgb(28, 12);
+    CHECK(
+        std::all_of(hot.begin(), hot.end(), [](char c) { return static_cast<uint8_t>(c) > 0xd8; }),
+        "white where the pointer rested");
+    CHECK(rgb(4, 15) != std::string(3, '\0') && rgb(4, 16) == std::string(3, '\0'),
+          "nothing below the first output");
+    CHECK(rgb(4, 20) == std::string(3, '\0'), "black where nothing was");
+    auto pam = paw::cli::heatmap_image(heatmap, "pam");
+    header = "P7\nWIDTH 56\nHEIGHT 24\nDEPTH 4\nMAXVAL 255\nTUPLTYPE RGB_ALPHA\nENDHDR\n";
+    CHECK(pam.starts_with(header) && pam.size() == header.size() + 56 * 24 * 4);
+    auto alpha = [&](int x, int y) {
+        return static_cast<uint8_t>(pam[header.size() + (y * 56 + x) * 4 + 3]);
+    };
+    CHECK(alpha(28, 12) == 255 && alpha(4, 20) == 0, "%d %d", alpha(28, 12), alpha(4, 20));
+    // A PNG of RGBA rows; tests/heatmap_smoke.py decodes one.
+    auto png = paw::cli::heatmap_image(heatmap, "png");
+    CHECK(png.starts_with("\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR"s));
+    CHECK(png.substr(16, 10) == "\0\0\0\x38\0\0\0\x18\x08\x06"s, "56 by 24, 8-bit RGBA");
+    CHECK(png.ends_with("\0\0\0\0IEND\xae\x42\x60\x82"s));
+    CHECK(throws([&] { paw::cli::heatmap_image(heatmap, "gif"); }));
+}
+
 void arguments() {
     auto refused = [](std::vector<const char *> words) {
         words.insert(words.begin(), {"paw", "heatmap"});
@@ -381,7 +412,8 @@ void arguments() {
         });
     };
     CHECK(refused({"hot"}) && refused({"toggle", "motion"}) && refused({"--clicks"}) &&
-              refused({"reset", "--term"}) && refused({"--output", "A"}),
+              refused({"reset", "--term"}) && refused({"--output", "A"}) && refused({"--export"}) &&
+              refused({"--export", "heat.gif"}),
           "usage errors");
 }
 
@@ -396,6 +428,7 @@ int main() {
     try {
         layout();
         terminal();
+        images();
         arguments();
         bindings();
     } catch (const std::exception &error) {

@@ -2906,8 +2906,11 @@ the hot end, and how many times it has been drawn.
 `paw heatmap [toggle|motion|clicks|reset]` runs the action from a terminal or a script. `paw
 heatmap --term` draws the heatmap there instead, every monitor at its place in the layout,
 fitted to the terminal: two pixels a character, in 24-bit colour with half blocks (▀), or in
-shades (░ ▒ ▓ █) when `NO_COLOR` is set, with the scale and the hottest cell's count below.
-`--clicks` shows the clicks in place of the rest, and `--output NAME` one monitor alone.
+shades (░ ▒ ▓ █) when `NO_COLOR` is set, with the scale and the hottest cell's count below. `paw
+heatmap --export FILE` writes it as an image of a pixel for each logical pixel of the layout: a
+`.png` or a `.pam`, clear where the pointer never was, or a `.ppm` over black. `--clicks` shows
+the clicks in place of the rest, and `--output NAME` one monitor alone. The counts leave the
+compositor only that way, to the terminal or the file named.
 
 ## Screen locking and idle
 

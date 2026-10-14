@@ -27,7 +27,7 @@ std::vector<std::vector<std::string>> query(const std::string &name);
 std::filesystem::path state_directory();
 
 // `paw heatmap` (src/cli/heatmap.cpp): the heatmap action, or where the pointer has been in the
-// terminal.
+// terminal or in an image.
 int heatmap(int argc, char **argv);
 // The pointer heatmap `get heatmap` rows describe, laid out as the outputs are: a field of cells
 // SH_HEAT_CELL logical pixels square over their bounding box, `width` by `height` logical
@@ -44,5 +44,7 @@ Heatmap heatmap_from(const std::vector<std::vector<std::string>> &rows);
 // The heatmap fitted into `columns` by `lines` of a terminal, the last two left for its legend
 // and the prompt: half blocks in 24-bit colour, or shades without `colour`.
 std::string heatmap_text(const Heatmap &heatmap, int columns, int lines, bool colour);
+// The heatmap as an image file, a pixel a logical pixel: "png", "pam" or "ppm".
+std::string heatmap_image(const Heatmap &heatmap, const std::string &format);
 
 } // namespace paw::cli

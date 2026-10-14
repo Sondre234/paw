@@ -1014,8 +1014,8 @@ void usage() {
            "paw import [--config PATH] [--dry-run] DIR writes theme.lua beside the\n"
            "configuration from the Hyprland, Waybar, wallbash, and pywal files in DIR.\n"
            "paw heatmap [toggle|motion|clicks|reset] shows where the pointer rested or clicked\n"
-           "over the desktop, or hides it; --term [--clicks] [--output NAME] draws it in the\n"
-           "terminal.\n";
+           "over the desktop, or hides it; --term draws it in the terminal and --export FILE\n"
+           "writes it to a .png, .pam or .ppm image, with --clicks and --output NAME.\n";
 }
 /* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
  * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */

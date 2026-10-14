@@ -581,8 +581,8 @@ wrong with it, and toys the compositor plays with the windows.
 
 - `paw heatmap` and the `heatmap` action show where the pointer rested and clicked this session,
   which the compositor counts for each monitor in memory alone: over the desktop, blurred and
-  coloured from cold to hot with a legend, or in the terminal with `--term`. `paw msg get
-  heatmap` prints the counts.
+  coloured from cold to hot with a legend, in the terminal with `--term`, or as a PNG, PAM or PPM
+  with `--export FILE`. `paw msg get heatmap` prints the counts.
 
 ### Fixes
 

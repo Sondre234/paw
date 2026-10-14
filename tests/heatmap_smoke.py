@@ -7,12 +7,15 @@ output's size, keeping its heat where it was. The heatmap action shows the grids
 output, fading in and out, drawn again twice a second but not under the lock, input going
 through to the window under it (and, with grim, hot colours where the pointer rested, the
 desktop as it was elsewhere, and the legend); it switches between rest and clicks, and reset
-forgets everything. `paw heatmap` runs the action, and draws the heatmap in a terminal of the
-size $COLUMNS and $LINES say, in colour or, with NO_COLOR, in shades. The pointer is a virtual
-one (pointer_probe)."""
+forgets everything. `paw heatmap` runs the action, draws the heatmap in a terminal of the size
+$COLUMNS and $LINES say, in colour or, with NO_COLOR, in shades, and writes it as a PNG, a PAM and
+a PPM of the layout's size, the PNG's pixels those of the PAM. The pointer is a virtual one
+(pointer_probe)."""
 from pathlib import Path
+import struct
 import subprocess
 import sys
+import zlib
 
 import harness
 
@@ -53,6 +56,30 @@ def cell(desktop, x, y, kind="motion", output="HEADLESS-1"):
 
 def total(desktop, kind="motion"):
     return sum(sum(map(sum, grid[4])) for grid in heatmap(desktop, kind).values())
+
+
+def png_pixels(data):
+    """The width, height and RGBA rows of a PNG `paw heatmap --export` wrote (8-bit RGBA, each
+    row filtered with Sub), checking every chunk's CRC on the way."""
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    chunks, at = {}, 8
+    while at < len(data):
+        length, kind = struct.unpack(">I4s", data[at:at + 8])
+        body = data[at + 8:at + 8 + length]
+        assert struct.unpack(">I", data[at + 8 + length:at + 12 + length])[0] == \
+            zlib.crc32(kind + body), kind
+        chunks[kind] = chunks.get(kind, b"") + body
+        at += 12 + length
+    width, height, depth, colour = struct.unpack(">IIBB", chunks[b"IHDR"][:10])
+    assert (depth, colour) == (8, 6) and b"IEND" in chunks
+    raw, stride, pixels = zlib.decompress(chunks[b"IDAT"]), width * 4, bytearray()
+    for y in range(height):
+        row = bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        assert raw[y * (stride + 1)] == 1, "a row not filtered with Sub"
+        for x in range(4, stride):
+            row[x] = (row[x] + row[x - 4]) & 0xff
+        pixels += row
+    return width, height, bytes(pixels)
 
 
 with harness.Compositor(compositor, config(),
@@ -188,10 +215,25 @@ with harness.Compositor(compositor, config(),
     wait_for(lambda: overlay() and overlay()["HEADLESS-1"][:2] == ("shown", "clicks"),
              "the clicks shown again")
 
-    # Under the lock it is not drawn again.
+    # Under the lock it is not drawn again. Nothing counting then, the images written meanwhile
+    # show the same counts: the PNG's pixels are the PAM's, and the PPM is as large.
     locker = desktop.spawn([lock_probe, "hold", str(desktop.root / "locker.log")])
     wait_for(lambda: desktop.log.read_text().count("Session locked") == 2, "locked again")
     drawn = overlay()["HEADLESS-1"][4]
+    for name in ("heat.png", "heat.PAM", "heat.ppm"):
+        said = paw_heatmap("--export", str(desktop.root / name))
+        assert said.startswith("Wrote the heatmap of HEADLESS-1, HEADLESS-2 to "), said
+    width, height, pixels = png_pixels((desktop.root / "heat.png").read_bytes())
+    assert (width, height) == (1440, 600), (width, height)
+    pam = (desktop.root / "heat.PAM").read_bytes()
+    header = b"P7\nWIDTH 1440\nHEIGHT 600\nDEPTH 4\nMAXVAL 255\nTUPLTYPE RGB_ALPHA\nENDHDR\n"
+    assert pam == header + pixels, "the PNG's pixels are not the PAM's"
+    # Clear below the first output, where there is none, and where the pointer never was.
+    assert pixels[(500 * 1440 + 100) * 4 + 3] == 0 and pixels[(240 * 1440 + 620) * 4 + 3] == 0
+    assert pixels[(50 * 1440 + 500) * 4 + 3] == 255, "nothing where the pointer rested longest"
+    ppm = (desktop.root / "heat.ppm").read_bytes()
+    header = b"P6\n1440 600\n255\n"
+    assert ppm.startswith(header) and len(ppm) == len(header) + 1440 * 600 * 3
     desktop.stays(lambda: overlay()["HEADLESS-1"][4] == drawn, "drawn under the lock",
                   duration=1.2)
     locker.terminate()
@@ -214,6 +256,7 @@ with harness.Compositor(compositor, config(),
     assert len(lines) == 13 and lines[12].endswith(" 3 clicks  clicks on HEADLESS-1"), lines
     assert "usage" in paw_heatmap("--clicks", ok=False)
     assert "usage" in paw_heatmap("hot", ok=False)
+    assert ".png" in paw_heatmap("--export", str(desktop.root / "heat.gif"), ok=False)
     assert "no such output" in paw_heatmap("--term", "--output", "HEADLESS-9", ok=False)
     assert "PAW_SOCKET" in paw_heatmap("--term", env={"PAW_SOCKET": ""}, ok=False)
 
