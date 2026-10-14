@@ -28,5 +28,7 @@ std::filesystem::path state_directory();
 
 // `paw doctor`: looks the session over and prints what is wrong with it and how to fix that.
 int doctor(int argc, char **argv);
+// `paw fetch`: a paw print and what paw knows of the session (src/cli/fetch.cpp).
+int fetch(int argc, char **argv);
 
 } // namespace paw::cli

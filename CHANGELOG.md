@@ -586,6 +586,13 @@ wrong with it, and toys the compositor plays with the windows.
   `ln -s` that puts it there), a compositor older than the paw installed since, a failed update,
   an invalid configuration, another notification daemon or polkit agent, logind and Xwayland
   missing. It only looks, and fixes nothing itself; `--plain` is for scripts.
+- `paw fetch` is a fastfetch of paw's own: a paw print in the appearance profile's colours (its
+  border's gradient), and beside it the profile, the session's uptime and frames drawn, frame
+  times, windows and workspaces, the tiling layout, monitors, the idle timeouts, the application
+  launched most and the saved sessions. Outside a session it shows what the configuration and
+  the state files tell; through a pipe, with `--no-color` or `NO_COLOR` it writes no colours,
+  and `--no-logo` leaves the print out. `paw msg get about` and `get palette` are the queries it
+  adds.
 
 ### Fixes
 

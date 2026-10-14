@@ -56,6 +56,8 @@ target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
 # paw doctor: its checks, which read the configuration as --check-config does, and how it reads
 # what other programs say.
 target_sources(paw_cli PRIVATE src/cli/doctor.cpp src/cli/doctor_parse.cpp)
+target_sources(paw_cli PRIVATE src/cli/fetch.cpp)
+# paw doctor and paw fetch read the configuration, fetch outside a session.
 target_link_libraries(paw_cli PRIVATE paw_config)
 
 include(CTest)
@@ -92,6 +94,7 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/docs/config-reference.md)
     paw_unit_test(config_robustness ${EXAMPLE_CONFIG})
     paw_unit_test(cli LIBRARY paw_cli)
+    paw_unit_test(fetch LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
@@ -307,6 +310,9 @@ if(PAW_BUILD_COMPOSITOR)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake
         BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/version.h)
     add_dependencies(paw paw_version)
+    # paw fetch names the build it is part of: version.h, and wlroots' version header.
+    add_dependencies(paw_cli paw_version)
+    target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${WLROOTS_INCLUDE_DIRS})
     target_compile_options(paw PRIVATE -Wall -Wextra -Wno-unused-parameter)
     # A compositor function shared between files is declared in src/compositor/server.h; any
     # other is static. This flags one that is neither.
@@ -858,5 +864,6 @@ if(PAW_BUILD_COMPOSITOR)
         # Windows' own icons; an X11 window's only where the X11 probe is built.
         paw_smoke(window_icon_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
+        paw_smoke(fetch_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
     endif()
 endif()
