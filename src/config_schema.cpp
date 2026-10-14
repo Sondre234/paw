@@ -763,6 +763,18 @@ const Option options[] = {
      "The edge of the monitor the taskbar is along: `\"top\"`, `\"bottom\"`, `\"left\"` or "
      "`\"right\"`. Along a side its buttons and widgets stack from the top down, and its popups "
      "open beside it. The macOS style's dock stays at the bottom."},
+    {"shell.panel_positions", "table", "{}", "{ [\"DP-1\"] = \"left\", [\"HDMI-A-1\"] = \"top\" }",
+     none, none,
+     "Each monitor's own edge for its bar, by the monitor's name as `paw msg get outputs` lists it, "
+     "over `panel_position`, which stays the edge of the monitors left out; while "
+     "`panel_per_monitor` holds."},
+    {"shell.panel_positions.<name>", "enum", "", "", none, none,
+     "`\"top\"`, `\"bottom\"`, `\"left\"` or `\"right\"`."},
+    {"shell.panel_per_monitor", "boolean", "true", "true", none, none,
+     "Each monitor's bar keeps its own edge, `panel_positions` over `panel_position`, and "
+     "dragging a bar (`panel_draggable`) moves it alone, writing its monitor's entry into "
+     "`panel_positions`. `false` puts every monitor's bar along `panel_position`, leaving "
+     "`panel_positions` aside, and dragging one moves them all, writing `panel_position`."},
     {"shell.panel_dock", "boolean or string", "true", "\"maximized\"", none, none,
      "A floating taskbar (rounded or inset by `panel_margin`) docks while a window reaches the "
      "edge it is along, as any tile and a maximized window do: it fills its strip from edge to "
@@ -772,13 +784,15 @@ const Option options[] = {
     {"shell.panel_draggable", "boolean", "false", "true", none, none,
      "The taskbar can be dragged to another edge of the monitor, and resized by its inner edge, "
      "as on Windows with the taskbar unlocked: pressing an empty part of it and dragging shows "
-     "where it goes, the edge nearest the pointer, and letting go there moves it, writing the new "
-     "`panel_position` into the configuration file (where it takes effect: the profile in use "
-     "when that sets it, else the `shell` table, added when missing). Escape or letting go at its "
-     "own edge leaves it. Dragging the edge that faces the desktop, under a resize cursor, makes "
-     "it taller or shorter (wider or narrower down a side) within `panel_height`'s range, the "
-     "windows making room as it goes; letting go writes the new `panel_height` the same way, and "
-     "Escape puts the old size back. The macOS style's dock is neither moved nor resized."},
+     "where it goes, the edge of its monitor nearest the pointer, and letting go there moves it, "
+     "writing the new edge into the configuration file: that monitor's `panel_positions` entry "
+     "(`panel_per_monitor`), or `panel_position` for every monitor, where it takes effect (the "
+     "profile in use when that sets it, else the `shell` table, added when missing). Escape or "
+     "letting go at its own edge leaves it. Dragging the edge that faces the desktop, under a "
+     "resize cursor, makes it taller or shorter (wider or narrower down a side) within "
+     "`panel_height`'s range, the windows making room as it goes; letting go writes the new "
+     "`panel_height` the same way, every monitor's bar taking it, and Escape puts the old size "
+     "back. The macOS style's dock is neither moved nor resized."},
     {"shell.mirror_menus", "boolean", "false", "false", none, none,
      "With the panel along the top, its right-click menus list their entries in reverse, so "
      "they read outwards from the bar as they do from one along the bottom: a window's begins "

@@ -25,6 +25,28 @@ struct Token {
 bool is_name_start(char c) { return std::isalpha(static_cast<unsigned char>(c)) || c == '_'; }
 bool is_name_char(char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; }
 
+// `key` as a table constructor writes it: a name as it is, anything else (a monitor's "DP-1", a
+// keyword) as a quoted string in brackets.
+std::string field_key(const std::string &key) {
+    static const char *const keywords[] = {"and",   "break", "do",       "else", "elseif", "end",
+                                           "false", "for",   "function", "goto", "if",     "in",
+                                           "local", "nil",   "not",      "or",   "repeat", "return",
+                                           "then",  "true",  "until",    "while"};
+    const bool name = !key.empty() && is_name_start(key[0]) &&
+                      std::all_of(key.begin(), key.end(), is_name_char) &&
+                      std::none_of(std::begin(keywords), std::end(keywords),
+                                   [&](const char *keyword) { return key == keyword; });
+    if (name)
+        return key;
+    std::string quoted = "[\"";
+    for (char c : key) {
+        if (c == '"' || c == '\\')
+            quoted += '\\';
+        quoted += c;
+    }
+    return quoted + "\"]";
+}
+
 // The level of a long bracket opening at `at` (`[[` is 0, `[==[` is 2); -1 when there is none.
 int long_bracket(const std::string &source, size_t at) {
     if (at >= source.size() || source[at] != '[')
@@ -292,11 +314,12 @@ class Editor {
         return std::nullopt;
     }
     // The setting as a field, inside the sections from `held` on: `panel_position = "left"`, or
-    // `shell = { panel_position = "left" }` for held 0.
+    // `shell = { panel_position = "left" }` for held 0; `["DP-1"] = "left"` for a key that is no
+    // name.
     std::string nested(size_t held) const {
-        std::string text = trail_.back() + " = " + literal_;
+        std::string text = field_key(trail_.back()) + " = " + literal_;
         for (size_t i = trail_.size() - 1; i-- > held;)
-            text = trail_[i] + " = { " + text + " }";
+            text = field_key(trail_[i]) + " = { " + text + " }";
         return text;
     }
     size_t line_start(size_t at) const {
