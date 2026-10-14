@@ -620,6 +620,15 @@ wrong with it, and toys the compositor plays with the windows.
   data, never run: a parser of Lua's table syntax alone reads its `rice.lua`, which may set only
   the look and name only files inside it. `paw rice list` and `paw rice remove` look after the
   installed ones.
+- `paw cat` lets a pixel-art cat out onto the desktop, drawn by the compositor as oneko is by a
+  client, but knowing the windows: it sits on the focused window's top edge, wanders along it,
+  grooms, scratches and yawns, hops over to the window the focus moves to, falls with gravity onto
+  the next window top below (or above the taskbar) when the window under it goes, chases a pointer
+  flicked past it, pats the top of a window that asks for attention, and curls up asleep while
+  nobody uses the computer. It takes no input, hides under fullscreen windows, the overview and the
+  lock, draws frames only while it moves, and wears a black coat on light profiles and a cream one
+  on dark ones. The `cat` action (`paw cat [on|off|toggle]`), `cat.enabled`, `cat.coat`,
+  `cat.scale` and `cat.sleep_after`, and `paw msg get cat`.
 
 ### Fixes
 

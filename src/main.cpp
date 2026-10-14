@@ -442,7 +442,8 @@ struct Runtime {
             *argument = binding->amount;
         if (binding->action == SH_SWITCH_LAYOUT)
             *argument = binding->layout;
-        if (binding->action == SH_MODE || binding->action == SH_DISPLAY_MODE)
+        if (binding->action == SH_MODE || binding->action == SH_DISPLAY_MODE ||
+            binding->action == SH_CAT)
             *argument = binding->mode;
         target = binding->output;
         flags = (binding->locked ? SH_BINDING_LOCKED : 0) |
@@ -482,7 +483,8 @@ struct Runtime {
      * "resize_<direction> [pixels]", "volume_up|volume_down|brightness_up|brightness_down
      * [percent]", "switcher_confirm [N]", "switch_layout [next|prev|N]", "mode NAME|default",
      * "display_off [OUTPUT]" (and on, toggle), "display_mode [extend|duplicate|internal|
-     * external]", "profile NAME|next|prev", or "spawn PROGRAM [ARGS...]". */
+     * external]", "profile NAME|next|prev", "cat [on|off|toggle]", or "spawn PROGRAM
+     * [ARGS...]". */
     static sh_action command(void *data, const char *request, int *argument, char *error,
                              size_t error_size) {
         auto &self = *static_cast<Runtime *>(data);
@@ -530,6 +532,10 @@ struct Runtime {
                                              "internal or external; none for the popup");
                 *argument = words.size() == 2 ? paw::parse_display_mode(words[1])
                                               : SH_DISPLAY_MODE_STEP;
+            } else if (action == SH_CAT) {
+                if (words.size() > 2)
+                    throw std::runtime_error("cat takes one word: on, off or toggle");
+                *argument = words.size() == 2 ? paw::parse_cat_switch(words[1]) : SH_CAT_TOGGLE;
             } else if (action == SH_SCREENSHOT) {
                 if (words.size() > 2)
                     throw std::runtime_error(
@@ -1061,7 +1067,8 @@ void usage() {
            "paw rice pack [PROFILE] [-o FILE] packs a profile's look, its pictures with it, into\n"
            "one file to share; paw rice try FILE|DIR|URL tries one on, the previous look coming\n"
            "back in 15 seconds unless paw rice keep keeps it (paw rice revert at once);\n"
-           "paw rice list lists the installed rices, and paw rice remove NAME removes one.\n";
+           "paw rice list lists the installed rices, and paw rice remove NAME removes one.\n"
+           "paw cat [on|off|toggle] lets the desktop cat out, or calls it in.\n";
 }
 /* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
  * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */
@@ -1080,6 +1087,7 @@ const Subcommand subcommands[] = {
     {"gravity", paw::cli::toy},
     {"party", paw::cli::toy},
     {"rice", paw::cli::rice},
+    {"cat", paw::cli::cat},
 };
 } // namespace
 int main(int argc, char **argv) {

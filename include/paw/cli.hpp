@@ -57,5 +57,10 @@ std::map<std::string, std::string> rice_archive_files(const std::string &archive
 // writes more.
 std::string run_filter(const std::vector<std::string> &command, const std::filesystem::path &input,
                        size_t most);
+// `paw cat [on|off|toggle]`: shows or hides the desktop cat, toggling without a word, and says
+// what it is up to.
+int cat(int argc, char **argv);
+// That sentence, for the rows of `get cat`.
+std::string cat_said(const std::vector<std::vector<std::string>> &rows);
 
 } // namespace paw::cli

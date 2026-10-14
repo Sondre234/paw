@@ -288,6 +288,7 @@ struct sh_mirror;        // what a mirroring output shows (mirror.c)
 struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c)
 struct sh_crossfade_picture; // what an output showed as it began
 struct sh_toys;              // the toy playing (toys.c)
+struct sh_cat_view;          // the desktop cat (cat.c)
 struct wlr_color_manager_v1;
 
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
@@ -767,6 +768,7 @@ struct sh_server {
         struct wl_event_source *timer;
         int64_t ends;
     } rice;
+    struct sh_cat_view *cat; /* the desktop cat (cat.c); NULL if it could not be made */
 };
 
 /* Tearing on an output (tearing.c): what its frames do now (`tearing`, `refused`, or why its
@@ -1775,3 +1777,12 @@ void toys_forget(struct sh_toplevel *toplevel);
 bool toys_border(struct sh_toplevel *toplevel, float color[4]);
 struct wlr_scene_node *toys_confetti(struct sh_server *server);
 void describe_toys(struct sh_server *server, int fd, const char *arguments);
+/* cat.c */
+void cat_init(struct sh_server *server);
+void cat_finish(struct sh_server *server);
+void cat_reload(struct sh_server *server);
+void cat_switch(struct sh_server *server, int choice);
+void cat_frame(struct sh_server *server);
+void cat_input(struct sh_server *server);
+void cat_pointer_moved(struct sh_server *server);
+void describe_cat(struct sh_server *server, int fd, const char *arguments);

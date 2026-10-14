@@ -1072,6 +1072,24 @@ const Option options[] = {
      "The `group_toggle`, `group_next`, `group_prev`, `ungroup` and `group_merge_*` actions; off dissolves every group."},
     {"features.group_join_new", "boolean", "true", "true", none, none,
      "A window that opens while a window group has focus joins that group as a new tab."},
+
+    {"cat", "table", "", "", none, none,
+     "The desktop cat: a pixel-art cat that sits on the focused window's top edge, falls when "
+     "that window moves, chases the pointer and sleeps while the computer is left alone. The "
+     "`cat` action (`paw cat`) shows and hides it."},
+    {"cat.enabled", "boolean", "false", "true", none, none,
+     "Show the cat as the session starts, and as a reload changes this; the `cat` action shows "
+     "and hides it meanwhile."},
+    {"cat.scale", "integer", "2", "3", 1, 4,
+     "Logical pixels to a pixel of its art, which is 20 by 16: 2 makes it 40 by 32. It stays "
+     "sharp at any monitor scale."},
+    {"cat.coat", "enum", "\"auto\"", "\"ginger\"", none, none,
+     "`\"ginger\"`, `\"black\"`, `\"cream\"` or `\"grey\"`; `\"auto\"` is black with "
+     "`appearance.color_scheme = \"light\"`, cream with `\"dark\"`, and ginger without one, "
+     "following an appearance profile that sets it."},
+    {"cat.sleep_after", "integer", "90", "300", 5, 3600,
+     "Seconds without input before the cat curls up to sleep; it also sleeps once the screens "
+     "dim (`idle.dim`). Any input wakes it."},
 };
 
 bool is_child(std::string_view parent, std::string_view path) {
@@ -1186,7 +1204,7 @@ std::string config_reference_markdown() {
         first = false;
     }
     out << "\n\n`spawn` needs `command`; `workspace` and `move_to_workspace` need `workspace`; "
-           "`screenshot` takes `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
+           "`screenshot` and `cat` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
            "`brightness_up` and `brightness_down` take `amount`; a `switch` needs `state`.\n\n"
            "Modifiers: ";
     first = true;

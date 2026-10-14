@@ -67,6 +67,7 @@ target_sources(paw_cli PRIVATE src/cli/rice.cpp src/cli/rice_archive.cpp)
 # paw doctor, paw fetch and paw rice read the configuration, fetch outside a session; a rice's
 # tests reach paw_config through paw_cli.
 target_link_libraries(paw_cli PUBLIC paw_config)
+target_sources(paw_cli PRIVATE src/cli/cat.cpp)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -155,6 +156,9 @@ if(BUILD_TESTING)
     paw_c_unit_test(dropdown)
     paw_c_unit_test(toys)
     paw_unit_test(rice LIBRARY paw_cli)
+    paw_c_unit_test(cat_sprite)
+    paw_c_unit_test(cat)
+    paw_unit_test(cat_command LIBRARY paw_cli)
 endif()
 option(PAW_BUILD_COMPOSITOR "Build the wlroots compositor" ON)
 if(PAW_BUILD_COMPOSITOR)
@@ -298,6 +302,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/xwayland.c
         src/compositor/toys.c
         src/compositor/rice.c
+        src/compositor/cat.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
         ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h ${WLR_PROTOCOL_HEADERS})
@@ -317,6 +322,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/border.c)
     target_sources(paw PRIVATE src/dropdown.c)
     target_sources(paw PRIVATE src/toys.c)
+    target_sources(paw PRIVATE src/cat.c src/cat_sprite.c)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
     # version.h, for --version: the project version, and `git describe` in a git checkout.
@@ -891,5 +897,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(toys_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(rice_smoke TIMEOUT 120 $<TARGET_FILE:paw>)
+        paw_smoke(cat_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
     endif()
 endif()

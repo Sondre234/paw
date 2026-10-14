@@ -21,7 +21,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | Where | Language | What |
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, the desktop cat's ways and its pixel art. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -93,6 +93,7 @@ all. In short:
 | `shortcuts_inhibit.c` | Keyboard shortcuts inhibitors (keyboard-shortcuts-inhibit-unstable-v1): the keys the bindings take going to a virtual machine, a remote desktop or a game while it has the keyboard. |
 | `toys.c` | Toys, which only draw: `shake`, `gravity` and `party` posing windows through the animator, a party's rainbow borders and confetti, each window let go as anything else happens to it; `get toys`. |
 | `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
+| `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
 the file that defines it. The build warns (`-Wmissing-prototypes`) about one that is neither.
@@ -843,6 +844,38 @@ from its lookups (`toys_confetti`). A button pressed while gravity holds windows
 (`toys_press`, from `server_cursor_button`) sends them back up from where they are drawn. `get
 toys` (`describe_toys`) says what plays, and `tests/toys_smoke.py` tests it; `paw shake`, `paw
 gravity` and `paw party` are `src/cli/toys.cpp`.
+### The desktop cat
+
+What the cat does is `src/cat.c`'s, without wlroots: a state machine (`enum sh_cat_state`) with
+where the cat's feet are and how it moves, which `sh_cat_step` advances to a time in steps of at
+most 16 ms, returning when it next needs a step, given a `struct sh_cat_world`:
+the monitors (`sh_cat_area`, with the top and bottom of their free areas), the window tops it can
+stand on and the floors, the focused monitor and window, the urgent window, and whether nobody has
+used the computer for a while. `sh_cat_ledges` makes the tops from the windows' boxes, front to
+back: each window's whole top edge, held down inside its monitor's free area by the cat's height
+(so that it stands in a maximized window's title bar rather than off the screen), which holds the
+cat up while it is there, and the parts of it no window in front of it covers just above it, the
+only ones it lands on or goes to. Its idle choices follow a seeded random number, so that
+`tests/cat_tests.c` can run it through a world of its own by the millisecond. `src/cat_sprite.c`
+holds the pictures, grids of letters a coat colours.
+
+`cat.c` in the compositor shows the cat that world and draws it. Its tree sits just above
+`above_windows`, under the fullscreen windows, the panels, the overlays and the lock, and holds
+two scene buffers, the cat and its "z", which take no input (`point_accepts_input`) and are scaled
+up from the art's pixels without smoothing (`WLR_SCALE_FILTER_NEAREST`); a picture is painted once
+per frame and coat and kept. A window's box is where it is drawn (its tree's place and `content`'s
+offset, at `frame_geometry`'s size), with its border. The cat is stepped on a timer of its own:
+every frame while it falls, jumps or runs, each 25 ms while it walks, and while it sits only for
+its next blink or choice, a few times a minute, or as it gets sleepy; asleep, once a breath. What
+it stands on moving is seen from the frames: whatever moves a window damages the outputs, and
+`output_frame` calls `cat_frame`, which, unless the cat is stepped every frame anyway, compares why
+it is hidden, the urgent window and the box of what it stands on with how they were at its last
+step, and steps it at once if any changed. `input_activity` wakes a sleeping cat (`cat_input`), and
+`process_cursor_motion` tells it of the pointer (`cat_pointer_moved`), which it chases only after
+a flick close by: several motions in a row travelling far within a short while. While it is hidden
+(`hidden_why`: turned off, the session locked or another VT in front, no monitor, the overview,
+its monitor off, a fullscreen window on its monitor or the focused one) its tree is disabled and
+no timer runs; the next frame that shows things changed steps it again. `get cat` describes it.
 
 ## The shell (`shell/`)
 
@@ -1558,6 +1591,9 @@ lock the screen before a suspend gives up (see `power_smoke.py`), and
 `PAW_TEST_CROSSFADE_HOLD_MS` sets how long a profile's crossfade waits for the shell (see
 `crossfade_smoke.py`), and `PAW_TEST_RICE_TRIAL_MS` how long a rice is on trial (see
 `rice_smoke.py`).
+`crossfade_smoke.py`).
+`PAW_TEST_CAT_SLEEP_MS` sets how long the desktop cat waits without input before it sleeps, in
+place of `cat.sleep_after` (see `cat_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless
