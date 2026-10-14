@@ -579,6 +579,15 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
 wrong with it, and toys the compositor plays with the windows.
 
+- `paw wrapped` tells you about your time at the desktop as Spotify Wrapped does about a year of
+  music, in bold, coloured cards: how far the mouse travelled ("about 39 football pitches"),
+  clicks, scrolling, key presses against a novel, windows opened, dragged and snapped, workspace
+  switches, the top applications by focused time, the longest focus streak and the busiest day.
+  `--today`, `--week`, `--month`, `--all` and `--since DATE` pick the period, `--plain` and
+  `--json` other forms. The compositor counts it, key presses as a count only, keeps it in a file
+  per day in `~/.local/state/paw/wrapped` on this machine alone, and lists what it has not saved
+  yet with `get wrapped`; `wrapped.enabled = false` turns it off.
+
 ### Fixes
 
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,
