@@ -57,6 +57,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     msg("panel_drag")
     desktop.wait_for(lambda: heard("panel")[-1:] == ["pointer leave"], "the panel left")
     assert drags() == ["panel-drag HEADLESS-1 bottom"], drags()
+    assert msg("get", "cursor_image") == "grabbing\n"
     assert "busy" in msg("panel_drag", ok=False)
     window_before = len(heard("window"))
     pointer("move", "640", "650", "move", "40", "360")
@@ -93,6 +94,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     msg("panel_drag", "resize", "bottom")
     desktop.wait_for(lambda: heard("panel")[-1:] == ["pointer leave"], "the panel left for the resize")
     assert drags() == [f"panel-resize HEADLESS-1 {PANEL - 2}"], drags()
+    assert msg("get", "cursor_image") == "ns-resize\n"
     assert "busy" in msg("panel_drag", "resize", "bottom", ok=False)
     pointer("move", "640", "620")
     desktop.wait_for(lambda: drags()[-1:] == ["panel-resize HEADLESS-1 100"], "the edge dragged up")
@@ -107,6 +109,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     pointer("move", "1270", str(720 - PANEL // 2), "press", "left")
     msg("panel_drag", "resize", "right")
     desktop.wait_for(lambda: drags() == ["panel-resize HEADLESS-1 10"], "a resize from the right")
+    assert msg("get", "cursor_image") == "ew-resize\n"
     pointer("move", "1200", str(720 - PANEL // 2))
     desktop.wait_for(lambda: drags()[-1:] == ["panel-resize HEADLESS-1 80"], "the right edge dragged in")
     msg("panel_drag", "cancel")
