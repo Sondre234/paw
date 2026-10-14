@@ -9,6 +9,7 @@ from pathlib import Path
 import pty
 import re
 import select
+import signal
 import struct
 import subprocess
 import sys
@@ -113,8 +114,10 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     def live(end):
         master, slave = pty.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
+        # The terminal is its controlling one, as in a session, for Ctrl+C to be a signal.
         process = desktop.spawn([compositor, "top", "--interval", "100"], stdin=slave,
-                                stdout=slave, stderr=slave)
+                                stdout=slave, stderr=slave, start_new_session=True,
+                                preexec_fn=lambda: fcntl.ioctl(0, termios.TIOCSCTTY, 0))
         os.close(slave)
         shown = bytearray()
 
@@ -144,4 +147,16 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     live(sort_then_quit)
     live(lambda process, master, drawn: os.write(master, b"\x1b"))
     live(lambda process, master, drawn: process.terminate())
+
+    # A compositor that does not answer: paw top says so, and Ctrl+C still ends it at once.
+    def hung_then_interrupt(process, master, drawn):
+        desktop.server.send_signal(signal.SIGSTOP)
+        try:
+            wait_for(lambda: drawn(b"no reply"), "paw top says the compositor does not answer")
+            os.write(master, b"\x03")
+            process.wait(timeout=1)
+        finally:
+            desktop.server.send_signal(signal.SIGCONT)
+
+    live(hung_then_interrupt)
 print("top_smoke passed")

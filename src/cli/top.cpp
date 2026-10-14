@@ -782,15 +782,18 @@ void put(const std::string &text) {
 }
 
 // The terminal while top draws on it: keys read one at a time without echo, the screen of its
-// own (the alternate one) without a cursor, put back as it was however top ends.
+// own (the alternate one) without a cursor, put back as it was however top ends. Ctrl+C stays a
+// signal, which ends even a look at a compositor that does not answer; Ctrl+Z, which would
+// leave the terminal as top has it, does nothing.
 class Screen {
   public:
     Screen() {
         if (tcgetattr(STDIN_FILENO, &saved_) != 0)
             throw std::runtime_error("cannot read the terminal's settings");
         termios raw = saved_;
-        raw.c_lflag &= ~static_cast<tcflag_t>(ICANON | ECHO | ISIG | IEXTEN);
+        raw.c_lflag &= ~static_cast<tcflag_t>(ICANON | ECHO | IEXTEN);
         raw.c_iflag &= ~static_cast<tcflag_t>(IXON | ICRNL);
+        raw.c_cc[VSUSP] = _POSIX_VDISABLE;
         raw.c_cc[VMIN] = 0;
         raw.c_cc[VTIME] = 0;
         if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) != 0)
@@ -945,7 +948,7 @@ int run_live(const Options &options) {
                         }
                         continue;
                     }
-                    if (key == 'q' || key == 'Q' || key == '\x1b' || key == '\x03')
+                    if (key == 'q' || key == 'Q' || key == '\x1b')
                         return 0;
                     if (key == 'p' || key == 'P') {
                         view.paused = !view.paused;
