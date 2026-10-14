@@ -52,7 +52,8 @@ using doctor::Result;
 using doctor::Status;
 
 const char *const session_section = "Session", *const bus_section = "D-Bus",
-                  *const sound_section = "Sound", *const sharing_section = "Screen sharing";
+                  *const sound_section = "Sound", *const sharing_section = "Screen sharing",
+                  *const x11_section = "X11";
 
 std::string read_file(const fs::path &path) {
     std::ifstream file(path, std::ios::binary);
@@ -1166,6 +1167,30 @@ std::optional<Result> check_portal(const Context &context, const Portal &portal)
 #endif
 }
 
+// X11
+
+Result check_xwayland(const Context &context) {
+    Result result{x11_section, "xwayland"};
+    if (context.config && !context.config->settings.xwayland) {
+        result.finding = "X11 applications are off (xwayland = false)";
+        return result;
+    }
+    auto wanted = variable("WLR_XWAYLAND");
+    auto program = find_program(wanted.empty() ? "Xwayland" : wanted);
+    if (program.empty() && wanted.empty() && access("/usr/bin/Xwayland", X_OK) == 0)
+        program = "/usr/bin/Xwayland";
+    if (program.empty()) {
+        result.status = Status::error;
+        result.finding = "Xwayland is not installed: X11 applications do not start";
+        result.fix = "Install Xwayland (the xwayland package)";
+        return result;
+    }
+    result.finding = "Xwayland is installed (" + program + ")";
+    if (auto display = variable("DISPLAY"); !display.empty())
+        result.finding += "; DISPLAY is " + display;
+    return result;
+}
+
 } // namespace
 
 int doctor(int argc, char **argv) {
@@ -1203,6 +1228,7 @@ int doctor(int argc, char **argv) {
     add(check_portal_config(context, portal));
     add(check_portal_backend(portal));
     add(check_portal(context, portal));
+    add(check_xwayland(context));
     std::cout << (plain ? doctor::plain_report(results) : doctor::report(results, color));
     return std::any_of(results.begin(), results.end(),
                        [](const Result &result) { return result.status == Status::error; })
