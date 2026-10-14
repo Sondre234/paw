@@ -735,9 +735,11 @@ int fetch(int argc, char **argv) {
                                              (top->count == 1 ? " launch" : " launches")});
         std::vector<std::string> names;
         std::error_code failure;
+        // Not paw showcase's own, saved while it runs.
         for (const auto &entry : std::filesystem::directory_iterator(state / "sessions", failure))
-            if (entry.is_regular_file(failure))
-                names.push_back(entry.path().filename().string());
+            if (auto name = entry.path().filename().string();
+                entry.is_regular_file(failure) && !name.starts_with("showcase-"))
+                names.push_back(name);
         if (!names.empty())
             fields.push_back({"sessions", fetch::sessions_text(names)});
     }

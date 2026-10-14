@@ -90,6 +90,7 @@ with tempfile.TemporaryDirectory(prefix="paw-fetch-") as home:
         (state / "launches").write_text("org.example.Kitten.desktop\t3\t1791983390\n"
                                         "firefox.desktop\t2\t1791983391\n")
         msg("session", "save", "work")
+        msg("session", "save", "showcase-42")  # paw showcase's, while it runs
 
         # Through a pipe: no colours, the logo and the fields.
         output = fetch(desktop.env)
