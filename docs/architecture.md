@@ -91,6 +91,7 @@ all. In short:
 | `volume.c` | The volume, microphone and brightness actions, which the shell carries out. |
 | `binding_mode.c` | Binding modes: which set of key bindings is in use. |
 | `shortcuts_inhibit.c` | Keyboard shortcuts inhibitors (keyboard-shortcuts-inhibit-unstable-v1): the keys the bindings take going to a virtual machine, a remote desktop or a game while it has the keyboard. |
+| `toys.c` | Toys, which only draw: `shake`, `gravity` and `party` posing windows through the animator, a party's rainbow borders and confetti, each window let go as anything else happens to it; `get toys`. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
 the file that defines it. The build warns (`-Wmissing-prototypes`) about one that is neither.
@@ -765,6 +766,47 @@ the outputs and windows when one changed, as the lid changes and after an output
 destroyed (before an empty layout would end a nested or headless session). Each toggle counts
 as input and runs the binding `sh_callbacks.switch_toggled` returns. Under `--headless`,
 `headless_switch` adds switches for the tests (`headless_input.c`, `lid_smoke`).
+
+### Toys
+
+`toys.c` plays `shake`, `gravity` and `party` (`toys_start`, from the actions; `toys_shake` shakes
+a given window, for other code to point at one). One toy plays at a time, `server->toys`, its
+state private to the file; a new one ends the last (`toys_end`). Its arithmetic is
+`src/toys.c` (`paw/toys.h`, tested by `toys_tests`): the shake's damped swing, a fall's bounces and
+squash (`sh_fall_plan`), where windows pile up (`sh_pile`, the lowest landing first, on the floor
+or on the windows landed below it, sinking a share of the usable height past the floor when they
+rest on it already, so that tiles fall too), a party's bob and rainbow, and confetti stepped
+through gravity and air (`sh_confetti_step`).
+
+A toy draws a window through the animator's pose (`sh_anim_pose`, `src/animation.c`): `content`
+moved by an offset from where it rests and its nodes stretched about a point, as the toy says on
+each call, through the same records the other animations use. A pose runs alone: it is refused
+while anything else runs on the window (a window opening or gliding joins the toy once that is
+over), and any animation starting on it (`start`, a hold, a lift, `sh_anim_finish`) puts it back at
+rest first, telling its owner through `sh_anim_posed`. The clock, a late frame and turning
+animations off leave it alone, so that toys play with animations off. Lookups put posed windows at
+rest as they do running ones (`rest_poses`), so input goes where windows really are, and each tick
+draws the pose again over what clients and `refresh_frame` set. A stretch calls the pose's update,
+`refresh_frame`, before the nodes are stretched, and `sh_anim_lift_box` maps a box through it as
+it does through a lift, so that the rounded clips (`lift_box`) follow a squash; `morph_commit`
+calls `sh_anim_pose_commit`, which puts the client's surfaces back at rest before the scene takes in
+a commit, which gives a buffer its new size where the stretch had put it.
+
+`toys_tick` moves the toy on from `output_frame`, before the animator, and from a timer of its own
+every 16 ms while one plays. Each window plays while it is as it was when the toy began
+(`still_plays`: shown, mapped, not fullscreen nor grabbed, at the same place and size, its monitor
+showing the same workspace, and still posed once posed); otherwise `let_go` unposes it and draws
+its frame again. The toy ends at its time, when no window is left (but a party, whose confetti
+plays on), when its monitor shows another workspace or goes, as the overview opens, and as the
+session locks (`server_new_lock`). `unmap_toplevel` calls `toys_forget` after the closing copy is
+made, so that a window closes where the toy drew it. A party colours the border through
+`toys_border`, which `refresh_frame` asks for after the focus fade: a colour in the border's rects
+in place of a gradient's pieces, which come back as the party lets the window go. Its confetti is
+a `wlr_scene_rect` per piece in a tree just above `fullscreen_cover`, which `scene_node_at` hides
+from its lookups (`toys_confetti`). A button pressed while gravity holds windows down
+(`toys_press`, from `server_cursor_button`) sends them back up from where they are drawn. `get
+toys` (`describe_toys`) says what plays, and `tests/toys_smoke.py` tests it; `paw shake`, `paw
+gravity` and `paw party` are `src/cli/toys.cpp`.
 
 ## The shell (`shell/`)
 

@@ -585,6 +585,18 @@ struct Runtime {
                     throw std::runtime_error(
                         words[0] + " takes a window's place in the list, from 1");
                 *argument = number;
+            } else if (action == SH_SHAKE && words.size() == 2) {
+                // A window's number, as `get window_icons` lists it.
+                std::size_t used = 0;
+                int number = 0;
+                try {
+                    number = std::stoi(words[1], &used);
+                } catch (const std::logic_error &) {
+                }
+                if (used != words[1].size() || number < 1)
+                    throw std::runtime_error("shake takes a window's number, from 1, or none "
+                                             "for the focused window");
+                *argument = number;
             } else if (words.size() != 1) {
                 throw std::runtime_error(words[0] + " takes no argument");
             }
@@ -1012,7 +1024,9 @@ void usage() {
            "paw showcase [--delay SECONDS] [--keep] [--output NAME] [-o FILE] takes a\n"
            "screenshot with paw fetch open in a terminal, then puts the windows back.\n"
            "paw top [--once] [--interval MS] [--no-color] shows the session's frames, its work\n"
-           "and the windows that make it, as htop shows processes.\n";
+           "and the windows that make it, as htop shows processes.\n"
+           "paw shake [WINDOW] wobbles the focused window, or that numbered one; paw gravity\n"
+           "drops the windows to the bottom and back; paw party throws one. They only draw.\n";
 }
 /* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
  * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */
@@ -1027,6 +1041,9 @@ const Subcommand subcommands[] = {
     {"fetch", paw::cli::fetch},
     {"showcase", paw::cli::showcase},
     {"top", paw::cli::top},
+    {"shake", paw::cli::toy},
+    {"gravity", paw::cli::toy},
+    {"party", paw::cli::toy},
 };
 } // namespace
 int main(int argc, char **argv) {

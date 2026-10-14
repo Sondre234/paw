@@ -20,6 +20,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     // where they have the windows.
     if (tick_effects(output->server))
         wlr_output_schedule_frame(output->wlr_output);
+    toys_tick(output->server); // poses the windows a toy plays with, which the animator draws
     sh_animator_tick(output->server->animator);
     overview_touch(output->server, false); // windows that move or fade move their thumbnails
     // Whatever moved a window against an edge of the usable area or away from it drew a frame

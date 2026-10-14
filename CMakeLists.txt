@@ -61,6 +61,7 @@ target_sources(paw_cli PRIVATE src/cli/showcase.cpp)
 # paw doctor and paw fetch read the configuration, fetch outside a session.
 target_link_libraries(paw_cli PRIVATE paw_config)
 target_sources(paw_cli PRIVATE src/cli/top.cpp)
+target_sources(paw_cli PRIVATE src/cli/toys.cpp)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -99,6 +100,7 @@ if(BUILD_TESTING)
     paw_unit_test(fetch LIBRARY paw_cli)
     paw_unit_test(showcase LIBRARY paw_cli)
     paw_unit_test(top LIBRARY paw_cli)
+    paw_unit_test(toy_command LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
@@ -146,6 +148,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(border)
     paw_c_unit_test(dynamic_rule)
     paw_c_unit_test(dropdown)
+    paw_c_unit_test(toys)
 endif()
 option(PAW_BUILD_COMPOSITOR "Build the wlroots compositor" ON)
 if(PAW_BUILD_COMPOSITOR)
@@ -287,6 +290,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/window_icon.c
         src/compositor/workspace.c
         src/compositor/xwayland.c
+        src/compositor/toys.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
         ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h ${WLR_PROTOCOL_HEADERS})
@@ -305,6 +309,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/dynamic_rule.c)
     target_sources(paw PRIVATE src/border.c)
     target_sources(paw PRIVATE src/dropdown.c)
+    target_sources(paw PRIVATE src/toys.c)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
     # version.h, for --version: the project version, and `git describe` in a git checkout.
@@ -876,5 +881,7 @@ if(PAW_BUILD_COMPOSITOR)
             "${GRIM_ARGUMENT}")
         paw_smoke(top_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:paw-bench-client>)
+        paw_smoke(toys_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
     endif()
 endif()

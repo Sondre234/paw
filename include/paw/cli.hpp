@@ -37,5 +37,9 @@ std::filesystem::path configuration_path();
 int showcase(int argc, char **argv);
 // `paw top`: the compositor's frames, its work and the windows that make it, live or once.
 int top(int argc, char **argv);
+// `paw shake [WINDOW]`, `paw gravity` and `paw party` (src/cli/toys.cpp), and the request line
+// each sends.
+int toy(int argc, char **argv);
+std::string toy_request(int argc, char **argv);
 
 } // namespace paw::cli

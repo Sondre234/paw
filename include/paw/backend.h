@@ -223,6 +223,13 @@ enum sh_action {
     SH_DISPLAY_SETTINGS,
     /* Minimizes the focused window into its taskbar button, as its own minimize button does. */
     SH_MINIMIZE,
+    /* Toys, which only draw: the focused window (argument: a window's number, its id, 0 for the
+     * focused one) wobbles from side to side; every window of the focused output's workspace
+     * falls to the bottom, bounces and glides back up; or they bob under rainbow borders while
+     * confetti falls. */
+    SH_SHAKE,
+    SH_GRAVITY,
+    SH_PARTY,
 };
 
 /* The display_mode action's choices. */

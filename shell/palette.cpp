@@ -51,6 +51,9 @@ constexpr Action actions[] = {
     {"launcher", "Applications menu"},
     {"display_settings", "Display settings"},
     {"reload", "Reload configuration"},
+    {"shake", "Shake the window"},
+    {"gravity", "Let the windows fall"},
+    {"party", "Throw a party"},
 };
 
 QVariantMap entry(const QString &kind, const QString &title, const QString &subtitle,

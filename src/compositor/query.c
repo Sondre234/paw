@@ -994,6 +994,7 @@ static const struct {
     {"about", get_about, false},
     {"palette", get_palette, false},
     {"commits", get_commits, false},
+    {"toys", describe_toys, false},
 };
 
 /* Answers `request` if it is a query; false if it is not one. */

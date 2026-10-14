@@ -1857,6 +1857,120 @@ static void test_alpha(void) {
     teardown(&rig);
 }
 
+static void count_pose_update(void *data) {
+    ++*(int *)data;
+}
+
+static void test_pose(void) {
+    struct rig rig;
+    struct sh_animator_config c = config(100, SH_CURVE_EASE_OUT);
+    c.late_ms = 50;
+    setup(&rig, c);
+    int updates = 0;
+    struct sh_pose pose = {.dx = 12, .dy = -30, .sx = 1, .sy = 1};
+    CHECK(sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, count_pose_update, &updates));
+    CHECK(rig.content->node.x == 12 && rig.content->node.y == -30, "moved");
+    CHECK(rig.rect->node.x == 10 && rig.rect->width == 200, "not stretched");
+    CHECK(updates == 0, "no stretch to follow");
+    CHECK(sh_animator_running(rig.animator) == 0 && sh_animator_posed(rig.animator) == 1);
+    // Squashed about the rect's bottom middle: shorter and wider, standing where it stood.
+    pose = (struct sh_pose){0, 40, 1.1, 0.9, 110, 120};
+    sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, count_pose_update, &updates);
+    CHECK(updates == 1, "the stretch changed: %d", updates);
+    CHECK(rig.content->node.x == 0 && rig.content->node.y == 40);
+    CHECK(rig.rect->node.x == 0 && rig.rect->width == 220, "%d %d", rig.rect->node.x,
+          rig.rect->width);
+    CHECK(rig.rect->node.y == 30 && rig.rect->height == 90, "%d %d", rig.rect->node.y,
+          rig.rect->height);
+    int box[4] = {10, 20, 200, 100};
+    sh_anim_lift_box(&rig.anim, box);
+    CHECK(box[0] == 0 && box[1] == 30 && box[2] == 220 && box[3] == 90, "clips follow it");
+    sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, count_pose_update, &updates);
+    CHECK(updates == 1, "the same stretch again tells nothing");
+    // Neither the clock, a late frame nor turning animations off moves it.
+    advance(&rig, 5000);
+    CHECK(sh_anim_posed(&rig.anim) && rig.content->node.y == 40 && rig.rect->width == 220);
+    struct sh_animator_config off = c;
+    off.enabled = false;
+    sh_animator_configure(rig.animator, &off);
+    CHECK(sh_anim_posed(&rig.anim) && rig.rect->width == 220);
+    // What the owner draws meanwhile is its rest, stretched again on the next tick.
+    wlr_scene_node_set_position(&rig.rect->node, 10, 20);
+    wlr_scene_rect_set_size(rig.rect, 300, 100);
+    advance(&rig, 16);
+    CHECK(rig.rect->node.x == 0 && rig.rect->width == 330, "%d %d", rig.rect->node.x,
+          rig.rect->width);
+    // A lookup finds it at rest.
+    sh_animator_rest(rig.animator);
+    CHECK(rig.content->node.x == 0 && rig.content->node.y == 0);
+    CHECK(rig.rect->node.x == 10 && rig.rect->width == 300 && rig.rect->height == 100);
+    sh_animator_resume(rig.animator);
+    CHECK(rig.content->node.y == 40 && rig.rect->width == 330);
+    sh_animator_rest_at(rig.animator, 5000, 5000); // nowhere near it
+    CHECK(rig.content->node.y == 40);
+    sh_animator_rest_at(rig.animator, 20, 30);
+    CHECK(rig.content->node.y == 0 && rig.rect->width == 300);
+    sh_animator_resume(rig.animator);
+    // Let go: at rest, and what follows the stretch is told.
+    sh_anim_unpose(&rig.anim);
+    CHECK(!sh_anim_posed(&rig.anim) && sh_animator_posed(rig.animator) == 0);
+    CHECK(rig.content->node.x == 0 && rig.content->node.y == 0);
+    CHECK(rig.rect->node.x == 10 && rig.rect->node.y == 20 && rig.rect->width == 300 &&
+          rig.rect->height == 100);
+    CHECK(updates == 2, "%d", updates);
+    // Another animation takes it over from rest, and none is posed while it runs.
+    sh_animator_configure(rig.animator, &c);
+    pose = (struct sh_pose){.dx = 50, .sx = 1.2, .sy = 1, .ax = 0, .ay = 0};
+    CHECK(sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, count_pose_update, &updates));
+    CHECK(updates == 3 && rig.rect->width == 360, "%d %d", updates, rig.rect->width);
+    sh_anim_glide(rig.animator, &rig.anim, rig.content, -100, 0);
+    CHECK(!sh_anim_posed(&rig.anim) && updates == 4, "%d", updates);
+    CHECK(rig.content->node.x == -100 && rig.rect->width == 300, "%d %d", rig.content->node.x,
+          rig.rect->width);
+    CHECK(!sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, NULL, NULL), "busy");
+    advance(&rig, 100);
+    CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 0);
+    CHECK(sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, NULL, NULL), "free again");
+    // A lift, or landing everything, ends it too.
+    sh_anim_lift(rig.animator, &rig.anim, rig.content, true, 1.1, 0, 0, NULL, NULL);
+    CHECK(!sh_anim_posed(&rig.anim) && rig.rect->width == 300, "from rest");
+    advance(&rig, 200);
+    CHECK(rig.rect->width == 330, "lifted: %d", rig.rect->width);
+    sh_anim_finish(&rig.anim);
+    CHECK(sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, NULL, NULL));
+    sh_anim_finish(&rig.anim);
+    CHECK(!sh_anim_posed(&rig.anim) && rig.content->node.x == 0 && rig.rect->width == 300);
+    teardown(&rig);
+}
+
+/* A client drawing a new size while its window is stretched: its surface resized where the
+ * stretch put it is read afresh, not taken for where it rests. */
+static void test_pose_commit(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_EASE_OUT));
+    struct wlr_scene_tree *surfaces = wlr_scene_tree_create(rig.content);
+    float color[4] = {1, 1, 1, 1};
+    struct wlr_scene_rect *surface = wlr_scene_rect_create(surfaces, 400, 300, color);
+    struct sh_pose pose = {0, 0, 1.1, 0.9, 200, 300};
+    sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, NULL, NULL);
+    CHECK(surface->node.x == -20 && surface->node.y == 30 && surface->width == 440 &&
+              surface->height == 270,
+          "%d %d %d %d", surface->node.x, surface->node.y, surface->width, surface->height);
+    // The commit, as the scene takes it in: a new size, where the node is.
+    sh_anim_pose_commit(&rig.anim, surfaces);
+    CHECK(surface->node.x == 0 && surface->width == 400, "at rest for the scene");
+    wlr_scene_rect_set_size(surface, 500, 300);
+    advance(&rig, 16);
+    CHECK(surface->node.x == -20 && surface->node.y == 30 && surface->width == 550 &&
+              surface->height == 270,
+          "%d %d %d %d", surface->node.x, surface->node.y, surface->width, surface->height);
+    sh_anim_unpose(&rig.anim);
+    CHECK(surface->node.x == 0 && surface->node.y == 0 && surface->width == 500 &&
+          surface->height == 300);
+    sh_anim_pose_commit(&rig.anim, surfaces); // nothing posed: nothing to do
+    teardown(&rig);
+}
+
 int main(void) {
     test_glide_reaches_rest();
     test_retarget_is_continuous();
@@ -1906,6 +2020,8 @@ int main(void) {
     test_fold_away();
     test_unfold();
     test_tween_redraws_under_a_fold();
+    test_pose();
+    test_pose_commit();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
     return failures ? 1 : 0;

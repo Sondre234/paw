@@ -3043,6 +3043,40 @@ colours, as with `--no-color` or `NO_COLOR` set. `--interval MS` sets how often 
 ms). It reads `get stats`, `get outputs`, `get output_frames`, `get frame_times OUTPUT` and `get
 commits` (see [Control socket](#control-socket)); from a compositor older than it, the frame
 times and the table say they need a newer one.
+### paw shake, paw gravity, paw party
+
+Toys, for fun and to point at a window. `paw shake` wobbles the focused window from side to side
+for 400 milliseconds, a damped swing dying away: this one, I mean this one. `paw shake N` shakes
+the window numbered N instead (the numbers `paw msg get window_icons` lists), and bound to a mouse
+button it shakes the window under the pointer. `paw gravity` lets every window of the focused
+monitor's workspace fall to the bottom of its usable area: they pile up there and on each other,
+the lowest landing first, bounce a few times lower each time, squash a little as they come down,
+rest a moment and glide back up, about two seconds in all. A window resting on the bottom already,
+a tile, sinks a fifth of the monitor's height past it all the same, behind the bar, and the windows
+above land on it. `paw party` throws a party of four seconds on the focused monitor: its windows bob
+and wiggle out of step, their borders go round the rainbow, each in its own colour of the moment,
+and a couple of hundred pieces of confetti come down from the top, spinning, swaying and fading,
+over the windows and the panels. The binding actions `shake`, `gravity` and `party` do the same,
+as do `paw msg shake [N]` and the command palette.
+
+A toy only draws: it never moves a window, changes its size or tells its application anything,
+`paw msg get windows` saying the same before, during and after, and everything is as it was once it
+ends, a gradient border in its gradient again. One plays at a time, a new one ending the last. A
+window that closes (it fades out where it is drawn), moves, changes size, is grabbed, minimized or
+made fullscreen, or that another animation takes over, drops out of the toy at once, back in its
+place, and the toy ends as its monitor shows another workspace, as the overview opens and as the
+session locks. A window still in another animation as the toy begins joins it once that is over.
+Input goes where the windows really are, as during any animation, and a click while gravity holds
+them down sends them back up from where they are, so that what it reaches is what shows there next.
+The toys play whatever `animations.enabled` and `animations.speed` say, being asked for by name;
+paw has no setting for reduced motion. A window without a border bobs at a party without one.
+
+`paw msg get toys` prints a `toy` line, with the toy playing (`shake`, `gravity`, `party`, or
+`none`), how long it has played and how long it lasts in milliseconds, and its monitor and
+workspace; a `window` line for each window in it, with its number, its title, whether the toy
+draws it yet, the offset it is drawn at (x and y), how it is stretched (across and down, in
+thousandths) and its border's colour (`#rrggbb`, or `-` for its own); and a `confetti` line with
+how many pieces show. `tests/toys_smoke.py` tests them.
 
 ## Screen locking and idle
 

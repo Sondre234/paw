@@ -61,9 +61,14 @@ static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx,
         return server->hit.node;
     }
     bool animating = sh_animator_running(server->animator) > 0 ||
-                     sh_animator_lifted(server->animator) > 0;
+                     sh_animator_lifted(server->animator) > 0 ||
+                     sh_animator_posed(server->animator) > 0;
     if (animating)
         sh_animator_rest_at(server->animator, lx, ly);
+    // A party's confetti is not there to point at (toys.c).
+    struct wlr_scene_node *confetti = toys_confetti(server);
+    if (confetti)
+        confetti->enabled = false;
     // A window on the screen only for a peek at it is not there to point at.
     struct wlr_scene_node *lent[8];
     int lent_count = 0;
@@ -95,6 +100,8 @@ static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx,
         hidden[--hidden_count]->enabled = true;
     while (lent_count > 0)
         lent[--lent_count]->enabled = true;
+    if (confetti)
+        confetti->enabled = true;
     if (animating)
         sh_animator_resume(server->animator);
     if (server->hit.caching) {
@@ -599,6 +606,7 @@ static bool action_targets_window(enum sh_action action) {
     case SH_RESIZE_RIGHT:
     case SH_RESIZE_UP:
     case SH_RESIZE_DOWN:
+    case SH_SHAKE:
         return true;
     default:
         return false;
@@ -669,6 +677,8 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         else
             server->held_buttons &= ~bit;
     }
+    if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
+        toys_press(server); // windows a toy pulled down come back to where the press lands
     if ((server->overview.open || server->overview.pressed) && overview_button(server, event))
         return;
     if (server->middle_pressed) {

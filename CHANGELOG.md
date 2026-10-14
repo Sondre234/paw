@@ -604,6 +604,13 @@ wrong with it, and toys the compositor plays with the windows.
   work, the costliest first. `paw top --once` prints one look. Two queries feed it: `get
   commits`, each window's and layer surface's commits and the time handling them took, and `get
   frame_times OUTPUT`, a monitor's own last 512 frames.
+- `paw shake`, `paw gravity` and `paw party`, and the binding actions `shake`, `gravity` and
+  `party`: toys that only draw. A shake wobbles the focused window from side to side (or a
+  numbered one, or from a mouse button the one under the pointer); gravity drops every window of
+  the focused monitor's workspace to the bottom, where they pile up, bounce, squash and glide back
+  up; a party bobs them under rainbow borders while confetti falls. No window moves or changes
+  size, and one that does anything else meanwhile drops out back in its place. The command
+  palette offers them too, and `paw msg get toys` says what plays.
 
 ### Fixes
 
