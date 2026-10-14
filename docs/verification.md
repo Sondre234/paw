@@ -1214,12 +1214,12 @@ Added 2026-10-14. `wrapped_smoke` has a headless compositor count as a standalon
 `wayland_probe` windows: the pointer's travel to the pixel and at 96 dots an inch, clicks by
 button, scrolling, keys (not a virtual keyboard's), gestures, moves and resizes (not a press let go
 in place), snaps, workspace switches, the overview, the switcher, a launch, windows opened and
-closed, focused time, a streak, idle time, and the lock's time as away; the day's file across
-three sessions, saved as the session locks and every 300 ms, a pretend midnight, and `wrapped.enabled` turned off and on; and `paw wrapped` on the files,
-alone and with a running session that saves meanwhile. The report was looked at in a terminal,
-coloured and plain, on made-up day files.
+closed, focused time, a streak, idle time, the lock and every monitor off as away, and an idle
+inhibitor holding the session active; the day's file across three sessions, saved as the session
+locks and every 300 ms, a pretend midnight, and `wrapped.enabled` turned off and on; and `paw
+wrapped` on the files, alone and with a running session that saves meanwhile. The report was
+looked at in a terminal, coloured and plain, on made-up day files.
 
 Not checked: a standalone session on real hardware (counting starting there, the millimetres from
 a real monitor's EDID, a touchpad's scrolling and gestures, logind's sleep saving the day first),
-an idle inhibitor and the monitors turning off counting as active and away, and a session running
-past a real midnight.
+and a session running past a real midnight.

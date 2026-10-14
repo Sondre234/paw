@@ -2,9 +2,10 @@
 """paw wrapped's counting: what `get wrapped` counts as a virtual pointer moves, clicks and
 scrolls, keys are pressed, touchpad gestures begin, windows open, move, resize, snap and close,
 workspaces switch and the overview and the switcher open; the time an application has the focus,
-its streak, idle time, and the lock's; the day's file written as the session locks and ends, added
-to by the next session and every few minutes, and split at midnight; wrapped.enabled turning it off; and
-`paw wrapped` reporting on the files and the running session's count."""
+its streak, and idle time, with the lock, the monitors off and an idle inhibitor; the day's file
+written as the session locks and ends, added to by the next session and every few minutes, and
+split at midnight; wrapped.enabled turning it off; and `paw wrapped` reporting on the files and
+the running session's count."""
 from datetime import date, timedelta
 import json
 from pathlib import Path
@@ -14,7 +15,8 @@ import sys
 
 import harness
 
-compositor, probe, pointer_probe, lock_probe = (str(Path(p).resolve()) for p in sys.argv[1:5])
+compositor, probe, pointer_probe, lock_probe, idle_probe = (str(Path(p).resolve())
+                                                             for p in sys.argv[1:6])
 
 SCREEN = (1280, 720)
 CONFIG = """return {
@@ -184,6 +186,21 @@ with harness.Compositor(compositor, CONFIG % "", env=ASKED) as desktop:
     desktop.wait_for(lambda: "Session unlocked" in desktop.log.read_text(), "unlocked")
     nudge()
     assert counted(desktop)["state"] == "active"
+
+    # Something keeping the screen awake, as a video playing does with an idle inhibitor, keeps
+    # the session active without input, but not with every monitor off.
+    inhibitor = desktop.spawn([idle_probe, "inhibit"], stdout=subprocess.PIPE, text=True)
+    assert inhibitor.stdout.readline().strip() == "ready"
+    desktop.stays(lambda: counted(desktop)["state"] == "active", "idle though inhibited",
+                  duration=2.5)
+    msg("display_off")
+    assert counted(desktop)["state"] == "away"
+    msg("display_on")
+    assert counted(desktop)["state"] == "active"
+    inhibitor.terminate()
+    desktop.reap(inhibitor)
+    desktop.wait_for(lambda: counted(desktop)["state"] == "idle", "idle without the inhibitor")
+    nudge()
 
     # Another application takes the focus; a window closing is counted.
     opened = []
