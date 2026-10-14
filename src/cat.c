@@ -265,21 +265,24 @@ static void choose(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
         // there.
         if (!cat->away_since)
             cat->away_since = now;
-        if (now - cat->away_since >= AWAY_MS) {
-            const struct sh_cat_area *focused = &world->areas[world->focused_area];
-            const struct sh_cat_ledge *ledge =
-                ledge_at(world->ledges, world->ledge_count, cat->on, cat->x, cat->y);
-            double left = ledge ? fmax(ledge->left, focused->x) : 0;
-            double right = ledge ? fmin(ledge->right, focused->x + focused->width) : 0;
-            if (cat->on && ledge && right - left >= cat->width) {
-                cat->target_x = cat->x < left ? left + cat->width / 2 : right - cat->width / 2;
-                cat->facing = cat->target_x > cat->x ? 1 : -1;
-                enter(cat, SH_CAT_WALK, now, 0);
-            } else {
-                sh_cat_arrive(cat, world, now);
-            }
+        if (now - cat->away_since < AWAY_MS) { // it sits a moment first
+            sit(cat, now);
+            cat->until = cat->away_since + AWAY_MS;
             return;
         }
+        const struct sh_cat_area *focused = &world->areas[world->focused_area];
+        const struct sh_cat_ledge *ledge =
+            ledge_at(world->ledges, world->ledge_count, cat->on, cat->x, cat->y);
+        double left = ledge ? fmax(ledge->left, focused->x) : 0;
+        double right = ledge ? fmin(ledge->right, focused->x + focused->width) : 0;
+        if (cat->on && ledge && right - left >= cat->width) {
+            cat->target_x = cat->x < left ? left + cat->width / 2 : right - cat->width / 2;
+            cat->facing = cat->target_x > cat->x ? 1 : -1;
+            enter(cat, SH_CAT_WALK, now, 0);
+        } else {
+            sh_cat_arrive(cat, world, now);
+        }
+        return;
     } else {
         cat->away_since = 0;
     }

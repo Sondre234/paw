@@ -405,7 +405,7 @@ static void test_follows_the_focused_monitor(void) {
     scene.focused_area = 1;
     build(&scene);
     int64_t start = now;
-    CHECK(run_until(&cat, &scene, &now, SH_CAT_FALL, 12000));
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_FALL, 8000));
     CHECK(now - start >= 1200, "not at once");
     CHECK(sh_cat_area_at(&scene.world, cat.x, cat.y) == 1 && cat.x == 2600 && cat.y == H);
     CHECK(run_until(&cat, &scene, &now, SH_CAT_LAND, 2000));
