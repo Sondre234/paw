@@ -46,9 +46,9 @@ struct Stop : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
-// The scripts the tour's terminals run, by turns: `paw fetch` where there is one (else a card of
-// its own), a clock in large figures, and colours drifting across the window. Each names its
-// window by $PAW_TOUR_TITLE and runs paw as $PAW_TOUR_PAW.
+// The scripts the tour's terminals run: `paw fetch` where there is one (else a card of its own), a
+// clock in large figures, and colours drifting across the window, which windows after the third
+// show too. Each names its window by $PAW_TOUR_TITLE and runs paw as $PAW_TOUR_PAW.
 constexpr const char *scripts[] = {
     R"sh(printf '\033]2;%s\007\033[?25l\033[?7l\033[H\033[2J' "$PAW_TOUR_TITLE"
 if ! "$PAW_TOUR_PAW" fetch 2>/dev/null; then
@@ -112,12 +112,16 @@ done)sh",
     R"sh(printf '\033]2;%s\007\033[?25l\033[2J' "$PAW_TOUR_TITLE"
 awk 'BEGIN {
     for (frame = 0; ; frame++) {
-        if (frame % 10 == 0) {
+        # The size anew every other frame, the screen cleared when it changed, as the window
+        # tiles and glides.
+        if (frame % 2 == 0) {
             rows = 24; cols = 80
             if (("stty size < /dev/tty 2>/dev/null" | getline line) > 0) {
                 split(line, s, " "); rows = s[1]; cols = s[2]
             }
             close("stty size < /dev/tty 2>/dev/null")
+            if (rows "x" cols != last) printf "\033[2J"
+            last = rows "x" cols
         }
         t = frame * 0.12
         printf "\033[H"
@@ -467,7 +471,8 @@ pid_t Tour::spawn(const std::string &title, size_t number) {
     if (!options_.client.empty())
         command = {"/bin/sh", "-c", client_command(options_.client, title)};
     else
-        command = terminal_command(terminal_, title, scripts[number % std::size(scripts)]);
+        command = terminal_command(terminal_, title,
+                                   scripts[std::min(number, std::size(scripts) - 1)]);
     std::error_code error;
     auto paw = std::filesystem::read_symlink("/proc/self/exe", error);
     pid_t pid = fork();
