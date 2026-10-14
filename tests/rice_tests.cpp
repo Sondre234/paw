@@ -348,6 +348,75 @@ void trials(const fs::path &root) {
     CHECK(problems.size() == 1 && mentions(problems[0], "broken: a rice cannot set"),
           "%s", problems.empty() ? "" : problems[0].c_str());
 }
+void profiles(const fs::path &root) {
+    // An installed rice is a profile of its directory's name, its pictures in its directory.
+    setenv("XDG_STATE_HOME", (root / "profiles-state").c_str(), 1);
+    auto rices = paw::rices_directory();
+    fs::create_directories(rices);
+    fs::copy(root / "washi", rices / "washi-2", fs::copy_options::recursive);
+    write(rices / "sepia/rice.lua", R"(return { format = 1, name = "sepia",
+        profile = { shell = { accent = "#704214" } } })");
+    write(rices / "dark/rice.lua", R"(return { format = 1, name = "dark", profile = {} })");
+    write(rices / "bad/rice.lua", R"(return { format = 1, name = "bad",
+        profile = { shell = { accent = "blue" } } })");
+    const std::string source = R"(return {
+        profile = "dark",
+        profiles = { dark = { shell = { accent = "#111111" } }, light = {} },
+    })";
+    auto installed = paw::installed_rices();
+    CHECK(installed.size() == 4);
+    auto config = paw::parse_config(source, "config", root, "washi-2", installed);
+    CHECK(config.profile == "washi-2", "%s", config.profile.c_str());
+    CHECK(config.profiles ==
+          (std::vector<std::string>{"dark", "light", "sepia", "washi-2"}));
+    CHECK(config.rices == (std::vector<std::string>{"sepia", "washi-2"}));
+    CHECK(config.shell.accent == "#e0607e", "%s", config.shell.accent.c_str());
+    CHECK(config.shell.wallpaper == (rices / "washi-2/wallpaper/washi.jpg").string(), "%s",
+          config.shell.wallpaper.c_str());
+    CHECK(config.shell.start_icon == (rices / "washi-2/neko.svg").string());
+    // The configuration's own profile wins over a rice of its name, and one with a setting the
+    // configuration refuses is passed over, said, rather than an error.
+    CHECK(config.rice_problems.size() == 2, "%zu", config.rice_problems.size());
+    CHECK(mentions(config.rice_problems[0], "bad: accent must be") ||
+              mentions(config.rice_problems[1], "bad: accent must be"),
+          "%s", config.rice_problems.empty() ? "" : config.rice_problems[0].c_str());
+    CHECK(mentions(config.rice_problems[0] + config.rice_problems[1],
+                   "dark: the configuration has a profile of that name"));
+    auto fallback = paw::parse_config(source, "config", root, "bad", installed);
+    CHECK(fallback.profile == "dark" && fallback.shell.accent == "#111111");
+    auto own = paw::parse_config(source, "config", root, "dark", installed);
+    CHECK(own.shell.accent == "#111111");
+    // load_config finds them.
+    write(root / "config/init.lua", source);
+    paw::save_profile("sepia");
+    auto loaded = paw::load_config(root / "config/init.lua");
+    CHECK(loaded.profile == "sepia" && loaded.shell.accent == "#704214");
+
+    // What a profile looks like: the configuration's, its theme's and the profile's settings.
+    write(root / "config/theme.lua", R"(return { shell = { panel_color = "#222222",
+        font = "Inter" }, windows = { border_width = 4 } })");
+    write(root / "config/init.lua", R"(return {
+        theme = "theme.lua",
+        shell = { font = "Maple Mono", wallpaper = "walls/day.png",
+                  launchers = { { name = "x", command = { "true" } } } },
+        windows = { rules = { { app_id = "x", opacity = 0.5 } } },
+        profiles = { night = { shell = { accent = "#000080", wallpaper = "walls/night.png" } } },
+    })");
+    auto look = paw::configured_look(root / "config/init.lua", "night");
+    auto shell = look.field("shell");
+    CHECK(shell && shell->field("font")->string == "Maple Mono");
+    CHECK(shell->field("panel_color")->string == "#222222", "from the theme");
+    CHECK(shell->field("accent")->string == "#000080", "from the profile");
+    CHECK(shell->field("wallpaper")->string == "walls/night.png", "as the profile names it");
+    CHECK(look.field("windows")->field("border_width")->integer == 4);
+    CHECK(look.field("windows")->field("rules"), "everything, before rice_look keeps the look");
+    CHECK(paw::configured_look(root / "config/init.lua", "")
+              .field("shell")->field("wallpaper")->string == "walls/day.png");
+    auto rice_look = paw::configured_look(root / "config/init.lua", "washi-2");
+    CHECK(rice_look.field("shell")->field("accent")->string == "#e0607e");
+    CHECK(mentions(error_of([&] { paw::configured_look(root / "config/init.lua", "nope"); }),
+                   "no profile nope"));
+}
 } // namespace
 
 int main() {
@@ -360,6 +429,7 @@ int main() {
     looks_and_changes();
     directories_are_checked(root);
     trials(root);
+    profiles(root);
     fs::remove_all(root);
     return failures != 0;
 }

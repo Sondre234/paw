@@ -424,15 +424,16 @@ void save_setting(const std::filesystem::path &path, const std::vector<std::stri
     const auto source = read_text(target);
     const auto name = "@" + path.string();
     const auto profile = saved_profile();
+    const auto rices = installed_rices();
     try {
-        (void)parse_config(source, name, path.parent_path(), profile);
+        (void)parse_config(source, name, path.parent_path(), profile, rices);
     } catch (const std::exception &error) {
         throw std::runtime_error("cannot change the configuration while it has an error: " +
                                  std::string(error.what()));
     }
     auto edited = edit_setting(source, trail, literal, [&](const std::string &text) {
         try {
-            return takes(parse_config(text, name, path.parent_path(), profile));
+            return takes(parse_config(text, name, path.parent_path(), profile, rices));
         } catch (const std::exception &) {
             return false;
         }
