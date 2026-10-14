@@ -42,6 +42,10 @@ Workspaces | Each monitor has workspaces of its own, and a key goes back to the 
 Sticky windows | A sticky window stays on every workspace of its monitor, over the others. | toggle_sticky | toggle_sticky; wait 0.8; workspace {spare}; wait 1.6; workspace_back; wait 0.8; toggle_sticky | 1
 Appearance profiles | A profile from the panel or the command palette changes the whole look at once, crossfading from one to the next. | - | profile {other_profile}; wait 3.4; profile {profile} | 2
 Night light | The screen warms in the evening and cools in the morning, on a schedule or by hand. | night_light_toggle | night_light_toggle; wait 3; {night_light} | 1
+A desktop cat | A pixel-art cat lives on the focused window's title bar: it wanders, chases the pointer, follows the focus and falls when its window goes. | cat | cat toggle; wait 2.5; focus other; wait 2.5; cat toggle | 0.5 | needs cat
+X-ray | The screen comes apart into its layers, from the wallpaper to the panels, to see what is drawn over what. | xray | xray; wait 3; xray | 0.5 | needs xray
+Toys | Windows that only pretend: a shake to point one out, gravity that drops them all, and a party. | shake gravity party | tiling off; shake; wait 1; gravity; wait 3.2; party; wait 4.4 | 0.5 | needs shake gravity party
+The pointer heatmap | Where the pointer has rested this session glows over the desktop, and paw heatmap draws it in a terminal too. | heatmap | heatmap toggle; wait 2.5; heatmap toggle | 0.5 | needs heatmap
 That's paw | There is more in docs/features.md, and paw tour --list names these steps; now your desktop goes back as it was. | - | close windows | 1.5
 )";
 

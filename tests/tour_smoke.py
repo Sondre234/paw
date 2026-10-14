@@ -117,14 +117,14 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     text = (root / "tour.log").read_text()
     assert process.returncode == 0, text
     assert seen == {"paw tour 1", "paw tour 2", "paw tour 3", "paw tour 4"}, seen
-    assert "[15/15] That's paw" in text and "skipped" not in text, text
+    assert "[19/19] That's paw" in text and "skipped" not in text, text
     assert "Your desktop is back as it was." in text, text
     unchanged()
 
     # Interrupted once the monitor tiles, in the middle of the tour, it puts everything back.
     process = tour("--speed", "2", log="interrupted.log")
     desktop.detail = lambda: (root / "interrupted.log").read_text()
-    desktop.wait_for(lambda: "[6/15]" in (root / "interrupted.log").read_text(),
+    desktop.wait_for(lambda: "[6/19]" in (root / "interrupted.log").read_text(),
                      "the tour reached the scrolling layout", timeout=60)
     assert desktop.rows("workspaces")[0][4] == "on" and len(tour_windows()) == 3
     process.send_signal(signal.SIGINT)
