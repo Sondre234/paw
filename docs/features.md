@@ -2867,6 +2867,31 @@ Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the
 and to find out what is wrong with it. They talk to the running session through its control
 socket, as `paw msg` does; `paw --help` lists them.
 
+### paw xray
+
+The `xray` action takes the focused monitor apart into the layers paw draws, so that what lies
+over what shows, and closes it again; bind it as `{ mods = { "Super" }, key = "x", action = "xray"
+}`. The picture comes apart into a stack of sheets, bottom to top: the background (the desktop's
+colour and the wallpaper), the bottom layer, the windows, floating windows (with
+`layout.floating_above_tiles`), windows kept above, fullscreen windows, the panels (the top
+layer), a fullscreen window covering the panels, X11 menus and the overlays. A layer with nothing
+on that monitor has no sheet, and while six windows or fewer show, each has a sheet of its own.
+Each sheet is a live copy of what its layer draws there, scaled down, on a card edged in the
+layer's colour with a shadow, fanned out from the one under it like a deck of cards seen from the
+side. It comes apart from the flat screen and goes back into it in `animations.minimize`'s time
+and curve, half as long again to open, and at once with `animations.enabled = false`.
+
+Moving the pointer turns the stack: it leans away from the pointer, so that the edges of the
+sheets low in it come out where the pointer is. The wheel, or + and -, spreads the sheets apart and
+together, and 0 sets the stack straight again. The sheet under the pointer is lifted out of the
+stack and those over it fade. The arrow keys and Tab go up and down the stack, Return or a click
+on a window goes to that window, and Escape, a click beside the stack or the action again closes
+the view. While open it takes the keyboard and the pointer, as the overview does, and changes
+nothing else; closed, nothing of it is left. It does not open while the session is locked, and
+closes as the session locks or its monitor goes. `paw msg get xray` says whether it is open and
+lists what every monitor draws, bottom to top: layer, colour, kind (colour, surface, window or
+x11), namespace or app id, title and place, and the sheet showing it.
+
 ## Screen locking and idle
 
 Screen locking uses the standard `ext-session-lock-v1` protocol, so lockers such

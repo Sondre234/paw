@@ -416,6 +416,17 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
         switcher_key(server, modifiers, sym);
         return true;
     }
+    if (server->xray.open) {
+        // The exploded view's own binding closes it; other keys are its.
+        int bound_argument = 0;
+        enum sh_action bound =
+            server->callbacks->key(server->callbacks->userdata, modifiers, sym, &bound_argument);
+        if (bound == SH_XRAY)
+            run_action(server, bound, bound_argument);
+        else
+            xray_key(server, modifiers, sym);
+        return true;
+    }
     if (server->overview.open) {
         // The overview's own bindings (toggling it again) work as bound; other keys are its.
         int bound_argument = 0;

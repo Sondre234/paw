@@ -2008,6 +2008,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"media_next", SH_MEDIA_NEXT},
         {"media_previous", SH_MEDIA_PREVIOUS},
         {"media_stop", SH_MEDIA_STOP},
+        {"xray", SH_XRAY},
 };
 } // namespace
 

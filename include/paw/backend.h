@@ -223,6 +223,8 @@ enum sh_action {
     SH_DISPLAY_SETTINGS,
     /* Minimizes the focused window into its taskbar button, as its own minimize button does. */
     SH_MINIMIZE,
+    /* Opens the exploded view of the focused output's layers (paw xray), or closes it. */
+    SH_XRAY,
 };
 
 /* The display_mode action's choices. */

@@ -22,8 +22,7 @@ static void overview_colour(float out[4], float r, float g, float b, float a) {
  * (appearance.background), at alpha `a`: the backdrop, the cards and the strip take the
  * profile's tint, a warm black on paper, rather than one blue-black for every profile. The
  * default background gives the blue-black they had. */
-static void overview_tint(float out[4], const struct sh_settings *settings, float luminance,
-                          float a) {
+void overview_tint(float out[4], const struct sh_settings *settings, float luminance, float a) {
     const float *bg = settings->background;
     float own = 0.2126f * bg[0] + 0.7152f * bg[1] + 0.0722f * bg[2];
     if (own < 0.001f) { // a black background: a grey as light
