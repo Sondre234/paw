@@ -27,7 +27,11 @@ Button {
     required property Item panel
     // The icon of the pinned application, else of the application the window belongs to, else
     // one guessed from its app ID.
-    property string iconName: pinned ? app.icon : shell.iconFor(appId)
+    property string iconName: {
+        // Read again as the applications change: an entry may name another icon.
+        void shell.appsRevision
+        return pinned ? app.icon : shell.iconFor(appId)
+    }
     property TaskFilter group: null
     // Where the hover list finds the group's windows (see the panel's groupSlot).
     property string groupSlot: ""
