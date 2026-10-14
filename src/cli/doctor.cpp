@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* `paw doctor [--plain] [--no-color]`: looks the running session over for what has gone wrong
- * in paw desktops before (the shell gone, the session bus dead, PipeWire left on Dummy Output, a
- * compositor older than the paw installed since, ...) and prints each finding with the command
- * that fixes it. It only looks: a get query to the compositor, files and /proc, `wpctl status`,
- * `paw --version`, and D-Bus calls that change nothing and start no service. */
+ * in paw desktops before (the shell gone, the session bus dead, PipeWire left on Dummy Output,
+ * screen sharing without paw-portals.conf, a compositor older than the paw installed since, ...)
+ * and prints each finding with the command that fixes it. It only looks: a get query to the
+ * compositor, files and /proc, `wpctl status`, `paw --version`, and D-Bus calls that change
+ * nothing and start no service. */
 #include "paw/autostart.hpp"
 #include "paw/cli.hpp"
 #include "paw/config.hpp"
@@ -51,7 +52,7 @@ using doctor::Result;
 using doctor::Status;
 
 const char *const session_section = "Session", *const bus_section = "D-Bus",
-                  *const sound_section = "Sound";
+                  *const sound_section = "Sound", *const sharing_section = "Screen sharing";
 
 std::string read_file(const fs::path &path) {
     std::ifstream file(path, std::ios::binary);
@@ -945,6 +946,226 @@ std::optional<Result> check_output(const Context &context) {
     return result;
 }
 
+// Screen sharing
+
+const char *const screen_cast = "org.freedesktop.impl.portal.ScreenCast";
+
+// xdg-desktop-portal, and the environment it reads its configuration with: its own while it
+// runs, else this one, which D-Bus starts it with in a session that exported it.
+struct Portal {
+    std::string owner; // its connection to the session bus, "" while it is not running
+    int pid = 0;
+    doctor::Environment env;
+    bool own_env = false; // `env` is the running portal's
+    std::string name() const {
+        return "xdg-desktop-portal" + (pid ? " (PID " + std::to_string(pid) + ")" : "");
+    }
+};
+Portal find_portal(const Context &context) {
+    Portal portal;
+#if PAW_DOCTOR_BUS
+    if (context.bus)
+        portal.owner = context.bus->owner("org.freedesktop.portal.Desktop");
+    if (!portal.owner.empty())
+        portal.pid = context.bus->pid(portal.owner);
+#endif
+    if (const auto *process = context.process(portal.pid)) {
+        portal.env = process->environment();
+        portal.own_env = !portal.env.empty();
+    }
+    if (!portal.own_env)
+        for (char **entry = environ; entry && *entry; ++entry)
+            if (auto text = std::string_view(*entry); text.find('=') != std::string_view::npos)
+                portal.env.emplace(text.substr(0, text.find('=')), text.substr(text.find('=') + 1));
+    return portal;
+}
+// The names in the portal's XDG_CURRENT_DESKTOP, paw's alone when it lacks paw: the file
+// xdg-desktop-portal reads once that is right.
+std::vector<std::string> portal_desktops(const Portal &portal) {
+    auto found = portal.env.find("XDG_CURRENT_DESKTOP");
+    auto names = doctor::desktop_names(found == portal.env.end() ? "" : found->second);
+    if (std::find(names.begin(), names.end(), "paw") == names.end())
+        return {"paw"};
+    return names;
+}
+// paw's own paw-portals.conf: beside the running compositor's program, this one's, or where paw
+// installs its data; "" when none is there.
+fs::path installed_portal_config(const Context &context) {
+    std::vector<fs::path> prefixes;
+    if (auto prefix = context.prefix(); !prefix.empty())
+        prefixes.push_back(prefix);
+    std::error_code error;
+    if (auto self = fs::read_symlink("/proc/self/exe", error); !error)
+        prefixes.push_back(fs::path(doctor::program_path(self.string())).parent_path().parent_path());
+    std::vector<fs::path> candidates;
+    for (const auto &prefix : prefixes)
+        candidates.push_back(prefix / "share/xdg-desktop-portal/paw-portals.conf");
+    candidates.push_back(default_config_path().parent_path().parent_path() /
+                         "xdg-desktop-portal/paw-portals.conf");
+    for (const auto &candidate : candidates)
+        if (fs::is_regular_file(candidate, error))
+            return candidate;
+    return {};
+}
+// The configuration file xdg-desktop-portal reads.
+fs::path portal_config_file(const Portal &portal) {
+    return doctor::portal_config(doctor::portal_config_directories(portal.env),
+                                 portal_desktops(portal), [](const fs::path &file) {
+                                     std::error_code error;
+                                     return fs::is_regular_file(file, error);
+                                 });
+}
+
+Result check_desktop() {
+    Result result{sharing_section, "desktop"};
+    auto value = variable("XDG_CURRENT_DESKTOP");
+    auto names = doctor::desktop_names(value);
+    if (std::find(names.begin(), names.end(), "paw") != names.end()) {
+        result.finding = "XDG_CURRENT_DESKTOP is " + value;
+        return result;
+    }
+    result.status = Status::error;
+    result.finding = "XDG_CURRENT_DESKTOP is " + (value.empty() ? "unset" : value) +
+                     ", without paw: xdg-desktop-portal does not read paw-portals.conf";
+    result.fix = "Run paw doctor in a terminal of the paw session, which has XDG_CURRENT_DESKTOP=paw";
+    return result;
+}
+
+Result check_portal_config(const Context &context, const Portal &portal) {
+    Result result{sharing_section, "portal-config"};
+    auto directories = doctor::portal_config_directories(portal.env);
+    auto file = portal_config_file(portal);
+    if (file.filename() == "paw-portals.conf") {
+        result.finding = "xdg-desktop-portal reads " + file.string();
+        std::error_code error;
+        if (fs::is_symlink(file, error))
+            result.finding += " (a link to " + fs::read_symlink(file, error).string() + ")";
+        return result;
+    }
+    result.status = Status::error;
+    result.finding = file.empty() ? "xdg-desktop-portal finds no paw-portals.conf"
+                                  : "xdg-desktop-portal reads " + file.string() +
+                                        ", not paw-portals.conf";
+    result.finding += ": screen sharing and screenshots in applications fail";
+    for (const auto &directory : directories) {
+        std::error_code error;
+        auto link = directory / "paw-portals.conf";
+        if (fs::is_symlink(link, error) && !fs::exists(link, error))
+            result.finding += "; " + link.string() + " links to " +
+                              fs::read_symlink(link, error).string() + ", which is gone";
+    }
+    auto installed = installed_portal_config(context);
+    auto target = directories.empty() ? fs::path() : directories.front();
+    if (installed.empty() || target.empty())
+        result.fix = "Install paw (cmake --install), or copy packaging/paw-portals.conf from its "
+                     "source into " +
+                     (target.empty() ? std::string("~/.config/xdg-desktop-portal") : target.string());
+    else
+        result.fix = "mkdir -p " + doctor::shell_word(target.string()) + " && ln -sf " +
+                     doctor::shell_word(installed.string()) + " " +
+                     doctor::shell_word((target / "paw-portals.conf").string());
+    if (portal.pid) {
+        result.finding += "; " + portal.name() + " reads it as it starts, which D-Bus has it do "
+                                                 "again when an application next asks";
+        result.fix += " && kill " + std::to_string(portal.pid);
+    }
+    return result;
+}
+
+std::optional<Result> check_portal_backend(const Portal &portal) {
+    auto file = portal_config_file(portal);
+    if (file.filename() != "paw-portals.conf")
+        return std::nullopt;
+    Result result{sharing_section, "portal-backend"};
+    auto backends = doctor::portal_backends(read_file(file), screen_cast);
+    if (backends.empty() || backends.front() == "none") {
+        result.status = Status::error;
+        result.finding = file.string() + " gives screen sharing no backend";
+        result.fix = "Set " + std::string(screen_cast) + "=wlr under [preferred] in " + file.string();
+        return result;
+    }
+    // Where xdg-desktop-portal finds the backends' NAME.portal files.
+    std::vector<fs::path> directories;
+    if (auto own = portal.env.find("XDG_DESKTOP_PORTAL_DIR"); own != portal.env.end())
+        directories.push_back(own->second);
+    for (const auto &directory : doctor::portal_config_directories(portal.env))
+        directories.push_back(directory / "portals");
+    for (const auto &backend : backends) {
+        for (const auto &directory : directories) {
+            std::error_code error;
+            for (const auto &entry : fs::directory_iterator(directory, error)) {
+                auto name = entry.path().filename().string();
+                if (!name.ends_with(".portal") ||
+                    (backend != "*" && name != backend + ".portal") ||
+                    !doctor::portal_implements(read_file(entry.path()), screen_cast))
+                    continue;
+                result.finding = "Screen sharing goes to " + name.substr(0, name.size() - 7) +
+                                 " (" + entry.path().string() + ")";
+                return result;
+            }
+        }
+    }
+    result.status = Status::error;
+    result.finding = file.string() + " sends screen sharing to " + backends.front() +
+                     ", which is not installed";
+    result.fix = "Install xdg-desktop-portal-" + backends.front();
+    return result;
+}
+
+std::optional<Result> check_portal(const Context &context, const Portal &portal) {
+#if PAW_DOCTOR_BUS
+    if (!context.bus)
+        return std::nullopt;
+    Result result{sharing_section, "portal"};
+    if (portal.owner.empty()) {
+        if (!context.bus->activatable("org.freedesktop.portal.Desktop")) {
+            result.status = Status::error;
+            result.finding = "xdg-desktop-portal is not installed: no screen sharing or file "
+                             "choosers in sandboxed applications";
+            result.fix = "Install xdg-desktop-portal";
+        } else {
+            result.finding =
+                "xdg-desktop-portal is not running yet: D-Bus starts it when an application asks";
+        }
+        return result;
+    }
+    // Restarted, it reads its configuration again; D-Bus starts it when an application next asks.
+    auto restart = portal.pid ? "kill " + std::to_string(portal.pid) : std::string();
+    auto desktop = portal.env.find("XDG_CURRENT_DESKTOP");
+    auto names =
+        doctor::desktop_names(desktop == portal.env.end() ? std::string() : desktop->second);
+    if (portal.own_env && std::find(names.begin(), names.end(), "paw") == names.end()) {
+        result.status = Status::error;
+        result.finding = portal.name() + " started with XDG_CURRENT_DESKTOP " +
+                         (names.empty() ? "unset" : "= " + desktop->second) +
+                         ", so it ignores paw-portals.conf; D-Bus starts it again, with the "
+                         "session's, when an application next asks";
+        result.fix = "dbus-update-activation-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP" +
+                     (restart.empty() ? "" : " && " + restart);
+        return result;
+    }
+    std::string error;
+    auto version = context.bus->unsigned_property(
+        "org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop",
+        "org.freedesktop.portal.ScreenCast", "version", error);
+    if (!version) {
+        result.status = Status::error;
+        result.finding = portal.name() + " offers no screen sharing (" + error +
+                         "): it found no ScreenCast backend as it started; once the above is "
+                         "right, D-Bus starts it again when an application next asks";
+        result.fix = restart.empty() ? "Log out and back in" : restart;
+        return result;
+    }
+    result.finding = portal.name() + " offers screen sharing (ScreenCast " +
+                     std::to_string(*version) + ")";
+    return result;
+#else
+    (void)context;
+    (void)portal;
+    return std::nullopt;
+#endif
+}
+
 } // namespace
 
 int doctor(int argc, char **argv) {
@@ -977,6 +1198,11 @@ int doctor(int argc, char **argv) {
     add(check_logind(context));
     add(check_pipewire(context));
     add(check_output(context));
+    auto portal = find_portal(context);
+    add(check_desktop());
+    add(check_portal_config(context, portal));
+    add(check_portal_backend(portal));
+    add(check_portal(context, portal));
     std::cout << (plain ? doctor::plain_report(results) : doctor::report(results, color));
     return std::any_of(results.begin(), results.end(),
                        [](const Result &result) { return result.status == Status::error; })
