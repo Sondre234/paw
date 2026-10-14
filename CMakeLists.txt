@@ -53,6 +53,8 @@ target_compile_options(paw_effects PRIVATE -Wall -Wextra -Wpedantic)
 add_library(paw_cli STATIC src/cli/control_client.cpp)
 target_include_directories(paw_cli PUBLIC include)
 target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
+# `paw tour`: what of it needs no session, and its table of steps.
+target_sources(paw_cli PRIVATE src/cli/tour_plan.cpp src/cli/tour_steps.cpp)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -88,6 +90,7 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/docs/config-reference.md)
     paw_unit_test(config_robustness ${EXAMPLE_CONFIG})
     paw_unit_test(cli LIBRARY paw_cli)
+    paw_unit_test(tour LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
