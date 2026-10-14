@@ -26,4 +26,7 @@ std::vector<std::vector<std::string>> query(const std::string &name);
 // $XDG_STATE_HOME/paw, else ~/.local/state/paw; empty without either.
 std::filesystem::path state_directory();
 
+// `paw top`: the compositor's frames, its work and the windows that make it, live or once.
+int top(int argc, char **argv);
+
 } // namespace paw::cli

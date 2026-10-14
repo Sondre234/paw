@@ -304,6 +304,9 @@ if(PAW_BUILD_COMPOSITOR)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake
         BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/version.h)
     add_dependencies(paw paw_version)
+    # paw top names the version too, where a build of the compositor makes version.h.
+    add_dependencies(paw_cli paw_version)
+    target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_options(paw PRIVATE -Wall -Wextra -Wno-unused-parameter)
     # A compositor function shared between files is declared in src/compositor/server.h; any
     # other is static. This flags one that is neither.

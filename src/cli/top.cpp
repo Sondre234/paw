@@ -27,6 +27,13 @@
 #include <tuple>
 #include <unistd.h>
 
+// The version --version prints, where the build made one (a build with the compositor).
+#if __has_include("version.h")
+#include "version.h"
+#else
+#define PAW_VERSION ""
+#endif
+
 namespace paw::top {
 
 namespace {
@@ -661,3 +668,310 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
 }
 
 } // namespace paw::top
+
+namespace paw::cli {
+
+namespace {
+
+using namespace paw::top;
+
+volatile sig_atomic_t quitting = 0, resized = 0;
+void on_quit(int) { quitting = 1; }
+void on_resize(int) { resized = 1; }
+
+// The running compositor's process: the peer of a connection to its control socket.
+pid_t compositor_pid() {
+    const char *path = std::getenv("PAW_SOCKET");
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    if (!path || !*path || std::strlen(path) >= sizeof(address.sun_path))
+        return 0;
+    std::strcpy(address.sun_path, path);
+    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    ucred peer{};
+    socklen_t size = sizeof(peer);
+    if (fd < 0 || connect(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0 ||
+        getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &peer, &size) < 0)
+        peer.pid = 0;
+    if (fd >= 0)
+        close(fd);
+    return peer.pid;
+}
+
+// How long the compositor has run, "" if that cannot be told.
+std::string session_uptime() {
+    pid_t pid = compositor_pid();
+    std::ifstream stat_file("/proc/" + std::to_string(pid) + "/stat");
+    std::string stat{std::istreambuf_iterator<char>(stat_file), {}};
+    double since_boot = 0;
+    long hertz = sysconf(_SC_CLK_TCK);
+    uint64_t ticks = start_ticks(stat);
+    if (pid <= 0 || !ticks || hertz <= 0 || !(std::ifstream("/proc/uptime") >> since_boot))
+        return "";
+    return uptime(since_boot - static_cast<double>(ticks) / static_cast<double>(hertz));
+}
+
+// The appearance profile paw last saved, "" for none.
+std::string saved_profile() {
+    auto directory = state_directory();
+    std::string name;
+    if (!directory.empty()) {
+        std::ifstream file(directory / "profile");
+        std::getline(file, name);
+    }
+    return name;
+}
+
+// One look at the session. A query an older compositor does not answer leaves its part out;
+// a session that cannot be reached throws.
+Sample look(double time) {
+    Sample sample;
+    sample.time = time;
+    for (const auto &row : query("stats"))
+        for (const auto &field : row)
+            sample.stats.push_back(number(field));
+    auto drawn = query("output_frames");
+    for (const auto &row : query("outputs")) {
+        if (row.size() < 9 || row[1] != "1")
+            continue;
+        Monitor monitor;
+        monitor.name = row[0];
+        monitor.mode = row[8];
+        monitor.refresh = refresh_of(row[8]);
+        for (const auto &frames : drawn)
+            if (frames.size() >= 2 && frames[0] == monitor.name)
+                monitor.frames = number(frames[1]);
+        auto reply = request("get frame_times " + monitor.name);
+        if (reply.ok) {
+            auto lines = rows(reply.body);
+            monitor.timed = !lines.empty();
+            for (size_t i = 1; i < lines.size(); ++i)
+                monitor.spent.push_back(static_cast<uint32_t>(number(lines[i].at(0))));
+        }
+        sample.monitors.push_back(std::move(monitor));
+    }
+    auto reply = request("get commits");
+    if (reply.ok) {
+        sample.clients = parse_clients(rows(reply.body));
+        sample.listed = true;
+    }
+    return sample;
+}
+
+void put(const std::string &text) {
+    for (size_t sent = 0; sent < text.size();) {
+        ssize_t written = write(STDOUT_FILENO, text.data() + sent, text.size() - sent);
+        if (written < 0 && errno == EINTR)
+            continue;
+        if (written <= 0)
+            throw std::runtime_error("cannot write to the terminal");
+        sent += static_cast<size_t>(written);
+    }
+}
+
+// The terminal while top draws on it: keys read one at a time without echo, the screen of its
+// own (the alternate one) without a cursor, put back as it was however top ends.
+class Screen {
+  public:
+    Screen() {
+        if (tcgetattr(STDIN_FILENO, &saved_) != 0)
+            throw std::runtime_error("cannot read the terminal's settings");
+        termios raw = saved_;
+        raw.c_lflag &= ~static_cast<tcflag_t>(ICANON | ECHO | ISIG | IEXTEN);
+        raw.c_iflag &= ~static_cast<tcflag_t>(IXON | ICRNL);
+        raw.c_cc[VMIN] = 0;
+        raw.c_cc[VTIME] = 0;
+        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) != 0)
+            throw std::runtime_error("cannot set up the terminal");
+        put("\x1b[?1049h\x1b[?25l\x1b[?7l");
+    }
+    ~Screen() {
+        try {
+            put("\x1b[?7h\x1b[?25h\x1b[?1049l");
+        } catch (const std::exception &) {
+        }
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &saved_);
+    }
+    Screen(const Screen &) = delete;
+    Screen &operator=(const Screen &) = delete;
+    void show(const std::vector<std::string> &lines) {
+        std::string text = "\x1b[H";
+        for (size_t i = 0; i < lines.size(); ++i)
+            text += lines[i] + "\x1b[K" + (i + 1 < lines.size() ? "\r\n" : "");
+        put(text + "\x1b[J");
+    }
+
+  private:
+    termios saved_{};
+};
+
+struct Options {
+    bool once = false, color = true;
+    int interval = 250; // ms
+};
+
+std::pair<size_t, size_t> terminal_size() {
+    winsize size{};
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) == 0 && size.ws_col > 0 && size.ws_row > 0)
+        return {size.ws_col, size.ws_row};
+    return {80, 24};
+}
+
+int print_once(const Options &options) {
+    View view;
+    view.version = PAW_VERSION;
+    view.color = options.color && isatty(STDOUT_FILENO);
+    view.window = options.interval / 1e3;
+    view.width = 100;
+    if (isatty(STDOUT_FILENO))
+        view.width = terminal_size().first;
+    else if (const char *columns = std::getenv("COLUMNS"); columns && std::atoi(columns) > 0)
+        view.width = static_cast<size_t>(std::atoi(columns));
+    std::vector<Sample> history{look(0)};
+    std::this_thread::sleep_for(std::chrono::milliseconds(options.interval));
+    history.push_back(look(options.interval / 1e3));
+    view.uptime = session_uptime();
+    view.profile = saved_profile();
+    std::string text;
+    for (auto line : draw(history, view)) {
+        while (!line.empty() && line.back() == ' ')
+            line.pop_back();
+        text += line + "\n";
+    }
+    put(text);
+    return 0;
+}
+
+int run_live(const Options &options) {
+    if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
+        throw std::runtime_error("paw top draws on a terminal; paw top --once prints one look");
+    // Quitting and resizing arrive only while ppoll waits, so neither slips in between a check
+    // and the wait.
+    struct sigaction quit{}, resize{}, ignore{};
+    quit.sa_handler = on_quit;
+    resize.sa_handler = on_resize;
+    ignore.sa_handler = SIG_IGN;
+    sigset_t handled, waiting;
+    sigemptyset(&handled);
+    for (int signal : {SIGINT, SIGTERM, SIGHUP, SIGQUIT, SIGWINCH})
+        sigaddset(&handled, signal);
+    sigprocmask(SIG_BLOCK, &handled, &waiting);
+    for (int signal : {SIGINT, SIGTERM, SIGHUP, SIGQUIT})
+        sigaction(signal, &quit, nullptr);
+    sigaction(SIGWINCH, &resize, nullptr);
+    sigaction(SIGPIPE, &ignore, nullptr); // a compositor gone mid-request is an error, not death
+
+    const auto start = std::chrono::steady_clock::now();
+    auto now = [&] {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    };
+    const double interval = options.interval / 1e3;
+    View view;
+    view.version = PAW_VERSION;
+    view.color = options.color;
+    view.window = std::max(1.0, interval);
+    std::vector<Sample> history;
+    auto sample = [&] {
+        try {
+            history.push_back(look(now()));
+            // Keep what rates are measured from: the newest look a window old, and later ones.
+            while (history.size() > 2 && history.back().time - history[1].time >= view.window)
+                history.erase(history.begin());
+            if (!view.error.empty() || view.uptime.empty())
+                view.uptime = session_uptime();
+            view.error.clear();
+            view.profile = saved_profile();
+        } catch (const std::runtime_error &error) {
+            view.error = error.what();
+        }
+    };
+
+    Screen screen;
+    sample();
+    double due = now() + interval;
+    for (;;) {
+        std::tie(view.width, view.height) = terminal_size();
+        screen.show(draw(history, view));
+        for (bool redraw = false; !redraw;) {
+            if (quitting)
+                return 0;
+            if (resized) {
+                resized = 0;
+                break;
+            }
+            if (!view.paused && now() >= due) {
+                sample();
+                due = std::max(due + interval, now());
+                break;
+            }
+            double wait = view.paused ? 0 : due - now();
+            timespec timeout{static_cast<time_t>(wait),
+                             static_cast<long>((wait - std::floor(wait)) * 1e9)};
+            pollfd input{STDIN_FILENO, POLLIN, 0};
+            int ready = ppoll(&input, 1, view.paused ? nullptr : &timeout, &waiting);
+            if (ready < 0 && errno != EINTR)
+                throw std::runtime_error(std::string("cannot wait for keys: ") +
+                                         std::strerror(errno));
+            if (ready <= 0)
+                continue;
+            if (input.revents & (POLLHUP | POLLERR))
+                return 0;
+            char keys[64];
+            ssize_t count = read(STDIN_FILENO, keys, sizeof(keys));
+            for (ssize_t i = 0; i < count; ++i) {
+                char key = keys[i];
+                if (key == '\x1b' && i + 1 < count && (keys[i + 1] == '[' || keys[i + 1] == 'O')) {
+                    // An arrow or function key: through the sequence's final byte.
+                    for (i += 2; i < count && !(keys[i] >= 0x40 && keys[i] <= 0x7E); ++i) {
+                    }
+                    continue;
+                }
+                if (key == 'q' || key == 'Q' || key == '\x1b' || key == '\x03')
+                    return 0;
+                if (key == 'p' || key == 'P' || key == ' ') {
+                    view.paused = !view.paused;
+                    due = now(); // a look at once on resuming
+                    redraw = true;
+                } else if (key == 's' || key == 'S') {
+                    view.sort = next(view.sort);
+                    redraw = true;
+                }
+            }
+        }
+    }
+}
+
+} // namespace
+
+int top(int argc, char **argv) {
+    const std::string usage = "usage: paw top [--once] [--interval MS] [--no-color]";
+    Options options;
+    if (const char *no_color = std::getenv("NO_COLOR"); no_color && *no_color)
+        options.color = false;
+    for (int i = 2; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--once")
+            options.once = true;
+        else if (arg == "--no-color")
+            options.color = false;
+        else if (arg == "--interval" && i + 1 < argc) {
+            char *end = nullptr;
+            long interval = std::strtol(argv[++i], &end, 10);
+            if (*end || interval < 50 || interval > 60000)
+                throw std::runtime_error("--interval takes milliseconds from 50 to 60000");
+            options.interval = static_cast<int>(interval);
+        } else if (arg == "--help" || arg == "-h") {
+            std::cout << usage << "\n"
+                         "Shows the running session's frames, what the compositor does each "
+                         "second and the windows\nthat make it work. q, Escape or Ctrl+C quits, "
+                         "p pauses, s changes the order of the windows.\n"
+                         "--once prints one look and exits; --interval sets how often it looks "
+                         "(250 ms).\n";
+            return 0;
+        } else
+            throw std::runtime_error(usage);
+    }
+    return options.once ? print_once(options) : run_live(options);
+}
+
+} // namespace paw::cli
