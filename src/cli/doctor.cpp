@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* `paw doctor [--plain] [--no-color]`: looks the running session over for what has gone wrong
- * in paw desktops before (the shell gone, the session bus dead, a compositor older than the paw
- * installed since, ...) and prints each finding with the command that fixes it. It only looks: a
- * get query to the compositor, files and /proc, `paw --version`, and D-Bus calls that change
- * nothing and start no service. */
+ * in paw desktops before (the shell gone, the session bus dead, PipeWire left on Dummy Output, a
+ * compositor older than the paw installed since, ...) and prints each finding with the command
+ * that fixes it. It only looks: a get query to the compositor, files and /proc, `wpctl status`,
+ * `paw --version`, and D-Bus calls that change nothing and start no service. */
 #include "paw/autostart.hpp"
 #include "paw/cli.hpp"
 #include "paw/config.hpp"
@@ -50,7 +50,8 @@ namespace fs = std::filesystem;
 using doctor::Result;
 using doctor::Status;
 
-const char *const session_section = "Session", *const bus_section = "D-Bus";
+const char *const session_section = "Session", *const bus_section = "D-Bus",
+                  *const sound_section = "Sound";
 
 std::string read_file(const fs::path &path) {
     std::ifstream file(path, std::ios::binary);
@@ -349,6 +350,7 @@ struct Context {
     std::string config_error;
     // session.log since the compositor started, in a login session that writes one.
     std::optional<std::string> log;
+    Output wpctl;
 #if PAW_DOCTOR_BUS
     std::unique_ptr<Bus> bus; // the session bus, when it answers
 #endif
@@ -483,6 +485,7 @@ Context gather() {
     if (context.compositor && context.compositor->has_argument("--session"))
         if (auto state = state_directory(); !state.empty())
             context.log = doctor::since_last_start(read_file(state / "session.log"));
+    context.wpctl = run({"wpctl", "status"});
 #if PAW_DOCTOR_BUS
     if (auto address = variable("DBUS_SESSION_BUS_ADDRESS"); !address.empty()) {
         auto bus = Bus::connect(address, context.bus_error);
@@ -866,6 +869,82 @@ std::optional<Result> check_logind(const Context &context) {
 #endif
 }
 
+// Sound
+
+// How to restart PipeWire and WirePlumber, as the session started them.
+std::string restart_sound() {
+    if (!find_program("gentoo-pipewire-launcher").empty())
+        return "setsid -f gentoo-pipewire-launcher restart >/dev/null 2>&1";
+    if (!find_program("systemctl").empty() && fs::exists("/run/systemd/system"))
+        return "systemctl --user restart pipewire pipewire-pulse wireplumber";
+    return "Restart pipewire, pipewire-pulse and wireplumber";
+}
+
+Result check_pipewire(const Context &context) {
+    Result result{sound_section, "pipewire"};
+    const auto &wpctl = context.wpctl;
+    if (!wpctl.ran) {
+        result.finding = "wpctl is not installed, so PipeWire was not checked";
+        return result;
+    }
+    auto sinks = doctor::parse_wpctl_status(wpctl.text);
+    if (wpctl.status != 0 || !sinks.listed) {
+        result.status = Status::error;
+        auto said = wpctl.first_line();
+        result.finding = "PipeWire does not answer" + (said.empty() ? "" : " (wpctl: " + said + ")") +
+                         ": no sound";
+        result.fix = restart_sound();
+        return result;
+    }
+    auto wireplumber = std::find_if(sinks.clients.begin(), sinks.clients.end(),
+                                    [](const auto &client) { return client.name == "WirePlumber"; });
+    if (wireplumber == sinks.clients.end()) {
+        result.status = Status::error;
+        result.finding = "WirePlumber is not running: PipeWire has no sound devices";
+        result.fix = restart_sound();
+        return result;
+    }
+    auto pid = std::to_string(wireplumber->pid);
+#if PAW_DOCTOR_BUS
+    // WirePlumber keeps the session bus it started with; one that has since gone leaves it
+    // without devices.
+    const auto *process = context.process(wireplumber->pid);
+    auto theirs = process ? process->environment()["DBUS_SESSION_BUS_ADDRESS"] : "";
+    if (!theirs.empty() && theirs != variable("DBUS_SESSION_BUS_ADDRESS")) {
+        std::string error;
+        auto bus = Bus::connect(theirs, error);
+        if (!bus || !bus->answers(error)) {
+            result.status = Status::error;
+            result.finding = "WirePlumber (PID " + pid + ") is on a session bus that is gone (" +
+                             theirs + "), so it has no sound devices";
+            result.fix = restart_sound();
+            return result;
+        }
+    }
+#endif
+    result.finding = "PipeWire and WirePlumber (PID " + pid + ") run";
+    return result;
+}
+
+std::optional<Result> check_output(const Context &context) {
+    auto sinks = doctor::parse_wpctl_status(context.wpctl.text);
+    if (context.wpctl.status != 0 || !sinks.listed)
+        return std::nullopt;
+    Result result{sound_section, "output"};
+    if (doctor::no_sound_output(sinks)) {
+        result.status = Status::error;
+        result.finding = sinks.names.empty()
+                             ? "PipeWire has no sound output: the panel shows Dummy Output"
+                             : "The sound goes to " + sinks.default_name +
+                                   ": PipeWire has lost its devices";
+        result.fix = restart_sound();
+        return result;
+    }
+    result.finding = "Sound plays on " +
+                     (sinks.default_name.empty() ? sinks.names.front() : sinks.default_name);
+    return result;
+}
+
 } // namespace
 
 int doctor(int argc, char **argv) {
@@ -896,6 +975,8 @@ int doctor(int argc, char **argv) {
     add(check_notifications(context));
     add(check_polkit(context));
     add(check_logind(context));
+    add(check_pipewire(context));
+    add(check_output(context));
     std::cout << (plain ? doctor::plain_report(results) : doctor::report(results, color));
     return std::any_of(results.begin(), results.end(),
                        [](const Result &result) { return result.status == Status::error; })
