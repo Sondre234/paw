@@ -1,9 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""What paw top reads: `get commits`, each window's and layer surface's commits and the time
-handling them took, and `get frame_times OUTPUT`, a monitor's own last frames; with a window
-that draws on every frame beside one that is still."""
+"""paw top and what it reads: `get commits`, each window's and layer surface's commits and the
+time handling them took, and `get frame_times OUTPUT`, a monitor's own last frames; with a
+window that draws on every frame beside one that is still. `paw top --once` prints one look, and
+on a terminal paw top draws on a screen of its own until a key or a signal ends it."""
+import fcntl
+import os
 from pathlib import Path
+import pty
+import re
+import select
+import struct
+import subprocess
 import sys
+import termios
 
 import harness
 
@@ -70,4 +79,69 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     assert len(frames) == total and frames[0][1] == 0, "its first frame follows none of its own"
     assert "no output" in msg("get", "frame_times", "NOPE", ok=False)
     assert len(msg("get", "frame_times").splitlines()) > 512, "every output's frames together"
+
+    # One look, plain where it does not print to a terminal, as wide as COLUMNS says.
+    result = subprocess.run([compositor, "top", "--once", "--interval", "300"],
+                            env={**desktop.env, "COLUMNS": "100"}, capture_output=True,
+                            text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    lines = result.stdout.splitlines()
+    assert re.fullmatch(r"paw \S.* · up 0:00:\d\d · 2 monitors", lines[0]), lines[0]
+    assert not any("\x1b" in line or len(line) > 100 for line in lines), lines
+    monitor = next(line for line in lines if line.startswith("HEADLESS-1"))
+    assert re.search(r"1280x720 240Hz  \d+ fps  avg \S+  p99 \S+  worst \S+  budget 4.17ms",
+                     monitor), monitor
+    assert int(re.search(r"(\d+) fps", monitor)[1]) >= 20, monitor
+    assert next(line for line in lines if line.startswith("DP-9")).startswith(
+        "DP-9  800x600"), lines
+    assert any(line.startswith("Activity  frames ") for line in lines), lines
+    head = next(i for i, line in enumerate(lines) if line.startswith("COMMITS/s"))
+    assert lines[head].split() == ["COMMITS/s", "TIME/s", "EACH", "WS", "APP", "ID", "TITLE"]
+    table = [line.split() for line in lines[head + 1:]]
+    assert table[0][3:] == ["1", "busy", "Busy"] and float(table[0][0]) >= 20, table
+    assert table[1] == ["0", "0", "-", "-", "paw-test-panel", "layer", "surface", "on",
+                        "HEADLESS-1"], table
+    assert table[2] == ["0", "0", "-", "1", "still", "Still"], table
+    assert len(table) == 3, table
+    for arguments, error in ((["--interval", "x"], "milliseconds"), (["--bogus"], "usage")):
+        result = subprocess.run([compositor, "top", *arguments], env=desktop.env,
+                                capture_output=True, text=True, timeout=30)
+        assert result.returncode == 1 and error in result.stderr, result
+
+    # Live on a terminal: a screen of its own, s to sort, and the terminal back as it was after
+    # q, Escape or a signal.
+    def live(end):
+        master, slave = pty.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
+        process = desktop.spawn([compositor, "top", "--interval", "100"], stdin=slave,
+                                stdout=slave, stderr=slave)
+        os.close(slave)
+        shown = bytearray()
+
+        def drawn(text):
+            while select.select([master], [], [], 0)[0]:
+                try:
+                    shown.extend(os.read(master, 65536))
+                except OSError:  # the other end is closed
+                    break
+            return text in shown
+
+        wait_for(lambda: drawn(b"\x1b[?1049h") and drawn(b"COMMITS/s") and drawn(b"busy"),
+                 "paw top draws on a screen of its own")
+        end(process, master, drawn)
+        assert desktop.reap(process) == 0
+        drawn(b"")
+        os.close(master)
+        assert shown.endswith(b"\x1b[?7h\x1b[?25h\x1b[?1049l"), shown[-80:]
+
+    def sort_then_quit(process, master, drawn):
+        os.write(master, b"s")
+        wait_for(lambda: drawn(b"s sort: commits"), "s sorts the windows by their commits")
+        os.write(master, b"p")
+        wait_for(lambda: drawn(b"p resume"), "p pauses")
+        os.write(master, b"q")
+
+    live(sort_then_quit)
+    live(lambda process, master, drawn: os.write(master, b"\x1b"))
+    live(lambda process, master, drawn: process.terminate())
 print("top_smoke passed")
