@@ -531,6 +531,7 @@ if(BUILD_TESTING)
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(display_settings_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw>
             $<TARGET_FILE:paw-shell> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(rice_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
         if(PAW_DBUS)
             paw_smoke(notifications_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
                 $<TARGET_FILE:notify_probe> $<TARGET_FILE:pointer_probe>)
