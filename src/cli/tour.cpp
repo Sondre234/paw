@@ -868,8 +868,8 @@ int Tour::run() {
         seconds += skip_reason(steps_[i], offer_).empty() ? step_seconds(steps_[i]) : 0;
     std::cout << "paw tour: about " << std::lround(seconds / options_.speed + 5)
               << " seconds on " << output_ << ", workspace " << workspace_
-              << ". Ctrl+C here, or closing one of its windows, stops it; either way your "
-                 "desktop goes back as it was.\n"
+              << ". Ctrl+C here, or closing one of its windows, stops it"
+              << (options_.restore ? "; either way your desktop goes back as it was.\n" : ".\n")
               << std::flush;
     int status = 0;
     bool stopped = false;
