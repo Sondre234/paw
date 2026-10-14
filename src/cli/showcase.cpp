@@ -109,10 +109,16 @@ std::string file_name(const std::tm &time) {
 namespace paw::cli {
 namespace {
 
-// What the terminal runs, given paw and the pipe: paw fetch under the title "paw fetch", the text
-// cursor hidden for the picture, then a word from the pipe. "keep" hands the terminal to the
+// What the terminal runs, given paw, the pipe and how many windows there were: paw fetch under
+// the title "paw fetch", once the terminal's window shows (a second at most) for it to count, the
+// text cursor hidden for the picture, then a word from the pipe. "keep" hands the terminal to the
 // user's shell; anything else, the pipe closing as paw showcase ends among them, closes it.
 const char *const held_fetch = R"sh(printf '\033]2;paw fetch\007'
+i=0
+while [ "$i" -lt 20 ] && [ "$("$0" msg get windows | wc -l)" -le "$2" ]; do
+    sleep 0.05
+    i=$((i + 1))
+done
 "$0" fetch
 printf '\033[?25l'
 read -r word < "$1"
@@ -321,9 +327,10 @@ struct Showcase {
         before = arranged.size();
 
         auto self = std::filesystem::canonical("/proc/self/exe").string();
-        terminal = start(
-            showcase::terminal_command(command, {"/bin/sh", "-c", held_fetch, self, pipe.string()}),
-            true);
+        terminal =
+            start(showcase::terminal_command(command, {"/bin/sh", "-c", held_fetch, self,
+                                                       pipe.string(), std::to_string(before)}),
+                  true);
         // The pipe opens once paw fetch has written its lines; a terminal that ends at once has
         // handed the window to one already running (kitty --single-instance), unless it failed.
         bool ran = wait_until(
