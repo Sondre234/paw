@@ -1463,8 +1463,9 @@ scroll layout loses its gaps and keeps its width.
   now tiled on another monitor keeps its size and its place relative to that monitor,
   shrunk and moved to fit inside it.
 - Minimized windows leave the tiling and rejoin it when restored, as a window opening there
-  does (`tests/taskbar_restore_tiling_smoke.py`); windows moved to another workspace join that
-  workspace's tiling on the same output.
+  does, one that floated only because it was snapped or maximized by hand too, while one
+  floated on purpose stays floating (`tests/taskbar_restore_tiling_smoke.py`); windows moved to
+  another workspace join that workspace's tiling on the same output.
 - Super + arrows focus the neighbouring tile that way, or the next monitor that way when
   there is none, even an empty one, where new windows then open; a window on a monitor
   further on never skips the empty one between. Super + Shift + arrows swap

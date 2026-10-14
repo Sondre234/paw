@@ -71,6 +71,11 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
     toplevel->urgent = false; // it has the user's attention now
     bool was_minimized = toplevel->minimized;
     toplevel->minimized = false;
+    // Floating only because it was snapped or maximized by hand, it comes back into the tiling
+    // of a workspace that tiles, as it would as tiling turns on; one floating on purpose stays.
+    if (was_minimized && toplevel->placed && !toplevel->sticky &&
+        tiles_for(toplevel, home_output(toplevel)))
+        toplevel->floating = toplevel->placed = false;
     // Restored into a tiling, it joins it as a window opening there does: a fullscreen window
     // there leaves fullscreen and those maximized by hand come back into the tiling, rather
     // than this one opening over them.

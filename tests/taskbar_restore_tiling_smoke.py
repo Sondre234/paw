@@ -4,7 +4,9 @@ the way a window opening there does: the windows maximized by hand there come ba
 tiling and a fullscreen one leaves fullscreen, instead of the restored window opening over them.
 Monitors tile or not each by their own setting, as on a desk where only one tiles until the
 others are toggled; where the workspace does not tile, the window floats and a maximized one
-stays maximized."""
+stays maximized. A window that floated only because it was maximized by hand comes back a tile
+too, from a monitor that does not tile as from the workspace it was maximized on; one floated on
+purpose stays floating."""
 from pathlib import Path
 import subprocess
 import sys
@@ -109,16 +111,51 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     wait_for(lambda: tiles_on("HEADLESS-2", "BD") and tiles_on("HEADLESS-1", "AC"),
              "B tiled beside D on HEADLESS-2")
 
-    # Where the workspace does not tile, B floats as it comes back and D stays maximized.
-    msg("toggle_tiling")
-    wait_for(lambda: not tiling()["HEADLESS-2"] and not windows()["D"].tiled,
-             "HEADLESS-2 floating")
+    # Where the workspace does not tile, B floats as it comes back and D, maximized by hand
+    # while HEADLESS-2 tiled, stays maximized.
     activate("D")
     msg("maximize")
-    wait_for(lambda: windows()["D"].box == (1280, 0, 1280, 720), "D maximized")
+    wait_for(lambda: not windows()["D"].tiled and windows()["D"].box == (1280, 0, 1280, 720),
+             "D maximized")
+    msg("toggle_tiling")
+    wait_for(lambda: not tiling()["HEADLESS-2"] and not windows()["B"].tiled,
+             "HEADLESS-2 floating")
     minimize("B")
     restore("B")
     desktop.stays(lambda: not windows()["B"].tiled and windows()["B"].output == "HEADLESS-2" and
                   windows()["D"].box == (1280, 0, 1280, 720) and not windows()["D"].tiled,
                   "B floating, D still maximized")
+
+    # E maximized on HEADLESS-2, which does not tile, and D, floating only because it was
+    # maximized by hand while HEADLESS-2 tiled, both minimized there: restored from the taskbar
+    # while HEADLESS-1 has the focus, each comes there as a tile and the others make room.
+    desktop.open_window(probe, "E", "app-e", focused=True)
+    assert windows()["E"].output == "HEADLESS-2", windows()
+    msg("maximize")
+    wait_for(lambda: windows()["E"].box == (1280, 0, 1280, 720), "E maximized")
+    minimize("E")
+    minimize("D")
+    activate("A")
+    restore("E")
+    wait_for(lambda: tiles_on("HEADLESS-1", "ACE"), "E tiled on HEADLESS-1")
+    restore("D")
+    wait_for(lambda: tiles_on("HEADLESS-1", "ACDE"), "D tiled on HEADLESS-1")
+
+    # C maximized by hand where it tiles, minimized and restored there, comes back a tile.
+    activate("C")
+    msg("maximize")
+    wait_for(lambda: not windows()["C"].tiled, "C maximized")
+    minimize("C")
+    restore("C")
+    wait_for(lambda: tiles_on("HEADLESS-1", "ACDE"), "C back in the tiling")
+
+    # A floated on purpose stays floating as it comes back.
+    activate("A")
+    msg("toggle_floating")
+    wait_for(lambda: not windows()["A"].tiled, "A floating")
+    minimize("A")
+    restore("A")
+    desktop.stays(lambda: not windows()["A"].tiled and windows()["A"].visible and
+                  all(windows()[t].tiled for t in "CDE") and
+                  harness.disjoint([windows()[t].box for t in "CDE"]), "A still floating")
 print("Restored windows tile as new ones do, past maximized and fullscreen windows")
