@@ -1529,6 +1529,12 @@ Item {
                 sourceComponent: Component { WindowThumbnails { panel: root } }
             }
 
+            // The tiling button's menu: the layout in use, and the others to pick.
+            PopupLoader {
+                wanted: root.audioPopup === "tiling"
+                sourceComponent: Component { TilingMenu { panel: root } }
+            }
+
             // The tiling bar's power module: the power menu by it.
             PopupLoader {
                 wanted: root.audioPopup === "power"

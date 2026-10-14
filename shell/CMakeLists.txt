@@ -131,6 +131,7 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     WallpapersButton.qml
     ProfilesButton.qml
     TilingButton.qml
+    TilingMenu.qml
     Dock.qml
     DockIcon.qml
     TopMenuBar.qml
