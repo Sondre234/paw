@@ -60,6 +60,7 @@ target_sources(paw_cli PRIVATE src/cli/fetch.cpp)
 target_sources(paw_cli PRIVATE src/cli/showcase.cpp)
 # paw doctor and paw fetch read the configuration, fetch outside a session.
 target_link_libraries(paw_cli PRIVATE paw_config)
+target_sources(paw_cli PRIVATE src/cli/top.cpp)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -97,6 +98,7 @@ if(BUILD_TESTING)
     paw_unit_test(cli LIBRARY paw_cli)
     paw_unit_test(fetch LIBRARY paw_cli)
     paw_unit_test(showcase LIBRARY paw_cli)
+    paw_unit_test(top LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
@@ -315,6 +317,9 @@ if(PAW_BUILD_COMPOSITOR)
     # paw fetch names the build it is part of: version.h, and wlroots' version header.
     add_dependencies(paw_cli paw_version)
     target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${WLROOTS_INCLUDE_DIRS})
+    # paw top names the version too, where a build of the compositor makes version.h.
+    add_dependencies(paw_cli paw_version)
+    target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_options(paw PRIVATE -Wall -Wextra -Wno-unused-parameter)
     # A compositor function shared between files is declared in src/compositor/server.h; any
     # other is static. This flags one that is neither.
@@ -869,5 +874,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(fetch_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
         paw_smoke(showcase_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG}
             "${GRIM_ARGUMENT}")
+        paw_smoke(top_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:paw-bench-client>)
     endif()
 endif()

@@ -2808,7 +2808,15 @@ the keyboard.
 the scene (closing and minimizing windows count until their animation ends), and of focus fades,
 mainly for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
 and size (see [Animations](#animations)), and `paw msg get output_frames` each monitor's name and
-how many frames it has drawn. `paw msg get minimize` prints where the taskbars show each window, a
+how many frames it has drawn. `paw msg get frame_times OUTPUT` prints how many frames that
+monitor has drawn, then a line for each of its last 512: the time drawing it took and the time
+since its previous frame, in microseconds; without OUTPUT it prints the last 4096 frames of every
+monitor together. `paw msg get commits` prints a line per window, the oldest first, then one per
+panel or other layer surface: `window` or `layer`, its number (a window's is the one the switcher
+and the window control give it), its process ID, how many commits of its surface the compositor
+has handled and the time handling them took in nanoseconds, its monitor, its workspace (0 for a
+layer surface), its app ID or namespace, and its title (empty for a layer surface).
+[`paw top`](#paw-top) shows both. `paw msg get minimize` prints where the taskbars show each window, a
 `rect` line per window and monitor (the window's number, the monitor, and x, y, width and height
 in the monitor's coordinates, the one that counts first), then a `fold` line per window on its
 way into or out of its button (its number, `minimize` or `restore`, how far into the button it
@@ -3004,6 +3012,37 @@ runs in it ends as it reads a word from a pipe paw showcase holds, or as the pip
 showcase ends however it ends, and the terminal closes with it, so a terminal that keeps one
 process for all its windows (`kitty --single-instance`, `footclient`) closes the right window
 too.
+### paw top
+
+`paw top` shows what the compositor is doing, as htop shows a machine's processes: it looks at
+the running session four times a second and redraws the terminal until `q`, Escape or Ctrl+C. `p`
+pauses it, and `s` changes the order of the windows. A compositor that has not answered in two
+seconds is reported under the first line, and the keys still work.
+
+- The first line names the version, how long the compositor has run, how much of a processor it
+  used over the last second, how many monitors it drives and the appearance profile saved last.
+- Each monitor has a line with its mode, the frames it draws a second, and the average, 99th
+  percentile and worst time the compositor took to draw one of its last 512 frames: green under
+  half of the monitor's frame budget (its refresh interval), yellow up to all of it, red over
+  it. Under it a graph shows those frames, the newest on the right, against the scale on its
+  left.
+- Activity is what the compositor did each second: frames drawn, windows' commits, windows
+  placed by the layouts, pointer motions, reflows of the tiling and opacity rules matched, with
+  the time the frames, commits, motions and reflows took.
+- The table lists every window and layer surface (panels, the shell's) with the commits it makes
+  a second, the time the compositor spends handling them each second and on each one, its
+  workspace, its app ID or namespace, and its title, the most time first; `s` sorts them by
+  commits, by app ID or by workspace instead.
+
+The time a commit takes is the compositor's own work as it arrives (the window's frame, its
+glide to a new size, the panels' places), not the client's drawing nor the frame it brings; a
+popup's or a subsurface's commits (a video some players draw in one) are not counted. Rates are
+over the last second. `paw top --once` prints one look, its rates over one interval: as wide as
+the terminal, or where it does not print to one as `COLUMNS` says (else 100 columns) and without
+colours, as with `--no-color` or `NO_COLOR` set. `--interval MS` sets how often it looks (250
+ms). It reads `get stats`, `get outputs`, `get output_frames`, `get frame_times OUTPUT` and `get
+commits` (see [Control socket](#control-socket)); from a compositor older than it, the frame
+times and the table say they need a newer one.
 
 ## Screen locking and idle
 

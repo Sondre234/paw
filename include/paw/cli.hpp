@@ -35,5 +35,7 @@ int fetch(int argc, char **argv);
 std::filesystem::path configuration_path();
 // `paw showcase`: a screenshot with paw fetch open in a terminal (src/cli/showcase.cpp).
 int showcase(int argc, char **argv);
+// `paw top`: the compositor's frames, its work and the windows that make it, live or once.
+int top(int argc, char **argv);
 
 } // namespace paw::cli

@@ -150,6 +150,7 @@ struct sh_node {
 };
 
 #define SH_FRAME_RING 4096
+#define SH_OUTPUT_FRAMES 512
 
 /* A shadow image, painted for a look, a window size and a scale (sh_shadow_image_size's) and
  * shared by the windows showing it; `used` orders them for the cache to drop the oldest. */
@@ -542,6 +543,7 @@ struct sh_server {
     struct sh_toplevel *focused_toplevel;
     struct wlr_foreign_toplevel_manager_v1 *foreign_manager;
     uint32_t last_window_id; // the number the last window published was given
+    uint32_t last_layer_id;  // the number the last layer surface created was given
     struct wlr_ext_foreign_toplevel_list_v1 *toplevel_list; // windows offered for screen sharing
     /* paw-window-control-v1 (window_control.c): its global, the paw_window_v1 objects
      * clients hold, and the idle callback that tells them what changed; the paw_workspace_v1
@@ -782,6 +784,10 @@ struct sh_output {
     bool idle_off; /* turned off by the idle display_off step (idle.c), which input undoes */
     bool kept_on;  /* on though its settings say off, as the only output (configure_output) */
     uint64_t frames; /* frames it has drawn (output_frame), for get output_frames */
+    /* The last SH_OUTPUT_FRAMES of them: time spent in output_frame and time since its previous
+     * frame, in microseconds, for `get frame_times NAME` (paw top's graphs). */
+    uint32_t frame_us[SH_OUTPUT_FRAMES], interval_us[SH_OUTPUT_FRAMES];
+    uint64_t last_frame_ns;
     /* Settings a wlr-output-management client (wlr-randr, kanshi) or display_mode applied at
      * runtime. They replace the configured monitor until the configuration is reloaded or the
      * display settings window applies its own. */
@@ -1013,6 +1019,9 @@ struct sh_toplevel {
     struct wl_listener request_resize;
     struct wl_listener request_maximize;
     struct wl_listener request_fullscreen;
+    /* Commits of its surface handled since it opened, and the time handling them took (ns),
+     * for `get commits` (paw top). */
+    uint64_t commits, commit_ns;
 };
 
 struct sh_layer {
@@ -1027,6 +1036,10 @@ struct sh_layer {
     struct wlr_box bounds;
     struct wl_list link;
     struct wl_listener commit, map, unmap, destroy, new_popup;
+    /* Its number, given as it is created and to no other layer surface, and its commits
+     * handled and the time that took (ns), for `get commits` (paw top). */
+    uint32_t id;
+    uint64_t commits, commit_ns;
 };
 
 struct sh_lock {
