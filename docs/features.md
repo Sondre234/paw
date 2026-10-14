@@ -2867,6 +2867,53 @@ Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the
 and to find out what is wrong with it. They talk to the running session through its control
 socket, as `paw msg` does; `paw --help` lists them.
 
+### paw cat
+
+`paw cat` lets a cat out onto the desktop, as oneko does, but drawn by the compositor itself, so
+that it knows where the windows are. The pixel-art cat sits on the top edge of the focused window,
+on its border, or inside its title bar where the window reaches the top of the screen. It wanders
+along it, grooms, scratches behind an ear, yawns, and a few seconds after the focus moves it hops
+over to the window that has it. When the window it sits on goes from under it (moved, tiled,
+minimized, closed, another workspace shown), it starts, falls and lands on the next window top
+below, or on the bottom of the monitor, above the taskbar, with a small squash as it lands; it
+never lands on a part of a window's top that another window covers. Flick the pointer past it and
+it chases the pointer, sitting down beside it once the pointer rests, or pawing at it and dropping
+where there is nothing to sit on. A window that asks for attention ([urgent
+windows](#urgent-windows)) has it run over and pat that window's top until the window gets the
+focus. After `cat.sleep_after` seconds without input (90 unless set), or once the screens dim, it
+curls up and sleeps, breathing out a "z" now and then; any input wakes it with a stretch.
+
+It stays on the focused monitor: it crosses to another only along a window that reaches across
+both, and otherwise drops in from the top of the monitor the focus moves to. It takes no input, so
+it never comes between a click and a window, and it is drawn over the windows but under fullscreen
+windows, the panels, the launcher and other overlays, and the lock screen. It hides while the
+session is locked, while its monitor or the focused one shows a fullscreen window, and while its
+monitor is off, and then nothing of it runs. It draws frames only while it moves: sitting, it
+wakes a few times a minute to blink or to think of something to do, and asleep once every two
+seconds for its "z".
+
+`paw cat` lets it out or calls it in, and `paw cat on` and `paw cat off` say which; each says
+where the cat is then. The `cat` action does the same, from a binding with `mode = "on"`, `"off"`
+or `"toggle"` (the default) or as `paw msg cat [on|off|toggle]`, and `cat.enabled` lets it out as
+the session starts. Its coat follows the [appearance profile](#appearance-profiles): a black cat
+with yellow eyes on a light desktop (`appearance.color_scheme = "light"`), a cream one with blue
+eyes on a dark one, and a ginger tabby where neither is set; `cat.coat` picks one, `"grey"`
+included, and `cat.scale` its size, in logical pixels to a pixel of its 20 by 16 art. It stays
+sharp at any monitor scale.
+
+```lua
+bindings = {
+    { mods = { "Super", "Ctrl" }, key = "n", action = "cat" },
+},
+cat = { enabled = true, coat = "auto", scale = 2, sleep_after = 90 },
+```
+
+`paw msg get cat` prints a line: `on` or `off`; `shown`, or why it is not drawn (`off`, `locked`,
+`fullscreen`, `display_off`, `no_output`); the monitor it is on, where its feet are (x and y in
+layout coordinates), what it is doing (`sit`, `look`, `walk`, `groom`, `scratch`, `yawn`, `sleep`,
+`wake`, `jump`, `fall`, `land`, `chase`, `pounce`, `rush`, `knock`), the picture it shows, its
+coat, and what it stands on: the window's title, `floor`, or `-` while it is in the air.
+
 ## Screen locking and idle
 
 Screen locking uses the standard `ext-session-lock-v1` protocol, so lockers such

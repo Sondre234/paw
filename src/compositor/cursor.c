@@ -413,6 +413,7 @@ void process_cursor_motion(struct sh_server *server, uint32_t time) {
     }
     hot_corner_check(server);
     zoom_moved(server);
+    cat_pointer_moved(server);
     if (server->seat->drag)
         wlr_scene_node_set_position(&server->drag_icons->node, server->cursor->x,
                                     server->cursor->y);

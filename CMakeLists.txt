@@ -277,6 +277,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/window_icon.c
         src/compositor/workspace.c
         src/compositor/xwayland.c
+        src/compositor/cat.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
         ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h ${WLR_PROTOCOL_HEADERS})
@@ -295,6 +296,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/dynamic_rule.c)
     target_sources(paw PRIVATE src/border.c)
     target_sources(paw PRIVATE src/dropdown.c)
+    target_sources(paw PRIVATE src/cat.c src/cat_sprite.c)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
     # version.h, for --version: the project version, and `git describe` in a git checkout.

@@ -286,6 +286,7 @@ struct sh_window_rect;   // where a client shows a window on an output (minimize
 struct sh_mirror;        // what a mirroring output shows (mirror.c)
 struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c)
 struct sh_crossfade_picture; // what an output showed as it began
+struct sh_cat_view;          // the desktop cat (cat.c)
 struct wlr_color_manager_v1;
 
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
@@ -752,6 +753,7 @@ struct sh_server {
     struct wl_list outputs;          /* enabled, in the layout */
     struct wl_list disabled_outputs; /* turned off by outputs.monitors */
     struct wl_listener new_output;
+    struct sh_cat_view *cat; /* the desktop cat (cat.c); NULL if it could not be made */
 };
 
 /* Tearing on an output (tearing.c): what its frames do now (`tearing`, `refused`, or why its
@@ -1724,3 +1726,13 @@ void close_xwm_waker(struct sh_server *server);
 #endif
 void xwayland_ready(struct wl_listener *listener, void *data);
 #endif
+
+/* cat.c */
+void cat_init(struct sh_server *server);
+void cat_finish(struct sh_server *server);
+void cat_reload(struct sh_server *server);
+void cat_switch(struct sh_server *server, int choice);
+void cat_frame(struct sh_server *server);
+void cat_input(struct sh_server *server);
+void cat_pointer_moved(struct sh_server *server);
+void describe_cat(struct sh_server *server, int fd, const char *arguments);

@@ -223,7 +223,12 @@ enum sh_action {
     SH_DISPLAY_SETTINGS,
     /* Minimizes the focused window into its taskbar button, as its own minimize button does. */
     SH_MINIMIZE,
+    /* The desktop cat (src/compositor/cat.c): argument an sh_cat_switch. */
+    SH_CAT,
 };
+
+/* The cat action's choices: show it or hide it, whichever it is not, or say which. */
+enum sh_cat_switch { SH_CAT_TOGGLE, SH_CAT_ON, SH_CAT_OFF };
 
 /* The display_mode action's choices. */
 enum sh_display_mode {
@@ -528,6 +533,13 @@ struct sh_settings {
     /* keyboard.shortcuts_inhibit: applications may ask for the keys the bindings take
      * (keyboard-shortcuts-inhibit), as virtual machines and remote desktops do. */
     bool shortcuts_inhibit;
+    /* Lua `cat`: the desktop cat shows as the configuration loads (and as this changes), at
+     * `cat_scale` logical pixels a cell of its art, in coat `cat_coat` (enum sh_cat_coat, or -1
+     * for the one appearance.color_scheme suits), asleep after `cat_sleep` seconds without input. */
+    bool cat;
+    int cat_scale;
+    int cat_coat;
+    int cat_sleep;
 };
 
 /* What a login session keeps of the last one: nothing; where its windows were, for those that open

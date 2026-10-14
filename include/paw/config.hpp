@@ -43,7 +43,7 @@ struct Binding {
     bool locked = false;
     bool repeats = false;
     int mode = 0; // for mode: 0 for the bindings outside any mode, else modes[mode - 1]; for
-                  // display_mode, an sh_display_mode
+                  // display_mode, an sh_display_mode; for cat, an sh_cat_switch
     int switch_type = -1; // the enum sh_switch of a switch binding; -1 for a key or button
     bool switch_on = false; // with switch_type: it acts as the switch turns on (a lid closing)
 };
@@ -430,7 +430,11 @@ struct Config {
                          .idle_battery = {.dim = 570000, .display_off = 600000, .lock = 0,
                                           .suspend = 0},
                          .lid = SH_LID_CLAMSHELL,
-                         .shortcuts_inhibit = true};
+                         .shortcuts_inhibit = true,
+                         .cat = false,
+                         .cat_scale = 2,
+                         .cat_coat = -1,
+                         .cat_sleep = 90};
     // layout.workspace_names: the label of workspace N is names[N - 1]; "" or past the end: none.
     std::vector<std::string> workspace_names;
     // hot_corners: what each corner runs, as a control request; "" for nothing.
@@ -512,6 +516,8 @@ bool action_takes_display(sh_action action);
 sh_screenshot_mode parse_screenshot_mode(const std::string &name);
 // "extend", "duplicate", "internal" or "external"; throws for other names.
 sh_display_mode parse_display_mode(const std::string &name);
+// "on", "off" or "toggle", the cat action's argument; throws for other names.
+sh_cat_switch parse_cat_switch(const std::string &name);
 // switch_layout's "next" (0), "prev" (-1), or a layout's number from 1; throws for others.
 int parse_layout_choice(const std::string &word);
 // `words` with `separator` between them.

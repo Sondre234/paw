@@ -463,6 +463,9 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_TOGGLE_SHORTCUTS_INHIBIT:
         toggle_shortcuts_inhibit(server);
         break;
+    case SH_CAT:
+        cat_switch(server, argument);
+        break;
     default:
         arrange_windows(server, action);
         break;

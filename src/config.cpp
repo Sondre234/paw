@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "paw/config.hpp"
 #include "paw/effects.h"
+#include "paw/cat_sprite.h"
 #include "paw/config_schema.hpp"
 
 #include <algorithm>
@@ -1500,9 +1501,12 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 // Without one, the popup that steps through them.
                 if (!lua_isnil(L, -1))
                     binding.mode = parse_display_mode(string(L, -1, "mode"));
+            } else if (binding.action == SH_CAT) {
+                binding.mode = lua_isnil(L, -1) ? SH_CAT_TOGGLE
+                                                : parse_cat_switch(string(L, -1, "mode"));
             } else if (!lua_isnil(L, -1)) {
                 if (binding.action != SH_SCREENSHOT)
-                    fail("mode is only valid with screenshot, mode and display_mode");
+                    fail("mode is only valid with screenshot, mode, display_mode and cat");
                 binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
             }
             lua_pop(L, 1);
@@ -1869,6 +1873,19 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                {"launch", SH_SESSION_RESTORE_LAUNCH}},
               "session.restore must be \"off\", \"windows\" or \"launch\"", "restore");
     }
+    if (Section in{L, "cat"}) {
+        auto &settings = config.settings;
+        boolean(L, "enabled", "cat.enabled", settings.cat);
+        settings.cat_scale = integer(L, "scale", settings.cat_scale, 1, 4);
+        named(L, "coat", "cat.coat", settings.cat_coat,
+              {{"auto", -1},
+               {"ginger", SH_CAT_COAT_GINGER},
+               {"black", SH_CAT_COAT_INK},
+               {"cream", SH_CAT_COAT_CREAM},
+               {"grey", SH_CAT_COAT_GREY}},
+              "cat.coat must be \"auto\", \"ginger\", \"black\", \"cream\" or \"grey\"", "coat");
+        settings.cat_sleep = integer(L, "sleep_after", settings.cat_sleep, 5, 3600);
+    }
     return config;
 }
 } // namespace
@@ -2008,6 +2025,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"media_next", SH_MEDIA_NEXT},
         {"media_previous", SH_MEDIA_PREVIOUS},
         {"media_stop", SH_MEDIA_STOP},
+        {"cat", SH_CAT},
 };
 } // namespace
 
@@ -2135,6 +2153,14 @@ sh_display_mode parse_display_mode(const std::string &name) {
         if (name == text)
             return mode;
     fail("display mode must be \"extend\", \"duplicate\", \"internal\" or \"external\"");
+}
+
+sh_cat_switch parse_cat_switch(const std::string &name) {
+    for (auto [candidate, choice] :
+         {std::pair{"toggle", SH_CAT_TOGGLE}, {"on", SH_CAT_ON}, {"off", SH_CAT_OFF}})
+        if (name == candidate)
+            return choice;
+    fail("cat takes \"on\", \"off\" or \"toggle\"");
 }
 
 sh_screenshot_mode parse_screenshot_mode(const std::string &name) {

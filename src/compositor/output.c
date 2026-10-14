@@ -29,6 +29,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     crossfade_tick(output->server); // a new appearance profile fading in
     if (tick_idle(output->server)) // the screens dimming
         wlr_output_schedule_frame(output->wlr_output);
+    cat_frame(output->server); // whatever moved under the cat drew this frame
     // Night light's colours do not go with an HDR output's, which the scene converts to itself.
     struct wlr_scene_output_state_options night = {
         .color_transform = output_is_hdr(output) ? NULL : output->server->night_transform};
