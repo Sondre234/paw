@@ -243,18 +243,21 @@ Item {
         // With shell.panel_draggable, the bar's inner edge resizes it, as on Windows with the
         // taskbar unlocked: a strip as thick as the margin the buttons leave there, under a resize
         // cursor. A press on it has the compositor take the pointer (panel.startBarResize), and
-        // the bar follows it from there until it is let go.
-        MouseArea {
-            objectName: "barResizeEdge"
+        // the bar follows it from there until it is let go. The strip is made anew once the drag
+        // is over: Qt never hears the button let go, which the compositor keeps, and a MouseArea
+        // still pressed would take no new press.
+        Loader {
+            active: shell.panelDraggable && !taskbar.panel.barHeld
             readonly property int thickness: Theme.spacingS
-            visible: shell.panelDraggable
-            enabled: !taskbar.panel.barHeld
             x: taskbar.panel.edge === "left" ? parent.width - thickness : 0
             y: taskbar.panel.onTop ? parent.height - thickness : 0
             width: taskbar.vertical ? thickness : parent.width
             height: taskbar.vertical ? parent.height : thickness
-            cursorShape: taskbar.vertical ? Qt.SizeHorCursor : Qt.SizeVerCursor
-            onPressed: (mouse) => taskbar.panel.startBarResize(mapToItem(null, mouse.x, mouse.y))
+            sourceComponent: MouseArea {
+                objectName: "barResizeEdge"
+                cursorShape: taskbar.vertical ? Qt.SizeHorCursor : Qt.SizeVerCursor
+                onPressed: (mouse) => taskbar.panel.startBarResize(mapToItem(null, mouse.x, mouse.y))
+            }
         }
     }
 }
