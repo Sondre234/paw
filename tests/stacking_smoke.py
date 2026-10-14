@@ -3,14 +3,16 @@
 window over the floating windows and tiles of its output through focus changes, workspace
 switches, snapping, groups and sticky, under a fullscreen window of its output, also while
 another output has the focus, until a window there is raised; toggled again it goes back among
-the others. A window rule's `above = true` keeps a window above as it opens."""
+the others. A window rule's `above = true` keeps a window above as it opens. A fullscreen window
+that a window was raised over stays behind it as the pointer crosses it, the focus where it was,
+until a click, the taskbar or the keyboard brings it back in front."""
 from pathlib import Path
 import subprocess
 import sys
 
 import harness
 
-compositor, probe = (str(Path(p).resolve()) for p in sys.argv[1:3])
+compositor, probe, pointer_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
 
 CONFIG = """return {
     xwayland = false,
@@ -225,5 +227,85 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     assert stacking() == [("B", "normal"), ("C", "normal"), ("A", "normal")], stacking()
     focus("A")
     assert stacking()[0] == ("A", "normal"), stacking()
+
+# Hovering a fullscreen window that a window was raised over leaves it behind that window, and
+# the focus where it is: focused, it would come back in front (issue #4). A click on it, the
+# taskbar or the keyboard brings it back.
+HOVER = """return {
+    xwayland = false,
+    layout = { tiling = false },
+    outputs = { monitors = { ["HEADLESS-1"] = { mode = "1280x720" } } },
+    animations = { enabled = false },
+    windows = { rules = { { title = "^Left$", size = { 300, 200 }, position = { 100, 100 } },
+                          { title = "^Right$", size = { 300, 200 }, position = { 600, 100 } } } },
+}"""
+
+with harness.Compositor(compositor, HOVER) as desktop:
+    msg = desktop.msg
+
+    def windows():
+        return {w.title: w for w in desktop.windows()}
+
+    def stacking():
+        return [(row[1], row[3]) for row in desktop.rows("stacking")]
+
+    def focused():
+        return [title for title, w in windows().items() if w.focused]
+
+    def centre(title):
+        x, y, width, height = windows()[title].box
+        return str(x + width // 2), str(y + height // 2)
+
+    def activate(title):
+        """What the taskbar does to bring a window forward."""
+        subprocess.run([probe, "--activate", f"app-{title}"], env=desktop.env, check=True,
+                       timeout=30, stdout=subprocess.DEVNULL)
+
+    desktop.detail = lambda: f"stacking: {stacking()}\nwindows: {windows()}"
+    desktop.open_window(probe, "Full", "app-Full", focused=True)
+    msg("fullscreen")
+    desktop.wait_for(lambda: stacking() == [("Full", "fullscreen")], "Full fullscreen")
+    for title in ("Left", "Right"):
+        desktop.open_window(probe, title, f"app-{title}", focused=True)
+    behind = [("Right", "normal"), ("Left", "normal"), ("Full", "normal")]
+    assert stacking() == behind, stacking()
+    pointer = desktop.virtual_pointer(pointer_probe, 1280, 720)
+
+    # Hovering focuses a window without raising it, but passes over the fullscreen window
+    # behind, the pointer crossing it on its way from one window to the other.
+    pointer("move", *centre("Left"))
+    desktop.wait_for(lambda: focused() == ["Left"], "Left focused by hovering it")
+    assert stacking() == behind, stacking()
+    pointer("move", "1000", "600")  # on Full alone
+    assert focused() == ["Left"] and stacking() == behind, stacking()
+    pointer("move", *centre("Right"))
+    desktop.wait_for(lambda: focused() == ["Right"], "Right focused by hovering it")
+    assert stacking() == behind, stacking()
+    pointer("move", "1000", "600")
+    assert focused() == ["Right"] and stacking() == behind, stacking()
+
+    # A click on it brings it back in front, focused.
+    pointer("click", "left")
+    desktop.wait_for(lambda: focused() == ["Full"] and stacking()[0] == ("Full", "fullscreen"),
+                     "Full in front after a click")
+    # The taskbar raising another window puts it behind again, where hovering leaves it.
+    activate("Left")
+    desktop.wait_for(lambda: focused() == ["Left"] and
+                     stacking() == [("Left", "normal"), ("Full", "normal"), ("Right", "normal")],
+                     "Left in front of Full")
+    pointer("move", "1100", "650")
+    assert focused() == ["Left"] and stacking()[:2] == [("Left", "normal"), ("Full", "normal")], \
+        stacking()
+    # The keyboard brings it back in front, and so does the taskbar.
+    msg("focus_last")
+    desktop.wait_for(lambda: focused() == ["Full"] and stacking()[0] == ("Full", "fullscreen"),
+                     "Full in front from the keyboard")
+    activate("Right")
+    desktop.wait_for(lambda: focused() == ["Right"] and stacking()[0] == ("Right", "normal") and
+                     ("Full", "normal") in stacking(), "Right in front of Full")
+    activate("Full")
+    desktop.wait_for(lambda: focused() == ["Full"] and stacking()[0] == ("Full", "fullscreen"),
+                     "Full in front from the taskbar")
 print("Windows kept above stay over the others, under fullscreen, and go back when let go; "
-      "floating windows stay over tiles with layout.floating_above_tiles")
+      "floating windows stay over tiles with layout.floating_above_tiles; hovering a fullscreen "
+      "window behind another leaves it there")

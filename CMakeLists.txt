@@ -622,7 +622,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(placement_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(sticky_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
         paw_smoke(dynamic_rules_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        paw_smoke(stacking_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(stacking_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(window_control_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe>)
         paw_smoke(workspace_view_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
