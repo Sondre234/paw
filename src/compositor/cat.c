@@ -382,7 +382,7 @@ static void set_shown(struct sh_cat_view *view, bool shown) {
     view->shown = shown;
     view->placed = false;
     if (shown) {
-        step_in(view, 1);
+        step(view); // it turns up at once, for whoever asks where it is next
     } else {
         stop(view);
         wlr_scene_node_set_enabled(&view->tree->node, false);
