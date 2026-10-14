@@ -347,6 +347,9 @@ struct Context {
     std::optional<Process> compositor;
     std::string version; // what the compositor's program says it is, "" when unknown
     bool login = false;  // a login session (--session), which runs the shell as polkit agent
+    // A compositor in a window of another desktop, which keeps its notifications, password
+    // prompts and screen sharing.
+    bool nested = false;
     fs::path config_path;
     std::optional<Config> config;
     std::string config_error;
@@ -441,8 +444,13 @@ Context gather() {
     }
     if (context.compositor) {
         auto &argv = context.compositor->argv;
+        auto env = context.compositor->environment();
         context.login = context.compositor->has_argument("--session") ||
-                        context.compositor->environment().count("PAW_LOGIN_SESSION");
+                        env.count("PAW_LOGIN_SESSION");
+        // Only a nested compositor starts inside another Wayland or X11 session.
+        context.nested = !context.compositor->has_argument("--session") &&
+                         !context.compositor->has_argument("--headless") &&
+                         (env.count("WAYLAND_DISPLAY") || env.count("DISPLAY"));
         context.version =
             paw_version("/proc/" + std::to_string(context.compositor->pid) + "/exe");
         // The configuration it was started with: --config PATH, relative to where it started.
@@ -751,6 +759,10 @@ std::optional<Result> check_notifications(const Context &context) {
     if (!context.bus)
         return std::nullopt;
     Result result{bus_section, "notifications"};
+    if (context.nested) {
+        result.finding = "Notifications are the host desktop's (paw runs nested in it)";
+        return result;
+    }
     bool ours = !context.config || context.config->notifications.enabled;
     std::string program;
     int pid = 0;
@@ -793,7 +805,10 @@ std::optional<Result> check_polkit(const Context &context) {
         return std::nullopt;
     Result result{bus_section, "polkit"};
     if (!context.login) {
-        result.finding = "Password prompts are left to the host's polkit agent (a nested session)";
+        result.finding = context.nested
+                             ? "Password prompts are the host desktop's (paw runs nested in it)"
+                             : "paw's shell asks for passwords only in a session started with "
+                               "--session";
         return result;
     }
     std::vector<const Process *> agents;
@@ -1017,8 +1032,12 @@ fs::path portal_config_file(const Portal &portal) {
                                  });
 }
 
-Result check_desktop() {
+Result check_desktop(const Context &context) {
     Result result{sharing_section, "desktop"};
+    if (context.nested) {
+        result.finding = "Screen sharing is the host desktop's (paw runs nested in it)";
+        return result;
+    }
     auto value = variable("XDG_CURRENT_DESKTOP");
     auto names = doctor::desktop_names(value);
     if (std::find(names.begin(), names.end(), "paw") != names.end()) {
@@ -1224,10 +1243,12 @@ int doctor(int argc, char **argv) {
     add(check_pipewire(context));
     add(check_output(context));
     auto portal = find_portal(context);
-    add(check_desktop());
-    add(check_portal_config(context, portal));
-    add(check_portal_backend(portal));
-    add(check_portal(context, portal));
+    add(check_desktop(context));
+    if (!context.nested) {
+        add(check_portal_config(context, portal));
+        add(check_portal_backend(portal));
+        add(check_portal(context, portal));
+    }
     add(check_xwayland(context));
     std::cout << (plain ? doctor::plain_report(results) : doctor::report(results, color));
     return std::any_of(results.begin(), results.end(),

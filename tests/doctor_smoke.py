@@ -174,7 +174,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         assert checks["update"][1] == "update-paw installed 0123abc at 2026-10-14 15:04:14"
         assert checks["config"][1].startswith(f"{desktop.config} is valid")
         assert checks["notifications"][1] == f"paw's shell shows notifications (PID {shell_pid})"
-        assert "nested session" in checks["polkit"][1]
+        assert "only in a session started with --session" in checks["polkit"][1], checks["polkit"]
         assert checks["logind"][1] == f"fake_login1 (PID {logind.pid}) answers (suspend: yes)"
         assert checks["pipewire"][1] == f"PipeWire and WirePlumber (PID {wireplumber.pid}) run"
         assert checks["output"][1] == "Sound plays on Speakers"
