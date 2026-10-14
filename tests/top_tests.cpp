@@ -219,7 +219,7 @@ int main() {
     auto lines = draw(history(), view);
     CHECK(lines[0] == "paw 0.1.1 · up 1:00:00 · 1 monitor · profile washi", "%s",
           lines[0].c_str());
-    CHECK(contains(lines, "DP-1  2560x1440 60Hz  60 fps"));
+    CHECK(contains(lines, "DP-1 2560x1440 60Hz  60 fps  avg 854µs  p99 20.0ms  worst 20.0ms"));
     CHECK(contains(lines, "worst 20.0ms") && contains(lines, "budget 16.7ms"));
     CHECK(contains(lines, "commits 62/s 500µs/s") && contains(lines, "motions 100/s 40µs/s"));
     CHECK(contains(lines, "reflows 1.0/s 500µs/s"));
@@ -231,6 +231,10 @@ int main() {
         CHECK(line.find('\x1b') == std::string::npos, "no colour in a printout: %s",
               line.c_str());
     }
+    auto renamed = history();
+    renamed[1].monitors[0].name = renamed[0].monitors[0].name = "HDMI-A-1-long";
+    CHECK(contains(draw(renamed, view), "HDMI-A-1-long 60Hz  60 fps"),
+          "the refresh rate alone where the size would not fit on the line");
     view.width = 60;
     view.height = 24;
     view.color = true;

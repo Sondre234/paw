@@ -93,7 +93,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
                      monitor), monitor
     assert int(re.search(r"(\d+) fps", monitor)[1]) >= 20, monitor
     assert next(line for line in lines if line.startswith("DP-9")).startswith(
-        "DP-9  800x600"), lines
+        "DP-9 800x600  "), lines
     assert any(line.startswith("Activity  frames ") for line in lines), lines
     head = next(i for i, line in enumerate(lines) if line.startswith("COMMITS/s"))
     assert lines[head].split() == ["COMMITS/s", "TIME/s", "EACH", "WS", "APP", "ID", "TITLE"]

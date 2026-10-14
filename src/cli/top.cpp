@@ -169,14 +169,14 @@ const char *grade_color(Grade grade) {
     return "0";
 }
 
-// "2560x1440@143.912" as "2560x1440 144Hz".
-std::string mode_text(const Monitor &monitor) {
-    std::string size = monitor.mode.substr(0, monitor.mode.find('@'));
+// "2560x1440@143.912" as "2560x1440 144Hz", or "144Hz" without the size.
+std::string mode_text(const Monitor &monitor, bool size) {
+    std::string text = size ? monitor.mode.substr(0, monitor.mode.find('@')) : "";
     if (monitor.refresh <= 0)
-        return size;
+        return text;
     char refresh[32];
-    std::snprintf(refresh, sizeof(refresh), " %.0fHz", monitor.refresh);
-    return size + refresh;
+    std::snprintf(refresh, sizeof(refresh), "%.0fHz", monitor.refresh);
+    return text.empty() ? refresh : text + " " + refresh;
 }
 
 const Monitor *find_monitor(const Sample &sample, const std::string &name) {
@@ -563,7 +563,7 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
         const double budget = 1e6 / (monitor.refresh > 0 ? monitor.refresh : 60);
         const Monitor *before = find_monitor(from, monitor.name);
         std::vector<std::string> cells{
-            paint("1", cut(monitor.name, width)), cut(mode_text(monitor), width),
+            paint("1", cut(monitor.name, width)) + " " + cut(mode_text(monitor, true), width),
             rate(before ? per_second(before->frames, monitor.frames, seconds) : 0) + " fps"};
         if (!monitor.timed) {
             cells.push_back("its frame times need a newer compositor");
@@ -578,6 +578,8 @@ std::vector<std::string> draw(const std::vector<Sample> &history, const View &vi
         cells.push_back(graded("p99", summary.p99));
         cells.push_back(graded("worst", summary.worst));
         cells.push_back(paint("2", "budget " + duration(budget)));
+        if (wrap(cells, width, "  ").size() > 1) // the refresh rate alone, to keep to one line
+            cells[0] = paint("1", cut(monitor.name, width)) + " " + mode_text(monitor, false);
         add(cells, "  ");
         const size_t span = width - gutter;
         const size_t shown = std::min(monitor.spent.size(), span);
