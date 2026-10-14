@@ -574,6 +574,11 @@ shadows.
   taskbar style, and its grid of icons as `switcher-icons`) and `overview`, and a search finding
   nothing as `launcher-empty`.
 
+### Commands
+
+Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
+wrong with it, and toys the compositor plays with the windows.
+
 ### Fixes
 
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,

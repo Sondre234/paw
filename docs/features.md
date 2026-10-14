@@ -2861,6 +2861,12 @@ as `mode NAME` (`default` outside any). Children of the session find the socket 
 `PAW_SOCKET`. Actions are
 refused while the session is locked.
 
+## Commands
+
+Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the desktop off
+and to find out what is wrong with it. They talk to the running session through its control
+socket, as `paw msg` does; `paw --help` lists them.
+
 ## Screen locking and idle
 
 Screen locking uses the standard `ext-session-lock-v1` protocol, so lockers such
