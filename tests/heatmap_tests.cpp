@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* The pointer heatmap's arithmetic (src/heatmap.c): the grid's counts and their resizing, the
- * blur, the scale and its colours, resampling, and the legend's text; the heatmap action's
- * choices in bindings; and `paw heatmap`'s layout of the outputs, its pictures in a terminal and
+ * blur, the scale and its colours, resampling, and the legend's text; heatmap.enabled and the
+ * heatmap action's choices in bindings; and `paw heatmap`'s layout of the outputs, its pictures in a terminal and
  * its images (src/cli/heatmap.cpp). */
 #include "check.h"
 #include "config_check.hpp"
@@ -250,7 +250,13 @@ void legend() {
     }
 }
 
-void bindings() {
+void configuration() {
+    // Counting is on unless heatmap.enabled turns it off.
+    CHECK(paw::parse_config("return {}").settings.heatmap);
+    CHECK(!paw::parse_config("return {heatmap={enabled=false}}").settings.heatmap);
+    error_of("return {heatmap={enabled='no'}}");
+    error_of("return {heatmap={enable=false}}");
+
     // The action takes its choice from `mode`; without one it toggles.
     auto config = paw::parse_config("return {bindings={{mods={'Super'},key='h',action='heatmap'},"
                                     "{mods={'Super'},key='j',action='heatmap',mode='clicks'},"
@@ -430,7 +436,7 @@ int main() {
         terminal();
         images();
         arguments();
-        bindings();
+        configuration();
     } catch (const std::exception &error) {
         fprintf(stderr, "%s\n", error.what());
         return 1;

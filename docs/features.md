@@ -2874,7 +2874,12 @@ long the pointer rested in each part of it and how often it was clicked there, i
 8 logical pixels square. A pointer at rest counts for at most ten seconds after it last moved or
 clicked, so that time away from the desktop does not outweigh everything else, and nothing
 counts while the session is locked. The counts stay in the compositor's memory: they are never
-written to disk, and they are gone when the session ends or with `heatmap reset`.
+written to disk, and they are gone when the session ends or with `heatmap reset`. Nothing is
+counted at all with
+
+```lua
+heatmap = { enabled = false },
+```
 
 The `heatmap` action shows them over every monitor, over the windows and panels and under the
 lock screen: the grid blurred and coloured from cold to hot (clear, blue, cyan, green, yellow,

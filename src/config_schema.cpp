@@ -1053,6 +1053,13 @@ const Option options[] = {
      "The `group_toggle`, `group_next`, `group_prev`, `ungroup` and `group_merge_*` actions; off dissolves every group."},
     {"features.group_join_new", "boolean", "true", "true", none, none,
      "A window that opens while a window group has focus joins that group as a new tab."},
+
+    {"heatmap", "table", "", "", none, none,
+     "The pointer heatmap: where the pointer rests and clicks on each monitor, counted in the "
+     "compositor's memory for the `heatmap` action and `paw heatmap`, never written to disk."},
+    {"heatmap.enabled", "boolean", "true", "false", none, none,
+     "Count where the pointer rests and clicks. False counts nothing more; what was counted "
+     "stays until `heatmap reset` or the end of the session."},
 };
 
 bool is_child(std::string_view parent, std::string_view path) {

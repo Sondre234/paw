@@ -1873,6 +1873,8 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                {"launch", SH_SESSION_RESTORE_LAUNCH}},
               "session.restore must be \"off\", \"windows\" or \"launch\"", "restore");
     }
+    if (Section in{L, "heatmap"})
+        boolean(L, "enabled", "heatmap.enabled", config.settings.heatmap);
     return config;
 }
 } // namespace

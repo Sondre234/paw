@@ -75,9 +75,10 @@ static struct sh_heatmap *heatmap_of(struct sh_server *server) {
     return server->heatmap = heat;
 }
 
-/* Whether the pointer's rest and clicks count now: not while the session is locked. */
+/* Whether the pointer's rest and clicks count now: not while the session is locked, nor with
+ * heatmap.enabled off. */
 static bool counting(struct sh_server *server) {
-    return !server->locked;
+    return !server->locked && server_settings(server)->heatmap;
 }
 
 /* The time the pointer has rested in its cell and not yet counted, up to `now`: none past

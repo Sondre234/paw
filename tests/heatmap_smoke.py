@@ -7,7 +7,7 @@ output's size, keeping its heat where it was. The heatmap action shows the grids
 output, fading in and out, drawn again twice a second but not under the lock, input going
 through to the window under it (and, with grim, hot colours where the pointer rested, the
 desktop as it was elsewhere, and the legend); it switches between rest and clicks, and reset
-forgets everything. `paw heatmap` runs the action, draws the heatmap in a terminal of the size
+forgets everything. With heatmap.enabled off nothing counts. `paw heatmap` runs the action, draws the heatmap in a terminal of the size
 $COLUMNS and $LINES say, in colour or, with NO_COLOR, in shades, and writes it as a PNG, a PAM and
 a PPM of the layout's size, the PNG's pixels those of the PAM. The pointer is a virtual one
 (pointer_probe)."""
@@ -26,12 +26,13 @@ REST_MS = 1500
 
 
 # A speed of a fifth makes the overlay's fade a second, long enough to see it on its way.
-def config(mode="1280x720"):
+def config(mode="1280x720", enabled=True):
     return f"""return {{
     xwayland = false,
     idle = {{ display_off = 0 }},
     animations = {{ speed = 0.2 }},
     outputs = {{ monitors = {{ ["HEADLESS-1"] = {{ mode = "{mode}" }} }} }},
+    heatmap = {{ enabled = {str(enabled).lower()} }},
 }}"""
 
 
@@ -269,4 +270,14 @@ with harness.Compositor(compositor, config(),
     assert overlay()["HEADLESS-1"][1] == "motion"
     paw_heatmap("motion")
     wait_for(lambda: overlay() == {}, "the overlay gone again")
+
+    # With heatmap.enabled off nothing counts, and on again it counts as before.
+    desktop.reload(config("640x360", enabled=False))
+    before = total(desktop), total(desktop, "clicks")
+    pointer("move", "200", "200", "sleep", "100", "click", "left", "move", "210", "200")
+    desktop.stays(lambda: (total(desktop), total(desktop, "clicks")) == before,
+                  "counted with heatmap.enabled off")
+    desktop.reload(config("640x360"))
+    pointer("move", "200", "200", "click", "left")
+    assert total(desktop, "clicks") == before[1] + 1
     assert "heatmap" in msg("heatmap", "hot", ok=False)

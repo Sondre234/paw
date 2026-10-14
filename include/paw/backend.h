@@ -540,6 +540,7 @@ struct sh_settings {
     /* keyboard.shortcuts_inhibit: applications may ask for the keys the bindings take
      * (keyboard-shortcuts-inhibit), as virtual machines and remote desktops do. */
     bool shortcuts_inhibit;
+    bool heatmap; /* heatmap.enabled: count where the pointer rests and clicks (heatmap.c) */
 };
 
 /* What a login session keeps of the last one: nothing; where its windows were, for those that open
