@@ -28,8 +28,10 @@ Item {
         shownLegend = legend
     }
     Component.onCompleted: hold()
+    // The three change together, but are told of one at a time.
     onSheetsChanged: hold()
     onAreaChanged: hold()
+    onLegendChanged: hold()
     readonly property var hoveredSheet: hovered >= 0 && hovered < shownSheets.length
                                         ? shownSheets[hovered] : null
     width: screenSize.width
