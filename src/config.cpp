@@ -510,7 +510,21 @@ void read_shell(lua_State *L, ShellConfig &shell) {
            {"right", PanelEdge::Right}},
           "panel_position must be \"top\", \"bottom\", \"left\" or \"right\"");
     boolean(L, "panel_draggable", "shell.panel_draggable", shell.panel_draggable);
-    boolean(L, "panel_dock", "shell.panel_dock", shell.panel_dock);
+    // true, false or "maximized".
+    lua_getfield(L, -1, "panel_dock");
+    if (lua_isboolean(L, -1)) {
+        shell.panel_dock = lua_toboolean(L, -1) ? ShellConfig::PanelDock::Always
+                                                : ShellConfig::PanelDock::Never;
+    } else if (lua_type(L, -1) == LUA_TSTRING) {
+        const std::string mode = lua_tostring(L, -1);
+        if (mode != "maximized")
+            fail("shell.panel_dock must be true, false or \"maximized\", not \"" + mode + "\"",
+                 "panel_dock");
+        shell.panel_dock = ShellConfig::PanelDock::Maximized;
+    } else if (!lua_isnil(L, -1)) {
+        wrong_type(L, "shell.panel_dock", "true, false or \"maximized\"");
+    }
+    lua_pop(L, 1);
     boolean(L, "mirror_menus", "shell.mirror_menus", shell.mirror_menus);
     // One number for every side, or { top, right, bottom, left } by name.
     lua_getfield(L, -1, "panel_margin");

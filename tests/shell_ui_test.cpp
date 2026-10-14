@@ -6592,7 +6592,7 @@ ListModel {
                 "shadow={enabled=true,color='#2b221cff',inactive_color='#2b221c66',blur=0,"
                 "offset={5,7}}},shell={frame='windows',panel_radius=12,panel_position='top',"
                 "panel_margin={bottom=2},panel_dock=false,wallpaper")) ||
-            !waitFor([&] { return !controller.panelDock(); }))
+            !waitFor([&] { return controller.panelDock() == "never"; }))
             return fail("shell.panel_dock was not read");
         framed = find(view.rootObject(), "bar");
         subscriber->write(state(toggled, currentWorkspace) + "touched " + output.toUtf8() + " top\n");
@@ -6601,6 +6601,31 @@ ListModel {
             framed->height() != controller.panelHeight())
             return fail("with panel_dock = false a window reaching the bar's edge docked it");
         subscriber->write(state(toggled, currentWorkspace) + "touched " + output.toUtf8() + " -\n");
+        // With shell.panel_dock = "maximized" only a window filling a monitor that does not tile
+        // docks it: not one reaching just the bar's edge, nor the tiles.
+        if (!reconfigure(QString(lua).replace(
+                "shell={wallpaper",
+                "shell={panel_radius=12,panel_position='top',panel_margin={bottom=2},"
+                "panel_dock='maximized',wallpaper")) ||
+            !waitFor([&] { return controller.panelDock() == "maximized"; }))
+            return fail("shell.panel_dock = \"maximized\" was not read");
+        framed = find(view.rootObject(), "bar");
+        subscriber->write(state(false, currentWorkspace) + "touched " + output.toUtf8() + " top\n");
+        QTest::qWait(400);
+        if (!framed || framed->property("radius").toReal() != 12)
+            return fail("with panel_dock = \"maximized\" a window snapped to the bar docked it");
+        subscriber->write(state(true, currentWorkspace) + "touched " + output.toUtf8() +
+                          " top,bottom,left,right\n");
+        QTest::qWait(400);
+        if (framed->property("radius").toReal() != 12)
+            return fail("with panel_dock = \"maximized\" the tiles docked the bar");
+        subscriber->write(state(false, currentWorkspace) + "touched " + output.toUtf8() +
+                          " top,bottom,left,right\n");
+        if (!waitFor([&] { return framed->property("radius").toReal() == 0; }))
+            return fail("with panel_dock = \"maximized\" a maximized window did not dock the bar");
+        subscriber->write(state(false, currentWorkspace) + "touched " + output.toUtf8() + " -\n");
+        if (!waitFor([&] { return framed->property("radius").toReal() == 12; }))
+            return fail("the bar stayed docked once the maximized window left");
         // Without the windows' shadow, none.
         if (!reconfigure(QString(lua).replace("shell={wallpaper",
                                               "shell={frame='windows',panel_radius=12,wallpaper")))

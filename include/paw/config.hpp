@@ -197,8 +197,10 @@ struct ShellConfig {
     // configuration file's panel_position follows.
     bool panel_draggable = false;
     // panel_dock: a floating taskbar docks, edge to edge and squared, while a window reaches
-    // its edge (a tile, a maximized window); false keeps it floating.
-    bool panel_dock = true;
+    // its edge (a tile, a maximized window); Never keeps it floating, Maximized docks it only
+    // while a window fills the usable area of a monitor that does not tile.
+    enum class PanelDock { Never, Maximized, Always };
+    PanelDock panel_dock = PanelDock::Always;
     // Along the top, the bar's right-click menus in reverse, their last entries nearest the bar.
     bool mirror_menus = false;
     int panel_margin[4] = {0, 0, 0, 0}; // top, right, bottom, left: a floating bar
