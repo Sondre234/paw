@@ -2867,6 +2867,60 @@ Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the
 and to find out what is wrong with it. They talk to the running session through its control
 socket, as `paw msg` does; `paw --help` lists them.
 
+### paw fetch
+
+`paw fetch` is a fastfetch of the compositor's own: a paw print, and beside it what only paw
+knows of the session, where fastfetch tells of the machine.
+
+```
+     ▄██▄    ▄██▄        paw 0.1.1 (61f4e8d) · wlroots 0.20.2
+    ██████  ██████       ────────────────────────────────────
+ ▄▄ ▀████▀  ▀████▀ ▄▄    profile   sumi · dark
+████  ▀▀      ▀▀  ████   session   4h12m · 359k frames
+▀██▀    ▄▄██▄▄    ▀██▀   frames    avg 0.41ms · p99 1.2ms · worst 25ms
+     ▄██████████▄        windows   7 on 3 workspaces · dwindle
+    ██████████████       monitors  DP-3 2560x1440@200Hz ×1.25
+    ▀██▀ ▀██▀ ▀██▀                 HDMI-A-1 2560x1440@144Hz ×1.25
+                         idle      inhibited · dim 9m30s
+                         top app   Firefox · 28 launches
+                         sessions  last, work
+```
+
+The paw print is drawn in the colours of the [appearance profile](#appearance-profiles) in use:
+the focused window's border, a gradient laid across the print at its angle as the border draws
+it, and a strip under the fields adds the unfocused border's colour and the urgent one. Each
+colour is taken just far enough toward black or white to stand out from the profile's
+background, which a terminal themed with the profile has too: washi's light blue darkens on its
+paper. The fields, each where it is known:
+
+- the version of `paw` and of the wlroots it was built with, and as `running` the session's
+  where it runs another (a build installed since it started);
+- `profile`: the appearance profile in use and its `color_scheme`;
+- `session`: how long the compositor has run, and the frames it has drawn;
+- `frames`: how long a frame took on average, at most for 99 frames in a hundred (of the last
+  4096), and at worst;
+- `windows`: how many are open, on how many workspaces, and the tiling layout of the focused
+  monitor's workspace, or `floating`;
+- `monitors`: each one's connector, mode, scale, and HDR or 10-bit colour where it is drawn so;
+  one turned off says so, and a mirror names the monitor it shows;
+- `idle`: the timeouts of [power saving](#power-saving-when-idle)'s steps, and `inhibited`
+  while something holds them off, `dimmed`, `on battery`;
+- `night light`: the colour temperature while [night light](#effects) warms the screens,
+  `scheduled` while it waits; `mode`: the [binding mode](#binding-modes) outside the default;
+- `top app`: the application launched most from the shell (the `launches` file in paw's state
+  directory), by its desktop entry's name;
+- `sessions`: the [sessions](#sessions) saved.
+
+Outside a session (no `PAW_SOCKET`, or one that does not answer) it says `not in a paw
+session`, takes the profile and its colours from the configuration paw would start with
+(`--config PATH` names another; one with an error gives paw's own colours), and the rest from
+the state files. Through a pipe, with `--no-color`, or with `NO_COLOR` set, it writes no
+colours; `--no-logo` leaves the paw print out, as a terminal too narrow for it beside the
+fields does. It asks the session `paw msg get about`, a line each for the `version`, `wlroots`
+(the library's version), `uptime` (milliseconds) and `profile`, and `paw msg get palette`, the
+profile's `scheme`, `background`, `border` and `border_inactive` (each an angle and its
+colours), `urgent` and `shadow` colours as #RRGGBBAA, besides the queries above.
+
 ## Screen locking and idle
 
 Screen locking uses the standard `ext-session-lock-v1` protocol, so lockers such
