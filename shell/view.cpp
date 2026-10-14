@@ -57,7 +57,9 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
 #endif
     resizeForContent();
     setSource(QUrl(desktop ? "qrc:/shell/PawShell/Desktop.qml" : "qrc:/shell/PawShell/Panel.qml"));
-    connect(&controller, &ShellController::configChanged, this, [this] {
+    // Every configuration loaded comes with panelSizeChanged, as does each step of a resize of
+    // the bar by its edge, which the strip the surface reserves follows as it is dragged.
+    connect(&controller, &ShellController::panelSizeChanged, this, [this] {
         placeLayer();
         resizeForContent();
     });
