@@ -2831,7 +2831,8 @@ each monitor's frames do (see [Tearing](#tearing)). `paw msg get actions` prints
 action the configuration knows: its name and the keys of its first key binding outside any
 [binding mode](#binding-modes), as `Super + Tab`, or `-` for none. `paw msg get profiles` prints
 a line per [appearance profile](#appearance-profiles), in name order: its name and `1` for the one
-in use, else `0`. A client
+in use, else `0`; and `paw msg get terminal` the command line the `terminal` action starts, its
+words separated by tabs, or nothing when there is no terminal to start. A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
 `workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
 (as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of

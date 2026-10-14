@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The queries `paw tour` reads, on a headless compositor: every action and the keys of its
-first key binding, and the appearance profiles."""
+first key binding, the appearance profiles, and the terminal."""
 from pathlib import Path
 import sys
 
@@ -30,3 +30,5 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     assert actions["toggle_tiling"] == "-", "unbound here"
     assert len(actions) > 100 and all(len(row) == 2 for row in desktop.rows("actions"))
     assert desktop.rows("profiles") == [["day", "1"], ["night", "0"]], desktop.rows("profiles")
+    assert desktop.rows("terminal") == [["foot", "--app-id", "a terminal"]], \
+        desktop.rows("terminal")

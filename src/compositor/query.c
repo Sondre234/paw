@@ -734,6 +734,14 @@ static void get_profiles(struct sh_server *server, int fd, const char *arguments
         control_reply(fd, callbacks->profiles(callbacks->userdata));
 }
 
+static void get_terminal(struct sh_server *server, int fd, const char *arguments) {
+    // The command line the terminal action starts (sh_callbacks.terminal).
+    const struct sh_callbacks *callbacks = server->callbacks;
+    control_reply(fd, "ok\n");
+    if (callbacks->terminal)
+        control_reply(fd, callbacks->terminal(callbacks->userdata));
+}
+
 static void get_gesture(struct sh_server *server, int fd, const char *arguments) {
     // The touchpad swipe under way, and the workspaces following it (see describe_gesture).
     control_reply(fd, "ok\n");
@@ -864,6 +872,7 @@ static const struct {
     {"input_method", get_input_method, false},
     {"actions", get_actions, false},
     {"profiles", get_profiles, false},
+    {"terminal", get_terminal, false},
 };
 
 /* Answers `request` if it is a query; false if it is not one. */

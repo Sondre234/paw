@@ -654,6 +654,9 @@ struct sh_callbacks {
      * with its name and 1 for the one in use, else 0, separated by a tab. Valid until the next
      * call. */
     const char *(*profiles)(void *);
+    /* What the terminal action starts, for `get terminal`: its words on one line, separated by
+     * tabs; "" when there is no terminal to start. Valid until the next call. */
+    const char *(*terminal)(void *);
 };
 
 enum sh_backend_mode { SH_BACKEND_NESTED, SH_BACKEND_HEADLESS, SH_BACKEND_SESSION };
