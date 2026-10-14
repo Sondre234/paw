@@ -2,8 +2,8 @@
 """paw wrapped's counting: what `get wrapped` counts as a virtual pointer moves, clicks and
 scrolls, keys are pressed, touchpad gestures begin, windows open, move, resize, snap and close,
 workspaces switch and the overview and the switcher open; the time an application has the focus,
-its streak, and idle time; the day's file written as the session ends, added to by the next
-session and every few minutes, and split at midnight; wrapped.enabled turning it off; and
+its streak, idle time, and the lock's; the day's file written as the session locks and ends, added
+to by the next session and every few minutes, and split at midnight; wrapped.enabled turning it off; and
 `paw wrapped` reporting on the files and the running session's count."""
 from datetime import date, timedelta
 import json
@@ -14,7 +14,7 @@ import sys
 
 import harness
 
-compositor, probe, pointer_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
+compositor, probe, pointer_probe, lock_probe = (str(Path(p).resolve()) for p in sys.argv[1:5])
 
 SCREEN = (1280, 720)
 CONFIG = """return {
@@ -172,6 +172,19 @@ with harness.Compositor(compositor, CONFIG % "", env=ASKED) as desktop:
     nudge()
     assert counted(desktop)["state"] == "active"
 
+    # Locked, the session is away, input or not, and locking saves what was counted.
+    locker = desktop.spawn([lock_probe, "hold", str(desktop.root / "locker.log")])
+    desktop.wait_for(lambda: counted(desktop)["state"] == "away", "away while locked")
+    at_lock = day_file(files, today.isoformat())
+    assert counted(desktop)["saves"] == 1 and at_lock["keys"] == 3, at_lock
+    nudge()
+    assert counted(desktop)["state"] == "away" and counted(desktop)["focus"][1] == 0
+    locker.terminate()
+    assert desktop.reap(locker) == 0
+    desktop.wait_for(lambda: "Session unlocked" in desktop.log.read_text(), "unlocked")
+    nudge()
+    assert counted(desktop)["state"] == "active"
+
     # Another application takes the focus; a window closing is counted.
     opened = []
     expect(lambda: opened.append(desktop.open_window(probe, "B", "app.b", focused=True)),
@@ -184,12 +197,12 @@ with harness.Compositor(compositor, CONFIG % "", env=ASKED) as desktop:
         desktop.wait_for(lambda: len(desktop.windows()) == 1, "B closed")
     expect(close, windows_closed=1)
     last = counted(desktop)
-    assert last["saves"] == 0 and last["windows_opened"] == 2, last
+    assert last["saves"] == 1 and at_lock["windows_opened"] + last["windows_opened"] == 2, last
 
     # Ending the session saves the day, for the user alone.
     stop()
     saved = day_file(files, today.isoformat())
-    assert all(saved[key] == last[key] for key in EVENTS), (saved, last)
+    assert all(saved[key] == at_lock[key] + last[key] for key in EVENTS), (saved, at_lock, last)
     assert saved["sessions"] == 1 and saved["started"] == start["started"], saved
     assert saved["active"] >= last["active"] and saved["apps"]["app.a"] >= 2, saved
     assert stat.S_IMODE(files.stat().st_mode) == 0o700
