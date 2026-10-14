@@ -34,6 +34,7 @@ struct sh_animator {
     struct wl_list running; // struct sh_anim
     struct wl_list held;    // struct sh_anim held by a gesture, whatever the time
     struct wl_list lifted;  // struct sh_anim lifted while dragged, or settling (lift_link)
+    struct wl_list posed;   // struct sh_anim posed by a toy (pose_link)
     struct wl_list tweens;  // struct sh_tween
     struct wl_event_source *timer;
     bool ticking; // the timer is set
@@ -194,6 +195,14 @@ static double lift_y(const struct sh_anim *anim, double y) {
     return lift_axis(anim, y, anim->lift_cy, anim->lift_bounds[1], anim->lift_bounds[3]);
 }
 
+/* Where a pose's stretch draws a coordinate of its tree: about its point, by its factor. */
+static double pose_x(const struct sh_anim *anim, double x) {
+    return anim->posed ? anim->pose.ax + (x - anim->pose.ax) * anim->pose.sx : x;
+}
+static double pose_y(const struct sh_anim *anim, double y) {
+    return anim->posed ? anim->pose.ay + (y - anim->pose.ay) * anim->pose.sy : y;
+}
+
 /* What a walk does to the nodes it visits: the fx's scale about the animation's center and its
  * factor of their opacity, after a morph's stretch about the tree's origin (`sx`, `sy`: 1 but
  * for the client's surfaces and their fading copy). `width` and `height` are the size a morph
@@ -228,12 +237,17 @@ static void apply_node(struct sh_anim *anim, struct wlr_scene_node *node, int ox
     }
     if (sized) {
         // Both edges are scaled and rounded, so that nodes that adjoin (the slices of a window's
-        // shadow, its surfaces) stay adjoined at every scale. A lift moves them on from there.
+        // shadow, its surfaces) stay adjoined at every scale. A lift moves them on from there, or
+        // a pose, which runs alone.
         double scale = m->scale;
-        double left = lift_x(anim, anim->cx + ((ox + r->x) * m->sx - anim->cx) * scale);
-        double top = lift_y(anim, anim->cy + ((oy + r->y) * m->sy - anim->cy) * scale);
-        double right = lift_x(anim, anim->cx + ((ox + r->x + r->width) * m->sx - anim->cx) * scale);
-        double bottom = lift_y(anim, anim->cy + ((oy + r->y + r->height) * m->sy - anim->cy) * scale);
+        double left =
+            pose_x(anim, lift_x(anim, anim->cx + ((ox + r->x) * m->sx - anim->cx) * scale));
+        double top =
+            pose_y(anim, lift_y(anim, anim->cy + ((oy + r->y) * m->sy - anim->cy) * scale));
+        double right = pose_x(
+            anim, lift_x(anim, anim->cx + ((ox + r->x + r->width) * m->sx - anim->cx) * scale));
+        double bottom = pose_y(
+            anim, lift_y(anim, anim->cy + ((oy + r->y + r->height) * m->sy - anim->cy) * scale));
         r->set_x = (int)lround(left) - ox, r->set_y = (int)lround(top) - oy;
         r->set_width = (int)fmax(1, lround(right) - lround(left));
         r->set_height = (int)fmax(1, lround(bottom) - lround(top));
@@ -386,6 +400,102 @@ static void stop(struct sh_anim *anim) {
         anim->count = anim->capacity = 0;
     }
     release_track(anim);
+}
+
+/* The records of a tree that nothing draws any more. */
+static void drop_records(struct sh_anim *anim) {
+    for (size_t i = 0; i < anim->count; ++i)
+        record_finish(&anim->records[i]);
+    free(anim->records);
+    anim->records = NULL;
+    anim->count = anim->capacity = 0;
+}
+
+static bool pose_stretches(const struct sh_pose *pose) {
+    return pose->sx != 1 || pose->sy != 1;
+}
+
+/* A pose drawn: the tree moved from where it rests, its nodes stretched while the pose stretches
+ * them and put back at rest once it no longer does. */
+static void apply_pose(struct sh_anim *anim) {
+    wlr_scene_node_set_position(&anim->tree->node, anim->base_x + (int)lround(anim->pose.dx),
+                                anim->base_y + (int)lround(anim->pose.dy));
+    if (pose_stretches(&anim->pose)) {
+        walk(anim, anim->tree, 0, 0, false, &IDENTITY);
+    } else if (anim->count) {
+        walk(anim, anim->tree, 0, 0, true, NULL);
+        drop_records(anim);
+    }
+}
+
+/* A posed tree at rest for a lookup. */
+static void rest_pose(struct sh_anim *anim) {
+    anim->pose_rested = true;
+    wlr_scene_node_set_position(&anim->tree->node, anim->base_x, anim->base_y);
+    if (anim->count)
+        walk(anim, anim->tree, 0, 0, true, NULL);
+}
+
+/* A pose over, let go or taken over by another animation: the tree where it rests and its nodes
+ * at rest, and with `tell`, what follows a stretch told so. */
+static void end_pose(struct sh_anim *anim, bool tell) {
+    if (!anim->posed)
+        return;
+    bool stretched = pose_stretches(&anim->pose);
+    wl_list_remove(&anim->pose_link);
+    anim->posed = anim->pose_rested = false;
+    wlr_scene_node_set_position(&anim->tree->node, anim->base_x, anim->base_y);
+    if (anim->count) {
+        walk(anim, anim->tree, 0, 0, true, NULL);
+        drop_records(anim); // a pose runs alone: nothing else needs them
+    }
+    if (tell && stretched && anim->pose_update)
+        anim->pose_update(anim->pose_data);
+}
+
+bool sh_anim_pose(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                  const struct sh_pose *pose, void (*update)(void *), void *data) {
+    if (anim->posed && anim->tree != tree)
+        end_pose(anim, true);
+    if (!anim->posed) {
+        if (anim->owned || anim->animator || anim->lifted)
+            return false;
+        // Nothing runs on it, so it rests where it is.
+        anim->tree = tree;
+        anim->base_x = tree->node.x, anim->base_y = tree->node.y;
+        anim->pose = (struct sh_pose){.sx = 1, .sy = 1};
+        anim->posed = true;
+        anim->pose_rested = false;
+        wl_list_insert(animator->posed.prev, &anim->pose_link);
+    }
+    bool restretched =
+        pose->sx != anim->pose.sx || pose->sy != anim->pose.sy ||
+        (pose_stretches(pose) && (pose->ax != anim->pose.ax || pose->ay != anim->pose.ay));
+    anim->pose = *pose;
+    anim->pose_update = update, anim->pose_data = data;
+    if (restretched && update)
+        update(data);
+    apply_pose(anim);
+    return true;
+}
+
+void sh_anim_unpose(struct sh_anim *anim) {
+    end_pose(anim, true);
+}
+
+void sh_anim_pose_commit(struct sh_anim *anim, struct wlr_scene_tree *surfaces) {
+    if (!anim->posed || !anim->count || !surfaces)
+        return;
+    walk(anim, surfaces, 0, 0, true, NULL);
+    forget(anim, surfaces);
+}
+
+bool sh_anim_posed(const struct sh_anim *anim) {
+    return anim->posed;
+}
+
+size_t sh_animator_posed(const struct sh_animator *animator) {
+    return (size_t)wl_list_length(&animator->posed);
 }
 
 /* An offset easing to 0 along `curve` over `duration` milliseconds: where it is at `elapsed`,
@@ -614,6 +724,7 @@ static void finish_running(struct sh_anim *anim) {
 }
 
 void sh_anim_finish(struct sh_anim *anim) {
+    end_pose(anim, true);
     bool lifted = anim->lifted;
     void (*update)(void *) = anim->lift_update;
     void *data = anim->lift_data;
@@ -709,12 +820,14 @@ static void rest_anim(struct sh_anim *anim) {
 }
 
 static void rest_lifts(struct sh_animator *animator, bool at, double px, double py);
+static void rest_poses(struct sh_animator *animator, bool at, double px, double py);
 
 void sh_animator_rest(struct sh_animator *animator) {
     struct sh_anim *anim;
     wl_list_for_each(anim, &animator->running, link) rest_anim(anim);
     wl_list_for_each(anim, &animator->held, link) rest_anim(anim);
     rest_lifts(animator, false, 0, 0);
+    rest_poses(animator, false, 0, 0);
 }
 
 /* Whether a buffer or rectangle below `tree`, whose parent is at (ox, oy), has a box that
@@ -771,6 +884,23 @@ static void rest_lifts(struct sh_animator *animator, bool at, double px, double 
     }
 }
 
+/* Posed windows where they rest for a lookup, with `at` only those that could be found at
+ * (px, py), drawn posed or at rest. */
+static void rest_poses(struct sh_animator *animator, bool at, double px, double py) {
+    struct sh_anim *anim;
+    wl_list_for_each(anim, &animator->posed, pose_link) {
+        int cx, cy;
+        if (at && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
+            double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
+            if (!tree_covers(anim->tree, cx, cy, px, py) &&
+                !tree_covers(anim->tree, parent_x + anim->base_x, parent_y + anim->base_y, px,
+                             py))
+                continue;
+        }
+        rest_pose(anim);
+    }
+}
+
 void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
     struct sh_anim *anim;
     wl_list_for_each(anim, &animator->running, link) {
@@ -800,6 +930,7 @@ void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
     }
     wl_list_for_each(anim, &animator->held, link) rest_anim(anim);
     rest_lifts(animator, true, px, py);
+    rest_poses(animator, true, px, py);
 }
 
 void sh_animator_resume(struct sh_animator *animator) {
@@ -833,6 +964,12 @@ void sh_animator_resume(struct sh_animator *animator) {
             step(anim, now); // the lift on top of its own look, as a frame draws it
         else
             walk(anim, anim->tree, 0, 0, false, &IDENTITY);
+    }
+    wl_list_for_each(anim, &animator->posed, pose_link) {
+        if (!anim->pose_rested)
+            continue;
+        anim->pose_rested = false;
+        apply_pose(anim);
     }
 }
 
@@ -876,6 +1013,7 @@ static bool lifts_easing(const struct sh_animator *animator) {
     return false;
 }
 
+/* Poses are their owners' to end: they stay. */
 void sh_animator_finish_all(struct sh_animator *animator) {
     struct sh_anim *anim, *next;
     wl_list_for_each_safe(anim, next, &animator->running, link) finish_running(anim);
@@ -908,8 +1046,9 @@ void sh_animator_tick(struct sh_animator *animator) {
     }
     // What a client drew since keeps the hold's opacity.
     wl_list_for_each(anim, &animator->held, link) apply_hold(anim);
-    // And a lifted window's size.
+    // And a lifted window's size, and a posed one's stretch.
     lifts_apply(animator);
+    wl_list_for_each(anim, &animator->posed, pose_link) apply_pose(anim);
     if (wl_list_empty(&animator->running) && wl_list_empty(&animator->tweens) &&
         !lifts_easing(animator))
         animator->last_tick = 0;
@@ -927,6 +1066,7 @@ static int timer_fired(void *data) {
 
 static void start(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
                   int duration) {
+    end_pose(anim, true); // a toy gives way to any animation
     if (anim->animator && anim->tree != tree)
         sh_anim_finish(anim);
     release_track(anim); // another animation takes the tree over
@@ -1245,6 +1385,7 @@ void sh_anim_hold(struct sh_animator *animator, struct sh_anim *anim, struct wlr
                   double dx, double dy, float alpha) {
     if (anim->owned && !anim->held)
         return; // a copy that is running is the animator's alone
+    end_pose(anim, true);
     if (anim->animator && (!anim->held || anim->tree != tree))
         finish_running(anim); // what ran lands, and the hold starts from rest, a lift on top
     anim->tree = tree;
@@ -1467,6 +1608,7 @@ void sh_anim_lift(struct sh_animator *animator, struct sh_anim *anim, struct wlr
                   void *data) {
     if (anim->owned || (!up && !anim->lifted))
         return;
+    end_pose(anim, true);
     if (anim->animator && anim->tree != tree)
         finish_running(anim); // what ran on another tree lands
     if (anim->lifted && anim->tree != tree)
@@ -1536,8 +1678,10 @@ double sh_anim_lift_progress(const struct sh_anim *anim) {
 }
 
 void sh_anim_lift_box(const struct sh_anim *anim, int box[4]) {
-    long left = lround(lift_x(anim, box[0])), right = lround(lift_x(anim, box[0] + box[2]));
-    long top = lround(lift_y(anim, box[1])), bottom = lround(lift_y(anim, box[1] + box[3]));
+    long left = lround(pose_x(anim, lift_x(anim, box[0])));
+    long right = lround(pose_x(anim, lift_x(anim, box[0] + box[2])));
+    long top = lround(pose_y(anim, lift_y(anim, box[1])));
+    long bottom = lround(pose_y(anim, lift_y(anim, box[1] + box[3])));
     box[0] = (int)left, box[1] = (int)top;
     box[2] = (int)(right - left > 1 ? right - left : 1);
     box[3] = (int)(bottom - top > 1 ? bottom - top : 1);
@@ -1724,6 +1868,7 @@ struct sh_animator *sh_animator_create(struct wl_event_loop *loop) {
     wl_list_init(&animator->running);
     wl_list_init(&animator->held);
     wl_list_init(&animator->lifted);
+    wl_list_init(&animator->posed);
     wl_list_init(&animator->tweens);
     animator->clock = real_clock;
     animator->config.speed = 1;
@@ -1759,6 +1904,7 @@ void sh_animator_destroy(struct sh_animator *animator) {
     struct sh_anim *anim, *next;
     wl_list_for_each_safe(anim, next, &animator->held, link) sh_anim_finish(anim);
     wl_list_for_each_safe(anim, next, &animator->lifted, lift_link) lift_end(anim, true);
+    wl_list_for_each_safe(anim, next, &animator->posed, pose_link) end_pose(anim, false);
     wl_event_source_remove(animator->timer);
     free(animator);
 }

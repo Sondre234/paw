@@ -13,6 +13,10 @@ from `/proc`. Nothing here touches a real display.
 counts frames, commits and placements (`paw msg get stats`), which the benchmark reads to
 report time per commit and per frame.
 
+In a real session, `paw top` shows the same counters live: each monitor's frame times against
+its refresh interval (`get frame_times OUTPUT`), the counters of `get stats` each second, and
+which windows' commits cost the compositor the most time (`get commits`).
+
 Absolute numbers depend on the host and are noisy below a millisecond; compare runs made on
 the same machine back to back. What the benchmark cannot measure: real GPU rendering,
 scanout, cursor planes, and input-to-photon latency on hardware.

@@ -162,20 +162,27 @@ tooltips), then the widgets one above the other, the clock with the hours over t
 the sliver at the bottom; tooltips and popups open beside it, the clock's notifications above its
 calendar.
 
+Each monitor's bar can have its own edge: `panel_positions = { ["DP-1"] = "left", ["HDMI-A-1"] =
+"top" }` names them by the monitors' names (`paw msg get outputs`), and `panel_position` stays the
+edge of the monitors left out. `panel_per_monitor = false` puts every bar along `panel_position`
+instead.
+
 With `panel_draggable = true` the bar can be dragged to another edge, as on Windows with the
 taskbar unlocked: press an empty part of it and drag, and an outline shows where it goes, the
-edge of the monitor nearest the pointer. Let go there and it moves, and paw writes the new
-`panel_position` into your configuration file where it takes effect: the profile in use, when
-that sets it, else the `shell` table, which gains the setting (or is added) when it lacks it. The
-rest of the file is left as it was, comments and all. Escape, or letting go at its own edge,
-leaves the bar where it was.
+edge of its monitor nearest the pointer (past an edge it shares with another monitor, that edge).
+Let go there and it moves, and paw writes the new edge into your configuration file: that
+monitor's `panel_positions` entry, the other monitors' bars staying where they are, or with
+`panel_per_monitor = false` the `panel_position` of every bar. It goes where it takes effect: the
+profile in use, when that sets it, else the `shell` table, which gains the setting (or is added)
+when it lacks it. The rest of the file is left as it was, comments and all. Escape, or letting go
+at its own edge, leaves the bar where it was.
 
 The same setting lets you resize the bar by its inner edge, the one facing the desktop (its top
 edge along the bottom of the monitor): the pointer turns into a resize cursor over it, and dragging
 it makes the bar taller or shorter, or wider or narrower down a side, between 24 and 100 pixels.
 Every monitor's bar follows as you drag, its buttons growing with it, and maximized and tiled
 windows make room as it goes. Let go and paw writes the new `panel_height` into your configuration
-file the way it writes `panel_position`; Escape puts the old size back. The macOS style's dock and
+file the way it writes the bar's edge; Escape puts the old size back. The macOS style's dock and
 the tiling bar keep their sizes.
 
 A floating bar docks while a window reaches the edge of the monitor's free area it is along (a
@@ -1438,7 +1445,9 @@ border. A second tile brings `gap_inner` and `gap_outer` back for both, and they
 closes, floats or leaves (`layout.smart_gaps`, on by default, like sway's `smart_gaps`; `false`
 keeps the gaps around a lone tile too). A window group is one tile; floating, sticky and
 maximized windows are not tiles, and two windows in monocle keep their gaps. A lone column of the
-scroll layout loses its gaps and keeps its width.
+scroll layout loses its gaps and keeps its width. `layout.lone_margin` keeps a lone tile that far
+from the edges instead, so a single window on a wide monitor need not fill it: one number, or
+`{ top, right, bottom, left }`, e.g. wide at the sides and narrow above and below.
 
 - Mod + right drag on a tile, or dragging its edge, moves the split lines around it.
 - Moving a tile (Mod + left drag or its title bar) lifts it out, its place in the tiling kept
@@ -1629,6 +1638,13 @@ layout = {
 With `mouse.focus_follows` on, columns that scroll under a still pointer can take focus on
 its next move; keyboard-driven scrolling takes the pointer along, but if the mouse causes
 trouble, use `follow = "edge"`, which moves the view least.
+
+Columns past the screen's edges stay on their own monitor: nothing of them shows on the monitor
+beside it, a column sliding past an edge is cut there (square while it crosses, its rounded
+border left out, where the GLES2 renderer draws clips), one at rest wholly past it is not drawn,
+and the pointer passes it by to reach the other monitor's windows there. With `width = 0.5`
+and `follow = "edge"` the view shows two whole columns and scrolls by one as focus moves past
+them.
 
 The scroll layout is per workspace like the others; windows opened under another layout get
 a column each, at the end, when it is switched to. The columns are remembered when you
@@ -2793,7 +2809,15 @@ the keyboard.
 the scene (closing and minimizing windows count until their animation ends), and of focus fades,
 mainly for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
 and size (see [Animations](#animations)), and `paw msg get output_frames` each monitor's name and
-how many frames it has drawn. `paw msg get minimize` prints where the taskbars show each window, a
+how many frames it has drawn. `paw msg get frame_times OUTPUT` prints how many frames that
+monitor has drawn, then a line for each of its last 512: the time drawing it took and the time
+since its previous frame, in microseconds; without OUTPUT it prints the last 4096 frames of every
+monitor together. `paw msg get commits` prints a line per window, the oldest first, then one per
+panel or other layer surface: `window` or `layer`, its number (a window's is the one the switcher
+and the window control give it), its process ID, how many commits of its surface the compositor
+has handled and the time handling them took in nanoseconds, its monitor, its workspace (0 for a
+layer surface), its app ID or namespace, and its title (empty for a layer surface).
+[`paw top`](#paw-top) shows both. `paw msg get minimize` prints where the taskbars show each window, a
 `rect` line per window and monitor (the window's number, the monitor, and x, y, width and height
 in the monitor's coordinates, the one that counts first), then a `fold` line per window on its
 way into or out of its button (its number, `minimize` or `restore`, how far into the button it
@@ -2811,7 +2835,11 @@ of it: its title, whether it is hidden and whether it is drawn, the drop under w
 or `-`), the edge it goes by (`top`, `bottom`, `left` or `right`), the offset from its place it
 is drawn at (x and y), how opaque it is drawn (thousandths), the line it is cut along (`-` while
 nothing is cut), the clip its content is drawn with, cut or not (`X,Y,WIDTH,HEIGHT`), and its
-radius, and the box its border's rounded rect covers (each `-` for none). `paw msg get
+radius, and the box its border's rounded rect covers (each `-` for none). `paw msg get bounds`
+prints one line per window: its title, the box of the monitor it keeps to as a tile of the
+[scrolling layout](#scrolling-layout) (`X,Y,WIDTH,HEIGHT`, or `-`), whether its content is drawn
+(`0` while it rests past that monitor's edges), and the clip its content is drawn with
+(`X,Y,WIDTH,HEIGHT`) and its radius (each `-` for none). `paw msg get
 workspace_views` prints one line per list of a workspace's windows a client watches, as the
 card of a workspace does: the output, the workspace and how many windows it last listed. `paw
 msg get seat` prints what has the keyboard, what the pointer is on and, while something is
@@ -2868,6 +2896,188 @@ Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the
 and to find out what is wrong with it. They talk to the running session through its control
 socket, as `paw msg` does; `paw --help` lists them.
 
+### paw doctor
+
+`paw doctor` looks the running session over for what has gone wrong in paw desktops before, and
+prints a line per check under a heading for each part: ✓ where all is well, ! for something to
+look at and ✗ for something broken, the last two followed by the command or step that fixes it.
+It fixes nothing itself, and only looks: a `get` query to the compositor, files and `/proc`,
+`wpctl status`, `paw --version`, and D-Bus calls that change nothing and start no service. Run it
+in a terminal of the session; it checks:
+
+- **Session**: that the compositor answers on `PAW_SOCKET`, and which version it is; that the
+  desktop shell runs (when it has gone, the screen shows only the background colour, and the fix
+  is `kill -HUP` with the compositor's PID, a reload, which starts it again); that the
+  compositor runs the paw installed, not an older build replaced since; when an update script
+  keeps a log in `$XDG_STATE_HOME/paw/update.log` (lines `update-paw: DATE TIME building COMMIT`
+  and `update-paw: DATE TIME installed COMMIT`), that its last update was installed; that the
+  configuration is valid, as `paw --check-config` says, and has the appearance profile last
+  picked.
+- **D-Bus**: that the session bus answers; that paw's shell shows the notifications, not another
+  notification daemon such as mako, dunst or swaync; in a session started with `--session`, that
+  no other polkit agent runs beside the shell's; and that logind answers, for suspending.
+- **Sound**: that PipeWire and WirePlumber run, WirePlumber on a session bus that still answers,
+  and that there is a sound output, not only PipeWire's Dummy Output; the fix restarts them with
+  `gentoo-pipewire-launcher restart` where that is installed, else with systemd's user units.
+- **Screen sharing**: that `XDG_CURRENT_DESKTOP` has `paw`; that xdg-desktop-portal finds paw's
+  `paw-portals.conf`, looked for as it does (portals.conf(5)) with the environment it runs in, the
+  fix linking the one paw installed into `$XDG_CONFIG_HOME/xdg-desktop-portal`; that the backend
+  it names for screen sharing is installed; and that a running xdg-desktop-portal started with
+  `paw` in its `XDG_CURRENT_DESKTOP` and offers screen sharing.
+- **X11**: that Xwayland is installed, unless `xwayland = false`.
+
+In a [nested session](#nested-sessions) notifications, password prompts and screen sharing are the
+host desktop's, and it says so instead of checking them. On a terminal the report is in colour, unless `NO_COLOR` is set or `--no-color` given. `--plain`
+prints a line per check for scripts instead: `ok`, `warning` or `error`, the check's name
+(`shell`, `portal-config`, ...), the finding and the fix, separated by tabs. `paw doctor` exits
+with 1 when something is broken, else 0.
+### paw fetch
+
+`paw fetch` is a fastfetch of the compositor's own: a paw print, and beside it what only paw
+knows of the session, where fastfetch tells of the machine.
+
+```
+     ▄██▄    ▄██▄        paw 0.1.1 (61f4e8d) · wlroots 0.20.2
+    ██████  ██████       ────────────────────────────────────
+ ▄▄ ▀████▀  ▀████▀ ▄▄    profile   sumi · dark
+████  ▀▀      ▀▀  ████   session   4h12m · 359k frames
+▀██▀    ▄▄██▄▄    ▀██▀   frames    avg 0.41ms · p99 1.2ms · worst 25ms
+     ▄██████████▄        windows   7 on 3 workspaces · dwindle
+    ██████████████       monitors  DP-3 2560x1440@200Hz ×1.25
+    ▀██▀ ▀██▀ ▀██▀                 HDMI-A-1 2560x1440@144Hz ×1.25
+                         idle      inhibited · dim 9m30s
+                         top app   Firefox · 28 launches
+                         sessions  last, work
+```
+
+The paw print is drawn in the colours of the [appearance profile](#appearance-profiles) in use:
+the focused window's border, a gradient laid across the print at its angle as the border draws
+it, and a strip under the fields adds the unfocused border's colour and the urgent one. Each
+colour is taken just far enough toward black or white to stand out from the profile's
+background, which a terminal themed with the profile has too: washi's light blue darkens on its
+paper. The fields, each where it is known:
+
+- the version of `paw` and of the wlroots it was built with, and as `running` the session's
+  where it runs another (a build installed since it started), or `a paw older than paw fetch`
+  where it cannot tell, which then gives only the frames drawn as `session`;
+- `profile`: the appearance profile in use and its `color_scheme`;
+- `session`: how long the compositor has run, and the frames it has drawn;
+- `frames`: how long a frame took on average, at most for 99 frames in a hundred (of the last
+  4096), and at worst;
+- `windows`: how many are open, on how many workspaces, and the tiling layout of the focused
+  monitor's workspace, or `floating`;
+- `monitors`: each one's connector, mode, scale, and HDR or 10-bit colour where it is drawn so;
+  one turned off says so, and a mirror names the monitor it shows;
+- `idle`: the timeouts of [power saving](#power-saving-when-idle)'s steps, and `inhibited`
+  while something holds them off, `dimmed`, `on battery`;
+- `night light`: the colour temperature while [night light](#effects) warms the screens,
+  `scheduled` while it waits; `mode`: the [binding mode](#binding-modes) outside the default;
+- `top app`: the application launched most from the shell (the `launches` file in paw's state
+  directory), by its desktop entry's name;
+- `sessions`: the [sessions](#sessions) saved.
+
+Outside a session (no `PAW_SOCKET`, or one that does not answer) it says `not in a paw
+session`, takes the profile and its colours from the configuration paw would start with
+(`--config PATH` names another; one with an error gives paw's own colours), and the rest from
+the state files. Through a pipe, with `--no-color`, or with `NO_COLOR` set, it writes no
+colours; `--no-logo` leaves the paw print out, as a terminal too narrow for it beside the
+fields does. It asks the session `paw msg get about`, a line each for the `version`, `wlroots`
+(the library's version), `uptime` (milliseconds) and `profile`, and `paw msg get palette`, the
+profile's `scheme`, `background`, `border` and `border_inactive` (each an angle and its
+colours), `urgent` and `shadow` colours as #RRGGBBAA, besides the queries above.
+
+### paw showcase
+
+`paw showcase` takes the screenshot to show the desktop off with, as an r/unixporn post has it:
+the terminal open among the windows with `paw fetch` in it. It saves the arrangement of the
+windows as the [session](#sessions) `showcase-PID`, opens the terminal the `terminal` action
+opens (the configuration's `terminal`, else `$TERMINAL`, else the first one installed;
+`--terminal COMMAND` names another) running `paw fetch` under the title `paw fetch`, with the
+text cursor hidden, and waits for its window to show, for the windows' animations to end and for
+`--delay SECONDS` more (1 by default). Then it takes the focused monitor, or `--output NAME`, with
+[`grim`](https://sr.ht/~emersion/grim/), the pointer's cursor hidden as the
+[screenshot action](#screenshots-and-screen-sharing) hides it, and saves the picture as
+`paw-showcase-YYYY-MM-DD-HHMMSS.png` in `$XDG_PICTURES_DIR` (from the environment or
+`user-dirs.dirs`, else `~/Pictures`), or as `-o FILE`, printing where. Last it closes the
+terminal, which puts the other windows back as they were; where something else changed
+meanwhile, the saved session restores them. Restoring a session tiles its windows again one by
+one, which can change the order of the tiles, so it is left out where closing the terminal was
+enough. The session is deleted either way, and `paw fetch` leaves it out of its `sessions` while
+it is there. With `--keep` the terminal stays open, handed to the user's shell, and the windows
+as they are. A failure, Ctrl+C, a hang-up or a TERM closes the terminal and puts the windows back
+the same way, leaving no picture.
+
+The terminal is given what to run after `-e`, as alacritty, ghostty, konsole and xterm take it;
+kitty and foot take it as it is, GNOME's terminals after `--` and WezTerm after `start --`. What
+runs in it ends as it reads a word from a pipe paw showcase holds, or as the pipe closes when paw
+showcase ends however it ends, and the terminal closes with it, so a terminal that keeps one
+process for all its windows (`kitty --single-instance`, `footclient`) closes the right window
+too.
+### paw top
+
+`paw top` shows what the compositor is doing, as htop shows a machine's processes: it looks at
+the running session four times a second and redraws the terminal until `q`, Escape or Ctrl+C. `p`
+pauses it, and `s` changes the order of the windows. A compositor that has not answered in two
+seconds is reported under the first line, and the keys still work.
+
+- The first line names the version, how long the compositor has run, how much of a processor it
+  used over the last second, how many monitors it drives and the appearance profile saved last.
+- Each monitor has a line with its mode, the frames it draws a second, and the average, 99th
+  percentile and worst time the compositor took to draw one of its last 512 frames: green under
+  half of the monitor's frame budget (its refresh interval), yellow up to all of it, red over
+  it. Under it a graph shows those frames, the newest on the right, against the scale on its
+  left.
+- Activity is what the compositor did each second: frames drawn, windows' commits, windows
+  placed by the layouts, pointer motions, reflows of the tiling and opacity rules matched, with
+  the time the frames, commits, motions and reflows took.
+- The table lists every window and layer surface (panels, the shell's) with the commits it makes
+  a second, the time the compositor spends handling them each second and on each one, its
+  workspace, its app ID or namespace, and its title, the most time first; `s` sorts them by
+  commits, by app ID or by workspace instead.
+
+The time a commit takes is the compositor's own work as it arrives (the window's frame, its
+glide to a new size, the panels' places), not the client's drawing nor the frame it brings; a
+popup's or a subsurface's commits (a video some players draw in one) are not counted. Rates are
+over the last second. `paw top --once` prints one look, its rates over one interval: as wide as
+the terminal, or where it does not print to one as `COLUMNS` says (else 100 columns) and without
+colours, as with `--no-color` or `NO_COLOR` set. `--interval MS` sets how often it looks (250
+ms). It reads `get stats`, `get outputs`, `get output_frames`, `get frame_times OUTPUT` and `get
+commits` (see [Control socket](#control-socket)); from a compositor older than it, the frame
+times and the table say they need a newer one.
+### paw shake, paw gravity, paw party
+
+Toys, for fun and to point at a window. `paw shake` wobbles the focused window from side to side
+for 400 milliseconds, a damped swing dying away: this one, I mean this one. `paw shake N` shakes
+the window numbered N instead (the numbers `paw msg get window_icons` lists), and bound to a mouse
+button it shakes the window under the pointer. `paw gravity` lets every window of the focused
+monitor's workspace fall to the bottom of its usable area: they pile up there and on each other,
+the lowest landing first, bounce a few times lower each time, squash a little as they come down,
+rest a moment and glide back up, about two seconds in all. A window resting on the bottom already,
+a tile, sinks a fifth of the monitor's height past it all the same, behind the bar, and the windows
+above land on it. `paw party` throws a party of four seconds on the focused monitor: its windows bob
+and wiggle out of step, their borders go round the rainbow, each in its own colour of the moment,
+and a couple of hundred pieces of confetti come down from the top, spinning, swaying and fading,
+over the windows and the panels. The binding actions `shake`, `gravity` and `party` do the same,
+as do `paw msg shake [N]` and the command palette.
+
+A toy only draws: it never moves a window, changes its size or tells its application anything,
+`paw msg get windows` saying the same before, during and after, and everything is as it was once it
+ends, a gradient border in its gradient again. One plays at a time, a new one ending the last. A
+window that closes (it fades out where it is drawn), moves, changes size, is grabbed, minimized or
+made fullscreen, or that another animation takes over, drops out of the toy at once, back in its
+place, and the toy ends as its monitor shows another workspace, as the overview opens and as the
+session locks. A window still in another animation as the toy begins joins it once that is over.
+Input goes where the windows really are, as during any animation, and a click while gravity holds
+them down sends them back up from where they are, so that what it reaches is what shows there next.
+The toys play whatever `animations.enabled` and `animations.speed` say, being asked for by name;
+paw has no setting for reduced motion. A window without a border bobs at a party without one.
+
+`paw msg get toys` prints a `toy` line, with the toy playing (`shake`, `gravity`, `party`, or
+`none`), how long it has played and how long it lasts in milliseconds, and its monitor and
+workspace; a `window` line for each window in it, with its number, its title, whether the toy
+draws it yet, the offset it is drawn at (x and y), how it is stretched (across and down, in
+thousandths) and its border's colour (`#rrggbb`, or `-` for its own); and a `confetti` line with
+how many pieces show. `tests/toys_smoke.py` tests them.
 ### paw rice
 
 A rice is a look to share: an appearance profile's settings and its pictures, in one file.
@@ -3105,7 +3315,9 @@ covers whole, as a fullscreen window does, is not offered, and each window is cu
 monitor. The `output` mode captures the monitor under the pointer and `window` the focused
 window's area as it appears on screen, including anything overlapping it. The cursor is left
 out: paw hides it while grim takes the picture (for a region, once slurp is done), since a
-monitor that draws it into its frames, as some drivers' do, would hand it to grim. It also
+monitor that draws it into its frames, as some drivers' do, would hand it to grim. A screenshot
+taken another way can hide it too: `paw msg cursor hide` hides it until `cursor show`, or for
+five seconds at most, as [paw showcase](#paw-showcase) does. It also
 copies the image to the clipboard with
 `wl-copy` and announces the file with `notify-send`, when they are installed. Lua
 `screenshots = { directory = "~/Shots", clipboard = false, notify = false }` changes that; in a

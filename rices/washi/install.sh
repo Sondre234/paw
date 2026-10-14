@@ -186,7 +186,7 @@ part_firefox() {
     for picture in washi.jpg sumi.jpg; do
         place "$here/wallpaper/$picture" "$data/paw-washi/wallpaper/$picture"
     done
-    say "restart Firefox to see it; the start page is $start/index.html"
+    say "restart Firefox to see it; to make the start page ($start/index.html) home, see user.js"
 }
 
 part_discord() {

@@ -49,14 +49,25 @@ static int screenshot_cursor_timeout(void *data) {
 }
 
 /* Hides the cursor until the screenshot ends: an output that draws it into its frames (a
- * software cursor, as the headless backend's and some drivers' are) would hand it to grim. */
-static void screenshot_hide_cursor(struct sh_server *server) {
+ * software cursor, as the headless backend's and some drivers' are) would hand it to grim. Also
+ * for one taken without the screenshot action ("cursor hide", as `paw showcase` takes one). */
+void screenshot_hide_cursor(struct sh_server *server) {
     cursor_hide(server);
     if (!server->screenshot.timer)
         server->screenshot.timer = wl_event_loop_add_timer(
             wl_display_get_event_loop(server->wl_display), screenshot_cursor_timeout, server);
     if (server->screenshot.timer)
         wl_event_source_timer_update(server->screenshot.timer, SCREENSHOT_CURSOR_MS);
+}
+
+/* "cursor show": the cursor back after a screenshot taken without the screenshot action, unless
+ * the action's own is still being taken. */
+void screenshot_show_cursor(struct sh_server *server) {
+    if (server->screenshot.pid > 0)
+        return;
+    if (server->screenshot.timer)
+        wl_event_source_timer_update(server->screenshot.timer, 0);
+    cursor_show(server);
 }
 
 /* A layer surface going. slurp's ("selection") goes once the region is chosen, leaving grim to
@@ -462,6 +473,11 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         break;
     case SH_TOGGLE_SHORTCUTS_INHIBIT:
         toggle_shortcuts_inhibit(server);
+        break;
+    case SH_SHAKE:
+    case SH_GRAVITY:
+    case SH_PARTY:
+        toys_start(server, action, argument);
         break;
     default:
         arrange_windows(server, action);

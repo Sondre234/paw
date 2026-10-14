@@ -6,6 +6,7 @@
 #include "paw/swipe.h"
 #include <array>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <regex>
 #include <span>
@@ -194,6 +195,15 @@ struct ShellConfig {
     bool macos_style = false;           // style = "macos": a menu bar and a dock
     int panel_height = 52;
     PanelEdge panel_edge = PanelEdge::Bottom; // panel_position
+    // panel_positions: the edge of a monitor's bar by the monitor's name, over panel_edge, while
+    // panel_per_monitor holds (a dragged bar then moves alone, writing its monitor's).
+    std::map<std::string, PanelEdge> panel_positions;
+    bool panel_per_monitor = true;
+    // The edge the bar on monitor `output` is along.
+    PanelEdge edge_of(const std::string &output) const {
+        auto it = panel_positions.find(output);
+        return panel_per_monitor && it != panel_positions.end() ? it->second : panel_edge;
+    }
     // panel_draggable: the taskbar is dragged by its empty space to another edge, and the
     // configuration file's panel_position follows.
     bool panel_draggable = false;
@@ -291,7 +301,7 @@ struct Config {
                          .gap_inner = 8,
                          .gap_outer = 8,
                          .smart_gaps = true,
-                         .lone_margin = 0,
+                         .lone_margin = {0, 0, 0, 0},
                          .floating_above_tiles = false,
                          .keyboard_layout = "us",
                          .keyboard_variant = "",

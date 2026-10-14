@@ -8,8 +8,12 @@
  * crossfades from what it drew before (morph.c). */
 static void xwayland_commit(struct wl_listener *listener, void *data) {
     struct sh_toplevel *toplevel = wl_container_of(listener, toplevel, commit);
-    if (!toplevel->unmanaged)
-        morph_commit(toplevel);
+    if (toplevel->unmanaged)
+        return;
+    uint64_t started = now_ns();
+    morph_commit(toplevel);
+    ++toplevel->commits;
+    toplevel->commit_ns += now_ns() - started;
 }
 
 /* X11 windows: managed ones behave like xdg toplevels; override-redirect ones

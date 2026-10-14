@@ -3,8 +3,9 @@
 /* Short window animations on the plain wlroots scene graph: a window fades in and grows
  * slightly when it opens, a snapshot of its last frame fades out and shrinks when it closes,
  * tiles glide to their new place when the layout changes, a window maximized, snapped or
- * restored glides to its new place and size together, and a window folds into its taskbar
- * button as it is minimized and out of it as it is restored.
+ * restored glides to its new place and size together, a window folds into its taskbar
+ * button as it is minimized and out of it as it is restored, and a toy draws a window off its
+ * place as it says from frame to frame.
  *
  * Each animation owns one scene tree and changes only what is below it: the tree's own
  * position (the glide), and the position, destination size, and opacity (or color, for
@@ -36,6 +37,13 @@ struct sh_fold {
      * nothing. */
     void (*update)(const struct sh_anim *anim, void *data);
     void *data;
+};
+
+/* How a toy (src/compositor/toys.c) draws a window off where it rests: its tree moved by
+ * (dx, dy), and its nodes stretched by (sx, sy) about (ax, ay) in tree coordinates, 1 for not at
+ * all, as a window squashed as it lands. */
+struct sh_pose {
+    double dx, dy, sx, sy, ax, ay;
 };
 
 /* One window's running animation, embedded in the window and zeroed with it. */
@@ -116,6 +124,15 @@ struct sh_anim {
      * the scratchpad's cut follows a window sliding past a bar. Set after starting. */
     void (*track)(void *data, bool done);
     void *track_data;
+    /* Posed by a toy (sh_anim_pose): drawn as `pose` says, from `base_x`, `base_y`, until it is
+     * let go or another animation starts on it, nothing else running meanwhile; `pose_update`
+     * follows a change of its stretch. In the animator's posed list while posed; `pose_rested`
+     * while a lookup has it at rest. */
+    bool posed, pose_rested;
+    struct wl_list pose_link;
+    struct sh_pose pose;
+    void (*pose_update)(void *data);
+    void *pose_data;
     struct sh_anim_record *records;
     size_t count, capacity;
 };
@@ -272,8 +289,8 @@ void sh_anim_lift(struct sh_animator *animator, struct sh_anim *anim, struct wlr
 void sh_anim_lift_bounds(struct sh_anim *anim, int x, int y, int width, int height);
 /* How far up the lift is drawn, 0 down to 1 up. */
 double sh_anim_lift_progress(const struct sh_anim *anim);
-/* Where the lift draws a box of the tree now (x, y, width, height), its edges where the animator
- * puts those of a node there. */
+/* Where the lift, or a pose's stretch, draws a box of the tree now (x, y, width, height), its
+ * edges where the animator puts those of a node there. */
 void sh_anim_lift_box(const struct sh_anim *anim, int box[4]);
 /* Windows lifted, or still settling. */
 size_t sh_animator_lifted(const struct sh_animator *animator);
@@ -305,6 +322,24 @@ bool sh_anim_drop_in(struct sh_animator *animator, struct sh_anim *anim,
                      struct wlr_scene_tree *tree, int dx, int dy);
 bool sh_anim_drop_out(struct sh_animator *animator, struct sh_anim *anim,
                       struct wlr_scene_tree *tree, int dx, int dy);
+/* The toys: `tree` drawn as `pose` says from where it rests now, taken again on each call, until
+ * sh_anim_unpose or another animation starting on `anim` puts it back at rest (sh_anim_posed
+ * then says false). Neither the clock, a late frame nor turning animations off moves it, and a
+ * lookup finds it at rest. `update` is called with `data` as the stretch changes, after the pose
+ * is taken and before the nodes are stretched, and once more as a stretched pose ends, for what
+ * follows them (the window's rounded clips, through sh_anim_lift_box). False, with nothing
+ * drawn, while anything else runs on `anim`, a lift included, or for a closing copy. */
+bool sh_anim_pose(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
+                  const struct sh_pose *pose, void (*update)(void *), void *data);
+/* Puts a posed tree back at rest, as it was before the pose. */
+void sh_anim_unpose(struct sh_anim *anim);
+/* The client is about to show what it drew: its surfaces (`surfaces`, in the posed tree) go back
+ * to rest, to be read afresh and stretched again by the next frame, since the scene gives a
+ * buffer its new size where the stretch put it, which would read as where it rests. Call before
+ * the scene takes in the new buffers. */
+void sh_anim_pose_commit(struct sh_anim *anim, struct wlr_scene_tree *surfaces);
+bool sh_anim_posed(const struct sh_anim *anim);
+size_t sh_animator_posed(const struct sh_animator *animator);
 /* The factor of its nodes' opacity the animation draws now: 1 at rest. */
 float sh_anim_alpha(const struct sh_anim *anim);
 /* Jumps to the end: every node gets its resting values and the tree its resting position. A

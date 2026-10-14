@@ -49,7 +49,7 @@ ink shadow on ink would vanish, and the start button is the neko's twin, a kuron
 | Wallpapers | [`wallpaper/`](wallpaper) | `washi.jpg` and `sumi.jpg` at 3840 by 2160, and `generate.py`, which draws them. |
 | kitty | [`kitty/`](kitty) | Both palettes, Maple Mono, padding, a sakura cursor trail, a quiet scrollbar and ink tabs. |
 | fastfetch | [`fastfetch/`](fastfetch) | The rose seal with the paw cut out, shown through kitty's graphics protocol, beside a spec sheet in a box. |
-| Firefox | [`firefox/`](firefox) | `userChrome.css` (the URL bar as a card, tabs as paper labels, menus framed in ink), `userContent.css` (the new tab and settings pages), `user.js`, and a start page: a big clock, a search card, stamped links and a trail of paw prints wherever you click. |
+| Firefox | [`firefox/`](firefox) | `userChrome.css` (the URL bar as a card, tabs as paper labels, menus framed in ink), `userContent.css` (the new tab and settings pages), `user.js`, and a start page you can make the home page in `user.js`: a big clock, a search card, stamped links and a trail of paw prints wherever you click. |
 | Discord | [`discord/washi.theme.css`](discord/washi.theme.css) | One theme for Vencord, Vesktop, Equicord, Equibop and BetterDiscord: Discord's light theme becomes washi and its dark ones sumi. |
 | Claude Code and cdeck | [`claude/`](claude) | Custom themes for Claude Code (`/theme`, then `custom:washi` or `custom:sumi`), which cdeck takes its colours from. |
 | Neovim and Helix | [`editors/`](editors) | Plugin-free colour schemes for both: ink text, orchid keywords, mint strings and sky-blue functions, comments pencilled in. |
@@ -92,12 +92,14 @@ Firefox and Discord show washi or sumi as the system's light or dark style says,
 profiles set that style themselves (`appearance.color_scheme`), so picking sumi in paw turns
 them to sumi too; in Discord, set Appearance to Sync with computer.
 
-Firefox picks the theme up when it restarts; its start page is the home page, and the new tab
-page is styled to match it (Firefox lets a setting change neither). Discord itself cannot load a
-theme: `install.sh` puts it in the themes folder of Vencord, Vesktop, Equicord, Equibop or
-BetterDiscord where one is installed, and you turn it on in their settings. Client mods are
-against Discord's terms. The theme loads Space Grotesk from Google Fonts; delete its `@import`
-line if the font is installed or you would rather Discord did not ask Google for it.
+Firefox picks the theme up when it restarts. The first tab and every new tab show Firefox's own
+new tab page, styled to match the start page; to open the start page itself at home instead,
+uncomment its line in `user.js` (new tabs stay as they are, as no setting points them at a
+file). Discord itself cannot load a theme: `install.sh` puts it in the themes folder of Vencord,
+Vesktop, Equicord, Equibop or BetterDiscord where one is installed, and you turn it on in their
+settings. Client mods are against Discord's terms. The theme loads Space Grotesk from Google
+Fonts; delete its `@import` line if the font is installed or you would rather Discord did not
+ask Google for it.
 
 ## What paw does for it
 

@@ -60,8 +60,8 @@ Item {
             bumping.restart()
         }
         transform: Translate {
-            x: Theme.barVertical ? 0 : pill.bumped
-            y: Theme.barVertical ? pill.bumped : 0
+            x: panel.vertical ? 0 : pill.bumped
+            y: panel.vertical ? pill.bumped : 0
         }
         SequentialAnimation {
             id: bumping
@@ -75,7 +75,7 @@ Item {
     Grid {
         id: buttons
         spacing: Theme.spacingXS
-        columns: Theme.barVertical ? 1 : Math.max(1, repeater.count)
+        columns: panel.vertical ? 1 : Math.max(1, repeater.count)
         Repeater {
             id: repeater
             model: workspaceIndicator.shown
@@ -92,9 +92,9 @@ Item {
                 // A number with room around it, or a name with a little more; along a side as wide
                 // as the bar leaves, a name cut short.
                 readonly property real narrowest: Theme.iconSize + Theme.spacingM
-                width: Theme.barVertical ? Theme.barButtonHeight - Theme.spacingS
+                width: panel.vertical ? Theme.barButtonHeight - Theme.spacingS
                      : label ? Math.max(narrowest, workspaceText.implicitWidth + 2 * Theme.spacingM) : narrowest
-                height: Theme.barVertical ? narrowest : Theme.barButtonHeight - Theme.spacingS
+                height: panel.vertical ? narrowest : Theme.barButtonHeight - Theme.spacingS
                 onClicked: { workspaceIndicator.panel.closeMenus(); workspaceIndicator.show(number) }
                 // Resting on it shows its card, whatever the platform thinks of hover.
                 hoverEnabled: true
@@ -142,7 +142,7 @@ Item {
                     Text {
                         id: workspaceText
                         anchors.centerIn: parent
-                        width: Theme.barVertical ? Math.min(implicitWidth, parent.width - Theme.spacingXS) : implicitWidth
+                        width: panel.vertical ? Math.min(implicitWidth, parent.width - Theme.spacingXS) : implicitWidth
                         elide: Text.ElideRight
                         text: workspaceButton.label ? workspaceButton.label : workspaceButton.number
                         color: workspaceButton.urgent && !workspaceButton.current ? Theme.urgent : workspaceButton.current ? Theme.accent : Theme.text

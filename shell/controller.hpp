@@ -63,22 +63,22 @@ class ShellController : public QObject {
     // shell.panel_height, or while the bar is resized by its inner edge (barResizing) the height it
     // is dragged to; panelSizeChanged comes with each change, and with every configChanged.
     Q_PROPERTY(int panelHeight READ panelHeight NOTIFY panelSizeChanged)
-    Q_PROPERTY(bool panelTop READ panelTop NOTIFY configChanged)
-    // The output's edge the panel's surface is along, "top", "bottom", "left" or "right": as
-    // shell.panel_position says, but for the macOS style's dock, which is at the bottom; and
-    // whether that is a side, along which the bar stands upright.
-    Q_PROPERTY(QString panelEdge READ panelEdge NOTIFY configChanged)
-    Q_PROPERTY(bool panelVertical READ panelVertical NOTIFY configChanged)
+    // Where each output's bar goes (its edge, the strip it reserves) is its ShellView's to say:
+    // panelEdge and the rest below for that output.
     // shell.panel_draggable: whether the taskbar can be dragged to another edge, and resized by
-    // its inner edge (not the macOS style's dock). While it is dragged, the compositor has the
-    // pointer and tells where it is, and every panel shows where the bar would go: barDragEdge,
-    // the edge nearest the pointer on the output it is over. While it is resized (barResizing),
-    // every bar is as tall as panelHeight says.
+    // its inner edge (not the macOS style's dock). While one is dragged, the compositor has the
+    // pointer and tells where it is: the bar is barDragOutput's, and would go to barDragEdge, the
+    // edge of that output nearest the pointer. With panelPerMonitor (shell.panel_per_monitor) it
+    // moves alone, and its panel alone shows where it would go; else every monitor's bar moves,
+    // and every panel shows it. While it is resized (barResizing), every bar is as tall as
+    // panelHeight says.
     Q_PROPERTY(bool panelDraggable READ panelDraggable NOTIFY configChanged)
+    Q_PROPERTY(bool panelPerMonitor READ panelPerMonitor NOTIFY configChanged)
     // shell.panel_dock: when a floating taskbar docks: "always" while a window reaches its edge,
     // "maximized" only while one fills a monitor that does not tile, or "never".
     Q_PROPERTY(QString panelDock READ panelDock NOTIFY configChanged)
     Q_PROPERTY(bool barDragging READ barDragging NOTIFY barDragChanged)
+    Q_PROPERTY(QString barDragOutput READ barDragOutput NOTIFY barDragChanged)
     Q_PROPERTY(QString barDragEdge READ barDragEdge NOTIFY barDragChanged)
     Q_PROPERTY(bool barResizing READ barResizing NOTIFY barDragChanged)
     // shell.mirror_menus: whether the bar's right-click menus run in reverse along the top.
@@ -87,8 +87,6 @@ class ShellController : public QObject {
     Q_PROPERTY(int panelMarginRight READ panelMarginRight NOTIFY configChanged)
     Q_PROPERTY(int panelMarginBottom READ panelMarginBottom NOTIFY configChanged)
     Q_PROPERTY(int panelMarginLeft READ panelMarginLeft NOTIFY configChanged)
-    Q_PROPERTY(int panelExtent READ panelExtent NOTIFY panelSizeChanged)
-    Q_PROPERTY(int panelHeadroom READ panelHeadroom NOTIFY panelSizeChanged)
     Q_PROPERTY(int panelRadius READ panelRadius NOTIFY configChanged)
     // shell.frame = "windows": the bar, the dock and the popups framed as the windows are, by
     // windows.border_width in border_inactive_color (a gradient's first colour) and, while
@@ -262,9 +260,15 @@ class ShellController : public QObject {
     Q_INVOKABLE void pickWallpaper(const QString &path);
     QString style() const { return config_.shell.macos_style ? "macos" : "taskbar"; }
     int panelHeight() const { return barResizing_ ? barResizeHeight_ : config_.shell.panel_height; }
+    // Whether shell.panel_position, the edge of the bars of the monitors without one of their
+    // own, is the top.
     bool panelTop() const { return config_.shell.panel_edge == paw::PanelEdge::Top; }
-    paw::PanelEdge panelSurfaceEdge() const {
-        return config_.shell.macos_style ? paw::PanelEdge::Bottom : config_.shell.panel_edge;
+    // The edge of the bar on output `output` (by its name; none for the monitors without an edge
+    // of their own): shell.panel_positions' entry for it over shell.panel_position
+    // (shell.panel_per_monitor), but for the macOS style's dock, which is at the bottom.
+    paw::PanelEdge panelSurfaceEdge(const QString &output = {}) const {
+        return config_.shell.macos_style ? paw::PanelEdge::Bottom
+                                         : config_.shell.edge_of(output.toStdString());
     }
     bool panelDraggable() const {
         return config_.shell.panel_draggable && !config_.shell.macos_style;
@@ -276,53 +280,58 @@ class ShellController : public QObject {
         default: return "always";
         }
     }
+    bool panelPerMonitor() const { return config_.shell.panel_per_monitor; }
     bool barDragging() const { return barDragging_; }
+    QString barDragOutput() const { return barDragOutput_; }
     QString barDragEdge() const { return barDragEdge_; }
-    // Asks the compositor to take the pointer for a drag of the bar, the left button held on it
-    // (`panel_drag`): it says "panel-drag OUTPUT EDGE" as the edge nearest the pointer changes,
-    // and "panel-dropped OUTPUT EDGE" as the button is let go, which moves the bar there
-    // (movePanel), or "panel-drag-cancelled", which leaves it, after cancelBarDrag (Escape).
-    Q_INVOKABLE void startBarDrag();
+    // Asks the compositor to take the pointer for a drag of `output`'s bar, the left button held
+    // on it (`panel_drag OUTPUT`): it says "panel-drag OUTPUT EDGE" as the edge of that output
+    // nearest the pointer changes, and "panel-dropped OUTPUT EDGE" as the button is let go, which
+    // moves the bar there (movePanel), or "panel-drag-cancelled", which leaves it, after
+    // cancelBarDrag (Escape).
+    Q_INVOKABLE void startBarDrag(const QString &output);
     Q_INVOKABLE void cancelBarDrag();
     bool barResizing() const { return barResizing_; }
-    // Asks the compositor to take the pointer for a resize of the bar, the left button held on
-    // its inner edge `distance` logical pixels from the output's edge the bar is along
+    // Asks the compositor to take the pointer for a resize of `output`'s bar, the left button
+    // held on its inner edge `distance` logical pixels from the output's edge the bar is along
     // (`panel_drag resize EDGE`): it says "panel-resize OUTPUT DISTANCE" as the pointer's
     // distance from that edge changes, which sizes every bar by as much as the pointer moved
     // since the press, within shell.panel_height's range, and "panel-resized OUTPUT DISTANCE" as
     // the button is let go, which keeps that size (resizePanel), or "panel-drag-cancelled",
     // which puts the old one back, after cancelBarDrag (Escape).
-    Q_INVOKABLE void startBarResize(int distance);
-    // Moves the taskbar to `edge` ("top", "bottom", "left" or "right"): writes it as
-    // shell.panel_position into the configuration file, where it takes effect (the profile in use
-    // when that sets it), and loads the file again, as the compositor does once it sees the file
-    // change. A failure leaves the file as it was and is shown across the panel.
-    Q_INVOKABLE void movePanel(const QString &edge);
+    Q_INVOKABLE void startBarResize(const QString &output, int distance);
+    // Moves the taskbar on `output` to `edge` ("top", "bottom", "left" or "right"): writes it
+    // into the configuration file, as output's shell.panel_positions entry with panelPerMonitor,
+    // else as shell.panel_position, where it takes effect (the profile in use when that sets it),
+    // and loads the file again, as the compositor does once it sees the file change. A failure
+    // leaves the file as it was and is shown across the panel.
+    Q_INVOKABLE void movePanel(const QString &output, const QString &edge);
     // Sizes the taskbar to `height` pixels (its width down a side), as movePanel moves it:
     // writes it as shell.panel_height where it takes effect and loads the file again.
     Q_INVOKABLE void resizePanel(int height);
-    QString panelEdge() const;
-    bool panelVertical() const {
-        return panelSurfaceEdge() == paw::PanelEdge::Left ||
-               panelSurfaceEdge() == paw::PanelEdge::Right;
+    // panelSurfaceEdge's name, "top", "bottom", "left" or "right", and whether it is a side,
+    // along which the bar stands upright.
+    QString panelEdge(const QString &output = {}) const;
+    bool panelVertical(const QString &output = {}) const {
+        return panelSurfaceEdge(output) == paw::PanelEdge::Left ||
+               panelSurfaceEdge(output) == paw::PanelEdge::Right;
     }
     bool mirrorMenus() const { return config_.shell.mirror_menus; }
     int panelMarginTop() const { return config_.shell.panel_margin[0]; }
     int panelMarginRight() const { return config_.shell.panel_margin[1]; }
     int panelMarginBottom() const { return config_.shell.panel_margin[2]; }
     int panelMarginLeft() const { return config_.shell.panel_margin[3]; }
-    // The strip the panel reserves: the bar and the margins on either side of it, across it.
-    int panelExtent() const {
-        return panelHeight() + (panelVertical() ? panelMarginLeft() + panelMarginRight()
-                                                : panelMarginTop() + panelMarginBottom());
+    // The strip the panel on `output` reserves: the bar and the margins on either side of it,
+    // across it.
+    int panelExtent(const QString &output = {}) const {
+        return panelHeight() + (panelVertical(output) ? panelMarginLeft() + panelMarginRight()
+                                                      : panelMarginTop() + panelMarginBottom());
     }
-    // Whether the panel's surface lies along the output's top edge (panelEdge).
-    bool panelSurfaceTop() const { return panelSurfaceEdge() == paw::PanelEdge::Top; }
-    // The room the panel's surface has past the strip it reserves, towards the middle of the
-    // output, which takes no input: the dock's, for an icon to bounce in, and a floating bar's
-    // framed as windows are (shell.frame) for its shadow to fall into, as far as the shadow
+    // The room the panel's surface on `output` has past the strip it reserves, towards the middle
+    // of the output, which takes no input: the dock's, for an icon to bounce in, and a floating
+    // bar's framed as windows are (shell.frame) for its shadow to fall into, as far as the shadow
     // reaches past the bar less the margin on that side; none otherwise.
-    int panelHeadroom() const;
+    int panelHeadroom(const QString &output = {}) const;
     // How far below the bars the command palette opens on an output `height` tall: a sixth of
     // it, or a quarter in the macOS style, where Spotlight opens.
     int paletteDrop(int height) const { return height / (config_.shell.macos_style ? 4 : 6); }
@@ -646,7 +655,7 @@ class ShellController : public QObject {
     QString error_;
     QString configError_;
     bool barDragging_ = false;
-    QString barDragEdge_;
+    QString barDragOutput_, barDragEdge_;
     // A resize of the bar (startBarResize): the pointer's distance from the bar's edge of the
     // output as it was pressed (-1 while none is asked for or under way), shell.panel_height
     // then, and the height it is dragged to.

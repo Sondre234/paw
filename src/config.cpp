@@ -497,6 +497,10 @@ void read_tiling_bar(lua_State *L, TilingBar &bar) {
     }
     lua_pop(L, 1);
 }
+// The edges a bar can be along, as shell.panel_positions names them.
+constexpr std::pair<std::string_view, PanelEdge> panel_edges[] = {
+    {"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
+    {"right", PanelEdge::Right}};
 void read_shell(lua_State *L, ShellConfig &shell) {
     Section section(L, "shell");
     if (!section)
@@ -509,6 +513,32 @@ void read_shell(lua_State *L, ShellConfig &shell) {
           {{"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
            {"right", PanelEdge::Right}},
           "panel_position must be \"top\", \"bottom\", \"left\" or \"right\"");
+    boolean(L, "panel_per_monitor", "shell.panel_per_monitor", shell.panel_per_monitor);
+    // { ["DP-1"] = "left", ... }: an edge for each monitor named.
+    lua_getfield(L, -1, "panel_positions");
+    if (!lua_isnil(L, -1)) {
+        table(L, -1, "shell.panel_positions");
+        Named in("shell.panel_positions");
+        const int index = lua_absindex(L, -1);
+        lua_pushnil(L);
+        while (lua_next(L, index)) {
+            if (lua_type(L, -2) != LUA_TSTRING)
+                fail("shell.panel_positions is keyed by output name, e.g. [\"DP-1\"] = \"left\"");
+            const std::string name = lua_tostring(L, -2);
+            if (name.empty())
+                fail("output name is empty");
+            const auto edge = string(L, -1, ("shell.panel_positions[\"" + name + "\"]").c_str());
+            auto found = std::find_if(std::begin(panel_edges), std::end(panel_edges),
+                                      [&](const auto &entry) { return entry.first == edge; });
+            if (found == std::end(panel_edges))
+                fail("shell.panel_positions[\"" + name +
+                         "\"] must be \"top\", \"bottom\", \"left\" or \"right\"",
+                     "=" + edge);
+            shell.panel_positions[name] = found->second;
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
     boolean(L, "panel_draggable", "shell.panel_draggable", shell.panel_draggable);
     // true, false or "maximized".
     lua_getfield(L, -1, "panel_dock");
@@ -1684,7 +1714,24 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         config.settings.gap_inner = integer(L, "gap_inner", gap, 0, 100);
         config.settings.gap_outer = integer(L, "gap_outer", gap, 0, 100);
         boolean(L, "smart_gaps", "layout.smart_gaps", config.settings.smart_gaps);
-        config.settings.lone_margin = integer(L, "lone_margin", 0, 0, 400);
+        // One number for every side, or { top, right, bottom, left } by name, the sides left
+        // out 0.
+        lua_getfield(L, -1, "lone_margin");
+        if (lua_isinteger(L, -1)) {
+            auto margin = lua_tointeger(L, -1);
+            if (margin < 0 || margin > 400)
+                out_of_range("lone_margin", static_cast<double>(margin), 0, 400);
+            for (auto &side : config.settings.lone_margin)
+                side = static_cast<int>(margin);
+        } else if (!lua_isnil(L, -1)) {
+            table(L, -1, "layout.lone_margin");
+            keys(L, -1, "layout.lone_margin");
+            Named margin("layout.lone_margin");
+            int index = 0;
+            for (const char *side : {"top", "right", "bottom", "left"})
+                config.settings.lone_margin[index++] = integer(L, side, 0, 0, 400);
+        }
+        lua_pop(L, 1);
         boolean(L, "floating_above_tiles", "layout.floating_above_tiles",
                 config.settings.floating_above_tiles);
         boolean(L, "tiling", "layout.tiling", config.settings.tiling);
@@ -2008,6 +2055,9 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"media_next", SH_MEDIA_NEXT},
         {"media_previous", SH_MEDIA_PREVIOUS},
         {"media_stop", SH_MEDIA_STOP},
+        {"shake", SH_SHAKE},
+        {"gravity", SH_GRAVITY},
+        {"party", SH_PARTY},
 };
 } // namespace
 

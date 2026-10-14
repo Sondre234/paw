@@ -20,6 +20,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     // where they have the windows.
     if (tick_effects(output->server))
         wlr_output_schedule_frame(output->wlr_output);
+    toys_tick(output->server); // poses the windows a toy plays with, which the animator draws
     sh_animator_tick(output->server->animator);
     overview_touch(output->server, false); // windows that move or fade move their thumbnails
     // Whatever moved a window against an edge of the usable area or away from it drew a frame
@@ -66,6 +67,11 @@ static void output_frame(struct wl_listener *listener, void *data) {
     stats->frame_us[slot] = (uint32_t)(spent / 1000);
     stats->interval_us[slot] = stats->last_frame_ns ? (uint32_t)((started - stats->last_frame_ns) / 1000) : 0;
     stats->last_frame_ns = started;
+    size_t own = (output->frames - 1) % SH_OUTPUT_FRAMES;
+    uint64_t since = output->last_frame_ns ? (started - output->last_frame_ns) / 1000 : 0;
+    output->frame_us[own] = (uint32_t)(spent / 1000);
+    output->interval_us[own] = since < UINT32_MAX ? (uint32_t)since : UINT32_MAX;
+    output->last_frame_ns = started;
 
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);

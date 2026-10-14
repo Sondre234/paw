@@ -180,7 +180,7 @@ QColor ShellController::urgentColor() const {
     const auto &c = config_.settings.urgent_color;
     return c[3] > 0 ? unpremultiplied(c) : QColor();
 }
-int ShellController::panelHeadroom() const {
+int ShellController::panelHeadroom(const QString &output) const {
     const auto &shell = config_.shell;
     const auto &settings = config_.settings;
     if (shell.macos_style)
@@ -193,7 +193,7 @@ int ShellController::panelHeadroom() const {
     // A bar along the top casts its shadow down, into the output; one along the bottom, up; one
     // along a side, across. The margin on the side towards the middle is room it has already.
     int inwards = 0, margin = 0;
-    switch (shell.panel_edge) {
+    switch (panelSurfaceEdge(output)) {
     case paw::PanelEdge::Top:
         inwards = settings.shadow_y, margin = shell.panel_margin[2];
         break;
@@ -209,8 +209,8 @@ int ShellController::panelHeadroom() const {
     }
     return std::max(0, settings.shadow_blur + std::max(0, inwards) - margin);
 }
-QString ShellController::panelEdge() const {
-    switch (panelSurfaceEdge()) {
+QString ShellController::panelEdge(const QString &output) const {
+    switch (panelSurfaceEdge(output)) {
     case paw::PanelEdge::Top:
         return "top";
     case paw::PanelEdge::Left:
@@ -549,11 +549,11 @@ void ShellController::report(const QString &message) {
             clearError();
     });
 }
-void ShellController::startBarDrag() {
+void ShellController::startBarDrag(const QString &output) {
     if (!panelDraggable() || barDragging_)
         return;
     // Refused once the button is let go, or while the pointer is busy: then there is no drag.
-    ask("panel_drag\n", [](const QByteArray &reply) {
+    ask(("panel_drag " + output + "\n").toUtf8(), [](const QByteArray &reply) {
         if (!reply.startsWith("ok"))
             std::cerr << "paw taskbar not dragged: " << reply.trimmed().toStdString() << '\n';
     });
@@ -562,11 +562,11 @@ void ShellController::cancelBarDrag() {
     if (barDragging_ || barResizing_)
         ask("panel_drag cancel\n", [](const QByteArray &) {});
 }
-void ShellController::startBarResize(int distance) {
+void ShellController::startBarResize(const QString &output, int distance) {
     if (!panelDraggable() || barDragging_ || barResizing_)
         return;
     barResizeFrom_ = distance;
-    ask("panel_drag resize " + panelEdge().toUtf8() + "\n", [this](const QByteArray &reply) {
+    ask("panel_drag resize " + panelEdge(output).toUtf8() + "\n", [this](const QByteArray &reply) {
         if (reply.startsWith("ok"))
             return;
         std::cerr << "paw taskbar not resized: " << reply.trimmed().toStdString() << '\n';
@@ -630,30 +630,41 @@ void ShellController::handleBarDrag(const QString &line) {
     }
     const bool dropped = words[0] == "panel-dropped";
     barDragging_ = words[0] == "panel-drag" && words.size() == 3;
-    if (words.size() == 3)
+    if (words.size() == 3) {
+        barDragOutput_ = words[1];
         barDragEdge_ = words[2];
+    }
     Q_EMIT barDragChanged();
     if (dropped && words.size() == 3)
-        movePanel(words[2]);
+        movePanel(words[1], words[2]);
 }
-void ShellController::movePanel(const QString &edge) {
+void ShellController::movePanel(const QString &output, const QString &edge) {
     static const std::map<QString, paw::PanelEdge> edges{{"top", paw::PanelEdge::Top},
                                                          {"bottom", paw::PanelEdge::Bottom},
                                                          {"left", paw::PanelEdge::Left},
                                                          {"right", paw::PanelEdge::Right}};
     const auto it = edges.find(edge);
-    if (it == edges.end() || it->second == config_.shell.panel_edge)
+    const auto name = output.toStdString();
+    if (it == edges.end() || output.isEmpty() || it->second == config_.shell.edge_of(name))
         return;
+    // That monitor's entry, or the edge of every monitor.
+    const bool alone = config_.shell.panel_per_monitor;
+    const std::vector<std::string> setting =
+        alone ? std::vector<std::string>{"shell", "panel_positions", name}
+              : std::vector<std::string>{"shell", "panel_position"};
     try {
-        paw::save_setting(path_, {"shell", "panel_position"}, '"' + edge.toStdString() + '"',
+        paw::save_setting(path_, setting, '"' + edge.toStdString() + '"',
                           [&](const paw::Config &config) {
-                              return config.shell.panel_edge == it->second;
+                              return config.shell.panel_per_monitor == alone &&
+                                     (alone ? config.shell.edge_of(name)
+                                            : config.shell.panel_edge) == it->second;
                           });
     } catch (const std::exception &error) {
         report("Could not move the taskbar: " + QString::fromUtf8(error.what()));
         return;
     }
-    std::cerr << "paw taskbar moved to the " << edge.toStdString() << " edge\n";
+    std::cerr << "paw taskbar " << (alone ? "on " + name : std::string("of every monitor"))
+              << " moved to the " << edge.toStdString() << " edge\n";
     // At once, rather than waiting for the compositor, which reloads too while it watches the file.
     reload();
 }

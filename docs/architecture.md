@@ -74,7 +74,7 @@ all. In short:
 | `display_mode.c` | The display_mode action (Windows' Win+P): extend, duplicate, internal, external, and the popup that steps through them. |
 | `display_settings.c` | The display settings window's monitors: the settings it kept (`src/output_state.c`), laid over `outputs.monitors`, the primary monitor, `get monitors`, and `monitors apply` trying every monitor's settings at once, kept or taken back. |
 | `layer_shell.c` | Panels and other layer surfaces. |
-| `panel_drag.c` | The taskbar dragged to another edge, or by its inner edge to resize it (`shell.panel_draggable`): `panel_drag` takes the pointer while the left button is held, as a window move does, and tells the shell the edge nearest it, or for `panel_drag resize EDGE` the pointer's distance from that edge, and where it is let go. |
+| `panel_drag.c` | The taskbar dragged to another edge, or by its inner edge to resize it (`shell.panel_draggable`): `panel_drag OUTPUT` takes the pointer while the left button is held, as a window move does, and tells the shell the edge of that monitor nearest it, or for `panel_drag resize EDGE` the pointer's distance from that edge, and where it is let go. |
 | `group.c`, `scratchpad.c`, `swallow.c`, `switcher.c`, `overview.c`, `session.c` | One feature each. `session.c` also saves a login session as `last` as it ends (`session_save_last`, from the power actions and quit) and restores it after `startup` (`session_restore_last`, from `sh_run`), asking `sh_callbacks.started` which missing windows startup and autostart will open. |
 | `switches.c` | Switch devices: the lid turning a laptop's panel off and on (clamshell), switches' bindings. |
 | `effects.c` | Dimming, peeking at the desktop or at one window, night light, magnifier, hot corners. |
@@ -91,6 +91,7 @@ all. In short:
 | `volume.c` | The volume, microphone and brightness actions, which the shell carries out. |
 | `binding_mode.c` | Binding modes: which set of key bindings is in use. |
 | `shortcuts_inhibit.c` | Keyboard shortcuts inhibitors (keyboard-shortcuts-inhibit-unstable-v1): the keys the bindings take going to a virtual machine, a remote desktop or a game while it has the keyboard. |
+| `toys.c` | Toys, which only draw: `shake`, `gravity` and `party` posing windows through the animator, a party's rainbow borders and confetti, each window let go as anything else happens to it; `get toys`. |
 | `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
@@ -549,6 +550,18 @@ border along the cut. `paw msg get scratchpad` lists each window's drop, offset,
 the clip its content is drawn with and its radius, and the border's rounded rect, and
 `tests/scratchpad_drop_smoke.py` tests them.
 
+The same cut keeps a tile of the scrolling layout to its monitor, whose columns lie on a strip
+wider than it, past edges where other monitors would show them. `bound_tile` (`placement.c`, from
+`place_tiled` and wherever a window leaves the tiling) sets the window's `bounded` and `bound`,
+its monitor's box. While the frame, where it is drawn, crosses that box's edges, `cut_box`
+intersects each clip with it, square, and `place_tiled` sets the glide's `track` so the cut
+follows each frame. At rest wholly past the edges, `content` is disabled, so the other monitor
+neither draws it nor sends the surface its enter, scale and frames, and `scene_node_at`
+(`cursor.c`) looks again past a bounded tile at a point outside its bound, as it does through a
+border's hole. A tile inside its bound is not clipped at all, so a fullscreen one still scans
+out. `paw msg get bounds` lists each window's bound, whether its content is drawn and its clip,
+and `tests/scroll_bound_smoke.py` tests them.
+
 ### Monitors turned off
 
 An output in `outputs` (the layout) may be `powered_off` (`output_power.c`): its `wlr_output` is
@@ -790,6 +803,47 @@ destroyed (before an empty layout would end a nested or headless session). Each 
 as input and runs the binding `sh_callbacks.switch_toggled` returns. Under `--headless`,
 `headless_switch` adds switches for the tests (`headless_input.c`, `lid_smoke`).
 
+### Toys
+
+`toys.c` plays `shake`, `gravity` and `party` (`toys_start`, from the actions; `toys_shake` shakes
+a given window, for other code to point at one). One toy plays at a time, `server->toys`, its
+state private to the file; a new one ends the last (`toys_end`). Its arithmetic is
+`src/toys.c` (`paw/toys.h`, tested by `toys_tests`): the shake's damped swing, a fall's bounces and
+squash (`sh_fall_plan`), where windows pile up (`sh_pile`, the lowest landing first, on the floor
+or on the windows landed below it, sinking a share of the usable height past the floor when they
+rest on it already, so that tiles fall too), a party's bob and rainbow, and confetti stepped
+through gravity and air (`sh_confetti_step`).
+
+A toy draws a window through the animator's pose (`sh_anim_pose`, `src/animation.c`): `content`
+moved by an offset from where it rests and its nodes stretched about a point, as the toy says on
+each call, through the same records the other animations use. A pose runs alone: it is refused
+while anything else runs on the window (a window opening or gliding joins the toy once that is
+over), and any animation starting on it (`start`, a hold, a lift, `sh_anim_finish`) puts it back at
+rest first, telling its owner through `sh_anim_posed`. The clock, a late frame and turning
+animations off leave it alone, so that toys play with animations off. Lookups put posed windows at
+rest as they do running ones (`rest_poses`), so input goes where windows really are, and each tick
+draws the pose again over what clients and `refresh_frame` set. A stretch calls the pose's update,
+`refresh_frame`, before the nodes are stretched, and `sh_anim_lift_box` maps a box through it as
+it does through a lift, so that the rounded clips (`lift_box`) follow a squash; `morph_commit`
+calls `sh_anim_pose_commit`, which puts the client's surfaces back at rest before the scene takes in
+a commit, which gives a buffer its new size where the stretch had put it.
+
+`toys_tick` moves the toy on from `output_frame`, before the animator, and from a timer of its own
+every 16 ms while one plays. Each window plays while it is as it was when the toy began
+(`still_plays`: shown, mapped, not fullscreen nor grabbed, at the same place and size, its monitor
+showing the same workspace, and still posed once posed); otherwise `let_go` unposes it and draws
+its frame again. The toy ends at its time, when no window is left (but a party, whose confetti
+plays on), when its monitor shows another workspace or goes, as the overview opens, and as the
+session locks (`server_new_lock`). `unmap_toplevel` calls `toys_forget` after the closing copy is
+made, so that a window closes where the toy drew it. A party colours the border through
+`toys_border`, which `refresh_frame` asks for after the focus fade: a colour in the border's rects
+in place of a gradient's pieces, which come back as the party lets the window go. Its confetti is
+a `wlr_scene_rect` per piece in a tree just above `fullscreen_cover`, which `scene_node_at` hides
+from its lookups (`toys_confetti`). A button pressed while gravity holds windows down
+(`toys_press`, from `server_cursor_button`) sends them back up from where they are drawn. `get
+toys` (`describe_toys`) says what plays, and `tests/toys_smoke.py` tests it; `paw shake`, `paw
+gravity` and `paw party` are `src/cli/toys.cpp`.
+
 ## The shell (`shell/`)
 
 `ShellController` (`controller.cpp`) loads the configuration, keeps the compositor's state from
@@ -828,16 +882,19 @@ one of the dock (an application's menu, the windows of one) by `panel.dockAnchor
 `panel.dockSide`, which on the taskbar are the bar's. A change of style makes and drops the
 bars, and the surfaces follow at once.
 
-Along a side (`shell.panelEdge` "left" or "right", `panel.vertical`), the panel's surface runs down
-the output and the taskbar stands upright: its `GridLayout` is a column, and the widgets stack what
-they show by `Theme.barVertical`, a button `Theme.barItemWidth` by `barItemHeight`. A popup's place
-along the bar is then a y: `panel.alongBar(item, offset)` and `panel.lengthAlong(item)` say where
-something on the bar is along it, which `barAnchor` and `dockAnchor` turn into the rectangle a popup
-opens beside, on `popupSide`. A drag of the bar to another edge (`shell.panel_draggable`) asks the
-compositor for the pointer (`panel_drag`, `src/compositor/panel_drag.c`), as a window's move takes
-it: a surface the pointer went on to would never hear the button let go. The `panel-drag` lines it
-sends move the outline every panel's popover shows, taking no input, and `panel-dropped` has
-`ShellController::movePanel` write `shell.panel_position` with `paw::save_setting`
+Each monitor's bar has its own edge (`shell.panel_positions` over `panel_position`), which its
+`ShellView` says as `panelEdge`, with `panelVertical`, `panelExtent` and `panelHeadroom`; the panel
+reads them as `panel.edge` and the rest. Along a side (`panel.vertical`), the panel's surface runs
+down the output and the taskbar stands upright: its `GridLayout` is a column, and the widgets stack
+what they show by `panel.vertical`, a button `panel.barItemWidth` by `barItemHeight`. A popup's
+place along the bar is then a y: `panel.alongBar(item, offset)` and `panel.lengthAlong(item)` say
+where something on the bar is along it, which `barAnchor` and `dockAnchor` turn into the rectangle a
+popup opens beside, on `popupSide`. A drag of the bar to another edge (`shell.panel_draggable`) asks
+the compositor for the pointer (`panel_drag OUTPUT`, `src/compositor/panel_drag.c`), as a window's
+move takes it: a surface the pointer went on to would never hear the button let go. The
+`panel-drag` lines it sends move the outline the dragged bar's popover shows (every panel's while
+every bar moves), taking no input, and `panel-dropped` has `ShellController::movePanel` write the
+monitor's `shell.panel_positions` entry, or `shell.panel_position`, with `paw::save_setting`
 (`src/config_edit.cpp`) and load the file again.
 
 A press on the bar's inner edge (the `barResizeEdge` strip in `Taskbar.qml`, under the same

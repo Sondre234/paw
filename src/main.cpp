@@ -585,6 +585,18 @@ struct Runtime {
                     throw std::runtime_error(
                         words[0] + " takes a window's place in the list, from 1");
                 *argument = number;
+            } else if (action == SH_SHAKE && words.size() == 2) {
+                // A window's number, as `get window_icons` lists it.
+                std::size_t used = 0;
+                int number = 0;
+                try {
+                    number = std::stoi(words[1], &used);
+                } catch (const std::logic_error &) {
+                }
+                if (used != words[1].size() || number < 1)
+                    throw std::runtime_error("shake takes a window's number, from 1, or none "
+                                             "for the focused window");
+                *argument = number;
             } else if (words.size() != 1) {
                 throw std::runtime_error(words[0] + " takes no argument");
             }
@@ -1036,6 +1048,16 @@ void usage() {
            "paw msg get workspace|workspaces|tiling|windows|outputs|animations prints its state.\n"
            "paw import [--config PATH] [--dry-run] DIR writes theme.lua beside the\n"
            "configuration from the Hyprland, Waybar, wallbash, and pywal files in DIR.\n"
+           "paw doctor [--plain] [--no-color] checks the session for what often goes wrong\n"
+           "and says how to fix each; it changes nothing.\n"
+           "paw fetch [--no-logo] [--no-color] shows a paw print in the profile's colours,\n"
+           "and beside it the session's uptime, frames, windows and monitors.\n"
+           "paw showcase [--delay SECONDS] [--keep] [--output NAME] [-o FILE] takes a\n"
+           "screenshot with paw fetch open in a terminal, then puts the windows back.\n"
+           "paw top [--once] [--interval MS] [--no-color] shows the session's frames, its work\n"
+           "and the windows that make it, as htop shows processes.\n"
+           "paw shake [WINDOW] wobbles the focused window, or that numbered one; paw gravity\n"
+           "drops the windows to the bottom and back; paw party throws one. They only draw.\n"
            "paw rice pack [PROFILE] [-o FILE] packs a profile's look, its pictures with it, into\n"
            "one file to share; paw rice try FILE|DIR|URL tries one on, the previous look coming\n"
            "back in 15 seconds unless paw rice keep keeps it (paw rice revert at once);\n"
@@ -1050,6 +1072,13 @@ struct Subcommand {
 const Subcommand subcommands[] = {
     {"msg", send_message},
     {"import", import_dotfiles},
+    {"doctor", paw::cli::doctor},
+    {"fetch", paw::cli::fetch},
+    {"showcase", paw::cli::showcase},
+    {"top", paw::cli::top},
+    {"shake", paw::cli::toy},
+    {"gravity", paw::cli::toy},
+    {"party", paw::cli::toy},
     {"rice", paw::cli::rice},
 };
 } // namespace
