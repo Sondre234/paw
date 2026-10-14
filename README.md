@@ -218,6 +218,10 @@ return {
 When a binding cannot start its program, because none of those terminals is installed for
 example, the panel says why for a few seconds.
 
+For a first look around, run `paw tour` in a terminal: in about a minute it shows tiling, its
+layouts, snapping, the overview, the scratchpad and more on a workspace of its own, naming your
+keys for each, and then puts your desktop back as it was ([paw tour](docs/features.md#paw-tour)).
+
 paw, the shell and the programs they start log to standard error, which `paw-session`
 writes to `~/.local/state/paw/session.log` (in `$XDG_STATE_HOME` when that is set); the
 previous session's log is kept as `session.log.old`. Running `paw` yourself, keep it in a
