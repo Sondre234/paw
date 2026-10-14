@@ -709,6 +709,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(scroll_bound_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(keyboard_resize_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(volume_keys_smoke $<TARGET_FILE:paw>)
         paw_smoke(keymap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
