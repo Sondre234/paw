@@ -269,22 +269,42 @@ static void get_stats(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, reply);
 }
 
-static void get_frame_times(struct sh_server *server, int fd, const char *arguments) {
-    // Total frames so far, then the retained ones (oldest first) as "spent\tinterval" in us.
-    const struct sh_stats *stats = &server->stats;
-    size_t kept = stats->frames < SH_FRAME_RING ? stats->frames : SH_FRAME_RING;
+/* `frames` drawn so far, then those of them a ring of `size` slots kept (oldest first) as
+ * "spent\tinterval" in us. */
+static void reply_frame_times(int fd, uint64_t frames, const uint32_t *spent,
+                              const uint32_t *interval, size_t size) {
+    size_t kept = frames < size ? frames : size;
     char *reply = malloc(64 + kept * 24);
     if (!reply) {
         control_reply(fd, "error\nout of memory\n");
         return;
     }
-    int used = snprintf(reply, 64, "ok\n%llu\n", (unsigned long long)stats->frames);
+    int used = snprintf(reply, 64, "ok\n%llu\n", (unsigned long long)frames);
     for (size_t i = 0; i < kept; ++i) {
-        size_t slot = (stats->frames - kept + i) % SH_FRAME_RING;
-        used += snprintf(reply + used, 24, "%u\t%u\n", stats->frame_us[slot], stats->interval_us[slot]);
+        size_t slot = (frames - kept + i) % size;
+        used += snprintf(reply + used, 24, "%u\t%u\n", spent[slot], interval[slot]);
     }
     control_reply(fd, reply);
     free(reply);
+}
+
+static void get_frame_times(struct sh_server *server, int fd, const char *arguments) {
+    // Every output's frames together, or with an output's name the last SH_OUTPUT_FRAMES of
+    // its own, the intervals between its frames alone.
+    if (!arguments) {
+        const struct sh_stats *stats = &server->stats;
+        reply_frame_times(fd, stats->frames, stats->frame_us, stats->interval_us, SH_FRAME_RING);
+        return;
+    }
+    struct sh_output *output;
+    wl_list_for_each(output, &server->outputs, link) {
+        if (output_named(output, arguments)) {
+            reply_frame_times(fd, output->frames, output->frame_us, output->interval_us,
+                              SH_OUTPUT_FRAMES);
+            return;
+        }
+    }
+    control_reply(fd, "error: no output in the layout is named that\n");
 }
 
 static void get_dim(struct sh_server *server, int fd, const char *arguments) {
@@ -815,7 +835,7 @@ static const struct {
     {"minimize", describe_minimize, false},
     {"lift", get_lift, false},
     {"stats", get_stats, false},
-    {"frame_times", get_frame_times, false},
+    {"frame_times", get_frame_times, true},
     {"output_frames", get_output_frames, false},
     {"dim", get_dim, false},
     {"peek", get_peek, false},

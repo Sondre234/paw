@@ -150,6 +150,7 @@ struct sh_node {
 };
 
 #define SH_FRAME_RING 4096
+#define SH_OUTPUT_FRAMES 512
 
 /* A shadow image, painted for a look, a window size and a scale (sh_shadow_image_size's) and
  * shared by the windows showing it; `used` orders them for the cache to drop the oldest. */
@@ -779,6 +780,10 @@ struct sh_output {
     bool idle_off; /* turned off by the idle display_off step (idle.c), which input undoes */
     bool kept_on;  /* on though its settings say off, as the only output (configure_output) */
     uint64_t frames; /* frames it has drawn (output_frame), for get output_frames */
+    /* The last SH_OUTPUT_FRAMES of them: time spent in output_frame and time since its previous
+     * frame, in microseconds, for `get frame_times NAME` (paw top's graphs). */
+    uint32_t frame_us[SH_OUTPUT_FRAMES], interval_us[SH_OUTPUT_FRAMES];
+    uint64_t last_frame_ns;
     /* Settings a wlr-output-management client (wlr-randr, kanshi) or display_mode applied at
      * runtime. They replace the configured monitor until the configuration is reloaded or the
      * display settings window applies its own. */
