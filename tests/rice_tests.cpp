@@ -185,6 +185,12 @@ void manifests_are_checked() {
         CHECK(mentions(with("profile = {}, extras = { \"" + std::string(path) + "\" }"),
                        "inside the rice"),
               "the extra %s", path);
+    CHECK(mentions(with("profile = { windows = { shadow = { [\"\\27[2J\"] = 1 } } }"),
+                   "no setting's name"),
+          "a key that would steer the terminal, inside a setting a rice may set: %s",
+          with("profile = { windows = { shadow = { [\"\\27[2J\"] = 1 } } }").c_str());
+    CHECK(paw::printable_text("a\x1b[2Jb\xc2\x9b\xff日本") == "a?[2Jb???日本",
+          "%s", paw::printable_text("a\x1b[2Jb\xc2\x9b\xff日本").c_str());
     CHECK(paw::rice_path_valid("kitty/washi.conf") && paw::rice_path_valid("a-b_c.1.png"));
     CHECK(!paw::rice_path_valid("a/b/c/d/e"), "at most four parts");
     CHECK(paw::rice_setting_allowed({"windows", "shadow", "offset"}));

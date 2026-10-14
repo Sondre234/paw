@@ -603,6 +603,17 @@ const RiceData &string_field(const RiceData &table, const char *name, bool requi
         throw std::runtime_error(std::string("rice.lua's ") + name + " must be a string");
     return found ? *found : none;
 }
+// Checks that every key in `data` is a name, as settings are.
+void check_keys(const RiceData &data, const std::string &setting) {
+    for (const auto &item : data.items)
+        check_keys(item, setting);
+    for (const auto &[key, value] : data.fields) {
+        if (key.empty() || !name_start(key[0]) || !std::all_of(key.begin(), key.end(), name_part))
+            throw std::runtime_error("rice.lua's " + setting + " holds a key that is no "
+                                     "setting's name");
+        check_keys(value, setting + "." + key);
+    }
+}
 // Checks that `data`, at `setting`, holds only allowed settings.
 void check_look(const RiceData &data, std::vector<std::string> &setting) {
     if (!data.items.empty())
@@ -611,9 +622,11 @@ void check_look(const RiceData &data, std::vector<std::string> &setting) {
     for (const auto &[key, value] : data.fields) {
         setting.push_back(key);
         auto name = joined(setting);
-        if (!look_settings.contains(name)) {
+        if (look_settings.contains(name)) {
+            check_keys(value, name);
+        } else {
             if (!value.is_table() || !holds_allowed(name))
-                throw std::runtime_error("a rice cannot set " + name +
+                throw std::runtime_error("a rice cannot set " + printable_text(name) +
                                          ": it holds only how the desktop looks");
             check_look(value, setting);
         }
@@ -683,6 +696,24 @@ bool valid_profile_name(const std::string &name) {
 }
 } // namespace
 
+std::string printable_text(const std::string &text) {
+    std::string out;
+    for (size_t i = 0; i < text.size(); ++i) {
+        auto c = static_cast<unsigned char>(text[i]);
+        size_t length = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : (c >> 3) == 30 ? 4 : 0;
+        bool whole = length > 0 && i + length <= text.size();
+        for (size_t j = 1; whole && j < length; ++j)
+            whole = (static_cast<unsigned char>(text[i + j]) & 0xc0) == 0x80;
+        if (!whole || c < 0x20 || c == 0x7f ||
+            (c == 0xc2 && static_cast<unsigned char>(text[i + 1]) < 0xa0)) {
+            out += '?';
+            continue;
+        }
+        out.append(text, i, length);
+        i += length - 1;
+    }
+    return out;
+}
 bool rice_setting_allowed(const std::vector<std::string> &setting) {
     for (size_t length = 1; length <= setting.size(); ++length)
         if (look_settings.contains(joined({setting.begin(), setting.begin() + long(length)})))

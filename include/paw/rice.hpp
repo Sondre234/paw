@@ -64,6 +64,8 @@ struct Rice {
     std::vector<std::string> extras;
     std::filesystem::path directory; // where it was read from; empty for one read from text
 };
+// `text` with control characters, and bytes that are not UTF-8, as '?': safe to print.
+std::string printable_text(const std::string &text);
 // Whether a rice may set `setting` ({"shell", "accent"}): how the desktop looks, and nothing
 // that runs a program, names a file outside the rice or changes how the desktop behaves.
 bool rice_setting_allowed(const std::vector<std::string> &setting);
