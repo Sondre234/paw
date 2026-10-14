@@ -91,6 +91,7 @@ all. In short:
 | `volume.c` | The volume, microphone and brightness actions, which the shell carries out. |
 | `binding_mode.c` | Binding modes: which set of key bindings is in use. |
 | `shortcuts_inhibit.c` | Keyboard shortcuts inhibitors (keyboard-shortcuts-inhibit-unstable-v1): the keys the bindings take going to a virtual machine, a remote desktop or a game while it has the keyboard. |
+| `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
 the file that defines it. The build warns (`-Wmissing-prototypes`) about one that is neither.
@@ -1462,7 +1463,8 @@ settings' test, or in `configure_output`'s as if the commit failed (see
 `display_settings_smoke.py`). `PAW_TEST_LOCK_TIMEOUT_MS` shortens the time a locker gets to
 lock the screen before a suspend gives up (see `power_smoke.py`), and
 `PAW_TEST_CROSSFADE_HOLD_MS` sets how long a profile's crossfade waits for the shell (see
-`crossfade_smoke.py`).
+`crossfade_smoke.py`), and `PAW_TEST_RICE_TRIAL_MS` how long a rice is on trial (see
+`rice_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless
