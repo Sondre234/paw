@@ -164,9 +164,10 @@ int main() {
     CHECK(scale(0, 0) == 1);
     CHECK(graph_height(0, 2) == 3, "a printout");
     CHECK(graph_height(50, 1) == 4);
+    CHECK(graph_height(24, 1) == 4);
     CHECK(graph_height(24, 2) == 4);
-    CHECK(graph_height(20, 3) == 2);
-    CHECK(graph_height(10, 3) == 1);
+    CHECK(graph_height(24, 3) == 2);
+    CHECK(graph_height(20, 3) == 1);
 
     // Text that fits.
     CHECK(width_of("abc") == 3 && width_of("µs") == 2 && width_of("日本") == 4);

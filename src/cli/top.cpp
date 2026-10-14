@@ -382,9 +382,9 @@ double scale(double worst, double budget) {
 size_t graph_height(size_t rows, size_t monitors) {
     if (rows == 0)
         return 3;
-    // The header, a line per monitor, the activity, the table's head, three of its rows, the
-    // keys, and the blank lines between.
-    size_t fixed = 11 + monitors;
+    // The header, two lines per monitor (a blank one and its numbers), two of activity, the
+    // table's head and three of its rows, the keys, and the blank lines between.
+    size_t fixed = 10 + 2 * monitors;
     if (monitors == 0 || rows <= fixed + monitors)
         return 1;
     return std::clamp<size_t>((rows - fixed) / monitors, 1, 4);
