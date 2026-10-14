@@ -87,7 +87,8 @@ with harness.Compositor(compositor, CONFIG) as desktop:
                             text=True, timeout=30)
     assert result.returncode == 0, result.stderr
     lines = result.stdout.splitlines()
-    assert re.fullmatch(r"paw \S.* · up 0:00:\d\d · 2 monitors", lines[0]), lines[0]
+    assert re.fullmatch(r"paw \S.* · up 0:00:\d\d · cpu \d+\.\d% · 2 monitors",
+                        lines[0]), lines[0]
     assert not any("\x1b" in line or len(line) > 100 for line in lines), lines
     monitor = next(line for line in lines if line.startswith("HEADLESS-1"))
     assert re.search(r"1280x720 240Hz  \d+ fps  avg \S+  p99 \S+  worst \S+  budget 4.17ms",
