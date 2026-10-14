@@ -232,7 +232,7 @@ static bool initial_tile_size(struct sh_toplevel *toplevel, int *width, int *hei
 
 /* Takes the windows on the current workspace of `output`, other than `toplevel`, out of
  * fullscreen. */
-static void leave_fullscreen_for(struct sh_toplevel *toplevel, struct wlr_output *output) {
+void leave_fullscreen_for(struct sh_toplevel *toplevel, struct wlr_output *output) {
     struct sh_toplevel *other, *tmp;
     wl_list_for_each_safe(other, tmp, &toplevel->server->toplevels, link) {
         if (other != toplevel && other->fullscreen && toplevel_visible(other) &&
@@ -243,7 +243,7 @@ static void leave_fullscreen_for(struct sh_toplevel *toplevel, struct wlr_output
 
 /* Puts the windows on `toplevel`'s workspace of `output` that float only because they were
  * maximized by hand back into the tiling, so that the new tile does not open over them. */
-static void retile_maximized_for(struct sh_toplevel *toplevel, struct wlr_output *output) {
+void retile_maximized_for(struct sh_toplevel *toplevel, struct wlr_output *output) {
     struct sh_toplevel *other;
     wl_list_for_each(other, &toplevel->server->toplevels, link) {
         if (other == toplevel || !other->placed || !other->arranged ||
