@@ -217,6 +217,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
 
     struct sh_server server = {
         .callbacks = callbacks, .config_generation = 1, .power.sleep_delay = -1};
+    server.started = now_ms();
     wl_list_init(&server.subscribers);
     server.tiling = sh_tiling_create();
     if (!server.tiling)
@@ -613,6 +614,8 @@ finish:
     screenshot_finish(&server);
     tile_drop_finish(&server);
     display_settings_finish(&server);
+    toys_end(&server);
+    rice_finish(&server);
     cat_finish(&server);
     if (server.config_watch)
         wl_event_source_remove(server.config_watch);

@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* Dragging the taskbar to another edge of the output, or its inner edge to resize it
  * (shell.panel_draggable). The shell, seeing a press on its bar's empty space move, asks with
- * "panel_drag" while the left button is held, or with "panel_drag resize EDGE" for a press on the
- * bar's inner edge, EDGE the output's edge the bar is along; the compositor takes the pointer as
- * it does to move a window: no surface hears it until the button is let go. A surface the pointer
- * went on to would not know the button was held (wlroots forgets the pressed buttons as the focus
- * changes) and would never hear it let go, and a bar's edge dragged outwards leaves the bar.
- * Meanwhile the shell hears "panel-drag OUTPUT EDGE" whenever the edge nearest the pointer, on the
- * output it is over, changes, and "panel-dropped OUTPUT EDGE" as the button is let go; for a
- * resize, "panel-resize OUTPUT DISTANCE" whenever the pointer's distance from EDGE of the output
+ * "panel_drag OUTPUT" while the left button is held, or with "panel_drag resize EDGE" for a press
+ * on the bar's inner edge, EDGE the output's edge the bar is along; the compositor takes the
+ * pointer as it does to move a window: no surface hears it until the button is let go. A surface
+ * the pointer went on to would not know the button was held (wlroots forgets the pressed buttons
+ * as the focus changes) and would never hear it let go, and a bar's edge dragged outwards leaves
+ * the bar. Meanwhile the shell hears "panel-drag OUTPUT EDGE" whenever the edge of OUTPUT (the
+ * bar's monitor; without one, the monitor the pointer is over) nearest the pointer changes: past
+ * the monitor's edge, beside another, that is the edge it crossed. Then "panel-dropped OUTPUT
+ * EDGE" as the button is let go; for a resize, "panel-resize OUTPUT DISTANCE" whenever the pointer's distance from EDGE of the output
  * the resize began on changes, in whole logical pixels, and "panel-resized OUTPUT DISTANCE" as the
  * button is let go. Either ends with "panel-drag-cancelled" after "panel_drag cancel" (Escape in
  * the shell) or a grab that ends otherwise (the session locking). The shell moves and sizes the
@@ -24,7 +25,8 @@ static void distances(struct sh_server *server, const struct wlr_box *box, doubl
     away[0] = y, away[1] = box->height - y, away[2] = x, away[3] = box->width - x;
 }
 
-/* The edge of `output` nearest the pointer, as an index into edge_names. */
+/* The edge of `output` nearest the pointer, as an index into edge_names; beyond an edge, the
+ * pointer is nearest it (a negative distance). */
 static int nearest_edge(struct sh_server *server, struct wlr_output *output) {
     struct wlr_box box;
     wlr_output_layout_get_box(server->output_layout, output, &box);
@@ -37,10 +39,14 @@ static int nearest_edge(struct sh_server *server, struct wlr_output *output) {
     return nearest;
 }
 
-/* Tells the shell `event` with the output under the pointer and the edge nearest it: always, or
- * only when either changed since it was told last. */
+/* Tells the shell `event` with the bar's output (the one under the pointer while the drag names
+ * none, or the one it named is gone) and the edge of it nearest the pointer: always, or only when
+ * either changed since it was told last. */
 static void report_edge(struct sh_server *server, const char *event, bool always) {
-    struct wlr_output *output = pointer_output(server);
+    struct wlr_output *output =
+        server->panel_drag.bar[0] ? find_output(server, server->panel_drag.bar) : NULL;
+    if (!output)
+        output = pointer_output(server);
     if (!output)
         return;
     const int edge = nearest_edge(server, output);
@@ -69,10 +75,10 @@ static void report_distance(struct sh_server *server, const char *event, bool al
     send_shell_line(server, line);
 }
 
-/* Takes the pointer while the left button is held and nothing else has it: to move the bar, or
- * with `resize` (an index into edge_names, else -1) to resize the bar along that edge of the
- * output under the pointer. */
-static bool panel_drag_begin(struct sh_server *server, int resize) {
+/* Takes the pointer while the left button is held and nothing else has it: to move the bar of
+ * `bar` ("" for whichever output the pointer is over), or with `resize` (an index into
+ * edge_names, else -1) to resize the bar along that edge of the output under the pointer. */
+static bool panel_drag_begin(struct sh_server *server, int resize, const char *bar) {
     struct wlr_output *output = pointer_output(server);
     if (server->cursor_mode != SH_CURSOR_PASSTHROUGH || server->grab_button ||
         server->overview.open || !(server->held_buttons & 1u << (BTN_LEFT - BTN_MOUSE)) ||
@@ -82,6 +88,7 @@ static bool panel_drag_begin(struct sh_server *server, int resize) {
     // Let go of as the left button is (server_cursor_button), which no client hears.
     server->grab_button = BTN_LEFT;
     server->panel_drag.resize = resize;
+    snprintf(server->panel_drag.bar, sizeof(server->panel_drag.bar), "%s", bar);
     wlr_seat_pointer_notify_clear_focus(server->seat);
     if (resize < 0) {
         show_xcursor(server, "grabbing");
@@ -121,9 +128,9 @@ void panel_drag_cancel(struct sh_server *server) {
     send_shell_line(server, "panel-drag-cancelled\n");
 }
 
-/* "panel_drag" takes the pointer for a drag of the taskbar, while the left button is held;
- * "panel_drag resize EDGE" for a drag of its inner edge, the bar being along EDGE of the output
- * under the pointer; "panel_drag cancel" ends either, leaving the bar as it is. */
+/* "panel_drag [OUTPUT]" takes the pointer for a drag of OUTPUT's taskbar, while the left button
+ * is held; "panel_drag resize EDGE" for a drag of its inner edge, the bar being along EDGE of the
+ * output under the pointer; "panel_drag cancel" ends either, leaving the bar as it is. */
 void control_panel_drag(struct sh_server *server, int fd, const char *arguments) {
     const char *verb = arguments + (*arguments == ' ');
     int resize = -1;
@@ -132,14 +139,15 @@ void control_panel_drag(struct sh_server *server, int fd, const char *arguments)
             if (!strcmp(verb + 7, edge_names[i]))
                 resize = i;
     }
-    if (!*verb || resize >= 0) {
-        control_reply(fd, panel_drag_begin(server, resize)
-                              ? "ok\n"
-                              : "error: the pointer is busy, or its left button is not held\n");
-    } else if (!strcmp(verb, "cancel")) {
+    if (!strcmp(verb, "cancel")) {
         panel_drag_cancel(server);
         control_reply(fd, "ok\n");
+    } else if (resize < 0 && *verb && (strchr(verb, ' ') || !find_output(server, verb))) {
+        control_reply(fd, "error: usage: panel_drag [OUTPUT | resize top|bottom|left|right | "
+                          "cancel], OUTPUT a monitor's name\n");
     } else {
-        control_reply(fd, "error: usage: panel_drag [resize top|bottom|left|right | cancel]\n");
+        control_reply(fd, panel_drag_begin(server, resize, resize < 0 ? verb : "")
+                              ? "ok\n"
+                              : "error: the pointer is busy, or its left button is not held\n");
     }
 }

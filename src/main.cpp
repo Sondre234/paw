@@ -591,6 +591,18 @@ struct Runtime {
                     throw std::runtime_error(
                         words[0] + " takes a window's place in the list, from 1");
                 *argument = number;
+            } else if (action == SH_SHAKE && words.size() == 2) {
+                // A window's number, as `get window_icons` lists it.
+                std::size_t used = 0;
+                int number = 0;
+                try {
+                    number = std::stoi(words[1], &used);
+                } catch (const std::logic_error &) {
+                }
+                if (used != words[1].size() || number < 1)
+                    throw std::runtime_error("shake takes a window's number, from 1, or none "
+                                             "for the focused window");
+                *argument = number;
             } else if (words.size() != 1) {
                 throw std::runtime_error(words[0] + " takes no argument");
             }
@@ -775,6 +787,7 @@ struct Runtime {
             if (!self.config.profile.empty())
                 std::cerr << " (profile " << self.config.profile << ')';
             std::cerr << '\n';
+            report_rices(self.config);
             return true;
         } catch (const std::exception &error) {
             std::cerr << "Reload rejected; keeping active configuration: " << error.what() << '\n';
@@ -831,6 +844,36 @@ struct Runtime {
     }
     static void report_error(const std::string &error) {
         std::cerr << "Configuration error; using the default configuration: " << error << '\n';
+    }
+    /* The installed rices the configuration passed over, and why. */
+    static void report_rices(const paw::Config &config) {
+        for (const auto &problem : config.rice_problems)
+            std::cerr << "Passing over the rice " << paw::printable_text(problem) << '\n';
+    }
+    /* The files of a rice on trial, for the compositor's side of it (src/compositor/rice.c). */
+    static bool rice(void *, const char *request, char *error, size_t error_size) {
+        try {
+            std::string words = request;
+            if (words.starts_with("try ")) {
+                auto name = words.substr(4);
+                auto trial = paw::load_rice_trial();
+                if (!trial || trial->rice != name)
+                    throw std::runtime_error("no trial of " + name +
+                                             " is recorded; paw rice try starts one");
+                trial->pid = getpid();
+                paw::save_rice_trial(*trial);
+            } else if (words == "keep") {
+                paw::keep_rice_trial();
+            } else if (words == "revert") {
+                paw::revert_rice_trial();
+            } else {
+                throw std::runtime_error("unknown request");
+            }
+            return true;
+        } catch (const std::exception &failure) {
+            std::snprintf(error, error_size, "%s", failure.what());
+            return false;
+        }
     }
     /* XDG autostart: starts the entries of the autostart directories, noting for `get autostart`
      * what was started or skipped, and why. */
@@ -1011,6 +1054,20 @@ void usage() {
            "paw msg get workspace|workspaces|tiling|windows|outputs|animations prints its state.\n"
            "paw import [--config PATH] [--dry-run] DIR writes theme.lua beside the\n"
            "configuration from the Hyprland, Waybar, wallbash, and pywal files in DIR.\n"
+           "paw doctor [--plain] [--no-color] checks the session for what often goes wrong\n"
+           "and says how to fix each; it changes nothing.\n"
+           "paw fetch [--no-logo] [--no-color] shows a paw print in the profile's colours,\n"
+           "and beside it the session's uptime, frames, windows and monitors.\n"
+           "paw showcase [--delay SECONDS] [--keep] [--output NAME] [-o FILE] takes a\n"
+           "screenshot with paw fetch open in a terminal, then puts the windows back.\n"
+           "paw top [--once] [--interval MS] [--no-color] shows the session's frames, its work\n"
+           "and the windows that make it, as htop shows processes.\n"
+           "paw shake [WINDOW] wobbles the focused window, or that numbered one; paw gravity\n"
+           "drops the windows to the bottom and back; paw party throws one. They only draw.\n"
+           "paw rice pack [PROFILE] [-o FILE] packs a profile's look, its pictures with it, into\n"
+           "one file to share; paw rice try FILE|DIR|URL tries one on, the previous look coming\n"
+           "back in 15 seconds unless paw rice keep keeps it (paw rice revert at once);\n"
+           "paw rice list lists the installed rices, and paw rice remove NAME removes one.\n"
            "paw cat [on|off|toggle] lets the desktop cat out, or calls it in.\n";
 }
 /* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
@@ -1022,6 +1079,14 @@ struct Subcommand {
 const Subcommand subcommands[] = {
     {"msg", send_message},
     {"import", import_dotfiles},
+    {"doctor", paw::cli::doctor},
+    {"fetch", paw::cli::fetch},
+    {"showcase", paw::cli::showcase},
+    {"top", paw::cli::top},
+    {"shake", paw::cli::toy},
+    {"gravity", paw::cli::toy},
+    {"party", paw::cli::toy},
+    {"rice", paw::cli::rice},
     {"cat", paw::cli::cat},
 };
 } // namespace
@@ -1065,6 +1130,17 @@ int main(int argc, char **argv) {
         }
         if (path.empty())
             path = default_config();
+        // A rice on trial as the last session ended goes back before the configuration loads.
+        if (!check) {
+            try {
+                if (auto trial = paw::recover_rice_trial())
+                    std::cerr << "The rice " << trial->rice
+                              << " was on trial as the last session ended; the previous look is "
+                                 "back\n";
+            } catch (const std::exception &failure) {
+                std::cerr << "Cannot take back the rice on trial: " << failure.what() << '\n';
+            }
+        }
         // A configuration with an error still starts the session, with the default one, so
         // that it can be fixed from there; --check-config reports it instead.
         std::string error;
@@ -1074,6 +1150,7 @@ int main(int argc, char **argv) {
                         std::move(command)};
         if (!error.empty())
             Runtime::report_error(error);
+        Runtime::report_rices(runtime.config);
         runtime.allow_shell = !no_shell && mode != SH_BACKEND_HEADLESS;
         runtime.standalone = mode == SH_BACKEND_SESSION;
         runtime.login = runtime.standalone || has_env("PAW_LOGIN_SESSION");
@@ -1097,7 +1174,7 @@ int main(int argc, char **argv) {
             Runtime::hot_corner, Runtime::action_target, Runtime::config_watch,
             Runtime::config_changed, Runtime::lock, Runtime::launch, Runtime::autostart,
             Runtime::started, Runtime::binding_flags, Runtime::set_mode, Runtime::switch_toggled,
-            Runtime::binding_keys, Runtime::dynamic_rule};
+            Runtime::binding_keys, Runtime::dynamic_rule, Runtime::rice};
         int result = sh_run(&callbacks, mode);
         if (runtime.shell_pid > 0)
             kill(runtime.shell_pid, SIGTERM);

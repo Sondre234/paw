@@ -47,6 +47,8 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
     // outputName matches the compositor's output name, which the workspace state is keyed by.
     if (!desktop)
         setInitialProperties({{"shellView", QVariant::fromValue(this)}, {"outputName", screen->name()}});
+    else
+        setInitialProperties({{"shellView", QVariant::fromValue(this)}});
 #if PAW_LAYER_SHELL
     if (!preview) {
         using W = LayerShellQt::Window;
@@ -62,6 +64,7 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
     connect(&controller, &ShellController::panelSizeChanged, this, [this] {
         placeLayer();
         resizeForContent();
+        Q_EMIT panelPlacementChanged();
     });
     connect(&controller, &ShellController::launcherRequested, this, [this](const QString &output) {
         if (desktop_ || !rootObject() || outputScreen_->name() != output)
@@ -98,12 +101,13 @@ MenuBarWindow *ShellView::menuBar() const {
     return rootObject() ? rootObject()->findChild<MenuBarWindow *>() : nullptr;
 }
 paw::PanelEdge ShellView::edge() const {
-    return tilingBar_ ? controller_.tilingBarEdge() : controller_.panelSurfaceEdge();
+    return tilingBar_ ? controller_.tilingBarEdge()
+                      : controller_.panelSurfaceEdge(outputScreen_->name());
 }
 int ShellView::extent() const {
-    return tilingBar_ ? controller_.tilingBarExtent() : controller_.panelExtent();
+    return tilingBar_ ? controller_.tilingBarExtent() : panelExtent();
 }
-int ShellView::headroom() const { return tilingBar_ ? 0 : controller_.panelHeadroom(); }
+int ShellView::headroom() const { return tilingBar_ ? 0 : panelHeadroom(); }
 void ShellView::setTilingBar(bool shown) {
     if (shown == tilingBar_)
         return;
@@ -780,6 +784,39 @@ void DisplaySettingsView::update() {
         return;
     }
     // Opened afresh, or again while it was going: the keyboard starts on the window.
+    const bool again = leaving();
+    if ((present() || again) && rootObject())
+        QMetaObject::invokeMethod(rootObject(), "reset");
+}
+RiceTrialView::RiceTrialView(ShellController &controller, QScreen *screen)
+    : OverlayView(controller, screen, "rice trial", true) {
+    setTitle("paw rice trial");
+    setResizeMode(QQuickView::SizeViewToRootObject);
+#if PAW_LAYER_SHELL
+    using W = LayerShellQt::Window;
+    layer_->setScope("paw-rice-trial");
+    layer_->setAnchors(W::Anchors());
+    layer_->setExclusiveZone(0);
+#endif
+    load("RiceTrial.qml");
+    if (auto *root = rootObject())
+        followRoot(this, layer_, root);
+    connect(controller.riceTrial(), &RiceTrial::changed, this, &RiceTrialView::update);
+    connect(qGuiApp, &QGuiApplication::screenRemoved, this, &RiceTrialView::update,
+            Qt::QueuedConnection);
+    connect(qGuiApp, &QGuiApplication::screenAdded, this, &RiceTrialView::update,
+            Qt::QueuedConnection);
+    update();
+}
+void RiceTrialView::update() {
+    const auto *trial = controller_.riceTrial();
+    const bool mine = trial->active() &&
+                      ShellController::outputOrPrimary(trial->output()) == outputScreen_->name();
+    if (!mine) {
+        dismiss();
+        return;
+    }
+    // Asked afresh, or again while it was going: the keyboard starts on Revert.
     const bool again = leaving();
     if ((present() || again) && rootObject())
         QMetaObject::invokeMethod(rootObject(), "reset");

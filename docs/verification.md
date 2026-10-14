@@ -1206,3 +1206,19 @@ Not checked: real monitors at high refresh rates, where the default 120 ms sprin
 applications slow to draw a new size, such as Firefox and Electron ones, against the 300 ms the
 compositor waits for them; GPU clients' (dmabuf) buffers held for the crossfade; and X11
 applications that keep their own size.
+
+## paw fetch and paw showcase
+
+Added 2026-10-14. `paw fetch` was run against headless compositors in the sumi and washi
+profiles, outside a session with a configuration that extends the shipped one, and, sending only
+queries, in a live session of a paw older than it (which it says, giving the frames drawn in place
+of the uptime). Its output was drawn into pictures with a 24-bit colour renderer on sumi's ink and
+washi's paper backgrounds: the paw print follows the border's gradient and the labels stay
+readable on both. `paw showcase --terminal foot` was run on a headless compositor with a tiled
+window open, in both profiles: the picture showed foot beside the window with paw fetch in it
+(counting foot's window, and without the session paw showcase saved), and afterwards the window
+was back alone, tiled and focused.
+
+Not checked: kitty, the terminal it opens on this machine, which needs a GPU the headless
+compositor does not offer; a real monitor and a hardware cursor; and terminals other than foot
+taking their command after `-e`, `--` or `start --`.
