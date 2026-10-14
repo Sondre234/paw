@@ -579,6 +579,14 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
 wrong with it, and toys the compositor plays with the windows.
 
+- `paw shake`, `paw gravity` and `paw party`, and the binding actions `shake`, `gravity` and
+  `party`: toys that only draw. A shake wobbles the focused window from side to side (or a
+  numbered one, or from a mouse button the one under the pointer); gravity drops every window of
+  the focused monitor's workspace to the bottom, where they pile up, bounce, squash and glide back
+  up; a party bobs them under rainbow borders while confetti falls. No window moves or changes
+  size, and one that does anything else meanwhile drops out back in its place. `paw msg get toys`
+  says what plays.
+
 ### Fixes
 
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,
