@@ -1460,8 +1460,9 @@ scroll layout loses its gaps and keeps its width.
   floating. A tile dropped on a monitor that does not tile floats there.
 - Dialogs and fixed-size windows float. Super + V (`toggle_floating`) floats
   or tiles the focused window; snapping or maximizing a tile also floats it. A window
-  opening into the tiling of a workspace brings the windows maximized there back into the
-  tiling instead of covering them, as it does fullscreen ones, and turning tiling on brings
+  opening into the tiling of a workspace, or restored into it from minimized, brings the
+  windows maximized there back into the tiling instead of covering them, as it does
+  fullscreen ones, and turning tiling on brings
   back every window that floated only because it was snapped or maximized
   (`tests/maximized_tile_smoke.py`).
 - A floating window between two monitors belongs to the one its middle is on. Turning tiling
@@ -1471,7 +1472,9 @@ scroll layout loses its gaps and keeps its width.
   size. A window
   now tiled on another monitor keeps its size and its place relative to that monitor,
   shrunk and moved to fit inside it.
-- Minimized windows leave the tiling and rejoin it when restored; windows moved to
+- Minimized windows leave the tiling and rejoin it when restored, as a window opening there
+  does, one that floated only because it was snapped or maximized by hand too, while one
+  floated on purpose stays floating (`tests/taskbar_restore_tiling_smoke.py`); windows moved to
   another workspace join that workspace's tiling on the same output.
 - Super + arrows focus the neighbouring tile that way, or the next monitor that way when
   there is none, even an empty one, where new windows then open; a window on a monitor

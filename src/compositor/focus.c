@@ -71,8 +71,21 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
     toplevel->urgent = false; // it has the user's attention now
     bool was_minimized = toplevel->minimized;
     toplevel->minimized = false;
-    if (was_minimized && wants_tiling(toplevel, NULL))
-        tile_toplevel(toplevel, NULL, NULL, false);
+    // Floating only because it was snapped or maximized by hand, it comes back into the tiling
+    // of a workspace that tiles, as it would as tiling turns on; one floating on purpose stays.
+    if (was_minimized && toplevel->placed && !toplevel->sticky &&
+        tiles_for(toplevel, home_output(toplevel)))
+        toplevel->floating = toplevel->placed = false;
+    // Restored into a tiling, it joins it as a window opening there does: a fullscreen window
+    // there leaves fullscreen and those maximized by hand come back into the tiling, rather
+    // than this one opening over them.
+    if (was_minimized && wants_tiling(toplevel, NULL)) {
+        struct wlr_output *output = home_output(toplevel);
+        if (!toplevel->fullscreen)
+            leave_fullscreen_for(toplevel, output);
+        retile_maximized_for(toplevel, output);
+        tile_toplevel(toplevel, output, NULL, false);
+    }
     wlr_scene_node_set_enabled(&toplevel->scene_tree->node, true);
     // Panels stay reachable once a fullscreen window loses focus.
     if (raise && !toplevel->fullscreen)

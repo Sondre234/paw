@@ -1649,6 +1649,8 @@ const char *toplevel_title(struct sh_toplevel *toplevel);
 const char *toplevel_app_id(struct sh_toplevel *toplevel);
 bool toplevel_accepts_keyboard(struct sh_toplevel *toplevel);
 void maximize_toplevel(struct sh_toplevel *toplevel, bool maximized);
+void leave_fullscreen_for(struct sh_toplevel *toplevel, struct wlr_output *output);
+void retile_maximized_for(struct sh_toplevel *toplevel, struct wlr_output *output);
 void map_toplevel(struct sh_toplevel *toplevel, bool fullscreen, bool maximized);
 void unmap_toplevel(struct sh_toplevel *toplevel);
 void free_toplevel(struct sh_toplevel *toplevel);
