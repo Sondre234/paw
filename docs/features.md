@@ -2881,7 +2881,7 @@ above land on it. `paw party` throws a party of four seconds on the focused moni
 and wiggle out of step, their borders go round the rainbow, each in its own colour of the moment,
 and a couple of hundred pieces of confetti come down from the top, spinning, swaying and fading,
 over the windows and the panels. The binding actions `shake`, `gravity` and `party` do the same,
-and so does `paw msg shake [N]`.
+as do `paw msg shake [N]` and the command palette.
 
 A toy only draws: it never moves a window, changes its size or tells its application anything,
 `paw msg get windows` saying the same before, during and after, and everything is as it was once it
