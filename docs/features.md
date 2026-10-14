@@ -2894,7 +2894,8 @@ background, which a terminal themed with the profile has too: washi's light blue
 paper. The fields, each where it is known:
 
 - the version of `paw` and of the wlroots it was built with, and as `running` the session's
-  where it runs another (a build installed since it started);
+  where it runs another (a build installed since it started), or `a paw older than paw fetch`
+  where it cannot tell, which then gives only the frames drawn as `session`;
 - `profile`: the appearance profile in use and its `color_scheme`;
 - `session`: how long the compositor has run, and the frames it has drawn;
 - `frames`: how long a frame took on average, at most for 99 frames in a hundred (of the last
