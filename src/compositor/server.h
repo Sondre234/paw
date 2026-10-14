@@ -287,6 +287,8 @@ struct sh_mirror;        // what a mirroring output shows (mirror.c)
 struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c)
 struct sh_crossfade_picture; // what an output showed as it began
 struct wlr_color_manager_v1;
+struct sh_heatmap;     // where the pointer rests and clicks, and the overlay (heatmap.c)
+struct sh_heat_output; // an output's grid and its part of the overlay
 
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
  * workspace it showed as the swipe began and the one the fingers head for (out of range past
@@ -752,6 +754,8 @@ struct sh_server {
     struct wl_list outputs;          /* enabled, in the layout */
     struct wl_list disabled_outputs; /* turned off by outputs.monitors */
     struct wl_listener new_output;
+    /* The pointer heatmap (heatmap.c); NULL until the first output is laid out. */
+    struct sh_heatmap *heatmap;
 };
 
 /* Tearing on an output (tearing.c): what its frames do now (`tearing`, `refused`, or why its
@@ -811,6 +815,9 @@ struct sh_output {
     struct wl_listener frame;
     struct wl_listener request_state;
     struct wl_listener destroy;
+    /* Its grid of the pointer heatmap and its part of the overlay (heatmap.c); NULL until it is
+     * first laid out. */
+    struct sh_heat_output *heat;
 };
 
 /* An icon a window supplies itself (window_icon.c): the icon theme name it gave, and the pixels
@@ -1724,3 +1731,11 @@ void close_xwm_waker(struct sh_server *server);
 #endif
 void xwayland_ready(struct wl_listener *listener, void *data);
 #endif
+
+/* heatmap.c */
+void heatmap_motion(struct sh_server *server);
+void heatmap_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
+void heatmap_arrange(struct sh_server *server);
+void heatmap_forget_output(struct sh_output *output);
+void heatmap_finish(struct sh_server *server);
+void describe_heatmap(struct sh_server *server, int fd, const char *arguments);

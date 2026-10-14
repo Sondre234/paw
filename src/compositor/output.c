@@ -295,6 +295,7 @@ void arrange_outputs(struct sh_server *server) {
     map_tablets(server);
     publish_output_configuration(server);
     notify_subscribers(server); // the list of outputs and their workspaces
+    heatmap_arrange(server);    // the pointer heatmap's grids for the outputs' sizes
     // A mirror whose source came or went joins or leaves the layout, laid out again then.
     if (refresh_mirrors(server))
         arrange_outputs(server);
@@ -707,6 +708,7 @@ static void output_destroy(struct wl_listener *listener, void *data) {
     mirror_stop(output);
     mirrors_forget_source(output);
     crossfade_forget_output(output);
+    heatmap_forget_output(output);
     output_release_zoom(output);
     destroy_output_layers(output->server, output->wlr_output);
     wlr_scene_node_destroy(&output->background->node);

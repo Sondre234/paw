@@ -91,6 +91,7 @@ all. In short:
 | `volume.c` | The volume, microphone and brightness actions, which the shell carries out. |
 | `binding_mode.c` | Binding modes: which set of key bindings is in use. |
 | `shortcuts_inhibit.c` | Keyboard shortcuts inhibitors (keyboard-shortcuts-inhibit-unstable-v1): the keys the bindings take going to a virtual machine, a remote desktop or a game while it has the keyboard. |
+| `heatmap.c` | The pointer heatmap: how long the pointer rested and how often it clicked in each cell of each output's grid (`src/heatmap.c`), in memory for the session alone, and `get heatmap`. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
 the file that defines it. The build warns (`-Wmissing-prototypes`) about one that is neither.

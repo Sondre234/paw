@@ -283,6 +283,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/window_icon.c
         src/compositor/workspace.c
         src/compositor/xwayland.c
+        src/compositor/heatmap.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
         ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h ${WLR_PROTOCOL_HEADERS})
@@ -301,6 +302,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/dynamic_rule.c)
     target_sources(paw PRIVATE src/border.c)
     target_sources(paw PRIVATE src/dropdown.c)
+    target_link_libraries(paw PRIVATE paw_heatmap)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
     # version.h, for --version: the project version, and `git describe` in a git checkout.
@@ -856,5 +858,7 @@ if(PAW_BUILD_COMPOSITOR)
         # Windows' own icons; an X11 window's only where the X11 probe is built.
         paw_smoke(window_icon_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
+        paw_smoke(heatmap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
+            $<TARGET_FILE:lock_probe>)
     endif()
 endif()
