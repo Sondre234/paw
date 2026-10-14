@@ -306,7 +306,7 @@ void toys_tick(struct sh_server *server) {
         return; // another monitor's frame in the same millisecond
     double t = (double)(now - toys->start), dt = toys->ticked ? (double)(now - toys->ticked) : 0;
     toys->ticked = now;
-    if (server->locked || server->overview.visible || t >= toys->duration ||
+    if (server->locked || server->overview.open || t >= toys->duration ||
         !find_output(server, toys->output) ||
         *output_workspace(server, toys->output) != toys->workspace) {
         toys_end(server);
