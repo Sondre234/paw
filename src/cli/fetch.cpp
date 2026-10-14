@@ -682,6 +682,9 @@ int fetch(int argc, char **argv) {
         if (auto uptime = about ? value_of(*about, "uptime") : ""; !uptime.empty())
             fields.push_back(
                 {"session", fetch::session_text(std::strtoll(uptime.c_str(), nullptr, 10), frames)});
+        else if (stats)
+            fields.push_back(
+                {"session", fetch::amount(frames) + (frames == 1 ? " frame" : " frames")});
         if (auto times = ask("frame_times"); stats)
             if (auto text = fetch::frames_text(*stats, times.value_or(Rows{})); !text.empty())
                 fields.push_back({"frames", text});
@@ -708,7 +711,9 @@ int fetch(int argc, char **argv) {
                 fields.push_back({"night light", text});
         if (auto mode = ask("mode"); mode && !mode->empty() && (*mode)[0][0] != "default")
             fields.push_back({"mode", (*mode)[0][0]});
-        if (about) {
+        if (!about)
+            fields.push_back({"running", "a paw older than paw fetch"});
+        else {
             auto version = value_of(*about, "version");
             auto library = value_of(*about, "wlroots");
             if ((!version.empty() && version != PAW_VERSION) ||
