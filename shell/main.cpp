@@ -309,9 +309,10 @@ int main(int argc, char **argv) {
             char bytes[64];
             ssize_t count = read(pipeFds[0], bytes, sizeof(bytes));
             for (ssize_t i = 0; i < count; ++i)
-                if (bytes[i] == 'r')
+                if (bytes[i] == 'r') {
+                    std::cerr << "paw shell reloading on SIGHUP\n";
                     controller.reload();
-                else
+                } else
                     app.quit();
         });
         // A previewed popup starts the clock when it opens instead.
