@@ -254,8 +254,8 @@ static void move_confetti(struct sh_toys *toys, double t, double dt) {
         struct toy_piece *piece = &toys->pieces[i];
         if (!piece->rect)
             continue;
-        const struct sh_confetto *confetto = &piece->confetto;
-        if (!sh_confetti_step(&piece->confetto, dt)) {
+        struct sh_confetto *confetto = &piece->confetto;
+        if (!sh_confetti_step(confetto, dt)) {
             wlr_scene_node_destroy(&piece->rect->node);
             piece->rect = NULL;
             continue;
@@ -418,8 +418,8 @@ void describe_toys(struct sh_server *server, int fd, const char *arguments) {
     const char *name = toys->kind == SH_SHAKE ? "shake" : toys->kind == SH_GRAVITY ? "gravity"
                                                                                   : "party";
     char line[768];
-    snprintf(line, sizeof(line), "toy\t%s\t%ld\t%d\t%s\t%d\n", name, (long)(now_ms() - toys->start),
-             toys->duration, toys->output, toys->workspace + 1);
+    snprintf(line, sizeof(line), "toy\t%s\t%ld\t%d\t%s\t%d\n", name,
+             (long)(now_ms() - toys->start), toys->duration, toys->output, toys->workspace + 1);
     control_reply(fd, line);
     for (int i = 0; i < toys->count; ++i) {
         const struct toy_window *window = &toys->windows[i];
