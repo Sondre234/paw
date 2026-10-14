@@ -1038,7 +1038,8 @@ void usage() {
            "configuration from the Hyprland, Waybar, wallbash, and pywal files in DIR.\n"
            "paw rice pack [PROFILE] [-o FILE] packs a profile's look, its pictures with it, into\n"
            "one file to share; paw rice try FILE|DIR|URL tries one on, the previous look coming\n"
-           "back in 15 seconds unless paw rice keep keeps it; paw rice list|revert|remove NAME.\n";
+           "back in 15 seconds unless paw rice keep keeps it (paw rice revert at once);\n"
+           "paw rice list lists the installed rices, and paw rice remove NAME removes one.\n";
 }
 /* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
  * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */
