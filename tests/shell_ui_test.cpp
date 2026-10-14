@@ -359,14 +359,15 @@ int main(int argc, char **argv) {
                 }
                 client->write("ok\nwork\t3\t1700000000\n");
                 client->disconnectFromServer();
-            } else if (request == "panel_drag\n" || request == "panel_drag cancel\n") {
-                // A drag of the bar: the compositor takes the pointer and says which edge it is
-                // nearest, here the top; or it lets the drag go.
+            } else if (request.startsWith("panel_drag ") && !request.startsWith("panel_drag resize ")) {
+                // A drag of a monitor's bar: the compositor takes the pointer and says which edge
+                // of that monitor it is nearest, here the top; or it lets the drag go.
                 requests.push_back(QString::fromUtf8(request).trimmed());
                 client->write("ok\n");
                 client->disconnectFromServer();
-                subscriber->write(request == "panel_drag\n" ? ("panel-drag " + output + " top\n").toUtf8()
-                                                            : QByteArray("panel-drag-cancelled\n"));
+                const bool cancel = request == "panel_drag cancel\n";
+                subscriber->write(cancel ? QByteArray("panel-drag-cancelled\n")
+                                         : ("panel-drag " + request.trimmed().sliced(11) + " top\n"));
             } else if (request.startsWith("type ")) {
                 // Typing what the emoji picker picked; 🙃 has nothing to type into.
                 requests.push_back(QString::fromUtf8(request).trimmed());
@@ -6899,7 +6900,9 @@ ListModel {
             card->mapToScene(QPointF(0, 0)).toPoint() != at)
             return fail("a right press on the desktop did not open its menu there");
         QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, QPoint(600, 500));
-        if (card->mapToScene(QPointF(0, 0)).toPoint() != at)
+        // Where it is placed, leaving out the few pixels it slides as it closes, which on a busy
+        // machine it has begun to by now.
+        if (card->parentItem()->mapToScene(card->position()).toPoint() != at)
             return fail("a left press beside the desktop's menu moved it there as it closed");
         if (!waitFor([&] { return !card->isVisible(); }))
             return fail("a press beside the desktop's menu did not close it");
@@ -7380,8 +7383,9 @@ ListModel {
     // Along a side the bar stands upright, its buttons in a column and its popups beside it. With
     // shell.panel_draggable, a press on its empty space that moves has the compositor take the
     // pointer for a drag of it; the popover shows where the bar would go, taking nothing, and the
-    // drop writes shell.panel_position into the configuration file where it takes effect, the
-    // bar then going there. Escape lets the drag go, and without the setting there is none.
+    // drop writes the monitor's shell.panel_positions entry into the configuration file where it
+    // takes effect (or shell.panel_position with shell.panel_per_monitor off), the bar then going
+    // there. Escape lets the drag go, and without the setting there is none.
     {
         auto *root = view.rootObject();
         requests.clear();
@@ -7423,7 +7427,7 @@ ListModel {
         };
         pressAndMove();
         QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, empty + QPoint(0, -40));
-        if (!stays([&] { return !requests.contains("panel_drag"); }, 300))
+        if (!stays([&] { return !requests.contains("panel_drag " + output); }, 300))
             return fail("a bar not draggable asked to be dragged");
 
         const QString draggable = QString(alongLeft).replace("shell={", "shell={panel_draggable=true,");
@@ -7432,7 +7436,7 @@ ListModel {
         auto *preview = find(root, "barDropPreview");
         pressAndMove();
         if (!waitFor([&] { return controller.barDragging() && preview->isVisible() && popover->isVisible(); }) ||
-            requests.count("panel_drag") != 1 || !popover->inputRegion().isEmpty() ||
+            requests.count("panel_drag " + output) != 1 || !popover->inputRegion().isEmpty() ||
             preview->y() != 0 || preview->height() != controller.panelHeight() ||
             preview->width() != popover->width())
             return fail("dragging the bar did not ask the compositor for the pointer, or show the top edge");
@@ -7453,20 +7457,58 @@ ListModel {
             return fail("a drag let go of changed the configuration");
         file.close();
 
-        // Dropped at the right edge, the setting is written and the bar goes there.
+        // The outline shows where this monitor's bar goes, and on no other monitor while the bar
+        // moves alone (shell.panel_per_monitor).
+        pressAndMove();
+        if (!waitFor([&] { return controller.barDragging() && preview->isVisible(); }))
+            return fail("the bar could not be dragged again");
+        subscriber->write("panel-drag ELSEWHERE-1 left\n");
+        if (!waitFor([&] { return controller.barDragOutput() == "ELSEWHERE-1" && !preview->isVisible(); }))
+            return fail("the outline of another monitor's bar showed on this one");
+        subscriber->write("panel-drag-cancelled\n");
+        QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, empty + QPoint(0, -40));
+        if (!waitFor([&] { return !controller.barDragging() && !popover->isVisible(); }))
+            return fail("the drag did not end");
+
+        // Dropped at the right edge, this monitor's edge is written and its bar goes there.
         pressAndMove();
         if (!waitFor([&] { return controller.barDragging(); }))
             return fail("the bar could not be dragged a second time");
         QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, empty + QPoint(0, -40));
         subscriber->write(("panel-dropped " + output + " right\n").toUtf8());
-        if (!waitFor([&] { return !controller.barDragging() && controller.panelEdge() == "right"; }) ||
+        if (!waitFor([&] { return !controller.barDragging() && view.panelEdge() == "right"; }) ||
             !waitFor([&] { return !popover->isVisible() && bar->x() == view.width() - bar->width(); }))
             return fail("the bar dropped at the right edge did not go there");
-        // The base shell table's, the profile in use (dark) setting none; the light profile's stays.
-        const QString base = "},shell={panel_draggable=true,panel_position=";
+        // In the base shell table, the profile in use (dark) setting none; panel_position stays,
+        // the edge of the other monitors.
+        if (controller.panelEdge() != "left")
+            return fail("a drop of one monitor's bar moved every monitor's");
+        const QString base = "},shell={panel_draggable=true,";
+        const QString alone = QString(draggable).replace(
+            base, "},shell={panel_positions = { [\"" + output + "\"] = \"right\" }, panel_draggable=true,");
+        if (!file.open(QIODevice::ReadOnly) || QString::fromUtf8(file.readAll()) != alone)
+            return fail("the drop did not write this monitor's shell.panel_positions entry");
+        file.close();
+
+        // With shell.panel_per_monitor off every monitor's bar is along panel_position, the entry
+        // left aside, and a drop moves them all, writing panel_position.
+        const QString together =
+            QString(alone).replace(" }, panel_draggable=true,", " }, panel_draggable=true,panel_per_monitor=false,");
+        if (!reconfigure(together) ||
+            !waitFor([&] { return !controller.panelPerMonitor() && view.panelEdge() == "left"; }))
+            return fail("shell.panel_per_monitor = false did not put the bar along panel_position");
+        pressAndMove();
+        if (!waitFor([&] { return controller.barDragging(); }))
+            return fail("the bar could not be dragged with shell.panel_per_monitor off");
+        QTest::mouseRelease(&view, Qt::LeftButton, Qt::NoModifier, empty + QPoint(0, -40));
+        subscriber->write(("panel-dropped " + output + " top\n").toUtf8());
+        if (!waitFor([&] { return !controller.barDragging() && view.panelEdge() == "top"; }))
+            return fail("the bar dropped at the top with shell.panel_per_monitor off did not go there");
         if (!file.open(QIODevice::ReadOnly) ||
-            QString::fromUtf8(file.readAll()) != QString(draggable).replace(base + "'left'", base + "\"right\""))
-            return fail("the drop did not write shell.panel_position = \"right\" in place of 'left'");
+            QString::fromUtf8(file.readAll()) !=
+                QString(together).replace("panel_per_monitor=false,panel_position='left'",
+                                          "panel_per_monitor=false,panel_position=\"top\""))
+            return fail("the drop did not write shell.panel_position with shell.panel_per_monitor off");
         file.close();
         if (!reconfigure(lua) || !waitFor([&] { return controller.panelEdge() == "bottom" && !controller.panelDraggable(); }))
             return fail("could not restore the configuration");

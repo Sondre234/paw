@@ -367,7 +367,9 @@ struct sh_settings {
     int gap_inner; /* between neighbouring windows */
     int gap_outer; /* between windows and the edges of the usable area */
     bool smart_gaps; /* a workspace's only tile has no gaps */
-    int lone_margin; /* around a workspace's only tile, in place of the gaps; 0: smart_gaps decides */
+    /* top, right, bottom, left around a workspace's only tile, in place of the gaps; all 0:
+     * smart_gaps decides */
+    int lone_margin[4];
     /* layout.floating_above_tiles: floating windows always stack over the tiles of their output,
      * as in sway and Hyprland; off, the window raised last is on top, tile or not. */
     bool floating_above_tiles;

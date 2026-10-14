@@ -53,6 +53,14 @@ target_compile_options(paw_effects PRIVATE -Wall -Wextra -Wpedantic)
 add_library(paw_cli STATIC src/cli/control_client.cpp)
 target_include_directories(paw_cli PUBLIC include)
 target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
+# paw doctor: its checks, which read the configuration as --check-config does, and how it reads
+# what other programs say.
+target_sources(paw_cli PRIVATE src/cli/doctor.cpp src/cli/doctor_parse.cpp)
+target_sources(paw_cli PRIVATE src/cli/fetch.cpp)
+target_sources(paw_cli PRIVATE src/cli/showcase.cpp)
+# paw doctor and paw fetch read the configuration, fetch outside a session.
+target_link_libraries(paw_cli PRIVATE paw_config)
+target_sources(paw_cli PRIVATE src/cli/top.cpp)
 target_sources(paw_cli PRIVATE src/cli/toys.cpp)
 
 include(CTest)
@@ -89,6 +97,9 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/docs/config-reference.md)
     paw_unit_test(config_robustness ${EXAMPLE_CONFIG})
     paw_unit_test(cli LIBRARY paw_cli)
+    paw_unit_test(fetch LIBRARY paw_cli)
+    paw_unit_test(showcase LIBRARY paw_cli)
+    paw_unit_test(top LIBRARY paw_cli)
     paw_unit_test(toy_command LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
@@ -130,6 +141,7 @@ if(BUILD_TESTING)
     paw_unit_test(autostart)
     paw_unit_test(display_power_config)
     paw_unit_test(output_config)
+    paw_unit_test(doctor LIBRARY paw_cli)
     paw_c_unit_test(power_supply)
     paw_c_unit_test(lid)
     paw_c_unit_test(output_state)
@@ -307,6 +319,12 @@ if(PAW_BUILD_COMPOSITOR)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake
         BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/version.h)
     add_dependencies(paw paw_version)
+    # paw fetch names the build it is part of: version.h, and wlroots' version header.
+    add_dependencies(paw_cli paw_version)
+    target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${WLROOTS_INCLUDE_DIRS})
+    # paw top names the version too, where a build of the compositor makes version.h.
+    add_dependencies(paw_cli paw_version)
+    target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_options(paw PRIVATE -Wall -Wextra -Wno-unused-parameter)
     # A compositor function shared between files is declared in src/compositor/server.h; any
     # other is static. This flags one that is neither.
@@ -321,6 +339,9 @@ if(PAW_BUILD_COMPOSITOR)
         string(REPLACE "LIB" "" PAW_SDBUS ${PAW_SDBUS})
         target_compile_definitions(paw PRIVATE PAW_SDBUS_${PAW_SDBUS}=1)
         target_link_libraries(paw PRIVATE PkgConfig::SDBUS)
+        # paw doctor asks the session and system buses through it too.
+        target_compile_definitions(paw_cli PRIVATE PAW_SDBUS_${PAW_SDBUS}=1)
+        target_link_libraries(paw_cli PRIVATE PkgConfig::SDBUS)
     else()
         message(STATUS "No sd-bus (libsystemd, libelogind, basu); other desktops may suspend "
             "the machine while paw is on screen")
@@ -714,6 +735,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(scroll_bound_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(keyboard_resize_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(volume_keys_smoke $<TARGET_FILE:paw>)
         paw_smoke(keymap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
@@ -821,6 +843,7 @@ if(PAW_BUILD_COMPOSITOR)
             paw_smoke(idle_suspend_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>
                 $<TARGET_FILE:lock_probe>)
             paw_smoke(lid_logind_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
+            paw_smoke(doctor_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
         endif()
         # The compositor benchmark (tools/bench/bench.py); see docs/performance.md.
         paw_probe(paw-bench-client tools/bench/bench_client.c
@@ -853,6 +876,11 @@ if(PAW_BUILD_COMPOSITOR)
         # Windows' own icons; an X11 window's only where the X11 probe is built.
         paw_smoke(window_icon_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
+        paw_smoke(fetch_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(showcase_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG}
+            "${GRIM_ARGUMENT}")
+        paw_smoke(top_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:paw-bench-client>)
         paw_smoke(toys_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
     endif()
