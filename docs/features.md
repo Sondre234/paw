@@ -2897,7 +2897,8 @@ in a terminal of the session; it checks:
   `paw` in its `XDG_CURRENT_DESKTOP` and offers screen sharing.
 - **X11**: that Xwayland is installed, unless `xwayland = false`.
 
-On a terminal the report is in colour, unless `NO_COLOR` is set or `--no-color` given. `--plain`
+In a [nested session](#nested-sessions) notifications, password prompts and screen sharing are the
+host desktop's, and it says so instead of checking them. On a terminal the report is in colour, unless `NO_COLOR` is set or `--no-color` given. `--plain`
 prints a line per check for scripts instead: `ok`, `warning` or `error`, the check's name
 (`shell`, `portal-config`, ...), the finding and the fix, separated by tabs. `paw doctor` exits
 with 1 when something is broken, else 0.
