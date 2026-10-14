@@ -861,6 +861,15 @@ int main(int argc, char **argv) {
                     paw::parse_config("return {shell={panel_draggable=true}}").shell.panel_draggable,
                 "panel_draggable not parsed");
         rejects("return {shell={panel_draggable='yes'}}");
+        using Dock = paw::ShellConfig::PanelDock;
+        require(even.shell.panel_dock == Dock::Always &&
+                    paw::parse_config("return {shell={panel_dock=false}}").shell.panel_dock ==
+                        Dock::Never &&
+                    paw::parse_config("return {shell={panel_dock='maximized'}}").shell.panel_dock ==
+                        Dock::Maximized,
+                "panel_dock not parsed");
+        rejects("return {shell={panel_dock='tiles'}}");
+        rejects("return {shell={panel_dock=1}}");
         rejects("return {shell={panel_margin=-1}}");
         rejects("return {shell={panel_margin={middle=1}}}");
         rejects("return {shell={font_size=2}}");
