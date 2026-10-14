@@ -36,6 +36,19 @@ static bool in_frame_hole(struct wlr_scene_node *node, double lx, double ly) {
            ly < y + rect->height - hole;
 }
 
+/* The tree of the window `node` is drawn for when that is a tile bound to its monitor and the
+ * layout position lies past it (placement.c's bound_tile): it is not there to point at. */
+static struct wlr_scene_node *past_bound(struct wlr_scene_node *node, double lx, double ly) {
+    struct sh_node *owner = node ? scene_owner(node) : NULL;
+    if (!owner || owner->kind != SH_NODE_TOPLEVEL)
+        return NULL;
+    struct sh_toplevel *toplevel = owner->owner;
+    if (!toplevel->bounded || !toplevel->scene_tree ||
+        wlr_box_contains_point(&toplevel->bound, lx, ly))
+        return NULL;
+    return &toplevel->scene_tree->node;
+}
+
 /* The topmost node at a layout position, where windows will be once their animations end:
  * input never waits for an animation, nor lands in the middle of one. */
 static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx, double ly,
@@ -66,12 +79,16 @@ static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx,
     }
     struct wlr_scene_node *node = wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
     // A rounded border is one hollow rect over the whole window, which hit testing takes as
-    // solid: pointing through its hole reaches what is below, the window itself first.
+    // solid: pointing through its hole reaches what is below, the window itself first. So does
+    // pointing at a tile past the monitor it keeps to.
     struct wlr_scene_node *hidden[8];
     int hidden_count = 0;
-    while (hidden_count < 8 && in_frame_hole(node, lx, ly)) {
-        node->enabled = false; // only for the next lookup: no damage, nothing redrawn
-        hidden[hidden_count++] = node;
+    while (hidden_count < 8) {
+        struct wlr_scene_node *hide = in_frame_hole(node, lx, ly) ? node : past_bound(node, lx, ly);
+        if (!hide)
+            break;
+        hide->enabled = false; // only for the next lookup: no damage, nothing redrawn
+        hidden[hidden_count++] = hide;
         node = wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
     }
     while (hidden_count > 0)
