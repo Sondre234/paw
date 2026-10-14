@@ -2867,6 +2867,37 @@ Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the
 and to find out what is wrong with it. They talk to the running session through its control
 socket, as `paw msg` does; `paw --help` lists them.
 
+### paw top
+
+`paw top` shows what the compositor is doing, as htop shows a machine's processes: it looks at
+the running session four times a second and redraws the terminal until `q`, Escape or Ctrl+C. `p`
+pauses it, and `s` changes the order of the windows.
+
+- The first line names the version, how long the compositor has run, how many monitors it drives
+  and the appearance profile saved last.
+- Each monitor has a line with its mode, the frames it draws a second, and the average, 99th
+  percentile and worst time the compositor took to draw one of its last 512 frames: green under
+  half of the monitor's frame budget (its refresh interval), yellow up to all of it, red over
+  it. Under it a graph shows those frames, the newest on the right, against the scale on its
+  left.
+- Activity is what the compositor did each second: frames drawn, windows' commits, windows
+  placed by the layouts, pointer motions, reflows of the tiling and opacity rules matched, with
+  the time the frames, commits, motions and reflows took.
+- The table lists every window and layer surface (panels, the shell's) with the commits it makes
+  a second, the time the compositor spends handling them each second and on each one, its
+  workspace, its app ID or namespace, and its title, the most time first; `s` sorts them by
+  commits, by app ID or by workspace instead.
+
+The time a commit takes is the compositor's own work as it arrives (the window's frame, its
+glide to a new size, the panels' places), not the client's drawing nor the frame it brings; a
+popup's or a subsurface's commits (a video some players draw in one) are not counted. Rates are
+over the last second. `paw top --once` prints one look, its rates over one interval: as wide as
+the terminal, or where it does not print to one as `COLUMNS` says (else 100 columns) and without
+colours, as with `--no-color` or `NO_COLOR` set. `--interval MS` sets how often it looks (250
+ms). It reads `get stats`, `get outputs`, `get output_frames`, `get frame_times OUTPUT` and `get
+commits` (see [Control socket](#control-socket)); from a compositor older than it, the frame
+times and the table say they need a newer one.
+
 ## Screen locking and idle
 
 Screen locking uses the standard `ext-session-lock-v1` protocol, so lockers such
