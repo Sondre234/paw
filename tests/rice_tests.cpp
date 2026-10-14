@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* Rices (src/rice.cpp): rice.lua read as data alone and written back, what a rice may set and
- * name, the installed rices and the record of one on trial. */
+ * name, the installed rices and the record of one on trial; and the archive a rice is shared in
+ * (src/cli/rice_archive.cpp). */
 #include "check.h"
+#include "paw/cli.hpp"
 #include "paw/config.hpp"
 #include "paw/rice.hpp"
 
@@ -417,6 +419,95 @@ void profiles(const fs::path &root) {
     CHECK(mentions(error_of([&] { paw::configured_look(root / "config/init.lua", "nope"); }),
                    "no profile nope"));
 }
+// A tar entry made by hand, as an archive meant to harm would hold it.
+std::string tar_entry(const std::string &name, const std::string &data, char type = '0',
+                      const std::string &link = "") {
+    std::string header(512, '\0');
+    header.replace(0, name.size(), name);
+    header.replace(100, 7, "0000644");
+    char size[24];
+    std::snprintf(size, sizeof(size), "%011zo", data.size());
+    header.replace(124, 11, size);
+    header.replace(136, 11, "00000000000");
+    header[156] = type;
+    header.replace(157, link.size(), link);
+    header.replace(257, 8, std::string("ustar\0" "00", 8));
+    header.replace(148, 8, "        ");
+    unsigned sum = 0;
+    for (char c : header)
+        sum += static_cast<unsigned char>(c);
+    char checksum[8];
+    std::snprintf(checksum, sizeof(checksum), "%06o", sum);
+    header.replace(148, 7, checksum, 7);
+    std::string padding((512 - data.size() % 512) % 512, '\0');
+    return header + data + padding;
+}
+std::string tar_end() { return std::string(1024, '\0'); }
+
+void archives(const fs::path &root) {
+    auto files = paw::rice_files(root / "washi");
+    auto archive = paw::cli::rice_archive("washi", files);
+    CHECK(archive.size() % 512 == 0);
+    CHECK(paw::cli::rice_archive_files(archive) == files, "what goes in comes out");
+    write(root / "washi.tar", archive);
+    // Other programs read it, and paw reads what they write, compressed too.
+    if (std::system("tar --version >/dev/null 2>&1") == 0) {
+        auto listing = root / "listing";
+        auto command = "tar -tf " + (root / "washi.tar").string() + " > " + listing.string();
+        CHECK(std::system(command.c_str()) == 0);
+        CHECK(mentions(read(listing), "washi/wallpaper/washi.jpg"), "%s", read(listing).c_str());
+        command = "cd " + root.string() + " && tar -czf washi.tar.gz washi";
+        CHECK(std::system(command.c_str()) == 0);
+        auto unpacked = paw::cli::run_filter({"gzip", "-dc"}, root / "washi.tar.gz",
+                                             paw::cli::max_rice_archive);
+        auto theirs = paw::cli::rice_archive_files(unpacked);
+        CHECK(theirs["rice.lua"] == files["rice.lua"] && theirs.contains("notes.txt"));
+    }
+    CHECK(mentions(error_of([&] {
+              paw::cli::run_filter({"gzip", "-dc"}, root / "washi.tar.gz", 1000);
+          }),
+                   "more than"),
+          "a bomb is cut short");
+    CHECK(mentions(error_of([&] {
+              paw::cli::run_filter({"gzip", "-dc"}, root / "washi.tar", 1 << 20);
+          }),
+                   "gzip failed"));
+
+    // rice.lua at the top, without a directory around it.
+    auto flat = tar_entry("rice.lua", files["rice.lua"]) + tar_entry("neko.svg", "<svg/>") +
+                tar_end();
+    CHECK(paw::cli::rice_archive_files(flat).size() == 2);
+    auto refuses = [](const std::string &tar, const std::string &why) {
+        auto error = error_of([&] { paw::cli::rice_archive_files(tar); });
+        CHECK(mentions(error, why), "%s, not %s", error.c_str(), why.c_str());
+    };
+    auto manifest = tar_entry("r/rice.lua", files["rice.lua"]);
+    refuses(manifest + tar_entry("r/../../escape", "x") + tar_end(), "a path out of it");
+    refuses(manifest + tar_entry("/etc/cron.d/x", "x") + tar_end(), "an absolute path");
+    refuses(manifest + tar_entry("r/neko.svg", "", '2', "/etc/passwd") + tar_end(), "is a link");
+    refuses(manifest + tar_entry("r/neko.svg", "", '1', "r/rice.lua") + tar_end(), "is a link");
+    refuses(manifest + tar_entry("r/dev", "", '3') + tar_end(), "not a plain file");
+    refuses(manifest + tar_entry("r/fifo", "", '6') + tar_end(), "not a plain file");
+    refuses(manifest + tar_entry("././@LongLink", "r/../../x", 'L') + tar_entry("r/x", "x") +
+                tar_end(),
+            "a path out of it");
+    refuses(manifest + tar_entry("PaxHeader", "22 path=../../../evil\n", 'x') +
+                tar_entry("r/evil", "x") + tar_end(),
+            "a path out of it");
+    refuses(manifest + tar_entry("r/rice.lua", "again") + tar_end(), "twice");
+    refuses(manifest + tar_entry("s/rice.lua", "x") + tar_end(), "more than one rice");
+    refuses(tar_entry("r/neko.svg", "x") + tar_end(), "no rice.lua");
+    refuses(manifest, "ends before");
+    refuses(manifest.substr(0, 600), "ends inside");
+    refuses(std::string(1024, 'x'), "not a tar archive");
+    // Unpacked into a rice, only what rice.lua names is taken.
+    auto loose = paw::cli::rice_archive_files(manifest + tar_entry("r/wallpaper/washi.jpg", "j") +
+                                              tar_entry("r/neko.svg", "s") +
+                                              tar_entry("r/kitty/washi.conf", "k") +
+                                              tar_entry("r/._neko.svg", "mac") + tar_end());
+    auto staged = paw::stage_rice(loose, root / "archive-rices");
+    CHECK(!fs::exists(staged / "._neko.svg") && fs::exists(staged / "neko.svg"));
+}
 } // namespace
 
 int main() {
@@ -430,6 +521,7 @@ int main() {
     directories_are_checked(root);
     trials(root);
     profiles(root);
+    archives(root);
     fs::remove_all(root);
     return failures != 0;
 }
