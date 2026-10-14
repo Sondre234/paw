@@ -848,5 +848,7 @@ if(PAW_BUILD_COMPOSITOR)
         # Windows' own icons; an X11 window's only where the X11 probe is built.
         paw_smoke(window_icon_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
+        paw_smoke(top_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:paw-bench-client>)
     endif()
 endif()
