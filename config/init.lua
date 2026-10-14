@@ -295,8 +295,9 @@ return {
         --                      the panel settings below applying to the dock
         -- panel_height = 52,
         -- panel_position = "bottom", -- or "top", "left" or "right"
-        -- panel_draggable = false, -- true: drag the bar by its empty space to another edge,
-        --                            which is written back into this file as panel_position
+        -- panel_draggable = false, -- true: drag the bar by its empty space to another edge, or
+        --                            by its inner edge to resize it, which is written back into
+        --                            this file as panel_position or panel_height
         -- panel_dock = true, -- false: a floating bar stays floating while windows reach it;
         --                       "maximized": it docks only for a maximized window, not tiling
         -- mirror_menus = false, -- true: along the top, the bar's right-click menus run the other
