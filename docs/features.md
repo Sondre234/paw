@@ -2896,11 +2896,11 @@ each surface's or window's kind, namespace or app id, title and place, which say
 drawn over another (in a terminal, a square of each layer's colour leads its line):
 
     HEADLESS-1, top first:
-      top         surface  paw-panel                     1600×52 at 0,848
-      above       window   firefox — Mozilla Firefox      800×600 at 104,104
-      windows     window   kitty — ~/dev                 320×240 at 72,72
-      background  surface  paw-desktop                   1600×900 at 0,0
-      background  colour   paw — #19212e                 1600×900 at 0,0
+      top         surface  paw-panel                  1600×52 at 0,848
+      above       window   firefox — Mozilla Firefox  320×240 at 72,72
+      windows     window   kitty — ~/dev              320×240 at 40,40
+      background  surface  paw-desktop                1600×900 at 0,0
+      background  colour   paw — #19212e              1600×900 at 0,0
 
 `paw msg get xray` gives the same as tab-separated lines, bottom to top, after a line saying
 whether the view is open: output, layer, its colour, kind (colour, surface, window or x11), name,
