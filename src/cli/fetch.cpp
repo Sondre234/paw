@@ -120,7 +120,9 @@ std::optional<Rgb> parse_color(const std::string &text) {
     if ((text.size() != 7 && text.size() != 9) || text[0] != '#' ||
         text.find_first_not_of("0123456789abcdefABCDEF", 1) != std::string::npos)
         return std::nullopt;
-    auto channel = [&](size_t at) { return static_cast<int>(std::stoi(text.substr(at, 2), nullptr, 16)); };
+    auto channel = [&](size_t at) {
+        return static_cast<int>(std::stoi(text.substr(at, 2), nullptr, 16));
+    };
     return Rgb{channel(1), channel(3), channel(5)};
 }
 
@@ -191,7 +193,8 @@ Rgb gradient_at(const Palette &palette, double u, double v) {
         return {};
     if (stops.size() == 1)
         return stops.front();
-    double radians = palette.angle * std::numbers::pi / 180, dx = std::cos(radians), dy = std::sin(radians);
+    double radians = palette.angle * std::numbers::pi / 180, dx = std::cos(radians),
+           dy = std::sin(radians);
     double reach = std::abs(dx) + std::abs(dy);
     double t = std::clamp(((u - 0.5) * dx + (v - 0.5) * dy) / reach + 0.5, 0.0, 1.0);
     double at = t * static_cast<double>(stops.size() - 1);
@@ -287,9 +290,10 @@ std::string windows_text(const Rows &windows, bool tiling, const std::string &la
         ++count;
         workspaces.emplace(row[10], row[0]);
     }
-    std::string text = count == 0 ? "none"
-                       : std::to_string(count) + " on " + std::to_string(workspaces.size()) +
-                             (workspaces.size() == 1 ? " workspace" : " workspaces");
+    std::string text = count == 0
+                           ? "none"
+                           : std::to_string(count) + " on " + std::to_string(workspaces.size()) +
+                                 (workspaces.size() == 1 ? " workspace" : " workspaces");
     return text + " · " + (tiling ? layout : "floating");
 }
 
@@ -423,9 +427,9 @@ std::vector<std::string> logo(const Palette &palette, bool color) {
         char c = paw_print[y][x];
         if (c == '.')
             return std::nullopt;
-        Rgb base = readable(gradient_at(palette, (x + 0.5) / print_width,
-                                        ((y & ~1) + 1.0) / print_height),
-                            palette.background, 1.5);
+        Rgb base =
+            readable(gradient_at(palette, (x + 0.5) / print_width, ((y & ~1) + 1.0) / print_height),
+                     palette.background, 1.5);
         return c == '+' ? readable(mix(base, {255, 255, 255}, 0.45), palette.background, 1.25)
                         : base;
     };
@@ -468,8 +472,8 @@ std::string render(const Palette &palette, const std::string &title,
                    const std::vector<Field> &fields, Style style) {
     Rgb plain = palette.border.empty() ? Rgb{128, 128, 128} : palette.border.front();
     Rgb label = readable(plain, palette.background, 3);
-    Rgb heading = readable(palette.border.empty() ? plain : palette.border.back(),
-                           palette.background, 3);
+    Rgb heading =
+        readable(palette.border.empty() ? plain : palette.border.back(), palette.background, 3);
     Rgb rule = readable(palette.inactive, palette.background, 1.5);
     auto paint = [&](const std::string &text, Rgb color, bool bold) {
         if (!style.color || text.empty())
@@ -482,7 +486,8 @@ std::string render(const Palette &palette, const std::string &title,
     };
     std::vector<Line> lines;
     auto space = title.find(' ');
-    auto first = title.substr(0, space), rest = space == std::string::npos ? "" : title.substr(space);
+    auto first = title.substr(0, space),
+         rest = space == std::string::npos ? "" : title.substr(space);
     lines.push_back({paint(first, heading, true) + rest, width(title)});
     std::string ruler;
     for (size_t i = 0; i < width(title); ++i)
@@ -493,9 +498,9 @@ std::string render(const Palette &palette, const std::string &title,
         widest = std::max(widest, width(field.label));
     for (const auto &field : fields) {
         auto name = field.label + std::string(widest - width(field.label) + 2, ' ');
-        lines.push_back({paint(field.label, label, true) + name.substr(field.label.size()) +
-                             field.value,
-                         widest + 2 + width(field.value)});
+        lines.push_back(
+            {paint(field.label, label, true) + name.substr(field.label.size()) + field.value,
+             widest + 2 + width(field.value)});
     }
     if (style.color && style.logo) {
         std::string strip;
@@ -671,7 +676,8 @@ int fetch(int argc, char **argv) {
 
     std::vector<Field> fields;
     if (!profile.empty())
-        fields.push_back({"profile", profile + (palette->scheme.empty() ? "" : " · " + palette->scheme)});
+        fields.push_back(
+            {"profile", profile + (palette->scheme.empty() ? "" : " · " + palette->scheme)});
     if (!session)
         fields.push_back({"session", "not in a paw session"});
     else {
@@ -680,8 +686,8 @@ int fetch(int argc, char **argv) {
         if (stats && !stats->empty() && !(*stats)[0].empty())
             frames = std::strtoull((*stats)[0][0].c_str(), nullptr, 10);
         if (auto uptime = about ? value_of(*about, "uptime") : ""; !uptime.empty())
-            fields.push_back(
-                {"session", fetch::session_text(std::strtoll(uptime.c_str(), nullptr, 10), frames)});
+            fields.push_back({"session", fetch::session_text(
+                                             std::strtoll(uptime.c_str(), nullptr, 10), frames)});
         else if (stats)
             fields.push_back(
                 {"session", fetch::amount(frames) + (frames == 1 ? " frame" : " frames")});
@@ -692,15 +698,17 @@ int fetch(int argc, char **argv) {
             auto tiling = ask("tiling");
             auto layout = ask("layout");
             bool tiles = tiling && !tiling->empty() && (*tiling)[0][0] == "on";
-            fields.push_back({"windows", fetch::windows_text(*windows, tiles,
-                                                            layout && !layout->empty()
-                                                                ? (*layout)[0][0]
-                                                                : "tiling")});
+            fields.push_back(
+                {"windows",
+                 fetch::windows_text(*windows, tiles,
+                                     layout && !layout->empty() ? (*layout)[0][0] : "tiling")});
         }
         if (auto outputs = ask("outputs")) {
             auto monitors = fetch::monitors_text(*outputs);
             for (size_t i = 0; i < monitors.size(); ++i)
-                fields.push_back({i ? "" : monitors.size() == 1 ? "monitor" : "monitors",
+                fields.push_back({i                      ? ""
+                                  : monitors.size() == 1 ? "monitor"
+                                                         : "monitors",
                                   monitors[i]});
         }
         if (auto idle = ask("idle"))
@@ -718,8 +726,8 @@ int fetch(int argc, char **argv) {
             auto library = value_of(*about, "wlroots");
             if ((!version.empty() && version != PAW_VERSION) ||
                 (!library.empty() && !wlroots.empty() && library != wlroots))
-                fields.push_back({"running", "paw " + fetch::version_text(version) +
-                                                 " · wlroots " + library});
+                fields.push_back(
+                    {"running", "paw " + fetch::version_text(version) + " · wlroots " + library});
         }
     }
     auto state = state_directory();

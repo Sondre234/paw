@@ -80,15 +80,19 @@ int main() {
 
     // The gradient runs along its angle, as the border's does.
     replied.angle = 0;
-    CHECK(gradient_at(replied, 0, 0.5) == rgb("#8fc1ec") && gradient_at(replied, 1, 0.5) == rgb("#f2a7c3"));
+    CHECK(gradient_at(replied, 0, 0.5) == rgb("#8fc1ec") &&
+          gradient_at(replied, 1, 0.5) == rgb("#f2a7c3"));
     replied.angle = 90;
-    CHECK(gradient_at(replied, 0.5, 0) == rgb("#8fc1ec") && gradient_at(replied, 0.5, 1) == rgb("#f2a7c3"));
+    CHECK(gradient_at(replied, 0.5, 0) == rgb("#8fc1ec") &&
+          gradient_at(replied, 0.5, 1) == rgb("#f2a7c3"));
     replied.angle = 135;
-    CHECK(gradient_at(replied, 1, 0) == rgb("#8fc1ec") && gradient_at(replied, 0, 1) == rgb("#f2a7c3"),
+    CHECK(gradient_at(replied, 1, 0) == rgb("#8fc1ec") &&
+              gradient_at(replied, 0, 1) == rgb("#f2a7c3"),
           "135 degrees runs from the top right to the bottom left");
     auto middle = gradient_at(replied, 0.5, 0.5);
     CHECK(middle.r > 0x8f && middle.r < 0xf2, "the middle is between the stops");
-    CHECK(gradient_at(defaults, 0.9, 0.1) == defaults.border[0], "one colour is the same throughout");
+    CHECK(gradient_at(defaults, 0.9, 0.1) == defaults.border[0],
+          "one colour is the same throughout");
 
     // Numbers.
     CHECK(duration(45'000) == "45s" && duration(570'000) == "9m30s" && duration(600'000) == "10m");
@@ -96,8 +100,10 @@ int main() {
     CHECK(duration(3 * 86400'000LL + 4 * 3600'000) == "3d4h" && duration(-5) == "0s");
     CHECK(amount(999) == "999" && amount(1500) == "1.5k" && amount(158'312) == "158k");
     CHECK(amount(9'960) == "10k" && amount(2'400'000) == "2.4M" && amount(1000) == "1k");
-    CHECK(milliseconds(0.4412) == "0.44ms" && milliseconds(9.5) == "9.5ms" && milliseconds(25.2) == "25ms");
-    CHECK(version_text("0.1.1 (git 61f4e8d)") == "0.1.1 (61f4e8d)" && version_text("0.2.0") == "0.2.0");
+    CHECK(milliseconds(0.4412) == "0.44ms" && milliseconds(9.5) == "9.5ms" &&
+          milliseconds(25.2) == "25ms");
+    CHECK(version_text("0.1.1 (git 61f4e8d)") == "0.1.1 (61f4e8d)" &&
+          version_text("0.2.0") == "0.2.0");
 
     // Fields from the session's replies.
     CHECK(session_text(4 * 3600'000 + 12 * 60'000, 158'000) == "4h12m · 158k frames");
@@ -105,21 +111,21 @@ int main() {
     std::string times = "200\n";
     for (int i = 0; i < 200; ++i)
         times += std::to_string(i < 196 ? 400 : 1200 + i) + "\t6944\n";
-    CHECK(frames_text(stats, paw::cli::rows(times)) == "avg 0.41ms · p99 1.4ms · worst 25ms",
-          "%s", frames_text(stats, paw::cli::rows(times)).c_str());
+    CHECK(frames_text(stats, paw::cli::rows(times)) == "avg 0.41ms · p99 1.4ms · worst 25ms", "%s",
+          frames_text(stats, paw::cli::rows(times)).c_str());
     CHECK(frames_text(stats, {}) == "avg 0.41ms · worst 25ms", "too few frames for a p99");
     CHECK(frames_text(paw::cli::rows("0\t0\t0\n"), {}).empty(), "no frames yet");
 
     auto window = [](const char *workspace, const char *output, bool minimized, bool scratchpad) {
-        return std::vector<std::string>{workspace, "0", minimized ? "1" : "0", "1", "0", "0",
-                                        "640", "480", "kitty", "term", output, "1",
-                                        scratchpad ? "1" : "0", "0", "0", "0"};
+        return std::vector<std::string>{
+            workspace, "0", minimized ? "1" : "0",  "1", "0", "0", "640", "480", "kitty", "term",
+            output,    "1", scratchpad ? "1" : "0", "0", "0", "0"};
     };
     Rows windows = {window("1", "DP-1", false, false), window("1", "DP-1", true, false),
                     window("2", "DP-1", false, false), window("1", "HDMI-A-1", false, false),
                     window("3", "DP-1", true, true)};
-    CHECK(windows_text(windows, true, "scroll") == "4 on 3 workspaces · scroll",
-          "%s", windows_text(windows, true, "scroll").c_str());
+    CHECK(windows_text(windows, true, "scroll") == "4 on 3 workspaces · scroll", "%s",
+          windows_text(windows, true, "scroll").c_str());
     CHECK(windows_text({windows[0]}, false, "dwindle") == "1 on 1 workspace · floating");
     CHECK(windows_text({}, true, "dwindle") == "none · dwindle");
 
@@ -157,8 +163,8 @@ int main() {
     CHECK(desktop_name("[Desktop Entry]\nType=Application\nName[de]=Feuerfuchs\nName=Firefox  \n"
                        "[Desktop Action new]\nName=New Window\n") == "Firefox");
     CHECK(desktop_name("[Desktop Action x]\nName=Other\n").empty());
-    CHECK(app_label("org.kde.dolphin.desktop") == "dolphin" && app_label("firefox-bin.desktop") ==
-                                                                   "firefox-bin");
+    CHECK(app_label("org.kde.dolphin.desktop") == "dolphin" &&
+          app_label("firefox-bin.desktop") == "firefox-bin");
 
     // The logo: as many columns on every line, plain or coloured.
     auto plain = logo(palette, false);
