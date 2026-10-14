@@ -54,6 +54,7 @@ add_library(paw_cli STATIC src/cli/control_client.cpp)
 target_include_directories(paw_cli PUBLIC include)
 target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
 target_sources(paw_cli PRIVATE src/cli/fetch.cpp)
+target_sources(paw_cli PRIVATE src/cli/showcase.cpp)
 # paw fetch reads the configuration outside a session.
 target_link_libraries(paw_cli PRIVATE paw_config)
 
@@ -92,6 +93,7 @@ if(BUILD_TESTING)
     paw_unit_test(config_robustness ${EXAMPLE_CONFIG})
     paw_unit_test(cli LIBRARY paw_cli)
     paw_unit_test(fetch LIBRARY paw_cli)
+    paw_unit_test(showcase LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
