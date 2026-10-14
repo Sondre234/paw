@@ -160,8 +160,10 @@ uint32_t corner_edges(struct sh_toplevel *toplevel, uint32_t edges) {
 
 /* The cursor shows this image, unless it is hidden (cursor_hide). */
 void show_xcursor(struct sh_server *server, const char *name) {
-    if (!server->cursor_hidden)
-        wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, name);
+    if (server->cursor_hidden)
+        return;
+    wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, name);
+    server->cursor_image = name;
 }
 
 /* Show a corner cursor wherever an edge grab would become a corner resize, so the pointer
@@ -829,6 +831,7 @@ void seat_request_cursor(struct wl_listener *listener, void *data) {
         server->shape_edges = 0;
         server->shown_edges = 0;
         wlr_cursor_set_surface(server->cursor, event->surface, event->hotspot_x, event->hotspot_y);
+        server->cursor_image = "client";
     }
 }
 

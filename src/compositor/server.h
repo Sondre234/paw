@@ -140,7 +140,7 @@ enum sh_cursor_mode {
     SH_CURSOR_PASSTHROUGH,
     SH_CURSOR_MOVE,
     SH_CURSOR_RESIZE,
-    SH_CURSOR_PANEL, /* the taskbar dragged to another edge (panel_drag.c) */
+    SH_CURSOR_PANEL, /* the taskbar dragged to another edge, or resized (panel_drag.c) */
 };
 
 enum sh_node_kind { SH_NODE_TOPLEVEL, SH_NODE_LAYER };
@@ -621,6 +621,9 @@ struct sh_server {
 
     struct wlr_cursor *cursor;
     bool cursor_hidden; /* cursor_hide: no image until cursor_show, whatever asks for one */
+    /* The image the cursor was given last: an xcursor name (show_xcursor), "client" for a
+     * client's own surface, or NULL for none yet (get cursor_image). */
+    const char *cursor_image;
     /* The screenshot being taken (actions.c): its process (0 for none), its mode, and the timer
      * that shows the cursor again should it not end. */
     struct {
@@ -681,10 +684,15 @@ struct sh_server {
     struct wl_list pointers; /* struct sh_pointer */
     enum sh_cursor_mode cursor_mode;
     /* A drag of the taskbar (SH_CURSOR_PANEL): the output and the edge the shell was told of
-     * last. */
+     * last. A drag of its inner edge resizes it instead: `resize` is the output's edge the bar
+     * is along (else -1), `box` that output's as the resize began, and `distance` the pointer's
+     * distance from that edge the shell was told of last. */
     struct {
         char output[64];
         int edge;
+        int resize;
+        struct wlr_box box;
+        int distance;
     } panel_drag;
     struct sh_toplevel *grabbed_toplevel;
     double grab_x, grab_y;

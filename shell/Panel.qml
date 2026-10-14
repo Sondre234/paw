@@ -488,9 +488,12 @@ Item {
     // What shows the windows: the card of pictures or the list, and whether the pointer is on it.
     readonly property Item groupPopup: thumbnailsOpen ? thumbnailsLoader.item : groupListLoader.item
     readonly property bool groupListHovered: groupPopup ? groupPopup.hovered : false
-    // Something is open in the popover, or the bar has the keyboard there, or is being dragged.
-    // The list shown on hover does not take the keyboard: it opens under a window being typed in.
+    // Something is open in the popover, or the bar has the keyboard there, or is being dragged
+    // (every panel's shows where it would go), or resized from this panel (whose popover holds
+    // the keyboard for Escape). The list shown on hover does not take the keyboard: it opens under
+    // a window being typed in.
     readonly property bool expanded: menuOpen || groupOpen || workspaceCardOpen || barKeys.active || barDragging ||
+                                     barDragOrigin && barResizing ||
                                      dropGhostShown
     // What a window dragged onto a workspace carries shows in the popover, over the bar.
     readonly property bool dropGhostShown: dropGhost.visible
@@ -1278,21 +1281,37 @@ Item {
     // moves starts it here (startBarDrag), the compositor taking the pointer, and every panel's
     // popover then shows where the bar would go, the edge nearest the pointer on the output it is
     // over, taking no input; letting go moves it there (shell.movePanel), and Escape leaves it.
-    // The panel it started on holds the keyboard meanwhile, for Escape.
+    // Resizing it by its inner edge (the same setting) starts with a press there
+    // (startBarResize), the compositor taking the pointer too, and every bar is as tall as
+    // shell.panelHeight says as the edge is dragged (as wide down a side); letting go keeps that
+    // (shell.resizePanel), and Escape puts the old size back. The panel either started on holds
+    // the keyboard meanwhile, for Escape.
     readonly property bool barDragging: shell.barDragging
+    readonly property bool barResizing: shell.barResizing
+    readonly property bool barHeld: barDragging || barResizing
     property bool barDragOrigin: false
-    onBarDraggingChanged: {
-        if (!barDragging)
+    onBarHeldChanged: {
+        if (!barHeld)
             barDragOrigin = false
         else if (barDragOrigin)
             popupLayer.forceActiveFocus()
     }
     function startBarDrag() {
-        if (!shell.panelDraggable || barDragging)
+        if (!shell.panelDraggable || barHeld)
             return
         closeMenus()
         barDragOrigin = true
         shell.startBarDrag()
+    }
+    // The bar's inner edge pressed at `point`, in the panel's coordinates: how far that is from
+    // the output's edge the bar is along, from which the bar follows the pointer.
+    function startBarResize(point) {
+        if (!shell.panelDraggable || barHeld)
+            return
+        closeMenus()
+        barDragOrigin = true
+        shell.startBarResize(Math.round(edge === "top" ? point.y : edge === "bottom" ? height - point.y
+                                        : edge === "left" ? point.x : width - point.x))
     }
 
     // A click on the bar's empty space closes what is open.
@@ -1321,7 +1340,7 @@ Item {
     PopoverWindow {
         id: popover
         panel: root.shellView
-        keyboard: root.menuOpen || root.barKeys.active || root.barDragOrigin && root.barDragging
+        keyboard: root.menuOpen || root.barKeys.active || root.barDragOrigin && root.barHeld
         inputRects: root.pictureDrag ? [Qt.rect(0, 0, popover.width, popover.height)]
             : root.menuOpen || root.barKeys.active
             ? root.popoverInput

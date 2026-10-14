@@ -259,6 +259,24 @@ int main(int argc, char **argv) {
         paw::save_setting(config, position, "\"top\"", on_top);
         require(read(config) == set_position(profiles, "top", "sumi") && on_top(paw::load_config(config)),
                 "save_setting did not edit the saved profile's setting");
+        // The taskbar resized by its inner edge has its height written the same way: into the
+        // profile in use when that sets it, else into the file's shell table, which gains it.
+        const std::vector<std::string> panel_height = {"shell", "panel_height"};
+        auto tall = [](const paw::Config &config) { return config.shell.panel_height == 64; };
+        write(config, profiles);
+        paw::save_profile("washi");
+        paw::save_setting(config, panel_height, "64", tall);
+        auto resized = profiles;
+        resized.replace(resized.find("panel_height = 46"), 17, "panel_height = 64");
+        require(read(config) == resized && tall(paw::load_config(config)),
+                "a resized taskbar's height not written into the profile in use:\n" + read(config));
+        write(config, profiles);
+        paw::save_profile("sumi");
+        paw::save_setting(config, panel_height, "64", tall);
+        resized = profiles;
+        resized.replace(resized.find("shell = { panel_position"), 9, "shell = { panel_height = 64,");
+        require(read(config) == resized && tall(paw::load_config(config)),
+                "a resized taskbar's height not added to the shell table:\n" + read(config));
         // A link's target is edited, keeping its permissions, and the link stays; no file is left
         // beside it.
         std::filesystem::create_directories(directory / "real");

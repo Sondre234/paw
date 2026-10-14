@@ -4,6 +4,7 @@
 #include "icons.hpp"
 #include "image_provider.hpp"
 #include "paw/config_edit.hpp"
+#include "paw/config_schema.hpp"
 #include "state_files.hpp"
 #include "wallpapers.hpp"
 #include <QQmlContext>
@@ -558,12 +559,75 @@ void ShellController::startBarDrag() {
     });
 }
 void ShellController::cancelBarDrag() {
-    if (barDragging_)
+    if (barDragging_ || barResizing_)
         ask("panel_drag cancel\n", [](const QByteArray &) {});
 }
-// "panel-drag OUTPUT EDGE", "panel-dropped OUTPUT EDGE" or "panel-drag-cancelled".
+void ShellController::startBarResize(int distance) {
+    if (!panelDraggable() || barDragging_ || barResizing_)
+        return;
+    barResizeFrom_ = distance;
+    ask("panel_drag resize " + panelEdge().toUtf8() + "\n", [this](const QByteArray &reply) {
+        if (reply.startsWith("ok"))
+            return;
+        std::cerr << "paw taskbar not resized: " << reply.trimmed().toStdString() << '\n';
+        if (!barResizing_)
+            barResizeFrom_ = -1;
+    });
+}
+namespace {
+// shell.panel_height's range, as the schema has it.
+std::pair<int, int> panelHeightRange() {
+    for (const auto &option : paw::config_options())
+        if (std::string_view(option.path) == "shell.panel_height")
+            return {int(option.min), int(option.max)};
+    return {24, 100};
+}
+} // namespace
+// "panel-resize OUTPUT DISTANCE" or "panel-resized OUTPUT DISTANCE", as words: the bar follows the
+// pointer from where it was pressed, or from where the compositor first says it is when the
+// shell did not ask.
+void ShellController::handleBarResize(const QStringList &words) {
+    bool number = false;
+    const int distance = words.value(2).toInt(&number);
+    if (words.size() != 3 || !number)
+        return;
+    if (!barResizing_) {
+        barResizing_ = true;
+        if (barResizeFrom_ < 0)
+            barResizeFrom_ = distance;
+        barResizeStart_ = barResizeHeight_ = config_.shell.panel_height;
+        Q_EMIT barDragChanged();
+    }
+    static const auto range = panelHeightRange();
+    const int height = std::clamp(barResizeStart_ + distance - barResizeFrom_, range.first, range.second);
+    if (words[0] == "panel-resized") {
+        barResizeHeight_ = height;
+        // Written while the bar is still drawn at that height, so that it never shows the old one.
+        resizePanel(height);
+        barResizing_ = false;
+        barResizeFrom_ = -1;
+        Q_EMIT barDragChanged();
+        Q_EMIT panelSizeChanged();
+    } else if (height != barResizeHeight_) {
+        barResizeHeight_ = height;
+        Q_EMIT panelSizeChanged();
+    }
+}
+// "panel-drag OUTPUT EDGE", "panel-dropped OUTPUT EDGE" or "panel-drag-cancelled", or a resize's.
 void ShellController::handleBarDrag(const QString &line) {
     const auto words = line.split(' ');
+    if (words[0].startsWith("panel-resize")) {
+        handleBarResize(words);
+        return;
+    }
+    if (words[0] == "panel-drag-cancelled" && barResizing_) {
+        // The old size back.
+        barResizing_ = false;
+        barResizeFrom_ = -1;
+        Q_EMIT barDragChanged();
+        Q_EMIT panelSizeChanged();
+        return;
+    }
     const bool dropped = words[0] == "panel-dropped";
     barDragging_ = words[0] == "panel-drag" && words.size() == 3;
     if (words.size() == 3)
@@ -591,6 +655,21 @@ void ShellController::movePanel(const QString &edge) {
     }
     std::cerr << "paw taskbar moved to the " << edge.toStdString() << " edge\n";
     // At once, rather than waiting for the compositor, which reloads too while it watches the file.
+    reload();
+}
+void ShellController::resizePanel(int height) {
+    if (height == config_.shell.panel_height)
+        return;
+    try {
+        paw::save_setting(path_, {"shell", "panel_height"}, std::to_string(height),
+                          [&](const paw::Config &config) {
+                              return config.shell.panel_height == height;
+                          });
+    } catch (const std::exception &error) {
+        report("Could not resize the taskbar: " + QString::fromUtf8(error.what()));
+        return;
+    }
+    std::cerr << "paw taskbar resized to " << height << " pixels\n";
     reload();
 }
 void ShellController::clearError() {
@@ -837,6 +916,7 @@ void ShellController::reload() {
             Q_EMIT restylingChanged();
         }
         Q_EMIT configChanged();
+        Q_EMIT panelSizeChanged();
         Q_EMIT wallpaperChanged();
         // Tiling follows layout.tiling until the compositor says.
         if (!tilingKnown_)
@@ -989,7 +1069,8 @@ void ShellController::subscribe() {
                 notice(fields[0], fields.value(1));
             } else if (line.startsWith("dnd ")) {
                 handleDnd(line.sliced(4));
-            } else if (line.startsWith("panel-drag") || line.startsWith("panel-dropped ")) {
+            } else if (line.startsWith("panel-drag") || line.startsWith("panel-dropped ") ||
+                       line.startsWith("panel-resize")) {
                 handleBarDrag(line);
             } else if (line.startsWith("volume ") || line.startsWith("microphone ") ||
                        line.startsWith("brightness ")) {

@@ -90,6 +90,7 @@ static void tool_set_cursor(struct wl_listener *listener, void *data) {
         return;
     wlr_cursor_set_surface(tool->server->cursor, event->surface, event->hotspot_x,
                            event->hotspot_y);
+    tool->server->cursor_image = "client";
 }
 
 static void tool_destroy(struct wl_listener *listener, void *data) {

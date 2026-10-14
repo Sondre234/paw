@@ -98,7 +98,7 @@ Item {
         // press is let go of here.
         MouseArea {
             anchors.fill: parent
-            enabled: !taskbar.panel.barDragging
+            enabled: !taskbar.panel.barHeld
             acceptedButtons: shell.panelDraggable ? Qt.LeftButton | Qt.RightButton : Qt.RightButton
             property point pressedAt
             property bool dragging: false
@@ -238,6 +238,25 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 Accessible.name: "Dismiss"
                 onClicked: shell.clearError()
+            }
+        }
+        // With shell.panel_draggable, the bar's inner edge resizes it, as on Windows with the
+        // taskbar unlocked: a strip as thick as the margin the buttons leave there, under a resize
+        // cursor. A press on it has the compositor take the pointer (panel.startBarResize), and
+        // the bar follows it from there until it is let go. The strip is made anew once the drag
+        // is over: Qt never hears the button let go, which the compositor keeps, and a MouseArea
+        // still pressed would take no new press.
+        Loader {
+            active: shell.panelDraggable && !taskbar.panel.barHeld
+            readonly property int thickness: Theme.spacingS
+            x: taskbar.panel.edge === "left" ? parent.width - thickness : 0
+            y: taskbar.panel.onTop ? parent.height - thickness : 0
+            width: taskbar.vertical ? thickness : parent.width
+            height: taskbar.vertical ? parent.height : thickness
+            sourceComponent: MouseArea {
+                objectName: "barResizeEdge"
+                cursorShape: taskbar.vertical ? Qt.SizeHorCursor : Qt.SizeVerCursor
+                onPressed: (mouse) => taskbar.panel.startBarResize(mapToItem(null, mouse.x, mouse.y))
             }
         }
     }

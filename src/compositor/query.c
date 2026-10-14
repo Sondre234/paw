@@ -776,6 +776,17 @@ static void get_cursor(struct sh_server *server, int fd, const char *arguments) 
     control_reply(fd, server->cursor_hidden ? "hidden\n" : "shown\n");
 }
 
+static void get_cursor_image(struct sh_server *server, int fd, const char *arguments) {
+    // The image the cursor shows: the name of an xcursor (one paw gives it, as "grabbing" or
+    // "ns-resize", or the shape a client asks for through cursor-shape-v1), "client" for a
+    // client's own surface, or "none" while hidden or before it has one.
+    control_reply(fd, "ok\n");
+    char line[96];
+    snprintf(line, sizeof(line), "%s\n",
+             server->cursor_hidden || !server->cursor_image ? "none" : server->cursor_image);
+    control_reply(fd, line);
+}
+
 /* The queries, "get NAME" (or "get NAME ARGUMENTS" for one that takes them), which answer
  * even while the session is locked. A handler gets NULL for no arguments. */
 static const struct {
@@ -827,6 +838,7 @@ static const struct {
     {"workspace_views", describe_workspace_views, false},
     {"seat", get_seat, false},
     {"cursor", get_cursor, false},
+    {"cursor_image", get_cursor_image, false},
     {"autostart", get_autostart, false},
     {"gesture", get_gesture, false},
     {"touch", get_touch, false},

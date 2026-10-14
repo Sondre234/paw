@@ -170,6 +170,14 @@ that sets it, else the `shell` table, which gains the setting (or is added) when
 rest of the file is left as it was, comments and all. Escape, or letting go at its own edge,
 leaves the bar where it was.
 
+The same setting lets you resize the bar by its inner edge, the one facing the desktop (its top
+edge along the bottom of the monitor): the pointer turns into a resize cursor over it, and dragging
+it makes the bar taller or shorter, or wider or narrower down a side, between 24 and 100 pixels.
+Every monitor's bar follows as you drag, its buttons growing with it, and maximized and tiled
+windows make room as it goes. Let go and paw writes the new `panel_height` into your configuration
+file the way it writes `panel_position`; Escape puts the old size back. The macOS style's dock and
+the tiling bar keep their sizes.
+
 A floating bar docks while a window reaches the edge of the monitor's free area it is along (a
 maximized window, one snapped or dragged against that edge, and any tile, gaps or not, so on a
 tiling workspace it docks whenever a window there is not floating), as KDE's floating panels do: it eases out to fill the strip it reserves from edge to edge,
@@ -2804,7 +2812,9 @@ msg get seat` prints what has the keyboard, what the pointer is on and, while so
 dragged, what the drag is over: a line each, `keyboard`, `pointer` or `drag`, followed by
 `window` and its title, `layer` and its namespace, `other` (a popup, the lock screen) and `-`,
 or `-` twice for nothing; during a drag the pointer is on nothing. `paw msg get cursor` prints
-`hidden` while a screenshot hides the cursor, else `shown`. `paw msg get crossfade` prints one
+`hidden` while a screenshot hides the cursor, else `shown`, and `paw msg get cursor_image` the
+image it shows: the name of an xcursor (`default`, `grabbing`, `ns-resize`, ..., one paw shows or
+a shape a client asks for), `client` for a client's own picture, or `none`. `paw msg get crossfade` prints one
 line per monitor with a picture of the old look over it while an
 [appearance profile](#appearance-profiles) crossfades in: the monitor, `held` while it waits for
 the shell or `fading`, the profile, and the picture's opacity in thousandths; the shell tells the

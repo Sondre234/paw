@@ -757,7 +757,8 @@ const Option options[] = {
      "`\"macos\"` (a menu bar along the top and a dock at the bottom, the panel settings "
      "applying to the dock)."},
     {"shell.panel_height", "integer", "52", "52", 24, 100,
-     "Panel height in pixels; its width along the left or right edge."},
+     "Panel height in pixels; its width along the left or right edge. With `panel_draggable` the "
+     "taskbar's inner edge sets it too."},
     {"shell.panel_position", "enum", "\"bottom\"", "\"bottom\"", none, none,
      "The edge of the monitor the taskbar is along: `\"top\"`, `\"bottom\"`, `\"left\"` or "
      "`\"right\"`. Along a side its buttons and widgets stack from the top down, and its popups "
@@ -769,11 +770,15 @@ const Option options[] = {
      "floating whatever the windows do; `\"maximized\"` docks it only while a window fills the "
      "monitor (maximized or fullscreen) and the monitor does not tile."},
     {"shell.panel_draggable", "boolean", "false", "true", none, none,
-     "The taskbar can be dragged to another edge of the monitor, as on Windows with the taskbar "
-     "unlocked: pressing an empty part of it and dragging shows where it goes, the edge nearest "
-     "the pointer, and letting go there moves it, writing the new `panel_position` into the "
-     "configuration file (where it takes effect: the profile in use when that sets it, else "
-     "the `shell` table, added when missing). Escape or letting go at its own edge leaves it."},
+     "The taskbar can be dragged to another edge of the monitor, and resized by its inner edge, "
+     "as on Windows with the taskbar unlocked: pressing an empty part of it and dragging shows "
+     "where it goes, the edge nearest the pointer, and letting go there moves it, writing the new "
+     "`panel_position` into the configuration file (where it takes effect: the profile in use "
+     "when that sets it, else the `shell` table, added when missing). Escape or letting go at its "
+     "own edge leaves it. Dragging the edge that faces the desktop, under a resize cursor, makes "
+     "it taller or shorter (wider or narrower down a side) within `panel_height`'s range, the "
+     "windows making room as it goes; letting go writes the new `panel_height` the same way, and "
+     "Escape puts the old size back. The macOS style's dock is neither moved nor resized."},
     {"shell.mirror_menus", "boolean", "false", "false", none, none,
      "With the panel along the top, its right-click menus list their entries in reverse, so "
      "they read outwards from the bar as they do from one along the bottom: a window's begins "
