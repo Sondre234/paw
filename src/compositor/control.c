@@ -347,6 +347,7 @@ static const struct {
     {"switcher_peek", control_switcher_peek},
     {"profile_drawn", control_profile_drawn},
     {"workspace_nudge", control_workspace_nudge},
+    {"rice", control_rice},
 };
 
 static void control_handle(struct sh_server *server, int fd, const char *request) {

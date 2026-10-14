@@ -646,6 +646,11 @@ struct sh_callbacks {
      * decide now; every field -1 when none matches. */
     void (*dynamic_rule)(void *, const char *app_id, const char *title,
                          struct sh_dynamic_rule *rule);
+    /* The files of a rice on trial (`paw rice try`, src/rice.cpp): "try NAME" checks that the
+     * trial recorded is NAME's and notes this compositor in it, "keep" keeps the rice and
+     * "revert" puts the previous profile back and the rice away. False, with why, when it
+     * cannot. */
+    bool (*rice)(void *, const char *request, char *error, size_t error_size);
 };
 
 enum sh_backend_mode { SH_BACKEND_NESTED, SH_BACKEND_HEADLESS, SH_BACKEND_SESSION };

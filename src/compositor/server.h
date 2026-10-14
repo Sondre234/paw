@@ -752,6 +752,14 @@ struct sh_server {
     struct wl_list outputs;          /* enabled, in the layout */
     struct wl_list disabled_outputs; /* turned off by outputs.monitors */
     struct wl_listener new_output;
+    /* A rice on trial (rice.c): its name, and the timer that takes it back at `ends` (now_ms())
+     * unless it is kept. */
+    struct {
+        bool trial;
+        char name[64];
+        struct wl_event_source *timer;
+        int64_t ends;
+    } rice;
 };
 
 /* Tearing on an output (tearing.c): what its frames do now (`tearing`, `refused`, or why its
@@ -1715,6 +1723,11 @@ void move_to_workspace(struct sh_server *server, int workspace);
 void occupied_workspaces(struct sh_server *server, struct wlr_output *output, char *text,
                          size_t size);
 int focused_workspace(struct sh_server *server);
+
+/* rice.c */
+void control_rice(struct sh_server *server, int fd, const char *arguments);
+void describe_rice_trial(struct sh_server *server, int fd, const char *arguments);
+void rice_finish(struct sh_server *server);
 
 /* xwayland.c */
 #if WLR_HAS_XWAYLAND
