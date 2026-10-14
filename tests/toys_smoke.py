@@ -2,10 +2,10 @@
 """The toys only draw: shake, gravity and party each play (get toys) and draw windows off their
 places (get drawn) while get windows says the same before, during and after, and each ends with
 every window drawn where it is. A party colours the borders, a gradient one in one colour, and
-throws confetti, all gone after, the gradient back to the pixel. A window closed or moved mid-toy
-drops out of it while the others play on; the workspace changing and the session locking end it;
-a click brings gravity's windows back up early; with animations off the toys still play; and
-`paw shake`, `paw gravity` and `paw party` send them."""
+throws confetti, all gone after, the gradient back to the pixel. A window closed, resized, made
+fullscreen or taken by the pointer mid-toy drops out of it while the others play on; the workspace
+changing and the session locking end it; a click brings gravity's windows back up early; with
+animations off the toys still play; and `paw shake`, `paw gravity` and `paw party` send them."""
 from pathlib import Path
 import subprocess
 import sys
@@ -179,6 +179,30 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     wait_for(lambda: playing() == "none", "the party over with the workspace")
     msg("workspace", "1")
     wait_for(lambda: settled() and at_rest(), "back on the first workspace")
+    assert boxes() == before, boxes()
+
+    # Going fullscreen, or being taken by the pointer, lets a window go too.
+    clients["mover"] = desktop.open_window(probe, "mover", focused=True,
+                                           env={"PAW_PROBE_MOVE": "1"})
+    wait_for(settled, "mover settled")
+    msg("party")
+    wait_for(lambda: offset("mover") is not None, "mover at the party")
+    msg("fullscreen")  # mover has the focus
+    wait_for(lambda: "mover" not in toys()[1], "mover out of the party")
+    assert playing() == "party" and len(toys()[1]) == 2, toys()
+    msg("fullscreen")
+    wait_for(lambda: settled() and drawn()["mover"] == boxes()["mover"], "mover back")
+    msg("party")
+    wait_for(lambda: offset("mover") is not None, "mover at the party again")
+    x, y, width, height = boxes()["mover"]
+    pointer("move", str(x + 100), str(y + 20), "press", "left")  # it asks to be moved
+    wait_for(lambda: "mover" not in toys()[1], "mover out of the party as it is taken")
+    assert playing() == "party" and len(toys()[1]) == 2, toys()
+    pointer("release", "left")
+    msg("close")  # mover, focused by the press
+    assert desktop.reap(clients.pop("mover")) == 0
+    wait_for(lambda: "mover" not in boxes() and over(), "mover gone and the party over",
+             timeout=10)
     assert boxes() == before, boxes()
 
     # The lock ends it at once.
