@@ -62,5 +62,7 @@ std::string run_filter(const std::vector<std::string> &command, const std::files
 int cat(int argc, char **argv);
 // That sentence, for the rows of `get cat`.
 std::string cat_said(const std::vector<std::vector<std::string>> &rows);
+// `paw wrapped`: a report of time at the desktop from what the compositor counts.
+int wrapped(int argc, char **argv);
 
 } // namespace paw::cli

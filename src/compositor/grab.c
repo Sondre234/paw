@@ -49,6 +49,7 @@ bool drop_tiles(struct sh_server *server, struct wlr_output *output) {
  * at an edge of the screen snaps it there instead (snap.c), at the top maximized below the
  * panels, like Super+Shift+Up. */
 void finish_grab(struct sh_server *server) {
+    wrapped_grab_done(server);
     if (panel_drag_drop(server))
         return;
     struct sh_toplevel *toplevel = server->grabbed_toplevel;

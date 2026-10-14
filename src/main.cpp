@@ -1068,7 +1068,9 @@ void usage() {
            "one file to share; paw rice try FILE|DIR|URL tries one on, the previous look coming\n"
            "back in 15 seconds unless paw rice keep keeps it (paw rice revert at once);\n"
            "paw rice list lists the installed rices, and paw rice remove NAME removes one.\n"
-           "paw cat [on|off|toggle] lets the desktop cat out, or calls it in.\n";
+           "paw cat [on|off|toggle] lets the desktop cat out, or calls it in.\n"
+           "paw wrapped [--today|--week|--month|--year|--all|--since DATE] [--plain|--json]\n"
+           "reports your time at the desktop from what paw counts (wrapped.enabled).\n";
 }
 /* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
  * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */
@@ -1088,6 +1090,7 @@ const Subcommand subcommands[] = {
     {"party", paw::cli::toy},
     {"rice", paw::cli::rice},
     {"cat", paw::cli::cat},
+    {"wrapped", paw::cli::wrapped},
 };
 } // namespace
 int main(int argc, char **argv) {

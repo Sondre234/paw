@@ -549,6 +549,9 @@ struct sh_settings {
     int cat_scale;
     int cat_coat;
     int cat_sleep;
+    /* wrapped.enabled: the compositor counts what happens at the desktop for `paw wrapped`
+     * (src/compositor/wrapped.c). */
+    bool wrapped;
 };
 
 /* What a login session keeps of the last one: nothing; where its windows were, for those that open

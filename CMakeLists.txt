@@ -68,6 +68,9 @@ target_sources(paw_cli PRIVATE src/cli/rice.cpp src/cli/rice_archive.cpp)
 # tests reach paw_config through paw_cli.
 target_link_libraries(paw_cli PUBLIC paw_config)
 target_sources(paw_cli PRIVATE src/cli/cat.cpp)
+# paw wrapped's day files, which the compositor writes and `paw wrapped` reads.
+target_sources(paw_cli PRIVATE src/wrapped_day.c)
+target_sources(paw_cli PRIVATE src/cli/wrapped.cpp)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -107,6 +110,7 @@ if(BUILD_TESTING)
     paw_unit_test(showcase LIBRARY paw_cli)
     paw_unit_test(top LIBRARY paw_cli)
     paw_unit_test(toy_command LIBRARY paw_cli)
+    paw_unit_test(wrapped LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
@@ -299,6 +303,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/window_control.c
         src/compositor/window_icon.c
         src/compositor/workspace.c
+        src/compositor/wrapped.c
         src/compositor/xwayland.c
         src/compositor/toys.c
         src/compositor/rice.c
@@ -899,5 +904,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(rice_smoke TIMEOUT 120 $<TARGET_FILE:paw>)
         paw_smoke(cat_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(wrapped_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:idle_probe>)
     endif()
 endif()

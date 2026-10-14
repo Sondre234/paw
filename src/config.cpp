@@ -1933,6 +1933,8 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
               "cat.coat must be \"auto\", \"ginger\", \"black\", \"cream\" or \"grey\"", "coat");
         settings.cat_sleep = integer(L, "sleep_after", settings.cat_sleep, 5, 3600);
     }
+    if (Section in{L, "wrapped"})
+        boolean(L, "enabled", "wrapped.enabled", config.settings.wrapped);
     return config;
 }
 } // namespace

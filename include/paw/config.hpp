@@ -445,7 +445,8 @@ struct Config {
                          .cat = false,
                          .cat_scale = 2,
                          .cat_coat = -1,
-                         .cat_sleep = 90};
+                         .cat_sleep = 90,
+                         .wrapped = true};
     // layout.workspace_names: the label of workspace N is names[N - 1]; "" or past the end: none.
     std::vector<std::string> workspace_names;
     // hot_corners: what each corner runs, as a control request; "" for nothing.

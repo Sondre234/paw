@@ -94,6 +94,7 @@ all. In short:
 | `toys.c` | Toys, which only draw: `shake`, `gravity` and `party` posing windows through the animator, a party's rainbow borders and confetti, each window let go as anything else happens to it; `get toys`. |
 | `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
 | `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
+| `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
 the file that defines it. The build warns (`-Wmissing-prototypes`) about one that is neither.
@@ -876,6 +877,32 @@ a flick close by: several motions in a row travelling far within a short while. 
 (`hidden_why`: turned off, the session locked or another VT in front, no monitor, the overview,
 its monitor off, a fullscreen window on its monitor or the focused one) its tree is disabled and
 no timer runs; the next frame that shows things changed steps it again. `get cat` describes it.
+### Counting for paw wrapped
+
+`wrapped.c` keeps `sh_server.wrapped` while `wrapped.enabled` is on in a standalone session
+(`sh_server.session`; NULL otherwise, which every hook checks first), and the hooks elsewhere are a call each: `wrapped_count` adds one to a counter
+(`enum sh_wrapped_counter`, `include/paw/wrapped_day.h`), `wrapped_motion`, `wrapped_button` and
+`wrapped_axis` take the cursor's events, `wrapped_grab_done` (from `finish_grab`) tells a move or
+resize from a press let go in place, and nothing is allocated per event. Time is counted lazily, with
+no timer of its own: `settle` counts the time since it last did by what held since, input on
+every input event (`wrapped_input`, from `input_activity`), and `wrapped_follow` settles before
+taking in what changed: the focus, the lock, an idle inhibitor or the VT (`idle_hold_changed`),
+monitors turned off or on. `sh_wrapped_active` says how much of a span was active: up to two
+minutes after the last input, all of it while an inhibitor holds the session, none of it while
+away. The active part goes to the application that had the focus last and to its streak, which
+idle time, or active time with nothing focused, ends; the focus leaving a window and coming back
+at once, as a click on it does, changes neither.
+
+What was counted is added to the day's file by `sh_wrapped_save` (`src/wrapped_day.c`, in
+`paw_cli`, which reads the files the same way): the file as it was and what is new go to
+`DATE.new`, which replaces it. Whole units go to the file; what is less (pixels, milliseconds)
+stays for the next save. A timer saves every five minutes when something was counted, and
+`wrapped_save` does at once as an idle step is taken, the session locks, logind says the machine
+is about to sleep, and `wrapped_finish` as the compositor ends. `settle` saves the old day first
+once the wall clock passes midnight, the time since it last counted split at midnight. `get
+wrapped` (`describe_wrapped`) lists what is not saved yet, the time up to then included, without
+changing anything, and `paw wrapped` (`src/cli/wrapped.cpp`) reads it between two looks at the
+number of saves, so that a save meanwhile counts nothing twice.
 
 ## The shell (`shell/`)
 
@@ -1601,6 +1628,11 @@ place of `cat.sleep_after` (see `cat_smoke.py`).
   `XDG_CONFIG_HOME` and `XDG_CONFIG_DIRS` name (see `autostart_smoke.py`), and saving and
   restoring the last session in `XDG_STATE_HOME` (see `session_restore_smoke.py`); without it only
   `--session` does, so no test starts the developer's own autostart entries.
+  `PAW_TEST_WRAPPED=1` has a headless compositor count for paw wrapped as a standalone session
+  does, `PAW_TEST_WRAPPED_SAVE_MS` and `PAW_TEST_WRAPPED_IDLE_MS` shorten the time between its
+  saves and the time without input after which it counts idle time, and
+  `PAW_TEST_WRAPPED_MIDNIGHT=SECONDS` has the day end that long after the compositor starts (see
+  `wrapped_smoke.py`).
 
 ## A fast loop
 

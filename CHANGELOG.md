@@ -629,6 +629,14 @@ wrong with it, and toys the compositor plays with the windows.
   lock, draws frames only while it moves, and wears a black coat on light profiles and a cream one
   on dark ones. The `cat` action (`paw cat [on|off|toggle]`), `cat.enabled`, `cat.coat`,
   `cat.scale` and `cat.sleep_after`, and `paw msg get cat`.
+- `paw wrapped` tells you about your time at the desktop as Spotify Wrapped does about a year of
+  music, in bold, coloured cards: how far the mouse travelled ("about 39 football pitches"),
+  clicks, scrolling, key presses against a novel, windows opened, dragged and snapped, workspace
+  switches, the top applications by focused time, the longest focus streak and the busiest day.
+  `--today`, `--week`, `--month`, `--all` and `--since DATE` pick the period, `--plain` and
+  `--json` other forms. A standalone session counts it, key presses as a count only, keeps it in a
+  file per day in `~/.local/state/paw/wrapped` on this machine alone, and lists what it has not
+  saved yet with `get wrapped`; `wrapped.enabled = false` turns it off.
 
 ### Fixes
 
