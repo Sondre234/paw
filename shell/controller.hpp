@@ -71,8 +71,9 @@ class ShellController : public QObject {
     // and every panel shows where the bar would go: barDragEdge, the edge nearest the pointer on
     // the output it is over.
     Q_PROPERTY(bool panelDraggable READ panelDraggable NOTIFY configChanged)
-    // shell.panel_dock: whether a floating taskbar docks while a window reaches its edge.
-    Q_PROPERTY(bool panelDock READ panelDock NOTIFY configChanged)
+    // shell.panel_dock: when a floating taskbar docks: "always" while a window reaches its edge,
+    // "maximized" only while one fills a monitor that does not tile, or "never".
+    Q_PROPERTY(QString panelDock READ panelDock NOTIFY configChanged)
     Q_PROPERTY(bool barDragging READ barDragging NOTIFY barDragChanged)
     Q_PROPERTY(QString barDragEdge READ barDragEdge NOTIFY barDragChanged)
     // shell.mirror_menus: whether the bar's right-click menus run in reverse along the top.
@@ -261,7 +262,13 @@ class ShellController : public QObject {
     bool panelDraggable() const {
         return config_.shell.panel_draggable && !config_.shell.macos_style;
     }
-    bool panelDock() const { return config_.shell.panel_dock; }
+    QString panelDock() const {
+        switch (config_.shell.panel_dock) {
+        case paw::ShellConfig::PanelDock::Never: return "never";
+        case paw::ShellConfig::PanelDock::Maximized: return "maximized";
+        default: return "always";
+        }
+    }
     bool barDragging() const { return barDragging_; }
     QString barDragEdge() const { return barDragEdge_; }
     // Asks the compositor to take the pointer for a drag of the bar, the left button held on it
