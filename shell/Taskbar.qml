@@ -24,6 +24,7 @@ Item {
     readonly property Item network: networkWidget
     readonly property Item profiles: profilesButton
     readonly property Item wallpapers: wallpapersButton
+    readonly property Item tiling: tilingButton
     readonly property Item quickSettings: quickButton
     // Inset from the output's edges or rounded, the bar floats.
     readonly property bool floating: shell.panelRadius > 0 || shell.panelMarginLeft > 0 ||
@@ -186,7 +187,7 @@ Item {
             BindingMode { panel: taskbar.panel }
             WallpapersButton { id: wallpapersButton; panel: taskbar.panel }
             ProfilesButton { id: profilesButton; panel: taskbar.panel }
-            TilingButton { panel: taskbar.panel }
+            TilingButton { id: tilingButton; panel: taskbar.panel }
             // The system tray: the status icons of applications, in the order they appeared.
             // Passive ones stay hidden, and so does the tray when none is left.
             Grid {

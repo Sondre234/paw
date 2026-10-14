@@ -26,6 +26,7 @@ Rectangle {
     readonly property Item network: networkWidget
     readonly property Item profiles: profilesButton
     readonly property Item wallpapers: wallpapersButton
+    readonly property Item tiling: tilingButton
     readonly property Item quickSettings: quickButton
     readonly property Item search: searchButton
 
@@ -149,7 +150,7 @@ Rectangle {
         WorkspaceIndicator { panel: menuBar.panel }
         WallpapersButton { id: wallpapersButton; panel: menuBar.panel }
         ProfilesButton { id: profilesButton; panel: menuBar.panel }
-        TilingButton { panel: menuBar.panel }
+        TilingButton { id: tilingButton; panel: menuBar.panel }
         // The system tray: the status icons of applications, in the order they appeared.
         // Passive ones stay hidden, and so does the tray when none is left.
         Row {

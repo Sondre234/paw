@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 
 // Tiling on this panel's monitor (shell.widgets.tiling = "bar"), which a click turns on or off.
+// A right click opens its menu (TilingMenu.qml): the layout in use, and the others to pick.
 FlatButton {
     id: tilingToggle
     required property var panel
@@ -14,7 +15,12 @@ FlatButton {
     active: panel.tiling
     onClicked: { panel.closeMenus(); shell.toggleTiling(panel.outputName) }
     Accessible.name: panel.tiling ? "Tiling on" : "Tiling off"
-    BarTip { panel: tilingToggle.panel; owner: tilingToggle; text: tilingToggle.panel.tiling ? "Tiling on: click for floating" : "Floating: click to tile" }
+    BarTip { panel: tilingToggle.panel; owner: tilingToggle; text: (tilingToggle.panel.tiling ? "Tiling on: click for floating" : "Floating: click to tile") + "\nRight-click: layouts" }
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        onPressed: tilingToggle.panel.toggleAudioPopup("tiling", tilingToggle)
+    }
     // On: a split layout in the accent colour. Off: two overlapping windows.
     contentItem: Item {
         FadingIcon {

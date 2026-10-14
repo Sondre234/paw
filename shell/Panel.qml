@@ -1027,6 +1027,12 @@ Item {
         case "wallpapers":
             toggleAudioPopup("wallpapers", wallpapersButton)
             return wallpapersButton.visible
+        case "tiling-menu":
+            // The tiling button's menu; the tiling bar has none.
+            var tilingButton = statusArea.tiling || null
+            if (tilingButton)
+                toggleAudioPopup("tiling", tilingButton)
+            return tilingButton !== null && tilingButton.visible
         case "quick-settings":
         case "quick-settings-mixer":
         case "quick-settings-power":
@@ -1527,6 +1533,12 @@ Item {
                 wanted: root.thumbnailsOpen
                 early: root.thumbnails && (root.groupOpen || root.warm)
                 sourceComponent: Component { WindowThumbnails { panel: root } }
+            }
+
+            // The tiling button's menu: the layout in use, and the others to pick.
+            PopupLoader {
+                wanted: root.audioPopup === "tiling"
+                sourceComponent: Component { TilingMenu { panel: root } }
             }
 
             // The tiling bar's power module: the power menu by it.

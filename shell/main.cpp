@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
                       "task-menu, stack-menu, pin-menu, group, thumbnails, workspace, keyboard, "
                       "tray-menu, "
                       "tray-submenu, calendar, clock-empty, calendar-years, mixer, outputs, "
-                      "profiles, wallpapers, notifications, wifi, "
+                      "profiles, wallpapers, tiling-menu, notifications, wifi, "
                       "quick-settings, quick-settings-mixer, quick-settings-power, "
                       "quick-settings-wifi, quick-settings-bluetooth or quick-settings-pairing; in "
                       "the macOS style system-menu, "
