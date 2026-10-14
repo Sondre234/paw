@@ -83,6 +83,8 @@ list(APPEND PAW_NOTIFY_SOURCES volume_keys.cpp volume_keys.hpp)
 # window's.
 list(APPEND PAW_NOTIFY_SOURCES display_modes.cpp display_modes.hpp display_settings.cpp
     display_settings.hpp display_layout.cpp display_layout.hpp)
+# The caption `paw tour` narrates itself with.
+list(APPEND PAW_NOTIFY_SOURCES caption.cpp caption.hpp)
 # The QML is compiled ahead of time into the binary (qmlcachegen), so starting the shell parses
 # and compiles none of it. It lives at qrc:/shell/PawShell/*.qml.
 qt_add_library(paw_shell_qml STATIC)
