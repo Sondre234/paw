@@ -53,8 +53,8 @@ target_compile_options(paw_effects PRIVATE -Wall -Wextra -Wpedantic)
 add_library(paw_cli STATIC src/cli/control_client.cpp)
 target_include_directories(paw_cli PUBLIC include)
 target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
-# `paw tour`: what of it needs no session, and its table of steps.
-target_sources(paw_cli PRIVATE src/cli/tour_plan.cpp src/cli/tour_steps.cpp)
+# `paw tour`: its runner, what of it needs no session, and its table of steps.
+target_sources(paw_cli PRIVATE src/cli/tour.cpp src/cli/tour_plan.cpp src/cli/tour_steps.cpp)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -851,7 +851,7 @@ if(PAW_BUILD_COMPOSITOR)
         # Windows' own icons; an X11 window's only where the X11 probe is built.
         paw_smoke(window_icon_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
-        # The queries `paw tour` reads.
+        # `paw tour` driving a session, its windows the probe's; and the queries it reads.
         paw_smoke(tour_smoke TIMEOUT 180 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
     endif()
 endif()

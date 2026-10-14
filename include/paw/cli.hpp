@@ -26,4 +26,8 @@ std::vector<std::vector<std::string>> query(const std::string &name);
 // $XDG_STATE_HOME/paw, else ~/.local/state/paw; empty without either.
 std::filesystem::path state_directory();
 
+// `paw tour [--list] [--step] [--from N] [--speed FACTOR] [--no-restore] [--client COMMAND]`: a
+// narrated demo of paw that drives the running session, then puts it back as it was.
+int tour(int argc, char **argv);
+
 } // namespace paw::cli
