@@ -2827,7 +2827,12 @@ compositor it has drawn a profile's look with `paw msg profile_drawn NAME`. `paw
 `get touch` and `get tablet` say what a touchpad's swipe, a touchscreen's fingers and a drawing
 tablet's tools are doing (see [Touchpad gestures](#touchpad-gestures),
 [Touchscreens](#touchscreens) and [Drawing tablets](#drawing-tablets)), and `get tearing` what
-each monitor's frames do (see [Tearing](#tearing)). A client
+each monitor's frames do (see [Tearing](#tearing)). `paw msg get wrapped` prints whether [paw
+wrapped](#paw-wrapped) counts, `enabled yes` or `enabled no`, and while it does the day it counts
+for (`day YYYY-MM-DD`), how many times this session saved and when it last did (`saves N`, `saved
+SECONDS` since 1970, 0 for never), what the time counts as now (`state active`, `idle` or `away`),
+the focused application and its streak so far in seconds (`focus APP SECONDS`, `-` for none), and
+then what it counted and has not saved yet, as the lines of a day file. A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
 `workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
 (as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of
@@ -2866,6 +2871,50 @@ refused while the session is locked.
 Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the desktop off
 and to find out what is wrong with it. They talk to the running session through its control
 socket, as `paw msg` does; `paw --help` lists them.
+
+### paw wrapped
+
+`paw wrapped` tells you about your time at the desktop as Spotify Wrapped tells you about a year
+of music: a bold, coloured card for each thing worth saying, with a comparison to go with it.
+"You moved your mouse 4.1 km — about 39 football pitches", your top applications by the time
+they had the focus, with bars, your longest focus streak and when it was, your busiest day, how
+many keys you pressed against the length of a novel, how often you clicked, scrolled, switched
+workspaces and dragged windows about. A card shows only when there is something on it; with
+nothing counted yet it says so.
+
+```sh
+paw wrapped           # the last 365 days, or all there is when that is less
+paw wrapped --today   # or --week and --month (the last 7 and 30 days), --all, --since 2026-03-01
+paw wrapped --plain   # lines instead of boxes, as without a terminal or with NO_COLOR set
+paw wrapped --json    # the totals, day by day too, for scripts
+```
+
+While `wrapped.enabled` is on, which it is unless the configuration says otherwise, the
+compositor counts:
+
+- how far the pointer travelled, in layout pixels and in millimetres on the monitor (from the
+  size its EDID gives, else at 96 dots an inch), clicks by button, and how far you scrolled;
+- how many keys were pressed: a count only, never which keys, and not those a virtual keyboard
+  such as wtype types;
+- touchpad swipes and pinches;
+- windows opened and closed, moved and resized with the pointer (a press let go in place is not
+  a move), and snapped to a half or a quarter by pointer or key; workspace switches; the overview
+  and the window switcher opened; programs the `spawn` and `terminal` actions started;
+- the time each application, by its app ID, had the focus while you were at the desktop, and the
+  longest the focus stayed with one application without a break, and when that began;
+- when each session started, and the time active (input in the last two minutes, or something
+  keeping the screen awake, as a video playing does) against the time idle, away, locked, with
+  every monitor off or another VT in front, none of which counts for an application.
+
+It stays on this machine, in plain text: a file per day in `$XDG_STATE_HOME/paw/wrapped`
+(`~/.local/state/paw/wrapped` without it), named `YYYY-MM-DD` and readable by you alone, each line
+tab-separated: a counter and its value (`keys 1234`), an application and its seconds (`app firefox
+3600`), or the day's longest streak (`streak kitty 8040 START`, START in seconds since 1970). A
+session adds what it counted to the day's file every five minutes, as it goes idle, locks or the
+machine sleeps, and as it ends, so that a crash loses a few minutes at most; one that runs past
+midnight starts the next day's file. `paw wrapped` adds what the running session counted since it
+last saved, which `paw msg get wrapped` lists. `wrapped = { enabled = false }` stops the counting,
+saving what was counted first; deleting the directory forgets what was.
 
 ## Screen locking and idle
 
