@@ -6,11 +6,13 @@
  * as a deck of cards lying on a table looks from its bottom-left. */
 static const double RISE_X = 0.62, RISE_Y = -0.5;
 /* How much the pointer turns that way, at the end of its travel, and the shortest and longest
- * the way may get: never so short that the sheets pile up on each other. */
+ * the way may get: never so short that the sheets pile up on each other. The stack leans away
+ * from the pointer, as seen from where it is, so that the edges of the sheets low in it come out
+ * on the pointer's side, under it. */
 static const double TURN = 0.9, RISE_MIN = 0.35, RISE_MAX = 1.1;
 /* A sheet turned away from the eye is drawn narrower along the way it is turned, this much at
  * most. */
-static const double SQUASH = 0.22;
+static const double SQUASH = 0.18;
 /* Each sheet up is this much larger than the one under it, nearer the eye. */
 static const double GROWTH = 0.03;
 /* The fanned stack is never drawn larger than this share of the output, even for one sheet. */
@@ -26,7 +28,7 @@ double sh_xray_gap(int count) {
 
 /* The way the stack rises for a tilt, kept between the shortest and longest. */
 static void rise(double tilt_x, double tilt_y, double *x, double *y) {
-    double dx = RISE_X + TURN * clamp(tilt_x, -1, 1), dy = RISE_Y + TURN * clamp(tilt_y, -1, 1);
+    double dx = RISE_X - TURN * clamp(tilt_x, -1, 1), dy = RISE_Y - TURN * clamp(tilt_y, -1, 1);
     double length = hypot(dx, dy);
     if (length < 1e-9) {
         dx = RISE_X;
@@ -52,18 +54,19 @@ void sh_xray_layout(const struct sh_xray_view *view, const double *lift,
                  height;
     // Lifted half a gap at least, or a thirtieth of the output where the gaps are small.
     double reach = fmax(0.5 * gap, height / 30) / length;
-    // At full size around the bottom sheet's middle first, then fitted into the area as a whole;
-    // a lift moves a sheet without changing the fit, so that the others stay where they are.
+    // At full size around the bottom sheet's middle first, then fitted into the area as a whole,
+    // with room for a lift at the top: a lift moves a sheet without changing the fit, so that
+    // the others stay where they are.
     double left = INFINITY, top = INFINITY, right = -INFINITY, bottom = -INFINITY;
     for (int i = 0; i < count; ++i) {
         double grow = 1 + GROWTH * i;
         double w = width * squash_x * grow, h = height * squash_y * grow;
         double cx = i * gap * dx, cy = i * gap * dy;
         sheets[i] = (struct sh_xray_box){cx - w / 2, cy - h / 2, w, h};
-        left = fmin(left, sheets[i].x);
-        top = fmin(top, sheets[i].y);
-        right = fmax(right, sheets[i].x + w);
-        bottom = fmax(bottom, sheets[i].y + h);
+        left = fmin(left, fmin(sheets[i].x, sheets[i].x + reach * dx));
+        top = fmin(top, fmin(sheets[i].y, sheets[i].y + reach * dy));
+        right = fmax(right, fmax(sheets[i].x, sheets[i].x + reach * dx) + w);
+        bottom = fmax(bottom, fmax(sheets[i].y, sheets[i].y + reach * dy) + h);
     }
     struct sh_xray_box area = view->area;
     double scale = fmin(MAX_SCALE, fmin(area.width / (right - left), area.height / (bottom - top)));

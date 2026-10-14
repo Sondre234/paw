@@ -57,9 +57,11 @@ static void test_one(void) {
     CHECK(inside(sheet, view.area), "%g %g %g %g", sheet.x, sheet.y, sheet.width, sheet.height);
     CHECK(sheet.width <= 0.7 * W + 1e-9, "never drawn larger than 0.7 of the output: %g",
           sheet.width);
-    NEAR(middle_x(sheet), view.area.x + view.area.width / 2, 1e-6);
-    NEAR(middle_y(sheet), view.area.y + view.area.height / 2, 1e-6);
-    NEAR(sheet.width / sheet.height, W / H * (1 - 0.22 * 0.62 * 0.62) / (1 - 0.22 * 0.25),
+    // In the middle of the area, but for the room a lift takes up and to the right.
+    double dx = middle_x(sheet) - (view.area.x + view.area.width / 2);
+    double dy = middle_y(sheet) - (view.area.y + view.area.height / 2);
+    CHECK(dx < 0 && dx > -H / 30 && dy > 0 && dy < H / 30, "%g %g", dx, dy);
+    NEAR(sheet.width / sheet.height, W / H * (1 - 0.18 * 0.62 * 0.62) / (1 - 0.18 * 0.25),
          1e-6); // foreshortened along the way it is turned
 }
 
@@ -85,8 +87,9 @@ static void test_fanned(void) {
         double left = sheets[0].x, top = sheets[count - 1].y;
         double right = sheets[count - 1].x + sheets[count - 1].width;
         double bottom = sheets[0].y + sheets[0].height;
-        CHECK(right - left > view.area.width - 2 || bottom - top > view.area.height - 2,
-              "%d sheets fill the area: %g by %g", count, right - left, bottom - top);
+        CHECK(right - left > 0.93 * view.area.width || bottom - top > 0.93 * view.area.height,
+              "%d sheets fill the area, but for the room a lift takes: %g by %g", count,
+              right - left, bottom - top);
     }
     // Many sheets lie closer together than a few, as a share of a sheet.
     struct sh_xray_box few[3], many[12];
@@ -101,18 +104,29 @@ static void test_fanned(void) {
 static void test_turned(void) {
     struct sh_xray_view view = view_of(4);
     struct sh_xray_box sheets[4];
-    view.tilt_x = -1; // the pointer moved left: the stack's top follows it
+    // The pointer moved right: the stack leans away from it, the bottom sheets showing their right
+    // edges.
+    view.tilt_x = 1;
     sh_xray_layout(&view, NULL, sheets);
     CHECK(middle_x(sheets[3]) < middle_x(sheets[0]), "rises to the left");
     CHECK(middle_y(sheets[3]) < middle_y(sheets[0]), "still upward");
+    CHECK(sheets[0].x + sheets[0].width > sheets[3].x + sheets[3].width,
+          "the bottom sheet comes out on the right");
+    struct sh_xray_box straight[4];
     view.tilt_x = 0;
-    view.tilt_y = 1; // moved down
+    sh_xray_layout(&view, NULL, straight);
+    view.tilt_x = -1;
+    sh_xray_layout(&view, NULL, sheets);
+    CHECK(middle_x(sheets[3]) - middle_x(sheets[0]) > middle_x(straight[3]) - middle_x(straight[0]),
+          "moved left, further to the right");
+    view.tilt_x = 0;
+    view.tilt_y = -1; // moved up
     sh_xray_layout(&view, NULL, sheets);
     CHECK(middle_y(sheets[3]) > middle_y(sheets[0]), "rises downward");
     CHECK(middle_x(sheets[3]) > middle_x(sheets[0]), "still to the right");
     // Turned to where the way would vanish, the sheets still stand apart.
-    view.tilt_x = -0.62 / 0.9;
-    view.tilt_y = 0.5 / 0.9;
+    view.tilt_x = 0.62 / 0.9;
+    view.tilt_y = -0.5 / 0.9;
     sh_xray_layout(&view, NULL, sheets);
     double apart = hypot(middle_x(sheets[1]) - middle_x(sheets[0]),
                          middle_y(sheets[1]) - middle_y(sheets[0]));
@@ -165,6 +179,15 @@ static void test_lift(void) {
     }
     CHECK(lifted[2].x > rest[2].x && lifted[2].y < rest[2].y, "lifted the way the stack rises");
     CHECK(lifted[2].width == rest[2].width, "at its size");
+    // The top one lifted stays in the area.
+    lift[2] = 0;
+    lift[4] = 1;
+    sh_xray_layout(&view, lift, lifted);
+    CHECK(inside(lifted[4], view.area), "%g %g %g %g", lifted[4].x, lifted[4].y, lifted[4].width,
+          lifted[4].height);
+    lift[4] = 0;
+    lift[2] = 1;
+    sh_xray_layout(&view, lift, lifted);
     // Half way up, half as far.
     lift[2] = 0.5;
     struct sh_xray_box half[5];

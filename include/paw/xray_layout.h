@@ -34,8 +34,8 @@ double sh_xray_gap(int count);
  * sheet is the output scaled down to fit the area with the rest of the stack, foreshortened
  * along the way it is turned and each one up a little larger, nearer the eye; each lies a gap
  * further along the way the stack rises, and is lifted out of it `lift[i]` of the way (0 to 1;
- * NULL for none), half a gap further at least, without moving the others. Part of the way, each
- * is that far from the whole output to its place. */
+ * NULL for none), half a gap further at least, without moving the others and within the area.
+ * Part of the way, each is that far from the whole output to its place. */
 void sh_xray_layout(const struct sh_xray_view *view, const double *lift,
                     struct sh_xray_box *sheets);
 
@@ -43,8 +43,8 @@ void sh_xray_layout(const struct sh_xray_view *view, const double *lift,
 int sh_xray_sheet_at(const struct sh_xray_box *sheets, int count, double x, double y);
 
 /* The tilt for the pointer moved `dx`, `dy` since the view opened on an output of `width` by
- * `height`: half its size either way turns the stack as far as it goes, and the stack's top
- * follows the pointer. */
+ * `height`: half its size either way turns the stack as far as it goes. The stack leans away from
+ * the pointer, as seen from where it is, the sheets low in it showing their edges under it. */
 void sh_xray_tilt(double dx, double dy, double width, double height, double *tilt_x,
                   double *tilt_y);
 
