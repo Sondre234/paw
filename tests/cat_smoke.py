@@ -3,7 +3,8 @@
 top, taking no input there; it falls onto the window below as that window is minimized, and on to
 the floor above the taskbar as that one is; nobody using the computer (PAW_TEST_CAT_SLEEP_MS), it
 sleeps, drawing a frame only now and then, and input wakes it; a pointer flicked past it sets it
-running; it hides behind a fullscreen window, under the overview and under the lock; and it goes
+running; it hides behind a fullscreen window, under the overview and under the lock; it pats the
+top of a window that asks for attention; and it goes
 as it is called in, by
 `paw cat`, a binding or cat.enabled changing in a reload. With grim, the screen shows it."""
 from pathlib import Path
@@ -24,6 +25,7 @@ CONFIG = """return {{
         {{ title = "^back$", floating = true, position = {{ 80, 60 }}, size = {{ 1100, 560 }} }},
         {{ title = "^low$", floating = true, position = {{ 300, 420 }}, size = {{ 700, 160 }} }},
         {{ title = "^high$", floating = true, position = {{ 420, 200 }}, size = {{ 360, 140 }} }},
+        {{ title = "^chat$", floating = true, position = {{ 860, 150 }}, size = {{ 300, 200 }} }},
     }} }},
     bindings = {{ {{ key = "F3", action = "cat", mode = "off" }} }},
     cat = {{ enabled = {enabled}, coat = "ginger" }},
@@ -125,6 +127,22 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
     locker.terminate()
     assert desktop.reap(locker) == 0
     wait_for(lambda: cat()["drawn"] == "shown", "shown after the unlock")
+
+    # A window asking for attention has it run over and pat its top until the window has the focus.
+    chat = desktop.spawn([probe, "--commands"], env={"PAW_PROBE_TITLE": "chat"},
+                         stdin=subprocess.PIPE, text=True)
+    wait_for(lambda: any(w.title == "chat" and w.focused for w in desktop.windows()),
+             "the chat window opens")
+    msg("focus_last")
+    chat.stdin.write("activate\n")
+    chat.stdin.flush()
+    wait_for(lambda: [w.title for w in desktop.windows("urgent")] == ["chat"], "chat is urgent")
+    wait_for(lambda: cat()["state"] == "knock", "the cat paws at the urgent window")
+    assert cat()["on"] == "chat" and cat()["y"] == 148, cat()
+    assert cat()["frame"] in ("paw_1", "paw_2"), cat()
+    msg("focus_urgent")
+    wait_for(lambda: cat()["state"] != "knock", "the cat stops as the window has the focus")
+    assert cat()["on"] == "chat", cat()
 
     # Called in and let out again by paw cat.
     assert paw_cat("off") == "The cat is away."
