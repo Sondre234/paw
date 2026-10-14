@@ -461,6 +461,8 @@ if(BUILD_TESTING)
             ENVIRONMENT "DBUS_SESSION_BUS_ADDRESS=disabled:;DBUS_SYSTEM_BUS_ADDRESS=disabled:")
     endif()
     paw_smoke(shell_preview TIMEOUT 90 $<TARGET_FILE:paw-shell> ${EXAMPLE_CONFIG})
+    # A reload asked while the shell starts waits for it instead of ending it.
+    paw_smoke(shell_early_reload $<TARGET_FILE:paw-shell> ${EXAMPLE_CONFIG})
     # Every popup of tools/shell_gallery.py renders without a QML warning.
     paw_smoke(shell_gallery TIMEOUT 120 ${PROJECT_SOURCE_DIR}/tools/shell_gallery.py
         ${PROJECT_BINARY_DIR} software)
