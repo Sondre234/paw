@@ -260,6 +260,7 @@ void retile_maximized_for(struct sh_toplevel *toplevel, struct wlr_output *outpu
 
 void map_toplevel(struct sh_toplevel *toplevel, bool fullscreen, bool maximized) {
     struct sh_server *server = toplevel->server;
+    wrapped_count(server, SH_WRAPPED_WINDOWS_OPENED);
     int offset = 40 + 32 * (wl_list_length(&toplevel->server->toplevels) % 8);
     int x = offset, y = offset;
     bool resize = false;
@@ -445,11 +446,13 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
     forget_window_peek(toplevel);
     // The client's buffers go with this commit; the closing animation draws a copy of them.
     struct sh_server *server = toplevel->server;
+    wrapped_count(server, SH_WRAPPED_WINDOWS_CLOSED);
     if (toplevel->shown && server->running && toplevel_visible(toplevel)) {
         struct wlr_box box = frame_geometry(toplevel); // about its middle as drawn
         sh_anim_close(server->animator, &toplevel->scene_tree->node, toplevel->content,
                       box.width / 2.0, box.height / 2.0);
     }
+    toys_forget(toplevel); // closing where a toy drew it, it plays no more
     sh_anim_finish(&toplevel->anim);
     toplevel->shown = false;
     swallow_end(toplevel);
@@ -507,8 +510,11 @@ static void xdg_toplevel_commit(struct wl_listener *listener, void *data) {
         morph_commit(toplevel); // before the scene takes in what it drew
         workspace_window_committed(toplevel);
         refresh_frame(toplevel);
+        uint64_t spent = now_ns() - started;
         ++toplevel->server->stats.commits;
-        toplevel->server->stats.commit_ns += now_ns() - started;
+        toplevel->server->stats.commit_ns += spent;
+        ++toplevel->commits;
+        toplevel->commit_ns += spent;
     }
 }
 

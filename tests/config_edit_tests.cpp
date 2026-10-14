@@ -252,6 +252,35 @@ int main(int argc, char **argv) {
                 "the example's shell table moved");
         require(set_position(example, "top", "light") == edited, "example's shell table not edited");
 
+        // A monitor's own edge, under a key that is no Lua name, is written as ["DP-1"].
+        const std::vector<std::string> monitor = {"shell", "panel_positions", "DP-1"};
+        auto monitor_at = [&](const std::string &source, paw::PanelEdge edge, const char *literal) {
+            return paw::edit_setting(source, monitor, literal, [&](const std::string &text) {
+                try {
+                    return paw::parse_config(text, "config", {}, "").shell.edge_of("DP-1") == edge;
+                } catch (const std::exception &) {
+                    return false;
+                }
+            });
+        };
+        const std::string shell_only = "return {\n    shell = {\n        panel_height = 46,\n    },\n}\n";
+        require(monitor_at(shell_only, paw::PanelEdge::Left, "\"left\"") ==
+                    "return {\n    shell = {\n        panel_positions = { [\"DP-1\"] = \"left\" },\n"
+                    "        panel_height = 46,\n    },\n}\n",
+                "a monitor's edge not added to the shell table");
+        require(monitor_at("return { shell = { panel_positions = { [\"HDMI-A-1\"] = 'top' } } }",
+                           paw::PanelEdge::Left, "\"left\"") ==
+                    "return { shell = { panel_positions = { [\"DP-1\"] = \"left\", [\"HDMI-A-1\"] = 'top' } } }",
+                "a monitor's edge not added beside another's");
+        require(monitor_at("return { shell = { panel_positions = { ['DP-1'] = 'left' } } }",
+                           paw::PanelEdge::Top, "\"top\"") ==
+                    "return { shell = { panel_positions = { ['DP-1'] = \"top\" } } }",
+                "a monitor's edge not changed in place");
+        require(monitor_at("return {\n    layout = {},\n}\n", paw::PanelEdge::Left, "\"left\"") ==
+                    "return {\n    shell = { panel_positions = { [\"DP-1\"] = \"left\" } },\n"
+                    "    layout = {},\n}\n",
+                "a monitor's edge not added with a shell table");
+
         // save_setting edits the file as load_config reads it, the saved profile in use.
         auto config = directory / "init.lua";
         write(config, profiles);

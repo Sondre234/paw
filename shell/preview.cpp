@@ -517,7 +517,7 @@ QStringList PreviewData::surfaces() {
     return {"osd-volume", "osd-text", "cards",    "power-dialog",
             "palette", "switcher", "overview", "palette-empty", "auth-dialog", "snap-assist",
             "osd-microphone", "display-mode", "palette-calculator", "palette-files", "clipboard",
-            "emoji", "display-settings", "display-settings-trial", "xray"};
+            "emoji", "display-settings", "display-settings-trial", "rice-trial", "xray"};
 }
 
 namespace {
@@ -584,6 +584,13 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
         settings->setScale("DP-3", 1.25);
         if (name == "display-settings-trial")
             settings->apply();
+    } else if (name == "rice-trial") {
+        // A rice tried on, with a while left before it goes back.
+        file = "RiceTrial.qml";
+        properties = {{"shown", true}};
+        controller_.riceTrial()->start(12000, "washi", "shao",
+                                       "Soft sakura paper with navy ink outlines, printed "
+                                       "shadows and details in light blue and pink.");
     } else if (name == "cards") {
         file = "NotificationCards.qml";
         // Over the stand-ins every preview has: one with a picture, buttons and a timer.
@@ -757,7 +764,8 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
     if (file == "Palette.qml")
         QMetaObject::invokeMethod(surface_->rootObject(), "reset");
     surface_->show();
-    if (name == "power-dialog" || name == "auth-dialog" || name.startsWith("display-settings"))
+    if (name == "power-dialog" || name == "auth-dialog" || name.startsWith("display-settings") ||
+        name == "rice-trial")
         QMetaObject::invokeMethod(surface_->rootObject(), "reset");
     return true;
 }
@@ -788,8 +796,9 @@ QImage PreviewData::withSurface(QImage desktop) const {
         // PickerView: centred, below the bars by ShellController::paletteDrop.
         at = QPoint(usable.left() + (usable.width() - size.width()) / 2,
                     usable.top() + controller_.paletteDrop(output.height()));
-    } else if (surfaceName_ == "display-mode" || surfaceName_.startsWith("display-settings")) {
-        // DisplayModeView and DisplaySettingsView: in the middle of the output.
+    } else if (surfaceName_ == "display-mode" || surfaceName_.startsWith("display-settings") ||
+               surfaceName_ == "rice-trial") {
+        // DisplayModeView, DisplaySettingsView and RiceTrialView: in the middle of the output.
         at = output.center() - QPoint(size.width() / 2, size.height() / 2);
     } else if (surfaceName_ == "switcher") {
         // SwitcherView: centred.

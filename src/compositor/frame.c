@@ -490,6 +490,12 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     float whole = shown_for_peek(toplevel) ? peeked : 1;
     opacity = fading[0] * peeked;
     color = fading + 1;
+    // A party draws the border in one colour of the rainbow after another (toys.c).
+    float party[4];
+    if (bordered && toys_border(toplevel, party)) {
+        color = party;
+        gradient = false;
+    }
     float pulsing[4];
     if (urgent || whole < 1 || framed < 1) {
         // The border pulses over its fade to the urgent color; premultiplied, scaling all four

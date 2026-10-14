@@ -638,8 +638,8 @@ void overview_open(struct sh_server *server) {
     if (overview->open || server->locked || !server->overview_layer)
         return;
     struct wlr_output *output = focused_output(server);
-    if (output)
-        overview_begin(server, output, false, (struct sh_rect){0});
+    if (output && overview_begin(server, output, false, (struct sh_rect){0}))
+        wrapped_count(server, SH_WRAPPED_OVERVIEW_OPENS);
 }
 
 /* Snap Assist beside `from`, which was just snapped on `output`: the windows snap.c offers in

@@ -1206,3 +1206,35 @@ Not checked: real monitors at high refresh rates, where the default 120 ms sprin
 applications slow to draw a new size, such as Firefox and Electron ones, against the 300 ms the
 compositor waits for them; GPU clients' (dmabuf) buffers held for the crossfade; and X11
 applications that keep their own size.
+
+## paw fetch and paw showcase
+
+Added 2026-10-14. `paw fetch` was run against headless compositors in the sumi and washi
+profiles, outside a session with a configuration that extends the shipped one, and, sending only
+queries, in a live session of a paw older than it (which it says, giving the frames drawn in place
+of the uptime). Its output was drawn into pictures with a 24-bit colour renderer on sumi's ink and
+washi's paper backgrounds: the paw print follows the border's gradient and the labels stay
+readable on both. `paw showcase --terminal foot` was run on a headless compositor with a tiled
+window open, in both profiles: the picture showed foot beside the window with paw fetch in it
+(counting foot's window, and without the session paw showcase saved), and afterwards the window
+was back alone, tiled and focused.
+
+Not checked: kitty, the terminal it opens on this machine, which needs a GPU the headless
+compositor does not offer; a real monitor and a hardware cursor; and terminals other than foot
+taking their command after `-e`, `--` or `start --`.
+## paw wrapped
+
+Added 2026-10-14. `wrapped_smoke` has a headless compositor count as a standalone session does
+(`PAW_TEST_WRAPPED`) through a virtual pointer, a headless keyboard and touchpad and
+`wayland_probe` windows: the pointer's travel to the pixel and at 96 dots an inch, clicks by
+button, scrolling, keys (not a virtual keyboard's), gestures, moves and resizes (not a press let go
+in place), snaps, workspace switches, the overview, the switcher, a launch, windows opened and
+closed, focused time, a streak, idle time, the lock and every monitor off as away, and an idle
+inhibitor holding the session active; the day's file across three sessions, saved as the session
+locks and every 300 ms, a pretend midnight, and `wrapped.enabled` turned off and on; and `paw
+wrapped` on the files, alone and with a running session that saves meanwhile. The report was
+looked at in a terminal, coloured and plain, on made-up day files.
+
+Not checked: a standalone session on real hardware (counting starting there, the millimetres from
+a real monitor's EDID, a touchpad's scrolling and gestures, logind's sleep saving the day first),
+and a session running past a real midnight.
