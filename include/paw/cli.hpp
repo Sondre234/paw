@@ -28,5 +28,8 @@ std::filesystem::path state_directory();
 
 // `paw fetch`: a paw print and what paw knows of the session (src/cli/fetch.cpp).
 int fetch(int argc, char **argv);
+// The configuration paw starts with when given none: $XDG_CONFIG_HOME/paw/init.lua (or
+// ~/.config's) where it exists, else the shipped one.
+std::filesystem::path configuration_path();
 
 } // namespace paw::cli

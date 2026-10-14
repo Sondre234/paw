@@ -572,21 +572,6 @@ std::string read_text(const std::filesystem::path &path) {
     return text.str();
 }
 
-// The configuration paw would start with: --config's, else the personal one, else the shipped one.
-std::filesystem::path configuration(const std::filesystem::path &chosen) {
-    if (!chosen.empty())
-        return chosen;
-    std::filesystem::path personal;
-    if (const auto *xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg)
-        personal = std::filesystem::path(xdg) / "paw/init.lua";
-    else if (const auto *home = std::getenv("HOME"); home && *home)
-        personal = std::filesystem::path(home) / ".config/paw/init.lua";
-    std::error_code failure;
-    if (!personal.empty() && std::filesystem::exists(personal, failure))
-        return personal;
-    return default_config_path();
-}
-
 // The name an application's desktop entry gives it, looked for where the XDG specification says.
 std::string application_name(const std::string &id) {
     std::vector<std::filesystem::path> directories;
@@ -612,6 +597,18 @@ std::string application_name(const std::string &id) {
 }
 
 } // namespace
+
+std::filesystem::path configuration_path() {
+    std::filesystem::path personal;
+    if (const auto *xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg)
+        personal = std::filesystem::path(xdg) / "paw/init.lua";
+    else if (const auto *home = std::getenv("HOME"); home && *home)
+        personal = std::filesystem::path(home) / ".config/paw/init.lua";
+    std::error_code failure;
+    if (!personal.empty() && std::filesystem::exists(personal, failure))
+        return personal;
+    return default_config_path();
+}
 
 int fetch(int argc, char **argv) {
     fetch::Style style;
@@ -663,7 +660,7 @@ int fetch(int argc, char **argv) {
     if (!palette) {
         // A configuration with an error gives paw's own colours, not those of another one.
         try {
-            auto config = load_config(configuration(chosen));
+            auto config = load_config(chosen.empty() ? configuration_path() : chosen);
             palette = fetch::palette_of(config.settings);
             if (!about)
                 profile = config.profile;
