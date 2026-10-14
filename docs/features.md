@@ -668,7 +668,9 @@ behind that window and shows the panels again. A new window opens in front of it
 and it stays fullscreen behind; only a new tile, on a workspace that tiles, takes it out of
 fullscreen instead of opening under it. Either kind stays in front of the other windows
 of its monitor, those [kept above](#keeping-windows-above) too, while you work on another
-monitor, until a window of its own monitor is brought forward.
+monitor, until a window of its own monitor is brought forward. Behind that window, it takes no
+focus from the pointer hovering it, as the focus would bring it back in front: a click on it, its
+taskbar button or the keyboard does that.
 
 Limitations: window placement during interactive resize is immediate, without waiting for the
 client's next buffer.
