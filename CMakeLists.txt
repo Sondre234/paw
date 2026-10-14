@@ -48,6 +48,12 @@ target_include_directories(paw_effects PUBLIC include)
 target_link_libraries(paw_effects PRIVATE m)
 target_compile_options(paw_effects PRIVATE -Wall -Wextra -Wpedantic)
 
+# The subcommands besides the compositor (`paw fetch`, ...) and the control socket client they
+# share with `paw msg`; no wlroots. A subcommand adds its file with its own target_sources line.
+add_library(paw_cli STATIC src/cli/control_client.cpp)
+target_include_directories(paw_cli PUBLIC include)
+target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
+
 include(CTest)
 if(BUILD_TESTING)
     # Tests read a copy of the example so a theme.lua generated beside it by `paw import`
@@ -81,6 +87,7 @@ if(BUILD_TESTING)
     paw_unit_test(config_diagnostics ${EXAMPLE_CONFIG}
         ${CMAKE_CURRENT_SOURCE_DIR}/docs/config-reference.md)
     paw_unit_test(config_robustness ${EXAMPLE_CONFIG})
+    paw_unit_test(cli LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
@@ -300,7 +307,7 @@ if(PAW_BUILD_COMPOSITOR)
     # other is static. This flags one that is neither.
     set_source_files_properties(${PAW_COMPOSITOR_SOURCES} PROPERTIES
         COMPILE_OPTIONS -Wmissing-prototypes)
-    target_link_libraries(paw PRIVATE paw_config paw_effects PkgConfig::WLROOTS PkgConfig::WAYLAND
+    target_link_libraries(paw PRIVATE paw_config paw_cli paw_effects PkgConfig::WLROOTS PkgConfig::WAYLAND
         PkgConfig::PIXMAN m)
     # A standalone session keeps the machine awake through logind while it is on screen.
     pkg_search_module(SDBUS IMPORTED_TARGET libsystemd libelogind basu)

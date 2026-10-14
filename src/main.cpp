@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "paw/autostart.hpp"
+#include "paw/cli.hpp"
 #include "paw/config.hpp"
 #include "paw/import.hpp"
 #include "version.h"
@@ -25,8 +26,6 @@
 #include <string>
 #include <string_view>
 #include <sys/inotify.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <utility>
@@ -925,42 +924,12 @@ int send_message(int argc, char **argv) {
     if (request.empty() || request.find('\n') != std::string::npos)
         throw std::runtime_error("usage: paw msg [output NAME] ACTION [ARGUMENT] | "
                                  "get workspace|workspaces|tiling|windows|outputs|animations");
-    const char *path = std::getenv("PAW_SOCKET");
-    if (!path || !*path)
-        throw std::runtime_error("PAW_SOCKET is not set; run inside a paw session");
-    sockaddr_un address{};
-    address.sun_family = AF_UNIX;
-    if (std::strlen(path) >= sizeof(address.sun_path))
-        throw std::runtime_error("control socket path is too long");
-    std::strcpy(address.sun_path, path);
-    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-    if (fd < 0 || connect(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) {
-        if (fd >= 0)
-            close(fd);
-        throw std::runtime_error(std::string("cannot connect to ") + path + ": " +
-                                 std::strerror(errno));
-    }
-    request += '\n';
-    for (size_t sent = 0; sent < request.size();) {
-        ssize_t written = write(fd, request.data() + sent, request.size() - sent);
-        if (written <= 0) {
-            close(fd);
-            throw std::runtime_error("cannot send request");
-        }
-        sent += static_cast<size_t>(written);
-    }
-    std::string reply;
-    char buffer[4096];
-    for (ssize_t count; (count = read(fd, buffer, sizeof(buffer))) > 0;)
-        reply.append(buffer, static_cast<size_t>(count));
-    close(fd);
-    bool ok = reply.rfind("ok", 0) == 0;
-    auto body = reply.substr(std::min(reply.find('\n') + 1, reply.size()));
-    if (ok)
-        std::cout << body;
+    auto reply = paw::cli::request(request);
+    if (reply.ok)
+        std::cout << reply.body;
     else
-        std::cerr << "paw: " << (reply.empty() ? "no reply\n" : reply);
-    return ok ? 0 : 1;
+        std::cerr << "paw: " << reply.body;
+    return reply.ok ? 0 : 1;
 }
 /* `paw import [--config PATH] [--dry-run] DIR` writes theme.lua beside the configuration. */
 int import_dotfiles(int argc, char **argv) {
@@ -1037,6 +1006,16 @@ void usage() {
            "paw import [--config PATH] [--dry-run] DIR writes theme.lua beside the\n"
            "configuration from the Hyprland, Waybar, wallbash, and pywal files in DIR.\n";
 }
+/* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
+ * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */
+struct Subcommand {
+    const char *name;
+    int (*run)(int argc, char **argv);
+};
+const Subcommand subcommands[] = {
+    {"msg", send_message},
+    {"import", import_dotfiles},
+};
 } // namespace
 int main(int argc, char **argv) {
     try {
@@ -1045,10 +1024,10 @@ int main(int argc, char **argv) {
         bool no_shell = false;
         sh_backend_mode mode = SH_BACKEND_NESTED;
         paw::Command command;
-        if (argc >= 2 && std::string(argv[1]) == "msg")
-            return send_message(argc, argv);
-        if (argc >= 2 && std::string(argv[1]) == "import")
-            return import_dotfiles(argc, argv);
+        if (argc >= 2)
+            for (const auto &subcommand : subcommands)
+                if (argv[1] == std::string_view(subcommand.name))
+                    return subcommand.run(argc, argv);
         for (int i = 1; i < argc; ++i) {
             std::string arg = argv[i];
             if (arg == "--help" || arg == "-h") {

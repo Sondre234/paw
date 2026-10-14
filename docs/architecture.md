@@ -25,6 +25,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
+| `src/cli/` | C++ | The subcommands besides the compositor (`paw fetch`, ...), and `paw_cli`'s control socket client that `paw msg` uses too. |
 | `shell/` | C++/QML | The shell. |
 
 Keep geometry and arithmetic out of `src/compositor/` where you can: a pure function in its own
@@ -1378,6 +1379,16 @@ Write `static void control_<name>(struct sh_server *server, int fd, const char *
 `src/compositor/control.c`, following `control_dnd` or `control_osd`, and add it to `commands[]`
 there. `arguments` is the rest of the request from the space after the name, "" for the name
 alone. Commands answer only while the session is unlocked.
+
+### A new subcommand (`paw NAME`)
+
+Declare `int NAME(int argc, char **argv)` in `include/paw/cli.hpp`, write it in
+`src/cli/NAME.cpp` (added to `paw_cli` with a `target_sources` line of its own in
+`CMakeLists.txt`), and name it in `subcommands[]` and `usage()` in `src/main.cpp`. It talks to
+the running session with `paw::cli::request` or `paw::cli::query` (`$PAW_SOCKET`), finds paw's
+state with `paw::cli::state_directory()`, and throws `std::runtime_error` for a usage error.
+Keep its arithmetic and formatting in pure functions a unit test (`paw_unit_test(NAME LIBRARY
+paw_cli)`) can call; a smoke test runs it against a headless compositor with `desktop.env`.
 
 ### A new Wayland protocol or global
 
