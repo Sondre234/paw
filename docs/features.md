@@ -2977,6 +2977,34 @@ fields does. It asks the session `paw msg get about`, a line each for the `versi
 profile's `scheme`, `background`, `border` and `border_inactive` (each an angle and its
 colours), `urgent` and `shadow` colours as #RRGGBBAA, besides the queries above.
 
+### paw showcase
+
+`paw showcase` takes the screenshot to show the desktop off with, as an r/unixporn post has it:
+the terminal open among the windows with `paw fetch` in it. It saves the arrangement of the
+windows as the [session](#sessions) `showcase-PID`, opens the terminal the `terminal` action
+opens (the configuration's `terminal`, else `$TERMINAL`, else the first one installed;
+`--terminal COMMAND` names another) running `paw fetch` under the title `paw fetch`, with the
+text cursor hidden, and waits for its window to show, for the windows' animations to end and for
+`--delay SECONDS` more (1 by default). Then it takes the focused monitor, or `--output NAME`, with
+[`grim`](https://sr.ht/~emersion/grim/), the pointer's cursor hidden as the
+[screenshot action](#screenshots-and-screen-sharing) hides it, and saves the picture as
+`paw-showcase-YYYY-MM-DD-HHMMSS.png` in `$XDG_PICTURES_DIR` (from the environment or
+`user-dirs.dirs`, else `~/Pictures`), or as `-o FILE`, printing where. Last it closes the
+terminal, which puts the other windows back as they were; where something else changed
+meanwhile, the saved session restores them. Restoring a session tiles its windows again one by
+one, which can change the order of the tiles, so it is left out where closing the terminal was
+enough. The session is deleted either way, and `paw fetch` leaves it out of its `sessions` while
+it is there. With `--keep` the terminal stays open, handed to the user's shell, and the windows
+as they are. A failure, Ctrl+C, a hang-up or a TERM closes the terminal and puts the windows back
+the same way, leaving no picture.
+
+The terminal is given what to run after `-e`, as alacritty, ghostty, konsole and xterm take it;
+kitty and foot take it as it is, GNOME's terminals after `--` and WezTerm after `start --`. What
+runs in it ends as it reads a word from a pipe paw showcase holds, or as the pipe closes when paw
+showcase ends however it ends, and the terminal closes with it, so a terminal that keeps one
+process for all its windows (`kitty --single-instance`, `footclient`) closes the right window
+too.
+
 ## Screen locking and idle
 
 Screen locking uses the standard `ext-session-lock-v1` protocol, so lockers such
@@ -3136,7 +3164,9 @@ covers whole, as a fullscreen window does, is not offered, and each window is cu
 monitor. The `output` mode captures the monitor under the pointer and `window` the focused
 window's area as it appears on screen, including anything overlapping it. The cursor is left
 out: paw hides it while grim takes the picture (for a region, once slurp is done), since a
-monitor that draws it into its frames, as some drivers' do, would hand it to grim. It also
+monitor that draws it into its frames, as some drivers' do, would hand it to grim. A screenshot
+taken another way can hide it too: `paw msg cursor hide` hides it until `cursor show`, or for
+five seconds at most, as [paw showcase](#paw-showcase) does. It also
 copies the image to the clipboard with
 `wl-copy` and announces the file with `notify-send`, when they are installed. Lua
 `screenshots = { directory = "~/Shots", clipboard = false, notify = false }` changes that; in a

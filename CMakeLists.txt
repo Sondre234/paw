@@ -57,6 +57,7 @@ target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
 # what other programs say.
 target_sources(paw_cli PRIVATE src/cli/doctor.cpp src/cli/doctor_parse.cpp)
 target_sources(paw_cli PRIVATE src/cli/fetch.cpp)
+target_sources(paw_cli PRIVATE src/cli/showcase.cpp)
 # paw doctor and paw fetch read the configuration, fetch outside a session.
 target_link_libraries(paw_cli PRIVATE paw_config)
 
@@ -95,6 +96,7 @@ if(BUILD_TESTING)
     paw_unit_test(config_robustness ${EXAMPLE_CONFIG})
     paw_unit_test(cli LIBRARY paw_cli)
     paw_unit_test(fetch LIBRARY paw_cli)
+    paw_unit_test(showcase LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
@@ -865,5 +867,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(window_icon_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
         paw_smoke(fetch_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(showcase_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG}
+            "${GRIM_ARGUMENT}")
     endif()
 endif()

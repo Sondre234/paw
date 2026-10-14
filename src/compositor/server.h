@@ -1094,6 +1094,8 @@ bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, cha
 bool launch_program(struct sh_server *server, enum sh_action action, char *error,
                     size_t error_size);
 void run_action(struct sh_server *server, enum sh_action action, int argument);
+void screenshot_hide_cursor(struct sh_server *server);
+void screenshot_show_cursor(struct sh_server *server);
 
 /* control.c */
 void control_reply(int fd, const char *text);
