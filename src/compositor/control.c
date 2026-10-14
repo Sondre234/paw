@@ -247,6 +247,39 @@ static void control_osd(struct sh_server *server, int fd, const char *arguments)
     control_reply(fd, "ok\n");
 }
 
+/* "caption SECONDS TITLE<tab>BODY<tab>KEYS": the shell shows a card of a title, a sentence and
+ * the keys that do it near the bottom of the focused output for SECONDS (1 to 600), as `paw tour`
+ * narrates itself; BODY and KEYS may be left out. "caption hide" takes it away. Refused while no
+ * shell listens, so that a script says it another way. */
+static void control_caption(struct sh_server *server, int fd, const char *arguments) {
+    arguments += *arguments == ' ';
+    if (!strcmp(arguments, "hide")) {
+        send_shell_line(server, "caption-hide\n");
+        control_reply(fd, "ok\n");
+        return;
+    }
+    char *end = NULL;
+    long seconds = strtol(arguments, &end, 10);
+    if (end == arguments || *end != ' ' || seconds < 1 || seconds > 600 || !end[1] ||
+        end[1] == '\t') {
+        control_reply(fd, "error: usage: caption SECONDS TITLE[<tab>BODY[<tab>KEYS]] | "
+                          "caption hide\n");
+        return;
+    }
+    if (!shell_listening(server)) {
+        control_reply(fd, "error: no shell is running to show it\n");
+        return;
+    }
+    struct wlr_output *output = focused_output(server);
+    char line[1024];
+    snprintf(line, sizeof(line) - 1, "caption %s %ld %s", output ? output->name : "-",
+             seconds * 1000, end + 1); // room for the newline
+    drop_partial_utf8(line);
+    strcat(line, "\n");
+    send_shell_line(server, line);
+    control_reply(fd, "ok\n");
+}
+
 /* What follows `name` in a request that starts with it as a word, from the space after it; NULL
  * for another request. */
 static const char *arguments_of(const char *request, const char *name) {
@@ -347,6 +380,7 @@ static const struct {
     {"switcher_peek", control_switcher_peek},
     {"profile_drawn", control_profile_drawn},
     {"workspace_nudge", control_workspace_nudge},
+    {"caption", control_caption},
 };
 
 static void control_handle(struct sh_server *server, int fd, const char *request) {
