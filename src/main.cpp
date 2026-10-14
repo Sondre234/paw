@@ -443,7 +443,7 @@ struct Runtime {
         if (binding->action == SH_SWITCH_LAYOUT)
             *argument = binding->layout;
         if (binding->action == SH_MODE || binding->action == SH_DISPLAY_MODE ||
-            binding->action == SH_CAT)
+            binding->action == SH_CAT || binding->action == SH_HEATMAP)
             *argument = binding->mode;
         target = binding->output;
         flags = (binding->locked ? SH_BINDING_LOCKED : 0) |
@@ -483,8 +483,8 @@ struct Runtime {
      * "resize_<direction> [pixels]", "volume_up|volume_down|brightness_up|brightness_down
      * [percent]", "switcher_confirm [N]", "switch_layout [next|prev|N]", "mode NAME|default",
      * "display_off [OUTPUT]" (and on, toggle), "display_mode [extend|duplicate|internal|
-     * external]", "profile NAME|next|prev", "cat [on|off|toggle]", or "spawn PROGRAM
-     * [ARGS...]". */
+     * external]", "profile NAME|next|prev", "cat [on|off|toggle]", "heatmap
+     * [toggle|motion|clicks|reset]", or "spawn PROGRAM [ARGS...]". */
     static sh_action command(void *data, const char *request, int *argument, char *error,
                              size_t error_size) {
         auto &self = *static_cast<Runtime *>(data);
@@ -536,6 +536,12 @@ struct Runtime {
                 if (words.size() > 2)
                     throw std::runtime_error("cat takes one word: on, off or toggle");
                 *argument = words.size() == 2 ? paw::parse_cat_switch(words[1]) : SH_CAT_TOGGLE;
+            } else if (action == SH_HEATMAP) {
+                if (words.size() > 2)
+                    throw std::runtime_error(
+                        "heatmap takes one of toggle, motion, clicks or reset");
+                *argument = words.size() == 2 ? paw::parse_heatmap_choice(words[1])
+                                              : SH_HEATMAP_TOGGLE;
             } else if (action == SH_SCREENSHOT) {
                 if (words.size() > 2)
                     throw std::runtime_error(
@@ -1071,7 +1077,10 @@ void usage() {
            "paw cat [on|off|toggle] lets the desktop cat out, or calls it in.\n"
            "paw wrapped [--today|--week|--month|--year|--all|--since DATE] [--plain|--json]\n"
            "reports your time at the desktop from what paw counts (wrapped.enabled).\n"
-           "paw xray [--list] takes the focused monitor apart into its layers, or prints them.\n";
+           "paw xray [--list] takes the focused monitor apart into its layers, or prints them.\n"
+           "paw heatmap [toggle|motion|clicks|reset] shows where the pointer rested or clicked\n"
+           "over the desktop, or hides it; --term draws it in the terminal and --export FILE\n"
+           "writes it to a .png, .pam or .ppm image, with --clicks and --output NAME.\n";
 }
 /* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
  * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */
@@ -1093,6 +1102,7 @@ const Subcommand subcommands[] = {
     {"cat", paw::cli::cat},
     {"wrapped", paw::cli::wrapped},
     {"xray", paw::cli::xray},
+    {"heatmap", paw::cli::heatmap},
 };
 } // namespace
 int main(int argc, char **argv) {

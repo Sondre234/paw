@@ -431,6 +431,7 @@ static bool middle_drag_motion(struct sh_server *server) {
 }
 
 void process_cursor_motion(struct sh_server *server, uint32_t time) {
+    heatmap_motion(server); // where the pointer rests, for the heatmap
     if (server->cursor_mode == SH_CURSOR_PANEL) {
         panel_drag_motion(server);
         return;
@@ -676,6 +677,7 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     struct wlr_pointer_button_event *event = data;
     input_activity(server, event->state == WL_POINTER_BUTTON_STATE_PRESSED);
     wrapped_button(server, event);
+    heatmap_button(server, event); // a click, for the heatmap
     if (event->button >= BTN_MOUSE && event->button < BTN_MOUSE + 32) {
         const uint32_t bit = 1u << (event->button - BTN_MOUSE);
         if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)

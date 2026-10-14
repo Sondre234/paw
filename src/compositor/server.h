@@ -293,6 +293,8 @@ struct sh_toys;              // the toy playing (toys.c)
 struct sh_cat_view;          // the desktop cat (cat.c)
 struct sh_wrapped;       // what paw wrapped counts (wrapped.c)
 struct wlr_color_manager_v1;
+struct sh_heatmap;     // where the pointer rests and clicks, and the overlay (heatmap.c)
+struct sh_heat_output; // an output's grid and its part of the overlay
 
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
  * workspace it showed as the swipe began and the one the fingers head for (out of range past
@@ -816,6 +818,8 @@ struct sh_server {
     struct sh_cat_view *cat; /* the desktop cat (cat.c); NULL if it could not be made */
     struct sh_wrapped *wrapped; // NULL while wrapped.enabled is off
     struct sh_xray xray;
+    /* The pointer heatmap (heatmap.c); NULL until the first output is laid out. */
+    struct sh_heatmap *heatmap;
 };
 
 /* Tearing on an output (tearing.c): what its frames do now (`tearing`, `refused`, or why its
@@ -879,6 +883,9 @@ struct sh_output {
     struct wl_listener frame;
     struct wl_listener request_state;
     struct wl_listener destroy;
+    /* Its grid of the pointer heatmap and its part of the overlay (heatmap.c); NULL until it is
+     * first laid out. */
+    struct sh_heat_output *heat;
 };
 
 /* An icon a window supplies itself (window_icon.c): the icon theme name it gave, and the pixels
@@ -1866,3 +1873,13 @@ bool xray_button(struct sh_server *server, const struct wlr_pointer_button_event
 bool xray_axis(struct sh_server *server, const struct wlr_pointer_axis_event *event);
 void xray_finish(struct sh_server *server);
 void describe_xray(struct sh_server *server, int fd, const char *arguments);
+/* heatmap.c */
+void heatmap_motion(struct sh_server *server);
+void heatmap_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
+void heatmap_arrange(struct sh_server *server);
+void heatmap_forget_output(struct sh_output *output);
+void heatmap_finish(struct sh_server *server);
+void describe_heatmap(struct sh_server *server, int fd, const char *arguments);
+void heatmap_action(struct sh_server *server, int choice);
+bool heatmap_tick(struct sh_server *server);
+void describe_heatmap_overlay(struct sh_server *server, int fd, const char *arguments);

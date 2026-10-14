@@ -999,6 +999,8 @@ static const struct {
     {"cat", describe_cat, false},
     {"wrapped", describe_wrapped, false},
     {"xray", describe_xray, false},
+    {"heatmap", describe_heatmap, true},
+    {"heatmap_overlay", describe_heatmap_overlay, false},
 };
 
 /* Answers `request` if it is a query; false if it is not one. */

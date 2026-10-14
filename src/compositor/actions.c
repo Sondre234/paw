@@ -491,6 +491,9 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_XRAY:
         xray_toggle(server);
         break;
+    case SH_HEATMAP:
+        heatmap_action(server, argument);
+        break;
     default:
         arrange_windows(server, action);
         break;

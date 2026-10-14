@@ -234,6 +234,9 @@ enum sh_action {
     SH_CAT,
     /* Opens the exploded view of the focused output's layers (paw xray), or closes it. */
     SH_XRAY,
+    /* The pointer heatmap over every output: where the pointer rested or clicked (enum
+     * sh_heatmap_choice), or forgetting it all. */
+    SH_HEATMAP,
 };
 
 /* The cat action's choices: show it or hide it, whichever it is not, or say which. */
@@ -252,6 +255,15 @@ enum sh_screenshot_mode {
     SH_SCREENSHOT_REGION, /* with slurp: a region dragged, or the window or output clicked */
     SH_SCREENSHOT_OUTPUT, /* the output under the pointer */
     SH_SCREENSHOT_WINDOW, /* the focused window */
+};
+
+/* The heatmap action's choices. */
+enum sh_heatmap_choice {
+    SH_HEATMAP_TOGGLE, /* shows the overlay of what it showed last (where the pointer rested at
+                          first), or hides it */
+    SH_HEATMAP_MOTION, /* where the pointer rested, or hides it while that shows */
+    SH_HEATMAP_CLICKS, /* where it clicked, or hides it while that shows */
+    SH_HEATMAP_RESET,  /* forgets everything counted */
 };
 
 /* Modifier and edge bits intentionally match wlroots, without importing its headers. */
@@ -554,6 +566,7 @@ struct sh_settings {
     /* wrapped.enabled: the compositor counts what happens at the desktop for `paw wrapped`
      * (src/compositor/wrapped.c). */
     bool wrapped;
+    bool heatmap; /* heatmap.enabled: count where the pointer rests and clicks (heatmap.c) */
 };
 
 /* What a login session keeps of the last one: nothing; where its windows were, for those that open

@@ -642,6 +642,10 @@ wrong with it, and toys the compositor plays with the windows.
   side: the pointer turns the stack, the wheel spreads it, the sheet under the pointer lifts, and
   a click goes to the window there. `paw xray --list` prints every monitor's layers as text, top
   first, which says why one thing is drawn over another.
+- `paw heatmap` and the `heatmap` action show where the pointer rested and clicked this session,
+  which the compositor counts for each monitor in memory alone: over the desktop, blurred and
+  coloured from cold to hot with a legend, in the terminal with `--term`, or as a PNG, PAM or PPM
+  with `--export FILE`. `paw msg get heatmap` prints the counts.
 
 ### Fixes
 

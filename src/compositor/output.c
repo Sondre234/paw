@@ -32,6 +32,8 @@ static void output_frame(struct wl_listener *listener, void *data) {
     if (tick_idle(output->server)) // the screens dimming
         wlr_output_schedule_frame(output->wlr_output);
     cat_frame(output->server); // whatever moved under the cat drew this frame
+    if (heatmap_tick(output->server)) // the pointer heatmap fading in or out
+        wlr_output_schedule_frame(output->wlr_output);
     // Night light's colours do not go with an HDR output's, which the scene converts to itself.
     struct wlr_scene_output_state_options night = {
         .color_transform = output_is_hdr(output) ? NULL : output->server->night_transform};
@@ -303,6 +305,7 @@ void arrange_outputs(struct sh_server *server) {
     map_tablets(server);
     publish_output_configuration(server);
     notify_subscribers(server); // the list of outputs and their workspaces
+    heatmap_arrange(server);    // the pointer heatmap's grids for the outputs' sizes
     // A mirror whose source came or went joins or leaves the layout, laid out again then.
     if (refresh_mirrors(server))
         arrange_outputs(server);
@@ -715,6 +718,7 @@ static void output_destroy(struct wl_listener *listener, void *data) {
     mirror_stop(output);
     mirrors_forget_source(output);
     crossfade_forget_output(output);
+    heatmap_forget_output(output);
     output_release_zoom(output);
     destroy_output_layers(output->server, output->wlr_output);
     wlr_scene_node_destroy(&output->background->node);

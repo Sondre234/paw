@@ -621,6 +621,7 @@ finish:
     rice_finish(&server);
     cat_finish(&server);
     xray_finish(&server);
+    heatmap_finish(&server);
     if (server.config_watch)
         wl_event_source_remove(server.config_watch);
     if (server.config_timer)

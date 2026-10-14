@@ -623,7 +623,9 @@ const Option options[] = {
      "With `screenshot`: `\"region\"`, `\"output\"`, or `\"window\"`. With `mode` (required): "
      "`\"default\"` or the name of one of `modes`. With `display_mode`: `\"extend\"`, "
      "`\"duplicate\"`, `\"internal\"` or `\"external\"`; without one, the popup that steps "
-     "through them."},
+     "through them. With `cat`: `\"on\"`, `\"off\"` or `\"toggle\"`; without one, "
+     "toggle. With `heatmap`: `\"toggle\"`, `\"motion\"`, `\"clicks\"` or "
+     "`\"reset\"`; without one, toggle."},
     {"bindings[].amount", "integer", "40; 5 for volume and brightness", "", 1, 4000,
      "With `resize_*`: pixels moved per press. With `volume_up`, `volume_down`, `brightness_up` "
      "and `brightness_down`: percent per press, up to 100."},
@@ -1102,6 +1104,12 @@ const Option options[] = {
      "stays with one, and the time active and idle. It is kept in "
      "`$XDG_STATE_HOME/paw/wrapped`, a file per day, and never leaves the machine. `false` "
      "counts nothing from then on; the files stay until deleted."},
+    {"heatmap", "table", "", "", none, none,
+     "The pointer heatmap: where the pointer rests and clicks on each monitor, counted in the "
+     "compositor's memory for the `heatmap` action and `paw heatmap`, never written to disk."},
+    {"heatmap.enabled", "boolean", "true", "false", none, none,
+     "Count where the pointer rests and clicks. False counts nothing more; what was counted "
+     "stays until `heatmap reset` or the end of the session."},
 };
 
 bool is_child(std::string_view parent, std::string_view path) {
