@@ -57,6 +57,8 @@ POPUPS += ["desktop"]
 # has not.
 TASKBAR_POPUPS = ["switcher-icons", "workspace"]
 POPUPS += TASKBAR_POPUPS
+# The names of the exploded view's sheets (paw xray), over stand-ins for them.
+POPUPS += ["xray"]
 
 # Pictures taken with settings of their own, put in the shell table: name -> (popup, settings).
 # The volume's and the profiles' popups belong to buttons Quick Settings holds by default, and a

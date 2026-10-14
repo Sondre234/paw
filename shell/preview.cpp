@@ -6,6 +6,7 @@
 #include "image_provider.hpp"
 #include "system_status.hpp"
 #include "view.hpp"
+#include "paw/xray_layout.h"
 #include <QBuffer>
 #include <QDir>
 #include <QFile>
@@ -89,6 +90,28 @@ QVariantList overviewStrip(const QRect &area) {
                                     {"workspace", i + 1},
                                     {"windows", windows[i]}});
     return cells;
+}
+
+// The exploded view's stand-ins (paw xray), bottom first, as the compositor names its sheets: the
+// wallpaper, two windows, one kept above and the panel; the third is under the pointer.
+QVariantList xraySheets() {
+    auto sheet = [](const QString &layer, const char *colour, const QString &name,
+                    const QString &detail) {
+        return QVariantMap{
+            {"layer", layer}, {"colour", QColor(colour)}, {"name", name}, {"detail", detail}};
+    };
+    return {sheet("background", "#5b8def", "paw-desktop", "1100\u00d7720 at 0,0"),
+            sheet("windows", "#8cc152", "foot", "~/dev/paw"),
+            sheet("windows", "#8cc152", "firefox", "Release notes - Mozilla Firefox"),
+            sheet("above", "#f47c3c", "org.kde.dolphin", "Downloads - Dolphin"),
+            sheet("top", "#a98bff", "paw-panel", "1100\u00d748 at 0,672")};
+}
+const int XRAY_HOVERED = 2;
+// Where the compositor lays the stack out on the preview's output (src/xray_layout.c), and the
+// legend's width.
+sh_xray_box xrayArea(double *legend) {
+    const QSize size = ShellView::previewSize();
+    return sh_xray_area(size.width(), size.height(), legend);
 }
 
 // A stand-in for the picture of stand-in window `id`, as the task model's `windows` provider
@@ -494,7 +517,7 @@ QStringList PreviewData::surfaces() {
     return {"osd-volume", "osd-text", "cards",    "power-dialog",
             "palette", "switcher", "overview", "palette-empty", "auth-dialog", "snap-assist",
             "osd-microphone", "display-mode", "palette-calculator", "palette-files", "clipboard",
-            "emoji", "display-settings", "display-settings-trial"};
+            "emoji", "display-settings", "display-settings-trial", "xray"};
 }
 
 namespace {
@@ -692,6 +715,16 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
                       {"viewed", 1},
                       {"urgentWorkspaces", QVariantList{1}},
                       {"shown", true}};
+    } else if (name == "xray") {
+        file = "Xray.qml";
+        double legend = 0;
+        const sh_xray_box area = xrayArea(&legend);
+        properties = {{"screenSize", ShellView::previewSize()},
+                      {"sheets", xraySheets()},
+                      {"area", QRectF(area.x, area.y, area.width, area.height).toRect()},
+                      {"legend", qRound(legend)},
+                      {"hovered", XRAY_HOVERED},
+                      {"shown", true}};
     } else if (name == "snap-assist") {
         // The overview in the free half beside a window snapped to the left.
         file = "Overview.qml";
@@ -830,6 +863,45 @@ QImage PreviewData::withSurface(QImage desktop) const {
                 painter.drawRect(rect.adjusted(-6, -6, 6, 6));
             }
         }
+        painter.resetTransform();
+    }
+    if (surfaceName_ == "xray") {
+        // What the compositor draws under the shell's names, in its colours: the dark backdrop,
+        // and the sheets fanned out, each a card edged in its layer's colour holding a plain
+        // stand-in for what it shows, the hovered one lifted and those over it faded.
+        painter.scale(scale, scale);
+        painter.fillRect(output, QColor::fromRgbF(0.04f, 0.05f, 0.08f, 0.97f));
+        const auto sheets = xraySheets();
+        double legend = 0, lift[8] = {};
+        lift[XRAY_HOVERED] = 1;
+        sh_xray_view view = {double(output.width()), double(output.height()), xrayArea(&legend),
+                             int(sheets.size()), 0, 0, 1, 1};
+        sh_xray_box boxes[8];
+        sh_xray_layout(&view, lift, boxes);
+        const double sx = boxes[0].width / output.width(), sy = boxes[0].height / output.height();
+        for (int i = 0; i < sheets.size(); ++i) {
+            const auto sheet = sheets[i].toMap();
+            const QRectF box(boxes[i].x, boxes[i].y, boxes[i].width, boxes[i].height);
+            painter.setOpacity(i > XRAY_HOVERED ? 0.25 : 1);
+            painter.fillRect(box.translated(0, 14), QColor::fromRgbF(0, 0, 0, 0.3f));
+            painter.fillRect(box, i ? QColor::fromRgbF(0.06f, 0.07f, 0.1f, 0.4f) : QColor("#19212e"));
+            const QString layer = sheet["layer"].toString();
+            const QPointF at(box.x(), box.y());
+            if (layer == "top") {
+                painter.fillRect(QRectF(at + QPointF(0, 672 * sy), QSizeF(box.width(), 48 * sy)),
+                                 QColor("#151b28"));
+            } else if (layer != "background") {
+                const QRectF window(at + QPointF((120 + 160 * i) * sx, (90 + 60 * i) * sy),
+                                    QSizeF(420 * sx, 280 * sy));
+                painter.fillRect(window, QColor("#3f78c0"));
+                painter.fillRect(window.adjusted(0, 0, 0, 22 * sy - window.height()),
+                                 QColor("#23314a"));
+            }
+            painter.setPen(QPen(sheet["colour"].value<QColor>(), i == XRAY_HOVERED ? 2 : 1));
+            painter.setBrush(Qt::NoBrush);
+            painter.drawRect(box);
+        }
+        painter.setOpacity(1);
         painter.resetTransform();
     }
     painter.drawImage(QPointF(at) * scale, image);
