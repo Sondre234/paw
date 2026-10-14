@@ -314,9 +314,11 @@ static void draw(struct sh_cat_view *view, int64_t now) {
             wlr_scene_buffer_set_buffer(view->z, view->z_buffer);
         int size = SH_CAT_Z_SIZE * view->scale;
         wlr_scene_buffer_set_dest_size(view->z, size, size);
-        int forward = (pose.left ? -1 : 1) * (4 + 2 * pose.z_step) * view->scale;
+        // From just over its head (cells 11 to 17 of its art, its ears 11 cells up), each
+        // breath a little higher and further.
+        int forward = (pose.left ? -1 : 1) * (5 + pose.z_step) * view->scale;
         wlr_scene_node_set_position(&view->z->node, (int)lround(cat->x) + forward - size / 2,
-                                    (int)lround(cat->y) - (12 + 3 * pose.z_step) * view->scale -
+                                    (int)lround(cat->y) - (12 + 2 * pose.z_step) * view->scale -
                                         size);
     }
 }
