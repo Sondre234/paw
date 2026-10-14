@@ -21,7 +21,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | Where | Language | What |
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -754,6 +754,53 @@ the outputs and windows when one changed, as the lid changes and after an output
 destroyed (before an empty layout would end a nested or headless session). Each toggle counts
 as input and runs the binding `sh_callbacks.switch_toggled` returns. Under `--headless`,
 `headless_switch` adds switches for the tests (`headless_input.c`, `lid_smoke`).
+
+### The exploded view
+
+`xray.c` takes the focused output apart into the layers paw draws (`paw xray`, the `xray` action).
+`xray_collect` walks the scene's trees bottom to top: the output's background colour, the layer
+shell's background and bottom layers, `windows`, `floating_windows`, `above_windows`, `fullscreen`,
+`peek_layer`, the top layer, `fullscreen_cover`, `unmanaged` and the overlay layer, keeping each
+layer surface on that output and each window whose box reaches into it, shown. `xray_plan` puts
+them on sheets (`struct sh_xray_sheet`): one per layer with anything on it, and one per window
+while six or fewer show. A sheet is known by its layer and its window, a pointer it only
+compares, never follows, so a window gone meanwhile leaves nothing dangling; the sheets are planned
+again whenever that changes, and kept as they are while the view closes, so that a window raised by
+a click keeps its sheet on the way back. Where each sheet goes is `src/xray_layout.c`'s
+(`sh_xray_layout`, tested by `xray_layout_tests`): the output scaled down to fit the area left
+beside the shell's legend and above its caption (`sh_xray_area`), each sheet a gap further along
+the way the stack rises, foreshortened that way and a little larger than the one under it, and
+part of the way to there from the whole output as the view opens and closes. The pointer's travel
+since it opened turns the stack (`sh_xray_tilt`), away from the pointer so that the low sheets'
+edges come out under it, the wheel spreads it (`sh_xray_spread`), and the hovered sheet is lifted
+along the way it rises while those over it fade, each easing with `sh_xray_ease` from the view's
+own 16 ms timer. The pointer is tested against where the sheets rest fanned out, not where a lift
+or the opening draws them, so that nothing under it moves away from it.
+
+The view is a tree of its own placed just over `overview_layer`, under the overlay layer, which
+holds the shell's text, and is destroyed as the view closes: the copies lock the clients' buffers.
+A sheet's tree holds the shadow's slices (the windows' shadow images, `shadow_image` in
+`frame.c`), a card (the background colour for the bottom sheet, else dark glass in its layer's
+colour with a sheen, a one-pixel-wide gradient the scene stretches), the copy and an outline. The
+copy is `sh_thumb_clone_cut` (`src/overview_scene.c`) of each surface's or window's tree, cut to
+the output and scaled across and down apart, made again only when the trees' fingerprints, the
+scale or the opacity change. Nothing of the view is quite opaque (0.9999 at most, as the
+crossfade's pictures): the scene would hide what lies under an opaque node, and its surfaces,
+getting no frame callbacks, would stop drawing what the copies show. `output_frame` and
+`notify_subscribers` call `xray_touch`, which arms the timer, so that the copies follow the
+clients and the sheets follow windows coming and going; while nothing changes nothing is drawn,
+and while the view is closed `xray_touch` returns at once. The view takes the keyboard in
+`handle_keybinding` (its own binding still closes it) and the pointer before the overview does in
+`cursor.c`, and touch and tablet input as the pointer; a click on a window's sheet maps the
+pointer back onto the output to find the window there. `xray_dismiss` closes it at once as the
+session locks or its output goes, and it does not open while locked.
+
+It tells subscribers what to name the sheets: `xray OUTPUT COUNT HOVERED X Y WIDTH HEIGHT LEGEND`
+(the area and the legend's column) and a `xray-sheet LAYER\tCOLOUR\tNAME\tDETAIL` line per
+sheet, again whenever they change; `xray-hover N` as the hovered sheet changes and `xray-close`.
+The shell draws them with `Xray.qml` in an overlay surface whose namespace, `paw-xray`, no sheet
+copies. `get xray` lists every output's stack with the sheet showing each part, which
+`paw xray --list` (`src/cli/xray.cpp`) prints top first, and `tests/xray_smoke.py` tests it.
 
 ## The shell (`shell/`)
 
