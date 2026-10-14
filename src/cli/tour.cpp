@@ -50,18 +50,18 @@ struct Stop : std::runtime_error {
 // its own), a clock in large figures, and colours drifting across the window. Each names its
 // window by $PAW_TOUR_TITLE and runs paw as $PAW_TOUR_PAW.
 constexpr const char *scripts[] = {
-    R"sh(printf '\033]2;%s\007\033[?25l\033[H\033[2J' "$PAW_TOUR_TITLE"
+    R"sh(printf '\033]2;%s\007\033[?25l\033[?7l\033[H\033[2J' "$PAW_TOUR_TITLE"
 if ! "$PAW_TOUR_PAW" fetch 2>/dev/null; then
     pink='\033[38;2;242;143;173m' blue='\033[38;2;137;180;250m' dim='\033[2m' off='\033[0m'
     version=$("$PAW_TOUR_PAW" --version 2>/dev/null | head -n 1)
-    windows=$("$PAW_TOUR_PAW" msg get windows 2>/dev/null | wc -l)
+    monitors=$("$PAW_TOUR_PAW" msg get outputs 2>/dev/null | wc -l)
     uptime=$(awk '{ s = int($1); printf "%dh %02dm", s / 3600, s % 3600 / 60 }' /proc/uptime 2>/dev/null)
     printf "\n$pink      ▄██▄   ▄██▄      $off  $blue%s$off\n" "${version:-paw}"
     printf "$pink      ▀██▀   ▀██▀      $off  ${dim}PAW Arranges Windows$off\n"
     printf "$pink  ▄██▄           ▄██▄  $off\n"
     printf "$pink  ▀██▀  ▄▄███▄▄  ▀██▀  $off  ${blue}kernel$off   %s\n" "$(uname -sr)"
     printf "$pink       █████████       $off  ${blue}uptime$off   %s\n" "${uptime:-?}"
-    printf "$pink        ▀▀███▀▀        $off  ${blue}windows$off  %s\n\n" "$windows"
+    printf "$pink        ▀▀███▀▀        $off  ${blue}monitors$off %s\n\n" "$monitors"
     printf '                         '
     for colour in 1 2 3 4 5 6 9 10 11 12 13 14; do printf '\033[48;5;%dm   ' $colour; done
     printf '\033[0m\n'
