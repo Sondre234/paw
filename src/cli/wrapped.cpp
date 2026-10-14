@@ -761,8 +761,9 @@ int wrapped(int argc, char **argv) {
     if (!wrapped::counted(totals)) {
         std::cout << "Nothing counted "
                   << (option.empty() || option == "all" ? "yet" : "in that time")
-                  << ". paw counts what happens at the desktop while wrapped.enabled is on (it is "
-                     "unless the configuration turns it off) and saves it every few minutes in "
+                  << ". A standalone paw session counts what happens at the desktop while "
+                     "wrapped.enabled is on, as it is unless the configuration turns it off, and "
+                     "saves it every few minutes in "
                   << shown(directory) << ". Come back after a while at the desktop.\n";
         if (off)
             std::cout << "This session counts nothing: " << session->why << ".\n";
