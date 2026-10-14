@@ -95,4 +95,12 @@ with harness.Compositor(compositor, source) as desktop:
     assert server.poll() is None
     assert talk(b"get windows\n").startswith(b"ok\n")  # "close" may have ended the window
     assert talk(b"get workspace\n") == b"ok\n1\n"
+    # A client still sending its request as the session ends is let go with the rest (under the
+    # sanitizers, a leak of it fails the clean exit). The answer to a later connection shows the
+    # compositor has taken it in.
+    half = socket.socket(socket.AF_UNIX)
+    half.connect(path)
+    half.sendall(b"get work")
+    crowd.append(half)
+    assert talk(b"get workspace\n") == b"ok\n1\n"
 print("Control socket survived every action, odd argument, and garbage input")
