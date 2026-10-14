@@ -579,6 +579,16 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
 wrong with it, and toys the compositor plays with the windows.
 
+- `paw cat` lets a pixel-art cat out onto the desktop, drawn by the compositor as oneko is by a
+  client, but knowing the windows: it sits on the focused window's top edge, wanders along it,
+  grooms, scratches and yawns, hops over to the window the focus moves to, falls with gravity onto
+  the next window top below (or above the taskbar) when the window under it goes, chases a pointer
+  flicked past it, pats the top of a window that asks for attention, and curls up asleep while
+  nobody uses the computer. It takes no input, hides under fullscreen windows, the overview and the
+  lock, draws frames only while it moves, and wears a black coat on light profiles and a cream one
+  on dark ones. The `cat` action (`paw cat [on|off|toggle]`), `cat.enabled`, `cat.coat`,
+  `cat.scale` and `cat.sleep_after`, and `paw msg get cat`.
+
 ### Fixes
 
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,
