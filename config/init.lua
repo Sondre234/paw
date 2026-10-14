@@ -156,7 +156,8 @@ return {
     layout = {
         -- gap = 8, -- sets both; or gap_inner (between windows) and gap_outer (at the edges)
         -- smart_gaps = true, -- no gaps around a tiled window alone on its workspace
-        -- lone_margin = 0, -- pixels around a tiled window alone on its workspace instead
+        -- lone_margin = 0, -- pixels around a tiled window alone on its workspace instead;
+        --                     or by side: { top = 12, right = 160, bottom = 12, left = 160 }
         workspaces = 4,
         tiling = false, -- automatic tiling on every monitor; outputs.monitors can override it,
         -- and each monitor's panel button toggles it there

@@ -133,9 +133,15 @@ const Option options[] = {
     {"layout.gap_outer", "integer", "`gap`", "8", 0, 100, "Pixels between tiles and the edges."},
     {"layout.smart_gaps", "boolean", "true", "false", none, none,
      "No gaps around a tiled window that is alone on its workspace."},
-    {"layout.lone_margin", "integer", "0", "48", 0, 400,
+    {"layout.lone_margin", "integer or table", "0", "48", none, none,
      "Pixels around a tiled window that is alone on its workspace, in place of the gaps, so it "
-     "does not fill the screen; 0 leaves it to `smart_gaps`."},
+     "does not fill the screen, 0 to 400: one number, or `{ top, right, bottom, left }` by name, "
+     "the sides left out 0. Each side gives way to keep a quarter of the usable area across and "
+     "down; 0 all round leaves it to `smart_gaps`."},
+    {"layout.lone_margin.top", "integer", "0", "0", 0, 400, "Top margin."},
+    {"layout.lone_margin.right", "integer", "0", "0", 0, 400, "Right margin."},
+    {"layout.lone_margin.bottom", "integer", "0", "0", 0, 400, "Bottom margin."},
+    {"layout.lone_margin.left", "integer", "0", "0", 0, 400, "Left margin."},
     {"layout.floating_above_tiles", "boolean", "false", "true", none, none,
      "Floating windows always stack over tiles, as in sway and Hyprland; `false` puts the "
      "window brought forward last in front, tile or not."},

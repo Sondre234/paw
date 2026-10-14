@@ -1714,7 +1714,24 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         config.settings.gap_inner = integer(L, "gap_inner", gap, 0, 100);
         config.settings.gap_outer = integer(L, "gap_outer", gap, 0, 100);
         boolean(L, "smart_gaps", "layout.smart_gaps", config.settings.smart_gaps);
-        config.settings.lone_margin = integer(L, "lone_margin", 0, 0, 400);
+        // One number for every side, or { top, right, bottom, left } by name, the sides left
+        // out 0.
+        lua_getfield(L, -1, "lone_margin");
+        if (lua_isinteger(L, -1)) {
+            auto margin = lua_tointeger(L, -1);
+            if (margin < 0 || margin > 400)
+                out_of_range("lone_margin", static_cast<double>(margin), 0, 400);
+            for (auto &side : config.settings.lone_margin)
+                side = static_cast<int>(margin);
+        } else if (!lua_isnil(L, -1)) {
+            table(L, -1, "layout.lone_margin");
+            keys(L, -1, "layout.lone_margin");
+            Named margin("layout.lone_margin");
+            int index = 0;
+            for (const char *side : {"top", "right", "bottom", "left"})
+                config.settings.lone_margin[index++] = integer(L, side, 0, 0, 400);
+        }
+        lua_pop(L, 1);
         boolean(L, "floating_above_tiles", "layout.floating_above_tiles",
                 config.settings.floating_above_tiles);
         boolean(L, "tiling", "layout.tiling", config.settings.tiling);

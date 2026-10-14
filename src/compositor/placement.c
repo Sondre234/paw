@@ -26,15 +26,21 @@ struct sh_rect tiling_area(struct sh_server *server, struct wlr_output *output, 
                            int joining, int *gap) {
     const struct sh_settings *settings = server_settings(server);
     bool lone = sh_tiling_count(server->tiling, output->name, workspace) + joining == 1;
-    if (lone && settings->lone_margin > 0) {
+    const int *margin = settings->lone_margin; /* top, right, bottom, left */
+    if (lone && (margin[0] > 0 || margin[1] > 0 || margin[2] > 0 || margin[3] > 0)) {
         struct sh_rect area = usable_area(server, output);
-        int mx = settings->lone_margin, my = settings->lone_margin;
-        if (mx > area.width * 3 / 8)
-            mx = area.width * 3 / 8;
-        if (my > area.height * 3 / 8)
-            my = area.height * 3 / 8;
+        int top = margin[0], right = margin[1], bottom = margin[2], left = margin[3];
+        if (top > area.height * 3 / 8)
+            top = area.height * 3 / 8;
+        if (bottom > area.height * 3 / 8)
+            bottom = area.height * 3 / 8;
+        if (left > area.width * 3 / 8)
+            left = area.width * 3 / 8;
+        if (right > area.width * 3 / 8)
+            right = area.width * 3 / 8;
         *gap = 0;
-        return (struct sh_rect){area.x + mx, area.y + my, area.width - 2 * mx, area.height - 2 * my};
+        return (struct sh_rect){area.x + left, area.y + top, area.width - left - right,
+                                area.height - top - bottom};
     }
     if (settings->smart_gaps && lone) {
         *gap = 0;
