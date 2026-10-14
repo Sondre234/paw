@@ -698,17 +698,26 @@ pid_t compositor_pid() {
     return peer.pid;
 }
 
-// How long the compositor has run, "" if that cannot be told.
-std::string session_uptime() {
+// Seconds since the machine booted, the clock /proc gives processes' start times on.
+double since_boot() {
+    timespec now{};
+    clock_gettime(CLOCK_BOOTTIME, &now);
+    return static_cast<double>(now.tv_sec) + static_cast<double>(now.tv_nsec) / 1e9;
+}
+
+// When the compositor started, in seconds after boot; negative if that cannot be told.
+double compositor_started() {
     pid_t pid = compositor_pid();
-    std::ifstream stat_file("/proc/" + std::to_string(pid) + "/stat");
-    std::string stat{std::istreambuf_iterator<char>(stat_file), {}};
-    double since_boot = 0;
+    std::ifstream file("/proc/" + std::to_string(pid) + "/stat");
+    uint64_t ticks = start_ticks({std::istreambuf_iterator<char>(file), {}});
     long hertz = sysconf(_SC_CLK_TCK);
-    uint64_t ticks = start_ticks(stat);
-    if (pid <= 0 || !ticks || hertz <= 0 || !(std::ifstream("/proc/uptime") >> since_boot))
-        return "";
-    return uptime(since_boot - static_cast<double>(ticks) / static_cast<double>(hertz));
+    if (pid <= 0 || !ticks || hertz <= 0)
+        return -1;
+    return static_cast<double>(ticks) / static_cast<double>(hertz);
+}
+
+std::string session_uptime(double started) {
+    return started < 0 ? "" : uptime(since_boot() - started);
 }
 
 // The appearance profile paw last saved, "" for none.
@@ -830,7 +839,7 @@ int print_once(const Options &options) {
     std::vector<Sample> history{look(0)};
     std::this_thread::sleep_for(std::chrono::milliseconds(options.interval));
     history.push_back(look(options.interval / 1e3));
-    view.uptime = session_uptime();
+    view.uptime = session_uptime(compositor_started());
     view.profile = saved_profile();
     std::string text;
     for (auto line : draw(history, view)) {
@@ -871,14 +880,16 @@ int run_live(const Options &options) {
     view.color = options.color;
     view.window = std::max(1.0, interval);
     std::vector<Sample> history;
+    double started = -1;
     auto sample = [&] {
         try {
             history.push_back(look(now()));
             // Keep what rates are measured from: the newest look a window old, and later ones.
             while (history.size() > 2 && history.back().time - history[1].time >= view.window)
                 history.erase(history.begin());
-            if (!view.error.empty() || view.uptime.empty())
-                view.uptime = session_uptime();
+            if (started < 0 || !view.error.empty()) // first, or a compositor started since
+                started = compositor_started();
+            view.uptime = session_uptime(started);
             view.error.clear();
             view.profile = saved_profile();
         } catch (const std::runtime_error &error) {
