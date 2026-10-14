@@ -1085,8 +1085,10 @@ void ShellController::subscribe() {
                         osd_.show(words[1] == "-" ? overlayOutput() : words[1],
                                   QStringList(words.mid(3)).join(' '), percent);
                 }
-            } else if (displayModes_.handle(line) || displaySettings_.handle(line)) {
-                // The display mode popup's lines; "display-settings OUTPUT", and a trial's.
+            } else if (displayModes_.handle(line) || displaySettings_.handle(line) ||
+                       riceTrial_.handle(line)) {
+                // The display mode popup's lines; "display-settings OUTPUT", and a trial's; a
+                // rice's trial.
             } else if (line.startsWith("notifications ")) {
                 Q_EMIT notificationsRequested(line.sliced(14));
             } else if (line.startsWith("media ")) {

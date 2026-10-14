@@ -83,6 +83,8 @@ list(APPEND PAW_NOTIFY_SOURCES volume_keys.cpp volume_keys.hpp)
 # window's.
 list(APPEND PAW_NOTIFY_SOURCES display_modes.cpp display_modes.hpp display_settings.cpp
     display_settings.hpp display_layout.cpp display_layout.hpp)
+# The question while a rice is on trial (`paw rice try`).
+list(APPEND PAW_NOTIFY_SOURCES rice_trial.cpp rice_trial.hpp)
 # The QML is compiled ahead of time into the binary (qmlcachegen), so starting the shell parses
 # and compiles none of it. It lives at qrc:/shell/PawShell/*.qml.
 qt_add_library(paw_shell_qml STATIC)
@@ -143,7 +145,8 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     DisplayMode.qml
     ClipboardPicker.qml
     EmojiPicker.qml
-    DisplaySettings.qml)
+    DisplaySettings.qml
+    RiceTrial.qml)
 # The emoji picker's table (vendor/emoji), compiled in as :/paw/emoji.tsv.
 qt_add_resources(paw_shell_qml "emoji_table" PREFIX "/paw"
     BASE ${PROJECT_SOURCE_DIR}/vendor/emoji FILES ${PROJECT_SOURCE_DIR}/vendor/emoji/emoji.tsv)
