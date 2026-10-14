@@ -1869,6 +1869,8 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                {"launch", SH_SESSION_RESTORE_LAUNCH}},
               "session.restore must be \"off\", \"windows\" or \"launch\"", "restore");
     }
+    if (Section in{L, "wrapped"})
+        boolean(L, "enabled", "wrapped.enabled", config.settings.wrapped);
     return config;
 }
 } // namespace

@@ -528,6 +528,9 @@ struct sh_settings {
     /* keyboard.shortcuts_inhibit: applications may ask for the keys the bindings take
      * (keyboard-shortcuts-inhibit), as virtual machines and remote desktops do. */
     bool shortcuts_inhibit;
+    /* wrapped.enabled: the compositor counts what happens at the desktop for `paw wrapped`
+     * (src/compositor/wrapped.c). */
+    bool wrapped;
 };
 
 /* What a login session keeps of the last one: nothing; where its windows were, for those that open
