@@ -775,15 +775,17 @@ void Tour::finish(bool stopped) {
     restoring_ = true;
     signalled = 0;
     try {
-        if (stopped) {
+        // The windows first, which need no unlocked session to go.
+        if (stopped)
             caption("Stopping the tour", "Its windows close, and your desktop goes back as it was.",
                     "", 10);
+        close_windows(false);
+        if (stopped) {
             send("switcher_cancel");
             auto overview = query("overview");
             if (!overview.empty() && !overview[0].empty() && overview[0][0].starts_with("open"))
                 send("overview_cancel");
         }
-        close_windows(false);
         if (!options_.restore) {
             request("caption hide");
             std::cout << "Left as the tour left it; `paw msg session restore tour` puts your "
