@@ -37,8 +37,8 @@ enum {
  * FLICK pixels in at least FLICK_MOTIONS motions each within MOTION_MS of the last, while it is
  * within NEAR pixels of the cat. */
 #define TRAVEL_MS 120.0
-#define FLICK 90.0
-#define NEAR 320.0
+#define FLICK 150.0
+#define NEAR 260.0
 #define FLICK_MOTIONS 3
 #define MOTION_MS 100
 
