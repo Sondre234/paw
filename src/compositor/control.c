@@ -15,7 +15,7 @@ struct sh_control_client {
     struct wl_event_source *source;
     bool subscribed; // "subscribe": stays open and receives the state after each change
     bool shell;      // "subscribe shell": the desktop shell, which carries out what it is asked
-    struct wl_list link;
+    struct wl_list link; // in the server's control_pending until it subscribes, then subscribers
     size_t length;
     char request[4096]; // `monitors apply` names every monitor's settings
 };
@@ -472,8 +472,7 @@ static void control_handle(struct sh_server *server, int fd, const char *request
 }
 
 static void control_client_close(struct sh_control_client *client) {
-    if (client->subscribed)
-        wl_list_remove(&client->link);
+    wl_list_remove(&client->link);
     wl_event_source_remove(client->source);
     close(client->fd);
     free(client);
@@ -742,6 +741,7 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
                     !strcmp(client->request, "subscribe shell"))) {
         client->subscribed = true;
         client->shell = client->request[9] != '\0';
+        wl_list_remove(&client->link);
         wl_list_insert(&client->server->subscribers, &client->link);
         char state[3 + sizeof(client->server->sent_state)] = "ok\n";
         describe_state(client->server, state + 3, sizeof(state) - 3);
@@ -777,7 +777,9 @@ static int control_accept(int fd, uint32_t mask, void *data) {
     if (!client->source) {
         close(client_fd);
         free(client);
+        return 0;
     }
+    wl_list_insert(&server->control_pending, &client->link);
     return 0;
 }
 
@@ -813,6 +815,10 @@ void open_control_socket(struct sh_server *server, const char *wayland_socket) {
 void close_control_socket(struct sh_server *server) {
     struct sh_control_client *client, *temporary;
     wl_list_for_each_safe(client, temporary, &server->subscribers, link) {
+        control_client_close(client);
+    }
+    // Clients still sending their request as the session ends.
+    wl_list_for_each_safe(client, temporary, &server->control_pending, link) {
         control_client_close(client);
     }
     if (server->control_source)

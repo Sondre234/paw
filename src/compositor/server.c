@@ -220,6 +220,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
         .callbacks = callbacks, .config_generation = 1, .power.sleep_delay = -1};
     server.started = now_ms();
     wl_list_init(&server.subscribers);
+    wl_list_init(&server.control_pending);
     server.tiling = sh_tiling_create();
     if (!server.tiling)
         return 1;
