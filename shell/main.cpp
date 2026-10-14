@@ -113,8 +113,8 @@ int main(int argc, char **argv) {
                       "app-menu, window-menu or window-submenu too; or an overlay over the bar: "
                       "osd-volume, osd-text, osd-microphone, cards, power-dialog, auth-dialog, "
                       "palette, palette-empty, palette-calculator, switcher, overview, "
-                      "snap-assist, display-mode, palette-files, clipboard, emoji, display-settings "
-                      "or display-settings-trial",
+                      "snap-assist, display-mode, palette-files, clipboard, emoji, display-settings, "
+                      "display-settings-trial or caption",
                       "name"});
     parser.addOption(
         {"quit-after",

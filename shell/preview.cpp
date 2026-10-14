@@ -494,7 +494,7 @@ QStringList PreviewData::surfaces() {
     return {"osd-volume", "osd-text", "cards",    "power-dialog",
             "palette", "switcher", "overview", "palette-empty", "auth-dialog", "snap-assist",
             "osd-microphone", "display-mode", "palette-calculator", "palette-files", "clipboard",
-            "emoji", "display-settings", "display-settings-trial"};
+            "emoji", "display-settings", "display-settings-trial", "caption"};
 }
 
 namespace {
@@ -529,6 +529,14 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
             controller_.osd()->show(output, "Microphone muted", -1, "microphone-muted");
         else
             controller_.osd()->show(output, "Do not disturb", -1, "dnd");
+    } else if (name == "caption") {
+        // A step of `paw tour`, long enough for a slow screenshot.
+        file = "Caption.qml";
+        properties = {{"outputName", output}};
+        controller_.caption()->show(output, "Tiling layouts",
+                                    "Each workspace tiles its own way: a master and a stack, a "
+                                    "spiral, or one window at a time.",
+                                    "Super + Space", 60000);
     } else if (name == "display-mode") {
         // The popup stepped once from extend, the choice in force, to the next in its order.
         file = "DisplayMode.qml";
@@ -750,6 +758,10 @@ QImage PreviewData::withSurface(QImage desktop) const {
         // bottom.
         at = QPoint((output.width() - size.width()) / 2,
                     controller_.osd()->top() ? 48 : output.height() - controller_.osdBottom() - size.height());
+    } else if (surfaceName_ == "caption") {
+        // CaptionView: centred, ShellController::osdBottom from the bottom.
+        at = QPoint((output.width() - size.width()) / 2,
+                    output.height() - controller_.osdBottom() - size.height());
     } else if (surfaceName_.startsWith("palette") || surfaceName_ == "clipboard" ||
                surfaceName_ == "emoji") {
         // PickerView: centred, below the bars by ShellController::paletteDrop.
