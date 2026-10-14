@@ -642,8 +642,8 @@ class ShellController : public QObject {
     bool barDragging_ = false;
     QString barDragEdge_;
     // A resize of the bar (startBarResize): the pointer's distance from the bar's edge of the
-    // output as it was pressed (-1 until the compositor answers), shell.panel_height then, and
-    // the height it is dragged to.
+    // output as it was pressed (-1 while none is asked for or under way), shell.panel_height
+    // then, and the height it is dragged to.
     bool barResizing_ = false;
     int barResizeFrom_ = -1, barResizeStart_ = 0, barResizeHeight_ = 0;
     QQmlEngine *engine_ = nullptr;
