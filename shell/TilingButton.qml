@@ -8,7 +8,7 @@ FlatButton {
     required property var panel
     objectName: "tilingToggle"
     visible: shell.widgets.tiling === "bar"
-    Layout.preferredWidth: Theme.barItemWidth; Layout.preferredHeight: Theme.barItemHeight
+    Layout.preferredWidth: panel.barItemWidth; Layout.preferredHeight: panel.barItemHeight
     enabled: shell.tilingAvailable
     opacity: enabled ? 1 : 0.4
     active: panel.tiling

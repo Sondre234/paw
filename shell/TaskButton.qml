@@ -53,7 +53,7 @@ Button {
     function openMenu() {
         if (launcher) panel.openContextMenu(task, 0, -1, app); else panel.openContextMenu(task, 0, taskId, appId)
     }
-    height: Theme.barItemHeight
+    height: panel.barItemHeight
     // Hovering a stacked button lists its windows, whatever the platform thinks of hover.
     hoverEnabled: true
     // The icon sits above the activity line, fitting however short the bar is.
