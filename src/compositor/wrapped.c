@@ -299,9 +299,26 @@ static int test_ms(const char *name, int fallback) {
     return ms > 0 ? ms : fallback;
 }
 
+/* Why the compositor counts nothing, or NULL when it counts: wrapped.enabled is off, or it is not
+ * a session at the machine. A nested paw's input is the desktop it runs in's, counted there if at
+ * all, and under --headless (the tests, the benchmark) it is nobody's, unless a test asks for it
+ * with PAW_TEST_WRAPPED. */
+static const char *not_counted(struct sh_server *server) {
+    if (!server_settings(server)->wrapped)
+        return "wrapped.enabled is false";
+    const char *test = getenv("PAW_TEST_WRAPPED");
+    if (test && *test)
+        return NULL;
+#if WLR_HAS_SESSION
+    if (server->session)
+        return NULL;
+#endif
+    return "only a standalone session (paw --session) counts";
+}
+
 /* Starts counting, as a session starts (`session`) or wrapped.enabled is turned on. */
 static void start(struct sh_server *server, bool session) {
-    if (server->wrapped || !server_settings(server)->wrapped)
+    if (server->wrapped || not_counted(server))
         return;
     struct sh_wrapped *wrapped = calloc(1, sizeof(*wrapped));
     if (!wrapped)
@@ -350,7 +367,7 @@ void wrapped_finish(struct sh_server *server) {
 }
 
 void wrapped_reload(struct sh_server *server) {
-    if (server_settings(server)->wrapped)
+    if (!not_counted(server))
         start(server, false);
     else if (server->wrapped) {
         wrapped_finish(server);
@@ -358,15 +375,18 @@ void wrapped_reload(struct sh_server *server) {
     }
 }
 
-/* `get wrapped`: whether counting is on (`enabled yes|no`), and while it is the day counted for
- * (`day YYYY-MM-DD`), how many times this session saved and when it last did (seconds since 1970,
- * 0 for never), what the time counts as now (`state active|idle|away`) and the focused
- * application with its streak so far (`focus APP SECONDS`, "-" for none); then what was counted
- * and not saved yet, as lines of a day file, the time up to now included. */
+/* `get wrapped`: whether counting is on (`enabled yes`, or `enabled no` and why), and while it is
+ * the day counted for (`day YYYY-MM-DD`), how many times this session saved and when it last did
+ * (seconds since 1970, 0 for never), what the time counts as now (`state active|idle|away`) and
+ * the focused application with its streak so far (`focus APP SECONDS`, "-" for none); then what
+ * was counted and not saved yet, as lines of a day file, the time up to now included. */
 void describe_wrapped(struct sh_server *server, int fd, const char *arguments) {
     struct sh_wrapped *wrapped = server->wrapped;
     if (!wrapped) {
-        control_reply(fd, "ok\nenabled\tno\n");
+        const char *why = not_counted(server);
+        char line[128];
+        snprintf(line, sizeof(line), "ok\nenabled\tno\t%s\n", why ? why : "out of memory");
+        control_reply(fd, line);
         return;
     }
     int64_t now = now_ms();

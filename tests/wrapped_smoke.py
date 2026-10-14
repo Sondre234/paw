@@ -55,8 +55,9 @@ def day_file(directory, day):
 
 
 today = date.today()
-with harness.Compositor(compositor, CONFIG % "",
-                        env={"PAW_TEST_WRAPPED_IDLE_MS": "1500"}) as desktop:
+# A headless compositor counts only when a test asks it to.
+ASKED = {"PAW_TEST_WRAPPED": "1", "PAW_TEST_WRAPPED_IDLE_MS": "1500"}
+with harness.Compositor(compositor, CONFIG % "", env=ASKED) as desktop:
     msg = desktop.msg
     files = desktop.root / "state/paw/wrapped"
     desktop.detail = lambda: msg("get", "wrapped")
@@ -208,7 +209,7 @@ with harness.Compositor(compositor, CONFIG % "",
     # wrapped.enabled = false saves what was counted and counts nothing more; turned on again,
     # it counts on in the same session.
     desktop.reload(CONFIG % "\n    wrapped = { enabled = false },")
-    assert desktop.rows("wrapped") == [["enabled", "no"]]
+    assert desktop.rows("wrapped") == [["enabled", "no", "wrapped.enabled is false"]]
     keys(30)
     desktop.reload(CONFIG % "")
     assert counted(desktop)["enabled"] == "yes" and counted(desktop)["sessions"] == 0
@@ -265,5 +266,16 @@ with harness.Compositor(compositor, CONFIG % "",
     for _ in range(5):
         assert json.loads(wrapped("--today", "--json"))["counters"]["keys"] == second["keys"] + 3
     desktop.reload(CONFIG % "\n    wrapped = { enabled = false },")
-    assert "\n  Counting is off now: wrapped.enabled is false.\n" in wrapped("--plain")
+    assert "\n  This session counts nothing: wrapped.enabled is false.\n" in wrapped("--plain")
     stop()
+
+    # Without being asked to, a headless compositor counts nothing, as a nested one does not: the
+    # input is the desktop's it runs in.
+    del desktop.env["PAW_TEST_WRAPPED"]
+    written = {path.name: path.read_text() for path in files.iterdir()}
+    desktop.start(CONFIG % "")
+    assert desktop.rows("wrapped") == [
+        ["enabled", "no", "only a standalone session (paw --session) counts"]]
+    desktop.keyboard()(30)
+    stop()
+    assert {path.name: path.read_text() for path in files.iterdir()} == written

@@ -646,6 +646,7 @@ const char usage[] = "usage: paw wrapped [--today | --week | --month | --year | 
 // What the running session counted since it last saved, from `get wrapped`.
 struct Live {
     bool enabled = false;
+    std::string why; // it counts nothing
     std::string day, saves, text;
 };
 
@@ -664,9 +665,10 @@ std::optional<Live> live() {
     Live result;
     result.text = reply.body;
     for (const auto &fields : rows(reply.body)) {
-        if (fields.size() == 2 && fields[0] == "enabled")
+        if (fields.size() >= 2 && fields[0] == "enabled") {
             result.enabled = fields[1] == "yes";
-        else if (fields.size() == 2 && fields[0] == "day")
+            result.why = fields.size() > 2 ? fields[2] : "";
+        } else if (fields.size() == 2 && fields[0] == "day")
             result.day = fields[1];
         else if (fields.size() == 2 && fields[0] == "saves")
             result.saves = fields[1];
@@ -763,7 +765,7 @@ int wrapped(int argc, char **argv) {
                      "unless the configuration turns it off) and saves it every few minutes in "
                   << shown(directory) << ". Come back after a while at the desktop.\n";
         if (off)
-            std::cout << "Counting is off now: wrapped.enabled is false.\n";
+            std::cout << "This session counts nothing: " << session->why << ".\n";
         return 0;
     }
     auto cards = wrapped::cards(totals, period, now);
@@ -772,7 +774,7 @@ int wrapped(int argc, char **argv) {
                      {"Counted on this machine and kept there, in " + shown(directory) + "."},
                      {}});
     if (off)
-        cards.back().lines.push_back("Counting is off now: wrapped.enabled is false.");
+        cards.back().lines.push_back("This session counts nothing: " + session->why + ".");
     const char *no_colour = std::getenv("NO_COLOR");
     if (plain || !isatty(STDOUT_FILENO) || (no_colour && *no_colour))
         std::cout << wrapped::plain(cards);
