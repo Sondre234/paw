@@ -540,5 +540,8 @@ return {
         -- one shown once the key rests. mode = "duplicate" (or "extend", "internal", "external")
         -- picks one at once.
         { mods = {}, key = "XF86Display", action = "display_mode" },
+        -- A desktop cat that lives on the focused window's top edge (cat.enabled lets it out as
+        -- the session starts; mode = "on" or "off" rather than toggling):
+        -- { mods = { mod, "Ctrl" }, key = "n", action = "cat" },
     },
 }
