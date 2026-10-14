@@ -522,6 +522,9 @@ class ShellController : public QObject {
     Q_INVOKABLE void clearError();
     // Toggles tiling on `output`, or on the focused output when it is empty.
     Q_INVOKABLE void toggleTiling(const QString &output = {});
+    // Tiles `output`'s workspace shown with `layout` ("dwindle", "master", ...), turning tiling on
+    // there too when `turnOn`, once the layout is set, so that its windows tile with it at once.
+    Q_INVOKABLE void tileWith(const QString &output, const QString &layout, bool turnOn);
     Q_INVOKABLE void showWorkspace(const QString &output, int number);
     // A step past `output`'s last workspace (`way` 1) or its first (-1), which the compositor
     // answers by nudging that output's windows that way and back; nothing without a compositor.

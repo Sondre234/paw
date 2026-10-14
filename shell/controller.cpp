@@ -1490,6 +1490,18 @@ void ShellController::toggleTiling(const QString &output) {
                              : QString("output %1 toggle_tiling\n").arg(output).toUtf8(),
             "Tiling needs a running paw session.");
 }
+void ShellController::tileWith(const QString &output, const QString &layout, bool turnOn) {
+    const auto line = QString("output %1 layout_%2\n").arg(output, layout).toUtf8();
+    if (!turnOn)
+        return request(line, "Tiling needs a running paw session.");
+    // Each request has a connection of its own, which the compositor may take in either order:
+    // tiling is turned on once the layout is set, so that the windows tile with it straight away
+    // rather than with the one before.
+    ask(line, [this, output](const QByteArray &reply) {
+        if (reply.startsWith("ok"))
+            toggleTiling(output);
+    });
+}
 void ShellController::showWorkspace(const QString &output, int number) {
     if (!output.isEmpty() && number >= 1 && number <= workspaceCount())
         request(QString("output %1 workspace %2\n").arg(output).arg(number).toUtf8(),
