@@ -542,6 +542,7 @@ struct sh_server {
     struct sh_toplevel *focused_toplevel;
     struct wlr_foreign_toplevel_manager_v1 *foreign_manager;
     uint32_t last_window_id; // the number the last window published was given
+    uint32_t last_layer_id;  // the number the last layer surface created was given
     struct wlr_ext_foreign_toplevel_list_v1 *toplevel_list; // windows offered for screen sharing
     /* paw-window-control-v1 (window_control.c): its global, the paw_window_v1 objects
      * clients hold, and the idle callback that tells them what changed; the paw_workspace_v1
@@ -1010,6 +1011,9 @@ struct sh_toplevel {
     struct wl_listener request_resize;
     struct wl_listener request_maximize;
     struct wl_listener request_fullscreen;
+    /* Commits of its surface handled since it opened, and the time handling them took (ns),
+     * for `get commits` (paw top). */
+    uint64_t commits, commit_ns;
 };
 
 struct sh_layer {
@@ -1024,6 +1028,10 @@ struct sh_layer {
     struct wlr_box bounds;
     struct wl_list link;
     struct wl_listener commit, map, unmap, destroy, new_popup;
+    /* Its number, given as it is created and to no other layer surface, and its commits
+     * handled and the time that took (ns), for `get commits` (paw top). */
+    uint32_t id;
+    uint64_t commits, commit_ns;
 };
 
 struct sh_lock {
