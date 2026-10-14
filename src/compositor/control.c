@@ -302,6 +302,21 @@ static void control_dnd(struct sh_server *server, int fd, const char *arguments)
     control_reply(fd, "ok\n");
 }
 
+/* "cursor hide" hides the cursor for a screenshot taken without the screenshot action, until
+ * "cursor show" or for five seconds at most, as the action's own screenshots do. */
+static void control_cursor(struct sh_server *server, int fd, const char *arguments) {
+    const char *verb = arguments + (*arguments == ' ');
+    if (!strcmp(verb, "hide"))
+        screenshot_hide_cursor(server);
+    else if (!strcmp(verb, "show"))
+        screenshot_show_cursor(server);
+    else {
+        control_reply(fd, "error: usage: cursor hide|show\n");
+        return;
+    }
+    control_reply(fd, "ok\n");
+}
+
 /* "type TEXT": types TEXT into what has the keyboard (type.c). */
 static void control_type(struct sh_server *server, int fd, const char *arguments) {
     char error[128];
@@ -380,6 +395,8 @@ static const struct {
     {"switcher_peek", control_switcher_peek},
     {"profile_drawn", control_profile_drawn},
     {"workspace_nudge", control_workspace_nudge},
+    {"cursor", control_cursor},
+    {"rice", control_rice},
     {"caption", control_caption},
 };
 
@@ -621,6 +638,7 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
  * binding asks the shell for its application menu or command palette. */
 void notify_subscribers(struct sh_server *server) {
     overview_touch(server, true); // a change of windows or workspaces, when it is open
+    xray_touch(server);
     window_objects_changed(server);
     char state[sizeof(server->sent_state)];
     describe_state(server, state, sizeof(state));

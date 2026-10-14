@@ -27,7 +27,11 @@ Button {
     required property Item panel
     // The icon of the pinned application, else of the application the window belongs to, else
     // one guessed from its app ID.
-    property string iconName: pinned ? app.icon : shell.iconFor(appId)
+    property string iconName: {
+        // Read again as the applications change: an entry may name another icon.
+        void shell.appsRevision
+        return pinned ? app.icon : shell.iconFor(appId)
+    }
     property TaskFilter group: null
     // Where the hover list finds the group's windows (see the panel's groupSlot).
     property string groupSlot: ""
@@ -53,7 +57,7 @@ Button {
     function openMenu() {
         if (launcher) panel.openContextMenu(task, 0, -1, app); else panel.openContextMenu(task, 0, taskId, appId)
     }
-    height: Theme.barItemHeight
+    height: panel.barItemHeight
     // Hovering a stacked button lists its windows, whatever the platform thinks of hover.
     hoverEnabled: true
     // The icon sits above the activity line, fitting however short the bar is.

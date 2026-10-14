@@ -67,7 +67,7 @@ void unknown_settings() {
     rejects("return {bindings={{key='r',action='mode'}}}",
             "the mode action needs mode = \"default\" or the name of one of modes");
     rejects("return {bindings={{key='r',action='close',mode='x'}}}",
-            "mode is only valid with screenshot, mode and display_mode");
+            "mode is only valid with screenshot, mode, display_mode, cat and heatmap");
     rejects("return {windows={rules={{app_id='x',floatng=true}}}}", "did you mean 'floating'?");
     rejects("return {outputs={monitors={X={scal=2}}}}", "did you mean 'scale'?");
     rejects("return {shell={launchers={{name='a',command={'x'},icn='b'}}}}",
@@ -219,13 +219,13 @@ void schema_matches_parser() {
     // Each top-level key the parser knows is in the schema and the other way around.
     for (const char *name : {"version", "extends", "theme", "appearance", "keyboard", "mouse",
                              "touchpad", "layout", "outputs", "windows", "animations", "bindings",
-                             "startup", "shell", "xwayland", "screenshots", "features", "overview", "peek", "night_light", "hot_corners", "zoom", "notifications", "osd", "profile", "profiles", "auto_reload", "power", "terminal", "autostart", "session", "gestures", "touch", "tablet", "modes", "idle"}) {
+                             "startup", "shell", "xwayland", "screenshots", "features", "overview", "peek", "night_light", "hot_corners", "zoom", "notifications", "osd", "profile", "profiles", "auto_reload", "power", "terminal", "autostart", "session", "gestures", "touch", "tablet", "modes", "idle", "cat", "wrapped", "heatmap"}) {
         bool found = false;
         for (const auto *child : paw::config_children(""))
             found = found || std::string(child->path) == name;
         require(found, std::string(name) + " missing from the schema");
     }
-    require(paw::config_children("").size() == 36, "the schema has an unknown top-level key");
+    require(paw::config_children("").size() == 39, "the schema has an unknown top-level key");
     // A key that is in the schema is accepted by keys(), however deeply nested.
     require(accepted("return {windows={rules={{app_id='x',sticky=true,focus=false}}}}"),
             "rule keys rejected");

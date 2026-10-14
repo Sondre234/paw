@@ -133,9 +133,15 @@ const Option options[] = {
     {"layout.gap_outer", "integer", "`gap`", "8", 0, 100, "Pixels between tiles and the edges."},
     {"layout.smart_gaps", "boolean", "true", "false", none, none,
      "No gaps around a tiled window that is alone on its workspace."},
-    {"layout.lone_margin", "integer", "0", "48", 0, 400,
+    {"layout.lone_margin", "integer or table", "0", "48", none, none,
      "Pixels around a tiled window that is alone on its workspace, in place of the gaps, so it "
-     "does not fill the screen; 0 leaves it to `smart_gaps`."},
+     "does not fill the screen, 0 to 400: one number, or `{ top, right, bottom, left }` by name, "
+     "the sides left out 0. Each side gives way to keep a quarter of the usable area across and "
+     "down; 0 all round leaves it to `smart_gaps`."},
+    {"layout.lone_margin.top", "integer", "0", "0", 0, 400, "Top margin."},
+    {"layout.lone_margin.right", "integer", "0", "0", 0, 400, "Right margin."},
+    {"layout.lone_margin.bottom", "integer", "0", "0", 0, 400, "Bottom margin."},
+    {"layout.lone_margin.left", "integer", "0", "0", 0, 400, "Left margin."},
     {"layout.floating_above_tiles", "boolean", "false", "true", none, none,
      "Floating windows always stack over tiles, as in sway and Hyprland; `false` puts the "
      "window brought forward last in front, tile or not."},
@@ -617,7 +623,9 @@ const Option options[] = {
      "With `screenshot`: `\"region\"`, `\"output\"`, or `\"window\"`. With `mode` (required): "
      "`\"default\"` or the name of one of `modes`. With `display_mode`: `\"extend\"`, "
      "`\"duplicate\"`, `\"internal\"` or `\"external\"`; without one, the popup that steps "
-     "through them."},
+     "through them. With `cat`: `\"on\"`, `\"off\"` or `\"toggle\"`; without one, "
+     "toggle. With `heatmap`: `\"toggle\"`, `\"motion\"`, `\"clicks\"` or "
+     "`\"reset\"`; without one, toggle."},
     {"bindings[].amount", "integer", "40; 5 for volume and brightness", "", 1, 4000,
      "With `resize_*`: pixels moved per press. With `volume_up`, `volume_down`, `brightness_up` "
      "and `brightness_down`: percent per press, up to 100."},
@@ -763,6 +771,18 @@ const Option options[] = {
      "The edge of the monitor the taskbar is along: `\"top\"`, `\"bottom\"`, `\"left\"` or "
      "`\"right\"`. Along a side its buttons and widgets stack from the top down, and its popups "
      "open beside it. The macOS style's dock stays at the bottom."},
+    {"shell.panel_positions", "table", "{}", "{ [\"DP-1\"] = \"left\", [\"HDMI-A-1\"] = \"top\" }",
+     none, none,
+     "Each monitor's own edge for its bar, by the monitor's name as `paw msg get outputs` lists it, "
+     "over `panel_position`, which stays the edge of the monitors left out; while "
+     "`panel_per_monitor` holds."},
+    {"shell.panel_positions.<name>", "enum", "", "", none, none,
+     "`\"top\"`, `\"bottom\"`, `\"left\"` or `\"right\"`."},
+    {"shell.panel_per_monitor", "boolean", "true", "true", none, none,
+     "Each monitor's bar keeps its own edge, `panel_positions` over `panel_position`, and "
+     "dragging a bar (`panel_draggable`) moves it alone, writing its monitor's entry into "
+     "`panel_positions`. `false` puts every monitor's bar along `panel_position`, leaving "
+     "`panel_positions` aside, and dragging one moves them all, writing `panel_position`."},
     {"shell.panel_dock", "boolean or string", "true", "\"maximized\"", none, none,
      "A floating taskbar (rounded or inset by `panel_margin`) docks while a window reaches the "
      "edge it is along, as any tile and a maximized window do: it fills its strip from edge to "
@@ -772,13 +792,15 @@ const Option options[] = {
     {"shell.panel_draggable", "boolean", "false", "true", none, none,
      "The taskbar can be dragged to another edge of the monitor, and resized by its inner edge, "
      "as on Windows with the taskbar unlocked: pressing an empty part of it and dragging shows "
-     "where it goes, the edge nearest the pointer, and letting go there moves it, writing the new "
-     "`panel_position` into the configuration file (where it takes effect: the profile in use "
-     "when that sets it, else the `shell` table, added when missing). Escape or letting go at its "
-     "own edge leaves it. Dragging the edge that faces the desktop, under a resize cursor, makes "
-     "it taller or shorter (wider or narrower down a side) within `panel_height`'s range, the "
-     "windows making room as it goes; letting go writes the new `panel_height` the same way, and "
-     "Escape puts the old size back. The macOS style's dock is neither moved nor resized."},
+     "where it goes, the edge of its monitor nearest the pointer, and letting go there moves it, "
+     "writing the new edge into the configuration file: that monitor's `panel_positions` entry "
+     "(`panel_per_monitor`), or `panel_position` for every monitor, where it takes effect (the "
+     "profile in use when that sets it, else the `shell` table, added when missing). Escape or "
+     "letting go at its own edge leaves it. Dragging the edge that faces the desktop, under a "
+     "resize cursor, makes it taller or shorter (wider or narrower down a side) within "
+     "`panel_height`'s range, the windows making room as it goes; letting go writes the new "
+     "`panel_height` the same way, every monitor's bar taking it, and Escape puts the old size "
+     "back. The macOS style's dock is neither moved nor resized."},
     {"shell.mirror_menus", "boolean", "false", "false", none, none,
      "With the panel along the top, its right-click menus list their entries in reverse, so "
      "they read outwards from the bar as they do from one along the bottom: a window's begins "
@@ -1052,6 +1074,42 @@ const Option options[] = {
      "The `group_toggle`, `group_next`, `group_prev`, `ungroup` and `group_merge_*` actions; off dissolves every group."},
     {"features.group_join_new", "boolean", "true", "true", none, none,
      "A window that opens while a window group has focus joins that group as a new tab."},
+
+    {"cat", "table", "", "", none, none,
+     "The desktop cat: a pixel-art cat that sits on the focused window's top edge, falls when "
+     "that window moves, chases the pointer and sleeps while the computer is left alone. The "
+     "`cat` action (`paw cat`) shows and hides it."},
+    {"cat.enabled", "boolean", "false", "true", none, none,
+     "Show the cat as the session starts, and as a reload changes this; the `cat` action shows "
+     "and hides it meanwhile."},
+    {"cat.scale", "integer", "2", "3", 1, 4,
+     "Logical pixels to a pixel of its art, which is 20 by 16: 2 makes it 40 by 32. It stays "
+     "sharp at any monitor scale."},
+    {"cat.coat", "enum", "\"auto\"", "\"ginger\"", none, none,
+     "`\"ginger\"`, `\"black\"`, `\"cream\"` or `\"grey\"`; `\"auto\"` is black with "
+     "`appearance.color_scheme = \"light\"`, cream with `\"dark\"`, and ginger without one, "
+     "following an appearance profile that sets it."},
+    {"cat.sleep_after", "integer", "90", "300", 5, 3600,
+     "Seconds without input before the cat curls up to sleep; it also sleeps once the screens "
+     "dim (`idle.dim`). Any input wakes it."},
+    {"wrapped", "table", "", "", none, none,
+     "`paw wrapped`: a report of a year (or a day, a week, ...) at the desktop, in the manner "
+     "of Spotify Wrapped, from what the compositor counts."},
+    {"wrapped.enabled", "boolean", "true", "true", none, none,
+     "Count what happens at the desktop for `paw wrapped`, in a standalone session (a nested "
+     "one counts nothing): pointer travel, clicks, scrolling, "
+     "how many keys are pressed (never which), touchpad gestures, windows opened, closed, "
+     "moved, resized and snapped, workspace switches, the overview and the switcher opened, "
+     "programs launched, the time each application has the focus and the longest the focus "
+     "stays with one, and the time active and idle. It is kept in "
+     "`$XDG_STATE_HOME/paw/wrapped`, a file per day, and never leaves the machine. `false` "
+     "counts nothing from then on; the files stay until deleted."},
+    {"heatmap", "table", "", "", none, none,
+     "The pointer heatmap: where the pointer rests and clicks on each monitor, counted in the "
+     "compositor's memory for the `heatmap` action and `paw heatmap`, never written to disk."},
+    {"heatmap.enabled", "boolean", "true", "false", none, none,
+     "Count where the pointer rests and clicks. False counts nothing more; what was counted "
+     "stays until `heatmap reset` or the end of the session."},
 };
 
 bool is_child(std::string_view parent, std::string_view path) {
@@ -1166,7 +1224,7 @@ std::string config_reference_markdown() {
         first = false;
     }
     out << "\n\n`spawn` needs `command`; `workspace` and `move_to_workspace` need `workspace`; "
-           "`screenshot` takes `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
+           "`screenshot` and `cat` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
            "`brightness_up` and `brightness_down` take `amount`; a `switch` needs `state`.\n\n"
            "Modifiers: ";
     first = true;

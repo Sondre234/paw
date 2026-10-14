@@ -36,6 +36,19 @@ static bool in_frame_hole(struct wlr_scene_node *node, double lx, double ly) {
            ly < y + rect->height - hole;
 }
 
+/* The tree of the window `node` is drawn for when that is a tile bound to its monitor and the
+ * layout position lies past it (placement.c's bound_tile): it is not there to point at. */
+static struct wlr_scene_node *past_bound(struct wlr_scene_node *node, double lx, double ly) {
+    struct sh_node *owner = node ? scene_owner(node) : NULL;
+    if (!owner || owner->kind != SH_NODE_TOPLEVEL)
+        return NULL;
+    struct sh_toplevel *toplevel = owner->owner;
+    if (!toplevel->bounded || !toplevel->scene_tree ||
+        wlr_box_contains_point(&toplevel->bound, lx, ly))
+        return NULL;
+    return &toplevel->scene_tree->node;
+}
+
 /* The topmost node at a layout position, where windows will be once their animations end:
  * input never waits for an animation, nor lands in the middle of one. */
 static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx, double ly,
@@ -48,9 +61,14 @@ static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx,
         return server->hit.node;
     }
     bool animating = sh_animator_running(server->animator) > 0 ||
-                     sh_animator_lifted(server->animator) > 0;
+                     sh_animator_lifted(server->animator) > 0 ||
+                     sh_animator_posed(server->animator) > 0;
     if (animating)
         sh_animator_rest_at(server->animator, lx, ly);
+    // A party's confetti is not there to point at (toys.c).
+    struct wlr_scene_node *confetti = toys_confetti(server);
+    if (confetti)
+        confetti->enabled = false;
     // A window on the screen only for a peek at it is not there to point at.
     struct wlr_scene_node *lent[8];
     int lent_count = 0;
@@ -66,18 +84,24 @@ static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx,
     }
     struct wlr_scene_node *node = wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
     // A rounded border is one hollow rect over the whole window, which hit testing takes as
-    // solid: pointing through its hole reaches what is below, the window itself first.
+    // solid: pointing through its hole reaches what is below, the window itself first. So does
+    // pointing at a tile past the monitor it keeps to.
     struct wlr_scene_node *hidden[8];
     int hidden_count = 0;
-    while (hidden_count < 8 && in_frame_hole(node, lx, ly)) {
-        node->enabled = false; // only for the next lookup: no damage, nothing redrawn
-        hidden[hidden_count++] = node;
+    while (hidden_count < 8) {
+        struct wlr_scene_node *hide = in_frame_hole(node, lx, ly) ? node : past_bound(node, lx, ly);
+        if (!hide)
+            break;
+        hide->enabled = false; // only for the next lookup: no damage, nothing redrawn
+        hidden[hidden_count++] = hide;
         node = wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
     }
     while (hidden_count > 0)
         hidden[--hidden_count]->enabled = true;
     while (lent_count > 0)
         lent[--lent_count]->enabled = true;
+    if (confetti)
+        confetti->enabled = true;
     if (animating)
         sh_animator_resume(server->animator);
     if (server->hit.caching) {
@@ -407,15 +431,19 @@ static bool middle_drag_motion(struct sh_server *server) {
 }
 
 void process_cursor_motion(struct sh_server *server, uint32_t time) {
+    heatmap_motion(server); // where the pointer rests, for the heatmap
     if (server->cursor_mode == SH_CURSOR_PANEL) {
         panel_drag_motion(server);
         return;
     }
     hot_corner_check(server);
     zoom_moved(server);
+    cat_pointer_moved(server);
     if (server->seat->drag)
         wlr_scene_node_set_position(&server->drag_icons->node, server->cursor->x,
                                     server->cursor->y);
+    if (xray_motion(server))
+        return;
     overview_hot_corner(server);
     if (overview_motion(server))
         return;
@@ -507,6 +535,7 @@ void server_cursor_motion(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_motion);
     struct wlr_pointer_motion_event *event = data;
     input_activity(server, true);
+    wrapped_motion(server, event->delta_x, event->delta_y);
     wlr_relative_pointer_manager_v1_send_relative_motion(
         server->relative_pointer, server->seat, (uint64_t)event->time_msec * 1000, event->delta_x,
         event->delta_y, event->unaccel_dx, event->unaccel_dy);
@@ -535,6 +564,7 @@ void server_cursor_motion_absolute(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_motion_absolute);
     struct wlr_pointer_motion_absolute_event *event = data;
     input_activity(server, true);
+    wrapped_motion_absolute(server, event);
     uint64_t started = now_ns();
     wlr_cursor_warp_absolute(server->cursor, &event->pointer->base, event->x, event->y);
     process_cursor_motion(server, event->time_msec);
@@ -582,6 +612,7 @@ static bool action_targets_window(enum sh_action action) {
     case SH_RESIZE_RIGHT:
     case SH_RESIZE_UP:
     case SH_RESIZE_DOWN:
+    case SH_SHAKE:
         return true;
     default:
         return false;
@@ -645,6 +676,8 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_button);
     struct wlr_pointer_button_event *event = data;
     input_activity(server, event->state == WL_POINTER_BUTTON_STATE_PRESSED);
+    wrapped_button(server, event);
+    heatmap_button(server, event); // a click, for the heatmap
     if (event->button >= BTN_MOUSE && event->button < BTN_MOUSE + 32) {
         const uint32_t bit = 1u << (event->button - BTN_MOUSE);
         if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
@@ -652,6 +685,10 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         else
             server->held_buttons &= ~bit;
     }
+    if ((server->xray.open || server->xray.pressed) && xray_button(server, event))
+        return;
+    if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
+        toys_press(server); // windows a toy pulled down come back to where the press lands
     if ((server->overview.open || server->overview.pressed) && overview_button(server, event))
         return;
     if (server->middle_pressed) {
@@ -793,6 +830,9 @@ void server_cursor_axis(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_axis);
     struct wlr_pointer_axis_event *event = data;
     input_activity(server, true);
+    wrapped_axis(server, event);
+    if (xray_axis(server, event))
+        return;
     if (overview_axis(server, event))
         return;
     struct wlr_keyboard *held = wlr_seat_get_keyboard(server->seat);

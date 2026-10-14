@@ -11,6 +11,8 @@ struct wlr_scene_tree;
 
 struct wlr_scene_node;
 
+struct wlr_box;
+
 /* A number that changes whenever something drawn below `tree` does: which buffers, where, how
  * big, how opaque. It says nothing about scale, nor about `skip` and what is below it (NULL for
  * nothing to skip). */
@@ -22,6 +24,13 @@ uint64_t sh_thumb_fingerprint(const struct wlr_scene_tree *tree,
  * nothing to skip). Returns how many nodes were made. */
 int sh_thumb_clone(struct wlr_scene_tree *target, const struct wlr_scene_tree *source,
                    double scale, float opacity, const struct wlr_scene_node *skip);
+
+/* As sh_thumb_clone, for a sheet of the exploded view: `source`'s origin at (x, y), what lies
+ * outside `cut` (in those coordinates; NULL for nothing) cut off, the rest scaled by `scale_x`
+ * across and `scale_y` down about (0, 0). A copy cut or scaled takes nothing as opaque. */
+int sh_thumb_clone_cut(struct wlr_scene_tree *target, const struct wlr_scene_tree *source, int x,
+                       int y, const struct wlr_box *cut, double scale_x, double scale_y,
+                       float opacity, const struct wlr_scene_node *skip);
 
 /* Removes what sh_thumb_clone made. */
 void sh_thumb_clear(struct wlr_scene_tree *target);

@@ -83,6 +83,8 @@ list(APPEND PAW_NOTIFY_SOURCES volume_keys.cpp volume_keys.hpp)
 # window's.
 list(APPEND PAW_NOTIFY_SOURCES display_modes.cpp display_modes.hpp display_settings.cpp
     display_settings.hpp display_layout.cpp display_layout.hpp)
+# The question while a rice is on trial (`paw rice try`).
+list(APPEND PAW_NOTIFY_SOURCES rice_trial.cpp rice_trial.hpp)
 # The caption `paw tour` narrates itself with.
 list(APPEND PAW_NOTIFY_SOURCES caption.cpp caption.hpp)
 # The QML is compiled ahead of time into the binary (qmlcachegen), so starting the shell parses
@@ -146,6 +148,8 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     ClipboardPicker.qml
     EmojiPicker.qml
     DisplaySettings.qml
+    RiceTrial.qml
+    Xray.qml
     Caption.qml)
 # The emoji picker's table (vendor/emoji), compiled in as :/paw/emoji.tsv.
 qt_add_resources(paw_shell_qml "emoji_table" PREFIX "/paw"
@@ -169,6 +173,8 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     app_match.hpp wallpapers.cpp wallpapers.hpp image_provider.hpp audio.cpp audio.hpp
     system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
+# The exploded view's preview lays out its stand-in sheets as the compositor does.
+target_sources(paw-shell PRIVATE ${PROJECT_SOURCE_DIR}/src/xray_layout.c)
 add_dependencies(paw-shell paw_wlr_client_protocols paw_version)
 set_target_properties(paw-shell PROPERTIES AUTOMOC ON RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 target_include_directories(paw-shell PRIVATE ${PROJECT_BINARY_DIR})
@@ -531,6 +537,7 @@ if(BUILD_TESTING)
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(display_settings_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw>
             $<TARGET_FILE:paw-shell> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(rice_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
         paw_smoke(caption_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
         if(PAW_DBUS)
             paw_smoke(notifications_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>

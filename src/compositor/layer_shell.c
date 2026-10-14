@@ -55,6 +55,7 @@ void arrange_layers(struct sh_server *server) {
 }
 static void layer_commit(struct wl_listener *listener, void *data) {
     struct sh_layer *layer = wl_container_of(listener, layer, commit);
+    uint64_t started = now_ns();
     // What decides where the surface goes and how large it is.
     uint32_t placement = WLR_LAYER_SURFACE_V1_STATE_DESIRED_SIZE |
                          WLR_LAYER_SURFACE_V1_STATE_ANCHOR |
@@ -65,6 +66,8 @@ static void layer_commit(struct wl_listener *listener, void *data) {
         layer->configure_due = true;
     if (layer->surface->initial_commit || layer->surface->current.committed)
         arrange_layers(layer->server);
+    ++layer->commits;
+    layer->commit_ns += now_ns() - started;
 }
 static void layer_map(struct wl_listener *listener, void *data) {
     struct sh_layer *layer = wl_container_of(listener, layer, map);
@@ -109,6 +112,7 @@ void server_new_layer_surface(struct wl_listener *listener, void *data) {
     }
     layer->server = server;
     layer->surface = surface;
+    layer->id = ++server->last_layer_id;
     layer->node = (struct sh_node){SH_NODE_LAYER, layer};
     layer->scene =
         wlr_scene_layer_surface_v1_create(server->layer_trees[surface->pending.layer], surface);

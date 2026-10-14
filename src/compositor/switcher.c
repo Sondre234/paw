@@ -180,6 +180,7 @@ void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
     int next = server->switcher.windows[0] == server->focused_toplevel && count > 1 ? 1 : 0;
     server->switcher.selected = backward ? count - 1 : next;
     switcher_announce(server);
+    wrapped_count(server, SH_WRAPPED_SWITCHER_OPENS);
 }
 
 /* A window closing while the switcher is open leaves its list. */

@@ -12,8 +12,10 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
  * pointer moved or scrolled) it turns the monitors on when every one is off (output_power.c).
  * True when it turned some on, so that a key that woke them goes no further. */
 bool input_activity(struct sh_server *server, bool wakes) {
+    wrapped_input(server);
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
     bool woke = idle_activity(server);
+    cat_input(server);
     return (wakes && wake_displays(server)) || woke;
 }
 
@@ -59,6 +61,8 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data) {
     int nsyms = xkb_state_key_get_syms(keyboard->wlr_keyboard->xkb_state, keycode, &syms);
 
     bool woke = input_activity(server, event->state == WL_KEYBOARD_KEY_STATE_PRESSED);
+    if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED && !keyboard->is_virtual)
+        wrapped_count(server, SH_WRAPPED_KEYS); // how many, never which
     bool handled = false;
     uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->wlr_keyboard);
     // Any key pressed or the repeating one released stops the repeat.
@@ -414,6 +418,17 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
     }
     if (server->switcher.open) {
         switcher_key(server, modifiers, sym);
+        return true;
+    }
+    if (server->xray.open) {
+        // The exploded view's own binding closes it; other keys are its.
+        int bound_argument = 0;
+        enum sh_action bound =
+            server->callbacks->key(server->callbacks->userdata, modifiers, sym, &bound_argument);
+        if (bound == SH_XRAY)
+            run_action(server, bound, bound_argument);
+        else
+            xray_key(server, modifiers, sym);
         return true;
     }
     if (server->overview.open) {

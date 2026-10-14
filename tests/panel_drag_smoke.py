@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Dragging the taskbar to another edge (panel_drag.c): `panel_drag` takes the pointer while its
-left button is held, and is refused otherwise. The panel pressed hears the pointer leave, and
+left button is held, and is refused otherwise; `panel_drag OUTPUT` for that monitor's bar, whose
+edges it tells wherever the pointer is. The panel pressed hears the pointer leave, and
 neither it nor a window under the pointer hears anything more until the drag is over; the shell
 hears the output under the pointer and the edge of it nearest the pointer whenever either changes,
 and where the button is let go. `panel_drag cancel` ends a drag without a drop, and the button let
@@ -84,6 +85,20 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     assert "pointer button 272 released" not in heard("panel") + heard("window"), heard("window")
     assert "usage" in msg("panel_drag", "sideways", ok=False)
     assert "usage" in msg("panel_drag", "resize", "middle", ok=False)
+    assert "usage" in msg("panel_drag", "HEADLESS-9", ok=False)
+
+    # A drag of one monitor's bar tells the edges of that monitor, the pointer over another one or
+    # not: past the edge it shares with the monitor beside it, that edge.
+    shell.forget()
+    pointer("move", "640", str(720 - PANEL // 2), "press", "left")
+    msg("panel_drag", "HEADLESS-1")
+    pointer("move", "640", "20")
+    desktop.wait_for(lambda: drags()[-1:] == ["panel-drag HEADLESS-1 top"], "the bar's own top edge")
+    pointer("move", "1700", "300")
+    desktop.wait_for(lambda: drags()[-1:] == ["panel-drag HEADLESS-1 right"],
+                     "the edge crossed onto the other monitor")
+    pointer("release", "left")
+    desktop.wait_for(lambda: drags()[-1:] == ["panel-dropped HEADLESS-1 right"], "the drop beside")
 
     # The inner edge pressed and dragged: the shell hears the pointer's distance from the bottom
     # of the output it began on as it changes, on the other output too, and where it is let go.
