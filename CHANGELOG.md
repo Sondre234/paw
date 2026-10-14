@@ -579,6 +579,16 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
 wrong with it, and toys the compositor plays with the windows.
 
+- `paw rice pack [PROFILE]` packs an appearance profile's look into one file to share: the
+  settings that say how the desktop looks, its wallpaper and start button, a kitty theme named
+  for it and any `--extra` file, with a name, an author and a description. `paw rice try` takes
+  one from a file, a directory or an https URL, says what it changes, installs it as a profile
+  and crossfades to it; "Keep this look?" then counts 15 seconds down, and unless it is kept
+  (there, or with `paw rice keep`) the previous look comes back, also after a crash. A rice is
+  data, never run: a parser of Lua's table syntax alone reads its `rice.lua`, which may set only
+  the look and name only files inside it. `paw rice list` and `paw rice remove` look after the
+  installed ones.
+
 ### Fixes
 
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,
