@@ -172,6 +172,7 @@ static void prepare_for_sleep(void *data, bool before) {
         idle_activity(server); // as input would: the monitors come on, the steps start again
         return;
     }
+    wrapped_save(server);
     // A suspend of ours still waiting for the lock is not needed any more: the machine sleeps.
     if (power->step == SH_POWER_LOCKING) {
         power->step = SH_POWER_IDLE;

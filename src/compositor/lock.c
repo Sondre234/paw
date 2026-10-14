@@ -101,6 +101,7 @@ static void lock_unlock(struct wl_listener *listener, void *data) {
     struct sh_lock *lock = wl_container_of(listener, lock, unlock);
     struct sh_server *server = lock->server;
     server->locked = false;
+    wrapped_follow(server);
     wlr_scene_node_set_enabled(&server->lock_tree->node, false);
     wlr_seat_keyboard_clear_focus(server->seat);
     if (server->focused_toplevel && !server->focused_toplevel->minimized)
@@ -138,13 +139,16 @@ void server_new_lock(struct wl_listener *listener, void *data) {
     end_window_peek(server, false);
     switcher_close(server, -1);
     overview_dismiss(server);
+    xray_dismiss(server);
     crossfade_end(server); // its pictures show the session as it was
+    toys_end(server);
     add_listener(&wlr_lock->events.new_surface, &lock->new_surface, lock_new_surface);
     add_listener(&wlr_lock->events.unlock, &lock->unlock, lock_unlock);
     add_listener(&wlr_lock->events.destroy, &lock->destroy, lock_destroy);
     server->lock = lock;
     bool relock = server->locked;
     server->locked = true;
+    wrapped_save(server);
     set_binding_mode(server, 0); // the volume keys and the like are bound outside any mode
     if (server->grabbed_toplevel)
         reset_cursor_mode(server);

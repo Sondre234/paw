@@ -40,6 +40,8 @@ target_compile_options(paw_config PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(paw_config PRIVATE
     PAW_DEFAULT_CONFIG="${CMAKE_INSTALL_FULL_DATADIR}/paw/init.lua"
     PAW_SOURCE_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/config/init.lua")
+# Rices: rice.lua read as data, what a rice may hold, the installed ones and a trial's record.
+target_sources(paw_config PRIVATE src/rice.cpp)
 
 # Arithmetic of the desktop effects (fades, night light, corners, zoom) and of touchpad swipes;
 # no wlroots.
@@ -53,6 +55,23 @@ target_compile_options(paw_effects PRIVATE -Wall -Wextra -Wpedantic)
 add_library(paw_cli STATIC src/cli/control_client.cpp)
 target_include_directories(paw_cli PUBLIC include)
 target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
+# paw doctor: its checks, which read the configuration as --check-config does, and how it reads
+# what other programs say.
+target_sources(paw_cli PRIVATE src/cli/doctor.cpp src/cli/doctor_parse.cpp)
+target_sources(paw_cli PRIVATE src/cli/fetch.cpp)
+target_sources(paw_cli PRIVATE src/cli/showcase.cpp)
+target_sources(paw_cli PRIVATE src/cli/top.cpp)
+target_sources(paw_cli PRIVATE src/cli/toys.cpp)
+# paw rice: packing a look into a file and trying one on.
+target_sources(paw_cli PRIVATE src/cli/rice.cpp src/cli/rice_archive.cpp)
+# paw doctor, paw fetch and paw rice read the configuration, fetch outside a session; a rice's
+# tests reach paw_config through paw_cli.
+target_link_libraries(paw_cli PUBLIC paw_config)
+target_sources(paw_cli PRIVATE src/cli/cat.cpp)
+# paw wrapped's day files, which the compositor writes and `paw wrapped` reads.
+target_sources(paw_cli PRIVATE src/wrapped_day.c)
+target_sources(paw_cli PRIVATE src/cli/wrapped.cpp)
+target_sources(paw_cli PRIVATE src/cli/xray.cpp)
 
 # The pointer heatmap's grid, blur, colours and pictures, which the compositor's overlay and
 # `paw heatmap` share; no wlroots.
@@ -97,6 +116,12 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/docs/config-reference.md)
     paw_unit_test(config_robustness ${EXAMPLE_CONFIG})
     paw_unit_test(cli LIBRARY paw_cli)
+    paw_unit_test(fetch LIBRARY paw_cli)
+    paw_unit_test(showcase LIBRARY paw_cli)
+    paw_unit_test(top LIBRARY paw_cli)
+    paw_unit_test(toy_command LIBRARY paw_cli)
+    paw_unit_test(wrapped LIBRARY paw_cli)
+    paw_unit_test(xray LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
@@ -137,12 +162,19 @@ if(BUILD_TESTING)
     paw_unit_test(autostart)
     paw_unit_test(display_power_config)
     paw_unit_test(output_config)
+    paw_unit_test(doctor LIBRARY paw_cli)
     paw_c_unit_test(power_supply)
     paw_c_unit_test(lid)
     paw_c_unit_test(output_state)
     paw_c_unit_test(border)
     paw_c_unit_test(dynamic_rule)
     paw_c_unit_test(dropdown)
+    paw_c_unit_test(toys)
+    paw_unit_test(rice LIBRARY paw_cli)
+    paw_c_unit_test(cat_sprite)
+    paw_c_unit_test(cat)
+    paw_unit_test(cat_command LIBRARY paw_cli)
+    paw_c_unit_test(xray_layout)
     paw_unit_test(heatmap LIBRARY paw_cli)
     target_link_libraries(heatmap_tests PRIVATE paw_config) # the action's bindings
 endif()
@@ -285,7 +317,12 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/window_control.c
         src/compositor/window_icon.c
         src/compositor/workspace.c
+        src/compositor/wrapped.c
         src/compositor/xwayland.c
+        src/compositor/toys.c
+        src/compositor/rice.c
+        src/compositor/cat.c
+        src/compositor/xray.c
         src/compositor/heatmap.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
@@ -305,6 +342,9 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/dynamic_rule.c)
     target_sources(paw PRIVATE src/border.c)
     target_sources(paw PRIVATE src/dropdown.c)
+    target_sources(paw PRIVATE src/toys.c)
+    target_sources(paw PRIVATE src/cat.c src/cat_sprite.c)
+    target_sources(paw PRIVATE src/xray_layout.c)
     target_link_libraries(paw PRIVATE paw_heatmap)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
@@ -315,6 +355,12 @@ if(PAW_BUILD_COMPOSITOR)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake
         BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/version.h)
     add_dependencies(paw paw_version)
+    # paw fetch names the build it is part of: version.h, and wlroots' version header.
+    add_dependencies(paw_cli paw_version)
+    target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${WLROOTS_INCLUDE_DIRS})
+    # paw top names the version too, where a build of the compositor makes version.h.
+    add_dependencies(paw_cli paw_version)
+    target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_options(paw PRIVATE -Wall -Wextra -Wno-unused-parameter)
     # A compositor function shared between files is declared in src/compositor/server.h; any
     # other is static. This flags one that is neither.
@@ -329,6 +375,9 @@ if(PAW_BUILD_COMPOSITOR)
         string(REPLACE "LIB" "" PAW_SDBUS ${PAW_SDBUS})
         target_compile_definitions(paw PRIVATE PAW_SDBUS_${PAW_SDBUS}=1)
         target_link_libraries(paw PRIVATE PkgConfig::SDBUS)
+        # paw doctor asks the session and system buses through it too.
+        target_compile_definitions(paw_cli PRIVATE PAW_SDBUS_${PAW_SDBUS}=1)
+        target_link_libraries(paw_cli PRIVATE PkgConfig::SDBUS)
     else()
         message(STATUS "No sd-bus (libsystemd, libelogind, basu); other desktops may suspend "
             "the machine while paw is on screen")
@@ -722,6 +771,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(scroll_bound_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(keyboard_resize_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(volume_keys_smoke $<TARGET_FILE:paw>)
         paw_smoke(keymap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
@@ -829,6 +879,7 @@ if(PAW_BUILD_COMPOSITOR)
             paw_smoke(idle_suspend_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>
                 $<TARGET_FILE:lock_probe>)
             paw_smoke(lid_logind_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
+            paw_smoke(doctor_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>)
         endif()
         # The compositor benchmark (tools/bench/bench.py); see docs/performance.md.
         paw_probe(paw-bench-client tools/bench/bench_client.c
@@ -861,6 +912,20 @@ if(PAW_BUILD_COMPOSITOR)
         # Windows' own icons; an X11 window's only where the X11 probe is built.
         paw_smoke(window_icon_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
+        paw_smoke(fetch_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(showcase_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG}
+            "${GRIM_ARGUMENT}")
+        paw_smoke(top_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:paw-bench-client>)
+        paw_smoke(toys_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(rice_smoke TIMEOUT 120 $<TARGET_FILE:paw>)
+        paw_smoke(cat_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(wrapped_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:idle_probe>)
+        paw_smoke(xray_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(heatmap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
     endif()

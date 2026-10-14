@@ -74,7 +74,9 @@ by day and by night.</sub>
 - **A rice to start from:** [washi and sumi](rices/washi), paper and ink by day and by night,
   with the bar and menus framed as the windows are and printed shadows, and themes for kitty,
   fastfetch, Firefox, Discord, Claude Code, Neovim and Helix that one script puts in place.
-  `paw import` carries over an existing Hyprland/Waybar setup.
+  `paw import` carries over an existing Hyprland/Waybar setup, and
+  [`paw rice`](docs/features.md#paw-rice) packs a look into one file to share and tries one on
+  for 15 seconds before you keep it.
 - **Scriptable:** every action, plus queries and an event stream, over a control socket
   (`paw msg`).
 - **Works with everyday applications:** XWayland, screen sharing through portals,
@@ -371,6 +373,11 @@ Open an issue at [github.com/Sondre234/paw/issues](https://github.com/Sondre234/
 The bug report template asks for `paw --version`, the GPU and its driver, the wlroots version,
 whether paw ran nested or with `--session`, your configuration, and the log
 ([First run](#first-run) says where it goes).
+
+Run [`paw doctor`](docs/features.md#paw-doctor) in a terminal of the session first: it checks
+for what often goes wrong (the shell gone, the session bus, sound, screen sharing's portal, an
+outdated compositor, the configuration) and says how to fix each. If that does not help, add what
+`paw doctor --plain` prints to the report.
 
 ## References
 

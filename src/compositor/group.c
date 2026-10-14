@@ -95,6 +95,7 @@ void hand_over_slot(struct sh_toplevel *from, struct sh_toplevel *to) {
     if (from->tiled) {
         sh_tiling_replace(server->tiling, from, to);
         from->tiled = false;
+        bound_tile(from);
         from->arranged = false;
         from->arrangement = SH_NONE;
         to->tiled = true;

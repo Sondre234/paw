@@ -113,8 +113,8 @@ int main(int argc, char **argv) {
                       "app-menu, window-menu or window-submenu too; or an overlay over the bar: "
                       "osd-volume, osd-text, osd-microphone, cards, power-dialog, auth-dialog, "
                       "palette, palette-empty, palette-calculator, switcher, overview, "
-                      "snap-assist, display-mode, palette-files, clipboard, emoji, display-settings "
-                      "or display-settings-trial",
+                      "snap-assist, display-mode, palette-files, clipboard, emoji, display-settings, "
+                      "display-settings-trial, rice-trial or xray",
                       "name"});
     parser.addOption(
         {"quit-after",
@@ -273,6 +273,8 @@ int main(int argc, char **argv) {
                 add(std::make_unique<OsdView>(controller, screen));
                 add(std::make_unique<DisplayModeView>(controller, screen));
                 add(std::make_unique<ConfigErrorView>(controller, screen));
+                add(std::make_unique<RiceTrialView>(controller, screen));
+                add(std::make_unique<XrayView>(controller, screen));
             }
         };
         for (auto *screen : QGuiApplication::screens()) {

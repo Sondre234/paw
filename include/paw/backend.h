@@ -223,10 +223,24 @@ enum sh_action {
     SH_DISPLAY_SETTINGS,
     /* Minimizes the focused window into its taskbar button, as its own minimize button does. */
     SH_MINIMIZE,
+    /* Toys, which only draw: the focused window (argument: a window's number, its id, 0 for the
+     * focused one) wobbles from side to side; every window of the focused output's workspace
+     * falls to the bottom, bounces and glides back up; or they bob under rainbow borders while
+     * confetti falls. */
+    SH_SHAKE,
+    SH_GRAVITY,
+    SH_PARTY,
+    /* The desktop cat (src/compositor/cat.c): argument an sh_cat_switch. */
+    SH_CAT,
+    /* Opens the exploded view of the focused output's layers (paw xray), or closes it. */
+    SH_XRAY,
     /* The pointer heatmap over every output: where the pointer rested or clicked (enum
      * sh_heatmap_choice), or forgetting it all. */
     SH_HEATMAP,
 };
+
+/* The cat action's choices: show it or hide it, whichever it is not, or say which. */
+enum sh_cat_switch { SH_CAT_TOGGLE, SH_CAT_ON, SH_CAT_OFF };
 
 /* The display_mode action's choices. */
 enum sh_display_mode {
@@ -372,7 +386,9 @@ struct sh_settings {
     int gap_inner; /* between neighbouring windows */
     int gap_outer; /* between windows and the edges of the usable area */
     bool smart_gaps; /* a workspace's only tile has no gaps */
-    int lone_margin; /* around a workspace's only tile, in place of the gaps; 0: smart_gaps decides */
+    /* top, right, bottom, left around a workspace's only tile, in place of the gaps; all 0:
+     * smart_gaps decides */
+    int lone_margin[4];
     /* layout.floating_above_tiles: floating windows always stack over the tiles of their output,
      * as in sway and Hyprland; off, the window raised last is on top, tile or not. */
     bool floating_above_tiles;
@@ -540,6 +556,16 @@ struct sh_settings {
     /* keyboard.shortcuts_inhibit: applications may ask for the keys the bindings take
      * (keyboard-shortcuts-inhibit), as virtual machines and remote desktops do. */
     bool shortcuts_inhibit;
+    /* Lua `cat`: the desktop cat shows as the configuration loads (and as this changes), at
+     * `cat_scale` logical pixels a cell of its art, in coat `cat_coat` (enum sh_cat_coat, or -1
+     * for the one appearance.color_scheme suits), asleep after `cat_sleep` seconds without input. */
+    bool cat;
+    int cat_scale;
+    int cat_coat;
+    int cat_sleep;
+    /* wrapped.enabled: the compositor counts what happens at the desktop for `paw wrapped`
+     * (src/compositor/wrapped.c). */
+    bool wrapped;
     bool heatmap; /* heatmap.enabled: count where the pointer rests and clicks (heatmap.c) */
 };
 
@@ -659,6 +685,11 @@ struct sh_callbacks {
      * decide now; every field -1 when none matches. */
     void (*dynamic_rule)(void *, const char *app_id, const char *title,
                          struct sh_dynamic_rule *rule);
+    /* The files of a rice on trial (`paw rice try`, src/rice.cpp): "try NAME" checks that the
+     * trial recorded is NAME's and notes this compositor in it, "keep" keeps the rice and
+     * "revert" puts the previous profile back and the rice away. False, with why, when it
+     * cannot. */
+    bool (*rice)(void *, const char *request, char *error, size_t error_size);
 };
 
 enum sh_backend_mode { SH_BACKEND_NESTED, SH_BACKEND_HEADLESS, SH_BACKEND_SESSION };

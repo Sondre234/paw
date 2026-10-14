@@ -190,8 +190,8 @@ static bool same_look(const struct sh_shadow *a, const struct sh_shadow *b) {
 
 /* The shadow image of a look for windows of `width` by `height` (sh_shadow_image_size's) at
  * the scale the outputs ask for, painted when first needed. */
-static struct sh_shadow_image *shadow_image(struct sh_server *server, const struct sh_shadow *look,
-                                            int width, int height) {
+struct sh_shadow_image *shadow_image(struct sh_server *server, const struct sh_shadow *look,
+                                     int width, int height) {
     int scale = pixel_scale(server);
     struct sh_shadow_image *images = server->shadow_images, *oldest = &images[0];
     size_t count = sizeof(server->shadow_images) / sizeof(*server->shadow_images);
@@ -490,6 +490,12 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     float whole = shown_for_peek(toplevel) ? peeked : 1;
     opacity = fading[0] * peeked;
     color = fading + 1;
+    // A party draws the border in one colour of the rainbow after another (toys.c).
+    float party[4];
+    if (bordered && toys_border(toplevel, party)) {
+        color = party;
+        gradient = false;
+    }
     float pulsing[4];
     if (urgent || whole < 1 || framed < 1) {
         // The border pulses over its fade to the urgent color; premultiplied, scaling all four

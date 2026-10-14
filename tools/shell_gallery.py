@@ -43,6 +43,7 @@ POPUPS += ["osd-volume", "osd-text", "cards", "power-dialog", "palette", "switch
            "palette-calculator", "palette-files", "clipboard", "emoji"]
 # The start menu's other views and its menus.
 POPUPS += ["display-mode", "display-settings", "display-settings-trial"]
+POPUPS += ["rice-trial"]
 POPUPS += ["launcher-all", "launcher-search", "launcher-empty", "launcher-menu"]
 POPUPS += ["quick-settings", "quick-settings-mixer", "bar-all"]
 POPUPS += ["quick-settings-power", "quick-settings-wifi", "wifi"]
@@ -57,6 +58,8 @@ POPUPS += ["desktop"]
 # has not.
 TASKBAR_POPUPS = ["switcher-icons", "workspace"]
 POPUPS += TASKBAR_POPUPS
+# The names of the exploded view's sheets (paw xray), over stand-ins for them.
+POPUPS += ["xray"]
 
 # Pictures taken with settings of their own, put in the shell table: name -> (popup, settings).
 # The volume's and the profiles' popups belong to buttons Quick Settings holds by default, and a

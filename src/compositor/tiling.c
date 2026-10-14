@@ -139,6 +139,7 @@ void untile_toplevel(struct sh_toplevel *toplevel, bool restore) {
     struct wlr_output *output = tiled_output(toplevel);
     sh_tiling_remove(server->tiling, toplevel);
     toplevel->tiled = false;
+    bound_tile(toplevel);
     restack_toplevel(toplevel);
     toplevel->arranged = !restore;
     toplevel->arrangement = SH_NONE;

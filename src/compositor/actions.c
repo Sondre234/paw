@@ -9,7 +9,7 @@
  * window). None while the overview shows its thumbnails in their place. */
 static size_t screenshot_windows(struct sh_server *server, struct sh_rect *boxes, size_t size) {
     size_t count = 0;
-    if (server->overview.visible)
+    if (server->overview.visible || server->xray.visible)
         return 0;
     struct wlr_scene_tree *trees[WINDOW_LAYERS];
     window_layers(server, trees);
@@ -49,14 +49,25 @@ static int screenshot_cursor_timeout(void *data) {
 }
 
 /* Hides the cursor until the screenshot ends: an output that draws it into its frames (a
- * software cursor, as the headless backend's and some drivers' are) would hand it to grim. */
-static void screenshot_hide_cursor(struct sh_server *server) {
+ * software cursor, as the headless backend's and some drivers' are) would hand it to grim. Also
+ * for one taken without the screenshot action ("cursor hide", as `paw showcase` takes one). */
+void screenshot_hide_cursor(struct sh_server *server) {
     cursor_hide(server);
     if (!server->screenshot.timer)
         server->screenshot.timer = wl_event_loop_add_timer(
             wl_display_get_event_loop(server->wl_display), screenshot_cursor_timeout, server);
     if (server->screenshot.timer)
         wl_event_source_timer_update(server->screenshot.timer, SCREENSHOT_CURSOR_MS);
+}
+
+/* "cursor show": the cursor back after a screenshot taken without the screenshot action, unless
+ * the action's own is still being taken. */
+void screenshot_show_cursor(struct sh_server *server) {
+    if (server->screenshot.pid > 0)
+        return;
+    if (server->screenshot.timer)
+        wl_event_source_timer_update(server->screenshot.timer, 0);
+    cursor_show(server);
 }
 
 /* A layer surface going. slurp's ("selection") goes once the region is chosen, leaving grim to
@@ -134,8 +145,10 @@ bool take_screenshot(struct sh_server *server, enum sh_screenshot_mode mode, cha
  * log and across the panel, and in `error`. */
 bool launch_program(struct sh_server *server, enum sh_action action, char *error,
                     size_t error_size) {
-    if (server->callbacks->launch(server->callbacks->userdata, action, error, error_size))
+    if (server->callbacks->launch(server->callbacks->userdata, action, error, error_size)) {
+        wrapped_count(server, SH_WRAPPED_LAUNCHES);
         return true;
+    }
     report_failure(server, "spawn-error", error);
     return false;
 }
@@ -168,6 +181,10 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     if (server->overview.open && server->overview.assist && action != SH_NONE &&
         action != SH_OVERVIEW_CONFIRM && action != SH_OVERVIEW_CANCEL)
         overview_close(server, NULL, -1);
+    // The exploded view gives way to the overview and the switcher, which would show under it.
+    if (server->xray.open && (action == SH_OVERVIEW_TOGGLE || action == SH_SWITCHER_NEXT ||
+                              action == SH_SWITCHER_PREV))
+        xray_close(server, NULL);
     for (size_t i = 0; i < sizeof(shell_actions) / sizeof(*shell_actions); ++i) {
         if (shell_actions[i].action != action)
             continue;
@@ -462,6 +479,17 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         break;
     case SH_TOGGLE_SHORTCUTS_INHIBIT:
         toggle_shortcuts_inhibit(server);
+        break;
+    case SH_SHAKE:
+    case SH_GRAVITY:
+    case SH_PARTY:
+        toys_start(server, action, argument);
+        break;
+    case SH_CAT:
+        cat_switch(server, argument);
+        break;
+    case SH_XRAY:
+        xray_toggle(server);
         break;
     case SH_HEATMAP:
         heatmap_action(server, argument);

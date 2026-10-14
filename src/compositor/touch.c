@@ -120,7 +120,9 @@ static void touch_down(struct wl_listener *listener, void *data) {
     // The overview, and what the compositor draws itself, take the pointer.
     struct sh_node *owner = NULL;
     struct wlr_surface *surface =
-        server->overview.open ? NULL : press_target_at(server, x, y, &sx, &sy, &owner);
+        server->overview.open || server->xray.open
+            ? NULL
+            : press_target_at(server, x, y, &sx, &sy, &owner);
     if (surface && wlr_surface_accepts_touch(surface, server->seat)) {
         struct sh_touch_point *point = find_point(server, event->touch_id);
         for (size_t i = 0; !point && i < sizeof(server->touch.points) / sizeof(*point); ++i) {

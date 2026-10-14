@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "paw/config.hpp"
 #include "paw/effects.h"
+#include "paw/cat_sprite.h"
 #include "paw/config_schema.hpp"
 
 #include <algorithm>
@@ -497,6 +498,10 @@ void read_tiling_bar(lua_State *L, TilingBar &bar) {
     }
     lua_pop(L, 1);
 }
+// The edges a bar can be along, as shell.panel_positions names them.
+constexpr std::pair<std::string_view, PanelEdge> panel_edges[] = {
+    {"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
+    {"right", PanelEdge::Right}};
 void read_shell(lua_State *L, ShellConfig &shell) {
     Section section(L, "shell");
     if (!section)
@@ -509,6 +514,32 @@ void read_shell(lua_State *L, ShellConfig &shell) {
           {{"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
            {"right", PanelEdge::Right}},
           "panel_position must be \"top\", \"bottom\", \"left\" or \"right\"");
+    boolean(L, "panel_per_monitor", "shell.panel_per_monitor", shell.panel_per_monitor);
+    // { ["DP-1"] = "left", ... }: an edge for each monitor named.
+    lua_getfield(L, -1, "panel_positions");
+    if (!lua_isnil(L, -1)) {
+        table(L, -1, "shell.panel_positions");
+        Named in("shell.panel_positions");
+        const int index = lua_absindex(L, -1);
+        lua_pushnil(L);
+        while (lua_next(L, index)) {
+            if (lua_type(L, -2) != LUA_TSTRING)
+                fail("shell.panel_positions is keyed by output name, e.g. [\"DP-1\"] = \"left\"");
+            const std::string name = lua_tostring(L, -2);
+            if (name.empty())
+                fail("output name is empty");
+            const auto edge = string(L, -1, ("shell.panel_positions[\"" + name + "\"]").c_str());
+            auto found = std::find_if(std::begin(panel_edges), std::end(panel_edges),
+                                      [&](const auto &entry) { return entry.first == edge; });
+            if (found == std::end(panel_edges))
+                fail("shell.panel_positions[\"" + name +
+                         "\"] must be \"top\", \"bottom\", \"left\" or \"right\"",
+                     "=" + edge);
+            shell.panel_positions[name] = found->second;
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
     boolean(L, "panel_draggable", "shell.panel_draggable", shell.panel_draggable);
     // true, false or "maximized".
     lua_getfield(L, -1, "panel_dock");
@@ -1500,13 +1531,16 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 // Without one, the popup that steps through them.
                 if (!lua_isnil(L, -1))
                     binding.mode = parse_display_mode(string(L, -1, "mode"));
+            } else if (binding.action == SH_CAT) {
+                binding.mode = lua_isnil(L, -1) ? SH_CAT_TOGGLE
+                                                : parse_cat_switch(string(L, -1, "mode"));
             } else if (binding.action == SH_HEATMAP) {
                 // Without one, it toggles.
                 if (!lua_isnil(L, -1))
                     binding.mode = parse_heatmap_choice(string(L, -1, "mode"));
             } else if (!lua_isnil(L, -1)) {
                 if (binding.action != SH_SCREENSHOT)
-                    fail("mode is only valid with screenshot, mode, display_mode and heatmap");
+                    fail("mode is only valid with screenshot, mode, display_mode, cat and heatmap");
                 binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
             }
             lua_pop(L, 1);
@@ -1688,7 +1722,24 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         config.settings.gap_inner = integer(L, "gap_inner", gap, 0, 100);
         config.settings.gap_outer = integer(L, "gap_outer", gap, 0, 100);
         boolean(L, "smart_gaps", "layout.smart_gaps", config.settings.smart_gaps);
-        config.settings.lone_margin = integer(L, "lone_margin", 0, 0, 400);
+        // One number for every side, or { top, right, bottom, left } by name, the sides left
+        // out 0.
+        lua_getfield(L, -1, "lone_margin");
+        if (lua_isinteger(L, -1)) {
+            auto margin = lua_tointeger(L, -1);
+            if (margin < 0 || margin > 400)
+                out_of_range("lone_margin", static_cast<double>(margin), 0, 400);
+            for (auto &side : config.settings.lone_margin)
+                side = static_cast<int>(margin);
+        } else if (!lua_isnil(L, -1)) {
+            table(L, -1, "layout.lone_margin");
+            keys(L, -1, "layout.lone_margin");
+            Named margin("layout.lone_margin");
+            int index = 0;
+            for (const char *side : {"top", "right", "bottom", "left"})
+                config.settings.lone_margin[index++] = integer(L, side, 0, 0, 400);
+        }
+        lua_pop(L, 1);
         boolean(L, "floating_above_tiles", "layout.floating_above_tiles",
                 config.settings.floating_above_tiles);
         boolean(L, "tiling", "layout.tiling", config.settings.tiling);
@@ -1873,6 +1924,21 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                {"launch", SH_SESSION_RESTORE_LAUNCH}},
               "session.restore must be \"off\", \"windows\" or \"launch\"", "restore");
     }
+    if (Section in{L, "cat"}) {
+        auto &settings = config.settings;
+        boolean(L, "enabled", "cat.enabled", settings.cat);
+        settings.cat_scale = integer(L, "scale", settings.cat_scale, 1, 4);
+        named(L, "coat", "cat.coat", settings.cat_coat,
+              {{"auto", -1},
+               {"ginger", SH_CAT_COAT_GINGER},
+               {"black", SH_CAT_COAT_INK},
+               {"cream", SH_CAT_COAT_CREAM},
+               {"grey", SH_CAT_COAT_GREY}},
+              "cat.coat must be \"auto\", \"ginger\", \"black\", \"cream\" or \"grey\"", "coat");
+        settings.cat_sleep = integer(L, "sleep_after", settings.cat_sleep, 5, 3600);
+    }
+    if (Section in{L, "wrapped"})
+        boolean(L, "enabled", "wrapped.enabled", config.settings.wrapped);
     if (Section in{L, "heatmap"})
         boolean(L, "enabled", "heatmap.enabled", config.settings.heatmap);
     return config;
@@ -2014,6 +2080,11 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"media_next", SH_MEDIA_NEXT},
         {"media_previous", SH_MEDIA_PREVIOUS},
         {"media_stop", SH_MEDIA_STOP},
+        {"shake", SH_SHAKE},
+        {"gravity", SH_GRAVITY},
+        {"party", SH_PARTY},
+        {"cat", SH_CAT},
+        {"xray", SH_XRAY},
         {"heatmap", SH_HEATMAP},
 };
 } // namespace
@@ -2142,6 +2213,14 @@ sh_display_mode parse_display_mode(const std::string &name) {
         if (name == text)
             return mode;
     fail("display mode must be \"extend\", \"duplicate\", \"internal\" or \"external\"");
+}
+
+sh_cat_switch parse_cat_switch(const std::string &name) {
+    for (auto [candidate, choice] :
+         {std::pair{"toggle", SH_CAT_TOGGLE}, {"on", SH_CAT_ON}, {"off", SH_CAT_OFF}})
+        if (name == candidate)
+            return choice;
+    fail("cat takes \"on\", \"off\" or \"toggle\"");
 }
 
 sh_screenshot_mode parse_screenshot_mode(const std::string &name) {
@@ -2399,6 +2478,72 @@ void overlay(lua_State *L, int target, int source, bool replace, const char *wha
         lua_pop(L, 2);
     }
 }
+// Pushes `data`, a rice's, as a Lua value.
+void push_data(lua_State *L, const RiceData &data) {
+    switch (data.type) {
+    case RiceData::Type::Boolean: lua_pushboolean(L, data.boolean); return;
+    case RiceData::Type::Integer: lua_pushinteger(L, data.integer); return;
+    case RiceData::Type::Number: lua_pushnumber(L, data.number); return;
+    case RiceData::Type::String: lua_pushlstring(L, data.string.data(), data.string.size()); return;
+    case RiceData::Type::Table: break;
+    }
+    luaL_checkstack(L, 3, "rice tables are nested too deeply");
+    lua_createtable(L, static_cast<int>(data.items.size()), static_cast<int>(data.fields.size()));
+    for (size_t i = 0; i < data.items.size(); ++i) {
+        push_data(L, data.items[i]);
+        lua_rawseti(L, -2, static_cast<lua_Integer>(i + 1));
+    }
+    for (const auto &[key, value] : data.fields) {
+        push_data(L, value);
+        lua_setfield(L, -2, key.c_str());
+    }
+}
+// The value at `index` as a rice holds it: a table's list, then its names in order.
+RiceData data_of(lua_State *L, int index, const std::string &what, int depth = 0) {
+    index = lua_absindex(L, index);
+    switch (lua_type(L, index)) {
+    case LUA_TBOOLEAN: return RiceData::boolean_of(lua_toboolean(L, index));
+    case LUA_TNUMBER:
+        if (lua_isinteger(L, index))
+            return RiceData::integer_of(lua_tointeger(L, index));
+        else {
+            RiceData number;
+            number.type = RiceData::Type::Number;
+            number.number = lua_tonumber(L, index);
+            return number;
+        }
+    case LUA_TSTRING: {
+        size_t length = 0;
+        const char *text = lua_tolstring(L, index, &length);
+        return RiceData::string_of(std::string(text, length));
+    }
+    case LUA_TTABLE: break;
+    default: fail(what + " is " + described(L, index) + ", which a rice cannot hold");
+    }
+    if (depth > 16)
+        fail(what + " is nested too deeply");
+    RiceData table;
+    auto length = static_cast<lua_Integer>(lua_rawlen(L, index));
+    for (lua_Integer i = 1; i <= length; ++i) {
+        lua_rawgeti(L, index, i);
+        table.items.push_back(data_of(L, -1, what, depth + 1));
+        lua_pop(L, 1);
+    }
+    lua_pushnil(L);
+    while (lua_next(L, index)) {
+        if (lua_type(L, -2) == LUA_TSTRING) {
+            std::string key = lua_tostring(L, -2);
+            table.fields.emplace_back(key, data_of(L, -1, what + "." + key, depth + 1));
+        } else if (!lua_isinteger(L, -2) || lua_tointeger(L, -2) < 1 ||
+                   lua_tointeger(L, -2) > length) {
+            fail(what + " has a key a rice cannot hold");
+        }
+        lua_pop(L, 1);
+    }
+    std::sort(table.fields.begin(), table.fields.end(),
+              [](const auto &a, const auto &b) { return a.first < b.first; });
+    return table;
+}
 std::filesystem::path theme_path(lua_State *L, const std::filesystem::path &directory) {
     auto name = text(L, "theme");
     return name ? directory / *name : std::filesystem::path();
@@ -2643,13 +2788,15 @@ size_t locate(const std::string &source, const std::vector<std::string> &trail) 
 } // namespace
 
 Config parse_config(const std::string &source, const std::string &name,
-                    const std::filesystem::path &directory, const std::string &chosen) {
+                    const std::filesystem::path &directory, const std::string &chosen,
+                    const std::vector<Rice> &rices) {
     current_section.clear();
     try {
         // The configuration with its theme and defaults, then with `profile` laid over them.
         std::vector<std::string> names;
         std::string start;
-        auto build = [&](const std::string &profile) {
+        // A profile of the configuration's by name, or a rice's settings.
+        auto build = [&](const std::string &profile, const RiceData *rice = nullptr) {
             auto state = sandbox();
             auto *L = state.get();
             evaluate(L, source, name);
@@ -2657,16 +2804,50 @@ Config parse_config(const std::string &source, const std::string &name,
             auto own = include_defaults(L);
             names = profile_names(L);
             start = starting_profile(L, names);
-            if (!profile.empty())
+            if (rice) {
+                push_data(L, *rice);
+                overlay(L, -2, -1, true, "profile");
+                lua_pop(L, 1);
+            } else if (!profile.empty()) {
                 apply_profile(L, profile);
+            }
             return read(L, own, directory);
         };
         auto config = build("");
         // Profiles leave the keyboard alone, so its keymap is compiled once.
         check_keymap(config.settings);
+        auto has = [](const std::vector<std::string> &list, const std::string &item) {
+            return std::find(list.begin(), list.end(), item) != list.end();
+        };
+        // The installed rices, checked first: one the configuration refuses is passed over.
+        std::vector<std::string> rice_names, rice_problems;
+        std::optional<Config> chosen_rice;
+        for (const auto &rice : rices) {
+            auto rice_name = rice.directory.filename().string();
+            if (has(names, rice_name)) {
+                rice_problems.push_back(rice_name + ": the configuration has a profile of that "
+                                                    "name");
+                continue;
+            }
+            if (names.size() + rice_names.size() >= max_profiles) {
+                rice_problems.push_back(rice_name + ": there are 32 profiles already");
+                continue;
+            }
+            try {
+                auto profile = rice_profile(rice);
+                auto layered = build("", &profile);
+                if (rice_name == chosen)
+                    chosen_rice = std::move(layered);
+                rice_names.push_back(rice_name);
+            } catch (const ConfigError &error) {
+                rice_problems.push_back(rice_name + ": " + error.text);
+            } catch (const std::exception &error) {
+                rice_problems.push_back(rice_name + ": " + error.what());
+            }
+        }
         // Every profile is checked, so picking one later cannot fail; the configuration
         // itself is valid by now, so an error belongs to the profile.
-        auto active = std::find(names.begin(), names.end(), chosen) != names.end() ? chosen : start;
+        auto active = has(names, chosen) || chosen_rice ? chosen : start;
         auto all = names;
         for (const auto &profile : all) {
             try {
@@ -2679,7 +2860,13 @@ Config parse_config(const std::string &source, const std::string &name,
                 throw ConfigError("profile '" + profile + "': " + error.text, trail);
             }
         }
+        if (chosen_rice && active == chosen)
+            config = std::move(*chosen_rice);
+        all.insert(all.end(), rice_names.begin(), rice_names.end());
+        std::sort(all.begin(), all.end());
         config.profiles = std::move(all);
+        config.rices = std::move(rice_names);
+        config.rice_problems = std::move(rice_problems);
         config.profile = active;
         copy_text(active, config.settings.profile, "profile");
         return config;
@@ -2733,7 +2920,12 @@ void save_profile(const std::string &name) {
 }
 
 Config load_config(const std::filesystem::path &path) {
-    return parse_config(read_file(path), "@" + path.string(), path.parent_path(), saved_profile());
+    std::vector<std::string> unread;
+    auto rices = installed_rices(&unread);
+    auto config = parse_config(read_file(path), "@" + path.string(), path.parent_path(),
+                               saved_profile(), rices);
+    config.rice_problems.insert(config.rice_problems.end(), unread.begin(), unread.end());
+    return config;
 }
 
 Config load_config_or_default(const std::filesystem::path &path, std::string &error) {
@@ -2773,5 +2965,36 @@ std::optional<std::vector<std::string>> shadowed_settings(const std::filesystem:
     shadowed(L, -2, -1, "", result);
     std::sort(result.begin(), result.end());
     return result;
+}
+
+RiceData configured_look(const std::filesystem::path &path, const std::string &profile) {
+    auto state = sandbox();
+    auto *L = state.get();
+    current_section.clear();
+    evaluate(L, read_file(path), "@" + path.string());
+    include_theme(L, path.parent_path());
+    include_defaults(L);
+    auto names = profile_names(L);
+    if (std::find(names.begin(), names.end(), profile) != names.end()) {
+        apply_profile(L, profile);
+    } else if (!profile.empty()) {
+        auto rices = installed_rices();
+        auto rice = std::find_if(rices.begin(), rices.end(), [&](const Rice &rice) {
+            return rice.directory.filename() == profile;
+        });
+        if (rice == rices.end())
+            throw std::runtime_error("no profile " + profile);
+        push_data(L, rice_profile(*rice));
+        overlay(L, -2, -1, true, "profile");
+        lua_pop(L, 1);
+    }
+    RiceData look;
+    for (const char *section : {"appearance", "windows", "shell"}) {
+        lua_getfield(L, -1, section);
+        if (lua_istable(L, -1))
+            look.fields.emplace_back(section, data_of(L, -1, section));
+        lua_pop(L, 1);
+    }
+    return look;
 }
 } // namespace paw

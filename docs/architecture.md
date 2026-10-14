@@ -21,7 +21,8 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | Where | Language | What |
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, the desktop cat's ways and its pixel art. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -74,7 +75,7 @@ all. In short:
 | `display_mode.c` | The display_mode action (Windows' Win+P): extend, duplicate, internal, external, and the popup that steps through them. |
 | `display_settings.c` | The display settings window's monitors: the settings it kept (`src/output_state.c`), laid over `outputs.monitors`, the primary monitor, `get monitors`, and `monitors apply` trying every monitor's settings at once, kept or taken back. |
 | `layer_shell.c` | Panels and other layer surfaces. |
-| `panel_drag.c` | The taskbar dragged to another edge, or by its inner edge to resize it (`shell.panel_draggable`): `panel_drag` takes the pointer while the left button is held, as a window move does, and tells the shell the edge nearest it, or for `panel_drag resize EDGE` the pointer's distance from that edge, and where it is let go. |
+| `panel_drag.c` | The taskbar dragged to another edge, or by its inner edge to resize it (`shell.panel_draggable`): `panel_drag OUTPUT` takes the pointer while the left button is held, as a window move does, and tells the shell the edge of that monitor nearest it, or for `panel_drag resize EDGE` the pointer's distance from that edge, and where it is let go. |
 | `group.c`, `scratchpad.c`, `swallow.c`, `switcher.c`, `overview.c`, `session.c` | One feature each. `session.c` also saves a login session as `last` as it ends (`session_save_last`, from the power actions and quit) and restores it after `startup` (`session_restore_last`, from `sh_run`), asking `sh_callbacks.started` which missing windows startup and autostart will open. |
 | `switches.c` | Switch devices: the lid turning a laptop's panel off and on (clamshell), switches' bindings. |
 | `effects.c` | Dimming, peeking at the desktop or at one window, night light, magnifier, hot corners. |
@@ -91,6 +92,11 @@ all. In short:
 | `volume.c` | The volume, microphone and brightness actions, which the shell carries out. |
 | `binding_mode.c` | Binding modes: which set of key bindings is in use. |
 | `shortcuts_inhibit.c` | Keyboard shortcuts inhibitors (keyboard-shortcuts-inhibit-unstable-v1): the keys the bindings take going to a virtual machine, a remote desktop or a game while it has the keyboard. |
+| `toys.c` | Toys, which only draw: `shake`, `gravity` and `party` posing windows through the animator, a party's rainbow borders and confetti, each window let go as anything else happens to it; `get toys`. |
+| `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
+| `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
+| `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
+| `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
 | `heatmap.c` | The pointer heatmap: how long the pointer rested and how often it clicked in each cell of each output's grid (`src/heatmap.c`), in memory for the session alone, `get heatmap`, and the heatmap action's overlay: a picture of each grid blurred and coloured, stretched over its output under the drag icons and the lock, taking no input, with a legend in the coolest corner, drawn again twice a second from a timer while it shows and fading with `heatmap_tick` from `output_frame`. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
@@ -549,6 +555,18 @@ border along the cut. `paw msg get scratchpad` lists each window's drop, offset,
 the clip its content is drawn with and its radius, and the border's rounded rect, and
 `tests/scratchpad_drop_smoke.py` tests them.
 
+The same cut keeps a tile of the scrolling layout to its monitor, whose columns lie on a strip
+wider than it, past edges where other monitors would show them. `bound_tile` (`placement.c`, from
+`place_tiled` and wherever a window leaves the tiling) sets the window's `bounded` and `bound`,
+its monitor's box. While the frame, where it is drawn, crosses that box's edges, `cut_box`
+intersects each clip with it, square, and `place_tiled` sets the glide's `track` so the cut
+follows each frame. At rest wholly past the edges, `content` is disabled, so the other monitor
+neither draws it nor sends the surface its enter, scale and frames, and `scene_node_at`
+(`cursor.c`) looks again past a bounded tile at a point outside its bound, as it does through a
+border's hole. A tile inside its bound is not clipped at all, so a fullscreen one still scans
+out. `paw msg get bounds` lists each window's bound, whether its content is drawn and its clip,
+and `tests/scroll_bound_smoke.py` tests them.
+
 ### Monitors turned off
 
 An output in `outputs` (the layout) may be `powered_off` (`output_power.c`): its `wlr_output` is
@@ -722,6 +740,41 @@ keeps its layer, reading and decoding nothing again. A change during a fade lays
 jumps. A layer whose picture failed shows the gradient, and lays a new one for it after a second,
 then twice as long each time up to a minute, while it is the one wanted.
 
+### A rice on trial
+
+A rice (`src/rice.cpp`, `include/paw/rice.hpp`, tested by `rice_tests`) is a directory with
+`rice.lua` and the files it names. `parse_rice_data` reads `rice.lua` with a parser of Lua's
+table syntax of its own, so nothing in it runs, and `parse_rice` checks its shape: the settings
+`rice_setting_allowed` lets through, and paths `rice_path_valid` takes, which `read_rice` finds
+inside the directory as plain files, not through a link. `installed_rices` reads
+`$XDG_STATE_HOME/paw/rices/*`, and `load_config` hands them to `parse_config`, which builds each
+as a profile named after its directory (`rice_profile` makes its pictures' paths absolute) before
+the configuration's own; one the configuration refuses, or whose name it has, goes to
+`Config::rice_problems` instead, which `main.cpp` logs. `configured_look` gives the look settings
+a profile has over the configuration, its theme and the defaults, for `paw rice pack`.
+
+`paw rice try` (`src/cli/rice.cpp`; the archive in `src/cli/rice_archive.cpp`) asks `get
+rice_trial` first, so that nothing changes outside a session, reads the rice into memory
+(`rice_archive_files` takes only plain files inside the archive; `gzip` unpacks a compressed one
+into memory), writes it into a hidden directory beside the installed rices (`stage_rice`, only the
+files `rice.lua` names), checks that the configuration takes it with `parse_config`, and then
+`begin_rice_trial` writes the trial down in `$XDG_STATE_HOME/paw/rice-trial` (the rice, the saved
+profile before it, whether an installed rice of its name waits aside as `.NAME.previous`) before
+it moves the rice into place and saves its name as the profile. Then it sends `rice try NAME`.
+`control_rice` (`rice.c`) has `sh_callbacks.rice` note the compositor's pid in the record, reloads
+the configuration, which crossfades to the profile, takes it back at once unless the profile in
+use is the rice's, and otherwise sets a timer for `RICE_TRIAL_MS` and sends the shell `rice-trial
+MILLISECONDS NAME`. `rice keep` drops the rice set aside and the record (`keep_rice_trial`); `rice
+revert` and the timer write the previous profile back, remove the rice and put the one set aside
+in its place (`revert_rice_trial`), then reload. The compositor ending during a trial reverts it as
+it goes (`rice_finish`), and `main` reverts a record left by one that died
+(`recover_rice_trial`) before it loads the configuration, unless the pid in it is a running
+`paw`, a session a nested compositor runs in.
+
+The shell's side is `RiceTrial` (`shell/rice_trial.cpp`), which reads the rice's author and
+description from its `rice.lua` and counts the seconds down, and `RiceTrialView`, an overlay in the
+middle of the output overlays belong on, holding the keyboard on Revert.
+
 ### Power saving when idle
 
 `idle.c` takes the `idle` steps (`enum sh_idle_step`: dim, display_off, lock, suspend) with one
@@ -754,6 +807,151 @@ the outputs and windows when one changed, as the lid changes and after an output
 destroyed (before an empty layout would end a nested or headless session). Each toggle counts
 as input and runs the binding `sh_callbacks.switch_toggled` returns. Under `--headless`,
 `headless_switch` adds switches for the tests (`headless_input.c`, `lid_smoke`).
+
+### Toys
+
+`toys.c` plays `shake`, `gravity` and `party` (`toys_start`, from the actions; `toys_shake` shakes
+a given window, for other code to point at one). One toy plays at a time, `server->toys`, its
+state private to the file; a new one ends the last (`toys_end`). Its arithmetic is
+`src/toys.c` (`paw/toys.h`, tested by `toys_tests`): the shake's damped swing, a fall's bounces and
+squash (`sh_fall_plan`), where windows pile up (`sh_pile`, the lowest landing first, on the floor
+or on the windows landed below it, sinking a share of the usable height past the floor when they
+rest on it already, so that tiles fall too), a party's bob and rainbow, and confetti stepped
+through gravity and air (`sh_confetti_step`).
+
+A toy draws a window through the animator's pose (`sh_anim_pose`, `src/animation.c`): `content`
+moved by an offset from where it rests and its nodes stretched about a point, as the toy says on
+each call, through the same records the other animations use. A pose runs alone: it is refused
+while anything else runs on the window (a window opening or gliding joins the toy once that is
+over), and any animation starting on it (`start`, a hold, a lift, `sh_anim_finish`) puts it back at
+rest first, telling its owner through `sh_anim_posed`. The clock, a late frame and turning
+animations off leave it alone, so that toys play with animations off. Lookups put posed windows at
+rest as they do running ones (`rest_poses`), so input goes where windows really are, and each tick
+draws the pose again over what clients and `refresh_frame` set. A stretch calls the pose's update,
+`refresh_frame`, before the nodes are stretched, and `sh_anim_lift_box` maps a box through it as
+it does through a lift, so that the rounded clips (`lift_box`) follow a squash; `morph_commit`
+calls `sh_anim_pose_commit`, which puts the client's surfaces back at rest before the scene takes in
+a commit, which gives a buffer its new size where the stretch had put it.
+
+`toys_tick` moves the toy on from `output_frame`, before the animator, and from a timer of its own
+every 16 ms while one plays. Each window plays while it is as it was when the toy began
+(`still_plays`: shown, mapped, not fullscreen nor grabbed, at the same place and size, its monitor
+showing the same workspace, and still posed once posed); otherwise `let_go` unposes it and draws
+its frame again. The toy ends at its time, when no window is left (but a party, whose confetti
+plays on), when its monitor shows another workspace or goes, as the overview opens, and as the
+session locks (`server_new_lock`). `unmap_toplevel` calls `toys_forget` after the closing copy is
+made, so that a window closes where the toy drew it. A party colours the border through
+`toys_border`, which `refresh_frame` asks for after the focus fade: a colour in the border's rects
+in place of a gradient's pieces, which come back as the party lets the window go. Its confetti is
+a `wlr_scene_rect` per piece in a tree just above `fullscreen_cover`, which `scene_node_at` hides
+from its lookups (`toys_confetti`). A button pressed while gravity holds windows down
+(`toys_press`, from `server_cursor_button`) sends them back up from where they are drawn. `get
+toys` (`describe_toys`) says what plays, and `tests/toys_smoke.py` tests it; `paw shake`, `paw
+gravity` and `paw party` are `src/cli/toys.cpp`.
+### The desktop cat
+
+What the cat does is `src/cat.c`'s, without wlroots: a state machine (`enum sh_cat_state`) with
+where the cat's feet are and how it moves, which `sh_cat_step` advances to a time in steps of at
+most 16 ms, returning when it next needs a step, given a `struct sh_cat_world`:
+the monitors (`sh_cat_area`, with the top and bottom of their free areas), the window tops it can
+stand on and the floors, the focused monitor and window, the urgent window, and whether nobody has
+used the computer for a while. `sh_cat_ledges` makes the tops from the windows' boxes, front to
+back: each window's whole top edge, held down inside its monitor's free area by the cat's height
+(so that it stands in a maximized window's title bar rather than off the screen), which holds the
+cat up while it is there, and the parts of it no window in front of it covers just above it, the
+only ones it lands on or goes to. Its idle choices follow a seeded random number, so that
+`tests/cat_tests.c` can run it through a world of its own by the millisecond. `src/cat_sprite.c`
+holds the pictures, grids of letters a coat colours.
+
+`cat.c` in the compositor shows the cat that world and draws it. Its tree sits just above
+`above_windows`, under the fullscreen windows, the panels, the overlays and the lock, and holds
+two scene buffers, the cat and its "z", which take no input (`point_accepts_input`) and are scaled
+up from the art's pixels without smoothing (`WLR_SCALE_FILTER_NEAREST`); a picture is painted once
+per frame and coat and kept. A window's box is where it is drawn (its tree's place and `content`'s
+offset, at `frame_geometry`'s size), with its border. The cat is stepped on a timer of its own:
+every frame while it falls, jumps or runs, each 25 ms while it walks, and while it sits only for
+its next blink or choice, a few times a minute, or as it gets sleepy; asleep, once a breath. What
+it stands on moving is seen from the frames: whatever moves a window damages the outputs, and
+`output_frame` calls `cat_frame`, which, unless the cat is stepped every frame anyway, compares why
+it is hidden, the urgent window and the box of what it stands on with how they were at its last
+step, and steps it at once if any changed. `input_activity` wakes a sleeping cat (`cat_input`), and
+`process_cursor_motion` tells it of the pointer (`cat_pointer_moved`), which it chases only after
+a flick close by: several motions in a row travelling far within a short while. While it is hidden
+(`hidden_why`: turned off, the session locked or another VT in front, no monitor, the overview,
+its monitor off, a fullscreen window on its monitor or the focused one) its tree is disabled and
+no timer runs; the next frame that shows things changed steps it again. `get cat` describes it.
+### Counting for paw wrapped
+
+`wrapped.c` keeps `sh_server.wrapped` while `wrapped.enabled` is on in a standalone session
+(`sh_server.session`; NULL otherwise, which every hook checks first), and the hooks elsewhere are a call each: `wrapped_count` adds one to a counter
+(`enum sh_wrapped_counter`, `include/paw/wrapped_day.h`), `wrapped_motion`, `wrapped_button` and
+`wrapped_axis` take the cursor's events, `wrapped_grab_done` (from `finish_grab`) tells a move or
+resize from a press let go in place, and nothing is allocated per event. Time is counted lazily, with
+no timer of its own: `settle` counts the time since it last did by what held since, input on
+every input event (`wrapped_input`, from `input_activity`), and `wrapped_follow` settles before
+taking in what changed: the focus, the lock, an idle inhibitor or the VT (`idle_hold_changed`),
+monitors turned off or on. `sh_wrapped_active` says how much of a span was active: up to two
+minutes after the last input, all of it while an inhibitor holds the session, none of it while
+away. The active part goes to the application that had the focus last and to its streak, which
+idle time, or active time with nothing focused, ends; the focus leaving a window and coming back
+at once, as a click on it does, changes neither.
+
+What was counted is added to the day's file by `sh_wrapped_save` (`src/wrapped_day.c`, in
+`paw_cli`, which reads the files the same way): the file as it was and what is new go to
+`DATE.new`, which replaces it. Whole units go to the file; what is less (pixels, milliseconds)
+stays for the next save. A timer saves every five minutes when something was counted, and
+`wrapped_save` does at once as an idle step is taken, the session locks, logind says the machine
+is about to sleep, and `wrapped_finish` as the compositor ends. `settle` saves the old day first
+once the wall clock passes midnight, the time since it last counted split at midnight. `get
+wrapped` (`describe_wrapped`) lists what is not saved yet, the time up to then included, without
+changing anything, and `paw wrapped` (`src/cli/wrapped.cpp`) reads it between two looks at the
+number of saves, so that a save meanwhile counts nothing twice.
+### The exploded view
+
+`xray.c` takes the focused output apart into the layers paw draws (`paw xray`, the `xray` action).
+`xray_collect` walks the scene's trees bottom to top: the output's background colour, the layer
+shell's background and bottom layers, `windows`, `floating_windows`, `above_windows`, `fullscreen`,
+`peek_layer`, the top layer, `fullscreen_cover`, `unmanaged` and the overlay layer, keeping each
+layer surface on that output and each window whose box reaches into it, shown. `xray_plan` puts
+them on sheets (`struct sh_xray_sheet`): one per layer with anything on it, and one per window
+while six or fewer show. A sheet is known by its layer and its window, a pointer it only
+compares, never follows, so a window gone meanwhile leaves nothing dangling; the sheets are planned
+again whenever that changes, and kept as they are while the view closes, so that a window raised by
+a click keeps its sheet on the way back. Where each sheet goes is `src/xray_layout.c`'s
+(`sh_xray_layout`, tested by `xray_layout_tests`): the output scaled down to fit the area left
+beside the shell's legend and above its caption (`sh_xray_area`), each sheet a gap further along
+the way the stack rises, foreshortened that way and a little larger than the one under it, and
+part of the way to there from the whole output as the view opens and closes. The pointer's travel
+since it opened turns the stack (`sh_xray_tilt`), away from the pointer so that the low sheets'
+edges come out under it, the wheel spreads it (`sh_xray_spread`), and the hovered sheet is lifted
+along the way it rises while those over it fade, each easing with `sh_xray_ease` from the view's
+own 16 ms timer. The pointer is tested against where the sheets rest fanned out, not where a lift
+or the opening draws them, so that nothing under it moves away from it.
+
+The view is a tree of its own placed just over `overview_layer`, under the overlay layer, which
+holds the shell's text, and is destroyed as the view closes: the copies lock the clients' buffers.
+A sheet's tree holds the shadow's slices (the windows' shadow images, `shadow_image` in
+`frame.c`), a card (the background colour for the bottom sheet, else dark glass in its layer's
+colour with a sheen, a one-pixel-wide gradient the scene stretches), the copy and an outline. The
+copy is `sh_thumb_clone_cut` (`src/overview_scene.c`) of each surface's or window's tree, cut to
+the output and scaled across and down apart, made again only when the trees' fingerprints, the
+scale or the opacity change. Nothing of the view is quite opaque (0.9999 at most, as the
+crossfade's pictures): the scene would hide what lies under an opaque node, and its surfaces,
+getting no frame callbacks, would stop drawing what the copies show. `output_frame` and
+`notify_subscribers` call `xray_touch`, which arms the timer, so that the copies follow the
+clients and the sheets follow windows coming and going; while nothing changes nothing is drawn,
+and while the view is closed `xray_touch` returns at once. The view takes the keyboard in
+`handle_keybinding` (its own binding still closes it) and the pointer before the overview does in
+`cursor.c`, and touch and tablet input as the pointer; a click on a window's sheet maps the
+pointer back onto the output to find the window there. `xray_dismiss` closes it at once as the
+session locks or its output goes, and it does not open while locked.
+
+It tells subscribers what to name the sheets: `xray OUTPUT COUNT HOVERED X Y WIDTH HEIGHT LEGEND`
+(the area and the legend's column) and a `xray-sheet LAYER\tCOLOUR\tNAME\tDETAIL` line per
+sheet, again whenever they change; `xray-hover N` as the hovered sheet changes and `xray-close`.
+The shell draws them with `Xray.qml` in an overlay surface whose namespace, `paw-xray`, no sheet
+copies. `get xray` lists every output's stack with the sheet showing each part, which
+`paw xray --list` (`src/cli/xray.cpp`) prints top first, and `tests/xray_smoke.py` tests it.
 
 ## The shell (`shell/`)
 
@@ -793,16 +991,19 @@ one of the dock (an application's menu, the windows of one) by `panel.dockAnchor
 `panel.dockSide`, which on the taskbar are the bar's. A change of style makes and drops the
 bars, and the surfaces follow at once.
 
-Along a side (`shell.panelEdge` "left" or "right", `panel.vertical`), the panel's surface runs down
-the output and the taskbar stands upright: its `GridLayout` is a column, and the widgets stack what
-they show by `Theme.barVertical`, a button `Theme.barItemWidth` by `barItemHeight`. A popup's place
-along the bar is then a y: `panel.alongBar(item, offset)` and `panel.lengthAlong(item)` say where
-something on the bar is along it, which `barAnchor` and `dockAnchor` turn into the rectangle a popup
-opens beside, on `popupSide`. A drag of the bar to another edge (`shell.panel_draggable`) asks the
-compositor for the pointer (`panel_drag`, `src/compositor/panel_drag.c`), as a window's move takes
-it: a surface the pointer went on to would never hear the button let go. The `panel-drag` lines it
-sends move the outline every panel's popover shows, taking no input, and `panel-dropped` has
-`ShellController::movePanel` write `shell.panel_position` with `paw::save_setting`
+Each monitor's bar has its own edge (`shell.panel_positions` over `panel_position`), which its
+`ShellView` says as `panelEdge`, with `panelVertical`, `panelExtent` and `panelHeadroom`; the panel
+reads them as `panel.edge` and the rest. Along a side (`panel.vertical`), the panel's surface runs
+down the output and the taskbar stands upright: its `GridLayout` is a column, and the widgets stack
+what they show by `panel.vertical`, a button `panel.barItemWidth` by `barItemHeight`. A popup's
+place along the bar is then a y: `panel.alongBar(item, offset)` and `panel.lengthAlong(item)` say
+where something on the bar is along it, which `barAnchor` and `dockAnchor` turn into the rectangle a
+popup opens beside, on `popupSide`. A drag of the bar to another edge (`shell.panel_draggable`) asks
+the compositor for the pointer (`panel_drag OUTPUT`, `src/compositor/panel_drag.c`), as a window's
+move takes it: a surface the pointer went on to would never hear the button let go. The
+`panel-drag` lines it sends move the outline the dragged bar's popover shows (every panel's while
+every bar moves), taking no input, and `panel-dropped` has `ShellController::movePanel` write the
+monitor's `shell.panel_positions` entry, or `shell.panel_position`, with `paw::save_setting`
 (`src/config_edit.cpp`) and load the file again.
 
 A press on the bar's inner edge (the `barResizeEdge` strip in `Taskbar.qml`, under the same
@@ -887,8 +1088,10 @@ what was there.
 | `DisplayMode.qml` | The display mode popup (Windows' Win+P, `shell.displayModes`), an overlay surface of its own in the middle of the output: the four choices, the one the compositor's stepping shows selected; a click takes one. |
 | `DisplaySettings.qml` | The display settings window (`shell.displaySettings`), an overlay surface of its own in the middle of the output: the monitors' arrangement to drag, the selected monitor's settings, Apply, and the question while they are on trial. |
 | `AuthDialog.qml` | The polkit authentication dialog (`shell.authentication`), an overlay surface of its own: the request, the user to answer as, the password. |
+| `RiceTrial.qml` | The question while a rice is on trial (`shell.riceTrial`), a card in the middle of the output, an overlay surface of its own: the rice's name, author and description, the countdown, Revert and Keep. |
 | `ClipboardPicker.qml`, `EmojiPicker.qml` | The clipboard history's popup and the emoji picker, each in an overlay surface of its own (`PickerView`, `picker_view.cpp`). |
 | `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style. |
+| `Xray.qml` | The names of the exploded view's sheets (`paw xray`), an overlay surface of its own over the compositor's stack: a legend of every sheet in its layer's colour, top first, and a caption for the one under the pointer. |
 
 The authentication dialog's model is `Authentication` (`authentication.cpp`): polkit's requests,
 one at a time, each answered through an `AuthConversation` for the chosen user. The agent
@@ -1328,9 +1531,11 @@ style the dock and the menu bar, over the style's drawn wallpaper while none is 
 menu bar's menus as `system-menu`, `app-menu`, `window-menu` and `window-submenu`. The overlay
 surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `cards`,
 `power-dialog`, `palette`, `palette-empty`, `switcher`, `overview`, `snap-assist`, `display-mode`,
-`display-settings`, `display-settings-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
+`display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
+`display-settings`, `display-settings-trial`, `xray`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 bar alone, with stand-ins for what the compositor would tell it, and the screenshot draws it where
-its layer surface would be (the overview over stand-ins for the compositor's thumbnails).
+its layer surface would be (the overview over stand-ins for the compositor's thumbnails, the
+exploded view's names over its sheets as `src/xray_layout.c` lays them out).
 `--preview --preview-desktop` draws the desktop instead (the gallery's `desktop`, without the
 wallpaper it sets for the others, so that the macOS style's drawn one shows).
 `tools/shell_gallery.py BUILD_DIR OUT_DIR` does that for every popup in a light and a dark
@@ -1463,6 +1668,11 @@ settings' test, or in `configure_output`'s as if the commit failed (see
 `display_settings_smoke.py`). `PAW_TEST_LOCK_TIMEOUT_MS` shortens the time a locker gets to
 lock the screen before a suspend gives up (see `power_smoke.py`), and
 `PAW_TEST_CROSSFADE_HOLD_MS` sets how long a profile's crossfade waits for the shell (see
+`crossfade_smoke.py`), and `PAW_TEST_RICE_TRIAL_MS` how long a rice is on trial (see
+`rice_smoke.py`).
+`crossfade_smoke.py`).
+`PAW_TEST_CAT_SLEEP_MS` sets how long the desktop cat waits without input before it sleeps, in
+place of `cat.sleep_after` (see `cat_smoke.py`).
 `crossfade_smoke.py`), and `PAW_TEST_HEATMAP_REST_MS` how long a resting pointer counts in the
 heatmap (see `heatmap_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
@@ -1472,6 +1682,11 @@ heatmap (see `heatmap_smoke.py`).
   `XDG_CONFIG_HOME` and `XDG_CONFIG_DIRS` name (see `autostart_smoke.py`), and saving and
   restoring the last session in `XDG_STATE_HOME` (see `session_restore_smoke.py`); without it only
   `--session` does, so no test starts the developer's own autostart entries.
+  `PAW_TEST_WRAPPED=1` has a headless compositor count for paw wrapped as a standalone session
+  does, `PAW_TEST_WRAPPED_SAVE_MS` and `PAW_TEST_WRAPPED_IDLE_MS` shorten the time between its
+  saves and the time without input after which it counts idle time, and
+  `PAW_TEST_WRAPPED_MIDNIGHT=SECONDS` has the day end that long after the compositor starts (see
+  `wrapped_smoke.py`).
 
 ## A fast loop
 
