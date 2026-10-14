@@ -424,7 +424,9 @@ void cat_input(struct sh_server *server) {
 
 void cat_pointer_moved(struct sh_server *server) {
     struct sh_cat_view *view = server->cat;
+    // A pointer moving a window or the taskbar is no game.
     if (view && view->shown && view->placed && !view->last.hidden &&
+        server->cursor_mode == SH_CURSOR_PASSTHROUGH &&
         sh_cat_pointer(&view->cat, server->cursor->x, server->cursor->y, now_ms()))
         poke(view);
 }
