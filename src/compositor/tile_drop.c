@@ -88,6 +88,7 @@ void tile_drop_lift(struct sh_toplevel *toplevel) {
     }
     // As untile_toplevel does, but in the tree still: nothing else moves.
     toplevel->tiled = false;
+    bound_tile(toplevel);
     restack_toplevel(toplevel);
     toplevel->arranged = true;
     toplevel->arrangement = SH_NONE;

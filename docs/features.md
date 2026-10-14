@@ -162,20 +162,27 @@ tooltips), then the widgets one above the other, the clock with the hours over t
 the sliver at the bottom; tooltips and popups open beside it, the clock's notifications above its
 calendar.
 
+Each monitor's bar can have its own edge: `panel_positions = { ["DP-1"] = "left", ["HDMI-A-1"] =
+"top" }` names them by the monitors' names (`paw msg get outputs`), and `panel_position` stays the
+edge of the monitors left out. `panel_per_monitor = false` puts every bar along `panel_position`
+instead.
+
 With `panel_draggable = true` the bar can be dragged to another edge, as on Windows with the
 taskbar unlocked: press an empty part of it and drag, and an outline shows where it goes, the
-edge of the monitor nearest the pointer. Let go there and it moves, and paw writes the new
-`panel_position` into your configuration file where it takes effect: the profile in use, when
-that sets it, else the `shell` table, which gains the setting (or is added) when it lacks it. The
-rest of the file is left as it was, comments and all. Escape, or letting go at its own edge,
-leaves the bar where it was.
+edge of its monitor nearest the pointer (past an edge it shares with another monitor, that edge).
+Let go there and it moves, and paw writes the new edge into your configuration file: that
+monitor's `panel_positions` entry, the other monitors' bars staying where they are, or with
+`panel_per_monitor = false` the `panel_position` of every bar. It goes where it takes effect: the
+profile in use, when that sets it, else the `shell` table, which gains the setting (or is added)
+when it lacks it. The rest of the file is left as it was, comments and all. Escape, or letting go
+at its own edge, leaves the bar where it was.
 
 The same setting lets you resize the bar by its inner edge, the one facing the desktop (its top
 edge along the bottom of the monitor): the pointer turns into a resize cursor over it, and dragging
 it makes the bar taller or shorter, or wider or narrower down a side, between 24 and 100 pixels.
 Every monitor's bar follows as you drag, its buttons growing with it, and maximized and tiled
 windows make room as it goes. Let go and paw writes the new `panel_height` into your configuration
-file the way it writes `panel_position`; Escape puts the old size back. The macOS style's dock and
+file the way it writes the bar's edge; Escape puts the old size back. The macOS style's dock and
 the tiling bar keep their sizes.
 
 A floating bar docks while a window reaches the edge of the monitor's free area it is along (a
@@ -1438,7 +1445,9 @@ border. A second tile brings `gap_inner` and `gap_outer` back for both, and they
 closes, floats or leaves (`layout.smart_gaps`, on by default, like sway's `smart_gaps`; `false`
 keeps the gaps around a lone tile too). A window group is one tile; floating, sticky and
 maximized windows are not tiles, and two windows in monocle keep their gaps. A lone column of the
-scroll layout loses its gaps and keeps its width.
+scroll layout loses its gaps and keeps its width. `layout.lone_margin` keeps a lone tile that far
+from the edges instead, so a single window on a wide monitor need not fill it: one number, or
+`{ top, right, bottom, left }`, e.g. wide at the sides and narrow above and below.
 
 - Mod + right drag on a tile, or dragging its edge, moves the split lines around it.
 - Moving a tile (Mod + left drag or its title bar) lifts it out, its place in the tiling kept
@@ -1629,6 +1638,13 @@ layout = {
 With `mouse.focus_follows` on, columns that scroll under a still pointer can take focus on
 its next move; keyboard-driven scrolling takes the pointer along, but if the mouse causes
 trouble, use `follow = "edge"`, which moves the view least.
+
+Columns past the screen's edges stay on their own monitor: nothing of them shows on the monitor
+beside it, a column sliding past an edge is cut there (square while it crosses, its rounded
+border left out, where the GLES2 renderer draws clips), one at rest wholly past it is not drawn,
+and the pointer passes it by to reach the other monitor's windows there. With `width = 0.5`
+and `follow = "edge"` the view shows two whole columns and scrolls by one as focus moves past
+them.
 
 The scroll layout is per workspace like the others; windows opened under another layout get
 a column each, at the end, when it is switched to. The columns are remembered when you
@@ -2810,7 +2826,11 @@ of it: its title, whether it is hidden and whether it is drawn, the drop under w
 or `-`), the edge it goes by (`top`, `bottom`, `left` or `right`), the offset from its place it
 is drawn at (x and y), how opaque it is drawn (thousandths), the line it is cut along (`-` while
 nothing is cut), the clip its content is drawn with, cut or not (`X,Y,WIDTH,HEIGHT`), and its
-radius, and the box its border's rounded rect covers (each `-` for none). `paw msg get
+radius, and the box its border's rounded rect covers (each `-` for none). `paw msg get bounds`
+prints one line per window: its title, the box of the monitor it keeps to as a tile of the
+[scrolling layout](#scrolling-layout) (`X,Y,WIDTH,HEIGHT`, or `-`), whether its content is drawn
+(`0` while it rests past that monitor's edges), and the clip its content is drawn with
+(`X,Y,WIDTH,HEIGHT`) and its radius (each `-` for none). `paw msg get
 workspace_views` prints one line per list of a workspace's windows a client watches, as the
 card of a workspace does: the output, the workspace and how many windows it last listed. `paw
 msg get seat` prints what has the keyboard, what the pointer is on and, while something is
@@ -2867,6 +2887,41 @@ Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the
 and to find out what is wrong with it. They talk to the running session through its control
 socket, as `paw msg` does; `paw --help` lists them.
 
+### paw doctor
+
+`paw doctor` looks the running session over for what has gone wrong in paw desktops before, and
+prints a line per check under a heading for each part: ✓ where all is well, ! for something to
+look at and ✗ for something broken, the last two followed by the command or step that fixes it.
+It fixes nothing itself, and only looks: a `get` query to the compositor, files and `/proc`,
+`wpctl status`, `paw --version`, and D-Bus calls that change nothing and start no service. Run it
+in a terminal of the session; it checks:
+
+- **Session**: that the compositor answers on `PAW_SOCKET`, and which version it is; that the
+  desktop shell runs (when it has gone, the screen shows only the background colour, and the fix
+  is `kill -HUP` with the compositor's PID, a reload, which starts it again); that the
+  compositor runs the paw installed, not an older build replaced since; when an update script
+  keeps a log in `$XDG_STATE_HOME/paw/update.log` (lines `update-paw: DATE TIME building COMMIT`
+  and `update-paw: DATE TIME installed COMMIT`), that its last update was installed; that the
+  configuration is valid, as `paw --check-config` says, and has the appearance profile last
+  picked.
+- **D-Bus**: that the session bus answers; that paw's shell shows the notifications, not another
+  notification daemon such as mako, dunst or swaync; in a session started with `--session`, that
+  no other polkit agent runs beside the shell's; and that logind answers, for suspending.
+- **Sound**: that PipeWire and WirePlumber run, WirePlumber on a session bus that still answers,
+  and that there is a sound output, not only PipeWire's Dummy Output; the fix restarts them with
+  `gentoo-pipewire-launcher restart` where that is installed, else with systemd's user units.
+- **Screen sharing**: that `XDG_CURRENT_DESKTOP` has `paw`; that xdg-desktop-portal finds paw's
+  `paw-portals.conf`, looked for as it does (portals.conf(5)) with the environment it runs in, the
+  fix linking the one paw installed into `$XDG_CONFIG_HOME/xdg-desktop-portal`; that the backend
+  it names for screen sharing is installed; and that a running xdg-desktop-portal started with
+  `paw` in its `XDG_CURRENT_DESKTOP` and offers screen sharing.
+- **X11**: that Xwayland is installed, unless `xwayland = false`.
+
+In a [nested session](#nested-sessions) notifications, password prompts and screen sharing are the
+host desktop's, and it says so instead of checking them. On a terminal the report is in colour, unless `NO_COLOR` is set or `--no-color` given. `--plain`
+prints a line per check for scripts instead: `ok`, `warning` or `error`, the check's name
+(`shell`, `portal-config`, ...), the finding and the fix, separated by tabs. `paw doctor` exits
+with 1 when something is broken, else 0.
 ### paw fetch
 
 `paw fetch` is a fastfetch of the compositor's own: a paw print, and beside it what only paw

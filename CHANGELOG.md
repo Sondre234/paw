@@ -579,6 +579,13 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
 wrong with it, and toys the compositor plays with the windows.
 
+- `paw doctor` looks the session over for what has gone wrong in paw desktops before and prints,
+  for each check, ✓, ! or ✗ and the command that fixes it: the desktop shell gone (`kill -HUP`
+  with the compositor's PID), a session bus that no longer answers, PipeWire left on Dummy Output
+  or WirePlumber on a dead bus, `paw-portals.conf` where xdg-desktop-portal does not look (the
+  `ln -s` that puts it there), a compositor older than the paw installed since, a failed update,
+  an invalid configuration, another notification daemon or polkit agent, logind and Xwayland
+  missing. It only looks, and fixes nothing itself; `--plain` is for scripts.
 - `paw fetch` is a fastfetch of paw's own: a paw print in the appearance profile's colours (its
   border's gradient), and beside it the profile, the session's uptime and frames drawn, frame
   times, windows and workspaces, the tiling layout, monitors, the idle timeouts, the application

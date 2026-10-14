@@ -372,6 +372,11 @@ The bug report template asks for `paw --version`, the GPU and its driver, the wl
 whether paw ran nested or with `--session`, your configuration, and the log
 ([First run](#first-run) says where it goes).
 
+Run [`paw doctor`](docs/features.md#paw-doctor) in a terminal of the session first: it checks
+for what often goes wrong (the shell gone, the session bus, sound, screen sharing's portal, an
+outdated compositor, the configuration) and says how to fix each. If that does not help, add what
+`paw doctor --plain` prints to the report.
+
 ## References
 
 - [wlroots API](https://wlroots.pages.freedesktop.org/wlroots/)

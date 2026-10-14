@@ -1005,6 +1005,8 @@ void usage() {
            "paw msg get workspace|workspaces|tiling|windows|outputs|animations prints its state.\n"
            "paw import [--config PATH] [--dry-run] DIR writes theme.lua beside the\n"
            "configuration from the Hyprland, Waybar, wallbash, and pywal files in DIR.\n"
+           "paw doctor [--plain] [--no-color] checks the session for what often goes wrong\n"
+           "and says how to fix each; it changes nothing.\n"
            "paw fetch [--no-logo] [--no-color] shows a paw print in the profile's colours,\n"
            "and beside it the session's uptime, frames, windows and monitors.\n"
            "paw showcase [--delay SECONDS] [--keep] [--output NAME] [-o FILE] takes a\n"
@@ -1019,6 +1021,7 @@ struct Subcommand {
 const Subcommand subcommands[] = {
     {"msg", send_message},
     {"import", import_dotfiles},
+    {"doctor", paw::cli::doctor},
     {"fetch", paw::cli::fetch},
     {"showcase", paw::cli::showcase},
 };
