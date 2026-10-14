@@ -81,12 +81,27 @@ with harness.Compositor(compositor, "return { xwayland = false }") as desktop:
     msg("fullscreen")
     wait_for(lambda: not fullscreen() and shown(), "panels back after leaving fullscreen")
 
-    # Turning tiling on brings it into the tiling as a tile, out of fullscreen.
+    def tiled_apart():
+        return (all(w.tiled for w in windows()) and not fullscreen() and
+                harness.disjoint([w.box for w in windows()]))
+
+    # Turning tiling on brings it into the tiling as a tile, out of fullscreen, both in front
+    # and lowered behind another window, where it would be left fullscreen behind the tiles.
     msg("fullscreen")
     wait_for(lambda: fullscreen() == ["two"] and shown(), "fullscreen again")
     msg("toggle_tiling")
-    wait_for(lambda: all(w.tiled for w in windows()) and not fullscreen() and
-             harness.disjoint([w.box for w in windows()]), "both windows tiled, none fullscreen")
+    wait_for(tiled_apart, "both windows tiled, none fullscreen")
+    msg("toggle_tiling")
+    wait_for(lambda: not any(w.tiled for w in windows()), "both windows floating again")
+    msg("fullscreen")
+    wait_for(lambda: fullscreen() == ["two"], "fullscreen once more")
+    msg("cycle")
+    wait_for(lambda: focused() == "one" and front() == ("one", "normal") and
+             fullscreen() == ["two"], "the fullscreen window lowered behind the other")
+    msg("toggle_tiling")
+    wait_for(tiled_apart, "both windows tiled, the lowered one out of fullscreen")
+    msg("cycle")
+    wait_for(lambda: focused() == "two", "the former fullscreen tile focused")
 
     # A new tile would open under it, so with tiling it leaves fullscreen first.
     msg("fullscreen")
