@@ -579,6 +579,12 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
 wrong with it, and toys the compositor plays with the windows.
 
+- `paw xray` (and the `xray` action) takes the focused monitor apart into the layers paw draws,
+  bottom to top, each a live sheet fanned out from the next like a deck of cards seen from the
+  side: the pointer turns the stack, the wheel spreads it, the sheet under the pointer lifts, and
+  a click goes to the window there. `paw xray --list` prints every monitor's layers as text, top
+  first, which says why one thing is drawn over another.
+
 ### Fixes
 
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,

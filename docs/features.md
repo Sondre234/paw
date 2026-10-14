@@ -2888,9 +2888,23 @@ stack and those over it fade. The arrow keys and Tab go up and down the stack, R
 on a window goes to that window, and Escape, a click beside the stack or the action again closes
 the view. While open it takes the keyboard and the pointer, as the overview does, and changes
 nothing else; closed, nothing of it is left. It does not open while the session is locked, and
-closes as the session locks or its monitor goes. `paw msg get xray` says whether it is open and
-lists what every monitor draws, bottom to top: layer, colour, kind (colour, surface, window or
-x11), namespace or app id, title and place, and the sheet showing it.
+closes as the session locks or its monitor goes. `paw xray` sends the action from a terminal.
+
+`paw xray --list` prints what every monitor draws as text, layer by layer from the top down, with
+each surface's or window's kind, namespace or app id, title and place, which says why one thing is
+drawn over another (in a terminal, a square of each layer's colour leads its line):
+
+    HEADLESS-1, top first:
+      top         surface  paw-panel                     1600×52 at 0,848
+      above       window   firefox — Mozilla Firefox      800×600 at 104,104
+      windows     window   kitty — ~/dev                 320×240 at 72,72
+      background  surface  paw-desktop                   1600×900 at 0,0
+      background  colour   paw — #19212e                 1600×900 at 0,0
+
+`paw msg get xray` gives the same as tab-separated lines, bottom to top, after a line saying
+whether the view is open: output, layer, its colour, kind (colour, surface, window or x11), name,
+title, place, and while the view shows that monitor the sheet showing it and where that is
+drawn.
 
 ## Screen locking and idle
 
