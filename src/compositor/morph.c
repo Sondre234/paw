@@ -105,8 +105,10 @@ void toplevel_morph(struct sh_toplevel *toplevel, struct wlr_box from, enum sh_a
     sh_anim_morph(toplevel->server->animator, anim, toplevel->content, &morph);
 }
 
-/* The client commits: the morph hears what it drew, before the scene takes it in. */
+/* The client commits: the morph hears what it drew, before the scene takes it in, and a toy's
+ * stretch reads it afresh (toys.c). */
 void morph_commit(struct sh_toplevel *toplevel) {
+    sh_anim_pose_commit(&toplevel->anim, toplevel->surfaces);
     if (!toplevel->anim.morph)
         return;
     int width, height;

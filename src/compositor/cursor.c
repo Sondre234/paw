@@ -48,7 +48,8 @@ static struct wlr_scene_node *scene_node_at(struct sh_server *server, double lx,
         return server->hit.node;
     }
     bool animating = sh_animator_running(server->animator) > 0 ||
-                     sh_animator_lifted(server->animator) > 0;
+                     sh_animator_lifted(server->animator) > 0 ||
+                     sh_animator_posed(server->animator) > 0;
     if (animating)
         sh_animator_rest_at(server->animator, lx, ly);
     // A window on the screen only for a peek at it is not there to point at.
