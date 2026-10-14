@@ -757,8 +757,8 @@ as input and runs the binding `sh_callbacks.switch_toggled` returns. Under `--he
 
 ### Counting for paw wrapped
 
-`wrapped.c` keeps `sh_server.wrapped` while `wrapped.enabled` is on (NULL otherwise, which every
-hook checks first), and the hooks elsewhere are a call each: `wrapped_count` adds one to a counter
+`wrapped.c` keeps `sh_server.wrapped` while `wrapped.enabled` is on in a standalone session
+(`sh_server.session`; NULL otherwise, which every hook checks first), and the hooks elsewhere are a call each: `wrapped_count` adds one to a counter
 (`enum sh_wrapped_counter`, `include/paw/wrapped_day.h`), `wrapped_motion`, `wrapped_button` and
 `wrapped_axis` take the cursor's events, `wrapped_grab_done` (from `finish_grab`) tells a move or
 resize from a press let go in place, and nothing is allocated per event. Time is counted lazily, with
@@ -1498,7 +1498,8 @@ lock the screen before a suspend gives up (see `power_smoke.py`), and
   `XDG_CONFIG_HOME` and `XDG_CONFIG_DIRS` name (see `autostart_smoke.py`), and saving and
   restoring the last session in `XDG_STATE_HOME` (see `session_restore_smoke.py`); without it only
   `--session` does, so no test starts the developer's own autostart entries.
-  `PAW_TEST_WRAPPED_SAVE_MS` and `PAW_TEST_WRAPPED_IDLE_MS` shorten the time between paw wrapped's
+  `PAW_TEST_WRAPPED=1` has a headless compositor count for paw wrapped as a standalone session
+  does, `PAW_TEST_WRAPPED_SAVE_MS` and `PAW_TEST_WRAPPED_IDLE_MS` shorten the time between its
   saves and the time without input after which it counts idle time, and
   `PAW_TEST_WRAPPED_MIDNIGHT=SECONDS` has the day end that long after the compositor starts (see
   `wrapped_smoke.py`).

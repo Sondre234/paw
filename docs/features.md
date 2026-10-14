@@ -2828,7 +2828,7 @@ compositor it has drawn a profile's look with `paw msg profile_drawn NAME`. `paw
 tablet's tools are doing (see [Touchpad gestures](#touchpad-gestures),
 [Touchscreens](#touchscreens) and [Drawing tablets](#drawing-tablets)), and `get tearing` what
 each monitor's frames do (see [Tearing](#tearing)). `paw msg get wrapped` prints whether [paw
-wrapped](#paw-wrapped) counts, `enabled yes` or `enabled no`, and while it does the day it counts
+wrapped](#paw-wrapped) counts, `enabled yes`, or `enabled no` and why, and while it does the day it counts
 for (`day YYYY-MM-DD`), how many times this session saved and when it last did (`saves N`, `saved
 SECONDS` since 1970, 0 for never), what the time counts as now (`state active`, `idle` or `away`),
 the focused application and its streak so far in seconds (`focus APP SECONDS`, `-` for none), and
@@ -2889,8 +2889,9 @@ paw wrapped --plain   # lines instead of boxes, as without a terminal or with NO
 paw wrapped --json    # the totals, day by day too, for scripts
 ```
 
-While `wrapped.enabled` is on, which it is unless the configuration says otherwise, the
-compositor counts:
+A standalone session (`paw --session`, from a display manager or a TTY) counts, while
+`wrapped.enabled` is on, which it is unless the configuration says otherwise; a nested paw counts
+nothing, its input being the desktop's it runs in. It counts:
 
 - how far the pointer travelled, in layout pixels and in millimetres on the monitor (from the
   size its EDID gives, else at 96 dots an inch), clicks by button, and how far you scrolled;

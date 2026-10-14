@@ -1057,7 +1057,8 @@ const Option options[] = {
      "`paw wrapped`: a report of a year (or a day, a week, ...) at the desktop, in the manner "
      "of Spotify Wrapped, from what the compositor counts."},
     {"wrapped.enabled", "boolean", "true", "true", none, none,
-     "Count what happens at the desktop for `paw wrapped`: pointer travel, clicks, scrolling, "
+     "Count what happens at the desktop for `paw wrapped`, in a standalone session (a nested "
+     "one counts nothing): pointer travel, clicks, scrolling, "
      "how many keys are pressed (never which), touchpad gestures, windows opened, closed, "
      "moved, resized and snapped, workspace switches, the overview and the switcher opened, "
      "programs launched, the time each application has the focus and the longest the focus "
