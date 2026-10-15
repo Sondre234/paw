@@ -172,7 +172,8 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
     task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp
     app_match.hpp wallpapers.cpp wallpapers.hpp image_provider.hpp audio.cpp audio.hpp
-    system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp)
+    system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp
+    glass.cpp glass.hpp glass_blur.cpp glass_blur.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
 # The exploded view's preview lays out its stand-in sheets as the compositor does.
 target_sources(paw-shell PRIVATE ${PROJECT_SOURCE_DIR}/src/xray_layout.c)
