@@ -2,7 +2,7 @@
 """The scrolling layout's cube (layout.scroll.cube): as focus moves the view along the strip, its
 tiles are drawn on the sides of a square turning a quarter, the screen as it was turning away and
 the screen as it will be coming round, foreshortened, smaller further off and fainter turned
-away, while `get windows` and the pointer have them where they rest at once; then everything is
+away, while `get windows` and the pointer find them where they rest at once; then everything is
 drawn where it rests. A move under way moved again turns on from where it is drawn; switching
 workspaces ends the turn; columns moving without the view, windows opening and the setting off
 glide as any tile does."""
@@ -52,8 +52,9 @@ with harness.Compositor(compositor, config()) as desktop:
     msg("headless_pointer", "add", "mouse")
     msg("headless_pointer", "move", "mouse", "1279", "300")
     # Opening windows moves the view, but they open as windows do, each in a column of its own.
+    pids = {}
     for title in ("A", "B", "C"):
-        desktop.open_window(probe, title, focused=True)
+        pids[title] = str(desktop.open_window(probe, title, focused=True).pid)
         desktop.stays(lambda: not turning(), f"{title} opens without a turn")
     desktop.wait_for(lambda: window("A").x == -COLUMN + 2 and window("C").x == COLUMN + 2,
                      "B and C in view")
@@ -63,8 +64,11 @@ with harness.Compositor(compositor, config()) as desktop:
     desktop.stays(lambda: not turning(), "the view stays for B")
     msg("focus_left")
     desktop.wait_for(turning, "the turn starts")
-    # Where the windows rest, at once.
+    # Where the windows rest, at once, for `get windows` and the pointer.
     assert window("A").x == 2 and window("B").x == COLUMN + 2, desktop.windows()
+    for title, x in (("A", 300), ("B", 1000)):
+        found = msg("get", "pid_at", str(x), "360").strip()
+        assert found == pids[title], f"{title} at {x}: {found}, {pids}"
     turn, tiles = cube()
     assert turn[:2] == ("HEADLESS-1", 1) and turn[3] == 1000, turn
     assert set(tiles) == {"A", "B", "C"} and all(t[0] for t in tiles.values()), tiles

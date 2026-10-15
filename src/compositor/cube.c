@@ -99,7 +99,8 @@ static double progress(const struct sh_cube_turn *turn, int64_t now) {
 
 /* Each tile where the square, `e` of the way to rest, has it: the span its frame covers along the
  * strip drawn across the sides it lies on, its height scaled about the view's middle, fainter as
- * it turns away; one wholly on sides turned away is not drawn. */
+ * it turns away; one wholly on sides turned away is drawn faded out, past the view's edges. Its
+ * content is drawn meanwhile, as a gliding tile's is, so that lookups find it where it rests. */
 static void draw(struct sh_cube_turn *turn, double e) {
     struct sh_server *server = turn->server;
     struct sh_cube cube = sh_cube_at(&turn->from, e);
@@ -124,7 +125,7 @@ static void draw(struct sh_cube_turn *turn, double e) {
             .sy = span->scale,
             .ax = -border,
             .ay = turn->middle - tile->box.y,
-            .fade = span->fade,
+            .fade = span->shown ? span->fade : 1,
         };
         if (!sh_anim_pose(server->animator, &toplevel->anim, toplevel->content, &pose,
                           pose_stretched, tile)) {
@@ -132,7 +133,7 @@ static void draw(struct sh_cube_turn *turn, double e) {
             continue;
         }
         tile->posed = true;
-        wlr_scene_node_set_enabled(&toplevel->content->node, span->shown);
+        wlr_scene_node_set_enabled(&toplevel->content->node, true); // hidden at rest past an edge
         window_cut(toplevel); // the cut at its monitor's edges follows where it is drawn
     }
 }

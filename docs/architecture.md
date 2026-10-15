@@ -884,8 +884,9 @@ The tiles are posed as a toy poses windows (`sh_anim_pose`): moved and stretched
 `sh_cube_span` gives their frame, their height scaled about the view's middle, and faded with the
 pose's `fade`, which multiplies their nodes' opacity. `cube_tick`, from `output_frame` before the
 animator and from a timer of its own every 16 ms while the turn goes on, draws them again; a tile
-on sides turned away has its content disabled, and `window_cut` makes the cut at its monitor's
-edges (`scratchpad.c`, whose `crossing` maps the frame through `lift_box`) follow where it is
+on sides turned away is drawn faded out, past the view's edges, its content drawn meanwhile as a
+gliding tile's is (so that lookups, which put it at rest, find it), and `window_cut` makes the cut
+at its monitor's edges (`scratchpad.c`, whose `crossing` maps the frame through `lift_box`) follow where it is
 drawn. A tile is let go, back at rest, `bound_tile` hiding it again past its monitor's edge, when
 it no longer rests where it was placed, is taken over by another animation, grabbed, made
 fullscreen or leaves; the turn ends at its time, when no tile is left, when its monitor shows
