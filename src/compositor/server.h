@@ -440,6 +440,10 @@ struct sh_server {
     uint32_t grab_button;
     uint32_t bound_buttons; /* bit (code - BTN_MOUSE): pressed buttons a binding consumed */
     uint32_t held_buttons;  /* bit (code - BTN_MOUSE): the buttons down now, whoever heard them */
+    /* The wheel's turn toward a binding's next notch, in 120ths of one (negative up), and
+     * whether a binding took the last turn. */
+    double wheel_turn;
+    bool wheel_bound;
     /* Where a button binding last spawned a program: the next window to open before
      * `spawn_until` (now_ms) is centered there. */
     double spawn_x, spawn_y;

@@ -1174,6 +1174,19 @@ int main(int argc, char **argv) {
                     !buttons.binding(0, 0),
                 "modified button binding missing, or a button matched as a key");
         rejects("return {bindings={{button='wheel', action='close'}}}");
+        // The wheel binds as two buttons, and "none" hands it back to the window.
+        auto wheel = paw::parse_config(
+            "return {bindings={"
+            "{mods={'Super'}, button='wheel_up', app_id='^kitty$', action='none'},"
+            "{mods={'Super'}, button='wheel_up', action='workspace_next'},"
+            "{mods={'Alt'}, button='wheel_down', action='zoom_out'}}}");
+        require(!wheel.button_binding(SH_LOGO, SH_WHEEL_UP, SH_POINTER_WINDOW, "kitty") &&
+                    wheel.button_binding(SH_LOGO, SH_WHEEL_UP, SH_POINTER_WINDOW, "foot")->action ==
+                        SH_WORKSPACE_NEXT &&
+                    wheel.button_binding(SH_ALT, SH_WHEEL_DOWN, SH_POINTER_OTHER, "")->action ==
+                        SH_ZOOM_OUT &&
+                    !wheel.button_binding(SH_ALT, SH_WHEEL_UP, SH_POINTER_OTHER, ""),
+                "wheel bindings misbehaved");
         rejects("return {bindings={{button='side', key='a', action='close'}}}");
         rejects("return {bindings={{key='a', app_id='x', action='close'}}}");
         rejects("return {bindings={{key='a', desktop=true, action='close'}}}");

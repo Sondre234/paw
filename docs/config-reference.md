@@ -240,7 +240,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `zoom.step` | number | 1.25 | 1.05 to 4 | Factor of one `zoom_in` or `zoom_out` step. |
 | `zoom.max` | number | 8 | 1.5 to 32 | Largest magnification. |
 | `zoom.duration` | integer | 150 | 0 to 2000 | Milliseconds a zoom change takes; 0, or `animations.enabled = false`, switches at once. |
-| `zoom.scroll_modifier` | string | "" | - | Holding this modifier turns the scroll wheel into zoom steps (up zooms in); "" leaves the wheel alone. One of Alt, Super, Ctrl, Shift. |
+| `zoom.scroll_modifier` | string | "" | - | Holding this modifier turns the scroll wheel into zoom steps (up zooms in), before any binding of the wheel with it; "" leaves the wheel alone. One of Alt, Super, Ctrl, Shift. |
 
 ## `animations`
 
@@ -308,7 +308,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `bindings` | list of tables | unset | - | Shortcuts, at most 512, checked in order. A binding has a `key` or a `button`, an `action`, and optionally `mods`. Keyboard bindings must not repeat a key and modifier combination. |
 | `bindings[].mods` | list of strings | {} | - | Up to four of `Alt`, `Super`, `Ctrl`, `Shift`, without repeats. |
 | `bindings[].key` | string | - | - | An XKB keysym name, e.g. `"q"`, `"Left"`, `"Print"`, `"minus"`. Not with `button` or `switch`. |
-| `bindings[].button` | enum | - | - | A mouse button: `left`, `right`, `middle`, `side`, `extra`, `forward`, `back`. Not with `key`. |
+| `bindings[].button` | enum | - | - | A mouse button: `left`, `right`, `middle`, `side`, `extra`, `forward`, `back`; or `wheel_up`, `wheel_down`, the wheel turning that way, the binding running once a notch (touchpads and high-resolution wheels adding up to notches), and the window not getting it. Not with `key`. |
 | `bindings[].switch` | enum | - | - | A switch: `"lid"`, a laptop's lid, or `"tablet"`, a convertible's tablet mode, which acts as `state` says it changes, as Hyprland's `bindl = , switch:...` does. Not with `key`, `button` or `mods`. It runs even while the session is locked. |
 | `bindings[].state` | enum | - | - | With `switch` only, and needed there: `"close"` or `"open"` for the lid, `"on"` or `"off"` for tablet mode. |
 | `bindings[].app_id` | regex | any | - | Only with `button`: act only over windows whose app ID matches. |

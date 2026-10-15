@@ -332,11 +332,14 @@ uint32_t modifier(const std::string &name) {
     unknown("modifier", name, config_modifier_names(), "=" + name);
 }
 // Linux's names; most mice send side and extra from their back and forward thumb buttons
-// (Hyprland's mouse:275 and mouse:276).
+// (Hyprland's mouse:275 and mouse:276). The wheel's notches up and down count as buttons too
+// (Hyprland's mouse_up and mouse_down).
 uint32_t mouse_button(const std::string &name) {
     for (auto [candidate, code] :
-         {std::pair{"left", BTN_LEFT}, {"right", BTN_RIGHT}, {"middle", BTN_MIDDLE},
-          {"side", BTN_SIDE}, {"extra", BTN_EXTRA}, {"forward", BTN_FORWARD}, {"back", BTN_BACK}})
+         {std::pair<const char *, uint32_t>{"left", BTN_LEFT}, {"right", BTN_RIGHT},
+          {"middle", BTN_MIDDLE}, {"side", BTN_SIDE}, {"extra", BTN_EXTRA},
+          {"forward", BTN_FORWARD}, {"back", BTN_BACK}, {"wheel_up", SH_WHEEL_UP},
+          {"wheel_down", SH_WHEEL_DOWN}})
         if (name == candidate)
             return code;
     unknown("button", name, config_button_names(), "=" + name);

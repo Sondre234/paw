@@ -2237,6 +2237,21 @@ The first window to open within five seconds of a button binding's `spawn` or `t
 the click, kept inside the area the panels leave free, unless a window rule gives its
 `position` (`tests/spawn_at_pointer_smoke.py`). A tile still goes where the layout puts it.
 
+The wheel binds the same way, as Hyprland's `mouse_up` and `mouse_down`: `button = "wheel_up"`
+or `"wheel_down"` runs the action once for each notch the wheel turns that way, and the
+application under the pointer does not get the turn. A touchpad's scrolling and a
+high-resolution wheel add up to notches (15 units of a touchpad's scrolling make one), and
+`natural_scroll` turns the way around as it does for applications. A window action acts on the
+window under the pointer; any other on the monitor under it, focusing nothing, so that Super +
+the wheel can page through the workspaces of whichever monitor it is on. `action = "none"`
+hands the wheel back to applications, and `zoom.scroll_modifier` takes the wheel before any
+binding of it.
+
+```lua
+{ mods = { "Super" }, button = "wheel_up", action = "workspace_next" },
+{ mods = { "Super" }, button = "wheel_down", action = "workspace_prev" },
+```
+
 ### Touchpad gestures
 
 Three fingers swiped sideways on a touchpad move to the next or previous workspace of the monitor
