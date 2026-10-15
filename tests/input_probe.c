@@ -15,11 +15,13 @@
  *   tool wheel DEGREES CLICKS | tool button CODE pressed|released | tool frame
  *   pad enter | pad leave | pad button N pressed|released
  * (pressure, distance and the slider in 65535ths). Usage: input_probe [--no-gestures]
- * [--no-touch] [--no-tablet] [--layer] [--overlay] [--keys] [--inhibit] [--commands]
- * [--text-input [--no-enable]] [TITLE]:
+ * [--no-touch] [--no-tablet] [--layer] [--overlay] [--background] [--keys] [--inhibit]
+ * [--commands] [--text-input [--no-enable]] [TITLE]:
  * without the gestures, touch or tablets it never binds them, as most applications; with --layer
  * it is a panel along the bottom of the output, 60 pixels high, rather than a window, and with
- * --overlay such a panel on the overlay layer, as the shell's overlays are. --keys prints the
+ * --overlay such a panel on the overlay layer, as the shell's overlays are. With --background it
+ * is a wallpaper on the background layer, filling the output: its left half blue and its right
+ * half orange, which the command "swap" swaps (with --commands). --keys prints the
  * keyboard's events too:
  *   keyboard enter | keyboard leave | key CODE pressed|released (an evdev code)
  * --inhibit asks for the compositor's shortcuts as it is ready
@@ -94,6 +96,7 @@ struct probe {
     bool enable_on_enter;
     char surrounding[256];
     int cursor[4];
+    bool wallpaper, swapped; // --background, and its halves swapped
 };
 
 static void die(const char *message) {
@@ -552,6 +555,12 @@ static struct wl_buffer *make_buffer(struct probe *probe) {
         die("cannot map a buffer");
     for (size_t i = 0; i < size / 4; ++i)
         pixels[i] = probe->text ? 0xfff4f1e8 : 0xff6a8f3c;
+    if (probe->wallpaper) {
+        for (int y = 0; y < probe->height; ++y)
+            for (int x = 0; x < probe->width; ++x)
+                pixels[(size_t)y * probe->width + x] =
+                    (x < probe->width / 2) != probe->swapped ? 0xff2050a0 : 0xffe0a040;
+    }
     munmap(pixels, size);
     struct wl_shm_pool *pool = wl_shm_create_pool(probe->shm, fd, (int32_t)size);
     struct wl_buffer *buffer = wl_shm_pool_create_buffer(pool, 0, probe->width, probe->height,
@@ -611,7 +620,13 @@ static const struct zwlr_layer_surface_v1_listener layer_listener = {.configure 
                                                                      .closed = layer_closed};
 
 static void run_command(struct probe *probe, char *command) {
-    if (!strcmp(command, "inhibit") || !strcmp(command, "release")) {
+    if (probe->wallpaper && !strcmp(command, "swap")) {
+        probe->swapped = !probe->swapped;
+        wl_surface_attach(probe->surface, make_buffer(probe), 0, 0);
+        wl_surface_damage_buffer(probe->surface, 0, 0, probe->width, probe->height);
+        wl_surface_commit(probe->surface);
+        say("swapped");
+    } else if (!strcmp(command, "inhibit") || !strcmp(command, "release")) {
         inhibit(probe, !strcmp(command, "inhibit"));
     } else if (probe->text && (!strcmp(command, "enable") || !strcmp(command, "disable"))) {
         enable(probe, command[0] == 'e');
@@ -652,6 +667,9 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--overlay")) {
             layer = true;
             level = ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY;
+        } else if (!strcmp(argv[i], "--background")) {
+            layer = probe.wallpaper = true;
+            level = ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND;
         }
         else if (!strcmp(argv[i], "--keys"))
             probe.want_keys = true;
@@ -704,7 +722,14 @@ int main(int argc, char **argv) {
         probe.layer = zwlr_layer_shell_v1_get_layer_surface(
             probe.layer_shell, probe.surface, NULL, level, title);
         zwlr_layer_surface_v1_add_listener(probe.layer, &layer_listener, &probe);
-        if (probe.text) { // a search field
+        if (probe.wallpaper) { // filling the output, under everything
+            zwlr_layer_surface_v1_set_size(probe.layer, 0, 0);
+            zwlr_layer_surface_v1_set_anchor(probe.layer, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
+                                                              ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
+                                                              ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
+                                                              ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
+            zwlr_layer_surface_v1_set_exclusive_zone(probe.layer, -1);
+        } else if (probe.text) { // a search field
             zwlr_layer_surface_v1_set_size(probe.layer, 400, 60);
             zwlr_layer_surface_v1_set_anchor(probe.layer, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP);
             zwlr_layer_surface_v1_set_keyboard_interactivity(probe.layer, 1);
