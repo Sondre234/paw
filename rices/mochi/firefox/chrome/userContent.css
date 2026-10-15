@@ -57,7 +57,7 @@
     --mochi-glow: 0 0 0 3px rgb(203 166 247 / 0.28);
     --mochi-shadow: 0 12px 34px rgb(17 17 27 / 0.45);
     --mochi-radius: 16px;
-    --mochi-font: "Nunito", "Inter", system-ui, sans-serif;
+    --mochi-font: "Nunito", "Rounded Mplus 1c", "M PLUS Rounded 1c", "Inter", system-ui, sans-serif;
     --mochi-mono: "Maple Mono", "JetBrains Mono", ui-monospace, monospace;
     /* a night over Mocha: mauve, blue and pink light, and a few stars */
     --mochi-night: radial-gradient(60% 50% at 14% 8%, rgb(203 166 247 / 0.17), transparent 70%),
