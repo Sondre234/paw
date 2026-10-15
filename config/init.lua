@@ -497,6 +497,10 @@ return {
         { mods = { mod, "Shift" }, key = "4", action = "move_to_workspace", workspace = 4 },
         { mods = { "Ctrl", mod }, key = "Right", action = "workspace_next" },
         { mods = { "Ctrl", mod }, key = "Left", action = "workspace_prev" },
+        -- Take the focused window along to the next or previous workspace (or with
+        -- move_to_workspace_empty to the first one with no windows); the view goes with it.
+        { mods = { "Ctrl", "Alt", mod }, key = "Right", action = "move_to_workspace_next" },
+        { mods = { "Ctrl", "Alt", mod }, key = "Left", action = "move_to_workspace_prev" },
         { mods = { mod }, key = "Tab", action = "workspace_back" }, -- the previous workspace
         -- Send the focused monitor's workspace, windows and layout to the monitor on the left or
         -- right (which then shows it); swap_workspaces trades all workspaces of two monitors.
