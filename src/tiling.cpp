@@ -236,6 +236,13 @@ struct sh_tiling {
         return static_cast<int>(std::clamp<long>(std::lround(column.width * avail), 1, 1L << 24));
     }
 
+    /* Whether x, y was over the first column in the last arrangement, or in the area left of
+     * it. */
+    static bool over_first_column(const Scroll &state, double x, double y) {
+        return !state.columns.empty() && contains(state.area, x, y) &&
+               x < state.area.x - state.offset + column_pixels(state, state.columns[0]);
+    }
+
     /* Columns side by side from the strip's origin, the view showing [offset, offset + view).
      * Each column's box is `width` of the area less one gap, so two halves fill it with the
      * same gaps dwindle leaves. */
@@ -397,11 +404,13 @@ void sh_tiling_insert(sh_tiling *tiling, const char *output, int workspace, void
         return;
     Key key{output, workspace};
     const void *anchor = target;
+    const bool point = has_point; // the scroll layout's columns read it, its tree does not
     if (tiling->mode(key).layout != SH_LAYOUT_DWINDLE) { // the other layouts append
         target = nullptr;
         has_point = false;
     }
-    // In the scroll layout the window gets a column right of the focused one.
+    // In the scroll layout the window gets a column right of the focused one, or the first
+    // column with the point over the first column (or left of it), which nothing else reaches.
     auto open_column = [&] {
         if (tiling->mode(key).layout != SH_LAYOUT_SCROLL)
             return;
@@ -418,8 +427,11 @@ void sh_tiling_insert(sh_tiling *tiling, const char *output, int workspace, void
         long from = column_of(window), after = anchor ? column_of(anchor) : -1;
         if (after < 0)
             after = column_of(state->focus);
-        if (from > 0 && after >= 0 && after + 1 < from)
-            std::rotate(state->columns.begin() + after + 1, state->columns.begin() + from,
+        long to = after >= 0 ? after + 1 : from;
+        if (point && sh_tiling::over_first_column(*state, x, y))
+            to = 0;
+        if (from > 0 && to < from)
+            std::rotate(state->columns.begin() + to, state->columns.begin() + from,
                         state->columns.begin() + from + 1);
         state->reveal = window;
     };

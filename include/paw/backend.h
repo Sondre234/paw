@@ -777,7 +777,9 @@ struct sh_tiling *sh_tiling_create(void);
 void sh_tiling_destroy(struct sh_tiling *tiling);
 /* Splits `target` if it is tiled, else the window last arranged under the point (with
  * has_point), else the newest window of that tree. With a point inside the split window, the new
- * window takes the half nearer the point; otherwise the right or bottom half. */
+ * window takes the half nearer the point; otherwise the right or bottom half. The scroll layout
+ * opens a column right of `target`'s (else the focused one's), or first with the point over the
+ * first column as last arranged, or left of it. */
 void sh_tiling_insert(struct sh_tiling *tiling, const char *output, int workspace, void *window,
                       const void *target, bool has_point, double x, double y);
 void sh_tiling_remove(struct sh_tiling *tiling, const void *window);
@@ -846,7 +848,7 @@ enum sh_tile_layout {
 /* SCROLL lays the windows in columns on an endless strip, in the style of niri and PaperWM:
  * a column has a width (a share of the area) and stacks its windows evenly, and the area is
  * a viewport onto the strip that follows the focused window. New windows open in a column
- * to the right of the focused one. */
+ * to the right of the focused one, or first with the point over the first column. */
 /* What an unfocused client that asks for attention gets: URGENT marks the window (border,
  * taskbar, workspace indicator) and leaves focus alone; FOCUS focuses it, switching workspace
  * if need be; IGNORE drops the request. */
