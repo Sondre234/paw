@@ -8,7 +8,9 @@
 #
 #   install.sh [options] [parts...]
 #
-# Parts (all of them when none is named): kitty fastfetch firefox discord claude editors gtk.
+# Parts (all of them when none is named): kitty fastfetch firefox discord claude editors gtk
+# wallpapers (mochi's seven, where paw's wallpaper picker looks: Pictures/wallpapers/mochi, or
+# Pictures/mochi when there is no wallpapers folder).
 # Options:
 #   --fonts      also download Nunito, M PLUS Rounded 1c, Maple Mono and the Nerd Font symbols
 #                (OFL/MIT) into ~/.local/share/fonts/paw-mochi
@@ -38,13 +40,13 @@ while [ $# -gt 0 ]; do
         --cursor) cursor=1 ;;
         --no-reload) reload=0 ;;
         --dry-run) dry=1 ;;
-        -h|--help) sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        kitty|fastfetch|firefox|discord|claude|editors|gtk) parts+=("$1") ;;
+        -h|--help) sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        kitty|fastfetch|firefox|discord|claude|editors|gtk|wallpapers) parts+=("$1") ;;
         *) echo "install.sh: unknown option or part: $1 (see --help)" >&2; exit 2 ;;
     esac
     shift
 done
-[ ${#parts[@]} -gt 0 ] || parts=(kitty fastfetch firefox discord claude editors gtk)
+[ ${#parts[@]} -gt 0 ] || parts=(kitty fastfetch firefox discord claude editors gtk wallpapers)
 
 say() { printf '  %s\n' "$*"; }
 title() { printf '\033[1m%s\033[0m\n' "$*"; }
@@ -251,6 +253,20 @@ part_gtk() {
     title "GTK 4 and libadwaita"
     block "$config/gtk-4.0/gtk.css" "/*" "$(cat "$here/gtk/gtk.css")" " */"
     say "libadwaita applications take it when they next start, while the system prefers dark"
+}
+
+# The wallpapers beside the others in the folder paw's wallpaper picker shows when
+# shell.wallpapers is unset (Pictures/wallpapers, else Pictures itself, searched with its
+# subfolders), in a mochi folder of their own; creating a wallpapers folder would move the
+# picker away from the pictures it shows now.
+part_wallpapers() {
+    title "Wallpapers"
+    local pictures
+    pictures=$(xdg-user-dir PICTURES 2>/dev/null || true)
+    [ -n "$pictures" ] && [ "$pictures" != "$HOME" ] || pictures=$HOME/Pictures
+    [ -d "$pictures/wallpapers" ] && pictures=$pictures/wallpapers
+    place_tree "$here/wallpaper" "$pictures/mochi"
+    say "the wallpaper picker lists them under mochi (unless shell.wallpapers names another folder)"
 }
 
 part_fonts() {

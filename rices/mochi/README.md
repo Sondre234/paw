@@ -52,14 +52,16 @@ to prefer dark (`appearance.color_scheme`), which GTK, Firefox and Discord follo
 
 ```sh
 rices/mochi/install.sh --dry-run       # what it would change
-rices/mochi/install.sh                 # kitty, fastfetch, Firefox, Discord, Claude Code, editors, GTK
+rices/mochi/install.sh                 # kitty, fastfetch, Firefox, Discord, Claude Code, editors, GTK, wallpapers
 rices/mochi/install.sh kitty firefox   # only some of them
 rices/mochi/install.sh --fonts --icons --cursor
 ```
 
 It keeps a copy of every file it replaces (`FILE.mochi-backup`, the first time), puts the lines
 it adds to your own files between `paw mochi` markers, and changes nothing new when run again.
-It leaves paw's configuration and Discord itself alone. What the options download, each pinned
+It leaves paw's configuration and Discord itself alone. The wallpapers go where paw's wallpaper
+picker looks, in a `mochi` folder of their own: `Pictures/wallpapers/mochi`, or `Pictures/mochi`
+when there is no `wallpapers` folder. What the options download, each pinned
 to a release or a commit:
 
 - `--fonts`: Nunito (the rounded sans of the bar, Firefox and Discord, as single weights from
