@@ -1661,9 +1661,24 @@ layout = {
         fill_lone = true,                   -- a column alone on its workspace fills the screen
         step = 0.1,                         -- column_widen / column_narrow
         presets = { 1/3, 1/2, 2/3, 1 },     -- column_cycle_width; up to 8 widths
+        cube = false,                       -- the view turns as a cube as it moves
     },
 },
 ```
+
+With `cube = true` the view turns like a cube as it moves along the strip, rather than gliding
+the columns over: the screen as it was lies on one side of a square that turns a quarter, away
+toward the side the view leaves, while the screen as it will be comes round on the next side, the
+corner between them nearest you half way. A column lying on a side turned partly away is drawn
+narrower, a little shorter the further off it is and fainter, and a column across the corner is
+drawn straight across it. The turn takes `animations.cube`'s `duration` (two and a half times
+`animations.duration`, 300 ms by default) and `curve` (`"ease-out"`); a `duration` of 0, or
+`animations.enabled = false`, glides the columns again. Moving the view again during a turn turns
+on from where it is drawn, the same way a quarter further, or back the other way. Only a move of
+the view in which every column keeps its size turns it: a window opening, a column changing width,
+windows stacking, and columns traded while the view stays glide as before. As with any animation,
+`paw msg get windows`, clicks and hovering have the windows where they rest at once, and the
+turn ends as the workspace changes, the overview opens or the screen locks.
 
 With `mouse.focus_follows` on, columns that scroll under a still pointer can take focus on
 its next move; keyboard-driven scrolling takes the pointer along, but if the mouse causes
@@ -1717,7 +1732,8 @@ follows the changes with it.
 
 Animations are interruptible: a tile that is gliding when the layout changes again continues
 from where it is drawn, at the speed it has, and never snaps. Each kind (`open`, `close`,
-`move`, `workspace`, `fullscreen`, `focus`, `minimize`) can have its own `duration` (0 turns just
+`move`, `workspace`, `fullscreen`, `focus`, `minimize`, and `cube`, the
+[scrolling layout's](#scrolling-layout) view turning) can have its own `duration` (0 turns just
 that kind off) and easing `curve`: `"linear"`, `"ease-in"`, `"ease-out"`, `"ease-in-out"`,
 `"ease-out-quint"`, `"overshoot"`, `"spring"`, or `"bezier(x1, y1, x2, y2)"`. Moves use the
 spring by default. `speed` scales every animation (2 is twice as fast), and a frame later
@@ -3158,6 +3174,15 @@ workspace; a `window` line for each window in it, with its number, its title, wh
 draws it yet, the offset it is drawn at (x and y), how it is stretched (across and down, in
 thousandths) and its border's colour (`#rrggbb`, or `-` for its own); and a `confetti` line with
 how many pieces show. `tests/toys_smoke.py` tests them.
+
+`paw msg get cube` prints a `cube` line, with the monitor and workspace whose view turns as a
+cube in the [scrolling layout](#scrolling-layout) (or `-` and 0 when none does), how long the turn
+has gone on and how long it lasts in milliseconds, and how far the square is turned (thousandths
+of a radian, 0 at rest, positive turning back to the left) and where its sides begin along the
+strip; and a `tile` line for each window turning, with its number, its title, whether it is drawn
+turned and shown, where it is drawn along the view and how wide (from the view's left edge), and
+the scale of its height and how much fainter it is (thousandths). `tests/scroll_cube_smoke.py`
+tests them.
 ### paw rice
 
 A rice is a look to share: an appearance profile's settings and its pictures, in one file.
