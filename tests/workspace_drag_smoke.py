@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """A window moved with the pointer comes along as its monitor switches workspace, still moved: from
-workspace_next and from Super + the wheel. A tile's place in the tiling it leaves closes and it
-tiles on the new workspace as it is dropped; a window floating on purpose floats there. Driven by
-a virtual pointer and keyboard (pointer_probe), Alt + drag."""
+workspace_next, from Super + the wheel and from a touchpad swipe. A tile's place in the tiling it
+leaves closes and it tiles on the new workspace as it is dropped; a window floating on purpose
+floats there. Driven by a virtual pointer and keyboard (pointer_probe), Alt + drag, and a
+headless touchpad for the swipe."""
 from pathlib import Path
 import sys
 
@@ -100,4 +101,25 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     assert windows()["A"][4:] == (False, 3, True), windows()
     assert windows()["C"][:4] == WHOLE, windows()
 
+    # A touchpad's swipe to the previous workspace takes it along too.
+    msg("headless_pointer", "add", "touchpad")
+    press("A")
+    clock = [10000]
+
+    def swipe(step, *words, after=10):
+        clock[0] += after
+        msg("headless_pointer", "swipe", "touchpad", step, *words, str(clock[0]))
+
+    swipe("begin", "3")
+    swipe("update", "120", "0")
+    # The slide holds no window of workspace 3 (A stays under the pointer) and brings C in.
+    held = desktop.rows("gesture")[1]
+    assert held[2:4] == ["3", "2"] and held[5:7] == ["0", "1"], held
+    swipe("update", "300", "0", after=200)
+    swipe("end", after=200)
+    desktop.wait_for(lambda: workspace() == 2 and windows()["A"][5:] == (2, True),
+                     "the swipe took A to workspace 2")
+    assert moving(), desktop.detail()
+    release()
+    assert windows()["A"][4:] == (False, 2, True), windows()
 print("A window moved with the pointer comes along to the workspace shown")

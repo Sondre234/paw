@@ -467,11 +467,11 @@ only as a place opens. `tile_drop_release` makes the move at once as the window 
 takes it out of a tiling the drop does not put it in, before `finish_grab` tiles it
 (`tile_toplevel_at` finds it in the tree already) or snaps it; `tile_drop_end`, from
 `reset_cursor_mode`, takes a window still holding a place out of its tiling. A switch of the
-workspace of the moved window's output by `switch_workspace` does not end the move: `carry_grabbed`
-(`workspace.c`) closes the window's place with `tile_drop_end`, gives it the new workspace, and once
-that shows `carry_on` follows the pointer again, so that it looks for a place in the tiling there.
-`slides` leaves the moved window out of the workspace slide, which would move it from under the
-pointer.
+workspace of the moved window's output, by `switch_workspace` or a swipe's `workspace_swipe_end`,
+does not end the move: `carry_grabbed` (`workspace.c`) closes the window's place with
+`tile_drop_end`, gives it the new workspace, and once that shows `carry_on` follows the pointer
+again, so that it looks for a place in the tiling there. `slides` leaves the moved window out of the
+workspace slide and a swipe's hold, which would move it from under the pointer.
 
 ### Changing size
 

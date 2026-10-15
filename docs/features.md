@@ -1357,8 +1357,8 @@ monitor do the same for that monitor, up to the next workspace and down to the p
 [Mouse button bindings](#mouse-button-bindings)).
 
 A window being moved with the pointer comes along when its monitor switches workspace, as on
-Hyprland: Super and the wheel, a key or a click on the panel's workspaces show the other
-workspace with the window still under the pointer and still moved, and dropped
+Hyprland: Super and the wheel, a key, a click on the panel's workspaces or a touchpad's swipe
+show the other workspace with the window still under the pointer and still moved, and dropped
 it stays there. A tile's place in the tiling it left closes, and it tiles on the new workspace
 as it would on another monitor; a window floating on purpose floats there. A change of size with
 the pointer ends instead.

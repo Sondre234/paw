@@ -303,8 +303,7 @@ static bool springing(struct sh_server *server, struct wlr_output *output, int64
  * from the last swipe's rubber band are taken over where they are drawn. */
 void workspace_swipe_begin(struct sh_server *server, struct sh_workspace_swipe *swipe,
                            struct wlr_output *output) {
-    if (server->grabbed_toplevel)
-        reset_cursor_mode(server);
+    end_grab_on(server, output);
     int from = *output_workspace(server, output->name);
     double pull = 0;
     swipe->catching = swipe->sprung && from == swipe->from &&
@@ -441,6 +440,7 @@ void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *sw
             sh_anim_slide_away(server->animator, away, (int)(-sign * slide), 0, 0, 1 - t);
     }
     drop_swipe_copies(swipe);
+    bool carried = carry_grabbed(server, output, target);
     struct sh_toplevel *focused = server->focused_toplevel;
     bool refocus = !focused || find_output(server, focused->output) == output;
     if (refocus)
@@ -456,6 +456,8 @@ void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *sw
         focus_top_on(server, output);
         set_active_output(server, output->name);
     }
+    if (carried)
+        carry_on(server);
     swipe->shown = 0;
 }
 
