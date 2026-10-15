@@ -242,11 +242,12 @@ QtObject {
     readonly property int spotlightIconSize: 28
     readonly property int spotlightHeadingHeight: 26
     // Control Center, Quick Settings in the macOS style: its width and surface, and its modules,
-    // cards lighter than the surface under them, with their corners, the room inside them, a
-    // heading's height, a tile's height and its round button.
+    // cards lighter than the surface under them (on the glass a light veil over it), with their
+    // corners, the room inside them, a heading's height, a tile's height and its round button.
     readonly property int controlCenterWidth: 344
     readonly property color controlCenterSurface: macos && light ? mix(popupSurface, text, 0.05) : popupSurface
-    readonly property color moduleColor: light ? Qt.rgba(1, 1, 1, 0.92) : mix(popupSurface, Qt.rgba(1, 1, 1, 1), 0.07)
+    readonly property color moduleColor: glass ? Qt.rgba(1, 1, 1, light ? 0.45 : 0.07)
+                                       : light ? Qt.rgba(1, 1, 1, 0.92) : mix(popupSurface, Qt.rgba(1, 1, 1, 1), 0.07)
     readonly property color moduleOutline: alpha(text, light ? 0.07 : 0.06)
     readonly property int moduleRadius: 12
     readonly property int modulePadding: 10

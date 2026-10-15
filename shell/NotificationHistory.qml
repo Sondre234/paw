@@ -76,12 +76,11 @@ PopupCard {
         }
     }
     // The macOS style's heading card, which takes the presses beside its buttons.
-    Rectangle {
+    GlassFill {
         visible: Theme.macos
         y: layout.y + heading.y - history.inset
         width: parent.width; height: heading.height + 2 * history.inset
         radius: Theme.radiusLarge
-        color: Theme.popupSurface
         border.color: Theme.popupOutline
         MouseArea { anchors.fill: parent }
     }
@@ -132,11 +131,10 @@ PopupCard {
             visible: history.center.history.count === 0
             Layout.fillWidth: true; Layout.fillHeight: true
             implicitHeight: emptyState.implicitHeight + 2 * Theme.spacingS
-            Rectangle {
+            GlassFill {
                 visible: Theme.macos
                 anchors.fill: parent
                 radius: Theme.radiusLarge
-                color: Theme.popupSurface
                 border.color: Theme.popupOutline
                 MouseArea { anchors.fill: parent }
             }
@@ -185,11 +183,10 @@ PopupCard {
                     Item {
                         visible: !Theme.macos || group.notifications.length > 1
                         width: parent.width; height: Theme.headingHeight
-                        Rectangle {
+                        GlassFill {
                             visible: Theme.macos
                             anchors.fill: parent
                             radius: height / 2
-                            color: Theme.popupSurface
                             border.color: Theme.popupOutline
                             MouseArea { anchors.fill: parent }
                         }
@@ -225,7 +222,8 @@ PopupCard {
                     }
                     Repeater {
                         model: group.open ? group.notifications : group.notifications.slice(0, history.collapsedCount)
-                        delegate: Rectangle {
+                        // A card of its own in the macOS style, a block on the card in the taskbar's.
+                        delegate: GlassFill {
                             id: row
                             objectName: "notificationRow"
                             required property var modelData
@@ -233,8 +231,9 @@ PopupCard {
                             width: group.width
                             height: rowContent.implicitHeight + 2 * Theme.spacingM
                             radius: Theme.macos ? Theme.radiusLarge : Theme.radiusMedium
-                            color: Theme.macos ? (rowHover.hovered ? Theme.mix(Theme.popupSurface, Theme.text, 0.04) : Theme.popupSurface)
-                                 : rowHover.hovered ? Theme.surfaceRaisedHover : Theme.surfaceRaised
+                            glass: Theme.macos
+                            fill: Theme.macos ? (rowHover.hovered ? Theme.mix(Theme.popupSurface, Theme.text, 0.04) : Theme.popupSurface)
+                                : rowHover.hovered ? Theme.surfaceRaisedHover : Theme.surfaceRaised
                             border.color: n.urgency === 2 ? Theme.danger : Theme.macos ? Theme.popupOutline : "transparent"
                             HoverHandler { id: rowHover }
                             // Under its buttons, which take their own clicks.
