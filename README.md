@@ -18,9 +18,9 @@ you save it.
 [Running](#running) · [Configuration](#configuration) · [Features](docs/features.md) ·
 [Contributing](CONTRIBUTING.md)
 
-![paw in washi, the rice it ships with](rices/washi/screenshots/washi.jpg)
+![paw in washi, one of the rices it ships with](rices/washi/screenshots/washi.jpg)
 
-<sub><a href="rices/washi">washi</a>, the rice that ships with paw: paper a cat walked across,
+<sub><a href="rices/washi">washi</a>, one of the rices that ship with paw: paper a cat walked across,
 by day and by night.</sub>
 
 </div>
@@ -71,9 +71,11 @@ by day and by night.</sub>
   fingers at once, and drawing tablets give applications pressure and tilt.
 - **Lua configuration** that is validated with file and line, reloads on save, can extend
   the defaults instead of copying them, and switches between appearance profiles.
-- **A rice to start from:** [washi and sumi](rices/washi), paper and ink by day and by night,
-  with the bar and menus framed as the windows are and printed shadows, and themes for kitty,
-  fastfetch, Firefox, Discord, Claude Code, Neovim and Helix that one script puts in place.
+- **Rices to start from:** [washi and sumi](rices/washi), paper and ink by day and by night,
+  with the bar and menus framed as the windows are and printed shadows, and
+  [mochi](rices/mochi), Catppuccin Mocha under frosted glass with a soft cream cat; each with
+  themes for kitty, fastfetch, Firefox, Discord, Claude Code, Neovim and Helix that one script
+  puts in place.
   `paw import` carries over an existing Hyprland/Waybar setup, and
   [`paw rice`](docs/features.md#paw-rice) packs a look into one file to share and tries one on
   for 15 seconds before you keep it.
