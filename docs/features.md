@@ -510,8 +510,8 @@ Everything takes the panel's `accent`, `panel_color`, `text_color`, `font` and `
 hovering, pressing and what is open or on are shown by laying the text color over the panel at a
 low opacity, which shows on a light panel as on a dark one. Popups (the start menu, menus, the
 mixer, the flyouts and the rest) are drawn in the panel color made opaque, even when the bar is
-translucent: nothing is blurred behind them, and a window showing through would make them hard to
-read. They open in a surface of their own over the whole monitor, above fullscreen windows too, so
+translucent, unless they are frosted glass (below): a window showing through would make them hard
+to read. They open in a surface of their own over the whole monitor, above fullscreen windows too, so
 the start menu Super + R opens shows over a video; they fade in with a short slide from the bar and
 fade out, and cast a soft shadow when the shell draws through the GPU. While one is open, the
 keyboard is in it and a press anywhere but on the bar or the popup closes it without reaching what
@@ -548,8 +548,32 @@ shell = { frame = "windows", panel_position = "top", panel_radius = 12,
           panel_margin = { top = 14, left = 26, right = 26, bottom = 10 } },
 ```
 
+`shell.blur` makes the shell frosted glass: the bar (the taskbar, the tiling bar, the macOS
+style's menu bar and dock) and the popups (the start menu and Launchpad, menus, Quick Settings and
+Control Center, the clock's flyout and Notification Center, the notification cards, the on-screen
+display, the command palette, the window switcher and the window pictures' cards, the clipboard,
+emoji and wallpaper pickers, tooltips, the power dialog and the rest) show the wallpaper behind
+them blurred, under their colour. The bar keeps `panel_color`'s translucency; the popups take it
+too, but stay at least 75 % opaque, so their text reads over a bright wallpaper; the cards and
+fields inside them are veils that the glass shows through too. A pane of glass catches the light:
+a faint light edge inside each popup's outline and a sheen down from its top. It is the wallpaper
+that shows through, as the desktop draws it on that monitor (a picked wallpaper, the macOS
+style's drawn one, the background's gradient), not the windows behind, as Hyprland's xray: it is
+blurred once each time it changes, for each monitor, and every surface on that monitor shows the
+part of it that lies behind it, following a popup as it slides in. `radius` is how far the blur
+spreads (40 pixels by default), `brightness` and `saturation` darken, lighten or colour the
+blurred wallpaper, which helps text on it stand out. An appearance profile can turn it on and off;
+an opaque `panel_color` hides it. It is drawn through the GPU: with `renderer = "software"` the
+shell looks as it does without it.
+
+```lua
+shell = { panel_color = "#1e1e2eb3", text_color = "#cdd6f4", accent = "#cba6f7",
+          blur = { enabled = true, radius = 40, brightness = 0.9, saturation = 1.2 } },
+```
+
 The shell draws through the GPU; `renderer = "software"` draws on the CPU instead, for a weak
-machine: it starts faster and uses less memory, but cannot draw effects such as shadows. In a
+machine: it starts faster and uses less memory, but cannot draw effects such as shadows or frosted
+glass. In a
 nested session, applications that reuse an existing process or D-Bus service can open in the host
 session instead.
 
