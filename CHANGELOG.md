@@ -587,9 +587,13 @@ shadows.
 
 ### Commands
 
-Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
-wrong with it, and toys the compositor plays with the windows.
+Subcommands of `paw` besides `msg` and `import`, to find the configuration, to show the desktop
+off and to find out what is wrong with it, and toys the compositor plays with the windows.
 
+- `paw config` prints the path of the configuration paw starts with, and `paw config edit` opens
+  the personal one in `$VISUAL` or `$EDITOR`. Where there is none yet it makes one first, a file
+  that extends the default configuration and names where that is, and once the editor exits it
+  checks the file, printing an error with its line.
 - `paw doctor` looks the session over for what has gone wrong in paw desktops before and prints,
   for each check, ✓, ! or ✗ and the command that fixes it: the desktop shell gone (`kill -HUP`
   with the compositor's PID), a session bus that no longer answers, PipeWire left on Dummy Output
