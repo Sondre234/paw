@@ -772,6 +772,15 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
     // As the palette's PickerView does before it shows, and PowerView once it shows.
     if (file == "Palette.qml")
         QMetaObject::invokeMethod(surface_->rootObject(), "reset");
+    // Where it is on the output, for its frosted glass to find the wallpaper behind it there.
+    auto place = [this] {
+        if (auto *root = surface_->rootObject())
+            surface_->setProperty("pawSurfaceOrigin",
+                                  QPointF(surfacePlace(root->size().toSize())));
+    };
+    place();
+    connect(surface_->rootObject(), &QQuickItem::widthChanged, surface_.get(), place);
+    connect(surface_->rootObject(), &QQuickItem::heightChanged, surface_.get(), place);
     surface_->show();
     if (name == "power-dialog" || name == "auth-dialog" || name.startsWith("display-settings") ||
         name == "rice-trial")
@@ -779,21 +788,12 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
     return true;
 }
 
-QImage PreviewData::withSurface(QImage desktop) const {
-    if (!surface_ || !surface_->rootObject())
-        return desktop;
-    // In the desktop's pixels, which are the preview's scaled by the device pixel ratio.
-    const qreal scale = desktop.width() / qreal(ShellView::previewSize().width());
-    const QSizeF root = surface_->rootObject()->size();
-    QImage image = surface_->grabWindow();
-    image.setDevicePixelRatio(1);
-    image = image.copy(0, 0, qRound(root.width() * scale), qRound(root.height() * scale));
+QPoint PreviewData::surfacePlace(QSize size) const {
     // Placed as its layer surface is: by the edges it is anchored to, inside the area the
     // panel leaves when it keeps clear of it (an exclusive zone of 0), over the whole output when
     // it does not (-1).
     const QRect output(QPoint(0, 0), ShellView::previewSize());
     const QRect usable = usableArea();
-    const QSize size = root.toSize();
     QPoint at;
     if (surfaceName_.startsWith("osd-")) {
         // OsdView: centred, 48 pixels from the top edge, or ShellController::osdBottom from the
@@ -822,6 +822,21 @@ QImage PreviewData::withSurface(QImage desktop) const {
         at = QPoint(center->left() ? usable.left() : usable.right() + 1 - size.width(),
                     center->bottom() ? usable.bottom() + 1 - size.height() : usable.top());
     }
+    return at;
+}
+
+QImage PreviewData::withSurface(QImage desktop) const {
+    if (!surface_ || !surface_->rootObject())
+        return desktop;
+    // In the desktop's pixels, which are the preview's scaled by the device pixel ratio.
+    const qreal scale = desktop.width() / qreal(ShellView::previewSize().width());
+    const QSizeF root = surface_->rootObject()->size();
+    QImage image = surface_->grabWindow();
+    image.setDevicePixelRatio(1);
+    image = image.copy(0, 0, qRound(root.width() * scale), qRound(root.height() * scale));
+    const QPoint at = surfacePlace(root.toSize());
+    const QRect output(QPoint(0, 0), ShellView::previewSize());
+    const QRect usable = usableArea();
     QPainter painter(&desktop);
     if (surfaceName_ == "overview") {
         // What the compositor draws under the shell's text, in its colours: the dimmed backdrop,
@@ -930,27 +945,18 @@ QImage PreviewData::withSurface(QImage desktop) const {
     return desktop;
 }
 
-QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, paw::PanelEdge edge,
-                        ShellController &controller) {
-    panel.setDevicePixelRatio(1);
-    popover.setDevicePixelRatio(1);
-    menuBar.setDevicePixelRatio(1);
-    // As large as the output a preview stands for, in the bar's pixels.
-    const QSize preview = ShellView::previewSize();
-    const bool vertical = edge == paw::PanelEdge::Left || edge == paw::PanelEdge::Right;
-    const QSize output = preview * (vertical ? panel.height() / qreal(preview.height())
-                                             : panel.width() / qreal(preview.width()));
-    QImage desktop(output, QImage::Format_ARGB32_Premultiplied);
+QImage previewWallpaper(QSize size, ShellController &controller) {
+    QImage desktop(size, QImage::Format_ARGB32_Premultiplied);
     QPainter painter(&desktop);
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
     const QString file = controller.wallpaperFile();
     const QImage wallpaper = file.isEmpty() ? QImage() : QImage(file);
     if (!wallpaper.isNull()) {
         // Cropped to fill, as Desktop.qml shows it.
-        const QSize size = wallpaper.size().scaled(desktop.size(), Qt::KeepAspectRatioByExpanding);
-        painter.drawImage(QRect(QPoint((desktop.width() - size.width()) / 2,
-                                       (desktop.height() - size.height()) / 2),
-                                size),
+        const QSize scaled = wallpaper.size().scaled(desktop.size(), Qt::KeepAspectRatioByExpanding);
+        painter.drawImage(QRect(QPoint((desktop.width() - scaled.width()) / 2,
+                                       (desktop.height() - scaled.height()) / 2),
+                                scaled),
                           wallpaper);
     } else if (controller.style() == "macos") {
         // The wallpaper the macOS style draws while none is set, as Desktop.qml shows it, drawn
@@ -970,6 +976,21 @@ QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, paw::Panel
         gradient.setColorAt(1, controller.background());
         painter.fillRect(desktop.rect(), gradient);
     }
+    return desktop;
+}
+
+QImage previewOnDesktop(QImage panel, QImage popover, QImage menuBar, paw::PanelEdge edge,
+                        ShellController &controller) {
+    panel.setDevicePixelRatio(1);
+    popover.setDevicePixelRatio(1);
+    menuBar.setDevicePixelRatio(1);
+    // As large as the output a preview stands for, in the bar's pixels.
+    const QSize preview = ShellView::previewSize();
+    const bool vertical = edge == paw::PanelEdge::Left || edge == paw::PanelEdge::Right;
+    const QSize output = preview * (vertical ? panel.height() / qreal(preview.height())
+                                             : panel.width() / qreal(preview.width()));
+    QImage desktop = previewWallpaper(output, controller);
+    QPainter painter(&desktop);
     // An image along the panel's edge: the panel, and the popover, as the popups are placed by
     // the bar, should a compositor have made the window smaller.
     const auto along = [&](const QImage &image) {

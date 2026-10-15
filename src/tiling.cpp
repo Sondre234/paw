@@ -67,7 +67,8 @@ struct OutputDefaults {
 
 struct Column {
     std::vector<void *> windows;
-    double width; // share of the area's width
+    double width;       // share of the area's width
+    bool sized = false; // the width was set by hand, which a lone column keeps
 };
 
 /* The scrolling layout of one output and workspace. */
@@ -123,6 +124,7 @@ struct sh_tiling {
     sh_scroll_follow follow = SH_SCROLL_FOLLOW_CENTER;
     double scroll_width = 0.5, scroll_step = 0.1;
     std::vector<double> presets{1.0 / 3, 0.5, 2.0 / 3, 1.0};
+    bool fill_lone = true; // a column alone on its workspace fills the view
 
     /* What the workspaces of `output` start from: its own defaults, then the global ones. */
     Mode output_mode(const std::string &output) const {
@@ -169,12 +171,22 @@ struct sh_tiling {
         place(userdata, node->window, rect);
     }
 
-    // Sets a column's width, kept within limits; the view then follows the focused column.
+    /* The width a column shows at: the whole view while it is alone on its workspace, unless
+     * its width was set by hand, else its own. */
+    double shown_width(const Scroll &state, const Column &column) const {
+        return fill_lone && state.columns.size() == 1 && !column.sized ? 1.0 : column.width;
+    }
+
+    /* Sets a column's width by hand, kept within limits, when that changes what it shows; the
+     * view then follows the focused column. */
     bool set_column_width(Scroll &state, int column, double width) {
         width = std::clamp(width, width_min, width_max);
         Column &target = state.columns[column];
-        bool changed = std::abs(width - target.width) > 1e-9;
-        target.width = width;
+        bool changed = std::abs(width - shown_width(state, target)) > 1e-9;
+        if (changed) {
+            target.width = width;
+            target.sized = true;
+        }
         state.pending = std::max(state.pending, reveal_pending());
         return changed;
     }
@@ -231,14 +243,15 @@ struct sh_tiling {
         return nullptr;
     }
 
-    static int column_pixels(const Scroll &state, const Column &column) {
+    int column_pixels(const Scroll &state, const Column &column) const {
         long avail = std::max(1, state.area.width - state.gap);
-        return static_cast<int>(std::clamp<long>(std::lround(column.width * avail), 1, 1L << 24));
+        return static_cast<int>(
+            std::clamp<long>(std::lround(shown_width(state, column) * avail), 1, 1L << 24));
     }
 
     /* Whether x, y was over the first column in the last arrangement, or in the area left of
      * it. */
-    static bool over_first_column(const Scroll &state, double x, double y) {
+    bool over_first_column(const Scroll &state, double x, double y) const {
         return !state.columns.empty() && contains(state.area, x, y) &&
                x < state.area.x - state.offset + column_pixels(state, state.columns[0]);
     }
@@ -428,7 +441,7 @@ void sh_tiling_insert(sh_tiling *tiling, const char *output, int workspace, void
         if (after < 0)
             after = column_of(state->focus);
         long to = after >= 0 ? after + 1 : from;
-        if (point && sh_tiling::over_first_column(*state, x, y))
+        if (point && tiling->over_first_column(*state, x, y))
             to = 0;
         if (from > 0 && to < from)
             std::rotate(state->columns.begin() + to, state->columns.begin() + from,
@@ -774,8 +787,9 @@ bool sh_tiling_resize_by(sh_tiling *tiling, const void *window, uint32_t directi
                 return false;
             return tiling->set_column_width(
                 *state, column,
-                state->columns[column].width + (direction == SH_EDGE_RIGHT ? 1.0 : -1.0) *
-                                                   amount / double(state->area.width - state->gap));
+                tiling->shown_width(*state, state->columns[column]) +
+                    (direction == SH_EDGE_RIGHT ? 1.0 : -1.0) * amount /
+                        double(state->area.width - state->gap));
         }
         // Right always widens the master column, left narrows it, whichever tile is focused.
         if (mode.layout != SH_LAYOUT_MASTER || !horizontal || mode.area.width < 1)
@@ -1025,10 +1039,11 @@ void *sh_tiling_master(const sh_tiling *tiling, const char *output, int workspac
 }
 
 void sh_tiling_set_scroll(sh_tiling *tiling, sh_scroll_follow follow, double width, double step,
-                          const float *presets, int preset_count) {
+                          const float *presets, int preset_count, bool fill_lone) {
     if (!tiling)
         return;
     tiling->follow = follow;
+    tiling->fill_lone = fill_lone;
     tiling->scroll_width = std::clamp(width, width_min, width_max);
     tiling->scroll_step = std::clamp(step, 0.01, 0.5);
     tiling->presets.clear();
@@ -1088,7 +1103,10 @@ bool sh_tiling_scroll_restore(sh_tiling *tiling, const char *output, int workspa
     for (int i : picked) {
         if (columns[i] != previous) {
             double width = columns[i] < width_count ? widths[columns[i]] : tiling->scroll_width;
-            rebuilt.push_back({{}, std::clamp(width, width_min, width_max)});
+            // A width other than the default was set by hand.
+            rebuilt.push_back({{},
+                               std::clamp(width, width_min, width_max),
+                               std::abs(width - tiling->scroll_width) > 1e-3});
             previous = columns[i];
         }
         rebuilt.back().windows.push_back(windows[i]);
@@ -1161,11 +1179,13 @@ bool sh_tiling_scroll_action(sh_tiling *tiling, const void *window, sh_action ac
     case SH_COLUMN_WIDEN:
     case SH_COLUMN_NARROW:
         return tiling->set_column_width(*state, column,
-                                        columns[column].width + (action == SH_COLUMN_WIDEN ? 1 : -1) *
-                                                                    tiling->scroll_step);
+                                        tiling->shown_width(*state, columns[column]) +
+                                            (action == SH_COLUMN_WIDEN ? 1 : -1) *
+                                                tiling->scroll_step);
     case SH_COLUMN_CYCLE_WIDTH: {
         // The next preset wider than the column, else the narrowest.
-        double current = columns[column].width, next = tiling->presets.front();
+        double current = tiling->shown_width(*state, columns[column]),
+               next = tiling->presets.front();
         for (double preset : tiling->presets)
             if (preset > current + 1e-3) {
                 next = preset;
@@ -1192,7 +1212,7 @@ bool sh_tiling_scroll_action(sh_tiling *tiling, const void *window, sh_action ac
         auto &windows = columns[column].windows;
         if (windows.size() < 2)
             return false;
-        Column expelled{{windows[row]}, columns[column].width};
+        Column expelled{{windows[row]}, columns[column].width, columns[column].sized};
         windows.erase(windows.begin() + row);
         columns.insert(columns.begin() + column + 1, std::move(expelled));
         state->pending = tiling->reveal_pending();

@@ -59,6 +59,14 @@ shadows.
   under mochi's own icons, and `--cursor` Catppuccin's cursors.
 - `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
   the accent colour, named as `shell.wallpaper` is.
+- `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu
+  bar and dock, and the popups, menus, cards, tooltips and overlays show the wallpaper behind them
+  blurred under their colour, the popups as translucent as the bar but at least 75 % opaque so
+  that their text reads, with a faint light edge and a sheen from the top, and Launchpad over the
+  wallpaper blurred as on macOS. It is the wallpaper as each monitor's desktop draws it, blurred
+  once each time it changes (`radius`, `brightness`, `saturation`) and shared by every surface
+  there, not the windows behind, as Hyprland's xray. Appearance profiles turn it on and off, and
+  the software renderer leaves it out.
 - The overview takes the profile's colours: dark shades of the background's hue behind the
   thumbnails, and the focused border's colour around the window and workspace picked, where
   every profile had blue on blue-black.
@@ -198,6 +206,9 @@ shadows.
   power menu closes only it, whose entries now have icons. The desktop's right-click menu is one
   of them too, with Show desktop and the appearance profiles; its Refresh is gone, as the
   applications are read again by themselves.
+- The tiling button shows the icon of the layout its monitor tiles with, as its menu draws it
+  (dwindle, master, spiral, monocle or scroll), crossfading when the layout changes, where it
+  showed the same split screen for every layout.
 
 ### The start menu
 
@@ -474,6 +485,17 @@ shadows.
 - In the scrolling layout a window opened with the pointer over the first column (or left of it)
   opens left of it, as the new first column, where every new window used to open right of the
   focused column and none could reach the start of the strip.
+- In the scrolling layout a column alone on its workspace fills the screen, where a lone window
+  used to take half of it, and takes its width back when another opens beside it.
+  `layout.scroll.fill_lone = false` keeps it at its width; a width set by hand stays, alone too.
+- `windows.blur = { enabled = true }` blurs the desktop's background behind windows, as
+  Hyprland's blur with `xray = true`: a translucent window (`windows.opacity`, `inactive_opacity`,
+  a rule's opacity, or a terminal's own background opacity) shows the wallpaper frosted under it,
+  inside its rounded corners, and never the windows behind it. `radius`, `noise`, `brightness` and
+  `saturation` set its look, a rule's `blur = false` (or `true`) leaves a window out (or blurs it
+  with the setting off), fullscreen windows have none, and profiles can turn it on and off. Only
+  the wallpaper is blurred, at half the monitor's pixels on the CPU once it changes, so windows
+  moving, resizing and animating over it cost nothing more; `paw msg get blur` shows it.
 
 ### Starting and ending a session
 
@@ -595,9 +617,13 @@ shadows.
 
 ### Commands
 
-Subcommands of `paw` besides `msg` and `import`, to show the desktop off and to find out what is
-wrong with it, and toys the compositor plays with the windows.
+Subcommands of `paw` besides `msg` and `import`, to find the configuration, to show the desktop
+off and to find out what is wrong with it, and toys the compositor plays with the windows.
 
+- `paw config` prints the path of the configuration paw starts with, and `paw config edit` opens
+  the personal one in `$VISUAL` or `$EDITOR`. Where there is none yet it makes one first, a file
+  that extends the default configuration and names where that is, and once the editor exits it
+  checks the file, printing an error with its line.
 - `paw doctor` looks the session over for what has gone wrong in paw desktops before and prints,
   for each check, ✓, ! or ✗ and the command that fixes it: the desktop shell gone (`kill -HUP`
   with the compositor's PID), a session bus that no longer answers, PipeWire left on Dummy Output
@@ -679,6 +705,10 @@ wrong with it, and toys the compositor plays with the windows.
 
 ### Fixes
 
+- A window at an opacity below 1 (`windows.opacity`, `inactive_opacity`, a rule's) is drawn at
+  it, where each commit of its client put the window back to full opacity until something else
+  redrew its frame, so a terminal that redraws often stayed opaque. `paw msg get opacities` ends
+  each line with the opacity the window's surface is drawn with.
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,
   whose GLES renderer offers the frames only as packed 24-bit BGR888, which the shell did not read,
   leaving each card its icon.

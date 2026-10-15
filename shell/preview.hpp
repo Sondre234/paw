@@ -52,6 +52,9 @@ class PreviewData : public QObject {
     // The panel filled, whose menu bar (the macOS style's) is reserved too.
     QQuickItem *panel_ = nullptr;
     QRect usableArea() const;
+    // Where the overlay surface shown goes on the output, `size` large, as its view's layer
+    // surface would.
+    QPoint surfacePlace(QSize size) const;
     std::unique_ptr<QQuickView> surface_;
     QString surfaceName_;
     bool showSurface(QScreen *screen, const QString &name);
@@ -65,6 +68,10 @@ class PreviewData : public QObject {
     std::unique_ptr<Bluetooth> bluetooth_;
     QObject *tasks_ = nullptr;
 };
+
+// The desktop a preview stands for, `size` pixels: the wallpaper cropped to fill, as Desktop.qml
+// shows it, else the macOS style's drawn one or the background's gradient.
+QImage previewWallpaper(QSize size, ShellController &controller);
 
 // A screenshot of the panel's preview as the output would show it: the desktop (the wallpaper, or
 // the background colour), the bar along its edge, the menu bar of the macOS style along the top,

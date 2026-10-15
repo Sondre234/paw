@@ -132,6 +132,10 @@ ShellController::~ShellController() {
 QQmlEngine *ShellController::engine() {
     if (!engine_) {
         engine_ = new QQmlEngine(this);
+        // The frosted glass under the bars and every card, overlays' too, which may come
+        // without a panel.
+        static const int glass = qmlRegisterType<GlassItem>("Paw", 1, 0, "Glass");
+        Q_UNUSED(glass);
         engine_->addImageProvider("icons", new Icons);
         // image://notify/ID/STAMP: the picture a notification carried in its image-data hint
         // (the stamp only keeps QML from reusing a cached picture when a notification is
@@ -156,6 +160,7 @@ QQmlEngine *ShellController::engine() {
     return engine_;
 }
 void ShellController::setEffects(bool effects) {
+    glass_.setEffects(effects);
     if (effects == effects_)
         return;
     effects_ = effects;
@@ -957,6 +962,7 @@ void ShellController::loadConfig() {
     std::string error;
     auto next = paw::load_config_or_default(path_, error);
     config_ = std::move(next);
+    glass_.configure(config_.shell.blur);
     configError_ = QString::fromStdString(error);
     if (!error.empty())
         std::cerr << "Shell configuration error; using the default configuration: " << error

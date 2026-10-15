@@ -141,8 +141,8 @@ Replace `foot` with an installed Wayland terminal. The default configuration's S
 `$TERMINAL`, else the first of kitty, foot, alacritty, wezterm, ghostty, konsole,
 gnome-terminal and xterm that is installed; the README's "First run" shows how to choose one. The executable uses the
 installed example configuration when no personal config exists. To customize it, create
-`~/.config/paw/init.lua` holding `extends = "default"` and your changes (see the
-README); installation never overwrites this personal file. For a custom location use `--config /path/to/init.lua`.
+`~/.config/paw/init.lua` holding `extends = "default"` and your changes (`paw config edit`
+makes one and opens it; see the README); installation never overwrites this personal file. For a custom location use `--config /path/to/init.lua`.
 
 The normal build includes `paw-shell` alongside `paw`. For compositor-only
 development add `-DPAW_BUILD_SHELL=OFF`; Qt, GIO, and LayerShellQt are then

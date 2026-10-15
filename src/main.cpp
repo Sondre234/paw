@@ -1087,6 +1087,8 @@ void usage() {
            "SIGHUP reloads configuration; SIGINT/SIGTERM exits.\n"
            "paw msg [output NAME] ACTION [ARGUMENT] runs an action in the running session;\n"
            "paw msg get workspace|workspaces|tiling|windows|outputs|animations prints its state.\n"
+           "paw config prints the configuration's path; paw config edit opens the personal one\n"
+           "in $VISUAL or $EDITOR, making it first, and checks it once it is saved.\n"
            "paw import [--config PATH] [--dry-run] DIR writes theme.lua beside the\n"
            "configuration from the Hyprland, Waybar, wallbash, and pywal files in DIR.\n"
            "paw doctor [--plain] [--no-color] checks the session for what often goes wrong\n"
@@ -1122,6 +1124,7 @@ struct Subcommand {
 const Subcommand subcommands[] = {
     {"msg", send_message},
     {"import", import_dotfiles},
+    {"config", paw::cli::config},
     {"doctor", paw::cli::doctor},
     {"fetch", paw::cli::fetch},
     {"showcase", paw::cli::showcase},

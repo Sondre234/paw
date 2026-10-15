@@ -387,9 +387,11 @@ void refresh_tabs(struct sh_toplevel *toplevel) {
 static void set_buffer_opacity(struct wlr_scene_buffer *buffer, int sx, int sy, void *data) {
     struct sh_toplevel *toplevel = data;
     // The border keeps its own colours, as its rects do, the shadow its own opacity
-    // (refresh_shadow), and the copy a change of size fades out its own.
+    // (refresh_shadow), the copy a change of size fades out its own, and the blur under the
+    // window stays whole under a translucent one (refresh_blur).
     struct wlr_scene_tree *parent = buffer->node.parent;
     if (buffer != toplevel->deco && buffer != toplevel->dim && buffer != toplevel->tabs &&
+        buffer != toplevel->blur &&
         (!toplevel->gradient || parent != toplevel->gradient) &&
         (!toplevel->shadow || parent != toplevel->shadow) &&
         (!toplevel->anim.fading || parent != toplevel->anim.fading))
@@ -510,6 +512,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
         toplevel->opacity = opacity;
         wlr_scene_node_for_each_buffer(&toplevel->scene_tree->node, set_buffer_opacity, toplevel);
     }
+    refresh_blur(toplevel, peeked);
     update_dim(toplevel);
     refresh_decoration(toplevel); // the controls follow the window's width
     refresh_tabs(toplevel);
@@ -595,6 +598,21 @@ void refresh_frame(struct sh_toplevel *toplevel) {
         raise_frame_node(toplevel, &toplevel->border[i]->node);
     }
     drop_refresh(toplevel); // a drop past the bar cuts the rounded border by its size
+}
+
+/* wlroots' scene gives a surface's buffer the opacity its client asks for (1, or what
+ * wp_alpha_modifier_v1 says) each time it commits, after refresh_frame gave it the window's: the
+ * scene hears the commit after the window does (morph.c needs it so). Before each frame, and
+ * before the animations multiply it, every translucent window has its opacity laid on its
+ * buffers again; one whose buffers have it already changes nothing. */
+void reapply_opacity(struct sh_server *server) {
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (toplevel->scene_tree && !toplevel->unmanaged && toplevel->opacity < 1 &&
+            toplevel_mapped(toplevel))
+            wlr_scene_node_for_each_buffer(&toplevel->scene_tree->node, set_buffer_opacity,
+                                           toplevel);
+    }
 }
 
 void forget_decoration(struct sh_toplevel *toplevel) {

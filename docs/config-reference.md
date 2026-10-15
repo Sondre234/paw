@@ -109,6 +109,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `layout.scroll.width` | number | 0.5 | 0.1 to 1 | Width of a new column, as a share of the screen. |
 | `layout.scroll.step` | number | 0.1 | 0.01 to 0.5 | What `column_widen` and `column_narrow` add to or take from a column's width. |
 | `layout.scroll.presets` | list of numbers | { 1/3, 1/2, 2/3, 1 } | - | Widths `column_cycle_width` steps through, each 0.1 to 1; at most 8. |
+| `layout.scroll.fill_lone` | boolean | true | - | A column alone on its workspace fills the screen, and takes its width back when another joins it; `false` keeps it at its width. A width set by hand stays either way. |
 
 ## `outputs`
 
@@ -176,6 +177,12 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `windows.shadow.inactive_color` | color | "#00000033" | - | The shadow under other windows, `#RRGGBBAA`. |
 | `windows.shadow.blur` | integer | 30 | 0 to 100 | How soft the shadow's edge is: it fades out over about this many pixels, as CSS's blur radius; 0 for a hard edge. |
 | `windows.shadow.offset` | integer or table | 10 | -50 to 50 | How far the shadow falls below the window in pixels, or `{ x, y }` to move it sideways too (right and down). |
+| `windows.blur` | table | - | - | The desktop's background blurred behind each window, for windows that let it show through: a translucent one (`opacity`, `inactive_opacity`, a rule's opacity, or a terminal's own background opacity) shows the wallpaper frosted under it, and never the windows behind it. Only the background is blurred (the wallpaper over `appearance.background`), once as it changes rather than on every frame, so windows moving cost nothing more. None under fullscreen windows; `windows.rules[].blur` turns it off or on for some windows. |
+| `windows.blur.enabled` | boolean | false | - | Blur the background behind windows. |
+| `windows.blur.radius` | integer | 30 | 1 to 200 | How soft the blur is: each point of the background spreads over about this many pixels around it, as CSS's blur radius. |
+| `windows.blur.noise` | number | 0.02 | 0 to 1 | Grain over the blur, so that dark gradients show no bands: each pixel strays from its colour by up to half this share of full brightness, as with Hyprland's `blur:noise`. |
+| `windows.blur.brightness` | number | 1 | 0 to 2 | The blur's brightness, scaled: below 1 darker, so that light text reads better over it. |
+| `windows.blur.saturation` | number | 1 | 0 to 2 | Its colours' saturation, scaled: 0 grey, above 1 more vivid, as macOS's vibrancy. |
 | `windows.lift` | boolean | true | - | A window moved with the pointer is lifted while it moves: drawn a little larger about where it was taken, its shadow softer and further off (a printed one, without blur, further off), and it settles back as it is dropped, with the duration and curve of `animations.move`. `false` leaves it as it is. |
 | `windows.buttons` | string | "appmenu:minimize,maximize,close" | - | GTK button layout for windows that draw their own frame; lowercase letters, `_`, `,` and `:` only. Restart to change. |
 | `windows.rules` | list of tables | unset | - | Per-application rules, at most 256. Opacity comes from the first matching rule that sets it; actions apply as a window opens, every matching rule in order, later ones winning. A rule needs `app_id` or `title`. |
@@ -196,6 +203,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `windows.rules[].above` | boolean | unset | - | Keep above the other windows, as `toggle_above` does. |
 | `windows.rules[].dynamic` | boolean | false | - | Hold the window to the rule's `above`, `floating` and `sticky` while its title and app ID match, as they change, and give back what it had once they no longer do; its other actions still act once, as the window opens. |
 | `windows.rules[].allow_tearing` | boolean | unset | - | With `windows.allow_tearing`, show the window's frames at once while it is fullscreen and alone on its monitor, whether or not it asks for that (as an X11 game cannot). |
+| `windows.rules[].blur` | boolean | unset | - | `false` draws no blur behind the window (see `windows.blur`), `true` draws one even with `windows.blur.enabled` off. |
 
 ## `peek`
 
@@ -417,6 +425,11 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `shell.panel_margin.left` | integer | 0 | 0 to 200 | Left margin. |
 | `shell.panel_radius` | integer | 0 | 0 to 50 | Panel corner radius. |
 | `shell.frame` | enum | "shell" | - | What frames a floating bar, the dock and the popups: `"shell"`, a hairline in the text colour and a soft shadow; `"windows"`, the windows' own, `windows.border_width` pixels of `border_inactive_color` (a gradient's first colour) and, with `windows.shadow`, its shadow (`inactive_color` under the bar and the dock, `color` under a popup), drawn through the GPU; a floating bar's shadow falls past the strip it reserves without taking input there. |
+| `shell.blur` | table | - | - | Frosted glass: the bar (the taskbar, the tiling bar, the macOS style's menu bar and dock) and the popups, menus, cards, tooltips and overlays show the wallpaper behind them blurred, their colour laid over it. The popups, opaque without it, are as translucent as `panel_color`, but no more than 25 % so their text stays readable; an opaque `panel_color` hides the glass. It is the wallpaper as the desktop shows it that is blurred, not the windows behind (as Hyprland's xray), once per monitor as it changes. Drawn through the GPU: with `renderer = "software"` everything looks as without it. |
+| `shell.blur.enabled` | boolean | false | - | Draw the glass. |
+| `shell.blur.radius` | integer | 40 | 2 to 200 | How far the blur spreads, in pixels: a Gaussian whose standard deviation is half this. |
+| `shell.blur.brightness` | number | 1.0 | 0 to 2 | The blurred wallpaper's brightness times this: below 1 darker, above 1 lighter, which helps text on a dark or a light `panel_color` stand out. |
+| `shell.blur.saturation` | number | 1.0 | 0 to 2 | The blurred wallpaper's colourfulness times this: 0 grey, above 1 more vivid. |
 | `shell.font` | string | "" | - | Font family; empty keeps the Qt default. |
 | `shell.font_size` | integer | 12 | 6 to 48 | Taskbar text size in pixels. |
 | `shell.renderer` | enum | "gpu" | - | How the shell draws: `"gpu"` (Qt Quick's OpenGL or Vulkan renderer, which effects such as shadows need) or `"software"` (the CPU, without effects, but it starts about three times faster and uses about half the memory, for a weak machine). Read at shell start, so a change needs a restart. |

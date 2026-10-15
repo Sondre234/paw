@@ -510,8 +510,8 @@ Everything takes the panel's `accent`, `panel_color`, `text_color`, `font` and `
 hovering, pressing and what is open or on are shown by laying the text color over the panel at a
 low opacity, which shows on a light panel as on a dark one. Popups (the start menu, menus, the
 mixer, the flyouts and the rest) are drawn in the panel color made opaque, even when the bar is
-translucent: nothing is blurred behind them, and a window showing through would make them hard to
-read. They open in a surface of their own over the whole monitor, above fullscreen windows too, so
+translucent, unless they are frosted glass (below): a window showing through would make them hard
+to read. They open in a surface of their own over the whole monitor, above fullscreen windows too, so
 the start menu Super + R opens shows over a video; they fade in with a short slide from the bar and
 fade out, and cast a soft shadow when the shell draws through the GPU. While one is open, the
 keyboard is in it and a press anywhere but on the bar or the popup closes it without reaching what
@@ -548,8 +548,32 @@ shell = { frame = "windows", panel_position = "top", panel_radius = 12,
           panel_margin = { top = 14, left = 26, right = 26, bottom = 10 } },
 ```
 
+`shell.blur` makes the shell frosted glass: the bar (the taskbar, the tiling bar, the macOS
+style's menu bar and dock) and the popups (the start menu and Launchpad, menus, Quick Settings and
+Control Center, the clock's flyout and Notification Center, the notification cards, the on-screen
+display, the command palette, the window switcher and the window pictures' cards, the clipboard,
+emoji and wallpaper pickers, tooltips, the power dialog and the rest) show the wallpaper behind
+them blurred, under their colour. The bar keeps `panel_color`'s translucency; the popups take it
+too, but stay at least 75 % opaque, so their text reads over a bright wallpaper; the cards and
+fields inside them are veils that the glass shows through too. A pane of glass catches the light:
+a faint light edge inside each popup's outline and a sheen down from its top. It is the wallpaper
+that shows through, as the desktop draws it on that monitor (a picked wallpaper, the macOS
+style's drawn one, the background's gradient), not the windows behind, as Hyprland's xray: it is
+blurred once each time it changes, for each monitor, and every surface on that monitor shows the
+part of it that lies behind it, following a popup as it slides in. `radius` is how far the blur
+spreads (40 pixels by default), `brightness` and `saturation` darken, lighten or colour the
+blurred wallpaper, which helps text on it stand out. An appearance profile can turn it on and off;
+an opaque `panel_color` hides it. It is drawn through the GPU: with `renderer = "software"` the
+shell looks as it does without it.
+
+```lua
+shell = { panel_color = "#1e1e2eb3", text_color = "#cdd6f4", accent = "#cba6f7",
+          blur = { enabled = true, radius = 40, brightness = 0.9, saturation = 1.2 } },
+```
+
 The shell draws through the GPU; `renderer = "software"` draws on the CPU instead, for a weak
-machine: it starts faster and uses less memory, but cannot draw effects such as shadows. In a
+machine: it starts faster and uses less memory, but cannot draw effects such as shadows or frosted
+glass. In a
 nested session, applications that reuse an existing process or D-Bus service can open in the host
 session instead.
 
@@ -776,10 +800,41 @@ own, following its corners: `color` under the focused window, the lighter `inact
 under the others, fading out over `blur` pixels and falling `offset` pixels down (or
 `{ x, y }`). Fullscreen and maximized windows have none, and a shadow takes no input and is no
 part of the window's size, so snapping, tiling and the magnet ignore it. The shadow is cut from
-one blurred image, so resizing a window costs nothing. Blur is not available. While a window is
+one blurred image, so resizing a window costs nothing. While a window is
 moved with the pointer its shadow grows softer and falls further, or a printed one moves further
 off (`windows.lift`, see [Animations](#animations)); stretching the same image away from the
 window does that without blurring again.
+
+`windows.blur = { enabled = true }` blurs the desktop's background behind each window, as
+Hyprland's blur does with `xray = true`: a window that lets what is under it show through
+(`opacity` or `inactive_opacity` below 1, a rule's opacity, or a terminal's own background
+opacity, as kitty's `background_opacity`) shows the wallpaper frosted under it, inside its
+rounded corners, rather than sharp, and never the windows behind it. `radius` sets how soft it
+is (each point spreads over about that many pixels, 30 by default), `noise` a little grain so
+that dark gradients show no bands, and `brightness` and `saturation` scale its colours (above 1,
+the vivid look of macOS's vibrancy). The window's own opacity leaves the blur whole under it.
+
+Only the background is blurred, the wallpaper (the shell's, or any background layer surface)
+over `appearance.background`: drawn at half the monitor's pixels and blurred once each time it
+changes, once a wallpaper fading in or a profile switching settles, never on every frame. Each
+window shows the part of that picture it covers on the screen, wherever it is drawn, so moving,
+resizing and animating windows costs nothing more. Fullscreen windows have none, a window across
+two monitors shows the blur of the one under its middle (on that monitor alone), and
+`windows.rules[].blur` turns it off (`false`) or on (`true`, with `enabled` off) for the windows
+a rule matches. Profiles can set it, so a translucent look can bring its blur along:
+
+```lua
+profiles = {
+    glass = {
+        windows = {
+            opacity = 0.92, inactive_opacity = 0.85,
+            blur = { enabled = true, radius = 40, brightness = 0.9, saturation = 1.2 },
+        },
+    },
+},
+```
+
+`paw msg get blur` lists each monitor's picture and the part of it under each window.
 
 ### Window rules
 
@@ -1580,7 +1635,9 @@ MASTER_COUNT`.
 A right click on the panel's tiling button opens its menu: what the workspace the monitor shows
 does now, Floating or the layout it tiles with, at the top with its icon, then the other
 layouts, each with an icon of how it lays windows out, and Floating while it tiles. A layout
-picked while the workspace floats turns tiling on with it.
+picked while the workspace floats turns tiling on with it. The button itself shows the same icon
+as the menu's title: the layout's while the workspace tiles, two overlapping windows while it
+floats.
 
 The layouts other than dwindle order the tiles as a list (the dwindle tree read left to
 right): a new window joins the end wherever it is opened or dropped, and Super + Shift +
@@ -1630,7 +1687,9 @@ than the screen, and the screen is a view onto it that follows focus, gliding li
 other tile move. A new window opens in a column of its own right of the focused one, or, with
 the pointer over the first column (or left of it), as the new first column. A column has a
 width, a share of the screen (`layout.scroll.width`, half by default), and stacks its windows
-evenly. Beside its own actions, the usual keys work: `focus_left` /
+evenly. A column alone on its workspace fills the screen, and takes its width back when another
+joins it; `fill_lone = false` keeps it at its width, and a width set by hand (by an action or by
+dragging its side) stays, alone too. Beside its own actions, the usual keys work: `focus_left` /
 `focus_right` step between columns and `focus_up` / `focus_down` within one, `move_left` /
 `move_right` move the focused column along the strip and `move_up` / `move_down` trade
 places within a stack, `focus_next` / `focus_prev` step through every window in order,
@@ -1654,6 +1713,7 @@ layout = {
                                             -- needed; never: only scroll actions, new windows
                                             -- and center_column move the view
         width = 0.5,                        -- width of a new column, 0.1 to 1
+        fill_lone = true,                   -- a column alone on its workspace fills the screen
         step = 0.1,                         -- column_widen / column_narrow
         presets = { 1/3, 1/2, 2/3, 1 },     -- column_cycle_width; up to 8 widths
     },
@@ -2570,7 +2630,7 @@ wallpaper. It runs
 configuration, and reports where each value came from and what it skipped. `init.lua` loads
 it with `theme = "theme.lua"` and overrides any of it; `--dry-run` only prints. See
 [docs/dotfile-import.md](dotfile-import.md) for the details and for the settings paw
-still lacks (rounding, blur, shadows).
+still lacks (rounding, shadows).
 
 ## Notifications and on-screen display
 
@@ -2957,9 +3017,23 @@ refused while the session is locked.
 
 ## Commands
 
-Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the desktop off
-and to find out what is wrong with it. They talk to the running session through its control
-socket, as `paw msg` does; `paw --help` lists them.
+Besides `paw msg` and `paw import`, the `paw` binary has subcommands to find the configuration,
+to show the desktop off and to find out what is wrong with it. All but `paw config` talk to the
+running session through its control socket, as `paw msg` does; `paw --help` lists them.
+
+### paw config
+
+`paw config` prints the path of the configuration paw starts with: `$XDG_CONFIG_HOME/paw/init.lua`
+(`~/.config/paw/init.lua`) where it exists, else the installed default, in which case it also
+says so on standard error. So `$EDITOR "$(paw config)"` opens the file in use.
+
+`paw config edit` opens the personal configuration in `$VISUAL`, else `$EDITOR`, else
+`xdg-open`. The variable is a shell command, as for git, so `EDITOR="code --wait"` works. When
+there is no personal configuration yet it makes one first: a file that extends the default
+configuration and names where that is, so that it only needs what you change; paw reads it from
+its next start. The editor gets Ctrl+C. Once it exits, a file that changed is checked as
+`paw --check-config` does, and an error is printed with its line, the exit status then 1. The
+running session reloads the file as it is saved either way.
 
 ### paw doctor
 
@@ -3208,18 +3282,18 @@ return {
 ```
 
 A rice is data: it cannot run anything, or reach outside itself. `rice.lua` is never run as Lua,
-but read by a parser of Lua's table syntax alone, which takes strings, numbers, booleans and
-tables and refuses names, calls and operators, so `os.execute`, `io.open`, `require` or `load` in
-it are errors, not calls. It sets only how the desktop looks: colours, borders, corners,
-opacity, shadows, the bar's style, size, place, font and widgets, the tiling bar, the wallpaper
-and the start button. Launchers, window rules, the search's folders and web address, the
-clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other
-section are refused, and `paw rice pack` leaves them out. The pictures and other files it names
-are paths inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor
-through one; an archive holding a link, a device or a path out of it is refused whole, and only
-the files `rice.lua` names are taken from it. Its pictures are PNG, JPEG, WebP or SVG, which the
-shell opens as it opens any wallpaper. Files for other programs, such as a terminal's colours,
-stay in its directory for you to put in place; `paw rice try` says where.
+but read by a parser of Lua's table syntax alone, which takes strings, numbers, booleans and tables
+and refuses names, calls and operators, so `os.execute`, `io.open`, `require` or `load` in it are
+errors, not calls. It sets only how the desktop looks: colours, borders, corners, opacity, shadows,
+the blur behind windows, the bar's style, size, place, font and widgets, the tiling bar, the
+wallpaper and the start button. Launchers, window rules, the search's folders and web address, the
+clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other section
+are refused, and `paw rice pack` leaves them out. The pictures and other files it names are paths
+inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor through one;
+an archive holding a link, a device or a path out of it is refused whole, and only the files
+`rice.lua` names are taken from it. Its pictures are PNG, JPEG, WebP or SVG, which the shell opens
+as it opens any wallpaper. Files for other programs, such as a terminal's colours, stay in its
+directory for you to put in place; `paw rice try` says where.
 ### paw cat
 
 `paw cat` lets a cat out onto the desktop, as oneko does, but drawn by the compositor itself, so

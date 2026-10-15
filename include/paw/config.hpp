@@ -67,6 +67,7 @@ struct Launcher {
 struct WindowActions {
     enum class Position { Unset, Center, At };
     std::optional<bool> floating, fullscreen, maximize, focus, sticky, above, allow_tearing;
+    std::optional<bool> blur; // the background blurred behind it, whatever windows.blur says
     std::optional<bool> shortcuts_inhibit; // false: the window's inhibitors are refused
     std::optional<int> workspace;      // from 1
     std::optional<std::string> output; // connector, or "desc:" and the start of its description
@@ -122,6 +123,16 @@ struct ShellWidgets {
     bool media = true; // the now-playing card in Quick Settings, only while a media player is there
     bool power_mode = true; // a power mode tile in Quick Settings, only while power-profiles-daemon runs
     bool bluetooth = true;  // a Bluetooth tile in Quick Settings, only while BlueZ has an adapter
+};
+
+// Lua `shell.blur`: frosted glass behind the bar and the popups, the wallpaper blurred under
+// their translucent colour.
+struct ShellBlur {
+    bool enabled = false;
+    int radius = 40;          // how far the blur spreads, in pixels; its Gaussian's sigma is half
+    double brightness = 1;    // the blurred wallpaper's brightness, times this
+    double saturation = 1;    // and its colourfulness: 0 is grey, above 1 more vivid
+    bool operator==(const ShellBlur &) const = default;
 };
 
 // Lua `shell.thumbnails`: pictures of the windows of a taskbar button resting under the pointer.
@@ -219,6 +230,7 @@ struct ShellConfig {
     // frame = "windows": the bar, the dock and the popups take the windows' border and shadow
     // rather than the shell's own hairline and soft shadow.
     bool frame_windows = false;
+    ShellBlur blur;
     std::string font;   // family; empty: the Qt default
     int font_size = 12; // taskbar text, in pixels
     bool icons_only = true; // taskbar buttons show the window's icon, its title as a tooltip
@@ -320,6 +332,7 @@ struct Config {
                          .scroll_step = 0.1F,
                          .scroll_presets = {1.0F / 3, 0.5F, 2.0F / 3, 1.0F},
                          .scroll_preset_count = 4,
+                         .scroll_fill_lone = true,
                          .workspaces = 4,
                          .output_order = {},
                          .output_count = 0,
@@ -421,6 +434,13 @@ struct Config {
                          .shadow_y = 10,
                          .shadow_color = {0, 0, 0, 0x59 / 255.0F},
                          .shadow_inactive_color = {0, 0, 0, 0x33 / 255.0F},
+                         .blur = false,
+                         .blur_radius = 30,
+                         .blur_noise = 0.02F,
+                         .blur_brightness = 1,
+                         .blur_saturation = 1,
+                         .blur_rules = false,
+                         .blur_by_rule = false,
                          .lift = true,
                          .lock_before_sleep = true,
                          .close_windows = true,

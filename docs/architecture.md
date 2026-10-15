@@ -98,6 +98,7 @@ all. In short:
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
 | `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
 | `heatmap.c` | The pointer heatmap: how long the pointer rested and how often it clicked in each cell of each output's grid (`src/heatmap.c`), in memory for the session alone, `get heatmap`, and the heatmap action's overlay: a picture of each grid blurred and coloured, stretched over its output under the drag icons and the lock, taking no input, with a legend in the coolest corner, drawn again twice a second from a timer while it shows and fading with `heatmap_tick` from `output_frame`. |
+| `blur.c` | The blur behind windows (`windows.blur`): each output's background (the background layer over `appearance.background`) drawn at half its pixels, read back and blurred on the CPU (`src/blur.c`) once it settles after a change, and under each window's surfaces the part of that picture it covers on the screen, placed again before each frame by `blur_frame` from `output_frame`; `get blur`. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
 the file that defines it. The build warns (`-Wmissing-prototypes`) about one that is neither.
@@ -958,6 +959,56 @@ The shell draws them with `Xray.qml` in an overlay surface whose namespace, `paw
 copies. `get xray` lists every output's stack with the sheet showing each part, which
 `paw xray --list` (`src/cli/xray.cpp`) prints top first, and `tests/xray_smoke.py` tests it.
 
+### The blur behind windows
+
+`blur.c` keeps a picture of each output's background blurred (`sh_output.blur`), taken only as
+the background changes, and shows the part of it each window covers under the window, as
+Hyprland's blur with `xray = true` does: the windows behind are never blurred, and nothing is
+blurred per frame. `take_picture` draws the buffers of the background layer (`layer_trees[0]`,
+the shell's wallpaper) over `appearance.background` into a buffer of half the output's pixels in
+the format of its frames, on the renderer, each texture bilinearly (an exact two by two average
+of a wallpaper at the output's size), in the layout's orientation whatever the output's
+transform. Then it halves that on the renderer as often as the gaussian still spans 1.5 cells
+(`sh_blur_halvings`; each step two by two averages again), reads the small grid back as XRGB8888
+(`wlr_texture_read_pixels`), and `sh_blur_grid` (`src/blur.c`, tested by `blur_tests`) blurs it
+with three box blurs each way (clamped at the edges), saturates and brightens it, and darkens it
+by half the grain to come. The grid is drawn back over the first buffer, stretched bilinearly,
+and a tile of grain (`sh_blur_grain`: grey with no alpha, which premultiplied blending adds, the
+same at each place every time so that a new picture does not flicker) laid over it again and
+again. So the CPU touches a few thousand cells, and every window's scene buffer shares one
+texture (wlroots imports a dmabuf once; a pixel buffer would be uploaded for each window). A
+2560 by 1440 output took 2.5 to 11 ms on the GPU renderer here, most of it waiting for the GPU
+to read back, and 7 to 19 on pixman, which draws the steps on the CPU.
+
+A picture is due as a background layer surface on that output maps, unmaps, goes, or commits a
+buffer or a new place (`blur_background_changed`, from `layer_shell.c`), as the output's box,
+size, scale or transform differ from what it was taken at (`blur_frame`), and at once as a reload
+changes the look (`blur_reload`: the settings and the background colour, compared). The timer
+takes it once the background has not changed for `SETTLE_MS` (150), but at least every `MOST_MS`
+(500) while it keeps changing, so a wallpaper fading in is blurred a few times rather than on
+every frame. A crossfade to a new profile takes the pictures due at once as it releases its
+pictures (`blur_flush`), so the new wallpaper's blur is in place under them.
+
+Each window with a blur (`refresh_blur`, from `refresh_frame`: windows.blur or a rule's `blur`,
+matched again only as the title, app ID or configuration change; never fullscreen) has two
+buffers in `content`, under `surfaces` and so inside its rounded clip: `blur_probe`, with no
+picture, which stands at the frame's box (`frame_geometry`, the size drawn while it changes size)
+for the animations to place and size as they do everything else, and `blur`, which the animations
+fade but leave where it is (`sh_anim.placed_apart`, `animation.c`). Before each frame, after the
+animations moved the windows, `blur_frame` reads where the probe is drawn in the layout, takes
+the output under its middle (or the nearest one) and puts `blur` over the part of the probe on
+that output, showing the part of the picture under it (`sh_blur_source`): so the blur stays put
+on the wallpaper while a window glides, slides with a workspace, scales open or closed, is
+lifted or morphs, and a window hanging off its output or across two shows the blur only where
+that output is. Setting what did not change changes nothing in the scene. `set_buffer_opacity`
+passes the blur over, so the window's opacity leaves it whole; it is drawn at 0.9999 times what a
+peek leaves of the window, since a buffer the scene takes for opaque would hide the desktop's
+surface, which would then get no frame callbacks and could not draw a new wallpaper. Copies of a
+window (the overview's thumbnails, the closing and minimizing ones, a swipe's held copies) take
+the blur along as it was, and the probe, which has no buffer, not at all. `get blur` lists each
+output's picture and each window's part of it, and `tests/blur_smoke.py` tests them, reading the
+blur off the screen with grim where it is installed.
+
 ## The shell (`shell/`)
 
 `ShellController` (`controller.cpp`) loads the configuration, keeps the compositor's state from
@@ -1080,7 +1131,8 @@ what was there.
 | `ToggleSwitch.qml` | A switch drawn as a track and a knob: Wi-Fi's radio, do not disturb, the display settings'. |
 | `EmptyState.qml` | What a list says while it has nothing to show: an icon, a line and a hint. |
 | `PopupCard.qml` | A popup's card: surface, outline, corners, a shadow through the GPU, the open and close animation, and its place beside what it belongs to. |
-| `CardFrame.qml` | A card's shadow, surface, outline and the macOS style's inner edge, beneath what it holds: a popup's, an overlay's, a notification's. |
+| `CardFrame.qml` | A card's shadow, surface, outline and the macOS style's inner edge, beneath what it holds: a popup's, an overlay's, a notification's; with `shell.blur` the frosted glass under a translucent surface, and the glass's light edge and sheen. |
+| `GlassFill.qml` | A rectangle in a popup's colour that is a card of its own, drawn by hand rather than by `CardFrame` (a tooltip, Notification Center's cards): on the frosted glass, translucent over a `Glass`. |
 | `Reveal.qml` | How far an overlay or a card is in view: its `progress`, easing to 1 while `shown` and back to 0 after, which the overlays and `PopupCard` take as their own. |
 | `PopupMenu.qml`, `MenuRow.qml` | A menu of plain entries on popup cards, with cascading submenus and keyboard navigation, and one row of it. |
 | `WindowMenu.js` | The entries of a menu about windows that move them to another workspace or monitor, and what the menus share: their sections, the appearance profiles. |
@@ -1419,6 +1471,46 @@ a keymap of up to 200 keys made for the text's characters (`xkb_utf32_to_keysym`
 `wlr_keyboard` of its own set as the seat's keyboard for the keys, so that the focused client gets
 that keymap, each key pressed and released, and the seat's own keyboard, keymap and modifiers
 back after.
+
+### Frosted glass
+
+With `shell.blur` the bars and the popups are frosted glass: each shows the wallpaper behind it
+blurred, under its colour. It is the wallpaper as the desktop draws it that shows, never the
+windows (Hyprland's xray), so that one blurred picture per output serves every surface there and
+nothing is blurred while the shell draws. `Glass` (`glass.cpp`, the controller's `glass`) keeps
+each output's: `Desktop.qml` hands it the wallpaper's layers once a new one has faded in, and as
+the configuration changes how the gradient or the drawn wallpaper looks (`capture`, which grabs the
+backdrop with `grabToImage` at twice the size the blur works at), and `blurWallpaper`
+(`glass_blur.cpp`, tested by `glass_blur_test`) blurs it on a thread of its own: averaged down to a
+pixel for a quarter of the Gaussian's spread (no more than a million pixels), three box blurs
+across and down that come close to the Gaussian, the brightness and saturation applied. A preview,
+which has no desktop, hands it the picture it draws its screenshot over (`previewWallpaper`), at
+once. A new picture, or settings that change it, makes it anew; the glass turned off lets them go.
+
+`Glass` in QML is a `GlassItem` (registered with `Paw`): a rounded rectangle, `radius` round,
+whose texture coordinates are where each of its points lies on the output, so it shows the part of
+the picture behind it. Where its window lies on the output is `surfaceOrigin` (`view.cpp`): the
+panel's surface along its edge, the popover and the menu bar at the top left, a layer surface by its
+anchors, margins and size within what the bars leave (as wlroots places it), a popup window beside
+the window it belongs to, or a preview's overlay where `PreviewData::surfacePlace` says. It looks
+again with each frame its window draws (`afterAnimating`), so that a card sliding in or the
+switcher growing shows, at each step, what lies behind it, as a pane of glass would. Its window
+holds one texture of the picture for all its glass, made on the render thread for each new picture
+and let go with the window's graphics; a node keeps the one it draws until it takes the next. It is
+inset half a pixel, under the antialiased edge of what is drawn over it, as its own edge is not
+antialiased. It draws only through the GPU; Qt's software renderer draws nothing of it, and
+`active` stays false, so that what is over it stays opaque. `active` says the glass shows: the
+glass is on, the shell draws through the GPU (`effects`) and its output has a picture; a surface
+over it reads it to be translucent (`Theme.onGlass`: its colour no more opaque than
+`Theme.glassOpacity`, the bar's alpha but at least `Theme.glassFloor`, 0.75). `pending` says a new picture is on its way, which `Restyle` waits for
+as for a picture loading.
+
+`CardFrame` puts one under every card, `GlassFill` under a card drawn by hand, and the bars put one
+under themselves (a child at `z: -1` draws under its parent's own fill). On the glass,
+`Theme.surfaceRaised` and the macOS style's `moduleColor` are veils of the text colour or white
+rather than colours of their own, so that the glass shows through what lies on a card too; what
+covered a card's colour to shape something (the media card's corners, the notification list's
+fading edges) masks it instead (`MultiEffect`), as no colour can cover a translucent card.
 
 ### Popups and menus
 

@@ -58,6 +58,8 @@ target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
 # paw doctor: its checks, which read the configuration as --check-config does, and how it reads
 # what other programs say.
 target_sources(paw_cli PRIVATE src/cli/doctor.cpp src/cli/doctor_parse.cpp)
+# Where the configuration lives, and `paw config [edit]`.
+target_sources(paw_cli PRIVATE src/cli/config.cpp)
 target_sources(paw_cli PRIVATE src/cli/fetch.cpp)
 target_sources(paw_cli PRIVATE src/cli/showcase.cpp)
 target_sources(paw_cli PRIVATE src/cli/top.cpp)
@@ -118,6 +120,7 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/docs/config-reference.md)
     paw_unit_test(config_robustness ${EXAMPLE_CONFIG})
     paw_unit_test(cli LIBRARY paw_cli)
+    paw_unit_test(config_command LIBRARY paw_cli ${EXAMPLE_CONFIG})
     paw_unit_test(fetch LIBRARY paw_cli)
     paw_unit_test(showcase LIBRARY paw_cli)
     paw_unit_test(top LIBRARY paw_cli)
@@ -178,6 +181,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(cat)
     paw_unit_test(cat_command LIBRARY paw_cli)
     paw_c_unit_test(xray_layout)
+    paw_c_unit_test(blur)
     paw_unit_test(heatmap LIBRARY paw_cli)
     target_link_libraries(heatmap_tests PRIVATE paw_config) # the action's bindings
 endif()
@@ -327,6 +331,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/cat.c
         src/compositor/xray.c
         src/compositor/heatmap.c
+        src/compositor/blur.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
         ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h ${WLR_PROTOCOL_HEADERS})
@@ -348,6 +353,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/toys.c)
     target_sources(paw PRIVATE src/cat.c src/cat_sprite.c)
     target_sources(paw PRIVATE src/xray_layout.c)
+    target_sources(paw PRIVATE src/blur.c)
     target_link_libraries(paw PRIVATE paw_heatmap)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
@@ -829,6 +835,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(window_shadow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(blur_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:input_probe> "${GRIM_ARGUMENT}")
         paw_smoke(magnet_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(snap_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>

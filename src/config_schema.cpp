@@ -188,6 +188,9 @@ const Option options[] = {
     {"layout.scroll.presets", "list of numbers", "{ 1/3, 1/2, 2/3, 1 }",
      "{ 0.4, 0.6, 1.0 }", none, none,
      "Widths `column_cycle_width` steps through, each 0.1 to 1; at most 8."},
+    {"layout.scroll.fill_lone", "boolean", "true", "false", none, none,
+     "A column alone on its workspace fills the screen, and takes its width back when another "
+     "joins it; `false` keeps it at its width. A width set by hand stays either way."},
 
     {"outputs", "table", "", "", none, none, "Monitor arrangement."},
     {"outputs.order", "list of strings", "unset", "{ \"DP-1\", \"DP-2\" }", none, none,
@@ -363,6 +366,26 @@ const Option options[] = {
     {"windows.shadow.offset", "integer or table", "10", "10", -50, 50,
      "How far the shadow falls below the window in pixels, or `{ x, y }` to move it sideways "
      "too (right and down)."},
+    {"windows.blur", "table", "", "", none, none,
+     "The desktop's background blurred behind each window, for windows that let it show "
+     "through: a translucent one (`opacity`, `inactive_opacity`, a rule's opacity, or a "
+     "terminal's own background opacity) shows the wallpaper frosted under it, and never the "
+     "windows behind it. Only the background is blurred (the wallpaper over "
+     "`appearance.background`), once as it changes rather than on every frame, so windows "
+     "moving cost nothing more. None under fullscreen windows; `windows.rules[].blur` turns it "
+     "off or on for some windows."},
+    {"windows.blur.enabled", "boolean", "false", "true", none, none,
+     "Blur the background behind windows."},
+    {"windows.blur.radius", "integer", "30", "40", 1, 200,
+     "How soft the blur is: each point of the background spreads over about this many pixels "
+     "around it, as CSS's blur radius."},
+    {"windows.blur.noise", "number", "0.02", "0.03", 0, 1,
+     "Grain over the blur, so that dark gradients show no bands: each pixel strays from its "
+     "colour by up to half this share of full brightness, as with Hyprland's `blur:noise`."},
+    {"windows.blur.brightness", "number", "1", "0.9", 0, 2,
+     "The blur's brightness, scaled: below 1 darker, so that light text reads better over it."},
+    {"windows.blur.saturation", "number", "1", "1.2", 0, 2,
+     "Its colours' saturation, scaled: 0 grey, above 1 more vivid, as macOS's vibrancy."},
     {"windows.lift", "boolean", "true", "false", none, none,
      "A window moved with the pointer is lifted while it moves: drawn a little larger about "
      "where it was taken, its shadow softer and further off (a printed one, without blur, "
@@ -412,6 +435,9 @@ const Option options[] = {
     {"windows.rules[].allow_tearing", "boolean", "unset", "", none, none,
      "With `windows.allow_tearing`, show the window's frames at once while it is fullscreen and "
      "alone on its monitor, whether or not it asks for that (as an X11 game cannot)."},
+    {"windows.rules[].blur", "boolean", "unset", "", none, none,
+     "`false` draws no blur behind the window (see `windows.blur`), `true` draws one even with "
+     "`windows.blur.enabled` off."},
 
     {"peek", "table", "", "", none, none,
      "Peek: `peek` (hold a key) and `peek_toggle` make every window nearly transparent to show "
@@ -824,6 +850,22 @@ const Option options[] = {
      "shadow (`inactive_color` under the bar and the dock, `color` under a popup), drawn through "
      "the GPU; a floating bar's shadow falls past the strip it reserves without taking input "
      "there."},
+    {"shell.blur", "table", "", "", none, none,
+     "Frosted glass: the bar (the taskbar, the tiling bar, the macOS style's menu bar and dock) "
+     "and the popups, menus, cards, tooltips and overlays show the wallpaper behind them blurred, "
+     "their colour laid over it. The popups, opaque without it, are as translucent as "
+     "`panel_color`, but no more than 25 % so their text stays readable; an opaque `panel_color` "
+     "hides the glass. It is the wallpaper as the desktop shows it that is blurred, not the "
+     "windows behind (as Hyprland's xray), once per monitor as it changes. Drawn through the GPU: "
+     "with `renderer = \"software\"` everything looks as without it."},
+    {"shell.blur.enabled", "boolean", "false", "true", none, none, "Draw the glass."},
+    {"shell.blur.radius", "integer", "40", "40", 2, 200,
+     "How far the blur spreads, in pixels: a Gaussian whose standard deviation is half this."},
+    {"shell.blur.brightness", "number", "1.0", "0.9", 0, 2,
+     "The blurred wallpaper's brightness times this: below 1 darker, above 1 lighter, which "
+     "helps text on a dark or a light `panel_color` stand out."},
+    {"shell.blur.saturation", "number", "1.0", "1.2", 0, 2,
+     "The blurred wallpaper's colourfulness times this: 0 grey, above 1 more vivid."},
     {"shell.font", "string", "\"\"", "\"\"", none, none,
      "Font family; empty keeps the Qt default."},
     {"shell.font_size", "integer", "12", "12", 6, 48, "Taskbar text size in pixels."},

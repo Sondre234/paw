@@ -16,6 +16,13 @@ Rectangle {
     required property var panel
     objectName: "menuBar"
     color: Theme.bar
+    // Frosted glass (shell.blur) under its colour.
+    Glass {
+        objectName: "menuBarGlass"
+        anchors.fill: parent
+        z: -1
+        visible: Theme.glass
+    }
     // The buttons the panel opens popups by, as Taskbar.qml names its own.
     readonly property Item systemButton: systemTitle
     readonly property Item appButton: appTitle

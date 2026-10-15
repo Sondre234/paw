@@ -183,6 +183,14 @@ int main(int argc, char **argv) {
         std::unique_ptr<PreviewData> previewData;
         if (parser.isSet("preview-popup"))
             previewData = std::make_unique<PreviewData>(controller);
+        // A preview has no desktop to take the frosted glass's wallpaper from: the glass blurs
+        // the one its picture is drawn over, at once, so that the first frame has it.
+        if (preview && !parser.isSet("preview-desktop") && controller.blur() &&
+            !QGuiApplication::screens().isEmpty())
+            controller.glass()->setWallpaper(
+                QGuiApplication::screens().first()->name(),
+                previewWallpaper(ShellView::previewSize(), controller), ShellView::previewSize(),
+                true);
         std::vector<std::unique_ptr<ShellView>> views;
         // The other surfaces of each output: the overlays, the cards, the on-screen display, the
         // display mode popup and the configuration error banner.

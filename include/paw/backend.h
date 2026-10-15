@@ -417,6 +417,7 @@ struct sh_settings {
     float scroll_step;   /* what column_widen and column_narrow add or remove */
     float scroll_presets[8]; /* the widths column_cycle_width steps through */
     int scroll_preset_count;
+    bool scroll_fill_lone; /* a column alone on its workspace fills the view */
     int workspaces;
     /* Outputs named here sit left to right in this order; others follow as they appear.
      * The primary output (or the leftmost, if unnamed) sits at the layout origin. */
@@ -532,6 +533,15 @@ struct sh_settings {
     int shadow_blur;
     int shadow_x, shadow_y;
     float shadow_color[4], shadow_inactive_color[4];
+    /* windows.blur: the desktop's background blurred behind each window (blur.c), spreading
+     * over about `blur_radius` logical pixels (as CSS's blur radius, twice a gaussian's standard
+     * deviation), with grain up to `blur_noise` of full brightness, and its brightness and
+     * saturation scaled by `blur_brightness` and `blur_saturation`. */
+    bool blur;
+    int blur_radius;
+    float blur_noise, blur_brightness, blur_saturation;
+    /* A window rule says `blur`, and one turns it on (so pictures are needed with `blur` off). */
+    bool blur_rules, blur_by_rule;
     /* windows.lift: a window moved with the pointer is lifted while it moves, drawn a little
      * larger about where it was taken and its shadow softer and further off, and settles as it
      * is dropped. */
@@ -609,6 +619,7 @@ struct sh_window_rule {
     bool no_shortcuts_inhibit; /* shortcuts_inhibit = false: its inhibitors are refused */
     bool above;  /* kept above the other windows */
     bool allow_tearing; /* shown at once while fullscreen, with windows.allow_tearing */
+    int blur; /* the background blurred behind it (windows.blur): -1 unset, 0 none, 1 blurred */
 };
 
 /* What the dynamic window rules (`dynamic = true`) matching a window decide now, as its title
@@ -904,10 +915,11 @@ bool sh_tiling_replace(struct sh_tiling *tiling, const void *old_window, void *r
  * or untiled. */
 void *sh_tiling_neighbour(const struct sh_tiling *tiling, const void *window, int step);
 /* Scrolling layout settings: how the view follows focus, the width of new columns, the step of
- * column_widen and column_narrow, and the presets column_cycle_width steps through (up to 8,
- * kept between 0.1 and 1). Shares are of the area's width. */
+ * column_widen and column_narrow, the presets column_cycle_width steps through (up to 8, kept
+ * between 0.1 and 1), and whether a column alone on its workspace fills the view (unless its
+ * width was set by hand). Shares are of the area's width. */
 void sh_tiling_set_scroll(struct sh_tiling *tiling, enum sh_scroll_follow follow, double width,
-                          double step, const float *presets, int preset_count);
+                          double step, const float *presets, int preset_count, bool fill_lone);
 /* Tells the layout which window has focus. Returns whether the scrolling view may have to move,
  * so the caller arranges again. */
 bool sh_tiling_set_focus(struct sh_tiling *tiling, const void *window);

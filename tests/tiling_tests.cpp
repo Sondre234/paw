@@ -417,7 +417,7 @@ int main() {
             int c[8];
             sh_tiling *sc = sh_tiling_create();
             const float presets[] = {0.5F, 1.0F, 1.0F / 3};
-            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_EDGE, 0.5, 0.1, presets, 3);
+            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_EDGE, 0.5, 0.1, presets, 3, false);
             sh_tiling_set_layout(sc, "DP-1", 0, SH_LAYOUT_SCROLL);
             auto open = [&](int index, const void *after = nullptr) {
                 sh_tiling_insert(sc, "DP-1", 0, &c[index], after, false, 0, 0);
@@ -459,7 +459,7 @@ int main() {
                     "column steps wrong or wrap");
 
             // Always-center: the focused column sits in the middle, even the first.
-            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_CENTER, 0.5, 0.1, presets, 3);
+            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_CENTER, 0.5, 0.1, presets, 3, false);
             sh_tiling_set_focus(sc, &c[3]);
             sh_tiling_set_focus(sc, &c[1]);
             placed = arrange(sc, screen, 0);
@@ -471,7 +471,7 @@ int main() {
             require(placed[&c[0]].x == 250, "the first column is not centered");
 
             // Never: only explicit scrolling and new windows move the view.
-            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_NEVER, 0.5, 0.1, presets, 3);
+            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_NEVER, 0.5, 0.1, presets, 3, false);
             sh_tiling_set_focus(sc, &c[1]);
             sh_tiling_scroll_action(sc, &c[1], SH_CENTER_COLUMN);
             placed = arrange(sc, screen, 0);
@@ -482,7 +482,7 @@ int main() {
             require(placed[&c[1]].x == 250, "never follow moved the view on focus");
             require(sh_tiling_scroll_step(sc, &c[2], -1, 0) == &c[1], "step left");
             require(sh_tiling_set_focus(sc, &c[1]), "revealed step needs no arrangement");
-            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_EDGE, 0.5, 0.1, presets, 3);
+            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_EDGE, 0.5, 0.1, presets, 3, false);
 
             // Widths cycle through the presets, wider first, and wrap.
             sh_tiling_set_focus(sc, &c[0]);
@@ -557,7 +557,7 @@ int main() {
 
             // Gaps: outer gaps at the ends of the strip, one gap between neighbours.
             sh_tiling *gapped = sh_tiling_create();
-            sh_tiling_set_scroll(gapped, SH_SCROLL_FOLLOW_EDGE, 0.5, 0.1, presets, 3);
+            sh_tiling_set_scroll(gapped, SH_SCROLL_FOLLOW_EDGE, 0.5, 0.1, presets, 3, false);
             sh_tiling_set_layout(gapped, "DP-1", 0, SH_LAYOUT_SCROLL);
             sh_tiling_insert(gapped, "DP-1", 0, &c[4], nullptr, false, 0, 0);
             sh_tiling_insert(gapped, "DP-1", 0, &c[5], &c[4], false, 0, 0);
@@ -635,6 +635,68 @@ int main() {
             sh_tiling_destroy(sc);
         }
 
+        // A column alone on its workspace fills the view, and takes its own width back beside
+        // another; a width set by hand stays, alone too.
+        {
+            const sh_rect screen{0, 0, 1000, 800};
+            int c[3];
+            sh_tiling *sc = sh_tiling_create();
+            const float presets[] = {0.5F, 1.0F, 1.0F / 3};
+            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_CENTER, 0.5, 0.1, presets, 3, true);
+            sh_tiling_set_layout(sc, "DP-1", 0, SH_LAYOUT_SCROLL);
+            sh_tiling_set_layout(sc, "DP-1", 1, SH_LAYOUT_SCROLL);
+            sh_tiling_insert(sc, "DP-1", 0, &c[0], nullptr, false, 0, 0);
+            sh_tiling_set_focus(sc, &c[0]);
+            require(arrange(sc, screen, 0)[&c[0]] == screen, "a lone column does not fill the view");
+            require(arrange(sc, screen, 10)[&c[0]] == sh_rect({10, 10, 980, 780}),
+                    "a lone column's gaps wrong");
+            sh_tiling_insert(sc, "DP-1", 0, &c[1], &c[0], false, 0, 0);
+            sh_tiling_set_focus(sc, &c[0]);
+            auto placed = arrange(sc, screen, 0);
+            require(placed[&c[0]].width == 500 && placed[&c[1]].width == 500 &&
+                        placed[&c[1]].x == placed[&c[0]].x + 500,
+                    "columns beside another did not take their own width");
+            // A stack is one column, and fills the view too.
+            require(sh_tiling_scroll_action(sc, &c[1], SH_CONSUME_LEFT), "consume_left failed");
+            placed = arrange(sc, screen, 0);
+            require(placed[&c[0]] == sh_rect({0, 0, 1000, 400}) &&
+                        placed[&c[1]] == sh_rect({0, 400, 1000, 400}),
+                    "a lone stack does not fill the view");
+            sh_tiling_remove(sc, &c[1]);
+            require(arrange(sc, screen, 0)[&c[0]] == screen,
+                    "the column left alone does not fill the view");
+            // Widening it changes nothing, so it still takes its own width beside another.
+            require(!sh_tiling_scroll_action(sc, &c[0], SH_COLUMN_WIDEN), "widened past the view");
+            sh_tiling_insert(sc, "DP-1", 0, &c[1], &c[0], false, 0, 0);
+            require(arrange(sc, screen, 0)[&c[0]].width == 500, "a widening that did nothing stuck");
+            sh_tiling_remove(sc, &c[1]);
+            // Narrowing starts from the full view; the width it sets stays beside another and
+            // alone again.
+            require(sh_tiling_scroll_action(sc, &c[0], SH_COLUMN_NARROW), "narrowing changed nothing");
+            require(arrange(sc, screen, 0)[&c[0]].width == 900, "narrowing not from the full view");
+            sh_tiling_insert(sc, "DP-1", 0, &c[1], &c[0], false, 0, 0);
+            placed = arrange(sc, screen, 0);
+            require(placed[&c[0]].width == 900 && placed[&c[1]].width == 500,
+                    "a width set by hand did not stay beside another");
+            sh_tiling_remove(sc, &c[1]);
+            require(arrange(sc, screen, 0)[&c[0]].width == 900,
+                    "a width set by hand did not stay alone");
+            // Cycling from a full lone column wraps to the narrowest preset.
+            sh_tiling_insert(sc, "DP-1", 1, &c[2], nullptr, false, 0, 0);
+            sh_tiling_set_focus(sc, &c[2]);
+            require(sh_tiling_scroll_action(sc, &c[2], SH_COLUMN_CYCLE_WIDTH) &&
+                        arrange(sc, screen, 0, "DP-1", 1)[&c[2]].width == 333,
+                    "cycling a lone column did not wrap");
+            // Turned off, a lone column keeps its width.
+            sh_tiling_remove(sc, &c[2]);
+            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_CENTER, 0.5, 0.1, presets, 3, false);
+            sh_tiling_insert(sc, "DP-1", 1, &c[2], nullptr, false, 0, 0);
+            sh_tiling_set_focus(sc, &c[2]);
+            require(arrange(sc, screen, 0, "DP-1", 1)[&c[2]] == sh_rect({250, 0, 500, 800}),
+                    "fill_lone off still fills the view");
+            sh_tiling_destroy(sc);
+        }
+
         // A long random sequence of operations keeps every window placed exactly once, with
         // no overlaps (but in monocle), whatever the follow mode.
         {
@@ -684,7 +746,7 @@ int main() {
                     break;
                 default:
                     sh_tiling_set_scroll(sc, static_cast<sh_scroll_follow>(random(3)), 0.1 + random(10) / 10.0,
-                                         0.1, nullptr, 0);
+                                         0.1, nullptr, 0, random(2) == 0);
                     if (random(4) == 0)
                         sh_tiling_set_layout(sc, "DP-1", 0,
                                              static_cast<sh_tile_layout>(random(SH_LAYOUT_COUNT)));

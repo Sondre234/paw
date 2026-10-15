@@ -249,7 +249,7 @@ class Translator {
             if (auto *enabled = option(prefix + "enabled");
                 enabled && parse_bool(enabled->text).value_or(false))
                 report_.skip(files_, enabled->origin,
-                             blur ? "blur needs a renderer paw lacks so far"
+                             blur ? "blur is not imported; set windows.blur by hand"
                                   : "shadows are not imported; set windows.shadow by hand");
             for (const auto &[name, value] : hypr.options)
                 if (name.starts_with(prefix))

@@ -16,12 +16,25 @@ QtObject {
     readonly property bool macos: shell.style === "macos"
 
     // Surfaces. The bar keeps the configured colour, translucency included. Popups are opaque:
-    // nothing is blurred behind them, and a window showing through makes text hard to read.
+    // without the glass nothing is blurred behind them, and a window showing through makes text
+    // hard to read.
     readonly property color bar: shell.panelColor
     readonly property color surface: Qt.rgba(bar.r, bar.g, bar.b, 1)
-    // A card, field or other block inside a popup.
-    readonly property color surfaceRaised: mix(surface, text, 0.04)
-    readonly property color surfaceRaisedHover: mix(surface, text, 0.09)
+    // Frosted glass (shell.blur), drawn through the GPU: the bar and the popups show the wallpaper
+    // behind them blurred (a Glass under each), and a popup's surface over it is as translucent
+    // as the bar, but at least glassFloor opaque, so that its text stays readable whatever the
+    // wallpaper. A surface is translucent only where its Glass is `active`.
+    readonly property bool glass: shell.blur && effects
+    readonly property real glassFloor: 0.75
+    readonly property real glassOpacity: Math.max(bar.a, glassFloor)
+    // A pane of glass catches the light: a faint light line just inside its outline, and a sheen
+    // fading down from its top edge.
+    readonly property color glassEdge: Qt.rgba(1, 1, 1, light ? 0.45 : 0.08)
+    readonly property color glassSheen: Qt.rgba(1, 1, 1, light ? 0.25 : 0.045)
+    // A card, field or other block inside a popup; on the glass a veil of the text colour, so
+    // that the glass shows through it too.
+    readonly property color surfaceRaised: glass ? alpha(text, 0.05) : mix(surface, text, 0.04)
+    readonly property color surfaceRaisedHover: glass ? alpha(text, 0.1) : mix(surface, text, 0.09)
     // Whether the surfaces are light, for the few colours that cannot be derived from them.
     readonly property bool light: luminance(surface) > 0.5
 
@@ -229,11 +242,12 @@ QtObject {
     readonly property int spotlightIconSize: 28
     readonly property int spotlightHeadingHeight: 26
     // Control Center, Quick Settings in the macOS style: its width and surface, and its modules,
-    // cards lighter than the surface under them, with their corners, the room inside them, a
-    // heading's height, a tile's height and its round button.
+    // cards lighter than the surface under them (on the glass a light veil over it), with their
+    // corners, the room inside them, a heading's height, a tile's height and its round button.
     readonly property int controlCenterWidth: 344
     readonly property color controlCenterSurface: macos && light ? mix(popupSurface, text, 0.05) : popupSurface
-    readonly property color moduleColor: light ? Qt.rgba(1, 1, 1, 0.92) : mix(popupSurface, Qt.rgba(1, 1, 1, 1), 0.07)
+    readonly property color moduleColor: glass ? Qt.rgba(1, 1, 1, light ? 0.45 : 0.07)
+                                       : light ? Qt.rgba(1, 1, 1, 0.92) : mix(popupSurface, Qt.rgba(1, 1, 1, 1), 0.07)
     readonly property color moduleOutline: alpha(text, light ? 0.07 : 0.06)
     readonly property int moduleRadius: 12
     readonly property int modulePadding: 10
@@ -271,6 +285,9 @@ QtObject {
     readonly property color switcherSurface: macos ? alpha(popupSurface, 0.88) : surface
     readonly property color switcherSelection: macos ? alpha(text, 0.16) : accentSubtle
 
+    // `color`, a card's, laid over the glass: no more opaque than glassOpacity, and a colour more
+    // translucent than that (the macOS style's switcher's) as it is.
+    function onGlass(color) { return Qt.rgba(color.r, color.g, color.b, Math.min(color.a, glassOpacity)) }
     // `milliseconds` at the animation speed, 0 with animations off.
     function duration(milliseconds) { return Math.round(milliseconds * motionScale) }
     function alpha(color, opacity) { return Qt.rgba(color.r, color.g, color.b, color.a * opacity) }

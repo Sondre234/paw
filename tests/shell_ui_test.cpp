@@ -662,15 +662,26 @@ int main(int argc, char **argv) {
         }
         if (!draws(find(root, "tilingMenuTitle"), "tiling-dwindle"))
             return fail("the tiling button's menu does not show the icon of the layout in use");
+        // The button itself shows the layout's icon while tiling, and floating's while not.
+        auto showsIcon = [&](const QString &name) {
+            auto *icon = find(tiling, "tilingIcon");
+            return waitFor([&] { return icon && icon->property("name") == name && draws(icon, name); });
+        };
+        if (!showsIcon("tiling-dwindle"))
+            return fail("the tiling button does not show the icon of the layout in use");
         click(entry("Master"));
         if (!waitFor([&] { return shellLayout() == "master" && !menuOpen(); }) ||
             requests.last() != "output " + output + " layout_master" || !toggled)
             return fail("picking a layout in the tiling button's menu did not switch to it");
+        if (!showsIcon("tiling-master"))
+            return fail("the tiling button's icon did not follow the layout");
         if (!openMenu() || title() != "Master" || entry("Master") || !entry("Dwindle"))
             return fail("the tiling button's menu did not follow the layout");
         click(entry("Floating"));
         if (!waitFor([&] { return !toggled && !panelTiling() && !menuOpen(); }))
             return fail("Floating in the tiling button's menu did not turn tiling off");
+        if (!showsIcon("copy"))
+            return fail("the tiling button did not show floating's icon with tiling off");
         if (!openMenu() || title() != "Floating" || entry("Floating") || !entry("Master") ||
             !entry("Dwindle") || !draws(find(root, "tilingMenuTitle"), "copy"))
             return fail("the tiling button's menu did not show floating, with every layout");
@@ -678,6 +689,8 @@ int main(int argc, char **argv) {
         if (!waitFor([&] { return shellLayout() == "spiral" && toggled && panelTiling(); }) ||
             requests.last() != "output " + output + " layout_spiral")
             return fail("picking a layout while floating did not tile with it");
+        if (!showsIcon("tiling-spiral"))
+            return fail("the tiling button did not show the layout it turned tiling on with");
         // Back to dwindle, which the tiling bar's tests below start from.
         if (!openMenu())
             return fail("the tiling button's menu did not open again");
@@ -6775,6 +6788,71 @@ ListModel {
             return fail("framed as windows without borders or shadows, the shell drew some");
         controller.setEffects(false);
         if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+    }
+    // Frosted glass (shell.blur): off by default. A profile with it on turns it on as it is
+    // picked: once its output's wallpaper is blurred, the bar's glass shows it, and a popup's
+    // card over its own is as translucent as the bar but no less than 75 % opaque, the blocks on
+    // it veils of the text colour. Drawn in software, and once a profile without it is picked,
+    // everything is as it was.
+    {
+        auto *theme = view.engine()->singletonInstance<QObject *>("PawShell", "Theme");
+        auto *barGlass = find(view.rootObject(), "barGlass");
+        const QString screen = view.screen()->name();
+        QImage wall(320, 200, QImage::Format_RGB32);
+        wall.fill(QColor("#3355aa"));
+        auto shows = [](QQuickItem *glass) {
+            return glass && glass->isVisible() && glass->property("active").toBool();
+        };
+        controller.setEffects(true);
+        controller.glass()->setWallpaper(screen, wall, ShellView::previewSize(), true);
+        if (!barGlass || controller.blur() || barGlass->isVisible() || shows(barGlass) ||
+            !controller.glass()->picture(screen).image.isNull())
+            return fail("the frosted glass is on by default");
+        const auto profileBefore = controller.profile();
+        if (!reconfigure(QString(lua).replace(
+                "light={shell={accent='#336699'}}",
+                "light={shell={accent='#336699',panel_color='#1e1e2eb3',"
+                "blur={enabled=true,radius=12}}}")))
+            return fail("could not rewrite the configuration");
+        pickProfile("light");
+        if (!waitFor([&] { return controller.blur() && barGlass->isVisible(); }))
+            return fail("a profile with the glass did not turn it on");
+        // No desktop here to take the wallpaper from: it is handed over as a preview's is,
+        // blurred on a thread meanwhile.
+        controller.glass()->setWallpaper(screen, wall, ShellView::previewSize());
+        if (!controller.glass()->pending(screen) || !waitFor([&] { return shows(barGlass); }) ||
+            controller.glass()->pending(screen))
+            return fail("the bar's glass did not show its output's blurred wallpaper");
+        const auto picture = controller.glass()->picture(screen);
+        if (picture.size != QSizeF(ShellView::previewSize()) ||
+            picture.image.width() >= ShellView::previewSize().width() ||
+            QColor(picture.image.pixel(5, 5)) != QColor("#3355aa"))
+            return fail("the glass's picture is not the wallpaper blurred, smaller than the output");
+        view.rootObject()->setProperty("launcherOpen", true);
+        QQuickItem *cardGlass = nullptr, *cardSurface = nullptr;
+        auto surfaceAlpha = [&] { return cardSurface->property("color").value<QColor>().alpha(); };
+        if (!waitFor([&] {
+                auto *launcher = find(view.rootObject(), "launcher");
+                cardGlass = launcher ? find(launcher, "cardGlass") : nullptr;
+                cardSurface = launcher ? find(launcher, "cardSurface") : nullptr;
+                return shows(cardGlass) && cardSurface && surfaceAlpha() == 191;
+            }) ||
+            theme->property("surfaceRaised").value<QColor>().alpha() != 13)
+            return fail("the launcher's card is not translucent on the glass");
+        controller.setEffects(false);
+        if (!waitFor([&] { return !shows(cardGlass) && surfaceAlpha() == 255; }) ||
+            theme->property("surfaceRaised").value<QColor>().alpha() != 255)
+            return fail("drawn in software, the launcher's card stayed translucent");
+        controller.setEffects(true);
+        view.rootObject()->setProperty("launcherOpen", false);
+        pickProfile(profileBefore);
+        if (!waitFor([&] { return !controller.blur() && !barGlass->isVisible() && !shows(barGlass); }) ||
+            !controller.glass()->picture(screen).image.isNull())
+            return fail("a profile without the glass did not turn it off");
+        controller.setEffects(false);
+        // Nothing moves until the profile's look is drawn, which what comes next waits for.
+        if (!reconfigure(lua) || !waitFor([&] { return !controller.restyling(); }))
             return fail("could not restore the configuration");
     }
     // Launchpad, the macOS style's launcher: it opens over the whole output with the keyboard in

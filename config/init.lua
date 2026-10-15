@@ -180,6 +180,12 @@ return {
         -- border_inactive_color = "#404a5c",
         -- opacity = 1.0,
         -- inactive_opacity = 1.0,
+        -- The wallpaper blurred behind every window, for translucent ones (opacity above, or a
+        -- terminal's own background opacity): radius in pixels, noise a little grain against
+        -- banding, brightness and saturation (0 to 2) scale its colours. Rules' blur = false
+        -- leaves a window out, blur = true blurs one with it off:
+        -- blur = { enabled = false, radius = 30, noise = 0.02, brightness = 1.0,
+        --          saturation = 1.0 },
         -- dim_inactive = 0.0, -- 0 to 0.9: black laid over windows without focus, faded in and out
         -- dim_duration = 180, -- milliseconds of that fade
         -- Games asking for it (or that a rule's allow_tearing = true names) show their frames at
@@ -308,6 +314,14 @@ return {
         --                         way, closing and killing a window the nearest the bar
         -- panel_margin = 0, -- or { top = 8, right = 12, bottom = 0, left = 12 } to float
         -- panel_radius = 0,
+        -- Frosted glass: the bar and the popups show the wallpaper behind them blurred, under
+        -- panel_color's translucency (the popups' at least 75 % opaque); drawn through the GPU:
+        -- blur = {
+        --     enabled = false,
+        --     radius = 40,      -- how far the blur spreads, in pixels (2-200)
+        --     brightness = 1.0, -- the blurred wallpaper darker below 1, lighter above (0-2)
+        --     saturation = 1.0, -- greyer below 1, more vivid above (0-2)
+        -- },
         -- font = "", -- family name; empty keeps the default
         -- font_size = 12,
         -- renderer = "gpu", -- or "software" for a weak machine (no effects); read at shell start
