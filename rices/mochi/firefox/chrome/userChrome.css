@@ -674,12 +674,26 @@ findbar .findbar-textbox:focus {
   box-shadow: var(--mochi-glow) !important;
 }
 
-/* notification bars above the page */
-notification-message,
-.notificationbox-stack notification-message {
+/* notification bars above the page: they sit in the page's light or dark scheme and work out
+   their colours from it inside their shadow tree, so they get mochi's on themselves */
+moz-message-bar,
+notification-message {
+  color-scheme: dark !important;
   --message-bar-background-color: var(--mochi-surface0) !important;
   --message-bar-text-color: var(--mochi-ink) !important;
+  --message-bar-border-color: var(--mochi-edge) !important;
+  --message-bar-icon-color: var(--mochi-blue) !important;
+  --message-bar-icon-background-color: transparent !important;
+  --text-color: var(--mochi-ink) !important;
+  --link-color: var(--mochi-link) !important;
+  --button-background-color: var(--mochi-surface1) !important;
+  --button-background-color-hover: var(--mochi-surface2) !important;
+  --button-text-color: var(--mochi-ink) !important;
   border-radius: var(--mochi-radius-small) !important;
+}
+
+findbar {
+  color-scheme: dark !important;
 }
 
 /* the bookmarks toolbar, when shown */
