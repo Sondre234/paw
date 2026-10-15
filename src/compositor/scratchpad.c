@@ -45,14 +45,17 @@ static bool dropping(struct sh_toplevel *toplevel) {
     return toplevel->drop.running && toplevel->drop.plan.clip;
 }
 
-/* Whether the window's frame, where it is drawn, crosses the edges of its bound. */
+/* Whether the window's frame, where it is drawn (stretched by a pose: the cube's), crosses the
+ * edges of its bound. */
 static bool crossing(struct sh_toplevel *toplevel) {
     if (!toplevel->bounded || !toplevel->content || !can_clip(toplevel->server))
         return false;
     int x, y, b = server_settings(toplevel->server)->border_width;
     wlr_scene_node_coords(&toplevel->content->node, &x, &y);
     struct wlr_box g = frame_geometry(toplevel), both;
-    struct wlr_box frame = {x - b, y - b, g.width + 2 * b, g.height + 2 * b};
+    struct wlr_box frame = lift_box(toplevel, toplevel->content,
+                                    (struct wlr_box){-b, -b, g.width + 2 * b, g.height + 2 * b});
+    frame.x += x, frame.y += y;
     return !wlr_box_intersection(&both, &frame, &toplevel->bound) ||
            !wlr_box_equal(&both, &frame);
 }
