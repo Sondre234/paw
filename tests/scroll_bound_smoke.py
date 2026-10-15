@@ -67,7 +67,8 @@ def run(animated, check):
         msg("headless_pointer", "move", "mouse", "1900", "300")
         pids = {"N": desktop.open_window(probe, "N", focused=True).pid}
         desktop.wait_for(lambda: window("N").output == "HEADLESS-2", "N on HEADLESS-2")
-        msg("headless_pointer", "move", "mouse", "300", "300")
+        # Right of where A opens: over the first column, a new window would open left of it.
+        msg("headless_pointer", "move", "mouse", "1200", "300")
         for title in ("A", "B", "C"):
             pids[title] = desktop.open_window(probe, title, f"app-{title.lower()}",
                                               focused=True).pid

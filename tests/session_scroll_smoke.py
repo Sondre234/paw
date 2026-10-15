@@ -38,6 +38,9 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
         desktop.wait_for(lambda: windows()[title]["focused"], f"{title} focused")
 
     desktop.start()
+    # The pointer rests at the right: over the first column, a new window would open left of it.
+    msg("headless_pointer", "add", "mouse")
+    msg("headless_pointer", "move", "mouse", "1279", "300")
 
     for title in ("A", "B", "C"):
         desktop.open_window(probe, title, f"app-{title.lower()}", focused=True)

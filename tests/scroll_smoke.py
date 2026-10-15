@@ -35,6 +35,9 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         return rect[0] >= 0 and rect[0] + rect[2] <= SCREEN_WIDTH
 
     desktop.detail = lambda: f"windows: {windows()}"
+    # The pointer rests at the right: over the first column, a new window would open left of it.
+    msg("headless_pointer", "add", "mouse")
+    msg("headless_pointer", "move", "mouse", "1279", "300")
 
     def act(action, predicate, message):
         msg(action)

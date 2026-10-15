@@ -27,6 +27,10 @@ for follow, expected in EXPECTED.items():
             return {w.title: (w.focused, w.x) for w in desktop.windows()}
 
         desktop.detail = lambda: f"{follow}: {windows()}"
+        # The pointer rests at the right: over the first column, a new window would open left
+        # of it.
+        desktop.msg("headless_pointer", "add", "mouse")
+        desktop.msg("headless_pointer", "move", "mouse", "1279", "300")
 
         for title in ("A", "B", "C"):
             desktop.spawn([probe, "--window-only"],
