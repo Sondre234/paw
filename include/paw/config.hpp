@@ -67,6 +67,7 @@ struct Launcher {
 struct WindowActions {
     enum class Position { Unset, Center, At };
     std::optional<bool> floating, fullscreen, maximize, focus, sticky, above, allow_tearing;
+    std::optional<bool> blur; // the background blurred behind it, whatever windows.blur says
     std::optional<bool> shortcuts_inhibit; // false: the window's inhibitors are refused
     std::optional<int> workspace;      // from 1
     std::optional<std::string> output; // connector, or "desc:" and the start of its description
@@ -422,6 +423,13 @@ struct Config {
                          .shadow_y = 10,
                          .shadow_color = {0, 0, 0, 0x59 / 255.0F},
                          .shadow_inactive_color = {0, 0, 0, 0x33 / 255.0F},
+                         .blur = false,
+                         .blur_radius = 30,
+                         .blur_noise = 0.02F,
+                         .blur_brightness = 1,
+                         .blur_saturation = 1,
+                         .blur_rules = false,
+                         .blur_by_rule = false,
                          .lift = true,
                          .lock_before_sleep = true,
                          .close_windows = true,

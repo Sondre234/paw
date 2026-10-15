@@ -958,6 +958,7 @@ WindowRule window_rule(lua_State *L, int workspaces) {
     actions.shortcuts_inhibit = optional_boolean(L, "shortcuts_inhibit");
     actions.above = optional_boolean(L, "above");
     actions.allow_tearing = optional_boolean(L, "allow_tearing");
+    actions.blur = optional_boolean(L, "blur");
     if (present(L, "workspace"))
         actions.workspace = integer(L, "workspace", 0, 1, workspaces);
     if (auto name = text(L, "output")) {
@@ -1064,6 +1065,19 @@ void read_shadow(lua_State *L, Config &config) {
         }
     }
 }
+// `windows.blur = { enabled, radius, noise, brightness, saturation }`.
+void read_blur(lua_State *L, Config &config) {
+    if (Section in{L, "blur", "windows.blur"}) {
+        auto &settings = config.settings;
+        boolean(L, "enabled", "windows.blur.enabled", settings.blur);
+        settings.blur_radius = integer(L, "radius", settings.blur_radius, 1, 200);
+        settings.blur_noise = static_cast<float>(number(L, "noise", settings.blur_noise, 0, 1));
+        settings.blur_brightness =
+            static_cast<float>(number(L, "brightness", settings.blur_brightness, 0, 2));
+        settings.blur_saturation =
+            static_cast<float>(number(L, "saturation", settings.blur_saturation, 0, 2));
+    }
+}
 // A border's colours: `#RRGGBB[AA]`, or a gradient `{ "#RRGGBB[AA]", ..., angle = DEGREES }` of
 // 2 to SH_GRADIENT_STOPS colours, whose first colour is also `first`.
 void border_colors(lua_State *L, const char *key, float (&first)[4], sh_gradient &gradient) {
@@ -1139,6 +1153,7 @@ void read_windows(lua_State *L, Config &config) {
     read_magnet(L, config);
     read_snap(L, config);
     read_shadow(L, config);
+    read_blur(L, config);
     boolean(L, "lift", "windows.lift", config.settings.lift);
     named(L, "placement", "windows.placement", config.settings.placement,
           {{"cascade", SH_PLACE_CASCADE}, {"center", SH_PLACE_CENTER}, {"smart", SH_PLACE_SMART}});
@@ -1155,6 +1170,12 @@ void read_windows(lua_State *L, Config &config) {
             keys(L, -1, "windows.rules[]");
             config.window_rules.push_back(window_rule(L, config.settings.workspaces));
             lua_pop(L, 1);
+        }
+    }
+    for (const auto &rule : config.window_rules) {
+        if (rule.actions.blur) {
+            config.settings.blur_rules = true;
+            config.settings.blur_by_rule = config.settings.blur_by_rule || *rule.actions.blur;
         }
     }
     lua_pop(L, 1);
@@ -2255,6 +2276,7 @@ bool WindowRule::matches(const std::string &app_id, const std::string &title) co
 
 bool WindowActions::empty() const {
     return !floating && !fullscreen && !maximize && !focus && !sticky && !above && !allow_tearing &&
+           !blur &&
            !workspace && !output && !size && position == Position::Unset && !shortcuts_inhibit;
 }
 
@@ -2266,7 +2288,8 @@ void WindowActions::merge(const WindowActions &other) {
                                   {&sticky, &other.sticky},
                                   {&shortcuts_inhibit, &other.shortcuts_inhibit},
                                   {&above, &other.above},
-                                  {&allow_tearing, &other.allow_tearing}})
+                                  {&allow_tearing, &other.allow_tearing},
+                                  {&blur, &other.blur}})
         if (*source)
             *target = *source;
     if (other.workspace)
@@ -2302,6 +2325,7 @@ sh_window_rule WindowActions::to_c() const {
     rule.no_shortcuts_inhibit = !shortcuts_inhibit.value_or(true);
     rule.above = above.value_or(false);
     rule.allow_tearing = allow_tearing.value_or(false);
+    rule.blur = blur ? *blur : -1;
     return rule;
 }
 

@@ -533,6 +533,15 @@ struct sh_settings {
     int shadow_blur;
     int shadow_x, shadow_y;
     float shadow_color[4], shadow_inactive_color[4];
+    /* windows.blur: the desktop's background blurred behind each window (blur.c), spreading
+     * over about `blur_radius` logical pixels (as CSS's blur radius, twice a gaussian's standard
+     * deviation), with grain up to `blur_noise` of full brightness, and its brightness and
+     * saturation scaled by `blur_brightness` and `blur_saturation`. */
+    bool blur;
+    int blur_radius;
+    float blur_noise, blur_brightness, blur_saturation;
+    /* A window rule says `blur`, and one turns it on (so pictures are needed with `blur` off). */
+    bool blur_rules, blur_by_rule;
     /* windows.lift: a window moved with the pointer is lifted while it moves, drawn a little
      * larger about where it was taken and its shadow softer and further off, and settles as it
      * is dropped. */
@@ -610,6 +619,7 @@ struct sh_window_rule {
     bool no_shortcuts_inhibit; /* shortcuts_inhibit = false: its inhibitors are refused */
     bool above;  /* kept above the other windows */
     bool allow_tearing; /* shown at once while fullscreen, with windows.allow_tearing */
+    int blur; /* the background blurred behind it (windows.blur): -1 unset, 0 none, 1 blurred */
 };
 
 /* What the dynamic window rules (`dynamic = true`) matching a window decide now, as its title

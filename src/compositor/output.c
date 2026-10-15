@@ -16,6 +16,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     struct sh_stats *stats = &output->server->stats;
     uint64_t started = now_ns();
 
+    reapply_opacity(output->server); // which a client's commit put back to its own
     // The fades redraw windows' frames at rest (a peek's), which the animations then draw
     // where they have the windows.
     if (tick_effects(output->server))
@@ -34,6 +35,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     cat_frame(output->server); // whatever moved under the cat drew this frame
     if (heatmap_tick(output->server)) // the pointer heatmap fading in or out
         wlr_output_schedule_frame(output->wlr_output);
+    blur_frame(output->server); // the blur under each window follows where it is drawn
     // Night light's colours do not go with an HDR output's, which the scene converts to itself.
     struct wlr_scene_output_state_options night = {
         .color_transform = output_is_hdr(output) ? NULL : output->server->night_transform};
@@ -719,6 +721,7 @@ static void output_destroy(struct wl_listener *listener, void *data) {
     mirrors_forget_source(output);
     crossfade_forget_output(output);
     heatmap_forget_output(output);
+    blur_forget_output(output);
     output_release_zoom(output);
     destroy_output_layers(output->server, output->wlr_output);
     wlr_scene_node_destroy(&output->background->node);

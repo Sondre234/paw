@@ -366,6 +366,26 @@ const Option options[] = {
     {"windows.shadow.offset", "integer or table", "10", "10", -50, 50,
      "How far the shadow falls below the window in pixels, or `{ x, y }` to move it sideways "
      "too (right and down)."},
+    {"windows.blur", "table", "", "", none, none,
+     "The desktop's background blurred behind each window, for windows that let it show "
+     "through: a translucent one (`opacity`, `inactive_opacity`, a rule's opacity, or a "
+     "terminal's own background opacity) shows the wallpaper frosted under it, and never the "
+     "windows behind it. Only the background is blurred (the wallpaper over "
+     "`appearance.background`), once as it changes rather than on every frame, so windows "
+     "moving cost nothing more. None under fullscreen windows; `windows.rules[].blur` turns it "
+     "off or on for some windows."},
+    {"windows.blur.enabled", "boolean", "false", "true", none, none,
+     "Blur the background behind windows."},
+    {"windows.blur.radius", "integer", "30", "40", 1, 200,
+     "How soft the blur is: each point of the background spreads over about this many pixels "
+     "around it, as CSS's blur radius."},
+    {"windows.blur.noise", "number", "0.02", "0.03", 0, 1,
+     "Grain over the blur, so that dark gradients show no bands: each pixel strays from its "
+     "colour by up to half this share of full brightness, as with Hyprland's `blur:noise`."},
+    {"windows.blur.brightness", "number", "1", "0.9", 0, 2,
+     "The blur's brightness, scaled: below 1 darker, so that light text reads better over it."},
+    {"windows.blur.saturation", "number", "1", "1.2", 0, 2,
+     "Its colours' saturation, scaled: 0 grey, above 1 more vivid, as macOS's vibrancy."},
     {"windows.lift", "boolean", "true", "false", none, none,
      "A window moved with the pointer is lifted while it moves: drawn a little larger about "
      "where it was taken, its shadow softer and further off (a printed one, without blur, "
@@ -415,6 +435,9 @@ const Option options[] = {
     {"windows.rules[].allow_tearing", "boolean", "unset", "", none, none,
      "With `windows.allow_tearing`, show the window's frames at once while it is fullscreen and "
      "alone on its monitor, whether or not it asks for that (as an X11 game cannot)."},
+    {"windows.rules[].blur", "boolean", "unset", "", none, none,
+     "`false` draws no blur behind the window (see `windows.blur`), `true` draws one even with "
+     "`windows.blur.enabled` off."},
 
     {"peek", "table", "", "", none, none,
      "Peek: `peek` (hold a key) and `peek_toggle` make every window nearly transparent to show "

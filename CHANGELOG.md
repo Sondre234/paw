@@ -472,6 +472,14 @@ shadows.
 - In the scrolling layout a column alone on its workspace fills the screen, where a lone window
   used to take half of it, and takes its width back when another opens beside it.
   `layout.scroll.fill_lone = false` keeps it at its width; a width set by hand stays, alone too.
+- `windows.blur = { enabled = true }` blurs the desktop's background behind windows, as
+  Hyprland's blur with `xray = true`: a translucent window (`windows.opacity`, `inactive_opacity`,
+  a rule's opacity, or a terminal's own background opacity) shows the wallpaper frosted under it,
+  inside its rounded corners, and never the windows behind it. `radius`, `noise`, `brightness` and
+  `saturation` set its look, a rule's `blur = false` (or `true`) leaves a window out (or blurs it
+  with the setting off), fullscreen windows have none, and profiles can turn it on and off. Only
+  the wallpaper is blurred, at half the monitor's pixels on the CPU once it changes, so windows
+  moving, resizing and animating over it cost nothing more; `paw msg get blur` shows it.
 
 ### Starting and ending a session
 
@@ -681,6 +689,10 @@ off and to find out what is wrong with it, and toys the compositor plays with th
 
 ### Fixes
 
+- A window at an opacity below 1 (`windows.opacity`, `inactive_opacity`, a rule's) is drawn at
+  it, where each commit of its client put the window back to full opacity until something else
+  redrew its frame, so a terminal that redraws often stayed opaque. `paw msg get opacities` ends
+  each line with the opacity the window's surface is drawn with.
 - The pictures of windows on the taskbar and in the Alt + Tab switcher show on NVIDIA's GPUs,
   whose GLES renderer offers the frames only as packed 24-bit BGR888, which the shell did not read,
   leaving each card its icon.

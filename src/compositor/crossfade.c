@@ -240,8 +240,10 @@ static void lay_picture(struct sh_crossfade *fade, struct sh_output *output) {
     picture->transform = wlr_output->transform;
 }
 
-/* The pictures start fading at their next frame. */
+/* The pictures start fading at their next frame. The blur under windows takes in a new
+ * wallpaper first, rather than once it settles, so that it changes under the pictures. */
 static void release(struct sh_server *server) {
+    blur_flush(server);
     if (!drop_dark_pictures(server))
         return;
     struct sh_crossfade *fade = server->crossfade;
