@@ -240,7 +240,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `zoom.step` | number | 1.25 | 1.05 to 4 | Factor of one `zoom_in` or `zoom_out` step. |
 | `zoom.max` | number | 8 | 1.5 to 32 | Largest magnification. |
 | `zoom.duration` | integer | 150 | 0 to 2000 | Milliseconds a zoom change takes; 0, or `animations.enabled = false`, switches at once. |
-| `zoom.scroll_modifier` | string | "" | - | Holding this modifier turns the scroll wheel into zoom steps (up zooms in), before any binding of the wheel with it; "" leaves the wheel alone. One of Alt, Super, Ctrl, Shift. |
+| `zoom.scroll_modifier` | string | "" | - | Holding this modifier turns the scroll wheel into zoom steps (up zooms in), before any binding of the wheel with it (Super + wheel switches workspaces by default); "" leaves the wheel alone. One of Alt, Super, Ctrl, Shift. |
 
 ## `animations`
 

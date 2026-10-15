@@ -1352,7 +1352,9 @@ does the same, so pressing Super + 2 twice flips between workspace 2 and the one
 It is off by default.
 
 `workspace_prev` and `workspace_next` (Super + Ctrl + Left / Right) step to the previous and next
-workspace, wrapping around from the last to the first and back.
+workspace, wrapping around from the last to the first and back. Super and the wheel anywhere on a
+monitor do the same for that monitor, up to the next workspace and down to the previous one (see
+[Mouse button bindings](#mouse-button-bindings)).
 `move_to_workspace_prev` and `move_to_workspace_next` (Super + Ctrl + Alt + Left / Right) take the
 focused window along to the previous or next workspace of its monitor, wrapping around the same
 way, and `move_to_workspace_empty` to the first workspace there with no windows on it, as
@@ -1792,7 +1794,8 @@ colours go through the output's gamma table, the way `wlsunset` does it, and a c
 magnify the screen by `zoom.step` (1.25) per step up to `zoom.max` (8), easing over
 `zoom.duration` milliseconds. The view follows the pointer and keeps it over the point it clicks:
 the pointer moving across the screen pans across the whole desktop. With `zoom.scroll_modifier =
-"Super"`, Super plus the scroll wheel steps in and out. Only the output the pointer is on is
+"Super"`, Super plus the scroll wheel steps in and out, in place of switching workspaces (the
+modifier takes the wheel before any binding of it). Only the output the pointer is on is
 magnified, and outputs that are rotated stay at 1x. Screenshots and screen recordings of the
 output see the magnified picture. `paw msg get zoom` prints the level and its target in
 thousandths.
@@ -2243,9 +2246,11 @@ application under the pointer does not get the turn. A touchpad's scrolling and 
 high-resolution wheel add up to notches (15 units of a touchpad's scrolling make one), and
 `natural_scroll` turns the way around as it does for applications. A window action acts on the
 window under the pointer; any other on the monitor under it, focusing nothing, so that Super +
-the wheel can page through the workspaces of whichever monitor it is on. `action = "none"`
-hands the wheel back to applications, and `zoom.scroll_modifier` takes the wheel before any
-binding of it.
+the wheel pages through the workspaces of whichever monitor it is on. The default configuration
+binds that, Super + `wheel_up` to `workspace_next` and Super + `wheel_down` to `workspace_prev`,
+which wrap around past the last and the first workspace; `action = "none"` in a configuration
+of your own hands the wheel back to applications. With `zoom.scroll_modifier = "Super"` the
+wheel zooms instead, as that setting takes the wheel first.
 
 ```lua
 { mods = { "Super" }, button = "wheel_up", action = "workspace_next" },

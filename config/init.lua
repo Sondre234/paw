@@ -394,6 +394,11 @@ return {
         -- reaches the application, so a browser keeps its own back and forward:
         -- { button = "side", app_id = "^kitty$", desktop = true, action = "close" },
         -- { button = "extra", app_id = "^kitty$", desktop = true, action = "terminal" },
+        -- The wheel binds as wheel_up and wheel_down, once a notch, and the window under the
+        -- pointer does not get it: Super + the wheel pages through the workspaces of the
+        -- monitor under the pointer (up to the next one).
+        { mods = { mod }, button = "wheel_up", action = "workspace_next" },
+        { mods = { mod }, button = "wheel_down", action = "workspace_prev" },
         { mods = { mod }, key = "q", action = "terminal" },
         { mods = { mod }, key = "r", action = "launcher" },
         { mods = { mod }, key = "c", action = "close" },

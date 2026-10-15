@@ -480,8 +480,8 @@ const Option options[] = {
      "Milliseconds a zoom change takes; 0, or `animations.enabled = false`, switches at once."},
     {"zoom.scroll_modifier", "string", "\"\"", "\"Super\"", none, none,
      "Holding this modifier turns the scroll wheel into zoom steps (up zooms in), before any "
-     "binding of the wheel with it; \"\" leaves the wheel alone. One of Alt, Super, Ctrl, "
-     "Shift."},
+     "binding of the wheel with it (Super + wheel switches workspaces by default); \"\" leaves "
+     "the wheel alone. One of Alt, Super, Ctrl, Shift."},
 
     {"animations", "table", "", "", none, none, "Window and shell animations."},
     {"animations.enabled", "boolean", "true", "true", none, none,

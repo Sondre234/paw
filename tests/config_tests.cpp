@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
     try {
         require(argc == 2, "example config path required");
         auto config = paw::load_config(argv[1]);
-        require(config.bindings.size() == 88, "example shortcuts missing");
+        require(config.bindings.size() == 90, "example shortcuts missing");
         auto *louder = config.binding(0, XKB_KEY_XF86AudioRaiseVolume);
         auto *microphone = config.binding(0, XKB_KEY_XF86AudioMicMute);
         auto *dimmer = config.binding(0, XKB_KEY_XF86MonBrightnessDown);
@@ -39,6 +39,13 @@ int main(int argc, char **argv) {
                     config.binding(SH_LOGO | SH_CTRL | SH_ALT, XKB_KEY_Left)->action ==
                         SH_MOVE_TO_WORKSPACE_PREV,
                 "example bindings taking a window to the next workspace missing");
+        // Super and the wheel page through the workspaces, up to the next one, anywhere.
+        require(config.button_binding(SH_LOGO, SH_WHEEL_UP, SH_POINTER_WINDOW, "x")->action ==
+                        SH_WORKSPACE_NEXT &&
+                    config.button_binding(SH_LOGO, SH_WHEEL_DOWN, SH_POINTER_DESKTOP, "")->action ==
+                        SH_WORKSPACE_PREV &&
+                    !config.button_binding(0, SH_WHEEL_UP, SH_POINTER_WINDOW, "x"),
+                "example wheel bindings missing");
         require(config.binding(SH_ALT, XKB_KEY_Tab)->action == SH_SWITCHER_NEXT &&
                     config.binding(SH_ALT | SH_SHIFT, XKB_KEY_Tab)->action == SH_SWITCHER_PREV,
                 "example window switcher bindings missing");
@@ -1102,7 +1109,7 @@ int main(int argc, char **argv) {
         // A configuration extending the defaults holds only its changes.
         setenv("PAW_DEFAULT_CONFIG", argv[1], 1);
         auto bare = paw::parse_config("return {extends='default'}");
-        require(bare.bindings.size() == 88 && bare.shell.launchers.empty() &&
+        require(bare.bindings.size() == 90 && bare.shell.launchers.empty() &&
                     bare.settings.workspaces == 4,
                 "extends did not supply the defaults");
         auto layered = paw::parse_config(
@@ -1112,7 +1119,7 @@ int main(int argc, char **argv) {
             "{mods={'Super'}, key='e', action='spawn', command={'dolphin'}}}}");
         require(layered.settings.gap_inner == 3 && layered.settings.workspaces == 4,
                 "extending configuration settings not layered over the defaults");
-        require(layered.bindings.size() == 88 && !layered.binding(SH_LOGO, XKB_KEY_v),
+        require(layered.bindings.size() == 90 && !layered.binding(SH_LOGO, XKB_KEY_v),
                 "action none did not remove a default binding");
         require(layered.binding(SH_LOGO, XKB_KEY_q)->command == paw::Command{"foot"} &&
                     layered.binding(SH_LOGO, XKB_KEY_e)->command == paw::Command{"dolphin"},
@@ -1176,9 +1183,8 @@ int main(int argc, char **argv) {
         rejects("return {bindings={{button='wheel', action='close'}}}");
         // The wheel binds as two buttons, and "none" hands it back to the window.
         auto wheel = paw::parse_config(
-            "return {bindings={"
+            "return {extends='default', bindings={"
             "{mods={'Super'}, button='wheel_up', app_id='^kitty$', action='none'},"
-            "{mods={'Super'}, button='wheel_up', action='workspace_next'},"
             "{mods={'Alt'}, button='wheel_down', action='zoom_out'}}}");
         require(!wheel.button_binding(SH_LOGO, SH_WHEEL_UP, SH_POINTER_WINDOW, "kitty") &&
                     wheel.button_binding(SH_LOGO, SH_WHEEL_UP, SH_POINTER_WINDOW, "foot")->action ==

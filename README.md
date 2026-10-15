@@ -306,6 +306,7 @@ Edit them in [config/init.lua](config/init.lua).
 | Super + 1–4 | Switch to workspace 1–4 |
 | Super + Shift + 1–4 | Move the focused window to workspace 1–4 |
 | Super + Ctrl + Left / Right | Previous / next workspace |
+| Super + wheel down / up | Previous / next workspace of the monitor under the pointer |
 | Super + Ctrl + Alt + Left / Right | Take the focused window to the previous / next workspace |
 | Super + Tab | Back to the workspace shown before |
 | Three fingers left / right on a touchpad | Next / previous workspace, the windows following the fingers ([gestures](docs/features.md#touchpad-gestures)) |
