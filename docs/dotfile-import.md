@@ -123,7 +123,7 @@ paw before it can be imported, **won't** = deliberately not carried over.
 | Corner rounding | `decoration:rounding` | — | blocked: needs scenefx or a custom renderer | no |
 | Active / inactive opacity | `decoration:active_opacity`, `inactive_opacity` | `windows.opacity`, `inactive_opacity` | done | yes |
 | Per-app opacity | `windowrule = opacity A B, class:…` | `windows.rules` (`app_id` regex) | done | yes |
-| Blur | `decoration:blur` | — | blocked: needs scenefx or a custom renderer | no |
+| Blur | `decoration:blur` (as with `xray = true`) | `windows.blur` | missing (set by hand) | no |
 | Shadows | `decoration:shadow` | `windows.shadow` | missing (set by hand) | no |
 | Animations on/off | `animations:enabled` | `animations.enabled` | done | yes |
 | Focus a window that asks for it | `misc:focus_on_activate` | `windows.activation` (`"focus"`; unset keeps the default `"urgent"`, which marks the window instead) | done | yes |

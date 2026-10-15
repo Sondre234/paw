@@ -142,6 +142,7 @@ void reload_config(struct sh_server *server) {
     wl_list_for_each_safe(toplevel, next, &server->toplevels, link) follow_dynamic_rules(toplevel);
     show_workspaces(server);
     refocus_if_hidden(server);
+    blur_reload(server); // before the frames, which give windows their blur or take it
     // Gaps, borders, and opacity may have changed.
     wl_list_for_each(toplevel, &server->toplevels, link) refresh_frame(toplevel);
     struct sh_output *output;
@@ -524,6 +525,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     idle_init(&server);
     cat_init(&server);
     wrapped_init(&server);
+    blur_reload(&server);
     server.running = true;
     server.login_session = mode == SH_BACKEND_SESSION ||
                            (getenv("PAW_LOGIN_SESSION") && *getenv("PAW_LOGIN_SESSION"));
@@ -624,6 +626,7 @@ finish:
     cat_finish(&server);
     xray_finish(&server);
     heatmap_finish(&server);
+    blur_finish(&server);
     if (server.config_watch)
         wl_event_source_remove(server.config_watch);
     if (server.config_timer)

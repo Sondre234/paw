@@ -32,6 +32,10 @@ with harness.Compositor(compositor, settings(0.75)) as desktop:
         rows = desktop.rows("opacities")
         return {r[1]: (r[2] == "1", float(r[3])) for r in rows}
 
+    def drawn(title):
+        """The opacity the window's own surface is drawn with, as the scene has it."""
+        return {r[1]: float(r[4]) for r in desktop.rows("opacities")}[title]
+
     def rule_matches():
         return int(msg("get", "stats").split("\n")[0].split()[6])
 
@@ -50,6 +54,9 @@ with harness.Compositor(compositor, settings(0.75)) as desktop:
     second = open_window("retitled", "second")
     wait_for(lambda: opacities()["second"] == (True, 1.0) and
              opacities()["first"] == (False, 0.5), "focus moves the dimming")
+    # The client's commit as it hears it lost the focus gives its surface the client's own
+    # opacity (wlroots' scene does), which the next frame covers with the window's again.
+    wait_for(lambda: drawn("first") == 0.5 and drawn("second") == 1.0, "drawn dimmed")
     open_window("solid", "third")
     wait_for(lambda: opacities()["third"] == (True, 1.0) and
              opacities()["second"] == (False, 0.5), "third focused")
@@ -71,6 +78,10 @@ with harness.Compositor(compositor, settings(0.75)) as desktop:
     before, commits_before = rule_matches(), commits()
     wait_for(lambda: commits() >= commits_before + 100, "busy window commits")
     assert rule_matches() - before < 5, "rules matched on every commit"
+    # Dimmed, it is drawn dimmed, though each of its commits gives it its own opacity anew.
+    activate("retitled")
+    wait_for(lambda: opacities()["busy"] == (False, 0.5), "busy window loses the focus")
+    wait_for(lambda: drawn("busy") == 0.5, "busy window drawn dimmed")
 
     # A reload with different rules takes effect for windows that did not change.
     activate("retitled")

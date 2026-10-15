@@ -364,16 +364,24 @@ static void get_peek(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, reply);
 }
 
+static struct wlr_scene_buffer *surface_buffer(struct wlr_scene_tree *tree,
+                                               struct wlr_surface *surface);
+
 static void get_opacities(struct sh_server *server, int fd, const char *arguments) {
-    // app_id, title, focused, opacity applied to its buffers — one window per line.
+    // app_id, title, focused, opacity applied to its buffers, and the opacity its own surface is
+    // drawn with now (as the scene has it, -1 without one) — one window per line.
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
         char line[1024], app_id[256], title[512];
         copy_field(app_id, sizeof(app_id), toplevel_app_id(toplevel));
         copy_field(title, sizeof(title), toplevel_title(toplevel));
-        snprintf(line, sizeof(line), "%s\t%s\t%d\t%.3f\n", app_id, title,
-                 server->focused_toplevel == toplevel, toplevel->opacity);
+        struct wlr_scene_buffer *buffer =
+            toplevel->surfaces ? surface_buffer(toplevel->surfaces, toplevel_surface(toplevel))
+                               : NULL;
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%.3f\t%.3f\n", app_id, title,
+                 server->focused_toplevel == toplevel, toplevel->opacity,
+                 buffer ? buffer->opacity : -1.0f);
         control_reply(fd, line);
     }
 }
@@ -1026,6 +1034,7 @@ static const struct {
     {"xray", describe_xray, false},
     {"heatmap", describe_heatmap, true},
     {"heatmap_overlay", describe_heatmap_overlay, false},
+    {"blur", describe_blur, false},
     {"actions", get_actions, false},
     {"profiles", get_profiles, false},
     {"terminal", get_terminal, false},

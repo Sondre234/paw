@@ -296,6 +296,36 @@ struct wlr_color_manager_v1;
 struct sh_heatmap;     // where the pointer rests and clicks, and the overlay (heatmap.c)
 struct sh_heat_output; // an output's grid and its part of the overlay
 
+/* The blur behind windows (blur.c): whether anything is blurred (windows.blur, or a window rule
+ * that turns it on), the look the pictures were blurred with, which a reload compares, and the
+ * timer that blurs the backgrounds that changed once they settle. */
+struct sh_blur {
+    bool on;
+    int radius;
+    float noise, brightness, saturation;
+    float background[4];
+    struct wl_event_source *timer;
+};
+
+/* An output's background blurred, for the windows over it (blur.c): the picture, NULL until it is
+ * taken and while nothing is blurred, and its size in pixels; the output's box, pixel size, scale
+ * and transform as it was taken (or tried), for it to be taken again once they change; whether a
+ * new one is due, since when, and when the background last changed; how many were taken, and how
+ * long the last took, for `get blur`. */
+struct sh_blur_picture {
+    struct wlr_buffer *buffer;
+    int width, height;
+    bool tried;
+    struct wlr_box box;
+    int output_width, output_height;
+    float scale;
+    enum wl_output_transform transform;
+    bool due;
+    int64_t due_since, changed_at;
+    unsigned taken;
+    uint32_t took_us;
+};
+
 /* A workspace slide a touchpad swipe drives (workspace.c, for gestures.c): the output, the
  * workspace it showed as the swipe began and the one the fingers head for (out of range past
  * the first or last, `from` when they head nowhere), how far the slide is held, and held copies
@@ -826,6 +856,7 @@ struct sh_server {
     struct sh_xray xray;
     /* The pointer heatmap (heatmap.c); NULL until the first output is laid out. */
     struct sh_heatmap *heatmap;
+    struct sh_blur blur; /* the blur behind windows (blur.c) */
 };
 
 /* Tearing on an output (tearing.c): what its frames do now (`tearing`, `refused`, or why its
@@ -892,6 +923,8 @@ struct sh_output {
     /* Its grid of the pointer heatmap and its part of the overlay (heatmap.c); NULL until it is
      * first laid out. */
     struct sh_heat_output *heat;
+    /* Its background blurred, for the windows over it (blur.c). */
+    struct sh_blur_picture blur;
 };
 
 /* An icon a window supplies itself (window_icon.c): the icon theme name it gave, and the pixels
@@ -915,6 +948,14 @@ struct sh_opacity_rule {
     bool active;
     char *app_id, *title;
     float value;
+};
+
+/* What the window rules say of a window's blur (blur.c): -1 nothing, 0 none, 1 blurred, for the
+ * title and app ID it had then (a hash of both) and the configuration (0 for never). */
+struct sh_blur_rule {
+    unsigned generation;
+    uint64_t key;
+    int value;
 };
 
 /* A scratchpad window sliding in or out (scratchpad.c): which way, where it is cut, where the
@@ -1080,6 +1121,12 @@ struct sh_toplevel {
     /* The opacity the window rules gave for these inputs: matching regexes on every commit
      * would cost more than the commit, so it is redone only when one of them changes. */
     struct sh_opacity_rule opacity_rule;
+    /* The background blurred under it (blur.c): a part of its output's picture, below its
+     * surfaces in `content`, which places it apart from the animations (sh_anim.placed_apart)
+     * where `blur_probe`, a buffer of no picture at the window's frame, is drawn; both NULL
+     * without a blur. What the rules say of it, kept. */
+    struct wlr_scene_buffer *blur, *blur_probe;
+    struct sh_blur_rule blur_rule;
     /* The user was told the window took the keyboard's shortcuts (shortcuts_inhibit.c), which
      * they hear once. */
     bool shortcuts_told;
@@ -1318,6 +1365,7 @@ bool in_deco_corner(struct sh_toplevel *toplevel, double x, double y);
 void refresh_decoration(struct sh_toplevel *toplevel);
 void refresh_tabs(struct sh_toplevel *toplevel);
 void refresh_frame(struct sh_toplevel *toplevel);
+void reapply_opacity(struct sh_server *server);
 void forget_decoration(struct sh_toplevel *toplevel);
 void server_new_decoration(struct wl_listener *listener, void *data);
 
@@ -1912,3 +1960,13 @@ void describe_heatmap(struct sh_server *server, int fd, const char *arguments);
 void heatmap_action(struct sh_server *server, int choice);
 bool heatmap_tick(struct sh_server *server);
 void describe_heatmap_overlay(struct sh_server *server, int fd, const char *arguments);
+
+/* blur.c */
+void blur_reload(struct sh_server *server);
+void blur_background_changed(struct sh_server *server, struct wlr_output *wlr_output);
+void blur_flush(struct sh_server *server);
+void blur_frame(struct sh_server *server);
+void refresh_blur(struct sh_toplevel *toplevel, float opacity);
+void blur_forget_output(struct sh_output *output);
+void blur_finish(struct sh_server *server);
+void describe_blur(struct sh_server *server, int fd, const char *arguments);

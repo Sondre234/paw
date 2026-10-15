@@ -134,6 +134,10 @@ struct sh_anim {
     struct sh_pose pose;
     void (*pose_update)(void *data);
     void *pose_data;
+    /* A node of the tree the walks fade but neither move nor size: one its owner places itself
+     * after each frame, from where the others are drawn (a window's blur, which shows the part
+     * of the background the window covers on the screen). NULL for none. */
+    struct wlr_scene_node *placed_apart;
     struct sh_anim_record *records;
     size_t count, capacity;
 };

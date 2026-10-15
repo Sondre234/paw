@@ -535,6 +535,7 @@ const std::set<std::string> look_settings = {
     "windows.urgent_color",
     "windows.controls",
     "windows.shadow",
+    "windows.blur",
     "windows.lift",
     "windows.magnet.guide_color",
     "windows.snap.color",

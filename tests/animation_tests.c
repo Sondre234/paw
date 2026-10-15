@@ -204,6 +204,39 @@ static void test_open_restores_rest_values(void) {
     teardown(&rig);
 }
 
+/* A node placed apart, as a window's blur is, fades with the others but stays where its owner
+ * puts it, at the size it gives it, through the animation and after. */
+static void test_placed_apart(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_LINEAR));
+    struct wlr_scene_buffer *apart = wlr_scene_buffer_create(rig.content, NULL);
+    wlr_scene_node_set_position(&apart->node, 10, 20);
+    wlr_scene_buffer_set_dest_size(apart, 200, 100);
+    rig.anim.placed_apart = &apart->node;
+    sh_anim_open(rig.animator, &rig.anim, rig.content, 100, 50);
+    CHECK(rig.rect->width < 200, "the others are scaled");
+    CHECK(apart->node.x == 10 && apart->node.y == 20 && apart->dst_width == 200 &&
+              apart->dst_height == 100,
+          "not this one: %d,%d %dx%d", apart->node.x, apart->node.y, apart->dst_width,
+          apart->dst_height);
+    CHECK(apart->opacity < 0.01F, "but it fades in with them: %f", apart->opacity);
+    advance(&rig, 50);
+    // Its owner moves it meanwhile; the animation leaves that be.
+    wlr_scene_node_set_position(&apart->node, 30, 40);
+    wlr_scene_buffer_set_dest_size(apart, 150, 80);
+    advance(&rig, 20);
+    CHECK(apart->node.x == 30 && apart->node.y == 40 && apart->dst_width == 150 &&
+              apart->dst_height == 80,
+          "where its owner put it: %d,%d %dx%d", apart->node.x, apart->node.y, apart->dst_width,
+          apart->dst_height);
+    CHECK(apart->opacity > 0.5F && apart->opacity < 0.9F, "still fading: %f", apart->opacity);
+    advance(&rig, 50);
+    CHECK(sh_animator_running(rig.animator) == 0, "ended");
+    CHECK(apart->node.x == 30 && apart->dst_width == 150 && fabsf(apart->opacity - 1) < 1e-6F,
+          "left where its owner put it, opaque again");
+    teardown(&rig);
+}
+
 /* Nodes that adjoin, as the slices of a shadow do, stay adjoined at every step of an opening. */
 static void test_open_keeps_neighbours_adjoined(void) {
     struct rig rig;
@@ -2027,6 +2060,7 @@ int main(void) {
     test_glide_kind_uses_its_own_style();
     test_speed_and_disabled();
     test_open_restores_rest_values();
+    test_placed_apart();
     test_open_keeps_neighbours_adjoined();
     test_close_leaves_nothing();
     test_late_frame_skips();

@@ -223,7 +223,7 @@ static void apply_node(struct sh_anim *anim, struct wlr_scene_node *node, int ox
     if (!r)
         return;
     int width, height;
-    bool sized = geometry(node, &width, &height);
+    bool sized = geometry(node, &width, &height) && node != anim->placed_apart;
     if (!r->shaped || node->x != r->set_x || node->y != r->set_y || width != r->set_width ||
         height != r->set_height) {
         r->shaped = true;
@@ -276,7 +276,7 @@ static void restore_node(struct sh_anim *anim, struct wlr_scene_node *node) {
     if (!r)
         return;
     int width, height;
-    bool sized = geometry(node, &width, &height);
+    bool sized = geometry(node, &width, &height) && node != anim->placed_apart;
     // Leave values that changed under the animation: they are newer than the record.
     if (r->shaped && sized && node->x == r->set_x && node->y == r->set_y && width == r->set_width &&
         height == r->set_height)

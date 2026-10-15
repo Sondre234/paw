@@ -53,6 +53,12 @@ void arrange_layers(struct sh_server *server) {
                   ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE))
         focus_previous(server);
 }
+/* What the background layer shows on the surface's output changed: the blur under the windows
+ * there is made again once it settles (blur.c). */
+static void background_changed(struct sh_layer *layer) {
+    if (layer->surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND)
+        blur_background_changed(layer->server, layer->surface->output);
+}
 static void layer_commit(struct wl_listener *listener, void *data) {
     struct sh_layer *layer = wl_container_of(listener, layer, commit);
     uint64_t started = now_ns();
@@ -66,12 +72,16 @@ static void layer_commit(struct wl_listener *listener, void *data) {
         layer->configure_due = true;
     if (layer->surface->initial_commit || layer->surface->current.committed)
         arrange_layers(layer->server);
+    if ((layer->surface->surface->current.committed & WLR_SURFACE_STATE_BUFFER) ||
+        (layer->surface->current.committed & (placement | WLR_LAYER_SURFACE_V1_STATE_LAYER)))
+        background_changed(layer);
     ++layer->commits;
     layer->commit_ns += now_ns() - started;
 }
 static void layer_map(struct wl_listener *listener, void *data) {
     struct sh_layer *layer = wl_container_of(listener, layer, map);
     arrange_layers(layer->server);
+    background_changed(layer);
 }
 static void layer_unmap(struct wl_listener *listener, void *data) {
     struct sh_layer *layer = wl_container_of(listener, layer, unmap);
@@ -79,12 +89,14 @@ static void layer_unmap(struct wl_listener *listener, void *data) {
         focus_previous(layer->server);
     arrange_layers(layer->server);
     screenshot_layer_unmapped(layer->server, layer->surface->namespace);
+    background_changed(layer);
 }
 static void layer_destroy(struct wl_listener *listener, void *data) {
     struct sh_layer *layer = wl_container_of(listener, layer, destroy);
     struct sh_server *server = layer->server;
     if (server->focused_layer == layer)
         focus_previous(server);
+    background_changed(layer);
     wl_list_remove(&layer->commit.link);
     wl_list_remove(&layer->map.link);
     wl_list_remove(&layer->unmap.link);

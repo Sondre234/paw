@@ -180,6 +180,12 @@ return {
         -- border_inactive_color = "#404a5c",
         -- opacity = 1.0,
         -- inactive_opacity = 1.0,
+        -- The wallpaper blurred behind every window, for translucent ones (opacity above, or a
+        -- terminal's own background opacity): radius in pixels, noise a little grain against
+        -- banding, brightness and saturation (0 to 2) scale its colours. Rules' blur = false
+        -- leaves a window out, blur = true blurs one with it off:
+        -- blur = { enabled = false, radius = 30, noise = 0.02, brightness = 1.0,
+        --          saturation = 1.0 },
         -- dim_inactive = 0.0, -- 0 to 0.9: black laid over windows without focus, faded in and out
         -- dim_duration = 180, -- milliseconds of that fade
         -- Games asking for it (or that a rule's allow_tearing = true names) show their frames at
