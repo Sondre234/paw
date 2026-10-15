@@ -2,9 +2,9 @@
 // (about:support > Profile Folder); Firefox reads it at every start and it wins over
 // about:config, so remove a line here to take a pref back. Written for Firefox 156/157.
 //
-// install.sh replaces file:///PATH/TO/startpage/index.html below with the real path of
-// rices/mochi/firefox/startpage/index.html. The start page finds the wallpaper at
-// ../../wallpaper/, so it is linked from the rice where it lives rather than copied alone.
+// install.sh puts the real path of the start page's index.html (installed with the rice's
+// wallpapers beside it) into the commented start page line below. The start page finds the
+// wallpaper at ../../wallpaper/, so it is linked from where it lives with them.
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Load chrome/userChrome.css and chrome/userContent.css (off by default; needs a restart).
