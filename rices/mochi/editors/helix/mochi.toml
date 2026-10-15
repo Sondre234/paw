@@ -1,0 +1,220 @@
+# mochi (餅) for Helix: Catppuccin Mocha on glass. The editor paints no background of its own, so
+# kitty's translucency (and paw's blur behind it) shows through the text; popups, menus and the
+# status line keep a tint of Mocha's mantle, which mochi's kitty theme renders as glass too.
+# Colours from Catppuccin Mocha, MIT (https://github.com/catppuccin/catppuccin); the theme is
+# paw's, GPL-3.0-or-later.
+# Copy it to ~/.config/helix/themes/ and set `theme = "mochi"` in config.toml. In a terminal
+# without translucency the page is the terminal's own background: set it to Mocha's base, #1E1E2E.
+#
+# Catppuccin's style: keywords in mauve, strings in green, functions in blue, types in yellow,
+# numbers and constants in peach, operators in sky, parameters in maroon, members in lavender,
+# comments in overlay italic; the cursor and the selection in pink, links and focus in blue.
+
+# Syntax ---------------------------------------------------------------------------------------
+"attribute" = "yellow"
+
+"type" = "yellow"
+"type.builtin" = { fg = "yellow", modifiers = ["italic"] }
+"type.parameter" = { fg = "yellow", modifiers = ["italic"] }
+"type.enum.variant" = "teal"
+"constructor" = "sapphire"
+
+"constant" = "peach"
+"constant.builtin" = "peach"
+"constant.character" = "teal"
+"constant.character.escape" = "pink"
+"constant.numeric" = "peach"
+
+"string" = "green"
+"string.regexp" = "pink"
+"string.special" = "pink"
+"string.special.path" = "pink"
+"string.special.url" = { fg = "rosewater", modifiers = ["italic"], underline = { style = "line" } }
+"string.special.symbol" = "flamingo"
+
+"comment" = { fg = "overlay2", modifiers = ["italic"] }
+"comment.unused" = { fg = "overlay0", modifiers = ["italic"] }
+
+"variable" = "text"
+"variable.builtin" = "red"
+"variable.parameter" = "maroon"
+"variable.other.member" = "lavender"
+
+"label" = "sapphire"
+
+"punctuation" = "overlay2"
+"punctuation.delimiter" = "overlay2"
+"punctuation.bracket" = "overlay2"
+"punctuation.special" = "sky"
+
+"keyword" = "mauve"
+"keyword.control" = "mauve"
+"keyword.control.import" = "mauve"
+"keyword.control.exception" = "mauve"
+"keyword.operator" = "mauve"
+"keyword.directive" = "pink"
+"keyword.function" = "mauve"
+"keyword.storage" = "mauve"
+"keyword.storage.modifier" = "mauve"
+
+"operator" = "sky"
+
+"function" = "blue"
+"function.builtin" = "peach"
+"function.method" = "blue"
+"function.macro" = "teal"
+"function.special" = "pink"
+
+"tag" = "mauve"
+"tag.builtin" = "mauve"
+
+"namespace" = { fg = "lavender", modifiers = ["italic"] }
+"special" = "pink"
+"embedded" = "text"
+
+"markup.heading" = { fg = "blue", modifiers = ["bold"] }
+"markup.heading.marker" = "overlay1"
+"markup.heading.1" = { fg = "red", modifiers = ["bold"] }
+"markup.heading.2" = { fg = "peach", modifiers = ["bold"] }
+"markup.heading.3" = { fg = "yellow", modifiers = ["bold"] }
+"markup.heading.4" = { fg = "green", modifiers = ["bold"] }
+"markup.heading.5" = { fg = "sapphire", modifiers = ["bold"] }
+"markup.heading.6" = { fg = "lavender", modifiers = ["bold"] }
+"markup.list" = "teal"
+"markup.list.checked" = "green"
+"markup.list.unchecked" = "overlay1"
+"markup.bold" = { fg = "red", modifiers = ["bold"] }
+"markup.italic" = { fg = "red", modifiers = ["italic"] }
+"markup.strikethrough" = { modifiers = ["crossed_out"] }
+"markup.link.url" = { fg = "rosewater", modifiers = ["italic"], underline = { style = "line" } }
+"markup.link.label" = "lavender"
+"markup.link.text" = "lavender"
+"markup.quote" = { fg = "maroon", modifiers = ["italic"] }
+"markup.raw" = "teal"
+"markup.raw.block" = "subtext1"
+
+"diff.plus" = "green"
+"diff.minus" = "red"
+"diff.delta" = "blue"
+"diff.delta.moved" = "lavender"
+"diff.delta.conflict" = "peach"
+
+# Interface ------------------------------------------------------------------------------------
+# No background: the glass is the page.
+"ui.background" = { fg = "text" }
+"ui.background.separator" = "surface1"
+"ui.text" = "text"
+"ui.text.focus" = { fg = "text", bg = "surface0", modifiers = ["bold"] }
+"ui.text.inactive" = "overlay1"
+"ui.text.info" = "text"
+"ui.text.directory" = "blue"
+"ui.text.symlink" = "teal"
+
+"ui.cursor" = { fg = "base", bg = "cursor2" }
+"ui.cursor.primary" = { fg = "base", bg = "pink" }
+"ui.cursor.primary.insert" = { fg = "base", bg = "green" }
+"ui.cursor.primary.select" = { fg = "base", bg = "lavender" }
+"ui.cursor.match" = { fg = "peach", bg = "surface1", modifiers = ["bold"] }
+"ui.cursorline.primary" = { bg = "cursorline" }
+"ui.cursorcolumn.primary" = { bg = "cursorline" }
+
+"ui.gutter" = {}
+"ui.gutter.selected" = { bg = "cursorline" }
+"ui.linenr" = "surface2"
+"ui.linenr.selected" = { fg = "lavender", modifiers = ["bold"] }
+
+"ui.statusline" = { fg = "subtext1", bg = "mantle" }
+"ui.statusline.inactive" = { fg = "overlay0", bg = "mantle" }
+"ui.statusline.normal" = { fg = "base", bg = "mauve", modifiers = ["bold"] }
+"ui.statusline.insert" = { fg = "base", bg = "green", modifiers = ["bold"] }
+"ui.statusline.select" = { fg = "base", bg = "lavender", modifiers = ["bold"] }
+"ui.statusline.separator" = "overlay0"
+
+"ui.bufferline" = { fg = "overlay1", bg = "mantle" }
+"ui.bufferline.active" = { fg = "mauve", bg = "surface0", modifiers = ["bold"] }
+"ui.bufferline.background" = {}
+
+"ui.popup" = { fg = "text", bg = "mantle" }
+"ui.popup.info" = { fg = "text", bg = "mantle" }
+"ui.help" = { fg = "subtext1", bg = "mantle" }
+"ui.window" = "surface1"
+"ui.picker.header" = { bg = "mantle" }
+"ui.picker.header.column" = "overlay1"
+"ui.picker.header.column.active" = { fg = "mauve", modifiers = ["bold"] }
+
+"ui.menu" = { fg = "overlay2", bg = "mantle" }
+"ui.menu.selected" = { fg = "text", bg = "surface0", modifiers = ["bold"] }
+"ui.menu.scroll" = { fg = "overlay0", bg = "surface0" }
+
+"ui.selection" = { bg = "sel2" }
+"ui.selection.primary" = { bg = "sel" }
+"ui.highlight" = { bg = "surface1", modifiers = ["bold"] }
+"ui.highlight.frameline" = { bg = "red_bg" }
+
+"ui.virtual" = "overlay0"
+"ui.virtual.ruler" = { bg = "surface0" }
+"ui.virtual.whitespace" = "surface1"
+"ui.virtual.indent-guide" = "surface0"
+"ui.virtual.inlay-hint" = { fg = "overlay0", modifiers = ["italic"] }
+"ui.virtual.wrap" = "overlay0"
+"ui.virtual.jump-label" = { fg = "pink", modifiers = ["bold"] }
+
+"ui.debug.breakpoint" = "red"
+"ui.debug.active" = "yellow"
+
+"tabstop" = { bg = "surface0" }
+
+"error" = "red"
+"warning" = "yellow"
+"info" = "sky"
+"hint" = "teal"
+"error.diagnostic.inline" = { fg = "red", bg = "red_bg" }
+"warning.diagnostic.inline" = { fg = "yellow", bg = "yellow_bg" }
+"info.diagnostic.inline" = { fg = "sky", bg = "sky_bg" }
+"hint.diagnostic.inline" = { fg = "teal", bg = "teal_bg" }
+"diagnostic.error" = { underline = { color = "red", style = "curl" } }
+"diagnostic.warning" = { underline = { color = "yellow", style = "curl" } }
+"diagnostic.info" = { underline = { color = "sky", style = "curl" } }
+"diagnostic.hint" = { underline = { color = "teal", style = "curl" } }
+"diagnostic.unnecessary" = { modifiers = ["dim"] }
+"diagnostic.deprecated" = { modifiers = ["crossed_out"] }
+
+rainbow = ["red", "peach", "yellow", "green", "sapphire", "lavender"]
+
+[palette]
+# Catppuccin Mocha
+rosewater = "#F5E0DC"
+flamingo = "#F2CDCD"
+pink = "#F5C2E7"
+mauve = "#CBA6F7"
+red = "#F38BA8"
+maroon = "#EBA0AC"
+peach = "#FAB387"
+yellow = "#F9E2AF"
+green = "#A6E3A1"
+teal = "#94E2D5"
+sky = "#89DCEB"
+sapphire = "#74C7EC"
+blue = "#89B4FA"
+lavender = "#B4BEFE"
+text = "#CDD6F4"
+subtext1 = "#BAC2DE"
+subtext0 = "#A6ADC8"
+overlay2 = "#9399B2"
+overlay1 = "#7F849C"
+overlay0 = "#6C7086"
+surface2 = "#585B70"
+surface1 = "#45475A"
+surface0 = "#313244"
+base = "#1E1E2E"
+mantle = "#181825"
+crust = "#11111B"
+# blends of them
+cursorline = "#2A2B3C"  # surface0 at 64% over base, as Catppuccin's
+sel = "#4D4257"         # the primary selection: pink at 22% over base, as in kitty
+sel2 = "#3C3548"        # the other selections: pink at 14%
+cursor2 = "#947894"     # the other cursors: pink at 55%
+red_bg = "#32283A"      # washes of colour behind inline diagnostics, 9.5% over base
+yellow_bg = "#33313A"
+sky_bg = "#283040"
+teal_bg = "#29313E"
