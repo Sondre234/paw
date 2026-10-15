@@ -1874,7 +1874,7 @@ static void test_pose(void) {
     CHECK(updates == 0, "no stretch to follow");
     CHECK(sh_animator_running(rig.animator) == 0 && sh_animator_posed(rig.animator) == 1);
     // Squashed about the rect's bottom middle: shorter and wider, standing where it stood.
-    pose = (struct sh_pose){0, 40, 1.1, 0.9, 110, 120};
+    pose = (struct sh_pose){0, 40, 1.1, 0.9, 110, 120, 0};
     sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, count_pose_update, &updates);
     CHECK(updates == 1, "the stretch changed: %d", updates);
     CHECK(rig.content->node.x == 0 && rig.content->node.y == 40);
@@ -1943,6 +1943,35 @@ static void test_pose(void) {
     teardown(&rig);
 }
 
+/* A pose that fades draws its nodes fainter, unstretched or stretched, and back as they were
+ * once it no longer fades. */
+static void test_pose_fade(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_EASE_OUT));
+    float opaque[4];
+    memcpy(opaque, rig.rect->color, sizeof(opaque));
+    struct sh_pose pose = {.dx = 5, .sx = 1, .sy = 1, .fade = 0.25};
+    CHECK(sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, NULL, NULL));
+    CHECK(fabsf(rig.rect->color[3] - 0.75F * opaque[3]) < 1e-6F, "%f", rig.rect->color[3]);
+    CHECK(fabsf(sh_anim_alpha(&rig.anim) - 0.75F) < 1e-6F && rig.rect->width == 200);
+    pose = (struct sh_pose){0, 0, 0.5, 1, 0, 0, 0.5};
+    sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, NULL, NULL);
+    CHECK(fabsf(rig.rect->color[3] - 0.5F * opaque[3]) < 1e-6F && rig.rect->width == 100,
+          "%f %d", rig.rect->color[3], rig.rect->width);
+    // A lookup finds it at rest, at its full look.
+    sh_animator_rest(rig.animator);
+    CHECK(sh_anim_alpha(&rig.anim) == 1 && rig.rect->color[3] == opaque[3]);
+    sh_animator_resume(rig.animator);
+    pose = (struct sh_pose){.dx = 5, .sx = 1, .sy = 1};
+    sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, NULL, NULL);
+    CHECK(rig.rect->color[3] == opaque[3] && rig.rect->width == 200, "faded no more");
+    pose.fade = 0.4;
+    sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, NULL, NULL);
+    sh_anim_unpose(&rig.anim);
+    CHECK(rig.rect->color[3] == opaque[3] && sh_anim_alpha(&rig.anim) == 1, "let go");
+    teardown(&rig);
+}
+
 /* A client drawing a new size while its window is stretched: its surface resized where the
  * stretch put it is read afresh, not taken for where it rests. */
 static void test_pose_commit(void) {
@@ -1951,7 +1980,7 @@ static void test_pose_commit(void) {
     struct wlr_scene_tree *surfaces = wlr_scene_tree_create(rig.content);
     float color[4] = {1, 1, 1, 1};
     struct wlr_scene_rect *surface = wlr_scene_rect_create(surfaces, 400, 300, color);
-    struct sh_pose pose = {0, 0, 1.1, 0.9, 200, 300};
+    struct sh_pose pose = {0, 0, 1.1, 0.9, 200, 300, 0};
     sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, NULL, NULL);
     CHECK(surface->node.x == -20 && surface->node.y == 30 && surface->width == 440 &&
               surface->height == 270,
@@ -2022,6 +2051,7 @@ int main(void) {
     test_tween_redraws_under_a_fold();
     test_pose();
     test_pose_commit();
+    test_pose_fade();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
     return failures ? 1 : 0;

@@ -41,9 +41,10 @@ struct sh_fold {
 
 /* How a toy (src/compositor/toys.c) draws a window off where it rests: its tree moved by
  * (dx, dy), and its nodes stretched by (sx, sy) about (ax, ay) in tree coordinates, 1 for not at
- * all, as a window squashed as it lands. */
+ * all, as a window squashed as it lands; and `fade` fainter, their opacity times 1 - fade (0 for
+ * as it is), as a side of the scrolling layout's cube turning away (src/compositor/cube.c). */
 struct sh_pose {
-    double dx, dy, sx, sy, ax, ay;
+    double dx, dy, sx, sy, ax, ay, fade;
 };
 
 /* One window's running animation, embedded in the window and zeroed with it. */
@@ -322,7 +323,7 @@ bool sh_anim_drop_in(struct sh_animator *animator, struct sh_anim *anim,
                      struct wlr_scene_tree *tree, int dx, int dy);
 bool sh_anim_drop_out(struct sh_animator *animator, struct sh_anim *anim,
                       struct wlr_scene_tree *tree, int dx, int dy);
-/* The toys: `tree` drawn as `pose` says from where it rests now, taken again on each call, until
+/* The toys and the cube: `tree` drawn as `pose` says from where it rests now, taken again on each call, until
  * sh_anim_unpose or another animation starting on `anim` puts it back at rest (sh_anim_posed
  * then says false). Neither the clock, a late frame nor turning animations off moves it, and a
  * lookup finds it at rest. `update` is called with `data` as the stretch changes, after the pose
@@ -340,7 +341,7 @@ void sh_anim_unpose(struct sh_anim *anim);
 void sh_anim_pose_commit(struct sh_anim *anim, struct wlr_scene_tree *surfaces);
 bool sh_anim_posed(const struct sh_anim *anim);
 size_t sh_animator_posed(const struct sh_animator *animator);
-/* The factor of its nodes' opacity the animation draws now: 1 at rest. */
+/* The factor of its nodes' opacity the animation, or a pose, draws now: 1 at rest. */
 float sh_anim_alpha(const struct sh_anim *anim);
 /* Jumps to the end: every node gets its resting values and the tree its resting position. A
  * lift ends too, and its update is called once it has, for what follows it to rest as well. */

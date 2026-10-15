@@ -415,13 +415,15 @@ static bool pose_stretches(const struct sh_pose *pose) {
     return pose->sx != 1 || pose->sy != 1;
 }
 
-/* A pose drawn: the tree moved from where it rests, its nodes stretched while the pose stretches
- * them and put back at rest once it no longer does. */
+/* A pose drawn: the tree moved from where it rests, its nodes stretched and faded while the pose
+ * stretches or fades them and put back at rest once it no longer does. */
 static void apply_pose(struct sh_anim *anim) {
     wlr_scene_node_set_position(&anim->tree->node, anim->base_x + (int)lround(anim->pose.dx),
                                 anim->base_y + (int)lround(anim->pose.dy));
-    if (pose_stretches(&anim->pose)) {
-        walk(anim, anim->tree, 0, 0, false, &IDENTITY);
+    if (pose_stretches(&anim->pose) || anim->pose.fade > 0) {
+        struct mapping m = IDENTITY;
+        m.alpha = (float)(1 - fmin(1, anim->pose.fade));
+        walk(anim, anim->tree, 0, 0, false, &m);
     } else if (anim->count) {
         walk(anim, anim->tree, 0, 0, true, NULL);
         drop_records(anim);
@@ -1778,6 +1780,8 @@ static float drawn_alpha(const struct sh_anim *anim, int64_t now) {
 }
 
 float sh_anim_alpha(const struct sh_anim *anim) {
+    if (anim->posed)
+        return anim->pose_rested ? 1 : (float)(1 - fmin(1, fmax(0, anim->pose.fade)));
     return anim->animator ? drawn_alpha(anim, now_ms(anim->animator)) : 1;
 }
 
