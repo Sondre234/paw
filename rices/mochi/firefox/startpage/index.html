@@ -1,0 +1,122 @@
+<!doctype html>
+<!--
+  mochi start page: paw's mochi rice for Firefox. The rice's wallpaper behind frosted glass in
+  Catppuccin Mocha: a clock, the date, a search card that asks DuckDuckGo (or opens an address)
+  with mochi the cat sitting on it, and eight frosted link cards. Pat the cat, or click the
+  night, and hearts float up. No network requests and no build step: open it as a file.
+  Keys: "/" focuses search, 1-8 open the cards, Esc leaves the search box, Shift shows the numbers.
+  Edit the links below; the greeting's name and the search engine are at the top of app.js.
+  Colours from Catppuccin Mocha, MIT (https://github.com/catppuccin/catppuccin).
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>new tab</title>
+  <link rel="icon" href="mochi.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="defs" aria-hidden="true" focusable="false">
+    <defs>
+      <!-- a heart, for the ones that float up -->
+      <symbol id="heart" viewBox="0 0 24 24">
+        <path d="M12 21.2C11.6 21.2 11.2 21 10.9 20.8C6.4 17.1 2.5 13.6 2.5 9.2C2.5 6 5 3.6 8 3.6C9.7 3.6 11.1 4.4 12 5.6C12.9 4.4 14.3 3.6 16 3.6C19 3.6 21.5 6 21.5 9.2C21.5 13.6 17.6 17.1 13.1 20.8C12.8 21 12.4 21.2 12 21.2Z"/>
+      </symbol>
+      <!-- a four-pointed sparkle, between the weekday and the date -->
+      <symbol id="sparkle" viewBox="0 0 24 24">
+        <path d="M12 1.5C12.6 7.6 16.4 11.4 22.5 12C16.4 12.6 12.6 16.4 12 22.5C11.4 16.4 7.6 12.6 1.5 12C7.6 11.4 11.4 7.6 12 1.5Z"/>
+      </symbol>
+      <!-- one paw print: four toe beans and a pad, for paw's own card -->
+      <symbol id="print" viewBox="44 49 168 168">
+        <ellipse cx="70" cy="110" rx="18.8" ry="22.8" transform="rotate(-28 70 110)"/>
+        <ellipse cx="106" cy="80" rx="20.1" ry="24.1" transform="rotate(-10 106 80)"/>
+        <ellipse cx="150" cy="80" rx="20.1" ry="24.1" transform="rotate(10 150 80)"/>
+        <ellipse cx="186" cy="110" rx="18.8" ry="22.8" transform="rotate(28 186 110)"/>
+        <path d="M128 128C153 128 175 151 176 176C177 195 170 207 160 207C152 207 149 200 144 200C139 200 138 210 128 210C118 210 117 200 112 200C107 200 104 207 96 207C86 207 79 195 80 176C81 151 103 128 128 128Z"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <header class="masthead">
+    <a class="mark" href="https://github.com/Sondre234/paw" title="paw">
+      <img class="mark-face" src="mochi.svg" alt="">
+      <span class="mark-name">mochi</span>
+      <span class="mark-sub">for paw</span>
+    </a>
+    <p class="almanac glass" id="almanac"></p>
+  </header>
+
+  <main class="sheet">
+    <p class="greeting" id="greeting">hello.</p>
+    <h1 class="clock" id="clock" aria-live="off"><span id="hours">00</span><span class="colon">:</span><span id="minutes">00</span></h1>
+    <p class="date" id="date"></p>
+
+    <form class="search glass" id="search" action="https://duckduckgo.com/" method="get" role="search" autocomplete="off">
+      <!-- mochi sits on the search card; pat it -->
+      <button class="mascot" id="mascot" type="button" title="pat mochi" aria-label="pat mochi">
+        <img id="mascot-picture" src="mascot.png" alt="" draggable="false">
+        <span class="purr glass" id="purr" aria-hidden="true"></span>
+      </button>
+      <svg class="search-heart" aria-hidden="true"><use href="#heart"/></svg>
+      <input id="q" name="q" type="text" placeholder="search the web, or type an address"
+             aria-label="Search DuckDuckGo" spellcheck="false" autofocus>
+      <kbd class="search-key" aria-hidden="true">/</kbd>
+      <button class="search-go" type="submit">search</button>
+    </form>
+
+    <nav class="cards" id="cards" aria-label="Links">
+      <a class="card glass" href="https://github.com/" style="--accent: var(--lavender)">
+        <span class="bubble">gh</span>
+        <span class="card-text"><span class="card-name">GitHub</span><span class="card-url">github.com</span></span>
+        <kbd>1</kbd>
+      </a>
+      <a class="card glass" href="https://www.reddit.com/r/unixporn/" style="--accent: var(--peach)">
+        <span class="bubble">r/</span>
+        <span class="card-text"><span class="card-name">r/unixporn</span><span class="card-url">reddit.com</span></span>
+        <kbd>2</kbd>
+      </a>
+      <a class="card glass" href="https://wiki.archlinux.org/" style="--accent: var(--blue)">
+        <span class="bubble">aw</span>
+        <span class="card-text"><span class="card-name">Arch Wiki</span><span class="card-url">archlinux.org</span></span>
+        <kbd>3</kbd>
+      </a>
+      <a class="card glass" href="https://github.com/Sondre234/paw/tree/main/docs" style="--accent: var(--mauve)">
+        <span class="bubble"><svg aria-hidden="true"><use href="#print"/></svg></span>
+        <span class="card-text"><span class="card-name">paw docs</span><span class="card-url">github.com/…/paw</span></span>
+        <kbd>4</kbd>
+      </a>
+      <a class="card glass" href="https://www.youtube.com/" style="--accent: var(--red)">
+        <span class="bubble">yt</span>
+        <span class="card-text"><span class="card-name">YouTube</span><span class="card-url">youtube.com</span></span>
+        <kbd>5</kbd>
+      </a>
+      <a class="card glass" href="https://mail.google.com/" style="--accent: var(--sapphire)">
+        <span class="bubble">@</span>
+        <span class="card-text"><span class="card-name">Mail</span><span class="card-url">mail.google.com</span></span>
+        <kbd>6</kbd>
+      </a>
+      <a class="card glass" href="https://news.ycombinator.com/" style="--accent: var(--yellow)">
+        <span class="bubble">hn</span>
+        <span class="card-text"><span class="card-name">Hacker News</span><span class="card-url">ycombinator.com</span></span>
+        <kbd>7</kbd>
+      </a>
+      <a class="card glass" href="https://jisho.org/" style="--accent: var(--green)">
+        <span class="bubble">ji</span>
+        <span class="card-text"><span class="card-name">jisho</span><span class="card-url">jisho.org</span></span>
+        <kbd>8</kbd>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="colophon">
+    <img src="mochi.svg" alt="">
+    <span>soft as mochi, warm as a mocha</span>
+  </footer>
+
+  <div class="hearts" id="hearts" aria-hidden="true"></div>
+  <script src="app.js"></script>
+</body>
+</html>

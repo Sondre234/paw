@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- mochi's start button: a squishy mochi cat, cream with a mauve outline, pink ears and
+     blush, happy closed eyes and an ω mouth. Drawn for paw, GPL-3.0-or-later. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <path d="M6 36 C6 31 8 27 11 24 L11 12 Q11 7 15 10 L26 19 Q32 17 38 19 L49 10 Q53 7 53 12 L53 24 C56 27 58 31 58 36 C60 49 49 55 32 55 C15 55 4 49 6 36 Z" fill="#f5e0dc" stroke="#cba6f7" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M15 15 L15 25 L23 22 Z M49 15 L49 25 L41 22 Z" fill="#f5c2e7"/>
+  <path d="M17 35 Q21 28 25 35 M39 35 Q43 28 47 35" fill="none" stroke="#313244" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="14" cy="41" rx="4" ry="2.5" fill="#f5c2e7"/>
+  <ellipse cx="50" cy="41" rx="4" ry="2.5" fill="#f5c2e7"/>
+  <path d="M27 40 C27 45 32 45 32 40 C32 45 37 45 37 40" fill="none" stroke="#313244" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

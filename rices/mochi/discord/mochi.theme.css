@@ -1,0 +1,544 @@
+/**
+ * @name mochi
+ * @author paw
+ * @version 1.0.0
+ * @description Catppuccin Mocha under frosted glass, soft as a rice cake: Discord's dark themes become mochi, in mauve and pink. With window transparency on, set --mochi-glass: 1 in QuickCSS and the desktop shows through.
+ * @source https://github.com/Sondre234/paw/tree/main/rices/mochi/discord
+ * @license GPL-3.0-or-later
+ */
+
+/* mochi (餅) for Discord — part of paw's mochi rice.
+ *
+ * A round, soft cat like a mochi rice cake, in Catppuccin Mocha: base, mantle and crust for the
+ * surfaces, text in Mocha's text, mauve as the accent, pink for mentions and the little marks of
+ * attention, blue for links. Soft glassy panes with a faint light edge and gentle shadows; no
+ * hard lines. Colours from Catppuccin Mocha, MIT (https://github.com/catppuccin/catppuccin).
+ *
+ * Built on the design tokens of Discord's 2025+ "visual refresh" UI, as washi's theme is, with a
+ * handful of hash-free structural selectors. It themes Discord's Dark, Darker and Midnight;
+ * Light stays Discord's own (paw's washi theme covers it).
+ *
+ * Glass: with Vencord's or Equicord's "Enable window transparency" on (Settings > Vencord, then
+ * restart Discord), add this to QuickCSS and the desktop shows through Discord, blurred by paw:
+ *
+ *     :root { --mochi-glass: 1; }
+ *
+ * 0 (the default) is solid, 1 mochi's glass, and anything between or a little past it (up to
+ * about 1.5) works. Without window transparency, keep it at 0: the panes would darken over
+ * Discord's own black.
+ *
+ * Fonts: Nunito (UI) and Maple Mono (code), both OFL, as installed by the rice's install.sh
+ * --fonts; nothing is fetched, and Discord's own fonts stand in without them.
+ *
+ * Copyright (C) 2026 paw contributors. This file is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option) any later version.
+ */
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 1. Palette. The only place colours are written down; everything below refers to these.
+ *    The :not() keeps Nitro profile themes (custom-user-profile-theme) in their owner's colours,
+ *    and the doubled class weight beats Discord's own single-class token rules.
+ * ------------------------------------------------------------------------------------------- */
+
+:root {
+    --mochi-glass: 0;              /* 1: the window's glass shows through (see above) */
+}
+
+.theme-dark:not(.custom-user-profile-theme),
+.theme-darker:not(.custom-user-profile-theme),
+.theme-midnight:not(.custom-user-profile-theme) {
+    /* Catppuccin Mocha */
+    --mochi-rosewater: #F5E0DC;
+    --mochi-flamingo: #F2CDCD;
+    --mochi-pink: #F5C2E7;
+    --mochi-mauve: #CBA6F7;
+    --mochi-red: #F38BA8;
+    --mochi-maroon: #EBA0AC;
+    --mochi-peach: #FAB387;
+    --mochi-yellow: #F9E2AF;
+    --mochi-green: #A6E3A1;
+    --mochi-teal: #94E2D5;
+    --mochi-sky: #89DCEB;
+    --mochi-sapphire: #74C7EC;
+    --mochi-blue: #89B4FA;
+    --mochi-lavender: #B4BEFE;
+    --mochi-text: #CDD6F4;
+    --mochi-subtext1: #BAC2DE;
+    --mochi-subtext0: #A6ADC8;
+    --mochi-overlay2: #9399B2;
+    --mochi-overlay1: #7F849C;
+    --mochi-overlay0: #6C7086;
+    --mochi-surface2: #585B70;
+    --mochi-surface1: #45475A;
+    --mochi-surface0: #313244;
+    --mochi-base: #1E1E2E;
+    --mochi-mantle: #181825;
+    --mochi-crust: #11111B;
+
+    /* The surfaces. Solid at --mochi-glass: 0; as it rises the root turns into translucent base
+       the desktop shows through, and the panes on it into ever fainter tints, so the glass reads
+       the same everywhere (at 1: root 74%, rail 42%, lists 34%, chat clear); what floats stays
+       nearly solid. */
+    --mochi-see: calc(var(--mochi-glass, 0) * 0.26);
+    --mochi-root: rgb(30 30 46 / clamp(0, 1 - var(--mochi-see), 1));            /* base */
+    --mochi-frame: rgb(17 17 27 / clamp(0, 1 - 2.23 * var(--mochi-see), 1));    /* crust: server rail, title bar */
+    --mochi-paper: rgb(24 24 37 / clamp(0, 1 - 2.54 * var(--mochi-see), 1));    /* mantle: channel and member lists */
+    --mochi-sheet: rgb(30 30 46 / clamp(0, 1 - 3.85 * var(--mochi-see), 1));    /* base: chat */
+    --mochi-float: rgb(24 24 37 / clamp(0, 1 - 0.19 * var(--mochi-see), 1));    /* mantle: popouts, menus, modals */
+    --mochi-float-nested: rgb(49 50 68 / clamp(0, 1 - 0.38 * var(--mochi-see), 1));  /* surface0 */
+    --mochi-raised: rgb(49 50 68 / clamp(0, 1 - 1.54 * var(--mochi-see), 1));   /* surface0: modal footers, embeds */
+    --mochi-sunken: rgb(17 17 27 / clamp(0, 1 - 1.92 * var(--mochi-see), 1));   /* crust: code */
+    --mochi-input: rgb(49 50 68 / clamp(0, 1 - 1.46 * var(--mochi-see), 1));    /* surface0: the message box, inputs */
+    --mochi-selection: #4D4257;            /* pink at 22% over base, as in kitty */
+    --mochi-edge: rgb(205 214 244 / 0.09); /* a glass edge */
+    --mochi-line: rgb(49 50 68 / clamp(0, 1 - 2 * var(--mochi-see), 1));       /* surface0 */
+    --mochi-line-strong: var(--mochi-surface1);
+    --mochi-veil: var(--mochi-text);       /* hover and press tints are this at low alpha */
+    --mochi-scrim: rgb(17 17 27 / 0.72);
+
+    --mochi-ink: var(--mochi-text);        /* 11.3:1 on base */
+    --mochi-ink-subtle: var(--mochi-subtext1);
+    --mochi-ink-muted: var(--mochi-subtext0);
+    --mochi-ink-faint: var(--mochi-overlay1);  /* muted channels: quiet on purpose */
+
+    --mochi-accent: var(--mochi-mauve);
+    --mochi-accent-text: var(--mochi-mauve);
+    --mochi-link: var(--mochi-blue);
+    /* under Discord's white labels mauve is too light: Catppuccin's deeper Latte mauve (5.4:1) */
+    --mochi-accent-fill: #8839EF;
+    --mochi-accent-fill-hsl: 266 85% 58%;
+    --mochi-accent-fill-hover: #7A2EE0;
+    --mochi-accent-fill-active: #6D28CF;
+    --mochi-button: var(--mochi-mauve);    /* primary buttons: mauve, with crust text */
+    --mochi-button-hover: #D7BAF9;
+    --mochi-button-active: #BE93F5;
+    --mochi-on-button: var(--mochi-crust); /* 9.2:1 */
+    --mochi-mention: var(--mochi-pink);
+    --mochi-danger: var(--mochi-red);
+    --mochi-danger-fill: #D20F39;          /* Latte red, under white labels (5.4:1) */
+    --mochi-danger-fill-hover: #B40D31;
+    --mochi-on-danger-fill: #FFFFFF;
+
+    --mochi-ring: 0 0 0 1px var(--mochi-edge);
+    --mochi-drop: 0 12px 36px 0 rgb(17 17 27 / 0.55);
+    --mochi-drop-small: 0 4px 16px 0 rgb(17 17 27 / 0.4);
+    --mochi-glow: 0 0 0 3px rgb(203 166 247 / 0.25);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * 2. Discord's tokens, mapped onto the palette.
+ * ------------------------------------------------------------------------------------------- */
+
+.theme-dark:not(.custom-user-profile-theme),
+.theme-darker:not(.custom-user-profile-theme),
+.theme-midnight:not(.custom-user-profile-theme) {
+    /* surfaces */
+    --background-base-lowest: var(--mochi-frame);
+    --background-base-lower: var(--mochi-paper);
+    --background-base-low: var(--mochi-sheet);
+    --background-surface-high: var(--mochi-float);
+    --background-surface-higher: var(--mochi-float-nested);
+    --background-surface-highest: var(--mochi-float-nested);
+    --app-frame-background: var(--mochi-frame);
+    --app-frame-border: var(--mochi-line);
+    --chat-background-default: var(--mochi-sheet);
+    --channeltextarea-background: var(--mochi-input);
+    --card-background-default: var(--mochi-raised);
+    --bg-surface-raised: var(--mochi-float);
+    --modal-background: var(--mochi-float);
+    --modal-footer-background: var(--mochi-raised);
+    --embed-background: var(--mochi-raised);
+    --embed-background-alternate: var(--mochi-float);
+    --background-brand: var(--mochi-accent-fill);
+    --background-code: var(--mochi-sunken);
+    --background-scrim: var(--mochi-scrim);
+
+    /* hover, press and selection tints */
+    --background-mod-subtle: color-mix(in srgb, var(--mochi-veil) 6%, transparent);
+    --background-mod-muted: color-mix(in srgb, var(--mochi-veil) 4%, transparent);
+    --background-mod-normal: color-mix(in srgb, var(--mochi-veil) 9%, transparent);
+    --background-mod-strong: color-mix(in srgb, var(--mochi-veil) 14%, transparent);
+    --interactive-background-hover: color-mix(in srgb, var(--mochi-veil) 6%, transparent);
+    --interactive-background-active: color-mix(in srgb, var(--mochi-veil) 11%, transparent);
+    --interactive-background-selected: var(--mochi-selection);
+    --message-background-hover: color-mix(in srgb, var(--mochi-veil) 3%, transparent);
+
+    /* text */
+    --text-default: var(--mochi-ink);
+    --text-strong: var(--mochi-ink);
+    --text-subtle: var(--mochi-ink-subtle);
+    --text-muted: var(--mochi-ink-muted);
+    --text-link: var(--mochi-link);
+    --text-brand: var(--mochi-accent-text);
+    --text-invert: var(--mochi-crust);
+    --text-feedback-critical: var(--mochi-danger);
+    --text-feedback-positive: var(--mochi-green);
+    --text-feedback-warning: var(--mochi-yellow);
+    --text-feedback-info: var(--mochi-blue);
+    --channels-default: var(--mochi-ink-muted);
+    --channel-icon: var(--mochi-ink-muted);
+    --channel-text-area-placeholder: var(--mochi-overlay2);
+    --input-placeholder-text-default: var(--mochi-overlay2);
+    --input-text-default: var(--mochi-ink);
+
+    /* icons and interactive text */
+    --interactive-text-default: var(--mochi-ink-muted);
+    --interactive-text-hover: var(--mochi-ink);
+    --interactive-text-active: var(--mochi-ink);
+    --interactive-icon-default: var(--mochi-ink-muted);
+    --interactive-icon-hover: var(--mochi-ink);
+    --interactive-icon-active: var(--mochi-ink);
+    --interactive-muted: var(--mochi-ink-faint);
+    --icon-default: var(--mochi-ink-subtle);
+    --icon-strong: var(--mochi-ink);
+    --icon-subtle: var(--mochi-ink-subtle);
+    --icon-muted: var(--mochi-ink-muted);
+    --icon-brand: var(--mochi-accent);
+    --icon-link: var(--mochi-link);
+    --icon-feedback-critical: var(--mochi-danger);
+    --icon-feedback-positive: var(--mochi-green);
+    --icon-feedback-warning: var(--mochi-yellow);
+    --icon-feedback-info: var(--mochi-blue);
+    --icon-feedback-notification: var(--mochi-danger);
+
+    /* lines */
+    --border-subtle: var(--mochi-line);
+    --border-muted: color-mix(in srgb, var(--mochi-line) 70%, transparent);
+    --border-normal: var(--mochi-line-strong);
+    --border-strong: var(--mochi-surface2);
+    --border-focus: var(--mochi-accent);
+    --input-background-default: var(--mochi-input);
+    --input-border-default: var(--mochi-edge);
+    --input-border-hover: var(--mochi-line-strong);
+    --input-border-active: var(--mochi-accent);
+
+    /* mauve instead of blurple */
+    --brand-500: var(--mochi-accent-fill);
+    --brand-500-hsl: var(--mochi-accent-fill-hsl);
+    --brand-560: var(--mochi-accent-fill-hover);
+    --brand-600: var(--mochi-accent-fill-active);
+    --brand-360: var(--mochi-accent);
+    --blurple-50: var(--mochi-accent-fill);
+    --blurple-50-hsl: var(--mochi-accent-fill-hsl);
+    --control-brand-foreground: var(--mochi-accent-text);
+    --control-brand-foreground-new: var(--mochi-accent-text);
+    --tabs-indicator-default: var(--mochi-accent);
+    --progressbar-indicator-background: var(--mochi-accent);
+    --badge-background-brand: var(--mochi-accent-fill);
+    --badge-notification-background: var(--mochi-danger-fill);
+    --background-feedback-notification: var(--mochi-danger-fill);
+
+    /* buttons: mauve as primary, red for destructive, green for "connected" */
+    --control-primary-background-default: var(--mochi-button);
+    --control-primary-background-hover: var(--mochi-button-hover);
+    --control-primary-background-active: var(--mochi-button-active);
+    --control-primary-border-default: transparent;
+    --control-primary-border-hover: transparent;
+    --control-primary-border-active: transparent;
+    --control-primary-text-default: var(--mochi-on-button);
+    --control-primary-text-hover: var(--mochi-on-button);
+    --control-primary-text-active: var(--mochi-on-button);
+    --control-primary-icon-default: var(--mochi-on-button);
+    --control-primary-icon-hover: var(--mochi-on-button);
+    --control-primary-icon-active: var(--mochi-on-button);
+    --control-secondary-background-default: color-mix(in srgb, var(--mochi-veil) 8%, transparent);
+    --control-secondary-background-hover: color-mix(in srgb, var(--mochi-veil) 13%, transparent);
+    --control-secondary-background-active: color-mix(in srgb, var(--mochi-veil) 18%, transparent);
+    --control-secondary-border-default: var(--mochi-edge);
+    --control-secondary-border-hover: var(--mochi-line-strong);
+    --control-secondary-border-active: var(--mochi-line-strong);
+    --control-secondary-text-default: var(--mochi-ink);
+    --control-secondary-text-hover: var(--mochi-ink);
+    --control-secondary-text-active: var(--mochi-ink);
+    --control-secondary-icon-default: var(--mochi-ink);
+    --control-secondary-icon-hover: var(--mochi-ink);
+    --control-secondary-icon-active: var(--mochi-ink);
+    --control-critical-primary-background-default: var(--mochi-danger-fill);
+    --control-critical-primary-background-hover: var(--mochi-danger-fill-hover);
+    --control-critical-primary-background-active: var(--mochi-danger-fill-hover);
+    --control-critical-primary-border-default: transparent;
+    --control-critical-primary-border-hover: transparent;
+    --control-critical-primary-border-active: transparent;
+    --control-critical-primary-text-default: var(--mochi-on-danger-fill);
+    --control-critical-primary-text-hover: var(--mochi-on-danger-fill);
+    --control-critical-primary-text-active: var(--mochi-on-danger-fill);
+    --control-critical-primary-icon-default: var(--mochi-on-danger-fill);
+    --control-critical-primary-icon-hover: var(--mochi-on-danger-fill);
+    --control-critical-primary-icon-active: var(--mochi-on-danger-fill);
+    --control-critical-secondary-text-default: var(--mochi-danger);
+    --control-critical-secondary-text-hover: var(--mochi-danger);
+    --control-critical-secondary-text-active: var(--mochi-danger);
+    --control-critical-secondary-icon-default: var(--mochi-danger);
+    --control-critical-secondary-icon-hover: var(--mochi-danger);
+    --control-critical-secondary-icon-active: var(--mochi-danger);
+    --control-connected-background-default: var(--mochi-green);
+    --control-connected-background-hover: color-mix(in oklab, var(--mochi-green) 85%, var(--mochi-text));
+    --control-connected-background-active: color-mix(in oklab, var(--mochi-green) 75%, var(--mochi-text));
+    --control-connected-text-default: var(--mochi-crust);
+    --control-connected-text-hover: var(--mochi-crust);
+    --control-connected-text-active: var(--mochi-crust);
+    --control-connected-icon-default: var(--mochi-crust);
+    --control-connected-icon-hover: var(--mochi-crust);
+    --control-connected-icon-active: var(--mochi-crust);
+
+    /* switches, checkboxes, radios: the deeper mauve when on */
+    --switch-background-selected-default: var(--mochi-accent-fill);
+    --switch-background-selected-hover: var(--mochi-accent-fill-hover);
+    --switch-thumb-icon-active: var(--mochi-accent-fill);
+    --checkbox-background-selected-default: var(--mochi-accent-fill);
+    --checkbox-background-selected-hover: var(--mochi-accent-fill-hover);
+    --radio-background-selected-default: var(--mochi-accent-fill);
+    --radio-background-selected-hover: var(--mochi-accent-fill-hover);
+    --radio-foreground-active: var(--mochi-accent-fill);
+
+    /* mentions in pink; a jumped-to or replied-to message on the selection's pink wash */
+    --mention-foreground: var(--mochi-mention);
+    --mention-background: color-mix(in srgb, var(--mochi-mention) 20%, transparent);
+    --message-mentioned-background-default: color-mix(in srgb, var(--mochi-mention) 9%, transparent);
+    --message-mentioned-background-hover: color-mix(in srgb, var(--mochi-mention) 12%, transparent);
+    --message-highlight-background-default: color-mix(in srgb, var(--mochi-selection) 70%, transparent);
+    --message-highlight-background-hover: var(--mochi-selection);
+    --reaction-background-reacted-default: color-mix(in srgb, var(--mochi-accent) 18%, transparent);
+    --reaction-background-reacted-hover: color-mix(in srgb, var(--mochi-accent) 26%, transparent);
+    --reaction-border-reacted-default: var(--mochi-accent);
+    --reaction-text-reacted-default: var(--mochi-accent);
+
+    /* presence and voice */
+    --status-positive: var(--mochi-green);
+    --status-online: var(--mochi-green);
+    --status-speaking: var(--mochi-green);
+    --status-warning: var(--mochi-yellow);
+    --status-danger: var(--mochi-red);
+    --text-status-online: var(--mochi-green);
+    --text-status-idle: var(--mochi-yellow);
+    --text-status-dnd: var(--mochi-red);
+    --text-status-offline: var(--mochi-overlay1);
+    --icon-status-online: var(--mochi-green);
+    --icon-status-idle: var(--mochi-yellow);
+    --icon-status-dnd: var(--mochi-red);
+    --icon-status-offline: var(--mochi-overlay1);
+
+    /* code: Catppuccin's syntax style */
+    --text-code: var(--mochi-text);
+    --text-code-comment: var(--mochi-overlay2);
+    --text-code-keyword: var(--mochi-mauve);
+    --text-code-string: var(--mochi-green);
+    --text-code-number: var(--mochi-peach);
+    --text-code-title: var(--mochi-blue);
+    --text-code-type: var(--mochi-yellow);
+    --text-code-builtin: var(--mochi-peach);
+    --text-code-property: var(--mochi-lavender);
+    --text-code-attribute: var(--mochi-yellow);
+    --text-code-variable: var(--mochi-text);
+    --text-code-operator: var(--mochi-sky);
+    --text-code-tag: var(--mochi-mauve);
+    --text-code-section: var(--mochi-blue);
+    --text-code-bullet: var(--mochi-teal);
+    --text-code-link: var(--mochi-rosewater);
+    --text-code-addition: var(--mochi-green);
+    --text-code-deletion: var(--mochi-red);
+
+    /* scrollbars: quiet */
+    --scrollbar-auto-thumb: var(--mochi-surface1);
+    --scrollbar-auto-track: transparent;
+    --scrollbar-thin-thumb: var(--mochi-surface1);
+    --scrollbar-thin-track: transparent;
+    --scrollbar-auto-scrollbar-color-thumb: var(--mochi-surface1);
+    --scrollbar-auto-scrollbar-color-track: transparent;
+
+    /* shadows: Discord's popouts, menus, tooltips and modals are built from these, so this is
+       what gives them their faint glass edge and soft shadow */
+    --shadow-border: var(--mochi-ring);
+    --shadow-high: var(--mochi-ring), var(--mochi-drop);
+    --shadow-medium: var(--mochi-ring), var(--mochi-drop-small);
+    --shadow-low: var(--mochi-drop-small);
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 3. Type, shape and the window. On body, so it beats Discord's per-language :root:lang() font
+ *    stacks. html is clear and #app-mount paints the root, so the glass can show; at
+ *    --mochi-glass: 0 the root is solid Mocha base.
+ * ------------------------------------------------------------------------------------------- */
+
+body {
+    --font-primary: "Nunito", "Rounded Mplus 1c", "gg sans", "Noto Sans", system-ui, sans-serif;
+    --font-headline: "Nunito", "Rounded Mplus 1c", "gg sans", "Noto Sans", system-ui, sans-serif;
+    --font-code: "Maple Mono", "JetBrains Mono", "gg mono", "Source Code Pro", ui-monospace, monospace;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 16px;
+}
+
+html.theme-dark,
+html.theme-darker,
+html.theme-midnight,
+html:is(.theme-dark, .theme-darker, .theme-midnight) body {
+    background: transparent !important;
+}
+
+html:is(.theme-dark, .theme-darker, .theme-midnight) #app-mount {
+    background-color: var(--mochi-root, #1E1E2E) !important;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 4. Catch-all: Discord's raw colour ramps, in Mocha's hues. Anything not mapped above still
+ *    reads as Mocha rather than Discord's grey, and stray blurple turns mauve. Generated: each
+ *    step keeps the lightness washi's theme gives it and takes the hue and saturation of the
+ *    Mocha neutral of that lightness (or of mauve). :root:root outweighs Discord's own :root.
+ * ------------------------------------------------------------------------------------------- */
+
+:root:root {
+    /* the translucent greys behind Discord's hover and border tints: overlay2 */
+    --opacity-1-hsl: 228 17% 64%; --opacity-4-hsl: 228 17% 64%; --opacity-8-hsl: 228 17% 64%;
+    --opacity-12-hsl: 228 17% 64%; --opacity-16-hsl: 228 17% 64%; --opacity-20-hsl: 228 17% 64%;
+    --opacity-24-hsl: 228 17% 64%; --opacity-28-hsl: 228 17% 64%; --opacity-32-hsl: 228 17% 64%;
+    --opacity-36-hsl: 228 17% 64%; --opacity-40-hsl: 228 17% 64%; --opacity-44-hsl: 228 17% 64%;
+    --opacity-48-hsl: 228 17% 64%; --opacity-52-hsl: 228 17% 64%; --opacity-56-hsl: 228 17% 64%;
+    --opacity-60-hsl: 228 17% 64%; --opacity-64-hsl: 228 17% 64%; --opacity-68-hsl: 228 17% 64%;
+    --opacity-72-hsl: 228 17% 64%; --opacity-76-hsl: 228 17% 64%; --opacity-80-hsl: 228 17% 64%;
+    --opacity-84-hsl: 228 17% 64%; --opacity-88-hsl: 228 17% 64%; --opacity-92-hsl: 228 17% 64%;
+    --opacity-96-hsl: 228 17% 64%;
+    /* ...and the translucent blurples behind mention and reaction tints: mauve */
+    --opacity-blurple-1-hsl: 267 84% 81%; --opacity-blurple-4-hsl: 267 84% 81%; --opacity-blurple-8-hsl: 267 84% 81%;
+    --opacity-blurple-12-hsl: 267 84% 81%; --opacity-blurple-16-hsl: 267 84% 81%; --opacity-blurple-20-hsl: 267 84% 81%;
+    --opacity-blurple-24-hsl: 267 84% 81%; --opacity-blurple-28-hsl: 267 84% 81%; --opacity-blurple-32-hsl: 267 84% 81%;
+    --opacity-blurple-36-hsl: 267 84% 81%; --opacity-blurple-40-hsl: 267 84% 81%; --opacity-blurple-44-hsl: 267 84% 81%;
+    --opacity-blurple-48-hsl: 267 84% 81%; --opacity-blurple-52-hsl: 267 84% 81%; --opacity-blurple-56-hsl: 267 84% 81%;
+    --opacity-blurple-60-hsl: 267 84% 81%; --opacity-blurple-64-hsl: 267 84% 81%; --opacity-blurple-68-hsl: 267 84% 81%;
+    --opacity-blurple-72-hsl: 267 84% 81%; --opacity-blurple-76-hsl: 267 84% 81%; --opacity-blurple-80-hsl: 267 84% 81%;
+    --opacity-blurple-84-hsl: 267 84% 81%; --opacity-blurple-88-hsl: 267 84% 81%; --opacity-blurple-92-hsl: 267 84% 81%;
+    --opacity-blurple-96-hsl: 267 84% 81%;
+    /* the neutral ramp, from Mocha's crust to its text and past it */
+    --neutral-1-hsl: 226.2 calc(var(--saturation-factor, 1)*31.0%) 98.3%; --neutral-2-hsl: 226.2 calc(var(--saturation-factor, 1)*33.3%) 97.6%; --neutral-3-hsl: 226.2 calc(var(--saturation-factor, 1)*36.2%) 96.7%;
+    --neutral-4-hsl: 226.2 calc(var(--saturation-factor, 1)*40.3%) 95.4%; --neutral-5-hsl: 226.2 calc(var(--saturation-factor, 1)*43.9%) 94.3%; --neutral-6-hsl: 226.2 calc(var(--saturation-factor, 1)*47.1%) 93.3%;
+    --neutral-7-hsl: 226.2 calc(var(--saturation-factor, 1)*50.6%) 92.2%; --neutral-8-hsl: 226.2 calc(var(--saturation-factor, 1)*54.8%) 90.9%; --neutral-9-hsl: 226.2 calc(var(--saturation-factor, 1)*58.3%) 89.8%;
+    --neutral-10-hsl: 226.2 calc(var(--saturation-factor, 1)*62.8%) 88.4%; --neutral-11-hsl: 226.2 calc(var(--saturation-factor, 1)*60.6%) 87.1%; --neutral-12-hsl: 226.3 calc(var(--saturation-factor, 1)*54.9%) 85.5%;
+    --neutral-13-hsl: 226.4 calc(var(--saturation-factor, 1)*49.9%) 84.1%; --neutral-14-hsl: 226.5 calc(var(--saturation-factor, 1)*44.2%) 82.5%; --neutral-15-hsl: 226.6 calc(var(--saturation-factor, 1)*39.6%) 81.2%;
+    --neutral-16-hsl: 226.7 calc(var(--saturation-factor, 1)*34.9%) 79.7%; --neutral-17-hsl: 226.9 calc(var(--saturation-factor, 1)*32.7%) 78.2%; --neutral-18-hsl: 227.1 calc(var(--saturation-factor, 1)*30.5%) 76.6%;
+    --neutral-19-hsl: 227.2 calc(var(--saturation-factor, 1)*28.8%) 75.4%; --neutral-20-hsl: 227.4 calc(var(--saturation-factor, 1)*26.4%) 73.7%; --neutral-21-hsl: 227.6 calc(var(--saturation-factor, 1)*24.5%) 72.4%;
+    --neutral-22-hsl: 227.7 calc(var(--saturation-factor, 1)*23.0%) 71.0%; --neutral-23-hsl: 227.9 calc(var(--saturation-factor, 1)*21.7%) 69.5%; --neutral-24-hsl: 228.0 calc(var(--saturation-factor, 1)*20.4%) 68.0%;
+    --neutral-25-hsl: 228.1 calc(var(--saturation-factor, 1)*19.3%) 66.7%; --neutral-26-hsl: 228.3 calc(var(--saturation-factor, 1)*18.0%) 65.2%; --neutral-27-hsl: 228.4 calc(var(--saturation-factor, 1)*17.0%) 64.0%;
+    --neutral-28-hsl: 228.6 calc(var(--saturation-factor, 1)*16.2%) 62.5%; --neutral-29-hsl: 228.8 calc(var(--saturation-factor, 1)*15.5%) 61.2%; --neutral-30-hsl: 229.0 calc(var(--saturation-factor, 1)*14.8%) 59.7%;
+    --neutral-31-hsl: 229.2 calc(var(--saturation-factor, 1)*14.2%) 58.4%; --neutral-32-hsl: 229.4 calc(var(--saturation-factor, 1)*13.5%) 56.9%; --neutral-33-hsl: 229.6 calc(var(--saturation-factor, 1)*12.9%) 55.8%;
+    --neutral-34-hsl: 229.8 calc(var(--saturation-factor, 1)*12.4%) 54.2%; --neutral-35-hsl: 230.0 calc(var(--saturation-factor, 1)*12.1%) 52.9%; --neutral-36-hsl: 230.2 calc(var(--saturation-factor, 1)*11.8%) 51.5%;
+    --neutral-37-hsl: 230.4 calc(var(--saturation-factor, 1)*11.4%) 50.2%; --neutral-38-hsl: 230.6 calc(var(--saturation-factor, 1)*11.1%) 48.7%; --neutral-39-hsl: 230.8 calc(var(--saturation-factor, 1)*10.8%) 47.4%;
+    --neutral-40-hsl: 231.0 calc(var(--saturation-factor, 1)*10.9%) 46.3%; --neutral-41-hsl: 231.3 calc(var(--saturation-factor, 1)*11.2%) 44.7%; --neutral-42-hsl: 231.6 calc(var(--saturation-factor, 1)*11.3%) 43.6%;
+    --neutral-43-hsl: 231.9 calc(var(--saturation-factor, 1)*11.5%) 42.3%; --neutral-44-hsl: 232.1 calc(var(--saturation-factor, 1)*11.7%) 40.9%; --neutral-45-hsl: 232.4 calc(var(--saturation-factor, 1)*11.9%) 39.6%;
+    --neutral-46-hsl: 232.7 calc(var(--saturation-factor, 1)*12.1%) 38.5%; --neutral-47-hsl: 232.9 calc(var(--saturation-factor, 1)*12.3%) 37.2%; --neutral-48-hsl: 233.3 calc(var(--saturation-factor, 1)*12.5%) 35.7%;
+    --neutral-49-hsl: 233.5 calc(var(--saturation-factor, 1)*12.7%) 34.5%; --neutral-50-hsl: 233.8 calc(var(--saturation-factor, 1)*12.9%) 33.3%; --neutral-51-hsl: 234.0 calc(var(--saturation-factor, 1)*13.0%) 32.5%;
+    --neutral-52-hsl: 234.1 calc(var(--saturation-factor, 1)*13.1%) 32.1%; --neutral-53-hsl: 234.3 calc(var(--saturation-factor, 1)*13.2%) 31.3%; --neutral-54-hsl: 234.4 calc(var(--saturation-factor, 1)*13.3%) 30.9%;
+    --neutral-55-hsl: 234.6 calc(var(--saturation-factor, 1)*13.6%) 30.1%; --neutral-56-hsl: 234.7 calc(var(--saturation-factor, 1)*13.8%) 29.7%; --neutral-57-hsl: 235.0 calc(var(--saturation-factor, 1)*14.0%) 28.9%;
+    --neutral-58-hsl: 235.2 calc(var(--saturation-factor, 1)*14.3%) 28.2%; --neutral-59-hsl: 235.4 calc(var(--saturation-factor, 1)*14.5%) 27.6%; --neutral-60-hsl: 235.6 calc(var(--saturation-factor, 1)*14.8%) 26.9%;
+    --neutral-61-hsl: 235.8 calc(var(--saturation-factor, 1)*15.0%) 26.4%; --neutral-62-hsl: 236.0 calc(var(--saturation-factor, 1)*15.2%) 25.7%; --neutral-63-hsl: 236.1 calc(var(--saturation-factor, 1)*15.4%) 25.3%;
+    --neutral-64-hsl: 236.4 calc(var(--saturation-factor, 1)*15.7%) 24.4%; --neutral-65-hsl: 236.5 calc(var(--saturation-factor, 1)*15.8%) 24.0%; --neutral-66-hsl: 236.8 calc(var(--saturation-factor, 1)*16.1%) 23.2%;
+    --neutral-67-hsl: 236.9 calc(var(--saturation-factor, 1)*16.3%) 22.8%; --neutral-68-hsl: 237.2 calc(var(--saturation-factor, 1)*16.7%) 22.1%; --neutral-69-hsl: 237.3 calc(var(--saturation-factor, 1)*17.0%) 21.7%;
+    --neutral-70-hsl: 237.6 calc(var(--saturation-factor, 1)*17.4%) 21.0%; --neutral-71-hsl: 237.8 calc(var(--saturation-factor, 1)*17.8%) 20.4%; --neutral-72-hsl: 238.1 calc(var(--saturation-factor, 1)*18.2%) 19.7%;
+    --neutral-73-hsl: 238.3 calc(var(--saturation-factor, 1)*18.5%) 19.2%; --neutral-74-hsl: 238.5 calc(var(--saturation-factor, 1)*18.8%) 18.6%; --neutral-75-hsl: 238.8 calc(var(--saturation-factor, 1)*19.2%) 18.0%;
+    --neutral-76-hsl: 239.0 calc(var(--saturation-factor, 1)*19.6%) 17.4%; --neutral-77-hsl: 239.2 calc(var(--saturation-factor, 1)*19.9%) 16.9%; --neutral-78-hsl: 239.5 calc(var(--saturation-factor, 1)*20.2%) 16.3%;
+    --neutral-79-hsl: 239.7 calc(var(--saturation-factor, 1)*20.6%) 15.7%; --neutral-80-hsl: 239.9 calc(var(--saturation-factor, 1)*20.9%) 15.2%; --neutral-81-hsl: 240.0 calc(var(--saturation-factor, 1)*21.1%) 14.5%;
+    --neutral-82-hsl: 240.0 calc(var(--saturation-factor, 1)*21.1%) 14.4%; --neutral-83-hsl: 240.0 calc(var(--saturation-factor, 1)*21.1%) 14.2%; --neutral-84-hsl: 240.0 calc(var(--saturation-factor, 1)*21.1%) 13.8%;
+    --neutral-85-hsl: 240.0 calc(var(--saturation-factor, 1)*21.2%) 13.6%; --neutral-86-hsl: 240.0 calc(var(--saturation-factor, 1)*21.2%) 13.4%; --neutral-87-hsl: 240.0 calc(var(--saturation-factor, 1)*21.2%) 13.2%;
+    --neutral-88-hsl: 240.0 calc(var(--saturation-factor, 1)*21.2%) 13.0%; --neutral-89-hsl: 240.0 calc(var(--saturation-factor, 1)*21.2%) 12.7%; --neutral-90-hsl: 240.0 calc(var(--saturation-factor, 1)*21.3%) 12.5%;
+    --neutral-91-hsl: 240.0 calc(var(--saturation-factor, 1)*21.3%) 12.3%; --neutral-92-hsl: 240.0 calc(var(--saturation-factor, 1)*21.3%) 12.1%; --neutral-93-hsl: 240.0 calc(var(--saturation-factor, 1)*21.4%) 11.7%;
+    --neutral-94-hsl: 240.0 calc(var(--saturation-factor, 1)*21.6%) 11.3%; --neutral-95-hsl: 240.0 calc(var(--saturation-factor, 1)*21.7%) 11.0%; --neutral-96-hsl: 240.0 calc(var(--saturation-factor, 1)*21.8%) 10.7%;
+    --neutral-97-hsl: 240.0 calc(var(--saturation-factor, 1)*22.1%) 10.0%; --neutral-98-hsl: 240.0 calc(var(--saturation-factor, 1)*22.3%) 9.6%; --neutral-99-hsl: 240.0 calc(var(--saturation-factor, 1)*22.7%) 8.5%;
+    --neutral-100-hsl: 240.0 calc(var(--saturation-factor, 1)*22.7%) 5.2%;
+    /* the blurple ramp, as mauve (blurple-50 itself is set above) */
+    --blurple-1-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 93.6%; --blurple-2-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 92.7%; --blurple-3-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 91.7%;
+    --blurple-4-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 91.0%; --blurple-5-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 90.0%; --blurple-6-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 89.3%;
+    --blurple-7-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 88.4%; --blurple-8-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 87.4%; --blurple-9-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 86.8%;
+    --blurple-10-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 85.9%; --blurple-11-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 85.1%; --blurple-12-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 84.2%;
+    --blurple-13-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 83.2%; --blurple-14-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 82.5%; --blurple-15-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 81.5%;
+    --blurple-16-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 80.8%; --blurple-17-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 79.8%; --blurple-18-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 78.8%;
+    --blurple-19-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 78.0%; --blurple-20-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 77.0%; --blurple-21-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 76.1%;
+    --blurple-22-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 75.3%; --blurple-23-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 74.4%; --blurple-24-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 73.4%;
+    --blurple-25-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 72.7%; --blurple-26-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 71.6%; --blurple-27-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 70.7%;
+    --blurple-28-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 70.0%; --blurple-29-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 68.9%; --blurple-30-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 68.0%;
+    --blurple-31-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 67.2%; --blurple-32-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 66.2%; --blurple-33-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 65.3%;
+    --blurple-34-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 64.2%; --blurple-35-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 63.6%; --blurple-36-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 62.6%;
+    --blurple-37-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 61.6%; --blurple-38-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 60.7%; --blurple-39-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 60.0%;
+    --blurple-40-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 59.0%; --blurple-41-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 58.0%; --blurple-42-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 57.2%;
+    --blurple-43-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 56.2%; --blurple-44-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 55.3%; --blurple-45-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 54.6%;
+    --blurple-46-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 53.8%; --blurple-47-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 52.8%; --blurple-48-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 52.0%;
+    --blurple-49-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 51.0%; --blurple-51-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 49.0%; --blurple-52-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 47.9%;
+    --blurple-53-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 46.7%; --blurple-54-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 45.6%; --blurple-55-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 44.5%;
+    --blurple-56-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 43.3%; --blurple-57-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 42.5%; --blurple-58-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 41.3%;
+    --blurple-59-hsl: 267.4 calc(var(--saturation-factor, 1)*83.5%) 40.2%; --blurple-60-hsl: 267.4 calc(var(--saturation-factor, 1)*83.0%) 39.0%; --blurple-61-hsl: 267.4 calc(var(--saturation-factor, 1)*82.4%) 37.8%;
+    --blurple-62-hsl: 267.4 calc(var(--saturation-factor, 1)*81.8%) 36.7%; --blurple-63-hsl: 267.4 calc(var(--saturation-factor, 1)*81.2%) 35.6%; --blurple-64-hsl: 267.4 calc(var(--saturation-factor, 1)*80.6%) 34.5%;
+    --blurple-65-hsl: 267.4 calc(var(--saturation-factor, 1)*80.0%) 33.3%; --blurple-66-hsl: 267.4 calc(var(--saturation-factor, 1)*79.4%) 32.1%; --blurple-67-hsl: 267.4 calc(var(--saturation-factor, 1)*78.7%) 30.8%;
+    --blurple-68-hsl: 267.4 calc(var(--saturation-factor, 1)*78.1%) 29.6%; --blurple-69-hsl: 267.4 calc(var(--saturation-factor, 1)*77.3%) 28.2%; --blurple-70-hsl: 267.4 calc(var(--saturation-factor, 1)*76.8%) 27.1%;
+    --blurple-71-hsl: 267.4 calc(var(--saturation-factor, 1)*76.2%) 26.0%; --blurple-72-hsl: 267.4 calc(var(--saturation-factor, 1)*75.7%) 25.1%; --blurple-73-hsl: 267.4 calc(var(--saturation-factor, 1)*75.3%) 24.3%;
+    --blurple-74-hsl: 267.4 calc(var(--saturation-factor, 1)*74.9%) 23.6%; --blurple-75-hsl: 267.4 calc(var(--saturation-factor, 1)*74.5%) 22.8%; --blurple-76-hsl: 267.4 calc(var(--saturation-factor, 1)*74.1%) 21.9%;
+    --blurple-77-hsl: 267.4 calc(var(--saturation-factor, 1)*73.8%) 21.4%; --blurple-78-hsl: 267.4 calc(var(--saturation-factor, 1)*73.3%) 20.5%; --blurple-79-hsl: 267.4 calc(var(--saturation-factor, 1)*72.9%) 19.7%;
+    --blurple-80-hsl: 267.4 calc(var(--saturation-factor, 1)*72.5%) 19.0%; --blurple-81-hsl: 267.4 calc(var(--saturation-factor, 1)*72.1%) 18.2%; --blurple-82-hsl: 267.4 calc(var(--saturation-factor, 1)*71.7%) 17.4%;
+    --blurple-83-hsl: 267.4 calc(var(--saturation-factor, 1)*71.2%) 16.5%; --blurple-84-hsl: 267.4 calc(var(--saturation-factor, 1)*70.9%) 15.9%; --blurple-85-hsl: 267.4 calc(var(--saturation-factor, 1)*70.7%) 15.4%;
+    --blurple-86-hsl: 267.4 calc(var(--saturation-factor, 1)*70.2%) 14.6%; --blurple-87-hsl: 267.4 calc(var(--saturation-factor, 1)*69.8%) 13.8%; --blurple-88-hsl: 267.4 calc(var(--saturation-factor, 1)*69.5%) 13.2%;
+    --blurple-89-hsl: 267.4 calc(var(--saturation-factor, 1)*69.1%) 12.4%; --blurple-90-hsl: 267.4 calc(var(--saturation-factor, 1)*68.7%) 11.7%; --blurple-91-hsl: 267.4 calc(var(--saturation-factor, 1)*68.4%) 11.1%;
+    --blurple-92-hsl: 267.4 calc(var(--saturation-factor, 1)*68.0%) 10.3%; --blurple-93-hsl: 267.4 calc(var(--saturation-factor, 1)*67.6%) 9.6%; --blurple-94-hsl: 267.4 calc(var(--saturation-factor, 1)*67.3%) 8.9%;
+    --blurple-95-hsl: 267.4 calc(var(--saturation-factor, 1)*66.8%) 7.9%; --blurple-96-hsl: 267.4 calc(var(--saturation-factor, 1)*66.3%) 7.1%; --blurple-97-hsl: 267.4 calc(var(--saturation-factor, 1)*65.8%) 6.0%;
+    --blurple-98-hsl: 267.4 calc(var(--saturation-factor, 1)*65.1%) 4.7%; --blurple-99-hsl: 267.4 calc(var(--saturation-factor, 1)*63.9%) 2.5%; --blurple-100-hsl: 267.4 calc(var(--saturation-factor, 1)*62.6%) 0.0%;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 5. Structure: the few touches tokens can't express. Hash-free selectors only
+ *    ([class*="name_"] survives Discord's daily class-hash churn); #app-mount lifts them over
+ *    Discord's state rules. If one stops matching, the tokens above still carry the look.
+ * ------------------------------------------------------------------------------------------- */
+
+/* The message box (and the edit, thread and forum composers): a pane with a glass edge, a mauve
+   halo while you type. The :not() keeps a composer nested in another from getting a second edge. */
+#app-mount [class*="channelTextArea_"]:not([class*="channelTextArea_"] *) {
+    border: 1px solid var(--mochi-edge);
+    border-radius: 16px;
+    box-shadow: var(--mochi-drop-small);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+#app-mount [class*="channelTextArea_"]:not([class*="channelTextArea_"] *):focus-within {
+    border-color: color-mix(in srgb, var(--mochi-accent) 70%, transparent);
+    box-shadow: var(--mochi-drop-small), var(--mochi-glow);
+}
+
+/* Modals: soft sheets (popouts, menus and tooltips get theirs from --shadow-high). */
+#app-mount [class*="rootWithShadow_"] {
+    border: 1px solid var(--mochi-edge);
+    border-radius: 16px;
+    box-shadow: var(--mochi-drop);
+}
+
+/* The user panel: a small pane at the foot of the channel list. */
+#app-mount section[class*="panels_"] {
+    background: var(--mochi-float);
+    border: 1px solid var(--mochi-edge);
+    border-radius: 16px;
+    box-shadow: var(--mochi-drop-small);
+}
+
+/* The selected channel (or DM): a pane with a pink marker. */
+#app-mount [class*="sidebarList_"] [class*="interactiveSelected_"],
+#app-mount [class*="sidebarList_"] [class*="modeSelected_"] [class*="link_"] {
+    background: color-mix(in srgb, var(--mochi-veil) 9%, transparent);
+    box-shadow: inset 3px 0 0 0 var(--mochi-pink);
+    color: var(--mochi-ink);
+}
+
+/* Messages that mention you: a rule down the margin in pink. */
+#app-mount [class*="message_"][class*="mentioned_"]::before {
+    background: var(--mochi-mention);
+    width: 3px;
+}
+
+/* Code blocks: rounded panes in Maple Mono. */
+#app-mount [class*="markup_"] pre > code {
+    border: 1px solid var(--mochi-edge);
+    border-radius: 12px;
+}
+
+/* Avatars in chat: a faint ring of light. */
+#app-mount [class*="message_"] img[class*="avatar_"] {
+    box-shadow: 0 0 0 2px var(--mochi-edge);
+}
