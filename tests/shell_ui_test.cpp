@@ -662,15 +662,26 @@ int main(int argc, char **argv) {
         }
         if (!draws(find(root, "tilingMenuTitle"), "tiling-dwindle"))
             return fail("the tiling button's menu does not show the icon of the layout in use");
+        // The button itself shows the layout's icon while tiling, and floating's while not.
+        auto showsIcon = [&](const QString &name) {
+            auto *icon = find(tiling, "tilingIcon");
+            return waitFor([&] { return icon && icon->property("name") == name && draws(icon, name); });
+        };
+        if (!showsIcon("tiling-dwindle"))
+            return fail("the tiling button does not show the icon of the layout in use");
         click(entry("Master"));
         if (!waitFor([&] { return shellLayout() == "master" && !menuOpen(); }) ||
             requests.last() != "output " + output + " layout_master" || !toggled)
             return fail("picking a layout in the tiling button's menu did not switch to it");
+        if (!showsIcon("tiling-master"))
+            return fail("the tiling button's icon did not follow the layout");
         if (!openMenu() || title() != "Master" || entry("Master") || !entry("Dwindle"))
             return fail("the tiling button's menu did not follow the layout");
         click(entry("Floating"));
         if (!waitFor([&] { return !toggled && !panelTiling() && !menuOpen(); }))
             return fail("Floating in the tiling button's menu did not turn tiling off");
+        if (!showsIcon("copy"))
+            return fail("the tiling button did not show floating's icon with tiling off");
         if (!openMenu() || title() != "Floating" || entry("Floating") || !entry("Master") ||
             !entry("Dwindle") || !draws(find(root, "tilingMenuTitle"), "copy"))
             return fail("the tiling button's menu did not show floating, with every layout");
@@ -678,6 +689,8 @@ int main(int argc, char **argv) {
         if (!waitFor([&] { return shellLayout() == "spiral" && toggled && panelTiling(); }) ||
             requests.last() != "output " + output + " layout_spiral")
             return fail("picking a layout while floating did not tile with it");
+        if (!showsIcon("tiling-spiral"))
+            return fail("the tiling button did not show the layout it turned tiling on with");
         // Back to dwindle, which the tiling bar's tests below start from.
         if (!openMenu())
             return fail("the tiling button's menu did not open again");

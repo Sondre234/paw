@@ -21,12 +21,16 @@ FlatButton {
         acceptedButtons: Qt.RightButton
         onPressed: tilingToggle.panel.toggleAudioPopup("tiling", tilingToggle)
     }
-    // On: a split layout in the accent colour. Off: two overlapping windows.
+    // The tiling layout of the workspace this monitor shows, as its menu names it.
+    readonly property string layout: (shell.workspaces[panel.outputName] || {}).layout || ""
+    // On: the layout's icon, as its menu draws it (a split screen until the layout is known), in
+    // the accent colour. Off: two overlapping windows.
     contentItem: Item {
         FadingIcon {
             objectName: "tilingIcon"
             anchors.centerIn: parent
-            name: tilingToggle.panel.tiling ? "layout-panel-left" : "copy"
+            name: !tilingToggle.panel.tiling ? "copy"
+                : tilingToggle.layout !== "" ? "tiling-" + tilingToggle.layout : "layout-panel-left"
             color: tilingToggle.panel.tiling ? Theme.accent : Theme.text
         }
     }

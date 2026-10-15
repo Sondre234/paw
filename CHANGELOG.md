@@ -190,6 +190,9 @@ shadows.
   power menu closes only it, whose entries now have icons. The desktop's right-click menu is one
   of them too, with Show desktop and the appearance profiles; its Refresh is gone, as the
   applications are read again by themselves.
+- The tiling button shows the icon of the layout its monitor tiles with, as its menu draws it
+  (dwindle, master, spiral, monocle or scroll), crossfading when the layout changes, where it
+  showed the same split screen for every layout.
 
 ### The start menu
 
