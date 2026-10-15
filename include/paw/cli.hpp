@@ -33,6 +33,12 @@ std::filesystem::path personal_configuration_path();
 // The configuration paw starts with when given none: the personal one where it exists, else
 // the shipped one.
 std::filesystem::path configuration_path();
+// `paw config [edit]`: prints the configuration's path, or opens the personal one in $VISUAL
+// or $EDITOR, made first from starter_configuration when there is none, and checks it once it
+// has changed.
+int config(int argc, char **argv);
+// A personal configuration that extends the default one, naming where that is.
+std::string starter_configuration();
 // `paw doctor`: looks the session over and prints what is wrong with it and how to fix that.
 int doctor(int argc, char **argv);
 // `paw fetch`: a paw print and what paw knows of the session (src/cli/fetch.cpp).
