@@ -1,0 +1,133 @@
+// mochi (餅) for fastfetch: the cat beside a spec sheet in a box, the hardware under the
+// kotatsu where it sleeps. Mauve titles, pink icons, lavender keys and an overlay frame, set in
+// 24-bit colour so they are Catppuccin Mocha's in any terminal (colours from Catppuccin Mocha,
+// MIT), with Catppuccin's fourteen accents in a row at the foot. Run `fastfetch -c mochi` once
+// install.sh has put it in ~/.config/fastfetch/; the picture is drawn through kitty's graphics
+// protocol. SPDX-License-Identifier: GPL-3.0-or-later
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": {
+    "type": "kitty-direct",
+    "source": "~/.config/fastfetch/mochi/logo.png",
+    "width": 18,
+    "height": 9,
+    "padding": {
+      "top": 2,
+      "left": 3,
+      "right": 4
+    }
+  },
+  "display": {
+    "separator": "",
+    "color": {
+      "keys": "38;2;180;190;254",
+      "title": "38;2;203;166;247",
+      "output": "default"
+    },
+    "constants": [
+      "                                  \u001b[38;2;108;112;134m│\u001b[35D\u001b[39m"
+    ],
+    "bar": {
+      "char": {
+        "elapsed": "■",
+        "total": "·"
+      },
+      "border": null,
+      "color": {
+        "elapsed": "38;2;245;194;231",
+        "total": "38;2;108;112;134"
+      },
+      "width": 12
+    },
+    "percent": {
+      "type": [
+        "bar",
+        "num"
+      ],
+      "color": {
+        "green": "default",
+        "yellow": "38;2;249;226;175",
+        "red": "38;2;243;139;168"
+      }
+    },
+    "duration": {
+      "abbreviation": true
+    }
+  },
+  "modules": [
+    {
+      "type": "custom",
+      "format": "{#38;2;108;112;134}╭─ {#1;38;2;203;166;247}mochi{#0}{#38;2;108;112;134} ───────────────────────────────────────╮"
+    },
+    {
+      "type": "os",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}os       ",
+      "format": "{$1}{pretty-name:-30}"
+    },
+    {
+      "type": "kernel",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}kernel   ",
+      "format": "{$1}{release:-30}"
+    },
+    {
+      "type": "wm",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}wm       ",
+      "format": "{$1}{pretty-name} {#38;2;127;132;156}{protocol-name}"
+    },
+    {
+      "type": "shell",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}shell    ",
+      "format": "{$1}{pretty-name} {#38;2;127;132;156}{version}"
+    },
+    {
+      "type": "terminal",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}term     ",
+      "format": "{$1}{pretty-name} {#38;2;127;132;156}{version}"
+    },
+    {
+      "type": "terminalfont",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}font     ",
+      "format": "{$1}{name:-24} {#38;2;127;132;156}{size}pt"
+    },
+    {
+      "type": "uptime",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}uptime   ",
+      "format": "{$1}{?days}{days}d {?}{hours}h {minutes}m"
+    },
+    {
+      "type": "custom",
+      "format": "{#38;2;108;112;134}├─ {#1;38;2;203;166;247}kotatsu{#0}{#38;2;108;112;134} ─────────────────────────────────────┤"
+    },
+    {
+      "type": "cpu",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}cpu      ",
+      "format": "{$1}{name:-30}"
+    },
+    {
+      "type": "gpu",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}gpu      ",
+      "format": "{$1}{name:-30}",
+      "hideType": "integrated"
+    },
+    {
+      "type": "memory",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}memory   ",
+      "format": "{$1}{percentage-bar} {used}"
+    },
+    {
+      "type": "disk",
+      "key": "{#38;2;108;112;134}│ {#38;2;245;194;231}{icon}  {#38;2;180;190;254}disk     ",
+      "format": "{$1}{size-percentage-bar} {size-used}",
+      "folders": "/"
+    },
+    {
+      "type": "custom",
+      "format": "{#38;2;108;112;134}╰───────────────────────────────────────────────╯"
+    },
+    "break",
+    {
+      "type": "custom",
+      "format": "   {#38;2;245;224;220}● {#38;2;242;205;205}● {#38;2;245;194;231}● {#38;2;203;166;247}● {#38;2;243;139;168}● {#38;2;235;160;172}● {#38;2;250;179;135}● {#38;2;249;226;175}● {#38;2;166;227;161}● {#38;2;148;226;213}● {#38;2;137;220;235}● {#38;2;116;199;236}● {#38;2;137;180;250}● {#38;2;180;190;254}●"
+    }
+  ]
+}

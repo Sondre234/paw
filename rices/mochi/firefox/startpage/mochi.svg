@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- mochi's face: a round cream cat like a rice cake, eyes shut, pink cheeks. The start page's
+       tab icon and mark. Colours from Catppuccin Mocha, MIT. SPDX-License-Identifier: GPL-3.0-or-later -->
+  <path d="M10.5 30 C9 22 10 13.5 13 9.5 C15.5 8.5 21 13 24.5 17.5 C29.5 16.4 34.5 16.4 39.5 17.5 C43 13 48.5 8.5 51 9.5 C54 13.5 55 22 53.5 30 C58 34.5 59.5 39.5 58.5 44 C56.5 53.5 45.5 58 32 58 C18.5 58 7.5 53.5 5.5 44 C4.5 39.5 6 34.5 10.5 30 Z" fill="#F5E0DC"/>
+  <path d="M14.2 13.6 C16.4 14.6 19 16.9 20.6 19.2 C18.2 20.4 16.1 22 14.6 24 C13.6 20.6 13.5 16.6 14.2 13.6 Z" fill="#F5C2E7"/>
+  <path d="M49.8 13.6 C47.6 14.6 45 16.9 43.4 19.2 C45.8 20.4 47.9 22 49.4 24 C50.4 20.6 50.5 16.6 49.8 13.6 Z" fill="#F5C2E7"/>
+  <g fill="none" stroke="#1E1E2E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18.5 37.5 Q22 41 25.5 37.5"/>
+    <path d="M38.5 37.5 Q42 41 45.5 37.5"/>
+    <path d="M28.6 43.4 Q30.3 45.6 32 43.4 Q33.7 45.6 35.4 43.4" stroke-width="2"/>
+  </g>
+  <ellipse cx="15.5" cy="44" rx="4.6" ry="2.8" fill="#F5C2E7" opacity=".85"/>
+  <ellipse cx="48.5" cy="44" rx="4.6" ry="2.8" fill="#F5C2E7" opacity=".85"/>
+</svg>

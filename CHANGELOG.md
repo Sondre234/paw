@@ -49,6 +49,16 @@ shadows.
   Claude Code and cdeck, Neovim and Helix, which its `install.sh` puts in place; it is installed
   beside the shipped configuration. Wallpapers the shipped configuration names relative to itself
   are found there, its profiles' too.
+- A second rice ships with paw: the profile `mochi` (餅), Catppuccin Mocha under frosted glass
+  (`windows.blur` behind the windows, `shell.blur` under the bar and popups), with a round cream
+  cat on the start button. `rices/mochi` holds seven wallpapers, `Mochi`, an icon theme of
+  kawaii folders and applications, and themes for
+  kitty (translucent, the editors' floats and status lines kept glass too), fastfetch, Firefox
+  (glass toolbars, and a start page of frosted cards over the wallpaper with a cat to pat),
+  Discord (glass once window transparency is on), Claude Code and cdeck, Neovim and Helix (no
+  background of their own, so the glass shows through) and GTK 4 / libadwaita, which its
+  `install.sh` puts in place; `--fonts` adds Nunito and M PLUS Rounded 1c, `--icons` a mauve Tela
+  under mochi's own icons, and `--cursor` Catppuccin's cursors.
 - `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
   the accent colour, named as `shell.wallpaper` is.
 - `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu

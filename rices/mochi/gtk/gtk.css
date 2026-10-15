@@ -1,0 +1,63 @@
+/* mochi (餅) for GTK 4 and libadwaita: Catppuccin Mocha through libadwaita's own colour
+ * variables, mauve as the accent. Colours from Catppuccin Mocha, MIT
+ * (https://github.com/catppuccin/catppuccin); the rest is paw's, GPL-3.0-or-later.
+ *
+ * install.sh puts these lines into ~/.config/gtk-4.0/gtk.css between `paw mochi` markers. They
+ * only recolour; every widget keeps libadwaita's shapes, so nothing fights it. They apply only
+ * while the system prefers dark (the mochi profile sets that), so a light profile's libadwaita
+ * stays light. Needs libadwaita 1.6 or newer (GTK 4.16 and its CSS variables); older versions
+ * skip the lines. GTK 3 is left alone: its Adwaita colours are compiled in, and recolouring a
+ * few named colours would leave it half Mocha. */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent-bg-color: #CBA6F7;            /* mauve */
+    --accent-fg-color: #11111B;
+    --accent-color: #CBA6F7;
+    --destructive-bg-color: #F38BA8;       /* red */
+    --destructive-fg-color: #11111B;
+    --destructive-color: #F38BA8;
+    --success-bg-color: #A6E3A1;           /* green */
+    --success-fg-color: #11111B;
+    --success-color: #A6E3A1;
+    --warning-bg-color: #F9E2AF;           /* yellow */
+    --warning-fg-color: #11111B;
+    --warning-color: #F9E2AF;
+    --error-bg-color: #F38BA8;
+    --error-fg-color: #11111B;
+    --error-color: #F38BA8;
+
+    --window-bg-color: #1E1E2E;            /* base */
+    --window-fg-color: #CDD6F4;            /* text */
+    --view-bg-color: #181825;              /* mantle: lists, text views, a shade below the window */
+    --view-fg-color: #CDD6F4;
+    --headerbar-bg-color: #181825;         /* mantle */
+    --headerbar-fg-color: #CDD6F4;
+    --headerbar-border-color: #CDD6F4;
+    --headerbar-backdrop-color: #1E1E2E;
+    --headerbar-shade-color: rgb(17 17 27 / 0.36);
+    --headerbar-darker-shade-color: rgb(17 17 27 / 0.9);
+    --sidebar-bg-color: #181825;
+    --sidebar-fg-color: #CDD6F4;
+    --sidebar-backdrop-color: #1E1E2E;
+    --sidebar-border-color: rgb(17 17 27 / 0.36);
+    --sidebar-shade-color: rgb(17 17 27 / 0.25);
+    --secondary-sidebar-bg-color: #1E1E2E;
+    --secondary-sidebar-fg-color: #CDD6F4;
+    --secondary-sidebar-backdrop-color: #1E1E2E;
+    --secondary-sidebar-border-color: rgb(17 17 27 / 0.36);
+    --secondary-sidebar-shade-color: rgb(17 17 27 / 0.25);
+    --card-bg-color: rgb(205 214 244 / 0.06);
+    --card-fg-color: #CDD6F4;
+    --card-shade-color: rgb(17 17 27 / 0.36);
+    --dialog-bg-color: #313244;            /* surface0 */
+    --dialog-fg-color: #CDD6F4;
+    --popover-bg-color: #313244;
+    --popover-fg-color: #CDD6F4;
+    --popover-shade-color: rgb(17 17 27 / 0.25);
+    --thumbnail-bg-color: #313244;
+    --thumbnail-fg-color: #CDD6F4;
+    --shade-color: rgb(17 17 27 / 0.36);
+    --scrollbar-outline-color: rgb(17 17 27 / 0.5);
+  }
+}

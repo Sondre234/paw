@@ -1,0 +1,718 @@
+/* mochi (餅) for Firefox: the browser chrome as frosted glass in Catppuccin Mocha.
+ *
+ * The toolbars are a sheet of glass the wallpaper shows through (paw blurs it), the page a
+ * rounded card set into it; the URL bar and the selected tab are softer panes of surface on the
+ * glass, menus and panels float in Mocha's base with a faint edge and a soft shadow, and mauve is
+ * the accent, pink the little marks of attention, blue for links and focus. Colours from
+ * Catppuccin Mocha, MIT (https://github.com/catppuccin/catppuccin); the rest is paw's.
+ *
+ * The glass needs the `mochi.glass` pref (user.js sets it): without it, or where the window
+ * cannot be translucent, the toolbars are solid Mocha mantle. Every colour is a --mochi-* token
+ * in the palette block at the top; the rest maps them onto Firefox's own variables (156 names,
+ * with the 152-and-older and 157 names alongside) and touches as few selectors as it can.
+ * Horizontal and vertical tabs both work.
+ * Needs toolkit.legacyUserProfileCustomizations.stylesheets (see user.js) and a restart.
+ * No @namespace line: the window root is HTML now and a XUL default namespace would stop
+ * body, moz-urlbar and sidebar-main from matching.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* ================================================================ palette: Catppuccin Mocha */
+
+:root {
+  --mochi-rosewater: #F5E0DC;
+  --mochi-flamingo: #F2CDCD;
+  --mochi-pink: #F5C2E7;
+  --mochi-mauve: #CBA6F7;
+  --mochi-red: #F38BA8;
+  --mochi-maroon: #EBA0AC;
+  --mochi-peach: #FAB387;
+  --mochi-yellow: #F9E2AF;
+  --mochi-green: #A6E3A1;
+  --mochi-teal: #94E2D5;
+  --mochi-sky: #89DCEB;
+  --mochi-sapphire: #74C7EC;
+  --mochi-blue: #89B4FA;
+  --mochi-lavender: #B4BEFE;
+  --mochi-text: #CDD6F4;
+  --mochi-subtext1: #BAC2DE;
+  --mochi-subtext0: #A6ADC8;
+  --mochi-overlay2: #9399B2;
+  --mochi-overlay1: #7F849C;
+  --mochi-overlay0: #6C7086;
+  --mochi-surface2: #585B70;
+  --mochi-surface1: #45475A;
+  --mochi-surface0: #313244;
+  --mochi-base: #1E1E2E;
+  --mochi-mantle: #181825;
+  --mochi-crust: #11111B;
+
+  /* what each is for */
+  --mochi-glass: var(--mochi-mantle);          /* the toolbox and sidebar: solid without glass */
+  --mochi-pane: var(--mochi-surface0);         /* the URL bar, the selected tab */
+  --mochi-pane-focus: var(--mochi-surface0);
+  --mochi-panel: var(--mochi-base);            /* menus and panels */
+  --mochi-raised: color-mix(in srgb, var(--mochi-text) 8%, transparent);    /* hover */
+  --mochi-pressed: color-mix(in srgb, var(--mochi-text) 14%, transparent);  /* pressed */
+  --mochi-edge: color-mix(in srgb, var(--mochi-text) 10%, transparent);     /* a glass edge */
+  --mochi-line: var(--mochi-surface0);         /* hairlines, separators */
+  --mochi-ink: var(--mochi-text);
+  --mochi-muted: var(--mochi-subtext0);
+  --mochi-accent: var(--mochi-mauve);
+  --mochi-accent-hover: #D7BAF9;               /* mauve, a step lighter */
+  --mochi-on-accent: var(--mochi-crust);
+  --mochi-link: var(--mochi-blue);
+  --mochi-mark: var(--mochi-pink);             /* attention, the selected row's strip */
+  --mochi-selection: #4D4257;                  /* pink at 22% over base, as in kitty */
+  --mochi-bean: linear-gradient(135deg, var(--mochi-mauve), var(--mochi-pink));
+
+  --mochi-glow: 0 0 0 3px rgb(203 166 247 / 0.28);                 /* focus: a mauve halo */
+  --mochi-shadow: 0 10px 30px rgb(17 17 27 / 0.55);                /* panels */
+  --mochi-shadow-small: 0 2px 10px rgb(17 17 27 / 0.35);           /* the selected tab */
+  --mochi-panel-shadow-room: 26px;                                 /* room popups leave for it */
+
+  --mochi-radius: 12px;
+  --mochi-radius-small: 8px;
+  --mochi-font: "Nunito", "Rounded Mplus 1c", "M PLUS Rounded 1c", "Inter", system-ui, sans-serif;
+}
+
+/* ================================================================ the glass */
+
+/* Firefox paints the window through body with --toolbox-background-color, on a root that is
+   already transparent under Wayland: a translucent colour there lets the desktop through. */
+@media -moz-pref("mochi.glass") {
+  :root {
+    --mochi-glass: rgb(24 24 37 / 0.72);
+    --mochi-pane: rgb(49 50 68 / 0.66);
+    --mochi-pane-focus: rgb(49 50 68 / 0.9);
+    --mochi-panel: rgb(30 30 46 / 0.94);
+  }
+}
+
+/* ================================================================ Firefox's variables */
+
+:root {
+  color-scheme: dark;
+
+  /* the toolbox and toolbars: one sheet of glass */
+  --toolbox-background-color: var(--mochi-glass) !important;
+  --toolbox-background-color-inactive: var(--mochi-glass) !important;
+  --toolbox-text-color: var(--mochi-ink) !important;
+  --toolbox-text-color-inactive: var(--mochi-subtext1) !important;
+  --toolbar-background-color: transparent !important;
+  --toolbar-text-color: var(--mochi-ink) !important;
+  --toolbox-bgcolor: var(--mochi-glass) !important;                 /* before 152 */
+  --toolbox-bgcolor-inactive: var(--mochi-glass) !important;
+  --toolbox-textcolor: var(--mochi-ink) !important;
+  --toolbox-textcolor-inactive: var(--mochi-subtext1) !important;
+  --toolbar-bgcolor: transparent !important;
+  --toolbar-color: var(--mochi-ink) !important;
+  --tabs-navbar-separator-style: none !important;
+  --tabs-navbar-separator-color: transparent !important;
+  --chrome-content-separator-color: transparent !important;
+  --content-area-shadow: none !important;
+
+  /* text fields in toolbars: the URL bar and the search bar */
+  --toolbar-field-background-color: var(--mochi-pane) !important;
+  --toolbar-field-background-color-focus: var(--mochi-pane-focus) !important;
+  --toolbar-field-text-color: var(--mochi-ink) !important;
+  --toolbar-field-text-color-focus: var(--mochi-ink) !important;
+  --toolbar-field-border-color: var(--mochi-edge) !important;
+  --toolbar-field-border-color-focus: var(--mochi-accent) !important;
+  --toolbar-field-color: var(--mochi-ink) !important;               /* before 152 */
+  --toolbar-field-focus-background-color: var(--mochi-pane-focus) !important;
+  --toolbar-field-focus-color: var(--mochi-ink) !important;
+  --toolbar-field-focus-border-color: var(--mochi-accent) !important;
+
+  /* toolbar buttons */
+  --toolbarbutton-icon-fill: var(--mochi-subtext1) !important;
+  --toolbarbutton-icon-fill-attention: var(--mochi-mark) !important;
+  --toolbarbutton-icon-fill-attention-text: var(--mochi-on-accent) !important;
+  --toolbarbutton-background-color-hover: var(--mochi-raised) !important;
+  --toolbarbutton-background-color-active: var(--mochi-pressed) !important;
+  --toolbarbutton-hover-background: var(--mochi-raised) !important;   /* before 152 */
+  --toolbarbutton-active-background: var(--mochi-pressed) !important;
+  --toolbarbutton-border-radius: var(--mochi-radius-small) !important;
+
+  /* tabs */
+  --tab-background-color-selected: var(--mochi-pane) !important;
+  --tab-selected-bgcolor: var(--mochi-pane) !important;            /* before 152 */
+  --tab-selected-textcolor: var(--mochi-ink) !important;           /* 152-156 */
+  --tab-text-color-selected: var(--mochi-ink) !important;          /* 157 */
+  --tab-background-color-hover: var(--mochi-raised) !important;
+  --tab-box-shadow-selected: none !important;
+  --tab-selected-outline-color: transparent !important;
+  --tab-hover-outline-color: transparent !important;
+  --tab-border-radius: var(--mochi-radius-small) !important;
+  --tab-loading-fill: var(--mochi-accent) !important;
+  --tab-attention-dot-color: var(--mochi-mark) !important;
+  --tab-border-color-accent: none !important;                      /* 157 (Nova) */
+
+  /* the sidebar (tools and vertical tabs) */
+  --sidebar-background-color: var(--mochi-glass) !important;
+  --sidebar-text-color: var(--mochi-ink) !important;
+  --sidebar-border-color: transparent !important;
+
+  /* what shows before a page paints (the about:blank flash) */
+  --tabpanel-background-color: var(--mochi-base) !important;
+
+  /* the design system underneath (dialogs, cards in panels, buttons, links, focus) */
+  --background-color-box: var(--mochi-base) !important;
+  --background-color-canvas: var(--mochi-base) !important;
+  --text-color: var(--mochi-ink) !important;
+  --text-color-deemphasized: var(--mochi-muted) !important;
+  --border-color: var(--mochi-line) !important;
+  --border-color-card: var(--mochi-line) !important;
+  --border-color-interactive: var(--mochi-surface2) !important;
+  --card-border-color: var(--mochi-line) !important;
+  --color-accent-primary: var(--mochi-accent) !important;
+  --color-accent-primary-hover: var(--mochi-accent-hover) !important;
+  --color-accent-primary-active: var(--mochi-pink) !important;
+  --color-accent-primary-selected: var(--mochi-accent) !important;
+  --button-text-color-primary: var(--mochi-on-accent) !important;
+  --button-background-color: var(--mochi-surface0) !important;
+  --button-background-color-hover: var(--mochi-surface1) !important;
+  --button-background-color-active: var(--mochi-surface2) !important;
+  --button-text-color: var(--mochi-ink) !important;
+  --link-color: var(--mochi-link) !important;
+  --focus-outline-color: var(--mochi-accent) !important;      /* keyboard focus: the accent */
+  --focus-outline: 2px solid var(--mochi-accent) !important;
+  --icon-color: var(--mochi-subtext1) !important;
+  /* promos (the app menu's sign-in box and the like): Mocha, not violet */
+  --promo-background-color: var(--mochi-surface0) !important;
+  --promo-background-color-vibrant: var(--mochi-surface0) !important;
+  --promo-message-text-color: var(--mochi-ink) !important;
+  --promo-message-text-color-vibrant: var(--mochi-ink) !important;
+}
+
+/* Menus and panels re-declare their colours on themselves, so set them there too. */
+:root,
+menupopup,
+panel {
+  --panel-background-color: var(--mochi-panel) !important;
+  --panel-text-color: var(--mochi-ink) !important;
+  --panel-border-color: var(--mochi-edge) !important;
+  --panel-description-color: var(--mochi-muted) !important;
+  --panel-separator-color: var(--mochi-line) !important;
+  --panel-item-hover-bgcolor: var(--mochi-raised) !important;
+  --panel-item-active-bgcolor: var(--mochi-pressed) !important;
+  --panel-border-radius: var(--mochi-radius) !important;
+  --panel-box-shadow: var(--mochi-shadow) !important;
+  --panel-box-shadow-margin: var(--mochi-panel-shadow-room) !important;
+  --arrowpanel-background: var(--mochi-panel) !important;          /* before 152 */
+  --arrowpanel-color: var(--mochi-ink) !important;
+  --arrowpanel-border-color: var(--mochi-edge) !important;
+  --arrowpanel-dimmed: var(--mochi-raised) !important;
+  --arrowpanel-dimmed-further: var(--mochi-pressed) !important;
+  --arrowpanel-border-radius: var(--mochi-radius) !important;
+  --menuitem-border-radius: 7px !important;
+  --menuitem-padding: 5px 10px !important;
+  --panel-menuitem-border-radius: 7px !important;
+  --panel-padding-block: 6px !important;
+}
+
+menupopup,
+panel {
+  --background-color-canvas: var(--mochi-panel) !important;
+}
+
+/* ================================================================ the type */
+
+#navigator-toolbox,
+#sidebar-box,
+#sidebar-container,
+sidebar-main,
+#tabbrowser-tabs,
+menupopup,
+panel,
+tooltip,
+#statuspanel-label,
+findbar,
+.urlbarView {
+  font-family: var(--mochi-font) !important;
+}
+
+/* ================================================================ the sheet of glass */
+
+body,
+#navigator-toolbox {
+  color: var(--mochi-ink) !important;
+}
+
+body {
+  background-color: var(--mochi-glass) !important;
+}
+
+#navigator-toolbox {
+  background-color: transparent !important;
+  border-bottom: none !important;
+}
+
+#TabsToolbar,
+#nav-bar,
+#PersonalToolbar,
+#toolbar-menubar {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* paw draws the window's frame; no minimise/maximise/close in the tab strip, and no drag
+   spaces either side of the tabs */
+.titlebar-buttonbox-container,
+#TabsToolbar .titlebar-spacer {
+  display: none !important;
+}
+
+::selection,
+#urlbar-input::selection,
+.urlbar-input::selection,
+.searchbar-textbox::selection,
+findbar .findbar-textbox::selection {
+  background-color: var(--mochi-selection) !important;
+  color: var(--mochi-ink) !important;
+}
+
+/* ================================================================ the navigation bar */
+
+#nav-bar {
+  padding-block: 6px 8px !important;
+  padding-inline: 8px !important;
+}
+
+/* toolbar buttons: quiet on the glass, a soft pane under the pointer, mauve when open */
+#nav-bar toolbarbutton:not(#urlbar-container *) > .toolbarbutton-icon,
+#nav-bar toolbarbutton:not(#urlbar-container *) > .toolbarbutton-badge-stack,
+#nav-bar toolbarbutton:not(#urlbar-container *) > .toolbarbutton-text {
+  border-radius: var(--mochi-radius-small) !important;
+}
+
+#nav-bar toolbarbutton:is([open], [checked]):not(#urlbar-container *) > :is(.toolbarbutton-icon, .toolbarbutton-badge-stack, .toolbarbutton-text) {
+  background-color: color-mix(in srgb, var(--mochi-accent) 22%, transparent) !important;
+  fill: var(--mochi-accent) !important;
+}
+
+/* the badge (downloads, updates): pink */
+.toolbarbutton-badge {
+  background-color: var(--mochi-mark) !important;
+  color: var(--mochi-on-accent) !important;
+  box-shadow: none !important;
+}
+
+/* ================================================================ the URL bar: a pane */
+
+#urlbar,
+#searchbar,
+.urlbar {
+  /* Nova (157) outlines the input container; mochi draws one edge, on the background */
+  --urlbar-input-container-border: 0 solid transparent !important;
+  --urlbar-input-container-outline-breakout: none !important;
+  --urlbar-input-container-outline-breakout-focused: none !important;
+  --urlbar-background-border: 1px solid var(--mochi-edge) !important;
+  --urlbar-background-border-breakout: 1px solid var(--mochi-edge) !important;
+  --urlbar-background-border-focused: 1px solid var(--mochi-accent) !important;
+  --urlbar-background-outline-focused: none !important;
+  --urlbar-background-border-radius: var(--mochi-radius) !important;
+  --urlbar-border-radius: var(--mochi-radius) !important;
+  --urlbarview-border-radius: var(--mochi-radius) !important;
+  --urlbar-box-background-color-hover: var(--mochi-raised) !important;
+  --urlbar-box-background-color-active: var(--mochi-pressed) !important;
+  --urlbar-box-hover-bgcolor: var(--mochi-raised) !important;        /* before 152 */
+  --urlbar-box-active-bgcolor: var(--mochi-pressed) !important;
+  --urlbar-box-focus-bgcolor: var(--mochi-raised) !important;
+  --urlbar-box-text-color-hover: var(--mochi-ink) !important;
+  --urlbarView-highlight-background: var(--mochi-selection) !important;
+  --urlbarView-highlight-color: var(--mochi-ink) !important;
+  --urlbarView-hover-background: var(--mochi-raised) !important;
+  --urlbarView-separator-color: var(--mochi-line) !important;
+  --urlbarView-action-color: var(--mochi-link) !important;
+  --urlbarView-url-color: var(--mochi-link) !important;
+  --urlbarView-secondary-text-color: var(--mochi-muted) !important;
+  --urlbarView-result-button-selected-color: var(--mochi-ink) !important;
+  --urlbarView-result-button-selected-background-color: var(--mochi-surface1) !important;
+  --urlbarView-result-button-hover-color: var(--mochi-ink) !important;
+  --urlbarView-result-button-hover-background-color: var(--mochi-raised) !important;
+  --urlbar-background-color: var(--mochi-pane) !important;
+  --urlbar-background-color-focus: var(--mochi-pane-focus) !important;
+  --chrome-box-shadow: transparent !important;
+}
+
+:is(#urlbar, .urlbar) > .urlbar-background,
+#searchbar {
+  background-color: var(--mochi-pane) !important;
+  border: 1px solid var(--mochi-edge) !important;
+  border-radius: var(--mochi-radius) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* focused: a firmer pane with a mauve edge and halo */
+:is(#urlbar, .urlbar)[focused] > .urlbar-background,
+#searchbar:focus-within {
+  background-color: var(--mochi-pane-focus) !important;
+  border-color: var(--mochi-accent) !important;
+  box-shadow: var(--mochi-glow) !important;
+}
+
+/* open with results: the whole pane is a panel, floating */
+:is(#urlbar, .urlbar)[breakout-extend] > .urlbar-background {
+  background-color: var(--mochi-panel) !important;
+  border-color: var(--mochi-edge) !important;
+  box-shadow: var(--mochi-shadow) !important;
+}
+
+:is(#urlbar, .urlbar) > .urlbar-input-container {
+  outline: none !important;
+  border: none !important;
+}
+
+#urlbar-input,
+.urlbar-input,
+#searchbar .searchbar-textbox {
+  color: var(--mochi-ink) !important;
+  font-family: var(--mochi-font) !important;
+  font-weight: 600 !important;
+}
+
+#urlbar-input::placeholder,
+.urlbar-input::placeholder {
+  color: var(--mochi-overlay1) !important;
+  opacity: 1 !important;
+}
+
+/* the result rows */
+.urlbarView-row[selected] > .urlbarView-row-inner,
+.urlbarView-row:is([selected], [aria-selected="true"]) {
+  color: var(--mochi-ink) !important;
+}
+
+.urlbarView-row:not([type="tip"], [type="dynamic"])[selected] > .urlbarView-row-inner,
+.urlbarView-row-inner[selected] {
+  background-color: var(--mochi-selection) !important;
+}
+
+.urlbarView-url,
+.urlbarView-action {
+  color: var(--mochi-link) !important;
+}
+
+/* a strip of pink down the left of the selected row */
+.urlbarView-row[selected] > .urlbarView-row-inner {
+  box-shadow: inset 3px 0 0 var(--mochi-mark) !important;
+}
+
+/* ================================================================ tabs: panes on the glass */
+
+/* no space above the tabs: they reach the window's top edge, so a click at the very top of
+   the screen still switches tabs */
+#TabsToolbar {
+  padding-inline: 6px !important;
+  padding-top: 0 !important;
+}
+
+.tabbrowser-tab {
+  padding-inline: 2px !important;
+}
+
+/* unselected tabs: quiet */
+.tabbrowser-tab:not([selected], [multiselected]) {
+  color: var(--mochi-subtext0) !important;
+}
+
+.tabbrowser-tab:not([selected], [multiselected]):hover {
+  color: var(--mochi-ink) !important;
+}
+
+.tab-label {
+  font-weight: 600;
+}
+
+.tabbrowser-tab[selected] .tab-label {
+  font-weight: 700;
+}
+
+.tab-background {
+  border: 1px solid transparent !important;
+  border-radius: var(--mochi-radius-small) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.tabbrowser-tab:hover > .tab-stack > .tab-background:not([selected], [multiselected]) {
+  background-color: var(--mochi-raised) !important;
+}
+
+/* the selected tab: a pane with a glass edge and, along its foot, a line from mauve to pink */
+.tab-background:is([selected], [multiselected]) {
+  background-color: var(--mochi-pane) !important;
+  background-image: linear-gradient(90deg, var(--mochi-mauve), var(--mochi-pink)) !important;
+  background-size: calc(100% - 24px) 2px !important;
+  background-position: 12px calc(100% - 1px) !important;
+  background-repeat: no-repeat !important;
+  border-color: var(--mochi-edge) !important;
+  box-shadow: var(--mochi-shadow-small) !important;
+}
+
+/* multiselected but not the one shown: a dashed edge, no line */
+.tab-background[multiselected]:not([selected]) {
+  background-image: none !important;
+  border-style: dashed !important;
+  border-color: var(--mochi-surface2) !important;
+  box-shadow: none !important;
+}
+
+/* tab-strip buttons (new tab, all tabs) match the toolbar's */
+#TabsToolbar toolbarbutton > .toolbarbutton-icon,
+#TabsToolbar toolbarbutton > .toolbarbutton-badge-stack,
+#tabs-newtab-button > .toolbarbutton-icon {
+  border-radius: var(--mochi-radius-small) !important;
+}
+
+/* tab groups: their labels rounded too */
+.tab-group-label {
+  font-family: var(--mochi-font) !important;
+  font-weight: 700 !important;
+  border-radius: 7px !important;
+}
+
+/* ================================================================ vertical tabs and the sidebar */
+
+#sidebar-main,
+#sidebar-container,
+sidebar-main,
+#vertical-tabs {
+  background-color: transparent !important;
+  color: var(--mochi-ink) !important;
+}
+
+#tabbrowser-tabs[orient="vertical"] .tabbrowser-tab {
+  padding-inline: 4px 6px !important;
+}
+
+/* vertical: the line runs down the left edge instead */
+#tabbrowser-tabs[orient="vertical"] .tab-background:is([selected], [multiselected]) {
+  background-image: linear-gradient(var(--mochi-mauve), var(--mochi-pink)) !important;
+  background-size: 3px calc(100% - 16px) !important;
+  background-position: 1px 8px !important;
+}
+
+/* the "drag tabs here to pin them" card: Mocha with a dashed edge in the accent, not violet */
+sidebar-pins-promo {
+  --promo-light-background: var(--mochi-surface0) !important;
+  --promo-dark-background: var(--mochi-surface0) !important;
+  --promo-light-text: var(--mochi-ink) !important;
+  --promo-dark-text: var(--mochi-ink) !important;
+  --promo-light-icon-border: var(--mochi-accent) !important;
+  --promo-dark-icon-border: var(--mochi-accent) !important;
+  font-family: var(--mochi-font) !important;
+}
+
+/* (user sheets reach into shadow trees, so the promo's icons can be tinted too) */
+sidebar-pins-promo .icon-cell > img,
+.promo-card .icon-cell > img {
+  fill: var(--mochi-accent) !important;
+}
+
+#sidebar-box {
+  background-color: transparent !important;
+  color: var(--mochi-ink) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+#sidebar-header {
+  border-bottom-color: var(--mochi-line) !important;
+}
+
+#sidebar-splitter,
+#sidebar-launcher-splitter {
+  border-color: transparent !important;
+  background-color: transparent !important;
+}
+
+/* ================================================================ the page: a card in the glass */
+
+/* padding, not margin: the expand-on-hover sidebar owns the tabbox's margin */
+#tabbrowser-tabbox {
+  background-color: transparent !important;
+  padding: 0 8px 8px !important;
+}
+
+#tabbrowser-tabpanels {
+  background-color: transparent !important;
+}
+
+.browserContainer {
+  background-color: var(--mochi-base) !important;
+  border: 1px solid var(--mochi-edge) !important;
+  border-radius: var(--mochi-radius) !important;
+  outline: none !important;
+  box-shadow: none !important;
+  overflow: clip !important;
+}
+
+/* with a transparent browser (user.js), a page that paints no background of its own (the new
+   tab page among them) shows the glass instead of Mocha's base */
+@media -moz-pref("browser.tabs.allow_transparent_browser") {
+  :root {
+    --tabpanel-background-color: transparent !important;
+  }
+
+  .browserContainer {
+    background-color: transparent !important;
+  }
+}
+
+/* full screen: the page alone, edge to edge */
+:root:is([inDOMFullscreen], [inFullscreen]) #tabbrowser-tabbox {
+  padding: 0 !important;
+}
+
+:root:is([inDOMFullscreen], [inFullscreen]) .browserContainer {
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+/* ================================================================ menus and panels */
+
+menupopup,
+panel {
+  color: var(--mochi-ink) !important;
+}
+
+menupopup menuitem,
+menupopup menu,
+panel menuitem {
+  border-radius: 7px !important;
+}
+
+menupopup :is(menuitem, menu):where([_moz-menuactive]):not([disabled="true"]) {
+  background-color: var(--mochi-selection) !important;
+  color: var(--mochi-ink) !important;
+}
+
+menuseparator,
+toolbarseparator {
+  border-color: var(--mochi-line) !important;
+  border-top-color: var(--mochi-line) !important;
+  appearance: none !important;
+}
+
+menuseparator::before {
+  border-top-color: var(--mochi-line) !important;
+}
+
+toolbarseparator {
+  border-image: none !important;
+}
+
+/* Firefox's violet-to-pink "zap" under the account row: mauve to pink instead */
+.proton-zap::before {
+  border-image: linear-gradient(90deg, var(--mochi-mauve), var(--mochi-pink)) 1 !important;
+}
+
+/* the app menu's and other panels' items */
+.subviewbutton:not([disabled], [open], :active):is(:hover) {
+  background-color: var(--mochi-raised) !important;
+}
+
+.subviewbutton:not([disabled]):is([open], :hover:active) {
+  background-color: var(--mochi-pressed) !important;
+}
+
+panelview .panel-header {
+  font-family: var(--mochi-font) !important;
+}
+
+.panel-subview-footer-button,
+.panel-footer button {
+  border-radius: var(--mochi-radius-small) !important;
+}
+
+/* primary buttons in panels and dialogs: mauve melting into pink */
+button.primary,
+.button-primary,
+.panel-footer button[default],
+.popup-notification-primary-button {
+  background: var(--mochi-bean) !important;
+  color: var(--mochi-on-accent) !important;
+  border: none !important;
+  border-radius: var(--mochi-radius-small) !important;
+  font-weight: 700 !important;
+}
+
+button.primary:hover,
+.button-primary:hover,
+.panel-footer button[default]:hover,
+.popup-notification-primary-button:hover {
+  background: var(--mochi-accent-hover) !important;
+}
+
+/* tooltips: small panes */
+tooltip {
+  appearance: none !important;
+  background-color: var(--mochi-mantle) !important;
+  color: var(--mochi-ink) !important;
+  border: 1px solid var(--mochi-surface1) !important;
+  border-radius: 7px !important;
+}
+
+/* ================================================================ the rest of the window */
+
+/* the status text at the bottom corner of a page */
+#statuspanel-label {
+  background-color: var(--mochi-mantle) !important;
+  color: var(--mochi-subtext1) !important;
+  border: 1px solid var(--mochi-surface1) !important;
+  border-radius: 7px !important;
+}
+
+/* find in page */
+findbar {
+  background-color: transparent !important;
+  color: var(--mochi-ink) !important;
+  border-top: none !important;
+}
+
+findbar .findbar-textbox {
+  background-color: var(--mochi-pane) !important;
+  color: var(--mochi-ink) !important;
+  border: 1px solid var(--mochi-edge) !important;
+  border-radius: var(--mochi-radius-small) !important;
+  outline-offset: 2px !important;
+}
+
+findbar .findbar-textbox:focus {
+  border-color: var(--mochi-accent) !important;
+  box-shadow: var(--mochi-glow) !important;
+}
+
+/* notification bars above the page: they sit in the page's light or dark scheme and work out
+   their colours from it inside their shadow tree, so they get mochi's on themselves */
+moz-message-bar,
+notification-message {
+  color-scheme: dark !important;
+  --message-bar-background-color: var(--mochi-surface0) !important;
+  --message-bar-text-color: var(--mochi-ink) !important;
+  --message-bar-border-color: var(--mochi-edge) !important;
+  --message-bar-icon-color: var(--mochi-blue) !important;
+  --message-bar-icon-background-color: transparent !important;
+  --text-color: var(--mochi-ink) !important;
+  --link-color: var(--mochi-link) !important;
+  --button-background-color: var(--mochi-surface1) !important;
+  --button-background-color-hover: var(--mochi-surface2) !important;
+  --button-text-color: var(--mochi-ink) !important;
+  border-radius: var(--mochi-radius-small) !important;
+}
+
+findbar {
+  color-scheme: dark !important;
+}
+
+/* the bookmarks toolbar, when shown */
+#PersonalToolbar {
+  padding-block: 0 6px !important;
+}
+
+#PersonalToolbar toolbarbutton.bookmark-item {
+  border-radius: 7px !important;
+}

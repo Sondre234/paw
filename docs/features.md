@@ -2585,7 +2585,11 @@ gradient borders in light blue and pink, on sakura paper by day and indigo by mo
 in the paper's own colour, a chibi neko on the start button (`shell.start_icon`), and wallpapers of
 their own in [`rices/washi`](../rices/washi/README.md) beside the configuration, with themes
 for kitty, fastfetch, Firefox, Discord, Claude Code and editors that its `install.sh` puts in
-place; a file with `extends = "default"` gets them, and starts on `macos-light` unless it sets
+place; and `mochi`, [Catppuccin](https://github.com/catppuccin/catppuccin) Mocha under frosted
+glass with a round cream cat on the start button, whose wallpapers and themes (the terminal,
+editors and Firefox toolbars translucent for paw to blur behind, and GTK 4 too) are in
+[`rices/mochi`](../rices/mochi/README.md) with an `install.sh` of the same kind; a file with
+`extends = "default"` gets them, and starts on `macos-light` unless it sets
 `profile`, only when it defines no `profiles` of its own. A profile wins over a theme.lua that
 `paw import` wrote, so pick `default` to see that. A rice installed with [`paw rice`](#paw-rice)
 is a profile too, named after it, and `paw rice pack` packs a profile into a file to share.
@@ -2596,10 +2600,10 @@ to `prefer-light` or `prefer-dark` through `gsettings` as the configuration load
 profile with another scheme is picked. xdg-desktop-portal passes it on, so GTK 4 and libadwaita
 applications, Firefox, Chromium and Electron applications such as Discord (with Appearance → Sync
 with computer) change at once, and washi's Firefox and Discord themes turn to sumi and back with
-it. `macos-light`, `light` and `washi` are light, `macos-dark` and `sumi` dark. A profile without
-it leaves the preference as it is, and a choice made in other settings meanwhile stands until a
-profile with another scheme is picked. Only a login session (`--session`) sets it: a nested or
-headless paw leaves the desktop it runs in alone.
+it. `macos-light`, `light` and `washi` are light, `macos-dark`, `sumi` and `mochi` dark. A
+profile without it leaves the preference as it is, and a choice made in other settings meanwhile
+stands until a profile with another scheme is picked. Only a login session (`--session`) sets
+it: a nested or headless paw leaves the desktop it runs in alone.
 
 Switching profiles is one crossfade on every monitor. Each keeps showing what it showed, a picture
 of it laid over everything, while the compositor and the shell take up the new look under it, so
