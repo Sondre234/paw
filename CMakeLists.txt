@@ -686,6 +686,8 @@ if(PAW_BUILD_COMPOSITOR)
             PASS_REGULAR_EXPRESSION "Configuration valid: .*example-config/init.lua")
         paw_smoke(workspaces SCRIPT workspace_smoke.py $<TARGET_FILE:paw>
             $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(workspace_carry_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            ${EXAMPLE_CONFIG})
         paw_smoke(control_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(swallow_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
