@@ -812,6 +812,7 @@ struct sh_server {
     struct wl_list disabled_outputs; /* turned off by outputs.monitors */
     struct wl_listener new_output;
     struct sh_toys *toys; /* the toy playing (toys.c), NULL for none */
+    struct sh_cube_turn *cube; /* the scrolling layout's view turning (cube.c), NULL for none */
     /* A rice on trial (rice.c): its name, and the timer that takes it back at `ends` (now_ms())
      * unless it is kept. */
     struct {
@@ -1858,6 +1859,28 @@ void toys_forget(struct sh_toplevel *toplevel);
 bool toys_border(struct sh_toplevel *toplevel, float color[4]);
 struct wlr_scene_node *toys_confetti(struct sh_server *server);
 void describe_toys(struct sh_server *server, int fd, const char *arguments);
+/* cube.c */
+/* The tiles of a workspace that tiles with the scrolling layout as an arrangement finds them
+ * (cube_before), for the cube to turn from as it moves the view (cube_after). */
+enum { CUBE_TILES = 64 };
+struct sh_cube_tile_before {
+    struct sh_toplevel *toplevel;
+    struct wlr_box box; // toplevel_box
+    bool free;          // drawn by no animation but a turn
+};
+struct sh_cube_before {
+    bool scrolls, full; // its view is at `view`; more tiles than CUBE_TILES
+    int view, count;
+    struct sh_cube_tile_before tiles[CUBE_TILES];
+};
+void cube_before(struct sh_server *server, struct wlr_output *output, int workspace,
+                 struct sh_cube_before *before);
+void cube_after(struct sh_server *server, struct wlr_output *output, int workspace,
+                struct sh_rect area, int gap, const struct sh_cube_before *before);
+void cube_tick(struct sh_server *server);
+void cube_end(struct sh_server *server);
+void cube_forget(struct sh_toplevel *toplevel);
+void describe_cube(struct sh_server *server, int fd, const char *arguments);
 /* cat.c */
 void cat_init(struct sh_server *server);
 void cat_finish(struct sh_server *server);

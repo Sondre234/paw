@@ -171,6 +171,7 @@ static int timer_fired(void *data) {
 static void start(struct sh_server *server, enum sh_action kind, struct sh_toplevel *target,
                   struct wlr_output *output) {
     toys_end(server);
+    cube_end(server); // its tiles at rest, for the toy to pose
     if (server->locked || !output)
         return;
     struct sh_toys *toys = calloc(1, sizeof(*toys));

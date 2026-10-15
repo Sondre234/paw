@@ -1019,6 +1019,7 @@ static const struct {
     {"palette", get_palette, false},
     {"commits", get_commits, false},
     {"toys", describe_toys, false},
+    {"cube", describe_cube, false},
     {"rice_trial", describe_rice_trial, false},
     {"cat", describe_cat, false},
     {"wrapped", describe_wrapped, false},

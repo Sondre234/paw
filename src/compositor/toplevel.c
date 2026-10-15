@@ -453,6 +453,7 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
                       box.width / 2.0, box.height / 2.0);
     }
     toys_forget(toplevel); // closing where a toy drew it, it plays no more
+    cube_forget(toplevel); // nor turns
     sh_anim_finish(&toplevel->anim);
     toplevel->shown = false;
     swallow_end(toplevel);
