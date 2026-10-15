@@ -832,6 +832,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(window_shadow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(blur_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:input_probe> "${GRIM_ARGUMENT}")
         paw_smoke(magnet_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(snap_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
