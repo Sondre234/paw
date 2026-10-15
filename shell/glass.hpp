@@ -77,11 +77,11 @@ class Glass : public QObject {
 
 // A rounded rectangle of frosted glass, under a surface drawn translucent over it: the part of
 // its output's blurred wallpaper (Glass) that lies behind it, its corners `radius` round (then
-// inset by half a pixel, under the antialiased edge of what is drawn over it). It shows while the glass
-// is on, drawn through the GPU, and its output has a picture: `active`, which the surface over it
-// reads to be translucent. The picture is its window's texture, one for all the glass there,
-// uploaded once for each new picture. Where it is on the output is found anew with each frame
-// its window draws, so that a card sliding in or a switcher growing shows, at each step, the
+// inset by half a pixel, under the antialiased edge of what is drawn over it). It shows while the
+// glass is on, drawn through the GPU, and its output has a picture: `active`, which the surface
+// over it reads to be translucent. The picture is its window's texture, one for all the glass
+// there, uploaded once for each new picture. Where it is on the output is found anew with each
+// frame its window draws, so that a card sliding in or a switcher growing shows, at each step, the
 // wallpaper behind it: the glass stays put on the screen as a pane of glass would.
 class GlassItem : public QQuickItem {
     Q_OBJECT

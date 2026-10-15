@@ -19,9 +19,9 @@ std::array<int, 3> boxWidths(double sigma) {
         --lower;
     lower = std::max(lower, 1);
     const int upper = lower + 2;
-    const double narrow = (12 * sigma * sigma - passes * lower * lower - 4.0 * passes * lower -
-                           3.0 * passes) /
-                          (-4.0 * lower - 4);
+    const double narrow =
+        (12 * sigma * sigma - passes * lower * lower - 4.0 * passes * lower - 3.0 * passes) /
+        (-4.0 * lower - 4);
     const int count = std::clamp(static_cast<int>(std::lround(narrow)), 0, passes);
     std::array<int, 3> widths{};
     for (int i = 0; i < passes; ++i)
@@ -64,8 +64,9 @@ QImage blurWallpaper(const QImage &picture, QSizeF output, int radius, double br
     const int width = std::max(1, static_cast<int>(std::ceil(output.width() / step)));
     const int height = std::max(1, static_cast<int>(std::ceil(output.height() / step)));
     // Down to the size the blur works at, each pixel the average of those it covers.
-    const QImage small = picture.convertToFormat(QImage::Format_RGB32)
-                             .scaled(width, height, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    const QImage small =
+        picture.convertToFormat(QImage::Format_RGB32)
+            .scaled(width, height, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     const size_t count = static_cast<size_t>(width) * height;
     std::array<std::vector<float>, 3> channels;
     for (auto &channel : channels)
@@ -105,7 +106,9 @@ QImage blurWallpaper(const QImage &picture, QSizeF output, int radius, double br
             const double r = channels[0][i], g = channels[1][i], b = channels[2][i];
             // Saturation about the pixel's luma (Rec. 709's weights), then the brightness.
             const double luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-            const auto tone = [&](double c) { return (luma + (c - luma) * saturation) * brightness; };
+            const auto tone = [&](double c) {
+                return (luma + (c - luma) * saturation) * brightness;
+            };
             row[x] = qRgb(level(tone(r)), level(tone(g)), level(tone(b)));
         }
     }

@@ -76,7 +76,10 @@ void Glass::capture(QQuickItem *backdrop, const QColor &background) {
     connect(result, &QQuickItemGrabResult::ready, this, [this, result, output, size, background] {
         // The grab's result goes once it has told this, never inside its own signal.
         QMetaObject::invokeMethod(
-            this, [this, result] { grabs_.removeIf([result](const auto &g) { return g.data() == result; }); },
+            this,
+            [this, result] {
+                grabs_.removeIf([result](const auto &g) { return g.data() == result; });
+            },
             Qt::QueuedConnection);
         auto it = outputs_.find(output);
         if (it == outputs_.end())
@@ -132,8 +135,8 @@ void Glass::blur(const QString &output, bool now) {
     Q_EMIT changed(output);
     pool_.start([this, work, finish] {
         const QImage blurred = work();
-        QMetaObject::invokeMethod(this, [finish, blurred] { finish(blurred); },
-                                  Qt::QueuedConnection);
+        QMetaObject::invokeMethod(
+            this, [finish, blurred] { finish(blurred); }, Qt::QueuedConnection);
     });
 }
 
@@ -179,7 +182,8 @@ std::shared_ptr<QSGTexture> windowTexture(QQuickWindow *window, const Glass::Pic
     }
     if (!it->texture || it->serial != picture.serial) {
         // Never in an atlas: the coordinates run over the whole texture, and its edges clamp.
-        it->texture.reset(window->createTextureFromImage(picture.image, QQuickWindow::TextureIsOpaque));
+        it->texture.reset(
+            window->createTextureFromImage(picture.image, QQuickWindow::TextureIsOpaque));
         it->serial = picture.serial;
     }
     return it->texture;
@@ -188,8 +192,9 @@ std::shared_ptr<QSGTexture> windowTexture(QQuickWindow *window, const Glass::Pic
 // The glass's rounded rectangle, its texture coordinates where each point lies on the output.
 class GlassNode : public QSGGeometryNode {
   public:
-    GlassNode() : geometry_(QSGGeometry::defaultAttributes_TexturedPoint2D(), 0, 0,
-                            QSGGeometry::UnsignedShortType) {
+    GlassNode()
+        : geometry_(QSGGeometry::defaultAttributes_TexturedPoint2D(), 0, 0,
+                    QSGGeometry::UnsignedShortType) {
         geometry_.setDrawingMode(QSGGeometry::DrawTriangles);
         setGeometry(&geometry_);
         material_.setFiltering(QSGTexture::Linear);
@@ -215,7 +220,8 @@ class GlassNode : public QSGGeometryNode {
         rect.adjust(inset, inset, -inset, -inset);
         radius = std::clamp(radius - inset, 0.0, std::min(rect.width(), rect.height()) / 2);
         // A point every two pixels or so along each corner's arc.
-        const int steps = radius < 0.5 ? 0 : std::clamp(static_cast<int>(std::ceil(radius / 2)), 2, 24);
+        const int steps =
+            radius < 0.5 ? 0 : std::clamp(static_cast<int>(std::ceil(radius / 2)), 2, 24);
         const QPointF centres[4] = {{rect.left() + radius, rect.top() + radius},
                                     {rect.right() - radius, rect.top() + radius},
                                     {rect.right() - radius, rect.bottom() - radius},
@@ -236,9 +242,10 @@ class GlassNode : public QSGGeometryNode {
         const QRectF sub = texture_ ? texture_->normalizedTextureSubRect() : QRectF(0, 0, 1, 1);
         const auto put = [&](int index, QPointF point) {
             const QPointF at = toOutput.map(point);
-            vertices[index].set(static_cast<float>(point.x()), static_cast<float>(point.y()),
-                                static_cast<float>(sub.x() + sub.width() * at.x() / output.width()),
-                                static_cast<float>(sub.y() + sub.height() * at.y() / output.height()));
+            vertices[index].set(
+                static_cast<float>(point.x()), static_cast<float>(point.y()),
+                static_cast<float>(sub.x() + sub.width() * at.x() / output.width()),
+                static_cast<float>(sub.y() + sub.height() * at.y() / output.height()));
         };
         // A fan from the middle, which a convex shape is.
         put(0, rect.center());
@@ -343,11 +350,13 @@ void GlassItem::follow() {
 
 QSGNode *GlassItem::updatePaintNode(QSGNode *old, UpdatePaintNodeData *) {
     QQuickWindow *window = this->window();
-    const auto api = window ? window->rendererInterface()->graphicsApi() : QSGRendererInterface::Unknown;
+    const auto api =
+        window ? window->rendererInterface()->graphicsApi() : QSGRendererInterface::Unknown;
     // Qt's software renderer draws no geometry of its own: the surface over it stays as it is
     // without the glass.
-    if (!active_ || !QSGRendererInterface::isApiRhiBased(api) || api == QSGRendererInterface::Null ||
-        width() < 1 || height() < 1 || picture_.size.isEmpty()) {
+    if (!active_ || !QSGRendererInterface::isApiRhiBased(api) ||
+        api == QSGRendererInterface::Null || width() < 1 || height() < 1 ||
+        picture_.size.isEmpty()) {
         delete old;
         return nullptr;
     }

@@ -45,7 +45,8 @@ class GlassBlurTest : public QObject {
         QVERIFY(blurWallpaper(filled({16, 9}, Qt::red), {}, 40).isNull());
     }
     void flatStaysFlatToTheEdges() {
-        const QImage blurred = blurWallpaper(filled({640, 360}, QColor(30, 120, 200)), {1920, 1080}, 60);
+        const QImage blurred =
+            blurWallpaper(filled({640, 360}, QColor(30, 120, 200)), {1920, 1080}, 60);
         for (QPoint at : {QPoint(0, 0), QPoint(blurred.width() - 1, blurred.height() - 1),
                           QPoint(blurred.width() / 2, 0), QPoint(0, blurred.height() / 2)})
             QCOMPARE(QColor(blurred.pixel(at)), QColor(30, 120, 200));
@@ -73,7 +74,8 @@ class GlassBlurTest : public QObject {
         const QColor g = grey.pixel(5, 5);
         QVERIFY(g.red() == g.green() && g.green() == g.blue());
         // More vivid: the strongest channel up, the weakest down.
-        const QColor vivid = blurWallpaper(filled({64, 36}, orange), {640, 360}, 40, 1, 1.5).pixel(5, 5);
+        const QColor vivid =
+            blurWallpaper(filled({64, 36}, orange), {640, 360}, 40, 1, 1.5).pixel(5, 5);
         QVERIFY(vivid.red() > orange.red() && vivid.blue() < orange.blue());
     }
 };
