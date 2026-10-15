@@ -2,6 +2,7 @@
 #include "glass.hpp"
 #include "glass_blur.hpp"
 #include "view.hpp"
+#include <QGuiApplication>
 #include <QMutex>
 #include <QPainter>
 #include <QQmlContext>
@@ -18,6 +19,11 @@
 Glass::Glass(QObject *parent) : QObject(parent) {
     // One blur at a time: a new wallpaper on every output at once waits its turn.
     pool_.setMaxThreadCount(1);
+    // An output unplugged takes its pictures with it.
+    connect(qGuiApp, &QGuiApplication::screenRemoved, this, [this](QScreen *screen) {
+        if (outputs_.remove(screen->name()))
+            Q_EMIT changed(screen->name());
+    });
 }
 
 Glass::~Glass() {
