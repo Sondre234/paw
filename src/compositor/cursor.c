@@ -622,6 +622,34 @@ static bool action_targets_window(enum sh_action action) {
     }
 }
 
+/* The binding for `button` (a BTN_* code, or the wheel's SH_WHEEL_UP or SH_WHEEL_DOWN) with the
+ * modifiers held over what lies under the pointer, and the window there, if any. */
+static enum sh_action pointer_binding(struct sh_server *server, uint32_t button,
+                                      struct sh_toplevel **toplevel, int *argument) {
+    double sx, sy;
+    struct wlr_surface *surface = NULL;
+    struct sh_node *node =
+        desktop_node_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
+    *toplevel = NULL;
+    enum sh_pointer_target target = SH_POINTER_DESKTOP;
+    if (node && node->kind == SH_NODE_TOPLEVEL) {
+        *toplevel = node->owner;
+        target = SH_POINTER_WINDOW;
+    } else if (node && node->kind == SH_NODE_LAYER) {
+        struct sh_layer *layer = node->owner;
+        if (layer->surface->current.layer != ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND)
+            target = SH_POINTER_OTHER;
+    } else if (surface) {
+        target = SH_POINTER_OTHER; // a popup, or an unmanaged X11 window
+    }
+    const char *app_id = *toplevel ? toplevel_app_id(*toplevel) : NULL;
+    struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(server->seat);
+    uint32_t mods = keyboard ? wlr_keyboard_get_modifiers(keyboard) : 0;
+    *argument = 0;
+    return server->callbacks->button(server->callbacks->userdata, mods, button, target,
+                                     app_id ? app_id : "", argument);
+}
+
 /* Runs the binding for a pressed button, if one matches what lies under the pointer, and
  * swallows both the press and its release. Returns false when the click belongs to a client. */
 static bool handle_button_binding(struct sh_server *server,
@@ -637,28 +665,9 @@ static bool handle_button_binding(struct sh_server *server,
     }
     if (server->locked || server->grab_button || server->deco_pressed)
         return false;
-    double sx, sy;
-    struct wlr_surface *surface = NULL;
-    struct sh_node *node =
-        desktop_node_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
-    struct sh_toplevel *toplevel = NULL;
-    enum sh_pointer_target target = SH_POINTER_DESKTOP;
-    if (node && node->kind == SH_NODE_TOPLEVEL) {
-        toplevel = node->owner;
-        target = SH_POINTER_WINDOW;
-    } else if (node && node->kind == SH_NODE_LAYER) {
-        struct sh_layer *layer = node->owner;
-        if (layer->surface->current.layer != ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND)
-            target = SH_POINTER_OTHER;
-    } else if (surface) {
-        target = SH_POINTER_OTHER; // a popup, or an unmanaged X11 window
-    }
-    const char *app_id = toplevel ? toplevel_app_id(toplevel) : NULL;
-    struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(server->seat);
-    uint32_t mods = keyboard ? wlr_keyboard_get_modifiers(keyboard) : 0;
-    int argument = 0;
-    enum sh_action action = server->callbacks->button(
-        server->callbacks->userdata, mods, event->button, target, app_id ? app_id : "", &argument);
+    struct sh_toplevel *toplevel;
+    int argument;
+    enum sh_action action = pointer_binding(server, event->button, &toplevel, &argument);
     if (action == SH_NONE)
         return false;
     server->bound_buttons |= bit;
