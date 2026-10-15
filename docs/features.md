@@ -1630,7 +1630,9 @@ than the screen, and the screen is a view onto it that follows focus, gliding li
 other tile move. A new window opens in a column of its own right of the focused one, or, with
 the pointer over the first column (or left of it), as the new first column. A column has a
 width, a share of the screen (`layout.scroll.width`, half by default), and stacks its windows
-evenly. Beside its own actions, the usual keys work: `focus_left` /
+evenly. A column alone on its workspace fills the screen, and takes its width back when another
+joins it; `fill_lone = false` keeps it at its width, and a width set by hand (by an action or by
+dragging its side) stays, alone too. Beside its own actions, the usual keys work: `focus_left` /
 `focus_right` step between columns and `focus_up` / `focus_down` within one, `move_left` /
 `move_right` move the focused column along the strip and `move_up` / `move_down` trade
 places within a stack, `focus_next` / `focus_prev` step through every window in order,
@@ -1654,6 +1656,7 @@ layout = {
                                             -- needed; never: only scroll actions, new windows
                                             -- and center_column move the view
         width = 0.5,                        -- width of a new column, 0.1 to 1
+        fill_lone = true,                   -- a column alone on its workspace fills the screen
         step = 0.1,                         -- column_widen / column_narrow
         presets = { 1/3, 1/2, 2/3, 1 },     -- column_cycle_width; up to 8 widths
     },

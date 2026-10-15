@@ -765,6 +765,7 @@ void read_scroll(lua_State *L, sh_settings &settings) {
           "layout.scroll.follow must be \"center\", \"edge\", or \"never\"");
     settings.scroll_width = static_cast<float>(number(L, "width", settings.scroll_width, 0.1, 1));
     settings.scroll_step = static_cast<float>(number(L, "step", settings.scroll_step, 0.01, 0.5));
+    boolean(L, "fill_lone", "layout.scroll.fill_lone", settings.scroll_fill_lone);
     lua_getfield(L, -1, "presets");
     if (!lua_isnil(L, -1)) {
         auto size = array_size(L, -1, std::size(settings.scroll_presets));

@@ -109,6 +109,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `layout.scroll.width` | number | 0.5 | 0.1 to 1 | Width of a new column, as a share of the screen. |
 | `layout.scroll.step` | number | 0.1 | 0.01 to 0.5 | What `column_widen` and `column_narrow` add to or take from a column's width. |
 | `layout.scroll.presets` | list of numbers | { 1/3, 1/2, 2/3, 1 } | - | Widths `column_cycle_width` steps through, each 0.1 to 1; at most 8. |
+| `layout.scroll.fill_lone` | boolean | true | - | A column alone on its workspace fills the screen, and takes its width back when another joins it; `false` keeps it at its width. A width set by hand stays either way. |
 
 ## `outputs`
 

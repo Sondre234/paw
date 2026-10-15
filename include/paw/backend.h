@@ -417,6 +417,7 @@ struct sh_settings {
     float scroll_step;   /* what column_widen and column_narrow add or remove */
     float scroll_presets[8]; /* the widths column_cycle_width steps through */
     int scroll_preset_count;
+    bool scroll_fill_lone; /* a column alone on its workspace fills the view */
     int workspaces;
     /* Outputs named here sit left to right in this order; others follow as they appear.
      * The primary output (or the leftmost, if unnamed) sits at the layout origin. */
@@ -904,10 +905,11 @@ bool sh_tiling_replace(struct sh_tiling *tiling, const void *old_window, void *r
  * or untiled. */
 void *sh_tiling_neighbour(const struct sh_tiling *tiling, const void *window, int step);
 /* Scrolling layout settings: how the view follows focus, the width of new columns, the step of
- * column_widen and column_narrow, and the presets column_cycle_width steps through (up to 8,
- * kept between 0.1 and 1). Shares are of the area's width. */
+ * column_widen and column_narrow, the presets column_cycle_width steps through (up to 8, kept
+ * between 0.1 and 1), and whether a column alone on its workspace fills the view (unless its
+ * width was set by hand). Shares are of the area's width. */
 void sh_tiling_set_scroll(struct sh_tiling *tiling, enum sh_scroll_follow follow, double width,
-                          double step, const float *presets, int preset_count);
+                          double step, const float *presets, int preset_count, bool fill_lone);
 /* Tells the layout which window has focus. Returns whether the scrolling view may have to move,
  * so the caller arranges again. */
 bool sh_tiling_set_focus(struct sh_tiling *tiling, const void *window);

@@ -320,6 +320,7 @@ struct Config {
                          .scroll_step = 0.1F,
                          .scroll_presets = {1.0F / 3, 0.5F, 2.0F / 3, 1.0F},
                          .scroll_preset_count = 4,
+                         .scroll_fill_lone = true,
                          .workspaces = 4,
                          .output_order = {},
                          .output_count = 0,

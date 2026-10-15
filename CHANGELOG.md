@@ -466,6 +466,9 @@ shadows.
 - In the scrolling layout a window opened with the pointer over the first column (or left of it)
   opens left of it, as the new first column, where every new window used to open right of the
   focused column and none could reach the start of the strip.
+- In the scrolling layout a column alone on its workspace fills the screen, where a lone window
+  used to take half of it, and takes its width back when another opens beside it.
+  `layout.scroll.fill_lone = false` keeps it at its width; a width set by hand stays, alone too.
 
 ### Starting and ending a session
 
