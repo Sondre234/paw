@@ -516,7 +516,7 @@ void blur_finish(struct sh_server *server) {
  * whether a new one is due; then a line per window with a blur, "window", its title, whether the
  * blur shows (1) or not (0), the part of the layout it covers (x, y, width, height) and where
  * that lies in the picture (x, y, width, height, rounded), the last two as the window was last
- * drawn. */
+ * drawn, and its opacity in thousandths. */
 void describe_blur(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     char line[1024];
@@ -538,10 +538,10 @@ void describe_blur(struct sh_server *server, int fd, const char *arguments) {
         int x = 0, y = 0;
         wlr_scene_node_coords(&blur->node, &x, &y);
         const struct wlr_fbox *source = &blur->src_box;
-        snprintf(line, sizeof(line), "window\t%s\t%d\t%d\t%d\t%d\t%d\t%ld\t%ld\t%ld\t%ld\n", title,
-                 blur->node.enabled && blur->buffer, x, y, blur->dst_width, blur->dst_height,
-                 lround(source->x), lround(source->y), lround(source->width),
-                 lround(source->height));
+        snprintf(line, sizeof(line), "window\t%s\t%d\t%d\t%d\t%d\t%d\t%ld\t%ld\t%ld\t%ld\t%ld\n",
+                 title, blur->node.enabled && blur->buffer, x, y, blur->dst_width,
+                 blur->dst_height, lround(source->x), lround(source->y), lround(source->width),
+                 lround(source->height), lround(1000 * blur->opacity));
         control_reply(fd, line);
     }
 }
