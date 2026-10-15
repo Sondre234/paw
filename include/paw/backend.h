@@ -418,6 +418,7 @@ struct sh_settings {
     float scroll_presets[8]; /* the widths column_cycle_width steps through */
     int scroll_preset_count;
     bool scroll_fill_lone; /* a column alone on its workspace fills the view */
+    bool scroll_cube;      /* the view turns as a cube as it moves (src/compositor/cube.c) */
     int workspaces;
     /* Outputs named here sit left to right in this order; others follow as they appear.
      * The primary output (or the leftmost, if unnamed) sits at the layout origin. */
@@ -930,6 +931,11 @@ int sh_tiling_scroll_column(struct sh_tiling *tiling, const void *window, int *r
  * returns how many were written (at most `max`), 0 for another layout. */
 int sh_tiling_scroll_widths(struct sh_tiling *tiling, const char *output, int workspace,
                             double *widths, int max);
+/* Where the view of a workspace that tiles with the scrolling layout begins along its strip of
+ * columns, in pixels, as its last arrangement left it; false for another layout or one not
+ * arranged yet. */
+bool sh_tiling_scroll_view(const struct sh_tiling *tiling, const char *output, int workspace,
+                           int *offset);
 /* Sets the columns of a workspace from a saved arrangement: window i goes to column columns[i],
  * row rows[i] (both from 0; equal columns share one, in the order of their rows), each column
  * taking widths[its saved number] when there is one. Windows not tiled there are ignored, and

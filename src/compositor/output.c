@@ -22,6 +22,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     if (tick_effects(output->server))
         wlr_output_schedule_frame(output->wlr_output);
     toys_tick(output->server); // poses the windows a toy plays with, which the animator draws
+    cube_tick(output->server); // and the tiles the scrolling layout's cube turns
     sh_animator_tick(output->server->animator);
     overview_touch(output->server, false); // windows that move or fade move their thumbnails
     xray_touch(output->server); // and the copies of their layers

@@ -333,6 +333,7 @@ struct Config {
                          .scroll_presets = {1.0F / 3, 0.5F, 2.0F / 3, 1.0F},
                          .scroll_preset_count = 4,
                          .scroll_fill_lone = true,
+                         .scroll_cube = false,
                          .workspaces = 4,
                          .output_order = {},
                          .output_count = 0,
@@ -367,7 +368,8 @@ struct Config {
                                               {120, {SH_CURVE_EASE_OUT_QUINT, {}}},  // workspace
                                               {120, {SH_CURVE_EASE_OUT, {}}},        // fullscreen
                                               {120, {SH_CURVE_EASE_OUT, {}}},        // focus
-                                              {300, {SH_CURVE_BEZIER, {0.2F, 0, 0, 1}}}}, // minimize
+                                              {300, {SH_CURVE_BEZIER, {0.2F, 0, 0, 1}}}, // minimize
+                                              {300, {SH_CURVE_EASE_OUT, {}}}},       // cube
                          .workspace_back_and_forth = false,
                          .scratchpad = true,
                          .sticky = true,

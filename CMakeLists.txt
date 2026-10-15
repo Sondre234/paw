@@ -181,6 +181,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(cat)
     paw_unit_test(cat_command LIBRARY paw_cli)
     paw_c_unit_test(xray_layout)
+    paw_c_unit_test(cube)
     paw_c_unit_test(blur)
     paw_unit_test(heatmap LIBRARY paw_cli)
     target_link_libraries(heatmap_tests PRIVATE paw_config) # the action's bindings
@@ -331,6 +332,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/cat.c
         src/compositor/xray.c
         src/compositor/heatmap.c
+        src/compositor/cube.c
         src/compositor/blur.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
@@ -353,6 +355,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/toys.c)
     target_sources(paw PRIVATE src/cat.c src/cat_sprite.c)
     target_sources(paw PRIVATE src/xray_layout.c)
+    target_sources(paw PRIVATE src/cube.c)
     target_sources(paw PRIVATE src/blur.c)
     target_link_libraries(paw PRIVATE paw_heatmap)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -785,6 +788,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_bound_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(scroll_cube_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_enter_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(keyboard_resize_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(volume_keys_smoke $<TARGET_FILE:paw>)

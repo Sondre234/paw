@@ -110,6 +110,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `layout.scroll.step` | number | 0.1 | 0.01 to 0.5 | What `column_widen` and `column_narrow` add to or take from a column's width. |
 | `layout.scroll.presets` | list of numbers | { 1/3, 1/2, 2/3, 1 } | - | Widths `column_cycle_width` steps through, each 0.1 to 1; at most 8. |
 | `layout.scroll.fill_lone` | boolean | true | - | A column alone on its workspace fills the screen, and takes its width back when another joins it; `false` keeps it at its width. A width set by hand stays either way. |
+| `layout.scroll.cube` | boolean | false | - | As the view moves along the strip, it turns a quarter as a cube does: the screen as it was on one side turning away, the screen as it will be on the next turning to face you, at `animations.cube`'s pace. `false` glides the columns over, as any tile moves. |
 
 ## `outputs`
 
@@ -282,6 +283,9 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `animations.minimize` | table | - | - | A window shrinking into its taskbar button as it is minimized, and growing out of it as it is restored. Overrides the animation-wide settings. |
 | `animations.minimize.duration` | integer | `duration` × 2.5 | 0 to 1000 | Length in milliseconds; 0 turns this animation off. Unset, it is two and a half times `duration` (at most 1000), as a window goes further than the other animations take it. |
 | `animations.minimize.curve` | enum | `curve` | - | Easing curve, as `animations.curve`, which it follows when that is set; with neither set, `"bezier(0.2, 0, 0, 1)"`, a moment to set off and a long settle. |
+| `animations.cube` | table | - | - | The scrolling layout's view turning as a cube, with `layout.scroll.cube`. Overrides the animation-wide settings. |
+| `animations.cube.duration` | integer | `duration` × 2.5 | 0 to 1000 | Length in milliseconds; 0 turns this animation off, and the columns glide over. Unset, it is two and a half times `duration` (at most 1000), so that the turn shows. |
+| `animations.cube.curve` | enum | `curve` | - | Easing curve, as `animations.curve`. |
 
 ## `overview`
 

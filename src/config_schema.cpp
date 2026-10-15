@@ -191,6 +191,10 @@ const Option options[] = {
     {"layout.scroll.fill_lone", "boolean", "true", "false", none, none,
      "A column alone on its workspace fills the screen, and takes its width back when another "
      "joins it; `false` keeps it at its width. A width set by hand stays either way."},
+    {"layout.scroll.cube", "boolean", "false", "true", none, none,
+     "As the view moves along the strip, it turns a quarter as a cube does: the screen as it was "
+     "on one side turning away, the screen as it will be on the next turning to face you, at "
+     "`animations.cube`'s pace. `false` glides the columns over, as any tile moves."},
 
     {"outputs", "table", "", "", none, none, "Monitor arrangement."},
     {"outputs.order", "list of strings", "unset", "{ \"DP-1\", \"DP-2\" }", none, none,
@@ -562,6 +566,13 @@ const Option options[] = {
     {"animations.minimize.curve", "enum", "`curve`", "", none, none,
      "Easing curve, as `animations.curve`, which it follows when that is set; with neither set, "
      "`\"bezier(0.2, 0, 0, 1)\"`, a moment to set off and a long settle."},
+    {"animations.cube", "table", "", "", none, none,
+     "The scrolling layout's view turning as a cube, with `layout.scroll.cube`. Overrides the "
+     "animation-wide settings."},
+    {"animations.cube.duration", "integer", "`duration` × 2.5", "", 0, 1000,
+     "Length in milliseconds; 0 turns this animation off, and the columns glide over. Unset, it "
+     "is two and a half times `duration` (at most 1000), so that the turn shows."},
+    {"animations.cube.curve", "enum", "`curve`", "", none, none, "Easing curve, as `animations.curve`."},
 
     {"overview", "table", "", "", none, none,
      "The overview: every window of a monitor's workspace as a live thumbnail, opened by the "

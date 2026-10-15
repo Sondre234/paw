@@ -1075,6 +1075,17 @@ int sh_tiling_scroll_widths(sh_tiling *tiling, const char *output, int workspace
     return count;
 }
 
+bool sh_tiling_scroll_view(const sh_tiling *tiling, const char *output, int workspace,
+                           int *offset) {
+    if (!tiling || !output || tiling->mode({output, workspace}).layout != SH_LAYOUT_SCROLL)
+        return false;
+    auto found = tiling->scrolls.find({output, workspace});
+    if (found == tiling->scrolls.end())
+        return false;
+    *offset = found->second.offset;
+    return true;
+}
+
 bool sh_tiling_scroll_restore(sh_tiling *tiling, const char *output, int workspace,
                               void *const *windows, const int *columns, const int *rows,
                               int count, const double *widths, int width_count) {

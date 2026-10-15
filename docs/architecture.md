@@ -22,7 +22,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
 | `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, the desktop cat's ways and its pixel art. Several are unit tested. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -93,6 +93,7 @@ all. In short:
 | `binding_mode.c` | Binding modes: which set of key bindings is in use. |
 | `shortcuts_inhibit.c` | Keyboard shortcuts inhibitors (keyboard-shortcuts-inhibit-unstable-v1): the keys the bindings take going to a virtual machine, a remote desktop or a game while it has the keyboard. |
 | `toys.c` | Toys, which only draw: `shake`, `gravity` and `party` posing windows through the animator, a party's rainbow borders and confetti, each window let go as anything else happens to it; `get toys`. |
+| `cube.c` | The scrolling layout's view turning as a cube (`layout.scroll.cube`): an arrangement that moves the view poses its tiles through the animator on the sides of a square turning a quarter (`src/cube.c`), each let go as anything else happens to it; `get cube`. |
 | `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
 | `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
@@ -854,6 +855,50 @@ from its lookups (`toys_confetti`). A button pressed while gravity holds windows
 (`toys_press`, from `server_cursor_button`) sends them back up from where they are drawn. `get
 toys` (`describe_toys`) says what plays, and `tests/toys_smoke.py` tests it; `paw shake`, `paw
 gravity` and `paw party` are `src/cli/toys.cpp`.
+### The scrolling layout's cube
+
+With `layout.scroll.cube`, a move of a workspace's view along its strip of columns draws the tiles
+on the sides of a square that turns a quarter, rather than gliding them over. Its arithmetic is
+`src/cube.c` (`paw/cube.h`, tested by `cube_tests`): `struct sh_cube` is the square, each side as
+wide as the view (the tiling area less its outer gaps), turned by an angle, its sides along the
+strip from a start; `sh_cube_move` gives the square a turn starts from as the view moves (a
+quarter from rest, the side facing the eye showing the view as it was, the strip sliding along the
+sides by what the move and a side's width differ), `sh_cube_at` the square part of the way to
+rest, and `sh_cube_span` where a span of the strip is drawn: seen from in front with the square
+drawn as wide as the view, straight across the sides it lies on (a chord across a corner), its
+height smaller further from the eye and fainter turned away, nowhere on sides turned away. A move
+under way moved again starts from the square as it is drawn, turned by quarters, which draw the
+same, so that it turns the way the view moves now.
+
+`cube.c` hooks into `reflow_output` (`placement.c`): `cube_before` notes the workspace's tiles
+and its view (`sh_tiling_scroll_view`) before the arrangement and whether each is free to turn
+(drawn by no animation but a turn), and `cube_after` turns them when the view moved and nothing
+else happened: every tile the layout holds was there before (`sh_tiling_count`; a window that
+opens has its own way in), free, at the same size and height, the workspace shown and nothing
+covering it (lock, overview, a toy). It finishes the glides `place_tiled` started, as a toy's pose
+needs nothing else running, and keeps a `struct cube_tile` per tile: where it rests and where its
+left edge lies along the strip as the turn starts and at its end, in the view it turns to, so that
+columns that also move along the strip go there over the turn. Anything else that the arrangement
+does ends a turn under way, and columns moving without the view glide as any tile does.
+
+The tiles are posed as a toy poses windows (`sh_anim_pose`): moved and stretched across the span
+`sh_cube_span` gives their frame, their height scaled about the view's middle, and faded with the
+pose's `fade`, which multiplies their nodes' opacity. `cube_tick`, from `output_frame` before the
+animator and from a timer of its own every 16 ms while the turn goes on, draws them again; a tile
+on sides turned away is drawn faded out, past the view's edges, its content drawn meanwhile as a
+gliding tile's is (so that lookups, which put it at rest, find it), and `window_cut` makes the cut
+at its monitor's edges (`scratchpad.c`, whose `crossing` maps the frame through `lift_box`) follow where it is
+drawn. A tile is let go, back at rest, `bound_tile` hiding it again past its monitor's edge, when
+it no longer rests where it was placed, is taken over by another animation, grabbed, made
+fullscreen or leaves; the turn ends at its time, when no tile is left, when its monitor shows
+another workspace or goes, as the overview opens, the session locks or a toy starts, and when the
+setting goes off. `unmap_toplevel` calls `cube_forget` after the closing copy is made, so that a
+window closes where the cube drew it. Lookups find posed windows at rest, so input goes where
+the tiles rest and `get windows` has them there at once. Its duration and curve are
+`animations.cube`'s (`SH_ANIM_CUBE`), two and a half times `animations.duration` unless set. `get
+cube` (`describe_cube`) lists the turn and each tile's span, scale and fade, and
+`tests/scroll_cube_smoke.py` tests it.
+
 ### The desktop cat
 
 What the cat does is `src/cat.c`'s, without wlroots: a state machine (`enum sh_cat_state`) with

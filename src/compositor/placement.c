@@ -355,7 +355,10 @@ void reflow_output(struct sh_server *server, struct wlr_output *output) {
         }
         int gap;
         struct sh_rect tiles = tiling_area(server, output, workspace, 0, &gap);
+        struct sh_cube_before before;
+        cube_before(server, output, workspace, &before);
         sh_tiling_arrange(server->tiling, output->name, workspace, tiles, gap, place_tiled, NULL);
+        cube_after(server, output, workspace, tiles, gap, &before); // the view turning as it moves
     }
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {

@@ -466,6 +466,11 @@ int main() {
             require(placed[&c[1]] == sh_rect({250, 0, 500, 800}) &&
                         placed[&c[3]].x == -250 && placed[&c[2]].x == 750,
                     "center follow did not center");
+            int view = -1;
+            require(sh_tiling_scroll_view(sc, "DP-1", 0, &view) && view == 750 &&
+                        !sh_tiling_scroll_view(sc, "DP-1", 3, &view) &&
+                        !sh_tiling_scroll_view(sc, "DP-9", 0, &view),
+                    "view offset readback wrong");
             sh_tiling_set_focus(sc, &c[0]);
             placed = arrange(sc, screen, 0);
             require(placed[&c[0]].x == 250, "the first column is not centered");

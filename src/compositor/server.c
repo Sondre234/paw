@@ -621,6 +621,7 @@ finish:
     tile_drop_finish(&server);
     display_settings_finish(&server);
     toys_end(&server);
+    cube_end(&server);
     rice_finish(&server);
     cat_finish(&server);
     xray_finish(&server);
