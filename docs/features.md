@@ -1464,7 +1464,8 @@ from the edges instead, so a single window on a wide monitor need not fill it: o
   it is. In the master, spiral and monocle layouts the place opens at the end of the list, and
   dropping a tile where it was lifted from keeps its place there too. The scrolling layout keeps
   no place: its tile leaves the strip as it is lifted, and a drop gives it a column of its own,
-  at the end of the strip on its own monitor and right of the focused column on another. A
+  at the end of the strip on its own monitor and right of the focused column on another, or at
+  the start of the strip when dropped over the first column. A
   window dropped on another monitor that tiles joins the tiling there even if snapping or
   maximizing, or its old monitor not tiling, had floated it; one floated with Super + V stays
   floating. A tile dropped on a monitor that does not tile floats there.
@@ -1608,9 +1609,10 @@ reloaded, and again when the monitor is plugged back in. `paw msg get layout OUT
 
 `layout_scroll` tiles like niri and PaperWM: windows live in columns on a strip much wider
 than the screen, and the screen is a view onto it that follows focus, gliding like any
-other tile move. A new window opens in a column of its own right of the focused one. A
-column has a width, a share of the screen (`layout.scroll.width`, half by default), and
-stacks its windows evenly. Beside its own actions, the usual keys work: `focus_left` /
+other tile move. A new window opens in a column of its own right of the focused one, or, with
+the pointer over the first column (or left of it), as the new first column. A column has a
+width, a share of the screen (`layout.scroll.width`, half by default), and stacks its windows
+evenly. Beside its own actions, the usual keys work: `focus_left` /
 `focus_right` step between columns and `focus_up` / `focus_down` within one, `move_left` /
 `move_right` move the focused column along the strip and `move_up` / `move_down` trade
 places within a stack, `focus_next` / `focus_prev` step through every window in order,

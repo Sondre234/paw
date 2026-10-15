@@ -425,7 +425,10 @@ static void move_to_output(struct sh_toplevel *toplevel, struct wlr_output *next
             x = sign < 0 ? area.x + area.width - 1 : area.x;
         else
             y = sign < 0 ? area.y + area.height - 1 : area.y;
-        tile_toplevel_at(toplevel, next, NULL, true, x, y);
+        // The scroll layout reads a point as the pointer's, over its first column opening a
+        // column before it; this one only says which edge the window came in by.
+        tile_toplevel_at(toplevel, next, NULL, output_layout(server, next) != SH_LAYOUT_SCROLL,
+                         x, y);
         return;
     }
     if (toplevel->arranged && toplevel->arrangement == SH_MAXIMIZE) {
