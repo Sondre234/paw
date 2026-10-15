@@ -16,12 +16,21 @@ QtObject {
     readonly property bool macos: shell.style === "macos"
 
     // Surfaces. The bar keeps the configured colour, translucency included. Popups are opaque:
-    // nothing is blurred behind them, and a window showing through makes text hard to read.
+    // without the glass nothing is blurred behind them, and a window showing through makes text
+    // hard to read.
     readonly property color bar: shell.panelColor
     readonly property color surface: Qt.rgba(bar.r, bar.g, bar.b, 1)
-    // A card, field or other block inside a popup.
-    readonly property color surfaceRaised: mix(surface, text, 0.04)
-    readonly property color surfaceRaisedHover: mix(surface, text, 0.09)
+    // Frosted glass (shell.blur), drawn through the GPU: the bar and the popups show the wallpaper
+    // behind them blurred (a Glass under each), and a popup's surface over it is as translucent
+    // as the bar, but at least glassFloor opaque, so that its text stays readable whatever the
+    // wallpaper. A surface is translucent only where its Glass is `active`.
+    readonly property bool glass: shell.blur && effects
+    readonly property real glassFloor: 0.75
+    readonly property real glassOpacity: Math.max(bar.a, glassFloor)
+    // A card, field or other block inside a popup; on the glass a veil of the text colour, so
+    // that the glass shows through it too.
+    readonly property color surfaceRaised: glass ? alpha(text, 0.05) : mix(surface, text, 0.04)
+    readonly property color surfaceRaisedHover: glass ? alpha(text, 0.1) : mix(surface, text, 0.09)
     // Whether the surfaces are light, for the few colours that cannot be derived from them.
     readonly property bool light: luminance(surface) > 0.5
 

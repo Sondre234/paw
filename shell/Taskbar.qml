@@ -59,6 +59,13 @@ Item {
             color: Theme.barShadow
         }
     }
+    // Frosted glass (shell.blur) under the bar, its colour laid over it.
+    Glass {
+        objectName: "barGlass"
+        visible: Theme.glass
+        x: bar.x; y: bar.y; width: bar.width; height: bar.height
+        radius: bar.radius
+    }
     Rectangle {
         id: bar
         objectName: "bar"

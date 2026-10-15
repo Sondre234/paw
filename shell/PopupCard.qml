@@ -140,7 +140,11 @@ Item {
         y: card.placedSide === Qt.TopEdge ? distance : card.placedSide === Qt.BottomEdge ? -distance : 0
     }
 
+    // Whether its card is on the frosted glass (shell.blur), translucent: what covers part of it
+    // in its colour cannot.
+    readonly property bool glassy: frame.glassy
     CardFrame {
+        id: frame
         visible: card.framed
         shadow: card.framed
         radius: card.radius

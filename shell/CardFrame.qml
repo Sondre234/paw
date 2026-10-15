@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Effects
+import Paw
 
 // A card's frame, filling its parent beneath what the card holds: its shadow, drawn through the
 // GPU (Theme.effects) while `shadow`, then its surface in `color` with `radius` corners and its
 // `outline`, and with `innerEdge` the macOS style's light line inside that (Theme.popupInnerEdge).
+// With the frosted glass (shell.blur) the surface is laid translucent (Theme.glassOpacity) over
+// the wallpaper behind it, blurred, unless `glass` is cleared.
 Item {
     id: frame
     property real radius: Theme.radiusLarge
@@ -13,6 +16,9 @@ Item {
     property int outlineWidth: Theme.outlineWidth
     property bool innerEdge: false
     property bool shadow: true
+    property bool glass: true
+    // Whether the glass shows under it, and the surface is translucent.
+    readonly property bool glassy: glassPane.visible && glassPane.active
     anchors.fill: parent
     Loader {
         anchors.fill: parent
@@ -24,10 +30,17 @@ Item {
             color: Theme.shadow
         }
     }
+    Glass {
+        id: glassPane
+        objectName: "cardGlass"
+        anchors.fill: parent
+        visible: frame.glass && Theme.glass
+        radius: frame.radius
+    }
     Rectangle {
         anchors.fill: parent
         radius: frame.radius
-        color: frame.color
+        color: frame.glassy ? Theme.alpha(frame.color, Theme.glassOpacity) : frame.color
         border.color: frame.outline
         border.width: frame.outlineWidth
         Rectangle {
