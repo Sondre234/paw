@@ -11,6 +11,7 @@
 #include <QSGTextureMaterial>
 #include <QScreen>
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <numbers>
 
@@ -109,6 +110,9 @@ void Glass::blur(const QString &output, bool now) {
             return; // turned off, or another came after it
         it->job = 0;
         it->blurred = {blurred, size, ++serial_};
+        std::cerr << "paw glass blurred " << output.toStdString() << ", " << blurred.width() << "x"
+                  << blurred.height() << " pixels for " << qRound(size.width()) << "x"
+                  << qRound(size.height()) << '\n';
         Q_EMIT changed(output);
     };
     const auto work = [wallpaper, size, settings] {
