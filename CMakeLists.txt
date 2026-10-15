@@ -688,6 +688,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
         paw_smoke(workspace_carry_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
+        paw_smoke(workspace_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(control_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(swallow_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
