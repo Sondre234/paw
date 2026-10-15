@@ -64,8 +64,9 @@ by day and by night.</sub>
   panel off.
 - **Administrator passwords:** the shell is the session's polkit agent, so `pkexec`, GParted and
   updaters ask for a password in a dialog of their own.
-- **Effects:** interruptible animations with spring curves, dimming of inactive windows, peek,
-  night light, a magnifier, and hot corners.
+- **Effects:** interruptible animations with spring curves, window shadows, the wallpaper
+  [blurred behind translucent windows](docs/features.md#borders-opacity-and-rounded-corners),
+  dimming of inactive windows, peek, night light, a magnifier, and hot corners.
 - **Touch:** three-finger swipes move between workspaces with the fingers and open the
   overview, other touchpad gestures reach applications (pinch-zoom), touchscreens take several
   fingers at once, and drawing tablets give applications pressure and tilt.
@@ -370,8 +371,7 @@ Work happens on short-lived branches off `main` that are merged back with `--no-
 [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md) for notable changes, and
 [docs/performance.md](docs/performance.md) for measurements.
 
-Not yet done: blur and shadows, and Lua extension APIs for custom
-layouts and shell widgets.
+Not yet done: Lua extension APIs for custom layouts and shell widgets.
 
 ## Reporting bugs
 
