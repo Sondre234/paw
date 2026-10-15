@@ -6,6 +6,7 @@ wallpaper's colour through, blurred, and the command palette, an overlay of its 
 behind each end of it. Turned off by a reload, everything is as before, and drawn in
 software (Qt's renderer, as shell.renderer = "software" has it) the glass is never drawn."""
 from pathlib import Path
+import re
 import signal
 import statistics
 import struct
@@ -143,6 +144,10 @@ with harness.Compositor(compositor, "return {}", start=False) as desktop:
     launcher(True)
     desktop.wait_for(lambda: card_red() < 45, "the launcher's card opaque without the glass")
     launcher(False)
+    # Nothing the glass drew on the way had QML complain.
+    warnings = [line for line in log.read_text().splitlines()
+                if re.search(r"\.qml:\d+|ReferenceError|TypeError|Binding loop", line)]
+    assert not warnings, "\n".join(warnings)
     panel.terminate()
     desktop.reap(panel)
 
