@@ -957,6 +957,7 @@ WindowRule window_rule(lua_State *L, int workspaces) {
     actions.shortcuts_inhibit = optional_boolean(L, "shortcuts_inhibit");
     actions.above = optional_boolean(L, "above");
     actions.allow_tearing = optional_boolean(L, "allow_tearing");
+    actions.blur = optional_boolean(L, "blur");
     if (present(L, "workspace"))
         actions.workspace = integer(L, "workspace", 0, 1, workspaces);
     if (auto name = text(L, "output")) {
@@ -1168,6 +1169,12 @@ void read_windows(lua_State *L, Config &config) {
             keys(L, -1, "windows.rules[]");
             config.window_rules.push_back(window_rule(L, config.settings.workspaces));
             lua_pop(L, 1);
+        }
+    }
+    for (const auto &rule : config.window_rules) {
+        if (rule.actions.blur) {
+            config.settings.blur_rules = true;
+            config.settings.blur_by_rule = config.settings.blur_by_rule || *rule.actions.blur;
         }
     }
     lua_pop(L, 1);
@@ -2268,6 +2275,7 @@ bool WindowRule::matches(const std::string &app_id, const std::string &title) co
 
 bool WindowActions::empty() const {
     return !floating && !fullscreen && !maximize && !focus && !sticky && !above && !allow_tearing &&
+           !blur &&
            !workspace && !output && !size && position == Position::Unset && !shortcuts_inhibit;
 }
 
@@ -2279,7 +2287,8 @@ void WindowActions::merge(const WindowActions &other) {
                                   {&sticky, &other.sticky},
                                   {&shortcuts_inhibit, &other.shortcuts_inhibit},
                                   {&above, &other.above},
-                                  {&allow_tearing, &other.allow_tearing}})
+                                  {&allow_tearing, &other.allow_tearing},
+                                  {&blur, &other.blur}})
         if (*source)
             *target = *source;
     if (other.workspace)
@@ -2315,6 +2324,7 @@ sh_window_rule WindowActions::to_c() const {
     rule.no_shortcuts_inhibit = !shortcuts_inhibit.value_or(true);
     rule.above = above.value_or(false);
     rule.allow_tearing = allow_tearing.value_or(false);
+    rule.blur = blur ? *blur : -1;
     return rule;
 }
 

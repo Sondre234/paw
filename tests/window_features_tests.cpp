@@ -183,6 +183,25 @@ int main() {
         rejects("return {windows={blur={brightness=-1}}}");
         rejects("return {windows={blur={saturation=3}}}");
         rejects("return {windows={blur={passes=2}}}");
+        // windows.rules[].blur: off or on for the windows it names, later rules winning.
+        require(!defaults.settings.blur_rules && !defaults.settings.blur_by_rule,
+                "no rule says blur by default");
+        auto ruled = paw::parse_config(
+            "return {windows={blur={enabled=true},rules={{app_id='^mpv$',blur=false},"
+            "{app_id='^foot$',floating=true},{app_id='^mpv$',title='blurry',blur=true}}}}");
+        require(ruled.settings.blur_rules && ruled.settings.blur_by_rule, "the rules say blur");
+        require(ruled.window_actions("mpv", "film").to_c().blur == 0 &&
+                    ruled.window_actions("mpv", "blurry").to_c().blur == 1 &&
+                    ruled.window_actions("foot", "").to_c().blur == -1 &&
+                    ruled.window_actions("kitty", "").to_c().blur == -1,
+                "a rule's blur not matched");
+        auto off = paw::parse_config("return {windows={rules={{app_id='^mpv$',blur=false}}}}");
+        require(off.settings.blur_rules && !off.settings.blur_by_rule && !off.settings.blur,
+                "a rule that turns blur off turns nothing on");
+        require(paw::parse_config("return {windows={rules={{app_id='^kitty$',blur=true}}}}")
+                    .settings.blur_by_rule,
+                "a rule turns blur on for its windows");
+        rejects("return {windows={rules={{app_id='^mpv$',blur='no'}}}}");
         // windows.lift: a dragged window is lifted unless told otherwise.
         require(defaults.settings.lift, "lift default");
         require(!paw::parse_config("return {windows={lift=false}}").settings.lift,

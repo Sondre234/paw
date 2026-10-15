@@ -539,6 +539,8 @@ struct sh_settings {
     bool blur;
     int blur_radius;
     float blur_noise, blur_brightness, blur_saturation;
+    /* A window rule says `blur`, and one turns it on (so pictures are needed with `blur` off). */
+    bool blur_rules, blur_by_rule;
     /* windows.lift: a window moved with the pointer is lifted while it moves, drawn a little
      * larger about where it was taken and its shadow softer and further off, and settles as it
      * is dropped. */
@@ -616,6 +618,7 @@ struct sh_window_rule {
     bool no_shortcuts_inhibit; /* shortcuts_inhibit = false: its inhibitors are refused */
     bool above;  /* kept above the other windows */
     bool allow_tearing; /* shown at once while fullscreen, with windows.allow_tearing */
+    int blur; /* the background blurred behind it (windows.blur): -1 unset, 0 none, 1 blurred */
 };
 
 /* What the dynamic window rules (`dynamic = true`) matching a window decide now, as its title

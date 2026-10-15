@@ -432,6 +432,9 @@ const Option options[] = {
     {"windows.rules[].allow_tearing", "boolean", "unset", "", none, none,
      "With `windows.allow_tearing`, show the window's frames at once while it is fullscreen and "
      "alone on its monitor, whether or not it asks for that (as an X11 game cannot)."},
+    {"windows.rules[].blur", "boolean", "unset", "", none, none,
+     "`false` draws no blur behind the window (see `windows.blur`), `true` draws one even with "
+     "`windows.blur.enabled` off."},
 
     {"peek", "table", "", "", none, none,
      "Peek: `peek` (hold a key) and `peek_toggle` make every window nearly transparent to show "

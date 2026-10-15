@@ -202,6 +202,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `windows.rules[].above` | boolean | unset | - | Keep above the other windows, as `toggle_above` does. |
 | `windows.rules[].dynamic` | boolean | false | - | Hold the window to the rule's `above`, `floating` and `sticky` while its title and app ID match, as they change, and give back what it had once they no longer do; its other actions still act once, as the window opens. |
 | `windows.rules[].allow_tearing` | boolean | unset | - | With `windows.allow_tearing`, show the window's frames at once while it is fullscreen and alone on its monitor, whether or not it asks for that (as an X11 game cannot). |
+| `windows.rules[].blur` | boolean | unset | - | `false` draws no blur behind the window (see `windows.blur`), `true` draws one even with `windows.blur.enabled` off. |
 
 ## `peek`
 
