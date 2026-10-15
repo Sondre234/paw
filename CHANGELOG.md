@@ -472,6 +472,12 @@ shadows.
 - In the scrolling layout a column alone on its workspace fills the screen, where a lone window
   used to take half of it, and takes its width back when another opens beside it.
   `layout.scroll.fill_lone = false` keeps it at its width; a width set by hand stays, alone too.
+- `layout.scroll.cube = true` turns the scrolling layout's view as a cube as it moves along the
+  strip: the screen as it was turns away on one side of a square while the screen as it will be
+  comes round on the next, the columns foreshortened, smaller further off and fainter turned
+  away. It takes `animations.cube`'s duration and curve (300 ms, easing out, unless set), turns
+  on or back from where it is drawn when the view moves again, and leaves every other change to
+  the usual glide. `paw msg get cube` says how it is drawn.
 
 ### Starting and ending a session
 
