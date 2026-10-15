@@ -3235,18 +3235,18 @@ return {
 ```
 
 A rice is data: it cannot run anything, or reach outside itself. `rice.lua` is never run as Lua,
-but read by a parser of Lua's table syntax alone, which takes strings, numbers, booleans and
-tables and refuses names, calls and operators, so `os.execute`, `io.open`, `require` or `load` in
-it are errors, not calls. It sets only how the desktop looks: colours, borders, corners,
-opacity, shadows, the bar's style, size, place, font and widgets, the tiling bar, the wallpaper
-and the start button. Launchers, window rules, the search's folders and web address, the
-clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other
-section are refused, and `paw rice pack` leaves them out. The pictures and other files it names
-are paths inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor
-through one; an archive holding a link, a device or a path out of it is refused whole, and only
-the files `rice.lua` names are taken from it. Its pictures are PNG, JPEG, WebP or SVG, which the
-shell opens as it opens any wallpaper. Files for other programs, such as a terminal's colours,
-stay in its directory for you to put in place; `paw rice try` says where.
+but read by a parser of Lua's table syntax alone, which takes strings, numbers, booleans and tables
+and refuses names, calls and operators, so `os.execute`, `io.open`, `require` or `load` in it are
+errors, not calls. It sets only how the desktop looks: colours, borders, corners, opacity, shadows,
+the blur behind windows, the bar's style, size, place, font and widgets, the tiling bar, the
+wallpaper and the start button. Launchers, window rules, the search's folders and web address, the
+clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other section
+are refused, and `paw rice pack` leaves them out. The pictures and other files it names are paths
+inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor through one;
+an archive holding a link, a device or a path out of it is refused whole, and only the files
+`rice.lua` names are taken from it. Its pictures are PNG, JPEG, WebP or SVG, which the shell opens
+as it opens any wallpaper. Files for other programs, such as a terminal's colours, stay in its
+directory for you to put in place; `paw rice try` says where.
 ### paw cat
 
 `paw cat` lets a cat out onto the desktop, as oneko does, but drawn by the compositor itself, so
