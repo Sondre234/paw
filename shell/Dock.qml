@@ -77,6 +77,14 @@ Item {
                 color: Theme.barShadow
             }
         }
+        // Frosted glass (shell.blur) under its colour, over its shadow.
+        Glass {
+            objectName: "dockGlass"
+            anchors.fill: parent
+            z: -1
+            visible: Theme.glass
+            radius: parent.radius
+        }
         Rectangle {
             visible: !Theme.windowFrames
             anchors.fill: parent; anchors.margins: 1
