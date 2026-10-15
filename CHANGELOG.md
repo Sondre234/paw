@@ -463,6 +463,9 @@ shadows.
   workspaces of the monitor under the pointer by default (`zoom.scroll_modifier = "Super"` still
   zooms). A window being moved with the pointer comes along to the workspace its monitor switches
   to, by key, wheel, panel or touchpad swipe, still moved, where the switch used to end the move.
+- In the scrolling layout a window opened with the pointer over the first column (or left of it)
+  opens left of it, as the new first column, where every new window used to open right of the
+  focused column and none could reach the start of the strip.
 
 ### Starting and ending a session
 
