@@ -926,6 +926,30 @@ int main(int argc, char **argv) {
         rejects("return {shell={thumbnails={live='yes'}}}");
         rejects("return {shell={thumbnails={workspaces=1}}}");
         rejects("return {shell={thumbnails={width=240}}}");
+        // Frosted glass behind the bar and the popups: off by default, each setting read, a
+        // partial table keeping the other defaults, and a profile turning it on.
+        require(!even.shell.blur.enabled && even.shell.blur.radius == 40 &&
+                    even.shell.blur.brightness == 1 && even.shell.blur.saturation == 1,
+                "shell.blur does not default to off, 40 pixels, brightness and saturation 1");
+        auto glass = paw::parse_config(
+            "return {shell={blur={enabled=true,radius=12,brightness=0.8,saturation=1.5}}}");
+        require(glass.shell.blur.enabled && glass.shell.blur.radius == 12 &&
+                    glass.shell.blur.brightness == 0.8 && glass.shell.blur.saturation == 1.5,
+                "shell.blur not parsed");
+        require(paw::parse_config("return {shell={blur={enabled=true}}}").shell.blur.radius == 40,
+                "a partial shell.blur table does not keep the other defaults");
+        require(paw::parse_config("return {shell={blur={radius=20}},"
+                                  "profiles={glass={shell={blur={enabled=true}}}}}",
+                                  "config", {}, "glass")
+                        .shell.blur == paw::ShellBlur{true, 20, 1, 1},
+                "a profile's shell.blur is not laid over the file's");
+        rejects("return {shell={blur=true}}");
+        rejects("return {shell={blur={enabled='yes'}}}");
+        rejects("return {shell={blur={radius=1}}}");
+        rejects("return {shell={blur={radius=201}}}");
+        rejects("return {shell={blur={brightness=2.5}}}");
+        rejects("return {shell={blur={saturation=-1}}}");
+        rejects("return {shell={blur={size=8}}}");
         // The bar shown while a monitor tiles: on by default, along the top, floating away from
         // the monitor's edges but not towards the windows; false keeps the taskbar.
         {

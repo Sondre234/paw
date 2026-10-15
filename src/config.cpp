@@ -505,6 +505,7 @@ void read_tiling_bar(lua_State *L, TilingBar &bar) {
 constexpr std::pair<std::string_view, PanelEdge> panel_edges[] = {
     {"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
     {"right", PanelEdge::Right}};
+double number(lua_State *L, const char *key, double fallback, double min, double max);
 void read_shell(lua_State *L, ShellConfig &shell) {
     Section section(L, "shell");
     if (!section)
@@ -580,6 +581,13 @@ void read_shell(lua_State *L, ShellConfig &shell) {
     shell.panel_radius = integer(L, "panel_radius", 0, 0, 50);
     named(L, "frame", nullptr, shell.frame_windows, {{"shell", false}, {"windows", true}},
           "frame must be \"shell\" or \"windows\"");
+    if (Section in{L, "blur", "shell.blur"}) {
+        auto &blur = shell.blur;
+        boolean(L, "enabled", "shell.blur.enabled", blur.enabled);
+        blur.radius = integer(L, "radius", blur.radius, 2, 200);
+        blur.brightness = number(L, "brightness", blur.brightness, 0, 2);
+        blur.saturation = number(L, "saturation", blur.saturation, 0, 2);
+    }
     if (auto font = text(L, "font"))
         shell.font = *font;
     shell.font_size = integer(L, "font_size", 12, 6, 48);

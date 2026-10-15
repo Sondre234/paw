@@ -545,6 +545,7 @@ const std::set<std::string> look_settings = {
     "shell.panel_margin",
     "shell.panel_radius",
     "shell.frame",
+    "shell.blur",
     "shell.font",
     "shell.font_size",
     "shell.icons_only",

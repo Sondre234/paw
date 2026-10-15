@@ -824,6 +824,22 @@ const Option options[] = {
      "shadow (`inactive_color` under the bar and the dock, `color` under a popup), drawn through "
      "the GPU; a floating bar's shadow falls past the strip it reserves without taking input "
      "there."},
+    {"shell.blur", "table", "", "", none, none,
+     "Frosted glass: the bar (the taskbar, the tiling bar, the macOS style's menu bar and dock) "
+     "and the popups, menus, cards, tooltips and overlays show the wallpaper behind them blurred, "
+     "their colour laid over it. The popups, opaque without it, are as translucent as "
+     "`panel_color`, but no more than 25 % so their text stays readable; an opaque `panel_color` "
+     "hides the glass. It is the wallpaper as the desktop shows it that is blurred, not the "
+     "windows behind (as Hyprland's xray), once per monitor as it changes. Drawn through the GPU: "
+     "with `renderer = \"software\"` everything looks as without it."},
+    {"shell.blur.enabled", "boolean", "false", "true", none, none, "Draw the glass."},
+    {"shell.blur.radius", "integer", "40", "40", 2, 200,
+     "How far the blur spreads, in pixels: a Gaussian whose standard deviation is half this."},
+    {"shell.blur.brightness", "number", "1.0", "0.9", 0, 2,
+     "The blurred wallpaper's brightness times this: below 1 darker, above 1 lighter, which "
+     "helps text on a dark or a light `panel_color` stand out."},
+    {"shell.blur.saturation", "number", "1.0", "1.2", 0, 2,
+     "The blurred wallpaper's colourfulness times this: 0 grey, above 1 more vivid."},
     {"shell.font", "string", "\"\"", "\"\"", none, none,
      "Font family; empty keeps the Qt default."},
     {"shell.font_size", "integer", "12", "12", 6, 48, "Taskbar text size in pixels."},
