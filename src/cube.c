@@ -10,11 +10,15 @@ static const double QUARTER = M_PI / 2;
 
 struct sh_cube sh_cube_move(struct sh_cube now, double distance) {
     now.start -= distance;
+    // A negative angle turns to the right, as the view moving right does. Turning the other way,
+    // it turns back from where it is; else on, a quarter further while little is left.
     if (distance > 0) {
-        while (now.angle > -QUARTER / 2)
+        bool back = now.angle > 0;
+        while (now.angle > 0 || (!back && now.angle > -QUARTER / 2))
             now.angle -= QUARTER, now.start += now.width;
     } else if (distance < 0) {
-        while (now.angle < QUARTER / 2)
+        bool back = now.angle < 0;
+        while (now.angle < 0 || (!back && now.angle < QUARTER / 2))
             now.angle += QUARTER, now.start -= now.width;
     }
     return now;

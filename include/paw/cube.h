@@ -32,10 +32,11 @@ struct sh_cube {
 
 /* The square a turn starts from as the view moves `distance` along the strip (positive: right,
  * the columns moving left), from the square as it is drawn now, in the view it turns to (at rest:
- * width, 0, 0): taken along into the view it will turn to, and turned a quarter more, which draws
- * the same, as long as less than an eighth of a turn is left the way the view moves, so that it
- * turns that way. Nothing moves where it is drawn: from rest, the side facing the eye shows the
- * view as it was, a quarter turn from rest. */
+ * width, 0, 0): taken along into the view it will turn to, and turned by quarters, which draw the
+ * same, so that it turns the way the view moves: back from where it is when it was turning the
+ * other way, else on, a quarter further while less than an eighth of a turn is left. Nothing
+ * moves where it is drawn: from rest, the side facing the eye shows the view as it was, a
+ * quarter turn from rest. */
 struct sh_cube sh_cube_move(struct sh_cube now, double distance);
 
 /* `progress` of the way (0 to 1, eased) from `from` to rest. */

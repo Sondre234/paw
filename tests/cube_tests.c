@@ -115,8 +115,8 @@ static void test_order(void) {
     }
 }
 
-/* A move under way moved again draws everything where it was, in the new view, and turns on the
- * way the view moves now: further the same way, or back. */
+/* A move under way moved again draws everything where it was, in the new view, and turns the way
+ * the view moves now: on, a quarter further while little is left, or back from where it is. */
 static void test_again(void) {
     struct sh_cube from = sh_cube_move(REST, 500);
     const double progress[] = {0.1, 0.5, 0.9, 1};
@@ -125,9 +125,13 @@ static void test_again(void) {
         struct sh_cube now = sh_cube_at(&from, progress[p]);
         for (size_t a = 0; a < 4; ++a) {
             struct sh_cube next = sh_cube_move(now, again[a]);
-            CHECK(again[a] > 0 ? next.angle <= -M_PI / 4 + 1e-9 : next.angle >= M_PI / 4 - 1e-9,
-                  "progress %g, again %g: angle %g", progress[p], again[a], next.angle);
-            CHECK(fabs(next.angle) <= 3 * M_PI / 4 + 1e-9);
+            if (again[a] > 0) // on, at least an eighth of a turn
+                CHECK(next.angle <= -M_PI / 4 + 1e-9 && next.angle >= -3 * M_PI / 4 - 1e-9,
+                      "progress %g, again %g: angle %g", progress[p], again[a], next.angle);
+            else if (progress[p] < 1) // back, as far as it came
+                NEAR(next.angle, now.angle + M_PI / 2, 1e-9);
+            else // from rest, a quarter
+                NEAR(next.angle, M_PI / 2, 1e-9);
             for (double at = -W; at <= 2 * W; at += 125) {
                 struct sh_cube_span was = span(&now, at, at + 100);
                 struct sh_cube_span is = span(&next, at - again[a], at + 100 - again[a]);
