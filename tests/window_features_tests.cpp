@@ -157,6 +157,32 @@ int main() {
         rejects("return {windows={shadow={offset='down'}}}");
         rejects("return {windows={shadow={color='black'}}}");
         rejects("return {windows={shadow={spread=3}}}");
+        // windows.blur: off, 30 pixels soft, a little grain, colours as they are.
+        require(!defaults.settings.blur && defaults.settings.blur_radius == 30 &&
+                    defaults.settings.blur_noise > 0 && defaults.settings.blur_noise < 0.05F &&
+                    defaults.settings.blur_brightness == 1 &&
+                    defaults.settings.blur_saturation == 1,
+                "blur defaults changed");
+        auto blur = paw::parse_config("return {windows={blur={enabled=true,radius=12,noise=0,"
+                                      "brightness=0.8,saturation=1.5}}}");
+        require(blur.settings.blur && blur.settings.blur_radius == 12 &&
+                    blur.settings.blur_noise == 0 && blur.settings.blur_brightness > 0.79F &&
+                    blur.settings.blur_brightness < 0.81F &&
+                    blur.settings.blur_saturation == 1.5F,
+                "blur settings not read");
+        require(!paw::parse_config("return {windows={blur={radius=50}}}").settings.blur,
+                "a blur radius alone turns nothing on");
+        auto profiled = paw::parse_config("return {windows={blur={radius=50}},profile='glass',"
+                                          "profiles={glass={windows={blur={enabled=true}}}}}");
+        require(profiled.settings.blur && profiled.settings.blur_radius == 50,
+                "a profile's blur not laid over the file's");
+        rejects("return {windows={blur=true}}");
+        rejects("return {windows={blur={radius=0}}}");
+        rejects("return {windows={blur={radius=201}}}");
+        rejects("return {windows={blur={noise=1.5}}}");
+        rejects("return {windows={blur={brightness=-1}}}");
+        rejects("return {windows={blur={saturation=3}}}");
+        rejects("return {windows={blur={passes=2}}}");
         // windows.lift: a dragged window is lifted unless told otherwise.
         require(defaults.settings.lift, "lift default");
         require(!paw::parse_config("return {windows={lift=false}}").settings.lift,

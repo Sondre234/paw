@@ -1063,6 +1063,19 @@ void read_shadow(lua_State *L, Config &config) {
         }
     }
 }
+// `windows.blur = { enabled, radius, noise, brightness, saturation }`.
+void read_blur(lua_State *L, Config &config) {
+    if (Section in{L, "blur", "windows.blur"}) {
+        auto &settings = config.settings;
+        boolean(L, "enabled", "windows.blur.enabled", settings.blur);
+        settings.blur_radius = integer(L, "radius", settings.blur_radius, 1, 200);
+        settings.blur_noise = static_cast<float>(number(L, "noise", settings.blur_noise, 0, 1));
+        settings.blur_brightness =
+            static_cast<float>(number(L, "brightness", settings.blur_brightness, 0, 2));
+        settings.blur_saturation =
+            static_cast<float>(number(L, "saturation", settings.blur_saturation, 0, 2));
+    }
+}
 // A border's colours: `#RRGGBB[AA]`, or a gradient `{ "#RRGGBB[AA]", ..., angle = DEGREES }` of
 // 2 to SH_GRADIENT_STOPS colours, whose first colour is also `first`.
 void border_colors(lua_State *L, const char *key, float (&first)[4], sh_gradient &gradient) {
@@ -1138,6 +1151,7 @@ void read_windows(lua_State *L, Config &config) {
     read_magnet(L, config);
     read_snap(L, config);
     read_shadow(L, config);
+    read_blur(L, config);
     boolean(L, "lift", "windows.lift", config.settings.lift);
     named(L, "placement", "windows.placement", config.settings.placement,
           {{"cascade", SH_PLACE_CASCADE}, {"center", SH_PLACE_CENTER}, {"smart", SH_PLACE_SMART}});
