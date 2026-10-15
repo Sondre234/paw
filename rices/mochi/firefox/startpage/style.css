@@ -1,0 +1,523 @@
+/* mochi start page: frosted glass in Catppuccin Mocha over the rice's wallpaper. Panes of
+ * translucent surface with a real backdrop blur, a faint light edge and a soft shadow; text in
+ * Mocha's text, mauve as the accent, pink for the little marks, blue for links and focus, and
+ * each link card in one of Catppuccin's accents. Every colour is a token in the block below.
+ * Colours from Catppuccin Mocha, MIT (https://github.com/catppuccin/catppuccin).
+ * Fonts are the installed ones (Nunito, M PLUS Rounded 1c for Japanese, Maple Mono) with
+ * fallbacks; a file:// page cannot load ~/.local/share/fonts by path, so nothing is fetched.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+:root {
+  color-scheme: dark;
+  /* Catppuccin Mocha */
+  --rosewater: #F5E0DC;
+  --flamingo: #F2CDCD;
+  --pink: #F5C2E7;
+  --mauve: #CBA6F7;
+  --red: #F38BA8;
+  --maroon: #EBA0AC;
+  --peach: #FAB387;
+  --yellow: #F9E2AF;
+  --green: #A6E3A1;
+  --teal: #94E2D5;
+  --sky: #89DCEB;
+  --sapphire: #74C7EC;
+  --blue: #89B4FA;
+  --lavender: #B4BEFE;
+  --text: #CDD6F4;
+  --subtext1: #BAC2DE;
+  --subtext0: #A6ADC8;
+  --overlay2: #9399B2;
+  --overlay1: #7F849C;
+  --overlay0: #6C7086;
+  --surface2: #585B70;
+  --surface1: #45475A;
+  --surface0: #313244;
+  --base: #1E1E2E;
+  --mantle: #181825;
+  --crust: #11111B;
+
+  /* the glass: a pane of surface over base, blurred behind, lit along its top edge */
+  --pane: linear-gradient(140deg, rgb(69 71 90 / 0.46), rgb(30 30 46 / 0.42));
+  --pane-hover: linear-gradient(140deg, rgb(88 91 112 / 0.5), rgb(49 50 68 / 0.46));
+  --pane-firm: linear-gradient(140deg, rgb(69 71 90 / 0.62), rgb(30 30 46 / 0.6));
+  --blur: blur(18px) saturate(150%);
+  --edge: rgb(205 214 244 / 0.13);
+  --shine: inset 0 1px 0 rgb(255 255 255 / 0.07);
+  --shadow: var(--shine), 0 10px 32px rgb(17 17 27 / 0.38);
+  --glow: 0 0 0 3px rgb(203 166 247 / 0.3);
+  --selection: #4D4257;            /* pink at 22% over base, as in kitty */
+  /* the wallpaper, dimmed a little at the top and foot so the type reads */
+  --veil: linear-gradient(rgb(17 17 27 / 0.42), rgb(17 17 27 / 0.18) 38%, rgb(17 17 27 / 0.22) 70%, rgb(17 17 27 / 0.5));
+  --wallpaper: url("../../wallpaper/mochi.jpg");
+  /* without the wallpaper: a night of Mocha's own */
+  --night: radial-gradient(60% 50% at 14% 8%, rgb(203 166 247 / 0.2), transparent 70%),
+    radial-gradient(48% 42% at 88% 16%, rgb(137 180 250 / 0.15), transparent 70%),
+    radial-gradient(70% 55% at 62% 104%, rgb(245 194 231 / 0.16), transparent 72%);
+
+  --font-ui: "Nunito", "Rounded Mplus 1c", "M PLUS Rounded 1c", "Quicksand", "Varela Round", "Inter", system-ui, sans-serif;
+  --font-mono: "Maple Mono", "JetBrains Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --radius: 18px;
+  --radius-sm: 12px;
+  /* how large the cat on the search card is, and how far it sinks into the card's edge */
+  --mascot-size: 128px;
+  --mascot-sink: 22px;
+}
+
+/* ---------------------------------------------------------------- the night */
+
+* { box-sizing: border-box; }
+
+html {
+  min-height: 100%;
+  background-color: var(--base);
+  /* the rice's wallpaper behind everything; Mocha's own night if it is missing */
+  background-image: var(--veil), var(--wallpaper), var(--night);
+  background-size: cover, cover, cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* no wallpaper where it should be (app.js notices): Mocha's own night, unveiled */
+html.no-wallpaper {
+  background-image: var(--night);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  color: var(--text);
+  font: 600 16px/1.4 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--selection); color: var(--text); }
+
+:focus-visible {
+  outline: 2px solid var(--mauve);
+  outline-offset: 3px;
+}
+
+kbd {
+  font: 600 11px/1 var(--font-mono);
+  color: var(--subtext0);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  padding: 3px 5px 2px;
+  background: rgb(17 17 27 / 0.35);
+}
+
+svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* a pane of glass */
+.glass {
+  background: var(--pane);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--edge);
+  box-shadow: var(--shadow);
+}
+
+/* ---------------------------------------------------------------- masthead */
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px 0;
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.mark-face {
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 3px 10px rgb(245 194 231 / 0.3));
+  transition: rotate 0.3s cubic-bezier(.3, 1.6, .5, 1);
+}
+.mark:hover .mark-face { rotate: -10deg; }
+
+.mark-name {
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.mark-sub {
+  font: 500 12px/1 var(--font-mono);
+  color: var(--subtext0);
+  padding-top: 3px;
+}
+
+.almanac {
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font: 500 12px/1 var(--font-mono);
+  color: var(--subtext1);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+.almanac b { color: var(--pink); font-weight: 600; }
+
+/* ---------------------------------------------------------------- clock and date */
+
+.sheet {
+  align-self: center;
+  justify-self: center;
+  width: min(920px, 100% - 48px);
+  padding: 16px 0 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.greeting {
+  margin: 0 0 2px;
+  font-size: 23px;
+  font-weight: 700;
+  color: var(--subtext1);
+  text-shadow: 0 2px 12px rgb(17 17 27 / 0.6);
+}
+.greeting b { color: var(--pink); font-weight: 800; }
+
+.clock {
+  margin: 0;
+  font-weight: 800;
+  font-size: clamp(80px, min(13vw, 19vh), 184px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  /* moonlight on it: a soft mauve glow, and a darker one to lift it off a bright sky */
+  text-shadow: 0 0 42px rgb(203 166 247 / 0.42), 0 4px 22px rgb(17 17 27 / 0.55);
+  user-select: none;
+}
+
+.colon {
+  display: inline-block;
+  padding: 0 0.02em;
+  translate: 0 -0.07em;
+  color: var(--pink);
+  text-shadow: 0 0 26px rgb(245 194 231 / 0.6);
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes breathe { 50% { opacity: 0.45; } }
+
+.date {
+  margin: 10px 0 0;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font: 700 15px/1 var(--font-ui);
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  color: var(--lavender);
+  background: rgb(17 17 27 / 0.28);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.date svg {
+  width: 13px;
+  height: 13px;
+  fill: var(--pink);
+  filter: drop-shadow(0 0 6px rgb(245 194 231 / 0.7));
+}
+
+/* ---------------------------------------------------------------- search card, and the cat */
+
+.search {
+  position: relative;
+  margin-top: calc(48px + var(--mascot-size) - var(--mascot-sink));
+  width: min(680px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 18px;
+  border-radius: var(--radius);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+/* no cat on it: no room kept for one */
+.search:has(> .mascot[hidden]) { margin-top: 48px; }
+
+.search:focus-within {
+  background: var(--pane-firm);
+  border-color: var(--mauve);
+  box-shadow: var(--shadow), var(--glow);
+}
+
+.search-heart {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  fill: var(--pink);
+  rotate: -8deg;
+  filter: drop-shadow(0 0 6px rgb(245 194 231 / 0.45));
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  caret-color: var(--pink);
+  font: 600 18px/1.2 var(--font-ui);
+  padding: 10px 0;
+}
+.search input::placeholder { color: var(--overlay2); opacity: 1; }
+
+.search-key { flex: none; }
+.search:focus-within .search-key { visibility: hidden; }
+
+.search-go {
+  flex: none;
+  font: 800 15px/1 var(--font-ui);
+  letter-spacing: 0.01em;
+  color: var(--crust);
+  background: linear-gradient(120deg, var(--mauve), var(--pink));
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 12px 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgb(203 166 247 / 0.3);
+  transition: translate 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.search-go:hover { translate: 0 -1px; filter: brightness(1.06); box-shadow: 0 6px 22px rgb(245 194 231 / 0.4); }
+.search-go:active { translate: 0 1px; box-shadow: 0 2px 8px rgb(203 166 247 / 0.3); }
+
+/* mochi sits on the card's top edge, near its right end, breathing slowly; patted, it squishes */
+.mascot {
+  position: absolute;
+  right: 36px;
+  bottom: calc(100% - var(--mascot-sink));
+  width: var(--mascot-size);
+  height: var(--mascot-size);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transform-origin: 50% 100%;
+  animation: sleep 4.8s ease-in-out infinite;
+}
+.mascot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: 50% 100%;
+  filter: drop-shadow(0 8px 14px rgb(17 17 27 / 0.45));
+  user-select: none;
+}
+.mascot[hidden] { display: none; }
+.mascot:focus-visible { outline-offset: 0; border-radius: 50%; }
+.mascot.squish { animation: squish 0.62s cubic-bezier(.3, 1.4, .5, 1); }
+
+@keyframes sleep {
+  50% { scale: 1.015 0.985; }
+}
+@keyframes squish {
+  0%   { scale: 1 1; }
+  22%  { scale: 1.16 0.82; }
+  48%  { scale: 0.93 1.08; }
+  72%  { scale: 1.04 0.97; }
+  100% { scale: 1 1; }
+}
+
+/* what the cat says when patted */
+.purr {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 8px);
+  translate: -50% 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font: 800 15px/1 var(--font-ui);
+  color: var(--pink);
+  opacity: 0;
+  pointer-events: none;
+}
+.purr.show { animation: purr 1.5s ease forwards; }
+
+@keyframes purr {
+  0%   { opacity: 0; translate: -50% 6px; scale: 0.8; }
+  14%  { opacity: 1; translate: -50% 0; scale: 1; }
+  75%  { opacity: 1; }
+  100% { opacity: 0; translate: -50% -10px; }
+}
+
+/* ---------------------------------------------------------------- link cards */
+
+.cards {
+  margin-top: 40px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.card {
+  --accent: var(--mauve);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 13px 15px;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius);
+  transition: translate 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.card:hover,
+.card:focus-visible {
+  translate: 0 -3px;
+  background: var(--pane-hover);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: var(--shadow), 0 0 26px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.card:active {
+  translate: 0 0;
+}
+.card:focus-visible { outline-color: var(--accent); outline-offset: 4px; }
+
+/* a round bubble in the card's own colour, bouncing under the pointer */
+.bubble {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--crust);
+  font: 800 16px/1 var(--font-ui);
+  letter-spacing: -0.02em;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent);
+  transition: scale 0.3s cubic-bezier(.3, 1.6, .5, 1);
+}
+.card:hover .bubble { scale: 1.1; }
+.bubble svg { width: 22px; height: 22px; fill: var(--crust); }
+
+.card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.card-name {
+  font-weight: 800;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-url {
+  font: 500 11.5px/1.2 var(--font-mono);
+  color: var(--subtext0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card kbd {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  padding: 2px 4px 1px;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.card:hover kbd,
+.card:focus-visible kbd,
+body.keys .card kbd { opacity: 1; }
+
+/* ---------------------------------------------------------------- colophon */
+
+.colophon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 0 24px;
+  font: 700 13px/1 var(--font-ui);
+  color: var(--subtext1);
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 8px rgb(17 17 27 / 0.7);
+}
+.colophon img { width: 18px; height: 18px; }
+
+/* ---------------------------------------------------------------- the easter egg: hearts */
+
+.hearts {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.heart {
+  position: absolute;
+  width: var(--size);
+  height: var(--size);
+  margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
+  fill: var(--colour);
+  filter: drop-shadow(0 0 6px var(--colour));
+  animation: float var(--time) cubic-bezier(.2, .6, .3, 1) forwards;
+}
+
+/* popped out, then drifting up and away, swaying, until it is gone */
+@keyframes float {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.3) rotate(0deg); }
+  12%  { opacity: 1; transform: translate(calc(var(--drift) * 0.2), -14px) scale(1.1) rotate(var(--tilt)); }
+  60%  { opacity: 0.95; }
+  100% { opacity: 0; transform: translate(var(--drift), var(--rise)) scale(0.8) rotate(calc(var(--tilt) * -1)); }
+}
+
+/* ---------------------------------------------------------------- smaller windows */
+
+@media (max-width: 900px) {
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .masthead { padding: 18px 20px 0; }
+}
+
+@media (max-height: 820px) {
+  :root { --mascot-size: 100px; --mascot-sink: 18px; }
+  .masthead { padding-top: 16px; }
+  .sheet { padding-bottom: 24px; }
+  .search { margin-top: calc(22px + var(--mascot-size) - var(--mascot-sink)); }
+  .search:has(> .mascot[hidden]) { margin-top: 30px; }
+  .cards { margin-top: 26px; gap: 14px; }
+  .colophon { padding-bottom: 16px; }
+}
+
+@media (max-width: 520px) {
+  .almanac, .mark-sub, .search-key { display: none; }
+  .search-go { padding: 10px 12px; }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+  .mascot { right: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .colon, .mascot { animation: none; }
+  .heart { animation-duration: 1.2s; --rise: -20px; --drift: 0px; }
+  * { transition: none !important; }
+}
