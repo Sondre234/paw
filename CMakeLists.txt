@@ -58,6 +58,8 @@ target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
 # paw doctor: its checks, which read the configuration as --check-config does, and how it reads
 # what other programs say.
 target_sources(paw_cli PRIVATE src/cli/doctor.cpp src/cli/doctor_parse.cpp)
+# Where the configuration lives, and `paw config [edit]`.
+target_sources(paw_cli PRIVATE src/cli/config.cpp)
 target_sources(paw_cli PRIVATE src/cli/fetch.cpp)
 target_sources(paw_cli PRIVATE src/cli/showcase.cpp)
 target_sources(paw_cli PRIVATE src/cli/top.cpp)
