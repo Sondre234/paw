@@ -1025,6 +1025,7 @@ static const struct {
     {"xray", describe_xray, false},
     {"heatmap", describe_heatmap, true},
     {"heatmap_overlay", describe_heatmap_overlay, false},
+    {"blur", describe_blur, false},
     {"actions", get_actions, false},
     {"profiles", get_profiles, false},
     {"terminal", get_terminal, false},

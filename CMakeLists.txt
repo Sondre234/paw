@@ -328,6 +328,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/cat.c
         src/compositor/xray.c
         src/compositor/heatmap.c
+        src/compositor/blur.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
         ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h ${WLR_PROTOCOL_HEADERS})

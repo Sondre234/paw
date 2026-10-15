@@ -387,9 +387,11 @@ void refresh_tabs(struct sh_toplevel *toplevel) {
 static void set_buffer_opacity(struct wlr_scene_buffer *buffer, int sx, int sy, void *data) {
     struct sh_toplevel *toplevel = data;
     // The border keeps its own colours, as its rects do, the shadow its own opacity
-    // (refresh_shadow), and the copy a change of size fades out its own.
+    // (refresh_shadow), the copy a change of size fades out its own, and the blur under the
+    // window stays whole under a translucent one (refresh_blur).
     struct wlr_scene_tree *parent = buffer->node.parent;
     if (buffer != toplevel->deco && buffer != toplevel->dim && buffer != toplevel->tabs &&
+        buffer != toplevel->blur &&
         (!toplevel->gradient || parent != toplevel->gradient) &&
         (!toplevel->shadow || parent != toplevel->shadow) &&
         (!toplevel->anim.fading || parent != toplevel->anim.fading))
@@ -510,6 +512,7 @@ void refresh_frame(struct sh_toplevel *toplevel) {
         toplevel->opacity = opacity;
         wlr_scene_node_for_each_buffer(&toplevel->scene_tree->node, set_buffer_opacity, toplevel);
     }
+    refresh_blur(toplevel, peeked);
     update_dim(toplevel);
     refresh_decoration(toplevel); // the controls follow the window's width
     refresh_tabs(toplevel);

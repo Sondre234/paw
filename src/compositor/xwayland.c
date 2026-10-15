@@ -38,6 +38,7 @@ static void xwayland_map(struct wl_listener *listener, void *data) {
             wlr_scene_node_destroy(&toplevel->scene_tree->node);
         toplevel->scene_tree = toplevel->content = NULL;
         toplevel->dim = NULL;
+        toplevel->blur = toplevel->blur_probe = NULL;
         return;
     }
     if (toplevel->unmanaged) {
@@ -75,6 +76,8 @@ static void xwayland_unmap(struct wl_listener *listener, void *data) {
     wlr_scene_node_destroy(&toplevel->scene_tree->node);
     toplevel->scene_tree = toplevel->content = toplevel->surfaces = NULL;
     toplevel->dim = NULL;
+    toplevel->blur = toplevel->blur_probe = NULL;
+    toplevel->anim.placed_apart = NULL;
 }
 
 static void xwayland_associate(struct wl_listener *listener, void *data) {
