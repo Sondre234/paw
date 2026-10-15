@@ -195,14 +195,18 @@ static void take_picture(struct sh_output *output) {
         drop_picture(picture);
         return;
     }
+    // Drawn in the format of the output's own frames, which it has once it has drawn one: the
+    // next frame of an output that has not asks again.
+    if (!wlr_output->swapchain) {
+        picture->tried = false;
+        return;
+    }
     // Half the output's pixels each way: enough for grain finer than a logical pixel on a dense
     // output, and the renderer averages each two by two of a wallpaper at the output's size.
     int width = (int)fmax(1, ceil(box.width * wlr_output->scale / 2));
     int height = (int)fmax(1, ceil(box.height * wlr_output->scale / 2));
-    const struct wlr_drm_format *format =
-        wlr_output->swapchain ? &wlr_output->swapchain->format : NULL;
-    struct wlr_buffer *target =
-        format ? wlr_allocator_create_buffer(server->allocator, width, height, format) : NULL;
+    struct wlr_buffer *target = wlr_allocator_create_buffer(server->allocator, width, height,
+                                                            &wlr_output->swapchain->format);
     uint32_t *pixels = target ? draw_background(server, target, box) : NULL;
     uint32_t *blurred = pixels ? malloc((size_t)width * height * sizeof(*blurred)) : NULL;
     const struct sh_blur *blur = &server->blur;
