@@ -2956,9 +2956,23 @@ refused while the session is locked.
 
 ## Commands
 
-Besides `paw msg` and `paw import`, the `paw` binary has subcommands to show the desktop off
-and to find out what is wrong with it. They talk to the running session through its control
-socket, as `paw msg` does; `paw --help` lists them.
+Besides `paw msg` and `paw import`, the `paw` binary has subcommands to find the configuration,
+to show the desktop off and to find out what is wrong with it. All but `paw config` talk to the
+running session through its control socket, as `paw msg` does; `paw --help` lists them.
+
+### paw config
+
+`paw config` prints the path of the configuration paw starts with: `$XDG_CONFIG_HOME/paw/init.lua`
+(`~/.config/paw/init.lua`) where it exists, else the installed default, in which case it also
+says so on standard error. So `$EDITOR "$(paw config)"` opens the file in use.
+
+`paw config edit` opens the personal configuration in `$VISUAL`, else `$EDITOR`, else
+`xdg-open`. The variable is a shell command, as for git, so `EDITOR="code --wait"` works. When
+there is no personal configuration yet it makes one first: a file that extends the default
+configuration and names where that is, so that it only needs what you change; paw reads it from
+its next start. The editor gets Ctrl+C. Once it exits, a file that changed is checked as
+`paw --check-config` does, and an error is printed with its line, the exit status then 1. The
+running session reloads the file as it is saved either way.
 
 ### paw doctor
 

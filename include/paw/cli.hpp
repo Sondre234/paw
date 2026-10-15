@@ -27,13 +27,22 @@ std::vector<std::vector<std::string>> query(const std::string &name);
 // $XDG_STATE_HOME/paw, else ~/.local/state/paw; empty without either.
 std::filesystem::path state_directory();
 
+// $XDG_CONFIG_HOME/paw/init.lua, else ~/.config/paw/init.lua, whether or not it exists; empty
+// without either variable (src/cli/config.cpp).
+std::filesystem::path personal_configuration_path();
+// The configuration paw starts with when given none: the personal one where it exists, else
+// the shipped one.
+std::filesystem::path configuration_path();
+// `paw config [edit]`: prints the configuration's path, or opens the personal one in $VISUAL
+// or $EDITOR, made first from starter_configuration when there is none, and checks it once it
+// has changed.
+int config(int argc, char **argv);
+// A personal configuration that extends the default one, naming where that is.
+std::string starter_configuration();
 // `paw doctor`: looks the session over and prints what is wrong with it and how to fix that.
 int doctor(int argc, char **argv);
 // `paw fetch`: a paw print and what paw knows of the session (src/cli/fetch.cpp).
 int fetch(int argc, char **argv);
-// The configuration paw starts with when given none: $XDG_CONFIG_HOME/paw/init.lua (or
-// ~/.config's) where it exists, else the shipped one.
-std::filesystem::path configuration_path();
 // `paw showcase`: a screenshot with paw fetch open in a terminal (src/cli/showcase.cpp).
 int showcase(int argc, char **argv);
 // `paw top`: the compositor's frames, its work and the windows that make it, live or once.

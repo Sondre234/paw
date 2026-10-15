@@ -232,9 +232,10 @@ file with `paw --session 2> ~/paw.log`.
 ## Configuration
 
 paw reads `$XDG_CONFIG_HOME/paw/init.lua` (`~/.config/paw/init.lua`), else the
-installed example, [config/init.lua](config/init.lua); it never writes a personal
-configuration for you. A configuration only needs what it changes when it extends the
-defaults:
+installed example, [config/init.lua](config/init.lua). `paw config` prints the path of the one
+in use, and `paw config edit` opens yours in `$VISUAL` or `$EDITOR`, making it first when there
+is none, and checks it once you save. A configuration only needs what it changes when it
+extends the defaults:
 
 ```lua
 return {

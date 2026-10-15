@@ -58,6 +58,8 @@ target_compile_options(paw_cli PRIVATE -Wall -Wextra -Wpedantic)
 # paw doctor: its checks, which read the configuration as --check-config does, and how it reads
 # what other programs say.
 target_sources(paw_cli PRIVATE src/cli/doctor.cpp src/cli/doctor_parse.cpp)
+# Where the configuration lives, and `paw config [edit]`.
+target_sources(paw_cli PRIVATE src/cli/config.cpp)
 target_sources(paw_cli PRIVATE src/cli/fetch.cpp)
 target_sources(paw_cli PRIVATE src/cli/showcase.cpp)
 target_sources(paw_cli PRIVATE src/cli/top.cpp)
@@ -118,6 +120,7 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/docs/config-reference.md)
     paw_unit_test(config_robustness ${EXAMPLE_CONFIG})
     paw_unit_test(cli LIBRARY paw_cli)
+    paw_unit_test(config_command LIBRARY paw_cli ${EXAMPLE_CONFIG})
     paw_unit_test(fetch LIBRARY paw_cli)
     paw_unit_test(showcase LIBRARY paw_cli)
     paw_unit_test(top LIBRARY paw_cli)

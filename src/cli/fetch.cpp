@@ -598,18 +598,6 @@ std::string application_name(const std::string &id) {
 
 } // namespace
 
-std::filesystem::path configuration_path() {
-    std::filesystem::path personal;
-    if (const auto *xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg)
-        personal = std::filesystem::path(xdg) / "paw/init.lua";
-    else if (const auto *home = std::getenv("HOME"); home && *home)
-        personal = std::filesystem::path(home) / ".config/paw/init.lua";
-    std::error_code failure;
-    if (!personal.empty() && std::filesystem::exists(personal, failure))
-        return personal;
-    return default_config_path();
-}
-
 int fetch(int argc, char **argv) {
     fetch::Style style;
     std::filesystem::path chosen;
