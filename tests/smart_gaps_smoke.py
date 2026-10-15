@@ -101,9 +101,10 @@ with harness.Compositor(compositor, config()) as desktop:
     assert desktop.reap(second) == 0
     desktop.wait_for(lambda: windows() == [ALONE], "gaps gone with the other tile")
 
-    # A lone column of the scroll layout keeps its width but has no gaps either.
+    # A lone column of the scroll layout fills the screen, and narrowed it has no gaps either.
     msg("layout_scroll")
-    desktop.wait_for(lambda: windows()[0][2] < WIDTH // 2, "lone column")
+    msg("column_narrow")
+    desktop.wait_for(lambda: windows()[0][2] == WIDTH * 9 // 10 - 2 * BORDER, "lone column")
     assert windows()[0][1::2] == (BORDER, HEIGHT - 2 * BORDER), windows()
     msg("layout_dwindle")
     desktop.wait_for(lambda: windows() == [ALONE], "dwindle again, alone")

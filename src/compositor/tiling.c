@@ -355,7 +355,7 @@ void configure_layouts(struct sh_server *server) {
                            settings->master_ratio, settings->master_count);
     sh_tiling_set_scroll(server->tiling, (enum sh_scroll_follow)settings->scroll_follow,
                          settings->scroll_width, settings->scroll_step, settings->scroll_presets,
-                         settings->scroll_preset_count);
+                         settings->scroll_preset_count, true);
 }
 
 /* layout.outputs for one output: the entry by connector name wins over one by description. */
