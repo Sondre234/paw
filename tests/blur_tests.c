@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-/* The blur behind windows (src/blur.c): the grid it blurs on, the boxes that make the gaussian,
- * the picture painted from a background, and where a window shows a part of it. */
+/* The blur behind windows (src/blur.c): how often a picture is halved into the grid it blurs on,
+ * the boxes that make the gaussian, the grid blurred and coloured, the grain, and where a window
+ * shows a part of the picture. */
 #include "paw/blur.h"
 #include <stdlib.h>
 #include <string.h>
@@ -10,7 +11,7 @@ static int red(uint32_t pixel) { return (int)(pixel >> 16 & 0xff); }
 static int green(uint32_t pixel) { return (int)(pixel >> 8 & 0xff); }
 static int blue(uint32_t pixel) { return (int)(pixel & 0xff); }
 
-static const struct sh_blur_look PLAIN = {.sigma = 8, .noise = 0, .brightness = 1,
+static const struct sh_blur_look PLAIN = {.sigma = 4, .noise = 0, .brightness = 1,
                                           .saturation = 1};
 
 static uint32_t *picture(int width, int height, uint32_t colour) {
@@ -20,11 +21,11 @@ static uint32_t *picture(int width, int height, uint32_t colour) {
     return pixels;
 }
 
-static void test_grid(void) {
-    CHECK(sh_blur_halvings(0) == 0 && sh_blur_halvings(5.9) == 0, "a small blur on the picture");
-    CHECK(sh_blur_halvings(6) == 1, "halved once while the gaussian spans 3 cells");
-    CHECK(sh_blur_halvings(15) == 2, "15 pixels: 3.75 cells of a quarter");
-    CHECK(sh_blur_halvings(24) == 3 && sh_blur_halvings(23.9) == 2);
+static void test_halvings(void) {
+    CHECK(sh_blur_halvings(0) == 0 && sh_blur_halvings(2.9) == 0, "a small blur on the picture");
+    CHECK(sh_blur_halvings(3) == 1, "halved once while the gaussian spans 1.5 cells");
+    CHECK(sh_blur_halvings(15) == 3, "15 pixels: 1.875 cells of an eighth");
+    CHECK(sh_blur_halvings(12) == 3 && sh_blur_halvings(11.9) == 2);
     CHECK(sh_blur_halvings(1e6) == 6, "never past 6 halvings");
 }
 
@@ -32,7 +33,7 @@ static void test_boxes(void) {
     int widths[3];
     sh_blur_boxes(0, widths);
     CHECK(widths[0] == 1 && widths[1] == 1 && widths[2] == 1, "no blur: boxes of one");
-    double sigmas[] = {1, 2.5, 3, 3.75, 7, 12.5, 40};
+    double sigmas[] = {1, 1.5, 2.5, 3, 3.75, 7, 12.5, 40};
     for (size_t i = 0; i < sizeof(sigmas) / sizeof(*sigmas); ++i) {
         sh_blur_boxes(sigmas[i], widths);
         double variance = 0;
@@ -49,105 +50,120 @@ static void test_boxes(void) {
 static void test_flat(void) {
     // A plain background stays exactly its colour, opaque, whatever the blur and the size.
     int sizes[][2] = {{1, 1}, {37, 23}, {200, 120}};
-    double sigmas[] = {0, 1, 8, 30, 200};
+    double sigmas[] = {0, 1, 4, 30};
     for (size_t s = 0; s < 3; ++s) {
-        for (size_t g = 0; g < 5; ++g) {
+        for (size_t g = 0; g < 4; ++g) {
             int width = sizes[s][0], height = sizes[s][1];
-            uint32_t *in = picture(width, height, 0x00336699), *out = picture(width, height, 0);
+            uint32_t *grid = picture(width, height, 0x00336699);
             struct sh_blur_look look = PLAIN;
             look.sigma = sigmas[g];
-            CHECK(sh_blur_paint(in, width, height, &look, out));
+            CHECK(sh_blur_grid(grid, width, height, &look));
             bool same = true;
             for (int i = 0; i < width * height; ++i)
-                same = same && out[i] == 0xff336699;
-            CHECK(same, "%dx%d at sigma %g: %08x", width, height, sigmas[g], out[0]);
-            free(in);
-            free(out);
+                same = same && grid[i] == 0xff336699;
+            CHECK(same, "%dx%d at sigma %g: %08x", width, height, sigmas[g], grid[0]);
+            free(grid);
         }
     }
-    CHECK(!sh_blur_paint(NULL, 0, 10, &PLAIN, NULL), "nothing to paint");
+    CHECK(!sh_blur_grid(NULL, 0, 10, &PLAIN), "nothing to blur");
 }
 
 static void test_edge(void) {
     // Black on the left, white on the right: a smooth ramp across the middle, the far sides as
-    // they were, and the same down every column of a row.
-    enum { W = 160, H = 40 };
-    uint32_t *in = picture(W, H, 0), *out = picture(W, H, 0);
+    // they were, and the same down every column.
+    enum { W = 80, H = 20 };
+    uint32_t *grid = picture(W, H, 0);
     for (int y = 0; y < H; ++y)
         for (int x = W / 2; x < W; ++x)
-            in[y * W + x] = 0xffffff;
-    CHECK(sh_blur_paint(in, W, H, &PLAIN, out));
+            grid[y * W + x] = 0xffffff;
+    CHECK(sh_blur_grid(grid, W, H, &PLAIN));
     int row = H / 2;
-    CHECK(red(out[row * W]) <= 1 && red(out[row * W + W - 1]) >= 254,
-          "the far sides keep their colour: %d, %d", red(out[row * W]),
-          red(out[row * W + W - 1]));
+    CHECK(red(grid[row * W]) <= 1 && red(grid[row * W + W - 1]) >= 254,
+          "the far sides keep their colour: %d, %d", red(grid[row * W]),
+          red(grid[row * W + W - 1]));
     bool rising = true;
     for (int x = 1; x < W; ++x)
-        rising = rising && red(out[row * W + x]) >= red(out[row * W + x - 1]);
+        rising = rising && red(grid[row * W + x]) >= red(grid[row * W + x - 1]);
     CHECK(rising, "the ramp only rises");
-    int middle = red(out[row * W + W / 2]);
-    CHECK(middle > 100 && middle < 156, "half way at the edge: %d", middle);
+    int middle = (red(grid[row * W + W / 2 - 1]) + red(grid[row * W + W / 2])) / 2;
+    CHECK(middle > 110 && middle < 146, "half way at the edge: %d", middle);
     // About two standard deviations out the ramp has nearly reached each side.
-    CHECK(red(out[row * W + W / 2 - 20]) < 20 && red(out[row * W + W / 2 + 20]) > 235,
-          "a gaussian of 8 pixels: %d, %d", red(out[row * W + W / 2 - 20]),
-          red(out[row * W + W / 2 + 20]));
-    CHECK(red(out[row * W + W / 2 - 4]) > 10 && red(out[row * W + W / 2 + 4]) < 245,
-          "and spread over several pixels");
+    CHECK(red(grid[row * W + W / 2 - 10]) < 20 && red(grid[row * W + W / 2 + 10]) > 235,
+          "a gaussian of 4 cells: %d, %d", red(grid[row * W + W / 2 - 10]),
+          red(grid[row * W + W / 2 + 10]));
+    CHECK(red(grid[row * W + W / 2 - 2]) > 10 && red(grid[row * W + W / 2 + 2]) < 245,
+          "and spread over several cells");
     bool level = true;
     for (int y = 0; y < H; ++y)
-        level = level && out[y * W + W / 2 + 3] == out[row * W + W / 2 + 3];
+        level = level && grid[y * W + W / 2 + 1] == grid[row * W + W / 2 + 1];
     CHECK(level, "the top and bottom edges do not darken");
-    free(in);
-    free(out);
+    free(grid);
 }
 
 static void test_colour(void) {
     enum { W = 16, H = 16 };
-    uint32_t *in = picture(W, H, 0x00c86432), *out = picture(W, H, 0);
+    uint32_t *grid = picture(W, H, 0x00c86432);
     struct sh_blur_look look = PLAIN;
     look.brightness = 0.5f;
-    CHECK(sh_blur_paint(in, W, H, &look, out));
-    CHECK(red(out[0]) == 100 && green(out[0]) == 50 && blue(out[0]) == 25, "half as bright: %08x",
-          out[0]);
+    CHECK(sh_blur_grid(grid, W, H, &look));
+    CHECK(red(grid[0]) == 100 && green(grid[0]) == 50 && blue(grid[0]) == 25,
+          "half as bright: %08x", grid[0]);
+    free(grid);
+    grid = picture(W, H, 0x00c86432);
     look = PLAIN;
     look.saturation = 0;
-    CHECK(sh_blur_paint(in, W, H, &look, out));
-    CHECK(red(out[0]) == green(out[0]) && green(out[0]) == blue(out[0]), "grey: %08x", out[0]);
+    CHECK(sh_blur_grid(grid, W, H, &look));
+    CHECK(red(grid[0]) == green(grid[0]) && green(grid[0]) == blue(grid[0]), "grey: %08x",
+          grid[0]);
+    free(grid);
+    grid = picture(W, H, 0x00c86432);
     look.saturation = 1.5f;
-    CHECK(sh_blur_paint(in, W, H, &look, out));
-    CHECK(red(out[0]) > 0xc8 && blue(out[0]) < 0x32, "more vivid: %08x", out[0]);
+    CHECK(sh_blur_grid(grid, W, H, &look));
+    CHECK(red(grid[0]) > 0xc8 && blue(grid[0]) < 0x32, "more vivid: %08x", grid[0]);
+    free(grid);
+    grid = picture(W, H, 0x00c86432);
     look = PLAIN;
     look.brightness = 2;
-    CHECK(sh_blur_paint(in, W, H, &look, out));
-    CHECK(red(out[0]) == 255 && green(out[0]) == 200, "brighter, held at white: %08x", out[0]);
-    free(in);
-    free(out);
+    CHECK(sh_blur_grid(grid, W, H, &look));
+    CHECK(red(grid[0]) == 255 && green(grid[0]) == 200, "brighter, held at white: %08x", grid[0]);
+    free(grid);
+    // With grain, darker by half of the most it adds.
+    grid = picture(W, H, 0x00808080);
+    look = PLAIN;
+    look.noise = 0.04f; // up to 10 levels
+    CHECK(sh_blur_grid(grid, W, H, &look));
+    CHECK(red(grid[0]) == 0x80 - 5 && blue(grid[0]) == 0x80 - 5, "made room for grain: %08x",
+          grid[0]);
+    free(grid);
 }
 
-static void test_noise(void) {
-    enum { W = 64, H = 64 };
-    uint32_t *in = picture(W, H, 0x00202020), *out = picture(W, H, 0), *again = picture(W, H, 0);
-    struct sh_blur_look look = PLAIN;
-    look.noise = 0.04f; // up to 0.02 of full brightness: about 5 levels
-    CHECK(sh_blur_paint(in, W, H, &look, out) && sh_blur_paint(in, W, H, &look, again));
-    CHECK(!memcmp(out, again, sizeof(uint32_t) * W * H), "the same grain every time");
+static void test_grain(void) {
+    enum { SIZE = 64 };
+    uint32_t tile[SIZE * SIZE], again[SIZE * SIZE];
+    sh_blur_grain(tile, SIZE, 0.04f);
+    sh_blur_grain(again, SIZE, 0.04f);
+    CHECK(!memcmp(tile, again, sizeof(tile)), "the same grain every time");
     int low = 255, high = 0;
     long sum = 0;
-    bool grey = true;
-    for (int i = 0; i < W * H; ++i) {
-        int value = red(out[i]);
+    bool grey = true, clear = true;
+    for (int i = 0; i < SIZE * SIZE; ++i) {
+        int value = red(tile[i]);
         low = value < low ? value : low;
         high = value > high ? value : high;
         sum += value;
-        grey = grey && red(out[i]) == green(out[i]) && green(out[i]) == blue(out[i]);
+        grey = grey && red(tile[i]) == green(tile[i]) && green(tile[i]) == blue(tile[i]);
+        clear = clear && tile[i] >> 24 == 0;
     }
-    CHECK(low >= 0x20 - 6 && high <= 0x20 + 6 && high - low >= 6, "grain of a few levels: %d to %d",
-          low, high);
-    CHECK(fabs((double)sum / (W * H) - 0x20) < 0.5, "as light on the whole");
+    CHECK(low == 0 && high == 10, "up to 0.04 of full brightness: %d to %d", low, high);
+    CHECK(fabs((double)sum / (SIZE * SIZE) - 5) < 0.3, "half of that on the whole: %g",
+          (double)sum / (SIZE * SIZE));
     CHECK(grey, "the grain does not tint");
-    free(in);
-    free(out);
-    free(again);
+    CHECK(clear, "no alpha, so that it adds to what it is drawn over");
+    sh_blur_grain(tile, SIZE, 0);
+    bool none = true;
+    for (int i = 0; i < SIZE * SIZE; ++i)
+        none = none && tile[i] == 0;
+    CHECK(none, "no grain: nothing to add");
 }
 
 static void test_source(void) {
@@ -183,12 +199,12 @@ static void test_source(void) {
 }
 
 int main(void) {
-    test_grid();
+    test_halvings();
     test_boxes();
     test_flat();
     test_edge();
     test_colour();
-    test_noise();
+    test_grain();
     test_source();
     if (!failures)
         puts("Blur passed");

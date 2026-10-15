@@ -87,14 +87,14 @@ static void draw_buffer(struct wlr_scene_buffer *buffer, int lx, int ly, void *d
                                 });
 }
 
-/* The background of `box` drawn into `target`, read back as XRGB8888 pixels; NULL when it cannot
- * be. Drawn at half the output's pixels, or less, the renderer averages each two by two. */
-static uint32_t *draw_background(struct sh_server *server, struct wlr_buffer *target,
-                                 struct wlr_box box) {
+/* The background of `box` drawn into `target`: at half the output's pixels, or about, so the
+ * renderer samples a wallpaper of the output's size two by two, each pixel their average. */
+static bool draw_background(struct sh_server *server, struct wlr_buffer *target,
+                            struct wlr_box box) {
     struct wlr_renderer *renderer = server->renderer;
     struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(renderer, target, NULL);
     if (!pass)
-        return NULL;
+        return false;
     float colour[4];
     under_colour(server, colour);
     wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
@@ -113,46 +113,108 @@ static uint32_t *draw_background(struct sh_server *server, struct wlr_buffer *ta
     bool drawn = wlr_render_pass_submit(pass);
     for (size_t i = 0; i < drawing.made_count; ++i)
         wlr_texture_destroy(drawing.made[i]);
-    if (!drawn)
-        return NULL;
-    struct wlr_texture *texture = wlr_texture_from_buffer(renderer, target);
-    size_t count = (size_t)target->width * target->height;
-    uint32_t *pixels = texture ? malloc(count * sizeof(*pixels)) : NULL;
-    bool read = pixels && wlr_texture_read_pixels(
-                              texture, &(struct wlr_texture_read_pixels_options){
-                                           .data = pixels,
-                                           .format = DRM_FORMAT_XRGB8888,
-                                           .stride = (uint32_t)target->width * 4,
-                                       });
-    if (texture)
-        wlr_texture_destroy(texture);
-    if (!read) {
-        free(pixels);
-        return NULL;
-    }
-    return pixels;
+    return drawn;
 }
 
-/* `pixels` drawn over the whole of `target`, as they are. */
-static bool upload(struct sh_server *server, struct wlr_buffer *target, uint32_t *pixels) {
-    struct wlr_texture *texture =
-        wlr_texture_from_pixels(server->renderer, DRM_FORMAT_XRGB8888,
-                                (uint32_t)target->width * 4, (uint32_t)target->width,
-                                (uint32_t)target->height, pixels);
-    if (!texture)
+/* `texture` drawn over the whole of `target`, stretched bilinearly, as it is (`blend` false) or
+ * over what is there; and with `tile`, the texture laid again and again at its own size. */
+static bool draw_over(struct wlr_renderer *renderer, struct wlr_texture *texture,
+                      struct wlr_buffer *target, bool blend, bool tile) {
+    struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(renderer, target, NULL);
+    if (!pass)
         return false;
-    struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(server->renderer, target, NULL);
-    bool done = false;
-    if (pass) {
-        wlr_render_pass_add_texture(pass, &(struct wlr_render_texture_options){
-                                              .texture = texture,
-                                              .filter_mode = WLR_SCALE_FILTER_NEAREST,
-                                              .blend_mode = WLR_RENDER_BLEND_MODE_NONE,
-                                          });
-        done = wlr_render_pass_submit(pass);
+    int step_x = tile ? (int)texture->width : target->width;
+    int step_y = tile ? (int)texture->height : target->height;
+    for (int y = 0; y < target->height; y += step_y) {
+        for (int x = 0; x < target->width; x += step_x)
+            wlr_render_pass_add_texture(
+                pass, &(struct wlr_render_texture_options){
+                          .texture = texture,
+                          .dst_box = {x, y, step_x, step_y},
+                          .filter_mode = tile ? WLR_SCALE_FILTER_NEAREST
+                                              : WLR_SCALE_FILTER_BILINEAR,
+                          .blend_mode = blend ? WLR_RENDER_BLEND_MODE_PREMULTIPLIED
+                                              : WLR_RENDER_BLEND_MODE_NONE,
+                      });
     }
-    wlr_texture_destroy(texture);
-    return done;
+    return wlr_render_pass_submit(pass);
+}
+
+/* A buffer for a picture of `width` by `height`, in the format of `output`'s frames. */
+static struct wlr_buffer *make_buffer(struct sh_server *server, struct wlr_output *output,
+                                      int width, int height) {
+    return wlr_allocator_create_buffer(server->allocator, width, height,
+                                       &output->swapchain->format);
+}
+
+/* `from` halved `halvings` times on the renderer, each pixel the average of two by two: the
+ * grid, read back as XRGB8888 pixels in `*grid` (to free), `*columns` by `*rows`. False when it
+ * cannot be. */
+static bool read_grid(struct sh_server *server, struct wlr_output *output,
+                      struct wlr_buffer *from, int halvings, uint32_t **grid, int *columns,
+                      int *rows) {
+    struct wlr_renderer *renderer = server->renderer;
+    struct wlr_buffer *step = from;
+    bool ok = true;
+    for (int i = 0; ok && i < halvings; ++i) {
+        struct wlr_buffer *half =
+            make_buffer(server, output, (step->width + 1) / 2, (step->height + 1) / 2);
+        struct wlr_texture *texture = half ? wlr_texture_from_buffer(renderer, step) : NULL;
+        ok = texture && draw_over(renderer, texture, half, false, false);
+        if (texture)
+            wlr_texture_destroy(texture);
+        if (step != from)
+            wlr_buffer_drop(step);
+        step = half;
+        ok = ok && step;
+    }
+    struct wlr_texture *texture = ok ? wlr_texture_from_buffer(renderer, step) : NULL;
+    uint32_t *pixels =
+        texture ? malloc((size_t)step->width * step->height * sizeof(*pixels)) : NULL;
+    ok = pixels && wlr_texture_read_pixels(
+                       texture, &(struct wlr_texture_read_pixels_options){
+                                    .data = pixels,
+                                    .format = DRM_FORMAT_XRGB8888,
+                                    .stride = (uint32_t)step->width * 4,
+                                });
+    if (texture)
+        wlr_texture_destroy(texture);
+    if (ok) {
+        *grid = pixels;
+        *columns = step->width;
+        *rows = step->height;
+    } else {
+        free(pixels);
+    }
+    if (step && step != from)
+        wlr_buffer_drop(step);
+    return ok;
+}
+
+/* The grain's tile, laid over the picture again and again. */
+#define GRAIN 128
+
+/* The picture finished in `target`: the blurred `grid` stretched over it bilinearly, then the
+ * grain added. */
+static bool finish(struct sh_server *server, struct wlr_buffer *target, uint32_t *grid,
+                   int columns, int rows, float noise) {
+    struct wlr_renderer *renderer = server->renderer;
+    struct wlr_texture *texture = wlr_texture_from_pixels(
+        renderer, DRM_FORMAT_XRGB8888, (uint32_t)columns * 4, (uint32_t)columns,
+        (uint32_t)rows, grid);
+    bool ok = texture && draw_over(renderer, texture, target, false, false);
+    if (texture)
+        wlr_texture_destroy(texture);
+    if (!ok || noise <= 0)
+        return ok;
+    static uint32_t tile[GRAIN * GRAIN];
+    sh_blur_grain(tile, GRAIN, noise);
+    texture = wlr_texture_from_pixels(renderer, DRM_FORMAT_ARGB8888, GRAIN * 4, GRAIN, GRAIN,
+                                      tile);
+    ok = texture && draw_over(renderer, texture, target, true, true);
+    if (texture)
+        wlr_texture_destroy(texture);
+    return ok;
 }
 
 static void place_blur(struct sh_toplevel *toplevel);
@@ -202,24 +264,26 @@ static void take_picture(struct sh_output *output) {
         return;
     }
     // Half the output's pixels each way: enough for grain finer than a logical pixel on a dense
-    // output, and the renderer averages each two by two of a wallpaper at the output's size.
+    // output. The blur's radius is CSS's, two of the gaussian's standard deviations.
     int width = (int)fmax(1, ceil(box.width * wlr_output->scale / 2));
     int height = (int)fmax(1, ceil(box.height * wlr_output->scale / 2));
-    struct wlr_buffer *target = wlr_allocator_create_buffer(server->allocator, width, height,
-                                                            &wlr_output->swapchain->format);
-    uint32_t *pixels = target ? draw_background(server, target, box) : NULL;
-    uint32_t *blurred = pixels ? malloc((size_t)width * height * sizeof(*blurred)) : NULL;
     const struct sh_blur *blur = &server->blur;
+    double sigma = blur->radius / 2.0 * width / box.width;
+    int halvings = sh_blur_halvings(sigma);
     struct sh_blur_look look = {
-        .sigma = blur->radius / 2.0 * width / box.width, // CSS's blur radius is two of them
+        .sigma = sigma / (1 << halvings),
         .noise = blur->noise,
         .brightness = blur->brightness,
         .saturation = blur->saturation,
     };
-    bool made = blurred && sh_blur_paint(pixels, width, height, &look, blurred) &&
-                upload(server, target, blurred);
-    free(pixels);
-    free(blurred);
+    struct wlr_buffer *target = make_buffer(server, wlr_output, width, height);
+    uint32_t *grid = NULL;
+    int columns = 0, rows = 0;
+    bool made = target && draw_background(server, target, box) &&
+                read_grid(server, wlr_output, target, halvings, &grid, &columns, &rows) &&
+                sh_blur_grid(grid, columns, rows, &look) &&
+                finish(server, target, grid, columns, rows, look.noise);
+    free(grid);
     if (!made) {
         wlr_log(WLR_ERROR, "Cannot blur the background of %s", wlr_output->name);
         if (target)
