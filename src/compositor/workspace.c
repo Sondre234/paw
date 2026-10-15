@@ -152,11 +152,52 @@ static struct sh_swipe_edge past_end(struct sh_server *server, struct wlr_output
     return sh_swipe_past_end(pull, box.width * server_settings(server)->animation_slide, box.width);
 }
 
-/* Windows that come and go with a workspace, not sticky ones, which stay. */
+/* Windows that come and go with a workspace: not sticky ones, which stay, nor one moved with the
+ * pointer, which stays under it (carry_grabbed). */
 static bool slides(struct sh_server *server, struct sh_toplevel *toplevel,
                    struct wlr_output *output) {
     return toplevel->shown && toplevel_mapped(toplevel) && !toplevel->sticky &&
-           !strcmp(toplevel->output, output->name) && server->running;
+           toplevel != server->grabbed_toplevel && !strcmp(toplevel->output, output->name) &&
+           server->running;
+}
+
+/* `output` is to show another workspace: a grab of a window there other than a move ends, the
+ * window being about to go. */
+static void end_grab_on(struct sh_server *server, struct wlr_output *output) {
+    struct sh_toplevel *toplevel = server->grabbed_toplevel;
+    if (toplevel && find_output(server, toplevel->output) == output &&
+        (server->cursor_mode != SH_CURSOR_MOVE || server->grab_fullscreen))
+        reset_cursor_mode(server);
+}
+
+/* `output` shows `workspace` next: a window moved with the pointer there comes along, still
+ * moved, as a window dragged onto another monitor joins its workspace. A tile's place in the
+ * tiling it leaves closes, and it takes one in the tiling there (or tiles there as it is
+ * dropped) as a tile does; a window that floated only because its workspace did not tile tiles
+ * too. Returns whether one came. */
+static bool carry_grabbed(struct sh_server *server, struct wlr_output *output, int workspace) {
+    struct sh_toplevel *toplevel = server->grabbed_toplevel;
+    if (!toplevel || find_output(server, toplevel->output) != output ||
+        server->cursor_mode != SH_CURSOR_MOVE || server->grab_fullscreen)
+        return false;
+    if (toplevel->sticky)
+        return true; // it shows on every workspace anyway
+    tile_drop_end(server);
+    toplevel->scratchpad = false; // it belongs to that workspace now, as move_to_workspace has it
+    toplevel->workspace = workspace;
+    group_follow(toplevel);
+    if (wants_tiling(toplevel, output))
+        server->grab_retile = true;
+    wlr_log(WLR_INFO, "Moved window carried to workspace %d", workspace + 1);
+    return true;
+}
+
+/* After carry_grabbed and the switch: the move goes on in the workspace shown now, the window
+ * still under the pointer and a tile looking for its place in that workspace's tiling. */
+static void carry_on(struct sh_server *server) {
+    if (server->grabbed_toplevel && server->cursor_mode == SH_CURSOR_MOVE)
+        process_cursor_move(server);
+    notify_subscribers(server);
 }
 
 /* Before the switch: copies of the visible windows slide away in `direction` (-1 is left). */
@@ -189,8 +230,8 @@ void switch_workspace(struct sh_server *server, struct wlr_output *output, int w
     if (!output || workspace < 0 || workspace >= count ||
         workspace == *output_workspace(server, output->name))
         return;
-    if (server->grabbed_toplevel)
-        reset_cursor_mode(server);
+    end_grab_on(server, output);
+    bool carried = carry_grabbed(server, output, workspace);
     struct sh_toplevel *focused = server->focused_toplevel;
     bool refocus = !focused || find_output(server, focused->output) == output;
     if (refocus)
@@ -203,6 +244,8 @@ void switch_workspace(struct sh_server *server, struct wlr_output *output, int w
         focus_top_on(server, output);
         set_active_output(server, output->name);
     }
+    if (carried)
+        carry_on(server);
 }
 
 /* A step toward `way` (1 for the next workspace, -1 the previous) with nowhere to go: `output`'s
@@ -505,6 +548,12 @@ void move_to_workspace_beside(struct sh_server *server, int way) {
     }
     if (workspace < 0)
         return;
+    // Moved with the pointer, it comes along as the workspace switches, still moved.
+    if (toplevel == server->grabbed_toplevel && server->cursor_mode == SH_CURSOR_MOVE &&
+        !server->grab_fullscreen) {
+        switch_workspace(server, output, workspace);
+        return;
+    }
     // Unfocused first, so that neither workspace's other windows take the focus on the way.
     if (server->focused_toplevel == toplevel)
         deactivate_toplevel(server);

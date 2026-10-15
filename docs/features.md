@@ -1355,6 +1355,14 @@ It is off by default.
 workspace, wrapping around from the last to the first and back. Super and the wheel anywhere on a
 monitor do the same for that monitor, up to the next workspace and down to the previous one (see
 [Mouse button bindings](#mouse-button-bindings)).
+
+A window being moved with the pointer comes along when its monitor switches workspace, as on
+Hyprland: Super and the wheel, a key or a click on the panel's workspaces show the other
+workspace with the window still under the pointer and still moved, and dropped
+it stays there. A tile's place in the tiling it left closes, and it tiles on the new workspace
+as it would on another monitor; a window floating on purpose floats there. A change of size with
+the pointer ends instead.
+
 `move_to_workspace_prev` and `move_to_workspace_next` (Super + Ctrl + Alt + Left / Right) take the
 focused window along to the previous or next workspace of its monitor, wrapping around the same
 way, and `move_to_workspace_empty` to the first workspace there with no windows on it, as
@@ -1468,14 +1476,16 @@ from the edges instead, so a single window on a wide monitor need not fill it: o
   pointer is if the tiles have not moved yet; dropped back on its own place, it is as it was.
   Over another monitor that tiles the place opens there; taken to a monitor that does not tile,
   or to the top edge, which maximizes it, the place closes and the tiles fill it again, as they
-  do when the move is cut short (switching workspace, locking), the window floating then where
-  it is. In the master, spiral and monocle layouts the place opens at the end of the list, and
-  dropping a tile where it was lifted from keeps its place there too. The scrolling layout keeps
-  no place: its tile leaves the strip as it is lifted, and a drop gives it a column of its own,
-  at the end of the strip on its own monitor and right of the focused column on another. A
-  window dropped on another monitor that tiles joins the tiling there even if snapping or
-  maximizing, or its old monitor not tiling, had floated it; one floated with Super + V stays
-  floating. A tile dropped on a monitor that does not tile floats there.
+  do when the move is cut short (locking, or the window sent to another workspace), the window
+  floating then where it is. Its monitor switching workspace meanwhile takes it along, still
+  moved: its place closes, and one opens in the tiling of the workspace shown (see
+  [Workspaces](#workspaces)). In the master, spiral and monocle layouts the place opens at the
+  end of the list, and dropping a tile where it was lifted from keeps its place there too. The
+  scrolling layout keeps no place: its tile leaves the strip as it is lifted, and a drop gives
+  it a column of its own, at the end of the strip on its own monitor and right of the focused
+  column on another. A window dropped on another monitor that tiles joins the tiling there even
+  if snapping or maximizing, or its old monitor not tiling, had floated it; one floated with
+  Super + V stays floating. A tile dropped on a monitor that does not tile floats there.
 - Dialogs and fixed-size windows float. Super + V (`toggle_floating`) floats
   or tiles the focused window; snapping or maximizing a tile also floats it. A window
   opening into the tiling of a workspace, or restored into it from minimized, brings the
