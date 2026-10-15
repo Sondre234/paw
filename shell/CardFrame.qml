@@ -6,8 +6,8 @@ import Paw
 // A card's frame, filling its parent beneath what the card holds: its shadow, drawn through the
 // GPU (Theme.effects) while `shadow`, then its surface in `color` with `radius` corners and its
 // `outline`, and with `innerEdge` the macOS style's light line inside that (Theme.popupInnerEdge).
-// With the frosted glass (shell.blur) the surface is laid translucent (Theme.glassOpacity) over
-// the wallpaper behind it, blurred, unless `glass` is cleared.
+// With the frosted glass (shell.blur) the surface is laid translucent (Theme.onGlass) over the
+// wallpaper behind it, blurred, unless `glass` is cleared.
 Item {
     id: frame
     property real radius: Theme.radiusLarge
@@ -41,7 +41,7 @@ Item {
         objectName: "cardSurface"
         anchors.fill: parent
         radius: frame.radius
-        color: frame.glassy ? Theme.alpha(frame.color, Theme.glassOpacity) : frame.color
+        color: frame.glassy ? Theme.onGlass(frame.color) : frame.color
         border.color: frame.outline
         border.width: frame.outlineWidth
         // On the glass, a sheen down from its top edge, as light falling on a pane.

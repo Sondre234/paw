@@ -1450,8 +1450,8 @@ inset half a pixel, under the antialiased edge of what is drawn over it, as its 
 antialiased. It draws only through the GPU; Qt's software renderer draws nothing of it, and
 `active` stays false, so that what is over it stays opaque. `active` says the glass shows: the
 glass is on, the shell draws through the GPU (`effects`) and its output has a picture; a surface
-over it reads it to be translucent (`Theme.glassOpacity`: the bar's alpha, but at least
-`Theme.glassFloor`, 0.75). `pending` says a new picture is on its way, which `Restyle` waits for
+over it reads it to be translucent (`Theme.onGlass`: its colour no more opaque than
+`Theme.glassOpacity`, the bar's alpha but at least `Theme.glassFloor`, 0.75). `pending` says a new picture is on its way, which `Restyle` waits for
 as for a picture loading.
 
 `CardFrame` puts one under every card, `GlassFill` under a card drawn by hand, and the bars put one

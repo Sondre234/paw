@@ -285,6 +285,9 @@ QtObject {
     readonly property color switcherSurface: macos ? alpha(popupSurface, 0.88) : surface
     readonly property color switcherSelection: macos ? alpha(text, 0.16) : accentSubtle
 
+    // `color`, a card's, laid over the glass: no more opaque than glassOpacity, and a colour more
+    // translucent than that (the macOS style's switcher's) as it is.
+    function onGlass(color) { return Qt.rgba(color.r, color.g, color.b, Math.min(color.a, glassOpacity)) }
     // `milliseconds` at the animation speed, 0 with animations off.
     function duration(milliseconds) { return Math.round(milliseconds * motionScale) }
     function alpha(color, opacity) { return Qt.rgba(color.r, color.g, color.b, color.a * opacity) }
