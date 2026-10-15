@@ -274,18 +274,21 @@ int main(int argc, char **argv) {
             rejects("return {layout={master_ratio=1}}");
             rejects("return {layout={master_count=0}}");
             require(defaults.scroll_follow == SH_SCROLL_FOLLOW_CENTER &&
-                        defaults.scroll_width == 0.5F && defaults.scroll_preset_count == 4,
+                        defaults.scroll_width == 0.5F && defaults.scroll_preset_count == 4 &&
+                        defaults.scroll_fill_lone,
                     "scroll defaults wrong");
             auto scroll = paw::parse_config(
                 "return {layout={tile_layout='scroll',scroll={follow='never',width=0.4,step=0.05,"
-                "presets={0.25,0.5}}}}");
+                "presets={0.25,0.5},fill_lone=false}}}");
             require(scroll.settings.tile_layout == SH_LAYOUT_SCROLL &&
                         scroll.settings.scroll_follow == SH_SCROLL_FOLLOW_NEVER &&
                         scroll.settings.scroll_width == 0.4F &&
                         scroll.settings.scroll_step == 0.05F &&
                         scroll.settings.scroll_preset_count == 2 &&
-                        scroll.settings.scroll_presets[1] == 0.5F,
+                        scroll.settings.scroll_presets[1] == 0.5F &&
+                        !scroll.settings.scroll_fill_lone,
                     "scroll settings not parsed");
+            rejects("return {layout={scroll={fill_lone=1}}}");
             auto per_output = paw::parse_config(
                 "return {layout={outputs={['DP-1']={tile_layout='scroll',master_ratio=0.6},"
                 "['desc:Dell']={master_count=3}}}}");

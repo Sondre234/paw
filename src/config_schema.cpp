@@ -188,6 +188,9 @@ const Option options[] = {
     {"layout.scroll.presets", "list of numbers", "{ 1/3, 1/2, 2/3, 1 }",
      "{ 0.4, 0.6, 1.0 }", none, none,
      "Widths `column_cycle_width` steps through, each 0.1 to 1; at most 8."},
+    {"layout.scroll.fill_lone", "boolean", "true", "false", none, none,
+     "A column alone on its workspace fills the screen, and takes its width back when another "
+     "joins it; `false` keeps it at its width. A width set by hand stays either way."},
 
     {"outputs", "table", "", "", none, none, "Monitor arrangement."},
     {"outputs.order", "list of strings", "unset", "{ \"DP-1\", \"DP-2\" }", none, none,

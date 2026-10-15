@@ -417,6 +417,7 @@ struct sh_settings {
     float scroll_step;   /* what column_widen and column_narrow add or remove */
     float scroll_presets[8]; /* the widths column_cycle_width steps through */
     int scroll_preset_count;
+    bool scroll_fill_lone; /* a column alone on its workspace fills the view */
     int workspaces;
     /* Outputs named here sit left to right in this order; others follow as they appear.
      * The primary output (or the leftmost, if unnamed) sits at the layout origin. */
