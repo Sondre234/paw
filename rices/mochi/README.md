@@ -8,6 +8,8 @@ A rice for [paw](../../README.md): [Catppuccin Mocha](https://github.com/catppuc
 under frosted glass, with a round, cream-white cat as soft as the rice cake it is named after.
 Catppuccin is cat plus cappuccino; mochi is the nod to Mocha.
 
+![mochi](screenshots/mochi.jpg)
+
 </div>
 
 ## The look
@@ -21,7 +23,20 @@ Catppuccin colours it, keywords mauve, strings green, functions blue, types yell
 peach. The contrast stays gentle, the corners round, the shadows soft, and the cat turns up
 where it can: in fastfetch, on the Firefox start page, on the start button, in the tab bar.
 
-<!-- screenshots -->
+| | |
+| --- | --- |
+| ![frosted glass over yozakura](screenshots/mochi-glass.jpg) | ![the start menu](screenshots/mochi-start-menu.jpg) |
+| The glass over another wallpaper: the sakura blurred behind kitty | The start menu on glass, with the Mochi icons |
+| ![Firefox and the start page](screenshots/mochi-firefox.jpg) | ![the command palette](screenshots/mochi-palette.jpg) |
+| Firefox and its start page, the cat on the search card | The command palette, frosted |
+| ![the overview](screenshots/mochi-overview.jpg) | ![Alt + Tab](screenshots/mochi-alt-tab.jpg) |
+| The overview | Alt + Tab with live pictures of the windows |
+
+![the wallpapers](screenshots/wallpapers.jpg)
+
+![the Mochi icons](screenshots/icons.png)
+
+![the palette](screenshots/palette.png)
 
 ## What is in it
 
@@ -116,10 +131,11 @@ Discord, turn on one of the two themes.
 
 ## What paw does for it
 
-- **Blur behind translucent windows**: kitty, the editors in it, Firefox's toolbars and Discord
-  with transparency let the wallpaper through, and paw blurs it so it reads as frosted glass.
-- **`shell.frame = "windows"`** frames the bar and every popup as the windows are, with their
-  border and their soft shadow.
+- **`windows.blur`**, the wallpaper blurred behind windows: kitty, the editors in it, Firefox's
+  toolbars and Discord with transparency let it through, frosted, a little darker and more vivid
+  so the text on them stays clear.
+- **`shell.blur`**, frosted glass for the bar and every popup: the start menu, Quick Settings,
+  the calendar, notifications, the command palette and Alt + Tab, each with a faint light edge.
 - **Gradient borders**, mauve melting into pink on the focused window, rounded with it.
 - **`shell.start_icon`** puts the cat on the start button.
 - **`appearance.color_scheme = "dark"`** takes GTK, Firefox and Discord into their dark styles
