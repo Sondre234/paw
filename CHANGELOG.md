@@ -51,6 +51,14 @@ shadows.
   are found there, its profiles' too.
 - `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
   the accent colour, named as `shell.wallpaper` is.
+- `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu
+  bar and dock, and the popups, menus, cards, tooltips and overlays show the wallpaper behind them
+  blurred under their colour, the popups as translucent as the bar but at least 75 % opaque so
+  that their text reads, with a faint light edge and a sheen from the top, and Launchpad over the
+  wallpaper blurred as on macOS. It is the wallpaper as each monitor's desktop draws it, blurred
+  once each time it changes (`radius`, `brightness`, `saturation`) and shared by every surface
+  there, not the windows behind, as Hyprland's xray. Appearance profiles turn it on and off, and
+  the software renderer leaves it out.
 - The overview takes the profile's colours: dark shades of the background's hue behind the
   thumbnails, and the focused border's colour around the window and workspace picked, where
   every profile had blue on blue-black.
