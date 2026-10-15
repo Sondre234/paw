@@ -469,9 +469,8 @@ void move_to_workspace(struct sh_server *server, int workspace) {
     move_toplevel_to_workspace(server, current_toplevel(server), workspace);
 }
 
-/* The workspaces of `output` that hold windows, as "1,3", or "-" for none. */
-void occupied_workspaces(struct sh_server *server, struct wlr_output *output, char *text,
-                         size_t size) {
+/* The workspaces of `output` that hold windows, a bit each. */
+static unsigned used_workspaces(struct sh_server *server, struct wlr_output *output) {
     unsigned used = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
@@ -480,6 +479,45 @@ void occupied_workspaces(struct sh_server *server, struct wlr_output *output, ch
         if (!strcmp(toplevel->output, output->name) && toplevel->workspace < 32)
             used |= 1u << toplevel->workspace;
     }
+    return used;
+}
+
+/* move_to_workspace_next and _prev (`way` 1 or -1) and _empty (`way` 0): the focused window
+ * moves to the workspace beside its own, wrapping around, or to the first of its output with no
+ * windows, and the output shows it there, as Hyprland's movetoworkspace does. */
+void move_to_workspace_beside(struct sh_server *server, int way) {
+    struct sh_toplevel *toplevel = current_toplevel(server);
+    struct wlr_output *output = toplevel ? find_output(server, toplevel->output) : NULL;
+    if (!output)
+        return;
+    int count = server_settings(server)->workspaces, workspace = -1;
+    if (way && count <= 1) {
+        workspace_nudge(server, output, way); // nowhere to go, as workspace_next says
+        return;
+    }
+    if (way)
+        workspace = (toplevel->workspace + count + way) % count;
+    else {
+        unsigned used = used_workspaces(server, output);
+        for (int i = 0; i < count && workspace < 0; ++i)
+            if (!(used & 1u << i))
+                workspace = i;
+    }
+    if (workspace < 0)
+        return;
+    // Unfocused first, so that neither workspace's other windows take the focus on the way.
+    if (server->focused_toplevel == toplevel)
+        deactivate_toplevel(server);
+    move_toplevel_to_workspace(server, toplevel, workspace);
+    switch_workspace(server, output, workspace);
+    if (server->focused_toplevel != toplevel)
+        focus_toplevel(toplevel);
+}
+
+/* The workspaces of `output` that hold windows, as "1,3", or "-" for none. */
+void occupied_workspaces(struct sh_server *server, struct wlr_output *output, char *text,
+                         size_t size) {
+    unsigned used = used_workspaces(server, output);
     size_t length = 0;
     text[0] = '\0';
     for (int i = 0; i < 32 && length < size; ++i) {

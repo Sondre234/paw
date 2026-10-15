@@ -237,6 +237,12 @@ enum sh_action {
     /* The pointer heatmap over every output: where the pointer rested or clicked (enum
      * sh_heatmap_choice), or forgetting it all. */
     SH_HEATMAP,
+    /* The focused window moves to the next or the previous workspace of its output, wrapping
+     * around as workspace_next and workspace_prev do, or to the first one with no windows on
+     * it (nothing happens without one); the output shows it there. */
+    SH_MOVE_TO_WORKSPACE_NEXT,
+    SH_MOVE_TO_WORKSPACE_PREV,
+    SH_MOVE_TO_WORKSPACE_EMPTY,
 };
 
 /* The cat action's choices: show it or hide it, whichever it is not, or say which. */

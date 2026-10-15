@@ -588,6 +588,9 @@ static bool action_targets_window(enum sh_action action) {
     case SH_GROUP_PREV:
     case SH_UNGROUP:
     case SH_MOVE_TO_WORKSPACE:
+    case SH_MOVE_TO_WORKSPACE_NEXT:
+    case SH_MOVE_TO_WORKSPACE_PREV:
+    case SH_MOVE_TO_WORKSPACE_EMPTY:
     case SH_SNAP_LEFT:
     case SH_SNAP_RIGHT:
     case SH_SNAP_TOP_LEFT:

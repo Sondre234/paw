@@ -277,6 +277,13 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_MOVE_TO_WORKSPACE:
         move_to_workspace(server, argument - 1);
         break;
+    case SH_MOVE_TO_WORKSPACE_NEXT:
+    case SH_MOVE_TO_WORKSPACE_PREV:
+    case SH_MOVE_TO_WORKSPACE_EMPTY:
+        move_to_workspace_beside(server, action == SH_MOVE_TO_WORKSPACE_NEXT   ? 1
+                                         : action == SH_MOVE_TO_WORKSPACE_PREV ? -1
+                                                                               : 0);
+        break;
     case SH_WORKSPACE_NEXT:
     case SH_WORKSPACE_PREV: {
         struct wlr_output *output = focused_output(server);

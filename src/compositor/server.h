@@ -1807,6 +1807,7 @@ void set_sticky(struct sh_toplevel *toplevel, bool sticky, bool retile);
 void move_toplevel_to_workspace(struct sh_server *server, struct sh_toplevel *toplevel,
                                 int workspace);
 void move_to_workspace(struct sh_server *server, int workspace);
+void move_to_workspace_beside(struct sh_server *server, int way);
 void occupied_workspaces(struct sh_server *server, struct wlr_output *output, char *text,
                          size_t size);
 int focused_workspace(struct sh_server *server);

@@ -1353,6 +1353,12 @@ It is off by default.
 
 `workspace_prev` and `workspace_next` (Super + Ctrl + Left / Right) step to the previous and next
 workspace, wrapping around from the last to the first and back.
+`move_to_workspace_prev` and `move_to_workspace_next` (Super + Ctrl + Alt + Left / Right) take the
+focused window along to the previous or next workspace of its monitor, wrapping around the same
+way, and `move_to_workspace_empty` to the first workspace there with no windows on it, as
+Hyprland's `movetoworkspace, r+1` and `movetoworkspace, empty` do; nothing happens when every
+workspace holds some. Unlike `move_to_workspace`, which leaves the view where it is, the monitor
+switches to the workspace the window went to, and it keeps the focus there.
 
 Where there is nowhere further to go, the windows say so rather than stop dead. Past the first or
 the last workspace a touchpad swipe stretches them like a rubber band (see [Touchpad
