@@ -6777,6 +6777,71 @@ ListModel {
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
     }
+    // Frosted glass (shell.blur): off by default. A profile with it on turns it on as it is
+    // picked: once its output's wallpaper is blurred, the bar's glass shows it, and a popup's
+    // card over its own is as translucent as the bar but no less than 75 % opaque, the blocks on
+    // it veils of the text colour. Drawn in software, and once a profile without it is picked,
+    // everything is as it was.
+    {
+        auto *theme = view.engine()->singletonInstance<QObject *>("PawShell", "Theme");
+        auto *barGlass = find(view.rootObject(), "barGlass");
+        const QString screen = view.screen()->name();
+        QImage wall(320, 200, QImage::Format_RGB32);
+        wall.fill(QColor("#3355aa"));
+        auto shows = [](QQuickItem *glass) {
+            return glass && glass->isVisible() && glass->property("active").toBool();
+        };
+        controller.setEffects(true);
+        controller.glass()->setWallpaper(screen, wall, ShellView::previewSize(), true);
+        if (!barGlass || controller.blur() || barGlass->isVisible() || shows(barGlass) ||
+            !controller.glass()->picture(screen).image.isNull())
+            return fail("the frosted glass is on by default");
+        const auto profileBefore = controller.profile();
+        if (!reconfigure(QString(lua).replace(
+                "light={shell={accent='#336699'}}",
+                "light={shell={accent='#336699',panel_color='#1e1e2eb3',"
+                "blur={enabled=true,radius=12}}}")))
+            return fail("could not rewrite the configuration");
+        pickProfile("light");
+        if (!waitFor([&] { return controller.blur() && barGlass->isVisible(); }))
+            return fail("a profile with the glass did not turn it on");
+        // No desktop here to take the wallpaper from: it is handed over as a preview's is,
+        // blurred on a thread meanwhile.
+        controller.glass()->setWallpaper(screen, wall, ShellView::previewSize());
+        if (!controller.glass()->pending(screen) || !waitFor([&] { return shows(barGlass); }) ||
+            controller.glass()->pending(screen))
+            return fail("the bar's glass did not show its output's blurred wallpaper");
+        const auto picture = controller.glass()->picture(screen);
+        if (picture.size != QSizeF(ShellView::previewSize()) ||
+            picture.image.width() >= ShellView::previewSize().width() ||
+            QColor(picture.image.pixel(5, 5)) != QColor("#3355aa"))
+            return fail("the glass's picture is not the wallpaper blurred, smaller than the output");
+        view.rootObject()->setProperty("launcherOpen", true);
+        QQuickItem *cardGlass = nullptr, *cardSurface = nullptr;
+        auto surfaceAlpha = [&] { return cardSurface->property("color").value<QColor>().alpha(); };
+        if (!waitFor([&] {
+                auto *launcher = find(view.rootObject(), "launcher");
+                cardGlass = launcher ? find(launcher, "cardGlass") : nullptr;
+                cardSurface = launcher ? find(launcher, "cardSurface") : nullptr;
+                return shows(cardGlass) && cardSurface && surfaceAlpha() == 191;
+            }) ||
+            theme->property("surfaceRaised").value<QColor>().alpha() != 13)
+            return fail("the launcher's card is not translucent on the glass");
+        controller.setEffects(false);
+        if (!waitFor([&] { return !shows(cardGlass) && surfaceAlpha() == 255; }) ||
+            theme->property("surfaceRaised").value<QColor>().alpha() != 255)
+            return fail("drawn in software, the launcher's card stayed translucent");
+        controller.setEffects(true);
+        view.rootObject()->setProperty("launcherOpen", false);
+        pickProfile(profileBefore);
+        if (!waitFor([&] { return !controller.blur() && !barGlass->isVisible() && !shows(barGlass); }) ||
+            !controller.glass()->picture(screen).image.isNull())
+            return fail("a profile without the glass did not turn it off");
+        controller.setEffects(false);
+        // Nothing moves until the profile's look is drawn, which what comes next waits for.
+        if (!reconfigure(lua) || !waitFor([&] { return !controller.restyling(); }))
+            return fail("could not restore the configuration");
+    }
     // Launchpad, the macOS style's launcher: it opens over the whole output with the keyboard in
     // its search; the arrows move its highlight and page past a page's edge, Page Down and Up,
     // the wheel and the dots page; typing filters the grid, Enter launches the best match; Escape

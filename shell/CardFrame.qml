@@ -38,6 +38,7 @@ Item {
         radius: frame.radius
     }
     Rectangle {
+        objectName: "cardSurface"
         anchors.fill: parent
         radius: frame.radius
         color: frame.glassy ? Theme.alpha(frame.color, Theme.glassOpacity) : frame.color
