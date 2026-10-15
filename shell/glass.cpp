@@ -203,9 +203,9 @@ class GlassNode : public QSGGeometryNode {
     // `rect` in the item's coordinates, with corners `radius` round, `toOutput` mapping it onto
     // the output, which the picture covers `output` of.
     void shape(QRectF rect, qreal radius, const QTransform &toOutput, QSizeF output) {
-        // Half a pixel in, under the antialiased edge of what is drawn over it, which the glass's
-        // own hard edge would otherwise show past.
-        constexpr qreal inset = 0.5;
+        // Rounded, half a pixel in, under the antialiased edge of what is drawn over it, which
+        // the glass's own hard edge would otherwise show past at the corners; square, to the edge.
+        const qreal inset = radius > 0 ? 0.5 : 0;
         rect.adjust(inset, inset, -inset, -inset);
         radius = std::clamp(radius - inset, 0.0, std::min(rect.width(), rect.height()) / 2);
         // A point every two pixels or so along each corner's arc.
