@@ -47,6 +47,7 @@ enum sh_anim_kind {
     SH_ANIM_FULLSCREEN, /* a window enters or leaves fullscreen */
     SH_ANIM_FOCUS,      /* border and opacity change with focus */
     SH_ANIM_MINIMIZE,   /* a window shrinks into its taskbar button, or grows out of it */
+    SH_ANIM_CUBE,       /* the scrolling layout's view turns as a cube (layout.scroll.cube) */
     SH_ANIM_KINDS
 };
 

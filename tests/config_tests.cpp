@@ -275,20 +275,21 @@ int main(int argc, char **argv) {
             rejects("return {layout={master_count=0}}");
             require(defaults.scroll_follow == SH_SCROLL_FOLLOW_CENTER &&
                         defaults.scroll_width == 0.5F && defaults.scroll_preset_count == 4 &&
-                        defaults.scroll_fill_lone,
+                        defaults.scroll_fill_lone && !defaults.scroll_cube,
                     "scroll defaults wrong");
             auto scroll = paw::parse_config(
                 "return {layout={tile_layout='scroll',scroll={follow='never',width=0.4,step=0.05,"
-                "presets={0.25,0.5},fill_lone=false}}}");
+                "presets={0.25,0.5},fill_lone=false,cube=true}}}");
             require(scroll.settings.tile_layout == SH_LAYOUT_SCROLL &&
                         scroll.settings.scroll_follow == SH_SCROLL_FOLLOW_NEVER &&
                         scroll.settings.scroll_width == 0.4F &&
                         scroll.settings.scroll_step == 0.05F &&
                         scroll.settings.scroll_preset_count == 2 &&
                         scroll.settings.scroll_presets[1] == 0.5F &&
-                        !scroll.settings.scroll_fill_lone,
+                        !scroll.settings.scroll_fill_lone && scroll.settings.scroll_cube,
                     "scroll settings not parsed");
             rejects("return {layout={scroll={fill_lone=1}}}");
+            rejects("return {layout={scroll={cube='yes'}}}");
             auto per_output = paw::parse_config(
                 "return {layout={outputs={['DP-1']={tile_layout='scroll',master_ratio=0.6},"
                 "['desc:Dell']={master_count=3}}}}");
@@ -557,11 +558,13 @@ int main(int argc, char **argv) {
                 "an empty mouse.middle_drag should turn it off");
         rejects("return {mouse={middle_drag='kitty'}}");
         // Every kind of animation lasts animations.duration unless it has its own, but for
-        // minimizing, which takes two and a half times as long.
+        // minimizing and the scrolling layout's cube, which take two and a half times as long.
         auto lasting = [](const sh_settings &settings, int duration) {
             for (int kind = 0; kind < SH_ANIM_KINDS; ++kind)
                 if (settings.animation_styles[kind].duration !=
-                    (kind == SH_ANIM_MINIMIZE ? std::min(1000, duration * 5 / 2) : duration))
+                    (kind == SH_ANIM_MINIMIZE || kind == SH_ANIM_CUBE
+                         ? std::min(1000, duration * 5 / 2)
+                         : duration))
                     return false;
             return true;
         };
@@ -672,6 +675,18 @@ int main(int argc, char **argv) {
                             .settings.animation_styles[SH_ANIM_MINIMIZE]
                             .curve.kind == SH_CURVE_SPRING,
                     "minimizing takes a curve of its own");
+            const auto &cube = s.animation_styles[SH_ANIM_CUBE];
+            require(cube.duration == 300 && cube.curve.kind == SH_CURVE_EASE_OUT,
+                    "the cube turns for 300 ms, easing out, by default");
+            auto turned = paw::parse_config(
+                "return {animations={duration=100, cube={duration=450, curve='ease-in-out'}}}")
+                              .settings.animation_styles[SH_ANIM_CUBE];
+            require(turned.duration == 450 && turned.curve.kind == SH_CURVE_EASE_IN_OUT,
+                    "the cube takes a duration and curve of its own");
+            require(paw::parse_config("return {animations={duration=80}}")
+                            .settings.animation_styles[SH_ANIM_CUBE]
+                            .duration == 200,
+                    "the cube lasts two and a half times the base duration");
         }
         rejects("return {animations=true}");
         rejects("return {mouse={speed=2}}");

@@ -715,7 +715,7 @@ double number(lua_State *L, const char *key, double fallback, double min, double
 // animations.<kind> names, in enum sh_anim_kind order.
 constexpr const char *animation_kinds[SH_ANIM_KINDS] = {"open",      "close",      "move",
                                                         "workspace", "fullscreen", "focus",
-                                                        "minimize"};
+                                                        "minimize",  "cube"};
 void read_curve(lua_State *L, const char *key, const std::string &label, sh_curve &target,
                 bool &given) {
     if (auto name = text(L, key, label.c_str())) {
@@ -741,8 +741,10 @@ void read_animations(lua_State *L, sh_settings &settings) {
         if (curved)
             style.curve = curve;
     }
-    // A window travels to its taskbar button and back, further than the others go.
+    // A window travels to its taskbar button and back, further than the others go, and the
+    // scrolling layout's cube turns a quarter, which takes a moment to see.
     settings.animation_styles[SH_ANIM_MINIMIZE].duration = std::min(1000, base * 5 / 2);
+    settings.animation_styles[SH_ANIM_CUBE].duration = std::min(1000, base * 5 / 2);
     for (int kind = 0; kind < SH_ANIM_KINDS; ++kind) {
         std::string path = std::string("animations.") + animation_kinds[kind];
         Section in(L, animation_kinds[kind], path.c_str());
@@ -766,6 +768,7 @@ void read_scroll(lua_State *L, sh_settings &settings) {
     settings.scroll_width = static_cast<float>(number(L, "width", settings.scroll_width, 0.1, 1));
     settings.scroll_step = static_cast<float>(number(L, "step", settings.scroll_step, 0.01, 0.5));
     boolean(L, "fill_lone", "layout.scroll.fill_lone", settings.scroll_fill_lone);
+    boolean(L, "cube", "layout.scroll.cube", settings.scroll_cube);
     lua_getfield(L, -1, "presets");
     if (!lua_isnil(L, -1)) {
         auto size = array_size(L, -1, std::size(settings.scroll_presets));
