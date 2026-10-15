@@ -94,7 +94,14 @@ Rectangle {
                     glassCapture.restart()
                 }
             }
-            onReadyChanged: if (ready && opacity === 0 && !fadeIn.running) fadeIn.start()
+            // A picture shown already that is read again (as the window learns its scale, on a
+            // monitor not at 1) is a new picture for the glass.
+            onReadyChanged: {
+                if (ready && opacity === 0 && !fadeIn.running)
+                    fadeIn.start()
+                else if (ready && !fadeIn.running)
+                    glassCapture.restart()
+            }
             Component.onCompleted: if (ready) fadeIn.start()
             // A failed load is never retried on its own: the picture is tried again with backoff,
             // as a layer of its own, while it is the one wanted.
