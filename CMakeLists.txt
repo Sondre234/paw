@@ -686,6 +686,10 @@ if(PAW_BUILD_COMPOSITOR)
             PASS_REGULAR_EXPRESSION "Configuration valid: .*example-config/init.lua")
         paw_smoke(workspaces SCRIPT workspace_smoke.py $<TARGET_FILE:paw>
             $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(workspace_carry_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            ${EXAMPLE_CONFIG})
+        paw_smoke(workspace_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(control_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(swallow_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
@@ -843,6 +847,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(zoom_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(zoom_output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(wheel_binding_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
+            $<TARGET_FILE:pointer_probe> ${EXAMPLE_CONFIG})
         paw_smoke(example_snippets TIMEOUT 120 $<TARGET_FILE:paw>
             ${CMAKE_CURRENT_SOURCE_DIR}/config/init.lua)
         set(LOCK_XML ${PROTOCOL_DIR}/staging/ext-session-lock/ext-session-lock-v1.xml)

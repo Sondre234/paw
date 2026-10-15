@@ -394,6 +394,11 @@ return {
         -- reaches the application, so a browser keeps its own back and forward:
         -- { button = "side", app_id = "^kitty$", desktop = true, action = "close" },
         -- { button = "extra", app_id = "^kitty$", desktop = true, action = "terminal" },
+        -- The wheel binds as wheel_up and wheel_down, once a notch, and the window under the
+        -- pointer does not get it: Super + the wheel pages through the workspaces of the
+        -- monitor under the pointer (up to the next one).
+        { mods = { mod }, button = "wheel_up", action = "workspace_next" },
+        { mods = { mod }, button = "wheel_down", action = "workspace_prev" },
         { mods = { mod }, key = "q", action = "terminal" },
         { mods = { mod }, key = "r", action = "launcher" },
         { mods = { mod }, key = "c", action = "close" },
@@ -497,6 +502,10 @@ return {
         { mods = { mod, "Shift" }, key = "4", action = "move_to_workspace", workspace = 4 },
         { mods = { "Ctrl", mod }, key = "Right", action = "workspace_next" },
         { mods = { "Ctrl", mod }, key = "Left", action = "workspace_prev" },
+        -- Take the focused window along to the next or previous workspace (or with
+        -- move_to_workspace_empty to the first one with no windows); the view goes with it.
+        { mods = { "Ctrl", "Alt", mod }, key = "Right", action = "move_to_workspace_next" },
+        { mods = { "Ctrl", "Alt", mod }, key = "Left", action = "move_to_workspace_prev" },
         { mods = { mod }, key = "Tab", action = "workspace_back" }, -- the previous workspace
         -- Send the focused monitor's workspace, windows and layout to the monitor on the left or
         -- right (which then shows it); swap_workspaces trades all workspaces of two monitors.

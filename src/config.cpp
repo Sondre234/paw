@@ -332,11 +332,14 @@ uint32_t modifier(const std::string &name) {
     unknown("modifier", name, config_modifier_names(), "=" + name);
 }
 // Linux's names; most mice send side and extra from their back and forward thumb buttons
-// (Hyprland's mouse:275 and mouse:276).
+// (Hyprland's mouse:275 and mouse:276). The wheel's notches up and down count as buttons too
+// (Hyprland's mouse_up and mouse_down).
 uint32_t mouse_button(const std::string &name) {
     for (auto [candidate, code] :
-         {std::pair{"left", BTN_LEFT}, {"right", BTN_RIGHT}, {"middle", BTN_MIDDLE},
-          {"side", BTN_SIDE}, {"extra", BTN_EXTRA}, {"forward", BTN_FORWARD}, {"back", BTN_BACK}})
+         {std::pair<const char *, uint32_t>{"left", BTN_LEFT}, {"right", BTN_RIGHT},
+          {"middle", BTN_MIDDLE}, {"side", BTN_SIDE}, {"extra", BTN_EXTRA},
+          {"forward", BTN_FORWARD}, {"back", BTN_BACK}, {"wheel_up", SH_WHEEL_UP},
+          {"wheel_down", SH_WHEEL_DOWN}})
         if (name == candidate)
             return code;
     unknown("button", name, config_button_names(), "=" + name);
@@ -1970,6 +1973,9 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"fullscreen", SH_FULLSCREEN},
         {"workspace", SH_WORKSPACE},
         {"move_to_workspace", SH_MOVE_TO_WORKSPACE},
+        {"move_to_workspace_next", SH_MOVE_TO_WORKSPACE_NEXT},
+        {"move_to_workspace_prev", SH_MOVE_TO_WORKSPACE_PREV},
+        {"move_to_workspace_empty", SH_MOVE_TO_WORKSPACE_EMPTY},
         {"workspace_next", SH_WORKSPACE_NEXT},
         {"workspace_prev", SH_WORKSPACE_PREV},
         {"workspace_back", SH_WORKSPACE_BACK},

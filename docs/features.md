@@ -1352,7 +1352,23 @@ does the same, so pressing Super + 2 twice flips between workspace 2 and the one
 It is off by default.
 
 `workspace_prev` and `workspace_next` (Super + Ctrl + Left / Right) step to the previous and next
-workspace, wrapping around from the last to the first and back.
+workspace, wrapping around from the last to the first and back. Super and the wheel anywhere on a
+monitor do the same for that monitor, up to the next workspace and down to the previous one (see
+[Mouse button bindings](#mouse-button-bindings)).
+
+A window being moved with the pointer comes along when its monitor switches workspace, as on
+Hyprland: Super and the wheel, a key, a click on the panel's workspaces or a touchpad's swipe
+show the other workspace with the window still under the pointer and still moved, and dropped
+it stays there. A tile's place in the tiling it left closes, and it tiles on the new workspace
+as it would on another monitor; a window floating on purpose floats there. A change of size with
+the pointer ends instead.
+
+`move_to_workspace_prev` and `move_to_workspace_next` (Super + Ctrl + Alt + Left / Right) take the
+focused window along to the previous or next workspace of its monitor, wrapping around the same
+way, and `move_to_workspace_empty` to the first workspace there with no windows on it, as
+Hyprland's `movetoworkspace, r+1` and `movetoworkspace, empty` do; nothing happens when every
+workspace holds some. Unlike `move_to_workspace`, which leaves the view where it is, the monitor
+switches to the workspace the window went to, and it keeps the focus there.
 
 Where there is nowhere further to go, the windows say so rather than stop dead. Past the first or
 the last workspace a touchpad swipe stretches them like a rubber band (see [Touchpad
@@ -1460,15 +1476,17 @@ from the edges instead, so a single window on a wide monitor need not fill it: o
   pointer is if the tiles have not moved yet; dropped back on its own place, it is as it was.
   Over another monitor that tiles the place opens there; taken to a monitor that does not tile,
   or to the top edge, which maximizes it, the place closes and the tiles fill it again, as they
-  do when the move is cut short (switching workspace, locking), the window floating then where
-  it is. In the master, spiral and monocle layouts the place opens at the end of the list, and
-  dropping a tile where it was lifted from keeps its place there too. The scrolling layout keeps
-  no place: its tile leaves the strip as it is lifted, and a drop gives it a column of its own,
-  at the end of the strip on its own monitor and right of the focused column on another, or at
-  the start of the strip when dropped over the first column. A
-  window dropped on another monitor that tiles joins the tiling there even if snapping or
-  maximizing, or its old monitor not tiling, had floated it; one floated with Super + V stays
-  floating. A tile dropped on a monitor that does not tile floats there.
+  do when the move is cut short (locking, or the window sent to another workspace), the window
+  floating then where it is. Its monitor switching workspace meanwhile takes it along, still
+  moved: its place closes, and one opens in the tiling of the workspace shown (see
+  [Workspaces](#workspaces)). In the master, spiral and monocle layouts the place opens at the
+  end of the list, and dropping a tile where it was lifted from keeps its place there too. The
+  scrolling layout keeps no place: its tile leaves the strip as it is lifted, and a drop gives
+  it a column of its own, at the end of the strip on its own monitor and right of the focused
+  column on another, or at the start of the strip when dropped over the first column. A window
+  dropped on another monitor that tiles joins the tiling there even if snapping or maximizing,
+  or its old monitor not tiling, had floated it; one floated with Super + V stays floating. A
+  tile dropped on a monitor that does not tile floats there.
 - Dialogs and fixed-size windows float. Super + V (`toggle_floating`) floats
   or tiles the focused window; snapping or maximizing a tile also floats it. A window
   opening into the tiling of a workspace, or restored into it from minimized, brings the
@@ -1788,7 +1806,8 @@ colours go through the output's gamma table, the way `wlsunset` does it, and a c
 magnify the screen by `zoom.step` (1.25) per step up to `zoom.max` (8), easing over
 `zoom.duration` milliseconds. The view follows the pointer and keeps it over the point it clicks:
 the pointer moving across the screen pans across the whole desktop. With `zoom.scroll_modifier =
-"Super"`, Super plus the scroll wheel steps in and out. Only the output the pointer is on is
+"Super"`, Super plus the scroll wheel steps in and out, in place of switching workspaces (the
+modifier takes the wheel before any binding of it). Only the output the pointer is on is
 magnified, and outputs that are rotated stay at 1x. Screenshots and screen recordings of the
 output see the magnified picture. `paw msg get zoom` prints the level and its target in
 thousandths.
@@ -2232,6 +2251,23 @@ browsers keep their own back and forward:
 The first window to open within five seconds of a button binding's `spawn` or `terminal` opens centered on
 the click, kept inside the area the panels leave free, unless a window rule gives its
 `position` (`tests/spawn_at_pointer_smoke.py`). A tile still goes where the layout puts it.
+
+The wheel binds the same way, as Hyprland's `mouse_up` and `mouse_down`: `button = "wheel_up"`
+or `"wheel_down"` runs the action once for each notch the wheel turns that way, and the
+application under the pointer does not get the turn. A touchpad's scrolling and a
+high-resolution wheel add up to notches (15 units of a touchpad's scrolling make one), and
+`natural_scroll` turns the way around as it does for applications. A window action acts on the
+window under the pointer; any other on the monitor under it, focusing nothing, so that Super +
+the wheel pages through the workspaces of whichever monitor it is on. The default configuration
+binds that, Super + `wheel_up` to `workspace_next` and Super + `wheel_down` to `workspace_prev`,
+which wrap around past the last and the first workspace; `action = "none"` in a configuration
+of your own hands the wheel back to applications. With `zoom.scroll_modifier = "Super"` the
+wheel zooms instead, as that setting takes the wheel first.
+
+```lua
+{ mods = { "Super" }, button = "wheel_up", action = "workspace_next" },
+{ mods = { "Super" }, button = "wheel_down", action = "workspace_prev" },
+```
 
 ### Touchpad gestures
 

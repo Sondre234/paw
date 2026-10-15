@@ -479,8 +479,9 @@ const Option options[] = {
     {"zoom.duration", "integer", "150", "150", 0, 2000,
      "Milliseconds a zoom change takes; 0, or `animations.enabled = false`, switches at once."},
     {"zoom.scroll_modifier", "string", "\"\"", "\"Super\"", none, none,
-     "Holding this modifier turns the scroll wheel into zoom steps (up zooms in); \"\" leaves the "
-     "wheel alone. One of Alt, Super, Ctrl, Shift."},
+     "Holding this modifier turns the scroll wheel into zoom steps (up zooms in), before any "
+     "binding of the wheel with it (Super + wheel switches workspaces by default); \"\" leaves "
+     "the wheel alone. One of Alt, Super, Ctrl, Shift."},
 
     {"animations", "table", "", "", none, none, "Window and shell animations."},
     {"animations.enabled", "boolean", "true", "true", none, none,
@@ -592,8 +593,10 @@ const Option options[] = {
      "An XKB keysym name, e.g. `\"q\"`, `\"Left\"`, `\"Print\"`, `\"minus\"`. Not with `button` "
      "or `switch`."},
     {"bindings[].button", "enum", "", "", none, none,
-     "A mouse button: `left`, `right`, `middle`, `side`, `extra`, `forward`, `back`. Not "
-     "with `key`."},
+     "A mouse button: `left`, `right`, `middle`, `side`, `extra`, `forward`, `back`; or "
+     "`wheel_up`, `wheel_down`, the wheel turning that way, the binding running once a notch "
+     "(touchpads and high-resolution wheels adding up to notches), and the window not "
+     "getting it. Not with `key`."},
     {"bindings[].switch", "enum", "", "", none, none,
      "A switch: `\"lid\"`, a laptop's lid, or `\"tablet\"`, a convertible's tablet mode, which "
      "acts as `state` says it changes, as Hyprland's `bindl = , switch:...` does. Not with `key`, "
@@ -1150,7 +1153,7 @@ std::vector<const Option *> config_children(const std::string &parent) {
 
 std::vector<std::string> config_modifier_names() { return {"Alt", "Super", "Ctrl", "Shift"}; }
 std::vector<std::string> config_button_names() {
-    return {"left", "right", "middle", "side", "extra", "forward", "back"};
+    return {"left", "right", "middle", "side", "extra", "forward", "back", "wheel_up", "wheel_down"};
 }
 
 std::string closest_match(const std::string &word, const std::vector<std::string> &candidates) {

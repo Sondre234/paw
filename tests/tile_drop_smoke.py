@@ -140,13 +140,12 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
     release()
     wait_for(lambda: windows()["A"][:5] == (0, 0, 1280, 720, False), "A maximized")
 
-    # A drag cut short (switching workspace) closes its place too.
+    # A drag cut short (the window sent to another workspace) closes its place too.
     desktop.msg("toggle_floating")  # A tiles again; B and A share the monitor
     wait_for(lambda: windows()["A"][4] and windows()["B"][4], "both tiled")
     press("B")
-    desktop.msg("workspace", "2")
+    desktop.msg("move_to_workspace", "2")
     wait_for(lambda: not desktop.rows("snap")[0][6] == "1", "the move cut short")
-    desktop.msg("workspace", "1")
     wait_for(lambda: windows()["A"][:4] == (0, 0, 1280, 720), "A fills the place B left")
 
 # With animations, the tiles glide aside.

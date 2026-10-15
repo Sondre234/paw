@@ -455,6 +455,14 @@ shadows.
 - Screenshots leave the cursor out: paw hides it while grim takes the picture, where a monitor
   that draws the cursor into its frames (as with NVIDIA's driver here) put it in every
   screenshot. `paw msg get cursor` says whether it is hidden.
+- Getting around a monitor's workspaces as on Hyprland. `move_to_workspace_next` and
+  `move_to_workspace_prev` (Super + Ctrl + Alt + Right / Left) take the focused window to the
+  workspace beside its own, wrapping around, and `move_to_workspace_empty` to the first one with
+  no windows; the monitor shows it there. The wheel binds as `button = "wheel_up"` and
+  `"wheel_down"`, once a notch and kept from the window, and Super + the wheel pages through the
+  workspaces of the monitor under the pointer by default (`zoom.scroll_modifier = "Super"` still
+  zooms). A window being moved with the pointer comes along to the workspace its monitor switches
+  to, by key, wheel, panel or touchpad swipe, still moved, where the switch used to end the move.
 
 ### Starting and ending a session
 

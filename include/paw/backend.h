@@ -237,6 +237,12 @@ enum sh_action {
     /* The pointer heatmap over every output: where the pointer rested or clicked (enum
      * sh_heatmap_choice), or forgetting it all. */
     SH_HEATMAP,
+    /* The focused window moves to the next or the previous workspace of its output, wrapping
+     * around as workspace_next and workspace_prev do, or to the first one with no windows on
+     * it (nothing happens without one); the output shows it there. */
+    SH_MOVE_TO_WORKSPACE_NEXT,
+    SH_MOVE_TO_WORKSPACE_PREV,
+    SH_MOVE_TO_WORKSPACE_EMPTY,
 };
 
 /* The cat action's choices: show it or hide it, whichever it is not, or say which. */
@@ -577,6 +583,10 @@ enum sh_session_restore {
     SH_SESSION_RESTORE_LAUNCH,
 };
 
+/* The wheel as a binding's button (`button = "wheel_up"`): a notch turned up or down, codes past
+ * every Linux BTN_* code. */
+enum sh_wheel_button { SH_WHEEL_UP = 0x10000, SH_WHEEL_DOWN };
+
 /* What a mouse button was pressed over. */
 enum sh_pointer_target {
     SH_POINTER_WINDOW,
@@ -619,8 +629,9 @@ struct sh_callbacks {
     const struct sh_settings *(*settings)(void *);
     /* Returns the bound action; *argument receives its numeric argument, if any. */
     enum sh_action (*key)(void *, uint32_t modifiers, uint32_t keysym, int *argument);
-    /* The same for a pressed mouse button (a Linux BTN_* code) over `target`; `app_id` is the
-     * window's, or "". SH_NONE leaves the click to the application. */
+    /* The same for a pressed mouse button (a Linux BTN_* code) or a notch of the wheel
+     * (enum sh_wheel_button) over `target`; `app_id` is the window's, or "". SH_NONE leaves the
+     * click or the wheel to the application. */
     enum sh_action (*button)(void *, uint32_t modifiers, uint32_t button,
                              enum sh_pointer_target target, const char *app_id, int *argument);
     /* Parses a control-socket request into an action; SH_NONE with a message on error. */

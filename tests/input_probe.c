@@ -4,7 +4,8 @@
  * pointer-gestures-unstable-v1, fingers on a touchscreen through wl_touch, and drawing tablets'
  * tools and pads through tablet-v2. It prints "ready" once it has drawn, and runs until it is
  * ended.
- *   pointer enter X Y | pointer leave | pointer motion X Y | pointer button CODE pressed|released
+ *   pointer enter X Y | pointer leave | pointer motion X Y | pointer button CODE pressed|released |
+ *   pointer axis AXIS VALUE (0 vertical, 1 horizontal)
  *   swipe begin FINGERS | swipe update DX DY | swipe end CANCELLED
  *   pinch begin FINGERS | pinch update DX DY SCALE ROTATION | pinch end CANCELLED
  *   hold begin FINGERS | hold end CANCELLED
@@ -128,7 +129,9 @@ static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t seri
         state == WL_POINTER_BUTTON_STATE_PRESSED ? "pressed" : "released");
 }
 static void pointer_axis(void *data, struct wl_pointer *pointer, uint32_t time, uint32_t axis,
-                         wl_fixed_t value) {}
+                         wl_fixed_t value) {
+    say("pointer axis %u %g", axis, wl_fixed_to_double(value));
+}
 static void pointer_frame(void *data, struct wl_pointer *pointer) {}
 static void pointer_axis_source(void *data, struct wl_pointer *pointer, uint32_t source) {}
 static void pointer_axis_stop(void *data, struct wl_pointer *pointer, uint32_t time,

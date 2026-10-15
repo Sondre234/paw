@@ -588,6 +588,9 @@ static bool action_targets_window(enum sh_action action) {
     case SH_GROUP_PREV:
     case SH_UNGROUP:
     case SH_MOVE_TO_WORKSPACE:
+    case SH_MOVE_TO_WORKSPACE_NEXT:
+    case SH_MOVE_TO_WORKSPACE_PREV:
+    case SH_MOVE_TO_WORKSPACE_EMPTY:
     case SH_SNAP_LEFT:
     case SH_SNAP_RIGHT:
     case SH_SNAP_TOP_LEFT:
@@ -619,6 +622,34 @@ static bool action_targets_window(enum sh_action action) {
     }
 }
 
+/* The binding for `button` (a BTN_* code, or the wheel's SH_WHEEL_UP or SH_WHEEL_DOWN) with the
+ * modifiers held over what lies under the pointer, and the window there, if any. */
+static enum sh_action pointer_binding(struct sh_server *server, uint32_t button,
+                                      struct sh_toplevel **toplevel, int *argument) {
+    double sx, sy;
+    struct wlr_surface *surface = NULL;
+    struct sh_node *node =
+        desktop_node_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
+    *toplevel = NULL;
+    enum sh_pointer_target target = SH_POINTER_DESKTOP;
+    if (node && node->kind == SH_NODE_TOPLEVEL) {
+        *toplevel = node->owner;
+        target = SH_POINTER_WINDOW;
+    } else if (node && node->kind == SH_NODE_LAYER) {
+        struct sh_layer *layer = node->owner;
+        if (layer->surface->current.layer != ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND)
+            target = SH_POINTER_OTHER;
+    } else if (surface) {
+        target = SH_POINTER_OTHER; // a popup, or an unmanaged X11 window
+    }
+    const char *app_id = *toplevel ? toplevel_app_id(*toplevel) : NULL;
+    struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(server->seat);
+    uint32_t mods = keyboard ? wlr_keyboard_get_modifiers(keyboard) : 0;
+    *argument = 0;
+    return server->callbacks->button(server->callbacks->userdata, mods, button, target,
+                                     app_id ? app_id : "", argument);
+}
+
 /* Runs the binding for a pressed button, if one matches what lies under the pointer, and
  * swallows both the press and its release. Returns false when the click belongs to a client. */
 static bool handle_button_binding(struct sh_server *server,
@@ -634,28 +665,9 @@ static bool handle_button_binding(struct sh_server *server,
     }
     if (server->locked || server->grab_button || server->deco_pressed)
         return false;
-    double sx, sy;
-    struct wlr_surface *surface = NULL;
-    struct sh_node *node =
-        desktop_node_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
-    struct sh_toplevel *toplevel = NULL;
-    enum sh_pointer_target target = SH_POINTER_DESKTOP;
-    if (node && node->kind == SH_NODE_TOPLEVEL) {
-        toplevel = node->owner;
-        target = SH_POINTER_WINDOW;
-    } else if (node && node->kind == SH_NODE_LAYER) {
-        struct sh_layer *layer = node->owner;
-        if (layer->surface->current.layer != ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND)
-            target = SH_POINTER_OTHER;
-    } else if (surface) {
-        target = SH_POINTER_OTHER; // a popup, or an unmanaged X11 window
-    }
-    const char *app_id = toplevel ? toplevel_app_id(toplevel) : NULL;
-    struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(server->seat);
-    uint32_t mods = keyboard ? wlr_keyboard_get_modifiers(keyboard) : 0;
-    int argument = 0;
-    enum sh_action action = server->callbacks->button(
-        server->callbacks->userdata, mods, event->button, target, app_id ? app_id : "", &argument);
+    struct sh_toplevel *toplevel;
+    int argument;
+    enum sh_action action = pointer_binding(server, event->button, &toplevel, &argument);
     if (action == SH_NONE)
         return false;
     server->bound_buttons |= bit;
@@ -669,6 +681,55 @@ static bool handle_button_binding(struct sh_server *server,
         focus_toplevel(toplevel);
     if (toplevel || !action_targets_window(action))
         run_action(server, action, argument);
+    return true;
+}
+
+/* Runs the binding for the wheel turning (`button = "wheel_up"` or "wheel_down"), if one matches
+ * what lies under the pointer, once a notch, and keeps the turn from the client. A wheel counts
+ * in 120ths of a notch, a high-resolution one sending parts of one; a touchpad, which has no
+ * notches, 15 units a notch, as Qt counts it for the shell's wheel. An action on a window acts on
+ * the one under the pointer, any other on the monitor there, without focusing anything. Returns
+ * false when the turn belongs to a client. */
+static bool handle_wheel_binding(struct sh_server *server,
+                                 const struct wlr_pointer_axis_event *event) {
+    if (event->orientation != WL_POINTER_AXIS_VERTICAL_SCROLL || server->locked)
+        return false;
+    double turn = event->source == WL_POINTER_AXIS_SOURCE_WHEEL && event->delta_discrete
+                      ? event->delta_discrete
+                      : event->delta * WLR_POINTER_AXIS_DISCRETE_STEP / 15;
+    if (turn == 0)
+        return server->wheel_bound; // a touchpad's scrolling stops: where its turn went
+    uint32_t button = turn < 0 ? SH_WHEEL_UP : SH_WHEEL_DOWN;
+    struct sh_toplevel *toplevel;
+    int argument;
+    enum sh_action action = pointer_binding(server, button, &toplevel, &argument);
+    server->wheel_bound = action != SH_NONE;
+    // Turning the other way, or toward no binding, starts a notch afresh.
+    if (action == SH_NONE || (turn < 0) != (server->wheel_turn < 0))
+        server->wheel_turn = 0;
+    if (action == SH_NONE)
+        return false;
+    server->wheel_turn += turn;
+    int notches = 0;
+    for (; fabs(server->wheel_turn) >= WLR_POINTER_AXIS_DISCRETE_STEP; ++notches)
+        server->wheel_turn -= copysign(WLR_POINTER_AXIS_DISCRETE_STEP, server->wheel_turn);
+    for (int i = 0; i < notches; ++i) {
+        // After the first, what is under the pointer now: the last may have changed it.
+        if (i)
+            action = pointer_binding(server, button, &toplevel, &argument);
+        if (action == SH_NONE)
+            break;
+        if (action_targets_window(action)) {
+            if (!toplevel)
+                break;
+            focus_toplevel(toplevel);
+            run_action(server, action, argument);
+        } else {
+            server->target_output = pointer_output(server);
+            run_action(server, action, argument);
+            server->target_output = NULL;
+        }
+    }
     return true;
 }
 
@@ -835,6 +896,7 @@ void server_cursor_axis(struct wl_listener *listener, void *data) {
         return;
     if (overview_axis(server, event))
         return;
+    // Zoom's modifier takes the wheel first, from a binding of the wheel with it too.
     struct wlr_keyboard *held = wlr_seat_get_keyboard(server->seat);
     unsigned zoom_mask = server_settings(server)->effects.zoom_scroll_modifier;
     if (zoom_mask && held && event->orientation == WL_POINTER_AXIS_VERTICAL_SCROLL &&
@@ -851,6 +913,8 @@ void server_cursor_axis(struct wl_listener *listener, void *data) {
         }
         return;
     }
+    if (handle_wheel_binding(server, event))
+        return;
     wlr_seat_pointer_notify_axis(server->seat, event->time_msec, event->orientation, event->delta,
                                  event->delta_discrete, event->source, event->relative_direction);
 }

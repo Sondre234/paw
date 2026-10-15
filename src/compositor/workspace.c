@@ -152,11 +152,52 @@ static struct sh_swipe_edge past_end(struct sh_server *server, struct wlr_output
     return sh_swipe_past_end(pull, box.width * server_settings(server)->animation_slide, box.width);
 }
 
-/* Windows that come and go with a workspace, not sticky ones, which stay. */
+/* Windows that come and go with a workspace: not sticky ones, which stay, nor one moved with the
+ * pointer, which stays under it (carry_grabbed). */
 static bool slides(struct sh_server *server, struct sh_toplevel *toplevel,
                    struct wlr_output *output) {
     return toplevel->shown && toplevel_mapped(toplevel) && !toplevel->sticky &&
-           !strcmp(toplevel->output, output->name) && server->running;
+           toplevel != server->grabbed_toplevel && !strcmp(toplevel->output, output->name) &&
+           server->running;
+}
+
+/* `output` is to show another workspace: a grab of a window there other than a move ends, the
+ * window being about to go. */
+static void end_grab_on(struct sh_server *server, struct wlr_output *output) {
+    struct sh_toplevel *toplevel = server->grabbed_toplevel;
+    if (toplevel && find_output(server, toplevel->output) == output &&
+        (server->cursor_mode != SH_CURSOR_MOVE || server->grab_fullscreen))
+        reset_cursor_mode(server);
+}
+
+/* `output` shows `workspace` next: a window moved with the pointer there comes along, still
+ * moved, as a window dragged onto another monitor joins its workspace. A tile's place in the
+ * tiling it leaves closes, and it takes one in the tiling there (or tiles there as it is
+ * dropped) as a tile does; a window that floated only because its workspace did not tile tiles
+ * too. Returns whether one came. */
+static bool carry_grabbed(struct sh_server *server, struct wlr_output *output, int workspace) {
+    struct sh_toplevel *toplevel = server->grabbed_toplevel;
+    if (!toplevel || find_output(server, toplevel->output) != output ||
+        server->cursor_mode != SH_CURSOR_MOVE || server->grab_fullscreen)
+        return false;
+    if (toplevel->sticky)
+        return true; // it shows on every workspace anyway
+    tile_drop_end(server);
+    toplevel->scratchpad = false; // it belongs to that workspace now, as move_to_workspace has it
+    toplevel->workspace = workspace;
+    group_follow(toplevel);
+    if (wants_tiling(toplevel, output))
+        server->grab_retile = true;
+    wlr_log(WLR_INFO, "Moved window carried to workspace %d", workspace + 1);
+    return true;
+}
+
+/* After carry_grabbed and the switch: the move goes on in the workspace shown now, the window
+ * still under the pointer and a tile looking for its place in that workspace's tiling. */
+static void carry_on(struct sh_server *server) {
+    if (server->grabbed_toplevel && server->cursor_mode == SH_CURSOR_MOVE)
+        process_cursor_move(server);
+    notify_subscribers(server);
 }
 
 /* Before the switch: copies of the visible windows slide away in `direction` (-1 is left). */
@@ -189,8 +230,8 @@ void switch_workspace(struct sh_server *server, struct wlr_output *output, int w
     if (!output || workspace < 0 || workspace >= count ||
         workspace == *output_workspace(server, output->name))
         return;
-    if (server->grabbed_toplevel)
-        reset_cursor_mode(server);
+    end_grab_on(server, output);
+    bool carried = carry_grabbed(server, output, workspace);
     struct sh_toplevel *focused = server->focused_toplevel;
     bool refocus = !focused || find_output(server, focused->output) == output;
     if (refocus)
@@ -203,6 +244,8 @@ void switch_workspace(struct sh_server *server, struct wlr_output *output, int w
         focus_top_on(server, output);
         set_active_output(server, output->name);
     }
+    if (carried)
+        carry_on(server);
 }
 
 /* A step toward `way` (1 for the next workspace, -1 the previous) with nowhere to go: `output`'s
@@ -260,8 +303,7 @@ static bool springing(struct sh_server *server, struct wlr_output *output, int64
  * from the last swipe's rubber band are taken over where they are drawn. */
 void workspace_swipe_begin(struct sh_server *server, struct sh_workspace_swipe *swipe,
                            struct wlr_output *output) {
-    if (server->grabbed_toplevel)
-        reset_cursor_mode(server);
+    end_grab_on(server, output);
     int from = *output_workspace(server, output->name);
     double pull = 0;
     swipe->catching = swipe->sprung && from == swipe->from &&
@@ -398,6 +440,7 @@ void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *sw
             sh_anim_slide_away(server->animator, away, (int)(-sign * slide), 0, 0, 1 - t);
     }
     drop_swipe_copies(swipe);
+    bool carried = carry_grabbed(server, output, target);
     struct sh_toplevel *focused = server->focused_toplevel;
     bool refocus = !focused || find_output(server, focused->output) == output;
     if (refocus)
@@ -413,6 +456,8 @@ void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *sw
         focus_top_on(server, output);
         set_active_output(server, output->name);
     }
+    if (carried)
+        carry_on(server);
     swipe->shown = 0;
 }
 
@@ -469,9 +514,8 @@ void move_to_workspace(struct sh_server *server, int workspace) {
     move_toplevel_to_workspace(server, current_toplevel(server), workspace);
 }
 
-/* The workspaces of `output` that hold windows, as "1,3", or "-" for none. */
-void occupied_workspaces(struct sh_server *server, struct wlr_output *output, char *text,
-                         size_t size) {
+/* The workspaces of `output` that hold windows, a bit each. */
+static unsigned used_workspaces(struct sh_server *server, struct wlr_output *output) {
     unsigned used = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
@@ -480,6 +524,51 @@ void occupied_workspaces(struct sh_server *server, struct wlr_output *output, ch
         if (!strcmp(toplevel->output, output->name) && toplevel->workspace < 32)
             used |= 1u << toplevel->workspace;
     }
+    return used;
+}
+
+/* move_to_workspace_next and _prev (`way` 1 or -1) and _empty (`way` 0): the focused window
+ * moves to the workspace beside its own, wrapping around, or to the first of its output with no
+ * windows, and the output shows it there, as Hyprland's movetoworkspace does. */
+void move_to_workspace_beside(struct sh_server *server, int way) {
+    struct sh_toplevel *toplevel = current_toplevel(server);
+    struct wlr_output *output = toplevel ? find_output(server, toplevel->output) : NULL;
+    if (!output)
+        return;
+    int count = server_settings(server)->workspaces, workspace = -1;
+    if (way && count <= 1) {
+        workspace_nudge(server, output, way); // nowhere to go, as workspace_next says
+        return;
+    }
+    if (way)
+        workspace = (toplevel->workspace + count + way) % count;
+    else {
+        unsigned used = used_workspaces(server, output);
+        for (int i = 0; i < count && workspace < 0; ++i)
+            if (!(used & 1u << i))
+                workspace = i;
+    }
+    if (workspace < 0)
+        return;
+    // Moved with the pointer, it comes along as the workspace switches, still moved.
+    if (toplevel == server->grabbed_toplevel && server->cursor_mode == SH_CURSOR_MOVE &&
+        !server->grab_fullscreen) {
+        switch_workspace(server, output, workspace);
+        return;
+    }
+    // Unfocused first, so that neither workspace's other windows take the focus on the way.
+    if (server->focused_toplevel == toplevel)
+        deactivate_toplevel(server);
+    move_toplevel_to_workspace(server, toplevel, workspace);
+    switch_workspace(server, output, workspace);
+    if (server->focused_toplevel != toplevel)
+        focus_toplevel(toplevel);
+}
+
+/* The workspaces of `output` that hold windows, as "1,3", or "-" for none. */
+void occupied_workspaces(struct sh_server *server, struct wlr_output *output, char *text,
+                         size_t size) {
+    unsigned used = used_workspaces(server, output);
     size_t length = 0;
     text[0] = '\0';
     for (int i = 0; i < 32 && length < size; ++i) {
