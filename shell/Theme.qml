@@ -27,6 +27,10 @@ QtObject {
     readonly property bool glass: shell.blur && effects
     readonly property real glassFloor: 0.75
     readonly property real glassOpacity: Math.max(bar.a, glassFloor)
+    // A pane of glass catches the light: a faint light line just inside its outline, and a sheen
+    // fading down from its top edge.
+    readonly property color glassEdge: Qt.rgba(1, 1, 1, light ? 0.45 : 0.08)
+    readonly property color glassSheen: Qt.rgba(1, 1, 1, light ? 0.25 : 0.045)
     // A card, field or other block inside a popup; on the glass a veil of the text colour, so
     // that the glass shows through it too.
     readonly property color surfaceRaised: glass ? alpha(text, 0.05) : mix(surface, text, 0.04)

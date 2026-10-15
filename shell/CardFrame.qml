@@ -43,12 +43,25 @@ Item {
         color: frame.glassy ? Theme.alpha(frame.color, Theme.glassOpacity) : frame.color
         border.color: frame.outline
         border.width: frame.outlineWidth
+        // On the glass, a sheen down from its top edge, as light falling on a pane.
         Rectangle {
-            visible: frame.innerEdge && Theme.popupInnerEdge.a > 0 && frame.color.a > 0
+            visible: frame.glassy
+            anchors.fill: parent; anchors.margins: frame.outlineWidth
+            radius: frame.radius - frame.outlineWidth
+            gradient: Gradient {
+                GradientStop { position: 0; color: Theme.glassSheen }
+                GradientStop { position: 0.5; color: Theme.alpha(Theme.glassSheen, 0) }
+            }
+        }
+        // The macOS style's light line inside the outline, and the glass's, as light catching a
+        // pane's edge.
+        Rectangle {
+            readonly property color edge: frame.glassy ? Theme.glassEdge : Theme.popupInnerEdge
+            visible: (frame.innerEdge || frame.glassy) && edge.a > 0 && frame.color.a > 0
             anchors.fill: parent; anchors.margins: frame.outlineWidth
             radius: frame.radius - frame.outlineWidth
             color: "transparent"
-            border.color: Theme.popupInnerEdge
+            border.color: edge
         }
     }
 }
