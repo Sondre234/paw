@@ -776,10 +776,41 @@ own, following its corners: `color` under the focused window, the lighter `inact
 under the others, fading out over `blur` pixels and falling `offset` pixels down (or
 `{ x, y }`). Fullscreen and maximized windows have none, and a shadow takes no input and is no
 part of the window's size, so snapping, tiling and the magnet ignore it. The shadow is cut from
-one blurred image, so resizing a window costs nothing. Blur is not available. While a window is
+one blurred image, so resizing a window costs nothing. While a window is
 moved with the pointer its shadow grows softer and falls further, or a printed one moves further
 off (`windows.lift`, see [Animations](#animations)); stretching the same image away from the
 window does that without blurring again.
+
+`windows.blur = { enabled = true }` blurs the desktop's background behind each window, as
+Hyprland's blur does with `xray = true`: a window that lets what is under it show through
+(`opacity` or `inactive_opacity` below 1, a rule's opacity, or a terminal's own background
+opacity, as kitty's `background_opacity`) shows the wallpaper frosted under it, inside its
+rounded corners, rather than sharp, and never the windows behind it. `radius` sets how soft it
+is (each point spreads over about that many pixels, 30 by default), `noise` a little grain so
+that dark gradients show no bands, and `brightness` and `saturation` scale its colours (above 1,
+the vivid look of macOS's vibrancy). The window's own opacity leaves the blur whole under it.
+
+Only the background is blurred, the wallpaper (the shell's, or any background layer surface)
+over `appearance.background`: drawn at half the monitor's pixels and blurred once each time it
+changes, once a wallpaper fading in or a profile switching settles, never on every frame. Each
+window shows the part of that picture it covers on the screen, wherever it is drawn, so moving,
+resizing and animating windows costs nothing more. Fullscreen windows have none, a window across
+two monitors shows the blur of the one under its middle (on that monitor alone), and
+`windows.rules[].blur` turns it off (`false`) or on (`true`, with `enabled` off) for the windows
+a rule matches. Profiles can set it, so a translucent look can bring its blur along:
+
+```lua
+profiles = {
+    glass = {
+        windows = {
+            opacity = 0.92, inactive_opacity = 0.85,
+            blur = { enabled = true, radius = 40, brightness = 0.9, saturation = 1.2 },
+        },
+    },
+},
+```
+
+`paw msg get blur` lists each monitor's picture and the part of it under each window.
 
 ### Window rules
 
@@ -2566,7 +2597,7 @@ wallpaper. It runs
 configuration, and reports where each value came from and what it skipped. `init.lua` loads
 it with `theme = "theme.lua"` and overrides any of it; `--dry-run` only prints. See
 [docs/dotfile-import.md](dotfile-import.md) for the details and for the settings paw
-still lacks (rounding, blur, shadows).
+still lacks (rounding, shadows).
 
 ## Notifications and on-screen display
 
