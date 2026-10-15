@@ -1,0 +1,501 @@
+/* mochi (餅) for Firefox: the pages Firefox draws itself, in Catppuccin Mocha.
+ *
+ * about:newtab and about:home are made to look like the mochi start page (startpage/): Mocha's
+ * base under a soft aurora of mauve, pink and blue with a few stars, mochi's face and name, a
+ * glass search box and the eight shortcuts (pinned by user.js) as frosted cards. With
+ * browser.tabs.allow_transparent_browser on (see user.js) the page is clear instead, and the
+ * window's own glass shows through it. about:blank is base instead of a white flash, and
+ * about:preferences, about:addons and Firefox's other settings pages take the palette through
+ * their design tokens. Every colour is a --mochi-* token in the palette block; it is scoped to
+ * these pages so no website ever sees the tokens. Colours from Catppuccin Mocha, MIT
+ * (https://github.com/catppuccin/catppuccin); the rest is paw's.
+ * Needs toolkit.legacyUserProfileCustomizations.stylesheets (see user.js) and a restart.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* ================================================================ palette */
+
+@-moz-document url("about:home"), url("about:newtab"), url("about:blank"), url("about:privatebrowsing"),
+  url-prefix("about:preferences"), url-prefix("about:settings"), url-prefix("about:addons"),
+  url-prefix("about:config"), url-prefix("about:support"), url-prefix("about:profiles"),
+  url-prefix("about:downloads"), url-prefix("about:logins"), url-prefix("about:protections"),
+  url-prefix("about:firefoxview"), url-prefix("about:welcome"), url-prefix("about:sessionrestore") {
+  :root {
+    --mochi-pink: #F5C2E7;
+    --mochi-mauve: #CBA6F7;
+    --mochi-red: #F38BA8;
+    --mochi-peach: #FAB387;
+    --mochi-yellow: #F9E2AF;
+    --mochi-green: #A6E3A1;
+    --mochi-teal: #94E2D5;
+    --mochi-sapphire: #74C7EC;
+    --mochi-blue: #89B4FA;
+    --mochi-lavender: #B4BEFE;
+    --mochi-text: #CDD6F4;
+    --mochi-subtext1: #BAC2DE;
+    --mochi-subtext0: #A6ADC8;
+    --mochi-overlay1: #7F849C;
+    --mochi-surface2: #585B70;
+    --mochi-surface1: #45475A;
+    --mochi-surface0: #313244;
+    --mochi-base: #1E1E2E;
+    --mochi-mantle: #181825;
+    --mochi-crust: #11111B;
+
+    --mochi-ink: var(--mochi-text);
+    --mochi-muted: var(--mochi-subtext0);
+    --mochi-accent: var(--mochi-mauve);
+    --mochi-accent-hover: #D7BAF9;
+    --mochi-on-accent: var(--mochi-crust);
+    --mochi-link: var(--mochi-blue);
+    --mochi-selection: #4D4257;
+    --mochi-raised: color-mix(in srgb, var(--mochi-text) 8%, transparent);
+    --mochi-pressed: color-mix(in srgb, var(--mochi-text) 14%, transparent);
+    --mochi-edge: color-mix(in srgb, var(--mochi-text) 12%, transparent);
+    --mochi-glass: rgb(49 50 68 / 0.5);
+    --mochi-glass-hover: rgb(69 71 90 / 0.6);
+    --mochi-blur: blur(16px) saturate(140%);
+    --mochi-glow: 0 0 0 3px rgb(203 166 247 / 0.28);
+    --mochi-shadow: 0 12px 34px rgb(17 17 27 / 0.45);
+    --mochi-radius: 16px;
+    --mochi-font: "Nunito", "Inter", system-ui, sans-serif;
+    --mochi-mono: "Maple Mono", "JetBrains Mono", ui-monospace, monospace;
+    /* a night over Mocha: mauve, blue and pink light, and a few stars */
+    --mochi-night: radial-gradient(60% 50% at 14% 8%, rgb(203 166 247 / 0.17), transparent 70%),
+      radial-gradient(48% 42% at 88% 16%, rgb(137 180 250 / 0.13), transparent 70%),
+      radial-gradient(70% 55% at 62% 104%, rgb(245 194 231 / 0.14), transparent 72%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480'%3E%3Ccircle cx='155' cy='72' r='0.6' fill='%23cdd6f4' opacity='0.25'/%3E%3Ccircle cx='176' cy='28' r='1.2' fill='%23cdd6f4' opacity='0.25'/%3E%3Ccircle cx='41' cy='201' r='0.7' fill='%23cdd6f4' opacity='0.6'/%3E%3Ccircle cx='28' cy='271' r='0.7' fill='%23cdd6f4' opacity='0.6'/%3E%3Ccircle cx='24' cy='106' r='1.2' fill='%23cdd6f4' opacity='0.45'/%3E%3Ccircle cx='201' cy='260' r='1.2' fill='%23b4befe' opacity='0.35'/%3E%3Ccircle cx='49' cy='274' r='0.7' fill='%23b4befe' opacity='0.25'/%3E%3Ccircle cx='263' cy='30' r='0.6' fill='%23cdd6f4' opacity='0.6'/%3E%3Ccircle cx='327' cy='205' r='0.8' fill='%23f5c2e7' opacity='0.6'/%3E%3Ccircle cx='174' cy='119' r='0.7' fill='%23cdd6f4' opacity='0.25'/%3E%3Ccircle cx='276' cy='252' r='0.8' fill='%23f5c2e7' opacity='0.45'/%3E%3Ccircle cx='292' cy='35' r='1.2' fill='%23f5c2e7' opacity='0.35'/%3E%3Ccircle cx='363' cy='73' r='1.0' fill='%23f5c2e7' opacity='0.25'/%3E%3Ccircle cx='462' cy='37' r='1.2' fill='%23b4befe' opacity='0.45'/%3E%3Ccircle cx='334' cy='285' r='1.2' fill='%23f5c2e7' opacity='0.25'/%3E%3Ccircle cx='403' cy='453' r='1.0' fill='%23cdd6f4' opacity='0.25'/%3E%3Ccircle cx='351' cy='149' r='1.2' fill='%23f5c2e7' opacity='0.45'/%3E%3Ccircle cx='344' cy='426' r='0.8' fill='%23cdd6f4' opacity='0.6'/%3E%3Ccircle cx='171' cy='293' r='1.0' fill='%23cdd6f4' opacity='0.35'/%3E%3Ccircle cx='369' cy='62' r='0.7' fill='%23f5c2e7' opacity='0.6'/%3E%3Ccircle cx='440' cy='238' r='0.7' fill='%23f5c2e7' opacity='0.6'/%3E%3Ccircle cx='264' cy='424' r='1.0' fill='%23b4befe' opacity='0.6'/%3E%3Ccircle cx='474' cy='328' r='1.0' fill='%23cdd6f4' opacity='0.35'/%3E%3Ccircle cx='40' cy='73' r='0.7' fill='%23cdd6f4' opacity='0.6'/%3E%3Ccircle cx='399' cy='88' r='0.8' fill='%23cdd6f4' opacity='0.35'/%3E%3Ccircle cx='201' cy='177' r='1.2' fill='%23b4befe' opacity='0.35'/%3E%3Ccircle cx='331' cy='247' r='1.2' fill='%23cdd6f4' opacity='0.6'/%3E%3Ccircle cx='432' cy='374' r='1.2' fill='%23f5c2e7' opacity='0.6'/%3E%3Ccircle cx='192' cy='50' r='1.0' fill='%23cdd6f4' opacity='0.35'/%3E%3Ccircle cx='32' cy='100' r='0.7' fill='%23cdd6f4' opacity='0.45'/%3E%3Ccircle cx='288' cy='49' r='1.2' fill='%23cdd6f4' opacity='0.25'/%3E%3Ccircle cx='455' cy='295' r='0.6' fill='%23cdd6f4' opacity='0.6'/%3E%3Ccircle cx='71' cy='121' r='0.8' fill='%23b4befe' opacity='0.6'/%3E%3Ccircle cx='59' cy='407' r='1.0' fill='%23f5c2e7' opacity='0.6'/%3E%3Ccircle cx='150' cy='69' r='0.8' fill='%23b4befe' opacity='0.6'/%3E%3Ccircle cx='398' cy='77' r='0.6' fill='%23cdd6f4' opacity='0.45'/%3E%3Ccircle cx='70' cy='261' r='0.6' fill='%23b4befe' opacity='0.25'/%3E%3Ccircle cx='334' cy='125' r='0.8' fill='%23cdd6f4' opacity='0.45'/%3E%3Ccircle cx='371' cy='256' r='1.2' fill='%23b4befe' opacity='0.35'/%3E%3Ccircle cx='294' cy='378' r='0.7' fill='%23cdd6f4' opacity='0.6'/%3E%3Ccircle cx='355' cy='109' r='1.2' fill='%23f5c2e7' opacity='0.45'/%3E%3Ccircle cx='351' cy='475' r='0.8' fill='%23f5c2e7' opacity='0.45'/%3E%3Ccircle cx='93' cy='290' r='0.8' fill='%23f5c2e7' opacity='0.45'/%3E%3Ccircle cx='458' cy='175' r='0.7' fill='%23cdd6f4' opacity='0.35'/%3E%3Ccircle cx='226' cy='162' r='1.0' fill='%23cdd6f4' opacity='0.6'/%3E%3Ccircle cx='436' cy='165' r='0.6' fill='%23cdd6f4' opacity='0.6'/%3E%3C/svg%3E");
+    --mochi-face: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'%3E%3Cpath d='M10.5 30 C9 22 10 13.5 13 9.5 C15.5 8.5 21 13 24.5 17.5 C29.5 16.4 34.5 16.4 39.5 17.5 C43 13 48.5 8.5 51 9.5 C54 13.5 55 22 53.5 30 C58 34.5 59.5 39.5 58.5 44 C56.5 53.5 45.5 58 32 58 C18.5 58 7.5 53.5 5.5 44 C4.5 39.5 6 34.5 10.5 30 Z' fill='%23F5E0DC'/%3E%3Cpath d='M14.2 13.6 C16.4 14.6 19 16.9 20.6 19.2 C18.2 20.4 16.1 22 14.6 24 C13.6 20.6 13.5 16.6 14.2 13.6 Z' fill='%23F5C2E7'/%3E%3Cpath d='M49.8 13.6 C47.6 14.6 45 16.9 43.4 19.2 C45.8 20.4 47.9 22 49.4 24 C50.4 20.6 50.5 16.6 49.8 13.6 Z' fill='%23F5C2E7'/%3E%3Cg fill='none' stroke='%231E1E2E' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.5 37.5 Q22 41 25.5 37.5'/%3E%3Cpath d='M38.5 37.5 Q42 41 45.5 37.5'/%3E%3Cpath d='M28.6 43.4 Q30.3 45.6 32 43.4 Q33.7 45.6 35.4 43.4' stroke-width='2'/%3E%3C/g%3E%3Cellipse cx='15.5' cy='44' rx='4.6' ry='2.8' fill='%23F5C2E7' opacity='.85'/%3E%3Cellipse cx='48.5' cy='44' rx='4.6' ry='2.8' fill='%23F5C2E7' opacity='.85'/%3E%3C/svg%3E");
+  }
+}
+
+/* ================================================================ about:blank */
+
+/* base, not a white flash; only an empty page, so about:blank frames inside sites keep their
+   own background */
+@-moz-document url("about:blank") {
+  :root:has(> body:empty) {
+    background-color: var(--mochi-base);
+    color: var(--mochi-ink);
+  }
+}
+
+/* ================================================================ about:newtab, about:home */
+
+@-moz-document url("about:home"), url("about:newtab") {
+  :root,
+  body,
+  body.activity-stream {
+    --newtab-background-color: var(--mochi-base) !important;
+    --newtab-background-color-secondary: var(--mochi-surface0) !important;
+    --newtab-background-card: var(--mochi-surface0) !important;
+    --newtab-text-primary-color: var(--mochi-ink) !important;
+    --newtab-text-secondary-color: var(--mochi-muted) !important;
+    --newtab-contextual-text-primary-color: var(--mochi-ink) !important;
+    --newtab-contextual-text-secondary-color: var(--mochi-ink) !important;
+    --newtab-primary-action-background: var(--mochi-accent) !important;
+    --newtab-primary-element-text-color: var(--mochi-on-accent) !important;
+    --newtab-element-hover-color: var(--mochi-raised) !important;
+    --newtab-element-active-color: var(--mochi-pressed) !important;
+    --newtab-button-background: var(--mochi-raised) !important;
+    --newtab-button-hover-background: var(--mochi-raised) !important;
+    --newtab-button-active-background: var(--mochi-pressed) !important;
+    --newtab-button-focus-background: var(--mochi-raised) !important;
+    --newtab-button-text: var(--mochi-ink) !important;
+    --newtab-wordmark-color: var(--mochi-ink) !important;
+    --newtab-section-card-box-shadow-color: transparent !important;
+    --newtab-wallpaper-color: var(--mochi-base) !important;
+    --background-color-canvas: var(--mochi-base) !important;
+    --background-color-box: var(--mochi-surface0) !important;
+    --text-color: var(--mochi-ink) !important;
+    --text-color-deemphasized: var(--mochi-muted) !important;
+    --color-accent-primary: var(--mochi-accent) !important;
+    --button-text-color-hover: var(--mochi-ink) !important;
+    --focus-outline-color: var(--mochi-accent) !important;
+    --border-color-card: var(--mochi-edge) !important;
+    color-scheme: dark;
+  }
+
+  body,
+  body.activity-stream {
+    background-color: var(--mochi-base) !important;
+    background-image: var(--mochi-night) !important;
+    background-attachment: fixed !important;
+    color: var(--mochi-ink) !important;
+    font-family: var(--mochi-font) !important;
+  }
+
+  /* with a transparent browser (user.js), the window's glass is the page */
+  @media -moz-pref("browser.tabs.allow_transparent_browser") {
+    :root,
+    body,
+    body.activity-stream {
+      --newtab-background-color: transparent !important;
+      --newtab-wallpaper-color: transparent !important;
+      --background-color-canvas: transparent !important;
+      background: transparent !important;
+    }
+  }
+
+  /* Firefox's logo and wordmark give way to the start page's masthead: mochi's face, "mochi"
+     set large in mauve melting into pink, and a line of type */
+  .logo-and-wordmark-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    height: auto !important;
+    margin: 0 auto 6px !important;
+    padding: 0 !important;
+  }
+
+  .logo-and-wordmark-wrapper::before {
+    content: "";
+    width: 64px;
+    height: 64px;
+    margin-bottom: 4px;
+    background: var(--mochi-face) center / contain no-repeat;
+    filter: drop-shadow(0 6px 16px rgb(245 194 231 / 0.25));
+  }
+
+  .logo-and-wordmark-wrapper::after {
+    content: "mochi";
+    order: 1;
+    padding: 0 0.06em 0.08em;
+    font: 800 108px/1 var(--mochi-font);
+    letter-spacing: -0.03em;
+    background: linear-gradient(100deg, var(--mochi-mauve) 15%, var(--mochi-pink) 85%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Firefox's own logo goes; its box carries the line of type under "mochi" */
+  .logo-and-wordmark {
+    display: block !important;
+    order: 2;
+    width: auto !important;
+    height: auto !important;
+    margin: 14px 0 0 !important;
+  }
+
+  .logo-and-wordmark > * {
+    display: none !important;
+  }
+
+  .logo-and-wordmark::after {
+    content: "soft as mochi, warm as a mocha";
+    white-space: nowrap;
+    font: 600 15px/1 var(--mochi-font);
+    letter-spacing: 0.04em;
+    color: var(--mochi-lavender);
+  }
+
+  .wallpaper-attribution {
+    display: none !important;
+  }
+
+  /* the customise button in the corner: a small glass pane */
+  .personalize-button,
+  .open-customization-button {
+    --button-background-color: var(--mochi-glass) !important;
+    --button-background-color-hover: var(--mochi-glass-hover) !important;
+    --button-background-color-active: var(--mochi-surface1) !important;
+    --button-border-color: var(--mochi-edge) !important;
+    --button-text-color: var(--mochi-ink) !important;
+    --icon-color: var(--mochi-ink) !important;
+  }
+
+  /* the search box: a pane of glass; its button lives in a shadow tree, so it is styled
+     through the variables it reads */
+  content-search-handoff-ui {
+    --content-search-handoff-ui-background-color: var(--mochi-glass) !important;
+    --content-search-handoff-ui-color: var(--mochi-ink) !important;
+    --content-search-handoff-ui-fill: var(--mochi-subtext1) !important;
+    --content-search-handoff-ui-caret-color: var(--mochi-pink) !important;
+    --content-search-handoff-ui-border-width: 1px !important;
+    --content-search-handoff-ui-border-radius: var(--mochi-radius) !important;
+    --content-search-handoff-ui-unfocused-border-color: var(--mochi-edge) !important;
+    --content-search-handoff-ui-fakefocus-border-color: var(--mochi-accent) !important;
+    --content-search-handoff-ui-fakefocus-box-shadow-inner: transparent !important;
+    --content-search-handoff-ui-fakefocus-box-shadow-outer: rgb(203 166 247 / 0.28) !important;
+    --box-shadow-level-3: var(--mochi-shadow) !important;
+    font-family: var(--mochi-font) !important;
+  }
+
+  /* (user sheets do reach into shadow trees: the button would take the system font) */
+  .search-handoff-button,
+  .search-handoff-button .fake-textbox {
+    font-family: var(--mochi-font) !important;
+    font-weight: 600 !important;
+  }
+
+  .search-handoff-button {
+    backdrop-filter: var(--mochi-blur) !important;
+  }
+
+  .search-wrapper .search-inner-wrapper {
+    min-height: 58px !important;
+    max-width: 680px !important;
+    margin-inline: auto !important;
+  }
+
+  /* the shortcuts: the start page's frosted cards, four to a row */
+  .top-sites-list {
+    grid-template-columns: repeat(4, 200px) !important;
+    gap: 18px !important;
+    margin: 8px 0 0 !important;
+  }
+
+  .top-site-outer,
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover, :focus-within, :has(.top-site-inner:hover)) {
+    width: auto !important;
+    margin: 0 !important;
+    background: none !important;
+  }
+
+  .top-site-outer .top-site-inner > a {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    height: auto !important;
+    gap: 14px !important;
+    padding: 13px 15px !important;
+    background-color: var(--mochi-glass) !important;
+    backdrop-filter: var(--mochi-blur) !important;
+    border: 1px solid var(--mochi-edge) !important;
+    border-radius: var(--mochi-radius) !important;
+    box-shadow: 0 6px 20px rgb(17 17 27 / 0.25) !important;
+    transition: translate 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+  }
+
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover, :focus-within) .top-site-inner > a {
+    translate: 0 -3px;
+    background-color: var(--mochi-glass-hover) !important;
+    border-color: rgb(203 166 247 / 0.5) !important;
+    box-shadow: 0 12px 30px rgb(17 17 27 / 0.35), 0 0 22px rgb(203 166 247 / 0.16) !important;
+  }
+
+  .top-site-outer .tile,
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover, :focus-within) .tile {
+    flex: none !important;
+    width: 40px !important;
+    height: 40px !important;
+    margin: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 50% !important;
+  }
+
+  /* a site's letter, or its icon, in a round bubble that bounces under the pointer */
+  .top-site-outer .tile .icon-wrapper {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    transition: scale 0.3s cubic-bezier(.3, 1.6, .5, 1);
+  }
+
+  .top-site-outer:hover .tile .icon-wrapper {
+    scale: 1.1;
+  }
+
+  .top-site-outer .tile .icon-wrapper.letter-fallback {
+    background-color: var(--mochi-accent) !important;
+    color: var(--mochi-on-accent) !important;
+  }
+
+  .top-site-outer:nth-child(4n+2) .tile .icon-wrapper.letter-fallback { background-color: var(--mochi-pink) !important; }
+  .top-site-outer:nth-child(4n+3) .tile .icon-wrapper.letter-fallback { background-color: var(--mochi-blue) !important; }
+  .top-site-outer:nth-child(4n+4) .tile .icon-wrapper.letter-fallback { background-color: var(--mochi-teal) !important; }
+
+  .top-site-outer .tile .icon-wrapper.letter-fallback::before {
+    font: 800 18px/1 var(--mochi-font) !important;
+    text-transform: lowercase;
+  }
+
+  @media (max-width: 960px) {
+    .top-sites-list {
+      grid-template-columns: repeat(2, 200px) !important;
+    }
+
+    .logo-and-wordmark-wrapper::after {
+      font-size: 80px;
+    }
+  }
+
+  .top-site-outer .title {
+    flex: 1;
+    width: auto !important;
+    min-width: 0;
+    padding: 0 !important;
+    text-align: start !important;
+  }
+
+  .top-site-outer .title,
+  .top-site-outer .title span {
+    min-height: 0 !important;
+    color: var(--mochi-ink) !important;
+    font: 700 16px/1.2 var(--mochi-font) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    -webkit-line-clamp: none !important;
+  }
+
+  .top-site-outer .title-label {
+    width: auto !important;
+    max-width: 100% !important;
+  }
+
+  .top-site-outer .icon-pin-small,
+  .top-site-outer .sponsored-label {
+    display: none !important;
+  }
+
+  .top-site-outer .context-menu-button {
+    inset-block-start: 6px !important;
+    inset-inline-end: 6px !important;
+  }
+
+  /* the little menus on shortcuts */
+  .context-menu {
+    background-color: var(--mochi-base) !important;
+    color: var(--mochi-ink) !important;
+    border: 1px solid var(--mochi-edge) !important;
+    border-radius: 12px !important;
+    box-shadow: var(--mochi-shadow) !important;
+  }
+
+  .context-menu > ul > li > :is(a, button):is(:hover, :focus) {
+    background-color: var(--mochi-selection) !important;
+    color: var(--mochi-ink) !important;
+  }
+
+  /* the edit/add shortcut form */
+  .topsite-form .form-wrapper,
+  .modalOverlayInner {
+    background-color: var(--mochi-base) !important;
+    border: 1px solid var(--mochi-edge) !important;
+    border-radius: var(--mochi-radius) !important;
+    box-shadow: var(--mochi-shadow) !important;
+  }
+
+  ::selection {
+    background-color: var(--mochi-selection);
+    color: var(--mochi-ink);
+  }
+}
+
+/* ================================================================ settings and the like */
+
+@-moz-document url("about:privatebrowsing"),
+  url-prefix("about:preferences"), url-prefix("about:settings"), url-prefix("about:addons"),
+  url-prefix("about:config"), url-prefix("about:support"), url-prefix("about:profiles"),
+  url-prefix("about:downloads"), url-prefix("about:logins"), url-prefix("about:protections"),
+  url-prefix("about:firefoxview"), url-prefix("about:welcome"), url-prefix("about:sessionrestore") {
+  :root {
+    color-scheme: dark;
+    --background-color-canvas: var(--mochi-base) !important;
+    --background-color-box: var(--mochi-mantle) !important;
+    --text-color: var(--mochi-ink) !important;
+    --text-color-deemphasized: var(--mochi-muted) !important;
+    --border-color: var(--mochi-surface0) !important;
+    --border-color-card: var(--mochi-surface0) !important;
+    --border-color-interactive: var(--mochi-surface2) !important;
+    --card-border-color: var(--mochi-surface0) !important;
+    --card-background-color: var(--mochi-mantle) !important;
+    --color-accent-primary: var(--mochi-accent) !important;
+    --color-accent-primary-hover: var(--mochi-accent-hover) !important;
+    --color-accent-primary-active: var(--mochi-pink) !important;
+    --color-accent-primary-selected: var(--mochi-accent) !important;
+    --button-text-color-primary: var(--mochi-on-accent) !important;
+    --button-background-color: var(--mochi-surface0) !important;
+    --button-background-color-hover: var(--mochi-surface1) !important;
+    --button-background-color-active: var(--mochi-surface2) !important;
+    --button-text-color: var(--mochi-ink) !important;
+    --button-border-color: transparent !important;
+    --input-background-color: var(--mochi-surface0) !important;
+    --input-border-color: var(--mochi-surface1) !important;
+    --link-color: var(--mochi-link) !important;
+    --link-color-hover: var(--mochi-lavender) !important;
+    --link-color-active: var(--mochi-pink) !important;
+    --focus-outline-color: var(--mochi-accent) !important;
+    --icon-color: var(--mochi-subtext1) !important;
+    --table-row-background-color: var(--mochi-mantle) !important;
+    --table-row-background-color-alternate: var(--mochi-base) !important;
+    --in-content-page-background: var(--mochi-base) !important;
+    --in-content-page-color: var(--mochi-ink) !important;
+    --in-content-box-background: var(--mochi-mantle) !important;
+    --in-content-box-border-color: var(--mochi-surface0) !important;
+    --in-content-item-selected: var(--mochi-accent) !important;
+    --in-content-item-selected-text: var(--mochi-on-accent) !important;
+    --in-content-item-hover: var(--mochi-raised) !important;
+    --in-content-accent-color: var(--mochi-accent) !important;
+    --font-family: var(--mochi-font);
+  }
+
+  :root,
+  body {
+    background-color: var(--mochi-base) !important;
+    color: var(--mochi-ink) !important;
+    font-family: var(--mochi-font) !important;
+  }
+
+  ::selection {
+    background-color: var(--mochi-selection);
+    color: var(--mochi-ink);
+  }
+
+  /* headings in the rounded sans, set heavy the way the start page sets them */
+  h1,
+  .header-name,
+  .main-heading {
+    font-family: var(--mochi-font) !important;
+    font-weight: 800 !important;
+  }
+
+  /* the selected category in the settings' side list: a strip of pink beside mauve text */
+  .category[selected],
+  .category:is([selected], .selected),
+  #categories > .category[selected] {
+    color: var(--mochi-accent) !important;
+    box-shadow: inset 3px 0 0 var(--mochi-pink);
+  }
+
+  /* cards (add-ons, settings groups): mantle with a soft edge */
+  .card,
+  moz-card,
+  addon-card .card {
+    background-color: var(--mochi-mantle) !important;
+    border: 1px solid var(--mochi-surface0) !important;
+    border-radius: var(--mochi-radius) !important;
+    box-shadow: none !important;
+  }
+
+  /* text inputs */
+  input:is([type="text"], [type="search"], [type="url"], [type="email"], [type="password"], [type="number"], :not([type])),
+  textarea,
+  select,
+  menulist {
+    background-color: var(--mochi-surface0) !important;
+    color: var(--mochi-ink) !important;
+    border: 1px solid var(--mochi-surface1) !important;
+    border-radius: 9px !important;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible {
+    border-color: var(--mochi-accent) !important;
+    box-shadow: var(--mochi-glow) !important;
+  }
+
+  /* primary buttons: mauve, with crust text */
+  button.primary,
+  .primary:is(button, moz-button),
+  button[default],
+  #searchbutton {
+    background-color: var(--mochi-accent) !important;
+    color: var(--mochi-on-accent) !important;
+    border: none !important;
+  }
+}
