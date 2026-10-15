@@ -30,6 +30,6 @@ ToolTip {
         text: barTip.text; textFormat: Text.PlainText; wrapMode: Text.Wrap
         color: Theme.text; font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily
     }
-    background: Rectangle { color: Theme.surface; border.color: Theme.border; radius: Theme.radiusSmall }
+    background: GlassFill { fill: Theme.surface; border.color: Theme.border; radius: Theme.radiusSmall }
     popupType: Popup.Window
 }

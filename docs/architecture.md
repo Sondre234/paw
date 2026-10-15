@@ -1176,7 +1176,8 @@ what was there.
 | `ToggleSwitch.qml` | A switch drawn as a track and a knob: Wi-Fi's radio, do not disturb, the display settings'. |
 | `EmptyState.qml` | What a list says while it has nothing to show: an icon, a line and a hint. |
 | `PopupCard.qml` | A popup's card: surface, outline, corners, a shadow through the GPU, the open and close animation, and its place beside what it belongs to. |
-| `CardFrame.qml` | A card's shadow, surface, outline and the macOS style's inner edge, beneath what it holds: a popup's, an overlay's, a notification's. |
+| `CardFrame.qml` | A card's shadow, surface, outline and the macOS style's inner edge, beneath what it holds: a popup's, an overlay's, a notification's; with `shell.blur` the frosted glass under a translucent surface, and the glass's light edge and sheen. |
+| `GlassFill.qml` | A rectangle in a popup's colour that is a card of its own, drawn by hand rather than by `CardFrame` (a tooltip, Notification Center's cards): on the frosted glass, translucent over a `Glass`. |
 | `Reveal.qml` | How far an overlay or a card is in view: its `progress`, easing to 1 while `shown` and back to 0 after, which the overlays and `PopupCard` take as their own. |
 | `PopupMenu.qml`, `MenuRow.qml` | A menu of plain entries on popup cards, with cascading submenus and keyboard navigation, and one row of it. |
 | `WindowMenu.js` | The entries of a menu about windows that move them to another workspace or monitor, and what the menus share: their sections, the appearance profiles. |
@@ -1515,6 +1516,46 @@ a keymap of up to 200 keys made for the text's characters (`xkb_utf32_to_keysym`
 `wlr_keyboard` of its own set as the seat's keyboard for the keys, so that the focused client gets
 that keymap, each key pressed and released, and the seat's own keyboard, keymap and modifiers
 back after.
+
+### Frosted glass
+
+With `shell.blur` the bars and the popups are frosted glass: each shows the wallpaper behind it
+blurred, under its colour. It is the wallpaper as the desktop draws it that shows, never the
+windows (Hyprland's xray), so that one blurred picture per output serves every surface there and
+nothing is blurred while the shell draws. `Glass` (`glass.cpp`, the controller's `glass`) keeps
+each output's: `Desktop.qml` hands it the wallpaper's layers once a new one has faded in, and as
+the configuration changes how the gradient or the drawn wallpaper looks (`capture`, which grabs the
+backdrop with `grabToImage` at twice the size the blur works at), and `blurWallpaper`
+(`glass_blur.cpp`, tested by `glass_blur_test`) blurs it on a thread of its own: averaged down to a
+pixel for a quarter of the Gaussian's spread (no more than a million pixels), three box blurs
+across and down that come close to the Gaussian, the brightness and saturation applied. A preview,
+which has no desktop, hands it the picture it draws its screenshot over (`previewWallpaper`), at
+once. A new picture, or settings that change it, makes it anew; the glass turned off lets them go.
+
+`Glass` in QML is a `GlassItem` (registered with `Paw`): a rounded rectangle, `radius` round,
+whose texture coordinates are where each of its points lies on the output, so it shows the part of
+the picture behind it. Where its window lies on the output is `surfaceOrigin` (`view.cpp`): the
+panel's surface along its edge, the popover and the menu bar at the top left, a layer surface by its
+anchors, margins and size within what the bars leave (as wlroots places it), a popup window beside
+the window it belongs to, or a preview's overlay where `PreviewData::surfacePlace` says. It looks
+again with each frame its window draws (`afterAnimating`), so that a card sliding in or the
+switcher growing shows, at each step, what lies behind it, as a pane of glass would. Its window
+holds one texture of the picture for all its glass, made on the render thread for each new picture
+and let go with the window's graphics; a node keeps the one it draws until it takes the next. It is
+inset half a pixel, under the antialiased edge of what is drawn over it, as its own edge is not
+antialiased. It draws only through the GPU; Qt's software renderer draws nothing of it, and
+`active` stays false, so that what is over it stays opaque. `active` says the glass shows: the
+glass is on, the shell draws through the GPU (`effects`) and its output has a picture; a surface
+over it reads it to be translucent (`Theme.onGlass`: its colour no more opaque than
+`Theme.glassOpacity`, the bar's alpha but at least `Theme.glassFloor`, 0.75). `pending` says a new picture is on its way, which `Restyle` waits for
+as for a picture loading.
+
+`CardFrame` puts one under every card, `GlassFill` under a card drawn by hand, and the bars put one
+under themselves (a child at `z: -1` draws under its parent's own fill). On the glass,
+`Theme.surfaceRaised` and the macOS style's `moduleColor` are veils of the text colour or white
+rather than colours of their own, so that the glass shows through what lies on a card too; what
+covered a card's colour to shape something (the media card's corners, the notification list's
+fading edges) masks it instead (`MultiEffect`), as no colour can cover a translucent card.
 
 ### Popups and menus
 

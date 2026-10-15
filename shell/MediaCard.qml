@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
+import QtQuick.Effects
 import QtQuick.Layouts
 import QtQuick.Shapes
 
@@ -75,7 +76,8 @@ Item {
             Layout.fillWidth: true
             spacing: Theme.spacingL
             // The cover, or a note where there is none; its corners are rounded by covering them
-            // in the colour it sits on, which every renderer draws.
+            // in the colour it sits on, which every renderer draws, or on the frosted glass
+            // (shell.blur), which the GPU draws and no colour covers, through a rounded mask.
             Item {
                 Layout.preferredWidth: card.artSize; Layout.preferredHeight: card.artSize
                 Layout.alignment: Qt.AlignTop
@@ -95,10 +97,19 @@ Item {
                     sourceSize: Qt.size(2 * card.artSize, 2 * card.artSize)
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
+                    layer.enabled: Theme.glass
+                    layer.effect: MultiEffect { maskEnabled: true; maskSource: coverMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1 }
+                }
+                Rectangle {
+                    id: coverMask
+                    anchors.fill: parent
+                    visible: false
+                    layer.enabled: Theme.glass
+                    radius: Theme.radiusSmall
                 }
                 Shape {
                     anchors.fill: parent
-                    visible: cover.visible
+                    visible: cover.visible && !Theme.glass
                     preferredRendererType: Shape.CurveRenderer
                     ShapePath {
                         fillColor: card.backdrop

@@ -98,7 +98,7 @@ set_source_files_properties(WindowMenu.js PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TR
 qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/PawShell
     NO_PLUGIN NO_GENERATE_QMLTYPES
-    QML_FILES Theme.qml EmptyState.qml FlatButton.qml ButtonFill.qml PushButton.qml TextButton.qml CloseButton.qml SearchInput.qml PopupCard.qml CardFrame.qml TextEntry.qml ToggleSwitch.qml Reveal.qml NotchWheel.qml PopupMenu.qml MenuRow.qml Panel.qml Taskbar.qml TilingBar.qml Icon.qml FadingIcon.qml Desktop.qml Switcher.qml SwitcherCards.qml Palette.qml Overview.qml NotificationCards.qml Osd.qml ConfigError.qml NotificationBell.qml NotificationHistory.qml
+    QML_FILES Theme.qml EmptyState.qml GlassFill.qml FlatButton.qml ButtonFill.qml PushButton.qml TextButton.qml CloseButton.qml SearchInput.qml PopupCard.qml CardFrame.qml TextEntry.qml ToggleSwitch.qml Reveal.qml NotchWheel.qml PopupMenu.qml MenuRow.qml Panel.qml Taskbar.qml TilingBar.qml Icon.qml FadingIcon.qml Desktop.qml Switcher.qml SwitcherCards.qml Palette.qml Overview.qml NotificationCards.qml Osd.qml ConfigError.qml NotificationBell.qml NotificationHistory.qml
     KeyboardLayout.qml BarTip.qml BarAppIcon.qml Badge.qml TaskButton.qml TaskList.qml TrayButton.qml
     WorkspaceIndicator.qml VolumeButton.qml ClockButton.qml BatteryWidget.qml NetworkWidget.qml SpeakerIcon.qml AudioSlider.qml MuteButton.qml StreamRow.qml
     AudioMixer.qml
@@ -172,7 +172,8 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
     task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp
     app_match.hpp wallpapers.cpp wallpapers.hpp image_provider.hpp audio.cpp audio.hpp
-    system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp)
+    system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp
+    glass.cpp glass.hpp glass_blur.cpp glass_blur.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
 # The exploded view's preview lays out its stand-in sheets as the compositor does.
 target_sources(paw-shell PRIVATE ${PROJECT_SOURCE_DIR}/src/xray_layout.c)
@@ -297,6 +298,9 @@ if(BUILD_TESTING)
     paw_shell_test(display_layout_test SOURCES display_layout.cpp display_layout.hpp
         LIBS Qt6::Core Qt6::Test)
     add_test(NAME shell_display_layout COMMAND display_layout_test)
+    # The blurred wallpaper behind the frosted glass (shell.blur).
+    paw_shell_test(glass_blur_test SOURCES glass_blur.cpp glass_blur.hpp LIBS Qt6::Gui Qt6::Test)
+    add_test(NAME shell_glass_blur COMMAND glass_blur_test)
     # What the shell waits for before it says a new appearance profile is drawn.
     paw_shell_test(restyle_test SOURCES restyle.cpp restyle.hpp
         LIBS Qt6::Core Qt6::Gui Qt6::Quick Qt6::Test)
@@ -505,6 +509,12 @@ if(BUILD_TESTING)
         set(GRIM_ARGUMENT "$<$<BOOL:${GRIM}>:${GRIM}>")
         paw_smoke(urgent_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        # The frosted glass (shell.blur) through the GPU, which draws it, and in software, which
+        # does not; not under the sanitizers, as shell_gallery_gpu.
+        if(NOT CMAKE_CXX_FLAGS MATCHES "-fsanitize")
+            paw_smoke(glass_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+                "${GRIM_ARGUMENT}")
+        endif()
         paw_smoke(popover_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(touch_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)

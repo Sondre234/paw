@@ -11,6 +11,7 @@
 #include "display_settings.hpp"
 #include "emoji.hpp"
 #include "file_index.hpp"
+#include "glass.hpp"
 #include "media.hpp"
 #include "notifications.hpp"
 #include "power_mode.hpp"
@@ -114,6 +115,11 @@ class ShellController : public QObject {
     // Whether Qt Quick draws through the GPU, which shader effects such as shadows need; its
     // software renderer cannot draw them. Set from what the views actually use.
     Q_PROPERTY(bool effects READ effects NOTIFY effectsChanged)
+    // shell.blur: whether the bar and the popups are frosted glass, the wallpaper blurred behind
+    // them, as far as the configuration says; it is drawn only with effects, where the glass's
+    // GlassItem says so (`active`). `glass` holds each output's blurred wallpaper.
+    Q_PROPERTY(bool blur READ blur NOTIFY configChanged)
+    Q_PROPERTY(Glass *glass READ glass CONSTANT)
     Q_PROPERTY(bool groupWindows READ groupWindows NOTIFY configChanged)
     // shell.thumbnails: whether resting on a taskbar button shows pictures of its windows, after
     // how many milliseconds, how wide each is, and whether they follow the windows while shown.
@@ -410,6 +416,8 @@ class ShellController : public QObject {
     TaskModel *tasks() { return &tasks_; }
     Audio *audio() { return audio_.get(); }
     Palette *palette() { return &palette_; }
+    bool blur() const { return config_.shell.blur.enabled; }
+    Glass *glass() { return &glass_; }
     Power *power() { return &power_; }
     Authentication *authentication() { return &authentication_; }
     // Registers the shell as the session's polkit authentication agent when it is built in and
@@ -603,6 +611,7 @@ class ShellController : public QObject {
     paw::Config config_;
     bool restyling_ = false;
     Restyle restyle_;
+    Glass glass_;
     // Restyle settled: tells the compositor the profile's look is drawn.
     void restyled();
     TaskModel tasks_;

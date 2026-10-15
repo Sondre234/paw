@@ -108,6 +108,18 @@ int ShellView::extent() const {
     return tilingBar_ ? controller_.tilingBarExtent() : panelExtent();
 }
 int ShellView::headroom() const { return tilingBar_ ? 0 : panelHeadroom(); }
+QPointF ShellView::origin(QSizeF output) const {
+    if (desktop_)
+        return {};
+    switch (edge()) {
+    case paw::PanelEdge::Bottom:
+        return {0, output.height() - height()};
+    case paw::PanelEdge::Right:
+        return {output.width() - width(), 0};
+    default:
+        return {};
+    }
+}
 void ShellView::setTilingBar(bool shown) {
     if (shown == tilingBar_)
         return;
@@ -464,6 +476,76 @@ void showWhile(QQuickView *view, bool want, const char *name, const QScreen *scr
     }
 }
 } // namespace
+namespace {
+#if PAW_LAYER_SHELL
+// What the shell's own bars leave of output `screen`, `output` large: the panel's strip along its
+// edge and the macOS style's menu bar along the top, as their exclusive zones reserve them.
+QRectF usableArea(const QScreen *screen, QSizeF output) {
+    QRectF area(QPointF(0, 0), output);
+    const auto windows = QGuiApplication::topLevelWindows();
+    for (const QWindow *window : windows) {
+        if (window->screen() != screen || !window->isVisible())
+            continue;
+        if (const auto *view = qobject_cast<const ShellView *>(window); view && !view->desktop()) {
+            const int strip = view->extent();
+            switch (view->edge()) {
+            case paw::PanelEdge::Top: area.setTop(area.top() + strip); break;
+            case paw::PanelEdge::Bottom: area.setBottom(area.bottom() - strip); break;
+            case paw::PanelEdge::Left: area.setLeft(area.left() + strip); break;
+            case paw::PanelEdge::Right: area.setRight(area.right() - strip); break;
+            }
+        } else if (const auto *bar = qobject_cast<const MenuBarWindow *>(window)) {
+            area.setTop(area.top() + bar->barHeight());
+        }
+    }
+    return area;
+}
+// Where the compositor puts a layer surface `size` large (wlroots'
+// wlr_scene_layer_surface_v1_configure): within `usable`, or all of the output with an exclusive
+// zone of -1, by its anchors and margins, in the middle along an axis anchored at both ends or
+// neither.
+QPointF layerOrigin(const LayerShellQt::Window &layer, QSizeF size, QSizeF output, QRectF usable) {
+    using W = LayerShellQt::Window;
+    const QRectF bounds = layer.exclusionZone() == -1 ? QRectF(QPointF(0, 0), output) : usable;
+    const auto anchors = layer.anchors();
+    const QMargins margins = layer.margins();
+    const auto along = [](bool start, bool end, qreal from, qreal length, qreal size, int before,
+                          int after) {
+        if (start && !end)
+            return from + before;
+        if (end && !start)
+            return from + length - size - after;
+        return from + (length - size) / 2;
+    };
+    return {along(anchors & W::AnchorLeft, anchors & W::AnchorRight, bounds.x(), bounds.width(),
+                  size.width(), margins.left(), margins.right()),
+            along(anchors & W::AnchorTop, anchors & W::AnchorBottom, bounds.y(), bounds.height(),
+                  size.height(), margins.top(), margins.bottom())};
+}
+#endif
+} // namespace
+
+QPointF surfaceOrigin(const QWindow *window, QSizeF output) {
+    if (!window)
+        return {};
+    const QVariant given = window->property("pawSurfaceOrigin");
+    if (given.isValid())
+        return given.toPointF();
+    if (const auto *view = qobject_cast<const ShellView *>(window))
+        return view->origin(output);
+    // Over the whole output, or along its top.
+    if (qobject_cast<const PopoverWindow *>(window) || qobject_cast<const MenuBarWindow *>(window))
+        return {};
+#if PAW_LAYER_SHELL
+    if (const auto *layer = window->findChild<LayerShellQt::Window *>(Qt::FindDirectChildrenOnly))
+        return layerOrigin(*layer, window->size(), output, usableArea(window->screen(), output));
+#endif
+    // A popup in a window of its own (a tooltip): where it was put beside the surface it belongs to.
+    if (const QWindow *parent = window->transientParent())
+        return surfaceOrigin(parent, output) + QPointF(window->position() - parent->position());
+    return {};
+}
+
 void followRoot(QQuickView *view, LayerShellQt::Window *layer, QQuickItem *root) {
     auto fit = [view, layer, root] {
         const QSize wanted(qRound(root->width()), qRound(root->height()));
