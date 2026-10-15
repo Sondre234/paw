@@ -466,7 +466,8 @@ return {
         { mods = { mod }, key = "h", action = "master_shrink" },
         { mods = { mod }, key = "comma", action = "master_more" },
         { mods = { mod }, key = "period", action = "master_less" },
-        -- The scroll layout (layout_scroll; see layout.scroll): columns on an endless strip.
+        -- The scroll layout (layout_scroll; see layout.scroll): columns on an endless strip,
+        -- whose view turns as a cube as it moves with layout.scroll.cube = true.
         -- master_grow and master_shrink resize the focused column there. Bind these to taste:
         -- { mods = { mod, "Alt" }, key = "h", action = "scroll_left" },
         -- { mods = { mod, "Alt" }, key = "l", action = "scroll_right" },
