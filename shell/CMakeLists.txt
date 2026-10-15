@@ -509,6 +509,12 @@ if(BUILD_TESTING)
         set(GRIM_ARGUMENT "$<$<BOOL:${GRIM}>:${GRIM}>")
         paw_smoke(urgent_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        # The frosted glass (shell.blur) through the GPU, which draws it, and in software, which
+        # does not; not under the sanitizers, as shell_gallery_gpu.
+        if(NOT CMAKE_CXX_FLAGS MATCHES "-fsanitize")
+            paw_smoke(glass_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+                "${GRIM_ARGUMENT}")
+        endif()
         paw_smoke(popover_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(touch_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)

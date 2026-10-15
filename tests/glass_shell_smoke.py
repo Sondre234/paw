@@ -1,0 +1,134 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Frosted glass in a session (shell.blur), drawn through the GPU: the shell takes the wallpaper
+as its desktop draws it and blurs it, once, and the bar shows it blurred under its colour where
+it showed it sharp without the glass; the launcher's card, opaque without the glass, lets the
+wallpaper's colour through, blurred. Turned off by a reload, everything is as before, and drawn in
+software (Qt's renderer, as shell.renderer = "software" has it) the glass is never drawn."""
+from pathlib import Path
+import signal
+import statistics
+import struct
+import sys
+import zlib
+
+import harness
+
+compositor, shell = (str(Path(p).resolve()) for p in sys.argv[1:3])
+grim = sys.argv[3] if len(sys.argv) > 3 else ""
+if not grim:
+    print("grim is missing: the glass was not looked at")
+    sys.exit(0)
+
+WIDTH, HEIGHT, BAR = 1280, 720, 52
+
+
+def wallpaper(path):
+    """Red on the left half, blue on the right, and black and white stripes four pixels wide
+    across the bottom 120 pixels, where the bar is: sharp, they alternate; blurred, they are grey."""
+    def pixel(x, y):
+        if y >= HEIGHT - 120:
+            return (255, 255, 255) if x // 4 % 2 else (0, 0, 0)
+        return (220, 40, 40) if x < WIDTH // 2 else (40, 60, 220)
+    rows = b"".join(b"\0" + bytes(c for x in range(WIDTH) for c in pixel(x, y))
+                    for y in range(HEIGHT))
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    path.write_bytes(b"\x89PNG\r\n\x1a\n"
+                     + chunk(b"IHDR", struct.pack(">IIBBBBB", WIDTH, HEIGHT, 8, 2, 0, 0, 0))
+                     + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+
+
+def config(root, blur):
+    return f"""return {{
+    xwayland = false,
+    animations = {{ enabled = false }},
+    outputs = {{ monitors = {{ ["HEADLESS-1"] = {{ mode = "{WIDTH}x{HEIGHT}" }} }} }},
+    notifications = {{ enabled = false }},
+    shell = {{
+        wallpaper = [[{root / "wallpaper.png"}]],
+        panel_color = "#20202080",
+        panel_height = {BAR},
+        blur = {{ enabled = {"true" if blur else "false"}, radius = 40 }},
+    }},
+}}"""
+
+
+def luma(pixel):
+    r, g, b = pixel
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+with harness.Compositor(compositor, "return {}", start=False) as desktop:
+    root, env = desktop.root, desktop.env
+    wallpaper(root / "wallpaper.png")
+    desktop.config.write_text(config(root, True))
+    # Qt's own renderer for Wayland: OpenGL, on Mesa's software implementation here.
+    env.update(QT_QPA_PLATFORM="wayland", QT_FORCE_STDERR_LOGGING="1", XDG_DATA_HOME=str(root),
+               XDG_DATA_DIRS=str(root), XDG_STATE_HOME=str(root),
+               DBUS_SESSION_BUS_ADDRESS="disabled:")
+    for name in ("QT_QUICK_BACKEND", "QSG_RHI_BACKEND"):
+        env.pop(name, None)
+    desktop.start()
+    log = root / "shell.log"
+    panel = desktop.spawn([shell, "--config", str(desktop.config)], log="shell.log")
+    desktop.detail = lambda: log.read_text()[-3000:]
+    desktop.wait_for(lambda: "paw surface rendered: paw taskbar" in log.read_text(), "the panel")
+    assert "drawn on the GPU" in log.read_text(), log.read_text()
+
+    def bar_spread():
+        """How much the bar's colour varies along a row below its buttons, where nothing but the
+        bar is drawn over the stripes."""
+        shot = harness.grab(grim, env)
+        return statistics.pstdev(luma(shot.at(x, HEIGHT - 2)) for x in range(300, 900))
+
+    def card_red():
+        """The launcher's card's average red, over the wallpaper's red half."""
+        shot = harness.grab(grim, env)
+        return statistics.mean(shot.at(x, y)[0] for x in range(100, 500, 7) for y in range(250, 550, 7))
+
+    def launcher(opened):
+        desktop.msg("launcher")
+        word = "opened" if opened else "closed"
+        desktop.wait_for(lambda: log.read_text().count(f"paw launcher {word} on HEADLESS-1") >= launcher.times[word] + 1,
+                         f"the launcher {word}")
+        launcher.times[word] += 1
+    launcher.times = {"opened": 0, "closed": 0}
+
+    # The wallpaper is blurred once it is drawn, and the bar shows it so: no stripes.
+    desktop.wait_for(lambda: "paw glass blurred HEADLESS-1" in log.read_text(), "the wallpaper blurred")
+    desktop.wait_for(lambda: bar_spread() < 8, "the stripes blurred under the bar")
+    launcher(True)
+    desktop.wait_for(lambda: "paw popover shown on HEADLESS-1" in log.read_text(), "the popover")
+    glass_red = None
+
+    def reddened():
+        """The card drawn over the wallpaper's red (220 bare), its own colour (32) three quarters
+        opaque over the red blurred."""
+        global glass_red
+        glass_red = card_red()
+        return 60 < glass_red < 140
+    desktop.wait_for(reddened, "the wallpaper's red through the launcher's card")
+    launcher(False)
+
+    # Turned off, the stripes show through the bar sharp, and the card is opaque.
+    desktop.config.write_text(config(root, False))
+    desktop.reload(desktop.config.read_text())
+    panel.send_signal(signal.SIGHUP)
+    desktop.wait_for(lambda: bar_spread() > 30, "the stripes sharp under the bar without the glass")
+    launcher(True)
+    desktop.wait_for(lambda: card_red() < 45, "the launcher's card opaque without the glass")
+    launcher(False)
+    panel.terminate()
+    desktop.reap(panel)
+
+    # Drawn in software, the glass is never drawn, on or not.
+    desktop.config.write_text(config(root, True))
+    desktop.reload(desktop.config.read_text())
+    env["QT_QUICK_BACKEND"] = "software"
+    desktop.spawn([shell, "--config", str(desktop.config)], log="shell.log")
+    desktop.wait_for(lambda: "paw surface rendered: paw taskbar" in log.read_text(), "the panel")
+    assert "drawn in software" in log.read_text(), log.read_text()
+    desktop.wait_for(lambda: bar_spread() > 30, "the stripes sharp under the bar drawn in software")
+    assert "paw glass blurred" not in log.read_text(), log.read_text()
+print("the glass blurs the wallpaper under the bar and a card, and stays out in software")
