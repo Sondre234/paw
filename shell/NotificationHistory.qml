@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
+import QtQuick.Effects
 import QtQuick.Layouts
 
 // The clock flyout's notification card (ClockFlyout.qml): every notification still kept, by
@@ -67,7 +68,7 @@ PopupCard {
         anchors.left: parent.left; anchors.right: parent.right
         height: Theme.rowHeight
         opacity: shown ? 1 : 0
-        visible: opacity > 0
+        visible: opacity > 0 && !history.glassy
         Behavior on opacity { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
         gradient: Gradient {
             GradientStop { position: 0; color: Theme.alpha(history.color, fromTop ? 1 : 0) }
@@ -158,6 +159,16 @@ PopupCard {
                 anchors.fill: parent
                 clip: true; spacing: Theme.macos ? Theme.spacingM : Theme.spacingL
                 boundsBehavior: Flickable.StopAtBounds
+                // On the frosted glass (shell.blur) no colour covers its edges: they fade out
+                // through a mask instead, while it goes on past them.
+                layer.enabled: history.glassy && (fadeTop.shown || fadeBottom.shown)
+                layer.effect: MultiEffect {
+                    maskEnabled: true
+                    maskSource: fadeMask
+                    // The mask's alpha as it is.
+                    maskThresholdMin: 0.5
+                    maskSpreadAtMin: 1
+                }
                 model: history.visible ? history.center.history.groups : []
                 ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
                 // An application's heading, its icon and name, and its notifications under it.
@@ -327,15 +338,36 @@ PopupCard {
             }
             // None between the macOS style's cards, which have no card under them to fade into.
             EdgeFade {
+                id: fadeTop
                 objectName: "notificationFadeTop"
                 anchors.top: parent.top
                 fromTop: true
                 shown: !Theme.macos && !list.atYBeginning
             }
             EdgeFade {
+                id: fadeBottom
                 objectName: "notificationFadeBottom"
                 anchors.bottom: parent.bottom
                 shown: !Theme.macos && !list.atYEnd
+            }
+            // The list's mask on the glass: whole but for a row's height at an edge it goes on
+            // past, fading out towards it.
+            Item {
+                id: fadeMask
+                anchors.fill: list
+                visible: false
+                layer.enabled: list.layer.enabled
+                Rectangle {
+                    id: fadeShape
+                    anchors.fill: parent
+                    readonly property real edge: Theme.rowHeight / Math.max(1, height)
+                    gradient: Gradient {
+                        GradientStop { position: 0; color: Qt.rgba(0, 0, 0, fadeTop.shown ? 0 : 1) }
+                        GradientStop { position: Math.min(0.5, fadeShape.edge); color: "black" }
+                        GradientStop { position: Math.max(0.5, 1 - fadeShape.edge); color: "black" }
+                        GradientStop { position: 1; color: Qt.rgba(0, 0, 0, fadeBottom.shown ? 0 : 1) }
+                    }
+                }
             }
         }
     }
