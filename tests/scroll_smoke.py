@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The scrolling layout: windows open in columns right of the focused one, the view follows
-focus, columns change width, stack and unstack, and the layout survives a change of layout."""
+"""The scrolling layout: windows open in columns right of the focused one, or first with the
+pointer over the first column, the view follows focus, columns change width, stack and unstack,
+and the layout survives a change of layout."""
 from pathlib import Path
 import sys
 
@@ -112,4 +113,43 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     desktop.spawn([probe, "--external-control"])
     desktop.wait_for(lambda: len(windows()) == 1 and windows()[0][1], "window after closing")
     assert visible(focused()), focused()
+
+    # With the pointer over the first column a new window opens left of it, as the new first
+    # column; over another column it opens right of the focused one.
+    def strip():
+        return [w.title for w in sorted(desktop.windows(), key=lambda w: w.x)]
+
+    def focused_title():
+        return next(w.title for w in desktop.windows() if w.focused)
+
+    def point(x):
+        msg("headless_pointer", "move", "mouse", str(x), "300")
+
+    old = strip()[0]
+    point(100)
+    desktop.open_window(probe, "front", focused=True)
+    desktop.wait_for(lambda: strip() == ["front", old] and focused()[0] == 0, "front first")
+    point(SCREEN_WIDTH - 1)  # over the second column, which takes focus
+    desktop.open_window(probe, "third", focused=True)
+    desktop.wait_for(lambda: strip() == ["front", old, "third"], "third right of the second")
+    point(100)  # over the second column again, the view having scrolled to the third
+    desktop.wait_for(lambda: focused_title() == old, "second column focused")
+    desktop.open_window(probe, "after", focused=True)
+    desktop.wait_for(lambda: strip() == ["front", old, "after", "third"],
+                     "after right of the second")
+
+    # The column under the pointer counts, not the focused one: with focus not following the
+    # pointer, the first column is still found under it.
+    desktop.reload(CONFIG.replace("xwayland = false,",
+                                  "xwayland = false, mouse = { focus_follows = false },"))
+    msg("scroll_left")
+    msg("scroll_left")
+    desktop.wait_for(lambda: focused_title() == "front" and focused()[0] == 0, "front in view")
+    msg("scroll_right")
+    desktop.wait_for(lambda: focused_title() == old, "second column focused by key")
+    point(100)
+    desktop.stays(lambda: focused_title() == old, "focus stays on the second column")
+    desktop.open_window(probe, "lead", focused=True)
+    desktop.wait_for(lambda: strip() == ["lead", "front", old, "after", "third"]
+                     and focused()[0] == 0, "lead first")
 print("Scroll layout passed")
