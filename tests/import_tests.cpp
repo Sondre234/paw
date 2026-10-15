@@ -115,7 +115,7 @@ void hyprlang(const fs::path &root) {
 
     const auto &report = result.report;
     for (const char *expected :
-         {"rounded corners", "blur needs", "some-mouse", "source /etc/hostname", "scale 1ab",
+         {"rounded corners", "set windows.blur by hand", "some-mouse", "source /etc/hostname", "scale 1ab",
           "HDMI-A-3: mirror HDMI-A-3 is not another monitor's name",
           "HDMI-A-4: bitdepth 12 is not 8 or 10", "HDMI-A-4: cm wide is not supported",
           "DP-4: sdrbrightness is not supported",
