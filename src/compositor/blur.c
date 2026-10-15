@@ -22,9 +22,10 @@ static bool no_input(struct wlr_scene_buffer *buffer, double *sx, double *sy) {
     return false;
 }
 
-/* Whether anything is blurred: windows.blur. */
+/* Whether anything is blurred: windows.blur, or a rule that blurs some windows without it. */
 static bool wanted(struct sh_server *server) {
-    return server_settings(server)->blur;
+    const struct sh_settings *settings = server_settings(server);
+    return settings->blur || settings->blur_by_rule;
 }
 
 /* What a background is drawn over: appearance.background, over black where it is translucent. */
@@ -427,9 +428,35 @@ static void remove_blur(struct sh_toplevel *toplevel) {
     toplevel->blur = toplevel->blur_probe = NULL;
 }
 
-/* Whether the window is blurred: windows.blur. */
+/* A hash of the window's app ID and title, which its rules were matched on. */
+static uint64_t rule_key(struct sh_toplevel *toplevel) {
+    uint64_t hash = 1469598103934665603ULL;
+    const char *texts[] = {toplevel_app_id(toplevel), toplevel_title(toplevel)};
+    for (int i = 0; i < 2; ++i) {
+        for (const char *c = texts[i] ? texts[i] : ""; *c; ++c)
+            hash = (hash ^ (unsigned char)*c) * 1099511628211ULL;
+        hash = (hash ^ 0x100) * 1099511628211ULL; // the end of one text, apart from the next
+    }
+    return hash;
+}
+
+/* Whether the window is blurred: windows.blur, unless a rule says otherwise. The rules are
+ * matched again only as the title, the app ID or the configuration changes, not on every
+ * commit. */
 static bool blurred(struct sh_toplevel *toplevel) {
-    return server_settings(toplevel->server)->blur;
+    struct sh_server *server = toplevel->server;
+    const struct sh_settings *settings = server_settings(server);
+    if (!settings->blur_rules)
+        return settings->blur;
+    struct sh_blur_rule *rule = &toplevel->blur_rule;
+    uint64_t key = rule_key(toplevel);
+    if (rule->generation != server->config_generation || rule->key != key) {
+        struct sh_window_rule found;
+        rule->value = window_rule(toplevel, &found) ? found.blur : -1;
+        rule->generation = server->config_generation;
+        rule->key = key;
+    }
+    return rule->value < 0 ? settings->blur : rule->value > 0;
 }
 
 /* From refresh_frame: a mapped window that is not fullscreen gets a blur while anything is

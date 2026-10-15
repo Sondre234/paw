@@ -949,6 +949,14 @@ struct sh_opacity_rule {
     float value;
 };
 
+/* What the window rules say of a window's blur (blur.c): -1 nothing, 0 none, 1 blurred, for the
+ * title and app ID it had then (a hash of both) and the configuration (0 for never). */
+struct sh_blur_rule {
+    unsigned generation;
+    uint64_t key;
+    int value;
+};
+
 /* A scratchpad window sliding in or out (scratchpad.c): which way, where it is cut, where the
  * window was as it started (turning back needs it there still), and the border's rounded rect,
  * which no clip reaches: its place and size as frame.c lays it out and as the cut leaves it. */
@@ -1115,8 +1123,9 @@ struct sh_toplevel {
     /* The background blurred under it (blur.c): a part of its output's picture, below its
      * surfaces in `content`, which places it apart from the animations (sh_anim.placed_apart)
      * where `blur_probe`, a buffer of no picture at the window's frame, is drawn; both NULL
-     * without a blur. */
+     * without a blur. What the rules say of it, kept. */
     struct wlr_scene_buffer *blur, *blur_probe;
+    struct sh_blur_rule blur_rule;
     /* The user was told the window took the keyboard's shortcuts (shortcuts_inhibit.c), which
      * they hear once. */
     bool shortcuts_told;
