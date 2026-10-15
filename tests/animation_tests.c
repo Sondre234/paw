@@ -1972,6 +1972,25 @@ static void test_pose_fade(void) {
     teardown(&rig);
 }
 
+/* A pose that squashes a window to a sliver, as the cube draws a tile turned edge on, is put at
+ * rest for a lookup where the window rests, though nothing of it is drawn there. */
+static void test_pose_squashed_lookup(void) {
+    struct rig rig;
+    setup(&rig, config(100, SH_CURVE_EASE_OUT));
+    struct sh_pose pose = {.sx = 0.01, .sy = 1, .ax = 0};
+    CHECK(sh_anim_pose(rig.animator, &rig.anim, rig.content, &pose, NULL, NULL));
+    CHECK(rig.rect->width == 2, "%d", rig.rect->width);
+    sh_animator_rest_at(rig.animator, 5000, 5000); // nowhere near it
+    CHECK(rig.rect->width == 2, "left as drawn");
+    sh_animator_resume(rig.animator);
+    sh_animator_rest_at(rig.animator, 150, 50); // where it rests, past the sliver
+    CHECK(rig.rect->node.x == 10 && rig.rect->width == 200, "%d %d", rig.rect->node.x,
+          rig.rect->width);
+    sh_animator_resume(rig.animator);
+    CHECK(rig.rect->width == 2, "drawn squashed again");
+    teardown(&rig);
+}
+
 /* A client drawing a new size while its window is stretched: its surface resized where the
  * stretch put it is read afresh, not taken for where it rests. */
 static void test_pose_commit(void) {
@@ -2052,6 +2071,7 @@ int main(void) {
     test_pose();
     test_pose_commit();
     test_pose_fade();
+    test_pose_squashed_lookup();
     if (!failures)
         puts("Animator timing, retargeting, speed, disabling, and late frames passed");
     return failures ? 1 : 0;

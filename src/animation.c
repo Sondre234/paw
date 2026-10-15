@@ -832,17 +832,28 @@ void sh_animator_rest(struct sh_animator *animator) {
     rest_poses(animator, false, 0, 0);
 }
 
+/* The record `anim` keeps of `node`, NULL for none or no `anim`. */
+static const struct sh_anim_record *record_of(const struct sh_anim *anim,
+                                              const struct wlr_scene_node *node) {
+    for (size_t i = 0; anim && i < anim->count; ++i)
+        if (anim->records[i].node == node)
+            return &anim->records[i];
+    return NULL;
+}
+
 /* Whether a buffer or rectangle below `tree`, whose parent is at (ox, oy), has a box that
- * contains the point. A buffer of unknown size might. */
-static bool tree_covers(const struct wlr_scene_tree *tree, double ox, double oy, double px,
-                        double py) {
+ * contains the point: as drawn, or with `rest`, each node that animation draws at its resting
+ * place and size, as a pose squashing a window has it smaller where it is drawn. A buffer of
+ * unknown size might. */
+static bool tree_covers(const struct sh_anim *rest, const struct wlr_scene_tree *tree, double ox,
+                        double oy, double px, double py) {
     struct wlr_scene_node *node;
     wl_list_for_each(node, &tree->children, link) {
         if (!node->enabled)
             continue;
         double x = ox + node->x, y = oy + node->y;
         if (node->type == WLR_SCENE_NODE_TREE) {
-            if (tree_covers(wlr_scene_tree_from_node(node), x, y, px, py))
+            if (tree_covers(rest, wlr_scene_tree_from_node(node), x, y, px, py))
                 return true;
             continue;
         }
@@ -861,6 +872,12 @@ static bool tree_covers(const struct wlr_scene_tree *tree, double ox, double oy,
             if (width <= 0 || height <= 0)
                 return true;
         }
+        const struct sh_anim_record *r = record_of(rest, node);
+        if (r && r->shaped && node->x == r->set_x && node->y == r->set_y &&
+            width == r->set_width && height == r->set_height) {
+            x = ox + r->x, y = oy + r->y;
+            width = r->width, height = r->height;
+        }
         if (px >= x && px < x + width && py >= y && py < y + height)
             return true;
     }
@@ -876,9 +893,9 @@ static void rest_lifts(struct sh_animator *animator, bool at, double px, double 
         int cx, cy;
         if (at && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
             double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
-            if (!tree_covers(anim->tree, cx, cy, px, py) &&
-                !tree_covers(anim->tree, parent_x + anim->base_x, parent_y + anim->base_y, px,
-                             py))
+            if (!tree_covers(NULL, anim->tree, cx, cy, px, py) &&
+                !tree_covers(anim, anim->tree, parent_x + anim->base_x, parent_y + anim->base_y,
+                             px, py))
                 continue;
         }
         anim->lift_rested = true;
@@ -894,9 +911,9 @@ static void rest_poses(struct sh_animator *animator, bool at, double px, double 
         int cx, cy;
         if (at && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
             double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
-            if (!tree_covers(anim->tree, cx, cy, px, py) &&
-                !tree_covers(anim->tree, parent_x + anim->base_x, parent_y + anim->base_y, px,
-                             py))
+            if (!tree_covers(NULL, anim->tree, cx, cy, px, py) &&
+                !tree_covers(anim, anim->tree, parent_x + anim->base_x, parent_y + anim->base_y,
+                             px, py))
                 continue;
         }
         rest_pose(anim);
@@ -914,8 +931,8 @@ void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
         if (!sizes_change && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
             double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
             double rest_x = parent_x + anim->base_x, rest_y = parent_y + anim->base_y;
-            matters = tree_covers(anim->tree, cx, cy, px, py) ||
-                      (!anim->owned && tree_covers(anim->tree, rest_x, rest_y, px, py));
+            matters = tree_covers(NULL, anim->tree, cx, cy, px, py) ||
+                      (!anim->owned && tree_covers(NULL, anim->tree, rest_x, rest_y, px, py));
             // One changing size covers at rest the size its client drew, or the one it was
             // given, and what reaches past them.
             if (anim->morph && !anim->owned && !matters) {
