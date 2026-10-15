@@ -844,6 +844,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(zoom_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(zoom_output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(wheel_binding_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
+            $<TARGET_FILE:pointer_probe> ${EXAMPLE_CONFIG})
         paw_smoke(example_snippets TIMEOUT 120 $<TARGET_FILE:paw>
             ${CMAKE_CURRENT_SOURCE_DIR}/config/init.lua)
         set(LOCK_XML ${PROTOCOL_DIR}/staging/ext-session-lock/ext-session-lock-v1.xml)
