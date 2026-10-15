@@ -129,7 +129,9 @@ Discord, turn on one of the two themes.
 The colours are [Catppuccin](https://github.com/catppuccin/catppuccin)'s Mocha flavour,
 Copyright (c) 2021 Catppuccin, under the MIT licence. Everything else here is paw's and under
 its licence, GPL-3.0-or-later; the wallpapers, the start button, the fastfetch picture, the
-start page's cat and the `Mochi` icons are made for paw. Nothing else is bundled: the fonts
+start page's cat and the `Mochi` icons are made for paw, the pictures with OpenAI's image model
+through Codex. The wallpapers are 1672 by 941 for now, the size that model draws. Nothing else
+is bundled: the fonts
 (Nunito by Vernon Adams, Cyreal and Jacques Le Bailly; M PLUS Rounded 1c by Coji Morishita and
 the M+ Fonts Project; Maple Mono by subframe7536; the Nerd Fonts symbols), the Tela icons
 (vinceliuice, GPL-3.0) and Catppuccin's cursors (GPL-2.0, based on Volantes) are downloaded by
