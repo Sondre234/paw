@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "view.hpp"
 #include "audio.hpp"
-#include "glass.hpp"
 #include "task_filter.hpp"
 #include "taskbar_model.hpp"
 #include <QGuiApplication>
@@ -38,8 +37,7 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
                                   qmlRegisterType<TaskbarModel>("Paw", 1, 0, "TaskbarModel") +
                                   qmlRegisterType<WindowSound>("Paw", 1, 0, "WindowSound") +
                                   qmlRegisterType<PopoverWindow>("Paw", 1, 0, "PopoverWindow") +
-                                  qmlRegisterType<MenuBarWindow>("Paw", 1, 0, "MenuBarWindow") +
-                                  qmlRegisterType<GlassItem>("Paw", 1, 0, "Glass");
+                                  qmlRegisterType<MenuBarWindow>("Paw", 1, 0, "MenuBarWindow");
     Q_UNUSED(registered);
     // Known as soon as the window exists, so before any QML asks: every view of the shell draws
     // the same way.
