@@ -297,6 +297,9 @@ if(BUILD_TESTING)
     paw_shell_test(display_layout_test SOURCES display_layout.cpp display_layout.hpp
         LIBS Qt6::Core Qt6::Test)
     add_test(NAME shell_display_layout COMMAND display_layout_test)
+    # The blurred wallpaper behind the frosted glass (shell.blur).
+    paw_shell_test(glass_blur_test SOURCES glass_blur.cpp glass_blur.hpp LIBS Qt6::Gui Qt6::Test)
+    add_test(NAME shell_glass_blur COMMAND glass_blur_test)
     # What the shell waits for before it says a new appearance profile is drawn.
     paw_shell_test(restyle_test SOURCES restyle.cpp restyle.hpp
         LIBS Qt6::Core Qt6::Gui Qt6::Quick Qt6::Test)
