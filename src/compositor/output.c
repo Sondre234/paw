@@ -16,6 +16,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     struct sh_stats *stats = &output->server->stats;
     uint64_t started = now_ns();
 
+    reapply_opacity(output->server); // which a client's commit put back to its own
     // The fades redraw windows' frames at rest (a peek's), which the animations then draw
     // where they have the windows.
     if (tick_effects(output->server))

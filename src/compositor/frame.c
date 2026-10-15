@@ -600,6 +600,21 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     drop_refresh(toplevel); // a drop past the bar cuts the rounded border by its size
 }
 
+/* wlroots' scene gives a surface's buffer the opacity its client asks for (1, or what
+ * wp_alpha_modifier_v1 says) each time it commits, after refresh_frame gave it the window's: the
+ * scene hears the commit after the window does (morph.c needs it so). Before each frame, and
+ * before the animations multiply it, every translucent window has its opacity laid on its
+ * buffers again; one whose buffers have it already changes nothing. */
+void reapply_opacity(struct sh_server *server) {
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (toplevel->scene_tree && !toplevel->unmanaged && toplevel->opacity < 1 &&
+            toplevel_mapped(toplevel))
+            wlr_scene_node_for_each_buffer(&toplevel->scene_tree->node, set_buffer_opacity,
+                                           toplevel);
+    }
+}
+
 void forget_decoration(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
     if (server->deco_hovered == toplevel)

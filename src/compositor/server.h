@@ -1355,6 +1355,7 @@ bool in_deco_corner(struct sh_toplevel *toplevel, double x, double y);
 void refresh_decoration(struct sh_toplevel *toplevel);
 void refresh_tabs(struct sh_toplevel *toplevel);
 void refresh_frame(struct sh_toplevel *toplevel);
+void reapply_opacity(struct sh_server *server);
 void forget_decoration(struct sh_toplevel *toplevel);
 void server_new_decoration(struct wl_listener *listener, void *data);
 
