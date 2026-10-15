@@ -137,6 +137,38 @@ return {
                 start_icon = "rices/washi/start/kuroneko.svg",
             },
         },
+        -- mochi (餅): Catppuccin Mocha's palette under frosted glass, and a round cream cat as
+        -- soft as the rice cake. The bar, the popups and translucent windows (kitty, editors) show
+        -- the wallpaper blurred behind them. Its wallpapers, start button and Mochi icons sit in
+        -- rices/mochi, with themes for kitty, fastfetch, Firefox, Discord, Claude Code, editors
+        -- and GTK that its install.sh puts in place. It names Nunito (install.sh --fonts);
+        -- without it the default sans-serif stands in. Colours from Catppuccin Mocha (MIT).
+        mochi = {
+            appearance = { background = "#1e1e2e", color_scheme = "dark" },
+            windows = {
+                border_width = 2, corner_radius = 14, round = "always",
+                border_color = { "#cba6f7", "#f5c2e7", angle = 135 },
+                border_inactive_color = "#45475a",
+                shadow = { enabled = true, color = "#11111bcc", inactive_color = "#11111b80",
+                           blur = 40, offset = { 0, 12 } },
+                -- The wallpaper frosted behind see-through windows, a little darker and more
+                -- vivid so text on them stays clear.
+                blur = { enabled = true, radius = 36, noise = 0.02, brightness = 0.9,
+                         saturation = 1.3 },
+                urgent_color = "#f38ba8",
+                magnet = { guide_color = "#cba6f7cc" },
+                snap = { color = "#cba6f740" },
+            },
+            shell = {
+                accent = "#cba6f7", panel_color = "#1e1e2ea6", text_color = "#cdd6f4",
+                font = "Nunito", font_size = 14,
+                panel_height = 44, panel_position = "top", panel_radius = 14,
+                panel_margin = { top = 10, left = 16, right = 16 },
+                blur = { enabled = true, radius = 48, brightness = 0.85, saturation = 1.2 },
+                wallpaper = "rices/mochi/wallpaper/mochi.jpg",
+                start_icon = "rices/mochi/start/mochi.svg",
+            },
+        },
     },
     -- keyboard = { layout = "us", variant = "", model = "", options = "", repeat_rate = 25, repeat_delay = 600 },
     -- Several layouts: layout = "us,no", variant = ",nodeadkeys"; or file = "keymap.xkb", a
