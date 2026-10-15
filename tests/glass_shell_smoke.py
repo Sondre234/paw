@@ -2,7 +2,8 @@
 """Frosted glass in a session (shell.blur), drawn through the GPU: the shell takes the wallpaper
 as its desktop draws it and blurs it, once, and the bar shows it blurred under its colour where
 it showed it sharp without the glass; the launcher's card, opaque without the glass, lets the
-wallpaper's colour through, blurred. Turned off by a reload, everything is as before, and drawn in
+wallpaper's colour through, blurred, and the command palette, an overlay of its own, what lies
+behind each end of it. Turned off by a reload, everything is as before, and drawn in
 software (Qt's renderer, as shell.renderer = "software" has it) the glass is never drawn."""
 from pathlib import Path
 import signal
@@ -110,6 +111,29 @@ with harness.Compositor(compositor, "return {}", start=False) as desktop:
         return 60 < glass_red < 140
     desktop.wait_for(reddened, "the wallpaper's red through the launcher's card")
     launcher(False)
+
+    # The command palette, an overlay of its own in the middle of the output, shows what lies
+    # behind each part of it: red on its left, blue on its right.
+    def palette_ends():
+        """How much redder than blue the palette's card is left of the output's middle, and how
+        much bluer than red right of it."""
+        shot = harness.grab(grim, env)
+
+        def tint(left):
+            # Beside its rows' text, short of the middle by three of the blur's deviations.
+            xs = range(500, 580, 3) if left else range(700, 860, 3)
+            pixels = [shot.at(x, y) for x in xs for y in range(300, 500, 3)]
+            red, blue = (statistics.mean(p[i] for p in pixels) for i in (0, 2))
+            return red - blue if left else blue - red
+        return tint(True), tint(False)
+    # Bare, the wallpaper's halves differ by 180; under a card a quarter of that shows.
+    key = desktop.keyboard()
+    desktop.msg("palette")
+    desktop.wait_for(lambda: "paw palette shown on HEADLESS-1" in log.read_text(), "the palette")
+    desktop.wait_for(lambda: all(20 < end < 100 for end in palette_ends()),
+                     "the red half behind the palette's left and the blue half behind its right")
+    key(1)  # Escape
+    desktop.wait_for(lambda: "paw palette hidden on HEADLESS-1" in log.read_text(), "the palette gone")
 
     # Turned off, the stripes show through the bar sharp, and the card is opaque.
     desktop.config.write_text(config(root, False))
