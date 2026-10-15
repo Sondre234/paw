@@ -96,6 +96,14 @@ Item {
         radius: tilingBar.config.radius
         border.width: tilingBar.config.style === "bar" ? tilingBar.config.borderWidth : 0
         border.color: tilingBar.config.borderColor
+        // Frosted glass (shell.blur) under its colour, beneath it.
+        Glass {
+            objectName: "tilingBarGlass"
+            anchors.fill: parent
+            z: -1
+            visible: Theme.glass && tilingBar.config.style === "bar"
+            radius: parent.radius
+        }
         // A right click beside the modules opens the bar's menu (tiling off, the start menu, ...).
         MouseArea {
             anchors.fill: parent
@@ -144,6 +152,12 @@ Item {
         radius: host.config.radius
         border.width: host.islands && !empty ? host.config.borderWidth : 0
         border.color: host.config.borderColor
+        Glass {
+            anchors.fill: parent
+            z: -1
+            visible: Theme.glass && group.host.islands && !group.empty
+            radius: parent.radius
+        }
         Row {
             id: row
             x: group.across
@@ -210,6 +224,12 @@ Item {
             color: module.fill
             border.width: module.host.pills ? module.host.config.borderWidth : 0
             border.color: module.host.config.borderColor
+            Glass {
+                anchors.fill: parent
+                z: -1
+                visible: Theme.glass && module.host.pills
+                radius: parent.radius
+            }
             Rectangle {
                 anchors.fill: parent
                 radius: parent.radius

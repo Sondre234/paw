@@ -30,9 +30,25 @@ Rectangle {
         Component.onCompleted: show()
         Connections {
             target: shell
-            function onConfigChanged() { backdrop.show() }
+            function onConfigChanged() { backdrop.show(); glassCapture.restart() }
             function onWallpaperChanged() { backdrop.show() }
         }
+        // Whether what shows is all there is to show: the top layer drawn and faded in.
+        function settled() {
+            const top = children.length > 0 ? children[children.length - 1] : null
+            return top !== null && top.ready && top.opacity === 1
+        }
+        onWidthChanged: glassCapture.restart()
+        onHeightChanged: glassCapture.restart()
+    }
+    // The frosted glass (shell.blur) of the shell's surfaces on this output shows this wallpaper,
+    // blurred, as it is drawn here: taken once a new one has faded in, and as the configuration
+    // changes what the gradient or the drawn wallpaper looks like. A fade under way takes it as it
+    // ends instead.
+    Timer {
+        id: glassCapture
+        interval: 0
+        onTriggered: if (shell.blur && backdrop.settled()) shell.glass.capture(backdrop, shell.background)
     }
     Component {
         id: backdropLayer
@@ -75,6 +91,7 @@ Rectangle {
                 onFinished: {
                     for (let i = 0; i < backdrop.children.length && backdrop.children[i] !== layer; ++i)
                         backdrop.children[i].destroy()
+                    glassCapture.restart()
                 }
             }
             onReadyChanged: if (ready && opacity === 0 && !fadeIn.running) fadeIn.start()

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
+import Paw
 
 // Launchpad, the launcher of the macOS style (Launcher.qml is the taskbar style's): every
 // application over the whole output, on pages of a grid, with the wallpaper dimmed behind them, a
@@ -239,20 +240,28 @@ Item {
         }
     }
 
-    // The wallpaper, as the desktop shows it, under a scrim. A click on it closes Launchpad, and
-    // dragging it sideways pages, once it has gone far enough.
+    // The wallpaper, as the desktop shows it, under a scrim; on the frosted glass (shell.blur)
+    // blurred, as macOS has it. A click on it closes Launchpad, and dragging it sideways pages,
+    // once it has gone far enough.
     Item {
         id: backdrop
         anchors.fill: parent
         opacity: launchpad.progress
+        readonly property bool glassy: glass.visible && glass.active
+        Glass {
+            id: glass
+            anchors.fill: parent
+            visible: Theme.glass
+        }
         Loader {
             anchors.fill: parent
-            active: shell.wallpaper.toString().length === 0
+            active: !backdrop.glassy && shell.wallpaper.toString().length === 0
             sourceComponent: DrawnWallpaper {}
         }
         Image {
             anchors.fill: parent
-            source: shell.wallpaper
+            visible: !backdrop.glassy
+            source: backdrop.glassy ? "" : shell.wallpaper
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
         }

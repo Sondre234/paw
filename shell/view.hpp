@@ -49,6 +49,11 @@ class ShellView : public QQuickView {
     // it shows has them.
     paw::PanelEdge edge() const;
     int extent() const;
+    // Whether it is the desktop rather than the panel.
+    bool desktop() const { return desktop_; }
+    // Where it lies on an output `output` logical pixels large: the desktop over all of it, the
+    // panel's surface along its edge.
+    QPointF origin(QSizeF output) const;
     QString panelEdge() const { return controller_.panelEdge(outputScreen_->name()); }
     bool panelVertical() const { return controller_.panelVertical(outputScreen_->name()); }
     int panelExtent() const { return controller_.panelExtent(outputScreen_->name()); }
@@ -201,6 +206,14 @@ class OverlayView : public QQuickView {
     bool keyboard_, leaving_ = false;
     void holdKeyboard(bool hold);
 };
+
+// Where `window`, a surface of the shell, lies on its output, `output` logical pixels large: its
+// top-left corner there. A layer surface lies where its anchors, margins and size put it, within
+// what the panel and the menu bar leave of the output unless it ignores them (an exclusive zone of
+// -1), as the compositor places it; a window may say where it is with a `pawSurfaceOrigin`
+// property (a point), as a preview's overlay does. The frosted glass (GlassItem) finds the part of
+// the wallpaper behind it by it.
+QPointF surfaceOrigin(const QWindow *window, QSizeF output);
 
 // Keeps `view` as big as `root`, the item it shows, whatever size the compositor last configured
 // (a surface that opened small would otherwise stay small), asking its layer surface, if any, for

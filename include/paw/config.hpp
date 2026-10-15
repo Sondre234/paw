@@ -125,6 +125,16 @@ struct ShellWidgets {
     bool bluetooth = true;  // a Bluetooth tile in Quick Settings, only while BlueZ has an adapter
 };
 
+// Lua `shell.blur`: frosted glass behind the bar and the popups, the wallpaper blurred under
+// their translucent colour.
+struct ShellBlur {
+    bool enabled = false;
+    int radius = 40;          // how far the blur spreads, in pixels; its Gaussian's sigma is half
+    double brightness = 1;    // the blurred wallpaper's brightness, times this
+    double saturation = 1;    // and its colourfulness: 0 is grey, above 1 more vivid
+    bool operator==(const ShellBlur &) const = default;
+};
+
 // Lua `shell.thumbnails`: pictures of the windows of a taskbar button resting under the pointer.
 struct ShellThumbnails {
     bool enabled = true;
@@ -220,6 +230,7 @@ struct ShellConfig {
     // frame = "windows": the bar, the dock and the popups take the windows' border and shadow
     // rather than the shell's own hairline and soft shadow.
     bool frame_windows = false;
+    ShellBlur blur;
     std::string font;   // family; empty: the Qt default
     int font_size = 12; // taskbar text, in pixels
     bool icons_only = true; // taskbar buttons show the window's icon, its title as a tooltip

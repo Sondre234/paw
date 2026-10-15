@@ -56,6 +56,9 @@ bool loading(const QQuickItem *item) {
     // QQuickImage and AnimatedImage's base; its status 2 is Loading.
     if (item->inherits("QQuickImageBase") && item->property("status").toInt() == 2)
         return true;
+    // The frosted glass (shell.blur) waiting for its output's wallpaper, blurred anew.
+    if (item->inherits("GlassItem") && item->property("pending").toBool())
+        return true;
     const auto children = item->childItems();
     for (const auto *child : children)
         if (loading(child))
