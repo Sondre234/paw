@@ -117,13 +117,18 @@ with harness.Compositor(compositor, config()) as desktop:
     # A rule leaves a window out; a window hanging off the output shows the part on it.
     desktop.open_window(probe, "plain")
     desktop.open_window(probe, "edge")
-    desktop.wait_for(lambda: "edge" in blurs(), "the blur under the edge window")
-    edge = window("edge")
-    inside = 1280 - edge.x
-    assert inside < edge.width, edge
-    assert blurs()["edge"] == (True, (edge.x, edge.y, inside, edge.height),
-                               (edge.x // 2, edge.y // 2, inside // 2, edge.height // 2),
-                               1000), blurs()
+    def edge_part():
+        edge = window("edge")
+        inside = 1280 - edge.x
+        assert inside < edge.width, edge
+        return (True, (edge.x, edge.y, inside, edge.height),
+                (edge.x // 2, edge.y // 2, inside // 2, edge.height // 2), 1000)
+
+    # Waited for: the blur first shows where the window was drawn as it mapped, and follows it
+    # to its place on the next frame.
+    desktop.wait_for(lambda: blurs().get("edge") == edge_part(),
+                     "the blur under the part of the edge window on the output",
+                     detail=lambda: f"{blurs()} {window('edge')}")
     assert "plain" not in blurs(), blurs()
 
     # None under a fullscreen window; it comes back as the window leaves fullscreen.
