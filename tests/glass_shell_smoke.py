@@ -4,7 +4,9 @@ as its desktop draws it and blurs it, once, and the bar shows it blurred under i
 it showed it sharp without the glass; the launcher's card, opaque without the glass, lets the
 wallpaper's colour through, blurred, and the command palette, an overlay of its own, what lies
 behind each end of it. Turned off by a reload, everything is as before, and drawn in
-software (Qt's renderer, as shell.renderer = "software" has it) the glass is never drawn."""
+software (Qt's renderer, as shell.renderer = "software" has it) the glass is never drawn. On a
+monitor at a scale other than 1, where the desktop reads its wallpaper again once it knows the
+scale, the glass takes that picture too."""
 from pathlib import Path
 import re
 import signal
@@ -41,11 +43,11 @@ def wallpaper(path):
                      + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 
 
-def config(root, blur):
+def config(root, blur, scale=1):
     return f"""return {{
     xwayland = false,
     animations = {{ enabled = false }},
-    outputs = {{ monitors = {{ ["HEADLESS-1"] = {{ mode = "{WIDTH}x{HEIGHT}" }} }} }},
+    outputs = {{ monitors = {{ ["HEADLESS-1"] = {{ mode = "{WIDTH}x{HEIGHT}", scale = {scale} }} }} }},
     notifications = {{ enabled = false }},
     shell = {{
         wallpaper = [[{root / "wallpaper.png"}]],
@@ -155,9 +157,23 @@ with harness.Compositor(compositor, "return {}", start=False) as desktop:
     desktop.config.write_text(config(root, True))
     desktop.reload(desktop.config.read_text())
     env["QT_QUICK_BACKEND"] = "software"
-    desktop.spawn([shell, "--config", str(desktop.config)], log="shell.log")
+    panel = desktop.spawn([shell, "--config", str(desktop.config)], log="shell.log")
     desktop.wait_for(lambda: "paw surface rendered: paw taskbar" in log.read_text(), "the panel")
     assert "drawn in software" in log.read_text(), log.read_text()
     desktop.wait_for(lambda: bar_spread() > 30, "the stripes sharp under the bar drawn in software")
     assert "paw glass blurred" not in log.read_text(), log.read_text()
-print("the glass blurs the wallpaper under the bar and a card, and stays out in software")
+    panel.terminate()
+    desktop.reap(panel)
+
+    # At scale 1.25 the desktop reads its wallpaper again as its window learns the scale, after it
+    # has shown it; the glass is taken from that picture, and the bar blurs the stripes.
+    del env["QT_QUICK_BACKEND"]
+    desktop.config.write_text(config(root, True, scale=1.25))
+    desktop.reload(desktop.config.read_text())
+    log.write_text("")
+    desktop.spawn([shell, "--config", str(desktop.config)], log="shell.log")
+    desktop.wait_for(lambda: "paw glass blurred HEADLESS-1" in log.read_text(),
+                     "the wallpaper blurred at scale 1.25")
+    desktop.wait_for(lambda: bar_spread() < 8, "the stripes blurred under the bar at scale 1.25")
+print("the glass blurs the wallpaper under the bar and a card, at scale 1 and 1.25, and stays out "
+      "in software")
