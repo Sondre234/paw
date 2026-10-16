@@ -3373,14 +3373,21 @@ void save_profile(const std::string &name) {
         throw std::runtime_error("cannot write " + path.string() + ": " + failure.message());
 }
 
-Config load_config(const std::filesystem::path &path) {
+namespace {
+// load_config; `checked`, run first in a child process as parse_config does, else at once.
+Config load_from(const std::filesystem::path &path, bool checked) {
     std::vector<std::string> unread;
     auto rices = installed_rices(&unread);
-    auto config = parse_config(read_file(path), "@" + path.string(), path.parent_path(),
-                               saved_profile(), rices);
+    const auto source = read_file(path);
+    const auto name = "@" + path.string();
+    auto config = checked ? parse_config(source, name, path.parent_path(), saved_profile(), rices)
+                          : parse(source, name, path.parent_path(), saved_profile(), rices);
     config.rice_problems.insert(config.rice_problems.end(), unread.begin(), unread.end());
     return config;
 }
+} // namespace
+
+Config load_config(const std::filesystem::path &path) { return load_from(path, true); }
 
 Config load_config_or_default(const std::filesystem::path &path, std::string &error,
                               bool reloading) {
@@ -3394,6 +3401,9 @@ Config load_config_or_default(const std::filesystem::path &path, std::string &er
     } catch (const std::exception &failure) {
         error = failure.what();
     }
+    // paw's own files, which need no trial first: a second wait, after the one that may just
+    // have run over, would only hold the desktop up longer. (The installed rices layered over
+    // them are data, read without running them.)
     for (const std::filesystem::path &fallback : {default_config_path(),
                                                   std::filesystem::path(PAW_SOURCE_CONFIG)}) {
         std::error_code failure;
@@ -3401,7 +3411,7 @@ Config load_config_or_default(const std::filesystem::path &path, std::string &er
             std::filesystem::equivalent(fallback, path, failure))
             continue;
         try {
-            return load_config(fallback);
+            return load_from(fallback, false);
         } catch (const std::exception &) {
         }
     }
