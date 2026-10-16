@@ -324,8 +324,8 @@ class ShellController : public QObject {
     // The wallpaper slideshow (shell.wallpaper_cycle): picks the picture after the one shown
     // (`direction` 1) or before it (-1) in its folder, as the wallpaper_next and wallpaper_prev
     // actions and its timer do, for every monitor or with per_monitor for each monitor alone, from
-    // the left; says so when the folder has none.
-    Q_INVOKABLE void stepWallpaper(int direction);
+    // the left; with `tell`, says so when the folder has none (the timer does not).
+    Q_INVOKABLE void stepWallpaper(int direction, bool tell = true);
     // The slideshow's folder: shell.wallpaper_cycle.folder, else the folder of shell.wallpaper,
     // else the picker's.
     QString wallpaperCycleFolder() const;

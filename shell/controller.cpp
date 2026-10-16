@@ -105,7 +105,7 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     notifications_.configure(config_.notifications);
     osd_.configure(config_.osd);
     configureDesktopClock();
-    connect(&wallpaperCycle_, &WallpaperCycle::due, this, [this] { stepWallpaper(1); });
+    connect(&wallpaperCycle_, &WallpaperCycle::due, this, [this] { stepWallpaper(1, false); });
     configureWallpaperCycle();
     connect(&displayModes_, &DisplayModes::request, this, &ShellController::send);
     power_.setCountdown(config_.power.countdown);
@@ -397,7 +397,7 @@ QString ShellController::wallpaperCycleFolder() const {
 void ShellController::configureWallpaperCycle() {
     wallpaperCycle_.configure(config_.shell.wallpaper_cycle, wallpaperCycleFolder());
 }
-void ShellController::stepWallpaper(int direction) {
+void ShellController::stepWallpaper(int direction, bool tell) {
     // One picture for every monitor, or with per_monitor each monitor the next after the one to
     // its left's, picked for it alone.
     QStringList outputs{QString()};
@@ -419,7 +419,8 @@ void ShellController::stepWallpaper(int direction) {
         shown.push_back(wallpaperFileOn(output));
     const auto next = wallpaperCycle_.step(shown, direction);
     if (next.isEmpty()) {
-        osd_.show(overlayOutput(), "No wallpapers in " + wallpaperCycle_.folder(), -1);
+        if (tell)
+            osd_.show(overlayOutput(), "No wallpapers in " + wallpaperCycle_.folder(), -1);
         return;
     }
     if (next == shown)
