@@ -67,9 +67,13 @@ static void test_glide_reaches_rest(void) {
     CHECK(rig.content->node.x > -300 && rig.content->node.x < 0, "between: %d", rig.content->node.x);
     CHECK(fabs(rig.content->node.x - -300 * 0.125) <= 1, "ease-out at half time: %d",
           rig.content->node.x);
+    int x = 0, y = 0;
+    CHECK(sh_anim_glide_from(&rig.anim, &x, &y) && x == -300 && y == 50,
+          "it says where it set off from: %d, %d", x, y);
     advance(&rig, 50);
     CHECK(rig.content->node.x == 0 && rig.content->node.y == 0, "lands");
     CHECK(sh_animator_running(rig.animator) == 0, "finished");
+    CHECK(!sh_anim_glide_from(&rig.anim, &x, &y), "and no longer glides");
     teardown(&rig);
 }
 
@@ -84,6 +88,9 @@ static void test_retarget_is_continuous(void) {
     int after = rig.content->node.x;
     CHECK(after == before + 400,
           "the glide restarts from the drawn place plus the change: %d -> %d", before, after);
+    int x = 0, y = -1;
+    CHECK(sh_anim_glide_from(&rig.anim, &x, &y) && x == after && y == 0,
+          "and sets off from there: %d, %d", x, y);
     CHECK(sh_animator_running(rig.animator) == 1, "still one animation");
     advance(&rig, 400);
     CHECK(rig.content->node.x == 0 && sh_animator_running(rig.animator) == 0, "lands after retarget");

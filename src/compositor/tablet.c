@@ -86,6 +86,7 @@ static void tool_set_cursor(struct wl_listener *listener, void *data) {
     struct wlr_surface *focus = tool->tool_v2->focused_surface;
     // Only the client the tool is over draws its cursor.
     if (tool->pointer || !focus || !event->seat_client || tool->server->cursor_hidden ||
+        cursor_grown(tool->server) ||
         event->seat_client->client != wl_resource_get_client(focus->resource))
         return;
     wlr_cursor_set_surface(tool->server->cursor, event->surface, event->hotspot_x,
@@ -129,6 +130,7 @@ static struct sh_tablet_tool *find_tool(struct sh_server *server, struct wlr_tab
 static void tool_moved(struct sh_server *server, struct sh_tablet *tablet,
                        struct sh_tablet_tool *tool, uint32_t time, double x, double y) {
     struct wlr_cursor *cursor = server->cursor;
+    cursor_used(server);
     wlr_cursor_warp_absolute(cursor, &tablet->wlr_tablet->base, x, y);
     struct wlr_tablet_v2_tablet_tool *tool_v2 = tool->tool_v2;
     if (!tool->pointer && tool_v2->is_down) {
@@ -230,6 +232,7 @@ static void tool_tip(struct wl_listener *listener, void *data) {
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
     struct wlr_tablet_v2_tablet_tool *tool_v2 = tool->tool_v2;
     if (event->state == WLR_TABLET_TOOL_TIP_DOWN) {
+        key_release_cancel(server);
         tool_moved(server, tablet, tool, event->time_msec, event->x, event->y);
         if (!tool->pointer && tool_v2->focused_surface) {
             tool_focus(server);

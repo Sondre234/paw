@@ -61,6 +61,10 @@ shadows.
   under mochi's own icons, and `--cursor` Catppuccin's cursors.
 - `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
   the accent colour, named as `shell.wallpaper` is.
+- `shell.wallpaper_mode` says how the wallpaper covers each monitor: `"fill"` (cropped, as
+  before), `"fit"`, `"stretch"`, or at its own size `"center"` and `"tile"`, with the background
+  colour around a picture that leaves room. A profile can set it; a new mode fades in as a new
+  wallpaper does, and the frosted glass, the workspace cards and Launchpad follow it.
 - `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu
   bar and dock, and the popups, menus, cards, tooltips and overlays show the wallpaper behind them
   blurred under their colour, the popups as translucent as the bar but at least 75 % opaque so
@@ -336,6 +340,12 @@ shadows.
   are then trusted and connected. The shell is BlueZ's agent from the first time it is asked to
   pair, for passkeys to confirm, PINs and passkeys to type and codes to type on a keyboard.
   `shell.widgets.bluetooth = false` leaves it out and `-DPAW_BLUETOOTH=OFF` builds without it.
+- An experimental desktop clock, off by default: `shell.desktop_clock` draws the time large and
+  thin over the wallpaper, the date under it and, with `greeting = "ja"` or `"en"`, おはよう,
+  こんにちは or こんばんは (Good morning, afternoon or evening) above it between two twinkles, in the
+  profile's text colour with a soft shadow, where `position` puts it. It changes once a minute
+  and stays out of the frosted glass. The `desktop_clock` action (`paw msg desktop_clock`, the
+  command palette) shows or hides it at once.
 
 ### Notifications and the overlays
 
@@ -415,6 +425,11 @@ shadows.
   and one with `repeats = true` runs again while its key is held, as Hyprland's `binde` (keyboard
   resizing did alone before, and still does unless `repeats = false`). The shipped volume,
   microphone and brightness keys work on the lock screen, and the steps repeat while held.
+- A key binding with `release = true` runs as its key comes up, as Hyprland's `bindr`. One of a
+  modifier key alone runs only when that key was tapped, so `{ key = "Super_L", release = true,
+  action = "launcher" }` (commented out in the shipped configuration) opens the start menu, or
+  Launchpad, on a tap of Super as Windows does, while Super + a key, a click, the wheel or a
+  gesture leave it closed; the application still hears Super go down and up.
 - Binding modes, as sway's modes and Hyprland's submaps: `modes` holds named lists of key bindings,
   and a binding with `action = "mode", mode = "NAME"` (or `paw msg mode NAME`) puts one in
   use, its bindings taking the place of the others until `mode = "default"`. The taskbar and the
@@ -500,6 +515,14 @@ shadows.
 - Screenshots leave the cursor out: paw hides it while grim takes the picture, where a monitor
   that draws the cursor into its frames (as with NVIDIA's driver here) put it in every
   screenshot. `paw msg get cursor` says whether it is hidden.
+- `mouse.hide_when_typing = true` hides the cursor while typing into an application, as macOS
+  does, and `mouse.hide_after = N` once the pointer has rested N seconds; moving, clicking or
+  scrolling shows it again. Modifier keys alone and keys a binding takes leave it. Both are off
+  by default.
+- `mouse.shake_to_find = true` grows the cursor to three times its size for a moment as the
+  pointer is shaken from side to side, as macOS does, smoothly, and shrinks it back about a second
+  after the shaking stops. Ordinary motion, a drag and stroking the desktop cat never set it off.
+  `paw msg get cursor_size` says the size the cursor is drawn at.
 - Getting around a monitor's workspaces as on Hyprland. `move_to_workspace_next` and
   `move_to_workspace_prev` (Super + Ctrl + Alt + Right / Left) take the focused window to the
   workspace beside its own, wrapping around, and `move_to_workspace_empty` to the first one with
@@ -899,6 +922,9 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   which its instruction budget cannot stop: `(""):rep(2^62)`, a string pattern that backtracks.
   The script runs first in a child process, as a configuration does, and one that has not
   finished there within 3 seconds is left out, the report saying it took too long.
+- The shell no longer loses some 2.7 KB of memory each time a shadow drawn through the GPU goes,
+  as the floating bar's does while a window docks it: Qt's shadow never frees the shader effect
+  it draws with, which the shell now hands to the shadow to go with it.
 
 ## 0.1.1 (2026-10-05)
 

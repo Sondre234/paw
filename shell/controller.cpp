@@ -98,6 +98,7 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     subscribe();
     notifications_.configure(config_.notifications);
     osd_.configure(config_.osd);
+    configureDesktopClock();
     connect(&displayModes_, &DisplayModes::request, this, &ShellController::send);
     power_.setCountdown(config_.power.countdown);
     connect(&power_, &Power::failed, this, &ShellController::report);
@@ -258,6 +259,21 @@ QString ShellController::wallpaperFile() const {
     if (file.is_relative())
         file = std::filesystem::absolute(path_).parent_path() / file;
     return QString::fromStdString(file.string());
+}
+QString ShellController::wallpaperMode() const {
+    switch (config_.shell.wallpaper_mode) {
+    case paw::WallpaperMode::Fit:
+        return "fit";
+    case paw::WallpaperMode::Center:
+        return "center";
+    case paw::WallpaperMode::Tile:
+        return "tile";
+    case paw::WallpaperMode::Stretch:
+        return "stretch";
+    case paw::WallpaperMode::Fill:
+        break;
+    }
+    return "fill";
 }
 QUrl ShellController::wallpaper() const {
     const auto file = wallpaperFile();
@@ -799,6 +815,10 @@ void ShellController::typeText(const QString &text) {
             copy(QString::fromUtf8(reply).trimmed().remove(QRegularExpression("^error: ")));
     });
 }
+void ShellController::configureDesktopClock() {
+    const auto &clock = config_.shell.desktop_clock;
+    desktopClock_.configure(clock, color(clock.color.empty() ? config_.shell.text_color : clock.color));
+}
 void ShellController::configureClipboard() {
     const auto &clipboard = config_.shell.clipboard;
     ClipboardHistory::Settings settings;
@@ -919,6 +939,7 @@ void ShellController::reload() {
         watchTrash();
         notifications_.configure(config_.notifications);
         osd_.configure(config_.osd);
+        configureDesktopClock();
         power_.setCountdown(config_.power.countdown);
         configureSearch();
         configureClipboard();
@@ -1270,6 +1291,11 @@ void ShellController::subscribe() {
                 caption_.showLine(line.sliced(8), overlayOutput());
             } else if (line == "caption-hide") {
                 caption_.hide();
+            } else if (line.startsWith("desktop-clock ")) {
+                // desktop-clock toggle|on|off: the desktop_clock action.
+                if (desktopClock_.handle(line.sliced(14)))
+                    osd_.show(overlayOutput(), desktopClock_.shown() ? "Desktop clock on"
+                                                                     : "Desktop clock off", -1);
             }
         }
         if (outputs && workspaces_ != nextWorkspaces_) {
@@ -1624,6 +1650,11 @@ void ShellController::nudgeWorkspace(const QString &output, int way) {
 }
 void ShellController::send(const QString &line) {
     request(line.toUtf8() + "\n", "The compositor needs a running paw session.");
+}
+void ShellController::keepShadowMaterial(QObject *shadow) {
+    auto *material = shadow ? shadow->property("material").value<QObject *>() : nullptr;
+    if (material && !material->parent())
+        material->setParent(shadow);
 }
 void ShellController::ask(const QByteArray &line, std::function<void(const QByteArray &)> done) {
     const auto path = qEnvironmentVariable("PAW_SOCKET");

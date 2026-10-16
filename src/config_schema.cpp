@@ -103,6 +103,17 @@ const Option options[] = {
      "Natural scrolling for mice; unset keeps the device default."},
     {"mouse.focus_follows", "boolean", "true", "true", none, none,
      "Hovering a window focuses it, without raising it."},
+    {"mouse.hide_when_typing", "boolean", "false", "true", none, none,
+     "Hide the cursor as a key is typed into an application, as macOS does, until the pointer "
+     "moves, clicks or scrolls. Modifier keys alone and the keys bindings take leave it, and so "
+     "does typing while a button is held."},
+    {"mouse.hide_after", "integer", "0", "5", 0, 3600,
+     "Seconds the pointer rests before the cursor hides, until it moves, clicks or scrolls; `0` "
+     "never hides it."},
+    {"mouse.shake_to_find", "boolean", "false", "true", none, none,
+     "Shaking the pointer quickly from side to side grows the cursor to three times its size for "
+     "a moment, as macOS does, so that it is easy to find; it shrinks back about a second after "
+     "the shaking stops. Not while a button is held."},
 
     {"touchpad", "table", "", "", none, none, "Touchpad settings (standalone sessions)."},
     {"touchpad.natural_scroll", "boolean", "unset", "true", none, none,
@@ -704,6 +715,15 @@ const Option options[] = {
      "With `key` only: while the key is held, the action runs again at `keyboard.repeat_rate` "
      "after `keyboard.repeat_delay`, as Hyprland's `binde`. (Lua keeps `repeat` for its own "
      "loops.)"},
+    {"bindings[].release", "boolean", "false", "", none, none,
+     "With `key` only, and not with `repeats`: the action runs as the key comes up rather than "
+     "as it goes down, as Hyprland's `bindr`. A modifier key (`Super_L`, `Alt_L`, ...) still "
+     "reaches the application as it goes down, and its binding runs only when the key was "
+     "tapped alone: not when another key, a mouse button, the wheel or a touchpad gesture was "
+     "used while it was held, so `{ key = \"Super_L\", release = true, action = \"launcher\" "
+     "}` opens the launcher as Windows' Start key does, and Super + drag and Super + Q are left "
+     "alone. `mods` are those held as the key goes down; a modifier key's own (`Super` with "
+     "`Super_L`) may be left out."},
 
     {"notifications", "table", "", "", none, none,
      "Notifications: the shell serves `org.freedesktop.Notifications` on the session bus and shows "
@@ -1007,6 +1027,41 @@ const Option options[] = {
     {"shell.wallpaper", "string", "\"\"", "\"\"", none, none,
      "Image path, absolute or relative to the configuration file (one the shipped configuration "
      "names, its profiles' too: relative to that file, also for a file that extends it)."},
+    {"shell.wallpaper_mode", "enum", "\"fill\"", "\"fit\"", none, none,
+     "How the wallpaper covers each monitor: `\"fill\"` scales it to cover all of it, cutting "
+     "off what overflows; `\"fit\"` shows all of it, as large as fits; `\"stretch\"` scales "
+     "each side to the monitor's, out of proportion; `\"center\"` shows it at its own size in "
+     "the middle (a pixel of it a pixel of the screen); `\"tile\"` repeats it at its own size "
+     "from the top left. Around a picture that `\"fit\"` or `\"center\"` leaves room by, "
+     "`appearance.background` shows. The frosted glass and a workspace's picture on its card "
+     "show it the same way."},
+    {"shell.desktop_clock", "boolean or table", "false", "true", none, none,
+     "Experimental: a large clock on the desktop, over the wallpaper and under the windows: the "
+     "time in a thin weight, the date under it and, with `greeting`, a word for the time of day "
+     "above it, in the text colour with a soft shadow (a glow under dark text) so that it reads "
+     "on any wallpaper. It changes once a minute, never more often, so seconds in `time_format` "
+     "would stand still; the frosted glass leaves it out. `true` shows it as below; the "
+     "`desktop_clock` action shows or hides it until `enabled` changes."},
+    {"shell.desktop_clock.enabled", "boolean", "false", "true", none, none, "Show the clock."},
+    {"shell.desktop_clock.position", "enum", "\"center\"", "\"bottom-right\"", none, none,
+     "Where on the desktop, inside what the bars leave: `\"center\"`, `\"top\"`, "
+     "`\"bottom\"`, `\"left\"`, `\"right\"`, `\"top-left\"`, `\"top-right\"`, "
+     "`\"bottom-left\"` or `\"bottom-right\"`, away from the edges by half its size."},
+    {"shell.desktop_clock.time_format", "string", "\"HH:mm\"", "\"h:mm AP\"", none, none,
+     "The time, in Qt's date and time format, 1 to 64 bytes."},
+    {"shell.desktop_clock.date_format", "string", "\"dddd d MMMM\"", "\"ddd d MMM yyyy\"",
+     none, none, "The date under it, in Qt's format; `\"\"` shows none."},
+    {"shell.desktop_clock.size", "integer", "96", "128", 24, 320,
+     "The time's height in pixels; the date and the greeting are drawn in proportion."},
+    {"shell.desktop_clock.color", "color", "unset", "\"#f5c2e7\"", none, none,
+     "The time's and the date's colour, `#RRGGBB` or `#RRGGBBAA`; unset, `text_color`. The "
+     "greeting is in the accent colour."},
+    {"shell.desktop_clock.font", "string", "unset", "\"Nunito\"", none, none,
+     "Font family; unset, `shell.font`."},
+    {"shell.desktop_clock.greeting", "boolean or string", "false", "\"ja\"", none, none,
+     "A greeting above the time by the time of day: `\"en\"` says Good morning (from 5), Good "
+     "afternoon (from 12) and Good evening (from 18); `\"ja\"` おはよう, こんにちは and こんばんは. "
+     "`false` says nothing."},
     {"shell.start_icon", "string", "\"\"", "\"neko.svg\"", none, none,
      "A picture for the taskbar's start button in place of the four squares in the accent "
      "colour: an SVG, PNG or other image, absolute or relative to the configuration file, as "

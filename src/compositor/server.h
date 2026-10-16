@@ -145,6 +145,13 @@ enum sh_cursor_mode {
     SH_CURSOR_PANEL, /* the taskbar dragged to another edge, or resized (panel_drag.c) */
 };
 
+/* Why the cursor shows no image (cursor_hide): bits of sh_server.cursor_hidden. */
+enum sh_cursor_hidden {
+    SH_HIDDEN_SCREENSHOT = 1, /* a screenshot is being taken (actions.c) */
+    SH_HIDDEN_TYPING = 2,     /* mouse.hide_when_typing: a key typed (cursor_hide.c) */
+    SH_HIDDEN_RESTING = 4,    /* mouse.hide_after: the pointer resting that long */
+};
+
 enum sh_node_kind { SH_NODE_TOPLEVEL, SH_NODE_LAYER };
 struct sh_node {
     enum sh_node_kind kind;
@@ -722,7 +729,16 @@ struct sh_server {
     struct wl_list toplevels;
 
     struct wlr_cursor *cursor;
-    bool cursor_hidden; /* cursor_hide: no image until cursor_show, whatever asks for one */
+    /* cursor_hide: no image until cursor_show, whatever asks for one; the sh_cursor_hidden bits
+     * of why, 0 while it shows. */
+    uint32_t cursor_hidden;
+    /* mouse.hide_after (cursor_hide.c): when the pointer was last used, and the timer that hides
+     * the cursor once it has rested that long. */
+    struct {
+        int64_t moved;
+        struct wl_event_source *timer;
+    } cursor_rest;
+    struct sh_cursor_shake *cursor_shake; /* mouse.shake_to_find (cursor_shake.c), made on use */
     /* The image the cursor was given last: an xcursor name (show_xcursor), "client" for a
      * client's own surface, or NULL for none yet (get cursor_image). */
     const char *cursor_image;
@@ -778,6 +794,15 @@ struct sh_server {
     bool keymap_from_file; // keyboard.file, rather than the names
     xkb_layout_index_t keyboard_layout;
     bool syncing_keyboards;
+    /* A key binding with `release` (key_release.c) waiting for the key with evdev code
+     * `keycode` on `keyboard` (NULL for none) to come up: its keysym and the modifiers held as
+     * it went down, and whether it is a modifier key's, which only a tap runs. */
+    struct {
+        struct sh_keyboard *keyboard;
+        uint32_t keycode, modifiers;
+        xkb_keysym_t sym;
+        bool tap;
+    } key_release;
     /* The devices tests plug in with "headless_keyboard add" and the like (headless_input.c). */
     struct wl_list headless_devices;
     /* Switch devices (switches.c), and whether any says the lid is closed. */
@@ -1294,8 +1319,8 @@ void server_cursor_frame(struct wl_listener *listener, void *data);
 void seat_request_cursor(struct wl_listener *listener, void *data);
 void set_default_cursor(struct sh_server *server);
 void show_xcursor(struct sh_server *server, const char *name);
-void cursor_hide(struct sh_server *server);
-void cursor_show(struct sh_server *server);
+void cursor_hide(struct sh_server *server, uint32_t why);
+void cursor_show(struct sh_server *server, uint32_t why);
 struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y);
 struct sh_toplevel *pointed_tile(struct sh_server *server, struct sh_toplevel *except);
 struct wlr_surface *press_target_at(struct sh_server *server, double x, double y, double *sx,
@@ -1477,6 +1502,7 @@ void idle_finish(struct sh_server *server);
 
 /* input.c */
 bool input_activity(struct sh_server *server, bool wakes);
+bool keysym_is_modifier(xkb_keysym_t sym);
 void configure_pointer(struct sh_server *server, struct wlr_input_device *device);
 void server_new_input(struct wl_listener *listener, void *data);
 void server_new_virtual_keyboard(struct wl_listener *listener, void *data);
@@ -1487,6 +1513,26 @@ void seat_request_start_drag(struct wl_listener *listener, void *data);
 void seat_start_drag(struct wl_listener *listener, void *data);
 void server_new_constraint(struct wl_listener *listener, void *data);
 void seat_keyboard_focus_change(struct wl_listener *listener, void *data);
+
+/* key_release.c */
+bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t modifiers,
+                       bool woke);
+void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode);
+void key_release_cancel(struct sh_server *server);
+void key_release_forget(struct sh_keyboard *keyboard);
+
+/* cursor_hide.c */
+void cursor_typed(struct sh_server *server, xkb_keysym_t sym);
+void cursor_used(struct sh_server *server);
+void cursor_hide_reload(struct sh_server *server);
+void cursor_hide_finish(struct sh_server *server);
+
+/* cursor_shake.c */
+bool cursor_grown(struct sh_server *server);
+int cursor_drawn_size(struct sh_server *server);
+void cursor_shake_motion(struct sh_server *server);
+void cursor_shake_reload(struct sh_server *server);
+void cursor_shake_finish(struct sh_server *server);
 
 /* input_method.c */
 bool input_method_key(struct sh_keyboard *keyboard, const struct wlr_keyboard_key_event *event);

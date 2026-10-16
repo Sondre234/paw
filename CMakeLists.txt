@@ -185,6 +185,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(xray_layout)
     paw_c_unit_test(cube)
     paw_c_unit_test(blur)
+    paw_c_unit_test(shake)
     paw_c_unit_test(profile_schedule)
     paw_unit_test(heatmap LIBRARY paw_cli)
     target_link_libraries(heatmap_tests PRIVATE paw_config) # the action's bindings
@@ -277,6 +278,8 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/control.c
         src/compositor/crossfade.c
         src/compositor/cursor.c
+        src/compositor/cursor_hide.c
+        src/compositor/cursor_shake.c
         src/compositor/display_mode.c
         src/compositor/display_settings.c
         src/compositor/dynamic_rules.c
@@ -293,6 +296,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/idle.c
         src/compositor/input.c
         src/compositor/input_method.c
+        src/compositor/key_release.c
         src/compositor/keymap.c
         src/compositor/layer_shell.c
         src/compositor/lift.c
@@ -361,6 +365,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/xray_layout.c)
     target_sources(paw PRIVATE src/cube.c)
     target_sources(paw PRIVATE src/blur.c)
+    target_sources(paw PRIVATE src/shake.c)
     target_sources(paw PRIVATE src/profile_schedule.c)
     target_link_libraries(paw PRIVATE paw_heatmap)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -738,6 +743,8 @@ if(PAW_BUILD_COMPOSITOR)
             ${EXAMPLE_CONFIG})
         paw_smoke(launch_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         paw_smoke(cursor_theme_smoke $<TARGET_FILE:paw>)
+        paw_smoke(cursor_hide_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(color_scheme_smoke $<TARGET_FILE:paw>)
         paw_smoke(autostart_smoke $<TARGET_FILE:paw>)
         paw_smoke(startup_failure_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
@@ -805,6 +812,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(keymap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> ${EXAMPLE_CONFIG})
         paw_smoke(media_keys_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
+        paw_smoke(desktop_clock_smoke $<TARGET_FILE:paw>)
         paw_smoke(type_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(keyboard_layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
         paw_smoke(window_style_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
@@ -836,6 +844,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(gradient_border_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")
         paw_smoke(dim_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(cursor_shake_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
+            "${GRIM_ARGUMENT}")
         find_program(SLURP slurp)
         paw_smoke(screenshot_select_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "$<$<BOOL:${SLURP}>:${SLURP}>" "${GRIM_ARGUMENT}")
@@ -893,6 +903,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(lock_style_smoke $<TARGET_FILE:paw>)
         paw_smoke(binding_modes_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(locked_bindings_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
+        paw_smoke(key_release_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(shortcuts_inhibit_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
         paw_smoke(input_method_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_method_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:input_probe> "${GRIM_ARGUMENT}")

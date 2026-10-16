@@ -439,8 +439,9 @@ static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
     // drawn at (mid-glide, or changing size), the size its own surface is drawn at (stretched
     // while it changes size), what a change of size is doing: "rest", "moving", "waiting" for
     // the client to draw the new size, or "fading" what it drew before, how much of its frame
-    // shows, in thousandths (none while maximized or fullscreen, fading in between), and the
-    // factor an animation or a gesture gives its opacity, in thousandths.
+    // shows, in thousandths (none while maximized or fullscreen, fading in between), the
+    // factor an animation or a gesture gives its opacity, in thousandths, and the place its glide
+    // set off from (where it is drawn while it does not glide).
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
@@ -454,12 +455,15 @@ static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
             toplevel->surfaces ? surface_buffer(toplevel->surfaces, toplevel_surface(toplevel))
                                : NULL;
         const struct sh_tween *frame = &toplevel->frame_fade;
-        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%ld\t%ld\n", app_id,
-                 title, toplevel->scene_tree->node.x + toplevel->content->node.x,
+        int from_x = toplevel->content->node.x, from_y = toplevel->content->node.y;
+        sh_anim_glide_from(&toplevel->anim, &from_x, &from_y);
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%ld\t%ld\t%d\t%d\n",
+                 app_id, title, toplevel->scene_tree->node.x + toplevel->content->node.x,
                  toplevel->scene_tree->node.y + toplevel->content->node.y, drawn.width,
                  drawn.height, buffer ? buffer->dst_width : 0, buffer ? buffer->dst_height : 0,
                  morph_state(toplevel), frame->valid ? lround(1000 * frame->value[0]) : 1000,
-                 lround(1000 * sh_anim_alpha(&toplevel->anim)));
+                 lround(1000 * sh_anim_alpha(&toplevel->anim)),
+                 toplevel->scene_tree->node.x + from_x, toplevel->scene_tree->node.y + from_y);
         control_reply(fd, line);
     }
 }
@@ -892,10 +896,19 @@ static void get_seat(struct sh_server *server, int fd, const char *arguments) {
 }
 
 static void get_cursor(struct sh_server *server, int fd, const char *arguments) {
-    // Whether the cursor shows: "hidden" while a screenshot is taken (cursor_hide), else
-    // "shown".
+    // Whether the cursor shows: "hidden" while a screenshot is taken, or after typing or a rest
+    // with mouse.hide_when_typing and mouse.hide_after (cursor_hide), else "shown".
     control_reply(fd, "ok\n");
     control_reply(fd, server->cursor_hidden ? "hidden\n" : "shown\n");
+}
+
+static void get_cursor_size(struct sh_server *server, int fd, const char *arguments) {
+    // The size the cursor is drawn at, in logical pixels: $XCURSOR_SIZE, and up to three times
+    // that while a shake grows it (mouse.shake_to_find, cursor_shake.c).
+    char line[32];
+    snprintf(line, sizeof(line), "%d\n", cursor_drawn_size(server));
+    control_reply(fd, "ok\n");
+    control_reply(fd, line);
 }
 
 static void get_cursor_image(struct sh_server *server, int fd, const char *arguments) {
@@ -1023,6 +1036,7 @@ static const struct {
     {"seat", get_seat, false},
     {"cursor", get_cursor, false},
     {"cursor_image", get_cursor_image, false},
+    {"cursor_size", get_cursor_size, false},
     {"autostart", get_autostart, false},
     {"gesture", get_gesture, false},
     {"touch", get_touch, false},

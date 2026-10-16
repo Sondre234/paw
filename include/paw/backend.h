@@ -233,6 +233,8 @@ enum sh_action {
     SH_EMOJI_PICKER,
     /* Asks the shell for its display settings window on the output under the pointer. */
     SH_DISPLAY_SETTINGS,
+    /* Shows or hides the shell's desktop clock (shell.desktop_clock). */
+    SH_DESKTOP_CLOCK,
     /* Minimizes the focused window into its taskbar button, as its own minimize button does. */
     SH_MINIMIZE,
     /* Toys, which only draw: the focused window (argument: a window's number, its id, 0 for the
@@ -469,6 +471,12 @@ struct sh_settings {
     int mouse_natural_scroll; /* -1, 0, 1 */
     int touchpad_natural_scroll, touchpad_tap, touchpad_dwt;
     bool focus_follows_mouse; /* hovering a window focuses it, without raising it */
+    /* mouse.hide_when_typing: a key typed into an application hides the cursor until the
+     * pointer moves; mouse.hide_after: seconds the pointer rests before it hides, 0 never. */
+    bool hide_cursor_typing;
+    int hide_cursor_after;
+    /* mouse.shake_to_find: shaking the pointer grows the cursor a moment (cursor_shake.c). */
+    bool shake_to_find;
     bool animations;          /* windows fade in and out, and tiles glide into place */
     float animation_speed;    /* multiplies the speed of every animation */
     int animation_late_ms;    /* a later frame finishes running animations; 0 never skips */
@@ -662,6 +670,9 @@ struct sh_callbacks {
     const struct sh_settings *(*settings)(void *);
     /* Returns the bound action; *argument receives its numeric argument, if any. */
     enum sh_action (*key)(void *, uint32_t modifiers, uint32_t keysym, int *argument);
+    /* The same for the binding with `release` that runs as the key comes up, `modifiers` being
+     * those held as it went down; binding_flags then gives its flags. */
+    enum sh_action (*key_released)(void *, uint32_t modifiers, uint32_t keysym, int *argument);
     /* The same for a pressed mouse button (a Linux BTN_* code) or a notch of the wheel
      * (enum sh_wheel_button) over `target`; `app_id` is the window's, or "". SH_NONE leaves the
      * click or the wheel to the application. */
