@@ -268,6 +268,16 @@ shadows.
 - `paw msg type TEXT` types text into what has the keyboard, emoji and accents too, on a
   keymap made for it, as wtype does.
 
+### The sheet of keyboard shortcuts
+
+- `shortcuts` (Super + /, or Keyboard shortcuts in the command palette) shows every key and mouse
+  button binding in effect on one sheet over the dimmed screen, frosted with `shell.blur`: grouped
+  by what they do, in columns, each its keys as caps beside what it does (Super with the Windows
+  logo, or ⌃ ⌥ ⇧ ⌘ in the macOS style), the binding mode's first while one is in use. Typing
+  searches it; Escape or the key again closes it.
+- `bindings[].description` names a binding there in your words, as Hyprland's `bindd`; a spawn
+  without one shows its command, shortened.
+
 ### The clock and Quick Settings
 
 - The clock opens one flyout at the bar's right end, as on Windows 11: the notifications above
