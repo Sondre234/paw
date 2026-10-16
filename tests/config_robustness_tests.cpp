@@ -93,6 +93,18 @@ int main(int argc, char **argv) {
                         3 * parse_limit, "an empty string repeated 2^60 times");
         refused_in_time("table.move({}, 1, 2^50, 2) return {}", "did not finish loading within",
                         3 * parse_limit, "a table move over 2^50 places");
+        // What asks for more than 64 MiB of memory is refused at once.
+        refused_in_time("local big = ('x'):rep(2^34) return {}", "string too large", parse_limit,
+                        "a 16 GiB string"); // over Lua's own limit for a string, 2 GiB
+        refused_in_time("local big = ('x'):rep(2^31 - 1) return {}",
+                        "init.lua: needs more than 64 MiB of memory", parse_limit,
+                        "a 2 GiB string");
+        refused_in_time("local t = {} for i = 1, 1e5 do t[i] = ('x'):rep(1e4) .. i end return {}",
+                        "init.lua: needs more than 64 MiB of memory", parse_limit,
+                        "a table of a hundred thousand strings of 10 KB");
+        // Caught by the configuration, the refusal leaves it running within the limit.
+        require(parses("local ok = pcall(string.rep, 'x', 2^31 - 1) assert(not ok) return {}"),
+                "a configuration that caught a refused allocation was refused");
 
         // Wrong shapes and extreme values.
         for (const char *source : {
