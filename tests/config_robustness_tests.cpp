@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -116,6 +117,92 @@ int main(int argc, char **argv) {
                         " s to refuse");
             require(error.find("unknown setting 'kkkk") != std::string::npos && error.size() < 2000,
                     "a megabyte-long unknown key: " + error.substr(0, 300));
+        }
+
+        // Window rules match in time that grows linearly with the title, and in a long one its
+        // first and last 512 bytes alone: patterns that keep a backtracking matcher busy for
+        // ever on a title of a few dozen characters, or have it recurse once a character until
+        // the stack overflows, answer at once.
+        {
+            auto config = paw::parse_config(R"(return { windows = { rules = {
+                { title = "^(.*) - (.*) - .*x$", opacity = 0.5 },
+                { title = "(a|aa)*b", dynamic = true, floating = true },
+                { app_id = "^(x+x+)+y$", above = true },
+                { title = " - Web Browser$", opacity = 0.75 },
+                { title = "^Start", workspace = 2 },
+                { title = "(ab)\\1", sticky = true },
+                { title = "\\bword\\b", maximize = true },
+            } } })");
+            auto repeated = [](const std::string &unit, size_t size) {
+                std::string text;
+                while (text.size() < size)
+                    text += unit;
+                text.resize(size);
+                return text;
+            };
+            const auto start = std::chrono::steady_clock::now();
+            for (size_t size : {40, 1023, 1024, 65536, 1 << 20}) {
+                auto dashes = repeated("a - ", size), letters = repeated("a", size);
+                // Held to both ends, it can match a title of up to 1 KiB alone.
+                require(config.window_opacity("app", dashes, true) == 1 &&
+                            config.window_opacity("app", dashes + "x", true) ==
+                                (size < 1024 ? 0.5f : 1),
+                        "^(.*) - (.*) - .*x$ on " + std::to_string(size) + " bytes");
+                require(!config.dynamic_actions("app", letters).floating &&
+                            config.dynamic_actions("app", letters + "b").floating,
+                        "(a|aa)*b on " + std::to_string(size) + " bytes");
+                require(!config.window_actions(repeated("x", size), "").above &&
+                            config.window_actions("xxy", "").above,
+                        "^(x+x+)+y$ on " + std::to_string(size) + " bytes");
+                require(config.window_opacity("app", dashes + " - Web Browser", true) == 0.75f,
+                        "a title's end found in " + std::to_string(size) + " bytes");
+                require(config.window_actions("app", "Start" + dashes).workspace == 2,
+                        "a title's start found in " + std::to_string(size) + " bytes");
+            }
+            require(seconds_since(start) < parse_limit / 3,
+                    "window rules on long titles took " + std::to_string(seconds_since(start)) +
+                        " s");
+            // In a long title, the middle goes unseen, and `^` and `$` hold only at its ends, not
+            // where its first part ends or its last part starts.
+            auto middle = std::string(600, 'a') + "Start - Web Browser" + std::string(600, 'a');
+            require(config.window_actions("app", middle).workspace == std::nullopt &&
+                        config.window_opacity("app", middle, true) == 1,
+                    "a rule matched the middle of a long title");
+            auto first_ends = std::string(498, 'a') + " - Web Browser" + std::string(1000, 'a');
+            require(config.window_opacity("app", first_ends, true) == 1,
+                    "$ matched at the end of a long title's first part");
+            auto last_starts = std::string(1000, 'a') + "Start" + std::string(507, 'a');
+            require(config.window_actions("app", last_starts).workspace == std::nullopt,
+                    "^ matched at the start of a long title's last part");
+            // `\b` at the start of the last part sees the character before it.
+            auto joined = std::string(1487, 'a') + "word " + std::string(507, ' ');
+            auto apart = std::string(1487, ' ') + "word " + std::string(507, ' ');
+            require(!config.window_actions("app", joined).maximize &&
+                        config.window_actions("app", apart).maximize,
+                    "\\b at the start of a long title's last part");
+            // Back-references still match.
+            require(config.window_actions("app", "xxababyy").sticky &&
+                        !config.window_actions("app", "xxabbayy").sticky,
+                    "a back-reference");
+            // A pattern is checked as written: one that is none alone is refused, though
+            // wrapped as the rules compile it, it would be one.
+            require(!parses("return {windows={rules={{title='a)|(b', opacity=0.5}}}}"),
+                    "a)|(b was taken for a pattern");
+            // Short titles match as the patterns searched as written do.
+            for (const auto &rule : config.window_rules) {
+                if (rule.title.empty())
+                    continue;
+                std::regex plain(rule.title, std::regex::ECMAScript);
+                for (const std::string title :
+                     {"", "x", "a - b - x", "a - b - c", "ab", "aab", "abab", "xababx", "word",
+                      "a word.", "words", "Start here", "not Start", "Tab - Web Browser",
+                      "Tab - Web Browser!", "\xc3\xa9word\xc3\xa9"}) {
+                    bool expected = std::regex_search(title, plain);
+                    require(rule.matches("", title) == expected,
+                            "'" + rule.title + "' on '" + title + "' gave " +
+                                (expected ? "no match" : "a match"));
+                }
+            }
         }
 
         // Wrong shapes and extreme values.
