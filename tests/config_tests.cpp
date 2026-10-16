@@ -968,6 +968,25 @@ int main(int argc, char **argv) {
         rejects("return {shell={blur={brightness=2.5}}}");
         rejects("return {shell={blur={saturation=-1}}}");
         rejects("return {shell={blur={size=8}}}");
+        // How the wallpaper covers the monitor: cropped to fill it by default, each mode by its
+        // name, and a profile's over the file's.
+        require(even.shell.wallpaper_mode == paw::WallpaperMode::Fill,
+                "shell.wallpaper_mode does not default to fill");
+        for (auto [name, mode] : {std::pair{"fill", paw::WallpaperMode::Fill},
+                                  {"fit", paw::WallpaperMode::Fit},
+                                  {"center", paw::WallpaperMode::Center},
+                                  {"tile", paw::WallpaperMode::Tile},
+                                  {"stretch", paw::WallpaperMode::Stretch}})
+            require(paw::parse_config(std::string("return {shell={wallpaper_mode='") + name + "'}}")
+                            .shell.wallpaper_mode == mode,
+                    std::string("shell.wallpaper_mode = '") + name + "' not parsed");
+        require(paw::parse_config("return {shell={wallpaper_mode='tile'},"
+                                  "profiles={fit={shell={wallpaper_mode='fit'}}}}",
+                                  "config", {}, "fit")
+                        .shell.wallpaper_mode == paw::WallpaperMode::Fit,
+                "a profile's shell.wallpaper_mode is not laid over the file's");
+        rejects("return {shell={wallpaper_mode='cover'}}");
+        rejects("return {shell={wallpaper_mode=true}}");
         // The bar shown while a monitor tiles: on by default, along the top, floating away from
         // the monitor's edges but not towards the windows; false keeps the taskbar.
         {

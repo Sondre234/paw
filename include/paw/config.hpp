@@ -168,6 +168,12 @@ struct ShellClipboard {
 // Lua `shell.panel_position`: the edge of the output the taskbar is along.
 enum class PanelEdge { Top, Bottom, Left, Right };
 
+// Lua `shell.wallpaper_mode`: how the wallpaper covers the output. Fill crops it to cover every
+// pixel, Fit shows all of it, Stretch scales each side to the output's, Center and Tile lay it at
+// its own size, once in the middle or repeated from the top left; Fit and Center show the
+// background colour where the picture leaves room.
+enum class WallpaperMode { Fill, Fit, Center, Tile, Stretch };
+
 // Lua `shell.tiling_bar.style`: one bar, a pill for each of its three groups of modules with
 // nothing between them, or a pill for every module.
 enum class TilingBarStyle { Bar, Islands, Pills };
@@ -247,6 +253,7 @@ struct ShellConfig {
     std::string panel_color = "#151e2c";
     std::string text_color = "#edf2fa";
     std::string wallpaper;
+    WallpaperMode wallpaper_mode = WallpaperMode::Fill;
     // The start button's picture: a file, absolute or relative to the configuration; empty:
     // four squares in the accent colour.
     std::string start_icon;

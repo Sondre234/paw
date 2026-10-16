@@ -967,6 +967,14 @@ const Option options[] = {
     {"shell.wallpaper", "string", "\"\"", "\"\"", none, none,
      "Image path, absolute or relative to the configuration file (one the shipped configuration "
      "names, its profiles' too: relative to that file, also for a file that extends it)."},
+    {"shell.wallpaper_mode", "enum", "\"fill\"", "\"fit\"", none, none,
+     "How the wallpaper covers each monitor: `\"fill\"` scales it to cover all of it, cutting "
+     "off what overflows; `\"fit\"` shows all of it, as large as fits; `\"stretch\"` scales "
+     "each side to the monitor's, out of proportion; `\"center\"` shows it at its own size in "
+     "the middle (a pixel of it a pixel of the screen); `\"tile\"` repeats it at its own size "
+     "from the top left. Around a picture that `\"fit\"` or `\"center\"` leaves room by, "
+     "`appearance.background` shows. The frosted glass and a workspace's picture on its card "
+     "show it the same way."},
     {"shell.start_icon", "string", "\"\"", "\"neko.svg\"", none, none,
      "A picture for the taskbar's start button in place of the four squares in the accent "
      "colour: an SVG, PNG or other image, absolute or relative to the configuration file, as "

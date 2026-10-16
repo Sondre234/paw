@@ -679,6 +679,10 @@ void read_shell(lua_State *L, ShellConfig &shell) {
                 fail(std::string(key) + " must be #RRGGBB or #RRGGBBAA");
         }
     }
+    named(L, "wallpaper_mode", "shell.wallpaper_mode", shell.wallpaper_mode,
+          {{"fill", WallpaperMode::Fill}, {"fit", WallpaperMode::Fit},
+           {"center", WallpaperMode::Center}, {"tile", WallpaperMode::Tile},
+           {"stretch", WallpaperMode::Stretch}});
     if (auto folder = text(L, "wallpapers", "shell.wallpapers")) {
         shell.wallpapers = *folder;
         if (!shell.wallpapers.starts_with('/') && !shell.wallpapers.starts_with("~/"))
