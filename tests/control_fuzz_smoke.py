@@ -1,15 +1,20 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Hammer the control socket with every action, odd arguments, and raw garbage while a window
-is mapped: the compositor must stay alive, answer afterwards, and shut down cleanly."""
+"""Hammer the control socket with every action and query, odd arguments, and raw garbage while a
+window is mapped: the compositor must stay alive, answer afterwards, and shut down cleanly."""
 import os
 from pathlib import Path
 import random
+import re
 import socket
 import sys
 
 import harness
 
-compositor, probe, example = (str(Path(p).resolve()) for p in sys.argv[1:4])
+compositor, probe, example, query_source = (str(Path(p).resolve()) for p in sys.argv[1:5])
+# Every query in query.c's table, so that a new one is hammered too.
+QUERIES = re.findall(r'^\s*\{"([a-z_]+)", \w+, (?:true|false)\},$', Path(query_source).read_text(),
+                     re.MULTILINE)
+assert len(QUERIES) > 50, QUERIES
 ACTIONS = """close cycle snap_left snap_right maximize restore tile reload fullscreen workspace
 move_to_workspace workspace_next workspace_prev workspace_back toggle_tiling layout_next
 layout_prev layout_dwindle layout_master layout_spiral layout_monocle layout_scroll
@@ -64,6 +69,13 @@ with harness.Compositor(compositor, source) as desktop:
                 continue
             talk(f"output {argument} {action}\n".encode())
     assert server.poll() is None
+    # Every query bare, as `paw msg get NAME` sends it, and with each odd argument.
+    for query in QUERIES:
+        for argument in ARGUMENTS:
+            request = f"get {query} {argument}".rstrip()
+            reply = talk(f"{request}\n".encode())
+            assert reply.startswith((b"ok", b"error")), (request, reply)
+            assert server.poll() is None, request
 
     # Raw garbage: binary, NULs, unterminated and oversized lines, early disconnects.
     for _ in range(200):
