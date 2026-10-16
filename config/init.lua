@@ -170,6 +170,12 @@ return {
             },
         },
     },
+    -- Experimental: washi by day and sumi by night, switched at sunrise and sunset (night_light's
+    -- times or latitude and longitude, even with night light off, unless sunrise and sunset are
+    -- given here). A profile picked by hand stays until the next one; `paw msg profile auto`
+    -- hands the choice back to the schedule.
+    -- profile_schedule = { day = "washi", night = "sumi" },
+    -- profile_schedule = { day = "washi", night = "sumi", sunrise = "07:00", sunset = "20:00" },
     -- keyboard = { layout = "us", variant = "", model = "", options = "", repeat_rate = 25, repeat_delay = 600 },
     -- Several layouts: layout = "us,no", variant = ",nodeadkeys"; or file = "keymap.xkb", a
     -- whole XKB keymap beside this file.
