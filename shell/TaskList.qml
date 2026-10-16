@@ -5,7 +5,8 @@ import Paw
 
 // The taskbar's buttons in one row (TaskbarModel): the launchers of the pinned applications with
 // no window, and every window, pinned or not, in the order they were dragged into. A pinned
-// application's first window opens in its launcher's place, any other at the end. Grouped
+// application's first window opens in its launcher's place, any other at the end, and a window's
+// button follows its monitor among its application's (TaskbarOrder). Grouped
 // (shell.groupWindows), an application's windows share a button, a pinned one's in its place.
 // Along a side the row is a column, of icons alone.
 ListView {

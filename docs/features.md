@@ -212,6 +212,16 @@ the others. With no window left, the launcher shows again in its place; dragging
 the pin. Grouped, a pinned application's button stands for all its windows in the launcher's
 place, and dragging it moves the pin.
 
+With `group_windows = false` the buttons follow the monitors, as on Windows: of an application's
+windows, the one on the monitor further left in the layout (or higher up, of two at the same x)
+has its button further left. A window opening on a monitor left of another of its application's
+goes ahead of that one's button, past the buttons between, and a window moved to another monitor
+moves its button among its application's: after those of the windows on monitors to the left and
+on its own, ahead of those to the right. Nothing else moves a button, so one dragged elsewhere
+keeps its place until its window moves to another monitor, and on one monitor buttons open at the
+end as before. Grouped, an application's button stays where it is, and resting on it shows its
+windows in the order of their monitors.
+
 Something dragged from an application (a file, text, a link) brings windows forward as on Windows:
 resting the drag on a window's button for half a second brings that window to the front, restored
 onto the workspace shown if it was minimized, else with its own workspace shown, so that the drag

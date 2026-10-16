@@ -211,6 +211,13 @@ shadows.
 - The tiling button shows the icon of the layout its monitor tiles with, as its menu draws it
   (dwindle, master, spiral, monocle or scroll), crossfading when the layout changes, where it
   showed the same split screen for every layout.
+- With `shell.group_windows = false`, the taskbar's buttons follow the monitors their windows are
+  on, as on Windows: of two windows of one application, the one on the monitor further left has
+  its button further left. A window opening on a monitor left of its application's other windows
+  goes ahead of their buttons, and a window moved to another monitor moves its button among its
+  application's, while the buttons of other applications stay where they are and a button dragged
+  by hand keeps its place until its window moves. Grouped, resting on a button shows its windows
+  in the order of their monitors.
 
 ### The start menu
 
