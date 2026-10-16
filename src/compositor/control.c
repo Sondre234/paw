@@ -526,19 +526,42 @@ static void append(char *text, size_t size, size_t *length, const char *format, 
         *length += (size_t)added;
 }
 
+/* The primary monitor in the layout: outputs.primary or the one the display settings window made
+ * primary, else the leftmost (the topmost of those at the same x). NULL without one. */
+static struct wlr_output *primary_output(struct sh_server *server) {
+    struct wlr_output *named = find_output_key(server, primary_output_name(server));
+    if (named)
+        return named;
+    struct wlr_output *best = NULL;
+    struct wlr_box best_box = {0};
+    struct sh_output *output;
+    wl_list_for_each(output, &server->outputs, link) {
+        struct wlr_box box;
+        wlr_output_layout_get_box(server->output_layout, output->wlr_output, &box);
+        if (wlr_box_empty(&box))
+            continue;
+        if (!best || box.x < best_box.x || (box.x == best_box.x && box.y < best_box.y)) {
+            best = output->wlr_output;
+            best_box = box;
+        }
+    }
+    return best;
+}
+
 /* The state subscribers get: "tiling on|off", "workspace N" and "focused NAME" for the focused
- * output, and "output NAME N USED TILING" for each output, with its current workspace, those
+ * output, "primary NAME" for the primary one (primary_output, "-" for none), and
+ * "output NAME N USED TILING" for each output, with its current workspace, those
  * holding windows ("1,3", or "-"), and whether it tiles ("on" or "off"), "layout NAME LAYOUT",
  * the tiling layout of its current workspace ("dwindle", ...), and "touched NAME EDGES", the
  * edges of its usable area a window reaches; then the urgent
  * windows, the keyboard layout and night light, as described below, and the power actions
  * that may run. */
 static void describe_state(struct sh_server *server, char *state, size_t size) {
-    struct wlr_output *focused = focused_output(server);
+    struct wlr_output *focused = focused_output(server), *primary = primary_output(server);
     size_t length = 0;
-    append(state, size, &length, "tiling %s\nworkspace %d\nfocused %s\n",
+    append(state, size, &length, "tiling %s\nworkspace %d\nfocused %s\nprimary %s\n",
            output_tiles(server, focused) ? "on" : "off", focused_workspace(server),
-           focused ? focused->name : "-");
+           focused ? focused->name : "-", primary ? primary->name : "-");
     struct sh_output *output;
     wl_list_for_each_reverse(output, &server->outputs, link) {
         char used[128];

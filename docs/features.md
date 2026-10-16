@@ -3009,7 +3009,9 @@ a line per [appearance profile](#appearance-profiles), in name order: its name a
 in use, else `0`; and `paw msg get terminal` the command line the `terminal` action starts, its
 words separated by tabs, or nothing when there is no terminal to start. A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
-`workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
+`workspace N` (the focused monitor's), `primary NAME` (the [primary monitor](#monitors):
+`outputs.primary` or the one the display settings window made primary, else the leftmost; `-` for
+none), one `output NAME N USED TILING` line per monitor
 (as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of
 the workspace it shows (`dwindle`, `master`, `spiral`, `monocle` or `scroll`, as in
 `get layout NAME`), one `touched NAME EDGES` line per monitor with the edges of its free
