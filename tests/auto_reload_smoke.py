@@ -88,7 +88,7 @@ with harness.Compositor(compositor, "return { xwayland = false, layout = { gap =
     config.write_text("local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') "
                       "return { xwayland = false, auto_reload = false }")
     start = time.monotonic()
-    desktop.msg("reload")
+    assert desktop.run("reload", timeout=200).returncode == 0  # the sanitizers' backstop is 120 s
     took = time.monotonic() - start
     limit = re.search(r"Reload rejected; keeping active configuration: \S*init\.lua: did not "
                       r"finish loading within (\d+) seconds of processor time", log.read_text())
