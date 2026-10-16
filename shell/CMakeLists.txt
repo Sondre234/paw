@@ -175,7 +175,8 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp view.cpp view.hpp
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
     task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp icon_lock.hpp
-    app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp image_provider.hpp audio.cpp audio.hpp
+    app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp wallpaper_cycle.cpp wallpaper_cycle.hpp
+    image_provider.hpp audio.cpp audio.hpp
     system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp
     glass.cpp glass.hpp glass_blur.cpp glass_blur.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
@@ -312,6 +313,10 @@ if(BUILD_TESTING)
     add_test(NAME shell_image_providers COMMAND image_providers_test)
     set_tests_properties(shell_image_providers PROPERTIES TIMEOUT 60
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    # The wallpaper slideshow's order and timer (shell.wallpaper_cycle).
+    paw_shell_test(wallpaper_cycle_test SOURCES wallpaper_cycle.cpp wallpaper_cycle.hpp
+        LIBS paw_config Qt6::Core Qt6::Test)
+    add_test(NAME shell_wallpaper_cycle COMMAND wallpaper_cycle_test)
     # What the shell waits for before it says a new appearance profile is drawn.
     paw_shell_test(restyle_test SOURCES restyle.cpp restyle.hpp
         LIBS Qt6::Core Qt6::Gui Qt6::Quick Qt6::Test)
