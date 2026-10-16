@@ -524,12 +524,14 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
         set_peek(server, true);
         return true;
     }
-    if (action == SH_SWITCHER_NEXT || action == SH_SWITCHER_PREV) {
+    if (action == SH_SWITCHER_NEXT || action == SH_SWITCHER_PREV ||
+        action == SH_SWITCHER_APP_NEXT || action == SH_SWITCHER_APP_PREV) {
         // Held, the binding's modifiers keep it open. Shift may come and go to step backward.
         uint32_t held =
             WLR_MODIFIER_CTRL | WLR_MODIFIER_ALT | WLR_MODIFIER_LOGO | WLR_MODIFIER_MOD5;
-        switcher_open(server, action == SH_SWITCHER_PREV, modifiers & held,
-                      xkb_keysym_to_lower(sym));
+        switcher_open(server, action == SH_SWITCHER_PREV || action == SH_SWITCHER_APP_PREV,
+                      action == SH_SWITCHER_APP_NEXT || action == SH_SWITCHER_APP_PREV,
+                      modifiers & held, xkb_keysym_to_lower(sym));
         return true;
     }
     unsigned flags = binding_flags(server);

@@ -82,7 +82,8 @@ void switcher_finish(struct sh_server *server) {
     server->switcher.peek_timer = NULL;
 }
 
-/* Subscribers get "switcher OUTPUT SELECTED COUNT" followed by COUNT lines
+/* Subscribers get "switcher OUTPUT SELECTED COUNT" (and " app" when it lists one application's
+ * windows) followed by COUNT lines
  * "switcher-window APP_ID\tTITLE\tOUTPUT\tWORKSPACE\tMINIMIZED\tURGENT\tID" as it opens or its
  * list changes, "switcher-select N" as the selection moves (both counting from 0), and
  * "switcher-close" when it closes. ID is the window's number (the window control's id event), by
@@ -92,8 +93,9 @@ static void switcher_announce(struct sh_server *server) {
     char *text = malloc(size);
     if (!text)
         return;
-    length += snprintf(text, size, "switcher %s %d %d\n", server->switcher.output,
-                       server->switcher.selected, server->switcher.count);
+    length += snprintf(text, size, "switcher %s %d %d%s\n", server->switcher.output,
+                       server->switcher.selected, server->switcher.count,
+                       server->switcher.app ? " app" : "");
     for (int i = 0; i < server->switcher.count; ++i) {
         struct sh_toplevel *toplevel = server->switcher.windows[i];
         char app_id[256], title[512];
@@ -147,9 +149,20 @@ void switcher_close(struct sh_server *server, int index) {
         pointer_follow(chosen);
 }
 
+/* The application whose windows switcher_app lists: the focused window's app ID, or on the bare
+ * desktop the topmost window's, as other actions take it; NULL for a window without one, which
+ * shares an application with no other. */
+static const char *switched_app(struct sh_server *server) {
+    struct sh_toplevel *current = current_toplevel(server);
+    const char *app_id = current ? toplevel_app_id(current) : NULL;
+    return app_id && *app_id ? app_id : NULL;
+}
+
 /* Opens the switcher on the focused output, selecting the window focused before the current
- * one (or the least recent one, going `backward`); when open, moves the selection instead. */
-void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
+ * one (or the least recent one, going `backward`); when open, moves the selection instead.
+ * With `app` it lists the windows of the focused window's application alone, and opens only
+ * when that has another window to switch to. */
+void switcher_open(struct sh_server *server, bool backward, bool app, uint32_t modifiers,
                    xkb_keysym_t key) {
     if (server->switcher.open) {
         switcher_select(server, server->switcher.selected + (backward ? -1 : 1));
@@ -158,17 +171,24 @@ void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
     struct wlr_output *output = focused_output(server);
     if (server->locked || !output)
         return;
+    const char *app_id = app ? switched_app(server) : NULL;
+    if (app && !app_id)
+        return;
     int count = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
         if (toplevel->unmanaged || toplevel->swallowed)
             continue;
+        const char *its = toplevel_app_id(toplevel);
+        if (app_id && (!its || strcmp(its, app_id) != 0))
+            continue;
         if (count < (int)(sizeof(server->switcher.windows) / sizeof(*server->switcher.windows)))
             server->switcher.windows[count++] = toplevel;
     }
-    if (!count)
+    if (!count || (app && count < 2))
         return;
     server->switcher.open = true;
+    server->switcher.app = app;
     server->switcher.count = count;
     server->switcher.modifiers = modifiers;
     server->switcher.key = key;

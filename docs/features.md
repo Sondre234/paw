@@ -1187,6 +1187,19 @@ way, the next selection rests again before it peeks. The shell tells the composi
 without the shell nothing peeks; the macOS style's switcher, which switches applications as macOS
 does, does not peek either. `peek.switcher = false` turns the peek off, the palette's too.
 
+### One application's windows
+
+`switcher_app` opens the same switcher over the focused window's application alone, as macOS's
+Cmd + \` and GNOME's Alt + \` do: the windows with its app ID, on every monitor and workspace and
+minimized ones too, most recently focused first, with the one focused before the current one
+selected. Bound to a key, keep its modifiers held and press the key again to move on (with Shift,
+or `switcher_app_prev`, which opens it on the least recent window, to move back); Tab, the arrows,
+Return, Escape, a click, releasing the modifiers and the peek are as with Alt + Tab. An
+application with no other window, or a window without an app ID, opens nothing. The windows of a
+[tab group](#window-groups) are listed each on its own, and picking a tab brings it forward, as in
+the switcher. Sent as `paw msg switcher_app` it stays open until `switcher_confirm [N]` or
+`switcher_cancel`, as `paw msg switcher` does.
+
 ## Overview
 
 Super + O (`toggle_overview`) shows the focused monitor's workspace as an Exposé: every
