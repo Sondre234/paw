@@ -174,6 +174,8 @@ static void clear(struct sh_cursor_trail *trail) {
 static void reset(struct sh_cursor_trail *trail, enum sh_trail_kind kind) {
     clear(trail);
     drop_strips(trail);
+    // Off meanwhile, the pointer went on unseen: nothing falls along the way from where it was.
+    trail->placed = false;
     sh_trail_reset(&trail->trail, kind, trail->tints, trail->amount);
 }
 

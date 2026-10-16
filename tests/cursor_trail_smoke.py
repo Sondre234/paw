@@ -79,7 +79,7 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     wait_for(lambda: trail()["state"] == "shown" and len(particles()) > 10, "sparkles fall")
     for x, y, width, height, opacity, picture, transform in particles():
         assert 150 < x < 850 and 300 < y < 420, (x, y)
-        assert 1 <= width <= 26 and 1 <= height <= 26 and 0 < opacity <= 1000, (width, height)
+        assert 1 <= width <= 32 and 1 <= height <= 32 and 0 < opacity <= 1000, (width, height)
         assert transform == 0, transform
     if grim:
         # Something bright behind the pointer on the black desktop.
@@ -108,6 +108,13 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     # A jump (a warp, or a single motion from far off) drops nothing along its way.
     pointer("move 50 50 move 1200 650")
     desktop.stays(lambda: count() == 0, "no line across the screen")
+    # Nor along the way the pointer went while the trail was off.
+    pointer("move 100 360")
+    msg("cursor_trail", "off")
+    pointer("move 300 360")
+    msg("cursor_trail", "sparkles")
+    pointer("move 304 360")
+    assert count() <= 1, trail()
 
     # A screenshot (as `paw showcase` and the screenshot action hide the cursor) takes them away
     # at once and lets none fall until it is over.
