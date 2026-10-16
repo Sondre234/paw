@@ -802,11 +802,22 @@ struct Runtime {
             return true;
         return false;
     }
-    static bool reload(void *data) {
+    /* A configuration that could not be checked (it ran over its time or memory, or crashed,
+     * in the child process that tries it first) leaves the running desktop as it is, the shell
+     * too, rather than giving it the default one: under memory pressure the next try may well
+     * load. One with an error gives the default one, as at startup. */
+    static bool reload(void *data, char *rejected, size_t rejected_size) {
         auto &self = *static_cast<Runtime *>(data);
+        auto reject = [&](std::string why) {
+            if (why.starts_with("configuration: "))
+                why.erase(0, std::strlen("configuration: "));
+            std::snprintf(rejected, rejected_size,
+                          "Reload rejected; keeping active configuration: %s", why.c_str());
+            return false;
+        };
         try {
             std::string error;
-            auto next = paw::load_config_or_default(self.path, error);
+            auto next = paw::load_config_or_default(self.path, error, true);
             self.config = std::move(next);
             self.mode = 0; // the modes may have changed
             self.locker_problem.reset();
@@ -824,11 +835,9 @@ struct Runtime {
             report_rices(self.config);
             return true;
         } catch (const std::exception &error) {
-            std::cerr << "Reload rejected; keeping active configuration: " << error.what() << '\n';
-            return false;
+            return reject(error.what());
         } catch (...) {
-            std::cerr << "Reload rejected; keeping active configuration: unexpected error\n";
-            return false;
+            return reject("unexpected error");
         }
     }
     /* Watches the configuration's directory (and, when the file is a link, its target's), as

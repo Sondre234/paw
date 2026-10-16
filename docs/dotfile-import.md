@@ -22,8 +22,8 @@ bindings, dispatchers, scripts that call `hyprctl`) is out of scope; paw keeps i
   error in the report, keeping what it set before. One call into a C function counts as
   one instruction however long it runs (`(""):rep(2^62)`, a pattern that backtracks), so
   the script runs first in a child process, as a configuration does: one that has not
-  finished there within 3 seconds is reported as taking too long and nothing from it is
-  imported.
+  finished there within 3 seconds of processor time is reported as taking too long and
+  nothing from it is imported.
 - `hyprland.conf` (hyprlang) gets a small parser: `source =`, `$variables`, nested
   `section { }` blocks, `rgba()`/`rgb()`/`0xAARRGGBB` colors.
 - Waybar: only the bar's look transfers. Position, height, and margins come from

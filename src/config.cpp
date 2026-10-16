@@ -3354,10 +3354,11 @@ size_t locate(const std::string &source, const std::vector<std::string> &trail) 
     return found;
 }
 
-// A configuration loads first in a child process (try_in_child), which throws if it runs out of
-// memory, runs over the time limit or crashes there; whatever `load` throws in time is left to
-// running it for real. Without a child process to be had, it returns: the configuration then
-// loads unchecked, rather than not at all. `name` is the configuration's chunk name.
+// A configuration loads first in a child process (try_in_child), which throws a
+// ConfigTrialError if it runs out of memory, runs over its processor time (or the clock's
+// backstop) or crashes there; whatever `load` throws in time is left to running it for real.
+// Without a child process to be had, it returns: the configuration then loads unchecked, rather
+// than not at all. `name` is the configuration's chunk name.
 void try_first(const std::function<void()> &load, const std::string &name) {
     const auto trial = try_in_child(load);
     auto file = name.starts_with('@') ? name.substr(1) : name;
@@ -3365,15 +3366,16 @@ void try_first(const std::function<void()> &load, const std::string &name) {
     case Trial::Finished:
         return;
     case Trial::OutOfMemory:
-        throw std::runtime_error("configuration: " + file + ": ran out of memory");
+        throw ConfigTrialError("configuration: " + file + ": ran out of memory");
     case Trial::TooLong:
-        throw std::runtime_error("configuration: " + file + ": did not finish loading within " +
-                                 std::to_string(trial_seconds) + " seconds");
+        throw ConfigTrialError("configuration: " + file + ": did not finish loading within " +
+                               std::to_string(trial.seconds) + " seconds" +
+                               (trial.processor_time ? " of processor time" : ""));
     case Trial::Crashed:
         break;
     }
-    throw std::runtime_error("configuration: " + file + ": loading it crashed" +
-                             (trial.signal.empty() ? std::string() : " (" + trial.signal + ")"));
+    throw ConfigTrialError("configuration: " + file + ": loading it crashed" +
+                           (trial.signal.empty() ? std::string() : " (" + trial.signal + ")"));
 }
 // parse_config, unchecked.
 Config parse(const std::string &source, const std::string &name,
@@ -3529,22 +3531,37 @@ void save_profile(const std::string &name) {
         throw std::runtime_error("cannot write " + path.string() + ": " + failure.message());
 }
 
-Config load_config(const std::filesystem::path &path) {
+namespace {
+// load_config; `checked`, run first in a child process as parse_config does, else at once.
+Config load_from(const std::filesystem::path &path, bool checked) {
     std::vector<std::string> unread;
     auto rices = installed_rices(&unread);
-    auto config = parse_config(read_file(path), "@" + path.string(), path.parent_path(),
-                               saved_profile(), rices);
+    const auto source = read_file(path);
+    const auto name = "@" + path.string();
+    auto config = checked ? parse_config(source, name, path.parent_path(), saved_profile(), rices)
+                          : parse(source, name, path.parent_path(), saved_profile(), rices);
     config.rice_problems.insert(config.rice_problems.end(), unread.begin(), unread.end());
     return config;
 }
+} // namespace
 
-Config load_config_or_default(const std::filesystem::path &path, std::string &error) {
+Config load_config(const std::filesystem::path &path) { return load_from(path, true); }
+
+Config load_config_or_default(const std::filesystem::path &path, std::string &error,
+                              bool reloading) {
     try {
         error.clear();
         return load_config(path);
+    } catch (const ConfigTrialError &failure) {
+        if (reloading)
+            throw;
+        error = failure.what();
     } catch (const std::exception &failure) {
         error = failure.what();
     }
+    // paw's own files, which need no trial first: a second wait, after the one that may just
+    // have run over, would only hold the desktop up longer. (The installed rices layered over
+    // them are data, read without running them.)
     for (const std::filesystem::path &fallback : {default_config_path(),
                                                   std::filesystem::path(PAW_SOURCE_CONFIG)}) {
         std::error_code failure;
@@ -3552,7 +3569,7 @@ Config load_config_or_default(const std::filesystem::path &path, std::string &er
             std::filesystem::equivalent(fallback, path, failure))
             continue;
         try {
-            return load_config(fallback);
+            return load_from(fallback, false);
         } catch (const std::exception &) {
         }
     }

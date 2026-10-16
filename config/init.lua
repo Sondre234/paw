@@ -13,8 +13,8 @@
 -- the top of the screen. Super+Shift+R, or SIGHUP, also reloads it.
 --
 -- The file is plain Lua that returns a table. It can use variables, string, table and math
--- functions, but cannot read files or run programs, and has 3 seconds and 64 MiB of memory
--- to load in. Launch commands are argument arrays, never shell strings:
+-- functions, but cannot read files or run programs, and has 3 seconds of processor time and
+-- 64 MiB of memory to load in. Launch commands are argument arrays, never shell strings:
 -- { "kitty", "--title", "term" }.
 --
 -- To keep your own file short, start from the shipped one and change only what you like:

@@ -159,8 +159,8 @@ static void pick(struct sh_server *server, const char *profile) {
     }
     if (server->running)
         reload_config(server);
-    else
-        callbacks->reload(callbacks->userdata);
+    else if (!callbacks->reload(callbacks->userdata, error, sizeof(error)) && error[0])
+        wlr_log(WLR_ERROR, "Profile schedule: %s", error);
 }
 
 static void apply(struct sh_server *server, const struct due *due) {

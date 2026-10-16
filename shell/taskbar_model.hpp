@@ -14,8 +14,9 @@
 // application's own button moves its pin.
 //
 // With `byMonitor`, a window's entry follows its monitor among its application's windows as it
-// opens or moves to another monitor, monitors ordered by their place in the layout (left to
-// right, and top to bottom at the same x). One of them apart from it on the wrong side (ahead of
+// opens or moves to another monitor (or, on a monitor the shell has no screen of yet, once it
+// has), monitors ordered by their place in the layout (left to right, and top to bottom at the
+// same x). One of them apart from it on the wrong side (ahead of
 // it on a monitor after its own, or after it on one before) takes it into the run of windows next
 // to that one; else it keeps to the run next to it. There it goes after those on monitors before
 // its own or on its own, and ahead of the others, or stays where it is if it just opened and
@@ -43,6 +44,9 @@ class TaskbarOrder : public QObject {
     static TaskbarOrder *of(QAbstractItemModel *source);
     // The place of the screen of that name (its geometry, which xdg-output gives).
     static std::optional<QPoint> screenPlace(const QString &output);
+    // Calls `changed` as a screen comes or goes or moves in the layout, while `context` lives;
+    // nothing without a QGuiApplication.
+    static void followScreens(QObject *context, const std::function<void()> &changed);
     // Where the monitors are: screenPlace until set otherwise.
     void setOutputPlace(OutputPlace place) { place_ = std::move(place); }
     // Whether windows' buttons follow their monitors: while the windows have one apart.
@@ -53,6 +57,8 @@ class TaskbarOrder : public QObject {
     bool hasPins() const { return bool(pins_.pinned); }
     // The pins changed, or which application a window belongs to may have.
     void pinsChanged();
+    // A monitor came or went: the windows on one that had no place yet are placed by it now.
+    void monitorsChanged();
     QAbstractItemModel *source() const { return source_; }
     const QList<Entry> &entries() const { return entries_; }
     // Which entries a taskbar shows: its windows grouped or apart, those on monitor `output` alone
@@ -95,7 +101,8 @@ class TaskbarOrder : public QObject {
     QList<Entry> entries_;
     // Task id to source row.
     QHash<int, int> rows_;
-    // The monitor each window placed was last seen on, by its task id.
+    // The monitor each window placed was last seen on, by its task id; not one without a place
+    // yet, which a window on it waits for.
     QHash<int, QString> outputs_;
     OutputPlace place_ = &TaskbarOrder::screenPlace;
     bool byMonitor_ = false;
@@ -105,7 +112,7 @@ class TaskbarOrder : public QObject {
     QString output(int taskId) const;
     void indexRows();
     // The window's monitor having changed since it was last seen, notes it and places the window
-    // by it; returns whether the window moved.
+    // by it, once that monitor has a place; returns whether the window moved.
     bool noteOutput(int taskId);
     // Places window `taskId` among its application's by their monitors, as it opened or `moved`
     // from another monitor; returns whether its place changed.

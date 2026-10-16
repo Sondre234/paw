@@ -90,6 +90,12 @@ std::optional<QPoint> monitorPlace(const QString &output) {
         return *found;
     return std::nullopt;
 }
+// The same, but for the monitors in `late`, which the shell has no screen of yet.
+TaskbarOrder::OutputPlace placeBut(const QSet<QString> &late) {
+    return [&late](const QString &output) {
+        return late.contains(output) ? std::nullopt : monitorPlace(output);
+    };
+}
 } // namespace
 
 class TaskFilterTest : public QObject {
@@ -217,6 +223,22 @@ class TaskFilterTest : public QObject {
         filter.setByMonitor(false);
         QCOMPARE(taskIds(filter), (QList<int>{1, 2, 3, 4, 5}));
     }
+    // By monitor, a window on a monitor the shell has no screen of yet goes last, and among the
+    // others once its screen comes.
+    void windowsByMonitorAsAScreenComes() {
+        FakeTasks tasks;
+        tasks.add("a", "one", "main");
+        tasks.add("a", "two", "left");
+        QSet<QString> late{"left"};
+        TaskFilter filter;
+        filter.setOutputPlace(placeBut(late));
+        filter.setSourceModel(&tasks);
+        filter.setByMonitor(true);
+        QCOMPARE(taskIds(filter), (QList<int>{1, 2}));
+        late.clear();
+        filter.monitorsChanged();
+        QCOMPARE(taskIds(filter), (QList<int>{2, 1}));
+    }
     // With an output, the windows on that monitor and those on none known yet.
     void windowsOfAMonitor() {
         FakeTasks tasks;
@@ -262,6 +284,7 @@ class TaskbarOrderTest : public QObject {
     // A window's app id is the id of the application it belongs to, pinned when it is here.
     QStringList pins;
     QList<QStringList> reordered;
+    QSet<QString> late; // monitors without a screen yet
     using Entry = TaskbarOrder::Entry;
 
     // The shown entries, as "a" for a pinned application's and "3" for window 3's.
@@ -285,7 +308,8 @@ class TaskbarOrderTest : public QObject {
                         [this](const QString &appId) { return pins.contains(appId) ? appId : QString(); },
                         [this](const QStringList &order) { reordered.push_back(order); }});
         // As the taskbar has it apart.
-        order->setOutputPlace(monitorPlace);
+        late.clear();
+        order->setOutputPlace(placeBut(late));
         order->setByMonitor(true);
     }
     // A pinned application's first window opens in its launcher's place, any other at the end,
@@ -468,6 +492,21 @@ class TaskbarOrderTest : public QObject {
         settle();
         source->move(4, "left");
         QCOMPARE(shown(), (QStringList{"a", "b", "4", "1", "2", "3"}));
+    }
+    // A window on a monitor the shell has no screen of yet (one just plugged in) is placed by it
+    // as one opening once its screen comes, and so is one moving there.
+    void aScreenComingLaterPlacesItsWindows() {
+        late = {"left", "right"};
+        source->add("c", "c one", "main");
+        source->add("c", "c two", "main");
+        source->add("c", "c three", "left");
+        settle();
+        QCOMPARE(shown(), (QStringList{"a", "b", "1", "2", "3"}));
+        source->move(1, "right");
+        QCOMPARE(shown(), (QStringList{"a", "b", "1", "2", "3"}));
+        late.clear();
+        order->monitorsChanged();
+        QCOMPARE(shown(), (QStringList{"a", "b", "3", "2", "1"}));
     }
     // A taskbar showing one monitor's windows (shell.taskbar_buttons) leaves out those on others,
     // but not those on none known yet, and shows a pinned application's launcher only where

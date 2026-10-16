@@ -26,12 +26,13 @@ BLUE, ORANGE = "#2050a0", "#e0a040"  # input_probe's wallpaper, its left and rig
 ESCAPE, RETURN, DOWN, UP, SUPER, SHIFT, C = 1, 28, 108, 103, 125, 42, 46
 
 
-def config(scale=1, transform=0):
+def config(scale=1, transform=0, hide_after=0, cursor_size=0):
     return f"""return {{
     xwayland = false,
     animations = {{ enabled = false }},
     idle = {{ display_off = 0 }},
-    mouse = {{ shake_to_find = true }},
+    mouse = {{ shake_to_find = true, hide_after = {hide_after} }},
+    appearance = {{ cursor_size = {cursor_size} }},
     layout = {{ tiling = false }},
     outputs = {{ monitors = {{ ["HEADLESS-1"] = {{
         mode = "1280x720", scale = {scale}, transform = {transform} }} }} }},
@@ -50,7 +51,7 @@ with harness.Compositor(compositor, config()) as desktop:
 
     def picker():
         """`get color_picker`: state, colour, output, x, y, last, loupe width and height, scale,
-        sides, pictures."""
+        sides, pictures, loupes given to the cursor."""
         return desktop.rows("color_picker")[0]
 
     def state():
@@ -109,7 +110,9 @@ with harness.Compositor(compositor, config()) as desktop:
         wait_for(lambda: under() == colour, f"{colour} under the pointer at {x},{y}")
     # Where the loupe was drawn a moment ago, the screen under it shows.
     pointer("move", "260", "310")
-    wait_for(lambda: under() == BODY, "the body, not the loupe")
+    # The body was under the pointer before it moved too: the picker has followed it first.
+    wait_for(lambda: picker()[3:5] == ["260", "310"] and under() == BODY,
+             "the body, not the loupe")
     row = picker()
     assert row[2:5] == ["HEADLESS-1", "260", "310"], row
     assert row[8:11] == ["1", "right", "below"], row
@@ -120,6 +123,15 @@ with harness.Compositor(compositor, config()) as desktop:
     pointer("sleep 150 " + " ".join(f"move {400 + 300 * (i % 2)} 360" for i in range(7)))
     desktop.stays(lambda: msg("get", "cursor_size").strip() == cursor_size and
                   cursor_image() == "crosshair", "the loupe kept through a shake")
+    # Resting with mouse.hide_after on hides no loupe; the cursor's size (or theme) changing
+    # meanwhile gives the cursor the loupe again, not the theme's crosshair.
+    loupes = int(picker()[12])
+    desktop.reload(config(hide_after=1, cursor_size=48))
+    wait_for(lambda: msg("get", "cursor_size").strip() == "48", "the cursor's size changed")
+    assert state() == "picking" and cursor_image() == "crosshair", (picker(), cursor_image())
+    assert int(picker()[12]) > loupes, "the loupe was not given to the cursor again"
+    desktop.stays(lambda: msg("get", "cursor").strip() == "shown", "the loupe hid at rest", 1.5)
+    desktop.reload(config())
     pointer("move", "620", "200")
     wait_for(lambda: under() == GREEN, "green")
     assert "pointer button" not in (desktop.root / "ears.log").read_text()

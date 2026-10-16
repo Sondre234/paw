@@ -39,11 +39,18 @@ table, math and utf8 libraries without `load`, `dofile` or metatables, a budget 
 and 64 MiB for what its code allocates. A call into a C function is one instruction however
 long it runs, so whatever runs a configuration (`parse_config`, `configured_look`,
 `shadowed_settings`) runs it first in a child process forked for it (`try_first`), killed after 3
-seconds, and then for real, which gives the result or the error. The compositor and the shell
-both load the file this way, so what that code calls must be safe in a child forked from a
-process with threads: nothing that waits on a lock another thread may hold. The child process
-and its time limit are `try_in_child` (`src/child_trial.cpp`), which `paw import` uses too for
-a `hyprland.lua` (`src/import/hyprland.cpp`, a sandbox of its own).
+seconds of processor time (`RLIMIT_CPU`, so that a busy machine does not count against it; 30
+seconds on the clock are a backstop), and then for real, which gives the result or the error. The
+compositor and the shell both load the file this way, so what that code calls must be safe in a
+child forked from a process with threads: nothing that waits on a lock another thread may hold.
+The child process and its limits are `try_in_child` (`src/child_trial.cpp`), which `paw import`
+uses too for a `hyprland.lua` (`src/import/hyprland.cpp`, a sandbox of its own); it waits a few
+seconds at most for a killed child to end, and leaves one stuck in the kernel to the compositor's
+SIGCHLD handler (`reap_children`). A trial that runs over or crashes throws `ConfigTrialError`:
+`load_config_or_default` gives the default configuration for it at startup, as for an error,
+but a reload (`Runtime::reload`, `ShellController::reload`) keeps the running configuration, and
+the compositor sends the shell `config-error MESSAGE` instead of SIGHUP. The default
+configuration standing in for a broken one loads without a trial, being paw's own.
 
 Window rules' and bindings' patterns are compiled to be searched in time linear in the text
 (`compile_pattern`), and in a title or app ID over 1 KiB only the first and last 512 bytes are
@@ -66,8 +73,8 @@ all. In short:
 | `input_method.c` | Input methods (fcitx5, ibus): text-input-v3 and input-method-v2 relayed between the application with the keyboard and the input method, its keyboard grab, and its popups beside the text cursor. |
 | `key_release.c` | Key bindings with `release`, which run as their key comes up: a modifier key's (Super_L opening the launcher) only when it was tapped alone, any other key, button, wheel notch, gesture, finger or pen meanwhile (`key_release_cancel`) letting it go. |
 | `keymap.c` | The keymap from the keyboard settings, given to every keyboard but virtual ones. |
-| `cursor.c` | What is under the pointer, and the tile the user moved it onto (`pointed_tile`), focus on hover, button bindings, scrolling, the cursor image. |
-| `cursor_hide.c` | The cursor hidden while typing (`mouse.hide_when_typing`) and once the pointer has rested (`mouse.hide_after`), as reasons of `cursor_hide`'s besides a screenshot's, until the pointer is used (`cursor_used`). |
+| `cursor.c` | What is under the pointer, and the tile the user moved it onto (`pointed_tile`), focus on hover, button bindings, scrolling, the cursor image, and the image the client under the pointer last asked for (`client_cursor`, heard while hidden too), which `cursor_show` gives back without entering the client anew. |
+| `cursor_hide.c` | The cursor hidden while typing (`mouse.hide_when_typing`) and once the pointer has rested (`mouse.hide_after`), as reasons of `cursor_hide`'s besides a screenshot's, until the pointer is used (`cursor_used`); never under a pointer constraint, over a client that hid the cursor itself or while the colour picker picks. |
 | `cursor_shake.c` | Shaking the pointer to find it (`mouse.shake_to_find`): a shake (`src/shake.c`) grows the cursor, its image from the theme at three times the size given as a buffer at the scale of the moment, stepped on a timer; meanwhile what sets the cursor's image only notes it (`cursor_grown`), and the image it would have shows as it is back to its size; `get cursor_size`. |
 | `profile_themes.c` | The cursor and icon themes of appearance profiles (`appearance.cursor_theme`, `cursor_size`, `icon_theme`): the cursor drawn in the profile's theme and size where it is installed (`sh_theme_installed`, `src/theme_lookup.cpp`), else the session's own; a change makes a new xcursor manager, shows the cursor's image from it, gives X11 windows its arrow (`xwayland_give_cursor`) and later programs `$XCURSOR_THEME` and `$XCURSOR_SIZE`, tells the shell `cursor-theme SIZE NAME` and has `cursor_shake.c` follow (`cursor_shake_retheme`); in a login session, gsettings' `cursor-theme`, `cursor-size` and `icon-theme`, the user's own values kept to put back (the icon theme also as `$PAW_USER_ICON_THEME`, for a shell started meanwhile) as a profile without them is picked and as the session ends; `get cursor_theme`. |
 | `gestures.c` | Touchpad gestures: the swipes `gestures` takes (workspaces and the overview following the fingers, requests), and the rest passed on to the surface under the pointer (pointer-gestures-unstable-v1). |
@@ -1317,7 +1324,7 @@ what was there.
 | `EmptyState.qml` | What a list says while it has nothing to show: an icon, a line and a hint. |
 | `PopupCard.qml` | A popup's card: surface, outline, corners, a shadow through the GPU, the open and close animation, and its place beside what it belongs to. |
 | `CardFrame.qml` | A card's shadow, surface, outline and the macOS style's inner edge, beneath what it holds: a popup's, an overlay's, a notification's; with `shell.blur` the frosted glass under a translucent surface, and the glass's light edge and sheen. |
-| `Shadow.qml` | A shadow drawn through the GPU (`RectangularShadow`) under a card or a bar, which frees the shader effect it draws with as it goes: Qt's (6.11) makes that effect without a parent and never deletes it, so the shell gives it to the shadow (`ShellController::keepShadowMaterial`). |
+| `Shadow.qml` | A shadow drawn through the GPU (`RectangularShadow`) under a card or a bar, which frees the shader effect it draws with as it goes: Qt's (6.11) makes that effect without a parent and never deletes it, so the shell gives it to the shadow (`ShellController::keepShadowMaterial`), for Qt before 6.12 alone (`adoptsShadowMaterial`): a Qt that deleted it itself would delete it twice. shell_ui fails on a Qt update until that is rechecked. |
 | `GlassFill.qml` | A rectangle in a popup's colour that is a card of its own, drawn by hand rather than by `CardFrame` (a tooltip, Notification Center's cards): on the frosted glass, translucent over a `Glass`. |
 | `Reveal.qml` | How far an overlay or a card is in view: its `progress`, easing to 1 while `shown` and back to 0 after, which the overlays and `PopupCard` take as their own. |
 | `PopupMenu.qml`, `MenuRow.qml` | A menu of plain entries on popup cards, with cascading submenus and keyboard navigation, and one row of it. |
@@ -1956,8 +1963,8 @@ client header and code for the shell and the test probes), its global made with
 
 `send_event` (`control.c`) sends a line to every subscriber; `send_shell_line` and
 `request_shell` are the shell-specific forms, and `report_failure` logs a failure the user no
-longer waits on and shows it across the panel (`power-error`, `spawn-error`). `notice
-SUMMARY<tab>BODY` tells the user something once, as a notification of the desktop's own
+longer waits on and shows it across the panel (`power-error`, `spawn-error`, `config-error`).
+`notice SUMMARY<tab>BODY` tells the user something once, as a notification of the desktop's own
 (`ShellController::notice`), or on the on-screen display while no card shows; a window taking the
 keyboard's shortcuts is one (`shortcuts_inhibit.c`). The shell reads
 them in `shell/controller.cpp`. It subscribes with `subscribe shell`, and `shell_listening` says

@@ -1560,8 +1560,10 @@ colour picked, or fails with `error: cancelled`, so that a script can take it:
 tab-separated line: `picking` or `idle`; while picking, the colour under the crosshair (`-` for
 none), the monitor and the pixel (x and y in the monitor's pixels as they are seen), else `-`,
 `-`, -1 and -1; the colour picked last (`-` for none); the loupe's size in pixels and its scale;
-the side of the crosshair its card is on (`right` or `left`, then `below` or `above`); and how
-many pictures of the screen it has drawn. On an [HDR](#hdr) monitor the colour is taken back to
+the side of the crosshair its card is on (`right` or `left`, then `below` or `above`); how
+many pictures of the screen it has drawn; and how many times it has given the cursor its loupe.
+While it picks, the cursor stays the loupe: `mouse.hide_after` does not hide it, and a profile
+changing the cursor's theme or size draws it anew. On an [HDR](#hdr) monitor the colour is taken back to
 sRGB from what the monitor is sent, to within a few steps.
 
 ## Keyboard shortcuts
@@ -2598,7 +2600,11 @@ input method, as macOS does, until the pointer moves, clicks or scrolls (a drawi
 moving shows it too). A modifier key alone and a key a binding takes leave it where it is, and so
 does typing while a mouse button is held or a window is being moved. `mouse.hide_after = N` hides
 it once the pointer has rested N seconds, as Hyprland's `cursor:inactive_timeout`, unless a
-button is held. Both are off by default and apply as the file is saved; turning one off shows a
+button is held. Neither hides it while a game or a remote desktop holds the pointer (a pointer
+constraint), or over a window that took the cursor's image away itself, as a video playing does:
+there is nothing to hide, and the arrow coming back would only flash at it. Coming back, the cursor
+shows the image the window under it last asked for, without the pointer leaving the window and
+entering it anew. Both are off by default and apply as the file is saved; turning one off shows a
 cursor it hid. They are reasons of their own beside a screenshot's (the cursor is left out of
 grim's picture): the pointer moving ends theirs but not a screenshot's, and the screenshot ending
 leaves a cursor hidden by typing hidden. `paw msg get cursor` says `hidden` for any of them, and
@@ -3483,7 +3489,8 @@ and unlocks (the shell's clipboard history records nothing meanwhile), and ends 
 `power ACTIONS`, the power actions that may
 run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power
 action that fails or is cancelled after it was accepted sends `power-error MESSAGE`, a program
-that `spawn` or `terminal` could not start sends `spawn-error MESSAGE` (the panel shows either
+that `spawn` or `terminal` could not start sends `spawn-error MESSAGE`, a reload turned down,
+the configuration kept as it was, sends `config-error MESSAGE` (the panel shows any of these
 across itself for eight seconds), `power_menu` sends `power-menu OUTPUT`, a colour picked with [`pick_color`](#colour-picker) sends `color-picked #rrggbb`, and
 `taskbar_focus` sends `taskbar OUTPUT` for the focused monitor, whose panel takes the keyboard to walk its
 buttons, or gives it back. The shell subscribes with `subscribe shell`, saying it carries out

@@ -571,8 +571,9 @@ shadows.
   screenshot. `paw msg get cursor` says whether it is hidden.
 - `mouse.hide_when_typing = true` hides the cursor while typing into an application, as macOS
   does, and `mouse.hide_after = N` once the pointer has rested N seconds; moving, clicking or
-  scrolling shows it again. Modifier keys alone and keys a binding takes leave it. Both are off
-  by default.
+  scrolling shows it again. Modifier keys alone and keys a binding takes leave it, and neither
+  hides it while a game holds the pointer or over a window that hid the cursor itself. Both are
+  off by default.
 - `mouse.shake_to_find = true` grows the cursor to three times its size for a moment as the
   pointer is shaken from side to side, as macOS does, smoothly, and shrinks it back about a second
   after the shaking stops. Ordinary motion, a drag and stroking the desktop cat never set it off.
@@ -1024,6 +1025,13 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   goes to the window on that sheet, and `paw msg get xray` puts everything on the sheet drawn for
   it: both went by the sheets the view was about to show, so a click could go to the window just
   opening, and the window kept above could be listed on no sheet.
+- A busy machine no longer costs you your configuration: the 3 seconds a configuration has to
+  load in are now of processor time rather than on the clock, so a parallel build, memory
+  pressure or a login starting everything at once cannot push a file that loads in a tenth of a
+  second over the limit. A reload that does run over (or crashes in its trial) keeps the running
+  configuration, in the compositor and the shell alike, and says why on the panel, where it
+  gave the default configuration and so took away your bindings, monitors and look until the
+  next save. The compositor no longer waits for ever on a trial stuck in the kernel either.
 
 ## 0.1.1 (2026-10-05)
 

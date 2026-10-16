@@ -756,7 +756,9 @@ struct sh_callbacks {
     /* Parses a control-socket request into an action; SH_NONE with a message on error. */
     enum sh_action (*command)(void *, const char *request, int *argument, char *error,
                               size_t error_size);
-    bool (*reload)(void *);
+    /* Reads the configuration again for the compositor and the shell. False keeps the active
+     * one, with what to tell the user in `error`, or "" for nothing. */
+    bool (*reload)(void *, char *error, size_t error_size);
     void (*startup)(void *);
     void (*child_exited)(void *, int pid);
     /* Opacity for a window with this app ID and title (either may be ""), focused or not. */

@@ -5589,6 +5589,15 @@ ListModel {
                 return controller.error() == "Cannot launch kitty: No such file or directory";
             }))
             return fail("a program that did not start was not reported");
+        // A reload the compositor turned down, keeping its configuration (and the shell's,
+        // which it then does not ask to reload), says why.
+        subscriber->write("config-error Reload rejected; keeping active configuration: "
+                          "init.lua: did not finish loading within 3 seconds of processor time\n");
+        if (!waitFor([&] {
+                return controller.error().startsWith("Reload rejected; keeping active "
+                                                     "configuration: init.lua: did not finish");
+            }))
+            return fail("a reload the compositor turned down was not reported");
         controller.clearError();
         // With nothing that may run, the button goes.
         if (!openLauncher() || !button->isVisible())
@@ -6990,7 +6999,25 @@ ListModel {
             view.inputRegion() != QRegion(0, 0, view.width(), controller.panelExtent()))
             return fail("the bar's shadow has no room past the strip, or that room takes input");
         // The shadow frees what it draws with as it goes (Shadow.qml): Qt's RectangularShadow
-        // leaves the shader effect it makes for itself to no one, never deleted.
+        // leaves the shader effect it makes for itself to no one, never deleted. Should a Qt
+        // give it a parent of its own, or keepShadowMaterial no longer take it on this one,
+        // recheck the workaround (ShellController::adoptsShadowMaterial).
+        {
+            QQmlComponent plain(view.engine());
+            plain.setData("import QtQuick\nimport QtQuick.Effects\nRectangularShadow {}",
+                          QUrl("qrc:/shell/PawShell/ShadowProbe.qml"));
+            std::unique_ptr<QObject> made(plain.create());
+            auto *effect = made ? made->property("material").value<QObject *>() : nullptr;
+            if (!effect || effect->parent())
+                return fail("Qt's RectangularShadow gives its shader effect a parent now: "
+                            "keepShadowMaterial is no longer needed");
+            if (!ShellController::adoptsShadowMaterial())
+                return fail(("Qt " + std::string(qVersion()) +
+                             " still leaks RectangularShadow's shader effect: check that it does "
+                             "not delete it itself, and let adoptsShadowMaterial take it")
+                                .c_str());
+            effect->setParent(made.get()); // freed with it, as the shell does
+        }
         auto *barShadow = find(view.rootObject(), "barShadow");
         QObject *shadow = nullptr, *material = nullptr;
         if (!waitFor([&] {

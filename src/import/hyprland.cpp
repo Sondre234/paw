@@ -466,8 +466,9 @@ void read_lua_in_time(const Files &files, const fs::path &path, Hyprland &hypr, 
         return report.skip(files, top, "ran out of memory; nothing from it is imported");
     case Trial::TooLong:
         return report.skip(files, top,
-                           "took too long to run (over " + std::to_string(trial_seconds) +
-                               " seconds); nothing from it is imported");
+                           "took too long to run (over " + std::to_string(trial.seconds) +
+                               " seconds" + (trial.processor_time ? " of processor time" : "") +
+                               "); nothing from it is imported");
     case Trial::Crashed:
         break;
     }

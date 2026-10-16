@@ -13,6 +13,7 @@ TaskFilter::TaskFilter(QObject *parent) : QSortFilterProxyModel(parent) {
     connect(this, &QAbstractItemModel::modelReset, this, &TaskFilter::summaryChanged);
     connect(this, &QAbstractItemModel::layoutChanged, this, &TaskFilter::summaryChanged);
     connect(this, &QAbstractItemModel::dataChanged, this, &TaskFilter::summaryChanged);
+    TaskbarOrder::followScreens(this, [this] { monitorsChanged(); });
 }
 void TaskFilter::setSourceModel(QAbstractItemModel *source) {
     for (const auto &connection : sourceConnections_)
@@ -139,6 +140,9 @@ void TaskFilter::setOutput(const QString &output) {
 }
 void TaskFilter::setOutputPlace(TaskbarOrder::OutputPlace place) {
     place_ = std::move(place);
+    monitorsChanged();
+}
+void TaskFilter::monitorsChanged() {
     if (byMonitor_)
         invalidate();
 }

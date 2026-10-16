@@ -189,6 +189,7 @@ Item {
     property var warmGroup: null
     readonly property TaskFilter warmWindows: TaskFilter {
         controller: shell; sourceModel: root.warmGroup ? root.taskSource : null
+        output: root.taskbarOutput
         app: root.warmGroup ? root.warmGroup.slot : ""
         windowApp: root.warmGroup ? root.warmGroup.windowApp : ""
         taskId: root.warmGroup ? root.warmGroup.task : -1

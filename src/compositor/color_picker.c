@@ -29,6 +29,7 @@ struct sh_color_picker {
     bool hdr;
     uint64_t drawn_at;
     unsigned pictures; /* drawn since the compositor started, for `get color_picker` */
+    unsigned loupes;   /* the loupe given to the cursor as many times, the same */
     struct wl_event_source *timer;
     /* What the loupe shows: the cells around the pixel under the crosshair, that pixel's colour
      * (none off every output) and where it is on its output, in its pixels as they are seen. */
@@ -257,6 +258,10 @@ static void forget_frames(struct sh_color_picker *picker) {
  * where it fits on the output. */
 static void show_loupe(struct sh_server *server) {
     struct sh_color_picker *picker = server->color_picker;
+    if (server->cursor_hidden) { // as for a screenshot: drawn once it shows again
+        picker->shown = false;
+        return;
+    }
     struct wlr_output *wlr_output = picker->output ? picker->output->wlr_output : NULL;
     double scale = wlr_output ? wlr_output->scale : 1;
     struct wlr_box box = {0};
@@ -297,6 +302,14 @@ static void show_loupe(struct sh_server *server) {
     wlr_buffer_drop(buffer);
     server->cursor_image = "crosshair";
     picker->shown = true;
+    ++picker->loupes;
+}
+
+/* The cursor shows again, or its theme changed, while picking: the loupe drawn anew, rather than
+ * the arrow or the theme's crosshair. */
+void color_picker_show_loupe(struct sh_server *server) {
+    if (color_picker_active(server))
+        show_loupe(server);
 }
 
 /* The pointer moved, or the screen under it changed: the picture of the output it is on, the
@@ -653,7 +666,7 @@ void describe_color_picker(struct sh_server *server, int fd, const char *argumen
     if (active && picker->has_color)
         sh_color_hex(picker->color, hex);
     const struct sh_loupe_layout *layout = picker ? &picker->sides[picker->side].layout : NULL;
-    snprintf(line, sizeof(line), "ok\n%s\t%s\t%s\t%d\t%d\t%s\t%d\t%d\t%g\t%s\t%s\t%u\n",
+    snprintf(line, sizeof(line), "ok\n%s\t%s\t%s\t%d\t%d\t%s\t%d\t%d\t%g\t%s\t%s\t%u\t%u\n",
              active ? "picking" : "idle", hex,
              active && picker->output ? picker->output->wlr_output->name : "-",
              active ? picker->pixel_x : -1, active ? picker->pixel_y : -1,
@@ -662,6 +675,6 @@ void describe_color_picker(struct sh_server *server, int fd, const char *argumen
              active && layout ? layout->scale : 0,
              active && layout && layout->left ? "left" : "right",
              active && layout && layout->above ? "above" : "below",
-             picker ? picker->pictures : 0);
+             picker ? picker->pictures : 0, picker ? picker->loupes : 0);
     control_reply(fd, line);
 }

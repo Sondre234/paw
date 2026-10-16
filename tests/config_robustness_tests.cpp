@@ -25,7 +25,8 @@
 #endif
 #endif
 // at_once: the seconds what is refused at once may take, and a third of it what must be quick.
-// What runs too long is stopped after paw::trial_seconds.
+// What runs too long is stopped after paw::trial_seconds of processor time, which on a busy
+// machine take longer on the clock: paw::trial_wall_seconds at the most.
 #if defined(__SANITIZE_ADDRESS__) || defined(PAW_ASAN)
 constexpr auto parse_budget = std::chrono::seconds(600);
 constexpr double at_once = 30;
@@ -88,14 +89,41 @@ int main(int argc, char **argv) {
 
         // One call into a C function is one instruction however long it runs or whatever it
         // allocates, so the instruction budget stops neither. What runs for more than 3 seconds
-        // (paw::trial_seconds, 10 with the sanitizers) is stopped, the error saying so.
+        // of processor time (paw::trial_seconds, 10 with the sanitizers) is stopped, the error
+        // saying so.
+        const auto over_time = "init.lua: did not finish loading within " +
+                               std::to_string(paw::trial_seconds) + " seconds of processor time";
         refused_in_time("local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') return {}",
-                        "did not finish loading within", 3.0 * paw::trial_seconds,
-                        "a pattern that backtracks");
-        refused_in_time("local s = (''):rep(2^60) return {}", "did not finish loading within",
-                        3.0 * paw::trial_seconds, "an empty string repeated 2^60 times");
-        refused_in_time("table.move({}, 1, 2^50, 2) return {}", "did not finish loading within",
-                        3.0 * paw::trial_seconds, "a table move over 2^50 places");
+                        over_time, paw::trial_wall_seconds, "a pattern that backtracks");
+        refused_in_time("local s = (''):rep(2^60) return {}", over_time, paw::trial_wall_seconds,
+                        "an empty string repeated 2^60 times");
+        refused_in_time("table.move({}, 1, 2^50, 2) return {}", over_time,
+                        paw::trial_wall_seconds, "a table move over 2^50 places");
+        // Nothing says such a file is wrong, only that it could not be checked: read again by a
+        // running desktop it leaves the configuration as it is (ConfigTrialError), while at
+        // startup it gives the default one, as a file with an error does.
+        {
+            auto directory = std::filesystem::temp_directory_path() /
+                             ("paw-config-trial-" + std::to_string(getpid()));
+            std::filesystem::create_directories(directory);
+            const auto slow = directory / "init.lua";
+            std::ofstream(slow) << "local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') "
+                                   "return { terminal = { 'slow' } }";
+            ::setenv("PAW_DEFAULT_CONFIG", argv[1], 1);
+            ::setenv("XDG_STATE_HOME", directory.c_str(), 1);
+            std::string error;
+            bool kept = false;
+            try {
+                (void)paw::load_config_or_default(slow, error, true);
+            } catch (const paw::ConfigTrialError &failure) {
+                kept = std::string(failure.what()).find(over_time) != std::string::npos;
+            }
+            require(kept, "a reload of a configuration too slow to check gave one");
+            auto fallback = paw::load_config_or_default(slow, error);
+            require(error.find(over_time) != std::string::npos && fallback.terminal.empty(),
+                    "at startup, a configuration too slow to check gave '" + error + "'");
+            std::filesystem::remove_all(directory);
+        }
         // What asks for more than 64 MiB of memory is refused at once.
         refused_in_time("local big = ('x'):rep(2^34) return {}", "string too large", at_once,
                         "a 16 GiB string"); // over Lua's own limit for a string, 2 GiB

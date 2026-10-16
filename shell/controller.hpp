@@ -509,9 +509,12 @@ class ShellController : public QObject {
     // imports load once instead of once per output.
     QQmlEngine *engine();
     // Qt's RectangularShadow (6.11) makes the shader effect it draws with by default without a
-    // parent and never deletes it, some 2.7 KB lost with every shadow made and gone (a popup's
-    // card, the bar docking): Shadow.qml hands that effect to its shadow here, to go with it.
+    // parent (in its private part's constructor, before that knows its shadow) and never deletes
+    // it, some 2.7 KB lost with every shadow made and gone (a popup's card, the bar docking):
+    // Shadow.qml hands that effect to its shadow here, to go with it, while adoptsShadowMaterial,
+    // for the Qt versions known to leak it (before 6.12).
     Q_INVOKABLE void keepShadowMaterial(QObject *shadow);
+    static bool adoptsShadowMaterial();
     SystemStatus *status() { return &status_; }
     Backlight *backlight() { return &backlight_; }
     Media *media() { return media_.get(); }
@@ -682,7 +685,9 @@ class ShellController : public QObject {
         QString description = {};
     };
     // Loads the configuration, or the default one with configError_ set when it has an error.
-    void loadConfig();
+    // `reloading`, one that could not be checked in time or memory throws paw::ConfigTrialError
+    // instead, leaving the configuration as it is, as the compositor does.
+    void loadConfig(bool reloading = false);
     // Looks icons up in appearance.icon_theme where it is installed, else in the theme the
     // shell started with, as the configuration names another, and has every icon drawn anew.
     void followIconTheme();

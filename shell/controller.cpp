@@ -19,6 +19,7 @@
 #include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QIcon>
+#include <QLibraryInfo>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QTimer>
@@ -1050,7 +1051,7 @@ bool ShellController::launchAction(const QString &id, const QString &action) {
 void ShellController::reload() {
     try {
         const auto before = config_.profile;
-        loadConfig();
+        loadConfig(true);
         const bool restyle = !config_.profile.empty() && config_.profile != before;
         watchTrash();
         notifications_.configure(config_.notifications);
@@ -1099,9 +1100,9 @@ void ShellController::restyled() {
     const auto name = QString::fromStdString(config_.profile);
     ask(("profile_drawn " + name + "\n").toUtf8(), [](const QByteArray &) {});
 }
-void ShellController::loadConfig() {
+void ShellController::loadConfig(bool reloading) {
     std::string error;
-    auto next = paw::load_config_or_default(path_, error);
+    auto next = paw::load_config_or_default(path_, error, reloading);
     config_ = std::move(next);
     glass_.configure(config_.shell.blur);
     configError_ = QString::fromStdString(error);
@@ -1337,6 +1338,10 @@ void ShellController::subscribe() {
                 Q_EMIT taskbarRequested(line.sliced(8));
             } else if (line.startsWith("power-error ")) {
                 report(line.sliced(12));
+            } else if (line.startsWith("config-error ")) {
+                // A reload the compositor turned down, keeping the configuration; so does the
+                // shell, which hears of no reload then.
+                report(line.sliced(13));
             } else if (line.startsWith("spawn-error ")) {
                 // A program a binding, a hot corner or the palette asked for did not start.
                 report(line.sliced(12));
@@ -1848,7 +1853,17 @@ void ShellController::nudgeWorkspace(const QString &output, int way) {
 void ShellController::send(const QString &line) {
     request(line.toUtf8() + "\n", "The compositor needs a running paw session.");
 }
+bool ShellController::adoptsShadowMaterial() {
+    // Recheck with every update of Qt, and move the version up while it still leaks the effect
+    // (shell_ui fails once it no longer does, or this no longer takes it).
+    static const bool leaks = QLibraryInfo::version() < QVersionNumber(6, 12);
+    return leaks;
+}
 void ShellController::keepShadowMaterial(QObject *shadow) {
+    // A Qt that deleted the effect itself as the shadow's private part goes, which comes after
+    // the shadow's children, would delete it twice: so only for the versions known to leak it.
+    if (!adoptsShadowMaterial())
+        return;
     auto *material = shadow ? shadow->property("material").value<QObject *>() : nullptr;
     if (material && !material->parent())
         material->setParent(shadow);
