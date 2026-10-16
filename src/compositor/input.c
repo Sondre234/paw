@@ -39,6 +39,14 @@ static void keyboard_handle_modifiers(struct wl_listener *listener, void *data) 
         switcher_close(server, server->switcher.selected);
 }
 
+/* Whether a keysym is a modifier key's: Shift, Ctrl, Alt, Super and the like, Caps Lock, and the
+ * ISO level shifts and locks (AltGr). */
+bool keysym_is_modifier(xkb_keysym_t sym) {
+    return (sym >= XKB_KEY_Shift_L && sym <= XKB_KEY_Hyper_R) ||
+           (sym >= XKB_KEY_ISO_Lock && sym <= XKB_KEY_ISO_Level5_Lock) ||
+           sym == XKB_KEY_Mode_switch || sym == XKB_KEY_Num_Lock;
+}
+
 static int keyboard_repeat(void *data) {
     struct sh_keyboard *keyboard = data;
     struct sh_server *server = keyboard->server;
@@ -84,6 +92,8 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data) {
             for (int i = 0; i < nraw && !handled; ++i)
                 handled = handle_keybinding(keyboard, event->keycode, modifiers, raw[i]);
         }
+        // A binding that runs as the key comes up waits for it (key_release.c).
+        handled = key_release_press(keyboard, event->keycode, modifiers, woke) || handled;
         if (event->keycode <= KEY_MAX)
             keyboard->consumed[event->keycode] = handled;
     } else if (event->keycode <= KEY_MAX) {
@@ -99,6 +109,10 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data) {
         wlr_seat_set_keyboard(seat, keyboard->wlr_keyboard);
         wlr_seat_keyboard_notify_key(seat, event->time_msec, event->keycode, event->state);
     }
+    if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED && !handled)
+        cursor_typed(server, nsyms > 0 ? syms[0] : XKB_KEY_NoSymbol); // typed into an application
+    if (event->state == WL_KEYBOARD_KEY_STATE_RELEASED)
+        key_release_up(keyboard, event->keycode);
 }
 
 static void keyboard_handle_destroy(struct wl_listener *listener, void *data) {
@@ -110,6 +124,7 @@ static void keyboard_handle_destroy(struct wl_listener *listener, void *data) {
         switcher_close(server, server->switcher.selected);
     if (server->peek_keyboard == keyboard)
         set_peek(server, false);
+    key_release_forget(keyboard);
     if (keyboard->repeat_timer)
         wl_event_source_remove(keyboard->repeat_timer);
     wl_list_remove(&keyboard->modifiers.link);

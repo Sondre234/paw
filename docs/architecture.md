@@ -24,7 +24,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
 | `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, the desktop cat's ways and its pixel art. Several are unit tested. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip, how ambient particles drift and what they look like. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip, which strokes of the pointer make a shake and how large the cursor grows, how ambient particles drift and what they look like. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -64,8 +64,11 @@ all. In short:
 | `headless_input.c` | Input devices without hardware for tests under `--headless`: keyboards, pointers that move and make touchpad gestures, touchscreens, drawing tablets with a pen, an eraser and a pad, and lid and tablet-mode switches. |
 | `input.c` | Keyboards, key bindings, pointers' libinput settings, virtual devices, selection and drag-and-drop. |
 | `input_method.c` | Input methods (fcitx5, ibus): text-input-v3 and input-method-v2 relayed between the application with the keyboard and the input method, its keyboard grab, and its popups beside the text cursor. |
+| `key_release.c` | Key bindings with `release`, which run as their key comes up: a modifier key's (Super_L opening the launcher) only when it was tapped alone, any other key, button, wheel notch, gesture, finger or pen meanwhile (`key_release_cancel`) letting it go. |
 | `keymap.c` | The keymap from the keyboard settings, given to every keyboard but virtual ones. |
 | `cursor.c` | What is under the pointer, and the tile the user moved it onto (`pointed_tile`), focus on hover, button bindings, scrolling, the cursor image. |
+| `cursor_hide.c` | The cursor hidden while typing (`mouse.hide_when_typing`) and once the pointer has rested (`mouse.hide_after`), as reasons of `cursor_hide`'s besides a screenshot's, until the pointer is used (`cursor_used`). |
+| `cursor_shake.c` | Shaking the pointer to find it (`mouse.shake_to_find`): a shake (`src/shake.c`) grows the cursor, its image from the theme at three times the size given as a buffer at the scale of the moment, stepped on a timer; meanwhile what sets the cursor's image only notes it (`cursor_grown`), and the image it would have shows as it is back to its size; `get cursor_size`. |
 | `gestures.c` | Touchpad gestures: the swipes `gestures` takes (workspaces and the overview following the fingers, requests), and the rest passed on to the surface under the pointer (pointer-gestures-unstable-v1). |
 | `tablet.c` | Drawing tablets (tablet-v2): tools with pressure and tilt to the surfaces under them, the pointer where tablet input is not taken, pads to the surface with the keyboard, and the output a tablet is mapped to. |
 | `touch.c` | Touchscreens: fingers to the surfaces under them (wl_touch), the pointer for clients without touch and the compositor's own controls, and the output each screen is mapped to. |
@@ -83,6 +86,7 @@ all. In short:
 | `placement.c` | Snapping, maximizing, reflowing, moving and resizing by keyboard. |
 | `morph.c` | A window gliding to a new place and size together (maximized, snapped, restored, made fullscreen, moved or resized by keyboard), its client's commits meanwhile, and the size its frame is drawn at. |
 | `tiling.c` | Glue between windows and the layouts in `src/tiling.cpp`. |
+| `pseudo.c` | Pseudotiling (`pseudo_toggle`, Hyprland's pseudotile): a tile of dwindle shown at its floating size in the middle of its tile (`sh_tiling_pseudo`), resized by the pointer or the keyboard about that middle rather than by its splits. |
 | `workspace.c` | Workspaces per output, sticky windows. |
 | `output.c`, `output_moves.c` | Monitors and their configuration; windows and workspaces moving between outputs. |
 | `output_power.c` | Monitors turned off and on in the layout: wlr-output-power-management. |
@@ -1287,6 +1291,7 @@ what was there.
 | `AuthDialog.qml` | The polkit authentication dialog (`shell.authentication`), an overlay surface of its own: the request, the user to answer as, the password. |
 | `RiceTrial.qml` | The question while a rice is on trial (`shell.riceTrial`), a card in the middle of the output, an overlay surface of its own: the rice's name, author and description, the countdown, Revert and Keep. |
 | `ClipboardPicker.qml`, `EmojiPicker.qml` | The clipboard history's popup and the emoji picker, each in an overlay surface of its own (`PickerView`, `picker_view.cpp`). |
+| `Shortcuts.qml` | The sheet of keyboard shortcuts (`shell.shortcuts`, `shortcuts.cpp`), in a `PickerView` that covers the output: every binding in effect as key caps beside what it does, in groups laid out in columns, with a search. |
 | `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style. |
 | `Xray.qml` | The names of the exploded view's sheets (`paw xray`), an overlay surface of its own over the compositor's stack: a legend of every sheet in its layer's colour, top first, and a caption for the one under the pointer. |
 | `Caption.qml` | The caption `paw tour` narrates itself with (`shell.caption`, `caption.cpp`, from the compositor's `caption` lines), an overlay surface of its own (`CaptionView`) where the on-screen display shows, taking no input. |
@@ -1643,6 +1648,19 @@ a keymap of up to 200 keys made for the text's characters (`xkb_utf32_to_keysym`
 that keymap, each key pressed and released, and the seat's own keyboard, keymap and modifiers
 back after.
 
+The sheet of keyboard shortcuts (`Shortcuts`, `shortcuts.cpp`; `shell.shortcuts`) reads the
+bindings from the configuration the shell loads itself, not from the compositor. Its pure part,
+`shortcuts::sheet`, makes groups of rows from `config.bindings`, and first from the binding mode in
+use (`bindingMode`): an action's group and title come from a table there, the title from the
+command palette's own where it has one (`Palette::actionTitle`), or from the binding's
+`description`, or for a `spawn` its command shortened; the keys are named by `keyName`, for the
+style in use, and bindings alike but for their key (the directions of one family, workspaces on
+running digits) become one row. `shortcuts::filter` keeps the rows whose `search` text holds every
+word typed; `tests/shortcuts_test.cpp` tests both and the model. `shortcuts OUTPUT` from the
+`shortcuts` action toggles it, in a `PickerView` that covers the output (`cover`: anchored to
+every edge, an exclusive zone of -1, its root sized to it), where `Shortcuts.qml` lays the groups
+out in as many columns as the width allows, each group in the shortest so far.
+
 ### Frosted glass
 
 With `shell.blur` the bars and the popups are frosted glass: each shows the wallpaper behind it
@@ -1799,7 +1817,7 @@ notifications, over the configured wallpaper (`--preview-popup` lists the names)
 style the dock and the menu bar, over the style's drawn wallpaper while none is set, with the
 menu bar's menus as `system-menu`, `app-menu`, `window-menu` and `window-submenu`. The overlay
 surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `cards`,
-`power-dialog`, `palette`, `palette-empty`, `switcher`, `overview`, `snap-assist`, `display-mode`,
+`power-dialog`, `palette`, `palette-empty`, `shortcuts`, `shortcuts-search`, `shortcuts-mode`, `switcher`, `overview`, `snap-assist`, `display-mode`,
 `display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 `display-settings`, `display-settings-trial`, `xray`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 `display-settings`, `display-settings-trial`, `caption`): `PreviewData` in `preview.cpp` shows one in a window of its own over the

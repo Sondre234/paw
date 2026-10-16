@@ -45,11 +45,19 @@ struct Binding {
     // `repeats` runs again while the key is held (Hyprland's binde), by default for resize_*.
     bool locked = false;
     bool repeats = false;
+    // Key bindings only: `release` runs as the key comes up (Hyprland's bindr); one of a modifier
+    // key alone (Super_L) only when nothing else happened while it was held, a tap.
+    bool release = false;
     int mode = 0; // for mode: 0 for the bindings outside any mode, else modes[mode - 1]; for
                   // display_mode, an sh_display_mode; for cat, an sh_cat_switch; for
                   // ambient, an sh_ambient_choice
     int switch_type = -1; // the enum sh_switch of a switch binding; -1 for a key or button
     bool switch_on = false; // with switch_type: it acts as the switch turns on (a lid closing)
+    // What the binding does in the user's words, as Hyprland's bindd has it, which the shell's
+    // sheet of shortcuts shows in place of the action's own title; empty when not given.
+    std::string description;
+    // `pattern` as written, for the sheet of shortcuts to say where a button binding acts.
+    std::string app_id;
 };
 
 // A binding mode, as sway's modes and Hyprland's submaps: key bindings that take the place of
@@ -394,6 +402,9 @@ struct Config {
                          .touchpad_tap = -1,
                          .touchpad_dwt = -1,
                          .focus_follows_mouse = true,
+                         .hide_cursor_typing = false,
+                         .hide_cursor_after = 0,
+                         .shake_to_find = false,
                          .animations = true,
                          .animation_speed = 1.0F,
                          .animation_late_ms = 80,
@@ -543,9 +554,12 @@ struct Config {
     // "N" or "N name": how a workspace is labelled.
     std::string workspace_label(int workspace) const;
 
-    const Binding *binding(uint32_t modifiers, uint32_t keysym) const;
+    // The key binding pressed with these modifiers, or with `release` the one that runs as the
+    // key comes up, the modifiers being those held as it went down.
+    const Binding *binding(uint32_t modifiers, uint32_t keysym, bool release = false) const;
     // The key binding of mode `mode` (0, or a number no mode has: the bindings outside any).
-    const Binding *mode_binding(int mode, uint32_t modifiers, uint32_t keysym) const;
+    const Binding *mode_binding(int mode, uint32_t modifiers, uint32_t keysym,
+                                bool release = false) const;
     // 0 for "default", a mode's number for its name, else -1.
     int mode_number(const std::string &name) const;
     // "default" and every mode's name.

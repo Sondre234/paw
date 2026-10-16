@@ -1421,6 +1421,37 @@ English keywords, under the Unicode License v3; `vendor/emoji/README.md` says ho
 Emoji, say); without one some show as boxes. `tests/emoji_test.cpp` tests the table and the search,
 and `tests/emoji_shell_smoke.py` the picker typing into a window.
 
+## Keyboard shortcuts
+
+`shortcuts` (Super + /, `paw msg shortcuts`, or Keyboard shortcuts in the command palette) shows
+every key and mouse button binding in effect on one sheet, on the monitor under the pointer: a
+card over the dimmed screen, frosted glass with `shell.blur`, drawn in the style in use. The
+bindings are grouped by what their actions do (Windows, Focus, Workspaces, Tiling, Scrolling,
+Window groups, Launch, Shell, Screen, Media, Session, Toys, and Other for the rest) in as many
+columns as the screen has room for, each row its keys as caps beside what it does: the command
+palette's name for the action where it has one (Close window, Layout: monocle), else the sheet's
+own, with the argument it takes (Go to workspace 3: mail, Screenshot of a region, Enter the resize
+mode). Bindings alike but for their key are one row: Super and the arrows focusing that way, Super
++ 1 to 4 going to workspaces 1 to 4. A mouse button's binding says where it acts (over kitty or
+foot windows and the desktop), and the lid's and tablet mode's show too. A modifier key bound
+with `release` shows as its cap with "tap" (Super tapped alone), and another key bound so says
+"on release". In the taskbar style
+Super's cap has the Windows logo; the macOS style writes the modifiers as a Mac does, ⌃ ⌥ ⇧ ⌘
+(Super is ⌘), and the footer says which is which. While a [binding mode](#binding-modes) is in
+use, its bindings come first, under its name in the accent colour.
+
+A binding's `description` names it in your words, as Hyprland's `bindd`:
+`{ mods = { mod }, key = "e", action = "spawn", command = { "dolphin" }, description = "Files" }`
+shows as Files, where a `spawn` without one shows its command, shortened (the program without its
+folder, the script of `sh -c`). Typing searches what the rows say, their keys and modifiers
+(`print`, `super shift`, `win`, `cmd`), their groups and the names of their actions and programs,
+every word in any order. Up, Down, Page Up and Page Down scroll, Home and End too while nothing is
+typed, and Escape, the binding again or a click beside the card closes it. The sheet reads the
+configuration the shell loads, so it follows a reload, and a binding mode entered, while it is
+open. On a keyboard layout where / takes Shift, bind another key to it (`key = "F1"`).
+`tests/shortcuts_test.cpp` tests what the sheet lists and its search, `shell_ui` the sheet, and
+`tests/shortcuts_shell_smoke.py` its binding in a session.
+
 ## Terminal
 
 The `terminal` action (`paw msg terminal`) opens a terminal: the program and arguments of
@@ -1734,6 +1765,42 @@ These apply to the monitor's workspaces that were not set by hand (a layout chos
 action, or a ratio changed, is kept), also to windows already open when the configuration is
 reloaded, and again when the monitor is plugged back in. `paw msg get layout OUTPUT
 [WORKSPACE]` prints another monitor's or workspace's values.
+
+### Dwindle's splits and pseudotiling
+
+Three actions after Hyprland's dwindle dispatchers work on the focused tile. They are
+experimental and unbound by default: run them with `paw msg split_toggle` (and so on), from the
+command palette, or bind them (config/init.lua has the lines, commented out).
+
+- `split_toggle` (Hyprland's `togglesplit`) turns the split the focused tile shares with its
+  neighbour (the window, or the windows, that took the other half of its box) from side by side
+  to stacked, or back. Dwindle otherwise splits each box along its longer side at every
+  arrangement; a toggled split keeps its direction through resizes, other windows opening and
+  closing, reloads and a monitor of another shape. Toggled back to the direction its shape gives
+  it, it follows the shape again. A new window splits a tile as usual.
+- `split_swap` (`swapsplit`) trades that split's two halves, each keeping its size: a tile on
+  the left at 60 % goes to the right at 60 %. Hyprland keeps the line where it was instead.
+- `pseudo_toggle` (`pseudo`) pseudotiles the focused tile: it keeps its floating size, in the
+  middle of its tile rather than filling it, scaled down to fit (keeping its shape) when the tile
+  is smaller. A window that opened tiled has no floating size and takes half its monitor's
+  usable area each way. Resizing it with Mod + right drag, its edge or `resize_*` changes that
+  size about its middle instead of moving the splits, and it floats at the new size too. Again,
+  it fills its tile.
+
+The tiles glide to their new places as after any change to the tiling. All three work in
+dwindle only: in master, spiral, monocle and scroll they do nothing, and a pseudotiled window
+fills its tile there until its workspace is in dwindle again. They leave a fullscreen window
+alone. Toggled splits and pseudotiling last while the compositor runs, reloads included, but a
+saved session does not keep them, as it does not keep dwindle's splits.
+
+Hyprland binds `togglesplit` to Super + J and `pseudo` to Super + P, which paw gives to
+`focus_next` and the command palette, so the example lines add Ctrl or Alt:
+
+```lua
+{ mods = { "Super", "Ctrl" }, key = "j", action = "split_toggle" },
+{ mods = { "Super", "Ctrl" }, key = "k", action = "split_swap" },
+{ mods = { "Super", "Alt" }, key = "p", action = "pseudo_toggle" },
+```
 
 ### Scrolling layout
 
@@ -2341,6 +2408,31 @@ GTK's `settings.ini`, provided the theme is installed (in `~/.local/share/icons`
 the programs it starts draw the same cursor, and reads them as it starts: a change takes a
 restart.
 
+`mouse.hide_when_typing = true` hides the cursor as a key is typed into an application or its
+input method, as macOS does, until the pointer moves, clicks or scrolls (a drawing tablet's pen
+moving shows it too). A modifier key alone and a key a binding takes leave it where it is, and so
+does typing while a mouse button is held or a window is being moved. `mouse.hide_after = N` hides
+it once the pointer has rested N seconds, as Hyprland's `cursor:inactive_timeout`, unless a
+button is held. Both are off by default and apply as the file is saved; turning one off shows a
+cursor it hid. They are reasons of their own beside a screenshot's (the cursor is left out of
+grim's picture): the pointer moving ends theirs but not a screenshot's, and the screenshot ending
+leaves a cursor hidden by typing hidden. `paw msg get cursor` says `hidden` for any of them, and
+`cursor_hide_smoke` tests them.
+
+`mouse.shake_to_find = true` grows the cursor when the pointer is shaken, as macOS does, so that it
+is easy to find on a large screen: four quick turns from side to side within 0.7 seconds, each
+stroke at least 60 pixels wide, wider than it is tall and faster than 1600 pixels a second, grow
+it smoothly to three times its size in a fifth of a second. It stays that large while the shaking
+goes on and 0.6 seconds after, then shrinks back in 0.4 seconds to the image it would have had,
+which a pointer moving over a window or a resize edge meanwhile may have changed. Moving across
+the screen, a correction or two and the slow back and forth that strokes the
+[desktop cat](#paw-cat) never make a shake (a shake is too quick for a stroke), and
+neither does motion with a button held, a window being moved or a game holding the pointer. The
+grown image is the theme's own at three times the size (loaded as it is first needed, at the
+largest monitor scale), drawn smaller while it grows and shrinks. Off by default; `paw msg get
+cursor_size` says the size the cursor is drawn at. `shake` (the arithmetic) and
+`cursor_shake_smoke` test it.
+
 ### Keyboard layouts
 
 Several layouts are a comma-separated list, with variants in the same places:
@@ -2580,6 +2672,30 @@ button bindings take neither.
 ```
 
 `locked_bindings_smoke` tests both, holding keys on and off the lock screen.
+
+### Bindings on a key's release, and tapping Super
+
+A key binding with `release = true` runs as its key comes up rather than as it goes down, as
+Hyprland's `bindr` does. A modifier key alone (`Super_L`, `Alt_L`, `Control_R`, ...) makes a tap
+binding, as Windows' Start key and KDE's Meta key are: it runs only when nothing else happened
+while the key was held, so another key (bound or not), a mouse button, the wheel, a touchpad
+gesture, a finger or a pen in the meantime lets it go, and Super + drag, Super + the wheel,
+Super + Q and the switcher stay what they were. The modifier's press and release still reach the
+application with the keyboard as usual. Any other key's binding has the key from its press, so
+the application hears neither. `mods` are the modifiers held as the key goes down; with a
+modifier key its own may be named or not (`mods = { "Super" }, key = "Super_L"` is the same
+binding). A key may have a binding of each kind, `release` does not go with `repeats`, and
+mouse buttons and switches take none. While the switcher, the overview or the exploded view has
+the keys, or an application holds the shortcuts, nothing waits for a release; on the lock screen
+only a `locked` one does. Tapping Super for the start menu (Launchpad in the macOS style), as on
+Windows:
+
+```lua
+{ key = "Super_L", release = true, action = "launcher" },
+```
+
+The shipped configuration has that line commented out. `key_release_smoke` tests it with a
+window that prints the keys it gets.
 
 ### Binding modes
 
@@ -3104,9 +3220,11 @@ msg get seat` prints what has the keyboard, what the pointer is on and, while so
 dragged, what the drag is over: a line each, `keyboard`, `pointer` or `drag`, followed by
 `window` and its title, `layer` and its namespace, `other` (a popup, the lock screen) and `-`,
 or `-` twice for nothing; during a drag the pointer is on nothing. `paw msg get cursor` prints
-`hidden` while a screenshot hides the cursor, else `shown`, and `paw msg get cursor_image` the
-image it shows: the name of an xcursor (`default`, `grabbing`, `ns-resize`, ..., one paw shows or
-a shape a client asks for), `client` for a client's own picture, or `none`. `paw msg get crossfade` prints one
+`hidden` while a screenshot, typing or a rest hides the cursor, else `shown`, and `paw msg get
+cursor_image` the image it shows: the name of an xcursor (`default`, `grabbing`, `ns-resize`, ...,
+one paw shows or a shape a client asks for), `client` for a client's own picture, or `none`.
+`paw msg get cursor_size` prints the size it is drawn at in logical pixels, `$XCURSOR_SIZE` but
+while a shake grows it. `paw msg get crossfade` prints one
 line per monitor with a picture of the old look over it while an
 [appearance profile](#appearance-profiles) crossfades in: the monitor, `held` while it waits for
 the shell or `fading`, the profile, and the picture's opacity in thousandths; the shell tells the

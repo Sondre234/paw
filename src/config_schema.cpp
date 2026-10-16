@@ -115,6 +115,17 @@ const Option options[] = {
      "Natural scrolling for mice; unset keeps the device default."},
     {"mouse.focus_follows", "boolean", "true", "true", none, none,
      "Hovering a window focuses it, without raising it."},
+    {"mouse.hide_when_typing", "boolean", "false", "true", none, none,
+     "Hide the cursor as a key is typed into an application, as macOS does, until the pointer "
+     "moves, clicks or scrolls. Modifier keys alone and the keys bindings take leave it, and so "
+     "does typing while a button is held."},
+    {"mouse.hide_after", "integer", "0", "5", 0, 3600,
+     "Seconds the pointer rests before the cursor hides, until it moves, clicks or scrolls; `0` "
+     "never hides it."},
+    {"mouse.shake_to_find", "boolean", "false", "true", none, none,
+     "Shaking the pointer quickly from side to side grows the cursor to three times its size for "
+     "a moment, as macOS does, so that it is easy to find; it shrinks back about a second after "
+     "the shaking stops. Not while a button is held."},
 
     {"touchpad", "table", "", "", none, none, "Touchpad settings (standalone sessions)."},
     {"touchpad.natural_scroll", "boolean", "unset", "true", none, none,
@@ -718,6 +729,20 @@ const Option options[] = {
      "With `key` only: while the key is held, the action runs again at `keyboard.repeat_rate` "
      "after `keyboard.repeat_delay`, as Hyprland's `binde`. (Lua keeps `repeat` for its own "
      "loops.)"},
+    {"bindings[].release", "boolean", "false", "", none, none,
+     "With `key` only, and not with `repeats`: the action runs as the key comes up rather than "
+     "as it goes down, as Hyprland's `bindr`. A modifier key (`Super_L`, `Alt_L`, ...) still "
+     "reaches the application as it goes down, and its binding runs only when the key was "
+     "tapped alone: not when another key, a mouse button, the wheel or a touchpad gesture was "
+     "used while it was held, so `{ key = \"Super_L\", release = true, action = \"launcher\" "
+     "}` opens the launcher as Windows' Start key does, and Super + drag and Super + Q are left "
+     "alone. `mods` are those held as the key goes down; a modifier key's own (`Super` with "
+     "`Super_L`) may be left out."},
+    {"bindings[].description", "string", "the action's own title", "", none, none,
+     "What the binding does, in your words, as Hyprland's `bindd`: the sheet of keyboard "
+     "shortcuts (the `shortcuts` action) shows it in place of the action's title, e.g. "
+     "`description = \"Files\"` for a `spawn` of a file manager, whose command it shows "
+     "shortened otherwise. Also in `modes`."},
 
     {"notifications", "table", "", "", none, none,
      "Notifications: the shell serves `org.freedesktop.Notifications` on the session bus and shows "
