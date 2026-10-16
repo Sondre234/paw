@@ -512,6 +512,13 @@ return {
         { mods = { mod }, key = "h", action = "master_shrink" },
         { mods = { mod }, key = "comma", action = "master_more" },
         { mods = { mod }, key = "period", action = "master_less" },
+        -- Hyprland's dwindle controls, in dwindle only (experimental): split_toggle turns the
+        -- focused tile's split from side by side to stacked and keeps it so, split_swap trades
+        -- its halves, pseudo_toggle keeps the window at its floating size in the middle of its
+        -- tile. Hyprland's Super+J and Super+P are focus_next and the palette here:
+        -- { mods = { mod, "Ctrl" }, key = "j", action = "split_toggle" },
+        -- { mods = { mod, "Ctrl" }, key = "k", action = "split_swap" },
+        -- { mods = { mod, "Alt" }, key = "p", action = "pseudo_toggle" },
         -- The scroll layout (layout_scroll; see layout.scroll): columns on an endless strip,
         -- whose view turns as a cube as it moves with layout.scroll.cube = true.
         -- master_grow and master_shrink resize the focused column there. Bind these to taste:
