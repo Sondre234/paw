@@ -571,6 +571,11 @@ shadows.
   and a half minutes and the monitors go off at ten; nothing locks or suspends unless set. Idle
   inhibitors (videos playing) hold every step off, swayidle and the like work as before through
   `ext-idle-notify-v1`, and `paw msg get idle` tells where the steps are.
+- Keep awake, for reading, a presentation or a long download: a Keep awake tile (a coffee cup)
+  beside Night light in Quick Settings and Control Center, the `keep_awake_toggle`,
+  `keep_awake_on` and `keep_awake_off` actions (none bound) and the command palette hold every
+  idle step off until it is turned off again, and tell swayidle and the like the seat is
+  inhibited too.
 - The clamshell mode KDE and Windows have: closing a laptop's lid while another monitor is on
   turns the built-in panel off, its windows moving to the other monitor as when it is unplugged,
   and opening it brings the panel and its windows back; a lid closed at startup holds the panel

@@ -377,7 +377,8 @@ small icons, and the network only while its link is down, dimmed and struck thro
 mutes. Clicking it opens Quick Settings at the bar's right end: what is playing
 ([media controls](#media-controls)), tiles for [Wi-Fi](#wi-fi) where NetworkManager has a Wi-Fi
 device, [Bluetooth](#bluetooth) while BlueZ has an adapter, do-not-disturb, night light (on or off
-against its schedule, through the compositor), tiling on this monitor (greyed out where tiling is
+against its schedule, through the compositor), [keep awake](#power-saving-when-idle) (no dimming,
+no screens going off, no sleep while it is on), tiling on this monitor (greyed out where tiling is
 not available), the [power mode](#power-mode) while power-profiles-daemon runs, the appearance
 profile (listing the profiles under it) and the wallpaper (opening the same picker as the bar's
 button), and without NetworkManager's Wi-Fi the network's state on a disc rather than a tile, as it

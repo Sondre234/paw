@@ -802,7 +802,9 @@ the idle notifier inhibited while any does. It runs from `notify_subscribers`, w
 change of windows and workspaces reaches, and from the few places that show or hide a window
 without it: `minimize_toplevel`, restoring in `focus_toplevel_raise`, `set_output_power` and
 layer surfaces mapping and unmapping. A new way of hiding a window that does not end in
-`notify_subscribers` calls it too. `idle_steps` reads
+`notify_subscribers` calls it too. Keep awake (`sh_server.keep_awake`, `set_keep_awake` in
+`lock.c` from the keep_awake actions) holds the steps as an inhibitor that always applies would:
+`idle_held` counts it, and the idle notifier stays inhibited while it is on. `idle_steps` reads
 `src/power_supply.c`'s answer, from `$PAW_SYSFS` in the tests; power.c's waking up after
 sleep calls `idle_activity` as input would.
 
