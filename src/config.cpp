@@ -2122,6 +2122,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"display_toggle", SH_DISPLAY_TOGGLE},
         {"display_mode", SH_DISPLAY_MODE},
         {"display_settings", SH_DISPLAY_SETTINGS},
+        {"desktop_clock", SH_DESKTOP_CLOCK},
         {"scroll_left", SH_SCROLL_LEFT},
         {"scroll_right", SH_SCROLL_RIGHT},
         {"column_widen", SH_COLUMN_WIDEN},

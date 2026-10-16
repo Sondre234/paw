@@ -375,6 +375,27 @@ to this month. On a monitor too short for both cards, the calendar leaves out th
 date for the notifications, whose list scrolls in what room is left, fading out at the edge where
 it goes on.
 
+### Desktop clock
+
+An experimental clock on the desktop, off by default: `shell.desktop_clock = true`, or a table
+of its settings, draws the time large and thin over the wallpaper, under the windows, with the
+date under it (`date_format`, `""` for none). It sits in the middle of what the bars leave, or by
+an edge or a corner (`position`, such as `"bottom-right"`), in the text colour (`color`) and the
+shell's font (`font`), `size` pixels tall, with a soft shadow, or a glow under dark text, so that it
+reads on any wallpaper. `greeting = "ja"` greets above it by the time of day, おはよう from 5,
+こんにちは from 12 and こんばんは from 18 (`"en"`: Good morning, Good afternoon, Good evening),
+between two twinkles in the accent colour. It changes once a minute, never more often, as the blur
+behind windows takes the desktop again whenever it changes, and the frosted glass shows the
+wallpaper without it. The `desktop_clock` action (`paw msg desktop_clock`, or "Show or hide the
+desktop clock" in the command palette) shows or hides it at once, saying so on the on-screen
+display, until the configuration's `enabled` changes.
+
+```lua
+shell = {
+    desktop_clock = { enabled = true, position = "bottom-right", greeting = "ja" },
+}
+```
+
 ### Quick Settings
 
 Left of the clock, as on Windows 11, the Quick Settings button shows the volume and the battery in
