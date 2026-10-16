@@ -16,6 +16,7 @@ bool input_activity(struct sh_server *server, bool wakes) {
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
     bool woke = idle_activity(server);
     cat_input(server);
+    ambient_input(server);
     return (wakes && wake_displays(server)) || woke;
 }
 
@@ -302,10 +303,11 @@ static bool xwm_running(struct sh_server *server) {
 /* Turns a drag down. One with a data source goes with it, its client told that it was
  * cancelled. One without (a drag within one window) wlroots frees only as it ends, and it has no
  * way to free one that never started: so it is started on the keyboard alone, which no client
- * hears of, and ended at once. It is kept instead (a few hundred bytes, until paw exits) where
+ * hears of, and ended at once. Nothing listening for drags that start hears of it either: not
+ * paw (seat_start_drag), and not XWayland's window manager, which would crash paw on a drag
+ * without a source (xwm_running). It is kept instead (a few hundred bytes, until paw exits) where
  * starting it would disturb something: the source of the drag before it, whose drop may still be
- * being read, would go; a keyboard grab under way (a popup's) would be lost; and XWayland's
- * window manager would crash paw (xwm_running). */
+ * being read, would go; and a keyboard grab under way (a popup's) would be lost. */
 static void refuse_drag(struct sh_server *server, struct wlr_drag *drag) {
     if (drag->source) {
         wlr_data_source_destroy(drag->source);
@@ -313,12 +315,16 @@ static void refuse_drag(struct sh_server *server, struct wlr_drag *drag) {
     }
     struct wlr_seat *seat = server->seat;
     if (seat->drag || seat->drag_source ||
-        seat->keyboard_state.grab != seat->keyboard_state.default_grab || xwm_running(server))
+        seat->keyboard_state.grab != seat->keyboard_state.default_grab)
         return;
-    server->refusing_drag = true; // seat_start_drag leaves it alone
+    // The seat's start_drag listeners, set aside while it starts, and put back as they were.
+    struct wl_list *listening = &seat->events.start_drag.listener_list, aside;
+    wl_list_init(&aside);
+    wl_list_insert_list(&aside, listening);
+    wl_list_init(listening);
     wlr_seat_start_drag(seat, drag, seat->drag_serial);
+    wl_list_insert_list(listening, &aside);
     wlr_seat_keyboard_end_grab(seat); // cancels the drag's grab, which frees the drag
-    server->refusing_drag = false;
 }
 
 /* Drag-and-drop (browser tabs, files into chat windows): only from a real button press. One of
@@ -365,8 +371,6 @@ static void drag_ended(struct wl_listener *listener, void *data) {
 void seat_start_drag(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, start_drag);
     struct wlr_drag *drag = data;
-    if (server->refusing_drag)
-        return; // started only to end at once (refuse_drag)
     wlr_scene_node_set_position(&server->drag_icons->node, server->cursor->x, server->cursor->y);
     // The scene helper removes the icon's node when the icon goes away.
     if (drag->icon)
@@ -451,6 +455,16 @@ static void start_repeat(struct sh_keyboard *keyboard, uint32_t keycode, enum sh
     wl_event_source_timer_update(keyboard->repeat_timer, keyboard->wlr_keyboard->repeat_info.delay);
 }
 
+/* The symbol on the key's first level in the keyboard's layout, as typed without Shift. */
+static xkb_keysym_t first_level_sym(struct sh_keyboard *keyboard, uint32_t keycode) {
+    struct wlr_keyboard *wlr_keyboard = keyboard->wlr_keyboard;
+    xkb_layout_index_t layout = xkb_state_key_get_layout(wlr_keyboard->xkb_state, keycode + 8);
+    const xkb_keysym_t *syms;
+    int count =
+        xkb_keymap_key_get_syms_by_level(wlr_keyboard->keymap, keycode + 8, layout, 0, &syms);
+    return count > 0 ? syms[0] : XKB_KEY_NoSymbol;
+}
+
 static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t modifiers,
                               xkb_keysym_t sym) {
     struct sh_server *server = keyboard->server;
@@ -475,7 +489,7 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
         return true;
     }
     if (server->switcher.open) {
-        switcher_key(server, modifiers, sym);
+        switcher_key(server, modifiers, sym, first_level_sym(keyboard, keycode));
         return true;
     }
     if (server->xray.open) {
@@ -529,12 +543,14 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
         set_peek(server, true);
         return true;
     }
-    if (action == SH_SWITCHER_NEXT || action == SH_SWITCHER_PREV) {
+    if (action == SH_SWITCHER_NEXT || action == SH_SWITCHER_PREV ||
+        action == SH_SWITCHER_APP_NEXT || action == SH_SWITCHER_APP_PREV) {
         // Held, the binding's modifiers keep it open. Shift may come and go to step backward.
         uint32_t held =
             WLR_MODIFIER_CTRL | WLR_MODIFIER_ALT | WLR_MODIFIER_LOGO | WLR_MODIFIER_MOD5;
-        switcher_open(server, action == SH_SWITCHER_PREV, modifiers & held,
-                      xkb_keysym_to_lower(sym));
+        switcher_open(server, action == SH_SWITCHER_PREV || action == SH_SWITCHER_APP_PREV,
+                      action == SH_SWITCHER_APP_NEXT || action == SH_SWITCHER_APP_PREV,
+                      modifiers & held, xkb_keysym_to_lower(sym));
         return true;
     }
     unsigned flags = binding_flags(server);

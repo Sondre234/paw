@@ -526,6 +526,7 @@ const std::set<std::string> look_settings = {
     "appearance.cursor_theme",
     "appearance.cursor_size",
     "appearance.icon_theme",
+    "appearance.ambient",
     "windows.border_width",
     "windows.corner_radius",
     "windows.round",

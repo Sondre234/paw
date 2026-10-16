@@ -79,6 +79,18 @@ const Option options[] = {
      "it replaced as a profile without one is picked and as the session ends. A theme that is "
      "not installed is skipped, saying so in the log. Unset or `\"\"`, the desktop's own: "
      "GNOME's setting, else GTK's `settings.ini`, else KDE's."},
+    {"appearance.ambient", "table", "", "", none, none,
+     "Particles drifting over the wallpaper, under the windows and panels: sakura petals "
+     "tumbling down, soft snow, or fireflies wandering and glowing. An appearance profile may "
+     "set them, and the `ambient` action switches them meanwhile. They pause while the session "
+     "is locked, while a monitor is off or shows a fullscreen window and while the screens are "
+     "dimmed, and fade out after five minutes without input until there is some."},
+    {"appearance.ambient.kind", "enum", "\"none\"", "\"sakura\"", none, none,
+     "`\"sakura\"`, `\"snow\"` or `\"fireflies\"`; `\"none\"` for none."},
+    {"appearance.ambient.count", "integer", "30 petals, 60 flakes, 24 fireflies", "50", 1, 150,
+     "How many particles drift on each monitor."},
+    {"appearance.ambient.speed", "number", "1", "0.6", 0.1, 5,
+     "How fast they drift: 0.5 at half their own pace, 2 at twice it."},
 
     {"keyboard", "table", "", "", none, none, "Keyboard layout and key repeat."},
     {"keyboard.layout", "string", "\"us\"", "\"us\"", none, none,
@@ -721,7 +733,9 @@ const Option options[] = {
      "`\"duplicate\"`, `\"internal\"` or `\"external\"`; without one, the popup that steps "
      "through them. With `cat`: `\"on\"`, `\"off\"` or `\"toggle\"`; without one, "
      "toggle. With `heatmap`: `\"toggle\"`, `\"motion\"`, `\"clicks\"` or "
-     "`\"reset\"`; without one, toggle."},
+     "`\"reset\"`; without one, toggle. With `ambient`: `\"sakura\"`, `\"snow\"`, "
+     "`\"fireflies\"`, `\"off\"`, `\"next\"` (each kind in turn, then none) or `\"toggle\"` "
+     "(off, or back to the last kind); without one, toggle."},
     {"bindings[].amount", "integer", "40; 5 for volume and brightness", "", 1, 4000,
      "With `resize_*`: pixels moved per press. With `volume_up`, `volume_down`, `brightness_up` "
      "and `brightness_down`: percent per press, up to 100."},
@@ -745,6 +759,11 @@ const Option options[] = {
      "}` opens the launcher as Windows' Start key does, and Super + drag and Super + Q are left "
      "alone. `mods` are those held as the key goes down; a modifier key's own (`Super` with "
      "`Super_L`) may be left out."},
+    {"bindings[].description", "string", "the action's own title", "", none, none,
+     "What the binding does, in your words, as Hyprland's `bindd`: the sheet of keyboard "
+     "shortcuts (the `shortcuts` action) shows it in place of the action's title, e.g. "
+     "`description = \"Files\"` for a `spawn` of a file manager, whose command it shows "
+     "shortened otherwise. Also in `modes`."},
 
     {"notifications", "table", "", "", none, none,
      "Notifications: the shell serves `org.freedesktop.Notifications` on the session bus and shows "
@@ -1408,7 +1427,7 @@ std::string config_reference_markdown() {
         first = false;
     }
     out << "\n\n`spawn` needs `command`; `workspace` and `move_to_workspace` need `workspace`; "
-           "`screenshot` and `cat` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
+           "`screenshot`, `cat`, `heatmap` and `ambient` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
            "`brightness_up` and `brightness_down` take `amount`; a `switch` needs `state`.\n\n"
            "Modifiers: ";
     first = true;

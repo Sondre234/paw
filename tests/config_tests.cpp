@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
     try {
         require(argc == 2, "example config path required");
         auto config = paw::load_config(argv[1]);
-        require(config.bindings.size() == 90, "example shortcuts missing");
+        require(config.bindings.size() == 93, "example shortcuts missing");
         auto *louder = config.binding(0, XKB_KEY_XF86AudioRaiseVolume);
         auto *microphone = config.binding(0, XKB_KEY_XF86AudioMicMute);
         auto *dimmer = config.binding(0, XKB_KEY_XF86MonBrightnessDown);
@@ -49,6 +49,10 @@ int main(int argc, char **argv) {
         require(config.binding(SH_ALT, XKB_KEY_Tab)->action == SH_SWITCHER_NEXT &&
                     config.binding(SH_ALT | SH_SHIFT, XKB_KEY_Tab)->action == SH_SWITCHER_PREV,
                 "example window switcher bindings missing");
+        // Alt + ` switches between the focused application's windows, as on macOS and GNOME.
+        require(config.binding(SH_ALT, XKB_KEY_grave)->action == SH_SWITCHER_APP_NEXT &&
+                    config.binding(SH_ALT | SH_SHIFT, XKB_KEY_grave)->action == SH_SWITCHER_APP_PREV,
+                "example application switcher bindings missing");
         // The keys of an action's binding, as the compositor tells them: modifiers in a fixed
         // order, a letter in capitals; nothing for an action without a key.
         require(config.binding_keys(SH_TERMINAL) == "Super + Q" &&
@@ -227,6 +231,24 @@ int main(int argc, char **argv) {
                     "duplicate keyboard binding");
         }
         {
+            // `description` names what a binding does for the sheet of shortcuts, a key's, a
+            // button's or a mode's; a button binding keeps its app_id as written.
+            auto described = paw::parse_config(
+                "return {modes={resize={{key='Escape',action='mode',mode='default',"
+                "description='Done resizing'}}},"
+                "bindings={{mods={'Super'},key='e',action='spawn',command={'dolphin'},"
+                "description='Files'},"
+                "{button='side',app_id='^kitty$',action='close',description='Close a terminal'},"
+                "{key='a',action='close'}}}");
+            const auto &b = described.bindings;
+            require(b.size() == 3 && b[0].description == "Files" &&
+                        b[1].description == "Close a terminal" && b[1].app_id == "^kitty$" &&
+                        b[2].description.empty() && b[2].app_id.empty() &&
+                        described.modes[0].bindings[0].description == "Done resizing",
+                    "a binding's description not read");
+            rejects("return {bindings={{key='a',action='close',description=1}}}");
+        }
+        {
             // Binding modes: named lists of key bindings, sorted by name, which a binding with
             // the mode action puts in use; "default" is the bindings outside any.
             auto modes = paw::parse_config(
@@ -360,7 +382,8 @@ int main(int argc, char **argv) {
                               "consume_right", "expel", "center_column",
                               "layout_spiral", "layout_monocle", "promote", "focus_next",
                               "focus_prev", "swap_next", "swap_prev", "master_grow",
-                              "master_shrink", "master_more", "master_less"})
+                              "master_shrink", "master_more", "master_less", "split_toggle",
+                              "split_swap", "pseudo_toggle"})
                 require(paw::parse_action(name) != SH_NONE, "layout action missing");
         }
         auto *back = config.binding(SH_LOGO, XKB_KEY_Tab);
@@ -1302,7 +1325,7 @@ int main(int argc, char **argv) {
         // A configuration extending the defaults holds only its changes.
         setenv("PAW_DEFAULT_CONFIG", argv[1], 1);
         auto bare = paw::parse_config("return {extends='default'}");
-        require(bare.bindings.size() == 90 && bare.shell.launchers.empty() &&
+        require(bare.bindings.size() == 93 && bare.shell.launchers.empty() &&
                     bare.settings.workspaces == 4,
                 "extends did not supply the defaults");
         auto layered = paw::parse_config(
@@ -1312,7 +1335,7 @@ int main(int argc, char **argv) {
             "{mods={'Super'}, key='e', action='spawn', command={'dolphin'}}}}");
         require(layered.settings.gap_inner == 3 && layered.settings.workspaces == 4,
                 "extending configuration settings not layered over the defaults");
-        require(layered.bindings.size() == 90 && !layered.binding(SH_LOGO, XKB_KEY_v),
+        require(layered.bindings.size() == 93 && !layered.binding(SH_LOGO, XKB_KEY_v),
                 "action none did not remove a default binding");
         require(layered.binding(SH_LOGO, XKB_KEY_q)->command == paw::Command{"foot"} &&
                     layered.binding(SH_LOGO, XKB_KEY_e)->command == paw::Command{"dolphin"},

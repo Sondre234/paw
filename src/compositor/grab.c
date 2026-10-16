@@ -333,6 +333,8 @@ void process_cursor_resize(struct sh_server *server) {
     if (toplevel->tiled) {
         // Resizing a tile moves the splits beside the dragged edges instead.
         struct sh_rect rect = {new_left, new_top, new_right - new_left, new_bottom - new_top};
+        if (pseudo_resize(toplevel, server->resize_edges, server->grab_geobox, rect))
+            return; // a pseudotiled window takes the size itself
         struct wlr_output *output = tiled_output(toplevel);
         if (sh_tiling_resize(server->tiling, toplevel, server->resize_edges, rect) && output)
             reflow_output(server, output);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "paw/ambient.h"
 #include "paw/backend.h"
 #include "paw/rice.hpp"
 #include "paw/swipe.h"
@@ -48,9 +49,15 @@ struct Binding {
     // key alone (Super_L) only when nothing else happened while it was held, a tap.
     bool release = false;
     int mode = 0; // for mode: 0 for the bindings outside any mode, else modes[mode - 1]; for
-                  // display_mode, an sh_display_mode; for cat, an sh_cat_switch
+                  // display_mode, an sh_display_mode; for cat, an sh_cat_switch; for
+                  // ambient, an sh_ambient_choice
     int switch_type = -1; // the enum sh_switch of a switch binding; -1 for a key or button
     bool switch_on = false; // with switch_type: it acts as the switch turns on (a lid closing)
+    // What the binding does in the user's words, as Hyprland's bindd has it, which the shell's
+    // sheet of shortcuts shows in place of the action's own title; empty when not given.
+    std::string description;
+    // `pattern` as written, for the sheet of shortcuts to say where a button binding acts.
+    std::string app_id;
 };
 
 // A binding mode, as sway's modes and Hyprland's submaps: key bindings that take the place of
@@ -511,6 +518,9 @@ struct Config {
                          .cat_scale = 2,
                          .cat_coat = -1,
                          .cat_sleep = 90,
+                         .ambient = SH_AMBIENT_NONE,
+                         .ambient_count = 0,
+                         .ambient_speed = 1,
                          .wrapped = true,
                          .heatmap = true};
     // layout.workspace_names: the label of workspace N is names[N - 1]; "" or past the end: none.
@@ -602,6 +612,9 @@ sh_screenshot_mode parse_screenshot_mode(const std::string &name);
 sh_display_mode parse_display_mode(const std::string &name);
 // "on", "off" or "toggle", the cat action's argument; throws for other names.
 sh_cat_switch parse_cat_switch(const std::string &name);
+// "toggle", "next", "off", "sakura", "snow" or "fireflies", the ambient action's argument;
+// throws for other names.
+sh_ambient_choice parse_ambient_choice(const std::string &name);
 // switch_layout's "next" (0), "prev" (-1), or a layout's number from 1; throws for others.
 int parse_layout_choice(const std::string &word);
 // "toggle", "motion", "clicks" or "reset"; throws for other names.

@@ -492,6 +492,11 @@ void layout_action(struct sh_server *server, enum sh_action action) {
         changed = sh_tiling_adjust(server->tiling, name, workspace, 0,
                                    action == SH_MASTER_MORE ? 1 : -1);
         break;
+    case SH_SPLIT_TOGGLE:
+    case SH_SPLIT_SWAP: // not while it is fullscreen, as in Hyprland
+        changed = current && !current->fullscreen &&
+                  sh_tiling_split_action(server->tiling, current, action);
+        break;
     case SH_SCROLL_LEFT:
     case SH_SCROLL_RIGHT: {
         struct sh_toplevel *other = current ? sh_tiling_scroll_step(server->tiling, current,

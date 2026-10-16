@@ -204,6 +204,8 @@ void manifests_are_checked() {
                "cursor_size = 32, icon_theme = \"Mochi\" } }")
               .empty(),
           "a rice names its cursor and icon themes");
+    CHECK(paw::rice_setting_allowed({"appearance", "ambient", "kind"}),
+          "a rice brings its ambient particles");
     CHECK(!paw::rice_setting_allowed({"windows", "rules"}));
 }
 

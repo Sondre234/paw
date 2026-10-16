@@ -24,10 +24,12 @@ move_to_workspace workspace_next workspace_prev workspace_back toggle_tiling lay
 layout_prev layout_dwindle layout_master layout_spiral layout_monocle layout_scroll
 scroll_left scroll_right column_widen column_narrow column_cycle_width consume_left consume_right
 expel center_column promote focus_next
-focus_prev swap_next swap_prev master_grow master_shrink master_more master_less toggle_floating
+focus_prev swap_next swap_prev master_grow master_shrink master_more master_less split_toggle
+split_swap pseudo_toggle toggle_floating
 launcher focus_left focus_right focus_up focus_down move_left move_right move_up move_down
 move_to_scratchpad scratchpad_show toggle_sticky resize_left resize_right resize_up resize_down
-switcher switcher_prev switcher_confirm switcher_cancel snap_top_left snap_top_right
+switcher switcher_prev switcher_app switcher_app_prev switcher_confirm switcher_cancel
+snap_top_left snap_top_right
 snap_bottom_left snap_bottom_right snap_cycle_left snap_cycle_right snap_cycle_up snap_cycle_down
 toggle_shortcuts_inhibit
 get output subscribe""".split()

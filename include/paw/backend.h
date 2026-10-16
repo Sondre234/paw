@@ -62,6 +62,10 @@ enum sh_action {
      * modifiers are released; opened from the control socket, it waits for switcher_confirm. */
     SH_SWITCHER_NEXT,
     SH_SWITCHER_PREV,
+    /* The same over the focused window's application alone (its windows by app ID), as macOS's
+     * Cmd+` and GNOME's Alt+`; nothing opens unless it has another window. */
+    SH_SWITCHER_APP_NEXT,
+    SH_SWITCHER_APP_PREV,
     SH_SWITCHER_CONFIRM, /* argument: the window's place in the list from 1, or 0: the selected */
     SH_SWITCHER_CANCEL,
     /* Tiling layouts of the focused output's current workspace. */
@@ -81,6 +85,13 @@ enum sh_action {
     SH_MASTER_SHRINK,
     SH_MASTER_MORE, /* one more or fewer window in the master column */
     SH_MASTER_LESS,
+    /* Hyprland's dwindle controls, on the focused tile in dwindle only: togglesplit turns the
+     * split it shares with its sibling from side by side to stacked or back, and keeps it so;
+     * swapsplit trades the split's two halves; pseudo keeps the window at its floating size,
+     * centred in its tile. */
+    SH_SPLIT_TOGGLE,
+    SH_SPLIT_SWAP,
+    SH_PSEUDO_TOGGLE,
     /* Focuses the window focused before the current one, on any workspace or output; repeated,
      * it flips between two windows. */
     SH_FOCUS_LAST,
@@ -140,6 +151,9 @@ enum sh_action {
     /* Asks the shell for its command palette on the output under the pointer: one search over
      * windows, applications, workspaces, actions and saved sessions. */
     SH_PALETTE,
+    /* Asks the shell for its sheet of keyboard shortcuts on the output under the pointer, or to
+     * close it: every binding in effect, grouped, with a search. */
+    SH_SHORTCUTS,
     /* Magnifier: one step in or out, or back to 1x. The view follows the pointer. */
     SH_ZOOM_IN,
     SH_ZOOM_OUT,
@@ -242,6 +256,9 @@ enum sh_action {
     SH_PARTY,
     /* The desktop cat (src/compositor/cat.c): argument an sh_cat_switch. */
     SH_CAT,
+    /* Ambient particles over the wallpaper (src/compositor/ambient.c): argument an
+     * sh_ambient_choice. */
+    SH_AMBIENT,
     /* Opens the exploded view of the focused output's layers (paw xray), or closes it. */
     SH_XRAY,
     /* The pointer heatmap over every output: where the pointer rested or clicked (enum
@@ -257,6 +274,11 @@ enum sh_action {
 
 /* The cat action's choices: show it or hide it, whichever it is not, or say which. */
 enum sh_cat_switch { SH_CAT_TOGGLE, SH_CAT_ON, SH_CAT_OFF };
+
+/* The ambient action's choices: off, or back on as it was last (sakura the first time); the
+ * next kind in turn, none among them; or a kind, SH_AMBIENT_OFF plus its enum sh_ambient_kind
+ * (paw/ambient.h), none being off. */
+enum sh_ambient_choice { SH_AMBIENT_TOGGLE, SH_AMBIENT_NEXT, SH_AMBIENT_OFF };
 
 /* The display_mode action's choices. */
 enum sh_display_mode {
@@ -611,6 +633,11 @@ struct sh_settings {
     int cat_scale;
     int cat_coat;
     int cat_sleep;
+    /* appearance.ambient: what drifts over the wallpaper (enum sh_ambient_kind, paw/ambient.h),
+     * how many on each monitor (0 for the kind's own number), and how fast, 1 its own pace. */
+    int ambient;
+    int ambient_count;
+    float ambient_speed;
     /* wrapped.enabled: the compositor counts what happens at the desktop for `paw wrapped`
      * (src/compositor/wrapped.c). */
     bool wrapped;
@@ -947,6 +974,17 @@ int sh_tiling_master_count(const struct sh_tiling *tiling, const char *output, i
 /* Trades the places of two windows of the same tree. False when either is untiled or they
  * are in different trees. */
 bool sh_tiling_swap(struct sh_tiling *tiling, const void *a, const void *b);
+/* SH_SPLIT_TOGGLE and SH_SPLIT_SWAP on the split `window` shares with its sibling (a window or a
+ * subtree), in a workspace that tiles with dwindle. Toggling turns it from side by side to
+ * stacked or back and keeps it so as its box changes shape; turned back to the way the shape
+ * splits it, it follows the shape again. Swapping trades its two halves, each keeping its share
+ * of the box. False when nothing changed: the window is untiled, alone in its tree, or in another
+ * layout. Nothing is arranged until sh_tiling_arrange. */
+bool sh_tiling_split_action(struct sh_tiling *tiling, const void *window, enum sh_action action);
+/* Hyprland's pseudotiling: where a window `width` by `height` shows in `tile`, at that size and
+ * centred, or scaled down to fit, keeping its shape, when it is larger. Without a size (0 or
+ * less) it fills the tile. */
+struct sh_rect sh_tiling_pseudo(struct sh_rect tile, int width, int height);
 /* Puts `replacement` (not tiled) into the slot of the tiled window `old_window`, which leaves the
  * tiling: a window group shows one member at a time in one slot. False when nothing changed. */
 bool sh_tiling_replace(struct sh_tiling *tiling, const void *old_window, void *replacement);

@@ -1635,8 +1635,7 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 if (present(L, "key"))
                     fail("a binding takes a key or a button, not both");
                 binding.button = mouse_button(field(L, "button"));
-                std::string app_id;
-                binding.pattern = pattern_field(L, "app_id", app_id);
+                binding.pattern = pattern_field(L, "app_id", binding.app_id);
                 boolean(L, "desktop", "desktop", binding.desktop);
                 for (const char *only : {"locked", "repeats", "release"})
                     if (present(L, only))
@@ -1653,6 +1652,8 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             }
             if (!is_switch && present(L, "state"))
                 fail("state is only valid with a switch");
+            if (auto description = text(L, "description"))
+                binding.description = *description;
             auto action = field(L, "action");
             binding.action = action == "none" ? SH_NONE : parse_action(action);
             lua_getfield(L, -1, "mods");
@@ -1729,9 +1730,13 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 // Without one, it toggles.
                 if (!lua_isnil(L, -1))
                     binding.mode = parse_heatmap_choice(string(L, -1, "mode"));
+            } else if (binding.action == SH_AMBIENT) {
+                binding.mode = lua_isnil(L, -1) ? SH_AMBIENT_TOGGLE
+                                                : parse_ambient_choice(string(L, -1, "mode"));
             } else if (!lua_isnil(L, -1)) {
                 if (binding.action != SH_SCREENSHOT)
-                    fail("mode is only valid with screenshot, mode, display_mode, cat and heatmap");
+                    fail("mode is only valid with screenshot, mode, display_mode, cat, heatmap "
+                         "and ambient");
                 binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
             }
             lua_pop(L, 1);
@@ -1879,6 +1884,20 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         theme_name(L, "cursor_theme", config.settings.cursor_theme);
         config.settings.cursor_size = integer(L, "cursor_size", 0, 0, 256);
         theme_name(L, "icon_theme", config.settings.icon_theme);
+        if (Section ambient{L, "ambient", "appearance.ambient"}) {
+            auto &settings = config.settings;
+            named(L, "kind", "appearance.ambient.kind", settings.ambient,
+                  {{"none", SH_AMBIENT_NONE},
+                   {"sakura", SH_AMBIENT_SAKURA},
+                   {"snow", SH_AMBIENT_SNOW},
+                   {"fireflies", SH_AMBIENT_FIREFLIES}},
+                  "appearance.ambient.kind must be \"none\", \"sakura\", \"snow\" or "
+                  "\"fireflies\"",
+                  "kind");
+            settings.ambient_count = integer(L, "count", settings.ambient_count, 1, 150);
+            settings.ambient_speed =
+                static_cast<float>(number(L, "speed", settings.ambient_speed, 0.1, 5));
+        }
     }
     if (Section in{L, "keyboard"}) {
         text_field(L, "layout", config.settings.keyboard_layout);
@@ -2246,6 +2265,9 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"master_shrink", SH_MASTER_SHRINK},
         {"master_more", SH_MASTER_MORE},
         {"master_less", SH_MASTER_LESS},
+        {"split_toggle", SH_SPLIT_TOGGLE},
+        {"split_swap", SH_SPLIT_SWAP},
+        {"pseudo_toggle", SH_PSEUDO_TOGGLE},
         {"peek", SH_PEEK},
         {"peek_toggle", SH_PEEK_TOGGLE},
         {"night_light_toggle", SH_NIGHT_LIGHT_TOGGLE},
@@ -2321,6 +2343,8 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"resize_down", SH_RESIZE_DOWN},
         {"switcher", SH_SWITCHER_NEXT},
         {"switcher_prev", SH_SWITCHER_PREV},
+        {"switcher_app", SH_SWITCHER_APP_NEXT},
+        {"switcher_app_prev", SH_SWITCHER_APP_PREV},
         {"switcher_confirm", SH_SWITCHER_CONFIRM},
         {"switcher_cancel", SH_SWITCHER_CANCEL},
         {"focus_last", SH_FOCUS_LAST},
@@ -2334,6 +2358,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"group_merge_up", SH_GROUP_MERGE_UP},
         {"group_merge_down", SH_GROUP_MERGE_DOWN},
         {"palette", SH_PALETTE},
+        {"shortcuts", SH_SHORTCUTS},
         {"toggle_overview", SH_OVERVIEW_TOGGLE},
         {"overview_confirm", SH_OVERVIEW_CONFIRM},
         {"overview_cancel", SH_OVERVIEW_CANCEL},
@@ -2345,6 +2370,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"gravity", SH_GRAVITY},
         {"party", SH_PARTY},
         {"cat", SH_CAT},
+        {"ambient", SH_AMBIENT},
         {"xray", SH_XRAY},
         {"heatmap", SH_HEATMAP},
 };
@@ -2482,6 +2508,21 @@ sh_cat_switch parse_cat_switch(const std::string &name) {
         if (name == candidate)
             return choice;
     fail("cat takes \"on\", \"off\" or \"toggle\"");
+}
+
+sh_ambient_choice parse_ambient_choice(const std::string &name) {
+    for (auto [candidate, choice] :
+         {std::pair{"toggle", SH_AMBIENT_TOGGLE},
+          {"next", SH_AMBIENT_NEXT},
+          {"off", SH_AMBIENT_OFF},
+          {"sakura", static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_SAKURA})},
+          {"snow", static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_SNOW})},
+          {"fireflies",
+           static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES})}})
+        if (name == candidate)
+            return choice;
+    fail("ambient takes \"sakura\", \"snow\", \"fireflies\", \"off\", \"next\" or "
+         "\"toggle\"");
 }
 
 sh_screenshot_mode parse_screenshot_mode(const std::string &name) {
