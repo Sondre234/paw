@@ -218,15 +218,21 @@ Item {
                 Item {
                     visible: keys.button && index === 0 && modelData.indexOf("Lid") < 0 &&
                              modelData.indexOf("Tablet") < 0
-                    width: 12; height: root.capHeight
+                    width: 13; height: root.capHeight
+                    // Its body, and the line between its buttons down to the one across.
                     Rectangle {
+                        id: mouse
                         anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-                        width: 10; height: 14; radius: 5
+                        width: 11; height: 16; radius: 5
                         color: "transparent"
                         border.color: Theme.textMuted; border.width: 1.5
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            y: 3; width: 1.5; height: 3.5; radius: 0.75
+                            width: 1.5; height: 6.5
+                            color: Theme.textMuted
+                        }
+                        Rectangle {
+                            x: 1; y: 5.5; width: parent.width - 2; height: 1.5
                             color: Theme.textMuted
                         }
                     }
@@ -319,7 +325,7 @@ Item {
             contentWidth: width
             contentHeight: root.contentHeight + 2 * root.padding
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded; rightPadding: -root.padding + Theme.spacingS }
+            ScrollBar.vertical: scrollBar
             Row {
                 y: root.padding - Theme.spacingS
                 spacing: root.columnGap
@@ -336,6 +342,13 @@ Item {
                     }
                 }
             }
+        }
+        // In the card's padding beside the columns, shown while there is more than fits.
+        ScrollBar {
+            id: scrollBar
+            x: card.width - width - Theme.spacingXS; y: body.y
+            height: body.height
+            policy: body.contentHeight > body.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
         }
         // Nothing found, or nothing bound.
         EmptyState {
