@@ -202,6 +202,7 @@ constexpr Action actions[] = {
     {"gravity", Toys, "Let the windows fall"},
     {"party", Toys, "Throw a party"},
     {"cat", Toys, "The desktop cat"},
+    {"cursor_trail", Toys, "Cursor trail"},
     {"xray", Toys, "Exploded view of the layers"},
     {"heatmap", Toys, "Pointer heatmap"},
 };
@@ -353,6 +354,16 @@ QString title(const paw::Binding &binding, const QString &name, const paw::Confi
         return binding.mode == SH_CAT_ON    ? "Let the desktop cat out"
                : binding.mode == SH_CAT_OFF ? "Send the desktop cat away"
                                             : "The desktop cat, out or away";
+    case SH_CURSOR_TRAIL: {
+        // A kind is SH_CURSOR_TRAIL_OFF plus its sh_trail_kind, none being off.
+        const int kind = binding.mode - int{SH_CURSOR_TRAIL_OFF};
+        return binding.mode == SH_CURSOR_TRAIL_NEXT ? "Next cursor trail"
+               : kind == int{SH_TRAIL_SPARKLES}     ? "Sparkles behind the pointer"
+               : kind == int{SH_TRAIL_PETALS}       ? "Sakura petals behind the pointer"
+               : kind == int{SH_TRAIL_HEARTS}       ? "Hearts behind the pointer"
+               : kind == int{SH_TRAIL_NONE}         ? "Cursor trail off"
+                                                    : "Cursor trail, on or off";
+    }
     case SH_HEATMAP:
         return binding.mode == SH_HEATMAP_MOTION   ? "Heatmap of where the pointer rested"
                : binding.mode == SH_HEATMAP_CLICKS ? "Heatmap of the clicks"

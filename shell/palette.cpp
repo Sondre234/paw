@@ -68,6 +68,10 @@ constexpr Action actions[] = {
     {"ambient snow", "Ambient: soft snow over the wallpaper"},
     {"ambient fireflies", "Ambient: fireflies over the wallpaper"},
     {"ambient off", "Ambient: off"},
+    {"cursor_trail sparkles", "Cursor trail: sparkles"},
+    {"cursor_trail petals", "Cursor trail: sakura petals"},
+    {"cursor_trail hearts", "Cursor trail: hearts"},
+    {"cursor_trail off", "Cursor trail: off"},
 };
 
 QVariantMap entry(const QString &kind, const QString &title, const QString &subtitle,
