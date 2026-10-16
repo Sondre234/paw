@@ -257,8 +257,8 @@ def main():
                 for step in steps:
                     with marks.span(step):
                         getattr(soak, step)()
-                # Rest until each process has logged the state the cycle ends in.
-                rested = time.monotonic()
+                # Rest until each process has logged the state the cycle ends in twice.
+                rested = time.monotonic() + .3
                 desktop.wait_for(lambda: logged_since(out, rested), "the probe logged")
             print(f"cycle {cycle}/{args.cycles} done, {time.monotonic() - began:.0f} s",
                   flush=True)
