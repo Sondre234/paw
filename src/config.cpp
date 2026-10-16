@@ -960,12 +960,32 @@ void read_monitors(lua_State *L, sh_settings &settings) {
     }
     lua_pop(L, 1);
 }
+// A window rule's or a binding's pattern, compiled to be matched by `pattern_found`: as
+// `[\s\S]*?(?:PATTERN)` from the start of the text alone, by libstdc++'s breadth-first matcher,
+// in time that grows linearly with the text. Searched for as written, it would be tried from
+// each place in turn by its backtracking matcher, which for some patterns takes time exponential
+// in the text and recurses once a character, deep enough on a long title to overflow the stack.
+// A pattern with a back-reference, which the breadth-first matcher cannot follow, keeps the
+// backtracking one.
+std::regex compile_pattern(const std::string &source) {
+    // Checked as written first: one that is no pattern alone, such as `a)|(b`, would be one
+    // wrapped.
+    (void)std::regex(source, std::regex::ECMAScript);
+    const auto anywhere = "[\\s\\S]*?(?:" + source + ")";
+#ifdef __GLIBCXX__
+    try {
+        return std::regex(anywhere, std::regex::ECMAScript | std::regex_constants::__polynomial);
+    } catch (const std::regex_error &) {
+    }
+#endif
+    return std::regex(anywhere, std::regex::ECMAScript);
+}
 std::optional<std::regex> pattern_field(lua_State *L, const char *key, std::string &source) {
     std::optional<std::regex> result;
     if (auto value = text(L, key)) {
         source = *value;
         try {
-            result = std::regex(source, std::regex::ECMAScript);
+            result = compile_pattern(source);
         } catch (const std::regex_error &) {
             fail(std::string(key) + " '" + source + "' is not a valid regular expression");
         }
@@ -2335,9 +2355,26 @@ sh_heatmap_choice parse_heatmap_choice(const std::string &name) {
     fail("heatmap must be \"toggle\", \"motion\", \"clicks\" or \"reset\"");
 }
 
+namespace {
+// Whether `pattern`, from compile_pattern, is found in `text`. Of a text longer than twice
+// `window` bytes only the first and the last `window` are searched: a client may make its title
+// as long as it likes, and no rule needs more of it. `^` matches only at the start of the first
+// part, `$` only at the end of the last, and `\b` there sees the byte before it.
+bool pattern_found(const std::regex &pattern, const std::string &text) {
+    using namespace std::regex_constants;
+    constexpr std::ptrdiff_t window = 512;
+    if (text.size() <= 2 * static_cast<size_t>(window))
+        return std::regex_search(text, pattern, match_continuous);
+    return std::regex_search(text.begin(), text.begin() + window, pattern,
+                             match_continuous | match_not_eol) ||
+           std::regex_search(text.end() - window, text.end(), pattern,
+                             match_continuous | match_prev_avail);
+}
+} // namespace
+
 bool WindowRule::matches(const std::string &app_id, const std::string &title) const {
-    return (!pattern || std::regex_search(app_id, *pattern)) &&
-           (!title_pattern || std::regex_search(title, *title_pattern));
+    return (!pattern || pattern_found(*pattern, app_id)) &&
+           (!title_pattern || pattern_found(*title_pattern, title));
 }
 
 bool WindowActions::empty() const {
@@ -2496,7 +2533,7 @@ const Binding *Config::button_binding(uint32_t modifiers, uint32_t button,
         bool anywhere = !binding.pattern && !binding.desktop;
         if (anywhere || (binding.desktop && target == SH_POINTER_DESKTOP) ||
             (binding.pattern && target == SH_POINTER_WINDOW &&
-             std::regex_search(app_id, *binding.pattern)))
+             pattern_found(*binding.pattern, app_id)))
             return binding.action == SH_NONE ? nullptr : &binding;
     }
     return nullptr;
