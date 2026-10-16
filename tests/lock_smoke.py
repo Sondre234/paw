@@ -6,7 +6,7 @@ import sys
 
 import harness
 
-compositor, lock_probe, example = (str(Path(p).resolve()) for p in sys.argv[1:4])
+compositor, lock_probe, example, input_probe = (str(Path(p).resolve()) for p in sys.argv[1:5])
 
 source = Path(example).read_text().replace("xwayland = true", "xwayland = false")
 
@@ -32,4 +32,24 @@ with harness.Compositor(compositor, source) as desktop:
         subprocess.run([lock_probe, mode], env=desktop.env, check=True, timeout=20)
     text = desktop.log.read_text()
     assert "Lock client vanished" in text and "Session unlocked" in text, text
-print("Session lock, rejection, focus isolation, abandonment, unlock and the locked state passed")
+
+    # A search field holding the keyboard, as the shell's start menu does, that goes while the
+    # session is locked (its client ends, or its monitor is unplugged) is forgotten as it goes:
+    # nothing reads it again, during the lock or after.
+    def search_layers():
+        return [row for row in desktop.rows("layers") if row[0] == "Search"]
+
+    search = desktop.spawn([input_probe, "--text-input", "--overlay", "Search"])
+    desktop.wait_for(lambda: [row[4] for row in search_layers()] == ["1"],
+                     "the search field has the keyboard")
+    locker = desktop.spawn([lock_probe, "hold", str(desktop.root / "locker.log")])
+    desktop.wait_for(lambda: "Session locked" in desktop.log.read_text().split("Session unlocked")[-1],
+                     "locked over the search field")
+    search.terminate()
+    desktop.reap(search)
+    desktop.wait_for(lambda: not search_layers(), "the search field gone while locked")
+    locker.terminate()
+    assert desktop.reap(locker) == 0
+    desktop.wait_for(lambda: desktop.log.read_text().count("Session unlocked") > text.count(
+        "Session unlocked"), "unlocked after the search field went")
+print("Session lock, rejection, focus isolation, abandonment, unlock, the locked state and a panel gone while locked passed")

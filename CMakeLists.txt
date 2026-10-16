@@ -878,7 +878,7 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c)
         paw_smoke(session_lock SCRIPT lock_smoke.py $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>
-            ${EXAMPLE_CONFIG})
+            ${EXAMPLE_CONFIG} $<TARGET_FILE:input_probe>)
         paw_smoke(binding_modes_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(locked_bindings_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(shortcuts_inhibit_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
