@@ -406,6 +406,9 @@ return {
         -- panel_color = "#151e2c", -- #RRGGBBAA makes it translucent
         -- text_color = "#edf2fa",
         -- wallpaper = "", -- absolute path, or relative to this configuration file
+        -- A monitor's own wallpaper, by its name (paw msg get outputs), over wallpaper; the
+        -- wallpaper picker's "This monitor only" picks one for a monitor alone:
+        -- monitor_wallpapers = { ["DP-1"] = "left.jpg", ["HDMI-A-1"] = "right.jpg" },
         -- wallpaper_mode = "fill", -- or "fit", "center", "tile" or "stretch"; around a picture
         --                            that leaves room, appearance.background shows
         -- Experimental: a slideshow, the pictures of a folder taking turns as the wallpaper, each
@@ -415,6 +418,7 @@ return {
         --     interval = 0,      -- minutes between pictures (1-1440); 0: only the actions step
         --     -- folder = "~/Pictures/wallpapers/sky", -- unset: the folder of wallpaper
         --     order = "shuffle", -- each once before any again; or "name"
+        --     per_monitor = false, -- true: each monitor a picture of its own
         -- },
         -- Experimental: a large clock on the desktop, over the wallpaper, in the text colour with
         -- a soft shadow; the desktop_clock action (paw msg desktop_clock) shows or hides it:

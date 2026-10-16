@@ -71,7 +71,12 @@ shadows.
   again, or by name with `order = "name"`. Each fades in and is kept as a picked one is, so the
   lock screen shows it too, and the time waits while the session is locked. The
   `wallpaper_next` and `wallpaper_prev` actions (`paw msg wallpaper_next`, the command palette)
-  step at once, also without an interval.
+  step at once, also without an interval. With `per_monitor = true` each monitor shows a picture
+  of its own.
+- Each monitor can have a wallpaper of its own: `shell.monitor_wallpapers` names one by the
+  monitor's name, and with two monitors the wallpaper picker offers All monitors and This monitor
+  only. The monitor's desktop, frosted glass, workspace cards, Launchpad and lock screen show its
+  own.
 - `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu
   bar and dock, and the popups, menus, cards, tooltips and overlays show the wallpaper behind them
   blurred under their colour, the popups as translucent as the bar but at least 75 % opaque so
