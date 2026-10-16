@@ -6980,11 +6980,13 @@ ListModel {
         if (!waitFor([&] { return controller.style() == "macos"; }))
             return fail("the configuration's macOS style was not read");
         // Spotlight lists what it finds by kind after the top hit, each kind once (but for
-        // searching the web and saving a session at the end), files among them.
+        // searching the web and saving a session at the end), files among them. The search finds
+        // fewer than its 60 entries, past which files that match less well than every other entry
+        // are left out.
         {
             auto *palette = controller.palette();
             palette->open(output);
-            palette->setQuery("a");
+            palette->setQuery("ep");
             QStringList runs;
             for (const auto &item : palette->results().mid(1)) {
                 const auto map = item.toMap();
