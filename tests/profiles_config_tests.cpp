@@ -152,7 +152,8 @@ int main() {
         std::ofstream(shipped / "init.lua")
             << "return {shell={wallpaper='plain.png'}, profile='night', profiles={"
                "night={shell={wallpaper='rices/night/wallpaper.png',"
-               "start_icon='rices/night/cat.svg'}},"
+               "start_icon='rices/night/cat.svg',wallpaper_cycle={folder='rices/night/sky'}}},"
+               "home={shell={wallpaper_cycle={folder='~/Pictures/sky'}}},"
                "fixed={shell={wallpaper='/srv/fixed.png'}}, bare={}}}";
         setenv("PAW_DEFAULT_CONFIG", (shipped / "init.lua").c_str(), 1);
         paw::save_profile("night");
@@ -163,6 +164,12 @@ int main() {
         require(paw::load_config(extending).shell.start_icon ==
                     (shipped / "rices/night/cat.svg").string(),
                 "a shipped profile's start button not found beside the default configuration");
+        require(paw::load_config(extending).shell.wallpaper_cycle.folder ==
+                    (shipped / "rices/night/sky").string(),
+                "a shipped profile's slideshow folder not found beside the default configuration");
+        paw::save_profile("home");
+        require(paw::load_config(extending).shell.wallpaper_cycle.folder == "~/Pictures/sky",
+                "a slideshow folder in the home folder moved");
         paw::save_profile("fixed");
         require(paw::load_config(extending).shell.wallpaper == "/srv/fixed.png",
                 "an absolute wallpaper moved");

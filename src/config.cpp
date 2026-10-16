@@ -787,6 +787,14 @@ void read_shell(lua_State *L, ShellConfig &shell) {
            {"center", WallpaperMode::Center}, {"tile", WallpaperMode::Tile},
            {"stretch", WallpaperMode::Stretch}});
     read_desktop_clock(L, shell.desktop_clock);
+    if (Section in{L, "wallpaper_cycle", "shell.wallpaper_cycle"}) {
+        auto &cycle = shell.wallpaper_cycle;
+        cycle.interval = integer(L, "interval", cycle.interval, 0, 1440);
+        if (auto folder = text(L, "folder", "shell.wallpaper_cycle.folder"))
+            cycle.folder = *folder;
+        named(L, "order", "shell.wallpaper_cycle.order", cycle.shuffle,
+              {{"shuffle", true}, {"name", false}});
+    }
     if (auto folder = text(L, "wallpapers", "shell.wallpapers")) {
         shell.wallpapers = *folder;
         if (!shell.wallpapers.starts_with('/') && !shell.wallpapers.starts_with("~/"))
@@ -2826,22 +2834,31 @@ std::filesystem::path default_config_path() {
     return variable && *variable ? variable : PAW_DEFAULT_CONFIG;
 }
 namespace {
-// Makes `shell.wallpaper` and `shell.start_icon` in the table at `index` absolute when they
-// name a file relative to `directory`.
+// Makes the string at `key` of the table on top of the stack absolute when it names a file
+// relative to `directory`; with `home`, one in the home folder ("~/...") stays as it is.
+void anchor_file(lua_State *L, const char *key, const std::filesystem::path &directory,
+                 bool home = false) {
+    lua_getfield(L, -1, key);
+    if (lua_type(L, -1) == LUA_TSTRING) {
+        std::filesystem::path file = lua_tostring(L, -1);
+        if (!file.empty() && file.is_relative() && !(home && file.string().starts_with('~'))) {
+            lua_pushstring(L, (directory / file).c_str());
+            lua_setfield(L, -3, key);
+        }
+    }
+    lua_pop(L, 1);
+}
+// Makes `shell.wallpaper`, `shell.start_icon` and `shell.wallpaper_cycle.folder` in the table at
+// `index` absolute when they name a file relative to `directory`.
 void anchor_files(lua_State *L, int index, const std::filesystem::path &directory) {
     lua_getfield(L, index, "shell");
     if (lua_istable(L, -1)) {
-        for (const char *key : {"wallpaper", "start_icon"}) {
-            lua_getfield(L, -1, key);
-            if (lua_type(L, -1) == LUA_TSTRING) {
-                std::filesystem::path file = lua_tostring(L, -1);
-                if (!file.empty() && file.is_relative()) {
-                    lua_pushstring(L, (directory / file).c_str());
-                    lua_setfield(L, -3, key);
-                }
-            }
-            lua_pop(L, 1);
-        }
+        for (const char *key : {"wallpaper", "start_icon"})
+            anchor_file(L, key, directory);
+        lua_getfield(L, -1, "wallpaper_cycle");
+        if (lua_istable(L, -1))
+            anchor_file(L, "folder", directory, true);
+        lua_pop(L, 1);
     }
     lua_pop(L, 1);
 }

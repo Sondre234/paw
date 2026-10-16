@@ -184,6 +184,16 @@ struct DesktopClockConfig {
     std::string greeting;                    // "en" or "ja" by the time of day; empty: none
 };
 
+// Lua `shell.wallpaper_cycle` (experimental): a slideshow, the pictures of a folder taking turns
+// as the wallpaper, every `interval` minutes and at the wallpaper_next and wallpaper_prev actions.
+struct WallpaperCycleConfig {
+    int interval = 0; // minutes between pictures, 1 to 1440; 0: only the actions step
+    // The pictures' folder (not its subfolders): absolute, "~/..." or relative to the
+    // configuration; empty: the folder of shell.wallpaper, else the wallpaper picker's.
+    std::string folder;
+    bool shuffle = true; // order = "shuffle", each once before any again; false: "name"
+};
+
 // Lua `shell.wallpaper_mode`: how the wallpaper covers the output. Fill crops it to cover every
 // pixel, Fit shows all of it, Stretch scales each side to the output's, Center and Tile lay it at
 // its own size, once in the middle or repeated from the top left; Fit and Center show the
@@ -277,6 +287,7 @@ struct ShellConfig {
     std::string wallpaper;
     WallpaperMode wallpaper_mode = WallpaperMode::Fill;
     DesktopClockConfig desktop_clock;
+    WallpaperCycleConfig wallpaper_cycle;
     // The start button's picture: a file, absolute or relative to the configuration; empty:
     // four squares in the accent colour.
     std::string start_icon;

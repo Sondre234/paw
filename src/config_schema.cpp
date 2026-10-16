@@ -1015,7 +1015,22 @@ const Option options[] = {
      "from the top left. Around a picture that `\"fit\"` or `\"center\"` leaves room by, "
      "`appearance.background` shows. The frosted glass and a workspace's picture on its card "
      "show it the same way."},
-    {"shell.desktop_clock", "boolean or table", "false", "true", none, none,
+    {"shell.wallpaper_cycle", "table", "", "", none, none,
+     "Experimental: a slideshow, the pictures of a folder taking turns as the wallpaper, each "
+     "fading in as one picked does and kept as if picked from the panel, so the lock screen "
+     "shows it too. The `wallpaper_next` and `wallpaper_prev` actions step through them, also "
+     "while `interval` is 0. The timer waits while the session is locked."},
+    {"shell.wallpaper_cycle.interval", "integer", "0", "30", 0, 1440,
+     "Minutes between pictures; 0 changes the wallpaper only at the actions."},
+    {"shell.wallpaper_cycle.folder", "string", "unset", "\"~/Pictures/wallpapers/sky\"", none,
+     none,
+     "The pictures' folder, not its subfolders: absolute, starting with `~/`, or relative to "
+     "the configuration file; unset, the folder of `shell.wallpaper` (a rice's own pictures), "
+     "else the wallpaper picker's (`shell.wallpapers`)."},
+    {"shell.wallpaper_cycle.order", "enum", "\"shuffle\"", "\"name\"", none, none,
+     "`\"shuffle\"` shows every picture once, in a random order, before any comes again; "
+     "`\"name\"` goes through them in the order of their names, numbers in order."},
+    {"shell.desktop_clock","boolean or table", "false", "true", none, none,
      "Experimental: a large clock on the desktop, over the wallpaper and under the windows: the "
      "time in a thin weight, the date under it and, with `greeting`, a word for the time of day "
      "above it, in the text colour with a soft shadow (a glow under dark text) so that it reads "
