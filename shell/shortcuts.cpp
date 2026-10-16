@@ -163,6 +163,7 @@ constexpr Action actions[] = {
     {"display_on", Screen, "Turn the monitors on"},
     {"display_toggle", Screen, "Turn the monitors off or on"},
     {"display_mode", Screen, "Display mode"},
+    {"profile_auto", Screen, "Follow sunrise and sunset"},
 
     {"volume_up", Media, "Volume up"},
     {"volume_down", Media, "Volume down"},
@@ -182,6 +183,9 @@ constexpr Action actions[] = {
     {"reboot", Session, "Restart"},
     {"poweroff", Session, "Power off"},
     {"logout", Session, "Log out"},
+    {"keep_awake_toggle", Session, "Keep awake, or not"},
+    {"keep_awake_on", Session, "Keep awake"},
+    {"keep_awake_off", Session, "Let the screen sleep again"},
     {"quit", Session, "Quit paw"},
     {"reload", Session, "Reload configuration"},
     {"mode", Session, "Binding mode"},
