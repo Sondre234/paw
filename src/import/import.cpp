@@ -573,6 +573,38 @@ class Translator {
         theme_.set({"outputs", "order"}, list, sorted.front().second.second,
                    "left to right by position");
     }
+    // A rule's look and idle inhibition as paw's fields (", shadow = false" ...): Hyprland's
+    // noshadow, noborder, rounding, bordercolor (active, then inactive) and idleinhibit, but for
+    // its `none`, which leaves the window's own inhibitors be where paw's refuses them.
+    static std::string rule_looks(const std::map<std::string, std::string> &fields) {
+        auto on = [&](const char *name) {
+            auto found = fields.find(name);
+            return found != fields.end() &&
+                   parse_bool(found->second.empty() ? "on" : found->second).value_or(false);
+        };
+        std::string result;
+        if (on("noshadow"))
+            result += ", shadow = false";
+        if (on("noborder"))
+            result += ", border = false";
+        if (auto rounding = fields.find("rounding"); rounding != fields.end())
+            if (auto radius = parse_number(rounding->second))
+                result += ", corner_radius = " +
+                          std::to_string(std::clamp(static_cast<int>(std::lround(*radius)), 0, 40));
+        if (auto colors = fields.find("bordercolor"); colors != fields.end()) {
+            auto gradient = gradient_colors(colors->second);
+            if (gradient.colors.size() == 2 && gradient.angle == 0) // active, inactive
+                result += ", border_color = " + quote(hex(gradient.colors[0])) +
+                          ", border_inactive_color = " + quote(hex(gradient.colors[1]));
+            else if (!gradient.colors.empty())
+                result += ", border_color = " + border_value(gradient);
+        }
+        if (auto idle = fields.find("idleinhibit"); idle != fields.end())
+            for (const char *mode : {"always", "focus", "fullscreen"})
+                if (idle->second == mode)
+                    result += std::string(", idle_inhibit = \"") + mode + "\"";
+        return result;
+    }
     void rules(const std::vector<HyprItem> &items) {
         std::string list;
         Origin first;
@@ -584,7 +616,8 @@ class Translator {
             bool tears = immediate != item.fields.end() &&
                          parse_bool(immediate->second.empty() ? "on" : immediate->second)
                              .value_or(false);
-            if (opacity == item.fields.end() && !tears) {
+            auto looks = rule_looks(item.fields);
+            if (opacity == item.fields.end() && !tears && looks.empty()) {
                 ++without;
                 continue;
             }
@@ -601,9 +634,8 @@ class Translator {
                     other_match = true;
             if (pattern.empty() || other_match) {
                 report_.skip(files_, item.origin,
-                             std::string(opacity == item.fields.end() ? "immediate" : "opacity") +
-                                 " rule matches more than the app ID; paw's rules match "
-                                 "app IDs only");
+                             "window rule matches more than the app ID; paw's imported rules "
+                             "match app IDs only");
                 continue;
             }
             // Hyprland matches the whole class; paw searches, so anchor it.
@@ -638,10 +670,10 @@ class Translator {
                 list += ", inactive_opacity = " + number(values[1]);
             if (tears)
                 list += ", allow_tearing = true";
-            list += " }, -- " + files_.show(item.origin) + "\n";
+            list += looks + " }, -- " + files_.show(item.origin) + "\n";
         }
         if (without)
-            report_.ignored["window rules without opacity or immediate"] += without;
+            report_.ignored["window rules with nothing paw imports"] += without;
         if (!list.empty())
             theme_.set({"windows", "rules"}, "{\n" + list + "}", first);
     }

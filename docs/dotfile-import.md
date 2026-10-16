@@ -136,6 +136,8 @@ paw before it can be imported, **won't** = deliberately not carried over.
 | Animations on/off | `animations:enabled` | `animations.enabled` | done | yes |
 | Focus a window that asks for it | `misc:focus_on_activate` | `windows.activation` (`"focus"`; unset keeps the default `"urgent"`, which marks the window instead) | done | yes |
 | Tearing for games | `general:allow_tearing`, `windowrule = immediate, class:…` | `windows.allow_tearing`, `windows.rules` (`allow_tearing = true`) | done (untested on hardware) | yes |
+| Per-app look | `windowrule = noshadow`, `noborder`, `rounding N`, `bordercolor C [C]`, `class:…` | `windows.rules` (`shadow = false`, `border = false`, `corner_radius`, `border_color`, `border_inactive_color`) | done | yes |
+| Per-app idle inhibition | `windowrule = idleinhibit always\|focus\|fullscreen, class:…` | `windows.rules` (`idle_inhibit`; Hyprland's `none` is left out, as paw's refuses the window's own inhibitors) | done | yes |
 | Animation styles, speeds, curves | `animation`, `bezier` | — (fixed fade, scale, and glide; `animations.duration`) | won't (for now) | — |
 
 ### Input
@@ -154,5 +156,6 @@ rejects them, none of the keyboard's are imported, and the report says why.
 
 ### Out of scope
 
-Key bindings, dispatchers, `exec`/`exec-once`, window rules other than opacity, layer
-rules, gestures, permissions, and anything that talks to `hyprctl`.
+Key bindings, dispatchers, `exec`/`exec-once`, window rules other than those above (by
+title, or floating, sizes and workspaces), layer rules, gestures, permissions, and anything that
+talks to `hyprctl`.

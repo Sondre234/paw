@@ -245,6 +245,12 @@ int main(int argc, char **argv) {
     const QString quickPictures = "thumbnails={delay=100}";
     const auto lua = QString("return {" + fastMotion + ",layout={workspace_names={'web','','','mail'}},"
                              "power={countdown=2},"
+                             // A few bindings for the sheet of shortcuts to show.
+                             "bindings={{mods={'Super'},key='slash',action='shortcuts'},"
+                             "{mods={'Super'},key='c',action='close'},"
+                             "{mods={'Super'},key='1',action='workspace',workspace=1},"
+                             "{mods={'Super'},key='2',action='workspace',workspace=2},"
+                             "{key='Print',action='screenshot'}},"
                              "profile='dark',profiles={dark={},light={shell={accent='#336699'}}},"
                              "shell={wallpaper='walls/a/one.png'," + quickPictures + "," + barWidgets + keepTaskbar + "wallpapers=[[%3]],"
                              "search={directories={[[%4]]}},"
@@ -1018,6 +1024,27 @@ int main(int argc, char **argv) {
     if (overlayListed() != 3 || !waitFor([&] { return !switcherView.isVisible(); }) ||
         overlayListed() != 3)
         return fail("the switcher's overlay did not hold its windows as it went");
+    // The application switcher (switcher_app, Alt + `) says so with "app" after the count; its
+    // overlay shows the windows it lists, one application's, and the controller keeps saying so
+    // as it closes, so that it goes as it showed. The window switcher's line says nothing of it.
+    subscriber->write(("switcher " + output + " 1 2 app\n"
+                       "switcher-window fake\tFake one\t" + output + "\t1\t0\t0\t21\n"
+                       "switcher-window fake\tFake two\t" + output + "\t2\t0\t0\t22\n").toUtf8());
+    if (!waitFor([&] { return controller.switcherWindows().size() == 2 && controller.switcherApp(); }))
+        return fail("the application switcher's line was not read");
+    if (!waitFor([&] { return switcherView.isVisible() && overlayListed() == 2; }) ||
+        !switcherView.rootObject()->property("app").toBool())
+        return fail("the application switcher's overlay did not show its windows");
+    subscriber->write("switcher-close\n");
+    if (!waitFor([&] { return !switcherView.isVisible(); }) || !controller.switcherApp())
+        return fail("the application switcher did not go as it showed");
+    subscriber->write(("switcher " + output + " 0 1\n"
+                       "switcher-window fake\tFake\t" + output + "\t3\t0\t1\t12\n").toUtf8());
+    if (!waitFor([&] { return controller.switcherWindows().size() == 1; }) || controller.switcherApp())
+        return fail("the window switcher was taken for the application switcher");
+    subscriber->write("switcher-close\n");
+    if (!waitFor([&] { return controller.switcherWindows().isEmpty() && !switcherView.isVisible(); }))
+        return fail("the window switcher did not go");
     // The switcher, the overview and the command palette opening on this output close what is
     // open here: the popover would be over them.
     {
@@ -4790,6 +4817,55 @@ ListModel {
         if (!waitFor([&] { return !emojiView.isVisible(); }) || !picker->output().isEmpty())
             return fail("Escape did not close the emoji picker");
     }
+    // The sheet of keyboard shortcuts: the shortcuts action opens it over the whole output, the
+    // configuration's bindings in groups with their keys as caps, Super + 1 and 2 as one row;
+    // typing searches it, saying so when nothing matches; Escape closes it, and so does the
+    // action again.
+    {
+        PickerView sheetView(controller, app.primaryScreen(), "shortcuts", "Shortcuts.qml",
+                             controller.shortcuts(), true);
+        if (sheetView.status() != QQuickView::Ready) {
+            for (const auto &error : sheetView.errors())
+                std::cerr << error.toString().toStdString() << '\n';
+            return 1;
+        }
+        auto *sheet = controller.shortcuts();
+        auto item = [&](const QString &name) { return find(sheetView.rootObject(), name); };
+        auto shown = [&](const QString &name) { return item(name) && item(name)->isVisible(); };
+        auto type = [&](const QString &text) {
+            for (const auto &c : text)
+                QTest::keyClick(&sheetView, c.toLatin1());
+        };
+        auto openSheet = [&] {
+            subscriber->write(("shortcuts " + output + "\n").toUtf8());
+            return waitFor([&] { return sheetView.isVisible() && sheet->output() == output; }) &&
+                   waitFor([&] { return item("shortcutsSearch")->hasActiveFocus(); });
+        };
+        if (!openSheet())
+            return fail("the shortcuts action did not open the sheet of shortcuts");
+        if (sheetView.size() != app.primaryScreen()->geometry().size() ||
+            !shown("shortcutsGroup:Workspaces") || !shown("shortcutsGroup:Screen") ||
+            !shown("shortcut:Go to workspace 1–2") || !shown("shortcut:Keyboard shortcuts") ||
+            sheet->total() != 4)
+            return fail("the sheet of shortcuts does not cover the output with the bindings");
+        type("print");
+        if (!waitFor([&] { return !item("shortcutsGroup:Workspaces"); }) ||
+            !shown("shortcut:Screenshot of a region") || sheet->count() != 1 ||
+            item("shortcutsSummary")->property("text").toString() != "1 of 4 shortcuts")
+            return fail("typing did not search the sheet of shortcuts");
+        type("zzz");
+        if (!waitFor([&] { return shown("shortcutsEmpty"); }))
+            return fail("the sheet of shortcuts did not say that nothing matched");
+        QTest::keyClick(&sheetView, Qt::Key_Escape);
+        if (!waitFor([&] { return !sheetView.isVisible(); }) || !sheet->output().isEmpty())
+            return fail("Escape did not close the sheet of shortcuts");
+        if (!openSheet() || !item("shortcutsSearch")->property("text").toString().isEmpty() ||
+            sheet->count() != 4)
+            return fail("the sheet of shortcuts did not open afresh");
+        subscriber->write(("shortcuts " + output + "\n").toUtf8());
+        if (!waitFor([&] { return !sheetView.isVisible(); }) || !sheet->output().isEmpty())
+            return fail("the shortcuts action again did not close the sheet");
+    }
     // The start menu: its pinned applications and those launched lately, every application from
     // A to Z, and a search over applications, windows and actions, each moved through with the
     // keyboard; Escape clears the search, then closes the menu.
@@ -5308,14 +5384,17 @@ ListModel {
             if (!waitFor([&] { return power->available().size() == 5; }))
                 return fail("the power menu did not list five actions");
             palette->open(output);
-            // The actions alone: empty, it lists only its first 60 entries.
-            palette->setQuery(">");
+            // Each found by its name: they follow the actions, further down than the 60 entries
+            // an empty search lists.
+            auto offers = [&](const QString &title) {
+                palette->setQuery(QString(title).remove(QChar(0x2026)));
+                return titles().contains(title);
+            };
             if (!waitFor([&] {
-                    return titles().contains("Lock screen") && titles().contains("Suspend") &&
-                           titles().contains("Restart…") && titles().contains("Power off…") &&
-                           titles().contains("Log out…");
+                    return offers("Lock screen") && offers("Suspend") && offers("Restart…") &&
+                           offers("Power off…") && offers("Log out…");
                 }) ||
-                titles().contains("Hibernate")) {
+                offers("Hibernate")) {
                 std::cerr << "the palette does not offer what may run: "
                           << titles().join("|").toStdString() << '\n';
                 return 1;
@@ -6979,10 +7058,48 @@ ListModel {
             return fail("could not rewrite the configuration");
         if (!waitFor([&] { return controller.style() == "macos"; }))
             return fail("the configuration's macOS style was not read");
+        // The macOS style's window switcher shows applications by their icons alone, as macOS
+        // does; one application's windows (switcher_app), which share its icon, show their
+        // titles, here with shell.thumbnails their pictures as cards.
+        {
+            auto *switcherRoot = switcherView.rootObject();
+            std::function<int(QQuickItem *)> cards = [&](QQuickItem *item) {
+                int count = 0;
+                for (auto *child : item->childItems())
+                    count += (child->objectName() == "switcherCard" && child->isVisible()) + cards(child);
+                return count;
+            };
+            auto shows = [&](const QString &opening, int count) {
+                subscriber->write(opening.toUtf8());
+                return waitFor([&] {
+                    return controller.switcherWindows().size() == count && switcherView.isVisible() &&
+                           switcherRoot->property("listed").toList().size() == count;
+                });
+            };
+            auto gone = [&] {
+                subscriber->write("switcher-close\n");
+                return waitFor([&] { return !switcherView.isVisible(); });
+            };
+            if (!shows("switcher " + output + " 1 2\n"
+                       "switcher-window fake\tFake\t" + output + "\t1\t0\t0\t21\n"
+                       "switcher-window other\tOther\t" + output + "\t1\t0\t0\t22\n", 2) ||
+                !switcherRoot->property("iconsOnly").toBool() || switcherRoot->property("pictured").toBool() ||
+                cards(switcherRoot) != 0)
+                return fail("the macOS style's window switcher did not show applications by their icons");
+            if (!gone())
+                return fail("the macOS style's window switcher did not go");
+            if (!shows("switcher " + output + " 1 3 app\n"
+                       "switcher-window fake\tFake one\t" + output + "\t1\t0\t0\t21\n"
+                       "switcher-window fake\tFake two\t" + output + "\t1\t0\t0\t23\n"
+                       "switcher-window fake\tFake three\t" + output + "\t2\t1\t0\t24\n", 3) ||
+                switcherRoot->property("iconsOnly").toBool() || !waitFor([&] { return cards(switcherRoot) == 3; }))
+                return fail("the macOS style's application switcher did not show its windows as cards");
+            if (!gone())
+                return fail("the macOS style's application switcher did not go");
+        }
         // Spotlight lists what it finds by kind after the top hit, each kind once (but for
-        // searching the web and saving a session at the end), files among them. The search finds
-        // fewer than its 60 entries, past which files that match less well than every other entry
-        // are left out.
+        // searching the web and saving a session at the end), files among them. The search
+        // finds fewer than the 60 results a list holds, so that the file is among them.
         {
             auto *palette = controller.palette();
             palette->open(output);

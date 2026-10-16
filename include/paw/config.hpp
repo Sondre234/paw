@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "paw/ambient.h"
 #include "paw/backend.h"
 #include "paw/rice.hpp"
 #include "paw/swipe.h"
@@ -44,10 +45,19 @@ struct Binding {
     // `repeats` runs again while the key is held (Hyprland's binde), by default for resize_*.
     bool locked = false;
     bool repeats = false;
+    // Key bindings only: `release` runs as the key comes up (Hyprland's bindr); one of a modifier
+    // key alone (Super_L) only when nothing else happened while it was held, a tap.
+    bool release = false;
     int mode = 0; // for mode: 0 for the bindings outside any mode, else modes[mode - 1]; for
-                  // display_mode, an sh_display_mode; for cat, an sh_cat_switch
+                  // display_mode, an sh_display_mode; for cat, an sh_cat_switch; for
+                  // ambient, an sh_ambient_choice
     int switch_type = -1; // the enum sh_switch of a switch binding; -1 for a key or button
     bool switch_on = false; // with switch_type: it acts as the switch turns on (a lid closing)
+    // What the binding does in the user's words, as Hyprland's bindd has it, which the shell's
+    // sheet of shortcuts shows in place of the action's own title; empty when not given.
+    std::string description;
+    // `pattern` as written, for the sheet of shortcuts to say where a button binding acts.
+    std::string app_id;
 };
 
 // A binding mode, as sway's modes and Hyprland's submaps: key bindings that take the place of
@@ -63,12 +73,20 @@ struct Launcher {
     Command command;
 };
 
-// What rules do to a window as it opens; unset fields leave it to the defaults.
+// What rules do to a window as it opens, and the look and idle inhibition they give it; unset
+// fields leave it to the defaults.
 struct WindowActions {
     enum class Position { Unset, Center, At };
     std::optional<bool> floating, fullscreen, maximize, focus, sticky, above, allow_tearing;
     std::optional<bool> blur; // the background blurred behind it, whatever windows.blur says
     std::optional<bool> shortcuts_inhibit; // false: the window's inhibitors are refused
+    std::optional<bool> scratchpad;        // opens hidden in the scratchpad
+    // Its look, which follows its title and app ID: a shadow and a border drawn or not, whatever
+    // windows.shadow and border_width say, its corners' radius, and its border's colours.
+    std::optional<bool> shadow, border;
+    std::optional<int> corner_radius;
+    std::optional<sh_gradient> border_color, border_inactive_color;
+    std::optional<sh_idle_rule> idle_inhibit; // which follows them too
     std::optional<int> workspace;      // from 1
     std::optional<std::string> output; // connector, or "desc:" and the start of its description
     std::optional<std::pair<int, int>> size;
@@ -349,6 +367,9 @@ struct OsdConfig {
 struct Config {
     sh_settings settings{.background = {25 / 255.0F, 33 / 255.0F, 46 / 255.0F, 1.0F},
                          .color_scheme = SH_COLOR_SCHEME_UNSET,
+                         .shell_surface = {0x15 / 255.0F, 0x1e / 255.0F, 0x2c / 255.0F, 1},
+                         .shell_text = {0xed / 255.0F, 0xf2 / 255.0F, 0xfa / 255.0F, 1},
+                         .shell_accent = {0x7d / 255.0F, 0xa8 / 255.0F, 1, 1},
                          .profile = "",
                          .profile_schedule = {},
                          .mouse_modifier = SH_ALT,
@@ -407,6 +428,9 @@ struct Config {
                          .touchpad_tap = -1,
                          .touchpad_dwt = -1,
                          .focus_follows_mouse = true,
+                         .hide_cursor_typing = false,
+                         .hide_cursor_after = 0,
+                         .shake_to_find = false,
                          .animations = true,
                          .animation_speed = 1.0F,
                          .animation_late_ms = 80,
@@ -517,6 +541,9 @@ struct Config {
                          .cat_scale = 2,
                          .cat_coat = -1,
                          .cat_sleep = 90,
+                         .ambient = SH_AMBIENT_NONE,
+                         .ambient_count = 0,
+                         .ambient_speed = 1,
                          .wrapped = true,
                          .heatmap = true};
     // layout.workspace_names: the label of workspace N is names[N - 1]; "" or past the end: none.
@@ -553,9 +580,12 @@ struct Config {
     // "N" or "N name": how a workspace is labelled.
     std::string workspace_label(int workspace) const;
 
-    const Binding *binding(uint32_t modifiers, uint32_t keysym) const;
+    // The key binding pressed with these modifiers, or with `release` the one that runs as the
+    // key comes up, the modifiers being those held as it went down.
+    const Binding *binding(uint32_t modifiers, uint32_t keysym, bool release = false) const;
     // The key binding of mode `mode` (0, or a number no mode has: the bindings outside any).
-    const Binding *mode_binding(int mode, uint32_t modifiers, uint32_t keysym) const;
+    const Binding *mode_binding(int mode, uint32_t modifiers, uint32_t keysym,
+                                bool release = false) const;
     // 0 for "default", a mode's number for its name, else -1.
     int mode_number(const std::string &name) const;
     // "default" and every mode's name.
@@ -605,6 +635,9 @@ sh_screenshot_mode parse_screenshot_mode(const std::string &name);
 sh_display_mode parse_display_mode(const std::string &name);
 // "on", "off" or "toggle", the cat action's argument; throws for other names.
 sh_cat_switch parse_cat_switch(const std::string &name);
+// "toggle", "next", "off", "sakura", "snow" or "fireflies", the ambient action's argument;
+// throws for other names.
+sh_ambient_choice parse_ambient_choice(const std::string &name);
 // switch_layout's "next" (0), "prev" (-1), or a layout's number from 1; throws for others.
 int parse_layout_choice(const std::string &word);
 // "toggle", "motion", "clicks" or "reset"; throws for other names.

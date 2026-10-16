@@ -69,7 +69,8 @@ void toplevel_title_changed(struct wl_listener *listener, void *data) {
     if (toplevel->foreign)
         wlr_foreign_toplevel_handle_v1_set_title(toplevel->foreign, title ? title : "Untitled");
     update_listed_state(toplevel);
-    refresh_frame(toplevel); // opacity rules may match the title
+    window_rule_changed(toplevel);
+    refresh_frame(toplevel); // opacity rules and others may match the title
     follow_dynamic_rules(toplevel);
     if (toplevel->urgent)
         notify_subscribers(toplevel->server); // the shell finds the window by its title
@@ -80,6 +81,7 @@ void toplevel_app_id_changed(struct wl_listener *listener, void *data) {
     if (toplevel->foreign)
         wlr_foreign_toplevel_handle_v1_set_app_id(toplevel->foreign, app_id ? app_id : "");
     update_listed_state(toplevel);
+    window_rule_changed(toplevel);
     follow_dynamic_rules(toplevel);
     if (toplevel->urgent)
         notify_subscribers(toplevel->server);

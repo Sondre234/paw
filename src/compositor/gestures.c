@@ -149,6 +149,7 @@ static void swipe_begin(struct wl_listener *listener, void *data) {
     struct wlr_pointer_swipe_begin_event *event = data;
     struct sh_gesture *gesture = &server->gesture;
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    key_release_cancel(server);
     if (gesture->mode != SH_SWIPE_IDLE && gesture->mode != SH_SWIPE_PASSED)
         finish_swipe(server, event->time_msec, true); // another device's, given up
     const struct sh_gesture_settings *settings = &server_settings(server)->gestures;
@@ -215,6 +216,7 @@ static void pinch_begin(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, pinch_begin);
     struct wlr_pointer_pinch_begin_event *event = data;
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    key_release_cancel(server);
     wrapped_count(server, SH_WRAPPED_GESTURES);
     wlr_pointer_gestures_v1_send_pinch_begin(server->pointer_gestures, server->seat,
                                              event->time_msec, event->fingers);
@@ -242,6 +244,7 @@ static void hold_begin(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, hold_begin);
     struct wlr_pointer_hold_begin_event *event = data;
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    key_release_cancel(server);
     wlr_pointer_gestures_v1_send_hold_begin(server->pointer_gestures, server->seat,
                                             event->time_msec, event->fingers);
 }

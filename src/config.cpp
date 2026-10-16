@@ -316,6 +316,13 @@ void premultiplied(const std::string &value, const char *label, float (&target)[
         target[i] = std::stoi(value.substr(1 + 2 * i, 2), nullptr, 16) / 255.0F * alpha;
     target[3] = alpha;
 }
+// #RRGGBB or #RRGGBBAA, checked already, as straight RGBA.
+void straight(const std::string &value, float (&target)[4]) {
+    for (size_t i = 0; i < 4; ++i)
+        target[i] = i < 3 || value.size() == 9
+                        ? std::stoi(value.substr(1 + 2 * i, 2), nullptr, 16) / 255.0F
+                        : 1.0F;
+}
 // Errors are placed in the section `path` while this lives, then where they were before.
 class Named {
 public:
@@ -1107,6 +1114,14 @@ std::pair<int, int> integer_pair(lua_State *L, const char *label, const char *fi
         fail(message);
     return result;
 }
+void border_colors(lua_State *L, const char *key, float (&first)[4], sh_gradient &gradient);
+// A rule's border colour, `border_color` or `border_inactive_color`, as windows' are given.
+std::optional<sh_gradient> rule_border_color(lua_State *L, const char *key) {
+    sh_gradient gradient{};
+    float first[4];
+    border_colors(L, key, first, gradient);
+    return gradient.count ? std::optional(gradient) : std::nullopt;
+}
 WindowRule window_rule(lua_State *L, int workspaces) {
     WindowRule rule;
     rule.pattern = pattern_field(L, "app_id", rule.app_id);
@@ -1127,6 +1142,23 @@ WindowRule window_rule(lua_State *L, int workspaces) {
     actions.above = optional_boolean(L, "above");
     actions.allow_tearing = optional_boolean(L, "allow_tearing");
     actions.blur = optional_boolean(L, "blur");
+    actions.scratchpad = optional_boolean(L, "scratchpad");
+    actions.shadow = optional_boolean(L, "shadow");
+    actions.border = optional_boolean(L, "border");
+    if (present(L, "corner_radius"))
+        actions.corner_radius = integer(L, "corner_radius", 0, 0, 40);
+    actions.border_color = rule_border_color(L, "border_color");
+    actions.border_inactive_color = rule_border_color(L, "border_inactive_color");
+    if (present(L, "idle_inhibit")) {
+        sh_idle_rule idle = SH_IDLE_RULE_UNSET;
+        named(L, "idle_inhibit", qualified("idle_inhibit").c_str(), idle,
+              {{"none", SH_IDLE_RULE_NONE},
+               {"always", SH_IDLE_RULE_ALWAYS},
+               {"visible", SH_IDLE_RULE_VISIBLE},
+               {"focus", SH_IDLE_RULE_FOCUS},
+               {"fullscreen", SH_IDLE_RULE_FULLSCREEN}});
+        actions.idle_inhibit = idle;
+    }
     if (present(L, "workspace"))
         actions.workspace = integer(L, "workspace", 0, 1, workspaces);
     if (auto name = text(L, "output")) {
@@ -1247,14 +1279,14 @@ void read_blur(lua_State *L, Config &config) {
     }
 }
 // A border's colours: `#RRGGBB[AA]`, or a gradient `{ "#RRGGBB[AA]", ..., angle = DEGREES }` of
-// 2 to SH_GRADIENT_STOPS colours, whose first colour is also `first`.
+// 2 to SH_GRADIENT_STOPS colours, whose first colour is also `first`; windows' or a rule's.
 void border_colors(lua_State *L, const char *key, float (&first)[4], sh_gradient &gradient) {
     lua_getfield(L, -1, key);
     if (lua_isnil(L, -1)) {
         lua_pop(L, 1);
         return;
     }
-    std::string label = std::string("windows.") + key;
+    std::string label = qualified(key);
     gradient = {};
     if (lua_istable(L, -1)) {
         auto message = label + " must be #RRGGBB, #RRGGBBAA, or a gradient { \"#RRGGBB\", "
@@ -1280,7 +1312,7 @@ void border_colors(lua_State *L, const char *key, float (&first)[4], sh_gradient
         gradient.count = static_cast<int>(count);
         gradient.angle = static_cast<float>(number(L, "angle", 0, -360, 360));
     } else {
-        premultiplied(string(L, -1, key), key, gradient.stops[0]);
+        premultiplied(string(L, -1, label.c_str()), label.c_str(), gradient.stops[0]);
         gradient.count = 1;
     }
     std::copy(std::begin(gradient.stops[0]), std::end(gradient.stops[0]), first);
@@ -1595,16 +1627,39 @@ void instruction_limit(lua_State *L, lua_Debug *) {
         luaL_error(L, "configuration exceeded its instruction budget");
     }
 }
-// The key binding among `bindings` for these modifiers and keysym, or nothing.
-const Binding *find_key(const std::vector<Binding> &bindings, uint32_t modifiers, uint32_t keysym) {
+// The key binding among `bindings` for these modifiers and keysym, or nothing; with `release`,
+// the one that runs as the key comes up (a key may have one of each).
+const Binding *find_key(const std::vector<Binding> &bindings, uint32_t modifiers, uint32_t keysym,
+                        bool release = false) {
     constexpr uint32_t relevant = SH_SHIFT | SH_CTRL | SH_ALT | SH_LOGO;
     modifiers &= relevant; // CapsLock and NumLock do not disable shortcuts.
     keysym = xkb_keysym_to_lower(keysym);
     for (const auto &binding : bindings)
         if (!binding.button && binding.switch_type < 0 && binding.modifiers == modifiers &&
-            binding.keysym == keysym)
+            binding.keysym == keysym && binding.release == release)
             return &binding;
     return nullptr;
+}
+// The modifier a modifier key gives (SH_LOGO for Super_L), else 0.
+uint32_t own_modifier(uint32_t keysym) {
+    switch (keysym) {
+    case XKB_KEY_Shift_L:
+    case XKB_KEY_Shift_R:
+        return SH_SHIFT;
+    case XKB_KEY_Control_L:
+    case XKB_KEY_Control_R:
+        return SH_CTRL;
+    case XKB_KEY_Alt_L:
+    case XKB_KEY_Alt_R:
+    case XKB_KEY_Meta_L:
+    case XKB_KEY_Meta_R:
+        return SH_ALT;
+    case XKB_KEY_Super_L:
+    case XKB_KEY_Super_R:
+        return SH_LOGO;
+    default:
+        return 0;
+    }
 }
 // The binding among `bindings` of a switch turning on or off, or nothing.
 const Binding *find_switch(const std::vector<Binding> &bindings, sh_switch type, bool on) {
@@ -1634,17 +1689,16 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             if (is_switch) {
                 read_switch_binding(L, binding);
                 // A switch's binding runs while the session is locked, and never repeats.
-                for (const char *only : {"locked", "repeats"})
+                for (const char *only : {"locked", "repeats", "release"})
                     if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
             } else if (is_button) {
                 if (present(L, "key"))
                     fail("a binding takes a key or a button, not both");
                 binding.button = mouse_button(field(L, "button"));
-                std::string app_id;
-                binding.pattern = pattern_field(L, "app_id", app_id);
+                binding.pattern = pattern_field(L, "app_id", binding.app_id);
                 boolean(L, "desktop", "desktop", binding.desktop);
-                for (const char *only : {"locked", "repeats"})
+                for (const char *only : {"locked", "repeats", "release"})
                     if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
             } else {
@@ -1659,6 +1713,8 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             }
             if (!is_switch && present(L, "state"))
                 fail("state is only valid with a switch");
+            if (auto description = text(L, "description"))
+                binding.description = *description;
             auto action = field(L, "action");
             binding.action = action == "none" ? SH_NONE : parse_action(action);
             lua_getfield(L, -1, "mods");
@@ -1735,9 +1791,13 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 // Without one, it toggles.
                 if (!lua_isnil(L, -1))
                     binding.mode = parse_heatmap_choice(string(L, -1, "mode"));
+            } else if (binding.action == SH_AMBIENT) {
+                binding.mode = lua_isnil(L, -1) ? SH_AMBIENT_TOGGLE
+                                                : parse_ambient_choice(string(L, -1, "mode"));
             } else if (!lua_isnil(L, -1)) {
                 if (binding.action != SH_SCREENSHOT)
-                    fail("mode is only valid with screenshot, mode, display_mode, cat and heatmap");
+                    fail("mode is only valid with screenshot, mode, display_mode, cat, heatmap "
+                         "and ambient");
                 binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
             }
             lua_pop(L, 1);
@@ -1757,18 +1817,26 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 fail("amount is only valid with resize, volume and brightness actions");
             binding.amount = integer(L, "amount", default_amount(binding.action), 1,
                                      max_amount(binding.action));
+            boolean(L, "release", "release", binding.release);
             // Keyboard resizing repeats unless told not to; other actions only when told.
-            binding.repeats = !binding.button && !is_switch && binding.action >= SH_RESIZE_LEFT &&
-                              binding.action <= SH_RESIZE_DOWN;
+            binding.repeats = !binding.button && !is_switch && !binding.release &&
+                              binding.action >= SH_RESIZE_LEFT && binding.action <= SH_RESIZE_DOWN;
             boolean(L, "locked", "locked", binding.locked);
             boolean(L, "repeats", "repeats", binding.repeats);
+            if (binding.release && binding.repeats)
+                fail("a binding that runs on release does not repeat");
+            // A modifier key's own modifier is not yet held as it goes down: Super + Super_L is
+            // Super_L.
+            if (binding.release)
+                binding.modifiers &= ~own_modifier(binding.keysym);
             // Bindings past `own` come from the defaults a configuration extends; its own
             // bindings, "none" included, take their keys first.
             // Button bindings may share a button: the first whose target matches wins.
             bool taken = is_switch ? find_switch(into, static_cast<sh_switch>(binding.switch_type),
                                                  binding.switch_on) != nullptr
                                    : !binding.button &&
-                                         find_key(into, binding.modifiers, binding.keysym);
+                                         find_key(into, binding.modifiers, binding.keysym,
+                                                  binding.release);
             if (!taken)
                 into.push_back(std::move(binding));
             else if (i <= own)
@@ -1840,6 +1908,11 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     table(L, -1, "configuration result");
     keys(L, -1, "");
     read_shell(L, config.shell);
+    // The shell's colours, which the compositor draws the colour picker's loupe in.
+    straight(config.shell.panel_color, config.settings.shell_surface);
+    config.settings.shell_surface[3] = 1;
+    straight(config.shell.text_color, config.settings.shell_text);
+    straight(config.shell.accent, config.settings.shell_accent);
     read_features(L, config);
     if (integer(L, "version", 1, 1, 1) != 1)
         fail("unsupported version");
@@ -1863,6 +1936,20 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         named(L, "color_scheme", "appearance.color_scheme", config.settings.color_scheme,
               {{"light", SH_COLOR_SCHEME_LIGHT}, {"dark", SH_COLOR_SCHEME_DARK}},
               "appearance.color_scheme must be \"light\" or \"dark\"", "color_scheme");
+        if (Section ambient{L, "ambient", "appearance.ambient"}) {
+            auto &settings = config.settings;
+            named(L, "kind", "appearance.ambient.kind", settings.ambient,
+                  {{"none", SH_AMBIENT_NONE},
+                   {"sakura", SH_AMBIENT_SAKURA},
+                   {"snow", SH_AMBIENT_SNOW},
+                   {"fireflies", SH_AMBIENT_FIREFLIES}},
+                  "appearance.ambient.kind must be \"none\", \"sakura\", \"snow\" or "
+                  "\"fireflies\"",
+                  "kind");
+            settings.ambient_count = integer(L, "count", settings.ambient_count, 1, 150);
+            settings.ambient_speed =
+                static_cast<float>(number(L, "speed", settings.ambient_speed, 0.1, 5));
+        }
     }
     if (Section in{L, "keyboard"}) {
         text_field(L, "layout", config.settings.keyboard_layout);
@@ -1895,6 +1982,10 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
               {{"flat", 0}, {"adaptive", 1}}, "mouse.acceleration must be \"flat\" or \"adaptive\"");
         tristate(L, "natural_scroll", "mouse.natural_scroll", config.settings.mouse_natural_scroll);
         boolean(L, "focus_follows", "mouse.focus_follows", config.settings.focus_follows_mouse);
+        boolean(L, "hide_when_typing", "mouse.hide_when_typing",
+                config.settings.hide_cursor_typing);
+        config.settings.hide_cursor_after = integer(L, "hide_after", 0, 0, 3600);
+        boolean(L, "shake_to_find", "mouse.shake_to_find", config.settings.shake_to_find);
     }
     if (Section in{L, "touchpad"}) {
         tristate(L, "natural_scroll", "touchpad.natural_scroll",
@@ -2226,6 +2317,9 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"master_shrink", SH_MASTER_SHRINK},
         {"master_more", SH_MASTER_MORE},
         {"master_less", SH_MASTER_LESS},
+        {"split_toggle", SH_SPLIT_TOGGLE},
+        {"split_swap", SH_SPLIT_SWAP},
+        {"pseudo_toggle", SH_PSEUDO_TOGGLE},
         {"peek", SH_PEEK},
         {"peek_toggle", SH_PEEK_TOGGLE},
         {"night_light_toggle", SH_NIGHT_LIGHT_TOGGLE},
@@ -2249,6 +2343,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"notification_history", SH_NOTIFICATION_HISTORY},
         {"clipboard_history", SH_CLIPBOARD_HISTORY},
         {"emoji_picker", SH_EMOJI_PICKER},
+        {"pick_color", SH_PICK_COLOR},
         {"poweroff", SH_POWER_OFF},
         {"reboot", SH_REBOOT},
         {"suspend", SH_SUSPEND},
@@ -2303,6 +2398,8 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"resize_down", SH_RESIZE_DOWN},
         {"switcher", SH_SWITCHER_NEXT},
         {"switcher_prev", SH_SWITCHER_PREV},
+        {"switcher_app", SH_SWITCHER_APP_NEXT},
+        {"switcher_app_prev", SH_SWITCHER_APP_PREV},
         {"switcher_confirm", SH_SWITCHER_CONFIRM},
         {"switcher_cancel", SH_SWITCHER_CANCEL},
         {"focus_last", SH_FOCUS_LAST},
@@ -2316,6 +2413,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"group_merge_up", SH_GROUP_MERGE_UP},
         {"group_merge_down", SH_GROUP_MERGE_DOWN},
         {"palette", SH_PALETTE},
+        {"shortcuts", SH_SHORTCUTS},
         {"toggle_overview", SH_OVERVIEW_TOGGLE},
         {"overview_confirm", SH_OVERVIEW_CONFIRM},
         {"overview_cancel", SH_OVERVIEW_CANCEL},
@@ -2327,6 +2425,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"gravity", SH_GRAVITY},
         {"party", SH_PARTY},
         {"cat", SH_CAT},
+        {"ambient", SH_AMBIENT},
         {"xray", SH_XRAY},
         {"heatmap", SH_HEATMAP},
 };
@@ -2466,6 +2565,21 @@ sh_cat_switch parse_cat_switch(const std::string &name) {
     fail("cat takes \"on\", \"off\" or \"toggle\"");
 }
 
+sh_ambient_choice parse_ambient_choice(const std::string &name) {
+    for (auto [candidate, choice] :
+         {std::pair{"toggle", SH_AMBIENT_TOGGLE},
+          {"next", SH_AMBIENT_NEXT},
+          {"off", SH_AMBIENT_OFF},
+          {"sakura", static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_SAKURA})},
+          {"snow", static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_SNOW})},
+          {"fireflies",
+           static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES})}})
+        if (name == candidate)
+            return choice;
+    fail("ambient takes \"sakura\", \"snow\", \"fireflies\", \"off\", \"next\" or "
+         "\"toggle\"");
+}
+
 sh_screenshot_mode parse_screenshot_mode(const std::string &name) {
     for (auto [candidate, mode] : {std::pair{"region", SH_SCREENSHOT_REGION},
                                    {"output", SH_SCREENSHOT_OUTPUT},
@@ -2508,7 +2622,8 @@ bool WindowRule::matches(const std::string &app_id, const std::string &title) co
 
 bool WindowActions::empty() const {
     return !floating && !fullscreen && !maximize && !focus && !sticky && !above && !allow_tearing &&
-           !blur &&
+           !blur && !scratchpad && !shadow && !border && !corner_radius && !border_color &&
+           !border_inactive_color && !idle_inhibit &&
            !workspace && !output && !size && position == Position::Unset && !shortcuts_inhibit;
 }
 
@@ -2521,9 +2636,20 @@ void WindowActions::merge(const WindowActions &other) {
                                   {&shortcuts_inhibit, &other.shortcuts_inhibit},
                                   {&above, &other.above},
                                   {&allow_tearing, &other.allow_tearing},
-                                  {&blur, &other.blur}})
+                                  {&blur, &other.blur},
+                                  {&scratchpad, &other.scratchpad},
+                                  {&shadow, &other.shadow},
+                                  {&border, &other.border}})
         if (*source)
             *target = *source;
+    for (auto [target, source] : {std::pair{&border_color, &other.border_color},
+                                  {&border_inactive_color, &other.border_inactive_color}})
+        if (*source)
+            *target = *source;
+    if (other.corner_radius)
+        corner_radius = other.corner_radius;
+    if (other.idle_inhibit)
+        idle_inhibit = other.idle_inhibit;
     if (other.workspace)
         workspace = other.workspace;
     if (other.output)
@@ -2558,6 +2684,15 @@ sh_window_rule WindowActions::to_c() const {
     rule.above = above.value_or(false);
     rule.allow_tearing = allow_tearing.value_or(false);
     rule.blur = blur ? *blur : -1;
+    rule.scratchpad = scratchpad.value_or(false);
+    rule.shadow = shadow ? *shadow : -1;
+    rule.border = border ? *border : -1;
+    rule.corner_radius = corner_radius.value_or(-1);
+    if (border_color)
+        rule.border_color = *border_color;
+    if (border_inactive_color)
+        rule.border_inactive_color = *border_inactive_color;
+    rule.idle_inhibit = idle_inhibit.value_or(SH_IDLE_RULE_UNSET);
     return rule;
 }
 
@@ -2603,14 +2738,16 @@ WindowActions Config::dynamic_actions(const std::string &app_id, const std::stri
     return result;
 }
 
-const Binding *Config::binding(uint32_t modifiers, uint32_t keysym) const {
-    return find_key(bindings, modifiers, keysym);
+const Binding *Config::binding(uint32_t modifiers, uint32_t keysym, bool release) const {
+    return find_key(bindings, modifiers, keysym, release);
 }
 
-const Binding *Config::mode_binding(int mode, uint32_t modifiers, uint32_t keysym) const {
+const Binding *Config::mode_binding(int mode, uint32_t modifiers, uint32_t keysym,
+                                    bool release) const {
     if (mode < 1 || static_cast<std::size_t>(mode) > modes.size())
-        return binding(modifiers, keysym);
-    return find_key(modes[static_cast<std::size_t>(mode) - 1].bindings, modifiers, keysym);
+        return binding(modifiers, keysym, release);
+    return find_key(modes[static_cast<std::size_t>(mode) - 1].bindings, modifiers, keysym,
+                    release);
 }
 
 int Config::mode_number(const std::string &name) const {

@@ -464,6 +464,10 @@ static void control_handle(struct sh_server *server, int fd, const char *request
         done = power_start(server, action, error, sizeof(error));
     } else if (action == SH_DISPLAY_MODE) {
         done = display_mode_choose(server, argument, error, sizeof(error));
+    } else if (action == SH_PICK_COLOR) {
+        // Answered once a colour is picked, or the picking cancelled (color_picker.c).
+        if (color_picker_wait(server, fd, error, sizeof(error)))
+            return;
     } else {
         server->target_output = target;
         if (display_action(action)) {
@@ -708,7 +712,8 @@ static void request_shell_on(struct sh_server *server, const char *what,
 }
 
 /* Asks the shell to open something (`what`: "launcher", "palette", "notifications",
- * "power-menu", "clipboard", "emoji" or "display-settings") on the output under the pointer. */
+ * "power-menu", "clipboard", "emoji", "shortcuts" or "display-settings") on the output under the
+ * pointer. */
 void request_shell(struct sh_server *server, const char *what) {
     struct wlr_cursor *cursor = server->cursor;
     request_shell_on(server, what,

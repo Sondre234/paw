@@ -145,6 +145,13 @@ enum sh_cursor_mode {
     SH_CURSOR_PANEL, /* the taskbar dragged to another edge, or resized (panel_drag.c) */
 };
 
+/* Why the cursor shows no image (cursor_hide): bits of sh_server.cursor_hidden. */
+enum sh_cursor_hidden {
+    SH_HIDDEN_SCREENSHOT = 1, /* a screenshot is being taken (actions.c) */
+    SH_HIDDEN_TYPING = 2,     /* mouse.hide_when_typing: a key typed (cursor_hide.c) */
+    SH_HIDDEN_RESTING = 4,    /* mouse.hide_after: the pointer resting that long */
+};
+
 enum sh_node_kind { SH_NODE_TOPLEVEL, SH_NODE_LAYER };
 struct sh_node {
     enum sh_node_kind kind;
@@ -290,9 +297,12 @@ struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c
 struct sh_crossfade_picture; // what an output showed as it began
 struct sh_toys;              // the toy playing (toys.c)
 struct sh_cat_view;          // the desktop cat (cat.c)
+struct sh_ambient;           // ambient particles (ambient.c)
+struct sh_ambient_sky;       // an output's particles
 struct sh_wrapped;       // what paw wrapped counts (wrapped.c)
 struct wlr_color_manager_v1;
 struct sh_heatmap;     // where the pointer rests and clicks, and the overlay (heatmap.c)
+struct sh_color_picker; // picking a colour off the screen (color_picker.c)
 struct sh_heat_output; // an output's grid and its part of the overlay
 
 /* The blur behind windows (blur.c): whether anything is blurred (windows.blur, or a window rule
@@ -537,11 +547,12 @@ struct sh_server {
     bool scratchpad_off_logged;  // said once that features.scratchpad is off
     // Where the grabbed window was when the grab began; NULL once that output is gone.
     struct wlr_output *grab_output;
-    /* The window switcher: a list of every window taken as it opens, most recently focused
-     * first. It stays open while `modifiers` (the opening binding's, less Shift) are all held,
-     * or with none until confirmed or cancelled; the shell draws it on `output`. */
+    /* The window switcher: a list of every window taken as it opens (with `app`, of the focused
+     * window's application alone: switcher_app), most recently focused first. It stays open
+     * while `modifiers` (the opening binding's, less Shift) are all held, or with none until
+     * confirmed or cancelled; the shell draws it on `output`. */
     struct {
-        bool open;
+        bool open, app;
         uint32_t modifiers;
         xkb_keysym_t key; // the opening binding's key, which selects the next window
         struct sh_toplevel *windows[128];
@@ -721,7 +732,16 @@ struct sh_server {
     struct wl_list toplevels;
 
     struct wlr_cursor *cursor;
-    bool cursor_hidden; /* cursor_hide: no image until cursor_show, whatever asks for one */
+    /* cursor_hide: no image until cursor_show, whatever asks for one; the sh_cursor_hidden bits
+     * of why, 0 while it shows. */
+    uint32_t cursor_hidden;
+    /* mouse.hide_after (cursor_hide.c): when the pointer was last used, and the timer that hides
+     * the cursor once it has rested that long. */
+    struct {
+        int64_t moved;
+        struct wl_event_source *timer;
+    } cursor_rest;
+    struct sh_cursor_shake *cursor_shake; /* mouse.shake_to_find (cursor_shake.c), made on use */
     /* The image the cursor was given last: an xcursor name (show_xcursor), "client" for a
      * client's own surface, or NULL for none yet (get cursor_image). */
     const char *cursor_image;
@@ -762,7 +782,6 @@ struct sh_server {
     struct wl_listener request_set_selection, request_set_primary_selection;
     struct wl_listener request_start_drag, start_drag;
     struct wl_listener drag_end; // on the drag under way, which there is one of at most
-    bool refusing_drag;          // a drag turned down is started to end at once (refuse_drag)
     struct wlr_scene_tree *drag_icons; // follows the cursor during drag-and-drop
     struct wl_listener request_activate;
     struct wlr_relative_pointer_manager_v1 *relative_pointer;
@@ -777,6 +796,15 @@ struct sh_server {
     bool keymap_from_file; // keyboard.file, rather than the names
     xkb_layout_index_t keyboard_layout;
     bool syncing_keyboards;
+    /* A key binding with `release` (key_release.c) waiting for the key with evdev code
+     * `keycode` on `keyboard` (NULL for none) to come up: its keysym and the modifiers held as
+     * it went down, and whether it is a modifier key's, which only a tap runs. */
+    struct {
+        struct sh_keyboard *keyboard;
+        uint32_t keycode, modifiers;
+        xkb_keysym_t sym;
+        bool tap;
+    } key_release;
     /* The devices tests plug in with "headless_keyboard add" and the like (headless_input.c). */
     struct wl_list headless_devices;
     /* Switch devices (switches.c), and whether any says the lid is closed. */
@@ -874,10 +902,13 @@ struct sh_server {
         bool following;   /* the profile in use is the one the schedule wants now */
     } profile_schedule;
     struct sh_cat_view *cat; /* the desktop cat (cat.c); NULL if it could not be made */
+    struct sh_ambient *ambient; /* ambient particles (ambient.c); NULL if they could not be */
     struct sh_wrapped *wrapped; // NULL while wrapped.enabled is off
     struct sh_xray xray;
     /* The pointer heatmap (heatmap.c); NULL until the first output is laid out. */
     struct sh_heatmap *heatmap;
+    /* The colour picker (color_picker.c); NULL until it first picks. */
+    struct sh_color_picker *color_picker;
     struct sh_blur blur; /* the blur behind windows (blur.c) */
 };
 
@@ -947,6 +978,8 @@ struct sh_output {
     struct sh_heat_output *heat;
     /* Its background blurred, for the windows over it (blur.c). */
     struct sh_blur_picture blur;
+    /* Its ambient particles (ambient.c); NULL while it has none. */
+    struct sh_ambient_sky *ambient;
 };
 
 /* An icon a window supplies itself (window_icon.c): the icon theme name it gave, and the pixels
@@ -962,7 +995,7 @@ struct sh_icon {
 struct sh_gradient_drawn {
     int width, height, border, radius, scale;
     float mix; // from the inactive gradient (0) to the active one (1)
-    unsigned generation; // server->config_generation
+    struct sh_gradient from, to; // the inactive and active gradients (window_border)
 };
 
 struct sh_opacity_rule {
@@ -978,6 +1011,13 @@ struct sh_blur_rule {
     unsigned generation;
     uint64_t key;
     int value;
+};
+
+/* What the window rules give a window for as long as it matches them (window_rules.c), for the
+ * configuration they were matched under (0 for never, or since its title or app ID changed). */
+struct sh_rule_now {
+    unsigned generation;
+    struct sh_window_rule rule;
 };
 
 /* A scratchpad window sliding in or out (scratchpad.c): which way, where it is cut, where the
@@ -1050,6 +1090,9 @@ struct sh_toplevel {
     bool floating;   // kept out of the tiling (dialogs, or toggled by the user)
     bool placed;     // floating only because it was snapped or maximized by hand
     bool tile_sized; // first configured at its predicted tile, so it has no floating size yet
+    /* Pseudotiled (pseudo.c): as a tile in dwindle it keeps its floating size, in the middle of
+     * its tile. */
+    bool pseudo;
     /* In the scratchpad: floating, and hidden (minimized) until scratchpad_show brings it to
      * the focused output. Hidden ones show in the order they were put there. */
     bool scratchpad;
@@ -1149,6 +1192,7 @@ struct sh_toplevel {
      * without a blur. What the rules say of it, kept. */
     struct wlr_scene_buffer *blur, *blur_probe;
     struct sh_blur_rule blur_rule;
+    struct sh_rule_now rule_now; // its look and idle inhibition from the rules (window_rules.c)
     /* The user was told the window took the keyboard's shortcuts (shortcuts_inhibit.c), which
      * they hear once. */
     bool shortcuts_told;
@@ -1293,8 +1337,8 @@ void server_cursor_frame(struct wl_listener *listener, void *data);
 void seat_request_cursor(struct wl_listener *listener, void *data);
 void set_default_cursor(struct sh_server *server);
 void show_xcursor(struct sh_server *server, const char *name);
-void cursor_hide(struct sh_server *server);
-void cursor_show(struct sh_server *server);
+void cursor_hide(struct sh_server *server, uint32_t why);
+void cursor_show(struct sh_server *server, uint32_t why);
 struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y);
 struct sh_toplevel *pointed_tile(struct sh_server *server, struct sh_toplevel *except);
 struct wlr_surface *press_target_at(struct sh_server *server, double x, double y, double *sx,
@@ -1305,6 +1349,11 @@ void seat_pointer_focus_change(struct wl_listener *listener, void *data);
 bool open_dynamic_rules(struct sh_toplevel *toplevel, struct sh_window_rule *rule, bool ruled);
 void follow_dynamic_rules(struct sh_toplevel *toplevel);
 void describe_dynamic_rules(struct sh_server *server, int fd, const char *arguments);
+
+/* window_rules.c */
+const struct sh_window_rule *window_rule_now(struct sh_toplevel *toplevel);
+void window_rule_changed(struct sh_toplevel *toplevel);
+const struct sh_gradient *window_border(struct sh_toplevel *toplevel, bool active);
 
 /* display_mode.c */
 bool display_mode_choose(struct sh_server *server, int mode, char *error, size_t error_size);
@@ -1425,9 +1474,9 @@ struct wlr_box lift_box(struct sh_toplevel *toplevel, struct wlr_scene_tree *tre
                         struct wlr_box box);
 
 /* gradient_border.c */
-bool gradient_borders(struct sh_server *server);
 void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, int radius,
-                             double mix, float opacity);
+                             double mix, float opacity, const struct sh_gradient *from,
+                             const struct sh_gradient *to);
 
 /* group.c */
 struct sh_toplevel *group_shown(struct sh_server *server, unsigned group);
@@ -1476,6 +1525,7 @@ void idle_finish(struct sh_server *server);
 
 /* input.c */
 bool input_activity(struct sh_server *server, bool wakes);
+bool keysym_is_modifier(xkb_keysym_t sym);
 void configure_pointer(struct sh_server *server, struct wlr_input_device *device);
 void server_new_input(struct wl_listener *listener, void *data);
 void server_new_virtual_keyboard(struct wl_listener *listener, void *data);
@@ -1486,6 +1536,26 @@ void seat_request_start_drag(struct wl_listener *listener, void *data);
 void seat_start_drag(struct wl_listener *listener, void *data);
 void server_new_constraint(struct wl_listener *listener, void *data);
 void seat_keyboard_focus_change(struct wl_listener *listener, void *data);
+
+/* key_release.c */
+bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t modifiers,
+                       bool woke);
+void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode);
+void key_release_cancel(struct sh_server *server);
+void key_release_forget(struct sh_keyboard *keyboard);
+
+/* cursor_hide.c */
+void cursor_typed(struct sh_server *server, xkb_keysym_t sym);
+void cursor_used(struct sh_server *server);
+void cursor_hide_reload(struct sh_server *server);
+void cursor_hide_finish(struct sh_server *server);
+
+/* cursor_shake.c */
+bool cursor_grown(struct sh_server *server);
+int cursor_drawn_size(struct sh_server *server);
+void cursor_shake_motion(struct sh_server *server);
+void cursor_shake_reload(struct sh_server *server);
+void cursor_shake_finish(struct sh_server *server);
 
 /* input_method.c */
 bool input_method_key(struct sh_keyboard *keyboard, const struct wlr_keyboard_key_event *event);
@@ -1751,10 +1821,11 @@ void lid_from_logind(struct sh_server *server, bool closed);
 
 /* switcher.c */
 void switcher_close(struct sh_server *server, int index);
-void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
+void switcher_open(struct sh_server *server, bool backward, bool app, uint32_t modifiers,
                    xkb_keysym_t key);
 void switcher_forget(struct sh_toplevel *toplevel);
-void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
+void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym,
+                  xkb_keysym_t base);
 bool switcher_ask_peek(struct sh_server *server);
 void switcher_finish(struct sh_server *server);
 
@@ -1799,6 +1870,13 @@ void configure_layouts(struct sh_server *server);
 void apply_output_layout(struct sh_server *server, const struct wlr_output *output);
 void reconfigure_tiling(struct sh_server *server);
 void layout_action(struct sh_server *server, enum sh_action action);
+
+/* pseudo.c */
+struct sh_rect pseudo_rect(struct sh_toplevel *toplevel, struct sh_rect rect);
+void pseudo_toggle(struct sh_server *server);
+bool pseudo_resize(struct sh_toplevel *toplevel, uint32_t edges, struct wlr_box from,
+                   struct sh_rect rect);
+bool pseudo_resize_by(struct sh_toplevel *toplevel, uint32_t direction, int amount);
 
 /* touch.c */
 void focus_pressed(struct sh_server *server, double x, double y, struct sh_node *owner);
@@ -1973,6 +2051,15 @@ void cat_frame(struct sh_server *server);
 void cat_input(struct sh_server *server);
 void cat_pointer_moved(struct sh_server *server);
 void describe_cat(struct sh_server *server, int fd, const char *arguments);
+/* ambient.c */
+void ambient_init(struct sh_server *server);
+void ambient_finish(struct sh_server *server);
+void ambient_reload(struct sh_server *server);
+void ambient_switch(struct sh_server *server, int choice);
+void ambient_frame(struct sh_output *output);
+void ambient_input(struct sh_server *server);
+void ambient_forget_output(struct sh_output *output);
+void describe_ambient(struct sh_server *server, int fd, const char *arguments);
 /* xray.c */
 void xray_touch(struct sh_server *server);
 void xray_open(struct sh_server *server);
@@ -1995,6 +2082,18 @@ void describe_heatmap(struct sh_server *server, int fd, const char *arguments);
 void heatmap_action(struct sh_server *server, int choice);
 bool heatmap_tick(struct sh_server *server);
 void describe_heatmap_overlay(struct sh_server *server, int fd, const char *arguments);
+/* color_picker.c */
+bool color_picker_active(struct sh_server *server);
+void color_picker_toggle(struct sh_server *server);
+bool color_picker_wait(struct sh_server *server, int fd, char *error, size_t size);
+bool color_picker_motion(struct sh_server *server);
+bool color_picker_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
+bool color_picker_axis(struct sh_server *server);
+bool color_picker_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
+void color_picker_cancel(struct sh_server *server);
+void color_picker_forget_output(struct sh_output *output);
+void color_picker_finish(struct sh_server *server);
+void describe_color_picker(struct sh_server *server, int fd, const char *arguments);
 
 /* blur.c */
 void blur_reload(struct sh_server *server);

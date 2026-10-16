@@ -114,6 +114,7 @@ static void touch_down(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, touch_down);
     struct wlr_touch_down_event *event = data;
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    key_release_cancel(server);
     double x, y, sx = 0, sy = 0;
     wlr_cursor_absolute_to_layout_coords(server->cursor, &event->touch->base, event->x, event->y,
                                          &x, &y);

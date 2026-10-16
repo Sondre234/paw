@@ -31,6 +31,10 @@ return {
     -- comments showing their defaults; set one here to override the import.
     theme = "theme.lua",
     -- appearance = { background = "#19212e" },
+    -- Particles drifting over the wallpaper, under the windows: kind = "sakura", "snow" or
+    -- "fireflies" (none unless set; a profile may set them too), count on each monitor (30
+    -- petals, 60 flakes, 24 fireflies unless set), speed (1 their own pace):
+    -- appearance = { ambient = { kind = "sakura", count = 30, speed = 1 } },
     -- Appearance profiles: each lays its appearance, windows and shell settings over the rest
     -- of the configuration while it is in use. Pick one from the panel's right-click menu
     -- ("Appearance"), the command palette, or `paw msg profile NAME|next|prev`; the choice
@@ -95,6 +99,8 @@ return {
         -- --fonts fetches it); without it the default sans-serif stands in.
         washi = {
             appearance = { background = "#f4f0f3", color_scheme = "light" },
+            -- Sakura petals drifting down over the paper: add to appearance above
+            --     ambient = { kind = "sakura" },
             windows = {
                 border_width = 2, corner_radius = 12, round = "always",
                 border_color = { "#8fc1ec", "#f2a0be", angle = 135 },
@@ -119,6 +125,8 @@ return {
         },
         sumi = {
             appearance = { background = "#15141d", color_scheme = "dark" },
+            -- Fireflies glowing in the ink-dark night: add to appearance above
+            --     ambient = { kind = "fireflies" },
             windows = {
                 border_width = 2, corner_radius = 12, round = "always",
                 border_color = { "#8fc1ec", "#f2a7c3", angle = 135 },
@@ -147,6 +155,8 @@ return {
         -- without it the default sans-serif stands in. Colours from Catppuccin Mocha (MIT).
         mochi = {
             appearance = { background = "#1e1e2e", color_scheme = "dark" },
+            -- Soft snow falling past the moon: add to appearance above
+            --     ambient = { kind = "snow" },
             windows = {
                 border_width = 2, corner_radius = 14, round = "always",
                 border_color = { "#cba6f7", "#f5c2e7", angle = 135 },
@@ -187,6 +197,9 @@ return {
     mouse = {
         modifier = mod, -- modifier + left drag moves; right drag resizes
         -- focus_follows = true, -- hovering a window focuses it (without raising it)
+        -- hide_when_typing = true, -- typing into a window hides the cursor until it moves
+        -- hide_after = 5, -- seconds the pointer rests before the cursor hides (0: never)
+        -- shake_to_find = true, -- shaking the pointer grows the cursor a moment, as on macOS
         -- Standalone sessions only; unset keeps each device's default:
         -- speed = 0.0 (-1 to 1), acceleration = "flat" or "adaptive", natural_scroll = false
     },
@@ -269,12 +282,21 @@ return {
         -- apply as a window opens, every matching rule in order, later ones winning:
         -- floating, workspace (on its monitor, without switching there), output (connector
         -- or "desc:..."), size = { w, h }, position = "center" or { x, y } (from the
-        -- monitor's top-left, panels excluded), fullscreen, maximize, focus = false, sticky.
+        -- monitor's top-left, panels excluded), fullscreen, maximize, focus = false, sticky,
+        -- scratchpad (opens hidden there, for scratchpad_show). The look follows the title as
+        -- it changes: shadow, border (false: none drawn), border_color, border_inactive_color
+        -- (a gradient too), corner_radius; and so does idle_inhibit, which keeps the machine
+        -- awake while the window is open ("always"), shows ("visible"), has the focus
+        -- ("focus") or is fullscreen ("fullscreen"), or with "none" refuses its own inhibitor.
         -- rules = {
         --     { app_id = "^firefox$", opacity = 0.9, inactive_opacity = 0.85 },
         --     { app_id = "^org.pulseaudio.pavucontrol$", floating = true, size = { 800, 500 },
         --       position = "center" },
         --     { app_id = "^thunderbird$", workspace = 2, focus = false },
+        --     { app_id = ".*", idle_inhibit = "fullscreen" }, -- any window while fullscreen
+        --     { app_id = "^dropterm$", scratchpad = true, size = { 1000, 500 } },
+        --     { title = "Picture-in-Picture", sticky = true, border = false, shadow = false },
+        --     { app_id = "^kitty$", border_color = { "#f5c2e7", "#89b4fa", angle = 45 } },
         -- },
     },
     -- Desktop effects, all off until you bind or enable them (see the README, "Effects"):
@@ -489,6 +511,10 @@ return {
         { mods = { mod }, button = "wheel_down", action = "workspace_prev" },
         { mods = { mod }, key = "q", action = "terminal" },
         { mods = { mod }, key = "r", action = "launcher" },
+        -- Tap Super alone for the launcher (the start menu, or Launchpad in the macOS style), as
+        -- Windows' Start key: `release = true` runs a binding as its key comes up, a modifier
+        -- key's only when nothing else was pressed, clicked or scrolled while it was held.
+        -- { key = "Super_L", release = true, action = "launcher" },
         { mods = { mod }, key = "c", action = "close" },
         { mods = { mod }, key = "m", action = "quit" },
         { mods = { mod }, key = "v", action = "toggle_floating" },
@@ -501,6 +527,12 @@ return {
         { mods = { mod, "Ctrl" }, key = "t", action = "toggle_above" }, -- keep above the others
         -- The command palette: one search over windows, apps, workspaces, actions and sessions.
         { mods = { mod }, key = "p", action = "palette" },
+        -- A sheet of every binding in effect, grouped, with a search; Super + / again closes it.
+        -- On a keyboard layout where / takes Shift, bind key = "F1" instead.
+        { mods = { mod }, key = "slash", action = "shortcuts" },
+        -- A binding's description names it there in your words, as Hyprland's bindd does;
+        -- a spawn without one shows its command:
+        -- { mods = { mod }, key = "e", action = "spawn", command = { "dolphin" }, description = "Files" },
         -- The taskbar (or the dock) from the keyboard, as Windows' Win+T: the arrows walk its
         -- buttons and the windows they show, Enter picks, Escape gives the keyboard back.
         { mods = { mod }, key = "b", action = "taskbar_focus" },
@@ -512,6 +544,10 @@ return {
         -- the arrows move, Return picks, Escape cancels. `cycle` raises the next window at once.
         { mods = { "Alt" }, key = "Tab", action = "switcher" },
         { mods = { "Alt", "Shift" }, key = "Tab", action = "switcher_prev" },
+        -- The same over the focused window's application alone, as macOS's Cmd + ` and GNOME's
+        -- Alt + `: its windows on every monitor and workspace; ` moves on while Alt is held.
+        { mods = { "Alt" }, key = "grave", action = "switcher_app" },
+        { mods = { "Alt", "Shift" }, key = "grave", action = "switcher_app_prev" },
         { mods = { mod }, key = "Left", action = "focus_left" },
         { mods = { mod }, key = "Right", action = "focus_right" },
         { mods = { mod }, key = "Up", action = "focus_up" },
@@ -554,6 +590,13 @@ return {
         { mods = { mod }, key = "h", action = "master_shrink" },
         { mods = { mod }, key = "comma", action = "master_more" },
         { mods = { mod }, key = "period", action = "master_less" },
+        -- Hyprland's dwindle controls, in dwindle only (experimental): split_toggle turns the
+        -- focused tile's split from side by side to stacked and keeps it so, split_swap trades
+        -- its halves, pseudo_toggle keeps the window at its floating size in the middle of its
+        -- tile. Hyprland's Super+J and Super+P are focus_next and the palette here:
+        -- { mods = { mod, "Ctrl" }, key = "j", action = "split_toggle" },
+        -- { mods = { mod, "Ctrl" }, key = "k", action = "split_swap" },
+        -- { mods = { mod, "Alt" }, key = "p", action = "pseudo_toggle" },
         -- The scroll layout (layout_scroll; see layout.scroll): columns on an endless strip,
         -- whose view turns as a cube as it moves with layout.scroll.cube = true.
         -- master_grow and master_shrink resize the focused column there. Bind these to taste:
@@ -629,6 +672,9 @@ return {
         { mods = {}, key = "Print", action = "screenshot", mode = "region" },
         { mods = { "Shift" }, key = "Print", action = "screenshot", mode = "output" },
         { mods = { mod }, key = "Print", action = "screenshot", mode = "window" },
+        -- Pick a colour off the screen: a loupe follows the pointer, and a click copies the
+        -- pixel's #rrggbb (Escape or a right click cancels; `paw msg pick_color` prints it), e.g.:
+        -- { mods = { mod, "Shift" }, key = "c", action = "pick_color" },
         -- The keyboard's volume, microphone and brightness keys, 5 % a press (`amount = N` for
         -- another step). The shell carries them out and shows them; without it, wpctl and
         -- brightnessctl do. `locked = true` runs a binding while the screen is locked too (every
@@ -654,5 +700,9 @@ return {
         -- A desktop cat that lives on the focused window's top edge (cat.enabled lets it out as
         -- the session starts; mode = "on" or "off" rather than toggling):
         -- { mods = { mod, "Ctrl" }, key = "n", action = "cat" },
+        -- Sakura petals, snow or fireflies over the wallpaper, each in turn and then none
+        -- (appearance.ambient sets them for good; mode = "sakura", "snow", "fireflies", "off" or
+        -- "toggle" picks one):
+        -- { mods = { mod, "Ctrl" }, key = "a", action = "ambient", mode = "next" },
     },
 }

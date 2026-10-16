@@ -80,7 +80,8 @@ by day and by night.</sub>
   puts in place.
   `paw import` carries over an existing Hyprland/Waybar setup, and
   [`paw rice`](docs/features.md#paw-rice) packs a look into one file to share and tries one on
-  for 15 seconds before you keep it.
+  for 15 seconds before you keep it. A [colour picker](docs/features.md#colour-picker) with a
+  loupe takes any colour off the screen as `#rrggbb`.
 - **Scriptable:** every action, plus queries and an event stream, over a control socket
   (`paw msg`).
 - **Works with everyday applications:** XWayland, screen sharing through portals,
@@ -282,6 +283,7 @@ Edit them in [config/init.lua](config/init.lua).
 | Super + Q | [Open a terminal](docs/features.md#terminal): `terminal`, `$TERMINAL`, or the first one installed |
 | Super + R | Application menu on the monitor under the pointer |
 | Super + P | [Command palette](docs/features.md#command-palette) |
+| Super + / | [Every shortcut](docs/features.md#keyboard-shortcuts) in effect, on one sheet with a search |
 | Super + B | Walk the [taskbar](docs/features.md#taskbar) or the dock from the keyboard: arrows, Enter, Escape |
 | Super + C | Close the focused window |
 | Super + M | Exit paw |
@@ -297,6 +299,7 @@ Edit them in [config/init.lua](config/init.lua).
 | Super + Shift + P | Make the focused window [sticky](docs/features.md#sticky-windows), or not |
 | Super + Ctrl + T | [Keep the focused window above](docs/features.md#keeping-windows-above) the others, or not |
 | Alt + Tab / Alt + Shift + Tab | [Window switcher](docs/features.md#window-switcher) over every window |
+| Alt + \` / Alt + Shift + \` | The switcher over the focused [application's windows](docs/features.md#one-applications-windows) |
 | Super + O | [Overview](docs/features.md#overview) of the monitor's workspace |
 | Super + ` | Back to the previously focused window, on any workspace |
 | Super + arrows | Focus the nearest window that way |

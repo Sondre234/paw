@@ -144,6 +144,7 @@ void server_new_lock(struct wl_listener *listener, void *data) {
     switcher_close(server, -1);
     overview_dismiss(server);
     xray_dismiss(server);
+    color_picker_cancel(server);
     crossfade_end(server); // its pictures show the session as it was
     toys_end(server);
     cube_end(server);
@@ -198,10 +199,31 @@ static bool window_shown(struct sh_toplevel *toplevel) {
     return true; // on no monitor yet
 }
 
+/* Whether a window rule's idle_inhibit keeps the machine awake for the window now: while it is
+ * open, shows, has the focus, or is fullscreen and shows; never behind the lock. */
+static bool ruled_awake(struct sh_toplevel *toplevel) {
+    struct sh_server *server = toplevel->server;
+    if (server->locked || toplevel->unmanaged || !toplevel_mapped(toplevel))
+        return false;
+    switch (window_rule_now(toplevel)->idle_inhibit) {
+    case SH_IDLE_RULE_ALWAYS:
+        return true;
+    case SH_IDLE_RULE_VISIBLE:
+        return window_shown(toplevel);
+    case SH_IDLE_RULE_FOCUS:
+        return server->focused_toplevel == toplevel && window_shown(toplevel);
+    case SH_IDLE_RULE_FULLSCREEN:
+        return toplevel->fullscreen && window_shown(toplevel);
+    default:
+        return false;
+    }
+}
+
 /* Whether an idle inhibitor on `surface` applies: as idle-inhibit-unstable-v1 has it, only while
  * the surface is visible. A window's (or its popup's or subsurface's) while the window is shown
- * and the session unlocked, a panel's while it is mapped and the session unlocked; a surface
- * that is neither, of which paw cannot tell whether it shows, always. */
+ * and the session unlocked, unless a rule's idle_inhibit = "none" refuses it; a panel's while it
+ * is mapped and the session unlocked; a surface that is neither, of which paw cannot tell whether
+ * it shows, always. */
 static bool inhibitor_applies(struct sh_server *server, struct wlr_surface *surface) {
     struct wlr_surface *root = wlr_surface_get_root_surface(surface);
     struct wlr_xdg_popup *popup;
@@ -210,7 +232,8 @@ static bool inhibitor_applies(struct sh_server *server, struct wlr_surface *surf
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
         if (toplevel_surface(toplevel) == root)
-            return !server->locked && window_shown(toplevel);
+            return !server->locked && window_shown(toplevel) &&
+                   window_rule_now(toplevel)->idle_inhibit != SH_IDLE_RULE_NONE;
     }
     if (wlr_xdg_toplevel_try_from_wlr_surface(root))
         return false; // a window not mapped
@@ -219,12 +242,13 @@ static bool inhibitor_applies(struct sh_server *server, struct wlr_surface *surf
     return true;
 }
 
-/* Works out again which idle inhibitors apply, after anything that may show or hide a surface:
- * notify_subscribers (windows mapping and unmapping, workspaces switching, windows moving, the
- * session locking), minimizing and restoring, monitors turning off and on, panels mapping and
- * unmapping. While any applies the idle steps are held and idle daemons hear the seat is
- * inhibited; once none does, the time without input counts from then. Cheap: a walk over the
- * few inhibitors there are. */
+/* Works out again which idle inhibitors apply, and which windows a rule keeps awake, after
+ * anything that may show or hide a surface: notify_subscribers (windows mapping and unmapping,
+ * workspaces switching, windows moving, the session locking), minimizing and restoring, monitors
+ * turning off and on, panels mapping and unmapping, and for the rules focus moving, fullscreen,
+ * titles and app IDs changing and a reload. While any applies the idle steps are held and idle
+ * daemons hear the seat is inhibited; once none does, the time without input counts from then.
+ * Cheap: a walk over the few inhibitors and windows there are, the rules matched already. */
 void idle_inhibitors_follow(struct sh_server *server) {
     int applying = 0;
     struct sh_inhibitor *inhibitor;
@@ -232,6 +256,8 @@ void idle_inhibitors_follow(struct sh_server *server) {
         inhibitor->applies = inhibitor_applies(server, inhibitor->wlr_inhibitor->surface);
         applying += inhibitor->applies;
     }
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) applying += ruled_awake(toplevel);
     bool held = applying > 0, was_held = server->inhibitors_applying > 0;
     server->inhibitors_applying = applying;
     if (held == was_held)
@@ -280,7 +306,9 @@ void server_new_inhibitor(struct wl_listener *listener, void *data) {
 }
 
 /* A line per idle inhibitor for `get idle`, the oldest first: "inhibitor", whether it applies,
- * and its surface as `surface` (query.c's describe_surface) has it. */
+ * and its surface as `surface` (query.c's describe_surface) has it; then a line per window a
+ * rule's idle_inhibit names, in the order of `get windows`: "rule", whether it keeps the machine
+ * awake now, the rule's value and the window's title. */
 void describe_idle_inhibitors(struct sh_server *server, int fd,
                               void (*surface)(struct sh_server *, int, const char *,
                                               struct wlr_surface *)) {
@@ -289,5 +317,20 @@ void describe_idle_inhibitors(struct sh_server *server, int fd,
         char what[32];
         snprintf(what, sizeof(what), "inhibitor\t%d", inhibitor->applies);
         surface(server, fd, what, inhibitor->wlr_inhibitor->surface);
+    }
+    static const char *names[] = {
+        [SH_IDLE_RULE_NONE] = "none",     [SH_IDLE_RULE_ALWAYS] = "always",
+        [SH_IDLE_RULE_VISIBLE] = "visible", [SH_IDLE_RULE_FOCUS] = "focus",
+        [SH_IDLE_RULE_FULLSCREEN] = "fullscreen"};
+    struct sh_toplevel *toplevel;
+    wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
+        int mode = window_rule_now(toplevel)->idle_inhibit;
+        if (toplevel->unmanaged || mode <= SH_IDLE_RULE_UNSET || mode > SH_IDLE_RULE_FULLSCREEN)
+            continue;
+        char title[512], line[640];
+        copy_field(title, sizeof(title), toplevel_title(toplevel));
+        snprintf(line, sizeof(line), "rule\t%d\t%s\t%s\n", ruled_awake(toplevel), names[mode],
+                 title);
+        control_reply(fd, line);
     }
 }

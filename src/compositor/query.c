@@ -392,7 +392,8 @@ static void get_frames(struct sh_server *server, int fd, const char *arguments) 
     // own frame), whether they show, the radius of its rounded corners (0 for square), its
     // shadow: whether it has one, how dark (thousandths of the alpha where it is darkest) and
     // the box it covers from the window's top-left corner, and its border: "none", "color" in
-    // rects, or "gradient" in pieces of a gradient.
+    // rects, or "gradient" in pieces of a gradient, and the colour of the rects as #RRGGBBAA
+    // (premultiplied), "-" without them.
     control_reply(fd, "ok\n");
     const char *style = deco_style(server) == SH_DECO_TRAFFIC_LIGHTS ? "traffic_lights" : "flat";
     struct sh_toplevel *toplevel;
@@ -402,13 +403,20 @@ static void get_frames(struct sh_server *server, int fd, const char *arguments) 
         copy_field(title, sizeof(title), toplevel_title(toplevel));
         bool revealed = toplevel->deco && toplevel->deco->node.enabled;
         struct wlr_box shadow = toplevel->shadow ? toplevel->shadow_box : (struct wlr_box){0};
-        snprintf(line, sizeof(line), "%s\t%s\t%d\t%s\t%d\t%d\t%d\t%ld\t%d\t%d\t%d\t%d\t%s\n",
+        char color[16] = "-";
+        if (toplevel->border[0]) {
+            const float *c = toplevel->border[0]->color;
+            snprintf(color, sizeof(color), "#%02x%02x%02x%02x", (unsigned)lroundf(255 * c[0]),
+                     (unsigned)lroundf(255 * c[1]), (unsigned)lroundf(255 * c[2]),
+                     (unsigned)lroundf(255 * c[3]));
+        }
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%s\t%d\t%d\t%d\t%ld\t%d\t%d\t%d\t%d\t%s\t%s\n",
                  app_id, title, server->focused_toplevel == toplevel,
                  toplevel->deco ? style : "none", revealed, toplevel->corner_radius,
                  toplevel->shadow != NULL,
                  toplevel->shadow ? lround(1000 * toplevel->shadow_alpha) : 0, shadow.x, shadow.y,
                  shadow.width, shadow.height,
-                 toplevel->gradient ? "gradient" : toplevel->border[0] ? "color" : "none");
+                 toplevel->gradient ? "gradient" : toplevel->border[0] ? "color" : "none", color);
         control_reply(fd, line);
     }
 }
@@ -590,9 +598,10 @@ static void get_idle(struct sh_server *server, int fd, const char *arguments) {
     // "state", the milliseconds since the last input, whether an idle inhibitor (or the session
     // being away from the front) holds the steps off, whether the machine runs on battery, how
     // dark the screens are dimmed (thousandths), how many idle inhibitors there are and how many
-    // of them apply, and whether keep awake is on; then a line per step (idle.c): its name, its
-    // timeout in milliseconds on that power (0 for never), and whether it was taken since the
-    // last input; then a line per idle inhibitor (see describe_idle_inhibitors).
+    // of them apply (with the windows a rule's idle_inhibit keeps awake), and whether keep awake
+    // is on; then a line per step (idle.c): its name, its timeout in milliseconds on that power
+    // (0 for never), and whether it was taken since the last input; then a line per idle
+    // inhibitor and per window a rule's idle_inhibit names (see describe_idle_inhibitors).
     const struct sh_idle *idle = &server->idle;
     int64_t now = now_ms();
     bool battery;
@@ -896,10 +905,19 @@ static void get_seat(struct sh_server *server, int fd, const char *arguments) {
 }
 
 static void get_cursor(struct sh_server *server, int fd, const char *arguments) {
-    // Whether the cursor shows: "hidden" while a screenshot is taken (cursor_hide), else
-    // "shown".
+    // Whether the cursor shows: "hidden" while a screenshot is taken, or after typing or a rest
+    // with mouse.hide_when_typing and mouse.hide_after (cursor_hide), else "shown".
     control_reply(fd, "ok\n");
     control_reply(fd, server->cursor_hidden ? "hidden\n" : "shown\n");
+}
+
+static void get_cursor_size(struct sh_server *server, int fd, const char *arguments) {
+    // The size the cursor is drawn at, in logical pixels: $XCURSOR_SIZE, and up to three times
+    // that while a shake grows it (mouse.shake_to_find, cursor_shake.c).
+    char line[32];
+    snprintf(line, sizeof(line), "%d\n", cursor_drawn_size(server));
+    control_reply(fd, "ok\n");
+    control_reply(fd, line);
 }
 
 static void get_cursor_image(struct sh_server *server, int fd, const char *arguments) {
@@ -1027,6 +1045,7 @@ static const struct {
     {"seat", get_seat, false},
     {"cursor", get_cursor, false},
     {"cursor_image", get_cursor_image, false},
+    {"cursor_size", get_cursor_size, false},
     {"autostart", get_autostart, false},
     {"gesture", get_gesture, false},
     {"touch", get_touch, false},
@@ -1041,10 +1060,12 @@ static const struct {
     {"cube", describe_cube, false},
     {"rice_trial", describe_rice_trial, false},
     {"cat", describe_cat, false},
+    {"ambient", describe_ambient, true},
     {"wrapped", describe_wrapped, false},
     {"xray", describe_xray, false},
     {"heatmap", describe_heatmap, true},
     {"heatmap_overlay", describe_heatmap_overlay, false},
+    {"color_picker", describe_color_picker, false},
     {"blur", describe_blur, false},
     {"actions", get_actions, false},
     {"profiles", get_profiles, false},

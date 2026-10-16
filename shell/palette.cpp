@@ -11,7 +11,7 @@ namespace {
 struct Action {
     const char *name, *title;
 };
-// The compositor actions the palette offers, run as `paw msg NAME`.
+// The compositor actions the palette offers, run as `paw msg NAME` (with its argument).
 constexpr Action actions[] = {
     {"terminal", "Open a terminal"},
     {"toggle_tiling", "Toggle tiling"},
@@ -34,7 +34,11 @@ constexpr Action actions[] = {
     {"snap_bottom_right", "Snap window to the bottom-right quarter"},
     {"close", "Close window"},
     {"promote", "Promote window to master"},
+    {"split_toggle", "Dwindle: toggle the split, side by side or stacked"},
+    {"split_swap", "Dwindle: swap the split's two halves"},
+    {"pseudo_toggle", "Dwindle: pseudotile the window at its floating size"},
     {"focus_last", "Focus the previous window"},
+    {"switcher_app", "Switch between this application's windows"},
     {"focus_urgent", "Focus the window asking for attention"},
     {"toggle_sticky", "Toggle sticky window"},
     {"toggle_above", "Keep window above others, or not"},
@@ -47,12 +51,14 @@ constexpr Action actions[] = {
     {"swallow_toggle", "Swallow the terminal this window came from, or let it out"},
     {"toggle_overview", "Overview of windows"},
     {"peek_toggle", "Peek at the desktop"},
+    {"pick_color", "Pick a colour from the screen"},
     {"keep_awake_toggle", "Keep awake, or not"},
     {"workspace_back", "Back to the previous workspace"},
     {"move_to_workspace_next", "Move window to the next workspace"},
     {"move_to_workspace_prev", "Move window to the previous workspace"},
     {"move_to_workspace_empty", "Move window to an empty workspace"},
     {"launcher", "Applications menu"},
+    {"shortcuts", "Keyboard shortcuts"},
     {"display_settings", "Display settings"},
     {"desktop_clock", "Show or hide the desktop clock"},
     {"wallpaper_next", "Next wallpaper"},
@@ -61,6 +67,10 @@ constexpr Action actions[] = {
     {"shake", "Shake the window"},
     {"gravity", "Let the windows fall"},
     {"party", "Throw a party"},
+    {"ambient sakura", "Ambient: sakura petals over the wallpaper"},
+    {"ambient snow", "Ambient: soft snow over the wallpaper"},
+    {"ambient fireflies", "Ambient: fireflies over the wallpaper"},
+    {"ambient off", "Ambient: off"},
 };
 
 QVariantMap entry(const QString &kind, const QString &title, const QString &subtitle,
@@ -83,6 +93,13 @@ QVariantList merged(const QVariantList &ranked, const QVariantList &files, int l
     return list;
 }
 } // namespace
+
+QString Palette::actionTitle(const QString &name) {
+    for (const auto &action : actions)
+        if (name == action.name)
+            return action.title;
+    return {};
+}
 
 Palette::Palette(ShellController &controller) : QObject(&controller), controller_(controller) {
     // Files read while it is open join what it shows.

@@ -24,6 +24,7 @@
 #include "paw/config.hpp"
 #include "restyle.hpp"
 #include "rice_trial.hpp"
+#include "shortcuts.hpp"
 #include "start_menu.hpp"
 #include "system_status.hpp"
 #include "task_model.hpp"
@@ -233,8 +234,11 @@ class ShellController : public QObject {
     // The compositor's window switcher (Alt+Tab): the output showing it, empty while closed, and
     // its windows as {appId, title, output, workspace, minimized, urgent, id}, most recently
     // focused first; `id` is the window's number (TaskModel's windowId), 0 when not given.
+    // `switcherApp`: it lists one application's windows (switcher_app, Alt+`); kept as the
+    // switcher closes, so that it goes as it showed.
     Q_PROPERTY(QString switcherOutput READ switcherOutput NOTIFY switcherChanged)
     Q_PROPERTY(QVariantList switcherWindows READ switcherWindows NOTIFY switcherChanged)
+    Q_PROPERTY(bool switcherApp READ switcherApp NOTIFY switcherChanged)
     Q_PROPERTY(int switcherSelected READ switcherSelected NOTIFY switcherSelectedChanged)
     // The command palette (Super + P).
     Q_PROPERTY(Palette *palette READ palette CONSTANT)
@@ -248,6 +252,8 @@ class ShellController : public QObject {
     Q_PROPERTY(ClipboardHistory *clipboard READ clipboard CONSTANT)
     // The emoji picker.
     Q_PROPERTY(EmojiPicker *emoji READ emoji CONSTANT)
+    // The sheet of keyboard shortcuts.
+    Q_PROPERTY(Shortcuts *shortcuts READ shortcuts CONSTANT)
     // The compositor's overview: the output showing it, empty while closed; its thumbnails as
     // {x, y, w, h, appId, title, workspace, urgent} and workspace strip cells as {x, y, w, h,
     // workspace, windows}, in the output's coordinates; the selected thumbnail, the workspace
@@ -477,6 +483,9 @@ class ShellController : public QObject {
     FileIndex *files() { return &files_; }
     ClipboardHistory *clipboard() { return &clipboard_; }
     EmojiPicker *emoji() { return &emoji_; }
+    Shortcuts *shortcuts() { return &shortcuts_; }
+    // The configuration in force.
+    const paw::Config &config() const { return config_; }
     // Opens a file in its default application, or with `folder` the folder that holds it; a
     // failure shows across the panel.
     Q_INVOKABLE bool openFile(const QString &path, bool folder = false);
@@ -522,6 +531,11 @@ class ShellController : public QObject {
     // and the summary on the on-screen display while no card shows (notifications off, or do not
     // disturb).
     void notice(const QString &summary, const QString &body);
+    // A colour picked off the screen with the compositor's colour picker ("color-picked
+    // #rrggbb"), copied already: a swatch of it and its hex on the on-screen display, with do not
+    // disturb on too, or a notification while the display is off. Anything but #rrggbb is
+    // ignored.
+    void colorPicked(const QString &hex);
     // Starts answering on the session bus when notifications are enabled and QtDBus is built
     // in; later configuration reloads follow the setting. Returns whether it is serving.
     bool startNotifications();
@@ -548,6 +562,7 @@ class ShellController : public QObject {
     QVariantMap workspaces() const { return workspaces_; }
     QString switcherOutput() const { return switcher_.output; }
     QVariantList switcherWindows() const { return switcher_.windows; }
+    bool switcherApp() const { return switcher_.app; }
     int switcherSelected() const { return switcher_.selected; }
     // Focuses the switcher's window at `index` and closes it.
     Q_INVOKABLE void switcherPick(int index);
@@ -681,6 +696,7 @@ class ShellController : public QObject {
     StartMenu startMenu_{{}, this};
     ClipboardHistory clipboard_;
     EmojiPicker emoji_;
+    Shortcuts shortcuts_{*this};
     // Types `text` into what has the keyboard through the compositor, else copies it and says so.
     void typeText(const QString &text);
     std::unique_ptr<Audio> audio_ = makeAudio();
@@ -776,6 +792,7 @@ class ShellController : public QObject {
         QString output = {};
         QVariantList windows = {};
         int selected = 0;
+        bool app = false;
     };
     Switcher switcher_, nextSwitcher_;
     int switcherPending_ = 0;

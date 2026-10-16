@@ -34,6 +34,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
     if (tick_idle(output->server)) // the screens dimming
         wlr_output_schedule_frame(output->wlr_output);
     cat_frame(output->server); // whatever moved under the cat drew this frame
+    ambient_frame(output); // whatever paused its particles drew this frame as it went
     if (heatmap_tick(output->server)) // the pointer heatmap fading in or out
         wlr_output_schedule_frame(output->wlr_output);
     blur_frame(output->server); // the blur under each window follows where it is drawn
@@ -722,6 +723,8 @@ static void output_destroy(struct wl_listener *listener, void *data) {
     mirrors_forget_source(output);
     crossfade_forget_output(output);
     heatmap_forget_output(output);
+    color_picker_forget_output(output);
+    ambient_forget_output(output);
     blur_forget_output(output);
     output_release_zoom(output);
     destroy_output_layers(output->server, output->wlr_output);

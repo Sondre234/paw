@@ -58,6 +58,18 @@ const Option options[] = {
      "GTK and libadwaita applications, Firefox, Chromium and Electron applications such as "
      "Discord read through xdg-desktop-portal. Only a login session (`--session`) sets it. "
      "Unset, paw leaves the preference as it is."},
+    {"appearance.ambient", "table", "", "", none, none,
+     "Particles drifting over the wallpaper, under the windows and panels: sakura petals "
+     "tumbling down, soft snow, or fireflies wandering and glowing. An appearance profile may "
+     "set them, and the `ambient` action switches them meanwhile. They pause while the session "
+     "is locked, while a monitor is off or shows a fullscreen window and while the screens are "
+     "dimmed, and fade out after five minutes without input until there is some."},
+    {"appearance.ambient.kind", "enum", "\"none\"", "\"sakura\"", none, none,
+     "`\"sakura\"`, `\"snow\"` or `\"fireflies\"`; `\"none\"` for none."},
+    {"appearance.ambient.count", "integer", "30 petals, 60 flakes, 24 fireflies", "50", 1, 150,
+     "How many particles drift on each monitor."},
+    {"appearance.ambient.speed", "number", "1", "0.6", 0.1, 5,
+     "How fast they drift: 0.5 at half their own pace, 2 at twice it."},
 
     {"keyboard", "table", "", "", none, none, "Keyboard layout and key repeat."},
     {"keyboard.layout", "string", "\"us\"", "\"us\"", none, none,
@@ -103,6 +115,17 @@ const Option options[] = {
      "Natural scrolling for mice; unset keeps the device default."},
     {"mouse.focus_follows", "boolean", "true", "true", none, none,
      "Hovering a window focuses it, without raising it."},
+    {"mouse.hide_when_typing", "boolean", "false", "true", none, none,
+     "Hide the cursor as a key is typed into an application, as macOS does, until the pointer "
+     "moves, clicks or scrolls. Modifier keys alone and the keys bindings take leave it, and so "
+     "does typing while a button is held."},
+    {"mouse.hide_after", "integer", "0", "5", 0, 3600,
+     "Seconds the pointer rests before the cursor hides, until it moves, clicks or scrolls; `0` "
+     "never hides it."},
+    {"mouse.shake_to_find", "boolean", "false", "true", none, none,
+     "Shaking the pointer quickly from side to side grows the cursor to three times its size for "
+     "a moment, as macOS does, so that it is easy to find; it shrinks back about a second after "
+     "the shaking stops. Not while a button is held."},
 
     {"touchpad", "table", "", "", none, none, "Touchpad settings (standalone sessions)."},
     {"touchpad.natural_scroll", "boolean", "unset", "true", none, none,
@@ -444,6 +467,26 @@ const Option options[] = {
     {"windows.rules[].blur", "boolean", "unset", "", none, none,
      "`false` draws no blur behind the window (see `windows.blur`), `true` draws one even with "
      "`windows.blur.enabled` off."},
+    {"windows.rules[].shadow", "boolean", "unset", "", none, none,
+     "`false` draws no shadow under the window (see `windows.shadow`), `true` draws one even "
+     "with `windows.shadow.enabled` off."},
+    {"windows.rules[].border", "boolean", "unset", "", none, none,
+     "`false` draws no border around the window; the room `border_width` keeps for it stays."},
+    {"windows.rules[].border_color", "color or gradient", "`windows.border_color`", "", none,
+     none, "The window's border while it has the focus, as `windows.border_color`."},
+    {"windows.rules[].border_inactive_color", "color or gradient",
+     "`windows.border_inactive_color`", "", none, none,
+     "Its border without the focus, as `windows.border_inactive_color`."},
+    {"windows.rules[].corner_radius", "integer", "`windows.corner_radius`", "", 0, 40,
+     "Radius of the window's corners, wherever `windows.round` rounds it; 0 keeps it square."},
+    {"windows.rules[].idle_inhibit", "enum", "unset", "", none, none,
+     "Keep the machine awake (no idle step, idle daemons told it is inhibited) while the window "
+     "is open (`\"always\"`), shows (`\"visible\"`), has the focus (`\"focus\"`) or is "
+     "fullscreen and shows (`\"fullscreen\"`), the session unlocked; `\"none\"` refuses the "
+     "window's own idle inhibitors, as a browser playing sound in a tab holds."},
+    {"windows.rules[].scratchpad", "boolean", "unset", "", none, none,
+     "Open hidden in the scratchpad (with `features.scratchpad`), floating, for "
+     "`scratchpad_show` to drop it down."},
 
     {"peek", "table", "", "", none, none,
      "Peek: `peek` (hold a key) and `peek_toggle` make every window nearly transparent to show "
@@ -689,7 +732,9 @@ const Option options[] = {
      "`\"duplicate\"`, `\"internal\"` or `\"external\"`; without one, the popup that steps "
      "through them. With `cat`: `\"on\"`, `\"off\"` or `\"toggle\"`; without one, "
      "toggle. With `heatmap`: `\"toggle\"`, `\"motion\"`, `\"clicks\"` or "
-     "`\"reset\"`; without one, toggle."},
+     "`\"reset\"`; without one, toggle. With `ambient`: `\"sakura\"`, `\"snow\"`, "
+     "`\"fireflies\"`, `\"off\"`, `\"next\"` (each kind in turn, then none) or `\"toggle\"` "
+     "(off, or back to the last kind); without one, toggle."},
     {"bindings[].amount", "integer", "40; 5 for volume and brightness", "", 1, 4000,
      "With `resize_*`: pixels moved per press. With `volume_up`, `volume_down`, `brightness_up` "
      "and `brightness_down`: percent per press, up to 100."},
@@ -704,6 +749,20 @@ const Option options[] = {
      "With `key` only: while the key is held, the action runs again at `keyboard.repeat_rate` "
      "after `keyboard.repeat_delay`, as Hyprland's `binde`. (Lua keeps `repeat` for its own "
      "loops.)"},
+    {"bindings[].release", "boolean", "false", "", none, none,
+     "With `key` only, and not with `repeats`: the action runs as the key comes up rather than "
+     "as it goes down, as Hyprland's `bindr`. A modifier key (`Super_L`, `Alt_L`, ...) still "
+     "reaches the application as it goes down, and its binding runs only when the key was "
+     "tapped alone: not when another key, a mouse button, the wheel or a touchpad gesture was "
+     "used while it was held, so `{ key = \"Super_L\", release = true, action = \"launcher\" "
+     "}` opens the launcher as Windows' Start key does, and Super + drag and Super + Q are left "
+     "alone. `mods` are those held as the key goes down; a modifier key's own (`Super` with "
+     "`Super_L`) may be left out."},
+    {"bindings[].description", "string", "the action's own title", "", none, none,
+     "What the binding does, in your words, as Hyprland's `bindd`: the sheet of keyboard "
+     "shortcuts (the `shortcuts` action) shows it in place of the action's title, e.g. "
+     "`description = \"Files\"` for a `spawn` of a file manager, whose command it shows "
+     "shortened otherwise. Also in `modes`."},
 
     {"notifications", "table", "", "", none, none,
      "Notifications: the shell serves `org.freedesktop.Notifications` on the session bus and shows "
@@ -1394,7 +1453,7 @@ std::string config_reference_markdown() {
         first = false;
     }
     out << "\n\n`spawn` needs `command`; `workspace` and `move_to_workspace` need `workspace`; "
-           "`screenshot` and `cat` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
+           "`screenshot`, `cat`, `heatmap` and `ambient` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
            "`brightness_up` and `brightness_down` take `amount`; a `switch` needs `state`.\n\n"
            "Modifiers: ";
     first = true;

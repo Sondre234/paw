@@ -1232,6 +1232,8 @@ void ShellController::subscribe() {
             } else if (line.startsWith("notice ")) {
                 const auto fields = line.sliced(7).split('\t');
                 notice(fields[0], fields.value(1));
+            } else if (line.startsWith("color-picked ")) {
+                colorPicked(line.sliced(13));
             } else if (line.startsWith("dnd ")) {
                 handleDnd(line.sliced(4));
             } else if (line.startsWith("panel-drag") || line.startsWith("panel-dropped ") ||
@@ -1263,6 +1265,9 @@ void ShellController::subscribe() {
                 clipboard_.toggle(line.sliced(10));
             } else if (line.startsWith("emoji ")) {
                 emoji_.toggle(line.sliced(6));
+            } else if (line.startsWith("shortcuts ")) {
+                // shortcuts OUTPUT: the sheet of keyboard shortcuts, opened or closed there.
+                shortcuts_.toggle(line.sliced(10));
             } else if (line.startsWith("locked ")) {
                 // locked on|off: nothing copied while the session is locked is kept, and the
                 // wallpaper slideshow waits.
@@ -1285,11 +1290,14 @@ void ShellController::subscribe() {
             } else if (line.startsWith("palette ")) {
                 palette_.open(line.sliced(8));
             } else if (line.startsWith("switcher ")) {
-                // switcher OUTPUT SELECTED COUNT, then COUNT switcher-window lines.
+                // switcher OUTPUT SELECTED COUNT [app], then COUNT switcher-window lines; "app"
+                // when it lists one application's windows.
                 const auto words = line.split(' ');
-                if (words.size() != 4)
+                if (words.size() < 4)
                     continue;
-                nextSwitcher_ = {.output = words[1], .selected = words[2].toInt()};
+                nextSwitcher_ = {.output = words[1],
+                                 .selected = words[2].toInt(),
+                                 .app = words.size() > 4 && words[4] == "app"};
                 switcherPending_ = words[3].toInt();
                 if (switcherPending_ <= 0)
                     showSwitcher();
@@ -1541,6 +1549,21 @@ void ShellController::notice(const QString &summary, const QString &body) {
     notifications_.notify(std::move(notification));
     if (!notifications_.enabled() || notifications_.dnd())
         osd_.show(overlayOutput(), summary, -1);
+}
+void ShellController::colorPicked(const QString &hex) {
+    static const QRegularExpression rgb("^#[0-9a-f]{6}$");
+    if (!rgb.match(hex).hasMatch())
+        return;
+    if (osd_.config().enabled) {
+        osd_.show(overlayOutput(), hex, -1, "color");
+        return;
+    }
+    Notification notification;
+    notification.app = "paw";
+    notification.icon = "color-select";
+    notification.summary = "Colour copied";
+    notification.body = hex;
+    notifications_.notify(std::move(notification));
 }
 void ShellController::handleDnd(const QString &verb) {
     if (verb == "toggle")

@@ -131,7 +131,9 @@ if(BUILD_TESTING)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
-    # tests/NAME.py, or tests/FILE, with the arguments, for at most a minute or the timeout.
+    # tests/NAME.py, or tests/FILE, with the arguments, for at most a minute or the timeout;
+    # three times as long in the sanitizers' build (tools/check-all.sh), which runs many times
+    # slower: minimize_smoke took 52 of its 60 seconds there, shell_gallery 94 to 120 of 120.
     function(paw_smoke name)
         cmake_parse_arguments(PARSE_ARGV 1 SMOKE "" "SCRIPT;TIMEOUT" "")
         if(NOT SMOKE_SCRIPT)
@@ -139,6 +141,9 @@ if(BUILD_TESTING)
         endif()
         if(NOT SMOKE_TIMEOUT)
             set(SMOKE_TIMEOUT 60)
+        endif()
+        if("${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS}" MATCHES "-fsanitize=")
+            math(EXPR SMOKE_TIMEOUT "${SMOKE_TIMEOUT} * 3")
         endif()
         add_test(NAME ${name} COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/${SMOKE_SCRIPT}
             ${SMOKE_UNPARSED_ARGUMENTS})
@@ -164,6 +169,7 @@ if(BUILD_TESTING)
     paw_unit_test(window_features)
     paw_unit_test(import ${CMAKE_CURRENT_SOURCE_DIR}/tests/import)
     paw_unit_test(urgent_config)
+    paw_unit_test(rule_fields_config)
     paw_unit_test(productivity)
     paw_unit_test(power_config)
     paw_unit_test(lock_style ${EXAMPLE_CONFIG})
@@ -181,10 +187,13 @@ if(BUILD_TESTING)
     paw_unit_test(rice LIBRARY paw_cli)
     paw_c_unit_test(cat_sprite)
     paw_c_unit_test(cat)
+    paw_c_unit_test(ambient)
     paw_unit_test(cat_command LIBRARY paw_cli)
     paw_c_unit_test(xray_layout)
     paw_c_unit_test(cube)
     paw_c_unit_test(blur)
+    paw_c_unit_test(color_picker)
+    paw_c_unit_test(shake)
     paw_c_unit_test(profile_schedule)
     paw_unit_test(heatmap LIBRARY paw_cli)
     target_link_libraries(heatmap_tests PRIVATE paw_config) # the action's bindings
@@ -277,9 +286,12 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/control.c
         src/compositor/crossfade.c
         src/compositor/cursor.c
+        src/compositor/cursor_hide.c
+        src/compositor/cursor_shake.c
         src/compositor/display_mode.c
         src/compositor/display_settings.c
         src/compositor/dynamic_rules.c
+        src/compositor/window_rules.c
         src/compositor/effects.c
         src/compositor/focus.c
         src/compositor/foreign_toplevel.c
@@ -293,6 +305,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/idle.c
         src/compositor/input.c
         src/compositor/input_method.c
+        src/compositor/key_release.c
         src/compositor/keymap.c
         src/compositor/layer_shell.c
         src/compositor/lift.c
@@ -321,6 +334,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/tearing.c
         src/compositor/tile_drop.c
         src/compositor/tiling.c
+        src/compositor/pseudo.c
         src/compositor/touch.c
         src/compositor/toplevel.c
         src/compositor/type.c
@@ -334,8 +348,10 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/rice.c
         src/compositor/profile_schedule.c
         src/compositor/cat.c
+        src/compositor/ambient.c
         src/compositor/xray.c
         src/compositor/heatmap.c
+        src/compositor/color_picker.c
         src/compositor/cube.c
         src/compositor/blur.c
     )
@@ -358,9 +374,12 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/dropdown.c)
     target_sources(paw PRIVATE src/toys.c)
     target_sources(paw PRIVATE src/cat.c src/cat_sprite.c)
+    target_sources(paw PRIVATE src/ambient.c)
     target_sources(paw PRIVATE src/xray_layout.c)
     target_sources(paw PRIVATE src/cube.c)
     target_sources(paw PRIVATE src/blur.c)
+    target_sources(paw PRIVATE src/color_picker.c)
+    target_sources(paw PRIVATE src/shake.c)
     target_sources(paw PRIVATE src/profile_schedule.c)
     target_link_libraries(paw PRIVATE paw_heatmap)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
@@ -738,6 +757,8 @@ if(PAW_BUILD_COMPOSITOR)
             ${EXAMPLE_CONFIG})
         paw_smoke(launch_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         paw_smoke(cursor_theme_smoke $<TARGET_FILE:paw>)
+        paw_smoke(cursor_hide_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(color_scheme_smoke $<TARGET_FILE:paw>)
         paw_smoke(autostart_smoke $<TARGET_FILE:paw>)
         paw_smoke(startup_failure_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
@@ -761,6 +782,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(focus_last_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(switcher_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe>)
+        paw_smoke(switcher_app_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:input_probe>)
         paw_smoke(overview_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(overview_pointer_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
@@ -786,6 +809,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(spawn_at_pointer_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(scratchpad_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(rule_scratchpad_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scratchpad_drop_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe>)
         paw_smoke(group_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
@@ -794,6 +818,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(reload_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(tile_focus_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(dwindle_split_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_bound_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
@@ -811,6 +837,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(window_style_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(window_round_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(window_rules_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(rule_look_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(output_workspace_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(output_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         add_executable(animation_tests tests/animation_tests.c src/animation.c
@@ -837,12 +864,16 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(gradient_border_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")
         paw_smoke(dim_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(cursor_shake_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
+            "${GRIM_ARGUMENT}")
         find_program(SLURP slurp)
         paw_smoke(screenshot_select_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "$<$<BOOL:${SLURP}>:${SLURP}>" "${GRIM_ARGUMENT}")
         paw_smoke(idle_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> $<TARGET_FILE:window_probe>
             "${GRIM_ARGUMENT}")
+        paw_smoke(idle_rule_smoke $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
+            $<TARGET_FILE:wayland_probe>)
         paw_smoke(urgent_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(urgent_border_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")
@@ -894,6 +925,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(lock_style_smoke $<TARGET_FILE:paw>)
         paw_smoke(binding_modes_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(locked_bindings_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
+        paw_smoke(key_release_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(shortcuts_inhibit_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
         paw_smoke(input_method_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_method_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:input_probe> "${GRIM_ARGUMENT}")
@@ -959,12 +992,17 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(rice_smoke TIMEOUT 120 $<TARGET_FILE:paw>)
         paw_smoke(cat_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(ambient_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(wrapped_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:idle_probe>)
         paw_smoke(xray_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(heatmap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(color_picker_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:input_probe> $<TARGET_FILE:pointer_probe> $<TARGET_FILE:clipboard_probe>
+            $<TARGET_FILE:lock_probe>)
         # `paw tour` driving a session, its windows the probe's; and the queries it reads.
         paw_smoke(tour_smoke TIMEOUT 180 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe>)

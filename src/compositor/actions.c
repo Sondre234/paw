@@ -44,7 +44,7 @@ static size_t screenshot_windows(struct sh_server *server, struct sh_rect *boxes
 #define SCREENSHOT_CURSOR_MS 5000
 
 static int screenshot_cursor_timeout(void *data) {
-    cursor_show(data);
+    cursor_show(data, SH_HIDDEN_SCREENSHOT);
     return 0;
 }
 
@@ -52,7 +52,7 @@ static int screenshot_cursor_timeout(void *data) {
  * software cursor, as the headless backend's and some drivers' are) would hand it to grim. Also
  * for one taken without the screenshot action ("cursor hide", as `paw showcase` takes one). */
 void screenshot_hide_cursor(struct sh_server *server) {
-    cursor_hide(server);
+    cursor_hide(server, SH_HIDDEN_SCREENSHOT);
     if (!server->screenshot.timer)
         server->screenshot.timer = wl_event_loop_add_timer(
             wl_display_get_event_loop(server->wl_display), screenshot_cursor_timeout, server);
@@ -67,7 +67,7 @@ void screenshot_show_cursor(struct sh_server *server) {
         return;
     if (server->screenshot.timer)
         wl_event_source_timer_update(server->screenshot.timer, 0);
-    cursor_show(server);
+    cursor_show(server, SH_HIDDEN_SCREENSHOT);
 }
 
 /* A layer surface going. slurp's ("selection") goes once the region is chosen, leaving grim to
@@ -85,7 +85,7 @@ void screenshot_exited(struct sh_server *server, int pid) {
     server->screenshot.pid = 0;
     if (server->screenshot.timer)
         wl_event_source_timer_update(server->screenshot.timer, 0);
-    cursor_show(server);
+    cursor_show(server, SH_HIDDEN_SCREENSHOT);
 }
 
 void screenshot_finish(struct sh_server *server) {
@@ -161,6 +161,7 @@ static const struct {
 } shell_actions[] = {
     {SH_LAUNCHER, .open = "launcher"},
     {SH_PALETTE, .open = "palette"},
+    {SH_SHORTCUTS, .open = "shortcuts"},
     {SH_NOTIFICATION_HISTORY, .open = "notifications"},
     {SH_CLIPBOARD_HISTORY, .open = "clipboard"},
     {SH_EMOJI_PICKER, .open = "emoji"},
@@ -186,7 +187,8 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         overview_close(server, NULL, -1);
     // The exploded view gives way to the overview and the switcher, which would show under it.
     if (server->xray.open && (action == SH_OVERVIEW_TOGGLE || action == SH_SWITCHER_NEXT ||
-                              action == SH_SWITCHER_PREV))
+                              action == SH_SWITCHER_PREV || action == SH_SWITCHER_APP_NEXT ||
+                              action == SH_SWITCHER_APP_PREV))
         xray_close(server, NULL);
     for (size_t i = 0; i < sizeof(shell_actions) / sizeof(*shell_actions); ++i) {
         if (shell_actions[i].action != action)
@@ -331,7 +333,12 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_MASTER_SHRINK:
     case SH_MASTER_MORE:
     case SH_MASTER_LESS:
+    case SH_SPLIT_TOGGLE:
+    case SH_SPLIT_SWAP:
         layout_action(server, action);
+        break;
+    case SH_PSEUDO_TOGGLE:
+        pseudo_toggle(server);
         break;
     case SH_TASKBAR_FOCUS:
         request_taskbar(server);
@@ -370,7 +377,11 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     }
     case SH_SWITCHER_NEXT:
     case SH_SWITCHER_PREV:
-        switcher_open(server, action == SH_SWITCHER_PREV, 0, XKB_KEY_NoSymbol);
+        switcher_open(server, action == SH_SWITCHER_PREV, false, 0, XKB_KEY_NoSymbol);
+        break;
+    case SH_SWITCHER_APP_NEXT:
+    case SH_SWITCHER_APP_PREV:
+        switcher_open(server, action == SH_SWITCHER_APP_PREV, true, 0, XKB_KEY_NoSymbol);
         break;
     case SH_SWITCHER_CONFIRM:
         switcher_close(server, argument > 0 ? argument - 1 : server->switcher.selected);
@@ -507,11 +518,17 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_CAT:
         cat_switch(server, argument);
         break;
+    case SH_AMBIENT:
+        ambient_switch(server, argument);
+        break;
     case SH_XRAY:
         xray_toggle(server);
         break;
     case SH_HEATMAP:
         heatmap_action(server, argument);
+        break;
+    case SH_PICK_COLOR:
+        color_picker_toggle(server);
         break;
     default:
         arrange_windows(server, action);

@@ -24,7 +24,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
 | `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, the desktop cat's ways and its pixel art. Several are unit tested. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip, which strokes of the pointer make a shake and how large the cursor grows, how ambient particles drift and what they look like. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -64,8 +64,11 @@ all. In short:
 | `headless_input.c` | Input devices without hardware for tests under `--headless`: keyboards, pointers that move and make touchpad gestures, touchscreens, drawing tablets with a pen, an eraser and a pad, and lid and tablet-mode switches. |
 | `input.c` | Keyboards, key bindings, pointers' libinput settings, virtual devices, selection and drag-and-drop. |
 | `input_method.c` | Input methods (fcitx5, ibus): text-input-v3 and input-method-v2 relayed between the application with the keyboard and the input method, its keyboard grab, and its popups beside the text cursor. |
+| `key_release.c` | Key bindings with `release`, which run as their key comes up: a modifier key's (Super_L opening the launcher) only when it was tapped alone, any other key, button, wheel notch, gesture, finger or pen meanwhile (`key_release_cancel`) letting it go. |
 | `keymap.c` | The keymap from the keyboard settings, given to every keyboard but virtual ones. |
 | `cursor.c` | What is under the pointer, and the tile the user moved it onto (`pointed_tile`), focus on hover, button bindings, scrolling, the cursor image. |
+| `cursor_hide.c` | The cursor hidden while typing (`mouse.hide_when_typing`) and once the pointer has rested (`mouse.hide_after`), as reasons of `cursor_hide`'s besides a screenshot's, until the pointer is used (`cursor_used`). |
+| `cursor_shake.c` | Shaking the pointer to find it (`mouse.shake_to_find`): a shake (`src/shake.c`) grows the cursor, its image from the theme at three times the size given as a buffer at the scale of the moment, stepped on a timer; meanwhile what sets the cursor's image only notes it (`cursor_grown`), and the image it would have shows as it is back to its size; `get cursor_size`. |
 | `gestures.c` | Touchpad gestures: the swipes `gestures` takes (workspaces and the overview following the fingers, requests), and the rest passed on to the surface under the pointer (pointer-gestures-unstable-v1). |
 | `tablet.c` | Drawing tablets (tablet-v2): tools with pressure and tilt to the surfaces under them, the pointer where tablet input is not taken, pads to the surface with the keyboard, and the output a tablet is mapped to. |
 | `touch.c` | Touchscreens: fingers to the surfaces under them (wl_touch), the pointer for clients without touch and the compositor's own controls, and the output each screen is mapped to. |
@@ -75,6 +78,7 @@ all. In short:
 | `lift.c` | Lifting a window moved with the pointer: drawn a little larger about where it was taken, its shadow softer and further off, set down onto an edge its magnet holds, settling as it is dropped. |
 | `stacking.c` | The layers windows are drawn in among themselves (tiles, floating windows over them with `layout.floating_above_tiles`, windows kept above the others) and keeping a window above. |
 | `dynamic_rules.c` | Dynamic window rules: what they hold a window to as its title and app ID change, given back as they stop (with `src/dynamic_rule.c`). |
+| `window_rules.c` | What window rules give a window for as long as it matches them (`window_rule_now`): its look (shadow, border and its colours, corner radius; frame.c draws it) and its `idle_inhibit` (lock.c), matched again only as its title, app ID or the configuration changes. |
 | `focus.c` | Keyboard focus and urgent windows. |
 | `toplevel.c` | Windows: xdg-shell toplevels and popups, opening by window rules, maximize, fullscreen, minimize. |
 | `xwayland.c` | X11 windows and the XWM waker. |
@@ -83,6 +87,7 @@ all. In short:
 | `placement.c` | Snapping, maximizing, reflowing, moving and resizing by keyboard. |
 | `morph.c` | A window gliding to a new place and size together (maximized, snapped, restored, made fullscreen, moved or resized by keyboard), its client's commits meanwhile, and the size its frame is drawn at. |
 | `tiling.c` | Glue between windows and the layouts in `src/tiling.cpp`. |
+| `pseudo.c` | Pseudotiling (`pseudo_toggle`, Hyprland's pseudotile): a tile of dwindle shown at its floating size in the middle of its tile (`sh_tiling_pseudo`), resized by the pointer or the keyboard about that middle rather than by its splits. |
 | `workspace.c` | Workspaces per output, sticky windows. |
 | `output.c`, `output_moves.c` | Monitors and their configuration; windows and workspaces moving between outputs. |
 | `output_power.c` | Monitors turned off and on in the layout: wlr-output-power-management. |
@@ -114,9 +119,11 @@ all. In short:
 | `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
 | `profile_schedule.c` | The day and night profile schedule (`profile_schedule`): the profile the last sunrise or sunset brings (`src/profile_schedule.c` finds which came last), picked as `profile NAME` through `sh_callbacks.command` and a reload, the last one applied kept in `$XDG_STATE_HOME/paw/profile-schedule`; a timer looking at the clock each minute and after each reload, `profile_auto`, and `get profile_schedule`. |
 | `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
+| `ambient.c` | Ambient particles (`appearance.ambient`, the `ambient` action): sakura petals, snow or fireflies in a tree of scene buffers for each output, over the wallpaper and under the bottom layer, taking no input; stepped every 33 ms from a timer of its own while an output shows them, `src/ambient.c` moving them and painting their pictures; paused while the session is locked, the output is off or shows a fullscreen window or the screens are dimmed, and faded out after a while without input; `get ambient`. |
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
 | `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
 | `heatmap.c` | The pointer heatmap: how long the pointer rested and how often it clicked in each cell of each output's grid (`src/heatmap.c`), in memory for the session alone, `get heatmap`, and the heatmap action's overlay: a picture of each grid blurred and coloured, stretched over its output under the drag icons and the lock, taking no input, with a legend in the coolest corner, drawn again twice a second from a timer while it shows and fading with `heatmap_tick` from `output_frame`. |
+| `color_picker.c` | The colour picker (`pick_color`): the cursor turned into a loupe (`src/color_picker.c` paints it) showing the pixels around the pointer, read from a picture of the output under it drawn on the renderer without the cursor, night light or a client's gamma table (as `crossfade.c` draws its pictures) and drawn again while the output draws; a click, Return or Space picking the pixel under the crosshair onto the clipboard (a data source of the compositor's own), to the subscribers (`color-picked #rrggbb`) and to each `paw msg pick_color` waiting on a copy of its connection; Escape or another button cancelling; `get color_picker`. |
 | `blur.c` | The blur behind windows (`windows.blur`): each output's background (the background layer over `appearance.background`) drawn at half its pixels, read back and blurred on the CPU (`src/blur.c`) once it settles after a change, and under each window's surfaces the part of that picture it covers on the screen, placed again before each frame by `blur_frame` from `output_frame`; `get blur`. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
@@ -219,8 +226,9 @@ window, and `tests/window_peek_smoke.py` tests it.
 
 The window switcher peeks at its selected window through the same functions (`switcher.c`). The
 shell's `Switcher.qml` asks for it as the switcher shows (`ShellController::switcherShown`, the
-`switcher_peek` request, which `switcher_ask_peek` takes), but not in the macOS style nor with
-`peek.switcher` off. The first peek waits on `switcher.peek_timer` until `SWITCHER_PEEK_MS` after
+`switcher_peek` request, which `switcher_ask_peek` takes), but not with `peek.switcher` off, nor
+in the macOS style but for one application's windows (`switcher_app`, whose `switcher` line ends
+with `app`: `ShellController::switcherApp`, `Switcher.qml`'s `iconsOnly`). The first peek waits on `switcher.peek_timer` until `SWITCHER_PEEK_MS` after
 the selection last moved (`selected_at`); while that peek goes on (`switcher_peeks`: the peek is
 still at `switcher.peeked`, the window it peeked at), `switcher_select` moves it at once, and once
 something else ended it (focus, the desktop peek, a taskbar's picture) the selection rests again
@@ -987,6 +995,41 @@ row travelling far within a short while. While it is hidden
 (`hidden_why`: turned off, the session locked or another VT in front, no monitor, the overview,
 its monitor off, a fullscreen window on its monitor or the focused one) its tree is disabled and
 no timer runs; the next frame that shows things changed steps it again. `get cat` describes it.
+
+### Ambient particles
+
+What the particles do and look like is `src/ambient.c`'s (`paw/ambient.h`, tested by
+`ambient_tests`), without wlroots: a `struct sh_ambient_field` is a monitor's area, its kind, the
+time gone (which a gentle wind follows, `sh_ambient_wind`) and a seed; `sh_ambient_spawn` puts a
+particle anywhere in it (as they first show, fading in) or above its top, and `sh_ambient_step`
+moves them all on. Petals and flakes fall at their own pace, nearer ones (`depth`) larger and
+faster, drift with the wind and sway, and come in again at the top or the other side; petals turn
+and tumble, and fireflies wander, kept off the edges, and glow in cycles of their own.
+`sh_ambient_look` says how one is drawn: its picture, turned by quarter turns, its box (a
+petal's tumble narrows it, its other face showing past edge on, which is the petal mirrored) and
+its opacity. `sh_ambient_paint` paints the pictures in premultiplied ARGB with smooth edges from
+signed distances: petals in four pinks at three lengths, each turned in SH_AMBIENT_TURNS steps
+of a quarter turn (the buffer transform turns them the other quarters), dots of snow at six
+sizes, and a firefly's glow, brighter than its alpha so that it adds light.
+
+`ambient.c` in the compositor keeps a `struct sh_ambient_sky` for each output in the layout
+(`sh_output.ambient`; none for a mirroring one) in a tree just above the background layer
+(`layer_trees[0]`) and under the bottom one, a scene buffer for each particle that takes no
+input. So the blur behind windows, which draws the background layer alone, leaves them out. The
+pictures are painted for the output's scale as each is first needed, and again as the scale
+changes; a node is given a new buffer only when its picture changes. A timer of its own steps
+every sky every 33 ms while any shows (`tick`), changing its nodes with its tree off and showing
+it again once, as a party's confetti does. An output pauses, its tree off and nothing stepped
+(`paused_why`), while the session is locked or on another VT, while it is off or out of the
+layout, while it shows a fullscreen window and while the screens are dimmed; with every output
+paused the timer stops, and `ambient_frame`, from `output_frame`, starts it again once the frame
+something drew as it went shows the output may show them, and `ambient_input` once input comes
+after they rested. They fade out (`presence`) toward none, toward another kind, which is put in
+once they are gone and fades in, and after five minutes without input (`PAW_TEST_AMBIENT_IDLE_MS`
+for tests). The kind is `appearance.ambient.kind` until the `ambient` action picks another
+(`ambient_switch`), which stands until a reload changes the kind configured. `get ambient`
+(`describe_ambient`) lists each output's kind, count and state, and with an output's name its
+particles as drawn; `tests/ambient_smoke.py` tests them.
 ### Counting for paw wrapped
 
 `wrapped.c` keeps `sh_server.wrapped` while `wrapped.enabled` is on in a standalone session
@@ -1251,7 +1294,8 @@ what was there.
 | `AuthDialog.qml` | The polkit authentication dialog (`shell.authentication`), an overlay surface of its own: the request, the user to answer as, the password. |
 | `RiceTrial.qml` | The question while a rice is on trial (`shell.riceTrial`), a card in the middle of the output, an overlay surface of its own: the rice's name, author and description, the countdown, Revert and Keep. |
 | `ClipboardPicker.qml`, `EmojiPicker.qml` | The clipboard history's popup and the emoji picker, each in an overlay surface of its own (`PickerView`, `picker_view.cpp`). |
-| `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style. |
+| `Shortcuts.qml` | The sheet of keyboard shortcuts (`shell.shortcuts`, `shortcuts.cpp`), in a `PickerView` that covers the output: every binding in effect as key caps beside what it does, in groups laid out in columns, with a search. |
+| `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style (in it too for one application's windows). |
 | `Xray.qml` | The names of the exploded view's sheets (`paw xray`), an overlay surface of its own over the compositor's stack: a legend of every sheet in its layer's colour, top first, and a caption for the one under the pointer. |
 | `Caption.qml` | The caption `paw tour` narrates itself with (`shell.caption`, `caption.cpp`, from the compositor's `caption` lines), an overlay surface of its own (`CaptionView`) where the on-screen display shows, taking no input. |
 
@@ -1414,7 +1458,8 @@ and the model lets go of them as it goes. A stand-in model (the preview's, the t
 (`image://preview-windows/ID`, painted by `preview.cpp`).
 
 The window switcher's cards (`SwitcherCards.qml`, which `Switcher.qml` loads in place of its grid
-with `shell.thumbnails` outside the macOS style) show the same pictures. The switcher's lines
+with `shell.thumbnails` outside the macOS style, or in it for one application's windows) show the
+same pictures. The switcher's lines
 name a window by its app id and title, which two windows may share, and by its number (the window
 control's `id`, `TaskModel`'s `windowId` role); each card finds its task with a `TaskFilter`
 whose `windowId` keeps that window alone, filtering again when the number comes after the window.
@@ -1610,6 +1655,19 @@ a keymap of up to 200 keys made for the text's characters (`xkb_utf32_to_keysym`
 that keymap, each key pressed and released, and the seat's own keyboard, keymap and modifiers
 back after.
 
+The sheet of keyboard shortcuts (`Shortcuts`, `shortcuts.cpp`; `shell.shortcuts`) reads the
+bindings from the configuration the shell loads itself, not from the compositor. Its pure part,
+`shortcuts::sheet`, makes groups of rows from `config.bindings`, and first from the binding mode in
+use (`bindingMode`): an action's group and title come from a table there, the title from the
+command palette's own where it has one (`Palette::actionTitle`), or from the binding's
+`description`, or for a `spawn` its command shortened; the keys are named by `keyName`, for the
+style in use, and bindings alike but for their key (the directions of one family, workspaces on
+running digits) become one row. `shortcuts::filter` keeps the rows whose `search` text holds every
+word typed; `tests/shortcuts_test.cpp` tests both and the model. `shortcuts OUTPUT` from the
+`shortcuts` action toggles it, in a `PickerView` that covers the output (`cover`: anchored to
+every edge, an exclusive zone of -1, its root sized to it), where `Shortcuts.qml` lays the groups
+out in as many columns as the width allows, each group in the shortest so far.
+
 ### Frosted glass
 
 With `shell.blur` the bars and the popups are frosted glass: each shows the wallpaper behind it
@@ -1766,7 +1824,7 @@ notifications, over the configured wallpaper (`--preview-popup` lists the names)
 style the dock and the menu bar, over the style's drawn wallpaper while none is set, with the
 menu bar's menus as `system-menu`, `app-menu`, `window-menu` and `window-submenu`. The overlay
 surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `cards`,
-`power-dialog`, `palette`, `palette-empty`, `switcher`, `overview`, `snap-assist`, `display-mode`,
+`power-dialog`, `palette`, `palette-empty`, `shortcuts`, `shortcuts-search`, `shortcuts-mode`, `switcher`, `overview`, `snap-assist`, `display-mode`,
 `display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 `display-settings`, `display-settings-trial`, `xray`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 `display-settings`, `display-settings-trial`, `caption`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
@@ -1874,7 +1932,7 @@ whether it has, for something the compositor does another way without it, as the
   the test failed. Wait with `desktop.wait_for`, never with a fixed sleep; to check that
   something does not happen, which an animation or a client's commit could do a little later,
   use `desktop.stays`. Register it with `paw_smoke(NAME ARGUMENTS...)` (and `TIMEOUT SECONDS`
-  for more than a minute) under `PAW_BUILD_COMPOSITOR` in `CMakeLists.txt`. A temporary
+  for more than a minute, which the sanitizers' build triples) under `PAW_BUILD_COMPOSITOR` in `CMakeLists.txt`. A temporary
   directory's prefix stays at 26 characters or fewer: the control socket goes in it, a Unix
   socket's path is limited to about 107 bytes, and a Gentoo package build runs the tests in a
   `TMPDIR` of 43 characters or more.
@@ -1912,6 +1970,8 @@ lock the screen before a suspend gives up (see `power_smoke.py`), and
 `PAW_TEST_CAT_SLEEP_MS` sets how long the desktop cat waits without input before it sleeps, in
 place of `cat.sleep_after` (see `cat_smoke.py`), and `PAW_TEST_HEATMAP_REST_MS` how long a
 resting pointer counts in the heatmap (see `heatmap_smoke.py`).
+`PAW_TEST_AMBIENT_IDLE_MS` sets how long ambient particles wait without input before they fade
+out (see `ambient_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless

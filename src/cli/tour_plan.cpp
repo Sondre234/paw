@@ -272,8 +272,8 @@ bool acts_on_window(const std::string &request) {
 
 bool acts_on_output(const std::string &request) {
     static const std::set<std::string, std::less<>> actions{
-        "toggle_tiling", "toggle_overview", "switcher", "switcher_prev", "scroll_left",
-        "scroll_right"};
+        "toggle_tiling", "toggle_overview", "switcher", "switcher_prev", "switcher_app",
+        "switcher_app_prev", "scroll_left", "scroll_right"};
     auto action = first_word(request);
     return actions.contains(action) || action.starts_with("workspace") ||
            action.starts_with("layout_") || action.starts_with("master_");

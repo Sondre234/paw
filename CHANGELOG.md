@@ -308,6 +308,27 @@ shadows.
 - `paw msg type TEXT` types text into what has the keyboard, emoji and accents too, on a
   keymap made for it, as wtype does.
 
+### The colour picker
+
+- `pick_color` picks a colour off the screen, as hyprpicker does: the cursor becomes a crosshair
+  with a loupe of the 11 by 11 pixels around it magnified, in a card of the shell's colours with
+  the pixel's swatch and `#rrggbb`, read from what the monitor shows without the cursor or night
+  light, in the monitor's own pixels at fractional scales and turned monitors too. A click (or
+  Return) copies `#rrggbb` to the clipboard and shows it on the on-screen display, Escape or a
+  right click cancels, and the arrows move a pixel. `paw msg pick_color` waits and prints the
+  colour, subscribers hear `color-picked #rrggbb`, and the command palette offers it. Unbound by
+  default; `config/init.lua` suggests Super + Shift + C.
+
+### The sheet of keyboard shortcuts
+
+- `shortcuts` (Super + /, or Keyboard shortcuts in the command palette) shows every key and mouse
+  button binding in effect on one sheet over the dimmed screen, frosted with `shell.blur`: grouped
+  by what they do, in columns, each its keys as caps beside what it does (Super with the Windows
+  logo, or ⌃ ⌥ ⇧ ⌘ in the macOS style), the binding mode's first while one is in use. Typing
+  searches it; Escape or the key again closes it.
+- `bindings[].description` names a binding there in your words, as Hyprland's `bindd`; a spawn
+  without one shows its command, shortened.
+
 ### The clock and Quick Settings
 
 - The clock opens one flyout at the bar's right end, as on Windows 11: the notifications above
@@ -437,6 +458,11 @@ shadows.
   and one with `repeats = true` runs again while its key is held, as Hyprland's `binde` (keyboard
   resizing did alone before, and still does unless `repeats = false`). The shipped volume,
   microphone and brightness keys work on the lock screen, and the steps repeat while held.
+- A key binding with `release = true` runs as its key comes up, as Hyprland's `bindr`. One of a
+  modifier key alone runs only when that key was tapped, so `{ key = "Super_L", release = true,
+  action = "launcher" }` (commented out in the shipped configuration) opens the start menu, or
+  Launchpad, on a tap of Super as Windows does, while Super + a key, a click, the wheel or a
+  gesture leave it closed; the application still hears Super go down and up.
 - Binding modes, as sway's modes and Hyprland's submaps: `modes` holds named lists of key bindings,
   and a binding with `action = "mode", mode = "NAME"` (or `paw msg mode NAME`) puts one in
   use, its bindings taking the place of the others until `mode = "default"`. The taskbar and the
@@ -501,6 +527,17 @@ shadows.
   `sticky` and `above`, and once they no longer do the window gets back what it had, keeping
   what was changed by hand meanwhile. Their other actions still act once, as the window opens.
   `paw msg get dynamic_rules` tells what they hold each window to.
+- Window rules give a window a look of its own, as Hyprland's `noshadow`, `noborder`,
+  `bordercolor` and `rounding` do: `shadow = false` (or `true`), `border = false`,
+  `border_color` and `border_inactive_color` (a gradient too) and `corner_radius`. Their
+  `idle_inhibit` keeps the machine awake while the window is open (`"always"`), shows
+  (`"visible"`), has the focus (`"focus"`) or is fullscreen (`"fullscreen"`), so `{ app_id = ".*",
+  idle_inhibit = "fullscreen" }` keeps games and films awake, and `"none"` refuses a window's own
+  inhibitor, as a browser playing music in a background tab holds. These follow the window's title
+  as it changes and apply anew on a reload. `scratchpad = true` opens the window hidden in the
+  scratchpad, for `scratchpad_show` to drop it down. `paw msg get idle` lists the windows an
+  `idle_inhibit` names, and `get frames` the colour of each border. `paw import` brings
+  Hyprland's `noshadow`, `noborder`, `rounding`, `bordercolor` and `idleinhibit` rules over.
 - `layout.floating_above_tiles = true` keeps floating windows over the tiles, as sway and Hyprland
   do. It is off by default: as before, the window brought forward last is in front, tile or not.
 - A fullscreen window stays in front of its monitor while another monitor has the focus, as
@@ -522,6 +559,14 @@ shadows.
 - Screenshots leave the cursor out: paw hides it while grim takes the picture, where a monitor
   that draws the cursor into its frames (as with NVIDIA's driver here) put it in every
   screenshot. `paw msg get cursor` says whether it is hidden.
+- `mouse.hide_when_typing = true` hides the cursor while typing into an application, as macOS
+  does, and `mouse.hide_after = N` once the pointer has rested N seconds; moving, clicking or
+  scrolling shows it again. Modifier keys alone and keys a binding takes leave it. Both are off
+  by default.
+- `mouse.shake_to_find = true` grows the cursor to three times its size for a moment as the
+  pointer is shaken from side to side, as macOS does, smoothly, and shrinks it back about a second
+  after the shaking stops. Ordinary motion, a drag and stroking the desktop cat never set it off.
+  `paw msg get cursor_size` says the size the cursor is drawn at.
 - Getting around a monitor's workspaces as on Hyprland. `move_to_workspace_next` and
   `move_to_workspace_prev` (Super + Ctrl + Alt + Right / Left) take the focused window to the
   workspace beside its own, wrapping around, and `move_to_workspace_empty` to the first one with
@@ -553,6 +598,28 @@ shadows.
   with the setting off), fullscreen windows have none, and profiles can turn it on and off. Only
   the wallpaper is blurred, at half the monitor's pixels on the CPU once it changes, so windows
   moving, resizing and animating over it cost nothing more; `paw msg get blur` shows it.
+- Alt + \` (`switcher_app`) switches between the focused application's windows, as macOS's
+  Cmd + \` and GNOME's Alt + \` do: the window switcher over that application's windows alone, on
+  every monitor and workspace, most recently used first, \` moving on while Alt is held and
+  Shift + \` (or Alt + Shift + \`, `switcher_app_prev`) moving back. An application with one
+  window opens nothing. The macOS style's switcher shows those windows' titles, or their pictures,
+  in place of its icons alone, and the command palette offers it too.
+- Hyprland's dwindle controls, experimental and unbound by default (example keys in the shipped
+  configuration, also in the command palette): `split_toggle` turns the split the focused tile
+  shares with its neighbour from side by side to stacked or back, and keeps it so where dwindle
+  would follow the box's shape; `split_swap` trades that split's halves at their sizes; and
+  `pseudo_toggle` keeps the focused tile at its floating size in the middle of its tile, resized
+  about that middle. The tiles glide there; other layouts take none of them.
+- Ambient particles (experimental, off unless set): `appearance.ambient = { kind = "sakura" }`
+  has sakura petals tumble down over the wallpaper, `"snow"` soft snow, the nearest flakes out of
+  focus, and `"fireflies"` fireflies wandering and glowing warm, under the windows and the panels
+  and out of the background windows blur. `count` and `speed` set how many and how fast, an
+  appearance profile can set them (washi, sumi and mochi suggest one each in a comment) and a rice
+  bring them, and the `ambient` action (`paw msg ambient sakura|snow|fireflies|off|next|toggle`,
+  and the command palette) switches them, fading one kind out and the next in. They pause while
+  the session is locked, a monitor is off or shows a fullscreen window and the screens are dimmed,
+  and fade out after five minutes without input; `paw msg get ambient` says what each monitor
+  draws.
 
 ### Starting and ending a session
 

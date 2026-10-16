@@ -465,8 +465,10 @@ void refresh_frame(struct sh_toplevel *toplevel) {
         toplevel->fullscreen || !mapped ? 1 : rule_opacity(toplevel, app_id, title, active);
     bool translucent = opacity < 1; // as it settles, whatever a fade draws meanwhile
     // Opacity and border color fade when focus changes; a window that is not yet shown, or
-    // was hidden, takes them at once.
-    int b = settings->border_width;
+    // was hidden, takes them at once. A rule may leave its border out, or colour it and round it
+    // and give it a shadow or none, its own way (window_rules.c).
+    const struct sh_window_rule *rule = window_rule_now(toplevel);
+    int b = rule->border == 0 ? 0 : settings->border_width;
     // An urgent window is framed in its color even without a border: inside its edges, so the
     // layout does not move.
     bool urgent = toplevel->urgent && !active;
@@ -476,11 +478,12 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     float framed = frame_shown(toplevel, framed_at_rest);
     bool own_shadow = frame_own_shadow(toplevel, framed_at_rest);
     bool bordered = (b > 0 || inset) && mapped, shown = bordered && framed > 0;
-    const float *color = urgent ? settings->urgent_color
-                                : active ? settings->border_active : settings->border_inactive;
+    const struct sh_gradient *to = window_border(toplevel, true);
+    const struct sh_gradient *from = window_border(toplevel, false);
+    const float *color = urgent ? settings->urgent_color : active ? to->stops[0] : from->stops[0];
     // A border in gradients eases from the inactive one to the active one rather than between
     // colours; going from one kind to the other, it takes the new one at once.
-    bool gradient = bordered && !urgent && gradient_borders(server);
+    bool gradient = bordered && !urgent && (sh_gradient_varies(from) || sh_gradient_varies(to));
     float target[SH_TWEEN_VALUES] = {opacity}, fading[SH_TWEEN_VALUES];
     if (gradient)
         target[1] = active;
@@ -537,7 +540,8 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     sh_anim_lift_bounds(&toplevel->anim, 0, 0, g.width, g.height);
     bool rounded = mapped && framed > 0 &&
                    (tiles_for(toplevel, output) || (settings->round_always && !own_shadow));
-    int round_radius = rounded ? settings->corner_radius : 0;
+    int round_radius =
+        rounded ? rule->corner_radius >= 0 ? rule->corner_radius : settings->corner_radius : 0;
     int radius = (int)lroundf(round_radius * framed);
 #ifdef PAW_ROUNDED_CORNERS
     window_clip(toplevel, SH_CLIP_CONTENT,
@@ -548,13 +552,13 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     toplevel->corner_radius = radius;
     // A shadow under every window that has none of its own, or whose own the clip cut away;
     // none under a fullscreen or maximized one. It keeps the corners it has in full as it fades.
-    refresh_shadow(toplevel,
-                   settings->shadow && mapped && framed > 0 && (round_radius > 0 || !own_shadow),
+    bool shadowed = rule->shadow >= 0 ? rule->shadow : settings->shadow;
+    refresh_shadow(toplevel, shadowed && mapped && framed > 0 && (round_radius > 0 || !own_shadow),
                    shown && !inset ? b : 0, round_radius, framed, translucent);
 
     // xdg-shell windows keep their scene tree while unmapped; the border must not. One in
     // gradients is drawn in pieces of its own instead.
-    refresh_gradient_border(toplevel, gradient && shown, b, radius, mix, whole * framed);
+    refresh_gradient_border(toplevel, gradient && shown, b, radius, mix, whole * framed, from, to);
     if (toplevel->gradient)
         raise_frame_node(toplevel, &toplevel->gradient->node);
     for (int i = 0; i < 4; ++i) {
