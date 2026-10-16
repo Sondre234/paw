@@ -50,6 +50,8 @@ int main(int argc, char **argv) {
         TaskModel model;
         if (!model.connectDisplay())
             throw std::runtime_error("cannot connect task model");
+        // What watches the windows' pictures, as a panel does.
+        QObject watcher;
         auto wait = [&](const std::function<bool()> &condition, const char *message) {
             QElapsedTimer timer;
             timer.start();
@@ -75,10 +77,10 @@ int main(int argc, char **argv) {
         if (model.roleNames().value(TaskModel::Picture) != "picture" ||
             !value(TaskModel::Picture).toString().isEmpty() || !model.picture(id).isNull())
             throw std::runtime_error("the window has a picture before one was asked for");
-        model.watchPicture(id, 160, true);
-        model.watchPicture(id + 100, 160, true); // no such window
-        model.unwatchPicture(id);
-        model.unwatchPicture(id); // one more than it was watched
+        model.watchPicture(&watcher, id, 160, true);
+        model.watchPicture(&watcher, id + 100, 160, true); // no such window
+        model.unwatchPicture(&watcher, id);
+        model.unwatchPicture(&watcher, id); // one more than it was watched
         // QML asking for a picture that is not there gets an empty one, not an error.
         const QImage none = windowImage(model, QString("%1/1").arg(id));
         if (none.size() != QSize(1, 1) || none.pixelColor(0, 0).alpha() != 0)
@@ -274,7 +276,7 @@ int main(int argc, char **argv) {
             return near(picture.pixel(x, 2), 0x23314a) &&
                    near(picture.pixel(x, picture.height() * 3 / 4), 0x417bc4);
         };
-        model.watchPicture(id, 160, false);
+        model.watchPicture(&watcher, id, 160, false);
         pictured({}, "no picture of the window arrived");
         const QString prefix = QString("image://windows/%1/").arg(id);
         if (!url().startsWith(prefix) || model.picture(id).size() != QSize(133, 100) ||
@@ -282,10 +284,10 @@ int main(int argc, char **argv) {
             throw std::runtime_error("the window's picture is not the probe's window at 133 by 100");
         if (windowImage(model, url().mid(QString("image://windows/").size())) != model.picture(id))
             throw std::runtime_error("the image provider did not serve the window's picture");
-        model.unwatchPicture(id);
+        model.unwatchPicture(&watcher, id);
         // Watched live, it follows the window as it redraws: maximized, at another size, and back.
         QString last = url();
-        model.watchPicture(id, 160, true);
+        model.watchPicture(&watcher, id, 160, true);
         pictured(last, "watching again took no new picture");
         model.maximize(id);
         wait(
@@ -301,28 +303,28 @@ int main(int argc, char **argv) {
              "the live picture did not follow the window back");
         // Watched at another width meanwhile, the picture takes it, smaller and larger again: the
         // compositor, which scales the window down itself, is asked again each time.
-        model.watchPicture(id, 80, true);
+        model.watchPicture(&watcher, id, 80, true);
         wait([&] { return model.picture(id).size() == QSize(67, 50); },
              "the picture did not shrink to a new width");
-        model.watchPicture(id, 160, true);
+        model.watchPicture(&watcher, id, 160, true);
         wait([&] { return model.picture(id).size() == QSize(133, 100); },
              "the picture did not grow to a new width");
         if (!isProbe(model.picture(id)))
             throw std::runtime_error("the picture at a new width is not the probe's window");
-        model.unwatchPicture(id);
-        model.unwatchPicture(id);
-        model.unwatchPicture(id);
+        model.unwatchPicture(&watcher, id);
+        model.unwatchPicture(&watcher, id);
+        model.unwatchPicture(&watcher, id);
         // Unwatched, the last picture stays; a minimized window is pictured too.
         if (url().isEmpty() || model.picture(id).isNull())
             throw std::runtime_error("unwatching dropped the window's picture");
         model.minimize(id);
         wait([&] { return value(TaskModel::Minimized).toBool(); }, "minimizing for a picture failed");
         last = url();
-        model.watchPicture(id, 160, false);
+        model.watchPicture(&watcher, id, 160, false);
         pictured(last, "a minimized window gave no picture");
         if (!isProbe(model.picture(id)))
             throw std::runtime_error("the minimized window's picture is not the probe's window");
-        model.unwatchPicture(id);
+        model.unwatchPicture(&watcher, id);
         for (const auto &roles : pictureRoles)
             if (roles != QList<int>{TaskModel::Picture})
                 throw std::runtime_error("a new picture announced other roles than its own");
@@ -337,8 +339,8 @@ int main(int argc, char **argv) {
         // Stale IDs must be harmless after a window closes, and its picture has gone with it.
         model.activate(id);
         model.close(id);
-        model.watchPicture(id, 160, true);
-        model.unwatchPicture(id);
+        model.watchPicture(&watcher, id, 160, true);
+        model.unwatchPicture(&watcher, id);
         if (!model.picture(id).isNull())
             throw std::runtime_error("a closed window's picture stayed");
         std::cout

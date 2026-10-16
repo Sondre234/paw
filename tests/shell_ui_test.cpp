@@ -1276,8 +1276,8 @@ ListModel {
     property var peeks: []
     property int peekedTask: -1
     function note(request) { requests = requests.concat([request]) }
-    function watchPicture(id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
-    function unwatchPicture(id) { pictures = pictures.concat(["unwatch " + id]) }
+    function watchPicture(owner, id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
+    function unwatchPicture(owner, id) { pictures = pictures.concat(["unwatch " + id]) }
     function peek(id) { if (peekedTask !== id) { peekedTask = id; peeks = peeks.concat(["peek " + id]) } }
     function endPeek(id) { if (peekedTask === id) { peekedTask = -1; peeks = peeks.concat(["end " + id]) } }
     function activate(id) { note("activate " + id) }
@@ -2876,8 +2876,8 @@ ListModel {
             switcherTasks.setData(R"(import QtQml.Models
 ListModel {
     property var pictures: []
-    function watchPicture(id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
-    function unwatchPicture(id) { pictures = pictures.concat(["unwatch " + id]) }
+    function watchPicture(owner, id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
+    function unwatchPicture(owner, id) { pictures = pictures.concat(["unwatch " + id]) }
     ListElement { taskId: 31; title: 'Wide'; appId: 'wide'; windowId: 501; minimized: false
                   picture: 'image://test-windows/320x180' }
     ListElement { taskId: 32; title: 'Tall'; appId: 'tall'; windowId: 502; minimized: false
