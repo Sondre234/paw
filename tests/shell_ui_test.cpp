@@ -966,6 +966,13 @@ int main(int argc, char **argv) {
         tray->remove("themed");
         QIcon::setThemeName(before);
     }
+    // The programs the shell starts get the cursor theme the compositor draws (cursor-theme SIZE
+    // NAME), a profile's too.
+    subscriber->write("cursor-theme 32 paw-test-cursor\n");
+    if (!waitFor([] {
+            return qgetenv("XCURSOR_THEME") == "paw-test-cursor" && qgetenv("XCURSOR_SIZE") == "32";
+        }))
+        return fail("the shell's environment did not take the compositor's cursor theme");
     // Every icon of the shell's QML goes through shell.iconBase, to follow the icon theme.
     {
         int files = 0;
