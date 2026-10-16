@@ -1393,7 +1393,8 @@ as `#rrggbb` (lowercase, without a newline), the on-screen display shows a swatc
 for a moment (with do not disturb on too; with `osd.enabled = false` a notification says it
 instead), and subscribers to the [control socket](#control-socket) hear `color-picked #rrggbb`.
 The arrows move the pointer a pixel of the monitor (Shift and an arrow ten), to pick exactly.
-Escape, a right click or `pick_color` again cancels, and so does the screen locking. Other
+Escape, a right click (or any button but the left) or `pick_color` again cancels, and so does the
+screen locking. Other
 bindings run as usual meanwhile (switch workspaces to pick a colour there); other keys and the
 wheel do nothing, and the windows hear nothing of the pointer until the picker is done. Bind it
 to try it, as `config/init.lua` suggests:

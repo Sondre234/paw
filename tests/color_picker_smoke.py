@@ -3,8 +3,8 @@
 pointer is its alone, the window under it hearing nothing; `get color_picker` says the colour
 under the crosshair as it moves, read from what the screen shows, also where the loupe itself
 was a moment before. A click picks it: subscribers hear `color-picked #rrggbb`, the clipboard
-holds "#rrggbb", and `paw msg pick_color` prints it. Escape, a right click, its own binding again
-and the session locking cancel, with no event and `paw msg pick_color` failing. Return picks too,
+holds "#rrggbb", and `paw msg pick_color` prints it. Escape, another button, its own binding
+again and the session locking cancel, with no event and `paw msg pick_color` failing. Return picks too,
 and the arrows move the pointer a pixel. On a monitor at a scale of 1.25 the loupe is drawn
 in whole pixels at that scale and still reads the pixel under the crosshair, and so on one
 turned a quarter. The pointer is a virtual one (pointer_probe), the colours those the probes
@@ -153,6 +153,7 @@ with harness.Compositor(compositor, config()) as desktop:
 
     cancelled(lambda: keys(ESCAPE))
     cancelled(lambda: pointer("click", "right"))
+    cancelled(lambda: pointer("click", "middle"))
     cancelled(lambda: keys(SUPER, SHIFT, C))  # its binding again
     locker = None
 

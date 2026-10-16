@@ -4,8 +4,8 @@
  * drawn on the renderer without the cursor, night light or a client's gamma table, and drawn again
  * while the output draws. A click, Return or Space picks the pixel under the crosshair: it goes to
  * the clipboard as #rrggbb, to the subscribers as `color-picked #rrggbb`, which the shell shows on
- * its on-screen display, and to each `paw msg pick_color` waiting for it. Escape or a right click
- * cancels; the arrows move the pointer a pixel. `get color_picker`. */
+ * its on-screen display, and to each `paw msg pick_color` waiting for it. Escape or another
+ * button cancels; the arrows move the pointer a pixel. `get color_picker`. */
 #include "server.h"
 #include "paw/color_picker.h"
 #include <drm_fourcc.h>
@@ -531,8 +531,8 @@ bool color_picker_motion(struct sh_server *server) {
     return true;
 }
 
-/* While picking a left press picks and a right one cancels; the picker takes the release of
- * every press it took, also once it has stopped. */
+/* While picking a left press picks and any other cancels (also that of a button bound to
+ * pick_color); the picker takes the release of every press it took, also once it has stopped. */
 bool color_picker_button(struct sh_server *server, const struct wlr_pointer_button_event *event) {
     struct sh_color_picker *picker = server->color_picker;
     if (!picker)
@@ -551,7 +551,7 @@ bool color_picker_button(struct sh_server *server, const struct wlr_pointer_butt
     picker->pressed |= bit;
     if (event->button == BTN_LEFT)
         pick(server);
-    else if (event->button == BTN_RIGHT)
+    else
         cancel(server);
     return true;
 }
