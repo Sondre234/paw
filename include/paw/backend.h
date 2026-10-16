@@ -227,6 +227,9 @@ enum sh_action {
     SH_CLIPBOARD_HISTORY,
     /* Asks the shell for its emoji picker on the output under the pointer, as Windows' Win+. */
     SH_EMOJI_PICKER,
+    /* Picks a colour off the screen with a loupe, copied as #rrggbb (src/compositor/
+     * color_picker.c), or cancels the picking under way. */
+    SH_PICK_COLOR,
     /* Asks the shell for its display settings window on the output under the pointer. */
     SH_DISPLAY_SETTINGS,
     /* Minimizes the focused window into its taskbar button, as its own minimize button does. */

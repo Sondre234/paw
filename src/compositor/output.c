@@ -722,6 +722,7 @@ static void output_destroy(struct wl_listener *listener, void *data) {
     mirrors_forget_source(output);
     crossfade_forget_output(output);
     heatmap_forget_output(output);
+    color_picker_forget_output(output);
     blur_forget_output(output);
     output_release_zoom(output);
     destroy_output_layers(output->server, output->wlr_output);

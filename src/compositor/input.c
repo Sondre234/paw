@@ -459,6 +459,8 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
         start_repeat(keyboard, keycode, action, argument, flags);
         return true;
     }
+    if (color_picker_key(server, modifiers, sym))
+        return true;
     if (server->switcher.open) {
         switcher_key(server, modifiers, sym);
         return true;

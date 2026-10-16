@@ -635,6 +635,7 @@ finish:
     cat_finish(&server);
     xray_finish(&server);
     heatmap_finish(&server);
+    color_picker_finish(&server);
     blur_finish(&server);
     if (server.config_watch)
         wl_event_source_remove(server.config_watch);

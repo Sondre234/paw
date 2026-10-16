@@ -510,6 +510,9 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_HEATMAP:
         heatmap_action(server, argument);
         break;
+    case SH_PICK_COLOR:
+        color_picker_toggle(server);
+        break;
     default:
         arrange_windows(server, action);
         break;

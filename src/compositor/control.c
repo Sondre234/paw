@@ -464,6 +464,10 @@ static void control_handle(struct sh_server *server, int fd, const char *request
         done = power_start(server, action, error, sizeof(error));
     } else if (action == SH_DISPLAY_MODE) {
         done = display_mode_choose(server, argument, error, sizeof(error));
+    } else if (action == SH_PICK_COLOR) {
+        // Answered once a colour is picked, or the picking cancelled (color_picker.c).
+        if (color_picker_wait(server, fd, error, sizeof(error)))
+            return;
     } else {
         server->target_output = target;
         if (display_action(action)) {
