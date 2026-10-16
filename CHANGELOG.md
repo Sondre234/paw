@@ -793,6 +793,10 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   stopped there. Each import ends with the error in its report.
 - Smart window placement no longer overflows on a window whose client set its geometry near the
   largest size an integer holds, which could open the next window on top of it.
+- `paw msg type` refuses the bytes 0xF8 to 0xFF, which start no UTF-8 character, where it typed
+  `F8 80 80` as U+8000.
+- paw compiles with clang: the files that include `rice.hpp` did not, so clang-tidy and clangd
+  could not read them either.
 
 ## 0.1.1 (2026-10-05)
 
