@@ -1366,6 +1366,34 @@ English keywords, under the Unicode License v3; `vendor/emoji/README.md` says ho
 Emoji, say); without one some show as boxes. `tests/emoji_test.cpp` tests the table and the search,
 and `tests/emoji_shell_smoke.py` the picker typing into a window.
 
+## Keyboard shortcuts
+
+`shortcuts` (Super + /, `paw msg shortcuts`, or Keyboard shortcuts in the command palette) shows
+every key and mouse button binding in effect on one sheet, on the monitor under the pointer: a
+card over the dimmed screen, frosted glass with `shell.blur`, drawn in the style in use. The
+bindings are grouped by what their actions do (Windows, Focus, Workspaces, Tiling, Scrolling,
+Window groups, Launch, Shell, Screen, Media, Session, Toys, and Other for the rest) in as many
+columns as the screen has room for, each row its keys as caps beside what it does: the command
+palette's name for the action where it has one (Close window, Layout: monocle), else the sheet's
+own, with the argument it takes (Go to workspace 3: mail, Screenshot of a region, Enter the resize
+mode). Bindings alike but for their key are one row: Super and the arrows focusing that way, Super
++ 1 to 4 going to workspaces 1 to 4. A mouse button's binding says where it acts (over kitty or
+foot windows and the desktop), and the lid's and tablet mode's show too. In the taskbar style
+Super's cap has the Windows logo; the macOS style writes the modifiers as a Mac does, ⌃ ⌥ ⇧ ⌘
+(Super is ⌘), and the footer says which is which. While a [binding mode](#binding-modes) is in
+use, its bindings come first, under its name in the accent colour.
+
+A binding's `description` names it in your words, as Hyprland's `bindd`:
+`{ mods = { mod }, key = "e", action = "spawn", command = { "dolphin" }, description = "Files" }`
+shows as Files, where a `spawn` without one shows its command, shortened (the program without its
+folder, the script of `sh -c`). Typing searches what the rows say, their keys and modifiers
+(`print`, `super shift`, `win`, `cmd`), their groups and the names of their actions and programs,
+every word in any order. Up, Down, Page Up and Page Down scroll, Home and End too while nothing is
+typed, and Escape, the binding again or a click beside the card closes it. The sheet reads the
+configuration the shell loads, so it follows a reload, and a binding mode entered, while it is
+open. On a keyboard layout where / takes Shift, bind another key to it (`key = "F1"`).
+`tests/shortcuts_test.cpp` tests what the sheet lists and its search, and `shell_ui` the sheet.
+
 ## Terminal
 
 The `terminal` action (`paw msg terminal`) opens a terminal: the program and arguments of

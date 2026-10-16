@@ -2117,6 +2117,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"group_merge_up", SH_GROUP_MERGE_UP},
         {"group_merge_down", SH_GROUP_MERGE_DOWN},
         {"palette", SH_PALETTE},
+        {"shortcuts", SH_SHORTCUTS},
         {"toggle_overview", SH_OVERVIEW_TOGGLE},
         {"overview_confirm", SH_OVERVIEW_CONFIRM},
         {"overview_cancel", SH_OVERVIEW_CANCEL},

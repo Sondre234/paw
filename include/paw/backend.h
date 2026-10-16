@@ -132,6 +132,9 @@ enum sh_action {
     /* Asks the shell for its command palette on the output under the pointer: one search over
      * windows, applications, workspaces, actions and saved sessions. */
     SH_PALETTE,
+    /* Asks the shell for its sheet of keyboard shortcuts on the output under the pointer, or to
+     * close it: every binding in effect, grouped, with a search. */
+    SH_SHORTCUTS,
     /* Magnifier: one step in or out, or back to 1x. The view follows the pointer. */
     SH_ZOOM_IN,
     SH_ZOOM_OUT,
