@@ -786,6 +786,10 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   worst frames halved) and drops no frames for it: its 240 pieces change out of the scene's
   sight and come back together, where the scene worked out what to draw again after each of
   some 700 changes a frame.
+- Connections to the control socket that never send a request are closed after five seconds,
+  and at most 64 wait at once, where paw kept every one until it ran out of file descriptors:
+  then no new window could open, and the compositor spun a core failing to take the next
+  connection. Out of descriptors, it now stops taking connections for a moment at a time.
 
 ## 0.1.1 (2026-10-05)
 
