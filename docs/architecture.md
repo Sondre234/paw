@@ -24,7 +24,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
 | `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, the desktop cat's ways and its pixel art. Several are unit tested. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip, which strokes of the pointer make a shake and how large the cursor grows, how ambient particles drift and what they look like. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip, which strokes of the pointer make a shake and how large the cursor grows, how ambient particles drift and what they look like, what falls off the pointer in a cursor trail. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -120,6 +120,7 @@ all. In short:
 | `profile_schedule.c` | The day and night profile schedule (`profile_schedule`): the profile the last sunrise or sunset brings (`src/profile_schedule.c` finds which came last), picked as `profile NAME` through `sh_callbacks.command` and a reload, the last one applied kept in `$XDG_STATE_HOME/paw/profile-schedule`; a timer looking at the clock each minute and after each reload, `profile_auto`, and `get profile_schedule`. |
 | `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
 | `ambient.c` | Ambient particles (`appearance.ambient`, the `ambient` action): sakura petals, snow or fireflies in a tree of scene buffers for each output, over the wallpaper and under the bottom layer, taking no input; stepped every 33 ms from a timer of its own while an output shows them, `src/ambient.c` moving them and painting their pictures; paused while the session is locked, the output is off or shows a fullscreen window or the screens are dimmed, and faded out after a while without input; `get ambient`. |
+| `cursor_trail.c` | The cursor trail (`appearance.cursor_trail`, the `cursor_trail` action): sparkles, sakura petals or hearts falling off the pointer as it moves (`cursor_trail_moved`, from the pointer's motion events), in a tree of scene buffers under the drag icons, over the windows and the panels, taking no input, `src/cursor_trail.c` spawning, moving and painting them; stepped every 16 ms from a timer of its own while any are left; none while the session is locked, while the cursor is hidden (`cursor_hide` clears them, which keeps them out of screenshots) or over a fullscreen window; `get cursor_trail`. |
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
 | `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
 | `heatmap.c` | The pointer heatmap: how long the pointer rested and how often it clicked in each cell of each output's grid (`src/heatmap.c`), in memory for the session alone, `get heatmap`, and the heatmap action's overlay: a picture of each grid blurred and coloured, stretched over its output under the drag icons and the lock, taking no input, with a legend in the coolest corner, drawn again twice a second from a timer while it shows and fading with `heatmap_tick` from `output_frame`. |
@@ -1029,6 +1030,43 @@ for tests). The kind is `appearance.ambient.kind` until the `ambient` action pic
 (`ambient_switch`), which stands until a reload changes the kind configured. `get ambient`
 (`describe_ambient`) lists each output's kind, count and state, and with an output's name its
 particles as drawn; `tests/ambient_smoke.py` tests them.
+
+### The cursor trail
+
+What falls off the pointer is `src/cursor_trail.c`'s (`paw/cursor_trail.h`, tested by
+`cursor_trail_tests`), without wlroots: a `struct sh_trail` holds up to `SH_TRAIL_MAX` particles
+in places that stay theirs until they go, the kind, how many colours the pictures come in, the
+amount and a seed. `sh_trail_moved` is told each motion of the pointer, from where to where, and
+spawns particles along the way in proportion to its length (a share of one carried over to the
+next motion), none for a pointer that stayed put and at most 24 for one motion; past the limit
+the particle nearest the end of its life gives way. `sh_trail_step` moves them on: each slows
+in the air, sparkles and petals fall a little and hearts float up, sparkles twinkle, petals sway,
+turn and tumble as the ambient ones do, and each goes as its life (half a second to a second) is
+up. `sh_trail_look` says how one is drawn: its picture and quarter turns, its box and its opacity,
+fading in over tens of milliseconds and out over the last half of its life. `sh_trail_paint`
+paints four-pointed stars, white toward the middle and the colour toward the points with a deeper
+edge, in a soft glow, sampled four by four a pixel; specks of glitter; and hearts with a deeper
+edge and a white gleam, from Inigo Quilez's signed distance; the petals are `sh_ambient_paint`'s,
+picked and turned by `sh_ambient_petal_sprite` and `sh_ambient_petal_turn`.
+
+`cursor_trail.c` in the compositor keeps one trail for the whole layout in a tree under the drag
+icons (so over the windows, the panels and the overlays, and under the lock and the cursor, which
+the outputs draw over the scene), a scene buffer for each place that takes no input, made as
+first needed. The pictures are painted for the outputs' largest scale as each is first needed;
+a node is given a new buffer only when its picture changes. `server_cursor_motion` and
+`server_cursor_motion_absolute` call `cursor_trail_moved` after the cursor moved: a motion of more
+than 320 pixels at once is a jump that drops nothing. A timer steps the trail every 16 ms while any
+particle is left, changing the nodes with their tree off and showing it again once, and stops
+with the last one, so a resting pointer costs nothing. `paused_why` (the session locked or on
+another VT, the cursor hidden, a fullscreen window on the pointer's output) clears the trail and
+lets none fall; `cursor_hide` clears it at once, so that a screenshot, which hides the cursor
+first, leaves it out too. The kind is `appearance.cursor_trail.kind` until the action picks
+another (`cursor_trail_switch`), which stands until a reload changes the kind configured; the
+colours are the configuration's, which `default_trail_colors` (`src/config.cpp`) works out from
+the border and the accent when none are given. `get cursor_trail` (`describe_cursor_trail`) says
+the kind, the count and the state, and `get cursor_trail particles` lists them as drawn;
+`tests/cursor_trail_smoke.py` tests it.
+
 ### Counting for paw wrapped
 
 `wrapped.c` keeps `sh_server.wrapped` while `wrapped.enabled` is on in a standalone session

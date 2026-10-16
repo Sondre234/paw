@@ -519,6 +519,9 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_AMBIENT:
         ambient_switch(server, argument);
         break;
+    case SH_CURSOR_TRAIL:
+        cursor_trail_switch(server, argument);
+        break;
     case SH_XRAY:
         xray_toggle(server);
         break;

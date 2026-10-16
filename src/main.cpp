@@ -450,7 +450,7 @@ struct Runtime {
             *argument = binding->layout;
         if (binding->action == SH_MODE || binding->action == SH_DISPLAY_MODE ||
             binding->action == SH_CAT || binding->action == SH_HEATMAP ||
-            binding->action == SH_AMBIENT)
+            binding->action == SH_AMBIENT || binding->action == SH_CURSOR_TRAIL)
             *argument = binding->mode;
         target = binding->output;
         flags = (binding->locked ? SH_BINDING_LOCKED : 0) |
@@ -521,8 +521,8 @@ struct Runtime {
      * [percent]", "switcher_confirm [N]", "switch_layout [next|prev|N]", "mode NAME|default",
      * "display_off [OUTPUT]" (and on, toggle), "display_mode [extend|duplicate|internal|
      * external]", "profile NAME|next|prev|auto", "cat [on|off|toggle]", "heatmap
-     * [toggle|motion|clicks|reset]", "ambient [sakura|snow|fireflies|off|next|toggle]", or
-     * "spawn PROGRAM [ARGS...]". */
+     * [toggle|motion|clicks|reset]", "ambient [sakura|snow|fireflies|off|next|toggle]",
+     * "cursor_trail [sparkles|petals|hearts|off|next|toggle]", or "spawn PROGRAM [ARGS...]". */
     static sh_action command(void *data, const char *request, int *argument, char *error,
                              size_t error_size) {
         auto &self = *static_cast<Runtime *>(data);
@@ -580,6 +580,12 @@ struct Runtime {
                         "ambient takes one word: sakura, snow, fireflies, off, next or toggle");
                 *argument = words.size() == 2 ? paw::parse_ambient_choice(words[1])
                                               : SH_AMBIENT_TOGGLE;
+            } else if (action == SH_CURSOR_TRAIL) {
+                if (words.size() > 2)
+                    throw std::runtime_error("cursor_trail takes one word: sparkles, petals, "
+                                             "hearts, off, next or toggle");
+                *argument = words.size() == 2 ? paw::parse_cursor_trail_choice(words[1])
+                                              : SH_CURSOR_TRAIL_TOGGLE;
             } else if (action == SH_HEATMAP) {
                 if (words.size() > 2)
                     throw std::runtime_error(

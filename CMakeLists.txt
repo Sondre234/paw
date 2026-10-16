@@ -350,6 +350,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/profile_schedule.c
         src/compositor/cat.c
         src/compositor/ambient.c
+        src/compositor/cursor_trail.c
         src/compositor/xray.c
         src/compositor/heatmap.c
         src/compositor/cube.c
@@ -993,6 +994,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(ambient_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(cursor_trail_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(wrapped_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:idle_probe>)
         paw_smoke(xray_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>

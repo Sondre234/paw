@@ -2124,6 +2124,46 @@ on the screen, `display_off`, `fullscreen`, `dimmed`, `idle`). `paw msg get ambi
 lists that monitor's particles as they are drawn: their box in layout coordinates, their opacity
 in thousandths, the picture and its transform.
 
+**Cursor trail** (experimental). `appearance.cursor_trail = { kind = "sparkles" }` has little
+four-pointed sparkles and specks of glitter fall off the pointer as it moves, twinkling as they
+drift down a little and fade within a second; `"petals"` drops tiny sakura petals that tumble and
+sway as they fall, and `"hearts"` hearts that pop out and float up. The faster the pointer moves,
+the more fall (none while it rests), and `amount` says how many (2 twice as many, 0.5 half, up to
+4). The sparkles and hearts come in `colors`, a list of up to six `#RRGGBB`; unless given, the
+focused border's colours (each of a gradient's) and `shell.accent`, with a light blue or a sakura
+pink beside them when none of them is one, so washi's trail is its light blue and pink. The petals
+are the [ambient](#effects) petals' pinks. An [appearance profile](#appearance-profiles) can set it
+(a [rice](#paw-rice) takes it along). The trail is drawn over the windows and the panels but under
+the cursor, and takes no input.
+
+The `cursor_trail` action switches it without touching the configuration: `paw msg cursor_trail
+sparkles` (or `petals`, `hearts`, `off`), `cursor_trail next` goes through the kinds in turn and
+then none, and `cursor_trail` alone (`toggle`) turns it off, or back on as it was last (sparkles
+the first time); bound to a key, `mode` takes the same words. The command palette offers it as
+"Cursor trail: ...". What the action chose stands until a reload changes
+`appearance.cursor_trail.kind`.
+
+Nothing of it runs while the pointer rests: a timer steps the particles every 16 milliseconds
+only while some are left. None fall, and those there go at once, while the session is locked,
+while the cursor is hidden (typing with `mouse.hide_when_typing`, resting with `mouse.hide_after`),
+over a monitor showing a fullscreen window (a game or a video), and while a screenshot is taken
+with the `screenshot` action or `paw msg cursor hide`, so the picture leaves it out as it leaves
+the cursor out. A screen recording or screen sharing shows it, as it shows the windows.
+
+```lua
+appearance = { cursor_trail = { kind = "sparkles", amount = 1 } },
+-- appearance = { cursor_trail = { kind = "hearts", colors = { "#f2a0be", "#8fc1ec" } } },
+bindings = {
+    { mods = { "Super", "Ctrl" }, key = "t", action = "cursor_trail", mode = "next" },
+},
+```
+
+`paw msg get cursor_trail` prints the kind, how many particles there are, and `shown`, `still`
+(none, the pointer resting), `off`, or why none fall (`locked`, `away` while another VT is on the
+screen, `screenshot`, `hidden`, `fullscreen`). `paw msg get cursor_trail particles` lists them as
+they are drawn: their box in layout coordinates, their opacity in thousandths, the picture and its
+transform.
+
 ## Monitors
 
 Monitors sit side by side, top-aligned. `outputs.order` lists connector names

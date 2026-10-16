@@ -524,6 +524,7 @@ const std::set<std::string> look_settings = {
     "appearance.background",
     "appearance.color_scheme",
     "appearance.ambient",
+    "appearance.cursor_trail",
     "windows.border_width",
     "windows.corner_radius",
     "windows.round",

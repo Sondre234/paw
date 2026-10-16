@@ -259,6 +259,8 @@ enum sh_action {
     /* Ambient particles over the wallpaper (src/compositor/ambient.c): argument an
      * sh_ambient_choice. */
     SH_AMBIENT,
+    /* The cursor trail (src/compositor/cursor_trail.c): argument an sh_cursor_trail_choice. */
+    SH_CURSOR_TRAIL,
     /* Opens the exploded view of the focused output's layers (paw xray), or closes it. */
     SH_XRAY,
     /* The pointer heatmap over every output: where the pointer rested or clicked (enum
@@ -279,6 +281,11 @@ enum sh_cat_switch { SH_CAT_TOGGLE, SH_CAT_ON, SH_CAT_OFF };
  * next kind in turn, none among them; or a kind, SH_AMBIENT_OFF plus its enum sh_ambient_kind
  * (paw/ambient.h), none being off. */
 enum sh_ambient_choice { SH_AMBIENT_TOGGLE, SH_AMBIENT_NEXT, SH_AMBIENT_OFF };
+
+/* The cursor_trail action's choices: off, or back on as it was last (sparkles the first time);
+ * the next kind in turn, none among them; or a kind, SH_CURSOR_TRAIL_OFF plus its enum
+ * sh_trail_kind (paw/cursor_trail.h), none being off. */
+enum sh_cursor_trail_choice { SH_CURSOR_TRAIL_TOGGLE, SH_CURSOR_TRAIL_NEXT, SH_CURSOR_TRAIL_OFF };
 
 /* The display_mode action's choices. */
 enum sh_display_mode {
@@ -632,6 +639,15 @@ struct sh_settings {
     int ambient;
     int ambient_count;
     float ambient_speed;
+    /* appearance.cursor_trail: what falls off the pointer as it moves (enum sh_trail_kind,
+     * paw/cursor_trail.h), how many (1 the usual number, 2 twice as many), and the colours the
+     * sparkles and hearts come in, the first cursor_trail_tints of cursor_trail_colors as sRGB
+     * from 0 to 1: those given, else the focused border's and shell.accent, with a light blue
+     * or a sakura pink beside them when they lack one. */
+    int cursor_trail;
+    float cursor_trail_amount;
+    float cursor_trail_colors[6][3];
+    int cursor_trail_tints;
     /* wrapped.enabled: the compositor counts what happens at the desktop for `paw wrapped`
      * (src/compositor/wrapped.c). */
     bool wrapped;

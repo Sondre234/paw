@@ -152,6 +152,7 @@ void reload_config(struct sh_server *server) {
     shortcuts_reload(server);
     cat_reload(server);
     ambient_reload(server);
+    cursor_trail_reload(server);
     wrapped_reload(server);
     cursor_hide_reload(server);
     cursor_shake_reload(server);
@@ -533,6 +534,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     idle_init(&server);
     cat_init(&server);
     ambient_init(&server);
+    cursor_trail_init(&server);
     wrapped_init(&server);
     cursor_hide_reload(&server);
     blur_reload(&server);
@@ -638,6 +640,7 @@ finish:
     rice_finish(&server);
     profile_schedule_finish(&server);
     cat_finish(&server);
+    cursor_trail_finish(&server);
     ambient_finish(&server);
     cursor_hide_finish(&server);
     cursor_shake_finish(&server);

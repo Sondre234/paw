@@ -202,6 +202,8 @@ void manifests_are_checked() {
     CHECK(paw::rice_setting_allowed({"windows", "blur", "saturation"}), "a rice brings its blur");
     CHECK(paw::rice_setting_allowed({"appearance", "ambient", "kind"}),
           "a rice brings its ambient particles");
+    CHECK(paw::rice_setting_allowed({"appearance", "cursor_trail", "colors"}),
+          "a rice brings its cursor trail");
     CHECK(!paw::rice_setting_allowed({"windows", "rules"}));
 }
 
