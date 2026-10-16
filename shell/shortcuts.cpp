@@ -84,6 +84,8 @@ constexpr Action actions[] = {
     {"cycle", Focus, "Raise the next window"},
     {"switcher", Focus, "Switch windows"},
     {"switcher_prev", Focus, "Switch windows, backward"},
+    {"switcher_app", Focus, "Switch between this application's windows"},
+    {"switcher_app_prev", Focus, "Switch this application's windows, backward"},
     {"switcher_confirm", Focus, "Pick the switcher's window"},
     {"switcher_cancel", Focus, "Leave the switcher"},
     {"toggle_overview", Focus, "Overview of windows"},
