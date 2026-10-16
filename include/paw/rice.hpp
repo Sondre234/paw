@@ -17,6 +17,7 @@
 
 namespace paw {
 
+struct RiceField;
 // A value of rice.lua: a boolean, an integer, another number, a string, or a table of values in
 // order (`items`) and by name (`fields`, in the order given).
 struct RiceData {
@@ -27,7 +28,7 @@ struct RiceData {
     double number = 0;
     std::string string;
     std::vector<RiceData> items;
-    std::vector<std::pair<std::string, RiceData>> fields;
+    std::vector<RiceField> fields;
 
     static RiceData string_of(std::string text);
     static RiceData integer_of(long long value);
@@ -37,6 +38,12 @@ struct RiceData {
     RiceData *field(std::string_view name);
     bool is_table() const { return type == Type::Table; }
     bool is_string() const { return type == Type::String; }
+};
+// A table's value by name. Not a std::pair: a pair of RiceData inside RiceData would need the
+// type complete before it is, which clang refuses.
+struct RiceField {
+    std::string key;
+    RiceData value;
 };
 // Reads `source` as a table constructor in Lua's syntax, after an optional `return`, holding
 // strings, numbers, booleans and tables alone; `name` names the file in errors ("rice.lua:3:

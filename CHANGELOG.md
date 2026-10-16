@@ -819,6 +819,17 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   opening and closing again. Hot corners now also keep still while a button is held (a text
   selection dragged into one ran its request), and act on the monitor whose corner it is, as
   mouse bindings do, rather than on the one with the focus.
+- `paw import` no longer aborts or hangs on a `hyprland.lua` whose tables have an `__index` that
+  raises an error, never returns or changes the table it is in: it reads what the script built
+  without running the script's code. A script that sets a `__gc`, which Lua would run out of the
+  instruction budget's reach, or that catches the budget's error with `pcall` and loops on, is
+  stopped there. Each import ends with the error in its report.
+- Smart window placement no longer overflows on a window whose client set its geometry near the
+  largest size an integer holds, which could open the next window on top of it.
+- `paw msg type` refuses the bytes 0xF8 to 0xFF, which start no UTF-8 character, where it typed
+  `F8 80 80` as U+8000.
+- paw compiles with clang: the files that include `rice.hpp` did not, so clang-tidy and clangd
+  could not read them either.
 
 ## 0.1.1 (2026-10-05)
 

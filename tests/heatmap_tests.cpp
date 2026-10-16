@@ -228,6 +228,12 @@ void legend() {
     CHECK(says(SH_HEAT_MOTION, 90000e3, "25 h"));
     CHECK(says(SH_HEAT_CLICKS, 1, "1 click") && says(SH_HEAT_CLICKS, 0, "0 clicks") &&
           says(SH_HEAT_CLICKS, 37, "37 clicks"));
+    // No number at all writes an empty label, not nothing.
+    for (double odd : {NAN, INFINITY, -INFINITY})
+        for (auto kind : {SH_HEAT_MOTION, SH_HEAT_CLICKS}) {
+            std::memset(label, 'x', sizeof(label));
+            CHECK(says(kind, odd, ""), "%g: '%.*s'", odd, static_cast<int>(sizeof(label)), label);
+        }
     for (char c : std::string("pointer rest clicks 0123456789. min h ms"))
         CHECK(sh_heat_text_width(std::string(1, c).c_str()) > 0,
               "the legend's own words are all in its font: '%c'", c);

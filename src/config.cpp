@@ -2602,7 +2602,7 @@ RiceData data_of(lua_State *L, int index, const std::string &what, int depth = 0
         lua_pop(L, 1);
     }
     std::sort(table.fields.begin(), table.fields.end(),
-              [](const auto &a, const auto &b) { return a.first < b.first; });
+              [](const auto &a, const auto &b) { return a.key < b.key; });
     return table;
 }
 std::filesystem::path theme_path(lua_State *L, const std::filesystem::path &directory) {
