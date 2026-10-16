@@ -55,6 +55,7 @@ constexpr Action actions[] = {
     {"launcher", "Applications menu"},
     {"shortcuts", "Keyboard shortcuts"},
     {"display_settings", "Display settings"},
+    {"desktop_clock", "Show or hide the desktop clock"},
     {"reload", "Reload configuration"},
     {"shake", "Shake the window"},
     {"gravity", "Let the windows fall"},

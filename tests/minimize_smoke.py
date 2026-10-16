@@ -19,10 +19,11 @@ compositor, probe, window_probe, lock_probe, pointer_probe = (str(Path(p).resolv
                                                               for p in sys.argv[1:6])
 
 # HEADLESS-2, right of HEADLESS-1, is scaled: 640 by 360 logical pixels. Minimizing takes 900 ms
-# along a straight line in time, long enough to look at it on its way.
+# along a straight line in time, long enough to look at it on its way, and no frame, however late
+# on a slow build or a loaded machine, lands it.
 CONFIG = """return {
     xwayland = false,
-    animations = { minimize = { duration = 900, curve = "linear" } },
+    animations = { late_frame_ms = 0, minimize = { duration = 900, curve = "linear" } },
     peek = { duration = 1500 },
     outputs = {
         order = { "HEADLESS-1", "HEADLESS-2" },
@@ -45,15 +46,17 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
         return running, trees
 
     def minimize_state():
-        """{id: [(output, x, y, w, h), ...]} of the rectangles, the one that counts first, and
-        {(id, kind): (at, (x, y, w, h), target)} of the folds."""
-        rects, folds = {}, {}
+        """{id: [(output, x, y, w, h), ...]} of the rectangles, the one that counts first,
+        {(id, kind): (at, (x, y, w, h), target)} of the folds, and {(id, kind): at} of how far
+        into its box each fold set off from."""
+        rects, folds, set_off = {}, {}, {}
         for row in desktop.rows("minimize"):
             if row[0] == "rect":
                 rects.setdefault(int(row[1]), []).append((row[2], *map(int, row[3:7])))
             else:
                 folds[(int(row[1]), row[2])] = (int(row[3]), tuple(map(int, row[4:8])), row[8])
-        return rects, folds
+                set_off[(int(row[1]), row[2])] = int(row[13])
+        return rects, folds, set_off
 
     def folds():
         return minimize_state()[1]
@@ -123,11 +126,14 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
              "A a third of the way into its button")
     wait_for(settled, "the copy gone into the button")
 
-    # Restoring: focused and where it was at once, growing out of its button.
+    # Restoring: focused and where it was at once, growing out of its button, from all the way
+    # in, however far it has come by the time the test looks.
     taskbar("restore", "A")
     assert windows()["A"].focused and windows()["A"].visible, windows()
-    at, box, target = folds()[(a, "restore")]
-    assert box == (620, 680, 40, 40) and target == "button" and at > 900, folds()
+    _, state, set_off = minimize_state()
+    box, target = state[(a, "restore")][1:]
+    assert box == (620, 680, 40, 40) and target == "button" and set_off[(a, "restore")] == 1000, \
+        (state, set_off)
     wait_for(settled, "A back in its place")
     assert not windows()["A"].minimized
 
@@ -137,8 +143,8 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     wait_for(lambda: (a, "minimize") in folds() and folds()[(a, "minimize")][0] >= 300,
              "A on its way in")
     taskbar("restore", "A")
-    state = folds()
-    assert (a, "minimize") not in state and 250 <= state[(a, "restore")][0] < 900, state
+    _, state, set_off = minimize_state()
+    assert (a, "minimize") not in state and 300 <= set_off[(a, "restore")] < 1000, (state, set_off)
     wait_for(settled, "A back out")
 
     # Minimized again on its way in, as showing the desktop asks of every window, it goes on in,
@@ -148,8 +154,8 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     wait_for(lambda: (a, "minimize") in folds() and folds()[(a, "minimize")][0] >= 300,
              "A on its way in, minimized twice")
     taskbar("restore", "A")
-    state = folds()
-    assert (a, "minimize") not in state and 250 <= state[(a, "restore")][0] < 900, state
+    _, state, set_off = minimize_state()
+    assert (a, "minimize") not in state and 300 <= set_off[(a, "restore")] < 1000, (state, set_off)
     wait_for(settled, "A back out again")
 
     # Restoring takes over from minimizing turned back at once too.
@@ -398,8 +404,10 @@ with harness.Compositor(compositor, ONE) as desktop:
 # Minimized again on its way out while its tile glides (a window opening beside it), the copy
 # takes over from where the window is drawn, glide and all. Everything a quarter as fast, the
 # glide and the fold slow enough to look at between two requests.
-TILES = CONFIG.replace("animations = { minimize = { duration = 900, curve = \"linear\" } },",
-                       "animations = { speed = 0.25, minimize = { duration = 900, curve = \"linear\" },"
+TILES = CONFIG.replace("animations = { late_frame_ms = 0,"
+                       " minimize = { duration = 900, curve = \"linear\" } },",
+                       "animations = { late_frame_ms = 0, speed = 0.25,"
+                       " minimize = { duration = 900, curve = \"linear\" },"
                        " move = { duration = 1000, curve = \"linear\" } },\n"
                        "    layout = { tiling = true },").replace(
     '''            ["HEADLESS-2"] = { mode = "1280x720", scale = 2 },
@@ -452,7 +460,8 @@ with harness.Compositor(compositor, TILES) as desktop:
 # A window changing size as it is maximized or restored (a morph): minimized on its way, its copy
 # shrinks from the size and place it is drawn at; restored and then maximized or restored again
 # as it grows out of its button, the change of size takes over from its place.
-MORPHS = ONE.replace("animations = { minimize = { duration = 900, curve = \"linear\" } },",
+MORPHS = ONE.replace("animations = { late_frame_ms = 0,"
+                     " minimize = { duration = 900, curve = \"linear\" } },",
                      "animations = { duration = 700, speed = 0.5, late_frame_ms = 0,"
                      " minimize = { duration = 900, curve = \"linear\" } },")
 assert "speed = 0.5" in MORPHS
@@ -463,8 +472,10 @@ with harness.Compositor(compositor, MORPHS) as desktop:
         return {w.title: w for w in desktop.windows()}
 
     def folds():
-        """kind -> (at, box folded into, drawn box), for the only window that folds."""
-        return {row[2]: (int(row[3]), tuple(map(int, row[4:8])), tuple(map(int, row[9:13])))
+        """kind -> (at, box folded into, drawn box, box unfolded), for the only window that
+        folds."""
+        return {row[2]: (int(row[3]), tuple(map(int, row[4:8])), tuple(map(int, row[9:13])),
+                         tuple(map(int, row[14:18])))
                 for row in desktop.rows("minimize") if row[0] == "fold"}
 
     def drawn():
@@ -481,11 +492,15 @@ with harness.Compositor(compositor, MORPHS) as desktop:
     wait_for(settled, "W opened")
     start = drawn()[0]
     msg("maximize")
+    full = windows()["W"].box
     wait_for(lambda: start[2] + 200 < drawn()[0][2] < 1000, "W growing to fill the output")
     before = drawn()[0]
     msg("minimize")
-    taken = folds()["minimize"][2]
-    assert all(abs(a - b) <= 60 for a, b in zip(before, taken)), (before, taken)
+    # The copy sets off from where W is drawn as it is minimized: on its way from `before` to
+    # filling the output, however far it has grown since the test looked, and not there yet.
+    taken = folds()["minimize"][3]
+    assert all(min(b, f) <= t <= max(b, f) for b, f, t in zip(before, full, taken)) and \
+        taken[2] < full[2], (before, taken, full)
     wait_for(settled, "W minimized")
     subprocess.run([window_probe, "W", "restore"], env=desktop.env, check=True, timeout=30)
     assert "restore" in folds(), folds()

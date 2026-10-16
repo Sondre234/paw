@@ -2,7 +2,8 @@
 // The shell's clipboard history against a real compositor (tests/clipboard_smoke.py starts a
 // private headless one): what a program copies through ext-data-control-v1 is kept, a secret and
 // what is copied while the session is locked are not, an entry restored is what a program pastes,
-// the limit, pinning, the file and turning it off, and a program pasting that stops reading.
+// the limit, pinning, the file and turning it off, a long copy from a program writing it in a
+// plain loop, and a program pasting that stops reading.
 #include "clipboard.hpp"
 #include <QBuffer>
 #include <QElapsedTimer>
@@ -180,6 +181,27 @@ class ClipboardTest : public QObject {
         QCOMPARE(texts(history), QStringList());
         QVERIFY(copy({"text/plain=off"}));
         QVERIFY(stays([&] { return texts(history).isEmpty(); }));
+    }
+
+    // A program copying more than a pipe holds (64 KiB), and writing it in a plain blocking
+    // loop as a simple one does, hands the history all of it.
+    void keepsALongCopyWhole() {
+        ClipboardHistory history;
+        QVERIFY(history.connectDisplay());
+        // Four pipes' worth in numbered lines, so that a piece cut off or left out shows.
+        QByteArray text;
+        for (int line = 0; text.size() < 256 * 1024; ++line)
+            text += QByteArray::number(line).rightJustified(6, '0') + " of a long copy\n";
+        QFile file(directory.filePath("numbered.txt"));
+        QVERIFY(file.open(QIODevice::WriteOnly) && file.write(text) == text.size());
+        file.close();
+        QVERIFY(copy({"text/plain=@" + file.fileName()}));
+        QVERIFY(QTest::qWaitFor([&] { return texts(history).size() == 1; }));
+        // Restored, all of it is what is pasted, which the history hands over once the program
+        // that copied it has let go.
+        QVERIFY(history.restore(history.entries().value(0).toMap()["id"].toInt()));
+        QVERIFY(QTest::qWaitFor([&] { return copiers.back()->state() == QProcess::NotRunning; }));
+        QCOMPARE(paste("text/plain"), text);
     }
 
     // A program pasting that stops reading is given up once nothing could be written to it for

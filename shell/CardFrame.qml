@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 import Paw
 
 // A card's frame, filling its parent beneath what the card holds: its shadow, drawn through the
@@ -23,7 +22,7 @@ Item {
     Loader {
         anchors.fill: parent
         active: Theme.effects && frame.shadow
-        sourceComponent: RectangularShadow {
+        sourceComponent: Shadow {
             radius: frame.radius
             blur: Theme.shadowBlur
             offset: Qt.vector2d(Theme.shadowOffsetX, Theme.shadowOffset)

@@ -170,6 +170,7 @@ static const struct {
     {SH_DND_TOGGLE, .line = "dnd toggle\n"},
     {SH_DND_ON, .line = "dnd on\n"},
     {SH_DND_OFF, .line = "dnd off\n"},
+    {SH_DESKTOP_CLOCK, .line = "desktop-clock toggle\n"},
     {SH_MEDIA_PLAY_PAUSE, .line = "media play-pause\n"},
     {SH_MEDIA_NEXT, .line = "media next\n"},
     {SH_MEDIA_PREVIOUS, .line = "media previous\n"},

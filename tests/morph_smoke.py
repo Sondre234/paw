@@ -83,12 +83,14 @@ with harness.Compositor(compositor, config()) as desktop:
         return drawn()[title][:3] == (box, box[2:], "rest") and animations()[0] == 0
 
     def growing(title, start, end, stretched=True):
-        """On its way from `start` to `end`, both size and place, its surface stretched to the
-        size drawn."""
+        """Where it is drawn while on its way from `start` to `end`, both size and place, its
+        surface stretched to the size drawn, else None: a caller checks more of that same look
+        rather than look again later, when it may have moved on."""
         box, surface, state, _ = drawn()[title]
-        return (state == "moving" and animations()[0] >= 1 and on_the_way(start, end, box) and
-                (not stretched or (abs(surface[0] - box[2]) <= 1 and
-                                   abs(surface[1] - box[3]) <= 1)))
+        on_its_way = (state == "moving" and on_the_way(start, end, box) and
+                      (not stretched or (abs(surface[0] - box[2]) <= 1 and
+                                         abs(surface[1] - box[3]) <= 1)))
+        return box if on_its_way and animations()[0] >= 1 else None
 
     desktop.detail = lambda: (f"windows: {msg('get', 'windows')}drawn: {msg('get', 'drawn')}"
                               f"animations: {msg('get', 'animations')}")
@@ -108,8 +110,8 @@ with harness.Compositor(compositor, config()) as desktop:
     # Restoring, reversed half way: it goes back from where it is drawn, never from either end.
     msg("restore")
     assert windows()["W"].box[:2] == start[:2], windows()
-    wait_for(lambda: growing("W", FULL, start) and
-             between(start[2] + 150, FULL[2] - 150, drawn()["W"][0][2]), "W shrinking")
+    wait_for(lambda: (box := growing("W", FULL, start)) and
+             between(start[2] + 150, FULL[2] - 150, box[2]), "W shrinking")
     wait_for(lambda: 0 < drawn()["W"][3] < 1000, "its frame fading in")
     before = drawn()["W"][0]
     msg("maximize")
@@ -293,7 +295,8 @@ with harness.Compositor(compositor, config()) as desktop:
     pointer("release", "left")
 
 # Leaving fullscreen for a slot that moved meanwhile (a panel came along the bottom), slowed down
-# to see where it starts: from the whole output, where it is drawn, not from the old slot too.
+# to see it on its way: it sets off from the whole output, where it is drawn, not from the old
+# slot too, however far it has come by the time the test looks.
 RULES = 'rules = { { title = "^P$", focus = false } },'
 with harness.Compositor(compositor, config(windows=RULES)) as desktop:
     msg, wait_for = desktop.msg, desktop.wait_for
@@ -317,9 +320,12 @@ with harness.Compositor(compositor, config(windows=RULES)) as desktop:
     assert windows()["W"].focused, windows()
     desktop.reload(config(speed=0.1, windows=RULES))
     msg("fullscreen")
-    box, state = drawn()["W"]
-    assert state == "moving" and abs(box[0]) <= 2 and abs(box[1]) <= 4, (box, state)
-    wait_for(lambda: windows()["W"].box == inside((0, 336, 640, 336)), "W in the moved quarter")
+    row = next(r for r in desktop.rows("drawn") if r[1] == "W")
+    box, state, set_off = tuple(int(n) for n in row[2:6]), row[8], (int(row[11]), int(row[12]))
+    quarter = inside((0, 336, 640, 336))
+    assert state == "moving" and set_off == above_panel[:2] and \
+        between_or_at(above_panel, quarter, box), (box, state, set_off)
+    wait_for(lambda: windows()["W"].box == quarter, "W in the moved quarter")
 # A window drawing its own shadow while it floats and none maximized, as GTK's do: paw draws no
 # shadow nor rounded corners for it on the way to maximized and back, as it draws none at either
 # end, though the window drops its shadow part way.

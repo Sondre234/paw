@@ -4,8 +4,8 @@
  *
  *   clipboard_probe set TYPE=VALUE...  copies VALUE as TYPE (VALUE @PATH: the file's bytes),
  *                                      prints "set" once it is copied, and hands it to whoever
- *                                      pastes until something else is copied, printing
- *                                      "sent TYPE" each time
+ *                                      pastes until something else is copied, in a plain
+ *                                      blocking write loop, printing "sent TYPE" each time
  *   clipboard_probe get TYPE [PAUSE]   prints what is copied as TYPE, exit 1 when nothing is;
  *                                      with PAUSE, reading 64 KiB at a time, PAUSE ms apart
  *   clipboard_probe stall TYPE         asks for what is copied as TYPE but reads none of it,
@@ -103,9 +103,8 @@ static const struct ext_data_control_device_v1_listener device_listener = {
 static void send(void *data, struct ext_data_control_source_v1 *source, const char *type,
                  int32_t fd) {
     struct probe *probe = data;
-    // The pipe may come non-blocking, as the shell's clipboard history makes its own; written in
-    // one go, as Qt's programs do, it must block until the reader has taken it all.
-    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) & ~O_NONBLOCK);
+    // Written in a plain loop, as a simple program does, leaving the pipe as it comes: given a
+    // non-blocking one, it would stop at the first full pipe, taking EAGAIN for an error.
     for (int i = 0; i < probe->count; ++i) {
         if (strcmp(probe->types[i], type))
             continue;

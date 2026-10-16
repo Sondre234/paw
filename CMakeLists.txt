@@ -28,7 +28,7 @@ option(PAW_BUILD_SHELL "Build the Qt Quick desktop shell" ON)
 option(PAW_SHELL_PREVIEW_ONLY "Build only the shell UI preview without LayerShellQt" OFF)
 
 add_library(paw_config STATIC src/curve.c src/session.c src/tabs.c src/config.cpp src/config_edit.cpp
-    src/config_schema.cpp src/layout.cpp src/tiling.cpp
+    src/child_trial.cpp src/config_schema.cpp src/layout.cpp src/tiling.cpp
     src/overview_layout.cpp src/window_placement.cpp
     src/import/common.cpp src/import/hyprland.cpp src/import/waybar.cpp src/import/import.cpp
     src/autostart.cpp src/lock_style.cpp)
@@ -804,6 +804,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(keymap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> ${EXAMPLE_CONFIG})
         paw_smoke(media_keys_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
+        paw_smoke(desktop_clock_smoke $<TARGET_FILE:paw>)
         paw_smoke(type_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(keyboard_layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
         paw_smoke(window_style_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)

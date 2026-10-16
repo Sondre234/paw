@@ -173,15 +173,16 @@ PopupCard {
                             GradientStop { position: 1; color: shell.background }
                         }
                     }
-                    Image {
+                    WallpaperPicture {
                         id: wallpaper
                         anchors.fill: parent
                         source: shell.wallpaper
-                        fillMode: Image.PreserveAspectCrop
+                        // A pixel of a picture at its own size is one of the output's, drawn as
+                        // small as the card draws the output.
+                        pixelScale: card.panel.workspaceScale / Screen.devicePixelRatio
                         sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio),
                                             Math.ceil(height * Screen.devicePixelRatio))
                         asynchronous: true
-                        smooth: true
                     }
                     WorkspaceWindows {
                         id: first

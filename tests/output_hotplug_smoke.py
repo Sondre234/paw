@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Unplugging an output moves its windows to the nearest one, keeping their workspace numbers and
 tiling; plugging it back in returns them (outputs.return_windows), unless the setting is off or
-they were placed elsewhere by hand. Uses the headless backend's virtual outputs."""
+they were placed elsewhere by hand. Subscribers hear which output is the primary one: the one
+outputs.primary names, else the leftmost. Uses the headless backend's virtual outputs."""
 from pathlib import Path
 import sys
 
@@ -81,7 +82,20 @@ with harness.Compositor(compositor, env={"WLR_HEADLESS_OUTPUTS": "2"}, start=Fal
     msg("output", "HEADLESS-1", "workspace", "2")
     launch()
     msg("output", "HEADLESS-1", "workspace", "1")
+    subscriber = desktop.subscribe()
+
+    def primary(name, message):
+        desktop.wait_for(lambda: subscriber.last("primary ") == f"primary {name}", message)
+
+    primary("HEADLESS-1", "HEADLESS-1 the primary output")
+    leftmost = min(outputs(), key=lambda name: outputs()[name][:2])
+    assert leftmost == "HEADLESS-2", outputs()
+    desktop.reload(config(primary="DP-9"))
+    primary(leftmost, "the leftmost output the primary one while the one named is not there")
+    desktop.reload(config(primary="HEADLESS-1"))
+    primary("HEADLESS-1", "HEADLESS-1 the primary output again")
     desktop.reload(config(primary="HEADLESS-2"))
+    primary("HEADLESS-2", "HEADLESS-2 the primary output once named")
     launch()
     assert [(w[0], w[1], w[6]) for w in windows()] == [
         (1, True, "HEADLESS-1"), (1, True, "HEADLESS-1"), (2, True, "HEADLESS-1"),

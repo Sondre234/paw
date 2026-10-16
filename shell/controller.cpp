@@ -98,6 +98,7 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     subscribe();
     notifications_.configure(config_.notifications);
     osd_.configure(config_.osd);
+    configureDesktopClock();
     connect(&displayModes_, &DisplayModes::request, this, &ShellController::send);
     power_.setCountdown(config_.power.countdown);
     connect(&power_, &Power::failed, this, &ShellController::report);
@@ -119,6 +120,9 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     };
     connect(qGuiApp, &QGuiApplication::screenAdded, this, monitorsChanged);
     connect(qGuiApp, &QGuiApplication::screenRemoved, this, monitorsChanged);
+    // The leftmost screen stands for the primary one until the compositor names it.
+    connect(qGuiApp, &QGuiApplication::screenAdded, this, &ShellController::primaryOutputChanged);
+    connect(qGuiApp, &QGuiApplication::screenRemoved, this, &ShellController::primaryOutputChanged);
     connect(powerMode_.get(), &PowerMode::failed, this, &ShellController::report);
     connect(wifi_.get(), &Wifi::failed, this, &ShellController::report);
     connect(bluetooth_.get(), &Bluetooth::failed, this, &ShellController::report);
@@ -255,6 +259,21 @@ QString ShellController::wallpaperFile() const {
     if (file.is_relative())
         file = std::filesystem::absolute(path_).parent_path() / file;
     return QString::fromStdString(file.string());
+}
+QString ShellController::wallpaperMode() const {
+    switch (config_.shell.wallpaper_mode) {
+    case paw::WallpaperMode::Fit:
+        return "fit";
+    case paw::WallpaperMode::Center:
+        return "center";
+    case paw::WallpaperMode::Tile:
+        return "tile";
+    case paw::WallpaperMode::Stretch:
+        return "stretch";
+    case paw::WallpaperMode::Fill:
+        break;
+    }
+    return "fill";
 }
 QUrl ShellController::wallpaper() const {
     const auto file = wallpaperFile();
@@ -796,6 +815,10 @@ void ShellController::typeText(const QString &text) {
             copy(QString::fromUtf8(reply).trimmed().remove(QRegularExpression("^error: ")));
     });
 }
+void ShellController::configureDesktopClock() {
+    const auto &clock = config_.shell.desktop_clock;
+    desktopClock_.configure(clock, color(clock.color.empty() ? config_.shell.text_color : clock.color));
+}
 void ShellController::configureClipboard() {
     const auto &clipboard = config_.shell.clipboard;
     ClipboardHistory::Settings settings;
@@ -916,6 +939,7 @@ void ShellController::reload() {
         watchTrash();
         notifications_.configure(config_.notifications);
         osd_.configure(config_.osd);
+        configureDesktopClock();
         power_.setCountdown(config_.power.countdown);
         configureSearch();
         configureClipboard();
@@ -1060,6 +1084,12 @@ void ShellController::subscribe() {
             } else if (line.startsWith("focused ")) {
                 // The output the compositor says has the focus, where overlays for it go.
                 focusedOutput_ = line.sliced(8) == "-" ? QString() : line.sliced(8);
+            } else if (line.startsWith("primary ")) {
+                if (const auto primary = line.sliced(8) == "-" ? QString() : line.sliced(8);
+                    primary != primaryOutput_) {
+                    primaryOutput_ = primary;
+                    Q_EMIT primaryOutputChanged();
+                }
             } else if (line.startsWith("keyboard-layout ")) {
                 // keyboard-layout N COUNT SHORT NAME
                 const auto words = line.split(' ');
@@ -1264,6 +1294,11 @@ void ShellController::subscribe() {
                 caption_.showLine(line.sliced(8), overlayOutput());
             } else if (line == "caption-hide") {
                 caption_.hide();
+            } else if (line.startsWith("desktop-clock ")) {
+                // desktop-clock toggle|on|off: the desktop_clock action.
+                if (desktopClock_.handle(line.sliced(14)))
+                    osd_.show(overlayOutput(), desktopClock_.shown() ? "Desktop clock on"
+                                                                     : "Desktop clock off", -1);
             }
         }
         if (outputs && workspaces_ != nextWorkspaces_) {
@@ -1331,6 +1366,31 @@ void ShellController::setNightLight(bool on, const QString &mode) {
     nightLight_ = on;
     nightLightMode_ = mode;
     Q_EMIT nightLightChanged();
+}
+QString ShellController::taskbarButtons() const {
+    switch (config_.shell.taskbar_buttons) {
+    case paw::ShellConfig::TaskbarButtons::MainAndOwn:
+        return "main_and_own";
+    case paw::ShellConfig::TaskbarButtons::Own:
+        return "own";
+    case paw::ShellConfig::TaskbarButtons::All:
+        break;
+    }
+    return "all";
+}
+QString ShellController::primaryOutput() const {
+    if (!primaryOutput_.isEmpty() && hasOutput(primaryOutput_))
+        return primaryOutput_;
+    // Without a compositor (a preview), or until it has said: the leftmost screen, the topmost
+    // of those at the same x.
+    const QScreen *leftmost = nullptr;
+    for (const auto *screen : QGuiApplication::screens()) {
+        const auto at = screen->geometry().topLeft();
+        if (!leftmost || at.x() < leftmost->geometry().x() ||
+            (at.x() == leftmost->geometry().x() && at.y() < leftmost->geometry().y()))
+            leftmost = screen;
+    }
+    return leftmost ? leftmost->name() : QString();
 }
 bool ShellController::hasOutput(const QString &name) {
     const auto screens = QGuiApplication::screens();
@@ -1593,6 +1653,11 @@ void ShellController::nudgeWorkspace(const QString &output, int way) {
 }
 void ShellController::send(const QString &line) {
     request(line.toUtf8() + "\n", "The compositor needs a running paw session.");
+}
+void ShellController::keepShadowMaterial(QObject *shadow) {
+    auto *material = shadow ? shadow->property("material").value<QObject *>() : nullptr;
+    if (material && !material->parent())
+        material->setParent(shadow);
 }
 void ShellController::ask(const QByteArray &line, std::function<void(const QByteArray &)> done) {
     const auto path = qEnvironmentVariable("PAW_SOCKET");

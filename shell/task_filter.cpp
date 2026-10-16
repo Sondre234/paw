@@ -37,10 +37,12 @@ void TaskFilter::setSourceModel(QAbstractItemModel *source) {
                     [this] {
                         forget();
                         roleIds_.clear();
+                        resort();
                     }),
         };
     }
     QSortFilterProxyModel::setSourceModel(source);
+    resort();
     if (!source)
         return;
     // Connected after the proxy's own handlers, so it has caught up with the change first. A
@@ -121,9 +123,48 @@ void TaskFilter::setWindowId(int windowId) {
     refilter();
     Q_EMIT windowIdChanged();
 }
+void TaskFilter::setByMonitor(bool byMonitor) {
+    if (byMonitor_ == byMonitor)
+        return;
+    byMonitor_ = byMonitor;
+    resort();
+    Q_EMIT byMonitorChanged();
+}
+void TaskFilter::setOutput(const QString &output) {
+    if (output_ == output)
+        return;
+    output_ = output;
+    refilter();
+    Q_EMIT outputChanged();
+}
+void TaskFilter::setOutputPlace(TaskbarOrder::OutputPlace place) {
+    place_ = std::move(place);
+    if (byMonitor_)
+        invalidate();
+}
+void TaskFilter::resort() {
+    const int output = byMonitor_ && sourceModel() ? roleId("output") : -1;
+    if (output < 0) {
+        sort(-1);
+        return;
+    }
+    // A window moving to another monitor sorts it again.
+    setSortRole(output);
+    sort(0);
+}
+bool TaskFilter::lessThan(const QModelIndex &left, const QModelIndex &right) const {
+    const auto a = place_ ? place_(sourceValue(left.row(), "output").toString()) : std::nullopt;
+    const auto b = place_ ? place_(sourceValue(right.row(), "output").toString()) : std::nullopt;
+    if (a && b && *a != *b)
+        return a->x() < b->x() || (a->x() == b->x() && a->y() < b->y());
+    if (a.has_value() != b.has_value())
+        return a.has_value();
+    return left.row() < right.row();
+}
 bool TaskFilter::decides(const QList<int> &roles) const {
     return roles.isEmpty() || roles.contains(roleId("appId")) ||
-           (windowId_ > 0 && roles.contains(roleId("windowId")));
+           (windowId_ > 0 && roles.contains(roleId("windowId"))) ||
+           (!output_.isEmpty() && roles.contains(roleId("output")));
 }
 int TaskFilter::roleId(const char *role) const {
     auto found = roleIds_.constFind(role);
@@ -149,6 +190,9 @@ bool TaskFilter::belongs(int row) const {
         return sourceValue(row, "taskId").toInt() == taskId_;
     if (windowId_ > 0)
         return sourceValue(row, "windowId").toInt() == windowId_;
+    if (!output_.isEmpty())
+        if (const auto output = sourceValue(row, "output").toString(); !output.isEmpty() && output != output_)
+            return false;
     const auto appId = sourceValue(row, "appId").toString();
     if (!windowApp_.isEmpty() && appId != windowApp_)
         return false;

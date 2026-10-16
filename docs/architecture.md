@@ -41,7 +41,9 @@ long it runs, so whatever runs a configuration (`parse_config`, `configured_look
 `shadowed_settings`) runs it first in a child process forked for it (`try_first`), killed after 3
 seconds, and then for real, which gives the result or the error. The compositor and the shell
 both load the file this way, so what that code calls must be safe in a child forked from a
-process with threads: nothing that waits on a lock another thread may hold.
+process with threads: nothing that waits on a lock another thread may hold. The child process
+and its time limit are `try_in_child` (`src/child_trial.cpp`), which `paw import` uses too for
+a `hyprland.lua` (`src/import/hyprland.cpp`, a sandbox of its own).
 
 Window rules' and bindings' patterns are compiled to be searched in time linear in the text
 (`compile_pattern`), and in a title or app ID over 1 KiB only the first and last 512 bytes are
@@ -1231,6 +1233,7 @@ what was there.
 | `EmptyState.qml` | What a list says while it has nothing to show: an icon, a line and a hint. |
 | `PopupCard.qml` | A popup's card: surface, outline, corners, a shadow through the GPU, the open and close animation, and its place beside what it belongs to. |
 | `CardFrame.qml` | A card's shadow, surface, outline and the macOS style's inner edge, beneath what it holds: a popup's, an overlay's, a notification's; with `shell.blur` the frosted glass under a translucent surface, and the glass's light edge and sheen. |
+| `Shadow.qml` | A shadow drawn through the GPU (`RectangularShadow`) under a card or a bar, which frees the shader effect it draws with as it goes: Qt's (6.11) makes that effect without a parent and never deletes it, so the shell gives it to the shadow (`ShellController::keepShadowMaterial`). |
 | `GlassFill.qml` | A rectangle in a popup's colour that is a card of its own, drawn by hand rather than by `CardFrame` (a tooltip, Notification Center's cards): on the frosted glass, translucent over a `Glass`. |
 | `Reveal.qml` | How far an overlay or a card is in view: its `progress`, easing to 1 while `shown` and back to 0 after, which the overlays and `PopupCard` take as their own. |
 | `PopupMenu.qml`, `MenuRow.qml` | A menu of plain entries on popup cards, with cascading submenus and keyboard navigation, and one row of it. |
@@ -1238,8 +1241,10 @@ what was there.
 | `AudioSlider.qml`, `MuteButton.qml`, `StreamRow.qml` | Controls the mixer and Quick Settings use: a volume's slider, a mute button, and an application playing sound. |
 | `StartHome.qml`, `StartAllApps.qml`, `StartSearch.qml`, `StartBestMatch.qml`, `StartTile.qml`, `StartRow.qml`, `UserAvatar.qml` | Parts of the start menu (`Launcher.qml`): its pinned and recent applications, every application from A to Z, what its search finds and the best match of it, a pinned application, a row of its lists, the user's picture. |
 | `Launchpad.qml` | The launcher of the macOS style, in the start menu's place: every application on pages of a grid over the whole output, with a search. |
-| `Desktop.qml` | The wallpaper, each new one fading in over those before, and the desktop's launchers, on the background layer. |
+| `Desktop.qml` | The wallpaper, each new one fading in over those before, the desktop clock and the desktop's launchers, on the background layer. |
 | `DrawnWallpaper.qml` | The wallpaper the macOS style draws while none is set, light or dark, from the background colour and the accent. |
+| `DesktopClock.qml` | The desktop clock (`shell.desktop_clock`, experimental): the time, the date and a greeting over the wallpaper, outside the backdrop the frosted glass takes, changing once a minute. |
+| `WallpaperPicture.qml` | The wallpaper's picture as `shell.wallpaper_mode` lays it out (cropped, fitted, stretched, centred or tiled at its own size, over the background colour where it leaves room), for the desktop, a workspace's card and Launchpad. |
 | `Switcher.qml`, `Overview.qml`, `Palette.qml`, `PowerDialog.qml`, `NotificationCards.qml`, `Osd.qml`, `ConfigError.qml` | One overlay surface each. |
 | `DisplayMode.qml` | The display mode popup (Windows' Win+P, `shell.displayModes`), an overlay surface of its own in the middle of the output: the four choices, the one the compositor's stepping shows selected; a click takes one. |
 | `DisplaySettings.qml` | The display settings window (`shell.displaySettings`), an overlay surface of its own in the middle of the output: the monitors' arrangement to drag, the selected monitor's settings, Apply, and the question while they are on trial. |
@@ -1286,14 +1291,23 @@ that output is gone (`screenAdded` and `screenRemoved`), as a trial may turn it 
 
 The models behind them: `task_model.cpp` (windows, from foreign-toplevel), `taskbar_model.cpp`
 (the taskbar's one row of pinned applications and windows, in an order every panel shares, a
-`TaskbarOrder` the source model owns) and `task_filter.cpp` (an application's windows, for its
-groups and menus), `audio.cpp` with `pulse_audio.cpp`, `system_status.cpp`
+`TaskbarOrder` the source model owns, which while the windows have a button each places a window
+among its application's by the place of its monitor, the `output` role's `QScreen`, as it opens
+or moves, tested by `task_filter_test` and in a session by `tests/taskbar_monitor_smoke.py`; a
+panel's `TaskbarModel` shows the entries its `TaskbarOrder::View` lets through, the windows of
+its `output` alone and the launchers with `showLaunchers`, which `Panel.qml` sets from
+`shell.taskbar_buttons` and the main monitor, `ShellController::primaryOutput`, from the
+compositor's `primary` state line) and `task_filter.cpp` (an application's windows, for its
+groups and menus, with `byMonitor` in the order of their monitors, as the card of a button's
+windows lists them, and with `output` those on one monitor alone), `audio.cpp` with
+`pulse_audio.cpp`, `system_status.cpp`
 (battery, network), `tray*.cpp`, `notification*.cpp`, `osd.cpp`, `caption.cpp` and `backlight.cpp`,
 `volume_keys.cpp` (what the compositor passes on from the volume, microphone and brightness keys),
 `power.cpp`, `palette.cpp` (with `fuzzy.cpp`, and `calculator.cpp`, `file_index.cpp` and
 `web_search.cpp`, which the start menu's search shares), `media.cpp` with `mpris.cpp`,
 `power_mode.cpp` with `power_profiles_daemon.cpp`, `wifi.cpp` with `network_manager.cpp`,
-`bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history). `preview.cpp` has
+`bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history), `desktop_clock.cpp` (the
+desktop clock's settings, and whether the `desktop_clock` action shows it). `preview.cpp` has
 stand-ins for all of them for `--preview-popup`.
 
 The services Quick Settings controls over D-Bus each have a model the QML reads, built into
@@ -1927,7 +1941,7 @@ resting pointer counts in the heatmap (see `heatmap_smoke.py`).
 ```sh
 cmake --build build --target paw          # only the compositor
 ctest --test-dir build -j8 -R sticky           # only the tests you are working on
-ctest --test-dir build -j8                     # everything, about 25 seconds
+ctest --test-dir build -j8                     # everything, about 90 seconds
 tools/check-all.sh                             # plus the sanitizer build, before merging
 ```
 
