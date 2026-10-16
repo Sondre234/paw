@@ -397,6 +397,12 @@ struct sh_profile_schedule {
 struct sh_settings {
     float background[4];
     int color_scheme; /* enum sh_color_scheme */
+    /* appearance.cursor_theme, cursor_size and icon_theme: the cursor theme and size and the icon
+     * theme the profile in use picks, "" and 0 for the session's own. The compositor draws the
+     * cursor in them (src/compositor/profile_themes.c), the shell its icons. */
+    char cursor_theme[128];
+    int cursor_size;
+    char icon_theme[128];
     /* The appearance profile in use, from `profiles`: the one picked, else `profile`; "" for
      * none. A new one crossfades in (crossfade.c). */
     char profile[40];
