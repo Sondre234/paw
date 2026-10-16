@@ -22,6 +22,21 @@ std::optional<QPoint> TaskbarOrder::screenPlace(const QString &output) {
             return screen->geometry().topLeft();
     return std::nullopt;
 }
+void TaskbarOrder::followScreens(QObject *context, const std::function<void()> &changed) {
+    if (!qGuiApp)
+        return;
+    auto follow = [context, changed](QScreen *screen) {
+        QObject::connect(screen, &QScreen::geometryChanged, context, changed);
+    };
+    for (auto *screen : QGuiApplication::screens())
+        follow(screen);
+    QObject::connect(qGuiApp, &QGuiApplication::screenAdded, context,
+                     [follow, changed](QScreen *screen) {
+                         follow(screen);
+                         changed();
+                     });
+    QObject::connect(qGuiApp, &QGuiApplication::screenRemoved, context, changed);
+}
 TaskbarOrder::TaskbarOrder(QAbstractItemModel *source) : QObject(source), source_(source) {
     // A window that closed goes at once, so no taskbar names a window the source no longer has; a
     // new one waits for the turn of the event loop that gives it its app id, which says where it
@@ -54,6 +69,8 @@ TaskbarOrder::TaskbarOrder(QAbstractItemModel *source) : QObject(source), source
                 if (outputs || roles.contains(roleId("appId")))
                     Q_EMIT changed();
             });
+    // A window can learn its monitor before the shell has its screen (one just plugged in).
+    followScreens(this, [this] { monitorsChanged(); });
     // The windows open already wait for the pins, which say where they go.
     indexRows();
     placeLater();
@@ -69,6 +86,14 @@ void TaskbarOrder::setPins(Pins pins) {
 void TaskbarOrder::pinsChanged() {
     syncPins();
     Q_EMIT changed();
+}
+void TaskbarOrder::monitorsChanged() {
+    bool moved = false;
+    for (const auto &entry : QList(entries_))
+        if (entry.pin.isEmpty())
+            moved = noteOutput(entry.taskId) || moved;
+    if (moved)
+        Q_EMIT changed();
 }
 int TaskbarOrder::roleId(const char *role) const {
     auto found = roleIds_.constFind(role);
@@ -163,6 +188,9 @@ bool TaskbarOrder::noteOutput(int taskId) {
     const auto now = output(taskId);
     const auto seen = outputs_.value(taskId);
     if (outputs_.contains(taskId) && seen == now)
+        return false;
+    // A monitor without a place yet waits for one (monitorsChanged), not noted until then.
+    if (!now.isEmpty() && place_ && !place_(now))
         return false;
     outputs_.insert(taskId, now);
     return followMonitor(taskId, !seen.isEmpty());

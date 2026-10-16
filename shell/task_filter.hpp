@@ -16,7 +16,7 @@ class ShellController;
 // taskbar showing its monitor's windows alone has them (shell.taskbar_buttons).
 // The windows are in the source's order, or with `byMonitor` in the order of their monitors in
 // the layout (left to right, top to bottom at the same x; those on a monitor not known last),
-// each monitor's in the source's.
+// each monitor's in the source's, sorted again as a monitor comes, goes or moves.
 class TaskFilter : public QSortFilterProxyModel {
     Q_OBJECT
     Q_PROPERTY(QObject *controller READ controller WRITE setController NOTIFY controllerChanged)
@@ -56,6 +56,8 @@ class TaskFilter : public QSortFilterProxyModel {
     void setOutput(const QString &output);
     // Where the monitors are: TaskbarOrder::screenPlace until set otherwise.
     void setOutputPlace(TaskbarOrder::OutputPlace place);
+    // A monitor came, went or moved: by monitor, the windows sorted again.
+    void monitorsChanged();
     int count() const { return rowCount(); }
     void setSourceModel(QAbstractItemModel *source) override;
     int activeTask() const;
