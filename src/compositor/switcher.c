@@ -219,8 +219,11 @@ void switcher_forget(struct sh_toplevel *toplevel) {
 }
 
 /* Keys while the switcher is open: the opening key (with Shift, backward), Tab, and the arrows
- * move the selection, Return confirms, Escape cancels. It keeps every key from the windows. */
-void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym) {
+ * move the selection, Return confirms, Escape cancels. It keeps every key from the windows.
+ * `base` is the key's symbol without Shift, by which the opening key is known with Shift too,
+ * which turns ` into ~. */
+void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym,
+                  xkb_keysym_t base) {
     switch (sym) {
     case XKB_KEY_Escape:
         switcher_close(server, -1);
@@ -239,7 +242,8 @@ void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym
         switcher_select(server, server->switcher.selected + 1);
         return;
     }
-    if (sym == XKB_KEY_Tab || xkb_keysym_to_lower(sym) == server->switcher.key)
+    if (sym == XKB_KEY_Tab || xkb_keysym_to_lower(sym) == server->switcher.key ||
+        (base != XKB_KEY_NoSymbol && xkb_keysym_to_lower(base) == server->switcher.key))
         switcher_select(server,
                         server->switcher.selected + (modifiers & WLR_MODIFIER_SHIFT ? -1 : 1));
 }

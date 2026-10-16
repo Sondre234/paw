@@ -436,6 +436,16 @@ static void start_repeat(struct sh_keyboard *keyboard, uint32_t keycode, enum sh
     wl_event_source_timer_update(keyboard->repeat_timer, keyboard->wlr_keyboard->repeat_info.delay);
 }
 
+/* The symbol on the key's first level in the keyboard's layout, as typed without Shift. */
+static xkb_keysym_t first_level_sym(struct sh_keyboard *keyboard, uint32_t keycode) {
+    struct wlr_keyboard *wlr_keyboard = keyboard->wlr_keyboard;
+    xkb_layout_index_t layout = xkb_state_key_get_layout(wlr_keyboard->xkb_state, keycode + 8);
+    const xkb_keysym_t *syms;
+    int count =
+        xkb_keymap_key_get_syms_by_level(wlr_keyboard->keymap, keycode + 8, layout, 0, &syms);
+    return count > 0 ? syms[0] : XKB_KEY_NoSymbol;
+}
+
 static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t modifiers,
                               xkb_keysym_t sym) {
     struct sh_server *server = keyboard->server;
@@ -460,7 +470,7 @@ static bool handle_keybinding(struct sh_keyboard *keyboard, uint32_t keycode, ui
         return true;
     }
     if (server->switcher.open) {
-        switcher_key(server, modifiers, sym);
+        switcher_key(server, modifiers, sym, first_level_sym(keyboard, keycode));
         return true;
     }
     if (server->xray.open) {
