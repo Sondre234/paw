@@ -1197,7 +1197,11 @@ what was there.
 | `Caption.qml` | The caption `paw tour` narrates itself with (`shell.caption`, `caption.cpp`, from the compositor's `caption` lines), an overlay surface of its own (`CaptionView`) where the on-screen display shows, taking no input. |
 
 The authentication dialog's model is `Authentication` (`authentication.cpp`): polkit's requests,
-one at a time, each answered through an `AuthConversation` for the chosen user. The agent
+one at a time, each answered through an `AuthConversation` for the chosen user. A conversation
+that ends in a wrong answer is followed by a new one from the event loop, never from inside its
+`completed`, which polkit's session may emit inside `start()` when its helper cannot start; one
+that ended without asking anything is followed by none until the user answers again or chooses
+another user, and the third wrong answer of a user ends the request as `Failed`. The agent
 (`polkit_agent.cpp`, with `PAW_POLKIT`) is a `PolkitAgentListener` subclass registered for
 the session's `unix-session` subject, whose requests it hands to the model, and whose
 conversations are polkit's `PolkitAgentSession`s; it completes polkit's `GTask` as the model is

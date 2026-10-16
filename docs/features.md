@@ -3667,9 +3667,13 @@ dialog in the middle of the focused monitor says what is asked (polkit's message
 (the one logged in chosen first, else root), and asks for that user's password. Enter or
 Authenticate answers, Up and Down choose another user, Escape or Cancel gives the request up, and
 a click beside the dialog does nothing, so that a stray click loses no typing. A wrong password
-shakes the dialog and asks again. A request that comes while one is open waits its turn, and one
-its program gives up closes. The password goes to polkit's own helper (`polkit-agent-helper-1`),
-which checks it with PAM.
+shakes the dialog and asks again, three times for each user, as `sudo` does; the third fails the
+request, and the program that asked hears that it is not allowed. When polkit's helper gives up
+without asking for a password (it cannot start, or PAM turns the user away first, as for a
+locked account), the dialog says so, or shows what the helper said, and tries again only once
+the user answers or chooses another user. A request that comes while one is open waits its
+turn, and one its program gives up closes. The password goes to polkit's own helper
+(`polkit-agent-helper-1`), which checks it with PAM.
 
 Only the shell of a standalone session is the agent, for its login session; a nested one leaves
 that to the host's. When another agent serves the session already (polkit-gnome started by hand,
