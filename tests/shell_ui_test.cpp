@@ -317,6 +317,10 @@ int main(int argc, char **argv) {
                 client->write("ok\n");
                 client->disconnectFromServer();
                 pickProfile(QString::fromUtf8(request).trimmed().section(' ', 1));
+            } else if (request == "profile_auto\n") {
+                requests.push_back("profile_auto");
+                client->write("ok\n");
+                client->disconnectFromServer();
             } else if (request.startsWith("profile_drawn")) {
                 drawnProfiles.push_back(QString::fromUtf8(request).trimmed().section(' ', 1));
                 client->write("ok\n");
@@ -1090,6 +1094,15 @@ int main(int argc, char **argv) {
     subscriber->write("night-light off off\n");
     if (!waitFor([&] { return !controller.nightLight() && controller.nightLightMode() == "off"; }))
         return fail("a change of night light was not read");
+    // And whether the profile in use is the one profile_schedule wants now.
+    if (controller.profileScheduled())
+        return fail("the profile schedule is known before the compositor says");
+    subscriber->write("profile-schedule on\n");
+    if (!waitFor([&] { return controller.profileScheduled(); }))
+        return fail("the profile schedule the compositor reports was not read");
+    subscriber->write("profile-schedule off\n");
+    if (!waitFor([&] { return !controller.profileScheduled(); }))
+        return fail("a change of the profile schedule was not read");
     // Battery and network widgets show what a (fake) sysfs reports, and only where it exists.
     {
         QDir sys(screens.filePath("sys"));
@@ -2203,6 +2216,35 @@ ListModel {
         }))
         return fail("picking a profile from the bar did not switch to it");
     requests.clear();
+    // With profile_schedule the list ends in following it, marked while the profile it wants is
+    // in use; choosing it hands the choice back to the schedule.
+    if (!reconfigure(QString(lua).replace(
+            "profiles={", "profile_schedule={day='light',night='dark'},profiles={")) ||
+        !waitFor([&] { return controller.hasProfileSchedule() && !controller.restyling(); }))
+        return fail("profile_schedule did not reach the shell");
+    click(profilesButton);
+    // Found anew each time: the list's rows are made again as what it shows changes.
+    auto follow = [&]() -> QQuickItem * {
+        auto *item = profileList->isVisible() ? find(profileList, "profileSchedule") : nullptr;
+        return item && item->isVisible() ? item : nullptr;
+    };
+    auto followMarked = [&] { return follow() && follow()->property("marked").toBool(); };
+    if (!waitFor([&] { return follow() && !followMarked(); }))
+        return fail("the profile list does not offer the schedule");
+    subscriber->write("profile-schedule on\n");
+    if (!waitFor(followMarked))
+        return fail("the schedule in charge is not marked");
+    subscriber->write("profile-schedule off\n");
+    if (!waitFor([&] { return follow() && !followMarked(); }))
+        return fail("the schedule no longer in charge is still marked");
+    requests.clear();
+    click(follow());
+    if (!waitFor([&] { return requests.contains("profile_auto") && !profileList->isVisible(); }))
+        return fail("choosing the schedule did not hand the choice back to it");
+    requests.clear();
+    if (!reconfigure(lua) ||
+        !waitFor([&] { return !controller.hasProfileSchedule() && !controller.restyling(); }))
+        return fail("could not restore the configuration");
     // The wallpaper button shows the pictures of shell.wallpapers as thumbnails, the one in use
     // marked; clicking another shows it, keeps it for the profile and leaves the picker open.
     auto *wallpapersButton = find(view.rootObject(), "wallpapersButton");

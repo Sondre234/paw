@@ -17,12 +17,20 @@ function sections(groups, map) {
     }
     return entries
 }
-// The appearance profiles, the one in use checked; choosing another switches to it.
+// The appearance profiles, the one in use checked; choosing another switches to it. With
+// profile_schedule, the schedule after them, checked while the profile it wants is in use;
+// choosing it hands the choice back to it.
 function profileEntries() {
-    return shell.profiles.map(function(name) {
+    var entries = shell.profiles.map(function(name) {
         return { text: name, toggle: "radio", checked: name === shell.profile,
                  run: function() { if (name !== shell.profile) shell.pickProfile(name) } }
     })
+    if (shell.hasProfileSchedule)
+        entries.push({ separator: true },
+                     { text: "Follow sunrise and sunset", toggle: "check",
+                       checked: shell.profileScheduled, objectName: "profileSchedule",
+                       run: function() { if (!shell.profileScheduled) shell.send("profile_auto") } })
+    return entries
 }
 
 // Where the windows can go, once the compositor has said where they are (workspace from 1):

@@ -208,7 +208,7 @@ PopupCard {
                     Layout.fillWidth: true; Layout.preferredWidth: 1
                     glyph: "palette"
                     label: "Appearance"
-                    detail: shell.profile
+                    detail: shell.profileScheduled ? shell.profile + " · Scheduled" : shell.profile
                     expandable: true
                     expanded: quick.expanded === "profiles"
                     onClicked: quick.toggle("profiles")
