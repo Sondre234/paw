@@ -5,7 +5,8 @@ frames for them meanwhile, and so does the lock; the action goes through the kin
 (which takes them away) and back on, from a binding too; a profile setting another kind brings it
 in, a reload leaves the action's choice unless the kind configured changes, and a new count
 adds or takes particles away; without input for a while (PAW_TEST_AMBIENT_IDLE_MS) they fade out,
-and input brings them back. With grim, the screen shows petals."""
+and input brings them back. Turned on behind a fullscreen window they spread over the output as
+it shows, and a second monitor has particles of its own. With grim, the screen shows petals."""
 from pathlib import Path
 import subprocess
 import sys
@@ -138,6 +139,19 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     wait_for(lambda: sky()["state"] == "shown" and len(particles()) == 12, "fireflies shown")
     xs, ys = [p[0] for p in particles()], [p[1] for p in particles()]
     assert max(xs) - min(xs) > WIDTH / 4 and max(ys) - min(ys) > HEIGHT / 4, (xs, ys)
+
+    # A second monitor gets particles of its own, and takes them along as it goes.
+    msg("headless_output", "add", "HEADLESS-2", "800x600")
+
+    def skies():
+        return {row[0]: row[1:] for row in desktop.rows("ambient")}
+
+    wait_for(lambda: skies().get("HEADLESS-2") == ["fireflies", "12", "shown"],
+             "fireflies on the second monitor")
+    wait_for(lambda: len(desktop.rows("ambient", "HEADLESS-2")) == 12, "all of them drawn")
+    msg("headless_output", "remove", "HEADLESS-2")
+    wait_for(lambda: list(skies()) == ["HEADLESS-1"], "the second monitor gone")
+    assert skies()["HEADLESS-1"] == ["fireflies", "12", "shown"], skies()
 
 # Without input for a while they fade out, drawing nothing more, and input brings them back.
 with harness.Compositor(compositor, CONFIG.format(kind="snow"),
