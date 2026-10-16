@@ -461,8 +461,8 @@ void minimize_forget(struct sh_toplevel *toplevel) {
 }
 
 /* A line of `get minimize` for a fold: the box it folds into and where it draws the window's box
- * now, both in layout coordinates, from where the tree it folds is drawn, and how far in it set
- * off from. */
+ * now, both in layout coordinates, from where the tree it folds is drawn, how far in it set off
+ * from, and the window's box unfolded. */
 static void describe_fold(int fd, struct sh_toplevel *toplevel, const struct sh_anim *anim,
                           const char *kind, const char *target) {
     struct sh_fold fold;
@@ -475,19 +475,22 @@ static void describe_fold(int fd, struct sh_toplevel *toplevel, const struct sh_
         drawn_height = fold.rest_height;
     sh_anim_fold_map(anim, &drawn_x, &drawn_y, &drawn_width, &drawn_height, NULL);
     char line[256];
-    snprintf(line, sizeof(line), "fold\t%u\t%s\t%ld\t%d\t%d\t%d\t%d\t%s\t%d\t%d\t%d\t%d\t%ld\n",
+    snprintf(line, sizeof(line),
+             "fold\t%u\t%s\t%ld\t%d\t%d\t%d\t%d\t%s\t%d\t%d\t%d\t%d\t%ld\t%d\t%d\t%d\t%d\n",
              toplevel->id, kind, lround(1000 * at), x + fold.into_x, y + fold.into_y,
              fold.into_width, fold.into_height, target ? target : "-", x + drawn_x, y + drawn_y,
-             drawn_width, drawn_height, lround(1000 * anim->fold_from));
+             drawn_width, drawn_height, lround(1000 * anim->fold_from), x + fold.rest_x,
+             y + fold.rest_y, fold.rest_width, fold.rest_height);
     control_reply(fd, line);
 }
 
 /* `get minimize`: "rect ID OUTPUT X Y WIDTH HEIGHT" for where clients show each window, the
  * one that counts first, in its output's coordinates; then "fold ID minimize|restore AT X Y
- * WIDTH HEIGHT TARGET X Y WIDTH HEIGHT FROM" for each window on its way in or out (a copy of it,
- * or itself): AT in thousandths of the way into the box, the box in layout coordinates, TARGET
- * "button", "panel" or "place", where the window's box is drawn now, and FROM how far in (as AT)
- * the fold set off. */
+ * WIDTH HEIGHT TARGET X Y WIDTH HEIGHT FROM X Y WIDTH HEIGHT" for each window on its way in or
+ * out (a copy of it, or itself): AT in thousandths of the way into the box, the box in layout
+ * coordinates, TARGET "button", "panel" or "place", where the window's box is drawn now, FROM how
+ * far in (as AT) the fold set off, and the window's box unfolded: where a copy set off from, or
+ * where a window restored comes out to. */
 void describe_minimize(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;

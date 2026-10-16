@@ -2953,7 +2953,8 @@ layer surface), its app ID or namespace, and its title (empty for a layer surfac
 in the monitor's coordinates, the one that counts first), then a `fold` line per window on its
 way into or out of its button (its number, `minimize` or `restore`, how far into the button it
 is drawn in thousandths, the box in layout coordinates, what that box is: `button`, `panel` or
-`place`, where the window's box is drawn now, and how far into the button it set off from), also
+`place`, where the window's box is drawn now, how far into the button it set off from, and the
+window's box unfolded: where a copy set off from, or where a window restored comes out to), also
 mainly for tests. `paw msg get pictures`
 prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
