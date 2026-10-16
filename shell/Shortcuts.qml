@@ -248,7 +248,8 @@ Item {
         anchors.centerIn: parent
         width: Math.min(root.width - 2 * root.marginX, 1680)
         height: Math.min(root.height - 2 * root.marginY,
-                         body.y + Math.max(root.tallest, empty.implicitHeight) + root.padding + footer.height)
+                         body.y + Math.max(root.tallest + root.padding - Theme.spacingS, empty.implicitHeight) +
+                         root.padding + footer.height)
         opacity: root.progress
         scale: 0.96 + 0.04 * root.progress
         CardFrame { radius: Theme.spotlightRadius; innerEdge: true }
@@ -323,7 +324,8 @@ Item {
             height: card.height - y - footer.height
             clip: true
             contentWidth: width
-            contentHeight: root.contentHeight + 2 * root.padding
+            // The columns, a padding below them and a little less above.
+            contentHeight: root.contentHeight + 2 * root.padding - Theme.spacingS
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: scrollBar
             Row {
