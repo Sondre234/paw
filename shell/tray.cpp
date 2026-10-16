@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "tray.hpp"
+#include "icon_lock.hpp"
 #include <QDirIterator>
 #include <QFileInfo>
 #include <QHash>
@@ -138,6 +139,7 @@ QImage icon(const QString &name, const QList<QImage> &pixmaps, const QString &th
         // pipe or a device would never end.
         const QString file = name.startsWith('/') ? name : trayIconFile(name, themePath);
         const QFileInfo info(file);
+        std::lock_guard guard(iconThemeLock());
         if (!file.isEmpty() && info.isFile() && info.size() < 8 * 1024 * 1024)
             image = QIcon(file).pixmap(size, 1.0).toImage();
         else if (!name.contains('/') && QIcon::hasThemeIcon(name))
