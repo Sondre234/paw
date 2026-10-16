@@ -1250,7 +1250,9 @@ nobody owns it, so a machine without the service shows nothing of it. Each reach
 through a property (`mediaSource`, `powerModeSource`, `wifiSource`, `bluetoothSource`) that the
 preview and `shell_ui_test` point at stand-ins, and each backend is tested against stand-in
 services (`tests/fake_dbus.hpp`) on a private bus, which the tests hand the backend as its
-connection.
+connection. A backend reads a dictionary, a list or a structure from the bus only once its
+signature is the one it expects, through `dbus::map` and `dbus::read` (`dbus_util.hpp`): QtDBus
+reads an argument of another type out of bounds, so a mismatch counts as an empty answer.
 
 `NetworkManager` mirrors the objects it needs (the manager, the devices and their Wi-Fi
 interfaces, the access points, the active connections) from GetAll, follows them through the one
