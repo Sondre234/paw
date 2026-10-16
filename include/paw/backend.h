@@ -763,6 +763,10 @@ struct sh_callbacks {
 enum sh_backend_mode { SH_BACKEND_NESTED, SH_BACKEND_HEADLESS, SH_BACKEND_SESSION };
 int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode);
 
+/* Whether a cursor theme (`cursor`) or an icon theme of this name is installed where
+ * applications look for one (src/theme_lookup.cpp). */
+bool sh_theme_installed(const char *name, bool cursor);
+
 struct sh_rect {
     int x, y, width, height;
 };

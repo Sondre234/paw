@@ -31,7 +31,7 @@ add_library(paw_config STATIC src/curve.c src/session.c src/tabs.c src/config.cp
     src/child_trial.cpp src/config_schema.cpp src/layout.cpp src/tiling.cpp
     src/overview_layout.cpp src/window_placement.cpp
     src/import/common.cpp src/import/hyprland.cpp src/import/waybar.cpp src/import/import.cpp
-    src/autostart.cpp src/lock_style.cpp)
+    src/autostart.cpp src/lock_style.cpp src/theme_lookup.cpp)
 target_include_directories(paw_config PUBLIC include)
 target_link_libraries(paw_config PRIVATE paw_effects PkgConfig::LUA PUBLIC PkgConfig::XKB)
 target_compile_options(paw_config PRIVATE -Wall -Wextra -Wpedantic)
@@ -168,6 +168,7 @@ if(BUILD_TESTING)
     paw_unit_test(power_config)
     paw_unit_test(lock_style ${EXAMPLE_CONFIG})
     paw_unit_test(autostart)
+    paw_unit_test(theme_lookup)
     paw_unit_test(display_power_config)
     paw_unit_test(output_config)
     paw_unit_test(doctor LIBRARY paw_cli)
