@@ -30,6 +30,11 @@
  *   shortcuts active | shortcuts inactive
  * --commands reads lines on standard input: "inhibit" asks for the shortcuts, "release" lets
  * them go (destroying the inhibitor).
+ * --cursor sets a cursor image of its own (16 by 16 pixels) as the pointer enters, and
+ * --no-cursor none, as a game or a video playing does. --lock locks the pointer to the window as
+ * it is ready (pointer-constraints-unstable-v1), as a game does, and prints what the compositor
+ * says of it:
+ *   pointer locked | pointer unlocked
  *
  * With --text-input it is instead a window that takes text through text-input-unstable-v3, as
  * GTK and Qt applications do, for the input method tests, and hears no pointer, gestures, touch
@@ -43,6 +48,7 @@
  * 60 pixels at the top of the output and taking the keyboard. */
 #define _GNU_SOURCE
 #include "keyboard-shortcuts-inhibit-unstable-v1-client-protocol.h"
+#include "pointer-constraints-unstable-v1-client-protocol.h"
 #include "pointer-gestures-unstable-v1-client-protocol.h"
 #include "tablet-v2-client-protocol.h"
 #include "text-input-unstable-v3-client-protocol.h"
@@ -97,6 +103,12 @@ struct probe {
     char surrounding[256];
     int cursor[4];
     bool wallpaper, swapped; // --background, and its halves swapped
+    // --cursor: its own cursor image (1) or none (-1) set as the pointer enters; 0 sets none.
+    int cursor_image;
+    struct wl_surface *cursor_surface;
+    // --lock: the pointer locked to the window as it is ready.
+    bool lock;
+    struct zwp_pointer_constraints_v1 *constraints;
 };
 
 static void die(const char *message) {
@@ -116,6 +128,9 @@ __attribute__((format(printf, 1, 2))) static void say(const char *format, ...) {
 
 static void pointer_enter(void *data, struct wl_pointer *pointer, uint32_t serial,
                           struct wl_surface *surface, wl_fixed_t x, wl_fixed_t y) {
+    struct probe *probe = data;
+    if (probe->cursor_image)
+        wl_pointer_set_cursor(pointer, serial, probe->cursor_surface, 0, 0);
     say("pointer enter %.0f %.0f", wl_fixed_to_double(x), wl_fixed_to_double(y));
 }
 static void pointer_leave(void *data, struct wl_pointer *pointer, uint32_t serial,
@@ -460,6 +475,15 @@ static const struct zwp_text_input_v3_listener text_input_listener = {
     .done = text_done,
 };
 
+static void pointer_locked(void *data, struct zwp_locked_pointer_v1 *locked) {
+    say("pointer locked");
+}
+static void pointer_unlocked(void *data, struct zwp_locked_pointer_v1 *locked) {
+    say("pointer unlocked");
+}
+static const struct zwp_locked_pointer_v1_listener locked_listener = {
+    .locked = pointer_locked, .unlocked = pointer_unlocked};
+
 /* Asks for the compositor's shortcuts on the probe's surface, or lets them go. */
 static void inhibit(struct probe *probe, bool on) {
     if (on && !probe->inhibitor) {
@@ -535,6 +559,9 @@ static void global(void *data, struct wl_registry *registry, uint32_t name, cons
     } else if (!strcmp(interface, zwp_text_input_manager_v3_interface.name)) {
         probe->text_manager =
             wl_registry_bind(registry, name, &zwp_text_input_manager_v3_interface, 1);
+    } else if (!strcmp(interface, zwp_pointer_constraints_v1_interface.name)) {
+        probe->constraints =
+            wl_registry_bind(registry, name, &zwp_pointer_constraints_v1_interface, 1);
     } else if (!strcmp(interface, zwp_pointer_gestures_v1_interface.name)) {
         probe->gestures_version = version < 3 ? version : 3;
         probe->gestures = wl_registry_bind(registry, name, &zwp_pointer_gestures_v1_interface,
@@ -578,6 +605,12 @@ static void frame_done(void *data, struct wl_callback *callback, uint32_t time) 
         say("ready");
         if (probe->inhibit)
             inhibit(probe, true);
+        if (probe->lock && probe->pointer)
+            zwp_locked_pointer_v1_add_listener(
+                zwp_pointer_constraints_v1_lock_pointer(
+                    probe->constraints, probe->surface, probe->pointer, NULL,
+                    ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT),
+                &locked_listener, probe);
     }
 }
 static const struct wl_callback_listener frame_listener = {.done = frame_done};
@@ -681,6 +714,12 @@ int main(int argc, char **argv) {
             probe.text = true;
         else if (!strcmp(argv[i], "--no-enable"))
             probe.enable_on_enter = false;
+        else if (!strcmp(argv[i], "--cursor"))
+            probe.cursor_image = 1;
+        else if (!strcmp(argv[i], "--no-cursor"))
+            probe.cursor_image = -1;
+        else if (!strcmp(argv[i], "--lock"))
+            probe.lock = true;
         else
             title = argv[i];
     }
@@ -707,6 +746,17 @@ int main(int argc, char **argv) {
         die("zwp_keyboard_shortcuts_inhibit_manager_v1 is not offered");
     if (probe.text && !probe.text_manager)
         die("zwp_text_input_manager_v3 is not offered");
+    if (probe.lock && !probe.constraints)
+        die("zwp_pointer_constraints_v1 is not offered");
+    if (probe.cursor_image > 0) { // a 16 by 16 square of its own
+        int saved[2] = {probe.width, probe.height};
+        probe.width = probe.height = 16;
+        probe.cursor_surface = wl_compositor_create_surface(probe.compositor);
+        wl_surface_attach(probe.cursor_surface, make_buffer(&probe), 0, 0);
+        wl_surface_commit(probe.cursor_surface);
+        probe.width = saved[0];
+        probe.height = saved[1];
+    }
     if (probe.text) {
         probe.text_input = zwp_text_input_manager_v3_get_text_input(probe.text_manager, probe.seat);
         zwp_text_input_v3_add_listener(probe.text_input, &text_input_listener, &probe);

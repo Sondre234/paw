@@ -238,21 +238,63 @@ static uint32_t shape_edges(enum wp_cursor_shape_device_v1_shape shape) {
     }
 }
 
-void cursor_request_set_shape(struct wl_listener *listener, void *data) {
-    struct sh_server *server = wl_container_of(listener, server, request_set_shape);
-    struct wlr_cursor_shape_manager_v1_request_set_shape_event *event = data;
-    if (event->device_type != WLR_CURSOR_SHAPE_MANAGER_V1_DEVICE_TYPE_POINTER ||
-        server->seat->pointer_state.focused_client != event->seat_client)
-        return;
-    server->shape_edges = shape_edges(event->shape);
+/* The client under the pointer's image forgotten: the pointer left it, or the surface went. */
+static void forget_client_cursor(struct sh_server *server) {
+    if (server->client_cursor.surface)
+        wl_list_remove(&server->client_cursor.surface_destroy.link);
+    server->client_cursor.client = NULL;
+    server->client_cursor.surface = NULL;
+    server->client_cursor.shaped = false;
+}
+static void client_cursor_gone(struct wl_listener *listener, void *data) {
+    struct sh_server *server = wl_container_of(listener, server, client_cursor.surface_destroy);
+    forget_client_cursor(server);
+}
+/* What the client under the pointer asked the cursor to show, noted for cursor_show. */
+static void note_client_cursor(struct sh_server *server, struct wlr_seat_client *client,
+                               struct wlr_surface *surface, int32_t hotspot_x, int32_t hotspot_y,
+                               const enum wp_cursor_shape_device_v1_shape *shape) {
+    forget_client_cursor(server);
+    server->client_cursor.client = client;
+    server->client_cursor.hotspot_x = hotspot_x;
+    server->client_cursor.hotspot_y = hotspot_y;
+    server->client_cursor.shaped = shape != NULL;
+    if (shape)
+        server->client_cursor.shape = *shape;
+    if (surface) {
+        server->client_cursor.surface = surface;
+        server->client_cursor.surface_destroy.notify = client_cursor_gone;
+        wl_signal_add(&surface->events.destroy, &server->client_cursor.surface_destroy);
+    }
+}
+/* Whether the client under the pointer asked for no image, as a game or a video playing does:
+ * there is nothing for mouse.hide_when_typing or mouse.hide_after to hide. */
+bool client_cursor_none(struct sh_server *server) {
+    return server->client_cursor.client &&
+           server->client_cursor.client == server->seat->pointer_state.focused_client &&
+           !server->client_cursor.surface && !server->client_cursor.shaped;
+}
+
+static void show_shape(struct sh_server *server, enum wp_cursor_shape_device_v1_shape shape) {
+    server->shape_edges = shape_edges(shape);
     server->shown_edges = 0;
-    show_xcursor(server, wlr_cursor_shape_v1_name(event->shape));
+    show_xcursor(server, wlr_cursor_shape_v1_name(shape));
     if (server->cursor_mode == SH_CURSOR_PASSTHROUGH) {
         struct wlr_surface *surface;
         double sx, sy;
         update_resize_cursor(server, desktop_toplevel_at(server, server->cursor->x,
                                                          server->cursor->y, &surface, &sx, &sy));
     }
+}
+
+void cursor_request_set_shape(struct wl_listener *listener, void *data) {
+    struct sh_server *server = wl_container_of(listener, server, request_set_shape);
+    struct wlr_cursor_shape_manager_v1_request_set_shape_event *event = data;
+    if (event->device_type != WLR_CURSOR_SHAPE_MANAGER_V1_DEVICE_TYPE_POINTER ||
+        server->seat->pointer_state.focused_client != event->seat_client)
+        return;
+    note_client_cursor(server, event->seat_client, NULL, 0, 0, &event->shape);
+    show_shape(server, event->shape);
 }
 
 /* The window whose own buffer, such as its controls or its tabs, is at (x, y): that buffer in
@@ -978,6 +1020,9 @@ void seat_request_cursor(struct wl_listener *listener, void *data) {
     struct wlr_seat_pointer_request_set_cursor_event *event = data;
     struct wlr_seat_client *focused_client = server->seat->pointer_state.focused_client;
 
+    if (focused_client == event->seat_client)
+        note_client_cursor(server, event->seat_client, event->surface, event->hotspot_x,
+                           event->hotspot_y, NULL);
     if (focused_client == event->seat_client && !server->cursor_hidden) {
         server->shape_edges = 0;
         server->shown_edges = 0;
@@ -1010,6 +1055,23 @@ void cursor_show(struct sh_server *server, uint32_t why) {
     server->cursor_hidden &= ~why;
     if (server->cursor_hidden)
         return; // hidden for another reason still
+    // The image the client under the pointer last asked for, heard meanwhile too: given back
+    // as it is, without the leave and enter that would have the client set it again (which a
+    // game holding the pointer may take for losing it).
+    const typeof(server->client_cursor) *wanted = &server->client_cursor;
+    if (wanted->client && wanted->client == server->seat->pointer_state.focused_client &&
+        server->cursor_mode == SH_CURSOR_PASSTHROUGH && !cursor_grown(server)) {
+        if (wanted->shaped) {
+            show_shape(server, wanted->shape);
+        } else {
+            server->shape_edges = 0;
+            server->shown_edges = 0;
+            wlr_cursor_set_surface(server->cursor, wanted->surface, wanted->hotspot_x,
+                                   wanted->hotspot_y);
+            server->cursor_image = "client";
+        }
+        return;
+    }
     set_default_cursor(server);
     // A client sets its cursor as the pointer enters it, so the one under the pointer is entered
     // anew to set it again.
@@ -1020,6 +1082,7 @@ void cursor_show(struct sh_server *server, uint32_t why) {
 void seat_pointer_focus_change(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, pointer_focus_change);
     struct wlr_seat_pointer_focus_change_event *event = data;
+    forget_client_cursor(server); // the one entered sets its own
     if (!event->new_surface)
         set_default_cursor(server);
 }

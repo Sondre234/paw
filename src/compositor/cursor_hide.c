@@ -1,13 +1,24 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The cursor hidden while typing (mouse.hide_when_typing), as macOS does, and after the pointer
- * rests a while (mouse.hide_after), until the pointer moves, clicks or scrolls again. */
+ * rests a while (mouse.hide_after), until the pointer moves, clicks or scrolls again. Never while
+ * a game or a remote desktop holds the pointer (a pointer constraint), or the window under it has
+ * hidden the cursor itself: there is nothing to hide, and the cursor coming back would only flash
+ * the arrow at it. */
 #include "server.h"
 
-/* A key went to an application (or its input method): unless it is a modifier, a button is held
- * or the pointer moves something, the cursor hides until the pointer is used. */
+/* Whether the cursor may hide now: no button held, the pointer moving nothing, held by no
+ * pointer constraint, and showing an image. */
+static bool may_hide(struct sh_server *server) {
+    return !server->seat->pointer_state.button_count &&
+           server->cursor_mode == SH_CURSOR_PASSTHROUGH && !server->active_constraint &&
+           !client_cursor_none(server);
+}
+
+/* A key went to an application (or its input method): unless it is a modifier, or the cursor may
+ * not hide now, it hides until the pointer is used. */
 void cursor_typed(struct sh_server *server, xkb_keysym_t sym) {
     if (!server_settings(server)->hide_cursor_typing || keysym_is_modifier(sym) ||
-        server->seat->pointer_state.button_count || server->cursor_mode != SH_CURSOR_PASSTHROUGH)
+        !may_hide(server))
         return;
     cursor_hide(server, SH_HIDDEN_TYPING);
 }
@@ -17,8 +28,8 @@ static void arm(struct sh_server *server, int64_t ms) {
         wl_event_source_timer_update(server->cursor_rest.timer, ms > 0 ? (int)ms : 1);
 }
 
-/* The pointer at rest for mouse.hide_after: the cursor hides, unless a button is held. Motion
- * only notes its time, and the timer looks again for the rest of the while from there. */
+/* The pointer at rest for mouse.hide_after: the cursor hides, if it may. Motion only notes its
+ * time, and the timer looks again for the rest of the while from there. */
 static int rested(void *data) {
     struct sh_server *server = data;
     int after = server_settings(server)->hide_cursor_after;
@@ -29,8 +40,8 @@ static int rested(void *data) {
         arm(server, left);
         return 0;
     }
-    if (server->seat->pointer_state.button_count || server->cursor_mode != SH_CURSOR_PASSTHROUGH) {
-        arm(server, after * 1000LL); // held still mid-drag: looked at again later
+    if (!may_hide(server)) {
+        arm(server, after * 1000LL); // held still mid-drag, say: looked at again later
         return 0;
     }
     cursor_hide(server, SH_HIDDEN_RESTING);

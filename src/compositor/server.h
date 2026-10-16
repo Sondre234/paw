@@ -735,6 +735,18 @@ struct sh_server {
     /* cursor_hide: no image until cursor_show, whatever asks for one; the sh_cursor_hidden bits
      * of why, 0 while it shows. */
     uint32_t cursor_hidden;
+    /* The image the client under the pointer last asked for (cursor.c), heard while the cursor
+     * is hidden too, so that cursor_show gives it back without entering the surface anew: its
+     * surface (NULL for none), or a cursor-shape-v1 shape. `client` is NULL while none is known;
+     * it is forgotten as the pointer's focus changes. */
+    struct {
+        struct wlr_seat_client *client;
+        struct wlr_surface *surface;
+        int32_t hotspot_x, hotspot_y;
+        bool shaped;
+        enum wp_cursor_shape_device_v1_shape shape;
+        struct wl_listener surface_destroy;
+    } client_cursor;
     /* mouse.hide_after (cursor_hide.c): when the pointer was last used, and the timer that hides
      * the cursor once it has rested that long. */
     struct {
@@ -1341,6 +1353,7 @@ void set_default_cursor(struct sh_server *server);
 void show_xcursor(struct sh_server *server, const char *name);
 void cursor_hide(struct sh_server *server, uint32_t why);
 void cursor_show(struct sh_server *server, uint32_t why);
+bool client_cursor_none(struct sh_server *server);
 struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y);
 struct sh_toplevel *pointed_tile(struct sh_server *server, struct sh_toplevel *except);
 struct wlr_surface *press_target_at(struct sh_server *server, double x, double y, double *sx,

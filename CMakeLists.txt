@@ -595,7 +595,19 @@ if(PAW_BUILD_COMPOSITOR)
             COMMAND ${WAYLAND_SCANNER} private-code ${TEXT_INPUT_XML}
             ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-protocol.c
             DEPENDS ${TEXT_INPUT_XML})
+        set(CONSTRAINTS_XML
+            ${PROTOCOL_DIR}/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml)
+        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/pointer-constraints-unstable-v1-client-protocol.h
+            COMMAND ${WAYLAND_SCANNER} client-header ${CONSTRAINTS_XML}
+            ${CMAKE_CURRENT_BINARY_DIR}/pointer-constraints-unstable-v1-client-protocol.h
+            DEPENDS ${CONSTRAINTS_XML})
+        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/pointer-constraints-unstable-v1-protocol.c
+            COMMAND ${WAYLAND_SCANNER} private-code ${CONSTRAINTS_XML}
+            ${CMAKE_CURRENT_BINARY_DIR}/pointer-constraints-unstable-v1-protocol.c
+            DEPENDS ${CONSTRAINTS_XML})
         paw_probe(input_probe tests/input_probe.c
+            ${CMAKE_CURRENT_BINARY_DIR}/pointer-constraints-unstable-v1-client-protocol.h
+            ${CMAKE_CURRENT_BINARY_DIR}/pointer-constraints-unstable-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/keyboard-shortcuts-inhibit-unstable-v1-client-protocol.h
@@ -761,7 +773,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(launch_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         paw_smoke(cursor_theme_smoke $<TARGET_FILE:paw>)
         paw_smoke(cursor_hide_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            $<TARGET_FILE:pointer_probe>)
+            $<TARGET_FILE:pointer_probe> $<TARGET_FILE:input_probe>)
         paw_smoke(color_scheme_smoke $<TARGET_FILE:paw>)
         paw_smoke(profile_themes_smoke $<TARGET_FILE:paw>
             $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
