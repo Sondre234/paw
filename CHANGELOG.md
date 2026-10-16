@@ -989,6 +989,13 @@ off and to find out what is wrong with it, and toys the compositor plays with th
 - The shell no longer loses some 2.7 KB of memory each time a shadow drawn through the GPU goes,
   as the floating bar's does while a window docks it: Qt's shadow never frees the shader effect
   it draws with, which the shell now hands to the shadow to go with it.
+- A busy machine no longer costs you your configuration: the 3 seconds a configuration has to
+  load in are now of processor time rather than on the clock, so a parallel build, memory
+  pressure or a login starting everything at once cannot push a file that loads in a tenth of a
+  second over the limit. A reload that does run over (or crashes in its trial) keeps the running
+  configuration, in the compositor and the shell alike, and says why on the panel, where it
+  gave the default configuration and so took away your bindings, monitors and look until the
+  next save. The compositor no longer waits for ever on a trial stuck in the kernel either.
 
 ## 0.1.1 (2026-10-05)
 
