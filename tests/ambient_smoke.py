@@ -128,6 +128,17 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     desktop.reload(CONFIG.format(kind="none"))
     wait_for(lambda: sky()["state"] == "off", "configured off")
 
+    # Turned on behind a fullscreen window, they spread over the whole output once it shows.
+    desktop.open_window(probe, "film", focused=True)
+    msg("fullscreen")
+    msg("ambient", "fireflies")
+    wait_for(lambda: sky() == {"output": "HEADLESS-1", "kind": "fireflies", "count": "12",
+                               "state": "fullscreen"}, "fireflies behind the fullscreen window")
+    msg("fullscreen")
+    wait_for(lambda: sky()["state"] == "shown" and len(particles()) == 12, "fireflies shown")
+    xs, ys = [p[0] for p in particles()], [p[1] for p in particles()]
+    assert max(xs) - min(xs) > WIDTH / 4 and max(ys) - min(ys) > HEIGHT / 4, (xs, ys)
+
 # Without input for a while they fade out, drawing nothing more, and input brings them back.
 with harness.Compositor(compositor, CONFIG.format(kind="snow"),
                         env={"PAW_TEST_AMBIENT_IDLE_MS": "3000"}) as desktop:
