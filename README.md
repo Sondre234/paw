@@ -261,7 +261,8 @@ whole.
 Settings are checked before they apply, and a mistake is reported with its file and line.
 Saving the file reloads it (`auto_reload = false` turns that off); a file with an error loads
 the default configuration instead and shows the error across the top of every monitor until
-it is fixed. `paw --check-config` checks a file without starting anything. SIGHUP or
+it is fixed. One that runs over its 3 seconds of processor time to load is not applied on a
+reload: the desktop keeps the configuration it has and says why on the panel. `paw --check-config` checks a file without starting anything. SIGHUP or
 Super + Shift + R also reload; a reload does not rerun startup commands.
 
 Lua can compute settings with the base, table, string, math and UTF-8 libraries; process and

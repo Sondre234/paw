@@ -39,11 +39,18 @@ table, math and utf8 libraries without `load`, `dofile` or metatables, a budget 
 and 64 MiB for what its code allocates. A call into a C function is one instruction however
 long it runs, so whatever runs a configuration (`parse_config`, `configured_look`,
 `shadowed_settings`) runs it first in a child process forked for it (`try_first`), killed after 3
-seconds, and then for real, which gives the result or the error. The compositor and the shell
-both load the file this way, so what that code calls must be safe in a child forked from a
-process with threads: nothing that waits on a lock another thread may hold. The child process
-and its time limit are `try_in_child` (`src/child_trial.cpp`), which `paw import` uses too for
-a `hyprland.lua` (`src/import/hyprland.cpp`, a sandbox of its own).
+seconds of processor time (`RLIMIT_CPU`, so that a busy machine does not count against it; 30
+seconds on the clock are a backstop), and then for real, which gives the result or the error. The
+compositor and the shell both load the file this way, so what that code calls must be safe in a
+child forked from a process with threads: nothing that waits on a lock another thread may hold.
+The child process and its limits are `try_in_child` (`src/child_trial.cpp`), which `paw import`
+uses too for a `hyprland.lua` (`src/import/hyprland.cpp`, a sandbox of its own); it waits a few
+seconds at most for a killed child to end, and leaves one stuck in the kernel to the compositor's
+SIGCHLD handler (`reap_children`). A trial that runs over or crashes throws `ConfigTrialError`:
+`load_config_or_default` gives the default configuration for it at startup, as for an error,
+but a reload (`Runtime::reload`, `ShellController::reload`) keeps the running configuration, and
+the compositor sends the shell `config-error MESSAGE` instead of SIGHUP. The default
+configuration standing in for a broken one loads without a trial, being paw's own.
 
 Window rules' and bindings' patterns are compiled to be searched in time linear in the text
 (`compile_pattern`), and in a title or app ID over 1 KiB only the first and last 512 bytes are
@@ -1913,8 +1920,8 @@ client header and code for the shell and the test probes), its global made with
 
 `send_event` (`control.c`) sends a line to every subscriber; `send_shell_line` and
 `request_shell` are the shell-specific forms, and `report_failure` logs a failure the user no
-longer waits on and shows it across the panel (`power-error`, `spawn-error`). `notice
-SUMMARY<tab>BODY` tells the user something once, as a notification of the desktop's own
+longer waits on and shows it across the panel (`power-error`, `spawn-error`, `config-error`).
+`notice SUMMARY<tab>BODY` tells the user something once, as a notification of the desktop's own
 (`ShellController::notice`), or on the on-screen display while no card shows; a window taking the
 keyboard's shortcuts is one (`shortcuts_inhibit.c`). The shell reads
 them in `shell/controller.cpp`. It subscribes with `subscribe shell`, and `shell_listening` says

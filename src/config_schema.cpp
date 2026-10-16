@@ -1409,7 +1409,9 @@ std::string config_reference_markdown() {
            "reloads the file when it is saved; one with an error loads the default "
            "configuration instead and shows the error across the top of the screen until "
            "the file is fixed. Its Lua cannot read files or run programs, and has 3 seconds "
-           "and 64 MiB of memory to load in; a file that needs more is an error as well.\n\n"
+           "of processor time and 64 MiB of memory to load in; a file that needs more is an "
+           "error as well, though one that runs over the time on a reload leaves the running "
+           "desktop's configuration as it is, saying so on the panel.\n\n"
            "Ranges are inclusive. Colors are `\"#RRGGBB\"` (with `#RRGGBBAA` where noted).\n";
     std::string section = "?"; // nothing yet
     auto flush_section = [&](const Option &option) {

@@ -345,8 +345,8 @@ drawing it); the software renderer draws that frame with less than one wakeup a 
 ## Loading the configuration
 
 Since the configuration has a time limit, each load of it (at startup, on a reload, and in the
-shell) runs it twice: in a child process forked to see that it finishes within 3 seconds, then
-for real. `paw --check-config` on the example configuration, with its profiles, took 11 ms a run
+shell) runs it twice: in a child process forked to see that it finishes within 3 seconds of
+processor time, then for real. `paw --check-config` on the example configuration, with its profiles, took 11 ms a run
 with the child process left out (`fork` made to fail through `LD_PRELOAD`, which loads the
 configuration unchecked) and 19 to 23 ms with it, process start included, 50 runs each on the
 development desktop while other builds ran: some 8 to 12 ms more a load. Forking copies the

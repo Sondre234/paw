@@ -3391,7 +3391,8 @@ and unlocks (the shell's clipboard history records nothing meanwhile), and ends 
 `power ACTIONS`, the power actions that may
 run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power
 action that fails or is cancelled after it was accepted sends `power-error MESSAGE`, a program
-that `spawn` or `terminal` could not start sends `spawn-error MESSAGE` (the panel shows either
+that `spawn` or `terminal` could not start sends `spawn-error MESSAGE`, a reload turned down,
+the configuration kept as it was, sends `config-error MESSAGE` (the panel shows any of these
 across itself for eight seconds), `power_menu` sends `power-menu OUTPUT`, a colour picked with [`pick_color`](#colour-picker) sends `color-picked #rrggbb`, and
 `taskbar_focus` sends `taskbar OUTPUT` for the focused monitor, whose panel takes the keyboard to walk its
 buttons, or gives it back. The shell subscribes with `subscribe shell`, saying it carries out

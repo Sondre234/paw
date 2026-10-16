@@ -2,7 +2,7 @@
      hand: change the schema, then run `PAW_UPDATE_DOCS=1 ctest -R config`. -->
 # Configuration reference
 
-paw reads a Lua file that returns a table (`config/init.lua` is a commented example). Every setting is optional. An unknown setting, a value of the wrong type, or a value out of range is an error naming the file and line, with a suggestion for a misspelled name; `paw --check-config` reports it. The running desktop reloads the file when it is saved; one with an error loads the default configuration instead and shows the error across the top of the screen until the file is fixed. Its Lua cannot read files or run programs, and has 3 seconds and 64 MiB of memory to load in; a file that needs more is an error as well.
+paw reads a Lua file that returns a table (`config/init.lua` is a commented example). Every setting is optional. An unknown setting, a value of the wrong type, or a value out of range is an error naming the file and line, with a suggestion for a misspelled name; `paw --check-config` reports it. The running desktop reloads the file when it is saved; one with an error loads the default configuration instead and shows the error across the top of the screen until the file is fixed. Its Lua cannot read files or run programs, and has 3 seconds of processor time and 64 MiB of memory to load in; a file that needs more is an error as well, though one that runs over the time on a reload leaves the running desktop's configuration as it is, saying so on the panel.
 
 Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 
