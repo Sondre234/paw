@@ -546,11 +546,12 @@ struct sh_server {
     bool scratchpad_off_logged;  // said once that features.scratchpad is off
     // Where the grabbed window was when the grab began; NULL once that output is gone.
     struct wlr_output *grab_output;
-    /* The window switcher: a list of every window taken as it opens, most recently focused
-     * first. It stays open while `modifiers` (the opening binding's, less Shift) are all held,
-     * or with none until confirmed or cancelled; the shell draws it on `output`. */
+    /* The window switcher: a list of every window taken as it opens (with `app`, of the focused
+     * window's application alone: switcher_app), most recently focused first. It stays open
+     * while `modifiers` (the opening binding's, less Shift) are all held, or with none until
+     * confirmed or cancelled; the shell draws it on `output`. */
     struct {
-        bool open;
+        bool open, app;
         uint32_t modifiers;
         xkb_keysym_t key; // the opening binding's key, which selects the next window
         struct sh_toplevel *windows[128];
@@ -1804,10 +1805,11 @@ void lid_from_logind(struct sh_server *server, bool closed);
 
 /* switcher.c */
 void switcher_close(struct sh_server *server, int index);
-void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
+void switcher_open(struct sh_server *server, bool backward, bool app, uint32_t modifiers,
                    xkb_keysym_t key);
 void switcher_forget(struct sh_toplevel *toplevel);
-void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
+void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym,
+                  xkb_keysym_t base);
 bool switcher_ask_peek(struct sh_server *server);
 void switcher_finish(struct sh_server *server);
 

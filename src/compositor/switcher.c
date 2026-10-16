@@ -82,7 +82,8 @@ void switcher_finish(struct sh_server *server) {
     server->switcher.peek_timer = NULL;
 }
 
-/* Subscribers get "switcher OUTPUT SELECTED COUNT" followed by COUNT lines
+/* Subscribers get "switcher OUTPUT SELECTED COUNT" (and " app" when it lists one application's
+ * windows) followed by COUNT lines
  * "switcher-window APP_ID\tTITLE\tOUTPUT\tWORKSPACE\tMINIMIZED\tURGENT\tID" as it opens or its
  * list changes, "switcher-select N" as the selection moves (both counting from 0), and
  * "switcher-close" when it closes. ID is the window's number (the window control's id event), by
@@ -92,8 +93,9 @@ static void switcher_announce(struct sh_server *server) {
     char *text = malloc(size);
     if (!text)
         return;
-    length += snprintf(text, size, "switcher %s %d %d\n", server->switcher.output,
-                       server->switcher.selected, server->switcher.count);
+    length += snprintf(text, size, "switcher %s %d %d%s\n", server->switcher.output,
+                       server->switcher.selected, server->switcher.count,
+                       server->switcher.app ? " app" : "");
     for (int i = 0; i < server->switcher.count; ++i) {
         struct sh_toplevel *toplevel = server->switcher.windows[i];
         char app_id[256], title[512];
@@ -148,8 +150,10 @@ void switcher_close(struct sh_server *server, int index) {
 }
 
 /* Opens the switcher on the focused output, selecting the window focused before the current
- * one (or the least recent one, going `backward`); when open, moves the selection instead. */
-void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
+ * one (or the least recent one, going `backward`); when open, moves the selection instead.
+ * With `app` it lists the windows of the focused window's application alone, and opens only
+ * when that has another window to switch to. */
+void switcher_open(struct sh_server *server, bool backward, bool app, uint32_t modifiers,
                    xkb_keysym_t key) {
     if (server->switcher.open) {
         switcher_select(server, server->switcher.selected + (backward ? -1 : 1));
@@ -158,17 +162,28 @@ void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
     struct wlr_output *output = focused_output(server);
     if (server->locked || !output)
         return;
+    // One application's are the focused window's, or while none is (the bare desktop, a panel
+    // such as the palette having the keyboard) the topmost one's, as other actions take it. A
+    // window without an app ID shares an application with no other.
+    struct sh_toplevel *current = app ? current_toplevel(server) : server->focused_toplevel;
+    const char *app_id = app && current ? toplevel_app_id(current) : NULL;
+    if (app && (!app_id || !*app_id))
+        return;
     int count = 0;
     struct sh_toplevel *toplevel;
     wl_list_for_each(toplevel, &server->toplevels, link) {
         if (toplevel->unmanaged || toplevel->swallowed)
             continue;
+        const char *its = toplevel_app_id(toplevel);
+        if (app_id && (!its || strcmp(its, app_id) != 0))
+            continue;
         if (count < (int)(sizeof(server->switcher.windows) / sizeof(*server->switcher.windows)))
             server->switcher.windows[count++] = toplevel;
     }
-    if (!count)
+    if (!count || (app && count < 2))
         return;
     server->switcher.open = true;
+    server->switcher.app = app;
     server->switcher.count = count;
     server->switcher.modifiers = modifiers;
     server->switcher.key = key;
@@ -176,8 +191,9 @@ void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
     server->switcher.peeked = NULL;
     server->switcher.selected_at = now_ms();
     snprintf(server->switcher.output, sizeof(server->switcher.output), "%s", output->name);
-    // The first window is the focused one unless focus is on the bare desktop.
-    int next = server->switcher.windows[0] == server->focused_toplevel && count > 1 ? 1 : 0;
+    // The first window is the focused one unless focus is on the bare desktop; one
+    // application's start from the window whose application they are.
+    int next = server->switcher.windows[0] == current && count > 1 ? 1 : 0;
     server->switcher.selected = backward ? count - 1 : next;
     switcher_announce(server);
     wrapped_count(server, SH_WRAPPED_SWITCHER_OPENS);
@@ -219,8 +235,11 @@ void switcher_forget(struct sh_toplevel *toplevel) {
 }
 
 /* Keys while the switcher is open: the opening key (with Shift, backward), Tab, and the arrows
- * move the selection, Return confirms, Escape cancels. It keeps every key from the windows. */
-void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym) {
+ * move the selection, Return confirms, Escape cancels. It keeps every key from the windows.
+ * `base` is the key's symbol without Shift, by which the opening key is known with Shift too,
+ * which turns ` into ~. */
+void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym,
+                  xkb_keysym_t base) {
     switch (sym) {
     case XKB_KEY_Escape:
         switcher_close(server, -1);
@@ -239,7 +258,8 @@ void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym
         switcher_select(server, server->switcher.selected + 1);
         return;
     }
-    if (sym == XKB_KEY_Tab || xkb_keysym_to_lower(sym) == server->switcher.key)
+    if (sym == XKB_KEY_Tab || xkb_keysym_to_lower(sym) == server->switcher.key ||
+        (base != XKB_KEY_NoSymbol && xkb_keysym_to_lower(base) == server->switcher.key))
         switcher_select(server,
                         server->switcher.selected + (modifiers & WLR_MODIFIER_SHIFT ? -1 : 1));
 }

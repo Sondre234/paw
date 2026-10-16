@@ -38,6 +38,7 @@ constexpr Action actions[] = {
     {"split_swap", "Dwindle: swap the split's two halves"},
     {"pseudo_toggle", "Dwindle: pseudotile the window at its floating size"},
     {"focus_last", "Focus the previous window"},
+    {"switcher_app", "Switch between this application's windows"},
     {"focus_urgent", "Focus the window asking for attention"},
     {"toggle_sticky", "Toggle sticky window"},
     {"toggle_above", "Keep window above others, or not"},

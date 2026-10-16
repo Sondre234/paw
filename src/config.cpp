@@ -2329,6 +2329,8 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"resize_down", SH_RESIZE_DOWN},
         {"switcher", SH_SWITCHER_NEXT},
         {"switcher_prev", SH_SWITCHER_PREV},
+        {"switcher_app", SH_SWITCHER_APP_NEXT},
+        {"switcher_app_prev", SH_SWITCHER_APP_PREV},
         {"switcher_confirm", SH_SWITCHER_CONFIRM},
         {"switcher_cancel", SH_SWITCHER_CANCEL},
         {"focus_last", SH_FOCUS_LAST},
