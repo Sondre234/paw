@@ -1216,13 +1216,14 @@ does, does not peek either. `peek.switcher = false` turns the peek off, the pale
 
 ### One application's windows
 
-`switcher_app` opens the same switcher over the focused window's application alone, as macOS's
-Cmd + \` and GNOME's Alt + \` do: the windows with its app ID, on every monitor and workspace and
-minimized ones too, most recently focused first, with the one focused before the current one
-selected. Bound to a key, keep its modifiers held and press the key again to move on (with Shift,
-or `switcher_app_prev`, which opens it on the least recent window, to move back); Tab, the arrows,
-Return, Escape, a click, releasing the modifiers and the peek are as with Alt + Tab. An
-application with no other window, or a window without an app ID, opens nothing. The windows of a
+Alt + \` (`switcher_app`) opens the same switcher over the focused window's application alone, as
+macOS's Cmd + \` and GNOME's Alt + \` do: the windows with its app ID, on every monitor and
+workspace and minimized ones too, most recently focused first, with the one focused before the
+current one selected. Keep Alt held and press \` again to move on (Shift + \` to move back; Alt +
+Shift + \`, `switcher_app_prev`, opens it on the least recent window); Tab, the arrows, Return,
+Escape, a click, releasing Alt and the peek are as with Alt + Tab. With no window focused (the
+bare desktop, or a panel such as the palette holding the keyboard) it takes the topmost window's
+application. An application with no other window, or a window without an app ID, opens nothing. The windows of a
 [tab group](#window-groups) are listed each on its own, and picking a tab brings it forward, as in
 the switcher. In the macOS style, whose switcher shows applications by their large icons alone,
 one application's windows, which share its icon, show their titles under it, or with
