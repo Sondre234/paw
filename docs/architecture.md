@@ -1255,6 +1255,7 @@ what was there.
 | `AuthDialog.qml` | The polkit authentication dialog (`shell.authentication`), an overlay surface of its own: the request, the user to answer as, the password. |
 | `RiceTrial.qml` | The question while a rice is on trial (`shell.riceTrial`), a card in the middle of the output, an overlay surface of its own: the rice's name, author and description, the countdown, Revert and Keep. |
 | `ClipboardPicker.qml`, `EmojiPicker.qml` | The clipboard history's popup and the emoji picker, each in an overlay surface of its own (`PickerView`, `picker_view.cpp`). |
+| `Shortcuts.qml` | The sheet of keyboard shortcuts (`shell.shortcuts`, `shortcuts.cpp`), in a `PickerView` that covers the output: every binding in effect as key caps beside what it does, in groups laid out in columns, with a search. |
 | `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style. |
 | `Xray.qml` | The names of the exploded view's sheets (`paw xray`), an overlay surface of its own over the compositor's stack: a legend of every sheet in its layer's colour, top first, and a caption for the one under the pointer. |
 | `Caption.qml` | The caption `paw tour` narrates itself with (`shell.caption`, `caption.cpp`, from the compositor's `caption` lines), an overlay surface of its own (`CaptionView`) where the on-screen display shows, taking no input. |
@@ -1611,6 +1612,19 @@ a keymap of up to 200 keys made for the text's characters (`xkb_utf32_to_keysym`
 that keymap, each key pressed and released, and the seat's own keyboard, keymap and modifiers
 back after.
 
+The sheet of keyboard shortcuts (`Shortcuts`, `shortcuts.cpp`; `shell.shortcuts`) reads the
+bindings from the configuration the shell loads itself, not from the compositor. Its pure part,
+`shortcuts::sheet`, makes groups of rows from `config.bindings`, and first from the binding mode in
+use (`bindingMode`): an action's group and title come from a table there, the title from the
+command palette's own where it has one (`Palette::actionTitle`), or from the binding's
+`description`, or for a `spawn` its command shortened; the keys are named by `keyName`, for the
+style in use, and bindings alike but for their key (the directions of one family, workspaces on
+running digits) become one row. `shortcuts::filter` keeps the rows whose `search` text holds every
+word typed; `tests/shortcuts_test.cpp` tests both and the model. `shortcuts OUTPUT` from the
+`shortcuts` action toggles it, in a `PickerView` that covers the output (`cover`: anchored to
+every edge, an exclusive zone of -1, its root sized to it), where `Shortcuts.qml` lays the groups
+out in as many columns as the width allows, each group in the shortest so far.
+
 ### Frosted glass
 
 With `shell.blur` the bars and the popups are frosted glass: each shows the wallpaper behind it
@@ -1767,7 +1781,7 @@ notifications, over the configured wallpaper (`--preview-popup` lists the names)
 style the dock and the menu bar, over the style's drawn wallpaper while none is set, with the
 menu bar's menus as `system-menu`, `app-menu`, `window-menu` and `window-submenu`. The overlay
 surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `cards`,
-`power-dialog`, `palette`, `palette-empty`, `switcher`, `overview`, `snap-assist`, `display-mode`,
+`power-dialog`, `palette`, `palette-empty`, `shortcuts`, `shortcuts-search`, `shortcuts-mode`, `switcher`, `overview`, `snap-assist`, `display-mode`,
 `display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 `display-settings`, `display-settings-trial`, `xray`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 `display-settings`, `display-settings-trial`, `caption`): `PreviewData` in `preview.cpp` shows one in a window of its own over the

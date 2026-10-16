@@ -494,6 +494,12 @@ return {
         { mods = { mod, "Ctrl" }, key = "t", action = "toggle_above" }, -- keep above the others
         -- The command palette: one search over windows, apps, workspaces, actions and sessions.
         { mods = { mod }, key = "p", action = "palette" },
+        -- A sheet of every binding in effect, grouped, with a search; Super + / again closes it.
+        -- On a keyboard layout where / takes Shift, bind key = "F1" instead.
+        { mods = { mod }, key = "slash", action = "shortcuts" },
+        -- A binding's description names it there in your words, as Hyprland's bindd does;
+        -- a spawn without one shows its command:
+        -- { mods = { mod }, key = "e", action = "spawn", command = { "dolphin" }, description = "Files" },
         -- The taskbar (or the dock) from the keyboard, as Windows' Win+T: the arrows walk its
         -- buttons and the windows they show, Enter picks, Escape gives the keyboard back.
         { mods = { mod }, key = "b", action = "taskbar_focus" },

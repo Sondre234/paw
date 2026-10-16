@@ -724,6 +724,11 @@ const Option options[] = {
      "}` opens the launcher as Windows' Start key does, and Super + drag and Super + Q are left "
      "alone. `mods` are those held as the key goes down; a modifier key's own (`Super` with "
      "`Super_L`) may be left out."},
+    {"bindings[].description", "string", "the action's own title", "", none, none,
+     "What the binding does, in your words, as Hyprland's `bindd`: the sheet of keyboard "
+     "shortcuts (the `shortcuts` action) shows it in place of the action's title, e.g. "
+     "`description = \"Files\"` for a `spawn` of a file manager, whose command it shows "
+     "shortened otherwise. Also in `modes`."},
 
     {"notifications", "table", "", "", none, none,
      "Notifications: the shell serves `org.freedesktop.Notifications` on the session bus and shows "

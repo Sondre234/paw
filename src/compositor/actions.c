@@ -161,6 +161,7 @@ static const struct {
 } shell_actions[] = {
     {SH_LAUNCHER, .open = "launcher"},
     {SH_PALETTE, .open = "palette"},
+    {SH_SHORTCUTS, .open = "shortcuts"},
     {SH_NOTIFICATION_HISTORY, .open = "notifications"},
     {SH_CLIPBOARD_HISTORY, .open = "clipboard"},
     {SH_EMOJI_PICKER, .open = "emoji"},
