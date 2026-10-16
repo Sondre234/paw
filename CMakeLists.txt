@@ -325,6 +325,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/tearing.c
         src/compositor/tile_drop.c
         src/compositor/tiling.c
+        src/compositor/pseudo.c
         src/compositor/touch.c
         src/compositor/toplevel.c
         src/compositor/type.c
@@ -801,6 +802,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(reload_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(tile_focus_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(dwindle_split_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:pointer_probe>)
         paw_smoke(scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_bound_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)

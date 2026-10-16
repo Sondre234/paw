@@ -554,6 +554,12 @@ shadows.
   with the setting off), fullscreen windows have none, and profiles can turn it on and off. Only
   the wallpaper is blurred, at half the monitor's pixels on the CPU once it changes, so windows
   moving, resizing and animating over it cost nothing more; `paw msg get blur` shows it.
+- Hyprland's dwindle controls, experimental and unbound by default (example keys in the shipped
+  configuration, also in the command palette): `split_toggle` turns the split the focused tile
+  shares with its neighbour from side by side to stacked or back, and keeps it so where dwindle
+  would follow the box's shape; `split_swap` trades that split's halves at their sizes; and
+  `pseudo_toggle` keeps the focused tile at its floating size in the middle of its tile, resized
+  about that middle. The tiles glide there; other layouts take none of them.
 
 ### Starting and ending a session
 

@@ -360,7 +360,8 @@ int main(int argc, char **argv) {
                               "consume_right", "expel", "center_column",
                               "layout_spiral", "layout_monocle", "promote", "focus_next",
                               "focus_prev", "swap_next", "swap_prev", "master_grow",
-                              "master_shrink", "master_more", "master_less"})
+                              "master_shrink", "master_more", "master_less", "split_toggle",
+                              "split_swap", "pseudo_toggle"})
                 require(paw::parse_action(name) != SH_NONE, "layout action missing");
         }
         auto *back = config.binding(SH_LOGO, XKB_KEY_Tab);

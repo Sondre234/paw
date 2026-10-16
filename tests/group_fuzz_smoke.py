@@ -26,6 +26,7 @@ ACTIONS = ["group_toggle", "group_toggle", "ungroup", "group_next", "group_prev"
            "group_merge_left", "group_merge_right", "group_merge_up", "group_merge_down",
            "close", "toggle_floating", "toggle_tiling", "fullscreen", "toggle_sticky",
            "focus_left", "focus_right", "focus_next", "focus_prev", "swap_next", "promote",
+           "split_toggle", "split_swap", "pseudo_toggle",
            "layout_next", "layout_scroll", "layout_dwindle", "move_to_scratchpad",
            "scratchpad_show", "toggle_overview", "overview_cancel", "workspace_back"]
 
