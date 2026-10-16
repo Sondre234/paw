@@ -559,11 +559,14 @@ static void xdg_toplevel_destroy(struct wl_listener *listener, void *data) {
 }
 
 /* Client decorations often live in subsurfaces (kitty's title bar), so the clicked surface
- * only has to belong to the toplevel, not be its root surface. */
+ * only has to belong to the toplevel, not be its root surface. The window must be mapped, as
+ * an X11 one must: the pointer stays on a surface that unmaps, and a grab of a window that is
+ * not shown would outlive it, since only unmapping lets a grab go. */
 static bool validate_grab_serial(struct sh_toplevel *toplevel, uint32_t serial) {
     struct wlr_seat *seat = toplevel->server->seat;
     struct wlr_surface *focused = seat->pointer_state.focused_surface;
-    return wlr_seat_validate_pointer_grab_serial(seat, NULL, serial) && focused &&
+    return toplevel_mapped(toplevel) && wlr_seat_validate_pointer_grab_serial(seat, NULL, serial) &&
+           focused &&
            wlr_surface_get_root_surface(focused) == toplevel->xdg_toplevel->base->surface;
 }
 
