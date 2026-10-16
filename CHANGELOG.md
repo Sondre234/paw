@@ -790,6 +790,9 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   and at most 64 wait at once, where paw kept every one until it ran out of file descriptors:
   then no new window could open, and the compositor spun a core failing to take the next
   connection. Out of descriptors, it now stops taking connections for a moment at a time.
+- A drag of nothing (without a data source, as an application may start within its own window)
+  no longer crashes paw once XWayland is up, whose window manager in wlroots 0.20 read the
+  missing source; it is turned down there.
 
 ## 0.1.1 (2026-10-05)
 
