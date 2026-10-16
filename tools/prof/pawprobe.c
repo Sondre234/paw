@@ -354,8 +354,8 @@ static bool wanted(char *program, size_t size) {
     if (skip && *skip) {
         char cmdline[4096];
         ssize_t got = read_file("/proc/self/cmdline", cmdline, sizeof cmdline);
-        size_t first = strlen(cmdline) + 1;
-        if (got > 0 && first < (size_t)got && listed(skip, cmdline + first))
+        size_t first = got > 0 ? strlen(cmdline) + 1 : 0; // argv[1], after argv[0]'s NUL
+        if (first && first < (size_t)got && listed(skip, cmdline + first))
             return false;
     }
     return true;
