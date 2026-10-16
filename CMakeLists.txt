@@ -147,6 +147,7 @@ if(BUILD_TESTING)
     paw_smoke(docs_consistency ${CMAKE_CURRENT_SOURCE_DIR})
     paw_smoke(session_wrapper SCRIPT session_wrapper_test.py
         ${CMAKE_CURRENT_SOURCE_DIR}/packaging/paw-session)
+    paw_smoke(prof_tools SCRIPT prof_tools_test.py ${CMAKE_CURRENT_SOURCE_DIR}/tools/prof)
     paw_unit_test(layout)
     paw_unit_test(curve)
     paw_unit_test(window_placement)
