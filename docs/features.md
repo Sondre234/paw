@@ -416,6 +416,26 @@ shell = {
 }
 ```
 
+### Wallpaper slideshow
+
+An experimental slideshow, off by default: with `shell.wallpaper_cycle = { interval = 30 }` the
+pictures of a folder take turns as the wallpaper, a new one every 30 minutes (1 to 1440), each
+fading in as a picked one does. The folder is `folder` (absolute, `~/...` or relative to the
+configuration, not its subfolders), else the folder of `shell.wallpaper`, so that mochi goes
+through its seven skies, else the wallpaper picker's. `order = "shuffle"`, the default, shows
+every picture once in a random order before any comes again; `"name"` goes through them by name.
+Each picture is kept as one picked from the panel is, for the appearance profile in use, so it
+stays after a restart and the lock screen shows it. The time waits while the session is locked,
+and starts over at each step. The `wallpaper_next` and `wallpaper_prev` actions (`paw msg
+wallpaper_next`, or "Next wallpaper" and "Previous wallpaper" in the command palette) step at
+once, also with `interval = 0`, stepping back through what was shown.
+
+```lua
+shell = {
+    wallpaper_cycle = { interval = 30, order = "shuffle" },
+}
+```
+
 ### Quick Settings
 
 Left of the clock, as on Windows 11, the Quick Settings button shows the volume and the battery in
