@@ -796,6 +796,17 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   worst frames halved) and drops no frames for it: its 240 pieces change out of the scene's
   sight and come back together, where the scene worked out what to draw again after each of
   some 700 changes a frame.
+- A media player's cover art loads only from a file, the web or a `data:` URL. A program on the
+  session bus posing as a player could name one of the shell's own pictures (`image://notify/…`,
+  `tray`, `windows` or `clipboard`) as its cover, which the media card then read from Qt Quick's
+  loading thread while the GUI thread changed it, a possible crash; those pictures are now served
+  on the GUI thread alone.
+- Scrolling through a folder of wallpapers in the picker no longer risks a crash as thumbnails
+  come in: each was said to be done from the thread that made it, and Qt Quick could free it
+  while that was still under way.
+- The shell checks the types of what BlueZ, NetworkManager and power-profiles-daemon send before
+  reading it, as it does for media players and notifications, so a daemon of another version
+  sending a value of another type no longer crashes it; such a value counts as none.
 
 ## 0.1.1 (2026-10-05)
 

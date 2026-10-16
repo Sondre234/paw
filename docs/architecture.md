@@ -1250,7 +1250,9 @@ nobody owns it, so a machine without the service shows nothing of it. Each reach
 through a property (`mediaSource`, `powerModeSource`, `wifiSource`, `bluetoothSource`) that the
 preview and `shell_ui_test` point at stand-ins, and each backend is tested against stand-in
 services (`tests/fake_dbus.hpp`) on a private bus, which the tests hand the backend as its
-connection.
+connection. A backend reads a dictionary, a list or a structure from the bus only once its
+signature is the one it expects, through `dbus::map` and `dbus::read` (`dbus_util.hpp`): QtDBus
+reads an argument of another type out of bounds, so a mismatch counts as an empty answer.
 
 `NetworkManager` mirrors the objects it needs (the manager, the devices and their Wi-Fi
 interfaces, the access points, the active connections) from GetAll, follows them through the one
@@ -1284,6 +1286,15 @@ theme has. QML names a window's icon through `shell.iconFor(appId)`, never by it
 may be a path. `icons.cpp` serves `image://icons/NAME` and, at startup, picks the icon theme the
 desktop names when no platform theme does (`useDesktopIconTheme`). `tests/app_icons_test.cpp`
 tests both with real applications' entries and app ids.
+
+An `ImageProvider` (`image_provider.hpp`) serves the pictures of the shell's models
+(`image://notify`, `tray`, `windows`, `clipboard`) on the GUI thread alone, since the models have no
+lock: an `Image` with `asynchronous: true` asks on Qt Quick's loading thread and gets nothing, so
+one showing such a picture loads synchronously. `image://icons` holds `iconThemeLock()` and
+`image://thumbs` (`wallpapers.cpp`) makes its pictures on a pool of threads, telling each response
+done in the response's own thread, so those two may load asynchronously. The media card's cover
+is asynchronous, so `mpris.cpp` takes only a `file:`, `http:`, `https:` or `data:` URL from a
+player. `tests/image_providers_test.cpp` checks the providers on both threads.
 
 The pictures of the windows on the taskbar's card (`WindowThumbnails.qml`, with `shell.thumbnails`)
 are `TaskModel`'s: its `picture` role is `image://windows/<taskId>/<serial>` once a window has one,
