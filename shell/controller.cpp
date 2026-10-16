@@ -19,6 +19,7 @@
 #include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QIcon>
+#include <QLibraryInfo>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QTimer>
@@ -1732,7 +1733,17 @@ void ShellController::nudgeWorkspace(const QString &output, int way) {
 void ShellController::send(const QString &line) {
     request(line.toUtf8() + "\n", "The compositor needs a running paw session.");
 }
+bool ShellController::adoptsShadowMaterial() {
+    // Recheck with every update of Qt, and move the version up while it still leaks the effect
+    // (shell_ui fails once it no longer does, or this no longer takes it).
+    static const bool leaks = QLibraryInfo::version() < QVersionNumber(6, 12);
+    return leaks;
+}
 void ShellController::keepShadowMaterial(QObject *shadow) {
+    // A Qt that deleted the effect itself as the shadow's private part goes, which comes after
+    // the shadow's children, would delete it twice: so only for the versions known to leak it.
+    if (!adoptsShadowMaterial())
+        return;
     auto *material = shadow ? shadow->property("material").value<QObject *>() : nullptr;
     if (material && !material->parent())
         material->setParent(shadow);
