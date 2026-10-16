@@ -14,7 +14,7 @@ static int32_t next_code_point(const unsigned char *text, size_t *at) {
     const unsigned char first = text[(*at)++];
     if (first < 0x80)
         return first;
-    int length = first >= 0xf0 && first < 0xf8 ? 4 : first >= 0xe0 ? 3 : first >= 0xc0 ? 2 : 0;
+    int length = first >= 0xf8 ? 0 : first >= 0xf0 ? 4 : first >= 0xe0 ? 3 : first >= 0xc0 ? 2 : 0;
     if (!length)
         return -1;
     int32_t value = first & (0x7f >> length);
