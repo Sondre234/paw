@@ -408,7 +408,8 @@ return {
     -- Power saving after so many seconds without input (0 never): the screens dim (unset, 30
     -- seconds before display_off), the monitors turn off, the screen locks, the machine
     -- suspends; `battery` may hold shorter ones for a laptop on battery, as
-    -- battery = { display_off = 300 }. An idle inhibitor (a video playing) holds them off.
+    -- battery = { display_off = 300 }. An idle inhibitor (a video playing) holds them off
+    -- while its window shows.
     -- display_off = 0 leaves everything to an idle daemon (swayidle).
     -- idle = { display_off = 600, lock = 0, suspend = 0 },
     startup = {}, -- e.g. { { "kitty" } }
@@ -541,6 +542,9 @@ return {
         -- Turn every monitor off until a key or the mouse wakes it (display_on and
         -- display_toggle too; output = "HDMI-A-1" picks one monitor), e.g.:
         -- { mods = { mod, "Alt" }, key = "Escape", action = "display_off" },
+        -- Keep awake: no dimming, no monitors going off and no sleep until toggled off again
+        -- (keep_awake_on and keep_awake_off too; also a tile in Quick Settings), e.g.:
+        -- { mods = { mod, "Alt" }, key = "c", action = "keep_awake_toggle" },
         -- Switches act too: the lid ("close", "open") and tablet mode ("on", "off"), e.g.:
         -- { switch = "lid", state = "close", action = "lock" },
         { mods = { mod }, key = "1", action = "workspace", workspace = 1 },

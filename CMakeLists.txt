@@ -643,6 +643,8 @@ if(PAW_BUILD_COMPOSITOR)
                 DEPENDS ${PROTOCOL_DIR}/${PROTOCOL}.xml)
         endforeach()
         paw_probe(idle_probe tests/idle_probe.c
+            ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
+            ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit-unstable-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit-unstable-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-client-protocol.h
@@ -832,8 +834,9 @@ if(PAW_BUILD_COMPOSITOR)
         find_program(SLURP slurp)
         paw_smoke(screenshot_select_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "$<$<BOOL:${SLURP}>:${SLURP}>" "${GRIM_ARGUMENT}")
-        paw_smoke(idle_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
-            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(idle_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> $<TARGET_FILE:window_probe>
+            "${GRIM_ARGUMENT}")
         paw_smoke(urgent_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(urgent_border_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")

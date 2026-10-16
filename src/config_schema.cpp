@@ -757,7 +757,8 @@ const Option options[] = {
      "Power saving after a while without input, as KDE and Windows have, with no idle daemon: "
      "the screens dim, the monitors turn off, the screen locks and the machine suspends, each "
      "a number of seconds after the last key press, click, scroll or pointer motion; 0 never "
-     "takes that step. An idle inhibitor (a video playing, a game) holds every step off. "
+     "takes that step. An idle inhibitor (a video playing, a game) holds every step off "
+     "while its window shows. "
      "`ext-idle-notify-v1` works as before, so an idle daemon such as swayidle runs beside "
      "these; `display_off = 0` leaves the monitors to it."},
     {"idle.dim", "integer", "`display_off` − 30", "570", 0, 86400,

@@ -377,7 +377,8 @@ small icons, and the network only while its link is down, dimmed and struck thro
 mutes. Clicking it opens Quick Settings at the bar's right end: what is playing
 ([media controls](#media-controls)), tiles for [Wi-Fi](#wi-fi) where NetworkManager has a Wi-Fi
 device, [Bluetooth](#bluetooth) while BlueZ has an adapter, do-not-disturb, night light (on or off
-against its schedule, through the compositor), tiling on this monitor (greyed out where tiling is
+against its schedule, through the compositor), [keep awake](#power-saving-when-idle) (no dimming,
+no screens going off, no sleep while it is on), tiling on this monitor (greyed out where tiling is
 not available), the [power mode](#power-mode) while power-profiles-daemon runs, the appearance
 profile (listing the profiles under it) and the wallpaper (opening the same picker as the bar's
 button), and without NetworkManager's Wi-Fi the network's state on a disc rather than a tile, as it
@@ -3026,7 +3027,8 @@ it appears and never gives another; a taskbar gets the same number for its handl
 from `paw-window-control-v1` (version 4), and so finds the window the line means where two
 share a title. The shell sends `switcher_peek` once it has drawn the switcher, whose selected
 window then peeks once the selection rests ([above](#window-switcher)); while the switcher is
-closed the request is refused. The state tells whether the session is locked, `locked on|off`, again as it locks
+closed the request is refused. The state tells whether [keep awake](#power-saving-when-idle) holds
+the idle steps off, `keep-awake on|off`, and whether the session is locked, `locked on|off`, again as it locks
 and unlocks (the shell's clipboard history records nothing meanwhile), and ends with
 `power ACTIONS`, the power actions that may
 run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power
@@ -3139,8 +3141,8 @@ paper. The fields, each where it is known:
   monitor's workspace, or `floating`;
 - `monitors`: each one's connector, mode, scale, and HDR or 10-bit colour where it is drawn so;
   one turned off says so, and a mirror names the monitor it shows;
-- `idle`: the timeouts of [power saving](#power-saving-when-idle)'s steps, and `inhibited`
-  while something holds them off, `dimmed`, `on battery`;
+- `idle`: the timeouts of [power saving](#power-saving-when-idle)'s steps, and `kept awake`
+  while keep awake holds them off, else `inhibited` while something does, `dimmed`, `on battery`;
 - `night light`: the colour temperature while [night light](#effects) warms the screens,
   `scheduled` while it waits; `mode`: the [binding mode](#binding-modes) outside the default;
 - `top app`: the application launched most from the shell (the `launches` file in paw's state
@@ -3639,13 +3641,30 @@ follows its own `display_off`. The power source is read again at each step and a
 unplugging the charger shows from the next step on.
 
 An idle inhibitor (`idle-inhibit-unstable-v1`, which video players, browsers playing video and
-games hold) holds every step off, and the screens brighten if they had dimmed; once the last one
-goes, the time without input counts from then. So does switching to another VT and back:
-nothing happens while another VT is in front. `paw msg get idle` prints a line `state`
-with the milliseconds since the last input, whether something holds the steps off, whether the
-machine runs on battery and how dark the screens are (thousandths), then a line per step with
-its timeout in milliseconds on that power source and whether it has been taken since the last
-input.
+games hold) holds every step off while its window shows, and the screens brighten if they had
+dimmed; once none applies, the time without input counts from then. As the protocol says, and
+as on sway, a window's inhibitor applies only while the window is on a workspace shown, not
+minimized (nor in the scratchpad, nor a hidden tab), on a monitor that is on and not behind the
+lock: a video left playing minimized or on another workspace lets the screens dim and go off as
+usual. A panel's applies while it is mapped and the session unlocked, and one on a surface paw
+cannot place always. Idle daemons hear the seat is inhibited only while one applies. Switching
+to another VT holds the steps too: nothing happens while another VT is in front, and the time
+counts from the return. `paw msg get idle` prints a line `state` with the milliseconds since
+the last input, whether something holds the steps off, whether the machine runs on battery, how
+dark the screens are (thousandths), how many idle inhibitors there are and how many of them
+apply, and whether keep awake is on; then a line per step with its timeout in milliseconds on
+that power source and whether it has been taken since the last input; then a line `inhibitor`
+per idle inhibitor with whether it applies (1 or 0) and what its surface belongs to: `window`
+and its title, `layer` and its namespace, or `other` and `-`.
+
+**Keep awake.** The `keep_awake_on` action holds every step off, as an idle inhibitor that always
+applies would, until `keep_awake_off` (or paw restarting) lets them count again from then;
+`keep_awake_toggle` flips it. It is for reading, a presentation or a long download nobody touches
+the keyboard during. Idle daemons hear the seat is inhibited too, so swayidle waits as well; a
+`suspend` binding or the lid still sleeps. None is bound by default; `paw msg keep_awake_toggle`,
+the command palette's "Keep awake, or not" and the Keep awake tile beside Night light in Quick
+Settings (Control Center in the macOS style), a coffee cup lit while it is on, turn it on and off.
+Subscribers hear `keep-awake on` or `keep-awake off`.
 
 The defaults turn the monitors off after ten minutes and lock and suspend nothing, as the
 screens going dark is what everyone wants and locking and suspending are choices KDE and Windows

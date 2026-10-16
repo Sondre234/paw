@@ -534,8 +534,8 @@ static void append(char *text, size_t size, size_t *length, const char *format, 
  * holding windows ("1,3", or "-"), and whether it tiles ("on" or "off"), "layout NAME LAYOUT",
  * the tiling layout of its current workspace ("dwindle", ...), and "touched NAME EDGES", the
  * edges of its usable area a window reaches; then the urgent
- * windows, the keyboard layout and night light, as described below, and the power actions
- * that may run. */
+ * windows, the keyboard layout, night light and keep awake, as described below, and the power
+ * actions that may run. */
 static void describe_state(struct sh_server *server, char *state, size_t size) {
     struct wlr_output *focused = focused_output(server);
     size_t length = 0;
@@ -633,6 +633,8 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
            server->night_mode == SH_NIGHT_ON    ? "on"
            : server->night_mode == SH_NIGHT_OFF ? "off"
                                                 : "auto");
+    // "keep-awake on|off": whether keep awake holds the idle steps off (lock.c).
+    append(state, size, &length, "keep-awake %s\n", server->keep_awake ? "on" : "off");
     // "locked on|off": whether the session is locked, for the shell to record nothing then.
     append(state, size, &length, "locked %s\n", server->locked ? "on" : "off");
     // "power ACTIONS": the power actions that may run, as "lock,suspend,poweroff", or "-".
@@ -646,6 +648,7 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
 void notify_subscribers(struct sh_server *server) {
     overview_touch(server, true); // a change of windows or workspaces, when it is open
     xray_touch(server);
+    idle_inhibitors_follow(server); // a window shown or hidden
     window_objects_changed(server);
     char state[sizeof(server->sent_state)];
     describe_state(server, state, sizeof(state));

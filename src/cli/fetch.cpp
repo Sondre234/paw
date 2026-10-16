@@ -336,8 +336,10 @@ std::string idle_text(const Rows &idle) {
     static const std::map<std::string, std::string> names = {
         {"dim", "dim"}, {"display_off", "screens off"}, {"lock", "lock"}, {"suspend", "sleep"}};
     for (const auto &row : idle) {
-        if (row.size() == 5 && row[0] == "state") {
-            if (row[2] == "1")
+        if (row.size() >= 5 && row[0] == "state") {
+            if (row.size() >= 8 && row[7] == "1")
+                parts.push_back("kept awake");
+            else if (row[2] == "1")
                 parts.push_back("inhibited");
             if (integer(row[4]).value_or(0) > 0)
                 parts.push_back("dimmed");

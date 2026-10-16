@@ -807,9 +807,19 @@ Each step taken sets its bit in `done` and is not taken again until input clears
 also fades the dimming out and turns on the outputs the display_off step turned off (`idle_off`
 on `sh_output`, cleared whenever an output is turned on another way). The dimming is a stretched
 `server->black` buffer (`sh_dim_create`) in a tree of its own created last at the scene's root,
-over the lock too, faded by `tick_idle` from `output_frame`. `idle_held` (an idle inhibitor, or
-the session not active) disarms the timer, and `idle_hold_changed` (called from `lock.c` as
-inhibitors come and go and the VT changes) restarts the count once released. `idle_steps` reads
+over the lock too, faded by `tick_idle` from `output_frame`. `idle_held` (an idle inhibitor
+that applies, or the session not active) disarms the timer, and `idle_hold_changed` (called from
+`lock.c` as inhibitors start and stop applying and the VT changes) restarts the count once
+released. `lock.c` keeps every inhibitor in `sh_server.idle_inhibitors`; `idle_inhibitors_follow`
+works out which apply (a window's while it is shown, `toplevel_visible` on a monitor that is on
+and the session unlocked; a layer surface's while mapped; any other surface's always) and sets
+the idle notifier inhibited while any does. It runs from `notify_subscribers`, which every
+change of windows and workspaces reaches, and from the few places that show or hide a window
+without it: `minimize_toplevel`, restoring in `focus_toplevel_raise`, `set_output_power` and
+layer surfaces mapping and unmapping. A new way of hiding a window that does not end in
+`notify_subscribers` calls it too. Keep awake (`sh_server.keep_awake`, `set_keep_awake` in
+`lock.c` from the keep_awake actions) holds the steps as an inhibitor that always applies would:
+`idle_held` counts it, and the idle notifier stays inhibited while it is on. `idle_steps` reads
 `src/power_supply.c`'s answer, from `$PAW_SYSFS` in the tests; power.c's waking up after
 sleep calls `idle_activity` as input would.
 
