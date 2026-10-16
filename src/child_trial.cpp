@@ -78,7 +78,9 @@ Trial try_in_child(const std::function<void()> &work, int cpu_seconds, int wall_
         ::setrlimit(RLIMIT_CORE, &no_core);
         // SIGXCPU at the limit, which ends it, and SIGKILL a second later should it not. The
         // parent may have blocked or handled it, as the compositor does the signals it watches.
-        ::signal(SIGXCPU, SIG_DFL);
+        struct sigaction ending {};
+        ending.sa_handler = SIG_DFL;
+        ::sigaction(SIGXCPU, &ending, nullptr);
         sigset_t processor;
         sigemptyset(&processor);
         sigaddset(&processor, SIGXCPU);
