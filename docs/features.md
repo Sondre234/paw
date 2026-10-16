@@ -2491,6 +2491,30 @@ button bindings take neither.
 
 `locked_bindings_smoke` tests both, holding keys on and off the lock screen.
 
+### Bindings on a key's release, and tapping Super
+
+A key binding with `release = true` runs as its key comes up rather than as it goes down, as
+Hyprland's `bindr` does. A modifier key alone (`Super_L`, `Alt_L`, `Control_R`, ...) makes a tap
+binding, as Windows' Start key and KDE's Meta key are: it runs only when nothing else happened
+while the key was held, so another key (bound or not), a mouse button, the wheel, a touchpad
+gesture, a finger or a pen in the meantime lets it go, and Super + drag, Super + the wheel,
+Super + Q and the switcher stay what they were. The modifier's press and release still reach the
+application with the keyboard as usual. Any other key's binding has the key from its press, so
+the application hears neither. `mods` are the modifiers held as the key goes down; with a
+modifier key its own may be named or not (`mods = { "Super" }, key = "Super_L"` is the same
+binding). A key may have a binding of each kind, `release` does not go with `repeats`, and
+mouse buttons and switches take none. While the switcher, the overview or the exploded view has
+the keys, or an application holds the shortcuts, nothing waits for a release; on the lock screen
+only a `locked` one does.
+
+```lua
+-- Tap Super for the start menu (Launchpad in the macOS style), as on Windows:
+{ key = "Super_L", release = true, action = "launcher" },
+```
+
+The shipped configuration has that line commented out. `key_release_smoke` tests it with a
+window that prints the keys it gets.
+
 ### Binding modes
 
 Binding modes are sway's modes and Hyprland's submaps: named lists of key bindings in `modes`, one
