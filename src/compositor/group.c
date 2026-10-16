@@ -88,6 +88,7 @@ void hand_over_slot(struct sh_toplevel *from, struct sh_toplevel *to) {
     to->floating = from->floating;
     to->placed = from->placed;
     to->above = from->above;
+    to->pseudo = from->pseudo; // a pseudotiled slot stays so whichever member it shows
     to->restore_box = from->restore_box;
     to->tile_sized = false;
     wlr_scene_node_set_position(&to->scene_tree->node, from->scene_tree->node.x,

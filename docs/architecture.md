@@ -24,7 +24,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
 | `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, the desktop cat's ways and its pixel art. Several are unit tested. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip, which strokes of the pointer make a shake and how large the cursor grows. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -64,8 +64,11 @@ all. In short:
 | `headless_input.c` | Input devices without hardware for tests under `--headless`: keyboards, pointers that move and make touchpad gestures, touchscreens, drawing tablets with a pen, an eraser and a pad, and lid and tablet-mode switches. |
 | `input.c` | Keyboards, key bindings, pointers' libinput settings, virtual devices, selection and drag-and-drop. |
 | `input_method.c` | Input methods (fcitx5, ibus): text-input-v3 and input-method-v2 relayed between the application with the keyboard and the input method, its keyboard grab, and its popups beside the text cursor. |
+| `key_release.c` | Key bindings with `release`, which run as their key comes up: a modifier key's (Super_L opening the launcher) only when it was tapped alone, any other key, button, wheel notch, gesture, finger or pen meanwhile (`key_release_cancel`) letting it go. |
 | `keymap.c` | The keymap from the keyboard settings, given to every keyboard but virtual ones. |
 | `cursor.c` | What is under the pointer, and the tile the user moved it onto (`pointed_tile`), focus on hover, button bindings, scrolling, the cursor image. |
+| `cursor_hide.c` | The cursor hidden while typing (`mouse.hide_when_typing`) and once the pointer has rested (`mouse.hide_after`), as reasons of `cursor_hide`'s besides a screenshot's, until the pointer is used (`cursor_used`). |
+| `cursor_shake.c` | Shaking the pointer to find it (`mouse.shake_to_find`): a shake (`src/shake.c`) grows the cursor, its image from the theme at three times the size given as a buffer at the scale of the moment, stepped on a timer; meanwhile what sets the cursor's image only notes it (`cursor_grown`), and the image it would have shows as it is back to its size; `get cursor_size`. |
 | `gestures.c` | Touchpad gestures: the swipes `gestures` takes (workspaces and the overview following the fingers, requests), and the rest passed on to the surface under the pointer (pointer-gestures-unstable-v1). |
 | `tablet.c` | Drawing tablets (tablet-v2): tools with pressure and tilt to the surfaces under them, the pointer where tablet input is not taken, pads to the surface with the keyboard, and the output a tablet is mapped to. |
 | `touch.c` | Touchscreens: fingers to the surfaces under them (wl_touch), the pointer for clients without touch and the compositor's own controls, and the output each screen is mapped to. |
@@ -83,6 +86,7 @@ all. In short:
 | `placement.c` | Snapping, maximizing, reflowing, moving and resizing by keyboard. |
 | `morph.c` | A window gliding to a new place and size together (maximized, snapped, restored, made fullscreen, moved or resized by keyboard), its client's commits meanwhile, and the size its frame is drawn at. |
 | `tiling.c` | Glue between windows and the layouts in `src/tiling.cpp`. |
+| `pseudo.c` | Pseudotiling (`pseudo_toggle`, Hyprland's pseudotile): a tile of dwindle shown at its floating size in the middle of its tile (`sh_tiling_pseudo`), resized by the pointer or the keyboard about that middle rather than by its splits. |
 | `workspace.c` | Workspaces per output, sticky windows. |
 | `output.c`, `output_moves.c` | Monitors and their configuration; windows and workspaces moving between outputs. |
 | `output_power.c` | Monitors turned off and on in the layout: wlr-output-power-management. |
@@ -1241,8 +1245,10 @@ what was there.
 | `AudioSlider.qml`, `MuteButton.qml`, `StreamRow.qml` | Controls the mixer and Quick Settings use: a volume's slider, a mute button, and an application playing sound. |
 | `StartHome.qml`, `StartAllApps.qml`, `StartSearch.qml`, `StartBestMatch.qml`, `StartTile.qml`, `StartRow.qml`, `UserAvatar.qml` | Parts of the start menu (`Launcher.qml`): its pinned and recent applications, every application from A to Z, what its search finds and the best match of it, a pinned application, a row of its lists, the user's picture. |
 | `Launchpad.qml` | The launcher of the macOS style, in the start menu's place: every application on pages of a grid over the whole output, with a search. |
-| `Desktop.qml` | The wallpaper, each new one fading in over those before, and the desktop's launchers, on the background layer. |
+| `Desktop.qml` | The wallpaper, each new one fading in over those before, the desktop clock and the desktop's launchers, on the background layer. |
 | `DrawnWallpaper.qml` | The wallpaper the macOS style draws while none is set, light or dark, from the background colour and the accent. |
+| `DesktopClock.qml` | The desktop clock (`shell.desktop_clock`, experimental): the time, the date and a greeting over the wallpaper, outside the backdrop the frosted glass takes, changing once a minute. |
+| `WallpaperPicture.qml` | The wallpaper's picture as `shell.wallpaper_mode` lays it out (cropped, fitted, stretched, centred or tiled at its own size, over the background colour where it leaves room), for the desktop, a workspace's card and Launchpad. |
 | `Switcher.qml`, `Overview.qml`, `Palette.qml`, `PowerDialog.qml`, `NotificationCards.qml`, `Osd.qml`, `ConfigError.qml` | One overlay surface each. |
 | `DisplayMode.qml` | The display mode popup (Windows' Win+P, `shell.displayModes`), an overlay surface of its own in the middle of the output: the four choices, the one the compositor's stepping shows selected; a click takes one. |
 | `DisplaySettings.qml` | The display settings window (`shell.displaySettings`), an overlay surface of its own in the middle of the output: the monitors' arrangement to drag, the selected monitor's settings, Apply, and the question while they are on trial. |
@@ -1303,7 +1309,8 @@ windows lists them, and with `output` those on one monitor alone), `audio.cpp` w
 `power.cpp`, `palette.cpp` (with `fuzzy.cpp`, and `calculator.cpp`, `file_index.cpp` and
 `web_search.cpp`, which the start menu's search shares), `media.cpp` with `mpris.cpp`,
 `power_mode.cpp` with `power_profiles_daemon.cpp`, `wifi.cpp` with `network_manager.cpp`,
-`bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history). `preview.cpp` has
+`bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history), `desktop_clock.cpp` (the
+desktop clock's settings, and whether the `desktop_clock` action shows it). `preview.cpp` has
 stand-ins for all of them for `--preview-popup`.
 
 The services Quick Settings controls over D-Bus each have a model the QML reads, built into

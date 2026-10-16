@@ -114,6 +114,7 @@ return {
                 panel_margin = { top = 12, left = 24, right = 24 },
                 wallpaper = "rices/washi/wallpaper/washi.jpg",
                 start_icon = "rices/washi/start/neko.svg",
+                -- desktop_clock = { enabled = true, greeting = "ja" },
             },
         },
         sumi = {
@@ -168,6 +169,7 @@ return {
                 blur = { enabled = true, radius = 48, brightness = 0.85, saturation = 1.2 },
                 wallpaper = "rices/mochi/wallpaper/mochi.jpg",
                 start_icon = "rices/mochi/start/mochi.svg",
+                -- desktop_clock = { enabled = true, position = "left", greeting = "ja" },
             },
         },
     },
@@ -183,6 +185,9 @@ return {
     mouse = {
         modifier = mod, -- modifier + left drag moves; right drag resizes
         -- focus_follows = true, -- hovering a window focuses it (without raising it)
+        -- hide_when_typing = true, -- typing into a window hides the cursor until it moves
+        -- hide_after = 5, -- seconds the pointer rests before the cursor hides (0: never)
+        -- shake_to_find = true, -- shaking the pointer grows the cursor a moment, as on macOS
         -- Standalone sessions only; unset keeps each device's default:
         -- speed = 0.0 (-1 to 1), acceleration = "flat" or "adaptive", natural_scroll = false
     },
@@ -402,6 +407,18 @@ return {
         -- panel_color = "#151e2c", -- #RRGGBBAA makes it translucent
         -- text_color = "#edf2fa",
         -- wallpaper = "", -- absolute path, or relative to this configuration file
+        -- wallpaper_mode = "fill", -- or "fit", "center", "tile" or "stretch"; around a picture
+        --                            that leaves room, appearance.background shows
+        -- Experimental: a large clock on the desktop, over the wallpaper, in the text colour with
+        -- a soft shadow; the desktop_clock action (paw msg desktop_clock) shows or hides it:
+        -- desktop_clock = {
+        --     enabled = false,
+        --     position = "center", -- or "top", "bottom", "left", "right", "top-left", ...
+        --     time_format = "HH:mm", date_format = "dddd d MMMM", -- Qt's; "" shows no date
+        --     size = 96,         -- the time's height in pixels (24-320)
+        --     -- color = "#edf2fa", font = "", -- unset: text_color and font
+        --     greeting = false,  -- "ja": おはよう, こんにちは, こんばんは by the hour; or "en"
+        -- },
         -- wallpapers = "~/Pictures/wallpapers", -- the panel's wallpaper picker browses this folder
         -- Pin applications from the launcher or a window's right-click menu. Launchers here are
         -- for commands without a desktop file; they stay pinned ahead of those, e.g.:
@@ -461,6 +478,10 @@ return {
         { mods = { mod }, button = "wheel_down", action = "workspace_prev" },
         { mods = { mod }, key = "q", action = "terminal" },
         { mods = { mod }, key = "r", action = "launcher" },
+        -- Tap Super alone for the launcher (the start menu, or Launchpad in the macOS style), as
+        -- Windows' Start key: `release = true` runs a binding as its key comes up, a modifier
+        -- key's only when nothing else was pressed, clicked or scrolled while it was held.
+        -- { key = "Super_L", release = true, action = "launcher" },
         { mods = { mod }, key = "c", action = "close" },
         { mods = { mod }, key = "m", action = "quit" },
         { mods = { mod }, key = "v", action = "toggle_floating" },
@@ -526,6 +547,13 @@ return {
         { mods = { mod }, key = "h", action = "master_shrink" },
         { mods = { mod }, key = "comma", action = "master_more" },
         { mods = { mod }, key = "period", action = "master_less" },
+        -- Hyprland's dwindle controls, in dwindle only (experimental): split_toggle turns the
+        -- focused tile's split from side by side to stacked and keeps it so, split_swap trades
+        -- its halves, pseudo_toggle keeps the window at its floating size in the middle of its
+        -- tile. Hyprland's Super+J and Super+P are focus_next and the palette here:
+        -- { mods = { mod, "Ctrl" }, key = "j", action = "split_toggle" },
+        -- { mods = { mod, "Ctrl" }, key = "k", action = "split_swap" },
+        -- { mods = { mod, "Alt" }, key = "p", action = "pseudo_toggle" },
         -- The scroll layout (layout_scroll; see layout.scroll): columns on an endless strip,
         -- whose view turns as a cube as it moves with layout.scroll.cube = true.
         -- master_grow and master_shrink resize the focused column there. Bind these to taste:
