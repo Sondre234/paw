@@ -7,9 +7,10 @@ to the same monitor as the other, it goes after it; moved back to the left, back
 Grouped, the card of the application's windows shows them in the order of their monitors. With
 shell.taskbar_buttons = "own", each bar shows its own monitor's windows alone; with
 "main_and_own", the main monitor's bar shows every window, the main monitor being the leftmost
-until outputs.primary names another, which the compositor tells the shell (`primary NAME`). The
-buttons' and pictures' places are where the shell tells the compositor they are, for the windows
-to minimize into (`get minimize`)."""
+until outputs.primary names another, which the compositor tells the shell (`primary NAME`), and
+resting on a button warms up the pictures of its own monitor's windows alone. The buttons' and
+pictures' places are where the shell tells the compositor they are, for the windows to minimize
+into (`get minimize`)."""
 from pathlib import Path
 import signal
 import subprocess
@@ -31,14 +32,14 @@ CONFIG = """return {
         },
     },
     notifications = { enabled = false },
-    shell = { panel_height = 52, group_windows = %s, thumbnails = { delay = 300 }%s },
+    shell = { panel_height = 52, group_windows = %s, thumbnails = { delay = %d }%s },
 }"""
 
 
-def config(group="false", buttons="", primary=""):
-    """The configuration with group_windows = `group`, taskbar_buttons = `buttons` if given and
-    outputs.primary = `primary` if given."""
-    return CONFIG % (f'\n        primary = "{primary}",' if primary else "", group,
+def config(group="false", buttons="", primary="", delay=300):
+    """The configuration with group_windows = `group`, taskbar_buttons = `buttons` if given,
+    outputs.primary = `primary` if given and the cards of pictures after `delay` ms."""
+    return CONFIG % (f'\n        primary = "{primary}",' if primary else "", group, delay,
                      f', taskbar_buttons = "{buttons}"' if buttons else "")
 
 LEFT, RIGHT = "HEADLESS-1", "HEADLESS-2"
@@ -123,6 +124,33 @@ with harness.Compositor(compositor, config(), start=False,
     desktop.wait_for(lambda: rects(LEFT)["Two"][0] < rects(LEFT)["One"][0],
                      "Two's picture ahead of One's")
     pointer("move", "900", "300")
+
+    # Each bar its own monitor's windows, grouped: resting on the left bar's button of Two and
+    # Three warms up their pictures halfway to the card (`get pictures`), and the card shows
+    # them, but neither asks for One's, which is of the same application on the right monitor.
+    desktop.reload(config(group="true", buttons="own", delay=2000))
+    panels.send_signal(signal.SIGHUP)
+    three = desktop.open_window(probe, "Three", "paw-a")
+    ids[int(probe_window("Three", "id"))] = "Three"
+    for title, output in (("Three", LEFT), ("One", RIGHT)):
+        probe_window(title, "output", output)
+        desktop.wait_for(lambda: outputs()[title] == output, f"{title} on {output}")
+    desktop.wait_for(lambda: "One" not in rects(LEFT) and "Three" in rects(LEFT) and
+                     rects(LEFT)["Three"] == rects(LEFT).get("Two"),
+                     "Two and Three sharing a button on the left bar, without One")
+
+    def pictured():
+        return {row[3] for row in desktop.rows("pictures")}
+
+    x, y, width, height = rects(LEFT)["Two"]
+    pointer("move", str(x + width // 2), str(y + height // 2))
+    # Halfway to the card, a second in, the pictures are asked for; the card opens a second later.
+    desktop.stays(lambda: "One" not in pictured(), "One's picture asked for on the left bar", 2.5)
+    assert {"Two", "Three"} <= pictured(), desktop.rows("pictures")
+    pointer("move", "900", "300")
+    three.terminate()
+    desktop.reap(three)
+    desktop.wait_for(lambda: "Three" not in outputs(), "Three closed")
 
     # Each bar its own monitor's windows ("own"), then the main monitor's every window
     # ("main_and_own"): the leftmost's, until outputs.primary names the other.
