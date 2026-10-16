@@ -231,7 +231,6 @@ struct sh_overview {
     int drop;         /* workspace cell under a dragged thumbnail, else -1 */
     uint32_t pressed; /* buttons the overview took; their releases are its too */
     double scroll;    /* wheel motion not yet enough to change the workspace */
-    bool in_corner;   /* the pointer is in the hot corner: it opens the overview on entering */
     /* Snap Assist (overview_assist): the overview in the free slot beside a window just snapped,
      * `assist_from`, listing the output's other windows to put into `assist_slot` (an
      * arrangement); `area` is the slot, and its backdrop is rounded by `assist_radius`. */
@@ -1599,7 +1598,6 @@ void overview_set_filter(struct sh_server *server, const char *text);
 void overview_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
 bool overview_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
 bool overview_motion(struct sh_server *server);
-void overview_hot_corner(struct sh_server *server);
 bool overview_axis(struct sh_server *server, const struct wlr_pointer_axis_event *event);
 
 /* panel_drag.c */

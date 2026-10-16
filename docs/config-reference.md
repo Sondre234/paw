@@ -233,7 +233,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `hot_corners` | table | - | - | Hot corners: pushing the pointer into a screen corner and leaving it there runs a request, written as for `paw msg` (an action name and its argument, or `spawn PROGRAM ARGS`). Nothing runs over a fullscreen window or while a button is held. |
+| `hot_corners` | table | - | - | Hot corners: pushing the pointer into a screen corner and leaving it there runs a request, written as for `paw msg` (an action name and its argument, or `spawn PROGRAM ARGS`), for the monitor whose corner it is. Nothing runs over a fullscreen window or while a button is held. `size` and `delay` apply to `overview.hot_corner` too. |
 | `hot_corners.size` | integer | 2 | 1 to 64 | Side of the corner square in pixels. |
 | `hot_corners.delay` | integer | 150 | 0 to 5000 | Milliseconds the pointer must stay in the corner; it must leave before the corner can run again. |
 | `hot_corners.top_left` | string | unset | - | What the top-left corner runs, for instance `toggle_overview` or `workspace 2`. |
@@ -297,7 +297,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `overview.animation` | boolean | true | - | Windows glide between their places and the grid as it opens and closes. |
 | `overview.duration` | integer | 180 | 10 to 1000 | Milliseconds the opening and closing glide takes. |
 | `overview.strip` | boolean | true | - | A strip of the monitor's workspaces above the grid, to switch to or to drop a window on. |
-| `overview.hot_corner` | enum | "none" | - | Pushing the pointer into this screen corner opens the overview: `"none"`, `"top-left"`, `"top-right"`, `"bottom-left"`, or `"bottom-right"`. |
+| `overview.hot_corner` | enum | "none" | - | Resting the pointer in this screen corner opens the overview there, as a hot corner runs its request (see `hot_corners`), but never closes it: `"none"`, `"top-left"`, `"top-right"`, `"bottom-left"`, or `"bottom-right"`. Not a corner `hot_corners` binds. |
 | `overview.dim` | number | 0.86 | 0 to 1 | How opaque the backdrop behind the thumbnails is, from 0 (clear) to 1. |
 
 ## `gestures`
