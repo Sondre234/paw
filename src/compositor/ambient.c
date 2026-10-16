@@ -316,9 +316,12 @@ static void tick(struct sh_ambient *ambient) {
     ambient->asleep = false;
     struct sh_output *output;
     wl_list_for_each(output, &server->outputs, link) {
-        if (output->mirror)
-            continue; // out of the layout, it shows another output's frames
         struct sh_ambient_sky *sky = output->ambient;
+        if (output->mirror) { // out of the layout, it shows another output's frames
+            if (sky)
+                free_sky(sky);
+            continue;
+        }
         if (!sky && ambient->kind != SH_AMBIENT_NONE)
             sky = make_sky(ambient, output);
         if (!sky)
