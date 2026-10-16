@@ -25,6 +25,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <utility>
@@ -2978,9 +2979,12 @@ void try_first(const std::function<void()> &load, const std::string &name) {
     }
     if (child == 0) {
         // Only what the configuration needs runs here, and the child leaves with _exit, which
-        // runs no destructors or exit handlers of the process it was forked from.
+        // runs no destructors or exit handlers of the process it was forked from. Crashing, it
+        // leaves no core file: that would be a copy of the compositor's memory.
         ::close(pipe_ends[0]);
         ::prctl(PR_SET_PDEATHSIG, SIGKILL);
+        const rlimit no_core{0, 0};
+        ::setrlimit(RLIMIT_CORE, &no_core);
         if (::getppid() != parent)
             _exit(1);
         char outcome = 'y';
