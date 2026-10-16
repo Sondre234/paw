@@ -120,6 +120,9 @@ constexpr Action actions[] = {
     {"master_shrink", Tiling, "Shrink the master area"},
     {"master_more", Tiling, "One more window in the master area"},
     {"master_less", Tiling, "One fewer window in the master area"},
+    {"split_toggle", Tiling, "Dwindle: toggle the split, side by side or stacked"},
+    {"split_swap", Tiling, "Dwindle: swap the split's two halves"},
+    {"pseudo_toggle", Tiling, "Dwindle: pseudotile the window at its floating size"},
 
     {"scroll_left", Scrolling, "Focus the column to the left"},
     {"scroll_right", Scrolling, "Focus the column to the right"},
