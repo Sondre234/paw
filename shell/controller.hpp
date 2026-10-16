@@ -173,6 +173,10 @@ class ShellController : public QObject {
     // Counts the changes of `apps`, for QML that reads one record with appRecord() to follow
     // them without making all of them.
     Q_PROPERTY(int appsRevision READ appsRevision NOTIFY appsChanged)
+    // Where QML finds an icon by name or path: "image://icons/" + name. It changes with the icon
+    // theme (appearance.icon_theme), so that every image of one is looked up anew rather than
+    // taken from Qt Quick's cache.
+    Q_PROPERTY(QString iconBase READ iconBase NOTIFY iconThemeChanged)
     // Whether the user's trash holds anything, for the dock's Trash: watched once the style is
     // macOS, which has a dock.
     Q_PROPERTY(bool trashFull READ trashFull NOTIFY trashChanged)
@@ -438,6 +442,10 @@ class ShellController : public QObject {
     QVariantList pinned() const;
     QVariantList apps() const;
     int appsRevision() const { return appsRevision_; }
+    QString iconBase() const;
+    // The icon theme in use: appearance.icon_theme where it is installed, else the one the shell
+    // started with.
+    QString iconTheme() const;
     // The record of the application `id`, as `apps` has it; undefined in QML for none.
     Q_INVOKABLE QVariant appRecord(const QString &id) const;
     QString error() const { return error_; }
@@ -608,6 +616,7 @@ class ShellController : public QObject {
     void wallpaperChanged();
     void wallpapersChanged();
     void appsChanged();
+    void iconThemeChanged();
     void errorChanged();
     void disabled();
     void tilingChanged();
@@ -649,6 +658,12 @@ class ShellController : public QObject {
     };
     // Loads the configuration, or the default one with configError_ set when it has an error.
     void loadConfig();
+    // Looks icons up in appearance.icon_theme where it is installed, else in the theme the
+    // shell started with, as the configuration names another, and has every icon drawn anew.
+    void followIconTheme();
+    QString iconThemeBase_;   // the theme the shell started with
+    QString iconThemeWanted_; // appearance.icon_theme as last followed, "" for none
+    int iconGeneration_ = 0;  // the icon theme changes so far, in iconBase
     // Hands the file index and the start menu shell.search's settings.
     void configureSearch();
     // Hands the clipboard history shell.clipboard's.

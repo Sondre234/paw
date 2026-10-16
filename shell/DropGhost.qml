@@ -157,7 +157,7 @@ Item {
             anchors.centerIn: parent
             readonly property real side: Math.min(Theme.appIconSizeLarge, parent.width - 2 * Theme.spacingS)
             width: side; height: side
-            source: ghost.icon ? "image://icons/" + ghost.icon : ""
+            source: ghost.icon ? shell.iconBase + ghost.icon : ""
             sourceSize: Qt.size(Theme.appIconSizeLarge, Theme.appIconSizeLarge)
             smooth: true
         }

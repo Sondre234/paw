@@ -424,7 +424,7 @@ Item {
                                     y: Math.round((cell.height - height - launchpad.labelHeight - Theme.spacingS) / 2)
                                     width: launchpad.iconSize; height: width
                                     sourceSize: Qt.size(width, height)
-                                    source: "image://icons/" + cell.modelData.icon
+                                    source: shell.iconBase + cell.modelData.icon
                                     asynchronous: true
                                     // Darkened while pressed, as macOS does.
                                     opacity: cell.pressed ? 0.7 : 1

@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QDeadlineTimer>
 #include <QDir>
+#include <QDirIterator>
 #include <QDragEnterEvent>
 #include <QElapsedTimer>
 #include <QFile>
@@ -25,6 +26,7 @@
 #include <QQmlEngine>
 #include <QQuickImageProvider>
 #include <QQuickItem>
+#include <QQuickWindow>
 #include <QRegularExpression>
 #include <QSignalSpy>
 #include <QStyleHints>
@@ -887,6 +889,109 @@ int main(int argc, char **argv) {
             return fail("a start button picture that does not load hid the squares");
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
+    }
+    // appearance.icon_theme: icons come from its theme at once, those the shell has drawn
+    // already too, by a URL of their own (shell.iconBase), as do the icons guessed for windows
+    // and the tray's; a theme that is not installed is skipped, and without one the theme the
+    // shell started with is back.
+    {
+        // Two themes of the test's own, with an icon of the same name in two colours.
+        for (const auto &[name, colour] :
+             {std::pair{"paw-test-red", Qt::red}, std::pair{"paw-test-blue", Qt::blue}}) {
+            const auto theme = screens.filePath("data/icons/") + name;
+            QDir().mkpath(theme + "/16x16/apps");
+            QImage picture(16, 16, QImage::Format_ARGB32);
+            picture.fill(colour);
+            if (!writeFile(theme + "/index.theme",
+                           QByteArray("[Icon Theme]\nName=") + name +
+                               "\nDirectories=16x16/apps\n\n[16x16/apps]\nSize=16\nType=Fixed\n") ||
+                !picture.save(theme + "/16x16/apps/paw-test-themed.png"))
+                return fail("could not write the icon themes");
+        }
+        const QString before = controller.iconTheme();
+        // The icon as the shell draws one, in a window of its own.
+        QQmlComponent probe(view.engine());
+        probe.setData("import QtQuick\nImage { width: 16; height: 16; sourceSize: Qt.size(16, 16); "
+                      "source: shell.iconBase + 'paw-test-themed' }",
+                      QUrl("qrc:/shell/PawShell/IconProbe.qml"));
+        std::unique_ptr<QQuickItem> icon(qobject_cast<QQuickItem *>(probe.create()));
+        if (!icon)
+            return fail(qPrintable("the icon probe did not load: " + probe.errorString()));
+        QQuickWindow window;
+        window.resize(16, 16);
+        icon->setParentItem(window.contentItem());
+        window.show();
+        if (!QTest::qWaitForWindowExposed(&window))
+            return fail("the icon probe's window never showed");
+        auto drawn = [&](const QColor &colour) {
+            return icon->property("status").toInt() == 1 && // Image.Ready
+                   window.grabWindow().pixelColor(8, 8) == colour;
+        };
+        auto *tray = controller.tray();
+        TrayItem item;
+        item.key = item.id = item.title = "themed";
+        item.iconName = "paw-test-themed";
+        tray->add(item);
+        auto trayImage = [&] {
+            return tray->data(tray->index(tray->count() - 1), TrayModel::ImageRole).toString();
+        };
+        auto trayColour = [&] {
+            return tray->picture(tray->find("themed")->serial, QSize(16, 16)).pixelColor(8, 8);
+        };
+        auto themed = [&](const char *theme) {
+            return reconfigure(QString(lua).replace(
+                "return {", QString("return {appearance={icon_theme='%1'},").arg(theme)));
+        };
+        if (!themed("paw-test-red"))
+            return fail("could not rewrite the configuration");
+        if (controller.iconTheme() != "paw-test-red" || !waitFor([&] { return drawn(Qt::red); }))
+            return fail("appearance.icon_theme did not draw its theme's icon");
+        if (controller.iconFor("Paw-Test-Themed") != "paw-test-themed" ||
+            trayColour() != QColor(Qt::red))
+            return fail("a window's icon is not guessed, or the tray's not drawn, in the icon theme");
+        const QString redTray = trayImage();
+        if (!themed("paw-test-blue"))
+            return fail("could not rewrite the configuration");
+        if (controller.iconTheme() != "paw-test-blue" || !waitFor([&] { return drawn(Qt::blue); }))
+            return fail("another icon theme did not draw anew the icon the shell had drawn");
+        if (trayImage() == redTray || trayColour() != QColor(Qt::blue))
+            return fail("the tray's icon did not follow another icon theme");
+        if (!themed("paw-no-such-theme"))
+            return fail("could not rewrite the configuration");
+        if (controller.iconTheme() == "paw-no-such-theme" ||
+            controller.iconTheme() == "paw-test-blue" || !waitFor([&] { return !drawn(Qt::blue); }))
+            return fail("an icon theme that is not installed was not skipped for the one the "
+                        "shell started with");
+        if (!themed("paw-test-red") || !waitFor([&] { return drawn(Qt::red); }))
+            return fail("an icon theme picked again was not drawn");
+        // The configuration's own again; the theme earlier tests set comes back for later ones.
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+        if (controller.iconTheme() == "paw-test-red")
+            return fail("without appearance.icon_theme the shell kept the one it had");
+        tray->remove("themed");
+        QIcon::setThemeName(before);
+    }
+    // The programs the shell starts get the cursor theme the compositor draws (cursor-theme SIZE
+    // NAME), a profile's too.
+    subscriber->write("cursor-theme 32 paw-test-cursor\n");
+    if (!waitFor([] {
+            return qgetenv("XCURSOR_THEME") == "paw-test-cursor" && qgetenv("XCURSOR_SIZE") == "32";
+        }))
+        return fail("the shell's environment did not take the compositor's cursor theme");
+    // Every icon of the shell's QML goes through shell.iconBase, to follow the icon theme.
+    {
+        int files = 0;
+        for (QDirIterator qml(":/shell/PawShell", {"*.qml"}, QDir::Files,
+                              QDirIterator::Subdirectories);
+             qml.hasNext(); ++files) {
+            QFile file(qml.next());
+            if (file.open(QIODevice::ReadOnly) && file.readAll().contains("\"image://icons/\""))
+                return fail(qPrintable(file.fileName() +
+                                       " builds an image://icons URL without shell.iconBase"));
+        }
+        if (files < 50)
+            return fail("the shell's QML files were not found to look through");
     }
     QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, centre(workspace(4)));
     if (!waitFor([&] { return workspace(4)->property("current").toBool(); }))
