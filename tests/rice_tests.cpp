@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <unistd.h>
 
 namespace fs = std::filesystem;
@@ -86,6 +87,10 @@ string]==],
     CHECK(paw::write_rice_data(again) == written, "%s", written.c_str());
     CHECK(again.field("a")->string == data.field("a")->string);
     CHECK(again.field("e")->type == paw::RiceData::Type::Number, "1.5e2 stays a float");
+    // Hexadecimal integers wrap around as Lua's do, the least one too.
+    auto wrapped = paw::parse_rice_data("{ a = -0x8000000000000000, b = 0xffffffffffffffff }");
+    CHECK(wrapped.field("a")->integer == std::numeric_limits<long long>::min());
+    CHECK(wrapped.field("b")->integer == -1);
     auto two = paw::parse_rice_data("{ x = 2.0 }");
     CHECK(paw::write_rice_data(two) == "{\n    x = 2.0,\n}", "%s",
           paw::write_rice_data(two).c_str());
