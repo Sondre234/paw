@@ -528,7 +528,8 @@ struct sh_server {
     bool grab_fullscreen; // the grabbed window is fullscreen until it is dragged far enough
     unsigned scratchpad_serial;  // counts windows put into the scratchpad, to order them
     bool scratchpad_off_logged;  // said once that features.scratchpad is off
-    struct wlr_output *grab_output; // where the grabbed window was when the grab began
+    // Where the grabbed window was when the grab began; NULL once that output is gone.
+    struct wlr_output *grab_output;
     /* The window switcher: a list of every window taken as it opens, most recently focused
      * first. It stays open while `modifiers` (the opening binding's, less Shift) are all held,
      * or with none until confirmed or cancelled; the shell draws it on `output`. */
