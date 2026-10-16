@@ -1797,7 +1797,9 @@ whether it has, for something the compositor does another way without it, as the
   keymap an application gets. A `wayland_probe` window with
   `PAW_PROBE_DRAG=source` drags a line of text on a button press of `pointer_probe`'s, and
   one with `=target` takes it, each printing what it hears; `get seat` says where the drag is
-  (see `drag_focus_smoke.py`). `headless_output capture NAME PATH` writes a mirroring output's
+  (see `drag_focus_smoke.py`). One with `=bare` drags nothing, without a data source, the first
+  time for a serial the press did not give, which the compositor turns down (see
+  `drag_focus_smoke.py` and `xwayland_drag_smoke.py`). `headless_output capture NAME PATH` writes a mirroring output's
 picture to a PPM file (see `mirror_smoke.py`), and `PAW_TEST_REFUSE_10BIT=NAME,...` makes
 those headless outputs refuse a 10-bit render format, as a monitor without one does (see
 `bit_depth_smoke.py`), and `PAW_TEST_REFUSE_TEARING` refuses their asynchronous page flips
