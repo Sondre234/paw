@@ -1127,10 +1127,13 @@ void ShellController::subscribe() {
             } else if (line.startsWith("cursor-theme ")) {
                 // cursor-theme SIZE NAME: the cursor the compositor draws, which the programs
                 // the shell starts draw over their windows too.
-                const auto size = line.section(' ', 1, 1), theme = line.section(' ', 2);
-                if (size.toInt() > 0 && !theme.isEmpty()) {
-                    qputenv("XCURSOR_SIZE", size.toUtf8());
-                    qputenv("XCURSOR_THEME", theme.toUtf8());
+                // Set as it changes alone: other threads read the environment too.
+                const auto size = line.section(' ', 1, 1).toUtf8();
+                const auto theme = line.section(' ', 2).toUtf8();
+                if (size.toInt() > 0 && !theme.isEmpty() &&
+                    (qgetenv("XCURSOR_SIZE") != size || qgetenv("XCURSOR_THEME") != theme)) {
+                    qputenv("XCURSOR_SIZE", size);
+                    qputenv("XCURSOR_THEME", theme);
                 }
             } else if (line.startsWith("focused ")) {
                 // The output the compositor says has the focus, where overlays for it go.
