@@ -1864,6 +1864,17 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                {"bottom-right", 4}},
               "overview.hot_corner must be \"none\", \"top-left\", \"top-right\", "
               "\"bottom-left\", or \"bottom-right\"");
+        // A corner runs one thing: this or what hot_corners gives it, not both.
+        if (int corner = settings.overview_hot_corner - 1;
+            corner >= 0 && settings.effects.corner_mask & (1U << corner)) {
+            constexpr const char *keys[] = {"top_left", "top_right", "bottom_left",
+                                            "bottom_right"};
+            constexpr const char *names[] = {"top-left", "top-right", "bottom-left",
+                                             "bottom-right"};
+            fail(std::string("overview.hot_corner and hot_corners.") + keys[corner] +
+                     " both claim the " + names[corner] + " corner",
+                 "hot_corner");
+        }
         settings.overview_dim = static_cast<float>(number(L, "dim", settings.overview_dim, 0, 1));
     }
     if (Section in{L, "notifications"}) {
