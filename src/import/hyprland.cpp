@@ -141,9 +141,17 @@ int do_file(lua_State *L) {
 int nothing(lua_State *) { return 0; }
 
 // Records hl.config/monitor/window_rule/device calls; everything else in hl is a stub that
-// accepts any use. Unknown globals (HyDE's `hyde`, for one) are stubs too.
+// accepts any use. Unknown globals (HyDE's `hyde`, for one) are stubs too. Lua runs finalizers
+// with hooks off, out of the budget's reach, so no table gets a __gc.
 constexpr const char *prelude = R"lua(
 local records, ignored, unknown, getinfo, raw_load = ...
+local raw_setmetatable, rawget, type = setmetatable, rawget, type
+function setmetatable(t, meta)
+    if type(meta) == "table" and rawget(meta, "__gc") ~= nil then
+        error("__gc metamethods are not run while importing", 2)
+    end
+    return raw_setmetatable(t, meta)
+end
 local stub_meta = {}
 local stub = setmetatable({}, stub_meta)
 stub_meta.__index = function() return stub end
@@ -298,6 +306,11 @@ void read_lua(const Files &files, const fs::path &path, Hyprland &hypr, Report &
     lua_pushcfunction(L, do_file);
     lua_setglobal(L, "dofile");
     luaL_requiref(L, LUA_IOLIBNAME, luaopen_io, 0);
+    // Files have a __gc of their own: getmetatable gives false for one, so it stays theirs.
+    luaL_getmetatable(L, LUA_FILEHANDLE);
+    lua_pushboolean(L, false);
+    lua_setfield(L, -2, "__metatable");
+    lua_pop(L, 1);
     lua_newtable(L);
     for (auto [name, wrapper] : {std::pair{"open", open_file}, {"lines", lines}}) {
         lua_getfield(L, -2, name);
