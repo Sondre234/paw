@@ -525,6 +525,12 @@ std::vector<Card> cards(const Totals &totals, const Period &period, std::time_t 
         result.push_back(card);
     }
 
+    if (int64_t pets = c[SH_WRAPPED_CAT_PETS]; pets)
+        result.push_back({"The cat",
+                          "You petted the cat " + times(pets) + ".",
+                          {pets == 1 ? "It purred." : "It purred every time."},
+                          {}});
+
     if (auto busiest = busiest_day(totals); days > 1 && !busiest.empty())
         result.push_back({"Busiest day",
                           "Your busiest day was " + day_name(busiest, year) + ".",

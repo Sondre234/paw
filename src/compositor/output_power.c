@@ -35,6 +35,7 @@ bool set_output_power(struct sh_output *output, bool on) {
         // Nothing shows on it, so a lock waits for it no longer.
         send_locked_if_presented(server);
         wrapped_follow(server);
+        idle_inhibitors_follow(server); // its windows' no longer apply
         return true;
     }
     output->powered_off = false;
@@ -52,6 +53,7 @@ bool set_output_power(struct sh_output *output, bool on) {
     wlr_output_schedule_frame(wlr_output);
     wlr_log(WLR_INFO, "Turned %s on", wlr_output->name);
     wrapped_follow(server);
+    idle_inhibitors_follow(server);
     return true;
 }
 

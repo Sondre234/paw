@@ -123,10 +123,26 @@ void tile_toplevel_at(struct sh_toplevel *toplevel, struct wlr_output *output,
     window_objects_changed(server);
 }
 
-/* As tile_toplevel_at, at the tile under the pointer with `at_cursor`. */
+/* Whether the pointer may say where `toplevel` joins the tiling `output` shows. Outside the
+ * scroll layout it always may. There it opens a column first over the first column, where
+ * every other window opens right of the focused one, so only a tile of that strip the user put
+ * the pointer on counts (pointed_tile): not a tile a key's focus warped the pointer onto, nor
+ * one left under it as a launcher closed, nor the pointer on another monitor. */
+bool cursor_places_tile(struct sh_toplevel *toplevel, struct wlr_output *output) {
+    struct sh_server *server = toplevel->server;
+    if (!output || output_layout(server, output) != SH_LAYOUT_SCROLL)
+        return true;
+    struct sh_toplevel *under = pointed_tile(server, toplevel);
+    return under && tiled_output(under) == output &&
+           under->workspace == *output_workspace(server, output->name);
+}
+
+/* As tile_toplevel_at, at the tile under the pointer with `at_cursor` where the pointer may say
+ * (cursor_places_tile). */
 void tile_toplevel(struct sh_toplevel *toplevel, struct wlr_output *output,
                    struct sh_toplevel *target, bool at_cursor) {
     struct wlr_cursor *cursor = toplevel->server->cursor;
+    at_cursor = at_cursor && cursor_places_tile(toplevel, output ? output : home_output(toplevel));
     tile_toplevel_at(toplevel, output, target, at_cursor, cursor->x, cursor->y);
 }
 

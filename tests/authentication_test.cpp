@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The authentication dialog's model, with stand-ins for polkit's helper: which user is chosen,
-// answers given before and after the helper asks, wrong answers, choosing another user, Cancel,
-// requests waiting in turn and polkit withdrawing them.
+// answers given before and after the helper asks, wrong answers and the three tries they get, a
+// helper that ends without asking, choosing another user, Cancel, requests waiting in turn and polkit withdrawing them.
 #include "authentication.hpp"
 #include <QPointer>
 #include <QSignalSpy>
@@ -18,7 +18,14 @@ class FakeConversation : public AuthConversation {
     QString identity, cookie;
     QStringList answers;
     bool started = false, cancelled = false;
-    void start() override { started = true; }
+    // Ends at once, from inside start(), without asking: as polkit's session does when its helper
+    // cannot be started.
+    bool failsToStart = false;
+    void start() override {
+        started = true;
+        if (failsToStart)
+            Q_EMIT completed(false);
+    }
     void respond(const QString &answer) override { answers << answer; }
     void cancel() override { cancelled = true; }
     void ask(const QString &prompt = "Password: ", bool echo = false) { Q_EMIT request(prompt, echo); }
@@ -50,11 +57,15 @@ class AuthenticationTest : public QObject {
     Q_OBJECT
     QList<QPointer<FakeConversation>> made_;
     QString output_ = "DP-1";
+    // Whether the helpers made from now on fail to start.
+    bool failing_ = false;
     // A model whose conversations are stand-ins the test keeps.
     void prepare(Authentication &auth) {
         made_.clear();
+        failing_ = false;
         auth.setConversations([this](const AuthIdentity &identity, const QString &cookie) {
             auto *conversation = new FakeConversation(identity, cookie);
+            conversation->failsToStart = failing_;
             made_ << conversation;
             return conversation;
         });
@@ -102,8 +113,10 @@ class AuthenticationTest : public QObject {
         QVERIFY(!auth.checking());
         QCOMPARE(auth.error(), QString("The password was not accepted. Try again."));
         QVERIFY(auth.open() && outcomes.isEmpty());
-        // A new conversation, as the same user; an answer typed before it asks waits for it.
-        QCOMPARE(made_.size(), 2);
+        // A new conversation, as the same user, from the event loop rather than from inside the
+        // helper's signal; an answer typed before it asks waits for it.
+        QCOMPARE(made_.size(), 1);
+        QTRY_COMPARE(made_.size(), 2);
         QVERIFY(made_[1]->started && made_[1]->identity == myName());
         auth.submit("right");
         QVERIFY(auth.checking() && auth.error().isEmpty());
@@ -141,6 +154,86 @@ class AuthenticationTest : public QObject {
         QCOMPARE(last()->answers, (QStringList{"ada", "123456"}));
         last()->ask("");
         QCOMPARE(auth.prompt(), QString("Password"));
+    }
+    // Three wrong answers of one user end the request as failed; another user chosen has three
+    // of their own.
+    void threeTries() {
+        Authentication auth;
+        prepare(auth);
+        QList<Authentication::Outcome> outcomes;
+        QSignalSpy rejected(&auth, &Authentication::rejected);
+        auth.add(request("c"), [&](Authentication::Outcome outcome) { outcomes << outcome; });
+        auto wrong = [&] {
+            last()->ask();
+            auth.submit("wrong");
+            last()->end(false);
+        };
+        wrong();
+        QTRY_COMPARE(made_.size(), 2);
+        wrong();
+        QTRY_COMPARE(made_.size(), 3);
+        auth.setIdentity(0);
+        QCOMPARE(made_.size(), 4);
+        wrong();
+        QTRY_COMPARE(made_.size(), 5);
+        wrong();
+        QTRY_COMPARE(made_.size(), 6);
+        QVERIFY(auth.open() && outcomes.isEmpty());
+        QCOMPARE(rejected.count(), 4);
+        wrong();
+        QCOMPARE(outcomes, QList{Authentication::Outcome::Failed});
+        QVERIFY(!auth.open());
+        QTest::qWait(50);
+        QCOMPARE(made_.size(), 6);
+    }
+    // A helper that cannot start ends inside start(): the request stays, saying so, and no other
+    // starts by itself, from inside that one or later; an answer tries again, once.
+    void helperCannotStart() {
+        Authentication auth;
+        prepare(auth);
+        failing_ = true;
+        QList<Authentication::Outcome> outcomes;
+        QSignalSpy rejected(&auth, &Authentication::rejected);
+        auth.add(request("c"), [&](Authentication::Outcome outcome) { outcomes << outcome; });
+        QCOMPARE(made_.size(), 1);
+        QVERIFY(made_[0]->started);
+        QTest::qWait(50);
+        QCOMPARE(made_.size(), 1);
+        QVERIFY(auth.open() && outcomes.isEmpty() && !auth.checking());
+        QCOMPARE(auth.error(), QString("polkit's helper failed without asking for a password."));
+        QCOMPARE(rejected.count(), 0);
+        auth.submit("first");
+        QCOMPARE(made_.size(), 2);
+        QTest::qWait(50);
+        QCOMPARE(made_.size(), 2);
+        QVERIFY(!auth.checking());
+        QCOMPARE(auth.error(), QString("polkit's helper failed without asking for a password."));
+        // Once it starts, the answer given waits for it to ask.
+        failing_ = false;
+        auth.submit("right");
+        QCOMPARE(made_.size(), 3);
+        QVERIFY(auth.checking() && auth.error().isEmpty());
+        last()->ask();
+        QCOMPARE(last()->answers, QStringList{"right"});
+        last()->end(true);
+        QCOMPARE(outcomes, QList{Authentication::Outcome::Authorized});
+    }
+    // One that ends before asking says why, as PAM does for a locked account, which shows rather
+    // than the model's own words; another user tries again.
+    void helperRefusesWithoutAsking() {
+        Authentication auth;
+        prepare(auth);
+        auth.add(request("c"), {});
+        last()->say("The account is locked due to 3 failed logins.");
+        last()->end(false);
+        QCOMPARE(auth.error(), QString("The account is locked due to 3 failed logins."));
+        QTest::qWait(50);
+        QCOMPARE(made_.size(), 1);
+        QVERIFY(auth.open());
+        auth.setIdentity(0);
+        QCOMPARE(made_.size(), 2);
+        QCOMPARE(last()->identity, QString("root"));
+        QVERIFY(auth.error().isEmpty());
     }
     void anotherUser() {
         Authentication auth;

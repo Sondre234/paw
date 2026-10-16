@@ -84,8 +84,10 @@ struct WindowActions {
     WindowActions once() const;
 };
 
-// Windows whose app ID and title match `app_id` and `title` (ECMAScript regexes, searched;
-// an absent one matches anything) get these opacities and actions.
+// Windows whose app ID and title match `app_id` and `title` (ECMAScript regexes, searched; an
+// absent one matches anything) get these opacities and actions. The patterns are compiled to be
+// searched in linear time, and of a text over 1 KiB `matches` searches the first and last
+// 512 bytes alone.
 struct WindowRule {
     std::string app_id, title;
     std::optional<std::regex> pattern, title_pattern;
@@ -288,6 +290,9 @@ struct ScreenshotConfig {
 struct PowerConfig {
     // The screen locker the `lock` action starts; empty for none.
     Command lock_command{"swaylock", "-f"};
+    // lock_style: that command, while it is the stock swaylock -f and swaylock has no
+    // configuration of its own, gets the appearance profile's look (src/lock_style.cpp).
+    bool lock_style = true;
     // Seconds the shell's confirmation of power off, reboot and log out counts down before it
     // goes ahead; 0 waits for a click.
     int countdown = 10;

@@ -12,9 +12,9 @@ import Paw
 //
 // A card finds its window's task in `taskSource` by the number the switcher gives the window
 // (the task model's windowId role) and, while `watching`, asks the model for its picture with
-// watchPicture; until a picture has come, or without one, the application's icon stands in, and
-// the first fades in over it. A model without watchPicture (a preview's) names pictures of its
-// own.
+// watchPicture, the card owning the watch, which the model then drops as the card goes; until a
+// picture has come, or without one, the application's icon stands in, and the first fades in
+// over it. A model without watchPicture (a preview's) names pictures of its own.
 Item {
     id: cards
     // The switcher's windows ({appId, title, output, workspace, minimized, urgent, id}), the
@@ -179,15 +179,15 @@ Item {
                                    watchedLive !== live || watchedWidth !== pixelWidth)) {
                         // Watched again before the last watch goes, so that the count never
                         // reaches 0 in between and the capture goes on with the new liveness.
-                        cards.taskSource.watchPicture(taskId, pixelWidth, live)
+                        cards.taskSource.watchPicture(card, taskId, pixelWidth, live)
                         if (watchedModel)
-                            watchedModel.unwatchPicture(watchedTask)
+                            watchedModel.unwatchPicture(card, watchedTask)
                         watchedModel = cards.taskSource
                         watchedTask = taskId
                         watchedLive = live
                         watchedWidth = pixelWidth
                     } else if (!wanted && watchedModel) {
-                        watchedModel.unwatchPicture(watchedTask)
+                        watchedModel.unwatchPicture(card, watchedTask)
                         watchedModel = null
                         watchedTask = -1
                     }
@@ -199,7 +199,7 @@ Item {
                 Component.onCompleted: rewatch()
                 Component.onDestruction: {
                     if (watchedModel)
-                        watchedModel.unwatchPicture(watchedTask)
+                        watchedModel.unwatchPicture(card, watchedTask)
                 }
 
                 // A window asking for attention is tinted in the urgent colour, but for the

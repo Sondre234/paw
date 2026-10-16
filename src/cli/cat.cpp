@@ -27,6 +27,9 @@ std::string cat_said(const std::vector<std::vector<std::string>> &rows) {
         return "The cat is out, waiting for a monitor.";
     if (cat[5] == "sleep")
         return "The cat is asleep" + where + ".";
+    if (cat[5] == "purr") // curled up as it sleeps, or sitting up
+        return (cat[6].starts_with("sleep") ? "The cat purrs in its sleep" : "The cat is purring") +
+               where + ".";
     if (cat[8] != "-" && cat[8] != "floor")
         return "The cat is out" + where + ", on " + cat[8] + ".";
     return "The cat is out" + where + ".";

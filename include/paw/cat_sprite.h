@@ -10,7 +10,13 @@
 extern "C" {
 #endif
 
-enum { SH_CAT_ART_WIDTH = 20, SH_CAT_ART_HEIGHT = 16, SH_CAT_Z_SIZE = 5 };
+enum {
+    SH_CAT_ART_WIDTH = 20,
+    SH_CAT_ART_HEIGHT = 16,
+    SH_CAT_Z_SIZE = 5,
+    SH_CAT_HEART_WIDTH = 7,
+    SH_CAT_HEART_HEIGHT = 6,
+};
 
 enum sh_cat_frame {
     SH_CAT_FRAME_SIT,    /* sitting, facing out of the screen */
@@ -26,6 +32,8 @@ enum sh_cat_frame {
     SH_CAT_FRAME_YAWN,
     SH_CAT_FRAME_SLEEP_1, /* curled up, breathing in and out */
     SH_CAT_FRAME_SLEEP_2,
+    SH_CAT_FRAME_PURR_1, /* stroked: eyes shut in content arcs, blushing, breathing in and out */
+    SH_CAT_FRAME_PURR_2,
     SH_CAT_FRAME_SCRATCH_1, /* scratching behind an ear with a hind leg */
     SH_CAT_FRAME_SCRATCH_2,
     SH_CAT_FRAME_PAW_1, /* patting what it sits on, paw up and down */
@@ -51,6 +59,10 @@ void sh_cat_paint(uint32_t *pixels, enum sh_cat_frame frame, enum sh_cat_coat co
 
 /* Paints the "z" a sleeping cat breathes out, SH_CAT_Z_SIZE cells square, in `coat`'s outline. */
 void sh_cat_paint_z(uint32_t *pixels, enum sh_cat_coat coat);
+
+/* Paints a heart a purring cat sends up, SH_CAT_HEART_WIDTH by SH_CAT_HEART_HEIGHT cells, pink
+ * in a rose outline with a glint, the same in every coat. */
+void sh_cat_paint_heart(uint32_t *pixels);
 
 /* The name of a frame, for `get cat`. */
 const char *sh_cat_frame_name(enum sh_cat_frame frame);

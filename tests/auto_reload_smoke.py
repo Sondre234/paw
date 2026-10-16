@@ -2,9 +2,10 @@
 """Saving the configuration reloads it: written in place or renamed over, once per save, and
 not at all with auto_reload = false or for files that are not Lua (or an XKB keymap). A file
 with an error, at startup or on a save, gives the default configuration until a save fixes
-it."""
+it, and so does one that runs too long."""
 from pathlib import Path
 import sys
+import time
 
 import harness
 
@@ -75,4 +76,13 @@ with harness.Compositor(compositor, "return { xwayland = false, layout = { gap =
     keymap.write_text(KEYMAP)
     stays(lambda: reloads() == 10, "reloaded with auto_reload = false")
     assert errors() == 4
+    # A pattern that backtracks for ever, one call into a C function that the instruction
+    # budget cannot stop, is stopped after 3 seconds: an error like any other.
+    start = time.monotonic()
+    desktop.reload("local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') "
+                   "return { xwayland = false }")
+    took = time.monotonic() - start
+    assert errors() == 5 and "init.lua: did not finish loading within" in log.read_text()
+    assert took < 10, f"the reload took {took:.1f} s"
+    desktop.msg("get", "workspace")
 print("Automatic reload on save passed")

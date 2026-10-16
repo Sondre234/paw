@@ -5,6 +5,7 @@
 // refused.
 #include "fake_dbus.hpp"
 #include "power_profiles_daemon.hpp"
+#include <QDBusArgument>
 #include <QDBusMetaType>
 #include <QSignalSpy>
 #include <QTest>
@@ -129,6 +130,29 @@ class PowerModeDbusTest : public QObject {
         old.object.set(legacy, "ActiveProfile", "performance");
         newer.stop();
         QTRY_COMPARE(mode.profile(), QString("performance"));
+    }
+    // Answers of the wrong types, from a daemon of another version or a bug, are taken as none
+    // rather than read out of bounds: properties that are not a{sv}, and profiles that are not
+    // aa{sv}.
+    void malformed() {
+        int reads = 0;
+        FakeDaemon daemon(bus_, service);
+        QDBusArgument numbers;
+        numbers << QList<int>{1, 2, 3};
+        daemon.object.getAll = QVariant::fromValue(numbers);
+        daemon.object.read = [&reads](const QString &, const QString &name) { reads += name.isEmpty(); };
+        QVERIFY(daemon.start());
+        PowerProfilesDaemon mode(bus_.connect());
+        QTRY_COMPARE(reads, 1);
+        // Said to have changed, its properties are read again, of the right type now.
+        daemon.object.getAll = {};
+        daemon.object.emitSignal(fakedbus::propertiesInterface, "PropertiesChanged",
+                                 {QString(service), QVariantMap(), QStringList{"ActiveProfile"}});
+        QTRY_VERIFY(mode.available());
+        QCOMPARE(mode.profiles(), (QStringList{"power-saver", "balanced", "performance"}));
+        daemon.object.set(service, "Profiles", QVariant::fromValue(numbers));
+        QTRY_COMPARE(mode.profiles(), QStringList());
+        QCOMPARE(mode.profile(), QString("balanced"));
     }
 };
 QTEST_MAIN(PowerModeDbusTest)

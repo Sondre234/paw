@@ -160,6 +160,16 @@ class PolkitAgentTest : public QObject {
         QVERIFY(heard("reply cookie-1 ok"));
         QVERIFY(!auth.open());
 
+        // Three wrong answers: polkit hears that it failed.
+        tell("begin org.example.wrong cookie-wrong user:" + me());
+        QTRY_VERIFY_WITH_TIMEOUT(auth.open(), 10000);
+        auth.submit("wrong");
+        auth.submit("wrong");
+        QVERIFY(auth.open());
+        auth.submit("wrong");
+        QVERIFY(heard("reply cookie-wrong error org.freedesktop.PolicyKit1.Error.Failed"));
+        QVERIFY(!auth.open());
+
         // Cancel: polkit hears that the user dismissed it.
         tell("begin org.example.one cookie-2 user:" + me());
         QTRY_VERIFY_WITH_TIMEOUT(auth.open(), 10000);

@@ -33,6 +33,18 @@ inline QVariantMap map(const QVariant &value) {
     }
     return value.toMap();
 }
+// A variant holding a value of D-Bus type `signature` read as T: a T already, or a D-Bus argument
+// still to read as one. An argument of another type gives an empty T, as with map(): a service
+// sending one, or a version of it that changed the type, must not crash the shell.
+template <class T> T read(const QVariant &value, const char *signature) {
+    if (value.metaType() == QMetaType::fromType<QDBusArgument>()) {
+        const auto argument = value.value<QDBusArgument>();
+        if (argument.currentSignature() != QLatin1StringView(signature))
+            return {};
+        return qdbus_cast<T>(argument);
+    }
+    return qvariant_cast<T>(value);
+}
 
 // Exports `object` on `bus` at `path`, the parts of it `exported` says, and takes the name
 // `service` for it. Returns what went wrong, empty once both are done, naming the object `what` and
