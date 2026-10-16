@@ -640,6 +640,8 @@ static bool action_targets_window(enum sh_action action) {
     case SH_PROMOTE:
     case SH_SWAP_NEXT:
     case SH_SWAP_PREV:
+    case SH_SPLIT_TOGGLE:
+    case SH_SPLIT_SWAP:
     case SH_RESIZE_LEFT:
     case SH_RESIZE_RIGHT:
     case SH_RESIZE_UP:
