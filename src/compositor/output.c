@@ -732,6 +732,11 @@ static void output_destroy(struct wl_listener *listener, void *data) {
         overview_dismiss(server);
     if (!strcmp(server->xray.output, output->wlr_output->name))
         xray_dismiss(server);
+    // A window being moved off it has come from no output still there: dropped on any that
+    // tiles, it joins the tiling there (joins_tiling), and a new output at the same address
+    // is not taken for this one.
+    if (server->grab_output == output->wlr_output)
+        server->grab_output = NULL;
     if (server->running)
         schedule_evacuation(server, output);
     // A laptop's panel the lid held off comes back when the last other monitor goes.

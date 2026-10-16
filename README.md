@@ -46,8 +46,9 @@ by day and by night.</sub>
   dark) or as a taskbar with a start menu and [pictures of a button's
   windows](docs/features.md#window-pictures) on hover and in the Alt + Tab switcher; either way:
   workspace indicator,
-  Quick Settings (network, volume, brightness, battery, night light, tiling, appearance; each
-  can sit on the bar instead), keyboard layout, a clock with the notifications and a calendar,
+  Quick Settings (network, volume, brightness, battery, night light, keep awake, tiling,
+  appearance; most can sit on the bar instead), keyboard layout, a clock with the notifications
+  and a calendar,
   a system tray, a notification daemon with history and do-not-disturb, an on-screen display,
   an Alt + Tab switcher, an Exposé-style overview, a command palette, and a power menu.
 - **Monitors** set up in a [display settings window](docs/features.md#display-settings), as on

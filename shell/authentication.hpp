@@ -56,7 +56,11 @@ class AuthConversation : public QObject {
 // output overlays belong on, the first of its users who is the one logged in (else root, else
 // the first) chosen; the conversation for that user starts at once, and an answer typed before
 // the helper asks is kept until it does. A wrong answer says so and starts the conversation again,
-// as many times as the user tries; Cancel, or polkit giving the request up, closes it.
+// from the event loop, up to three tries for each user, after which the request fails, as sudo
+// gives up after three. A helper that ends without having asked anything (it could not start, or
+// PAM turned the user away first, as for a locked account) is not asked again by itself: what it
+// said, else that it failed, shows until the user answers again, which starts a new conversation,
+// or chooses another user. Cancel, or polkit giving the request up, closes it.
 class Authentication : public QObject {
     Q_OBJECT
     // Whether a request is open, and its serial, new for each request that opens.
@@ -82,7 +86,8 @@ class Authentication : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY changed)
     Q_PROPERTY(QString info READ info NOTIFY changed)
   public:
-    enum class Outcome { Authorized, Dismissed, Withdrawn };
+    // Failed: three answers in a row were not accepted.
+    enum class Outcome { Authorized, Dismissed, Withdrawn, Failed };
     using Conversations =
         std::function<AuthConversation *(const AuthIdentity &identity, const QString &cookie)>;
     using Done = std::function<void(Outcome)>;
@@ -141,8 +146,12 @@ class Authentication : public QObject {
     std::function<QString()> outputSource_;
     QPointer<AuthConversation> conversation_;
     int next_ = 1, serial_ = 0, identity_ = -1;
+    // The answers of the open request's user that were not accepted.
+    int failures_ = 0;
     QString output_, prompt_, error_, info_, pending_;
     bool echo_ = false, checking_ = false, asked_ = false, havePending_ = false;
+    // The conversation going on asked something, or said an error, so far.
+    bool prompted_ = false, complained_ = false;
     void openFirst();
     void converse();
     void endConversation();

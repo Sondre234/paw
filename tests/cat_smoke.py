@@ -2,10 +2,11 @@
 """The desktop cat (`cat`, `paw cat`): let out, it turns up over the focused window and lands on its
 top, taking no input there; it falls onto the window below as that window is minimized, and on to
 the floor above the taskbar as that one is; nobody using the computer (PAW_TEST_CAT_SLEEP_MS), it
-sleeps, drawing a frame only now and then, and input wakes it; a pointer flicked past it sets it
-running; it hides behind a fullscreen window, under the overview and under the lock; it pats the
-top of a window that asks for attention; and it goes as it is called in, by `paw cat`, a binding
-or cat.enabled changing in a reload. With grim, the screen shows it."""
+sleeps, drawing a frame only now and then, purrs in its sleep and sleeps on as the pointer strokes
+it, and other input wakes it; a pointer flicked past it sets it running, and stroked awake it
+purrs, sending up pink hearts; it hides behind a fullscreen window, under the overview and under
+the lock; it pats the top of a window that asks for attention; and it goes as it is called in, by
+`paw cat`, a binding or cat.enabled changing in a reload. With grim, the screen shows it."""
 from pathlib import Path
 import subprocess
 import sys
@@ -101,8 +102,34 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
     time.sleep(4.5)
     assert cat()["state"] == "sleep" and frames() - before <= 6, (frames() - before, cat())
 
-    # Input wakes it, and a flick of the pointer past it sets it running after the pointer.
     pointer = desktop.virtual_pointer(pointer_probe, 1280, 720)
+
+    def stroke():
+        """Strokes the cat where it is: the pointer in from its left, a moment's rest, then back
+        and forth over its back, 30 pixels each way, a motion every 25 ms or so (ten to a line,
+        which the probe takes 64 words at most of)."""
+        found = cat()
+        x, y = found["x"], found["y"] - 16
+        pointer(f"move {max(x - 80, 0)} {y} sleep 400")
+        sweep = [abs((5 * i + 30) % 60 - 30) - 15 for i in range(50)]
+        for start in range(0, len(sweep), 10):
+            pointer(*(f"move {x + offset} {y} sleep 25" for offset in sweep[start:start + 10]))
+
+    # Stroked in its sleep, it purrs in its sleep: the input does not wake it, and it sleeps on
+    # once the strokes stop.
+    seen = set()
+
+    def purring_asleep():
+        stroke()
+        seen.add(cat()["state"])
+        return cat()["state"] == "purr"
+
+    wait_for(purring_asleep, "the sleeping cat purrs as it is stroked")
+    assert cat()["frame"] in ("sleep_1", "sleep_2"), cat()
+    wait_for(lambda: seen.add(cat()["state"]) or cat()["state"] == "sleep", "it sleeps on")
+    assert seen <= {"sleep", "purr"}, seen
+
+    # Other input wakes it, and a flick of the pointer past it sets it running after the pointer.
     pointer("move 1200 100")
     wait_for(lambda: cat()["state"] in ("wake", "sit", "look", "walk", "groom", "scratch",
                                         "jump", "land", "yawn"), "the cat wakes")
@@ -111,6 +138,24 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
     pointer(" ".join(f"move {x - 150 + 30 * i} {y - 60}" for i in range(8)))
     wait_for(lambda: cat()["state"] in ("chase", "pounce", "fall"), "the cat chases the pointer")
     wait_for(lambda: cat()["on"] != "-", "the cat comes down again")
+
+    # Stroked awake, it purrs with its eyes shut, sending up hearts over its ears, and stops two
+    # seconds after the strokes do.
+    calm = ("sit", "look", "walk", "groom", "scratch")
+    wait_for(lambda: cat()["state"] in calm and (stroke() or cat()["state"] == "purr"),
+             "the cat purrs as it is stroked")
+    assert cat()["frame"] in ("purr_1", "purr_2"), cat()
+    if grim:
+        def hearts():
+            """The pink pixels over the cat's ears, where its hearts float."""
+            shot = harness.grab(grim, desktop.env)
+            x, y = cat()["x"], cat()["y"]
+            return sum(1 for px in range(x - 30, x + 30) for py in range(y - 64, y - 34)
+                       if (lambda r, g, b: r > 180 and r - g > 60 and b > g)(*shot.at(px, py)))
+
+        wait_for(lambda: hearts() >= 12, "hearts float up from the purring cat")
+    wait_for(lambda: cat()["state"] != "purr", "the cat stops purring", timeout=5)
+    assert cat()["state"] == "sit", cat()
 
     # A fullscreen window hides it, and so do the overview and the lock.
     msg("fullscreen")

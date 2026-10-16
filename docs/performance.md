@@ -317,6 +317,25 @@ before and now, the clock's once-a-minute tick fell inside the ten seconds measu
 as one frame's worth of wakeups (about 9 a second over the ten seconds, llvmpipe's threads
 drawing it); the software renderer draws that frame with less than one wakeup a second.
 
+## Loading the configuration
+
+Since the configuration has a time limit, each load of it (at startup, on a reload, and in the
+shell) runs it twice: in a child process forked to see that it finishes within 3 seconds, then
+for real. `paw --check-config` on the example configuration, with its profiles, took 11 ms a run
+with the child process left out (`fork` made to fail through `LD_PRELOAD`, which loads the
+configuration unchecked) and 19 to 23 ms with it, process start included, 50 runs each on the
+development desktop while other builds ran: some 8 to 12 ms more a load. Forking copies the
+page tables alone, under 1 MB for the running compositor's 230 MB resident.
+
+## Matching window rules
+
+Window rules' patterns are compiled as `[\s\S]*?(?:PATTERN)` and matched from the start of a
+title alone by libstdc++'s breadth-first matcher, rather than searched for by its backtracking
+one from each place in turn. On a title of `a - ` repeated, `(.*) - (.*) - .*x` took 5.8 s at
+512 bytes searched as written and 0.08 ms compiled so; at 64 KB the backtracking matcher
+overflowed its stack, where the breadth-first one took 13 ms. Rules search a title over 1 KiB in
+its first and last 512 bytes, so no title costs more than about 0.1 ms a rule.
+
 ## Not verified
 
 - The shell's motion on a real GPU at 144 or 200 Hz, and what it costs there per frame: the

@@ -345,6 +345,10 @@ void sh_heat_text(uint32_t *pixels, int width, int height, int x, int y, int dot
 }
 
 void sh_heat_label(char *text, size_t size, enum sh_heat_kind kind, double value) {
+    if (size)
+        text[0] = '\0';
+    if (!isfinite(value)) // no count or time: the label stays empty
+        return;
     if (kind == SH_HEAT_CLICKS) {
         unsigned clicks = (unsigned)lround(value);
         snprintf(text, size, "%u click%s", clicks, clicks == 1 ? "" : "s");

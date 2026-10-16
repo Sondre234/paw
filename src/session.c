@@ -38,24 +38,28 @@ bool sh_session_path(const char *name, char *path, size_t size) {
 
 size_t sh_session_encode(const char *text, bool arg, char *out, size_t size) {
     static const char hex[] = "0123456789ABCDEF";
-    size_t length = 0;
+    /* `written` stops at the first byte or escape that does not fit, and the NUL goes there. */
+    size_t length = 0, written = 0;
     for (const unsigned char *c = (const unsigned char *)text; *c; ++c) {
         bool escape = *c < 0x20 || *c == 0x7f || *c == '%' || (arg && *c == ' ');
         if (escape) {
-            if (length + 3 < size) {
+            if (written == length && length + 3 < size) {
                 out[length] = '%';
                 out[length + 1] = hex[*c >> 4];
                 out[length + 2] = hex[*c & 15];
+                written += 3;
             }
             length += 3;
         } else {
-            if (length + 1 < size)
+            if (written == length && length + 1 < size) {
                 out[length] = (char)*c;
+                written += 1;
+            }
             length += 1;
         }
     }
     if (size)
-        out[length < size ? length : size - 1] = '\0';
+        out[written] = '\0';
     return length;
 }
 
