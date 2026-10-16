@@ -685,6 +685,15 @@ const Option options[] = {
      "With `key` only: while the key is held, the action runs again at `keyboard.repeat_rate` "
      "after `keyboard.repeat_delay`, as Hyprland's `binde`. (Lua keeps `repeat` for its own "
      "loops.)"},
+    {"bindings[].release", "boolean", "false", "", none, none,
+     "With `key` only, and not with `repeats`: the action runs as the key comes up rather than "
+     "as it goes down, as Hyprland's `bindr`. A modifier key (`Super_L`, `Alt_L`, ...) still "
+     "reaches the application as it goes down, and its binding runs only when the key was "
+     "tapped alone: not when another key, a mouse button, the wheel or a touchpad gesture was "
+     "used while it was held, so `{ key = \"Super_L\", release = true, action = \"launcher\" "
+     "}` opens the launcher as Windows' Start key does, and Super + drag and Super + Q are left "
+     "alone. `mods` are those held as the key goes down; a modifier key's own (`Super` with "
+     "`Super_L`) may be left out."},
 
     {"notifications", "table", "", "", none, none,
      "Notifications: the shell serves `org.freedesktop.Notifications` on the session bus and shows "
