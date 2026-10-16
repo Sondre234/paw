@@ -154,6 +154,8 @@ int main() {
     CHECK(idle_text(paw::cli::rows("state\t303\t1\t0\t0\t2\t1\ndim\t570000\t0\n"
                                    "inhibitor\t1\twindow\tVideo\ninhibitor\t0\tother\t-\n")) ==
           "inhibited · dim 9m30s");
+    CHECK(idle_text(paw::cli::rows("state\t303\t1\t0\t0\t0\t0\t1\ndim\t570000\t0\n")) ==
+          "kept awake · dim 9m30s");
     CHECK(night_text(paw::cli::rows("3400\t0\t1\n")) == "3400K");
     CHECK(night_text(paw::cli::rows("6500\t0\t1\n")) == "scheduled");
     CHECK(night_text(paw::cli::rows("6500\t0\t0\n")).empty());

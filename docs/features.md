@@ -3125,8 +3125,8 @@ paper. The fields, each where it is known:
   monitor's workspace, or `floating`;
 - `monitors`: each one's connector, mode, scale, and HDR or 10-bit colour where it is drawn so;
   one turned off says so, and a mirror names the monitor it shows;
-- `idle`: the timeouts of [power saving](#power-saving-when-idle)'s steps, and `inhibited`
-  while something holds them off, `dimmed`, `on battery`;
+- `idle`: the timeouts of [power saving](#power-saving-when-idle)'s steps, and `kept awake`
+  while keep awake holds them off, else `inhibited` while something does, `dimmed`, `on battery`;
 - `night light`: the colour temperature while [night light](#effects) warms the screens,
   `scheduled` while it waits; `mode`: the [binding mode](#binding-modes) outside the default;
 - `top app`: the application launched most from the shell (the `launches` file in paw's state
