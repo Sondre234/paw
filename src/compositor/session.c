@@ -141,7 +141,11 @@ bool session_save(struct sh_server *server, const char *name, int *windows, char
     }
     session_capture(server, session);
     snprintf(temporary, sizeof(temporary), "%s.new", path);
-    FILE *file = fopen(temporary, "w");
+    // The user's alone, as the wrapped files are: it holds window titles and command lines.
+    int fd = open(temporary, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    FILE *file = fd >= 0 ? fdopen(fd, "w") : NULL;
+    if (fd >= 0 && !file)
+        close(fd);
     bool ok = file && sh_session_write(session, file);
     if (file && fclose(file) != 0)
         ok = false;
