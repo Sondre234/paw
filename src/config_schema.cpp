@@ -139,10 +139,12 @@ const Option options[] = {
     {"mouse.hide_when_typing", "boolean", "false", "true", none, none,
      "Hide the cursor as a key is typed into an application, as macOS does, until the pointer "
      "moves, clicks or scrolls. Modifier keys alone and the keys bindings take leave it, and so "
-     "does typing while a button is held."},
+     "does typing while a button is held, a game holds the pointer or the window under it hid "
+     "the cursor itself."},
     {"mouse.hide_after", "integer", "0", "5", 0, 3600,
      "Seconds the pointer rests before the cursor hides, until it moves, clicks or scrolls; `0` "
-     "never hides it."},
+     "never hides it. Not while a game holds the pointer or the window under it hid the cursor "
+     "itself."},
     {"mouse.shake_to_find", "boolean", "false", "true", none, none,
      "Shaking the pointer quickly from side to side grows the cursor to three times its size for "
      "a moment, as macOS does, so that it is easy to find; it shrinks back about a second after "
