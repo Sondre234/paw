@@ -595,6 +595,11 @@ void read_shell(lua_State *L, ShellConfig &shell) {
           "renderer must be \"software\" or \"gpu\"");
     boolean(L, "icons_only", "shell.icons_only", shell.icons_only);
     boolean(L, "group_windows", "shell.group_windows", shell.group_windows);
+    named(L, "taskbar_buttons", nullptr, shell.taskbar_buttons,
+          {{"all", ShellConfig::TaskbarButtons::All},
+           {"main_and_own", ShellConfig::TaskbarButtons::MainAndOwn},
+           {"own", ShellConfig::TaskbarButtons::Own}},
+          "taskbar_buttons must be \"all\", \"main_and_own\" or \"own\"");
     boolean(L, "polkit_agent", "shell.polkit_agent", shell.polkit_agent);
     shell.workspaces_shown = integer(L, "workspaces_shown", 0, 0, 10);
     if (Section in{L, "thumbnails", "shell.thumbnails"}) {
