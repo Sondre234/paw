@@ -229,6 +229,8 @@ enum sh_action {
     SH_EMOJI_PICKER,
     /* Asks the shell for its display settings window on the output under the pointer. */
     SH_DISPLAY_SETTINGS,
+    /* Shows or hides the shell's desktop clock (shell.desktop_clock). */
+    SH_DESKTOP_CLOCK,
     /* Minimizes the focused window into its taskbar button, as its own minimize button does. */
     SH_MINIMIZE,
     /* Toys, which only draw: the focused window (argument: a window's number, its id, 0 for the

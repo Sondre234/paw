@@ -12,6 +12,7 @@
 #include <QFile>
 #include <QLinearGradient>
 #include <QPainter>
+#include <QPixmap>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickItem>
@@ -952,12 +953,23 @@ QImage previewWallpaper(QSize size, ShellController &controller) {
     const QString file = controller.wallpaperFile();
     const QImage wallpaper = file.isEmpty() ? QImage() : QImage(file);
     if (!wallpaper.isNull()) {
-        // Cropped to fill, as Desktop.qml shows it.
-        const QSize scaled = wallpaper.size().scaled(desktop.size(), Qt::KeepAspectRatioByExpanding);
-        painter.drawImage(QRect(QPoint((desktop.width() - scaled.width()) / 2,
-                                       (desktop.height() - scaled.height()) / 2),
-                                scaled),
-                          wallpaper);
+        // As Desktop.qml shows it (WallpaperPicture.qml), by shell.wallpaper_mode.
+        const QString mode = controller.wallpaperMode();
+        painter.fillRect(desktop.rect(), controller.background());
+        if (mode == "tile") {
+            painter.drawTiledPixmap(desktop.rect(), QPixmap::fromImage(wallpaper));
+        } else if (mode == "stretch") {
+            painter.drawImage(desktop.rect(), wallpaper);
+        } else {
+            const QSize scaled =
+                mode == "center" ? wallpaper.size()
+                : wallpaper.size().scaled(desktop.size(), mode == "fit" ? Qt::KeepAspectRatio
+                                                                        : Qt::KeepAspectRatioByExpanding);
+            painter.drawImage(QRect(QPoint((desktop.width() - scaled.width()) / 2,
+                                           (desktop.height() - scaled.height()) / 2),
+                                    scaled),
+                              wallpaper);
+        }
     } else if (controller.style() == "macos") {
         // The wallpaper the macOS style draws while none is set, as Desktop.qml shows it, drawn
         // offscreen for the picture.

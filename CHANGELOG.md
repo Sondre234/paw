@@ -61,6 +61,10 @@ shadows.
   under mochi's own icons, and `--cursor` Catppuccin's cursors.
 - `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
   the accent colour, named as `shell.wallpaper` is.
+- `shell.wallpaper_mode` says how the wallpaper covers each monitor: `"fill"` (cropped, as
+  before), `"fit"`, `"stretch"`, or at its own size `"center"` and `"tile"`, with the background
+  colour around a picture that leaves room. A profile can set it; a new mode fades in as a new
+  wallpaper does, and the frosted glass, the workspace cards and Launchpad follow it.
 - `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu
   bar and dock, and the popups, menus, cards, tooltips and overlays show the wallpaper behind them
   blurred under their colour, the popups as translucent as the bar but at least 75 % opaque so
@@ -336,6 +340,12 @@ shadows.
   are then trusted and connected. The shell is BlueZ's agent from the first time it is asked to
   pair, for passkeys to confirm, PINs and passkeys to type and codes to type on a keyboard.
   `shell.widgets.bluetooth = false` leaves it out and `-DPAW_BLUETOOTH=OFF` builds without it.
+- An experimental desktop clock, off by default: `shell.desktop_clock` draws the time large and
+  thin over the wallpaper, the date under it and, with `greeting = "ja"` or `"en"`, おはよう,
+  こんにちは or こんばんは (Good morning, afternoon or evening) above it between two twinkles, in the
+  profile's text colour with a soft shadow, where `position` puts it. It changes once a minute
+  and stays out of the frosted glass. The `desktop_clock` action (`paw msg desktop_clock`, the
+  command palette) shows or hides it at once.
 
 ### Notifications and the overlays
 
