@@ -1680,6 +1680,42 @@ action, or a ratio changed, is kept), also to windows already open when the conf
 reloaded, and again when the monitor is plugged back in. `paw msg get layout OUTPUT
 [WORKSPACE]` prints another monitor's or workspace's values.
 
+### Dwindle's splits and pseudotiling
+
+Three actions after Hyprland's dwindle dispatchers work on the focused tile. They are
+experimental and unbound by default: run them with `paw msg split_toggle` (and so on), from the
+command palette, or bind them (config/init.lua has the lines, commented out).
+
+- `split_toggle` (Hyprland's `togglesplit`) turns the split the focused tile shares with its
+  neighbour (the window, or the windows, that took the other half of its box) from side by side
+  to stacked, or back. Dwindle otherwise splits each box along its longer side at every
+  arrangement; a toggled split keeps its direction through resizes, other windows opening and
+  closing, reloads and a monitor of another shape. Toggled back to the direction its shape gives
+  it, it follows the shape again. A new window splits a tile as usual.
+- `split_swap` (`swapsplit`) trades that split's two halves, each keeping its size: a tile on
+  the left at 60 % goes to the right at 60 %. Hyprland keeps the line where it was instead.
+- `pseudo_toggle` (`pseudo`) pseudotiles the focused tile: it keeps its floating size, in the
+  middle of its tile rather than filling it, scaled down to fit (keeping its shape) when the tile
+  is smaller. A window that opened tiled has no floating size and takes half its monitor's
+  usable area each way. Resizing it with Mod + right drag, its edge or `resize_*` changes that
+  size about its middle instead of moving the splits, and it floats at the new size too. Again,
+  it fills its tile.
+
+The tiles glide to their new places as after any change to the tiling. All three work in
+dwindle only: in master, spiral, monocle and scroll they do nothing, and a pseudotiled window
+fills its tile there until its workspace is in dwindle again. They leave a fullscreen window
+alone. Toggled splits and pseudotiling last while the compositor runs, reloads included, but a
+saved session does not keep them, as it does not keep dwindle's splits.
+
+Hyprland binds `togglesplit` to Super + J and `pseudo` to Super + P, which paw gives to
+`focus_next` and the command palette, so the example lines use Ctrl:
+
+```lua
+{ mods = { mod, "Ctrl" }, key = "j", action = "split_toggle" },
+{ mods = { mod, "Ctrl" }, key = "k", action = "split_swap" },
+{ mods = { mod, "Ctrl" }, key = "p", action = "pseudo_toggle" },
+```
+
 ### Scrolling layout
 
 `layout_scroll` tiles like niri and PaperWM: windows live in columns on a strip much wider
