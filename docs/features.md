@@ -3029,7 +3029,11 @@ to every subscriber; while no client subscribed that way, the compositor runs `w
 `brightnessctl` for them itself. The state also says the [binding mode](#binding-modes) in use
 as `mode NAME` (`default` outside any). Children of the session find the socket through
 `PAW_SOCKET`. Actions are
-refused while the session is locked.
+refused while the session is locked. A connection has five seconds to send its request, a line
+shorter than 4096 bytes, or it is told `error: no request within 5 seconds` and closed; at most 64
+wait for theirs at once, the one waiting longest told `error: too many connections waiting` and
+closed for each new one. Out of file descriptors, the compositor stops taking connections for a
+quarter of a second at a time, rather than failing to take one at full speed.
 
 ## Commands
 
