@@ -128,7 +128,7 @@ PopupCard {
                 id: thumb
                 objectName: "wallpaperItem"
                 required property var modelData
-                readonly property bool current: modelData.path === shell.wallpaperFile
+                readonly property bool current: modelData.path === panel.shellView.wallpaperFile
                 width: wallpaperGrid.cellWidth; height: wallpaperGrid.cellHeight
                 Accessible.name: modelData.name + (current ? ", in use" : "")
                 onClicked: shell.pickWallpaper(modelData.path)

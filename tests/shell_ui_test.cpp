@@ -7575,6 +7575,85 @@ ListModel {
         if (controller.wallpaperFile() != walls + "/a/one.png")
             return fail("could not go back to the configured wallpaper");
     }
+    // A monitor's own wallpaper (shell.monitor_wallpapers, or picked for that monitor alone): its
+    // desktop and its workspace card show it, the others every monitor's. A pick for one monitor
+    // is kept on a line of its own that names the monitor, until the configuration gives that
+    // monitor another; one for every monitor drops those and covers the configured ones too.
+    {
+        const auto sky = directory.filePath("sky");
+        const auto one = walls + "/a/one.png", two = walls + "/b/two.png";
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *backdrop = find(desktop.rootObject(), "backdrop");
+        auto *card = find(view.rootObject(), "workspaceCard");
+        auto *cardPicture = card ? find(card, "wallpaperImage") : nullptr;
+        if (!backdrop || !cardPicture)
+            return fail("the desktop has no backdrop, or the workspace card no wallpaper");
+        // Whether this monitor (`output`) shows `file`: the desktop, its view and its card.
+        auto drawn = [&](const QString &file) {
+            const auto layers = backdrop->childItems();
+            const auto url = QUrl::fromLocalFile(file);
+            return !layers.isEmpty() && layers.last()->property("source") == url.toString() &&
+                   layers.last()->opacity() == 1 && desktop.wallpaperFile() == file &&
+                   view.wallpaperFile() == file && cardPicture->property("source") == url;
+        };
+        auto withOwn = [&](const QString &entries) {
+            return QString(lua).replace("shell={wallpaper=",
+                                        "shell={monitor_wallpapers={" + entries + "},wallpaper=");
+        };
+        if (!reconfigure(withOwn("['" + output + "']='walls/b/two.png'")) ||
+            !waitFor([&] { return drawn(two); }) || controller.wallpaperFile() != one ||
+            controller.wallpaperFileOn("OTHER-1") != one || controller.ownWallpaper(output))
+            return fail("shell.monitor_wallpapers did not give the monitor its own wallpaper alone");
+        // Picked for this monitor alone; then for another, which leaves this one.
+        controller.pickWallpaperOn(sky + "/1.png", output);
+        if (!waitFor([&] { return drawn(sky + "/1.png"); }) || !controller.ownWallpaper(output) ||
+            !desktop.ownWallpaper() || controller.wallpaperFile() != one ||
+            pickedText() != "dark\twalls/b/two.png\t" + sky + "/1.png\t" + output + "\n")
+            return fail("a wallpaper picked for one monitor was not shown there alone, or not kept");
+        controller.pickWallpaperOn(sky + "/2.png", "OTHER-1");
+        if (controller.wallpaperFileOn("OTHER-1") != sky + "/2.png" || !drawn(sky + "/1.png") ||
+            pickedText() != "dark\twalls/a/one.png\t" + sky + "/2.png\tOTHER-1\n"
+                            "dark\twalls/b/two.png\t" + sky + "/1.png\t" + output + "\n")
+            return fail("a wallpaper picked for another monitor changed this one's");
+        // Read back as the shell starts again.
+        {
+            const auto socket = qgetenv("PAW_SOCKET");
+            qunsetenv("PAW_SOCKET");
+            ShellController again(config.toStdString());
+            qputenv("PAW_SOCKET", socket);
+            if (again.wallpaperFileOn(output) != sky + "/1.png" ||
+                again.wallpaperFileOn("OTHER-1") != sky + "/2.png" || again.wallpaperFile() != one)
+                return fail("the wallpapers picked for each monitor were not read back");
+        }
+        // For every monitor: those picked alone go, and the configured one is covered too.
+        controller.pickWallpaper(sky + "/3.png");
+        if (!waitFor([&] { return drawn(sky + "/3.png"); }) || controller.ownWallpaper(output) ||
+            controller.wallpaperFileOn("OTHER-1") != sky + "/3.png" ||
+            pickedText() != "dark\twalls/a/one.png\t" + sky + "/3.png\n"
+                            "dark\twalls/b/two.png\t" + sky + "/3.png\t" + output + "\n")
+            return fail("a wallpaper picked for every monitor did not cover them all");
+        // Picked alone again, then the configuration gives the monitor another wallpaper: that
+        // shows, as the pick was for the one before.
+        controller.pickWallpaperOn(sky + "/1.png", output);
+        if (!waitFor([&] { return drawn(sky + "/1.png"); }) ||
+            !reconfigure(withOwn("['" + output + "']=[[" + sky + "/2.png]]")) ||
+            !waitFor([&] { return drawn(sky + "/2.png"); }) || controller.ownWallpaper(output) ||
+            controller.wallpaperFile() != sky + "/3.png")
+            return fail("a monitor's pick stood after the configuration gave it another wallpaper");
+        // Going back to what the monitor shows without a pick of its own.
+        controller.pickWallpaperOn(sky + "/1.png", output);
+        controller.pickWallpaperOn("", output);
+        if (!waitFor([&] { return drawn(sky + "/2.png"); }))
+            return fail("clearing a monitor's own pick did not go back to its configured wallpaper");
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+        controller.pickWallpaper("");
+        if (!waitFor([&] { return drawn(one); }) || pickedText() != "")
+            return fail("could not go back to the configured wallpaper");
+    }
     // The macOS style, from a profile: the menu bar along the top in a surface of its own and the
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the
     // profile changes and back again.

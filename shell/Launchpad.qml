@@ -255,13 +255,13 @@ Item {
         }
         Loader {
             anchors.fill: parent
-            active: !backdrop.glassy && shell.wallpaper.toString().length === 0
+            active: !backdrop.glassy && launchpad.panel.shellView.wallpaper.toString().length === 0
             sourceComponent: DrawnWallpaper {}
         }
         WallpaperPicture {
             anchors.fill: parent
             visible: !backdrop.glassy
-            source: backdrop.glassy ? "" : shell.wallpaper
+            source: backdrop.glassy ? "" : launchpad.panel.shellView.wallpaper
             asynchronous: true
         }
         Rectangle {
