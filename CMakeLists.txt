@@ -131,7 +131,9 @@ if(BUILD_TESTING)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
-    # tests/NAME.py, or tests/FILE, with the arguments, for at most a minute or the timeout.
+    # tests/NAME.py, or tests/FILE, with the arguments, for at most a minute or the timeout;
+    # three times as long in the sanitizers' build (tools/check-all.sh), which runs many times
+    # slower: minimize_smoke took 52 of its 60 seconds there, shell_gallery 94 to 120 of 120.
     function(paw_smoke name)
         cmake_parse_arguments(PARSE_ARGV 1 SMOKE "" "SCRIPT;TIMEOUT" "")
         if(NOT SMOKE_SCRIPT)
@@ -139,6 +141,9 @@ if(BUILD_TESTING)
         endif()
         if(NOT SMOKE_TIMEOUT)
             set(SMOKE_TIMEOUT 60)
+        endif()
+        if("${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS}" MATCHES "-fsanitize=")
+            math(EXPR SMOKE_TIMEOUT "${SMOKE_TIMEOUT} * 3")
         endif()
         add_test(NAME ${name} COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/${SMOKE_SCRIPT}
             ${SMOKE_UNPARSED_ARGUMENTS})
