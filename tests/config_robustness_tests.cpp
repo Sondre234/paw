@@ -22,10 +22,13 @@
 #define PAW_ASAN 1
 #endif
 #endif
+// parse_limit: the seconds a configuration has to load in, src/config.cpp's time_limit.
 #if defined(__SANITIZE_ADDRESS__) || defined(PAW_ASAN)
 constexpr auto parse_budget = std::chrono::seconds(600);
+constexpr double parse_limit = 30;
 #else
 constexpr auto parse_budget = std::chrono::seconds(60);
+constexpr double parse_limit = 3;
 #endif
 
 namespace {
@@ -37,6 +40,25 @@ bool parses(const std::string &source) {
     } catch (const std::exception &) {
         return false;
     }
+}
+double seconds_since(std::chrono::steady_clock::time_point start) {
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+}
+// Fails the test unless `source` is refused within `limit` seconds with `fragment` in the error.
+void refused_in_time(const std::string &source, const std::string &fragment, double limit,
+                     const std::string &what) {
+    const auto start = std::chrono::steady_clock::now();
+    std::string error;
+    try {
+        (void)paw::parse_config(source, "@init.lua");
+    } catch (const std::exception &failure) {
+        error = failure.what();
+    }
+    const double took = seconds_since(start);
+    require(!error.empty(), what + " was accepted");
+    require(error.find(fragment) != std::string::npos,
+            what + ": expected '" + fragment + "' in: " + error.substr(0, 300));
+    require(took < limit, what + " took " + std::to_string(took) + " s to refuse");
 }
 } // namespace
 
@@ -60,6 +82,17 @@ int main(int argc, char **argv) {
         require(!parses("local t = {} t[1] = t return setmetatable(t, {__index = function(t) "
                         "return t[1] end}).x"), "runaway recursion was not stopped");
         require(!parses("return string.rep('x', 2^40)"), "huge allocation was not refused");
+
+        // One call into a C function is one instruction however long it runs or whatever it
+        // allocates, so the instruction budget stops neither. What runs for more than 3 seconds
+        // (30 with the sanitizers) is stopped, the error saying so.
+        refused_in_time("local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') return {}",
+                        "did not finish loading within", 3 * parse_limit,
+                        "a pattern that backtracks");
+        refused_in_time("local s = (''):rep(2^60) return {}", "did not finish loading within",
+                        3 * parse_limit, "an empty string repeated 2^60 times");
+        refused_in_time("table.move({}, 1, 2^50, 2) return {}", "did not finish loading within",
+                        3 * parse_limit, "a table move over 2^50 places");
 
         // Wrong shapes and extreme values.
         for (const char *source : {
