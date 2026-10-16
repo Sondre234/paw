@@ -28,7 +28,8 @@ focus_prev swap_next swap_prev master_grow master_shrink master_more master_less
 split_swap pseudo_toggle toggle_floating
 launcher focus_left focus_right focus_up focus_down move_left move_right move_up move_down
 move_to_scratchpad scratchpad_show toggle_sticky resize_left resize_right resize_up resize_down
-switcher switcher_prev switcher_confirm switcher_cancel snap_top_left snap_top_right
+switcher switcher_prev switcher_app switcher_app_prev switcher_confirm switcher_cancel
+snap_top_left snap_top_right
 snap_bottom_left snap_bottom_right snap_cycle_left snap_cycle_right snap_cycle_up snap_cycle_down
 toggle_shortcuts_inhibit
 get output subscribe""".split()

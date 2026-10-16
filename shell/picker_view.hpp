@@ -7,14 +7,16 @@
 // has an `output` property (the output it is open on, empty while closed), an openChanged() signal
 // and close(), and is told keyboardReleased() if it has it once the overlay, closing, has given
 // the keyboard back; the QML root has `screenSize`, `shown`, `progress` and reset(), as Palette.qml
-// has.
+// has. One that covers the output, bars and all (the sheet of keyboard shortcuts), is as large as
+// the output, its root sized to it, and has no `screenSize`.
 class PickerView : public OverlayView {
     Q_OBJECT
   public:
     // `name` is how its log lines and its layer surface's namespace call it ("clipboard" in
-    // "paw clipboard shown on DP-1" and "paw-clipboard"); `file` its QML.
+    // "paw clipboard shown on DP-1" and "paw-clipboard"); `file` its QML; `cover` whether it
+    // covers the output.
     PickerView(ShellController &controller, QScreen *screen, const char *name, const QString &file,
-               QObject *model);
+               QObject *model, bool cover = false);
 
   private Q_SLOTS:
     // Shows it as its model opens on this output, and starts it going as it closes.
@@ -22,6 +24,6 @@ class PickerView : public OverlayView {
 
   private:
     QObject *model_;
-    bool wasActive_ = false;
+    bool cover_, wasActive_ = false;
     void place();
 };

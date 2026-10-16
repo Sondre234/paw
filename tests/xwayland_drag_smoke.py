@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Drag and drop while XWayland runs. Its window manager hears of every drag that starts and takes
 it to have a data source (wlroots 0.20 reads through a NULL one), so a drag of nothing, which a
-window may start within itself, is turned down there rather than crashing the compositor; one
-with a data source goes as anywhere else."""
+window may start within itself, is turned down there rather than crashing the compositor, and
+freed out of its hearing (the sanitizers' build finds it leaked otherwise); one with a data
+source goes as anywhere else."""
 from pathlib import Path
 import subprocess
 import sys

@@ -296,6 +296,16 @@ shadows.
 - `paw msg type TEXT` types text into what has the keyboard, emoji and accents too, on a
   keymap made for it, as wtype does.
 
+### The sheet of keyboard shortcuts
+
+- `shortcuts` (Super + /, or Keyboard shortcuts in the command palette) shows every key and mouse
+  button binding in effect on one sheet over the dimmed screen, frosted with `shell.blur`: grouped
+  by what they do, in columns, each its keys as caps beside what it does (Super with the Windows
+  logo, or ⌃ ⌥ ⇧ ⌘ in the macOS style), the binding mode's first while one is in use. Typing
+  searches it; Escape or the key again closes it.
+- `bindings[].description` names a binding there in your words, as Hyprland's `bindd`; a spawn
+  without one shows its command, shortened.
+
 ### The clock and Quick Settings
 
 - The clock opens one flyout at the bar's right end, as on Windows 11: the notifications above
@@ -564,12 +574,28 @@ shadows.
   with the setting off), fullscreen windows have none, and profiles can turn it on and off. Only
   the wallpaper is blurred, at half the monitor's pixels on the CPU once it changes, so windows
   moving, resizing and animating over it cost nothing more; `paw msg get blur` shows it.
+- Alt + \` (`switcher_app`) switches between the focused application's windows, as macOS's
+  Cmd + \` and GNOME's Alt + \` do: the window switcher over that application's windows alone, on
+  every monitor and workspace, most recently used first, \` moving on while Alt is held and
+  Shift + \` (or Alt + Shift + \`, `switcher_app_prev`) moving back. An application with one
+  window opens nothing. The macOS style's switcher shows those windows' titles, or their pictures,
+  in place of its icons alone, and the command palette offers it too.
 - Hyprland's dwindle controls, experimental and unbound by default (example keys in the shipped
   configuration, also in the command palette): `split_toggle` turns the split the focused tile
   shares with its neighbour from side by side to stacked or back, and keeps it so where dwindle
   would follow the box's shape; `split_swap` trades that split's halves at their sizes; and
   `pseudo_toggle` keeps the focused tile at its floating size in the middle of its tile, resized
   about that middle. The tiles glide there; other layouts take none of them.
+- Ambient particles (experimental, off unless set): `appearance.ambient = { kind = "sakura" }`
+  has sakura petals tumble down over the wallpaper, `"snow"` soft snow, the nearest flakes out of
+  focus, and `"fireflies"` fireflies wandering and glowing warm, under the windows and the panels
+  and out of the background windows blur. `count` and `speed` set how many and how fast, an
+  appearance profile can set them (washi, sumi and mochi suggest one each in a comment) and a rice
+  bring them, and the `ambient` action (`paw msg ambient sakura|snow|fireflies|off|next|toggle`,
+  and the command palette) switches them, fading one kind out and the next in. They pause while
+  the session is locked, a monitor is off or shows a fullscreen window and the screens are dimmed,
+  and fade out after five minutes without input; `paw msg get ambient` says what each monitor
+  draws.
 
 ### Starting and ending a session
 

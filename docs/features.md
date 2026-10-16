@@ -1248,6 +1248,24 @@ way, the next selection rests again before it peeks. The shell tells the composi
 without the shell nothing peeks; the macOS style's switcher, which switches applications as macOS
 does, does not peek either. `peek.switcher = false` turns the peek off, the palette's too.
 
+### One application's windows
+
+Alt + \` (`switcher_app`) opens the same switcher over the focused window's application alone, as
+macOS's Cmd + \` and GNOME's Alt + \` do: the windows with its app ID, on every monitor and
+workspace and minimized ones too, most recently focused first, with the one focused before the
+current one selected. Keep Alt held and press \` again to move on (Shift + \` to move back; Alt +
+Shift + \`, `switcher_app_prev`, opens it on the least recent window); Tab, the arrows, Return,
+Escape, a click, releasing Alt and the peek are as with Alt + Tab. With no window focused (the
+bare desktop, or a panel such as the palette holding the keyboard) it takes the topmost window's
+application. An application with no other window, or a window without an app ID, opens nothing. The windows of a
+[tab group](#window-groups) are listed each on its own, and picking a tab brings it forward, as in
+the switcher. In the macOS style, whose switcher shows applications by their large icons alone,
+one application's windows, which share its icon, show their titles under it, or with
+`shell.thumbnails` their pictures as cards, and the selected one peeks. Sent as
+`paw msg switcher_app` it stays open until `switcher_confirm [N]` or `switcher_cancel`, as
+`paw msg switcher` does; the command palette offers it as "Switch between this application's
+windows".
+
 ## Overview
 
 Super + O (`toggle_overview`) shows the focused monitor's workspace as an Exposé: every
@@ -1454,6 +1472,37 @@ English keywords, under the Unicode License v3; `vendor/emoji/README.md` says ho
 `tools/emoji_table.py` makes it again. They are drawn in the system's colour emoji font (Noto Color
 Emoji, say); without one some show as boxes. `tests/emoji_test.cpp` tests the table and the search,
 and `tests/emoji_shell_smoke.py` the picker typing into a window.
+
+## Keyboard shortcuts
+
+`shortcuts` (Super + /, `paw msg shortcuts`, or Keyboard shortcuts in the command palette) shows
+every key and mouse button binding in effect on one sheet, on the monitor under the pointer: a
+card over the dimmed screen, frosted glass with `shell.blur`, drawn in the style in use. The
+bindings are grouped by what their actions do (Windows, Focus, Workspaces, Tiling, Scrolling,
+Window groups, Launch, Shell, Screen, Media, Session, Toys, and Other for the rest) in as many
+columns as the screen has room for, each row its keys as caps beside what it does: the command
+palette's name for the action where it has one (Close window, Layout: monocle), else the sheet's
+own, with the argument it takes (Go to workspace 3: mail, Screenshot of a region, Enter the resize
+mode). Bindings alike but for their key are one row: Super and the arrows focusing that way, Super
++ 1 to 4 going to workspaces 1 to 4. A mouse button's binding says where it acts (over kitty or
+foot windows and the desktop), and the lid's and tablet mode's show too. A modifier key bound
+with `release` shows as its cap with "tap" (Super tapped alone), and another key bound so says
+"on release". In the taskbar style
+Super's cap has the Windows logo; the macOS style writes the modifiers as a Mac does, ⌃ ⌥ ⇧ ⌘
+(Super is ⌘), and the footer says which is which. While a [binding mode](#binding-modes) is in
+use, its bindings come first, under its name in the accent colour.
+
+A binding's `description` names it in your words, as Hyprland's `bindd`:
+`{ mods = { mod }, key = "e", action = "spawn", command = { "dolphin" }, description = "Files" }`
+shows as Files, where a `spawn` without one shows its command, shortened (the program without its
+folder, the script of `sh -c`). Typing searches what the rows say, their keys and modifiers
+(`print`, `super shift`, `win`, `cmd`), their groups and the names of their actions and programs,
+every word in any order. Up, Down, Page Up and Page Down scroll, Home and End too while nothing is
+typed, and Escape, the binding again or a click beside the card closes it. The sheet reads the
+configuration the shell loads, so it follows a reload, and a binding mode entered, while it is
+open. On a keyboard layout where / takes Shift, bind another key to it (`key = "F1"`).
+`tests/shortcuts_test.cpp` tests what the sheet lists and its search, `shell_ui` the sheet, and
+`tests/shortcuts_shell_smoke.py` its binding in a session.
 
 ## Terminal
 
@@ -2034,6 +2083,46 @@ and acts on the monitor whose corner it is. The corner is `hot_corners.size` pix
 Nothing runs while a button is held, a drag is under way, the session is locked, or a fullscreen
 window covers the output. `overview.hot_corner` makes one more corner, which opens the overview
 (see [the overview](#overview)); a corner it takes cannot be bound here too.
+
+**Ambient particles.** `appearance.ambient = { kind = "sakura" }` has sakura petals drift down
+over the wallpaper, tumbling, swaying and turning as they fall, in four pinks; `"snow"` has soft
+snow falling, the nearest flakes large and out of focus; `"fireflies"` has fireflies wandering
+about and glowing warm, now bright, now dim. A gentle wind carries the petals and the snow now
+one way, now the other. The compositor draws them over the wallpaper and under the windows and
+the panels; they take no input, and stay out of the background [blurred behind
+windows](#borders-opacity-and-rounded-corners), which shows the wallpaper alone. `count` says how
+many drift on each monitor (up to 150; unless set, 30 petals, 60 flakes or 24 fireflies) and
+`speed` how fast (1 is their own pace, 0.5 half of it). An [appearance profile](#appearance-profiles) can set them, so that each look has its
+own (a [rice](#paw-rice) takes them along), and they fade over to the new kind as the profile
+changes.
+
+The `ambient` action switches them without touching the configuration: `paw msg ambient sakura`
+(or `snow`, `fireflies`, `off`), `ambient next` goes through the kinds in turn and then none, and
+`ambient` alone (`toggle`) turns them off, or back on as they were last (sakura the first time);
+bound to a key, `mode` takes the same words. The command palette offers them as "Ambient: ...".
+What the action chose stands until a reload changes `appearance.ambient.kind`, as picking a
+profile with another kind does.
+
+They draw only where they show: a monitor's particles pause while the session is locked, while
+the monitor is off or shows a fullscreen window (so a game or a video keeps the monitor to
+itself), and while the screens are dimmed, and fade out after five minutes without input until
+there is some; with none showing anywhere, nothing of them runs. Each step, every 33
+milliseconds, moves a monitor's particles out of the scene's sight and shows them again at once,
+and their pictures are painted once for each monitor's scale; behind windows that cover the
+wallpaper they cost next to nothing.
+
+```lua
+appearance = { ambient = { kind = "sakura", count = 40, speed = 1 } },
+bindings = {
+    { mods = { "Super", "Ctrl" }, key = "a", action = "ambient", mode = "next" },
+},
+```
+
+`paw msg get ambient` prints a line for each monitor: its name, the kind it draws, how many
+particles, and `shown`, `fading`, or why none show (`off`, `locked`, `away` while another VT is
+on the screen, `display_off`, `fullscreen`, `dimmed`, `idle`). `paw msg get ambient OUTPUT`
+lists that monitor's particles as they are drawn: their box in layout coordinates, their opacity
+in thousandths, the picture and its transform.
 
 ## Monitors
 

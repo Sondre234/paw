@@ -131,7 +131,9 @@ if(BUILD_TESTING)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
-    # tests/NAME.py, or tests/FILE, with the arguments, for at most a minute or the timeout.
+    # tests/NAME.py, or tests/FILE, with the arguments, for at most a minute or the timeout;
+    # three times as long in the sanitizers' build (tools/check-all.sh), which runs many times
+    # slower: minimize_smoke took 52 of its 60 seconds there, shell_gallery 94 to 120 of 120.
     function(paw_smoke name)
         cmake_parse_arguments(PARSE_ARGV 1 SMOKE "" "SCRIPT;TIMEOUT" "")
         if(NOT SMOKE_SCRIPT)
@@ -139,6 +141,9 @@ if(BUILD_TESTING)
         endif()
         if(NOT SMOKE_TIMEOUT)
             set(SMOKE_TIMEOUT 60)
+        endif()
+        if("${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS}" MATCHES "-fsanitize=")
+            math(EXPR SMOKE_TIMEOUT "${SMOKE_TIMEOUT} * 3")
         endif()
         add_test(NAME ${name} COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/${SMOKE_SCRIPT}
             ${SMOKE_UNPARSED_ARGUMENTS})
@@ -182,6 +187,7 @@ if(BUILD_TESTING)
     paw_unit_test(rice LIBRARY paw_cli)
     paw_c_unit_test(cat_sprite)
     paw_c_unit_test(cat)
+    paw_c_unit_test(ambient)
     paw_unit_test(cat_command LIBRARY paw_cli)
     paw_c_unit_test(xray_layout)
     paw_c_unit_test(cube)
@@ -341,6 +347,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/rice.c
         src/compositor/profile_schedule.c
         src/compositor/cat.c
+        src/compositor/ambient.c
         src/compositor/xray.c
         src/compositor/heatmap.c
         src/compositor/cube.c
@@ -365,6 +372,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/dropdown.c)
     target_sources(paw PRIVATE src/toys.c)
     target_sources(paw PRIVATE src/cat.c src/cat_sprite.c)
+    target_sources(paw PRIVATE src/ambient.c)
     target_sources(paw PRIVATE src/xray_layout.c)
     target_sources(paw PRIVATE src/cube.c)
     target_sources(paw PRIVATE src/blur.c)
@@ -771,6 +779,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(focus_last_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(switcher_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe>)
+        paw_smoke(switcher_app_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:input_probe>)
         paw_smoke(overview_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(overview_pointer_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
@@ -978,6 +988,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(rice_smoke TIMEOUT 120 $<TARGET_FILE:paw>)
         paw_smoke(cat_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(ambient_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(wrapped_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:idle_probe>)
         paw_smoke(xray_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>

@@ -5,7 +5,8 @@ import QtQuick
 // with the selected one's full title and place below, on a card with room around it for its
 // shadow. A click picks a window. With shell.thumbnails each window is a card with its picture
 // instead, as on Windows 11 (SwitcherCards.qml). In the macOS style the icons are large, without
-// their titles, on a rounded translucent card, as macOS switches applications.
+// their titles, on a rounded translucent card, as macOS switches applications; but for one
+// application's windows (switcher_app, Alt+`), which have the same icon.
 Item {
     id: switcher
     required property size screenSize
@@ -16,9 +17,14 @@ Item {
     property var windows: outputName === "" || shell.switcherOutput === outputName ? shell.switcherWindows : []
     property int selected: shell.switcherSelected
     property var taskSource: shell.tasks
-    // Whether the windows are cards with their pictures: with shell.thumbnails, but for the macOS
-    // style, which switches applications by their icons as macOS does.
-    readonly property bool pictured: shell.thumbnails && !Theme.macos
+    // Whether it lists one application's windows (switcher_app), kept as it goes.
+    property bool app: shell.switcherApp
+    // Whether each window is only its large icon: in the macOS style, which switches applications
+    // by their icons as macOS does, but not for one application's windows, all with one icon,
+    // which their titles and pictures tell apart.
+    readonly property bool iconsOnly: Theme.macos && !app
+    // Whether the windows are cards with their pictures: with shell.thumbnails, but for icons only.
+    readonly property bool pictured: shell.thumbnails && !iconsOnly
     // Whether the switcher is open here, while its windows' pictures are wanted: from the moment
     // the compositor lists them, before it shows, so that they are there by then.
     readonly property bool open: windows.length > 0
@@ -30,8 +36,8 @@ Item {
     onWindowsChanged: if (windows.length > 0) listed = windows
     onSelectedChanged: if (windows.length > 0) listedSelected = selected
     // A window's cell: its icon over two lines of its title.
-    readonly property int cell: Theme.macos ? Theme.switcherIconSize + 3 * Theme.spacingL
-                                            : Theme.appIconSizeDisplay + 10 * Theme.spacingM
+    readonly property int cell: iconsOnly ? Theme.switcherIconSize + 3 * Theme.spacingL
+                                          : Theme.switcherIconSize + 10 * Theme.spacingM
     readonly property int padding: Theme.spacingXL
     // Most of the output's width, and most of its height but for the caption: as many columns
     // as fit across, and rows up to that height; the grid scrolls to the selection past that.
@@ -53,9 +59,9 @@ Item {
     property alias progress: reveal.progress
     Reveal { id: reveal; shown: switcher.shown }
     // Shown, the compositor hears so, and its selected window then peeks once the selection has
-    // rested, as on Windows (peek.switcher); not in a preview, nor in the macOS style, which
-    // switches applications, as macOS does.
-    onShownChanged: if (shown && open && outputName !== "" && !Theme.macos && shell.peekSelection)
+    // rested, as on Windows (peek.switcher); not in a preview, nor with the macOS style's icons
+    // only, which switch applications, as macOS does.
+    onShownChanged: if (shown && open && outputName !== "" && !iconsOnly && shell.peekSelection)
                         shell.switcherShown()
 
     Item {
@@ -109,7 +115,7 @@ Item {
                 Image {
                     id: icon
                     anchors.horizontalCenter: parent.horizontalCenter
-                    y: Theme.macos ? (parent.height - height) / 2 : Theme.spacingXL
+                    y: switcher.iconsOnly ? (parent.height - height) / 2 : Theme.spacingXL
                     width: Theme.switcherIconSize; height: width
                     sourceSize: Qt.size(2 * width, 2 * height)
                     source: "image://icons/" + shell.iconFor(entry.modelData.appId)
@@ -117,7 +123,7 @@ Item {
                     opacity: entry.minimized ? 0.45 : 1
                 }
                 Text {
-                    visible: !Theme.macos
+                    visible: !switcher.iconsOnly
                     anchors.top: icon.bottom; anchors.topMargin: Theme.spacingM + Theme.spacingXS
                     anchors.left: parent.left; anchors.right: parent.right; anchors.margins: Theme.spacingM
                     text: entry.modelData.title.length > 0 ? entry.modelData.title : entry.modelData.appId

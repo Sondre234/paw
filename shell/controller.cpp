@@ -1151,6 +1151,9 @@ void ShellController::subscribe() {
                 clipboard_.toggle(line.sliced(10));
             } else if (line.startsWith("emoji ")) {
                 emoji_.toggle(line.sliced(6));
+            } else if (line.startsWith("shortcuts ")) {
+                // shortcuts OUTPUT: the sheet of keyboard shortcuts, opened or closed there.
+                shortcuts_.toggle(line.sliced(10));
             } else if (line.startsWith("locked ")) {
                 // locked on|off: nothing copied while the session is locked is kept.
                 clipboard_.setLocked(line == "locked on");
@@ -1171,11 +1174,14 @@ void ShellController::subscribe() {
             } else if (line.startsWith("palette ")) {
                 palette_.open(line.sliced(8));
             } else if (line.startsWith("switcher ")) {
-                // switcher OUTPUT SELECTED COUNT, then COUNT switcher-window lines.
+                // switcher OUTPUT SELECTED COUNT [app], then COUNT switcher-window lines; "app"
+                // when it lists one application's windows.
                 const auto words = line.split(' ');
-                if (words.size() != 4)
+                if (words.size() < 4)
                     continue;
-                nextSwitcher_ = {.output = words[1], .selected = words[2].toInt()};
+                nextSwitcher_ = {.output = words[1],
+                                 .selected = words[2].toInt(),
+                                 .app = words.size() > 4 && words[4] == "app"};
                 switcherPending_ = words[3].toInt();
                 if (switcherPending_ <= 0)
                     showSwitcher();

@@ -161,6 +161,7 @@ static const struct {
 } shell_actions[] = {
     {SH_LAUNCHER, .open = "launcher"},
     {SH_PALETTE, .open = "palette"},
+    {SH_SHORTCUTS, .open = "shortcuts"},
     {SH_NOTIFICATION_HISTORY, .open = "notifications"},
     {SH_CLIPBOARD_HISTORY, .open = "clipboard"},
     {SH_EMOJI_PICKER, .open = "emoji"},
@@ -184,7 +185,8 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         overview_close(server, NULL, -1);
     // The exploded view gives way to the overview and the switcher, which would show under it.
     if (server->xray.open && (action == SH_OVERVIEW_TOGGLE || action == SH_SWITCHER_NEXT ||
-                              action == SH_SWITCHER_PREV))
+                              action == SH_SWITCHER_PREV || action == SH_SWITCHER_APP_NEXT ||
+                              action == SH_SWITCHER_APP_PREV))
         xray_close(server, NULL);
     for (size_t i = 0; i < sizeof(shell_actions) / sizeof(*shell_actions); ++i) {
         if (shell_actions[i].action != action)
@@ -373,7 +375,11 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     }
     case SH_SWITCHER_NEXT:
     case SH_SWITCHER_PREV:
-        switcher_open(server, action == SH_SWITCHER_PREV, 0, XKB_KEY_NoSymbol);
+        switcher_open(server, action == SH_SWITCHER_PREV, false, 0, XKB_KEY_NoSymbol);
+        break;
+    case SH_SWITCHER_APP_NEXT:
+    case SH_SWITCHER_APP_PREV:
+        switcher_open(server, action == SH_SWITCHER_APP_PREV, true, 0, XKB_KEY_NoSymbol);
         break;
     case SH_SWITCHER_CONFIRM:
         switcher_close(server, argument > 0 ? argument - 1 : server->switcher.selected);
@@ -509,6 +515,9 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         break;
     case SH_CAT:
         cat_switch(server, argument);
+        break;
+    case SH_AMBIENT:
+        ambient_switch(server, argument);
         break;
     case SH_XRAY:
         xray_toggle(server);

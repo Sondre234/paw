@@ -40,7 +40,8 @@ POPUPS = ["bar", "launcher", "power", "bar-menu", "bar-submenu", "task-menu", "s
 # The overlay surfaces, each shown over the bar alone (PreviewData::surfaces in shell/preview.cpp).
 POPUPS += ["osd-volume", "osd-text", "cards", "power-dialog", "palette", "switcher",
            "overview", "palette-empty", "auth-dialog", "snap-assist", "osd-microphone",
-           "palette-calculator", "palette-files", "clipboard", "emoji"]
+           "palette-calculator", "palette-files", "clipboard", "emoji", "shortcuts",
+           "shortcuts-search", "shortcuts-mode"]
 # The start menu's other views and its menus.
 POPUPS += ["display-mode", "display-settings", "display-settings-trial"]
 POPUPS += ["rice-trial"]

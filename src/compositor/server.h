@@ -297,6 +297,8 @@ struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c
 struct sh_crossfade_picture; // what an output showed as it began
 struct sh_toys;              // the toy playing (toys.c)
 struct sh_cat_view;          // the desktop cat (cat.c)
+struct sh_ambient;           // ambient particles (ambient.c)
+struct sh_ambient_sky;       // an output's particles
 struct sh_wrapped;       // what paw wrapped counts (wrapped.c)
 struct wlr_color_manager_v1;
 struct sh_heatmap;     // where the pointer rests and clicks, and the overlay (heatmap.c)
@@ -544,11 +546,12 @@ struct sh_server {
     bool scratchpad_off_logged;  // said once that features.scratchpad is off
     // Where the grabbed window was when the grab began; NULL once that output is gone.
     struct wlr_output *grab_output;
-    /* The window switcher: a list of every window taken as it opens, most recently focused
-     * first. It stays open while `modifiers` (the opening binding's, less Shift) are all held,
-     * or with none until confirmed or cancelled; the shell draws it on `output`. */
+    /* The window switcher: a list of every window taken as it opens (with `app`, of the focused
+     * window's application alone: switcher_app), most recently focused first. It stays open
+     * while `modifiers` (the opening binding's, less Shift) are all held, or with none until
+     * confirmed or cancelled; the shell draws it on `output`. */
     struct {
-        bool open;
+        bool open, app;
         uint32_t modifiers;
         xkb_keysym_t key; // the opening binding's key, which selects the next window
         struct sh_toplevel *windows[128];
@@ -778,7 +781,6 @@ struct sh_server {
     struct wl_listener request_set_selection, request_set_primary_selection;
     struct wl_listener request_start_drag, start_drag;
     struct wl_listener drag_end; // on the drag under way, which there is one of at most
-    bool refusing_drag;          // a drag turned down is started to end at once (refuse_drag)
     struct wlr_scene_tree *drag_icons; // follows the cursor during drag-and-drop
     struct wl_listener request_activate;
     struct wlr_relative_pointer_manager_v1 *relative_pointer;
@@ -899,6 +901,7 @@ struct sh_server {
         bool following;   /* the profile in use is the one the schedule wants now */
     } profile_schedule;
     struct sh_cat_view *cat; /* the desktop cat (cat.c); NULL if it could not be made */
+    struct sh_ambient *ambient; /* ambient particles (ambient.c); NULL if they could not be */
     struct sh_wrapped *wrapped; // NULL while wrapped.enabled is off
     struct sh_xray xray;
     /* The pointer heatmap (heatmap.c); NULL until the first output is laid out. */
@@ -972,6 +975,8 @@ struct sh_output {
     struct sh_heat_output *heat;
     /* Its background blurred, for the windows over it (blur.c). */
     struct sh_blur_picture blur;
+    /* Its ambient particles (ambient.c); NULL while it has none. */
+    struct sh_ambient_sky *ambient;
 };
 
 /* An icon a window supplies itself (window_icon.c): the icon theme name it gave, and the pixels
@@ -1813,10 +1818,11 @@ void lid_from_logind(struct sh_server *server, bool closed);
 
 /* switcher.c */
 void switcher_close(struct sh_server *server, int index);
-void switcher_open(struct sh_server *server, bool backward, uint32_t modifiers,
+void switcher_open(struct sh_server *server, bool backward, bool app, uint32_t modifiers,
                    xkb_keysym_t key);
 void switcher_forget(struct sh_toplevel *toplevel);
-void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
+void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym,
+                  xkb_keysym_t base);
 bool switcher_ask_peek(struct sh_server *server);
 void switcher_finish(struct sh_server *server);
 
@@ -2042,6 +2048,15 @@ void cat_frame(struct sh_server *server);
 void cat_input(struct sh_server *server);
 void cat_pointer_moved(struct sh_server *server);
 void describe_cat(struct sh_server *server, int fd, const char *arguments);
+/* ambient.c */
+void ambient_init(struct sh_server *server);
+void ambient_finish(struct sh_server *server);
+void ambient_reload(struct sh_server *server);
+void ambient_switch(struct sh_server *server, int choice);
+void ambient_frame(struct sh_output *output);
+void ambient_input(struct sh_server *server);
+void ambient_forget_output(struct sh_output *output);
+void describe_ambient(struct sh_server *server, int fd, const char *arguments);
 /* xray.c */
 void xray_touch(struct sh_server *server);
 void xray_open(struct sh_server *server);
