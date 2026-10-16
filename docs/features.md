@@ -222,6 +222,16 @@ keeps its place until its window moves to another monitor, and on one monitor bu
 end as before. Grouped, an application's button stays where it is, and resting on it shows its
 windows in the order of their monitors.
 
+Which windows each monitor's taskbar shows is `shell.taskbar_buttons`, as Windows' "Show
+taskbar buttons on" (experimental): `"all"` (the default) shows every window on every bar,
+`"main_and_own"` every window on the main monitor's bar and on each other bar only the windows on
+its monitor, and `"own"` on every bar only the windows on its monitor. The main monitor is the
+primary one (`outputs.primary`, or the one the display settings window made primary), else the
+leftmost. But for `"all"`, the pinned applications show on the main monitor's bar alone, a
+launcher there while none of the application's windows is on it; grouped, a button, its count and
+the card of its windows stand for the windows its bar shows. A window moved to another monitor
+takes its button to that monitor's bar. The macOS style's dock shows every window.
+
 Something dragged from an application (a file, text, a link) brings windows forward as on Windows:
 resting the drag on a window's button for half a second brings that window to the front, restored
 onto the workspace shown if it was minimized, else with its own workspace shown, so that the drag

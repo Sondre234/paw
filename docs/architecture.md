@@ -1229,9 +1229,13 @@ The models behind them: `task_model.cpp` (windows, from foreign-toplevel), `task
 (the taskbar's one row of pinned applications and windows, in an order every panel shares, a
 `TaskbarOrder` the source model owns, which while the windows have a button each places a window
 among its application's by the place of its monitor, the `output` role's `QScreen`, as it opens
-or moves, tested by `task_filter_test` and in a session by `tests/taskbar_monitor_smoke.py`) and
-`task_filter.cpp` (an application's windows, for its groups and menus, with `byMonitor` in the
-order of their monitors, as the card of a button's windows lists them), `audio.cpp` with
+or moves, tested by `task_filter_test` and in a session by `tests/taskbar_monitor_smoke.py`; a
+panel's `TaskbarModel` shows the entries its `TaskbarOrder::View` lets through, the windows of
+its `output` alone and the launchers with `showLaunchers`, which `Panel.qml` sets from
+`shell.taskbar_buttons` and the main monitor, `ShellController::primaryOutput`, from the
+compositor's `primary` state line) and `task_filter.cpp` (an application's windows, for its
+groups and menus, with `byMonitor` in the order of their monitors, as the card of a button's
+windows lists them, and with `output` those on one monitor alone), `audio.cpp` with
 `pulse_audio.cpp`, `system_status.cpp`
 (battery, network), `tray*.cpp`, `notification*.cpp`, `osd.cpp`, `caption.cpp` and `backlight.cpp`,
 `volume_keys.cpp` (what the compositor passes on from the volume, microphone and brightness keys),
