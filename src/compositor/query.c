@@ -163,7 +163,7 @@ static void get_tiling(struct sh_server *server, int fd, const char *arguments) 
 static void get_pid_at(struct sh_server *server, int fd, const char *arguments) {
     // The process of the window drawn at layout point X Y, or no line when there is none.
     double x, y;
-    if (sscanf(arguments, "%lf %lf", &x, &y) != 2) {
+    if (!arguments || sscanf(arguments, "%lf %lf", &x, &y) != 2) {
         control_reply(fd, "error: usage: get pid_at X Y\n");
         return;
     }
