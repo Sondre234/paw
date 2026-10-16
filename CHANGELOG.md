@@ -597,6 +597,17 @@ shadows.
   the session is locked, a monitor is off or shows a fullscreen window and the screens are dimmed,
   and fade out after five minutes without input; `paw msg get ambient` says what each monitor
   draws.
+- A cursor trail (experimental, off unless set): `appearance.cursor_trail = { kind = "sparkles" }`
+  has little four-pointed sparkles and specks of glitter fall off the pointer as it moves,
+  twinkle and fade within a second; `"petals"` drops tiny sakura petals that tumble down and
+  `"hearts"` hearts that pop out and float up. The faster the pointer moves the more fall, none
+  while it rests, and `amount` says how many. Sparkles and hearts come in `colors`, by default the
+  focused border's colours and the accent with a light blue or a sakura pink beside them, so
+  washi's trail is light blue and pink and mochi's mauve and pink. It is drawn over the windows
+  and the panels, under the cursor, and stays out of screenshots, the lock and fullscreen
+  windows. A profile can set it (washi, sumi and mochi suggest one each in a comment), and the
+  `cursor_trail` action (`paw msg cursor_trail sparkles|petals|hearts|off|next|toggle`, and the
+  command palette) switches it; `paw msg get cursor_trail` says what it draws.
 
 ### Starting and ending a session
 
