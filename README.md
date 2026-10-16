@@ -281,6 +281,7 @@ Edit them in [config/init.lua](config/init.lua).
 | Super + Q | [Open a terminal](docs/features.md#terminal): `terminal`, `$TERMINAL`, or the first one installed |
 | Super + R | Application menu on the monitor under the pointer |
 | Super + P | [Command palette](docs/features.md#command-palette) |
+| Super + / | [Every shortcut](docs/features.md#keyboard-shortcuts) in effect, on one sheet with a search |
 | Super + B | Walk the [taskbar](docs/features.md#taskbar) or the dock from the keyboard: arrows, Enter, Escape |
 | Super + C | Close the focused window |
 | Super + M | Exit paw |
