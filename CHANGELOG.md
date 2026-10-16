@@ -486,6 +486,10 @@ shadows.
 - Screenshots leave the cursor out: paw hides it while grim takes the picture, where a monitor
   that draws the cursor into its frames (as with NVIDIA's driver here) put it in every
   screenshot. `paw msg get cursor` says whether it is hidden.
+- `mouse.hide_when_typing = true` hides the cursor while typing into an application, as macOS
+  does, and `mouse.hide_after = N` once the pointer has rested N seconds; moving, clicking or
+  scrolling shows it again. Modifier keys alone and keys a binding takes leave it. Both are off
+  by default.
 - Getting around a monitor's workspaces as on Hyprland. `move_to_workspace_next` and
   `move_to_workspace_prev` (Super + Ctrl + Alt + Right / Left) take the focused window to the
   workspace beside its own, wrapping around, and `move_to_workspace_empty` to the first one with
