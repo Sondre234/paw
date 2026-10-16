@@ -316,6 +316,12 @@ shadows.
   are then trusted and connected. The shell is BlueZ's agent from the first time it is asked to
   pair, for passkeys to confirm, PINs and passkeys to type and codes to type on a keyboard.
   `shell.widgets.bluetooth = false` leaves it out and `-DPAW_BLUETOOTH=OFF` builds without it.
+- An experimental desktop clock, off by default: `shell.desktop_clock` draws the time large and
+  thin over the wallpaper, the date under it and, with `greeting = "ja"` or `"en"`, おはよう,
+  こんにちは or こんばんは (Good morning, afternoon or evening) above it between two twinkles, in the
+  profile's text colour with a soft shadow, where `position` puts it. It changes once a minute
+  and stays out of the frosted glass. The `desktop_clock` action (`paw msg desktop_clock`, the
+  command palette) shows or hides it at once.
 
 ### Notifications and the overlays
 

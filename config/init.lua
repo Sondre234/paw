@@ -113,6 +113,7 @@ return {
                 panel_margin = { top = 12, left = 24, right = 24 },
                 wallpaper = "rices/washi/wallpaper/washi.jpg",
                 start_icon = "rices/washi/start/neko.svg",
+                -- desktop_clock = { enabled = true, greeting = "ja" },
             },
         },
         sumi = {
@@ -167,6 +168,7 @@ return {
                 blur = { enabled = true, radius = 48, brightness = 0.85, saturation = 1.2 },
                 wallpaper = "rices/mochi/wallpaper/mochi.jpg",
                 start_icon = "rices/mochi/start/mochi.svg",
+                -- desktop_clock = { enabled = true, position = "left", greeting = "ja" },
             },
         },
     },
@@ -393,6 +395,16 @@ return {
         -- wallpaper = "", -- absolute path, or relative to this configuration file
         -- wallpaper_mode = "fill", -- or "fit", "center", "tile" or "stretch"; around a picture
         --                            that leaves room, appearance.background shows
+        -- Experimental: a large clock on the desktop, over the wallpaper, in the text colour with
+        -- a soft shadow; the desktop_clock action (paw msg desktop_clock) shows or hides it:
+        -- desktop_clock = {
+        --     enabled = false,
+        --     position = "center", -- or "top", "bottom", "left", "right", "top-left", ...
+        --     time_format = "HH:mm", date_format = "dddd d MMMM", -- Qt's; "" shows no date
+        --     size = 96,         -- the time's height in pixels (24-320)
+        --     -- color = "#edf2fa", font = "", -- unset: text_color and font
+        --     greeting = false,  -- "ja": おはよう, こんにちは, こんばんは by the hour; or "en"
+        -- },
         -- wallpapers = "~/Pictures/wallpapers", -- the panel's wallpaper picker browses this folder
         -- Pin applications from the launcher or a window's right-click menu. Launchers here are
         -- for commands without a desktop file; they stay pinned ahead of those, e.g.:
