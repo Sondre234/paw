@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "paw/config.hpp"
+#include "paw/child_trial.hpp"
 #include "paw/effects.h"
 #include "paw/cat_sprite.h"
 #include "paw/config_schema.hpp"
@@ -7,27 +8,19 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
-#include <chrono>
-#include <csignal>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fcntl.h>
 #include <fstream>
 #include <functional>
 #include <iterator>
 #include <linux/input-event-codes.h>
 #include <lua.hpp>
 #include <memory>
-#include <poll.h>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
-#include <sys/prctl.h>
-#include <sys/resource.h>
-#include <sys/wait.h>
-#include <unistd.h>
 #include <utility>
 #include <xkbcommon/xkbcommon.h>
 
@@ -2988,99 +2981,26 @@ size_t locate(const std::string &source, const std::vector<std::string> &trail) 
     return found;
 }
 
-// The time a configuration has to load in. The instruction budget meters its Lua, but a call
-// into a C function is one instruction however long it runs: a pattern that backtracks, or
-// (""):rep(2^60). So a configuration loads first in a child process, killed if it runs over,
-// and then, having finished in time, for real. The sanitizers' build runs many times slower.
-#if defined(__has_feature)
-#if __has_feature(address_sanitizer)
-#define PAW_CONFIG_SANITIZED 1
-#endif
-#endif
-#if defined(__SANITIZE_ADDRESS__) || defined(PAW_CONFIG_SANITIZED)
-constexpr int time_limit = 30;
-#else
-constexpr int time_limit = 3;
-#endif
-// Runs `load` in a child process, which must finish within time_limit seconds, and throws if it
-// does not, or crashes; whatever `load` throws in time is left to running it for real. Without
-// a child process to be had, it returns: the configuration then loads unchecked, rather than
-// not at all. `name` is the configuration's chunk name.
+// A configuration loads first in a child process (try_in_child), which throws if it runs out of
+// memory, runs over the time limit or crashes there; whatever `load` throws in time is left to
+// running it for real. Without a child process to be had, it returns: the configuration then
+// loads unchecked, rather than not at all. `name` is the configuration's chunk name.
 void try_first(const std::function<void()> &load, const std::string &name) {
-    int pipe_ends[2];
-    if (::pipe2(pipe_ends, O_CLOEXEC) != 0)
-        return;
-    const pid_t parent = ::getpid();
-    const pid_t child = ::fork();
-    if (child < 0) {
-        ::close(pipe_ends[0]);
-        ::close(pipe_ends[1]);
-        return;
-    }
-    if (child == 0) {
-        // Only what the configuration needs runs here, and the child leaves with _exit, which
-        // runs no destructors or exit handlers of the process it was forked from. Crashing, it
-        // leaves no core file: that would be a copy of the compositor's memory.
-        ::close(pipe_ends[0]);
-        ::prctl(PR_SET_PDEATHSIG, SIGKILL);
-        const rlimit no_core{0, 0};
-        ::setrlimit(RLIMIT_CORE, &no_core);
-        if (::getppid() != parent)
-            _exit(1);
-        char outcome = 'y';
-        try {
-            load();
-        } catch (const std::bad_alloc &) {
-            outcome = 'm';
-        } catch (...) {
-            outcome = 'n';
-        }
-        ssize_t written;
-        do
-            written = ::write(pipe_ends[1], &outcome, 1);
-        while (written < 0 && errno == EINTR);
-        _exit(0);
-    }
-    ::close(pipe_ends[1]);
-    char outcome = 0;
-    bool late = false, unchecked = false;
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(time_limit);
-    for (;;) {
-        auto left = std::chrono::ceil<std::chrono::milliseconds>(deadline -
-                                                                 std::chrono::steady_clock::now());
-        if (left.count() <= 0) {
-            late = true;
-            break;
-        }
-        pollfd ready{pipe_ends[0], POLLIN, 0};
-        int count = ::poll(&ready, 1, static_cast<int>(left.count()));
-        if (count < 0 && errno != EINTR) {
-            unchecked = true;
-            break;
-        }
-        if (count <= 0)
-            continue;
-        if (::read(pipe_ends[0], &outcome, 1) >= 0 || errno != EINTR)
-            break;
-    }
-    ::close(pipe_ends[0]);
-    if (!outcome)
-        ::kill(child, SIGKILL);
-    int status = 0;
-    while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {
-    }
+    const auto trial = try_in_child(load);
     auto file = name.starts_with('@') ? name.substr(1) : name;
-    if (outcome == 'y' || outcome == 'n' || unchecked)
+    switch (trial.outcome) {
+    case Trial::Finished:
         return;
-    if (outcome == 'm')
+    case Trial::OutOfMemory:
         throw std::runtime_error("configuration: " + file + ": ran out of memory");
-    if (late)
+    case Trial::TooLong:
         throw std::runtime_error("configuration: " + file + ": did not finish loading within " +
-                                 std::to_string(time_limit) + " seconds");
+                                 std::to_string(trial_seconds) + " seconds");
+    case Trial::Crashed:
+        break;
+    }
     throw std::runtime_error("configuration: " + file + ": loading it crashed" +
-                             (WIFSIGNALED(status)
-                                  ? std::string(" (") + strsignal(WTERMSIG(status)) + ")"
-                                  : std::string()));
+                             (trial.signal.empty() ? std::string() : " (" + trial.signal + ")"));
 }
 // parse_config, unchecked.
 Config parse(const std::string &source, const std::string &name,

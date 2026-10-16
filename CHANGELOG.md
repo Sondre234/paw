@@ -878,6 +878,14 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   sway does: a video minimized, left on another workspace, on a monitor turned off or behind the
   lock no longer keeps the screens from dimming and turning off. `paw msg get idle` lists each
   inhibitor, what it is on and whether it applies.
+- The clipboard history keeps all of a long copy from a program that writes it in a plain loop,
+  where it kept only the first 64 KiB: the pipe it read through was non-blocking at the
+  program's end too, which Qt programs and `wl-copy` undo for themselves but a simple one took
+  for an error.
+- `paw import` no longer hangs on a `hyprland.lua` that spends long in one call into a C function,
+  which its instruction budget cannot stop: `(""):rep(2^62)`, a string pattern that backtracks.
+  The script runs first in a child process, as a configuration does, and one that has not
+  finished there within 3 seconds is left out, the report saying it took too long.
 
 ## 0.1.1 (2026-10-05)
 
