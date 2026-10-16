@@ -192,6 +192,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(xray_layout)
     paw_c_unit_test(cube)
     paw_c_unit_test(blur)
+    paw_c_unit_test(color_picker)
     paw_c_unit_test(shake)
     paw_c_unit_test(profile_schedule)
     paw_unit_test(heatmap LIBRARY paw_cli)
@@ -350,6 +351,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/ambient.c
         src/compositor/xray.c
         src/compositor/heatmap.c
+        src/compositor/color_picker.c
         src/compositor/cube.c
         src/compositor/blur.c
     )
@@ -376,6 +378,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/xray_layout.c)
     target_sources(paw PRIVATE src/cube.c)
     target_sources(paw PRIVATE src/blur.c)
+    target_sources(paw PRIVATE src/color_picker.c)
     target_sources(paw PRIVATE src/shake.c)
     target_sources(paw PRIVATE src/profile_schedule.c)
     target_link_libraries(paw PRIVATE paw_heatmap)
@@ -996,6 +999,9 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(heatmap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(color_picker_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:input_probe> $<TARGET_FILE:pointer_probe> $<TARGET_FILE:clipboard_probe>
+            $<TARGET_FILE:lock_probe>)
         # `paw tour` driving a session, its windows the probe's; and the queries it reads.
         paw_smoke(tour_smoke TIMEOUT 180 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe>)

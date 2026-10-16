@@ -141,6 +141,8 @@ static void restore(struct sh_cursor_shake *shake) {
     shake->drawn = false;
     if (server->cursor_hidden)
         return; // cursor_show gives it its image
+    if (color_picker_active(server))
+        return; // the colour picker's loupe is the cursor meanwhile
     const char *image = server->cursor_image;
     if (image && strcmp(image, "client")) {
         show_xcursor(server, image);
@@ -154,8 +156,8 @@ static void restore(struct sh_cursor_shake *shake) {
 static int step(void *data) {
     struct sh_cursor_shake *shake = data;
     int64_t now = now_ms();
-    if (shake->server->cursor_hidden || !sh_shake_grown(&shake->shake, now) ||
-        !draw(shake, sh_shake_scale(&shake->shake, now))) {
+    if (shake->server->cursor_hidden || color_picker_active(shake->server) ||
+        !sh_shake_grown(&shake->shake, now) || !draw(shake, sh_shake_scale(&shake->shake, now))) {
         restore(shake);
         return 0;
     }
@@ -164,8 +166,8 @@ static int step(void *data) {
 }
 
 /* The pointer moved: a shake grows the cursor, and shaking on keeps it grown. Not while a button
- * is held (a drag, a drawing), the pointer moves a window or is held by an application, nor while
- * the cursor is hidden. */
+ * is held (a drag, a drawing), the pointer moves a window or is held by an application, while the
+ * cursor is hidden, nor while the colour picker's loupe is the cursor. */
 void cursor_shake_motion(struct sh_server *server) {
     if (!server_settings(server)->shake_to_find)
         return;
@@ -173,7 +175,7 @@ void cursor_shake_motion(struct sh_server *server) {
     if (!shake)
         return;
     if (server->seat->pointer_state.button_count || server->cursor_mode != SH_CURSOR_PASSTHROUGH ||
-        server->active_constraint || server->cursor_hidden) {
+        server->active_constraint || server->cursor_hidden || color_picker_active(server)) {
         sh_shake_reset(&shake->shake);
         return;
     }

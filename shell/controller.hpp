@@ -506,6 +506,11 @@ class ShellController : public QObject {
     // and the summary on the on-screen display while no card shows (notifications off, or do not
     // disturb).
     void notice(const QString &summary, const QString &body);
+    // A colour picked off the screen with the compositor's colour picker ("color-picked
+    // #rrggbb"), copied already: a swatch of it and its hex on the on-screen display, with do not
+    // disturb on too, or a notification while the display is off. Anything but #rrggbb is
+    // ignored.
+    void colorPicked(const QString &hex);
     // Starts answering on the session bus when notifications are enabled and QtDBus is built
     // in; later configuration reloads follow the setting. Returns whether it is serving.
     bool startNotifications();

@@ -241,6 +241,9 @@ enum sh_action {
     SH_CLIPBOARD_HISTORY,
     /* Asks the shell for its emoji picker on the output under the pointer, as Windows' Win+. */
     SH_EMOJI_PICKER,
+    /* Picks a colour off the screen with a loupe, copied as #rrggbb (src/compositor/
+     * color_picker.c), or cancels the picking under way. */
+    SH_PICK_COLOR,
     /* Asks the shell for its display settings window on the output under the pointer. */
     SH_DISPLAY_SETTINGS,
     /* Shows or hides the shell's desktop clock (shell.desktop_clock). */
@@ -419,6 +422,10 @@ struct sh_profile_schedule {
 struct sh_settings {
     float background[4];
     int color_scheme; /* enum sh_color_scheme */
+    /* The shell's colours, straight RGBA: its surfaces (shell.panel_color, made opaque), its text
+     * (shell.text_color) and its accent (shell.accent), for what the compositor draws in its
+     * look, the colour picker's loupe. */
+    float shell_surface[4], shell_text[4], shell_accent[4];
     /* The appearance profile in use, from `profiles`: the one picked, else `profile`; "" for
      * none. A new one crossfades in (crossfade.c). */
     char profile[40];

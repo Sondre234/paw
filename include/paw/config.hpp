@@ -352,6 +352,9 @@ struct OsdConfig {
 struct Config {
     sh_settings settings{.background = {25 / 255.0F, 33 / 255.0F, 46 / 255.0F, 1.0F},
                          .color_scheme = SH_COLOR_SCHEME_UNSET,
+                         .shell_surface = {0x15 / 255.0F, 0x1e / 255.0F, 0x2c / 255.0F, 1},
+                         .shell_text = {0xed / 255.0F, 0xf2 / 255.0F, 0xfa / 255.0F, 1},
+                         .shell_accent = {0x7d / 255.0F, 0xa8 / 255.0F, 1, 1},
                          .profile = "",
                          .profile_schedule = {},
                          .mouse_modifier = SH_ALT,

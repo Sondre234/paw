@@ -302,6 +302,7 @@ struct sh_ambient_sky;       // an output's particles
 struct sh_wrapped;       // what paw wrapped counts (wrapped.c)
 struct wlr_color_manager_v1;
 struct sh_heatmap;     // where the pointer rests and clicks, and the overlay (heatmap.c)
+struct sh_color_picker; // picking a colour off the screen (color_picker.c)
 struct sh_heat_output; // an output's grid and its part of the overlay
 
 /* The blur behind windows (blur.c): whether anything is blurred (windows.blur, or a window rule
@@ -906,6 +907,8 @@ struct sh_server {
     struct sh_xray xray;
     /* The pointer heatmap (heatmap.c); NULL until the first output is laid out. */
     struct sh_heatmap *heatmap;
+    /* The colour picker (color_picker.c); NULL until it first picks. */
+    struct sh_color_picker *color_picker;
     struct sh_blur blur; /* the blur behind windows (blur.c) */
 };
 
@@ -2079,6 +2082,18 @@ void describe_heatmap(struct sh_server *server, int fd, const char *arguments);
 void heatmap_action(struct sh_server *server, int choice);
 bool heatmap_tick(struct sh_server *server);
 void describe_heatmap_overlay(struct sh_server *server, int fd, const char *arguments);
+/* color_picker.c */
+bool color_picker_active(struct sh_server *server);
+void color_picker_toggle(struct sh_server *server);
+bool color_picker_wait(struct sh_server *server, int fd, char *error, size_t size);
+bool color_picker_motion(struct sh_server *server);
+bool color_picker_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
+bool color_picker_axis(struct sh_server *server);
+bool color_picker_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
+void color_picker_cancel(struct sh_server *server);
+void color_picker_forget_output(struct sh_output *output);
+void color_picker_finish(struct sh_server *server);
+void describe_color_picker(struct sh_server *server, int fd, const char *arguments);
 
 /* blur.c */
 void blur_reload(struct sh_server *server);

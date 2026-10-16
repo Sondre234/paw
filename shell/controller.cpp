@@ -1120,6 +1120,8 @@ void ShellController::subscribe() {
             } else if (line.startsWith("notice ")) {
                 const auto fields = line.sliced(7).split('\t');
                 notice(fields[0], fields.value(1));
+            } else if (line.startsWith("color-picked ")) {
+                colorPicked(line.sliced(13));
             } else if (line.startsWith("dnd ")) {
                 handleDnd(line.sliced(4));
             } else if (line.startsWith("panel-drag") || line.startsWith("panel-dropped ") ||
@@ -1428,6 +1430,21 @@ void ShellController::notice(const QString &summary, const QString &body) {
     notifications_.notify(std::move(notification));
     if (!notifications_.enabled() || notifications_.dnd())
         osd_.show(overlayOutput(), summary, -1);
+}
+void ShellController::colorPicked(const QString &hex) {
+    static const QRegularExpression rgb("^#[0-9a-f]{6}$");
+    if (!rgb.match(hex).hasMatch())
+        return;
+    if (osd_.config().enabled) {
+        osd_.show(overlayOutput(), hex, -1, "color");
+        return;
+    }
+    Notification notification;
+    notification.app = "paw";
+    notification.icon = "color-select";
+    notification.summary = "Colour copied";
+    notification.body = hex;
+    notifications_.notify(std::move(notification));
 }
 void ShellController::handleDnd(const QString &verb) {
     if (verb == "toggle")

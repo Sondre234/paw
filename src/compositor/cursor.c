@@ -457,6 +457,8 @@ void process_cursor_motion(struct sh_server *server, uint32_t time) {
         panel_drag_motion(server);
         return;
     }
+    if (color_picker_motion(server)) // the loupe follows the pointer
+        return;
     hot_corner_check(server);
     zoom_moved(server);
     cat_pointer_moved(server);
@@ -785,6 +787,8 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         else
             server->held_buttons &= ~bit;
     }
+    if (color_picker_button(server, event)) // a click picks
+        return;
     if ((server->xray.open || server->xray.pressed) && xray_button(server, event))
         return;
     if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
@@ -933,6 +937,8 @@ void server_cursor_axis(struct wl_listener *listener, void *data) {
     key_release_cancel(server);
     cursor_used(server);
     wrapped_axis(server, event);
+    if (color_picker_axis(server))
+        return;
     if (xray_axis(server, event))
         return;
     if (overview_axis(server, event))

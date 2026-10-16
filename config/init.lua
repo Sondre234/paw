@@ -655,6 +655,9 @@ return {
         { mods = {}, key = "Print", action = "screenshot", mode = "region" },
         { mods = { "Shift" }, key = "Print", action = "screenshot", mode = "output" },
         { mods = { mod }, key = "Print", action = "screenshot", mode = "window" },
+        -- Pick a colour off the screen: a loupe follows the pointer, and a click copies the
+        -- pixel's #rrggbb (Escape or a right click cancels; `paw msg pick_color` prints it), e.g.:
+        -- { mods = { mod, "Shift" }, key = "c", action = "pick_color" },
         -- The keyboard's volume, microphone and brightness keys, 5 % a press (`amount = N` for
         -- another step). The shell carries them out and shows them; without it, wpctl and
         -- brightnessctl do. `locked = true` runs a binding while the screen is locked too (every

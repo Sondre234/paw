@@ -1473,6 +1473,44 @@ English keywords, under the Unicode License v3; `vendor/emoji/README.md` says ho
 Emoji, say); without one some show as boxes. `tests/emoji_test.cpp` tests the table and the search,
 and `tests/emoji_shell_smoke.py` the picker typing into a window.
 
+## Colour picker
+
+`pick_color` (unbound by default; `paw msg pick_color`, or "Pick a colour from the screen" in the
+[command palette](#command-palette)) picks a colour off the screen, as Hyprland's hyprpicker
+does, for theming a desktop. While it picks, the cursor is a crosshair with a loupe beside it: a
+card in the shell's colours (`shell.panel_color`, `text_color` and `accent`) on a soft shadow,
+holding the 11 by 11 pixels around the crosshair magnified ten times, in the monitor's own pixels
+(also at a fractional scale such as 1.25, and on a monitor turned on its side), the middle one
+ringed in the accent, and under them a swatch of that pixel and its `#rrggbb`. Near the right and
+bottom edges of a monitor the card goes to the other side of the crosshair. The loupe reads what
+the monitor shows, drawn again on the renderer without the cursor, [night light](#effects) or a
+gamma table a program set (gammastep, wlsunset), so that the colour is the one the application
+drew; it follows the screen as it changes, ten times a second while the monitor draws.
+
+A left click, Return or Space picks the pixel under the crosshair: it is copied to the clipboard
+as `#rrggbb` (lowercase, without a newline), the on-screen display shows a swatch of it and its hex
+for a moment (with do not disturb on too; with `osd.enabled = false` a notification says it
+instead), and subscribers to the [control socket](#control-socket) hear `color-picked #rrggbb`.
+The arrows move the pointer a pixel of the monitor (Shift and an arrow ten), to pick exactly.
+Escape, a right click (or any button but the left) or `pick_color` again cancels, and so does the
+screen locking. Other bindings run as usual meanwhile (switch workspaces to pick a colour there);
+other keys and the wheel do nothing, and the windows hear nothing of the pointer until the picker
+is done. Bind it to try it, as `config/init.lua` suggests:
+
+```lua
+{ mods = { "Super", "Shift" }, key = "c", action = "pick_color" },
+```
+
+`paw msg pick_color` waits for the picking it starts (or the one under way) and prints the
+colour picked, or fails with `error: cancelled`, so that a script can take it:
+`color=$(paw msg pick_color) && notify-send "$color"`. `paw msg get color_picker` prints a
+tab-separated line: `picking` or `idle`; while picking, the colour under the crosshair (`-` for
+none), the monitor and the pixel (x and y in the monitor's pixels as they are seen), else `-`,
+`-`, -1 and -1; the colour picked last (`-` for none); the loupe's size in pixels and its scale;
+the side of the crosshair its card is on (`right` or `left`, then `below` or `above`); and how
+many pictures of the screen it has drawn. On an [HDR](#hdr) monitor the colour is taken back to
+sRGB from what the monitor is sent, to within a few steps.
+
 ## Keyboard shortcuts
 
 `shortcuts` (Super + /, `paw msg shortcuts`, or Keyboard shortcuts in the command palette) shows
@@ -3321,8 +3359,8 @@ and unlocks (the shell's clipboard history records nothing meanwhile), and ends 
 run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power
 action that fails or is cancelled after it was accepted sends `power-error MESSAGE`, a program
 that `spawn` or `terminal` could not start sends `spawn-error MESSAGE` (the panel shows either
-across itself for eight seconds), `power_menu` sends `power-menu OUTPUT`, and `taskbar_focus`
-sends `taskbar OUTPUT` for the focused monitor, whose panel takes the keyboard to walk its
+across itself for eight seconds), `power_menu` sends `power-menu OUTPUT`, a colour picked with [`pick_color`](#colour-picker) sends `color-picked #rrggbb`, and
+`taskbar_focus` sends `taskbar OUTPUT` for the focused monitor, whose panel takes the keyboard to walk its
 buttons, or gives it back. The shell subscribes with `subscribe shell`, saying it carries out
 the volume, microphone and brightness actions, which send `volume up PERCENT`, `volume down
 PERCENT`, `volume mute`, `microphone mute`, `brightness up PERCENT` or `brightness down PERCENT`

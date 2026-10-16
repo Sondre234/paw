@@ -39,13 +39,22 @@ Item {
             anchors.rightMargin: Theme.spacingXL + Theme.spacingXS
             spacing: Theme.spacingL
             // What it is about: the loudspeaker for the volume, as the bar draws it, a sun for
-            // the brightness, a microphone, the bell for notifications, else a mark for a
-            // message.
+            // the brightness, a microphone, the bell for notifications, a swatch of a colour
+            // picked, else a mark for a message.
             Item {
                 id: glyph
                 readonly property string kind: osd.model.kind
                 readonly property bool speaker: kind === "volume" || kind === "muted"
+                readonly property bool swatch: kind === "color"
                 Layout.preferredWidth: Theme.iconSizeLarge; Layout.preferredHeight: Theme.iconSizeLarge
+                Rectangle {
+                    objectName: "osdSwatch"
+                    visible: glyph.swatch
+                    anchors.fill: parent
+                    radius: Theme.radiusSmall
+                    color: glyph.swatch ? osd.model.text : "transparent"
+                    border.width: 1; border.color: Theme.border
+                }
                 SpeakerIcon {
                     visible: glyph.speaker
                     size: Theme.iconSizeLarge
@@ -53,7 +62,7 @@ Item {
                     muted: glyph.kind === "muted"
                 }
                 Icon {
-                    visible: !glyph.speaker
+                    visible: !glyph.speaker && !glyph.swatch
                     size: Theme.iconSizeLarge
                     name: glyph.kind === "brightness" ? "sun" : glyph.kind === "dnd" ? "bell-off"
                           : glyph.kind === "notifications" ? "bell"
@@ -70,6 +79,13 @@ Item {
                 color: Theme.text
                 font.pixelSize: Theme.fontSizeLarge; font.family: Theme.fontFamily; font.weight: Font.Medium
                 textFormat: Text.PlainText; elide: Text.ElideRight
+            }
+            // A colour picked is on the clipboard already.
+            Text {
+                visible: osd.model.kind === "color"
+                text: qsTr("copied")
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily
             }
             Rectangle {
                 id: track

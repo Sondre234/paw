@@ -1065,6 +1065,7 @@ static const struct {
     {"xray", describe_xray, false},
     {"heatmap", describe_heatmap, true},
     {"heatmap_overlay", describe_heatmap_overlay, false},
+    {"color_picker", describe_color_picker, false},
     {"blur", describe_blur, false},
     {"actions", get_actions, false},
     {"profiles", get_profiles, false},
