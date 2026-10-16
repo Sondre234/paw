@@ -18,7 +18,13 @@ have [Quick Settings](#quick-settings), the [clock's flyout](#clock-and-calendar
 shows the wallpaper and the configured launchers as shortcuts, which open on a double-click; a
 right click on it offers Show desktop and the appearance profiles. A new wallpaper, from the
 wallpaper picker or the configuration, fades in over the one shown once it has loaded, also from
-the drawn one or to it, and one picked during the fade comes in over both. Installed applications are read
+the drawn one or to it, and one picked during the fade comes in over both. `shell.wallpaper_mode`
+says how the picture covers each monitor: cropped to fill it (`"fill"`, the default), whole and as
+large as fits (`"fit"`), stretched to its sides (`"stretch"`), or at its own size, a pixel of it a
+pixel of the screen, in the middle (`"center"`) or repeated from the top left (`"tile"`);
+`appearance.background` shows around a picture that leaves room. A new mode fades in as a new
+wallpaper does, and the frosted glass, a workspace's picture on its card and Launchpad show the
+wallpaper the same way. Installed applications are read
 from desktop entries through GIO, and again as soon as one is installed or removed.
 
 ### The macOS style
@@ -212,6 +218,26 @@ the others. With no window left, the launcher shows again in its place; dragging
 the pin. Grouped, a pinned application's button stands for all its windows in the launcher's
 place, and dragging it moves the pin.
 
+With `group_windows = false` the buttons follow the monitors, as on Windows: of an application's
+windows, the one on the monitor further left in the layout (or higher up, of two at the same x)
+has its button further left. A window opening on a monitor left of another of its application's
+goes ahead of that one's button, past the buttons between, and a window moved to another monitor
+moves its button among its application's: after those of the windows on monitors to the left and
+on its own, ahead of those to the right. Nothing else moves a button, so one dragged elsewhere
+keeps its place until its window moves to another monitor, and on one monitor buttons open at the
+end as before. Grouped, an application's button stays where it is, and resting on it shows its
+windows in the order of their monitors.
+
+Which windows each monitor's taskbar shows is `shell.taskbar_buttons`, as Windows' "Show
+taskbar buttons on" (experimental): `"all"` (the default) shows every window on every bar,
+`"main_and_own"` every window on the main monitor's bar and on each other bar only the windows on
+its monitor, and `"own"` on every bar only the windows on its monitor. The main monitor is the
+primary one (`outputs.primary`, or the one the display settings window made primary), else the
+leftmost. But for `"all"`, the pinned applications show on the main monitor's bar alone, a
+launcher there while none of the application's windows is on it; grouped, a button, its count and
+the card of its windows stand for the windows its bar shows. A window moved to another monitor
+takes its button to that monitor's bar. The macOS style's dock shows every window.
+
 Something dragged from an application (a file, text, a link) brings windows forward as on Windows:
 resting the drag on a window's button for half a second brings that window to the front, restored
 onto the workspace shown if it was minimized, else with its own workspace shown, so that the drag
@@ -368,6 +394,27 @@ out to the year's months and then to a decade's years, where a pick zooms back i
 to this month. On a monitor too short for both cards, the calendar leaves out the time and the
 date for the notifications, whose list scrolls in what room is left, fading out at the edge where
 it goes on.
+
+### Desktop clock
+
+An experimental clock on the desktop, off by default: `shell.desktop_clock = true`, or a table
+of its settings, draws the time large and thin over the wallpaper, under the windows, with the
+date under it (`date_format`, `""` for none). It sits in the middle of what the bars leave, or by
+an edge or a corner (`position`, such as `"bottom-right"`), in the text colour (`color`) and the
+shell's font (`font`), `size` pixels tall, with a soft shadow, or a glow under dark text, so that it
+reads on any wallpaper. `greeting = "ja"` greets above it by the time of day, おはよう from 5,
+こんにちは from 12 and こんばんは from 18 (`"en"`: Good morning, Good afternoon, Good evening),
+between two twinkles in the accent colour. It changes once a minute, never more often, as the blur
+behind windows takes the desktop again whenever it changes, and the frosted glass shows the
+wallpaper without it. The `desktop_clock` action (`paw msg desktop_clock`, or "Show or hide the
+desktop clock" in the command palette) shows or hides it at once, saying so on the on-screen
+display, until the configuration's `enabled` changes.
+
+```lua
+shell = {
+    desktop_clock = { enabled = true, position = "bottom-right", greeting = "ja" },
+}
+```
 
 ### Quick Settings
 
@@ -1793,8 +1840,9 @@ where it is drawn, at the speed it has. `paw msg get drawn` prints where each wi
 now, in the order of `get windows`: app ID, title, its place and size as drawn, the size its
 surface is drawn at, what its change of size does (`rest`, `moving`, `waiting` for the
 application, `fading` what it drew before), how much of its frame shows and the factor an
-animation or a gesture gives its opacity (both in thousandths), for tests; `tests/morph_smoke.py`
-follows the changes with it.
+animation or a gesture gives its opacity (both in thousandths), and the place its glide set off
+from (where it is drawn while it does not glide), for tests; `tests/morph_smoke.py` follows the
+changes with it.
 
 Animations are interruptible: a tile that is gliding when the layout changes again continues
 from where it is drawn, at the speed it has, and never snaps. Each kind (`open`, `close`,
@@ -3030,7 +3078,9 @@ layer surface), its app ID or namespace, and its title (empty for a layer surfac
 in the monitor's coordinates, the one that counts first), then a `fold` line per window on its
 way into or out of its button (its number, `minimize` or `restore`, how far into the button it
 is drawn in thousandths, the box in layout coordinates, what that box is: `button`, `panel` or
-`place`, and where the window's box is drawn now), also mainly for tests. `paw msg get pictures`
+`place`, where the window's box is drawn now, how far into the button it set off from, and the
+window's box unfolded: where a copy set off from, or where a window restored comes out to), also
+mainly for tests. `paw msg get pictures`
 prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
@@ -3077,7 +3127,9 @@ a line per [appearance profile](#appearance-profiles), in name order: its name a
 in use, else `0`; and `paw msg get terminal` the command line the `terminal` action starts, its
 words separated by tabs, or nothing when there is no terminal to start. A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
-`workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
+`workspace N` (the focused monitor's), `primary NAME` (the [primary monitor](#monitors):
+`outputs.primary` or the one the display settings window made primary, else the leftmost; `-` for
+none), one `output NAME N USED TILING` line per monitor
 (as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of
 the workspace it shows (`dwindle`, `master`, `spiral`, `monocle` or `scroll`, as in
 `get layout NAME`), one `touched NAME EDGES` line per monitor with the edges of its free

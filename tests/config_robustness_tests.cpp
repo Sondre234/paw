@@ -23,7 +23,7 @@
 #define PAW_ASAN 1
 #endif
 #endif
-// parse_limit: the seconds a configuration has to load in, src/config.cpp's time_limit.
+// parse_limit: the seconds a configuration has to load in, paw::trial_seconds.
 #if defined(__SANITIZE_ADDRESS__) || defined(PAW_ASAN)
 constexpr auto parse_budget = std::chrono::seconds(600);
 constexpr double parse_limit = 30;

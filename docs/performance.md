@@ -487,6 +487,18 @@ The first cycle's trough is the compositor before any window opened; the heap se
 second, keeping what the first use of each feature keeps, and from then on stays within a few
 kilobytes. Six cycles are too few to rule out a small leak; they are here to show the output.
 
+paw-shell takes longer to settle, so a short soak with `--shell` says even less. In a 40-cycle
+one (2026-10-16, main at 7658e6f) its threads went from 10 to 18 and its fds from 32 to 40 over
+the first six cycles and then did not move for the other 34: the new threads are the workers of
+Qt's thread pools ("Thread (pooled)" in the `.threads` file), each with its event dispatcher's
+eventfd, kept while they are used at least every 30 s. Its heap went from 20.8 MB before any
+window to 31.5 MB in the second cycle, then wandered between 31.2 and 32.0 MB, down for a dozen
+cycles and up again (-8 kB a cycle from cycle 3 to 40, r² 0.21), and its RSS stayed between 136.0
+and 136.8 MB from the fourth cycle on; the QML engine's JavaScript heap is mapped by Qt itself,
+outside malloc, so RSS is the only view of it. A line through part of such a run can read as a
+leak (cycles 21 to 40 alone: +11 kB a cycle, r² 0.86), so fit the whole run. The compositor
+alone, over 20 cycles: +0.05 kB a cycle, 21 fds and 2 threads throughout.
+
 ```
 $ python3 tools/prof/featcost.py build --renderer pixman gles2
 pixman: time in output_frame per frame, 4 windows (one redrawing), 1280x720

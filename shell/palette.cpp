@@ -54,6 +54,7 @@ constexpr Action actions[] = {
     {"move_to_workspace_empty", "Move window to an empty workspace"},
     {"launcher", "Applications menu"},
     {"display_settings", "Display settings"},
+    {"desktop_clock", "Show or hide the desktop clock"},
     {"reload", "Reload configuration"},
     {"shake", "Shake the window"},
     {"gravity", "Let the windows fall"},

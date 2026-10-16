@@ -1295,6 +1295,14 @@ bool sh_anim_drawn_size(const struct sh_anim *anim, int *width, int *height) {
     return true;
 }
 
+bool sh_anim_glide_from(const struct sh_anim *anim, int *x, int *y) {
+    if (!anim->animator || !anim->glide)
+        return false;
+    *x = anim->base_x + (int)lround(anim->glide_x);
+    *y = anim->base_y + (int)lround(anim->glide_y);
+    return true;
+}
+
 void sh_anim_glide(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
                    int dx, int dy) {
     sh_anim_glide_kind(animator, anim, tree, dx, dy, SH_ANIM_MOVE);

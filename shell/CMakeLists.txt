@@ -87,6 +87,8 @@ list(APPEND PAW_NOTIFY_SOURCES display_modes.cpp display_modes.hpp display_setti
 list(APPEND PAW_NOTIFY_SOURCES rice_trial.cpp rice_trial.hpp)
 # The caption `paw tour` narrates itself with.
 list(APPEND PAW_NOTIFY_SOURCES caption.cpp caption.hpp)
+# The desktop clock's settings, and whether it shows.
+list(APPEND PAW_NOTIFY_SOURCES desktop_clock.cpp desktop_clock.hpp)
 # The QML is compiled ahead of time into the binary (qmlcachegen), so starting the shell parses
 # and compiles none of it. It lives at qrc:/shell/PawShell/*.qml.
 qt_add_library(paw_shell_qml STATIC)
@@ -98,7 +100,7 @@ set_source_files_properties(WindowMenu.js PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TR
 qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/PawShell
     NO_PLUGIN NO_GENERATE_QMLTYPES
-    QML_FILES Theme.qml EmptyState.qml GlassFill.qml FlatButton.qml ButtonFill.qml PushButton.qml TextButton.qml CloseButton.qml SearchInput.qml PopupCard.qml CardFrame.qml TextEntry.qml ToggleSwitch.qml Reveal.qml NotchWheel.qml PopupMenu.qml MenuRow.qml Panel.qml Taskbar.qml TilingBar.qml Icon.qml FadingIcon.qml Desktop.qml Switcher.qml SwitcherCards.qml Palette.qml Overview.qml NotificationCards.qml Osd.qml ConfigError.qml NotificationBell.qml NotificationHistory.qml
+    QML_FILES Theme.qml EmptyState.qml GlassFill.qml FlatButton.qml ButtonFill.qml PushButton.qml TextButton.qml CloseButton.qml SearchInput.qml PopupCard.qml CardFrame.qml Shadow.qml TextEntry.qml ToggleSwitch.qml Reveal.qml NotchWheel.qml PopupMenu.qml MenuRow.qml Panel.qml Taskbar.qml TilingBar.qml Icon.qml FadingIcon.qml Desktop.qml Switcher.qml SwitcherCards.qml Palette.qml Overview.qml NotificationCards.qml Osd.qml ConfigError.qml NotificationBell.qml NotificationHistory.qml
     KeyboardLayout.qml BarTip.qml BarAppIcon.qml Badge.qml TaskButton.qml TaskList.qml TrayButton.qml
     WorkspaceIndicator.qml VolumeButton.qml ClockButton.qml BatteryWidget.qml NetworkWidget.qml SpeakerIcon.qml AudioSlider.qml MuteButton.qml StreamRow.qml
     AudioMixer.qml
@@ -109,6 +111,8 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     Launcher.qml
     Launchpad.qml
     DrawnWallpaper.qml
+    WallpaperPicture.qml
+    DesktopClock.qml
     StartHome.qml
     StartAllApps.qml
     StartSearch.qml
@@ -534,6 +538,8 @@ if(BUILD_TESTING)
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(taskbar_keyboard_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(taskbar_monitor_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(minimize_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(panel_drag_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>

@@ -6,11 +6,13 @@
 #include "view.hpp"
 #include <QAbstractItemModel>
 #include <QClipboard>
+#include <QDateTime>
 #include <QDeadlineTimer>
 #include <QDir>
 #include <QDragEnterEvent>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFont>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QImage>
@@ -2093,17 +2095,25 @@ ListModel {
         }))
         return fail("the appearance entry did not open the profiles beside the menu");
     // The shell takes it up, and once the new look is drawn says so, for the compositor's
-    // crossfade from the old one.
+    // crossfade from the old one. The reload a little before may still be saying that the old
+    // one is drawn as the new one is picked, on a loaded machine: then that comes first.
     drawnProfiles.clear();
     click(menuItem("light"));
     if (!waitFor([&] {
             return requests == QStringList{"profile light"} && controller.profile() == "light" &&
                    controller.accent() == QColor("#336699") &&
                    !view.rootObject()->property("barMenuOpen").toBool() &&
-                   !controller.restyling() && drawnProfiles == QStringList{"light"};
+                   !controller.restyling() &&
+                   (drawnProfiles == QStringList{"light"} ||
+                    drawnProfiles == QStringList{"dark", "light"});
         })) {
-        std::cerr << "picking a profile did not switch to it: " << requests.join("|").toStdString()
-                  << " " << controller.profile().toStdString() << '\n';
+        std::cerr << "picking a profile did not switch to it: requests "
+                  << requests.join("|").toStdString() << ", profile "
+                  << controller.profile().toStdString() << ", accent "
+                  << controller.accent().name().toStdString() << ", bar menu "
+                  << (view.rootObject()->property("barMenuOpen").toBool() ? "open" : "closed")
+                  << ", restyling " << controller.restyling() << ", drawn "
+                  << drawnProfiles.join("|").toStdString() << '\n';
         return 1;
     }
     requests.clear();
@@ -4432,9 +4442,18 @@ ListModel {
             std::cerr << "the palette lacks the saved session: " << titlesNow().join("|").toStdString() << '\n';
             return 1;
         }
-        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Fake app") ||
-            !titlesNow().contains("Toggle tiling") || !titlesNow().contains("Appearance: dark"))
-            return fail("the palette lacks workspaces, apps or actions");
+        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Toggle tiling") ||
+            !titlesNow().contains("Appearance: dark"))
+            return fail("the palette lacks workspaces or actions");
+        // Empty, it lists its first 60 entries, the applications after the actions: one is found
+        // by its name.
+        type("fake");
+        if (!waitFor([&] { return titlesNow().value(0) == "Fake app"; }))
+            return fail("the palette does not find applications");
+        for (int i = 0; i < 4; ++i)
+            QTest::keyClick(&paletteView, Qt::Key_Backspace);
+        if (!waitFor([&] { return palette->query().isEmpty(); }))
+            return fail("the palette's search was not cleared");
         type("tiling");
         if (!waitFor([&] { return !titlesNow().isEmpty() && titlesNow()[0].contains("tiling", Qt::CaseInsensitive); })) {
             std::cerr << "typing did not filter the palette: " << titlesNow().join("|").toStdString() << '\n';
@@ -5289,6 +5308,8 @@ ListModel {
             if (!waitFor([&] { return power->available().size() == 5; }))
                 return fail("the power menu did not list five actions");
             palette->open(output);
+            // The actions alone: empty, it lists only its first 60 entries.
+            palette->setQuery(">");
             if (!waitFor([&] {
                     return titles().contains("Lock screen") && titles().contains("Suspend") &&
                            titles().contains("Restart…") && titles().contains("Power off…") &&
@@ -6764,6 +6785,17 @@ ListModel {
             !waitFor([&] { return view.height() == controller.panelExtent() + 5; }) ||
             view.inputRegion() != QRegion(0, 0, view.width(), controller.panelExtent()))
             return fail("the bar's shadow has no room past the strip, or that room takes input");
+        // The shadow frees what it draws with as it goes (Shadow.qml): Qt's RectangularShadow
+        // leaves the shader effect it makes for itself to no one, never deleted.
+        auto *barShadow = find(view.rootObject(), "barShadow");
+        QObject *shadow = nullptr, *material = nullptr;
+        if (!waitFor([&] {
+                shadow = barShadow ? barShadow->property("item").value<QObject *>() : nullptr;
+                material = shadow ? shadow->property("material").value<QObject *>() : nullptr;
+                return material != nullptr;
+            }) ||
+            material->parent() != shadow)
+            return fail("the bar's shadow does not own the shader effect it draws with");
         // Moved between the bottom and the top, again and again as profiles do, the bar keeps its
         // own height at its margin from the edge it is along, with room for its shadow either way.
         for (bool top : {false, true, false, true}) {
@@ -7262,6 +7294,186 @@ ListModel {
         if (!reconfigure(lua) ||
             !waitFor([&] { return controller.profile() == profileBefore && !controller.restyling(); }))
             return fail("the profile in use did not come back");
+    }
+    // How the wallpaper covers the output (shell.wallpaper_mode): a new mode comes in over the
+    // one shown as a new wallpaper does, and each draws as it says, the background colour round a
+    // picture that leaves room; the frosted glass takes it as the desktop draws it.
+    {
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *backdrop = find(desktop.rootObject(), "backdrop");
+        // A picture of two halves, red and blue, much smaller than the desktop.
+        const auto halves = walls + "/halves.png";
+        QImage picture(40, 30, QImage::Format_RGB32);
+        picture.fill(Qt::red);
+        for (int y = 0; y < picture.height(); ++y)
+            for (int x = 20; x < picture.width(); ++x)
+                picture.setPixel(x, y, qRgb(0, 0, 255));
+        if (!backdrop || !picture.save(halves))
+            return fail("could not save a wallpaper of two halves");
+        // The configuration with that picture, the frosted glass on, and `mode`.
+        auto withMode = [&](const QString &mode) {
+            return QString(lua).replace("wallpaper='walls/a/one.png',",
+                                        "wallpaper=[[" + halves + "]],blur={enabled=true,radius=2}," +
+                                            (mode.isEmpty() ? "" : "wallpaper_mode='" + mode + "',"));
+        };
+        auto settled = [&](const QString &mode) {
+            const auto layers = backdrop->childItems();
+            return controller.wallpaperMode() == mode && layers.size() == 1 &&
+                   layers[0]->opacity() == 1 && layers[0]->property("ready").toBool() &&
+                   layers[0]->property("mode") == mode;
+        };
+        // The colour at a fraction of the desktop's width and height, or the glass's.
+        auto colourAt = [](const QImage &image, double x, double y) {
+            return QColor(image.pixel(std::min(image.width() - 1, int(x * image.width())),
+                                      std::min(image.height() - 1, int(y * image.height()))));
+        };
+        auto near = [](const QColor &a, const QColor &b) {
+            return std::abs(a.red() - b.red()) <= 12 && std::abs(a.green() - b.green()) <= 12 &&
+                   std::abs(a.blue() - b.blue()) <= 12;
+        };
+        const QColor red(Qt::red), blue(Qt::blue), background = controller.background();
+        const QString screen = desktop.screen()->name();
+        controller.setEffects(true);
+        if (!reconfigure(withMode("")) || !waitFor([&] { return settled("fill"); }))
+            return fail("the wallpaper is not cropped to fill the desktop by default");
+        // Each mode by what lies where on the 1100 by 680 desktop, away from its launcher.
+        struct Look {
+            QString mode;
+            QList<std::tuple<double, double, QColor>> points;
+        };
+        const QList<Look> looks = {
+            {"fit", {{0.02, 0.5, background}, {0.3, 0.5, red}, {0.7, 0.5, blue}, {0.98, 0.5, background}}},
+            {"stretch", {{0.02, 0.5, red}, {0.98, 0.5, blue}, {0.6, 0.98, blue}}},
+            {"center", {{0.25, 0.5, background}, {540 / 1100., 0.5, red}, {560 / 1100., 0.5, blue}}},
+            {"tile", {{5 / 1100., 0.45, red}, {25 / 1100., 0.45, blue}, {45 / 1100., 0.45, red}, {1095 / 1100., 0.45, red}}},
+            {"fill", {{0.25, 0.02, red}, {0.75, 0.98, blue}}},
+        };
+        for (const auto &look : looks) {
+            QQuickItem *before = backdrop->childItems().value(0);
+            if (!reconfigure(withMode(look.mode)) || backdrop->childItems().size() != 2 ||
+                backdrop->childItems()[0] != before || backdrop->childItems()[1]->opacity() != 0 ||
+                !waitFor([&] { return settled(look.mode); }))
+                return fail(qPrintable("wallpaper_mode '" + look.mode + "' did not come in over the one shown"));
+            const QImage drawn = desktop.grabWindow();
+            for (const auto &[x, y, colour] : look.points)
+                if (!near(colourAt(drawn, x, y), colour))
+                    return fail(qPrintable("wallpaper_mode '" + look.mode + "' is not drawn as it says at " +
+                                           QString::number(x) + ", " + QString::number(y)));
+            // The glass's picture is the desktop's, smaller and blurred: its middle row is.
+            if (look.mode == "fit" &&
+                !waitFor([&] {
+                    const auto glass = controller.glass()->picture(screen).image;
+                    return !glass.isNull() && !controller.glass()->pending(screen) &&
+                           near(colourAt(glass, 0.01, 0.5), background) &&
+                           near(colourAt(glass, 0.3, 0.5), red) && near(colourAt(glass, 0.7, 0.5), blue);
+                }))
+                return fail("the frosted glass did not take the fitted wallpaper as it is drawn");
+        }
+        // A reload that keeps the mode keeps the layer.
+        auto *kept = backdrop->childItems().value(0);
+        controller.reload();
+        if (backdrop->childItems() != QList<QQuickItem *>{kept})
+            return fail("a reload keeping the wallpaper's mode laid it again");
+        controller.setEffects(false);
+        if (!reconfigure(lua) || !waitFor([&] { return settled("fill") && !controller.restyling(); }))
+            return fail("could not restore the configuration");
+    }
+    // The desktop clock (shell.desktop_clock): off by default; on, the time and the date in their
+    // formats, size and colour, a greeting by the time of day in its language, where its position
+    // says, outside the backdrop the frosted glass takes. The compositor's desktop-clock lines
+    // show and hide it, saying so, until the configuration's own `enabled` changes.
+    {
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *root = desktop.rootObject();
+        auto *clock = find(root, "desktopClock");
+        auto *face = find(root, "desktopClockFace");
+        auto *time = find(root, "desktopClockTime");
+        auto *date = find(root, "desktopClockDate");
+        auto *greeting = find(root, "desktopClockGreeting");
+        auto *backdrop = find(root, "backdrop");
+        DesktopClock *model = controller.desktopClock();
+        if (!clock || !face || !time || !date || !greeting || !backdrop || model->shown() ||
+            clock->isVisible())
+            return fail("the desktop clock shows by default");
+        if (backdrop->isAncestorOf(clock))
+            return fail("the desktop clock is drawn in the backdrop the frosted glass takes");
+        auto withClock = [&](const QString &settings) {
+            return QString(lua).replace("shell={wallpaper=",
+                                        "shell={desktop_clock={" + settings + "},wallpaper=");
+        };
+        auto shown = [&] { return model->shown() && clock->isVisible() && clock->opacity() == 1; };
+        auto hidden = [&] { return !model->shown() && !clock->isVisible(); };
+        if (!reconfigure(withClock("enabled=true,time_format='HH.mm',date_format='yyyy-MM-dd',"
+                                   "size=120,color='#ff00ff',greeting='ja',position='bottom-right'")) ||
+            !waitFor(shown))
+            return fail("shell.desktop_clock.enabled did not show the clock");
+        // What it says now, or as the minute turned while looking.
+        auto says = [&](QQuickItem *line, const QString &format) {
+            const auto text = line->property("text").toString();
+            const auto now = QDateTime::currentDateTime();
+            return text == now.toString(format) || text == now.addSecs(-5).toString(format);
+        };
+        if (!says(time, "HH.mm") || !says(date, "yyyy-MM-dd") ||
+            time->property("font").value<QFont>().pixelSize() != 120 ||
+            time->property("color").value<QColor>() != QColor("#ff00ff") ||
+            greeting->property("text").toString() != model->greetingAt(QTime::currentTime().hour()) ||
+            !greeting->isVisible())
+            return fail("the desktop clock does not say the time and the date as its settings do");
+        // Bottom right, half its size from the edges of what the bar leaves.
+        const QRectF placed = face->mapRectToScene(QRectF(0, 0, face->width(), face->height()));
+        const QRectF free = root->property("free").toRectF();
+        if (std::abs(placed.right() - (free.right() - 60)) > 1 ||
+            std::abs(placed.bottom() - (free.bottom() - 60)) > 1)
+            return fail("the desktop clock is not in the bottom right corner");
+        // The greeting by the hour, in its language, or none.
+        const QList<int> hours{4, 5, 11, 12, 17, 18};
+        const QStringList ja{"こんばんは", "おはよう", "おはよう", "こんにちは", "こんにちは", "こんばんは"};
+        const QStringList en{"Good evening",   "Good morning",   "Good morning",
+                             "Good afternoon", "Good afternoon", "Good evening"};
+        for (int i = 0; i < hours.size(); ++i)
+            if (model->greetingAt(hours[i]) != ja[i])
+                return fail("the desktop clock does not greet in Japanese by the time of day");
+        if (!reconfigure(withClock("enabled=true,greeting='en',date_format=''")) ||
+            !waitFor([&] { return model->greeting() == "en"; }))
+            return fail("could not rewrite the configuration");
+        for (int i = 0; i < hours.size(); ++i)
+            if (model->greetingAt(hours[i]) != en[i])
+                return fail("the desktop clock does not greet in English by the time of day");
+        if (greeting->property("text").toString() != model->greetingAt(QTime::currentTime().hour()) ||
+            date->isVisible() || !says(time, "HH:mm") ||
+            time->property("color").value<QColor>() != controller.textColor())
+            return fail("the desktop clock does not take its defaults, or shows an empty date");
+        if (!reconfigure(withClock("enabled=true")) || !waitFor([&] { return !greeting->isVisible(); }) ||
+            !model->greetingAt(9).isEmpty())
+            return fail("the desktop clock greets without a greeting");
+        // The compositor's lines show and hide it, saying so, until `enabled` changes.
+        subscriber->write("desktop-clock toggle\n");
+        if (!waitFor(hidden) || controller.osd()->text() != "Desktop clock off")
+            return fail("desktop-clock toggle did not hide the clock, saying so");
+        subscriber->write("desktop-clock toggle\n");
+        if (!waitFor(shown) || controller.osd()->text() != "Desktop clock on")
+            return fail("desktop-clock toggle did not show the clock again");
+        subscriber->write("desktop-clock off\n");
+        if (!waitFor(hidden))
+            return fail("desktop-clock off did not hide the clock");
+        controller.reload();
+        if (!stays(hidden, 200))
+            return fail("a reload keeping the clock's setting showed it again");
+        if (!reconfigure(lua) || !waitFor(hidden))
+            return fail("turned off, the clock showed");
+        subscriber->write("desktop-clock on\n");
+        if (!waitFor(shown))
+            return fail("desktop-clock on did not show the clock");
+        if (!reconfigure(withClock("enabled=true")) || !stays(shown, 200))
+            return fail("the configuration turning the clock on hid it");
+        if (!reconfigure(lua) || !waitFor(hidden))
+            return fail("the configuration turning the clock off did not hide it");
     }
     // The macOS style, from a profile: the menu bar along the top in a surface of its own and the
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the
