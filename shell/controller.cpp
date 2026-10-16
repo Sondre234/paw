@@ -99,6 +99,8 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     notifications_.configure(config_.notifications);
     osd_.configure(config_.osd);
     configureDesktopClock();
+    connect(&wallpaperCycle_, &WallpaperCycle::due, this, [this] { stepWallpaper(1); });
+    configureWallpaperCycle();
     connect(&displayModes_, &DisplayModes::request, this, &ShellController::send);
     power_.setCountdown(config_.power.countdown);
     connect(&power_, &Power::failed, this, &ShellController::report);
@@ -314,6 +316,36 @@ void ShellController::pickWallpaper(const QString &path) {
     if (const auto error = saveFile(pickedWallpapersPath(), lines); !error.isEmpty())
         report("Could not save the wallpaper: " + error);
     Q_EMIT wallpaperChanged();
+}
+QString ShellController::wallpaperCycleFolder() const {
+    const auto &folder = config_.shell.wallpaper_cycle.folder;
+    if (folder == "~" || folder.starts_with("~/"))
+        return QDir::homePath() + QString::fromStdString(folder.substr(1));
+    if (!folder.empty()) {
+        std::filesystem::path path(folder);
+        if (path.is_relative())
+            path = std::filesystem::absolute(path_).parent_path() / path;
+        return QString::fromStdString(path.string());
+    }
+    if (!config_.shell.wallpaper.empty()) {
+        std::filesystem::path file(config_.shell.wallpaper);
+        if (file.is_relative())
+            file = std::filesystem::absolute(path_).parent_path() / file;
+        return QString::fromStdString(file.parent_path().string());
+    }
+    return wallpaperFolder();
+}
+void ShellController::configureWallpaperCycle() {
+    wallpaperCycle_.configure(config_.shell.wallpaper_cycle, wallpaperCycleFolder());
+}
+void ShellController::stepWallpaper(int direction) {
+    const auto next = wallpaperCycle_.step({wallpaperFile()}, direction);
+    if (next.isEmpty()) {
+        osd_.show(overlayOutput(), "No wallpapers in " + wallpaperCycle_.folder(), -1);
+        return;
+    }
+    if (next.first() != wallpaperFile())
+        pickWallpaper(next.first());
 }
 void ShellController::clearApps() {
     for (auto &app : apps_)
@@ -940,6 +972,7 @@ void ShellController::reload() {
         notifications_.configure(config_.notifications);
         osd_.configure(config_.osd);
         configureDesktopClock();
+        configureWallpaperCycle();
         power_.setCountdown(config_.power.countdown);
         configureSearch();
         configureClipboard();
@@ -1152,8 +1185,10 @@ void ShellController::subscribe() {
             } else if (line.startsWith("emoji ")) {
                 emoji_.toggle(line.sliced(6));
             } else if (line.startsWith("locked ")) {
-                // locked on|off: nothing copied while the session is locked is kept.
+                // locked on|off: nothing copied while the session is locked is kept, and the
+                // wallpaper slideshow waits.
                 clipboard_.setLocked(line == "locked on");
+                wallpaperCycle_.setPaused(line == "locked on");
             } else if (line.startsWith("power ")) {
                 // power ACTIONS: those that may run, as "lock,suspend,logout", or "-".
                 power_.setAvailable(line.sliced(6));
@@ -1291,6 +1326,11 @@ void ShellController::subscribe() {
                 caption_.showLine(line.sliced(8), overlayOutput());
             } else if (line == "caption-hide") {
                 caption_.hide();
+            } else if (line.startsWith("wallpaper-cycle ")) {
+                // wallpaper-cycle next|prev: the wallpaper_next and wallpaper_prev actions.
+                const auto verb = line.sliced(16);
+                if (verb == "next" || verb == "prev")
+                    stepWallpaper(verb == "next" ? 1 : -1);
             } else if (line.startsWith("desktop-clock ")) {
                 // desktop-clock toggle|on|off: the desktop_clock action.
                 if (desktopClock_.handle(line.sliced(14)))

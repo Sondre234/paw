@@ -18,6 +18,7 @@
 #include "power_mode.hpp"
 #include "osd.hpp"
 #include "volume_keys.hpp"
+#include "wallpaper_cycle.hpp"
 #include "palette.hpp"
 #include "power.hpp"
 #include "paw/config.hpp"
@@ -295,6 +296,14 @@ class ShellController : public QObject {
     // Shows `path` as the wallpaper of the profile in use, remembered across sessions until the
     // configured wallpaper changes; an empty path goes back to the configured one.
     Q_INVOKABLE void pickWallpaper(const QString &path);
+    // The wallpaper slideshow (shell.wallpaper_cycle): picks the picture after the one shown
+    // (`direction` 1) or before it (-1) in its folder, as the wallpaper_next and wallpaper_prev
+    // actions and its timer do; says so when the folder has none.
+    Q_INVOKABLE void stepWallpaper(int direction);
+    // The slideshow's folder: shell.wallpaper_cycle.folder, else the folder of shell.wallpaper,
+    // else the picker's.
+    QString wallpaperCycleFolder() const;
+    WallpaperCycle *wallpaperCycle() { return &wallpaperCycle_; }
     QString style() const { return config_.shell.macos_style ? "macos" : "taskbar"; }
     int panelHeight() const { return barResizing_ ? barResizeHeight_ : config_.shell.panel_height; }
     // Whether shell.panel_position, the edge of the bars of the monitors without one of their
@@ -640,6 +649,8 @@ class ShellController : public QObject {
     void configureClipboard();
     // The desktop clock, from the configuration loaded.
     void configureDesktopClock();
+    // The wallpaper slideshow, from the configuration loaded.
+    void configureWallpaperCycle();
     std::filesystem::path path_;
     paw::Config config_;
     bool restyling_ = false;
@@ -662,6 +673,7 @@ class ShellController : public QObject {
     Osd osd_;
     Caption caption_;
     DesktopClock desktopClock_;
+    WallpaperCycle wallpaperCycle_;
     DisplayModes displayModes_;
     DisplaySettings displaySettings_{[this](const QByteArray &line,
                                             std::function<void(const QByteArray &)> done) {

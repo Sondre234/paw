@@ -7477,6 +7477,104 @@ ListModel {
         if (!reconfigure(lua) || !waitFor(hidden))
             return fail("the configuration turning the clock off did not hide it");
     }
+    // The wallpaper slideshow (shell.wallpaper_cycle): the compositor's wallpaper-cycle lines step
+    // through its folder's pictures, by name or shuffled, each kept as one picked from the panel
+    // and fading in on the desktop; its timer steps every interval, waiting while the session is
+    // locked.
+    {
+        const auto sky = directory.filePath("sky");
+        QDir().mkpath(sky);
+        for (const auto *name : {"1.png", "2.png", "3.png"}) {
+            QImage picture(32, 18, QImage::Format_RGB32);
+            picture.fill(Qt::darkBlue);
+            if (!picture.save(sky + "/" + name))
+                return fail("could not save a picture for the slideshow");
+        }
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *backdrop = find(desktop.rootObject(), "backdrop");
+        if (!backdrop)
+            return fail("the desktop has no backdrop");
+        auto withCycle = [&](const QString &settings) {
+            return QString(lua).replace("shell={wallpaper=",
+                                        "shell={wallpaper_cycle={" + settings + "},wallpaper=");
+        };
+        // Whether `file` is the wallpaper, kept as picked for the profile and drawn on the desktop.
+        auto showing = [&](const QString &file) {
+            const auto layers = backdrop->childItems();
+            return controller.wallpaperFile() == file &&
+                   pickedText() == "dark\twalls/a/one.png\t" + file + "\n" && !layers.isEmpty() &&
+                   layers.last()->property("source") == QUrl::fromLocalFile(file).toString();
+        };
+        if (!reconfigure(withCycle("folder=[[" + sky + "]],order='name'")) ||
+            controller.wallpaperCycleFolder() != sky || controller.wallpaperCycle()->running())
+            return fail("shell.wallpaper_cycle's folder not taken, or its timer runs without an interval");
+        // By name, from the configured wallpaper, which is not in the folder: the first, the next,
+        // and back round past the first.
+        const QList<std::pair<const char *, const char *>> steps = {
+            {"next", "1.png"}, {"next", "2.png"}, {"prev", "1.png"}, {"prev", "3.png"}};
+        for (const auto &[verb, name] : steps) {
+            subscriber->write(QByteArray("wallpaper-cycle ") + verb + "\n");
+            if (!waitFor([&] { return showing(sky + "/" + name); })) {
+                std::cerr << "wallpaper-cycle " << verb << " did not show " << name << ": "
+                          << controller.wallpaperFile().toStdString() << " / "
+                          << pickedText().toStdString() << '\n';
+                return 1;
+            }
+        }
+        // Shuffled, the folder named relative to the configuration: each picture once before any
+        // comes again.
+        if (!reconfigure(withCycle("folder='sky'")) || controller.wallpaperCycleFolder() != sky)
+            return fail("a slideshow folder relative to the configuration not found beside it");
+        QSet<QString> seen{controller.wallpaperFile()};
+        for (int i = 0; i < 2; ++i) {
+            const auto before = controller.wallpaperFile();
+            controller.stepWallpaper(1);
+            if (controller.wallpaperFile() == before || seen.contains(controller.wallpaperFile()))
+                return fail("the shuffled slideshow showed a picture again before showing them all");
+            seen.insert(controller.wallpaperFile());
+        }
+        // Unset, the folder is the configured wallpaper's.
+        if (!reconfigure(withCycle("order='name'")) || controller.wallpaperCycleFolder() != walls + "/a")
+            return fail("the slideshow's folder is not the configured wallpaper's");
+        controller.stepWallpaper(1);
+        if (!waitFor([&] { return showing(walls + "/a/one.png"); }))
+            return fail("the slideshow did not step through the configured wallpaper's folder");
+        // A folder without pictures says so and leaves the wallpaper.
+        const auto none = directory.filePath("no-pictures");
+        QDir().mkpath(none);
+        if (!reconfigure(withCycle("folder=[[" + none + "]]")))
+            return fail("could not rewrite the configuration");
+        subscriber->write("wallpaper-cycle next\n");
+        if (!waitFor([&] { return controller.osd()->text() == "No wallpapers in " + none; }) ||
+            !showing(walls + "/a/one.png"))
+            return fail("a slideshow without pictures did not say so, or changed the wallpaper");
+        // Every interval (a minute of 150 milliseconds here), but not while the session is locked.
+        controller.wallpaperCycle()->setMinute(150);
+        if (!reconfigure(withCycle("folder='sky',order='name',interval=2")) ||
+            !controller.wallpaperCycle()->running())
+            return fail("the slideshow's timer did not start");
+        if (!waitFor([&] { return showing(sky + "/1.png"); }) ||
+            !waitFor([&] { return showing(sky + "/2.png"); }))
+            return fail("the slideshow did not step by itself every interval");
+        subscriber->write("locked on\n");
+        if (!waitFor([&] { return controller.wallpaperCycle()->paused(); }) ||
+            controller.wallpaperCycle()->running() ||
+            !stays([&] { return showing(sky + "/2.png"); }, 300))
+            return fail("the slideshow stepped while the session was locked");
+        subscriber->write("locked off\n");
+        if (!waitFor([&] { return !controller.wallpaperCycle()->paused(); }) ||
+            !waitFor([&] { return showing(sky + "/3.png"); }))
+            return fail("the slideshow did not go on once the session was unlocked");
+        controller.wallpaperCycle()->setMinute(60 * 1000);
+        if (!reconfigure(lua) || controller.wallpaperCycle()->running())
+            return fail("the slideshow's timer runs on without an interval");
+        controller.pickWallpaper("");
+        if (controller.wallpaperFile() != walls + "/a/one.png")
+            return fail("could not go back to the configured wallpaper");
+    }
     // The macOS style, from a profile: the menu bar along the top in a surface of its own and the
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the
     // profile changes and back again.
