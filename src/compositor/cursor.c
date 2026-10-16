@@ -206,8 +206,9 @@ uint32_t corner_edges(struct sh_toplevel *toplevel, uint32_t edges) {
 void show_xcursor(struct sh_server *server, const char *name) {
     if (server->cursor_hidden)
         return;
-    wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, name);
     server->cursor_image = name;
+    if (!cursor_grown(server)) // a shake draws it larger meanwhile, from this name
+        wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, name);
 }
 
 /* Show a corner cursor wherever an edge grab would become a corner resize, so the pointer
@@ -583,6 +584,7 @@ void server_cursor_motion(struct wl_listener *listener, void *data) {
     server->pointed.moving = true;
     process_cursor_motion(server, event->time_msec);
     server->pointed.moving = false;
+    cursor_shake_motion(server);
     ++server->stats.motions;
     server->stats.motion_ns += now_ns() - started;
 }
@@ -598,6 +600,7 @@ void server_cursor_motion_absolute(struct wl_listener *listener, void *data) {
     server->pointed.moving = true;
     process_cursor_motion(server, event->time_msec);
     server->pointed.moving = false;
+    cursor_shake_motion(server);
     ++server->stats.motions;
     server->stats.motion_ns += now_ns() - started;
 }
@@ -969,7 +972,10 @@ void seat_request_cursor(struct wl_listener *listener, void *data) {
     if (focused_client == event->seat_client && !server->cursor_hidden) {
         server->shape_edges = 0;
         server->shown_edges = 0;
-        wlr_cursor_set_surface(server->cursor, event->surface, event->hotspot_x, event->hotspot_y);
+        // Grown by a shake meanwhile, it is given again as the pointer enters it anew.
+        if (!cursor_grown(server))
+            wlr_cursor_set_surface(server->cursor, event->surface, event->hotspot_x,
+                                   event->hotspot_y);
         server->cursor_image = "client";
     }
 }

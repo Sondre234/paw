@@ -153,6 +153,7 @@ void reload_config(struct sh_server *server) {
     cat_reload(server);
     wrapped_reload(server);
     cursor_hide_reload(server);
+    cursor_shake_reload(server);
 }
 
 static int terminate_signal(int signal_number, void *data) {
@@ -630,6 +631,7 @@ finish:
     rice_finish(&server);
     cat_finish(&server);
     cursor_hide_finish(&server);
+    cursor_shake_finish(&server);
     xray_finish(&server);
     heatmap_finish(&server);
     blur_finish(&server);

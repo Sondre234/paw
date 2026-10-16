@@ -733,6 +733,7 @@ struct sh_server {
         int64_t moved;
         struct wl_event_source *timer;
     } cursor_rest;
+    struct sh_cursor_shake *cursor_shake; /* mouse.shake_to_find (cursor_shake.c), made on use */
     /* The image the cursor was given last: an xcursor name (show_xcursor), "client" for a
      * client's own surface, or NULL for none yet (get cursor_image). */
     const char *cursor_image;
@@ -1513,6 +1514,13 @@ void cursor_typed(struct sh_server *server, xkb_keysym_t sym);
 void cursor_used(struct sh_server *server);
 void cursor_hide_reload(struct sh_server *server);
 void cursor_hide_finish(struct sh_server *server);
+
+/* cursor_shake.c */
+bool cursor_grown(struct sh_server *server);
+int cursor_drawn_size(struct sh_server *server);
+void cursor_shake_motion(struct sh_server *server);
+void cursor_shake_reload(struct sh_server *server);
+void cursor_shake_finish(struct sh_server *server);
 
 /* input_method.c */
 bool input_method_key(struct sh_keyboard *keyboard, const struct wlr_keyboard_key_event *event);

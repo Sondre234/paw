@@ -891,6 +891,15 @@ static void get_cursor(struct sh_server *server, int fd, const char *arguments) 
     control_reply(fd, server->cursor_hidden ? "hidden\n" : "shown\n");
 }
 
+static void get_cursor_size(struct sh_server *server, int fd, const char *arguments) {
+    // The size the cursor is drawn at, in logical pixels: $XCURSOR_SIZE, and up to three times
+    // that while a shake grows it (mouse.shake_to_find, cursor_shake.c).
+    char line[32];
+    snprintf(line, sizeof(line), "%d\n", cursor_drawn_size(server));
+    control_reply(fd, "ok\n");
+    control_reply(fd, line);
+}
+
 static void get_cursor_image(struct sh_server *server, int fd, const char *arguments) {
     // The image the cursor shows: the name of an xcursor (one paw gives it, as "grabbing" or
     // "ns-resize", or the shape a client asks for through cursor-shape-v1), "client" for a
@@ -1016,6 +1025,7 @@ static const struct {
     {"seat", get_seat, false},
     {"cursor", get_cursor, false},
     {"cursor_image", get_cursor_image, false},
+    {"cursor_size", get_cursor_size, false},
     {"autostart", get_autostart, false},
     {"gesture", get_gesture, false},
     {"touch", get_touch, false},
