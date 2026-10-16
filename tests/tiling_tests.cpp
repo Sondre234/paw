@@ -946,6 +946,92 @@ int main() {
             sh_tiling_destroy(drag);
         }
 
+        // Hyprland's togglesplit and swapsplit: the split a tile shares with its sibling.
+        {
+            sh_tiling *split = sh_tiling_create();
+            int s[3];
+            const sh_rect wide{0, 0, 1920, 1080}, wider{0, 0, 2560, 1080}, tall{0, 0, 1080, 1920};
+            sh_tiling_insert(split, "DP-1", 0, &s[0], nullptr, false, 0, 0);
+            arrange(split, wide, 0);
+            require(!sh_tiling_split_action(split, &s[0], SH_SPLIT_TOGGLE) &&
+                        !sh_tiling_split_action(split, &s[0], SH_SPLIT_SWAP),
+                    "split: a lone tile has no split");
+            sh_tiling_insert(split, "DP-1", 0, &s[1], nullptr, false, 0, 0);
+            auto placed = arrange(split, wide, 0);
+            require(placed[&s[0]] == sh_rect{0, 0, 960, 1080}, "split: side by side first");
+            require(!sh_tiling_split_action(split, &s[2], SH_SPLIT_TOGGLE) &&
+                        !sh_tiling_split_action(split, &s[1], SH_PROMOTE),
+                    "split: an untiled window or another action");
+            require(sh_tiling_split_action(split, &s[1], SH_SPLIT_TOGGLE), "split: toggle refused");
+            placed = arrange(split, wide, 0);
+            require(placed[&s[0]] == sh_rect{0, 0, 1920, 540} &&
+                        placed[&s[1]] == sh_rect{0, 540, 1920, 540},
+                    "split: toggled to stacked");
+            // Kept so in an area of another shape, where its shape would split it side by side.
+            placed = arrange(split, wider, 0);
+            require(placed[&s[0]] == sh_rect{0, 0, 2560, 540}, "split: stacked in a wider area");
+            // A new split follows its box's shape: the bottom half splits side by side.
+            sh_tiling_insert(split, "DP-1", 0, &s[2], &s[1], false, 0, 0);
+            placed = arrange(split, wider, 0);
+            require(placed[&s[1]] == sh_rect{0, 540, 1280, 540} &&
+                        placed[&s[2]] == sh_rect{1280, 540, 1280, 540},
+                    "split: a new split follows its shape");
+            require(sh_tiling_split_action(split, &s[2], SH_SPLIT_TOGGLE), "split: toggle s2");
+            placed = arrange(split, wider, 0);
+            require(placed[&s[1]] == sh_rect{0, 540, 2560, 270} &&
+                        placed[&s[2]] == sh_rect{0, 810, 2560, 270},
+                    "split: s1 and s2 stacked");
+            // Toggled back to side by side, which a wide box gives anyway, the root follows the
+            // shape again: stacked in a tall area. The split below it stays stacked, where a box
+            // as wide as that one would be side by side.
+            require(sh_tiling_split_action(split, &s[0], SH_SPLIT_TOGGLE), "split: toggle back");
+            placed = arrange(split, wide, 0);
+            require(placed[&s[0]] == sh_rect{0, 0, 960, 1080} &&
+                        placed[&s[1]] == sh_rect{960, 0, 960, 540} &&
+                        placed[&s[2]] == sh_rect{960, 540, 960, 540},
+                    "split: the root side by side again");
+            placed = arrange(split, tall, 0);
+            require(placed[&s[0]] == sh_rect{0, 0, 1080, 960} &&
+                        placed[&s[1]] == sh_rect{0, 960, 1080, 480} &&
+                        placed[&s[2]] == sh_rect{0, 1440, 1080, 480},
+                    "split: the root follows its shape, s1 and s2 stay stacked");
+
+            // swapsplit trades the halves, each keeping its size.
+            placed = arrange(split, wide, 0);
+            require(sh_tiling_resize(split, &s[0], SH_EDGE_RIGHT, {0, 0, 1344, 1080}),
+                    "split: resize refused");
+            const auto before = arrange(split, wide, 0);
+            require(before.at(&s[0]).width == 1344, "split: s0 resized");
+            require(sh_tiling_split_action(split, &s[0], SH_SPLIT_SWAP), "split: swap refused");
+            placed = arrange(split, wide, 0);
+            require(std::abs(placed[&s[0]].width - 1344) <= 1 &&
+                        placed[&s[0]].x + placed[&s[0]].width == 1920 &&
+                        placed[&s[1]].x == 0 && std::abs(placed[&s[1]].width - 576) <= 1 &&
+                        placed[&s[1]].y < placed[&s[2]].y,
+                    "split: s0 on the right at its width");
+            // The split of s1 and s2 is swapped by either of them.
+            require(sh_tiling_split_action(split, &s[1], SH_SPLIT_SWAP), "split: swap s1");
+            placed = arrange(split, wide, 0);
+            require(placed[&s[2]].y == 0 && placed[&s[1]].y > 0, "split: s2 above s1");
+            require(sh_tiling_split_action(split, &s[2], SH_SPLIT_SWAP) &&
+                        sh_tiling_split_action(split, &s[0], SH_SPLIT_SWAP) &&
+                        arrange(split, wide, 0) == before,
+                    "split: swapped back, as it was");
+
+            // Dwindle only: the other layouts keep a list, and leave the tree as it was.
+            sh_tiling_set_layout(split, "DP-1", 0, SH_LAYOUT_MASTER);
+            require(!sh_tiling_split_action(split, &s[1], SH_SPLIT_TOGGLE) &&
+                        !sh_tiling_split_action(split, &s[1], SH_SPLIT_SWAP),
+                    "split: not in master");
+            sh_tiling_set_layout(split, "DP-1", 0, SH_LAYOUT_DWINDLE);
+            require(arrange(split, wide, 0) == before, "split: the tree back from master");
+            // The split goes with the window that leaves it; its sibling keeps its own.
+            sh_tiling_remove(split, &s[0]);
+            placed = arrange(split, wider, 0);
+            require(placed[&s[1]] == sh_rect{0, 0, 2560, 540}, "split: s1 and s2 still stacked");
+            sh_tiling_destroy(split);
+        }
+
         // Tiny areas still produce positive sizes.
         placed = arrange(tiling, {0, 0, 3, 2}, 100);
         for (auto &[window, rect] : placed)
