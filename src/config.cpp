@@ -1566,16 +1566,39 @@ void instruction_limit(lua_State *L, lua_Debug *) {
         luaL_error(L, "configuration exceeded its instruction budget");
     }
 }
-// The key binding among `bindings` for these modifiers and keysym, or nothing.
-const Binding *find_key(const std::vector<Binding> &bindings, uint32_t modifiers, uint32_t keysym) {
+// The key binding among `bindings` for these modifiers and keysym, or nothing; with `release`,
+// the one that runs as the key comes up (a key may have one of each).
+const Binding *find_key(const std::vector<Binding> &bindings, uint32_t modifiers, uint32_t keysym,
+                        bool release = false) {
     constexpr uint32_t relevant = SH_SHIFT | SH_CTRL | SH_ALT | SH_LOGO;
     modifiers &= relevant; // CapsLock and NumLock do not disable shortcuts.
     keysym = xkb_keysym_to_lower(keysym);
     for (const auto &binding : bindings)
         if (!binding.button && binding.switch_type < 0 && binding.modifiers == modifiers &&
-            binding.keysym == keysym)
+            binding.keysym == keysym && binding.release == release)
             return &binding;
     return nullptr;
+}
+// The modifier a modifier key gives (SH_LOGO for Super_L), else 0.
+uint32_t own_modifier(uint32_t keysym) {
+    switch (keysym) {
+    case XKB_KEY_Shift_L:
+    case XKB_KEY_Shift_R:
+        return SH_SHIFT;
+    case XKB_KEY_Control_L:
+    case XKB_KEY_Control_R:
+        return SH_CTRL;
+    case XKB_KEY_Alt_L:
+    case XKB_KEY_Alt_R:
+    case XKB_KEY_Meta_L:
+    case XKB_KEY_Meta_R:
+        return SH_ALT;
+    case XKB_KEY_Super_L:
+    case XKB_KEY_Super_R:
+        return SH_LOGO;
+    default:
+        return 0;
+    }
 }
 // The binding among `bindings` of a switch turning on or off, or nothing.
 const Binding *find_switch(const std::vector<Binding> &bindings, sh_switch type, bool on) {
@@ -1605,7 +1628,7 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             if (is_switch) {
                 read_switch_binding(L, binding);
                 // A switch's binding runs while the session is locked, and never repeats.
-                for (const char *only : {"locked", "repeats"})
+                for (const char *only : {"locked", "repeats", "release"})
                     if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
             } else if (is_button) {
@@ -1614,7 +1637,7 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 binding.button = mouse_button(field(L, "button"));
                 binding.pattern = pattern_field(L, "app_id", binding.app_id);
                 boolean(L, "desktop", "desktop", binding.desktop);
-                for (const char *only : {"locked", "repeats"})
+                for (const char *only : {"locked", "repeats", "release"})
                     if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
             } else {
@@ -1729,18 +1752,26 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 fail("amount is only valid with resize, volume and brightness actions");
             binding.amount = integer(L, "amount", default_amount(binding.action), 1,
                                      max_amount(binding.action));
+            boolean(L, "release", "release", binding.release);
             // Keyboard resizing repeats unless told not to; other actions only when told.
-            binding.repeats = !binding.button && !is_switch && binding.action >= SH_RESIZE_LEFT &&
-                              binding.action <= SH_RESIZE_DOWN;
+            binding.repeats = !binding.button && !is_switch && !binding.release &&
+                              binding.action >= SH_RESIZE_LEFT && binding.action <= SH_RESIZE_DOWN;
             boolean(L, "locked", "locked", binding.locked);
             boolean(L, "repeats", "repeats", binding.repeats);
+            if (binding.release && binding.repeats)
+                fail("a binding that runs on release does not repeat");
+            // A modifier key's own modifier is not yet held as it goes down: Super + Super_L is
+            // Super_L.
+            if (binding.release)
+                binding.modifiers &= ~own_modifier(binding.keysym);
             // Bindings past `own` come from the defaults a configuration extends; its own
             // bindings, "none" included, take their keys first.
             // Button bindings may share a button: the first whose target matches wins.
             bool taken = is_switch ? find_switch(into, static_cast<sh_switch>(binding.switch_type),
                                                  binding.switch_on) != nullptr
                                    : !binding.button &&
-                                         find_key(into, binding.modifiers, binding.keysym);
+                                         find_key(into, binding.modifiers, binding.keysym,
+                                                  binding.release);
             if (!taken)
                 into.push_back(std::move(binding));
             else if (i <= own)
@@ -1867,6 +1898,10 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
               {{"flat", 0}, {"adaptive", 1}}, "mouse.acceleration must be \"flat\" or \"adaptive\"");
         tristate(L, "natural_scroll", "mouse.natural_scroll", config.settings.mouse_natural_scroll);
         boolean(L, "focus_follows", "mouse.focus_follows", config.settings.focus_follows_mouse);
+        boolean(L, "hide_when_typing", "mouse.hide_when_typing",
+                config.settings.hide_cursor_typing);
+        config.settings.hide_cursor_after = integer(L, "hide_after", 0, 0, 3600);
+        boolean(L, "shake_to_find", "mouse.shake_to_find", config.settings.shake_to_find);
     }
     if (Section in{L, "touchpad"}) {
         tristate(L, "natural_scroll", "touchpad.natural_scroll",
@@ -2198,6 +2233,9 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"master_shrink", SH_MASTER_SHRINK},
         {"master_more", SH_MASTER_MORE},
         {"master_less", SH_MASTER_LESS},
+        {"split_toggle", SH_SPLIT_TOGGLE},
+        {"split_swap", SH_SPLIT_SWAP},
+        {"pseudo_toggle", SH_PSEUDO_TOGGLE},
         {"peek", SH_PEEK},
         {"peek_toggle", SH_PEEK_TOGGLE},
         {"night_light_toggle", SH_NIGHT_LIGHT_TOGGLE},
@@ -2574,14 +2612,16 @@ WindowActions Config::dynamic_actions(const std::string &app_id, const std::stri
     return result;
 }
 
-const Binding *Config::binding(uint32_t modifiers, uint32_t keysym) const {
-    return find_key(bindings, modifiers, keysym);
+const Binding *Config::binding(uint32_t modifiers, uint32_t keysym, bool release) const {
+    return find_key(bindings, modifiers, keysym, release);
 }
 
-const Binding *Config::mode_binding(int mode, uint32_t modifiers, uint32_t keysym) const {
+const Binding *Config::mode_binding(int mode, uint32_t modifiers, uint32_t keysym,
+                                    bool release) const {
     if (mode < 1 || static_cast<std::size_t>(mode) > modes.size())
-        return binding(modifiers, keysym);
-    return find_key(modes[static_cast<std::size_t>(mode) - 1].bindings, modifiers, keysym);
+        return binding(modifiers, keysym, release);
+    return find_key(modes[static_cast<std::size_t>(mode) - 1].bindings, modifiers, keysym,
+                    release);
 }
 
 int Config::mode_number(const std::string &name) const {

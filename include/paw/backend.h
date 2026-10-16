@@ -81,6 +81,13 @@ enum sh_action {
     SH_MASTER_SHRINK,
     SH_MASTER_MORE, /* one more or fewer window in the master column */
     SH_MASTER_LESS,
+    /* Hyprland's dwindle controls, on the focused tile in dwindle only: togglesplit turns the
+     * split it shares with its sibling from side by side to stacked or back, and keeps it so;
+     * swapsplit trades the split's two halves; pseudo keeps the window at its floating size,
+     * centred in its tile. */
+    SH_SPLIT_TOGGLE,
+    SH_SPLIT_SWAP,
+    SH_PSEUDO_TOGGLE,
     /* Focuses the window focused before the current one, on any workspace or output; repeated,
      * it flips between two windows. */
     SH_FOCUS_LAST,
@@ -470,6 +477,12 @@ struct sh_settings {
     int mouse_natural_scroll; /* -1, 0, 1 */
     int touchpad_natural_scroll, touchpad_tap, touchpad_dwt;
     bool focus_follows_mouse; /* hovering a window focuses it, without raising it */
+    /* mouse.hide_when_typing: a key typed into an application hides the cursor until the
+     * pointer moves; mouse.hide_after: seconds the pointer rests before it hides, 0 never. */
+    bool hide_cursor_typing;
+    int hide_cursor_after;
+    /* mouse.shake_to_find: shaking the pointer grows the cursor a moment (cursor_shake.c). */
+    bool shake_to_find;
     bool animations;          /* windows fade in and out, and tiles glide into place */
     float animation_speed;    /* multiplies the speed of every animation */
     int animation_late_ms;    /* a later frame finishes running animations; 0 never skips */
@@ -663,6 +676,9 @@ struct sh_callbacks {
     const struct sh_settings *(*settings)(void *);
     /* Returns the bound action; *argument receives its numeric argument, if any. */
     enum sh_action (*key)(void *, uint32_t modifiers, uint32_t keysym, int *argument);
+    /* The same for the binding with `release` that runs as the key comes up, `modifiers` being
+     * those held as it went down; binding_flags then gives its flags. */
+    enum sh_action (*key_released)(void *, uint32_t modifiers, uint32_t keysym, int *argument);
     /* The same for a pressed mouse button (a Linux BTN_* code) or a notch of the wheel
      * (enum sh_wheel_button) over `target`; `app_id` is the window's, or "". SH_NONE leaves the
      * click or the wheel to the application. */
@@ -931,6 +947,17 @@ int sh_tiling_master_count(const struct sh_tiling *tiling, const char *output, i
 /* Trades the places of two windows of the same tree. False when either is untiled or they
  * are in different trees. */
 bool sh_tiling_swap(struct sh_tiling *tiling, const void *a, const void *b);
+/* SH_SPLIT_TOGGLE and SH_SPLIT_SWAP on the split `window` shares with its sibling (a window or a
+ * subtree), in a workspace that tiles with dwindle. Toggling turns it from side by side to
+ * stacked or back and keeps it so as its box changes shape; turned back to the way the shape
+ * splits it, it follows the shape again. Swapping trades its two halves, each keeping its share
+ * of the box. False when nothing changed: the window is untiled, alone in its tree, or in another
+ * layout. Nothing is arranged until sh_tiling_arrange. */
+bool sh_tiling_split_action(struct sh_tiling *tiling, const void *window, enum sh_action action);
+/* Hyprland's pseudotiling: where a window `width` by `height` shows in `tile`, at that size and
+ * centred, or scaled down to fit, keeping its shape, when it is larger. Without a size (0 or
+ * less) it fills the tile. */
+struct sh_rect sh_tiling_pseudo(struct sh_rect tile, int width, int height);
 /* Puts `replacement` (not tiled) into the slot of the tiled window `old_window`, which leaves the
  * tiling: a window group shows one member at a time in one slot. False when nothing changed. */
 bool sh_tiling_replace(struct sh_tiling *tiling, const void *old_window, void *replacement);

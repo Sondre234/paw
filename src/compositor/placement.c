@@ -304,7 +304,7 @@ static void place_tiled(void *data, void *window, struct sh_rect rect) {
         return; // It returns to its tile when it leaves fullscreen.
     }
     toplevel_set_states(toplevel, false, ALL_EDGES);
-    rect = inside_border(toplevel->server, rect);
+    rect = pseudo_rect(toplevel, inside_border(toplevel->server, rect));
     struct wlr_scene_node *node = &toplevel->scene_tree->node;
     int x = node->x, y = node->y;
     struct wlr_box from = morph_from(toplevel);
@@ -536,6 +536,8 @@ void resize_window(struct sh_server *server, enum sh_action action, int amount) 
                                           SH_EDGE_BOTTOM};
     uint32_t direction = directions[action - SH_RESIZE_LEFT];
     if (toplevel->tiled) {
+        if (pseudo_resize_by(toplevel, direction, amount))
+            return; // its own size, about the middle of its tile
         struct wlr_output *output = tiled_output(toplevel);
         if (output && sh_tiling_resize_by(server->tiling, toplevel, direction, amount))
             reflow_output(server, output);

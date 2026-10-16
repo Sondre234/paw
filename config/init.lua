@@ -185,6 +185,9 @@ return {
     mouse = {
         modifier = mod, -- modifier + left drag moves; right drag resizes
         -- focus_follows = true, -- hovering a window focuses it (without raising it)
+        -- hide_when_typing = true, -- typing into a window hides the cursor until it moves
+        -- hide_after = 5, -- seconds the pointer rests before the cursor hides (0: never)
+        -- shake_to_find = true, -- shaking the pointer grows the cursor a moment, as on macOS
         -- Standalone sessions only; unset keeps each device's default:
         -- speed = 0.0 (-1 to 1), acceleration = "flat" or "adaptive", natural_scroll = false
     },
@@ -475,6 +478,10 @@ return {
         { mods = { mod }, button = "wheel_down", action = "workspace_prev" },
         { mods = { mod }, key = "q", action = "terminal" },
         { mods = { mod }, key = "r", action = "launcher" },
+        -- Tap Super alone for the launcher (the start menu, or Launchpad in the macOS style), as
+        -- Windows' Start key: `release = true` runs a binding as its key comes up, a modifier
+        -- key's only when nothing else was pressed, clicked or scrolled while it was held.
+        -- { key = "Super_L", release = true, action = "launcher" },
         { mods = { mod }, key = "c", action = "close" },
         { mods = { mod }, key = "m", action = "quit" },
         { mods = { mod }, key = "v", action = "toggle_floating" },
@@ -546,6 +553,13 @@ return {
         { mods = { mod }, key = "h", action = "master_shrink" },
         { mods = { mod }, key = "comma", action = "master_more" },
         { mods = { mod }, key = "period", action = "master_less" },
+        -- Hyprland's dwindle controls, in dwindle only (experimental): split_toggle turns the
+        -- focused tile's split from side by side to stacked and keeps it so, split_swap trades
+        -- its halves, pseudo_toggle keeps the window at its floating size in the middle of its
+        -- tile. Hyprland's Super+J and Super+P are focus_next and the palette here:
+        -- { mods = { mod, "Ctrl" }, key = "j", action = "split_toggle" },
+        -- { mods = { mod, "Ctrl" }, key = "k", action = "split_swap" },
+        -- { mods = { mod, "Alt" }, key = "p", action = "pseudo_toggle" },
         -- The scroll layout (layout_scroll; see layout.scroll): columns on an endless strip,
         -- whose view turns as a cube as it moves with layout.scroll.cube = true.
         -- master_grow and master_shrink resize the focused column there. Bind these to taste:

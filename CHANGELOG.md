@@ -435,6 +435,11 @@ shadows.
   and one with `repeats = true` runs again while its key is held, as Hyprland's `binde` (keyboard
   resizing did alone before, and still does unless `repeats = false`). The shipped volume,
   microphone and brightness keys work on the lock screen, and the steps repeat while held.
+- A key binding with `release = true` runs as its key comes up, as Hyprland's `bindr`. One of a
+  modifier key alone runs only when that key was tapped, so `{ key = "Super_L", release = true,
+  action = "launcher" }` (commented out in the shipped configuration) opens the start menu, or
+  Launchpad, on a tap of Super as Windows does, while Super + a key, a click, the wheel or a
+  gesture leave it closed; the application still hears Super go down and up.
 - Binding modes, as sway's modes and Hyprland's submaps: `modes` holds named lists of key bindings,
   and a binding with `action = "mode", mode = "NAME"` (or `paw msg mode NAME`) puts one in
   use, its bindings taking the place of the others until `mode = "default"`. The taskbar and the
@@ -520,6 +525,14 @@ shadows.
 - Screenshots leave the cursor out: paw hides it while grim takes the picture, where a monitor
   that draws the cursor into its frames (as with NVIDIA's driver here) put it in every
   screenshot. `paw msg get cursor` says whether it is hidden.
+- `mouse.hide_when_typing = true` hides the cursor while typing into an application, as macOS
+  does, and `mouse.hide_after = N` once the pointer has rested N seconds; moving, clicking or
+  scrolling shows it again. Modifier keys alone and keys a binding takes leave it. Both are off
+  by default.
+- `mouse.shake_to_find = true` grows the cursor to three times its size for a moment as the
+  pointer is shaken from side to side, as macOS does, smoothly, and shrinks it back about a second
+  after the shaking stops. Ordinary motion, a drag and stroking the desktop cat never set it off.
+  `paw msg get cursor_size` says the size the cursor is drawn at.
 - Getting around a monitor's workspaces as on Hyprland. `move_to_workspace_next` and
   `move_to_workspace_prev` (Super + Ctrl + Alt + Right / Left) take the focused window to the
   workspace beside its own, wrapping around, and `move_to_workspace_empty` to the first one with
@@ -551,6 +564,12 @@ shadows.
   with the setting off), fullscreen windows have none, and profiles can turn it on and off. Only
   the wallpaper is blurred, at half the monitor's pixels on the CPU once it changes, so windows
   moving, resizing and animating over it cost nothing more; `paw msg get blur` shows it.
+- Hyprland's dwindle controls, experimental and unbound by default (example keys in the shipped
+  configuration, also in the command palette): `split_toggle` turns the split the focused tile
+  shares with its neighbour from side by side to stacked or back, and keeps it so where dwindle
+  would follow the box's shape; `split_swap` trades that split's halves at their sizes; and
+  `pseudo_toggle` keeps the focused tile at its floating size in the middle of its tile, resized
+  about that middle. The tiles glide there; other layouts take none of them.
 
 ### Starting and ending a session
 
