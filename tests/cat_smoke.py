@@ -106,12 +106,14 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
 
     def stroke():
         """Strokes the cat where it is: the pointer in from its left, a moment's rest, then back
-        and forth over its back, 30 pixels each way, a motion every 25 ms or so."""
+        and forth over its back, 30 pixels each way, a motion every 25 ms or so (ten to a line,
+        which the probe takes 64 words at most of)."""
         found = cat()
         x, y = found["x"], found["y"] - 16
-        sweep = [abs((5 * i + 30) % 60 - 30) - 15 for i in range(44)]
-        pointer(f"move {max(x - 80, 0)} {y} sleep 400",
-                *(f"move {x + offset} {y} sleep 25" for offset in sweep))
+        pointer(f"move {max(x - 80, 0)} {y} sleep 400")
+        sweep = [abs((5 * i + 30) % 60 - 30) - 15 for i in range(50)]
+        for start in range(0, len(sweep), 10):
+            pointer(*(f"move {x + offset} {y} sleep 25" for offset in sweep[start:start + 10]))
 
     # Stroked in its sleep, it purrs in its sleep: the input does not wake it, and it sleeps on
     # once the strokes stop.
