@@ -1431,8 +1431,12 @@ void check_keymap(const sh_settings &settings) {
 }
 void instruction_limit(lua_State *L, lua_Debug *) {
     auto *remaining = static_cast<int *>(lua_getextraspace(L));
-    if (--*remaining <= 0)
+    if (--*remaining <= 0) {
+        // From now on raised at every instruction: a pcall in the configuration that catches it
+        // must not let the configuration run on.
+        lua_sethook(L, instruction_limit, LUA_MASKCOUNT, 1);
         luaL_error(L, "configuration exceeded its instruction budget");
+    }
 }
 // The key binding among `bindings` for these modifiers and keysym, or nothing.
 const Binding *find_key(const std::vector<Binding> &bindings, uint32_t modifiers, uint32_t keysym) {
@@ -2474,6 +2478,7 @@ State sandbox() {
 // Runs one chunk and leaves its single result on the stack.
 void evaluate(lua_State *L, const std::string &source, const std::string &name) {
     *static_cast<int *>(lua_getextraspace(L)) = 1000;
+    lua_sethook(L, instruction_limit, LUA_MASKCOUNT, 1000);
     if (luaL_loadbufferx(L, source.data(), source.size(), name.c_str(), "t") != LUA_OK ||
         lua_pcall(L, 0, 1, 0) != LUA_OK) {
         const char *message = lua_tostring(L, -1);
