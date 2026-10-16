@@ -822,6 +822,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(window_style_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(window_round_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(window_rules_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(rule_look_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(output_workspace_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(output_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         add_executable(animation_tests tests/animation_tests.c src/animation.c
