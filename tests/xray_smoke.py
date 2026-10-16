@@ -205,9 +205,14 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     # windows share their layer's.
     msg("xray")
     extra = desktop.open_window(probe, "D", "zz")
-    wait_for(lambda: any(e["title"] == "D" and e["sheet"] >= 0 for e in xray()["entries"]),
-             "D got a sheet")
-    assert len(sheets(xray())) == 5
+    def d_sheet():
+        view = xray()
+        # Until the view takes D in, what it showed keeps the sheets it was on.
+        assert all(e["sheet"] >= 0 for e in view["entries"] if e["title"] != "D"), view
+        return any(e["title"] == "D" and e["sheet"] >= 0 for e in view["entries"])
+    wait_for(d_sheet, "D got a sheet")
+    view = xray()
+    assert len(sheets(view)) == 5, view
     extra.terminate()
     desktop.reap(extra)
     wait_for(lambda: not any(e["title"] == "D" for e in xray()["entries"]), "D's sheet gone")
