@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The overview with the pointer: the hot corner opens it, pointing selects, a click picks, a
-middle click closes a window, the wheel pages workspaces, a click on the strip shows and then
-switches to a workspace, dragging a thumbnail onto the strip moves the window, and a click on
-the backdrop closes it. Driven by a virtual pointer (pointer_probe)."""
+"""The overview with the pointer: the hot corner opens it (after hot_corners.delay, in a
+hot_corners.size square, and not over a fullscreen window or with a button held), pointing
+selects, a click picks, a middle click closes a window, the wheel pages workspaces, a click on
+the strip shows and then switches to a workspace, dragging a thumbnail onto the strip moves the
+window, and a click on the backdrop closes it. Driven by a virtual pointer (pointer_probe)."""
 from pathlib import Path
 import sys
 
@@ -10,12 +11,16 @@ import harness
 
 compositor, probe, pointer_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
 
-CONFIG = """return {
+DELAY = .3  # hot_corners.delay, in seconds
+# Long enough after the pointer reaches the corner for an overview that is not to open to have.
+QUIET = DELAY + .2
+CONFIG = f"""return {{
     xwayland = false,
-    layout = { tiling = false, workspaces = 4 },
-    overview = { animation = false, gap = 20, hot_corner = "top-left" },
-    outputs = { monitors = { ["HEADLESS-1"] = { mode = "1280x720" } } },
-}"""
+    layout = {{ tiling = false, workspaces = 4 }},
+    overview = {{ animation = false, gap = 20, hot_corner = "top-left" }},
+    hot_corners = {{ size = 10, delay = {int(DELAY * 1000)} }},
+    outputs = {{ monitors = {{ ["HEADLESS-1"] = {{ mode = "1280x720" }} }} }},
+}}"""
 SCREEN = (1280, 720)
 
 with harness.Compositor(compositor, CONFIG) as desktop:
@@ -70,10 +75,12 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     msg("workspace", "1")
     wait_for(lambda: focused() == "B", "B focused on workspace 1")
 
-    # Entering the hot corner opens the overview; staying in it does not reopen it.
-    pointer("move", "640", "360")
-    assert overview()[0] == "closed"
-    pointer("move", "0", "0")
+    # Resting in the hot corner, anywhere in its square, opens the overview; passing through
+    # does not, nor does staying in it reopen it.
+    pointer("move", "640", "360", "move", "5", "5", "move", "640", "360")
+    desktop.stays(lambda: overview()[0] == "closed", "opened passing through", duration=QUIET)
+    pointer("move", "5", "5")
+    desktop.stays(lambda: overview()[0] == "closed", "opened before the delay", duration=.1)
     wait_for(lambda: overview()[0] == "open", "the hot corner opens it")
     assert titles() == ["B", "A"], titles()
 
@@ -81,7 +88,30 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     msg("overview_cancel")
     pointer("move", "1", "1")
     desktop.stays(lambda: overview()[0] == "closed",
-                  "it reopened without the pointer leaving the corner")
+                  "it reopened without the pointer leaving the corner", duration=QUIET)
+
+    # Open already, the corner leaves it open.
+    msg("toggle_overview")
+    pointer("move", "640", "360", "move", "0", "0")
+    desktop.stays(lambda: overview()[0] == "open", "the corner closed it", duration=QUIET)
+    msg("overview_cancel")
+
+    # Not with a button held, as when a selection is dragged into the corner.
+    b = next(w for w in desktop.windows() if w.title == "B")
+    pointer("move", *center(b.box), "press", "left", "move", "0", "0")
+    desktop.stays(lambda: overview()[0] == "closed", "opened with a button held",
+                  duration=QUIET)
+    pointer("release", "left")
+
+    # Nor over a fullscreen window.
+    msg("fullscreen")
+    wait_for(lambda: windows()["B"]["width"] == SCREEN[0], "B fullscreen")
+    pointer("move", "640", "360", "move", "0", "0")
+    desktop.stays(lambda: overview()[0] == "closed", "opened over a fullscreen window",
+                  duration=QUIET)
+    msg("fullscreen")
+    wait_for(lambda: windows()["B"]["width"] < SCREEN[0], "B back from fullscreen")
+    assert focused() == "B"
 
     # A click on the backdrop closes it, changing nothing.
     pointer("move", "640", "360", "move", "0", "0")

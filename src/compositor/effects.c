@@ -212,19 +212,25 @@ static bool output_has_fullscreen(struct sh_server *server, struct wlr_output *o
 }
 
 void hot_corner_check(struct sh_server *server) {
-    const struct sh_effect_settings *fx = &server_settings(server)->effects;
+    const struct sh_settings *settings = server_settings(server);
+    const struct sh_effect_settings *fx = &settings->effects;
+    // overview.hot_corner is one more corner, which opens the overview (1 to 4 in sh_corner
+    // order, 0 for none); the configuration keeps hot_corners off it.
+    int overview_corner = settings->overview ? settings->overview_hot_corner - 1 : -1;
+    unsigned mask = fx->corner_mask | (overview_corner >= 0 ? 1U << overview_corner : 0U);
+    struct wlr_output *output = NULL;
     int corner = -1;
-    if (fx->corner_mask && !server->locked && server->cursor_mode == SH_CURSOR_PASSTHROUGH &&
-        !server->seat->drag) {
-        struct wlr_output *output = pointer_output(server);
+    // Not with a button held either, as when a selection is dragged into the corner.
+    if (mask && !server->locked && server->cursor_mode == SH_CURSOR_PASSTHROUGH &&
+        !server->seat->drag && server->seat->pointer_state.button_count == 0) {
+        output = pointer_output(server);
         struct wlr_box box;
         if (output) {
             wlr_output_layout_get_box(server->output_layout, output, &box);
             corner = sh_corner_at(server->cursor->x - box.x, server->cursor->y - box.y, box.width,
                                   box.height, fx->corner_size);
             // Looking for a fullscreen window walks them all: only in a corner that acts.
-            if (corner >= 0 &&
-                (!(fx->corner_mask & (1U << corner)) || output_has_fullscreen(server, output)))
+            if (corner >= 0 && (!(mask & (1U << corner)) || output_has_fullscreen(server, output)))
                 corner = -1;
         }
     }
@@ -232,10 +238,18 @@ void hot_corner_check(struct sh_server *server) {
     int fired = sh_corner_dwell_update(&server->corner_dwell, corner, now, fx->corner_delay);
     if (fired >= 0) {
         int argument = 0;
-        enum sh_action action = server->callbacks->hot_corner(server->callbacks->userdata, fired,
-                                                              &argument);
-        if (action != SH_NONE)
+        enum sh_action action;
+        if (fired == overview_corner)
+            // It only opens the overview, and not over the switcher.
+            action = server->overview.open || server->switcher.open ? SH_NONE : SH_OVERVIEW_TOGGLE;
+        else
+            action = server->callbacks->hot_corner(server->callbacks->userdata, fired, &argument);
+        // What the corner runs is for the output it is a corner of.
+        if (action != SH_NONE) {
+            server->target_output = output;
             run_action(server, action, argument);
+            server->target_output = NULL;
+        }
     }
     if (server->corner_timer) {
         int wait = sh_corner_dwell_wait(&server->corner_dwell, now, fx->corner_delay);

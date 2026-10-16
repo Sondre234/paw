@@ -95,7 +95,8 @@ int sh_heat_text_width(const char *text);
  * at `x`, `y`, each dot `dot` pixels square, in `color`; what falls outside is cut. */
 void sh_heat_text(uint32_t *pixels, int width, int height, int x, int y, int dot, const char *text,
                   uint32_t color);
-/* How the legend writes `value` of `kind`: a time for motion, "1 click" or "N clicks". */
+/* How the legend writes `value` of `kind`: a time for motion, "1 click" or "N clicks"; ""
+ * for NaN or infinity. */
 void sh_heat_label(char *text, size_t size, enum sh_heat_kind kind, double value);
 
 /* The legend's size in logical pixels: a card naming the kind over the scale's colours, with 0 at

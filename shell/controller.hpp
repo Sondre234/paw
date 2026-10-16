@@ -152,6 +152,8 @@ class ShellController : public QObject {
     // (the schedule), "on" or "off" (an override), or "" without a compositor.
     Q_PROPERTY(bool nightLight READ nightLight NOTIFY nightLightChanged)
     Q_PROPERTY(QString nightLightMode READ nightLightMode NOTIFY nightLightChanged)
+    // Whether the compositor's keep awake holds the idle steps off; false without a compositor.
+    Q_PROPERTY(bool keepAwake READ keepAwake NOTIFY keepAwakeChanged)
     // The binding mode in use, "" outside any.
     Q_PROPERTY(QString bindingMode READ bindingMode NOTIFY bindingModeChanged)
     Q_PROPERTY(QVariantList pinned READ pinned NOTIFY appsChanged)
@@ -409,6 +411,7 @@ class ShellController : public QObject {
     QVariantMap keyboardLayout() const { return keyboardLayout_; }
     bool nightLight() const { return nightLight_; }
     QString nightLightMode() const { return nightLightMode_; }
+    bool keepAwake() const { return keepAwake_; }
     QString bindingMode() const { return bindingMode_; }
     // What the compositor says of night light; the preview's stand-in says it too.
     void setNightLight(bool on, const QString &mode);
@@ -586,6 +589,7 @@ class ShellController : public QObject {
     void keyboardLayoutChanged();
     void nightLightChanged();
     void profileScheduledChanged();
+    void keepAwakeChanged();
     void bindingModeChanged();
     void trashChanged();
     // The compositor asked for the notification history on `output`.
@@ -657,6 +661,8 @@ class ShellController : public QObject {
     QString nightLightMode_;
     bool profileScheduled_ = false;
     void setProfileScheduled(bool on);
+    bool keepAwake_ = false;
+    void setKeepAwake(bool on);
     QString bindingMode_;
     void setBindingMode(const QString &mode);
     QObject *notificationService_ = nullptr;

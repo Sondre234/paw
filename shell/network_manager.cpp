@@ -228,7 +228,7 @@ void NetworkManager::readConnection(const QString &path) {
         [this, generation, path](QDBusPendingCallWatcher *answer) {
             if (generation != generation_ || answer->isError())
                 return;
-            const auto settings = qdbus_cast<Settings>(answer->reply().arguments().value(0));
+            const auto settings = dbus::read<Settings>(answer->reply().arguments().value(0), "a{sa{sv}}");
             connections_[path] = {
                 settings.value("connection").value("type").toString(),
                 QString::fromUtf8(settings.value("802-11-wireless").value("ssid").toByteArray())};

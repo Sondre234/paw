@@ -314,11 +314,32 @@ void TaskModel::sendPlaces() {
     if (sent)
         flush();
 }
-void TaskModel::watchPicture(int taskId, int pixelWidth, bool live) {
-    if (auto *task = find(taskId))
-        pictures_.watch(taskId, task->window, pixelWidth, live);
+void TaskModel::watchPicture(QObject *owner, int taskId, int pixelWidth, bool live) {
+    auto *task = find(taskId);
+    if (!owner || !task)
+        return;
+    if (!watchers_.contains(owner))
+        connect(owner, &QObject::destroyed, this, [this, owner] { unwatchAll(owner); });
+    ++watchers_[owner][taskId];
+    pictures_.watch(taskId, task->window, pixelWidth, live);
 }
-void TaskModel::unwatchPicture(int taskId) { pictures_.unwatch(taskId); }
+void TaskModel::unwatchPicture(QObject *owner, int taskId) {
+    auto found = watchers_.find(owner);
+    if (found == watchers_.end())
+        return;
+    auto count = found->find(taskId);
+    if (count == found->end())
+        return;
+    if (!--*count)
+        found->erase(count);
+    pictures_.unwatch(taskId);
+}
+void TaskModel::unwatchAll(QObject *owner) {
+    const auto watched = watchers_.take(owner);
+    for (auto it = watched.cbegin(); it != watched.cend(); ++it)
+        for (int i = 0; i < it.value(); ++i)
+            pictures_.unwatch(it.key());
+}
 QImage TaskModel::picture(int taskId) const { return pictures_.picture(taskId); }
 QImage windowImage(const TaskModel &tasks, const QString &id) {
     QImage image = tasks.picture(id.section('/', 0, 0).toInt());
@@ -469,6 +490,8 @@ void TaskModel::removed(Task *task) {
         if (tasks_[i].get() == task) {
             beginRemoveRows({}, i, i);
             pictures_.forget(task->id);
+            for (auto &watched : watchers_)
+                watched.remove(task->id);
             const bool peeked = peeked_ == task->id;
             if (task->window)
                 paw_window_v1_destroy(task->window);

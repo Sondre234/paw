@@ -11,29 +11,34 @@ namespace {
 // The windows that can matter: the newest ones, which is what the caller lists first.
 constexpr int max_obstacles = 32;
 
+// Edges in 64 bits: a client's window geometry can be as big as an int holds.
+int64_t right(const sh_rect &r) { return int64_t{r.x} + r.width; }
+int64_t bottom(const sh_rect &r) { return int64_t{r.y} + r.height; }
+
 int64_t overlap(const sh_rect &a, const sh_rect &b) {
-    int64_t w = std::min(a.x + a.width, b.x + b.width) - std::max(a.x, b.x);
-    int64_t h = std::min(a.y + a.height, b.y + b.height) - std::max(a.y, b.y);
+    int64_t w = std::min(right(a), right(b)) - std::max(a.x, b.x);
+    int64_t h = std::min(bottom(a), bottom(b)) - std::max(a.y, b.y);
     return w > 0 && h > 0 ? w * h : 0;
 }
 // The gap between two rectangles that do not overlap: how far apart they are along the axis
 // that separates them (the larger, when both do).
 int64_t gap(const sh_rect &a, const sh_rect &b) {
-    int64_t dx = std::max<int64_t>({0, b.x - (a.x + a.width), a.x - (b.x + b.width)});
-    int64_t dy = std::max<int64_t>({0, b.y - (a.y + a.height), a.y - (b.y + b.height)});
+    int64_t dx = std::max<int64_t>({0, b.x - right(a), a.x - right(b)});
+    int64_t dy = std::max<int64_t>({0, b.y - bottom(a), a.y - bottom(b)});
     return std::max(dx, dy);
 }
 // Coordinates along one axis worth trying for a window `size` long inside [low, high]: flush
 // against the area's ends and against every other window's edges, and centered in each gap
 // between edges.
-std::vector<int> candidates(int low, int high, int size, const std::vector<int> &edges) {
-    std::vector<int> cuts{low, high};
-    for (int edge : edges)
+std::vector<int64_t> candidates(int64_t low, int64_t high, int64_t size,
+                                const std::vector<int64_t> &edges) {
+    std::vector<int64_t> cuts{low, high};
+    for (int64_t edge : edges)
         cuts.push_back(std::clamp(edge, low, high));
     std::sort(cuts.begin(), cuts.end());
     cuts.erase(std::unique(cuts.begin(), cuts.end()), cuts.end());
-    std::vector<int> result;
-    auto add = [&](int position) {
+    std::vector<int64_t> result;
+    auto add = [&](int64_t position) {
         result.push_back(std::clamp(position, low, std::max(low, high - size)));
     };
     for (std::size_t i = 0; i < cuts.size(); ++i) {
@@ -61,33 +66,31 @@ extern "C" bool sh_place_window(sh_place_mode mode, sh_rect area, const sh_rect 
     }
     if (mode == SH_PLACE_SMART && other_count > 0) {
         std::vector<sh_rect> obstacles;
-        std::vector<int> xs, ys;
+        std::vector<int64_t> xs, ys;
         for (int i = 0; i < other_count && static_cast<int>(obstacles.size()) < max_obstacles; ++i) {
             if (overlap(area, others[i]) == 0)
                 continue;
             obstacles.push_back(others[i]);
             xs.push_back(others[i].x);
-            xs.push_back(others[i].x + others[i].width);
+            xs.push_back(right(others[i]));
             ys.push_back(others[i].y);
-            ys.push_back(others[i].y + others[i].height);
+            ys.push_back(bottom(others[i]));
         }
         // Least overlap first, then the most room around it, then the nearest to the middle.
         using Score = std::tuple<int64_t, int64_t, int64_t>;
         Score best{INT64_MAX, 0, 0};
         sh_rect found = *result;
-        const int64_t cx = area.x + area.width / 2, cy = area.y + area.height / 2;
-        for (int y : candidates(area.y, area.y + area.height, height, ys)) {
-            for (int x : candidates(area.x, area.x + area.width, width, xs)) {
-                sh_rect rect{x, y, width, height};
+        const int64_t cx = area.x + int64_t{area.width} / 2, cy = area.y + int64_t{area.height} / 2;
+        for (int64_t y : candidates(area.y, bottom(area), height, ys)) {
+            for (int64_t x : candidates(area.x, right(area), width, xs)) {
+                sh_rect rect{static_cast<int>(x), static_cast<int>(y), width, height};
                 int64_t covered = 0;
                 for (const auto &other : obstacles)
                     covered += overlap(rect, other);
                 if (covered > std::get<0>(best))
                     continue;
-                int64_t room = std::min({static_cast<int64_t>(x - area.x),
-                                         static_cast<int64_t>(area.x + area.width - (x + width)),
-                                         static_cast<int64_t>(y - area.y),
-                                         static_cast<int64_t>(area.y + area.height - (y + height))});
+                int64_t room = std::min({x - area.x, right(area) - (x + width), y - area.y,
+                                         bottom(area) - (y + height)});
                 if (covered == 0)
                     for (const auto &other : obstacles)
                         room = std::min(room, gap(rect, other));
@@ -109,8 +112,8 @@ extern "C" bool sh_place_window(sh_place_mode mode, sh_rect area, const sh_rect 
         // Kept inside a small output, and from the very corner of a big one.
         const int margin = area.width < 80 || area.height < 80 ? 0 : 40;
         const int offset = 40 + 32 * (index % 8);
-        result->x = area.x + (offset + width <= area.width ? offset : margin);
-        result->y = area.y + (offset + height <= area.height ? offset : margin);
+        result->x = area.x + (int64_t{offset} + width <= area.width ? offset : margin);
+        result->y = area.y + (int64_t{offset} + height <= area.height ? offset : margin);
     }
     return true;
 }

@@ -45,7 +45,9 @@ Idle is already quiet: about 0.2 wakeups per second and no frames with nothing t
 ## Where the time goes
 
 `bench.py --profile REQUESTS` samples the compositor under gdb (there is no perf on every
-host; the tool needs only gdb). With 40 windows and a request stream of `toggle_tiling`:
+host; the tool needs only gdb; where there is no gdb either, see
+[Profiling without perf](#profiling-without-perf)). With 40 windows and a request stream of
+`toggle_tiling`:
 
 - about a quarter of the samples are in `refresh_frame`, one third of that in wlroots'
   `wlr_scene_buffer_set_buffer` and its damage/region work, the rest in scene node updates
@@ -315,6 +317,25 @@ before and now, the clock's once-a-minute tick fell inside the ten seconds measu
 as one frame's worth of wakeups (about 9 a second over the ten seconds, llvmpipe's threads
 drawing it); the software renderer draws that frame with less than one wakeup a second.
 
+## Loading the configuration
+
+Since the configuration has a time limit, each load of it (at startup, on a reload, and in the
+shell) runs it twice: in a child process forked to see that it finishes within 3 seconds, then
+for real. `paw --check-config` on the example configuration, with its profiles, took 11 ms a run
+with the child process left out (`fork` made to fail through `LD_PRELOAD`, which loads the
+configuration unchecked) and 19 to 23 ms with it, process start included, 50 runs each on the
+development desktop while other builds ran: some 8 to 12 ms more a load. Forking copies the
+page tables alone, under 1 MB for the running compositor's 230 MB resident.
+
+## Matching window rules
+
+Window rules' patterns are compiled as `[\s\S]*?(?:PATTERN)` and matched from the start of a
+title alone by libstdc++'s breadth-first matcher, rather than searched for by its backtracking
+one from each place in turn. On a title of `a - ` repeated, `(.*) - (.*) - .*x` took 5.8 s at
+512 bytes searched as written and 0.08 ms compiled so; at 64 KB the backtracking matcher
+overflowed its stack, where the breadth-first one took 13 ms. Rules search a title over 1 KiB in
+its first and last 512 bytes, so no title costs more than about 0.1 ms a rule.
+
 ## Not verified
 
 - The shell's motion on a real GPU at 144 or 200 Hz, and what it costs there per frame: the
@@ -328,3 +349,154 @@ drawing it); the software renderer draws that frame with less than one wakeup a 
   minute can change up to three seconds after it should.
 - The compositor-side start of the shell was checked in a private nested session (memory 65 to
   48 MB PSS, no vendor library mapped), not in a standalone one.
+
+# Profiling without perf
+
+`tools/prof/` profiles the compositor and the shell, and soaks them for leaks, on a machine
+with no perf, valgrind, heaptrack, gdb or strace: it needs a C compiler, Python and
+`llvm-symbolizer`. Nothing in the build or the tests depends on it. They are rewritten from the ones the memory
+and safety audit of 2026-10-16 used, which found one real hotspot (the party's confetti) and no
+leak in 40 cycles.
+
+- **`pawprobe.c`** is a library to `LD_PRELOAD`. In each process it picks it samples the CPU
+  (`ITIMER_PROF`, which delivers `SIGPROF` to the thread that used the time, and glibc's
+  `backtrace()` in the handler, one stack written per sample) and logs every 200 ms the live
+  heap (`mallinfo2().uordblks`), mmapped allocations, RSS, open fds, threads, CPU time and the
+  main thread's context switches. It keeps `/proc/self/maps` and the threads' names for
+  naming the samples later. `PAWPROBE_DIR` says where its files go, `PAWPROBE_ONLY=paw,paw-shell`
+  which programs to probe and `PAWPROBE_SKIP_ARG1=msg` leaves `paw msg` alone (the same
+  binary); `PAWPROBE_HZ` (250 by default; the kernel checks the timer on its tick, `CONFIG_HZ`,
+  so more is not had), `PAWPROBE_DEPTH` and `PAWPROBE_LOG_MS` tune it. It cannot be used with
+  the ASan build, whose runtime has to be the first library loaded.
+- **`report.py DIR`** names the samples: each address is mapped through its object's `PT_LOAD`
+  segments and named by `llvm-symbolizer`, inlined functions as frames of their own, then it
+  prints the self and inclusive time by function and the self time by object (and by thread,
+  when there are several). `--thread main` keeps the event loop's samples, `--marks FILE --mark
+  NAME` those inside marked spans (a soak's step, say), and `--collapsed FILE` writes stacks for
+  `flamegraph.pl` or speedscope. System libraries are stripped: their exported functions get
+  names and the rest is `?? (library)`; paw's own frames name their source file.
+- **`soak.py BUILD`** runs a headless paw (`tests/harness.py`'s: its own runtime and state
+  directories, nothing of the real session) under the probe through `--cycles` cycles. Each opens
+  windows (one redrawing on every frame) and goes through the tiling layouts, workspaces, the
+  overview, the switcher, the scratchpad, a group of tabs, the toys, the exploded view, the
+  heatmap, zoom, night light, the appearance profiles and a reload, then closes everything and
+  waits for nothing to move, about 11 s a cycle. It marks each cycle and each step, and leaves
+  the probe's files and the marks in `--out` (`BUILD/prof-soak`). `--shell` runs and probes
+  paw-shell as well; `--skip` leaves steps out.
+- **`heaptrend.py DIR`** takes the least value each process logged inside each cycle, where
+  everything is closed again, and fits a line through those troughs after the first two cycles
+  (caches and pools fill in them): a leak is a steady rise of the heap by more than 1 kB a cycle,
+  or of fds or threads by two or more over the run, with r² over 0.5. It exits with 1 then. Run
+  20 cycles or more: a short soak only shows a large leak.
+- **`featcost.py BUILD`** measures what each feature costs per frame: with four windows, one
+  redrawing on every frame, the time paw spends in `output_frame` (`get frame_times`) over 120
+  frames with the shadows, the blur, tiling, the overview, the switcher, the exploded view, the
+  heatmap, zoom, night light, the party or gravity on, against the same windows with nothing on.
+  `--renderer pixman gles2` measures with both; gles2 renders headless on the GPU's render node
+  and needs no display.
+
+```sh
+python3 tools/prof/soak.py build --cycles 20         # about 4 minutes
+python3 tools/prof/heaptrend.py build/prof-soak
+python3 tools/prof/report.py build/prof-soak --exe paw --thread main
+python3 tools/prof/report.py build/prof-soak --exe paw --marks build/prof-soak/marks --mark toys
+python3 tools/prof/featcost.py build --renderer pixman gles2
+```
+
+To profile something else, such as a nested session or a real one, build the library with
+`python3 tools/prof/pawprobe.py build` (it prints `build/pawprobe.so`; it is a plain
+`cc -O2 -g -shared -fPIC -pthread -o build/pawprobe.so tools/prof/pawprobe.c`) and start paw
+with it:
+
+```sh
+LD_PRELOAD=$PWD/build/pawprobe.so PAWPROBE_DIR=$PWD/build/prof PAWPROBE_ONLY=paw,paw-shell \
+    PAWPROBE_SKIP_ARG1=msg build/paw
+python3 tools/prof/report.py build/prof --exe paw-shell
+```
+
+## Example output
+
+From a six-cycle soak and a run of `featcost.py` on the development desktop (24 threads, an RTX
+4090), `RelWithDebInfo`, while other builds ran; the troughs and the per-frame times move with
+that load. The profile of the soak's toys step, the party's confetti included:
+
+```
+$ python3 tools/prof/report.py build/prof-soak --exe paw --marks build/prof-soak/marks --mark toys --top 30
+paw 132541: 1269 samples 4000 us of CPU apart, about 5.1 s, in 1 thread
+...
+inclusive time, by function
+...
+  70.8%      899  output_frame (output.c)
+  59.3%      753  toys_tick (toys.c)
+  34.4%      436  wlr_scene_output_commit (libwlroots-0.20.so)
+  34.0%      432  wlr_scene_output_build_state (libwlroots-0.20.so)
+  27.3%      346  move_confetti (toys.c)
+  26.5%      336  wlr_scene_node_set_enabled (libwlroots-0.20.so)
+  26.1%      331  pixman_image_composite32 (libpixman-1.so.0.46.4)
+  24.0%      305  timer_fired (toys.c)
+  19.8%      251  pixman_region32_subtract (libpixman-1.so.0.46.4)
+  ...
+```
+
+```
+$ python3 tools/prof/heaptrend.py build/prof-soak
+paw.132541: 6 cycles, troughs:
+cycle     live heap       mmapped           RSS           fds       threads
+    1      934.7 kB      136.0 kB    17540.0 kB            21             2
+    2     2599.6 kB      500.0 kB    21248.0 kB            22             2
+    3     2598.5 kB      500.0 kB    20436.0 kB            21             2
+    4     2603.3 kB      500.0 kB    20436.0 kB            21             2
+    5     2598.2 kB      500.0 kB    20388.0 kB            21             2
+    6     2607.7 kB      500.0 kB    21288.0 kB            22             2
+
+growth per cycle over cycles 3 to 6:
+  live heap      +2.23 kB  r² 0.42   first to last +9.1 kB
+    mmapped      +0.00 kB  r² 0.00   first to last +0.0 kB
+        RSS    +250.80 kB  r² 0.56   first to last +852.0 kB
+        fds      +0.30     r² 0.60   first to last +1.0
+    threads      +0.00     r² 0.00   first to last +0.0
+no leak: the heap grows by less than 1.0 kB a cycle or not steadily, and fds and threads do not keep rising
+```
+
+The first cycle's trough is the compositor before any window opened; the heap settles in the
+second, keeping what the first use of each feature keeps, and from then on stays within a few
+kilobytes. Six cycles are too few to rule out a small leak; they are here to show the output.
+
+```
+$ python3 tools/prof/featcost.py build --renderer pixman gles2
+pixman: time in output_frame per frame, 4 windows (one redrawing), 1280x720
+feature      frames   p50 us   p95 us   max us  p50 - baseline
+baseline        121       69       84       89
+shadows         121      149     2766     3624             +80
+blur            120     2385     4480     6942           +2316
+tiling          120      128     1570     2011             +59
+overview        121      906     1106     5491            +837
+switcher        121       64      356     2611              -5
+xray            120     1216     6236     8924           +1147
+heatmap         121       93    10058    12669             +24
+zoom            121     1301     1686    11611           +1232
+night_light     120       63       74      981              -6
+party           120     1069     1670     3054           +1000
+gravity         121      180      362      428            +111
+
+gles2: time in output_frame per frame, 4 windows (one redrawing), 1280x720
+feature      frames   p50 us   p95 us   max us  p50 - baseline
+baseline        120      239      265      452
+shadows         122      296      442     2983             +58
+blur            120      300      487     3429             +60
+tiling          121      257      308      607             +18
+overview        122      381      541     2509            +142
+switcher        120      246      320      478              +6
+xray            121     2123     4756     7769           +1884
+heatmap         121      260     2059     5089             +21
+zoom            121      572      929     4162            +333
+night_light     122      246      564     3656              +6
+party           120     1237     1934     7992            +998
+gravity         120      294      367     2736             +55
+```
+
+With pixman, translucent windows over the blur cost about 2.3 ms a frame and zoom 1.2 ms; on the
+GPU 0.06 and 0.3 ms. The exploded view and the party cost one to two milliseconds a frame with
+either renderer, so it is not the drawing; for the party, the profile above shows the confetti's
+scene updates. The heatmap's median frame costs nothing more, but its picture, drawn again twice
+a second, makes the p95 frames 2 to 10 ms.

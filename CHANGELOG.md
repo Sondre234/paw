@@ -104,6 +104,11 @@ shadows.
 - Icons follow the desktop's icon theme (GNOME's setting, GTK's `settings.ini` or KDE's
   `kdeglobals`) when no Qt platform theme names one, rather than hicolor alone, and fall back to
   Breeze, Adwaita or Papirus, so that generic icons are found.
+- The lock screen follows the appearance profile: the stock `swaylock -f` shows the profile's
+  wallpaper (the one picked from the panel too) and draws its ring in the shell's panel, accent,
+  text, border and urgent colours with its font, where every rice locked to swaylock's plain
+  grey. A swaylock configuration of your own, another `power.lock_command` or
+  `power.lock_style = false` leaves swaylock as it is.
 
 ### The tiling bar
 
@@ -490,9 +495,12 @@ shadows.
   workspaces of the monitor under the pointer by default (`zoom.scroll_modifier = "Super"` still
   zooms). A window being moved with the pointer comes along to the workspace its monitor switches
   to, by key, wheel, panel or touchpad swipe, still moved, where the switch used to end the move.
-- In the scrolling layout a window opened with the pointer over the first column (or left of it)
-  opens left of it, as the new first column, where every new window used to open right of the
-  focused column and none could reach the start of the strip.
+- In the scrolling layout a window opened with the pointer on a window of the first column opens
+  left of it, as the new first column, where every new window used to open right of the focused
+  column and none could reach the start of the strip. Only a pointer moved there by hand counts:
+  not one a key moving the focus brought along with `mouse.focus_follows`, so focusing the first
+  column by key and opening a window still puts it right of that column, nor one left there by a
+  launcher or floating window that closed, nor one beside the column or on another monitor.
 - In the scrolling layout a column alone on its workspace fills the screen, where a lone window
   used to take half of it, and takes its width back when another opens beside it.
   `layout.scroll.fill_lone = false` keeps it at its width; a width set by hand stays, alone too.
@@ -577,6 +585,11 @@ shadows.
   and a half minutes and the monitors go off at ten; nothing locks or suspends unless set. Idle
   inhibitors (videos playing) hold every step off, swayidle and the like work as before through
   `ext-idle-notify-v1`, and `paw msg get idle` tells where the steps are.
+- Keep awake, for reading, a presentation or a long download: a Keep awake tile (a coffee cup)
+  beside Night light in Quick Settings and Control Center, the `keep_awake_toggle`,
+  `keep_awake_on` and `keep_awake_off` actions (none bound) and the command palette hold every
+  idle step off until it is turned off again, and tell swayidle and the like the seat is
+  inhibited too.
 - The clamshell mode KDE and Windows have: closing a laptop's lid while another monitor is on
   turns the built-in panel off, its windows moving to the other monitor as when it is unplugged,
   and opening it brings the panel and its windows back; a lid closed at startup holds the panel
@@ -628,6 +641,13 @@ shadows.
   `power-dialog`, `palette`, `palette-empty`, `switcher` (with pictures of the windows in the
   taskbar style, and its grid of icons as `switcher-icons`) and `overview`, and a search finding
   nothing as `launcher-empty`.
+- `tools/prof/` profiles paw and paw-shell and soaks them for leaks on a machine without perf,
+  valgrind or gdb: `pawprobe.c`, preloaded, samples the CPU and logs the heap, RSS, fds and
+  threads; `report.py` names the samples with `llvm-symbolizer` and sums the time by function
+  and library, or writes stacks for a flame graph; `soak.py` runs a headless paw (and the shell)
+  through cycles of windows and features, and `heaptrend.py` tells a leak from noise over them;
+  `featcost.py` measures what each feature costs per frame, with pixman and on the GPU. See
+  [docs/performance.md](docs/performance.md#profiling-without-perf).
 
 ### Commands
 
@@ -688,6 +708,13 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   lock, draws frames only while it moves, and wears a black coat on light profiles and a cream one
   on dark ones. The `cat` action (`paw cat [on|off|toggle]`), `cat.enabled`, `cat.coat`,
   `cat.scale` and `cat.sleep_after`, and `paw msg get cat`.
+- The desktop cat can be petted: stroke it with the pointer, slowly back and forth over its back,
+  and it purrs with its eyes shut in happy arcs and pink cheeks, breathing, while small pink pixel
+  hearts float up from it and fade, until two seconds after you stop. A sleeping cat purrs in its
+  sleep instead of waking, and sleeps on after; other input still wakes it, now a second later.
+  Petted for eight seconds on end, it swats at the pointer and walks off, and wants no more of it
+  for a few seconds. `paw msg get cat` says `purr` (and `swat`), `paw cat` that it purrs, and
+  `paw wrapped` how many times you petted it.
 - `paw wrapped` tells you about your time at the desktop as Spotify Wrapped does about a year of
   music, in bold, coloured cards: how far the mouse travelled ("about 39 football pitches"),
   clicks, scrolling, key presses against a novel, windows opened, dragged and snapped, workspace
@@ -792,6 +819,65 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   worst frames halved) and drops no frames for it: its 240 pieces change out of the scene's
   sight and come back together, where the scene worked out what to draw again after each of
   some 700 changes a frame.
+- A media player's cover art loads only from a file, the web or a `data:` URL. A program on the
+  session bus posing as a player could name one of the shell's own pictures (`image://notify/…`,
+  `tray`, `windows` or `clipboard`) as its cover, which the media card then read from Qt Quick's
+  loading thread while the GUI thread changed it, a possible crash; those pictures are now served
+  on the GUI thread alone.
+- Scrolling through a folder of wallpapers in the picker no longer risks a crash as thumbnails
+  come in: each was said to be done from the thread that made it, and Qt Quick could free it
+  while that was still under way.
+- The shell checks the types of what BlueZ, NetworkManager and power-profiles-daemon send before
+  reading it, as it does for media players and notifications, so a daemon of another version
+  sending a value of another type no longer crashes it; such a value counts as none.
+- `overview.hot_corner` is a hot corner like those `hot_corners` binds: it waits
+  `hot_corners.delay` in the `hot_corners.size` square and does nothing over a fullscreen game
+  or video or during a drag, where it opened the overview the moment the pointer touched the
+  corner's last two pixels. A corner both settings claim is an error, rather than the overview
+  opening and closing again. Hot corners now also keep still while a button is held (a text
+  selection dragged into one ran its request), and act on the monitor whose corner it is, as
+  mouse bindings do, rather than on the one with the focus.
+- `paw import` no longer aborts or hangs on a `hyprland.lua` whose tables have an `__index` that
+  raises an error, never returns or changes the table it is in: it reads what the script built
+  without running the script's code. A script that sets a `__gc`, which Lua would run out of the
+  instruction budget's reach, or that catches the budget's error with `pcall` and loops on, is
+  stopped there. Each import ends with the error in its report.
+- Smart window placement no longer overflows on a window whose client set its geometry near the
+  largest size an integer holds, which could open the next window on top of it.
+- `paw msg type` refuses the bytes 0xF8 to 0xFF, which start no UTF-8 character, where it typed
+  `F8 80 80` as U+8000.
+- paw compiles with clang: the files that include `rice.hpp` did not, so clang-tidy and clangd
+  could not read them either.
+- A configuration that keeps one of Lua's C functions busy (a string pattern that backtracks
+  without end, `(""):rep(2^60)`) no longer freezes the desktop and the shell as it loads, and
+  one that asks for more than 64 MiB of memory no longer gets it: it loads first in a child
+  process given 3 seconds, and one that runs over or asks for more is an error like any other,
+  the default configuration standing in.
+- Window rules match a title or app ID in time that grows at most linearly with it, and in one
+  over 1 KiB search only its first and last 512 bytes. A rule such as `(.*) - (.*) - .*x` took
+  6 seconds on a title of 512 bytes and minutes on one of a few KB, the compositor frozen
+  meanwhile, and a title of 64 KB could crash it. An unknown setting with a name a megabyte
+  long is refused at once, where looking for the name it might be a typo of took seconds.
+- Connections to the control socket that never send a request are closed after five seconds,
+  and at most 64 wait at once, where paw kept every one until it ran out of file descriptors:
+  then no new window could open, and the compositor spun a core failing to take the next
+  connection. Out of descriptors, it now stops taking connections for a moment at a time.
+- A drag of nothing (without a data source, as an application may start within its own window)
+  no longer crashes paw once XWayland is up, whose window manager in wlroots 0.20 read the
+  missing source; it is turned down there.
+- A taskbar destroyed with the card of window pictures open, or with a button's pictures warmed
+  up (its monitor unplugged, the lid closed while docked), lets the windows' captures go; each
+  window used to keep one running, some 30 copies a second, until it closed.
+- The polkit agent no longer asks polkit's helper again without end, crashing the shell, when the
+  helper cannot start: the dialog says the helper failed, or what it said (a locked account),
+  and tries again when the user answers. A password gets three tries, as with `sudo`, after
+  which the request fails.
+- A program pasting from the clipboard history that reads nothing for ten seconds is given up,
+  where the shell kept its pipe and a copy of the entry (up to 16 MB for a picture) for good.
+- An idle inhibitor holds the screens awake only while its window shows, as the protocol says and
+  sway does: a video minimized, left on another workspace, on a monitor turned off or behind the
+  lock no longer keeps the screens from dimming and turning off. `paw msg get idle` lists each
+  inhibitor, what it is on and whether it applies.
 
 ## 0.1.1 (2026-10-05)
 

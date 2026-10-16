@@ -1084,6 +1084,9 @@ void ShellController::subscribe() {
             } else if (line.startsWith("profile-schedule ")) {
                 // profile-schedule on|off: the profile in use is the one the schedule wants.
                 setProfileScheduled(line.sliced(17) == "on");
+            } else if (line.startsWith("keep-awake ")) {
+                // keep-awake on|off
+                setKeepAwake(line.sliced(11) == "on");
             } else if (line.startsWith("notice ")) {
                 const auto fields = line.sliced(7).split('\t');
                 notice(fields[0], fields.value(1));
@@ -1283,6 +1286,7 @@ void ShellController::subscribe() {
         power_.setAvailable("-");
         setNightLight(false, {});
         setProfileScheduled(false);
+        setKeepAwake(false);
         setBindingMode({});
         caption_.hide(); // nothing narrates it any more
         if (!urgentWindows_.isEmpty()) {
@@ -1311,6 +1315,12 @@ void ShellController::setProfileScheduled(bool on) {
         return;
     profileScheduled_ = on;
     Q_EMIT profileScheduledChanged();
+}
+void ShellController::setKeepAwake(bool on) {
+    if (on == keepAwake_)
+        return;
+    keepAwake_ = on;
+    Q_EMIT keepAwakeChanged();
 }
 void ShellController::setNightLight(bool on, const QString &mode) {
     if (on == nightLight_ && mode == nightLightMode_)

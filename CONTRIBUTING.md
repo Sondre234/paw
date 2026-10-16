@@ -32,6 +32,9 @@ checks the context-property design makes meaningless); it should print nothing.
 `tools/shell_gallery.py build OUT_DIR` saves a picture of every popup of the taskbar, in a light
 and a dark theme, drawn in software and through the GPU, to look at a change to the shell with
 (see [Seeing a change](docs/architecture.md#seeing-a-change)).
+`tools/prof/` profiles paw and the shell and soaks them for leaks without perf, valgrind or
+gdb, and measures what each feature costs per frame (see
+[Profiling without perf](docs/performance.md#profiling-without-perf)).
 
 ## Committing
 

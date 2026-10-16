@@ -192,6 +192,35 @@ class MediaDbusTest : public QObject {
         QTRY_VERIFY(media_->playing());
         QCOMPARE(media_->identity(), QString("Player malformed"));
     }
+    // A cover from a file, the web or data shows; one of another kind, such as image:// naming
+    // the shell's own pictures, which the card would read from Qt Quick's loading thread, does
+    // not.
+    void cover() {
+        FakePlayer player(bus_, "cover");
+        QVERIFY(player.start());
+        media_ = std::make_unique<Mpris>(bus_.connect());
+        QTRY_VERIFY(media_->available());
+        QCOMPARE(media_->art(), QString("file:///tmp/cover.png"));
+        int track = 1;
+        auto announce = [&](const QString &url) {
+            auto metadata = FakePlayer::metadata(QString("Song %1").arg(++track), "/track/1");
+            metadata["mpris:artUrl"] = url;
+            player.object.set(playerInterface, "Metadata", metadata);
+        };
+        for (const char *url : {"https://example.org/cover.jpg", "HTTP://example.org/cover.jpg",
+                                "data:image/png;base64,iVBORw0KGgo="}) {
+            announce(url);
+            QTRY_COMPARE(media_->title(), QString("Song %1").arg(track));
+            QCOMPARE(media_->art(), QString(url));
+        }
+        for (const char *url : {"image://notify/1/1", "image://tray/1/1", "image://windows/1/1",
+                                "image://clipboard/1/1", "image://icons/firefox", "qrc:/shell/cover.png",
+                                "/tmp/cover.png", "ftp://example.org/cover.jpg"}) {
+            announce(url);
+            QTRY_COMPARE(media_->title(), QString("Song %1").arg(track));
+            QVERIFY2(media_->art().isEmpty(), url);
+        }
+    }
     // A name only like a player's, and playerctld's stand-in for another, are not players.
     void notPlayers() {
         FakePlayer proxy(bus_, "playerctld", "Playing");

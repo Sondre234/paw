@@ -231,7 +231,6 @@ struct sh_overview {
     int drop;         /* workspace cell under a dragged thumbnail, else -1 */
     uint32_t pressed; /* buttons the overview took; their releases are its too */
     double scroll;    /* wheel motion not yet enough to change the workspace */
-    bool in_corner;   /* the pointer is in the hot corner: it opens the overview on entering */
     /* Snap Assist (overview_assist): the overview in the free slot beside a window just snapped,
      * `assist_from`, listing the output's other windows to put into `assist_slot` (an
      * arrangement); `area` is the slot, and its backdrop is rounded by `assist_radius`. */
@@ -478,6 +477,14 @@ struct sh_server {
      * `spawn_until` (now_ms) is centered there. */
     double spawn_x, spawn_y;
     int64_t spawn_until;
+    /* Where the user last moved the pointer to, with a pointer's own motion rather than a warp,
+     * and whether a tile was under it there; `moving` while that motion is handled. Only a
+     * pointer put on a tile, and still there, opens a new column first in the scroll layout
+     * (pointed_tile). */
+    struct {
+        bool moving, tile;
+        double x, y;
+    } pointed;
     struct wlr_scene_tree *backgrounds;
     struct wlr_scene_tree *windows;
     // Over `windows`: floating windows with layout.floating_above_tiles, and windows kept above
@@ -528,7 +535,8 @@ struct sh_server {
     bool grab_fullscreen; // the grabbed window is fullscreen until it is dragged far enough
     unsigned scratchpad_serial;  // counts windows put into the scratchpad, to order them
     bool scratchpad_off_logged;  // said once that features.scratchpad is off
-    struct wlr_output *grab_output; // where the grabbed window was when the grab began
+    // Where the grabbed window was when the grab began; NULL once that output is gone.
+    struct wlr_output *grab_output;
     /* The window switcher: a list of every window taken as it opens, most recently focused
      * first. It stays open while `modifiers` (the opening binding's, less Shift) are all held,
      * or with none until confirmed or cancelled; the shell draws it on `output`. */
@@ -620,6 +628,8 @@ struct sh_server {
     char sent_state[8192];      // the state they last received
     char control_path[108];
     struct wl_event_source *control_source;
+    struct wl_event_source *control_resume; // watches it again after running out of descriptors
+    bool control_starved; // out of descriptors since the last connection taken; said once
     struct wlr_scene_tree *layer_trees[4];
     struct wl_list layers;
     struct wl_listener new_layer_surface;
@@ -685,8 +695,12 @@ struct sh_server {
      * off, which input does not undo for a moment. */
     struct wl_listener output_power_set_mode;
     int64_t displays_off_at;
+    /* Idle inhibitors (lock.c), and how many of them apply now, their surfaces being shown;
+     * keep awake (the keep_awake actions) holds the idle steps off as one does. */
     struct wl_listener new_inhibitor;
-    int inhibitors;
+    struct wl_list idle_inhibitors; // sh_inhibitor.link
+    int inhibitors_applying;
+    bool keep_awake;
     struct wl_display *wl_display;
     struct wlr_backend *backend;
     char pending_output_name[64]; // the name the next headless output takes, for tests
@@ -748,6 +762,7 @@ struct sh_server {
     struct wl_listener request_set_selection, request_set_primary_selection;
     struct wl_listener request_start_drag, start_drag;
     struct wl_listener drag_end; // on the drag under way, which there is one of at most
+    bool refusing_drag;          // a drag turned down is started to end at once (refuse_drag)
     struct wlr_scene_tree *drag_icons; // follows the cursor during drag-and-drop
     struct wl_listener request_activate;
     struct wlr_relative_pointer_manager_v1 *relative_pointer;
@@ -1281,6 +1296,7 @@ void show_xcursor(struct sh_server *server, const char *name);
 void cursor_hide(struct sh_server *server);
 void cursor_show(struct sh_server *server);
 struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y);
+struct sh_toplevel *pointed_tile(struct sh_server *server, struct sh_toplevel *except);
 struct wlr_surface *press_target_at(struct sh_server *server, double x, double y, double *sx,
                                     double *sy, struct sh_node **owner);
 void seat_pointer_focus_change(struct wl_listener *listener, void *data);
@@ -1501,6 +1517,11 @@ void server_new_lock(struct wl_listener *listener, void *data);
 void session_active(struct wl_listener *listener, void *data);
 #endif
 void server_new_inhibitor(struct wl_listener *listener, void *data);
+void idle_inhibitors_follow(struct sh_server *server);
+void set_keep_awake(struct sh_server *server, bool on);
+void describe_idle_inhibitors(struct sh_server *server, int fd,
+                              void (*surface)(struct sh_server *, int, const char *,
+                                              struct wlr_surface *));
 
 /* minimize.c */
 void set_window_rect(struct sh_toplevel *toplevel, const char *output, int64_t x, int64_t y,
@@ -1597,7 +1618,6 @@ void overview_set_filter(struct sh_server *server, const char *text);
 void overview_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
 bool overview_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
 bool overview_motion(struct sh_server *server);
-void overview_hot_corner(struct sh_server *server);
 bool overview_axis(struct sh_server *server, const struct wlr_pointer_axis_event *event);
 
 /* panel_drag.c */
@@ -1763,6 +1783,7 @@ bool output_tiles(struct sh_server *server, struct wlr_output *output);
 bool tiles_for(struct sh_toplevel *toplevel, struct wlr_output *output);
 struct wlr_output *home_output(struct sh_toplevel *toplevel);
 bool wants_tiling(struct sh_toplevel *toplevel, struct wlr_output *output);
+bool cursor_places_tile(struct sh_toplevel *toplevel, struct wlr_output *output);
 void tile_toplevel_at(struct sh_toplevel *toplevel, struct wlr_output *output,
                       struct sh_toplevel *target, bool has_point, double x, double y);
 void tile_toplevel(struct sh_toplevel *toplevel, struct wlr_output *output,

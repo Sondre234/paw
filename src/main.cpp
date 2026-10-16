@@ -4,6 +4,7 @@
 #include "paw/config.hpp"
 #include "paw/config_schema.hpp"
 #include "paw/import.hpp"
+#include "paw/lock_style.hpp"
 #include "version.h"
 #include <wlr/version.h>
 
@@ -791,7 +792,8 @@ struct Runtime {
             return 0;
         }
     }
-    /* power.lock_command: whether it can lock, and with `start` starting it. */
+    /* power.lock_command: whether it can lock, and with `start` starting it, in the profile's
+     * look with power.lock_style (src/lock_style.cpp). */
     static bool lock(void *data, bool start, char *error, size_t error_size) {
         auto &self = *static_cast<Runtime *>(data);
         const auto &command = self.config.power.lock_command;
@@ -803,7 +805,8 @@ struct Runtime {
             else
                 self.locker_problem = "";
         }
-        if (self.locker_problem->empty() && start && spawn(command) < 0)
+        if (self.locker_problem->empty() && start &&
+            spawn(paw::lock_command(self.config, paw::lock_style_context(self.path))) < 0)
             std::snprintf(error, error_size, "cannot start %s", command.front().c_str());
         else if (!self.locker_problem->empty())
             std::snprintf(error, error_size, "no screen locker: %s", self.locker_problem->c_str());

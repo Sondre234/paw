@@ -31,7 +31,7 @@ add_library(paw_config STATIC src/curve.c src/session.c src/tabs.c src/config.cp
     src/config_schema.cpp src/layout.cpp src/tiling.cpp
     src/overview_layout.cpp src/window_placement.cpp
     src/import/common.cpp src/import/hyprland.cpp src/import/waybar.cpp src/import/import.cpp
-    src/autostart.cpp)
+    src/autostart.cpp src/lock_style.cpp)
 target_include_directories(paw_config PUBLIC include)
 target_link_libraries(paw_config PRIVATE paw_effects PkgConfig::LUA PUBLIC PkgConfig::XKB)
 target_compile_options(paw_config PRIVATE -Wall -Wextra -Wpedantic)
@@ -147,6 +147,7 @@ if(BUILD_TESTING)
     paw_smoke(docs_consistency ${CMAKE_CURRENT_SOURCE_DIR})
     paw_smoke(session_wrapper SCRIPT session_wrapper_test.py
         ${CMAKE_CURRENT_SOURCE_DIR}/packaging/paw-session)
+    paw_smoke(prof_tools SCRIPT prof_tools_test.py ${CMAKE_CURRENT_SOURCE_DIR}/tools/prof)
     paw_unit_test(layout)
     paw_unit_test(curve)
     paw_unit_test(window_placement)
@@ -165,6 +166,7 @@ if(BUILD_TESTING)
     paw_unit_test(urgent_config)
     paw_unit_test(productivity)
     paw_unit_test(power_config)
+    paw_unit_test(lock_style ${EXAMPLE_CONFIG})
     paw_unit_test(autostart)
     paw_unit_test(display_power_config)
     paw_unit_test(output_config)
@@ -644,6 +646,8 @@ if(PAW_BUILD_COMPOSITOR)
                 DEPENDS ${PROTOCOL_DIR}/${PROTOCOL}.xml)
         endforeach()
         paw_probe(idle_probe tests/idle_probe.c
+            ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
+            ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit-unstable-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit-unstable-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-client-protocol.h
@@ -834,8 +838,9 @@ if(PAW_BUILD_COMPOSITOR)
         find_program(SLURP slurp)
         paw_smoke(screenshot_select_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "$<$<BOOL:${SLURP}>:${SLURP}>" "${GRIM_ARGUMENT}")
-        paw_smoke(idle_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
-            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(idle_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> $<TARGET_FILE:window_probe>
+            "${GRIM_ARGUMENT}")
         paw_smoke(urgent_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(urgent_border_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")
@@ -884,6 +889,7 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c)
         paw_smoke(session_lock SCRIPT lock_smoke.py $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>
             ${EXAMPLE_CONFIG} $<TARGET_FILE:input_probe>)
+        paw_smoke(lock_style_smoke $<TARGET_FILE:paw>)
         paw_smoke(binding_modes_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(locked_bindings_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(shortcuts_inhibit_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
@@ -933,6 +939,8 @@ if(PAW_BUILD_COMPOSITOR)
                 $<TARGET_FILE:wayland_probe>)
             paw_smoke(xwayland_grab_smoke $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe>
                 $<TARGET_FILE:wayland_probe>)
+            paw_smoke(xwayland_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe>
+                $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
         else()
             message(STATUS "XWayland test skipped: needs an Xwayland binary and wlroots X support")
         endif()
