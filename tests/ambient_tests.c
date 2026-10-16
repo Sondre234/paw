@@ -8,6 +8,10 @@
 #include <string.h>
 #include "check.h"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 enum { COUNT = 60 };
 static const double WIDTH = 1920, HEIGHT = 1080, TICK = 33;
 
@@ -205,8 +209,36 @@ static void test_paint(void) {
     CHECK(glow > 20, "%d", glow);
 }
 
+/* A petal's turn picks one of its pictures and the quarter turns the screen adds, whichever way
+ * and however far it turned. */
+static void test_petal_turn(void) {
+    const double unit = M_PI / 2 / SH_AMBIENT_TURNS;
+    int step, quarters;
+    sh_ambient_petal_turn(0, &step, &quarters);
+    CHECK(step == 0 && quarters == 0);
+    sh_ambient_petal_turn(2 * unit, &step, &quarters);
+    CHECK(step == 2 && quarters == 0, "%d %d", step, quarters);
+    sh_ambient_petal_turn(M_PI / 2 + unit, &step, &quarters);
+    CHECK(step == 1 && quarters == 1, "%d %d", step, quarters);
+    sh_ambient_petal_turn(-unit, &step, &quarters);
+    CHECK(step == SH_AMBIENT_TURNS - 1 && quarters == 3, "%d %d", step, quarters);
+    sh_ambient_petal_turn(9 * M_PI, &step, &quarters); // half a turn, four and a half times over
+    CHECK(step == 0 && quarters == 2, "%d %d", step, quarters);
+    sh_ambient_petal_turn(NAN, &step, &quarters);
+    CHECK(step == 0 && quarters == 0);
+    // Each pink's and length's first picture, clamped to those there are.
+    CHECK(sh_ambient_petal_sprite(0, 0) == 0);
+    CHECK(sh_ambient_petal_sprite(0, 1) == SH_AMBIENT_TURNS);
+    CHECK(sh_ambient_petal_sprite(1, 0) == 3 * SH_AMBIENT_TURNS);
+    CHECK(sh_ambient_petal_sprite(9, 9) ==
+          sh_ambient_sprite_count(SH_AMBIENT_SAKURA) - SH_AMBIENT_TURNS);
+    CHECK(sh_ambient_sprite_side(SH_AMBIENT_SAKURA, sh_ambient_petal_sprite(0, 0)) <
+          sh_ambient_sprite_side(SH_AMBIENT_SAKURA, sh_ambient_petal_sprite(0, 2)));
+}
+
 int main(void) {
     test_names();
+    test_petal_turn();
     test_motion();
     test_repeatable();
     test_paint();
