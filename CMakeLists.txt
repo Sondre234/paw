@@ -836,6 +836,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(gradient_border_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")
         paw_smoke(dim_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(cursor_shake_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
+            "${GRIM_ARGUMENT}")
         find_program(SLURP slurp)
         paw_smoke(screenshot_select_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "$<$<BOOL:${SLURP}>:${SLURP}>" "${GRIM_ARGUMENT}")
