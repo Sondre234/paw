@@ -274,6 +274,7 @@ int main(int argc, char **argv) {
     QStringList nudges; // "workspace_nudge OUTPUT next|prev", the panel's wheel past either end
     int layoutSwitches = 0; // "switch_layout next" requests, answered with the second layout
     bool nightLight = false; // what "night_light_toggle" turns, and the state it then announces
+    bool keepAwake = false;  // the same for "keep_awake_toggle"
     bool holdSessions = false;
     QString powerRefusal; // what the compositor answers a power action with; "" for ok
     QLocalSocket *pendingSessions = nullptr;
@@ -327,6 +328,12 @@ int main(int argc, char **argv) {
                 client->write("ok\n");
                 client->disconnectFromServer();
                 subscriber->write(nightLight ? "night-light on on\n" : "night-light off off\n");
+            } else if (request == "keep_awake_toggle\n") {
+                requests.push_back("keep_awake_toggle");
+                keepAwake = !keepAwake;
+                client->write("ok\n");
+                client->disconnectFromServer();
+                subscriber->write(keepAwake ? "keep-awake on\n" : "keep-awake off\n");
             } else if (request.startsWith("mode ")) {
                 requests.push_back(QString::fromUtf8(request).trimmed());
                 client->write("ok\n");
@@ -1090,6 +1097,15 @@ int main(int argc, char **argv) {
     subscriber->write("night-light off off\n");
     if (!waitFor([&] { return !controller.nightLight() && controller.nightLightMode() == "off"; }))
         return fail("a change of night light was not read");
+    // And whether keep awake holds the idle steps off.
+    if (controller.keepAwake())
+        return fail("keep awake is on before the compositor says");
+    subscriber->write("keep-awake on\n");
+    if (!waitFor([&] { return controller.keepAwake(); }))
+        return fail("keep awake the compositor reports was not read");
+    subscriber->write("keep-awake off\n");
+    if (!waitFor([&] { return !controller.keepAwake(); }))
+        return fail("keep awake turned off was not read");
     // Battery and network widgets show what a (fake) sysfs reports, and only where it exists.
     {
         QDir sys(screens.filePath("sys"));
@@ -5616,7 +5632,8 @@ ListModel {
         if (!quick || !waitFor([&] { return inPopover(quick); }))
             return fail("clicking the Quick Settings button did not open its flyout");
         auto tile = [&](const QString &name) { return find(quick, "quickTile:" + name); };
-        for (const char *name : {"dnd", "nightLight", "tiling", "profiles", "wallpapers", "network"})
+        for (const char *name :
+             {"dnd", "nightLight", "keepAwake", "tiling", "profiles", "wallpapers", "network"})
             if (!tile(name) || !tile(name)->isVisible()) {
                 std::cerr << "Quick Settings has no " << name << " tile\n";
                 return 1;
@@ -5641,6 +5658,14 @@ ListModel {
         click(tile("nightLight"));
         if (!waitFor([&] { return !tile("nightLight")->property("checked").toBool(); }))
             return fail("the night light tile did not toggle it back");
+        requests.clear();
+        click(tile("keepAwake"));
+        if (!waitFor([&] { return tile("keepAwake")->property("checked").toBool(); }) ||
+            requests != QStringList{"keep_awake_toggle"})
+            return fail("the keep awake tile did not ask the compositor to toggle it");
+        click(tile("keepAwake"));
+        if (!waitFor([&] { return !tile("keepAwake")->property("checked").toBool(); }))
+            return fail("the keep awake tile did not toggle it back");
         const bool tiled = panelTiling();
         click(tile("tiling"));
         if (!waitFor([&] { return panelTiling() != tiled && tile("tiling")->property("checked").toBool() != tiled; }))

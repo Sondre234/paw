@@ -3611,8 +3611,10 @@ and its title, `layer` and its namespace, or `other` and `-`.
 applies would, until `keep_awake_off` (or paw restarting) lets them count again from then;
 `keep_awake_toggle` flips it. It is for reading, a presentation or a long download nobody touches
 the keyboard during. Idle daemons hear the seat is inhibited too, so swayidle waits as well; a
-`suspend` binding or the lid still sleeps. None is bound by default; `paw msg keep_awake_toggle`
-turns it on and off. Subscribers hear `keep-awake on` or `keep-awake off`.
+`suspend` binding or the lid still sleeps. None is bound by default; `paw msg keep_awake_toggle`,
+the command palette's "Keep awake, or not" and the Keep awake tile beside Night light in Quick
+Settings (Control Center in the macOS style), a coffee cup lit while it is on, turn it on and off.
+Subscribers hear `keep-awake on` or `keep-awake off`.
 
 The defaults turn the monitors off after ten minutes and lock and suspend nothing, as the
 screens going dark is what everyone wants and locking and suspending are choices KDE and Windows
