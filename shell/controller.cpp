@@ -119,6 +119,9 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     };
     connect(qGuiApp, &QGuiApplication::screenAdded, this, monitorsChanged);
     connect(qGuiApp, &QGuiApplication::screenRemoved, this, monitorsChanged);
+    // The leftmost screen stands for the primary one until the compositor names it.
+    connect(qGuiApp, &QGuiApplication::screenAdded, this, &ShellController::primaryOutputChanged);
+    connect(qGuiApp, &QGuiApplication::screenRemoved, this, &ShellController::primaryOutputChanged);
     connect(powerMode_.get(), &PowerMode::failed, this, &ShellController::report);
     connect(wifi_.get(), &Wifi::failed, this, &ShellController::report);
     connect(bluetooth_.get(), &Bluetooth::failed, this, &ShellController::report);
@@ -1060,6 +1063,12 @@ void ShellController::subscribe() {
             } else if (line.startsWith("focused ")) {
                 // The output the compositor says has the focus, where overlays for it go.
                 focusedOutput_ = line.sliced(8) == "-" ? QString() : line.sliced(8);
+            } else if (line.startsWith("primary ")) {
+                if (const auto primary = line.sliced(8) == "-" ? QString() : line.sliced(8);
+                    primary != primaryOutput_) {
+                    primaryOutput_ = primary;
+                    Q_EMIT primaryOutputChanged();
+                }
             } else if (line.startsWith("keyboard-layout ")) {
                 // keyboard-layout N COUNT SHORT NAME
                 const auto words = line.split(' ');
@@ -1328,6 +1337,31 @@ void ShellController::setNightLight(bool on, const QString &mode) {
     nightLight_ = on;
     nightLightMode_ = mode;
     Q_EMIT nightLightChanged();
+}
+QString ShellController::taskbarButtons() const {
+    switch (config_.shell.taskbar_buttons) {
+    case paw::ShellConfig::TaskbarButtons::MainAndOwn:
+        return "main_and_own";
+    case paw::ShellConfig::TaskbarButtons::Own:
+        return "own";
+    case paw::ShellConfig::TaskbarButtons::All:
+        break;
+    }
+    return "all";
+}
+QString ShellController::primaryOutput() const {
+    if (!primaryOutput_.isEmpty() && hasOutput(primaryOutput_))
+        return primaryOutput_;
+    // Without a compositor (a preview), or until it has said: the leftmost screen, the topmost
+    // of those at the same x.
+    const QScreen *leftmost = nullptr;
+    for (const auto *screen : QGuiApplication::screens()) {
+        const auto at = screen->geometry().topLeft();
+        if (!leftmost || at.x() < leftmost->geometry().x() ||
+            (at.x() == leftmost->geometry().x() && at.y() < leftmost->geometry().y()))
+            leftmost = screen;
+    }
+    return leftmost ? leftmost->name() : QString();
 }
 bool ShellController::hasOutput(const QString &name) {
     const auto screens = QGuiApplication::screens();

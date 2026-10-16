@@ -212,6 +212,26 @@ the others. With no window left, the launcher shows again in its place; dragging
 the pin. Grouped, a pinned application's button stands for all its windows in the launcher's
 place, and dragging it moves the pin.
 
+With `group_windows = false` the buttons follow the monitors, as on Windows: of an application's
+windows, the one on the monitor further left in the layout (or higher up, of two at the same x)
+has its button further left. A window opening on a monitor left of another of its application's
+goes ahead of that one's button, past the buttons between, and a window moved to another monitor
+moves its button among its application's: after those of the windows on monitors to the left and
+on its own, ahead of those to the right. Nothing else moves a button, so one dragged elsewhere
+keeps its place until its window moves to another monitor, and on one monitor buttons open at the
+end as before. Grouped, an application's button stays where it is, and resting on it shows its
+windows in the order of their monitors.
+
+Which windows each monitor's taskbar shows is `shell.taskbar_buttons`, as Windows' "Show
+taskbar buttons on" (experimental): `"all"` (the default) shows every window on every bar,
+`"main_and_own"` every window on the main monitor's bar and on each other bar only the windows on
+its monitor, and `"own"` on every bar only the windows on its monitor. The main monitor is the
+primary one (`outputs.primary`, or the one the display settings window made primary), else the
+leftmost. But for `"all"`, the pinned applications show on the main monitor's bar alone, a
+launcher there while none of the application's windows is on it; grouped, a button, its count and
+the card of its windows stand for the windows its bar shows. A window moved to another monitor
+takes its button to that monitor's bar. The macOS style's dock shows every window.
+
 Something dragged from an application (a file, text, a link) brings windows forward as on Windows:
 resting the drag on a window's button for half a second brings that window to the front, restored
 onto the workspace shown if it was minimized, else with its own workspace shown, so that the drag
@@ -3037,7 +3057,9 @@ a line per [appearance profile](#appearance-profiles), in name order: its name a
 in use, else `0`; and `paw msg get terminal` the command line the `terminal` action starts, its
 words separated by tabs, or nothing when there is no terminal to start. A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
-`workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
+`workspace N` (the focused monitor's), `primary NAME` (the [primary monitor](#monitors):
+`outputs.primary` or the one the display settings window made primary, else the leftmost; `-` for
+none), one `output NAME N USED TILING` line per monitor
 (as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of
 the workspace it shows (`dwindle`, `master`, `spiral`, `monocle` or `scroll`, as in
 `get layout NAME`), one `touched NAME EDGES` line per monitor with the edges of its free

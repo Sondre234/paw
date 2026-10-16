@@ -121,6 +121,11 @@ class ShellController : public QObject {
     Q_PROPERTY(bool blur READ blur NOTIFY configChanged)
     Q_PROPERTY(Glass *glass READ glass CONSTANT)
     Q_PROPERTY(bool groupWindows READ groupWindows NOTIFY configChanged)
+    // shell.taskbar_buttons: "all", "main_and_own" or "own", which windows each monitor's taskbar
+    // shows, and the main monitor, whose taskbar shows the pinned applications (and with
+    // "main_and_own" every window): the compositor's primary one, else the leftmost screen.
+    Q_PROPERTY(QString taskbarButtons READ taskbarButtons NOTIFY configChanged)
+    Q_PROPERTY(QString primaryOutput READ primaryOutput NOTIFY primaryOutputChanged)
     // shell.thumbnails: whether resting on a taskbar button shows pictures of its windows, after
     // how many milliseconds, how wide each is, and whether they follow the windows while shown.
     Q_PROPERTY(bool thumbnails READ thumbnails NOTIFY configChanged)
@@ -383,6 +388,8 @@ class ShellController : public QObject {
     bool effects() const { return effects_; }
     void setEffects(bool effects);
     bool groupWindows() const { return config_.shell.group_windows; }
+    QString taskbarButtons() const;
+    QString primaryOutput() const;
     bool thumbnails() const { return config_.shell.thumbnails.enabled; }
     int thumbnailDelay() const { return config_.shell.thumbnails.delay; }
     int thumbnailSize() const { return config_.shell.thumbnails.size; }
@@ -586,6 +593,7 @@ class ShellController : public QObject {
     void xrayChanged();
     void xrayHoveredChanged();
     void cardsOutputChanged();
+    void primaryOutputChanged();
     void keyboardLayoutChanged();
     void nightLightChanged();
     void profileScheduledChanged();
@@ -656,6 +664,8 @@ class ShellController : public QObject {
     std::unique_ptr<Wifi> wifi_ = makeWifi();
     std::unique_ptr<Bluetooth> bluetooth_ = makeBluetooth();
     QString focusedOutput_, cardsOutput_;
+    // The primary monitor as the compositor says, empty until it has.
+    QString primaryOutput_;
     QVariantMap keyboardLayout_;
     bool nightLight_ = false;
     QString nightLightMode_;

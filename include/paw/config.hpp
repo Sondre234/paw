@@ -238,6 +238,12 @@ struct ShellConfig {
     bool icons_only = true; // taskbar buttons show the window's icon, its title as a tooltip
     bool software_renderer = false; // renderer = "software": Qt Quick without the GPU, faster to start
     bool group_windows = true; // one taskbar button per application, its windows listed on hover
+    // taskbar_buttons (experimental), as Windows' "Show taskbar buttons on": every bar shows every
+    // window ("all"); the main monitor's bar every window and the others their own monitor's
+    // ("main_and_own"); or every bar its own monitor's alone ("own"). But for "all", pinned
+    // applications' launchers show on the main monitor's bar alone.
+    enum class TaskbarButtons { All, MainAndOwn, Own };
+    TaskbarButtons taskbar_buttons = TaskbarButtons::All;
     // The session's polkit authentication agent: the dialog asking for the password a program
     // needs (pkexec, GParted), unless another agent serves the session already.
     bool polkit_agent = true;

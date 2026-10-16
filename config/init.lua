@@ -368,6 +368,9 @@ return {
         -- icons_only = true, -- taskbar buttons as small icons; false adds each window's title
         -- group_windows = true, -- one button per application, its windows listed on hover;
         --                          false gives every window its own button
+        -- taskbar_buttons = "all", -- experimental: which windows each monitor's taskbar shows,
+        --                           "main_and_own" (all on the main monitor's, else that monitor's)
+        --                           or "own" (each its monitor's); pins on the main one's alone
         -- polkit_agent = true, -- ask for administrator passwords (pkexec, GParted); false
         --                         leaves that to another polkit agent
         -- Resting the pointer on a window's taskbar button shows a small picture of it (a stack's

@@ -920,6 +920,15 @@ const Option options[] = {
      "Taskbar buttons show only the window icon, the title as a tooltip."},
     {"shell.group_windows", "boolean", "true", "true", none, none,
      "One taskbar button per application; `false` gives every window its own."},
+    {"shell.taskbar_buttons", "enum", "\"all\"", "\"main_and_own\"", none, none,
+     "Experimental. Which windows each monitor's taskbar has buttons for, as Windows' \"Show "
+     "taskbar buttons on\": `\"all\"`, every window on every bar; `\"main_and_own\"`, every "
+     "window on the main monitor's bar and on each other bar only the windows on its monitor; "
+     "`\"own\"`, on every bar only the windows on its monitor. The main monitor is the primary "
+     "one (`outputs.primary`, or the one the display settings window made primary), else the "
+     "leftmost. But for `\"all\"`, pinned applications' launchers show on the main monitor's "
+     "bar alone, and a grouped button and its card stand for the windows that bar shows. The "
+     "taskbar style only: the macOS style's dock shows every window."},
     {"shell.polkit_agent", "boolean", "true", "true", none, none,
      "Be the session's polkit authentication agent: a dialog asks for the password a program "
      "needs for what only an administrator may do (`pkexec`, GParted, an updater). It stays "

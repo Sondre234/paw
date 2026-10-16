@@ -931,6 +931,17 @@ int main(int argc, char **argv) {
         rejects("return {shell={panel_margin={middle=1}}}");
         rejects("return {shell={font_size=2}}");
         rejects("return {shell={group_windows=1}}");
+        using TaskbarButtons = paw::ShellConfig::TaskbarButtons;
+        require(even.shell.taskbar_buttons == TaskbarButtons::All &&
+                    paw::parse_config("return {shell={taskbar_buttons='main_and_own'}}")
+                            .shell.taskbar_buttons == TaskbarButtons::MainAndOwn &&
+                    paw::parse_config("return {shell={taskbar_buttons='own'}}").shell.taskbar_buttons ==
+                        TaskbarButtons::Own &&
+                    paw::parse_config("return {shell={taskbar_buttons='all'}}").shell.taskbar_buttons ==
+                        TaskbarButtons::All,
+                "taskbar_buttons not parsed");
+        rejects("return {shell={taskbar_buttons='main'}}");
+        rejects("return {shell={taskbar_buttons=true}}");
         rejects("return {shell={mirror_menus='yes'}}");
         // The taskbar's window pictures: on by default, each setting read, and their ranges.
         require(even.shell.thumbnails.enabled && even.shell.thumbnails.delay == 400 &&

@@ -15,11 +15,12 @@ namespace {
 // The roles and change signals of the shell's TaskModel, counting how often the filters read it.
 class FakeTasks : public QAbstractListModel {
   public:
-    enum Role { TaskId = Qt::UserRole + 1, Title, AppId, Active, Minimized, Maximized, Urgent };
+    enum Role { TaskId = Qt::UserRole + 1, Title, AppId, Active, Minimized, Maximized, Urgent, Output };
     struct Row {
         int id;
         QString title, appId;
         bool active = false, minimized = false, urgent = false;
+        QString output = {};
     };
     std::vector<Row> rows;
     mutable int reads = 0;
@@ -37,18 +38,28 @@ class FakeTasks : public QAbstractListModel {
         case Minimized: return row.minimized;
         case Maximized: return false;
         case Urgent: return row.urgent;
+        case Output: return row.output;
         }
         return {};
     }
     QHash<int, QByteArray> roleNames() const override {
         return {{TaskId, "taskId"}, {Title, "title"},         {AppId, "appId"},
                 {Active, "active"}, {Minimized, "minimized"}, {Maximized, "maximized"},
-                {Urgent, "urgent"}};
+                {Urgent, "urgent"}, {Output, "output"}};
     }
-    void add(const QString &app, const QString &title) {
+    void add(const QString &app, const QString &title, const QString &output = {}) {
         beginInsertRows({}, int(rows.size()), int(rows.size()));
         rows.push_back({nextId++, title, app});
+        rows.back().output = output;
         endInsertRows();
+    }
+    // Window `id` onto monitor `output`.
+    void move(int id, const QString &output) {
+        for (size_t row = 0; row < rows.size(); ++row)
+            if (rows[row].id == id) {
+                rows[row].output = output;
+                changed(int(row), {Output});
+            }
     }
     void remove(int row) {
         beginRemoveRows({}, row, row);
@@ -71,6 +82,14 @@ class FakeTasks : public QAbstractListModel {
     }
     int nextId = 1;
 };
+// Three monitors side by side and one above the left one.
+std::optional<QPoint> monitorPlace(const QString &output) {
+    static const QHash<QString, QPoint> places{
+        {"left", {0, 0}}, {"main", {1920, 0}}, {"right", {3840, 0}}, {"top", {0, -1080}}};
+    if (auto found = places.constFind(output); found != places.cend())
+        return *found;
+    return std::nullopt;
+}
 } // namespace
 
 class TaskFilterTest : public QObject {
@@ -174,6 +193,47 @@ class TaskFilterTest : public QObject {
         one.setTaskId(-1); // back to the pinned application's windows, of which there are none
         QVERIFY(one.windows().isEmpty());
     }
+    // By monitor, the windows in the order of their monitors, those on one not known last, each
+    // monitor's in the source's order; a window moving to another monitor moves among them.
+    void windowsByMonitor() {
+        FakeTasks tasks;
+        tasks.add("a", "one", "main");
+        tasks.add("a", "two", "left");
+        tasks.add("a", "three");
+        tasks.add("a", "four", "main");
+        TaskFilter filter;
+        filter.setOutputPlace(monitorPlace);
+        filter.setSourceModel(&tasks);
+        QCOMPARE(taskIds(filter), (QList<int>{1, 2, 3, 4}));
+        filter.setByMonitor(true);
+        QCOMPARE(taskIds(filter), (QList<int>{2, 1, 4, 3}));
+        tasks.move(1, "right");
+        QCOMPARE(taskIds(filter), (QList<int>{2, 4, 1, 3}));
+        tasks.move(3, "top");
+        QCOMPARE(taskIds(filter), (QList<int>{3, 2, 4, 1}));
+        tasks.add("a", "five", "left");
+        QCOMPARE(taskIds(filter), (QList<int>{3, 2, 5, 4, 1}));
+        QCOMPARE(filter.windows().first().toMap()["title"], "three");
+        filter.setByMonitor(false);
+        QCOMPARE(taskIds(filter), (QList<int>{1, 2, 3, 4, 5}));
+    }
+    // With an output, the windows on that monitor and those on none known yet.
+    void windowsOfAMonitor() {
+        FakeTasks tasks;
+        tasks.add("a", "one", "main");
+        tasks.add("a", "two", "left");
+        tasks.add("a", "three");
+        TaskFilter filter;
+        filter.setSourceModel(&tasks);
+        filter.setOutput("left");
+        QCOMPARE(taskIds(filter), (QList<int>{2, 3}));
+        tasks.move(1, "left");
+        QCOMPARE(taskIds(filter), (QList<int>{1, 2, 3}));
+        tasks.move(2, "main");
+        QCOMPARE(taskIds(filter), (QList<int>{1, 3}));
+        filter.setOutput("");
+        QCOMPARE(taskIds(filter), (QList<int>{1, 2, 3}));
+    }
     // A stacked button is urgent when any window of its application is.
     void urgencyOfAStackedButton() {
         TaskFilter app3, app4;
@@ -205,12 +265,13 @@ class TaskbarOrderTest : public QObject {
     using Entry = TaskbarOrder::Entry;
 
     // The shown entries, as "a" for a pinned application's and "3" for window 3's.
-    QStringList shown(bool grouped = false) {
+    QStringList shown(const TaskbarOrder::View &view) {
         QStringList list;
-        for (const auto &entry : order->shown(grouped))
+        for (const auto &entry : order->shown(view))
             list.push_back(entry.pin.isEmpty() ? QString::number(entry.taskId) : entry.pin);
         return list;
     }
+    QStringList shown(bool grouped = false) { return shown(TaskbarOrder::View{grouped}); }
     // Lets the windows just added take their places.
     void settle() { QCoreApplication::processEvents(); }
 
@@ -223,6 +284,9 @@ class TaskbarOrderTest : public QObject {
         order->setPins({[this] { return pins; },
                         [this](const QString &appId) { return pins.contains(appId) ? appId : QString(); },
                         [this](const QStringList &order) { reordered.push_back(order); }});
+        // As the taskbar has it apart.
+        order->setOutputPlace(monitorPlace);
+        order->setByMonitor(true);
     }
     // A pinned application's first window opens in its launcher's place, any other at the end,
     // and grouped, a pinned application's button stands for its windows wherever they are.
@@ -312,6 +376,136 @@ class TaskbarOrderTest : public QObject {
         pins = {"a", "b"};
         order->pinsChanged();
         QCOMPARE(shown(), (QStringList{"2", "a", "b", "1"}));
+    }
+    // A window opening on a monitor before those of its application's windows goes ahead of
+    // them, past the buttons between; one on their monitor or after it opens at the end, as on
+    // one monitor. Above comes before at the same x.
+    void windowsOpenByTheirMonitors() {
+        source->add("c", "c one", "main");
+        source->add("d", "d one", "main");
+        source->add("c", "c two", "main");
+        settle();
+        QCOMPARE(shown(), (QStringList{"a", "b", "1", "2", "3"}));
+        source->add("c", "c three", "left");
+        settle();
+        QCOMPARE(shown(), (QStringList{"a", "b", "4", "1", "2", "3"}));
+        source->add("c", "c four", "right");
+        settle();
+        QCOMPARE(shown(), (QStringList{"a", "b", "4", "1", "2", "3", "5"}));
+        source->add("c", "c five", "top");
+        settle();
+        QCOMPARE(shown(), (QStringList{"a", "b", "6", "4", "1", "2", "3", "5"}));
+        // A window without an application or a monitor known stays where it opens.
+        source->add("", "nothing", "left");
+        source->add("c", "nowhere", "elsewhere");
+        settle();
+        QCOMPARE(shown(), (QStringList{"a", "b", "6", "4", "1", "2", "3", "5", "7", "8"}));
+    }
+    // A window moved to another monitor moves among its application's windows: ahead of those
+    // on monitors after its new one and after the others, those on its new one too; moved back,
+    // it goes back. A window of another application in between is passed.
+    void windowsFollowTheirMonitors() {
+        source->add("c", "c one", "left");
+        source->add("d", "d one", "left");
+        source->add("c", "c two", "left");
+        settle();
+        QCOMPARE(shown(), (QStringList{"a", "b", "1", "2", "3"}));
+        source->move(1, "main");
+        QCOMPARE(shown(), (QStringList{"a", "b", "2", "3", "1"}));
+        source->move(3, "main");
+        QCOMPARE(shown(), (QStringList{"a", "b", "2", "1", "3"}));
+        source->move(3, "left");
+        QCOMPARE(shown(), (QStringList{"a", "b", "2", "3", "1"}));
+        // Something else changing moves nothing.
+        source->rows[0].title = "renamed";
+        source->changed(0, {FakeTasks::Title});
+        source->changed(0, {});
+        QCOMPARE(shown(), (QStringList{"a", "b", "2", "3", "1"}));
+    }
+    // A button dragged among its application's keeps its place until its window moves, and only
+    // its own window moving moves it.
+    void aDraggedButtonStaysUntilItsWindowMoves() {
+        source->add("c", "c one", "left");
+        source->add("c", "c two", "main");
+        source->add("d", "d one", "left");
+        settle();
+        order->move(3, 2, false);
+        QCOMPARE(shown(), (QStringList{"a", "b", "2", "1", "3"}));
+        source->move(3, "main");
+        QCOMPARE(shown(), (QStringList{"a", "b", "2", "1", "3"}));
+        source->move(2, "right");
+        QCOMPARE(shown(), (QStringList{"a", "b", "1", "2", "3"}));
+    }
+    // A pinned application's windows follow their monitors too, its place staying ahead of them,
+    // where the launcher comes back.
+    void pinnedWindowsFollowTheirMonitors() {
+        source->add("a", "a one", "main");
+        source->add("c", "c one", "main");
+        source->add("a", "a two", "left");
+        settle();
+        QCOMPARE(shown(), (QStringList{"3", "1", "b", "2"}));
+        QVERIFY(order->entries().first() == Entry{"a"});
+        source->move(3, "right");
+        QCOMPARE(shown(), (QStringList{"1", "3", "b", "2"}));
+        source->remove(0);
+        source->remove(1);
+        QCOMPARE(shown(), (QStringList{"a", "b", "2"}));
+    }
+    // A window whose monitor comes after it is placed, as the window control's does, is placed by
+    // it as one opening; the windows open as the taskbar starts keep their order on one monitor.
+    void aMonitorLearntLaterPlacesAsOpening() {
+        source->add("c", "c one");
+        source->add("c", "c two");
+        source->add("c", "c three");
+        settle();
+        for (auto &row : source->rows)
+            row.output = "main";
+        source->changed(0, {FakeTasks::Output});
+        source->changed(1, {FakeTasks::Output});
+        source->changed(2, {FakeTasks::Output});
+        QCOMPARE(shown(), (QStringList{"a", "b", "1", "2", "3"}));
+        source->add("c", "c four");
+        settle();
+        source->move(4, "left");
+        QCOMPARE(shown(), (QStringList{"a", "b", "4", "1", "2", "3"}));
+    }
+    // A taskbar showing one monitor's windows (shell.taskbar_buttons) leaves out those on others,
+    // but not those on none known yet, and shows a pinned application's launcher only where
+    // launchers show, while none of its windows is on that monitor. Dragging there moves among
+    // what it shows, leaving the other monitors' buttons where they are.
+    void aMonitorsOwnWindows() {
+        using View = TaskbarOrder::View;
+        source->add("a", "a one", "main");
+        source->add("c", "c one", "left");
+        source->add("c", "c two", "main");
+        source->add("d", "d one");
+        settle();
+        QCOMPARE(shown(), (QStringList{"1", "b", "2", "3", "4"}));
+        QCOMPARE(shown(View{false, "main"}), (QStringList{"1", "b", "3", "4"}));
+        QCOMPARE(shown(View{false, "left", false}), (QStringList{"2", "4"}));
+        QCOMPARE(shown(View{false, "left", true}), (QStringList{"a", "b", "2", "4"}));
+        QCOMPARE(shown(View{true, "left", false}), (QStringList{"2", "4"}));
+        QCOMPARE(shown(View{true, "left"}), (QStringList{"a", "b", "2", "4"}));
+        QCOMPARE(order->windowOf({"a"}, "left"), -1);
+        QCOMPARE(order->windowOf({"a"}, "main"), 1);
+        source->move(3, "left");
+        QCOMPARE(shown(View{false, "left", false}), (QStringList{"2", "3", "4"}));
+        QCOMPARE(shown(View{false, "main"}), (QStringList{"1", "b", "4"}));
+        order->move(2, 0, View{false, "left", false});
+        QCOMPARE(shown(View{false, "left", false}), (QStringList{"4", "2", "3"}));
+        QCOMPARE(shown(View{false, "main"}), (QStringList{"1", "b", "4"}));
+        QVERIFY(reordered.isEmpty());
+    }
+    // Grouped, an application's button stays put: no window moves among the others.
+    void groupedNothingFollows() {
+        order->setByMonitor(false);
+        source->add("c", "c one", "main");
+        source->add("d", "d one", "main");
+        source->add("c", "c two", "left");
+        settle();
+        source->move(1, "right");
+        QCOMPARE(shown(), (QStringList{"a", "b", "1", "2", "3"}));
+        QCOMPARE(shown(true), (QStringList{"a", "b", "1", "2"}));
     }
 };
 
