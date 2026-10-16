@@ -1505,13 +1505,15 @@ then the text, HTML, a list of files and a picture), each type given two seconds
 and what was read goes to `record()`, which the tests call too. While the history's own data
 source is what is copied (`restore()`), the selection announcing it is not read; another program
 copying cancels that source first. A source hands each program pasting the bytes it asks for with
-non-blocking writes, SIGPIPE held off. `locked on|off` in the control socket's state calls
-`setLocked`, and `clipboard OUTPUT` from the `clipboard_history` action toggles `output`, which a
-`PickerView` (`picker_view.cpp`) follows: an `OverlayView` on every output, as the palette's is,
-showing `ClipboardPicker.qml`, which filters the entries; `image://clipboard/ID/SERIAL`
-(`clipboardImage`, through an `ImageProvider`, `image_provider.hpp`) serves their pictures. Its
-file is touched only once the history is the session's (connected) or was given a path, so tests
-and previews that make a controller never read or remove it.
+non-blocking writes, SIGPIPE held off, and gives up on one that takes none of them for ten seconds
+(`Writing::timer`, started again by each write that gets some through), so that a program that
+hangs, or never reads, keeps neither the pipe nor the bytes in the shell. `locked on|off` in the
+control socket's state calls `setLocked`, and `clipboard OUTPUT` from the `clipboard_history`
+action toggles `output`, which a `PickerView` (`picker_view.cpp`) follows: an `OverlayView` on
+every output, as the palette's is, showing `ClipboardPicker.qml`, which filters the entries;
+`image://clipboard/ID/SERIAL` (`clipboardImage`, through an `ImageProvider`, `image_provider.hpp`)
+serves their pictures. Its file is touched only once the history is the session's (connected) or
+was given a path, so tests and previews that make a controller never read or remove it.
 
 The emoji picker (`EmojiPicker`, `emoji.cpp`) reads `vendor/emoji/emoji.tsv`, which
 `shell/CMakeLists.txt` compiles into `paw_shell_qml` as `:/paw/emoji.tsv`, and gives

@@ -1320,7 +1320,8 @@ Wayland connection of its own, without taking the keyboard. Of what is copied it
 (by its best name, up to 1 MB), HTML and a list of files when they come with it, and a picture
 (PNG, JPEG, WebP, GIF, BMP or TIFF, up to 16 MB), and copies them back under the names they came
 with, the text also as `text/plain`, `UTF8_STRING`, `TEXT` and `STRING`, so that a program pastes
-them as it would the original. Copying something kept already moves it up. It keeps nothing a
+them as it would the original; a program pasting that reads nothing for ten seconds, hung or never
+meaning to, is given up. Copying something kept already moves it up. It keeps nothing a
 password manager marks as secret (`x-kde-passwordManagerHint` set to `secret`, as KeePassXC does)
 and nothing copied while the session is locked, which the compositor tells it (`locked on|off`).
 The entries are kept in memory only, `shell.clipboard.max_entries` (50) of them besides the
