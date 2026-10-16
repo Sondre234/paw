@@ -5,7 +5,8 @@ dimming and turns on the monitors it turned off, the key that does it doing noth
 inhibitor holds every step off, one on a window only while the window shows (not on another
 workspace, minimized, on a monitor turned off or behind the lock), the steps on battery apply
 while a fake /sys/class/power_supply says the machine runs on it, and an ext-idle-notify-v1 client
-(as swayidle is) hears of idleness as before."""
+(as swayidle is) hears of idleness as before. Keep awake holds every step off too, and has the
+client hear the seat is inhibited, until turned off."""
 import os
 from pathlib import Path
 import signal
@@ -60,7 +61,7 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
         assert state[0] == "state", rows
         found = {"idle_ms": int(state[1]), "held": state[2] == "1", "battery": state[3] == "1",
                  "dim_level": int(state[4]), "inhibitors": int(state[5]),
-                 "applying": int(state[6])}
+                 "applying": int(state[6]), "keep_awake": state[7] == "1"}
         found.update({row[0]: (int(row[1]), row[2] == "1") for row in rows[1:]
                       if row[0] in STEPS})
         return found
@@ -252,5 +253,25 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     key(A)
     assert heard() == "resumed"
     assert idle()["dim_level"] == 0
-print("Idle steps dim, turn off, lock, are held by inhibitors and follow the power source"
+
+    # Keep awake holds every step off and tells idle daemons the seat is inhibited (the client
+    # resumes with no input), as an inhibitor would, and subscribers hear it; turned off, the
+    # time without input counts from then.
+    events = desktop.subscribe()
+    assert heard() == "idled"
+    assert not idle()["keep_awake"]
+    msg("keep_awake_on")
+    assert heard() == "resumed"
+    state = idle()
+    assert state["held"] and state["keep_awake"] and state["applying"] == 0, state
+    wait_for(lambda: events.last("keep-awake ") == "keep-awake on", "subscribers heard keep awake")
+    desktop.stays(lambda: not done("dim") and idle()["dim_level"] == 0,
+                  "the screens dimmed while kept awake", duration=1.5)
+    msg("keep_awake_on")  # on already: nothing changes
+    msg("keep_awake_toggle")
+    assert heard() == "idled"
+    wait_for(lambda: done("dim"), "the screens dimmed once keep awake went off")
+    assert not idle()["keep_awake"] and events.last("keep-awake ") == "keep-awake off"
+print("Idle steps dim, turn off, lock, are held by inhibitors shown and keep awake, and follow "
+      "the power source"
       + ("" if grim else " (pixels not checked: grim missing)"))
