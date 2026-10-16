@@ -84,6 +84,12 @@ shadows.
   are left alone, and locking ends it. A new wallpaper fades in over the one shown, also from or
   to none, and one picked during the fade comes in over both. `paw msg get crossfade` lists the
   pictures.
+- Experimental: `profile_schedule = { day = "washi", night = "sumi" }` picks the day profile at
+  sunrise and the night one at sunset (night light's times or location, or its own `sunrise` and
+  `sunset`), crossfading. A profile picked by hand stays until the next sunrise or sunset, `paw
+  msg profile auto` (the `profile_auto` action, also in the profile menus and the palette) hands
+  the choice back at once, and one that passed while paw was off is caught up as it starts.
+  Quick Settings' Appearance tile says Scheduled while the schedule's profile is in use.
 - A floating bar docks while a window reaches the edge it is along (maximized, one snapped
   against it, or any tile, gaps or not): it fills the strip it reserves, squared and without its
   frame, and floats again once no window does, as KDE's floating panels do. Subscribers hear

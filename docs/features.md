@@ -2677,6 +2677,31 @@ monitor's picture lies exactly where the monitor showed it. Switching again duri
 starts from what shows. Locking the session takes the picture away at once, and no profile
 crossfades in while the session is locked.
 
+**A day and a night profile (experimental).** `profile_schedule = { day = "washi", night = "sumi"
+}` switches between two profiles by the sun: at each sunrise the `day` profile is picked and at
+each sunset the `night` one, as `paw msg profile NAME` picks one, saved and crossfading. The times
+are night light's `sunrise` and `sunset`, or the sun's at its `latitude` and `longitude`, whether
+or not night light is enabled; `sunrise = "07:00", sunset = "20:00"` in the table give the schedule
+times of its own. A profile picked by hand in between, from the panel, the palette or `paw msg
+profile NAME`, stays until the next sunrise or sunset, through reloads and restarts, and `paw msg
+profile auto` (the `profile_auto` action, **Follow sunrise and sunset** under the profiles in the
+panel's menus, or **Appearance: follow sunrise and sunset** in the command palette) hands the
+choice back to the schedule at once (`profile auto` picks a profile named `auto` instead, if there
+is one). A sunrise or sunset that passed while paw was not running is caught up as it starts,
+before the shell draws anything: the last one applied, and the profile it brought, are kept in
+`$XDG_STATE_HOME/paw/profile-schedule`, which a pick by hand leaves alone, so a schedule that now
+names another profile for it applies that one at once. A switch comes within a minute of its
+time; while the session is locked it shows without a crossfade, and it waits while a rice is
+[on trial](#paw-rice). In a polar day or night, without a sunrise or sunset for days, the profile
+stays as it is (`profile auto` picks the day's in polar day, the night's in polar night). Both
+names must be profiles, or installed rices; the configuration says which is not. Quick Settings'
+Appearance tile says **Scheduled** after the profile while the schedule's choice is in use
+(subscribers hear `profile-schedule on|off`), and `paw msg get profile_schedule` prints the profile
+the schedule wants now (`-` without one), the last sunrise or sunset (`sunrise`, `sunset`, or
+`polar-day` or `polar-night` without one near) and its time in seconds since 1970 (`-1` without
+one), the time of the last one applied (`-1` for none), and `1` while its profile is in use, else
+`0`, separated by tabs.
+
 ## Importing a Hyprland setup
 
 `paw import ~/.config` carries an existing Hyprland/Waybar setup over: monitors, colors

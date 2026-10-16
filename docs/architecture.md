@@ -110,6 +110,7 @@ all. In short:
 | `toys.c` | Toys, which only draw: `shake`, `gravity` and `party` posing windows through the animator, a party's rainbow borders and confetti, each window let go as anything else happens to it; `get toys`. |
 | `cube.c` | The scrolling layout's view turning as a cube (`layout.scroll.cube`): an arrangement that moves the view poses its tiles through the animator on the sides of a square turning a quarter (`src/cube.c`), each let go as anything else happens to it; `get cube`. |
 | `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
+| `profile_schedule.c` | The day and night profile schedule (`profile_schedule`): the profile the last sunrise or sunset brings (`src/profile_schedule.c` finds which came last), picked as `profile NAME` through `sh_callbacks.command` and a reload, the last one applied kept in `$XDG_STATE_HOME/paw/profile-schedule`; a timer looking at the clock each minute and after each reload, `profile_auto`, and `get profile_schedule`. |
 | `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
 | `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
@@ -796,6 +797,26 @@ it goes (`rice_finish`), and `main` reverts a record left by one that died
 The shell's side is `RiceTrial` (`shell/rice_trial.cpp`), which reads the rice's author and
 description from its `rice.lua` and counts the seconds down, and `RiceTrialView`, an overlay in the
 middle of the output overlays belong on, holding the keyboard on Revert.
+
+### The day and night profile schedule
+
+`profile_schedule.c` keeps the time of the last sunrise or sunset it applied, and the profile that
+one brought, in `$XDG_STATE_HOME/paw/profile-schedule`. `check` finds, on night light's clock
+(`night_clock`, which `PAW_NIGHT_LIGHT_TIME` fixes for tests), the last sunrise or sunset of the
+last three days (`sh_last_boundary` in `src/profile_schedule.c`, tested by `profile_schedule`, over
+the schedule's own times, night light's, or `sh_solar_times`' for each day), and applies it when it
+is later than the one applied, brings another profile (the schedule changed), or the one applied
+lies ahead (the clock went back). A profile picked by hand changes neither, so it stays until the
+next. Applying picks the profile as `paw msg profile NAME` does: `sh_callbacks.command` saves it
+and answers `SH_RELOAD`, and `reload_config` crossfades. `sh_run` calls `profile_schedule_start`
+before anything is set up from the configuration, where a pick only reads the configuration again
+(`sh_callbacks.reload`), which starts no shell before `startup` has (`Runtime::startup_done`). Each
+reload sets the timer for a millisecond (`profile_schedule_reloaded`), so a schedule just written
+or changed applies at once without a reload inside another; otherwise it looks every minute, and
+never with a fixed clock. Nothing is applied while a rice is on trial. `profile_auto` (also
+`profile auto`, which `pick_profile` turns into it unless a profile has that name) applies the
+current one at once. Subscribers hear `profile-schedule on` while the profile in use is the one the
+schedule wants, which the shell's Appearance tile and profile menus show.
 
 ### Power saving when idle
 

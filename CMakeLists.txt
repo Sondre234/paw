@@ -185,6 +185,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(xray_layout)
     paw_c_unit_test(cube)
     paw_c_unit_test(blur)
+    paw_c_unit_test(profile_schedule)
     paw_unit_test(heatmap LIBRARY paw_cli)
     target_link_libraries(heatmap_tests PRIVATE paw_config) # the action's bindings
 endif()
@@ -331,6 +332,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/xwayland.c
         src/compositor/toys.c
         src/compositor/rice.c
+        src/compositor/profile_schedule.c
         src/compositor/cat.c
         src/compositor/xray.c
         src/compositor/heatmap.c
@@ -359,6 +361,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/xray_layout.c)
     target_sources(paw PRIVATE src/cube.c)
     target_sources(paw PRIVATE src/blur.c)
+    target_sources(paw PRIVATE src/profile_schedule.c)
     target_link_libraries(paw PRIVATE paw_heatmap)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
@@ -751,6 +754,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(focus_output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(workspace_names_smoke $<TARGET_FILE:paw>)
         paw_smoke(profile_smoke $<TARGET_FILE:paw>)
+        paw_smoke(profile_schedule_smoke $<TARGET_FILE:paw>)
         paw_smoke(session_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(session_scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(session_restore_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
