@@ -242,6 +242,11 @@ void toys_start(struct sh_server *server, enum sh_action action, int argument) {
 /* Throws in the confetti due `t` into the party, and moves every piece on by `dt`, fading the
  * lot out as the party ends; a piece whose life is over goes. */
 static void move_confetti(struct sh_toys *toys, double t, double dt) {
+    // The scene works out what shows and what to draw again after each change to a node it
+    // shows: some 700 a frame, a piece's place, size and colour each. The pieces change out of
+    // sight instead, their tree off, and come back together once, which damages where they
+    // were and where they are.
+    wlr_scene_node_set_enabled(&toys->confetti->node, false);
     int due = (int)fmin(CONFETTI_PIECES, ceil(CONFETTI_PIECES * t / CONFETTI_THROW_MS));
     for (; toys->thrown < due; ++toys->thrown) {
         struct toy_piece *piece = &toys->pieces[toys->thrown];
@@ -271,6 +276,7 @@ static void move_confetti(struct sh_toys *toys, double t, double dt) {
         wlr_scene_node_set_position(&piece->rect->node, (int)lround(confetto->x - width / 2.0),
                                     (int)lround(confetto->y));
     }
+    wlr_scene_node_set_enabled(&toys->confetti->node, true);
 }
 
 /* The pose of a window `t` into its toy. */
