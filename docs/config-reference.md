@@ -334,6 +334,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `bindings[].layout` | string or integer | "next" | - | With `switch_layout` only: `"next"` or `"prev"` (wrapping), or a layout's number from 1, in the order of `keyboard.layout`. |
 | `bindings[].locked` | boolean | false | - | With `key` only: the binding runs while the session is locked too, as Hyprland's `bindl`; every other key goes to the lock screen then. An action with nothing to do while the session is locked (focusing, moving windows, the switcher, the overview) does nothing. |
 | `bindings[].repeats` | boolean | true for `resize_*`, else false | - | With `key` only: while the key is held, the action runs again at `keyboard.repeat_rate` after `keyboard.repeat_delay`, as Hyprland's `binde`. (Lua keeps `repeat` for its own loops.) |
+| `bindings[].description` | string | the action's own title | - | What the binding does, in your words, as Hyprland's `bindd`: the sheet of keyboard shortcuts (the `shortcuts` action) shows it in place of the action's title, e.g. `description = "Files"` for a `spawn` of a file manager, whose command it shows shortened otherwise. Also in `modes`. |
 
 ## `notifications`
 

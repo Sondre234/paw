@@ -197,6 +197,24 @@ int main(int argc, char **argv) {
             rejects("return {bindings={{key='a',action='close',repeats=1}}}");
         }
         {
+            // `description` names what a binding does for the sheet of shortcuts, a key's, a
+            // button's or a mode's; a button binding keeps its app_id as written.
+            auto described = paw::parse_config(
+                "return {modes={resize={{key='Escape',action='mode',mode='default',"
+                "description='Done resizing'}}},"
+                "bindings={{mods={'Super'},key='e',action='spawn',command={'dolphin'},"
+                "description='Files'},"
+                "{button='side',app_id='^kitty$',action='close',description='Close a terminal'},"
+                "{key='a',action='close'}}}");
+            const auto &b = described.bindings;
+            require(b.size() == 3 && b[0].description == "Files" &&
+                        b[1].description == "Close a terminal" && b[1].app_id == "^kitty$" &&
+                        b[2].description.empty() && b[2].app_id.empty() &&
+                        described.modes[0].bindings[0].description == "Done resizing",
+                    "a binding's description not read");
+            rejects("return {bindings={{key='a',action='close',description=1}}}");
+        }
+        {
             // Binding modes: named lists of key bindings, sorted by name, which a binding with
             // the mode action puts in use; "default" is the bindings outside any.
             auto modes = paw::parse_config(

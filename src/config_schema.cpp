@@ -680,6 +680,11 @@ const Option options[] = {
      "With `key` only: while the key is held, the action runs again at `keyboard.repeat_rate` "
      "after `keyboard.repeat_delay`, as Hyprland's `binde`. (Lua keeps `repeat` for its own "
      "loops.)"},
+    {"bindings[].description", "string", "the action's own title", "", none, none,
+     "What the binding does, in your words, as Hyprland's `bindd`: the sheet of keyboard "
+     "shortcuts (the `shortcuts` action) shows it in place of the action's title, e.g. "
+     "`description = \"Files\"` for a `spawn` of a file manager, whose command it shows "
+     "shortened otherwise. Also in `modes`."},
 
     {"notifications", "table", "", "", none, none,
      "Notifications: the shell serves `org.freedesktop.Notifications` on the session bus and shows "
