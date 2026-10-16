@@ -2,14 +2,15 @@
 """The application switcher (switcher_app, Alt + `) lists the focused window's application's
 windows alone, on every output and workspace, most recently focused first, and says so with "app";
 it steps and confirms as the window switcher does, from the control socket and from the keyboard
-(Shift + ` stepping back while Alt is held), never choosing another application's window. An
-application with one window opens nothing, and a tab of a group is chosen as any other window."""
+(Shift + ` stepping back while Alt is held), never choosing another application's window. While a
+panel has the keyboard it takes the topmost window's application. An application with one window
+opens nothing, and a tab of a group is chosen as any other window."""
 from pathlib import Path
 import sys
 
 import harness
 
-compositor, probe = (str(Path(p).resolve()) for p in sys.argv[1:3])
+compositor, probe, input_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
 
 CONFIG = """return {
     xwayland = false,
@@ -144,6 +145,20 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     lines = expect(lambda l: "switcher-close" in l, "closed on releasing Alt")
     assert [l for l in lines if l.startswith("switcher-select")] == \
         ["switcher-select 0", "switcher-select 2"], lines
+
+    # While a panel such as the palette has the keyboard no window is focused: the topmost
+    # window's application is taken, and the window after it selected, as from the window itself.
+    search = desktop.spawn([input_probe, "--text-input", "--overlay", "Search"], log="Search.log")
+    wait_for(lambda: ["Search", "1"] in [[row[0], row[4]] for row in desktop.rows("layers")] and
+             focused() is None, "the search field holding the keyboard")
+    msg("switcher_app")
+    selected, titles = switched("the app switcher opened from a panel")
+    assert titles == ["A3", "A2", "A1"] and selected == 1, (titles, selected)
+    msg("switcher_cancel")
+    expect(lambda l: l == ["switcher-close"], "cancelled from a panel")
+    search.terminate()
+    desktop.reap(search)
+    wait_for(lambda: focused() == "A3", "A3 focused once the search field went")
 
     # B is its application's only window: nothing opens, from the socket or the keyboard.
     focus("B")

@@ -149,15 +149,6 @@ void switcher_close(struct sh_server *server, int index) {
         pointer_follow(chosen);
 }
 
-/* The application whose windows switcher_app lists: the focused window's app ID, or on the bare
- * desktop the topmost window's, as other actions take it; NULL for a window without one, which
- * shares an application with no other. */
-static const char *switched_app(struct sh_server *server) {
-    struct sh_toplevel *current = current_toplevel(server);
-    const char *app_id = current ? toplevel_app_id(current) : NULL;
-    return app_id && *app_id ? app_id : NULL;
-}
-
 /* Opens the switcher on the focused output, selecting the window focused before the current
  * one (or the least recent one, going `backward`); when open, moves the selection instead.
  * With `app` it lists the windows of the focused window's application alone, and opens only
@@ -171,8 +162,12 @@ void switcher_open(struct sh_server *server, bool backward, bool app, uint32_t m
     struct wlr_output *output = focused_output(server);
     if (server->locked || !output)
         return;
-    const char *app_id = app ? switched_app(server) : NULL;
-    if (app && !app_id)
+    // One application's are the focused window's, or while none is (the bare desktop, a panel
+    // such as the palette having the keyboard) the topmost one's, as other actions take it. A
+    // window without an app ID shares an application with no other.
+    struct sh_toplevel *current = app ? current_toplevel(server) : server->focused_toplevel;
+    const char *app_id = app && current ? toplevel_app_id(current) : NULL;
+    if (app && (!app_id || !*app_id))
         return;
     int count = 0;
     struct sh_toplevel *toplevel;
@@ -196,8 +191,9 @@ void switcher_open(struct sh_server *server, bool backward, bool app, uint32_t m
     server->switcher.peeked = NULL;
     server->switcher.selected_at = now_ms();
     snprintf(server->switcher.output, sizeof(server->switcher.output), "%s", output->name);
-    // The first window is the focused one unless focus is on the bare desktop.
-    int next = server->switcher.windows[0] == server->focused_toplevel && count > 1 ? 1 : 0;
+    // The first window is the focused one unless focus is on the bare desktop; one
+    // application's start from the window whose application they are.
+    int next = server->switcher.windows[0] == current && count > 1 ? 1 : 0;
     server->switcher.selected = backward ? count - 1 : next;
     switcher_announce(server);
     wrapped_count(server, SH_WRAPPED_SWITCHER_OPENS);
