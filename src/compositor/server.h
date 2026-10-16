@@ -621,6 +621,8 @@ struct sh_server {
     char sent_state[8192];      // the state they last received
     char control_path[108];
     struct wl_event_source *control_source;
+    struct wl_event_source *control_resume; // watches it again after running out of descriptors
+    bool control_starved; // out of descriptors since the last connection taken; said once
     struct wlr_scene_tree *layer_trees[4];
     struct wl_list layers;
     struct wl_listener new_layer_surface;

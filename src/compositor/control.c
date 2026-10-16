@@ -780,6 +780,10 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
 #define CONTROL_REQUEST_MS 5000
 /* At most this many wait for their request at once: past it, the one waiting longest goes. */
 #define CONTROL_PENDING_MAX 64
+/* Out of file descriptors (or memory), accept4 fails at once while the socket stays readable:
+ * rather than try again on every pass of the event loop, at full speed, paw stops watching the
+ * socket for this long, connections waiting in its backlog meanwhile. */
+#define CONTROL_BACKOFF_MS 250
 
 /* Closes a connection still waiting for its request, telling it why if it listens. */
 static void control_client_drop(struct sh_control_client *client, const char *why) {
@@ -793,11 +797,28 @@ static int control_client_late(void *data) {
     return 0;
 }
 
+/* The pause is over: connections are taken again. */
+static int control_resume(void *data) {
+    struct sh_server *server = data;
+    wl_event_source_fd_update(server->control_source, WL_EVENT_READABLE);
+    return 0;
+}
+
 static int control_accept(int fd, uint32_t mask, void *data) {
     struct sh_server *server = data;
     int client_fd = accept4(fd, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
-    if (client_fd < 0)
+    if (client_fd < 0) {
+        if ((errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM) &&
+            server->control_resume) {
+            if (!server->control_starved)
+                wlr_log_errno(WLR_ERROR, "Control socket: cannot take a connection; waiting");
+            server->control_starved = true;
+            wl_event_source_fd_update(server->control_source, 0);
+            wl_event_source_timer_update(server->control_resume, CONTROL_BACKOFF_MS);
+        }
         return 0;
+    }
+    server->control_starved = false;
     if (wl_list_length(&server->control_pending) >= CONTROL_PENDING_MAX) {
         struct sh_control_client *oldest =
             wl_container_of(server->control_pending.prev, oldest, link);
@@ -851,8 +872,10 @@ void open_control_socket(struct sh_server *server, const char *wayland_socket) {
         return;
     }
     server->control_fd = fd;
-    server->control_source = wl_event_loop_add_fd(wl_display_get_event_loop(server->wl_display), fd,
-                                                  WL_EVENT_READABLE, control_accept, server);
+    struct wl_event_loop *loop = wl_display_get_event_loop(server->wl_display);
+    server->control_source =
+        wl_event_loop_add_fd(loop, fd, WL_EVENT_READABLE, control_accept, server);
+    server->control_resume = wl_event_loop_add_timer(loop, control_resume, server);
     setenv("PAW_SOCKET", server->control_path, true);
     wlr_log(WLR_INFO, "Control socket: %s", server->control_path);
 }
@@ -868,6 +891,8 @@ void close_control_socket(struct sh_server *server) {
     }
     if (server->control_source)
         wl_event_source_remove(server->control_source);
+    if (server->control_resume)
+        wl_event_source_remove(server->control_resume);
     if (server->control_fd >= 0)
         close(server->control_fd);
     if (server->control_path[0])
