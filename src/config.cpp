@@ -1911,6 +1911,7 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
             config.power.lock_command = std::move(locker);
         }
         lua_pop(L, 1);
+        boolean(L, "lock_style", "power.lock_style", config.power.lock_style);
         boolean(L, "lock_before_sleep", "power.lock_before_sleep",
                 config.settings.lock_before_sleep);
         boolean(L, "close_windows", "power.close_windows", config.settings.close_windows);
