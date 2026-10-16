@@ -189,6 +189,9 @@ def name_frames(process, samples, symbolizer):
             if not path.startswith("/"):
                 located[key] = (path, None)  # [vdso] and the like
                 continue
+            if path.startswith("/memfd:"):  # code made at run time: a JIT's, Qt Quick's
+                located[key] = (f"[{path[1:].removesuffix(' (deleted)')}]", None)
+                continue
             real = path.removesuffix(" (deleted)")
             if real != path and real not in warned:
                 warned.add(real)
