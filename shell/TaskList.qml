@@ -8,6 +8,8 @@ import Paw
 // application's first window opens in its launcher's place, any other at the end, and a window's
 // button follows its monitor among its application's (TaskbarOrder). Grouped
 // (shell.groupWindows), an application's windows share a button, a pinned one's in its place.
+// With shell.taskbar_buttons, only the panel's taskbarOutput's windows, and the launchers only
+// with taskbarLaunchers.
 // Along a side the row is a column, of icons alone.
 ListView {
     id: taskList
@@ -26,7 +28,10 @@ ListView {
     property int dragFrom: -1
     property int dragTo: -1
     property real dragStep: 0
-    model: TaskbarModel { controller: shell; sourceModel: taskList.panel.taskSource; grouped: shell.groupWindows }
+    model: TaskbarModel {
+        controller: shell; sourceModel: taskList.panel.taskSource; grouped: shell.groupWindows
+        output: taskList.panel.taskbarOutput; showLaunchers: taskList.panel.taskbarLaunchers
+    }
     // A launcher is as wide as its icon; the windows' buttons share what room is left.
     readonly property real windowWidth: Math.min(185, Math.max(92, (width - model.launchers * (Theme.barButtonWidth + spacing)) /
                                                                    Math.max(1, count - model.launchers) - 4))
@@ -76,6 +81,7 @@ ListView {
         readonly property bool grouping: shell.groupWindows && !launcher && (pinned || appId !== "")
         property TaskFilter appWindows: TaskFilter {
             controller: shell; sourceModel: taskButton.grouping ? taskList.panel.taskSource : null
+            output: taskList.panel.taskbarOutput
             app: taskButton.pinned ? taskButton.app.appId : ""
             windowApp: taskButton.pinned ? "" : taskButton.appId
         }

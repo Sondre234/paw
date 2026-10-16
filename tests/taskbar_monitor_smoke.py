@@ -4,7 +4,10 @@ application's buttons, on every monitor's bar: of two windows of one application
 monitor further left has its button further left. A window moved to the monitor on the right
 moves its button past the other's, and past a button of another application between them; moved
 to the same monitor as the other, it goes after it; moved back to the left, back ahead of it.
-Grouped, the card of the application's windows shows them in the order of their monitors. The
+Grouped, the card of the application's windows shows them in the order of their monitors. With
+shell.taskbar_buttons = "own", each bar shows its own monitor's windows alone; with
+"main_and_own", the main monitor's bar shows every window, the main monitor being the leftmost
+until outputs.primary names another, which the compositor tells the shell (`primary NAME`). The
 buttons' and pictures' places are where the shell tells the compositor they are, for the windows
 to minimize into (`get minimize`)."""
 from pathlib import Path
@@ -21,19 +24,27 @@ CONFIG = """return {
     xwayland = false,
     layout = { tiling = false },
     outputs = {
-        order = { "HEADLESS-1", "HEADLESS-2" },
+        order = { "HEADLESS-1", "HEADLESS-2" },%s
         monitors = {
             ["HEADLESS-1"] = { mode = "1280x720" },
             ["HEADLESS-2"] = { mode = "1280x720" },
         },
     },
     notifications = { enabled = false },
-    shell = { panel_height = 52, group_windows = false, thumbnails = { delay = 300 } },
+    shell = { panel_height = 52, group_windows = %s, thumbnails = { delay = 300 }%s },
 }"""
+
+
+def config(group="false", buttons="", primary=""):
+    """The configuration with group_windows = `group`, taskbar_buttons = `buttons` if given and
+    outputs.primary = `primary` if given."""
+    return CONFIG % (f'\n        primary = "{primary}",' if primary else "", group,
+                     f', taskbar_buttons = "{buttons}"' if buttons else "")
+
 LEFT, RIGHT = "HEADLESS-1", "HEADLESS-2"
 WIDTH, HEIGHT, BAR = 1280, 720, 52
 
-with harness.Compositor(compositor, CONFIG, start=False,
+with harness.Compositor(compositor, config(), start=False,
                         env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
     root, env = desktop.root, desktop.env
     env.update(QT_QPA_PLATFORM="wayland", QT_QUICK_BACKEND="software",
@@ -94,7 +105,7 @@ with harness.Compositor(compositor, CONFIG, start=False,
 
     # Grouped, One and Two share a button, and its card shows Two's picture, on the left monitor,
     # ahead of One's, which opened first.
-    desktop.reload(CONFIG.replace("group_windows = false", "group_windows = true"))
+    desktop.reload(config(group="true"))
     panels.send_signal(signal.SIGHUP)
     desktop.wait_for(lambda: "One" in rects(LEFT) and rects(LEFT)["One"] == rects(LEFT).get("Two"),
                      "One and Two sharing a button")
@@ -111,6 +122,28 @@ with harness.Compositor(compositor, CONFIG, start=False,
     desktop.wait_for(pictures, "the card of One's and Two's pictures")
     desktop.wait_for(lambda: rects(LEFT)["Two"][0] < rects(LEFT)["One"][0],
                      "Two's picture ahead of One's")
+    pointer("move", "900", "300")
+
+    # Each bar its own monitor's windows ("own"), then the main monitor's every window
+    # ("main_and_own"): the leftmost's, until outputs.primary names the other.
+    subscriber = desktop.subscribe()
+    desktop.wait_for(lambda: subscriber.last("primary ") == f"primary {LEFT}",
+                     "the leftmost monitor the primary one")
+
+    def shown(buttons, left, right, message, primary=""):
+        desktop.reload(config(buttons=buttons, primary=primary))
+        panels.send_signal(signal.SIGHUP)
+        desktop.wait_for(lambda: order(LEFT) == left and order(RIGHT) == right, message)
+
+    shown("own", ["Other", "Two"], ["One"], "each bar showing its own monitor's windows")
+    shown("main_and_own", ["Other", "Two", "One"], ["One"],
+          "the left bar showing every window, the right one its own")
+    shown("main_and_own", ["Other", "Two"], ["Other", "Two", "One"],
+          "the right bar showing every window once its monitor is the primary one",
+          primary=RIGHT)
+    assert subscriber.last("primary ") == f"primary {RIGHT}", subscriber.lines("primary ")
+    move("One", LEFT, ["Other", "Two", "One"], "One's button on the left bar once it is there")
+    shown("all", ["Other", "Two", "One"], ["Other", "Two", "One"], "every bar every window")
 
     for message in ("ReferenceError", "TypeError", "is not defined", "Cannot read"):
         assert message not in log(), log()
