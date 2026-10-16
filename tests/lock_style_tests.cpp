@@ -237,7 +237,9 @@ int main(int argc, char **argv) {
               "/w/`id`.jpg", "/w/${HOME}.jpg", "/w/'single'.jpg", "/w/\"double\".jpg",
               "/w/back\\slash.jpg", "/w/glob*?[ab].jpg", "/w/~tilde.jpg", "/w/{a,b}.jpg",
               "/w/a;b|c&d<e>f(g).jpg", "/w/#hash.jpg", "/w/和紙 の 猫.jpg", "/w/a:b.jpg",
-              "/w/tab\there.jpg", "/w/100% x=y,z+@.jpg", "/w/trailing\\", "/w/!bang.jpg"}) {
+              "/w/tab\there.jpg", "/w/100% x=y,z+@.jpg", "/w/trailing\\", "/w/!bang.jpg",
+              // wordexp expands a tilde after = or, in a word with =, after a colon
+              "/w/a=~root:~root.jpg"}) {
             auto escaped = paw::wordexp_escape(path);
             CHECK(escaped.has_value(), "%s not escaped", path.c_str());
             if (!escaped)
