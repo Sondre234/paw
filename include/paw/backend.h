@@ -395,6 +395,10 @@ struct sh_profile_schedule {
 struct sh_settings {
     float background[4];
     int color_scheme; /* enum sh_color_scheme */
+    /* The shell's colours, straight RGBA: its surfaces (shell.panel_color, made opaque), its text
+     * (shell.text_color) and its accent (shell.accent), for what the compositor draws in its
+     * look, the colour picker's loupe. */
+    float shell_surface[4], shell_text[4], shell_accent[4];
     /* The appearance profile in use, from `profiles`: the one picked, else `profile`; "" for
      * none. A new one crossfades in (crossfade.c). */
     char profile[40];

@@ -323,6 +323,13 @@ void premultiplied(const std::string &value, const char *label, float (&target)[
         target[i] = std::stoi(value.substr(1 + 2 * i, 2), nullptr, 16) / 255.0F * alpha;
     target[3] = alpha;
 }
+// #RRGGBB or #RRGGBBAA, checked already, as straight RGBA.
+void straight(const std::string &value, float (&target)[4]) {
+    for (size_t i = 0; i < 4; ++i)
+        target[i] = i < 3 || value.size() == 9
+                        ? std::stoi(value.substr(1 + 2 * i, 2), nullptr, 16) / 255.0F
+                        : 1.0F;
+}
 // Errors are placed in the section `path` while this lives, then where they were before.
 class Named {
 public:
@@ -1755,6 +1762,11 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     table(L, -1, "configuration result");
     keys(L, -1, "");
     read_shell(L, config.shell);
+    // The shell's colours, which the compositor draws the colour picker's loupe in.
+    straight(config.shell.panel_color, config.settings.shell_surface);
+    config.settings.shell_surface[3] = 1;
+    straight(config.shell.text_color, config.settings.shell_text);
+    straight(config.shell.accent, config.settings.shell_accent);
     read_features(L, config);
     if (integer(L, "version", 1, 1, 1) != 1)
         fail("unsupported version");
