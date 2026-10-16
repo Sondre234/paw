@@ -375,7 +375,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 
 | Setting | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `idle` | table | - | - | Power saving after a while without input, as KDE and Windows have, with no idle daemon: the screens dim, the monitors turn off, the screen locks and the machine suspends, each a number of seconds after the last key press, click, scroll or pointer motion; 0 never takes that step. An idle inhibitor (a video playing, a game) holds every step off. `ext-idle-notify-v1` works as before, so an idle daemon such as swayidle runs beside these; `display_off = 0` leaves the monitors to it. |
+| `idle` | table | - | - | Power saving after a while without input, as KDE and Windows have, with no idle daemon: the screens dim, the monitors turn off, the screen locks and the machine suspends, each a number of seconds after the last key press, click, scroll or pointer motion; 0 never takes that step. An idle inhibitor (a video playing, a game) holds every step off while its window shows. `ext-idle-notify-v1` works as before, so an idle daemon such as swayidle runs beside these; `display_off = 0` leaves the monitors to it. |
 | `idle.dim` | integer | `display_off` − 30 | 0 to 86400 | Seconds before the screens darken by half, fading in; any input brings them back. Unset, 30 seconds before `display_off` (halfway, under a minute), or never without it. |
 | `idle.display_off` | integer | 600 | 0 to 86400 | Seconds before every monitor turns off, as `display_off` does: they keep their windows and panels, and a key or the pointer turns them on again. |
 | `idle.lock` | integer | 0 | 0 to 86400 | Seconds before the screen locks with `power.lock_command`. |

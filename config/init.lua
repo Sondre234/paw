@@ -404,7 +404,8 @@ return {
     -- Power saving after so many seconds without input (0 never): the screens dim (unset, 30
     -- seconds before display_off), the monitors turn off, the screen locks, the machine
     -- suspends; `battery` may hold shorter ones for a laptop on battery, as
-    -- battery = { display_off = 300 }. An idle inhibitor (a video playing) holds them off.
+    -- battery = { display_off = 300 }. An idle inhibitor (a video playing) holds them off
+    -- while its window shows.
     -- display_off = 0 leaves everything to an idle daemon (swayidle).
     -- idle = { display_off = 600, lock = 0, suspend = 0 },
     startup = {}, -- e.g. { { "kitty" } }

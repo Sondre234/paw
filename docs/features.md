@@ -3590,13 +3590,21 @@ follows its own `display_off`. The power source is read again at each step and a
 unplugging the charger shows from the next step on.
 
 An idle inhibitor (`idle-inhibit-unstable-v1`, which video players, browsers playing video and
-games hold) holds every step off, and the screens brighten if they had dimmed; once the last one
-goes, the time without input counts from then. So does switching to another VT and back:
-nothing happens while another VT is in front. `paw msg get idle` prints a line `state`
-with the milliseconds since the last input, whether something holds the steps off, whether the
-machine runs on battery and how dark the screens are (thousandths), then a line per step with
-its timeout in milliseconds on that power source and whether it has been taken since the last
-input.
+games hold) holds every step off while its window shows, and the screens brighten if they had
+dimmed; once none applies, the time without input counts from then. As the protocol says, and
+as on sway, a window's inhibitor applies only while the window is on a workspace shown, not
+minimized (nor in the scratchpad, nor a hidden tab), on a monitor that is on and not behind the
+lock: a video left playing minimized or on another workspace lets the screens dim and go off as
+usual. A panel's applies while it is mapped and the session unlocked, and one on a surface paw
+cannot place always. Idle daemons hear the seat is inhibited only while one applies. Switching
+to another VT holds the steps too: nothing happens while another VT is in front, and the time
+counts from the return. `paw msg get idle` prints a line `state` with the milliseconds since
+the last input, whether something holds the steps off, whether the machine runs on battery, how
+dark the screens are (thousandths), and how many idle inhibitors there are and how many of them
+apply; then a line per step with its timeout in milliseconds on that power source and whether
+it has been taken since the last input; then a line `inhibitor` per idle inhibitor with whether
+it applies (1 or 0) and what its surface belongs to: `window` and its title, `layer` and its
+namespace, or `other` and `-`.
 
 The defaults turn the monitors off after ten minutes and lock and suspend nothing, as the
 screens going dark is what everyone wants and locking and suspending are choices KDE and Windows

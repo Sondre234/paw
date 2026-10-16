@@ -786,6 +786,10 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   worst frames halved) and drops no frames for it: its 240 pieces change out of the scene's
   sight and come back together, where the scene worked out what to draw again after each of
   some 700 changes a frame.
+- An idle inhibitor holds the screens awake only while its window shows, as the protocol says and
+  sway does: a video minimized, left on another workspace, on a monitor turned off or behind the
+  lock no longer keeps the screens from dimming and turning off. `paw msg get idle` lists each
+  inhibitor, what it is on and whether it applies.
 
 ## 0.1.1 (2026-10-05)
 
