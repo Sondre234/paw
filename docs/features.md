@@ -3407,6 +3407,7 @@ nothing, its input being the desktop's it runs in. It counts:
 - windows opened and closed, moved and resized with the pointer (a press let go in place is not
   a move), and snapped to a half or a quarter by pointer or key; workspace switches; the overview
   and the window switcher opened; programs the `spawn` and `terminal` actions started;
+- how many times you petted [the desktop cat](#paw-cat) until it purred;
 - the time each application, by its app ID, had the focus while you were at the desktop, and the
   longest the focus stayed with one application without a break, and when that began;
 - when each session started, and the time active (input in the last two minutes, or something
