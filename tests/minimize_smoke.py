@@ -19,10 +19,11 @@ compositor, probe, window_probe, lock_probe, pointer_probe = (str(Path(p).resolv
                                                               for p in sys.argv[1:6])
 
 # HEADLESS-2, right of HEADLESS-1, is scaled: 640 by 360 logical pixels. Minimizing takes 900 ms
-# along a straight line in time, long enough to look at it on its way.
+# along a straight line in time, long enough to look at it on its way, and no frame, however late
+# on a slow build or a loaded machine, lands it.
 CONFIG = """return {
     xwayland = false,
-    animations = { minimize = { duration = 900, curve = "linear" } },
+    animations = { late_frame_ms = 0, minimize = { duration = 900, curve = "linear" } },
     peek = { duration = 1500 },
     outputs = {
         order = { "HEADLESS-1", "HEADLESS-2" },
@@ -403,8 +404,10 @@ with harness.Compositor(compositor, ONE) as desktop:
 # Minimized again on its way out while its tile glides (a window opening beside it), the copy
 # takes over from where the window is drawn, glide and all. Everything a quarter as fast, the
 # glide and the fold slow enough to look at between two requests.
-TILES = CONFIG.replace("animations = { minimize = { duration = 900, curve = \"linear\" } },",
-                       "animations = { speed = 0.25, minimize = { duration = 900, curve = \"linear\" },"
+TILES = CONFIG.replace("animations = { late_frame_ms = 0,"
+                       " minimize = { duration = 900, curve = \"linear\" } },",
+                       "animations = { late_frame_ms = 0, speed = 0.25,"
+                       " minimize = { duration = 900, curve = \"linear\" },"
                        " move = { duration = 1000, curve = \"linear\" } },\n"
                        "    layout = { tiling = true },").replace(
     '''            ["HEADLESS-2"] = { mode = "1280x720", scale = 2 },
@@ -457,7 +460,8 @@ with harness.Compositor(compositor, TILES) as desktop:
 # A window changing size as it is maximized or restored (a morph): minimized on its way, its copy
 # shrinks from the size and place it is drawn at; restored and then maximized or restored again
 # as it grows out of its button, the change of size takes over from its place.
-MORPHS = ONE.replace("animations = { minimize = { duration = 900, curve = \"linear\" } },",
+MORPHS = ONE.replace("animations = { late_frame_ms = 0,"
+                     " minimize = { duration = 900, curve = \"linear\" } },",
                      "animations = { duration = 700, speed = 0.5, late_frame_ms = 0,"
                      " minimize = { duration = 900, curve = \"linear\" } },")
 assert "speed = 0.5" in MORPHS
