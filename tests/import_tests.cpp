@@ -264,6 +264,11 @@ void hostile_lua() {
          "end })\n"
          "hl.config(data)",
          nullptr},
+        {"a __gc that never returns",
+         "setmetatable({}, { __gc = function() while true do end end })", "__gc"},
+        {"a file's __gc that never returns",
+         "getmetatable(io.open('hyprland.lua')).__gc = function() while true do end end",
+         "stopped with an error"},
         {"a loop that catches running out of time",
          "while true do pcall(function() while true do end end) end", "ran too long"},
     };
