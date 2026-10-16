@@ -299,6 +299,7 @@ Edit them in [config/init.lua](config/init.lua).
 | Super + Shift + P | Make the focused window [sticky](docs/features.md#sticky-windows), or not |
 | Super + Ctrl + T | [Keep the focused window above](docs/features.md#keeping-windows-above) the others, or not |
 | Alt + Tab / Alt + Shift + Tab | [Window switcher](docs/features.md#window-switcher) over every window |
+| Alt + \` / Alt + Shift + \` | The switcher over the focused [application's windows](docs/features.md#one-applications-windows) |
 | Super + O | [Overview](docs/features.md#overview) of the monitor's workspace |
 | Super + ` | Back to the previously focused window, on any workspace |
 | Super + arrows | Focus the nearest window that way |

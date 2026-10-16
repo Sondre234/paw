@@ -225,8 +225,9 @@ window, and `tests/window_peek_smoke.py` tests it.
 
 The window switcher peeks at its selected window through the same functions (`switcher.c`). The
 shell's `Switcher.qml` asks for it as the switcher shows (`ShellController::switcherShown`, the
-`switcher_peek` request, which `switcher_ask_peek` takes), but not in the macOS style nor with
-`peek.switcher` off. The first peek waits on `switcher.peek_timer` until `SWITCHER_PEEK_MS` after
+`switcher_peek` request, which `switcher_ask_peek` takes), but not with `peek.switcher` off, nor
+in the macOS style but for one application's windows (`switcher_app`, whose `switcher` line ends
+with `app`: `ShellController::switcherApp`, `Switcher.qml`'s `iconsOnly`). The first peek waits on `switcher.peek_timer` until `SWITCHER_PEEK_MS` after
 the selection last moved (`selected_at`); while that peek goes on (`switcher_peeks`: the peek is
 still at `switcher.peeked`, the window it peeked at), `switcher_select` moves it at once, and once
 something else ended it (focus, the desktop peek, a taskbar's picture) the selection rests again
@@ -1293,7 +1294,7 @@ what was there.
 | `RiceTrial.qml` | The question while a rice is on trial (`shell.riceTrial`), a card in the middle of the output, an overlay surface of its own: the rice's name, author and description, the countdown, Revert and Keep. |
 | `ClipboardPicker.qml`, `EmojiPicker.qml` | The clipboard history's popup and the emoji picker, each in an overlay surface of its own (`PickerView`, `picker_view.cpp`). |
 | `Shortcuts.qml` | The sheet of keyboard shortcuts (`shell.shortcuts`, `shortcuts.cpp`), in a `PickerView` that covers the output: every binding in effect as key caps beside what it does, in groups laid out in columns, with a search. |
-| `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style. |
+| `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style (in it too for one application's windows). |
 | `Xray.qml` | The names of the exploded view's sheets (`paw xray`), an overlay surface of its own over the compositor's stack: a legend of every sheet in its layer's colour, top first, and a caption for the one under the pointer. |
 | `Caption.qml` | The caption `paw tour` narrates itself with (`shell.caption`, `caption.cpp`, from the compositor's `caption` lines), an overlay surface of its own (`CaptionView`) where the on-screen display shows, taking no input. |
 
@@ -1453,7 +1454,8 @@ and the model lets go of them as it goes. A stand-in model (the preview's, the t
 (`image://preview-windows/ID`, painted by `preview.cpp`).
 
 The window switcher's cards (`SwitcherCards.qml`, which `Switcher.qml` loads in place of its grid
-with `shell.thumbnails` outside the macOS style) show the same pictures. The switcher's lines
+with `shell.thumbnails` outside the macOS style, or in it for one application's windows) show the
+same pictures. The switcher's lines
 name a window by its app id and title, which two windows may share, and by its number (the window
 control's `id`, `TaskModel`'s `windowId` role); each card finds its task with a `TaskFilter`
 whose `windowId` keeps that window alone, filtering again when the number comes after the window.

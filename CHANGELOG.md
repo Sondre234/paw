@@ -575,6 +575,12 @@ shadows.
   with the setting off), fullscreen windows have none, and profiles can turn it on and off. Only
   the wallpaper is blurred, at half the monitor's pixels on the CPU once it changes, so windows
   moving, resizing and animating over it cost nothing more; `paw msg get blur` shows it.
+- Alt + \` (`switcher_app`) switches between the focused application's windows, as macOS's
+  Cmd + \` and GNOME's Alt + \` do: the window switcher over that application's windows alone, on
+  every monitor and workspace, most recently used first, \` moving on while Alt is held and
+  Shift + \` (or Alt + Shift + \`, `switcher_app_prev`) moving back. An application with one
+  window opens nothing. The macOS style's switcher shows those windows' titles, or their pictures,
+  in place of its icons alone, and the command palette offers it too.
 - Hyprland's dwindle controls, experimental and unbound by default (example keys in the shipped
   configuration, also in the command palette): `split_toggle` turns the split the focused tile
   shares with its neighbour from side by side to stacked or back, and keeps it so where dwindle

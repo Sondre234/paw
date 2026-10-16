@@ -521,6 +521,10 @@ return {
         -- the arrows move, Return picks, Escape cancels. `cycle` raises the next window at once.
         { mods = { "Alt" }, key = "Tab", action = "switcher" },
         { mods = { "Alt", "Shift" }, key = "Tab", action = "switcher_prev" },
+        -- The same over the focused window's application alone, as macOS's Cmd + ` and GNOME's
+        -- Alt + `: its windows on every monitor and workspace; ` moves on while Alt is held.
+        { mods = { "Alt" }, key = "grave", action = "switcher_app" },
+        { mods = { "Alt", "Shift" }, key = "grave", action = "switcher_app_prev" },
         { mods = { mod }, key = "Left", action = "focus_left" },
         { mods = { mod }, key = "Right", action = "focus_right" },
         { mods = { mod }, key = "Up", action = "focus_up" },

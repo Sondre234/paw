@@ -62,6 +62,10 @@ enum sh_action {
      * modifiers are released; opened from the control socket, it waits for switcher_confirm. */
     SH_SWITCHER_NEXT,
     SH_SWITCHER_PREV,
+    /* The same over the focused window's application alone (its windows by app ID), as macOS's
+     * Cmd+` and GNOME's Alt+`; nothing opens unless it has another window. */
+    SH_SWITCHER_APP_NEXT,
+    SH_SWITCHER_APP_PREV,
     SH_SWITCHER_CONFIRM, /* argument: the window's place in the list from 1, or 0: the selected */
     SH_SWITCHER_CANCEL,
     /* Tiling layouts of the focused output's current workspace. */
