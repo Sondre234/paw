@@ -32,7 +32,48 @@
 
 namespace paw {
 namespace {
-using State = std::unique_ptr<lua_State, decltype(&lua_close)>;
+// What a configuration's Lua may hold at once while it runs: many times what one needs, and
+// far less than would starve the session. The instruction budget cannot stop a single call that
+// asks for much, such as ("x"):rep(2^31 - 1), 2 GiB at once.
+constexpr size_t memory_limit = 64u << 20;
+struct Memory {
+    size_t used = 0;
+    bool limited = false; // while the configuration's own code runs (evaluate)
+    bool refused = false;
+};
+void *allocate(void *data, void *block, size_t old, size_t size) {
+    auto &memory = *static_cast<Memory *>(data);
+    if (!block)
+        old = 0; // the kind of object being made, not a size
+    if (size == 0) {
+        std::free(block);
+        memory.used -= old;
+        return nullptr;
+    }
+    if (memory.limited && size > old &&
+        size - old > memory_limit - std::min(memory.used, memory_limit)) {
+        memory.refused = true;
+        return nullptr;
+    }
+    void *result = std::realloc(block, size);
+    if (result)
+        memory.used = memory.used - old + size;
+    return result;
+}
+struct Close {
+    void operator()(lua_State *L) const {
+        void *memory = nullptr;
+        lua_getallocf(L, &memory);
+        lua_close(L);
+        delete static_cast<Memory *>(memory);
+    }
+};
+using State = std::unique_ptr<lua_State, Close>;
+Memory &memory_of(lua_State *L) {
+    void *memory = nullptr;
+    lua_getallocf(L, &memory);
+    return *static_cast<Memory *>(memory);
+}
 // Section being read ("shell"), so an error can be placed in the source file.
 thread_local std::string current_section;
 struct ConfigError : std::runtime_error {
@@ -2460,11 +2501,20 @@ const Binding *Config::button_binding(uint32_t modifiers, uint32_t button,
 }
 
 namespace {
+int panic(lua_State *L) {
+    const char *message = lua_tostring(L, -1);
+    std::fprintf(stderr, "paw: unprotected error in the configuration's Lua: %s\n",
+                 message ? message : "not a string");
+    return 0; // Lua aborts
+}
 State sandbox() {
-    State state(luaL_newstate(), lua_close);
+    auto memory = std::make_unique<Memory>();
+    State state(lua_newstate(allocate, memory.get()));
     if (!state)
         fail("cannot allocate Lua state");
+    memory.release();
     auto *L = state.get();
+    lua_atpanic(L, panic);
     // Configuration can compute values but cannot perform I/O or launch processes.
     const std::pair<const char *, lua_CFunction> libraries[] = {{"_G", luaopen_base},
                                                                 {LUA_TABLIBNAME, luaopen_table},
@@ -2487,11 +2537,23 @@ State sandbox() {
 void evaluate(lua_State *L, const std::string &source, const std::string &name) {
     *static_cast<int *>(lua_getextraspace(L)) = 1000;
     lua_sethook(L, instruction_limit, LUA_MASKCOUNT, 1000);
-    if (luaL_loadbufferx(L, source.data(), source.size(), name.c_str(), "t") != LUA_OK ||
-        lua_pcall(L, 0, 1, 0) != LUA_OK) {
-        const char *message = lua_tostring(L, -1);
+    // Only the configuration's code is held to the memory limit: reading what it returned
+    // happens outside a protected call, where running out would abort.
+    auto &memory = memory_of(L);
+    memory.limited = true;
+    memory.refused = false;
+    int status = luaL_loadbufferx(L, source.data(), source.size(), name.c_str(), "t");
+    if (status == LUA_OK)
+        status = lua_pcall(L, 0, 1, 0);
+    memory.limited = false;
+    const char *message = status == LUA_OK ? nullptr : lua_tostring(L, -1);
+    // A full string buffer raises its "not enough memory" as an ordinary error.
+    if (memory.refused &&
+        (status == LUA_ERRMEM || (message && std::string_view(message) == "not enough memory")))
+        fail((name.starts_with('@') ? name.substr(1) : name) + ": needs more than " +
+             std::to_string(memory_limit >> 20) + " MiB of memory");
+    if (status != LUA_OK)
         fail(message ? message : "Lua raised a non-string error");
-    }
 }
 std::string read_file(const std::filesystem::path &path) {
     std::ifstream file(path, std::ios::binary);
