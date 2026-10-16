@@ -188,6 +188,34 @@ static void free_sky(struct sh_ambient_sky *sky) {
     free(sky);
 }
 
+/* Follows the output's place, size and scale: the particles keep their share of its width and
+ * height, and the pictures are painted again at a new scale. */
+static void place(struct sh_ambient_sky *sky) {
+    struct sh_server *server = sky->output->server;
+    struct wlr_box box;
+    wlr_output_layout_get_box(server->output_layout, sky->output->wlr_output, &box);
+    if (wlr_box_empty(&box))
+        return;
+    wlr_scene_node_set_position(&sky->tree->node, box.x, box.y);
+    struct sh_ambient_field *field = &sky->field;
+    if (field->width != box.width || field->height != box.height) {
+        // Particles put in before the output had a size start again anywhere in it.
+        bool sized = field->width > 0 && field->height > 0;
+        for (int i = 0; i < sky->count && sized; ++i) {
+            sky->particles[i].x *= box.width / field->width;
+            sky->particles[i].y *= box.height / field->height;
+        }
+        field->width = box.width;
+        field->height = box.height;
+        for (int i = 0; i < sky->count && !sized; ++i)
+            sh_ambient_spawn(field, &sky->particles[i], true);
+    }
+    if (sky->scale != sky->output->wlr_output->scale) {
+        drop_sprites(sky);
+        sky->scale = sky->output->wlr_output->scale;
+    }
+}
+
 static struct sh_ambient_sky *make_sky(struct sh_ambient *ambient, struct sh_output *output) {
     struct sh_ambient_sky *sky = calloc(1, sizeof(*sky));
     if (!sky)
@@ -204,31 +232,8 @@ static struct sh_ambient_sky *make_sky(struct sh_ambient *ambient, struct sh_out
     // A sky of its own on each output, the same however many there are.
     sky->field.seed = ((uint32_t)now_ns() ^ (uint32_t)(uintptr_t)output) | 1;
     output->ambient = sky;
+    place(sky);
     return sky;
-}
-
-/* Follows the output's place, size and scale: the particles keep their share of its width and
- * height, and the pictures are painted again at a new scale. */
-static void place(struct sh_ambient_sky *sky) {
-    struct sh_server *server = sky->output->server;
-    struct wlr_box box;
-    wlr_output_layout_get_box(server->output_layout, sky->output->wlr_output, &box);
-    if (wlr_box_empty(&box))
-        return;
-    wlr_scene_node_set_position(&sky->tree->node, box.x, box.y);
-    struct sh_ambient_field *field = &sky->field;
-    if (field->width != box.width || field->height != box.height) {
-        for (int i = 0; i < sky->count && field->width > 0 && field->height > 0; ++i) {
-            sky->particles[i].x *= box.width / field->width;
-            sky->particles[i].y *= box.height / field->height;
-        }
-        field->width = box.width;
-        field->height = box.height;
-    }
-    if (sky->scale != sky->output->wlr_output->scale) {
-        drop_sprites(sky);
-        sky->scale = sky->output->wlr_output->scale;
-    }
 }
 
 static void draw(struct sh_ambient_sky *sky) {
