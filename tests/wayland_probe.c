@@ -423,11 +423,34 @@ static void ack_early(struct probe *probe) {
     probe->acked = true;
     probe->held = 0;
 }
+/* Destroys the window's toplevel role, keeping its xdg_surface, and makes a popup with that
+ * surface for its parent, which xdg-shell allows; says "orphan popup made" once the compositor
+ * has taken it in. */
+static void orphan_popup(struct probe *probe) {
+    if (probe->decoration) { // it must go before its toplevel
+        zxdg_toplevel_decoration_v1_destroy(probe->decoration);
+        probe->decoration = NULL;
+    }
+    xdg_toplevel_destroy(probe->toplevel);
+    probe->toplevel = NULL;
+    struct xdg_positioner *positioner = xdg_wm_base_create_positioner(probe->shell);
+    xdg_positioner_set_size(positioner, 50, 50);
+    xdg_positioner_set_anchor_rect(positioner, 0, 0, 10, 10);
+    struct wl_surface *surface = wl_compositor_create_surface(probe->compositor);
+    struct xdg_surface *xdg_surface = xdg_wm_base_get_xdg_surface(probe->shell, surface);
+    xdg_surface_get_popup(xdg_surface, probe->xdg_surface, positioner);
+    xdg_positioner_destroy(positioner);
+    wl_surface_commit(surface);
+    if (wl_display_roundtrip(probe->display) < 0)
+        die("the orphan popup failed");
+    printf("orphan popup made\n");
+    fflush(stdout);
+}
 /* One line of standard input: "activate", "title TEXT", "app_id TEXT", "icon SPEC" (see
  * set_icon), "hold" (configures wait), "ack" (the last one held, or the next, acknowledged with
  * the size drawn before), "answer" (the size it asked for drawn, and configures answered), "draw
- * WIDTH HEIGHT" (the window draws itself at that size, unasked, as a client may) or "fullscreen
- * 1|0" (it asks to be fullscreen, or no longer). */
+ * WIDTH HEIGHT" (the window draws itself at that size, unasked, as a client may), "fullscreen
+ * 1|0" (it asks to be fullscreen, or no longer) or "orphan_popup" (see orphan_popup). */
 static void run_command(struct probe *probe, char *line) {
     line[strcspn(line, "\n")] = '\0';
     int width, height, on;
@@ -443,6 +466,8 @@ static void run_command(struct probe *probe, char *line) {
             xdg_toplevel_unset_fullscreen(probe->toplevel);
     } else if (!strcmp(line, "activate"))
         request_activation(probe);
+    else if (!strcmp(line, "orphan_popup"))
+        orphan_popup(probe);
     else if (!strncmp(line, "title ", 6))
         xdg_toplevel_set_title(probe->toplevel, line + 6);
     else if (!strncmp(line, "app_id ", 7))
@@ -996,7 +1021,8 @@ int main(int argc, char **argv) {
         die("unmap failed");
     if (probe.decoration) // it must go before its toplevel
         zxdg_toplevel_decoration_v1_destroy(probe.decoration);
-    xdg_toplevel_destroy(probe.toplevel);
+    if (probe.toplevel)
+        xdg_toplevel_destroy(probe.toplevel);
     xdg_surface_destroy(probe.xdg_surface);
     wl_surface_destroy(probe.surface);
     if (wl_display_roundtrip(display) < 0)
