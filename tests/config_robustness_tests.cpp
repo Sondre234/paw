@@ -106,6 +106,18 @@ int main(int argc, char **argv) {
         require(parses("local ok = pcall(string.rep, 'x', 2^31 - 1) assert(not ok) return {}"),
                 "a configuration that caught a refused allocation was refused");
 
+        // An unknown key a megabyte long is refused at once: no name is that long, so none is
+        // suggested for it, and the error quotes only its start.
+        {
+            const auto start = std::chrono::steady_clock::now();
+            auto error = error_of("return {['" + std::string(1 << 20, 'k') + "'] = 1}");
+            require(seconds_since(start) < parse_limit / 3,
+                    "a megabyte-long unknown key took " + std::to_string(seconds_since(start)) +
+                        " s to refuse");
+            require(error.find("unknown setting 'kkkk") != std::string::npos && error.size() < 2000,
+                    "a megabyte-long unknown key: " + error.substr(0, 300));
+        }
+
         // Wrong shapes and extreme values.
         for (const char *source : {
                  "", "return", "return 1", "return {}", "return {version=1e308}",
