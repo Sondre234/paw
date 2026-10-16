@@ -24,6 +24,13 @@ QString text(const QVariant &value) {
         return value.value<QDBusObjectPath>().path();
     return value.toString();
 }
+// A cover's URL as the media card may load it: a file's, one on the web or data. Any other, such
+// as image:// naming one of the shell's own image providers, gives "": the card loads its cover
+// on Qt Quick's loading thread, and those providers read models of the GUI thread.
+QString coverUrl(const QString &url) {
+    const auto scheme = QUrl(url).scheme().toLower();
+    return scheme == "file" || scheme == "http" || scheme == "https" || scheme == "data" ? url : QString();
+}
 // The metadata read as plain values, so that nothing refers to the message it came in.
 void settle(QVariantMap &properties) {
     if (properties.contains("Metadata"))
@@ -131,7 +138,7 @@ void Mpris::publish(const QString &name, qint64 position) {
         player.title = QUrl(metadata.value("xesam:url").toString()).fileName();
     player.artist = metadata.value("xesam:artist").toStringList().join(", ");
     player.album = metadata.value("xesam:album").toString();
-    player.art = metadata.value("mpris:artUrl").toString();
+    player.art = coverUrl(metadata.value("mpris:artUrl").toString());
     player.trackId = text(metadata.value("mpris:trackid"));
     if (player.trackId == "/org/mpris/MediaPlayer2/TrackList/NoTrack")
         player.trackId.clear();

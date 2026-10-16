@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """A window moved with the pointer comes along as its monitor switches workspace, still moved: from
-workspace_next, from Super + the wheel and from a touchpad swipe. A tile's place in the tiling it
-leaves closes and it tiles on the new workspace as it is dropped; a window floating on purpose
-floats there. Driven by a virtual pointer and keyboard (pointer_probe), Alt + drag, and a
-headless touchpad for the swipe."""
+workspace_next, from Super + the wheel, from a touchpad swipe and from keys, moved by Alt + drag,
+a middle drag or its title bar. A tile's place in the tiling it leaves closes and it tiles on the
+new workspace as it is dropped; a window floating on purpose floats there. Driven by a virtual
+pointer and keyboard (pointer_probe), a headless keyboard, and a headless touchpad for the
+swipe."""
 from pathlib import Path
 import sys
 
@@ -20,12 +21,16 @@ CONFIG = """return {
     layout = { gap = 0, tiling = true, workspaces = 3 },
     outputs = { monitors = { ["HEADLESS-1"] = { mode = "1280x720" } } },
     windows = { magnet = { enabled = false } },
-    mouse = { focus_follows = false },
+    mouse = { focus_follows = false, middle_drag = { "paw-probe" } },
     bindings = {
         { mods = { "Super" }, button = "wheel_up", action = "workspace_next" },
         { mods = { "Super" }, button = "wheel_down", action = "workspace_prev" },
+        { mods = { "Super", "Ctrl" }, key = "Right", action = "workspace_next" },
+        { mods = { "Super" }, key = "3", action = "workspace", workspace = 3 },
     },
 }"""
+
+KEY_3, KEY_LEFTCTRL, KEY_RIGHT, KEY_LEFTMETA = 4, 29, 106, 125
 
 with harness.Compositor(compositor, CONFIG) as desktop:
     msg = desktop.msg
@@ -39,6 +44,9 @@ with harness.Compositor(compositor, CONFIG) as desktop:
 
     def moving():
         return next(r for r in desktop.rows("snap") if r[0] == "zone")[6] == "1"
+
+    def focused():
+        return next((w.title for w in desktop.windows() if w.focused), None)
 
     desktop.detail = lambda: f"workspace {workspace()}, moving {moving()}: {windows()}"
     pointer = desktop.virtual_pointer(pointer_probe, *SCREEN)
@@ -122,4 +130,41 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     assert moving(), desktop.detail()
     release()
     assert windows()["A"][4:] == (False, 2, True), windows()
+
+    # Moved by a middle drag, it comes along as a key (Super + 3) switches, keeping the focus.
+    keys = desktop.keyboard()
+    x, y, width, height = windows()["A"][:4]
+    px, py = x + width // 2, y + height // 2
+    pointer("move", str(px), str(py), "press", "middle", "move", str(px + 20), str(py + 10))
+    desktop.wait_for(moving, "the middle drag moves A")
+    keys(KEY_LEFTMETA, KEY_3)
+    desktop.wait_for(lambda: workspace() == 3 and windows()["A"][5:] == (3, True),
+                     "Super + 3 took A to workspace 3")
+    assert moving() and focused() == "A", desktop.detail()
+    pointer("move", str(px + 60), str(py + 40))
+    desktop.wait_for(lambda: windows()["A"][:2] == (x + 60, y + 40),
+                     "A followed the pointer on workspace 3")
+    pointer("release", "middle")
+    desktop.wait_for(lambda: not moving(), "the middle drag ends")
+    assert windows()["A"][4:] == (False, 3, True), windows()
+
+    # A tile moved by its title bar (the client asking for the move), carried round from the
+    # last workspace to the first by Super + Ctrl + Right, tiles beside B as it is dropped there.
+    desktop.open_window(probe, "T", focused=True, env={"PAW_PROBE_MOVE": "1"})
+    desktop.wait_for(lambda: windows()["T"][4], "T tiled")
+    x, y, width, height = windows()["T"][:4]
+    px, py = x + width // 2, y + height // 2
+    pointer("move", str(px), str(py), "press", "left", "move", str(px + 10), str(py + 5))
+    desktop.wait_for(moving, "the title bar's drag moves T")
+    keys(KEY_LEFTMETA, KEY_LEFTCTRL, KEY_RIGHT)
+    desktop.wait_for(lambda: workspace() == 1 and windows()["T"][5:] == (1, True),
+                     "Super + Ctrl + Right took T round to workspace 1")
+    assert moving() and focused() == "T", desktop.detail()
+    pointer("move", "1000", "360")
+    release()
+    desktop.wait_for(lambda: windows()["T"][4:6] == (True, 1) and
+                     windows()["T"][:4] == RIGHT and windows()["B"][:4] == LEFT,
+                     "T tiled beside B on workspace 1")
+    msg("workspace", "3")
+    assert windows()["A"][4:] == (False, 3, True), windows()
 print("A window moved with the pointer comes along to the workspace shown")

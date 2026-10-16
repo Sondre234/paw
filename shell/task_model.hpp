@@ -76,10 +76,12 @@ class TaskModel : public QAbstractListModel {
     // the shell's nor the compositor's, which started it.
     Q_INVOKABLE void kill(int id);
     Q_INVOKABLE void showDesktop();
-    // Counted per window: while watched, the window is pictured, once or as it redraws when
-    // `live`, at `pixelWidth` device pixels wide. Its last picture stays until it closes.
-    Q_INVOKABLE void watchPicture(int taskId, int pixelWidth, bool live);
-    Q_INVOKABLE void unwatchPicture(int taskId);
+    // Counted per window and per `owner` (a panel, a card of the switcher): while watched, the
+    // window is pictured, once or as it redraws when `live`, at `pixelWidth` device pixels wide.
+    // The owner going lets go of what it still watches, so that no capture outlives it. Its last
+    // picture stays until it closes.
+    Q_INVOKABLE void watchPicture(QObject *owner, int taskId, int pixelWidth, bool live);
+    Q_INVOKABLE void unwatchPicture(QObject *owner, int taskId);
     // The window's last picture, for the image provider on any thread; null while it has none.
     QImage picture(int taskId) const;
     // Through the window control's version 4: the other windows fade while this one shows alone
@@ -181,6 +183,11 @@ class TaskModel : public QAbstractListModel {
     QSet<QObject *> placers_;
     // Drops what `owner` placed, as it goes.
     void unplace(QObject *owner);
+    // How many times each owner watches each window's picture, kept from its first watch until
+    // it goes.
+    QHash<QObject *, QHash<int, int>> watchers_;
+    // Lets go of what `owner` watches, as it goes.
+    void unwatchAll(QObject *owner);
     // Tells the compositor where the windows are, as far as that changed.
     void sendPlaces();
     void setPeeked(int taskId);

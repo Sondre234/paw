@@ -15,7 +15,11 @@ bindings, dispatchers, scripts that call `hyprctl`) is out of scope; paw keeps i
 - Hyprland's Lua config (`hyprland.lua`) is code, not data. It runs in a sandbox where
   `hl.*` functions only record their arguments (`hl.bind`, `hl.on`, timers are no-ops;
   no `os.execute`, no writes). Its `io.open` reads stay allowed inside the source
-  directory so branches such as `monitor-mode` files still resolve.
+  directory so branches such as `monitor-mode` files still resolve. It gets 64 MiB and an
+  instruction budget, which a `pcall` cannot catch for good; `setmetatable` refuses a
+  `__gc`, which Lua would run outside that budget; and the tables it leaves are read
+  without running their metamethods. A script that breaks any of this stops with the
+  error in the report, keeping what it set before.
 - `hyprland.conf` (hyprlang) gets a small parser: `source =`, `$variables`, nested
   `section { }` blocks, `rgba()`/`rgb()`/`0xAARRGGBB` colors.
 - Waybar: only the bar's look transfers. Position, height, and margins come from

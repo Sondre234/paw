@@ -150,6 +150,12 @@ int main() {
                                    "lock\t0\t0\nsuspend\t3600000\t0\n")) ==
           "dimmed · on battery · screens off 10m · sleep 1h");
     CHECK(idle_text(paw::cli::rows("state\t9\t0\t0\t0\ndim\t0\t0\n")) == "never sleeps");
+    // The inhibitors counted on the state line, and a line per inhibitor, change nothing.
+    CHECK(idle_text(paw::cli::rows("state\t303\t1\t0\t0\t2\t1\ndim\t570000\t0\n"
+                                   "inhibitor\t1\twindow\tVideo\ninhibitor\t0\tother\t-\n")) ==
+          "inhibited · dim 9m30s");
+    CHECK(idle_text(paw::cli::rows("state\t303\t1\t0\t0\t0\t0\t1\ndim\t570000\t0\n")) ==
+          "kept awake · dim 9m30s");
     CHECK(night_text(paw::cli::rows("3400\t0\t1\n")) == "3400K");
     CHECK(night_text(paw::cli::rows("6500\t0\t1\n")) == "scheduled");
     CHECK(night_text(paw::cli::rows("6500\t0\t0\n")).empty());

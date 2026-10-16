@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "paw/backend.h"
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <cstdlib>
@@ -7,6 +8,8 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 static bool operator==(const sh_rect &a, const sh_rect &b) {
     return a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height;
@@ -637,6 +640,76 @@ int main() {
                         !sh_tiling_set_focus(late, &c[0]),
                     "scroll actions worked outside the scroll layout");
             sh_tiling_destroy(late);
+            sh_tiling_destroy(sc);
+        }
+
+        // The point puts a new column first over the first column, or left of it, as last
+        // arranged; over another column, outside the area or with no point, it opens right of
+        // the anchor. The preview, which a new window's first size comes from, does the same and
+        // leaves the strip as it was.
+        {
+            const sh_rect screen{100, 0, 1000, 800};
+            int c[7];
+            sh_tiling *sc = sh_tiling_create();
+            const float presets[] = {0.5F};
+            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_EDGE, 0.5, 0.1, presets, 1, false);
+            sh_tiling_set_layout(sc, "DP-1", 0, SH_LAYOUT_SCROLL);
+            auto open = [&](int index, const void *after, bool point, double x) {
+                sh_tiling_insert(sc, "DP-1", 0, &c[index], after, point, x, 400);
+                sh_tiling_set_focus(sc, &c[index]);
+                return arrange(sc, screen, 0);
+            };
+            // The windows from left to right.
+            auto strip = [&] {
+                std::vector<std::pair<int, int>> columns;
+                for (auto &[window, rect] : arrange(sc, screen, 0))
+                    columns.push_back({rect.x, static_cast<int>(static_cast<int *>(window) - c)});
+                std::sort(columns.begin(), columns.end());
+                std::vector<int> order;
+                for (auto &column : columns)
+                    order.push_back(column.second);
+                return order;
+            };
+            open(0, nullptr, true, 300);
+            auto placed = open(1, &c[0], true, 300);
+            require(strip() == std::vector<int>{1, 0} && placed[&c[1]].x == 100,
+                    "a point over the first column did not open a column before it");
+            open(2, &c[1], true, 700);
+            require(strip() == std::vector<int>{1, 2, 0},
+                    "a point over the second column did not open right of the anchor");
+            placed = open(3, &c[2], true, 1200);
+            require(strip() == std::vector<int>{1, 2, 3, 0},
+                    "a point outside the area did not open right of the anchor");
+            // The view moved on: the first column is off the screen, the point over the second.
+            require(placed[&c[1]].x == -400 && placed[&c[2]].x == 100, "the view did not move on");
+            open(4, &c[3], true, 300);
+            require(strip() == std::vector<int>{1, 2, 3, 4, 0},
+                    "a point over a column scrolled to the left edge opened first");
+            sh_tiling_set_focus(sc, &c[1]);
+            placed = arrange(sc, screen, 0);
+            require(placed[&c[1]].x == 100, "the first column not back in view");
+            // A preview with the point over the first column finds the new column first, at the
+            // width of any other, and leaves the strip as it was.
+            sh_rect preview;
+            require(sh_tiling_preview(sc, "DP-1", 0, &c[6], &c[1], true, 300, 400, screen, 0,
+                                      &preview) &&
+                        preview == sh_rect({100, 0, 500, 800}),
+                    "the preview did not open the column first");
+            require(arrange(sc, screen, 0) == placed && strip() == std::vector<int>{1, 2, 3, 4, 0},
+                    "the preview changed the strip");
+            require(sh_tiling_preview(sc, "DP-1", 0, &c[6], &c[1], true, 700, 400, screen, 0,
+                                      &preview) &&
+                        preview == sh_rect({600, 0, 500, 800}),
+                    "the preview did not open the column right of the anchor");
+            // Centered, the first column leaves room on its left, which counts as before it.
+            sh_tiling_set_scroll(sc, SH_SCROLL_FOLLOW_CENTER, 0.5, 0.1, presets, 1, false);
+            sh_tiling_set_focus(sc, &c[2]);
+            sh_tiling_set_focus(sc, &c[1]);
+            placed = arrange(sc, screen, 0);
+            require(placed[&c[1]].x == 350, "the first column is not centered");
+            open(5, &c[1], true, 200);
+            require(strip() == std::vector<int>{5, 1, 2, 3, 4, 0},
+                    "a point left of the first column did not open a column before it");
             sh_tiling_destroy(sc);
         }
 

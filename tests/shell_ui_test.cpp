@@ -274,6 +274,7 @@ int main(int argc, char **argv) {
     QStringList nudges; // "workspace_nudge OUTPUT next|prev", the panel's wheel past either end
     int layoutSwitches = 0; // "switch_layout next" requests, answered with the second layout
     bool nightLight = false; // what "night_light_toggle" turns, and the state it then announces
+    bool keepAwake = false;  // the same for "keep_awake_toggle"
     bool holdSessions = false;
     QString powerRefusal; // what the compositor answers a power action with; "" for ok
     QLocalSocket *pendingSessions = nullptr;
@@ -327,6 +328,12 @@ int main(int argc, char **argv) {
                 client->write("ok\n");
                 client->disconnectFromServer();
                 subscriber->write(nightLight ? "night-light on on\n" : "night-light off off\n");
+            } else if (request == "keep_awake_toggle\n") {
+                requests.push_back("keep_awake_toggle");
+                keepAwake = !keepAwake;
+                client->write("ok\n");
+                client->disconnectFromServer();
+                subscriber->write(keepAwake ? "keep-awake on\n" : "keep-awake off\n");
             } else if (request.startsWith("mode ")) {
                 requests.push_back(QString::fromUtf8(request).trimmed());
                 client->write("ok\n");
@@ -1090,6 +1097,15 @@ int main(int argc, char **argv) {
     subscriber->write("night-light off off\n");
     if (!waitFor([&] { return !controller.nightLight() && controller.nightLightMode() == "off"; }))
         return fail("a change of night light was not read");
+    // And whether keep awake holds the idle steps off.
+    if (controller.keepAwake())
+        return fail("keep awake is on before the compositor says");
+    subscriber->write("keep-awake on\n");
+    if (!waitFor([&] { return controller.keepAwake(); }))
+        return fail("keep awake the compositor reports was not read");
+    subscriber->write("keep-awake off\n");
+    if (!waitFor([&] { return !controller.keepAwake(); }))
+        return fail("keep awake turned off was not read");
     // Battery and network widgets show what a (fake) sysfs reports, and only where it exists.
     {
         QDir sys(screens.filePath("sys"));
@@ -1276,8 +1292,8 @@ ListModel {
     property var peeks: []
     property int peekedTask: -1
     function note(request) { requests = requests.concat([request]) }
-    function watchPicture(id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
-    function unwatchPicture(id) { pictures = pictures.concat(["unwatch " + id]) }
+    function watchPicture(owner, id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
+    function unwatchPicture(owner, id) { pictures = pictures.concat(["unwatch " + id]) }
     function peek(id) { if (peekedTask !== id) { peekedTask = id; peeks = peeks.concat(["peek " + id]) } }
     function endPeek(id) { if (peekedTask === id) { peekedTask = -1; peeks = peeks.concat(["end " + id]) } }
     function activate(id) { note("activate " + id) }
@@ -2876,8 +2892,8 @@ ListModel {
             switcherTasks.setData(R"(import QtQml.Models
 ListModel {
     property var pictures: []
-    function watchPicture(id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
-    function unwatchPicture(id) { pictures = pictures.concat(["unwatch " + id]) }
+    function watchPicture(owner, id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
+    function unwatchPicture(owner, id) { pictures = pictures.concat(["unwatch " + id]) }
     ListElement { taskId: 31; title: 'Wide'; appId: 'wide'; windowId: 501; minimized: false
                   picture: 'image://test-windows/320x180' }
     ListElement { taskId: 32; title: 'Tall'; appId: 'tall'; windowId: 502; minimized: false
@@ -5616,7 +5632,8 @@ ListModel {
         if (!quick || !waitFor([&] { return inPopover(quick); }))
             return fail("clicking the Quick Settings button did not open its flyout");
         auto tile = [&](const QString &name) { return find(quick, "quickTile:" + name); };
-        for (const char *name : {"dnd", "nightLight", "tiling", "profiles", "wallpapers", "network"})
+        for (const char *name :
+             {"dnd", "nightLight", "keepAwake", "tiling", "profiles", "wallpapers", "network"})
             if (!tile(name) || !tile(name)->isVisible()) {
                 std::cerr << "Quick Settings has no " << name << " tile\n";
                 return 1;
@@ -5641,6 +5658,14 @@ ListModel {
         click(tile("nightLight"));
         if (!waitFor([&] { return !tile("nightLight")->property("checked").toBool(); }))
             return fail("the night light tile did not toggle it back");
+        requests.clear();
+        click(tile("keepAwake"));
+        if (!waitFor([&] { return tile("keepAwake")->property("checked").toBool(); }) ||
+            requests != QStringList{"keep_awake_toggle"})
+            return fail("the keep awake tile did not ask the compositor to toggle it");
+        click(tile("keepAwake"));
+        if (!waitFor([&] { return !tile("keepAwake")->property("checked").toBool(); }))
+            return fail("the keep awake tile did not toggle it back");
         const bool tiled = panelTiling();
         click(tile("tiling"));
         if (!waitFor([&] { return panelTiling() != tiled && tile("tiling")->property("checked").toBool() != tiled; }))
@@ -7737,6 +7762,58 @@ ListModel {
         file.close();
         if (!reconfigure(lua) || !waitFor([&] { return controller.panelEdge() == "bottom" && !controller.panelDraggable(); }))
             return fail("could not restore the configuration");
+    }
+    // A panel destroyed while it watches windows' pictures, as one is when its monitor goes with
+    // a card open, leaves no watch behind: what it still watches is the panel's own, which the
+    // task model lets go of as the panel goes, though its deferred syncPictures never runs.
+    {
+        // A stand-in model that keeps the watches taken and not let go, each {owner, id}.
+        QQmlComponent watchingTasks(view.engine());
+        watchingTasks.setData(R"(import QtQml.Models
+ListModel {
+    property var held: []
+    function watchPicture(owner, id, width, live) { held = held.concat([{ owner: owner, id: id }]) }
+    function unwatchPicture(owner, id) {
+        var index = held.findIndex(function(watch) { return watch.owner === owner && watch.id === id })
+        if (index >= 0)
+            held = held.slice(0, index).concat(held.slice(index + 1))
+    }
+    ListElement { taskId: 7; title: 'Fake'; appId: 'fake'; active: false; minimized: false; urgent: false
+                  maximized: false; fullscreen: false; output: 'TEST-1'; workspace: 2; sticky: false
+                  floating: false; tiling: false; above: false; picture: ''; pid: 0; windowId: 70 }
+})",
+                               QUrl());
+        std::unique_ptr<QObject> watching(watchingTasks.create());
+        if (!watching)
+            return fail("the watching stand-in model did not load");
+        QQmlEngine::setObjectOwnership(watching.get(), QQmlEngine::CppOwnership);
+        auto held = [&] {
+            return watching->property("held").value<QJSValue>().toVariant().toList();
+        };
+        auto panel = std::make_unique<ShellView>(controller, app.primaryScreen(), false, true);
+        if (panel->status() != QQuickView::Ready || !panel->rootObject())
+            return fail("a second panel did not load");
+        panel->rootObject()->setProperty("taskSource", QVariant::fromValue(watching.get()));
+        // As a tile of the card wants its window's picture as it appears.
+        QMetaObject::invokeMethod(panel->rootObject(), "wantPicture", Q_ARG(QVariant, 7),
+                                  Q_ARG(QVariant, true), Q_ARG(QVariant, 0));
+        if (!waitFor([&] { return held().size() == 1; }))
+            return fail("a panel wanting a window's picture did not watch it");
+        QList<QPointer<QObject>> owners;
+        for (const auto &watch : held())
+            owners << watch.toMap().value("owner").value<QObject *>();
+        for (const auto &owner : owners)
+            if (!owner)
+                return fail("a panel watched a window's picture without an owner");
+        // The tile going with the panel, as the panel goes.
+        QMetaObject::invokeMethod(panel->rootObject(), "wantPicture", Q_ARG(QVariant, 7),
+                                  Q_ARG(QVariant, false), Q_ARG(QVariant, 0));
+        panel.reset();
+        QCoreApplication::processEvents();
+        for (const auto &owner : owners)
+            if (owner)
+                return fail("a panel destroyed while it watched a window's picture left the watch "
+                            "to something that stays");
     }
     std::cout << "Hover/click, launcher keyboard focus, search, command launch, tiling toggle, and "
                  "workspace indicator, task and bar context menus, pinning a window's application, "

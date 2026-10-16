@@ -236,6 +236,15 @@ with harness.Compositor(compositor, CONFIG, bus=True, start=False) as desktop:
     wait_for(lambda: count("osd shown") == osd_before + 4, "the display for toggling off")
     result = desktop.run("dnd", "sideways")
     assert "usage" in result.stdout + result.stderr, result
+    # The actions a binding runs hand the shell the same lines, ending with it off again.
+    heard = desktop.subscribe()
+    wait_for(heard.text, "the subscription")
+    for n, (action, verb) in enumerate((("dnd_on", "on"), ("dnd_toggle", "toggle"),
+                                        ("dnd_off", "off")), 5):
+        wait_for(lambda: count("osd hidden") == count("osd shown"), "the display gone")
+        msg(action)
+        wait_for(lambda: count("osd shown") == osd_before + n, f"the display for {action}")
+        assert heard.values("dnd ")[-1:] == [verb], heard.values("dnd ")
 
     # The on-screen display: a pill at the bottom centre that fades away.
     wait_for(lambda: count("osd hidden") == count("osd shown"), "the display gone")

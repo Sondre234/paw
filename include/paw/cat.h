@@ -4,9 +4,10 @@
  * given the world src/compositor/cat.c shows it. It sits on the top edge of a window or on the
  * bottom of a monitor's free area (above a taskbar), wanders along it, grooms, yawns and
  * scratches, falls with gravity when what it sits on goes, jumps up to the focused window, chases
- * a pointer flicked past it, runs over to paw at an urgent window, and sleeps while nobody uses
- * the computer. Positions are layout coordinates in logical pixels, (x, y) being the middle of
- * the cat's feet; times are milliseconds on the monotonic clock. */
+ * a pointer flicked past it, runs over to paw at an urgent window, purrs as the pointer strokes
+ * it, and sleeps while nobody uses the computer. Positions are layout coordinates in logical
+ * pixels, (x, y) being the middle of the cat's feet; times are milliseconds on the monotonic clock.
+ */
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -25,11 +26,13 @@ enum sh_cat_state {
     SH_CAT_YAWN,    /* yawning, on its way to sleep or just because */
     SH_CAT_SLEEP,   /* curled up, breathing out a "z" now and then */
     SH_CAT_WAKE,    /* stretching awake */
+    SH_CAT_PURR,    /* stroked: purring, eyes shut, sending up hearts; `dozing`, in its sleep */
     SH_CAT_JUMP,    /* leaping in an arc to `target_x`, `target_y` on `target_window` */
     SH_CAT_FALL,    /* falling, after a startled hop when what it sat on went */
     SH_CAT_LAND,    /* squashed for a moment as it lands */
     SH_CAT_CHASE,   /* running through the air after the pointer, as oneko does */
     SH_CAT_POUNCE,  /* pawing at the pointer it caught up with, before it drops */
+    SH_CAT_SWAT,    /* stroked for too long: a swat at the pointer, before it walks off */
     SH_CAT_RUSH,    /* running to an urgent window's top */
     SH_CAT_KNOCK,   /* patting the urgent window's top until it has attention */
     SH_CAT_STATES,
@@ -98,18 +101,38 @@ struct sh_cat {
     int64_t pointer_at;
     int motions;
     bool pointer_known;
+    /* Stroking: along each axis, how far the pointer went the way it goes (`way`, 0 before it
+     * went anywhere), and when it last turned back over the cat, `turns` times of the last
+     * three, which tell stroking from passing over. */
+    double stroke_x, stroke_y;
+    int way_x, way_y;
+    int64_t turned[3];
+    int turns;
+    bool dozing;         /* it purrs in its sleep, and sleeps on after */
+    int64_t aloof_until; /* after a swat, strokes leave it cold until then */
     uint32_t random;
 };
 
+enum { SH_CAT_HEARTS = 3 };
+
+/* A heart over a purring cat: its middle, in cells of the art from the middle of the cat's feet
+ * (`x` forward, the way the cat faces, `y` up to the heart's bottom), and how opaque it is. */
+struct sh_cat_heart {
+    int x, y;
+    double alpha;
+};
+
 /* What to draw now: the frame, mirrored to face left, how squashed (0 for not at all, positive
- * wider and lower, as on landing), and whether a "z" floats over it, at which of its three
- * heights. */
+ * wider and lower, as on landing), whether a "z" floats over it, at which of its three heights,
+ * and the hearts that float up from it as it purrs. */
 struct sh_cat_pose {
     enum sh_cat_frame frame;
     bool left;
     double squash;
     bool z;
     int z_step;
+    int hearts;
+    struct sh_cat_heart heart[SH_CAT_HEARTS];
 };
 
 /* A cat of `width` by `height` that appears at the top of `area`'s free area at `x` and falls
@@ -125,9 +148,17 @@ void sh_cat_arrive(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
  * decides something (at least 1). */
 int sh_cat_step(struct sh_cat *cat, const struct sh_cat_world *world, int64_t now);
 
-/* Notes the pointer at (x, y). True when that makes the cat chase it, or matters to it otherwise,
- * so that it should be stepped at once. */
+/* Notes the pointer at (x, y). True when that makes the cat chase it, purr as it strokes it, or
+ * matters to it otherwise, so that it should be stepped at once. Stroking is the pointer turning
+ * back over the cat three times within a second and a half, slower than a flick; it purrs on for
+ * two seconds after the pointer last moves over it, awake or in its sleep. */
 bool sh_cat_pointer(struct sh_cat *cat, double x, double y, int64_t now);
+
+/* Whether (x, y) is on the cat standing somewhere, or near enough to stroke it. */
+bool sh_cat_under(const struct sh_cat *cat, double x, double y);
+
+/* Whether it sleeps, purrs in its sleep or yawns on its way to sleep: what input wakes. */
+bool sh_cat_asleep(const struct sh_cat *cat);
 
 /* Wakes a sleeping cat; true when it was asleep or falling asleep. */
 bool sh_cat_wake(struct sh_cat *cat, int64_t now);

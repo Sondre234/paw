@@ -50,7 +50,9 @@ class ThumbnailResponse : public QQuickImageResponse, public QRunnable {
     void run() override {
         if (!cancelled_)
             image_ = Thumbnails::thumbnail(path_);
-        Q_EMIT finished();
+        // Told in the response's own thread (Qt Quick's loading thread), which deletes it once
+        // told: emitted on the pool's, it could be deleted while the emit is still running.
+        QMetaObject::invokeMethod(this, [this] { Q_EMIT finished(); }, Qt::QueuedConnection);
     }
     void cancel() override { cancelled_ = true; }
     QQuickTextureFactory *textureFactory() const override {

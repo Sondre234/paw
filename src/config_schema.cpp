@@ -404,9 +404,11 @@ const Option options[] = {
      "sets it; actions apply as a window opens, every matching rule in order, later ones "
      "winning. A rule needs `app_id` or `title`."},
     {"windows.rules[].app_id", "regex", "any", "", none, none,
-     "ECMAScript regular expression searched in the application ID (X11: the class)."},
+     "ECMAScript regular expression searched in the application ID (X11: the class); in "
+     "one over 1 KiB, in its first and last 512 bytes."},
     {"windows.rules[].title", "regex", "any", "", none, none,
-     "ECMAScript regular expression searched in the window title."},
+     "ECMAScript regular expression searched in the window title; in one over 1 KiB, in its "
+     "first and last 512 bytes."},
     {"windows.rules[].opacity", "number", "", "", 0.05, 1, "Opacity of a matching focused window."},
     {"windows.rules[].inactive_opacity", "number", "`opacity`", "", 0.05, 1,
      "Opacity of a matching unfocused window."},
@@ -484,8 +486,9 @@ const Option options[] = {
 
     {"hot_corners", "table", "", "", none, none,
      "Hot corners: pushing the pointer into a screen corner and leaving it there runs a request, "
-     "written as for `paw msg` (an action name and its argument, or `spawn PROGRAM ARGS`). "
-     "Nothing runs over a fullscreen window or while a button is held."},
+     "written as for `paw msg` (an action name and its argument, or `spawn PROGRAM ARGS`), for "
+     "the monitor whose corner it is. Nothing runs over a fullscreen window or while a button is "
+     "held. `size` and `delay` apply to `overview.hot_corner` too."},
     {"hot_corners.size", "integer", "2", "2", 1, 64,
      "Side of the corner square in pixels."},
     {"hot_corners.delay", "integer", "150", "150", 0, 5000,
@@ -587,8 +590,10 @@ const Option options[] = {
     {"overview.strip", "boolean", "true", "true", none, none,
      "A strip of the monitor's workspaces above the grid, to switch to or to drop a window on."},
     {"overview.hot_corner", "enum", "\"none\"", "\"top-left\"", none, none,
-     "Pushing the pointer into this screen corner opens the overview: `\"none\"`, "
-     "`\"top-left\"`, `\"top-right\"`, `\"bottom-left\"`, or `\"bottom-right\"`."},
+     "Resting the pointer in this screen corner opens the overview there, as a hot corner runs "
+     "its request (see `hot_corners`), but never closes it: `\"none\"`, `\"top-left\"`, "
+     "`\"top-right\"`, `\"bottom-left\"`, or `\"bottom-right\"`. Not a corner `hot_corners` "
+     "binds."},
     {"overview.dim", "number", "0.86", "0.86", 0, 1,
      "How opaque the backdrop behind the thumbnails is, from 0 (clear) to 1."},
 
@@ -724,6 +729,12 @@ const Option options[] = {
      none,
      "The screen locker `lock` starts, an `ext-session-lock-v1` client, as a program and its "
      "arguments; `{}` for none. Locking is offered only while the program is installed."},
+    {"power.lock_style", "boolean", "true", "false", none, none,
+     "Dress the stock locker, `swaylock -f`, in the appearance profile's look: its wallpaper "
+     "(the one picked from the panel, else `shell.wallpaper`) over `appearance.background`, "
+     "and the ring in the shell's accent, panel, text and urgent colours with its font. Only "
+     "while `lock_command` is left at its default and swaylock has no configuration file of "
+     "its own (`~/.config/swaylock/config`, `~/.swaylock/config`, `/etc/swaylock/config`)."},
     {"power.lock_before_sleep", "boolean", "true", "true", none, none,
      "Lock the screen with `lock_command` before the machine sleeps, whether `suspend`, "
      "`hibernate`, the lid or an idle daemon sends it to sleep, and hold the sleep until the "
@@ -746,7 +757,8 @@ const Option options[] = {
      "Power saving after a while without input, as KDE and Windows have, with no idle daemon: "
      "the screens dim, the monitors turn off, the screen locks and the machine suspends, each "
      "a number of seconds after the last key press, click, scroll or pointer motion; 0 never "
-     "takes that step. An idle inhibitor (a video playing, a game) holds every step off. "
+     "takes that step. An idle inhibitor (a video playing, a game) holds every step off "
+     "while its window shows. "
      "`ext-idle-notify-v1` works as before, so an idle daemon such as swayidle runs beside "
      "these; `display_off = 0` leaves the monitors to it."},
     {"idle.dim", "integer", "`display_off` − 30", "570", 0, 86400,
@@ -1176,21 +1188,23 @@ bool is_child(std::string_view parent, std::string_view path) {
         return false;
     return path.substr(parent.size() + 1).find_first_of(".[") == std::string_view::npos;
 }
-// Edit distance where swapping two neighbouring letters counts as one edit.
+// Edit distance where swapping two neighbouring letters counts as one edit, in three rows of
+// `b`'s length: the row before the last, the last, and the one being filled.
 size_t distance(const std::string &a, const std::string &b) {
-    std::vector<std::vector<size_t>> d(a.size() + 1, std::vector<size_t>(b.size() + 1));
-    for (size_t i = 0; i <= a.size(); ++i)
-        d[i][0] = i;
+    std::vector<size_t> before(b.size() + 1), last(b.size() + 1), row(b.size() + 1);
     for (size_t j = 0; j <= b.size(); ++j)
-        d[0][j] = j;
-    for (size_t i = 1; i <= a.size(); ++i)
+        last[j] = j;
+    for (size_t i = 1; i <= a.size(); ++i) {
+        row[0] = i;
         for (size_t j = 1; j <= b.size(); ++j) {
-            d[i][j] = std::min({d[i - 1][j] + 1, d[i][j - 1] + 1,
-                                d[i - 1][j - 1] + (a[i - 1] != b[j - 1])});
+            row[j] = std::min({last[j] + 1, row[j - 1] + 1, last[j - 1] + (a[i - 1] != b[j - 1])});
             if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1])
-                d[i][j] = std::min(d[i][j], d[i - 2][j - 2] + 1);
+                row[j] = std::min(row[j], before[j - 2] + 1);
         }
-    return d[a.size()][b.size()];
+        std::swap(before, last);
+        std::swap(last, row);
+    }
+    return last[b.size()];
 }
 } // namespace
 
@@ -1215,18 +1229,27 @@ std::string closest_match(const std::string &word, const std::vector<std::string
             c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         return text;
     };
+    // No name is this long, so a word that is cannot be a typo of one; comparing it with each
+    // would take time that grows with its length.
+    if (word.size() > 64)
+        return {};
+    // A typo is a couple of edits, fewer for short words; a candidate whose length differs by
+    // more is further off than that.
+    const size_t most = std::min<size_t>(2, std::max<size_t>(1, word.size() / 3));
     std::string best;
     size_t best_distance = SIZE_MAX;
     auto wanted = lower(word);
     for (const auto &candidate : candidates) {
+        if (std::max(word.size(), candidate.size()) - std::min(word.size(), candidate.size()) >
+            most)
+            continue;
         auto d = distance(wanted, lower(candidate));
         if (d < best_distance) {
             best_distance = d;
             best = candidate;
         }
     }
-    // A typo is a couple of edits, fewer for short words.
-    if (best_distance <= std::min<size_t>(2, std::max<size_t>(1, word.size() / 3)))
+    if (best_distance <= most)
         return best;
     return {};
 }
@@ -1242,7 +1265,8 @@ std::string config_reference_markdown() {
            "for a misspelled name; `paw --check-config` reports it. The running desktop "
            "reloads the file when it is saved; one with an error loads the default "
            "configuration instead and shows the error across the top of the screen until "
-           "the file is fixed.\n\n"
+           "the file is fixed. Its Lua cannot read files or run programs, and has 3 seconds "
+           "and 64 MiB of memory to load in; a file that needs more is an error as well.\n\n"
            "Ranges are inclusive. Colors are `\"#RRGGBB\"` (with `#RRGGBBAA` where noted).\n";
     std::string section = "?"; // nothing yet
     auto flush_section = [&](const Option &option) {
