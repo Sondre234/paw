@@ -64,6 +64,11 @@ def noon(desktop):
 def midnight(desktop):
     msg = desktop.msg
     assert state(msg) == (3400, 0, 1), state(msg)
+    # night_light_off holds the night neutral until the schedule is given back.
+    msg("night_light_off")
+    assert state(msg) == (6500, 1, 1), state(msg)
+    msg("night_light_auto")
+    assert state(msg) == (3400, 0, 1), state(msg)
     # Reloading with the schedule off ends it; the toggle still works.
     desktop.reload(settings("enabled = false"))
     desktop.wait_for(lambda: state(msg) == (6500, 0, 0), "schedule off")
