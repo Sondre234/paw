@@ -786,6 +786,13 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   worst frames halved) and drops no frames for it: its 240 pieces change out of the scene's
   sight and come back together, where the scene worked out what to draw again after each of
   some 700 changes a frame.
+- `paw import` no longer aborts or hangs on a `hyprland.lua` whose tables have an `__index` that
+  raises an error, never returns or changes the table it is in: it reads what the script built
+  without running the script's code. A script that sets a `__gc`, which Lua would run out of the
+  instruction budget's reach, or that catches the budget's error with `pcall` and loops on, is
+  stopped there. Each import ends with the error in its report.
+- Smart window placement no longer overflows on a window whose client set its geometry near the
+  largest size an integer holds, which could open the next window on top of it.
 
 ## 0.1.1 (2026-10-05)
 
