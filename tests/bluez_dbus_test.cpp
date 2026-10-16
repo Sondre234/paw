@@ -7,6 +7,7 @@
 // taking a question back.
 #include "bluez.hpp"
 #include "fake_dbus.hpp"
+#include <QDBusArgument>
 #include <QDBusMetaType>
 #include <QDBusObjectPath>
 #include <QDBusPendingCallWatcher>
@@ -40,6 +41,8 @@ class FakeBlueZ {
     QVariantList pairArguments;
     // The error Connect answers with, while set.
     QString refuseConnect;
+    // While set, what GetManagedObjects answers with in place of the objects.
+    QVariant managedObjects;
     QString agentOwner, agentPath;
 
     explicit FakeBlueZ(fakedbus::Bus &bus) : bus_(bus.connect()) {
@@ -52,7 +55,8 @@ class FakeBlueZ {
             for (const auto &[path, object] : objects_)
                 if (path != "/")
                     objects[QDBusObjectPath(path)] = object->properties;
-            connection.send(call.createReply(QVariant::fromValue(objects)));
+            connection.send(
+                call.createReply(managedObjects.isValid() ? managedObjects : QVariant::fromValue(objects)));
             return true;
         };
         auto *manager = add("/org/bluez", "org.bluez.AgentManager1", {});
@@ -134,6 +138,12 @@ class FakeBlueZ {
         at(pathOf(name))->properties[batteryInterface] = battery.value(batteryInterface);
         root_->emitSignal(objectManagerInterface, "InterfacesAdded",
                           {QVariant::fromValue(QDBusObjectPath(pathOf(name))), QVariant::fromValue(battery)});
+    }
+    // Announces an object again, with `interfaces` in place of its own when given.
+    void announce(const QString &path, const QVariant &interfaces = {}) {
+        root_->emitSignal(objectManagerInterface, "InterfacesAdded",
+                          {QVariant::fromValue(QDBusObjectPath(path)),
+                           interfaces.isValid() ? interfaces : QVariant::fromValue(at(path)->properties)});
     }
     void remove(const QString &path) {
         root_->emitSignal(objectManagerInterface, "InterfacesRemoved",
@@ -437,6 +447,25 @@ class BlueZDbusTest : public QObject {
                            [&authorized, name](bool allowed) { authorized << QString(allowed ? "" : "not ") + name; });
         QTRY_COMPARE(authorized.size(), 2);
         QVERIFY(authorized.contains("Old") && authorized.contains("not Tablet"));
+    }
+    // Answers of the wrong types, from a BlueZ of another version or a bug, are taken as no
+    // objects rather than read out of bounds: managed objects that are not a{oa{sa{sv}}}, and
+    // interfaces added that are not a{sa{sv}}.
+    void malformed() {
+        FakeBlueZ bluez(bus_);
+        QDBusArgument numbers;
+        numbers << QList<int>{1, 2, 3};
+        bluez.managedObjects = QVariant::fromValue(numbers);
+        QVERIFY(bluez.start());
+        BlueZ bluetooth(bus_.connect());
+        QTRY_COMPARE(bluez.at("/")->calls, QStringList{"GetManagedObjects"});
+        // Its objects announced one by one then, a stray one of the wrong type among them.
+        bluez.announce(adapterPath);
+        bluez.announce(pathOf("Stray"), QVariant::fromValue(numbers));
+        bluez.announce(pathOf("Buds"));
+        QTRY_VERIFY(bluetooth.available());
+        QTRY_COMPARE(names(bluetooth.paired()), QStringList{"Buds"});
+        QVERIFY(!device(bluetooth, "Stray"));
     }
 };
 QTEST_MAIN(BlueZDbusTest)
