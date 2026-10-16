@@ -112,8 +112,8 @@ static void test_decay(void) {
                 struct sh_trail_look look;
                 sh_trail_look(trail, p, &look);
                 CHECK(look.opacity >= 0 && look.opacity <= 1);
-                CHECK(look.width >= 0 && look.width <= 30 && look.height >= 0 &&
-                          look.height <= 30,
+                CHECK(look.width >= 0 && look.width <= 36 && look.height >= 0 &&
+                          look.height <= 36,
                       "%s: %g x %g", name, look.width, look.height);
                 CHECK(look.sprite >= 0 && look.sprite < sh_trail_sprite_count(kind, 2), "%s: %d",
                       name, look.sprite);
@@ -198,7 +198,7 @@ static void test_paint(void) {
         for (int sprite = 0; sprite < sh_trail_sprite_count(kind, 2); ++sprite) {
             for (int scale = 1; scale <= 2; ++scale) {
                 double logical = sh_trail_sprite_side(kind, sprite);
-                CHECK(logical >= 6 && logical <= 30, "%s %d: %g", sh_trail_kind_name(kind),
+                CHECK(logical >= 6 && logical <= 36, "%s %d: %g", sh_trail_kind_name(kind),
                       sprite, logical);
                 int side = (int)lround(logical * scale);
                 uint32_t *pixels = calloc((size_t)side * side, sizeof(*pixels));

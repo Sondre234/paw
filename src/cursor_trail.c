@@ -13,23 +13,23 @@
  * colour, a heart HEART_UNIT across its lobes' middles (its full width 1.2 times that). Petals:
  * the ambient particles' smallest petal, drawn PETAL_SHRINK as large. */
 enum { STARS = 3, SPARKLE_SHAPES = STARS + 1, HEART_SIZES = 2 };
-static const double STAR_REACH[STARS] = {8.5, 6.2, 4.4};
+static const double STAR_REACH[STARS] = {11, 8.5, 6};
 static const double STAR_WIDE = 0.8;
-static const double SPECK_SIDE = 9;
-static const double HEART_UNIT[HEART_SIZES] = {10, 7.5};
-static const double PETAL_SHRINK = 0.72;
+static const double SPECK_SIDE = 10;
+static const double HEART_UNIT[HEART_SIZES] = {13, 10};
+static const double PETAL_SHRINK = 1;
 
 /* How far the pointer goes, at amount 1, for each particle that comes off it; at most this many
  * come off one motion, however far it went. */
-static const double SPACING[SH_TRAIL_KINDS] = {0, 11, 30, 36};
+static const double SPACING[SH_TRAIL_KINDS] = {0, 13, 24, 32};
 enum { MOST_AT_ONCE = 24 };
 
 /* Pulled down (or, a heart, up) in pixels per millisecond squared, and slowed by the air:
  * velocities fall to 1/e over DRAG_MS. */
-static const double GRAVITY[SH_TRAIL_KINDS] = {0, 0.00009, 0.00012, -0.00003};
+static const double GRAVITY[SH_TRAIL_KINDS] = {0, 0.00012, 0.00012, -0.00003};
 static const double DRAG_MS = 450;
 /* Fading in over this long, and out over the last share of a particle's life. */
-static const double FADE_IN_MS[SH_TRAIL_KINDS] = {0, 50, 80, 60};
+static const double FADE_IN_MS[SH_TRAIL_KINDS] = {0, 30, 60, 50};
 static const double FADE_OUT_FROM[SH_TRAIL_KINDS] = {0, 0.5, 0.55, 0.55};
 
 const char *sh_trail_kind_name(enum sh_trail_kind kind) {
@@ -107,8 +107,8 @@ static bool in_star(double x, double y, double a, double b) {
     return pow(fabs(x) / a, 0.6) + pow(fabs(y) / b, 0.6) <= 1;
 }
 
-/* A star: white toward its middle, the colour toward its points and a deeper edge, in a soft
- * glow of the colour; sampled four by four a pixel, for smooth edges at any size. */
+/* A star: the colour with a white glint at its middle and a deeper edge, in a soft glow of the
+ * colour; sampled four by four a pixel, for smooth edges at any size. */
 static void paint_star(const float tint[3], int shape, uint32_t *pixels, int side) {
     double b = STAR_REACH[shape], a = STAR_WIDE * b;
     double logical = sh_trail_sprite_side(SH_TRAIL_SPARKLES, shape), pixel = logical / side;
@@ -123,10 +123,10 @@ static void paint_star(const float tint[3], int shape, uint32_t *pixels, int sid
                     if (!in_star(x, y, a, b))
                         continue;
                     double r = hypot(x / a, y / b);
-                    // The edge, where a star 0.7 as large is not, deeper; within it the colour
-                    // paling to white at the middle.
+                    // The edge, where a star 0.7 as large is not, deeper; within it the colour,
+                    // a little paler, with a white glint at the middle.
                     bool edge = !in_star(x, y, 0.7 * a, 0.7 * b) && r > 0.18;
-                    double white = edge ? 0 : 0.35 + 0.65 * exp(-pow(r / 0.3, 2));
+                    double white = edge ? 0 : 0.2 + 0.8 * exp(-pow(r / 0.2, 2));
                     for (int i = 0; i < 3; ++i)
                         rgb[i] += edge ? 0.8 * tint[i] : mix(tint[i], 1, white);
                     alpha += 1;
@@ -155,8 +155,8 @@ static void paint_speck(const float tint[3], uint32_t *pixels, int side) {
         for (int column = 0; column < side; ++column) {
             double x = (column + 0.5) * pixel - logical / 2, y = (row + 0.5) * pixel - logical / 2;
             double d = hypot(x, y);
-            double core = 1 - smoothstep(1.3 - 0.5 * pixel, 1.3 + 0.5 * pixel, d);
-            double glow = 0.55 * exp(-pow(d / 2.2, 2)) * (1 - smoothstep(logical / 2 - pixel,
+            double core = 1 - smoothstep(1.6 - 0.5 * pixel, 1.6 + 0.5 * pixel, d);
+            double glow = 0.55 * exp(-pow(d / 2.6, 2)) * (1 - smoothstep(logical / 2 - pixel,
                                                                           logical / 2, d));
             double alpha = clamp01(core + glow * (1 - core));
             double white = core * 0.7;
@@ -286,7 +286,7 @@ static void spawn(struct sh_trail *trail, double x, double y, double ux, double 
     struct sh_trail_particle *particle = place_for(trail);
     *particle = (struct sh_trail_particle){.scale = 1};
     // Off to the side of the way a little, left behind and spreading out.
-    double aside = uniform(seed, -5, 5);
+    double aside = uniform(seed, -9, 9);
     particle->x = x - uy * aside;
     particle->y = y + ux * aside;
     double spread = uniform(seed, 0, 2 * M_PI), back = 0, out = 0, fall = 0;
@@ -298,8 +298,8 @@ static void spawn(struct sh_trail *trail, double x, double y, double ux, double 
         particle->sprite = (int)(xorshift(seed) % (uint32_t)trail->tints) * SPARKLE_SHAPES + shape;
         particle->scale = uniform(seed, 0.85, 1.15);
         back = uniform(seed, 0, 0.02);
-        out = uniform(seed, 0.005, 0.035);
-        fall = uniform(seed, 0, 0.015);
+        out = uniform(seed, 0.01, 0.05);
+        fall = uniform(seed, 0, 0.02);
         particle->rate = 2 * M_PI / uniform(seed, 160, 300);
         particle->life = shape == STARS ? uniform(seed, 400, 750) : uniform(seed, 550, 950);
         break;
@@ -416,9 +416,9 @@ void sh_trail_look(const struct sh_trail *trail, const struct sh_trail_particle 
             opacity = 0.45 + 0.55 * twinkle;
         } else {
             // Popping out to its size, twinkling, and shrinking away as it fades.
-            double grow = 0.4 + 0.6 * smoothstep(0, 90, particle->age);
+            double grow = 0.55 + 0.45 * smoothstep(0, 70, particle->age);
             width = height =
-                side * grow * (0.72 + 0.28 * twinkle) * (1 - 0.5 * smoothstep(0.55, 1, t));
+                side * grow * (0.8 + 0.2 * twinkle) * (1 - 0.5 * smoothstep(0.55, 1, t));
             opacity = 0.7 + 0.3 * twinkle;
         }
         break;

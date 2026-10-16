@@ -27,15 +27,13 @@ F3 = 61  # evdev key code
 WIDTH, HEIGHT = 1280, 720
 
 
-def stroke(x0, x1, y=360, step=12, pause=0):
-    """Moves from x0 to x1 along y in steps of `step` pixels, `pause` ms apart."""
+def moves(x0, x1, y=360, step=12, pause=0):
+    """Lines for pointer_probe moving from x0 to x1 along y in steps of `step` pixels, `pause` ms
+    apart: a dozen moves a line, as the probe reads at most 64 words and 511 bytes of one."""
     sign = 1 if x1 >= x0 else -1
-    words = []
-    for x in range(x0, x1 + sign, sign * step):
-        words.append(f"move {x} {y}")
-        if pause:
-            words.append(f"sleep {pause}")
-    return " ".join(words)
+    words = [f"move {x} {y}" + (f" sleep {pause}" if pause else "")
+             for x in range(x0, x1 + sign, sign * step)]
+    return [" ".join(words[i:i + 12]) for i in range(0, len(words), 12)]
 
 
 with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
@@ -60,9 +58,13 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     desktop.detail = lambda: f"{trail()} {particles()[:4]}"
     pointer = desktop.virtual_pointer(pointer_probe, WIDTH, HEIGHT)
 
+    def stroke(*arguments, **options):
+        for line in moves(*arguments, **options):
+            pointer(line)
+
     # Off: nothing falls however the pointer moves.
     assert trail() == {"kind": "none", "count": "0", "state": "off"}, trail()
-    pointer(stroke(100, 700))
+    stroke(100, 700)
     desktop.stays(lambda: count() == 0 and particles() == [], "no trail while it is off")
     assert "sparkles" in msg("cursor_trail", "glitter", ok=False)
     assert "takes one word" in msg("cursor_trail", "hearts", "now", ok=False)
@@ -73,7 +75,7 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     wait_for(lambda: trail() == {"kind": "sparkles", "count": "0", "state": "still"}, "on")
 
     # Moving: sparkles along the way, inside the area it went over, fading in and out.
-    pointer(stroke(200, 800, pause=4))
+    stroke(200, 800, pause=4)
     wait_for(lambda: trail()["state"] == "shown" and len(particles()) > 10, "sparkles fall")
     for x, y, width, height, opacity, picture, transform in particles():
         assert 150 < x < 850 and 300 < y < 420, (x, y)
@@ -81,7 +83,7 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
         assert transform == 0, transform
     if grim:
         # Something bright behind the pointer on the black desktop.
-        pointer(stroke(800, 300, step=10, pause=4))
+        stroke(800, 300, step=10, pause=4)
         shot = harness.grab(grim, desktop.env)
         lit = sum(1 for px in range(250, 850) for py in range(330, 390)
                   if sum(shot.at(px, py)) > 200)
@@ -95,10 +97,10 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     desktop.stays(lambda: frames() - before <= 2, "no frames for a trail at rest", duration=1)
 
     # More way, more particles: a short stroke drops fewer than a long one.
-    pointer(stroke(400, 480, step=8))
+    stroke(400, 480, step=8)
     short = count()
     wait_for(lambda: count() == 0, "the short stroke's gone", timeout=5)
-    pointer(stroke(100, 1100, step=8))
+    stroke(100, 1100, step=8)
     long = count()
     assert long > 3 * short and short > 0, (short, long)
     wait_for(lambda: count() == 0, "the long stroke's gone", timeout=5)
@@ -109,33 +111,33 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
 
     # A screenshot (as `paw showcase` and the screenshot action hide the cursor) takes them away
     # at once and lets none fall until it is over.
-    pointer(stroke(200, 800))
+    stroke(200, 800)
     assert count() > 0
     msg("cursor", "hide")
     wait_for(lambda: trail() == {"kind": "sparkles", "count": "0", "state": "screenshot"},
              "out of the screenshot")
-    pointer(stroke(800, 200))
+    stroke(800, 200)
     assert count() == 0 and particles() == [], trail()
     msg("cursor", "show")
-    pointer(stroke(200, 600))
+    stroke(200, 600)
     assert count() > 0
 
     # Over a fullscreen window none fall, and those there go.
     desktop.open_window(probe, "game", focused=True)
     msg("fullscreen")
-    pointer(stroke(600, 300))
+    stroke(600, 300)
     wait_for(lambda: trail() == {"kind": "sparkles", "count": "0", "state": "fullscreen"},
              "none over a fullscreen window")
-    pointer(stroke(300, 900))
+    stroke(300, 900)
     desktop.stays(lambda: count() == 0, "still none over it")
     msg("fullscreen")
-    pointer(stroke(900, 300))
+    stroke(900, 300)
     wait_for(lambda: count() > 0, "back once it leaves fullscreen")
 
     # Nor while the session is locked.
     locker = desktop.spawn([lock_probe, "hold", str(desktop.root / "locker.log")])
     wait_for(lambda: trail()["state"] == "locked" and count() == 0, "none under the lock")
-    pointer(stroke(300, 900))
+    stroke(300, 900)
     assert count() == 0, trail()
     locker.terminate()
     assert desktop.reap(locker) == 0
@@ -144,7 +146,7 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     # The action: the next kind, off, back on as it was, and from a binding.
     msg("cursor_trail", "next")
     wait_for(lambda: trail()["kind"] == "petals", "petals")
-    pointer(stroke(100, 900, pause=2))
+    stroke(100, 900, pause=2)
     wait_for(lambda: count() > 5, "petals fall")
     assert any(transform for *_, transform in particles()) or len(particles()) < 8, particles()
     msg("cursor_trail")
@@ -155,7 +157,7 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     keys = desktop.keyboard()
     keys(F3)
     wait_for(lambda: trail()["kind"] == "hearts", "the binding brings hearts")
-    pointer(stroke(100, 900))
+    stroke(100, 900)
     wait_for(lambda: count() > 5, "hearts float")
     msg("cursor_trail", "off")
     wait_for(lambda: trail()["state"] == "off", "off")
