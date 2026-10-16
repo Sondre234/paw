@@ -559,8 +559,9 @@ shadows.
   screenshot. `paw msg get cursor` says whether it is hidden.
 - `mouse.hide_when_typing = true` hides the cursor while typing into an application, as macOS
   does, and `mouse.hide_after = N` once the pointer has rested N seconds; moving, clicking or
-  scrolling shows it again. Modifier keys alone and keys a binding takes leave it. Both are off
-  by default.
+  scrolling shows it again. Modifier keys alone and keys a binding takes leave it, and neither
+  hides it while a game holds the pointer or over a window that hid the cursor itself. Both are
+  off by default.
 - `mouse.shake_to_find = true` grows the cursor to three times its size for a moment as the
   pointer is shaken from side to side, as macOS does, smoothly, and shrinks it back about a second
   after the shaking stops. Ordinary motion, a drag and stroking the desktop cat never set it off.
