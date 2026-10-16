@@ -36,7 +36,8 @@ int main() {
                     mpv.idle_inhibit == SH_IDLE_RULE_ALWAYS && mpv.border_color.count == 0,
                 "the look and idle_inhibit of one rule");
         auto paused = ruled.window_actions("mpv", "Pause").to_c();
-        require(paused.shadow == 1 && paused.border == 0 && paused.idle_inhibit == SH_IDLE_RULE_NONE,
+        require(paused.shadow == 1 && paused.border == 0 &&
+                    paused.idle_inhibit == SH_IDLE_RULE_NONE,
                 "a later rule did not win");
         auto kitty = ruled.window_actions("kitty", "").to_c();
         require(kitty.border_color.count == 1 && near(kitty.border_color.stops[0][0], 1) &&
@@ -47,22 +48,22 @@ int main() {
                     near(inactive.stops[0][1], 0.5F) && near(inactive.stops[0][3], 0.5F) &&
                     near(inactive.stops[1][2], 1),
                 "a rule's border_inactive_color gradient, premultiplied");
-        require(kitty.shadow == -1 && kitty.border == -1 && kitty.idle_inhibit == SH_IDLE_RULE_UNSET,
+        require(kitty.shadow == -1 && kitty.border == -1 &&
+                    kitty.idle_inhibit == SH_IDLE_RULE_UNSET,
                 "a rule set what it does not say");
         auto drop = ruled.window_actions("dropterm", "").to_c();
         require(drop.scratchpad && drop.idle_inhibit == SH_IDLE_RULE_FOCUS, "scratchpad rule");
         require(ruled.window_actions("x", "Game").to_c().idle_inhibit == SH_IDLE_RULE_FULLSCREEN &&
-                    ruled.window_actions("x", "Board").to_c().idle_inhibit ==
-                        SH_IDLE_RULE_VISIBLE,
+                    ruled.window_actions("x", "Board").to_c().idle_inhibit == SH_IDLE_RULE_VISIBLE,
                 "idle_inhibit's values");
         // A rule only for these takes no part in the opacity, as one only for actions.
         auto looks = paw::parse_config(
             "return {windows={rules={{app_id='^mpv$',shadow=false},{app_id='mpv',opacity=0.5}}}}");
         require(looks.window_opacity("mpv", "", true) == 0.5F, "a look rule took part in opacity");
         // A dynamic rule gives them too: they follow the title whatever the rule.
-        auto dynamic = paw::parse_config(
-            "return {windows={rules={{title='Meeting',dynamic=true,floating=true,"
-            "idle_inhibit='visible',border_color='#00ff00'}}}}");
+        auto dynamic =
+            paw::parse_config("return {windows={rules={{title='Meeting',dynamic=true,floating=true,"
+                              "idle_inhibit='visible',border_color='#00ff00'}}}}");
         auto meeting = dynamic.window_actions("firefox", "Meeting").to_c();
         require(meeting.idle_inhibit == SH_IDLE_RULE_VISIBLE && meeting.border_color.count == 1 &&
                     meeting.floating == -1,
@@ -85,8 +86,9 @@ int main() {
         rejects("return {windows={rules={{app_id='x',corner_radius=2.5}}}}", "corner_radius");
         rejects("return {windows={rules={{app_id='x',border_color='red'}}}}",
                 "windows.rules[1].border_color must be #RRGGBB");
-        rejects("return {windows={rules={{app_id='x'},{app_id='y',border_inactive_color={'#fff'}}}}}",
-                "windows.rules[2].border_inactive_color must be #RRGGBB, #RRGGBBAA, or a gradient");
+        rejects(
+            "return {windows={rules={{app_id='x'},{app_id='y',border_inactive_color={'#fff'}}}}}",
+            "windows.rules[2].border_inactive_color must be #RRGGBB, #RRGGBBAA, or a gradient");
         rejects("return {windows={rules={{app_id='x',border_color={'#ffffff','#000000',"
                 "angle=400}}}}}",
                 "angle");
@@ -94,7 +96,8 @@ int main() {
                 "did you mean 'fullscreen'?");
         rejects("return {windows={rules={{app_id='x',idle_inhibit=true}}}}",
                 "windows.rules[1].idle_inhibit must be a string");
-        rejects("return {windows={rules={{app_id='x',no_shadow=true}}}}", "unknown setting 'no_shadow'");
+        rejects("return {windows={rules={{app_id='x',no_shadow=true}}}}",
+                "unknown setting 'no_shadow'");
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;

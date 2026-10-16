@@ -478,7 +478,8 @@ void refresh_frame(struct sh_toplevel *toplevel) {
     float framed = frame_shown(toplevel, framed_at_rest);
     bool own_shadow = frame_own_shadow(toplevel, framed_at_rest);
     bool bordered = (b > 0 || inset) && mapped, shown = bordered && framed > 0;
-    const struct sh_gradient *to = window_border(toplevel, true), *from = window_border(toplevel, false);
+    const struct sh_gradient *to = window_border(toplevel, true);
+    const struct sh_gradient *from = window_border(toplevel, false);
     const float *color = urgent ? settings->urgent_color : active ? to->stops[0] : from->stops[0];
     // A border in gradients eases from the inactive one to the active one rather than between
     // colours; going from one kind to the other, it takes the new one at once.
