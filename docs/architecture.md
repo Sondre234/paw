@@ -1285,6 +1285,14 @@ may be a path. `icons.cpp` serves `image://icons/NAME` and, at startup, picks th
 desktop names when no platform theme does (`useDesktopIconTheme`). `tests/app_icons_test.cpp`
 tests both with real applications' entries and app ids.
 
+An `ImageProvider` (`image_provider.hpp`) serves the pictures of the shell's models
+(`image://notify`, `tray`, `windows`, `clipboard`) on the GUI thread alone, since the models have no
+lock: an `Image` with `asynchronous: true` asks on Qt Quick's loading thread and gets nothing, so
+one showing such a picture loads synchronously. `image://icons` holds `iconThemeLock()`, so it may
+load asynchronously. The media card's cover is asynchronous, so `mpris.cpp` takes only a `file:`,
+`http:`, `https:` or `data:` URL from a player. `tests/image_providers_test.cpp` checks the
+providers on both threads.
+
 The pictures of the windows on the taskbar's card (`WindowThumbnails.qml`, with `shell.thumbnails`)
 are `TaskModel`'s: its `picture` role is `image://windows/<taskId>/<serial>` once a window has one,
 `""` until then, the serial new with every picture so that an `Image` with `cache: false` loads it
