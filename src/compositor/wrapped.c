@@ -7,8 +7,8 @@
  * is allocated per event. */
 #include "server.h"
 
-/* Without input for this long the session is idle, unless an idle inhibitor (a video) holds
- * it. */
+/* Without input for this long the session is idle, unless an idle inhibitor (a video shown)
+ * holds it. */
 #define IDLE_AFTER_MS (2 * 60 * 1000)
 /* How often what was counted is saved while the session runs. */
 #define SAVE_MS (5 * 60 * 1000)
@@ -169,7 +169,7 @@ void wrapped_follow(struct sh_server *server) {
 #if WLR_HAS_SESSION
     wrapped->away |= server->session && !server->session->active;
 #endif
-    wrapped->held = server->inhibitors > 0;
+    wrapped->held = server->inhibitors_applying > 0;
     const char *id = server->focused_toplevel ? toplevel_app_id(server->focused_toplevel) : NULL;
     snprintf(wrapped->app, sizeof(wrapped->app), "%s", id ? id : "");
     if (!wrapped->app[0] || !strcmp(wrapped->app, wrapped->last_app))

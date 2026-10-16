@@ -152,6 +152,8 @@ class ShellController : public QObject {
     // (the schedule), "on" or "off" (an override), or "" without a compositor.
     Q_PROPERTY(bool nightLight READ nightLight NOTIFY nightLightChanged)
     Q_PROPERTY(QString nightLightMode READ nightLightMode NOTIFY nightLightChanged)
+    // Whether the compositor's keep awake holds the idle steps off; false without a compositor.
+    Q_PROPERTY(bool keepAwake READ keepAwake NOTIFY keepAwakeChanged)
     // The binding mode in use, "" outside any.
     Q_PROPERTY(QString bindingMode READ bindingMode NOTIFY bindingModeChanged)
     Q_PROPERTY(QVariantList pinned READ pinned NOTIFY appsChanged)
@@ -211,6 +213,10 @@ class ShellController : public QObject {
     // The configuration's appearance profiles, sorted, and the one in use ("" for none).
     Q_PROPERTY(QStringList profiles READ profiles NOTIFY configChanged)
     Q_PROPERTY(QString profile READ profile NOTIFY configChanged)
+    // Whether profile_schedule switches profiles at sunrise and sunset, and whether the profile
+    // in use is the one it wants now (the compositor's "profile-schedule on").
+    Q_PROPERTY(bool hasProfileSchedule READ hasProfileSchedule NOTIFY configChanged)
+    Q_PROPERTY(bool profileScheduled READ profileScheduled NOTIFY profileScheduledChanged)
     // The compositor's window switcher (Alt+Tab): the output showing it, empty while closed, and
     // its windows as {appId, title, output, workspace, minimized, urgent, id}, most recently
     // focused first; `id` is the window's number (TaskModel's windowId), 0 when not given.
@@ -389,6 +395,8 @@ class ShellController : public QObject {
     QString profile() const { return QString::fromStdString(config_.profile); }
     // Switches to another appearance profile: the compositor saves the choice and reloads.
     Q_INVOKABLE void pickProfile(const QString &name) { send("profile " + name); }
+    bool hasProfileSchedule() const { return config_.settings.profile_schedule.day[0] != '\0'; }
+    bool profileScheduled() const { return profileScheduled_; }
     QVariantMap widgets() const;
     QVariantMap tilingBar() const;
     // The edge the tiling bar is along, and the strip it reserves there: the bar and its margins
@@ -403,6 +411,7 @@ class ShellController : public QObject {
     QVariantMap keyboardLayout() const { return keyboardLayout_; }
     bool nightLight() const { return nightLight_; }
     QString nightLightMode() const { return nightLightMode_; }
+    bool keepAwake() const { return keepAwake_; }
     QString bindingMode() const { return bindingMode_; }
     // What the compositor says of night light; the preview's stand-in says it too.
     void setNightLight(bool on, const QString &mode);
@@ -579,6 +588,8 @@ class ShellController : public QObject {
     void cardsOutputChanged();
     void keyboardLayoutChanged();
     void nightLightChanged();
+    void profileScheduledChanged();
+    void keepAwakeChanged();
     void bindingModeChanged();
     void trashChanged();
     // The compositor asked for the notification history on `output`.
@@ -648,6 +659,10 @@ class ShellController : public QObject {
     QVariantMap keyboardLayout_;
     bool nightLight_ = false;
     QString nightLightMode_;
+    bool profileScheduled_ = false;
+    void setProfileScheduled(bool on);
+    bool keepAwake_ = false;
+    void setKeepAwake(bool on);
     QString bindingMode_;
     void setBindingMode(const QString &mode);
     QObject *notificationService_ = nullptr;

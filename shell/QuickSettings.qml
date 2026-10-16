@@ -4,10 +4,10 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 
 // The Quick Settings flyout, as on Windows 11, at the bar's right end: what is playing (a media
-// player's card), tiles for what shell.widgets puts in it ("quick") and for night light, the
-// volume with the outputs and the applications' volumes a click away, the screen's brightness
-// where it has a backlight with the display settings window under it, and the battery along its
-// foot. What sits on the bar instead keeps its own button there.
+// player's card), tiles for what shell.widgets puts in it ("quick"), for night light and for keep
+// awake, the volume with the outputs and the applications' volumes a click away, the screen's
+// brightness where it has a backlight with the display settings window under it, and the battery
+// along its foot. What sits on the bar instead keeps its own button there.
 //
 // In the macOS style it is Control Center: the tiles are modules two to a row, and the display
 // and the sound are modules of their own under a heading, each a raised card on the flyout.
@@ -191,6 +191,16 @@ PopupCard {
                     checked: shell.nightLight
                     onClicked: shell.send("night_light_toggle")
                 }
+                // Keep awake: the compositor holds the idle steps off (no dimming, no screens
+                // going off, no sleep) until it is turned off again.
+                QuickTile {
+                    objectName: "quickTile:keepAwake"
+                    Layout.fillWidth: true; Layout.preferredWidth: 1
+                    glyph: "coffee"
+                    label: "Keep awake"
+                    checked: shell.keepAwake
+                    onClicked: shell.send("keep_awake_toggle")
+                }
                 QuickTile {
                     objectName: "quickTile:tiling"
                     visible: quick.widgets.tiling === "quick"
@@ -208,7 +218,7 @@ PopupCard {
                     Layout.fillWidth: true; Layout.preferredWidth: 1
                     glyph: "palette"
                     label: "Appearance"
-                    detail: shell.profile
+                    detail: shell.profileScheduled ? shell.profile + " · Scheduled" : shell.profile
                     expandable: true
                     expanded: quick.expanded === "profiles"
                     onClicked: quick.toggle("profiles")

@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "authentication.hpp"
+#include <QTimer>
 #include <algorithm>
 #include <unistd.h>
+
+namespace {
+// The answers a user gets before the request fails.
+constexpr int tries = 3;
+} // namespace
 
 Authentication::Authentication(QObject *parent) : QObject(parent) {}
 
@@ -72,6 +78,7 @@ void Authentication::setIdentity(int index) {
     if (queue_.empty() || index == identity_ || index < 0 || index >= shown_.identities.size())
         return;
     identity_ = index;
+    failures_ = 0;
     error_.clear();
     info_.clear();
     checking_ = havePending_ = false;
@@ -81,7 +88,7 @@ void Authentication::setIdentity(int index) {
 }
 
 void Authentication::submit(const QString &answer) {
-    if (queue_.empty() || checking_)
+    if (queue_.empty() || checking_ || identity_ < 0)
         return;
     error_.clear();
     info_.clear();
@@ -92,6 +99,9 @@ void Authentication::submit(const QString &answer) {
     } else {
         pending_ = answer;
         havePending_ = true;
+        // The last conversation ended without asking: this answer tries again.
+        if (!conversation_)
+            converse();
     }
     Q_EMIT changed();
 }
@@ -104,6 +114,7 @@ void Authentication::cancel() {
 void Authentication::openFirst() {
     shown_ = queue_.front().request;
     ++serial_;
+    failures_ = 0;
     output_ = outputSource_ ? outputSource_() : QString();
     error_.clear();
     info_.clear();
@@ -128,7 +139,7 @@ void Authentication::openFirst() {
 
 void Authentication::converse() {
     endConversation();
-    asked_ = echo_ = false;
+    asked_ = echo_ = prompted_ = complained_ = false;
     prompt_ = "Password";
     if (queue_.empty() || identity_ < 0)
         return;
@@ -138,12 +149,14 @@ void Authentication::converse() {
                        : nullptr;
     if (!conversation) {
         error_ = "polkit's helper cannot be asked.";
+        checking_ = havePending_ = false;
+        pending_.clear();
         return;
     }
     conversation->setParent(this);
     conversation_ = conversation;
     connect(conversation, &AuthConversation::request, this, [this](const QString &prompt, bool echo) {
-        asked_ = true;
+        asked_ = prompted_ = true;
         echo_ = echo;
         prompt_ = prompt.trimmed();
         while (prompt_.endsWith(':'))
@@ -165,6 +178,7 @@ void Authentication::converse() {
     });
     connect(conversation, &AuthConversation::error, this, [this](const QString &text) {
         error_ = text.trimmed();
+        complained_ = !error_.isEmpty();
         Q_EMIT changed();
     });
     connect(conversation, &AuthConversation::info, this, [this](const QString &text) {
@@ -176,11 +190,30 @@ void Authentication::converse() {
             finish(Outcome::Authorized);
             return;
         }
-        // Wrong: another try, as the same user.
-        checking_ = havePending_ = false;
+        const bool prompted = prompted_, complained = complained_;
+        endConversation();
+        asked_ = checking_ = havePending_ = false;
         pending_.clear();
+        if (!prompted) {
+            // Over before it asked anything: the helper could not start, or PAM turned the user
+            // away (a locked account, which it says). Trying again at once would end the same
+            // way, so the next try waits for the user.
+            if (!complained)
+                error_ = "polkit's helper failed without asking for a password.";
+            Q_EMIT changed();
+            return;
+        }
+        if (++failures_ >= tries) {
+            finish(Outcome::Failed);
+            return;
+        }
+        // Wrong: another try, as the same user, from the event loop rather than from in here,
+        // with the session that ended still on the stack.
         error_ = "The password was not accepted. Try again.";
-        converse();
+        QTimer::singleShot(0, this, [this, serial = serial_, identity = identity_] {
+            if (!queue_.empty() && serial_ == serial && identity_ == identity && !conversation_)
+                converse();
+        });
         Q_EMIT rejected();
         Q_EMIT changed();
     });

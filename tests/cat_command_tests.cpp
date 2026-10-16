@@ -20,6 +20,10 @@ int main() {
     CHECK(said("on\twaiting\t-\t0\t0\t-\t-\tblack\t-") == "The cat is out.");
     CHECK(said("on\tshown\tHDMI-A-1\t900\t400\tsleep\tsleep_1\tcream\tfoot") ==
           "The cat is asleep on HDMI-A-1.");
+    CHECK(said("on\tshown\tDP-1\t900\t400\tpurr\tpurr_2\tginger\tfoot") ==
+          "The cat is purring on DP-1.");
+    CHECK(said("on\tshown\tDP-1\t900\t1032\tpurr\tsleep_1\tcream\tfloor") ==
+          "The cat purrs in its sleep on DP-1.");
     CHECK(said("on\tlocked\tDP-1\t900\t400\tsit\tsit\tginger\tfoot") ==
           "The cat is out on DP-1, hidden while the screen is locked.");
     CHECK(said("on\tfullscreen\tDP-1\t900\t400\tsit\tsit\tginger\tfoot") ==

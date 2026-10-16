@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The desktop cat's behaviour (see paw/cat.h): a state machine the compositor steps on a timer,
- * with gravity, jumps and runs, and a cat's idle life in between. */
+ * with gravity, jumps and runs, and a cat's idle life in between, purring as it is stroked. */
 #include "paw/cat.h"
 #include <math.h>
 #include <stddef.h>
@@ -30,7 +30,17 @@ enum {
     BREATH_MS = 2200,
     REST_MS = 350, /* the pointer resting this long ends a chase */
     CHASE_MS = 10000,
-    AWAY_MS = 1200, /* off the focused monitor this long, it goes there */
+    AWAY_MS = 1200,   /* off the focused monitor this long, it goes there */
+    STROKE_MS = 1500, /* the turns of a stroke come within this */
+    PURR_MS = 2000,   /* it purrs on this long after the pointer last moves over it */
+    PURR_BREATH_MS = 700,
+    PET_MS = 8000, /* stroked awake this long, it has had enough */
+    SWAT_MS = 720,
+    SWAT_BEAT_MS = 120,
+    ALOOF_MS = 6000, /* after a swat, strokes leave it cold this long */
+    HEART_EVERY_MS = 700,
+    HEART_MS = 1600,    /* a heart's rise */
+    HEART_STEP_MS = 40, /* how often it is stepped while hearts float */
 };
 
 /* A flick past the cat: the pointer's travel, decaying with a time constant of TRAVEL_MS, beyond
@@ -41,6 +51,14 @@ enum {
 #define NEAR 260.0
 #define FLICK_MOTIONS 3
 #define MOTION_MS 100
+
+/* A stroke: the pointer turning back STROKES times over the cat within STROKE_MS, each time after
+ * going TURN of the cat's width one way, with its travel short of a flick. Hearts rise HEART_RISE
+ * cells of the art. */
+#define STROKES 3
+#define TURN 0.2
+#define HEART_RISE 9
+#define TAU 6.283185307179586
 
 static double clamp(double value, double low, double high) {
     return value < low ? low : value > high ? high : value;
@@ -62,8 +80,8 @@ static int between(struct sh_cat *cat, int low, int high) {
 
 const char *sh_cat_state_name(enum sh_cat_state state) {
     static const char *const names[SH_CAT_STATES] = {
-        "sit",  "look", "walk", "groom", "scratch", "yawn", "sleep", "wake",
-        "jump", "fall", "land", "chase", "pounce",  "rush", "knock",
+        "sit",  "look", "walk", "groom", "scratch", "yawn", "sleep", "wake",  "purr",
+        "jump", "fall", "land", "chase", "pounce",  "swat", "rush",  "knock",
     };
     return (unsigned)state < SH_CAT_STATES ? names[state] : "sit";
 }
@@ -121,6 +139,8 @@ static bool supported(const struct sh_cat *cat, const struct sh_cat_world *world
 }
 
 static void enter(struct sh_cat *cat, enum sh_cat_state state, int64_t now, int duration) {
+    if (state != SH_CAT_PURR)
+        cat->dozing = false;
     cat->state = state;
     cat->since = now;
     cat->until = now + duration;
@@ -337,6 +357,31 @@ static void choose(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
     sit(cat, now);
 }
 
+/* After a swat, it walks off away from the pointer along the part of its ledge that shows, or
+ * turns its back where it cannot. */
+static void walk_off(struct sh_cat *cat, const struct sh_cat_world *world, int64_t now) {
+    int away = -cat->facing;
+    const struct sh_cat_ledge *ledge =
+        ledge_at(world->ledges, world->ledge_count, cat->on, cat->x, cat->y);
+    const struct sh_cat_area *here = area_of(cat, world);
+    if (ledge) {
+        double left = ledge->left + cat->width / 2, right = ledge->right - cat->width / 2;
+        if (here) {
+            left = fmax(left, here->x + cat->width / 2);
+            right = fmin(right, here->x + here->width - cat->width / 2);
+        }
+        double to = clamp(cat->x + away * 3 * cat->width, left, right);
+        if (right >= left && (to - cat->x) * away >= 12) {
+            cat->target_x = to;
+            cat->facing = away;
+            enter(cat, SH_CAT_WALK, now, 0);
+            return;
+        }
+    }
+    cat->facing = away;
+    enter(cat, SH_CAT_LOOK, now, LOOK_MS);
+}
+
 /* Moves (x, y) toward (to_x, to_y) by up to `distance`; true once there. */
 static bool approach(struct sh_cat *cat, double to_x, double to_y, double distance) {
     double dx = to_x - cat->x, dy = to_y - cat->y;
@@ -381,7 +426,8 @@ static int advance(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
         enter(cat, SH_CAT_YAWN, now, YAWN_MS);
         cat->drowsy = true;
     }
-    if (cat->state == SH_CAT_SLEEP && (!world->idle || urgent))
+    if ((cat->state == SH_CAT_SLEEP || (cat->state == SH_CAT_PURR && cat->dozing)) &&
+        (!world->idle || urgent))
         enter(cat, SH_CAT_WAKE, now, WAKE_MS);
 
     switch (cat->state) {
@@ -420,6 +466,21 @@ static int advance(struct sh_cat *cat, const struct sh_cat_world *world, int64_t
         return next_beat(now, cat->since, 250);
     case SH_CAT_SLEEP:
         return next_beat(now, cat->since, BREATH_MS);
+    case SH_CAT_PURR:
+        if (now >= cat->until) {
+            if (cat->dozing)
+                enter(cat, SH_CAT_SLEEP, now, 0); // and on it sleeps
+            else
+                sit(cat, now);
+            return 1;
+        }
+        return now + HEART_STEP_MS < cat->until ? HEART_STEP_MS : until(now, cat->until);
+    case SH_CAT_SWAT:
+        if (now >= cat->until) {
+            walk_off(cat, world, now);
+            return 1;
+        }
+        return next_beat(now, cat->since, SWAT_BEAT_MS);
     case SH_CAT_WALK: {
         double step = WALK_SPEED * dt;
         double ahead =
@@ -586,35 +647,121 @@ int sh_cat_step(struct sh_cat *cat, const struct sh_cat_world *world, int64_t no
     return next < 1 ? 1 : next;
 }
 
+bool sh_cat_under(const struct sh_cat *cat, double x, double y) {
+    // Its box, and a little past its ends and over its ears, where strokes turn back.
+    double reach = cat->width / 4;
+    return cat->grounded && x >= cat->x - cat->width / 2 - reach &&
+           x <= cat->x + cat->width / 2 + reach && y >= cat->y - cat->height - reach &&
+           y <= cat->y + reach / 2;
+}
+
+bool sh_cat_asleep(const struct sh_cat *cat) {
+    return cat->state == SH_CAT_SLEEP || (cat->state == SH_CAT_YAWN && cat->drowsy) ||
+           (cat->state == SH_CAT_PURR && cat->dozing);
+}
+
+/* Follows the pointer along one axis to `value`: true as it turns back, having gone `least` the
+ * way it went and come back `least` since. */
+static bool turns_back(double *mark, int *way, double value, double least) {
+    double moved = value - *mark;
+    if (*way && moved * *way >= 0) {
+        *mark = value; // on the same way, the furthest yet
+        return false;
+    }
+    if (fabs(moved) < least)
+        return false;
+    bool turned = *way != 0;
+    *way = moved > 0 ? 1 : -1;
+    *mark = value;
+    return turned;
+}
+
+/* The pointer at (x, y), having `turned` back, strokes the cat: true when it starts purring or
+ * swats at the pointer. */
+static bool stroked(struct sh_cat *cat, double x, double y, int64_t now, bool turned) {
+    if (!sh_cat_under(cat, x, y))
+        return false;
+    if (turned && cat->travel < FLICK) {
+        cat->turned[0] = cat->turned[1];
+        cat->turned[1] = cat->turned[2];
+        cat->turned[2] = now;
+        if (cat->turns < STROKES)
+            ++cat->turns;
+    }
+    if (cat->state == SH_CAT_PURR) {
+        cat->until = now + PURR_MS; // it purrs on while the pointer moves over it
+        if (cat->dozing || now - cat->since < PET_MS)
+            return false;
+        // Enough: a swat at the pointer, then it is off.
+        cat->facing = x >= cat->x ? 1 : -1;
+        cat->aloof_until = now + ALOOF_MS;
+        enter(cat, SH_CAT_SWAT, now, SWAT_MS);
+        return true;
+    }
+    if (cat->turns < STROKES || now - cat->turned[0] > STROKE_MS || now < cat->aloof_until ||
+        !cat->grounded || !(calm(cat->state) || cat->state == SH_CAT_SLEEP))
+        return false;
+    // Asleep, or yawning its way there, it purrs in its sleep.
+    bool dozing = cat->state == SH_CAT_SLEEP || (cat->state == SH_CAT_YAWN && cat->drowsy);
+    cat->turns = 0;
+    cat->drowsy = false;
+    enter(cat, SH_CAT_PURR, now, PURR_MS);
+    cat->dozing = dozing;
+    return true;
+}
+
 bool sh_cat_pointer(struct sh_cat *cat, double x, double y, int64_t now) {
+    bool turned = false;
     if (cat->pointer_known) {
         double dx = x - cat->pointer_x, dy = y - cat->pointer_y;
         double elapsed = now > cat->pointer_at ? (double)(now - cat->pointer_at) : 0;
         cat->travel = cat->travel * exp(-elapsed / TRAVEL_MS) + sqrt(dx * dx + dy * dy);
         cat->motions = elapsed <= MOTION_MS ? cat->motions + 1 : 1;
+        turned = turns_back(&cat->stroke_x, &cat->way_x, x, cat->width * TURN);
+        turned |= turns_back(&cat->stroke_y, &cat->way_y, y, cat->width * TURN);
+    } else {
+        cat->stroke_x = x;
+        cat->stroke_y = y;
     }
     cat->pointer_known = true;
     cat->pointer_x = x;
     cat->pointer_y = y;
     cat->pointer_at = now;
-    if (cat->travel < FLICK || cat->motions < FLICK_MOTIONS ||
-        !(calm(cat->state) || cat->state == SH_CAT_POUNCE) ||
-        (cat->state == SH_CAT_YAWN && cat->drowsy))
-        return false;
-    double dx = x - cat->x, dy = y - (cat->y - cat->height / 2);
-    if (dx * dx + dy * dy > NEAR * NEAR)
-        return false;
-    cat->travel = 0;
-    enter(cat, SH_CAT_CHASE, now, CHASE_MS);
-    return true;
+    if (cat->travel >= FLICK && cat->motions >= FLICK_MOTIONS &&
+        (calm(cat->state) || cat->state == SH_CAT_POUNCE) &&
+        !(cat->state == SH_CAT_YAWN && cat->drowsy)) {
+        double dx = x - cat->x, dy = y - (cat->y - cat->height / 2);
+        if (dx * dx + dy * dy <= NEAR * NEAR) {
+            cat->travel = 0;
+            enter(cat, SH_CAT_CHASE, now, CHASE_MS);
+            return true;
+        }
+    }
+    return stroked(cat, x, y, now, turned);
 }
 
 bool sh_cat_wake(struct sh_cat *cat, int64_t now) {
-    if (cat->state != SH_CAT_SLEEP && !(cat->state == SH_CAT_YAWN && cat->drowsy))
+    if (!sh_cat_asleep(cat))
         return false;
     cat->drowsy = false;
     enter(cat, SH_CAT_WAKE, now, WAKE_MS);
     return true;
+}
+
+/* The hearts of a cat purring for `t` milliseconds, from (x, y) in cells: one every
+ * HEART_EVERY_MS, to either side by turns, each rising HEART_RISE cells as it sways, popping in
+ * and fading out over the second half of its rise. */
+static void send_hearts(struct sh_cat_pose *pose, int64_t t, int x, int y) {
+    for (int64_t n = t / HEART_EVERY_MS; n >= 0 && pose->hearts < SH_CAT_HEARTS; --n) {
+        int64_t age = t - n * HEART_EVERY_MS;
+        if (age >= HEART_MS)
+            break;
+        double p = (double)age / HEART_MS;
+        struct sh_cat_heart *heart = &pose->heart[pose->hearts++];
+        heart->x = x + (n % 2 ? -3 : 3) + (int)lround(sin(TAU * age / 1000.0));
+        heart->y = y + (int)(p * HEART_RISE);
+        heart->alpha = p < 0.1 ? p / 0.1 : p > 0.5 ? (1 - p) / 0.5 : 1;
+    }
 }
 
 void sh_cat_pose(const struct sh_cat *cat, int64_t now, struct sh_cat_pose *pose) {
@@ -650,6 +797,16 @@ void sh_cat_pose(const struct sh_cat *cat, int64_t now, struct sh_cat_pose *pose
     case SH_CAT_WAKE:
         pose->frame = t < WAKE_MS * 6 / 10 ? SH_CAT_FRAME_YAWN : SH_CAT_FRAME_BLINK;
         break;
+    case SH_CAT_PURR:
+        // Asleep, the hearts rise from its head lying forward; awake, from over its ears.
+        if (cat->dozing) {
+            pose->frame = (t / BREATH_MS) % 2 ? SH_CAT_FRAME_SLEEP_2 : SH_CAT_FRAME_SLEEP_1;
+            send_hearts(pose, t, 4, 11);
+        } else {
+            pose->frame = (t / PURR_BREATH_MS) % 2 ? SH_CAT_FRAME_PURR_2 : SH_CAT_FRAME_PURR_1;
+            send_hearts(pose, t, -1, 14);
+        }
+        break;
     case SH_CAT_JUMP:
         if (t < CROUCH_MS) {
             pose->frame = SH_CAT_FRAME_LOOK;
@@ -675,6 +832,9 @@ void sh_cat_pose(const struct sh_cat *cat, int64_t now, struct sh_cat_pose *pose
         break;
     case SH_CAT_POUNCE:
         pose->frame = (t / 140) % 2 ? SH_CAT_FRAME_PAW_2 : SH_CAT_FRAME_PAW_1;
+        break;
+    case SH_CAT_SWAT:
+        pose->frame = (t / SWAT_BEAT_MS) % 2 ? SH_CAT_FRAME_PAW_2 : SH_CAT_FRAME_PAW_1;
         break;
     case SH_CAT_KNOCK:
         pose->frame = (t / 260) % 2 ? SH_CAT_FRAME_PAW_2 : SH_CAT_FRAME_PAW_1;

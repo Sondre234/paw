@@ -14,7 +14,7 @@ static int32_t next_code_point(const unsigned char *text, size_t *at) {
     const unsigned char first = text[(*at)++];
     if (first < 0x80)
         return first;
-    int length = first >= 0xf0 && first < 0xf8 ? 4 : first >= 0xe0 ? 3 : first >= 0xc0 ? 2 : 0;
+    int length = first >= 0xf8 ? 0 : first >= 0xf0 ? 4 : first >= 0xe0 ? 3 : first >= 0xc0 ? 2 : 0;
     if (!length)
         return -1;
     int32_t value = first & (0x7f >> length);
@@ -48,26 +48,30 @@ static xkb_keysym_t keysym_of(int32_t code) {
 /* A keymap with `count` keys, the nth (keycode 9 + n) giving keysyms[n]. */
 static struct xkb_keymap *keymap_for(struct xkb_context *context, const xkb_keysym_t *keysyms,
                                      int count) {
-    size_t size = 512 + (size_t)count * 80;
-    char *text = calloc(1, size);
-    if (!text)
+    char *text = NULL;
+    size_t size = 0;
+    FILE *file = open_memstream(&text, &size);
+    if (!file)
         return NULL;
-    size_t length = (size_t)snprintf(text, size,
-                                     "xkb_keymap {\nxkb_keycodes \"paw-type\" {\n"
-                                     "minimum = 8;\nmaximum = %d;\n",
-                                     9 + count);
+    fprintf(file, "xkb_keymap {\nxkb_keycodes \"paw-type\" {\nminimum = 8;\nmaximum = %d;\n",
+            9 + count);
     for (int i = 0; i < count; ++i)
-        length += (size_t)snprintf(text + length, size - length, "<K%d> = %d;\n", i, 9 + i);
-    length += (size_t)snprintf(text + length, size - length,
-                               "};\nxkb_types \"paw-type\" { include \"complete\" };\n"
-                               "xkb_compatibility \"paw-type\" { include \"complete\" };\n"
-                               "xkb_symbols \"paw-type\" {\n");
+        fprintf(file, "<K%d> = %d;\n", i, 9 + i);
+    fputs("};\nxkb_types \"paw-type\" { include \"complete\" };\n"
+          "xkb_compatibility \"paw-type\" { include \"complete\" };\n"
+          "xkb_symbols \"paw-type\" {\n",
+          file);
     for (int i = 0; i < count; ++i) {
         char name[64];
         xkb_keysym_get_name(keysyms[i], name, sizeof(name));
-        length += (size_t)snprintf(text + length, size - length, "key <K%d> {[ %s ]};\n", i, name);
+        fprintf(file, "key <K%d> {[ %s ]};\n", i, name);
     }
-    snprintf(text + length, size - length, "};\n};\n");
+    fputs("};\n};\n", file);
+    bool failed = ferror(file);
+    if (fclose(file) != 0 || failed) {
+        free(text);
+        return NULL;
+    }
     struct xkb_keymap *keymap =
         xkb_keymap_new_from_string(context, text, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
     free(text);

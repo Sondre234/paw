@@ -72,6 +72,9 @@ class ClipboardHistory : public QObject {
     // While the session is locked nothing copied is kept.
     void setLocked(bool locked);
     bool locked() const { return locked_; }
+    // How long a program pasting may go without reading before it is given up, its pipe closed
+    // and the bytes it was being handed let go: ten seconds, which tests shorten.
+    void setWriteTimeout(int milliseconds) { writeTimeout_ = milliseconds; }
 
     QString output() const { return output_; }
     QVariantList entries() const;
@@ -141,6 +144,7 @@ class ClipboardHistory : public QObject {
     ext_data_control_source_v1 *source_ = nullptr; // what restore() offers, until replaced
     QList<Format> offered_;
     std::vector<std::unique_ptr<Writing>> writings_;
+    int writeTimeout_ = 10000;
 
     QString path() const;
     // record() without telling anyone or saving, as the file is read.

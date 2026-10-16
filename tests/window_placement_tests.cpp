@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // windows.placement: cascade, center and smart placement of new floating windows.
 #include "paw/backend.h"
+#include <climits>
 #include <cstdlib>
 #include <iostream>
 #include <stdexcept>
@@ -111,6 +112,14 @@ int main() {
             // A free spot found on a 4 pixel grid is one the candidates reach as well.
             require(!room || clear, "smart covered a window although there was room");
         }
+        // Windows as big as a client can make them overflow nothing. One from the middle to
+        // past every edge leaves the left half free.
+        auto beside = place(SH_PLACE_SMART, area, {{640, 0, INT_MAX, INT_MAX}}, 320, 240);
+        require(beside.x == 160 && beside.y == 216, "smart avoids a window of the largest size");
+        // A new one that size covers the others wherever it goes, so it cascades.
+        auto huge = place(SH_PLACE_SMART, {100, 50, 1280, 672}, {{100, 50, 640, 672}}, INT_MAX,
+                          INT_MAX, 1);
+        require(huge.x == 140 && huge.y == 90, "a window of the largest size cascades");
         // Bad input is refused.
         sh_rect result;
         require(!sh_place_window(SH_PLACE_SMART, {0, 0, 0, 10}, nullptr, 0, 10, 10, 0, &result),
