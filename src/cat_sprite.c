@@ -258,6 +258,45 @@ static art sleep_2 = {
     "..kkkkkkkkkkkkkkkk..",
 };
 
+static art purr_1 = {
+    "....................",
+    ".....k.......k......",
+    "....kpk.....kpk.....",
+    "...kbppk...kppbk....",
+    "...kbbbbkkkbbbbk....",
+    "...kbbbbdbdbbbbk....",
+    "..kbbbbbbdbbbbbbk...",
+    "..kbbkbbbbbbbkbbk...",
+    "..kbkbkbbbbbkbkbk...",
+    "..kbppbbwpwbbppbk...",
+    "...kbbbbkwkbbbbk....",
+    "....kkbbbbbbbkk..kk.",
+    "....kbbbwwwbbbk.kbbk",
+    "...kbdbbwwwbbdbkkbk.",
+    "...kbwwbwwwbwwbbbk..",
+    "....kkkkkkkkkkkkk...",
+};
+
+/* Breathing in: its head a cell higher over a deeper chest. */
+static art purr_2 = {
+    ".....k.......k......",
+    "....kpk.....kpk.....",
+    "...kbppk...kppbk....",
+    "...kbbbbkkkbbbbk....",
+    "...kbbbbdbdbbbbk....",
+    "..kbbbbbbdbbbbbbk...",
+    "..kbbkbbbbbbbkbbk...",
+    "..kbkbkbbbbbkbkbk...",
+    "..kbppbbwpwbbppbk...",
+    "...kbbbbkwkbbbbk....",
+    "....kkbbbbbbbkk.....",
+    "....kbbbwwwbbbk..kk.",
+    "....kbbbwwwbbbk.kbbk",
+    "...kbdbbwwwbbdbkkbk.",
+    "...kbwwbwwwbwwbbbk..",
+    "....kkkkkkkkkkkkk...",
+};
+
 static art scratch_1 = {
     "....................",
     "..........k..k......",
@@ -360,7 +399,8 @@ static art *const frames[SH_CAT_FRAMES] = {
     [SH_CAT_FRAME_RUN_1] = &run_1,     [SH_CAT_FRAME_RUN_2] = &run_2,
     [SH_CAT_FRAME_GROOM_1] = &groom_1, [SH_CAT_FRAME_GROOM_2] = &groom_2,
     [SH_CAT_FRAME_YAWN] = &yawn,       [SH_CAT_FRAME_SLEEP_1] = &sleep_1,
-    [SH_CAT_FRAME_SLEEP_2] = &sleep_2, [SH_CAT_FRAME_SCRATCH_1] = &scratch_1,
+    [SH_CAT_FRAME_SLEEP_2] = &sleep_2, [SH_CAT_FRAME_PURR_1] = &purr_1,
+    [SH_CAT_FRAME_PURR_2] = &purr_2,   [SH_CAT_FRAME_SCRATCH_1] = &scratch_1,
     [SH_CAT_FRAME_SCRATCH_2] = &scratch_2, [SH_CAT_FRAME_PAW_1] = &paw_1,
     [SH_CAT_FRAME_PAW_2] = &paw_2,     [SH_CAT_FRAME_FALL] = &fall,
 };
@@ -371,6 +411,16 @@ static const char *const z_art[SH_CAT_Z_SIZE] = {
     "..k..",
     ".k...",
     "kkkkk",
+};
+
+/* 'k' its outline, 'p' its pink, 'w' its glint. */
+static const char *const heart_art[SH_CAT_HEART_HEIGHT] = {
+    ".kk.kk.",
+    "kwpkppk",
+    "kpppppk",
+    ".kpppk.",
+    "..kpk..",
+    "...k...",
 };
 // clang-format on
 
@@ -419,11 +469,19 @@ void sh_cat_paint_z(uint32_t *pixels, enum sh_cat_coat coat) {
             pixels[y * SH_CAT_Z_SIZE + x] = colour(colours, z_art[y][x]);
 }
 
+void sh_cat_paint_heart(uint32_t *pixels) {
+    // Sakura pink in a rose outline, which shows on light desktops and dark ones alike.
+    static const struct coat heart = {.outline = 0xc2386b, .pink = 0xff8fb8, .white = 0xffeef4};
+    for (int y = 0; y < SH_CAT_HEART_HEIGHT; ++y)
+        for (int x = 0; x < SH_CAT_HEART_WIDTH; ++x)
+            pixels[y * SH_CAT_HEART_WIDTH + x] = colour(&heart, heart_art[y][x]);
+}
+
 const char *sh_cat_frame_name(enum sh_cat_frame frame) {
     static const char *const names[SH_CAT_FRAMES] = {
-        "sit",     "blink",     "alert",     "look",    "walk_1", "walk_2",
-        "run_1",   "run_2",     "groom_1",   "groom_2", "yawn",   "sleep_1",
-        "sleep_2", "scratch_1", "scratch_2", "paw_1",   "paw_2",  "fall",
+        "sit",    "blink",     "alert",     "look",  "walk_1",  "walk_2",  "run_1",
+        "run_2",  "groom_1",   "groom_2",   "yawn",  "sleep_1", "sleep_2", "purr_1",
+        "purr_2", "scratch_1", "scratch_2", "paw_1", "paw_2",   "fall",
     };
     return (unsigned)frame < SH_CAT_FRAMES ? names[frame] : "sit";
 }

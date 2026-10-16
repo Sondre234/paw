@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The scrolling layout: windows open in columns right of the focused one, or first with the
-pointer over the first column, the view follows focus, columns change width, stack and unstack,
+pointer put on the first column, the view follows focus, columns change width, stack and unstack,
 and the layout survives a change of layout."""
 from pathlib import Path
 import sys
@@ -16,6 +16,9 @@ CONFIG = """return {
     outputs = { monitors = { ["HEADLESS-1"] = { mode = "1280x720" } } },
 }"""
 SCREEN_WIDTH = 1280
+# A window floating over the first column, as a launcher's menu might lie there.
+OVER = """windows = { rules = { { app_id = "^over$", floating = true, size = { 300, 300 },
+                              position = { 20, 100 } } } },"""
 
 with harness.Compositor(compositor, CONFIG) as desktop:
     msg = desktop.msg
@@ -117,13 +120,16 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     # With the pointer over the first column a new window opens left of it, as the new first
     # column; over another column it opens right of the focused one.
     def strip():
-        return [w.title for w in sorted(desktop.windows(), key=lambda w: w.x)]
+        return [w.title for w in sorted(desktop.windows(), key=lambda w: w.x) if w.tiled]
 
     def focused_title():
         return next(w.title for w in desktop.windows() if w.focused)
 
     def point(x):
         msg("headless_pointer", "move", "mouse", str(x), "300")
+
+    def pointer_on():
+        return next(tuple(row[1:3]) for row in desktop.rows("seat") if row[0] == "pointer")
 
     old = strip()[0]
     point(100)
@@ -141,7 +147,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     # The column under the pointer counts, not the focused one: with focus not following the
     # pointer, the first column is still found under it.
     desktop.reload(CONFIG.replace("xwayland = false,",
-                                  "xwayland = false, mouse = { focus_follows = false },"))
+                                  "xwayland = false, mouse = { focus_follows = false }, " + OVER))
     msg("scroll_left")
     msg("scroll_left")
     desktop.wait_for(lambda: focused_title() == "front" and focused()[0] == 0, "front in view")
@@ -152,4 +158,38 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     desktop.open_window(probe, "lead", focused=True)
     desktop.wait_for(lambda: strip() == ["lead", "front", old, "after", "third"]
                      and focused()[0] == 0, "lead first")
+
+    # Only a tile of the strip that the user put the pointer on counts. With it on a window
+    # floating over the first column a new window opens right of the focused column, and still
+    # does once that window has gone from under the pointer, as a launcher's menu goes.
+    over = desktop.open_window(probe, "over", "over", focused=True)
+    point(101)
+    desktop.wait_for(lambda: pointer_on() == ("window", "over"), "the pointer on over")
+    desktop.open_window(probe, "beside", focused=True)
+    desktop.wait_for(lambda: strip()[:3] == ["lead", "beside", "front"],
+                     "beside right of the first column")
+    over.kill()
+    desktop.reap(over)
+    desktop.wait_for(lambda: all(w.title != "over" for w in desktop.windows()), "over closed")
+    desktop.open_window(probe, "gone", focused=True)
+    desktop.wait_for(lambda: "gone" in strip() and strip()[0] == "lead", "gone not first")
+    # Back to the first column, which went out of view, and the pointer onto it.
+    msg("scroll_left")
+    msg("scroll_left")
+    desktop.wait_for(lambda: focused_title() == "lead" and focused()[0] == 0, "lead in view")
+    point(102)
+    desktop.open_window(probe, "start", focused=True)
+    desktop.wait_for(lambda: strip()[:2] == ["start", "lead"], "start first")
+
+    # A key moving the focus onto the first column brings the pointer along (focus_follows):
+    # paw put it there, not the user, so a new window opens right of the focused column.
+    desktop.reload(CONFIG)
+    msg("scroll_right")
+    desktop.wait_for(lambda: focused_title() == "lead", "the second column focused by key")
+    msg("scroll_left")
+    desktop.wait_for(lambda: focused_title() == "start" and pointer_on() == ("window", "start"),
+                     "the pointer brought onto the first column")
+    desktop.open_window(probe, "keyed", focused=True)
+    desktop.wait_for(lambda: strip()[:3] == ["start", "keyed", "lead"],
+                     "keyed right of the first column")
 print("Scroll layout passed")

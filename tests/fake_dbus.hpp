@@ -92,6 +92,9 @@ class Object : public QDBusVirtualObject {
     // Whether a Set from the bus is taken, which then changes the property and announces it;
     // false refuses it with an error. Unset, every one is taken.
     std::function<bool(const QString &interface, const QString &name, const QVariant &value)> setter;
+    // While set, what GetAll answers with in place of an interface's properties, of whatever
+    // type: a service gone wrong.
+    QVariant getAll;
     // Told of each Get and GetAll ("" for the name), after the answer is sent.
     std::function<void(const QString &interface, const QString &name)> read;
     // Told of each call recorded in `calls`, as it is recorded.
@@ -125,7 +128,7 @@ class Object : public QDBusVirtualObject {
         if (message.interface() == propertiesInterface) {
             const auto interface = arguments.value(0).toString();
             if (message.member() == "GetAll") {
-                bus.send(message.createReply(QVariant(properties.value(interface))));
+                bus.send(message.createReply(getAll.isValid() ? getAll : QVariant(properties.value(interface))));
                 if (read)
                     read(interface, QString());
                 return true;

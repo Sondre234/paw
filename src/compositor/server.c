@@ -153,6 +153,7 @@ void reload_config(struct sh_server *server) {
     cat_reload(server);
     ambient_reload(server);
     wrapped_reload(server);
+    profile_schedule_reloaded(server);
 }
 
 static int terminate_signal(int signal_number, void *data) {
@@ -223,6 +224,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     server.started = now_ms();
     wl_list_init(&server.subscribers);
     wl_list_init(&server.control_pending);
+    wl_list_init(&server.idle_inhibitors);
     server.tiling = sh_tiling_create();
     if (!server.tiling)
         return 1;
@@ -254,6 +256,9 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
         if (sh_parse_clock(getenv("PAW_NIGHT_LIGHT_TIME"), &minutes))
             server.night_clock = minutes;
     }
+    // A sunrise or sunset passed while paw was not running brings its profile before anything
+    // is set up from the configuration's look.
+    profile_schedule_start(&server);
     server.night_timer = wl_event_loop_add_timer(loop, night_light_tick, &server);
     server.corner_timer = wl_event_loop_add_timer(loop, hot_corner_tick, &server);
     server.urgent_timer = wl_event_loop_add_timer(loop, urgent_tick, &server);
@@ -608,14 +613,17 @@ finish:
         close(server.sleep_inhibitor);
 #endif
 
-    if (server.night_timer)
-        wl_event_source_remove(server.night_timer);
-    if (server.corner_timer)
-        wl_event_source_remove(server.corner_timer);
-    if (server.overview.timer)
-        wl_event_source_remove(server.overview.timer);
-    if (server.urgent_timer)
-        wl_event_source_remove(server.urgent_timer);
+    // Each is NULL once it is gone, since what follows (the outputs going with the backend) may
+    // still arm one. The idle sources were queued as the clients went, never to run.
+    struct wl_event_source **sources[] = {
+        &server.night_timer,  &server.corner_timer,        &server.overview.timer,
+        &server.urgent_timer, &server.window_objects_idle, &server.workspace_objects_idle,
+    };
+    for (size_t i = 0; i < sizeof(sources) / sizeof(*sources); ++i) {
+        if (*sources[i])
+            wl_event_source_remove(*sources[i]);
+        *sources[i] = NULL;
+    }
     display_mode_finish(&server);
     switcher_finish(&server);
     crossfade_end(&server);
@@ -625,6 +633,7 @@ finish:
     toys_end(&server);
     cube_end(&server);
     rice_finish(&server);
+    profile_schedule_finish(&server);
     cat_finish(&server);
     ambient_finish(&server);
     xray_finish(&server);

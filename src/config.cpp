@@ -7,24 +7,74 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <chrono>
+#include <csignal>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fcntl.h>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <linux/input-event-codes.h>
 #include <lua.hpp>
 #include <memory>
+#include <poll.h>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+#include <sys/prctl.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <utility>
 #include <xkbcommon/xkbcommon.h>
 
 namespace paw {
 namespace {
-using State = std::unique_ptr<lua_State, decltype(&lua_close)>;
+// What a configuration's Lua may hold at once while it runs: many times what one needs, and
+// far less than would starve the session. The instruction budget cannot stop a single call that
+// asks for much, such as ("x"):rep(2^31 - 1), 2 GiB at once.
+constexpr size_t memory_limit = 64u << 20;
+struct Memory {
+    size_t used = 0;
+    bool limited = false; // while the configuration's own code runs (evaluate)
+    bool refused = false;
+};
+void *allocate(void *data, void *block, size_t old, size_t size) {
+    auto &memory = *static_cast<Memory *>(data);
+    if (!block)
+        old = 0; // the kind of object being made, not a size
+    if (size == 0) {
+        std::free(block);
+        memory.used -= old;
+        return nullptr;
+    }
+    if (memory.limited && size > old &&
+        size - old > memory_limit - std::min(memory.used, memory_limit)) {
+        memory.refused = true;
+        return nullptr;
+    }
+    void *result = std::realloc(block, size);
+    if (result)
+        memory.used = memory.used - old + size;
+    return result;
+}
+struct Close {
+    void operator()(lua_State *L) const {
+        void *memory = nullptr;
+        lua_getallocf(L, &memory);
+        lua_close(L);
+        delete static_cast<Memory *>(memory);
+    }
+};
+using State = std::unique_ptr<lua_State, Close>;
+Memory &memory_of(lua_State *L) {
+    void *memory = nullptr;
+    lua_getallocf(L, &memory);
+    return *static_cast<Memory *>(memory);
+}
 // Section being read ("shell"), so an error can be placed in the source file.
 thread_local std::string current_section;
 struct ConfigError : std::runtime_error {
@@ -107,7 +157,9 @@ void table(lua_State *L, int index, const char *label) {
                           const std::vector<std::string> &valid, const std::string &leaf = "",
                           const std::string &where = "") {
     auto guess = closest_match(name, valid);
-    fail("unknown " + what + " '" + name + "'" + (where.empty() ? "" : " in " + where) +
+    // A name too long to read is quoted by its start.
+    auto shown = name.size() > 64 ? name.substr(0, 64) + "..." : name;
+    fail("unknown " + what + " '" + shown + "'" + (where.empty() ? "" : " in " + where) +
              (guess.empty() ? "; expected one of: " + join(valid)
                             : "; did you mean '" + guess + "'?"),
          leaf.empty() ? name : leaf);
@@ -909,12 +961,32 @@ void read_monitors(lua_State *L, sh_settings &settings) {
     }
     lua_pop(L, 1);
 }
+// A window rule's or a binding's pattern, compiled to be matched by `pattern_found`: as
+// `[\s\S]*?(?:PATTERN)` from the start of the text alone, by libstdc++'s breadth-first matcher,
+// in time that grows linearly with the text. Searched for as written, it would be tried from
+// each place in turn by its backtracking matcher, which for some patterns takes time exponential
+// in the text and recurses once a character, deep enough on a long title to overflow the stack.
+// A pattern with a back-reference, which the breadth-first matcher cannot follow, keeps the
+// backtracking one.
+std::regex compile_pattern(const std::string &source) {
+    // Checked as written first: one that is no pattern alone, such as `a)|(b`, would be one
+    // wrapped.
+    (void)std::regex(source, std::regex::ECMAScript);
+    const auto anywhere = "[\\s\\S]*?(?:" + source + ")";
+#ifdef __GLIBCXX__
+    try {
+        return std::regex(anywhere, std::regex::ECMAScript | std::regex_constants::__polynomial);
+    } catch (const std::regex_error &) {
+    }
+#endif
+    return std::regex(anywhere, std::regex::ECMAScript);
+}
 std::optional<std::regex> pattern_field(lua_State *L, const char *key, std::string &source) {
     std::optional<std::regex> result;
     if (auto value = text(L, key)) {
         source = *value;
         try {
-            result = std::regex(source, std::regex::ECMAScript);
+            result = compile_pattern(source);
         } catch (const std::regex_error &) {
             fail(std::string(key) + " '" + source + "' is not a valid regular expression");
         }
@@ -1882,6 +1954,17 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                {"bottom-right", 4}},
               "overview.hot_corner must be \"none\", \"top-left\", \"top-right\", "
               "\"bottom-left\", or \"bottom-right\"");
+        // A corner runs one thing: this or what hot_corners gives it, not both.
+        if (int corner = settings.overview_hot_corner - 1;
+            corner >= 0 && settings.effects.corner_mask & (1U << corner)) {
+            constexpr const char *keys[] = {"top_left", "top_right", "bottom_left",
+                                            "bottom_right"};
+            constexpr const char *names[] = {"top-left", "top-right", "bottom-left",
+                                             "bottom-right"};
+            fail(std::string("overview.hot_corner and hot_corners.") + keys[corner] +
+                     " both claim the " + names[corner] + " corner",
+                 "hot_corner");
+        }
         settings.overview_dim = static_cast<float>(number(L, "dim", settings.overview_dim, 0, 1));
     }
     if (Section in{L, "notifications"}) {
@@ -1929,6 +2012,7 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
             config.power.lock_command = std::move(locker);
         }
         lua_pop(L, 1);
+        boolean(L, "lock_style", "power.lock_style", config.power.lock_style);
         boolean(L, "lock_before_sleep", "power.lock_before_sleep",
                 config.settings.lock_before_sleep);
         boolean(L, "close_windows", "power.close_windows", config.settings.close_windows);
@@ -1995,6 +2079,30 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
               "cat.coat must be \"auto\", \"ginger\", \"black\", \"cream\" or \"grey\"", "coat");
         settings.cat_sleep = integer(L, "sleep_after", settings.cat_sleep, 5, 3600);
     }
+    // `profile_schedule`; that its names are profiles is checked once every profile is known.
+    if (Section in{L, "profile_schedule"}) {
+        auto &schedule = config.settings.profile_schedule;
+        auto day = text(L, "day"), night = text(L, "night");
+        if (!day || !night)
+            fail("profile_schedule needs a day and a night profile, as "
+                 "{ day = \"light\", night = \"dark\" }");
+        copy_text(*day, schedule.day, "profile_schedule.day");
+        copy_text(*night, schedule.night, "profile_schedule.night");
+        auto sunrise = text(L, "sunrise"), sunset = text(L, "sunset");
+        if (sunrise.has_value() != sunset.has_value())
+            fail("profile_schedule.sunrise and sunset go together: set both, or neither to "
+                 "follow night_light's",
+                 sunrise ? "sunrise" : "sunset");
+        if (sunrise) {
+            if (!sh_parse_clock(sunrise->c_str(), &schedule.sunrise))
+                fail("profile_schedule.sunrise must be a time like \"07:00\"", "sunrise");
+            if (!sh_parse_clock(sunset->c_str(), &schedule.sunset))
+                fail("profile_schedule.sunset must be a time like \"20:00\"", "sunset");
+            if (schedule.sunrise == schedule.sunset)
+                fail("profile_schedule.sunrise and sunset must differ", "sunset");
+            schedule.own_times = true;
+        }
+    }
     if (Section in{L, "wrapped"})
         boolean(L, "enabled", "wrapped.enabled", config.settings.wrapped);
     if (Section in{L, "heatmap"})
@@ -2057,6 +2165,10 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"night_light_on", SH_NIGHT_LIGHT_ON},
         {"night_light_off", SH_NIGHT_LIGHT_OFF},
         {"night_light_auto", SH_NIGHT_LIGHT_AUTO},
+        {"profile_auto", SH_PROFILE_AUTO},
+        {"keep_awake_toggle", SH_KEEP_AWAKE_TOGGLE},
+        {"keep_awake_on", SH_KEEP_AWAKE_ON},
+        {"keep_awake_off", SH_KEEP_AWAKE_OFF},
         {"zoom_in", SH_ZOOM_IN},
         {"zoom_out", SH_ZOOM_OUT},
         {"zoom_reset", SH_ZOOM_RESET},
@@ -2318,9 +2430,26 @@ sh_heatmap_choice parse_heatmap_choice(const std::string &name) {
     fail("heatmap must be \"toggle\", \"motion\", \"clicks\" or \"reset\"");
 }
 
+namespace {
+// Whether `pattern`, from compile_pattern, is found in `text`. Of a text longer than twice
+// `window` bytes only the first and the last `window` are searched: a client may make its title
+// as long as it likes, and no rule needs more of it. `^` matches only at the start of the first
+// part, `$` only at the end of the last, and `\b` there sees the byte before it.
+bool pattern_found(const std::regex &pattern, const std::string &text) {
+    using namespace std::regex_constants;
+    constexpr std::ptrdiff_t window = 512;
+    if (text.size() <= 2 * static_cast<size_t>(window))
+        return std::regex_search(text, pattern, match_continuous);
+    return std::regex_search(text.begin(), text.begin() + window, pattern,
+                             match_continuous | match_not_eol) ||
+           std::regex_search(text.end() - window, text.end(), pattern,
+                             match_continuous | match_prev_avail);
+}
+} // namespace
+
 bool WindowRule::matches(const std::string &app_id, const std::string &title) const {
-    return (!pattern || std::regex_search(app_id, *pattern)) &&
-           (!title_pattern || std::regex_search(title, *title_pattern));
+    return (!pattern || pattern_found(*pattern, app_id)) &&
+           (!title_pattern || pattern_found(*title_pattern, title));
 }
 
 bool WindowActions::empty() const {
@@ -2479,18 +2608,27 @@ const Binding *Config::button_binding(uint32_t modifiers, uint32_t button,
         bool anywhere = !binding.pattern && !binding.desktop;
         if (anywhere || (binding.desktop && target == SH_POINTER_DESKTOP) ||
             (binding.pattern && target == SH_POINTER_WINDOW &&
-             std::regex_search(app_id, *binding.pattern)))
+             pattern_found(*binding.pattern, app_id)))
             return binding.action == SH_NONE ? nullptr : &binding;
     }
     return nullptr;
 }
 
 namespace {
+int panic(lua_State *L) {
+    const char *message = lua_tostring(L, -1);
+    std::fprintf(stderr, "paw: unprotected error in the configuration's Lua: %s\n",
+                 message ? message : "not a string");
+    return 0; // Lua aborts
+}
 State sandbox() {
-    State state(luaL_newstate(), lua_close);
+    auto memory = std::make_unique<Memory>();
+    State state(lua_newstate(allocate, memory.get()));
     if (!state)
         fail("cannot allocate Lua state");
+    memory.release();
     auto *L = state.get();
+    lua_atpanic(L, panic);
     // Configuration can compute values but cannot perform I/O or launch processes.
     const std::pair<const char *, lua_CFunction> libraries[] = {{"_G", luaopen_base},
                                                                 {LUA_TABLIBNAME, luaopen_table},
@@ -2513,11 +2651,23 @@ State sandbox() {
 void evaluate(lua_State *L, const std::string &source, const std::string &name) {
     *static_cast<int *>(lua_getextraspace(L)) = 1000;
     lua_sethook(L, instruction_limit, LUA_MASKCOUNT, 1000);
-    if (luaL_loadbufferx(L, source.data(), source.size(), name.c_str(), "t") != LUA_OK ||
-        lua_pcall(L, 0, 1, 0) != LUA_OK) {
-        const char *message = lua_tostring(L, -1);
+    // Only the configuration's code is held to the memory limit: reading what it returned
+    // happens outside a protected call, where running out would abort.
+    auto &memory = memory_of(L);
+    memory.limited = true;
+    memory.refused = false;
+    int status = luaL_loadbufferx(L, source.data(), source.size(), name.c_str(), "t");
+    if (status == LUA_OK)
+        status = lua_pcall(L, 0, 1, 0);
+    memory.limited = false;
+    const char *message = status == LUA_OK ? nullptr : lua_tostring(L, -1);
+    // A full string buffer raises its "not enough memory" as an ordinary error.
+    if (memory.refused &&
+        (status == LUA_ERRMEM || (message && std::string_view(message) == "not enough memory")))
+        fail((name.starts_with('@') ? name.substr(1) : name) + ": needs more than " +
+             std::to_string(memory_limit >> 20) + " MiB of memory");
+    if (status != LUA_OK)
         fail(message ? message : "Lua raised a non-string error");
-    }
 }
 std::string read_file(const std::filesystem::path &path) {
     std::ifstream file(path, std::ios::binary);
@@ -2624,7 +2774,7 @@ RiceData data_of(lua_State *L, int index, const std::string &what, int depth = 0
         lua_pop(L, 1);
     }
     std::sort(table.fields.begin(), table.fields.end(),
-              [](const auto &a, const auto &b) { return a.first < b.first; });
+              [](const auto &a, const auto &b) { return a.key < b.key; });
     return table;
 }
 std::filesystem::path theme_path(lua_State *L, const std::filesystem::path &directory) {
@@ -2871,11 +3021,105 @@ size_t locate(const std::string &source, const std::vector<std::string> &trail) 
     }
     return found;
 }
-} // namespace
 
-Config parse_config(const std::string &source, const std::string &name,
-                    const std::filesystem::path &directory, const std::string &chosen,
-                    const std::vector<Rice> &rices) {
+// The time a configuration has to load in. The instruction budget meters its Lua, but a call
+// into a C function is one instruction however long it runs: a pattern that backtracks, or
+// (""):rep(2^60). So a configuration loads first in a child process, killed if it runs over,
+// and then, having finished in time, for real. The sanitizers' build runs many times slower.
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define PAW_CONFIG_SANITIZED 1
+#endif
+#endif
+#if defined(__SANITIZE_ADDRESS__) || defined(PAW_CONFIG_SANITIZED)
+constexpr int time_limit = 30;
+#else
+constexpr int time_limit = 3;
+#endif
+// Runs `load` in a child process, which must finish within time_limit seconds, and throws if it
+// does not, or crashes; whatever `load` throws in time is left to running it for real. Without
+// a child process to be had, it returns: the configuration then loads unchecked, rather than
+// not at all. `name` is the configuration's chunk name.
+void try_first(const std::function<void()> &load, const std::string &name) {
+    int pipe_ends[2];
+    if (::pipe2(pipe_ends, O_CLOEXEC) != 0)
+        return;
+    const pid_t parent = ::getpid();
+    const pid_t child = ::fork();
+    if (child < 0) {
+        ::close(pipe_ends[0]);
+        ::close(pipe_ends[1]);
+        return;
+    }
+    if (child == 0) {
+        // Only what the configuration needs runs here, and the child leaves with _exit, which
+        // runs no destructors or exit handlers of the process it was forked from. Crashing, it
+        // leaves no core file: that would be a copy of the compositor's memory.
+        ::close(pipe_ends[0]);
+        ::prctl(PR_SET_PDEATHSIG, SIGKILL);
+        const rlimit no_core{0, 0};
+        ::setrlimit(RLIMIT_CORE, &no_core);
+        if (::getppid() != parent)
+            _exit(1);
+        char outcome = 'y';
+        try {
+            load();
+        } catch (const std::bad_alloc &) {
+            outcome = 'm';
+        } catch (...) {
+            outcome = 'n';
+        }
+        ssize_t written;
+        do
+            written = ::write(pipe_ends[1], &outcome, 1);
+        while (written < 0 && errno == EINTR);
+        _exit(0);
+    }
+    ::close(pipe_ends[1]);
+    char outcome = 0;
+    bool late = false, unchecked = false;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(time_limit);
+    for (;;) {
+        auto left = std::chrono::ceil<std::chrono::milliseconds>(deadline -
+                                                                 std::chrono::steady_clock::now());
+        if (left.count() <= 0) {
+            late = true;
+            break;
+        }
+        pollfd ready{pipe_ends[0], POLLIN, 0};
+        int count = ::poll(&ready, 1, static_cast<int>(left.count()));
+        if (count < 0 && errno != EINTR) {
+            unchecked = true;
+            break;
+        }
+        if (count <= 0)
+            continue;
+        if (::read(pipe_ends[0], &outcome, 1) >= 0 || errno != EINTR)
+            break;
+    }
+    ::close(pipe_ends[0]);
+    if (!outcome)
+        ::kill(child, SIGKILL);
+    int status = 0;
+    while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {
+    }
+    auto file = name.starts_with('@') ? name.substr(1) : name;
+    if (outcome == 'y' || outcome == 'n' || unchecked)
+        return;
+    if (outcome == 'm')
+        throw std::runtime_error("configuration: " + file + ": ran out of memory");
+    if (late)
+        throw std::runtime_error("configuration: " + file + ": did not finish loading within " +
+                                 std::to_string(time_limit) + " seconds");
+    throw std::runtime_error("configuration: " + file + ": loading it crashed" +
+                             (WIFSIGNALED(status)
+                                  ? std::string(" (") + strsignal(WTERMSIG(status)) + ")"
+                                  : std::string()));
+}
+// parse_config, unchecked.
+Config parse(const std::string &source, const std::string &name,
+             const std::filesystem::path &directory, const std::string &chosen,
+             const std::vector<Rice> &rices) {
     current_section.clear();
     try {
         // The configuration with its theme and defaults, then with `profile` laid over them.
@@ -2950,6 +3194,19 @@ Config parse_config(const std::string &source, const std::string &name,
             config = std::move(*chosen_rice);
         all.insert(all.end(), rice_names.begin(), rice_names.end());
         std::sort(all.begin(), all.end());
+        // The schedule's profiles, an installed rice's among them.
+        const auto &schedule = config.settings.profile_schedule;
+        for (const char *key : {"day", "night"}) {
+            std::string profile = key[0] == 'd' ? schedule.day : schedule.night;
+            if (profile.empty() || has(all, profile))
+                continue;
+            Named in("profile_schedule");
+            if (all.empty())
+                fail("profile_schedule." + std::string(key) + " '" + profile +
+                         "' needs a profiles table that defines it",
+                     key);
+            unknown("profile", profile, all, key, "profile_schedule." + std::string(key));
+        }
         config.profiles = std::move(all);
         config.rices = std::move(rice_names);
         config.rice_problems = std::move(rice_problems);
@@ -2964,6 +3221,14 @@ Config parse_config(const std::string &source, const std::string &name,
         throw std::runtime_error("configuration: " + file + ":" + std::to_string(line) + ": " +
                                  error.text);
     }
+}
+} // namespace
+
+Config parse_config(const std::string &source, const std::string &name,
+                    const std::filesystem::path &directory, const std::string &chosen,
+                    const std::vector<Rice> &rices) {
+    try_first([&] { (void)parse(source, name, directory, chosen, rices); }, name);
+    return parse(source, name, directory, chosen, rices);
 }
 
 std::filesystem::path profile_state_path() {
@@ -3035,7 +3300,8 @@ Config load_config_or_default(const std::filesystem::path &path, std::string &er
     return Config{};
 }
 
-std::optional<std::vector<std::string>> shadowed_settings(const std::filesystem::path &config) {
+namespace {
+std::optional<std::vector<std::string>> list_shadowed(const std::filesystem::path &config) {
     auto state = sandbox();
     auto *L = state.get();
     evaluate(L, read_file(config), "@" + config.string());
@@ -3052,8 +3318,7 @@ std::optional<std::vector<std::string>> shadowed_settings(const std::filesystem:
     std::sort(result.begin(), result.end());
     return result;
 }
-
-RiceData configured_look(const std::filesystem::path &path, const std::string &profile) {
+RiceData read_look(const std::filesystem::path &path, const std::string &profile) {
     auto state = sandbox();
     auto *L = state.get();
     current_section.clear();
@@ -3082,5 +3347,16 @@ RiceData configured_look(const std::filesystem::path &path, const std::string &p
         lua_pop(L, 1);
     }
     return look;
+}
+} // namespace
+
+std::optional<std::vector<std::string>> shadowed_settings(const std::filesystem::path &config) {
+    try_first([&] { (void)list_shadowed(config); }, "@" + config.string());
+    return list_shadowed(config);
+}
+
+RiceData configured_look(const std::filesystem::path &path, const std::string &profile) {
+    try_first([&] { (void)read_look(path, profile); }, "@" + path.string());
+    return read_look(path, profile);
 }
 } // namespace paw

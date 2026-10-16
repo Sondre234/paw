@@ -274,15 +274,56 @@ void seat_request_set_primary_selection(struct wl_listener *listener, void *data
     wlr_seat_set_primary_selection(server->seat, event->source, event->serial);
 }
 
-/* Drag-and-drop (browser tabs, files into chat windows): only from a real button press. */
+/* Whether XWayland's window manager runs. It hears of every drag that starts and takes it to have
+ * a data source: wlroots 0.20 reads through a NULL one, which crashes paw. */
+static bool xwm_running(struct sh_server *server) {
+#if WLR_HAS_XWAYLAND
+    return server->xwayland && server->xwayland->xwm;
+#else
+    (void)server;
+    return false;
+#endif
+}
+
+/* Turns a drag down. One with a data source goes with it, its client told that it was
+ * cancelled. One without (a drag within one window) wlroots frees only as it ends, and it has no
+ * way to free one that never started: so it is started on the keyboard alone, which no client
+ * hears of, and ended at once. It is kept instead (a few hundred bytes, until paw exits) where
+ * starting it would disturb something: the source of the drag before it, whose drop may still be
+ * being read, would go; a keyboard grab under way (a popup's) would be lost; and XWayland's
+ * window manager would crash paw (xwm_running). */
+static void refuse_drag(struct sh_server *server, struct wlr_drag *drag) {
+    if (drag->source) {
+        wlr_data_source_destroy(drag->source);
+        return;
+    }
+    struct wlr_seat *seat = server->seat;
+    if (seat->drag || seat->drag_source ||
+        seat->keyboard_state.grab != seat->keyboard_state.default_grab || xwm_running(server))
+        return;
+    server->refusing_drag = true; // seat_start_drag leaves it alone
+    wlr_seat_start_drag(seat, drag, seat->drag_serial);
+    wlr_seat_keyboard_end_grab(seat); // cancels the drag's grab, which frees the drag
+    server->refusing_drag = false;
+}
+
+/* Drag-and-drop (browser tabs, files into chat windows): only from a real button press. One of
+ * nothing (no data source) is turned down while XWayland's window manager runs, which would crash
+ * paw (xwm_running). */
 void seat_request_start_drag(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, request_start_drag);
     struct wlr_seat_request_start_drag_event *event = data;
-    if (!server->locked && server->cursor_mode == SH_CURSOR_PASSTHROUGH &&
-        wlr_seat_validate_pointer_grab_serial(server->seat, event->origin, event->serial))
+    bool allowed =
+        !server->locked && server->cursor_mode == SH_CURSOR_PASSTHROUGH &&
+        wlr_seat_validate_pointer_grab_serial(server->seat, event->origin, event->serial);
+    if (allowed && !event->drag->source && xwm_running(server)) {
+        wlr_log(WLR_INFO, "Drag without a data source turned down while XWayland runs");
+        allowed = false;
+    }
+    if (allowed)
         wlr_seat_start_pointer_drag(server->seat, event->drag, event->serial);
     else
-        wlr_data_source_destroy(event->drag->source);
+        refuse_drag(server, event->drag);
 }
 
 /* A drag holds the keyboard while it lasts, and wlroots lets no focus change through it: a
@@ -310,6 +351,8 @@ static void drag_ended(struct wl_listener *listener, void *data) {
 void seat_start_drag(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, start_drag);
     struct wlr_drag *drag = data;
+    if (server->refusing_drag)
+        return; // started only to end at once (refuse_drag)
     wlr_scene_node_set_position(&server->drag_icons->node, server->cursor->x, server->cursor->y);
     // The scene helper removes the icon's node when the icon goes away.
     if (drag->icon)

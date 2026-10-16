@@ -14,7 +14,7 @@ static const char *const names[SH_WRAPPED_COUNTERS] = {
     "pointer_mm",     "clicks_left",    "clicks_right", "clicks_middle", "clicks_other",
     "scroll_px",      "scroll_mm",      "keys",         "gestures",      "windows_opened",
     "windows_closed", "moves",          "resizes",      "snaps",         "workspace_switches",
-    "overview_opens", "switcher_opens", "launches",
+    "overview_opens", "switcher_opens", "launches",     "cat_pets",
 };
 
 const char *sh_wrapped_counter_name(enum sh_wrapped_counter counter) {

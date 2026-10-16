@@ -112,6 +112,7 @@ struct ClipboardHistory::Writing {
     QByteArray data;
     qsizetype written = 0;
     std::unique_ptr<QSocketNotifier> notifier;
+    QTimer timer; // gives up on a program that stops reading
     ~Writing() {
         dispose(notifier);
         if (fd >= 0)
@@ -402,7 +403,8 @@ bool ClipboardHistory::restore(int id) {
     return true;
 }
 
-// Hands a program pasting the entry offered the bytes it asked for, as fast as it reads them.
+// Hands a program pasting the entry offered the bytes it asked for, as fast as it reads them. One
+// that reads nothing for writeTimeout_, hung or never meaning to, is given up.
 void ClipboardHistory::send(const QString &type, int fd) {
     auto writing = std::make_unique<Writing>();
     writing->fd = fd;
@@ -425,12 +427,21 @@ void ClipboardHistory::send(const QString &type, int fd) {
     };
     if (step())
         return; // closed as `writing` goes
-    writing->notifier = std::make_unique<QSocketNotifier>(fd, QSocketNotifier::Write);
-    connect(writing->notifier.get(), &QSocketNotifier::activated, this, [this, raw, step] {
-        if (!step())
-            return;
+    auto drop = [this, raw] {
         std::erase_if(writings_, [raw](const auto &other) { return other.get() == raw; });
+    };
+    writing->notifier = std::make_unique<QSocketNotifier>(fd, QSocketNotifier::Write);
+    connect(writing->notifier.get(), &QSocketNotifier::activated, this, [raw, step, drop] {
+        const qsizetype before = raw->written;
+        if (step())
+            drop();
+        else if (raw->written > before)
+            raw->timer.start(); // it reads: it gets as long again
     });
+    writing->timer.setSingleShot(true);
+    writing->timer.setInterval(writeTimeout_);
+    connect(&writing->timer, &QTimer::timeout, this, drop);
+    writing->timer.start();
     writings_.push_back(std::move(writing));
 }
 

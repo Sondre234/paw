@@ -6,6 +6,7 @@
 // password asked again, the connection added for it removed), and disconnecting.
 #include "fake_dbus.hpp"
 #include "network_manager.hpp"
+#include <QDBusArgument>
 #include <QDBusMetaType>
 #include <QDBusObjectPath>
 #include <QSignalSpy>
@@ -52,6 +53,8 @@ class FakeNetworkManager {
     QStringList calls;
     // An error AddAndActivateConnection answers with, while set.
     QString refuseAdd;
+    // While set, what GetSettings answers with in place of a connection's settings.
+    QVariant wrongSettings;
 
     explicit FakeNetworkManager(fakedbus::Bus &bus) : bus_(bus.connect()) {
         manager = add(managerPath, managerInterface,
@@ -196,7 +199,8 @@ class FakeNetworkManager {
         auto *connection = add(path, connectionInterface, {{"Unsaved", false}});
         connection->methods = [this, path](const QDBusMessage &call, QDBusConnection &bus) {
             if (call.member() == "GetSettings") {
-                bus.send(call.createReply(QVariant::fromValue(connections_.at(path))));
+                bus.send(call.createReply(wrongSettings.isValid() ? wrongSettings
+                                                                  : QVariant::fromValue(connections_.at(path))));
                 return true;
             }
             if (call.member() == "Delete") {
@@ -411,6 +415,21 @@ class NetworkManagerDbusTest : public QObject {
                  QString("Could not connect to Library: 802-11-wireless.ssid: property is invalid"));
         QCOMPARE(rejected.count(), 1);
         QCOMPARE(wifi.connecting(), QString());
+    }
+    // Settings of the wrong type, from a NetworkManager of another version or a bug, are taken as
+    // none rather than read out of bounds.
+    void malformed() {
+        FakeNetworkManager manager(bus_);
+        QDBusArgument numbers;
+        numbers << QList<int>{1, 2, 3};
+        manager.wrongSettings = QVariant::fromValue(numbers);
+        QVERIFY(manager.start());
+        NetworkManager wifi(bus_.connect());
+        QTRY_VERIFY(wifi.available() && manager.at(manager.cafe)->calls.contains("GetSettings"));
+        // A connection added has them all read again, of the right type now.
+        manager.wrongSettings = {};
+        manager.addConnection("Library", "802-11-wireless", "Library");
+        QTRY_VERIFY(network(wifi, "Cafe").value("known").toBool());
     }
 };
 QTEST_MAIN(NetworkManagerDbusTest)

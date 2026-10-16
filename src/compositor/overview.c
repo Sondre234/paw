@@ -577,6 +577,7 @@ static bool overview_begin(struct sh_server *server, struct wlr_output *output, 
         overview->tree = wlr_scene_tree_create(server->overview_layer);
         if (!overview->tree) {
             overview->assist = false;
+            overview->assist_from = NULL; // kept NULL while closed (overview_forget)
             return false;
         }
         float clear[4] = {0, 0, 0, 0};
@@ -1012,32 +1013,6 @@ bool overview_motion(struct sh_server *server) {
     set_default_cursor(server);
     wlr_seat_pointer_clear_focus(server->seat);
     return true;
-}
-
-/* The hot corner: entering the configured corner of an output opens the overview there. */
-void overview_hot_corner(struct sh_server *server) {
-    struct sh_overview *overview = &server->overview;
-    const struct sh_settings *settings = server_settings(server);
-    int corner = settings->overview_hot_corner;
-    bool inside = false;
-    struct wlr_output *output = NULL;
-    if (settings->overview && corner > 0 && !server->locked &&
-        server->cursor_mode == SH_CURSOR_PASSTHROUGH) {
-        output = pointer_output(server);
-        if (output) {
-            struct wlr_box box;
-            wlr_output_layout_get_box(server->output_layout, output, &box);
-            double x = corner == 2 || corner == 4 ? box.x + box.width - 1 : box.x;
-            double y = corner == 3 || corner == 4 ? box.y + box.height - 1 : box.y;
-            inside = fabs(server->cursor->x - x) < 2 && fabs(server->cursor->y - y) < 2;
-        }
-    }
-    if (inside && !overview->in_corner && !overview->open && !server->switcher.open) {
-        server->target_output = output;
-        overview_open(server);
-        server->target_output = NULL;
-    }
-    overview->in_corner = inside;
 }
 
 /* The wheel pages through the workspaces. */

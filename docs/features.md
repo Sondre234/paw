@@ -377,7 +377,8 @@ small icons, and the network only while its link is down, dimmed and struck thro
 mutes. Clicking it opens Quick Settings at the bar's right end: what is playing
 ([media controls](#media-controls)), tiles for [Wi-Fi](#wi-fi) where NetworkManager has a Wi-Fi
 device, [Bluetooth](#bluetooth) while BlueZ has an adapter, do-not-disturb, night light (on or off
-against its schedule, through the compositor), tiling on this monitor (greyed out where tiling is
+against its schedule, through the compositor), [keep awake](#power-saving-when-idle) (no dimming,
+no screens going off, no sleep while it is on), tiling on this monitor (greyed out where tiling is
 not available), the [power mode](#power-mode) while power-profiles-daemon runs, the appearance
 profile (listing the profiles under it) and the wallpaper (opening the same picker as the bar's
 button), and without NetworkManager's Wi-Fi the network's state on a disc rather than a tile, as it
@@ -876,6 +877,9 @@ tiled window keeps `size` and `position` as the place it floats to when toggled.
 app ID and title the window has when it opens; later title changes do not apply them again,
 but for opacity, which follows the title and app ID as they change, and dynamic rules.
 `features = { window_rules = false }` turns the actions off and leaves opacity rules working.
+Rules match in time that grows no faster than a title's length, whatever their patterns. In a
+title or app ID over 1 KiB, as a client may set, they search the first and last 512 bytes: `^`
+still finds its start and `$` its end, but a pattern held to both matches no title that long.
 
 A rule with `dynamic = true` follows the window, as Hyprland's dynamic rules do: while the
 window's title and app ID match it, as they change, it holds the window to its `floating`,
@@ -1186,8 +1190,11 @@ you pick something:
   click on a workspace in the strip shows it; a second click, or Return on an empty one,
   switches to it. Dragging a thumbnail onto a workspace in the strip moves the window there.
 - Escape, Super + O again, or a click on the backdrop closes it without changing anything.
-- Placing the pointer in a screen corner opens it (`overview.hot_corner`; the general
-  `hot_corners` table can bind `toggle_overview` to a corner too, with a dwell time).
+- Resting the pointer in a screen corner opens it on that monitor (`overview.hot_corner`), as a
+  [hot corner](#effects) runs its request: after `hot_corners.delay`, in a `hot_corners.size`
+  square, and not over a fullscreen window, during a drag or with a button held. It only opens
+  the overview, where a hot corner bound to `toggle_overview` closes it too; a corner can be one
+  or the other, not both.
 
 It takes the appearance profile's colours: the backdrop, the cards behind the thumbnails and
 the strip are dark shades of `appearance.background`'s hue (a warm black on a paper-coloured
@@ -1320,7 +1327,8 @@ Wayland connection of its own, without taking the keyboard. Of what is copied it
 (by its best name, up to 1 MB), HTML and a list of files when they come with it, and a picture
 (PNG, JPEG, WebP, GIF, BMP or TIFF, up to 16 MB), and copies them back under the names they came
 with, the text also as `text/plain`, `UTF8_STRING`, `TEXT` and `STRING`, so that a program pastes
-them as it would the original. Copying something kept already moves it up. It keeps nothing a
+them as it would the original; a program pasting that reads nothing for ten seconds, hung or never
+meaning to, is given up. Copying something kept already moves it up. It keeps nothing a
 password manager marks as secret (`x-kde-passwordManagerHint` set to `secret`, as KeePassXC does)
 and nothing copied while the session is locked, which the compositor tells it (`locked on|off`).
 The entries are kept in memory only, `shell.clipboard.max_entries` (50) of them besides the
@@ -1685,9 +1693,12 @@ reloaded, and again when the monitor is plugged back in. `paw msg get layout OUT
 `layout_scroll` tiles like niri and PaperWM: windows live in columns on a strip much wider
 than the screen, and the screen is a view onto it that follows focus, gliding like any
 other tile move. A new window opens in a column of its own right of the focused one, or, with
-the pointer over the first column (or left of it), as the new first column. A column has a
-width, a share of the screen (`layout.scroll.width`, half by default), and stacks its windows
-evenly. A column alone on its workspace fills the screen, and takes its width back when another
+the pointer on a window of the first column, as the new first column. Only a pointer you moved
+onto a tile yourself counts: not one a key moving the focus brought along
+(`mouse.focus_follows`), nor one on a launcher or a floating window over the column or left
+there as it closed, nor one beside the column or on another monitor. A column has a width, a
+share of the screen (`layout.scroll.width`, half by default), and stacks its windows evenly. A
+column alone on its workspace fills the screen, and takes its width back when another
 joins it; `fill_lone = false` keeps it at its width, and a width set by hand (by an action or by
 dragging its side) stays, alone too. Beside its own actions, the usual keys work: `focus_left` /
 `focus_right` step between columns and `focus_up` / `focus_down` within one, `move_left` /
@@ -1900,9 +1911,11 @@ hot_corners = {
 }
 ```
 
-A request is written as for `paw msg`: an action with its argument, or `spawn PROGRAM ARGS`.
-The corner is `hot_corners.size` pixels (2) square. Nothing runs while a button is held, a drag is
-under way, the session is locked, or a fullscreen window covers the output.
+A request is written as for `paw msg`: an action with its argument, or `spawn PROGRAM ARGS`,
+and acts on the monitor whose corner it is. The corner is `hot_corners.size` pixels (2) square.
+Nothing runs while a button is held, a drag is under way, the session is locked, or a fullscreen
+window covers the output. `overview.hot_corner` makes one more corner, which opens the overview
+(see [the overview](#overview)); a corner it takes cannot be bound here too.
 
 **Ambient particles.** `appearance.ambient = { kind = "sakura" }` has sakura petals drift down
 over the wallpaper, tumbling, swaying and turning as they fall, in four pinks; `"snow"` has soft
@@ -2677,6 +2690,31 @@ monitor's picture lies exactly where the monitor showed it. Switching again duri
 starts from what shows. Locking the session takes the picture away at once, and no profile
 crossfades in while the session is locked.
 
+**A day and a night profile (experimental).** `profile_schedule = { day = "washi", night = "sumi"
+}` switches between two profiles by the sun: at each sunrise the `day` profile is picked and at
+each sunset the `night` one, as `paw msg profile NAME` picks one, saved and crossfading. The times
+are night light's `sunrise` and `sunset`, or the sun's at its `latitude` and `longitude`, whether
+or not night light is enabled; `sunrise = "07:00", sunset = "20:00"` in the table give the schedule
+times of its own. A profile picked by hand in between, from the panel, the palette or `paw msg
+profile NAME`, stays until the next sunrise or sunset, through reloads and restarts, and `paw msg
+profile auto` (the `profile_auto` action, **Follow sunrise and sunset** under the profiles in the
+panel's menus, or **Appearance: follow sunrise and sunset** in the command palette) hands the
+choice back to the schedule at once (`profile auto` picks a profile named `auto` instead, if there
+is one). A sunrise or sunset that passed while paw was not running is caught up as it starts,
+before the shell draws anything: the last one applied, and the profile it brought, are kept in
+`$XDG_STATE_HOME/paw/profile-schedule`, which a pick by hand leaves alone, so a schedule that now
+names another profile for it applies that one at once. A switch comes within a minute of its
+time; while the session is locked it shows without a crossfade, and it waits while a rice is
+[on trial](#paw-rice). In a polar day or night, without a sunrise or sunset for days, the profile
+stays as it is (`profile auto` picks the day's in polar day, the night's in polar night). Both
+names must be profiles, or installed rices; the configuration says which is not. Quick Settings'
+Appearance tile says **Scheduled** after the profile while the schedule's choice is in use
+(subscribers hear `profile-schedule on|off`), and `paw msg get profile_schedule` prints the profile
+the schedule wants now (`-` without one), the last sunrise or sunset (`sunrise`, `sunset`, or
+`polar-day` or `polar-night` without one near) and its time in seconds since 1970 (`-1` without
+one), the time of the last one applied (`-1` for none), and `1` while its profile is in use, else
+`0`, separated by tabs.
+
 ## Importing a Hyprland setup
 
 `paw import ~/.config` carries an existing Hyprland/Waybar setup over: monitors, colors
@@ -3054,7 +3092,8 @@ it appears and never gives another; a taskbar gets the same number for its handl
 from `paw-window-control-v1` (version 4), and so finds the window the line means where two
 share a title. The shell sends `switcher_peek` once it has drawn the switcher, whose selected
 window then peeks once the selection rests ([above](#window-switcher)); while the switcher is
-closed the request is refused. The state tells whether the session is locked, `locked on|off`, again as it locks
+closed the request is refused. The state tells whether [keep awake](#power-saving-when-idle) holds
+the idle steps off, `keep-awake on|off`, and whether the session is locked, `locked on|off`, again as it locks
 and unlocks (the shell's clipboard history records nothing meanwhile), and ends with
 `power ACTIONS`, the power actions that may
 run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power
@@ -3069,7 +3108,11 @@ to every subscriber; while no client subscribed that way, the compositor runs `w
 `brightnessctl` for them itself. The state also says the [binding mode](#binding-modes) in use
 as `mode NAME` (`default` outside any). Children of the session find the socket through
 `PAW_SOCKET`. Actions are
-refused while the session is locked.
+refused while the session is locked. A connection has five seconds to send its request, a line
+shorter than 4096 bytes, or it is told `error: no request within 5 seconds` and closed; at most 64
+wait for theirs at once, the one waiting longest told `error: too many connections waiting` and
+closed for each new one. Out of file descriptors, the compositor stops taking connections for a
+quarter of a second at a time, rather than failing to take one at full speed.
 
 ## Commands
 
@@ -3163,8 +3206,8 @@ paper. The fields, each where it is known:
   monitor's workspace, or `floating`;
 - `monitors`: each one's connector, mode, scale, and HDR or 10-bit colour where it is drawn so;
   one turned off says so, and a mirror names the monitor it shows;
-- `idle`: the timeouts of [power saving](#power-saving-when-idle)'s steps, and `inhibited`
-  while something holds them off, `dimmed`, `on battery`;
+- `idle`: the timeouts of [power saving](#power-saving-when-idle)'s steps, and `kept awake`
+  while keep awake holds them off, else `inhibited` while something does, `dimmed`, `on battery`;
 - `night light`: the colour temperature while [night light](#effects) warms the screens,
   `scheduled` while it waits; `mode`: the [binding mode](#binding-modes) outside the default;
 - `top app`: the application launched most from the shell (the `launches` file in paw's state
@@ -3373,7 +3416,18 @@ it chases the pointer, sitting down beside it once the pointer rests, or pawing 
 where there is nothing to sit on. A window that asks for attention ([urgent
 windows](#urgent-windows)) has it run over and pat that window's top until the window gets the
 focus. After `cat.sleep_after` seconds without input (90 unless set), or once the screens dim, it
-curls up and sleeps, breathing out a "z" now and then; any input wakes it with a stretch.
+curls up and sleeps, breathing out a "z" now and then; input wakes it a second later with a
+stretch.
+
+Pet it: move the pointer slowly back and forth over its back (turning back three times within a
+second and a half; faster is a flick, which it chases) and it purrs, its eyes shut in content arcs
+and its cheeks pink, breathing in and out, while small pink hearts float up from over its ears and
+fade. It purrs on for two seconds after the pointer last moves over it. A sleeping cat stroked
+purrs in its sleep instead of waking, the hearts rising from its curled-up head, and sleeps on
+after: the pointer coming onto it within a second of starting to move does not wake it, nor do
+the strokes, while any other input does. Petted awake for eight seconds on end, it has had
+enough: it swats at the pointer and walks off the other way, and strokes leave it cold for a few
+seconds after.
 
 It stays on the focused monitor: it crosses to another only along a window that reaches across
 both, and otherwise drops in from the top of the monitor the focus moves to. It takes no input, so
@@ -3381,8 +3435,8 @@ it never comes between a click and a window, and it is drawn over the windows bu
 windows, the panels, the launcher and other overlays, and the lock screen. It hides while the
 session is locked, while its monitor or the focused one shows a fullscreen window, while the
 overview shows and while its monitor is off, and then nothing of it runs. It draws frames only while it moves: sitting, it
-wakes a few times a minute to blink or to think of something to do, and asleep once every two
-seconds for its "z".
+wakes a few times a minute to blink or to think of something to do, asleep once every two
+seconds for its "z", and while it purrs 25 times a second for its hearts.
 
 `paw cat` lets it out or calls it in, and `paw cat on` and `paw cat off` say which; each says
 where the cat is then. The `cat` action does the same, from a binding with `mode = "on"`, `"off"`
@@ -3404,8 +3458,9 @@ cat = { enabled = true, coat = "auto", scale = 2, sleep_after = 90 },
 `away` while another VT is on the screen, `no_output`, `overview` while the overview shows,
 `display_off`, `fullscreen`); the monitor it is on, where its feet are (x and y in
 layout coordinates), what it is doing (`sit`, `look`, `walk`, `groom`, `scratch`, `yawn`, `sleep`,
-`wake`, `jump`, `fall`, `land`, `chase`, `pounce`, `rush`, `knock`), the picture it shows, its
-coat, and what it stands on: the window's title, `floor`, or `-` while it is in the air.
+`wake`, `purr`, `jump`, `fall`, `land`, `chase`, `pounce`, `swat`, `rush`, `knock`), the picture
+it shows (`purr_1` or `purr_2` as it purrs awake, `sleep_1` or `sleep_2` in its sleep), its coat,
+and what it stands on: the window's title, `floor`, or `-` while it is in the air.
 ### paw wrapped
 
 `paw wrapped` tells you about your time at the desktop as Spotify Wrapped tells you about a year
@@ -3435,6 +3490,7 @@ nothing, its input being the desktop's it runs in. It counts:
 - windows opened and closed, moved and resized with the pointer (a press let go in place is not
   a move), and snapped to a half or a quarter by pointer or key; workspace switches; the overview
   and the window switcher opened; programs the `spawn` and `terminal` actions started;
+- how many times you petted [the desktop cat](#paw-cat) until it purred;
 - the time each application, by its app ID, had the focus while you were at the desktop, and the
   longest the focus stayed with one application without a break, and when that began;
 - when each session started, and the time active (input in the last two minutes, or something
@@ -3596,6 +3652,26 @@ session is on screen it holds a logind sleep inhibitor, so an idle daemon left r
 another desktop on a different VT cannot suspend the machine; switching VTs away releases it.
 This needs sd-bus from libsystemd, libelogind, or basu at build time.
 
+### The lock screen's look
+
+The stock locker, swaylock, wears the appearance profile in use, so washi, sumi, mochi and the
+other profiles lock to a screen of their own rather than swaylock's plain grey. Each time the
+screen locks, paw adds to `swaylock -f`:
+
+- the profile's wallpaper, the one picked from the panel or else `shell.wallpaper`, filling every
+  monitor over `appearance.background`, which shows alone when there is no wallpaper or its file
+  is gone;
+- the ring, shown while idle too, in the shell's colours: the panel's inside it (no more
+  see-through than the frosted glass's 75 %), the accent around it, the text colour for its
+  words, a key press lighting a piece of it in the border's colour (of a gradient, the stop that
+  stands out most from the accent, else the text colour), and a backspace and a wrong password
+  in the urgent colour, with no outlines;
+- the shell's font, and the number of failed attempts.
+
+It only does so while `power.lock_command` is the stock `{ "swaylock", "-f" }` and swaylock has
+no configuration of its own (`~/.config/swaylock/config`, `~/.swaylock/config` or
+`/etc/swaylock/config`), whose look stays. `power.lock_style = false` turns it off.
+
 ### Power saving when idle
 
 paw saves power by itself after a while without input, as KDE and Windows do, so no idle
@@ -3630,13 +3706,30 @@ follows its own `display_off`. The power source is read again at each step and a
 unplugging the charger shows from the next step on.
 
 An idle inhibitor (`idle-inhibit-unstable-v1`, which video players, browsers playing video and
-games hold) holds every step off, and the screens brighten if they had dimmed; once the last one
-goes, the time without input counts from then. So does switching to another VT and back:
-nothing happens while another VT is in front. `paw msg get idle` prints a line `state`
-with the milliseconds since the last input, whether something holds the steps off, whether the
-machine runs on battery and how dark the screens are (thousandths), then a line per step with
-its timeout in milliseconds on that power source and whether it has been taken since the last
-input.
+games hold) holds every step off while its window shows, and the screens brighten if they had
+dimmed; once none applies, the time without input counts from then. As the protocol says, and
+as on sway, a window's inhibitor applies only while the window is on a workspace shown, not
+minimized (nor in the scratchpad, nor a hidden tab), on a monitor that is on and not behind the
+lock: a video left playing minimized or on another workspace lets the screens dim and go off as
+usual. A panel's applies while it is mapped and the session unlocked, and one on a surface paw
+cannot place always. Idle daemons hear the seat is inhibited only while one applies. Switching
+to another VT holds the steps too: nothing happens while another VT is in front, and the time
+counts from the return. `paw msg get idle` prints a line `state` with the milliseconds since
+the last input, whether something holds the steps off, whether the machine runs on battery, how
+dark the screens are (thousandths), how many idle inhibitors there are and how many of them
+apply, and whether keep awake is on; then a line per step with its timeout in milliseconds on
+that power source and whether it has been taken since the last input; then a line `inhibitor`
+per idle inhibitor with whether it applies (1 or 0) and what its surface belongs to: `window`
+and its title, `layer` and its namespace, or `other` and `-`.
+
+**Keep awake.** The `keep_awake_on` action holds every step off, as an idle inhibitor that always
+applies would, until `keep_awake_off` (or paw restarting) lets them count again from then;
+`keep_awake_toggle` flips it. It is for reading, a presentation or a long download nobody touches
+the keyboard during. Idle daemons hear the seat is inhibited too, so swayidle waits as well; a
+`suspend` binding or the lid still sleeps. None is bound by default; `paw msg keep_awake_toggle`,
+the command palette's "Keep awake, or not" and the Keep awake tile beside Night light in Quick
+Settings (Control Center in the macOS style), a coffee cup lit while it is on, turn it on and off.
+Subscribers hear `keep-awake on` or `keep-awake off`.
 
 The defaults turn the monitors off after ten minutes and lock and suspend nothing, as the
 screens going dark is what everyone wants and locking and suspending are choices KDE and Windows
@@ -3707,9 +3800,13 @@ dialog in the middle of the focused monitor says what is asked (polkit's message
 (the one logged in chosen first, else root), and asks for that user's password. Enter or
 Authenticate answers, Up and Down choose another user, Escape or Cancel gives the request up, and
 a click beside the dialog does nothing, so that a stray click loses no typing. A wrong password
-shakes the dialog and asks again. A request that comes while one is open waits its turn, and one
-its program gives up closes. The password goes to polkit's own helper (`polkit-agent-helper-1`),
-which checks it with PAM.
+shakes the dialog and asks again, three times for each user, as `sudo` does; the third fails the
+request, and the program that asked hears that it is not allowed. When polkit's helper gives up
+without asking for a password (it cannot start, or PAM turns the user away first, as for a
+locked account), the dialog says so, or shows what the helper said, and tries again only once
+the user answers or chooses another user. A request that comes while one is open waits its
+turn, and one its program gives up closes. The password goes to polkit's own helper
+(`polkit-agent-helper-1`), which checks it with PAM.
 
 Only the shell of a standalone session is the agent, for its login session; a nested one leaves
 that to the host's. When another agent serves the session already (polkit-gnome started by hand,
@@ -3763,7 +3860,9 @@ pointer lock and relative motion for games, tearing-control for games that want 
 shown at once (see [Tearing](#tearing)), and xdg-foreign for portal dialogs.
 xdg-activation lets an application raise itself, so a link clicked in a chat brings the
 browser forward; paw honours every valid token and does not prevent focus stealing.
-Popup menus are kept on the output of their window.
+Popup menus are kept on the output of their window. A drag of nothing (without a data source,
+which an application may start within its own window) is turned down while XWayland runs, whose
+window manager in wlroots 0.20 would crash on one.
 
 Firefox and GTK applications draw their own minimize, maximize, and close buttons, laid
 out by GTK's `button-layout` setting, which desktops without title bar buttons (HyDE on

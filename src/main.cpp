@@ -4,6 +4,7 @@
 #include "paw/config.hpp"
 #include "paw/config_schema.hpp"
 #include "paw/import.hpp"
+#include "paw/lock_style.hpp"
 #include "version.h"
 #include <wlr/version.h>
 
@@ -337,6 +338,7 @@ struct Runtime {
     paw::Config config;
     paw::Command extra_command;
     bool allow_shell = false;
+    bool startup_done = false; // a reload before startup (profile_schedule's) starts no shell
     bool standalone = false;
     pid_t shell_pid = -1;
     // The running screenshot script; another request is refused until it exits.
@@ -513,7 +515,7 @@ struct Runtime {
      * "resize_<direction> [pixels]", "volume_up|volume_down|brightness_up|brightness_down
      * [percent]", "switcher_confirm [N]", "switch_layout [next|prev|N]", "mode NAME|default",
      * "display_off [OUTPUT]" (and on, toggle), "display_mode [extend|duplicate|internal|
-     * external]", "profile NAME|next|prev", "cat [on|off|toggle]", "heatmap
+     * external]", "profile NAME|next|prev|auto", "cat [on|off|toggle]", "heatmap
      * [toggle|motion|clicks|reset]", "ambient [sakura|snow|fireflies|off|next|toggle]", or
      * "spawn PROGRAM [ARGS...]". */
     static sh_action command(void *data, const char *request, int *argument, char *error,
@@ -656,14 +658,21 @@ struct Runtime {
         }
     }
     /* "profile NAME", or "profile next|prev" for the neighbouring one in name order, wrapping:
-     * saves the choice and reloads, so the compositor and the shell both take it up. */
+     * saves the choice and reloads, so the compositor and the shell both take it up. "profile
+     * auto" is the profile_auto action, unless a profile has that name. */
     sh_action pick_profile(const std::vector<std::string> &words) {
         const auto &names = config.profiles;
         if (words.size() != 2)
-            throw std::runtime_error("profile takes one profile name, next, or prev");
+            throw std::runtime_error("profile takes one profile name, next, prev, or auto");
+        auto name = words[1];
+        if (name == "auto" && std::find(names.begin(), names.end(), name) == names.end()) {
+            if (!config.settings.profile_schedule.day[0])
+                throw std::runtime_error(
+                    "profile auto follows profile_schedule, which the configuration does not set");
+            return SH_PROFILE_AUTO;
+        }
         if (names.empty())
             throw std::runtime_error("the configuration has no profiles");
-        auto name = words[1];
         if (name == "next" || name == "prev") {
             auto at = std::find(names.begin(), names.end(), config.profile);
             auto index = static_cast<std::size_t>(at - names.begin());
@@ -791,7 +800,8 @@ struct Runtime {
             return 0;
         }
     }
-    /* power.lock_command: whether it can lock, and with `start` starting it. */
+    /* power.lock_command: whether it can lock, and with `start` starting it, in the profile's
+     * look with power.lock_style (src/lock_style.cpp). */
     static bool lock(void *data, bool start, char *error, size_t error_size) {
         auto &self = *static_cast<Runtime *>(data);
         const auto &command = self.config.power.lock_command;
@@ -803,7 +813,8 @@ struct Runtime {
             else
                 self.locker_problem = "";
         }
-        if (self.locker_problem->empty() && start && spawn(command) < 0)
+        if (self.locker_problem->empty() && start &&
+            spawn(paw::lock_command(self.config, paw::lock_style_context(self.path))) < 0)
             std::snprintf(error, error_size, "cannot start %s", command.front().c_str());
         else if (!self.locker_problem->empty())
             std::snprintf(error, error_size, "no screen locker: %s", self.locker_problem->c_str());
@@ -822,7 +833,7 @@ struct Runtime {
             // The shell loads the file too, and shows the error.
             if (self.shell_pid > 0)
                 kill(self.shell_pid, SIGHUP);
-            else
+            else if (self.startup_done)
                 self.start_shell();
             if (!error.empty())
                 report_error(error);
@@ -983,6 +994,7 @@ struct Runtime {
         if (self.standalone)
             export_activation_environment();
         set_window_buttons(self.config.window_buttons);
+        self.startup_done = true;
         self.start_shell();
         for (const auto &command : self.config.startup)
             if (spawn(command) > 0)

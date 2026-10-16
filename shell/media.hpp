@@ -23,7 +23,8 @@ class Media : public QObject {
     // Its name ("Spotify"), and its desktop entry's id, for its icon.
     Q_PROPERTY(QString identity READ identity NOTIFY changed)
     Q_PROPERTY(QString desktopEntry READ desktopEntry NOTIFY changed)
-    // The track: its title, artists, album and cover's URL (file:, http: or data:; "" for none).
+    // The track: its title, artists, album and cover's URL (file:, http:, https: or data:; "" for
+    // none).
     Q_PROPERTY(QString title READ title NOTIFY changed)
     Q_PROPERTY(QString artist READ artist NOTIFY changed)
     Q_PROPERTY(QString album READ album NOTIFY changed)

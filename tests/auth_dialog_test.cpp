@@ -104,7 +104,7 @@ class AuthDialogTest : public QObject {
         QCOMPARE(item("authCommand")->property("text").toString(), QString("/usr/bin/true --flag"));
         QCOMPARE(field->property("placeholderText").toString(), QString("Password"));
 
-        // A wrong password: said, the field emptied, the dialog still there.
+        // A wrong password: said, the field emptied, the dialog still there, asking again.
         type(&view, "wrong");
         QCOMPARE(field->property("text").toString(), QString("wrong"));
         QTest::keyClick(&view, Qt::Key_Return);
@@ -113,6 +113,7 @@ class AuthDialogTest : public QObject {
                      QString("The password was not accepted. Try again."));
         QCOMPARE(field->property("text").toString(), QString());
         QVERIFY(view.isVisible() && outcomes.isEmpty());
+        QTRY_COMPARE(log.count("start me"), 2);
 
         // Down and Up choose another user, and a click on one does.
         log.clear();

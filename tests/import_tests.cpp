@@ -10,6 +10,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -225,6 +226,67 @@ void broken_keymap() {
     fs::remove_all(root);
 }
 
+// A temporary .config holding `hyprland.lua`, imported; the directory is gone after.
+paw::ImportResult import_lua(const std::string &script) {
+    auto pattern = (fs::temp_directory_path() / "paw-import-XXXXXX").string();
+    if (!mkdtemp(pattern.data()))
+        throw std::runtime_error("cannot make a temporary directory");
+    fs::path root = pattern;
+    fs::create_directories(root / ".config/hypr");
+    std::ofstream(root / ".config/hypr/hyprland.lua") << script;
+    try {
+        auto result = paw::import_dotfiles(root / ".config");
+        fs::remove_all(root);
+        return result;
+    } catch (...) {
+        fs::remove_all(root);
+        throw;
+    }
+}
+
+// Whatever a hyprland.lua does, the import ends, with what was set before and a report.
+void hostile_lua() {
+    struct Case {
+        const char *what, *script, *reported;
+    };
+    const Case cases[] = {
+        {"an __index that raises an error",
+         "hl.config({ general = setmetatable({}, { __index = function() error('caught') end }) })",
+         nullptr},
+        {"an __index that never returns",
+         "hl.config({ misc = setmetatable({}, { __index = function() while true do end end }) })",
+         nullptr},
+        {"an __index that changes the table being read",
+         "local data = {}\n"
+         "data.misc = setmetatable({}, { __index = function()\n"
+         "    for i = 1, 100 do data['k' .. i] = {} end\n"
+         "    data.misc = nil\n"
+         "end })\n"
+         "hl.config(data)",
+         nullptr},
+        {"a __gc that never returns",
+         "setmetatable({}, { __gc = function() while true do end end })", "__gc"},
+        {"a file's __gc that never returns",
+         "getmetatable(io.open('hyprland.lua')).__gc = function() while true do end end",
+         "stopped with an error"},
+        {"a loop that catches running out of time",
+         "while true do pcall(function() while true do end end) end", "ran too long"},
+    };
+    alarm(60); // a hang fails the test instead of holding up the suite
+    for (const auto &[what, script, reported] : cases) {
+        auto result =
+            import_lua(std::string("hl.config({ general = { gaps_in = 3 } })\n") + script);
+        auto config = paw::parse_config(result.theme, "theme.lua");
+        require(config.settings.gap_inner == 6,
+                std::string("what was set before ") + what + " was not imported");
+        if (reported)
+            require(contains(result.report, reported),
+                    std::string("the report on ") + what + " lacks '" + reported +
+                        "': " + result.report);
+    }
+    alarm(0);
+}
+
 int main(int argc, char **argv) {
     try {
         require(argc == 2, "fixture directory required");
@@ -233,6 +295,7 @@ int main(int argc, char **argv) {
         lua(root);
         merge(root);
         broken_keymap();
+        hostile_lua();
         std::cout << "import tests passed\n";
         return 0;
     } catch (const std::exception &error) {

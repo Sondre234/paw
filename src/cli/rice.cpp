@@ -213,7 +213,7 @@ int pack(const std::vector<std::string> &words, const std::filesystem::path &giv
                 shell.fields.emplace_back(key, RiceData::string_of(file));
             went_in.emplace_back(file, shown(path));
         } catch (const std::exception &error) {
-            std::erase_if(shell.fields, [&](const auto &field) { return field.first == key; });
+            std::erase_if(shell.fields, [&](const auto &field) { return field.key == key; });
             left_out.push_back(std::string("shell.") + key + " (" + shown(path) + ": " +
                                error.what() + ")");
         }
