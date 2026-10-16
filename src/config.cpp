@@ -2666,32 +2666,34 @@ sh_cat_switch parse_cat_switch(const std::string &name) {
     fail("cat takes \"on\", \"off\" or \"toggle\"");
 }
 
+static_assert(SH_AMBIENT_ON_SAKURA == SH_AMBIENT_OFF + int{SH_AMBIENT_SAKURA} &&
+              SH_AMBIENT_ON_SNOW == SH_AMBIENT_OFF + int{SH_AMBIENT_SNOW} &&
+              SH_AMBIENT_ON_FIREFLIES == SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES});
 sh_ambient_choice parse_ambient_choice(const std::string &name) {
     for (auto [candidate, choice] :
          {std::pair{"toggle", SH_AMBIENT_TOGGLE},
           {"next", SH_AMBIENT_NEXT},
           {"off", SH_AMBIENT_OFF},
-          {"sakura", static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_SAKURA})},
-          {"snow", static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_SNOW})},
-          {"fireflies",
-           static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES})}})
+          {"sakura", SH_AMBIENT_ON_SAKURA},
+          {"snow", SH_AMBIENT_ON_SNOW},
+          {"fireflies", SH_AMBIENT_ON_FIREFLIES}})
         if (name == candidate)
             return choice;
     fail("ambient takes \"sakura\", \"snow\", \"fireflies\", \"off\", \"next\" or "
          "\"toggle\"");
 }
 
+static_assert(SH_CURSOR_TRAIL_ON_SPARKLES == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKLES} &&
+              SH_CURSOR_TRAIL_ON_PETALS == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_PETALS} &&
+              SH_CURSOR_TRAIL_ON_HEARTS == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_HEARTS});
 sh_cursor_trail_choice parse_cursor_trail_choice(const std::string &name) {
-    auto kind = [](sh_trail_kind kind) {
-        return static_cast<sh_cursor_trail_choice>(SH_CURSOR_TRAIL_OFF + int{kind});
-    };
     for (auto [candidate, choice] :
          {std::pair{"toggle", SH_CURSOR_TRAIL_TOGGLE},
           {"next", SH_CURSOR_TRAIL_NEXT},
           {"off", SH_CURSOR_TRAIL_OFF},
-          {"sparkles", kind(SH_TRAIL_SPARKLES)},
-          {"petals", kind(SH_TRAIL_PETALS)},
-          {"hearts", kind(SH_TRAIL_HEARTS)}})
+          {"sparkles", SH_CURSOR_TRAIL_ON_SPARKLES},
+          {"petals", SH_CURSOR_TRAIL_ON_PETALS},
+          {"hearts", SH_CURSOR_TRAIL_ON_HEARTS}})
         if (name == candidate)
             return choice;
     fail("cursor_trail takes \"sparkles\", \"petals\", \"hearts\", \"off\", \"next\" or "
