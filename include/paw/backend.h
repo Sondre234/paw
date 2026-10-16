@@ -286,13 +286,29 @@ enum sh_cat_switch { SH_CAT_TOGGLE, SH_CAT_ON, SH_CAT_OFF };
 
 /* The ambient action's choices: off, or back on as it was last (sakura the first time); the
  * next kind in turn, none among them; or a kind, SH_AMBIENT_OFF plus its enum sh_ambient_kind
- * (paw/ambient.h), none being off. */
-enum sh_ambient_choice { SH_AMBIENT_TOGGLE, SH_AMBIENT_NEXT, SH_AMBIENT_OFF };
+ * (paw/ambient.h), none being off. The kinds are named here too, so that C++ may hold them
+ * in the enum (src/config.cpp checks they stay in step). */
+enum sh_ambient_choice {
+    SH_AMBIENT_TOGGLE,
+    SH_AMBIENT_NEXT,
+    SH_AMBIENT_OFF,
+    SH_AMBIENT_ON_SAKURA,
+    SH_AMBIENT_ON_SNOW,
+    SH_AMBIENT_ON_FIREFLIES,
+};
 
 /* The cursor_trail action's choices: off, or back on as it was last (sparkles the first time);
  * the next kind in turn, none among them; or a kind, SH_CURSOR_TRAIL_OFF plus its enum
- * sh_trail_kind (paw/cursor_trail.h), none being off. */
-enum sh_cursor_trail_choice { SH_CURSOR_TRAIL_TOGGLE, SH_CURSOR_TRAIL_NEXT, SH_CURSOR_TRAIL_OFF };
+ * sh_trail_kind (paw/cursor_trail.h), none being off. The kinds are named here too, so that
+ * C++ may hold them in the enum (src/config.cpp checks they stay in step). */
+enum sh_cursor_trail_choice {
+    SH_CURSOR_TRAIL_TOGGLE,
+    SH_CURSOR_TRAIL_NEXT,
+    SH_CURSOR_TRAIL_OFF,
+    SH_CURSOR_TRAIL_ON_SPARKLES,
+    SH_CURSOR_TRAIL_ON_PETALS,
+    SH_CURSOR_TRAIL_ON_HEARTS,
+};
 
 /* The display_mode action's choices. */
 enum sh_display_mode {

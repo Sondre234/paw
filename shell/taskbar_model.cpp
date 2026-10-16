@@ -23,19 +23,21 @@ std::optional<QPoint> TaskbarOrder::screenPlace(const QString &output) {
     return std::nullopt;
 }
 void TaskbarOrder::followScreens(QObject *context, const std::function<void()> &changed) {
-    if (!qGuiApp)
+    // Not qGuiApp, which casts whatever application there is: a test's may be a QCoreApplication.
+    auto *app = qobject_cast<QGuiApplication *>(QCoreApplication::instance());
+    if (!app)
         return;
     auto follow = [context, changed](QScreen *screen) {
         QObject::connect(screen, &QScreen::geometryChanged, context, changed);
     };
     for (auto *screen : QGuiApplication::screens())
         follow(screen);
-    QObject::connect(qGuiApp, &QGuiApplication::screenAdded, context,
+    QObject::connect(app, &QGuiApplication::screenAdded, context,
                      [follow, changed](QScreen *screen) {
                          follow(screen);
                          changed();
                      });
-    QObject::connect(qGuiApp, &QGuiApplication::screenRemoved, context, changed);
+    QObject::connect(app, &QGuiApplication::screenRemoved, context, changed);
 }
 TaskbarOrder::TaskbarOrder(QAbstractItemModel *source) : QObject(source), source_(source) {
     // A window that closed goes at once, so no taskbar names a window the source no longer has; a
