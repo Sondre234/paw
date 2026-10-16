@@ -45,8 +45,12 @@ void *allocate(void *data, void *block, size_t old, size_t size) {
     return result;
 }
 void count(lua_State *L, lua_Debug *) {
-    if (--sandbox(L).remaining <= 0)
+    if (--sandbox(L).remaining <= 0) {
+        // From now on raised at every instruction: a pcall in hyprland.lua that catches it
+        // must not let the script run on.
+        lua_sethook(L, count, LUA_MASKCOUNT, 1);
         luaL_error(L, "hyprland.lua ran too long");
+    }
 }
 // Replaces argument 1 with its resolved path; false (with nil, message pushed) when the file
 // is outside the imported directory.
