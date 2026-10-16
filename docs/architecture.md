@@ -1288,8 +1288,9 @@ tests both with real applications' entries and app ids.
 An `ImageProvider` (`image_provider.hpp`) serves the pictures of the shell's models
 (`image://notify`, `tray`, `windows`, `clipboard`) on the GUI thread alone, since the models have no
 lock: an `Image` with `asynchronous: true` asks on Qt Quick's loading thread and gets nothing, so
-one showing such a picture loads synchronously. `image://icons` holds `iconThemeLock()`, so it may
-load asynchronously. The media card's cover is asynchronous, so `mpris.cpp` takes only a `file:`,
+one showing such a picture loads synchronously. `image://icons` holds `iconThemeLock()` and
+`image://thumbs` (`wallpapers.cpp`) makes its pictures on a pool of threads, telling each response
+done in the response's own thread, so those two may load asynchronously. The media card's cover is asynchronous, so `mpris.cpp` takes only a `file:`,
 `http:`, `https:` or `data:` URL from a player. `tests/image_providers_test.cpp` checks the
 providers on both threads.
 

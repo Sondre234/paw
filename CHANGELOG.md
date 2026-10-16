@@ -791,6 +791,9 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   `tray`, `windows` or `clipboard`) as its cover, which the media card then read from Qt Quick's
   loading thread while the GUI thread changed it, a possible crash; those pictures are now served
   on the GUI thread alone.
+- Scrolling through a folder of wallpapers in the picker no longer risks a crash as thumbnails
+  come in: each was said to be done from the thread that made it, and Qt Quick could free it
+  while that was still under way.
 
 ## 0.1.1 (2026-10-05)
 
