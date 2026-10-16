@@ -3723,7 +3723,9 @@ pointer lock and relative motion for games, tearing-control for games that want 
 shown at once (see [Tearing](#tearing)), and xdg-foreign for portal dialogs.
 xdg-activation lets an application raise itself, so a link clicked in a chat brings the
 browser forward; paw honours every valid token and does not prevent focus stealing.
-Popup menus are kept on the output of their window.
+Popup menus are kept on the output of their window. A drag of nothing (without a data source,
+which an application may start within its own window) is turned down while XWayland runs, whose
+window manager in wlroots 0.20 would crash on one.
 
 Firefox and GTK applications draw their own minimize, maximize, and close buttons, laid
 out by GTK's `button-layout` setting, which desktops without title bar buttons (HyDE on
