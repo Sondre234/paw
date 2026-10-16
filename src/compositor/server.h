@@ -1765,6 +1765,7 @@ bool output_tiles(struct sh_server *server, struct wlr_output *output);
 bool tiles_for(struct sh_toplevel *toplevel, struct wlr_output *output);
 struct wlr_output *home_output(struct sh_toplevel *toplevel);
 bool wants_tiling(struct sh_toplevel *toplevel, struct wlr_output *output);
+bool cursor_places_tile(struct sh_toplevel *toplevel, struct wlr_output *output);
 void tile_toplevel_at(struct sh_toplevel *toplevel, struct wlr_output *output,
                       struct sh_toplevel *target, bool has_point, double x, double y);
 void tile_toplevel(struct sh_toplevel *toplevel, struct wlr_output *output,
