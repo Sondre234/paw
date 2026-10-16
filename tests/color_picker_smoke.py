@@ -31,6 +31,7 @@ def config(scale=1, transform=0):
     xwayland = false,
     animations = {{ enabled = false }},
     idle = {{ display_off = 0 }},
+    mouse = {{ shake_to_find = true }},
     layout = {{ tiling = false }},
     outputs = {{ monitors = {{ ["HEADLESS-1"] = {{
         mode = "1280x720", scale = {scale}, transform = {transform} }} }} }},
@@ -83,6 +84,7 @@ with harness.Compositor(compositor, config()) as desktop:
 
     pointer = pointer_for(1280, 720)
     pointer("move", "50", "650")
+    cursor_size = msg("get", "cursor_size").strip()  # $XCURSOR_SIZE, 24 unless set otherwise
 
     assert picker()[0] == "idle" and picker()[5] == "-", picker()
 
@@ -114,6 +116,10 @@ with harness.Compositor(compositor, config()) as desktop:
     # Near the right and bottom edges the loupe's card turns to the other side.
     pointer("move", "1270", "710")
     wait_for(lambda: picker()[9:11] == ["left", "above"], "the card turned toward the screen")
+    # Shaking the pointer to find it grows nothing: the loupe stays the cursor.
+    pointer("sleep 150 " + " ".join(f"move {400 + 300 * (i % 2)} 360" for i in range(7)))
+    desktop.stays(lambda: msg("get", "cursor_size").strip() == cursor_size and
+                  cursor_image() == "crosshair", "the loupe kept through a shake")
     pointer("move", "620", "200")
     wait_for(lambda: under() == GREEN, "green")
     assert "pointer button" not in (desktop.root / "ears.log").read_text()
