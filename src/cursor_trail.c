@@ -62,6 +62,48 @@ int sh_trail_sprite_count(enum sh_trail_kind kind, int tints) {
     }
 }
 
+int sh_trail_family_count(enum sh_trail_kind kind, int tints) {
+    switch (kind) {
+    case SH_TRAIL_SPARKLES:
+    case SH_TRAIL_HEARTS:
+        return clamp_tints(tints);
+    case SH_TRAIL_PETALS:
+        return SH_AMBIENT_PETAL_TINTS;
+    default:
+        return 0;
+    }
+}
+
+int sh_trail_family_size(enum sh_trail_kind kind) {
+    switch (kind) {
+    case SH_TRAIL_SPARKLES:
+        return SPARKLE_SHAPES;
+    case SH_TRAIL_PETALS:
+        return SH_AMBIENT_TURNS;
+    case SH_TRAIL_HEARTS:
+        return HEART_SIZES;
+    default:
+        return 0;
+    }
+}
+
+int sh_trail_family_first(enum sh_trail_kind kind, int family) {
+    if (family < 0)
+        return 0;
+    // A petal's turns are its smallest length's, the ambient pictures' first of that pink.
+    return kind == SH_TRAIL_PETALS ? sh_ambient_petal_sprite(family, 0)
+                                   : family * sh_trail_family_size(kind);
+}
+
+int sh_trail_family_at(const struct sh_trail *trail, int place) {
+    int families = sh_trail_family_count(trail->kind, trail->tints);
+    if (families < 1 || place < 0)
+        return 0;
+    // Mixed up, so that the colours along the trail follow no pattern one sees.
+    uint32_t mixed = (uint32_t)place * 2654435761u;
+    return (int)((mixed >> 16) % (uint32_t)families);
+}
+
 double sh_trail_sprite_side(enum sh_trail_kind kind, int sprite) {
     if (sprite < 0)
         return 0;
@@ -284,6 +326,7 @@ static void spawn(struct sh_trail *trail, double x, double y, double ux, double 
     if (trail->kind <= SH_TRAIL_NONE || trail->kind >= SH_TRAIL_KINDS)
         return;
     struct sh_trail_particle *particle = place_for(trail);
+    int family = sh_trail_family_at(trail, (int)(particle - trail->particles));
     *particle = (struct sh_trail_particle){.scale = 1};
     // Off to the side of the way a little, left behind and spreading out.
     double aside = uniform(seed, -9, 9);
@@ -295,7 +338,7 @@ static void spawn(struct sh_trail *trail, double x, double y, double ux, double 
     case SH_TRAIL_SPARKLES: {
         int pick = (int)(xorshift(seed) % 100);
         int shape = pick < 20 ? 0 : pick < 55 ? 1 : pick < 75 ? 2 : STARS;
-        particle->sprite = (int)(xorshift(seed) % (uint32_t)trail->tints) * SPARKLE_SHAPES + shape;
+        particle->sprite = sh_trail_family_first(trail->kind, family) + shape;
         particle->scale = uniform(seed, 0.85, 1.15);
         back = uniform(seed, 0, 0.02);
         out = uniform(seed, 0.01, 0.05);
@@ -305,8 +348,7 @@ static void spawn(struct sh_trail *trail, double x, double y, double ux, double 
         break;
     }
     case SH_TRAIL_PETALS: {
-        int tint = (int)(xorshift(seed) % 4);
-        particle->sprite = sh_ambient_petal_sprite(tint, 0);
+        particle->sprite = sh_trail_family_first(trail->kind, family);
         particle->scale = uniform(seed, 0.85, 1.15);
         back = uniform(seed, 0.01, 0.03);
         out = uniform(seed, 0.01, 0.03);
@@ -323,7 +365,7 @@ static void spawn(struct sh_trail *trail, double x, double y, double ux, double 
     }
     case SH_TRAIL_HEARTS: {
         int size = xorshift(seed) % 100 < 45 ? 0 : 1;
-        particle->sprite = (int)(xorshift(seed) % (uint32_t)trail->tints) * HEART_SIZES + size;
+        particle->sprite = sh_trail_family_first(trail->kind, family) + size;
         particle->scale = uniform(seed, 0.85, 1.1);
         back = uniform(seed, 0.005, 0.015);
         out = uniform(seed, 0.005, 0.02);

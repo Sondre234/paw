@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+struct sh_trail;
+
 /* Lua appearance.cursor_trail.kind: what falls off the pointer. */
 enum sh_trail_kind {
     SH_TRAIL_NONE,
@@ -33,6 +35,15 @@ const char *sh_trail_kind_name(enum sh_trail_kind kind);
  * two sizes; for petals, the ambient particles' sakura petals (paw/ambient.h), whose pinks are
  * their own. */
 int sh_trail_sprite_count(enum sh_trail_kind kind, int tints);
+/* The pictures fall into families, which a particle keeps to while it lasts: a family of each
+ * colour for sparkles and hearts, and of each pink for petals, its pictures (the stars and the
+ * speck, the hearts' sizes, a petal's turns) numbered from sh_trail_family_first. A particle's
+ * family is its place's (`particles[i]` is always of family sh_trail_family_at(trail, i)), so
+ * that whatever draws a place can keep one family's pictures for it. */
+int sh_trail_family_count(enum sh_trail_kind kind, int tints);
+int sh_trail_family_size(enum sh_trail_kind kind);
+int sh_trail_family_first(enum sh_trail_kind kind, int family);
+int sh_trail_family_at(const struct sh_trail *trail, int place);
 /* The side of picture `sprite` in logical pixels, as it is drawn at its full size. */
 double sh_trail_sprite_side(enum sh_trail_kind kind, int sprite);
 /* Paints picture `sprite` of `kind`, `side` pixels square, into `pixels`: premultiplied ARGB

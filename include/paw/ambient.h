@@ -30,10 +30,10 @@ int sh_ambient_default_count(enum sh_ambient_kind kind);
  * by each of SH_AMBIENT_TURNS steps of a quarter turn (a quarter turn more is the same picture
  * turned on the screen); dots of snow at six sizes, the larger ones softer, in two whites; and a
  * firefly's glow at two sizes in three warm colours. */
-enum { SH_AMBIENT_TURNS = 6 };
+enum { SH_AMBIENT_TURNS = 6, SH_AMBIENT_PETAL_TINTS = 4 };
 int sh_ambient_sprite_count(enum sh_ambient_kind kind);
-/* The first of the SH_AMBIENT_TURNS pictures of a sakura petal in pink `tint` (0 to 3, the
- * commonest first) and of length `size` (0 to 2, the shortest first), which the cursor trail
+/* The first of the SH_AMBIENT_TURNS pictures of a sakura petal in pink `tint` (0 to
+ * SH_AMBIENT_PETAL_TINTS - 1, the commonest first) and of length `size` (0 to 2, the shortest first), which the cursor trail
  * (paw/cursor_trail.h) draws too. */
 int sh_ambient_petal_sprite(int tint, int size);
 /* A petal drawn turned `turn` radians clockwise: the step to add to its first picture, and the

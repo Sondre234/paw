@@ -12,7 +12,7 @@ static const double FADE_IN_MS = 1500;
 
 /* The pictures: four pinks of petal at three lengths, each turned SH_AMBIENT_TURNS ways; dots of
  * snow at six sizes in two whites; a firefly's glow at two sizes in three colours. */
-enum { PETAL_TINTS = 4, PETAL_SIZES = 3, SNOW_TINTS = 2, SNOW_SIZES = 6, GLOW_TINTS = 3,
+enum { PETAL_TINTS = SH_AMBIENT_PETAL_TINTS, PETAL_SIZES = 3, SNOW_TINTS = 2, SNOW_SIZES = 6, GLOW_TINTS = 3,
        GLOW_SIZES = 2 };
 /* A petal's length, from its stem to the notch at its tip. */
 static const double PETAL_LENGTH[PETAL_SIZES] = {16, 22, 30};

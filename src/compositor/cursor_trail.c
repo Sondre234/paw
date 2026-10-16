@@ -3,8 +3,12 @@
  * petals or hearts falling off the pointer as it moves and fading within a second, in a tree of
  * scene buffers over the windows and the panels and under the drag icons, the lock and the cursor
  * (which outputs draw over the scene), taking no input. src/cursor_trail.c spawns them, moves them
- * and paints their pictures, at the outputs' largest scale. A timer steps them every TICK_MS while
- * any are left and stops with the last, so nothing runs while the pointer rests. None come, and
+ * and paints their pictures, at the outputs' largest scale, each family's side by side in a strip
+ * that the nodes of its places keep, showing the picture of the moment by their source box: the
+ * renderer makes a texture for each node's buffer anew whenever it changes, which on a GPU is an
+ * upload, and a petal turning would otherwise change its buffer every few frames. A timer steps
+ * them every TICK_MS while any are left and stops with the last, so nothing runs while the
+ * pointer rests. None come, and
  * those there go at once, while the session is locked or on another VT, while the cursor is hidden
  * (typing, resting, or a screenshot being taken, so that grim leaves them out as it leaves the
  * cursor out), and over a monitor showing a fullscreen window. Each step changes the nodes with
@@ -17,6 +21,8 @@ enum { TICK_MS = 16 };
 /* A motion this far at once is a jump (a warp, the pointer put on another monitor), along which
  * nothing comes off it. */
 static const double JUMP = 320;
+/* Transparent pixels between the pictures of a strip, which smooth scaling may reach into. */
+enum { GUTTER = 2 };
 /* Colours for a configuration that gave none: light blue and sakura pink. */
 static const float FALLBACK[2][3] = {{0.56f, 0.76f, 0.93f}, {0.95f, 0.63f, 0.75f}};
 
@@ -35,10 +41,14 @@ struct sh_cursor_trail {
     struct sh_trail trail;
     double x, y; // where the pointer was at its last motion
     bool placed; // x and y are set
-    struct wlr_scene_buffer *nodes[SH_TRAIL_MAX]; // each particle's, made as first needed
-    int drawn[SH_TRAIL_MAX];                       // the picture each node shows, -1 for none
-    struct wlr_buffer **sprites; // the kind's pictures at `scale`, each painted as first needed
-    int sprite_count;            // how many `sprites` holds
+    struct wlr_scene_buffer *nodes[SH_TRAIL_MAX]; // each place's, made as first needed
+    int held[SH_TRAIL_MAX];  // the family whose strip each node holds, -1 for none
+    int drawn[SH_TRAIL_MAX]; // the picture each node shows, -1 for none
+    // Each family's pictures side by side at `scale`, painted as first needed, and where each
+    // picture of the kind is in its family's strip, in buffer pixels.
+    struct wlr_buffer **strips;
+    int strip_count;
+    struct wlr_fbox *cells;
     float scale;
 };
 
@@ -84,39 +94,66 @@ static const char *paused_why(struct sh_cursor_trail *trail) {
 }
 
 /* Lets go of the pictures, which are painted again as they are next needed. */
-static void drop_sprites(struct sh_cursor_trail *trail) {
+static void drop_strips(struct sh_cursor_trail *trail) {
     for (int i = 0; i < SH_TRAIL_MAX; ++i) {
-        if (trail->nodes[i] && trail->drawn[i] >= 0)
+        if (trail->nodes[i] && trail->held[i] >= 0)
             wlr_scene_buffer_set_buffer(trail->nodes[i], NULL);
-        trail->drawn[i] = -1;
+        trail->held[i] = trail->drawn[i] = -1;
     }
-    for (int i = 0; trail->sprites && i < trail->sprite_count; ++i)
-        wlr_buffer_drop(trail->sprites[i]);
-    free(trail->sprites);
-    trail->sprites = NULL;
-    trail->sprite_count = 0;
+    for (int i = 0; trail->strips && i < trail->strip_count; ++i)
+        wlr_buffer_drop(trail->strips[i]);
+    free(trail->strips);
+    free(trail->cells);
+    trail->strips = NULL;
+    trail->cells = NULL;
+    trail->strip_count = 0;
 }
 
-static struct wlr_buffer *sprite(struct sh_cursor_trail *trail, int index) {
+/* Family `family`'s pictures side by side, GUTTER apart, each at the top of its own cell. */
+static struct wlr_buffer *strip(struct sh_cursor_trail *trail, int family) {
     enum sh_trail_kind kind = trail->trail.kind;
-    int count = sh_trail_sprite_count(kind, trail->tints);
-    if (index < 0 || index >= count)
+    int families = sh_trail_family_count(kind, trail->tints);
+    int size = sh_trail_family_size(kind), first = sh_trail_family_first(kind, family);
+    if (family < 0 || family >= families || size < 1 || size > 8)
         return NULL;
-    if (!trail->sprites) {
-        if (!(trail->sprites = calloc(count, sizeof(*trail->sprites))))
+    if (!trail->strips) {
+        trail->strips = calloc(families, sizeof(*trail->strips));
+        trail->cells = calloc(sh_trail_sprite_count(kind, trail->tints), sizeof(*trail->cells));
+        if (!trail->strips || !trail->cells) {
+            free(trail->strips);
+            free(trail->cells);
+            trail->strips = NULL;
+            trail->cells = NULL;
             return NULL;
-        trail->sprite_count = count;
+        }
+        trail->strip_count = families;
     }
-    if (!trail->sprites[index]) {
-        int side = (int)lround(sh_trail_sprite_side(kind, index) * trail->scale);
-        side = side < 1 ? 1 : side;
-        uint32_t *pixels = malloc((size_t)side * side * sizeof(*pixels));
-        if (!pixels)
-            return NULL;
-        sh_trail_paint(kind, index, (const float(*)[3])trail->colors, trail->tints, pixels, side);
-        trail->sprites[index] = sh_pixel_buffer(pixels, side, side);
+    if (trail->strips[family])
+        return trail->strips[family];
+    int sides[8], width = 0, height = 1;
+    for (int k = 0; k < size; ++k) {
+        sides[k] = (int)lround(sh_trail_sprite_side(kind, first + k) * trail->scale);
+        sides[k] = sides[k] < 1 ? 1 : sides[k];
+        width += sides[k] + GUTTER;
+        height = sides[k] > height ? sides[k] : height;
     }
-    return trail->sprites[index];
+    uint32_t *pixels = calloc((size_t)width * height, sizeof(*pixels));
+    uint32_t *picture = malloc((size_t)height * height * sizeof(*picture));
+    if (!pixels || !picture) {
+        free(pixels);
+        free(picture);
+        return NULL;
+    }
+    for (int k = 0, x = 0; k < size; x += sides[k] + GUTTER, ++k) {
+        sh_trail_paint(kind, first + k, (const float(*)[3])trail->colors, trail->tints, picture,
+                       sides[k]);
+        for (int row = 0; row < sides[k]; ++row)
+            memcpy(&pixels[(size_t)row * width + x], &picture[(size_t)row * sides[k]],
+                   sides[k] * sizeof(*picture));
+        trail->cells[first + k] = (struct wlr_fbox){x, 0, sides[k], sides[k]};
+    }
+    free(picture);
+    return trail->strips[family] = sh_pixel_buffer(pixels, width, height);
 }
 
 static void set_ticking(struct sh_cursor_trail *trail, int ms) {
@@ -136,7 +173,7 @@ static void clear(struct sh_cursor_trail *trail) {
 /* Empties the trail for `kind`, with its pictures painted afresh as they are needed. */
 static void reset(struct sh_cursor_trail *trail, enum sh_trail_kind kind) {
     clear(trail);
-    drop_sprites(trail);
+    drop_strips(trail);
     sh_trail_reset(&trail->trail, kind, trail->tints, trail->amount);
 }
 
@@ -153,7 +190,7 @@ static float largest_scale(struct sh_server *server) {
 static void draw(struct sh_cursor_trail *trail) {
     float scale = largest_scale(trail->server);
     if (scale != trail->scale) {
-        drop_sprites(trail);
+        drop_strips(trail);
         trail->scale = scale;
     }
     // The scene works out what shows after each change to a node it shows: a few for each
@@ -175,14 +212,20 @@ static void draw(struct sh_cursor_trail *trail) {
         struct sh_trail_look look;
         sh_trail_look(&trail->trail, particle, &look);
         int width = (int)lround(look.width), height = (int)lround(look.height);
-        struct wlr_buffer *buffer = look.opacity > 0.004 && width > 0 && height > 0
-                                        ? sprite(trail, look.sprite)
-                                        : NULL;
+        int family = sh_trail_family_at(&trail->trail, i);
+        int first = sh_trail_family_first(trail->trail.kind, family);
+        bool shown = look.opacity > 0.004 && width > 0 && height > 0 && look.sprite >= first &&
+                     look.sprite < first + sh_trail_family_size(trail->trail.kind);
+        struct wlr_buffer *buffer = shown ? strip(trail, family) : NULL;
         wlr_scene_node_set_enabled(&node->node, buffer != NULL);
         if (!buffer)
             continue;
-        if (trail->drawn[i] != look.sprite) {
+        if (trail->held[i] != family) {
             wlr_scene_buffer_set_buffer(node, buffer);
+            trail->held[i] = family;
+        }
+        if (trail->drawn[i] != look.sprite) {
+            wlr_scene_buffer_set_source_box(node, &trail->cells[look.sprite]);
             trail->drawn[i] = look.sprite;
         }
         wlr_scene_buffer_set_transform(node, quarter_transform(look.quarters));
@@ -314,7 +357,7 @@ void cursor_trail_init(struct sh_server *server) {
     trail->scale = 1;
     trail->trail.seed = ((uint32_t)now_ns() ^ (uint32_t)(uintptr_t)trail) | 1;
     for (int i = 0; i < SH_TRAIL_MAX; ++i)
-        trail->drawn[i] = -1;
+        trail->held[i] = trail->drawn[i] = -1;
     trail->timer = wl_event_loop_add_timer(wl_display_get_event_loop(server->wl_display),
                                            trail_timer, trail);
     // Over the windows, the panels and the overlays; under the drag icons and the lock, and the
@@ -339,7 +382,7 @@ void cursor_trail_finish(struct sh_server *server) {
     struct sh_cursor_trail *trail = server->cursor_trail;
     if (!trail)
         return;
-    drop_sprites(trail);
+    drop_strips(trail);
     wl_event_source_remove(trail->timer);
     wlr_scene_node_destroy(&trail->tree->node);
     free(trail);

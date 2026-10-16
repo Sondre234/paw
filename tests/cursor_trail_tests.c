@@ -182,6 +182,40 @@ static void test_limit(void) {
     free(trail);
 }
 
+/* Each place keeps to its family of pictures, whatever particle comes to it and however it
+ * turns, and the families hold every picture the trail draws. */
+static void test_families(void) {
+    for (int kind = SH_TRAIL_SPARKLES; kind < SH_TRAIL_KINDS; ++kind) {
+        const char *name = sh_trail_kind_name(kind);
+        struct sh_trail *trail = make(kind, 2);
+        int families = sh_trail_family_count(kind, trail->tints);
+        int size = sh_trail_family_size(kind);
+        CHECK(families >= 2 && size >= 2, "%s: %d of %d", name, families, size);
+        for (int f = 0; f < families; ++f)
+            CHECK(sh_trail_family_first(kind, f) + size <= sh_trail_sprite_count(kind, 2), "%s %d",
+                  name, f);
+        int seen[SH_TRAIL_TINTS] = {0};
+        for (int round = 0; round < 6; ++round) {
+            sweep(trail, 100, 200 + 10 * round, 9, 2, 60);
+            for (int i = 0; i < SH_TRAIL_MAX; ++i) {
+                const struct sh_trail_particle *p = &trail->particles[i];
+                if (p->life <= 0)
+                    continue;
+                int family = sh_trail_family_at(trail, i);
+                int first = sh_trail_family_first(kind, family);
+                struct sh_trail_look look;
+                sh_trail_look(trail, p, &look);
+                CHECK(look.sprite >= first && look.sprite < first + size,
+                      "%s: place %d of family %d shows %d", name, i, family, look.sprite);
+                ++seen[family];
+            }
+        }
+        for (int f = 0; f < families; ++f)
+            CHECK(seen[f] > 0, "%s: family %d seen", name, f);
+        free(trail);
+    }
+}
+
 static void test_repeatable(void) {
     struct sh_trail *a = make(SH_TRAIL_PETALS, 1), *b = make(SH_TRAIL_PETALS, 1);
     sweep(a, 0, 0, 7, 3, 60);
@@ -241,6 +275,7 @@ int main(void) {
     test_decay();
     test_fade();
     test_limit();
+    test_families();
     test_repeatable();
     test_paint();
     if (failures)
