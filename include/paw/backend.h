@@ -589,7 +589,7 @@ struct sh_settings {
     int cat_coat;
     int cat_sleep;
     /* appearance.ambient: what drifts over the wallpaper (enum sh_ambient_kind, paw/ambient.h),
-     * how many on each monitor, and how fast, 1 its own pace. */
+     * how many on each monitor (0 for the kind's own number), and how fast, 1 its own pace. */
     int ambient;
     int ambient_count;
     float ambient_speed;

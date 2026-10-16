@@ -471,7 +471,7 @@ struct Config {
                          .cat_coat = -1,
                          .cat_sleep = 90,
                          .ambient = SH_AMBIENT_NONE,
-                         .ambient_count = 30,
+                         .ambient_count = 0,
                          .ambient_speed = 1,
                          .wrapped = true,
                          .heatmap = true};

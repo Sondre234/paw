@@ -31,7 +31,8 @@ return {
     theme = "theme.lua",
     -- appearance = { background = "#19212e" },
     -- Particles drifting over the wallpaper, under the windows: kind = "sakura", "snow" or
-    -- "fireflies" (none unless set; a profile may set them too), count on each monitor, speed:
+    -- "fireflies" (none unless set; a profile may set them too), count on each monitor (30
+    -- petals, 60 flakes, 24 fireflies unless set), speed (1 their own pace):
     -- appearance = { ambient = { kind = "sakura", count = 30, speed = 1 } },
     -- Appearance profiles: each lays its appearance, windows and shell settings over the rest
     -- of the configuration while it is in use. Pick one from the panel's right-click menu

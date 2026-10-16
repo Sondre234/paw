@@ -1911,8 +1911,8 @@ about and glowing warm, now bright, now dim. A gentle wind carries the petals an
 one way, now the other. The compositor draws them over the wallpaper and under the windows and
 the panels; they take no input, and stay out of the background [blurred behind
 windows](#borders-opacity-and-rounded-corners), which shows the wallpaper alone. `count` says how
-many drift on each monitor (30, up to 150) and `speed` how fast (1 is their own pace, 0.5 half
-of it). An [appearance profile](#appearance-profiles) can set them, so that each look has its
+many drift on each monitor (up to 150; unless set, 30 petals, 60 flakes or 24 fireflies) and
+`speed` how fast (1 is their own pace, 0.5 half of it). An [appearance profile](#appearance-profiles) can set them, so that each look has its
 own, and they fade over to the new kind as the profile changes.
 
 The `ambient` action switches them without touching the configuration: `paw msg ambient sakura`
@@ -1931,7 +1931,7 @@ and their pictures are painted once for each monitor's scale; behind windows tha
 wallpaper they cost next to nothing.
 
 ```lua
-appearance = { ambient = { kind = "sakura", count = 30, speed = 1 } },
+appearance = { ambient = { kind = "sakura", count = 40, speed = 1 } },
 bindings = {
     { mods = { "Super", "Ctrl" }, key = "a", action = "ambient", mode = "next" },
 },

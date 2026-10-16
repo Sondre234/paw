@@ -60,6 +60,19 @@ const char *sh_ambient_kind_name(enum sh_ambient_kind kind) {
     }
 }
 
+int sh_ambient_default_count(enum sh_ambient_kind kind) {
+    switch (kind) {
+    case SH_AMBIENT_SAKURA:
+        return 30;
+    case SH_AMBIENT_SNOW:
+        return 60;
+    case SH_AMBIENT_FIREFLIES:
+        return 24;
+    default:
+        return 0;
+    }
+}
+
 int sh_ambient_sprite_count(enum sh_ambient_kind kind) {
     switch (kind) {
     case SH_AMBIENT_SAKURA:

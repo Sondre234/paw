@@ -66,7 +66,7 @@ const Option options[] = {
      "dimmed, and fade out after five minutes without input until there is some."},
     {"appearance.ambient.kind", "enum", "\"none\"", "\"sakura\"", none, none,
      "`\"sakura\"`, `\"snow\"` or `\"fireflies\"`; `\"none\"` for none."},
-    {"appearance.ambient.count", "integer", "30", "50", 1, 150,
+    {"appearance.ambient.count", "integer", "30 petals, 60 flakes, 24 fireflies", "50", 1, 150,
      "How many particles drift on each monitor."},
     {"appearance.ambient.speed", "number", "1", "0.6", 0.1, 5,
      "How fast they drift: 0.5 at half their own pace, 2 at twice it."},

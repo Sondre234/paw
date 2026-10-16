@@ -42,7 +42,7 @@ struct sh_ambient {
     enum sh_ambient_kind kind;       // what drifts now
     enum sh_ambient_kind configured; // appearance.ambient.kind as last read
     enum sh_ambient_kind last;       // the last kind other than none, for toggling back on
-    int count;
+    int count; // appearance.ambient.count, 0 for each kind's own
     double speed;
     int64_t ticked, idle_ms;
 };
@@ -158,6 +158,13 @@ static bool fit_count(struct sh_ambient_sky *sky, int count) {
     return true;
 }
 
+/* How many particles of `kind` each output has. */
+static int count_of(struct sh_ambient *ambient, enum sh_ambient_kind kind) {
+    return kind == SH_AMBIENT_NONE ? 0
+           : ambient->count > 0    ? ambient->count
+                                   : sh_ambient_default_count(kind);
+}
+
 /* Empties the sky and fills it with particles of `kind` (none for none), faded out. */
 static void reseed(struct sh_ambient *ambient, struct sh_ambient_sky *sky,
                    enum sh_ambient_kind kind) {
@@ -166,7 +173,7 @@ static void reseed(struct sh_ambient *ambient, struct sh_ambient_sky *sky,
     sky->field.kind = kind;
     sky->field.time = 0;
     sky->presence = 0;
-    if (kind != SH_AMBIENT_NONE && !fit_count(sky, ambient->count))
+    if (kind != SH_AMBIENT_NONE && !fit_count(sky, count_of(ambient, kind)))
         wlr_log(WLR_ERROR, "Out of memory for ambient particles on %s",
                 sky->output->wlr_output->name);
 }
@@ -284,8 +291,8 @@ static bool step_sky(struct sh_ambient *ambient, struct sh_ambient_sky *sky, dou
     if (sky->presence < 0)
         sky->presence = 0;
     sky->paused = NULL;
-    if (sky->count != ambient->count)
-        fit_count(sky, ambient->count);
+    if (sky->count != count_of(ambient, sky->field.kind))
+        fit_count(sky, count_of(ambient, sky->field.kind));
     sh_ambient_step(&sky->field, sky->particles, sky->count, dt * ambient->speed);
     draw(sky);
     return true;
@@ -398,7 +405,7 @@ void ambient_reload(struct sh_server *server) {
     const struct sh_settings *settings = server_settings(server);
     const char *idle_ms = getenv("PAW_TEST_AMBIENT_IDLE_MS");
     ambient->idle_ms = idle_ms && *idle_ms ? atoll(idle_ms) : IDLE_MS;
-    ambient->count = settings->ambient_count < 1 ? 1 : settings->ambient_count;
+    ambient->count = settings->ambient_count > 0 ? settings->ambient_count : 0;
     ambient->speed = settings->ambient_speed > 0 ? settings->ambient_speed : 1;
     // The action's choice stands until appearance.ambient.kind changes, as a profile does.
     enum sh_ambient_kind configured = (enum sh_ambient_kind)settings->ambient;

@@ -17,6 +17,9 @@ static void test_names(void) {
     CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_SNOW), "snow"));
     CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_FIREFLIES), "fireflies"));
     CHECK(sh_ambient_sprite_count(SH_AMBIENT_NONE) == 0);
+    CHECK(sh_ambient_default_count(SH_AMBIENT_NONE) == 0);
+    for (int kind = SH_AMBIENT_SAKURA; kind < SH_AMBIENT_KINDS; ++kind)
+        CHECK(sh_ambient_default_count(kind) >= 10 && sh_ambient_default_count(kind) <= 150);
     CHECK(sh_ambient_sprite_side(SH_AMBIENT_SNOW, -1) == 0);
     CHECK(sh_ambient_sprite_side(SH_AMBIENT_SNOW, sh_ambient_sprite_count(SH_AMBIENT_SNOW)) == 0);
 }

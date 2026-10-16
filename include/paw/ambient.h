@@ -22,6 +22,9 @@ enum sh_ambient_kind {
 
 /* "none", "sakura", "snow" or "fireflies". */
 const char *sh_ambient_kind_name(enum sh_ambient_kind kind);
+/* How many of a kind drift on a monitor unless appearance.ambient.count says: a few dozen petals,
+ * twice as many flakes, which are smaller, and fewer fireflies. */
+int sh_ambient_default_count(enum sh_ambient_kind kind);
 
 /* The pictures a kind is drawn with, each a square: petals of four pinks at three sizes, turned
  * by each of SH_AMBIENT_TURNS steps of a quarter turn (a quarter turn more is the same picture

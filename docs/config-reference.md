@@ -29,7 +29,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `appearance.color_scheme` | enum | unset | - | The light or dark style applications follow: `"light"` or `"dark"` sets `org.gnome.desktop.interface color-scheme` to `prefer-light` or `prefer-dark` with `gsettings` as the setting loads and whenever it changes, as a profile is picked, which GTK and libadwaita applications, Firefox, Chromium and Electron applications such as Discord read through xdg-desktop-portal. Only a login session (`--session`) sets it. Unset, paw leaves the preference as it is. |
 | `appearance.ambient` | table | - | - | Particles drifting over the wallpaper, under the windows and panels: sakura petals tumbling down, soft snow, or fireflies wandering and glowing. An appearance profile may set them, and the `ambient` action switches them meanwhile. They pause while the session is locked, while a monitor is off or shows a fullscreen window and while the screens are dimmed, and fade out after five minutes without input until there is some. |
 | `appearance.ambient.kind` | enum | "none" | - | `"sakura"`, `"snow"` or `"fireflies"`; `"none"` for none. |
-| `appearance.ambient.count` | integer | 30 | 1 to 150 | How many particles drift on each monitor. |
+| `appearance.ambient.count` | integer | 30 petals, 60 flakes, 24 fireflies | 1 to 150 | How many particles drift on each monitor. |
 | `appearance.ambient.speed` | number | 1 | 0.1 to 5 | How fast they drift: 0.5 at half their own pace, 2 at twice it. |
 
 ## `keyboard`
