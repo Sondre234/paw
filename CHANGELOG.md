@@ -513,7 +513,8 @@ shadows.
   inhibitor, as a browser playing music in a background tab holds. These follow the window's title
   as it changes and apply anew on a reload. `scratchpad = true` opens the window hidden in the
   scratchpad, for `scratchpad_show` to drop it down. `paw msg get idle` lists the windows an
-  `idle_inhibit` names, and `get frames` the colour of each border.
+  `idle_inhibit` names, and `get frames` the colour of each border. `paw import` brings
+  Hyprland's `noshadow`, `noborder`, `rounding`, `bordercolor` and `idleinhibit` rules over.
 - `layout.floating_above_tiles = true` keeps floating windows over the tiles, as sway and Hyprland
   do. It is off by default: as before, the window brought forward last is in front, tile or not.
 - A fullscreen window stays in front of its monitor while another monitor has the focus, as
