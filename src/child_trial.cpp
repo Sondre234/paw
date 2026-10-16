@@ -3,6 +3,7 @@
 // paw/child_trial.hpp.
 #include "paw/child_trial.hpp"
 
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <csignal>
@@ -33,6 +34,27 @@ const int trial_wall_seconds = 30;
 #endif
 
 namespace {
+// How long a child that said how `work` went, or was killed, may take to end before it is left
+// to whatever reaps the caller's other children.
+constexpr auto reap_limit = std::chrono::seconds(3);
+
+// Reaps `child`, which has ended or is about to, waiting at most reap_limit; true once reaped.
+bool reap(pid_t child, int &status, rusage &usage) {
+    const auto give_up = std::chrono::steady_clock::now() + reap_limit;
+    auto pause = std::chrono::microseconds(50);
+    for (;;) {
+        pid_t done = ::wait4(child, &status, WNOHANG, &usage);
+        if (done == child)
+            return true;
+        if (done < 0 && errno != EINTR)
+            return false;
+        if (std::chrono::steady_clock::now() >= give_up)
+            return false;
+        ::usleep(static_cast<useconds_t>(pause.count()));
+        pause = std::min(pause * 2, std::chrono::microseconds(10000));
+    }
+}
+
 double seconds_of(const timeval &time) {
     return static_cast<double>(time.tv_sec) + static_cast<double>(time.tv_usec) / 1e6;
 }
@@ -108,8 +130,7 @@ Trial try_in_child(const std::function<void()> &work, int cpu_seconds, int wall_
         ::kill(child, SIGKILL);
     int status = 0;
     rusage usage{};
-    while (::wait4(child, &status, 0, &usage) < 0 && errno == EINTR) {
-    }
+    const bool reaped = reap(child, status, usage);
     if (outcome == 'y' || outcome == 'n' || unchecked)
         return {};
     if (outcome == 'm')
@@ -117,7 +138,7 @@ Trial try_in_child(const std::function<void()> &work, int cpu_seconds, int wall_
     if (late)
         return {Trial::TooLong, {}, wall_seconds, false};
     // Over its processor time: SIGXCPU, or SIGKILL at the hard limit a second later.
-    const int ended_by = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
+    const int ended_by = reaped && WIFSIGNALED(status) ? WTERMSIG(status) : 0;
     const double used = seconds_of(usage.ru_utime) + seconds_of(usage.ru_stime);
     if (ended_by == SIGXCPU || (ended_by == SIGKILL && used >= cpu_seconds))
         return {Trial::TooLong, {}, cpu_seconds, true};

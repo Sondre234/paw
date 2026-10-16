@@ -39,6 +39,11 @@ struct Trial {
 // the process it was forked from, and leaves no core file, which would be a copy of that
 // process's memory. What `work` calls must be safe in a child forked from a process with threads:
 // nothing that waits on a lock another thread may hold.
+//
+// The child is reaped before this returns, unless it has not ended a few seconds after it was
+// killed or said how `work` went (stuck in the kernel, on a device or a file system that does not
+// answer): rather than waiting on it for ever, this leaves it to whatever reaps the caller's
+// other children once it ends, such as the compositor's SIGCHLD handler.
 Trial try_in_child(const std::function<void()> &work, int cpu_seconds = trial_seconds,
                    int wall_seconds = trial_wall_seconds);
 } // namespace paw
