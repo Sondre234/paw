@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The authentication dialog's model, with stand-ins for polkit's helper: which user is chosen,
-// answers given before and after the helper asks, wrong answers, a helper that ends without
-// asking, choosing another user, Cancel, requests waiting in turn and polkit withdrawing them.
+// answers given before and after the helper asks, wrong answers and the three tries they get, a
+// helper that ends without asking, choosing another user, Cancel, requests waiting in turn and polkit withdrawing them.
 #include "authentication.hpp"
 #include <QPointer>
 #include <QSignalSpy>
@@ -154,6 +154,37 @@ class AuthenticationTest : public QObject {
         QCOMPARE(last()->answers, (QStringList{"ada", "123456"}));
         last()->ask("");
         QCOMPARE(auth.prompt(), QString("Password"));
+    }
+    // Three wrong answers of one user end the request as failed; another user chosen has three
+    // of their own.
+    void threeTries() {
+        Authentication auth;
+        prepare(auth);
+        QList<Authentication::Outcome> outcomes;
+        QSignalSpy rejected(&auth, &Authentication::rejected);
+        auth.add(request("c"), [&](Authentication::Outcome outcome) { outcomes << outcome; });
+        auto wrong = [&] {
+            last()->ask();
+            auth.submit("wrong");
+            last()->end(false);
+        };
+        wrong();
+        QTRY_COMPARE(made_.size(), 2);
+        wrong();
+        QTRY_COMPARE(made_.size(), 3);
+        auth.setIdentity(0);
+        QCOMPARE(made_.size(), 4);
+        wrong();
+        QTRY_COMPARE(made_.size(), 5);
+        wrong();
+        QTRY_COMPARE(made_.size(), 6);
+        QVERIFY(auth.open() && outcomes.isEmpty());
+        QCOMPARE(rejected.count(), 4);
+        wrong();
+        QCOMPARE(outcomes, QList{Authentication::Outcome::Failed});
+        QVERIFY(!auth.open());
+        QTest::qWait(50);
+        QCOMPARE(made_.size(), 6);
     }
     // A helper that cannot start ends inside start(): the request stays, saying so, and no other
     // starts by itself, from inside that one or later; an answer tries again, once.
