@@ -657,7 +657,9 @@ class ShellController : public QObject {
         QString description = {};
     };
     // Loads the configuration, or the default one with configError_ set when it has an error.
-    void loadConfig();
+    // `reloading`, one that could not be checked in time or memory throws paw::ConfigTrialError
+    // instead, leaving the configuration as it is, as the compositor does.
+    void loadConfig(bool reloading = false);
     // Looks icons up in appearance.icon_theme where it is installed, else in the theme the
     // shell started with, as the configuration names another, and has every icon drawn anew.
     void followIconTheme();

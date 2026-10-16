@@ -5569,6 +5569,15 @@ ListModel {
                 return controller.error() == "Cannot launch kitty: No such file or directory";
             }))
             return fail("a program that did not start was not reported");
+        // A reload the compositor turned down, keeping its configuration (and the shell's,
+        // which it then does not ask to reload), says why.
+        subscriber->write("config-error Reload rejected; keeping active configuration: "
+                          "init.lua: did not finish loading within 3 seconds of processor time\n");
+        if (!waitFor([&] {
+                return controller.error().startsWith("Reload rejected; keeping active "
+                                                     "configuration: init.lua: did not finish");
+            }))
+            return fail("a reload the compositor turned down was not reported");
         controller.clearError();
         // With nothing that may run, the button goes.
         if (!openLauncher() || !button->isVisible())

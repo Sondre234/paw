@@ -938,7 +938,7 @@ bool ShellController::launchAction(const QString &id, const QString &action) {
 void ShellController::reload() {
     try {
         const auto before = config_.profile;
-        loadConfig();
+        loadConfig(true);
         const bool restyle = !config_.profile.empty() && config_.profile != before;
         watchTrash();
         notifications_.configure(config_.notifications);
@@ -986,9 +986,9 @@ void ShellController::restyled() {
     const auto name = QString::fromStdString(config_.profile);
     ask(("profile_drawn " + name + "\n").toUtf8(), [](const QByteArray &) {});
 }
-void ShellController::loadConfig() {
+void ShellController::loadConfig(bool reloading) {
     std::string error;
-    auto next = paw::load_config_or_default(path_, error);
+    auto next = paw::load_config_or_default(path_, error, reloading);
     config_ = std::move(next);
     glass_.configure(config_.shell.blur);
     configError_ = QString::fromStdString(error);
@@ -1222,6 +1222,10 @@ void ShellController::subscribe() {
                 Q_EMIT taskbarRequested(line.sliced(8));
             } else if (line.startsWith("power-error ")) {
                 report(line.sliced(12));
+            } else if (line.startsWith("config-error ")) {
+                // A reload the compositor turned down, keeping the configuration; so does the
+                // shell, which hears of no reload then.
+                report(line.sliced(13));
             } else if (line.startsWith("spawn-error ")) {
                 // A program a binding, a hot corner or the palette asked for did not start.
                 report(line.sliced(12));
