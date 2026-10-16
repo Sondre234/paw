@@ -46,6 +46,9 @@ class Palette : public QObject {
     Q_INVOKABLE void reveal(int index = -1);
     // Opens the folder of a file among its entries (or the start menu's results).
     Q_INVOKABLE void openFolder(const QVariantMap &entry);
+    // The title the palette gives the compositor action `name` ("Close window" for close), ""
+    // for one it does not offer.
+    static QString actionTitle(const QString &name);
   Q_SIGNALS:
     void openChanged();
     void queryChanged();

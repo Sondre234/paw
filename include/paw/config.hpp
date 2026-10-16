@@ -51,6 +51,11 @@ struct Binding {
                   // display_mode, an sh_display_mode; for cat, an sh_cat_switch
     int switch_type = -1; // the enum sh_switch of a switch binding; -1 for a key or button
     bool switch_on = false; // with switch_type: it acts as the switch turns on (a lid closing)
+    // What the binding does in the user's words, as Hyprland's bindd has it, which the shell's
+    // sheet of shortcuts shows in place of the action's own title; empty when not given.
+    std::string description;
+    // `pattern` as written, for the sheet of shortcuts to say where a button binding acts.
+    std::string app_id;
 };
 
 // A binding mode, as sway's modes and Hyprland's submaps: key bindings that take the place of

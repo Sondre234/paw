@@ -296,6 +296,16 @@ shadows.
 - `paw msg type TEXT` types text into what has the keyboard, emoji and accents too, on a
   keymap made for it, as wtype does.
 
+### The sheet of keyboard shortcuts
+
+- `shortcuts` (Super + /, or Keyboard shortcuts in the command palette) shows every key and mouse
+  button binding in effect on one sheet over the dimmed screen, frosted with `shell.blur`: grouped
+  by what they do, in columns, each its keys as caps beside what it does (Super with the Windows
+  logo, or ⌃ ⌥ ⇧ ⌘ in the macOS style), the binding mode's first while one is in use. Typing
+  searches it; Escape or the key again closes it.
+- `bindings[].description` names a binding there in your words, as Hyprland's `bindd`; a spawn
+  without one shows its command, shortened.
+
 ### The clock and Quick Settings
 
 - The clock opens one flyout at the bar's right end, as on Windows 11: the notifications above
@@ -560,6 +570,12 @@ shadows.
   Shift + \` (or Alt + Shift + \`, `switcher_app_prev`) moving back. An application with one
   window opens nothing. The macOS style's switcher shows those windows' titles, or their pictures,
   in place of its icons alone, and the command palette offers it too.
+- Hyprland's dwindle controls, experimental and unbound by default (example keys in the shipped
+  configuration, also in the command palette): `split_toggle` turns the split the focused tile
+  shares with its neighbour from side by side to stacked or back, and keeps it so where dwindle
+  would follow the box's shape; `split_swap` trades that split's halves at their sizes; and
+  `pseudo_toggle` keeps the focused tile at its floating size in the middle of its tile, resized
+  about that middle. The tiles glide there; other layouts take none of them.
 
 ### Starting and ending a session
 

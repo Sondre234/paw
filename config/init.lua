@@ -494,6 +494,12 @@ return {
         { mods = { mod, "Ctrl" }, key = "t", action = "toggle_above" }, -- keep above the others
         -- The command palette: one search over windows, apps, workspaces, actions and sessions.
         { mods = { mod }, key = "p", action = "palette" },
+        -- A sheet of every binding in effect, grouped, with a search; Super + / again closes it.
+        -- On a keyboard layout where / takes Shift, bind key = "F1" instead.
+        { mods = { mod }, key = "slash", action = "shortcuts" },
+        -- A binding's description names it there in your words, as Hyprland's bindd does;
+        -- a spawn without one shows its command:
+        -- { mods = { mod }, key = "e", action = "spawn", command = { "dolphin" }, description = "Files" },
         -- The taskbar (or the dock) from the keyboard, as Windows' Win+T: the arrows walk its
         -- buttons and the windows they show, Enter picks, Escape gives the keyboard back.
         { mods = { mod }, key = "b", action = "taskbar_focus" },
@@ -551,6 +557,13 @@ return {
         { mods = { mod }, key = "h", action = "master_shrink" },
         { mods = { mod }, key = "comma", action = "master_more" },
         { mods = { mod }, key = "period", action = "master_less" },
+        -- Hyprland's dwindle controls, in dwindle only (experimental): split_toggle turns the
+        -- focused tile's split from side by side to stacked and keeps it so, split_swap trades
+        -- its halves, pseudo_toggle keeps the window at its floating size in the middle of its
+        -- tile. Hyprland's Super+J and Super+P are focus_next and the palette here:
+        -- { mods = { mod, "Ctrl" }, key = "j", action = "split_toggle" },
+        -- { mods = { mod, "Ctrl" }, key = "k", action = "split_swap" },
+        -- { mods = { mod, "Alt" }, key = "p", action = "pseudo_toggle" },
         -- The scroll layout (layout_scroll; see layout.scroll): columns on an endless strip,
         -- whose view turns as a cube as it moves with layout.scroll.cube = true.
         -- master_grow and master_shrink resize the focused column there. Bind these to taste:

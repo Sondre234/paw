@@ -1635,8 +1635,7 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 if (present(L, "key"))
                     fail("a binding takes a key or a button, not both");
                 binding.button = mouse_button(field(L, "button"));
-                std::string app_id;
-                binding.pattern = pattern_field(L, "app_id", app_id);
+                binding.pattern = pattern_field(L, "app_id", binding.app_id);
                 boolean(L, "desktop", "desktop", binding.desktop);
                 for (const char *only : {"locked", "repeats", "release"})
                     if (present(L, only))
@@ -1653,6 +1652,8 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             }
             if (!is_switch && present(L, "state"))
                 fail("state is only valid with a switch");
+            if (auto description = text(L, "description"))
+                binding.description = *description;
             auto action = field(L, "action");
             binding.action = action == "none" ? SH_NONE : parse_action(action);
             lua_getfield(L, -1, "mods");
@@ -2232,6 +2233,9 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"master_shrink", SH_MASTER_SHRINK},
         {"master_more", SH_MASTER_MORE},
         {"master_less", SH_MASTER_LESS},
+        {"split_toggle", SH_SPLIT_TOGGLE},
+        {"split_swap", SH_SPLIT_SWAP},
+        {"pseudo_toggle", SH_PSEUDO_TOGGLE},
         {"peek", SH_PEEK},
         {"peek_toggle", SH_PEEK_TOGGLE},
         {"night_light_toggle", SH_NIGHT_LIGHT_TOGGLE},
@@ -2322,6 +2326,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"group_merge_up", SH_GROUP_MERGE_UP},
         {"group_merge_down", SH_GROUP_MERGE_DOWN},
         {"palette", SH_PALETTE},
+        {"shortcuts", SH_SHORTCUTS},
         {"toggle_overview", SH_OVERVIEW_TOGGLE},
         {"overview_confirm", SH_OVERVIEW_CONFIRM},
         {"overview_cancel", SH_OVERVIEW_CANCEL},

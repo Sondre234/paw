@@ -23,6 +23,7 @@
 #include "paw/config.hpp"
 #include "restyle.hpp"
 #include "rice_trial.hpp"
+#include "shortcuts.hpp"
 #include "start_menu.hpp"
 #include "system_status.hpp"
 #include "task_model.hpp"
@@ -249,6 +250,8 @@ class ShellController : public QObject {
     Q_PROPERTY(ClipboardHistory *clipboard READ clipboard CONSTANT)
     // The emoji picker.
     Q_PROPERTY(EmojiPicker *emoji READ emoji CONSTANT)
+    // The sheet of keyboard shortcuts.
+    Q_PROPERTY(Shortcuts *shortcuts READ shortcuts CONSTANT)
     // The compositor's overview: the output showing it, empty while closed; its thumbnails as
     // {x, y, w, h, appId, title, workspace, urgent} and workspace strip cells as {x, y, w, h,
     // workspace, windows}, in the output's coordinates; the selected thumbnail, the workspace
@@ -455,6 +458,9 @@ class ShellController : public QObject {
     FileIndex *files() { return &files_; }
     ClipboardHistory *clipboard() { return &clipboard_; }
     EmojiPicker *emoji() { return &emoji_; }
+    Shortcuts *shortcuts() { return &shortcuts_; }
+    // The configuration in force.
+    const paw::Config &config() const { return config_; }
     // Opens a file in its default application, or with `folder` the folder that holds it; a
     // failure shows across the panel.
     Q_INVOKABLE bool openFile(const QString &path, bool folder = false);
@@ -658,6 +664,7 @@ class ShellController : public QObject {
     StartMenu startMenu_{{}, this};
     ClipboardHistory clipboard_;
     EmojiPicker emoji_;
+    Shortcuts shortcuts_{*this};
     // Types `text` into what has the keyboard through the compositor, else copies it and says so.
     void typeText(const QString &text);
     std::unique_ptr<Audio> audio_ = makeAudio();

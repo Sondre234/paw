@@ -7,24 +7,33 @@
 #endif
 
 PickerView::PickerView(ShellController &controller, QScreen *screen, const char *name,
-                       const QString &file, QObject *model)
-    : OverlayView(controller, screen, name, true), model_(model) {
+                       const QString &file, QObject *model, bool cover)
+    : OverlayView(controller, screen, name, true), model_(model), cover_(cover) {
     setTitle(QString("paw ") + name);
-    setResizeMode(QQuickView::SizeViewToRootObject);
-    setInitialProperties({{"screenSize", screen->geometry().size()}});
+    if (cover_) {
+        setResizeMode(QQuickView::SizeRootObjectToView);
+        resize(screen->geometry().size());
+    } else {
+        setResizeMode(QQuickView::SizeViewToRootObject);
+        setInitialProperties({{"screenSize", screen->geometry().size()}});
+    }
 #if PAW_LAYER_SHELL
     using W = LayerShellQt::Window;
     layer_->setScope(QString("paw-") + name);
-    layer_->setAnchors(W::AnchorTop);
-    layer_->setExclusiveZone(0);
+    layer_->setAnchors(cover_ ? W::Anchors(W::AnchorTop | W::AnchorBottom | W::AnchorLeft |
+                                           W::AnchorRight)
+                              : W::Anchors(W::AnchorTop));
+    layer_->setExclusiveZone(cover_ ? -1 : 0);
 #endif
     place();
     connect(&controller, &ShellController::configChanged, this, &PickerView::place);
     load(file);
-    if (auto *root = rootObject())
+    if (auto *root = rootObject(); root && !cover_)
         followRoot(this, layer_, root);
     connect(screen, &QScreen::geometryChanged, this, [this] {
-        if (rootObject())
+        if (cover_)
+            resize(outputScreen_->geometry().size());
+        else if (rootObject())
             rootObject()->setProperty("screenSize", outputScreen_->geometry().size());
         place();
     });
@@ -42,10 +51,10 @@ PickerView::PickerView(ShellController &controller, QScreen *screen, const char 
     connect(model_, SIGNAL(openChanged()), this, SLOT(update()));
 }
 
-// Centred, below the bars by ShellController::paletteDrop.
+// Centred, below the bars by ShellController::paletteDrop; one that covers the output, all of it.
 void PickerView::place() {
 #if PAW_LAYER_SHELL
-    if (layer_)
+    if (layer_ && !cover_)
         layer_->setMargins(
             QMargins(0, controller_.paletteDrop(outputScreen_->geometry().height()), 0, 0));
 #endif
