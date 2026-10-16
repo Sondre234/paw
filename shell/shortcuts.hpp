@@ -15,7 +15,7 @@ class ShellController;
 // do (Windows, Focus, Workspaces, ...), and first, while a binding mode is in use, that mode's.
 //
 // A group is {name, mode, rows}, `mode` true for the binding mode's. A row is {title, detail,
-// mods, keys, range, button, command, search}:
+// mods, keys, range, button, command, when, search}:
 // - `title` is what the binding does: its `description`, else the command palette's title for
 //   its action, else one of the sheet's own; for a spawn without a description its command,
 //   shortened, with `command` set;
@@ -26,6 +26,9 @@ class ShellController;
 //   switch's with `button`: several for bindings alike but for their key (Super and the arrows
 //   focusing that way), the first and the last with `range` for a run of workspaces (Super and
 //   1 to 4);
+// - `when` is "tap" for a modifier key's binding that runs as it comes up alone (Super_L with
+//   `release`, its cap among `mods` and no `keys`), "on release" for another key's that runs as
+//   it comes up, else "";
 // - `search` is the lower-case text a search looks in.
 namespace shortcuts {
 // A key's name as its cap shows it: a letter or a sign as printed ("Q", ";", "/"), an arrow,

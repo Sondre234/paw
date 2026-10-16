@@ -1433,7 +1433,9 @@ palette's name for the action where it has one (Close window, Layout: monocle), 
 own, with the argument it takes (Go to workspace 3: mail, Screenshot of a region, Enter the resize
 mode). Bindings alike but for their key are one row: Super and the arrows focusing that way, Super
 + 1 to 4 going to workspaces 1 to 4. A mouse button's binding says where it acts (over kitty or
-foot windows and the desktop), and the lid's and tablet mode's show too. In the taskbar style
+foot windows and the desktop), and the lid's and tablet mode's show too. A modifier key bound
+with `release` shows as its cap with "tap" (Super tapped alone), and another key bound so says
+"on release". In the taskbar style
 Super's cap has the Windows logo; the macOS style writes the modifiers as a Mac does, ⌃ ⌥ ⇧ ⌘
 (Super is ⌘), and the footer says which is which. While a [binding mode](#binding-modes) is in
 use, its bindings come first, under its name in the accent colour.

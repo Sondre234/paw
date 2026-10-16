@@ -154,6 +154,28 @@ class ShortcutsTest : public QObject {
         QCOMPARE(strings(rows[1].toMap()["keys"]), QStringList({"H", "L"}));
         QCOMPARE(rows[1].toMap()["title"].toString(), QString("Move the window that way"));
     }
+    void releaseBindings() {
+        // A modifier key tapped alone shows as its modifier's cap with "tap"; another key that
+        // runs as it comes up says so, and joins no family.
+        const auto config = paw::parse_config(
+            "return { bindings = {"
+            " { key = 'Super_L', release = true, action = 'launcher' },"
+            " { mods = { 'Super' }, key = 'Left', action = 'focus_left' },"
+            " { mods = { 'Super' }, key = 'Right', action = 'focus_right', release = true } } }");
+        const auto sheet = shortcuts::sheet(config, {}, false);
+        const auto tap = row(sheet, "Applications menu");
+        QCOMPARE(strings(tap["mods"]), QStringList{"Super"});
+        QCOMPARE(strings(tap["keys"]), QStringList());
+        QCOMPARE(tap["when"].toString(), QString("tap"));
+        QVERIFY(tap["search"].toString().contains("super_l"));
+        QCOMPARE(::titles(group(sheet, "Focus")),
+                 QStringList({"Focus the window to the left", "Focus the window to the right"}));
+        const auto released = row(sheet, "Focus the window to the right");
+        QCOMPARE(released["when"].toString(), QString("on release"));
+        QCOMPARE(strings(released["keys"]), QStringList{"→"});
+        QCOMPARE(row(sheet, "Focus the window to the left")["when"].toString(), QString());
+        QCOMPARE(shortcuts::rows(shortcuts::filter(sheet, "tap")), 1);
+    }
     void keyNames() {
         QCOMPARE(shortcuts::keyName(XKB_KEY_Return, false), QString("Enter"));
         QCOMPARE(shortcuts::keyName(XKB_KEY_Return, true), QString("Return"));

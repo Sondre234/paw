@@ -186,13 +186,15 @@ Item {
             model: keys.mods
             Row {
                 required property string modelData
+                required property int index
                 spacing: keys.spacing
                 Cap {
                     label: Theme.macos ? root.signs[modelData] || modelData : modelData
                     logo: !Theme.macos && modelData === "Super"
                 }
+                // Between the caps; a modifier key tapped alone has none after it.
                 Text {
-                    visible: !Theme.macos
+                    visible: !Theme.macos && (index < keys.mods.length - 1 || keys.names.length > 0)
                     anchors.verticalCenter: parent.verticalCenter
                     text: "+"
                     color: Theme.textMuted
@@ -462,9 +464,21 @@ Item {
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeCaption
                         }
                     }
+                    // "tap" for a modifier key tapped alone, "on release" for a key's as it
+                    // comes up.
+                    Text {
+                        id: when
+                        visible: text !== ""
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: line.modelData.when || ""
+                        color: Theme.textMuted
+                        font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall
+                    }
                     KeyCaps {
                         id: keys
-                        anchors.right: parent.right
+                        anchors.right: when.visible ? when.left : parent.right
+                        anchors.rightMargin: when.visible ? Theme.spacingS : 0
                         anchors.verticalCenter: parent.verticalCenter
                         mods: line.modelData.mods
                         names: line.modelData.keys

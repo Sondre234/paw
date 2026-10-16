@@ -385,6 +385,9 @@ struct Row {
     QString title, detail;
     QStringList mods, keys;
     bool range = false, button = false, command = false;
+    // "tap" for a modifier key's binding that runs as it comes up alone (Super_L, release),
+    // "on release" for another key's that runs as it comes up.
+    QString when;
     // Rows of one family (focus_left and focus_right; workspace 1 and 2) with the same modifiers
     // become one; `number` is a workspace's, `digit` its key's, for a run of them.
     QString family;
@@ -393,6 +396,23 @@ struct Row {
     QStringList actions; // the actions of the rows it is made of
     QStringList words; // more to find it by: the keys' names, the action's name, the command
 };
+
+// The modifier a modifier key is (SH_LOGO for Super_L), 0 for another key.
+uint32_t modifierKey(uint32_t keysym) {
+    switch (keysym) {
+    case XKB_KEY_Super_L:
+    case XKB_KEY_Super_R:
+    case XKB_KEY_Meta_L:
+    case XKB_KEY_Meta_R: return SH_LOGO;
+    case XKB_KEY_Control_L:
+    case XKB_KEY_Control_R: return SH_CTRL;
+    case XKB_KEY_Alt_L:
+    case XKB_KEY_Alt_R: return SH_ALT;
+    case XKB_KEY_Shift_L:
+    case XKB_KEY_Shift_R: return SH_SHIFT;
+    default: return 0;
+    }
+}
 
 QString buttonName(uint32_t button) {
     switch (button) {
@@ -427,6 +447,10 @@ Row row(const paw::Binding &binding, const paw::Config &config, bool macos) {
             row.words << QString::fromStdString(word);
     row.words << name << QString(name).replace('_', ' ');
     row.actions << name;
+    // A modifier key bound itself (Super_L tapped for the launcher) shows as its modifier's cap.
+    uint32_t held = binding.modifiers;
+    const uint32_t own = binding.button || binding.switch_type >= 0 ? 0 : modifierKey(binding.keysym);
+    held |= own;
     // As the taskbar style writes them, Super + Ctrl + Alt + Shift, or a Mac, ⌃ ⌥ ⇧ ⌘.
     using Modifier = std::pair<uint32_t, const char *>;
     static constexpr Modifier taskbar[] = {
@@ -434,7 +458,7 @@ Row row(const paw::Binding &binding, const paw::Config &config, bool macos) {
     static constexpr Modifier mac[] = {
         {SH_CTRL, "Ctrl"}, {SH_ALT, "Alt"}, {SH_SHIFT, "Shift"}, {SH_LOGO, "Super"}};
     for (const auto &[bit, modifier] : macos ? mac : taskbar)
-        if (binding.modifiers & bit)
+        if (held & bit)
             row.mods << modifier;
     if (binding.switch_type >= 0) {
         row.button = true;
@@ -447,19 +471,22 @@ Row row(const paw::Binding &binding, const paw::Config &config, bool macos) {
         row.keys << buttonName(binding.button);
         row.detail = buttonPlace(binding);
     } else {
-        row.keys << shortcuts::keyName(binding.keysym, macos);
+        if (!own)
+            row.keys << shortcuts::keyName(binding.keysym, macos);
+        if (binding.release)
+            row.when = own ? "tap" : "on release";
         char raw[64];
         if (xkb_keysym_get_name(binding.keysym, raw, sizeof(raw)) > 0)
             row.words << raw;
         // Bindings that differ only in their key: the ways of one family, and workspaces whose
-        // numbers and keys' digits run on together.
-        if (const auto ways = way(name); !ways.isEmpty() && binding.description.empty()) {
+        // numbers and keys' digits run on together; not those that run as their key comes up.
+        const bool plain = binding.description.empty() && !binding.release;
+        if (const auto ways = way(name); !ways.isEmpty() && plain) {
             for (const auto &family : families)
                 if (name.startsWith(family.prefix) && name.sliced(qstrlen(family.prefix)) == ways)
                     row.family = family.prefix;
         } else if ((binding.action == SH_WORKSPACE || binding.action == SH_MOVE_TO_WORKSPACE) &&
-                   binding.keysym >= XKB_KEY_0 && binding.keysym <= XKB_KEY_9 &&
-                   binding.description.empty()) {
+                   binding.keysym >= XKB_KEY_0 && binding.keysym <= XKB_KEY_9 && plain) {
             row.family = name;
             row.first = row.number = binding.workspace;
             row.digit = static_cast<int>(binding.keysym - XKB_KEY_0);
@@ -507,10 +534,10 @@ QVariantMap map(const Row &row, const QString &group) {
     QStringList search{row.title, row.detail, group};
     for (const auto &modifier : row.mods)
         search << modifier << modifierWords(modifier);
-    search << row.keys << row.words;
+    search << row.keys << row.when << row.words;
     return {{"title", row.title},     {"detail", row.detail},   {"mods", row.mods},
             {"keys", row.keys},       {"range", row.range},     {"button", row.button},
-            {"command", row.command}, {"search", search.join(' ').toLower()}};
+            {"command", row.command}, {"when", row.when},       {"search", search.join(' ').toLower()}};
 }
 
 // The bindings as rows, one family's run as one.

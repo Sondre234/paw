@@ -524,8 +524,8 @@ QStringList PreviewData::surfaces() {
 
 namespace {
 // The sheet of shortcuts' stand-in bindings: the shipped configuration's, after a file manager's
-// with a description, a command without one, a mouse button's over terminals and a resize mode's
-// way in, and that mode.
+// with a description, a command without one, Super tapped alone for the launcher, a mouse
+// button's over terminals and a resize mode's way in, and that mode.
 paw::Config shortcutsStandIn() {
     std::string error;
     auto config = paw::load_config_or_default({}, error);
@@ -540,6 +540,7 @@ paw::Config shortcutsStandIn() {
         "   description = 'Files' },"
         " { mods = { 'Super', 'Shift' }, key = 'b', action = 'spawn',"
         "   command = { '/usr/bin/firefox', '--private-window' } },"
+        " { key = 'Super_L', release = true, action = 'launcher' },"
         " { button = 'side', app_id = '^(kitty|foot)$', desktop = true, action = 'close' },"
         " { mods = { 'Super', 'Alt' }, key = 'r', action = 'mode', mode = 'resize' } } }");
     config.bindings.insert(config.bindings.begin(), extra.bindings.begin(), extra.bindings.end());
