@@ -1186,8 +1186,11 @@ you pick something:
   click on a workspace in the strip shows it; a second click, or Return on an empty one,
   switches to it. Dragging a thumbnail onto a workspace in the strip moves the window there.
 - Escape, Super + O again, or a click on the backdrop closes it without changing anything.
-- Placing the pointer in a screen corner opens it (`overview.hot_corner`; the general
-  `hot_corners` table can bind `toggle_overview` to a corner too, with a dwell time).
+- Resting the pointer in a screen corner opens it on that monitor (`overview.hot_corner`), as a
+  [hot corner](#effects) runs its request: after `hot_corners.delay`, in a `hot_corners.size`
+  square, and not over a fullscreen window, during a drag or with a button held. It only opens
+  the overview, where a hot corner bound to `toggle_overview` closes it too; a corner can be one
+  or the other, not both.
 
 It takes the appearance profile's colours: the backdrop, the cards behind the thumbnails and
 the strip are dark shades of `appearance.background`'s hue (a warm black on a paper-coloured
@@ -1900,9 +1903,11 @@ hot_corners = {
 }
 ```
 
-A request is written as for `paw msg`: an action with its argument, or `spawn PROGRAM ARGS`.
-The corner is `hot_corners.size` pixels (2) square. Nothing runs while a button is held, a drag is
-under way, the session is locked, or a fullscreen window covers the output.
+A request is written as for `paw msg`: an action with its argument, or `spawn PROGRAM ARGS`,
+and acts on the monitor whose corner it is. The corner is `hot_corners.size` pixels (2) square.
+Nothing runs while a button is held, a drag is under way, the session is locked, or a fullscreen
+window covers the output. `overview.hot_corner` makes one more corner, which opens the overview
+(see [the overview](#overview)); a corner it takes cannot be bound here too.
 
 ## Monitors
 

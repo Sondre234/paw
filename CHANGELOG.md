@@ -786,6 +786,13 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   worst frames halved) and drops no frames for it: its 240 pieces change out of the scene's
   sight and come back together, where the scene worked out what to draw again after each of
   some 700 changes a frame.
+- `overview.hot_corner` is a hot corner like those `hot_corners` binds: it waits
+  `hot_corners.delay` in the `hot_corners.size` square and does nothing over a fullscreen game
+  or video or during a drag, where it opened the overview the moment the pointer touched the
+  corner's last two pixels. A corner both settings claim is an error, rather than the overview
+  opening and closing again. Hot corners now also keep still while a button is held (a text
+  selection dragged into one ran its request), and act on the monitor whose corner it is, as
+  mouse bindings do, rather than on the one with the focus.
 
 ## 0.1.1 (2026-10-05)
 

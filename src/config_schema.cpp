@@ -484,8 +484,9 @@ const Option options[] = {
 
     {"hot_corners", "table", "", "", none, none,
      "Hot corners: pushing the pointer into a screen corner and leaving it there runs a request, "
-     "written as for `paw msg` (an action name and its argument, or `spawn PROGRAM ARGS`). "
-     "Nothing runs over a fullscreen window or while a button is held."},
+     "written as for `paw msg` (an action name and its argument, or `spawn PROGRAM ARGS`), for "
+     "the monitor whose corner it is. Nothing runs over a fullscreen window or while a button is "
+     "held. `size` and `delay` apply to `overview.hot_corner` too."},
     {"hot_corners.size", "integer", "2", "2", 1, 64,
      "Side of the corner square in pixels."},
     {"hot_corners.delay", "integer", "150", "150", 0, 5000,
@@ -587,8 +588,10 @@ const Option options[] = {
     {"overview.strip", "boolean", "true", "true", none, none,
      "A strip of the monitor's workspaces above the grid, to switch to or to drop a window on."},
     {"overview.hot_corner", "enum", "\"none\"", "\"top-left\"", none, none,
-     "Pushing the pointer into this screen corner opens the overview: `\"none\"`, "
-     "`\"top-left\"`, `\"top-right\"`, `\"bottom-left\"`, or `\"bottom-right\"`."},
+     "Resting the pointer in this screen corner opens the overview there, as a hot corner runs "
+     "its request (see `hot_corners`), but never closes it: `\"none\"`, `\"top-left\"`, "
+     "`\"top-right\"`, `\"bottom-left\"`, or `\"bottom-right\"`. Not a corner `hot_corners` "
+     "binds."},
     {"overview.dim", "number", "0.86", "0.86", 0, 1,
      "How opaque the backdrop behind the thumbnails is, from 0 (clear) to 1."},
 

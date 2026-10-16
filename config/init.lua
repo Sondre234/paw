@@ -270,9 +270,10 @@ return {
     -- peek = { opacity = 0.12 },          -- bind action "peek" to a key held to see the desktop
     -- night_light = { enabled = true, night_temperature = 3400, latitude = 59.9, longitude = 10.7 },
     -- zoom = { step = 1.25, scroll_modifier = "Super" }, -- and actions zoom_in/zoom_out/zoom_reset
-    -- hot_corners = { top_left = "toggle_overview", bottom_right = "night_light_toggle" },
+    -- hot_corners = { bottom_left = "peek_toggle", bottom_right = "night_light_toggle" },
     -- The overview (Super + O): thumbnails glide into a grid over `duration` milliseconds, with a
-    -- strip of workspaces; `hot_corner` opens it when the pointer enters that screen corner.
+    -- strip of workspaces; `hot_corner` opens it when the pointer rests in that screen corner, as
+    -- a hot corner runs its request (in a corner hot_corners leaves free).
     -- overview = { gap = 24, duration = 180, strip = true, dim = 0.86, hot_corner = "top-left" },
     -- Touchpad swipes: three fingers sideways move between workspaces, the windows following
     -- the fingers, and up and down open and close the overview. A list of swipes replaces these;
