@@ -91,7 +91,16 @@ void hyprlang(const fs::path &root) {
                 std::string(s.output_order[2]) == "DP-1",
             "output order does not follow positions");
 
-    require(config.window_rules.size() == 5, "expected four opacity rules and one immediate");
+    require(config.window_rules.size() == 9,
+            "expected four opacity rules, one immediate and four of the look and idleinhibit");
+    auto mpv = config.window_actions("mpv", "").to_c();
+    require(mpv.shadow == 0 && mpv.corner_radius == 0 && mpv.border_color.count == 1 &&
+                near(mpv.border_color.stops[0][0], 1) && mpv.border_inactive_color.count == 1 &&
+                near(mpv.border_inactive_color.stops[0][3], 0.5F) &&
+                mpv.idle_inhibit == SH_IDLE_RULE_FULLSCREEN && mpv.border == -1,
+            "noshadow, bordercolor, rounding or idleinhibit not imported");
+    require(config.window_actions("firefox", "").to_c().idle_inhibit == SH_IDLE_RULE_FULLSCREEN,
+            "Hyprland's idleinhibit none became paw's, which refuses the window's inhibitors");
     require(s.allow_tearing && config.window_actions("cs2", "").to_c().allow_tearing &&
                 !config.window_actions("kitty", "").allow_tearing,
             "allow_tearing or the immediate rule not imported");
@@ -122,7 +131,7 @@ void hyprlang(const fs::path &root) {
           "HDMI-A-4: bitdepth 12 is not 8 or 10", "HDMI-A-4: cm wide is not supported",
           "DP-4: sdrbrightness is not supported",
           "matches more than the app ID", "key bindings (1)",
-          "window rules without opacity or immediate (1)"})
+          "window rules with nothing paw imports (2)"})
         require(contains(report, expected), std::string("report lacks: ") + expected);
 }
 

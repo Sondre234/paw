@@ -467,6 +467,26 @@ const Option options[] = {
     {"windows.rules[].blur", "boolean", "unset", "", none, none,
      "`false` draws no blur behind the window (see `windows.blur`), `true` draws one even with "
      "`windows.blur.enabled` off."},
+    {"windows.rules[].shadow", "boolean", "unset", "", none, none,
+     "`false` draws no shadow under the window (see `windows.shadow`), `true` draws one even "
+     "with `windows.shadow.enabled` off."},
+    {"windows.rules[].border", "boolean", "unset", "", none, none,
+     "`false` draws no border around the window; the room `border_width` keeps for it stays."},
+    {"windows.rules[].border_color", "color or gradient", "`windows.border_color`", "", none,
+     none, "The window's border while it has the focus, as `windows.border_color`."},
+    {"windows.rules[].border_inactive_color", "color or gradient",
+     "`windows.border_inactive_color`", "", none, none,
+     "Its border without the focus, as `windows.border_inactive_color`."},
+    {"windows.rules[].corner_radius", "integer", "`windows.corner_radius`", "", 0, 40,
+     "Radius of the window's corners, wherever `windows.round` rounds it; 0 keeps it square."},
+    {"windows.rules[].idle_inhibit", "enum", "unset", "", none, none,
+     "Keep the machine awake (no idle step, idle daemons told it is inhibited) while the window "
+     "is open (`\"always\"`), shows (`\"visible\"`), has the focus (`\"focus\"`) or is "
+     "fullscreen and shows (`\"fullscreen\"`), the session unlocked; `\"none\"` refuses the "
+     "window's own idle inhibitors, as a browser playing sound in a tab holds."},
+    {"windows.rules[].scratchpad", "boolean", "unset", "", none, none,
+     "Open hidden in the scratchpad (with `features.scratchpad`), floating, for "
+     "`scratchpad_show` to drop it down."},
 
     {"peek", "table", "", "", none, none,
      "Peek: `peek` (hold a key) and `peek_toggle` make every window nearly transparent to show "

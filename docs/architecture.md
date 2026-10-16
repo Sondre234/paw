@@ -78,6 +78,7 @@ all. In short:
 | `lift.c` | Lifting a window moved with the pointer: drawn a little larger about where it was taken, its shadow softer and further off, set down onto an edge its magnet holds, settling as it is dropped. |
 | `stacking.c` | The layers windows are drawn in among themselves (tiles, floating windows over them with `layout.floating_above_tiles`, windows kept above the others) and keeping a window above. |
 | `dynamic_rules.c` | Dynamic window rules: what they hold a window to as its title and app ID change, given back as they stop (with `src/dynamic_rule.c`). |
+| `window_rules.c` | What window rules give a window for as long as it matches them (`window_rule_now`): its look (shadow, border and its colours, corner radius; frame.c draws it) and its `idle_inhibit` (lock.c), matched again only as its title, app ID or the configuration changes. |
 | `focus.c` | Keyboard focus and urgent windows. |
 | `toplevel.c` | Windows: xdg-shell toplevels and popups, opening by window rules, maximize, fullscreen, minimize. |
 | `xwayland.c` | X11 windows and the XWM waker. |

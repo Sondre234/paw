@@ -918,15 +918,49 @@ windows = {
 | `sticky = true` | Opens it sticky (see below) on its monitor's current workspace, whatever `workspace` says. Ignored with `features = { sticky = false }`. |
 | `above = true` | Opens it [kept above](#keeping-windows-above) the other windows, as `toggle_above` does. |
 | `allow_tearing = true` | With `windows.allow_tearing`, shows its frames at once while it is fullscreen and alone on its monitor, whether or not it asks for that (see [Tearing](#tearing)). |
+| `scratchpad = true` | Opens it hidden in the [scratchpad](#scratchpad), floating at its `size` and `position`, without the focus or a tile, as Hyprland's `workspace special silent`: `scratchpad_show` drops it down. What the rule says of `fullscreen`, `maximize`, `sticky` and `focus` is ignored, and so is the whole action with `features = { scratchpad = false }`. |
 
 Every matching rule applies, in order; where two set the same action, the later one wins. A
 tiled window keeps `size` and `position` as the place it floats to when toggled. Rules see the
 app ID and title the window has when it opens; later title changes do not apply them again,
-but for opacity, which follows the title and app ID as they change, and dynamic rules.
+but for opacity, the look and `idle_inhibit` below, which follow the title and app ID as they
+change, and dynamic rules.
 `features = { window_rules = false }` turns the actions off and leaves opacity rules working.
 Rules match in time that grows no faster than a title's length, whatever their patterns. In a
 title or app ID over 1 KiB, as a client may set, they search the first and last 512 bytes: `^`
 still finds its start and `$` its end, but a pattern held to both matches no title that long.
+
+Rules also give a window a look of its own and keep the machine awake for it, as Hyprland's
+`noshadow`, `noborder`, `bordercolor`, `rounding` and `idleinhibit` do. Unlike the actions these
+hold for as long as the window matches, whatever `dynamic` says: they follow its title and app
+ID as they change, and a reload applies them anew.
+
+| Field | Effect |
+| --- | --- |
+| `shadow = false` / `true` | Draws no shadow under it, or one even with `windows.shadow.enabled` off (see [Borders, opacity and rounded corners](#borders-opacity-and-rounded-corners)). |
+| `border = false` | Draws no border around it. The room `border_width` keeps for a border stays: a tile is no larger without one. |
+| `border_color`, `border_inactive_color` | Its border with and without the focus, a colour or a gradient as `windows.border_color` takes. An urgent window's is still the urgent colour. |
+| `corner_radius = N` | The radius of its corners, 0 to 40, wherever `windows.round` rounds it; 0 keeps it square. |
+| `idle_inhibit = "MODE"` | Keeps the machine awake (no [idle](#power-saving-when-idle) step, idle daemons told the seat is inhibited) while the window is open, shown or not (`"always"`), shows (`"visible"`), has the focus (`"focus"`) or is fullscreen and shows (`"fullscreen"`), never behind the lock. `"none"` refuses the window's own idle inhibitors instead, as a browser holds one while any tab plays sound; Hyprland's `none` leaves them be. |
+
+```lua
+windows = {
+    rules = {
+        { app_id = ".*", idle_inhibit = "fullscreen" },
+        { app_id = "^firefox$", idle_inhibit = "none" },
+        { app_id = "^firefox$", title = "YouTube", idle_inhibit = "visible" },
+        { title = "^Picture-in-Picture$", sticky = true, border = false, shadow = false },
+        { app_id = "^kitty$", border_color = { "#f5c2e7", "#89b4fa", angle = 45 },
+          corner_radius = 16 },
+        { app_id = "^dropterm$", scratchpad = true, size = { 1000, 500 } },
+    },
+},
+```
+
+Started with `kitty --class dropterm`, from `startup` say, the last one waits in the scratchpad
+for Super + minus. `paw msg get frames` ends each line with the colour a window's border is drawn
+in, and `paw msg get idle` lists the windows an `idle_inhibit` names (see
+[Power saving when idle](#power-saving-when-idle)).
 
 A rule with `dynamic = true` follows the window, as Hyprland's dynamic rules do: while the
 window's title and app ID match it, as they change, it holds the window to its `floating`,
@@ -3909,6 +3943,14 @@ apply, and whether keep awake is on; then a line per step with its timeout in mi
 that power source and whether it has been taken since the last input; then a line `inhibitor`
 per idle inhibitor with whether it applies (1 or 0) and what its surface belongs to: `window`
 and its title, `layer` and its namespace, or `other` and `-`.
+
+A [window rule's](#window-rules) `idle_inhibit` keeps the machine awake for windows that hold no
+inhibitor, as an X11 game cannot: while the window is open (`"always"`), shows (`"visible"`), has
+the focus (`"focus"`) or is fullscreen and shows (`"fullscreen"`), never behind the lock; and
+`"none"` refuses a window's own inhibitors, so that a browser playing music in a background tab
+lets the screens go off. Such a window counts among those that apply in `state`, and `get idle`
+ends with a line `rule` per window a rule names: whether it keeps the machine awake now (1 or 0),
+the rule's value and the window's title.
 
 **Keep awake.** The `keep_awake_on` action holds every step off, as an idle inhibitor that always
 applies would, until `keep_awake_off` (or paw restarting) lets them count again from then;

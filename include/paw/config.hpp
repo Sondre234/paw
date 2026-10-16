@@ -73,12 +73,20 @@ struct Launcher {
     Command command;
 };
 
-// What rules do to a window as it opens; unset fields leave it to the defaults.
+// What rules do to a window as it opens, and the look and idle inhibition they give it; unset
+// fields leave it to the defaults.
 struct WindowActions {
     enum class Position { Unset, Center, At };
     std::optional<bool> floating, fullscreen, maximize, focus, sticky, above, allow_tearing;
     std::optional<bool> blur; // the background blurred behind it, whatever windows.blur says
     std::optional<bool> shortcuts_inhibit; // false: the window's inhibitors are refused
+    std::optional<bool> scratchpad;        // opens hidden in the scratchpad
+    // Its look, which follows its title and app ID: a shadow and a border drawn or not, whatever
+    // windows.shadow and border_width say, its corners' radius, and its border's colours.
+    std::optional<bool> shadow, border;
+    std::optional<int> corner_radius;
+    std::optional<sh_gradient> border_color, border_inactive_color;
+    std::optional<sh_idle_rule> idle_inhibit; // which follows them too
     std::optional<int> workspace;      // from 1
     std::optional<std::string> output; // connector, or "desc:" and the start of its description
     std::optional<std::pair<int, int>> size;

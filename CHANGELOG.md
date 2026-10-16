@@ -504,6 +504,17 @@ shadows.
   `sticky` and `above`, and once they no longer do the window gets back what it had, keeping
   what was changed by hand meanwhile. Their other actions still act once, as the window opens.
   `paw msg get dynamic_rules` tells what they hold each window to.
+- Window rules give a window a look of its own, as Hyprland's `noshadow`, `noborder`,
+  `bordercolor` and `rounding` do: `shadow = false` (or `true`), `border = false`,
+  `border_color` and `border_inactive_color` (a gradient too) and `corner_radius`. Their
+  `idle_inhibit` keeps the machine awake while the window is open (`"always"`), shows
+  (`"visible"`), has the focus (`"focus"`) or is fullscreen (`"fullscreen"`), so `{ app_id = ".*",
+  idle_inhibit = "fullscreen" }` keeps games and films awake, and `"none"` refuses a window's own
+  inhibitor, as a browser playing music in a background tab holds. These follow the window's title
+  as it changes and apply anew on a reload. `scratchpad = true` opens the window hidden in the
+  scratchpad, for `scratchpad_show` to drop it down. `paw msg get idle` lists the windows an
+  `idle_inhibit` names, and `get frames` the colour of each border. `paw import` brings
+  Hyprland's `noshadow`, `noborder`, `rounding`, `bordercolor` and `idleinhibit` rules over.
 - `layout.floating_above_tiles = true` keeps floating windows over the tiles, as sway and Hyprland
   do. It is off by default: as before, the window brought forward last is in front, tile or not.
 - A fullscreen window stays in front of its monitor while another monitor has the focus, as

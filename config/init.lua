@@ -280,12 +280,21 @@ return {
         -- apply as a window opens, every matching rule in order, later ones winning:
         -- floating, workspace (on its monitor, without switching there), output (connector
         -- or "desc:..."), size = { w, h }, position = "center" or { x, y } (from the
-        -- monitor's top-left, panels excluded), fullscreen, maximize, focus = false, sticky.
+        -- monitor's top-left, panels excluded), fullscreen, maximize, focus = false, sticky,
+        -- scratchpad (opens hidden there, for scratchpad_show). The look follows the title as
+        -- it changes: shadow, border (false: none drawn), border_color, border_inactive_color
+        -- (a gradient too), corner_radius; and so does idle_inhibit, which keeps the machine
+        -- awake while the window is open ("always"), shows ("visible"), has the focus
+        -- ("focus") or is fullscreen ("fullscreen"), or with "none" refuses its own inhibitor.
         -- rules = {
         --     { app_id = "^firefox$", opacity = 0.9, inactive_opacity = 0.85 },
         --     { app_id = "^org.pulseaudio.pavucontrol$", floating = true, size = { 800, 500 },
         --       position = "center" },
         --     { app_id = "^thunderbird$", workspace = 2, focus = false },
+        --     { app_id = ".*", idle_inhibit = "fullscreen" }, -- any window while fullscreen
+        --     { app_id = "^dropterm$", scratchpad = true, size = { 1000, 500 } },
+        --     { title = "Picture-in-Picture", sticky = true, border = false, shadow = false },
+        --     { app_id = "^kitty$", border_color = { "#f5c2e7", "#89b4fa", angle = 45 } },
         -- },
     },
     -- Desktop effects, all off until you bind or enable them (see the README, "Effects"):

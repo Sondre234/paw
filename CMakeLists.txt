@@ -169,6 +169,7 @@ if(BUILD_TESTING)
     paw_unit_test(window_features)
     paw_unit_test(import ${CMAKE_CURRENT_SOURCE_DIR}/tests/import)
     paw_unit_test(urgent_config)
+    paw_unit_test(rule_fields_config)
     paw_unit_test(productivity)
     paw_unit_test(power_config)
     paw_unit_test(lock_style ${EXAMPLE_CONFIG})
@@ -289,6 +290,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/display_mode.c
         src/compositor/display_settings.c
         src/compositor/dynamic_rules.c
+        src/compositor/window_rules.c
         src/compositor/effects.c
         src/compositor/focus.c
         src/compositor/foreign_toplevel.c
@@ -804,6 +806,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(spawn_at_pointer_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(scratchpad_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(rule_scratchpad_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scratchpad_drop_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe>)
         paw_smoke(group_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
@@ -830,6 +833,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(window_style_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(window_round_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(window_rules_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(rule_look_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(output_workspace_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(output_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         add_executable(animation_tests tests/animation_tests.c src/animation.c
@@ -864,6 +868,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(idle_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> $<TARGET_FILE:window_probe>
             "${GRIM_ARGUMENT}")
+        paw_smoke(idle_rule_smoke $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
+            $<TARGET_FILE:wayland_probe>)
         paw_smoke(urgent_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(urgent_border_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")

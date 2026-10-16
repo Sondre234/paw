@@ -177,7 +177,8 @@ void maximize_toplevel(struct sh_toplevel *toplevel, bool maximized) {
 bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rule) {
     const struct sh_callbacks *callbacks = toplevel->server->callbacks;
     const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
-    *rule = (struct sh_window_rule){.floating = -1, .blur = -1};
+    *rule = (struct sh_window_rule){
+        .floating = -1, .blur = -1, .shadow = -1, .border = -1, .corner_radius = -1};
     return callbacks->window_rule &&
            callbacks->window_rule(callbacks->userdata, app_id ? app_id : "", title ? title : "",
                                   rule);
@@ -213,7 +214,8 @@ static bool initial_tile_size(struct sh_toplevel *toplevel, int *width, int *hei
     // A rule that places the window elsewhere or keeps it out of the tiling decides at map.
     struct sh_window_rule rule;
     if (window_rule(toplevel, &rule) && (rule.floating == 1 || rule.workspace || rule.output[0] ||
-                                         rule.fullscreen || rule.maximize || rule.sticky))
+                                         rule.fullscreen || rule.maximize || rule.sticky ||
+                                         rule.scratchpad))
         return false;
     struct sh_toplevel *target;
     struct wlr_output *output = new_tile_split(toplevel, new_window_output(toplevel), &target);
@@ -271,6 +273,15 @@ void map_toplevel(struct sh_toplevel *toplevel, bool fullscreen, bool maximized)
     bool ruled = window_rule(toplevel, &rule);
     ruled = session_claim(server, toplevel, &rule, ruled);
     ruled = open_dynamic_rules(toplevel, &rule, ruled);
+    // A rule's scratchpad opens it floating and out of the way, then hides it there (below),
+    // whatever else it says of how it shows.
+    bool hidden = ruled && rule.scratchpad && server_settings(server)->scratchpad;
+    if (hidden) {
+        rule.floating = 1;
+        rule.sticky = rule.fullscreen = rule.maximize = false;
+        rule.no_focus = true;
+        fullscreen = maximized = false;
+    }
     struct wlr_output *output = new_window_output(toplevel);
     if (ruled && rule.output[0]) {
         struct wlr_output *named = find_output_key(server, rule.output);
@@ -427,11 +438,14 @@ void map_toplevel(struct sh_toplevel *toplevel, bool fullscreen, bool maximized)
             activation_requested(toplevel);
     }
 #endif
+    if (hidden)
+        hide_in_scratchpad(toplevel); // unseen, so it drops in as it is first shown
     // The first frame is already committed and shows at once, only faded and a little small.
     toplevel->shown = true;
     struct wlr_box box = toplevel_geometry(toplevel);
-    sh_anim_open(server->animator, &toplevel->anim, toplevel->content, box.width / 2.0,
-                 box.height / 2.0);
+    if (!hidden)
+        sh_anim_open(server->animator, &toplevel->anim, toplevel->content, box.width / 2.0,
+                     box.height / 2.0);
     notify_subscribers(server); // its workspace holds a window now
 }
 
@@ -649,6 +663,7 @@ static void set_fullscreen_focus(struct sh_toplevel *toplevel, bool fullscreen, 
         focus_toplevel(toplevel);
     refresh_decoration(toplevel);
     refresh_frame(toplevel);
+    idle_inhibitors_follow(server); // a rule's idle_inhibit = "fullscreen"
 }
 
 /* Fullscreen the client asks for itself, like a video player's: it covers the panels too. */

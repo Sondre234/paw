@@ -1078,6 +1078,14 @@ std::pair<int, int> integer_pair(lua_State *L, const char *label, const char *fi
         fail(message);
     return result;
 }
+void border_colors(lua_State *L, const char *key, float (&first)[4], sh_gradient &gradient);
+// A rule's border colour, `border_color` or `border_inactive_color`, as windows' are given.
+std::optional<sh_gradient> rule_border_color(lua_State *L, const char *key) {
+    sh_gradient gradient{};
+    float first[4];
+    border_colors(L, key, first, gradient);
+    return gradient.count ? std::optional(gradient) : std::nullopt;
+}
 WindowRule window_rule(lua_State *L, int workspaces) {
     WindowRule rule;
     rule.pattern = pattern_field(L, "app_id", rule.app_id);
@@ -1098,6 +1106,23 @@ WindowRule window_rule(lua_State *L, int workspaces) {
     actions.above = optional_boolean(L, "above");
     actions.allow_tearing = optional_boolean(L, "allow_tearing");
     actions.blur = optional_boolean(L, "blur");
+    actions.scratchpad = optional_boolean(L, "scratchpad");
+    actions.shadow = optional_boolean(L, "shadow");
+    actions.border = optional_boolean(L, "border");
+    if (present(L, "corner_radius"))
+        actions.corner_radius = integer(L, "corner_radius", 0, 0, 40);
+    actions.border_color = rule_border_color(L, "border_color");
+    actions.border_inactive_color = rule_border_color(L, "border_inactive_color");
+    if (present(L, "idle_inhibit")) {
+        sh_idle_rule idle = SH_IDLE_RULE_UNSET;
+        named(L, "idle_inhibit", qualified("idle_inhibit").c_str(), idle,
+              {{"none", SH_IDLE_RULE_NONE},
+               {"always", SH_IDLE_RULE_ALWAYS},
+               {"visible", SH_IDLE_RULE_VISIBLE},
+               {"focus", SH_IDLE_RULE_FOCUS},
+               {"fullscreen", SH_IDLE_RULE_FULLSCREEN}});
+        actions.idle_inhibit = idle;
+    }
     if (present(L, "workspace"))
         actions.workspace = integer(L, "workspace", 0, 1, workspaces);
     if (auto name = text(L, "output")) {
@@ -1218,14 +1243,14 @@ void read_blur(lua_State *L, Config &config) {
     }
 }
 // A border's colours: `#RRGGBB[AA]`, or a gradient `{ "#RRGGBB[AA]", ..., angle = DEGREES }` of
-// 2 to SH_GRADIENT_STOPS colours, whose first colour is also `first`.
+// 2 to SH_GRADIENT_STOPS colours, whose first colour is also `first`; windows' or a rule's.
 void border_colors(lua_State *L, const char *key, float (&first)[4], sh_gradient &gradient) {
     lua_getfield(L, -1, key);
     if (lua_isnil(L, -1)) {
         lua_pop(L, 1);
         return;
     }
-    std::string label = std::string("windows.") + key;
+    std::string label = qualified(key);
     gradient = {};
     if (lua_istable(L, -1)) {
         auto message = label + " must be #RRGGBB, #RRGGBBAA, or a gradient { \"#RRGGBB\", "
@@ -1251,7 +1276,7 @@ void border_colors(lua_State *L, const char *key, float (&first)[4], sh_gradient
         gradient.count = static_cast<int>(count);
         gradient.angle = static_cast<float>(number(L, "angle", 0, -360, 360));
     } else {
-        premultiplied(string(L, -1, key), key, gradient.stops[0]);
+        premultiplied(string(L, -1, label.c_str()), label.c_str(), gradient.stops[0]);
         gradient.count = 1;
     }
     std::copy(std::begin(gradient.stops[0]), std::end(gradient.stops[0]), first);
@@ -2553,7 +2578,8 @@ bool WindowRule::matches(const std::string &app_id, const std::string &title) co
 
 bool WindowActions::empty() const {
     return !floating && !fullscreen && !maximize && !focus && !sticky && !above && !allow_tearing &&
-           !blur &&
+           !blur && !scratchpad && !shadow && !border && !corner_radius && !border_color &&
+           !border_inactive_color && !idle_inhibit &&
            !workspace && !output && !size && position == Position::Unset && !shortcuts_inhibit;
 }
 
@@ -2566,9 +2592,20 @@ void WindowActions::merge(const WindowActions &other) {
                                   {&shortcuts_inhibit, &other.shortcuts_inhibit},
                                   {&above, &other.above},
                                   {&allow_tearing, &other.allow_tearing},
-                                  {&blur, &other.blur}})
+                                  {&blur, &other.blur},
+                                  {&scratchpad, &other.scratchpad},
+                                  {&shadow, &other.shadow},
+                                  {&border, &other.border}})
         if (*source)
             *target = *source;
+    for (auto [target, source] : {std::pair{&border_color, &other.border_color},
+                                  {&border_inactive_color, &other.border_inactive_color}})
+        if (*source)
+            *target = *source;
+    if (other.corner_radius)
+        corner_radius = other.corner_radius;
+    if (other.idle_inhibit)
+        idle_inhibit = other.idle_inhibit;
     if (other.workspace)
         workspace = other.workspace;
     if (other.output)
@@ -2603,6 +2640,15 @@ sh_window_rule WindowActions::to_c() const {
     rule.above = above.value_or(false);
     rule.allow_tearing = allow_tearing.value_or(false);
     rule.blur = blur ? *blur : -1;
+    rule.scratchpad = scratchpad.value_or(false);
+    rule.shadow = shadow ? *shadow : -1;
+    rule.border = border ? *border : -1;
+    rule.corner_radius = corner_radius.value_or(-1);
+    if (border_color)
+        rule.border_color = *border_color;
+    if (border_inactive_color)
+        rule.border_inactive_color = *border_inactive_color;
+    rule.idle_inhibit = idle_inhibit.value_or(SH_IDLE_RULE_UNSET);
     return rule;
 }
 

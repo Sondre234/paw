@@ -62,7 +62,7 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
 
     def borders():
         """By title: how the border is drawn (none, color or gradient)."""
-        return {r[1]: r[-1] for r in desktop.rows("frames")}
+        return {r[1]: r[12] for r in desktop.rows("frames")}
 
     def numbers():
         """By title: the window's number."""

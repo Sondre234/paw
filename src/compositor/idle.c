@@ -209,6 +209,7 @@ void idle_hold_changed(struct sh_server *server) {
 }
 
 void idle_reload(struct sh_server *server) {
+    idle_inhibitors_follow(server); // the rules' idle_inhibit may have changed
     idle_update(server);
 }
 
