@@ -786,6 +786,9 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   worst frames halved) and drops no frames for it: its 240 pieces change out of the scene's
   sight and come back together, where the scene worked out what to draw again after each of
   some 700 changes a frame.
+- The shell no longer loses some 2.7 KB of memory each time a shadow drawn through the GPU goes,
+  as the floating bar's does while a window docks it: Qt's shadow never frees the shader effect
+  it draws with, which the shell now hands to the shadow to go with it.
 
 ## 0.1.1 (2026-10-05)
 
