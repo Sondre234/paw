@@ -85,7 +85,7 @@ bool sh_session_path(const char *name, char *path, size_t size);
 
 /* Writes `text` percent-encoded, so it holds no tab, newline, other control character, or
  * '%'; with `arg` also no space. Returns the length that would have been written, as
- * snprintf. */
+ * snprintf; cut short, the text ends after the last byte or whole escape that fits. */
 size_t sh_session_encode(const char *text, bool arg, char *out, size_t size);
 /* The reverse; returns the decoded length. */
 size_t sh_session_decode(const char *text, size_t length, char *out, size_t size);
