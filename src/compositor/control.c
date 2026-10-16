@@ -14,6 +14,7 @@ struct sh_control_client {
     struct sh_server *server;
     int fd;
     struct wl_event_source *source;
+    struct wl_event_source *timer; // until its request has come in whole (CONTROL_REQUEST_MS)
     bool subscribed; // "subscribe": stays open and receives the state after each change
     bool shell;      // "subscribe shell": the desktop shell, which carries out what it is asked
     struct wl_list link; // in the server's control_pending until it subscribes, then subscribers
@@ -479,6 +480,8 @@ static void control_handle(struct sh_server *server, int fd, const char *request
 static void control_client_close(struct sh_control_client *client) {
     wl_list_remove(&client->link);
     wl_event_source_remove(client->source);
+    if (client->timer)
+        wl_event_source_remove(client->timer);
     close(client->fd);
     free(client);
 }
@@ -746,6 +749,8 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
                     !strcmp(client->request, "subscribe shell"))) {
         client->subscribed = true;
         client->shell = client->request[9] != '\0';
+        wl_event_source_remove(client->timer);
+        client->timer = NULL;
         wl_list_remove(&client->link);
         wl_list_insert(&client->server->subscribers, &client->link);
         char state[3 + sizeof(client->server->sent_state)] = "ok\n";
@@ -769,6 +774,20 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
     return 0;
 }
 
+/* A connection has this long to send its whole request, so that ones that never do cannot pile
+ * up until paw runs out of file descriptors (and no new window can connect). Every client sends
+ * its request as it connects. */
+#define CONTROL_REQUEST_MS 5000
+
+/* Closes a connection that has not sent its request in time. */
+static int control_client_late(void *data) {
+    struct sh_control_client *client = data;
+    static const char late[] = "error: no request within 5 seconds\n";
+    send(client->fd, late, sizeof(late) - 1, MSG_NOSIGNAL | MSG_DONTWAIT);
+    control_client_close(client);
+    return 0;
+}
+
 static int control_accept(int fd, uint32_t mask, void *data) {
     struct sh_server *server = data;
     int client_fd = accept4(fd, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
@@ -781,9 +800,16 @@ static int control_accept(int fd, uint32_t mask, void *data) {
     }
     client->server = server;
     client->fd = client_fd;
-    client->source = wl_event_loop_add_fd(wl_display_get_event_loop(server->wl_display), client_fd,
-                                          WL_EVENT_READABLE, control_client_readable, client);
-    if (!client->source) {
+    struct wl_event_loop *loop = wl_display_get_event_loop(server->wl_display);
+    client->source =
+        wl_event_loop_add_fd(loop, client_fd, WL_EVENT_READABLE, control_client_readable, client);
+    client->timer = wl_event_loop_add_timer(loop, control_client_late, client);
+    if (!client->source || !client->timer ||
+        wl_event_source_timer_update(client->timer, CONTROL_REQUEST_MS) < 0) {
+        if (client->source)
+            wl_event_source_remove(client->source);
+        if (client->timer)
+            wl_event_source_remove(client->timer);
         close(client_fd);
         free(client);
         return 0;
