@@ -127,7 +127,7 @@ PopupCard {
                     readonly property var window: card.front.hoveredWindow
                     visible: !!window
                     Layout.preferredWidth: Theme.iconSizeSmall; Layout.preferredHeight: Theme.iconSizeSmall
-                    source: window ? "image://icons/" + shell.iconFor(window.appId || "") : ""
+                    source: window ? shell.iconBase + shell.iconFor(window.appId || "") : ""
                     sourceSize: Qt.size(Theme.iconSizeSmall, Theme.iconSizeSmall)
                 }
                 Text {

@@ -686,7 +686,9 @@ Icons come from the icon theme the desktop names: Qt's platform theme's (qt6ct, 
 `icon-theme` setting where it is set (GNOME Settings, `gsettings`, nwg-look), else
 `gtk-icon-theme-name` in GTK's `settings.ini`, else KDE's `kdeglobals`. After it the shell looks
 in Breeze, Adwaita or Papirus, whichever is installed, so that the generic icons applications and
-the shell name are found under any theme. A change of theme shows after the shell restarts.
+the shell name are found under any theme. A change of the desktop's theme shows after the shell
+restarts; `appearance.icon_theme` names one for paw, mostly in an
+[appearance profile](#appearance-profiles), which shows at once.
 
 ### Taskbar menus
 
@@ -2537,7 +2539,8 @@ settings, nwg-look or HyDE set), else `gtk-cursor-theme-name` and `gtk-cursor-th
 GTK's `settings.ini`, provided the theme is installed (in `~/.local/share/icons`, `~/.icons` or
 `/usr/share/icons`). Failing that it is Adwaita at 24 pixels. paw exports both variables, so that
 the programs it starts draw the same cursor, and reads them as it starts: a change takes a
-restart.
+restart. `appearance.cursor_theme` and `cursor_size` name a theme and size for paw instead, mostly
+in an [appearance profile](#appearance-profiles), which change the cursor at once.
 
 `mouse.hide_when_typing = true` hides the cursor as a key is typed into an application or its
 input method, as macOS does, until the pointer moves, clicks or scrolls (a drawing tablet's pen
@@ -2969,6 +2972,35 @@ profile without it leaves the preference as it is, and a choice made in other se
 stands until a profile with another scheme is picked. Only a login session (`--session`) sets
 it: a nested or headless paw leaves the desktop it runs in alone.
 
+A profile can bring its own cursor and icons too: `appearance.cursor_theme`, `cursor_size` and
+`icon_theme` name a cursor theme, a cursor size in pixels and an icon theme, by the name of their
+folder in an icons directory (`~/.local/share/icons`, `~/.icons`, `/usr/share/icons`, or
+`$XCURSOR_PATH` for cursors).
+
+```lua
+profiles = {
+    mochi = {
+        appearance = { background = "#1e1e2e", color_scheme = "dark",
+                       cursor_theme = "catppuccin-mocha-light-cursors", cursor_size = 32,
+                       icon_theme = "Mochi" },
+    },
+},
+```
+
+Picking the profile changes the cursor at once, over X11 windows too, and the shell's icons: the
+taskbar's, the dock's, the start menu's and Launchpad's, the tray's, the notifications', the
+switcher's and the rest, those it shows already included. Programs started afterwards get the
+cursor theme and size as `$XCURSOR_THEME` and `$XCURSOR_SIZE`. A theme that is not installed is
+skipped, with a line in the log saying so, and a profile without them, or with `""` and `0`,
+has the session's own: the cursor paw started with (see [Input](#input)) and the icon theme the
+desktop names. A login session (`--session`) also sets `org.gnome.desktop.interface`'s
+`cursor-theme`, `cursor-size` and `icon-theme` with `gsettings`, which GTK applications follow,
+keeping each value it replaces to put back as a profile without one is picked and as the session
+ends, so that your own settings are yours again outside paw; meanwhile, as with the color scheme,
+a choice made in other settings stands until the profile's changes. An application that asks the
+compositor to draw its cursor by name (cursor-shape-v1, as recent GTK and Qt do) follows at once;
+one that draws its own over its windows may keep the old one until it starts again.
+
 Switching profiles is one crossfade on every monitor. Each keeps showing what it showed, a picture
 of it laid over everything, while the compositor and the shell take up the new look under it, so
 that no frame shows the old bar with the new borders; once the shell has drawn the new look, its
@@ -3355,7 +3387,8 @@ or `-` twice for nothing; during a drag the pointer is on nothing. `paw msg get 
 cursor_image` the image it shows: the name of an xcursor (`default`, `grabbing`, `ns-resize`, ...,
 one paw shows or a shape a client asks for), `client` for a client's own picture, or `none`.
 `paw msg get cursor_size` prints the size it is drawn at in logical pixels, `$XCURSOR_SIZE` but
-while a shake grows it. `paw msg get crossfade` prints one
+while a shake grows it, and `paw msg get cursor_theme` the cursor theme it is drawn in and its
+size, by a tab; subscribers hear `cursor-theme SIZE NAME` with the state. `paw msg get crossfade` prints one
 line per monitor with a picture of the old look over it while an
 [appearance profile](#appearance-profiles) crossfades in: the monitor, `held` while it waits for
 the shell or `fading`, the profile, and the picture's opacity in thousandths; the shell tells the
@@ -3695,7 +3728,7 @@ but read by a parser of Lua's table syntax alone, which takes strings, numbers, 
 and refuses names, calls and operators, so `os.execute`, `io.open`, `require` or `load` in it are
 errors, not calls. It sets only how the desktop looks: colours, borders, corners, opacity, shadows,
 the blur behind windows, the bar's style, size, place, font and widgets, the tiling bar, the
-wallpaper and the start button. Launchers, window rules, the search's folders and web address, the
+wallpaper, the start button, and the cursor and icon themes by name (one you have installed). Launchers, window rules, the search's folders and web address, the
 clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other section
 are refused, and `paw rice pack` leaves them out. The pictures and other files it names are paths
 inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor through one;

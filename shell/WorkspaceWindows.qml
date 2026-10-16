@@ -202,7 +202,7 @@ Item {
                     anchors.centerIn: parent
                     readonly property real side: Math.min(Theme.appIconSize, parent.width * 0.6, parent.height * 0.6)
                     width: side; height: side
-                    source: copy.window ? "image://icons/" + shell.iconFor(copy.window.appId || "") : ""
+                    source: copy.window ? shell.iconBase + shell.iconFor(copy.window.appId || "") : ""
                     sourceSize: Qt.size(Theme.appIconSize, Theme.appIconSize)
                     smooth: true; mipmap: true
                 }

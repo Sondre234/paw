@@ -409,14 +409,20 @@ void xwayland_ready(struct wl_listener *listener, void *data) {
 #if PAW_XWM_WAKER
     open_xwm_waker(server);
 #endif
-    if (wlr_xcursor_manager_load(server->cursor_mgr, 1)) {
-        struct wlr_xcursor *xcursor =
-            wlr_xcursor_manager_get_xcursor(server->cursor_mgr, "default", 1);
-        if (xcursor) {
-            struct wlr_xcursor_image *image = xcursor->images[0];
-            wlr_xwayland_set_cursor(server->xwayland, wlr_xcursor_image_get_buffer(image),
-                                    image->hotspot_x, image->hotspot_y);
-        }
+    xwayland_give_cursor(server);
+}
+
+/* X11 windows get the cursor theme's arrow where they set no cursor of their own: as XWayland
+ * is ready, and as the theme changes (profile_themes.c) once it is. */
+void xwayland_give_cursor(struct sh_server *server) {
+    if (!server->xwayland || !server->xwayland->xwm ||
+        !wlr_xcursor_manager_load(server->cursor_mgr, 1))
+        return;
+    struct wlr_xcursor *xcursor = wlr_xcursor_manager_get_xcursor(server->cursor_mgr, "default", 1);
+    if (xcursor) {
+        struct wlr_xcursor_image *image = xcursor->images[0];
+        wlr_xwayland_set_cursor(server->xwayland, wlr_xcursor_image_get_buffer(image),
+                                image->hotspot_x, image->hotspot_y);
     }
 }
 #endif

@@ -69,6 +69,7 @@ all. In short:
 | `cursor.c` | What is under the pointer, and the tile the user moved it onto (`pointed_tile`), focus on hover, button bindings, scrolling, the cursor image. |
 | `cursor_hide.c` | The cursor hidden while typing (`mouse.hide_when_typing`) and once the pointer has rested (`mouse.hide_after`), as reasons of `cursor_hide`'s besides a screenshot's, until the pointer is used (`cursor_used`). |
 | `cursor_shake.c` | Shaking the pointer to find it (`mouse.shake_to_find`): a shake (`src/shake.c`) grows the cursor, its image from the theme at three times the size given as a buffer at the scale of the moment, stepped on a timer; meanwhile what sets the cursor's image only notes it (`cursor_grown`), and the image it would have shows as it is back to its size; `get cursor_size`. |
+| `profile_themes.c` | The cursor and icon themes of appearance profiles (`appearance.cursor_theme`, `cursor_size`, `icon_theme`): the cursor drawn in the profile's theme and size where it is installed (`sh_theme_installed`, `src/theme_lookup.cpp`), else the session's own; a change makes a new xcursor manager, shows the cursor's image from it, gives X11 windows its arrow (`xwayland_give_cursor`) and later programs `$XCURSOR_THEME` and `$XCURSOR_SIZE`, tells the shell `cursor-theme SIZE NAME` and has `cursor_shake.c` follow (`cursor_shake_retheme`); in a login session, gsettings' `cursor-theme`, `cursor-size` and `icon-theme`, the user's own values kept to put back (the icon theme also as `$PAW_USER_ICON_THEME`, for a shell started meanwhile) as a profile without them is picked and as the session ends; `get cursor_theme`. |
 | `gestures.c` | Touchpad gestures: the swipes `gestures` takes (workspaces and the overview following the fingers, requests), and the rest passed on to the surface under the pointer (pointer-gestures-unstable-v1). |
 | `tablet.c` | Drawing tablets (tablet-v2): tools with pressure and tilt to the surfaces under them, the pointer where tablet input is not taken, pads to the surface with the keyboard, and the output a tablet is mapped to. |
 | `touch.c` | Touchscreens: fingers to the surfaces under them (wl_touch), the pointer for clients without touch and the compositor's own controls, and the output each screen is mapped to. |
@@ -1405,6 +1406,16 @@ theme has. QML names a window's icon through `shell.iconFor(appId)`, never by it
 may be a path. `icons.cpp` serves `image://icons/NAME` and, at startup, picks the icon theme the
 desktop names when no platform theme does (`useDesktopIconTheme`). `tests/app_icons_test.cpp`
 tests both with real applications' entries and app ids.
+
+`appearance.icon_theme` (a profile's) changes the theme while the shell runs:
+`ShellController::followIconTheme`, from `loadConfig`, sets it where `iconThemeInstalled` finds it,
+else the theme the shell started with, keeping Qt's folders of themes. Qt Quick keeps the images
+it loaded by URL, so every QML image of an icon is `shell.iconBase + name`, and `iconBase` turns
+from `image://icons/` to `image://icons/@N/` (which `Icons` strips) at the Nth change: each image
+loads again. `iconFor`'s guesses are dropped and the tray's pictures and menus get new revisions
+(`TrayModel::redraw`). `shell_ui` checks that no QML file builds an `image://icons/` URL itself.
+The compositor's `cursor-theme SIZE NAME` line sets the shell's `$XCURSOR_THEME` and
+`$XCURSOR_SIZE`, for the programs it starts.
 
 An `ImageProvider` (`image_provider.hpp`) serves the pictures of the shell's models
 (`image://notify`, `tray`, `windows`, `clipboard`) on the GUI thread alone, since the models have no

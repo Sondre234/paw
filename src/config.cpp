@@ -1902,6 +1902,17 @@ void read_modes(lua_State *L, Config &config) {
                  mode.name);
     }
 }
+// appearance.KEY, a cursor or icon theme: the name of a folder of an icons directory, so not a
+// path; "" for the session's own, as unset.
+template <std::size_t N> void theme_name(lua_State *L, const char *key, char (&target)[N]) {
+    const auto label = std::string("appearance.") + key;
+    auto name = text(L, key, label.c_str());
+    if (!name)
+        return;
+    if (name->find('/') != std::string::npos || *name == "." || *name == "..")
+        fail(label + " must be a theme's name, such as \"Adwaita\", not a path", key);
+    copy_text(*name, target, label);
+}
 // `directory` is the configuration file's, which relative paths in it start from.
 Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
     Config config;
@@ -1936,6 +1947,9 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         named(L, "color_scheme", "appearance.color_scheme", config.settings.color_scheme,
               {{"light", SH_COLOR_SCHEME_LIGHT}, {"dark", SH_COLOR_SCHEME_DARK}},
               "appearance.color_scheme must be \"light\" or \"dark\"", "color_scheme");
+        theme_name(L, "cursor_theme", config.settings.cursor_theme);
+        config.settings.cursor_size = integer(L, "cursor_size", 0, 0, 256);
+        theme_name(L, "icon_theme", config.settings.icon_theme);
         if (Section ambient{L, "ambient", "appearance.ambient"}) {
             auto &settings = config.settings;
             named(L, "kind", "appearance.ambient.kind", settings.ambient,

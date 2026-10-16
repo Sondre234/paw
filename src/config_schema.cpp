@@ -58,6 +58,27 @@ const Option options[] = {
      "GTK and libadwaita applications, Firefox, Chromium and Electron applications such as "
      "Discord read through xdg-desktop-portal. Only a login session (`--session`) sets it. "
      "Unset, paw leaves the preference as it is."},
+    {"appearance.cursor_theme", "string", "unset", "\"Bibata-Modern-Ice\"", none, none,
+     "The cursor theme, by the name of its folder in an icons directory (`~/.local/share/icons`, "
+     "`/usr/share/icons`, or `$XCURSOR_PATH`), mostly for a profile: picking one changes the "
+     "cursor at once, X11 applications' too, and programs started afterwards get it as "
+     "`$XCURSOR_THEME`. A login session (`--session`) also sets `org.gnome.desktop.interface "
+     "cursor-theme` with `gsettings` for GTK applications, and puts back the theme it replaced "
+     "as a profile without one is picked and as the session ends. A theme that is not installed "
+     "is skipped, saying so in the log. Unset or `\"\"`, the session's own: `$XCURSOR_THEME`, "
+     "else the desktop's settings as paw started, else Adwaita."},
+    {"appearance.cursor_size", "integer", "unset", "32", 0, 256,
+     "The cursor's size in pixels at scale 1, applied as `cursor_theme` is (`$XCURSOR_SIZE`, "
+     "`cursor-size`). Unset or `0`, the session's own: `$XCURSOR_SIZE`, else the desktop's "
+     "settings, else 24."},
+    {"appearance.icon_theme", "string", "unset", "\"Papirus-Dark\"", none, none,
+     "The icon theme the shell draws applications' and other icons from, by the name of its "
+     "folder in an icons directory, mostly for a profile: picking one shows its icons at once "
+     "in the taskbar, the menus, the tray and notifications. A login session (`--session`) also "
+     "sets `org.gnome.desktop.interface icon-theme` for GTK applications, and puts back the one "
+     "it replaced as a profile without one is picked and as the session ends. A theme that is "
+     "not installed is skipped, saying so in the log. Unset or `\"\"`, the desktop's own: "
+     "GNOME's setting, else GTK's `settings.ini`, else KDE's."},
     {"appearance.ambient", "table", "", "", none, none,
      "Particles drifting over the wallpaper, under the windows and panels: sakura petals "
      "tumbling down, soft snow, or fireflies wandering and glowing. An appearance profile may "

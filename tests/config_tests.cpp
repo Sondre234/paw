@@ -902,6 +902,39 @@ int main(int argc, char **argv) {
                 "appearance.color_scheme not parsed");
         rejects("return {appearance={color_scheme='auto'}}");
         rejects("return {appearance={color_scheme=true}}");
+        // appearance.cursor_theme, cursor_size and icon_theme: the session's own ("" and 0)
+        // unless named, a profile's laid over the file's, and "" or 0 in a profile taking the
+        // session's back.
+        {
+            const auto plain = paw::parse_config("return {}").settings;
+            require(!*plain.cursor_theme && plain.cursor_size == 0 && !*plain.icon_theme,
+                    "a cursor or icon theme without one named");
+            const char *themed = "return {appearance={cursor_theme='Bibata-Modern-Ice',"
+                                 "cursor_size=32,icon_theme='Papirus-Dark'},"
+                                 "profiles={mochi={appearance={cursor_theme='catppuccin',"
+                                 "icon_theme='Mochi'}},plain={appearance={cursor_theme='',"
+                                 "cursor_size=0,icon_theme=''}}}}";
+            const auto file = paw::parse_config(themed).settings;
+            const auto mochi = paw::parse_config(themed, "config", {}, "mochi").settings;
+            const auto reset = paw::parse_config(themed, "config", {}, "plain").settings;
+            require(std::string(file.cursor_theme) == "Bibata-Modern-Ice" &&
+                        file.cursor_size == 32 && std::string(file.icon_theme) == "Papirus-Dark",
+                    "appearance's cursor and icon themes not parsed");
+            require(std::string(mochi.cursor_theme) == "catppuccin" && mochi.cursor_size == 32 &&
+                        std::string(mochi.icon_theme) == "Mochi",
+                    "a profile's cursor and icon themes do not take the file's place");
+            require(!*reset.cursor_theme && reset.cursor_size == 0 && !*reset.icon_theme,
+                    "a profile cannot take the session's own cursor and icon themes back");
+        }
+        rejects("return {appearance={cursor_theme='../../etc'}}",
+                "appearance.cursor_theme must be a theme's name");
+        rejects("return {appearance={cursor_theme='a/b'}}");
+        rejects("return {appearance={icon_theme='..'}}", "appearance.icon_theme");
+        rejects("return {appearance={icon_theme=true}}");
+        rejects("return {appearance={cursor_size=300}}");
+        rejects("return {appearance={cursor_size=-1}}");
+        rejects("return {appearance={cursor_size=24.5}}");
+        rejects("return {appearance={cursor_theme=string.rep('x', 200)}}", "too long");
         rejects("return {layuot={gap=2}}");
         rejects("return {version=2}");
         rejects("return {shell={panel_height=0}}");

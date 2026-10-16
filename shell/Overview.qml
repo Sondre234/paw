@@ -125,7 +125,7 @@ Item {
                     x: Theme.spacingS; anchors.verticalCenter: parent.verticalCenter
                     width: Theme.iconSizeSmall; height: Theme.iconSizeSmall
                     sourceSize: Qt.size(2 * Theme.iconSizeSmall, 2 * Theme.iconSizeSmall)
-                    source: "image://icons/" + shell.iconFor(entry.modelData.appId)
+                    source: shell.iconBase + shell.iconFor(entry.modelData.appId)
                 }
                 Text {
                     anchors.left: icon.right; anchors.leftMargin: Theme.spacingS + Theme.spacingXS
