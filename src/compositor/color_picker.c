@@ -11,9 +11,11 @@
 #include <drm_fourcc.h>
 #include <wlr/util/transform.h>
 
-/* How often the picture is drawn again while its output draws frames, and how many `paw msg
+/* How often the picture is drawn again while its output draws frames, how often at most the
+ * loupe follows the pointer (a mouse may move a thousand times a second), and how many `paw msg
  * pick_color` may wait at once. */
 #define REFRESH_MS 100
+#define FOLLOW_MS 8
 #define WAITING_MAX 16
 
 struct sh_color_picker {
@@ -34,12 +36,21 @@ struct sh_color_picker {
     uint32_t color;
     bool has_color;
     int pixel_x, pixel_y;
-    /* The loupe's layout and look, the frame painted for them (NULL for none yet), and whether
-     * the cursor shows the loupe of the cells as they are. */
-    struct sh_loupe_layout layout;
+    /* The loupe's layout and frame (NULL until painted) for each side of the crosshair the
+     * card may be on (left, then above, as bits), at a scale and in a look; the side shown, and
+     * whether the cursor shows the loupe of the cells as they are. */
+    struct {
+        struct sh_loupe_layout layout;
+        uint32_t *frame;
+    } sides[4];
+    double scale;
     struct sh_loupe_look look;
-    uint32_t *frame;
+    int side;
     bool shown;
+    /* When it last followed the pointer, and whether it is behind it, which `catch_up` sees to. */
+    int64_t followed_at;
+    bool behind;
+    struct wl_event_source *catch_up;
     /* Buttons whose press it took: it takes their release too, after it ends as well. */
     uint32_t pressed;
     /* `paw msg pick_color` connections waiting for the colour. */
@@ -230,6 +241,18 @@ static struct sh_loupe_look loupe_look(struct sh_server *server) {
     return look;
 }
 
+static bool same_look(const struct sh_loupe_look *a, const struct sh_loupe_look *b) {
+    return a->surface == b->surface && a->text == b->text && a->accent == b->accent &&
+           a->text_alpha == b->text_alpha && a->light == b->light;
+}
+
+static void forget_frames(struct sh_color_picker *picker) {
+    for (int i = 0; i < 4; ++i) {
+        free(picker->sides[i].frame);
+        picker->sides[i].frame = NULL;
+    }
+}
+
 /* The cursor shows the loupe of the cells as they are, the card on the side of the crosshair
  * where it fits on the output. */
 static void show_loupe(struct sh_server *server) {
@@ -246,22 +269,26 @@ static void show_loupe(struct sh_server *server) {
     bool above = !wlr_box_empty(&box) &&
                  server->cursor->y + SH_LOUPE_OFFSET + card_height > box.y + box.height;
     struct sh_loupe_look look = loupe_look(server);
-    if (!picker->frame || picker->layout.scale != scale || picker->layout.left != left ||
-        picker->layout.above != above || memcmp(&look, &picker->look, sizeof(look))) {
-        free(picker->frame);
-        sh_loupe_layout(scale, left, above, &picker->layout);
+    if (scale != picker->scale || !same_look(&look, &picker->look)) {
+        forget_frames(picker);
+        picker->scale = scale;
         picker->look = look;
-        picker->frame = malloc((size_t)picker->layout.width * picker->layout.height * 4);
-        if (!picker->frame)
-            return;
-        sh_loupe_paint_frame(picker->frame, &picker->layout, &picker->look);
     }
-    const struct sh_loupe_layout *layout = &picker->layout;
+    picker->side = (left ? 1 : 0) | (above ? 2 : 0);
+    const struct sh_loupe_layout *layout = &picker->sides[picker->side].layout;
+    uint32_t **frame = &picker->sides[picker->side].frame;
+    if (!*frame) {
+        sh_loupe_layout(scale, left, above, &picker->sides[picker->side].layout);
+        *frame = malloc((size_t)layout->width * layout->height * 4);
+        if (!*frame)
+            return;
+        sh_loupe_paint_frame(*frame, layout, &picker->look);
+    }
     size_t size = (size_t)layout->width * layout->height * 4;
     uint32_t *pixels = malloc(size);
     if (!pixels)
         return;
-    memcpy(pixels, picker->frame, size);
+    memcpy(pixels, *frame, size);
     sh_loupe_paint_cells(pixels, layout, &picker->look, picker->cells);
     struct wlr_buffer *buffer = sh_pixel_buffer(pixels, layout->width, layout->height);
     if (!buffer)
@@ -276,6 +303,8 @@ static void show_loupe(struct sh_server *server) {
  * cells under it read again, and the loupe shown anew where they changed. */
 static void follow(struct sh_server *server, bool draw) {
     struct sh_color_picker *picker = server->color_picker;
+    picker->followed_at = now_ms();
+    picker->behind = false;
     struct wlr_output *under = pointer_output(server);
     struct sh_output *output = under ? sh_output_for(server, under) : NULL;
     if (output && (draw || output != picker->output || !picker->picture) &&
@@ -285,6 +314,26 @@ static void follow(struct sh_server *server, bool draw) {
         drop_output(picker);
     if (read_cells(server) || !picker->shown)
         show_loupe(server);
+}
+
+static int catch_up(void *data) {
+    struct sh_server *server = data;
+    struct sh_color_picker *picker = server->color_picker;
+    if (picker && picker->active && picker->behind)
+        follow(server, false);
+    return 0;
+}
+
+/* Follows the pointer now, or once FOLLOW_MS have passed since it last did. */
+static void follow_soon(struct sh_server *server) {
+    struct sh_color_picker *picker = server->color_picker;
+    int64_t since = now_ms() - picker->followed_at;
+    if (since >= FOLLOW_MS || !picker->catch_up) {
+        follow(server, false);
+    } else if (!picker->behind) {
+        picker->behind = true;
+        wl_event_source_timer_update(picker->catch_up, (int)(FOLLOW_MS - since));
+    }
 }
 
 static int refresh(void *data) {
@@ -315,9 +364,11 @@ static void end(struct sh_server *server) {
     picker->shown = false;
     if (picker->timer)
         wl_event_source_timer_update(picker->timer, 0);
+    if (picker->catch_up)
+        wl_event_source_timer_update(picker->catch_up, 0);
+    picker->behind = false;
     drop_output(picker);
-    free(picker->frame);
-    picker->frame = NULL;
+    forget_frames(picker);
     set_default_cursor(server);
     process_cursor_motion(server, (uint32_t)now_ms());
 }
@@ -431,6 +482,9 @@ static bool start(struct sh_server *server, char *error, size_t size) {
                                                 refresh, server);
     if (picker->timer)
         wl_event_source_timer_update(picker->timer, REFRESH_MS);
+    if (!picker->catch_up)
+        picker->catch_up = wl_event_loop_add_timer(
+            wl_display_get_event_loop(server->wl_display), catch_up, server);
     picker->active = true;
     picker->shown = false;
     // The pointer is the picker's, not the window's under it.
@@ -473,7 +527,7 @@ bool color_picker_motion(struct sh_server *server) {
     if (!color_picker_active(server))
         return false;
     zoom_moved(server);
-    follow(server, false);
+    follow_soon(server);
     return true;
 }
 
@@ -579,8 +633,10 @@ void color_picker_finish(struct sh_server *server) {
     answer(picker, "error: the compositor is stopping\n");
     if (picker->timer)
         wl_event_source_remove(picker->timer);
+    if (picker->catch_up)
+        wl_event_source_remove(picker->catch_up);
     drop_output(picker);
-    free(picker->frame);
+    forget_frames(picker);
     free(picker);
     server->color_picker = NULL;
 }
@@ -596,7 +652,7 @@ void describe_color_picker(struct sh_server *server, int fd, const char *argumen
     char hex[8] = "-", line[256];
     if (active && picker->has_color)
         sh_color_hex(picker->color, hex);
-    const struct sh_loupe_layout *layout = picker ? &picker->layout : NULL;
+    const struct sh_loupe_layout *layout = picker ? &picker->sides[picker->side].layout : NULL;
     snprintf(line, sizeof(line), "ok\n%s\t%s\t%s\t%d\t%d\t%s\t%d\t%d\t%g\t%s\t%s\t%u\n",
              active ? "picking" : "idle", hex,
              active && picker->output ? picker->output->wlr_output->name : "-",
