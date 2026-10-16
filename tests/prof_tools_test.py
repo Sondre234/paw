@@ -80,3 +80,5 @@ with tempfile.TemporaryDirectory(prefix="paw-prof-") as directory:
     assert re.search(r"live heap +\+(9|10)\.\d\d kB", out) and "LEAK? live heap rise" in out, out
     out = run("heaptrend.py", soak("fds", lambda c: 2_000_000, lambda c: 40 + c), code=1)
     assert "LEAK? fds rise" in out, out
+    out = run("heaptrend.py", soak("fdnoise", lambda c: 2_000_000, lambda c: 40 + (c == 10)))
+    assert "no leak" in out, "one fd more at the last trough is noise: " + out

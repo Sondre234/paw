@@ -10,8 +10,9 @@ in-use bytes), mmapped allocations, RSS, open fds and threads logged inside each
 cycle ends with its windows closed and nothing moving, so the troughs compare like with like.
 A least-squares line through the troughs, leaving out the first --skip cycles (default 2,
 while caches and pools fill), gives the growth per cycle and how well a line explains it (r²).
-A leak is a steady rise: the heap growing by more than --leak-kb (default 1) per cycle with
-r² over 0.5, or fds or threads rising at all; anything else is noise.
+A leak is a steady rise: the heap growing by more than --leak-kb (default 1) per cycle, or
+fds or threads by two or more over the cycles fitted, with r² over 0.5; anything else is
+noise. The more cycles, the smaller a leak that shows.
 """
 import argparse
 from pathlib import Path
@@ -92,13 +93,14 @@ def analyse(log, cycles, skip, leak_kb):
               f"  r² {r2:4.2f}   first to last {total / scale:+.1f}{' kB' if KB[column] else ''}")
         if column == "heap" and slope / 1024 > leak_kb and r2 > 0.5:
             leaking.append(COLUMNS[column])
-        if KB[column] is None and slope > 0 and r2 > 0.5 and total > 0:
+        # One fd more at one trough is a socket still closing; a leak keeps adding them.
+        if KB[column] is None and slope * (len(fitted) - 1) >= 2 and r2 > 0.5:
             leaking.append(COLUMNS[column])
     if leaking:
         print(f"LEAK? {', '.join(leaking)} rise steadily from cycle to cycle\n")
     else:
         print(f"no leak: the heap grows by less than {leak_kb} kB a cycle or not steadily, "
-              "and fds and threads do not rise\n")
+              "and fds and threads do not keep rising\n")
     return bool(leaking)
 
 
