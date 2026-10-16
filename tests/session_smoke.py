@@ -75,6 +75,9 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
     assert saved.startswith("paw-session 1\n"), saved
     assert saved.count("\nwindow\t") == 3 and "\nlayout\tHEADLESS-1\t0\t1\t" in saved
     assert "wayland_probe" in saved and "--window-only" in saved, saved
+    # Window titles and command lines are the user's alone.
+    mode = (state / "paw" / "sessions" / "work").stat().st_mode & 0o777
+    assert mode == 0o600, oct(mode)
     listing = msg("session", "list").split("\t")
     assert listing[0] == "work" and listing[1] == "3", listing
 
