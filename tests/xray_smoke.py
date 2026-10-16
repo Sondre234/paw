@@ -290,8 +290,10 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     drawn = frames()
     desktop.stays(lambda: frames() == drawn, "no frame drawn once closed", duration=.5)
 
-    # With animations the sheets come apart from the screen and go back into it.
-    desktop.reload(CONFIG.replace("enabled = false", "enabled = true, minimize = { duration = 400 }"))
+    # With animations the sheets come apart from the screen and go back into it: over 1.5 s and
+    # 1 s, long enough for a loaded run to see them on their way after the request.
+    desktop.reload(CONFIG.replace("enabled = false",
+                                  "enabled = true, minimize = { duration = 1000 }"))
     settled = (windows(), stacking())
     msg("xray")
     view = xray()
