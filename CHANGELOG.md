@@ -1009,6 +1009,10 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   `%` lists every action, window, workspace or session.
 - The sheet of keyboard shortcuts lists `ambient` under Toys, titled by its mode, and `pick_color`
   under Screen, where they were under Other; a test now fails for an action without a group.
+- In the moment after a window opens or closes while the x-ray view is open, a click on a sheet
+  goes to the window on that sheet, and `paw msg get xray` puts everything on the sheet drawn for
+  it: both went by the sheets the view was about to show, so a click could go to the window just
+  opening, and the window kept above could be listed on no sheet.
 
 ## 0.1.1 (2026-10-05)
 

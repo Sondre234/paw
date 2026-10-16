@@ -191,9 +191,20 @@ static int xray_plan(struct xray_entry *entries, int count, struct sh_xray_sheet
     return sheets;
 }
 
-/* The sheet of those there are that shows `entry`, as they close: its window's, else its
- * layer's; -1 when it has none, as a window that came since. */
-static int xray_kept_sheet(struct sh_xray *xray, const struct xray_entry *entry) {
+/* Whether the planned sheets `keys` are those the view has. */
+static bool xray_same(const struct sh_xray *xray, const struct sh_xray_sheet *keys, int sheets) {
+    if (sheets != xray->count)
+        return false;
+    for (int i = 0; i < sheets; ++i) {
+        if (keys[i].layer != xray->sheets[i].layer || keys[i].window != xray->sheets[i].window)
+            return false;
+    }
+    return true;
+}
+
+/* The sheet of those there are that shows `entry`: its window's, else its layer's; -1 when it
+ * has none, as a window that came since. */
+static int xray_kept_sheet(const struct sh_xray *xray, const struct xray_entry *entry) {
     for (int i = 0; i < xray->count; ++i) {
         const struct sh_xray_sheet *sheet = &xray->sheets[i];
         if (sheet->window ? sheet->window == entry->window
@@ -206,6 +217,18 @@ static int xray_kept_sheet(struct sh_xray *xray, const struct xray_entry *entry)
             return i;
     }
     return -1;
+}
+
+/* Puts each of `entries` on the sheet showing it now: as planned while the view has the sheets
+ * the plan makes, else on those it has, which it keeps as they close and until its next step
+ * takes in a window or surface that came or went. */
+static void xray_place(const struct sh_xray *xray, struct xray_entry *entries, int count) {
+    struct sh_xray_sheet keys[XRAY_SHEETS] = {0};
+    int sheets = xray_plan(entries, count, keys);
+    if (xray->closing || !xray_same(xray, keys, sheets)) {
+        for (int i = 0; i < count; ++i)
+            entries[i].sheet = xray_kept_sheet(xray, &entries[i]);
+    }
 }
 
 static struct sh_output *xray_output(struct sh_server *server) {
@@ -568,11 +591,7 @@ static bool xray_refresh(struct sh_server *server) {
     } else {
         struct sh_xray_sheet keys[XRAY_SHEETS] = {0};
         int sheets = xray_plan(entries, count, keys);
-        bool same = sheets == xray->count;
-        for (int i = 0; same && i < sheets; ++i)
-            same = keys[i].layer == xray->sheets[i].layer &&
-                   keys[i].window == xray->sheets[i].window;
-        if (!same) {
+        if (!xray_same(xray, keys, sheets)) {
             // The sheets change: each slot copies its own anew, keeping how far it was lifted.
             for (int i = sheets; i < XRAY_SHEETS; ++i)
                 xray_sheet_drop(&xray->sheets[i]);
@@ -794,8 +813,7 @@ static struct sh_toplevel *xray_window_at(struct sh_server *server, int index) {
     if (!entries)
         return NULL;
     int count = xray_collect(server, output, entries, XRAY_ENTRIES);
-    struct sh_xray_sheet keys[XRAY_SHEETS] = {0};
-    xray_plan(entries, count, keys);
+    xray_place(xray, entries, count);
     struct sh_toplevel *found = NULL;
     for (int i = count - 1; i >= 0 && !found; --i) {
         if (entries[i].sheet == index && entries[i].kind == XRAY_WINDOW &&
@@ -815,8 +833,7 @@ static struct sh_toplevel *xray_top_window(struct sh_server *server, int index) 
     if (!entries)
         return NULL;
     int count = xray_collect(server, output, entries, XRAY_ENTRIES);
-    struct sh_xray_sheet keys[XRAY_SHEETS] = {0};
-    xray_plan(entries, count, keys);
+    xray_place(&server->xray, entries, count);
     struct sh_toplevel *found = NULL;
     for (int i = count - 1; i >= 0 && !found; --i) {
         if (entries[i].sheet == index && entries[i].kind == XRAY_WINDOW)
@@ -985,13 +1002,8 @@ void describe_xray(struct sh_server *server, int fd, const char *arguments) {
     wl_list_for_each(output, &server->outputs, link) {
         int count = xray_collect(server, output, entries, XRAY_ENTRIES);
         bool shown = xray->visible && !strcmp(xray->output, output->wlr_output->name);
-        if (shown && !xray->closing) {
-            struct sh_xray_sheet keys[XRAY_SHEETS] = {0};
-            xray_plan(entries, count, keys);
-        } else {
-            for (int i = 0; i < count; ++i)
-                entries[i].sheet = shown ? xray_kept_sheet(xray, &entries[i]) : -1;
-        }
+        if (shown)
+            xray_place(xray, entries, count);
         for (int i = 0; i < count; ++i) {
             const struct xray_entry *entry = &entries[i];
             char name[128], title[256];

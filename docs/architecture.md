@@ -1068,7 +1068,9 @@ them on sheets (`struct sh_xray_sheet`): one per layer with anything on it, and 
 while six or fewer show. A sheet is known by its layer and its window, a pointer it only
 compares, never follows, so a window gone meanwhile leaves nothing dangling; the sheets are planned
 again whenever that changes, and kept as they are while the view closes, so that a window raised by
-a click keeps its sheet on the way back. Where each sheet goes is `src/xray_layout.c`'s
+a click keeps its sheet on the way back. A change is taken in at the timer's next step; until then,
+and while the view closes, `xray_place` puts each part on the sheets there are rather than those
+planned, for a click, Return and `get xray`. Where each sheet goes is `src/xray_layout.c`'s
 (`sh_xray_layout`, tested by `xray_layout_tests`): the output scaled down to fit the area left
 beside the shell's legend and above its caption (`sh_xray_area`), each sheet a gap further along
 the way the stack rises, foreshortened that way and a little larger than the one under it, and
