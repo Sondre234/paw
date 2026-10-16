@@ -4,6 +4,11 @@
 #include <algorithm>
 #include <unistd.h>
 
+namespace {
+// The answers a user gets before the request fails.
+constexpr int tries = 3;
+} // namespace
+
 Authentication::Authentication(QObject *parent) : QObject(parent) {}
 
 Authentication::~Authentication() {
@@ -73,6 +78,7 @@ void Authentication::setIdentity(int index) {
     if (queue_.empty() || index == identity_ || index < 0 || index >= shown_.identities.size())
         return;
     identity_ = index;
+    failures_ = 0;
     error_.clear();
     info_.clear();
     checking_ = havePending_ = false;
@@ -108,6 +114,7 @@ void Authentication::cancel() {
 void Authentication::openFirst() {
     shown_ = queue_.front().request;
     ++serial_;
+    failures_ = 0;
     output_ = outputSource_ ? outputSource_() : QString();
     error_.clear();
     info_.clear();
@@ -194,6 +201,10 @@ void Authentication::converse() {
             if (!complained)
                 error_ = "polkit's helper failed without asking for a password.";
             Q_EMIT changed();
+            return;
+        }
+        if (++failures_ >= tries) {
+            finish(Outcome::Failed);
             return;
         }
         // Wrong: another try, as the same user, from the event loop rather than from in here,
