@@ -152,6 +152,7 @@ void reload_config(struct sh_server *server) {
     shortcuts_reload(server);
     cat_reload(server);
     wrapped_reload(server);
+    profile_schedule_reloaded(server);
 }
 
 static int terminate_signal(int signal_number, void *data) {
@@ -254,6 +255,9 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
         if (sh_parse_clock(getenv("PAW_NIGHT_LIGHT_TIME"), &minutes))
             server.night_clock = minutes;
     }
+    // A sunrise or sunset passed while paw was not running brings its profile before anything
+    // is set up from the configuration's look.
+    profile_schedule_start(&server);
     server.night_timer = wl_event_loop_add_timer(loop, night_light_tick, &server);
     server.corner_timer = wl_event_loop_add_timer(loop, hot_corner_tick, &server);
     server.urgent_timer = wl_event_loop_add_timer(loop, urgent_tick, &server);
@@ -627,6 +631,7 @@ finish:
     toys_end(&server);
     cube_end(&server);
     rice_finish(&server);
+    profile_schedule_finish(&server);
     cat_finish(&server);
     xray_finish(&server);
     heatmap_finish(&server);

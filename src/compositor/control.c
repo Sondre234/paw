@@ -633,6 +633,10 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
            server->night_mode == SH_NIGHT_ON    ? "on"
            : server->night_mode == SH_NIGHT_OFF ? "off"
                                                 : "auto");
+    // "profile-schedule on|off": whether the profile in use is the one profile_schedule wants
+    // now, off without a schedule.
+    append(state, size, &length, "profile-schedule %s\n",
+           server->profile_schedule.following ? "on" : "off");
     // "keep-awake on|off": whether keep awake holds the idle steps off (lock.c).
     append(state, size, &length, "keep-awake %s\n", server->keep_awake ? "on" : "off");
     // "locked on|off": whether the session is locked, for the shell to record nothing then.

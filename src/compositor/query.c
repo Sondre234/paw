@@ -1044,6 +1044,7 @@ static const struct {
     {"blur", describe_blur, false},
     {"actions", get_actions, false},
     {"profiles", get_profiles, false},
+    {"profile_schedule", describe_profile_schedule, false},
     {"terminal", get_terminal, false},
 };
 
