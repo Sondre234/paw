@@ -307,9 +307,9 @@ static void follow(struct sh_server *server, bool draw) {
     picker->behind = false;
     struct wlr_output *under = pointer_output(server);
     struct sh_output *output = under ? sh_output_for(server, under) : NULL;
-    if (output && (draw || output != picker->output || !picker->picture) &&
-        !draw_picture(server, output))
-        wlr_log(WLR_ERROR, "Colour picker: cannot draw a picture of %s", under->name);
+    // A picture that could not be drawn is tried again with the next refresh, not each move.
+    if (output && (draw || output != picker->output) && !draw_picture(server, output))
+        wlr_log(WLR_DEBUG, "Colour picker: cannot draw a picture of %s", under->name);
     if (!output)
         drop_output(picker);
     if (read_cells(server) || !picker->shown)
