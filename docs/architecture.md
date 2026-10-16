@@ -1894,7 +1894,7 @@ resting pointer counts in the heatmap (see `heatmap_smoke.py`).
 ```sh
 cmake --build build --target paw          # only the compositor
 ctest --test-dir build -j8 -R sticky           # only the tests you are working on
-ctest --test-dir build -j8                     # everything, about 25 seconds
+ctest --test-dir build -j8                     # everything, about 90 seconds
 tools/check-all.sh                             # plus the sanitizer build, before merging
 ```
 
