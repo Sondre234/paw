@@ -34,6 +34,19 @@ covers branches, building, testing and committing; [features.md](features.md) de
 Keep geometry and arithmetic out of `src/compositor/` where you can: a pure function in its own
 file can be unit tested without starting a compositor.
 
+The configuration's Lua runs in a sandbox (`sandbox` in `src/config.cpp`): the base, string,
+table, math and utf8 libraries without `load`, `dofile` or metatables, a budget of instructions,
+and 64 MiB for what its code allocates. A call into a C function is one instruction however
+long it runs, so whatever runs a configuration (`parse_config`, `configured_look`,
+`shadowed_settings`) runs it first in a child process forked for it (`try_first`), killed after 3
+seconds, and then for real, which gives the result or the error. The compositor and the shell
+both load the file this way, so what that code calls must be safe in a child forked from a
+process with threads: nothing that waits on a lock another thread may hold.
+
+Window rules' and bindings' patterns are compiled to be searched in time linear in the text
+(`compile_pattern`), and in a title or app ID over 1 KiB only the first and last 512 bytes are
+searched (`pattern_found`): a client sets its title as long as it likes.
+
 ## The compositor (`src/compositor/`)
 
 Each file begins with a comment saying what it covers; `head -4 src/compositor/*.c` shows them

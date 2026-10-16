@@ -876,6 +876,9 @@ tiled window keeps `size` and `position` as the place it floats to when toggled.
 app ID and title the window has when it opens; later title changes do not apply them again,
 but for opacity, which follows the title and app ID as they change, and dynamic rules.
 `features = { window_rules = false }` turns the actions off and leaves opacity rules working.
+Rules match in time that grows no faster than a title's length, whatever their patterns. In a
+title or app ID over 1 KiB, as a client may set, they search the first and last 512 bytes: `^`
+still finds its start and `$` its end, but a pattern held to both matches no title that long.
 
 A rule with `dynamic = true` follows the window, as Hyprland's dynamic rules do: while the
 window's title and app ID match it, as they change, it holds the window to its `floating`,

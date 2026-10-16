@@ -2,7 +2,7 @@
      hand: change the schema, then run `PAW_UPDATE_DOCS=1 ctest -R config`. -->
 # Configuration reference
 
-paw reads a Lua file that returns a table (`config/init.lua` is a commented example). Every setting is optional. An unknown setting, a value of the wrong type, or a value out of range is an error naming the file and line, with a suggestion for a misspelled name; `paw --check-config` reports it. The running desktop reloads the file when it is saved; one with an error loads the default configuration instead and shows the error across the top of the screen until the file is fixed.
+paw reads a Lua file that returns a table (`config/init.lua` is a commented example). Every setting is optional. An unknown setting, a value of the wrong type, or a value out of range is an error naming the file and line, with a suggestion for a misspelled name; `paw --check-config` reports it. The running desktop reloads the file when it is saved; one with an error loads the default configuration instead and shows the error across the top of the screen until the file is fixed. Its Lua cannot read files or run programs, and has 3 seconds and 64 MiB of memory to load in; a file that needs more is an error as well.
 
 Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 
@@ -187,8 +187,8 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `windows.lift` | boolean | true | - | A window moved with the pointer is lifted while it moves: drawn a little larger about where it was taken, its shadow softer and further off (a printed one, without blur, further off), and it settles back as it is dropped, with the duration and curve of `animations.move`. `false` leaves it as it is. |
 | `windows.buttons` | string | "appmenu:minimize,maximize,close" | - | GTK button layout for windows that draw their own frame; lowercase letters, `_`, `,` and `:` only. Restart to change. |
 | `windows.rules` | list of tables | unset | - | Per-application rules, at most 256. Opacity comes from the first matching rule that sets it; actions apply as a window opens, every matching rule in order, later ones winning. A rule needs `app_id` or `title`. |
-| `windows.rules[].app_id` | regex | any | - | ECMAScript regular expression searched in the application ID (X11: the class). |
-| `windows.rules[].title` | regex | any | - | ECMAScript regular expression searched in the window title. |
+| `windows.rules[].app_id` | regex | any | - | ECMAScript regular expression searched in the application ID (X11: the class); in one over 1 KiB, in its first and last 512 bytes. |
+| `windows.rules[].title` | regex | any | - | ECMAScript regular expression searched in the window title; in one over 1 KiB, in its first and last 512 bytes. |
 | `windows.rules[].opacity` | number | - | 0.05 to 1 | Opacity of a matching focused window. |
 | `windows.rules[].inactive_opacity` | number | `opacity` | 0.05 to 1 | Opacity of a matching unfocused window. |
 | `windows.rules[].floating` | boolean | unset | - | Open floating or tiled. |

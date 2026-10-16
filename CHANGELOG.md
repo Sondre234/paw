@@ -837,6 +837,16 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   `F8 80 80` as U+8000.
 - paw compiles with clang: the files that include `rice.hpp` did not, so clang-tidy and clangd
   could not read them either.
+- A configuration that keeps one of Lua's C functions busy (a string pattern that backtracks
+  without end, `(""):rep(2^60)`) no longer freezes the desktop and the shell as it loads, and
+  one that asks for more than 64 MiB of memory no longer gets it: it loads first in a child
+  process given 3 seconds, and one that runs over or asks for more is an error like any other,
+  the default configuration standing in.
+- Window rules match a title or app ID in time that grows at most linearly with it, and in one
+  over 1 KiB search only its first and last 512 bytes. A rule such as `(.*) - (.*) - .*x` took
+  6 seconds on a title of 512 bytes and minutes on one of a few KB, the compositor frozen
+  meanwhile, and a title of 64 KB could crash it. An unknown setting with a name a megabyte
+  long is refused at once, where looking for the name it might be a typo of took seconds.
 
 ## 0.1.1 (2026-10-05)
 

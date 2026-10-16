@@ -84,8 +84,10 @@ struct WindowActions {
     WindowActions once() const;
 };
 
-// Windows whose app ID and title match `app_id` and `title` (ECMAScript regexes, searched;
-// an absent one matches anything) get these opacities and actions.
+// Windows whose app ID and title match `app_id` and `title` (ECMAScript regexes, searched; an
+// absent one matches anything) get these opacities and actions. The patterns are compiled to be
+// searched in linear time, and of a text over 1 KiB `matches` searches the first and last
+// 512 bytes alone.
 struct WindowRule {
     std::string app_id, title;
     std::optional<std::regex> pattern, title_pattern;
