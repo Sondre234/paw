@@ -299,6 +299,7 @@ struct sh_toys;              // the toy playing (toys.c)
 struct sh_cat_view;          // the desktop cat (cat.c)
 struct sh_ambient;           // ambient particles (ambient.c)
 struct sh_ambient_sky;       // an output's particles
+struct sh_cursor_trail;      // what falls off the pointer (cursor_trail.c)
 struct sh_wrapped;       // what paw wrapped counts (wrapped.c)
 struct wlr_color_manager_v1;
 struct sh_heatmap;     // where the pointer rests and clicks, and the overlay (heatmap.c)
@@ -905,6 +906,8 @@ struct sh_server {
     } profile_schedule;
     struct sh_cat_view *cat; /* the desktop cat (cat.c); NULL if it could not be made */
     struct sh_ambient *ambient; /* ambient particles (ambient.c); NULL if they could not be */
+    /* The cursor trail (cursor_trail.c); NULL if it could not be made. */
+    struct sh_cursor_trail *cursor_trail;
     struct sh_wrapped *wrapped; // NULL while wrapped.enabled is off
     struct sh_xray xray;
     /* The pointer heatmap (heatmap.c); NULL until the first output is laid out. */
@@ -2072,6 +2075,14 @@ void ambient_frame(struct sh_output *output);
 void ambient_input(struct sh_server *server);
 void ambient_forget_output(struct sh_output *output);
 void describe_ambient(struct sh_server *server, int fd, const char *arguments);
+/* cursor_trail.c */
+void cursor_trail_init(struct sh_server *server);
+void cursor_trail_finish(struct sh_server *server);
+void cursor_trail_reload(struct sh_server *server);
+void cursor_trail_switch(struct sh_server *server, int choice);
+void cursor_trail_moved(struct sh_server *server);
+void cursor_trail_clear(struct sh_server *server);
+void describe_cursor_trail(struct sh_server *server, int fd, const char *arguments);
 /* xray.c */
 void xray_touch(struct sh_server *server);
 void xray_open(struct sh_server *server);

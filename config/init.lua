@@ -35,6 +35,11 @@ return {
     -- "fireflies" (none unless set; a profile may set them too), count on each monitor (30
     -- petals, 60 flakes, 24 fireflies unless set), speed (1 their own pace):
     -- appearance = { ambient = { kind = "sakura", count = 30, speed = 1 } },
+    -- Experimental: a cursor trail of little sparkles, sakura petals or hearts falling off the
+    -- pointer as it moves: kind = "sparkles", "petals" or "hearts" (none unless set; a profile
+    -- may set it too), amount (1; 2 twice as many), colors for the sparkles and hearts (the
+    -- focused border's and shell.accent unless set). Try one with `paw msg cursor_trail sparkles`:
+    -- appearance = { cursor_trail = { kind = "sparkles", amount = 1 } },
     -- Appearance profiles: each lays its appearance, windows and shell settings over the rest
     -- of the configuration while it is in use. Pick one from the panel's right-click menu
     -- ("Appearance"), the command palette, or `paw msg profile NAME|next|prev`; the choice
@@ -103,6 +108,8 @@ return {
             appearance = { background = "#f4f0f3", color_scheme = "light" },
             -- Sakura petals drifting down over the paper: add to appearance above
             --     ambient = { kind = "sakura" },
+            -- and a few more falling off the pointer as it moves:
+            --     cursor_trail = { kind = "petals" },
             windows = {
                 border_width = 2, corner_radius = 12, round = "always",
                 border_color = { "#8fc1ec", "#f2a0be", angle = 135 },
@@ -129,6 +136,8 @@ return {
             appearance = { background = "#15141d", color_scheme = "dark" },
             -- Fireflies glowing in the ink-dark night: add to appearance above
             --     ambient = { kind = "fireflies" },
+            -- and light blue and pink sparkles behind the pointer:
+            --     cursor_trail = { kind = "sparkles" },
             windows = {
                 border_width = 2, corner_radius = 12, round = "always",
                 border_color = { "#8fc1ec", "#f2a7c3", angle = 135 },
@@ -164,6 +173,8 @@ return {
                 -- icon_theme = "Mochi",
                 -- Soft snow falling past the moon:
                 -- ambient = { kind = "snow" },
+                -- Mauve and pink hearts floating up behind the pointer:
+                -- cursor_trail = { kind = "hearts" },
             },
             windows = {
                 border_width = 2, corner_radius = 14, round = "always",
@@ -712,5 +723,9 @@ return {
         -- (appearance.ambient sets them for good; mode = "sakura", "snow", "fireflies", "off" or
         -- "toggle" picks one):
         -- { mods = { mod, "Ctrl" }, key = "a", action = "ambient", mode = "next" },
+        -- Sparkles, sakura petals or hearts behind the pointer, each in turn and then none
+        -- (appearance.cursor_trail sets them for good; mode = "sparkles", "petals", "hearts",
+        -- "off" or "toggle" picks one):
+        -- { mods = { mod, "Ctrl" }, key = "s", action = "cursor_trail", mode = "next" },
     },
 }

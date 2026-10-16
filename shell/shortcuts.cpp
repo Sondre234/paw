@@ -206,6 +206,7 @@ constexpr Action actions[] = {
     {"gravity", Toys, "Let the windows fall"},
     {"party", Toys, "Throw a party"},
     {"cat", Toys, "The desktop cat"},
+    {"cursor_trail", Toys, "Cursor trail"},
     {"xray", Toys, "Exploded view of the layers"},
     {"heatmap", Toys, "Pointer heatmap"},
     {"ambient", Toys, "Ambient particles, on or off"},
@@ -373,6 +374,22 @@ QString title(const paw::Binding &binding, const QString &name, const paw::Confi
             return Palette::actionTitle("ambient fireflies");
         default:
             return Palette::actionTitle("ambient off");
+        }
+    case SH_CURSOR_TRAIL:
+        // The palette's titles for a kind and for off ("Cursor trail: hearts").
+        switch (binding.mode) {
+        case SH_CURSOR_TRAIL_TOGGLE:
+            return "Cursor trail, on or off";
+        case SH_CURSOR_TRAIL_NEXT:
+            return "Next cursor trail";
+        case SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKLES}:
+            return Palette::actionTitle("cursor_trail sparkles");
+        case SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_PETALS}:
+            return Palette::actionTitle("cursor_trail petals");
+        case SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_HEARTS}:
+            return Palette::actionTitle("cursor_trail hearts");
+        default:
+            return Palette::actionTitle("cursor_trail off");
         }
     case SH_HEATMAP:
         return binding.mode == SH_HEATMAP_MOTION   ? "Heatmap of where the pointer rested"
