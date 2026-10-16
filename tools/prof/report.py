@@ -34,7 +34,7 @@ import sys
 MAGIC = b"PAWPROB1"
 HEADER = struct.Struct("<8sIIQII")
 RECORD = struct.Struct("<IIQ")
-UNKNOWN = ("[unknown]", "?")
+UNKNOWN = ("[unknown]", "[unknown]")
 
 
 class Process:
@@ -262,7 +262,7 @@ def report(process, samples, frames, top):
         self_time[stack[0]] += 1
         inclusive.update(set(stack))
         found = process.maps.find(addresses[0])
-        objects[os.path.basename(found[0].removesuffix(" (deleted)")) if found else "?"] += 1
+        objects[os.path.basename(found[0].removesuffix(" (deleted)")) if found else "[unknown]"] += 1
 
     def table(title, counter):
         print(f"\n{title}")
