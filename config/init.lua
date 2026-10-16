@@ -177,6 +177,8 @@ return {
     mouse = {
         modifier = mod, -- modifier + left drag moves; right drag resizes
         -- focus_follows = true, -- hovering a window focuses it (without raising it)
+        -- hide_when_typing = true, -- typing into a window hides the cursor until it moves
+        -- hide_after = 5, -- seconds the pointer rests before the cursor hides (0: never)
         -- Standalone sessions only; unset keeps each device's default:
         -- speed = 0.0 (-1 to 1), acceleration = "flat" or "adaptive", natural_scroll = false
     },
