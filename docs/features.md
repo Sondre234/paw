@@ -2251,6 +2251,17 @@ GTK's `settings.ini`, provided the theme is installed (in `~/.local/share/icons`
 the programs it starts draw the same cursor, and reads them as it starts: a change takes a
 restart.
 
+`mouse.hide_when_typing = true` hides the cursor as a key is typed into an application or its
+input method, as macOS does, until the pointer moves, clicks or scrolls (a drawing tablet's pen
+moving shows it too). A modifier key alone and a key a binding takes leave it where it is, and so
+does typing while a mouse button is held or a window is being moved. `mouse.hide_after = N` hides
+it once the pointer has rested N seconds, as Hyprland's `cursor:inactive_timeout`, unless a
+button is held. Both are off by default and apply as the file is saved; turning one off shows a
+cursor it hid. They are reasons of their own beside a screenshot's (the cursor is left out of
+grim's picture): the pointer moving ends theirs but not a screenshot's, and the screenshot ending
+leaves a cursor hidden by typing hidden. `paw msg get cursor` says `hidden` for any of them, and
+`cursor_hide_smoke` tests them.
+
 ### Keyboard layouts
 
 Several layouts are a comma-separated list, with variants in the same places:
