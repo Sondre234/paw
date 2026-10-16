@@ -778,13 +778,18 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
  * up until paw runs out of file descriptors (and no new window can connect). Every client sends
  * its request as it connects. */
 #define CONTROL_REQUEST_MS 5000
+/* At most this many wait for their request at once: past it, the one waiting longest goes. */
+#define CONTROL_PENDING_MAX 64
 
-/* Closes a connection that has not sent its request in time. */
-static int control_client_late(void *data) {
-    struct sh_control_client *client = data;
-    static const char late[] = "error: no request within 5 seconds\n";
-    send(client->fd, late, sizeof(late) - 1, MSG_NOSIGNAL | MSG_DONTWAIT);
+/* Closes a connection still waiting for its request, telling it why if it listens. */
+static void control_client_drop(struct sh_control_client *client, const char *why) {
+    send(client->fd, why, strlen(why), MSG_NOSIGNAL | MSG_DONTWAIT);
     control_client_close(client);
+}
+
+/* Its request did not come in time. */
+static int control_client_late(void *data) {
+    control_client_drop(data, "error: no request within 5 seconds\n");
     return 0;
 }
 
@@ -793,6 +798,11 @@ static int control_accept(int fd, uint32_t mask, void *data) {
     int client_fd = accept4(fd, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
     if (client_fd < 0)
         return 0;
+    if (wl_list_length(&server->control_pending) >= CONTROL_PENDING_MAX) {
+        struct sh_control_client *oldest =
+            wl_container_of(server->control_pending.prev, oldest, link);
+        control_client_drop(oldest, "error: too many connections waiting\n");
+    }
     struct sh_control_client *client = calloc(1, sizeof(*client));
     if (!client) {
         close(client_fd);
