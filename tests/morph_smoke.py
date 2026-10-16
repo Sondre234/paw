@@ -83,12 +83,14 @@ with harness.Compositor(compositor, config()) as desktop:
         return drawn()[title][:3] == (box, box[2:], "rest") and animations()[0] == 0
 
     def growing(title, start, end, stretched=True):
-        """On its way from `start` to `end`, both size and place, its surface stretched to the
-        size drawn."""
+        """Where it is drawn while on its way from `start` to `end`, both size and place, its
+        surface stretched to the size drawn, else None: a caller checks more of that same look
+        rather than look again later, when it may have moved on."""
         box, surface, state, _ = drawn()[title]
-        return (state == "moving" and animations()[0] >= 1 and on_the_way(start, end, box) and
-                (not stretched or (abs(surface[0] - box[2]) <= 1 and
-                                   abs(surface[1] - box[3]) <= 1)))
+        on_its_way = (state == "moving" and on_the_way(start, end, box) and
+                      (not stretched or (abs(surface[0] - box[2]) <= 1 and
+                                         abs(surface[1] - box[3]) <= 1)))
+        return box if on_its_way and animations()[0] >= 1 else None
 
     desktop.detail = lambda: (f"windows: {msg('get', 'windows')}drawn: {msg('get', 'drawn')}"
                               f"animations: {msg('get', 'animations')}")
@@ -108,8 +110,8 @@ with harness.Compositor(compositor, config()) as desktop:
     # Restoring, reversed half way: it goes back from where it is drawn, never from either end.
     msg("restore")
     assert windows()["W"].box[:2] == start[:2], windows()
-    wait_for(lambda: growing("W", FULL, start) and
-             between(start[2] + 150, FULL[2] - 150, drawn()["W"][0][2]), "W shrinking")
+    wait_for(lambda: (box := growing("W", FULL, start)) and
+             between(start[2] + 150, FULL[2] - 150, box[2]), "W shrinking")
     wait_for(lambda: 0 < drawn()["W"][3] < 1000, "its frame fading in")
     before = drawn()["W"][0]
     msg("maximize")
