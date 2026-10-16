@@ -162,7 +162,7 @@ def main():
             p50 = statistics.median(spent)
             extra = "" if name == "baseline" else f"{p50 - base:+15.0f}"
             print(f"{name:<12} {len(spent):6d} {p50:8.0f} {percentile(spent, .95):8d} "
-                  f"{max(spent):8d} {extra}")
+                  f"{max(spent):8d} {extra}".rstrip())
 
 
 if __name__ == "__main__":
