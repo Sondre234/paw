@@ -4440,9 +4440,15 @@ ListModel {
             std::cerr << "the palette lacks the saved session: " << titlesNow().join("|").toStdString() << '\n';
             return 1;
         }
-        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Fake app") ||
-            !titlesNow().contains("Toggle tiling") || !titlesNow().contains("Appearance: dark"))
-            return fail("the palette lacks workspaces, apps or actions");
+        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Toggle tiling") ||
+            !titlesNow().contains("Appearance: dark"))
+            return fail("the palette lacks workspaces or actions");
+        // The applications come after the actions, past the sixty listed with nothing typed as the
+        // actions grow; searching finds them.
+        palette->setQuery("fake");
+        if (!titlesNow().contains("Fake app"))
+            return fail("the palette lacks the applications");
+        palette->setQuery("");
         type("tiling");
         if (!waitFor([&] { return !titlesNow().isEmpty() && titlesNow()[0].contains("tiling", Qt::CaseInsensitive); })) {
             std::cerr << "typing did not filter the palette: " << titlesNow().join("|").toStdString() << '\n';
@@ -5297,12 +5303,18 @@ ListModel {
             if (!waitFor([&] { return power->available().size() == 5; }))
                 return fail("the power menu did not list five actions");
             palette->open(output);
+            // Each searched for, as more than the sixty listed with nothing typed may come first.
+            auto offers = [&](const QString &title) {
+                palette->setQuery(QString(title).remove(QString::fromUtf8("…")).toLower());
+                return titles().contains(title);
+            };
             if (!waitFor([&] {
-                    return titles().contains("Lock screen") && titles().contains("Suspend") &&
-                           titles().contains("Restart…") && titles().contains("Power off…") &&
-                           titles().contains("Log out…");
+                    return offers("Lock screen") && offers("Suspend") &&
+                           offers(QString::fromUtf8("Restart…")) &&
+                           offers(QString::fromUtf8("Power off…")) &&
+                           offers(QString::fromUtf8("Log out…"));
                 }) ||
-                titles().contains("Hibernate")) {
+                offers("Hibernate")) {
                 std::cerr << "the palette does not offer what may run: "
                           << titles().join("|").toStdString() << '\n';
                 return 1;
