@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "paw/config.hpp"
+#include "paw/child_trial.hpp"
 #include "paw/effects.h"
 #include "paw/cat_sprite.h"
 #include "paw/config_schema.hpp"
@@ -7,27 +8,19 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
-#include <chrono>
-#include <csignal>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fcntl.h>
 #include <fstream>
 #include <functional>
 #include <iterator>
 #include <linux/input-event-codes.h>
 #include <lua.hpp>
 #include <memory>
-#include <poll.h>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
-#include <sys/prctl.h>
-#include <sys/resource.h>
-#include <sys/wait.h>
-#include <unistd.h>
 #include <utility>
 #include <xkbcommon/xkbcommon.h>
 
@@ -553,6 +546,59 @@ void read_tiling_bar(lua_State *L, TilingBar &bar) {
     }
     lua_pop(L, 1);
 }
+// shell.desktop_clock: true, false, or the clock's table, on top of the stack.
+void read_desktop_clock(lua_State *L, DesktopClockConfig &clock) {
+    lua_getfield(L, -1, "desktop_clock");
+    if (lua_isboolean(L, -1) || lua_isnil(L, -1)) {
+        if (lua_isboolean(L, -1))
+            clock.enabled = lua_toboolean(L, -1);
+        lua_pop(L, 1);
+        return;
+    }
+    if (!lua_istable(L, -1))
+        wrong_type(L, "desktop_clock", "true, false or a table");
+    keys(L, -1, "shell.desktop_clock");
+    Named in("shell.desktop_clock");
+    boolean(L, "enabled", "shell.desktop_clock.enabled", clock.enabled);
+    if (auto position = text(L, "position")) {
+        static const std::vector<std::string> known{"center",   "top",       "bottom",
+                                                    "left",     "right",     "top-left",
+                                                    "top-right", "bottom-left", "bottom-right"};
+        if (std::find(known.begin(), known.end(), *position) == known.end())
+            unknown("position", *position, known, "=" + *position);
+        clock.position = *position;
+    }
+    if (auto format = text(L, "time_format")) {
+        if (format->empty() || format->size() > 64)
+            fail("shell.desktop_clock.time_format must have 1 to 64 bytes", "time_format");
+        clock.time_format = *format;
+    }
+    if (auto format = text(L, "date_format")) {
+        if (format->size() > 64)
+            fail("shell.desktop_clock.date_format must have at most 64 bytes", "date_format");
+        clock.date_format = *format;
+    }
+    clock.size = integer(L, "size", clock.size, 24, 320);
+    if (auto color = text(L, "color")) {
+        if (!is_color(*color, true))
+            fail("shell.desktop_clock.color must be #RRGGBB or #RRGGBBAA", "color");
+        clock.color = *color;
+    }
+    if (auto font = text(L, "font"))
+        clock.font = *font;
+    // false, "en" or "ja".
+    lua_getfield(L, -1, "greeting");
+    if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
+        clock.greeting.clear();
+    } else if (!lua_isnil(L, -1)) {
+        auto greeting = lua_type(L, -1) == LUA_TSTRING ? std::string(lua_tostring(L, -1)) : "";
+        if (greeting != "en" && greeting != "ja")
+            fail("shell.desktop_clock.greeting must be false, \"en\" or \"ja\"", "greeting");
+        clock.greeting = greeting;
+    }
+    lua_pop(L, 1);
+    lua_pop(L, 1);
+}
 // The edges a bar can be along, as shell.panel_positions names them.
 constexpr std::pair<std::string_view, PanelEdge> panel_edges[] = {
     {"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
@@ -647,6 +693,11 @@ void read_shell(lua_State *L, ShellConfig &shell) {
           "renderer must be \"software\" or \"gpu\"");
     boolean(L, "icons_only", "shell.icons_only", shell.icons_only);
     boolean(L, "group_windows", "shell.group_windows", shell.group_windows);
+    named(L, "taskbar_buttons", nullptr, shell.taskbar_buttons,
+          {{"all", ShellConfig::TaskbarButtons::All},
+           {"main_and_own", ShellConfig::TaskbarButtons::MainAndOwn},
+           {"own", ShellConfig::TaskbarButtons::Own}},
+          "taskbar_buttons must be \"all\", \"main_and_own\" or \"own\"");
     boolean(L, "polkit_agent", "shell.polkit_agent", shell.polkit_agent);
     shell.workspaces_shown = integer(L, "workspaces_shown", 0, 0, 10);
     if (Section in{L, "thumbnails", "shell.thumbnails"}) {
@@ -731,6 +782,11 @@ void read_shell(lua_State *L, ShellConfig &shell) {
                 fail(std::string(key) + " must be #RRGGBB or #RRGGBBAA");
         }
     }
+    named(L, "wallpaper_mode", "shell.wallpaper_mode", shell.wallpaper_mode,
+          {{"fill", WallpaperMode::Fill}, {"fit", WallpaperMode::Fit},
+           {"center", WallpaperMode::Center}, {"tile", WallpaperMode::Tile},
+           {"stretch", WallpaperMode::Stretch}});
+    read_desktop_clock(L, shell.desktop_clock);
     if (auto folder = text(L, "wallpapers", "shell.wallpapers")) {
         shell.wallpapers = *folder;
         if (!shell.wallpapers.starts_with('/') && !shell.wallpapers.starts_with("~/"))
@@ -2096,6 +2152,30 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
               "cat.coat must be \"auto\", \"ginger\", \"black\", \"cream\" or \"grey\"", "coat");
         settings.cat_sleep = integer(L, "sleep_after", settings.cat_sleep, 5, 3600);
     }
+    // `profile_schedule`; that its names are profiles is checked once every profile is known.
+    if (Section in{L, "profile_schedule"}) {
+        auto &schedule = config.settings.profile_schedule;
+        auto day = text(L, "day"), night = text(L, "night");
+        if (!day || !night)
+            fail("profile_schedule needs a day and a night profile, as "
+                 "{ day = \"light\", night = \"dark\" }");
+        copy_text(*day, schedule.day, "profile_schedule.day");
+        copy_text(*night, schedule.night, "profile_schedule.night");
+        auto sunrise = text(L, "sunrise"), sunset = text(L, "sunset");
+        if (sunrise.has_value() != sunset.has_value())
+            fail("profile_schedule.sunrise and sunset go together: set both, or neither to "
+                 "follow night_light's",
+                 sunrise ? "sunrise" : "sunset");
+        if (sunrise) {
+            if (!sh_parse_clock(sunrise->c_str(), &schedule.sunrise))
+                fail("profile_schedule.sunrise must be a time like \"07:00\"", "sunrise");
+            if (!sh_parse_clock(sunset->c_str(), &schedule.sunset))
+                fail("profile_schedule.sunset must be a time like \"20:00\"", "sunset");
+            if (schedule.sunrise == schedule.sunset)
+                fail("profile_schedule.sunrise and sunset must differ", "sunset");
+            schedule.own_times = true;
+        }
+    }
     if (Section in{L, "wrapped"})
         boolean(L, "enabled", "wrapped.enabled", config.settings.wrapped);
     if (Section in{L, "heatmap"})
@@ -2158,6 +2238,10 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"night_light_on", SH_NIGHT_LIGHT_ON},
         {"night_light_off", SH_NIGHT_LIGHT_OFF},
         {"night_light_auto", SH_NIGHT_LIGHT_AUTO},
+        {"profile_auto", SH_PROFILE_AUTO},
+        {"keep_awake_toggle", SH_KEEP_AWAKE_TOGGLE},
+        {"keep_awake_on", SH_KEEP_AWAKE_ON},
+        {"keep_awake_off", SH_KEEP_AWAKE_OFF},
         {"zoom_in", SH_ZOOM_IN},
         {"zoom_out", SH_ZOOM_OUT},
         {"zoom_reset", SH_ZOOM_RESET},
@@ -2183,6 +2267,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"display_toggle", SH_DISPLAY_TOGGLE},
         {"display_mode", SH_DISPLAY_MODE},
         {"display_settings", SH_DISPLAY_SETTINGS},
+        {"desktop_clock", SH_DESKTOP_CLOCK},
         {"scroll_left", SH_SCROLL_LEFT},
         {"scroll_right", SH_SCROLL_RIGHT},
         {"column_widen", SH_COLUMN_WIDEN},
@@ -2997,99 +3082,26 @@ size_t locate(const std::string &source, const std::vector<std::string> &trail) 
     return found;
 }
 
-// The time a configuration has to load in. The instruction budget meters its Lua, but a call
-// into a C function is one instruction however long it runs: a pattern that backtracks, or
-// (""):rep(2^60). So a configuration loads first in a child process, killed if it runs over,
-// and then, having finished in time, for real. The sanitizers' build runs many times slower.
-#if defined(__has_feature)
-#if __has_feature(address_sanitizer)
-#define PAW_CONFIG_SANITIZED 1
-#endif
-#endif
-#if defined(__SANITIZE_ADDRESS__) || defined(PAW_CONFIG_SANITIZED)
-constexpr int time_limit = 30;
-#else
-constexpr int time_limit = 3;
-#endif
-// Runs `load` in a child process, which must finish within time_limit seconds, and throws if it
-// does not, or crashes; whatever `load` throws in time is left to running it for real. Without
-// a child process to be had, it returns: the configuration then loads unchecked, rather than
-// not at all. `name` is the configuration's chunk name.
+// A configuration loads first in a child process (try_in_child), which throws if it runs out of
+// memory, runs over the time limit or crashes there; whatever `load` throws in time is left to
+// running it for real. Without a child process to be had, it returns: the configuration then
+// loads unchecked, rather than not at all. `name` is the configuration's chunk name.
 void try_first(const std::function<void()> &load, const std::string &name) {
-    int pipe_ends[2];
-    if (::pipe2(pipe_ends, O_CLOEXEC) != 0)
-        return;
-    const pid_t parent = ::getpid();
-    const pid_t child = ::fork();
-    if (child < 0) {
-        ::close(pipe_ends[0]);
-        ::close(pipe_ends[1]);
-        return;
-    }
-    if (child == 0) {
-        // Only what the configuration needs runs here, and the child leaves with _exit, which
-        // runs no destructors or exit handlers of the process it was forked from. Crashing, it
-        // leaves no core file: that would be a copy of the compositor's memory.
-        ::close(pipe_ends[0]);
-        ::prctl(PR_SET_PDEATHSIG, SIGKILL);
-        const rlimit no_core{0, 0};
-        ::setrlimit(RLIMIT_CORE, &no_core);
-        if (::getppid() != parent)
-            _exit(1);
-        char outcome = 'y';
-        try {
-            load();
-        } catch (const std::bad_alloc &) {
-            outcome = 'm';
-        } catch (...) {
-            outcome = 'n';
-        }
-        ssize_t written;
-        do
-            written = ::write(pipe_ends[1], &outcome, 1);
-        while (written < 0 && errno == EINTR);
-        _exit(0);
-    }
-    ::close(pipe_ends[1]);
-    char outcome = 0;
-    bool late = false, unchecked = false;
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(time_limit);
-    for (;;) {
-        auto left = std::chrono::ceil<std::chrono::milliseconds>(deadline -
-                                                                 std::chrono::steady_clock::now());
-        if (left.count() <= 0) {
-            late = true;
-            break;
-        }
-        pollfd ready{pipe_ends[0], POLLIN, 0};
-        int count = ::poll(&ready, 1, static_cast<int>(left.count()));
-        if (count < 0 && errno != EINTR) {
-            unchecked = true;
-            break;
-        }
-        if (count <= 0)
-            continue;
-        if (::read(pipe_ends[0], &outcome, 1) >= 0 || errno != EINTR)
-            break;
-    }
-    ::close(pipe_ends[0]);
-    if (!outcome)
-        ::kill(child, SIGKILL);
-    int status = 0;
-    while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {
-    }
+    const auto trial = try_in_child(load);
     auto file = name.starts_with('@') ? name.substr(1) : name;
-    if (outcome == 'y' || outcome == 'n' || unchecked)
+    switch (trial.outcome) {
+    case Trial::Finished:
         return;
-    if (outcome == 'm')
+    case Trial::OutOfMemory:
         throw std::runtime_error("configuration: " + file + ": ran out of memory");
-    if (late)
+    case Trial::TooLong:
         throw std::runtime_error("configuration: " + file + ": did not finish loading within " +
-                                 std::to_string(time_limit) + " seconds");
+                                 std::to_string(trial_seconds) + " seconds");
+    case Trial::Crashed:
+        break;
+    }
     throw std::runtime_error("configuration: " + file + ": loading it crashed" +
-                             (WIFSIGNALED(status)
-                                  ? std::string(" (") + strsignal(WTERMSIG(status)) + ")"
-                                  : std::string()));
+                             (trial.signal.empty() ? std::string() : " (" + trial.signal + ")"));
 }
 // parse_config, unchecked.
 Config parse(const std::string &source, const std::string &name,
@@ -3169,6 +3181,19 @@ Config parse(const std::string &source, const std::string &name,
             config = std::move(*chosen_rice);
         all.insert(all.end(), rice_names.begin(), rice_names.end());
         std::sort(all.begin(), all.end());
+        // The schedule's profiles, an installed rice's among them.
+        const auto &schedule = config.settings.profile_schedule;
+        for (const char *key : {"day", "night"}) {
+            std::string profile = key[0] == 'd' ? schedule.day : schedule.night;
+            if (profile.empty() || has(all, profile))
+                continue;
+            Named in("profile_schedule");
+            if (all.empty())
+                fail("profile_schedule." + std::string(key) + " '" + profile +
+                         "' needs a profiles table that defines it",
+                     key);
+            unknown("profile", profile, all, key, "profile_schedule." + std::string(key));
+        }
         config.profiles = std::move(all);
         config.rices = std::move(rice_names);
         config.rice_problems = std::move(rice_problems);

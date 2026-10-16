@@ -41,7 +41,9 @@ long it runs, so whatever runs a configuration (`parse_config`, `configured_look
 `shadowed_settings`) runs it first in a child process forked for it (`try_first`), killed after 3
 seconds, and then for real, which gives the result or the error. The compositor and the shell
 both load the file this way, so what that code calls must be safe in a child forked from a
-process with threads: nothing that waits on a lock another thread may hold.
+process with threads: nothing that waits on a lock another thread may hold. The child process
+and its time limit are `try_in_child` (`src/child_trial.cpp`), which `paw import` uses too for
+a `hyprland.lua` (`src/import/hyprland.cpp`, a sandbox of its own).
 
 Window rules' and bindings' patterns are compiled to be searched in time linear in the text
 (`compile_pattern`), and in a title or app ID over 1 KiB only the first and last 512 bytes are
@@ -113,6 +115,7 @@ all. In short:
 | `toys.c` | Toys, which only draw: `shake`, `gravity` and `party` posing windows through the animator, a party's rainbow borders and confetti, each window let go as anything else happens to it; `get toys`. |
 | `cube.c` | The scrolling layout's view turning as a cube (`layout.scroll.cube`): an arrangement that moves the view poses its tiles through the animator on the sides of a square turning a quarter (`src/cube.c`), each let go as anything else happens to it; `get cube`. |
 | `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
+| `profile_schedule.c` | The day and night profile schedule (`profile_schedule`): the profile the last sunrise or sunset brings (`src/profile_schedule.c` finds which came last), picked as `profile NAME` through `sh_callbacks.command` and a reload, the last one applied kept in `$XDG_STATE_HOME/paw/profile-schedule`; a timer looking at the clock each minute and after each reload, `profile_auto`, and `get profile_schedule`. |
 | `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
 | `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
@@ -800,6 +803,26 @@ The shell's side is `RiceTrial` (`shell/rice_trial.cpp`), which reads the rice's
 description from its `rice.lua` and counts the seconds down, and `RiceTrialView`, an overlay in the
 middle of the output overlays belong on, holding the keyboard on Revert.
 
+### The day and night profile schedule
+
+`profile_schedule.c` keeps the time of the last sunrise or sunset it applied, and the profile that
+one brought, in `$XDG_STATE_HOME/paw/profile-schedule`. `check` finds, on night light's clock
+(`night_clock`, which `PAW_NIGHT_LIGHT_TIME` fixes for tests), the last sunrise or sunset of the
+last three days (`sh_last_boundary` in `src/profile_schedule.c`, tested by `profile_schedule`, over
+the schedule's own times, night light's, or `sh_solar_times`' for each day), and applies it when it
+is later than the one applied, brings another profile (the schedule changed), or the one applied
+lies ahead (the clock went back). A profile picked by hand changes neither, so it stays until the
+next. Applying picks the profile as `paw msg profile NAME` does: `sh_callbacks.command` saves it
+and answers `SH_RELOAD`, and `reload_config` crossfades. `sh_run` calls `profile_schedule_start`
+before anything is set up from the configuration, where a pick only reads the configuration again
+(`sh_callbacks.reload`), which starts no shell before `startup` has (`Runtime::startup_done`). Each
+reload sets the timer for a millisecond (`profile_schedule_reloaded`), so a schedule just written
+or changed applies at once without a reload inside another; otherwise it looks every minute, and
+never with a fixed clock. Nothing is applied while a rice is on trial. `profile_auto` (also
+`profile auto`, which `pick_profile` turns into it unless a profile has that name) applies the
+current one at once. Subscribers hear `profile-schedule on` while the profile in use is the one the
+schedule wants, which the shell's Appearance tile and profile menus show.
+
 ### Power saving when idle
 
 `idle.c` takes the `idle` steps (`enum sh_idle_step`: dim, display_off, lock, suspend) with one
@@ -810,9 +833,19 @@ Each step taken sets its bit in `done` and is not taken again until input clears
 also fades the dimming out and turns on the outputs the display_off step turned off (`idle_off`
 on `sh_output`, cleared whenever an output is turned on another way). The dimming is a stretched
 `server->black` buffer (`sh_dim_create`) in a tree of its own created last at the scene's root,
-over the lock too, faded by `tick_idle` from `output_frame`. `idle_held` (an idle inhibitor, or
-the session not active) disarms the timer, and `idle_hold_changed` (called from `lock.c` as
-inhibitors come and go and the VT changes) restarts the count once released. `idle_steps` reads
+over the lock too, faded by `tick_idle` from `output_frame`. `idle_held` (an idle inhibitor
+that applies, or the session not active) disarms the timer, and `idle_hold_changed` (called from
+`lock.c` as inhibitors start and stop applying and the VT changes) restarts the count once
+released. `lock.c` keeps every inhibitor in `sh_server.idle_inhibitors`; `idle_inhibitors_follow`
+works out which apply (a window's while it is shown, `toplevel_visible` on a monitor that is on
+and the session unlocked; a layer surface's while mapped; any other surface's always) and sets
+the idle notifier inhibited while any does. It runs from `notify_subscribers`, which every
+change of windows and workspaces reaches, and from the few places that show or hide a window
+without it: `minimize_toplevel`, restoring in `focus_toplevel_raise`, `set_output_power` and
+layer surfaces mapping and unmapping. A new way of hiding a window that does not end in
+`notify_subscribers` calls it too. Keep awake (`sh_server.keep_awake`, `set_keep_awake` in
+`lock.c` from the keep_awake actions) holds the steps as an inhibitor that always applies would:
+`idle_held` counts it, and the idle notifier stays inhibited while it is on. `idle_steps` reads
 `src/power_supply.c`'s answer, from `$PAW_SYSFS` in the tests; power.c's waking up after
 sleep calls `idle_activity` as input would.
 
@@ -1203,6 +1236,7 @@ what was there.
 | `EmptyState.qml` | What a list says while it has nothing to show: an icon, a line and a hint. |
 | `PopupCard.qml` | A popup's card: surface, outline, corners, a shadow through the GPU, the open and close animation, and its place beside what it belongs to. |
 | `CardFrame.qml` | A card's shadow, surface, outline and the macOS style's inner edge, beneath what it holds: a popup's, an overlay's, a notification's; with `shell.blur` the frosted glass under a translucent surface, and the glass's light edge and sheen. |
+| `Shadow.qml` | A shadow drawn through the GPU (`RectangularShadow`) under a card or a bar, which frees the shader effect it draws with as it goes: Qt's (6.11) makes that effect without a parent and never deletes it, so the shell gives it to the shadow (`ShellController::keepShadowMaterial`). |
 | `GlassFill.qml` | A rectangle in a popup's colour that is a card of its own, drawn by hand rather than by `CardFrame` (a tooltip, Notification Center's cards): on the frosted glass, translucent over a `Glass`. |
 | `Reveal.qml` | How far an overlay or a card is in view: its `progress`, easing to 1 while `shown` and back to 0 after, which the overlays and `PopupCard` take as their own. |
 | `PopupMenu.qml`, `MenuRow.qml` | A menu of plain entries on popup cards, with cascading submenus and keyboard navigation, and one row of it. |
@@ -1210,8 +1244,10 @@ what was there.
 | `AudioSlider.qml`, `MuteButton.qml`, `StreamRow.qml` | Controls the mixer and Quick Settings use: a volume's slider, a mute button, and an application playing sound. |
 | `StartHome.qml`, `StartAllApps.qml`, `StartSearch.qml`, `StartBestMatch.qml`, `StartTile.qml`, `StartRow.qml`, `UserAvatar.qml` | Parts of the start menu (`Launcher.qml`): its pinned and recent applications, every application from A to Z, what its search finds and the best match of it, a pinned application, a row of its lists, the user's picture. |
 | `Launchpad.qml` | The launcher of the macOS style, in the start menu's place: every application on pages of a grid over the whole output, with a search. |
-| `Desktop.qml` | The wallpaper, each new one fading in over those before, and the desktop's launchers, on the background layer. |
+| `Desktop.qml` | The wallpaper, each new one fading in over those before, the desktop clock and the desktop's launchers, on the background layer. |
 | `DrawnWallpaper.qml` | The wallpaper the macOS style draws while none is set, light or dark, from the background colour and the accent. |
+| `DesktopClock.qml` | The desktop clock (`shell.desktop_clock`, experimental): the time, the date and a greeting over the wallpaper, outside the backdrop the frosted glass takes, changing once a minute. |
+| `WallpaperPicture.qml` | The wallpaper's picture as `shell.wallpaper_mode` lays it out (cropped, fitted, stretched, centred or tiled at its own size, over the background colour where it leaves room), for the desktop, a workspace's card and Launchpad. |
 | `Switcher.qml`, `Overview.qml`, `Palette.qml`, `PowerDialog.qml`, `NotificationCards.qml`, `Osd.qml`, `ConfigError.qml` | One overlay surface each. |
 | `DisplayMode.qml` | The display mode popup (Windows' Win+P, `shell.displayModes`), an overlay surface of its own in the middle of the output: the four choices, the one the compositor's stepping shows selected; a click takes one. |
 | `DisplaySettings.qml` | The display settings window (`shell.displaySettings`), an overlay surface of its own in the middle of the output: the monitors' arrangement to drag, the selected monitor's settings, Apply, and the question while they are on trial. |
@@ -1223,7 +1259,11 @@ what was there.
 | `Caption.qml` | The caption `paw tour` narrates itself with (`shell.caption`, `caption.cpp`, from the compositor's `caption` lines), an overlay surface of its own (`CaptionView`) where the on-screen display shows, taking no input. |
 
 The authentication dialog's model is `Authentication` (`authentication.cpp`): polkit's requests,
-one at a time, each answered through an `AuthConversation` for the chosen user. The agent
+one at a time, each answered through an `AuthConversation` for the chosen user. A conversation
+that ends in a wrong answer is followed by a new one from the event loop, never from inside its
+`completed`, which polkit's session may emit inside `start()` when its helper cannot start; one
+that ended without asking anything is followed by none until the user answers again or chooses
+another user, and the third wrong answer of a user ends the request as `Failed`. The agent
 (`polkit_agent.cpp`, with `PAW_POLKIT`) is a `PolkitAgentListener` subclass registered for
 the session's `unix-session` subject, whose requests it hands to the model, and whose
 conversations are polkit's `PolkitAgentSession`s; it completes polkit's `GTask` as the model is
@@ -1253,14 +1293,23 @@ that output is gone (`screenAdded` and `screenRemoved`), as a trial may turn it 
 
 The models behind them: `task_model.cpp` (windows, from foreign-toplevel), `taskbar_model.cpp`
 (the taskbar's one row of pinned applications and windows, in an order every panel shares, a
-`TaskbarOrder` the source model owns) and `task_filter.cpp` (an application's windows, for its
-groups and menus), `audio.cpp` with `pulse_audio.cpp`, `system_status.cpp`
+`TaskbarOrder` the source model owns, which while the windows have a button each places a window
+among its application's by the place of its monitor, the `output` role's `QScreen`, as it opens
+or moves, tested by `task_filter_test` and in a session by `tests/taskbar_monitor_smoke.py`; a
+panel's `TaskbarModel` shows the entries its `TaskbarOrder::View` lets through, the windows of
+its `output` alone and the launchers with `showLaunchers`, which `Panel.qml` sets from
+`shell.taskbar_buttons` and the main monitor, `ShellController::primaryOutput`, from the
+compositor's `primary` state line) and `task_filter.cpp` (an application's windows, for its
+groups and menus, with `byMonitor` in the order of their monitors, as the card of a button's
+windows lists them, and with `output` those on one monitor alone), `audio.cpp` with
+`pulse_audio.cpp`, `system_status.cpp`
 (battery, network), `tray*.cpp`, `notification*.cpp`, `osd.cpp`, `caption.cpp` and `backlight.cpp`,
 `volume_keys.cpp` (what the compositor passes on from the volume, microphone and brightness keys),
 `power.cpp`, `palette.cpp` (with `fuzzy.cpp`, and `calculator.cpp`, `file_index.cpp` and
 `web_search.cpp`, which the start menu's search shares), `media.cpp` with `mpris.cpp`,
 `power_mode.cpp` with `power_profiles_daemon.cpp`, `wifi.cpp` with `network_manager.cpp`,
-`bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history). `preview.cpp` has
+`bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history), `desktop_clock.cpp` (the
+desktop clock's settings, and whether the `desktop_clock` action shows it). `preview.cpp` has
 stand-ins for all of them for `--preview-popup`.
 
 The services Quick Settings controls over D-Bus each have a model the QML reads, built into
@@ -1326,14 +1375,16 @@ The pictures of the windows on the taskbar's card (`WindowThumbnails.qml`, with 
 are `TaskModel`'s: its `picture` role is `image://windows/<taskId>/<serial>` once a window has one,
 `""` until then, the serial new with every picture so that an `Image` with `cache: false` loads it
 again, and the `windows` image provider serves them by task id. The model takes pictures of a
-window only while something watches it: `watchPicture(taskId, pixelWidth, live)`, counted, until
-`unwatchPicture(taskId)`. It asks the window control for the window's capture source scaled down to
-fit `pixelWidth` by 5/8 of it (`get_scaled_capture_source`, version 3; a new width asks again), or
-with version 2 for it at the window's size (`get_capture_source`), captures it with
-ext-image-copy-capture into shared memory, scales the picture down off the GUI thread where the
-frame is larger than that (only ever a copy with version 3), and, when `live`, takes the next as
-the window redraws, every 33 ms at most (100 ms at the window's size). The last picture stays until
-the window closes, so the card opens with it.
+window only while something watches it: `watchPicture(owner, taskId, pixelWidth, live)`, counted
+per owner, until `unwatchPicture(owner, taskId)` or until the owner goes: as `place` does, the
+model drops what an owner still watches on its `destroyed`, so that no order in which QML tears a
+panel down can leave a capture running. It asks the window control for the window's capture
+source scaled down to fit `pixelWidth` by 5/8 of it (`get_scaled_capture_source`, version 3; a new
+width asks again), or with version 2 for it at the window's size (`get_capture_source`), captures
+it with ext-image-copy-capture into shared memory, scales the picture down off the GUI thread
+where the frame is larger than that (only ever a copy with version 3), and, when `live`, takes the
+next as the window redraws, every 33 ms at most (100 ms at the window's size). The last picture
+stays until the window closes, so the card opens with it.
 
 Where the bar shows each window goes to the compositor through `TaskModel::place(owner, taskIds,
 output, rect, layer)` and the window control's `set_rectangle` (version 7), for the window to
@@ -1355,9 +1406,12 @@ itself for the windows of the button the pointer has rested on for half of `shel
 (`warmGroup`, until the card opens or the pointer leaves), so that the card opens on their
 pictures. It counts the wants and asks the model once a change is over (`syncPictures`), so that a
 window the tiles take over from the panel as the card opens is neither let go nor asked for
-again, which would start its capture anew, or without `live` take its one picture twice. A
-stand-in model (the preview's, the tests') has no `watchPicture`, which the panel then does not
-call, and names pictures of its own (`image://preview-windows/ID`, painted by `preview.cpp`).
+again, which would start its capture anew, or without `live` take its one picture twice. The
+panel is the owner of its watches: destroyed with a card open or a button's pictures warmed up
+(its monitor unplugged, the lid closed while docked), it runs no `syncPictures` to let them go,
+and the model lets go of them as it goes. A stand-in model (the preview's, the tests') has no
+`watchPicture`, which the panel then does not call, and names pictures of its own
+(`image://preview-windows/ID`, painted by `preview.cpp`).
 
 The window switcher's cards (`SwitcherCards.qml`, which `Switcher.qml` loads in place of its grid
 with `shell.thumbnails` outside the macOS style) show the same pictures. The switcher's lines
@@ -1365,11 +1419,11 @@ name a window by its app id and title, which two windows may share, and by its n
 control's `id`, `TaskModel`'s `windowId` role); each card finds its task with a `TaskFilter`
 whose `windowId` keeps that window alone, filtering again when the number comes after the window.
 While the switcher is open on the view's output (`open`, `outputName`) a card watches its
-picture itself with `watchPicture`, unless the model is a stand-in without it, and unwatches it
-at `switcher-close`, though the cards stay while the switcher fades. The cards are made as the
-list arrives, 120 ms before `SwitcherView` shows the switcher, so the pictures are asked for
-early: with 20 windows on a headless compositor with pixman at 2560 by 1440 and a scale of 1.25,
-every one had a frame about 75 ms after the switcher opened. They are asked for twice as wide as the pictures' common height,
+picture itself with `watchPicture`, as the watch's owner, unless the model is a stand-in without
+it, and unwatches it at `switcher-close`, though the cards stay while the switcher fades. The
+cards are made as the list arrives, 120 ms before `SwitcherView` shows the switcher, so the
+pictures are asked for early: with 20 windows on a headless compositor with pixman at 2560 by
+1440 and a scale of 1.25, every one had a frame about 75 ms after the switcher opened. They are asked for twice as wide as the pictures' common height,
 `shell.thumbnailSize` × 5/8, times the device pixel ratio, a box that holds any card's picture
 (3:4 to 2:1) without scaling it up. A card is as wide as its picture's proportions, which it notes
 in `aspects` once the picture shows (16:10 until then), and `arrange` lays the cards out in rows
@@ -1533,13 +1587,15 @@ then the text, HTML, a list of files and a picture), each type given two seconds
 and what was read goes to `record()`, which the tests call too. While the history's own data
 source is what is copied (`restore()`), the selection announcing it is not read; another program
 copying cancels that source first. A source hands each program pasting the bytes it asks for with
-non-blocking writes, SIGPIPE held off. `locked on|off` in the control socket's state calls
-`setLocked`, and `clipboard OUTPUT` from the `clipboard_history` action toggles `output`, which a
-`PickerView` (`picker_view.cpp`) follows: an `OverlayView` on every output, as the palette's is,
-showing `ClipboardPicker.qml`, which filters the entries; `image://clipboard/ID/SERIAL`
-(`clipboardImage`, through an `ImageProvider`, `image_provider.hpp`) serves their pictures. Its
-file is touched only once the history is the session's (connected) or was given a path, so tests
-and previews that make a controller never read or remove it.
+non-blocking writes, SIGPIPE held off, and gives up on one that takes none of them for ten seconds
+(`Writing::timer`, started again by each write that gets some through), so that a program that
+hangs, or never reads, keeps neither the pipe nor the bytes in the shell. `locked on|off` in the
+control socket's state calls `setLocked`, and `clipboard OUTPUT` from the `clipboard_history`
+action toggles `output`, which a `PickerView` (`picker_view.cpp`) follows: an `OverlayView` on
+every output, as the palette's is, showing `ClipboardPicker.qml`, which filters the entries;
+`image://clipboard/ID/SERIAL` (`clipboardImage`, through an `ImageProvider`, `image_provider.hpp`)
+serves their pictures. Its file is touched only once the history is the session's (connected) or
+was given a path, so tests and previews that make a controller never read or remove it.
 
 The emoji picker (`EmojiPicker`, `emoji.cpp`) reads `vendor/emoji/emoji.tsv`, which
 `shell/CMakeLists.txt` compiles into `paw_shell_qml` as `:/paw/emoji.tsv`, and gives
@@ -1874,7 +1930,7 @@ resting pointer counts in the heatmap (see `heatmap_smoke.py`).
 ```sh
 cmake --build build --target paw          # only the compositor
 ctest --test-dir build -j8 -R sticky           # only the tests you are working on
-ctest --test-dir build -j8                     # everything, about 25 seconds
+ctest --test-dir build -j8                     # everything, about 90 seconds
 tools/check-all.sh                             # plus the sanitizer build, before merging
 ```
 

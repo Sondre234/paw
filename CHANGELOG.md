@@ -61,6 +61,10 @@ shadows.
   under mochi's own icons, and `--cursor` Catppuccin's cursors.
 - `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
   the accent colour, named as `shell.wallpaper` is.
+- `shell.wallpaper_mode` says how the wallpaper covers each monitor: `"fill"` (cropped, as
+  before), `"fit"`, `"stretch"`, or at its own size `"center"` and `"tile"`, with the background
+  colour around a picture that leaves room. A profile can set it; a new mode fades in as a new
+  wallpaper does, and the frosted glass, the workspace cards and Launchpad follow it.
 - `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu
   bar and dock, and the popups, menus, cards, tooltips and overlays show the wallpaper behind them
   blurred under their colour, the popups as translucent as the bar but at least 75 % opaque so
@@ -80,6 +84,12 @@ shadows.
   are left alone, and locking ends it. A new wallpaper fades in over the one shown, also from or
   to none, and one picked during the fade comes in over both. `paw msg get crossfade` lists the
   pictures.
+- Experimental: `profile_schedule = { day = "washi", night = "sumi" }` picks the day profile at
+  sunrise and the night one at sunset (night light's times or location, or its own `sunrise` and
+  `sunset`), crossfading. A profile picked by hand stays until the next sunrise or sunset, `paw
+  msg profile auto` (the `profile_auto` action, also in the profile menus and the palette) hands
+  the choice back at once, and one that passed while paw was off is caught up as it starts.
+  Quick Settings' Appearance tile says Scheduled while the schedule's profile is in use.
 - A floating bar docks while a window reaches the edge it is along (maximized, one snapped
   against it, or any tile, gaps or not): it fills the strip it reserves, squared and without its
   frame, and floats again once no window does, as KDE's floating panels do. Subscribers hear
@@ -216,6 +226,19 @@ shadows.
 - The tiling button shows the icon of the layout its monitor tiles with, as its menu draws it
   (dwindle, master, spiral, monocle or scroll), crossfading when the layout changes, where it
   showed the same split screen for every layout.
+- With `shell.group_windows = false`, the taskbar's buttons follow the monitors their windows are
+  on, as on Windows: of two windows of one application, the one on the monitor further left has
+  its button further left. A window opening on a monitor left of its application's other windows
+  goes ahead of their buttons, and a window moved to another monitor moves its button among its
+  application's, while the buttons of other applications stay where they are and a button dragged
+  by hand keeps its place until its window moves. Grouped, resting on a button shows its windows
+  in the order of their monitors.
+- `shell.taskbar_buttons` (experimental) chooses which windows each monitor's taskbar shows, as
+  Windows' "Show taskbar buttons on": every window on every bar (`"all"`, as before), every window
+  on the main monitor's bar and on the others only their own monitor's (`"main_and_own"`), or on
+  every bar only its own monitor's (`"own"`); the pinned applications then show on the main
+  monitor's bar alone. The compositor names the primary monitor to subscribers with
+  `primary NAME`.
 
 ### The start menu
 
@@ -317,6 +340,12 @@ shadows.
   are then trusted and connected. The shell is BlueZ's agent from the first time it is asked to
   pair, for passkeys to confirm, PINs and passkeys to type and codes to type on a keyboard.
   `shell.widgets.bluetooth = false` leaves it out and `-DPAW_BLUETOOTH=OFF` builds without it.
+- An experimental desktop clock, off by default: `shell.desktop_clock` draws the time large and
+  thin over the wallpaper, the date under it and, with `greeting = "ja"` or `"en"`, おはよう,
+  こんにちは or こんばんは (Good morning, afternoon or evening) above it between two twinkles, in the
+  profile's text colour with a soft shadow, where `position` puts it. It changes once a minute
+  and stays out of the frosted glass. The `desktop_clock` action (`paw msg desktop_clock`, the
+  command palette) shows or hides it at once.
 
 ### Notifications and the overlays
 
@@ -592,6 +621,11 @@ shadows.
   and a half minutes and the monitors go off at ten; nothing locks or suspends unless set. Idle
   inhibitors (videos playing) hold every step off, swayidle and the like work as before through
   `ext-idle-notify-v1`, and `paw msg get idle` tells where the steps are.
+- Keep awake, for reading, a presentation or a long download: a Keep awake tile (a coffee cup)
+  beside Night light in Quick Settings and Control Center, the `keep_awake_toggle`,
+  `keep_awake_on` and `keep_awake_off` actions (none bound) and the command palette hold every
+  idle step off until it is turned off again, and tell swayidle and the like the seat is
+  inhibited too.
 - The clamshell mode KDE and Windows have: closing a laptop's lid while another monitor is on
   turns the built-in panel off, its windows moving to the other monitor as when it is unplugged,
   and opening it brings the panel and its windows back; a lid closed at startup holds the panel
@@ -867,6 +901,30 @@ off and to find out what is wrong with it, and toys the compositor plays with th
 - A drag of nothing (without a data source, as an application may start within its own window)
   no longer crashes paw once XWayland is up, whose window manager in wlroots 0.20 read the
   missing source; it is turned down there.
+- A taskbar destroyed with the card of window pictures open, or with a button's pictures warmed
+  up (its monitor unplugged, the lid closed while docked), lets the windows' captures go; each
+  window used to keep one running, some 30 copies a second, until it closed.
+- The polkit agent no longer asks polkit's helper again without end, crashing the shell, when the
+  helper cannot start: the dialog says the helper failed, or what it said (a locked account),
+  and tries again when the user answers. A password gets three tries, as with `sudo`, after
+  which the request fails.
+- A program pasting from the clipboard history that reads nothing for ten seconds is given up,
+  where the shell kept its pipe and a copy of the entry (up to 16 MB for a picture) for good.
+- An idle inhibitor holds the screens awake only while its window shows, as the protocol says and
+  sway does: a video minimized, left on another workspace, on a monitor turned off or behind the
+  lock no longer keeps the screens from dimming and turning off. `paw msg get idle` lists each
+  inhibitor, what it is on and whether it applies.
+- The clipboard history keeps all of a long copy from a program that writes it in a plain loop,
+  where it kept only the first 64 KiB: the pipe it read through was non-blocking at the
+  program's end too, which Qt programs and `wl-copy` undo for themselves but a simple one took
+  for an error.
+- `paw import` no longer hangs on a `hyprland.lua` that spends long in one call into a C function,
+  which its instruction budget cannot stop: `(""):rep(2^62)`, a string pattern that backtracks.
+  The script runs first in a child process, as a configuration does, and one that has not
+  finished there within 3 seconds is left out, the report saying it took too long.
+- The shell no longer loses some 2.7 KB of memory each time a shadow drawn through the GPU goes,
+  as the floating bar's does while a window docks it: Qt's shadow never frees the shader effect
+  it draws with, which the shell now hands to the shadow to go with it.
 
 ## 0.1.1 (2026-10-05)
 

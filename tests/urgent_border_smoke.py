@@ -77,13 +77,17 @@ with harness.Compositor(compositor, settings(3)) as desktop:
 
     ask(a)
     desktop.wait_for(lambda: urgent_count() == 1, "a urgent")
-    seen = []
-    start_time = time.monotonic()
-    while time.monotonic() - start_time < 1.5:
+    # Looked at for a second and a half at least, and on until it has gone darker and brighter
+    # past the first looks (which may catch the fade from the inactive color): within the four
+    # seconds the pulse lasts, however few looks a loaded machine takes in that time.
+    seen, start_time = [], time.monotonic()
+
+    def pulsed():
         seen.append(edge("urgent-a", False))
-        time.sleep(.03)
-    brightness = [sum(p) for p in seen]
-    assert max(brightness) - min(brightness) > 60, f"the border does not pulse: {seen}"
+        brightness = [sum(p) for p in seen[3:]]
+        return time.monotonic() - start_time >= 1.5 and len(brightness) > 1 and \
+            max(brightness) - min(brightness) > 60
+    desktop.wait_for(pulsed, "the border pulses", detail=lambda: seen)
     assert not any(near(p, INACTIVE) for p in seen[3:]), seen
 
     def held():

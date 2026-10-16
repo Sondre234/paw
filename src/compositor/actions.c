@@ -169,6 +169,7 @@ static const struct {
     {SH_DND_TOGGLE, .line = "dnd toggle\n"},
     {SH_DND_ON, .line = "dnd on\n"},
     {SH_DND_OFF, .line = "dnd off\n"},
+    {SH_DESKTOP_CLOCK, .line = "desktop-clock toggle\n"},
     {SH_MEDIA_PLAY_PAUSE, .line = "media play-pause\n"},
     {SH_MEDIA_NEXT, .line = "media next\n"},
     {SH_MEDIA_PREVIOUS, .line = "media previous\n"},
@@ -402,6 +403,15 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
             : action == SH_NIGHT_LIGHT_OFF ? SH_NIGHT_OFF
                                            : SH_NIGHT_AUTO;
         night_light_update(server);
+        break;
+    case SH_PROFILE_AUTO:
+        profile_schedule_resume(server);
+        break;
+    case SH_KEEP_AWAKE_TOGGLE:
+    case SH_KEEP_AWAKE_ON:
+    case SH_KEEP_AWAKE_OFF:
+        set_keep_awake(server, action == SH_KEEP_AWAKE_TOGGLE ? !server->keep_awake
+                               : action == SH_KEEP_AWAKE_ON);
         break;
     case SH_ZOOM_IN:
         zoom_by(server, 1);

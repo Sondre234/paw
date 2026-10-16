@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // `paw import` against the fixture dotfiles in tests/import, and theme.lua merging.
+#include "paw/child_trial.hpp"
 #include "paw/config.hpp"
 #include "paw/import.hpp"
 
@@ -287,6 +288,28 @@ void hostile_lua() {
     alarm(0);
 }
 
+// One call into a C function is one instruction of the budget however long it runs, so a
+// hyprland.lua that spends longer than the time limit in one is stopped by that instead: the
+// import ends with a report saying so, and nothing from the file.
+void slow_lua() {
+    const char *const scripts[] = {
+        "local s = (''):rep(2^62)",
+        "local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b')",
+        "table.move({}, 1, 2^50, 2)",
+    };
+    for (const char *script : scripts) {
+        alarm(static_cast<unsigned>(3 * paw::trial_seconds + 30)); // a hang fails the test
+        auto result =
+            import_lua(std::string("hl.config({ general = { gaps_in = 3 } })\n") + script);
+        alarm(0);
+        require(contains(result.report, "hyprland.lua: took too long to run"),
+                std::string("the report on ") + script + " lacks the time limit: " +
+                    result.report);
+        require(result.imported == 0,
+                std::string("settings were imported from ") + script + ": " + result.report);
+    }
+}
+
 int main(int argc, char **argv) {
     try {
         require(argc == 2, "fixture directory required");
@@ -296,6 +319,7 @@ int main(int argc, char **argv) {
         merge(root);
         broken_keymap();
         hostile_lua();
+        slow_lua();
         std::cout << "import tests passed\n";
         return 0;
     } catch (const std::exception &error) {

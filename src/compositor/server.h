@@ -702,8 +702,12 @@ struct sh_server {
      * off, which input does not undo for a moment. */
     struct wl_listener output_power_set_mode;
     int64_t displays_off_at;
+    /* Idle inhibitors (lock.c), and how many of them apply now, their surfaces being shown;
+     * keep awake (the keep_awake actions) holds the idle steps off as one does. */
     struct wl_listener new_inhibitor;
-    int inhibitors;
+    struct wl_list idle_inhibitors; // sh_inhibitor.link
+    int inhibitors_applying;
+    bool keep_awake;
     struct wl_display *wl_display;
     struct wlr_backend *backend;
     char pending_output_name[64]; // the name the next headless output takes, for tests
@@ -887,6 +891,13 @@ struct sh_server {
         struct wl_event_source *timer;
         int64_t ends;
     } rice;
+    /* The day and night schedule of appearance profiles (profile_schedule.c). */
+    struct sh_profile_schedule_state {
+        struct wl_event_source *timer;
+        int64_t applied;  /* the last sunrise or sunset applied, in seconds since the epoch; -1 */
+        char brought[40]; /* the profile it brought */
+        bool following;   /* the profile in use is the one the schedule wants now */
+    } profile_schedule;
     struct sh_cat_view *cat; /* the desktop cat (cat.c); NULL if it could not be made */
     struct sh_wrapped *wrapped; // NULL while wrapped.enabled is off
     struct sh_xray xray;
@@ -1552,6 +1563,11 @@ void server_new_lock(struct wl_listener *listener, void *data);
 void session_active(struct wl_listener *listener, void *data);
 #endif
 void server_new_inhibitor(struct wl_listener *listener, void *data);
+void idle_inhibitors_follow(struct sh_server *server);
+void set_keep_awake(struct sh_server *server, bool on);
+void describe_idle_inhibitors(struct sh_server *server, int fd,
+                              void (*surface)(struct sh_server *, int, const char *,
+                                              struct wlr_surface *));
 
 /* minimize.c */
 void set_window_rect(struct sh_toplevel *toplevel, const char *output, int64_t x, int64_t y,
@@ -1922,6 +1938,13 @@ void move_to_workspace_beside(struct sh_server *server, int way);
 void occupied_workspaces(struct sh_server *server, struct wlr_output *output, char *text,
                          size_t size);
 int focused_workspace(struct sh_server *server);
+
+/* profile_schedule.c */
+void profile_schedule_start(struct sh_server *server);
+void profile_schedule_reloaded(struct sh_server *server);
+void profile_schedule_resume(struct sh_server *server);
+void profile_schedule_finish(struct sh_server *server);
+void describe_profile_schedule(struct sh_server *server, int fd, const char *arguments);
 
 /* rice.c */
 void control_rice(struct sh_server *server, int fd, const char *arguments);

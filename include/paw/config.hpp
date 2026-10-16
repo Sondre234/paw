@@ -173,6 +173,26 @@ struct ShellClipboard {
 // Lua `shell.panel_position`: the edge of the output the taskbar is along.
 enum class PanelEdge { Top, Bottom, Left, Right };
 
+// Lua `shell.desktop_clock` (experimental): a large clock on the desktop, over the wallpaper.
+struct DesktopClockConfig {
+    bool enabled = false;
+    // "center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left" or
+    // "bottom-right".
+    std::string position = "center";
+    std::string time_format = "HH:mm";       // Qt's date and time formats
+    std::string date_format = "dddd d MMMM"; // empty: no date
+    int size = 96;                           // the time's height in pixels
+    std::string color;                       // #RRGGBB or #RRGGBBAA; empty: text_color
+    std::string font;                        // family; empty: shell.font
+    std::string greeting;                    // "en" or "ja" by the time of day; empty: none
+};
+
+// Lua `shell.wallpaper_mode`: how the wallpaper covers the output. Fill crops it to cover every
+// pixel, Fit shows all of it, Stretch scales each side to the output's, Center and Tile lay it at
+// its own size, once in the middle or repeated from the top left; Fit and Center show the
+// background colour where the picture leaves room.
+enum class WallpaperMode { Fill, Fit, Center, Tile, Stretch };
+
 // Lua `shell.tiling_bar.style`: one bar, a pill for each of its three groups of modules with
 // nothing between them, or a pill for every module.
 enum class TilingBarStyle { Bar, Islands, Pills };
@@ -241,6 +261,12 @@ struct ShellConfig {
     bool icons_only = true; // taskbar buttons show the window's icon, its title as a tooltip
     bool software_renderer = false; // renderer = "software": Qt Quick without the GPU, faster to start
     bool group_windows = true; // one taskbar button per application, its windows listed on hover
+    // taskbar_buttons (experimental), as Windows' "Show taskbar buttons on": every bar shows every
+    // window ("all"); the main monitor's bar every window and the others their own monitor's
+    // ("main_and_own"); or every bar its own monitor's alone ("own"). But for "all", pinned
+    // applications' launchers show on the main monitor's bar alone.
+    enum class TaskbarButtons { All, MainAndOwn, Own };
+    TaskbarButtons taskbar_buttons = TaskbarButtons::All;
     // The session's polkit authentication agent: the dialog asking for the password a program
     // needs (pkexec, GParted), unless another agent serves the session already.
     bool polkit_agent = true;
@@ -252,6 +278,8 @@ struct ShellConfig {
     std::string panel_color = "#151e2c";
     std::string text_color = "#edf2fa";
     std::string wallpaper;
+    WallpaperMode wallpaper_mode = WallpaperMode::Fill;
+    DesktopClockConfig desktop_clock;
     // The start button's picture: a file, absolute or relative to the configuration; empty:
     // four squares in the accent colour.
     std::string start_icon;
@@ -310,6 +338,7 @@ struct Config {
     sh_settings settings{.background = {25 / 255.0F, 33 / 255.0F, 46 / 255.0F, 1.0F},
                          .color_scheme = SH_COLOR_SCHEME_UNSET,
                          .profile = "",
+                         .profile_schedule = {},
                          .mouse_modifier = SH_ALT,
                          .middle_drag = {"kitty", "foot", "footclient", "Alacritty",
                                          "org.wezfurlong.wezterm", "com.mitchellh.ghostty",

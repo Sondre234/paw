@@ -38,6 +38,13 @@ Item {
     property real contextMenuX: 0
     // The windows the taskbar shows; a stand-in model replaces it in tests.
     property var taskSource: shell.tasks
+    // shell.taskbar_buttons (the taskbar style's alone): the monitor whose windows alone the
+    // taskbar shows, "" for every window ("all", and "main_and_own" on the main monitor), and
+    // whether it shows the pinned applications' launchers ("all", or on the main monitor).
+    readonly property bool mainMonitor: outputName === shell.primaryOutput
+    readonly property string taskbarOutput: Theme.macos || shell.taskbarButtons === "all" ||
+                                            (shell.taskbarButtons === "main_and_own" && mainMonitor) ? "" : outputName
+    readonly property bool taskbarLaunchers: Theme.macos || shell.taskbarButtons === "all" || mainMonitor
     // The sound server, replaced in tests too. Its popup is "mixer" (a slider per application)
     // or "outputs" (the output to play through), shown above the volume control.
     property var audioSource: shell.audio
@@ -72,7 +79,8 @@ Item {
                             trayMenuKey !== "" || menuBarMenu !== ""
     // Hovering an application's stacked button lists its windows above it: those of the pinned
     // application groupSlot, or with the app id groupWindowApp outside the pinned slots, or the
-    // window groupTask alone when it is 0 or more (a button standing for one window).
+    // window groupTask alone when it is 0 or more (a button standing for one window), in the
+    // order of their monitors, those the taskbar shows.
     property bool groupOpen: false
     property string groupSlot: ""
     property string groupWindowApp: ""
@@ -84,7 +92,7 @@ Item {
     // bar and its menus).
     readonly property TaskFilter allWindows: TaskFilter { sourceModel: root.taskSource }
     readonly property TaskFilter groupWindows: TaskFilter {
-        controller: shell; sourceModel: root.taskSource
+        controller: shell; sourceModel: root.taskSource; byMonitor: true; output: root.taskbarOutput
         app: root.groupSlot; windowApp: root.groupWindowApp; taskId: root.groupTask
     }
     // In the taskbar style with shell.thumbnails, resting on any button with windows shows them
@@ -128,7 +136,8 @@ Item {
     // taken twice. A want may name the width in device pixels it wants the picture (0, or none,
     // for shell.thumbnailSize's), as the card of a workspace does, and a window is asked for at
     // the widest it is wanted: watched again at a new width before its last watch goes, so that
-    // its capture goes on.
+    // its capture goes on. The panel watches as their owner, so that the source lets go of them
+    // as it goes, whatever is still to sync then.
     property var pictureWants: ({})
     // The windows asked for, as {taskId: width}, and the source they were asked of.
     property var pictureWatches: ({})
@@ -154,13 +163,13 @@ Item {
         var source = taskSource, id
         if (pictureSource !== source) {
             if (pictureSource && typeof pictureSource.unwatchPicture === "function")
-                for (id in pictureWatches) pictureSource.unwatchPicture(Number(id))
+                for (id in pictureWatches) pictureSource.unwatchPicture(root, Number(id))
             pictureWatches = {}
             pictureSource = source
         }
         for (id in pictureWatches)
             if (!pictureWants[id]) {
-                source.unwatchPicture(Number(id))
+                source.unwatchPicture(root, Number(id))
                 delete pictureWatches[id]
             }
         if (!source || typeof source.watchPicture !== "function")
@@ -169,9 +178,9 @@ Item {
             var width = wantedWidth(id)
             if (pictureWatches[id] === width)
                 continue
-            source.watchPicture(Number(id), width, shell.liveThumbnails)
+            source.watchPicture(root, Number(id), width, shell.liveThumbnails)
             if (pictureWatches[id])
-                source.unwatchPicture(Number(id))
+                source.unwatchPicture(root, Number(id))
             pictureWatches[id] = width
         }
     }

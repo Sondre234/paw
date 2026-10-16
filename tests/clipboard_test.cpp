@@ -2,10 +2,12 @@
 // The shell's clipboard history against a real compositor (tests/clipboard_smoke.py starts a
 // private headless one): what a program copies through ext-data-control-v1 is kept, a secret and
 // what is copied while the session is locked are not, an entry restored is what a program pastes,
-// and the limit, pinning, the file and turning it off.
+// the limit, pinning, the file and turning it off, a long copy from a program writing it in a
+// plain loop, and a program pasting that stops reading.
 #include "clipboard.hpp"
 #include <QBuffer>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QTemporaryDir>
@@ -179,6 +181,68 @@ class ClipboardTest : public QObject {
         QCOMPARE(texts(history), QStringList());
         QVERIFY(copy({"text/plain=off"}));
         QVERIFY(stays([&] { return texts(history).isEmpty(); }));
+    }
+
+    // A program copying more than a pipe holds (64 KiB), and writing it in a plain blocking
+    // loop as a simple one does, hands the history all of it.
+    void keepsALongCopyWhole() {
+        ClipboardHistory history;
+        QVERIFY(history.connectDisplay());
+        // Four pipes' worth in numbered lines, so that a piece cut off or left out shows.
+        QByteArray text;
+        for (int line = 0; text.size() < 256 * 1024; ++line)
+            text += QByteArray::number(line).rightJustified(6, '0') + " of a long copy\n";
+        QFile file(directory.filePath("numbered.txt"));
+        QVERIFY(file.open(QIODevice::WriteOnly) && file.write(text) == text.size());
+        file.close();
+        QVERIFY(copy({"text/plain=@" + file.fileName()}));
+        QVERIFY(QTest::qWaitFor([&] { return texts(history).size() == 1; }));
+        // Restored, all of it is what is pasted, which the history hands over once the program
+        // that copied it has let go.
+        QVERIFY(history.restore(history.entries().value(0).toMap()["id"].toInt()));
+        QVERIFY(QTest::qWaitFor([&] { return copiers.back()->state() == QProcess::NotRunning; }));
+        QCOMPARE(paste("text/plain"), text);
+    }
+
+    // A program pasting that stops reading is given up once nothing could be written to it for
+    // the timeout, its pipe closed; one reading slowly but steadily gets everything, however long
+    // that takes.
+    void givesUpOnAStalledPaste() {
+        ClipboardHistory history;
+        history.setWriteTimeout(500);
+        QVERIFY(history.connectDisplay());
+        // More than a pipe holds, eight times over.
+        const QByteArray text(512 * 1024, 'p');
+        QFile file(directory.filePath("long.txt"));
+        QVERIFY(file.open(QIODevice::WriteOnly) && file.write(text) == text.size());
+        file.close();
+        QVERIFY(copy({"text/plain=@" + file.fileName()}));
+        QVERIFY(QTest::qWaitFor([&] { return texts(history).size() == 1; }));
+        QVERIFY(history.restore(history.entries().value(0).toMap()["id"].toInt()));
+        // The history hands it over once the program that copied it has let go.
+        QVERIFY(QTest::qWaitFor([&] { return copiers.back()->state() == QProcess::NotRunning; }));
+        QCOMPARE(paste("text/plain"), text);
+
+        QProcess stalled;
+        stalled.start(probe, {"stall", "text/plain"});
+        QVERIFY(QTest::qWaitFor([&] { return stalled.canReadLine(); }, 5000));
+        QCOMPARE(stalled.readLine(), QByteArray("asked\n"));
+        QElapsedTimer waited;
+        waited.start();
+        QVERIFY(QTest::qWaitFor([&] { return stalled.canReadLine(); }, 5000));
+        const QByteArray closed = stalled.readLine().trimmed();
+        QVERIFY2(closed.startsWith("closed "), closed.constData());
+        const qsizetype handed = closed.sliced(7).toLongLong();
+        QVERIFY2(handed > 0 && handed < text.size(), closed.constData());
+        QVERIFY2(waited.elapsed() >= 250, qPrintable(QString::number(waited.elapsed())));
+        QVERIFY(QTest::qWaitFor([&] { return stalled.state() == QProcess::NotRunning; }));
+        QCOMPARE(stalled.exitCode(), 0);
+
+        // A pause between reads shorter than the timeout, but all of them longer.
+        QProcess slow;
+        slow.start(probe, {"get", "text/plain", "150"});
+        QVERIFY(QTest::qWaitFor([&] { return slow.state() == QProcess::NotRunning; }, 30000));
+        QCOMPARE(slow.readAllStandardOutput(), text);
     }
 
     // Without the compositor's data-control, nothing is heard; restoring goes through Qt.

@@ -4,14 +4,20 @@
  *
  *   clipboard_probe set TYPE=VALUE...  copies VALUE as TYPE (VALUE @PATH: the file's bytes),
  *                                      prints "set" once it is copied, and hands it to whoever
- *                                      pastes until something else is copied, printing
- *                                      "sent TYPE" each time
- *   clipboard_probe get TYPE           prints what is copied as TYPE, exit 1 when nothing is
+ *                                      pastes until something else is copied, in a plain
+ *                                      blocking write loop, printing "sent TYPE" each time
+ *   clipboard_probe get TYPE [PAUSE]   prints what is copied as TYPE, exit 1 when nothing is;
+ *                                      with PAUSE, reading 64 KiB at a time, PAUSE ms apart
+ *   clipboard_probe stall TYPE         asks for what is copied as TYPE but reads none of it,
+ *                                      printing "asked"; once the program that copied it gives
+ *                                      up and closes its end, prints "closed N", N the bytes it
+ *                                      wrote before that
  *   clipboard_probe types              prints the types of what is copied, one a line */
 #define _GNU_SOURCE
 #include "ext-data-control-v1-client-protocol.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -97,6 +103,8 @@ static const struct ext_data_control_device_v1_listener device_listener = {
 static void send(void *data, struct ext_data_control_source_v1 *source, const char *type,
                  int32_t fd) {
     struct probe *probe = data;
+    // Written in a plain loop, as a simple program does, leaving the pipe as it comes: given a
+    // non-blocking one, it would stop at the first full pipe, taking EAGAIN for an error.
     for (int i = 0; i < probe->count; ++i) {
         if (strcmp(probe->types[i], type))
             continue;
@@ -146,9 +154,13 @@ static char *value_of(const char *argument, size_t *size) {
 }
 
 int main(int argc, char **argv) {
-    if (argc < 2 || (strcmp(argv[1], "set") && strcmp(argv[1], "get") && strcmp(argv[1], "types")) ||
-        (!strcmp(argv[1], "set") && argc < 3) || (!strcmp(argv[1], "get") && argc != 3))
-        die("usage: clipboard_probe set TYPE=VALUE... | get TYPE | types");
+    if (argc < 2 ||
+        (strcmp(argv[1], "set") && strcmp(argv[1], "get") && strcmp(argv[1], "stall") &&
+         strcmp(argv[1], "types")) ||
+        (!strcmp(argv[1], "set") && argc < 3) ||
+        (!strcmp(argv[1], "get") && argc != 3 && argc != 4) ||
+        (!strcmp(argv[1], "stall") && argc != 3))
+        die("usage: clipboard_probe set TYPE=VALUE... | get TYPE [PAUSE] | stall TYPE | types");
     struct probe probe = {0};
     probe.display = wl_display_connect(NULL);
     if (!probe.display)
@@ -204,15 +216,37 @@ int main(int argc, char **argv) {
     ext_data_control_offer_v1_receive(probe.selection, argv[2], fds[1]);
     close(fds[1]);
     wl_display_flush(probe.display);
-    // Reading waits for the program that copied it to write it all and close.
     char chunk[65536];
     ssize_t count;
+    if (!strcmp(argv[1], "stall")) {
+        printf("asked\n");
+        fflush(stdout);
+        // The pipe hangs up once no end is left to write, whatever it still holds.
+        struct pollfd hangup = {.fd = fds[0]};
+        while (!(hangup.revents & POLLHUP))
+            if (poll(&hangup, 1, -1) < 0 && errno != EINTR)
+                die("waiting failed");
+        size_t total = 0;
+        while ((count = read(fds[0], chunk, sizeof(chunk))) != 0) {
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count < 0)
+                die("reading failed");
+            total += (size_t)count;
+        }
+        printf("closed %zu\n", total);
+        return 0;
+    }
+    const int pause = argc == 4 ? atoi(argv[3]) : 0;
+    // Reading waits for the program that copied it to write it all and close.
     while ((count = read(fds[0], chunk, sizeof(chunk))) != 0) {
         if (count < 0 && errno == EINTR)
             continue;
         if (count < 0)
             die("reading failed");
         fwrite(chunk, 1, (size_t)count, stdout);
+        if (pause > 0)
+            usleep((useconds_t)pause * 1000);
     }
     return 0;
 }

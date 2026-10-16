@@ -112,6 +112,7 @@ struct ClipboardHistory::Writing {
     QByteArray data;
     qsizetype written = 0;
     std::unique_ptr<QSocketNotifier> notifier;
+    QTimer timer; // gives up on a program that stops reading
     ~Writing() {
         dispose(notifier);
         if (fd >= 0)
@@ -402,7 +403,8 @@ bool ClipboardHistory::restore(int id) {
     return true;
 }
 
-// Hands a program pasting the entry offered the bytes it asked for, as fast as it reads them.
+// Hands a program pasting the entry offered the bytes it asked for, as fast as it reads them. One
+// that reads nothing for writeTimeout_, hung or never meaning to, is given up.
 void ClipboardHistory::send(const QString &type, int fd) {
     auto writing = std::make_unique<Writing>();
     writing->fd = fd;
@@ -425,12 +427,21 @@ void ClipboardHistory::send(const QString &type, int fd) {
     };
     if (step())
         return; // closed as `writing` goes
-    writing->notifier = std::make_unique<QSocketNotifier>(fd, QSocketNotifier::Write);
-    connect(writing->notifier.get(), &QSocketNotifier::activated, this, [this, raw, step] {
-        if (!step())
-            return;
+    auto drop = [this, raw] {
         std::erase_if(writings_, [raw](const auto &other) { return other.get() == raw; });
+    };
+    writing->notifier = std::make_unique<QSocketNotifier>(fd, QSocketNotifier::Write);
+    connect(writing->notifier.get(), &QSocketNotifier::activated, this, [raw, step, drop] {
+        const qsizetype before = raw->written;
+        if (step())
+            drop();
+        else if (raw->written > before)
+            raw->timer.start(); // it reads: it gets as long again
     });
+    writing->timer.setSingleShot(true);
+    writing->timer.setInterval(writeTimeout_);
+    connect(&writing->timer, &QTimer::timeout, this, drop);
+    writing->timer.start();
     writings_.push_back(std::move(writing));
 }
 
@@ -605,8 +616,16 @@ void ClipboardHistory::readNext() {
         return finishReading(true);
     const auto type = reading.types[reading.next++];
     int fds[2];
-    if (pipe2(fds, O_CLOEXEC | O_NONBLOCK) != 0)
+    if (pipe2(fds, O_CLOEXEC) != 0)
         return finishReading(false);
+    // Only the history's own end is non-blocking: the program that copied gets its end as a
+    // pipe usually is, and one writing in a plain loop would otherwise stop at the first full
+    // pipe (64 KiB), taking EAGAIN for an error.
+    if (fcntl(fds[0], F_SETFL, fcntl(fds[0], F_GETFL) | O_NONBLOCK) != 0) {
+        ::close(fds[0]);
+        ::close(fds[1]);
+        return finishReading(false);
+    }
     // libwayland sends a copy of the descriptor, so the history's own closes at once.
     ext_data_control_offer_v1_receive(reading.offer, type.toUtf8().constData(), fds[1]);
     ::close(fds[1]);

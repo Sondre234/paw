@@ -18,7 +18,13 @@ have [Quick Settings](#quick-settings), the [clock's flyout](#clock-and-calendar
 shows the wallpaper and the configured launchers as shortcuts, which open on a double-click; a
 right click on it offers Show desktop and the appearance profiles. A new wallpaper, from the
 wallpaper picker or the configuration, fades in over the one shown once it has loaded, also from
-the drawn one or to it, and one picked during the fade comes in over both. Installed applications are read
+the drawn one or to it, and one picked during the fade comes in over both. `shell.wallpaper_mode`
+says how the picture covers each monitor: cropped to fill it (`"fill"`, the default), whole and as
+large as fits (`"fit"`), stretched to its sides (`"stretch"`), or at its own size, a pixel of it a
+pixel of the screen, in the middle (`"center"`) or repeated from the top left (`"tile"`);
+`appearance.background` shows around a picture that leaves room. A new mode fades in as a new
+wallpaper does, and the frosted glass, a workspace's picture on its card and Launchpad show the
+wallpaper the same way. Installed applications are read
 from desktop entries through GIO, and again as soon as one is installed or removed.
 
 ### The macOS style
@@ -212,6 +218,26 @@ the others. With no window left, the launcher shows again in its place; dragging
 the pin. Grouped, a pinned application's button stands for all its windows in the launcher's
 place, and dragging it moves the pin.
 
+With `group_windows = false` the buttons follow the monitors, as on Windows: of an application's
+windows, the one on the monitor further left in the layout (or higher up, of two at the same x)
+has its button further left. A window opening on a monitor left of another of its application's
+goes ahead of that one's button, past the buttons between, and a window moved to another monitor
+moves its button among its application's: after those of the windows on monitors to the left and
+on its own, ahead of those to the right. Nothing else moves a button, so one dragged elsewhere
+keeps its place until its window moves to another monitor, and on one monitor buttons open at the
+end as before. Grouped, an application's button stays where it is, and resting on it shows its
+windows in the order of their monitors.
+
+Which windows each monitor's taskbar shows is `shell.taskbar_buttons`, as Windows' "Show
+taskbar buttons on" (experimental): `"all"` (the default) shows every window on every bar,
+`"main_and_own"` every window on the main monitor's bar and on each other bar only the windows on
+its monitor, and `"own"` on every bar only the windows on its monitor. The main monitor is the
+primary one (`outputs.primary`, or the one the display settings window made primary), else the
+leftmost. But for `"all"`, the pinned applications show on the main monitor's bar alone, a
+launcher there while none of the application's windows is on it; grouped, a button, its count and
+the card of its windows stand for the windows its bar shows. A window moved to another monitor
+takes its button to that monitor's bar. The macOS style's dock shows every window.
+
 Something dragged from an application (a file, text, a link) brings windows forward as on Windows:
 resting the drag on a window's button for half a second brings that window to the front, restored
 onto the workspace shown if it was minimized, else with its own workspace shown, so that the drag
@@ -369,6 +395,27 @@ to this month. On a monitor too short for both cards, the calendar leaves out th
 date for the notifications, whose list scrolls in what room is left, fading out at the edge where
 it goes on.
 
+### Desktop clock
+
+An experimental clock on the desktop, off by default: `shell.desktop_clock = true`, or a table
+of its settings, draws the time large and thin over the wallpaper, under the windows, with the
+date under it (`date_format`, `""` for none). It sits in the middle of what the bars leave, or by
+an edge or a corner (`position`, such as `"bottom-right"`), in the text colour (`color`) and the
+shell's font (`font`), `size` pixels tall, with a soft shadow, or a glow under dark text, so that it
+reads on any wallpaper. `greeting = "ja"` greets above it by the time of day, おはよう from 5,
+こんにちは from 12 and こんばんは from 18 (`"en"`: Good morning, Good afternoon, Good evening),
+between two twinkles in the accent colour. It changes once a minute, never more often, as the blur
+behind windows takes the desktop again whenever it changes, and the frosted glass shows the
+wallpaper without it. The `desktop_clock` action (`paw msg desktop_clock`, or "Show or hide the
+desktop clock" in the command palette) shows or hides it at once, saying so on the on-screen
+display, until the configuration's `enabled` changes.
+
+```lua
+shell = {
+    desktop_clock = { enabled = true, position = "bottom-right", greeting = "ja" },
+}
+```
+
 ### Quick Settings
 
 Left of the clock, as on Windows 11, the Quick Settings button shows the volume and the battery in
@@ -377,7 +424,8 @@ small icons, and the network only while its link is down, dimmed and struck thro
 mutes. Clicking it opens Quick Settings at the bar's right end: what is playing
 ([media controls](#media-controls)), tiles for [Wi-Fi](#wi-fi) where NetworkManager has a Wi-Fi
 device, [Bluetooth](#bluetooth) while BlueZ has an adapter, do-not-disturb, night light (on or off
-against its schedule, through the compositor), tiling on this monitor (greyed out where tiling is
+against its schedule, through the compositor), [keep awake](#power-saving-when-idle) (no dimming,
+no screens going off, no sleep while it is on), tiling on this monitor (greyed out where tiling is
 not available), the [power mode](#power-mode) while power-profiles-daemon runs, the appearance
 profile (listing the profiles under it) and the wallpaper (opening the same picker as the bar's
 button), and without NetworkManager's Wi-Fi the network's state on a disc rather than a tile, as it
@@ -1326,7 +1374,8 @@ Wayland connection of its own, without taking the keyboard. Of what is copied it
 (by its best name, up to 1 MB), HTML and a list of files when they come with it, and a picture
 (PNG, JPEG, WebP, GIF, BMP or TIFF, up to 16 MB), and copies them back under the names they came
 with, the text also as `text/plain`, `UTF8_STRING`, `TEXT` and `STRING`, so that a program pastes
-them as it would the original. Copying something kept already moves it up. It keeps nothing a
+them as it would the original; a program pasting that reads nothing for ten seconds, hung or never
+meaning to, is given up. Copying something kept already moves it up. It keeps nothing a
 password manager marks as secret (`x-kde-passwordManagerHint` set to `secret`, as KeePassXC does)
 and nothing copied while the session is locked, which the compositor tells it (`locked on|off`).
 The entries are kept in memory only, `shell.clipboard.max_entries` (50) of them besides the
@@ -1791,8 +1840,9 @@ where it is drawn, at the speed it has. `paw msg get drawn` prints where each wi
 now, in the order of `get windows`: app ID, title, its place and size as drawn, the size its
 surface is drawn at, what its change of size does (`rest`, `moving`, `waiting` for the
 application, `fading` what it drew before), how much of its frame shows and the factor an
-animation or a gesture gives its opacity (both in thousandths), for tests; `tests/morph_smoke.py`
-follows the changes with it.
+animation or a gesture gives its opacity (both in thousandths), and the place its glide set off
+from (where it is drawn while it does not glide), for tests; `tests/morph_smoke.py` follows the
+changes with it.
 
 Animations are interruptible: a tile that is gliding when the layout changes again continues
 from where it is drawn, at the speed it has, and never snaps. Each kind (`open`, `close`,
@@ -2697,6 +2747,31 @@ monitor's picture lies exactly where the monitor showed it. Switching again duri
 starts from what shows. Locking the session takes the picture away at once, and no profile
 crossfades in while the session is locked.
 
+**A day and a night profile (experimental).** `profile_schedule = { day = "washi", night = "sumi"
+}` switches between two profiles by the sun: at each sunrise the `day` profile is picked and at
+each sunset the `night` one, as `paw msg profile NAME` picks one, saved and crossfading. The times
+are night light's `sunrise` and `sunset`, or the sun's at its `latitude` and `longitude`, whether
+or not night light is enabled; `sunrise = "07:00", sunset = "20:00"` in the table give the schedule
+times of its own. A profile picked by hand in between, from the panel, the palette or `paw msg
+profile NAME`, stays until the next sunrise or sunset, through reloads and restarts, and `paw msg
+profile auto` (the `profile_auto` action, **Follow sunrise and sunset** under the profiles in the
+panel's menus, or **Appearance: follow sunrise and sunset** in the command palette) hands the
+choice back to the schedule at once (`profile auto` picks a profile named `auto` instead, if there
+is one). A sunrise or sunset that passed while paw was not running is caught up as it starts,
+before the shell draws anything: the last one applied, and the profile it brought, are kept in
+`$XDG_STATE_HOME/paw/profile-schedule`, which a pick by hand leaves alone, so a schedule that now
+names another profile for it applies that one at once. A switch comes within a minute of its
+time; while the session is locked it shows without a crossfade, and it waits while a rice is
+[on trial](#paw-rice). In a polar day or night, without a sunrise or sunset for days, the profile
+stays as it is (`profile auto` picks the day's in polar day, the night's in polar night). Both
+names must be profiles, or installed rices; the configuration says which is not. Quick Settings'
+Appearance tile says **Scheduled** after the profile while the schedule's choice is in use
+(subscribers hear `profile-schedule on|off`), and `paw msg get profile_schedule` prints the profile
+the schedule wants now (`-` without one), the last sunrise or sunset (`sunrise`, `sunset`, or
+`polar-day` or `polar-night` without one near) and its time in seconds since 1970 (`-1` without
+one), the time of the last one applied (`-1` for none), and `1` while its profile is in use, else
+`0`, separated by tabs.
+
 ## Importing a Hyprland setup
 
 `paw import ~/.config` carries an existing Hyprland/Waybar setup over: monitors, colors
@@ -3012,7 +3087,9 @@ layer surface), its app ID or namespace, and its title (empty for a layer surfac
 in the monitor's coordinates, the one that counts first), then a `fold` line per window on its
 way into or out of its button (its number, `minimize` or `restore`, how far into the button it
 is drawn in thousandths, the box in layout coordinates, what that box is: `button`, `panel` or
-`place`, and where the window's box is drawn now), also mainly for tests. `paw msg get pictures`
+`place`, where the window's box is drawn now, how far into the button it set off from, and the
+window's box unfolded: where a copy set off from, or where a window restored comes out to), also
+mainly for tests. `paw msg get pictures`
 prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
@@ -3061,7 +3138,9 @@ a line per [appearance profile](#appearance-profiles), in name order: its name a
 in use, else `0`; and `paw msg get terminal` the command line the `terminal` action starts, its
 words separated by tabs, or nothing when there is no terminal to start. A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
-`workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
+`workspace N` (the focused monitor's), `primary NAME` (the [primary monitor](#monitors):
+`outputs.primary` or the one the display settings window made primary, else the leftmost; `-` for
+none), one `output NAME N USED TILING` line per monitor
 (as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of
 the workspace it shows (`dwindle`, `master`, `spiral`, `monocle` or `scroll`, as in
 `get layout NAME`), one `touched NAME EDGES` line per monitor with the edges of its free
@@ -3076,7 +3155,8 @@ it appears and never gives another; a taskbar gets the same number for its handl
 from `paw-window-control-v1` (version 4), and so finds the window the line means where two
 share a title. The shell sends `switcher_peek` once it has drawn the switcher, whose selected
 window then peeks once the selection rests ([above](#window-switcher)); while the switcher is
-closed the request is refused. The state tells whether the session is locked, `locked on|off`, again as it locks
+closed the request is refused. The state tells whether [keep awake](#power-saving-when-idle) holds
+the idle steps off, `keep-awake on|off`, and whether the session is locked, `locked on|off`, again as it locks
 and unlocks (the shell's clipboard history records nothing meanwhile), and ends with
 `power ACTIONS`, the power actions that may
 run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power
@@ -3189,8 +3269,8 @@ paper. The fields, each where it is known:
   monitor's workspace, or `floating`;
 - `monitors`: each one's connector, mode, scale, and HDR or 10-bit colour where it is drawn so;
   one turned off says so, and a mirror names the monitor it shows;
-- `idle`: the timeouts of [power saving](#power-saving-when-idle)'s steps, and `inhibited`
-  while something holds them off, `dimmed`, `on battery`;
+- `idle`: the timeouts of [power saving](#power-saving-when-idle)'s steps, and `kept awake`
+  while keep awake holds them off, else `inhibited` while something does, `dimmed`, `on battery`;
 - `night light`: the colour temperature while [night light](#effects) warms the screens,
   `scheduled` while it waits; `mode`: the [binding mode](#binding-modes) outside the default;
 - `top app`: the application launched most from the shell (the `launches` file in paw's state
@@ -3689,13 +3769,30 @@ follows its own `display_off`. The power source is read again at each step and a
 unplugging the charger shows from the next step on.
 
 An idle inhibitor (`idle-inhibit-unstable-v1`, which video players, browsers playing video and
-games hold) holds every step off, and the screens brighten if they had dimmed; once the last one
-goes, the time without input counts from then. So does switching to another VT and back:
-nothing happens while another VT is in front. `paw msg get idle` prints a line `state`
-with the milliseconds since the last input, whether something holds the steps off, whether the
-machine runs on battery and how dark the screens are (thousandths), then a line per step with
-its timeout in milliseconds on that power source and whether it has been taken since the last
-input.
+games hold) holds every step off while its window shows, and the screens brighten if they had
+dimmed; once none applies, the time without input counts from then. As the protocol says, and
+as on sway, a window's inhibitor applies only while the window is on a workspace shown, not
+minimized (nor in the scratchpad, nor a hidden tab), on a monitor that is on and not behind the
+lock: a video left playing minimized or on another workspace lets the screens dim and go off as
+usual. A panel's applies while it is mapped and the session unlocked, and one on a surface paw
+cannot place always. Idle daemons hear the seat is inhibited only while one applies. Switching
+to another VT holds the steps too: nothing happens while another VT is in front, and the time
+counts from the return. `paw msg get idle` prints a line `state` with the milliseconds since
+the last input, whether something holds the steps off, whether the machine runs on battery, how
+dark the screens are (thousandths), how many idle inhibitors there are and how many of them
+apply, and whether keep awake is on; then a line per step with its timeout in milliseconds on
+that power source and whether it has been taken since the last input; then a line `inhibitor`
+per idle inhibitor with whether it applies (1 or 0) and what its surface belongs to: `window`
+and its title, `layer` and its namespace, or `other` and `-`.
+
+**Keep awake.** The `keep_awake_on` action holds every step off, as an idle inhibitor that always
+applies would, until `keep_awake_off` (or paw restarting) lets them count again from then;
+`keep_awake_toggle` flips it. It is for reading, a presentation or a long download nobody touches
+the keyboard during. Idle daemons hear the seat is inhibited too, so swayidle waits as well; a
+`suspend` binding or the lid still sleeps. None is bound by default; `paw msg keep_awake_toggle`,
+the command palette's "Keep awake, or not" and the Keep awake tile beside Night light in Quick
+Settings (Control Center in the macOS style), a coffee cup lit while it is on, turn it on and off.
+Subscribers hear `keep-awake on` or `keep-awake off`.
 
 The defaults turn the monitors off after ten minutes and lock and suspend nothing, as the
 screens going dark is what everyone wants and locking and suspending are choices KDE and Windows
@@ -3766,9 +3863,13 @@ dialog in the middle of the focused monitor says what is asked (polkit's message
 (the one logged in chosen first, else root), and asks for that user's password. Enter or
 Authenticate answers, Up and Down choose another user, Escape or Cancel gives the request up, and
 a click beside the dialog does nothing, so that a stray click loses no typing. A wrong password
-shakes the dialog and asks again. A request that comes while one is open waits its turn, and one
-its program gives up closes. The password goes to polkit's own helper (`polkit-agent-helper-1`),
-which checks it with PAM.
+shakes the dialog and asks again, three times for each user, as `sudo` does; the third fails the
+request, and the program that asked hears that it is not allowed. When polkit's helper gives up
+without asking for a password (it cannot start, or PAM turns the user away first, as for a
+locked account), the dialog says so, or shows what the helper said, and tries again only once
+the user answers or chooses another user. A request that comes while one is open waits its
+turn, and one its program gives up closes. The password goes to polkit's own helper
+(`polkit-agent-helper-1`), which checks it with PAM.
 
 Only the shell of a standalone session is the agent, for its login session; a nested one leaves
 that to the host's. When another agent serves the session already (polkit-gnome started by hand,

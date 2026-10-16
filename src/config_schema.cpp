@@ -495,6 +495,25 @@ const Option options[] = {
     {"night_light.transition", "number", "30", "30", 0, 240,
      "Minutes over which the temperature changes, centred on sunrise and sunset."},
 
+    {"profile_schedule", "table", "unset", "", none, none,
+     "Experimental: a day and a night profile, switched at sunrise and sunset, as "
+     "`{ day = \"washi\", night = \"sumi\" }`. At each sunrise the `day` profile is picked and "
+     "at each sunset the `night` one, as `paw msg profile NAME` picks one, crossfading. One "
+     "picked by hand in between stays until the next sunrise or sunset, and `paw msg profile "
+     "auto` (the `profile_auto` action) hands the choice back to the schedule at once. A sunrise "
+     "or sunset that passed while paw was not running is caught up as it starts; the last one "
+     "applied is kept in `$XDG_STATE_HOME/paw/profile-schedule`. Unset, nothing is scheduled."},
+    {"profile_schedule.day", "string", "unset", "", none, none,
+     "The profile picked at sunrise, a name from `profiles` (or an installed rice's)."},
+    {"profile_schedule.night", "string", "unset", "", none, none,
+     "The profile picked at sunset."},
+    {"profile_schedule.sunrise", "string", "unset", "", none, none,
+     "Time the day profile is picked, as \"HH:MM\"; set together with `sunset`. Unset, the "
+     "schedule follows `night_light`'s `sunrise` and `sunset`, or its `latitude` and "
+     "`longitude`, whether or not night light is enabled."},
+    {"profile_schedule.sunset", "string", "unset", "", none, none,
+     "Time the night profile is picked, as \"HH:MM\"."},
+
     {"hot_corners", "table", "", "", none, none,
      "Hot corners: pushing the pointer into a screen corner and leaving it there runs a request, "
      "written as for `paw msg` (an action name and its argument, or `spawn PROGRAM ARGS`), for "
@@ -777,7 +796,8 @@ const Option options[] = {
      "Power saving after a while without input, as KDE and Windows have, with no idle daemon: "
      "the screens dim, the monitors turn off, the screen locks and the machine suspends, each "
      "a number of seconds after the last key press, click, scroll or pointer motion; 0 never "
-     "takes that step. An idle inhibitor (a video playing, a game) holds every step off. "
+     "takes that step. An idle inhibitor (a video playing, a game) holds every step off "
+     "while its window shows. "
      "`ext-idle-notify-v1` works as before, so an idle daemon such as swayidle runs beside "
      "these; `display_off = 0` leaves the monitors to it."},
     {"idle.dim", "integer", "`display_off` − 30", "570", 0, 86400,
@@ -920,6 +940,15 @@ const Option options[] = {
      "Taskbar buttons show only the window icon, the title as a tooltip."},
     {"shell.group_windows", "boolean", "true", "true", none, none,
      "One taskbar button per application; `false` gives every window its own."},
+    {"shell.taskbar_buttons", "enum", "\"all\"", "\"main_and_own\"", none, none,
+     "Experimental. Which windows each monitor's taskbar has buttons for, as Windows' \"Show "
+     "taskbar buttons on\": `\"all\"`, every window on every bar; `\"main_and_own\"`, every "
+     "window on the main monitor's bar and on each other bar only the windows on its monitor; "
+     "`\"own\"`, on every bar only the windows on its monitor. The main monitor is the primary "
+     "one (`outputs.primary`, or the one the display settings window made primary), else the "
+     "leftmost. But for `\"all\"`, pinned applications' launchers show on the main monitor's "
+     "bar alone, and a grouped button and its card stand for the windows that bar shows. The "
+     "taskbar style only: the macOS style's dock shows every window."},
     {"shell.polkit_agent", "boolean", "true", "true", none, none,
      "Be the session's polkit authentication agent: a dialog asks for the password a program "
      "needs for what only an administrator may do (`pkexec`, GParted, an updater). It stays "
@@ -998,6 +1027,41 @@ const Option options[] = {
     {"shell.wallpaper", "string", "\"\"", "\"\"", none, none,
      "Image path, absolute or relative to the configuration file (one the shipped configuration "
      "names, its profiles' too: relative to that file, also for a file that extends it)."},
+    {"shell.wallpaper_mode", "enum", "\"fill\"", "\"fit\"", none, none,
+     "How the wallpaper covers each monitor: `\"fill\"` scales it to cover all of it, cutting "
+     "off what overflows; `\"fit\"` shows all of it, as large as fits; `\"stretch\"` scales "
+     "each side to the monitor's, out of proportion; `\"center\"` shows it at its own size in "
+     "the middle (a pixel of it a pixel of the screen); `\"tile\"` repeats it at its own size "
+     "from the top left. Around a picture that `\"fit\"` or `\"center\"` leaves room by, "
+     "`appearance.background` shows. The frosted glass and a workspace's picture on its card "
+     "show it the same way."},
+    {"shell.desktop_clock", "boolean or table", "false", "true", none, none,
+     "Experimental: a large clock on the desktop, over the wallpaper and under the windows: the "
+     "time in a thin weight, the date under it and, with `greeting`, a word for the time of day "
+     "above it, in the text colour with a soft shadow (a glow under dark text) so that it reads "
+     "on any wallpaper. It changes once a minute, never more often, so seconds in `time_format` "
+     "would stand still; the frosted glass leaves it out. `true` shows it as below; the "
+     "`desktop_clock` action shows or hides it until `enabled` changes."},
+    {"shell.desktop_clock.enabled", "boolean", "false", "true", none, none, "Show the clock."},
+    {"shell.desktop_clock.position", "enum", "\"center\"", "\"bottom-right\"", none, none,
+     "Where on the desktop, inside what the bars leave: `\"center\"`, `\"top\"`, "
+     "`\"bottom\"`, `\"left\"`, `\"right\"`, `\"top-left\"`, `\"top-right\"`, "
+     "`\"bottom-left\"` or `\"bottom-right\"`, away from the edges by half its size."},
+    {"shell.desktop_clock.time_format", "string", "\"HH:mm\"", "\"h:mm AP\"", none, none,
+     "The time, in Qt's date and time format, 1 to 64 bytes."},
+    {"shell.desktop_clock.date_format", "string", "\"dddd d MMMM\"", "\"ddd d MMM yyyy\"",
+     none, none, "The date under it, in Qt's format; `\"\"` shows none."},
+    {"shell.desktop_clock.size", "integer", "96", "128", 24, 320,
+     "The time's height in pixels; the date and the greeting are drawn in proportion."},
+    {"shell.desktop_clock.color", "color", "unset", "\"#f5c2e7\"", none, none,
+     "The time's and the date's colour, `#RRGGBB` or `#RRGGBBAA`; unset, `text_color`. The "
+     "greeting is in the accent colour."},
+    {"shell.desktop_clock.font", "string", "unset", "\"Nunito\"", none, none,
+     "Font family; unset, `shell.font`."},
+    {"shell.desktop_clock.greeting", "boolean or string", "false", "\"ja\"", none, none,
+     "A greeting above the time by the time of day: `\"en\"` says Good morning (from 5), Good "
+     "afternoon (from 12) and Good evening (from 18); `\"ja\"` おはよう, こんにちは and こんばんは. "
+     "`false` says nothing."},
     {"shell.start_icon", "string", "\"\"", "\"neko.svg\"", none, none,
      "A picture for the taskbar's start button in place of the four squares in the accent "
      "colour: an SVG, PNG or other image, absolute or relative to the configuration file, as "

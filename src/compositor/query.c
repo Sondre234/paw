@@ -439,8 +439,9 @@ static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
     // drawn at (mid-glide, or changing size), the size its own surface is drawn at (stretched
     // while it changes size), what a change of size is doing: "rest", "moving", "waiting" for
     // the client to draw the new size, or "fading" what it drew before, how much of its frame
-    // shows, in thousandths (none while maximized or fullscreen, fading in between), and the
-    // factor an animation or a gesture gives its opacity, in thousandths.
+    // shows, in thousandths (none while maximized or fullscreen, fading in between), the
+    // factor an animation or a gesture gives its opacity, in thousandths, and the place its glide
+    // set off from (where it is drawn while it does not glide).
     control_reply(fd, "ok\n");
     struct sh_toplevel *toplevel;
     wl_list_for_each_reverse(toplevel, &server->toplevels, link) {
@@ -454,12 +455,15 @@ static void get_drawn(struct sh_server *server, int fd, const char *arguments) {
             toplevel->surfaces ? surface_buffer(toplevel->surfaces, toplevel_surface(toplevel))
                                : NULL;
         const struct sh_tween *frame = &toplevel->frame_fade;
-        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%ld\t%ld\n", app_id,
-                 title, toplevel->scene_tree->node.x + toplevel->content->node.x,
+        int from_x = toplevel->content->node.x, from_y = toplevel->content->node.y;
+        sh_anim_glide_from(&toplevel->anim, &from_x, &from_y);
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%ld\t%ld\t%d\t%d\n",
+                 app_id, title, toplevel->scene_tree->node.x + toplevel->content->node.x,
                  toplevel->scene_tree->node.y + toplevel->content->node.y, drawn.width,
                  drawn.height, buffer ? buffer->dst_width : 0, buffer ? buffer->dst_height : 0,
                  morph_state(toplevel), frame->valid ? lround(1000 * frame->value[0]) : 1000,
-                 lround(1000 * sh_anim_alpha(&toplevel->anim)));
+                 lround(1000 * sh_anim_alpha(&toplevel->anim)),
+                 toplevel->scene_tree->node.x + from_x, toplevel->scene_tree->node.y + from_y);
         control_reply(fd, line);
     }
 }
@@ -579,20 +583,26 @@ static void get_power(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, line);
 }
 
+static void describe_surface(struct sh_server *server, int fd, const char *what,
+                             struct wlr_surface *surface);
+
 static void get_idle(struct sh_server *server, int fd, const char *arguments) {
     // "state", the milliseconds since the last input, whether an idle inhibitor (or the session
-    // being away from the front) holds the steps off, whether the machine runs on battery, and how
-    // dark the screens are dimmed (thousandths); then a line per step (idle.c): its name, its
+    // being away from the front) holds the steps off, whether the machine runs on battery, how
+    // dark the screens are dimmed (thousandths), how many idle inhibitors there are and how many
+    // of them apply, and whether keep awake is on; then a line per step (idle.c): its name, its
     // timeout in milliseconds on that power (0 for never), and whether it was taken since the
-    // last input.
+    // last input; then a line per idle inhibitor (see describe_idle_inhibitors).
     const struct sh_idle *idle = &server->idle;
     int64_t now = now_ms();
     bool battery;
     const struct sh_idle_steps *steps = idle_steps(server, &battery);
     char line[128];
-    snprintf(line, sizeof(line), "ok\nstate\t%lld\t%d\t%d\t%ld\n",
+    snprintf(line, sizeof(line), "ok\nstate\t%lld\t%d\t%d\t%ld\t%d\t%d\t%d\n",
              (long long)(now - idle->last_input), idle_held(server), battery,
-             idle->dim ? lround(1000 * sh_fade_value(&idle->fade, now)) : 0);
+             idle->dim ? lround(1000 * sh_fade_value(&idle->fade, now)) : 0,
+             wl_list_length(&server->idle_inhibitors), server->inhibitors_applying,
+             server->keep_awake);
     control_reply(fd, line);
     for (int step = 0; step < SH_IDLE_STEPS; ++step) {
         const char *name;
@@ -601,6 +611,7 @@ static void get_idle(struct sh_server *server, int fd, const char *arguments) {
                  (idle->done & (1u << step)) != 0);
         control_reply(fd, line);
     }
+    describe_idle_inhibitors(server, fd, describe_surface);
 }
 
 static void get_switches(struct sh_server *server, int fd, const char *arguments) {
@@ -1047,6 +1058,7 @@ static const struct {
     {"blur", describe_blur, false},
     {"actions", get_actions, false},
     {"profiles", get_profiles, false},
+    {"profile_schedule", describe_profile_schedule, false},
     {"terminal", get_terminal, false},
 };
 

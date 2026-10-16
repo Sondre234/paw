@@ -28,7 +28,7 @@ option(PAW_BUILD_SHELL "Build the Qt Quick desktop shell" ON)
 option(PAW_SHELL_PREVIEW_ONLY "Build only the shell UI preview without LayerShellQt" OFF)
 
 add_library(paw_config STATIC src/curve.c src/session.c src/tabs.c src/config.cpp src/config_edit.cpp
-    src/config_schema.cpp src/layout.cpp src/tiling.cpp
+    src/child_trial.cpp src/config_schema.cpp src/layout.cpp src/tiling.cpp
     src/overview_layout.cpp src/window_placement.cpp
     src/import/common.cpp src/import/hyprland.cpp src/import/waybar.cpp src/import/import.cpp
     src/autostart.cpp src/lock_style.cpp)
@@ -186,6 +186,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(cube)
     paw_c_unit_test(blur)
     paw_c_unit_test(shake)
+    paw_c_unit_test(profile_schedule)
     paw_unit_test(heatmap LIBRARY paw_cli)
     target_link_libraries(heatmap_tests PRIVATE paw_config) # the action's bindings
 endif()
@@ -335,6 +336,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/xwayland.c
         src/compositor/toys.c
         src/compositor/rice.c
+        src/compositor/profile_schedule.c
         src/compositor/cat.c
         src/compositor/xray.c
         src/compositor/heatmap.c
@@ -364,6 +366,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/cube.c)
     target_sources(paw PRIVATE src/blur.c)
     target_sources(paw PRIVATE src/shake.c)
+    target_sources(paw PRIVATE src/profile_schedule.c)
     target_link_libraries(paw PRIVATE paw_heatmap)
     target_include_directories(paw PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_definitions(paw PRIVATE WLR_USE_UNSTABLE)
@@ -648,6 +651,8 @@ if(PAW_BUILD_COMPOSITOR)
                 DEPENDS ${PROTOCOL_DIR}/${PROTOCOL}.xml)
         endforeach()
         paw_probe(idle_probe tests/idle_probe.c
+            ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
+            ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit-unstable-v1-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/idle-inhibit-unstable-v1-protocol.c
             ${CMAKE_CURRENT_BINARY_DIR}/ext-idle-notify-v1-client-protocol.h
@@ -756,6 +761,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(focus_output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(workspace_names_smoke $<TARGET_FILE:paw>)
         paw_smoke(profile_smoke $<TARGET_FILE:paw>)
+        paw_smoke(profile_schedule_smoke $<TARGET_FILE:paw>)
         paw_smoke(session_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(session_scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(session_restore_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
@@ -805,6 +811,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(keymap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> ${EXAMPLE_CONFIG})
         paw_smoke(media_keys_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
+        paw_smoke(desktop_clock_smoke $<TARGET_FILE:paw>)
         paw_smoke(type_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(keyboard_layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
         paw_smoke(window_style_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
@@ -841,8 +848,9 @@ if(PAW_BUILD_COMPOSITOR)
         find_program(SLURP slurp)
         paw_smoke(screenshot_select_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "$<$<BOOL:${SLURP}>:${SLURP}>" "${GRIM_ARGUMENT}")
-        paw_smoke(idle_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
-            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(idle_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
+            $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> $<TARGET_FILE:window_probe>
+            "${GRIM_ARGUMENT}")
         paw_smoke(urgent_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(urgent_border_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")
