@@ -150,6 +150,7 @@ constexpr Action actions[] = {
     {"clipboard_history", Shell, "Clipboard history"},
     {"emoji_picker", Shell, "Emoji picker"},
     {"display_settings", Shell, "Display settings"},
+    {"desktop_clock", Shell, "Show or hide the desktop clock"},
 
     {"screenshot", Screen, "Screenshot"},
     {"zoom_in", Screen, "Zoom in"},
