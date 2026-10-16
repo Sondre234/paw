@@ -1904,6 +1904,45 @@ A request is written as for `paw msg`: an action with its argument, or `spawn PR
 The corner is `hot_corners.size` pixels (2) square. Nothing runs while a button is held, a drag is
 under way, the session is locked, or a fullscreen window covers the output.
 
+**Ambient particles.** `appearance.ambient = { kind = "sakura" }` has sakura petals drift down
+over the wallpaper, tumbling, swaying and turning as they fall, in four pinks; `"snow"` has soft
+snow falling, the nearest flakes large and out of focus; `"fireflies"` has fireflies wandering
+about and glowing warm, now bright, now dim. A gentle wind carries the petals and the snow now
+one way, now the other. The compositor draws them over the wallpaper and under the windows and
+the panels; they take no input, and stay out of the background [blurred behind
+windows](#borders-opacity-and-rounded-corners), which shows the wallpaper alone. `count` says how
+many drift on each monitor (30, up to 150) and `speed` how fast (1 is their own pace, 0.5 half
+of it). An [appearance profile](#appearance-profiles) can set them, so that each look has its
+own, and they fade over to the new kind as the profile changes.
+
+The `ambient` action switches them without touching the configuration: `paw msg ambient sakura`
+(or `snow`, `fireflies`, `off`), `ambient next` goes through the kinds in turn and then none, and
+`ambient` alone (`toggle`) turns them off, or back on as they were last (sakura the first time);
+bound to a key, `mode` takes the same words. The command palette offers them as "Ambient: ...".
+What the action chose stands until a reload changes `appearance.ambient.kind`, as picking a
+profile with another kind does.
+
+They draw only where they show: a monitor's particles pause while the session is locked, while
+the monitor is off or shows a fullscreen window (so a game or a video keeps the monitor to
+itself), and while the screens are dimmed, and fade out after five minutes without input until
+there is some; with none showing anywhere, nothing of them runs. Each step, every 33
+milliseconds, moves a monitor's particles out of the scene's sight and shows them again at once,
+and their pictures are painted once for each monitor's scale; behind windows that cover the
+wallpaper they cost next to nothing.
+
+```lua
+appearance = { ambient = { kind = "sakura", count = 30, speed = 1 } },
+bindings = {
+    { mods = { "Super", "Ctrl" }, key = "a", action = "ambient", mode = "next" },
+},
+```
+
+`paw msg get ambient` prints a line for each monitor: its name, the kind it draws, how many
+particles, and `shown`, `fading`, or why none show (`off`, `locked`, `away` while another VT is
+on the screen, `display_off`, `fullscreen`, `dimmed`, `idle`). `paw msg get ambient OUTPUT`
+lists that monitor's particles as they are drawn: their box in layout coordinates, their opacity
+in thousandths, the picture and its transform.
+
 ## Monitors
 
 Monitors sit side by side, top-aligned. `outputs.order` lists connector names

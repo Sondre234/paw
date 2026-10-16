@@ -46,7 +46,8 @@ struct Binding {
     bool locked = false;
     bool repeats = false;
     int mode = 0; // for mode: 0 for the bindings outside any mode, else modes[mode - 1]; for
-                  // display_mode, an sh_display_mode; for cat, an sh_cat_switch
+                  // display_mode, an sh_display_mode; for cat, an sh_cat_switch; for
+                  // ambient, an sh_ambient_choice
     int switch_type = -1; // the enum sh_switch of a switch binding; -1 for a key or button
     bool switch_on = false; // with switch_type: it acts as the switch turns on (a lid closing)
 };
@@ -560,6 +561,9 @@ sh_screenshot_mode parse_screenshot_mode(const std::string &name);
 sh_display_mode parse_display_mode(const std::string &name);
 // "on", "off" or "toggle", the cat action's argument; throws for other names.
 sh_cat_switch parse_cat_switch(const std::string &name);
+// "toggle", "next", "off", "sakura", "snow" or "fireflies", the ambient action's argument;
+// throws for other names.
+sh_ambient_choice parse_ambient_choice(const std::string &name);
 // switch_layout's "next" (0), "prev" (-1), or a layout's number from 1; throws for others.
 int parse_layout_choice(const std::string &word);
 // "toggle", "motion", "clicks" or "reset"; throws for other names.

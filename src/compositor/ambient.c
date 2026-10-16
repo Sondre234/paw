@@ -350,6 +350,25 @@ static void set_kind(struct sh_ambient *ambient, enum sh_ambient_kind kind) {
     poke(ambient);
 }
 
+void ambient_switch(struct sh_server *server, int choice) {
+    struct sh_ambient *ambient = server->ambient;
+    if (!ambient)
+        return;
+    enum sh_ambient_kind kind;
+    switch (choice) {
+    case SH_AMBIENT_TOGGLE:
+        kind = ambient->kind != SH_AMBIENT_NONE ? SH_AMBIENT_NONE : ambient->last;
+        break;
+    case SH_AMBIENT_NEXT:
+        kind = (ambient->kind + 1) % SH_AMBIENT_KINDS;
+        break;
+    default:
+        kind = (enum sh_ambient_kind)(choice - SH_AMBIENT_OFF);
+        break;
+    }
+    set_kind(ambient, kind);
+}
+
 void ambient_frame(struct sh_output *output) {
     struct sh_ambient *ambient = output->server->ambient;
     if (!ambient || ambient->ticking || ambient->kind == SH_AMBIENT_NONE)

@@ -67,7 +67,7 @@ void unknown_settings() {
     rejects("return {bindings={{key='r',action='mode'}}}",
             "the mode action needs mode = \"default\" or the name of one of modes");
     rejects("return {bindings={{key='r',action='close',mode='x'}}}",
-            "mode is only valid with screenshot, mode, display_mode, cat and heatmap");
+            "mode is only valid with screenshot, mode, display_mode, cat, heatmap and ambient");
     rejects("return {windows={rules={{app_id='x',floatng=true}}}}", "did you mean 'floating'?");
     rejects("return {outputs={monitors={X={scal=2}}}}", "did you mean 'scale'?");
     rejects("return {shell={launchers={{name='a',command={'x'},icn='b'}}}}",

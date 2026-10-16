@@ -1947,6 +1947,7 @@ void describe_cat(struct sh_server *server, int fd, const char *arguments);
 void ambient_init(struct sh_server *server);
 void ambient_finish(struct sh_server *server);
 void ambient_reload(struct sh_server *server);
+void ambient_switch(struct sh_server *server, int choice);
 void ambient_frame(struct sh_output *output);
 void ambient_input(struct sh_server *server);
 void ambient_forget_output(struct sh_output *output);

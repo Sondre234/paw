@@ -1578,9 +1578,13 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 // Without one, it toggles.
                 if (!lua_isnil(L, -1))
                     binding.mode = parse_heatmap_choice(string(L, -1, "mode"));
+            } else if (binding.action == SH_AMBIENT) {
+                binding.mode = lua_isnil(L, -1) ? SH_AMBIENT_TOGGLE
+                                                : parse_ambient_choice(string(L, -1, "mode"));
             } else if (!lua_isnil(L, -1)) {
                 if (binding.action != SH_SCREENSHOT)
-                    fail("mode is only valid with screenshot, mode, display_mode, cat and heatmap");
+                    fail("mode is only valid with screenshot, mode, display_mode, cat, heatmap "
+                         "and ambient");
                 binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
             }
             lua_pop(L, 1);
@@ -2141,6 +2145,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"gravity", SH_GRAVITY},
         {"party", SH_PARTY},
         {"cat", SH_CAT},
+        {"ambient", SH_AMBIENT},
         {"xray", SH_XRAY},
         {"heatmap", SH_HEATMAP},
 };
@@ -2278,6 +2283,21 @@ sh_cat_switch parse_cat_switch(const std::string &name) {
         if (name == candidate)
             return choice;
     fail("cat takes \"on\", \"off\" or \"toggle\"");
+}
+
+sh_ambient_choice parse_ambient_choice(const std::string &name) {
+    for (auto [candidate, choice] :
+         {std::pair{"toggle", SH_AMBIENT_TOGGLE},
+          {"next", SH_AMBIENT_NEXT},
+          {"off", SH_AMBIENT_OFF},
+          {"sakura", static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_SAKURA})},
+          {"snow", static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_SNOW})},
+          {"fireflies",
+           static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES})}})
+        if (name == candidate)
+            return choice;
+    fail("ambient takes \"sakura\", \"snow\", \"fireflies\", \"off\", \"next\" or "
+         "\"toggle\"");
 }
 
 sh_screenshot_mode parse_screenshot_mode(const std::string &name) {
