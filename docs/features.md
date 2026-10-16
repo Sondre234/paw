@@ -1913,7 +1913,8 @@ the panels; they take no input, and stay out of the background [blurred behind
 windows](#borders-opacity-and-rounded-corners), which shows the wallpaper alone. `count` says how
 many drift on each monitor (up to 150; unless set, 30 petals, 60 flakes or 24 fireflies) and
 `speed` how fast (1 is their own pace, 0.5 half of it). An [appearance profile](#appearance-profiles) can set them, so that each look has its
-own, and they fade over to the new kind as the profile changes.
+own (a [rice](#paw-rice) takes them along), and they fade over to the new kind as the profile
+changes.
 
 The `ambient` action switches them without touching the configuration: `paw msg ambient sakura`
 (or `snow`, `fireflies`, `off`), `ambient next` goes through the kinds in turn and then none, and
