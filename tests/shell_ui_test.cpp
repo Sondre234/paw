@@ -7653,6 +7653,65 @@ ListModel {
         controller.pickWallpaper("");
         if (!waitFor([&] { return drawn(one); }) || pickedText() != "")
             return fail("could not go back to the configured wallpaper");
+        // The picker offers every monitor or this one alone once this one has a wallpaper of its
+        // own (or with two monitors), on this one alone while it has; a click on a picture puts it
+        // where that says.
+        if (find(view.rootObject(), "wallpaperScope") &&
+            find(view.rootObject(), "wallpaperScope")->isVisible())
+            return fail("the wallpaper picker offers this monitor alone with one monitor");
+        controller.pickWallpaperOn(two, output);
+        // The bar has been made anew since the button was first found.
+        auto *button = find(view.rootObject(), "wallpapersButton");
+        if (!button || !button->isVisible())
+            return fail("the bar lacks the wallpaper button");
+        click(button);
+        QQuickItem *all = nullptr, *alone = nullptr;
+        if (!waitFor([&] {
+                picker = find(view.rootObject(), "wallpaperPicker");
+                auto *scope = picker ? find(picker, "wallpaperScope") : nullptr;
+                all = picker ? find(picker, "wallpaperScopeAll") : nullptr;
+                alone = picker ? find(picker, "wallpaperScopeMonitor") : nullptr;
+                return picker && picker->isVisible() && scope && scope->isVisible() && all &&
+                       alone && alone->property("current").toBool() &&
+                       !all->property("current").toBool() && wallpaperItem("one") &&
+                       wallpaperItem("two") && wallpaperItem("two")->property("current").toBool() &&
+                       !wallpaperItem("one")->property("current").toBool();
+            })) {
+            auto *scope = picker ? find(picker, "wallpaperScope") : nullptr;
+            std::cerr << "the wallpaper picker did not offer this monitor alone while it has its own: "
+                      << (picker ? picker->isVisible() : -1) << " " << (scope ? scope->isVisible() : -1)
+                      << " " << (alone ? alone->property("current").toBool() : -1) << " "
+                      << !!wallpaperItem("one") << !!wallpaperItem("two") << " "
+                      << (wallpaperItem("two") ? wallpaperItem("two")->property("current").toBool() : -1)
+                      << " " << controller.ownWallpaper(output) << " "
+                      << view.wallpaperFile().toStdString() << '\n';
+            return 1;
+        }
+        click(all);
+        click(wallpaperItem("one"));
+        if (!waitFor([&] {
+                return drawn(one) && !controller.ownWallpaper(output) &&
+                       all->property("current").toBool() &&
+                       wallpaperItem("one")->property("current").toBool() &&
+                       pickedText() == "dark\twalls/a/one.png\t" + one + "\n";
+            }))
+            return fail("All monitors did not put the picture on every monitor");
+        click(alone);
+        click(wallpaperItem("two"));
+        if (!waitFor([&] {
+                return drawn(two) && controller.ownWallpaper(output) &&
+                       controller.wallpaperFile() == one &&
+                       wallpaperItem("two")->property("current").toBool() &&
+                       pickedText() == "dark\twalls/a/one.png\t" + one + "\n"
+                                       "dark\twalls/a/one.png\t" + two + "\t" + output + "\n";
+            }))
+            return fail("This monitor only did not put the picture on this monitor alone");
+        click(button);
+        if (!waitFor([&] { return !picker->isVisible(); }))
+            return fail("the wallpaper button did not close the picker");
+        controller.pickWallpaper("");
+        if (!waitFor([&] { return drawn(one); }) || pickedText() != "")
+            return fail("could not go back to the configured wallpaper");
     }
     // The macOS style, from a profile: the menu bar along the top in a surface of its own and the
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the
