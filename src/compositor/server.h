@@ -1036,6 +1036,9 @@ struct sh_toplevel {
     bool floating;   // kept out of the tiling (dialogs, or toggled by the user)
     bool placed;     // floating only because it was snapped or maximized by hand
     bool tile_sized; // first configured at its predicted tile, so it has no floating size yet
+    /* Pseudotiled (pseudo.c): as a tile in dwindle it keeps its floating size, in the middle of
+     * its tile. */
+    bool pseudo;
     /* In the scratchpad: floating, and hidden (minimized) until scratchpad_show brings it to
      * the focused output. Hidden ones show in the order they were put there. */
     bool scratchpad;
@@ -1781,6 +1784,13 @@ void configure_layouts(struct sh_server *server);
 void apply_output_layout(struct sh_server *server, const struct wlr_output *output);
 void reconfigure_tiling(struct sh_server *server);
 void layout_action(struct sh_server *server, enum sh_action action);
+
+/* pseudo.c */
+struct sh_rect pseudo_rect(struct sh_toplevel *toplevel, struct sh_rect rect);
+void pseudo_toggle(struct sh_server *server);
+bool pseudo_resize(struct sh_toplevel *toplevel, uint32_t edges, struct wlr_box from,
+                   struct sh_rect rect);
+bool pseudo_resize_by(struct sh_toplevel *toplevel, uint32_t direction, int amount);
 
 /* touch.c */
 void focus_pressed(struct sh_server *server, double x, double y, struct sh_node *owner);

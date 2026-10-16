@@ -319,6 +319,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/tearing.c
         src/compositor/tile_drop.c
         src/compositor/tiling.c
+        src/compositor/pseudo.c
         src/compositor/touch.c
         src/compositor/toplevel.c
         src/compositor/type.c

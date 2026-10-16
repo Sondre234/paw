@@ -332,6 +332,9 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_SPLIT_SWAP:
         layout_action(server, action);
         break;
+    case SH_PSEUDO_TOGGLE:
+        pseudo_toggle(server);
+        break;
     case SH_TASKBAR_FOCUS:
         request_taskbar(server);
         break;
