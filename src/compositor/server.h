@@ -478,6 +478,14 @@ struct sh_server {
      * `spawn_until` (now_ms) is centered there. */
     double spawn_x, spawn_y;
     int64_t spawn_until;
+    /* Where the user last moved the pointer to, with a pointer's own motion rather than a warp,
+     * and whether a tile was under it there; `moving` while that motion is handled. Only a
+     * pointer put on a tile, and still there, opens a new column first in the scroll layout
+     * (pointed_tile). */
+    struct {
+        bool moving, tile;
+        double x, y;
+    } pointed;
     struct wlr_scene_tree *backgrounds;
     struct wlr_scene_tree *windows;
     // Over `windows`: floating windows with layout.floating_above_tiles, and windows kept above
@@ -1274,6 +1282,7 @@ void show_xcursor(struct sh_server *server, const char *name);
 void cursor_hide(struct sh_server *server);
 void cursor_show(struct sh_server *server);
 struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y);
+struct sh_toplevel *pointed_tile(struct sh_server *server, struct sh_toplevel *except);
 struct wlr_surface *press_target_at(struct sh_server *server, double x, double y, double *sx,
                                     double *sy, struct sh_node **owner);
 void seat_pointer_focus_change(struct wl_listener *listener, void *data);
@@ -1756,6 +1765,7 @@ bool output_tiles(struct sh_server *server, struct wlr_output *output);
 bool tiles_for(struct sh_toplevel *toplevel, struct wlr_output *output);
 struct wlr_output *home_output(struct sh_toplevel *toplevel);
 bool wants_tiling(struct sh_toplevel *toplevel, struct wlr_output *output);
+bool cursor_places_tile(struct sh_toplevel *toplevel, struct wlr_output *output);
 void tile_toplevel_at(struct sh_toplevel *toplevel, struct wlr_output *output,
                       struct sh_toplevel *target, bool has_point, double x, double y);
 void tile_toplevel(struct sh_toplevel *toplevel, struct wlr_output *output,

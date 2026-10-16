@@ -145,6 +145,26 @@ struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y) {
     return desktop_toplevel_at(server, x, y, &surface, &sx, &sy);
 }
 
+/* The tile under the pointer, when the user moved the pointer onto a tile and nothing has moved
+ * it since: not where paw warped it (a key moving the focus brings it along with
+ * mouse.focus_follows), nor where it came to rest over a launcher or a floating window that has
+ * gone since. NULL otherwise. `except`, a window about to tile that may be drawn there already,
+ * is looked through. */
+struct sh_toplevel *pointed_tile(struct sh_server *server, struct sh_toplevel *except) {
+    struct wlr_cursor *cursor = server->cursor;
+    if (!server->pointed.tile || cursor->x != server->pointed.x || cursor->y != server->pointed.y)
+        return NULL;
+    struct wlr_scene_node *hidden = except && except->scene_tree && except->scene_tree->node.enabled
+                                        ? &except->scene_tree->node
+                                        : NULL;
+    if (hidden)
+        hidden->enabled = false; // only for the lookup, as in scene_node_at: nothing redrawn
+    struct sh_toplevel *toplevel = toplevel_at(server, cursor->x, cursor->y);
+    if (hidden)
+        hidden->enabled = true;
+    return toplevel && toplevel->tiled ? toplevel : NULL;
+}
+
 /* Whether a panel (a layer surface above the windows) is under the point. It is no bare
  * desktop: pointing at it or clicking it leaves the focused window focused, so a taskbar on
  * another monitor still sees that window as the active one and a click on it minimizes it. */
@@ -476,6 +496,11 @@ static void process_pointer_target(struct sh_server *server, uint32_t time) {
     struct wlr_surface *surface = NULL;
     struct sh_toplevel *toplevel =
         desktop_toplevel_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
+    if (server->pointed.moving) { // the user moved it here (pointed_tile)
+        server->pointed.x = server->cursor->x;
+        server->pointed.y = server->cursor->y;
+        server->pointed.tile = toplevel && toplevel->tiled;
+    }
     if (toplevel && toplevel->deco && !server->deco_revealed &&
         in_deco_corner(toplevel, server->cursor->x, server->cursor->y)) {
         server->deco_revealed = toplevel;
@@ -555,7 +580,9 @@ void server_cursor_motion(struct wl_listener *listener, void *data) {
     }
     uint64_t started = now_ns();
     wlr_cursor_move(server->cursor, &event->pointer->base, dx, dy);
+    server->pointed.moving = true;
     process_cursor_motion(server, event->time_msec);
+    server->pointed.moving = false;
     ++server->stats.motions;
     server->stats.motion_ns += now_ns() - started;
 }
@@ -567,7 +594,9 @@ void server_cursor_motion_absolute(struct wl_listener *listener, void *data) {
     wrapped_motion_absolute(server, event);
     uint64_t started = now_ns();
     wlr_cursor_warp_absolute(server->cursor, &event->pointer->base, event->x, event->y);
+    server->pointed.moving = true;
     process_cursor_motion(server, event->time_msec);
+    server->pointed.moving = false;
     ++server->stats.motions;
     server->stats.motion_ns += now_ns() - started;
 }

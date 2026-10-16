@@ -62,8 +62,10 @@ void finish_grab(struct sh_server *server) {
         toplevel->floating = toplevel->placed = false;
         server->grab_retile = true;
     }
+    // It goes where it is dropped, at the start of a scrolling strip too: tile_toplevel would
+    // count the pointer there only where the user had put it on a tile.
     if (server->grab_retile && toplevel && wants_tiling(toplevel, output))
-        tile_toplevel(toplevel, output, NULL, true);
+        tile_toplevel_at(toplevel, output, NULL, true, server->cursor->x, server->cursor->y);
     server->grab_retile = false;
 }
 

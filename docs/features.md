@@ -1685,9 +1685,12 @@ reloaded, and again when the monitor is plugged back in. `paw msg get layout OUT
 `layout_scroll` tiles like niri and PaperWM: windows live in columns on a strip much wider
 than the screen, and the screen is a view onto it that follows focus, gliding like any
 other tile move. A new window opens in a column of its own right of the focused one, or, with
-the pointer over the first column (or left of it), as the new first column. A column has a
-width, a share of the screen (`layout.scroll.width`, half by default), and stacks its windows
-evenly. A column alone on its workspace fills the screen, and takes its width back when another
+the pointer on a window of the first column, as the new first column. Only a pointer you moved
+onto a tile yourself counts: not one a key moving the focus brought along
+(`mouse.focus_follows`), nor one on a launcher or a floating window over the column or left
+there as it closed, nor one beside the column or on another monitor. A column has a width, a
+share of the screen (`layout.scroll.width`, half by default), and stacks its windows evenly. A
+column alone on its workspace fills the screen, and takes its width back when another
 joins it; `fill_lone = false` keeps it at its width, and a width set by hand (by an action or by
 dragging its side) stays, alone too. Beside its own actions, the usual keys work: `focus_left` /
 `focus_right` step between columns and `focus_up` / `focus_down` within one, `move_left` /
