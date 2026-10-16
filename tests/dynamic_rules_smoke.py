@@ -3,10 +3,12 @@
 and `above` while the window's title and app ID match it, as they change, and gives back what the
 window had once they no longer do; a change by hand meanwhile stays. One matching as the window
 opens holds it from the start, a static rule acts as the window opens only, opacity rules follow
-the title either way, and reloading the rules lets go of what they no longer hold."""
+the title either way, a title of some 4 KB matches at once, and reloading the rules lets go of
+what they no longer hold."""
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 import harness
 
@@ -16,7 +18,8 @@ RULES = """
         { title = "Meeting", dynamic = true, floating = true, above = true },
         { app_id = "^app-share$", title = "^Sharing", dynamic = true, sticky = true },
         { title = "^Video", above = true },
-        { title = "Faded", dynamic = true, opacity = 0.5 },"""
+        { title = "Faded", dynamic = true, opacity = 0.5 },
+        { title = "(.*) - (.*) - .*x", dynamic = true, sticky = true },"""
 CONFIG = """return {
     xwayland = false,
     layout = { tiling = true, workspaces = 4 },
@@ -109,6 +112,18 @@ with harness.Compositor(compositor, CONFIG % RULES) as desktop:
     desktop.wait_for(lambda: opacity("app-other") < 0.6, "the window faded by its rule")
     retitle("app-other", "Other", (True, False, False))
     desktop.wait_for(lambda: opacity("app-other") == 1, "the window opaque again")
+
+    # A long title against a rule a backtracking matcher would take minutes over (and overflow
+    # its stack on, some 64 KB long): the windows open, matched as the rule says, and the
+    # compositor answers at once.
+    long_title = ("a - " * 1000)[:3990]
+    launch("app-long", long_title)
+    launch("app-long-x", long_title + "x")
+    desktop.wait_for(lambda: windows()["app-long-x"][2] and not windows()["app-long"][2],
+                     "the long title ending in x held sticky")
+    start = time.monotonic()
+    desktop.rows("dynamic_rules")
+    assert time.monotonic() - start < 2, f"a query took {time.monotonic() - start:.1f} s"
 
     # A reload without the rule lets go of what it held; with it, it holds the window again.
     retitle("app-mail", "Meeting", (False, False, True))
