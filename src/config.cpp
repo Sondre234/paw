@@ -3197,7 +3197,7 @@ size_t locate(const std::string &source, const std::vector<std::string> &trail) 
 }
 
 // A configuration loads first in a child process (try_in_child), which throws if it runs out of
-// memory, runs over the time limit or crashes there; whatever `load` throws in time is left to
+// memory, runs over its processor time (or the clock's backstop) or crashes there; whatever `load` throws in time is left to
 // running it for real. Without a child process to be had, it returns: the configuration then
 // loads unchecked, rather than not at all. `name` is the configuration's chunk name.
 void try_first(const std::function<void()> &load, const std::string &name) {
@@ -3210,7 +3210,8 @@ void try_first(const std::function<void()> &load, const std::string &name) {
         throw std::runtime_error("configuration: " + file + ": ran out of memory");
     case Trial::TooLong:
         throw std::runtime_error("configuration: " + file + ": did not finish loading within " +
-                                 std::to_string(trial_seconds) + " seconds");
+                                 std::to_string(trial.seconds) + " seconds" +
+                                 (trial.processor_time ? " of processor time" : ""));
     case Trial::Crashed:
         break;
     }

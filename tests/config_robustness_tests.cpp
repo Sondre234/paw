@@ -25,7 +25,8 @@
 #endif
 #endif
 // at_once: the seconds what is refused at once may take, and a third of it what must be quick.
-// What runs too long is stopped after paw::trial_seconds.
+// What runs too long is stopped after paw::trial_seconds of processor time, which on a busy
+// machine take longer on the clock: paw::trial_wall_seconds at the most.
 #if defined(__SANITIZE_ADDRESS__) || defined(PAW_ASAN)
 constexpr auto parse_budget = std::chrono::seconds(600);
 constexpr double at_once = 30;
@@ -88,14 +89,16 @@ int main(int argc, char **argv) {
 
         // One call into a C function is one instruction however long it runs or whatever it
         // allocates, so the instruction budget stops neither. What runs for more than 3 seconds
-        // (paw::trial_seconds, 10 with the sanitizers) is stopped, the error saying so.
+        // of processor time (paw::trial_seconds, 10 with the sanitizers) is stopped, the error
+        // saying so.
+        const auto over_time = "init.lua: did not finish loading within " +
+                               std::to_string(paw::trial_seconds) + " seconds of processor time";
         refused_in_time("local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') return {}",
-                        "did not finish loading within", 3.0 * paw::trial_seconds,
-                        "a pattern that backtracks");
-        refused_in_time("local s = (''):rep(2^60) return {}", "did not finish loading within",
-                        3.0 * paw::trial_seconds, "an empty string repeated 2^60 times");
-        refused_in_time("table.move({}, 1, 2^50, 2) return {}", "did not finish loading within",
-                        3.0 * paw::trial_seconds, "a table move over 2^50 places");
+                        over_time, paw::trial_wall_seconds, "a pattern that backtracks");
+        refused_in_time("local s = (''):rep(2^60) return {}", over_time, paw::trial_wall_seconds,
+                        "an empty string repeated 2^60 times");
+        refused_in_time("table.move({}, 1, 2^50, 2) return {}", over_time,
+                        paw::trial_wall_seconds, "a table move over 2^50 places");
         // What asks for more than 64 MiB of memory is refused at once.
         refused_in_time("local big = ('x'):rep(2^34) return {}", "string too large", at_once,
                         "a 16 GiB string"); // over Lua's own limit for a string, 2 GiB

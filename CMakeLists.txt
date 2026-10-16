@@ -119,6 +119,7 @@ if(BUILD_TESTING)
     paw_unit_test(config_diagnostics ${EXAMPLE_CONFIG}
         ${CMAKE_CURRENT_SOURCE_DIR}/docs/config-reference.md)
     paw_unit_test(config_robustness ${EXAMPLE_CONFIG})
+    paw_unit_test(child_trial)
     paw_unit_test(cli LIBRARY paw_cli)
     paw_unit_test(config_command LIBRARY paw_cli ${EXAMPLE_CONFIG})
     paw_unit_test(fetch LIBRARY paw_cli)
