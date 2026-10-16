@@ -145,6 +145,13 @@ enum sh_cursor_mode {
     SH_CURSOR_PANEL, /* the taskbar dragged to another edge, or resized (panel_drag.c) */
 };
 
+/* Why the cursor shows no image (cursor_hide): bits of sh_server.cursor_hidden. */
+enum sh_cursor_hidden {
+    SH_HIDDEN_SCREENSHOT = 1, /* a screenshot is being taken (actions.c) */
+    SH_HIDDEN_TYPING = 2,     /* mouse.hide_when_typing: a key typed (cursor_hide.c) */
+    SH_HIDDEN_RESTING = 4,    /* mouse.hide_after: the pointer resting that long */
+};
+
 enum sh_node_kind { SH_NODE_TOPLEVEL, SH_NODE_LAYER };
 struct sh_node {
     enum sh_node_kind kind;
@@ -717,7 +724,9 @@ struct sh_server {
     struct wl_list toplevels;
 
     struct wlr_cursor *cursor;
-    bool cursor_hidden; /* cursor_hide: no image until cursor_show, whatever asks for one */
+    /* cursor_hide: no image until cursor_show, whatever asks for one; the sh_cursor_hidden bits
+     * of why, 0 while it shows. */
+    uint32_t cursor_hidden;
     /* The image the cursor was given last: an xcursor name (show_xcursor), "client" for a
      * client's own surface, or NULL for none yet (get cursor_image). */
     const char *cursor_image;
@@ -1291,8 +1300,8 @@ void server_cursor_frame(struct wl_listener *listener, void *data);
 void seat_request_cursor(struct wl_listener *listener, void *data);
 void set_default_cursor(struct sh_server *server);
 void show_xcursor(struct sh_server *server, const char *name);
-void cursor_hide(struct sh_server *server);
-void cursor_show(struct sh_server *server);
+void cursor_hide(struct sh_server *server, uint32_t why);
+void cursor_show(struct sh_server *server, uint32_t why);
 struct sh_toplevel *toplevel_at(struct sh_server *server, double x, double y);
 struct sh_toplevel *pointed_tile(struct sh_server *server, struct sh_toplevel *except);
 struct wlr_surface *press_target_at(struct sh_server *server, double x, double y, double *sx,

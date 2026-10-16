@@ -976,17 +976,21 @@ void set_default_cursor(struct sh_server *server) {
     show_xcursor(server, "default");
 }
 
-/* Takes the cursor's image away until cursor_show; meanwhile neither paw nor a client can give it
- * one. */
-void cursor_hide(struct sh_server *server) {
-    server->cursor_hidden = true;
-    wlr_cursor_unset_image(server->cursor);
+/* Takes the cursor's image away, for `why` (sh_cursor_hidden bits), until cursor_show has taken
+ * back every reason; meanwhile neither paw nor a client can give it one. */
+void cursor_hide(struct sh_server *server, uint32_t why) {
+    bool shown = !server->cursor_hidden;
+    server->cursor_hidden |= why;
+    if (shown && server->cursor_hidden)
+        wlr_cursor_unset_image(server->cursor);
 }
 
-void cursor_show(struct sh_server *server) {
-    if (!server->cursor_hidden)
+void cursor_show(struct sh_server *server, uint32_t why) {
+    if (!(server->cursor_hidden & why))
         return;
-    server->cursor_hidden = false;
+    server->cursor_hidden &= ~why;
+    if (server->cursor_hidden)
+        return; // hidden for another reason still
     set_default_cursor(server);
     // A client sets its cursor as the pointer enters it, so the one under the pointer is entered
     // anew to set it again.
