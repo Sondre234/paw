@@ -1142,6 +1142,59 @@ int main(int argc, char **argv) {
             rejects("return {shell={desktop_clock={greeting='fr'}}}");
             rejects("return {shell={desktop_clock={seconds=true}}}");
         }
+        // The wallpaper slideshow: off, shuffled, from the wallpaper's own folder by default.
+        {
+            const auto &cycle = even.shell.wallpaper_cycle;
+            require(cycle.interval == 0 && cycle.folder.empty() && cycle.shuffle,
+                    "the wallpaper slideshow's defaults are not as documented");
+            auto own = paw::parse_config("return {shell={wallpaper_cycle={interval=30,"
+                                         "folder='~/Pictures/sky',order='name'},accent='#123456'}}");
+            require(own.shell.wallpaper_cycle.interval == 30 &&
+                        own.shell.wallpaper_cycle.folder == "~/Pictures/sky" &&
+                        !own.shell.wallpaper_cycle.shuffle && own.shell.accent == "#123456",
+                    "shell.wallpaper_cycle not parsed, or what follows it lost");
+            require(paw::parse_config("return {shell={wallpaper_cycle={order='shuffle'}}}")
+                        .shell.wallpaper_cycle.shuffle,
+                    "order = 'shuffle' not parsed");
+            auto profiled = paw::parse_config(
+                "return {shell={wallpaper_cycle={order='name'}},"
+                "profiles={sky={shell={wallpaper_cycle={interval=5}}}}}",
+                "config", {}, "sky");
+            require(profiled.shell.wallpaper_cycle.interval == 5,
+                    "a profile does not start the wallpaper slideshow");
+            rejects("return {shell={wallpaper_cycle=30}}");
+            rejects("return {shell={wallpaper_cycle=true}}");
+            rejects("return {shell={wallpaper_cycle={interval=-1}}}");
+            rejects("return {shell={wallpaper_cycle={interval=1441}}}");
+            rejects("return {shell={wallpaper_cycle={interval=2.5}}}");
+            rejects("return {shell={wallpaper_cycle={order='random'}}}");
+            rejects("return {shell={wallpaper_cycle={folder=3}}}");
+            rejects("return {shell={wallpaper_cycle={seconds=30}}}");
+        }
+        // Each monitor's own wallpaper, by the monitor's name, and the slideshow giving each one
+        // a picture of its own.
+        {
+            require(even.shell.monitor_wallpapers.empty() && !even.shell.wallpaper_cycle.per_monitor,
+                    "monitors have wallpapers of their own by default");
+            auto own = paw::parse_config(
+                "return {shell={monitor_wallpapers={['DP-1']='left.jpg',HDMI_1=''},"
+                "wallpaper_cycle={per_monitor=true}}}");
+            require(own.shell.monitor_wallpapers ==
+                            std::map<std::string, std::string>{{"DP-1", "left.jpg"}, {"HDMI_1", ""}} &&
+                        own.shell.wallpaper_cycle.per_monitor,
+                    "shell.monitor_wallpapers or wallpaper_cycle.per_monitor not parsed");
+            require(paw::parse_config("return {shell={monitor_wallpapers={['DP-1']='a.jpg'}},"
+                                      "profiles={b={shell={monitor_wallpapers={['DP-1']='b.jpg'}}}}}",
+                                      "config", {}, "b")
+                            .shell.monitor_wallpapers.at("DP-1") == "b.jpg",
+                    "a profile's monitor wallpaper is not laid over the file's");
+            rejects("return {shell={monitor_wallpapers={'left.jpg'}}}");
+            rejects("return {shell={monitor_wallpapers={['DP-1']=true}}}");
+            rejects("return {shell={monitor_wallpapers='left.jpg'}}");
+            rejects("return {shell={monitor_wallpapers={['']='left.jpg'}}}");
+            rejects("return {shell={monitor_wallpapers={['DP\\t1']='left.jpg'}}}");
+            rejects("return {shell={wallpaper_cycle={per_monitor='yes'}}}");
+        }
         // The bar shown while a monitor tiles: on by default, along the top, floating away from
         // the monitor's edges but not towards the windows; false keeps the taskbar.
         {

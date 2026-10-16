@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """power.lock_style: the `lock` action starts the stock `swaylock -f` in the appearance profile's
-look, its wallpaper (the one picked from the panel too), colours and font, and leaves it as it is
+look, its wallpaper (the one picked from the panel too, and each monitor's own), colours and font,
+and leaves it as it is
 under a swaylock configuration of the user's, another lock_command or lock_style = false. A
 stand-in swaylock on PATH writes down its arguments; no real locker locks anything, though a real
 swaylock's option parser checks them."""
@@ -81,14 +82,19 @@ with harness.Compositor(compositor, PROFILE.format(power=""), start=False) as de
     # to in an empty runtime directory), while an option it does not know fails first. Only a
     # program itself, not a script that might do more.
     real = shutil.which("swaylock", path=os.environ.get("PATH"))
-    if real and Path(real).read_bytes()[:4] == b"\x7fELF":
-        empty = root / "empty"
-        empty.mkdir(mode=0o700)
+    empty = root / "empty"
+    empty.mkdir(mode=0o700)
+
+    def swaylock_takes(arguments):
+        if not real or Path(real).read_bytes()[:4] != b"\x7fELF":
+            return
         checked = subprocess.run([real, *arguments, "--version"], capture_output=True, text=True,
                                  timeout=10, env={"PATH": os.environ.get("PATH", ""),
                                                   "HOME": str(home), "XDG_RUNTIME_DIR": str(empty)})
         assert checked.returncode == 0 and "version" in checked.stdout, \
             (checked.stderr.splitlines()[:1], arguments)
+
+    swaylock_takes(arguments)
 
     # The wallpaper picked from the panel for the profile, as the shell saves it.
     picked = root / "picked one.jpg"
@@ -96,7 +102,19 @@ with harness.Compositor(compositor, PROFILE.format(power=""), start=False) as de
     state = root / "state" / "paw"
     state.mkdir(parents=True, exist_ok=True)
     (state / "wallpapers").write_text(f"paper\tpaper.png\t{picked}\n")
-    assert option(lock(), "--image") == f":{str(picked).replace(' ', chr(92) + ' ')}"
+    escaped = str(picked).replace(' ', chr(92) + ' ')
+    assert option(lock(), "--image") == f":{escaped}"
+    # One picked for a monitor alone, on that monitor, after every monitor's.
+    own = root / "own.png"
+    own.write_bytes(b"nor this one")
+    (state / "wallpapers").write_text(f"paper\tpaper.png\t{picked}\n"
+                                      f"paper\tpaper.png\t{own}\tHEADLESS-1\n")
+    arguments = lock()
+    images = [arguments[i + 1] for i, name in enumerate(arguments) if name == "--image"]
+    assert images == [f":{escaped}", f"HEADLESS-1:{own}"], arguments
+    assert arguments.count("--scaling") == 1, arguments
+    swaylock_takes(arguments)
+    (state / "wallpapers").write_text(f"paper\tpaper.png\t{picked}\n")
     # Gone: the background colour alone.
     picked.unlink()
     arguments = lock()

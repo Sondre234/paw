@@ -10,7 +10,10 @@
 #include <cstring>
 #include <fstream>
 #include <iterator>
+#include <map>
+#include <set>
 #include <system_error>
+#include <vector>
 #include <unistd.h>
 
 namespace paw {
@@ -81,33 +84,54 @@ const Command &stock_lock_command() {
     return command;
 }
 
-std::filesystem::path lock_wallpaper(const Config &config, const std::filesystem::path &config_path,
-                                     std::string_view picked_wallpapers) {
-    const std::string &configured = config.shell.wallpaper;
-    // As the shell reads the file: the last line for the profile counts, and only while the
-    // profile configures what it did when the wallpaper was picked.
-    std::optional<std::string> picked;
+namespace {
+// The picks for the profile in use in the shell's file, as the shell reads it: by monitor ("" for
+// every monitor), the wallpaper the configuration gave it and the one picked; the last line for
+// each counts.
+std::map<std::string, std::pair<std::string, std::string>>
+profile_picks(const Config &config, std::string_view picked_wallpapers) {
+    std::map<std::string, std::pair<std::string, std::string>> picks;
     while (!picked_wallpapers.empty()) {
         auto end = picked_wallpapers.find('\n');
         auto line = picked_wallpapers.substr(0, end);
         picked_wallpapers.remove_prefix(end == std::string_view::npos ? picked_wallpapers.size()
                                                                       : end + 1);
-        auto first = line.find('\t');
-        if (first == std::string_view::npos)
+        // PROFILE, CONFIGURED, PICKED and, for one monitor alone, OUTPUT, by tabs.
+        std::vector<std::string_view> fields;
+        for (size_t from = 0;;) {
+            auto tab = line.find('\t', from);
+            fields.push_back(line.substr(from, tab == line.npos ? line.npos : tab - from));
+            if (tab == line.npos)
+                break;
+            from = tab + 1;
+        }
+        if ((fields.size() != 3 && (fields.size() != 4 || fields[3].empty())) ||
+            fields[2].empty() || fields[0] != config.profile)
             continue;
-        auto second = line.find('\t', first + 1);
-        if (second == std::string_view::npos || line.find('\t', second + 1) != line.npos ||
-            second + 1 == line.size())
-            continue;
-        if (line.substr(0, first) != config.profile)
-            continue;
-        if (line.substr(first + 1, second - first - 1) == configured)
-            picked = std::string(line.substr(second + 1));
-        else
-            picked.reset();
+        picks[std::string(fields.size() == 4 ? fields[3] : "")] = {std::string(fields[1]),
+                                                                    std::string(fields[2])};
     }
-    if (picked)
-        return *picked;
+    return picks;
+}
+} // namespace
+
+std::filesystem::path lock_wallpaper(const Config &config, const std::filesystem::path &config_path,
+                                     std::string_view picked_wallpapers, const std::string &output) {
+    // As the shell has it: the monitor's own configured wallpaper, else shell.wallpaper; the
+    // wallpaper picked for the monitor alone, else for every monitor, each only while the
+    // configuration gives the monitor what it did when the wallpaper was picked.
+    const auto own = output.empty() ? config.shell.monitor_wallpapers.end()
+                                    : config.shell.monitor_wallpapers.find(output);
+    const std::string &configured =
+        own != config.shell.monitor_wallpapers.end() ? own->second : config.shell.wallpaper;
+    const auto picks = profile_picks(config, picked_wallpapers);
+    for (const std::string &key : {output, std::string()}) {
+        auto it = picks.find(key);
+        if (it != picks.end() && it->second.first == configured)
+            return it->second.second;
+        if (key.empty())
+            break;
+    }
     if (configured.empty())
         return {};
     std::filesystem::path file(configured);
@@ -147,11 +171,34 @@ Command lock_style_arguments(const Config &config, const LockStyleContext &conte
         for (const char *option : options)
             arguments.insert(arguments.end(), {option, hex(color)});
     };
-    auto wallpaper = lock_wallpaper(config, context.config_path, context.picked_wallpapers);
-    if (!wallpaper.empty() && context.readable && context.readable(wallpaper))
-        // ":" first: no output named, and a colon in the path stays in it.
-        if (auto escaped = wordexp_escape(wallpaper.string()))
-            arguments.insert(arguments.end(), {"--image", ":" + *escaped, "--scaling", "fill"});
+    // Every monitor's wallpaper, and each monitor's own where it differs (one configured for it,
+    // or picked for it alone): OUTPUT:PATH, ":" first for every monitor, so that a colon in the
+    // path stays in it.
+    Command images;
+    auto image = [&](const std::string &output, const std::filesystem::path &wallpaper) {
+        if (!wallpaper.empty() && context.readable && context.readable(wallpaper))
+            if (auto escaped = wordexp_escape(wallpaper.string()))
+                images.insert(images.end(), {"--image", output + ":" + *escaped});
+    };
+    const auto every = lock_wallpaper(config, context.config_path, context.picked_wallpapers);
+    image("", every);
+    std::set<std::string> outputs;
+    for (const auto &[name, wallpaper] : config.shell.monitor_wallpapers)
+        outputs.insert(name);
+    for (const auto &[name, pick] : profile_picks(config, context.picked_wallpapers))
+        outputs.insert(name);
+    for (const auto &output : outputs) {
+        // swaylock takes the output's name up to the first colon.
+        if (output.empty() || output.find(':') != std::string::npos)
+            continue;
+        auto own = lock_wallpaper(config, context.config_path, context.picked_wallpapers, output);
+        if (own != every)
+            image(output, own);
+    }
+    if (!images.empty()) {
+        arguments.insert(arguments.end(), images.begin(), images.end());
+        arguments.insert(arguments.end(), {"--scaling", "fill"});
+    }
     Rgba background{byte(settings.background[0]), byte(settings.background[1]),
                     byte(settings.background[2]), 255};
     add({"--color"}, background);

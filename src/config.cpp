@@ -789,11 +789,40 @@ void read_shell(lua_State *L, ShellConfig &shell) {
                 fail(std::string(key) + " must be #RRGGBB or #RRGGBBAA");
         }
     }
+    // { ["DP-1"] = "path", ... }: a wallpaper for each monitor named.
+    lua_getfield(L, -1, "monitor_wallpapers");
+    if (!lua_isnil(L, -1)) {
+        table(L, -1, "shell.monitor_wallpapers");
+        Named in("shell.monitor_wallpapers");
+        const int index = lua_absindex(L, -1);
+        lua_pushnil(L);
+        while (lua_next(L, index)) {
+            if (lua_type(L, -2) != LUA_TSTRING)
+                fail("shell.monitor_wallpapers is keyed by output name, e.g. "
+                     "[\"DP-1\"] = \"sky.jpg\"");
+            const std::string name = lua_tostring(L, -2);
+            if (name.empty() || name.find_first_of("\t\n") != std::string::npos)
+                fail("output name is empty or has a tab or a newline");
+            shell.monitor_wallpapers[name] =
+                string(L, -1, ("shell.monitor_wallpapers[\"" + name + "\"]").c_str());
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
     named(L, "wallpaper_mode", "shell.wallpaper_mode", shell.wallpaper_mode,
           {{"fill", WallpaperMode::Fill}, {"fit", WallpaperMode::Fit},
            {"center", WallpaperMode::Center}, {"tile", WallpaperMode::Tile},
            {"stretch", WallpaperMode::Stretch}});
     read_desktop_clock(L, shell.desktop_clock);
+    if (Section in{L, "wallpaper_cycle", "shell.wallpaper_cycle"}) {
+        auto &cycle = shell.wallpaper_cycle;
+        cycle.interval = integer(L, "interval", cycle.interval, 0, 1440);
+        if (auto folder = text(L, "folder", "shell.wallpaper_cycle.folder"))
+            cycle.folder = *folder;
+        named(L, "order", "shell.wallpaper_cycle.order", cycle.shuffle,
+              {{"shuffle", true}, {"name", false}});
+        boolean(L, "per_monitor", "shell.wallpaper_cycle.per_monitor", cycle.per_monitor);
+    }
     if (auto folder = text(L, "wallpapers", "shell.wallpapers")) {
         shell.wallpapers = *folder;
         if (!shell.wallpapers.starts_with('/') && !shell.wallpapers.starts_with("~/"))
@@ -2342,6 +2371,8 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"display_mode", SH_DISPLAY_MODE},
         {"display_settings", SH_DISPLAY_SETTINGS},
         {"desktop_clock", SH_DESKTOP_CLOCK},
+        {"wallpaper_next", SH_WALLPAPER_NEXT},
+        {"wallpaper_prev", SH_WALLPAPER_PREV},
         {"scroll_left", SH_SCROLL_LEFT},
         {"scroll_right", SH_SCROLL_RIGHT},
         {"column_widen", SH_COLUMN_WIDEN},
@@ -2977,22 +3008,45 @@ std::filesystem::path default_config_path() {
     return variable && *variable ? variable : PAW_DEFAULT_CONFIG;
 }
 namespace {
-// Makes `shell.wallpaper` and `shell.start_icon` in the table at `index` absolute when they
-// name a file relative to `directory`.
+// Makes the string at `key` of the table on top of the stack absolute when it names a file
+// relative to `directory`; with `home`, one in the home folder ("~/...") stays as it is.
+void anchor_file(lua_State *L, const char *key, const std::filesystem::path &directory,
+                 bool home = false) {
+    lua_getfield(L, -1, key);
+    if (lua_type(L, -1) == LUA_TSTRING) {
+        std::filesystem::path file = lua_tostring(L, -1);
+        if (!file.empty() && file.is_relative() && !(home && file.string().starts_with('~'))) {
+            lua_pushstring(L, (directory / file).c_str());
+            lua_setfield(L, -3, key);
+        }
+    }
+    lua_pop(L, 1);
+}
+// Makes `shell.wallpaper`, `shell.monitor_wallpapers`' pictures, `shell.start_icon` and
+// `shell.wallpaper_cycle.folder` in the table at `index` absolute when they name a file relative
+// to `directory`.
 void anchor_files(lua_State *L, int index, const std::filesystem::path &directory) {
     lua_getfield(L, index, "shell");
     if (lua_istable(L, -1)) {
-        for (const char *key : {"wallpaper", "start_icon"}) {
-            lua_getfield(L, -1, key);
-            if (lua_type(L, -1) == LUA_TSTRING) {
-                std::filesystem::path file = lua_tostring(L, -1);
-                if (!file.empty() && file.is_relative()) {
-                    lua_pushstring(L, (directory / file).c_str());
-                    lua_setfield(L, -3, key);
-                }
+        for (const char *key : {"wallpaper", "start_icon"})
+            anchor_file(L, key, directory);
+        lua_getfield(L, -1, "wallpaper_cycle");
+        if (lua_istable(L, -1))
+            anchor_file(L, "folder", directory, true);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "monitor_wallpapers");
+        if (lua_istable(L, -1)) {
+            std::vector<std::string> names;
+            lua_pushnil(L);
+            while (lua_next(L, -2)) {
+                if (lua_type(L, -2) == LUA_TSTRING)
+                    names.emplace_back(lua_tostring(L, -2));
+                lua_pop(L, 1);
             }
-            lua_pop(L, 1);
+            for (const auto &name : names)
+                anchor_file(L, name.c_str(), directory);
         }
+        lua_pop(L, 1);
     }
     lua_pop(L, 1);
 }

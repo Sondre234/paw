@@ -1087,6 +1087,15 @@ const Option options[] = {
     {"shell.wallpaper", "string", "\"\"", "\"\"", none, none,
      "Image path, absolute or relative to the configuration file (one the shipped configuration "
      "names, its profiles' too: relative to that file, also for a file that extends it)."},
+    {"shell.monitor_wallpapers", "table", "{}",
+     "{ [\"DP-1\"] = \"left.jpg\", [\"HDMI-A-1\"] = \"right.jpg\" }", none, none,
+     "Each monitor's own wallpaper, by the monitor's name as `paw msg get outputs` lists it, over "
+     "`wallpaper`, which the monitors left out show: a path as `wallpaper` takes, `\"\"` for none. "
+     "The frosted glass, the workspace cards and Launchpad on that monitor show its own, and so "
+     "does the lock screen. The wallpaper picker's \"This monitor\" picks one for a monitor "
+     "alone."},
+    {"shell.monitor_wallpapers.<name>", "string", "", "", none, none,
+     "The picture's path, absolute or relative to the configuration file."},
     {"shell.wallpaper_mode", "enum", "\"fill\"", "\"fit\"", none, none,
      "How the wallpaper covers each monitor: `\"fill\"` scales it to cover all of it, cutting "
      "off what overflows; `\"fit\"` shows all of it, as large as fits; `\"stretch\"` scales "
@@ -1095,7 +1104,25 @@ const Option options[] = {
      "from the top left. Around a picture that `\"fit\"` or `\"center\"` leaves room by, "
      "`appearance.background` shows. The frosted glass and a workspace's picture on its card "
      "show it the same way."},
-    {"shell.desktop_clock", "boolean or table", "false", "true", none, none,
+    {"shell.wallpaper_cycle", "table", "", "", none, none,
+     "Experimental: a slideshow, the pictures of a folder taking turns as the wallpaper, each "
+     "fading in as one picked does and kept as if picked from the panel, so the lock screen "
+     "shows it too. The `wallpaper_next` and `wallpaper_prev` actions step through them, also "
+     "while `interval` is 0. The timer waits while the session is locked."},
+    {"shell.wallpaper_cycle.interval", "integer", "0", "30", 0, 1440,
+     "Minutes between pictures; 0 changes the wallpaper only at the actions."},
+    {"shell.wallpaper_cycle.folder", "string", "unset", "\"~/Pictures/wallpapers/sky\"", none,
+     none,
+     "The pictures' folder, not its subfolders: absolute, starting with `~/`, or relative to "
+     "the configuration file; unset, the folder of `shell.wallpaper` (a rice's own pictures), "
+     "else the wallpaper picker's (`shell.wallpapers`)."},
+    {"shell.wallpaper_cycle.order", "enum", "\"shuffle\"", "\"name\"", none, none,
+     "`\"shuffle\"` shows every picture once, in a random order, before any comes again; "
+     "`\"name\"` goes through them in the order of their names, numbers in order."},
+    {"shell.wallpaper_cycle.per_monitor", "boolean", "false", "true", none, none,
+     "Each monitor shows a picture of its own, the next after the monitor to its left's, each "
+     "kept for that monitor alone; `false` shows one picture on every monitor."},
+    {"shell.desktop_clock","boolean or table", "false", "true", none, none,
      "Experimental: a large clock on the desktop, over the wallpaper and under the windows: the "
      "time in a thin weight, the date under it and, with `greeting`, a word for the time of day "
      "above it, in the text colour with a soft shadow (a glow under dark text) so that it reads "

@@ -248,6 +248,10 @@ enum sh_action {
     SH_DISPLAY_SETTINGS,
     /* Shows or hides the shell's desktop clock (shell.desktop_clock). */
     SH_DESKTOP_CLOCK,
+    /* Asks the shell for the next or the previous wallpaper of its slideshow
+     * (shell.wallpaper_cycle). */
+    SH_WALLPAPER_NEXT,
+    SH_WALLPAPER_PREV,
     /* Minimizes the focused window into its taskbar button, as its own minimize button does. */
     SH_MINIMIZE,
     /* Toys, which only draw: the focused window (argument: a window's number, its id, 0 for the
