@@ -76,16 +76,12 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         assert "tour" not in msg("session", "list")
 
     def probe_of(title):
-        """The process of the probe showing the window titled `title`, by the title it was given."""
-        found = []
-        for entry in Path("/proc").iterdir():
-            try:
-                if entry.name.isdigit() and f"\0PAW_PROBE_TITLE={title}\0".encode() in \
-                        b"\0" + (entry / "environ").read_bytes():
-                    found.append(int(entry.name))
-            except OSError:
-                pass  # another user's, or gone meanwhile
-        assert len(found) == 1, found
+        """The process of the probe showing the window titled `title`: the client this
+        compositor knows it by, as `get commits` lists it. (Not by a look through /proc: a
+        test run in another build at the same time has probes of the same title.)"""
+        found = [int(row[2]) for row in desktop.rows("commits")
+                 if row[0] == "window" and row[-1] == title]
+        assert len(found) == 1 and found[0] > 0, found
         return found[0]
 
     def tour(*arguments, log):
