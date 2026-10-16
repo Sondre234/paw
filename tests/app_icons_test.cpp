@@ -36,6 +36,8 @@ class AppIconsTest : public QObject {
         qputenv("XDG_CONFIG_HOME", home.filePath("config").toLocal8Bit());
         // Settings that last only while the test runs, unset to begin with.
         qputenv("GSETTINGS_BACKEND", "memory");
+        // Run from a login session with a profile's icon theme, the test would see the user's.
+        qunsetenv("PAW_USER_ICON_THEME");
     }
     void themeFromTheDesktopsSettings() {
         const auto config = home.filePath("config");
@@ -56,6 +58,13 @@ class AppIconsTest : public QObject {
         QCOMPARE(desktopIconTheme(), QString("Tela"));
         g_settings_set_string(settings, "icon-theme", "Yaru");
         QCOMPARE(desktopIconTheme(), QString("Yaru"));
+        // While paw has a profile's theme there, the user's own is in $PAW_USER_ICON_THEME:
+        // that one, or without one the theme GTK's settings name.
+        qputenv("PAW_USER_ICON_THEME", "Papirus-Dark");
+        QCOMPARE(desktopIconTheme(), QString("Papirus-Dark"));
+        qputenv("PAW_USER_ICON_THEME", "");
+        QCOMPARE(desktopIconTheme(), QString("Tela"));
+        qunsetenv("PAW_USER_ICON_THEME");
         g_settings_reset(settings, "icon-theme");
         g_object_unref(settings);
         QCOMPARE(desktopIconTheme(), QString("Tela"));

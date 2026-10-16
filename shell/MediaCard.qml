@@ -173,7 +173,7 @@ Item {
                                 id: playerIcon
                                 Layout.preferredWidth: Theme.iconSizeSmall; Layout.preferredHeight: Theme.iconSizeSmall
                                 visible: status === Image.Ready
-                                source: "image://icons/" + shell.iconFor(card.media.desktopEntry || card.media.identity.toLowerCase())
+                                source: shell.iconBase + shell.iconFor(card.media.desktopEntry || card.media.identity.toLowerCase())
                                 sourceSize: Qt.size(2 * Theme.iconSizeSmall, 2 * Theme.iconSizeSmall)
                             }
                             Text {

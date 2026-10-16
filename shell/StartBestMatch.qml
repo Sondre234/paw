@@ -56,7 +56,7 @@ AbstractButton {
                 id: image
                 width: 2 * Theme.appIconSizeLarge; height: width
                 sourceSize: Qt.size(width, height)
-                source: "image://icons/" + card.result.icon
+                source: shell.iconBase + card.result.icon
             }
             Column {
                 id: about

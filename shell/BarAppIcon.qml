@@ -9,7 +9,7 @@ Image {
     property bool pressed: false
     property int size: Theme.appIconSize
     width: size; height: size
-    source: "image://icons/" + name
+    source: shell.iconBase + name
     sourceSize: Qt.size(size, size)
     scale: pressed ? Theme.pressScale : 1
     Behavior on scale { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }

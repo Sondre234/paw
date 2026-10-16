@@ -69,6 +69,10 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     : QObject(parent), path_(std::move(path)), tasks_(this) {
     connect(this, &ShellController::appsChanged, this, [this] { ++appsRevision_; });
     connect(&restyle_, &Restyle::settled, this, &ShellController::restyled);
+    {
+        std::lock_guard guard(iconThemeLock());
+        iconThemeBase_ = QIcon::themeName();
+    }
     loadConfig();
     watchTrash();
     QFile pins(pinsPath());
@@ -991,6 +995,45 @@ void ShellController::loadConfig() {
     if (!error.empty())
         std::cerr << "Shell configuration error; using the default configuration: " << error
                   << '\n';
+    followIconTheme();
+}
+void ShellController::followIconTheme() {
+    // Only as the setting changes: a theme set meanwhile otherwise (a test's, the preview's)
+    // stands until then.
+    const auto wanted = QString::fromUtf8(config_.settings.icon_theme);
+    if (wanted == iconThemeWanted_)
+        return;
+    iconThemeWanted_ = wanted;
+    QString theme = iconThemeBase_;
+    if (iconThemeInstalled(wanted))
+        theme = wanted;
+    else if (!wanted.isEmpty())
+        std::cerr << "The icon theme " << wanted.toStdString() << " is not installed; skipping it"
+                  << (theme.isEmpty() ? "" : " for " + theme.toStdString()) << '\n';
+    {
+        std::lock_guard guard(iconThemeLock());
+        if (QIcon::themeName() == theme)
+            return;
+        // Qt looks in its own folders again as the theme is cleared, leaving any it was given.
+        const auto folders = QIcon::themeSearchPaths();
+        QIcon::setThemeName(theme);
+        if (QIcon::themeSearchPaths() != folders)
+            QIcon::setThemeSearchPaths(folders);
+    }
+    // What was found in the old theme is looked for again: the icons guessed for windows, the
+    // tray's pictures and menus, and every image://icons image, by a URL of its own.
+    iconFor_.clear();
+    tray_.redraw();
+    ++iconGeneration_;
+    Q_EMIT iconThemeChanged();
+}
+QString ShellController::iconBase() const {
+    return iconGeneration_ ? QString("image://icons/@%1/").arg(iconGeneration_)
+                           : QString("image://icons/");
+}
+QString ShellController::iconTheme() const {
+    std::lock_guard guard(iconThemeLock());
+    return QIcon::themeName();
 }
 namespace {
 // The rectangle of the four numbers X Y WIDTH HEIGHT from `words[from]` on.
@@ -1080,6 +1123,17 @@ void ShellController::subscribe() {
                                                              {"workspace", fields[1].toInt()},
                                                              {"appId", fields[2]},
                                                              {"title", fields[3]}});
+                }
+            } else if (line.startsWith("cursor-theme ")) {
+                // cursor-theme SIZE NAME: the cursor the compositor draws, which the programs
+                // the shell starts draw over their windows too.
+                // Set as it changes alone: other threads read the environment too.
+                const auto size = line.section(' ', 1, 1).toUtf8();
+                const auto theme = line.section(' ', 2).toUtf8();
+                if (size.toInt() > 0 && !theme.isEmpty() &&
+                    (qgetenv("XCURSOR_SIZE") != size || qgetenv("XCURSOR_THEME") != theme)) {
+                    qputenv("XCURSOR_SIZE", size);
+                    qputenv("XCURSOR_THEME", theme);
                 }
             } else if (line.startsWith("focused ")) {
                 // The output the compositor says has the focus, where overlays for it go.

@@ -37,7 +37,7 @@ AbstractButton {
             anchors.verticalCenter: parent.verticalCenter
             width: row.iconSize; height: row.iconSize
             sourceSize: Qt.size(width, height)
-            source: row.iconName === "" ? "" : "image://icons/" + row.iconName
+            source: row.iconName === "" ? "" : shell.iconBase + row.iconName
         }
         Column {
             anchors.left: image.right; anchors.leftMargin: Theme.spacingL

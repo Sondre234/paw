@@ -17,7 +17,7 @@ struct sh_cursor_shake {
     struct sh_shake shake;
     struct wl_event_source *timer;
     bool drawn;           /* the cursor is drawn grown */
-    int size;             /* $XCURSOR_SIZE, the theme's size */
+    int size;             /* the cursor's size (profile_themes.c) */
     float theme_scale;    /* the outputs' largest scale, which `large` is loaded at */
     struct wlr_xcursor_manager *large; /* the theme at SH_SHAKE_GROW times the size */
     /* The image drawn: its name, its buffer, the size of its image at the theme's size and
@@ -35,8 +35,7 @@ static struct sh_cursor_shake *shake_of(struct sh_server *server) {
         if (!server->cursor_shake)
             return NULL;
         server->cursor_shake->server = server;
-        const char *size = getenv("XCURSOR_SIZE"); // server.c sets it as it starts
-        server->cursor_shake->size = size && atoi(size) > 0 ? atoi(size) : 24;
+        server->cursor_shake->size = cursor_theme_size(server);
     }
     return server->cursor_shake;
 }
@@ -86,8 +85,7 @@ static bool load_image(struct sh_cursor_shake *shake) {
     if (shake->buffer && !strcmp(shake->name, name) && shake->theme_scale == scale)
         return true;
     if (!shake->large) {
-        const char *theme = getenv("XCURSOR_THEME");
-        shake->large = wlr_xcursor_manager_create(theme && *theme ? theme : "Adwaita",
+        shake->large = wlr_xcursor_manager_create(cursor_theme_name(server),
                                                   (uint32_t)lround(shake->size * SH_SHAKE_GROW));
         if (!shake->large)
             return false;
@@ -196,6 +194,22 @@ void cursor_shake_reload(struct sh_server *server) {
         memset(&server->cursor_shake->shake, 0, sizeof(server->cursor_shake->shake));
         restore(server->cursor_shake);
     }
+}
+
+/* The cursor theme or size changed (profile_themes.c): a grown cursor goes back to its size at
+ * once, its image from the new theme, and the next shake grows the new one. */
+void cursor_shake_retheme(struct sh_server *server) {
+    struct sh_cursor_shake *shake = server->cursor_shake;
+    if (!shake)
+        return;
+    memset(&shake->shake, 0, sizeof(shake->shake));
+    restore(shake);
+    wlr_buffer_drop(shake->buffer);
+    shake->buffer = NULL;
+    if (shake->large)
+        wlr_xcursor_manager_destroy(shake->large);
+    shake->large = NULL;
+    shake->size = cursor_theme_size(server);
 }
 
 void cursor_shake_finish(struct sh_server *server) {

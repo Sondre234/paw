@@ -236,37 +236,6 @@ std::string gtk_setting(const std::string &name) {
     }
     return "";
 }
-/* Whether a cursor theme of this name is installed where wlroots and libXcursor look for one:
- * $XCURSOR_PATH, else the icons of $XDG_DATA_HOME and $XDG_DATA_DIRS, ~/.icons and
- * /usr/share/pixmaps. */
-bool cursor_theme_installed(const std::string &theme) {
-    if (theme.empty() || theme.find('/') != std::string::npos || theme == "." || theme == "..")
-        return false;
-    std::vector<std::filesystem::path> directories;
-    auto add = [&](const std::string &list, const char *below) {
-        std::istringstream entries(list);
-        for (std::string entry; std::getline(entries, entry, ':');)
-            if (entry.starts_with("~/"))
-                directories.push_back(home_directory() / entry.substr(2) / below);
-            else if (entry.starts_with('/'))
-                directories.push_back(std::filesystem::path(entry) / below);
-    };
-    if (const char *path = std::getenv("XCURSOR_PATH"); path && *path) {
-        add(path, "");
-    } else {
-        const char *data_home = std::getenv("XDG_DATA_HOME"), *data = std::getenv("XDG_DATA_DIRS");
-        add(data_home && *data_home ? data_home : "~/.local/share", "icons");
-        add("~/.icons", "");
-        add(data && *data ? data : "/usr/local/share:/usr/share", "icons");
-        add("/usr/share/pixmaps", "");
-    }
-    std::error_code error;
-    for (const auto &directory : directories)
-        if (std::filesystem::is_directory(directory / theme / "cursors", error) ||
-            std::filesystem::exists(directory / theme / "index.theme", error))
-            return true;
-    return false;
-}
 /* Without $XCURSOR_THEME, the cursor theme and size the desktop's settings name, those GTK
  * applications draw over their windows: gsettings' org.gnome.desktop.interface, else GTK's
  * settings.ini. The compositor uses and exports them; without any, Adwaita at 24. */
@@ -279,7 +248,7 @@ void follow_desktop_cursor() {
         theme = gtk_setting("gtk-cursor-theme-name");
         size = gtk_setting("gtk-cursor-theme-size");
     }
-    if (!cursor_theme_installed(theme))
+    if (!sh_theme_installed(theme.c_str(), true))
         return;
     setenv("XCURSOR_THEME", theme.c_str(), true);
     int pixels = 0;

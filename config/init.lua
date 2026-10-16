@@ -40,7 +40,9 @@ return {
     -- ("Appearance"), the command palette, or `paw msg profile NAME|next|prev`; the choice
     -- is kept across restarts. `profile` is the one to start with. A profile's
     -- `appearance.color_scheme` ("light" or "dark") switches applications that follow the
-    -- system's style with it: GTK, Firefox, Chromium, Discord and other Electron apps.
+    -- system's style with it: GTK, Firefox, Chromium, Discord and other Electron apps; and
+    -- `appearance.cursor_theme`, `cursor_size` and `icon_theme` change the cursor and the
+    -- shell's icons with it (see mochi below).
     --
     -- paw starts in the macOS style: a menu bar along the top, a dock at the bottom,
     -- Launchpad, Spotlight, traffic-light window controls and soft window shadows. `default` and
@@ -154,9 +156,15 @@ return {
         -- and GTK that its install.sh puts in place. It names Nunito (install.sh --fonts);
         -- without it the default sans-serif stands in. Colours from Catppuccin Mocha (MIT).
         mochi = {
-            appearance = { background = "#1e1e2e", color_scheme = "dark" },
-            -- Soft snow falling past the moon: add to appearance above
-            --     ambient = { kind = "snow" },
+            appearance = {
+                background = "#1e1e2e", color_scheme = "dark",
+                -- Its cursor and icons while it is in use, once rices/mochi/install.sh --cursor
+                -- --icons has put them in ~/.local/share/icons (skipped until then):
+                -- cursor_theme = "catppuccin-mocha-light-cursors",
+                -- icon_theme = "Mochi",
+                -- Soft snow falling past the moon:
+                -- ambient = { kind = "snow" },
+            },
             windows = {
                 border_width = 2, corner_radius = 14, round = "always",
                 border_color = { "#cba6f7", "#f5c2e7", angle = 135 },

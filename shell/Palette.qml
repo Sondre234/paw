@@ -223,7 +223,7 @@ Item {
                     x: Theme.spacingM; anchors.verticalCenter: parent.verticalCenter
                     width: Theme.appIconSizeLarge; height: Theme.appIconSizeLarge
                     sourceSize: Qt.size(2 * Theme.appIconSizeLarge, 2 * Theme.appIconSizeLarge)
-                    source: "image://icons/" + row.modelData.icon
+                    source: shell.iconBase + row.modelData.icon
                 }
                 // A window asking for attention has a dot in the urgent colour on its icon, as
                 // in the switcher.
@@ -319,7 +319,7 @@ Item {
                         x: Theme.spacingS; anchors.verticalCenter: parent.verticalCenter
                         width: Theme.spotlightIconSize; height: width
                         sourceSize: Qt.size(2 * width, 2 * height)
-                        source: "image://icons/" + result.modelData.icon
+                        source: shell.iconBase + result.modelData.icon
                     }
                     // A window asking for attention has a dot in the urgent colour on its icon.
                     Rectangle {

@@ -64,7 +64,7 @@ AbstractButton {
     }
     // An icon Icon knows, else a theme icon's name or an image's URL, as an image source.
     function imageSource(icon) {
-        return icon === "" ? "" : icon.indexOf(":") >= 0 || icon.charAt(0) === "/" ? icon : "image://icons/" + icon
+        return icon === "" ? "" : icon.indexOf(":") >= 0 || icon.charAt(0) === "/" ? icon : shell.iconBase + icon
     }
     contentItem: Item {
         // The menu's title: its icon large, the name, and the secondary text under it, elided.
