@@ -1090,6 +1090,9 @@ void ShellController::subscribe() {
                 const auto words = line.split(' ');
                 if (words.size() == 3)
                     setNightLight(words[1] == "on", words[2]);
+            } else if (line.startsWith("keep-awake ")) {
+                // keep-awake on|off
+                setKeepAwake(line.sliced(11) == "on");
             } else if (line.startsWith("notice ")) {
                 const auto fields = line.sliced(7).split('\t');
                 notice(fields[0], fields.value(1));
@@ -1288,6 +1291,7 @@ void ShellController::subscribe() {
         }
         power_.setAvailable("-");
         setNightLight(false, {});
+        setKeepAwake(false);
         setBindingMode({});
         caption_.hide(); // nothing narrates it any more
         if (!urgentWindows_.isEmpty()) {
@@ -1310,6 +1314,12 @@ void ShellController::setBindingMode(const QString &mode) {
         return;
     bindingMode_ = mode;
     Q_EMIT bindingModeChanged();
+}
+void ShellController::setKeepAwake(bool on) {
+    if (on == keepAwake_)
+        return;
+    keepAwake_ = on;
+    Q_EMIT keepAwakeChanged();
 }
 void ShellController::setNightLight(bool on, const QString &mode) {
     if (on == nightLight_ && mode == nightLightMode_)

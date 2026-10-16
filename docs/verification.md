@@ -848,10 +848,15 @@ Added 2026-10-08. `idle_smoke` runs the `idle` steps on a headless compositor wi
 and timeouts of a few seconds, against a fake `/sys/class/power_supply` (`PAW_SYSFS`): the
 screens dim (half dark in a screenshot, with grim) and input brightens them; the monitors go off,
 dimmed, and the screen locks with them off at once; the pointer turns them on, showing the lock;
-an idle inhibitor from a probe holds every step off and the time counts from when it goes; the
-key that turns the monitors on runs no binding, and a monitor turned off by hand stays off; the
-battery's steps apply on battery and the others back on mains; and an `ext-idle-notify-v1` client,
-as swayidle is, hears idled and resumed beside the steps. `idle_suspend_smoke` takes the suspend
+an idle inhibitor from a probe holds every step off and the time counts from when it goes; one
+on a probe's window holds them only while the window shows, letting the screens dim with the
+window on another workspace, minimized, on a monitor turned off or behind the lock, and holding
+them again (the screens brightening) once it shows; the key that turns the monitors on runs no
+binding, and a monitor turned off by hand stays off; the battery's steps apply on battery and the
+others back on mains; an `ext-idle-notify-v1` client, as swayidle is, hears idled and resumed
+beside the steps; and keep awake holds every step off, the client resuming with no input and
+idling again once it is turned off. `shell_ui` checks the Keep awake tile toggling it through
+the compositor and the shell reading `keep-awake on|off`. `idle_suspend_smoke` takes the suspend
 step against the fake logind (`tests/fake_login1.c`): the monitors off, the lock, the suspend, and
 the monitors on again as the machine wakes up. `power_supply` reads fake supplies: a mouse's
 battery, a laptop on mains and on battery, a USB-C charger, two batteries.

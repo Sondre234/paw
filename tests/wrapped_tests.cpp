@@ -313,6 +313,15 @@ void report() {
           "%zu", few.size());
     CHECK(w::cards(w::Totals{}, w::period("all", "2026-10-14"), now).empty());
 
+    // Petting the desktop cat has a card of its own.
+    w::Totals pets;
+    w::add_day(pets, "2026-10-14", "sessions\t1\ncat_pets\t7\n");
+    auto petted = w::cards(pets, w::period("today", "2026-10-14"), now);
+    CHECK(petted.size() == 2 && petted[1].title == "The cat" &&
+              petted[1].headline == "You petted the cat 7 times." &&
+              petted[1].lines[0] == "It purred every time.",
+          "%zu", petted.size());
+
     // Boxes as wide as asked, every line of them, coloured or not.
     for (bool colour : {false, true}) {
         auto text = w::render(cards, 40, colour);

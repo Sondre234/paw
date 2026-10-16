@@ -22,7 +22,8 @@ QStringList profileNames(const QVariant &value) {
     if (value.metaType() != QMetaType::fromType<QDBusArgument>())
         return list;
     const auto argument = value.value<QDBusArgument>();
-    if (argument.currentType() != QDBusArgument::ArrayType)
+    // Read as anything else, QtDBus would read out of bounds.
+    if (argument.currentSignature() != "aa{sv}")
         return list;
     argument.beginArray();
     while (!argument.atEnd()) {
@@ -91,7 +92,7 @@ void PowerProfilesDaemon::read() {
                 properties_.clear();
                 daemon_ = -1;
             } else {
-                properties_ = qdbus_cast<QVariantMap>(done->reply().arguments().value(0));
+                properties_ = dbus::map(done->reply().arguments().value(0));
                 settle(properties_);
             }
             publish();

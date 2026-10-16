@@ -221,8 +221,9 @@ static bool initial_tile_size(struct sh_toplevel *toplevel, int *width, int *hei
         return false;
     int workspace = *output_workspace(server, output->name), gap;
     struct sh_rect area = tiling_area(server, output, workspace, 1, &gap), rect;
-    if (!sh_tiling_preview(server->tiling, output->name, workspace, toplevel, target, true,
-                           server->cursor->x, server->cursor->y, area, gap, &rect))
+    if (!sh_tiling_preview(server->tiling, output->name, workspace, toplevel, target,
+                           cursor_places_tile(toplevel, output), server->cursor->x,
+                           server->cursor->y, area, gap, &rect))
         return false;
     rect = inside_border(server, rect);
     *width = rect.width;
@@ -770,6 +771,7 @@ void minimize_toplevel(struct sh_toplevel *toplevel) {
     if (toplevel->server->focused_toplevel == toplevel)
         focus_previous(toplevel->server);
     minimize_raise(toplevel); // over the window that came forward for the focus
+    idle_inhibitors_follow(toplevel->server); // a video minimized lets the screens dim
 }
 
 /* Fullscreen the client asked for covers the whole output; fullscreen from a binding or the

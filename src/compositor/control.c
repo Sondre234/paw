@@ -14,6 +14,7 @@ struct sh_control_client {
     struct sh_server *server;
     int fd;
     struct wl_event_source *source;
+    struct wl_event_source *timer; // until its request has come in whole (CONTROL_REQUEST_MS)
     bool subscribed; // "subscribe": stays open and receives the state after each change
     bool shell;      // "subscribe shell": the desktop shell, which carries out what it is asked
     struct wl_list link; // in the server's control_pending until it subscribes, then subscribers
@@ -479,6 +480,8 @@ static void control_handle(struct sh_server *server, int fd, const char *request
 static void control_client_close(struct sh_control_client *client) {
     wl_list_remove(&client->link);
     wl_event_source_remove(client->source);
+    if (client->timer)
+        wl_event_source_remove(client->timer);
     close(client->fd);
     free(client);
 }
@@ -554,8 +557,8 @@ static struct wlr_output *primary_output(struct sh_server *server) {
  * holding windows ("1,3", or "-"), and whether it tiles ("on" or "off"), "layout NAME LAYOUT",
  * the tiling layout of its current workspace ("dwindle", ...), and "touched NAME EDGES", the
  * edges of its usable area a window reaches; then the urgent
- * windows, the keyboard layout and night light, as described below, and the power actions
- * that may run. */
+ * windows, the keyboard layout, night light and keep awake, as described below, and the power
+ * actions that may run. */
 static void describe_state(struct sh_server *server, char *state, size_t size) {
     struct wlr_output *focused = focused_output(server), *primary = primary_output(server);
     size_t length = 0;
@@ -653,6 +656,8 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
            server->night_mode == SH_NIGHT_ON    ? "on"
            : server->night_mode == SH_NIGHT_OFF ? "off"
                                                 : "auto");
+    // "keep-awake on|off": whether keep awake holds the idle steps off (lock.c).
+    append(state, size, &length, "keep-awake %s\n", server->keep_awake ? "on" : "off");
     // "locked on|off": whether the session is locked, for the shell to record nothing then.
     append(state, size, &length, "locked %s\n", server->locked ? "on" : "off");
     // "power ACTIONS": the power actions that may run, as "lock,suspend,poweroff", or "-".
@@ -666,6 +671,7 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
 void notify_subscribers(struct sh_server *server) {
     overview_touch(server, true); // a change of windows or workspaces, when it is open
     xray_touch(server);
+    idle_inhibitors_follow(server); // a window shown or hidden
     window_objects_changed(server);
     char state[sizeof(server->sent_state)];
     describe_state(server, state, sizeof(state));
@@ -769,6 +775,8 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
                     !strcmp(client->request, "subscribe shell"))) {
         client->subscribed = true;
         client->shell = client->request[9] != '\0';
+        wl_event_source_remove(client->timer);
+        client->timer = NULL;
         wl_list_remove(&client->link);
         wl_list_insert(&client->server->subscribers, &client->link);
         char state[3 + sizeof(client->server->sent_state)] = "ok\n";
@@ -792,11 +800,56 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
     return 0;
 }
 
+/* A connection has this long to send its whole request, so that ones that never do cannot pile
+ * up until paw runs out of file descriptors (and no new window can connect). Every client sends
+ * its request as it connects. */
+#define CONTROL_REQUEST_MS 5000
+/* At most this many wait for their request at once: past it, the one waiting longest goes. */
+#define CONTROL_PENDING_MAX 64
+/* Out of file descriptors (or memory), accept4 fails at once while the socket stays readable:
+ * rather than try again on every pass of the event loop, at full speed, paw stops watching the
+ * socket for this long, connections waiting in its backlog meanwhile. */
+#define CONTROL_BACKOFF_MS 250
+
+/* Closes a connection still waiting for its request, telling it why if it listens. */
+static void control_client_drop(struct sh_control_client *client, const char *why) {
+    send(client->fd, why, strlen(why), MSG_NOSIGNAL | MSG_DONTWAIT);
+    control_client_close(client);
+}
+
+/* Its request did not come in time. */
+static int control_client_late(void *data) {
+    control_client_drop(data, "error: no request within 5 seconds\n");
+    return 0;
+}
+
+/* The pause is over: connections are taken again. */
+static int control_resume(void *data) {
+    struct sh_server *server = data;
+    wl_event_source_fd_update(server->control_source, WL_EVENT_READABLE);
+    return 0;
+}
+
 static int control_accept(int fd, uint32_t mask, void *data) {
     struct sh_server *server = data;
     int client_fd = accept4(fd, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
-    if (client_fd < 0)
+    if (client_fd < 0) {
+        if ((errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM) &&
+            server->control_resume) {
+            if (!server->control_starved)
+                wlr_log_errno(WLR_ERROR, "Control socket: cannot take a connection; waiting");
+            server->control_starved = true;
+            wl_event_source_fd_update(server->control_source, 0);
+            wl_event_source_timer_update(server->control_resume, CONTROL_BACKOFF_MS);
+        }
         return 0;
+    }
+    server->control_starved = false;
+    if (wl_list_length(&server->control_pending) >= CONTROL_PENDING_MAX) {
+        struct sh_control_client *oldest =
+            wl_container_of(server->control_pending.prev, oldest, link);
+        control_client_drop(oldest, "error: too many connections waiting\n");
+    }
     struct sh_control_client *client = calloc(1, sizeof(*client));
     if (!client) {
         close(client_fd);
@@ -804,9 +857,16 @@ static int control_accept(int fd, uint32_t mask, void *data) {
     }
     client->server = server;
     client->fd = client_fd;
-    client->source = wl_event_loop_add_fd(wl_display_get_event_loop(server->wl_display), client_fd,
-                                          WL_EVENT_READABLE, control_client_readable, client);
-    if (!client->source) {
+    struct wl_event_loop *loop = wl_display_get_event_loop(server->wl_display);
+    client->source =
+        wl_event_loop_add_fd(loop, client_fd, WL_EVENT_READABLE, control_client_readable, client);
+    client->timer = wl_event_loop_add_timer(loop, control_client_late, client);
+    if (!client->source || !client->timer ||
+        wl_event_source_timer_update(client->timer, CONTROL_REQUEST_MS) < 0) {
+        if (client->source)
+            wl_event_source_remove(client->source);
+        if (client->timer)
+            wl_event_source_remove(client->timer);
         close(client_fd);
         free(client);
         return 0;
@@ -838,8 +898,10 @@ void open_control_socket(struct sh_server *server, const char *wayland_socket) {
         return;
     }
     server->control_fd = fd;
-    server->control_source = wl_event_loop_add_fd(wl_display_get_event_loop(server->wl_display), fd,
-                                                  WL_EVENT_READABLE, control_accept, server);
+    struct wl_event_loop *loop = wl_display_get_event_loop(server->wl_display);
+    server->control_source =
+        wl_event_loop_add_fd(loop, fd, WL_EVENT_READABLE, control_accept, server);
+    server->control_resume = wl_event_loop_add_timer(loop, control_resume, server);
     setenv("PAW_SOCKET", server->control_path, true);
     wlr_log(WLR_INFO, "Control socket: %s", server->control_path);
 }
@@ -855,6 +917,8 @@ void close_control_socket(struct sh_server *server) {
     }
     if (server->control_source)
         wl_event_source_remove(server->control_source);
+    if (server->control_resume)
+        wl_event_source_remove(server->control_resume);
     if (server->control_fd >= 0)
         close(server->control_fd);
     if (server->control_path[0])

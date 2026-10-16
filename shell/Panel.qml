@@ -136,7 +136,8 @@ Item {
     // taken twice. A want may name the width in device pixels it wants the picture (0, or none,
     // for shell.thumbnailSize's), as the card of a workspace does, and a window is asked for at
     // the widest it is wanted: watched again at a new width before its last watch goes, so that
-    // its capture goes on.
+    // its capture goes on. The panel watches as their owner, so that the source lets go of them
+    // as it goes, whatever is still to sync then.
     property var pictureWants: ({})
     // The windows asked for, as {taskId: width}, and the source they were asked of.
     property var pictureWatches: ({})
@@ -162,13 +163,13 @@ Item {
         var source = taskSource, id
         if (pictureSource !== source) {
             if (pictureSource && typeof pictureSource.unwatchPicture === "function")
-                for (id in pictureWatches) pictureSource.unwatchPicture(Number(id))
+                for (id in pictureWatches) pictureSource.unwatchPicture(root, Number(id))
             pictureWatches = {}
             pictureSource = source
         }
         for (id in pictureWatches)
             if (!pictureWants[id]) {
-                source.unwatchPicture(Number(id))
+                source.unwatchPicture(root, Number(id))
                 delete pictureWatches[id]
             }
         if (!source || typeof source.watchPicture !== "function")
@@ -177,9 +178,9 @@ Item {
             var width = wantedWidth(id)
             if (pictureWatches[id] === width)
                 continue
-            source.watchPicture(Number(id), width, shell.liveThumbnails)
+            source.watchPicture(root, Number(id), width, shell.liveThumbnails)
             if (pictureWatches[id])
-                source.unwatchPicture(Number(id))
+                source.unwatchPicture(root, Number(id))
             pictureWatches[id] = width
         }
     }

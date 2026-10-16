@@ -129,6 +129,11 @@ enum sh_action {
     SH_NIGHT_LIGHT_ON,
     SH_NIGHT_LIGHT_OFF,
     SH_NIGHT_LIGHT_AUTO,
+    /* Keep awake: hold every idle step off (and tell idle daemons the seat is inhibited) until
+     * turned off, as an idle inhibitor would. */
+    SH_KEEP_AWAKE_TOGGLE,
+    SH_KEEP_AWAKE_ON,
+    SH_KEEP_AWAKE_OFF,
     /* Asks the shell for its command palette on the output under the pointer: one search over
      * windows, applications, workspaces, actions and saved sessions. */
     SH_PALETTE,

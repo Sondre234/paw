@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <charconv>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fnmatch.h>
@@ -20,8 +21,11 @@ constexpr int budget = 10000; // hook calls, 10000 instructions apart
 struct Sandbox {
     const Files *files;
     fs::path directory; // hyprland.lua's, for relative paths
-    size_t memory = 0;
+    size_t memory = 0, limit = memory_limit;
     int remaining = budget;
+    // A resolved path. A Lua error is a longjmp past C++ destructors: what is alive across a
+    // Lua call that may raise one lives here, not on the stack.
+    std::string path{};
 };
 Sandbox &sandbox(lua_State *L) {
     void *data = nullptr;
@@ -37,7 +41,7 @@ void *allocate(void *data, void *block, size_t old, size_t size) {
         self.memory -= old;
         return nullptr;
     }
-    if (size > old && self.memory + (size - old) > memory_limit)
+    if (size > old && self.memory + (size - old) > self.limit)
         return nullptr;
     void *result = std::realloc(block, size);
     if (result)
@@ -45,23 +49,45 @@ void *allocate(void *data, void *block, size_t old, size_t size) {
     return result;
 }
 void count(lua_State *L, lua_Debug *) {
-    if (--sandbox(L).remaining <= 0)
+    if (--sandbox(L).remaining <= 0) {
+        // From now on raised at every instruction: a pcall in hyprland.lua that catches it
+        // must not let the script run on.
+        lua_sethook(L, count, LUA_MASKCOUNT, 1);
         luaL_error(L, "hyprland.lua ran too long");
+    }
+}
+// Runs `work`, C++ that may throw, in a function Lua called: an exception becomes a Lua error,
+// raised once it is gone instead of unwinding through Lua's C frames.
+template <typename Work> void guard(lua_State *L, Work &&work) {
+    bool failed = false;
+    char message[256] = "";
+    try {
+        work();
+    } catch (const std::exception &error) {
+        failed = true;
+        std::snprintf(message, sizeof(message), "%s", error.what());
+    } catch (...) {
+        failed = true;
+    }
+    if (failed)
+        luaL_error(L, "%s", *message ? message : "unknown error");
 }
 // Replaces argument 1 with its resolved path; false (with nil, message pushed) when the file
 // is outside the imported directory.
 bool redirect(lua_State *L) {
     auto &self = sandbox(L);
     const char *name = luaL_checkstring(L, 1);
-    std::string path;
-    if (auto resolved = self.files->resolve(name, self.directory))
-        path = resolved->string();
-    if (path.empty()) {
+    guard(L, [&] {
+        self.path.clear();
+        if (auto resolved = self.files->resolve(name, self.directory))
+            self.path = resolved->string();
+    });
+    if (self.path.empty()) {
         lua_pushnil(L);
         lua_pushfstring(L, "%s: outside the imported directory", name);
         return false;
     }
-    lua_pushlstring(L, path.data(), path.size());
+    lua_pushlstring(L, self.path.data(), self.path.size());
     lua_replace(L, 1);
     return true;
 }
@@ -104,17 +130,22 @@ int load_file(lua_State *L) {
     if (!redirect(L))
         return 2;
     auto &self = sandbox(L);
-    std::string text;
-    if (auto contents = self.files->read(lua_tostring(L, 1)))
-        text = std::move(*contents);
-    else {
+    const char *path = lua_tostring(L, 1);
+    bool read = false;
+    int status = LUA_OK;
+    guard(L, [&] {
+        // luaL_loadbufferx raises no Lua error, so these strings are freed.
+        if (auto text = self.files->read(path)) {
+            read = true;
+            auto chunk = chunk_name(*self.files, path);
+            status = luaL_loadbufferx(L, text->data(), text->size(), chunk.c_str(), "t");
+        }
+    });
+    if (!read) {
         lua_pushnil(L);
-        lua_pushfstring(L, "cannot read %s", lua_tostring(L, 1));
+        lua_pushfstring(L, "cannot read %s", path);
         return 2;
     }
-    std::string chunk = chunk_name(*self.files, lua_tostring(L, 1));
-    int status = luaL_loadbufferx(L, text.data(), text.size(), chunk.c_str(), "t");
-    std::string().swap(text);
     if (status != LUA_OK) {
         lua_pushnil(L);
         lua_insert(L, -2);
@@ -137,9 +168,17 @@ int do_file(lua_State *L) {
 int nothing(lua_State *) { return 0; }
 
 // Records hl.config/monitor/window_rule/device calls; everything else in hl is a stub that
-// accepts any use. Unknown globals (HyDE's `hyde`, for one) are stubs too.
+// accepts any use. Unknown globals (HyDE's `hyde`, for one) are stubs too. Lua runs finalizers
+// with hooks off, out of the budget's reach, so no table gets a __gc.
 constexpr const char *prelude = R"lua(
 local records, ignored, unknown, getinfo, raw_load = ...
+local raw_setmetatable, rawget, type = setmetatable, rawget, type
+function setmetatable(t, meta)
+    if type(meta) == "table" and rawget(meta, "__gc") ~= nil then
+        error("__gc metamethods are not run while importing", 2)
+    end
+    return raw_setmetatable(t, meta)
+end
 local stub_meta = {}
 local stub = setmetatable({}, stub_meta)
 stub_meta.__index = function() return stub end
@@ -213,6 +252,12 @@ std::string scalar(lua_State *L, int index) {
         return {};
     }
 }
+// table[key] of the table at `index`, pushed; no metamethod runs.
+int raw_field(lua_State *L, int index, const char *key) {
+    index = lua_absindex(L, index);
+    lua_pushstring(L, key);
+    return lua_rawget(L, index);
+}
 // hl.config's nested tables become hyprlang names: general.gaps_in -> "general:gaps_in",
 // general.col.active_border -> "general:col.active_border". A gradient { colors, angle }
 // becomes hyprlang's "rgba(...) rgba(...) 45deg"; other lists join with spaces.
@@ -231,14 +276,14 @@ void flatten(lua_State *L, int index, const std::string &prefix, bool colors,
         } else if (!lua_istable(L, -1)) {
             if (auto text = scalar(L, -1); !text.empty() || lua_type(L, -1) == LUA_TSTRING)
                 out[name] = text;
-        } else if (lua_getfield(L, -1, "colors") == LUA_TTABLE) {
+        } else if (raw_field(L, -1, "colors") == LUA_TTABLE) {
             std::string text;
             for (lua_Integer i = 1; i <= static_cast<lua_Integer>(lua_rawlen(L, -1)); ++i) {
                 lua_rawgeti(L, -1, i);
                 text += (text.empty() ? "" : " ") + scalar(L, -1);
                 lua_pop(L, 1);
             }
-            if (lua_getfield(L, -2, "angle") == LUA_TNUMBER)
+            if (raw_field(L, -2, "angle") == LUA_TNUMBER)
                 text += " " + scalar(L, -1) + "deg";
             lua_pop(L, 2);
             out[name] = text;
@@ -288,6 +333,11 @@ void read_lua(const Files &files, const fs::path &path, Hyprland &hypr, Report &
     lua_pushcfunction(L, do_file);
     lua_setglobal(L, "dofile");
     luaL_requiref(L, LUA_IOLIBNAME, luaopen_io, 0);
+    // Files have a __gc of their own: getmetatable gives false for one, so it stays theirs.
+    luaL_getmetatable(L, LUA_FILEHANDLE);
+    lua_pushboolean(L, false);
+    lua_setfield(L, -2, "__metatable");
+    lua_pop(L, 1);
     lua_newtable(L);
     for (auto [name, wrapper] : {std::pair{"open", open_file}, {"lines", lines}}) {
         lua_getfield(L, -2, name);
@@ -324,28 +374,42 @@ void read_lua(const Files &files, const fs::path &path, Hyprland &hypr, Report &
 
     lua_sethook(L, count, LUA_MASKCOUNT, 10000);
     auto chunk = chunk_name(files, path);
-    if (luaL_loadbufferx(L, text->data(), text->size(), chunk.c_str(), "t") != LUA_OK ||
-        lua_pcall(L, 0, 0, 0) != LUA_OK) {
+    int status = luaL_loadbufferx(L, text->data(), text->size(), chunk.c_str(), "t");
+    if (status == LUA_OK)
+        status = lua_pcall(L, 0, 0, 0);
+    // What the script left is read outside any pcall, where a Lua error would abort `paw
+    // import`, so nothing from here on runs the script's code or raises one: tables are read
+    // raw, so no metamethod runs, and the collector stops, so no finalizer does (nor can a
+    // table change while it is walked); the few strings pushed have room past the memory cap.
+    lua_gc(L, LUA_GCSTOP);
+    box.limit = box.memory + (1u << 20);
+    if (status != LUA_OK) {
         const char *message = lua_tostring(L, -1);
         report.skip(files, top,
                     std::string("stopped with an error; settings made before it still count: ") +
                         (message ? message : "unknown error"));
         lua_settop(L, 0);
     }
-    lua_sethook(L, nullptr, 0, 0);
+    if (!lua_checkstack(L, 64)) {
+        report.skip(files, top, "out of memory");
+        return;
+    }
 
     lua_rawgeti(L, LUA_REGISTRYINDEX, tables[0]);
     for (lua_Integer i = 1; i <= static_cast<lua_Integer>(lua_rawlen(L, -1)); ++i) {
-        lua_rawgeti(L, -1, i);
-        lua_getfield(L, -1, "kind");
+        if (lua_rawgeti(L, -1, i) != LUA_TTABLE) {
+            lua_pop(L, 1);
+            continue;
+        }
+        raw_field(L, -1, "kind");
         auto kind = scalar(L, -1);
-        lua_getfield(L, -2, "source");
+        raw_field(L, -2, "source");
         std::string source = scalar(L, -1);
-        lua_getfield(L, -3, "line");
+        raw_field(L, -3, "line");
         Origin origin{chunk_path(files, source), static_cast<int>(lua_tointeger(L, -1))};
-        lua_getfield(L, -4, "enabled");
+        raw_field(L, -4, "enabled");
         bool enabled = lua_toboolean(L, -1);
-        lua_getfield(L, -5, "data");
+        raw_field(L, -5, "data");
         std::map<std::string, std::string> fields;
         if (lua_istable(L, -1))
             flatten(L, -1, "", false, fields);

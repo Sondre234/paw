@@ -11,7 +11,9 @@ covers branches, building, testing and committing; [features.md](features.md) de
   `include/paw/backend.h`). Then it hands over to `sh_run`, the C compositor in
   `src/compositor/`, which calls back `startup` once it runs: the shell, the `startup` commands
   and, in a login session, the XDG autostart entries (`src/autostart.cpp`, tested by
-  `autostart_tests`). `paw msg ...` is the same binary acting as a control client.
+  `autostart_tests`). Its `lock` callback starts the screen locker, the stock swaylock with
+  arguments for the appearance profile's look (`src/lock_style.cpp`, tested by
+  `lock_style_tests`). `paw msg ...` is the same binary acting as a control client.
 - **`paw-shell`** (`shell/`) is the Qt Quick shell: panels, launcher, notifications, tray, OSD,
   and the text of the switcher and overview. It is an ordinary layer-shell client that
   connects to the control socket with `subscribe` and gets state lines and events.
@@ -32,6 +34,19 @@ covers branches, building, testing and committing; [features.md](features.md) de
 Keep geometry and arithmetic out of `src/compositor/` where you can: a pure function in its own
 file can be unit tested without starting a compositor.
 
+The configuration's Lua runs in a sandbox (`sandbox` in `src/config.cpp`): the base, string,
+table, math and utf8 libraries without `load`, `dofile` or metatables, a budget of instructions,
+and 64 MiB for what its code allocates. A call into a C function is one instruction however
+long it runs, so whatever runs a configuration (`parse_config`, `configured_look`,
+`shadowed_settings`) runs it first in a child process forked for it (`try_first`), killed after 3
+seconds, and then for real, which gives the result or the error. The compositor and the shell
+both load the file this way, so what that code calls must be safe in a child forked from a
+process with threads: nothing that waits on a lock another thread may hold.
+
+Window rules' and bindings' patterns are compiled to be searched in time linear in the text
+(`compile_pattern`), and in a title or app ID over 1 KiB only the first and last 512 bytes are
+searched (`pattern_found`): a client sets its title as long as it likes.
+
 ## The compositor (`src/compositor/`)
 
 Each file begins with a comment saying what it covers; `head -4 src/compositor/*.c` shows them
@@ -48,7 +63,7 @@ all. In short:
 | `input.c` | Keyboards, key bindings, pointers' libinput settings, virtual devices, selection and drag-and-drop. |
 | `input_method.c` | Input methods (fcitx5, ibus): text-input-v3 and input-method-v2 relayed between the application with the keyboard and the input method, its keyboard grab, and its popups beside the text cursor. |
 | `keymap.c` | The keymap from the keyboard settings, given to every keyboard but virtual ones. |
-| `cursor.c` | What is under the pointer, focus on hover, button bindings, scrolling, the cursor image. |
+| `cursor.c` | What is under the pointer, and the tile the user moved it onto (`pointed_tile`), focus on hover, button bindings, scrolling, the cursor image. |
 | `gestures.c` | Touchpad gestures: the swipes `gestures` takes (workspaces and the overview following the fingers, requests), and the rest passed on to the surface under the pointer (pointer-gestures-unstable-v1). |
 | `tablet.c` | Drawing tablets (tablet-v2): tools with pressure and tilt to the surfaces under them, the pointer where tablet input is not taken, pads to the surface with the keyboard, and the output a tablet is mapped to. |
 | `touch.c` | Touchscreens: fingers to the surfaces under them (wl_touch), the pointer for clients without touch and the compositor's own controls, and the output each screen is mapped to. |
@@ -792,9 +807,19 @@ Each step taken sets its bit in `done` and is not taken again until input clears
 also fades the dimming out and turns on the outputs the display_off step turned off (`idle_off`
 on `sh_output`, cleared whenever an output is turned on another way). The dimming is a stretched
 `server->black` buffer (`sh_dim_create`) in a tree of its own created last at the scene's root,
-over the lock too, faded by `tick_idle` from `output_frame`. `idle_held` (an idle inhibitor, or
-the session not active) disarms the timer, and `idle_hold_changed` (called from `lock.c` as
-inhibitors come and go and the VT changes) restarts the count once released. `idle_steps` reads
+over the lock too, faded by `tick_idle` from `output_frame`. `idle_held` (an idle inhibitor
+that applies, or the session not active) disarms the timer, and `idle_hold_changed` (called from
+`lock.c` as inhibitors start and stop applying and the VT changes) restarts the count once
+released. `lock.c` keeps every inhibitor in `sh_server.idle_inhibitors`; `idle_inhibitors_follow`
+works out which apply (a window's while it is shown, `toplevel_visible` on a monitor that is on
+and the session unlocked; a layer surface's while mapped; any other surface's always) and sets
+the idle notifier inhibited while any does. It runs from `notify_subscribers`, which every
+change of windows and workspaces reaches, and from the few places that show or hide a window
+without it: `minimize_toplevel`, restoring in `focus_toplevel_raise`, `set_output_power` and
+layer surfaces mapping and unmapping. A new way of hiding a window that does not end in
+`notify_subscribers` calls it too. Keep awake (`sh_server.keep_awake`, `set_keep_awake` in
+`lock.c` from the keep_awake actions) holds the steps as an inhibitor that always applies would:
+`idle_held` counts it, and the idle notifier stays inhibited while it is on. `idle_steps` reads
 `src/power_supply.c`'s answer, from `$PAW_SYSFS` in the tests; power.c's waking up after
 sleep calls `idle_activity` as input would.
 
@@ -911,23 +936,31 @@ back: each window's whole top edge, held down inside its monitor's free area by 
 (so that it stands in a maximized window's title bar rather than off the screen), which holds the
 cat up while it is there, and the parts of it no window in front of it covers just above it, the
 only ones it lands on or goes to. Its idle choices follow a seeded random number, so that
-`tests/cat_tests.c` can run it through a world of its own by the millisecond. `src/cat_sprite.c`
-holds the pictures, grids of letters a coat colours.
+`tests/cat_tests.c` can run it through a world of its own by the millisecond. `sh_cat_pointer`
+tells a flick from a stroke: the pointer turning back along either axis over the cat
+(`sh_cat_under`) three times within 1.5 s, short of a flick's travel, has it purr (`SH_CAT_PURR`,
+`dozing` when it slept or yawned its way there) until two seconds after the last motion over it,
+and eight seconds of it awake a swat (`SH_CAT_SWAT`) and a walk off; the pose lists the hearts
+that rise from a purring cat, in cells, with how opaque each is. `src/cat_sprite.c` holds the
+pictures, grids of letters a coat colours, and the heart's.
 
 `cat.c` in the compositor shows the cat that world and draws it. Its tree sits just above
 `above_windows`, under the fullscreen windows, the panels, the overlays and the lock, and holds
-two scene buffers, the cat and its "z", which take no input (`point_accepts_input`) and are scaled
-up from the art's pixels without smoothing (`WLR_SCALE_FILTER_NEAREST`); a picture is painted once
-per frame and coat and kept. A window's box is where it is drawn (its tree's place and `content`'s
+scene buffers for the cat, its "z" and three hearts (faded by their opacity), which take no input
+(`point_accepts_input`) and are scaled up from the art's pixels without smoothing
+(`WLR_SCALE_FILTER_NEAREST`); a picture is painted once per frame and coat and kept. A window's box is where it is drawn (its tree's place and `content`'s
 offset, at `frame_geometry`'s size), with its border. The cat is stepped on a timer of its own:
-every frame while it falls, jumps or runs, each 25 ms while it walks, and while it sits only for
+every frame while it falls, jumps or runs, each 25 ms while it walks, each 40 ms while it purrs, and while it sits only for
 its next blink or choice, a few times a minute, or as it gets sleepy; asleep, once a breath. What
 it stands on moving is seen from the frames: whatever moves a window damages the outputs, and
 `output_frame` calls `cat_frame`, which, unless the cat is stepped every frame anyway, compares why
 it is hidden, the urgent window and the box of what it stands on with how they were at its last
-step, and steps it at once if any changed. `input_activity` wakes a sleeping cat (`cat_input`), and
-`process_cursor_motion` tells it of the pointer (`cat_pointer_moved`), which it chases only after
-a flick close by: several motions in a row travelling far within a short while. While it is hidden
+step, and steps it at once if any changed. `input_activity` stirs a sleeping cat (`cat_input`),
+which wakes `STIR_MS` later unless `process_cursor_motion`, which tells it of the pointer
+(`cat_pointer_moved`) just after for a motion, finds the pointer on it meanwhile: those motions
+are strokes. While it is asleep the world it is shown counts as idle, so that only input it hears
+wakes it, not the strokes. It chases the pointer only after a flick close by: several motions in a
+row travelling far within a short while. While it is hidden
 (`hidden_why`: turned off, the session locked or another VT in front, no monitor, the overview,
 its monitor off, a fullscreen window on its monitor or the focused one) its tree is disabled and
 no timer runs; the next frame that shows things changed steps it again. `get cat` describes it.
@@ -1197,7 +1230,11 @@ what was there.
 | `Caption.qml` | The caption `paw tour` narrates itself with (`shell.caption`, `caption.cpp`, from the compositor's `caption` lines), an overlay surface of its own (`CaptionView`) where the on-screen display shows, taking no input. |
 
 The authentication dialog's model is `Authentication` (`authentication.cpp`): polkit's requests,
-one at a time, each answered through an `AuthConversation` for the chosen user. The agent
+one at a time, each answered through an `AuthConversation` for the chosen user. A conversation
+that ends in a wrong answer is followed by a new one from the event loop, never from inside its
+`completed`, which polkit's session may emit inside `start()` when its helper cannot start; one
+that ended without asking anything is followed by none until the user answers again or chooses
+another user, and the third wrong answer of a user ends the request as `Failed`. The agent
 (`polkit_agent.cpp`, with `PAW_POLKIT`) is a `PolkitAgentListener` subclass registered for
 the session's `unix-session` subject, whose requests it hands to the model, and whose
 conversations are polkit's `PolkitAgentSession`s; it completes polkit's `GTask` as the model is
@@ -1258,7 +1295,9 @@ nobody owns it, so a machine without the service shows nothing of it. Each reach
 through a property (`mediaSource`, `powerModeSource`, `wifiSource`, `bluetoothSource`) that the
 preview and `shell_ui_test` point at stand-ins, and each backend is tested against stand-in
 services (`tests/fake_dbus.hpp`) on a private bus, which the tests hand the backend as its
-connection.
+connection. A backend reads a dictionary, a list or a structure from the bus only once its
+signature is the one it expects, through `dbus::map` and `dbus::read` (`dbus_util.hpp`): QtDBus
+reads an argument of another type out of bounds, so a mismatch counts as an empty answer.
 
 `NetworkManager` mirrors the objects it needs (the manager, the devices and their Wi-Fi
 interfaces, the access points, the active connections) from GetAll, follows them through the one
@@ -1293,18 +1332,29 @@ may be a path. `icons.cpp` serves `image://icons/NAME` and, at startup, picks th
 desktop names when no platform theme does (`useDesktopIconTheme`). `tests/app_icons_test.cpp`
 tests both with real applications' entries and app ids.
 
+An `ImageProvider` (`image_provider.hpp`) serves the pictures of the shell's models
+(`image://notify`, `tray`, `windows`, `clipboard`) on the GUI thread alone, since the models have no
+lock: an `Image` with `asynchronous: true` asks on Qt Quick's loading thread and gets nothing, so
+one showing such a picture loads synchronously. `image://icons` holds `iconThemeLock()` and
+`image://thumbs` (`wallpapers.cpp`) makes its pictures on a pool of threads, telling each response
+done in the response's own thread, so those two may load asynchronously. The media card's cover
+is asynchronous, so `mpris.cpp` takes only a `file:`, `http:`, `https:` or `data:` URL from a
+player. `tests/image_providers_test.cpp` checks the providers on both threads.
+
 The pictures of the windows on the taskbar's card (`WindowThumbnails.qml`, with `shell.thumbnails`)
 are `TaskModel`'s: its `picture` role is `image://windows/<taskId>/<serial>` once a window has one,
 `""` until then, the serial new with every picture so that an `Image` with `cache: false` loads it
 again, and the `windows` image provider serves them by task id. The model takes pictures of a
-window only while something watches it: `watchPicture(taskId, pixelWidth, live)`, counted, until
-`unwatchPicture(taskId)`. It asks the window control for the window's capture source scaled down to
-fit `pixelWidth` by 5/8 of it (`get_scaled_capture_source`, version 3; a new width asks again), or
-with version 2 for it at the window's size (`get_capture_source`), captures it with
-ext-image-copy-capture into shared memory, scales the picture down off the GUI thread where the
-frame is larger than that (only ever a copy with version 3), and, when `live`, takes the next as
-the window redraws, every 33 ms at most (100 ms at the window's size). The last picture stays until
-the window closes, so the card opens with it.
+window only while something watches it: `watchPicture(owner, taskId, pixelWidth, live)`, counted
+per owner, until `unwatchPicture(owner, taskId)` or until the owner goes: as `place` does, the
+model drops what an owner still watches on its `destroyed`, so that no order in which QML tears a
+panel down can leave a capture running. It asks the window control for the window's capture
+source scaled down to fit `pixelWidth` by 5/8 of it (`get_scaled_capture_source`, version 3; a new
+width asks again), or with version 2 for it at the window's size (`get_capture_source`), captures
+it with ext-image-copy-capture into shared memory, scales the picture down off the GUI thread
+where the frame is larger than that (only ever a copy with version 3), and, when `live`, takes the
+next as the window redraws, every 33 ms at most (100 ms at the window's size). The last picture
+stays until the window closes, so the card opens with it.
 
 Where the bar shows each window goes to the compositor through `TaskModel::place(owner, taskIds,
 output, rect, layer)` and the window control's `set_rectangle` (version 7), for the window to
@@ -1326,9 +1376,12 @@ itself for the windows of the button the pointer has rested on for half of `shel
 (`warmGroup`, until the card opens or the pointer leaves), so that the card opens on their
 pictures. It counts the wants and asks the model once a change is over (`syncPictures`), so that a
 window the tiles take over from the panel as the card opens is neither let go nor asked for
-again, which would start its capture anew, or without `live` take its one picture twice. A
-stand-in model (the preview's, the tests') has no `watchPicture`, which the panel then does not
-call, and names pictures of its own (`image://preview-windows/ID`, painted by `preview.cpp`).
+again, which would start its capture anew, or without `live` take its one picture twice. The
+panel is the owner of its watches: destroyed with a card open or a button's pictures warmed up
+(its monitor unplugged, the lid closed while docked), it runs no `syncPictures` to let them go,
+and the model lets go of them as it goes. A stand-in model (the preview's, the tests') has no
+`watchPicture`, which the panel then does not call, and names pictures of its own
+(`image://preview-windows/ID`, painted by `preview.cpp`).
 
 The window switcher's cards (`SwitcherCards.qml`, which `Switcher.qml` loads in place of its grid
 with `shell.thumbnails` outside the macOS style) show the same pictures. The switcher's lines
@@ -1336,11 +1389,11 @@ name a window by its app id and title, which two windows may share, and by its n
 control's `id`, `TaskModel`'s `windowId` role); each card finds its task with a `TaskFilter`
 whose `windowId` keeps that window alone, filtering again when the number comes after the window.
 While the switcher is open on the view's output (`open`, `outputName`) a card watches its
-picture itself with `watchPicture`, unless the model is a stand-in without it, and unwatches it
-at `switcher-close`, though the cards stay while the switcher fades. The cards are made as the
-list arrives, 120 ms before `SwitcherView` shows the switcher, so the pictures are asked for
-early: with 20 windows on a headless compositor with pixman at 2560 by 1440 and a scale of 1.25,
-every one had a frame about 75 ms after the switcher opened. They are asked for twice as wide as the pictures' common height,
+picture itself with `watchPicture`, as the watch's owner, unless the model is a stand-in without
+it, and unwatches it at `switcher-close`, though the cards stay while the switcher fades. The
+cards are made as the list arrives, 120 ms before `SwitcherView` shows the switcher, so the
+pictures are asked for early: with 20 windows on a headless compositor with pixman at 2560 by
+1440 and a scale of 1.25, every one had a frame about 75 ms after the switcher opened. They are asked for twice as wide as the pictures' common height,
 `shell.thumbnailSize` × 5/8, times the device pixel ratio, a box that holds any card's picture
 (3:4 to 2:1) without scaling it up. A card is as wide as its picture's proportions, which it notes
 in `aspects` once the picture shows (16:10 until then), and `arrange` lays the cards out in rows
@@ -1504,13 +1557,15 @@ then the text, HTML, a list of files and a picture), each type given two seconds
 and what was read goes to `record()`, which the tests call too. While the history's own data
 source is what is copied (`restore()`), the selection announcing it is not read; another program
 copying cancels that source first. A source hands each program pasting the bytes it asks for with
-non-blocking writes, SIGPIPE held off. `locked on|off` in the control socket's state calls
-`setLocked`, and `clipboard OUTPUT` from the `clipboard_history` action toggles `output`, which a
-`PickerView` (`picker_view.cpp`) follows: an `OverlayView` on every output, as the palette's is,
-showing `ClipboardPicker.qml`, which filters the entries; `image://clipboard/ID/SERIAL`
-(`clipboardImage`, through an `ImageProvider`, `image_provider.hpp`) serves their pictures. Its
-file is touched only once the history is the session's (connected) or was given a path, so tests
-and previews that make a controller never read or remove it.
+non-blocking writes, SIGPIPE held off, and gives up on one that takes none of them for ten seconds
+(`Writing::timer`, started again by each write that gets some through), so that a program that
+hangs, or never reads, keeps neither the pipe nor the bytes in the shell. `locked on|off` in the
+control socket's state calls `setLocked`, and `clipboard OUTPUT` from the `clipboard_history`
+action toggles `output`, which a `PickerView` (`picker_view.cpp`) follows: an `OverlayView` on
+every output, as the palette's is, showing `ClipboardPicker.qml`, which filters the entries;
+`image://clipboard/ID/SERIAL` (`clipboardImage`, through an `ImageProvider`, `image_provider.hpp`)
+serves their pictures. Its file is touched only once the history is the session's (connected) or
+was given a path, so tests and previews that make a controller never read or remove it.
 
 The emoji picker (`EmojiPicker`, `emoji.cpp`) reads `vendor/emoji/emoji.tsv`, which
 `shell/CMakeLists.txt` compiles into `paw_shell_qml` as `:/paw/emoji.tsv`, and gives
@@ -1805,7 +1860,9 @@ whether it has, for something the compositor does another way without it, as the
   keymap an application gets. A `wayland_probe` window with
   `PAW_PROBE_DRAG=source` drags a line of text on a button press of `pointer_probe`'s, and
   one with `=target` takes it, each printing what it hears; `get seat` says where the drag is
-  (see `drag_focus_smoke.py`). `headless_output capture NAME PATH` writes a mirroring output's
+  (see `drag_focus_smoke.py`). One with `=bare` drags nothing, without a data source, the first
+  time for a serial the press did not give, which the compositor turns down (see
+  `drag_focus_smoke.py` and `xwayland_drag_smoke.py`). `headless_output capture NAME PATH` writes a mirroring output's
 picture to a PPM file (see `mirror_smoke.py`), and `PAW_TEST_REFUSE_10BIT=NAME,...` makes
 those headless outputs refuse a 10-bit render format, as a monitor without one does (see
 `bit_depth_smoke.py`), and `PAW_TEST_REFUSE_TEARING` refuses their asynchronous page flips
@@ -1822,11 +1879,9 @@ lock the screen before a suspend gives up (see `power_smoke.py`), and
 `PAW_TEST_CROSSFADE_HOLD_MS` sets how long a profile's crossfade waits for the shell (see
 `crossfade_smoke.py`), and `PAW_TEST_RICE_TRIAL_MS` how long a rice is on trial (see
 `rice_smoke.py`).
-`crossfade_smoke.py`).
 `PAW_TEST_CAT_SLEEP_MS` sets how long the desktop cat waits without input before it sleeps, in
-place of `cat.sleep_after` (see `cat_smoke.py`).
-`crossfade_smoke.py`), and `PAW_TEST_HEATMAP_REST_MS` how long a resting pointer counts in the
-heatmap (see `heatmap_smoke.py`).
+place of `cat.sleep_after` (see `cat_smoke.py`), and `PAW_TEST_HEATMAP_REST_MS` how long a
+resting pointer counts in the heatmap (see `heatmap_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless

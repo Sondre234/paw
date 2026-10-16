@@ -603,6 +603,14 @@ int main(int argc, char **argv) {
                             .settings.overview_hot_corner == 3 &&
                     paw::parse_config("return {overview={gap=40}}").settings.overview,
                 "overview corners");
+        // A corner runs one thing: hot_corners' or the overview's, not both.
+        rejects("return {hot_corners={bottom_left='peek_toggle'},"
+                "overview={hot_corner='bottom-left'}}",
+                "overview.hot_corner and hot_corners.bottom_left both claim the bottom-left corner");
+        require(paw::parse_config("return {hot_corners={top_right='peek_toggle'},"
+                                  "overview={hot_corner='top-left'}}")
+                            .settings.overview_hot_corner == 1,
+                "the overview's corner beside a hot corner");
         rejects("return {overview={hot_corner='middle'}}");
         rejects("return {overview={hot_corner=1}}");
         rejects("return {overview={duration=5}}");
