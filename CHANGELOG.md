@@ -61,6 +61,10 @@ shadows.
   under mochi's own icons, and `--cursor` Catppuccin's cursors.
 - `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
   the accent colour, named as `shell.wallpaper` is.
+- `shell.wallpaper_mode` says how the wallpaper covers each monitor: `"fill"` (cropped, as
+  before), `"fit"`, `"stretch"`, or at its own size `"center"` and `"tile"`, with the background
+  colour around a picture that leaves room. A profile can set it; a new mode fades in as a new
+  wallpaper does, and the frosted glass, the workspace cards and Launchpad follow it.
 - `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu
   bar and dock, and the popups, menus, cards, tooltips and overlays show the wallpaper behind them
   blurred under their colour, the popups as translucent as the bar but at least 75 % opaque so

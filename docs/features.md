@@ -18,7 +18,13 @@ have [Quick Settings](#quick-settings), the [clock's flyout](#clock-and-calendar
 shows the wallpaper and the configured launchers as shortcuts, which open on a double-click; a
 right click on it offers Show desktop and the appearance profiles. A new wallpaper, from the
 wallpaper picker or the configuration, fades in over the one shown once it has loaded, also from
-the drawn one or to it, and one picked during the fade comes in over both. Installed applications are read
+the drawn one or to it, and one picked during the fade comes in over both. `shell.wallpaper_mode`
+says how the picture covers each monitor: cropped to fill it (`"fill"`, the default), whole and as
+large as fits (`"fit"`), stretched to its sides (`"stretch"`), or at its own size, a pixel of it a
+pixel of the screen, in the middle (`"center"`) or repeated from the top left (`"tile"`);
+`appearance.background` shows around a picture that leaves room. A new mode fades in as a new
+wallpaper does, and the frosted glass, a workspace's picture on its card and Launchpad show the
+wallpaper the same way. Installed applications are read
 from desktop entries through GIO, and again as soon as one is installed or removed.
 
 ### The macOS style

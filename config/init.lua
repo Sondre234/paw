@@ -391,6 +391,8 @@ return {
         -- panel_color = "#151e2c", -- #RRGGBBAA makes it translucent
         -- text_color = "#edf2fa",
         -- wallpaper = "", -- absolute path, or relative to this configuration file
+        -- wallpaper_mode = "fill", -- or "fit", "center", "tile" or "stretch"; around a picture
+        --                            that leaves room, appearance.background shows
         -- wallpapers = "~/Pictures/wallpapers", -- the panel's wallpaper picker browses this folder
         -- Pin applications from the launcher or a window's right-click menu. Launchers here are
         -- for commands without a desktop file; they stay pinned ahead of those, e.g.:
