@@ -15,7 +15,7 @@ static const double FADE_IN_MS = 1500;
 enum { PETAL_TINTS = 4, PETAL_SIZES = 3, SNOW_TINTS = 2, SNOW_SIZES = 6, GLOW_TINTS = 3,
        GLOW_SIZES = 2 };
 /* A petal's length, from its stem to the notch at its tip. */
-static const double PETAL_LENGTH[PETAL_SIZES] = {11, 15, 20};
+static const double PETAL_LENGTH[PETAL_SIZES] = {16, 22, 30};
 /* A flake's radius; the two largest are soft and out of focus, near the eye. */
 static const double FLAKE_RADIUS[SNOW_SIZES] = {1.0, 1.4, 1.9, 2.6, 3.8, 5.6};
 enum { SOFT_FLAKES = 4 };
@@ -35,7 +35,7 @@ static const struct petal_tint PETALS[PETAL_TINTS] = {
     {{244, 170, 197}, {252, 234, 241}, {234, 146, 180}}, /* pale */
 };
 /* Each pink's share of the petals, in hundredths. */
-static const int PETAL_SHARE[PETAL_TINTS] = {35, 20, 25, 20};
+static const int PETAL_SHARE[PETAL_TINTS] = {40, 30, 15, 15};
 static const double SNOW_MIDDLE[SNOW_TINTS][3] = {{255, 255, 255}, {255, 252, 255}};
 static const double SNOW_EDGE[SNOW_TINTS][3] = {{218, 232, 255}, {230, 220, 255}};
 struct glow_tint {
@@ -452,7 +452,7 @@ void sh_ambient_look(const struct sh_ambient_field *field,
             width *= squash;
         else
             height *= squash;
-        look->opacity = (0.62 + 0.38 * particle->depth) * (0.82 + 0.18 * squash);
+        look->opacity = (0.75 + 0.25 * particle->depth) * (0.85 + 0.15 * squash);
         break;
     }
     case SH_AMBIENT_SNOW:
