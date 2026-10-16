@@ -1289,14 +1289,16 @@ The pictures of the windows on the taskbar's card (`WindowThumbnails.qml`, with 
 are `TaskModel`'s: its `picture` role is `image://windows/<taskId>/<serial>` once a window has one,
 `""` until then, the serial new with every picture so that an `Image` with `cache: false` loads it
 again, and the `windows` image provider serves them by task id. The model takes pictures of a
-window only while something watches it: `watchPicture(taskId, pixelWidth, live)`, counted, until
-`unwatchPicture(taskId)`. It asks the window control for the window's capture source scaled down to
-fit `pixelWidth` by 5/8 of it (`get_scaled_capture_source`, version 3; a new width asks again), or
-with version 2 for it at the window's size (`get_capture_source`), captures it with
-ext-image-copy-capture into shared memory, scales the picture down off the GUI thread where the
-frame is larger than that (only ever a copy with version 3), and, when `live`, takes the next as
-the window redraws, every 33 ms at most (100 ms at the window's size). The last picture stays until
-the window closes, so the card opens with it.
+window only while something watches it: `watchPicture(owner, taskId, pixelWidth, live)`, counted
+per owner, until `unwatchPicture(owner, taskId)` or until the owner goes: as `place` does, the
+model drops what an owner still watches on its `destroyed`, so that no order in which QML tears a
+panel down can leave a capture running. It asks the window control for the window's capture
+source scaled down to fit `pixelWidth` by 5/8 of it (`get_scaled_capture_source`, version 3; a new
+width asks again), or with version 2 for it at the window's size (`get_capture_source`), captures
+it with ext-image-copy-capture into shared memory, scales the picture down off the GUI thread
+where the frame is larger than that (only ever a copy with version 3), and, when `live`, takes the
+next as the window redraws, every 33 ms at most (100 ms at the window's size). The last picture
+stays until the window closes, so the card opens with it.
 
 Where the bar shows each window goes to the compositor through `TaskModel::place(owner, taskIds,
 output, rect, layer)` and the window control's `set_rectangle` (version 7), for the window to
@@ -1318,9 +1320,12 @@ itself for the windows of the button the pointer has rested on for half of `shel
 (`warmGroup`, until the card opens or the pointer leaves), so that the card opens on their
 pictures. It counts the wants and asks the model once a change is over (`syncPictures`), so that a
 window the tiles take over from the panel as the card opens is neither let go nor asked for
-again, which would start its capture anew, or without `live` take its one picture twice. A
-stand-in model (the preview's, the tests') has no `watchPicture`, which the panel then does not
-call, and names pictures of its own (`image://preview-windows/ID`, painted by `preview.cpp`).
+again, which would start its capture anew, or without `live` take its one picture twice. The
+panel is the owner of its watches: destroyed with a card open or a button's pictures warmed up
+(its monitor unplugged, the lid closed while docked), it runs no `syncPictures` to let them go,
+and the model lets go of them as it goes. A stand-in model (the preview's, the tests') has no
+`watchPicture`, which the panel then does not call, and names pictures of its own
+(`image://preview-windows/ID`, painted by `preview.cpp`).
 
 The window switcher's cards (`SwitcherCards.qml`, which `Switcher.qml` loads in place of its grid
 with `shell.thumbnails` outside the macOS style) show the same pictures. The switcher's lines
@@ -1328,11 +1333,11 @@ name a window by its app id and title, which two windows may share, and by its n
 control's `id`, `TaskModel`'s `windowId` role); each card finds its task with a `TaskFilter`
 whose `windowId` keeps that window alone, filtering again when the number comes after the window.
 While the switcher is open on the view's output (`open`, `outputName`) a card watches its
-picture itself with `watchPicture`, unless the model is a stand-in without it, and unwatches it
-at `switcher-close`, though the cards stay while the switcher fades. The cards are made as the
-list arrives, 120 ms before `SwitcherView` shows the switcher, so the pictures are asked for
-early: with 20 windows on a headless compositor with pixman at 2560 by 1440 and a scale of 1.25,
-every one had a frame about 75 ms after the switcher opened. They are asked for twice as wide as the pictures' common height,
+picture itself with `watchPicture`, as the watch's owner, unless the model is a stand-in without
+it, and unwatches it at `switcher-close`, though the cards stay while the switcher fades. The
+cards are made as the list arrives, 120 ms before `SwitcherView` shows the switcher, so the
+pictures are asked for early: with 20 windows on a headless compositor with pixman at 2560 by
+1440 and a scale of 1.25, every one had a frame about 75 ms after the switcher opened. They are asked for twice as wide as the pictures' common height,
 `shell.thumbnailSize` × 5/8, times the device pixel ratio, a box that holds any card's picture
 (3:4 to 2:1) without scaling it up. A card is as wide as its picture's proportions, which it notes
 in `aspects` once the picture shows (16:10 until then), and `arrange` lays the cards out in rows
