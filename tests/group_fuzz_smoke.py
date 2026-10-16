@@ -63,9 +63,13 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     def spawn():
         global counter
         counter += 1
-        clients.append(desktop.spawn([probe, "--window-only"],
-                                     env={"PAW_PROBE_TITLE": f"win{counter}"},
+        title = f"win{counter}"
+        clients.append(desktop.spawn([probe, "--window-only"], env={"PAW_PROBE_TITLE": title},
                                      stderr=subprocess.DEVNULL))
+        # Open before the next step, so that the seed makes the same run however long a client
+        # takes to start on a loaded machine. Only the compositor must stay up meanwhile.
+        harness.wait_for(lambda: any(w["title"] == title for w in windows()), [desktop.server],
+                         f"{title} opened")
 
     for _ in range(4):
         spawn()
