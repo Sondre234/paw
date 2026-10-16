@@ -302,8 +302,8 @@ if(BUILD_TESTING)
     paw_shell_test(glass_blur_test SOURCES glass_blur.cpp glass_blur.hpp LIBS Qt6::Gui Qt6::Test)
     add_test(NAME shell_glass_blur COMMAND glass_blur_test)
     # The image providers on the threads Qt Quick asks them on: the models' pictures only on the
-    # GUI thread.
-    paw_shell_test(image_providers_test SOURCES image_provider.hpp
+    # GUI thread, and the wallpaper picker's thumbnails from a pool of threads.
+    paw_shell_test(image_providers_test SOURCES image_provider.hpp wallpapers.cpp wallpapers.hpp
         LIBS Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Test)
     add_test(NAME shell_image_providers COMMAND image_providers_test)
     set_tests_properties(shell_image_providers PROPERTIES TIMEOUT 60
