@@ -4390,9 +4390,15 @@ ListModel {
             std::cerr << "the palette lacks the saved session: " << titlesNow().join("|").toStdString() << '\n';
             return 1;
         }
-        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Fake app") ||
-            !titlesNow().contains("Toggle tiling") || !titlesNow().contains("Appearance: dark"))
-            return fail("the palette lacks workspaces, apps or actions");
+        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Toggle tiling") ||
+            !titlesNow().contains("Appearance: dark"))
+            return fail("the palette lacks workspaces or actions");
+        // The applications follow the actions, further down than the 60 entries an empty search
+        // lists: one searched for is there.
+        palette->setQuery("Fake app");
+        if (!waitFor([&] { return titlesNow().contains("Fake app"); }))
+            return fail("the palette lacks the applications");
+        palette->setQuery("");
         type("tiling");
         if (!waitFor([&] { return !titlesNow().isEmpty() && titlesNow()[0].contains("tiling", Qt::CaseInsensitive); })) {
             std::cerr << "typing did not filter the palette: " << titlesNow().join("|").toStdString() << '\n';
@@ -5247,12 +5253,17 @@ ListModel {
             if (!waitFor([&] { return power->available().size() == 5; }))
                 return fail("the power menu did not list five actions");
             palette->open(output);
+            // Each found by its name: they follow the actions, further down than the 60 entries
+            // an empty search lists.
+            auto offers = [&](const QString &title) {
+                palette->setQuery(QString(title).remove(QChar(0x2026)));
+                return titles().contains(title);
+            };
             if (!waitFor([&] {
-                    return titles().contains("Lock screen") && titles().contains("Suspend") &&
-                           titles().contains("Restart…") && titles().contains("Power off…") &&
-                           titles().contains("Log out…");
+                    return offers("Lock screen") && offers("Suspend") && offers("Restart…") &&
+                           offers("Power off…") && offers("Log out…");
                 }) ||
-                titles().contains("Hibernate")) {
+                offers("Hibernate")) {
                 std::cerr << "the palette does not offer what may run: "
                           << titles().join("|").toStdString() << '\n';
                 return 1;
@@ -6906,11 +6917,12 @@ ListModel {
         if (!waitFor([&] { return controller.style() == "macos"; }))
             return fail("the configuration's macOS style was not read");
         // Spotlight lists what it finds by kind after the top hit, each kind once (but for
-        // searching the web and saving a session at the end), files among them.
+        // searching the web and saving a session at the end), files among them. The search
+        // finds fewer than the 60 results a list holds, so that the file is among them.
         {
             auto *palette = controller.palette();
             palette->open(output);
-            palette->setQuery("a");
+            palette->setQuery("ep");
             QStringList runs;
             for (const auto &item : palette->results().mid(1)) {
                 const auto map = item.toMap();
