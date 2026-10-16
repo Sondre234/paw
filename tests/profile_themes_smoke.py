@@ -7,12 +7,15 @@ cursor-theme, cursor-size and icon-theme, and puts back the values it replaced a
 without them is picked and as it ends. Cursor themes of the test's own, on $XCURSOR_PATH, and a
 stand-in for gsettings that writes down each call."""
 import os
+from pathlib import Path
 import struct
+import subprocess
 import sys
 
 import harness
 
 compositor = sys.argv[1]
+x11_probe = str(Path(sys.argv[2]).resolve()) if len(sys.argv) > 2 else ""
 
 CONFIG = """return {
     xwayland = false,
@@ -151,6 +154,25 @@ with harness.Compositor(compositor, start=False) as desktop:
     count = len(calls())
     desktop.stop()
     assert sorted(calls()[count:]) == sorted(BACK), calls()[count:]
+
+# X11 windows get the theme's arrow: a switch before XWayland runs is given it as it is ready, and
+# one while an X11 window shows at once.
+with harness.Compositor(compositor, start=False) as desktop:
+    prepare(desktop, login_session=False)
+    desktop.start(CONFIG.replace("xwayland = false", "xwayland = true"))
+    if not x11_probe or "DISPLAY" not in desktop.env:
+        print("XWayland is not available: the X11 part is skipped")
+    else:
+        desktop.msg("profile", "themed")
+        desktop.wait_for(lambda: theme(desktop) == [["paw-profile", "32"]], "the profile's cursor")
+        x11 = desktop.spawn([x11_probe, "commands"], env={"PAW_PROBE_TITLE": "X11"},
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        assert x11.stdout.readline().strip() == "X11 window mapped and focused"
+        desktop.msg("profile", "plain")
+        desktop.wait_for(lambda: theme(desktop) == [["paw-base", "24"]], "the session's cursor")
+        desktop.msg("profile", "themed")
+        desktop.wait_for(lambda: theme(desktop) == [["paw-profile", "32"]], "the profile's again")
+        assert "Cannot set xwm cursor" not in desktop.log.read_text()
 
 print("A profile's cursor theme drew the cursor, reached programs and, in a login session, "
       "gsettings, which got the user's own back")
