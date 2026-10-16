@@ -110,7 +110,9 @@ with harness.Compositor(compositor, config()) as desktop:
         wait_for(lambda: under() == colour, f"{colour} under the pointer at {x},{y}")
     # Where the loupe was drawn a moment ago, the screen under it shows.
     pointer("move", "260", "310")
-    wait_for(lambda: under() == BODY, "the body, not the loupe")
+    # The body was under the pointer before it moved too: the picker has followed it first.
+    wait_for(lambda: picker()[3:5] == ["260", "310"] and under() == BODY,
+             "the body, not the loupe")
     row = picker()
     assert row[2:5] == ["HEADLESS-1", "260", "310"], row
     assert row[8:11] == ["1", "right", "below"], row
