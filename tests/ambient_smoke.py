@@ -3,9 +3,9 @@
 the output, inside it and about its edges; a fullscreen window pauses them, the output drawing no
 frames for them meanwhile, and so does the lock; the action goes through the kinds, turns them off
 (which takes them away) and back on, from a binding too; a profile setting another kind brings it
-in, and a reload leaves the action's choice unless the kind configured changes; without input for
-a while (PAW_TEST_AMBIENT_IDLE_MS) they fade out, and input brings them back. With grim, the
-screen shows petals."""
+in, a reload leaves the action's choice unless the kind configured changes, and a new count
+adds or takes particles away; without input for a while (PAW_TEST_AMBIENT_IDLE_MS) they fade out,
+and input brings them back. With grim, the screen shows petals."""
 from pathlib import Path
 import subprocess
 import sys
@@ -120,6 +120,11 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     desktop.reload(CONFIG.format(kind="sakura"))
     wait_for(lambda: sky()["kind"] == "sakura" and sky()["state"] == "shown",
              "the configured kind changed")
+    # A new count adds petals, fading in, or takes some away.
+    desktop.reload(CONFIG.format(kind="sakura").replace("count = 12", "count = 20"))
+    wait_for(lambda: sky()["count"] == "20" and len(particles()) == 20, "twenty petals")
+    desktop.reload(CONFIG.format(kind="sakura").replace("count = 12", "count = 5"))
+    wait_for(lambda: sky()["count"] == "5" and len(particles()) == 5, "five petals")
     desktop.reload(CONFIG.format(kind="none"))
     wait_for(lambda: sky()["state"] == "off", "configured off")
 
