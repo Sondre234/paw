@@ -20,7 +20,7 @@ of every cycle ("overview"):
 
     python3 tools/prof/heaptrend.py OUT
     python3 tools/prof/report.py OUT --exe paw --thread main
-    python3 tools/prof/report.py OUT --exe paw --marks OUT/marks --mark party
+    python3 tools/prof/report.py OUT --exe paw --marks OUT/marks --mark toys
 """
 import argparse
 from pathlib import Path
