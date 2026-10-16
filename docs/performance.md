@@ -315,6 +315,16 @@ before and now, the clock's once-a-minute tick fell inside the ten seconds measu
 as one frame's worth of wakeups (about 9 a second over the ten seconds, llvmpipe's threads
 drawing it); the software renderer draws that frame with less than one wakeup a second.
 
+## Loading the configuration
+
+Since the configuration has a time limit, each load of it (at startup, on a reload, and in the
+shell) runs it twice: in a child process forked to see that it finishes within 3 seconds, then
+for real. `paw --check-config` on the example configuration, with its profiles, took 11 ms a run
+with the child process left out (`fork` made to fail through `LD_PRELOAD`, which loads the
+configuration unchecked) and 19 to 23 ms with it, process start included, 50 runs each on the
+development desktop while other builds ran: some 8 to 12 ms more a load. Forking copies the
+page tables alone, under 1 MB for the running compositor's 230 MB resident.
+
 ## Not verified
 
 - The shell's motion on a real GPU at 144 or 200 Hz, and what it costs there per frame: the
