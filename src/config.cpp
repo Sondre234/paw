@@ -1844,6 +1844,7 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         boolean(L, "hide_when_typing", "mouse.hide_when_typing",
                 config.settings.hide_cursor_typing);
         config.settings.hide_cursor_after = integer(L, "hide_after", 0, 0, 3600);
+        boolean(L, "shake_to_find", "mouse.shake_to_find", config.settings.shake_to_find);
     }
     if (Section in{L, "touchpad"}) {
         tristate(L, "natural_scroll", "touchpad.natural_scroll",

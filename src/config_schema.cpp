@@ -110,6 +110,10 @@ const Option options[] = {
     {"mouse.hide_after", "integer", "0", "5", 0, 3600,
      "Seconds the pointer rests before the cursor hides, until it moves, clicks or scrolls; `0` "
      "never hides it."},
+    {"mouse.shake_to_find", "boolean", "false", "true", none, none,
+     "Shaking the pointer quickly from side to side grows the cursor to three times its size for "
+     "a moment, as macOS does, so that it is easy to find; it shrinks back about a second after "
+     "the shaking stops. Not while a button is held."},
 
     {"touchpad", "table", "", "", none, none, "Touchpad settings (standalone sessions)."},
     {"touchpad.natural_scroll", "boolean", "unset", "true", none, none,

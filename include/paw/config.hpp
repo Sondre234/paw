@@ -368,6 +368,7 @@ struct Config {
                          .focus_follows_mouse = true,
                          .hide_cursor_typing = false,
                          .hide_cursor_after = 0,
+                         .shake_to_find = false,
                          .animations = true,
                          .animation_speed = 1.0F,
                          .animation_late_ms = 80,

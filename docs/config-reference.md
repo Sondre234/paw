@@ -56,6 +56,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `mouse.focus_follows` | boolean | true | - | Hovering a window focuses it, without raising it. |
 | `mouse.hide_when_typing` | boolean | false | - | Hide the cursor as a key is typed into an application, as macOS does, until the pointer moves, clicks or scrolls. Modifier keys alone and the keys bindings take leave it, and so does typing while a button is held. |
 | `mouse.hide_after` | integer | 0 | 0 to 3600 | Seconds the pointer rests before the cursor hides, until it moves, clicks or scrolls; `0` never hides it. |
+| `mouse.shake_to_find` | boolean | false | - | Shaking the pointer quickly from side to side grows the cursor to three times its size for a moment, as macOS does, so that it is easy to find; it shrinks back about a second after the shaking stops. Not while a button is held. |
 
 ## `touchpad`
 

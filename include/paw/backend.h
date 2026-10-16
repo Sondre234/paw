@@ -452,6 +452,8 @@ struct sh_settings {
      * pointer moves; mouse.hide_after: seconds the pointer rests before it hides, 0 never. */
     bool hide_cursor_typing;
     int hide_cursor_after;
+    /* mouse.shake_to_find: shaking the pointer grows the cursor a moment (cursor_shake.c). */
+    bool shake_to_find;
     bool animations;          /* windows fade in and out, and tiles glide into place */
     float animation_speed;    /* multiplies the speed of every animation */
     int animation_late_ms;    /* a later frame finishes running animations; 0 never skips */

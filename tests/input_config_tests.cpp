@@ -121,7 +121,8 @@ static void tablet() {
     rejects("return {tablet={mapping='DP-2'}}", "unknown setting 'mapping' in tablet");
 }
 
-// The cursor hidden while typing and after the pointer rests: off unless asked for.
+// The cursor hidden while typing and after the pointer rests, and grown by a shake: off unless
+// asked for.
 static void hidden_cursor() {
     auto defaults = paw::parse_config("return {}").settings;
     require(!defaults.hide_cursor_typing && defaults.hide_cursor_after == 0,
@@ -132,6 +133,10 @@ static void hidden_cursor() {
     rejects("return {mouse={hide_when_typing=1}}");
     rejects("return {mouse={hide_after=-1}}");
     rejects("return {mouse={hide_after=3601}}");
+    require(!defaults.shake_to_find, "shake to find is off by default");
+    require(paw::parse_config("return {mouse={shake_to_find=true}}").settings.shake_to_find,
+            "mouse.shake_to_find not read");
+    rejects("return {mouse={shake_to_find='yes'}}");
 }
 
 int main() {
