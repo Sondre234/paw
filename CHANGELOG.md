@@ -279,6 +279,17 @@ shadows.
 - `paw msg type TEXT` types text into what has the keyboard, emoji and accents too, on a
   keymap made for it, as wtype does.
 
+### The colour picker
+
+- `pick_color` picks a colour off the screen, as hyprpicker does: the cursor becomes a crosshair
+  with a loupe of the 11 by 11 pixels around it magnified, in a card of the shell's colours with
+  the pixel's swatch and `#rrggbb`, read from what the monitor shows without the cursor or night
+  light, in the monitor's own pixels at fractional scales and turned monitors too. A click (or
+  Return) copies `#rrggbb` to the clipboard and shows it on the on-screen display, Escape or a
+  right click cancels, and the arrows move a pixel. `paw msg pick_color` waits and prints the
+  colour, subscribers hear `color-picked #rrggbb`, and the command palette offers it. Unbound by
+  default; `config/init.lua` suggests Super + Shift + C.
+
 ### The clock and Quick Settings
 
 - The clock opens one flyout at the bar's right end, as on Windows 11: the notifications above
