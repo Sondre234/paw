@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "taskbar_model.hpp"
 #include "controller.hpp"
+#include <QGuiApplication>
+#include <QScreen>
 #include <QSet>
 #include <algorithm>
 #include <optional>
@@ -11,6 +13,14 @@ TaskbarOrder *TaskbarOrder::of(QAbstractItemModel *source) {
     if (auto *order = source->findChild<TaskbarOrder *>(QString(), Qt::FindDirectChildrenOnly))
         return order;
     return new TaskbarOrder(source);
+}
+std::optional<QPoint> TaskbarOrder::screenPlace(const QString &output) {
+    if (output.isEmpty())
+        return std::nullopt;
+    for (const auto *screen : QGuiApplication::screens())
+        if (screen->name() == output)
+            return screen->geometry().topLeft();
+    return std::nullopt;
 }
 TaskbarOrder::TaskbarOrder(QAbstractItemModel *source) : QObject(source), source_(source) {
     // A window that closed goes at once, so no taskbar names a window the source no longer has; a
@@ -32,10 +42,16 @@ TaskbarOrder::TaskbarOrder(QAbstractItemModel *source) : QObject(source), source
         forgetGone();
         placeLater();
     });
-    // Which application a window belongs to decides what shows.
+    // Which application a window belongs to decides what shows, and the monitor it is on where it
+    // goes.
     connect(source, &QAbstractItemModel::dataChanged, this,
-            [this](const QModelIndex &, const QModelIndex &, const QList<int> &roles) {
-                if (roles.isEmpty() || roles.contains(roleId("appId")))
+            [this](const QModelIndex &first, const QModelIndex &last, const QList<int> &roles) {
+                bool moved = false;
+                if (const int id = roleId("taskId"); id >= 0 && !first.parent().isValid() &&
+                                                    (roles.isEmpty() || roles.contains(roleId("output"))))
+                    for (int row = first.row(); row <= last.row(); ++row)
+                        moved |= noteOutput(source_->data(source_->index(row, 0), id).toInt());
+                if (moved || roles.isEmpty() || roles.contains(roleId("appId")))
                     Q_EMIT changed();
             });
     // The windows open already wait for the pins, which say where they go.
@@ -68,6 +84,10 @@ QString TaskbarOrder::appId(int taskId) const {
     const int row = sourceRow(taskId), id = roleId("appId");
     return row < 0 || id < 0 ? QString() : source_->data(source_->index(row, 0), id).toString();
 }
+QString TaskbarOrder::output(int taskId) const {
+    const int row = sourceRow(taskId), id = roleId("output");
+    return row < 0 || id < 0 ? QString() : source_->data(source_->index(row, 0), id).toString();
+}
 QString TaskbarOrder::pinOf(const Entry &entry) const {
     if (!entry.pin.isEmpty())
         return entry.pin;
@@ -92,6 +112,7 @@ void TaskbarOrder::indexRows() {
 void TaskbarOrder::forgetGone() {
     const auto before = entries_.size();
     entries_.removeIf([this](const Entry &entry) { return entry.pin.isEmpty() && !rows_.contains(entry.taskId); });
+    outputs_.removeIf([this](QHash<int, QString>::iterator seen) { return !rows_.contains(seen.key()); });
     if (entries_.size() != before)
         Q_EMIT changed();
 }
@@ -124,10 +145,97 @@ void TaskbarOrder::placeNew() {
             if (const auto place = entries_.indexOf(Entry{pin}); place >= 0)
                 at = place + 1;
         entries_.insert(at, window);
+        noteOutput(taskId);
         added = true;
     }
     if (added)
         Q_EMIT changed();
+}
+bool TaskbarOrder::noteOutput(int taskId) {
+    if (!entries_.contains(Entry{{}, taskId}))
+        return false; // not placed yet: placeNew notes it
+    const auto now = output(taskId);
+    const auto seen = outputs_.value(taskId);
+    if (outputs_.contains(taskId) && seen == now)
+        return false;
+    outputs_.insert(taskId, now);
+    return followMonitor(taskId, !seen.isEmpty());
+}
+bool TaskbarOrder::followMonitor(int taskId, bool moved) {
+    const Entry window{{}, taskId};
+    const auto at = entries_.indexOf(window);
+    if (!byMonitor_ || !place_ || at < 0)
+        return false;
+    // The application a window belongs to: its pin, else its app id.
+    auto appOf = [this](const Entry &entry) {
+        const auto pin = pinOf(entry);
+        return std::pair(pin, pin.isEmpty() ? appId(entry.taskId) : QString());
+    };
+    const auto app = appOf(window);
+    auto placeOf = [this](qsizetype i) { return place_(output(entries_[i].taskId)); };
+    const auto place = placeOf(at);
+    if ((app.first.isEmpty() && app.second.isEmpty()) || !place)
+        return false;
+    // Whether monitor `a` comes before `b`: to its left, or above it at the same x.
+    auto ahead = [](const QPoint &a, const QPoint &b) { return a.x() < b.x() || (a.x() == b.x() && a.y() < b.y()); };
+    auto sameApp = [&](qsizetype i) {
+        return i != at && entries_[i].pin.isEmpty() && appOf(entries_[i]) == app;
+    };
+    // A pinned application's place that shows nothing apart: its own, or one with a window.
+    auto passes = [&](qsizetype i) {
+        const auto &pin = entries_[i].pin;
+        return !pin.isEmpty() && (pin == app.first || windowOf(Entry{pin}) >= 0);
+    };
+    // The application's other windows next to entry `i` (with it, when one of them) along the bar.
+    auto runAround = [&](qsizetype i) {
+        QList<qsizetype> run;
+        for (auto j = i - 1; j >= 0 && (j == at || sameApp(j) || passes(j)); --j)
+            if (sameApp(j))
+                run.push_front(j);
+        if (sameApp(i))
+            run.push_back(i);
+        for (auto j = i + 1; j < entries_.size() && (j == at || sameApp(j) || passes(j)); ++j)
+            if (sameApp(j))
+                run.push_back(j);
+        return run;
+    };
+    auto run = runAround(at);
+    // Of the others, the first ahead of it on a monitor after its own, else the last after it on
+    // a monitor before its own.
+    qsizetype wrong = -1;
+    for (qsizetype i = 0; i < at && wrong < 0; ++i)
+        if (const auto there = sameApp(i) && !run.contains(i) ? placeOf(i) : std::nullopt; there && ahead(*place, *there))
+            wrong = i;
+    for (auto i = entries_.size() - 1; i > at && wrong < 0; --i)
+        if (const auto there = sameApp(i) && !run.contains(i) ? placeOf(i) : std::nullopt; there && ahead(*there, *place))
+            wrong = i;
+    if (wrong >= 0) {
+        // On the wrong side of one apart from it, it joins that one's.
+        run = runAround(wrong);
+    } else if (run.isEmpty()) {
+        return false;
+    } else if (!moved) {
+        // Just opened, it stays where it is unless it is on the wrong side of one beside it.
+        const bool fits = std::none_of(run.cbegin(), run.cend(), [&](qsizetype i) {
+            const auto there = placeOf(i);
+            return there && (i < at ? ahead(*place, *there) : ahead(*there, *place));
+        });
+        if (fits)
+            return false;
+    }
+    // After the last of them on a monitor before its own or on its own, else ahead of the first.
+    auto anchor = entries_[run.first()];
+    bool after = false;
+    for (auto i : run)
+        if (const auto there = placeOf(i); there && !ahead(*place, *there))
+            anchor = entries_[i], after = true;
+    auto next = entries_;
+    next.removeAt(at);
+    next.insert(next.indexOf(anchor) + (after ? 1 : 0), window);
+    if (next == entries_)
+        return false;
+    entries_ = next;
+    return true;
 }
 void TaskbarOrder::syncPins() {
     const auto pinned = pins_.pinned ? pins_.pinned() : QStringList();
@@ -241,6 +349,8 @@ void TaskbarModel::setGrouped(bool grouped) {
     if (grouped_ == grouped)
         return;
     grouped_ = grouped;
+    if (order_)
+        order_->setByMonitor(!grouped);
     update();
     Q_EMIT groupedChanged();
 }
@@ -258,6 +368,8 @@ void TaskbarModel::attach() {
     order_ = TaskbarOrder::of(source_);
     if (!order_)
         return;
+    // Apart, a window's button follows its monitor; grouped, an application's button stays put.
+    order_->setByMonitor(!grouped_);
     if (auto *shell = qobject_cast<ShellController *>(shell_); shell && !order_->hasPins()) {
         QPointer<ShellController> pins(shell);
         order_->setPins({

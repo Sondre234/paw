@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include <QAbstractListModel>
+#include <QPoint>
 #include <QPointer>
 #include <functional>
+#include <optional>
 
 // The order of the taskbar's buttons, shared by every panel showing the same windows (a child of
 // their source model, `of`): each pinned application and each window, pinned or not, in one row.
@@ -10,6 +12,14 @@
 // its first window opens in that place, any other window at the end. Dragging moves one entry
 // (grouped, an application's button with all its windows), and only the drag of a pinned
 // application's own button moves its pin.
+//
+// With `byMonitor`, a window's entry follows its monitor among its application's windows as it
+// opens or moves to another monitor, monitors ordered by their place in the layout (left to
+// right, and top to bottom at the same x). One of them apart from it on the wrong side (ahead of
+// it on a monitor after its own, or after it on one before) takes it into the run of windows next
+// to that one; else it keeps to the run next to it. There it goes after those on monitors before
+// its own or on its own, and ahead of the others, or stays where it is if it just opened and
+// already fits. Nothing else moves an entry but a drag.
 class TaskbarOrder : public QObject {
     Q_OBJECT
   public:
@@ -26,8 +36,18 @@ class TaskbarOrder : public QObject {
         std::function<QString(const QString &)> pinnedAppFor;
         std::function<void(const QStringList &)> reorder;
     };
+    // Where a monitor is in the layout, its top left corner, by its name; nullopt for one not
+    // known.
+    using OutputPlace = std::function<std::optional<QPoint>(const QString &output)>;
     // The order of `source`, made with it the first time it is asked for.
     static TaskbarOrder *of(QAbstractItemModel *source);
+    // The place of the screen of that name (its geometry, which xdg-output gives).
+    static std::optional<QPoint> screenPlace(const QString &output);
+    // Where the monitors are: screenPlace until set otherwise.
+    void setOutputPlace(OutputPlace place) { place_ = std::move(place); }
+    // Whether windows' buttons follow their monitors: while the windows have one apart.
+    void setByMonitor(bool byMonitor) { byMonitor_ = byMonitor; }
+    bool byMonitor() const { return byMonitor_; }
     // The first panel to set them wins; until then nothing is pinned.
     void setPins(Pins pins);
     bool hasPins() const { return bool(pins_.pinned); }
@@ -60,10 +80,21 @@ class TaskbarOrder : public QObject {
     QList<Entry> entries_;
     // Task id to source row.
     QHash<int, int> rows_;
+    // The monitor each window placed was last seen on, by its task id.
+    QHash<int, QString> outputs_;
+    OutputPlace place_ = &TaskbarOrder::screenPlace;
+    bool byMonitor_ = false;
     bool placing_ = false;
     mutable QHash<QByteArray, int> roleIds_;
     int roleId(const char *role) const;
+    QString output(int taskId) const;
     void indexRows();
+    // The window's monitor having changed since it was last seen, notes it and places the window
+    // by it; returns whether the window moved.
+    bool noteOutput(int taskId);
+    // Places window `taskId` among its application's by their monitors, as it opened or `moved`
+    // from another monitor; returns whether its place changed.
+    bool followMonitor(int taskId, bool moved);
     // Takes out the windows that have gone, then, once their app ids are in, adds the new ones.
     void forgetGone();
     void placeLater();
