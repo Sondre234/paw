@@ -318,12 +318,14 @@ static void refresh_shadow(struct sh_toplevel *toplevel, bool on, int outset, in
     toplevel->shadow_width = width;
     toplevel->shadow_height = height;
     toplevel->shadow_lift = lift;
+    bool held = false;
     for (int i = 0; i < SH_SHADOW_SLICES; ++i) {
         struct wlr_scene_buffer *slice = toplevel->shadow_slices[i];
         const struct sh_shadow_slice *s = &slices[i];
         wlr_scene_node_set_enabled(&slice->node, s->width > 0);
         if (s->width <= 0)
             continue;
+        held = true;
         if (slice->buffer != image->buffer)
             wlr_scene_buffer_set_buffer(slice, image->buffer);
         int scale = image->scale;
@@ -333,6 +335,10 @@ static void refresh_shadow(struct sh_toplevel *toplevel, bool on, int outset, in
         wlr_scene_buffer_set_dest_size(slice, s->to_width, s->to_height);
         wlr_scene_node_set_position(&slice->node, s->to_x, s->to_y);
     }
+    // Only a slice showing the image keeps it alive: with none, the cache may free it, and an
+    // image painted later at the same address must not pass for it above.
+    if (!held)
+        toplevel->shadow_image = NULL;
 }
 
 /* The tab strip of a group's shown window: one segment per member, the shown one lit. */
