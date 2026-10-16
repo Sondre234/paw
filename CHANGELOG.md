@@ -786,6 +786,11 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   worst frames halved) and drops no frames for it: its 240 pieces change out of the scene's
   sight and come back together, where the scene worked out what to draw again after each of
   some 700 changes a frame.
+- A configuration that keeps one of Lua's C functions busy (a string pattern that backtracks
+  without end, `(""):rep(2^60)`) no longer freezes the desktop and the shell as it loads, and
+  one that asks for more than 64 MiB of memory no longer gets it: it loads first in a child
+  process given 3 seconds, and one that runs over or asks for more is an error like any other,
+  the default configuration standing in.
 
 ## 0.1.1 (2026-10-05)
 
