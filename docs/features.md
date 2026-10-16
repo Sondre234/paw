@@ -3556,6 +3556,26 @@ session is on screen it holds a logind sleep inhibitor, so an idle daemon left r
 another desktop on a different VT cannot suspend the machine; switching VTs away releases it.
 This needs sd-bus from libsystemd, libelogind, or basu at build time.
 
+### The lock screen's look
+
+The stock locker, swaylock, wears the appearance profile in use, so washi, sumi, mochi and the
+other profiles lock to a screen of their own rather than swaylock's plain grey. Each time the
+screen locks, paw adds to `swaylock -f`:
+
+- the profile's wallpaper, the one picked from the panel or else `shell.wallpaper`, filling every
+  monitor over `appearance.background`, which shows alone when there is no wallpaper or its file
+  is gone;
+- the ring, shown while idle too, in the shell's colours: the panel's inside it (no more
+  see-through than the frosted glass's 75 %), the accent around it, the text colour for its
+  words, a key press lighting a piece of it in the border's colour (of a gradient, the stop that
+  stands out most from the accent, else the text colour), and a backspace and a wrong password
+  in the urgent colour, with no outlines;
+- the shell's font, and the number of failed attempts.
+
+It only does so while `power.lock_command` is the stock `{ "swaylock", "-f" }` and swaylock has
+no configuration of its own (`~/.config/swaylock/config`, `~/.swaylock/config` or
+`/etc/swaylock/config`), whose look stays. `power.lock_style = false` turns it off.
+
 ### Power saving when idle
 
 paw saves power by itself after a while without input, as KDE and Windows do, so no idle
