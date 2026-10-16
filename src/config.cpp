@@ -1841,6 +1841,9 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
               {{"flat", 0}, {"adaptive", 1}}, "mouse.acceleration must be \"flat\" or \"adaptive\"");
         tristate(L, "natural_scroll", "mouse.natural_scroll", config.settings.mouse_natural_scroll);
         boolean(L, "focus_follows", "mouse.focus_follows", config.settings.focus_follows_mouse);
+        boolean(L, "hide_when_typing", "mouse.hide_when_typing",
+                config.settings.hide_cursor_typing);
+        config.settings.hide_cursor_after = integer(L, "hide_after", 0, 0, 3600);
     }
     if (Section in{L, "touchpad"}) {
         tristate(L, "natural_scroll", "touchpad.natural_scroll",

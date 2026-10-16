@@ -448,6 +448,10 @@ struct sh_settings {
     int mouse_natural_scroll; /* -1, 0, 1 */
     int touchpad_natural_scroll, touchpad_tap, touchpad_dwt;
     bool focus_follows_mouse; /* hovering a window focuses it, without raising it */
+    /* mouse.hide_when_typing: a key typed into an application hides the cursor until the
+     * pointer moves; mouse.hide_after: seconds the pointer rests before it hides, 0 never. */
+    bool hide_cursor_typing;
+    int hide_cursor_after;
     bool animations;          /* windows fade in and out, and tiles glide into place */
     float animation_speed;    /* multiplies the speed of every animation */
     int animation_late_ms;    /* a later frame finishes running animations; 0 never skips */

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Configuration of touch input: the touchpad swipes the compositor takes (`gestures`) and the
-// outputs touchscreens and drawing tablets are mapped to (`touch`, `tablet`).
+// outputs touchscreens and drawing tablets are mapped to (`touch`, `tablet`); and the cursor's
+// hiding (`mouse`).
 #include "paw/config.hpp"
 #include <cstring>
 #include <iostream>
@@ -120,11 +121,25 @@ static void tablet() {
     rejects("return {tablet={mapping='DP-2'}}", "unknown setting 'mapping' in tablet");
 }
 
+// The cursor hidden while typing and after the pointer rests: off unless asked for.
+static void hidden_cursor() {
+    auto defaults = paw::parse_config("return {}").settings;
+    require(!defaults.hide_cursor_typing && defaults.hide_cursor_after == 0,
+            "the cursor hides only when asked to");
+    auto set = paw::parse_config("return {mouse={hide_when_typing=true, hide_after=5}}").settings;
+    require(set.hide_cursor_typing && set.hide_cursor_after == 5,
+            "mouse.hide_when_typing and mouse.hide_after not read");
+    rejects("return {mouse={hide_when_typing=1}}");
+    rejects("return {mouse={hide_after=-1}}");
+    rejects("return {mouse={hide_after=3601}}");
+}
+
 int main() {
     try {
         gestures();
         touch();
         tablet();
+        hidden_cursor();
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;

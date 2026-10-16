@@ -54,6 +54,8 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `mouse.acceleration` | enum | unset | - | `"flat"` or `"adaptive"`; unset keeps the device default. |
 | `mouse.natural_scroll` | boolean | unset | - | Natural scrolling for mice; unset keeps the device default. |
 | `mouse.focus_follows` | boolean | true | - | Hovering a window focuses it, without raising it. |
+| `mouse.hide_when_typing` | boolean | false | - | Hide the cursor as a key is typed into an application, as macOS does, until the pointer moves, clicks or scrolls. Modifier keys alone and the keys bindings take leave it, and so does typing while a button is held. |
+| `mouse.hide_after` | integer | 0 | 0 to 3600 | Seconds the pointer rests before the cursor hides, until it moves, clicks or scrolls; `0` never hides it. |
 
 ## `touchpad`
 

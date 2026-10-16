@@ -103,6 +103,13 @@ const Option options[] = {
      "Natural scrolling for mice; unset keeps the device default."},
     {"mouse.focus_follows", "boolean", "true", "true", none, none,
      "Hovering a window focuses it, without raising it."},
+    {"mouse.hide_when_typing", "boolean", "false", "true", none, none,
+     "Hide the cursor as a key is typed into an application, as macOS does, until the pointer "
+     "moves, clicks or scrolls. Modifier keys alone and the keys bindings take leave it, and so "
+     "does typing while a button is held."},
+    {"mouse.hide_after", "integer", "0", "5", 0, 3600,
+     "Seconds the pointer rests before the cursor hides, until it moves, clicks or scrolls; `0` "
+     "never hides it."},
 
     {"touchpad", "table", "", "", none, none, "Touchpad settings (standalone sessions)."},
     {"touchpad.natural_scroll", "boolean", "unset", "true", none, none,
