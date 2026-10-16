@@ -3333,7 +3333,18 @@ it chases the pointer, sitting down beside it once the pointer rests, or pawing 
 where there is nothing to sit on. A window that asks for attention ([urgent
 windows](#urgent-windows)) has it run over and pat that window's top until the window gets the
 focus. After `cat.sleep_after` seconds without input (90 unless set), or once the screens dim, it
-curls up and sleeps, breathing out a "z" now and then; any input wakes it with a stretch.
+curls up and sleeps, breathing out a "z" now and then; input wakes it a second later with a
+stretch.
+
+Pet it: move the pointer slowly back and forth over its back (turning back three times within a
+second and a half; faster is a flick, which it chases) and it purrs, its eyes shut in content arcs
+and its cheeks pink, breathing in and out, while small pink hearts float up from over its ears and
+fade. It purrs on for two seconds after the pointer last moves over it. A sleeping cat stroked
+purrs in its sleep instead of waking, the hearts rising from its curled-up head, and sleeps on
+after: the pointer coming onto it within a second of starting to move does not wake it, nor do
+the strokes, while any other input does. Petted awake for eight seconds on end, it has had
+enough: it swats at the pointer and walks off the other way, and strokes leave it cold for a few
+seconds after.
 
 It stays on the focused monitor: it crosses to another only along a window that reaches across
 both, and otherwise drops in from the top of the monitor the focus moves to. It takes no input, so
@@ -3341,8 +3352,8 @@ it never comes between a click and a window, and it is drawn over the windows bu
 windows, the panels, the launcher and other overlays, and the lock screen. It hides while the
 session is locked, while its monitor or the focused one shows a fullscreen window, while the
 overview shows and while its monitor is off, and then nothing of it runs. It draws frames only while it moves: sitting, it
-wakes a few times a minute to blink or to think of something to do, and asleep once every two
-seconds for its "z".
+wakes a few times a minute to blink or to think of something to do, asleep once every two
+seconds for its "z", and while it purrs 25 times a second for its hearts.
 
 `paw cat` lets it out or calls it in, and `paw cat on` and `paw cat off` say which; each says
 where the cat is then. The `cat` action does the same, from a binding with `mode = "on"`, `"off"`
@@ -3364,8 +3375,9 @@ cat = { enabled = true, coat = "auto", scale = 2, sleep_after = 90 },
 `away` while another VT is on the screen, `no_output`, `overview` while the overview shows,
 `display_off`, `fullscreen`); the monitor it is on, where its feet are (x and y in
 layout coordinates), what it is doing (`sit`, `look`, `walk`, `groom`, `scratch`, `yawn`, `sleep`,
-`wake`, `jump`, `fall`, `land`, `chase`, `pounce`, `rush`, `knock`), the picture it shows, its
-coat, and what it stands on: the window's title, `floor`, or `-` while it is in the air.
+`wake`, `purr`, `jump`, `fall`, `land`, `chase`, `pounce`, `swat`, `rush`, `knock`), the picture
+it shows (`purr_1` or `purr_2` as it purrs awake, `sleep_1` or `sleep_2` in its sleep), its coat,
+and what it stands on: the window's title, `floor`, or `-` while it is in the air.
 ### paw wrapped
 
 `paw wrapped` tells you about your time at the desktop as Spotify Wrapped tells you about a year

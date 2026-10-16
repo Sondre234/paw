@@ -911,23 +911,31 @@ back: each window's whole top edge, held down inside its monitor's free area by 
 (so that it stands in a maximized window's title bar rather than off the screen), which holds the
 cat up while it is there, and the parts of it no window in front of it covers just above it, the
 only ones it lands on or goes to. Its idle choices follow a seeded random number, so that
-`tests/cat_tests.c` can run it through a world of its own by the millisecond. `src/cat_sprite.c`
-holds the pictures, grids of letters a coat colours.
+`tests/cat_tests.c` can run it through a world of its own by the millisecond. `sh_cat_pointer`
+tells a flick from a stroke: the pointer turning back along either axis over the cat
+(`sh_cat_under`) three times within 1.5 s, short of a flick's travel, has it purr (`SH_CAT_PURR`,
+`dozing` when it slept or yawned its way there) until two seconds after the last motion over it,
+and eight seconds of it awake a swat (`SH_CAT_SWAT`) and a walk off; the pose lists the hearts
+that rise from a purring cat, in cells, with how opaque each is. `src/cat_sprite.c` holds the
+pictures, grids of letters a coat colours, and the heart's.
 
 `cat.c` in the compositor shows the cat that world and draws it. Its tree sits just above
 `above_windows`, under the fullscreen windows, the panels, the overlays and the lock, and holds
-two scene buffers, the cat and its "z", which take no input (`point_accepts_input`) and are scaled
-up from the art's pixels without smoothing (`WLR_SCALE_FILTER_NEAREST`); a picture is painted once
-per frame and coat and kept. A window's box is where it is drawn (its tree's place and `content`'s
+scene buffers for the cat, its "z" and three hearts (faded by their opacity), which take no input
+(`point_accepts_input`) and are scaled up from the art's pixels without smoothing
+(`WLR_SCALE_FILTER_NEAREST`); a picture is painted once per frame and coat and kept. A window's box is where it is drawn (its tree's place and `content`'s
 offset, at `frame_geometry`'s size), with its border. The cat is stepped on a timer of its own:
-every frame while it falls, jumps or runs, each 25 ms while it walks, and while it sits only for
+every frame while it falls, jumps or runs, each 25 ms while it walks, each 40 ms while it purrs, and while it sits only for
 its next blink or choice, a few times a minute, or as it gets sleepy; asleep, once a breath. What
 it stands on moving is seen from the frames: whatever moves a window damages the outputs, and
 `output_frame` calls `cat_frame`, which, unless the cat is stepped every frame anyway, compares why
 it is hidden, the urgent window and the box of what it stands on with how they were at its last
-step, and steps it at once if any changed. `input_activity` wakes a sleeping cat (`cat_input`), and
-`process_cursor_motion` tells it of the pointer (`cat_pointer_moved`), which it chases only after
-a flick close by: several motions in a row travelling far within a short while. While it is hidden
+step, and steps it at once if any changed. `input_activity` stirs a sleeping cat (`cat_input`),
+which wakes `STIR_MS` later unless `process_cursor_motion`, which tells it of the pointer
+(`cat_pointer_moved`) just after for a motion, finds the pointer on it meanwhile: those motions
+are strokes. While it is asleep the world it is shown counts as idle, so that only input it hears
+wakes it, not the strokes. It chases the pointer only after a flick close by: several motions in a
+row travelling far within a short while. While it is hidden
 (`hidden_why`: turned off, the session locked or another VT in front, no monitor, the overview,
 its monitor off, a fullscreen window on its monitor or the focused one) its tree is disabled and
 no timer runs; the next frame that shows things changed steps it again. `get cat` describes it.
