@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "app_match.hpp"
 #include "audio.hpp"
+#include "icon_lock.hpp"
 #include <QIcon>
 #include <QTimer>
 #include <map>
@@ -274,6 +275,7 @@ class PulseAudio : public Audio {
                                            : processAncestry(pid);
                     processes[stream.id] = {pid, stream.processes};
                     auto &icon = stream.icon;
+                    std::lock_guard guard(iconThemeLock());
                     for (const auto &candidate : snapshot.iconCandidates[i])
                         if (!candidate.isEmpty() && QIcon::hasThemeIcon(candidate)) {
                             icon = candidate;

@@ -170,8 +170,8 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     ${PAW_SERVICE_SOURCES} ${PAW_PICKER_SOURCES} ${PAW_TASK_PROTOCOL_SOURCES}
     controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp view.cpp view.hpp
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
-    task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp app_match.cpp
-    app_match.hpp wallpapers.cpp wallpapers.hpp image_provider.hpp audio.cpp audio.hpp
+    task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp icon_lock.hpp
+    app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp image_provider.hpp audio.cpp audio.hpp
     system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp
     glass.cpp glass.hpp glass_blur.cpp glass_blur.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
@@ -333,8 +333,8 @@ if(BUILD_TESTING)
             ENVIRONMENT "DBUS_SESSION_BUS_ADDRESS=disabled:;DBUS_SYSTEM_BUS_ADDRESS=disabled:")
     endif()
     # Applications' icons: the desktop's icon theme, and which entry a window belongs to.
-    paw_shell_test(app_icons_test SOURCES icons.cpp icons.hpp app_match.cpp app_match.hpp
-        LIBS Qt6::Core Qt6::Gui Qt6::Quick Qt6::Test PkgConfig::GIO)
+    paw_shell_test(app_icons_test SOURCES icons.cpp icons.hpp icon_lock.hpp app_match.cpp
+        app_match.hpp LIBS Qt6::Core Qt6::Gui Qt6::Quick Qt6::Test PkgConfig::GIO)
     add_test(NAME app_icons COMMAND app_icons_test)
     paw_shell_test(task_model_test SOURCES task_model.cpp task_model.hpp window_pictures.cpp
         window_pictures.hpp ${PAW_TASK_PROTOCOL_SOURCES}

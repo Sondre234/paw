@@ -21,10 +21,16 @@ void whenAnswered(const QDBusPendingCall &call, QObject *context, Answered answe
                      });
 }
 
-// A variant holding a{sv}: a QVariantMap, or a D-Bus argument still to read as one.
+// A variant holding a{sv}: a QVariantMap, or a D-Bus argument still to read as one. Anything else
+// gives an empty map: QtDBus reads an argument of another type as a map out of bounds, and any
+// program on the bus may send one.
 inline QVariantMap map(const QVariant &value) {
-    if (value.metaType() == QMetaType::fromType<QDBusArgument>())
-        return qdbus_cast<QVariantMap>(value.value<QDBusArgument>());
+    if (value.metaType() == QMetaType::fromType<QDBusArgument>()) {
+        const auto argument = value.value<QDBusArgument>();
+        if (argument.currentSignature() != "a{sv}")
+            return {};
+        return qdbus_cast<QVariantMap>(argument);
+    }
     return value.toMap();
 }
 

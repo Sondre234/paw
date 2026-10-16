@@ -1533,6 +1533,7 @@ QString ShellController::iconFor(const QString &windowAppId) const {
         // The icon of an entry the menus leave out, else a name the icon theme has, guessed
         // from the app id; never a path, which only a desktop entry's Icon= may be.
         QString icon = hiddenIcons_.value(hiddenIndex_.find(windowAppId));
+        std::lock_guard guard(iconThemeLock());
         for (const auto &guess : app_match::iconGuesses(windowAppId))
             if (icon.isEmpty() && QIcon::hasThemeIcon(guess))
                 icon = guess;
@@ -1579,7 +1580,10 @@ void ShellController::ask(const QByteArray &line, std::function<void(const QByte
     connect(socket, &QLocalSocket::connected, socket, [socket, line] { socket->write(line); });
     connect(socket, &QLocalSocket::readyRead, socket,
             [socket, reply] { reply->append(socket->readAll()); });
-    connect(socket, &QLocalSocket::disconnected, socket, [socket, reply, done] {
+    // The controller as the context, not the socket: a socket still connected as the shell
+    // quits says it disconnected as it is destroyed, among the controller's children, after
+    // what `done` answers to has gone; the controller's connections are cut before that.
+    connect(socket, &QLocalSocket::disconnected, this, [socket, reply, done] {
         reply->append(socket->readAll());
         done(*reply);
         socket->deleteLater();

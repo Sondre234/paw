@@ -4,7 +4,9 @@
 // their changes, the order, the controls, the position, and players going.
 #include "fake_dbus.hpp"
 #include "mpris.hpp"
+#include <QDBusArgument>
 #include <QDBusObjectPath>
+#include <QDBusVariant>
 #include <QSignalSpy>
 #include <QTest>
 #include <memory>
@@ -164,6 +166,31 @@ class MediaDbusTest : public QObject {
         QCOMPARE(media_->position(), 30'000.0);
         QTRY_COMPARE(player.object.calls,
                      (QStringList{"PlayPause", "Next", "Previous", "Stop", "Raise", "SetPosition /track/1 30000000"}));
+    }
+    // Changes of the wrong types, which any program on the bus may send, are passed over: a
+    // structure where the changed properties go, and metadata that is not a dictionary.
+    void malformed() {
+        FakePlayer player(bus_, "malformed");
+        QVERIFY(player.start());
+        media_ = std::make_unique<Mpris>(bus_.connect());
+        QTRY_VERIFY(media_->available());
+        QDBusArgument structure;
+        structure.beginStructure();
+        structure << 1;
+        structure.endStructure();
+        player.object.emitSignal(fakedbus::propertiesInterface, "PropertiesChanged",
+                                 {QString(playerInterface), QVariant::fromValue(structure),
+                                  QStringList()});
+        QDBusArgument numbers;
+        numbers << QList<int>{1, 2, 3};
+        player.object.emitSignal(
+            fakedbus::propertiesInterface, "PropertiesChanged",
+            {QString(playerInterface),
+             QVariantMap{{"Metadata", QVariant::fromValue(QDBusVariant(QVariant::fromValue(numbers)))}},
+             QStringList()});
+        player.object.set(playerInterface, "PlaybackStatus", "Playing");
+        QTRY_VERIFY(media_->playing());
+        QCOMPARE(media_->identity(), QString("Player malformed"));
     }
     // A name only like a player's, and playerctld's stand-in for another, are not players.
     void notPlayers() {

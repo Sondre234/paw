@@ -753,6 +753,39 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   ends the shell and leaves the desktop bare: the reload's SIGHUP came before the shell caught
   it. The compositor starts the shell with SIGHUP blocked, and the shell catches it before
   anything else and reloads once it runs.
+- `paw msg get pid_at` without its coordinates no longer ends the session with a segfault: it
+  answers with its usage. The control socket's fuzz test now sends every query, bare and with
+  odd arguments.
+- A control client that asks for a reply larger than the socket holds (`get heatmap` on a 4K
+  monitor, 259 KB) and never reads it no longer freezes the desktop until it hangs up: replies
+  give up after a second.
+- A theme laid over a configuration whose tables nest a dozen levels deep, or hold themselves,
+  is rejected as nested too deeply, where the merge wrote past the end of Lua's stack and the
+  compositor crashed on the reload (`paw --check-config` too).
+- A configuration that catches its instruction budget's error with `pcall` and loops on no
+  longer freezes the compositor at the reload: once spent, the budget is raised at every
+  instruction.
+- A panel or search field that had the keyboard as the session locked, and went during the lock
+  (the shell restarting, its monitor unplugged), is forgotten as it goes, where the compositor
+  read it after freeing it.
+- A client that destroys its window and then makes a popup on the same surface no longer has
+  the popup built under the window's freed scene tree, and a window that is not mapped can no
+  longer begin a move or resize.
+- The shell no longer crashes when a program on the session bus sends the media player watch
+  changes of the wrong types, or sends a notification whose picture (`image-data`) has the wrong
+  shape; both are passed over.
+- The shell's icon lookups hold one lock: the Launchpad's icons load on Qt Quick's loading thread
+  while the taskbar, the mixer and the tray look icons up on the GUI thread, in caches Qt keeps
+  without a lock.
+- A reply from the compositor still pending as the shell quits no longer calls back into the
+  parts of the shell already gone.
+- Saved sessions, which hold every window's title and command line, are readable by the user
+  alone (0600), and a rice's `-0x8000000000000000` wraps around as Lua's integers do rather
+  than overflowing.
+- A party's confetti takes some 40 % less time a frame (5.3 ms to 3.1 ms on GLES2, with its
+  worst frames halved) and drops no frames for it: its 240 pieces change out of the scene's
+  sight and come back together, where the scene worked out what to draw again after each of
+  some 700 changes a frame.
 
 ## 0.1.1 (2026-10-05)
 

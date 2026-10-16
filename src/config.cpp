@@ -1431,8 +1431,12 @@ void check_keymap(const sh_settings &settings) {
 }
 void instruction_limit(lua_State *L, lua_Debug *) {
     auto *remaining = static_cast<int *>(lua_getextraspace(L));
-    if (--*remaining <= 0)
+    if (--*remaining <= 0) {
+        // From now on raised at every instruction: a pcall in the configuration that catches it
+        // must not let the configuration run on.
+        lua_sethook(L, instruction_limit, LUA_MASKCOUNT, 1);
         luaL_error(L, "configuration exceeded its instruction budget");
+    }
 }
 // The key binding among `bindings` for these modifiers and keysym, or nothing.
 const Binding *find_key(const std::vector<Binding> &bindings, uint32_t modifiers, uint32_t keysym) {
@@ -2474,6 +2478,7 @@ State sandbox() {
 // Runs one chunk and leaves its single result on the stack.
 void evaluate(lua_State *L, const std::string &source, const std::string &name) {
     *static_cast<int *>(lua_getextraspace(L)) = 1000;
+    lua_sethook(L, instruction_limit, LUA_MASKCOUNT, 1000);
     if (luaL_loadbufferx(L, source.data(), source.size(), name.c_str(), "t") != LUA_OK ||
         lua_pcall(L, 0, 1, 0) != LUA_OK) {
         const char *message = lua_tostring(L, -1);
@@ -2502,7 +2507,9 @@ bool is_record(lua_State *L, int index) {
 // `replace` its values replace those of `target`; without, they only fill in what `target` lacks,
 // and lists and values it sets stay as they are. `what` names the tables nested too deeply.
 void overlay(lua_State *L, int target, int source, bool replace, const char *what, int depth = 0) {
-    if (depth > 16)
+    // Each level holds a key, its value and the target's on the stack, and two more to set one:
+    // Lua grows its stack for C code only when asked.
+    if (depth > 16 || !lua_checkstack(L, 5))
         fail(std::string(what) + " tables are nested too deeply");
     target = lua_absindex(L, target);
     source = lua_absindex(L, source);
@@ -2562,7 +2569,7 @@ RiceData data_of(lua_State *L, int index, const std::string &what, int depth = 0
     case LUA_TTABLE: break;
     default: fail(what + " is " + described(L, index) + ", which a rice cannot hold");
     }
-    if (depth > 16)
+    if (depth > 16 || !lua_checkstack(L, 2)) // a key and its value at each level
         fail(what + " is nested too deeply");
     RiceData table;
     auto length = static_cast<lua_Integer>(lua_rawlen(L, index));
@@ -2749,7 +2756,10 @@ void apply_profile(lua_State *L, const std::string &name) {
     lua_pop(L, 2);
 }
 void shadowed(lua_State *L, int config, int theme, const std::string &prefix,
-              std::vector<std::string> &result) {
+              std::vector<std::string> &result, int depth = 0) {
+    // As deep as overlay goes, a key, its value and the configuration's at each level.
+    if (depth > 16 || !lua_checkstack(L, 3))
+        return;
     config = lua_absindex(L, config);
     theme = lua_absindex(L, theme);
     lua_pushnil(L);
@@ -2759,7 +2769,7 @@ void shadowed(lua_State *L, int config, int theme, const std::string &prefix,
             lua_pushvalue(L, -2);
             lua_rawget(L, config);
             if (is_record(L, -1) && is_record(L, -2))
-                shadowed(L, -1, -2, name + ".", result);
+                shadowed(L, -1, -2, name + ".", result, depth + 1);
             else if (!lua_isnil(L, -1))
                 result.push_back(name);
             lua_pop(L, 1);

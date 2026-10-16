@@ -15,6 +15,9 @@ QImage imageFromHint(const QVariant &value) {
     if (!value.canConvert<QDBusArgument>())
         return {};
     const auto argument = value.value<QDBusArgument>();
+    // Of any other shape, libdbus would abort reading it as this one.
+    if (argument.currentSignature() != "(iiibiiay)")
+        return {};
     int width = 0, height = 0, stride = 0, bits = 0, channels = 0;
     bool alpha = false;
     QByteArray data;

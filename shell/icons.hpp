@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include "icon_lock.hpp"
 #include <QQuickImageProvider>
 
 // image://icons/NAME: a theme icon by name (or the first the theme has of several names

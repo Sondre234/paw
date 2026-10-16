@@ -700,12 +700,13 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(workspace_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(control_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            ${EXAMPLE_CONFIG})
+            ${EXAMPLE_CONFIG} ${CMAKE_CURRENT_SOURCE_DIR}/src/compositor/query.c)
         paw_smoke(swallow_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(pid_at_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
         paw_smoke(placement_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(sticky_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
+        paw_smoke(popup_parent_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(dynamic_rules_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(stacking_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
@@ -878,7 +879,7 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h
             ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c)
         paw_smoke(session_lock SCRIPT lock_smoke.py $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>
-            ${EXAMPLE_CONFIG})
+            ${EXAMPLE_CONFIG} $<TARGET_FILE:input_probe>)
         paw_smoke(binding_modes_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(locked_bindings_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(shortcuts_inhibit_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)

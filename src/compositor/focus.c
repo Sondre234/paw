@@ -273,9 +273,11 @@ bool hover_focuses(struct sh_server *server, struct sh_toplevel *toplevel) {
 }
 
 void focus_previous(struct sh_server *server) {
+    // Locked too: the layer surface may be on its way out (layer_destroy), and the lock
+    // surface has the keyboard meanwhile.
+    server->focused_layer = NULL;
     if (server->locked)
         return;
-    server->focused_layer = NULL;
     struct sh_toplevel *top = topmost_visible(server);
     if (top) {
         focus_toplevel(top);
