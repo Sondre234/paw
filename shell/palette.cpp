@@ -297,8 +297,8 @@ QVariantList Palette::home() const {
 void Palette::refreshResults() {
     const auto typed = query_.trimmed();
     // A calculation's value comes first; a leading = asks for nothing else, and a leading / for
-    // files alone. A few files otherwise go among the rest by how well they match. Nothing typed,
-    // it lists the sections of home().
+    // files alone. A few files otherwise go among the rest by how well they match. A filter's
+    // prefix alone lists every entry of its kind, and nothing typed the sections of home().
     const auto calc = calculator::entry(query_);
     if (typed.isEmpty()) {
         results_ = home();
@@ -306,10 +306,11 @@ void Palette::refreshResults() {
         results_.clear();
     } else if (typed.startsWith('/')) {
         results_ = controller_.files()->search(typed.sliced(1), 60);
+    } else if (QString(">@#%").contains(typed[0])) {
+        results_ = fuzzy::rank(entries_, query_,
+                               typed.size() == 1 ? static_cast<int>(entries_.size()) : 60);
     } else {
-        results_ = fuzzy::rank(entries_, query_);
-        if (!QString(">@#%").contains(typed[0]))
-            results_ = merged(results_, controller_.files()->search(typed, 5));
+        results_ = merged(fuzzy::rank(entries_, query_), controller_.files()->search(typed, 5));
     }
     // Spotlight lists what it found by kind, each under its heading, after the top hit.
     if (controller_.style() == "macos" && !typed.isEmpty() && results_.size() > 2) {

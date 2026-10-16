@@ -15,7 +15,8 @@ class ShellController;
 // its number, which running it copies to the clipboard; a file's is its path
 // (FileIndex::search); the web search's the address the browser opens (web_search::entry).
 //
-// With nothing typed it lists a few of each kind (home); a search lists the best 60.
+// With nothing typed it lists a few of each kind (home), and a filter's prefix alone (>, @, #
+// or %) every entry of its kind; a search lists the best 60.
 class Palette : public QObject {
     Q_OBJECT
     // The output showing the palette, empty while it is closed.
