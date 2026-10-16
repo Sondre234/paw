@@ -1625,6 +1625,11 @@ void ShellController::nudgeWorkspace(const QString &output, int way) {
 void ShellController::send(const QString &line) {
     request(line.toUtf8() + "\n", "The compositor needs a running paw session.");
 }
+void ShellController::keepShadowMaterial(QObject *shadow) {
+    auto *material = shadow ? shadow->property("material").value<QObject *>() : nullptr;
+    if (material && !material->parent())
+        material->setParent(shadow);
+}
 void ShellController::ask(const QByteArray &line, std::function<void(const QByteArray &)> done) {
     const auto path = qEnvironmentVariable("PAW_SOCKET");
     if (path.isEmpty())

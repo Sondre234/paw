@@ -1233,6 +1233,7 @@ what was there.
 | `EmptyState.qml` | What a list says while it has nothing to show: an icon, a line and a hint. |
 | `PopupCard.qml` | A popup's card: surface, outline, corners, a shadow through the GPU, the open and close animation, and its place beside what it belongs to. |
 | `CardFrame.qml` | A card's shadow, surface, outline and the macOS style's inner edge, beneath what it holds: a popup's, an overlay's, a notification's; with `shell.blur` the frosted glass under a translucent surface, and the glass's light edge and sheen. |
+| `Shadow.qml` | A shadow drawn through the GPU (`RectangularShadow`) under a card or a bar, which frees the shader effect it draws with as it goes: Qt's (6.11) makes that effect without a parent and never deletes it, so the shell gives it to the shadow (`ShellController::keepShadowMaterial`). |
 | `GlassFill.qml` | A rectangle in a popup's colour that is a card of its own, drawn by hand rather than by `CardFrame` (a tooltip, Notification Center's cards): on the frosted glass, translucent over a `Glass`. |
 | `Reveal.qml` | How far an overlay or a card is in view: its `progress`, easing to 1 while `shown` and back to 0 after, which the overlays and `PopupCard` take as their own. |
 | `PopupMenu.qml`, `MenuRow.qml` | A menu of plain entries on popup cards, with cascading submenus and keyboard navigation, and one row of it. |

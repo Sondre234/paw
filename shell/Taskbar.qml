@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
 import QtQuick.Controls.Basic
-import QtQuick.Effects
 import QtQuick.Layouts
 import Paw
 
@@ -52,7 +51,7 @@ Item {
         active: Theme.effects && taskbar.floating && Theme.barShadow.a > 0 && taskbar.dock < 1
         x: bar.x; y: bar.y; width: bar.width; height: bar.height
         opacity: 1 - taskbar.dock
-        sourceComponent: RectangularShadow {
+        sourceComponent: Shadow {
             radius: bar.radius
             blur: Theme.shadowBlur
             offset: Qt.vector2d(Theme.shadowOffsetX, Theme.shadowOffset)

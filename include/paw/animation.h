@@ -244,6 +244,9 @@ void sh_anim_morph_commit(struct sh_animator *animator, struct sh_anim *anim, in
                           bool answered);
 /* The size a morph draws the window at, false when it is not changing size. */
 bool sh_anim_drawn_size(const struct sh_anim *anim, int *width, int *height);
+/* Where the glide set the tree off from, as a position in its parent, false when it does not
+ * glide. */
+bool sh_anim_glide_from(const struct sh_anim *anim, int *x, int *y);
 /* A window arriving with its workspace: offsets `tree` by (dx, dy) and glides it back while it
  * fades in. */
 void sh_anim_slide(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,

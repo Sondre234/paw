@@ -899,6 +899,9 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   which its instruction budget cannot stop: `(""):rep(2^62)`, a string pattern that backtracks.
   The script runs first in a child process, as a configuration does, and one that has not
   finished there within 3 seconds is left out, the report saying it took too long.
+- The shell no longer loses some 2.7 KB of memory each time a shadow drawn through the GPU goes,
+  as the floating bar's does while a window docks it: Qt's shadow never frees the shader effect
+  it draws with, which the shell now hands to the shadow to go with it.
 
 ## 0.1.1 (2026-10-05)
 

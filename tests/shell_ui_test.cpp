@@ -6772,6 +6772,17 @@ ListModel {
             !waitFor([&] { return view.height() == controller.panelExtent() + 5; }) ||
             view.inputRegion() != QRegion(0, 0, view.width(), controller.panelExtent()))
             return fail("the bar's shadow has no room past the strip, or that room takes input");
+        // The shadow frees what it draws with as it goes (Shadow.qml): Qt's RectangularShadow
+        // leaves the shader effect it makes for itself to no one, never deleted.
+        auto *barShadow = find(view.rootObject(), "barShadow");
+        QObject *shadow = nullptr, *material = nullptr;
+        if (!waitFor([&] {
+                shadow = barShadow ? barShadow->property("item").value<QObject *>() : nullptr;
+                material = shadow ? shadow->property("material").value<QObject *>() : nullptr;
+                return material != nullptr;
+            }) ||
+            material->parent() != shadow)
+            return fail("the bar's shadow does not own the shader effect it draws with");
         // Moved between the bottom and the top, again and again as profiles do, the bar keeps its
         // own height at its margin from the edge it is along, with room for its shadow either way.
         for (bool top : {false, true, false, true}) {

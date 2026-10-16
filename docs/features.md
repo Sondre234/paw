@@ -1813,8 +1813,9 @@ where it is drawn, at the speed it has. `paw msg get drawn` prints where each wi
 now, in the order of `get windows`: app ID, title, its place and size as drawn, the size its
 surface is drawn at, what its change of size does (`rest`, `moving`, `waiting` for the
 application, `fading` what it drew before), how much of its frame shows and the factor an
-animation or a gesture gives its opacity (both in thousandths), for tests; `tests/morph_smoke.py`
-follows the changes with it.
+animation or a gesture gives its opacity (both in thousandths), and the place its glide set off
+from (where it is drawn while it does not glide), for tests; `tests/morph_smoke.py` follows the
+changes with it.
 
 Animations are interruptible: a tile that is gliding when the layout changes again continues
 from where it is drawn, at the speed it has, and never snaps. Each kind (`open`, `close`,
@@ -3010,7 +3011,9 @@ layer surface), its app ID or namespace, and its title (empty for a layer surfac
 in the monitor's coordinates, the one that counts first), then a `fold` line per window on its
 way into or out of its button (its number, `minimize` or `restore`, how far into the button it
 is drawn in thousandths, the box in layout coordinates, what that box is: `button`, `panel` or
-`place`, and where the window's box is drawn now), also mainly for tests. `paw msg get pictures`
+`place`, where the window's box is drawn now, how far into the button it set off from, and the
+window's box unfolded: where a copy set off from, or where a window restored comes out to), also
+mainly for tests. `paw msg get pictures`
 prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
