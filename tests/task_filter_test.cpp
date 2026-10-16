@@ -217,6 +217,23 @@ class TaskFilterTest : public QObject {
         filter.setByMonitor(false);
         QCOMPARE(taskIds(filter), (QList<int>{1, 2, 3, 4, 5}));
     }
+    // With an output, the windows on that monitor and those on none known yet.
+    void windowsOfAMonitor() {
+        FakeTasks tasks;
+        tasks.add("a", "one", "main");
+        tasks.add("a", "two", "left");
+        tasks.add("a", "three");
+        TaskFilter filter;
+        filter.setSourceModel(&tasks);
+        filter.setOutput("left");
+        QCOMPARE(taskIds(filter), (QList<int>{2, 3}));
+        tasks.move(1, "left");
+        QCOMPARE(taskIds(filter), (QList<int>{1, 2, 3}));
+        tasks.move(2, "main");
+        QCOMPARE(taskIds(filter), (QList<int>{1, 3}));
+        filter.setOutput("");
+        QCOMPARE(taskIds(filter), (QList<int>{1, 2, 3}));
+    }
     // A stacked button is urgent when any window of its application is.
     void urgencyOfAStackedButton() {
         TaskFilter app3, app4;
@@ -248,12 +265,13 @@ class TaskbarOrderTest : public QObject {
     using Entry = TaskbarOrder::Entry;
 
     // The shown entries, as "a" for a pinned application's and "3" for window 3's.
-    QStringList shown(bool grouped = false) {
+    QStringList shown(const TaskbarOrder::View &view) {
         QStringList list;
-        for (const auto &entry : order->shown(grouped))
+        for (const auto &entry : order->shown(view))
             list.push_back(entry.pin.isEmpty() ? QString::number(entry.taskId) : entry.pin);
         return list;
     }
+    QStringList shown(bool grouped = false) { return shown(TaskbarOrder::View{grouped}); }
     // Lets the windows just added take their places.
     void settle() { QCoreApplication::processEvents(); }
 
@@ -450,6 +468,33 @@ class TaskbarOrderTest : public QObject {
         settle();
         source->move(4, "left");
         QCOMPARE(shown(), (QStringList{"a", "b", "4", "1", "2", "3"}));
+    }
+    // A taskbar showing one monitor's windows (shell.taskbar_buttons) leaves out those on others,
+    // but not those on none known yet, and shows a pinned application's launcher only where
+    // launchers show, while none of its windows is on that monitor. Dragging there moves among
+    // what it shows, leaving the other monitors' buttons where they are.
+    void aMonitorsOwnWindows() {
+        using View = TaskbarOrder::View;
+        source->add("a", "a one", "main");
+        source->add("c", "c one", "left");
+        source->add("c", "c two", "main");
+        source->add("d", "d one");
+        settle();
+        QCOMPARE(shown(), (QStringList{"1", "b", "2", "3", "4"}));
+        QCOMPARE(shown(View{false, "main"}), (QStringList{"1", "b", "3", "4"}));
+        QCOMPARE(shown(View{false, "left", false}), (QStringList{"2", "4"}));
+        QCOMPARE(shown(View{false, "left", true}), (QStringList{"a", "b", "2", "4"}));
+        QCOMPARE(shown(View{true, "left", false}), (QStringList{"2", "4"}));
+        QCOMPARE(shown(View{true, "left"}), (QStringList{"a", "b", "2", "4"}));
+        QCOMPARE(order->windowOf({"a"}, "left"), -1);
+        QCOMPARE(order->windowOf({"a"}, "main"), 1);
+        source->move(3, "left");
+        QCOMPARE(shown(View{false, "left", false}), (QStringList{"2", "3", "4"}));
+        QCOMPARE(shown(View{false, "main"}), (QStringList{"1", "b", "4"}));
+        order->move(2, 0, View{false, "left", false});
+        QCOMPARE(shown(View{false, "left", false}), (QStringList{"4", "2", "3"}));
+        QCOMPARE(shown(View{false, "main"}), (QStringList{"1", "b", "4"}));
+        QVERIFY(reordered.isEmpty());
     }
     // Grouped, an application's button stays put: no window moves among the others.
     void groupedNothingFollows() {

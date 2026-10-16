@@ -130,6 +130,13 @@ void TaskFilter::setByMonitor(bool byMonitor) {
     resort();
     Q_EMIT byMonitorChanged();
 }
+void TaskFilter::setOutput(const QString &output) {
+    if (output_ == output)
+        return;
+    output_ = output;
+    refilter();
+    Q_EMIT outputChanged();
+}
 void TaskFilter::setOutputPlace(TaskbarOrder::OutputPlace place) {
     place_ = std::move(place);
     if (byMonitor_)
@@ -156,7 +163,8 @@ bool TaskFilter::lessThan(const QModelIndex &left, const QModelIndex &right) con
 }
 bool TaskFilter::decides(const QList<int> &roles) const {
     return roles.isEmpty() || roles.contains(roleId("appId")) ||
-           (windowId_ > 0 && roles.contains(roleId("windowId")));
+           (windowId_ > 0 && roles.contains(roleId("windowId"))) ||
+           (!output_.isEmpty() && roles.contains(roleId("output")));
 }
 int TaskFilter::roleId(const char *role) const {
     auto found = roleIds_.constFind(role);
@@ -182,6 +190,9 @@ bool TaskFilter::belongs(int row) const {
         return sourceValue(row, "taskId").toInt() == taskId_;
     if (windowId_ > 0)
         return sourceValue(row, "windowId").toInt() == windowId_;
+    if (!output_.isEmpty())
+        if (const auto output = sourceValue(row, "output").toString(); !output.isEmpty() && output != output_)
+            return false;
     const auto appId = sourceValue(row, "appId").toString();
     if (!windowApp_.isEmpty() && appId != windowApp_)
         return false;

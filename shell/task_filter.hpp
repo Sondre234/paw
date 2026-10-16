@@ -12,6 +12,8 @@ class ShellController;
 // windows with the same app id are, and those without one stand alone. `taskId`, when 0 or more,
 // keeps only the window with that id, wherever it belongs, and `windowId`, when above 0, only the
 // window the compositor gives that number (the source's windowId role), as the switcher lists it.
+// `output`, when set, keeps only the windows on that monitor (and those on none known yet), as a
+// taskbar showing its monitor's windows alone has them (shell.taskbar_buttons).
 // The windows are in the source's order, or with `byMonitor` in the order of their monitors in
 // the layout (left to right, top to bottom at the same x; those on a monitor not known last),
 // each monitor's in the source's.
@@ -24,6 +26,7 @@ class TaskFilter : public QSortFilterProxyModel {
     Q_PROPERTY(int taskId READ taskId WRITE setTaskId NOTIFY taskIdChanged)
     Q_PROPERTY(int windowId READ windowId WRITE setWindowId NOTIFY windowIdChanged)
     Q_PROPERTY(bool byMonitor READ byMonitor WRITE setByMonitor NOTIFY byMonitorChanged)
+    Q_PROPERTY(QString output READ output WRITE setOutput NOTIFY outputChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
     // The focused window among these, or -1, and whether every one of them is minimized.
     Q_PROPERTY(int activeTask READ activeTask NOTIFY summaryChanged)
@@ -49,6 +52,8 @@ class TaskFilter : public QSortFilterProxyModel {
     void setWindowId(int windowId);
     bool byMonitor() const { return byMonitor_; }
     void setByMonitor(bool byMonitor);
+    QString output() const { return output_; }
+    void setOutput(const QString &output);
     // Where the monitors are: TaskbarOrder::screenPlace until set otherwise.
     void setOutputPlace(TaskbarOrder::OutputPlace place);
     int count() const { return rowCount(); }
@@ -67,6 +72,7 @@ class TaskFilter : public QSortFilterProxyModel {
     void taskIdChanged();
     void windowIdChanged();
     void byMonitorChanged();
+    void outputChanged();
     void countChanged();
     void summaryChanged();
 
@@ -76,7 +82,7 @@ class TaskFilter : public QSortFilterProxyModel {
 
   private:
     QPointer<ShellController> shell_;
-    QString app_, windowApp_;
+    QString app_, windowApp_, output_;
     bool grouped_ = false, byMonitor_ = false;
     int taskId_ = -1, windowId_ = 0;
     TaskbarOrder::OutputPlace place_ = &TaskbarOrder::screenPlace;

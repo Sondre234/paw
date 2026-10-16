@@ -46,12 +46,12 @@ TaskbarOrder::TaskbarOrder(QAbstractItemModel *source) : QObject(source), source
     // goes.
     connect(source, &QAbstractItemModel::dataChanged, this,
             [this](const QModelIndex &first, const QModelIndex &last, const QList<int> &roles) {
-                bool moved = false;
-                if (const int id = roleId("taskId"); id >= 0 && !first.parent().isValid() &&
-                                                    (roles.isEmpty() || roles.contains(roleId("output"))))
+                // A taskbar showing one monitor's windows shows others as one moves.
+                const bool outputs = roles.isEmpty() || roles.contains(roleId("output"));
+                if (const int id = roleId("taskId"); id >= 0 && !first.parent().isValid() && outputs)
                     for (int row = first.row(); row <= last.row(); ++row)
-                        moved |= noteOutput(source_->data(source_->index(row, 0), id).toInt());
-                if (moved || roles.isEmpty() || roles.contains(roleId("appId")))
+                        noteOutput(source_->data(source_->index(row, 0), id).toInt());
+                if (outputs || roles.contains(roleId("appId")))
                     Q_EMIT changed();
             });
     // The windows open already wait for the pins, which say where they go.
@@ -93,13 +93,19 @@ QString TaskbarOrder::pinOf(const Entry &entry) const {
         return entry.pin;
     return pins_.pinnedAppFor ? pins_.pinnedAppFor(appId(entry.taskId)) : QString();
 }
-int TaskbarOrder::windowOf(const Entry &entry) const {
+int TaskbarOrder::windowOf(const Entry &entry, const QString &output) const {
     if (entry.pin.isEmpty())
         return entry.taskId;
     for (const auto &other : entries_)
-        if (other.pin.isEmpty() && pinOf(other) == entry.pin)
+        if (other.pin.isEmpty() && pinOf(other) == entry.pin && onOutput(other.taskId, output))
             return other.taskId;
     return -1;
+}
+bool TaskbarOrder::onOutput(int taskId, const QString &output) const {
+    if (output.isEmpty())
+        return true;
+    const auto on = this->output(taskId);
+    return on.isEmpty() || on == output;
 }
 void TaskbarOrder::indexRows() {
     rows_.clear();
@@ -257,20 +263,24 @@ void TaskbarOrder::syncPins() {
         entries_.insert(at, Entry{pin});
     }
 }
-QList<TaskbarOrder::Entry> TaskbarOrder::shown(bool grouped) const {
+QList<TaskbarOrder::Entry> TaskbarOrder::shown(const View &view) const {
     QList<Entry> list;
-    // Apart: the pinned applications with a window. Grouped: the app ids with a button already.
+    // The pinned applications with a window shown.
+    QSet<QString> pinned;
+    for (const auto &entry : entries_)
+        if (entry.pin.isEmpty() && onOutput(entry.taskId, view.output))
+            if (const auto pin = pinOf(entry); !pin.isEmpty())
+                pinned.insert(pin);
+    // Grouped, the app ids with a button already.
     QSet<QString> apps;
-    if (!grouped)
-        for (const auto &entry : entries_)
-            if (entry.pin.isEmpty())
-                if (const auto pin = pinOf(entry); !pin.isEmpty())
-                    apps.insert(pin);
     for (const auto &entry : entries_) {
         if (!entry.pin.isEmpty()) {
-            if (grouped || !apps.contains(entry.pin))
+            const bool windows = pinned.contains(entry.pin);
+            if (view.grouped ? windows || view.launchers : !windows && view.launchers)
                 list.push_back(entry);
-        } else if (!grouped) {
+        } else if (!onOutput(entry.taskId, view.output)) {
+            continue;
+        } else if (!view.grouped) {
             list.push_back(entry);
         } else if (pinOf(entry).isEmpty()) {
             const auto app = appId(entry.taskId);
@@ -283,8 +293,9 @@ QList<TaskbarOrder::Entry> TaskbarOrder::shown(bool grouped) const {
     }
     return list;
 }
-void TaskbarOrder::move(int from, int to, bool grouped) {
-    const auto list = shown(grouped);
+void TaskbarOrder::move(int from, int to, const View &view) {
+    const bool grouped = view.grouped;
+    const auto list = shown(view);
     if (from < 0 || to < 0 || from >= list.size() || to >= list.size() || from == to)
         return;
     const auto moved = list[from], target = list[to];
@@ -307,9 +318,10 @@ void TaskbarOrder::move(int from, int to, bool grouped) {
     if (to > from) {
         ++at;
     } else {
-        // Ahead of the entries not shown just before the target too: a pinned application's place
-        // keeps to the button after it.
-        while (at > 0 && !list.contains(rest[at - 1]))
+        // Ahead of the entries no taskbar shows just before the target too: a pinned application's
+        // place keeps to the button after it.
+        const auto anywhere = view.output.isEmpty() && view.launchers ? list : shown(View{grouped});
+        while (at > 0 && !anywhere.contains(rest[at - 1]))
             --at;
     }
     for (qsizetype i = 0; i < taken.size(); ++i)
@@ -346,13 +358,27 @@ void TaskbarModel::setSourceModel(QAbstractItemModel *source) {
     Q_EMIT sourceModelChanged();
 }
 void TaskbarModel::setGrouped(bool grouped) {
-    if (grouped_ == grouped)
+    if (view_.grouped == grouped)
         return;
-    grouped_ = grouped;
+    view_.grouped = grouped;
     if (order_)
         order_->setByMonitor(!grouped);
     update();
     Q_EMIT groupedChanged();
+}
+void TaskbarModel::setOutput(const QString &output) {
+    if (view_.output == output)
+        return;
+    view_.output = output;
+    update();
+    Q_EMIT outputChanged();
+}
+void TaskbarModel::setShowLaunchers(bool show) {
+    if (view_.launchers == show)
+        return;
+    view_.launchers = show;
+    update();
+    Q_EMIT showLaunchersChanged();
 }
 void TaskbarModel::attach() {
     for (const auto &connection : connections_)
@@ -369,7 +395,7 @@ void TaskbarModel::attach() {
     if (!order_)
         return;
     // Apart, a window's button follows its monitor; grouped, an application's button stays put.
-    order_->setByMonitor(!grouped_);
+    order_->setByMonitor(!view_.grouped);
     if (auto *shell = qobject_cast<ShellController *>(shell_); shell && !order_->hasPins()) {
         QPointer<ShellController> pins(shell);
         order_->setPins({
@@ -425,9 +451,9 @@ void TaskbarModel::update() {
                 const auto record = app.toMap();
                 apps.insert(record["appId"].toString(), record);
             }
-        for (const auto &entry : order_->shown(grouped_))
+        for (const auto &entry : order_->shown(view_))
             next.push_back({entry, order_->pinOf(entry), entry.pin.isEmpty() ? QVariantMap() : apps.value(entry.pin),
-                            order_->windowOf(entry)});
+                            order_->windowOf(entry, view_.output)});
     }
     auto indexIn = [](const QList<Row> &list, const TaskbarOrder::Entry &entry) -> qsizetype {
         for (qsizetype i = 0; i < list.size(); ++i)
@@ -575,13 +601,13 @@ void TaskbarModel::forward(const QModelIndex &first, const QModelIndex &last, co
 }
 void TaskbarModel::move(int from, int to) {
     if (order_)
-        order_->move(from, to, grouped_);
+        order_->move(from, to, view_);
 }
 int TaskbarModel::rowOf(int taskId) const {
     for (qsizetype i = 0; i < rows_.size(); ++i)
         if (rows_[i].window == taskId)
             return int(i);
-    if (!grouped_ || !order_)
+    if (!view_.grouped || !order_)
         return -1;
     // Grouped, the row of its application.
     const auto pin = order_->pinOf({{}, taskId}), app = order_->appId(taskId);
