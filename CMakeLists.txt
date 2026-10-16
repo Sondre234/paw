@@ -932,6 +932,8 @@ if(PAW_BUILD_COMPOSITOR)
                 $<TARGET_FILE:wayland_probe>)
             paw_smoke(xwayland_grab_smoke $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe>
                 $<TARGET_FILE:wayland_probe>)
+            paw_smoke(xwayland_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:x11_probe>
+                $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
         else()
             message(STATUS "XWayland test skipped: needs an Xwayland binary and wlroots X support")
         endif()

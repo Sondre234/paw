@@ -535,7 +535,8 @@ struct sh_server {
     bool grab_fullscreen; // the grabbed window is fullscreen until it is dragged far enough
     unsigned scratchpad_serial;  // counts windows put into the scratchpad, to order them
     bool scratchpad_off_logged;  // said once that features.scratchpad is off
-    struct wlr_output *grab_output; // where the grabbed window was when the grab began
+    // Where the grabbed window was when the grab began; NULL once that output is gone.
+    struct wlr_output *grab_output;
     /* The window switcher: a list of every window taken as it opens, most recently focused
      * first. It stays open while `modifiers` (the opening binding's, less Shift) are all held,
      * or with none until confirmed or cancelled; the shell draws it on `output`. */
@@ -627,6 +628,8 @@ struct sh_server {
     char sent_state[8192];      // the state they last received
     char control_path[108];
     struct wl_event_source *control_source;
+    struct wl_event_source *control_resume; // watches it again after running out of descriptors
+    bool control_starved; // out of descriptors since the last connection taken; said once
     struct wlr_scene_tree *layer_trees[4];
     struct wl_list layers;
     struct wl_listener new_layer_surface;
@@ -755,6 +758,7 @@ struct sh_server {
     struct wl_listener request_set_selection, request_set_primary_selection;
     struct wl_listener request_start_drag, start_drag;
     struct wl_listener drag_end; // on the drag under way, which there is one of at most
+    bool refusing_drag;          // a drag turned down is started to end at once (refuse_drag)
     struct wlr_scene_tree *drag_icons; // follows the cursor during drag-and-drop
     struct wl_listener request_activate;
     struct wlr_relative_pointer_manager_v1 *relative_pointer;

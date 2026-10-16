@@ -577,6 +577,7 @@ static bool overview_begin(struct sh_server *server, struct wlr_output *output, 
         overview->tree = wlr_scene_tree_create(server->overview_layer);
         if (!overview->tree) {
             overview->assist = false;
+            overview->assist_from = NULL; // kept NULL while closed (overview_forget)
             return false;
         }
         float clear[4] = {0, 0, 0, 0};

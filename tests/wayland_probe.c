@@ -83,8 +83,12 @@ struct probe {
     bool print_keymap, keymap_seen; // --keymap
     // PAW_PROBE_DRAG=source: a button press on the window drags a line of text from it, as
     // a file manager drags a file; =target: the window takes text dropped on it. Either prints
-    // what it hears (see the data source's and data device's listeners).
-    bool drag_source, drag_target;
+    // what it hears (see the data source's and data device's listeners). =bare: a press drags
+    // nothing, with no data source and an icon, as a drag within one window does; the first
+    // with a serial the press did not give, which the compositor turns down. Each prints
+    // "bare drag asked" once the compositor has had the request.
+    bool drag_source, drag_target, drag_bare;
+    int bare_drags;
     struct wl_data_device_manager *data_manager;
     struct wl_data_device *data_device;
     struct wl_data_offer *offer; // the drag's offer while it is over the window
@@ -277,6 +281,22 @@ static void start_drag(struct probe *probe, uint32_t serial) {
     wl_data_source_set_actions(source, WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY |
                                            WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE);
     wl_data_device_start_drag(probe->data_device, source, probe->surface, NULL, serial);
+}
+/* The compositor has had the request: the drag is under way or turned down, and its icon (which
+ * shows nothing, having no buffer) can go. */
+static void bare_drag_asked(void *data, struct wl_callback *callback, uint32_t time) {
+    wl_callback_destroy(callback);
+    wl_surface_destroy(data);
+    say("bare drag asked");
+}
+static const struct wl_callback_listener bare_drag_asked_listener = {.done = bare_drag_asked};
+/* PAW_PROBE_DRAG=bare's drag. */
+static void start_bare_drag(struct probe *probe, uint32_t serial) {
+    struct wl_surface *icon = wl_compositor_create_surface(probe->compositor);
+    if (probe->bare_drags++ == 0)
+        serial += 1000; // not the press's
+    wl_data_device_start_drag(probe->data_device, NULL, probe->surface, icon, serial);
+    wl_callback_add_listener(wl_display_sync(probe->display), &bare_drag_asked_listener, icon);
 }
 static void offer_offer(void *data, struct wl_data_offer *offer, const char *mime) {}
 static void offer_source_actions(void *data, struct wl_data_offer *offer, uint32_t actions) {}
@@ -550,6 +570,8 @@ static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t seri
         xdg_toplevel_move(probe->toplevel, probe->seat, serial);
     else if (probe->drag_source && state == WL_POINTER_BUTTON_STATE_PRESSED)
         start_drag(probe, serial);
+    else if (probe->drag_bare && state == WL_POINTER_BUTTON_STATE_PRESSED)
+        start_bare_drag(probe, serial);
 }
 static void pointer_axis(void *data, struct wl_pointer *pointer, uint32_t time, uint32_t axis,
                          wl_fixed_t value) {}
@@ -981,13 +1003,14 @@ int main(int argc, char **argv) {
     const char *drag = getenv("PAW_PROBE_DRAG");
     probe.drag_source = drag && !strcmp(drag, "source");
     probe.drag_target = drag && !strcmp(drag, "target");
-    if (probe.drag_source || probe.drag_target) {
+    probe.drag_bare = drag && !strcmp(drag, "bare");
+    if (probe.drag_source || probe.drag_target || probe.drag_bare) {
         if (!probe.data_manager)
             die("wl_data_device_manager version 3 is not advertised");
         probe.data_device = wl_data_device_manager_get_data_device(probe.data_manager, probe.seat);
         wl_data_device_add_listener(probe.data_device, &device_listener, &probe);
     }
-    if (probe.move_on_press || probe.drag_source)
+    if (probe.move_on_press || probe.drag_source || probe.drag_bare)
         wl_pointer_add_listener(wl_seat_get_pointer(probe.seat), &pointer_listener, &probe);
     // Tests telling several probes apart name them through PAW_PROBE_TITLE, and window
     // rule tests through PAW_PROBE_APP_ID.

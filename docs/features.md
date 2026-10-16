@@ -3040,7 +3040,11 @@ to every subscriber; while no client subscribed that way, the compositor runs `w
 `brightnessctl` for them itself. The state also says the [binding mode](#binding-modes) in use
 as `mode NAME` (`default` outside any). Children of the session find the socket through
 `PAW_SOCKET`. Actions are
-refused while the session is locked.
+refused while the session is locked. A connection has five seconds to send its request, a line
+shorter than 4096 bytes, or it is told `error: no request within 5 seconds` and closed; at most 64
+wait for theirs at once, the one waiting longest told `error: too many connections waiting` and
+closed for each new one. Out of file descriptors, the compositor stops taking connections for a
+quarter of a second at a time, rather than failing to take one at full speed.
 
 ## Commands
 
@@ -3767,7 +3771,9 @@ pointer lock and relative motion for games, tearing-control for games that want 
 shown at once (see [Tearing](#tearing)), and xdg-foreign for portal dialogs.
 xdg-activation lets an application raise itself, so a link clicked in a chat brings the
 browser forward; paw honours every valid token and does not prevent focus stealing.
-Popup menus are kept on the output of their window.
+Popup menus are kept on the output of their window. A drag of nothing (without a data source,
+which an application may start within its own window) is turned down while XWayland runs, whose
+window manager in wlroots 0.20 would crash on one.
 
 Firefox and GTK applications draw their own minimize, maximize, and close buttons, laid
 out by GTK's `button-layout` setting, which desktops without title bar buttons (HyDE on
