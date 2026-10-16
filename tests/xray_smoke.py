@@ -77,7 +77,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     assert [(e["layer"], e["kind"], e["title"]) for e in view["entries"]] == [
         ("background", "colour", view["entries"][0]["title"]), ("windows", "window", "A"),
         ("windows", "window", "B"), ("above", "window", "C")], view
-    assert all(e["sheet"] == -1 for e in view["entries"])
+    assert all(e["sheet"] == -1 for e in view["entries"]), view
 
     # `paw xray` opens it: a sheet for the background and one for each window.
     subprocess.run([compositor, "xray"], env=desktop.env, check=True, timeout=20)
@@ -96,19 +96,22 @@ with harness.Compositor(compositor, CONFIG) as desktop:
             below = stack[i - 1][0]
             assert x > below[0] and y < below[1], f"sheet {i} up and right of {i - 1}"
     # The windows stay where they are, as they were stacked, and are drawn there.
-    assert (windows(), stacking(), msg("get", "drawn")) == before
+    now = (windows(), stacking(), msg("get", "drawn"))
+    assert now == before, (now, before)
 
     # The keys go up and down the stack; Escape closes it.
     for code, hovered in ((KEY_TAB, 0), (KEY_UP, 1), (KEY_END, 3), (KEY_DOWN, 2), (KEY_HOME, 0),
                           (KEY_DOWN, 0)):
         keys(code)
         wait_for(lambda: xray()["hovered"] == hovered, f"key {code} selects sheet {hovered}")
-    assert (windows(), stacking()) == before[:2], "keys do nothing else"
+    now = (windows(), stacking())
+    assert now == before[:2], ("keys do nothing else", now, before[:2])
     keys(KEY_ESC)
     wait_for(lambda: xray()["state"] == "closed", "Escape closed it")
     view = xray()
     assert all(e["sheet"] == -1 for e in view["entries"]) and view["hovered"] == -1, view
-    assert (windows(), stacking(), msg("get", "drawn")) == before
+    now = (windows(), stacking(), msg("get", "drawn"))
+    assert now == before, (now, before)
     if shot:
         wait_for(lambda: harness.grab(grim, desktop.env).pixels == shot.pixels,
                  "the screen as it was before")
@@ -119,7 +122,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     keys(KEY_LEFTMETA, KEY_X)
     wait_for(lambda: xray()["state"] == "closed", "the binding closed it")
     msg("xray")
-    assert xray()["state"] == "open"
+    assert xray()["state"] == "open", desktop.detail()
 
     # The pointer hovers the topmost sheet under it and turns the stack; the backdrop is no
     # sheet's.
@@ -129,7 +132,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         stack = sheets(xray())
         return stack[3][0][0] - stack[0][0][0] > at_rest[3][0][0] - at_rest[0][0][0]
     wait_for(leaning, "moved left, the stack leans further right")
-    assert xray()["hovered"] == -1, "nothing hovered on the backdrop"
+    assert xray()["hovered"] == -1, f"nothing hovered on the backdrop; {desktop.detail()}"
     turned = sheets(xray())
     for x, y in ((W // 2, H // 2), (W // 3, 2 * H // 3), (2 * W // 3, H // 3)):
         pointer("move", str(x), str(y))
@@ -166,7 +169,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     pointer("move", "8", "8")
     pointer("click", "left")
     wait_for(lambda: xray()["state"] == "closed", "a click on the backdrop closed it")
-    assert windows() == before[0], "no window got the click"
+    assert windows() == before[0], ("no window got the click", windows(), before[0])
 
     # A click on a window's sheet goes to that window. The pointer moved there turns the stack;
     # 0 sets it straight again with the pointer there.
@@ -199,7 +202,8 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     pointer("click", "left")
     wait_for(lambda: xray()["state"] == "closed" and windows()["A"][4], "the click went to A")
     after = windows()
-    assert {t: w[:4] for t, w in after.items()} == {t: w[:4] for t, w in before[0].items()}
+    assert {t: w[:4] for t, w in after.items()} == {t: w[:4] for t, w in before[0].items()}, \
+        (after, before[0])
 
     # Windows opening and closing while it is open get and lose their sheets; past six, the
     # windows share their layer's.
@@ -216,7 +220,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     extra.terminate()
     desktop.reap(extra)
     wait_for(lambda: not any(e["title"] == "D" for e in xray()["entries"]), "D's sheet gone")
-    assert len(sheets(xray())) == 4
+    assert len(sheets(xray())) == 4, desktop.detail()
     many = [desktop.open_window(probe, f"M{i}", "zz") for i in range(4)]
     def shared():
         stack = sheets(xray())
@@ -248,7 +252,7 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     assert desktop.reap(locker) == 0
     wait_for(lambda: "Session unlocked" in desktop.log.read_text(), "unlocked")
     msg("xray")
-    assert xray()["state"] == "open"
+    assert xray()["state"] == "open", desktop.detail()
     msg("xray")
 
     # Open on an output that goes, it closes with it.
@@ -256,11 +260,12 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     wait_for(lambda: any(e["output"] == "HEADLESS-2" for e in xray()["entries"]),
              "the second output listed")
     msg("output", "HEADLESS-2", "xray")
-    assert xray()["state"] == "open" and xray()["output"] == "HEADLESS-2"
+    view = xray()
+    assert view["state"] == "open" and view["output"] == "HEADLESS-2", view
     msg("headless_output", "remove", "HEADLESS-2")
     wait_for(lambda: xray()["state"] == "closed", "closed with its output")
     msg("xray")
-    assert xray()["output"] == "HEADLESS-1"
+    assert xray()["output"] == "HEADLESS-1", desktop.detail()
 
     # Open and still, it draws nothing: the copies are made again only as what they copy changes.
     def frames():
@@ -278,7 +283,9 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     drawn = frames()
     desktop.stays(lambda: frames() == drawn, "no frame drawn while nothing changes", duration=.5)
     msg("xray")
-    assert {t: w[:4] for t, w in windows().items()} == {t: w[:4] for t, w in before[0].items()}
+    now = windows()
+    assert {t: w[:4] for t, w in now.items()} == {t: w[:4] for t, w in before[0].items()}, \
+        (now, before[0])
     wait_for(still, "the closing drawn")
     drawn = frames()
     desktop.stays(lambda: frames() == drawn, "no frame drawn once closed", duration=.5)
@@ -293,5 +300,6 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     msg("xray")
     assert xray()["state"] == "closing", xray()
     wait_for(lambda: xray()["state"] == "closed", "closed back into the screen")
-    assert (windows(), stacking()) == settled
+    now = (windows(), stacking())
+    assert now == settled, (now, settled)
 print("X-ray passed")
