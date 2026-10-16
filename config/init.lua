@@ -400,8 +400,10 @@ return {
     -- Notifications (the shell answers org.freedesktop.Notifications) and the on-screen display:
     -- notifications = { position = "top-right", timeout = 6000, max_visible = 4, dnd = false },
     -- osd = { position = "bottom", timeout = 1500, volume = true, brightness = true },
-    -- The screen locker the lock action starts ({} for none):
-    -- power = { lock_command = { "swaylock", "-f" } },
+    -- The screen locker the lock action starts ({} for none). The stock swaylock wears the
+    -- profile's wallpaper, colours and font unless swaylock has a config of its own or
+    -- lock_style = false:
+    -- power = { lock_command = { "swaylock", "-f" }, lock_style = true },
     -- Power saving after so many seconds without input (0 never): the screens dim (unset, 30
     -- seconds before display_off), the monitors turn off, the screen locks, the machine
     -- suspends; `battery` may hold shorter ones for a laptop on battery, as

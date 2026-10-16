@@ -98,6 +98,11 @@ shadows.
 - Icons follow the desktop's icon theme (GNOME's setting, GTK's `settings.ini` or KDE's
   `kdeglobals`) when no Qt platform theme names one, rather than hicolor alone, and fall back to
   Breeze, Adwaita or Papirus, so that generic icons are found.
+- The lock screen follows the appearance profile: the stock `swaylock -f` shows the profile's
+  wallpaper (the one picked from the panel too) and draws its ring in the shell's panel, accent,
+  text, border and urgent colours with its font, where every rice locked to swaylock's plain
+  grey. A swaylock configuration of your own, another `power.lock_command` or
+  `power.lock_style = false` leaves swaylock as it is.
 
 ### The tiling bar
 

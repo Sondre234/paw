@@ -727,6 +727,12 @@ const Option options[] = {
      none,
      "The screen locker `lock` starts, an `ext-session-lock-v1` client, as a program and its "
      "arguments; `{}` for none. Locking is offered only while the program is installed."},
+    {"power.lock_style", "boolean", "true", "false", none, none,
+     "Dress the stock locker, `swaylock -f`, in the appearance profile's look: its wallpaper "
+     "(the one picked from the panel, else `shell.wallpaper`) over `appearance.background`, "
+     "and the ring in the shell's accent, panel, text and urgent colours with its font. Only "
+     "while `lock_command` is left at its default and swaylock has no configuration file of "
+     "its own (`~/.config/swaylock/config`, `~/.swaylock/config`, `/etc/swaylock/config`)."},
     {"power.lock_before_sleep", "boolean", "true", "true", none, none,
      "Lock the screen with `lock_command` before the machine sleeps, whether `suspend`, "
      "`hibernate`, the lid or an idle daemon sends it to sleep, and hold the sleep until the "

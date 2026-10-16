@@ -266,6 +266,9 @@ struct ScreenshotConfig {
 struct PowerConfig {
     // The screen locker the `lock` action starts; empty for none.
     Command lock_command{"swaylock", "-f"};
+    // lock_style: that command, while it is the stock swaylock -f and swaylock has no
+    // configuration of its own, gets the appearance profile's look (src/lock_style.cpp).
+    bool lock_style = true;
     // Seconds the shell's confirmation of power off, reboot and log out counts down before it
     // goes ahead; 0 waits for a click.
     int countdown = 10;

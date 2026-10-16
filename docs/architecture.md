@@ -11,7 +11,9 @@ covers branches, building, testing and committing; [features.md](features.md) de
   `include/paw/backend.h`). Then it hands over to `sh_run`, the C compositor in
   `src/compositor/`, which calls back `startup` once it runs: the shell, the `startup` commands
   and, in a login session, the XDG autostart entries (`src/autostart.cpp`, tested by
-  `autostart_tests`). `paw msg ...` is the same binary acting as a control client.
+  `autostart_tests`). Its `lock` callback starts the screen locker, the stock swaylock with
+  arguments for the appearance profile's look (`src/lock_style.cpp`, tested by
+  `lock_style_tests`). `paw msg ...` is the same binary acting as a control client.
 - **`paw-shell`** (`shell/`) is the Qt Quick shell: panels, launcher, notifications, tray, OSD,
   and the text of the switcher and overview. It is an ordinary layer-shell client that
   connects to the control socket with `subscribe` and gets state lines and events.
