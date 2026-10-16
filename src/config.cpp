@@ -1977,6 +1977,30 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
               "cat.coat must be \"auto\", \"ginger\", \"black\", \"cream\" or \"grey\"", "coat");
         settings.cat_sleep = integer(L, "sleep_after", settings.cat_sleep, 5, 3600);
     }
+    // `profile_schedule`; that its names are profiles is checked once every profile is known.
+    if (Section in{L, "profile_schedule"}) {
+        auto &schedule = config.settings.profile_schedule;
+        auto day = text(L, "day"), night = text(L, "night");
+        if (!day || !night)
+            fail("profile_schedule needs a day and a night profile, as "
+                 "{ day = \"light\", night = \"dark\" }");
+        copy_text(*day, schedule.day, "profile_schedule.day");
+        copy_text(*night, schedule.night, "profile_schedule.night");
+        auto sunrise = text(L, "sunrise"), sunset = text(L, "sunset");
+        if (sunrise.has_value() != sunset.has_value())
+            fail("profile_schedule.sunrise and sunset go together: set both, or neither to "
+                 "follow night_light's",
+                 sunrise ? "sunrise" : "sunset");
+        if (sunrise) {
+            if (!sh_parse_clock(sunrise->c_str(), &schedule.sunrise))
+                fail("profile_schedule.sunrise must be a time like \"07:00\"", "sunrise");
+            if (!sh_parse_clock(sunset->c_str(), &schedule.sunset))
+                fail("profile_schedule.sunset must be a time like \"20:00\"", "sunset");
+            if (schedule.sunrise == schedule.sunset)
+                fail("profile_schedule.sunrise and sunset must differ", "sunset");
+            schedule.own_times = true;
+        }
+    }
     if (Section in{L, "wrapped"})
         boolean(L, "enabled", "wrapped.enabled", config.settings.wrapped);
     if (Section in{L, "heatmap"})
@@ -2916,6 +2940,19 @@ Config parse_config(const std::string &source, const std::string &name,
             config = std::move(*chosen_rice);
         all.insert(all.end(), rice_names.begin(), rice_names.end());
         std::sort(all.begin(), all.end());
+        // The schedule's profiles, an installed rice's among them.
+        const auto &schedule = config.settings.profile_schedule;
+        for (const char *key : {"day", "night"}) {
+            std::string profile = key[0] == 'd' ? schedule.day : schedule.night;
+            if (profile.empty() || has(all, profile))
+                continue;
+            Named in("profile_schedule");
+            if (all.empty())
+                fail("profile_schedule." + std::string(key) + " '" + profile +
+                         "' needs a profiles table that defines it",
+                     key);
+            unknown("profile", profile, all, key, "profile_schedule." + std::string(key));
+        }
         config.profiles = std::move(all);
         config.rices = std::move(rice_names);
         config.rice_problems = std::move(rice_problems);

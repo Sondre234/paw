@@ -68,6 +68,54 @@ int main() {
         expect("return {profiles={dark={shell={panel_height=500}}}}",
                "profile 'dark': shell.panel_height must be between");
 
+        // profile_schedule: two of the profiles, at night light's times unless it has its own.
+        auto unscheduled = paw::parse_config("return {" + profiles + "}");
+        require(!unscheduled.settings.profile_schedule.day[0] &&
+                    !unscheduled.settings.profile_schedule.night[0],
+                "a schedule without profile_schedule");
+        auto scheduled = paw::parse_config(
+            "return {profile_schedule={day='light',night='high-contrast'}," + profiles + "}");
+        const auto &schedule = scheduled.settings.profile_schedule;
+        require(std::string(schedule.day) == "light" &&
+                    std::string(schedule.night) == "high-contrast" && !schedule.own_times,
+                "profile_schedule not read");
+        auto timed = paw::parse_config("return {profile_schedule={day='light',night='light',"
+                                       "sunrise='06:30',sunset='21:15'}," +
+                                       profiles + "}");
+        require(timed.settings.profile_schedule.own_times &&
+                    timed.settings.profile_schedule.sunrise == 390 &&
+                    timed.settings.profile_schedule.sunset == 1275,
+                "profile_schedule's own times not read");
+        // A profile picked by hand changes nothing of the schedule.
+        auto picked = paw::parse_config(
+            "return {profile_schedule={day='light',night='high-contrast'}," + profiles + "}",
+            "config", {}, "high-contrast");
+        require(picked.profile == "high-contrast" &&
+                    std::string(picked.settings.profile_schedule.day) == "light",
+                "the schedule changed with the profile");
+        expect("return {profile_schedule={day='light'}," + profiles + "}",
+               "needs a day and a night profile");
+        expect("return {profile_schedule={day='light',night='hight-contrast'}," + profiles + "}",
+               "unknown profile 'hight-contrast' in profile_schedule.night; did you mean "
+               "'high-contrast'?");
+        expect("return {profile_schedule={day='light',night='dark'}}", "needs a profiles table");
+        expect("return {profile_schedule={day='light',night='light',sunrise='07:00'}," +
+                   profiles + "}",
+               "sunrise and sunset go together");
+        expect("return {profile_schedule={day='light',night='light',sunrise='7',sunset='20:00'}," +
+                   profiles + "}",
+               "profile_schedule.sunrise must be a time");
+        expect("return {profile_schedule={day='light',night='light',sunrise='08:00',"
+               "sunset='08:00'}," +
+                   profiles + "}",
+               "must differ");
+        expect("return {profile_schedule={day='light',night='light',dusk='20:00'}," + profiles +
+                   "}",
+               "unknown setting 'dusk' in profile_schedule");
+        expect("return {\n profile_schedule = {\n  day = 'light',\n  night = 'nite',\n },\n" +
+                   profiles + "}",
+               "init.lua:4: unknown profile 'nite'");
+
         // load_config takes the saved choice from $XDG_STATE_HOME/paw/profile.
         auto directory = std::filesystem::temp_directory_path() /
                          ("paw-profiles-" + std::to_string(getpid()));

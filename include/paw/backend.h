@@ -375,6 +375,14 @@ enum sh_lid_mode { SH_LID_CLAMSHELL, SH_LID_IGNORE };
 enum sh_switch { SH_SWITCH_LID, SH_SWITCH_TABLET };
 /* Lua appearance.color_scheme: the light or dark preference applications are told to follow. */
 enum sh_color_scheme { SH_COLOR_SCHEME_UNSET, SH_COLOR_SCHEME_LIGHT, SH_COLOR_SCHEME_DARK };
+/* Lua profile_schedule: the profile picked at sunrise and the one picked at sunset, both "" with
+ * no schedule (src/compositor/profile_schedule.c). With `own_times` the sunrise and sunset are
+ * its own, in minutes after midnight; else night_light's times, or its location's. */
+struct sh_profile_schedule {
+    char day[40], night[40];
+    bool own_times;
+    double sunrise, sunset;
+};
 
 struct sh_settings {
     float background[4];
@@ -382,6 +390,7 @@ struct sh_settings {
     /* The appearance profile in use, from `profiles`: the one picked, else `profile`; "" for
      * none. A new one crossfades in (crossfade.c). */
     char profile[40];
+    struct sh_profile_schedule profile_schedule;
     uint32_t mouse_modifier;
     /* mouse.middle_drag: in these windows (app_id, without regard to case; "*" for all) a middle
      * press that moves a few pixels moves the window, and one let go in place clicks as usual. */

@@ -229,6 +229,16 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `night_light.longitude` | number | unset | -180 to 180 | Degrees east. |
 | `night_light.transition` | number | 30 | 0 to 240 | Minutes over which the temperature changes, centred on sunrise and sunset. |
 
+## `profile_schedule`
+
+| Setting | Type | Default | Range | Description |
+| --- | --- | --- | --- | --- |
+| `profile_schedule` | table | unset | - | Experimental: a day and a night profile, switched at sunrise and sunset, as `{ day = "washi", night = "sumi" }`. At each sunrise the `day` profile is picked and at each sunset the `night` one, as `paw msg profile NAME` picks one, crossfading. One picked by hand in between stays until the next sunrise or sunset, and `paw msg profile auto` (the `profile_auto` action) hands the choice back to the schedule at once. A sunrise or sunset that passed while paw was not running is caught up as it starts; the last one applied is kept in `$XDG_STATE_HOME/paw/profile-schedule`. Unset, nothing is scheduled. |
+| `profile_schedule.day` | string | unset | - | The profile picked at sunrise, a name from `profiles` (or an installed rice's). |
+| `profile_schedule.night` | string | unset | - | The profile picked at sunset. |
+| `profile_schedule.sunrise` | string | unset | - | Time the day profile is picked, as "HH:MM"; set together with `sunset`. Unset, the schedule follows `night_light`'s `sunrise` and `sunset`, or its `latitude` and `longitude`, whether or not night light is enabled. |
+| `profile_schedule.sunset` | string | unset | - | Time the night profile is picked, as "HH:MM". |
+
 ## `hot_corners`
 
 | Setting | Type | Default | Range | Description |
