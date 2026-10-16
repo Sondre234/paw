@@ -168,6 +168,20 @@ struct ShellClipboard {
 // Lua `shell.panel_position`: the edge of the output the taskbar is along.
 enum class PanelEdge { Top, Bottom, Left, Right };
 
+// Lua `shell.desktop_clock` (experimental): a large clock on the desktop, over the wallpaper.
+struct DesktopClockConfig {
+    bool enabled = false;
+    // "center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left" or
+    // "bottom-right".
+    std::string position = "center";
+    std::string time_format = "HH:mm";       // Qt's date and time formats
+    std::string date_format = "dddd d MMMM"; // empty: no date
+    int size = 96;                           // the time's height in pixels
+    std::string color;                       // #RRGGBB or #RRGGBBAA; empty: text_color
+    std::string font;                        // family; empty: shell.font
+    std::string greeting;                    // "en" or "ja" by the time of day; empty: none
+};
+
 // Lua `shell.wallpaper_mode`: how the wallpaper covers the output. Fill crops it to cover every
 // pixel, Fit shows all of it, Stretch scales each side to the output's, Center and Tile lay it at
 // its own size, once in the middle or repeated from the top left; Fit and Center show the
@@ -254,6 +268,7 @@ struct ShellConfig {
     std::string text_color = "#edf2fa";
     std::string wallpaper;
     WallpaperMode wallpaper_mode = WallpaperMode::Fill;
+    DesktopClockConfig desktop_clock;
     // The start button's picture: a file, absolute or relative to the configuration; empty:
     // four squares in the accent colour.
     std::string start_icon;

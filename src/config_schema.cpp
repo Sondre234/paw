@@ -975,6 +975,33 @@ const Option options[] = {
      "from the top left. Around a picture that `\"fit\"` or `\"center\"` leaves room by, "
      "`appearance.background` shows. The frosted glass and a workspace's picture on its card "
      "show it the same way."},
+    {"shell.desktop_clock", "boolean or table", "false", "true", none, none,
+     "Experimental: a large clock on the desktop, over the wallpaper and under the windows: the "
+     "time in a thin weight, the date under it and, with `greeting`, a word for the time of day "
+     "above it, in the text colour with a soft shadow (a glow under dark text) so that it reads "
+     "on any wallpaper. It changes once a minute, never more often, so seconds in `time_format` "
+     "would stand still; the frosted glass leaves it out. `true` shows it as below; the "
+     "`desktop_clock` action shows or hides it until `enabled` changes."},
+    {"shell.desktop_clock.enabled", "boolean", "false", "true", none, none, "Show the clock."},
+    {"shell.desktop_clock.position", "enum", "\"center\"", "\"bottom-right\"", none, none,
+     "Where on the desktop, inside what the bars leave: `\"center\"`, `\"top\"`, "
+     "`\"bottom\"`, `\"left\"`, `\"right\"`, `\"top-left\"`, `\"top-right\"`, "
+     "`\"bottom-left\"` or `\"bottom-right\"`, away from the edges by half its size."},
+    {"shell.desktop_clock.time_format", "string", "\"HH:mm\"", "\"h:mm AP\"", none, none,
+     "The time, in Qt's date and time format, 1 to 64 bytes."},
+    {"shell.desktop_clock.date_format", "string", "\"dddd d MMMM\"", "\"ddd d MMM yyyy\"",
+     none, none, "The date under it, in Qt's format; `\"\"` shows none."},
+    {"shell.desktop_clock.size", "integer", "96", "128", 24, 320,
+     "The time's height in pixels; the date and the greeting are drawn in proportion."},
+    {"shell.desktop_clock.color", "color", "unset", "\"#f5c2e7\"", none, none,
+     "The time's and the date's colour, `#RRGGBB` or `#RRGGBBAA`; unset, `text_color`. The "
+     "greeting is in the accent colour."},
+    {"shell.desktop_clock.font", "string", "unset", "\"Nunito\"", none, none,
+     "Font family; unset, `shell.font`."},
+    {"shell.desktop_clock.greeting", "boolean or string", "false", "\"ja\"", none, none,
+     "A greeting above the time by the time of day: `\"en\"` says Good morning (from 5), Good "
+     "afternoon (from 12) and Good evening (from 18); `\"ja\"` おはよう, こんにちは and こんばんは. "
+     "`false` says nothing."},
     {"shell.start_icon", "string", "\"\"", "\"neko.svg\"", none, none,
      "A picture for the taskbar's start button in place of the four squares in the accent "
      "colour: an SVG, PNG or other image, absolute or relative to the configuration file, as "

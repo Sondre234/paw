@@ -987,6 +987,56 @@ int main(int argc, char **argv) {
                 "a profile's shell.wallpaper_mode is not laid over the file's");
         rejects("return {shell={wallpaper_mode='cover'}}");
         rejects("return {shell={wallpaper_mode=true}}");
+        // The desktop clock: off by default, in the middle, the time and the date in their
+        // default formats and the text colour, without a greeting; true shows it as it is.
+        {
+            const auto &clock = even.shell.desktop_clock;
+            require(!clock.enabled && clock.position == "center" && clock.time_format == "HH:mm" &&
+                        clock.date_format == "dddd d MMMM" && clock.size == 96 &&
+                        clock.color.empty() && clock.font.empty() && clock.greeting.empty(),
+                    "the desktop clock's defaults are not as documented");
+            require(paw::parse_config("return {shell={desktop_clock=true}}").shell.desktop_clock.enabled &&
+                        !paw::parse_config("return {shell={desktop_clock=false}}")
+                             .shell.desktop_clock.enabled,
+                    "shell.desktop_clock = true does not show it");
+            auto riced = paw::parse_config(
+                "return {shell={desktop_clock={enabled=true,position='bottom-right',"
+                "time_format='h:mm AP',date_format='',size=128,color='#f5c2e7cc',font='Nunito',"
+                "greeting='ja'},accent='#123456'}}");
+            const auto &own = riced.shell.desktop_clock;
+            require(own.enabled && own.position == "bottom-right" && own.time_format == "h:mm AP" &&
+                        own.date_format.empty() && own.size == 128 && own.color == "#f5c2e7cc" &&
+                        own.font == "Nunito" && own.greeting == "ja" &&
+                        riced.shell.accent == "#123456",
+                    "shell.desktop_clock not parsed, or what follows it lost");
+            require(paw::parse_config("return {shell={desktop_clock={greeting=false}}}")
+                            .shell.desktop_clock.greeting.empty() &&
+                        paw::parse_config("return {shell={desktop_clock={greeting='en'}}}")
+                                .shell.desktop_clock.greeting == "en",
+                    "the desktop clock's greeting not parsed");
+            require(paw::parse_config("return {shell={desktop_clock={size=200}},"
+                                      "profiles={clock={shell={desktop_clock={enabled=true}}}}}",
+                                      "config", {}, "clock")
+                            .shell.desktop_clock.enabled,
+                    "a profile does not turn the desktop clock on");
+            for (const char *position : {"center", "top", "bottom", "left", "right", "top-left",
+                                         "top-right", "bottom-left", "bottom-right"})
+                require(paw::parse_config(std::string("return {shell={desktop_clock={position='") +
+                                          position + "'}}}")
+                                .shell.desktop_clock.position == position,
+                        std::string("the desktop clock's position '") + position + "' not parsed");
+            rejects("return {shell={desktop_clock='yes'}}");
+            rejects("return {shell={desktop_clock={position='middle'}}}");
+            rejects("return {shell={desktop_clock={position='top_left'}}}");
+            rejects("return {shell={desktop_clock={time_format=''}}}");
+            rejects("return {shell={desktop_clock={date_format='" + std::string(65, 'd') + "'}}}");
+            rejects("return {shell={desktop_clock={size=23}}}");
+            rejects("return {shell={desktop_clock={size=321}}}");
+            rejects("return {shell={desktop_clock={color='pink'}}}");
+            rejects("return {shell={desktop_clock={greeting=true}}}");
+            rejects("return {shell={desktop_clock={greeting='fr'}}}");
+            rejects("return {shell={desktop_clock={seconds=true}}}");
+        }
         // The bar shown while a monitor tiles: on by default, along the top, floating away from
         // the monitor's edges but not towards the windows; false keeps the taskbar.
         {

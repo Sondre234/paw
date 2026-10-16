@@ -501,6 +501,59 @@ void read_tiling_bar(lua_State *L, TilingBar &bar) {
     }
     lua_pop(L, 1);
 }
+// shell.desktop_clock: true, false, or the clock's table, on top of the stack.
+void read_desktop_clock(lua_State *L, DesktopClockConfig &clock) {
+    lua_getfield(L, -1, "desktop_clock");
+    if (lua_isboolean(L, -1) || lua_isnil(L, -1)) {
+        if (lua_isboolean(L, -1))
+            clock.enabled = lua_toboolean(L, -1);
+        lua_pop(L, 1);
+        return;
+    }
+    if (!lua_istable(L, -1))
+        wrong_type(L, "desktop_clock", "true, false or a table");
+    keys(L, -1, "shell.desktop_clock");
+    Named in("shell.desktop_clock");
+    boolean(L, "enabled", "shell.desktop_clock.enabled", clock.enabled);
+    if (auto position = text(L, "position")) {
+        static const std::vector<std::string> known{"center",   "top",       "bottom",
+                                                    "left",     "right",     "top-left",
+                                                    "top-right", "bottom-left", "bottom-right"};
+        if (std::find(known.begin(), known.end(), *position) == known.end())
+            unknown("position", *position, known, "=" + *position);
+        clock.position = *position;
+    }
+    if (auto format = text(L, "time_format")) {
+        if (format->empty() || format->size() > 64)
+            fail("shell.desktop_clock.time_format must have 1 to 64 bytes", "time_format");
+        clock.time_format = *format;
+    }
+    if (auto format = text(L, "date_format")) {
+        if (format->size() > 64)
+            fail("shell.desktop_clock.date_format must have at most 64 bytes", "date_format");
+        clock.date_format = *format;
+    }
+    clock.size = integer(L, "size", clock.size, 24, 320);
+    if (auto color = text(L, "color")) {
+        if (!is_color(*color, true))
+            fail("shell.desktop_clock.color must be #RRGGBB or #RRGGBBAA", "color");
+        clock.color = *color;
+    }
+    if (auto font = text(L, "font"))
+        clock.font = *font;
+    // false, "en" or "ja".
+    lua_getfield(L, -1, "greeting");
+    if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
+        clock.greeting.clear();
+    } else if (!lua_isnil(L, -1)) {
+        auto greeting = lua_type(L, -1) == LUA_TSTRING ? std::string(lua_tostring(L, -1)) : "";
+        if (greeting != "en" && greeting != "ja")
+            fail("shell.desktop_clock.greeting must be false, \"en\" or \"ja\"", "greeting");
+        clock.greeting = greeting;
+    }
+    lua_pop(L, 1);
+    lua_pop(L, 1);
+}
 // The edges a bar can be along, as shell.panel_positions names them.
 constexpr std::pair<std::string_view, PanelEdge> panel_edges[] = {
     {"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
@@ -683,6 +736,7 @@ void read_shell(lua_State *L, ShellConfig &shell) {
           {{"fill", WallpaperMode::Fill}, {"fit", WallpaperMode::Fit},
            {"center", WallpaperMode::Center}, {"tile", WallpaperMode::Tile},
            {"stretch", WallpaperMode::Stretch}});
+    read_desktop_clock(L, shell.desktop_clock);
     if (auto folder = text(L, "wallpapers", "shell.wallpapers")) {
         shell.wallpapers = *folder;
         if (!shell.wallpapers.starts_with('/') && !shell.wallpapers.starts_with("~/"))
