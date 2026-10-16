@@ -156,7 +156,9 @@ void table(lua_State *L, int index, const char *label) {
                           const std::vector<std::string> &valid, const std::string &leaf = "",
                           const std::string &where = "") {
     auto guess = closest_match(name, valid);
-    fail("unknown " + what + " '" + name + "'" + (where.empty() ? "" : " in " + where) +
+    // A name too long to read is quoted by its start.
+    auto shown = name.size() > 64 ? name.substr(0, 64) + "..." : name;
+    fail("unknown " + what + " '" + shown + "'" + (where.empty() ? "" : " in " + where) +
              (guess.empty() ? "; expected one of: " + join(valid)
                             : "; did you mean '" + guess + "'?"),
          leaf.empty() ? name : leaf);
