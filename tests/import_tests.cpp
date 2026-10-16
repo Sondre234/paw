@@ -250,6 +250,20 @@ void hostile_lua() {
         const char *what, *script, *reported;
     };
     const Case cases[] = {
+        {"an __index that raises an error",
+         "hl.config({ general = setmetatable({}, { __index = function() error('caught') end }) })",
+         nullptr},
+        {"an __index that never returns",
+         "hl.config({ misc = setmetatable({}, { __index = function() while true do end end }) })",
+         nullptr},
+        {"an __index that changes the table being read",
+         "local data = {}\n"
+         "data.misc = setmetatable({}, { __index = function()\n"
+         "    for i = 1, 100 do data['k' .. i] = {} end\n"
+         "    data.misc = nil\n"
+         "end })\n"
+         "hl.config(data)",
+         nullptr},
         {"a loop that catches running out of time",
          "while true do pcall(function() while true do end end) end", "ran too long"},
     };
