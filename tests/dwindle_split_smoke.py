@@ -2,14 +2,14 @@
 """Hyprland's dwindle controls: split_toggle turns the focused tile's split from side by side to
 stacked and keeps it so through a reload to a monitor of another shape, split_swap trades the
 split's halves at their sizes, and pseudo_toggle keeps a tile at its floating size in the middle
-of its tile, resized about its middle, for a group's other tabs too; master takes none of
-them."""
+of its tile, resized about its middle by the keyboard or the pointer, for a group's other tabs
+too; master takes none of them."""
 from pathlib import Path
 import sys
 
 import harness
 
-compositor, probe = (str(Path(p).resolve()) for p in sys.argv[1:3])
+compositor, probe, pointer_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
 
 
 def config(mode="1280x720"):
@@ -23,6 +23,7 @@ def config(mode="1280x720"):
 
 with harness.Compositor(compositor, config()) as desktop:
     msg = desktop.msg
+    pointer = desktop.virtual_pointer(pointer_probe, 1280, 720)
 
     def boxes():
         return {w.title: w.box for w in desktop.windows()}
@@ -74,8 +75,18 @@ with harness.Compositor(compositor, config()) as desktop:
     tile = boxes()["two"]
     msg("pseudo_toggle")
     expect("pseudotiled", {"two": (tile[0] + 64, 180, 640, 360)})
+    # Alt (mouse.modifier) + right drag by a corner grows it both ways about the middle of its
+    # tile, the corner following the pointer, and it keeps that size.
+    x, y, w, h = boxes()["two"]
+    pointer("move", str(x + w - 10), str(y + h - 10), "key", "alt", "down", "press", "right",
+            "move", str(x + w + 20), str(y + h + 10), "release", "right", "key", "alt", "up")
+    expect("dragged bigger", {"two": (tile[0] + 34, 160, 700, 400)})
     msg("pseudo_toggle")
     expect("filling its tile", {"two": tile})
+    msg("pseudo_toggle")
+    expect("pseudotiled at the size dragged", {"two": (tile[0] + 34, 160, 700, 400)})
+    msg("pseudo_toggle")
+    expect("filling its tile again", {"two": tile})
 
     # A window that floated keeps its floating size, and resizing it changes that size about
     # its middle, which it then floats at too.
