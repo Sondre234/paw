@@ -193,6 +193,30 @@ class TaskFilterTest : public QObject {
         one.setTaskId(-1); // back to the pinned application's windows, of which there are none
         QVERIFY(one.windows().isEmpty());
     }
+    // By monitor, the windows in the order of their monitors, those on one not known last, each
+    // monitor's in the source's order; a window moving to another monitor moves among them.
+    void windowsByMonitor() {
+        FakeTasks tasks;
+        tasks.add("a", "one", "main");
+        tasks.add("a", "two", "left");
+        tasks.add("a", "three");
+        tasks.add("a", "four", "main");
+        TaskFilter filter;
+        filter.setOutputPlace(monitorPlace);
+        filter.setSourceModel(&tasks);
+        QCOMPARE(taskIds(filter), (QList<int>{1, 2, 3, 4}));
+        filter.setByMonitor(true);
+        QCOMPARE(taskIds(filter), (QList<int>{2, 1, 4, 3}));
+        tasks.move(1, "right");
+        QCOMPARE(taskIds(filter), (QList<int>{2, 4, 1, 3}));
+        tasks.move(3, "top");
+        QCOMPARE(taskIds(filter), (QList<int>{3, 2, 4, 1}));
+        tasks.add("a", "five", "left");
+        QCOMPARE(taskIds(filter), (QList<int>{3, 2, 5, 4, 1}));
+        QCOMPARE(filter.windows().first().toMap()["title"], "three");
+        filter.setByMonitor(false);
+        QCOMPARE(taskIds(filter), (QList<int>{1, 2, 3, 4, 5}));
+    }
     // A stacked button is urgent when any window of its application is.
     void urgencyOfAStackedButton() {
         TaskFilter app3, app4;

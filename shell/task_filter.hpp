@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include "taskbar_model.hpp"
 #include <QPointer>
 #include <QSortFilterProxyModel>
 
@@ -11,6 +12,9 @@ class ShellController;
 // windows with the same app id are, and those without one stand alone. `taskId`, when 0 or more,
 // keeps only the window with that id, wherever it belongs, and `windowId`, when above 0, only the
 // window the compositor gives that number (the source's windowId role), as the switcher lists it.
+// The windows are in the source's order, or with `byMonitor` in the order of their monitors in
+// the layout (left to right, top to bottom at the same x; those on a monitor not known last),
+// each monitor's in the source's.
 class TaskFilter : public QSortFilterProxyModel {
     Q_OBJECT
     Q_PROPERTY(QObject *controller READ controller WRITE setController NOTIFY controllerChanged)
@@ -19,6 +23,7 @@ class TaskFilter : public QSortFilterProxyModel {
     Q_PROPERTY(bool grouped READ grouped WRITE setGrouped NOTIFY groupedChanged)
     Q_PROPERTY(int taskId READ taskId WRITE setTaskId NOTIFY taskIdChanged)
     Q_PROPERTY(int windowId READ windowId WRITE setWindowId NOTIFY windowIdChanged)
+    Q_PROPERTY(bool byMonitor READ byMonitor WRITE setByMonitor NOTIFY byMonitorChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
     // The focused window among these, or -1, and whether every one of them is minimized.
     Q_PROPERTY(int activeTask READ activeTask NOTIFY summaryChanged)
@@ -42,6 +47,10 @@ class TaskFilter : public QSortFilterProxyModel {
     void setTaskId(int taskId);
     int windowId() const { return windowId_; }
     void setWindowId(int windowId);
+    bool byMonitor() const { return byMonitor_; }
+    void setByMonitor(bool byMonitor);
+    // Where the monitors are: TaskbarOrder::screenPlace until set otherwise.
+    void setOutputPlace(TaskbarOrder::OutputPlace place);
     int count() const { return rowCount(); }
     void setSourceModel(QAbstractItemModel *source) override;
     int activeTask() const;
@@ -57,17 +66,22 @@ class TaskFilter : public QSortFilterProxyModel {
     void groupedChanged();
     void taskIdChanged();
     void windowIdChanged();
+    void byMonitorChanged();
     void countChanged();
     void summaryChanged();
 
   protected:
     bool filterAcceptsRow(int row, const QModelIndex &parent) const override;
+    bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 
   private:
     QPointer<ShellController> shell_;
     QString app_, windowApp_;
-    bool grouped_ = false;
+    bool grouped_ = false, byMonitor_ = false;
     int taskId_ = -1, windowId_ = 0;
+    TaskbarOrder::OutputPlace place_ = &TaskbarOrder::screenPlace;
+    // Sorts by monitor, or back into the source's order.
+    void resort();
     QList<QMetaObject::Connection> sourceConnections_;
     // Which source rows the filter accepts, worked out for all of them at once the first time
     // the proxy asks after a change (a filter that looks at each row's predecessors is
