@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
                       "osd-volume, osd-text, osd-microphone, cards, power-dialog, auth-dialog, "
                       "palette, palette-empty, palette-calculator, switcher, overview, "
                       "snap-assist, display-mode, palette-files, clipboard, emoji, display-settings, "
-                      "display-settings-trial, rice-trial, xray or caption",
+                      "display-settings-trial, rice-trial, xray, caption or osd-color",
                       "name"});
     parser.addOption(
         {"quit-after",
