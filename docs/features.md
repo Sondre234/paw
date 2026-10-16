@@ -1392,7 +1392,8 @@ every word in any order. Up, Down, Page Up and Page Down scroll, Home and End to
 typed, and Escape, the binding again or a click beside the card closes it. The sheet reads the
 configuration the shell loads, so it follows a reload, and a binding mode entered, while it is
 open. On a keyboard layout where / takes Shift, bind another key to it (`key = "F1"`).
-`tests/shortcuts_test.cpp` tests what the sheet lists and its search, and `shell_ui` the sheet.
+`tests/shortcuts_test.cpp` tests what the sheet lists and its search, `shell_ui` the sheet, and
+`tests/shortcuts_shell_smoke.py` its binding in a session.
 
 ## Terminal
 
