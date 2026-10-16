@@ -1031,6 +1031,24 @@ int main() {
             require(placed[&s[1]] == sh_rect{0, 0, 2560, 540}, "split: s1 and s2 still stacked");
             sh_tiling_destroy(split);
         }
+        // Hyprland's pseudotile: the window's own size, centred, or scaled down to fit.
+        {
+            const sh_rect tile{100, 50, 1000, 800};
+            require(sh_tiling_pseudo(tile, 400, 300) == sh_rect{400, 300, 400, 300},
+                    "pseudo: centred at its size");
+            require(sh_tiling_pseudo(tile, 2000, 400) == sh_rect{100, 350, 1000, 200},
+                    "pseudo: too wide");
+            require(sh_tiling_pseudo(tile, 500, 1600) == sh_rect{475, 50, 250, 800},
+                    "pseudo: too tall");
+            require(sh_tiling_pseudo(tile, 3000, 3000) == sh_rect{200, 50, 800, 800},
+                    "pseudo: too large both ways");
+            require(sh_tiling_pseudo(tile, 1000, 800) == tile &&
+                        sh_tiling_pseudo(tile, 0, 300) == tile &&
+                        sh_tiling_pseudo(tile, 400, -1) == tile,
+                    "pseudo: the tile's size, or none");
+            require(sh_tiling_pseudo({0, 0, 3, 2}, 400, 300) == sh_rect{0, 0, 3, 2},
+                    "pseudo: a tiny tile");
+        }
 
         // Tiny areas still produce positive sizes.
         placed = arrange(tiling, {0, 0, 3, 2}, 100);
