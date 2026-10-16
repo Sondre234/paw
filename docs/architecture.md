@@ -24,7 +24,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
 | `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, the desktop cat's ways and its pixel art. Several are unit tested. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip, which strokes of the pointer make a shake and how large the cursor grows. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip, which strokes of the pointer make a shake and how large the cursor grows, how ambient particles drift and what they look like. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -118,6 +118,7 @@ all. In short:
 | `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
 | `profile_schedule.c` | The day and night profile schedule (`profile_schedule`): the profile the last sunrise or sunset brings (`src/profile_schedule.c` finds which came last), picked as `profile NAME` through `sh_callbacks.command` and a reload, the last one applied kept in `$XDG_STATE_HOME/paw/profile-schedule`; a timer looking at the clock each minute and after each reload, `profile_auto`, and `get profile_schedule`. |
 | `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
+| `ambient.c` | Ambient particles (`appearance.ambient`, the `ambient` action): sakura petals, snow or fireflies in a tree of scene buffers for each output, over the wallpaper and under the bottom layer, taking no input; stepped every 33 ms from a timer of its own while an output shows them, `src/ambient.c` moving them and painting their pictures; paused while the session is locked, the output is off or shows a fullscreen window or the screens are dimmed, and faded out after a while without input; `get ambient`. |
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
 | `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
 | `heatmap.c` | The pointer heatmap: how long the pointer rested and how often it clicked in each cell of each output's grid (`src/heatmap.c`), in memory for the session alone, `get heatmap`, and the heatmap action's overlay: a picture of each grid blurred and coloured, stretched over its output under the drag icons and the lock, taking no input, with a legend in the coolest corner, drawn again twice a second from a timer while it shows and fading with `heatmap_tick` from `output_frame`. |
@@ -991,6 +992,41 @@ row travelling far within a short while. While it is hidden
 (`hidden_why`: turned off, the session locked or another VT in front, no monitor, the overview,
 its monitor off, a fullscreen window on its monitor or the focused one) its tree is disabled and
 no timer runs; the next frame that shows things changed steps it again. `get cat` describes it.
+
+### Ambient particles
+
+What the particles do and look like is `src/ambient.c`'s (`paw/ambient.h`, tested by
+`ambient_tests`), without wlroots: a `struct sh_ambient_field` is a monitor's area, its kind, the
+time gone (which a gentle wind follows, `sh_ambient_wind`) and a seed; `sh_ambient_spawn` puts a
+particle anywhere in it (as they first show, fading in) or above its top, and `sh_ambient_step`
+moves them all on. Petals and flakes fall at their own pace, nearer ones (`depth`) larger and
+faster, drift with the wind and sway, and come in again at the top or the other side; petals turn
+and tumble, and fireflies wander, kept off the edges, and glow in cycles of their own.
+`sh_ambient_look` says how one is drawn: its picture, turned by quarter turns, its box (a
+petal's tumble narrows it, its other face showing past edge on, which is the petal mirrored) and
+its opacity. `sh_ambient_paint` paints the pictures in premultiplied ARGB with smooth edges from
+signed distances: petals in four pinks at three lengths, each turned in SH_AMBIENT_TURNS steps
+of a quarter turn (the buffer transform turns them the other quarters), dots of snow at six
+sizes, and a firefly's glow, brighter than its alpha so that it adds light.
+
+`ambient.c` in the compositor keeps a `struct sh_ambient_sky` for each output in the layout
+(`sh_output.ambient`; none for a mirroring one) in a tree just above the background layer
+(`layer_trees[0]`) and under the bottom one, a scene buffer for each particle that takes no
+input. So the blur behind windows, which draws the background layer alone, leaves them out. The
+pictures are painted for the output's scale as each is first needed, and again as the scale
+changes; a node is given a new buffer only when its picture changes. A timer of its own steps
+every sky every 33 ms while any shows (`tick`), changing its nodes with its tree off and showing
+it again once, as a party's confetti does. An output pauses, its tree off and nothing stepped
+(`paused_why`), while the session is locked or on another VT, while it is off or out of the
+layout, while it shows a fullscreen window and while the screens are dimmed; with every output
+paused the timer stops, and `ambient_frame`, from `output_frame`, starts it again once the frame
+something drew as it went shows the output may show them, and `ambient_input` once input comes
+after they rested. They fade out (`presence`) toward none, toward another kind, which is put in
+once they are gone and fades in, and after five minutes without input (`PAW_TEST_AMBIENT_IDLE_MS`
+for tests). The kind is `appearance.ambient.kind` until the `ambient` action picks another
+(`ambient_switch`), which stands until a reload changes the kind configured. `get ambient`
+(`describe_ambient`) lists each output's kind, count and state, and with an output's name its
+particles as drawn; `tests/ambient_smoke.py` tests them.
 ### Counting for paw wrapped
 
 `wrapped.c` keeps `sh_server.wrapped` while `wrapped.enabled` is on in a standalone session
@@ -1927,6 +1963,8 @@ lock the screen before a suspend gives up (see `power_smoke.py`), and
 `PAW_TEST_CAT_SLEEP_MS` sets how long the desktop cat waits without input before it sleeps, in
 place of `cat.sleep_after` (see `cat_smoke.py`), and `PAW_TEST_HEATMAP_REST_MS` how long a
 resting pointer counts in the heatmap (see `heatmap_smoke.py`).
+`PAW_TEST_AMBIENT_IDLE_MS` sets how long ambient particles wait without input before they fade
+out (see `ambient_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless

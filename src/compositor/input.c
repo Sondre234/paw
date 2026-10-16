@@ -16,6 +16,7 @@ bool input_activity(struct sh_server *server, bool wakes) {
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
     bool woke = idle_activity(server);
     cat_input(server);
+    ambient_input(server);
     return (wakes && wake_displays(server)) || woke;
 }
 

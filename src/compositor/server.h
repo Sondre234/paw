@@ -297,6 +297,8 @@ struct sh_crossfade;     // a new appearance profile crossfading in (crossfade.c
 struct sh_crossfade_picture; // what an output showed as it began
 struct sh_toys;              // the toy playing (toys.c)
 struct sh_cat_view;          // the desktop cat (cat.c)
+struct sh_ambient;           // ambient particles (ambient.c)
+struct sh_ambient_sky;       // an output's particles
 struct sh_wrapped;       // what paw wrapped counts (wrapped.c)
 struct wlr_color_manager_v1;
 struct sh_heatmap;     // where the pointer rests and clicks, and the overlay (heatmap.c)
@@ -898,6 +900,7 @@ struct sh_server {
         bool following;   /* the profile in use is the one the schedule wants now */
     } profile_schedule;
     struct sh_cat_view *cat; /* the desktop cat (cat.c); NULL if it could not be made */
+    struct sh_ambient *ambient; /* ambient particles (ambient.c); NULL if they could not be */
     struct sh_wrapped *wrapped; // NULL while wrapped.enabled is off
     struct sh_xray xray;
     /* The pointer heatmap (heatmap.c); NULL until the first output is laid out. */
@@ -971,6 +974,8 @@ struct sh_output {
     struct sh_heat_output *heat;
     /* Its background blurred, for the windows over it (blur.c). */
     struct sh_blur_picture blur;
+    /* Its ambient particles (ambient.c); NULL while it has none. */
+    struct sh_ambient_sky *ambient;
 };
 
 /* An icon a window supplies itself (window_icon.c): the icon theme name it gave, and the pixels
@@ -2028,6 +2033,15 @@ void cat_frame(struct sh_server *server);
 void cat_input(struct sh_server *server);
 void cat_pointer_moved(struct sh_server *server);
 void describe_cat(struct sh_server *server, int fd, const char *arguments);
+/* ambient.c */
+void ambient_init(struct sh_server *server);
+void ambient_finish(struct sh_server *server);
+void ambient_reload(struct sh_server *server);
+void ambient_switch(struct sh_server *server, int choice);
+void ambient_frame(struct sh_output *output);
+void ambient_input(struct sh_server *server);
+void ambient_forget_output(struct sh_output *output);
+void describe_ambient(struct sh_server *server, int fd, const char *arguments);
 /* xray.c */
 void xray_touch(struct sh_server *server);
 void xray_open(struct sh_server *server);

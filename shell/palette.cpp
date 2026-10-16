@@ -11,7 +11,7 @@ namespace {
 struct Action {
     const char *name, *title;
 };
-// The compositor actions the palette offers, run as `paw msg NAME`.
+// The compositor actions the palette offers, run as `paw msg NAME` (with its argument).
 constexpr Action actions[] = {
     {"terminal", "Open a terminal"},
     {"toggle_tiling", "Toggle tiling"},
@@ -63,6 +63,10 @@ constexpr Action actions[] = {
     {"shake", "Shake the window"},
     {"gravity", "Let the windows fall"},
     {"party", "Throw a party"},
+    {"ambient sakura", "Ambient: sakura petals over the wallpaper"},
+    {"ambient snow", "Ambient: soft snow over the wallpaper"},
+    {"ambient fireflies", "Ambient: fireflies over the wallpaper"},
+    {"ambient off", "Ambient: off"},
 };
 
 QVariantMap entry(const QString &kind, const QString &title, const QString &subtitle,

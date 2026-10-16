@@ -570,6 +570,16 @@ shadows.
   would follow the box's shape; `split_swap` trades that split's halves at their sizes; and
   `pseudo_toggle` keeps the focused tile at its floating size in the middle of its tile, resized
   about that middle. The tiles glide there; other layouts take none of them.
+- Ambient particles (experimental, off unless set): `appearance.ambient = { kind = "sakura" }`
+  has sakura petals tumble down over the wallpaper, `"snow"` soft snow, the nearest flakes out of
+  focus, and `"fireflies"` fireflies wandering and glowing warm, under the windows and the panels
+  and out of the background windows blur. `count` and `speed` set how many and how fast, an
+  appearance profile can set them (washi, sumi and mochi suggest one each in a comment) and a rice
+  bring them, and the `ambient` action (`paw msg ambient sakura|snow|fireflies|off|next|toggle`,
+  and the command palette) switches them, fading one kind out and the next in. They pause while
+  the session is locked, a monitor is off or shows a fullscreen window and the screens are dimmed,
+  and fade out after five minutes without input; `paw msg get ambient` says what each monitor
+  draws.
 
 ### Starting and ending a session
 

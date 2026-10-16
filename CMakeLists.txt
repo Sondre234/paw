@@ -186,6 +186,7 @@ if(BUILD_TESTING)
     paw_unit_test(rice LIBRARY paw_cli)
     paw_c_unit_test(cat_sprite)
     paw_c_unit_test(cat)
+    paw_c_unit_test(ambient)
     paw_unit_test(cat_command LIBRARY paw_cli)
     paw_c_unit_test(xray_layout)
     paw_c_unit_test(cube)
@@ -344,6 +345,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/rice.c
         src/compositor/profile_schedule.c
         src/compositor/cat.c
+        src/compositor/ambient.c
         src/compositor/xray.c
         src/compositor/heatmap.c
         src/compositor/cube.c
@@ -368,6 +370,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/dropdown.c)
     target_sources(paw PRIVATE src/toys.c)
     target_sources(paw PRIVATE src/cat.c src/cat_sprite.c)
+    target_sources(paw PRIVATE src/ambient.c)
     target_sources(paw PRIVATE src/xray_layout.c)
     target_sources(paw PRIVATE src/cube.c)
     target_sources(paw PRIVATE src/blur.c)
@@ -977,6 +980,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(rice_smoke TIMEOUT 120 $<TARGET_FILE:paw>)
         paw_smoke(cat_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(ambient_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(wrapped_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:idle_probe>)
         paw_smoke(xray_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>

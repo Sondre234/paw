@@ -252,6 +252,9 @@ enum sh_action {
     SH_PARTY,
     /* The desktop cat (src/compositor/cat.c): argument an sh_cat_switch. */
     SH_CAT,
+    /* Ambient particles over the wallpaper (src/compositor/ambient.c): argument an
+     * sh_ambient_choice. */
+    SH_AMBIENT,
     /* Opens the exploded view of the focused output's layers (paw xray), or closes it. */
     SH_XRAY,
     /* The pointer heatmap over every output: where the pointer rested or clicked (enum
@@ -267,6 +270,11 @@ enum sh_action {
 
 /* The cat action's choices: show it or hide it, whichever it is not, or say which. */
 enum sh_cat_switch { SH_CAT_TOGGLE, SH_CAT_ON, SH_CAT_OFF };
+
+/* The ambient action's choices: off, or back on as it was last (sakura the first time); the
+ * next kind in turn, none among them; or a kind, SH_AMBIENT_OFF plus its enum sh_ambient_kind
+ * (paw/ambient.h), none being off. */
+enum sh_ambient_choice { SH_AMBIENT_TOGGLE, SH_AMBIENT_NEXT, SH_AMBIENT_OFF };
 
 /* The display_mode action's choices. */
 enum sh_display_mode {
@@ -615,6 +623,11 @@ struct sh_settings {
     int cat_scale;
     int cat_coat;
     int cat_sleep;
+    /* appearance.ambient: what drifts over the wallpaper (enum sh_ambient_kind, paw/ambient.h),
+     * how many on each monitor (0 for the kind's own number), and how fast, 1 its own pace. */
+    int ambient;
+    int ambient_count;
+    float ambient_speed;
     /* wrapped.enabled: the compositor counts what happens at the desktop for `paw wrapped`
      * (src/compositor/wrapped.c). */
     bool wrapped;

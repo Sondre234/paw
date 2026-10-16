@@ -58,6 +58,18 @@ const Option options[] = {
      "GTK and libadwaita applications, Firefox, Chromium and Electron applications such as "
      "Discord read through xdg-desktop-portal. Only a login session (`--session`) sets it. "
      "Unset, paw leaves the preference as it is."},
+    {"appearance.ambient", "table", "", "", none, none,
+     "Particles drifting over the wallpaper, under the windows and panels: sakura petals "
+     "tumbling down, soft snow, or fireflies wandering and glowing. An appearance profile may "
+     "set them, and the `ambient` action switches them meanwhile. They pause while the session "
+     "is locked, while a monitor is off or shows a fullscreen window and while the screens are "
+     "dimmed, and fade out after five minutes without input until there is some."},
+    {"appearance.ambient.kind", "enum", "\"none\"", "\"sakura\"", none, none,
+     "`\"sakura\"`, `\"snow\"` or `\"fireflies\"`; `\"none\"` for none."},
+    {"appearance.ambient.count", "integer", "30 petals, 60 flakes, 24 fireflies", "50", 1, 150,
+     "How many particles drift on each monitor."},
+    {"appearance.ambient.speed", "number", "1", "0.6", 0.1, 5,
+     "How fast they drift: 0.5 at half their own pace, 2 at twice it."},
 
     {"keyboard", "table", "", "", none, none, "Keyboard layout and key repeat."},
     {"keyboard.layout", "string", "\"us\"", "\"us\"", none, none,
@@ -700,7 +712,9 @@ const Option options[] = {
      "`\"duplicate\"`, `\"internal\"` or `\"external\"`; without one, the popup that steps "
      "through them. With `cat`: `\"on\"`, `\"off\"` or `\"toggle\"`; without one, "
      "toggle. With `heatmap`: `\"toggle\"`, `\"motion\"`, `\"clicks\"` or "
-     "`\"reset\"`; without one, toggle."},
+     "`\"reset\"`; without one, toggle. With `ambient`: `\"sakura\"`, `\"snow\"`, "
+     "`\"fireflies\"`, `\"off\"`, `\"next\"` (each kind in turn, then none) or `\"toggle\"` "
+     "(off, or back to the last kind); without one, toggle."},
     {"bindings[].amount", "integer", "40; 5 for volume and brightness", "", 1, 4000,
      "With `resize_*`: pixels moved per press. With `volume_up`, `volume_down`, `brightness_up` "
      "and `brightness_down`: percent per press, up to 100."},
@@ -1392,7 +1406,7 @@ std::string config_reference_markdown() {
         first = false;
     }
     out << "\n\n`spawn` needs `command`; `workspace` and `move_to_workspace` need `workspace`; "
-           "`screenshot` and `cat` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
+           "`screenshot`, `cat`, `heatmap` and `ambient` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
            "`brightness_up` and `brightness_down` take `amount`; a `switch` needs `state`.\n\n"
            "Modifiers: ";
     first = true;
