@@ -6984,7 +6984,9 @@ ListModel {
         {
             auto *palette = controller.palette();
             palette->open(output);
-            palette->setQuery("a");
+            // Two words, which files must both hold: "a" alone matched every action (by its
+            // "Action" subtitle), and the sixty results left the second file out.
+            palette->setQuery("a p");
             QStringList runs;
             for (const auto &item : palette->results().mid(1)) {
                 const auto map = item.toMap();
