@@ -2,9 +2,10 @@
 """Power saving without an idle daemon (`idle`): after so long without input the screens dim (with
 grim, the screen shows it), the monitors turn off and the screen locks, each once; input undoes the
 dimming and turns on the monitors it turned off, the key that does it doing nothing else. An idle
-inhibitor holds every step off, the steps on battery apply while a fake /sys/class/power_supply
-says the machine runs on it, and an ext-idle-notify-v1 client (as swayidle is) hears of idleness
-as before."""
+inhibitor holds every step off, one on a window only while the window shows (not on another
+workspace, minimized, on a monitor turned off or behind the lock), the steps on battery apply
+while a fake /sys/class/power_supply says the machine runs on it, and an ext-idle-notify-v1 client
+(as swayidle is) hears of idleness as before."""
 import os
 from pathlib import Path
 import signal
@@ -14,9 +15,9 @@ import time
 
 import harness
 
-compositor, idle_probe, lock_probe, pointer_probe = (str(Path(p).resolve())
-                                                     for p in sys.argv[1:5])
-grim = sys.argv[5] if len(sys.argv) > 5 else ""
+compositor, idle_probe, lock_probe, pointer_probe, window_probe = (
+    str(Path(p).resolve()) for p in sys.argv[1:6])
+grim = sys.argv[6] if len(sys.argv) > 6 else ""
 
 A, F2 = 30, 60  # evdev key codes
 
@@ -51,14 +52,23 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     def config(idle):
         return CONFIG.format(locker=lock_probe, log=log, idle=idle)
 
+    STEPS = ("dim", "display_off", "lock", "suspend")
+
     def idle():
         rows = desktop.rows("idle")
         state = rows[0]
         assert state[0] == "state", rows
         found = {"idle_ms": int(state[1]), "held": state[2] == "1", "battery": state[3] == "1",
-                 "dim_level": int(state[4])}
-        found.update({row[0]: (int(row[1]), row[2] == "1") for row in rows[1:]})
+                 "dim_level": int(state[4]), "inhibitors": int(state[5]),
+                 "applying": int(state[6])}
+        found.update({row[0]: (int(row[1]), row[2] == "1") for row in rows[1:]
+                      if row[0] in STEPS})
         return found
+
+    def inhibitors():
+        """Each idle inhibitor: whether it applies, and what its surface belongs to."""
+        return [(row[1] == "1", row[2], row[3]) for row in desktop.rows("idle")
+                if row[0] == "inhibitor"]
 
     def done(step):
         return idle()[step][1]
@@ -123,6 +133,9 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     key(A)
     inhibitor = spawn_probe("inhibit")
     wait_for(lambda: idle()["held"], "the inhibitor holds the steps")
+    # On a surface that is no window nor panel, of which nothing says it is hidden: it applies.
+    assert inhibitors() == [(True, "other", "-")], inhibitors()
+    assert (idle()["inhibitors"], idle()["applying"]) == (1, 1), idle()
     desktop.reload(config("{ dim = 1, display_off = 2, lock = 2 }"))
     desktop.stays(lambda: not any(idle()[step][1] for step in ("dim", "display_off", "lock")),
                   "a step was taken while inhibited", duration=2.5)
@@ -133,6 +146,57 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     wait_for(lambda: not idle()["held"], "the inhibitor gone")
     wait_for(lambda: done("dim"), "the screens dimmed after the inhibitor went")
     assert time.monotonic() - released >= 0.9, "the time without input did not start again"
+    assert inhibitors() == [] and idle()["inhibitors"] == 0, idle()
+
+    # An inhibitor on a window applies only while the window shows, as idle-inhibit-unstable-v1
+    # says: on another workspace, minimized, on a monitor turned off or behind the lock, the
+    # screens dim as without it; shown again, it holds the steps and they brighten.
+    desktop.reload(config("{ display_off = 0 }"))
+    key(A)
+    video = spawn_probe("window", "Video")
+    wait_for(lambda: inhibitors() == [(True, "window", "Video")] and idle()["held"],
+             "the window's inhibitor applies")
+    desktop.reload(config("{ dim = 1, display_off = 0 }"))
+    desktop.stays(lambda: not done("dim"), "the screens dimmed under a window's inhibitor",
+                  duration=1.5)
+
+    def released(why):
+        wait_for(lambda: inhibitors() == [(False, "window", "Video")] and not idle()["held"],
+                 "the inhibitor let go " + why)
+        assert (idle()["inhibitors"], idle()["applying"]) == (1, 0), idle()
+        wait_for(lambda: done("dim"), "the screens dimmed " + why)
+
+    def holds(why):
+        wait_for(lambda: inhibitors() == [(True, "window", "Video")] and idle()["held"],
+                 "the inhibitor applied again " + why)
+        state = idle()
+        assert state["dim_level"] == 0 and not state["dim"][1], state
+
+    def video_window():
+        return next(w for w in desktop.windows() if w.title == "Video")
+
+    msg("move_to_workspace", "2")
+    released("with the window on another workspace")
+    msg("workspace", "2")
+    holds("with its workspace shown")
+    msg("minimize")
+    released("with the window minimized")
+    subprocess.run([window_probe, "Video", "restore"], env=desktop.env, check=True, timeout=30)
+    holds("with the window restored")
+    shown_on = video_window().output
+    msg("output", shown_on, "display_off")
+    released("with its monitor off")
+    msg("display_on")
+    holds("with its monitor on")
+    locks = log.read_text().count("locked")
+    msg("lock")
+    wait_for(lambda: log.read_text().count("locked") > locks, "the screen locked")
+    released("behind the lock")
+    os.kill(int(log.read_text().split()[-1]), signal.SIGTERM)
+    holds("once unlocked")
+    video.terminate()
+    desktop.reap(video)
+    wait_for(lambda: inhibitors() == [] and not idle()["held"], "the window's inhibitor gone")
 
     # The key that turns the monitors on does nothing else; the monitors it did not turn off
     # stay as they are.
