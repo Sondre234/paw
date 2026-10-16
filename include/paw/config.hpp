@@ -366,6 +366,8 @@ struct Config {
                          .touchpad_tap = -1,
                          .touchpad_dwt = -1,
                          .focus_follows_mouse = true,
+                         .hide_cursor_typing = false,
+                         .hide_cursor_after = 0,
                          .animations = true,
                          .animation_speed = 1.0F,
                          .animation_late_ms = 80,
