@@ -7196,6 +7196,92 @@ ListModel {
             !waitFor([&] { return controller.profile() == profileBefore && !controller.restyling(); }))
             return fail("the profile in use did not come back");
     }
+    // How the wallpaper covers the output (shell.wallpaper_mode): a new mode comes in over the
+    // one shown as a new wallpaper does, and each draws as it says, the background colour round a
+    // picture that leaves room; the frosted glass takes it as the desktop draws it.
+    {
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *backdrop = find(desktop.rootObject(), "backdrop");
+        // A picture of two halves, red and blue, much smaller than the desktop.
+        const auto halves = walls + "/halves.png";
+        QImage picture(40, 30, QImage::Format_RGB32);
+        picture.fill(Qt::red);
+        for (int y = 0; y < picture.height(); ++y)
+            for (int x = 20; x < picture.width(); ++x)
+                picture.setPixel(x, y, qRgb(0, 0, 255));
+        if (!backdrop || !picture.save(halves))
+            return fail("could not save a wallpaper of two halves");
+        // The configuration with that picture, the frosted glass on, and `mode`.
+        auto withMode = [&](const QString &mode) {
+            return QString(lua).replace("wallpaper='walls/a/one.png',",
+                                        "wallpaper=[[" + halves + "]],blur={enabled=true,radius=2}," +
+                                            (mode.isEmpty() ? "" : "wallpaper_mode='" + mode + "',"));
+        };
+        auto settled = [&](const QString &mode) {
+            const auto layers = backdrop->childItems();
+            return controller.wallpaperMode() == mode && layers.size() == 1 &&
+                   layers[0]->opacity() == 1 && layers[0]->property("ready").toBool() &&
+                   layers[0]->property("mode") == mode;
+        };
+        // The colour at a fraction of the desktop's width and height, or the glass's.
+        auto colourAt = [](const QImage &image, double x, double y) {
+            return QColor(image.pixel(std::min(image.width() - 1, int(x * image.width())),
+                                      std::min(image.height() - 1, int(y * image.height()))));
+        };
+        auto near = [](const QColor &a, const QColor &b) {
+            return std::abs(a.red() - b.red()) <= 12 && std::abs(a.green() - b.green()) <= 12 &&
+                   std::abs(a.blue() - b.blue()) <= 12;
+        };
+        const QColor red(Qt::red), blue(Qt::blue), background = controller.background();
+        const QString screen = desktop.screen()->name();
+        controller.setEffects(true);
+        if (!reconfigure(withMode("")) || !waitFor([&] { return settled("fill"); }))
+            return fail("the wallpaper is not cropped to fill the desktop by default");
+        // Each mode by what lies where on the 1100 by 680 desktop, away from its launcher.
+        struct Look {
+            QString mode;
+            QList<std::tuple<double, double, QColor>> points;
+        };
+        const QList<Look> looks = {
+            {"fit", {{0.02, 0.5, background}, {0.3, 0.5, red}, {0.7, 0.5, blue}, {0.98, 0.5, background}}},
+            {"stretch", {{0.02, 0.5, red}, {0.98, 0.5, blue}, {0.6, 0.98, blue}}},
+            {"center", {{0.25, 0.5, background}, {540 / 1100., 0.5, red}, {560 / 1100., 0.5, blue}}},
+            {"tile", {{5 / 1100., 0.45, red}, {25 / 1100., 0.45, blue}, {45 / 1100., 0.45, red}, {1095 / 1100., 0.45, red}}},
+            {"fill", {{0.25, 0.02, red}, {0.75, 0.98, blue}}},
+        };
+        for (const auto &look : looks) {
+            QQuickItem *before = backdrop->childItems().value(0);
+            if (!reconfigure(withMode(look.mode)) || backdrop->childItems().size() != 2 ||
+                backdrop->childItems()[0] != before || backdrop->childItems()[1]->opacity() != 0 ||
+                !waitFor([&] { return settled(look.mode); }))
+                return fail(qPrintable("wallpaper_mode '" + look.mode + "' did not come in over the one shown"));
+            const QImage drawn = desktop.grabWindow();
+            for (const auto &[x, y, colour] : look.points)
+                if (!near(colourAt(drawn, x, y), colour))
+                    return fail(qPrintable("wallpaper_mode '" + look.mode + "' is not drawn as it says at " +
+                                           QString::number(x) + ", " + QString::number(y)));
+            // The glass's picture is the desktop's, smaller and blurred: its middle row is.
+            if (look.mode == "fit" &&
+                !waitFor([&] {
+                    const auto glass = controller.glass()->picture(screen).image;
+                    return !glass.isNull() && !controller.glass()->pending(screen) &&
+                           near(colourAt(glass, 0.01, 0.5), background) &&
+                           near(colourAt(glass, 0.3, 0.5), red) && near(colourAt(glass, 0.7, 0.5), blue);
+                }))
+                return fail("the frosted glass did not take the fitted wallpaper as it is drawn");
+        }
+        // A reload that keeps the mode keeps the layer.
+        auto *kept = backdrop->childItems().value(0);
+        controller.reload();
+        if (backdrop->childItems() != QList<QQuickItem *>{kept})
+            return fail("a reload keeping the wallpaper's mode laid it again");
+        controller.setEffects(false);
+        if (!reconfigure(lua) || !waitFor([&] { return settled("fill") && !controller.restyling(); }))
+            return fail("could not restore the configuration");
+    }
     // The macOS style, from a profile: the menu bar along the top in a surface of its own and the
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the
     // profile changes and back again.

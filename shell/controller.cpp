@@ -256,6 +256,21 @@ QString ShellController::wallpaperFile() const {
         file = std::filesystem::absolute(path_).parent_path() / file;
     return QString::fromStdString(file.string());
 }
+QString ShellController::wallpaperMode() const {
+    switch (config_.shell.wallpaper_mode) {
+    case paw::WallpaperMode::Fit:
+        return "fit";
+    case paw::WallpaperMode::Center:
+        return "center";
+    case paw::WallpaperMode::Tile:
+        return "tile";
+    case paw::WallpaperMode::Stretch:
+        return "stretch";
+    case paw::WallpaperMode::Fill:
+        break;
+    }
+    return "fill";
+}
 QUrl ShellController::wallpaper() const {
     const auto file = wallpaperFile();
     return file.isEmpty() ? QUrl() : QUrl::fromLocalFile(file);

@@ -11,21 +11,27 @@ Rectangle {
     // The wallpaper, or without one the gradient (the macOS style's drawn wallpaper), in layers:
     // each new one is laid over what shows, and once it is drawn (its picture loaded, or failed and
     // the gradient in its place) it fades in, the layers under it going as it covers them. A change
-    // during a fade lays the next one over both, so that nothing jumps.
+    // during a fade lays the next one over both, so that nothing jumps. A new shell.wallpaper_mode
+    // comes in the same way.
     Item {
         id: backdrop
         objectName: "backdrop"
         anchors.fill: parent
+        // Whether `layer` shows shell.wallpaper as shell.wallpaper_mode says (the gradient in any).
+        function shows(layer) {
+            const url = shell.wallpaper.toString()
+            return layer.source === url && (url === "" || layer.mode === shell.wallpaperMode)
+        }
         // A layer for shell.wallpaper, unless the top one is for it already: a reload that keeps
         // the wallpaper reads and decodes nothing again. The first shows at once, and so does a
         // picture that failed, tried again after `retry` milliseconds, which doubles each time.
         function show(retry) {
-            const url = shell.wallpaper.toString()
             const top = children.length > 0 ? children[children.length - 1] : null
-            if (top && top.source === url && !retry)
+            if (top && shows(top) && !retry)
                 return
-            backdropLayer.createObject(backdrop, { source: url, instant: !top || top.source === url,
-                                                   retry: retry || 1000 })
+            backdropLayer.createObject(backdrop, { source: shell.wallpaper.toString(),
+                                                   mode: shell.wallpaperMode,
+                                                   instant: !top || shows(top), retry: retry || 1000 })
         }
         Component.onCompleted: show()
         Connections {
@@ -56,16 +62,17 @@ Rectangle {
             id: layer
             anchors.fill: parent
             property string source
+            property string mode
             property bool instant
             property int retry
             readonly property bool failed: source !== "" && picture.status === Image.Error
             readonly property bool ready: source === "" || picture.status === Image.Ready || failed
             opacity: 0
-            Image {
+            WallpaperPicture {
                 id: picture
                 anchors.fill: parent
                 source: layer.source
-                fillMode: Image.PreserveAspectCrop
+                mode: layer.mode
                 asynchronous: true
                 cache: false // read from the file each time, as it may have changed
             }
@@ -112,7 +119,7 @@ Rectangle {
                 interval: layer.retry
                 onTriggered: {
                     const layers = backdrop.children
-                    if (layers[layers.length - 1] === layer && layer.source === shell.wallpaper.toString())
+                    if (layers[layers.length - 1] === layer && backdrop.shows(layer))
                         backdrop.show(Math.min(layer.retry * 2, 60000))
                 }
             }

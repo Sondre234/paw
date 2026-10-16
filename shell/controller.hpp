@@ -54,6 +54,9 @@ class ShellController : public QObject {
     // wallpaperFile is the same as a path, "" for none.
     Q_PROPERTY(QUrl wallpaper READ wallpaper NOTIFY wallpaperChanged)
     Q_PROPERTY(QString wallpaperFile READ wallpaperFile NOTIFY wallpaperChanged)
+    // shell.wallpaper_mode, how the wallpaper covers the output: "fill", "fit", "center", "tile"
+    // or "stretch".
+    Q_PROPERTY(QString wallpaperMode READ wallpaperMode NOTIFY configChanged)
     // The picker's pictures as {path, name, folder} (see findWallpapers), read by
     // findWallpapers(), and the folder they come from.
     Q_PROPERTY(QVariantList wallpapers READ wallpapers NOTIFY wallpapersChanged)
@@ -269,6 +272,7 @@ class ShellController : public QObject {
     QVariantList urgentWindows() const { return urgentWindows_; }
     QUrl wallpaper() const;
     QString wallpaperFile() const;
+    QString wallpaperMode() const;
     QVariantList wallpapers() const { return wallpapers_; }
     QString wallpaperFolder() const;
     QUrl startIcon() const;
