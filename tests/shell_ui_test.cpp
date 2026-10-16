@@ -2064,17 +2064,25 @@ ListModel {
         }))
         return fail("the appearance entry did not open the profiles beside the menu");
     // The shell takes it up, and once the new look is drawn says so, for the compositor's
-    // crossfade from the old one.
+    // crossfade from the old one. The reload a little before may still be saying that the old
+    // one is drawn as the new one is picked, on a loaded machine: then that comes first.
     drawnProfiles.clear();
     click(menuItem("light"));
     if (!waitFor([&] {
             return requests == QStringList{"profile light"} && controller.profile() == "light" &&
                    controller.accent() == QColor("#336699") &&
                    !view.rootObject()->property("barMenuOpen").toBool() &&
-                   !controller.restyling() && drawnProfiles == QStringList{"light"};
+                   !controller.restyling() &&
+                   (drawnProfiles == QStringList{"light"} ||
+                    drawnProfiles == QStringList{"dark", "light"});
         })) {
-        std::cerr << "picking a profile did not switch to it: " << requests.join("|").toStdString()
-                  << " " << controller.profile().toStdString() << '\n';
+        std::cerr << "picking a profile did not switch to it: requests "
+                  << requests.join("|").toStdString() << ", profile "
+                  << controller.profile().toStdString() << ", accent "
+                  << controller.accent().name().toStdString() << ", bar menu "
+                  << (view.rootObject()->property("barMenuOpen").toBool() ? "open" : "closed")
+                  << ", restyling " << controller.restyling() << ", drawn "
+                  << drawnProfiles.join("|").toStdString() << '\n';
         return 1;
     }
     requests.clear();
