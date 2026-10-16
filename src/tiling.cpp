@@ -1004,6 +1004,20 @@ bool sh_tiling_split_action(sh_tiling *tiling, const void *window, sh_action act
     return true;
 }
 
+sh_rect sh_tiling_pseudo(sh_rect tile, int width, int height) {
+    if (width <= 0 || height <= 0 || tile.width < 1 || tile.height < 1)
+        return tile;
+    // As Hyprland's: narrowed to the tile's width, then lowered to its height, both to scale.
+    double scale = 1;
+    if (width > tile.width)
+        scale = double(tile.width) / width;
+    if (height * scale > tile.height)
+        scale = double(tile.height) / height;
+    int w = std::clamp(static_cast<int>(std::lround(width * scale)), 1, tile.width);
+    int h = std::clamp(static_cast<int>(std::lround(height * scale)), 1, tile.height);
+    return {tile.x + (tile.width - w) / 2, tile.y + (tile.height - h) / 2, w, h};
+}
+
 bool sh_tiling_replace(sh_tiling *tiling, const void *old_window, void *replacement) {
     if (!tiling || !replacement || old_window == replacement)
         return false;
