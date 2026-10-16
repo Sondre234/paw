@@ -13,7 +13,8 @@
 
 /* Dwindle tiling, after Hyprland's default layout of the same name:
  * leaves are windows, inner nodes split their box in two at `ratio`. The split direction
- * follows the box shape at every arrangement, so each tree adapts to any output size.
+ * follows the box shape at every arrangement, so each tree adapts to any output size, unless
+ * split_toggle turned it (Hyprland's togglesplit), which keeps it.
  *
  * Every output and workspace can show its tree in another layout instead: master-stack,
  * spiral, or monocle. Those read the tree's leaves in order (left to right) as a plain list
@@ -34,6 +35,8 @@ struct Node {
     double ratio = 0.5;     // share of the first child
     bool horizontal = true; // children side by side, from the last arrangement
     sh_rect box{};          // from the last arrangement, without gaps
+    // The direction split_toggle keeps, whatever the box's shape; unset, the shape decides.
+    std::optional<bool> forced;
 };
 
 bool contains(const sh_rect &box, double x, double y) {
@@ -389,7 +392,7 @@ struct sh_tiling {
             place_leaf(node, box, area, gap, place, userdata);
             return;
         }
-        node->horizontal = splits_horizontally(box);
+        node->horizontal = node->forced.value_or(splits_horizontally(box));
         sh_rect first = box, second = box;
         if (node->horizontal) {
             first.width = std::clamp(static_cast<int>(box.width * node->ratio), 1,
@@ -971,6 +974,33 @@ bool sh_tiling_swap(sh_tiling *tiling, const void *a, const void *b) {
             for (void *&entry : column.windows)
                 entry = entry == a ? const_cast<void *>(b)
                                    : entry == b ? const_cast<void *>(a) : entry;
+    return true;
+}
+
+bool sh_tiling_split_action(sh_tiling *tiling, const void *window, sh_action action) {
+    if (!tiling || (action != SH_SPLIT_TOGGLE && action != SH_SPLIT_SWAP))
+        return false;
+    auto found = tiling->leaves.find(window);
+    if (found == tiling->leaves.end() ||
+        tiling->mode(found->second.second).layout != SH_LAYOUT_DWINDLE)
+        return false;
+    Node *parent = found->second.first->parent;
+    if (!parent)
+        return false; // alone in its tree, it has no split
+    if (action == SH_SPLIT_SWAP) {
+        // Each half keeps its share, so the two trade places at the sizes they had.
+        std::swap(parent->children[0], parent->children[1]);
+        parent->ratio = 1 - parent->ratio;
+        return true;
+    }
+    // Turned back to the way its box's shape splits it, it follows the shape again.
+    bool horizontal = !parent->horizontal;
+    const sh_rect &box = parent->box;
+    if (box.width > 0 && box.height > 0 && horizontal == splits_horizontally(box))
+        parent->forced.reset();
+    else
+        parent->forced = horizontal;
+    parent->horizontal = horizontal;
     return true;
 }
 
