@@ -404,9 +404,11 @@ const Option options[] = {
      "sets it; actions apply as a window opens, every matching rule in order, later ones "
      "winning. A rule needs `app_id` or `title`."},
     {"windows.rules[].app_id", "regex", "any", "", none, none,
-     "ECMAScript regular expression searched in the application ID (X11: the class)."},
+     "ECMAScript regular expression searched in the application ID (X11: the class); in "
+     "one over 1 KiB, in its first and last 512 bytes."},
     {"windows.rules[].title", "regex", "any", "", none, none,
-     "ECMAScript regular expression searched in the window title."},
+     "ECMAScript regular expression searched in the window title; in one over 1 KiB, in its "
+     "first and last 512 bytes."},
     {"windows.rules[].opacity", "number", "", "", 0.05, 1, "Opacity of a matching focused window."},
     {"windows.rules[].inactive_opacity", "number", "`opacity`", "", 0.05, 1,
      "Opacity of a matching unfocused window."},

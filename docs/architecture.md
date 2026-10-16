@@ -41,6 +41,10 @@ seconds, and then for real, which gives the result or the error. The compositor 
 both load the file this way, so what that code calls must be safe in a child forked from a
 process with threads: nothing that waits on a lock another thread may hold.
 
+Window rules' and bindings' patterns are compiled to be searched in time linear in the text
+(`compile_pattern`), and in a title or app ID over 1 KiB only the first and last 512 bytes are
+searched (`pattern_found`): a client sets its title as long as it likes.
+
 ## The compositor (`src/compositor/`)
 
 Each file begins with a comment saying what it covers; `head -4 src/compositor/*.c` shows them
