@@ -325,6 +325,33 @@ int main(int argc, char **argv) {
         if (!isProbe(model.picture(id)))
             throw std::runtime_error("the minimized window's picture is not the probe's window");
         model.unwatchPicture(&watcher, id);
+        // Watches are their owner's: another owner letting go of the window changes nothing, and
+        // an owner going lets go of what it still watches, as a panel destroyed with its card
+        // open does, so that the capture ends with it. The compositor lists the sources capturing
+        // the window, with how many sessions each has.
+        {
+            const std::string none = "ok\n";
+            wait([&] { return ask("get pictures") == none; }, "the window's capture went on unwatched");
+            auto panel = std::make_unique<QObject>();
+            last = url();
+            model.watchPicture(panel.get(), id, 160, true);
+            model.watchPicture(panel.get(), id, 160, true);
+            pictured(last, "a window watched by an owner gave no picture");
+            model.unwatchPicture(&watcher, id);
+            model.unwatchPicture(&watcher, id);
+            model.unwatchPicture(panel.get(), id);
+            QElapsedTimer settled;
+            settled.start();
+            while (settled.elapsed() < 300) {
+                QCoreApplication::processEvents();
+                QThread::msleep(5);
+            }
+            if (ask("get pictures").find("\t1\tpaw protocol probe\n") == std::string::npos)
+                throw std::runtime_error("letting go of what another owner watched ended its capture");
+            panel.reset();
+            wait([&] { return ask("get pictures") == none; },
+                 "the window's capture outlived the owner watching it");
+        }
         for (const auto &roles : pictureRoles)
             if (roles != QList<int>{TaskModel::Picture})
                 throw std::runtime_error("a new picture announced other roles than its own");
