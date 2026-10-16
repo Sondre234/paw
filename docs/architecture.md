@@ -932,6 +932,41 @@ a flick close by: several motions in a row travelling far within a short while. 
 (`hidden_why`: turned off, the session locked or another VT in front, no monitor, the overview,
 its monitor off, a fullscreen window on its monitor or the focused one) its tree is disabled and
 no timer runs; the next frame that shows things changed steps it again. `get cat` describes it.
+
+### Ambient particles
+
+What the particles do and look like is `src/ambient.c`'s (`paw/ambient.h`, tested by
+`ambient_tests`), without wlroots: a `struct sh_ambient_field` is a monitor's area, its kind, the
+time gone (which a gentle wind follows, `sh_ambient_wind`) and a seed; `sh_ambient_spawn` puts a
+particle anywhere in it (as they first show, fading in) or above its top, and `sh_ambient_step`
+moves them all on. Petals and flakes fall at their own pace, nearer ones (`depth`) larger and
+faster, drift with the wind and sway, and come in again at the top or the other side; petals turn
+and tumble, and fireflies wander, kept off the edges, and glow in cycles of their own.
+`sh_ambient_look` says how one is drawn: its picture, turned by quarter turns, its box (a
+petal's tumble narrows it, its other face showing past edge on, which is the petal mirrored) and
+its opacity. `sh_ambient_paint` paints the pictures in premultiplied ARGB with smooth edges from
+signed distances: petals in four pinks at three lengths, each turned in SH_AMBIENT_TURNS steps
+of a quarter turn (the buffer transform turns them the other quarters), dots of snow at six
+sizes, and a firefly's glow, brighter than its alpha so that it adds light.
+
+`ambient.c` in the compositor keeps a `struct sh_ambient_sky` for each output in the layout
+(`sh_output.ambient`; none for a mirroring one) in a tree just above the background layer
+(`layer_trees[0]`) and under the bottom one, a scene buffer for each particle that takes no
+input. So the blur behind windows, which draws the background layer alone, leaves them out. The
+pictures are painted for the output's scale as each is first needed, and again as the scale
+changes; a node is given a new buffer only when its picture changes. A timer of its own steps
+every sky every 33 ms while any shows (`tick`), changing its nodes with its tree off and showing
+it again once, as a party's confetti does. An output pauses, its tree off and nothing stepped
+(`paused_why`), while the session is locked or on another VT, while it is off or out of the
+layout, while it shows a fullscreen window and while the screens are dimmed; with every output
+paused the timer stops, and `ambient_frame`, from `output_frame`, starts it again once the frame
+something drew as it went shows the output may show them, and `ambient_input` once input comes
+after they rested. They fade out (`presence`) toward none, toward another kind, which is put in
+once they are gone and fades in, and after five minutes without input (`PAW_TEST_AMBIENT_IDLE_MS`
+for tests). The kind is `appearance.ambient.kind` until the `ambient` action picks another
+(`ambient_switch`), which stands until a reload changes the kind configured. `get ambient`
+(`describe_ambient`) lists each output's kind, count and state, and with an output's name its
+particles as drawn; `tests/ambient_smoke.py` tests them.
 ### Counting for paw wrapped
 
 `wrapped.c` keeps `sh_server.wrapped` while `wrapped.enabled` is on in a standalone session
@@ -1818,6 +1853,8 @@ lock the screen before a suspend gives up (see `power_smoke.py`), and
 `crossfade_smoke.py`).
 `PAW_TEST_CAT_SLEEP_MS` sets how long the desktop cat waits without input before it sleeps, in
 place of `cat.sleep_after` (see `cat_smoke.py`).
+`PAW_TEST_AMBIENT_IDLE_MS` sets how long ambient particles wait without input before they fade
+out (see `ambient_smoke.py`).
 `crossfade_smoke.py`), and `PAW_TEST_HEATMAP_REST_MS` how long a resting pointer counts in the
 heatmap (see `heatmap_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon

@@ -504,6 +504,15 @@ shadows.
   with the setting off), fullscreen windows have none, and profiles can turn it on and off. Only
   the wallpaper is blurred, at half the monitor's pixels on the CPU once it changes, so windows
   moving, resizing and animating over it cost nothing more; `paw msg get blur` shows it.
+- Ambient particles (experimental, off unless set): `appearance.ambient = { kind = "sakura" }`
+  has sakura petals tumble down over the wallpaper, `"snow"` soft snow, the nearest flakes out of
+  focus, and `"fireflies"` fireflies wandering and glowing warm, under the windows and the panels
+  and out of the background windows blur. `count` and `speed` set how many and how fast, an
+  appearance profile can set them (washi, sumi and mochi suggest one each in a comment), and the
+  `ambient` action (`paw msg ambient sakura|snow|fireflies|off|next|toggle`, and the command
+  palette) switches them, fading one kind out and the next in. They pause while the session is
+  locked, a monitor is off or shows a fullscreen window and the screens are dimmed, and fade out
+  after five minutes without input; `paw msg get ambient` says what each monitor draws.
 
 ### Starting and ending a session
 
