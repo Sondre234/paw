@@ -144,6 +144,7 @@ void server_new_lock(struct wl_listener *listener, void *data) {
     switcher_close(server, -1);
     overview_dismiss(server);
     xray_dismiss(server);
+    color_picker_cancel(server);
     crossfade_end(server); // its pictures show the session as it was
     toys_end(server);
     cube_end(server);

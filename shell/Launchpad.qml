@@ -255,13 +255,13 @@ Item {
         }
         Loader {
             anchors.fill: parent
-            active: !backdrop.glassy && shell.wallpaper.toString().length === 0
+            active: !backdrop.glassy && launchpad.panel.shellView.wallpaper.toString().length === 0
             sourceComponent: DrawnWallpaper {}
         }
         WallpaperPicture {
             anchors.fill: parent
             visible: !backdrop.glassy
-            source: backdrop.glassy ? "" : shell.wallpaper
+            source: backdrop.glassy ? "" : launchpad.panel.shellView.wallpaper
             asynchronous: true
         }
         Rectangle {
@@ -424,7 +424,7 @@ Item {
                                     y: Math.round((cell.height - height - launchpad.labelHeight - Theme.spacingS) / 2)
                                     width: launchpad.iconSize; height: width
                                     sourceSize: Qt.size(width, height)
-                                    source: "image://icons/" + cell.modelData.icon
+                                    source: shell.iconBase + cell.modelData.icon
                                     asynchronous: true
                                     // Darkened while pressed, as macOS does.
                                     opacity: cell.pressed ? 0.7 : 1

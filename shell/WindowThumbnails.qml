@@ -189,7 +189,7 @@ PopupCard {
                         Image {
                             Layout.leftMargin: Theme.spacingXS
                             Layout.preferredWidth: Theme.iconSizeSmall; Layout.preferredHeight: Theme.iconSizeSmall
-                            source: "image://icons/" + thumbnails.panel.groupIcon
+                            source: shell.iconBase + thumbnails.panel.groupIcon
                             sourceSize: Qt.size(Theme.iconSizeSmall, Theme.iconSizeSmall)
                         }
                         Text {
@@ -258,7 +258,7 @@ PopupCard {
                             Image {
                                 anchors.centerIn: parent
                                 width: Theme.appIconSizeLarge; height: Theme.appIconSizeLarge
-                                source: "image://icons/" + thumbnails.panel.groupIcon
+                                source: shell.iconBase + thumbnails.panel.groupIcon
                                 sourceSize: Qt.size(Theme.appIconSizeLarge, Theme.appIconSizeLarge)
                                 opacity: tile.minimized ? 0.5 : 1
                             }

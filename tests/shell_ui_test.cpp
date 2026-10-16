@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QDeadlineTimer>
 #include <QDir>
+#include <QDirIterator>
 #include <QDragEnterEvent>
 #include <QElapsedTimer>
 #include <QFile>
@@ -25,6 +26,7 @@
 #include <QQmlEngine>
 #include <QQuickImageProvider>
 #include <QQuickItem>
+#include <QQuickWindow>
 #include <QRegularExpression>
 #include <QSignalSpy>
 #include <QStyleHints>
@@ -887,6 +889,109 @@ int main(int argc, char **argv) {
             return fail("a start button picture that does not load hid the squares");
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
+    }
+    // appearance.icon_theme: icons come from its theme at once, those the shell has drawn
+    // already too, by a URL of their own (shell.iconBase), as do the icons guessed for windows
+    // and the tray's; a theme that is not installed is skipped, and without one the theme the
+    // shell started with is back.
+    {
+        // Two themes of the test's own, with an icon of the same name in two colours.
+        for (const auto &[name, colour] :
+             {std::pair{"paw-test-red", Qt::red}, std::pair{"paw-test-blue", Qt::blue}}) {
+            const auto theme = screens.filePath("data/icons/") + name;
+            QDir().mkpath(theme + "/16x16/apps");
+            QImage picture(16, 16, QImage::Format_ARGB32);
+            picture.fill(colour);
+            if (!writeFile(theme + "/index.theme",
+                           QByteArray("[Icon Theme]\nName=") + name +
+                               "\nDirectories=16x16/apps\n\n[16x16/apps]\nSize=16\nType=Fixed\n") ||
+                !picture.save(theme + "/16x16/apps/paw-test-themed.png"))
+                return fail("could not write the icon themes");
+        }
+        const QString before = controller.iconTheme();
+        // The icon as the shell draws one, in a window of its own.
+        QQmlComponent probe(view.engine());
+        probe.setData("import QtQuick\nImage { width: 16; height: 16; sourceSize: Qt.size(16, 16); "
+                      "source: shell.iconBase + 'paw-test-themed' }",
+                      QUrl("qrc:/shell/PawShell/IconProbe.qml"));
+        std::unique_ptr<QQuickItem> icon(qobject_cast<QQuickItem *>(probe.create()));
+        if (!icon)
+            return fail(qPrintable("the icon probe did not load: " + probe.errorString()));
+        QQuickWindow window;
+        window.resize(16, 16);
+        icon->setParentItem(window.contentItem());
+        window.show();
+        if (!QTest::qWaitForWindowExposed(&window))
+            return fail("the icon probe's window never showed");
+        auto drawn = [&](const QColor &colour) {
+            return icon->property("status").toInt() == 1 && // Image.Ready
+                   window.grabWindow().pixelColor(8, 8) == colour;
+        };
+        auto *tray = controller.tray();
+        TrayItem item;
+        item.key = item.id = item.title = "themed";
+        item.iconName = "paw-test-themed";
+        tray->add(item);
+        auto trayImage = [&] {
+            return tray->data(tray->index(tray->count() - 1), TrayModel::ImageRole).toString();
+        };
+        auto trayColour = [&] {
+            return tray->picture(tray->find("themed")->serial, QSize(16, 16)).pixelColor(8, 8);
+        };
+        auto themed = [&](const char *theme) {
+            return reconfigure(QString(lua).replace(
+                "return {", QString("return {appearance={icon_theme='%1'},").arg(theme)));
+        };
+        if (!themed("paw-test-red"))
+            return fail("could not rewrite the configuration");
+        if (controller.iconTheme() != "paw-test-red" || !waitFor([&] { return drawn(Qt::red); }))
+            return fail("appearance.icon_theme did not draw its theme's icon");
+        if (controller.iconFor("Paw-Test-Themed") != "paw-test-themed" ||
+            trayColour() != QColor(Qt::red))
+            return fail("a window's icon is not guessed, or the tray's not drawn, in the icon theme");
+        const QString redTray = trayImage();
+        if (!themed("paw-test-blue"))
+            return fail("could not rewrite the configuration");
+        if (controller.iconTheme() != "paw-test-blue" || !waitFor([&] { return drawn(Qt::blue); }))
+            return fail("another icon theme did not draw anew the icon the shell had drawn");
+        if (trayImage() == redTray || trayColour() != QColor(Qt::blue))
+            return fail("the tray's icon did not follow another icon theme");
+        if (!themed("paw-no-such-theme"))
+            return fail("could not rewrite the configuration");
+        if (controller.iconTheme() == "paw-no-such-theme" ||
+            controller.iconTheme() == "paw-test-blue" || !waitFor([&] { return !drawn(Qt::blue); }))
+            return fail("an icon theme that is not installed was not skipped for the one the "
+                        "shell started with");
+        if (!themed("paw-test-red") || !waitFor([&] { return drawn(Qt::red); }))
+            return fail("an icon theme picked again was not drawn");
+        // The configuration's own again; the theme earlier tests set comes back for later ones.
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+        if (controller.iconTheme() == "paw-test-red")
+            return fail("without appearance.icon_theme the shell kept the one it had");
+        tray->remove("themed");
+        QIcon::setThemeName(before);
+    }
+    // The programs the shell starts get the cursor theme the compositor draws (cursor-theme SIZE
+    // NAME), a profile's too.
+    subscriber->write("cursor-theme 32 paw-test-cursor\n");
+    if (!waitFor([] {
+            return qgetenv("XCURSOR_THEME") == "paw-test-cursor" && qgetenv("XCURSOR_SIZE") == "32";
+        }))
+        return fail("the shell's environment did not take the compositor's cursor theme");
+    // Every icon of the shell's QML goes through shell.iconBase, to follow the icon theme.
+    {
+        int files = 0;
+        for (QDirIterator qml(":/shell/PawShell", {"*.qml"}, QDir::Files,
+                              QDirIterator::Subdirectories);
+             qml.hasNext(); ++files) {
+            QFile file(qml.next());
+            if (file.open(QIODevice::ReadOnly) && file.readAll().contains("\"image://icons/\""))
+                return fail(qPrintable(file.fileName() +
+                                       " builds an image://icons URL without shell.iconBase"));
+        }
+        if (files < 50)
+            return fail("the shell's QML files were not found to look through");
     }
     QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, centre(workspace(4)));
     if (!waitFor([&] { return workspace(4)->property("current").toBool(); }))
@@ -4469,18 +4574,41 @@ ListModel {
             std::cerr << "the palette lacks the saved session: " << titlesNow().join("|").toStdString() << '\n';
             return 1;
         }
-        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Toggle tiling") ||
-            !titlesNow().contains("Appearance: dark"))
-            return fail("the palette lacks workspaces or actions");
-        // Empty, it lists its first 60 entries, the applications after the actions: one is found
-        // by its name.
-        type("fake");
-        if (!waitFor([&] { return titlesNow().value(0) == "Fake app"; }))
-            return fail("the palette does not find applications");
-        for (int i = 0; i < 4; ++i)
-            QTest::keyClick(&paletteView, Qt::Key_Backspace);
-        if (!waitFor([&] { return palette->query().isEmpty(); }))
-            return fail("the palette's search was not cleared");
+        // Nothing typed, it lists a few of each kind, each kind together: the windows, the
+        // sessions to restore, the applications, the workspaces to switch to, then the profiles
+        // and the common actions, however many actions the palette has; not every action, nor
+        // moving the window to a workspace or restoring a session and launching what is missing.
+        auto kinds = [&] {
+            QStringList runs;
+            for (const auto &item : palette->results())
+                if (const auto kind = item.toMap()["kind"].toString(); runs.isEmpty() || runs.last() != kind)
+                    runs << kind;
+            return runs;
+        };
+        QStringList order{"session", "app", "workspace", "action"};
+        if (kinds().value(0) == "window")
+            order.prepend("window");
+        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Fake app") ||
+            !titlesNow().contains("Other app") || !titlesNow().contains("Toggle tiling") ||
+            !titlesNow().contains("Appearance: dark") || titlesNow().contains("Layout: monocle") ||
+            titlesNow().contains("Move window to workspace 1: web") ||
+            titlesNow().contains("Restore session work and launch missing apps") ||
+            kinds() != order) {
+            std::cerr << "the empty palette does not list a few of each kind: "
+                      << titlesNow().join("|").toStdString() << '\n';
+            return 1;
+        }
+        // A filter's prefix alone lists every one of its kind: > all the actions.
+        {
+            palette->setQuery(">");
+            int actions = 0;
+            for (const auto &item : palette->entries(nullptr))
+                actions += item.toMap()["kind"] == "action";
+            if (kinds() != QStringList{"action"} || palette->results().size() != actions ||
+                !titlesNow().contains("Layout: monocle") || !titlesNow().contains("Ambient: off"))
+                return fail("> alone does not list every action");
+            palette->setQuery("");
+        }
         type("tiling");
         if (!waitFor([&] { return !titlesNow().isEmpty() && titlesNow()[0].contains("tiling", Qt::CaseInsensitive); })) {
             std::cerr << "typing did not filter the palette: " << titlesNow().join("|").toStdString() << '\n';
@@ -5384,21 +5512,18 @@ ListModel {
             if (!waitFor([&] { return power->available().size() == 5; }))
                 return fail("the power menu did not list five actions");
             palette->open(output);
-            // Each found by its name: they follow the actions, further down than the 60 entries
-            // an empty search lists.
-            auto offers = [&](const QString &title) {
-                palette->setQuery(QString(title).remove(QChar(0x2026)));
-                return titles().contains(title);
-            };
-            if (!waitFor([&] {
-                    return offers("Lock screen") && offers("Suspend") && offers("Restart…") &&
-                           offers("Power off…") && offers("Log out…");
-                }) ||
-                offers("Hibernate")) {
+            // Nothing typed, they end its list, after however many other actions.
+            const QStringList offered{"Lock screen", "Suspend", "Restart…", "Power off…", "Log out…"};
+            if (!waitFor([&] { return titles().mid(titles().size() - offered.size()) == offered; }) ||
+                titles().contains("Hibernate")) {
                 std::cerr << "the palette does not offer what may run: "
                           << titles().join("|").toStdString() << '\n';
                 return 1;
             }
+            // As does a lone >, which lists every action.
+            palette->setQuery(">");
+            if (titles().mid(titles().size() - offered.size()) != offered)
+                return fail("> alone does not end with the power actions");
             requests.clear();
             palette->setQuery(">power off");
             palette->activate(0);
@@ -7593,6 +7718,263 @@ ListModel {
             return fail("the configuration turning the clock on hid it");
         if (!reconfigure(lua) || !waitFor(hidden))
             return fail("the configuration turning the clock off did not hide it");
+    }
+    // The wallpaper slideshow (shell.wallpaper_cycle): the compositor's wallpaper-cycle lines step
+    // through its folder's pictures, by name or shuffled, each kept as one picked from the panel
+    // and fading in on the desktop; its timer steps every interval, waiting while the session is
+    // locked.
+    {
+        const auto sky = directory.filePath("sky");
+        QDir().mkpath(sky);
+        for (const auto *name : {"1.png", "2.png", "3.png"}) {
+            QImage picture(32, 18, QImage::Format_RGB32);
+            picture.fill(Qt::darkBlue);
+            if (!picture.save(sky + "/" + name))
+                return fail("could not save a picture for the slideshow");
+        }
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *backdrop = find(desktop.rootObject(), "backdrop");
+        if (!backdrop)
+            return fail("the desktop has no backdrop");
+        auto withCycle = [&](const QString &settings) {
+            return QString(lua).replace("shell={wallpaper=",
+                                        "shell={wallpaper_cycle={" + settings + "},wallpaper=");
+        };
+        // Whether `file` is the wallpaper, kept as picked for the profile and drawn on the desktop.
+        auto showing = [&](const QString &file) {
+            const auto layers = backdrop->childItems();
+            return controller.wallpaperFile() == file &&
+                   pickedText() == "dark\twalls/a/one.png\t" + file + "\n" && !layers.isEmpty() &&
+                   layers.last()->property("source") == QUrl::fromLocalFile(file).toString();
+        };
+        if (!reconfigure(withCycle("folder=[[" + sky + "]],order='name'")) ||
+            controller.wallpaperCycleFolder() != sky || controller.wallpaperCycle()->running())
+            return fail("shell.wallpaper_cycle's folder not taken, or its timer runs without an interval");
+        // By name, from the configured wallpaper, which is not in the folder: the first, the next,
+        // and back round past the first.
+        const QList<std::pair<const char *, const char *>> steps = {
+            {"next", "1.png"}, {"next", "2.png"}, {"prev", "1.png"}, {"prev", "3.png"}};
+        for (const auto &[verb, name] : steps) {
+            subscriber->write(QByteArray("wallpaper-cycle ") + verb + "\n");
+            if (!waitFor([&] { return showing(sky + "/" + name); })) {
+                std::cerr << "wallpaper-cycle " << verb << " did not show " << name << ": "
+                          << controller.wallpaperFile().toStdString() << " / "
+                          << pickedText().toStdString() << '\n';
+                return 1;
+            }
+        }
+        // Shuffled, the folder named relative to the configuration: each picture once before any
+        // comes again.
+        if (!reconfigure(withCycle("folder='sky'")) || controller.wallpaperCycleFolder() != sky)
+            return fail("a slideshow folder relative to the configuration not found beside it");
+        QSet<QString> seen{controller.wallpaperFile()};
+        for (int i = 0; i < 2; ++i) {
+            const auto before = controller.wallpaperFile();
+            controller.stepWallpaper(1);
+            if (controller.wallpaperFile() == before || seen.contains(controller.wallpaperFile()))
+                return fail("the shuffled slideshow showed a picture again before showing them all");
+            seen.insert(controller.wallpaperFile());
+        }
+        // Unset, the folder is the configured wallpaper's.
+        if (!reconfigure(withCycle("order='name'")) || controller.wallpaperCycleFolder() != walls + "/a")
+            return fail("the slideshow's folder is not the configured wallpaper's");
+        controller.stepWallpaper(1);
+        if (!waitFor([&] { return showing(walls + "/a/one.png"); }))
+            return fail("the slideshow did not step through the configured wallpaper's folder");
+        // A folder without pictures says so and leaves the wallpaper.
+        const auto none = directory.filePath("no-pictures");
+        QDir().mkpath(none);
+        if (!reconfigure(withCycle("folder=[[" + none + "]]")))
+            return fail("could not rewrite the configuration");
+        subscriber->write("wallpaper-cycle next\n");
+        if (!waitFor([&] { return controller.osd()->text() == "No wallpapers in " + none; }) ||
+            !showing(walls + "/a/one.png"))
+            return fail("a slideshow without pictures did not say so, or changed the wallpaper");
+        // Every interval (a minute of 150 milliseconds here), but not while the session is locked.
+        controller.wallpaperCycle()->setMinute(150);
+        if (!reconfigure(withCycle("folder='sky',order='name',interval=2")) ||
+            !controller.wallpaperCycle()->running())
+            return fail("the slideshow's timer did not start");
+        if (!waitFor([&] { return showing(sky + "/1.png"); }) ||
+            !waitFor([&] { return showing(sky + "/2.png"); }))
+            return fail("the slideshow did not step by itself every interval");
+        subscriber->write("locked on\n");
+        if (!waitFor([&] { return controller.wallpaperCycle()->paused(); }) ||
+            controller.wallpaperCycle()->running() ||
+            !stays([&] { return showing(sky + "/2.png"); }, 300))
+            return fail("the slideshow stepped while the session was locked");
+        subscriber->write("locked off\n");
+        if (!waitFor([&] { return !controller.wallpaperCycle()->paused(); }) ||
+            !waitFor([&] { return showing(sky + "/3.png"); }))
+            return fail("the slideshow did not go on once the session was unlocked");
+        controller.wallpaperCycle()->setMinute(60 * 1000);
+        if (!reconfigure(lua) || controller.wallpaperCycle()->running())
+            return fail("the slideshow's timer runs on without an interval");
+        controller.pickWallpaper("");
+        if (controller.wallpaperFile() != walls + "/a/one.png")
+            return fail("could not go back to the configured wallpaper");
+    }
+    // A monitor's own wallpaper (shell.monitor_wallpapers, or picked for that monitor alone): its
+    // desktop and its workspace card show it, the others every monitor's. A pick for one monitor
+    // is kept on a line of its own that names the monitor, until the configuration gives that
+    // monitor another; one for every monitor drops those and covers the configured ones too.
+    {
+        const auto sky = directory.filePath("sky");
+        const auto one = walls + "/a/one.png", two = walls + "/b/two.png";
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *backdrop = find(desktop.rootObject(), "backdrop");
+        auto *card = find(view.rootObject(), "workspaceCard");
+        auto *cardPicture = card ? find(card, "wallpaperImage") : nullptr;
+        if (!backdrop || !cardPicture)
+            return fail("the desktop has no backdrop, or the workspace card no wallpaper");
+        // Whether this monitor (`output`) shows `file`: the desktop, its view and its card.
+        auto drawn = [&](const QString &file) {
+            const auto layers = backdrop->childItems();
+            const auto url = QUrl::fromLocalFile(file);
+            return !layers.isEmpty() && layers.last()->property("source") == url.toString() &&
+                   layers.last()->opacity() == 1 && desktop.wallpaperFile() == file &&
+                   view.wallpaperFile() == file && cardPicture->property("source") == url;
+        };
+        auto withOwn = [&](const QString &entries) {
+            return QString(lua).replace("shell={wallpaper=",
+                                        "shell={monitor_wallpapers={" + entries + "},wallpaper=");
+        };
+        if (!reconfigure(withOwn("['" + output + "']='walls/b/two.png'")) ||
+            !waitFor([&] { return drawn(two); }) || controller.wallpaperFile() != one ||
+            controller.wallpaperFileOn("OTHER-1") != one || controller.ownWallpaper(output))
+            return fail("shell.monitor_wallpapers did not give the monitor its own wallpaper alone");
+        // Picked for this monitor alone; then for another, which leaves this one.
+        controller.pickWallpaperOn(sky + "/1.png", output);
+        if (!waitFor([&] { return drawn(sky + "/1.png"); }) || !controller.ownWallpaper(output) ||
+            !desktop.ownWallpaper() || controller.wallpaperFile() != one ||
+            pickedText() != "dark\twalls/b/two.png\t" + sky + "/1.png\t" + output + "\n")
+            return fail("a wallpaper picked for one monitor was not shown there alone, or not kept");
+        controller.pickWallpaperOn(sky + "/2.png", "OTHER-1");
+        if (controller.wallpaperFileOn("OTHER-1") != sky + "/2.png" || !drawn(sky + "/1.png") ||
+            pickedText() != "dark\twalls/a/one.png\t" + sky + "/2.png\tOTHER-1\n"
+                            "dark\twalls/b/two.png\t" + sky + "/1.png\t" + output + "\n")
+            return fail("a wallpaper picked for another monitor changed this one's");
+        // Read back as the shell starts again.
+        {
+            const auto socket = qgetenv("PAW_SOCKET");
+            qunsetenv("PAW_SOCKET");
+            ShellController again(config.toStdString());
+            qputenv("PAW_SOCKET", socket);
+            if (again.wallpaperFileOn(output) != sky + "/1.png" ||
+                again.wallpaperFileOn("OTHER-1") != sky + "/2.png" || again.wallpaperFile() != one)
+                return fail("the wallpapers picked for each monitor were not read back");
+        }
+        // For every monitor: those picked alone go, and the configured one is covered too.
+        controller.pickWallpaper(sky + "/3.png");
+        if (!waitFor([&] { return drawn(sky + "/3.png"); }) || controller.ownWallpaper(output) ||
+            controller.wallpaperFileOn("OTHER-1") != sky + "/3.png" ||
+            pickedText() != "dark\twalls/a/one.png\t" + sky + "/3.png\n"
+                            "dark\twalls/b/two.png\t" + sky + "/3.png\t" + output + "\n")
+            return fail("a wallpaper picked for every monitor did not cover them all");
+        // Picked alone again, then the configuration gives the monitor another wallpaper: that
+        // shows, as the pick was for the one before.
+        controller.pickWallpaperOn(sky + "/1.png", output);
+        if (!waitFor([&] { return drawn(sky + "/1.png"); }) ||
+            !reconfigure(withOwn("['" + output + "']=[[" + sky + "/2.png]]")) ||
+            !waitFor([&] { return drawn(sky + "/2.png"); }) || controller.ownWallpaper(output) ||
+            controller.wallpaperFile() != sky + "/3.png")
+            return fail("a monitor's pick stood after the configuration gave it another wallpaper");
+        // Going back to what the monitor shows without a pick of its own.
+        controller.pickWallpaperOn(sky + "/1.png", output);
+        controller.pickWallpaperOn("", output);
+        if (!waitFor([&] { return drawn(sky + "/2.png"); }))
+            return fail("clearing a monitor's own pick did not go back to its configured wallpaper");
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+        controller.pickWallpaper("");
+        if (!waitFor([&] { return drawn(one); }) || pickedText() != "")
+            return fail("could not go back to the configured wallpaper");
+        // The slideshow with per_monitor gives each monitor (this one here) a picture of its own,
+        // the wallpaper of every monitor staying as it is.
+        if (!reconfigure(QString(lua).replace(
+                "shell={wallpaper=",
+                "shell={wallpaper_cycle={folder='sky',order='name',per_monitor=true},wallpaper=")))
+            return fail("could not rewrite the configuration");
+        for (const auto *name : {"1.png", "2.png"}) {
+            subscriber->write("wallpaper-cycle next\n");
+            if (!waitFor([&] {
+                    return drawn(sky + "/" + name) && controller.ownWallpaper(output) &&
+                           controller.wallpaperFile() == one &&
+                           pickedText() == "dark\twalls/a/one.png\t" + sky + "/" + name + "\t" +
+                                               output + "\n";
+                }))
+                return fail("the slideshow with per_monitor did not give the monitor its own picture");
+        }
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+        controller.pickWallpaper("");
+        if (!waitFor([&] { return drawn(one); }) || pickedText() != "")
+            return fail("could not go back to the configured wallpaper");
+        // The picker offers every monitor or this one alone once this one has a wallpaper of its
+        // own (or with two monitors), on this one alone while it has; a click on a picture puts it
+        // where that says.
+        if (find(view.rootObject(), "wallpaperScope") &&
+            find(view.rootObject(), "wallpaperScope")->isVisible())
+            return fail("the wallpaper picker offers this monitor alone with one monitor");
+        controller.pickWallpaperOn(two, output);
+        // The bar has been made anew since the button was first found.
+        auto *button = find(view.rootObject(), "wallpapersButton");
+        if (!button || !button->isVisible())
+            return fail("the bar lacks the wallpaper button");
+        click(button);
+        QQuickItem *all = nullptr, *alone = nullptr;
+        if (!waitFor([&] {
+                picker = find(view.rootObject(), "wallpaperPicker");
+                auto *scope = picker ? find(picker, "wallpaperScope") : nullptr;
+                all = picker ? find(picker, "wallpaperScopeAll") : nullptr;
+                alone = picker ? find(picker, "wallpaperScopeMonitor") : nullptr;
+                return picker && picker->isVisible() && scope && scope->isVisible() && all &&
+                       alone && alone->property("current").toBool() &&
+                       !all->property("current").toBool() && wallpaperItem("one") &&
+                       wallpaperItem("two") && wallpaperItem("two")->property("current").toBool() &&
+                       !wallpaperItem("one")->property("current").toBool();
+            })) {
+            auto *scope = picker ? find(picker, "wallpaperScope") : nullptr;
+            std::cerr << "the wallpaper picker did not offer this monitor alone while it has its own: "
+                      << (picker ? picker->isVisible() : -1) << " " << (scope ? scope->isVisible() : -1)
+                      << " " << (alone ? alone->property("current").toBool() : -1) << " "
+                      << !!wallpaperItem("one") << !!wallpaperItem("two") << " "
+                      << (wallpaperItem("two") ? wallpaperItem("two")->property("current").toBool() : -1)
+                      << " " << controller.ownWallpaper(output) << " "
+                      << view.wallpaperFile().toStdString() << '\n';
+            return 1;
+        }
+        click(all);
+        click(wallpaperItem("one"));
+        if (!waitFor([&] {
+                return drawn(one) && !controller.ownWallpaper(output) &&
+                       all->property("current").toBool() &&
+                       wallpaperItem("one")->property("current").toBool() &&
+                       pickedText() == "dark\twalls/a/one.png\t" + one + "\n";
+            }))
+            return fail("All monitors did not put the picture on every monitor");
+        click(alone);
+        click(wallpaperItem("two"));
+        if (!waitFor([&] {
+                return drawn(two) && controller.ownWallpaper(output) &&
+                       controller.wallpaperFile() == one &&
+                       wallpaperItem("two")->property("current").toBool() &&
+                       pickedText() == "dark\twalls/a/one.png\t" + one + "\n"
+                                       "dark\twalls/a/one.png\t" + two + "\t" + output + "\n";
+            }))
+            return fail("This monitor only did not put the picture on this monitor alone");
+        click(button);
+        if (!waitFor([&] { return !picker->isVisible(); }))
+            return fail("the wallpaper button did not close the picker");
+        controller.pickWallpaper("");
+        if (!waitFor([&] { return drawn(one); }) || pickedText() != "")
+            return fail("could not go back to the configured wallpaper");
     }
     // The macOS style, from a profile: the menu bar along the top in a surface of its own and the
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the

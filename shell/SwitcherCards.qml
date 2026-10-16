@@ -154,7 +154,7 @@ Item {
                 readonly property bool minimized: modelData.minimized === true
                 readonly property bool urgent: modelData.urgent === true
                 readonly property int windowId: modelData.id || 0
-                readonly property string icon: "image://icons/" + shell.iconFor(modelData.appId)
+                readonly property string icon: shell.iconBase + shell.iconFor(modelData.appId)
 
                 // Its window's task, found by the window's number; none without one.
                 TaskFilter {

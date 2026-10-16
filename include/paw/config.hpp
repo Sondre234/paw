@@ -204,6 +204,17 @@ struct DesktopClockConfig {
     std::string greeting;                    // "en" or "ja" by the time of day; empty: none
 };
 
+// Lua `shell.wallpaper_cycle` (experimental): a slideshow, the pictures of a folder taking turns
+// as the wallpaper, every `interval` minutes and at the wallpaper_next and wallpaper_prev actions.
+struct WallpaperCycleConfig {
+    int interval = 0; // minutes between pictures, 1 to 1440; 0: only the actions step
+    // The pictures' folder (not its subfolders): absolute, "~/..." or relative to the
+    // configuration; empty: the folder of shell.wallpaper, else the wallpaper picker's.
+    std::string folder;
+    bool shuffle = true; // order = "shuffle", each once before any again; false: "name"
+    bool per_monitor = false; // each monitor the next picture, rather than one for all
+};
+
 // Lua `shell.wallpaper_mode`: how the wallpaper covers the output. Fill crops it to cover every
 // pixel, Fit shows all of it, Stretch scales each side to the output's, Center and Tile lay it at
 // its own size, once in the middle or repeated from the top left; Fit and Center show the
@@ -295,8 +306,12 @@ struct ShellConfig {
     std::string panel_color = "#151e2c";
     std::string text_color = "#edf2fa";
     std::string wallpaper;
+    // monitor_wallpapers: a monitor's own wallpaper by the monitor's name, over `wallpaper`;
+    // absolute or relative to the configuration, "" for none.
+    std::map<std::string, std::string> monitor_wallpapers;
     WallpaperMode wallpaper_mode = WallpaperMode::Fill;
     DesktopClockConfig desktop_clock;
+    WallpaperCycleConfig wallpaper_cycle;
     // The start button's picture: a file, absolute or relative to the configuration; empty:
     // four squares in the accent colour.
     std::string start_icon;
@@ -354,6 +369,12 @@ struct OsdConfig {
 struct Config {
     sh_settings settings{.background = {25 / 255.0F, 33 / 255.0F, 46 / 255.0F, 1.0F},
                          .color_scheme = SH_COLOR_SCHEME_UNSET,
+                         .shell_surface = {0x15 / 255.0F, 0x1e / 255.0F, 0x2c / 255.0F, 1},
+                         .shell_text = {0xed / 255.0F, 0xf2 / 255.0F, 0xfa / 255.0F, 1},
+                         .shell_accent = {0x7d / 255.0F, 0xa8 / 255.0F, 1, 1},
+                         .cursor_theme = "",
+                         .cursor_size = 0,
+                         .icon_theme = "",
                          .profile = "",
                          .profile_schedule = {},
                          .mouse_modifier = SH_ALT,

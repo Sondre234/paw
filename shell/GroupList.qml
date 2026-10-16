@@ -87,7 +87,7 @@ PopupCard {
                     Image {
                         Layout.leftMargin: Theme.spacingS
                         Layout.preferredWidth: Theme.appIconSize; Layout.preferredHeight: Theme.appIconSize
-                        source: "image://icons/" + panel.groupIcon; sourceSize: Qt.size(Theme.appIconSize, Theme.appIconSize)
+                        source: shell.iconBase + panel.groupIcon; sourceSize: Qt.size(Theme.appIconSize, Theme.appIconSize)
                         opacity: groupWindow.minimized ? 0.5 : 1
                     }
                     Text {

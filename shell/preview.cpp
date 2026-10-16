@@ -519,7 +519,7 @@ QStringList PreviewData::surfaces() {
             "palette", "switcher", "overview", "palette-empty", "auth-dialog", "snap-assist",
             "osd-microphone", "display-mode", "palette-calculator", "palette-files", "clipboard",
             "emoji", "display-settings", "display-settings-trial", "rice-trial", "xray",
-            "caption", "shortcuts", "shortcuts-search", "shortcuts-mode"};
+            "caption", "shortcuts", "shortcuts-search", "shortcuts-mode", "osd-color"};
 }
 
 namespace {
@@ -577,6 +577,8 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
             controller_.osd()->show(output, "Volume", 64, "volume");
         else if (name == "osd-microphone")
             controller_.osd()->show(output, "Microphone muted", -1, "microphone-muted");
+        else if (name == "osd-color")
+            controller_.osd()->show(output, "#f5bde6", -1, "color");
         else
             controller_.osd()->show(output, "Do not disturb", -1, "dnd");
     } else if (name == "caption") {

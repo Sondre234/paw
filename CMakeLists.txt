@@ -31,7 +31,7 @@ add_library(paw_config STATIC src/curve.c src/session.c src/tabs.c src/config.cp
     src/child_trial.cpp src/config_schema.cpp src/layout.cpp src/tiling.cpp
     src/overview_layout.cpp src/window_placement.cpp
     src/import/common.cpp src/import/hyprland.cpp src/import/waybar.cpp src/import/import.cpp
-    src/autostart.cpp src/lock_style.cpp)
+    src/autostart.cpp src/lock_style.cpp src/theme_lookup.cpp)
 target_include_directories(paw_config PUBLIC include)
 target_link_libraries(paw_config PRIVATE paw_effects PkgConfig::LUA PUBLIC PkgConfig::XKB)
 target_compile_options(paw_config PRIVATE -Wall -Wextra -Wpedantic)
@@ -174,6 +174,7 @@ if(BUILD_TESTING)
     paw_unit_test(power_config)
     paw_unit_test(lock_style ${EXAMPLE_CONFIG})
     paw_unit_test(autostart)
+    paw_unit_test(theme_lookup)
     paw_unit_test(display_power_config)
     paw_unit_test(output_config)
     paw_unit_test(doctor LIBRARY paw_cli)
@@ -194,6 +195,7 @@ if(BUILD_TESTING)
     paw_c_unit_test(xray_layout)
     paw_c_unit_test(cube)
     paw_c_unit_test(blur)
+    paw_c_unit_test(color_picker)
     paw_c_unit_test(shake)
     paw_c_unit_test(profile_schedule)
     paw_unit_test(heatmap LIBRARY paw_cli)
@@ -289,6 +291,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/cursor.c
         src/compositor/cursor_hide.c
         src/compositor/cursor_shake.c
+        src/compositor/profile_themes.c
         src/compositor/display_mode.c
         src/compositor/display_settings.c
         src/compositor/dynamic_rules.c
@@ -353,6 +356,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/cursor_trail.c
         src/compositor/xray.c
         src/compositor/heatmap.c
+        src/compositor/color_picker.c
         src/compositor/cube.c
         src/compositor/blur.c
     )
@@ -380,6 +384,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/xray_layout.c)
     target_sources(paw PRIVATE src/cube.c)
     target_sources(paw PRIVATE src/blur.c)
+    target_sources(paw PRIVATE src/color_picker.c)
     target_sources(paw PRIVATE src/shake.c)
     target_sources(paw PRIVATE src/profile_schedule.c)
     target_link_libraries(paw PRIVATE paw_heatmap)
@@ -761,6 +766,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(cursor_hide_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(color_scheme_smoke $<TARGET_FILE:paw>)
+        paw_smoke(profile_themes_smoke $<TARGET_FILE:paw>
+            $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
         paw_smoke(autostart_smoke $<TARGET_FILE:paw>)
         paw_smoke(startup_failure_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         paw_smoke(output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
@@ -832,6 +839,7 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe> ${EXAMPLE_CONFIG})
         paw_smoke(media_keys_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         paw_smoke(desktop_clock_smoke $<TARGET_FILE:paw>)
+        paw_smoke(wallpaper_cycle_smoke $<TARGET_FILE:paw>)
         paw_smoke(type_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(keyboard_layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
         paw_smoke(window_style_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
@@ -1002,6 +1010,9 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(heatmap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(color_picker_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+            $<TARGET_FILE:input_probe> $<TARGET_FILE:pointer_probe> $<TARGET_FILE:clipboard_probe>
+            $<TARGET_FILE:lock_probe>)
         # `paw tour` driving a session, its windows the probe's; and the queries it reads.
         paw_smoke(tour_smoke TIMEOUT 180 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe>)

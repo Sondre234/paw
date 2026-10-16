@@ -69,6 +69,10 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     : QObject(parent), path_(std::move(path)), tasks_(this) {
     connect(this, &ShellController::appsChanged, this, [this] { ++appsRevision_; });
     connect(&restyle_, &Restyle::settled, this, &ShellController::restyled);
+    {
+        std::lock_guard guard(iconThemeLock());
+        iconThemeBase_ = QIcon::themeName();
+    }
     loadConfig();
     watchTrash();
     QFile pins(pinsPath());
@@ -76,13 +80,15 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
         for (const auto &line : QString::fromUtf8(pins.readAll()).split('\n', Qt::SkipEmptyParts))
             if (!userPins_.contains(line.trimmed()))
                 userPins_.push_back(line.trimmed());
-    // One line per profile: its name, the configured wallpaper and the picked one, by tabs.
+    // A line for each pick: the profile's name, the wallpaper the configuration gave and the one
+    // picked, by tabs, and for a pick for one monitor alone the monitor's name after another.
     QFile picked(pickedWallpapersPath());
     if (picked.open(QIODevice::ReadOnly | QIODevice::Text))
         for (const auto &line : QString::fromUtf8(picked.readAll()).split('\n', Qt::SkipEmptyParts)) {
             const auto fields = line.split('\t');
-            if (fields.size() == 3 && !fields[2].isEmpty())
-                pickedWallpapers_[fields[0]] = {fields[1], fields[2]};
+            if ((fields.size() == 3 || (fields.size() == 4 && !fields[3].isEmpty())) &&
+                !fields[2].isEmpty())
+                pickedWallpapers_[fields[0]][fields.value(3)] = {fields[1], fields[2]};
         }
     // The start menu follows the applications and the taskbar's pins, which seed its own.
     connect(this, &ShellController::appsChanged, &startMenu_,
@@ -99,6 +105,8 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     notifications_.configure(config_.notifications);
     osd_.configure(config_.osd);
     configureDesktopClock();
+    connect(&wallpaperCycle_, &WallpaperCycle::due, this, [this] { stepWallpaper(1, false); });
+    configureWallpaperCycle();
     connect(&displayModes_, &DisplayModes::request, this, &ShellController::send);
     power_.setCountdown(config_.power.countdown);
     connect(&power_, &Power::failed, this, &ShellController::report);
@@ -248,17 +256,37 @@ QColor ShellController::background() const {
     return QColor::fromRgbF(config_.settings.background[0], config_.settings.background[1],
                             config_.settings.background[2]);
 }
-QString ShellController::wallpaperFile() const {
-    const auto configured = QString::fromStdString(config_.shell.wallpaper);
-    auto it = pickedWallpapers_.find(profile());
-    if (it != pickedWallpapers_.end() && it->configured == configured)
-        return it->picked;
+QString ShellController::configuredWallpaper(const QString &output) const {
+    const auto &own = config_.shell.monitor_wallpapers;
+    const auto it = output.isEmpty() ? own.end() : own.find(output.toStdString());
+    return QString::fromStdString(it != own.end() ? it->second : config_.shell.wallpaper);
+}
+QString ShellController::wallpaperFileOn(const QString &output) const {
+    const auto configured = configuredWallpaper(output);
+    // Picked for the monitor alone, else for every monitor, while the configuration gives the
+    // monitor what it did when picked.
+    const auto picks = pickedWallpapers_.value(profile());
+    for (const auto &key : output.isEmpty() ? QStringList{""} : QStringList{output, ""})
+        if (const auto it = picks.find(key); it != picks.end() && it->configured == configured)
+            return it->picked;
     if (configured.isEmpty())
         return {};
-    std::filesystem::path file(config_.shell.wallpaper);
+    std::filesystem::path file(configured.toStdString());
     if (file.is_relative())
         file = std::filesystem::absolute(path_).parent_path() / file;
     return QString::fromStdString(file.string());
+}
+QUrl ShellController::wallpaperOn(const QString &output) const {
+    const auto file = wallpaperFileOn(output);
+    return file.isEmpty() ? QUrl() : QUrl::fromLocalFile(file);
+}
+bool ShellController::ownWallpaper(const QString &output) const {
+    // Picked for every monitor, a monitor with a wallpaper configured for it alone has the same
+    // picked for it too, which is none of its own.
+    const auto picks = pickedWallpapers_.value(profile());
+    const auto it = picks.find(output), every = picks.find(QString());
+    return !output.isEmpty() && it != picks.end() && it->configured == configuredWallpaper(output) &&
+           (every == picks.end() || every->picked != it->picked);
 }
 QString ShellController::wallpaperMode() const {
     switch (config_.shell.wallpaper_mode) {
@@ -275,10 +303,7 @@ QString ShellController::wallpaperMode() const {
     }
     return "fill";
 }
-QUrl ShellController::wallpaper() const {
-    const auto file = wallpaperFile();
-    return file.isEmpty() ? QUrl() : QUrl::fromLocalFile(file);
-}
+QUrl ShellController::wallpaper() const { return wallpaperOn({}); }
 QUrl ShellController::startIcon() const {
     if (config_.shell.start_icon.empty())
         return {};
@@ -304,16 +329,107 @@ QString ShellController::pickedWallpapersPath() {
     return QFileInfo(pinsPath()).path() + "/wallpapers";
 }
 void ShellController::pickWallpaper(const QString &path) {
+    // Every monitor shows it: those picked for alone too, and those the configuration gives a
+    // wallpaper of their own, picked for each.
+    auto &picks = pickedWallpapers_[profile()];
+    picks.clear();
+    if (!path.isEmpty()) {
+        picks[""] = {configuredWallpaper({}), path};
+        for (const auto &[name, own] : config_.shell.monitor_wallpapers)
+            if (const auto output = QString::fromStdString(name); configuredWallpaper(output) !=
+                                                                    configuredWallpaper({}))
+                picks[output] = {configuredWallpaper(output), path};
+    }
+    savePickedWallpapers();
+}
+void ShellController::pickWallpaperOn(const QString &path, const QString &output) {
+    if (output.isEmpty())
+        return pickWallpaper(path);
+    notePick(path, output);
+    savePickedWallpapers();
+}
+void ShellController::notePick(const QString &path, const QString &output) {
+    auto &picks = pickedWallpapers_[profile()];
     if (path.isEmpty())
-        pickedWallpapers_.remove(profile());
+        picks.remove(output);
     else
-        pickedWallpapers_[profile()] = {QString::fromStdString(config_.shell.wallpaper), path};
+        picks[output] = {configuredWallpaper(output), path};
+}
+void ShellController::savePickedWallpapers() {
     QByteArray lines;
-    for (auto it = pickedWallpapers_.begin(); it != pickedWallpapers_.end(); ++it)
-        lines += (it.key() + '\t' + it->configured + '\t' + it->picked + '\n').toUtf8();
+    for (auto profile = pickedWallpapers_.begin(); profile != pickedWallpapers_.end();) {
+        if (profile->isEmpty()) {
+            profile = pickedWallpapers_.erase(profile);
+            continue;
+        }
+        for (auto it = profile->begin(); it != profile->end(); ++it) {
+            // A name the line could not hold back is left out.
+            if (it.key().contains('\t') || it.key().contains('\n'))
+                continue;
+            lines += (profile.key() + '\t' + it->configured + '\t' + it->picked +
+                      (it.key().isEmpty() ? "" : '\t' + it.key()) + '\n')
+                         .toUtf8();
+        }
+        ++profile;
+    }
     if (const auto error = saveFile(pickedWallpapersPath(), lines); !error.isEmpty())
         report("Could not save the wallpaper: " + error);
     Q_EMIT wallpaperChanged();
+}
+QString ShellController::wallpaperCycleFolder() const {
+    const auto &folder = config_.shell.wallpaper_cycle.folder;
+    if (folder == "~" || folder.starts_with("~/"))
+        return QDir::homePath() + QString::fromStdString(folder.substr(1));
+    if (!folder.empty()) {
+        std::filesystem::path path(folder);
+        if (path.is_relative())
+            path = std::filesystem::absolute(path_).parent_path() / path;
+        return QString::fromStdString(path.string());
+    }
+    if (!config_.shell.wallpaper.empty()) {
+        std::filesystem::path file(config_.shell.wallpaper);
+        if (file.is_relative())
+            file = std::filesystem::absolute(path_).parent_path() / file;
+        return QString::fromStdString(file.parent_path().string());
+    }
+    return wallpaperFolder();
+}
+void ShellController::configureWallpaperCycle() {
+    wallpaperCycle_.configure(config_.shell.wallpaper_cycle, wallpaperCycleFolder());
+}
+void ShellController::stepWallpaper(int direction, bool tell) {
+    // One picture for every monitor, or with per_monitor each monitor the next after the one to
+    // its left's, picked for it alone.
+    QStringList outputs{QString()};
+    if (config_.shell.wallpaper_cycle.per_monitor) {
+        auto screens = QGuiApplication::screens();
+        std::stable_sort(screens.begin(), screens.end(), [](const QScreen *a, const QScreen *b) {
+            const auto pa = a->geometry().topLeft(), pb = b->geometry().topLeft();
+            return pa.x() != pb.x() ? pa.x() < pb.x() : pa.y() < pb.y();
+        });
+        outputs.clear();
+        for (const auto *screen : screens)
+            if (!screen->name().isEmpty())
+                outputs.push_back(screen->name());
+        if (outputs.isEmpty())
+            outputs.push_back(QString());
+    }
+    QStringList shown;
+    for (const auto &output : outputs)
+        shown.push_back(wallpaperFileOn(output));
+    const auto next = wallpaperCycle_.step(shown, direction);
+    if (next.isEmpty()) {
+        if (tell)
+            osd_.show(overlayOutput(), "No wallpapers in " + wallpaperCycle_.folder(), -1);
+        return;
+    }
+    if (next == shown)
+        return;
+    if (outputs.size() == 1 && outputs.first().isEmpty())
+        return pickWallpaper(next.first());
+    for (qsizetype i = 0; i < outputs.size(); ++i)
+        notePick(next[i], outputs[i]);
+    savePickedWallpapers();
 }
 void ShellController::clearApps() {
     for (auto &app : apps_)
@@ -940,6 +1056,7 @@ void ShellController::reload() {
         notifications_.configure(config_.notifications);
         osd_.configure(config_.osd);
         configureDesktopClock();
+        configureWallpaperCycle();
         power_.setCountdown(config_.power.countdown);
         configureSearch();
         configureClipboard();
@@ -991,6 +1108,45 @@ void ShellController::loadConfig() {
     if (!error.empty())
         std::cerr << "Shell configuration error; using the default configuration: " << error
                   << '\n';
+    followIconTheme();
+}
+void ShellController::followIconTheme() {
+    // Only as the setting changes: a theme set meanwhile otherwise (a test's, the preview's)
+    // stands until then.
+    const auto wanted = QString::fromUtf8(config_.settings.icon_theme);
+    if (wanted == iconThemeWanted_)
+        return;
+    iconThemeWanted_ = wanted;
+    QString theme = iconThemeBase_;
+    if (iconThemeInstalled(wanted))
+        theme = wanted;
+    else if (!wanted.isEmpty())
+        std::cerr << "The icon theme " << wanted.toStdString() << " is not installed; skipping it"
+                  << (theme.isEmpty() ? "" : " for " + theme.toStdString()) << '\n';
+    {
+        std::lock_guard guard(iconThemeLock());
+        if (QIcon::themeName() == theme)
+            return;
+        // Qt looks in its own folders again as the theme is cleared, leaving any it was given.
+        const auto folders = QIcon::themeSearchPaths();
+        QIcon::setThemeName(theme);
+        if (QIcon::themeSearchPaths() != folders)
+            QIcon::setThemeSearchPaths(folders);
+    }
+    // What was found in the old theme is looked for again: the icons guessed for windows, the
+    // tray's pictures and menus, and every image://icons image, by a URL of its own.
+    iconFor_.clear();
+    tray_.redraw();
+    ++iconGeneration_;
+    Q_EMIT iconThemeChanged();
+}
+QString ShellController::iconBase() const {
+    return iconGeneration_ ? QString("image://icons/@%1/").arg(iconGeneration_)
+                           : QString("image://icons/");
+}
+QString ShellController::iconTheme() const {
+    std::lock_guard guard(iconThemeLock());
+    return QIcon::themeName();
 }
 namespace {
 // The rectangle of the four numbers X Y WIDTH HEIGHT from `words[from]` on.
@@ -1081,6 +1237,17 @@ void ShellController::subscribe() {
                                                              {"appId", fields[2]},
                                                              {"title", fields[3]}});
                 }
+            } else if (line.startsWith("cursor-theme ")) {
+                // cursor-theme SIZE NAME: the cursor the compositor draws, which the programs
+                // the shell starts draw over their windows too.
+                // Set as it changes alone: other threads read the environment too.
+                const auto size = line.section(' ', 1, 1).toUtf8();
+                const auto theme = line.section(' ', 2).toUtf8();
+                if (size.toInt() > 0 && !theme.isEmpty() &&
+                    (qgetenv("XCURSOR_SIZE") != size || qgetenv("XCURSOR_THEME") != theme)) {
+                    qputenv("XCURSOR_SIZE", size);
+                    qputenv("XCURSOR_THEME", theme);
+                }
             } else if (line.startsWith("focused ")) {
                 // The output the compositor says has the focus, where overlays for it go.
                 focusedOutput_ = line.sliced(8) == "-" ? QString() : line.sliced(8);
@@ -1120,6 +1287,8 @@ void ShellController::subscribe() {
             } else if (line.startsWith("notice ")) {
                 const auto fields = line.sliced(7).split('\t');
                 notice(fields[0], fields.value(1));
+            } else if (line.startsWith("color-picked ")) {
+                colorPicked(line.sliced(13));
             } else if (line.startsWith("dnd ")) {
                 handleDnd(line.sliced(4));
             } else if (line.startsWith("panel-drag") || line.startsWith("panel-dropped ") ||
@@ -1155,8 +1324,10 @@ void ShellController::subscribe() {
                 // shortcuts OUTPUT: the sheet of keyboard shortcuts, opened or closed there.
                 shortcuts_.toggle(line.sliced(10));
             } else if (line.startsWith("locked ")) {
-                // locked on|off: nothing copied while the session is locked is kept.
+                // locked on|off: nothing copied while the session is locked is kept, and the
+                // wallpaper slideshow waits.
                 clipboard_.setLocked(line == "locked on");
+                wallpaperCycle_.setPaused(line == "locked on");
             } else if (line.startsWith("power ")) {
                 // power ACTIONS: those that may run, as "lock,suspend,logout", or "-".
                 power_.setAvailable(line.sliced(6));
@@ -1297,6 +1468,11 @@ void ShellController::subscribe() {
                 caption_.showLine(line.sliced(8), overlayOutput());
             } else if (line == "caption-hide") {
                 caption_.hide();
+            } else if (line.startsWith("wallpaper-cycle ")) {
+                // wallpaper-cycle next|prev: the wallpaper_next and wallpaper_prev actions.
+                const auto verb = line.sliced(16);
+                if (verb == "next" || verb == "prev")
+                    stepWallpaper(verb == "next" ? 1 : -1);
             } else if (line.startsWith("desktop-clock ")) {
                 // desktop-clock toggle|on|off: the desktop_clock action.
                 if (desktopClock_.handle(line.sliced(14)))
@@ -1428,6 +1604,21 @@ void ShellController::notice(const QString &summary, const QString &body) {
     notifications_.notify(std::move(notification));
     if (!notifications_.enabled() || notifications_.dnd())
         osd_.show(overlayOutput(), summary, -1);
+}
+void ShellController::colorPicked(const QString &hex) {
+    static const QRegularExpression rgb("^#[0-9a-f]{6}$");
+    if (!rgb.match(hex).hasMatch())
+        return;
+    if (osd_.config().enabled) {
+        osd_.show(overlayOutput(), hex, -1, "color");
+        return;
+    }
+    Notification notification;
+    notification.app = "paw";
+    notification.icon = "color-select";
+    notification.summary = "Colour copied";
+    notification.body = hex;
+    notifications_.notify(std::move(notification));
 }
 void ShellController::handleDnd(const QString &verb) {
     if (verb == "toggle")

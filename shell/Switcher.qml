@@ -118,7 +118,7 @@ Item {
                     y: switcher.iconsOnly ? (parent.height - height) / 2 : Theme.spacingXL
                     width: Theme.switcherIconSize; height: width
                     sourceSize: Qt.size(2 * width, 2 * height)
-                    source: "image://icons/" + shell.iconFor(entry.modelData.appId)
+                    source: shell.iconBase + shell.iconFor(entry.modelData.appId)
                     // A minimized window's is faded.
                     opacity: entry.minimized ? 0.45 : 1
                 }

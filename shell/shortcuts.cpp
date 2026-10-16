@@ -6,6 +6,7 @@
 #include <QRegularExpression>
 #include <QStringList>
 #include <linux/input-event-codes.h>
+#include <paw/ambient.h>
 #include <paw/config.hpp>
 #include <paw/config_schema.hpp>
 #include <xkbcommon/xkbcommon.h>
@@ -37,8 +38,8 @@ struct Action {
     // Its title where the command palette has none.
     const char *title;
 };
-// Each action's group and title; one that is not here (a newer action) goes under Other, called
-// what the palette calls it, else by its name.
+// Each action's group and title. Every action of the configuration's has one (shortcuts_test
+// checks); one missing would go under Other, called what the palette calls it, else by its name.
 constexpr Action actions[] = {
     {"spawn", Launch, "Run a program"},
     {"terminal", Launch, "Open a terminal"},
@@ -156,8 +157,11 @@ constexpr Action actions[] = {
     {"emoji_picker", Shell, "Emoji picker"},
     {"display_settings", Shell, "Display settings"},
     {"desktop_clock", Shell, "Show or hide the desktop clock"},
+    {"wallpaper_next", Shell, "Next wallpaper"},
+    {"wallpaper_prev", Shell, "Previous wallpaper"},
 
     {"screenshot", Screen, "Screenshot"},
+    {"pick_color", Screen, "Pick a colour from the screen"},
     {"zoom_in", Screen, "Zoom in"},
     {"zoom_out", Screen, "Zoom out"},
     {"zoom_reset", Screen, "Zoom back to normal"},
@@ -205,6 +209,7 @@ constexpr Action actions[] = {
     {"cursor_trail", Toys, "Cursor trail"},
     {"xray", Toys, "Exploded view of the layers"},
     {"heatmap", Toys, "Pointer heatmap"},
+    {"ambient", Toys, "Ambient particles, on or off"},
 };
 
 // What the families of actions that differ only in their way are called together, when bindings
@@ -354,16 +359,38 @@ QString title(const paw::Binding &binding, const QString &name, const paw::Confi
         return binding.mode == SH_CAT_ON    ? "Let the desktop cat out"
                : binding.mode == SH_CAT_OFF ? "Send the desktop cat away"
                                             : "The desktop cat, out or away";
-    case SH_CURSOR_TRAIL: {
-        // A kind is SH_CURSOR_TRAIL_OFF plus its sh_trail_kind, none being off.
-        const int kind = binding.mode - int{SH_CURSOR_TRAIL_OFF};
-        return binding.mode == SH_CURSOR_TRAIL_NEXT ? "Next cursor trail"
-               : kind == int{SH_TRAIL_SPARKLES}     ? "Sparkles behind the pointer"
-               : kind == int{SH_TRAIL_PETALS}       ? "Sakura petals behind the pointer"
-               : kind == int{SH_TRAIL_HEARTS}       ? "Hearts behind the pointer"
-               : kind == int{SH_TRAIL_NONE}         ? "Cursor trail off"
-                                                    : "Cursor trail, on or off";
-    }
+    case SH_AMBIENT:
+        // The palette's titles for a kind and for off ("Ambient: snow over the wallpaper").
+        switch (binding.mode) {
+        case SH_AMBIENT_TOGGLE:
+            return "Ambient particles, on or off";
+        case SH_AMBIENT_NEXT:
+            return "Next ambient particles";
+        case SH_AMBIENT_OFF + int{SH_AMBIENT_SAKURA}:
+            return Palette::actionTitle("ambient sakura");
+        case SH_AMBIENT_OFF + int{SH_AMBIENT_SNOW}:
+            return Palette::actionTitle("ambient snow");
+        case SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES}:
+            return Palette::actionTitle("ambient fireflies");
+        default:
+            return Palette::actionTitle("ambient off");
+        }
+    case SH_CURSOR_TRAIL:
+        // The palette's titles for a kind and for off ("Cursor trail: hearts").
+        switch (binding.mode) {
+        case SH_CURSOR_TRAIL_TOGGLE:
+            return "Cursor trail, on or off";
+        case SH_CURSOR_TRAIL_NEXT:
+            return "Next cursor trail";
+        case SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKLES}:
+            return Palette::actionTitle("cursor_trail sparkles");
+        case SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_PETALS}:
+            return Palette::actionTitle("cursor_trail petals");
+        case SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_HEARTS}:
+            return Palette::actionTitle("cursor_trail hearts");
+        default:
+            return Palette::actionTitle("cursor_trail off");
+        }
     case SH_HEATMAP:
         return binding.mode == SH_HEATMAP_MOTION   ? "Heatmap of where the pointer rested"
                : binding.mode == SH_HEATMAP_CLICKS ? "Heatmap of the clicks"

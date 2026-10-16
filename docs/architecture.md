@@ -69,6 +69,7 @@ all. In short:
 | `cursor.c` | What is under the pointer, and the tile the user moved it onto (`pointed_tile`), focus on hover, button bindings, scrolling, the cursor image. |
 | `cursor_hide.c` | The cursor hidden while typing (`mouse.hide_when_typing`) and once the pointer has rested (`mouse.hide_after`), as reasons of `cursor_hide`'s besides a screenshot's, until the pointer is used (`cursor_used`). |
 | `cursor_shake.c` | Shaking the pointer to find it (`mouse.shake_to_find`): a shake (`src/shake.c`) grows the cursor, its image from the theme at three times the size given as a buffer at the scale of the moment, stepped on a timer; meanwhile what sets the cursor's image only notes it (`cursor_grown`), and the image it would have shows as it is back to its size; `get cursor_size`. |
+| `profile_themes.c` | The cursor and icon themes of appearance profiles (`appearance.cursor_theme`, `cursor_size`, `icon_theme`): the cursor drawn in the profile's theme and size where it is installed (`sh_theme_installed`, `src/theme_lookup.cpp`), else the session's own; a change makes a new xcursor manager, shows the cursor's image from it, gives X11 windows its arrow (`xwayland_give_cursor`) and later programs `$XCURSOR_THEME` and `$XCURSOR_SIZE`, tells the shell `cursor-theme SIZE NAME` and has `cursor_shake.c` follow (`cursor_shake_retheme`); in a login session, gsettings' `cursor-theme`, `cursor-size` and `icon-theme`, the user's own values kept to put back (the icon theme also as `$PAW_USER_ICON_THEME`, for a shell started meanwhile) as a profile without them is picked and as the session ends; `get cursor_theme`. |
 | `gestures.c` | Touchpad gestures: the swipes `gestures` takes (workspaces and the overview following the fingers, requests), and the rest passed on to the surface under the pointer (pointer-gestures-unstable-v1). |
 | `tablet.c` | Drawing tablets (tablet-v2): tools with pressure and tilt to the surfaces under them, the pointer where tablet input is not taken, pads to the surface with the keyboard, and the output a tablet is mapped to. |
 | `touch.c` | Touchscreens: fingers to the surfaces under them (wl_touch), the pointer for clients without touch and the compositor's own controls, and the output each screen is mapped to. |
@@ -124,6 +125,7 @@ all. In short:
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
 | `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
 | `heatmap.c` | The pointer heatmap: how long the pointer rested and how often it clicked in each cell of each output's grid (`src/heatmap.c`), in memory for the session alone, `get heatmap`, and the heatmap action's overlay: a picture of each grid blurred and coloured, stretched over its output under the drag icons and the lock, taking no input, with a legend in the coolest corner, drawn again twice a second from a timer while it shows and fading with `heatmap_tick` from `output_frame`. |
+| `color_picker.c` | The colour picker (`pick_color`): the cursor turned into a loupe (`src/color_picker.c` paints it) showing the pixels around the pointer, read from a picture of the output under it drawn on the renderer without the cursor, night light or a client's gamma table (as `crossfade.c` draws its pictures) and drawn again while the output draws; a click, Return or Space picking the pixel under the crosshair onto the clipboard (a data source of the compositor's own), to the subscribers (`color-picked #rrggbb`) and to each `paw msg pick_color` waiting on a copy of its connection; Escape or another button cancelling; `get color_picker`. |
 | `blur.c` | The blur behind windows (`windows.blur`): each output's background (the background layer over `appearance.background`) drawn at half its pixels, read back and blurred on the CPU (`src/blur.c`) once it settles after a change, and under each window's surfaces the part of that picture it covers on the screen, placed again before each frame by `blur_frame` from `output_frame`; `get blur`. |
 
 A function used by one file is `static`; one used by several is declared in `server.h` under
@@ -1321,7 +1323,7 @@ what was there.
 | `AudioSlider.qml`, `MuteButton.qml`, `StreamRow.qml` | Controls the mixer and Quick Settings use: a volume's slider, a mute button, and an application playing sound. |
 | `StartHome.qml`, `StartAllApps.qml`, `StartSearch.qml`, `StartBestMatch.qml`, `StartTile.qml`, `StartRow.qml`, `UserAvatar.qml` | Parts of the start menu (`Launcher.qml`): its pinned and recent applications, every application from A to Z, what its search finds and the best match of it, a pinned application, a row of its lists, the user's picture. |
 | `Launchpad.qml` | The launcher of the macOS style, in the start menu's place: every application on pages of a grid over the whole output, with a search. |
-| `Desktop.qml` | The wallpaper, each new one fading in over those before, the desktop clock and the desktop's launchers, on the background layer. |
+| `Desktop.qml` | The wallpaper of its output (`ShellView::wallpaper`, the output's own or every monitor's), each new one fading in over those before, the desktop clock and the desktop's launchers, on the background layer. |
 | `DrawnWallpaper.qml` | The wallpaper the macOS style draws while none is set, light or dark, from the background colour and the accent. |
 | `DesktopClock.qml` | The desktop clock (`shell.desktop_clock`, experimental): the time, the date and a greeting over the wallpaper, outside the backdrop the frosted glass takes, changing once a minute. |
 | `WallpaperPicture.qml` | The wallpaper's picture as `shell.wallpaper_mode` lays it out (cropped, fitted, stretched, centred or tiled at its own size, over the background colour where it leaves room), for the desktop, a workspace's card and Launchpad. |
@@ -1387,7 +1389,10 @@ windows lists them, and with `output` those on one monitor alone), `audio.cpp` w
 `web_search.cpp`, which the start menu's search shares), `media.cpp` with `mpris.cpp`,
 `power_mode.cpp` with `power_profiles_daemon.cpp`, `wifi.cpp` with `network_manager.cpp`,
 `bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history), `desktop_clock.cpp` (the
-desktop clock's settings, and whether the `desktop_clock` action shows it). `preview.cpp` has
+desktop clock's settings, and whether the `desktop_clock` action shows it), `wallpaper_cycle.cpp`
+(the wallpaper slideshow's order and timer, `shell.wallpaper_cycle`, whose pictures
+`ShellController::stepWallpaper` picks as a picked wallpaper, tested by `wallpaper_cycle_test`).
+`preview.cpp` has
 stand-ins for all of them for `--preview-popup`.
 
 The services Quick Settings controls over D-Bus each have a model the QML reads, built into
@@ -1439,6 +1444,16 @@ theme has. QML names a window's icon through `shell.iconFor(appId)`, never by it
 may be a path. `icons.cpp` serves `image://icons/NAME` and, at startup, picks the icon theme the
 desktop names when no platform theme does (`useDesktopIconTheme`). `tests/app_icons_test.cpp`
 tests both with real applications' entries and app ids.
+
+`appearance.icon_theme` (a profile's) changes the theme while the shell runs:
+`ShellController::followIconTheme`, from `loadConfig`, sets it where `iconThemeInstalled` finds it,
+else the theme the shell started with, keeping Qt's folders of themes. Qt Quick keeps the images
+it loaded by URL, so every QML image of an icon is `shell.iconBase + name`, and `iconBase` turns
+from `image://icons/` to `image://icons/@N/` (which `Icons` strips) at the Nth change: each image
+loads again. `iconFor`'s guesses are dropped and the tray's pictures and menus get new revisions
+(`TrayModel::redraw`). `shell_ui` checks that no QML file builds an `image://icons/` URL itself.
+The compositor's `cursor-theme SIZE NAME` line sets the shell's `$XCURSOR_THEME` and
+`$XCURSOR_SIZE`, for the programs it starts.
 
 An `ImageProvider` (`image_provider.hpp`) serves the pictures of the shell's models
 (`image://notify`, `tray`, `windows`, `clipboard`) on the GUI thread alone, since the models have no

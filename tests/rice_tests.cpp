@@ -200,6 +200,10 @@ void manifests_are_checked() {
     CHECK(!paw::rice_path_valid("a/b/c/d/e"), "at most four parts");
     CHECK(paw::rice_setting_allowed({"windows", "shadow", "offset"}));
     CHECK(paw::rice_setting_allowed({"windows", "blur", "saturation"}), "a rice brings its blur");
+    CHECK(with("profile = { appearance = { cursor_theme = \"catppuccin-mocha-light-cursors\", "
+               "cursor_size = 32, icon_theme = \"Mochi\" } }")
+              .empty(),
+          "a rice names its cursor and icon themes");
     CHECK(paw::rice_setting_allowed({"appearance", "ambient", "kind"}),
           "a rice brings its ambient particles");
     CHECK(paw::rice_setting_allowed({"appearance", "cursor_trail", "colors"}),

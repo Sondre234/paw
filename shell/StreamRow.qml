@@ -18,7 +18,7 @@ RowLayout {
     height: Theme.rowHeight + Theme.spacingM
     spacing: Theme.spacingS
     Image {
-        source: "image://icons/" + streamRow.icon
+        source: shell.iconBase + streamRow.icon
         sourceSize: Qt.size(2 * Theme.appIconSize, 2 * Theme.appIconSize)
         Layout.preferredWidth: Theme.appIconSize; Layout.preferredHeight: Theme.appIconSize
         Layout.leftMargin: Theme.spacingXS; Layout.rightMargin: Theme.spacingXS

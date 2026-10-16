@@ -105,6 +105,7 @@ void reload_config(struct sh_server *server) {
     night_light_update(server);
     color_management_update(server);
     update_color_scheme(server);
+    profile_themes_reload(server);
     if (!server_settings(server)->overview)
         overview_dismiss(server);
     update_keymap(server);
@@ -406,22 +407,8 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     server.cursor = wlr_cursor_create();
     wlr_cursor_attach_output_layout(server.cursor, server.output_layout);
 
-    /* Without a theme, wlroots draws the bare X11 arrow. Adwaita ships with GTK, so it is
-     * nearly always installed; $XCURSOR_THEME and $XCURSOR_SIZE still win, and main.cpp sets them
-     * from the desktop's settings when they are not set. Exporting both lets applications draw
-     * the same cursor over their windows. */
-    const char *cursor_theme = getenv("XCURSOR_THEME");
-    if (!cursor_theme || !*cursor_theme)
-        cursor_theme = "Adwaita";
-    const char *size_env = getenv("XCURSOR_SIZE");
-    int cursor_size = size_env ? atoi(size_env) : 0;
-    if (cursor_size <= 0)
-        cursor_size = 24;
-    char size_text[16];
-    snprintf(size_text, sizeof(size_text), "%d", cursor_size);
-    setenv("XCURSOR_THEME", cursor_theme, true);
-    setenv("XCURSOR_SIZE", size_text, true);
-    server.cursor_mgr = wlr_xcursor_manager_create(cursor_theme, cursor_size);
+    // The cursor theme and size, the profile's or the session's (profile_themes.c).
+    profile_themes_init(&server);
     add_listener(&server.cursor->events.motion, &server.cursor_motion, server_cursor_motion);
     add_listener(&server.cursor->events.motion_absolute, &server.cursor_motion_absolute,
                  server_cursor_motion_absolute);
@@ -542,6 +529,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     server.login_session = mode == SH_BACKEND_SESSION ||
                            (getenv("PAW_LOGIN_SESSION") && *getenv("PAW_LOGIN_SESSION"));
     update_color_scheme(&server);
+    profile_themes_reload(&server); // before the shell starts, which reads what it set
     callbacks->startup(callbacks->userdata);
     session_restore_last(&server);
 
@@ -644,8 +632,10 @@ finish:
     ambient_finish(&server);
     cursor_hide_finish(&server);
     cursor_shake_finish(&server);
+    profile_themes_finish(&server);
     xray_finish(&server);
     heatmap_finish(&server);
+    color_picker_finish(&server);
     blur_finish(&server);
     if (server.config_watch)
         wl_event_source_remove(server.config_watch);

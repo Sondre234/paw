@@ -45,7 +45,9 @@ return {
     -- ("Appearance"), the command palette, or `paw msg profile NAME|next|prev`; the choice
     -- is kept across restarts. `profile` is the one to start with. A profile's
     -- `appearance.color_scheme` ("light" or "dark") switches applications that follow the
-    -- system's style with it: GTK, Firefox, Chromium, Discord and other Electron apps.
+    -- system's style with it: GTK, Firefox, Chromium, Discord and other Electron apps; and
+    -- `appearance.cursor_theme`, `cursor_size` and `icon_theme` change the cursor and the
+    -- shell's icons with it (see mochi below).
     --
     -- paw starts in the macOS style: a menu bar along the top, a dock at the bottom,
     -- Launchpad, Spotlight, traffic-light window controls and soft window shadows. `default` and
@@ -163,11 +165,17 @@ return {
         -- and GTK that its install.sh puts in place. It names Nunito (install.sh --fonts);
         -- without it the default sans-serif stands in. Colours from Catppuccin Mocha (MIT).
         mochi = {
-            appearance = { background = "#1e1e2e", color_scheme = "dark" },
-            -- Soft snow falling past the moon: add to appearance above
-            --     ambient = { kind = "snow" },
-            -- and mauve and pink hearts floating up behind the pointer:
-            --     cursor_trail = { kind = "hearts" },
+            appearance = {
+                background = "#1e1e2e", color_scheme = "dark",
+                -- Its cursor and icons while it is in use, once rices/mochi/install.sh --cursor
+                -- --icons has put them in ~/.local/share/icons (skipped until then):
+                -- cursor_theme = "catppuccin-mocha-light-cursors",
+                -- icon_theme = "Mochi",
+                -- Soft snow falling past the moon:
+                -- ambient = { kind = "snow" },
+                -- Mauve and pink hearts floating up behind the pointer:
+                -- cursor_trail = { kind = "hearts" },
+            },
             windows = {
                 border_width = 2, corner_radius = 14, round = "always",
                 border_color = { "#cba6f7", "#f5c2e7", angle = 135 },
@@ -191,6 +199,8 @@ return {
                 wallpaper = "rices/mochi/wallpaper/mochi.jpg",
                 start_icon = "rices/mochi/start/mochi.svg",
                 -- desktop_clock = { enabled = true, position = "left", greeting = "ja" },
+                -- Experimental: its seven skies in turn, a new one every half hour:
+                -- wallpaper_cycle = { interval = 30 },
             },
         },
     },
@@ -437,8 +447,20 @@ return {
         -- panel_color = "#151e2c", -- #RRGGBBAA makes it translucent
         -- text_color = "#edf2fa",
         -- wallpaper = "", -- absolute path, or relative to this configuration file
+        -- A monitor's own wallpaper, by its name (paw msg get outputs), over wallpaper; the
+        -- wallpaper picker's "This monitor only" picks one for a monitor alone:
+        -- monitor_wallpapers = { ["DP-1"] = "left.jpg", ["HDMI-A-1"] = "right.jpg" },
         -- wallpaper_mode = "fill", -- or "fit", "center", "tile" or "stretch"; around a picture
         --                            that leaves room, appearance.background shows
+        -- Experimental: a slideshow, the pictures of a folder taking turns as the wallpaper, each
+        -- kept as one picked from the panel (the lock screen shows it); the wallpaper_next and
+        -- wallpaper_prev actions (paw msg wallpaper_next) step at once, also with interval = 0:
+        -- wallpaper_cycle = {
+        --     interval = 0,      -- minutes between pictures (1-1440); 0: only the actions step
+        --     -- folder = "~/Pictures/wallpapers/sky", -- unset: the folder of wallpaper
+        --     order = "shuffle", -- each once before any again; or "name"
+        --     per_monitor = false, -- true: each monitor a picture of its own
+        -- },
         -- Experimental: a large clock on the desktop, over the wallpaper, in the text colour with
         -- a soft shadow; the desktop_clock action (paw msg desktop_clock) shows or hides it:
         -- desktop_clock = {
@@ -622,6 +644,9 @@ return {
         -- Keep awake: no dimming, no monitors going off and no sleep until toggled off again
         -- (keep_awake_on and keep_awake_off too; also a tile in Quick Settings), e.g.:
         -- { mods = { mod, "Alt" }, key = "c", action = "keep_awake_toggle" },
+        -- The wallpaper slideshow (shell.wallpaper_cycle) steps on, or back, e.g.:
+        -- { mods = { mod, "Alt" }, key = "w", action = "wallpaper_next" },
+        -- { mods = { mod, "Alt", "Shift" }, key = "w", action = "wallpaper_prev" },
         -- Switches act too: the lid ("close", "open") and tablet mode ("on", "off"), e.g.:
         -- { switch = "lid", state = "close", action = "lock" },
         { mods = { mod }, key = "1", action = "workspace", workspace = 1 },
@@ -666,6 +691,9 @@ return {
         { mods = {}, key = "Print", action = "screenshot", mode = "region" },
         { mods = { "Shift" }, key = "Print", action = "screenshot", mode = "output" },
         { mods = { mod }, key = "Print", action = "screenshot", mode = "window" },
+        -- Pick a colour off the screen: a loupe follows the pointer, and a click copies the
+        -- pixel's #rrggbb (Escape or a right click cancels; `paw msg pick_color` prints it), e.g.:
+        -- { mods = { mod, "Shift" }, key = "c", action = "pick_color" },
         -- The keyboard's volume, microphone and brightness keys, 5 % a press (`amount = N` for
         -- another step). The shell carries them out and shows them; without it, wpctl and
         -- brightnessctl do. `locked = true` runs a binding while the screen is locked too (every

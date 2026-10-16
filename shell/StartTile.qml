@@ -31,7 +31,7 @@ AbstractButton {
             y: Theme.spacingL
             width: Theme.appIconSizeLarge; height: Theme.appIconSizeLarge
             sourceSize: Qt.size(width, height)
-            source: "image://icons/" + tile.app.icon
+            source: shell.iconBase + tile.app.icon
         }
         Text {
             anchors.top: icon.bottom; anchors.topMargin: Theme.spacingM

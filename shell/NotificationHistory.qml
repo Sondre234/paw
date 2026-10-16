@@ -38,9 +38,9 @@ PopupCard {
     // application's, else none.
     function iconSource(n) {
         if (n.hasImage) return "image://notify/" + n.notificationId + "/" + Number(n.time)
-        if (n.icon.length > 0) return n.icon.charAt(0) === "/" ? "file://" + n.icon : "image://icons/" + n.icon
+        if (n.icon.length > 0) return n.icon.charAt(0) === "/" ? "file://" + n.icon : shell.iconBase + n.icon
         var known = n.desktopEntry.length > 0 ? n.desktopEntry : n.app.toLowerCase()
-        return shell.appFor(known).length > 0 ? "image://icons/" + shell.iconFor(known) : ""
+        return shell.appFor(known).length > 0 ? shell.iconBase + shell.iconFor(known) : ""
     }
     readonly property real padding: Theme.macos ? 0 : Theme.spacingL
     // The room inside the macOS style's heading card.

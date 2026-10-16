@@ -303,6 +303,7 @@ struct sh_cursor_trail;      // what falls off the pointer (cursor_trail.c)
 struct sh_wrapped;       // what paw wrapped counts (wrapped.c)
 struct wlr_color_manager_v1;
 struct sh_heatmap;     // where the pointer rests and clicks, and the overlay (heatmap.c)
+struct sh_color_picker; // picking a colour off the screen (color_picker.c)
 struct sh_heat_output; // an output's grid and its part of the overlay
 
 /* The blur behind windows (blur.c): whether anything is blurred (windows.blur, or a window rule
@@ -742,6 +743,8 @@ struct sh_server {
         struct wl_event_source *timer;
     } cursor_rest;
     struct sh_cursor_shake *cursor_shake; /* mouse.shake_to_find (cursor_shake.c), made on use */
+    /* The cursor theme in use and what a login session told applications (profile_themes.c). */
+    struct sh_profile_themes *profile_themes;
     /* The image the cursor was given last: an xcursor name (show_xcursor), "client" for a
      * client's own surface, or NULL for none yet (get cursor_image). */
     const char *cursor_image;
@@ -909,6 +912,8 @@ struct sh_server {
     struct sh_xray xray;
     /* The pointer heatmap (heatmap.c); NULL until the first output is laid out. */
     struct sh_heatmap *heatmap;
+    /* The colour picker (color_picker.c); NULL until it first picks. */
+    struct sh_color_picker *color_picker;
     struct sh_blur blur; /* the blur behind windows (blur.c) */
 };
 
@@ -1555,7 +1560,16 @@ bool cursor_grown(struct sh_server *server);
 int cursor_drawn_size(struct sh_server *server);
 void cursor_shake_motion(struct sh_server *server);
 void cursor_shake_reload(struct sh_server *server);
+void cursor_shake_retheme(struct sh_server *server);
 void cursor_shake_finish(struct sh_server *server);
+
+/* profile_themes.c */
+void profile_themes_init(struct sh_server *server);
+const char *cursor_theme_name(struct sh_server *server);
+int cursor_theme_size(struct sh_server *server);
+void profile_themes_reload(struct sh_server *server);
+void profile_themes_finish(struct sh_server *server);
+void describe_cursor_theme(struct sh_server *server, int fd, const char *arguments);
 
 /* input_method.c */
 bool input_method_key(struct sh_keyboard *keyboard, const struct wlr_keyboard_key_event *event);
@@ -2008,6 +2022,7 @@ void server_new_xwayland_surface(struct wl_listener *listener, void *data);
 void close_xwm_waker(struct sh_server *server);
 #endif
 void xwayland_ready(struct wl_listener *listener, void *data);
+void xwayland_give_cursor(struct sh_server *server);
 #endif
 
 /* toys.c */
@@ -2090,6 +2105,18 @@ void describe_heatmap(struct sh_server *server, int fd, const char *arguments);
 void heatmap_action(struct sh_server *server, int choice);
 bool heatmap_tick(struct sh_server *server);
 void describe_heatmap_overlay(struct sh_server *server, int fd, const char *arguments);
+/* color_picker.c */
+bool color_picker_active(struct sh_server *server);
+void color_picker_toggle(struct sh_server *server);
+bool color_picker_wait(struct sh_server *server, int fd, char *error, size_t size);
+bool color_picker_motion(struct sh_server *server);
+bool color_picker_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
+bool color_picker_axis(struct sh_server *server);
+bool color_picker_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
+void color_picker_cancel(struct sh_server *server);
+void color_picker_forget_output(struct sh_output *output);
+void color_picker_finish(struct sh_server *server);
+void describe_color_picker(struct sh_server *server, int fd, const char *arguments);
 
 /* blur.c */
 void blur_reload(struct sh_server *server);

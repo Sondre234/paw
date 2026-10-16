@@ -87,6 +87,7 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
         std::cerr << "paw taskbar keyboard " << (on ? "on" : "off") << " on "
                   << output.toStdString() << '\n';
     });
+    connect(&controller, &ShellController::wallpaperChanged, this, &ShellView::wallpaperChanged);
     connect(screen, &QScreen::geometryChanged, this, [this] { resizeForContent(); });
     // A surface made anew as the view shows takes the region again.
     connect(this, &QWindow::visibleChanged, this, [this](bool visible) {

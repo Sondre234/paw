@@ -65,6 +65,18 @@ shadows.
   before), `"fit"`, `"stretch"`, or at its own size `"center"` and `"tile"`, with the background
   colour around a picture that leaves room. A profile can set it; a new mode fades in as a new
   wallpaper does, and the frosted glass, the workspace cards and Launchpad follow it.
+- An experimental wallpaper slideshow, off by default: `shell.wallpaper_cycle = { interval = 30 }`
+  has the pictures of a folder (`folder`, else the wallpaper's own, so mochi goes through its
+  seven skies) take turns every 30 minutes, shuffled so that each shows once before any comes
+  again, or by name with `order = "name"`. Each fades in and is kept as a picked one is, so the
+  lock screen shows it too, and the time waits while the session is locked. The
+  `wallpaper_next` and `wallpaper_prev` actions (`paw msg wallpaper_next`, the command palette)
+  step at once, also without an interval. With `per_monitor = true` each monitor shows a picture
+  of its own.
+- Each monitor can have a wallpaper of its own: `shell.monitor_wallpapers` names one by the
+  monitor's name, and with two monitors the wallpaper picker offers All monitors and This monitor
+  only. The monitor's desktop, frosted glass, workspace cards, Launchpad and lock screen show its
+  own.
 - `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu
   bar and dock, and the popups, menus, cards, tooltips and overlays show the wallpaper behind them
   blurred under their colour, the popups as translucent as the bar but at least 75 % opaque so
@@ -90,6 +102,16 @@ shadows.
   msg profile auto` (the `profile_auto` action, also in the profile menus and the palette) hands
   the choice back at once, and one that passed while paw was off is caught up as it starts.
   Quick Settings' Appearance tile says Scheduled while the schedule's profile is in use.
+- A profile can bring its own cursor and icons: `appearance.cursor_theme`, `cursor_size` and
+  `icon_theme`. Picking it changes the cursor at once, X11 windows' and a shaken cursor's too, and
+  programs started afterwards get `$XCURSOR_THEME` and `$XCURSOR_SIZE`; the taskbar, dock, start
+  menu, Launchpad, tray, notifications and the rest of the shell show the new theme's icons
+  without a restart. A theme that is not installed is skipped, saying so in the log, and a
+  profile without them has the session's own. A login session also sets GNOME's `cursor-theme`,
+  `cursor-size` and `icon-theme` for GTK applications, putting back your own as a profile without
+  them is picked and as the session ends. `paw msg get cursor_theme` prints the cursor theme and
+  size; mochi's profile suggests its cursor and Mochi icons in comments, for after its
+  `install.sh --cursor --icons`, and a rice may name its themes too.
 - A floating bar docks while a window reaches the edge it is along (maximized, one snapped
   against it, or any tile, gaps or not): it fills the strip it reserves, squared and without its
   frame, and floats again once no window does, as KDE's floating panels do. Subscribers hear
@@ -295,6 +317,17 @@ shadows.
   are Unicode's Emoji 16.0 with CLDR's English keywords, vendored in `vendor/emoji`.
 - `paw msg type TEXT` types text into what has the keyboard, emoji and accents too, on a
   keymap made for it, as wtype does.
+
+### The colour picker
+
+- `pick_color` picks a colour off the screen, as hyprpicker does: the cursor becomes a crosshair
+  with a loupe of the 11 by 11 pixels around it magnified, in a card of the shell's colours with
+  the pixel's swatch and `#rrggbb`, read from what the monitor shows without the cursor or night
+  light, in the monitor's own pixels at fractional scales and turned monitors too. A click (or
+  Return) copies `#rrggbb` to the clipboard and shows it on the on-screen display, Escape or a
+  right click cancels, and the arrows move a pixel. `paw msg pick_color` waits and prints the
+  colour, subscribers hear `color-picked #rrggbb`, and the command palette offers it. Unbound by
+  default; `config/init.lua` suggests Super + Shift + C.
 
 ### The sheet of keyboard shortcuts
 
@@ -979,6 +1012,14 @@ off and to find out what is wrong with it, and toys the compositor plays with th
 - The shell no longer loses some 2.7 KB of memory each time a shadow drawn through the GPU goes,
   as the floating bar's does while a window docks it: Qt's shadow never frees the shader effect
   it draws with, which the shell now hands to the shadow to go with it.
+- The command palette (Spotlight) with nothing typed shows the applications and the power actions
+  again, which the many new actions had pushed out of the first 60 entries it listed. It lists a
+  few of each kind now: every open window, each saved session, up to eight applications (those
+  launched lately, then those pinned to the start menu, then by name), each workspace, the
+  appearance profiles, a dozen common actions and last the power actions. A lone `>`, `@`, `#` or
+  `%` lists every action, window, workspace or session.
+- The sheet of keyboard shortcuts lists `ambient` under Toys, titled by its mode, and `pick_color`
+  under Screen, where they were under Other; a test now fails for an action without a group.
 
 ## 0.1.1 (2026-10-05)
 

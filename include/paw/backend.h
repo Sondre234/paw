@@ -241,10 +241,17 @@ enum sh_action {
     SH_CLIPBOARD_HISTORY,
     /* Asks the shell for its emoji picker on the output under the pointer, as Windows' Win+. */
     SH_EMOJI_PICKER,
+    /* Picks a colour off the screen with a loupe, copied as #rrggbb (src/compositor/
+     * color_picker.c), or cancels the picking under way. */
+    SH_PICK_COLOR,
     /* Asks the shell for its display settings window on the output under the pointer. */
     SH_DISPLAY_SETTINGS,
     /* Shows or hides the shell's desktop clock (shell.desktop_clock). */
     SH_DESKTOP_CLOCK,
+    /* Asks the shell for the next or the previous wallpaper of its slideshow
+     * (shell.wallpaper_cycle). */
+    SH_WALLPAPER_NEXT,
+    SH_WALLPAPER_PREV,
     /* Minimizes the focused window into its taskbar button, as its own minimize button does. */
     SH_MINIMIZE,
     /* Toys, which only draw: the focused window (argument: a window's number, its id, 0 for the
@@ -426,6 +433,16 @@ struct sh_profile_schedule {
 struct sh_settings {
     float background[4];
     int color_scheme; /* enum sh_color_scheme */
+    /* The shell's colours, straight RGBA: its surfaces (shell.panel_color, made opaque), its text
+     * (shell.text_color) and its accent (shell.accent), for what the compositor draws in its
+     * look, the colour picker's loupe. */
+    float shell_surface[4], shell_text[4], shell_accent[4];
+    /* appearance.cursor_theme, cursor_size and icon_theme: the cursor theme and size and the icon
+     * theme the profile in use picks, "" and 0 for the session's own. The compositor draws the
+     * cursor in them (src/compositor/profile_themes.c), the shell its icons. */
+    char cursor_theme[128];
+    int cursor_size;
+    char icon_theme[128];
     /* The appearance profile in use, from `profiles`: the one picked, else `profile`; "" for
      * none. A new one crossfades in (crossfade.c). */
     char profile[40];
@@ -818,6 +835,10 @@ struct sh_callbacks {
 
 enum sh_backend_mode { SH_BACKEND_NESTED, SH_BACKEND_HEADLESS, SH_BACKEND_SESSION };
 int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode);
+
+/* Whether a cursor theme (`cursor`) or an icon theme of this name is installed where
+ * applications look for one (src/theme_lookup.cpp). */
+bool sh_theme_installed(const char *name, bool cursor);
 
 struct sh_rect {
     int x, y, width, height;
