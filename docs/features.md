@@ -2262,6 +2262,20 @@ grim's picture): the pointer moving ends theirs but not a screenshot's, and the 
 leaves a cursor hidden by typing hidden. `paw msg get cursor` says `hidden` for any of them, and
 `cursor_hide_smoke` tests them.
 
+`mouse.shake_to_find = true` grows the cursor when the pointer is shaken, as macOS does, so that it
+is easy to find on a large screen: four quick turns from side to side within 0.7 seconds, each
+stroke at least 60 pixels wide, wider than it is tall and faster than 1600 pixels a second, grow
+it smoothly to three times its size in a fifth of a second. It stays that large while the shaking
+goes on and 0.6 seconds after, then shrinks back in 0.4 seconds to the image it would have had,
+which a pointer moving over a window or a resize edge meanwhile may have changed. Moving across
+the screen, a correction or two and the slow back and forth that strokes the
+[desktop cat](#paw-cat) never make a shake (a shake is too quick for a stroke), and
+neither does motion with a button held, a window being moved or a game holding the pointer. The
+grown image is the theme's own at three times the size (loaded as it is first needed, at the
+largest monitor scale), drawn smaller while it grows and shrinks. Off by default; `paw msg get
+cursor_size` says the size the cursor is drawn at. `shake` (the arithmetic) and
+`cursor_shake_smoke` test it.
+
 ### Keyboard layouts
 
 Several layouts are a comma-separated list, with variants in the same places:
@@ -3022,9 +3036,11 @@ msg get seat` prints what has the keyboard, what the pointer is on and, while so
 dragged, what the drag is over: a line each, `keyboard`, `pointer` or `drag`, followed by
 `window` and its title, `layer` and its namespace, `other` (a popup, the lock screen) and `-`,
 or `-` twice for nothing; during a drag the pointer is on nothing. `paw msg get cursor` prints
-`hidden` while a screenshot hides the cursor, else `shown`, and `paw msg get cursor_image` the
-image it shows: the name of an xcursor (`default`, `grabbing`, `ns-resize`, ..., one paw shows or
-a shape a client asks for), `client` for a client's own picture, or `none`. `paw msg get crossfade` prints one
+`hidden` while a screenshot, typing or a rest hides the cursor, else `shown`, and `paw msg get
+cursor_image` the image it shows: the name of an xcursor (`default`, `grabbing`, `ns-resize`, ...,
+one paw shows or a shape a client asks for), `client` for a client's own picture, or `none`.
+`paw msg get cursor_size` prints the size it is drawn at in logical pixels, `$XCURSOR_SIZE` but
+while a shake grows it. `paw msg get crossfade` prints one
 line per monitor with a picture of the old look over it while an
 [appearance profile](#appearance-profiles) crossfades in: the monitor, `held` while it waits for
 the shell or `fading`, the profile, and the picture's opacity in thousandths; the shell tells the
