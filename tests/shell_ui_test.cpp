@@ -243,6 +243,12 @@ int main(int argc, char **argv) {
     const QString quickPictures = "thumbnails={delay=100}";
     const auto lua = QString("return {" + fastMotion + ",layout={workspace_names={'web','','','mail'}},"
                              "power={countdown=2},"
+                             // A few bindings for the sheet of shortcuts to show.
+                             "bindings={{mods={'Super'},key='slash',action='shortcuts'},"
+                             "{mods={'Super'},key='c',action='close'},"
+                             "{mods={'Super'},key='1',action='workspace',workspace=1},"
+                             "{mods={'Super'},key='2',action='workspace',workspace=2},"
+                             "{key='Print',action='screenshot'}},"
                              "profile='dark',profiles={dark={},light={shell={accent='#336699'}}},"
                              "shell={wallpaper='walls/a/one.png'," + quickPictures + "," + barWidgets + keepTaskbar + "wallpapers=[[%3]],"
                              "search={directories={[[%4]]}},"
@@ -4712,6 +4718,55 @@ ListModel {
         QTest::keyClick(&emojiView, Qt::Key_Escape);
         if (!waitFor([&] { return !emojiView.isVisible(); }) || !picker->output().isEmpty())
             return fail("Escape did not close the emoji picker");
+    }
+    // The sheet of keyboard shortcuts: the shortcuts action opens it over the whole output, the
+    // configuration's bindings in groups with their keys as caps, Super + 1 and 2 as one row;
+    // typing searches it, saying so when nothing matches; Escape closes it, and so does the
+    // action again.
+    {
+        PickerView sheetView(controller, app.primaryScreen(), "shortcuts", "Shortcuts.qml",
+                             controller.shortcuts(), true);
+        if (sheetView.status() != QQuickView::Ready) {
+            for (const auto &error : sheetView.errors())
+                std::cerr << error.toString().toStdString() << '\n';
+            return 1;
+        }
+        auto *sheet = controller.shortcuts();
+        auto item = [&](const QString &name) { return find(sheetView.rootObject(), name); };
+        auto shown = [&](const QString &name) { return item(name) && item(name)->isVisible(); };
+        auto type = [&](const QString &text) {
+            for (const auto &c : text)
+                QTest::keyClick(&sheetView, c.toLatin1());
+        };
+        auto openSheet = [&] {
+            subscriber->write(("shortcuts " + output + "\n").toUtf8());
+            return waitFor([&] { return sheetView.isVisible() && sheet->output() == output; }) &&
+                   waitFor([&] { return item("shortcutsSearch")->hasActiveFocus(); });
+        };
+        if (!openSheet())
+            return fail("the shortcuts action did not open the sheet of shortcuts");
+        if (sheetView.size() != app.primaryScreen()->geometry().size() ||
+            !shown("shortcutsGroup:Workspaces") || !shown("shortcutsGroup:Screen") ||
+            !shown("shortcut:Go to workspace 1–2") || !shown("shortcut:Keyboard shortcuts") ||
+            sheet->total() != 4)
+            return fail("the sheet of shortcuts does not cover the output with the bindings");
+        type("print");
+        if (!waitFor([&] { return !item("shortcutsGroup:Workspaces"); }) ||
+            !shown("shortcut:Screenshot of a region") || sheet->count() != 1 ||
+            item("shortcutsSummary")->property("text").toString() != "1 of 4 shortcuts")
+            return fail("typing did not search the sheet of shortcuts");
+        type("zzz");
+        if (!waitFor([&] { return shown("shortcutsEmpty"); }))
+            return fail("the sheet of shortcuts did not say that nothing matched");
+        QTest::keyClick(&sheetView, Qt::Key_Escape);
+        if (!waitFor([&] { return !sheetView.isVisible(); }) || !sheet->output().isEmpty())
+            return fail("Escape did not close the sheet of shortcuts");
+        if (!openSheet() || !item("shortcutsSearch")->property("text").toString().isEmpty() ||
+            sheet->count() != 4)
+            return fail("the sheet of shortcuts did not open afresh");
+        subscriber->write(("shortcuts " + output + "\n").toUtf8());
+        if (!waitFor([&] { return !sheetView.isVisible(); }) || !sheet->output().isEmpty())
+            return fail("the shortcuts action again did not close the sheet");
     }
     // The start menu: its pinned applications and those launched lately, every application from
     // A to Z, and a search over applications, windows and actions, each moved through with the

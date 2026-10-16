@@ -518,10 +518,34 @@ QStringList PreviewData::surfaces() {
             "palette", "switcher", "overview", "palette-empty", "auth-dialog", "snap-assist",
             "osd-microphone", "display-mode", "palette-calculator", "palette-files", "clipboard",
             "emoji", "display-settings", "display-settings-trial", "rice-trial", "xray",
-            "caption"};
+            "caption", "shortcuts", "shortcuts-search", "shortcuts-mode"};
 }
 
 namespace {
+// The sheet of shortcuts' stand-in bindings: the shipped configuration's, after a file manager's
+// with a description, a command without one, a mouse button's over terminals and a resize mode's
+// way in, and that mode.
+paw::Config shortcutsStandIn() {
+    std::string error;
+    auto config = paw::load_config_or_default({}, error);
+    const auto extra = paw::parse_config(
+        "return { modes = { resize = {"
+        " { key = 'Left', action = 'resize_left' }, { key = 'Right', action = 'resize_right' },"
+        " { key = 'Up', action = 'resize_up' }, { key = 'Down', action = 'resize_down' },"
+        " { key = 'Escape', action = 'mode', mode = 'default' },"
+        " { key = 'Return', action = 'mode', mode = 'default', description = 'Done' } } },"
+        " bindings = {"
+        " { mods = { 'Super' }, key = 'e', action = 'spawn', command = { 'dolphin' },"
+        "   description = 'Files' },"
+        " { mods = { 'Super', 'Shift' }, key = 'b', action = 'spawn',"
+        "   command = { '/usr/bin/firefox', '--private-window' } },"
+        " { button = 'side', app_id = '^(kitty|foot)$', desktop = true, action = 'close' },"
+        " { mods = { 'Super', 'Alt' }, key = 'r', action = 'mode', mode = 'resize' } } }");
+    config.bindings.insert(config.bindings.begin(), extra.bindings.begin(), extra.bindings.end());
+    config.modes = extra.modes;
+    return config;
+}
+
 // The palette's previews and what each searches for: applications, actions and files, nothing
 // it finds, a calculation, and files alone.
 const QMap<QString, QString> &paletteQueries() {
@@ -690,6 +714,17 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
         // Some picked lately, which open the picker on their tab.
         controller_.emoji()->preview({"👍", "🎉", "😂", "❤️", "🙏", "🚀", "☕"}, 0);
         controller_.emoji()->toggle(output);
+    } else if (name.startsWith("shortcuts")) {
+        // The sheet of shortcuts over the whole output, of stand-in bindings: all of them, those a
+        // search finds, or the resize mode's first while it is in use.
+        file = "Shortcuts.qml";
+        mode = QQuickView::SizeRootObjectToView;
+        properties = {{"shown", true}};
+        auto *sheet = controller_.shortcuts();
+        sheet->preview(shortcutsStandIn(), name == "shortcuts-mode" ? "resize" : "");
+        sheet->toggle(output);
+        if (name == "shortcuts-search")
+            sheet->setQuery("work");
     } else if (paletteQueries().contains(name)) {
         file = "Palette.qml";
         properties = {{"screenSize", ShellView::previewSize()}, {"shown", true}};
@@ -783,7 +818,7 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
     connect(surface_->rootObject(), &QQuickItem::heightChanged, surface_.get(), place);
     surface_->show();
     if (name == "power-dialog" || name == "auth-dialog" || name.startsWith("display-settings") ||
-        name == "rice-trial")
+        name == "rice-trial" || name.startsWith("shortcuts"))
         QMetaObject::invokeMethod(surface_->rootObject(), "reset");
     return true;
 }
