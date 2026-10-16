@@ -1228,7 +1228,8 @@ the switcher. In the macOS style, whose switcher shows applications by their lar
 one application's windows, which share its icon, show their titles under it, or with
 `shell.thumbnails` their pictures as cards, and the selected one peeks. Sent as
 `paw msg switcher_app` it stays open until `switcher_confirm [N]` or `switcher_cancel`, as
-`paw msg switcher` does.
+`paw msg switcher` does; the command palette offers it as "Switch between this application's
+windows".
 
 ## Overview
 

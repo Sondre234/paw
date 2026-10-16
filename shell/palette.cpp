@@ -35,6 +35,7 @@ constexpr Action actions[] = {
     {"close", "Close window"},
     {"promote", "Promote window to master"},
     {"focus_last", "Focus the previous window"},
+    {"switcher_app", "Switch between this application's windows"},
     {"focus_urgent", "Focus the window asking for attention"},
     {"toggle_sticky", "Toggle sticky window"},
     {"toggle_above", "Keep window above others, or not"},
