@@ -685,8 +685,10 @@ struct sh_server {
      * off, which input does not undo for a moment. */
     struct wl_listener output_power_set_mode;
     int64_t displays_off_at;
+    /* Idle inhibitors (lock.c), and how many of them apply now, their surfaces being shown. */
     struct wl_listener new_inhibitor;
-    int inhibitors;
+    struct wl_list idle_inhibitors; // sh_inhibitor.link
+    int inhibitors_applying;
     struct wl_display *wl_display;
     struct wlr_backend *backend;
     char pending_output_name[64]; // the name the next headless output takes, for tests
@@ -1494,6 +1496,10 @@ void server_new_lock(struct wl_listener *listener, void *data);
 void session_active(struct wl_listener *listener, void *data);
 #endif
 void server_new_inhibitor(struct wl_listener *listener, void *data);
+void idle_inhibitors_follow(struct sh_server *server);
+void describe_idle_inhibitors(struct sh_server *server, int fd,
+                              void (*surface)(struct sh_server *, int, const char *,
+                                              struct wlr_surface *));
 
 /* minimize.c */
 void set_window_rect(struct sh_toplevel *toplevel, const char *output, int64_t x, int64_t y,

@@ -643,6 +643,7 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
 void notify_subscribers(struct sh_server *server) {
     overview_touch(server, true); // a change of windows or workspaces, when it is open
     xray_touch(server);
+    idle_inhibitors_follow(server); // a window shown or hidden
     window_objects_changed(server);
     char state[sizeof(server->sent_state)];
     describe_state(server, state, sizeof(state));

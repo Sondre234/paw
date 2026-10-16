@@ -2,7 +2,8 @@
 /* Power saving without an idle daemon (Lua `idle`): after so long without input the screens
  * dim, the monitors turn off (output_power.c), the screen locks and the machine suspends
  * (power.c), each once until the next input, which undoes the dimming and turns on the monitors
- * this turned off. An idle inhibitor, or the session leaving the front, holds every step off. */
+ * this turned off. An idle inhibitor on a surface shown, or the session leaving the front, holds
+ * every step off. */
 #include "server.h"
 #include "paw/power_supply.h"
 
@@ -31,10 +32,11 @@ const struct sh_idle_steps *idle_steps(struct sh_server *server, bool *battery) 
     return *battery ? &settings->idle_battery : &settings->idle;
 }
 
-/* Whether no step may be taken: an idle inhibitor (a video playing) exists, or the session is
- * not on screen, where another desktop's user would have the machine suspend under them. */
+/* Whether no step may be taken: an idle inhibitor applies (a video playing in a window shown),
+ * or the session is not on screen, where another desktop's user would have the machine suspend
+ * under them. */
 bool idle_held(struct sh_server *server) {
-    if (server->inhibitors > 0)
+    if (server->inhibitors_applying > 0)
         return true;
 #if WLR_HAS_SESSION
     if (server->session && !server->session->active)
@@ -191,7 +193,7 @@ bool idle_activity(struct sh_server *server) {
     return woke;
 }
 
-/* An idle inhibitor came or went, or the session came to the front or left it. While held no
+/* An idle inhibitor started or stopped applying, or the session came to the front or left it. While held no
  * step is taken and the screens do not stay dimmed; released, the time without input counts
  * from then. */
 void idle_hold_changed(struct sh_server *server) {

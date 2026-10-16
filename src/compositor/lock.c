@@ -10,8 +10,12 @@ struct sh_lock_surface {
     struct wl_listener map, destroy;
 };
 
+/* An idle inhibitor a client holds on a surface, and whether it applies, as last worked out. */
 struct sh_inhibitor {
     struct sh_server *server;
+    struct wlr_idle_inhibitor_v1 *wlr_inhibitor;
+    bool applies;
+    struct wl_list link; // sh_server.idle_inhibitors
     struct wl_listener destroy;
 };
 
@@ -167,15 +171,6 @@ void server_new_lock(struct wl_listener *listener, void *data) {
     notify_subscribers(server); // "locked on"
 }
 
-static void inhibitor_destroy(struct wl_listener *listener, void *data) {
-    struct sh_inhibitor *inhibitor = wl_container_of(listener, inhibitor, destroy);
-    struct sh_server *server = inhibitor->server;
-    wl_list_remove(&inhibitor->destroy.link);
-    free(inhibitor);
-    wlr_idle_notifier_v1_set_inhibited(server->idle_notifier, --server->inhibitors > 0);
-    idle_hold_changed(server);
-}
-
 #if WLR_HAS_SESSION
 /* The machine stays awake while this VT is in front; switching away lets it sleep again. */
 void session_active(struct wl_listener *listener, void *data) {
@@ -190,7 +185,73 @@ void session_active(struct wl_listener *listener, void *data) {
 }
 #endif
 
-/* Video players and games keep the session awake while any inhibitor exists. */
+/* Whether a window is shown to the user: mapped, on a workspace shown, not minimized (nor in
+ * the scratchpad, a hidden tab or swallowed), and on a monitor that is on. */
+static bool window_shown(struct sh_toplevel *toplevel) {
+    if (!toplevel_mapped(toplevel) || !toplevel_visible(toplevel))
+        return false;
+    struct sh_output *output;
+    wl_list_for_each(output, &toplevel->server->outputs, link) {
+        if (output_named(output, toplevel->output))
+            return !output->powered_off;
+    }
+    return true; // on no monitor yet
+}
+
+/* Whether an idle inhibitor on `surface` applies: as idle-inhibit-unstable-v1 has it, only while
+ * the surface is visible. A window's (or its popup's or subsurface's) while the window is shown
+ * and the session unlocked, a panel's while it is mapped and the session unlocked; a surface
+ * that is neither, of which paw cannot tell whether it shows, always. */
+static bool inhibitor_applies(struct sh_server *server, struct wlr_surface *surface) {
+    struct wlr_surface *root = wlr_surface_get_root_surface(surface);
+    struct wlr_xdg_popup *popup;
+    while ((popup = wlr_xdg_popup_try_from_wlr_surface(root)) && popup->parent)
+        root = wlr_surface_get_root_surface(popup->parent);
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (toplevel_surface(toplevel) == root)
+            return !server->locked && window_shown(toplevel);
+    }
+    if (wlr_xdg_toplevel_try_from_wlr_surface(root))
+        return false; // a window not mapped
+    if (wlr_layer_surface_v1_try_from_wlr_surface(root))
+        return !server->locked && root->mapped;
+    return true;
+}
+
+/* Works out again which idle inhibitors apply, after anything that may show or hide a surface:
+ * notify_subscribers (windows mapping and unmapping, workspaces switching, windows moving, the
+ * session locking), minimizing and restoring, monitors turning off and on, panels mapping and
+ * unmapping. While any applies the idle steps are held and idle daemons hear the seat is
+ * inhibited; once none does, the time without input counts from then. Cheap: a walk over the
+ * few inhibitors there are. */
+void idle_inhibitors_follow(struct sh_server *server) {
+    int applying = 0;
+    struct sh_inhibitor *inhibitor;
+    wl_list_for_each(inhibitor, &server->idle_inhibitors, link) {
+        inhibitor->applies = inhibitor_applies(server, inhibitor->wlr_inhibitor->surface);
+        applying += inhibitor->applies;
+    }
+    bool held = applying > 0, was_held = server->inhibitors_applying > 0;
+    server->inhibitors_applying = applying;
+    if (held == was_held)
+        return;
+    wlr_log(WLR_INFO, "%s", held ? "An idle inhibitor applies: the idle steps wait"
+                                 : "No idle inhibitor applies: the idle steps count again");
+    wlr_idle_notifier_v1_set_inhibited(server->idle_notifier, held);
+    idle_hold_changed(server);
+}
+
+static void inhibitor_destroy(struct wl_listener *listener, void *data) {
+    struct sh_inhibitor *inhibitor = wl_container_of(listener, inhibitor, destroy);
+    struct sh_server *server = inhibitor->server;
+    wl_list_remove(&inhibitor->destroy.link);
+    wl_list_remove(&inhibitor->link);
+    free(inhibitor);
+    idle_inhibitors_follow(server);
+}
+
+/* Video players and games keep the session awake while their window shows. */
 void server_new_inhibitor(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, new_inhibitor);
     struct wlr_idle_inhibitor_v1 *wlr_inhibitor = data;
@@ -198,7 +259,21 @@ void server_new_inhibitor(struct wl_listener *listener, void *data) {
     if (!inhibitor)
         return;
     inhibitor->server = server;
+    inhibitor->wlr_inhibitor = wlr_inhibitor;
+    wl_list_insert(server->idle_inhibitors.prev, &inhibitor->link);
     add_listener(&wlr_inhibitor->events.destroy, &inhibitor->destroy, inhibitor_destroy);
-    wlr_idle_notifier_v1_set_inhibited(server->idle_notifier, ++server->inhibitors > 0);
-    idle_hold_changed(server);
+    idle_inhibitors_follow(server);
+}
+
+/* A line per idle inhibitor for `get idle`, the oldest first: "inhibitor", whether it applies,
+ * and its surface as `surface` (query.c's describe_surface) has it. */
+void describe_idle_inhibitors(struct sh_server *server, int fd,
+                              void (*surface)(struct sh_server *, int, const char *,
+                                              struct wlr_surface *)) {
+    struct sh_inhibitor *inhibitor;
+    wl_list_for_each(inhibitor, &server->idle_inhibitors, link) {
+        char what[32];
+        snprintf(what, sizeof(what), "inhibitor\t%d", inhibitor->applies);
+        surface(server, fd, what, inhibitor->wlr_inhibitor->surface);
+    }
 }
