@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Effects
 import Paw
 
 // The dock of the macOS style: a strip floating in the middle of the panel's surface at the
@@ -70,7 +69,7 @@ Item {
             active: Theme.effects && Theme.barShadow.a > 0
             anchors.fill: parent
             z: -1
-            sourceComponent: RectangularShadow {
+            sourceComponent: Shadow {
                 radius: body.radius
                 blur: Theme.shadowBlur
                 offset: Qt.vector2d(Theme.shadowOffsetX, Theme.shadowOffset)
