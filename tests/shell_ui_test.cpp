@@ -7653,6 +7653,27 @@ ListModel {
         controller.pickWallpaper("");
         if (!waitFor([&] { return drawn(one); }) || pickedText() != "")
             return fail("could not go back to the configured wallpaper");
+        // The slideshow with per_monitor gives each monitor (this one here) a picture of its own,
+        // the wallpaper of every monitor staying as it is.
+        if (!reconfigure(QString(lua).replace(
+                "shell={wallpaper=",
+                "shell={wallpaper_cycle={folder='sky',order='name',per_monitor=true},wallpaper=")))
+            return fail("could not rewrite the configuration");
+        for (const auto *name : {"1.png", "2.png"}) {
+            subscriber->write("wallpaper-cycle next\n");
+            if (!waitFor([&] {
+                    return drawn(sky + "/" + name) && controller.ownWallpaper(output) &&
+                           controller.wallpaperFile() == one &&
+                           pickedText() == "dark\twalls/a/one.png\t" + sky + "/" + name + "\t" +
+                                               output + "\n";
+                }))
+                return fail("the slideshow with per_monitor did not give the monitor its own picture");
+        }
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+        controller.pickWallpaper("");
+        if (!waitFor([&] { return drawn(one); }) || pickedText() != "")
+            return fail("could not go back to the configured wallpaper");
         // The picker offers every monitor or this one alone once this one has a wallpaper of its
         // own (or with two monitors), on this one alone while it has; a click on a picture puts it
         // where that says.

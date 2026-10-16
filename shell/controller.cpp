@@ -341,12 +341,15 @@ void ShellController::pickWallpaper(const QString &path) {
 void ShellController::pickWallpaperOn(const QString &path, const QString &output) {
     if (output.isEmpty())
         return pickWallpaper(path);
+    notePick(path, output);
+    savePickedWallpapers();
+}
+void ShellController::notePick(const QString &path, const QString &output) {
     auto &picks = pickedWallpapers_[profile()];
     if (path.isEmpty())
         picks.remove(output);
     else
         picks[output] = {configuredWallpaper(output), path};
-    savePickedWallpapers();
 }
 void ShellController::savePickedWallpapers() {
     QByteArray lines;
@@ -391,13 +394,37 @@ void ShellController::configureWallpaperCycle() {
     wallpaperCycle_.configure(config_.shell.wallpaper_cycle, wallpaperCycleFolder());
 }
 void ShellController::stepWallpaper(int direction) {
-    const auto next = wallpaperCycle_.step({wallpaperFile()}, direction);
+    // One picture for every monitor, or with per_monitor each monitor the next after the one to
+    // its left's, picked for it alone.
+    QStringList outputs{QString()};
+    if (config_.shell.wallpaper_cycle.per_monitor) {
+        auto screens = QGuiApplication::screens();
+        std::stable_sort(screens.begin(), screens.end(), [](const QScreen *a, const QScreen *b) {
+            const auto pa = a->geometry().topLeft(), pb = b->geometry().topLeft();
+            return pa.x() != pb.x() ? pa.x() < pb.x() : pa.y() < pb.y();
+        });
+        outputs.clear();
+        for (const auto *screen : screens)
+            if (!screen->name().isEmpty())
+                outputs.push_back(screen->name());
+        if (outputs.isEmpty())
+            outputs.push_back(QString());
+    }
+    QStringList shown;
+    for (const auto &output : outputs)
+        shown.push_back(wallpaperFileOn(output));
+    const auto next = wallpaperCycle_.step(shown, direction);
     if (next.isEmpty()) {
         osd_.show(overlayOutput(), "No wallpapers in " + wallpaperCycle_.folder(), -1);
         return;
     }
-    if (next.first() != wallpaperFile())
-        pickWallpaper(next.first());
+    if (next == shown)
+        return;
+    if (outputs.size() == 1 && outputs.first().isEmpty())
+        return pickWallpaper(next.first());
+    for (qsizetype i = 0; i < outputs.size(); ++i)
+        notePick(next[i], outputs[i]);
+    savePickedWallpapers();
 }
 void ShellController::clearApps() {
     for (auto &app : apps_)

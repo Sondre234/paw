@@ -313,7 +313,8 @@ class ShellController : public QObject {
     Q_INVOKABLE bool ownWallpaper(const QString &output) const;
     // The wallpaper slideshow (shell.wallpaper_cycle): picks the picture after the one shown
     // (`direction` 1) or before it (-1) in its folder, as the wallpaper_next and wallpaper_prev
-    // actions and its timer do; says so when the folder has none.
+    // actions and its timer do, for every monitor or with per_monitor for each monitor alone, from
+    // the left; says so when the folder has none.
     Q_INVOKABLE void stepWallpaper(int direction);
     // The slideshow's folder: shell.wallpaper_cycle.folder, else the folder of shell.wallpaper,
     // else the picker's.
@@ -829,6 +830,8 @@ class ShellController : public QObject {
     QString configuredWallpaper(const QString &output) const;
     // Writes pickedWallpapers_ to its file, and tells.
     void savePickedWallpapers();
+    // Notes `path` picked for monitor `output` alone, or none for an empty path, without saving.
+    void notePick(const QString &path, const QString &output);
     QVariantList wallpapers_;
     static QString pickedWallpapersPath();
     static QVariantMap record(const App &app);
