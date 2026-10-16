@@ -5,11 +5,13 @@
  * It takes no input. It is stepped on a timer of its own, every frame while it moves and seldom
  * while it sits or sleeps; each output's frame looks whether what it stands on moved (whatever
  * moves a window draws a frame), and pointer motion and other input reach it as they come. While
- * it is hidden (the session locked, a fullscreen window, its monitor off) nothing runs at all. */
+ * it is hidden (the session locked, a fullscreen window, its monitor off) nothing runs at all.
+ * Asleep, input wakes it a moment later, unless the pointer comes to stroke it meanwhile: then it
+ * purrs in its sleep and sleeps on, the computer counting as unused for it until other input. */
 #include "server.h"
 #include "paw/cat.h"
 
-enum { CAT_AREAS = 16, CAT_WINDOWS = 128, CAT_LEDGES = 512 };
+enum { CAT_AREAS = 16, CAT_WINDOWS = 128, CAT_LEDGES = 512, STIR_MS = 1000 };
 
 /* What the cat sees, made afresh for each step. */
 struct sight {
@@ -40,11 +42,12 @@ struct sh_cat_view {
     struct glance last;
     struct sight sight;
     struct wlr_scene_tree *tree;
-    struct wlr_scene_buffer *sprite, *z;
-    struct wlr_buffer *frames[SH_CAT_FRAMES], *z_buffer;
+    struct wlr_scene_buffer *sprite, *z, *hearts[SH_CAT_HEARTS];
+    struct wlr_buffer *frames[SH_CAT_FRAMES], *z_buffer, *heart_buffer;
     int coat, scale;  // what the buffers are painted in, and the size of a cell
     int drawn_frame;  // the frame the sprite shows, -1 for none
     int64_t sleep_ms; // without input this long, it sleeps
+    int64_t stirred;  // when input came as it slept, which wakes it STIR_MS on; 0 for none
 };
 
 static const char *const coat_names[SH_CAT_COATS] = {"ginger", "black", "cream", "grey"};
@@ -69,6 +72,8 @@ static void drop_buffers(struct sh_cat_view *view) {
     }
     wlr_buffer_drop(view->z_buffer);
     view->z_buffer = NULL;
+    wlr_buffer_drop(view->heart_buffer);
+    view->heart_buffer = NULL;
     view->drawn_frame = -1;
 }
 
@@ -252,6 +257,8 @@ static void look(struct sh_cat_view *view) {
                   view->cat.height, sight->tops, &tops, sight->ledges, &ledges, CAT_LEDGES);
     struct sh_toplevel *current = server->focused_toplevel;
     const struct sh_idle *idle = &server->idle;
+    // Asleep, only input it hears wakes it (cat_input), not strokes.
+    bool asleep = view->placed && sh_cat_asleep(&view->cat);
     sight->world = (struct sh_cat_world){
         .areas = sight->areas,
         .area_count = sight->area_count,
@@ -262,7 +269,8 @@ static void look(struct sh_cat_view *view) {
         .ledge_count = ledges,
         .focused = current && standable(current) ? current->id : 0,
         .urgent = urgent_window(server),
-        .idle = now_ms() - idle->last_input >= view->sleep_ms || (idle->done & (1u << SH_IDLE_DIM)),
+        .idle = asleep || now_ms() - idle->last_input >= view->sleep_ms ||
+                (idle->done & (1u << SH_IDLE_DIM)),
     };
 }
 
@@ -323,6 +331,30 @@ static void draw(struct sh_cat_view *view, int64_t now) {
                                     (int)lround(cat->y) - (12 + 2 * pose.z_step) * view->scale -
                                         size);
     }
+    // The hearts a purring cat sends up, each where the pose has it, fading as it rises.
+    if (pose.hearts && !view->heart_buffer) {
+        uint32_t *pixels = malloc(SH_CAT_HEART_WIDTH * SH_CAT_HEART_HEIGHT * sizeof(*pixels));
+        if (pixels) {
+            sh_cat_paint_heart(pixels);
+            view->heart_buffer = sh_pixel_buffer(pixels, SH_CAT_HEART_WIDTH, SH_CAT_HEART_HEIGHT);
+        }
+    }
+    for (int i = 0; i < SH_CAT_HEARTS; ++i) {
+        struct wlr_scene_buffer *heart = view->hearts[i];
+        bool shown = i < pose.hearts && view->heart_buffer;
+        wlr_scene_node_set_enabled(&heart->node, shown);
+        if (!shown)
+            continue;
+        if (heart->buffer != view->heart_buffer)
+            wlr_scene_buffer_set_buffer(heart, view->heart_buffer);
+        int width = SH_CAT_HEART_WIDTH * view->scale, height = SH_CAT_HEART_HEIGHT * view->scale;
+        if (heart->dst_width != width || heart->dst_height != height)
+            wlr_scene_buffer_set_dest_size(heart, width, height);
+        int forward = (pose.left ? -1 : 1) * pose.heart[i].x * view->scale;
+        wlr_scene_node_set_position(&heart->node, (int)lround(cat->x) + forward - width / 2,
+                                    (int)lround(cat->y) - pose.heart[i].y * view->scale - height);
+        wlr_scene_buffer_set_opacity(heart, (float)pose.heart[i].alpha);
+    }
 }
 
 /* Takes up cat.scale and the coat; true when either changed. */
@@ -344,6 +376,10 @@ static bool restyle(struct sh_cat_view *view) {
 static void step(struct sh_cat_view *view) {
     struct sh_server *server = view->server;
     view->due = 0;
+    if (view->stirred && now_ms() - view->stirred >= STIR_MS) {
+        view->stirred = 0; // nobody came to stroke it
+        sh_cat_wake(&view->cat, now_ms());
+    }
     const char *hidden = hidden_why(view);
     if (hidden) {
         wlr_scene_node_set_enabled(&view->tree->node, false);
@@ -369,6 +405,8 @@ static void step(struct sh_cat_view *view) {
         if (sleepy < next)
             next = (int)(sleepy < 1 ? 1 : sleepy);
     }
+    if (view->stirred && view->stirred + STIR_MS - now < next)
+        next = (int)(view->stirred + STIR_MS - now);
     draw(view, now);
     wlr_scene_node_set_enabled(&view->tree->node, true);
     glance(view, &view->last);
@@ -391,6 +429,7 @@ static void set_shown(struct sh_cat_view *view, bool shown) {
         return;
     view->shown = shown;
     view->placed = false;
+    view->stirred = 0;
     if (shown) {
         step(view); // it turns up at once, for whoever asks where it is next
     } else {
@@ -420,16 +459,26 @@ void cat_frame(struct sh_server *server) {
 
 void cat_input(struct sh_server *server) {
     struct sh_cat_view *view = server->cat;
-    if (view && view->shown && view->placed && sh_cat_wake(&view->cat, now_ms()))
-        poke(view);
+    // Asleep, it stirs, and wakes in a moment unless the pointer comes to stroke it meanwhile
+    // (cat_pointer_moved, which pointer motion reaches just after this).
+    if (!view || !view->shown || !view->placed || view->stirred || !sh_cat_asleep(&view->cat))
+        return;
+    view->stirred = now_ms();
+    if (!view->due || view->due > view->stirred + STIR_MS)
+        step_in(view, STIR_MS);
 }
 
 void cat_pointer_moved(struct sh_server *server) {
     struct sh_cat_view *view = server->cat;
     // A pointer moving a window or the taskbar is no game.
-    if (view && view->shown && view->placed && !view->last.hidden &&
-        server->cursor_mode == SH_CURSOR_PASSTHROUGH &&
-        sh_cat_pointer(&view->cat, server->cursor->x, server->cursor->y, now_ms()))
+    if (!view || !view->shown || !view->placed || view->last.hidden ||
+        server->cursor_mode != SH_CURSOR_PASSTHROUGH)
+        return;
+    double x = server->cursor->x, y = server->cursor->y;
+    bool changed = sh_cat_pointer(&view->cat, x, y, now_ms());
+    if (view->stirred && sh_cat_under(&view->cat, x, y))
+        view->stirred = 0; // come to stroke it, not to wake it
+    if (changed)
         poke(view);
 }
 
@@ -463,7 +512,12 @@ void cat_init(struct sh_server *server) {
     view->tree = wlr_scene_tree_create(&server->scene->tree);
     view->sprite = view->tree ? wlr_scene_buffer_create(view->tree, NULL) : NULL;
     view->z = view->tree ? wlr_scene_buffer_create(view->tree, NULL) : NULL;
-    if (!view->timer || !view->sprite || !view->z) {
+    bool hearts = true;
+    for (int i = 0; i < SH_CAT_HEARTS; ++i) {
+        view->hearts[i] = view->tree ? wlr_scene_buffer_create(view->tree, NULL) : NULL;
+        hearts &= view->hearts[i] != NULL;
+    }
+    if (!view->timer || !view->sprite || !view->z || !hearts) {
         if (view->timer)
             wl_event_source_remove(view->timer);
         if (view->tree)
@@ -473,8 +527,10 @@ void cat_init(struct sh_server *server) {
     }
     wlr_scene_node_place_above(&view->tree->node, &server->above_windows->node);
     wlr_scene_node_set_enabled(&view->tree->node, false);
-    struct wlr_scene_buffer *buffers[] = {view->sprite, view->z};
-    for (size_t i = 0; i < 2; ++i) {
+    struct wlr_scene_buffer *buffers[2 + SH_CAT_HEARTS] = {view->sprite, view->z};
+    for (int i = 0; i < SH_CAT_HEARTS; ++i)
+        buffers[2 + i] = view->hearts[i];
+    for (size_t i = 0; i < sizeof(buffers) / sizeof(*buffers); ++i) {
         buffers[i]->point_accepts_input = no_input;
         wlr_scene_buffer_set_filter_mode(buffers[i], WLR_SCALE_FILTER_NEAREST);
     }
