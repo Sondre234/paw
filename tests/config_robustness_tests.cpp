@@ -55,6 +55,8 @@ int main(int argc, char **argv) {
         require(!parses("dofile('/etc/passwd')"), "dofile reachable");
         require(!parses("return load('return 1')()"), "load reachable");
         require(!parses("while true do end"), "endless loop was not stopped");
+        require(!parses("while true do pcall(function() while true do end end) end"),
+                "an endless loop caught its own budget's error and ran on");
         require(!parses("local t = {} t[1] = t return setmetatable(t, {__index = function(t) "
                         "return t[1] end}).x"), "runaway recursion was not stopped");
         require(!parses("return string.rep('x', 2^40)"), "huge allocation was not refused");
