@@ -80,7 +80,8 @@ by day and by night.</sub>
   puts in place.
   `paw import` carries over an existing Hyprland/Waybar setup, and
   [`paw rice`](docs/features.md#paw-rice) packs a look into one file to share and tries one on
-  for 15 seconds before you keep it.
+  for 15 seconds before you keep it. A [colour picker](docs/features.md#colour-picker) with a
+  loupe takes any colour off the screen as `#rrggbb`.
 - **Scriptable:** every action, plus queries and an event stream, over a control socket
   (`paw msg`).
 - **Works with everyday applications:** XWayland, screen sharing through portals,
