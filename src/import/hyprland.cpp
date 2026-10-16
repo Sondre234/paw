@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <charconv>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fnmatch.h>
@@ -22,6 +23,9 @@ struct Sandbox {
     fs::path directory; // hyprland.lua's, for relative paths
     size_t memory = 0, limit = memory_limit;
     int remaining = budget;
+    // A resolved path. A Lua error is a longjmp past C++ destructors: what is alive across a
+    // Lua call that may raise one lives here, not on the stack.
+    std::string path{};
 };
 Sandbox &sandbox(lua_State *L) {
     void *data = nullptr;
@@ -52,20 +56,38 @@ void count(lua_State *L, lua_Debug *) {
         luaL_error(L, "hyprland.lua ran too long");
     }
 }
+// Runs `work`, C++ that may throw, in a function Lua called: an exception becomes a Lua error,
+// raised once it is gone instead of unwinding through Lua's C frames.
+template <typename Work> void guard(lua_State *L, Work &&work) {
+    bool failed = false;
+    char message[256] = "";
+    try {
+        work();
+    } catch (const std::exception &error) {
+        failed = true;
+        std::snprintf(message, sizeof(message), "%s", error.what());
+    } catch (...) {
+        failed = true;
+    }
+    if (failed)
+        luaL_error(L, "%s", *message ? message : "unknown error");
+}
 // Replaces argument 1 with its resolved path; false (with nil, message pushed) when the file
 // is outside the imported directory.
 bool redirect(lua_State *L) {
     auto &self = sandbox(L);
     const char *name = luaL_checkstring(L, 1);
-    std::string path;
-    if (auto resolved = self.files->resolve(name, self.directory))
-        path = resolved->string();
-    if (path.empty()) {
+    guard(L, [&] {
+        self.path.clear();
+        if (auto resolved = self.files->resolve(name, self.directory))
+            self.path = resolved->string();
+    });
+    if (self.path.empty()) {
         lua_pushnil(L);
         lua_pushfstring(L, "%s: outside the imported directory", name);
         return false;
     }
-    lua_pushlstring(L, path.data(), path.size());
+    lua_pushlstring(L, self.path.data(), self.path.size());
     lua_replace(L, 1);
     return true;
 }
@@ -108,17 +130,22 @@ int load_file(lua_State *L) {
     if (!redirect(L))
         return 2;
     auto &self = sandbox(L);
-    std::string text;
-    if (auto contents = self.files->read(lua_tostring(L, 1)))
-        text = std::move(*contents);
-    else {
+    const char *path = lua_tostring(L, 1);
+    bool read = false;
+    int status = LUA_OK;
+    guard(L, [&] {
+        // luaL_loadbufferx raises no Lua error, so these strings are freed.
+        if (auto text = self.files->read(path)) {
+            read = true;
+            auto chunk = chunk_name(*self.files, path);
+            status = luaL_loadbufferx(L, text->data(), text->size(), chunk.c_str(), "t");
+        }
+    });
+    if (!read) {
         lua_pushnil(L);
-        lua_pushfstring(L, "cannot read %s", lua_tostring(L, 1));
+        lua_pushfstring(L, "cannot read %s", path);
         return 2;
     }
-    std::string chunk = chunk_name(*self.files, lua_tostring(L, 1));
-    int status = luaL_loadbufferx(L, text.data(), text.size(), chunk.c_str(), "t");
-    std::string().swap(text);
     if (status != LUA_OK) {
         lua_pushnil(L);
         lua_insert(L, -2);
