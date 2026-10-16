@@ -217,6 +217,21 @@ class NotificationsDbusTest : public QObject {
         const uint id2 = notify("bad", {}, {}, {{"image-data", QVariant::fromValue(bad)}}, 0);
         QVERIFY(center_.cards()->find(id2)->image.isNull());
         center_.dismiss(id2);
+        // Pictures of the wrong shape are ignored, not read as one of the right shape: fields
+        // missing, and the data in strings.
+        QDBusArgument short_;
+        short_.beginStructure();
+        short_ << 2 << 2;
+        short_.endStructure();
+        QDBusArgument strings;
+        strings.beginStructure();
+        strings << 2 << 2 << 6 << false << 8 << 3 << QStringList{"pixels"};
+        strings.endStructure();
+        for (const auto &shape : {short_, strings}) {
+            const uint id3 = notify("shape", {}, {}, {{"image-data", QVariant::fromValue(shape)}}, 0);
+            QVERIFY(center_.cards()->find(id3) && center_.cards()->find(id3)->image.isNull());
+            center_.dismiss(id3);
+        }
     }
     void hintParsing() {
         auto n = NotificationsAdaptor::parse("app", "file:///usr/share/icons/x.png", "s", "b", {"a", "A", "orphan"},
