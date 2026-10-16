@@ -208,6 +208,13 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `windows.rules[].dynamic` | boolean | false | - | Hold the window to the rule's `above`, `floating` and `sticky` while its title and app ID match, as they change, and give back what it had once they no longer do; its other actions still act once, as the window opens. |
 | `windows.rules[].allow_tearing` | boolean | unset | - | With `windows.allow_tearing`, show the window's frames at once while it is fullscreen and alone on its monitor, whether or not it asks for that (as an X11 game cannot). |
 | `windows.rules[].blur` | boolean | unset | - | `false` draws no blur behind the window (see `windows.blur`), `true` draws one even with `windows.blur.enabled` off. |
+| `windows.rules[].shadow` | boolean | unset | - | `false` draws no shadow under the window (see `windows.shadow`), `true` draws one even with `windows.shadow.enabled` off. |
+| `windows.rules[].border` | boolean | unset | - | `false` draws no border around the window; the room `border_width` keeps for it stays. |
+| `windows.rules[].border_color` | color or gradient | `windows.border_color` | - | The window's border while it has the focus, as `windows.border_color`. |
+| `windows.rules[].border_inactive_color` | color or gradient | `windows.border_inactive_color` | - | Its border without the focus, as `windows.border_inactive_color`. |
+| `windows.rules[].corner_radius` | integer | `windows.corner_radius` | 0 to 40 | Radius of the window's corners, wherever `windows.round` rounds it; 0 keeps it square. |
+| `windows.rules[].idle_inhibit` | enum | unset | - | Keep the machine awake (no idle step, idle daemons told it is inhibited) while the window is open (`"always"`), shows (`"visible"`), has the focus (`"focus"`) or is fullscreen and shows (`"fullscreen"`), the session unlocked; `"none"` refuses the window's own idle inhibitors, as a browser playing sound in a tab holds. |
+| `windows.rules[].scratchpad` | boolean | unset | - | Open hidden in the scratchpad (with `features.scratchpad`), floating, for `scratchpad_show` to drop it down. |
 
 ## `peek`
 

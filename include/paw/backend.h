@@ -637,6 +637,18 @@ enum sh_pointer_target {
     SH_POINTER_OTHER,   /* a panel, bar, or other layer surface */
 };
 
+/* What windows.rules[].idle_inhibit asks of a window (lock.c): nothing, so its own idle inhibitors
+ * apply as they would; refuse those; or keep the machine awake while it is open, shows, has the
+ * focus, or is fullscreen and shows. */
+enum sh_idle_rule {
+    SH_IDLE_RULE_UNSET,
+    SH_IDLE_RULE_NONE,
+    SH_IDLE_RULE_ALWAYS,
+    SH_IDLE_RULE_VISIBLE,
+    SH_IDLE_RULE_FOCUS,
+    SH_IDLE_RULE_FULLSCREEN,
+};
+
 /* What windows.rules decide for a window as it opens. */
 enum sh_rule_position { SH_RULE_POSITION_UNSET, SH_RULE_POSITION_CENTER, SH_RULE_POSITION_AT };
 struct sh_window_rule {
@@ -653,6 +665,13 @@ struct sh_window_rule {
     bool above;  /* kept above the other windows */
     bool allow_tearing; /* shown at once while fullscreen, with windows.allow_tearing */
     int blur; /* the background blurred behind it (windows.blur): -1 unset, 0 none, 1 blurred */
+    bool scratchpad; /* opens hidden in the scratchpad, with features.scratchpad */
+    /* Its look, which follows the title and app ID as they change (window_rules.c): its shadow
+     * and its border drawn or not (-1 unset), its corners' radius (-1 unset), and its border's
+     * colours focused and not (count 0 unset). */
+    int shadow, border, corner_radius;
+    struct sh_gradient border_color, border_inactive_color;
+    int idle_inhibit; /* enum sh_idle_rule, which follows them too */
 };
 
 /* What the dynamic window rules (`dynamic = true`) matching a window decide now, as its title
