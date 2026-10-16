@@ -727,6 +727,12 @@ struct sh_server {
     /* cursor_hide: no image until cursor_show, whatever asks for one; the sh_cursor_hidden bits
      * of why, 0 while it shows. */
     uint32_t cursor_hidden;
+    /* mouse.hide_after (cursor_hide.c): when the pointer was last used, and the timer that hides
+     * the cursor once it has rested that long. */
+    struct {
+        int64_t moved;
+        struct wl_event_source *timer;
+    } cursor_rest;
     /* The image the cursor was given last: an xcursor name (show_xcursor), "client" for a
      * client's own surface, or NULL for none yet (get cursor_image). */
     const char *cursor_image;
@@ -1501,6 +1507,12 @@ bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t 
 void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode);
 void key_release_cancel(struct sh_server *server);
 void key_release_forget(struct sh_keyboard *keyboard);
+
+/* cursor_hide.c */
+void cursor_typed(struct sh_server *server, xkb_keysym_t sym);
+void cursor_used(struct sh_server *server);
+void cursor_hide_reload(struct sh_server *server);
+void cursor_hide_finish(struct sh_server *server);
 
 /* input_method.c */
 bool input_method_key(struct sh_keyboard *keyboard, const struct wlr_keyboard_key_event *event);

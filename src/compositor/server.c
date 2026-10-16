@@ -152,6 +152,7 @@ void reload_config(struct sh_server *server) {
     shortcuts_reload(server);
     cat_reload(server);
     wrapped_reload(server);
+    cursor_hide_reload(server);
 }
 
 static int terminate_signal(int signal_number, void *data) {
@@ -525,6 +526,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     idle_init(&server);
     cat_init(&server);
     wrapped_init(&server);
+    cursor_hide_reload(&server);
     blur_reload(&server);
     server.running = true;
     server.login_session = mode == SH_BACKEND_SESSION ||
@@ -627,6 +629,7 @@ finish:
     cube_end(&server);
     rice_finish(&server);
     cat_finish(&server);
+    cursor_hide_finish(&server);
     xray_finish(&server);
     heatmap_finish(&server);
     blur_finish(&server);

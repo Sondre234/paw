@@ -559,6 +559,7 @@ void server_cursor_motion(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_motion);
     struct wlr_pointer_motion_event *event = data;
     input_activity(server, true);
+    cursor_used(server);
     wrapped_motion(server, event->delta_x, event->delta_y);
     wlr_relative_pointer_manager_v1_send_relative_motion(
         server->relative_pointer, server->seat, (uint64_t)event->time_msec * 1000, event->delta_x,
@@ -590,6 +591,7 @@ void server_cursor_motion_absolute(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_motion_absolute);
     struct wlr_pointer_motion_absolute_event *event = data;
     input_activity(server, true);
+    cursor_used(server);
     wrapped_motion_absolute(server, event);
     uint64_t started = now_ns();
     wlr_cursor_warp_absolute(server->cursor, &event->pointer->base, event->x, event->y);
@@ -765,6 +767,7 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_button);
     struct wlr_pointer_button_event *event = data;
     input_activity(server, event->state == WL_POINTER_BUTTON_STATE_PRESSED);
+    cursor_used(server);
     if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
         key_release_cancel(server); // Super + click is no tap of Super
     wrapped_button(server, event);
@@ -922,6 +925,7 @@ void server_cursor_axis(struct wl_listener *listener, void *data) {
     struct wlr_pointer_axis_event *event = data;
     input_activity(server, true);
     key_release_cancel(server);
+    cursor_used(server);
     wrapped_axis(server, event);
     if (xray_axis(server, event))
         return;

@@ -108,6 +108,8 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data) {
         wlr_seat_set_keyboard(seat, keyboard->wlr_keyboard);
         wlr_seat_keyboard_notify_key(seat, event->time_msec, event->keycode, event->state);
     }
+    if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED && !handled)
+        cursor_typed(server, nsyms > 0 ? syms[0] : XKB_KEY_NoSymbol); // typed into an application
     if (event->state == WL_KEYBOARD_KEY_STATE_RELEASED)
         key_release_up(keyboard, event->keycode);
 }

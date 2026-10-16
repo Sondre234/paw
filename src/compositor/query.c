@@ -885,8 +885,8 @@ static void get_seat(struct sh_server *server, int fd, const char *arguments) {
 }
 
 static void get_cursor(struct sh_server *server, int fd, const char *arguments) {
-    // Whether the cursor shows: "hidden" while a screenshot is taken (cursor_hide), else
-    // "shown".
+    // Whether the cursor shows: "hidden" while a screenshot is taken, or after typing or a rest
+    // with mouse.hide_when_typing and mouse.hide_after (cursor_hide), else "shown".
     control_reply(fd, "ok\n");
     control_reply(fd, server->cursor_hidden ? "hidden\n" : "shown\n");
 }

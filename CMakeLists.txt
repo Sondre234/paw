@@ -276,6 +276,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/control.c
         src/compositor/crossfade.c
         src/compositor/cursor.c
+        src/compositor/cursor_hide.c
         src/compositor/display_mode.c
         src/compositor/display_settings.c
         src/compositor/dynamic_rules.c

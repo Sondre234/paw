@@ -129,6 +129,7 @@ static struct sh_tablet_tool *find_tool(struct sh_server *server, struct wlr_tab
 static void tool_moved(struct sh_server *server, struct sh_tablet *tablet,
                        struct sh_tablet_tool *tool, uint32_t time, double x, double y) {
     struct wlr_cursor *cursor = server->cursor;
+    cursor_used(server);
     wlr_cursor_warp_absolute(cursor, &tablet->wlr_tablet->base, x, y);
     struct wlr_tablet_v2_tablet_tool *tool_v2 = tool->tool_v2;
     if (!tool->pointer && tool_v2->is_down) {
