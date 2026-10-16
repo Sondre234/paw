@@ -1363,6 +1363,16 @@ may be a path. `icons.cpp` serves `image://icons/NAME` and, at startup, picks th
 desktop names when no platform theme does (`useDesktopIconTheme`). `tests/app_icons_test.cpp`
 tests both with real applications' entries and app ids.
 
+`appearance.icon_theme` (a profile's) changes the theme while the shell runs:
+`ShellController::followIconTheme`, from `loadConfig`, sets it where `iconThemeInstalled` finds it,
+else the theme the shell started with, keeping Qt's folders of themes. Qt Quick keeps the images
+it loaded by URL, so every QML image of an icon is `shell.iconBase + name`, and `iconBase` turns
+from `image://icons/` to `image://icons/@N/` (which `Icons` strips) at the Nth change: each image
+loads again. `iconFor`'s guesses are dropped and the tray's pictures and menus get new revisions
+(`TrayModel::redraw`). `shell_ui` checks that no QML file builds an `image://icons/` URL itself.
+The compositor's `cursor-theme SIZE NAME` line sets the shell's `$XCURSOR_THEME` and
+`$XCURSOR_SIZE`, for the programs it starts.
+
 An `ImageProvider` (`image_provider.hpp`) serves the pictures of the shell's models
 (`image://notify`, `tray`, `windows`, `clipboard`) on the GUI thread alone, since the models have no
 lock: an `Image` with `asynchronous: true` asks on Qt Quick's loading thread and gets nothing, so
