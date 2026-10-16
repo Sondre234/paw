@@ -22,7 +22,9 @@
 
 namespace paw {
 #if defined(__SANITIZE_ADDRESS__) || defined(PAW_TRIAL_SANITIZED)
-const int trial_seconds = 30;
+// The shipped configuration loads in about a second there (0.05 s in the normal build), with
+// tools/check-all.sh's slow unwinding of every allocation, on a loaded machine too.
+const int trial_seconds = 10;
 #else
 const int trial_seconds = 3;
 #endif
