@@ -14,6 +14,8 @@ class ShellController;
 // action, which runs as the power menu runs it, also has `power` set. A calculation's target is
 // its number, which running it copies to the clipboard; a file's is its path
 // (FileIndex::search); the web search's the address the browser opens (web_search::entry).
+//
+// With nothing typed it lists a few of each kind (home); a search lists the best 60.
 class Palette : public QObject {
     Q_OBJECT
     // The output showing the palette, empty while it is closed.
@@ -61,6 +63,12 @@ class Palette : public QObject {
     QVariantList entries_, results_, sessions_;
     int selected_ = 0;
     void collect();
+    // What it lists with nothing typed, in sections, each bounded by what the user has or a
+    // few, so that more actions push nothing out: every window (those asking for attention
+    // first), each saved session to restore, up to 8 applications (launched lately, then pinned
+    // to the start menu, then by name), each workspace to switch to, the appearance profiles,
+    // the common actions, and last the power actions that may run.
+    QVariantList home() const;
     void refreshResults();
     void refreshKeepingSelection();
 };

@@ -6,6 +6,7 @@
 #include "web_search.hpp"
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QHash>
 
 namespace {
 struct Action {
@@ -70,6 +71,16 @@ constexpr Action actions[] = {
     {"ambient fireflies", "Ambient: fireflies over the wallpaper"},
     {"ambient off", "Ambient: off"},
 };
+// The actions an empty search lists, the commonest, in this order; the rest are a word away, and
+// a lone > lists them all. A new action joins them only when it is as common, so that the list
+// stays short and the power actions after them stay in it.
+constexpr const char *common[] = {
+    "terminal",        "launcher",         "toggle_overview", "toggle_tiling", "layout_next",
+    "toggle_floating", "fullscreen",       "close",           "pick_color",    "keep_awake_toggle",
+    "shortcuts",       "display_settings", "reload",
+};
+// How many applications an empty search lists.
+constexpr qsizetype homeApps = 8;
 
 QVariantMap entry(const QString &kind, const QString &title, const QString &subtitle,
                   const QString &icon, const QString &target, int number = 0, bool urgent = false) {
@@ -241,18 +252,63 @@ QVariantList Palette::entries(QObject *windows) const {
     return entries;
 }
 
+QVariantList Palette::home() const {
+    QVariantList windows, sessions, workspaces, profiles, power;
+    QHash<QString, QVariant> apps, actions;
+    for (const auto &item : entries_) {
+        const auto map = item.toMap();
+        const auto kind = map.value("kind").toString();
+        const auto target = map.value("target").toString();
+        if (kind == "window")
+            windows.push_back(item);
+        else if (kind == "session" && target.count(' ') == 2) // not "... and launch missing apps"
+            sessions.push_back(item);
+        else if (kind == "workspace" && map.value("number").toInt() > 0) // not "Move window to"
+            workspaces.push_back(item);
+        else if (kind == "app")
+            apps.insert(target, item);
+        else if (map.value("power").toBool())
+            power.push_back(item);
+        else if (target.startsWith("profile ") || target == "profile_auto")
+            profiles.push_back(item);
+        else if (kind == "action")
+            actions.insert(target, item);
+    }
+    auto list = windows + sessions;
+    // The applications launched lately, then those pinned to the start menu, then by name.
+    auto *start = controller_.startMenu();
+    QStringList listed;
+    for (const auto &records : {start->recent(), start->pinned(), start->apps()})
+        for (const auto &record : records) {
+            const auto id = record.toMap().value("appId").toString();
+            if (listed.size() < homeApps && apps.contains(id) && !listed.contains(id)) {
+                listed.push_back(id);
+                list.push_back(apps[id]);
+            }
+        }
+    list += workspaces;
+    list += profiles;
+    for (const char *name : common)
+        if (actions.contains(name))
+            list.push_back(actions[name]);
+    return list + power;
+}
+
 void Palette::refreshResults() {
     const auto typed = query_.trimmed();
     // A calculation's value comes first; a leading = asks for nothing else, and a leading / for
-    // files alone. A few files otherwise go among the rest by how well they match.
+    // files alone. A few files otherwise go among the rest by how well they match. Nothing typed,
+    // it lists the sections of home().
     const auto calc = calculator::entry(query_);
-    if (typed.startsWith('=')) {
+    if (typed.isEmpty()) {
+        results_ = home();
+    } else if (typed.startsWith('=')) {
         results_.clear();
     } else if (typed.startsWith('/')) {
         results_ = controller_.files()->search(typed.sliced(1), 60);
     } else {
         results_ = fuzzy::rank(entries_, query_);
-        if (!typed.isEmpty() && !QString(">@#%").contains(typed[0]))
+        if (!QString(">@#%").contains(typed[0]))
             results_ = merged(results_, controller_.files()->search(typed, 5));
     }
     // Spotlight lists what it found by kind, each under its heading, after the top hit.
