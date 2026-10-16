@@ -106,7 +106,7 @@ void BlueZ::start() {
         this, [this, generation](QDBusPendingCallWatcher *done) {
             if (generation != generation_ || done->isError())
                 return;
-            const auto objects = qdbus_cast<Objects>(done->reply().arguments().value(0));
+            const auto objects = dbus::read<Objects>(done->reply().arguments().value(0), "a{oa{sa{sv}}}");
             for (auto it = objects.constBegin(); it != objects.constEnd(); ++it)
                 for (auto interface = it->constBegin(); interface != it->constEnd(); ++interface)
                     objects_[it.key().path()][interface.key()] = settled(interface.value());
@@ -139,7 +139,7 @@ void BlueZ::interfacesAdded(const QDBusMessage &message) {
     if (!running_ || arguments.size() < 2)
         return;
     const auto path = arguments[0].value<QDBusObjectPath>().path();
-    const auto interfaces = qdbus_cast<Interfaces>(arguments[1]);
+    const auto interfaces = dbus::read<Interfaces>(arguments[1], "a{sa{sv}}");
     for (auto it = interfaces.constBegin(); it != interfaces.constEnd(); ++it)
         objects_[path][it.key()] = settled(it.value());
     publish_.start();
