@@ -2154,7 +2154,7 @@ the cursor out. A screen recording or screen sharing shows it, as it shows the w
 appearance = { cursor_trail = { kind = "sparkles", amount = 1 } },
 -- appearance = { cursor_trail = { kind = "hearts", colors = { "#f2a0be", "#8fc1ec" } } },
 bindings = {
-    { mods = { "Super", "Ctrl" }, key = "t", action = "cursor_trail", mode = "next" },
+    { mods = { "Super", "Ctrl" }, key = "s", action = "cursor_trail", mode = "next" },
 },
 ```
 
