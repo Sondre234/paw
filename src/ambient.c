@@ -17,11 +17,11 @@ enum { PETAL_TINTS = 4, PETAL_SIZES = 3, SNOW_TINTS = 2, SNOW_SIZES = 6, GLOW_TI
 /* A petal's length, from its stem to the notch at its tip. */
 static const double PETAL_LENGTH[PETAL_SIZES] = {16, 22, 30};
 /* A flake's radius; the two largest are soft and out of focus, near the eye. */
-static const double FLAKE_RADIUS[SNOW_SIZES] = {1.0, 1.4, 1.9, 2.6, 3.8, 5.6};
+static const double FLAKE_RADIUS[SNOW_SIZES] = {2.0, 2.6, 3.2, 4.0, 6.5, 9.5};
 enum { SOFT_FLAKES = 4 };
 /* How far a firefly's glow reaches, and its bright core. */
-static const double GLOW_REACH[GLOW_SIZES] = {12, 17};
-static const double GLOW_CORE[GLOW_SIZES] = {1.5, 2.0};
+static const double GLOW_REACH[GLOW_SIZES] = {20, 28};
+static const double GLOW_CORE[GLOW_SIZES] = {1.8, 2.4};
 
 /* Colours as 0-255 sRGB. A petal is deeper at its stem, paler toward its tip, and a little
  * deeper again along its edge, which sets it apart on pale paper. */
@@ -212,11 +212,11 @@ static void paint_flake(int sprite, uint32_t *pixels, int side) {
                 alpha = 0.5 * (1 - smoothstep(0.45 * radius, radius, d)) +
                         0.1 * exp(-pow((d - 0.8 * radius) / (0.15 * radius), 2));
             } else {
-                // A round dot, its edge smoothed over a pixel or a third of its radius, in a
-                // faint halo.
-                double soften = fmax(pixel, 0.35 * radius);
+                // A soft round dot, its edge smoothed over most of its radius, in a faint
+                // halo.
+                double soften = fmax(pixel, 0.7 * radius);
                 alpha = 0.95 * (1 - smoothstep(radius - soften / 2, radius + soften / 2, d)) +
-                        0.2 * exp(-pow(fmax(0, d - radius) / (0.8 * radius + 0.6), 2));
+                        0.28 * exp(-pow(fmax(0, d - radius) / (0.8 * radius + 0.6), 2));
             }
             alpha = clamp01(alpha) * (1 - smoothstep(logical / 2 - pixel, logical / 2, d));
             double whiteness = 1 - clamp01(d / radius);
@@ -240,10 +240,10 @@ static void paint_glow(int sprite, uint32_t *pixels, int side) {
             double d = hypot(x, y);
             // A bright core in a warm glow, and a wider, fainter one fading out before the edge.
             double bright = 1 - smoothstep(core - 0.5 * pixel, core + pixel, d);
-            double inner = exp(-pow(d / (0.24 * reach), 2));
-            double outer = 0.32 * exp(-pow(d / (0.52 * reach), 2));
+            double inner = exp(-pow(d / (0.2 * reach), 2));
+            double outer = 0.6 * exp(-pow(d / (0.45 * reach), 2));
             double fade = 1 - smoothstep(0.75 * reach, reach, d);
-            double light = clamp01(bright + 0.7 * inner + outer) * fade;
+            double light = clamp01(bright + 0.8 * inner + outer) * fade;
             double whiteness = clamp01(bright + 0.35 * inner);
             double rgb[3];
             for (int i = 0; i < 3; ++i)
@@ -321,8 +321,8 @@ void sh_ambient_spawn(struct sh_ambient_field *field, struct sh_ambient_particle
     }
     case SH_AMBIENT_SNOW: {
         double depth = particle->depth = pow(uniform(seed, 0, 1), 1.5);
-        int size = depth < 0.3 ? 0 : depth < 0.5 ? 1 : depth < 0.7 ? 2 : depth < 0.86 ? 3
-                   : depth < 0.95 ? 4 : 5;
+        int size = depth < 0.25 ? 0 : depth < 0.45 ? 1 : depth < 0.62 ? 2 : depth < 0.8 ? 3
+                   : depth < 0.92 ? 4 : 5;
         particle->sprite = (xorshift(seed) % 4 == 0 ? SNOW_SIZES : 0) + size;
         particle->scale = uniform(seed, 0.9, 1.1);
         particle->fall = (0.012 + 0.038 * depth) * uniform(seed, 0.85, 1.15);
@@ -420,11 +420,11 @@ void sh_ambient_step(struct sh_ambient_field *field, struct sh_ambient_particle 
 /* How bright a firefly is the share `glow` into its cycle: lighting up, holding, dimming, then
  * resting dark a while. */
 static double firefly_brightness(double glow) {
-    if (glow < 0.18)
-        return smoothstep(0, 0.18, glow);
-    if (glow < 0.32)
+    if (glow < 0.2)
+        return smoothstep(0, 0.2, glow);
+    if (glow < 0.45)
         return 1;
-    return 1 - smoothstep(0.32, 0.62, glow);
+    return 1 - smoothstep(0.45, 0.75, glow);
 }
 
 void sh_ambient_look(const struct sh_ambient_field *field,
@@ -457,14 +457,14 @@ void sh_ambient_look(const struct sh_ambient_field *field,
     }
     case SH_AMBIENT_SNOW:
         x += particle->reach * sin(particle->phase);
-        look->opacity = (0.5 + 0.45 * particle->depth) *
+        look->opacity = (0.6 + 0.4 * particle->depth) *
                         (particle->sprite % SNOW_SIZES >= SOFT_FLAKES ? 0.8 : 1);
         break;
     case SH_AMBIENT_FIREFLIES: {
         double bright = firefly_brightness(particle->glow);
         y += 3 * sin(2 * particle->phase); // bobbing as it flies
         width = height = side * (0.75 + 0.35 * bright);
-        look->opacity = (0.1 + 0.9 * bright) * (0.65 + 0.35 * particle->depth);
+        look->opacity = (0.15 + 0.85 * bright) * (0.75 + 0.25 * particle->depth);
         break;
     }
     default:

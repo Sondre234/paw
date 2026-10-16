@@ -153,7 +153,7 @@ static void test_paint(void) {
         for (int sprite = 0; sprite < sh_ambient_sprite_count(kind); ++sprite) {
             for (double scale = 1; scale <= 2; scale += 0.5) {
                 int side = (int)lround(sh_ambient_sprite_side(kind, sprite) * scale);
-                CHECK(side >= 4 && side <= 80, "%d", side);
+                CHECK(side >= 4 && side <= 128, "%d", side);
                 uint32_t *pixels = malloc((size_t)side * side * sizeof(*pixels));
                 for (int i = 0; i < side * side; ++i)
                     pixels[i] = 0xdeadbeef;
