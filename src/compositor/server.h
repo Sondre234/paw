@@ -739,7 +739,7 @@ struct sh_server {
      * is hidden too, so that cursor_show gives it back without entering the surface anew: its
      * surface (NULL for none), or a cursor-shape-v1 shape. `client` is NULL while none is known;
      * it is forgotten as the pointer's focus changes. */
-    struct {
+    struct sh_client_cursor {
         struct wlr_seat_client *client;
         struct wlr_surface *surface;
         int32_t hotspot_x, hotspot_y;

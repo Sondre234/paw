@@ -1068,7 +1068,7 @@ void cursor_show(struct sh_server *server, uint32_t why) {
     // The image the client under the pointer last asked for, heard meanwhile too: given back
     // as it is, without the leave and enter that would have the client set it again (which a
     // game holding the pointer may take for losing it).
-    const typeof(server->client_cursor) *wanted = &server->client_cursor;
+    const struct sh_client_cursor *wanted = &server->client_cursor;
     if (wanted->client && wanted->client == server->seat->pointer_state.focused_client &&
         server->cursor_mode == SH_CURSOR_PASSTHROUGH && !cursor_grown(server)) {
         if (wanted->shaped) {
