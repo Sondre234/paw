@@ -316,11 +316,12 @@ part_icons() {
         if [ $dry = 0 ]; then
             gtk-update-icon-cache -q -t -f "$data/icons/Mochi" 2> /dev/null || true
         fi
-        say "use it with: gsettings set org.gnome.desktop.interface icon-theme Mochi"
+        say "use it with mochi: icon_theme = \"Mochi\" in the mochi profile's appearance"
+        say "or always: gsettings set org.gnome.desktop.interface icon-theme Mochi"
     else
         say "use it with: gsettings set org.gnome.desktop.interface icon-theme Tela-mochi-purple-dark"
+        say "(paw's shell reads that at its next start)"
     fi
-    say "(paw's shell reads it at its next start)"
 }
 
 part_cursor() {
@@ -332,7 +333,8 @@ part_cursor() {
         mkdir -p "$data/icons"
         unzip_into "$tmp/cursors.zip" "$data/icons"
         say "installed $name in $data/icons"
-        say "use it with: gsettings set org.gnome.desktop.interface cursor-theme $name"
+        say "use it with mochi: cursor_theme = \"$name\" in the mochi profile's appearance"
+        say "or always: gsettings set org.gnome.desktop.interface cursor-theme $name"
     fi
 }
 
