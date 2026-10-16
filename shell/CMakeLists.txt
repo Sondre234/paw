@@ -87,6 +87,8 @@ list(APPEND PAW_NOTIFY_SOURCES display_modes.cpp display_modes.hpp display_setti
 list(APPEND PAW_NOTIFY_SOURCES rice_trial.cpp rice_trial.hpp)
 # The caption `paw tour` narrates itself with.
 list(APPEND PAW_NOTIFY_SOURCES caption.cpp caption.hpp)
+# The desktop clock's settings, and whether it shows.
+list(APPEND PAW_NOTIFY_SOURCES desktop_clock.cpp desktop_clock.hpp)
 # The QML is compiled ahead of time into the binary (qmlcachegen), so starting the shell parses
 # and compiles none of it. It lives at qrc:/shell/PawShell/*.qml.
 qt_add_library(paw_shell_qml STATIC)
@@ -110,6 +112,7 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     Launchpad.qml
     DrawnWallpaper.qml
     WallpaperPicture.qml
+    DesktopClock.qml
     StartHome.qml
     StartAllApps.qml
     StartSearch.qml

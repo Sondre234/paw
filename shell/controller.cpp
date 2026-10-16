@@ -98,6 +98,7 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     subscribe();
     notifications_.configure(config_.notifications);
     osd_.configure(config_.osd);
+    configureDesktopClock();
     connect(&displayModes_, &DisplayModes::request, this, &ShellController::send);
     power_.setCountdown(config_.power.countdown);
     connect(&power_, &Power::failed, this, &ShellController::report);
@@ -811,6 +812,10 @@ void ShellController::typeText(const QString &text) {
             copy(QString::fromUtf8(reply).trimmed().remove(QRegularExpression("^error: ")));
     });
 }
+void ShellController::configureDesktopClock() {
+    const auto &clock = config_.shell.desktop_clock;
+    desktopClock_.configure(clock, color(clock.color.empty() ? config_.shell.text_color : clock.color));
+}
 void ShellController::configureClipboard() {
     const auto &clipboard = config_.shell.clipboard;
     ClipboardHistory::Settings settings;
@@ -931,6 +936,7 @@ void ShellController::reload() {
         watchTrash();
         notifications_.configure(config_.notifications);
         osd_.configure(config_.osd);
+        configureDesktopClock();
         power_.setCountdown(config_.power.countdown);
         configureSearch();
         configureClipboard();
@@ -1270,6 +1276,11 @@ void ShellController::subscribe() {
                 caption_.showLine(line.sliced(8), overlayOutput());
             } else if (line == "caption-hide") {
                 caption_.hide();
+            } else if (line.startsWith("desktop-clock ")) {
+                // desktop-clock toggle|on|off: the desktop_clock action.
+                if (desktopClock_.handle(line.sliced(14)))
+                    osd_.show(overlayOutput(), desktopClock_.shown() ? "Desktop clock on"
+                                                                     : "Desktop clock off", -1);
             }
         }
         if (outputs && workspaces_ != nextWorkspaces_) {

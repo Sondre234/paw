@@ -1186,6 +1186,7 @@ what was there.
 | `Launchpad.qml` | The launcher of the macOS style, in the start menu's place: every application on pages of a grid over the whole output, with a search. |
 | `Desktop.qml` | The wallpaper, each new one fading in over those before, and the desktop's launchers, on the background layer. |
 | `DrawnWallpaper.qml` | The wallpaper the macOS style draws while none is set, light or dark, from the background colour and the accent. |
+| `DesktopClock.qml` | The desktop clock (`shell.desktop_clock`, experimental): the time, the date and a greeting over the wallpaper, outside the backdrop the frosted glass takes, changing once a minute. |
 | `WallpaperPicture.qml` | The wallpaper's picture as `shell.wallpaper_mode` lays it out (cropped, fitted, stretched, centred or tiled at its own size, over the background colour where it leaves room), for the desktop, a workspace's card and Launchpad. |
 | `Switcher.qml`, `Overview.qml`, `Palette.qml`, `PowerDialog.qml`, `NotificationCards.qml`, `Osd.qml`, `ConfigError.qml` | One overlay surface each. |
 | `DisplayMode.qml` | The display mode popup (Windows' Win+P, `shell.displayModes`), an overlay surface of its own in the middle of the output: the four choices, the one the compositor's stepping shows selected; a click takes one. |
@@ -1235,7 +1236,8 @@ groups and menus), `audio.cpp` with `pulse_audio.cpp`, `system_status.cpp`
 `power.cpp`, `palette.cpp` (with `fuzzy.cpp`, and `calculator.cpp`, `file_index.cpp` and
 `web_search.cpp`, which the start menu's search shares), `media.cpp` with `mpris.cpp`,
 `power_mode.cpp` with `power_profiles_daemon.cpp`, `wifi.cpp` with `network_manager.cpp`,
-`bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history). `preview.cpp` has
+`bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history), `desktop_clock.cpp` (the
+desktop clock's settings, and whether the `desktop_clock` action shows it). `preview.cpp` has
 stand-ins for all of them for `--preview-popup`.
 
 The services Quick Settings controls over D-Bus each have a model the QML reads, built into

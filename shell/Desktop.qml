@@ -8,6 +8,11 @@ Rectangle {
     // Set by the view: itself, which says where its output's bar is.
     required property var shellView
     color: shell.background
+    // What the bars leave of the desktop, in its coordinates.
+    readonly property int panel: shellView.panelExtent
+    readonly property rect free: Theme.macos ? Qt.rect(0, Theme.menuBarHeight, width, height - Theme.menuBarHeight - panel)
+        : shellView.panelVertical ? Qt.rect(shellView.panelEdge === "left" ? panel : 0, 0, width - panel, height)
+        : Qt.rect(0, shellView.panelEdge === "top" ? panel : 0, width, height - panel)
     // The wallpaper, or without one the gradient (the macOS style's drawn wallpaper), in layers:
     // each new one is laid over what shows, and once it is drawn (its picture loaded, or failed and
     // the gradient in its place) it fades in, the layers under it going as it covers them. A change
@@ -125,6 +130,12 @@ Rectangle {
             }
         }
     }
+    // The clock (shell.desktop_clock), over the wallpaper but outside the backdrop, so that the
+    // frosted glass shows the wallpaper alone.
+    DesktopClock {
+        anchors.fill: parent
+        area: desktop.free
+    }
     // A right press opens the desktop's menu where it was; any other press closes it where it is,
     // rather than moving it there as it fades.
     MouseArea {
@@ -164,11 +175,7 @@ Rectangle {
         side: Qt.BottomEdge
         alignment: Qt.AlignLeft
         gap: 0
-        readonly property int panel: desktop.shellView.panelExtent
-        bounds: Theme.macos ? Qt.rect(0, Theme.menuBarHeight, desktop.width, desktop.height - Theme.menuBarHeight - panel)
-              : desktop.shellView.panelVertical ? Qt.rect(desktop.shellView.panelEdge === "left" ? panel : 0, 0,
-                                                          desktop.width - panel, desktop.height)
-              : Qt.rect(0, desktop.shellView.panelEdge === "top" ? panel : 0, desktop.width, desktop.height - panel)
+        bounds: desktop.free
         onDismissed: open = false
         entries: [{ text: "Show desktop", icon: "minimize-2", run: function() { shell.tasks.showDesktop() } }]
             .concat(shell.profiles.length > 0

@@ -6,11 +6,13 @@
 #include "view.hpp"
 #include <QAbstractItemModel>
 #include <QClipboard>
+#include <QDateTime>
 #include <QDeadlineTimer>
 #include <QDir>
 #include <QDragEnterEvent>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFont>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QImage>
@@ -7281,6 +7283,100 @@ ListModel {
         controller.setEffects(false);
         if (!reconfigure(lua) || !waitFor([&] { return settled("fill") && !controller.restyling(); }))
             return fail("could not restore the configuration");
+    }
+    // The desktop clock (shell.desktop_clock): off by default; on, the time and the date in their
+    // formats, size and colour, a greeting by the time of day in its language, where its position
+    // says, outside the backdrop the frosted glass takes. The compositor's desktop-clock lines
+    // show and hide it, saying so, until the configuration's own `enabled` changes.
+    {
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *root = desktop.rootObject();
+        auto *clock = find(root, "desktopClock");
+        auto *face = find(root, "desktopClockFace");
+        auto *time = find(root, "desktopClockTime");
+        auto *date = find(root, "desktopClockDate");
+        auto *greeting = find(root, "desktopClockGreeting");
+        auto *backdrop = find(root, "backdrop");
+        DesktopClock *model = controller.desktopClock();
+        if (!clock || !face || !time || !date || !greeting || !backdrop || model->shown() ||
+            clock->isVisible())
+            return fail("the desktop clock shows by default");
+        if (backdrop->isAncestorOf(clock))
+            return fail("the desktop clock is drawn in the backdrop the frosted glass takes");
+        auto withClock = [&](const QString &settings) {
+            return QString(lua).replace("shell={wallpaper=",
+                                        "shell={desktop_clock={" + settings + "},wallpaper=");
+        };
+        auto shown = [&] { return model->shown() && clock->isVisible() && clock->opacity() == 1; };
+        auto hidden = [&] { return !model->shown() && !clock->isVisible(); };
+        if (!reconfigure(withClock("enabled=true,time_format='HH.mm',date_format='yyyy-MM-dd',"
+                                   "size=120,color='#ff00ff',greeting='ja',position='bottom-right'")) ||
+            !waitFor(shown))
+            return fail("shell.desktop_clock.enabled did not show the clock");
+        // What it says now, or as the minute turned while looking.
+        auto says = [&](QQuickItem *line, const QString &format) {
+            const auto text = line->property("text").toString();
+            const auto now = QDateTime::currentDateTime();
+            return text == now.toString(format) || text == now.addSecs(-5).toString(format);
+        };
+        if (!says(time, "HH.mm") || !says(date, "yyyy-MM-dd") ||
+            time->property("font").value<QFont>().pixelSize() != 120 ||
+            time->property("color").value<QColor>() != QColor("#ff00ff") ||
+            greeting->property("text").toString() != model->greetingAt(QTime::currentTime().hour()) ||
+            !greeting->isVisible())
+            return fail("the desktop clock does not say the time and the date as its settings do");
+        // Bottom right, half its size from the edges of what the bar leaves.
+        const QRectF placed = face->mapRectToScene(QRectF(0, 0, face->width(), face->height()));
+        const QRectF free = root->property("free").toRectF();
+        if (std::abs(placed.right() - (free.right() - 60)) > 1 ||
+            std::abs(placed.bottom() - (free.bottom() - 60)) > 1)
+            return fail("the desktop clock is not in the bottom right corner");
+        // The greeting by the hour, in its language, or none.
+        const QList<int> hours{4, 5, 11, 12, 17, 18};
+        const QStringList ja{"こんばんは", "おはよう", "おはよう", "こんにちは", "こんにちは", "こんばんは"};
+        const QStringList en{"Good evening",   "Good morning",   "Good morning",
+                             "Good afternoon", "Good afternoon", "Good evening"};
+        for (int i = 0; i < hours.size(); ++i)
+            if (model->greetingAt(hours[i]) != ja[i])
+                return fail("the desktop clock does not greet in Japanese by the time of day");
+        if (!reconfigure(withClock("enabled=true,greeting='en',date_format=''")) ||
+            !waitFor([&] { return model->greeting() == "en"; }))
+            return fail("could not rewrite the configuration");
+        for (int i = 0; i < hours.size(); ++i)
+            if (model->greetingAt(hours[i]) != en[i])
+                return fail("the desktop clock does not greet in English by the time of day");
+        if (greeting->property("text").toString() != model->greetingAt(QTime::currentTime().hour()) ||
+            date->isVisible() || !says(time, "HH:mm") ||
+            time->property("color").value<QColor>() != controller.textColor())
+            return fail("the desktop clock does not take its defaults, or shows an empty date");
+        if (!reconfigure(withClock("enabled=true")) || !waitFor([&] { return !greeting->isVisible(); }) ||
+            !model->greetingAt(9).isEmpty())
+            return fail("the desktop clock greets without a greeting");
+        // The compositor's lines show and hide it, saying so, until `enabled` changes.
+        subscriber->write("desktop-clock toggle\n");
+        if (!waitFor(hidden) || controller.osd()->text() != "Desktop clock off")
+            return fail("desktop-clock toggle did not hide the clock, saying so");
+        subscriber->write("desktop-clock toggle\n");
+        if (!waitFor(shown) || controller.osd()->text() != "Desktop clock on")
+            return fail("desktop-clock toggle did not show the clock again");
+        subscriber->write("desktop-clock off\n");
+        if (!waitFor(hidden))
+            return fail("desktop-clock off did not hide the clock");
+        controller.reload();
+        if (!stays(hidden, 200))
+            return fail("a reload keeping the clock's setting showed it again");
+        if (!reconfigure(lua) || !waitFor(hidden))
+            return fail("turned off, the clock showed");
+        subscriber->write("desktop-clock on\n");
+        if (!waitFor(shown))
+            return fail("desktop-clock on did not show the clock");
+        if (!reconfigure(withClock("enabled=true")) || !stays(shown, 200))
+            return fail("the configuration turning the clock on hid it");
+        if (!reconfigure(lua) || !waitFor(hidden))
+            return fail("the configuration turning the clock off did not hide it");
     }
     // The macOS style, from a profile: the menu bar along the top in a surface of its own and the
     // dock at the bottom of the panel's surface, in place of the taskbar, laid out anew as the

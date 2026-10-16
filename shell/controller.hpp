@@ -6,6 +6,7 @@
 #include "backlight.hpp"
 #include "bluetooth.hpp"
 #include "caption.hpp"
+#include "desktop_clock.hpp"
 #include "clipboard.hpp"
 #include "display_modes.hpp"
 #include "display_settings.hpp"
@@ -190,6 +191,8 @@ class ShellController : public QObject {
     Q_PROPERTY(Osd *osd READ osd CONSTANT)
     // The caption `paw tour` narrates itself with (the compositor's `caption`).
     Q_PROPERTY(Caption *caption READ caption CONSTANT)
+    // The desktop clock (shell.desktop_clock), which the `desktop_clock` action shows and hides.
+    Q_PROPERTY(DesktopClock *desktopClock READ desktopClock CONSTANT)
     // The display mode popup (Windows' Win+P), which the compositor opens and steps.
     Q_PROPERTY(DisplayModes *displayModes READ displayModes CONSTANT)
     // The display settings window: the monitors' settings, tried and kept.
@@ -456,6 +459,7 @@ class ShellController : public QObject {
     NotificationCenter *notifications() { return &notifications_; }
     Osd *osd() { return &osd_; }
     Caption *caption() { return &caption_; }
+    DesktopClock *desktopClock() { return &desktopClock_; }
     DisplayModes *displayModes() { return &displayModes_; }
     DisplaySettings *displaySettings() { return &displaySettings_; }
     RiceTrial *riceTrial() { return &riceTrial_; }
@@ -611,6 +615,8 @@ class ShellController : public QObject {
     void configureSearch();
     // Hands the clipboard history shell.clipboard's.
     void configureClipboard();
+    // The desktop clock, from the configuration loaded.
+    void configureDesktopClock();
     std::filesystem::path path_;
     paw::Config config_;
     bool restyling_ = false;
@@ -632,6 +638,7 @@ class ShellController : public QObject {
     NotificationCenter notifications_;
     Osd osd_;
     Caption caption_;
+    DesktopClock desktopClock_;
     DisplayModes displayModes_;
     DisplaySettings displaySettings_{[this](const QByteArray &line,
                                             std::function<void(const QByteArray &)> done) {
