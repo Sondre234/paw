@@ -102,8 +102,10 @@ class AuthenticationTest : public QObject {
         QVERIFY(!auth.checking());
         QCOMPARE(auth.error(), QString("The password was not accepted. Try again."));
         QVERIFY(auth.open() && outcomes.isEmpty());
-        // A new conversation, as the same user; an answer typed before it asks waits for it.
-        QCOMPARE(made_.size(), 2);
+        // A new conversation, as the same user, from the event loop rather than from inside the
+        // helper's signal; an answer typed before it asks waits for it.
+        QCOMPARE(made_.size(), 1);
+        QTRY_COMPARE(made_.size(), 2);
         QVERIFY(made_[1]->started && made_[1]->identity == myName());
         auth.submit("right");
         QVERIFY(auth.checking() && auth.error().isEmpty());
