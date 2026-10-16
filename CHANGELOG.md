@@ -622,6 +622,13 @@ shadows.
   `power-dialog`, `palette`, `palette-empty`, `switcher` (with pictures of the windows in the
   taskbar style, and its grid of icons as `switcher-icons`) and `overview`, and a search finding
   nothing as `launcher-empty`.
+- `tools/prof/` profiles paw and paw-shell and soaks them for leaks on a machine without perf,
+  valgrind or gdb: `pawprobe.c`, preloaded, samples the CPU and logs the heap, RSS, fds and
+  threads; `report.py` names the samples with `llvm-symbolizer` and sums the time by function
+  and library, or writes stacks for a flame graph; `soak.py` runs a headless paw (and the shell)
+  through cycles of windows and features, and `heaptrend.py` tells a leak from noise over them;
+  `featcost.py` measures what each feature costs per frame, with pixman and on the GPU. See
+  [docs/performance.md](docs/performance.md#profiling-without-perf).
 
 ### Commands
 
