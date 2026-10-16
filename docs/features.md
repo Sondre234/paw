@@ -3014,7 +3014,8 @@ it appears and never gives another; a taskbar gets the same number for its handl
 from `paw-window-control-v1` (version 4), and so finds the window the line means where two
 share a title. The shell sends `switcher_peek` once it has drawn the switcher, whose selected
 window then peeks once the selection rests ([above](#window-switcher)); while the switcher is
-closed the request is refused. The state tells whether the session is locked, `locked on|off`, again as it locks
+closed the request is refused. The state tells whether [keep awake](#power-saving-when-idle) holds
+the idle steps off, `keep-awake on|off`, and whether the session is locked, `locked on|off`, again as it locks
 and unlocks (the shell's clipboard history records nothing meanwhile), and ends with
 `power ACTIONS`, the power actions that may
 run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power
@@ -3600,11 +3601,18 @@ cannot place always. Idle daemons hear the seat is inhibited only while one appl
 to another VT holds the steps too: nothing happens while another VT is in front, and the time
 counts from the return. `paw msg get idle` prints a line `state` with the milliseconds since
 the last input, whether something holds the steps off, whether the machine runs on battery, how
-dark the screens are (thousandths), and how many idle inhibitors there are and how many of them
-apply; then a line per step with its timeout in milliseconds on that power source and whether
-it has been taken since the last input; then a line `inhibitor` per idle inhibitor with whether
-it applies (1 or 0) and what its surface belongs to: `window` and its title, `layer` and its
-namespace, or `other` and `-`.
+dark the screens are (thousandths), how many idle inhibitors there are and how many of them
+apply, and whether keep awake is on; then a line per step with its timeout in milliseconds on
+that power source and whether it has been taken since the last input; then a line `inhibitor`
+per idle inhibitor with whether it applies (1 or 0) and what its surface belongs to: `window`
+and its title, `layer` and its namespace, or `other` and `-`.
+
+**Keep awake.** The `keep_awake_on` action holds every step off, as an idle inhibitor that always
+applies would, until `keep_awake_off` (or paw restarting) lets them count again from then;
+`keep_awake_toggle` flips it. It is for reading, a presentation or a long download nobody touches
+the keyboard during. Idle daemons hear the seat is inhibited too, so swayidle waits as well; a
+`suspend` binding or the lid still sleeps. None is bound by default; `paw msg keep_awake_toggle`
+turns it on and off. Subscribers hear `keep-awake on` or `keep-awake off`.
 
 The defaults turn the monitors off after ten minutes and lock and suspend nothing, as the
 screens going dark is what everyone wants and locking and suspending are choices KDE and Windows

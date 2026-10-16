@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later AND MIT */
-/* ext-session-lock-v1 screen locking, and what keeps the machine awake: idle inhibitors, and a
- * sleep inhibitor while this VT is in front. */
+/* ext-session-lock-v1 screen locking, and what keeps the machine awake: idle inhibitors, keep
+ * awake, and a sleep inhibitor while this VT is in front. */
 #include "server.h"
 
 struct sh_lock_surface {
@@ -238,8 +238,22 @@ void idle_inhibitors_follow(struct sh_server *server) {
         return;
     wlr_log(WLR_INFO, "%s", held ? "An idle inhibitor applies: the idle steps wait"
                                  : "No idle inhibitor applies: the idle steps count again");
-    wlr_idle_notifier_v1_set_inhibited(server->idle_notifier, held);
+    wlr_idle_notifier_v1_set_inhibited(server->idle_notifier, held || server->keep_awake);
     idle_hold_changed(server);
+}
+
+/* Keep awake (the keep_awake actions, Quick Settings' tile): every idle step held off and idle
+ * daemons told the seat is inhibited, as by an idle inhibitor that always applies, until turned
+ * off; then the time without input counts from then. Subscribers hear "keep-awake on|off". */
+void set_keep_awake(struct sh_server *server, bool on) {
+    if (on == server->keep_awake)
+        return;
+    server->keep_awake = on;
+    wlr_log(WLR_INFO, "%s", on ? "Keep awake on: the idle steps wait" : "Keep awake off");
+    wlr_idle_notifier_v1_set_inhibited(server->idle_notifier,
+                                       on || server->inhibitors_applying > 0);
+    idle_hold_changed(server);
+    notify_subscribers(server); // "keep-awake on|off"
 }
 
 static void inhibitor_destroy(struct wl_listener *listener, void *data) {

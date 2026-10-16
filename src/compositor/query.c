@@ -585,19 +585,20 @@ static void describe_surface(struct sh_server *server, int fd, const char *what,
 static void get_idle(struct sh_server *server, int fd, const char *arguments) {
     // "state", the milliseconds since the last input, whether an idle inhibitor (or the session
     // being away from the front) holds the steps off, whether the machine runs on battery, how
-    // dark the screens are dimmed (thousandths), and how many idle inhibitors there are and how
-    // many of them apply; then a line per step (idle.c): its name, its timeout in milliseconds on
-    // that power (0 for never), and whether it was taken since the last input; then a line per
-    // idle inhibitor (see describe_idle_inhibitors).
+    // dark the screens are dimmed (thousandths), how many idle inhibitors there are and how many
+    // of them apply, and whether keep awake is on; then a line per step (idle.c): its name, its
+    // timeout in milliseconds on that power (0 for never), and whether it was taken since the
+    // last input; then a line per idle inhibitor (see describe_idle_inhibitors).
     const struct sh_idle *idle = &server->idle;
     int64_t now = now_ms();
     bool battery;
     const struct sh_idle_steps *steps = idle_steps(server, &battery);
     char line[128];
-    snprintf(line, sizeof(line), "ok\nstate\t%lld\t%d\t%d\t%ld\t%d\t%d\n",
+    snprintf(line, sizeof(line), "ok\nstate\t%lld\t%d\t%d\t%ld\t%d\t%d\t%d\n",
              (long long)(now - idle->last_input), idle_held(server), battery,
              idle->dim ? lround(1000 * sh_fade_value(&idle->fade, now)) : 0,
-             wl_list_length(&server->idle_inhibitors), server->inhibitors_applying);
+             wl_list_length(&server->idle_inhibitors), server->inhibitors_applying,
+             server->keep_awake);
     control_reply(fd, line);
     for (int step = 0; step < SH_IDLE_STEPS; ++step) {
         const char *name;
