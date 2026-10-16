@@ -478,6 +478,8 @@ void cat_pointer_moved(struct sh_server *server) {
     bool changed = sh_cat_pointer(&view->cat, x, y, now_ms());
     if (view->stirred && sh_cat_under(&view->cat, x, y))
         view->stirred = 0; // come to stroke it, not to wake it
+    if (changed && view->cat.state == SH_CAT_PURR)
+        wrapped_count(server, SH_WRAPPED_CAT_PETS); // it began to purr
     if (changed)
         poke(view);
 }

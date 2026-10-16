@@ -42,6 +42,7 @@ enum sh_wrapped_counter {
     SH_WRAPPED_OVERVIEW_OPENS,
     SH_WRAPPED_SWITCHER_OPENS,
     SH_WRAPPED_LAUNCHES, /* programs the spawn and terminal actions started */
+    SH_WRAPPED_CAT_PETS, /* the desktop cat stroked until it purred */
     SH_WRAPPED_COUNTERS
 };
 
