@@ -4,11 +4,13 @@
 #include "paw/config.hpp"
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unistd.h>
 
 #include "config_check.hpp"
 
@@ -82,6 +84,35 @@ int main(int argc, char **argv) {
         (void)parses(nested);
         (void)parses(std::string(1 << 20, '('));
         (void)parses(std::string("return {") + std::string(1 << 20, ' ') + "}");
+
+        // A theme laid over records nested as deep as the configuration's: to the overlay's
+        // depth limit, and tables holding themselves. Lua grows its stack for C code only when
+        // asked, so each level must ask, or the overlay writes past the stack into the heap.
+        {
+            auto directory = std::filesystem::temp_directory_path() /
+                             ("paw-config-robust-" + std::to_string(getpid()));
+            std::filesystem::create_directories(directory);
+            auto theme = [&](const std::string &text) {
+                std::ofstream(directory / "theme.lua") << text;
+            };
+            auto themed = [&](const std::string &source) {
+                try {
+                    (void)paw::parse_config(source, "config", directory);
+                    return true;
+                } catch (const std::exception &) {
+                    return false;
+                }
+            };
+            theme("local b = {} b.a = b return { appearance = b }");
+            require(!themed("local a = {} a.a = a return { theme = 'theme.lua', appearance = a }"),
+                    "a theme over tables holding themselves was accepted");
+            std::string deep = "{}";
+            for (int i = 0; i < 16; ++i)
+                deep = "{ a = " + deep + " }";
+            theme("return { appearance = " + deep + " }");
+            (void)themed("return { theme = 'theme.lua', appearance = " + deep + " }");
+            std::filesystem::remove_all(directory);
+        }
 
         // Deterministic mutation fuzz of the real example: flip, drop, duplicate, and truncate.
         uint64_t state = 0x9e3779b97f4a7c15ull;
