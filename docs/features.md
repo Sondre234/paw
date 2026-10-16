@@ -1708,12 +1708,12 @@ alone. Toggled splits and pseudotiling last while the compositor runs, reloads i
 saved session does not keep them, as it does not keep dwindle's splits.
 
 Hyprland binds `togglesplit` to Super + J and `pseudo` to Super + P, which paw gives to
-`focus_next` and the command palette, so the example lines use Ctrl:
+`focus_next` and the command palette, so the example lines add Ctrl or Alt:
 
 ```lua
-{ mods = { mod, "Ctrl" }, key = "j", action = "split_toggle" },
-{ mods = { mod, "Ctrl" }, key = "k", action = "split_swap" },
-{ mods = { mod, "Ctrl" }, key = "p", action = "pseudo_toggle" },
+{ mods = { "Super", "Ctrl" }, key = "j", action = "split_toggle" },
+{ mods = { "Super", "Ctrl" }, key = "k", action = "split_swap" },
+{ mods = { "Super", "Alt" }, key = "p", action = "pseudo_toggle" },
 ```
 
 ### Scrolling layout
