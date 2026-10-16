@@ -129,6 +129,9 @@ enum sh_action {
     SH_NIGHT_LIGHT_ON,
     SH_NIGHT_LIGHT_OFF,
     SH_NIGHT_LIGHT_AUTO,
+    /* The appearance profile the day and night schedule (profile_schedule) wants now, the
+     * schedule in charge again after a profile picked by hand. */
+    SH_PROFILE_AUTO,
     /* Asks the shell for its command palette on the output under the pointer: one search over
      * windows, applications, workspaces, actions and saved sessions. */
     SH_PALETTE,

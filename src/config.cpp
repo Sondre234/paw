@@ -2063,6 +2063,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"night_light_on", SH_NIGHT_LIGHT_ON},
         {"night_light_off", SH_NIGHT_LIGHT_OFF},
         {"night_light_auto", SH_NIGHT_LIGHT_AUTO},
+        {"profile_auto", SH_PROFILE_AUTO},
         {"zoom_in", SH_ZOOM_IN},
         {"zoom_out", SH_ZOOM_OUT},
         {"zoom_reset", SH_ZOOM_RESET},

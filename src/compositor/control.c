@@ -630,6 +630,10 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
            server->night_mode == SH_NIGHT_ON    ? "on"
            : server->night_mode == SH_NIGHT_OFF ? "off"
                                                 : "auto");
+    // "profile-schedule on|off": whether the profile in use is the one profile_schedule wants
+    // now, off without a schedule.
+    append(state, size, &length, "profile-schedule %s\n",
+           server->profile_schedule.following ? "on" : "off");
     // "locked on|off": whether the session is locked, for the shell to record nothing then.
     append(state, size, &length, "locked %s\n", server->locked ? "on" : "off");
     // "power ACTIONS": the power actions that may run, as "lock,suspend,poweroff", or "-".

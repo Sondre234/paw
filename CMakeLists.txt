@@ -330,6 +330,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/xwayland.c
         src/compositor/toys.c
         src/compositor/rice.c
+        src/compositor/profile_schedule.c
         src/compositor/cat.c
         src/compositor/xray.c
         src/compositor/heatmap.c
@@ -749,6 +750,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(focus_output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(workspace_names_smoke $<TARGET_FILE:paw>)
         paw_smoke(profile_smoke $<TARGET_FILE:paw>)
+        paw_smoke(profile_schedule_smoke $<TARGET_FILE:paw>)
         paw_smoke(session_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(session_scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(session_restore_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
