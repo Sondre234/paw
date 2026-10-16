@@ -1276,8 +1276,8 @@ ListModel {
     property var peeks: []
     property int peekedTask: -1
     function note(request) { requests = requests.concat([request]) }
-    function watchPicture(id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
-    function unwatchPicture(id) { pictures = pictures.concat(["unwatch " + id]) }
+    function watchPicture(owner, id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
+    function unwatchPicture(owner, id) { pictures = pictures.concat(["unwatch " + id]) }
     function peek(id) { if (peekedTask !== id) { peekedTask = id; peeks = peeks.concat(["peek " + id]) } }
     function endPeek(id) { if (peekedTask === id) { peekedTask = -1; peeks = peeks.concat(["end " + id]) } }
     function activate(id) { note("activate " + id) }
@@ -2876,8 +2876,8 @@ ListModel {
             switcherTasks.setData(R"(import QtQml.Models
 ListModel {
     property var pictures: []
-    function watchPicture(id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
-    function unwatchPicture(id) { pictures = pictures.concat(["unwatch " + id]) }
+    function watchPicture(owner, id, width, live) { pictures = pictures.concat(["watch " + id + " " + width + " " + live]) }
+    function unwatchPicture(owner, id) { pictures = pictures.concat(["unwatch " + id]) }
     ListElement { taskId: 31; title: 'Wide'; appId: 'wide'; windowId: 501; minimized: false
                   picture: 'image://test-windows/320x180' }
     ListElement { taskId: 32; title: 'Tall'; appId: 'tall'; windowId: 502; minimized: false
@@ -7726,6 +7726,58 @@ ListModel {
         file.close();
         if (!reconfigure(lua) || !waitFor([&] { return controller.panelEdge() == "bottom" && !controller.panelDraggable(); }))
             return fail("could not restore the configuration");
+    }
+    // A panel destroyed while it watches windows' pictures, as one is when its monitor goes with
+    // a card open, leaves no watch behind: what it still watches is the panel's own, which the
+    // task model lets go of as the panel goes, though its deferred syncPictures never runs.
+    {
+        // A stand-in model that keeps the watches taken and not let go, each {owner, id}.
+        QQmlComponent watchingTasks(view.engine());
+        watchingTasks.setData(R"(import QtQml.Models
+ListModel {
+    property var held: []
+    function watchPicture(owner, id, width, live) { held = held.concat([{ owner: owner, id: id }]) }
+    function unwatchPicture(owner, id) {
+        var index = held.findIndex(function(watch) { return watch.owner === owner && watch.id === id })
+        if (index >= 0)
+            held = held.slice(0, index).concat(held.slice(index + 1))
+    }
+    ListElement { taskId: 7; title: 'Fake'; appId: 'fake'; active: false; minimized: false; urgent: false
+                  maximized: false; fullscreen: false; output: 'TEST-1'; workspace: 2; sticky: false
+                  floating: false; tiling: false; above: false; picture: ''; pid: 0; windowId: 70 }
+})",
+                               QUrl());
+        std::unique_ptr<QObject> watching(watchingTasks.create());
+        if (!watching)
+            return fail("the watching stand-in model did not load");
+        QQmlEngine::setObjectOwnership(watching.get(), QQmlEngine::CppOwnership);
+        auto held = [&] {
+            return watching->property("held").value<QJSValue>().toVariant().toList();
+        };
+        auto panel = std::make_unique<ShellView>(controller, app.primaryScreen(), false, true);
+        if (panel->status() != QQuickView::Ready || !panel->rootObject())
+            return fail("a second panel did not load");
+        panel->rootObject()->setProperty("taskSource", QVariant::fromValue(watching.get()));
+        // As a tile of the card wants its window's picture as it appears.
+        QMetaObject::invokeMethod(panel->rootObject(), "wantPicture", Q_ARG(QVariant, 7),
+                                  Q_ARG(QVariant, true), Q_ARG(QVariant, 0));
+        if (!waitFor([&] { return held().size() == 1; }))
+            return fail("a panel wanting a window's picture did not watch it");
+        QList<QPointer<QObject>> owners;
+        for (const auto &watch : held())
+            owners << watch.toMap().value("owner").value<QObject *>();
+        for (const auto &owner : owners)
+            if (!owner)
+                return fail("a panel watched a window's picture without an owner");
+        // The tile going with the panel, as the panel goes.
+        QMetaObject::invokeMethod(panel->rootObject(), "wantPicture", Q_ARG(QVariant, 7),
+                                  Q_ARG(QVariant, false), Q_ARG(QVariant, 0));
+        panel.reset();
+        QCoreApplication::processEvents();
+        for (const auto &owner : owners)
+            if (owner)
+                return fail("a panel destroyed while it watched a window's picture left the watch "
+                            "to something that stays");
     }
     std::cout << "Hover/click, launcher keyboard focus, search, command launch, tiling toggle, and "
                  "workspace indicator, task and bar context menus, pinning a window's application, "

@@ -1220,7 +1220,11 @@ what was there.
 | `Caption.qml` | The caption `paw tour` narrates itself with (`shell.caption`, `caption.cpp`, from the compositor's `caption` lines), an overlay surface of its own (`CaptionView`) where the on-screen display shows, taking no input. |
 
 The authentication dialog's model is `Authentication` (`authentication.cpp`): polkit's requests,
-one at a time, each answered through an `AuthConversation` for the chosen user. The agent
+one at a time, each answered through an `AuthConversation` for the chosen user. A conversation
+that ends in a wrong answer is followed by a new one from the event loop, never from inside its
+`completed`, which polkit's session may emit inside `start()` when its helper cannot start; one
+that ended without asking anything is followed by none until the user answers again or chooses
+another user, and the third wrong answer of a user ends the request as `Failed`. The agent
 (`polkit_agent.cpp`, with `PAW_POLKIT`) is a `PolkitAgentListener` subclass registered for
 the session's `unix-session` subject, whose requests it hands to the model, and whose
 conversations are polkit's `PolkitAgentSession`s; it completes polkit's `GTask` as the model is
@@ -1323,14 +1327,16 @@ The pictures of the windows on the taskbar's card (`WindowThumbnails.qml`, with 
 are `TaskModel`'s: its `picture` role is `image://windows/<taskId>/<serial>` once a window has one,
 `""` until then, the serial new with every picture so that an `Image` with `cache: false` loads it
 again, and the `windows` image provider serves them by task id. The model takes pictures of a
-window only while something watches it: `watchPicture(taskId, pixelWidth, live)`, counted, until
-`unwatchPicture(taskId)`. It asks the window control for the window's capture source scaled down to
-fit `pixelWidth` by 5/8 of it (`get_scaled_capture_source`, version 3; a new width asks again), or
-with version 2 for it at the window's size (`get_capture_source`), captures it with
-ext-image-copy-capture into shared memory, scales the picture down off the GUI thread where the
-frame is larger than that (only ever a copy with version 3), and, when `live`, takes the next as
-the window redraws, every 33 ms at most (100 ms at the window's size). The last picture stays until
-the window closes, so the card opens with it.
+window only while something watches it: `watchPicture(owner, taskId, pixelWidth, live)`, counted
+per owner, until `unwatchPicture(owner, taskId)` or until the owner goes: as `place` does, the
+model drops what an owner still watches on its `destroyed`, so that no order in which QML tears a
+panel down can leave a capture running. It asks the window control for the window's capture
+source scaled down to fit `pixelWidth` by 5/8 of it (`get_scaled_capture_source`, version 3; a new
+width asks again), or with version 2 for it at the window's size (`get_capture_source`), captures
+it with ext-image-copy-capture into shared memory, scales the picture down off the GUI thread
+where the frame is larger than that (only ever a copy with version 3), and, when `live`, takes the
+next as the window redraws, every 33 ms at most (100 ms at the window's size). The last picture
+stays until the window closes, so the card opens with it.
 
 Where the bar shows each window goes to the compositor through `TaskModel::place(owner, taskIds,
 output, rect, layer)` and the window control's `set_rectangle` (version 7), for the window to
@@ -1352,9 +1358,12 @@ itself for the windows of the button the pointer has rested on for half of `shel
 (`warmGroup`, until the card opens or the pointer leaves), so that the card opens on their
 pictures. It counts the wants and asks the model once a change is over (`syncPictures`), so that a
 window the tiles take over from the panel as the card opens is neither let go nor asked for
-again, which would start its capture anew, or without `live` take its one picture twice. A
-stand-in model (the preview's, the tests') has no `watchPicture`, which the panel then does not
-call, and names pictures of its own (`image://preview-windows/ID`, painted by `preview.cpp`).
+again, which would start its capture anew, or without `live` take its one picture twice. The
+panel is the owner of its watches: destroyed with a card open or a button's pictures warmed up
+(its monitor unplugged, the lid closed while docked), it runs no `syncPictures` to let them go,
+and the model lets go of them as it goes. A stand-in model (the preview's, the tests') has no
+`watchPicture`, which the panel then does not call, and names pictures of its own
+(`image://preview-windows/ID`, painted by `preview.cpp`).
 
 The window switcher's cards (`SwitcherCards.qml`, which `Switcher.qml` loads in place of its grid
 with `shell.thumbnails` outside the macOS style) show the same pictures. The switcher's lines
@@ -1362,11 +1371,11 @@ name a window by its app id and title, which two windows may share, and by its n
 control's `id`, `TaskModel`'s `windowId` role); each card finds its task with a `TaskFilter`
 whose `windowId` keeps that window alone, filtering again when the number comes after the window.
 While the switcher is open on the view's output (`open`, `outputName`) a card watches its
-picture itself with `watchPicture`, unless the model is a stand-in without it, and unwatches it
-at `switcher-close`, though the cards stay while the switcher fades. The cards are made as the
-list arrives, 120 ms before `SwitcherView` shows the switcher, so the pictures are asked for
-early: with 20 windows on a headless compositor with pixman at 2560 by 1440 and a scale of 1.25,
-every one had a frame about 75 ms after the switcher opened. They are asked for twice as wide as the pictures' common height,
+picture itself with `watchPicture`, as the watch's owner, unless the model is a stand-in without
+it, and unwatches it at `switcher-close`, though the cards stay while the switcher fades. The
+cards are made as the list arrives, 120 ms before `SwitcherView` shows the switcher, so the
+pictures are asked for early: with 20 windows on a headless compositor with pixman at 2560 by
+1440 and a scale of 1.25, every one had a frame about 75 ms after the switcher opened. They are asked for twice as wide as the pictures' common height,
 `shell.thumbnailSize` × 5/8, times the device pixel ratio, a box that holds any card's picture
 (3:4 to 2:1) without scaling it up. A card is as wide as its picture's proportions, which it notes
 in `aspects` once the picture shows (16:10 until then), and `arrange` lays the cards out in rows
@@ -1530,13 +1539,15 @@ then the text, HTML, a list of files and a picture), each type given two seconds
 and what was read goes to `record()`, which the tests call too. While the history's own data
 source is what is copied (`restore()`), the selection announcing it is not read; another program
 copying cancels that source first. A source hands each program pasting the bytes it asks for with
-non-blocking writes, SIGPIPE held off. `locked on|off` in the control socket's state calls
-`setLocked`, and `clipboard OUTPUT` from the `clipboard_history` action toggles `output`, which a
-`PickerView` (`picker_view.cpp`) follows: an `OverlayView` on every output, as the palette's is,
-showing `ClipboardPicker.qml`, which filters the entries; `image://clipboard/ID/SERIAL`
-(`clipboardImage`, through an `ImageProvider`, `image_provider.hpp`) serves their pictures. Its
-file is touched only once the history is the session's (connected) or was given a path, so tests
-and previews that make a controller never read or remove it.
+non-blocking writes, SIGPIPE held off, and gives up on one that takes none of them for ten seconds
+(`Writing::timer`, started again by each write that gets some through), so that a program that
+hangs, or never reads, keeps neither the pipe nor the bytes in the shell. `locked on|off` in the
+control socket's state calls `setLocked`, and `clipboard OUTPUT` from the `clipboard_history`
+action toggles `output`, which a `PickerView` (`picker_view.cpp`) follows: an `OverlayView` on
+every output, as the palette's is, showing `ClipboardPicker.qml`, which filters the entries;
+`image://clipboard/ID/SERIAL` (`clipboardImage`, through an `ImageProvider`, `image_provider.hpp`)
+serves their pictures. Its file is touched only once the history is the session's (connected) or
+was given a path, so tests and previews that make a controller never read or remove it.
 
 The emoji picker (`EmojiPicker`, `emoji.cpp`) reads `vendor/emoji/emoji.tsv`, which
 `shell/CMakeLists.txt` compiles into `paw_shell_qml` as `:/paw/emoji.tsv`, and gives
