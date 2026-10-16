@@ -75,7 +75,7 @@ def analyse(log, cycles, skip, leak_kb):
     if not troughs:
         print(f"{name}: no logged line falls inside a cycle")
         return False
-    print(f"{name}: {len(troughs)} cycles, troughs:")
+    print(f"{name}: {len(troughs)} cycle{'s' * (len(troughs) != 1)}, troughs:")
     print("cycle  " + "  ".join(f"{COLUMNS[c]:>12}" for c in COLUMNS))
     for number, trough in troughs:
         print(f"{number:5d}  " + "  ".join(f"{show(c, trough[c]):>12}" for c in COLUMNS))
