@@ -197,6 +197,36 @@ int main(int argc, char **argv) {
             rejects("return {bindings={{key='a',action='close',repeats=1}}}");
         }
         {
+            // `release` runs a key binding as its key comes up: keys only, never repeating, and a
+            // key may have one of each. A modifier key's own modifier may be named or not.
+            auto released = paw::parse_config(
+                "return {bindings={{key='Super_L',release=true,action='launcher'},"
+                "{key='Super_L',action='palette'},"
+                "{mods={'Alt'},key='Alt_R',release=true,action='close'},"
+                "{mods={'Super'},key='Left',action='resize_left',release=true}}}");
+            const auto &b = released.bindings;
+            require(b.size() == 4 && b[0].release && b[0].modifiers == 0 && !b[1].release &&
+                        b[2].release && b[2].modifiers == 0 && b[3].release && !b[3].repeats,
+                    "release not parsed");
+            require(released.binding(0, XKB_KEY_Super_L, true)->action == SH_LAUNCHER &&
+                        released.binding(0, XKB_KEY_Super_L)->action == SH_PALETTE &&
+                        released.binding(SH_LOGO, XKB_KEY_Left, true) &&
+                        !released.binding(SH_LOGO, XKB_KEY_Left),
+                    "release bindings not apart from the others");
+            rejects("return {bindings={{key='a',action='close',release=true,repeats=true}}}",
+                    "does not repeat");
+            rejects("return {bindings={{key='Left',action='resize_left',release=true,"
+                    "repeats=true}}}");
+            rejects("return {bindings={{button='side',action='close',release=true}}}",
+                    "only valid with a key");
+            rejects("return {bindings={{switch='lid',state='close',action='close',"
+                    "release=true}}}");
+            rejects("return {bindings={{key='a',action='close',release='yes'}}}");
+            rejects("return {bindings={{key='Super_L',release=true,action='launcher'},"
+                    "{mods={'Super'},key='Super_L',release=true,action='palette'}}}",
+                    "duplicate keyboard binding");
+        }
+        {
             // Binding modes: named lists of key bindings, sorted by name, which a binding with
             // the mode action puts in use; "default" is the bindings outside any.
             auto modes = paw::parse_config(

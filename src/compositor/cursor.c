@@ -206,8 +206,9 @@ uint32_t corner_edges(struct sh_toplevel *toplevel, uint32_t edges) {
 void show_xcursor(struct sh_server *server, const char *name) {
     if (server->cursor_hidden)
         return;
-    wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, name);
     server->cursor_image = name;
+    if (!cursor_grown(server)) // a shake draws it larger meanwhile, from this name
+        wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, name);
 }
 
 /* Show a corner cursor wherever an edge grab would become a corner resize, so the pointer
@@ -559,6 +560,7 @@ void server_cursor_motion(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_motion);
     struct wlr_pointer_motion_event *event = data;
     input_activity(server, true);
+    cursor_used(server);
     wrapped_motion(server, event->delta_x, event->delta_y);
     wlr_relative_pointer_manager_v1_send_relative_motion(
         server->relative_pointer, server->seat, (uint64_t)event->time_msec * 1000, event->delta_x,
@@ -582,6 +584,7 @@ void server_cursor_motion(struct wl_listener *listener, void *data) {
     server->pointed.moving = true;
     process_cursor_motion(server, event->time_msec);
     server->pointed.moving = false;
+    cursor_shake_motion(server);
     ++server->stats.motions;
     server->stats.motion_ns += now_ns() - started;
 }
@@ -590,12 +593,14 @@ void server_cursor_motion_absolute(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_motion_absolute);
     struct wlr_pointer_motion_absolute_event *event = data;
     input_activity(server, true);
+    cursor_used(server);
     wrapped_motion_absolute(server, event);
     uint64_t started = now_ns();
     wlr_cursor_warp_absolute(server->cursor, &event->pointer->base, event->x, event->y);
     server->pointed.moving = true;
     process_cursor_motion(server, event->time_msec);
     server->pointed.moving = false;
+    cursor_shake_motion(server);
     ++server->stats.motions;
     server->stats.motion_ns += now_ns() - started;
 }
@@ -765,6 +770,9 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_button);
     struct wlr_pointer_button_event *event = data;
     input_activity(server, event->state == WL_POINTER_BUTTON_STATE_PRESSED);
+    cursor_used(server);
+    if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
+        key_release_cancel(server); // Super + click is no tap of Super
     wrapped_button(server, event);
     heatmap_button(server, event); // a click, for the heatmap
     if (event->button >= BTN_MOUSE && event->button < BTN_MOUSE + 32) {
@@ -919,6 +927,8 @@ void server_cursor_axis(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_axis);
     struct wlr_pointer_axis_event *event = data;
     input_activity(server, true);
+    key_release_cancel(server);
+    cursor_used(server);
     wrapped_axis(server, event);
     if (xray_axis(server, event))
         return;
@@ -962,7 +972,10 @@ void seat_request_cursor(struct wl_listener *listener, void *data) {
     if (focused_client == event->seat_client && !server->cursor_hidden) {
         server->shape_edges = 0;
         server->shown_edges = 0;
-        wlr_cursor_set_surface(server->cursor, event->surface, event->hotspot_x, event->hotspot_y);
+        // Grown by a shake meanwhile, it is given again as the pointer enters it anew.
+        if (!cursor_grown(server))
+            wlr_cursor_set_surface(server->cursor, event->surface, event->hotspot_x,
+                                   event->hotspot_y);
         server->cursor_image = "client";
     }
 }
@@ -973,17 +986,21 @@ void set_default_cursor(struct sh_server *server) {
     show_xcursor(server, "default");
 }
 
-/* Takes the cursor's image away until cursor_show; meanwhile neither paw nor a client can give it
- * one. */
-void cursor_hide(struct sh_server *server) {
-    server->cursor_hidden = true;
-    wlr_cursor_unset_image(server->cursor);
+/* Takes the cursor's image away, for `why` (sh_cursor_hidden bits), until cursor_show has taken
+ * back every reason; meanwhile neither paw nor a client can give it one. */
+void cursor_hide(struct sh_server *server, uint32_t why) {
+    bool shown = !server->cursor_hidden;
+    server->cursor_hidden |= why;
+    if (shown && server->cursor_hidden)
+        wlr_cursor_unset_image(server->cursor);
 }
 
-void cursor_show(struct sh_server *server) {
-    if (!server->cursor_hidden)
+void cursor_show(struct sh_server *server, uint32_t why) {
+    if (!(server->cursor_hidden & why))
         return;
-    server->cursor_hidden = false;
+    server->cursor_hidden &= ~why;
+    if (server->cursor_hidden)
+        return; // hidden for another reason still
     set_default_cursor(server);
     // A client sets its cursor as the pointer enters it, so the one under the pointer is entered
     // anew to set it again.

@@ -185,6 +185,9 @@ return {
     mouse = {
         modifier = mod, -- modifier + left drag moves; right drag resizes
         -- focus_follows = true, -- hovering a window focuses it (without raising it)
+        -- hide_when_typing = true, -- typing into a window hides the cursor until it moves
+        -- hide_after = 5, -- seconds the pointer rests before the cursor hides (0: never)
+        -- shake_to_find = true, -- shaking the pointer grows the cursor a moment, as on macOS
         -- Standalone sessions only; unset keeps each device's default:
         -- speed = 0.0 (-1 to 1), acceleration = "flat" or "adaptive", natural_scroll = false
     },
@@ -475,6 +478,10 @@ return {
         { mods = { mod }, button = "wheel_down", action = "workspace_prev" },
         { mods = { mod }, key = "q", action = "terminal" },
         { mods = { mod }, key = "r", action = "launcher" },
+        -- Tap Super alone for the launcher (the start menu, or Launchpad in the macOS style), as
+        -- Windows' Start key: `release = true` runs a binding as its key comes up, a modifier
+        -- key's only when nothing else was pressed, clicked or scrolled while it was held.
+        -- { key = "Super_L", release = true, action = "launcher" },
         { mods = { mod }, key = "c", action = "close" },
         { mods = { mod }, key = "m", action = "quit" },
         { mods = { mod }, key = "v", action = "toggle_floating" },
