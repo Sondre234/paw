@@ -789,11 +789,40 @@ void read_shell(lua_State *L, ShellConfig &shell) {
                 fail(std::string(key) + " must be #RRGGBB or #RRGGBBAA");
         }
     }
+    // { ["DP-1"] = "path", ... }: a wallpaper for each monitor named.
+    lua_getfield(L, -1, "monitor_wallpapers");
+    if (!lua_isnil(L, -1)) {
+        table(L, -1, "shell.monitor_wallpapers");
+        Named in("shell.monitor_wallpapers");
+        const int index = lua_absindex(L, -1);
+        lua_pushnil(L);
+        while (lua_next(L, index)) {
+            if (lua_type(L, -2) != LUA_TSTRING)
+                fail("shell.monitor_wallpapers is keyed by output name, e.g. "
+                     "[\"DP-1\"] = \"sky.jpg\"");
+            const std::string name = lua_tostring(L, -2);
+            if (name.empty() || name.find_first_of("\t\n") != std::string::npos)
+                fail("output name is empty or has a tab or a newline");
+            shell.monitor_wallpapers[name] =
+                string(L, -1, ("shell.monitor_wallpapers[\"" + name + "\"]").c_str());
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
     named(L, "wallpaper_mode", "shell.wallpaper_mode", shell.wallpaper_mode,
           {{"fill", WallpaperMode::Fill}, {"fit", WallpaperMode::Fit},
            {"center", WallpaperMode::Center}, {"tile", WallpaperMode::Tile},
            {"stretch", WallpaperMode::Stretch}});
     read_desktop_clock(L, shell.desktop_clock);
+    if (Section in{L, "wallpaper_cycle", "shell.wallpaper_cycle"}) {
+        auto &cycle = shell.wallpaper_cycle;
+        cycle.interval = integer(L, "interval", cycle.interval, 0, 1440);
+        if (auto folder = text(L, "folder", "shell.wallpaper_cycle.folder"))
+            cycle.folder = *folder;
+        named(L, "order", "shell.wallpaper_cycle.order", cycle.shuffle,
+              {{"shuffle", true}, {"name", false}});
+        boolean(L, "per_monitor", "shell.wallpaper_cycle.per_monitor", cycle.per_monitor);
+    }
     if (auto folder = text(L, "wallpapers", "shell.wallpapers")) {
         shell.wallpapers = *folder;
         if (!shell.wallpapers.starts_with('/') && !shell.wallpapers.starts_with("~/"))
@@ -1765,10 +1794,14 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             } else if (binding.action == SH_AMBIENT) {
                 binding.mode = lua_isnil(L, -1) ? SH_AMBIENT_TOGGLE
                                                 : parse_ambient_choice(string(L, -1, "mode"));
+            } else if (binding.action == SH_CURSOR_TRAIL) {
+                binding.mode = lua_isnil(L, -1)
+                                   ? SH_CURSOR_TRAIL_TOGGLE
+                                   : parse_cursor_trail_choice(string(L, -1, "mode"));
             } else if (!lua_isnil(L, -1)) {
                 if (binding.action != SH_SCREENSHOT)
-                    fail("mode is only valid with screenshot, mode, display_mode, cat, heatmap "
-                         "and ambient");
+                    fail("mode is only valid with screenshot, mode, display_mode, cat, heatmap, "
+                         "ambient and cursor_trail");
                 binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
             }
             lua_pop(L, 1);
@@ -1873,6 +1906,85 @@ void read_modes(lua_State *L, Config &config) {
                  mode.name);
     }
 }
+// appearance.cursor_trail, on top of the stack.
+void read_cursor_trail(lua_State *L, sh_settings &settings) {
+    named(L, "kind", "appearance.cursor_trail.kind", settings.cursor_trail,
+          {{"none", SH_TRAIL_NONE},
+           {"sparkles", SH_TRAIL_SPARKLES},
+           {"petals", SH_TRAIL_PETALS},
+           {"hearts", SH_TRAIL_HEARTS}},
+          "appearance.cursor_trail.kind must be \"none\", \"sparkles\", \"petals\" or "
+          "\"hearts\"",
+          "kind");
+    settings.cursor_trail_amount =
+        static_cast<float>(number(L, "amount", settings.cursor_trail_amount, 0.25, 4));
+    lua_getfield(L, -1, "colors");
+    if (!lua_isnil(L, -1)) {
+        Named in("appearance.cursor_trail.colors");
+        auto message = "appearance.cursor_trail.colors must be a list of 1 to " +
+                       std::to_string(SH_TRAIL_TINTS) + " colours, \"#RRGGBB\"";
+        if (!lua_istable(L, -1) || lua_rawlen(L, -1) < 1 || lua_rawlen(L, -1) > SH_TRAIL_TINTS)
+            fail(message, "colors");
+        auto colors = strings(L, SH_TRAIL_TINTS, "appearance.cursor_trail.colors");
+        settings.cursor_trail_tints = 0;
+        for (const auto &color : colors) {
+            if (!is_color(color))
+                fail(message, "colors");
+            auto &target = settings.cursor_trail_colors[settings.cursor_trail_tints++];
+            for (size_t i = 0; i < 3; ++i)
+                target[i] = std::stoi(color.substr(1 + 2 * i, 2), nullptr, 16) / 255.0F;
+        }
+    }
+    lua_pop(L, 1);
+}
+// The colours the cursor trail comes in when appearance.cursor_trail.colors gives none: the
+// focused border's (the first three of a gradient's) and shell.accent, leaving out those close to
+// one already taken, and a light blue or a sakura pink beside them when none of them is bluish or
+// pinkish.
+void default_trail_colors(Config &config) {
+    auto &settings = config.settings;
+    if (settings.cursor_trail_tints > 0)
+        return;
+    std::vector<std::array<float, 3>> colors;
+    auto add = [&colors](std::array<float, 3> color) {
+        for (const auto &kept : colors) {
+            float distance = 0;
+            for (size_t i = 0; i < 3; ++i)
+                distance += (kept[i] - color[i]) * (kept[i] - color[i]);
+            if (distance < 0.01F)
+                return;
+        }
+        colors.push_back(color);
+    };
+    const auto &border = settings.border_active_gradient;
+    for (int i = 0; i < std::min(border.count, 3); ++i) {
+        float alpha = border.stops[i][3];
+        if (alpha > 0.05F)
+            add({std::min(border.stops[i][0] / alpha, 1.0F), std::min(border.stops[i][1] / alpha, 1.0F),
+                 std::min(border.stops[i][2] / alpha, 1.0F)});
+    }
+    if (is_color(config.shell.accent, true)) {
+        std::array<float, 3> accent{};
+        for (size_t i = 0; i < 3; ++i)
+            accent[i] = std::stoi(config.shell.accent.substr(1 + 2 * i, 2), nullptr, 16) / 255.0F;
+        add(accent);
+    }
+    auto leaning = [&colors](int more, int less) {
+        return std::any_of(colors.begin(), colors.end(),
+                           [&](const auto &color) { return color[more] > color[less] + 0.05F; });
+    };
+    if (!leaning(2, 0))
+        add({0x8f / 255.0F, 0xc1 / 255.0F, 0xec / 255.0F}); // light blue
+    if (!leaning(0, 2))
+        add({0xf2 / 255.0F, 0xa0 / 255.0F, 0xbe / 255.0F}); // sakura pink
+    settings.cursor_trail_tints = 0;
+    for (const auto &color : colors) {
+        if (settings.cursor_trail_tints == SH_TRAIL_TINTS)
+            break;
+        std::copy(color.begin(), color.end(),
+                  settings.cursor_trail_colors[settings.cursor_trail_tints++]);
+    }
+}
 // appearance.KEY, a cursor or icon theme: the name of a folder of an icons directory, so not a
 // path; "" for the session's own, as unset.
 template <std::size_t N> void theme_name(lua_State *L, const char *key, char (&target)[N]) {
@@ -1935,6 +2047,8 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
             settings.ambient_speed =
                 static_cast<float>(number(L, "speed", settings.ambient_speed, 0.1, 5));
         }
+        if (Section trail{L, "cursor_trail", "appearance.cursor_trail"})
+            read_cursor_trail(L, config.settings);
     }
     if (Section in{L, "keyboard"}) {
         text_field(L, "layout", config.settings.keyboard_layout);
@@ -2250,6 +2364,7 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         boolean(L, "enabled", "wrapped.enabled", config.settings.wrapped);
     if (Section in{L, "heatmap"})
         boolean(L, "enabled", "heatmap.enabled", config.settings.heatmap);
+    default_trail_colors(config);
     return config;
 }
 } // namespace
@@ -2342,6 +2457,8 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"display_mode", SH_DISPLAY_MODE},
         {"display_settings", SH_DISPLAY_SETTINGS},
         {"desktop_clock", SH_DESKTOP_CLOCK},
+        {"wallpaper_next", SH_WALLPAPER_NEXT},
+        {"wallpaper_prev", SH_WALLPAPER_PREV},
         {"scroll_left", SH_SCROLL_LEFT},
         {"scroll_right", SH_SCROLL_RIGHT},
         {"column_widen", SH_COLUMN_WIDEN},
@@ -2409,6 +2526,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"party", SH_PARTY},
         {"cat", SH_CAT},
         {"ambient", SH_AMBIENT},
+        {"cursor_trail", SH_CURSOR_TRAIL},
         {"xray", SH_XRAY},
         {"heatmap", SH_HEATMAP},
 };
@@ -2560,6 +2678,23 @@ sh_ambient_choice parse_ambient_choice(const std::string &name) {
         if (name == candidate)
             return choice;
     fail("ambient takes \"sakura\", \"snow\", \"fireflies\", \"off\", \"next\" or "
+         "\"toggle\"");
+}
+
+sh_cursor_trail_choice parse_cursor_trail_choice(const std::string &name) {
+    auto kind = [](sh_trail_kind kind) {
+        return static_cast<sh_cursor_trail_choice>(SH_CURSOR_TRAIL_OFF + int{kind});
+    };
+    for (auto [candidate, choice] :
+         {std::pair{"toggle", SH_CURSOR_TRAIL_TOGGLE},
+          {"next", SH_CURSOR_TRAIL_NEXT},
+          {"off", SH_CURSOR_TRAIL_OFF},
+          {"sparkles", kind(SH_TRAIL_SPARKLES)},
+          {"petals", kind(SH_TRAIL_PETALS)},
+          {"hearts", kind(SH_TRAIL_HEARTS)}})
+        if (name == candidate)
+            return choice;
+    fail("cursor_trail takes \"sparkles\", \"petals\", \"hearts\", \"off\", \"next\" or "
          "\"toggle\"");
 }
 
@@ -2977,22 +3112,45 @@ std::filesystem::path default_config_path() {
     return variable && *variable ? variable : PAW_DEFAULT_CONFIG;
 }
 namespace {
-// Makes `shell.wallpaper` and `shell.start_icon` in the table at `index` absolute when they
-// name a file relative to `directory`.
+// Makes the string at `key` of the table on top of the stack absolute when it names a file
+// relative to `directory`; with `home`, one in the home folder ("~/...") stays as it is.
+void anchor_file(lua_State *L, const char *key, const std::filesystem::path &directory,
+                 bool home = false) {
+    lua_getfield(L, -1, key);
+    if (lua_type(L, -1) == LUA_TSTRING) {
+        std::filesystem::path file = lua_tostring(L, -1);
+        if (!file.empty() && file.is_relative() && !(home && file.string().starts_with('~'))) {
+            lua_pushstring(L, (directory / file).c_str());
+            lua_setfield(L, -3, key);
+        }
+    }
+    lua_pop(L, 1);
+}
+// Makes `shell.wallpaper`, `shell.monitor_wallpapers`' pictures, `shell.start_icon` and
+// `shell.wallpaper_cycle.folder` in the table at `index` absolute when they name a file relative
+// to `directory`.
 void anchor_files(lua_State *L, int index, const std::filesystem::path &directory) {
     lua_getfield(L, index, "shell");
     if (lua_istable(L, -1)) {
-        for (const char *key : {"wallpaper", "start_icon"}) {
-            lua_getfield(L, -1, key);
-            if (lua_type(L, -1) == LUA_TSTRING) {
-                std::filesystem::path file = lua_tostring(L, -1);
-                if (!file.empty() && file.is_relative()) {
-                    lua_pushstring(L, (directory / file).c_str());
-                    lua_setfield(L, -3, key);
-                }
+        for (const char *key : {"wallpaper", "start_icon"})
+            anchor_file(L, key, directory);
+        lua_getfield(L, -1, "wallpaper_cycle");
+        if (lua_istable(L, -1))
+            anchor_file(L, "folder", directory, true);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "monitor_wallpapers");
+        if (lua_istable(L, -1)) {
+            std::vector<std::string> names;
+            lua_pushnil(L);
+            while (lua_next(L, -2)) {
+                if (lua_type(L, -2) == LUA_TSTRING)
+                    names.emplace_back(lua_tostring(L, -2));
+                lua_pop(L, 1);
             }
-            lua_pop(L, 1);
+            for (const auto &name : names)
+                anchor_file(L, name.c_str(), directory);
         }
+        lua_pop(L, 1);
     }
     lua_pop(L, 1);
 }

@@ -11,6 +11,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <vector>
 #include <wordexp.h>
 
 #include "check.h"
@@ -24,6 +25,15 @@ std::string value(const paw::Command &command, const std::string &option) {
     if (it + 1 == command.end() || (it + 1)->starts_with("--"))
         return "(flag)";
     return *(it + 1);
+}
+
+// Every value given to `option` in `command`, in order.
+std::vector<std::string> values(const paw::Command &command, const std::string &option) {
+    std::vector<std::string> found;
+    for (auto it = command.begin(); it != command.end(); ++it)
+        if (*it == option && it + 1 != command.end())
+            found.push_back(*(it + 1));
+    return found;
 }
 
 // Every colour swaylock 1.8 takes besides the background, so that none stays its own.
@@ -229,6 +239,71 @@ int main(int argc, char **argv) {
         };
         CHECK(value(paw::lock_command(config, picking), "--image") == ":/p/picked.png");
         CHECK(asked == "/p/picked.png");
+    }
+    // Each monitor's own wallpaper, configured for it or picked for it alone, while the
+    // configuration gives the monitor what it did then; the lock screen shows it on that monitor,
+    // as OUTPUT:PATH after every monitor's, unless it is every monitor's anyway, it cannot be read
+    // or swaylock cannot name the monitor (a colon in its name).
+    {
+        auto config = paw::parse_config(washi);
+        config.profile = "washi";
+        config.shell.monitor_wallpapers = {{"DP-1", "/w/left.jpg"},
+                                           {"HDMI-A-1", "rices/washi/washi.jpg"},
+                                           {"odd:name", "/w/odd.jpg"}};
+        const std::filesystem::path path = "/c/init.lua";
+        CHECK(paw::lock_wallpaper(config, path, "", "DP-1") == "/w/left.jpg");
+        CHECK(paw::lock_wallpaper(config, path, "", "eDP-1") == "/c/rices/washi/washi.jpg");
+        CHECK(paw::lock_wallpaper(config, path, "", "HDMI-A-1") == "/c/rices/washi/washi.jpg");
+        const std::string picked = "washi\trices/washi/washi.jpg\t/p/every.png\n"
+                                   "washi\t/w/left.jpg\t/p/left.png\tDP-1\n"
+                                   "washi\trices/washi/washi.jpg\t/p/right.png\tHDMI-A-1\n"
+                                   "washi\told.jpg\t/p/stale.png\teDP-1\n"
+                                   "sumi\trices/washi/washi.jpg\t/p/sumi.png\tDP-2\n"
+                                   "washi\trices/washi/washi.jpg\t/p/blank.png\t\n"
+                                   "washi\trices/washi/washi.jpg\t/p/five.png\tDP-3\textra\n";
+        CHECK(paw::lock_wallpaper(config, path, picked) == "/p/every.png");
+        CHECK(paw::lock_wallpaper(config, path, picked, "DP-1") == "/p/left.png");
+        CHECK(paw::lock_wallpaper(config, path, picked, "HDMI-A-1") == "/p/right.png");
+        // Picked for a wallpaper the monitor no longer has, or for another profile: every
+        // monitor's.
+        CHECK(paw::lock_wallpaper(config, path, picked, "eDP-1") == "/p/every.png");
+        CHECK(paw::lock_wallpaper(config, path, picked, "DP-2") == "/p/every.png");
+        CHECK(paw::lock_wallpaper(config, path, picked, "DP-3") == "/p/every.png");
+        // A monitor with a wallpaper configured for it does not take one picked for every
+        // monitor while shell.wallpaper was what it is.
+        CHECK(paw::lock_wallpaper(config, path, "washi\trices/washi/washi.jpg\t/p/every.png\n",
+                                  "DP-1") == "/w/left.jpg");
+        auto picking = context(path);
+        picking.picked_wallpapers = picked;
+        auto command = paw::lock_command(config, picking);
+        CHECK((values(command, "--image") ==
+               std::vector<std::string>{":/p/every.png", "DP-1:/p/left.png", "HDMI-A-1:/p/right.png"}),
+              "images %s", [&] {
+                  std::string all;
+                  for (const auto &image : values(command, "--image"))
+                      all += image + " ";
+                  return all;
+              }().c_str());
+        CHECK(values(command, "--scaling") == std::vector<std::string>{"fill"});
+        // As swaylock reads them: the output's name to the first colon, the path after it.
+        bool ok = false;
+        CHECK(swaylock_image(values(command, "--image")[1], ok) == "/p/left.png" && ok);
+        // A monitor's own picture that cannot be read leaves it every monitor's.
+        picking.readable = [](const std::filesystem::path &file) { return file != "/p/left.png"; };
+        CHECK((values(paw::lock_command(config, picking), "--image") ==
+               std::vector<std::string>{":/p/every.png", "HDMI-A-1:/p/right.png"}));
+        // The same as every monitor's: once.
+        picking.readable = [](const std::filesystem::path &) { return true; };
+        picking.picked_wallpapers = "washi\trices/washi/washi.jpg\t/p/every.png\n"
+                                    "washi\t/w/left.jpg\t/p/every.png\tDP-1\n";
+        CHECK((values(paw::lock_command(config, picking), "--image") ==
+               std::vector<std::string>{":/p/every.png"}));
+        // No wallpaper for every monitor: the monitors' own alone, still filling them.
+        config.shell.wallpaper.clear();
+        config.shell.monitor_wallpapers = {{"DP-1", "/w/left.jpg"}};
+        command = paw::lock_command(config, context(path));
+        CHECK((values(command, "--image") == std::vector<std::string>{"DP-1:/w/left.jpg"}));
+        CHECK(value(command, "--scaling") == "fill");
     }
     // Paths swaylock's wordexp gives back as they are, and runs nothing from.
     {

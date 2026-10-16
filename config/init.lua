@@ -35,6 +35,11 @@ return {
     -- "fireflies" (none unless set; a profile may set them too), count on each monitor (30
     -- petals, 60 flakes, 24 fireflies unless set), speed (1 their own pace):
     -- appearance = { ambient = { kind = "sakura", count = 30, speed = 1 } },
+    -- Experimental: a cursor trail of little sparkles, sakura petals or hearts falling off the
+    -- pointer as it moves: kind = "sparkles", "petals" or "hearts" (none unless set; a profile
+    -- may set it too), amount (1; 2 twice as many), colors for the sparkles and hearts (the
+    -- focused border's and shell.accent unless set). Try one with `paw msg cursor_trail sparkles`:
+    -- appearance = { cursor_trail = { kind = "sparkles", amount = 1 } },
     -- Appearance profiles: each lays its appearance, windows and shell settings over the rest
     -- of the configuration while it is in use. Pick one from the panel's right-click menu
     -- ("Appearance"), the command palette, or `paw msg profile NAME|next|prev`; the choice
@@ -103,6 +108,8 @@ return {
             appearance = { background = "#f4f0f3", color_scheme = "light" },
             -- Sakura petals drifting down over the paper: add to appearance above
             --     ambient = { kind = "sakura" },
+            -- and a few more falling off the pointer as it moves:
+            --     cursor_trail = { kind = "petals" },
             windows = {
                 border_width = 2, corner_radius = 12, round = "always",
                 border_color = { "#8fc1ec", "#f2a0be", angle = 135 },
@@ -129,6 +136,8 @@ return {
             appearance = { background = "#15141d", color_scheme = "dark" },
             -- Fireflies glowing in the ink-dark night: add to appearance above
             --     ambient = { kind = "fireflies" },
+            -- and light blue and pink sparkles behind the pointer:
+            --     cursor_trail = { kind = "sparkles" },
             windows = {
                 border_width = 2, corner_radius = 12, round = "always",
                 border_color = { "#8fc1ec", "#f2a7c3", angle = 135 },
@@ -164,6 +173,8 @@ return {
                 -- icon_theme = "Mochi",
                 -- Soft snow falling past the moon:
                 -- ambient = { kind = "snow" },
+                -- Mauve and pink hearts floating up behind the pointer:
+                -- cursor_trail = { kind = "hearts" },
             },
             windows = {
                 border_width = 2, corner_radius = 14, round = "always",
@@ -188,6 +199,8 @@ return {
                 wallpaper = "rices/mochi/wallpaper/mochi.jpg",
                 start_icon = "rices/mochi/start/mochi.svg",
                 -- desktop_clock = { enabled = true, position = "left", greeting = "ja" },
+                -- Experimental: its seven skies in turn, a new one every half hour:
+                -- wallpaper_cycle = { interval = 30 },
             },
         },
     },
@@ -434,8 +447,20 @@ return {
         -- panel_color = "#151e2c", -- #RRGGBBAA makes it translucent
         -- text_color = "#edf2fa",
         -- wallpaper = "", -- absolute path, or relative to this configuration file
+        -- A monitor's own wallpaper, by its name (paw msg get outputs), over wallpaper; the
+        -- wallpaper picker's "This monitor only" picks one for a monitor alone:
+        -- monitor_wallpapers = { ["DP-1"] = "left.jpg", ["HDMI-A-1"] = "right.jpg" },
         -- wallpaper_mode = "fill", -- or "fit", "center", "tile" or "stretch"; around a picture
         --                            that leaves room, appearance.background shows
+        -- Experimental: a slideshow, the pictures of a folder taking turns as the wallpaper, each
+        -- kept as one picked from the panel (the lock screen shows it); the wallpaper_next and
+        -- wallpaper_prev actions (paw msg wallpaper_next) step at once, also with interval = 0:
+        -- wallpaper_cycle = {
+        --     interval = 0,      -- minutes between pictures (1-1440); 0: only the actions step
+        --     -- folder = "~/Pictures/wallpapers/sky", -- unset: the folder of wallpaper
+        --     order = "shuffle", -- each once before any again; or "name"
+        --     per_monitor = false, -- true: each monitor a picture of its own
+        -- },
         -- Experimental: a large clock on the desktop, over the wallpaper, in the text colour with
         -- a soft shadow; the desktop_clock action (paw msg desktop_clock) shows or hides it:
         -- desktop_clock = {
@@ -619,6 +644,9 @@ return {
         -- Keep awake: no dimming, no monitors going off and no sleep until toggled off again
         -- (keep_awake_on and keep_awake_off too; also a tile in Quick Settings), e.g.:
         -- { mods = { mod, "Alt" }, key = "c", action = "keep_awake_toggle" },
+        -- The wallpaper slideshow (shell.wallpaper_cycle) steps on, or back, e.g.:
+        -- { mods = { mod, "Alt" }, key = "w", action = "wallpaper_next" },
+        -- { mods = { mod, "Alt", "Shift" }, key = "w", action = "wallpaper_prev" },
         -- Switches act too: the lid ("close", "open") and tablet mode ("on", "off"), e.g.:
         -- { switch = "lid", state = "close", action = "lock" },
         { mods = { mod }, key = "1", action = "workspace", workspace = 1 },
@@ -695,5 +723,9 @@ return {
         -- (appearance.ambient sets them for good; mode = "sakura", "snow", "fireflies", "off" or
         -- "toggle" picks one):
         -- { mods = { mod, "Ctrl" }, key = "a", action = "ambient", mode = "next" },
+        -- Sparkles, sakura petals or hearts behind the pointer, each in turn and then none
+        -- (appearance.cursor_trail sets them for good; mode = "sparkles", "petals", "hearts",
+        -- "off" or "toggle" picks one):
+        -- { mods = { mod, "Ctrl" }, key = "s", action = "cursor_trail", mode = "next" },
     },
 }

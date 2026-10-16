@@ -18,6 +18,7 @@
 #include "power_mode.hpp"
 #include "osd.hpp"
 #include "volume_keys.hpp"
+#include "wallpaper_cycle.hpp"
 #include "palette.hpp"
 #include "power.hpp"
 #include "paw/config.hpp"
@@ -52,8 +53,9 @@ class ShellController : public QObject {
     Q_PROPERTY(QColor background READ background NOTIFY configChanged)
     // windows.urgent_color, the colour of whatever marks a window that asks for attention.
     Q_PROPERTY(QColor urgentColor READ urgentColor NOTIFY configChanged)
-    // The wallpaper: one picked from the panel for the profile in use, else shell.wallpaper.
-    // wallpaperFile is the same as a path, "" for none.
+    // The wallpaper of the monitors without one of their own: one picked from the panel for the
+    // profile in use, else shell.wallpaper. wallpaperFile is the same as a path, "" for none.
+    // Each ShellView has its own monitor's (wallpaperOn).
     Q_PROPERTY(QUrl wallpaper READ wallpaper NOTIFY wallpaperChanged)
     Q_PROPERTY(QString wallpaperFile READ wallpaperFile NOTIFY wallpaperChanged)
     // shell.wallpaper_mode, how the wallpaper covers the output: "fill", "fit", "center", "tile"
@@ -295,16 +297,39 @@ class ShellController : public QObject {
     // lists the workspaces they are on, as `urgent`.
     QVariantList urgentWindows() const { return urgentWindows_; }
     QUrl wallpaper() const;
-    QString wallpaperFile() const;
+    QString wallpaperFile() const { return wallpaperFileOn({}); }
     QString wallpaperMode() const;
     QVariantList wallpapers() const { return wallpapers_; }
     QString wallpaperFolder() const;
     QUrl startIcon() const;
     // Reads the picker's folder again.
     Q_INVOKABLE void findWallpapers();
-    // Shows `path` as the wallpaper of the profile in use, remembered across sessions until the
-    // configured wallpaper changes; an empty path goes back to the configured one.
+    // Shows `path` as the wallpaper of the profile in use on every monitor, remembered across
+    // sessions until the configured wallpaper changes; an empty path goes back to the configured
+    // one.
     Q_INVOKABLE void pickWallpaper(const QString &path);
+    // Shows `path` on monitor `output` alone, remembered as pickWallpaper remembers one until the
+    // wallpaper the configuration gives that monitor changes; an empty path goes back to what it
+    // shows without.
+    Q_INVOKABLE void pickWallpaperOn(const QString &path, const QString &output);
+    // The wallpaper of monitor `output`: picked for it alone, else picked for every monitor while
+    // the configuration gives it the wallpaper it did then, else its shell.monitor_wallpapers
+    // entry, else shell.wallpaper; a path, "" for none. wallpaperFile is a monitor's without
+    // anything of its own.
+    Q_INVOKABLE QString wallpaperFileOn(const QString &output) const;
+    QUrl wallpaperOn(const QString &output) const;
+    // Whether monitor `output` shows a wallpaper picked for it alone, not the one picked for
+    // every monitor.
+    Q_INVOKABLE bool ownWallpaper(const QString &output) const;
+    // The wallpaper slideshow (shell.wallpaper_cycle): picks the picture after the one shown
+    // (`direction` 1) or before it (-1) in its folder, as the wallpaper_next and wallpaper_prev
+    // actions and its timer do, for every monitor or with per_monitor for each monitor alone, from
+    // the left; with `tell`, says so when the folder has none (the timer does not).
+    Q_INVOKABLE void stepWallpaper(int direction, bool tell = true);
+    // The slideshow's folder: shell.wallpaper_cycle.folder, else the folder of shell.wallpaper,
+    // else the picker's.
+    QString wallpaperCycleFolder() const;
+    WallpaperCycle *wallpaperCycle() { return &wallpaperCycle_; }
     QString style() const { return config_.shell.macos_style ? "macos" : "taskbar"; }
     int panelHeight() const { return barResizing_ ? barResizeHeight_ : config_.shell.panel_height; }
     // Whether shell.panel_position, the edge of the bars of the monitors without one of their
@@ -675,6 +700,8 @@ class ShellController : public QObject {
     void configureClipboard();
     // The desktop clock, from the configuration loaded.
     void configureDesktopClock();
+    // The wallpaper slideshow, from the configuration loaded.
+    void configureWallpaperCycle();
     std::filesystem::path path_;
     paw::Config config_;
     bool restyling_ = false;
@@ -698,6 +725,7 @@ class ShellController : public QObject {
     Osd osd_;
     Caption caption_;
     DesktopClock desktopClock_;
+    WallpaperCycle wallpaperCycle_;
     DisplayModes displayModes_;
     DisplaySettings displaySettings_{[this](const QByteArray &line,
                                             std::function<void(const QByteArray &)> done) {
@@ -827,12 +855,20 @@ class ShellController : public QObject {
     bool start(GAppInfo *info, const QString &name);
     static QString pinsPath();
     void savePins();
-    // Wallpapers picked from the panel, by profile: the one picked, and shell.wallpaper as it
-    // was then; the pick stands while that is still what the configuration says.
+    // Wallpapers picked from the panel, by profile and then by monitor ("" for every monitor):
+    // the one picked, and the wallpaper the configuration gave the monitor then (shell.wallpaper
+    // for every monitor); the pick stands while that is still what the configuration says.
     struct PickedWallpaper {
         QString configured, picked;
     };
-    QMap<QString, PickedWallpaper> pickedWallpapers_;
+    QMap<QString, QMap<QString, PickedWallpaper>> pickedWallpapers_;
+    // The wallpaper the configuration gives monitor `output`, as written: its
+    // shell.monitor_wallpapers entry, else shell.wallpaper.
+    QString configuredWallpaper(const QString &output) const;
+    // Writes pickedWallpapers_ to its file, and tells.
+    void savePickedWallpapers();
+    // Notes `path` picked for monitor `output` alone, or none for an empty path, without saving.
+    void notePick(const QString &path, const QString &output);
     QVariantList wallpapers_;
     static QString pickedWallpapersPath();
     static QVariantMap record(const App &app);

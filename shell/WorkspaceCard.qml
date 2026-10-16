@@ -167,7 +167,7 @@ PopupCard {
                     }
                     Rectangle {
                         anchors.fill: parent
-                        visible: shell.wallpaper.toString().length === 0 || wallpaper.status === Image.Error
+                        visible: card.panel.shellView.wallpaper.toString().length === 0 || wallpaper.status === Image.Error
                         gradient: Gradient {
                             GradientStop { position: 0; color: Qt.lighter(shell.background, 1.45) }
                             GradientStop { position: 1; color: shell.background }
@@ -176,7 +176,7 @@ PopupCard {
                     WallpaperPicture {
                         id: wallpaper
                         anchors.fill: parent
-                        source: shell.wallpaper
+                        source: card.panel.shellView.wallpaper
                         // A pixel of a picture at its own size is one of the output's, drawn as
                         // small as the card draws the output.
                         pixelScale: card.panel.workspaceScale / Screen.devicePixelRatio

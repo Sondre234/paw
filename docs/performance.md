@@ -174,6 +174,36 @@ draw in some 6 µs. Behind a maximized window only the strip around washi's floa
 particles, and the scene draws only those. With a fullscreen window, the lock, a monitor off or
 the screens dimmed, and after five minutes without input, nothing runs at all.
 
+## Cursor trail
+
+`appearance.cursor_trail` runs only while particles are left: a timer steps them every 16 ms and
+stops with the last, so a resting pointer costs nothing. Each step moves the particles with their
+tree off and shows it again once. Every place in the trail keeps one family of pictures (a
+colour's stars, a pink's turns of a petal) painted side by side in a strip, and shows the picture
+of the moment by its node's source box: a scene buffer whose buffer changes gets a new texture,
+which on a GPU is an upload, and petals turning through their pictures did that every few frames
+(3.2 ms a frame and 42 % of a core on GLES2 before). Measured on the headless 1920x1080 output
+with the shell drawing washi's wallpaper and bar and a terminal open, while a virtual pointer
+swept back and forth across half the screen at about 3000 pixels a second for 8 seconds, which
+keeps the trail at its limit of 120 particles (a hand moving a mouse makes far fewer, and only
+for a moment); `get frame_times HEADLESS-1` and the compositor's CPU time from `/proc`:
+
+| Trail | Renderer | Frames drawn | Time a frame drawn (mean, p95) | Compositor CPU |
+| --- | --- | --- | --- | --- |
+| none (the cursor alone) | pixman | 62/s | 0.03 ms, 0.04 ms | 1.9 % |
+| sparkles | pixman | 60/s | 0.76 ms, 0.86 ms | 9.7 % |
+| petals | pixman | 59/s | 1.02 ms, 1.19 ms | 11.3 % |
+| hearts | pixman | 60/s | 0.72 ms, 0.85 ms | 9.1 % |
+| none (the cursor alone) | GLES2 | 61/s | 0.35 ms, 0.42 ms | 3.8 % |
+| sparkles | GLES2 | 59/s | 0.95 ms, 1.09 ms | 10.9 % |
+| petals | GLES2 | 59/s | 0.94 ms, 1.10 ms | 10.9 % |
+| hearts | GLES2 | 59/s | 0.91 ms, 1.08 ms | 10.4 % |
+
+Most of the time is the region the particles cover drawn again each frame: with more than 20
+rectangles of damage wlroots repaints their bounding box, the wallpaper and windows under the
+trail included. The machine was shared with other builds, so the numbers move by tens of percent
+from run to run.
+
 ## Not verified
 
 No real GPU, output or input device was involved. The frame times are the compositor's time in

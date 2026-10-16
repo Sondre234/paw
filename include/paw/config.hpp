@@ -3,6 +3,7 @@
 
 #include "paw/ambient.h"
 #include "paw/backend.h"
+#include "paw/cursor_trail.h"
 #include "paw/rice.hpp"
 #include "paw/swipe.h"
 #include <array>
@@ -51,7 +52,8 @@ struct Binding {
     bool release = false;
     int mode = 0; // for mode: 0 for the bindings outside any mode, else modes[mode - 1]; for
                   // display_mode, an sh_display_mode; for cat, an sh_cat_switch; for
-                  // ambient, an sh_ambient_choice
+                  // ambient, an sh_ambient_choice; for cursor_trail, an
+                  // sh_cursor_trail_choice
     int switch_type = -1; // the enum sh_switch of a switch binding; -1 for a key or button
     bool switch_on = false; // with switch_type: it acts as the switch turns on (a lid closing)
     // What the binding does in the user's words, as Hyprland's bindd has it, which the shell's
@@ -203,6 +205,17 @@ struct DesktopClockConfig {
     std::string greeting;                    // "en" or "ja" by the time of day; empty: none
 };
 
+// Lua `shell.wallpaper_cycle` (experimental): a slideshow, the pictures of a folder taking turns
+// as the wallpaper, every `interval` minutes and at the wallpaper_next and wallpaper_prev actions.
+struct WallpaperCycleConfig {
+    int interval = 0; // minutes between pictures, 1 to 1440; 0: only the actions step
+    // The pictures' folder (not its subfolders): absolute, "~/..." or relative to the
+    // configuration; empty: the folder of shell.wallpaper, else the wallpaper picker's.
+    std::string folder;
+    bool shuffle = true; // order = "shuffle", each once before any again; false: "name"
+    bool per_monitor = false; // each monitor the next picture, rather than one for all
+};
+
 // Lua `shell.wallpaper_mode`: how the wallpaper covers the output. Fill crops it to cover every
 // pixel, Fit shows all of it, Stretch scales each side to the output's, Center and Tile lay it at
 // its own size, once in the middle or repeated from the top left; Fit and Center show the
@@ -294,8 +307,12 @@ struct ShellConfig {
     std::string panel_color = "#151e2c";
     std::string text_color = "#edf2fa";
     std::string wallpaper;
+    // monitor_wallpapers: a monitor's own wallpaper by the monitor's name, over `wallpaper`;
+    // absolute or relative to the configuration, "" for none.
+    std::map<std::string, std::string> monitor_wallpapers;
     WallpaperMode wallpaper_mode = WallpaperMode::Fill;
     DesktopClockConfig desktop_clock;
+    WallpaperCycleConfig wallpaper_cycle;
     // The start button's picture: a file, absolute or relative to the configuration; empty:
     // four squares in the accent colour.
     std::string start_icon;
@@ -533,6 +550,10 @@ struct Config {
                          .ambient = SH_AMBIENT_NONE,
                          .ambient_count = 0,
                          .ambient_speed = 1,
+                         .cursor_trail = SH_TRAIL_NONE,
+                         .cursor_trail_amount = 1,
+                         .cursor_trail_colors = {},
+                         .cursor_trail_tints = 0,
                          .wrapped = true,
                          .heatmap = true};
     // layout.workspace_names: the label of workspace N is names[N - 1]; "" or past the end: none.
@@ -627,6 +648,9 @@ sh_cat_switch parse_cat_switch(const std::string &name);
 // "toggle", "next", "off", "sakura", "snow" or "fireflies", the ambient action's argument;
 // throws for other names.
 sh_ambient_choice parse_ambient_choice(const std::string &name);
+// "toggle", "next", "off", "sparkles", "petals" or "hearts", the cursor_trail action's argument;
+// throws for other names.
+sh_cursor_trail_choice parse_cursor_trail_choice(const std::string &name);
 // switch_layout's "next" (0), "prev" (-1), or a layout's number from 1; throws for others.
 int parse_layout_choice(const std::string &word);
 // "toggle", "motion", "clicks" or "reset"; throws for other names.

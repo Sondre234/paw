@@ -27,6 +27,11 @@ class ShellView : public QQuickView {
     Q_PROPERTY(bool panelVertical READ panelVertical NOTIFY panelPlacementChanged)
     Q_PROPERTY(int panelExtent READ panelExtent NOTIFY panelPlacementChanged)
     Q_PROPERTY(int panelHeadroom READ panelHeadroom NOTIFY panelPlacementChanged)
+    // Its output's wallpaper (ShellController::wallpaperFileOn): the picture's URL and path,
+    // empty for none; and whether it is one picked for that output alone.
+    Q_PROPERTY(QUrl wallpaper READ wallpaper NOTIFY wallpaperChanged)
+    Q_PROPERTY(QString wallpaperFile READ wallpaperFile NOTIFY wallpaperChanged)
+    Q_PROPERTY(bool ownWallpaper READ ownWallpaper NOTIFY wallpaperChanged)
   public:
     ShellView(ShellController &controller, QScreen *screen, bool desktop, bool preview);
     QScreen *outputScreen() const { return outputScreen_; }
@@ -58,11 +63,15 @@ class ShellView : public QQuickView {
     bool panelVertical() const { return controller_.panelVertical(outputScreen_->name()); }
     int panelExtent() const { return controller_.panelExtent(outputScreen_->name()); }
     int panelHeadroom() const { return controller_.panelHeadroom(outputScreen_->name()); }
+    QUrl wallpaper() const { return controller_.wallpaperOn(outputScreen_->name()); }
+    QString wallpaperFile() const { return controller_.wallpaperFileOn(outputScreen_->name()); }
+    bool ownWallpaper() const { return controller_.ownWallpaper(outputScreen_->name()); }
 
   Q_SIGNALS:
     void inputRectsChanged();
     void tilingBarChanged();
     void panelPlacementChanged();
+    void wallpaperChanged();
 
   private:
     ShellController &controller_;

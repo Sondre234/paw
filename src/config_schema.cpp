@@ -91,6 +91,24 @@ const Option options[] = {
      "How many particles drift on each monitor."},
     {"appearance.ambient.speed", "number", "1", "0.6", 0.1, 5,
      "How fast they drift: 0.5 at half their own pace, 2 at twice it."},
+    {"appearance.cursor_trail", "table", "", "", none, none,
+     "Experimental: a trail of little sparkles, sakura petals or hearts falling off the pointer "
+     "as it moves, twinkling or tumbling, and fading within a second, drawn over the windows "
+     "and the panels but under the cursor, and taking no input. The faster the pointer moves, "
+     "the more fall; none while it rests. An appearance profile may set it, and the "
+     "`cursor_trail` action switches it meanwhile. None fall while the session is locked, "
+     "while the cursor is hidden, over a monitor showing a fullscreen window, while a colour "
+     "is picked, or while a screenshot is taken (screen recordings show them)."},
+    {"appearance.cursor_trail.kind", "enum", "\"none\"", "\"sparkles\"", none, none,
+     "`\"sparkles\"`, `\"petals\"` or `\"hearts\"`; `\"none\"` for none."},
+    {"appearance.cursor_trail.amount", "number", "1", "1.5", 0.25, 4,
+     "How many fall: 2 twice as many, 0.5 half as many."},
+    {"appearance.cursor_trail.colors", "list of colors",
+     "the focused border's colours and `shell.accent`, with a light blue or a sakura pink "
+     "beside them when none of them is one",
+     "{ \"#8fc1ec\", \"#f2a0be\" }", none, none,
+     "The colours sparkles and hearts come in, 1 to 6 of `#RRGGBB`; each particle takes one. "
+     "Petals are sakura pink whatever they say."},
 
     {"keyboard", "table", "", "", none, none, "Keyboard layout and key repeat."},
     {"keyboard.layout", "string", "\"us\"", "\"us\"", none, none,
@@ -757,7 +775,9 @@ const Option options[] = {
      "toggle. With `heatmap`: `\"toggle\"`, `\"motion\"`, `\"clicks\"` or "
      "`\"reset\"`; without one, toggle. With `ambient`: `\"sakura\"`, `\"snow\"`, "
      "`\"fireflies\"`, `\"off\"`, `\"next\"` (each kind in turn, then none) or `\"toggle\"` "
-     "(off, or back to the last kind); without one, toggle."},
+     "(off, or back to the last kind); without one, toggle. With `cursor_trail`: "
+     "`\"sparkles\"`, `\"petals\"`, `\"hearts\"`, `\"off\"`, `\"next\"` or `\"toggle\"` "
+     "(off, or back to the last kind, sparkles the first time); without one, toggle."},
     {"bindings[].amount", "integer", "40; 5 for volume and brightness", "", 1, 4000,
      "With `resize_*`: pixels moved per press. With `volume_up`, `volume_down`, `brightness_up` "
      "and `brightness_down`: percent per press, up to 100."},
@@ -1089,6 +1109,15 @@ const Option options[] = {
     {"shell.wallpaper", "string", "\"\"", "\"\"", none, none,
      "Image path, absolute or relative to the configuration file (one the shipped configuration "
      "names, its profiles' too: relative to that file, also for a file that extends it)."},
+    {"shell.monitor_wallpapers", "table", "{}",
+     "{ [\"DP-1\"] = \"left.jpg\", [\"HDMI-A-1\"] = \"right.jpg\" }", none, none,
+     "Each monitor's own wallpaper, by the monitor's name as `paw msg get outputs` lists it, over "
+     "`wallpaper`, which the monitors left out show: a path as `wallpaper` takes, `\"\"` for none. "
+     "The frosted glass, the workspace cards and Launchpad on that monitor show its own, and so "
+     "does the lock screen. The wallpaper picker's \"This monitor\" picks one for a monitor "
+     "alone."},
+    {"shell.monitor_wallpapers.<name>", "string", "", "", none, none,
+     "The picture's path, absolute or relative to the configuration file."},
     {"shell.wallpaper_mode", "enum", "\"fill\"", "\"fit\"", none, none,
      "How the wallpaper covers each monitor: `\"fill\"` scales it to cover all of it, cutting "
      "off what overflows; `\"fit\"` shows all of it, as large as fits; `\"stretch\"` scales "
@@ -1097,7 +1126,25 @@ const Option options[] = {
      "from the top left. Around a picture that `\"fit\"` or `\"center\"` leaves room by, "
      "`appearance.background` shows. The frosted glass and a workspace's picture on its card "
      "show it the same way."},
-    {"shell.desktop_clock", "boolean or table", "false", "true", none, none,
+    {"shell.wallpaper_cycle", "table", "", "", none, none,
+     "Experimental: a slideshow, the pictures of a folder taking turns as the wallpaper, each "
+     "fading in as one picked does and kept as if picked from the panel, so the lock screen "
+     "shows it too. The `wallpaper_next` and `wallpaper_prev` actions step through them, also "
+     "while `interval` is 0. The timer waits while the session is locked."},
+    {"shell.wallpaper_cycle.interval", "integer", "0", "30", 0, 1440,
+     "Minutes between pictures; 0 changes the wallpaper only at the actions."},
+    {"shell.wallpaper_cycle.folder", "string", "unset", "\"~/Pictures/wallpapers/sky\"", none,
+     none,
+     "The pictures' folder, not its subfolders: absolute, starting with `~/`, or relative to "
+     "the configuration file; unset, the folder of `shell.wallpaper` (a rice's own pictures), "
+     "else the wallpaper picker's (`shell.wallpapers`)."},
+    {"shell.wallpaper_cycle.order", "enum", "\"shuffle\"", "\"name\"", none, none,
+     "`\"shuffle\"` shows every picture once, in a random order, before any comes again; "
+     "`\"name\"` goes through them in the order of their names, numbers in order."},
+    {"shell.wallpaper_cycle.per_monitor", "boolean", "false", "true", none, none,
+     "Each monitor shows a picture of its own, the next after the monitor to its left's, each "
+     "kept for that monitor alone; `false` shows one picture on every monitor."},
+    {"shell.desktop_clock","boolean or table", "false", "true", none, none,
      "Experimental: a large clock on the desktop, over the wallpaper and under the windows: the "
      "time in a thin weight, the date under it and, with `greeting`, a word for the time of day "
      "above it, in the text colour with a soft shadow (a glow under dark text) so that it reads "
@@ -1451,7 +1498,7 @@ std::string config_reference_markdown() {
         first = false;
     }
     out << "\n\n`spawn` needs `command`; `workspace` and `move_to_workspace` need `workspace`; "
-           "`screenshot`, `cat`, `heatmap` and `ambient` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
+           "`screenshot`, `cat`, `heatmap`, `ambient` and `cursor_trail` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
            "`brightness_up` and `brightness_down` take `amount`; a `switch` needs `state`.\n\n"
            "Modifiers: ";
     first = true;

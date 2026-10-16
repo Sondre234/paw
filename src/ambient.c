@@ -12,7 +12,7 @@ static const double FADE_IN_MS = 1500;
 
 /* The pictures: four pinks of petal at three lengths, each turned SH_AMBIENT_TURNS ways; dots of
  * snow at six sizes in two whites; a firefly's glow at two sizes in three colours. */
-enum { PETAL_TINTS = 4, PETAL_SIZES = 3, SNOW_TINTS = 2, SNOW_SIZES = 6, GLOW_TINTS = 3,
+enum { PETAL_TINTS = SH_AMBIENT_PETAL_TINTS, PETAL_SIZES = 3, SNOW_TINTS = 2, SNOW_SIZES = 6, GLOW_TINTS = 3,
        GLOW_SIZES = 2 };
 /* A petal's length, from its stem to the notch at its tip. */
 static const double PETAL_LENGTH[PETAL_SIZES] = {16, 22, 30};
@@ -84,6 +84,21 @@ int sh_ambient_sprite_count(enum sh_ambient_kind kind) {
     default:
         return 0;
     }
+}
+
+int sh_ambient_petal_sprite(int tint, int size) {
+    tint = tint < 0 ? 0 : tint >= PETAL_TINTS ? PETAL_TINTS - 1 : tint;
+    size = size < 0 ? 0 : size >= PETAL_SIZES ? PETAL_SIZES - 1 : size;
+    return (tint * PETAL_SIZES + size) * SH_AMBIENT_TURNS;
+}
+
+void sh_ambient_petal_turn(double turn, int *step, int *quarters) {
+    double unit = (M_PI / 2) / SH_AMBIENT_TURNS;
+    long steps = isfinite(turn) ? lround(turn / unit) % (4 * SH_AMBIENT_TURNS) : 0;
+    if (steps < 0)
+        steps += 4 * SH_AMBIENT_TURNS;
+    *step = (int)(steps % SH_AMBIENT_TURNS);
+    *quarters = (int)(steps / SH_AMBIENT_TURNS);
 }
 
 double sh_ambient_sprite_side(enum sh_ambient_kind kind, int sprite) {
@@ -320,7 +335,7 @@ void sh_ambient_spawn(struct sh_ambient_field *field, struct sh_ambient_particle
         int pick = (int)(xorshift(seed) % 100), tint = 0;
         while (tint < PETAL_TINTS - 1 && pick >= PETAL_SHARE[tint])
             pick -= PETAL_SHARE[tint++];
-        particle->sprite = (tint * PETAL_SIZES + size) * SH_AMBIENT_TURNS;
+        particle->sprite = sh_ambient_petal_sprite(tint, size);
         particle->scale = uniform(seed, 0.88, 1.12);
         particle->fall = (0.016 + 0.022 * depth) * uniform(seed, 0.85, 1.15);
         particle->reach = uniform(seed, 14, 44) * (0.6 + 0.4 * depth);
@@ -455,12 +470,9 @@ void sh_ambient_look(const struct sh_ambient_field *field,
         double face = cos(particle->tumble), squash = 0.2 + 0.8 * pow(fabs(face), 0.7);
         if (face < 0)
             turn = particle->axis == 0 ? M_PI - turn : -turn;
-        double step = (M_PI / 2) / SH_AMBIENT_TURNS;
-        long steps = lround(turn / step) % (4 * SH_AMBIENT_TURNS);
-        if (steps < 0)
-            steps += 4 * SH_AMBIENT_TURNS;
-        look->sprite = particle->sprite + (int)(steps % SH_AMBIENT_TURNS);
-        look->quarters = (int)(steps / SH_AMBIENT_TURNS);
+        int step;
+        sh_ambient_petal_turn(turn, &step, &look->quarters);
+        look->sprite = particle->sprite + step;
         if (particle->axis == 0)
             width *= squash;
         else

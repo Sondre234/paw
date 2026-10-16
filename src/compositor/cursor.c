@@ -634,6 +634,7 @@ void server_cursor_motion(struct wl_listener *listener, void *data) {
     process_cursor_motion(server, event->time_msec);
     server->pointed.moving = false;
     cursor_shake_motion(server);
+    cursor_trail_moved(server);
     ++server->stats.motions;
     server->stats.motion_ns += now_ns() - started;
 }
@@ -650,6 +651,7 @@ void server_cursor_motion_absolute(struct wl_listener *listener, void *data) {
     process_cursor_motion(server, event->time_msec);
     server->pointed.moving = false;
     cursor_shake_motion(server);
+    cursor_trail_moved(server);
     ++server->stats.motions;
     server->stats.motion_ns += now_ns() - started;
 }
@@ -1053,6 +1055,7 @@ void cursor_hide(struct sh_server *server, uint32_t why) {
     server->cursor_hidden |= why;
     if (shown && server->cursor_hidden)
         wlr_cursor_unset_image(server->cursor);
+    cursor_trail_clear(server); // the trail goes with it, out of a screenshot too
 }
 
 void cursor_show(struct sh_server *server, uint32_t why) {

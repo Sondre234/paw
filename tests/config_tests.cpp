@@ -1142,6 +1142,59 @@ int main(int argc, char **argv) {
             rejects("return {shell={desktop_clock={greeting='fr'}}}");
             rejects("return {shell={desktop_clock={seconds=true}}}");
         }
+        // The wallpaper slideshow: off, shuffled, from the wallpaper's own folder by default.
+        {
+            const auto &cycle = even.shell.wallpaper_cycle;
+            require(cycle.interval == 0 && cycle.folder.empty() && cycle.shuffle,
+                    "the wallpaper slideshow's defaults are not as documented");
+            auto own = paw::parse_config("return {shell={wallpaper_cycle={interval=30,"
+                                         "folder='~/Pictures/sky',order='name'},accent='#123456'}}");
+            require(own.shell.wallpaper_cycle.interval == 30 &&
+                        own.shell.wallpaper_cycle.folder == "~/Pictures/sky" &&
+                        !own.shell.wallpaper_cycle.shuffle && own.shell.accent == "#123456",
+                    "shell.wallpaper_cycle not parsed, or what follows it lost");
+            require(paw::parse_config("return {shell={wallpaper_cycle={order='shuffle'}}}")
+                        .shell.wallpaper_cycle.shuffle,
+                    "order = 'shuffle' not parsed");
+            auto profiled = paw::parse_config(
+                "return {shell={wallpaper_cycle={order='name'}},"
+                "profiles={sky={shell={wallpaper_cycle={interval=5}}}}}",
+                "config", {}, "sky");
+            require(profiled.shell.wallpaper_cycle.interval == 5,
+                    "a profile does not start the wallpaper slideshow");
+            rejects("return {shell={wallpaper_cycle=30}}");
+            rejects("return {shell={wallpaper_cycle=true}}");
+            rejects("return {shell={wallpaper_cycle={interval=-1}}}");
+            rejects("return {shell={wallpaper_cycle={interval=1441}}}");
+            rejects("return {shell={wallpaper_cycle={interval=2.5}}}");
+            rejects("return {shell={wallpaper_cycle={order='random'}}}");
+            rejects("return {shell={wallpaper_cycle={folder=3}}}");
+            rejects("return {shell={wallpaper_cycle={seconds=30}}}");
+        }
+        // Each monitor's own wallpaper, by the monitor's name, and the slideshow giving each one
+        // a picture of its own.
+        {
+            require(even.shell.monitor_wallpapers.empty() && !even.shell.wallpaper_cycle.per_monitor,
+                    "monitors have wallpapers of their own by default");
+            auto own = paw::parse_config(
+                "return {shell={monitor_wallpapers={['DP-1']='left.jpg',HDMI_1=''},"
+                "wallpaper_cycle={per_monitor=true}}}");
+            require(own.shell.monitor_wallpapers ==
+                            std::map<std::string, std::string>{{"DP-1", "left.jpg"}, {"HDMI_1", ""}} &&
+                        own.shell.wallpaper_cycle.per_monitor,
+                    "shell.monitor_wallpapers or wallpaper_cycle.per_monitor not parsed");
+            require(paw::parse_config("return {shell={monitor_wallpapers={['DP-1']='a.jpg'}},"
+                                      "profiles={b={shell={monitor_wallpapers={['DP-1']='b.jpg'}}}}}",
+                                      "config", {}, "b")
+                            .shell.monitor_wallpapers.at("DP-1") == "b.jpg",
+                    "a profile's monitor wallpaper is not laid over the file's");
+            rejects("return {shell={monitor_wallpapers={'left.jpg'}}}");
+            rejects("return {shell={monitor_wallpapers={['DP-1']=true}}}");
+            rejects("return {shell={monitor_wallpapers='left.jpg'}}");
+            rejects("return {shell={monitor_wallpapers={['']='left.jpg'}}}");
+            rejects("return {shell={monitor_wallpapers={['DP\\t1']='left.jpg'}}}");
+            rejects("return {shell={wallpaper_cycle={per_monitor='yes'}}}");
+        }
         // The bar shown while a monitor tiles: on by default, along the top, floating away from
         // the monitor's edges but not towards the windows; false keeps the taskbar.
         {
@@ -1413,6 +1466,61 @@ int main(int argc, char **argv) {
         rejects("return {bindings={{key='a', app_id='x', action='close'}}}");
         rejects("return {bindings={{key='a', desktop=true, action='close'}}}");
         rejects("return {bindings={{button='side', app_id='(', action='close'}}}");
+        // The cursor trail: off by default; a kind, an amount and colours as given; without
+        // colours, the focused border's and the accent, a light blue or a sakura pink beside
+        // them when none of them is one, and close ones taken once.
+        auto rgb = [](const sh_settings &settings, int i) {
+            const float *c = settings.cursor_trail_colors[i];
+            return std::lround(c[0] * 255) << 16 | std::lround(c[1] * 255) << 8 |
+                   std::lround(c[2] * 255);
+        };
+        auto unset = paw::parse_config("return {}").settings;
+        require(unset.cursor_trail == SH_TRAIL_NONE && unset.cursor_trail_amount == 1 &&
+                    unset.cursor_trail_tints == 2 && rgb(unset, 0) == 0x7da8ff &&
+                    rgb(unset, 1) == 0xf2a0be,
+                "the cursor trail's defaults: none, in the border's blue and sakura pink");
+        auto trail = paw::parse_config(
+                         "return {appearance={cursor_trail={kind='hearts', amount=2,"
+                         "colors={'#ff0000', '#00ff00', '#0000ff'}}}}")
+                         .settings;
+        require(trail.cursor_trail == SH_TRAIL_HEARTS && trail.cursor_trail_amount == 2 &&
+                    trail.cursor_trail_tints == 3 && rgb(trail, 0) == 0xff0000 &&
+                    rgb(trail, 2) == 0x0000ff,
+                "the cursor trail as given");
+        auto washi = paw::parse_config(
+                         "return {windows={border_color={'#8fc1ec', '#f2a0be'}},"
+                         "shell={accent='#5e9edb'}}")
+                         .settings;
+        require(washi.cursor_trail_tints == 3 && rgb(washi, 0) == 0x8fc1ec &&
+                    rgb(washi, 1) == 0xf2a0be && rgb(washi, 2) == 0x5e9edb,
+                "the trail in washi's colours");
+        auto pink = paw::parse_config(
+                        "return {windows={border_color='#f5c2e7'}, shell={accent='#f4c0e5'}}")
+                        .settings;
+        require(pink.cursor_trail_tints == 2 && rgb(pink, 0) == 0xf5c2e7 &&
+                    rgb(pink, 1) == 0x8fc1ec,
+                "a pink border and a close accent get light blue beside them");
+        auto profiled = paw::parse_config(
+            "return {profile='cute', profiles={cute={appearance={cursor_trail={kind='petals'}}}}}");
+        require(profiled.settings.cursor_trail == SH_TRAIL_PETALS, "a profile's cursor trail");
+        rejects("return {appearance={cursor_trail={kind='glitter'}}}",
+                "appearance.cursor_trail.kind must be");
+        rejects("return {appearance={cursor_trail={amount=9}}}", "amount");
+        rejects("return {appearance={cursor_trail={colors={}}}}",
+                "appearance.cursor_trail.colors must be a list of 1 to 6");
+        rejects("return {appearance={cursor_trail={colors={'pink'}}}}",
+                "appearance.cursor_trail.colors must be a list of 1 to 6");
+        rejects("return {appearance={cursor_trail={colors={'#000000','#000000','#000000',"
+                "'#000000','#000000','#000000','#000000'}}}}",
+                "appearance.cursor_trail.colors must be a list of 1 to 6");
+        auto binding = paw::parse_config(
+            "return {bindings={{key='t', action='cursor_trail', mode='petals'},"
+            "{key='u', action='cursor_trail'}}}");
+        require(binding.binding(0, XKB_KEY_t)->mode == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_PETALS} &&
+                    binding.binding(0, XKB_KEY_u)->mode == SH_CURSOR_TRAIL_TOGGLE,
+                "cursor_trail bindings' modes");
+        rejects("return {bindings={{key='t', action='cursor_trail', mode='glitter'}}}",
+                "cursor_trail takes");
         std::cout << "Configuration validation and bindings passed\n";
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';

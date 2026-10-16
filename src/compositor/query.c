@@ -1062,6 +1062,7 @@ static const struct {
     {"rice_trial", describe_rice_trial, false},
     {"cat", describe_cat, false},
     {"ambient", describe_ambient, true},
+    {"cursor_trail", describe_cursor_trail, true},
     {"wrapped", describe_wrapped, false},
     {"xray", describe_xray, false},
     {"heatmap", describe_heatmap, true},

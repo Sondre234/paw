@@ -19,8 +19,9 @@ namespace paw {
 struct LockStyleContext {
     // The configuration file, beside which a relative shell.wallpaper lies.
     std::filesystem::path config_path;
-    // $XDG_STATE_HOME/paw/wallpapers as the shell saves it: a line per profile with its name,
-    // the wallpaper it configured and the one picked from the panel, by tabs.
+    // $XDG_STATE_HOME/paw/wallpapers as the shell saves it: a line per pick with the profile's
+    // name, the wallpaper it configured and the one picked from the panel, by tabs, and for a
+    // monitor alone the monitor's name after another tab.
     std::string picked_wallpapers;
     // swaylock reads a configuration file of its own, whose look wins.
     bool swaylock_config = false;
@@ -32,15 +33,19 @@ struct LockStyleContext {
 // power.lock_command's default, { "swaylock", "-f" }.
 const Command &stock_lock_command();
 
-// The wallpaper the shell shows for the profile in use (`config.profile`): the one picked for it
-// from the panel while the profile still configures the wallpaper it did then, else
-// shell.wallpaper, relative to the configuration's folder; empty for none.
+// The wallpaper the shell shows for the profile in use (`config.profile`) on monitor `output`, or
+// on the monitors without one of their own for "": the one picked for that monitor alone, else
+// the one picked for every monitor, each while the profile still configures for that monitor the
+// wallpaper it did then, else its shell.monitor_wallpapers entry, else shell.wallpaper, relative
+// to the configuration's folder; empty for none.
 std::filesystem::path lock_wallpaper(const Config &config, const std::filesystem::path &config_path,
-                                     std::string_view picked_wallpapers);
+                                     std::string_view picked_wallpapers,
+                                     const std::string &output = "");
 
 // The arguments that give swaylock (1.4 and later) the profile's look: the wallpaper filling
-// each output over appearance.background, and the indicator, shown while idle too, in the
-// shell's panel, accent, text and urgent colours with its font.
+// each output over appearance.background (`--image :PATH`, and `--image OUTPUT:PATH` for each
+// monitor with one of its own), and the indicator, shown while idle too, in the shell's panel,
+// accent, text and urgent colours with its font.
 Command lock_style_arguments(const Config &config, const LockStyleContext &context);
 
 // The screen locker as `lock` starts it: power.lock_command, followed by lock_style_arguments

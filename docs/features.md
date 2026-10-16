@@ -416,6 +416,47 @@ shell = {
 }
 ```
 
+### A wallpaper for each monitor
+
+Each monitor can have a wallpaper of its own: `shell.monitor_wallpapers` names one for a monitor
+by its name (as `paw msg get outputs` lists it), over `shell.wallpaper`, which the others show.
+With two monitors or more, the wallpaper picker's header offers All monitors and This monitor
+only: a picture picked with the second shows on the picker's monitor alone, and one picked with
+the first shows on every monitor again, the configured ones too. The picker opens on This monitor
+only on a monitor with one of its own, and offers the choice there with one monitor too, to go
+back. Each monitor's desktop draws its own, and so do the frosted glass, the workspace cards and
+Launchpad on it, and the lock screen. A pick for one monitor is kept as any pick is, for the
+appearance profile in use and until the configuration gives that monitor another wallpaper.
+
+```lua
+shell = {
+    wallpaper = "sky.jpg",
+    monitor_wallpapers = { ["DP-1"] = "left.jpg", ["HDMI-A-1"] = "right.jpg" },
+}
+```
+
+### Wallpaper slideshow
+
+An experimental slideshow, off by default: with `shell.wallpaper_cycle = { interval = 30 }` the
+pictures of a folder take turns as the wallpaper, a new one every 30 minutes (1 to 1440), each
+fading in as a picked one does. The folder is `folder` (absolute, `~/...` or relative to the
+configuration, not its subfolders), else the folder of `shell.wallpaper`, so that mochi goes
+through its seven skies, else the wallpaper picker's. `order = "shuffle"`, the default, shows
+every picture once in a random order before any comes again; `"name"` goes through them by name.
+Each picture is kept as one picked from the panel is, for the appearance profile in use, so it
+stays after a restart and the lock screen shows it. The time waits while the session is locked,
+and starts over at each step. The `wallpaper_next` and `wallpaper_prev` actions (`paw msg
+wallpaper_next`, or "Next wallpaper" and "Previous wallpaper" in the command palette) step at
+once, also with `interval = 0`, stepping back through what was shown. With `per_monitor = true`
+each monitor shows a picture of its own, the next after the one on the monitor to its left, kept
+for that monitor alone; shuffled, no two show the same picture while the folder has enough.
+
+```lua
+shell = {
+    wallpaper_cycle = { interval = 30, order = "shuffle", per_monitor = true },
+}
+```
+
 ### Quick Settings
 
 Left of the clock, as on Windows 11, the Quick Settings button shows the volume and the battery in
@@ -1322,10 +1363,20 @@ missing, and save the current arrangement under the name typed), and [files](#fi
 [calculator](#calculator) and a [web search](#web-search). Type to narrow the list; each
 word must match, in any order, as letters in sequence of the title or its small print, favouring
 runs of letters and word starts (`gc` finds Google Chrome, `lay mon` finds Layout: monocle).
-Up and Down, Tab and Shift + Tab, Ctrl + N and Ctrl + P, or the pointer select; Enter or a click
-runs the entry; Escape, or clicking elsewhere, closes it. A leading `>` searches only actions, `@`
-windows, `#` workspaces and `%` sessions, `/` [files](#files) and `=` asks the
-[calculator](#calculator); when nothing matches, the palette says so and lists these. A window
+Before anything is typed it lists a few of each kind, in this order: every open window (those
+asking for attention first), each saved session to restore, up to eight applications (those
+launched lately, then those pinned to the [start menu](#start-menu), then by name), each
+workspace to switch to, the appearance profiles, the common actions (Open a terminal,
+Applications menu, Overview of windows, Toggle tiling, Next tiling layout, Toggle floating,
+Toggle fullscreen, Close window, Pick a colour from the screen, Keep awake, Keyboard shortcuts,
+Display settings, Reload configuration) and last the power actions, so that more actions never
+push the applications or the power actions out; the rest are a word away.
+Up and Down, Tab and Shift + Tab, Ctrl + N and Ctrl + P, or the pointer select (Up from the first
+entry wraps to the last); Enter or a click runs the entry; Escape, or clicking elsewhere, closes
+it. A leading `>` searches only actions, `@` windows, `#` workspaces and `%` sessions, and one
+alone lists every action (the power actions last), window, workspace or session; `/` searches
+[files](#files) and `=` asks the [calculator](#calculator); when nothing matches, the palette
+says so and lists these. A search lists its best 60 results. A window
 selected among the results peeks after half a second, as in the [switcher](#window-switcher):
 the others fade while it shows alone where it is, a minimized one where it was. Moving the
 selection to another window moves the peek at once; leaving the windows, or Escape, fades the
@@ -2165,6 +2216,47 @@ particles, and `shown`, `fading`, or why none show (`off`, `locked`, `away` whil
 on the screen, `display_off`, `fullscreen`, `dimmed`, `idle`). `paw msg get ambient OUTPUT`
 lists that monitor's particles as they are drawn: their box in layout coordinates, their opacity
 in thousandths, the picture and its transform.
+
+**Cursor trail** (experimental). `appearance.cursor_trail = { kind = "sparkles" }` has little
+four-pointed sparkles and specks of glitter fall off the pointer as it moves, twinkling as they
+drift down a little and fade within a second; `"petals"` drops tiny sakura petals that tumble and
+sway as they fall, and `"hearts"` hearts that pop out and float up. The faster the pointer moves,
+the more fall (none while it rests), and `amount` says how many (2 twice as many, 0.5 half, up to
+4). The sparkles and hearts come in `colors`, a list of up to six `#RRGGBB`; unless given, the
+focused border's colours (each of a gradient's) and `shell.accent`, with a light blue or a sakura
+pink beside them when none of them is one, so washi's trail is its light blue and pink. The petals
+are the [ambient](#effects) petals' pinks. An [appearance profile](#appearance-profiles) can set it
+(a [rice](#paw-rice) takes it along). The trail is drawn over the windows and the panels but under
+the cursor, and takes no input.
+
+The `cursor_trail` action switches it without touching the configuration: `paw msg cursor_trail
+sparkles` (or `petals`, `hearts`, `off`), `cursor_trail next` goes through the kinds in turn and
+then none, and `cursor_trail` alone (`toggle`) turns it off, or back on as it was last (sparkles
+the first time); bound to a key, `mode` takes the same words. The command palette offers it as
+"Cursor trail: ...". What the action chose stands until a reload changes
+`appearance.cursor_trail.kind`.
+
+Nothing of it runs while the pointer rests: a timer steps the particles every 16 milliseconds
+only while some are left. None fall, and those there go at once, while the session is locked,
+while the cursor is hidden (typing with `mouse.hide_when_typing`, resting with `mouse.hide_after`),
+over a monitor showing a fullscreen window (a game or a video), while the colour picker picks
+(its loupe shows the pixels around the pointer), and while a screenshot is taken with the
+`screenshot` action or `paw msg cursor hide`, so the picture leaves it out as it leaves the cursor
+out. A screen recording or screen sharing shows it, as it shows the windows.
+
+```lua
+appearance = { cursor_trail = { kind = "sparkles", amount = 1 } },
+-- appearance = { cursor_trail = { kind = "hearts", colors = { "#f2a0be", "#8fc1ec" } } },
+bindings = {
+    { mods = { "Super", "Ctrl" }, key = "s", action = "cursor_trail", mode = "next" },
+},
+```
+
+`paw msg get cursor_trail` prints the kind, how many particles there are, and `shown`, `still`
+(none, the pointer resting), `off`, or why none fall (`locked`, `away` while another VT is on the
+screen, `screenshot`, `hidden`, `picking`, `fullscreen`). `paw msg get cursor_trail particles`
+lists them as they are drawn: their box in layout coordinates, their opacity in thousandths, the
+picture and its transform.
 
 ## Monitors
 
@@ -3960,7 +4052,8 @@ screen locks, paw adds to `swaylock -f`:
 
 - the profile's wallpaper, the one picked from the panel or else `shell.wallpaper`, filling every
   monitor over `appearance.background`, which shows alone when there is no wallpaper or its file
-  is gone;
+  is gone, and on a monitor with a wallpaper of its own (`shell.monitor_wallpapers`, or picked for
+  it alone) that one;
 - the ring, shown while idle too, in the shell's colours: the panel's inside it (no more
   see-through than the frosted glass's 75 %), the accent around it, the text colour for its
   words, a key press lighting a piece of it in the border's colour (of a gradient, the stop that

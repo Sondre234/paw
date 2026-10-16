@@ -65,6 +65,18 @@ shadows.
   before), `"fit"`, `"stretch"`, or at its own size `"center"` and `"tile"`, with the background
   colour around a picture that leaves room. A profile can set it; a new mode fades in as a new
   wallpaper does, and the frosted glass, the workspace cards and Launchpad follow it.
+- An experimental wallpaper slideshow, off by default: `shell.wallpaper_cycle = { interval = 30 }`
+  has the pictures of a folder (`folder`, else the wallpaper's own, so mochi goes through its
+  seven skies) take turns every 30 minutes, shuffled so that each shows once before any comes
+  again, or by name with `order = "name"`. Each fades in and is kept as a picked one is, so the
+  lock screen shows it too, and the time waits while the session is locked. The
+  `wallpaper_next` and `wallpaper_prev` actions (`paw msg wallpaper_next`, the command palette)
+  step at once, also without an interval. With `per_monitor = true` each monitor shows a picture
+  of its own.
+- Each monitor can have a wallpaper of its own: `shell.monitor_wallpapers` names one by the
+  monitor's name, and with two monitors the wallpaper picker offers All monitors and This monitor
+  only. The monitor's desktop, frosted glass, workspace cards, Launchpad and lock screen show its
+  own.
 - `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu
   bar and dock, and the popups, menus, cards, tooltips and overlays show the wallpaper behind them
   blurred under their colour, the popups as translucent as the bar but at least 75 % opaque so
@@ -619,6 +631,17 @@ shadows.
   the session is locked, a monitor is off or shows a fullscreen window and the screens are dimmed,
   and fade out after five minutes without input; `paw msg get ambient` says what each monitor
   draws.
+- A cursor trail (experimental, off unless set): `appearance.cursor_trail = { kind = "sparkles" }`
+  has little four-pointed sparkles and specks of glitter fall off the pointer as it moves,
+  twinkle and fade within a second; `"petals"` drops tiny sakura petals that tumble down and
+  `"hearts"` hearts that pop out and float up. The faster the pointer moves the more fall, none
+  while it rests, and `amount` says how many. Sparkles and hearts come in `colors`, by default the
+  focused border's colours and the accent with a light blue or a sakura pink beside them, so
+  washi's trail is light blue and pink and mochi's mauve and pink. It is drawn over the windows
+  and the panels, under the cursor, and stays out of screenshots, the colour picker, the lock
+  and fullscreen windows. A profile can set it (washi, sumi and mochi suggest one each in a comment), and the
+  `cursor_trail` action (`paw msg cursor_trail sparkles|petals|hearts|off|next|toggle`, and the
+  command palette) switches it; `paw msg get cursor_trail` says what it draws.
 
 ### Starting and ending a session
 
@@ -990,6 +1013,18 @@ off and to find out what is wrong with it, and toys the compositor plays with th
 - The shell no longer loses some 2.7 KB of memory each time a shadow drawn through the GPU goes,
   as the floating bar's does while a window docks it: Qt's shadow never frees the shader effect
   it draws with, which the shell now hands to the shadow to go with it.
+- The command palette (Spotlight) with nothing typed shows the applications and the power actions
+  again, which the many new actions had pushed out of the first 60 entries it listed. It lists a
+  few of each kind now: every open window, each saved session, up to eight applications (those
+  launched lately, then those pinned to the start menu, then by name), each workspace, the
+  appearance profiles, a dozen common actions and last the power actions. A lone `>`, `@`, `#` or
+  `%` lists every action, window, workspace or session.
+- The sheet of keyboard shortcuts lists `ambient` under Toys, titled by its mode, and `pick_color`
+  under Screen, where they were under Other; a test now fails for an action without a group.
+- In the moment after a window opens or closes while the x-ray view is open, a click on a sheet
+  goes to the window on that sheet, and `paw msg get xray` puts everything on the sheet drawn for
+  it: both went by the sheets the view was about to show, so a click could go to the window just
+  opening, and the window kept above could be listed on no sheet.
 - A busy machine no longer costs you your configuration: the 3 seconds a configuration has to
   load in are now of processor time rather than on the clock, so a parallel build, memory
   pressure or a login starting everything at once cannot push a file that loads in a tenth of a
