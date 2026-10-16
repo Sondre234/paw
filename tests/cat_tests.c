@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* The desktop cat's behaviour: what it stands on, gravity and landing, the startled fall as its
  * window moves away, jumps to the focused window, sleep, chasing the pointer, pawing at an urgent
- * window, and how seldom it needs stepping while it sits or sleeps. */
+ * window, purring as it is stroked, and how seldom it needs stepping while it sits or sleeps. */
 #include "paw/cat.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "check.h"
 
@@ -362,6 +363,179 @@ static void test_chases_the_pointer(void) {
         CHECK(!sh_cat_pointer(&cat, 900 + 25 * i, 380, now + 8 * i));
 }
 
+/* Strokes the cat for `ms` milliseconds: the pointer coming in from the left, then going back and
+ * forth `span` pixels across it at height `y`, each way taking `sweep_ms`, a motion every 16 ms,
+ * the cat stepped after each. True when a motion said to step it at once. */
+static bool stroke(struct sh_cat *cat, struct scene *scene, int64_t *now, int64_t ms, int sweep_ms,
+                   double span, double y) {
+    double middle = cat->x;
+    bool stepped = sh_cat_pointer(cat, middle - span / 2 - 120, y, *now - 400);
+    stepped |= sh_cat_pointer(cat, middle - span / 2 - 60, y, *now - 200);
+    for (int64_t t = 0; t < ms; t += 16) {
+        double phase = fmod((double)t / sweep_ms, 2.0), along = phase < 1 ? phase : 2 - phase;
+        stepped |= sh_cat_pointer(cat, middle - span / 2 + span * along, y, *now + t);
+        sh_cat_step(cat, &scene->world, *now + t);
+    }
+    *now += ms;
+    sh_cat_step(cat, &scene->world, *now);
+    return stepped;
+}
+
+static void test_purrs_when_stroked(void) {
+    struct scene scene;
+    monitors(&scene, 1);
+    add(&scene, 1, 600, 400, 700, 500);
+    scene.focused = 1;
+    build(&scene);
+    int64_t now = 0;
+    struct sh_cat cat = settled(&scene, 900, &now);
+    double middle = cat.y - H / 2.0;
+    CHECK(sh_cat_under(&cat, cat.x, middle) && sh_cat_under(&cat, cat.x + W / 2 + 5, middle));
+    CHECK(!sh_cat_under(&cat, cat.x, cat.y + 30) && !sh_cat_under(&cat, cat.x + W, middle));
+    // Passing over it once is no stroke, nor is going back and forth beside it.
+    for (int i = 0; i < 30; ++i)
+        CHECK(!sh_cat_pointer(&cat, 840 + 4 * i, middle, now + 16 * i));
+    now += 1000;
+    CHECK(!stroke(&cat, &scene, &now, 1200, 250, 30, cat.y + 60) && cat.state != SH_CAT_PURR);
+    // Nor is going back and forth over it slowly, turning back less often than three times in a
+    // second and a half.
+    now += 2000;
+    CHECK(!stroke(&cat, &scene, &now, 4000, 800, 30, middle) && cat.state != SH_CAT_PURR,
+          "%s", sh_cat_state_name(cat.state));
+    run_until(&cat, &scene, &now, SH_CAT_SIT, 10000);
+
+    // Stroked, it purrs: eyes shut, breathing, hearts floating up over its ears.
+    now += 2000;
+    CHECK(stroke(&cat, &scene, &now, 1000, 250, 30, middle), "it notices");
+    CHECK(cat.state == SH_CAT_PURR && !cat.dozing && !sh_cat_asleep(&cat),
+          "%s", sh_cat_state_name(cat.state));
+    CHECK(!strcmp(sh_cat_state_name(cat.state), "purr"));
+    int64_t began = cat.since;
+    bool breathed[2] = {false, false};
+    int most = 0;
+    for (int64_t t = now; t < now + 1500; t += 40) {
+        struct sh_cat_pose pose;
+        sh_cat_pose(&cat, t, &pose);
+        breathed[0] |= pose.frame == SH_CAT_FRAME_PURR_1;
+        breathed[1] |= pose.frame == SH_CAT_FRAME_PURR_2;
+        CHECK(pose.frame == SH_CAT_FRAME_PURR_1 || pose.frame == SH_CAT_FRAME_PURR_2);
+        CHECK(!pose.z && pose.hearts >= 1 && pose.hearts <= SH_CAT_HEARTS, "%d", pose.hearts);
+        most = pose.hearts > most ? pose.hearts : most;
+        for (int i = 0; i < pose.hearts; ++i)
+            CHECK(pose.heart[i].y >= 14 && pose.heart[i].y <= 14 + 9 &&
+                      pose.heart[i].alpha >= 0 && pose.heart[i].alpha <= 1 &&
+                      abs(pose.heart[i].x) <= 6,
+                  "%d, %d at %g", pose.heart[i].x, pose.heart[i].y, pose.heart[i].alpha);
+    }
+    CHECK(breathed[0] && breathed[1] && most >= 2);
+    // A heart rises and fades as it goes.
+    struct sh_cat_pose early, late;
+    sh_cat_pose(&cat, began + 300, &early);
+    sh_cat_pose(&cat, began + 1400, &late);
+    CHECK(late.heart[late.hearts - 1].y > early.heart[0].y &&
+              late.heart[late.hearts - 1].alpha < early.heart[0].alpha,
+          "%d %g, %d %g", early.heart[0].y, early.heart[0].alpha, late.heart[late.hearts - 1].y,
+          late.heart[late.hearts - 1].alpha);
+    // It purrs on while stroked, stepped often for its hearts, and two seconds after.
+    stroke(&cat, &scene, &now, 2000, 250, 30, middle);
+    CHECK(cat.state == SH_CAT_PURR && cat.since == began);
+    CHECK(sh_cat_step(&cat, &scene.world, now) <= 40);
+    run(&cat, &scene, &now, 1800);
+    CHECK(cat.state == SH_CAT_PURR);
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_SIT, 400), "%s", sh_cat_state_name(cat.state));
+    struct sh_cat_pose pose;
+    sh_cat_pose(&cat, now, &pose);
+    CHECK(pose.hearts == 0);
+
+    // A flick over it is still a flick: it chases the pointer.
+    now += 1000;
+    bool chasing = false;
+    for (int i = 0; i < 12; ++i)
+        chasing |= sh_cat_pointer(&cat, cat.x + (i % 2 ? 150 : -150), middle, now + 8 * i);
+    CHECK(chasing && cat.state == SH_CAT_CHASE, "%s", sh_cat_state_name(cat.state));
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_LOOK, 5000) || cat.grounded);
+
+    // Up in the air, it is not stroked.
+    struct sh_cat falling;
+    sh_cat_init(&falling, W, H, &scene.areas[0], 900, 7, now);
+    CHECK(!sh_cat_under(&falling, falling.x, falling.y - H / 2.0));
+}
+
+static void test_purrs_in_its_sleep(void) {
+    struct scene scene;
+    monitors(&scene, 1);
+    add(&scene, 1, 600, 400, 700, 500);
+    scene.focused = 1;
+    build(&scene);
+    int64_t now = 0;
+    struct sh_cat cat = settled(&scene, 900, &now);
+    scene.idle = true;
+    build(&scene);
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_SLEEP, 5000));
+    // Stroked, it purrs in its sleep: curled up as it was, hearts for its "z".
+    double middle = cat.y - H / 2.0;
+    CHECK(stroke(&cat, &scene, &now, 1000, 250, 30, middle));
+    CHECK(cat.state == SH_CAT_PURR && cat.dozing && sh_cat_asleep(&cat));
+    struct sh_cat_pose pose;
+    sh_cat_pose(&cat, now + 200, &pose);
+    CHECK(pose.frame == SH_CAT_FRAME_SLEEP_1 || pose.frame == SH_CAT_FRAME_SLEEP_2);
+    CHECK(!pose.z && pose.hearts >= 1, "%d", pose.hearts);
+    // Stroked on, a sleeping cat does not swat; left be, it sleeps on.
+    stroke(&cat, &scene, &now, 9000, 250, 30, middle);
+    CHECK(cat.state == SH_CAT_PURR && cat.dozing, "%s", sh_cat_state_name(cat.state));
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_SLEEP, 2500), "%s", sh_cat_state_name(cat.state));
+    sh_cat_pose(&cat, now + 10, &pose);
+    CHECK(pose.z && pose.hearts == 0);
+    // Input wakes it from its purring sleep, and so does the world no longer idle.
+    stroke(&cat, &scene, &now, 1000, 250, 30, middle);
+    CHECK(cat.state == SH_CAT_PURR && sh_cat_wake(&cat, now) && cat.state == SH_CAT_WAKE);
+    CHECK(!cat.dozing);
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_SLEEP, 6000));
+    stroke(&cat, &scene, &now, 1000, 250, 30, middle);
+    CHECK(cat.state == SH_CAT_PURR && cat.dozing);
+    scene.idle = false;
+    build(&scene);
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_WAKE, 100));
+    // Yawning its way to sleep, it purrs itself to sleep.
+    scene.idle = true;
+    build(&scene);
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_YAWN, 3000) && cat.drowsy);
+    stroke(&cat, &scene, &now, 900, 250, 30, middle);
+    CHECK(cat.state == SH_CAT_PURR && cat.dozing, "%s", sh_cat_state_name(cat.state));
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_SLEEP, 2500));
+}
+
+static void test_swats_when_stroked_too_long(void) {
+    struct scene scene;
+    monitors(&scene, 1);
+    add(&scene, 1, 600, 400, 700, 500);
+    scene.focused = 1;
+    build(&scene);
+    int64_t now = 0;
+    struct sh_cat cat = settled(&scene, 900, &now);
+    double middle = cat.y - H / 2.0, x = cat.x;
+    // Eight seconds of it are enough: a swat at the pointer, then it walks off the other way.
+    stroke(&cat, &scene, &now, 7000, 250, 30, middle);
+    CHECK(cat.state == SH_CAT_PURR);
+    bool swatted = false;
+    for (int i = 0; i < 200 && !swatted; ++i) {
+        swatted = sh_cat_pointer(&cat, x + 12 + (i % 2) * 6, middle, now);
+        now += 16;
+        sh_cat_step(&cat, &scene.world, now);
+    }
+    CHECK(swatted && cat.state == SH_CAT_SWAT && cat.facing == 1, "%s",
+          sh_cat_state_name(cat.state));
+    struct sh_cat_pose pose;
+    sh_cat_pose(&cat, now, &pose);
+    CHECK(pose.frame == SH_CAT_FRAME_PAW_1 || pose.frame == SH_CAT_FRAME_PAW_2);
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_WALK, 1000), "%s", sh_cat_state_name(cat.state));
+    CHECK(cat.facing == -1 && cat.target_x < x - W, "to %g from %g", cat.target_x, x);
+    // For a while after, strokes leave it cold.
+    CHECK(run_until(&cat, &scene, &now, SH_CAT_SIT, 5000));
+    CHECK(!stroke(&cat, &scene, &now, 1000, 250, 30, cat.y - H / 2.0));
+    CHECK(cat.state != SH_CAT_PURR);
+}
+
 static void test_paws_at_an_urgent_window(void) {
     struct scene scene;
     monitors(&scene, 1);
@@ -501,6 +675,8 @@ static void test_stays_on_its_monitor(void) {
 static void test_names(void) {
     CHECK(!strcmp(sh_cat_state_name(SH_CAT_SLEEP), "sleep"));
     CHECK(!strcmp(sh_cat_state_name(SH_CAT_KNOCK), "knock"));
+    CHECK(!strcmp(sh_cat_state_name(SH_CAT_PURR), "purr"));
+    CHECK(!strcmp(sh_cat_state_name(SH_CAT_SWAT), "swat"));
     CHECK(!strcmp(sh_cat_state_name(SH_CAT_STATES), "sit"));
 }
 
@@ -514,6 +690,9 @@ int main(void) {
     test_sleeps_while_idle();
     test_sits_seldom_stepped();
     test_chases_the_pointer();
+    test_purrs_when_stroked();
+    test_purrs_in_its_sleep();
+    test_swats_when_stroked_too_long();
     test_paws_at_an_urgent_window();
     test_follows_the_focused_monitor();
     test_arrives();

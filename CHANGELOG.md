@@ -697,6 +697,13 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   lock, draws frames only while it moves, and wears a black coat on light profiles and a cream one
   on dark ones. The `cat` action (`paw cat [on|off|toggle]`), `cat.enabled`, `cat.coat`,
   `cat.scale` and `cat.sleep_after`, and `paw msg get cat`.
+- The desktop cat can be petted: stroke it with the pointer, slowly back and forth over its back,
+  and it purrs with its eyes shut in happy arcs and pink cheeks, breathing, while small pink pixel
+  hearts float up from it and fade, until two seconds after you stop. A sleeping cat purrs in its
+  sleep instead of waking, and sleeps on after; other input still wakes it, now a second later.
+  Petted for eight seconds on end, it swats at the pointer and walks off, and wants no more of it
+  for a few seconds. `paw msg get cat` says `purr` (and `swat`), `paw cat` that it purrs, and
+  `paw wrapped` how many times you petted it.
 - `paw wrapped` tells you about your time at the desktop as Spotify Wrapped does about a year of
   music, in bold, coloured cards: how far the mouse travelled ("about 39 football pitches"),
   clicks, scrolling, key presses against a novel, windows opened, dragged and snapped, workspace
