@@ -200,6 +200,8 @@ void manifests_are_checked() {
     CHECK(!paw::rice_path_valid("a/b/c/d/e"), "at most four parts");
     CHECK(paw::rice_setting_allowed({"windows", "shadow", "offset"}));
     CHECK(paw::rice_setting_allowed({"windows", "blur", "saturation"}), "a rice brings its blur");
+    CHECK(paw::rice_setting_allowed({"appearance", "ambient", "kind"}),
+          "a rice brings its ambient particles");
     CHECK(!paw::rice_setting_allowed({"windows", "rules"}));
 }
 
