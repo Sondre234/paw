@@ -773,6 +773,15 @@ struct sh_server {
     bool keymap_from_file; // keyboard.file, rather than the names
     xkb_layout_index_t keyboard_layout;
     bool syncing_keyboards;
+    /* A key binding with `release` (key_release.c) waiting for the key with evdev code
+     * `keycode` on `keyboard` (NULL for none) to come up: its keysym and the modifiers held as
+     * it went down, and whether it is a modifier key's, which only a tap runs. */
+    struct {
+        struct sh_keyboard *keyboard;
+        uint32_t keycode, modifiers;
+        xkb_keysym_t sym;
+        bool tap;
+    } key_release;
     /* The devices tests plug in with "headless_keyboard add" and the like (headless_input.c). */
     struct wl_list headless_devices;
     /* Switch devices (switches.c), and whether any says the lid is closed. */
@@ -1465,6 +1474,7 @@ void idle_finish(struct sh_server *server);
 
 /* input.c */
 bool input_activity(struct sh_server *server, bool wakes);
+bool keysym_is_modifier(xkb_keysym_t sym);
 void configure_pointer(struct sh_server *server, struct wlr_input_device *device);
 void server_new_input(struct wl_listener *listener, void *data);
 void server_new_virtual_keyboard(struct wl_listener *listener, void *data);
@@ -1475,6 +1485,13 @@ void seat_request_start_drag(struct wl_listener *listener, void *data);
 void seat_start_drag(struct wl_listener *listener, void *data);
 void server_new_constraint(struct wl_listener *listener, void *data);
 void seat_keyboard_focus_change(struct wl_listener *listener, void *data);
+
+/* key_release.c */
+bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t modifiers,
+                       bool woke);
+void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode);
+void key_release_cancel(struct sh_server *server);
+void key_release_forget(struct sh_keyboard *keyboard);
 
 /* input_method.c */
 bool input_method_key(struct sh_keyboard *keyboard, const struct wlr_keyboard_key_event *event);

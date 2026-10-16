@@ -459,6 +459,11 @@ struct Runtime {
         auto &self = *static_cast<Runtime *>(data);
         return self.take(self.config.mode_binding(self.mode, modifiers, keysym), argument);
     }
+    static sh_action key_released(void *data, uint32_t modifiers, uint32_t keysym,
+                                  int *argument) {
+        auto &self = *static_cast<Runtime *>(data);
+        return self.take(self.config.mode_binding(self.mode, modifiers, keysym, true), argument);
+    }
     static unsigned binding_flags(void *data) { return static_cast<Runtime *>(data)->flags; }
     static const char *set_mode(void *data, int mode) {
         auto &self = *static_cast<Runtime *>(data);
@@ -1221,7 +1226,8 @@ int main(int argc, char **argv) {
                                      "existing graphical session");
         follow_desktop_cursor();
         const sh_callbacks callbacks{
-            &runtime,           Runtime::settings, Runtime::key,          Runtime::button,
+            &runtime,           Runtime::settings, Runtime::key,          Runtime::key_released,
+            Runtime::button,
             Runtime::command,   Runtime::reload,   Runtime::startup,      Runtime::child_exited,
             Runtime::opacity,   Runtime::screenshot, Runtime::window_rule,
             Runtime::hot_corner, Runtime::action_target, Runtime::config_watch,

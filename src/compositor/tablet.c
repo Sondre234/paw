@@ -230,6 +230,7 @@ static void tool_tip(struct wl_listener *listener, void *data) {
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
     struct wlr_tablet_v2_tablet_tool *tool_v2 = tool->tool_v2;
     if (event->state == WLR_TABLET_TOOL_TIP_DOWN) {
+        key_release_cancel(server);
         tool_moved(server, tablet, tool, event->time_msec, event->x, event->y);
         if (!tool->pointer && tool_v2->focused_surface) {
             tool_focus(server);

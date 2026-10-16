@@ -292,6 +292,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/idle.c
         src/compositor/input.c
         src/compositor/input_method.c
+        src/compositor/key_release.c
         src/compositor/keymap.c
         src/compositor/layer_shell.c
         src/compositor/lift.c

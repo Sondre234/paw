@@ -641,6 +641,9 @@ struct sh_callbacks {
     const struct sh_settings *(*settings)(void *);
     /* Returns the bound action; *argument receives its numeric argument, if any. */
     enum sh_action (*key)(void *, uint32_t modifiers, uint32_t keysym, int *argument);
+    /* The same for the binding with `release` that runs as the key comes up, `modifiers` being
+     * those held as it went down; binding_flags then gives its flags. */
+    enum sh_action (*key_released)(void *, uint32_t modifiers, uint32_t keysym, int *argument);
     /* The same for a pressed mouse button (a Linux BTN_* code) or a notch of the wheel
      * (enum sh_wheel_button) over `target`; `app_id` is the window's, or "". SH_NONE leaves the
      * click or the wheel to the application. */

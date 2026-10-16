@@ -765,6 +765,8 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_button);
     struct wlr_pointer_button_event *event = data;
     input_activity(server, event->state == WL_POINTER_BUTTON_STATE_PRESSED);
+    if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
+        key_release_cancel(server); // Super + click is no tap of Super
     wrapped_button(server, event);
     heatmap_button(server, event); // a click, for the heatmap
     if (event->button >= BTN_MOUSE && event->button < BTN_MOUSE + 32) {
@@ -919,6 +921,7 @@ void server_cursor_axis(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, cursor_axis);
     struct wlr_pointer_axis_event *event = data;
     input_activity(server, true);
+    key_release_cancel(server);
     wrapped_axis(server, event);
     if (xray_axis(server, event))
         return;
