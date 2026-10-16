@@ -90,6 +90,16 @@ shadows.
   msg profile auto` (the `profile_auto` action, also in the profile menus and the palette) hands
   the choice back at once, and one that passed while paw was off is caught up as it starts.
   Quick Settings' Appearance tile says Scheduled while the schedule's profile is in use.
+- A profile can bring its own cursor and icons: `appearance.cursor_theme`, `cursor_size` and
+  `icon_theme`. Picking it changes the cursor at once, X11 windows' and a shaken cursor's too, and
+  programs started afterwards get `$XCURSOR_THEME` and `$XCURSOR_SIZE`; the taskbar, dock, start
+  menu, Launchpad, tray, notifications and the rest of the shell show the new theme's icons
+  without a restart. A theme that is not installed is skipped, saying so in the log, and a
+  profile without them has the session's own. A login session also sets GNOME's `cursor-theme`,
+  `cursor-size` and `icon-theme` for GTK applications, putting back your own as a profile without
+  them is picked and as the session ends. `paw msg get cursor_theme` prints the cursor theme and
+  size; mochi's profile suggests its cursor and Mochi icons in comments, for after its
+  `install.sh --cursor --icons`, and a rice may name its themes too.
 - A floating bar docks while a window reaches the edge it is along (maximized, one snapped
   against it, or any tile, gaps or not): it fills the strip it reserves, squared and without its
   frame, and floats again once no window does, as KDE's floating panels do. Subscribers hear
