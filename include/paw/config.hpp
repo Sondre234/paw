@@ -192,6 +192,7 @@ struct WallpaperCycleConfig {
     // configuration; empty: the folder of shell.wallpaper, else the wallpaper picker's.
     std::string folder;
     bool shuffle = true; // order = "shuffle", each once before any again; false: "name"
+    bool per_monitor = false; // each monitor the next picture, rather than one for all
 };
 
 // Lua `shell.wallpaper_mode`: how the wallpaper covers the output. Fill crops it to cover every
@@ -285,6 +286,9 @@ struct ShellConfig {
     std::string panel_color = "#151e2c";
     std::string text_color = "#edf2fa";
     std::string wallpaper;
+    // monitor_wallpapers: a monitor's own wallpaper by the monitor's name, over `wallpaper`;
+    // absolute or relative to the configuration, "" for none.
+    std::map<std::string, std::string> monitor_wallpapers;
     WallpaperMode wallpaper_mode = WallpaperMode::Fill;
     DesktopClockConfig desktop_clock;
     WallpaperCycleConfig wallpaper_cycle;

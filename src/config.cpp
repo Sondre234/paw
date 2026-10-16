@@ -782,6 +782,26 @@ void read_shell(lua_State *L, ShellConfig &shell) {
                 fail(std::string(key) + " must be #RRGGBB or #RRGGBBAA");
         }
     }
+    // { ["DP-1"] = "path", ... }: a wallpaper for each monitor named.
+    lua_getfield(L, -1, "monitor_wallpapers");
+    if (!lua_isnil(L, -1)) {
+        table(L, -1, "shell.monitor_wallpapers");
+        Named in("shell.monitor_wallpapers");
+        const int index = lua_absindex(L, -1);
+        lua_pushnil(L);
+        while (lua_next(L, index)) {
+            if (lua_type(L, -2) != LUA_TSTRING)
+                fail("shell.monitor_wallpapers is keyed by output name, e.g. "
+                     "[\"DP-1\"] = \"sky.jpg\"");
+            const std::string name = lua_tostring(L, -2);
+            if (name.empty() || name.find_first_of("\t\n") != std::string::npos)
+                fail("output name is empty or has a tab or a newline");
+            shell.monitor_wallpapers[name] =
+                string(L, -1, ("shell.monitor_wallpapers[\"" + name + "\"]").c_str());
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
     named(L, "wallpaper_mode", "shell.wallpaper_mode", shell.wallpaper_mode,
           {{"fill", WallpaperMode::Fill}, {"fit", WallpaperMode::Fit},
            {"center", WallpaperMode::Center}, {"tile", WallpaperMode::Tile},
@@ -794,6 +814,7 @@ void read_shell(lua_State *L, ShellConfig &shell) {
             cycle.folder = *folder;
         named(L, "order", "shell.wallpaper_cycle.order", cycle.shuffle,
               {{"shuffle", true}, {"name", false}});
+        boolean(L, "per_monitor", "shell.wallpaper_cycle.per_monitor", cycle.per_monitor);
     }
     if (auto folder = text(L, "wallpapers", "shell.wallpapers")) {
         shell.wallpapers = *folder;
@@ -2850,8 +2871,9 @@ void anchor_file(lua_State *L, const char *key, const std::filesystem::path &dir
     }
     lua_pop(L, 1);
 }
-// Makes `shell.wallpaper`, `shell.start_icon` and `shell.wallpaper_cycle.folder` in the table at
-// `index` absolute when they name a file relative to `directory`.
+// Makes `shell.wallpaper`, `shell.monitor_wallpapers`' pictures, `shell.start_icon` and
+// `shell.wallpaper_cycle.folder` in the table at `index` absolute when they name a file relative
+// to `directory`.
 void anchor_files(lua_State *L, int index, const std::filesystem::path &directory) {
     lua_getfield(L, index, "shell");
     if (lua_istable(L, -1)) {
@@ -2860,6 +2882,19 @@ void anchor_files(lua_State *L, int index, const std::filesystem::path &director
         lua_getfield(L, -1, "wallpaper_cycle");
         if (lua_istable(L, -1))
             anchor_file(L, "folder", directory, true);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "monitor_wallpapers");
+        if (lua_istable(L, -1)) {
+            std::vector<std::string> names;
+            lua_pushnil(L);
+            while (lua_next(L, -2)) {
+                if (lua_type(L, -2) == LUA_TSTRING)
+                    names.emplace_back(lua_tostring(L, -2));
+                lua_pop(L, 1);
+            }
+            for (const auto &name : names)
+                anchor_file(L, name.c_str(), directory);
+        }
         lua_pop(L, 1);
     }
     lua_pop(L, 1);
