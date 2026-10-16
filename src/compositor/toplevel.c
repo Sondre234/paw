@@ -650,6 +650,7 @@ static void set_fullscreen_focus(struct sh_toplevel *toplevel, bool fullscreen, 
         focus_toplevel(toplevel);
     refresh_decoration(toplevel);
     refresh_frame(toplevel);
+    idle_inhibitors_follow(server); // a rule's idle_inhibit = "fullscreen"
 }
 
 /* Fullscreen the client asks for itself, like a video player's: it covers the panels too. */

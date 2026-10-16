@@ -598,9 +598,10 @@ static void get_idle(struct sh_server *server, int fd, const char *arguments) {
     // "state", the milliseconds since the last input, whether an idle inhibitor (or the session
     // being away from the front) holds the steps off, whether the machine runs on battery, how
     // dark the screens are dimmed (thousandths), how many idle inhibitors there are and how many
-    // of them apply, and whether keep awake is on; then a line per step (idle.c): its name, its
-    // timeout in milliseconds on that power (0 for never), and whether it was taken since the
-    // last input; then a line per idle inhibitor (see describe_idle_inhibitors).
+    // of them apply (with the windows a rule's idle_inhibit keeps awake), and whether keep awake
+    // is on; then a line per step (idle.c): its name, its timeout in milliseconds on that power
+    // (0 for never), and whether it was taken since the last input; then a line per idle
+    // inhibitor and per window a rule's idle_inhibit names (see describe_idle_inhibitors).
     const struct sh_idle *idle = &server->idle;
     int64_t now = now_ms();
     bool battery;

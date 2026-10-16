@@ -3,7 +3,8 @@
  * desktop of an output), and urgent windows that ask for it. */
 #include "server.h"
 
-void deactivate_toplevel(struct sh_server *server) {
+/* Takes the focus from the focused window, for deactivate_toplevel or a window taking it. */
+static void unfocus_toplevel(struct sh_server *server) {
     if (!server->focused_toplevel)
         return;
     struct sh_toplevel *old = server->focused_toplevel;
@@ -15,6 +16,13 @@ void deactivate_toplevel(struct sh_server *server) {
     server->focused_toplevel = NULL;
     refresh_frame(old);
     wrapped_follow(server);
+}
+
+void deactivate_toplevel(struct sh_server *server) {
+    if (!server->focused_toplevel)
+        return;
+    unfocus_toplevel(server);
+    idle_inhibitors_follow(server); // a rule's idle_inhibit = "focus" lets go
 }
 
 /* Puts the fullscreen windows on `toplevel`'s output down among the others, so that it can come
@@ -65,7 +73,7 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
             reset_cursor_mode(server);
         show_workspace(server, toplevel->output, toplevel->workspace);
     }
-    deactivate_toplevel(server);
+    unfocus_toplevel(server);
     server->focused_layer = NULL;
     server->focused_toplevel = toplevel;
     wrapped_follow(server);
@@ -97,10 +105,11 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
                                 toplevel->fullscreen ? fullscreen_tree(toplevel) : window_layer(toplevel));
         wlr_scene_node_raise_to_top(&toplevel->scene_tree->node);
     }
-    if (was_minimized) {
+    if (was_minimized)
         restore_animate(toplevel); // it grows out of its taskbar button into its place
-        idle_inhibitors_follow(server); // a video restored holds the screens awake again
-    }
+    // A video restored holds the screens awake again, and so does a window a rule's idle_inhibit
+    // = "focus" names as it takes the focus.
+    idle_inhibitors_follow(server);
     wl_list_remove(&toplevel->link);
     wl_list_insert(&server->toplevels, &toplevel->link);
     toplevel_set_activated(toplevel, true);
