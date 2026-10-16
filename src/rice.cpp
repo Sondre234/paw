@@ -266,9 +266,9 @@ struct Reader {
             if (digits == at || error != std::errc() || name_part(peek()) || peek() == '.')
                 fail("a hexadecimal number is an integer of up to 16 digits");
             result.type = RiceData::Type::Integer;
-            result.integer = static_cast<long long>(value);
-            if (negative)
-                result.integer = -result.integer;
+            // Wrapping around as Lua's do: negated in unsigned arithmetic, -0x8000000000000000
+            // is the least integer rather than an overflow.
+            result.integer = static_cast<long long>(negative ? 0 - value : value);
             return result;
         }
         bool fraction = false;
