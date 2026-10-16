@@ -82,8 +82,7 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     for step in range(steps):
         rng.choice(operations)()
         assert desktop.server.poll() is None, f"the compositor died at step {step}"
-        if step % 10 == 0:
-            check(step)
+        check(step)  # each step: a group may last only a few
         if len(clients) > 10:
             clients.pop(0).terminate()
     check(steps)
