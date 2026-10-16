@@ -2580,10 +2580,10 @@ modifier key its own may be named or not (`mods = { "Super" }, key = "Super_L"` 
 binding). A key may have a binding of each kind, `release` does not go with `repeats`, and
 mouse buttons and switches take none. While the switcher, the overview or the exploded view has
 the keys, or an application holds the shortcuts, nothing waits for a release; on the lock screen
-only a `locked` one does.
+only a `locked` one does. Tapping Super for the start menu (Launchpad in the macOS style), as on
+Windows:
 
 ```lua
--- Tap Super for the start menu (Launchpad in the macOS style), as on Windows:
 { key = "Super_L", release = true, action = "launcher" },
 ```
 
