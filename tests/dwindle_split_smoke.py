@@ -2,7 +2,8 @@
 """Hyprland's dwindle controls: split_toggle turns the focused tile's split from side by side to
 stacked and keeps it so through a reload to a monitor of another shape, split_swap trades the
 split's halves at their sizes, and pseudo_toggle keeps a tile at its floating size in the middle
-of its tile, resized about its middle; master takes none of them."""
+of its tile, resized about its middle, for a group's other tabs too; master takes none of
+them."""
 from pathlib import Path
 import sys
 
@@ -109,4 +110,9 @@ with harness.Compositor(compositor, config()) as desktop:
     desktop.stays(lambda: boxes() == master, "master took a dwindle action")
     msg("layout_dwindle")
     desktop.wait_for(lambda: boxes() == dwindle, "dwindle as it was")
+
+    # A group keeps its slot pseudotiled: the tab opened into it shows at the same size there.
+    msg("group_toggle")
+    desktop.open_window(probe, "tab", focused=True)
+    desktop.wait_for(lambda: boxes()["tab"] == dwindle["float"], "the tab pseudotiled")
 print("Dwindle split controls passed")
