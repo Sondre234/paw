@@ -4392,9 +4392,18 @@ ListModel {
             std::cerr << "the palette lacks the saved session: " << titlesNow().join("|").toStdString() << '\n';
             return 1;
         }
-        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Fake app") ||
-            !titlesNow().contains("Toggle tiling") || !titlesNow().contains("Appearance: dark"))
-            return fail("the palette lacks workspaces, apps or actions");
+        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Toggle tiling") ||
+            !titlesNow().contains("Appearance: dark"))
+            return fail("the palette lacks workspaces or actions");
+        // Empty, it lists its first 60 entries, the applications after the actions: one is found
+        // by its name.
+        type("fake");
+        if (!waitFor([&] { return titlesNow().value(0) == "Fake app"; }))
+            return fail("the palette does not find applications");
+        for (int i = 0; i < 4; ++i)
+            QTest::keyClick(&paletteView, Qt::Key_Backspace);
+        if (!waitFor([&] { return palette->query().isEmpty(); }))
+            return fail("the palette's search was not cleared");
         type("tiling");
         if (!waitFor([&] { return !titlesNow().isEmpty() && titlesNow()[0].contains("tiling", Qt::CaseInsensitive); })) {
             std::cerr << "typing did not filter the palette: " << titlesNow().join("|").toStdString() << '\n';
@@ -5249,6 +5258,8 @@ ListModel {
             if (!waitFor([&] { return power->available().size() == 5; }))
                 return fail("the power menu did not list five actions");
             palette->open(output);
+            // The actions alone: empty, it lists only its first 60 entries.
+            palette->setQuery(">");
             if (!waitFor([&] {
                     return titles().contains("Lock screen") && titles().contains("Suspend") &&
                            titles().contains("Restart…") && titles().contains("Power off…") &&
