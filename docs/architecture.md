@@ -1306,7 +1306,10 @@ windows lists them, and with `output` those on one monitor alone), `audio.cpp` w
 `web_search.cpp`, which the start menu's search shares), `media.cpp` with `mpris.cpp`,
 `power_mode.cpp` with `power_profiles_daemon.cpp`, `wifi.cpp` with `network_manager.cpp`,
 `bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history), `desktop_clock.cpp` (the
-desktop clock's settings, and whether the `desktop_clock` action shows it). `preview.cpp` has
+desktop clock's settings, and whether the `desktop_clock` action shows it), `wallpaper_cycle.cpp`
+(the wallpaper slideshow's order and timer, `shell.wallpaper_cycle`, whose pictures
+`ShellController::stepWallpaper` picks as a picked wallpaper, tested by `wallpaper_cycle_test`).
+`preview.cpp` has
 stand-ins for all of them for `--preview-popup`.
 
 The services Quick Settings controls over D-Bus each have a model the QML reads, built into

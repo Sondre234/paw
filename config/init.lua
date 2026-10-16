@@ -170,6 +170,8 @@ return {
                 wallpaper = "rices/mochi/wallpaper/mochi.jpg",
                 start_icon = "rices/mochi/start/mochi.svg",
                 -- desktop_clock = { enabled = true, position = "left", greeting = "ja" },
+                -- Experimental: its seven skies in turn, a new one every half hour:
+                -- wallpaper_cycle = { interval = 30 },
             },
         },
     },
@@ -406,6 +408,14 @@ return {
         -- wallpaper = "", -- absolute path, or relative to this configuration file
         -- wallpaper_mode = "fill", -- or "fit", "center", "tile" or "stretch"; around a picture
         --                            that leaves room, appearance.background shows
+        -- Experimental: a slideshow, the pictures of a folder taking turns as the wallpaper, each
+        -- kept as one picked from the panel (the lock screen shows it); the wallpaper_next and
+        -- wallpaper_prev actions (paw msg wallpaper_next) step at once, also with interval = 0:
+        -- wallpaper_cycle = {
+        --     interval = 0,      -- minutes between pictures (1-1440); 0: only the actions step
+        --     -- folder = "~/Pictures/wallpapers/sky", -- unset: the folder of wallpaper
+        --     order = "shuffle", -- each once before any again; or "name"
+        -- },
         -- Experimental: a large clock on the desktop, over the wallpaper, in the text colour with
         -- a soft shadow; the desktop_clock action (paw msg desktop_clock) shows or hides it:
         -- desktop_clock = {
@@ -568,6 +578,9 @@ return {
         -- Keep awake: no dimming, no monitors going off and no sleep until toggled off again
         -- (keep_awake_on and keep_awake_off too; also a tile in Quick Settings), e.g.:
         -- { mods = { mod, "Alt" }, key = "c", action = "keep_awake_toggle" },
+        -- The wallpaper slideshow (shell.wallpaper_cycle) steps on, or back, e.g.:
+        -- { mods = { mod, "Alt" }, key = "w", action = "wallpaper_next" },
+        -- { mods = { mod, "Alt", "Shift" }, key = "w", action = "wallpaper_prev" },
         -- Switches act too: the lid ("close", "open") and tablet mode ("on", "off"), e.g.:
         -- { switch = "lid", state = "close", action = "lock" },
         { mods = { mod }, key = "1", action = "workspace", workspace = 1 },

@@ -65,6 +65,13 @@ shadows.
   before), `"fit"`, `"stretch"`, or at its own size `"center"` and `"tile"`, with the background
   colour around a picture that leaves room. A profile can set it; a new mode fades in as a new
   wallpaper does, and the frosted glass, the workspace cards and Launchpad follow it.
+- An experimental wallpaper slideshow, off by default: `shell.wallpaper_cycle = { interval = 30 }`
+  has the pictures of a folder (`folder`, else the wallpaper's own, so mochi goes through its
+  seven skies) take turns every 30 minutes, shuffled so that each shows once before any comes
+  again, or by name with `order = "name"`. Each fades in and is kept as a picked one is, so the
+  lock screen shows it too, and the time waits while the session is locked. The
+  `wallpaper_next` and `wallpaper_prev` actions (`paw msg wallpaper_next`, the command palette)
+  step at once, also without an interval.
 - `shell.blur` makes the shell frosted glass: the taskbar, the tiling bar, the macOS style's menu
   bar and dock, and the popups, menus, cards, tooltips and overlays show the wallpaper behind them
   blurred under their colour, the popups as translucent as the bar but at least 75 % opaque so
