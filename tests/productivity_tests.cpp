@@ -62,6 +62,9 @@ void session_encoding() {
             "argument encoding");
     require(sh_session_encode("abcdef", false, out, 4) == 6 && !strcmp(out, "abc"),
             "truncated encoding reports the full length");
+    memset(out, 'x', sizeof(out));
+    require(sh_session_encode("ab%c", false, out, 5) == 6 && !strcmp(out, "ab"),
+            "an escape that does not fit is left out whole");
     size_t length = sh_session_decode("a%20b%zz%4", 10, out, sizeof(out));
     require(length == 8 && !strcmp(out, "a b%zz%4"), "decoding leaves bad escapes alone");
     require(sh_session_valid_name("work") && sh_session_valid_name("a.b-c_1") &&

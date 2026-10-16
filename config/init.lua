@@ -13,8 +13,9 @@
 -- the top of the screen. Super+Shift+R, or SIGHUP, also reloads it.
 --
 -- The file is plain Lua that returns a table. It can use variables, string, table and math
--- functions, but cannot read files or run programs. Launch commands are argument arrays,
--- never shell strings: { "kitty", "--title", "term" }.
+-- functions, but cannot read files or run programs, and has 3 seconds and 64 MiB of memory
+-- to load in. Launch commands are argument arrays, never shell strings:
+-- { "kitty", "--title", "term" }.
 --
 -- To keep your own file short, start from the shipped one and change only what you like:
 --     return { extends = "default", mouse = { modifier = "Alt" } }
@@ -270,9 +271,10 @@ return {
     -- peek = { opacity = 0.12 },          -- bind action "peek" to a key held to see the desktop
     -- night_light = { enabled = true, night_temperature = 3400, latitude = 59.9, longitude = 10.7 },
     -- zoom = { step = 1.25, scroll_modifier = "Super" }, -- and actions zoom_in/zoom_out/zoom_reset
-    -- hot_corners = { top_left = "toggle_overview", bottom_right = "night_light_toggle" },
+    -- hot_corners = { bottom_left = "peek_toggle", bottom_right = "night_light_toggle" },
     -- The overview (Super + O): thumbnails glide into a grid over `duration` milliseconds, with a
-    -- strip of workspaces; `hot_corner` opens it when the pointer enters that screen corner.
+    -- strip of workspaces; `hot_corner` opens it when the pointer rests in that screen corner, as
+    -- a hot corner runs its request (in a corner hot_corners leaves free).
     -- overview = { gap = 24, duration = 180, strip = true, dim = 0.86, hot_corner = "top-left" },
     -- Touchpad swipes: three fingers sideways move between workspaces, the windows following
     -- the fingers, and up and down open and close the overview. A list of swipes replaces these;
@@ -399,12 +401,15 @@ return {
     -- Notifications (the shell answers org.freedesktop.Notifications) and the on-screen display:
     -- notifications = { position = "top-right", timeout = 6000, max_visible = 4, dnd = false },
     -- osd = { position = "bottom", timeout = 1500, volume = true, brightness = true },
-    -- The screen locker the lock action starts ({} for none):
-    -- power = { lock_command = { "swaylock", "-f" } },
+    -- The screen locker the lock action starts ({} for none). The stock swaylock wears the
+    -- profile's wallpaper, colours and font unless swaylock has a config of its own or
+    -- lock_style = false:
+    -- power = { lock_command = { "swaylock", "-f" }, lock_style = true },
     -- Power saving after so many seconds without input (0 never): the screens dim (unset, 30
     -- seconds before display_off), the monitors turn off, the screen locks, the machine
     -- suspends; `battery` may hold shorter ones for a laptop on battery, as
-    -- battery = { display_off = 300 }. An idle inhibitor (a video playing) holds them off.
+    -- battery = { display_off = 300 }. An idle inhibitor (a video playing) holds them off
+    -- while its window shows.
     -- display_off = 0 leaves everything to an idle daemon (swayidle).
     -- idle = { display_off = 600, lock = 0, suspend = 0 },
     startup = {}, -- e.g. { { "kitty" } }
@@ -544,6 +549,9 @@ return {
         -- Turn every monitor off until a key or the mouse wakes it (display_on and
         -- display_toggle too; output = "HDMI-A-1" picks one monitor), e.g.:
         -- { mods = { mod, "Alt" }, key = "Escape", action = "display_off" },
+        -- Keep awake: no dimming, no monitors going off and no sleep until toggled off again
+        -- (keep_awake_on and keep_awake_off too; also a tile in Quick Settings), e.g.:
+        -- { mods = { mod, "Alt" }, key = "c", action = "keep_awake_toggle" },
         -- Switches act too: the lid ("close", "open") and tablet mode ("on", "off"), e.g.:
         -- { switch = "lid", state = "close", action = "lock" },
         { mods = { mod }, key = "1", action = "workspace", workspace = 1 },

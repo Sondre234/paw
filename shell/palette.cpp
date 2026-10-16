@@ -50,6 +50,7 @@ constexpr Action actions[] = {
     {"swallow_toggle", "Swallow the terminal this window came from, or let it out"},
     {"toggle_overview", "Overview of windows"},
     {"peek_toggle", "Peek at the desktop"},
+    {"keep_awake_toggle", "Keep awake, or not"},
     {"workspace_back", "Back to the previous workspace"},
     {"move_to_workspace_next", "Move window to the next workspace"},
     {"move_to_workspace_prev", "Move window to the previous workspace"},

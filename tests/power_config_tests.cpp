@@ -42,6 +42,10 @@ int main() {
                         300,
                 "power.countdown not parsed");
         rejects("return {power={countdown='10'}}");
+        require(defaults.power.lock_style &&
+                    !paw::parse_config("return {power={lock_style=false}}").power.lock_style,
+                "power.lock_style not parsed");
+        rejects("return {power={lock_style='washi'}}");
         std::cout << "power configuration passed\n";
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';

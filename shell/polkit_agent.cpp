@@ -266,6 +266,10 @@ void PolkitAgent::complete(unsigned long long key, Authentication::Outcome outco
         g_task_return_new_error(pending.task, G_IO_ERROR, G_IO_ERROR_CANCELLED,
                                 "The authentication request was withdrawn");
         break;
+    case Authentication::Outcome::Failed:
+        g_task_return_new_error(pending.task, POLKIT_ERROR, POLKIT_ERROR_FAILED,
+                                "The password was not accepted three times");
+        break;
     }
     g_object_unref(pending.task);
     if (pending.cancellable)

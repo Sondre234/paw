@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Hammer the control socket with every action and query, odd arguments, and raw garbage while a
-window is mapped: the compositor must stay alive, answer afterwards, and shut down cleanly."""
+window is mapped: the compositor must stay alive, answer afterwards, and shut down cleanly.
+Connections that never send a request are let go, and running out of file descriptors does not
+make the compositor spin."""
 import os
 from pathlib import Path
 import random
 import re
+import resource
 import socket
 import sys
 import time
@@ -116,6 +119,67 @@ with harness.Compositor(compositor, source) as desktop:
     assert time.monotonic() - started < 3, "a client that never read held up the compositor"
     stuck.close()
     desktop.msg("headless_output", "remove", "HEADLESS-2")
+
+    heard = {}
+
+    def closed(sock):
+        """Whether the compositor has closed `sock`, keeping what it said first in `heard`."""
+        try:
+            while data := sock.recv(4096, socket.MSG_DONTWAIT):
+                heard[sock] = heard.get(sock, b"") + data
+            return True
+        except BlockingIOError:
+            return False
+        except ConnectionResetError:
+            return True
+
+    # Connections that never send a request: past 64 waiting at once, the one waiting longest
+    # goes for each new one, and each goes 5 seconds after it came. (80 stay well inside the
+    # test's own limit of open files.)
+    started = time.monotonic()
+    idle = [socket.socket(socket.AF_UNIX) for _ in range(80)]
+    for sock in idle:
+        sock.connect(path)
+    assert talk(b"get workspace\n").startswith(b"ok\n")
+    # Taken in turn, the request's connection after them: 17 too many.
+    assert all(closed(sock) for sock in idle[:17]), [closed(sock) for sock in idle]
+    assert heard[idle[0]] == b"error: too many connections waiting\n", heard.get(idle[0])
+    if time.monotonic() - started < 4:  # else they may have run out of time as well
+        assert not any(closed(sock) for sock in idle[17:]), [closed(sock) for sock in idle]
+    # The compositor alone: "close" may have ended the window's probe.
+    harness.wait_for(lambda: all(closed(sock) for sock in idle), [server],
+                     "idle connections let go")
+    assert heard[idle[-1]] == b"error: no request within 5 seconds\n", heard.get(idle[-1])
+    for sock in idle:
+        sock.close()
+
+    # Out of file descriptors, the compositor stops taking connections for a moment rather than
+    # fail to take one on every pass of its event loop, and takes them once it has some again.
+    # Its limit goes down to the lowest descriptor it has free, so that it can open none.
+    def lowest_free():
+        used = {int(name) for name in os.listdir(f"/proc/{server.pid}/fd")}
+        return next(number for number in range(len(used) + 1) if number not in used)
+
+    def cpu_seconds():
+        fields = Path(f"/proc/{server.pid}/stat").read_text().rsplit(")", 1)[1].split()
+        return (int(fields[11]) + int(fields[12])) / os.sysconf("SC_CLK_TCK")
+
+    limits = resource.prlimit(server.pid, resource.RLIMIT_NOFILE)
+    resource.prlimit(server.pid, resource.RLIMIT_NOFILE, (lowest_free(), limits[1]))
+    try:
+        starved = [socket.socket(socket.AF_UNIX) for _ in range(8)]
+        for sock in starved:
+            sock.connect(path)
+        before = cpu_seconds()
+        harness.stays(lambda: cpu_seconds() - before < .5, [server], "the compositor spinning",
+                      duration=1.5, detail=lambda: f"{cpu_seconds() - before:.2f} s of CPU")
+    finally:
+        resource.prlimit(server.pid, resource.RLIMIT_NOFILE, limits)
+    # Said once, however many times it waited.
+    assert desktop.log.read_text().count("Control socket: cannot take a connection") == 1
+    assert talk(b"get workspace\n").startswith(b"ok\n")
+    for sock in starved:
+        sock.close()
 
     talk(b"workspace 1\n")
     assert server.poll() is None

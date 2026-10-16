@@ -5,7 +5,9 @@ drag lasts, through the taskbar protocol as the shell brings one forward under a
 its button, comes forward at once: restored onto the workspace shown if minimized, else with its
 workspace shown. Once the drag ends it has the keyboard, which the drag held, and the pointer is on
 what lies under it at once rather than once it next moves. Dropped where nothing takes it, the drag
-is cancelled."""
+is cancelled. A drag of nothing (no data source, as within one window) that the compositor turns
+down leaves the seat as it was, and is let go (under the sanitizers, the compositor's clean exit
+shows it was freed)."""
 from pathlib import Path
 import subprocess
 import sys
@@ -103,5 +105,30 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     desktop.wait_for(lambda: "drag cancelled" in log("source"), "the drag cancelled")
     assert log("target").count("drop received") == 1, log("target")
     assert seat() == {"keyboard": ("window", "Source"), "pointer": ("-", "-")}, seat()
+
+    # A drag of nothing, first for a serial no press gave, which is turned down.
+    typed = desktop.root / "typed.txt"
+    typed.write_text("")
+    desktop.spawn([probe, "--window-only"], log="bare.log",
+                  env={"PAW_PROBE_TITLE": "Bare", "PAW_PROBE_APP_ID": "bare",
+                       "PAW_PROBE_DRAG": "bare", "PAW_PROBE_TYPED": str(typed)})
+    desktop.wait_for(lambda: "Bare" in windows() and windows()["Bare"][1], "Bare focused")
+    pointer("move", *map(str, windows()["Bare"][4]), "press", "left")
+    desktop.wait_for(lambda: "bare drag asked" in log("bare"), "the first bare drag asked for")
+    assert seat() == {"keyboard": ("window", "Bare"), "pointer": ("window", "Bare")}, seat()
+    pointer("release", "left")
+    # The keyboard still types into the window: the drag let go of the grab it was started with.
+    msg("type", "a")
+    desktop.wait_for(lambda: typed.read_text() == "a", "a key typed after the drag turned down")
+    # The next, from a real press, is under way until the button is let go.
+    pointer("press", "left")
+    desktop.wait_for(lambda: log("bare").count("bare drag asked") == 2, "the second asked for")
+    assert "drag" in seat(), seat()
+    pointer("release", "left")
+    desktop.wait_for(lambda: seat() == {"keyboard": ("window", "Bare"),
+                                        "pointer": ("window", "Bare")}, "the bare drag over")
+    msg("type", "b")
+    desktop.wait_for(lambda: typed.read_text() == "ab", "a key typed after the bare drag")
 print("A window brought forward during a drag comes forward at once and has the keyboard once "
-      "it ends; a drop on a window delivers, one on the desktop is cancelled")
+      "it ends; a drop on a window delivers, one on the desktop is cancelled; a drag of nothing "
+      "turned down leaves the seat as it was")

@@ -408,6 +408,12 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
                                            : SH_NIGHT_AUTO;
         night_light_update(server);
         break;
+    case SH_KEEP_AWAKE_TOGGLE:
+    case SH_KEEP_AWAKE_ON:
+    case SH_KEEP_AWAKE_OFF:
+        set_keep_awake(server, action == SH_KEEP_AWAKE_TOGGLE ? !server->keep_awake
+                               : action == SH_KEEP_AWAKE_ON);
+        break;
     case SH_ZOOM_IN:
         zoom_by(server, 1);
         break;

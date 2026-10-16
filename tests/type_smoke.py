@@ -2,7 +2,8 @@
 """Typing text into what has the keyboard: `paw msg type TEXT` types it into the focused
 window on a keymap made for it, accents, emoji and their sequences too, a keymap at a time when it
 has more characters than one holds; the window has its own keymap back after, so that a key
-pressed then types as before; and there is nothing to type into without a window."""
+pressed then types as before; text that is not UTF-8 is refused; and there is nothing to type
+into without a window."""
 from pathlib import Path
 import sys
 
@@ -38,5 +39,7 @@ with harness.Compositor(compositor, "return { xwayland = false }") as desktop:
     msg("type", many)
     desktop.wait_for(lambda: written() == text + "a" + many, "the long text typed",
                      detail=lambda: len(written()))
+    # Bytes 0xF8 to 0xFF start no UTF-8 character: F8 80 80 is refused, not typed as U+8000.
+    assert "not UTF-8" in msg("type", "\udcf8\udc80\udc80", ok=False)
     assert "usage: type TEXT" in msg("type", ok=False)
 print("Typing passed")
