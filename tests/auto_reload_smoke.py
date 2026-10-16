@@ -2,7 +2,7 @@
 """Saving the configuration reloads it: written in place or renamed over, once per save, and
 not at all with auto_reload = false or for files that are not Lua (or an XKB keymap). A file
 with an error, at startup or on a save, gives the default configuration until a save fixes
-it, and so does one that runs too long."""
+it. One that runs too long to check keeps the running configuration, saying so to the shell."""
 from pathlib import Path
 import re
 import sys
@@ -79,15 +79,23 @@ with harness.Compositor(compositor, "return { xwayland = false, layout = { gap =
     assert errors() == 4
     # A pattern that backtracks for ever, one call into a C function that the instruction
     # budget cannot stop, is stopped once its processor time is up (3 seconds, 10 in the
-    # sanitizers' build, as the error says; longer on the clock on a busy machine): an error
-    # like any other.
+    # sanitizers' build, as the error says; longer on the clock on a busy machine). Nothing says
+    # the file is wrong, only that it could not be checked, so the running desktop keeps the
+    # configuration it has and tells the shell why.
+    desktop.reload('return { xwayland = false, auto_reload = false, terminal = { "kept" } }')
+    assert desktop.msg("get", "terminal").strip() == "kept"
+    shell = desktop.subscribe(shell=True)
+    config.write_text("local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') "
+                      "return { xwayland = false, auto_reload = false }")
     start = time.monotonic()
-    desktop.reload("local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') "
-                   "return { xwayland = false }")
+    desktop.msg("reload")
     took = time.monotonic() - start
-    limit = re.search(r"init\.lua: did not finish loading within (\d+) seconds of processor time",
-                      log.read_text())
-    assert errors() == 5 and limit, log.read_text()[-1000:]
+    limit = re.search(r"Reload rejected; keeping active configuration: \S*init\.lua: did not "
+                      r"finish loading within (\d+) seconds of processor time", log.read_text())
+    assert limit and errors() == 4 and reloads() == 11, log.read_text()[-1000:]
     assert took < 3 * int(limit[1]) + 7, f"the reload took {took:.1f} s, its limit {limit[1]} s"
-    desktop.msg("get", "workspace")
+    assert desktop.msg("get", "terminal").strip() == "kept", "the configuration was replaced"
+    desktop.wait_for(lambda: any("did not finish loading within" in line
+                                 for line in shell.values("config-error ")),
+                     "config-error sent to the shell")
 print("Automatic reload on save passed")

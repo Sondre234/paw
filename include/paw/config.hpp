@@ -11,6 +11,7 @@
 #include <optional>
 #include <regex>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -639,11 +640,19 @@ std::string join(std::span<const std::string> words, std::string_view separator 
 // ($PAW_DEFAULT_CONFIG, else the installed one); its bindings yield to the configuration's own
 // on the same keys, and a binding with action = "none" removes a default one.
 Config load_config(const std::filesystem::path &path);
+// What a configuration's first run in a child process (try_in_child) throws when that ran over
+// its time, ran out of memory or crashed: nothing says the file is wrong, only that it could not
+// be checked, so a running desktop keeps the configuration it has rather than the default one.
+struct ConfigTrialError : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
 // load_config, except that a configuration with an error gives the default one instead
 // ($PAW_DEFAULT_CONFIG, else the installed one, else the source tree's when paw runs
-// uninstalled, else the built-in values). `error` receives
-// what was wrong, or "" when `path` loaded.
-Config load_config_or_default(const std::filesystem::path &path, std::string &error);
+// uninstalled, else the built-in values). `error` receives what was wrong, or "" when `path`
+// loaded. `reloading` (the configuration of a running desktop read again) throws a
+// ConfigTrialError instead, for the caller to keep the configuration it has.
+Config load_config_or_default(const std::filesystem::path &path, std::string &error,
+                              bool reloading = false);
 // `profiles` lay settings over everything else: the one named `chosen` when there is such a
 // profile, else the one `profile` names. load_config chooses the saved profile. Each of
 // `rices` is a profile too, named as its directory, unless the configuration has a profile of

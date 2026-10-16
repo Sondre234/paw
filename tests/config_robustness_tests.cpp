@@ -99,6 +99,31 @@ int main(int argc, char **argv) {
                         "an empty string repeated 2^60 times");
         refused_in_time("table.move({}, 1, 2^50, 2) return {}", over_time,
                         paw::trial_wall_seconds, "a table move over 2^50 places");
+        // Nothing says such a file is wrong, only that it could not be checked: read again by a
+        // running desktop it leaves the configuration as it is (ConfigTrialError), while at
+        // startup it gives the default one, as a file with an error does.
+        {
+            auto directory = std::filesystem::temp_directory_path() /
+                             ("paw-config-trial-" + std::to_string(getpid()));
+            std::filesystem::create_directories(directory);
+            const auto slow = directory / "init.lua";
+            std::ofstream(slow) << "local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') "
+                                   "return { terminal = { 'slow' } }";
+            ::setenv("PAW_DEFAULT_CONFIG", argv[1], 1);
+            ::setenv("XDG_STATE_HOME", directory.c_str(), 1);
+            std::string error;
+            bool kept = false;
+            try {
+                (void)paw::load_config_or_default(slow, error, true);
+            } catch (const paw::ConfigTrialError &failure) {
+                kept = std::string(failure.what()).find(over_time) != std::string::npos;
+            }
+            require(kept, "a reload of a configuration too slow to check gave one");
+            auto fallback = paw::load_config_or_default(slow, error);
+            require(error.find(over_time) != std::string::npos && fallback.terminal.empty(),
+                    "at startup, a configuration too slow to check gave '" + error + "'");
+            std::filesystem::remove_all(directory);
+        }
         // What asks for more than 64 MiB of memory is refused at once.
         refused_in_time("local big = ('x'):rep(2^34) return {}", "string too large", at_once,
                         "a 16 GiB string"); // over Lua's own limit for a string, 2 GiB

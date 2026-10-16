@@ -90,8 +90,12 @@ static void configure_animations(struct sh_server *server) {
 void reload_config(struct sh_server *server) {
     char profile[sizeof(server_settings(server)->profile)];
     snprintf(profile, sizeof(profile), "%s", server_settings(server)->profile);
-    if (!server->callbacks->reload(server->callbacks->userdata))
+    char error[320] = "";
+    if (!server->callbacks->reload(server->callbacks->userdata, error, sizeof(error))) {
+        if (error[0])
+            report_failure(server, "config-error", error);
         return;
+    }
     // A new appearance profile crossfades in from a picture of the old look, taken before
     // anything here changes it.
     if (strcmp(profile, server_settings(server)->profile) != 0)
