@@ -110,6 +110,9 @@ class TrayModel : public QAbstractListModel {
     QImage picture(int serial, QSize size) const;
     // Tells open menus that find()'s item's menu changed.
     void menuEdited(const QString &key);
+    // Every item's icon and menu drawn anew, as for another icon theme, which their names may
+    // name other pictures in.
+    void redraw();
     // A menu entry's icon: its icon-data, else its icon-name. Null when it has neither.
     QImage menuPicture(int serial, int id, QSize size) const;
 

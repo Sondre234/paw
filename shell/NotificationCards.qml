@@ -97,8 +97,8 @@ Item {
             // else its own icon when the header shows the application's instead; in the macOS
             // style, which has no header, else the header's icon.
             readonly property string picture: hasImage ? "image://notify/" + notificationId + "/" + Number(time)
-                : icon.length > 0 && appIcon.length > 0 && icon !== appIcon ? "image://icons/" + icon
-                : Theme.macos && headerIcon.length > 0 ? "image://icons/" + headerIcon : ""
+                : icon.length > 0 && appIcon.length > 0 && icon !== appIcon ? shell.iconBase + icon
+                : Theme.macos && headerIcon.length > 0 ? shell.iconBase + headerIcon : ""
             // How long it stays, from when it came or was last replaced (`time`), 0 for until it
             // is dismissed; and how much of that is left, from 1 to 0, run down as the daemon's
             // timer runs, held while the pointer holds that.
@@ -204,7 +204,7 @@ Item {
                             Layout.preferredWidth: Theme.iconSizeSmall; Layout.preferredHeight: Theme.iconSizeSmall
                             sourceSize: Qt.size(2 * Theme.iconSizeSmall, 2 * Theme.iconSizeSmall)
                             fillMode: Image.PreserveAspectFit
-                            source: entry.headerIcon.length > 0 ? "image://icons/" + entry.headerIcon : ""
+                            source: entry.headerIcon.length > 0 ? shell.iconBase + entry.headerIcon : ""
                         }
                         Text {
                             Layout.fillWidth: true
