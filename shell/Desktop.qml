@@ -9,10 +9,12 @@ Rectangle {
     required property var shellView
     color: shell.background
     // What the bars leave of the desktop, in its coordinates.
-    readonly property int panel: shellView.panelExtent
-    readonly property rect free: Theme.macos ? Qt.rect(0, Theme.menuBarHeight, width, height - Theme.menuBarHeight - panel)
-        : shellView.panelVertical ? Qt.rect(shellView.panelEdge === "left" ? panel : 0, 0, width - panel, height)
-        : Qt.rect(0, shellView.panelEdge === "top" ? panel : 0, width, height - panel)
+    readonly property rect free: {
+        const panel = shellView.panelExtent
+        return Theme.macos ? Qt.rect(0, Theme.menuBarHeight, width, height - Theme.menuBarHeight - panel)
+             : shellView.panelVertical ? Qt.rect(shellView.panelEdge === "left" ? panel : 0, 0, width - panel, height)
+             : Qt.rect(0, shellView.panelEdge === "top" ? panel : 0, width, height - panel)
+    }
     // The wallpaper, or without one the gradient (the macOS style's drawn wallpaper), in layers:
     // each new one is laid over what shows, and once it is drawn (its picture loaded, or failed and
     // the gradient in its place) it fades in, the layers under it going as it covers them. A change
