@@ -7,6 +7,7 @@ import random
 import re
 import socket
 import sys
+import time
 
 import harness
 
@@ -102,6 +103,18 @@ with harness.Compositor(compositor, source) as desktop:
         talk(b"workspace_next\n")
     for sock in crowd[::2]:
         sock.close()
+
+    # A client that asks for more than the socket holds and never reads it holds up the
+    # compositor for its time limit at most: here the heatmap of a 4K monitor, over 200 KB.
+    desktop.msg("headless_output", "add", "HEADLESS-2", "3840x2160")
+    stuck = socket.socket(socket.AF_UNIX)
+    stuck.connect(path)
+    stuck.sendall(b"get heatmap\n")
+    started = time.monotonic()
+    assert talk(b"get workspace\n").startswith(b"ok\n")
+    assert time.monotonic() - started < 3, "a client that never read held up the compositor"
+    stuck.close()
+    desktop.msg("headless_output", "remove", "HEADLESS-2")
 
     talk(b"workspace 1\n")
     assert server.poll() is None
