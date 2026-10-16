@@ -1037,6 +1037,7 @@ static const struct {
     {"cursor", get_cursor, false},
     {"cursor_image", get_cursor_image, false},
     {"cursor_size", get_cursor_size, false},
+    {"cursor_theme", describe_cursor_theme, false},
     {"autostart", get_autostart, false},
     {"gesture", get_gesture, false},
     {"touch", get_touch, false},

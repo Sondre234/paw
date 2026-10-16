@@ -738,6 +738,8 @@ struct sh_server {
         struct wl_event_source *timer;
     } cursor_rest;
     struct sh_cursor_shake *cursor_shake; /* mouse.shake_to_find (cursor_shake.c), made on use */
+    /* The cursor theme in use and what a login session told applications (profile_themes.c). */
+    struct sh_profile_themes *profile_themes;
     /* The image the cursor was given last: an xcursor name (show_xcursor), "client" for a
      * client's own surface, or NULL for none yet (get cursor_image). */
     const char *cursor_image;
@@ -1531,7 +1533,16 @@ bool cursor_grown(struct sh_server *server);
 int cursor_drawn_size(struct sh_server *server);
 void cursor_shake_motion(struct sh_server *server);
 void cursor_shake_reload(struct sh_server *server);
+void cursor_shake_retheme(struct sh_server *server);
 void cursor_shake_finish(struct sh_server *server);
+
+/* profile_themes.c */
+void profile_themes_init(struct sh_server *server);
+const char *cursor_theme_name(struct sh_server *server);
+int cursor_theme_size(struct sh_server *server);
+void profile_themes_reload(struct sh_server *server);
+void profile_themes_finish(struct sh_server *server);
+void describe_cursor_theme(struct sh_server *server, int fd, const char *arguments);
 
 /* input_method.c */
 bool input_method_key(struct sh_keyboard *keyboard, const struct wlr_keyboard_key_event *event);
@@ -1976,6 +1987,7 @@ void server_new_xwayland_surface(struct wl_listener *listener, void *data);
 void close_xwm_waker(struct sh_server *server);
 #endif
 void xwayland_ready(struct wl_listener *listener, void *data);
+void xwayland_give_cursor(struct sh_server *server);
 #endif
 
 /* toys.c */
