@@ -76,12 +76,16 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         assert "tour" not in msg("session", "list")
 
     def probe_of(title):
-        """The process of the probe showing the window titled `title`, by the title it was given."""
+        """The process of the probe showing the window titled `title`, by the title it was given
+        and this session's runtime directory: not another test's, run at the same time."""
         found = []
+        runtime = f"\0XDG_RUNTIME_DIR={desktop.env['XDG_RUNTIME_DIR']}\0".encode()
         for entry in Path("/proc").iterdir():
             try:
-                if entry.name.isdigit() and f"\0PAW_PROBE_TITLE={title}\0".encode() in \
-                        b"\0" + (entry / "environ").read_bytes():
+                if not entry.name.isdigit():
+                    continue
+                environ = b"\0" + (entry / "environ").read_bytes()
+                if f"\0PAW_PROBE_TITLE={title}\0".encode() in environ and runtime in environ:
                     found.append(int(entry.name))
             except OSError:
                 pass  # another user's, or gone meanwhile
