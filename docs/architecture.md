@@ -41,7 +41,9 @@ long it runs, so whatever runs a configuration (`parse_config`, `configured_look
 `shadowed_settings`) runs it first in a child process forked for it (`try_first`), killed after 3
 seconds, and then for real, which gives the result or the error. The compositor and the shell
 both load the file this way, so what that code calls must be safe in a child forked from a
-process with threads: nothing that waits on a lock another thread may hold.
+process with threads: nothing that waits on a lock another thread may hold. The child process
+and its time limit are `try_in_child` (`src/child_trial.cpp`), which `paw import` uses too for
+a `hyprland.lua` (`src/import/hyprland.cpp`, a sandbox of its own).
 
 Window rules' and bindings' patterns are compiled to be searched in time linear in the text
 (`compile_pattern`), and in a title or app ID over 1 KiB only the first and last 512 bytes are
