@@ -552,6 +552,9 @@ static void xdg_toplevel_destroy(struct wl_listener *listener, void *data) {
     wl_list_remove(&toplevel->commit.link);
     sh_anim_finish(&toplevel->anim);
     wlr_scene_node_destroy(&toplevel->scene_tree->node);
+    // The xdg_surface outlives its role, and wlroots takes it as a popup's parent still: none
+    // is drawn under the tree that went.
+    toplevel->xdg_toplevel->base->data = NULL;
     free_toplevel(toplevel);
 }
 
@@ -728,7 +731,7 @@ static void xdg_popup_destroy(struct wl_listener *listener, void *data) {
 
     wl_list_remove(&popup->commit.link);
     wl_list_remove(&popup->destroy.link);
-
+    popup->xdg_popup->base->data = NULL; // as for a toplevel: no popup of its own after it
     free(popup);
 }
 
