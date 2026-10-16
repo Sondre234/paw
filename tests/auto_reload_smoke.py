@@ -4,6 +4,7 @@ not at all with auto_reload = false or for files that are not Lua (or an XKB key
 with an error, at startup or on a save, gives the default configuration until a save fixes
 it, and so does one that runs too long."""
 from pathlib import Path
+import re
 import sys
 import time
 
@@ -77,12 +78,14 @@ with harness.Compositor(compositor, "return { xwayland = false, layout = { gap =
     stays(lambda: reloads() == 10, "reloaded with auto_reload = false")
     assert errors() == 4
     # A pattern that backtracks for ever, one call into a C function that the instruction
-    # budget cannot stop, is stopped after 3 seconds: an error like any other.
+    # budget cannot stop, is stopped once its time is up (3 seconds, 10 in the sanitizers'
+    # build, as the error says): an error like any other.
     start = time.monotonic()
     desktop.reload("local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') "
                    "return { xwayland = false }")
     took = time.monotonic() - start
-    assert errors() == 5 and "init.lua: did not finish loading within" in log.read_text()
-    assert took < 10, f"the reload took {took:.1f} s"
+    limit = re.search(r"init\.lua: did not finish loading within (\d+) seconds", log.read_text())
+    assert errors() == 5 and limit, log.read_text()[-1000:]
+    assert took < int(limit[1]) + 7, f"the reload took {took:.1f} s, its limit {limit[1]} s"
     desktop.msg("get", "workspace")
 print("Automatic reload on save passed")

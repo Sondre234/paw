@@ -302,10 +302,11 @@ static bool xwm_running(struct sh_server *server) {
 /* Turns a drag down. One with a data source goes with it, its client told that it was
  * cancelled. One without (a drag within one window) wlroots frees only as it ends, and it has no
  * way to free one that never started: so it is started on the keyboard alone, which no client
- * hears of, and ended at once. It is kept instead (a few hundred bytes, until paw exits) where
+ * hears of, and ended at once. Nothing listening for drags that start hears of it either: not
+ * paw (seat_start_drag), and not XWayland's window manager, which would crash paw on a drag
+ * without a source (xwm_running). It is kept instead (a few hundred bytes, until paw exits) where
  * starting it would disturb something: the source of the drag before it, whose drop may still be
- * being read, would go; a keyboard grab under way (a popup's) would be lost; and XWayland's
- * window manager would crash paw (xwm_running). */
+ * being read, would go; and a keyboard grab under way (a popup's) would be lost. */
 static void refuse_drag(struct sh_server *server, struct wlr_drag *drag) {
     if (drag->source) {
         wlr_data_source_destroy(drag->source);
@@ -313,12 +314,16 @@ static void refuse_drag(struct sh_server *server, struct wlr_drag *drag) {
     }
     struct wlr_seat *seat = server->seat;
     if (seat->drag || seat->drag_source ||
-        seat->keyboard_state.grab != seat->keyboard_state.default_grab || xwm_running(server))
+        seat->keyboard_state.grab != seat->keyboard_state.default_grab)
         return;
-    server->refusing_drag = true; // seat_start_drag leaves it alone
+    // The seat's start_drag listeners, set aside while it starts, and put back as they were.
+    struct wl_list *listening = &seat->events.start_drag.listener_list, aside;
+    wl_list_init(&aside);
+    wl_list_insert_list(&aside, listening);
+    wl_list_init(listening);
     wlr_seat_start_drag(seat, drag, seat->drag_serial);
+    wl_list_insert_list(listening, &aside);
     wlr_seat_keyboard_end_grab(seat); // cancels the drag's grab, which frees the drag
-    server->refusing_drag = false;
 }
 
 /* Drag-and-drop (browser tabs, files into chat windows): only from a real button press. One of
@@ -365,8 +370,6 @@ static void drag_ended(struct wl_listener *listener, void *data) {
 void seat_start_drag(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, start_drag);
     struct wlr_drag *drag = data;
-    if (server->refusing_drag)
-        return; // started only to end at once (refuse_drag)
     wlr_scene_node_set_position(&server->drag_icons->node, server->cursor->x, server->cursor->y);
     // The scene helper removes the icon's node when the icon goes away.
     if (drag->icon)

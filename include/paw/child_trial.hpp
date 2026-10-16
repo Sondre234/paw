@@ -9,7 +9,7 @@
 #include <string>
 
 namespace paw {
-// The seconds the child gets: 3, or 30 in the sanitizers' build, which runs many times slower.
+// The seconds the child gets: 3, or 10 in the sanitizers' build, which runs many times slower.
 extern const int trial_seconds;
 
 struct Trial {
