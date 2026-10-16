@@ -1706,6 +1706,20 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         named(L, "color_scheme", "appearance.color_scheme", config.settings.color_scheme,
               {{"light", SH_COLOR_SCHEME_LIGHT}, {"dark", SH_COLOR_SCHEME_DARK}},
               "appearance.color_scheme must be \"light\" or \"dark\"", "color_scheme");
+        if (Section ambient{L, "ambient", "appearance.ambient"}) {
+            auto &settings = config.settings;
+            named(L, "kind", "appearance.ambient.kind", settings.ambient,
+                  {{"none", SH_AMBIENT_NONE},
+                   {"sakura", SH_AMBIENT_SAKURA},
+                   {"snow", SH_AMBIENT_SNOW},
+                   {"fireflies", SH_AMBIENT_FIREFLIES}},
+                  "appearance.ambient.kind must be \"none\", \"sakura\", \"snow\" or "
+                  "\"fireflies\"",
+                  "kind");
+            settings.ambient_count = integer(L, "count", settings.ambient_count, 1, 150);
+            settings.ambient_speed =
+                static_cast<float>(number(L, "speed", settings.ambient_speed, 0.1, 5));
+        }
     }
     if (Section in{L, "keyboard"}) {
         text_field(L, "layout", config.settings.keyboard_layout);

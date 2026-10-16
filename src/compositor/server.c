@@ -151,6 +151,7 @@ void reload_config(struct sh_server *server) {
     idle_reload(server);
     shortcuts_reload(server);
     cat_reload(server);
+    ambient_reload(server);
     wrapped_reload(server);
 }
 
@@ -524,6 +525,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     power_init(&server);
     idle_init(&server);
     cat_init(&server);
+    ambient_init(&server);
     wrapped_init(&server);
     blur_reload(&server);
     server.running = true;
@@ -624,6 +626,7 @@ finish:
     cube_end(&server);
     rice_finish(&server);
     cat_finish(&server);
+    ambient_finish(&server);
     xray_finish(&server);
     heatmap_finish(&server);
     blur_finish(&server);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "paw/ambient.h"
 #include "paw/backend.h"
 #include "paw/rice.hpp"
 #include "paw/swipe.h"
@@ -468,6 +469,9 @@ struct Config {
                          .cat_scale = 2,
                          .cat_coat = -1,
                          .cat_sleep = 90,
+                         .ambient = SH_AMBIENT_NONE,
+                         .ambient_count = 30,
+                         .ambient_speed = 1,
                          .wrapped = true,
                          .heatmap = true};
     // layout.workspace_names: the label of workspace N is names[N - 1]; "" or past the end: none.

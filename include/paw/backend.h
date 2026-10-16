@@ -580,6 +580,11 @@ struct sh_settings {
     int cat_scale;
     int cat_coat;
     int cat_sleep;
+    /* appearance.ambient: what drifts over the wallpaper (enum sh_ambient_kind, paw/ambient.h),
+     * how many on each monitor, and how fast, 1 its own pace. */
+    int ambient;
+    int ambient_count;
+    float ambient_speed;
     /* wrapped.enabled: the compositor counts what happens at the desktop for `paw wrapped`
      * (src/compositor/wrapped.c). */
     bool wrapped;

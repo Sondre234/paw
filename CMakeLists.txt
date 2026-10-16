@@ -331,6 +331,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/toys.c
         src/compositor/rice.c
         src/compositor/cat.c
+        src/compositor/ambient.c
         src/compositor/xray.c
         src/compositor/heatmap.c
         src/compositor/cube.c
@@ -355,6 +356,7 @@ if(PAW_BUILD_COMPOSITOR)
     target_sources(paw PRIVATE src/dropdown.c)
     target_sources(paw PRIVATE src/toys.c)
     target_sources(paw PRIVATE src/cat.c src/cat_sprite.c)
+    target_sources(paw PRIVATE src/ambient.c)
     target_sources(paw PRIVATE src/xray_layout.c)
     target_sources(paw PRIVATE src/cube.c)
     target_sources(paw PRIVATE src/blur.c)

@@ -58,6 +58,18 @@ const Option options[] = {
      "GTK and libadwaita applications, Firefox, Chromium and Electron applications such as "
      "Discord read through xdg-desktop-portal. Only a login session (`--session`) sets it. "
      "Unset, paw leaves the preference as it is."},
+    {"appearance.ambient", "table", "", "", none, none,
+     "Particles drifting over the wallpaper, under the windows and panels: sakura petals "
+     "tumbling down, soft snow, or fireflies wandering and glowing. An appearance profile may "
+     "set them. They pause while the session "
+     "is locked, while a monitor is off or shows a fullscreen window and while the screens are "
+     "dimmed, and fade out after five minutes without input until there is some."},
+    {"appearance.ambient.kind", "enum", "\"none\"", "\"sakura\"", none, none,
+     "`\"sakura\"`, `\"snow\"` or `\"fireflies\"`; `\"none\"` for none."},
+    {"appearance.ambient.count", "integer", "30", "50", 1, 150,
+     "How many particles drift on each monitor."},
+    {"appearance.ambient.speed", "number", "1", "0.6", 0.1, 5,
+     "How fast they drift: 0.5 at half their own pace, 2 at twice it."},
 
     {"keyboard", "table", "", "", none, none, "Keyboard layout and key repeat."},
     {"keyboard.layout", "string", "\"us\"", "\"us\"", none, none,
