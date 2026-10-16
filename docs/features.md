@@ -1224,8 +1224,11 @@ or `switcher_app_prev`, which opens it on the least recent window, to move back)
 Return, Escape, a click, releasing the modifiers and the peek are as with Alt + Tab. An
 application with no other window, or a window without an app ID, opens nothing. The windows of a
 [tab group](#window-groups) are listed each on its own, and picking a tab brings it forward, as in
-the switcher. Sent as `paw msg switcher_app` it stays open until `switcher_confirm [N]` or
-`switcher_cancel`, as `paw msg switcher` does.
+the switcher. In the macOS style, whose switcher shows applications by their large icons alone,
+one application's windows, which share its icon, show their titles under it, or with
+`shell.thumbnails` their pictures as cards, and the selected one peeks. Sent as
+`paw msg switcher_app` it stays open until `switcher_confirm [N]` or `switcher_cancel`, as
+`paw msg switcher` does.
 
 ## Overview
 

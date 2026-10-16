@@ -231,8 +231,11 @@ class ShellController : public QObject {
     // The compositor's window switcher (Alt+Tab): the output showing it, empty while closed, and
     // its windows as {appId, title, output, workspace, minimized, urgent, id}, most recently
     // focused first; `id` is the window's number (TaskModel's windowId), 0 when not given.
+    // `switcherApp`: it lists one application's windows (switcher_app, Alt+`); kept as the
+    // switcher closes, so that it goes as it showed.
     Q_PROPERTY(QString switcherOutput READ switcherOutput NOTIFY switcherChanged)
     Q_PROPERTY(QVariantList switcherWindows READ switcherWindows NOTIFY switcherChanged)
+    Q_PROPERTY(bool switcherApp READ switcherApp NOTIFY switcherChanged)
     Q_PROPERTY(int switcherSelected READ switcherSelected NOTIFY switcherSelectedChanged)
     // The command palette (Super + P).
     Q_PROPERTY(Palette *palette READ palette CONSTANT)
@@ -523,6 +526,7 @@ class ShellController : public QObject {
     QVariantMap workspaces() const { return workspaces_; }
     QString switcherOutput() const { return switcher_.output; }
     QVariantList switcherWindows() const { return switcher_.windows; }
+    bool switcherApp() const { return switcher_.app; }
     int switcherSelected() const { return switcher_.selected; }
     // Focuses the switcher's window at `index` and closes it.
     Q_INVOKABLE void switcherPick(int index);
@@ -748,6 +752,7 @@ class ShellController : public QObject {
         QString output = {};
         QVariantList windows = {};
         int selected = 0;
+        bool app = false;
     };
     Switcher switcher_, nextSwitcher_;
     int switcherPending_ = 0;

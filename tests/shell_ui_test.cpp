@@ -1018,6 +1018,27 @@ int main(int argc, char **argv) {
     if (overlayListed() != 3 || !waitFor([&] { return !switcherView.isVisible(); }) ||
         overlayListed() != 3)
         return fail("the switcher's overlay did not hold its windows as it went");
+    // The application switcher (switcher_app, Alt + `) says so with "app" after the count; its
+    // overlay shows the windows it lists, one application's, and the controller keeps saying so
+    // as it closes, so that it goes as it showed. The window switcher's line says nothing of it.
+    subscriber->write(("switcher " + output + " 1 2 app\n"
+                       "switcher-window fake\tFake one\t" + output + "\t1\t0\t0\t21\n"
+                       "switcher-window fake\tFake two\t" + output + "\t2\t0\t0\t22\n").toUtf8());
+    if (!waitFor([&] { return controller.switcherWindows().size() == 2 && controller.switcherApp(); }))
+        return fail("the application switcher's line was not read");
+    if (!waitFor([&] { return switcherView.isVisible() && overlayListed() == 2; }) ||
+        !switcherView.rootObject()->property("app").toBool())
+        return fail("the application switcher's overlay did not show its windows");
+    subscriber->write("switcher-close\n");
+    if (!waitFor([&] { return !switcherView.isVisible(); }) || !controller.switcherApp())
+        return fail("the application switcher did not go as it showed");
+    subscriber->write(("switcher " + output + " 0 1\n"
+                       "switcher-window fake\tFake\t" + output + "\t3\t0\t1\t12\n").toUtf8());
+    if (!waitFor([&] { return controller.switcherWindows().size() == 1; }) || controller.switcherApp())
+        return fail("the window switcher was taken for the application switcher");
+    subscriber->write("switcher-close\n");
+    if (!waitFor([&] { return controller.switcherWindows().isEmpty() && !switcherView.isVisible(); }))
+        return fail("the window switcher did not go");
     // The switcher, the overview and the command palette opening on this output close what is
     // open here: the popover would be over them.
     {
@@ -6979,6 +7000,45 @@ ListModel {
             return fail("could not rewrite the configuration");
         if (!waitFor([&] { return controller.style() == "macos"; }))
             return fail("the configuration's macOS style was not read");
+        // The macOS style's window switcher shows applications by their icons alone, as macOS
+        // does; one application's windows (switcher_app), which share its icon, show their
+        // titles, here with shell.thumbnails their pictures as cards.
+        {
+            auto *switcherRoot = switcherView.rootObject();
+            std::function<int(QQuickItem *)> cards = [&](QQuickItem *item) {
+                int count = 0;
+                for (auto *child : item->childItems())
+                    count += (child->objectName() == "switcherCard" && child->isVisible()) + cards(child);
+                return count;
+            };
+            auto shows = [&](const QString &opening, int count) {
+                subscriber->write(opening.toUtf8());
+                return waitFor([&] {
+                    return controller.switcherWindows().size() == count && switcherView.isVisible() &&
+                           switcherRoot->property("listed").toList().size() == count;
+                });
+            };
+            auto gone = [&] {
+                subscriber->write("switcher-close\n");
+                return waitFor([&] { return !switcherView.isVisible(); });
+            };
+            if (!shows("switcher " + output + " 1 2\n"
+                       "switcher-window fake\tFake\t" + output + "\t1\t0\t0\t21\n"
+                       "switcher-window other\tOther\t" + output + "\t1\t0\t0\t22\n", 2) ||
+                !switcherRoot->property("iconsOnly").toBool() || switcherRoot->property("pictured").toBool() ||
+                cards(switcherRoot) != 0)
+                return fail("the macOS style's window switcher did not show applications by their icons");
+            if (!gone())
+                return fail("the macOS style's window switcher did not go");
+            if (!shows("switcher " + output + " 1 3 app\n"
+                       "switcher-window fake\tFake one\t" + output + "\t1\t0\t0\t21\n"
+                       "switcher-window fake\tFake two\t" + output + "\t1\t0\t0\t23\n"
+                       "switcher-window fake\tFake three\t" + output + "\t2\t1\t0\t24\n", 3) ||
+                switcherRoot->property("iconsOnly").toBool() || !waitFor([&] { return cards(switcherRoot) == 3; }))
+                return fail("the macOS style's application switcher did not show its windows as cards");
+            if (!gone())
+                return fail("the macOS style's application switcher did not go");
+        }
         // Spotlight lists what it finds by kind after the top hit, each kind once (but for
         // searching the web and saving a session at the end), files among them.
         {
