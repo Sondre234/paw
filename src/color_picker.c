@@ -268,18 +268,22 @@ static uint32_t nothing_at(const struct sh_loupe_look *look, int x, int y, int s
 void sh_loupe_paint_cells(uint32_t *pixels, const struct sh_loupe_layout *layout,
                           const struct sh_loupe_look *look, const uint32_t *cells) {
     const int cell = layout->cell, grid = SH_LOUPE_CELLS * cell;
-    const int square = cell / 2 > 1 ? cell / 2 : 1;
+    const int square = cell / 2 > 1 ? cell / 2 : 1, round = layout->grid_radius + 1;
+    // Painted again as the pointer crosses each pixel: the grid's edge worked out only in its
+    // rounded corners, where it is not whole pixels.
     for (int y = 0; y < grid; ++y) {
         int gy = layout->grid_y + y;
         if (gy < 0 || gy >= layout->height)
             continue;
+        bool corner_row = y < round || y >= grid - round;
         for (int x = 0; x < grid; ++x) {
             int gx = layout->grid_x + x;
             if (gx < 0 || gx >= layout->width)
                 continue;
-            double d = box_distance(gx + 0.5, gy + 0.5, layout->grid_x, layout->grid_y, grid, grid,
-                                    layout->grid_radius);
-            double inside = coverage(d);
+            double inside = 1;
+            if (corner_row && (x < round || x >= grid - round))
+                inside = coverage(box_distance(gx + 0.5, gy + 0.5, layout->grid_x, layout->grid_y,
+                                               grid, grid, layout->grid_radius));
             if (inside <= 0)
                 continue;
             int column = x / cell, row = y / cell;
@@ -292,7 +296,11 @@ void sh_loupe_paint_cells(uint32_t *pixels, const struct sh_loupe_layout *layout
                 if ((x % cell == 0 && column > 0) || (y % cell == 0 && row > 0))
                     rgb = mix(rgb, luma(rgb) > 0.5 ? 0x000000 : 0xffffff, 0.12);
             }
-            blend(&pixels[(size_t)gy * layout->width + gx], rgb, inside);
+            uint32_t *pixel = &pixels[(size_t)gy * layout->width + gx];
+            if (inside >= 1)
+                *pixel = 0xff000000u | rgb;
+            else
+                blend(pixel, rgb, inside);
         }
     }
     uint32_t middle = cells[(SH_LOUPE_CELLS / 2) * SH_LOUPE_CELLS + SH_LOUPE_CELLS / 2];
@@ -524,26 +532,76 @@ double sh_loupe_text_width(const char *text, double cap) {
     return glyphs ? (glyphs * ADVANCE - (ADVANCE - GLYPH_WIDTH)) * cap : 0;
 }
 
+/* A glyph's coverage, 0 to 255, in a box of whole pixels from (`x`, `y`) of the picture, for
+ * one size and place within a pixel. The label is drawn again for each pixel the pointer crosses,
+ * the same few glyphs at the same few places, so the last MASKS painted are kept. */
+#define MASKS 64
+struct mask {
+    char c;
+    double cap, fraction_x, fraction_y;
+    int x, y, width, height; /* from the glyph's whole-pixel origin */
+    uint8_t *coverage;
+};
+static struct mask masks[MASKS];
+static int next_mask;
+
+static const struct mask *mask_of(char c, double cap, double fraction_x, double fraction_y) {
+    for (int i = 0; i < MASKS; ++i) {
+        const struct mask *m = &masks[i];
+        if (m->coverage && m->c == c && m->cap == cap && m->fraction_x == fraction_x &&
+            m->fraction_y == fraction_y)
+            return m;
+    }
+    struct path path;
+    if (!glyph_path(c, &path))
+        return NULL;
+    double half = STROKE * cap / 2;
+    struct mask made = {.c = c, .cap = cap, .fraction_x = fraction_x, .fraction_y = fraction_y};
+    made.x = (int)floor(fraction_x - half - 1);
+    made.y = (int)floor(fraction_y - half - 1);
+    made.width = (int)ceil(fraction_x + GLYPH_WIDTH * cap + half + 1) - made.x;
+    made.height = (int)ceil(fraction_y + cap + half + 1) - made.y;
+    made.coverage = malloc((size_t)made.width * made.height);
+    if (!made.coverage)
+        return NULL;
+    for (int row = 0; row < made.height; ++row) {
+        for (int column = 0; column < made.width; ++column) {
+            double px = made.x + column + 0.5, py = made.y + row + 0.5, d = INFINITY;
+            for (int i = 0; i < path.count; ++i) {
+                const double *seg = path.segments[i];
+                double here =
+                    segment_distance(px, py, fraction_x + seg[0] * cap, fraction_y + seg[1] * cap,
+                                     fraction_x + seg[2] * cap, fraction_y + seg[3] * cap);
+                d = here < d ? here : d;
+            }
+            made.coverage[row * made.width + column] =
+                (uint8_t)lround(255 * clamp01(half + 0.5 - d));
+        }
+    }
+    struct mask *slot = &masks[next_mask];
+    next_mask = (next_mask + 1) % MASKS;
+    free(slot->coverage);
+    *slot = made;
+    return slot;
+}
+
 void sh_loupe_text(uint32_t *pixels, int width, int height, double x, double top, double cap,
                    const char *text, uint32_t rgb, double alpha) {
-    double half = STROKE * cap / 2;
-    struct path path;
+    int whole_y = (int)floor(top);
     for (; *text; ++text) {
-        if (!glyph_path(*text, &path))
+        int whole_x = (int)floor(x);
+        const struct mask *m = mask_of(*text, cap, x - whole_x, top - whole_y);
+        if (!m)
             continue;
-        int from_x = (int)floor(x - half - 1), to_x = (int)ceil(x + GLYPH_WIDTH * cap + half + 1);
-        int from_y = (int)floor(top - half - 1), to_y = (int)ceil(top + cap + half + 1);
-        for (int py = from_y < 0 ? 0 : from_y; py < to_y && py < height; ++py) {
-            for (int px = from_x < 0 ? 0 : from_x; px < to_x && px < width; ++px) {
-                double d = INFINITY;
-                for (int i = 0; i < path.count; ++i) {
-                    const double *s = path.segments[i];
-                    double here = segment_distance(px + 0.5, py + 0.5, x + s[0] * cap,
-                                                   top + s[1] * cap, x + s[2] * cap,
-                                                   top + s[3] * cap);
-                    d = here < d ? here : d;
-                }
-                blend(&pixels[(size_t)py * width + px], rgb, alpha * clamp01(half + 0.5 - d));
+        for (int row = 0; row < m->height; ++row) {
+            int py = whole_y + m->y + row;
+            if (py < 0 || py >= height)
+                continue;
+            for (int column = 0; column < m->width; ++column) {
+                int px = whole_x + m->x + column;
+                uint8_t c = m->coverage[row * m->width + column];
+                if (c && px >= 0 && px < width)
+                    blend(&pixels[(size_t)py * width + px], rgb, alpha * c / 255);
             }
         }
         x += ADVANCE * cap;
