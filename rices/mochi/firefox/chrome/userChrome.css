@@ -184,10 +184,13 @@
   --promo-message-text-color-vibrant: var(--mochi-ink) !important;
 }
 
-/* Menus and panels re-declare their colours on themselves, so set them there too. */
+/* Menus and panels re-declare their colours on themselves, so set them there too. Not on the
+   middle-click autoscroll circle: it is a panel whose arrows are drawn by its
+   --panel-background-color, and the shadow room here is wider than half of it, so it would show
+   nothing at all. */
 :root,
 menupopup,
-panel {
+panel:not(.autoscroller) {
   --panel-background-color: var(--mochi-panel) !important;
   --panel-text-color: var(--mochi-ink) !important;
   --panel-border-color: var(--mochi-edge) !important;
