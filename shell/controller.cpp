@@ -1115,6 +1115,9 @@ void ShellController::subscribe() {
                 clipboard_.toggle(line.sliced(10));
             } else if (line.startsWith("emoji ")) {
                 emoji_.toggle(line.sliced(6));
+            } else if (line.startsWith("shortcuts ")) {
+                // shortcuts OUTPUT: the sheet of keyboard shortcuts, opened or closed there.
+                shortcuts_.toggle(line.sliced(10));
             } else if (line.startsWith("locked ")) {
                 // locked on|off: nothing copied while the session is locked is kept.
                 clipboard_.setLocked(line == "locked on");

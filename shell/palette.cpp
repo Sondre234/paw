@@ -52,6 +52,7 @@ constexpr Action actions[] = {
     {"move_to_workspace_prev", "Move window to the previous workspace"},
     {"move_to_workspace_empty", "Move window to an empty workspace"},
     {"launcher", "Applications menu"},
+    {"shortcuts", "Keyboard shortcuts"},
     {"display_settings", "Display settings"},
     {"reload", "Reload configuration"},
     {"shake", "Shake the window"},
@@ -79,6 +80,13 @@ QVariantList merged(const QVariantList &ranked, const QVariantList &files, int l
     return list;
 }
 } // namespace
+
+QString Palette::actionTitle(const QString &name) {
+    for (const auto &action : actions)
+        if (name == action.name)
+            return action.title;
+    return {};
+}
 
 Palette::Palette(ShellController &controller) : QObject(&controller), controller_(controller) {
     // Files read while it is open join what it shows.

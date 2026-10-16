@@ -69,10 +69,10 @@ set(PAW_AUTH_SOURCES authentication.cpp authentication.hpp)
 # controller; their D-Bus backends only in the shell.
 set(PAW_SERVICE_SOURCES media.cpp media.hpp power_mode.cpp power_mode.hpp wifi.cpp wifi.hpp
     row_model.hpp bluetooth.cpp bluetooth.hpp)
-# The clipboard history, its pictures, the emoji picker, and the overlay their popups show in, in
-# everything that builds the controller.
+# The clipboard history, its pictures, the emoji picker, the sheet of keyboard shortcuts, and the
+# overlay their popups show in, in everything that builds the controller.
 set(PAW_PICKER_SOURCES clipboard.cpp clipboard.hpp emoji.cpp emoji.hpp
-    picker_view.cpp picker_view.hpp ${PROJECT_BINARY_DIR}/ext-data-control-v1-protocol.c
+    shortcuts.cpp shortcuts.hpp picker_view.cpp picker_view.hpp ${PROJECT_BINARY_DIR}/ext-data-control-v1-protocol.c
     ${PROJECT_BINARY_DIR}/ext-data-control-v1-client-protocol.h)
 set(PAW_NOTIFY_SOURCES notifications.cpp notifications.hpp osd.cpp osd.hpp backlight.cpp
     backlight.hpp netlink.hpp dbus_util.hpp tray.cpp tray.hpp)
@@ -272,6 +272,11 @@ if(BUILD_TESTING)
     add_test(NAME shell_ui COMMAND shell_ui_test ${CMAKE_COMMAND})
     set_tests_properties(shell_ui PROPERTIES TIMEOUT 240
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    # The sheet of keyboard shortcuts: its groups, titles, keys and search, and its model.
+    paw_shell_test(shortcuts_test LIBS paw_shell_test_core Qt6::Test)
+    add_test(NAME shell_shortcuts COMMAND shortcuts_test)
+    set_tests_properties(shell_shortcuts PROPERTIES TIMEOUT 60
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;DBUS_SESSION_BUS_ADDRESS=disabled:")
     paw_shell_test(task_filter_test LIBS paw_shell_test_core Qt6::Test)
     add_test(NAME shell_task_filter COMMAND task_filter_test)
     set_tests_properties(shell_task_filter PROPERTIES TIMEOUT 90
