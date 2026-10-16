@@ -968,6 +968,10 @@ off and to find out what is wrong with it, and toys the compositor plays with th
 - The shell no longer loses some 2.7 KB of memory each time a shadow drawn through the GPU goes,
   as the floating bar's does while a window docks it: Qt's shadow never frees the shader effect
   it draws with, which the shell now hands to the shadow to go with it.
+- In the moment after a window opens or closes while the x-ray view is open, a click on a sheet
+  goes to the window on that sheet, and `paw msg get xray` puts everything on the sheet drawn for
+  it: both went by the sheets the view was about to show, so a click could go to the window just
+  opening, and the window kept above could be listed on no sheet.
 
 ## 0.1.1 (2026-10-05)
 
