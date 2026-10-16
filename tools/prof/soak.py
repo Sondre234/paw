@@ -14,7 +14,7 @@ for nothing to move, so that each cycle ends where it began. --skip leaves steps
 
 The compositor is tests/harness.py's: its own runtime and state directories, the pixman
 renderer, nothing of the real session. With --shell paw-shell runs on it too (software
-rendering, no session bus) and is probed as well. Afterwards OUT (default prof-soak) holds
+rendering, no session bus) and is probed as well. Afterwards OUT (BUILD_DIR/prof-soak) holds
 pawprobe's files for each probed process and `marks`, a span per cycle ("cycle 3") and per step
 of every cycle ("overview"):
 
@@ -205,7 +205,7 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("build", help="the build directory (paw, paw-bench-client)")
     parser.add_argument("--cycles", type=int, default=20, help="cycles to run (default 20)")
-    parser.add_argument("--out", default="prof-soak", help="where the probe's files go")
+    parser.add_argument("--out", help="where the probe's files go (BUILD_DIR/prof-soak)")
     parser.add_argument("--windows", type=int, default=4, help="windows each cycle opens")
     parser.add_argument("--busy", type=int, default=1,
                         help="how many of them redraw on every frame (default 1)")
@@ -226,7 +226,7 @@ def main():
                  None)
     if args.shell and not shell:
         sys.exit(f"no paw-shell in {build}")
-    out = Path(args.out).resolve()
+    out = Path(args.out).resolve() if args.out else build / "prof-soak"
     out.mkdir(parents=True, exist_ok=True)
     for old in (*out.glob("*.samples"), *out.glob("*.maps"), *out.glob("*.log"),
                 *out.glob("*.threads"), out / "marks"):
