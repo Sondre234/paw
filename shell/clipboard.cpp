@@ -616,8 +616,16 @@ void ClipboardHistory::readNext() {
         return finishReading(true);
     const auto type = reading.types[reading.next++];
     int fds[2];
-    if (pipe2(fds, O_CLOEXEC | O_NONBLOCK) != 0)
+    if (pipe2(fds, O_CLOEXEC) != 0)
         return finishReading(false);
+    // Only the history's own end is non-blocking: the program that copied gets its end as a
+    // pipe usually is, and one writing in a plain loop would otherwise stop at the first full
+    // pipe (64 KiB), taking EAGAIN for an error.
+    if (fcntl(fds[0], F_SETFL, fcntl(fds[0], F_GETFL) | O_NONBLOCK) != 0) {
+        ::close(fds[0]);
+        ::close(fds[1]);
+        return finishReading(false);
+    }
     // libwayland sends a copy of the descriptor, so the history's own closes at once.
     ext_data_control_offer_v1_receive(reading.offer, type.toUtf8().constData(), fds[1]);
     ::close(fds[1]);

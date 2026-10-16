@@ -19,7 +19,11 @@ bindings, dispatchers, scripts that call `hyprctl`) is out of scope; paw keeps i
   instruction budget, which a `pcall` cannot catch for good; `setmetatable` refuses a
   `__gc`, which Lua would run outside that budget; and the tables it leaves are read
   without running their metamethods. A script that breaks any of this stops with the
-  error in the report, keeping what it set before.
+  error in the report, keeping what it set before. One call into a C function counts as
+  one instruction however long it runs (`(""):rep(2^62)`, a pattern that backtracks), so
+  the script runs first in a child process, as a configuration does: one that has not
+  finished there within 3 seconds is reported as taking too long and nothing from it is
+  imported.
 - `hyprland.conf` (hyprlang) gets a small parser: `source =`, `$variables`, nested
   `section { }` blocks, `rgba()`/`rgb()`/`0xAARRGGBB` colors.
 - Waybar: only the bar's look transfers. Position, height, and margins come from

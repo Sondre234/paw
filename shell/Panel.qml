@@ -38,6 +38,13 @@ Item {
     property real contextMenuX: 0
     // The windows the taskbar shows; a stand-in model replaces it in tests.
     property var taskSource: shell.tasks
+    // shell.taskbar_buttons (the taskbar style's alone): the monitor whose windows alone the
+    // taskbar shows, "" for every window ("all", and "main_and_own" on the main monitor), and
+    // whether it shows the pinned applications' launchers ("all", or on the main monitor).
+    readonly property bool mainMonitor: outputName === shell.primaryOutput
+    readonly property string taskbarOutput: Theme.macos || shell.taskbarButtons === "all" ||
+                                            (shell.taskbarButtons === "main_and_own" && mainMonitor) ? "" : outputName
+    readonly property bool taskbarLaunchers: Theme.macos || shell.taskbarButtons === "all" || mainMonitor
     // The sound server, replaced in tests too. Its popup is "mixer" (a slider per application)
     // or "outputs" (the output to play through), shown above the volume control.
     property var audioSource: shell.audio
@@ -72,7 +79,8 @@ Item {
                             trayMenuKey !== "" || menuBarMenu !== ""
     // Hovering an application's stacked button lists its windows above it: those of the pinned
     // application groupSlot, or with the app id groupWindowApp outside the pinned slots, or the
-    // window groupTask alone when it is 0 or more (a button standing for one window).
+    // window groupTask alone when it is 0 or more (a button standing for one window), in the
+    // order of their monitors, those the taskbar shows.
     property bool groupOpen: false
     property string groupSlot: ""
     property string groupWindowApp: ""
@@ -84,7 +92,7 @@ Item {
     // bar and its menus).
     readonly property TaskFilter allWindows: TaskFilter { sourceModel: root.taskSource }
     readonly property TaskFilter groupWindows: TaskFilter {
-        controller: shell; sourceModel: root.taskSource
+        controller: shell; sourceModel: root.taskSource; byMonitor: true; output: root.taskbarOutput
         app: root.groupSlot; windowApp: root.groupWindowApp; taskId: root.groupTask
     }
     // In the taskbar style with shell.thumbnails, resting on any button with windows shows them

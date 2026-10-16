@@ -114,6 +114,7 @@ return {
                 panel_margin = { top = 12, left = 24, right = 24 },
                 wallpaper = "rices/washi/wallpaper/washi.jpg",
                 start_icon = "rices/washi/start/neko.svg",
+                -- desktop_clock = { enabled = true, greeting = "ja" },
             },
         },
         sumi = {
@@ -168,9 +169,16 @@ return {
                 blur = { enabled = true, radius = 48, brightness = 0.85, saturation = 1.2 },
                 wallpaper = "rices/mochi/wallpaper/mochi.jpg",
                 start_icon = "rices/mochi/start/mochi.svg",
+                -- desktop_clock = { enabled = true, position = "left", greeting = "ja" },
             },
         },
     },
+    -- Experimental: washi by day and sumi by night, switched at sunrise and sunset (night_light's
+    -- times or latitude and longitude, even with night light off, unless sunrise and sunset are
+    -- given here). A profile picked by hand stays until the next one; `paw msg profile auto`
+    -- hands the choice back to the schedule.
+    -- profile_schedule = { day = "washi", night = "sumi" },
+    -- profile_schedule = { day = "washi", night = "sumi", sunrise = "07:00", sunset = "20:00" },
     -- keyboard = { layout = "us", variant = "", model = "", options = "", repeat_rate = 25, repeat_delay = 600 },
     -- Several layouts: layout = "us,no", variant = ",nodeadkeys"; or file = "keymap.xkb", a
     -- whole XKB keymap beside this file.
@@ -362,6 +370,9 @@ return {
         -- icons_only = true, -- taskbar buttons as small icons; false adds each window's title
         -- group_windows = true, -- one button per application, its windows listed on hover;
         --                          false gives every window its own button
+        -- taskbar_buttons = "all", -- experimental: which windows each monitor's taskbar shows,
+        --                           "main_and_own" (all on the main monitor's, else that monitor's)
+        --                           or "own" (each its monitor's); pins on the main one's alone
         -- polkit_agent = true, -- ask for administrator passwords (pkexec, GParted); false
         --                         leaves that to another polkit agent
         -- Resting the pointer on a window's taskbar button shows a small picture of it (a stack's
@@ -393,6 +404,18 @@ return {
         -- panel_color = "#151e2c", -- #RRGGBBAA makes it translucent
         -- text_color = "#edf2fa",
         -- wallpaper = "", -- absolute path, or relative to this configuration file
+        -- wallpaper_mode = "fill", -- or "fit", "center", "tile" or "stretch"; around a picture
+        --                            that leaves room, appearance.background shows
+        -- Experimental: a large clock on the desktop, over the wallpaper, in the text colour with
+        -- a soft shadow; the desktop_clock action (paw msg desktop_clock) shows or hides it:
+        -- desktop_clock = {
+        --     enabled = false,
+        --     position = "center", -- or "top", "bottom", "left", "right", "top-left", ...
+        --     time_format = "HH:mm", date_format = "dddd d MMMM", -- Qt's; "" shows no date
+        --     size = 96,         -- the time's height in pixels (24-320)
+        --     -- color = "#edf2fa", font = "", -- unset: text_color and font
+        --     greeting = false,  -- "ja": おはよう, こんにちは, こんばんは by the hour; or "en"
+        -- },
         -- wallpapers = "~/Pictures/wallpapers", -- the panel's wallpaper picker browses this folder
         -- Pin applications from the launcher or a window's right-click menu. Launchers here are
         -- for commands without a desktop file; they stay pinned ahead of those, e.g.:

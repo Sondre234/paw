@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Reads Hyprland's configuration: hyprland.lua in a sandbox, or hyprland.conf (hyprlang).
 #include "common.hpp"
+#include "paw/child_trial.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -448,6 +449,33 @@ void read_lua(const Files &files, const fs::path &path, Hyprland &hypr, Report &
                     "uses '" + name +
                         "', which exists only when Hyprland runs it; treated as a stub");
 }
+// The budget does not meter time spent in a C function, (""):rep(2^62) or a pattern that
+// backtracks, so hyprland.lua runs first in a child process, as a configuration does, and for
+// real only once it finished there in time.
+void read_lua_in_time(const Files &files, const fs::path &path, Hyprland &hypr, Report &report) {
+    const auto trial = try_in_child([&] {
+        Hyprland tried;
+        Report unused;
+        read_lua(files, path, tried, unused);
+    });
+    const Origin top{path, 0};
+    switch (trial.outcome) {
+    case Trial::Finished:
+        return read_lua(files, path, hypr, report);
+    case Trial::OutOfMemory:
+        return report.skip(files, top, "ran out of memory; nothing from it is imported");
+    case Trial::TooLong:
+        return report.skip(files, top,
+                           "took too long to run (over " + std::to_string(trial_seconds) +
+                               " seconds); nothing from it is imported");
+    case Trial::Crashed:
+        break;
+    }
+    report.skip(files, top,
+                "running it crashed" +
+                    (trial.signal.empty() ? std::string() : " (" + trial.signal + ")") +
+                    "; nothing from it is imported");
+}
 
 // hyprlang: `source`, `$variables`, `section { }` blocks, `a:b = c` names, and the keywords
 // that carry monitors and window rules.
@@ -707,7 +735,7 @@ std::optional<Hyprland> read_hyprland(const Files &files, Report &report) {
         hypr.file = *lua;
         if (conf)
             report.skip(files, {*conf, 0}, "not read: Hyprland uses hyprland.lua instead");
-        read_lua(files, *lua, hypr, report);
+        read_lua_in_time(files, *lua, hypr, report);
     } else if (conf) {
         hypr.file = *conf;
         Hyprlang(files, hypr, report).read(*conf);

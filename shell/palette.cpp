@@ -57,6 +57,7 @@ constexpr Action actions[] = {
     {"move_to_workspace_empty", "Move window to an empty workspace"},
     {"launcher", "Applications menu"},
     {"display_settings", "Display settings"},
+    {"desktop_clock", "Show or hide the desktop clock"},
     {"reload", "Reload configuration"},
     {"shake", "Shake the window"},
     {"gravity", "Let the windows fall"},
@@ -203,6 +204,11 @@ QVariantList Palette::entries(QObject *windows) const {
         entries.push_back(entry("action", "Appearance: " + name,
                                 name == controller_.profile() ? "Profile · in use" : "Profile",
                                 "preferences-desktop-theme", "profile " + name));
+    if (controller_.hasProfileSchedule())
+        entries.push_back(entry("action", "Appearance: follow sunrise and sunset",
+                                controller_.profileScheduled() ? "Profile schedule · in charge"
+                                                               : "Profile schedule",
+                                "preferences-desktop-theme", "profile_auto"));
     for (const auto &action : actions)
         entries.push_back(entry("action", action.title, QString("Action · ") + action.name,
                                 "system-run", action.name));
