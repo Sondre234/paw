@@ -2114,6 +2114,7 @@ bool color_picker_wait(struct sh_server *server, int fd, char *error, size_t siz
 bool color_picker_motion(struct sh_server *server);
 bool color_picker_button(struct sh_server *server, const struct wlr_pointer_button_event *event);
 bool color_picker_axis(struct sh_server *server);
+void color_picker_show_loupe(struct sh_server *server);
 bool color_picker_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym);
 void color_picker_cancel(struct sh_server *server);
 void color_picker_forget_output(struct sh_output *output);

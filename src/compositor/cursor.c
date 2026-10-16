@@ -202,10 +202,15 @@ uint32_t corner_edges(struct sh_toplevel *toplevel, uint32_t edges) {
     return edges;
 }
 
-/* The cursor shows this image, unless it is hidden (cursor_hide). */
+/* The cursor shows this image, unless it is hidden (cursor_hide); while the colour picker picks,
+ * its loupe instead (drawn anew, as when the cursor theme changes). */
 void show_xcursor(struct sh_server *server, const char *name) {
     if (server->cursor_hidden)
         return;
+    if (color_picker_active(server)) {
+        color_picker_show_loupe(server);
+        return;
+    }
     server->cursor_image = name;
     if (!cursor_grown(server)) // a shake draws it larger meanwhile, from this name
         wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr, name);
@@ -1023,7 +1028,8 @@ void seat_request_cursor(struct wl_listener *listener, void *data) {
     if (focused_client == event->seat_client)
         note_client_cursor(server, event->seat_client, event->surface, event->hotspot_x,
                            event->hotspot_y, NULL);
-    if (focused_client == event->seat_client && !server->cursor_hidden) {
+    if (focused_client == event->seat_client && !server->cursor_hidden &&
+        !color_picker_active(server)) {
         server->shape_edges = 0;
         server->shown_edges = 0;
         // Grown by a shake meanwhile, it is given again as the pointer enters it anew.
@@ -1055,6 +1061,10 @@ void cursor_show(struct sh_server *server, uint32_t why) {
     server->cursor_hidden &= ~why;
     if (server->cursor_hidden)
         return; // hidden for another reason still
+    if (color_picker_active(server)) {
+        color_picker_show_loupe(server);
+        return;
+    }
     // The image the client under the pointer last asked for, heard meanwhile too: given back
     // as it is, without the leave and enter that would have the client set it again (which a
     // game holding the pointer may take for losing it).

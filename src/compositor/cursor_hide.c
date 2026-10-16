@@ -7,11 +7,11 @@
 #include "server.h"
 
 /* Whether the cursor may hide now: no button held, the pointer moving nothing, held by no
- * pointer constraint, and showing an image. */
+ * pointer constraint, showing an image, and not the colour picker's loupe. */
 static bool may_hide(struct sh_server *server) {
     return !server->seat->pointer_state.button_count &&
            server->cursor_mode == SH_CURSOR_PASSTHROUGH && !server->active_constraint &&
-           !client_cursor_none(server);
+           !client_cursor_none(server) && !color_picker_active(server);
 }
 
 /* A key went to an application (or its input method): unless it is a modifier, or the cursor may
