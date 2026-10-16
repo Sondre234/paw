@@ -444,7 +444,6 @@ void process_cursor_motion(struct sh_server *server, uint32_t time) {
                                     server->cursor->y);
     if (xray_motion(server))
         return;
-    overview_hot_corner(server);
     if (overview_motion(server))
         return;
     middle_drag_motion(server);
