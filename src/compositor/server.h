@@ -987,7 +987,7 @@ struct sh_icon {
 struct sh_gradient_drawn {
     int width, height, border, radius, scale;
     float mix; // from the inactive gradient (0) to the active one (1)
-    unsigned generation; // server->config_generation
+    struct sh_gradient from, to; // the inactive and active gradients (window_border)
 };
 
 struct sh_opacity_rule {
@@ -1003,6 +1003,13 @@ struct sh_blur_rule {
     unsigned generation;
     uint64_t key;
     int value;
+};
+
+/* What the window rules give a window for as long as it matches them (window_rules.c), for the
+ * configuration they were matched under (0 for never, or since its title or app ID changed). */
+struct sh_rule_now {
+    unsigned generation;
+    struct sh_window_rule rule;
 };
 
 /* A scratchpad window sliding in or out (scratchpad.c): which way, where it is cut, where the
@@ -1177,6 +1184,7 @@ struct sh_toplevel {
      * without a blur. What the rules say of it, kept. */
     struct wlr_scene_buffer *blur, *blur_probe;
     struct sh_blur_rule blur_rule;
+    struct sh_rule_now rule_now; // its look and idle inhibition from the rules (window_rules.c)
     /* The user was told the window took the keyboard's shortcuts (shortcuts_inhibit.c), which
      * they hear once. */
     bool shortcuts_told;
@@ -1334,6 +1342,11 @@ bool open_dynamic_rules(struct sh_toplevel *toplevel, struct sh_window_rule *rul
 void follow_dynamic_rules(struct sh_toplevel *toplevel);
 void describe_dynamic_rules(struct sh_server *server, int fd, const char *arguments);
 
+/* window_rules.c */
+const struct sh_window_rule *window_rule_now(struct sh_toplevel *toplevel);
+void window_rule_changed(struct sh_toplevel *toplevel);
+const struct sh_gradient *window_border(struct sh_toplevel *toplevel, bool active);
+
 /* display_mode.c */
 bool display_mode_choose(struct sh_server *server, int mode, char *error, size_t error_size);
 bool display_mode_key(struct sh_server *server, xkb_keysym_t sym);
@@ -1453,9 +1466,9 @@ struct wlr_box lift_box(struct sh_toplevel *toplevel, struct wlr_scene_tree *tre
                         struct wlr_box box);
 
 /* gradient_border.c */
-bool gradient_borders(struct sh_server *server);
 void refresh_gradient_border(struct sh_toplevel *toplevel, bool on, int border, int radius,
-                             double mix, float opacity);
+                             double mix, float opacity, const struct sh_gradient *from,
+                             const struct sh_gradient *to);
 
 /* group.c */
 struct sh_toplevel *group_shown(struct sh_server *server, unsigned group);

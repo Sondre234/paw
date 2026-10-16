@@ -392,7 +392,8 @@ static void get_frames(struct sh_server *server, int fd, const char *arguments) 
     // own frame), whether they show, the radius of its rounded corners (0 for square), its
     // shadow: whether it has one, how dark (thousandths of the alpha where it is darkest) and
     // the box it covers from the window's top-left corner, and its border: "none", "color" in
-    // rects, or "gradient" in pieces of a gradient.
+    // rects, or "gradient" in pieces of a gradient, and the colour of the rects as #RRGGBBAA
+    // (premultiplied), "-" without them.
     control_reply(fd, "ok\n");
     const char *style = deco_style(server) == SH_DECO_TRAFFIC_LIGHTS ? "traffic_lights" : "flat";
     struct sh_toplevel *toplevel;
@@ -402,13 +403,20 @@ static void get_frames(struct sh_server *server, int fd, const char *arguments) 
         copy_field(title, sizeof(title), toplevel_title(toplevel));
         bool revealed = toplevel->deco && toplevel->deco->node.enabled;
         struct wlr_box shadow = toplevel->shadow ? toplevel->shadow_box : (struct wlr_box){0};
-        snprintf(line, sizeof(line), "%s\t%s\t%d\t%s\t%d\t%d\t%d\t%ld\t%d\t%d\t%d\t%d\t%s\n",
+        char color[16] = "-";
+        if (toplevel->border[0]) {
+            const float *c = toplevel->border[0]->color;
+            snprintf(color, sizeof(color), "#%02x%02x%02x%02x", (unsigned)lroundf(255 * c[0]),
+                     (unsigned)lroundf(255 * c[1]), (unsigned)lroundf(255 * c[2]),
+                     (unsigned)lroundf(255 * c[3]));
+        }
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%s\t%d\t%d\t%d\t%ld\t%d\t%d\t%d\t%d\t%s\t%s\n",
                  app_id, title, server->focused_toplevel == toplevel,
                  toplevel->deco ? style : "none", revealed, toplevel->corner_radius,
                  toplevel->shadow != NULL,
                  toplevel->shadow ? lround(1000 * toplevel->shadow_alpha) : 0, shadow.x, shadow.y,
                  shadow.width, shadow.height,
-                 toplevel->gradient ? "gradient" : toplevel->border[0] ? "color" : "none");
+                 toplevel->gradient ? "gradient" : toplevel->border[0] ? "color" : "none", color);
         control_reply(fd, line);
     }
 }

@@ -284,6 +284,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/display_mode.c
         src/compositor/display_settings.c
         src/compositor/dynamic_rules.c
+        src/compositor/window_rules.c
         src/compositor/effects.c
         src/compositor/focus.c
         src/compositor/foreign_toplevel.c
