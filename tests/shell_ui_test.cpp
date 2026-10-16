@@ -4574,18 +4574,41 @@ ListModel {
             std::cerr << "the palette lacks the saved session: " << titlesNow().join("|").toStdString() << '\n';
             return 1;
         }
-        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Toggle tiling") ||
-            !titlesNow().contains("Appearance: dark"))
-            return fail("the palette lacks workspaces or actions");
-        // Empty, it lists its first 60 entries, the applications after the actions: one is found
-        // by its name.
-        type("fake");
-        if (!waitFor([&] { return titlesNow().value(0) == "Fake app"; }))
-            return fail("the palette does not find applications");
-        for (int i = 0; i < 4; ++i)
-            QTest::keyClick(&paletteView, Qt::Key_Backspace);
-        if (!waitFor([&] { return palette->query().isEmpty(); }))
-            return fail("the palette's search was not cleared");
+        // Nothing typed, it lists a few of each kind, each kind together: the windows, the
+        // sessions to restore, the applications, the workspaces to switch to, then the profiles
+        // and the common actions, however many actions the palette has; not every action, nor
+        // moving the window to a workspace or restoring a session and launching what is missing.
+        auto kinds = [&] {
+            QStringList runs;
+            for (const auto &item : palette->results())
+                if (const auto kind = item.toMap()["kind"].toString(); runs.isEmpty() || runs.last() != kind)
+                    runs << kind;
+            return runs;
+        };
+        QStringList order{"session", "app", "workspace", "action"};
+        if (kinds().value(0) == "window")
+            order.prepend("window");
+        if (!titlesNow().contains("Workspace 1: web") || !titlesNow().contains("Fake app") ||
+            !titlesNow().contains("Other app") || !titlesNow().contains("Toggle tiling") ||
+            !titlesNow().contains("Appearance: dark") || titlesNow().contains("Layout: monocle") ||
+            titlesNow().contains("Move window to workspace 1: web") ||
+            titlesNow().contains("Restore session work and launch missing apps") ||
+            kinds() != order) {
+            std::cerr << "the empty palette does not list a few of each kind: "
+                      << titlesNow().join("|").toStdString() << '\n';
+            return 1;
+        }
+        // A filter's prefix alone lists every one of its kind: > all the actions.
+        {
+            palette->setQuery(">");
+            int actions = 0;
+            for (const auto &item : palette->entries(nullptr))
+                actions += item.toMap()["kind"] == "action";
+            if (kinds() != QStringList{"action"} || palette->results().size() != actions ||
+                !titlesNow().contains("Layout: monocle") || !titlesNow().contains("Ambient: off"))
+                return fail("> alone does not list every action");
+            palette->setQuery("");
+        }
         type("tiling");
         if (!waitFor([&] { return !titlesNow().isEmpty() && titlesNow()[0].contains("tiling", Qt::CaseInsensitive); })) {
             std::cerr << "typing did not filter the palette: " << titlesNow().join("|").toStdString() << '\n';
@@ -5489,21 +5512,18 @@ ListModel {
             if (!waitFor([&] { return power->available().size() == 5; }))
                 return fail("the power menu did not list five actions");
             palette->open(output);
-            // Each found by its name: they follow the actions, further down than the 60 entries
-            // an empty search lists.
-            auto offers = [&](const QString &title) {
-                palette->setQuery(QString(title).remove(QChar(0x2026)));
-                return titles().contains(title);
-            };
-            if (!waitFor([&] {
-                    return offers("Lock screen") && offers("Suspend") && offers("Restart…") &&
-                           offers("Power off…") && offers("Log out…");
-                }) ||
-                offers("Hibernate")) {
+            // Nothing typed, they end its list, after however many other actions.
+            const QStringList offered{"Lock screen", "Suspend", "Restart…", "Power off…", "Log out…"};
+            if (!waitFor([&] { return titles().mid(titles().size() - offered.size()) == offered; }) ||
+                titles().contains("Hibernate")) {
                 std::cerr << "the palette does not offer what may run: "
                           << titles().join("|").toStdString() << '\n';
                 return 1;
             }
+            // As does a lone >, which lists every action.
+            palette->setQuery(">");
+            if (titles().mid(titles().size() - offered.size()) != offered)
+                return fail("> alone does not end with the power actions");
             requests.clear();
             palette->setQuery(">power off");
             palette->activate(0);

@@ -989,6 +989,14 @@ off and to find out what is wrong with it, and toys the compositor plays with th
 - The shell no longer loses some 2.7 KB of memory each time a shadow drawn through the GPU goes,
   as the floating bar's does while a window docks it: Qt's shadow never frees the shader effect
   it draws with, which the shell now hands to the shadow to go with it.
+- The command palette (Spotlight) with nothing typed shows the applications and the power actions
+  again, which the many new actions had pushed out of the first 60 entries it listed. It lists a
+  few of each kind now: every open window, each saved session, up to eight applications (those
+  launched lately, then those pinned to the start menu, then by name), each workspace, the
+  appearance profiles, a dozen common actions and last the power actions. A lone `>`, `@`, `#` or
+  `%` lists every action, window, workspace or session.
+- The sheet of keyboard shortcuts lists `ambient` under Toys, titled by its mode, and `pick_color`
+  under Screen, where they were under Other; a test now fails for an action without a group.
 
 ## 0.1.1 (2026-10-05)
 

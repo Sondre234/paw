@@ -1322,10 +1322,20 @@ missing, and save the current arrangement under the name typed), and [files](#fi
 [calculator](#calculator) and a [web search](#web-search). Type to narrow the list; each
 word must match, in any order, as letters in sequence of the title or its small print, favouring
 runs of letters and word starts (`gc` finds Google Chrome, `lay mon` finds Layout: monocle).
-Up and Down, Tab and Shift + Tab, Ctrl + N and Ctrl + P, or the pointer select; Enter or a click
-runs the entry; Escape, or clicking elsewhere, closes it. A leading `>` searches only actions, `@`
-windows, `#` workspaces and `%` sessions, `/` [files](#files) and `=` asks the
-[calculator](#calculator); when nothing matches, the palette says so and lists these. A window
+Before anything is typed it lists a few of each kind, in this order: every open window (those
+asking for attention first), each saved session to restore, up to eight applications (those
+launched lately, then those pinned to the [start menu](#start-menu), then by name), each
+workspace to switch to, the appearance profiles, the common actions (Open a terminal,
+Applications menu, Overview of windows, Toggle tiling, Next tiling layout, Toggle floating,
+Toggle fullscreen, Close window, Pick a colour from the screen, Keep awake, Keyboard shortcuts,
+Display settings, Reload configuration) and last the power actions, so that more actions never
+push the applications or the power actions out; the rest are a word away.
+Up and Down, Tab and Shift + Tab, Ctrl + N and Ctrl + P, or the pointer select (Up from the first
+entry wraps to the last); Enter or a click runs the entry; Escape, or clicking elsewhere, closes
+it. A leading `>` searches only actions, `@` windows, `#` workspaces and `%` sessions, and one
+alone lists every action (the power actions last), window, workspace or session; `/` searches
+[files](#files) and `=` asks the [calculator](#calculator); when nothing matches, the palette
+says so and lists these. A search lists its best 60 results. A window
 selected among the results peeks after half a second, as in the [switcher](#window-switcher):
 the others fade while it shows alone where it is, a minimized one where it was. Moving the
 selection to another window moves the peek at once; leaving the windows, or Escape, fades the
