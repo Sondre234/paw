@@ -468,8 +468,10 @@ with harness.Compositor(compositor, MORPHS) as desktop:
         return {w.title: w for w in desktop.windows()}
 
     def folds():
-        """kind -> (at, box folded into, drawn box), for the only window that folds."""
-        return {row[2]: (int(row[3]), tuple(map(int, row[4:8])), tuple(map(int, row[9:13])))
+        """kind -> (at, box folded into, drawn box, box unfolded), for the only window that
+        folds."""
+        return {row[2]: (int(row[3]), tuple(map(int, row[4:8])), tuple(map(int, row[9:13])),
+                         tuple(map(int, row[14:18])))
                 for row in desktop.rows("minimize") if row[0] == "fold"}
 
     def drawn():
@@ -486,11 +488,15 @@ with harness.Compositor(compositor, MORPHS) as desktop:
     wait_for(settled, "W opened")
     start = drawn()[0]
     msg("maximize")
+    full = windows()["W"].box
     wait_for(lambda: start[2] + 200 < drawn()[0][2] < 1000, "W growing to fill the output")
     before = drawn()[0]
     msg("minimize")
-    taken = folds()["minimize"][2]
-    assert all(abs(a - b) <= 60 for a, b in zip(before, taken)), (before, taken)
+    # The copy sets off from where W is drawn as it is minimized: on its way from `before` to
+    # filling the output, however far it has grown since the test looked, and not there yet.
+    taken = folds()["minimize"][3]
+    assert all(min(b, f) <= t <= max(b, f) for b, f, t in zip(before, full, taken)) and \
+        taken[2] < full[2], (before, taken, full)
     wait_for(settled, "W minimized")
     subprocess.run([window_probe, "W", "restore"], env=desktop.env, check=True, timeout=30)
     assert "restore" in folds(), folds()
