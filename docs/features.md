@@ -1509,8 +1509,10 @@ colour picked, or fails with `error: cancelled`, so that a script can take it:
 tab-separated line: `picking` or `idle`; while picking, the colour under the crosshair (`-` for
 none), the monitor and the pixel (x and y in the monitor's pixels as they are seen), else `-`,
 `-`, -1 and -1; the colour picked last (`-` for none); the loupe's size in pixels and its scale;
-the side of the crosshair its card is on (`right` or `left`, then `below` or `above`); and how
-many pictures of the screen it has drawn. On an [HDR](#hdr) monitor the colour is taken back to
+the side of the crosshair its card is on (`right` or `left`, then `below` or `above`); how
+many pictures of the screen it has drawn; and how many times it has given the cursor its loupe.
+While it picks, the cursor stays the loupe: `mouse.hide_after` does not hide it, and a profile
+changing the cursor's theme or size draws it anew. On an [HDR](#hdr) monitor the colour is taken back to
 sRGB from what the monitor is sent, to within a few steps.
 
 ## Keyboard shortcuts
