@@ -786,6 +786,15 @@ off and to find out what is wrong with it, and toys the compositor plays with th
   worst frames halved) and drops no frames for it: its 240 pieces change out of the scene's
   sight and come back together, where the scene worked out what to draw again after each of
   some 700 changes a frame.
+- A taskbar destroyed with the card of window pictures open, or with a button's pictures warmed
+  up (its monitor unplugged, the lid closed while docked), lets the windows' captures go; each
+  window used to keep one running, some 30 copies a second, until it closed.
+- The polkit agent no longer asks polkit's helper again without end, crashing the shell, when the
+  helper cannot start: the dialog says the helper failed, or what it said (a locked account),
+  and tries again when the user answers. A password gets three tries, as with `sudo`, after
+  which the request fails.
+- A program pasting from the clipboard history that reads nothing for ten seconds is given up,
+  where the shell kept its pipe and a copy of the entry (up to 16 MB for a picture) for good.
 
 ## 0.1.1 (2026-10-05)
 
