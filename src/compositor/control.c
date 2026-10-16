@@ -6,6 +6,7 @@
 
 #include <ctype.h>
 #include <stdarg.h>
+#include <sys/time.h>
 
 /* Control socket: one newline-terminated request per connection, answered with
  * "ok\n" plus any output, or "error: ...\n". Lives in the private runtime dir. */
@@ -26,8 +27,12 @@ void control_reply(int fd, const char *text) {
         ssize_t written = send(fd, text, length, MSG_NOSIGNAL);
         if (written < 0 && errno == EINTR)
             continue;
-        if (written <= 0)
+        if (written <= 0) {
+            // A client that hung up, or stopped reading until the time limit ran out: the rest
+            // of the reply fails at once rather than waiting out the limit again, line by line.
+            shutdown(fd, SHUT_WR);
             return;
+        }
         text += written;
         length -= (size_t)written;
     }
@@ -750,7 +755,11 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
             control_client_close(client);
         return 0;
     }
-    // Replies are small; a blocking write keeps the protocol simple.
+    // A blocking write keeps the protocol simple. Some replies outgrow the socket's buffer
+    // (`get heatmap` on a large monitor), so a client that never reads them would hold up the
+    // whole desktop: the time limit lets it go after a second.
+    struct timeval limit = {.tv_sec = 1};
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &limit, sizeof(limit));
     fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) & ~O_NONBLOCK);
     if (newline)
         control_handle(client->server, fd, client->request);
