@@ -151,7 +151,10 @@ void reload_config(struct sh_server *server) {
     idle_reload(server);
     shortcuts_reload(server);
     cat_reload(server);
+    ambient_reload(server);
     wrapped_reload(server);
+    cursor_hide_reload(server);
+    cursor_shake_reload(server);
     profile_schedule_reloaded(server);
 }
 
@@ -529,7 +532,9 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     power_init(&server);
     idle_init(&server);
     cat_init(&server);
+    ambient_init(&server);
     wrapped_init(&server);
+    cursor_hide_reload(&server);
     blur_reload(&server);
     server.running = true;
     server.login_session = mode == SH_BACKEND_SESSION ||
@@ -633,6 +638,9 @@ finish:
     rice_finish(&server);
     profile_schedule_finish(&server);
     cat_finish(&server);
+    ambient_finish(&server);
+    cursor_hide_finish(&server);
+    cursor_shake_finish(&server);
     xray_finish(&server);
     heatmap_finish(&server);
     color_picker_finish(&server);

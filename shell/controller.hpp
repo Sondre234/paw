@@ -7,6 +7,7 @@
 #include "bluetooth.hpp"
 #include "caption.hpp"
 #include "clipboard.hpp"
+#include "desktop_clock.hpp"
 #include "display_modes.hpp"
 #include "display_settings.hpp"
 #include "emoji.hpp"
@@ -22,6 +23,7 @@
 #include "paw/config.hpp"
 #include "restyle.hpp"
 #include "rice_trial.hpp"
+#include "shortcuts.hpp"
 #include "start_menu.hpp"
 #include "system_status.hpp"
 #include "task_model.hpp"
@@ -54,6 +56,9 @@ class ShellController : public QObject {
     // wallpaperFile is the same as a path, "" for none.
     Q_PROPERTY(QUrl wallpaper READ wallpaper NOTIFY wallpaperChanged)
     Q_PROPERTY(QString wallpaperFile READ wallpaperFile NOTIFY wallpaperChanged)
+    // shell.wallpaper_mode, how the wallpaper covers the output: "fill", "fit", "center", "tile"
+    // or "stretch".
+    Q_PROPERTY(QString wallpaperMode READ wallpaperMode NOTIFY configChanged)
     // The picker's pictures as {path, name, folder} (see findWallpapers), read by
     // findWallpapers(), and the folder they come from.
     Q_PROPERTY(QVariantList wallpapers READ wallpapers NOTIFY wallpapersChanged)
@@ -121,6 +126,11 @@ class ShellController : public QObject {
     Q_PROPERTY(bool blur READ blur NOTIFY configChanged)
     Q_PROPERTY(Glass *glass READ glass CONSTANT)
     Q_PROPERTY(bool groupWindows READ groupWindows NOTIFY configChanged)
+    // shell.taskbar_buttons: "all", "main_and_own" or "own", which windows each monitor's taskbar
+    // shows, and the main monitor, whose taskbar shows the pinned applications (and with
+    // "main_and_own" every window): the compositor's primary one, else the leftmost screen.
+    Q_PROPERTY(QString taskbarButtons READ taskbarButtons NOTIFY configChanged)
+    Q_PROPERTY(QString primaryOutput READ primaryOutput NOTIFY primaryOutputChanged)
     // shell.thumbnails: whether resting on a taskbar button shows pictures of its windows, after
     // how many milliseconds, how wide each is, and whether they follow the windows while shown.
     Q_PROPERTY(bool thumbnails READ thumbnails NOTIFY configChanged)
@@ -189,6 +199,8 @@ class ShellController : public QObject {
     Q_PROPERTY(Osd *osd READ osd CONSTANT)
     // The caption `paw tour` narrates itself with (the compositor's `caption`).
     Q_PROPERTY(Caption *caption READ caption CONSTANT)
+    // The desktop clock (shell.desktop_clock), which the `desktop_clock` action shows and hides.
+    Q_PROPERTY(DesktopClock *desktopClock READ desktopClock CONSTANT)
     // The display mode popup (Windows' Win+P), which the compositor opens and steps.
     Q_PROPERTY(DisplayModes *displayModes READ displayModes CONSTANT)
     // The display settings window: the monitors' settings, tried and kept.
@@ -235,6 +247,8 @@ class ShellController : public QObject {
     Q_PROPERTY(ClipboardHistory *clipboard READ clipboard CONSTANT)
     // The emoji picker.
     Q_PROPERTY(EmojiPicker *emoji READ emoji CONSTANT)
+    // The sheet of keyboard shortcuts.
+    Q_PROPERTY(Shortcuts *shortcuts READ shortcuts CONSTANT)
     // The compositor's overview: the output showing it, empty while closed; its thumbnails as
     // {x, y, w, h, appId, title, workspace, urgent} and workspace strip cells as {x, y, w, h,
     // workspace, windows}, in the output's coordinates; the selected thumbnail, the workspace
@@ -275,6 +289,7 @@ class ShellController : public QObject {
     QVariantList urgentWindows() const { return urgentWindows_; }
     QUrl wallpaper() const;
     QString wallpaperFile() const;
+    QString wallpaperMode() const;
     QVariantList wallpapers() const { return wallpapers_; }
     QString wallpaperFolder() const;
     QUrl startIcon() const;
@@ -383,6 +398,8 @@ class ShellController : public QObject {
     bool effects() const { return effects_; }
     void setEffects(bool effects);
     bool groupWindows() const { return config_.shell.group_windows; }
+    QString taskbarButtons() const;
+    QString primaryOutput() const;
     bool thumbnails() const { return config_.shell.thumbnails.enabled; }
     int thumbnailDelay() const { return config_.shell.thumbnails.delay; }
     int thumbnailSize() const { return config_.shell.thumbnails.size; }
@@ -438,6 +455,9 @@ class ShellController : public QObject {
     FileIndex *files() { return &files_; }
     ClipboardHistory *clipboard() { return &clipboard_; }
     EmojiPicker *emoji() { return &emoji_; }
+    Shortcuts *shortcuts() { return &shortcuts_; }
+    // The configuration in force.
+    const paw::Config &config() const { return config_; }
     // Opens a file in its default application, or with `folder` the folder that holds it; a
     // failure shows across the panel.
     Q_INVOKABLE bool openFile(const QString &path, bool folder = false);
@@ -452,6 +472,10 @@ class ShellController : public QObject {
     // The one QML engine every view runs in, made on first use: the shell's types, icons and
     // imports load once instead of once per output.
     QQmlEngine *engine();
+    // Qt's RectangularShadow (6.11) makes the shader effect it draws with by default without a
+    // parent and never deletes it, some 2.7 KB lost with every shadow made and gone (a popup's
+    // card, the bar docking): Shadow.qml hands that effect to its shadow here, to go with it.
+    Q_INVOKABLE void keepShadowMaterial(QObject *shadow);
     SystemStatus *status() { return &status_; }
     Backlight *backlight() { return &backlight_; }
     Media *media() { return media_.get(); }
@@ -461,6 +485,7 @@ class ShellController : public QObject {
     NotificationCenter *notifications() { return &notifications_; }
     Osd *osd() { return &osd_; }
     Caption *caption() { return &caption_; }
+    DesktopClock *desktopClock() { return &desktopClock_; }
     DisplayModes *displayModes() { return &displayModes_; }
     DisplaySettings *displaySettings() { return &displaySettings_; }
     RiceTrial *riceTrial() { return &riceTrial_; }
@@ -591,6 +616,7 @@ class ShellController : public QObject {
     void xrayChanged();
     void xrayHoveredChanged();
     void cardsOutputChanged();
+    void primaryOutputChanged();
     void keyboardLayoutChanged();
     void nightLightChanged();
     void profileScheduledChanged();
@@ -623,6 +649,8 @@ class ShellController : public QObject {
     void configureSearch();
     // Hands the clipboard history shell.clipboard's.
     void configureClipboard();
+    // The desktop clock, from the configuration loaded.
+    void configureDesktopClock();
     std::filesystem::path path_;
     paw::Config config_;
     bool restyling_ = false;
@@ -637,6 +665,7 @@ class ShellController : public QObject {
     StartMenu startMenu_{{}, this};
     ClipboardHistory clipboard_;
     EmojiPicker emoji_;
+    Shortcuts shortcuts_{*this};
     // Types `text` into what has the keyboard through the compositor, else copies it and says so.
     void typeText(const QString &text);
     std::unique_ptr<Audio> audio_ = makeAudio();
@@ -644,6 +673,7 @@ class ShellController : public QObject {
     NotificationCenter notifications_;
     Osd osd_;
     Caption caption_;
+    DesktopClock desktopClock_;
     DisplayModes displayModes_;
     DisplaySettings displaySettings_{[this](const QByteArray &line,
                                             std::function<void(const QByteArray &)> done) {
@@ -661,6 +691,8 @@ class ShellController : public QObject {
     std::unique_ptr<Wifi> wifi_ = makeWifi();
     std::unique_ptr<Bluetooth> bluetooth_ = makeBluetooth();
     QString focusedOutput_, cardsOutput_;
+    // The primary monitor as the compositor says, empty until it has.
+    QString primaryOutput_;
     QVariantMap keyboardLayout_;
     bool nightLight_ = false;
     QString nightLightMode_;

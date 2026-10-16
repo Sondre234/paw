@@ -258,11 +258,10 @@ Item {
             active: !backdrop.glassy && shell.wallpaper.toString().length === 0
             sourceComponent: DrawnWallpaper {}
         }
-        Image {
+        WallpaperPicture {
             anchors.fill: parent
             visible: !backdrop.glassy
             source: backdrop.glassy ? "" : shell.wallpaper
-            fillMode: Image.PreserveAspectCrop
             asynchronous: true
         }
         Rectangle {

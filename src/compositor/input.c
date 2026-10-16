@@ -16,6 +16,7 @@ bool input_activity(struct sh_server *server, bool wakes) {
     wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
     bool woke = idle_activity(server);
     cat_input(server);
+    ambient_input(server);
     return (wakes && wake_displays(server)) || woke;
 }
 
@@ -36,6 +37,14 @@ static void keyboard_handle_modifiers(struct wl_listener *listener, void *data) 
     if (server->switcher.open && held &&
         (wlr_keyboard_get_modifiers(keyboard->wlr_keyboard) & held) != held)
         switcher_close(server, server->switcher.selected);
+}
+
+/* Whether a keysym is a modifier key's: Shift, Ctrl, Alt, Super and the like, Caps Lock, and the
+ * ISO level shifts and locks (AltGr). */
+bool keysym_is_modifier(xkb_keysym_t sym) {
+    return (sym >= XKB_KEY_Shift_L && sym <= XKB_KEY_Hyper_R) ||
+           (sym >= XKB_KEY_ISO_Lock && sym <= XKB_KEY_ISO_Level5_Lock) ||
+           sym == XKB_KEY_Mode_switch || sym == XKB_KEY_Num_Lock;
 }
 
 static int keyboard_repeat(void *data) {
@@ -83,6 +92,8 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data) {
             for (int i = 0; i < nraw && !handled; ++i)
                 handled = handle_keybinding(keyboard, event->keycode, modifiers, raw[i]);
         }
+        // A binding that runs as the key comes up waits for it (key_release.c).
+        handled = key_release_press(keyboard, event->keycode, modifiers, woke) || handled;
         if (event->keycode <= KEY_MAX)
             keyboard->consumed[event->keycode] = handled;
     } else if (event->keycode <= KEY_MAX) {
@@ -98,6 +109,10 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data) {
         wlr_seat_set_keyboard(seat, keyboard->wlr_keyboard);
         wlr_seat_keyboard_notify_key(seat, event->time_msec, event->keycode, event->state);
     }
+    if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED && !handled)
+        cursor_typed(server, nsyms > 0 ? syms[0] : XKB_KEY_NoSymbol); // typed into an application
+    if (event->state == WL_KEYBOARD_KEY_STATE_RELEASED)
+        key_release_up(keyboard, event->keycode);
 }
 
 static void keyboard_handle_destroy(struct wl_listener *listener, void *data) {
@@ -109,6 +124,7 @@ static void keyboard_handle_destroy(struct wl_listener *listener, void *data) {
         switcher_close(server, server->switcher.selected);
     if (server->peek_keyboard == keyboard)
         set_peek(server, false);
+    key_release_forget(keyboard);
     if (keyboard->repeat_timer)
         wl_event_source_remove(keyboard->repeat_timer);
     wl_list_remove(&keyboard->modifiers.link);
@@ -287,10 +303,11 @@ static bool xwm_running(struct sh_server *server) {
 /* Turns a drag down. One with a data source goes with it, its client told that it was
  * cancelled. One without (a drag within one window) wlroots frees only as it ends, and it has no
  * way to free one that never started: so it is started on the keyboard alone, which no client
- * hears of, and ended at once. It is kept instead (a few hundred bytes, until paw exits) where
+ * hears of, and ended at once. Nothing listening for drags that start hears of it either: not
+ * paw (seat_start_drag), and not XWayland's window manager, which would crash paw on a drag
+ * without a source (xwm_running). It is kept instead (a few hundred bytes, until paw exits) where
  * starting it would disturb something: the source of the drag before it, whose drop may still be
- * being read, would go; a keyboard grab under way (a popup's) would be lost; and XWayland's
- * window manager would crash paw (xwm_running). */
+ * being read, would go; and a keyboard grab under way (a popup's) would be lost. */
 static void refuse_drag(struct sh_server *server, struct wlr_drag *drag) {
     if (drag->source) {
         wlr_data_source_destroy(drag->source);
@@ -298,12 +315,16 @@ static void refuse_drag(struct sh_server *server, struct wlr_drag *drag) {
     }
     struct wlr_seat *seat = server->seat;
     if (seat->drag || seat->drag_source ||
-        seat->keyboard_state.grab != seat->keyboard_state.default_grab || xwm_running(server))
+        seat->keyboard_state.grab != seat->keyboard_state.default_grab)
         return;
-    server->refusing_drag = true; // seat_start_drag leaves it alone
+    // The seat's start_drag listeners, set aside while it starts, and put back as they were.
+    struct wl_list *listening = &seat->events.start_drag.listener_list, aside;
+    wl_list_init(&aside);
+    wl_list_insert_list(&aside, listening);
+    wl_list_init(listening);
     wlr_seat_start_drag(seat, drag, seat->drag_serial);
+    wl_list_insert_list(listening, &aside);
     wlr_seat_keyboard_end_grab(seat); // cancels the drag's grab, which frees the drag
-    server->refusing_drag = false;
 }
 
 /* Drag-and-drop (browser tabs, files into chat windows): only from a real button press. One of
@@ -350,8 +371,6 @@ static void drag_ended(struct wl_listener *listener, void *data) {
 void seat_start_drag(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, start_drag);
     struct wlr_drag *drag = data;
-    if (server->refusing_drag)
-        return; // started only to end at once (refuse_drag)
     wlr_scene_node_set_position(&server->drag_icons->node, server->cursor->x, server->cursor->y);
     // The scene helper removes the icon's node when the icon goes away.
     if (drag->icon)

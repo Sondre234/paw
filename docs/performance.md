@@ -149,6 +149,31 @@ with after a change): frames took p50 1.1 ms, p95 2.2-2.5 ms and p99 3.5-6.6 ms 
 `output_frame`, and arrived every p50 17.1 ms, p95 18.4-20.1 ms, p99 19.9-23.3 ms, with 0 to 5
 of 580 frames later than 25 ms and a worst of 23 to 35 ms.
 
+## Ambient particles
+
+`appearance.ambient` moves each monitor's particles every 33 ms with their tree off and shows it
+again once (as a party's confetti does), so the scene works out what shows twice a step rather
+than after every node's change. Each step damages the monitor where the particles were and are;
+with more than 20 rectangles of damage wlroots repaints their bounding box, which over a whole
+monitor is nearly all of it, so the cost is about that of redrawing the monitor 30 times a second
+wherever the wallpaper shows. Measured on the headless 1920x1080 output with the shell drawing
+washi's wallpaper and bar and a terminal open, over 10 seconds each (`get frame_times`, the
+compositor's CPU time from `/proc`):
+
+| Particles | Renderer | Frames drawn | Time a frame drawn (mean, p95) | Compositor CPU |
+| --- | --- | --- | --- | --- |
+| 30 petals | pixman | 30/s | 1.8 ms, 2.0 ms | 6.0 % |
+| 60 flakes | pixman | 30/s | 2.4 ms, 3.1 ms | 7.9 % |
+| 24 fireflies | pixman | 30/s | 1.7 ms, 2.0 ms | 5.5 % |
+| 30 petals | GLES2 | 30/s | 0.42 ms, 0.48 ms | 2.4 % |
+| 30 petals behind a maximized window | pixman | 17/s | 0.11 ms | 0.4 % |
+| none | either | 0 | - | 0 % |
+
+The output's frame event comes 60 times a second meanwhile, every other one finding nothing to
+draw in some 6 µs. Behind a maximized window only the strip around washi's floating bar shows
+particles, and the scene draws only those. With a fullscreen window, the lock, a monitor off or
+the screens dimmed, and after five minutes without input, nothing runs at all.
+
 ## Not verified
 
 No real GPU, output or input device was involved. The frame times are the compositor's time in

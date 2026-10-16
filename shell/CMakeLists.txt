@@ -69,10 +69,10 @@ set(PAW_AUTH_SOURCES authentication.cpp authentication.hpp)
 # controller; their D-Bus backends only in the shell.
 set(PAW_SERVICE_SOURCES media.cpp media.hpp power_mode.cpp power_mode.hpp wifi.cpp wifi.hpp
     row_model.hpp bluetooth.cpp bluetooth.hpp)
-# The clipboard history, its pictures, the emoji picker, and the overlay their popups show in, in
-# everything that builds the controller.
+# The clipboard history, its pictures, the emoji picker, the sheet of keyboard shortcuts, and the
+# overlay their popups show in, in everything that builds the controller.
 set(PAW_PICKER_SOURCES clipboard.cpp clipboard.hpp emoji.cpp emoji.hpp
-    picker_view.cpp picker_view.hpp ${PROJECT_BINARY_DIR}/ext-data-control-v1-protocol.c
+    shortcuts.cpp shortcuts.hpp picker_view.cpp picker_view.hpp ${PROJECT_BINARY_DIR}/ext-data-control-v1-protocol.c
     ${PROJECT_BINARY_DIR}/ext-data-control-v1-client-protocol.h)
 set(PAW_NOTIFY_SOURCES notifications.cpp notifications.hpp osd.cpp osd.hpp backlight.cpp
     backlight.hpp netlink.hpp dbus_util.hpp tray.cpp tray.hpp)
@@ -87,6 +87,8 @@ list(APPEND PAW_NOTIFY_SOURCES display_modes.cpp display_modes.hpp display_setti
 list(APPEND PAW_NOTIFY_SOURCES rice_trial.cpp rice_trial.hpp)
 # The caption `paw tour` narrates itself with.
 list(APPEND PAW_NOTIFY_SOURCES caption.cpp caption.hpp)
+# The desktop clock's settings, and whether it shows.
+list(APPEND PAW_NOTIFY_SOURCES desktop_clock.cpp desktop_clock.hpp)
 # The QML is compiled ahead of time into the binary (qmlcachegen), so starting the shell parses
 # and compiles none of it. It lives at qrc:/shell/PawShell/*.qml.
 qt_add_library(paw_shell_qml STATIC)
@@ -98,7 +100,7 @@ set_source_files_properties(WindowMenu.js PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TR
 qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/PawShell
     NO_PLUGIN NO_GENERATE_QMLTYPES
-    QML_FILES Theme.qml EmptyState.qml GlassFill.qml FlatButton.qml ButtonFill.qml PushButton.qml TextButton.qml CloseButton.qml SearchInput.qml PopupCard.qml CardFrame.qml TextEntry.qml ToggleSwitch.qml Reveal.qml NotchWheel.qml PopupMenu.qml MenuRow.qml Panel.qml Taskbar.qml TilingBar.qml Icon.qml FadingIcon.qml Desktop.qml Switcher.qml SwitcherCards.qml Palette.qml Overview.qml NotificationCards.qml Osd.qml ConfigError.qml NotificationBell.qml NotificationHistory.qml
+    QML_FILES Theme.qml EmptyState.qml GlassFill.qml FlatButton.qml ButtonFill.qml PushButton.qml TextButton.qml CloseButton.qml SearchInput.qml PopupCard.qml CardFrame.qml Shadow.qml TextEntry.qml ToggleSwitch.qml Reveal.qml NotchWheel.qml PopupMenu.qml MenuRow.qml Panel.qml Taskbar.qml TilingBar.qml Icon.qml FadingIcon.qml Desktop.qml Switcher.qml SwitcherCards.qml Palette.qml Overview.qml NotificationCards.qml Osd.qml ConfigError.qml NotificationBell.qml NotificationHistory.qml
     KeyboardLayout.qml BarTip.qml BarAppIcon.qml Badge.qml TaskButton.qml TaskList.qml TrayButton.qml
     WorkspaceIndicator.qml VolumeButton.qml ClockButton.qml BatteryWidget.qml NetworkWidget.qml SpeakerIcon.qml AudioSlider.qml MuteButton.qml StreamRow.qml
     AudioMixer.qml
@@ -109,6 +111,8 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     Launcher.qml
     Launchpad.qml
     DrawnWallpaper.qml
+    WallpaperPicture.qml
+    DesktopClock.qml
     StartHome.qml
     StartAllApps.qml
     StartSearch.qml
@@ -148,6 +152,7 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     DisplayMode.qml
     ClipboardPicker.qml
     EmojiPicker.qml
+    Shortcuts.qml
     DisplaySettings.qml
     RiceTrial.qml
     Xray.qml
@@ -272,6 +277,11 @@ if(BUILD_TESTING)
     add_test(NAME shell_ui COMMAND shell_ui_test ${CMAKE_COMMAND})
     set_tests_properties(shell_ui PROPERTIES TIMEOUT 240
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
+    # The sheet of keyboard shortcuts: its groups, titles, keys and search, and its model.
+    paw_shell_test(shortcuts_test LIBS paw_shell_test_core Qt6::Test)
+    add_test(NAME shell_shortcuts COMMAND shortcuts_test)
+    set_tests_properties(shell_shortcuts PROPERTIES TIMEOUT 60
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;DBUS_SESSION_BUS_ADDRESS=disabled:")
     paw_shell_test(task_filter_test LIBS paw_shell_test_core Qt6::Test)
     add_test(NAME shell_task_filter COMMAND task_filter_test)
     set_tests_properties(shell_task_filter PROPERTIES TIMEOUT 90
@@ -502,6 +512,8 @@ if(BUILD_TESTING)
             $<TARGET_FILE:clipboard_probe>)
         paw_smoke(emoji_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe>)
+        paw_smoke(shortcuts_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe>)
         # A few of the gallery's popups and overlays through the GPU (Mesa's software OpenGL, in a
         # private compositor), where effects are drawn. Not under the sanitizers: now and then
         # Qt's Wayland platform leaks a surface of a preview that quits soon after showing.
@@ -534,6 +546,8 @@ if(BUILD_TESTING)
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(taskbar_keyboard_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(taskbar_monitor_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(minimize_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(panel_drag_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>

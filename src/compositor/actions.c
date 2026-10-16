@@ -44,7 +44,7 @@ static size_t screenshot_windows(struct sh_server *server, struct sh_rect *boxes
 #define SCREENSHOT_CURSOR_MS 5000
 
 static int screenshot_cursor_timeout(void *data) {
-    cursor_show(data);
+    cursor_show(data, SH_HIDDEN_SCREENSHOT);
     return 0;
 }
 
@@ -52,7 +52,7 @@ static int screenshot_cursor_timeout(void *data) {
  * software cursor, as the headless backend's and some drivers' are) would hand it to grim. Also
  * for one taken without the screenshot action ("cursor hide", as `paw showcase` takes one). */
 void screenshot_hide_cursor(struct sh_server *server) {
-    cursor_hide(server);
+    cursor_hide(server, SH_HIDDEN_SCREENSHOT);
     if (!server->screenshot.timer)
         server->screenshot.timer = wl_event_loop_add_timer(
             wl_display_get_event_loop(server->wl_display), screenshot_cursor_timeout, server);
@@ -67,7 +67,7 @@ void screenshot_show_cursor(struct sh_server *server) {
         return;
     if (server->screenshot.timer)
         wl_event_source_timer_update(server->screenshot.timer, 0);
-    cursor_show(server);
+    cursor_show(server, SH_HIDDEN_SCREENSHOT);
 }
 
 /* A layer surface going. slurp's ("selection") goes once the region is chosen, leaving grim to
@@ -85,7 +85,7 @@ void screenshot_exited(struct sh_server *server, int pid) {
     server->screenshot.pid = 0;
     if (server->screenshot.timer)
         wl_event_source_timer_update(server->screenshot.timer, 0);
-    cursor_show(server);
+    cursor_show(server, SH_HIDDEN_SCREENSHOT);
 }
 
 void screenshot_finish(struct sh_server *server) {
@@ -161,6 +161,7 @@ static const struct {
 } shell_actions[] = {
     {SH_LAUNCHER, .open = "launcher"},
     {SH_PALETTE, .open = "palette"},
+    {SH_SHORTCUTS, .open = "shortcuts"},
     {SH_NOTIFICATION_HISTORY, .open = "notifications"},
     {SH_CLIPBOARD_HISTORY, .open = "clipboard"},
     {SH_EMOJI_PICKER, .open = "emoji"},
@@ -169,6 +170,7 @@ static const struct {
     {SH_DND_TOGGLE, .line = "dnd toggle\n"},
     {SH_DND_ON, .line = "dnd on\n"},
     {SH_DND_OFF, .line = "dnd off\n"},
+    {SH_DESKTOP_CLOCK, .line = "desktop-clock toggle\n"},
     {SH_MEDIA_PLAY_PAUSE, .line = "media play-pause\n"},
     {SH_MEDIA_NEXT, .line = "media next\n"},
     {SH_MEDIA_PREVIOUS, .line = "media previous\n"},
@@ -328,7 +330,12 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
     case SH_MASTER_SHRINK:
     case SH_MASTER_MORE:
     case SH_MASTER_LESS:
+    case SH_SPLIT_TOGGLE:
+    case SH_SPLIT_SWAP:
         layout_action(server, action);
+        break;
+    case SH_PSEUDO_TOGGLE:
+        pseudo_toggle(server);
         break;
     case SH_TASKBAR_FOCUS:
         request_taskbar(server);
@@ -503,6 +510,9 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         break;
     case SH_CAT:
         cat_switch(server, argument);
+        break;
+    case SH_AMBIENT:
+        ambient_switch(server, argument);
         break;
     case SH_XRAY:
         xray_toggle(server);

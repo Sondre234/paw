@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "paw/config.hpp"
+#include "paw/child_trial.hpp"
 #include "paw/effects.h"
 #include "paw/cat_sprite.h"
 #include "paw/config_schema.hpp"
@@ -7,27 +8,19 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
-#include <chrono>
-#include <csignal>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fcntl.h>
 #include <fstream>
 #include <functional>
 #include <iterator>
 #include <linux/input-event-codes.h>
 #include <lua.hpp>
 #include <memory>
-#include <poll.h>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
-#include <sys/prctl.h>
-#include <sys/resource.h>
-#include <sys/wait.h>
-#include <unistd.h>
 #include <utility>
 #include <xkbcommon/xkbcommon.h>
 
@@ -560,6 +553,59 @@ void read_tiling_bar(lua_State *L, TilingBar &bar) {
     }
     lua_pop(L, 1);
 }
+// shell.desktop_clock: true, false, or the clock's table, on top of the stack.
+void read_desktop_clock(lua_State *L, DesktopClockConfig &clock) {
+    lua_getfield(L, -1, "desktop_clock");
+    if (lua_isboolean(L, -1) || lua_isnil(L, -1)) {
+        if (lua_isboolean(L, -1))
+            clock.enabled = lua_toboolean(L, -1);
+        lua_pop(L, 1);
+        return;
+    }
+    if (!lua_istable(L, -1))
+        wrong_type(L, "desktop_clock", "true, false or a table");
+    keys(L, -1, "shell.desktop_clock");
+    Named in("shell.desktop_clock");
+    boolean(L, "enabled", "shell.desktop_clock.enabled", clock.enabled);
+    if (auto position = text(L, "position")) {
+        static const std::vector<std::string> known{"center",   "top",       "bottom",
+                                                    "left",     "right",     "top-left",
+                                                    "top-right", "bottom-left", "bottom-right"};
+        if (std::find(known.begin(), known.end(), *position) == known.end())
+            unknown("position", *position, known, "=" + *position);
+        clock.position = *position;
+    }
+    if (auto format = text(L, "time_format")) {
+        if (format->empty() || format->size() > 64)
+            fail("shell.desktop_clock.time_format must have 1 to 64 bytes", "time_format");
+        clock.time_format = *format;
+    }
+    if (auto format = text(L, "date_format")) {
+        if (format->size() > 64)
+            fail("shell.desktop_clock.date_format must have at most 64 bytes", "date_format");
+        clock.date_format = *format;
+    }
+    clock.size = integer(L, "size", clock.size, 24, 320);
+    if (auto color = text(L, "color")) {
+        if (!is_color(*color, true))
+            fail("shell.desktop_clock.color must be #RRGGBB or #RRGGBBAA", "color");
+        clock.color = *color;
+    }
+    if (auto font = text(L, "font"))
+        clock.font = *font;
+    // false, "en" or "ja".
+    lua_getfield(L, -1, "greeting");
+    if (lua_isboolean(L, -1) && !lua_toboolean(L, -1)) {
+        clock.greeting.clear();
+    } else if (!lua_isnil(L, -1)) {
+        auto greeting = lua_type(L, -1) == LUA_TSTRING ? std::string(lua_tostring(L, -1)) : "";
+        if (greeting != "en" && greeting != "ja")
+            fail("shell.desktop_clock.greeting must be false, \"en\" or \"ja\"", "greeting");
+        clock.greeting = greeting;
+    }
+    lua_pop(L, 1);
+    lua_pop(L, 1);
+}
 // The edges a bar can be along, as shell.panel_positions names them.
 constexpr std::pair<std::string_view, PanelEdge> panel_edges[] = {
     {"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
@@ -654,6 +700,11 @@ void read_shell(lua_State *L, ShellConfig &shell) {
           "renderer must be \"software\" or \"gpu\"");
     boolean(L, "icons_only", "shell.icons_only", shell.icons_only);
     boolean(L, "group_windows", "shell.group_windows", shell.group_windows);
+    named(L, "taskbar_buttons", nullptr, shell.taskbar_buttons,
+          {{"all", ShellConfig::TaskbarButtons::All},
+           {"main_and_own", ShellConfig::TaskbarButtons::MainAndOwn},
+           {"own", ShellConfig::TaskbarButtons::Own}},
+          "taskbar_buttons must be \"all\", \"main_and_own\" or \"own\"");
     boolean(L, "polkit_agent", "shell.polkit_agent", shell.polkit_agent);
     shell.workspaces_shown = integer(L, "workspaces_shown", 0, 0, 10);
     if (Section in{L, "thumbnails", "shell.thumbnails"}) {
@@ -738,6 +789,11 @@ void read_shell(lua_State *L, ShellConfig &shell) {
                 fail(std::string(key) + " must be #RRGGBB or #RRGGBBAA");
         }
     }
+    named(L, "wallpaper_mode", "shell.wallpaper_mode", shell.wallpaper_mode,
+          {{"fill", WallpaperMode::Fill}, {"fit", WallpaperMode::Fit},
+           {"center", WallpaperMode::Center}, {"tile", WallpaperMode::Tile},
+           {"stretch", WallpaperMode::Stretch}});
+    read_desktop_clock(L, shell.desktop_clock);
     if (auto folder = text(L, "wallpapers", "shell.wallpapers")) {
         shell.wallpapers = *folder;
         if (!shell.wallpapers.starts_with('/') && !shell.wallpapers.starts_with("~/"))
@@ -1517,16 +1573,39 @@ void instruction_limit(lua_State *L, lua_Debug *) {
         luaL_error(L, "configuration exceeded its instruction budget");
     }
 }
-// The key binding among `bindings` for these modifiers and keysym, or nothing.
-const Binding *find_key(const std::vector<Binding> &bindings, uint32_t modifiers, uint32_t keysym) {
+// The key binding among `bindings` for these modifiers and keysym, or nothing; with `release`,
+// the one that runs as the key comes up (a key may have one of each).
+const Binding *find_key(const std::vector<Binding> &bindings, uint32_t modifiers, uint32_t keysym,
+                        bool release = false) {
     constexpr uint32_t relevant = SH_SHIFT | SH_CTRL | SH_ALT | SH_LOGO;
     modifiers &= relevant; // CapsLock and NumLock do not disable shortcuts.
     keysym = xkb_keysym_to_lower(keysym);
     for (const auto &binding : bindings)
         if (!binding.button && binding.switch_type < 0 && binding.modifiers == modifiers &&
-            binding.keysym == keysym)
+            binding.keysym == keysym && binding.release == release)
             return &binding;
     return nullptr;
+}
+// The modifier a modifier key gives (SH_LOGO for Super_L), else 0.
+uint32_t own_modifier(uint32_t keysym) {
+    switch (keysym) {
+    case XKB_KEY_Shift_L:
+    case XKB_KEY_Shift_R:
+        return SH_SHIFT;
+    case XKB_KEY_Control_L:
+    case XKB_KEY_Control_R:
+        return SH_CTRL;
+    case XKB_KEY_Alt_L:
+    case XKB_KEY_Alt_R:
+    case XKB_KEY_Meta_L:
+    case XKB_KEY_Meta_R:
+        return SH_ALT;
+    case XKB_KEY_Super_L:
+    case XKB_KEY_Super_R:
+        return SH_LOGO;
+    default:
+        return 0;
+    }
 }
 // The binding among `bindings` of a switch turning on or off, or nothing.
 const Binding *find_switch(const std::vector<Binding> &bindings, sh_switch type, bool on) {
@@ -1556,17 +1635,16 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             if (is_switch) {
                 read_switch_binding(L, binding);
                 // A switch's binding runs while the session is locked, and never repeats.
-                for (const char *only : {"locked", "repeats"})
+                for (const char *only : {"locked", "repeats", "release"})
                     if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
             } else if (is_button) {
                 if (present(L, "key"))
                     fail("a binding takes a key or a button, not both");
                 binding.button = mouse_button(field(L, "button"));
-                std::string app_id;
-                binding.pattern = pattern_field(L, "app_id", app_id);
+                binding.pattern = pattern_field(L, "app_id", binding.app_id);
                 boolean(L, "desktop", "desktop", binding.desktop);
-                for (const char *only : {"locked", "repeats"})
+                for (const char *only : {"locked", "repeats", "release"})
                     if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
             } else {
@@ -1581,6 +1659,8 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             }
             if (!is_switch && present(L, "state"))
                 fail("state is only valid with a switch");
+            if (auto description = text(L, "description"))
+                binding.description = *description;
             auto action = field(L, "action");
             binding.action = action == "none" ? SH_NONE : parse_action(action);
             lua_getfield(L, -1, "mods");
@@ -1657,9 +1737,13 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 // Without one, it toggles.
                 if (!lua_isnil(L, -1))
                     binding.mode = parse_heatmap_choice(string(L, -1, "mode"));
+            } else if (binding.action == SH_AMBIENT) {
+                binding.mode = lua_isnil(L, -1) ? SH_AMBIENT_TOGGLE
+                                                : parse_ambient_choice(string(L, -1, "mode"));
             } else if (!lua_isnil(L, -1)) {
                 if (binding.action != SH_SCREENSHOT)
-                    fail("mode is only valid with screenshot, mode, display_mode, cat and heatmap");
+                    fail("mode is only valid with screenshot, mode, display_mode, cat, heatmap "
+                         "and ambient");
                 binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
             }
             lua_pop(L, 1);
@@ -1679,18 +1763,26 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 fail("amount is only valid with resize, volume and brightness actions");
             binding.amount = integer(L, "amount", default_amount(binding.action), 1,
                                      max_amount(binding.action));
+            boolean(L, "release", "release", binding.release);
             // Keyboard resizing repeats unless told not to; other actions only when told.
-            binding.repeats = !binding.button && !is_switch && binding.action >= SH_RESIZE_LEFT &&
-                              binding.action <= SH_RESIZE_DOWN;
+            binding.repeats = !binding.button && !is_switch && !binding.release &&
+                              binding.action >= SH_RESIZE_LEFT && binding.action <= SH_RESIZE_DOWN;
             boolean(L, "locked", "locked", binding.locked);
             boolean(L, "repeats", "repeats", binding.repeats);
+            if (binding.release && binding.repeats)
+                fail("a binding that runs on release does not repeat");
+            // A modifier key's own modifier is not yet held as it goes down: Super + Super_L is
+            // Super_L.
+            if (binding.release)
+                binding.modifiers &= ~own_modifier(binding.keysym);
             // Bindings past `own` come from the defaults a configuration extends; its own
             // bindings, "none" included, take their keys first.
             // Button bindings may share a button: the first whose target matches wins.
             bool taken = is_switch ? find_switch(into, static_cast<sh_switch>(binding.switch_type),
                                                  binding.switch_on) != nullptr
                                    : !binding.button &&
-                                         find_key(into, binding.modifiers, binding.keysym);
+                                         find_key(into, binding.modifiers, binding.keysym,
+                                                  binding.release);
             if (!taken)
                 into.push_back(std::move(binding));
             else if (i <= own)
@@ -1790,6 +1882,20 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         named(L, "color_scheme", "appearance.color_scheme", config.settings.color_scheme,
               {{"light", SH_COLOR_SCHEME_LIGHT}, {"dark", SH_COLOR_SCHEME_DARK}},
               "appearance.color_scheme must be \"light\" or \"dark\"", "color_scheme");
+        if (Section ambient{L, "ambient", "appearance.ambient"}) {
+            auto &settings = config.settings;
+            named(L, "kind", "appearance.ambient.kind", settings.ambient,
+                  {{"none", SH_AMBIENT_NONE},
+                   {"sakura", SH_AMBIENT_SAKURA},
+                   {"snow", SH_AMBIENT_SNOW},
+                   {"fireflies", SH_AMBIENT_FIREFLIES}},
+                  "appearance.ambient.kind must be \"none\", \"sakura\", \"snow\" or "
+                  "\"fireflies\"",
+                  "kind");
+            settings.ambient_count = integer(L, "count", settings.ambient_count, 1, 150);
+            settings.ambient_speed =
+                static_cast<float>(number(L, "speed", settings.ambient_speed, 0.1, 5));
+        }
     }
     if (Section in{L, "keyboard"}) {
         text_field(L, "layout", config.settings.keyboard_layout);
@@ -1822,6 +1928,10 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
               {{"flat", 0}, {"adaptive", 1}}, "mouse.acceleration must be \"flat\" or \"adaptive\"");
         tristate(L, "natural_scroll", "mouse.natural_scroll", config.settings.mouse_natural_scroll);
         boolean(L, "focus_follows", "mouse.focus_follows", config.settings.focus_follows_mouse);
+        boolean(L, "hide_when_typing", "mouse.hide_when_typing",
+                config.settings.hide_cursor_typing);
+        config.settings.hide_cursor_after = integer(L, "hide_after", 0, 0, 3600);
+        boolean(L, "shake_to_find", "mouse.shake_to_find", config.settings.shake_to_find);
     }
     if (Section in{L, "touchpad"}) {
         tristate(L, "natural_scroll", "touchpad.natural_scroll",
@@ -2153,6 +2263,9 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"master_shrink", SH_MASTER_SHRINK},
         {"master_more", SH_MASTER_MORE},
         {"master_less", SH_MASTER_LESS},
+        {"split_toggle", SH_SPLIT_TOGGLE},
+        {"split_swap", SH_SPLIT_SWAP},
+        {"pseudo_toggle", SH_PSEUDO_TOGGLE},
         {"peek", SH_PEEK},
         {"peek_toggle", SH_PEEK_TOGGLE},
         {"night_light_toggle", SH_NIGHT_LIGHT_TOGGLE},
@@ -2189,6 +2302,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"display_toggle", SH_DISPLAY_TOGGLE},
         {"display_mode", SH_DISPLAY_MODE},
         {"display_settings", SH_DISPLAY_SETTINGS},
+        {"desktop_clock", SH_DESKTOP_CLOCK},
         {"scroll_left", SH_SCROLL_LEFT},
         {"scroll_right", SH_SCROLL_RIGHT},
         {"column_widen", SH_COLUMN_WIDEN},
@@ -2241,6 +2355,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"group_merge_up", SH_GROUP_MERGE_UP},
         {"group_merge_down", SH_GROUP_MERGE_DOWN},
         {"palette", SH_PALETTE},
+        {"shortcuts", SH_SHORTCUTS},
         {"toggle_overview", SH_OVERVIEW_TOGGLE},
         {"overview_confirm", SH_OVERVIEW_CONFIRM},
         {"overview_cancel", SH_OVERVIEW_CANCEL},
@@ -2252,6 +2367,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"gravity", SH_GRAVITY},
         {"party", SH_PARTY},
         {"cat", SH_CAT},
+        {"ambient", SH_AMBIENT},
         {"xray", SH_XRAY},
         {"heatmap", SH_HEATMAP},
 };
@@ -2391,6 +2507,21 @@ sh_cat_switch parse_cat_switch(const std::string &name) {
     fail("cat takes \"on\", \"off\" or \"toggle\"");
 }
 
+sh_ambient_choice parse_ambient_choice(const std::string &name) {
+    for (auto [candidate, choice] :
+         {std::pair{"toggle", SH_AMBIENT_TOGGLE},
+          {"next", SH_AMBIENT_NEXT},
+          {"off", SH_AMBIENT_OFF},
+          {"sakura", static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_SAKURA})},
+          {"snow", static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_SNOW})},
+          {"fireflies",
+           static_cast<sh_ambient_choice>(SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES})}})
+        if (name == candidate)
+            return choice;
+    fail("ambient takes \"sakura\", \"snow\", \"fireflies\", \"off\", \"next\" or "
+         "\"toggle\"");
+}
+
 sh_screenshot_mode parse_screenshot_mode(const std::string &name) {
     for (auto [candidate, mode] : {std::pair{"region", SH_SCREENSHOT_REGION},
                                    {"output", SH_SCREENSHOT_OUTPUT},
@@ -2528,14 +2659,16 @@ WindowActions Config::dynamic_actions(const std::string &app_id, const std::stri
     return result;
 }
 
-const Binding *Config::binding(uint32_t modifiers, uint32_t keysym) const {
-    return find_key(bindings, modifiers, keysym);
+const Binding *Config::binding(uint32_t modifiers, uint32_t keysym, bool release) const {
+    return find_key(bindings, modifiers, keysym, release);
 }
 
-const Binding *Config::mode_binding(int mode, uint32_t modifiers, uint32_t keysym) const {
+const Binding *Config::mode_binding(int mode, uint32_t modifiers, uint32_t keysym,
+                                    bool release) const {
     if (mode < 1 || static_cast<std::size_t>(mode) > modes.size())
-        return binding(modifiers, keysym);
-    return find_key(modes[static_cast<std::size_t>(mode) - 1].bindings, modifiers, keysym);
+        return binding(modifiers, keysym, release);
+    return find_key(modes[static_cast<std::size_t>(mode) - 1].bindings, modifiers, keysym,
+                    release);
 }
 
 int Config::mode_number(const std::string &name) const {
@@ -3001,99 +3134,26 @@ size_t locate(const std::string &source, const std::vector<std::string> &trail) 
     return found;
 }
 
-// The time a configuration has to load in. The instruction budget meters its Lua, but a call
-// into a C function is one instruction however long it runs: a pattern that backtracks, or
-// (""):rep(2^60). So a configuration loads first in a child process, killed if it runs over,
-// and then, having finished in time, for real. The sanitizers' build runs many times slower.
-#if defined(__has_feature)
-#if __has_feature(address_sanitizer)
-#define PAW_CONFIG_SANITIZED 1
-#endif
-#endif
-#if defined(__SANITIZE_ADDRESS__) || defined(PAW_CONFIG_SANITIZED)
-constexpr int time_limit = 30;
-#else
-constexpr int time_limit = 3;
-#endif
-// Runs `load` in a child process, which must finish within time_limit seconds, and throws if it
-// does not, or crashes; whatever `load` throws in time is left to running it for real. Without
-// a child process to be had, it returns: the configuration then loads unchecked, rather than
-// not at all. `name` is the configuration's chunk name.
+// A configuration loads first in a child process (try_in_child), which throws if it runs out of
+// memory, runs over the time limit or crashes there; whatever `load` throws in time is left to
+// running it for real. Without a child process to be had, it returns: the configuration then
+// loads unchecked, rather than not at all. `name` is the configuration's chunk name.
 void try_first(const std::function<void()> &load, const std::string &name) {
-    int pipe_ends[2];
-    if (::pipe2(pipe_ends, O_CLOEXEC) != 0)
-        return;
-    const pid_t parent = ::getpid();
-    const pid_t child = ::fork();
-    if (child < 0) {
-        ::close(pipe_ends[0]);
-        ::close(pipe_ends[1]);
-        return;
-    }
-    if (child == 0) {
-        // Only what the configuration needs runs here, and the child leaves with _exit, which
-        // runs no destructors or exit handlers of the process it was forked from. Crashing, it
-        // leaves no core file: that would be a copy of the compositor's memory.
-        ::close(pipe_ends[0]);
-        ::prctl(PR_SET_PDEATHSIG, SIGKILL);
-        const rlimit no_core{0, 0};
-        ::setrlimit(RLIMIT_CORE, &no_core);
-        if (::getppid() != parent)
-            _exit(1);
-        char outcome = 'y';
-        try {
-            load();
-        } catch (const std::bad_alloc &) {
-            outcome = 'm';
-        } catch (...) {
-            outcome = 'n';
-        }
-        ssize_t written;
-        do
-            written = ::write(pipe_ends[1], &outcome, 1);
-        while (written < 0 && errno == EINTR);
-        _exit(0);
-    }
-    ::close(pipe_ends[1]);
-    char outcome = 0;
-    bool late = false, unchecked = false;
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(time_limit);
-    for (;;) {
-        auto left = std::chrono::ceil<std::chrono::milliseconds>(deadline -
-                                                                 std::chrono::steady_clock::now());
-        if (left.count() <= 0) {
-            late = true;
-            break;
-        }
-        pollfd ready{pipe_ends[0], POLLIN, 0};
-        int count = ::poll(&ready, 1, static_cast<int>(left.count()));
-        if (count < 0 && errno != EINTR) {
-            unchecked = true;
-            break;
-        }
-        if (count <= 0)
-            continue;
-        if (::read(pipe_ends[0], &outcome, 1) >= 0 || errno != EINTR)
-            break;
-    }
-    ::close(pipe_ends[0]);
-    if (!outcome)
-        ::kill(child, SIGKILL);
-    int status = 0;
-    while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {
-    }
+    const auto trial = try_in_child(load);
     auto file = name.starts_with('@') ? name.substr(1) : name;
-    if (outcome == 'y' || outcome == 'n' || unchecked)
+    switch (trial.outcome) {
+    case Trial::Finished:
         return;
-    if (outcome == 'm')
+    case Trial::OutOfMemory:
         throw std::runtime_error("configuration: " + file + ": ran out of memory");
-    if (late)
+    case Trial::TooLong:
         throw std::runtime_error("configuration: " + file + ": did not finish loading within " +
-                                 std::to_string(time_limit) + " seconds");
+                                 std::to_string(trial_seconds) + " seconds");
+    case Trial::Crashed:
+        break;
+    }
     throw std::runtime_error("configuration: " + file + ": loading it crashed" +
-                             (WIFSIGNALED(status)
-                                  ? std::string(" (") + strsignal(WTERMSIG(status)) + ")"
-                                  : std::string()));
+                             (trial.signal.empty() ? std::string() : " (" + trial.signal + ")"));
 }
 // parse_config, unchecked.
 Config parse(const std::string &source, const std::string &name,

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include <QAbstractListModel>
+#include <QPoint>
 #include <QPointer>
 #include <functional>
+#include <optional>
 
 // The order of the taskbar's buttons, shared by every panel showing the same windows (a child of
 // their source model, `of`): each pinned application and each window, pinned or not, in one row.
@@ -10,6 +12,14 @@
 // its first window opens in that place, any other window at the end. Dragging moves one entry
 // (grouped, an application's button with all its windows), and only the drag of a pinned
 // application's own button moves its pin.
+//
+// With `byMonitor`, a window's entry follows its monitor among its application's windows as it
+// opens or moves to another monitor, monitors ordered by their place in the layout (left to
+// right, and top to bottom at the same x). One of them apart from it on the wrong side (ahead of
+// it on a monitor after its own, or after it on one before) takes it into the run of windows next
+// to that one; else it keeps to the run next to it. There it goes after those on monitors before
+// its own or on its own, and ahead of the others, or stays where it is if it just opened and
+// already fits. Nothing else moves an entry but a drag.
 class TaskbarOrder : public QObject {
     Q_OBJECT
   public:
@@ -26,8 +36,18 @@ class TaskbarOrder : public QObject {
         std::function<QString(const QString &)> pinnedAppFor;
         std::function<void(const QStringList &)> reorder;
     };
+    // Where a monitor is in the layout, its top left corner, by its name; nullopt for one not
+    // known.
+    using OutputPlace = std::function<std::optional<QPoint>(const QString &output)>;
     // The order of `source`, made with it the first time it is asked for.
     static TaskbarOrder *of(QAbstractItemModel *source);
+    // The place of the screen of that name (its geometry, which xdg-output gives).
+    static std::optional<QPoint> screenPlace(const QString &output);
+    // Where the monitors are: screenPlace until set otherwise.
+    void setOutputPlace(OutputPlace place) { place_ = std::move(place); }
+    // Whether windows' buttons follow their monitors: while the windows have one apart.
+    void setByMonitor(bool byMonitor) { byMonitor_ = byMonitor; }
+    bool byMonitor() const { return byMonitor_; }
     // The first panel to set them wins; until then nothing is pinned.
     void setPins(Pins pins);
     bool hasPins() const { return bool(pins_.pinned); }
@@ -35,20 +55,35 @@ class TaskbarOrder : public QObject {
     void pinsChanged();
     QAbstractItemModel *source() const { return source_; }
     const QList<Entry> &entries() const { return entries_; }
+    // Which entries a taskbar shows: its windows grouped or apart, those on monitor `output` alone
+    // (with those on none known yet) when it is not empty, and whether the launchers of pinned
+    // applications without a window there show.
+    struct View {
+        bool grouped = false;
+        QString output = {};
+        bool launchers = true;
+    };
     // The entries the taskbar shows. Apart, a pinned application shows its launcher while it has
     // no window, and every window shows. Grouped, a pinned application shows always, standing for
     // its windows too, and of the other windows the first of each app id (those without one stand
-    // alone).
-    QList<Entry> shown(bool grouped) const;
+    // alone). A view of one monitor leaves out the windows on others as if they were not open, and
+    // one without launchers a pinned application with no window left in.
+    QList<Entry> shown(const View &view) const;
+    QList<Entry> shown(bool grouped) const { return shown(View{grouped}); }
+    // Whether window `taskId` is on monitor `output`, or `output` is empty, or its monitor is not
+    // known yet.
+    bool onOutput(int taskId, const QString &output) const;
     // The pinned application an entry belongs to, empty for a window of none.
     QString pinOf(const Entry &entry) const;
-    // The window that stands for a shown entry: the first of a pinned application's, -1 for none.
-    int windowOf(const Entry &entry) const;
+    // The window that stands for a shown entry: the first of a pinned application's (on monitor
+    // `output`, when not empty), -1 for none.
+    int windowOf(const Entry &entry, const QString &output = {}) const;
     // The source row of window `taskId`, -1 when it has gone, and its app id.
     int sourceRow(int taskId) const { return rows_.value(taskId, -1); }
     QString appId(int taskId) const;
-    // Moves shown entry `from` to where shown entry `to` is.
-    void move(int from, int to, bool grouped);
+    // Moves shown entry `from` to where shown entry `to` is, of those `view` shows.
+    void move(int from, int to, const View &view);
+    void move(int from, int to, bool grouped) { move(from, to, View{grouped}); }
   Q_SIGNALS:
     // What is shown may have changed.
     void changed();
@@ -60,10 +95,21 @@ class TaskbarOrder : public QObject {
     QList<Entry> entries_;
     // Task id to source row.
     QHash<int, int> rows_;
+    // The monitor each window placed was last seen on, by its task id.
+    QHash<int, QString> outputs_;
+    OutputPlace place_ = &TaskbarOrder::screenPlace;
+    bool byMonitor_ = false;
     bool placing_ = false;
     mutable QHash<QByteArray, int> roleIds_;
     int roleId(const char *role) const;
+    QString output(int taskId) const;
     void indexRows();
+    // The window's monitor having changed since it was last seen, notes it and places the window
+    // by it; returns whether the window moved.
+    bool noteOutput(int taskId);
+    // Places window `taskId` among its application's by their monitors, as it opened or `moved`
+    // from another monitor; returns whether its place changed.
+    bool followMonitor(int taskId, bool moved);
     // Takes out the windows that have gone, then, once their app ids are in, adds the new ones.
     void forgetGone();
     void placeLater();
@@ -74,12 +120,16 @@ class TaskbarOrder : public QObject {
 // The taskbar's buttons as rows, in TaskbarOrder's order. A pinned application's row has its
 // record (as shell.pinned has it) as `app`: without a window, its launcher, it has taskId -1 and
 // the application's name as its title; grouped, with windows, the roles of the first of them. A
-// window's row has the source's roles and {} as `app`. `controller` is the shell.
+// window's row has the source's roles and {} as `app`. `controller` is the shell. With `output`,
+// only the windows on that monitor have buttons (shell.taskbar_buttons), and without
+// `showLaunchers` the pinned applications without a window there have none.
 class TaskbarModel : public QAbstractListModel {
     Q_OBJECT
     Q_PROPERTY(QObject *controller READ controller WRITE setController NOTIFY controllerChanged)
     Q_PROPERTY(QAbstractItemModel *sourceModel READ sourceModel WRITE setSourceModel NOTIFY sourceModelChanged)
     Q_PROPERTY(bool grouped READ grouped WRITE setGrouped NOTIFY groupedChanged)
+    Q_PROPERTY(QString output READ output WRITE setOutput NOTIFY outputChanged)
+    Q_PROPERTY(bool showLaunchers READ showLaunchers WRITE setShowLaunchers NOTIFY showLaunchersChanged)
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
     // How many of the rows are launchers.
     Q_PROPERTY(int launchers READ launchers NOTIFY launchersChanged)
@@ -98,8 +148,12 @@ class TaskbarModel : public QAbstractListModel {
     void setController(QObject *controller);
     QAbstractItemModel *sourceModel() const { return source_; }
     void setSourceModel(QAbstractItemModel *source);
-    bool grouped() const { return grouped_; }
+    bool grouped() const { return view_.grouped; }
     void setGrouped(bool grouped);
+    QString output() const { return view_.output; }
+    void setOutput(const QString &output);
+    bool showLaunchers() const { return view_.launchers; }
+    void setShowLaunchers(bool show);
     int rowCount(const QModelIndex &parent = {}) const override;
     int launchers() const { return launchers_; }
     QVariant data(const QModelIndex &index, int role) const override;
@@ -112,6 +166,8 @@ class TaskbarModel : public QAbstractListModel {
     void controllerChanged();
     void sourceModelChanged();
     void groupedChanged();
+    void outputChanged();
+    void showLaunchersChanged();
     void countChanged();
     void launchersChanged();
 
@@ -127,7 +183,8 @@ class TaskbarModel : public QAbstractListModel {
     QPointer<QObject> shell_;
     QPointer<QAbstractItemModel> source_;
     QPointer<TaskbarOrder> order_;
-    bool grouped_ = false;
+    // Grouped or apart, and which windows and launchers show.
+    TaskbarOrder::View view_;
     int launchers_ = 0;
     QList<Row> rows_;
     QList<QMetaObject::Connection> connections_;

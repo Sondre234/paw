@@ -18,7 +18,13 @@ have [Quick Settings](#quick-settings), the [clock's flyout](#clock-and-calendar
 shows the wallpaper and the configured launchers as shortcuts, which open on a double-click; a
 right click on it offers Show desktop and the appearance profiles. A new wallpaper, from the
 wallpaper picker or the configuration, fades in over the one shown once it has loaded, also from
-the drawn one or to it, and one picked during the fade comes in over both. Installed applications are read
+the drawn one or to it, and one picked during the fade comes in over both. `shell.wallpaper_mode`
+says how the picture covers each monitor: cropped to fill it (`"fill"`, the default), whole and as
+large as fits (`"fit"`), stretched to its sides (`"stretch"`), or at its own size, a pixel of it a
+pixel of the screen, in the middle (`"center"`) or repeated from the top left (`"tile"`);
+`appearance.background` shows around a picture that leaves room. A new mode fades in as a new
+wallpaper does, and the frosted glass, a workspace's picture on its card and Launchpad show the
+wallpaper the same way. Installed applications are read
 from desktop entries through GIO, and again as soon as one is installed or removed.
 
 ### The macOS style
@@ -212,6 +218,26 @@ the others. With no window left, the launcher shows again in its place; dragging
 the pin. Grouped, a pinned application's button stands for all its windows in the launcher's
 place, and dragging it moves the pin.
 
+With `group_windows = false` the buttons follow the monitors, as on Windows: of an application's
+windows, the one on the monitor further left in the layout (or higher up, of two at the same x)
+has its button further left. A window opening on a monitor left of another of its application's
+goes ahead of that one's button, past the buttons between, and a window moved to another monitor
+moves its button among its application's: after those of the windows on monitors to the left and
+on its own, ahead of those to the right. Nothing else moves a button, so one dragged elsewhere
+keeps its place until its window moves to another monitor, and on one monitor buttons open at the
+end as before. Grouped, an application's button stays where it is, and resting on it shows its
+windows in the order of their monitors.
+
+Which windows each monitor's taskbar shows is `shell.taskbar_buttons`, as Windows' "Show
+taskbar buttons on" (experimental): `"all"` (the default) shows every window on every bar,
+`"main_and_own"` every window on the main monitor's bar and on each other bar only the windows on
+its monitor, and `"own"` on every bar only the windows on its monitor. The main monitor is the
+primary one (`outputs.primary`, or the one the display settings window made primary), else the
+leftmost. But for `"all"`, the pinned applications show on the main monitor's bar alone, a
+launcher there while none of the application's windows is on it; grouped, a button, its count and
+the card of its windows stand for the windows its bar shows. A window moved to another monitor
+takes its button to that monitor's bar. The macOS style's dock shows every window.
+
 Something dragged from an application (a file, text, a link) brings windows forward as on Windows:
 resting the drag on a window's button for half a second brings that window to the front, restored
 onto the workspace shown if it was minimized, else with its own workspace shown, so that the drag
@@ -368,6 +394,27 @@ out to the year's months and then to a decade's years, where a pick zooms back i
 to this month. On a monitor too short for both cards, the calendar leaves out the time and the
 date for the notifications, whose list scrolls in what room is left, fading out at the edge where
 it goes on.
+
+### Desktop clock
+
+An experimental clock on the desktop, off by default: `shell.desktop_clock = true`, or a table
+of its settings, draws the time large and thin over the wallpaper, under the windows, with the
+date under it (`date_format`, `""` for none). It sits in the middle of what the bars leave, or by
+an edge or a corner (`position`, such as `"bottom-right"`), in the text colour (`color`) and the
+shell's font (`font`), `size` pixels tall, with a soft shadow, or a glow under dark text, so that it
+reads on any wallpaper. `greeting = "ja"` greets above it by the time of day, おはよう from 5,
+こんにちは from 12 and こんばんは from 18 (`"en"`: Good morning, Good afternoon, Good evening),
+between two twinkles in the accent colour. It changes once a minute, never more often, as the blur
+behind windows takes the desktop again whenever it changes, and the frosted glass shows the
+wallpaper without it. The `desktop_clock` action (`paw msg desktop_clock`, or "Show or hide the
+desktop clock" in the command palette) shows or hides it at once, saying so on the on-screen
+display, until the configuration's `enabled` changes.
+
+```lua
+shell = {
+    desktop_clock = { enabled = true, position = "bottom-right", greeting = "ja" },
+}
+```
 
 ### Quick Settings
 
@@ -1394,10 +1441,9 @@ for a moment (with do not disturb on too; with `osd.enabled = false` a notificat
 instead), and subscribers to the [control socket](#control-socket) hear `color-picked #rrggbb`.
 The arrows move the pointer a pixel of the monitor (Shift and an arrow ten), to pick exactly.
 Escape, a right click (or any button but the left) or `pick_color` again cancels, and so does the
-screen locking. Other
-bindings run as usual meanwhile (switch workspaces to pick a colour there); other keys and the
-wheel do nothing, and the windows hear nothing of the pointer until the picker is done. Bind it
-to try it, as `config/init.lua` suggests:
+screen locking. Other bindings run as usual meanwhile (switch workspaces to pick a colour there);
+other keys and the wheel do nothing, and the windows hear nothing of the pointer until the picker
+is done. Bind it to try it, as `config/init.lua` suggests:
 
 ```lua
 { mods = { "Super", "Shift" }, key = "c", action = "pick_color" },
@@ -1412,6 +1458,37 @@ none), the monitor and the pixel (x and y in the monitor's pixels as they are se
 the side of the crosshair its card is on (`right` or `left`, then `below` or `above`); and how
 many pictures of the screen it has drawn. On an [HDR](#hdr) monitor the colour is taken back to
 sRGB from what the monitor is sent, to within a few steps.
+
+## Keyboard shortcuts
+
+`shortcuts` (Super + /, `paw msg shortcuts`, or Keyboard shortcuts in the command palette) shows
+every key and mouse button binding in effect on one sheet, on the monitor under the pointer: a
+card over the dimmed screen, frosted glass with `shell.blur`, drawn in the style in use. The
+bindings are grouped by what their actions do (Windows, Focus, Workspaces, Tiling, Scrolling,
+Window groups, Launch, Shell, Screen, Media, Session, Toys, and Other for the rest) in as many
+columns as the screen has room for, each row its keys as caps beside what it does: the command
+palette's name for the action where it has one (Close window, Layout: monocle), else the sheet's
+own, with the argument it takes (Go to workspace 3: mail, Screenshot of a region, Enter the resize
+mode). Bindings alike but for their key are one row: Super and the arrows focusing that way, Super
++ 1 to 4 going to workspaces 1 to 4. A mouse button's binding says where it acts (over kitty or
+foot windows and the desktop), and the lid's and tablet mode's show too. A modifier key bound
+with `release` shows as its cap with "tap" (Super tapped alone), and another key bound so says
+"on release". In the taskbar style
+Super's cap has the Windows logo; the macOS style writes the modifiers as a Mac does, ⌃ ⌥ ⇧ ⌘
+(Super is ⌘), and the footer says which is which. While a [binding mode](#binding-modes) is in
+use, its bindings come first, under its name in the accent colour.
+
+A binding's `description` names it in your words, as Hyprland's `bindd`:
+`{ mods = { mod }, key = "e", action = "spawn", command = { "dolphin" }, description = "Files" }`
+shows as Files, where a `spawn` without one shows its command, shortened (the program without its
+folder, the script of `sh -c`). Typing searches what the rows say, their keys and modifiers
+(`print`, `super shift`, `win`, `cmd`), their groups and the names of their actions and programs,
+every word in any order. Up, Down, Page Up and Page Down scroll, Home and End too while nothing is
+typed, and Escape, the binding again or a click beside the card closes it. The sheet reads the
+configuration the shell loads, so it follows a reload, and a binding mode entered, while it is
+open. On a keyboard layout where / takes Shift, bind another key to it (`key = "F1"`).
+`tests/shortcuts_test.cpp` tests what the sheet lists and its search, `shell_ui` the sheet, and
+`tests/shortcuts_shell_smoke.py` its binding in a session.
 
 ## Terminal
 
@@ -1727,6 +1804,42 @@ action, or a ratio changed, is kept), also to windows already open when the conf
 reloaded, and again when the monitor is plugged back in. `paw msg get layout OUTPUT
 [WORKSPACE]` prints another monitor's or workspace's values.
 
+### Dwindle's splits and pseudotiling
+
+Three actions after Hyprland's dwindle dispatchers work on the focused tile. They are
+experimental and unbound by default: run them with `paw msg split_toggle` (and so on), from the
+command palette, or bind them (config/init.lua has the lines, commented out).
+
+- `split_toggle` (Hyprland's `togglesplit`) turns the split the focused tile shares with its
+  neighbour (the window, or the windows, that took the other half of its box) from side by side
+  to stacked, or back. Dwindle otherwise splits each box along its longer side at every
+  arrangement; a toggled split keeps its direction through resizes, other windows opening and
+  closing, reloads and a monitor of another shape. Toggled back to the direction its shape gives
+  it, it follows the shape again. A new window splits a tile as usual.
+- `split_swap` (`swapsplit`) trades that split's two halves, each keeping its size: a tile on
+  the left at 60 % goes to the right at 60 %. Hyprland keeps the line where it was instead.
+- `pseudo_toggle` (`pseudo`) pseudotiles the focused tile: it keeps its floating size, in the
+  middle of its tile rather than filling it, scaled down to fit (keeping its shape) when the tile
+  is smaller. A window that opened tiled has no floating size and takes half its monitor's
+  usable area each way. Resizing it with Mod + right drag, its edge or `resize_*` changes that
+  size about its middle instead of moving the splits, and it floats at the new size too. Again,
+  it fills its tile.
+
+The tiles glide to their new places as after any change to the tiling. All three work in
+dwindle only: in master, spiral, monocle and scroll they do nothing, and a pseudotiled window
+fills its tile there until its workspace is in dwindle again. They leave a fullscreen window
+alone. Toggled splits and pseudotiling last while the compositor runs, reloads included, but a
+saved session does not keep them, as it does not keep dwindle's splits.
+
+Hyprland binds `togglesplit` to Super + J and `pseudo` to Super + P, which paw gives to
+`focus_next` and the command palette, so the example lines add Ctrl or Alt:
+
+```lua
+{ mods = { "Super", "Ctrl" }, key = "j", action = "split_toggle" },
+{ mods = { "Super", "Ctrl" }, key = "k", action = "split_swap" },
+{ mods = { "Super", "Alt" }, key = "p", action = "pseudo_toggle" },
+```
+
 ### Scrolling layout
 
 `layout_scroll` tiles like niri and PaperWM: windows live in columns on a strip much wider
@@ -1832,8 +1945,9 @@ where it is drawn, at the speed it has. `paw msg get drawn` prints where each wi
 now, in the order of `get windows`: app ID, title, its place and size as drawn, the size its
 surface is drawn at, what its change of size does (`rest`, `moving`, `waiting` for the
 application, `fading` what it drew before), how much of its frame shows and the factor an
-animation or a gesture gives its opacity (both in thousandths), for tests; `tests/morph_smoke.py`
-follows the changes with it.
+animation or a gesture gives its opacity (both in thousandths), and the place its glide set off
+from (where it is drawn while it does not glide), for tests; `tests/morph_smoke.py` follows the
+changes with it.
 
 Animations are interruptible: a tile that is gliding when the layout changes again continues
 from where it is drawn, at the speed it has, and never snaps. Each kind (`open`, `close`,
@@ -1955,6 +2069,46 @@ and acts on the monitor whose corner it is. The corner is `hot_corners.size` pix
 Nothing runs while a button is held, a drag is under way, the session is locked, or a fullscreen
 window covers the output. `overview.hot_corner` makes one more corner, which opens the overview
 (see [the overview](#overview)); a corner it takes cannot be bound here too.
+
+**Ambient particles.** `appearance.ambient = { kind = "sakura" }` has sakura petals drift down
+over the wallpaper, tumbling, swaying and turning as they fall, in four pinks; `"snow"` has soft
+snow falling, the nearest flakes large and out of focus; `"fireflies"` has fireflies wandering
+about and glowing warm, now bright, now dim. A gentle wind carries the petals and the snow now
+one way, now the other. The compositor draws them over the wallpaper and under the windows and
+the panels; they take no input, and stay out of the background [blurred behind
+windows](#borders-opacity-and-rounded-corners), which shows the wallpaper alone. `count` says how
+many drift on each monitor (up to 150; unless set, 30 petals, 60 flakes or 24 fireflies) and
+`speed` how fast (1 is their own pace, 0.5 half of it). An [appearance profile](#appearance-profiles) can set them, so that each look has its
+own (a [rice](#paw-rice) takes them along), and they fade over to the new kind as the profile
+changes.
+
+The `ambient` action switches them without touching the configuration: `paw msg ambient sakura`
+(or `snow`, `fireflies`, `off`), `ambient next` goes through the kinds in turn and then none, and
+`ambient` alone (`toggle`) turns them off, or back on as they were last (sakura the first time);
+bound to a key, `mode` takes the same words. The command palette offers them as "Ambient: ...".
+What the action chose stands until a reload changes `appearance.ambient.kind`, as picking a
+profile with another kind does.
+
+They draw only where they show: a monitor's particles pause while the session is locked, while
+the monitor is off or shows a fullscreen window (so a game or a video keeps the monitor to
+itself), and while the screens are dimmed, and fade out after five minutes without input until
+there is some; with none showing anywhere, nothing of them runs. Each step, every 33
+milliseconds, moves a monitor's particles out of the scene's sight and shows them again at once,
+and their pictures are painted once for each monitor's scale; behind windows that cover the
+wallpaper they cost next to nothing.
+
+```lua
+appearance = { ambient = { kind = "sakura", count = 40, speed = 1 } },
+bindings = {
+    { mods = { "Super", "Ctrl" }, key = "a", action = "ambient", mode = "next" },
+},
+```
+
+`paw msg get ambient` prints a line for each monitor: its name, the kind it draws, how many
+particles, and `shown`, `fading`, or why none show (`off`, `locked`, `away` while another VT is
+on the screen, `display_off`, `fullscreen`, `dimmed`, `idle`). `paw msg get ambient OUTPUT`
+lists that monitor's particles as they are drawn: their box in layout coordinates, their opacity
+in thousandths, the picture and its transform.
 
 ## Monitors
 
@@ -2292,6 +2446,31 @@ GTK's `settings.ini`, provided the theme is installed (in `~/.local/share/icons`
 the programs it starts draw the same cursor, and reads them as it starts: a change takes a
 restart.
 
+`mouse.hide_when_typing = true` hides the cursor as a key is typed into an application or its
+input method, as macOS does, until the pointer moves, clicks or scrolls (a drawing tablet's pen
+moving shows it too). A modifier key alone and a key a binding takes leave it where it is, and so
+does typing while a mouse button is held or a window is being moved. `mouse.hide_after = N` hides
+it once the pointer has rested N seconds, as Hyprland's `cursor:inactive_timeout`, unless a
+button is held. Both are off by default and apply as the file is saved; turning one off shows a
+cursor it hid. They are reasons of their own beside a screenshot's (the cursor is left out of
+grim's picture): the pointer moving ends theirs but not a screenshot's, and the screenshot ending
+leaves a cursor hidden by typing hidden. `paw msg get cursor` says `hidden` for any of them, and
+`cursor_hide_smoke` tests them.
+
+`mouse.shake_to_find = true` grows the cursor when the pointer is shaken, as macOS does, so that it
+is easy to find on a large screen: four quick turns from side to side within 0.7 seconds, each
+stroke at least 60 pixels wide, wider than it is tall and faster than 1600 pixels a second, grow
+it smoothly to three times its size in a fifth of a second. It stays that large while the shaking
+goes on and 0.6 seconds after, then shrinks back in 0.4 seconds to the image it would have had,
+which a pointer moving over a window or a resize edge meanwhile may have changed. Moving across
+the screen, a correction or two and the slow back and forth that strokes the
+[desktop cat](#paw-cat) never make a shake (a shake is too quick for a stroke), and
+neither does motion with a button held, a window being moved or a game holding the pointer. The
+grown image is the theme's own at three times the size (loaded as it is first needed, at the
+largest monitor scale), drawn smaller while it grows and shrinks. Off by default; `paw msg get
+cursor_size` says the size the cursor is drawn at. `shake` (the arithmetic) and
+`cursor_shake_smoke` test it.
+
 ### Keyboard layouts
 
 Several layouts are a comma-separated list, with variants in the same places:
@@ -2531,6 +2710,30 @@ button bindings take neither.
 ```
 
 `locked_bindings_smoke` tests both, holding keys on and off the lock screen.
+
+### Bindings on a key's release, and tapping Super
+
+A key binding with `release = true` runs as its key comes up rather than as it goes down, as
+Hyprland's `bindr` does. A modifier key alone (`Super_L`, `Alt_L`, `Control_R`, ...) makes a tap
+binding, as Windows' Start key and KDE's Meta key are: it runs only when nothing else happened
+while the key was held, so another key (bound or not), a mouse button, the wheel, a touchpad
+gesture, a finger or a pen in the meantime lets it go, and Super + drag, Super + the wheel,
+Super + Q and the switcher stay what they were. The modifier's press and release still reach the
+application with the keyboard as usual. Any other key's binding has the key from its press, so
+the application hears neither. `mods` are the modifiers held as the key goes down; with a
+modifier key its own may be named or not (`mods = { "Super" }, key = "Super_L"` is the same
+binding). A key may have a binding of each kind, `release` does not go with `repeats`, and
+mouse buttons and switches take none. While the switcher, the overview or the exploded view has
+the keys, or an application holds the shortcuts, nothing waits for a release; on the lock screen
+only a `locked` one does. Tapping Super for the start menu (Launchpad in the macOS style), as on
+Windows:
+
+```lua
+{ key = "Super_L", release = true, action = "launcher" },
+```
+
+The shipped configuration has that line commented out. `key_release_smoke` tests it with a
+window that prints the keys it gets.
 
 ### Binding modes
 
@@ -3029,7 +3232,9 @@ layer surface), its app ID or namespace, and its title (empty for a layer surfac
 in the monitor's coordinates, the one that counts first), then a `fold` line per window on its
 way into or out of its button (its number, `minimize` or `restore`, how far into the button it
 is drawn in thousandths, the box in layout coordinates, what that box is: `button`, `panel` or
-`place`, and where the window's box is drawn now), also mainly for tests. `paw msg get pictures`
+`place`, where the window's box is drawn now, how far into the button it set off from, and the
+window's box unfolded: where a copy set off from, or where a window restored comes out to), also
+mainly for tests. `paw msg get pictures`
 prints one line per capture source a client asked for to
 picture a window at a size, as the taskbar does: the size asked for, the frame's size, how many
 sessions capture it, and the window's title, also mainly for tests. `paw msg get
@@ -3053,9 +3258,11 @@ msg get seat` prints what has the keyboard, what the pointer is on and, while so
 dragged, what the drag is over: a line each, `keyboard`, `pointer` or `drag`, followed by
 `window` and its title, `layer` and its namespace, `other` (a popup, the lock screen) and `-`,
 or `-` twice for nothing; during a drag the pointer is on nothing. `paw msg get cursor` prints
-`hidden` while a screenshot hides the cursor, else `shown`, and `paw msg get cursor_image` the
-image it shows: the name of an xcursor (`default`, `grabbing`, `ns-resize`, ..., one paw shows or
-a shape a client asks for), `client` for a client's own picture, or `none`. `paw msg get crossfade` prints one
+`hidden` while a screenshot, typing or a rest hides the cursor, else `shown`, and `paw msg get
+cursor_image` the image it shows: the name of an xcursor (`default`, `grabbing`, `ns-resize`, ...,
+one paw shows or a shape a client asks for), `client` for a client's own picture, or `none`.
+`paw msg get cursor_size` prints the size it is drawn at in logical pixels, `$XCURSOR_SIZE` but
+while a shake grows it. `paw msg get crossfade` prints one
 line per monitor with a picture of the old look over it while an
 [appearance profile](#appearance-profiles) crossfades in: the monitor, `held` while it waits for
 the shell or `fading`, the profile, and the picture's opacity in thousandths; the shell tells the
@@ -3076,7 +3283,9 @@ a line per [appearance profile](#appearance-profiles), in name order: its name a
 in use, else `0`; and `paw msg get terminal` the command line the `terminal` action starts, its
 words separated by tabs, or nothing when there is no terminal to start. A client
 that sends `subscribe` keeps its connection and receives `tiling on|off` and
-`workspace N` (the focused monitor's), one `output NAME N USED TILING` line per monitor
+`workspace N` (the focused monitor's), `primary NAME` (the [primary monitor](#monitors):
+`outputs.primary` or the one the display settings window made primary, else the leftmost; `-` for
+none), one `output NAME N USED TILING` line per monitor
 (as in `get workspaces`), one `layout NAME LAYOUT` line per monitor with the tiling layout of
 the workspace it shows (`dwindle`, `master`, `spiral`, `monocle` or `scroll`, as in
 `get layout NAME`), one `touched NAME EDGES` line per monitor with the edges of its free

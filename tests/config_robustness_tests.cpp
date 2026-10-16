@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Hostile and damaged configuration: the parser must accept or reject it with an exception,
 // never crash, hang, or read out of bounds (run this under AddressSanitizer for the last two).
+#include "paw/child_trial.hpp"
 #include "paw/config.hpp"
 #include <chrono>
 #include <cstdint>
@@ -23,13 +24,14 @@
 #define PAW_ASAN 1
 #endif
 #endif
-// parse_limit: the seconds a configuration has to load in, src/config.cpp's time_limit.
+// at_once: the seconds what is refused at once may take, and a third of it what must be quick.
+// What runs too long is stopped after paw::trial_seconds.
 #if defined(__SANITIZE_ADDRESS__) || defined(PAW_ASAN)
 constexpr auto parse_budget = std::chrono::seconds(600);
-constexpr double parse_limit = 30;
+constexpr double at_once = 30;
 #else
 constexpr auto parse_budget = std::chrono::seconds(60);
-constexpr double parse_limit = 3;
+constexpr double at_once = 3;
 #endif
 
 namespace {
@@ -86,22 +88,22 @@ int main(int argc, char **argv) {
 
         // One call into a C function is one instruction however long it runs or whatever it
         // allocates, so the instruction budget stops neither. What runs for more than 3 seconds
-        // (30 with the sanitizers) is stopped, the error saying so.
+        // (paw::trial_seconds, 10 with the sanitizers) is stopped, the error saying so.
         refused_in_time("local s = ('a'):rep(40) s:find(('a*'):rep(30) .. 'b') return {}",
-                        "did not finish loading within", 3 * parse_limit,
+                        "did not finish loading within", 3.0 * paw::trial_seconds,
                         "a pattern that backtracks");
         refused_in_time("local s = (''):rep(2^60) return {}", "did not finish loading within",
-                        3 * parse_limit, "an empty string repeated 2^60 times");
+                        3.0 * paw::trial_seconds, "an empty string repeated 2^60 times");
         refused_in_time("table.move({}, 1, 2^50, 2) return {}", "did not finish loading within",
-                        3 * parse_limit, "a table move over 2^50 places");
+                        3.0 * paw::trial_seconds, "a table move over 2^50 places");
         // What asks for more than 64 MiB of memory is refused at once.
-        refused_in_time("local big = ('x'):rep(2^34) return {}", "string too large", parse_limit,
+        refused_in_time("local big = ('x'):rep(2^34) return {}", "string too large", at_once,
                         "a 16 GiB string"); // over Lua's own limit for a string, 2 GiB
         refused_in_time("local big = ('x'):rep(2^31 - 1) return {}",
-                        "init.lua: needs more than 64 MiB of memory", parse_limit,
+                        "init.lua: needs more than 64 MiB of memory", at_once,
                         "a 2 GiB string");
         refused_in_time("local t = {} for i = 1, 1e5 do t[i] = ('x'):rep(1e4) .. i end return {}",
-                        "init.lua: needs more than 64 MiB of memory", parse_limit,
+                        "init.lua: needs more than 64 MiB of memory", at_once,
                         "a table of a hundred thousand strings of 10 KB");
         // Caught by the configuration, the refusal leaves it running within the limit.
         require(parses("local ok = pcall(string.rep, 'x', 2^31 - 1) assert(not ok) return {}"),
@@ -112,7 +114,7 @@ int main(int argc, char **argv) {
         {
             const auto start = std::chrono::steady_clock::now();
             auto error = error_of("return {['" + std::string(1 << 20, 'k') + "'] = 1}");
-            require(seconds_since(start) < parse_limit / 3,
+            require(seconds_since(start) < at_once / 3,
                     "a megabyte-long unknown key took " + std::to_string(seconds_since(start)) +
                         " s to refuse");
             require(error.find("unknown setting 'kkkk") != std::string::npos && error.size() < 2000,
@@ -159,7 +161,7 @@ int main(int argc, char **argv) {
                 require(config.window_actions("app", "Start" + dashes).workspace == 2,
                         "a title's start found in " + std::to_string(size) + " bytes");
             }
-            require(seconds_since(start) < parse_limit / 3,
+            require(seconds_since(start) < at_once / 3,
                     "window rules on long titles took " + std::to_string(seconds_since(start)) +
                         " s");
             // In a long title, the middle goes unseen, and `^` and `$` hold only at its ends, not

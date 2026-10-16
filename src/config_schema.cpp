@@ -58,6 +58,18 @@ const Option options[] = {
      "GTK and libadwaita applications, Firefox, Chromium and Electron applications such as "
      "Discord read through xdg-desktop-portal. Only a login session (`--session`) sets it. "
      "Unset, paw leaves the preference as it is."},
+    {"appearance.ambient", "table", "", "", none, none,
+     "Particles drifting over the wallpaper, under the windows and panels: sakura petals "
+     "tumbling down, soft snow, or fireflies wandering and glowing. An appearance profile may "
+     "set them, and the `ambient` action switches them meanwhile. They pause while the session "
+     "is locked, while a monitor is off or shows a fullscreen window and while the screens are "
+     "dimmed, and fade out after five minutes without input until there is some."},
+    {"appearance.ambient.kind", "enum", "\"none\"", "\"sakura\"", none, none,
+     "`\"sakura\"`, `\"snow\"` or `\"fireflies\"`; `\"none\"` for none."},
+    {"appearance.ambient.count", "integer", "30 petals, 60 flakes, 24 fireflies", "50", 1, 150,
+     "How many particles drift on each monitor."},
+    {"appearance.ambient.speed", "number", "1", "0.6", 0.1, 5,
+     "How fast they drift: 0.5 at half their own pace, 2 at twice it."},
 
     {"keyboard", "table", "", "", none, none, "Keyboard layout and key repeat."},
     {"keyboard.layout", "string", "\"us\"", "\"us\"", none, none,
@@ -103,6 +115,17 @@ const Option options[] = {
      "Natural scrolling for mice; unset keeps the device default."},
     {"mouse.focus_follows", "boolean", "true", "true", none, none,
      "Hovering a window focuses it, without raising it."},
+    {"mouse.hide_when_typing", "boolean", "false", "true", none, none,
+     "Hide the cursor as a key is typed into an application, as macOS does, until the pointer "
+     "moves, clicks or scrolls. Modifier keys alone and the keys bindings take leave it, and so "
+     "does typing while a button is held."},
+    {"mouse.hide_after", "integer", "0", "5", 0, 3600,
+     "Seconds the pointer rests before the cursor hides, until it moves, clicks or scrolls; `0` "
+     "never hides it."},
+    {"mouse.shake_to_find", "boolean", "false", "true", none, none,
+     "Shaking the pointer quickly from side to side grows the cursor to three times its size for "
+     "a moment, as macOS does, so that it is easy to find; it shrinks back about a second after "
+     "the shaking stops. Not while a button is held."},
 
     {"touchpad", "table", "", "", none, none, "Touchpad settings (standalone sessions)."},
     {"touchpad.natural_scroll", "boolean", "unset", "true", none, none,
@@ -689,7 +712,9 @@ const Option options[] = {
      "`\"duplicate\"`, `\"internal\"` or `\"external\"`; without one, the popup that steps "
      "through them. With `cat`: `\"on\"`, `\"off\"` or `\"toggle\"`; without one, "
      "toggle. With `heatmap`: `\"toggle\"`, `\"motion\"`, `\"clicks\"` or "
-     "`\"reset\"`; without one, toggle."},
+     "`\"reset\"`; without one, toggle. With `ambient`: `\"sakura\"`, `\"snow\"`, "
+     "`\"fireflies\"`, `\"off\"`, `\"next\"` (each kind in turn, then none) or `\"toggle\"` "
+     "(off, or back to the last kind); without one, toggle."},
     {"bindings[].amount", "integer", "40; 5 for volume and brightness", "", 1, 4000,
      "With `resize_*`: pixels moved per press. With `volume_up`, `volume_down`, `brightness_up` "
      "and `brightness_down`: percent per press, up to 100."},
@@ -704,6 +729,20 @@ const Option options[] = {
      "With `key` only: while the key is held, the action runs again at `keyboard.repeat_rate` "
      "after `keyboard.repeat_delay`, as Hyprland's `binde`. (Lua keeps `repeat` for its own "
      "loops.)"},
+    {"bindings[].release", "boolean", "false", "", none, none,
+     "With `key` only, and not with `repeats`: the action runs as the key comes up rather than "
+     "as it goes down, as Hyprland's `bindr`. A modifier key (`Super_L`, `Alt_L`, ...) still "
+     "reaches the application as it goes down, and its binding runs only when the key was "
+     "tapped alone: not when another key, a mouse button, the wheel or a touchpad gesture was "
+     "used while it was held, so `{ key = \"Super_L\", release = true, action = \"launcher\" "
+     "}` opens the launcher as Windows' Start key does, and Super + drag and Super + Q are left "
+     "alone. `mods` are those held as the key goes down; a modifier key's own (`Super` with "
+     "`Super_L`) may be left out."},
+    {"bindings[].description", "string", "the action's own title", "", none, none,
+     "What the binding does, in your words, as Hyprland's `bindd`: the sheet of keyboard "
+     "shortcuts (the `shortcuts` action) shows it in place of the action's title, e.g. "
+     "`description = \"Files\"` for a `spawn` of a file manager, whose command it shows "
+     "shortened otherwise. Also in `modes`."},
 
     {"notifications", "table", "", "", none, none,
      "Notifications: the shell serves `org.freedesktop.Notifications` on the session bus and shows "
@@ -920,6 +959,15 @@ const Option options[] = {
      "Taskbar buttons show only the window icon, the title as a tooltip."},
     {"shell.group_windows", "boolean", "true", "true", none, none,
      "One taskbar button per application; `false` gives every window its own."},
+    {"shell.taskbar_buttons", "enum", "\"all\"", "\"main_and_own\"", none, none,
+     "Experimental. Which windows each monitor's taskbar has buttons for, as Windows' \"Show "
+     "taskbar buttons on\": `\"all\"`, every window on every bar; `\"main_and_own\"`, every "
+     "window on the main monitor's bar and on each other bar only the windows on its monitor; "
+     "`\"own\"`, on every bar only the windows on its monitor. The main monitor is the primary "
+     "one (`outputs.primary`, or the one the display settings window made primary), else the "
+     "leftmost. But for `\"all\"`, pinned applications' launchers show on the main monitor's "
+     "bar alone, and a grouped button and its card stand for the windows that bar shows. The "
+     "taskbar style only: the macOS style's dock shows every window."},
     {"shell.polkit_agent", "boolean", "true", "true", none, none,
      "Be the session's polkit authentication agent: a dialog asks for the password a program "
      "needs for what only an administrator may do (`pkexec`, GParted, an updater). It stays "
@@ -998,6 +1046,41 @@ const Option options[] = {
     {"shell.wallpaper", "string", "\"\"", "\"\"", none, none,
      "Image path, absolute or relative to the configuration file (one the shipped configuration "
      "names, its profiles' too: relative to that file, also for a file that extends it)."},
+    {"shell.wallpaper_mode", "enum", "\"fill\"", "\"fit\"", none, none,
+     "How the wallpaper covers each monitor: `\"fill\"` scales it to cover all of it, cutting "
+     "off what overflows; `\"fit\"` shows all of it, as large as fits; `\"stretch\"` scales "
+     "each side to the monitor's, out of proportion; `\"center\"` shows it at its own size in "
+     "the middle (a pixel of it a pixel of the screen); `\"tile\"` repeats it at its own size "
+     "from the top left. Around a picture that `\"fit\"` or `\"center\"` leaves room by, "
+     "`appearance.background` shows. The frosted glass and a workspace's picture on its card "
+     "show it the same way."},
+    {"shell.desktop_clock", "boolean or table", "false", "true", none, none,
+     "Experimental: a large clock on the desktop, over the wallpaper and under the windows: the "
+     "time in a thin weight, the date under it and, with `greeting`, a word for the time of day "
+     "above it, in the text colour with a soft shadow (a glow under dark text) so that it reads "
+     "on any wallpaper. It changes once a minute, never more often, so seconds in `time_format` "
+     "would stand still; the frosted glass leaves it out. `true` shows it as below; the "
+     "`desktop_clock` action shows or hides it until `enabled` changes."},
+    {"shell.desktop_clock.enabled", "boolean", "false", "true", none, none, "Show the clock."},
+    {"shell.desktop_clock.position", "enum", "\"center\"", "\"bottom-right\"", none, none,
+     "Where on the desktop, inside what the bars leave: `\"center\"`, `\"top\"`, "
+     "`\"bottom\"`, `\"left\"`, `\"right\"`, `\"top-left\"`, `\"top-right\"`, "
+     "`\"bottom-left\"` or `\"bottom-right\"`, away from the edges by half its size."},
+    {"shell.desktop_clock.time_format", "string", "\"HH:mm\"", "\"h:mm AP\"", none, none,
+     "The time, in Qt's date and time format, 1 to 64 bytes."},
+    {"shell.desktop_clock.date_format", "string", "\"dddd d MMMM\"", "\"ddd d MMM yyyy\"",
+     none, none, "The date under it, in Qt's format; `\"\"` shows none."},
+    {"shell.desktop_clock.size", "integer", "96", "128", 24, 320,
+     "The time's height in pixels; the date and the greeting are drawn in proportion."},
+    {"shell.desktop_clock.color", "color", "unset", "\"#f5c2e7\"", none, none,
+     "The time's and the date's colour, `#RRGGBB` or `#RRGGBBAA`; unset, `text_color`. The "
+     "greeting is in the accent colour."},
+    {"shell.desktop_clock.font", "string", "unset", "\"Nunito\"", none, none,
+     "Font family; unset, `shell.font`."},
+    {"shell.desktop_clock.greeting", "boolean or string", "false", "\"ja\"", none, none,
+     "A greeting above the time by the time of day: `\"en\"` says Good morning (from 5), Good "
+     "afternoon (from 12) and Good evening (from 18); `\"ja\"` おはよう, こんにちは and こんばんは. "
+     "`false` says nothing."},
     {"shell.start_icon", "string", "\"\"", "\"neko.svg\"", none, none,
      "A picture for the taskbar's start button in place of the four squares in the accent "
      "colour: an SVG, PNG or other image, absolute or relative to the configuration file, as "
@@ -1323,7 +1406,7 @@ std::string config_reference_markdown() {
         first = false;
     }
     out << "\n\n`spawn` needs `command`; `workspace` and `move_to_workspace` need `workspace`; "
-           "`screenshot` and `cat` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
+           "`screenshot`, `cat`, `heatmap` and `ambient` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
            "`brightness_up` and `brightness_down` take `amount`; a `switch` needs `state`.\n\n"
            "Modifiers: ";
     first = true;
