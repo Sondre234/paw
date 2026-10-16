@@ -1814,11 +1814,9 @@ lock the screen before a suspend gives up (see `power_smoke.py`), and
 `PAW_TEST_CROSSFADE_HOLD_MS` sets how long a profile's crossfade waits for the shell (see
 `crossfade_smoke.py`), and `PAW_TEST_RICE_TRIAL_MS` how long a rice is on trial (see
 `rice_smoke.py`).
-`crossfade_smoke.py`).
 `PAW_TEST_CAT_SLEEP_MS` sets how long the desktop cat waits without input before it sleeps, in
-place of `cat.sleep_after` (see `cat_smoke.py`).
-`crossfade_smoke.py`), and `PAW_TEST_HEATMAP_REST_MS` how long a resting pointer counts in the
-heatmap (see `heatmap_smoke.py`).
+place of `cat.sleep_after` (see `cat_smoke.py`), and `PAW_TEST_HEATMAP_REST_MS` how long a
+resting pointer counts in the heatmap (see `heatmap_smoke.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless
