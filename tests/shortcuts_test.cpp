@@ -11,6 +11,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <paw/config.hpp>
+#include <paw/config_schema.hpp>
 #include <xkbcommon/xkbcommon.h>
 
 namespace {
@@ -96,6 +97,38 @@ class ShortcutsTest : public QObject {
         QCOMPARE(shortcuts::rows(sheet), 19);
         for (const auto &item : sheet)
             QVERIFY(!item.toMap()["mode"].toBool());
+    }
+    void everyActionHasAGroup() {
+        // A binding of each of the configuration's actions, titled by its name: none goes under
+        // Other, so a new action fails here until shortcuts.cpp gives it a group.
+        paw::Config config;
+        for (const auto &name : paw::config_action_names()) {
+            paw::Binding binding{};
+            binding.modifiers = SH_LOGO;
+            binding.keysym = XKB_KEY_F1;
+            binding.action = paw::parse_action(name);
+            binding.description = name;
+            config.bindings.push_back(binding);
+        }
+        const auto sheet = shortcuts::sheet(config, {}, false);
+        const auto other = ::titles(group(sheet, "Other"));
+        QVERIFY2(other.isEmpty(), qPrintable("no group for " + other.join(", ")));
+        QCOMPARE(shortcuts::rows(sheet), int(paw::config_action_names().size()));
+        // The newest where they belong.
+        QVERIFY(::titles(group(sheet, "Toys")).contains("ambient"));
+        QVERIFY(::titles(group(sheet, "Screen")).contains("pick_color"));
+    }
+    void ambientTitles() {
+        // The ambient action by its mode: a kind and off as the palette calls them.
+        const auto config = paw::parse_config(
+            "return { bindings = {"
+            " { mods = { 'Super' }, key = 'a', action = 'ambient' },"
+            " { mods = { 'Super' }, key = 'b', action = 'ambient', mode = 'next' },"
+            " { mods = { 'Super' }, key = 'c', action = 'ambient', mode = 'snow' },"
+            " { mods = { 'Super' }, key = 'd', action = 'ambient', mode = 'off' } } }");
+        QCOMPARE(::titles(group(shortcuts::sheet(config, {}, false), "Toys")),
+                 QStringList({"Ambient particles, on or off", "Next ambient particles",
+                              "Ambient: soft snow over the wallpaper", "Ambient: off"}));
     }
     void titles() {
         const auto sheet = shortcuts::sheet(config_, {}, false);

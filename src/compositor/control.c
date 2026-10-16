@@ -464,6 +464,10 @@ static void control_handle(struct sh_server *server, int fd, const char *request
         done = power_start(server, action, error, sizeof(error));
     } else if (action == SH_DISPLAY_MODE) {
         done = display_mode_choose(server, argument, error, sizeof(error));
+    } else if (action == SH_PICK_COLOR) {
+        // Answered once a colour is picked, or the picking cancelled (color_picker.c).
+        if (color_picker_wait(server, fd, error, sizeof(error)))
+            return;
     } else {
         server->target_output = target;
         if (display_action(action)) {
@@ -660,6 +664,10 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
     // now, off without a schedule.
     append(state, size, &length, "profile-schedule %s\n",
            server->profile_schedule.following ? "on" : "off");
+    // "cursor-theme SIZE NAME": the cursor theme drawn and its size (profile_themes.c), for
+    // the shell to give the programs it starts.
+    append(state, size, &length, "cursor-theme %d %s\n", cursor_theme_size(server),
+           cursor_theme_name(server));
     // "keep-awake on|off": whether keep awake holds the idle steps off (lock.c).
     append(state, size, &length, "keep-awake %s\n", server->keep_awake ? "on" : "off");
     // "locked on|off": whether the session is locked, for the shell to record nothing then.

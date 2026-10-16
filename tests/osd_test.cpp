@@ -292,6 +292,29 @@ class OsdTest : public QObject {
         QCOMPARE(history->count(), 2);
         QCOMPARE(history->items()[0].body, QString("Ctrl &amp; Q gives them back"));
     }
+    void colorPickedShowsItsSwatch() {
+        // A colour picked shows on the on-screen display, with do not disturb on too, and adds
+        // no notification; what is not #rrggbb shows nothing.
+        ShellController controller(config("").toStdString());
+        controller.notifications()->setDnd(true);
+        for (const char *line : {"", "417bc4", "#417BC4", "#417bc", "#417bc4 HEADLESS-1", "#zzzzzz"})
+            controller.colorPicked(line);
+        QVERIFY(!controller.osd()->active());
+        controller.colorPicked("#417bc4");
+        QVERIFY(controller.osd()->active());
+        QCOMPARE(controller.osd()->kind(), QString("color"));
+        QCOMPARE(controller.osd()->text(), QString("#417bc4"));
+        QCOMPARE(controller.osd()->percent(), -1);
+        QCOMPARE(controller.notifications()->history()->count(), 0);
+        // With the display off, a notification says it instead.
+        ShellController quiet(config("osd = { enabled = false }").toStdString());
+        quiet.colorPicked("#f5bde6");
+        QVERIFY(!quiet.osd()->active());
+        const auto *cards = quiet.notifications()->cards();
+        QCOMPARE(cards->count(), 1);
+        QCOMPARE(cards->items()[0].summary, QString("Colour copied"));
+        QCOMPARE(cards->items()[0].body, QString("#f5bde6"));
+    }
     void uevents() {
         QVERIFY(Backlight::relevantUevent(QByteArray("ACTION=change\0SUBSYSTEM=backlight\0", 34)));
         QVERIFY(!Backlight::relevantUevent(QByteArray("ACTION=change\0SUBSYSTEM=power_supply\0", 38)));

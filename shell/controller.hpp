@@ -18,6 +18,7 @@
 #include "power_mode.hpp"
 #include "osd.hpp"
 #include "volume_keys.hpp"
+#include "wallpaper_cycle.hpp"
 #include "palette.hpp"
 #include "power.hpp"
 #include "paw/config.hpp"
@@ -52,8 +53,9 @@ class ShellController : public QObject {
     Q_PROPERTY(QColor background READ background NOTIFY configChanged)
     // windows.urgent_color, the colour of whatever marks a window that asks for attention.
     Q_PROPERTY(QColor urgentColor READ urgentColor NOTIFY configChanged)
-    // The wallpaper: one picked from the panel for the profile in use, else shell.wallpaper.
-    // wallpaperFile is the same as a path, "" for none.
+    // The wallpaper of the monitors without one of their own: one picked from the panel for the
+    // profile in use, else shell.wallpaper. wallpaperFile is the same as a path, "" for none.
+    // Each ShellView has its own monitor's (wallpaperOn).
     Q_PROPERTY(QUrl wallpaper READ wallpaper NOTIFY wallpaperChanged)
     Q_PROPERTY(QString wallpaperFile READ wallpaperFile NOTIFY wallpaperChanged)
     // shell.wallpaper_mode, how the wallpaper covers the output: "fill", "fit", "center", "tile"
@@ -173,6 +175,10 @@ class ShellController : public QObject {
     // Counts the changes of `apps`, for QML that reads one record with appRecord() to follow
     // them without making all of them.
     Q_PROPERTY(int appsRevision READ appsRevision NOTIFY appsChanged)
+    // Where QML finds an icon by name or path: "image://icons/" + name. It changes with the icon
+    // theme (appearance.icon_theme), so that every image of one is looked up anew rather than
+    // taken from Qt Quick's cache.
+    Q_PROPERTY(QString iconBase READ iconBase NOTIFY iconThemeChanged)
     // Whether the user's trash holds anything, for the dock's Trash: watched once the style is
     // macOS, which has a dock.
     Q_PROPERTY(bool trashFull READ trashFull NOTIFY trashChanged)
@@ -291,16 +297,39 @@ class ShellController : public QObject {
     // lists the workspaces they are on, as `urgent`.
     QVariantList urgentWindows() const { return urgentWindows_; }
     QUrl wallpaper() const;
-    QString wallpaperFile() const;
+    QString wallpaperFile() const { return wallpaperFileOn({}); }
     QString wallpaperMode() const;
     QVariantList wallpapers() const { return wallpapers_; }
     QString wallpaperFolder() const;
     QUrl startIcon() const;
     // Reads the picker's folder again.
     Q_INVOKABLE void findWallpapers();
-    // Shows `path` as the wallpaper of the profile in use, remembered across sessions until the
-    // configured wallpaper changes; an empty path goes back to the configured one.
+    // Shows `path` as the wallpaper of the profile in use on every monitor, remembered across
+    // sessions until the configured wallpaper changes; an empty path goes back to the configured
+    // one.
     Q_INVOKABLE void pickWallpaper(const QString &path);
+    // Shows `path` on monitor `output` alone, remembered as pickWallpaper remembers one until the
+    // wallpaper the configuration gives that monitor changes; an empty path goes back to what it
+    // shows without.
+    Q_INVOKABLE void pickWallpaperOn(const QString &path, const QString &output);
+    // The wallpaper of monitor `output`: picked for it alone, else picked for every monitor while
+    // the configuration gives it the wallpaper it did then, else its shell.monitor_wallpapers
+    // entry, else shell.wallpaper; a path, "" for none. wallpaperFile is a monitor's without
+    // anything of its own.
+    Q_INVOKABLE QString wallpaperFileOn(const QString &output) const;
+    QUrl wallpaperOn(const QString &output) const;
+    // Whether monitor `output` shows a wallpaper picked for it alone, not the one picked for
+    // every monitor.
+    Q_INVOKABLE bool ownWallpaper(const QString &output) const;
+    // The wallpaper slideshow (shell.wallpaper_cycle): picks the picture after the one shown
+    // (`direction` 1) or before it (-1) in its folder, as the wallpaper_next and wallpaper_prev
+    // actions and its timer do, for every monitor or with per_monitor for each monitor alone, from
+    // the left; with `tell`, says so when the folder has none (the timer does not).
+    Q_INVOKABLE void stepWallpaper(int direction, bool tell = true);
+    // The slideshow's folder: shell.wallpaper_cycle.folder, else the folder of shell.wallpaper,
+    // else the picker's.
+    QString wallpaperCycleFolder() const;
+    WallpaperCycle *wallpaperCycle() { return &wallpaperCycle_; }
     QString style() const { return config_.shell.macos_style ? "macos" : "taskbar"; }
     int panelHeight() const { return barResizing_ ? barResizeHeight_ : config_.shell.panel_height; }
     // Whether shell.panel_position, the edge of the bars of the monitors without one of their
@@ -438,6 +467,10 @@ class ShellController : public QObject {
     QVariantList pinned() const;
     QVariantList apps() const;
     int appsRevision() const { return appsRevision_; }
+    QString iconBase() const;
+    // The icon theme in use: appearance.icon_theme where it is installed, else the one the shell
+    // started with.
+    QString iconTheme() const;
     // The record of the application `id`, as `apps` has it; undefined in QML for none.
     Q_INVOKABLE QVariant appRecord(const QString &id) const;
     QString error() const { return error_; }
@@ -506,6 +539,11 @@ class ShellController : public QObject {
     // and the summary on the on-screen display while no card shows (notifications off, or do not
     // disturb).
     void notice(const QString &summary, const QString &body);
+    // A colour picked off the screen with the compositor's colour picker ("color-picked
+    // #rrggbb"), copied already: a swatch of it and its hex on the on-screen display, with do not
+    // disturb on too, or a notification while the display is off. Anything but #rrggbb is
+    // ignored.
+    void colorPicked(const QString &hex);
     // Starts answering on the session bus when notifications are enabled and QtDBus is built
     // in; later configuration reloads follow the setting. Returns whether it is serving.
     bool startNotifications();
@@ -603,6 +641,7 @@ class ShellController : public QObject {
     void wallpaperChanged();
     void wallpapersChanged();
     void appsChanged();
+    void iconThemeChanged();
     void errorChanged();
     void disabled();
     void tilingChanged();
@@ -644,12 +683,20 @@ class ShellController : public QObject {
     };
     // Loads the configuration, or the default one with configError_ set when it has an error.
     void loadConfig();
+    // Looks icons up in appearance.icon_theme where it is installed, else in the theme the
+    // shell started with, as the configuration names another, and has every icon drawn anew.
+    void followIconTheme();
+    QString iconThemeBase_;   // the theme the shell started with
+    QString iconThemeWanted_; // appearance.icon_theme as last followed, "" for none
+    int iconGeneration_ = 0;  // the icon theme changes so far, in iconBase
     // Hands the file index and the start menu shell.search's settings.
     void configureSearch();
     // Hands the clipboard history shell.clipboard's.
     void configureClipboard();
     // The desktop clock, from the configuration loaded.
     void configureDesktopClock();
+    // The wallpaper slideshow, from the configuration loaded.
+    void configureWallpaperCycle();
     std::filesystem::path path_;
     paw::Config config_;
     bool restyling_ = false;
@@ -673,6 +720,7 @@ class ShellController : public QObject {
     Osd osd_;
     Caption caption_;
     DesktopClock desktopClock_;
+    WallpaperCycle wallpaperCycle_;
     DisplayModes displayModes_;
     DisplaySettings displaySettings_{[this](const QByteArray &line,
                                             std::function<void(const QByteArray &)> done) {
@@ -802,12 +850,20 @@ class ShellController : public QObject {
     bool start(GAppInfo *info, const QString &name);
     static QString pinsPath();
     void savePins();
-    // Wallpapers picked from the panel, by profile: the one picked, and shell.wallpaper as it
-    // was then; the pick stands while that is still what the configuration says.
+    // Wallpapers picked from the panel, by profile and then by monitor ("" for every monitor):
+    // the one picked, and the wallpaper the configuration gave the monitor then (shell.wallpaper
+    // for every monitor); the pick stands while that is still what the configuration says.
     struct PickedWallpaper {
         QString configured, picked;
     };
-    QMap<QString, PickedWallpaper> pickedWallpapers_;
+    QMap<QString, QMap<QString, PickedWallpaper>> pickedWallpapers_;
+    // The wallpaper the configuration gives monitor `output`, as written: its
+    // shell.monitor_wallpapers entry, else shell.wallpaper.
+    QString configuredWallpaper(const QString &output) const;
+    // Writes pickedWallpapers_ to its file, and tells.
+    void savePickedWallpapers();
+    // Notes `path` picked for monitor `output` alone, or none for an empty path, without saving.
+    void notePick(const QString &path, const QString &output);
     QVariantList wallpapers_;
     static QString pickedWallpapersPath();
     static QVariantMap record(const App &app);

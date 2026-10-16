@@ -15,28 +15,30 @@ Rectangle {
              : shellView.panelVertical ? Qt.rect(shellView.panelEdge === "left" ? panel : 0, 0, width - panel, height)
              : Qt.rect(0, shellView.panelEdge === "top" ? panel : 0, width, height - panel)
     }
-    // The wallpaper, or without one the gradient (the macOS style's drawn wallpaper), in layers:
-    // each new one is laid over what shows, and once it is drawn (its picture loaded, or failed and
-    // the gradient in its place) it fades in, the layers under it going as it covers them. A change
-    // during a fade lays the next one over both, so that nothing jumps. A new shell.wallpaper_mode
-    // comes in the same way.
+    // The wallpaper of this output (its own, else every monitor's), or without one the gradient
+    // (the macOS style's drawn wallpaper), in layers: each new one is laid over what shows, and
+    // once it is drawn (its picture loaded, or failed and the gradient in its place) it fades in,
+    // the layers under it going as it covers them. A change during a fade lays the next one over
+    // both, so that nothing jumps. A new shell.wallpaper_mode comes in the same way.
     Item {
         id: backdrop
         objectName: "backdrop"
         anchors.fill: parent
-        // Whether `layer` shows shell.wallpaper as shell.wallpaper_mode says (the gradient in any).
+        // Whether `layer` shows the output's wallpaper as shell.wallpaper_mode says (the gradient
+        // in any).
         function shows(layer) {
-            const url = shell.wallpaper.toString()
+            const url = shellView.wallpaper.toString()
             return layer.source === url && (url === "" || layer.mode === shell.wallpaperMode)
         }
-        // A layer for shell.wallpaper, unless the top one is for it already: a reload that keeps
-        // the wallpaper reads and decodes nothing again. The first shows at once, and so does a
-        // picture that failed, tried again after `retry` milliseconds, which doubles each time.
+        // A layer for the output's wallpaper, unless the top one is for it already: a reload that
+        // keeps the wallpaper reads and decodes nothing again. The first shows at once, and so
+        // does a picture that failed, tried again after `retry` milliseconds, which doubles each
+        // time.
         function show(retry) {
             const top = children.length > 0 ? children[children.length - 1] : null
             if (top && shows(top) && !retry)
                 return
-            backdropLayer.createObject(backdrop, { source: shell.wallpaper.toString(),
+            backdropLayer.createObject(backdrop, { source: shellView.wallpaper.toString(),
                                                    mode: shell.wallpaperMode,
                                                    instant: !top || shows(top), retry: retry || 1000 })
         }
@@ -162,7 +164,7 @@ Rectangle {
                 background: Rectangle { radius: Theme.radiusSmall; color: parent.hovered ? Theme.accentSubtle : "transparent"; border.color: parent.hovered ? Theme.alpha(Theme.accent, 0.33) : "transparent" }
                 contentItem: Column {
                     spacing: Theme.spacingS + Theme.spacingXS
-                    Image { anchors.horizontalCenter: parent.horizontalCenter; width: 40; height: 40; sourceSize: Qt.size(40, 40); source: "image://icons/" + modelData.icon }
+                    Image { anchors.horizontalCenter: parent.horizontalCenter; width: 40; height: 40; sourceSize: Qt.size(40, 40); source: shell.iconBase + modelData.icon }
                     Text { width: parent.width; text: modelData.name; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
                 }
             }

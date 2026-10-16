@@ -416,6 +416,47 @@ shell = {
 }
 ```
 
+### A wallpaper for each monitor
+
+Each monitor can have a wallpaper of its own: `shell.monitor_wallpapers` names one for a monitor
+by its name (as `paw msg get outputs` lists it), over `shell.wallpaper`, which the others show.
+With two monitors or more, the wallpaper picker's header offers All monitors and This monitor
+only: a picture picked with the second shows on the picker's monitor alone, and one picked with
+the first shows on every monitor again, the configured ones too. The picker opens on This monitor
+only on a monitor with one of its own, and offers the choice there with one monitor too, to go
+back. Each monitor's desktop draws its own, and so do the frosted glass, the workspace cards and
+Launchpad on it, and the lock screen. A pick for one monitor is kept as any pick is, for the
+appearance profile in use and until the configuration gives that monitor another wallpaper.
+
+```lua
+shell = {
+    wallpaper = "sky.jpg",
+    monitor_wallpapers = { ["DP-1"] = "left.jpg", ["HDMI-A-1"] = "right.jpg" },
+}
+```
+
+### Wallpaper slideshow
+
+An experimental slideshow, off by default: with `shell.wallpaper_cycle = { interval = 30 }` the
+pictures of a folder take turns as the wallpaper, a new one every 30 minutes (1 to 1440), each
+fading in as a picked one does. The folder is `folder` (absolute, `~/...` or relative to the
+configuration, not its subfolders), else the folder of `shell.wallpaper`, so that mochi goes
+through its seven skies, else the wallpaper picker's. `order = "shuffle"`, the default, shows
+every picture once in a random order before any comes again; `"name"` goes through them by name.
+Each picture is kept as one picked from the panel is, for the appearance profile in use, so it
+stays after a restart and the lock screen shows it. The time waits while the session is locked,
+and starts over at each step. The `wallpaper_next` and `wallpaper_prev` actions (`paw msg
+wallpaper_next`, or "Next wallpaper" and "Previous wallpaper" in the command palette) step at
+once, also with `interval = 0`, stepping back through what was shown. With `per_monitor = true`
+each monitor shows a picture of its own, the next after the one on the monitor to its left, kept
+for that monitor alone; shuffled, no two show the same picture while the folder has enough.
+
+```lua
+shell = {
+    wallpaper_cycle = { interval = 30, order = "shuffle", per_monitor = true },
+}
+```
+
 ### Quick Settings
 
 Left of the clock, as on Windows 11, the Quick Settings button shows the volume and the battery in
@@ -645,7 +686,9 @@ Icons come from the icon theme the desktop names: Qt's platform theme's (qt6ct, 
 `icon-theme` setting where it is set (GNOME Settings, `gsettings`, nwg-look), else
 `gtk-icon-theme-name` in GTK's `settings.ini`, else KDE's `kdeglobals`. After it the shell looks
 in Breeze, Adwaita or Papirus, whichever is installed, so that the generic icons applications and
-the shell name are found under any theme. A change of theme shows after the shell restarts.
+the shell name are found under any theme. A change of the desktop's theme shows after the shell
+restarts; `appearance.icon_theme` names one for paw, mostly in an
+[appearance profile](#appearance-profiles), which shows at once.
 
 ### Taskbar menus
 
@@ -1320,10 +1363,20 @@ missing, and save the current arrangement under the name typed), and [files](#fi
 [calculator](#calculator) and a [web search](#web-search). Type to narrow the list; each
 word must match, in any order, as letters in sequence of the title or its small print, favouring
 runs of letters and word starts (`gc` finds Google Chrome, `lay mon` finds Layout: monocle).
-Up and Down, Tab and Shift + Tab, Ctrl + N and Ctrl + P, or the pointer select; Enter or a click
-runs the entry; Escape, or clicking elsewhere, closes it. A leading `>` searches only actions, `@`
-windows, `#` workspaces and `%` sessions, `/` [files](#files) and `=` asks the
-[calculator](#calculator); when nothing matches, the palette says so and lists these. A window
+Before anything is typed it lists a few of each kind, in this order: every open window (those
+asking for attention first), each saved session to restore, up to eight applications (those
+launched lately, then those pinned to the [start menu](#start-menu), then by name), each
+workspace to switch to, the appearance profiles, the common actions (Open a terminal,
+Applications menu, Overview of windows, Toggle tiling, Next tiling layout, Toggle floating,
+Toggle fullscreen, Close window, Pick a colour from the screen, Keep awake, Keyboard shortcuts,
+Display settings, Reload configuration) and last the power actions, so that more actions never
+push the applications or the power actions out; the rest are a word away.
+Up and Down, Tab and Shift + Tab, Ctrl + N and Ctrl + P, or the pointer select (Up from the first
+entry wraps to the last); Enter or a click runs the entry; Escape, or clicking elsewhere, closes
+it. A leading `>` searches only actions, `@` windows, `#` workspaces and `%` sessions, and one
+alone lists every action (the power actions last), window, workspace or session; `/` searches
+[files](#files) and `=` asks the [calculator](#calculator); when nothing matches, the palette
+says so and lists these. A search lists its best 60 results. A window
 selected among the results peeks after half a second, as in the [switcher](#window-switcher):
 the others fade while it shows alone where it is, a minimized one where it was. Moving the
 selection to another window moves the peek at once; leaving the windows, or Escape, fades the
@@ -1472,6 +1525,44 @@ English keywords, under the Unicode License v3; `vendor/emoji/README.md` says ho
 `tools/emoji_table.py` makes it again. They are drawn in the system's colour emoji font (Noto Color
 Emoji, say); without one some show as boxes. `tests/emoji_test.cpp` tests the table and the search,
 and `tests/emoji_shell_smoke.py` the picker typing into a window.
+
+## Colour picker
+
+`pick_color` (unbound by default; `paw msg pick_color`, or "Pick a colour from the screen" in the
+[command palette](#command-palette)) picks a colour off the screen, as Hyprland's hyprpicker
+does, for theming a desktop. While it picks, the cursor is a crosshair with a loupe beside it: a
+card in the shell's colours (`shell.panel_color`, `text_color` and `accent`) on a soft shadow,
+holding the 11 by 11 pixels around the crosshair magnified ten times, in the monitor's own pixels
+(also at a fractional scale such as 1.25, and on a monitor turned on its side), the middle one
+ringed in the accent, and under them a swatch of that pixel and its `#rrggbb`. Near the right and
+bottom edges of a monitor the card goes to the other side of the crosshair. The loupe reads what
+the monitor shows, drawn again on the renderer without the cursor, [night light](#effects) or a
+gamma table a program set (gammastep, wlsunset), so that the colour is the one the application
+drew; it follows the screen as it changes, ten times a second while the monitor draws.
+
+A left click, Return or Space picks the pixel under the crosshair: it is copied to the clipboard
+as `#rrggbb` (lowercase, without a newline), the on-screen display shows a swatch of it and its hex
+for a moment (with do not disturb on too; with `osd.enabled = false` a notification says it
+instead), and subscribers to the [control socket](#control-socket) hear `color-picked #rrggbb`.
+The arrows move the pointer a pixel of the monitor (Shift and an arrow ten), to pick exactly.
+Escape, a right click (or any button but the left) or `pick_color` again cancels, and so does the
+screen locking. Other bindings run as usual meanwhile (switch workspaces to pick a colour there);
+other keys and the wheel do nothing, and the windows hear nothing of the pointer until the picker
+is done. Bind it to try it, as `config/init.lua` suggests:
+
+```lua
+{ mods = { "Super", "Shift" }, key = "c", action = "pick_color" },
+```
+
+`paw msg pick_color` waits for the picking it starts (or the one under way) and prints the
+colour picked, or fails with `error: cancelled`, so that a script can take it:
+`color=$(paw msg pick_color) && notify-send "$color"`. `paw msg get color_picker` prints a
+tab-separated line: `picking` or `idle`; while picking, the colour under the crosshair (`-` for
+none), the monitor and the pixel (x and y in the monitor's pixels as they are seen), else `-`,
+`-`, -1 and -1; the colour picked last (`-` for none); the loupe's size in pixels and its scale;
+the side of the crosshair its card is on (`right` or `left`, then `below` or `above`); and how
+many pictures of the screen it has drawn. On an [HDR](#hdr) monitor the colour is taken back to
+sRGB from what the monitor is sent, to within a few steps.
 
 ## Keyboard shortcuts
 
@@ -2458,7 +2549,8 @@ settings, nwg-look or HyDE set), else `gtk-cursor-theme-name` and `gtk-cursor-th
 GTK's `settings.ini`, provided the theme is installed (in `~/.local/share/icons`, `~/.icons` or
 `/usr/share/icons`). Failing that it is Adwaita at 24 pixels. paw exports both variables, so that
 the programs it starts draw the same cursor, and reads them as it starts: a change takes a
-restart.
+restart. `appearance.cursor_theme` and `cursor_size` name a theme and size for paw instead, mostly
+in an [appearance profile](#appearance-profiles), which change the cursor at once.
 
 `mouse.hide_when_typing = true` hides the cursor as a key is typed into an application or its
 input method, as macOS does, until the pointer moves, clicks or scrolls (a drawing tablet's pen
@@ -2890,6 +2982,35 @@ profile without it leaves the preference as it is, and a choice made in other se
 stands until a profile with another scheme is picked. Only a login session (`--session`) sets
 it: a nested or headless paw leaves the desktop it runs in alone.
 
+A profile can bring its own cursor and icons too: `appearance.cursor_theme`, `cursor_size` and
+`icon_theme` name a cursor theme, a cursor size in pixels and an icon theme, by the name of their
+folder in an icons directory (`~/.local/share/icons`, `~/.icons`, `/usr/share/icons`, or
+`$XCURSOR_PATH` for cursors).
+
+```lua
+profiles = {
+    mochi = {
+        appearance = { background = "#1e1e2e", color_scheme = "dark",
+                       cursor_theme = "catppuccin-mocha-light-cursors", cursor_size = 32,
+                       icon_theme = "Mochi" },
+    },
+},
+```
+
+Picking the profile changes the cursor at once, over X11 windows too, and the shell's icons: the
+taskbar's, the dock's, the start menu's and Launchpad's, the tray's, the notifications', the
+switcher's and the rest, those it shows already included. Programs started afterwards get the
+cursor theme and size as `$XCURSOR_THEME` and `$XCURSOR_SIZE`. A theme that is not installed is
+skipped, with a line in the log saying so, and a profile without them, or with `""` and `0`,
+has the session's own: the cursor paw started with (see [Input](#input)) and the icon theme the
+desktop names. A login session (`--session`) also sets `org.gnome.desktop.interface`'s
+`cursor-theme`, `cursor-size` and `icon-theme` with `gsettings`, which GTK applications follow,
+keeping each value it replaces to put back as a profile without one is picked and as the session
+ends, so that your own settings are yours again outside paw; meanwhile, as with the color scheme,
+a choice made in other settings stands until the profile's changes. An application that asks the
+compositor to draw its cursor by name (cursor-shape-v1, as recent GTK and Qt do) follows at once;
+one that draws its own over its windows may keep the old one until it starts again.
+
 Switching profiles is one crossfade on every monitor. Each keeps showing what it showed, a picture
 of it laid over everything, while the compositor and the shell take up the new look under it, so
 that no frame shows the old bar with the new borders; once the shell has drawn the new look, its
@@ -3276,7 +3397,8 @@ or `-` twice for nothing; during a drag the pointer is on nothing. `paw msg get 
 cursor_image` the image it shows: the name of an xcursor (`default`, `grabbing`, `ns-resize`, ...,
 one paw shows or a shape a client asks for), `client` for a client's own picture, or `none`.
 `paw msg get cursor_size` prints the size it is drawn at in logical pixels, `$XCURSOR_SIZE` but
-while a shake grows it. `paw msg get crossfade` prints one
+while a shake grows it, and `paw msg get cursor_theme` the cursor theme it is drawn in and its
+size, by a tab; subscribers hear `cursor-theme SIZE NAME` with the state. `paw msg get crossfade` prints one
 line per monitor with a picture of the old look over it while an
 [appearance profile](#appearance-profiles) crossfades in: the monitor, `held` while it waits for
 the shell or `fading`, the profile, and the picture's opacity in thousandths; the shell tells the
@@ -3321,8 +3443,8 @@ and unlocks (the shell's clipboard history records nothing meanwhile), and ends 
 run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power
 action that fails or is cancelled after it was accepted sends `power-error MESSAGE`, a program
 that `spawn` or `terminal` could not start sends `spawn-error MESSAGE` (the panel shows either
-across itself for eight seconds), `power_menu` sends `power-menu OUTPUT`, and `taskbar_focus`
-sends `taskbar OUTPUT` for the focused monitor, whose panel takes the keyboard to walk its
+across itself for eight seconds), `power_menu` sends `power-menu OUTPUT`, a colour picked with [`pick_color`](#colour-picker) sends `color-picked #rrggbb`, and
+`taskbar_focus` sends `taskbar OUTPUT` for the focused monitor, whose panel takes the keyboard to walk its
 buttons, or gives it back. The shell subscribes with `subscribe shell`, saying it carries out
 the volume, microphone and brightness actions, which send `volume up PERCENT`, `volume down
 PERCENT`, `volume mute`, `microphone mute`, `brightness up PERCENT` or `brightness down PERCENT`
@@ -3616,7 +3738,7 @@ but read by a parser of Lua's table syntax alone, which takes strings, numbers, 
 and refuses names, calls and operators, so `os.execute`, `io.open`, `require` or `load` in it are
 errors, not calls. It sets only how the desktop looks: colours, borders, corners, opacity, shadows,
 the blur behind windows, the bar's style, size, place, font and widgets, the tiling bar, the
-wallpaper and the start button. Launchers, window rules, the search's folders and web address, the
+wallpaper, the start button, and the cursor and icon themes by name (one you have installed). Launchers, window rules, the search's folders and web address, the
 clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other section
 are refused, and `paw rice pack` leaves them out. The pictures and other files it names are paths
 inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor through one;
@@ -3882,7 +4004,8 @@ screen locks, paw adds to `swaylock -f`:
 
 - the profile's wallpaper, the one picked from the panel or else `shell.wallpaper`, filling every
   monitor over `appearance.background`, which shows alone when there is no wallpaper or its file
-  is gone;
+  is gone, and on a monitor with a wallpaper of its own (`shell.monitor_wallpapers`, or picked for
+  it alone) that one;
 - the ring, shown while idle too, in the shell's colours: the panel's inside it (no more
   see-through than the frosted glass's 75 %), the accent around it, the text colour for its
   words, a key press lighting a piece of it in the border's colour (of a gradient, the stop that

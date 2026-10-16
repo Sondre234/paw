@@ -77,7 +77,7 @@ Button {
                     anchors.fill: parent
                     sourceSize: Qt.size(width, height)
                     source: !visible ? "" : button.iconName.charAt(0) === "/" ? button.iconName
-                                                                             : "image://icons/" + button.iconName
+                                                                             : shell.iconBase + button.iconName
                 }
             }
             Text {

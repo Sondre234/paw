@@ -169,6 +169,19 @@ QImage TrayModel::picture(int serial, QSize size) const {
     return image;
 }
 
+void TrayModel::redraw() {
+    if (items_.empty())
+        return;
+    QStringList keys;
+    for (auto &item : items_) {
+        ++item.revision;
+        ++item.menuRevision;
+        keys << item.key;
+    }
+    Q_EMIT dataChanged(index(0), index(count() - 1), {ImageRole});
+    for (const auto &key : keys)
+        Q_EMIT menuChanged(key);
+}
 void TrayModel::menuEdited(const QString &key) {
     if (TrayItem *item = find(key)) {
         ++item->menuRevision;

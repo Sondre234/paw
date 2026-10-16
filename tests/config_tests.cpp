@@ -902,6 +902,39 @@ int main(int argc, char **argv) {
                 "appearance.color_scheme not parsed");
         rejects("return {appearance={color_scheme='auto'}}");
         rejects("return {appearance={color_scheme=true}}");
+        // appearance.cursor_theme, cursor_size and icon_theme: the session's own ("" and 0)
+        // unless named, a profile's laid over the file's, and "" or 0 in a profile taking the
+        // session's back.
+        {
+            const auto plain = paw::parse_config("return {}").settings;
+            require(!*plain.cursor_theme && plain.cursor_size == 0 && !*plain.icon_theme,
+                    "a cursor or icon theme without one named");
+            const char *themed = "return {appearance={cursor_theme='Bibata-Modern-Ice',"
+                                 "cursor_size=32,icon_theme='Papirus-Dark'},"
+                                 "profiles={mochi={appearance={cursor_theme='catppuccin',"
+                                 "icon_theme='Mochi'}},plain={appearance={cursor_theme='',"
+                                 "cursor_size=0,icon_theme=''}}}}";
+            const auto file = paw::parse_config(themed).settings;
+            const auto mochi = paw::parse_config(themed, "config", {}, "mochi").settings;
+            const auto reset = paw::parse_config(themed, "config", {}, "plain").settings;
+            require(std::string(file.cursor_theme) == "Bibata-Modern-Ice" &&
+                        file.cursor_size == 32 && std::string(file.icon_theme) == "Papirus-Dark",
+                    "appearance's cursor and icon themes not parsed");
+            require(std::string(mochi.cursor_theme) == "catppuccin" && mochi.cursor_size == 32 &&
+                        std::string(mochi.icon_theme) == "Mochi",
+                    "a profile's cursor and icon themes do not take the file's place");
+            require(!*reset.cursor_theme && reset.cursor_size == 0 && !*reset.icon_theme,
+                    "a profile cannot take the session's own cursor and icon themes back");
+        }
+        rejects("return {appearance={cursor_theme='../../etc'}}",
+                "appearance.cursor_theme must be a theme's name");
+        rejects("return {appearance={cursor_theme='a/b'}}");
+        rejects("return {appearance={icon_theme='..'}}", "appearance.icon_theme");
+        rejects("return {appearance={icon_theme=true}}");
+        rejects("return {appearance={cursor_size=300}}");
+        rejects("return {appearance={cursor_size=-1}}");
+        rejects("return {appearance={cursor_size=24.5}}");
+        rejects("return {appearance={cursor_theme=string.rep('x', 200)}}", "too long");
         rejects("return {layuot={gap=2}}");
         rejects("return {version=2}");
         rejects("return {shell={panel_height=0}}");
@@ -1108,6 +1141,59 @@ int main(int argc, char **argv) {
             rejects("return {shell={desktop_clock={greeting=true}}}");
             rejects("return {shell={desktop_clock={greeting='fr'}}}");
             rejects("return {shell={desktop_clock={seconds=true}}}");
+        }
+        // The wallpaper slideshow: off, shuffled, from the wallpaper's own folder by default.
+        {
+            const auto &cycle = even.shell.wallpaper_cycle;
+            require(cycle.interval == 0 && cycle.folder.empty() && cycle.shuffle,
+                    "the wallpaper slideshow's defaults are not as documented");
+            auto own = paw::parse_config("return {shell={wallpaper_cycle={interval=30,"
+                                         "folder='~/Pictures/sky',order='name'},accent='#123456'}}");
+            require(own.shell.wallpaper_cycle.interval == 30 &&
+                        own.shell.wallpaper_cycle.folder == "~/Pictures/sky" &&
+                        !own.shell.wallpaper_cycle.shuffle && own.shell.accent == "#123456",
+                    "shell.wallpaper_cycle not parsed, or what follows it lost");
+            require(paw::parse_config("return {shell={wallpaper_cycle={order='shuffle'}}}")
+                        .shell.wallpaper_cycle.shuffle,
+                    "order = 'shuffle' not parsed");
+            auto profiled = paw::parse_config(
+                "return {shell={wallpaper_cycle={order='name'}},"
+                "profiles={sky={shell={wallpaper_cycle={interval=5}}}}}",
+                "config", {}, "sky");
+            require(profiled.shell.wallpaper_cycle.interval == 5,
+                    "a profile does not start the wallpaper slideshow");
+            rejects("return {shell={wallpaper_cycle=30}}");
+            rejects("return {shell={wallpaper_cycle=true}}");
+            rejects("return {shell={wallpaper_cycle={interval=-1}}}");
+            rejects("return {shell={wallpaper_cycle={interval=1441}}}");
+            rejects("return {shell={wallpaper_cycle={interval=2.5}}}");
+            rejects("return {shell={wallpaper_cycle={order='random'}}}");
+            rejects("return {shell={wallpaper_cycle={folder=3}}}");
+            rejects("return {shell={wallpaper_cycle={seconds=30}}}");
+        }
+        // Each monitor's own wallpaper, by the monitor's name, and the slideshow giving each one
+        // a picture of its own.
+        {
+            require(even.shell.monitor_wallpapers.empty() && !even.shell.wallpaper_cycle.per_monitor,
+                    "monitors have wallpapers of their own by default");
+            auto own = paw::parse_config(
+                "return {shell={monitor_wallpapers={['DP-1']='left.jpg',HDMI_1=''},"
+                "wallpaper_cycle={per_monitor=true}}}");
+            require(own.shell.monitor_wallpapers ==
+                            std::map<std::string, std::string>{{"DP-1", "left.jpg"}, {"HDMI_1", ""}} &&
+                        own.shell.wallpaper_cycle.per_monitor,
+                    "shell.monitor_wallpapers or wallpaper_cycle.per_monitor not parsed");
+            require(paw::parse_config("return {shell={monitor_wallpapers={['DP-1']='a.jpg'}},"
+                                      "profiles={b={shell={monitor_wallpapers={['DP-1']='b.jpg'}}}}}",
+                                      "config", {}, "b")
+                            .shell.monitor_wallpapers.at("DP-1") == "b.jpg",
+                    "a profile's monitor wallpaper is not laid over the file's");
+            rejects("return {shell={monitor_wallpapers={'left.jpg'}}}");
+            rejects("return {shell={monitor_wallpapers={['DP-1']=true}}}");
+            rejects("return {shell={monitor_wallpapers='left.jpg'}}");
+            rejects("return {shell={monitor_wallpapers={['']='left.jpg'}}}");
+            rejects("return {shell={monitor_wallpapers={['DP\\t1']='left.jpg'}}}");
+            rejects("return {shell={wallpaper_cycle={per_monitor='yes'}}}");
         }
         // The bar shown while a monitor tiles: on by default, along the top, floating away from
         // the monitor's edges but not towards the windows; false keeps the taskbar.

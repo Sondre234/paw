@@ -171,6 +171,8 @@ static const struct {
     {SH_DND_ON, .line = "dnd on\n"},
     {SH_DND_OFF, .line = "dnd off\n"},
     {SH_DESKTOP_CLOCK, .line = "desktop-clock toggle\n"},
+    {SH_WALLPAPER_NEXT, .line = "wallpaper-cycle next\n"},
+    {SH_WALLPAPER_PREV, .line = "wallpaper-cycle prev\n"},
     {SH_MEDIA_PLAY_PAUSE, .line = "media play-pause\n"},
     {SH_MEDIA_NEXT, .line = "media next\n"},
     {SH_MEDIA_PREVIOUS, .line = "media previous\n"},
@@ -524,6 +526,9 @@ void run_action(struct sh_server *server, enum sh_action action, int argument) {
         break;
     case SH_HEATMAP:
         heatmap_action(server, argument);
+        break;
+    case SH_PICK_COLOR:
+        color_picker_toggle(server);
         break;
     default:
         arrange_windows(server, action);

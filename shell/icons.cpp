@@ -9,8 +9,11 @@
 #include <QTextStream>
 #include <gio/gio.h>
 
-QImage Icons::requestImage(const QString &id, QSize *size, const QSize &requested) {
+QImage Icons::requestImage(const QString &asked, QSize *size, const QSize &requested) {
     QSize dimensions = requested.isEmpty() ? QSize(48, 48) : requested;
+    // @N/ before the name or path once the icon theme has changed N times
+    // (ShellController::iconBase): a URL of its own, looked up anew.
+    const QString id = asked.startsWith('@') ? asked.section('/', 1) : asked;
     QImage image;
     {
         std::lock_guard guard(iconThemeLock());
@@ -49,6 +52,10 @@ namespace {
 // GNOME's icon-theme, only where someone set it: its default (Adwaita) says nothing of what the
 // user chose, and settings.ini may name the theme while it is unset.
 QString gnomeIconTheme() {
+    // While a login session has a profile's icon theme in GNOME's setting, the compositor keeps
+    // the one it replaced here (src/compositor/profile_themes.c).
+    if (qEnvironmentVariableIsSet("PAW_USER_ICON_THEME"))
+        return qEnvironmentVariable("PAW_USER_ICON_THEME").trimmed();
     GSettingsSchemaSource *source = g_settings_schema_source_get_default();
     GSettingsSchema *schema =
         source ? g_settings_schema_source_lookup(source, "org.gnome.desktop.interface", TRUE)
@@ -88,13 +95,16 @@ QString iniValue(const QString &path, const QString &group, const QString &key) 
     }
     return {};
 }
-bool installed(const QString &theme) {
+} // namespace
+
+bool iconThemeInstalled(const QString &theme) {
+    if (theme.isEmpty() || theme.contains('/') || theme == "." || theme == "..")
+        return false;
     for (const auto &folder : QIcon::themeSearchPaths())
         if (QFileInfo::exists(folder + '/' + theme + "/index.theme"))
             return true;
     return false;
 }
-} // namespace
 
 QString desktopIconTheme() {
     if (auto theme = gnomeIconTheme(); !theme.isEmpty())
@@ -110,13 +120,13 @@ QString desktopIconTheme() {
 void useDesktopIconTheme() {
     std::lock_guard guard(iconThemeLock());
     if (const auto current = QIcon::themeName(); current.isEmpty() || current == "hicolor")
-        if (const auto theme = desktopIconTheme(); !theme.isEmpty() && installed(theme))
+        if (const auto theme = desktopIconTheme(); !theme.isEmpty() && iconThemeInstalled(theme))
             QIcon::setThemeName(theme);
     // Every theme falls back to this one before hicolor, which holds applications' own icons
     // but none of the generic ones (application-x-executable, utilities-terminal) that desktop
     // entries and the shell name. A theme that inherits one of these has it already.
     for (const char *broad : {"breeze", "Adwaita", "Papirus", "elementary", "gnome"})
-        if (QIcon::themeName() != broad && installed(broad)) {
+        if (QIcon::themeName() != broad && iconThemeInstalled(broad)) {
             QIcon::setFallbackThemeName(broad);
             break;
         }
