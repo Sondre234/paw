@@ -17,13 +17,16 @@ CONFIG = """return {{
     xwayland = false,
     animations = {{ enabled = false }},
     appearance = {{ background = "#000000", cursor_trail = {{ kind = "{kind}" }} }},
-    bindings = {{ {{ key = "F3", action = "cursor_trail", mode = "next" }} }},
+    bindings = {{
+        {{ key = "F3", action = "cursor_trail", mode = "next" }},
+        {{ key = "F4", action = "pick_color" }},
+    }},
     profiles = {{
         cute = {{ appearance = {{ cursor_trail = {{ kind = "hearts", amount = 2 }} }} }},
         plain = {{}},
     }},
 }}"""
-F3 = 61  # evdev key code
+F3, F4, ESCAPE = 61, 62, 1  # evdev key codes
 WIDTH, HEIGHT = 1280, 720
 
 
@@ -129,6 +132,18 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     stroke(200, 600)
     assert count() > 0
 
+    # Nor while the colour picker picks: its loupe shows the pixels around the pointer.
+    keys = desktop.keyboard()
+    stroke(600, 200)
+    assert count() > 0
+    keys(F4)
+    wait_for(lambda: desktop.rows("color_picker")[0][0] == "picking", "picking")
+    stroke(200, 800)
+    wait_for(lambda: trail() == {"kind": "sparkles", "count": "0", "state": "picking"},
+             "none while picking")
+    keys(ESCAPE)
+    wait_for(lambda: trail()["state"] == "still", "free again once the picker is done")
+
     # Over a fullscreen window none fall, and those there go.
     desktop.open_window(probe, "game", focused=True)
     msg("fullscreen")
@@ -161,7 +176,6 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
              "toggled off, the petals gone at once")
     msg("cursor_trail", "toggle")
     wait_for(lambda: trail()["kind"] == "petals", "petals again")
-    keys = desktop.keyboard()
     keys(F3)
     wait_for(lambda: trail()["kind"] == "hearts", "the binding brings hearts")
     stroke(100, 900)

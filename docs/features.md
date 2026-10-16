@@ -2237,9 +2237,10 @@ the first time); bound to a key, `mode` takes the same words. The command palett
 Nothing of it runs while the pointer rests: a timer steps the particles every 16 milliseconds
 only while some are left. None fall, and those there go at once, while the session is locked,
 while the cursor is hidden (typing with `mouse.hide_when_typing`, resting with `mouse.hide_after`),
-over a monitor showing a fullscreen window (a game or a video), and while a screenshot is taken
-with the `screenshot` action or `paw msg cursor hide`, so the picture leaves it out as it leaves
-the cursor out. A screen recording or screen sharing shows it, as it shows the windows.
+over a monitor showing a fullscreen window (a game or a video), while the colour picker picks
+(its loupe shows the pixels around the pointer), and while a screenshot is taken with the
+`screenshot` action or `paw msg cursor hide`, so the picture leaves it out as it leaves the cursor
+out. A screen recording or screen sharing shows it, as it shows the windows.
 
 ```lua
 appearance = { cursor_trail = { kind = "sparkles", amount = 1 } },
@@ -2251,9 +2252,9 @@ bindings = {
 
 `paw msg get cursor_trail` prints the kind, how many particles there are, and `shown`, `still`
 (none, the pointer resting), `off`, or why none fall (`locked`, `away` while another VT is on the
-screen, `screenshot`, `hidden`, `fullscreen`). `paw msg get cursor_trail particles` lists them as
-they are drawn: their box in layout coordinates, their opacity in thousandths, the picture and its
-transform.
+screen, `screenshot`, `hidden`, `picking`, `fullscreen`). `paw msg get cursor_trail particles`
+lists them as they are drawn: their box in layout coordinates, their opacity in thousandths, the
+picture and its transform.
 
 ## Monitors
 

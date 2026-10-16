@@ -11,7 +11,7 @@
  * pointer rests. None come, and
  * those there go at once, while the session is locked or on another VT, while the cursor is hidden
  * (typing, resting, or a screenshot being taken, so that grim leaves them out as it leaves the
- * cursor out), and over a monitor showing a fullscreen window. Each step changes the nodes with
+ * cursor out), while the colour picker picks, and over a monitor showing a fullscreen window. Each step changes the nodes with
  * their tree off and shows it again once, as the ambient particles do. */
 #include "server.h"
 #include "paw/cursor_trail.h"
@@ -88,6 +88,9 @@ static const char *paused_why(struct sh_cursor_trail *trail) {
         return "screenshot";
     if (server->cursor_hidden)
         return "hidden";
+    // The loupe magnifies what the output shows around the pointer, and picks a pixel of it.
+    if (color_picker_active(server))
+        return "picking";
     if (shows_fullscreen(server, pointer_output(server)))
         return "fullscreen";
     return NULL;
@@ -393,7 +396,7 @@ void cursor_trail_finish(struct sh_server *server) {
 
 void describe_cursor_trail(struct sh_server *server, int fd, const char *arguments) {
     // The kind, how many particles there are, and "shown", "still" (none, the pointer resting),
-    // "off", or why none come (locked, away, screenshot, hidden, fullscreen). With "particles",
+    // "off", or why none come (locked, away, screenshot, hidden, picking, fullscreen). With "particles",
     // each particle as it is drawn instead: its box in layout coordinates, its opacity in
     // thousandths, its picture and its transform.
     struct sh_cursor_trail *trail = server->cursor_trail;

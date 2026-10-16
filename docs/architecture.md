@@ -1060,8 +1060,8 @@ a node is given a new buffer only when its picture changes. `server_cursor_motio
 than 320 pixels at once is a jump that drops nothing. A timer steps the trail every 16 ms while any
 particle is left, changing the nodes with their tree off and showing it again once, and stops
 with the last one, so a resting pointer costs nothing. `paused_why` (the session locked or on
-another VT, the cursor hidden, a fullscreen window on the pointer's output) clears the trail and
-lets none fall; `cursor_hide` clears it at once, so that a screenshot, which hides the cursor
+another VT, the cursor hidden, the colour picker picking, a fullscreen window on the pointer's
+output) clears the trail and lets none fall; `cursor_hide` clears it at once, so that a screenshot, which hides the cursor
 first, leaves it out too. The kind is `appearance.cursor_trail.kind` until the action picks
 another (`cursor_trail_switch`), which stands until a reload changes the kind configured; the
 colours are the configuration's, which `default_trail_colors` (`src/config.cpp`) works out from

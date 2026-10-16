@@ -97,8 +97,8 @@ const Option options[] = {
      "and the panels but under the cursor, and taking no input. The faster the pointer moves, "
      "the more fall; none while it rests. An appearance profile may set it, and the "
      "`cursor_trail` action switches it meanwhile. None fall while the session is locked, "
-     "while the cursor is hidden, over a monitor showing a fullscreen window, or while a "
-     "screenshot is taken (screen recordings show them)."},
+     "while the cursor is hidden, over a monitor showing a fullscreen window, while a colour "
+     "is picked, or while a screenshot is taken (screen recordings show them)."},
     {"appearance.cursor_trail.kind", "enum", "\"none\"", "\"sparkles\"", none, none,
      "`\"sparkles\"`, `\"petals\"` or `\"hearts\"`; `\"none\"` for none."},
     {"appearance.cursor_trail.amount", "number", "1", "1.5", 0.25, 4,
