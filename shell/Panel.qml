@@ -72,7 +72,8 @@ Item {
                             trayMenuKey !== "" || menuBarMenu !== ""
     // Hovering an application's stacked button lists its windows above it: those of the pinned
     // application groupSlot, or with the app id groupWindowApp outside the pinned slots, or the
-    // window groupTask alone when it is 0 or more (a button standing for one window).
+    // window groupTask alone when it is 0 or more (a button standing for one window), in the
+    // order of their monitors.
     property bool groupOpen: false
     property string groupSlot: ""
     property string groupWindowApp: ""
@@ -84,7 +85,7 @@ Item {
     // bar and its menus).
     readonly property TaskFilter allWindows: TaskFilter { sourceModel: root.taskSource }
     readonly property TaskFilter groupWindows: TaskFilter {
-        controller: shell; sourceModel: root.taskSource
+        controller: shell; sourceModel: root.taskSource; byMonitor: true
         app: root.groupSlot; windowApp: root.groupWindowApp; taskId: root.groupTask
     }
     // In the taskbar style with shell.thumbnails, resting on any button with windows shows them
