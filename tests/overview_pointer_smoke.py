@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The overview with the pointer: the hot corner opens it (after hot_corners.delay, in a
-hot_corners.size square, and not over a fullscreen window), pointing selects, a click picks, a
-middle click closes a window, the wheel pages workspaces, a click on the strip shows and then
-switches to a workspace, dragging a thumbnail onto the strip moves the window, and a click on
-the backdrop closes it. Driven by a virtual pointer (pointer_probe)."""
+hot_corners.size square, and not over a fullscreen window or with a button held), pointing
+selects, a click picks, a middle click closes a window, the wheel pages workspaces, a click on
+the strip shows and then switches to a workspace, dragging a thumbnail onto the strip moves the
+window, and a click on the backdrop closes it. Driven by a virtual pointer (pointer_probe)."""
 from pathlib import Path
 import sys
 
@@ -96,7 +96,14 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     desktop.stays(lambda: overview()[0] == "open", "the corner closed it", duration=QUIET)
     msg("overview_cancel")
 
-    # Not over a fullscreen window.
+    # Not with a button held, as when a selection is dragged into the corner.
+    b = next(w for w in desktop.windows() if w.title == "B")
+    pointer("move", *center(b.box), "press", "left", "move", "0", "0")
+    desktop.stays(lambda: overview()[0] == "closed", "opened with a button held",
+                  duration=QUIET)
+    pointer("release", "left")
+
+    # Nor over a fullscreen window.
     msg("fullscreen")
     wait_for(lambda: windows()["B"]["width"] == SCREEN[0], "B fullscreen")
     pointer("move", "640", "360", "move", "0", "0")

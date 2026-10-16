@@ -220,8 +220,9 @@ void hot_corner_check(struct sh_server *server) {
     unsigned mask = fx->corner_mask | (overview_corner >= 0 ? 1U << overview_corner : 0U);
     struct wlr_output *output = NULL;
     int corner = -1;
+    // Not with a button held either, as when a selection is dragged into the corner.
     if (mask && !server->locked && server->cursor_mode == SH_CURSOR_PASSTHROUGH &&
-        !server->seat->drag) {
+        !server->seat->drag && server->seat->pointer_state.button_count == 0) {
         output = pointer_output(server);
         struct wlr_box box;
         if (output) {
