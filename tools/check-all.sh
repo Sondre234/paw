@@ -26,7 +26,7 @@ while [ $# -gt 0 ]; do
         --quick) sanitize=0 ;;
         --sanitize) normal=0 ;;
         --repeat) shift; repeat=(--repeat "until-fail:${1:?--repeat needs a count}") ;;
-        -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
     shift
