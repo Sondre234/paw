@@ -2011,7 +2011,10 @@ whether it has, for something the compositor does another way without it, as the
   the test failed. Wait with `desktop.wait_for`, never with a fixed sleep; to check that
   something does not happen, which an animation or a client's commit could do a little later,
   use `desktop.stays`. Register it with `paw_smoke(NAME ARGUMENTS...)` (and `TIMEOUT SECONDS`
-  for more than a minute, which the sanitizers' build triples) under `PAW_BUILD_COMPOSITOR` in `CMakeLists.txt`. A temporary
+  for more than a minute, which the sanitizers' build triples, and `SLOW` for five seconds or
+  more, which keeps it out of `ctest -LE slow`) under `PAW_BUILD_COMPOSITOR` in
+  `CMakeLists.txt`. Every smoke test starts a compositor, so a feature gets one for what it does,
+  and its edge cases go in unit tests wherever its logic can stand alone. A temporary
   directory's prefix stays at 26 characters or fewer: the control socket goes in it, a Unix
   socket's path is limited to about 107 bytes, and a Gentoo package build runs the tests in a
   `TMPDIR` of 43 characters or more.
@@ -2068,10 +2071,15 @@ out (see `ambient_smoke.py`).
 
 ```sh
 cmake --build build --target paw          # only the compositor
-ctest --test-dir build -j8 -R sticky           # only the tests you are working on
-ctest --test-dir build -j8                     # everything, about 90 seconds
-tools/check-all.sh                             # plus the sanitizer build, before merging
+ctest --test-dir build -j8 -R sticky           # only the tests you are working on, each commit
+ctest --test-dir build -j8 -LE slow            # all but the tests labelled slow
+ctest --test-dir build -j8                     # everything, about 90 seconds, before merging
+tools/check-all.sh --sanitize                  # the sanitizer build, every few days
 ```
+
+The sanitizer pass is not a step of each merge: run it on `main` every few days and after a
+large change to the compositor's C (lifetimes, listeners, buffers), where its leaks and
+use-after-frees come from.
 
 `build/compile_commands.json` is there for clangd. `paw --headless` with
 `WLR_RENDERER=pixman` runs the compositor with no display, as the tests do.
