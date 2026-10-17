@@ -2040,9 +2040,10 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                    {"sakura", SH_AMBIENT_SAKURA},
                    {"snow", SH_AMBIENT_SNOW},
                    {"fireflies", SH_AMBIENT_FIREFLIES},
-                   {"embers", SH_AMBIENT_EMBERS}},
+                   {"embers", SH_AMBIENT_EMBERS},
+                   {"rain", SH_AMBIENT_RAIN}},
                   "appearance.ambient.kind must be \"none\", \"sakura\", \"snow\", "
-                  "\"fireflies\" or \"embers\"",
+                  "\"fireflies\", \"embers\" or \"rain\"",
                   "kind");
             settings.ambient_count = integer(L, "count", settings.ambient_count, 1, 150);
             settings.ambient_speed =
@@ -2674,7 +2675,8 @@ sh_cat_switch parse_cat_switch(const std::string &name) {
 static_assert(SH_AMBIENT_ON_SAKURA == SH_AMBIENT_OFF + int{SH_AMBIENT_SAKURA} &&
               SH_AMBIENT_ON_SNOW == SH_AMBIENT_OFF + int{SH_AMBIENT_SNOW} &&
               SH_AMBIENT_ON_FIREFLIES == SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES} &&
-              SH_AMBIENT_ON_EMBERS == SH_AMBIENT_OFF + int{SH_AMBIENT_EMBERS});
+              SH_AMBIENT_ON_EMBERS == SH_AMBIENT_OFF + int{SH_AMBIENT_EMBERS} &&
+              SH_AMBIENT_ON_RAIN == SH_AMBIENT_OFF + int{SH_AMBIENT_RAIN});
 sh_ambient_choice parse_ambient_choice(const std::string &name) {
     for (auto [candidate, choice] :
          {std::pair{"toggle", SH_AMBIENT_TOGGLE},
@@ -2683,11 +2685,12 @@ sh_ambient_choice parse_ambient_choice(const std::string &name) {
           {"sakura", SH_AMBIENT_ON_SAKURA},
           {"snow", SH_AMBIENT_ON_SNOW},
           {"fireflies", SH_AMBIENT_ON_FIREFLIES},
-          {"embers", SH_AMBIENT_ON_EMBERS}})
+          {"embers", SH_AMBIENT_ON_EMBERS},
+          {"rain", SH_AMBIENT_ON_RAIN}})
         if (name == candidate)
             return choice;
-    fail("ambient takes \"sakura\", \"snow\", \"fireflies\", \"embers\", \"off\", "
-         "\"next\" or \"toggle\"");
+    fail("ambient takes \"sakura\", \"snow\", \"fireflies\", \"embers\", \"rain\", "
+         "\"off\", \"next\" or \"toggle\"");
 }
 
 static_assert(SH_CURSOR_TRAIL_ON_SPARKLES == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKLES} &&

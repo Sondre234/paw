@@ -1549,7 +1549,7 @@ int main(int argc, char **argv) {
         require(night.settings.ambient == SH_AMBIENT_FIREFLIES, "a profile's ambient particles");
         rejects("return {appearance={ambient={kind='confetti'}}}",
                 "appearance.ambient.kind must be \"none\", \"sakura\", \"snow\", "
-                "\"fireflies\" or \"embers\"");
+                "\"fireflies\", \"embers\" or \"rain\"");
         rejects("return {appearance={ambient={count=0}}}", "count");
         rejects("return {appearance={ambient={speed=9}}}", "speed");
         auto ambient = paw::parse_config(

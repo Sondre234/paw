@@ -50,7 +50,7 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
 
     assert sky() == {"output": "HEADLESS-1", "kind": "none", "count": "0", "state": "off"}, sky()
     assert particles() == []
-    assert "sakura" in msg("ambient", "rain", ok=False)
+    assert "sakura" in msg("ambient", "hail", ok=False)
     assert "takes one word" in msg("ambient", "snow", "now", ok=False)
     assert "no output" in msg("get", "ambient", "HDMI-9", ok=False)
 
