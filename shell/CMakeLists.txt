@@ -309,6 +309,10 @@ if(BUILD_TESTING)
     paw_shell_test(display_layout_test SOURCES display_layout.cpp display_layout.hpp
         LIBS Qt6::Core Qt6::Test)
     add_test(NAME shell_display_layout COMMAND display_layout_test)
+    # The taskbar resized by each of its edges (shell.panel_draggable).
+    paw_shell_test(bar_resize_test SOURCES bar_resize.cpp bar_resize.hpp
+        LIBS paw_config Qt6::Core Qt6::Test)
+    add_test(NAME shell_bar_resize COMMAND bar_resize_test)
     # The blurred wallpaper behind the frosted glass (shell.blur).
     paw_shell_test(glass_blur_test SOURCES glass_blur.cpp glass_blur.hpp LIBS Qt6::Gui Qt6::Test)
     add_test(NAME shell_glass_blur COMMAND glass_blur_test)
