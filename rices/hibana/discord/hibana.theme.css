@@ -1,0 +1,640 @@
+/**
+ * @name hibana
+ * @author paw
+ * @version 1.0.0
+ * @description Sparks on ash: Discord's dark themes become hibana, ink greys under a storm sky with paper-white text, ember orange and a little blood red, and faint rain behind the chat. With window transparency on, set --hibana-glass: 1 in QuickCSS and the desktop shows through.
+ * @source https://github.com/Sondre234/paw/tree/main/rices/hibana/discord
+ * @license GPL-3.0-or-later
+ */
+
+/* hibana (火花) for Discord — part of paw's hibana rice.
+ *
+ * Sparks on ash: a grey storm over a ruined city, rain, a white shirt and eyes that burn ember
+ * orange. Ink greys with a faint mauve tint for the surfaces, never pure black; paper white for
+ * the text; ember orange as the one accent, for where you are and what is waiting for you (the
+ * selected channel, unread marks, a mention of you, your own reactions, the box you type in);
+ * blood red only as a quiet touch, down the margin of a message that mentions you and at the far
+ * end of a gradient; scarlet for danger and errors; rain blue for links. Edgier than mochi: small
+ * corners, a lit top edge on panels like a manga panel's, an ember glow where you type, and faint
+ * diagonal rain behind the chat. Colours and design are hibana's own (paw), GPL-3.0-or-later.
+ *
+ * Built on the design tokens of Discord's 2025+ "visual refresh" UI, as mochi's and washi's
+ * themes are, with a handful of hash-free structural selectors. It themes Discord's Dark, Darker
+ * and Midnight; Light stays Discord's own (paw's washi theme covers it).
+ *
+ * Glass: with Vencord's or Equicord's "Enable window transparency" on (Settings > Vencord, then
+ * restart Discord), add this to QuickCSS and the desktop shows through Discord, blurred by paw:
+ *
+ *     :root { --hibana-glass: 1; }
+ *
+ * 0 (the default) is solid, 1 hibana's glass, and anything between or a little past it (up to
+ * about 1.5) works. Without window transparency, keep it at 0: the panes would darken over
+ * Discord's own black.
+ *
+ * Rain: the streaks behind the chat are faint on purpose, about 3% paper white, so the text over
+ * them keeps its contrast. They thin out as the glass rises, and --hibana-rainfall scales them
+ * from 0 (none) to 2 (the heaviest); to take them away, add this to QuickCSS:
+ *
+ *     :root { --hibana-rainfall: 0; }
+ *
+ * Fonts: Barlow (UI), Dela Gothic One (the big display headings only) and JetBrains Mono (code),
+ * all OFL, as installed by the rice's install.sh --fonts; nothing is fetched, and Discord's own
+ * fonts stand in without them. Japanese falls back to the system's Japanese font.
+ *
+ * Copyright (C) 2026 paw contributors. This file is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option) any later version.
+ */
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 1. Palette. The only place colours are written down; everything below refers to these.
+ *    The :not() keeps Nitro profile themes (custom-user-profile-theme) in their owner's colours,
+ *    and the doubled class weight beats Discord's own single-class token rules.
+ * ------------------------------------------------------------------------------------------- */
+
+:root {
+    --hibana-glass: 0;              /* 1: the window's glass shows through (see above) */
+    --hibana-rainfall: 1;           /* 0: no rain behind the chat, 2: heavier (see above) */
+}
+
+.theme-dark:not(.custom-user-profile-theme),
+.theme-darker:not(.custom-user-profile-theme),
+.theme-midnight:not(.custom-user-profile-theme) {
+    /* hibana: the grounds, ink to paper with a faint cool mauve tint */
+    --hibana-crust: #0B0A0D;
+    --hibana-mantle: #111013;
+    --hibana-base: #161518;
+    --hibana-surface0: #1F1D22;
+    --hibana-surface1: #2A272E;
+    --hibana-surface2: #36323A;
+    --hibana-overlay0: #4B4650;
+    --hibana-overlay1: #6E6A72;
+    --hibana-overlay2: #8F8A94;
+    --hibana-subtext0: #A8A3AB;
+    --hibana-subtext1: #C6C1C6;
+    --hibana-text: #E2DDD9;
+    /* ...and the accents */
+    --hibana-ember: #FF7A33;
+    --hibana-flare: #FFB070;
+    --hibana-blood: #C8443C;
+    --hibana-scarlet: #E5594D;
+    --hibana-brass: #DCB36E;
+    --hibana-sage: #A3B58F;
+    --hibana-steel: #8FB0B4;
+    --hibana-rain: #9FB3CC;
+    --hibana-mauve: #B39AAE;
+    --hibana-builtin: #E0705C;     /* between scarlet and ember: builtins in code */
+
+    /* The surfaces. Solid at --hibana-glass: 0; as it rises the root turns into translucent ink
+       the desktop shows through, and the panes on it into ever fainter tints, so the glass reads
+       the same everywhere (at 1: root 74%, rail 42%, lists 34%, chat clear); what floats stays
+       nearly solid. */
+    --hibana-see: calc(var(--hibana-glass, 0) * 0.26);
+    --hibana-root: rgb(22 21 24 / clamp(0, 1 - var(--hibana-see), 1));            /* base */
+    --hibana-frame: rgb(11 10 13 / clamp(0, 1 - 2.23 * var(--hibana-see), 1));    /* crust: server rail, title bar */
+    --hibana-paper: rgb(17 16 19 / clamp(0, 1 - 2.54 * var(--hibana-see), 1));    /* mantle: channel and member lists */
+    --hibana-sheet: rgb(22 21 24 / clamp(0, 1 - 3.85 * var(--hibana-see), 1));    /* base: chat */
+    --hibana-float: rgb(17 16 19 / clamp(0, 1 - 0.19 * var(--hibana-see), 1));    /* mantle: popouts, menus, modals */
+    --hibana-float-nested: rgb(31 29 34 / clamp(0, 1 - 0.38 * var(--hibana-see), 1));  /* surface0 */
+    --hibana-raised: rgb(31 29 34 / clamp(0, 1 - 1.54 * var(--hibana-see), 1));   /* surface0: modal footers, embeds */
+    --hibana-sunken: rgb(17 16 19 / clamp(0, 1 - 1.92 * var(--hibana-see), 1));   /* mantle: code */
+    --hibana-input: rgb(31 29 34 / clamp(0, 1 - 1.46 * var(--hibana-see), 1));    /* surface0: the message box, inputs */
+    --hibana-selection: #3D2B26;            /* a smoky ember wash, as in kitty */
+    --hibana-edge: rgb(226 221 217 / 0.08);       /* a panel's edge */
+    --hibana-edge-top: rgb(226 221 217 / 0.15);   /* ...and its lit top, like a manga panel's */
+    --hibana-line: rgb(42 39 46 / clamp(0, 1 - 2 * var(--hibana-see), 1));       /* surface1 */
+    --hibana-line-strong: var(--hibana-surface2);
+    --hibana-veil: var(--hibana-text);      /* hover and press tints are this at low alpha */
+    --hibana-scrim: rgb(11 10 13 / 0.76);
+
+    --hibana-ink: var(--hibana-text);       /* 13.5:1 on base */
+    --hibana-ink-subtle: var(--hibana-subtext1);
+    --hibana-ink-muted: var(--hibana-subtext0);   /* 7.4:1 */
+    --hibana-ink-faint: var(--hibana-overlay1);   /* muted channels: quiet on purpose (3.4:1) */
+
+    --hibana-accent: var(--hibana-ember);
+    --hibana-accent-text: var(--hibana-ember);    /* 7.0:1 on base */
+    --hibana-link: var(--hibana-rain);            /* 8.5:1 */
+    /* under Discord's white labels ember is too light: ember's own hue, burnt down (5.1:1) */
+    --hibana-accent-fill: #B84D14;
+    --hibana-accent-fill-hsl: 20.9 80.4% 40%;
+    --hibana-accent-fill-hover: #A4430F;
+    --hibana-accent-fill-active: #943C0D;
+    --hibana-button: var(--hibana-ember);   /* primary buttons: ember, with crust text */
+    --hibana-button-hover: #FF8A45;         /* a little flare in it */
+    --hibana-button-active: #E76F2F;
+    --hibana-on-button: var(--hibana-crust);  /* 7.6:1 */
+    --hibana-mention: var(--hibana-ember);    /* @you, in the text */
+    --hibana-mention-mark: var(--hibana-blood);  /* the rule and wash of a message that mentions you */
+    --hibana-danger: var(--hibana-scarlet);   /* 5.1:1 on base */
+    --hibana-danger-fill: var(--hibana-scarlet);  /* destructive buttons, with crust text (5.5:1) */
+    --hibana-danger-fill-hover: #EF6E60;
+    --hibana-danger-fill-active: #D9564A;
+    --hibana-on-danger-fill: var(--hibana-crust);
+    --hibana-notify-fill: var(--hibana-blood);    /* mention counts, under Discord's white labels (4.8:1) */
+
+    --hibana-ring: 0 0 0 1px var(--hibana-edge);
+    --hibana-top: inset 0 1px 0 0 var(--hibana-edge-top);
+    --hibana-drop: 0 10px 30px 0 rgb(11 10 13 / 0.6);
+    --hibana-drop-small: 0 4px 14px 0 rgb(11 10 13 / 0.45);
+    --hibana-glow: 0 0 12px 0 rgb(255 122 51 / 0.3);   /* ember at 30%, round an edge turned ember */
+
+    /* Rain on the window: hair-thin diagonal streaks of paper white at about 3%, at three spacings
+       and slightly different slants so they never settle into a pattern. They thin to half as
+       the glass rises (the wallpaper brings its own weather), and --hibana-rainfall scales them. */
+    --hibana-streak: rgb(226 221 217 / calc(0.03 * clamp(0, var(--hibana-rainfall, 1), 2) * (1 - 0.5 * clamp(0, var(--hibana-glass, 0), 1))));
+    --hibana-streaks:
+        repeating-linear-gradient(-75deg, transparent 0 46px, var(--hibana-streak) 47px, transparent 48px),
+        repeating-linear-gradient(-73deg, transparent 0 78px, color-mix(in srgb, var(--hibana-streak) 70%, transparent) 79px, transparent 80px),
+        repeating-linear-gradient(-77deg, transparent 0 130px, var(--hibana-streak) 131px, transparent 132px);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * 2. Discord's tokens, mapped onto the palette.
+ * ------------------------------------------------------------------------------------------- */
+
+.theme-dark:not(.custom-user-profile-theme),
+.theme-darker:not(.custom-user-profile-theme),
+.theme-midnight:not(.custom-user-profile-theme) {
+    /* surfaces */
+    --background-base-lowest: var(--hibana-frame);
+    --background-base-lower: var(--hibana-paper);
+    --background-base-low: var(--hibana-sheet);
+    --background-surface-high: var(--hibana-float);
+    --background-surface-higher: var(--hibana-float-nested);
+    --background-surface-highest: var(--hibana-float-nested);
+    --app-frame-background: var(--hibana-frame);
+    --app-frame-border: var(--hibana-line);
+    --chat-background-default: var(--hibana-sheet);
+    --channeltextarea-background: var(--hibana-input);
+    --card-background-default: var(--hibana-raised);
+    --bg-surface-raised: var(--hibana-float);
+    --modal-background: var(--hibana-float);
+    --modal-footer-background: var(--hibana-raised);
+    --embed-background: var(--hibana-raised);
+    --embed-background-alternate: var(--hibana-float);
+    --background-brand: var(--hibana-accent-fill);
+    --background-code: var(--hibana-sunken);
+    --background-scrim: var(--hibana-scrim);
+
+    /* hover, press and selection tints */
+    --background-mod-subtle: color-mix(in srgb, var(--hibana-veil) 6%, transparent);
+    --background-mod-muted: color-mix(in srgb, var(--hibana-veil) 4%, transparent);
+    --background-mod-normal: color-mix(in srgb, var(--hibana-veil) 9%, transparent);
+    --background-mod-strong: color-mix(in srgb, var(--hibana-veil) 14%, transparent);
+    --interactive-background-hover: color-mix(in srgb, var(--hibana-veil) 6%, transparent);
+    --interactive-background-active: color-mix(in srgb, var(--hibana-veil) 11%, transparent);
+    --interactive-background-selected: var(--hibana-selection);
+    --message-background-hover: color-mix(in srgb, var(--hibana-veil) 3%, transparent);
+
+    /* text */
+    --text-default: var(--hibana-ink);
+    --text-strong: var(--hibana-ink);
+    --text-subtle: var(--hibana-ink-subtle);
+    --text-muted: var(--hibana-ink-muted);
+    --text-link: var(--hibana-link);
+    --text-brand: var(--hibana-accent-text);
+    --text-invert: var(--hibana-crust);
+    --text-feedback-critical: var(--hibana-danger);
+    --text-feedback-positive: var(--hibana-sage);
+    --text-feedback-warning: var(--hibana-brass);
+    --text-feedback-info: var(--hibana-rain);
+    --channels-default: var(--hibana-ink-muted);
+    --channel-icon: var(--hibana-ink-muted);
+    --channel-text-area-placeholder: var(--hibana-overlay2);
+    --input-placeholder-text-default: var(--hibana-overlay2);
+    --input-text-default: var(--hibana-ink);
+
+    /* icons and interactive text */
+    --interactive-text-default: var(--hibana-ink-muted);
+    --interactive-text-hover: var(--hibana-ink);
+    --interactive-text-active: var(--hibana-ink);
+    --interactive-icon-default: var(--hibana-ink-muted);
+    --interactive-icon-hover: var(--hibana-ink);
+    --interactive-icon-active: var(--hibana-ink);
+    --interactive-muted: var(--hibana-ink-faint);
+    --icon-default: var(--hibana-ink-subtle);
+    --icon-strong: var(--hibana-ink);
+    --icon-subtle: var(--hibana-ink-subtle);
+    --icon-muted: var(--hibana-ink-muted);
+    --icon-brand: var(--hibana-accent);
+    --icon-link: var(--hibana-link);
+    --icon-feedback-critical: var(--hibana-danger);
+    --icon-feedback-positive: var(--hibana-sage);
+    --icon-feedback-warning: var(--hibana-brass);
+    --icon-feedback-info: var(--hibana-rain);
+    --icon-feedback-notification: var(--hibana-danger);
+
+    /* lines */
+    --border-subtle: var(--hibana-line);
+    --border-muted: color-mix(in srgb, var(--hibana-line) 70%, transparent);
+    --border-normal: var(--hibana-line-strong);
+    --border-strong: var(--hibana-overlay0);
+    --border-focus: var(--hibana-accent);
+    --focus-primary: var(--hibana-accent);      /* the keyboard focus ring */
+    --input-background-default: var(--hibana-input);
+    --input-border-default: var(--hibana-edge);
+    --input-border-hover: var(--hibana-line-strong);
+    --input-border-active: var(--hibana-accent);
+
+    /* ember instead of blurple */
+    --brand-500: var(--hibana-accent-fill);
+    --brand-500-hsl: var(--hibana-accent-fill-hsl);
+    --brand-560: var(--hibana-accent-fill-hover);
+    --brand-600: var(--hibana-accent-fill-active);
+    --brand-360: var(--hibana-accent);
+    --blurple-50: var(--hibana-accent-fill);
+    --blurple-50-hsl: var(--hibana-accent-fill-hsl);
+    --control-brand-foreground: var(--hibana-accent-text);
+    --control-brand-foreground-new: var(--hibana-accent-text);
+    --tabs-indicator-default: var(--hibana-accent);
+    --progressbar-indicator-background: var(--hibana-accent);
+    --badge-background-brand: var(--hibana-accent-fill);
+    --badge-notification-background: var(--hibana-notify-fill);
+    --background-feedback-notification: var(--hibana-notify-fill);
+
+    /* buttons: ember as primary, scarlet for destructive (both with crust text), sage for
+       "connected" */
+    --control-primary-background-default: var(--hibana-button);
+    --control-primary-background-hover: var(--hibana-button-hover);
+    --control-primary-background-active: var(--hibana-button-active);
+    --control-primary-border-default: transparent;
+    --control-primary-border-hover: transparent;
+    --control-primary-border-active: transparent;
+    --control-primary-text-default: var(--hibana-on-button);
+    --control-primary-text-hover: var(--hibana-on-button);
+    --control-primary-text-active: var(--hibana-on-button);
+    --control-primary-icon-default: var(--hibana-on-button);
+    --control-primary-icon-hover: var(--hibana-on-button);
+    --control-primary-icon-active: var(--hibana-on-button);
+    --control-secondary-background-default: color-mix(in srgb, var(--hibana-veil) 8%, transparent);
+    --control-secondary-background-hover: color-mix(in srgb, var(--hibana-veil) 13%, transparent);
+    --control-secondary-background-active: color-mix(in srgb, var(--hibana-veil) 18%, transparent);
+    --control-secondary-border-default: var(--hibana-edge);
+    --control-secondary-border-hover: var(--hibana-line-strong);
+    --control-secondary-border-active: var(--hibana-line-strong);
+    --control-secondary-text-default: var(--hibana-ink);
+    --control-secondary-text-hover: var(--hibana-ink);
+    --control-secondary-text-active: var(--hibana-ink);
+    --control-secondary-icon-default: var(--hibana-ink);
+    --control-secondary-icon-hover: var(--hibana-ink);
+    --control-secondary-icon-active: var(--hibana-ink);
+    --control-critical-primary-background-default: var(--hibana-danger-fill);
+    --control-critical-primary-background-hover: var(--hibana-danger-fill-hover);
+    --control-critical-primary-background-active: var(--hibana-danger-fill-active);
+    --control-critical-primary-border-default: transparent;
+    --control-critical-primary-border-hover: transparent;
+    --control-critical-primary-border-active: transparent;
+    --control-critical-primary-text-default: var(--hibana-on-danger-fill);
+    --control-critical-primary-text-hover: var(--hibana-on-danger-fill);
+    --control-critical-primary-text-active: var(--hibana-on-danger-fill);
+    --control-critical-primary-icon-default: var(--hibana-on-danger-fill);
+    --control-critical-primary-icon-hover: var(--hibana-on-danger-fill);
+    --control-critical-primary-icon-active: var(--hibana-on-danger-fill);
+    --control-critical-secondary-text-default: var(--hibana-danger);
+    --control-critical-secondary-text-hover: var(--hibana-danger);
+    --control-critical-secondary-text-active: var(--hibana-danger);
+    --control-critical-secondary-icon-default: var(--hibana-danger);
+    --control-critical-secondary-icon-hover: var(--hibana-danger);
+    --control-critical-secondary-icon-active: var(--hibana-danger);
+    --control-connected-background-default: var(--hibana-sage);
+    --control-connected-background-hover: color-mix(in oklab, var(--hibana-sage) 85%, var(--hibana-text));
+    --control-connected-background-active: color-mix(in oklab, var(--hibana-sage) 75%, var(--hibana-text));
+    --control-connected-text-default: var(--hibana-crust);
+    --control-connected-text-hover: var(--hibana-crust);
+    --control-connected-text-active: var(--hibana-crust);
+    --control-connected-icon-default: var(--hibana-crust);
+    --control-connected-icon-hover: var(--hibana-crust);
+    --control-connected-icon-active: var(--hibana-crust);
+
+    /* switches, checkboxes, radios: the burnt ember when on */
+    --switch-background-selected-default: var(--hibana-accent-fill);
+    --switch-background-selected-hover: var(--hibana-accent-fill-hover);
+    --switch-thumb-icon-active: var(--hibana-accent-fill);
+    --checkbox-background-selected-default: var(--hibana-accent-fill);
+    --checkbox-background-selected-hover: var(--hibana-accent-fill-hover);
+    --radio-background-selected-default: var(--hibana-accent-fill);
+    --radio-background-selected-hover: var(--hibana-accent-fill-hover);
+    --radio-foreground-active: var(--hibana-accent-fill);
+
+    /* mentions: @you in ember; a message that mentions you on a faint wash of blood (its rule
+       down the margin is in section 5); a jumped-to or replied-to message on the smoky ember
+       selection; your own reactions in ember */
+    --mention-foreground: var(--hibana-mention);
+    --mention-background: color-mix(in srgb, var(--hibana-mention) 18%, transparent);
+    --message-mentioned-background-default: color-mix(in srgb, var(--hibana-mention-mark) 8%, transparent);
+    --message-mentioned-background-hover: color-mix(in srgb, var(--hibana-mention-mark) 11%, transparent);
+    --message-highlight-background-default: color-mix(in srgb, var(--hibana-selection) 70%, transparent);
+    --message-highlight-background-hover: var(--hibana-selection);
+    --reaction-background-reacted-default: color-mix(in srgb, var(--hibana-accent) 16%, transparent);
+    --reaction-background-reacted-hover: color-mix(in srgb, var(--hibana-accent) 24%, transparent);
+    --reaction-border-reacted-default: var(--hibana-accent);
+    --reaction-text-reacted-default: var(--hibana-accent);
+
+    /* presence and voice */
+    --status-positive: var(--hibana-sage);
+    --status-online: var(--hibana-sage);
+    --status-speaking: var(--hibana-sage);
+    --status-warning: var(--hibana-brass);
+    --status-danger: var(--hibana-scarlet);
+    --text-status-online: var(--hibana-sage);
+    --text-status-idle: var(--hibana-brass);
+    --text-status-dnd: var(--hibana-scarlet);
+    --text-status-offline: var(--hibana-overlay1);
+    --icon-status-online: var(--hibana-sage);
+    --icon-status-idle: var(--hibana-brass);
+    --icon-status-dnd: var(--hibana-scarlet);
+    --icon-status-offline: var(--hibana-overlay1);
+
+    /* code: hibana's syntax, as its editor themes have it */
+    --text-code: var(--hibana-text);
+    --text-code-comment: var(--hibana-overlay1);
+    --text-code-keyword: var(--hibana-ember);
+    --text-code-string: var(--hibana-steel);
+    --text-code-number: var(--hibana-flare);
+    --text-code-title: var(--hibana-flare);
+    --text-code-type: var(--hibana-brass);
+    --text-code-builtin: var(--hibana-builtin);
+    --text-code-property: var(--hibana-text);
+    --text-code-attribute: var(--hibana-brass);
+    --text-code-variable: var(--hibana-subtext1);
+    --text-code-operator: var(--hibana-overlay2);
+    --text-code-tag: var(--hibana-ember);
+    --text-code-section: var(--hibana-ember);
+    --text-code-bullet: var(--hibana-ember);
+    --text-code-link: var(--hibana-rain);
+    --text-code-addition: var(--hibana-sage);
+    --text-code-deletion: var(--hibana-scarlet);
+
+    /* scrollbars: quiet */
+    --scrollbar-auto-thumb: var(--hibana-overlay0);
+    --scrollbar-auto-track: transparent;
+    --scrollbar-thin-thumb: var(--hibana-overlay0);
+    --scrollbar-thin-track: transparent;
+    --scrollbar-auto-scrollbar-color-thumb: var(--hibana-overlay0);
+    --scrollbar-auto-scrollbar-color-track: transparent;
+
+    /* shadows: Discord's popouts, menus, tooltips and modals are built from these, so this is
+       what gives them their faint edge, the lit top of a manga panel and a short, dark shadow */
+    --shadow-border: var(--hibana-ring);
+    --shadow-high: var(--hibana-ring), var(--hibana-top), var(--hibana-drop);
+    --shadow-medium: var(--hibana-ring), var(--hibana-top), var(--hibana-drop-small);
+    --shadow-low: var(--hibana-drop-small);
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 3. Type, shape and the window. On body, so it beats Discord's per-language :root:lang() font
+ *    stacks. html is clear and #app-mount paints the root, so the glass can show; at
+ *    --hibana-glass: 0 the root is solid ink.
+ * ------------------------------------------------------------------------------------------- */
+
+/* Dela Gothic One has a single weight that is already black. Offered under this name for every
+   weight, it is never thickened by a synthesised bold when Discord asks its display headings for
+   800. Only an installed copy is used; without one, Barlow takes the headings too. */
+@font-face {
+    font-family: "hibana display";
+    src: local("Dela Gothic One"), local("Dela Gothic One Regular"), local("DelaGothicOne-Regular");
+    font-weight: 100 900;
+}
+
+/* Barlow for everything, Dela Gothic One only for --font-headline (Discord's big display
+   headings), JetBrains Mono for code. Corners are edgier than mochi's: 6px, 8px and 10px. */
+body {
+    --font-primary: "Barlow", "gg sans", "Noto Sans", system-ui, sans-serif;
+    --font-display: "Barlow", "gg sans", "Noto Sans", system-ui, sans-serif;
+    --font-headline: "hibana display", "Barlow", "gg sans", "Noto Sans", system-ui, sans-serif;
+    --font-code: "JetBrains Mono", "gg mono", "Source Code Pro", ui-monospace, monospace;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+}
+
+html.theme-dark,
+html.theme-darker,
+html.theme-midnight,
+html:is(.theme-dark, .theme-darker, .theme-midnight) body {
+    background: transparent !important;
+}
+
+html:is(.theme-dark, .theme-darker, .theme-midnight) #app-mount {
+    background-color: var(--hibana-root, #161518) !important;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 4. Catch-all: Discord's raw colour ramps, in hibana's hues. Anything not mapped above still
+ *    reads as ink rather than Discord's grey, and stray blurple turns ember. Generated: each step
+ *    keeps the lightness mochi's and washi's themes give it and takes the hue and saturation of
+ *    the hibana neutral of that lightness (blended in OKLab between the two nearest), or of
+ *    ember: flare toward the light end, cooling to blood toward the dark. :root:root outweighs
+ *    Discord's own :root.
+ * ------------------------------------------------------------------------------------------- */
+
+:root:root {
+    /* the translucent greys behind Discord's hover and border tints: overlay2 */
+    --opacity-1-hsl: 270 5% 56%; --opacity-4-hsl: 270 5% 56%; --opacity-8-hsl: 270 5% 56%;
+    --opacity-12-hsl: 270 5% 56%; --opacity-16-hsl: 270 5% 56%; --opacity-20-hsl: 270 5% 56%;
+    --opacity-24-hsl: 270 5% 56%; --opacity-28-hsl: 270 5% 56%; --opacity-32-hsl: 270 5% 56%;
+    --opacity-36-hsl: 270 5% 56%; --opacity-40-hsl: 270 5% 56%; --opacity-44-hsl: 270 5% 56%;
+    --opacity-48-hsl: 270 5% 56%; --opacity-52-hsl: 270 5% 56%; --opacity-56-hsl: 270 5% 56%;
+    --opacity-60-hsl: 270 5% 56%; --opacity-64-hsl: 270 5% 56%; --opacity-68-hsl: 270 5% 56%;
+    --opacity-72-hsl: 270 5% 56%; --opacity-76-hsl: 270 5% 56%; --opacity-80-hsl: 270 5% 56%;
+    --opacity-84-hsl: 270 5% 56%; --opacity-88-hsl: 270 5% 56%; --opacity-92-hsl: 270 5% 56%;
+    --opacity-96-hsl: 270 5% 56%;
+    /* ...and the translucent blurples behind mention and reaction tints: ember */
+    --opacity-blurple-1-hsl: 21 100% 60%; --opacity-blurple-4-hsl: 21 100% 60%; --opacity-blurple-8-hsl: 21 100% 60%;
+    --opacity-blurple-12-hsl: 21 100% 60%; --opacity-blurple-16-hsl: 21 100% 60%; --opacity-blurple-20-hsl: 21 100% 60%;
+    --opacity-blurple-24-hsl: 21 100% 60%; --opacity-blurple-28-hsl: 21 100% 60%; --opacity-blurple-32-hsl: 21 100% 60%;
+    --opacity-blurple-36-hsl: 21 100% 60%; --opacity-blurple-40-hsl: 21 100% 60%; --opacity-blurple-44-hsl: 21 100% 60%;
+    --opacity-blurple-48-hsl: 21 100% 60%; --opacity-blurple-52-hsl: 21 100% 60%; --opacity-blurple-56-hsl: 21 100% 60%;
+    --opacity-blurple-60-hsl: 21 100% 60%; --opacity-blurple-64-hsl: 21 100% 60%; --opacity-blurple-68-hsl: 21 100% 60%;
+    --opacity-blurple-72-hsl: 21 100% 60%; --opacity-blurple-76-hsl: 21 100% 60%; --opacity-blurple-80-hsl: 21 100% 60%;
+    --opacity-blurple-84-hsl: 21 100% 60%; --opacity-blurple-88-hsl: 21 100% 60%; --opacity-blurple-92-hsl: 21 100% 60%;
+    --opacity-blurple-96-hsl: 21 100% 60%;
+    /* the neutral ramp, from hibana's crust to its paper white and past it */
+    --neutral-1-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 98.3%; --neutral-2-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 97.6%; --neutral-3-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 96.7%;
+    --neutral-4-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 95.4%; --neutral-5-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 94.3%; --neutral-6-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 93.3%;
+    --neutral-7-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 92.2%; --neutral-8-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 90.9%; --neutral-9-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 89.8%;
+    --neutral-10-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 88.4%; --neutral-11-hsl: 26.7 calc(var(--saturation-factor, 1)*13.4%) 87.1%; --neutral-12-hsl: 21.4 calc(var(--saturation-factor, 1)*10.6%) 85.5%;
+    --neutral-13-hsl: 13.9 calc(var(--saturation-factor, 1)*8.1%) 84.1%; --neutral-14-hsl: 1.0 calc(var(--saturation-factor, 1)*5.8%) 82.5%; --neutral-15-hsl: 347.2 calc(var(--saturation-factor, 1)*5.3%) 81.2%;
+    --neutral-16-hsl: 331.4 calc(var(--saturation-factor, 1)*4.9%) 79.7%; --neutral-17-hsl: 315.8 calc(var(--saturation-factor, 1)*4.5%) 78.2%; --neutral-18-hsl: 299.8 calc(var(--saturation-factor, 1)*4.2%) 76.6%;
+    --neutral-19-hsl: 296.1 calc(var(--saturation-factor, 1)*4.3%) 75.4%; --neutral-20-hsl: 291.6 calc(var(--saturation-factor, 1)*4.3%) 73.7%; --neutral-21-hsl: 288.6 calc(var(--saturation-factor, 1)*4.4%) 72.4%;
+    --neutral-22-hsl: 285.8 calc(var(--saturation-factor, 1)*4.4%) 71.0%; --neutral-23-hsl: 283.2 calc(var(--saturation-factor, 1)*4.5%) 69.5%; --neutral-24-hsl: 280.8 calc(var(--saturation-factor, 1)*4.5%) 68.0%;
+    --neutral-25-hsl: 279.0 calc(var(--saturation-factor, 1)*4.5%) 66.7%; --neutral-26-hsl: 277.2 calc(var(--saturation-factor, 1)*4.5%) 65.2%; --neutral-27-hsl: 276.0 calc(var(--saturation-factor, 1)*4.5%) 64.0%;
+    --neutral-28-hsl: 274.7 calc(var(--saturation-factor, 1)*4.5%) 62.5%; --neutral-29-hsl: 273.6 calc(var(--saturation-factor, 1)*4.5%) 61.2%; --neutral-30-hsl: 272.4 calc(var(--saturation-factor, 1)*4.5%) 59.7%;
+    --neutral-31-hsl: 271.5 calc(var(--saturation-factor, 1)*4.5%) 58.4%; --neutral-32-hsl: 270.5 calc(var(--saturation-factor, 1)*4.5%) 56.9%; --neutral-33-hsl: 270.0 calc(var(--saturation-factor, 1)*4.4%) 55.8%;
+    --neutral-34-hsl: 270.0 calc(var(--saturation-factor, 1)*4.2%) 54.2%; --neutral-35-hsl: 270.0 calc(var(--saturation-factor, 1)*4.0%) 52.9%; --neutral-36-hsl: 270.0 calc(var(--saturation-factor, 1)*3.7%) 51.5%;
+    --neutral-37-hsl: 270.0 calc(var(--saturation-factor, 1)*3.6%) 50.2%; --neutral-38-hsl: 270.0 calc(var(--saturation-factor, 1)*3.6%) 48.7%; --neutral-39-hsl: 270.0 calc(var(--saturation-factor, 1)*3.6%) 47.4%;
+    --neutral-40-hsl: 270.0 calc(var(--saturation-factor, 1)*3.6%) 46.3%; --neutral-41-hsl: 270.0 calc(var(--saturation-factor, 1)*3.6%) 44.7%; --neutral-42-hsl: 270.0 calc(var(--saturation-factor, 1)*3.6%) 43.6%;
+    --neutral-43-hsl: 270.0 calc(var(--saturation-factor, 1)*3.8%) 42.3%; --neutral-44-hsl: 270.0 calc(var(--saturation-factor, 1)*4.0%) 40.9%; --neutral-45-hsl: 270.0 calc(var(--saturation-factor, 1)*4.2%) 39.6%;
+    --neutral-46-hsl: 270.0 calc(var(--saturation-factor, 1)*4.5%) 38.5%; --neutral-47-hsl: 270.0 calc(var(--saturation-factor, 1)*4.7%) 37.2%; --neutral-48-hsl: 270.0 calc(var(--saturation-factor, 1)*5.0%) 35.7%;
+    --neutral-49-hsl: 270.0 calc(var(--saturation-factor, 1)*5.3%) 34.5%; --neutral-50-hsl: 270.0 calc(var(--saturation-factor, 1)*5.6%) 33.3%; --neutral-51-hsl: 270.0 calc(var(--saturation-factor, 1)*5.8%) 32.5%;
+    --neutral-52-hsl: 270.0 calc(var(--saturation-factor, 1)*5.9%) 32.1%; --neutral-53-hsl: 270.0 calc(var(--saturation-factor, 1)*6.1%) 31.3%; --neutral-54-hsl: 270.0 calc(var(--saturation-factor, 1)*6.2%) 30.9%;
+    --neutral-55-hsl: 270.0 calc(var(--saturation-factor, 1)*6.5%) 30.1%; --neutral-56-hsl: 270.0 calc(var(--saturation-factor, 1)*6.6%) 29.7%; --neutral-57-hsl: 270.0 calc(var(--saturation-factor, 1)*6.7%) 28.9%;
+    --neutral-58-hsl: 270.0 calc(var(--saturation-factor, 1)*6.8%) 28.2%; --neutral-59-hsl: 270.0 calc(var(--saturation-factor, 1)*6.8%) 27.6%; --neutral-60-hsl: 270.0 calc(var(--saturation-factor, 1)*6.8%) 26.9%;
+    --neutral-61-hsl: 270.0 calc(var(--saturation-factor, 1)*6.9%) 26.4%; --neutral-62-hsl: 270.0 calc(var(--saturation-factor, 1)*6.9%) 25.7%; --neutral-63-hsl: 270.0 calc(var(--saturation-factor, 1)*7.0%) 25.3%;
+    --neutral-64-hsl: 270.0 calc(var(--saturation-factor, 1)*7.1%) 24.4%; --neutral-65-hsl: 270.0 calc(var(--saturation-factor, 1)*7.1%) 24.0%; --neutral-66-hsl: 270.0 calc(var(--saturation-factor, 1)*7.2%) 23.2%;
+    --neutral-67-hsl: 270.0 calc(var(--saturation-factor, 1)*7.2%) 22.8%; --neutral-68-hsl: 270.0 calc(var(--saturation-factor, 1)*7.3%) 22.1%; --neutral-69-hsl: 270.0 calc(var(--saturation-factor, 1)*7.3%) 21.7%;
+    --neutral-70-hsl: 269.8 calc(var(--saturation-factor, 1)*7.4%) 21.0%; --neutral-71-hsl: 269.3 calc(var(--saturation-factor, 1)*7.5%) 20.4%; --neutral-72-hsl: 268.7 calc(var(--saturation-factor, 1)*7.6%) 19.7%;
+    --neutral-73-hsl: 268.2 calc(var(--saturation-factor, 1)*7.7%) 19.2%; --neutral-74-hsl: 267.7 calc(var(--saturation-factor, 1)*7.8%) 18.6%; --neutral-75-hsl: 267.1 calc(var(--saturation-factor, 1)*8.0%) 18.0%;
+    --neutral-76-hsl: 266.5 calc(var(--saturation-factor, 1)*8.1%) 17.4%; --neutral-77-hsl: 266.0 calc(var(--saturation-factor, 1)*8.2%) 16.9%; --neutral-78-hsl: 265.6 calc(var(--saturation-factor, 1)*8.2%) 16.3%;
+    --neutral-79-hsl: 265.4 calc(var(--saturation-factor, 1)*8.2%) 15.7%; --neutral-80-hsl: 265.2 calc(var(--saturation-factor, 1)*8.1%) 15.2%; --neutral-81-hsl: 265.0 calc(var(--saturation-factor, 1)*8.1%) 14.5%;
+    --neutral-82-hsl: 264.9 calc(var(--saturation-factor, 1)*8.1%) 14.4%; --neutral-83-hsl: 264.9 calc(var(--saturation-factor, 1)*8.1%) 14.2%; --neutral-84-hsl: 264.7 calc(var(--saturation-factor, 1)*8.1%) 13.8%;
+    --neutral-85-hsl: 264.6 calc(var(--saturation-factor, 1)*8.0%) 13.6%; --neutral-86-hsl: 264.5 calc(var(--saturation-factor, 1)*8.0%) 13.4%; --neutral-87-hsl: 264.4 calc(var(--saturation-factor, 1)*8.0%) 13.2%;
+    --neutral-88-hsl: 264.3 calc(var(--saturation-factor, 1)*8.0%) 13.0%; --neutral-89-hsl: 264.2 calc(var(--saturation-factor, 1)*8.0%) 12.7%; --neutral-90-hsl: 264.1 calc(var(--saturation-factor, 1)*7.9%) 12.5%;
+    --neutral-91-hsl: 264.0 calc(var(--saturation-factor, 1)*7.9%) 12.3%; --neutral-92-hsl: 263.8 calc(var(--saturation-factor, 1)*7.9%) 12.1%; --neutral-93-hsl: 263.5 calc(var(--saturation-factor, 1)*7.8%) 11.7%;
+    --neutral-94-hsl: 263.2 calc(var(--saturation-factor, 1)*7.6%) 11.3%; --neutral-95-hsl: 262.9 calc(var(--saturation-factor, 1)*7.5%) 11.0%; --neutral-96-hsl: 262.6 calc(var(--saturation-factor, 1)*7.4%) 10.7%;
+    --neutral-97-hsl: 261.8 calc(var(--saturation-factor, 1)*7.2%) 10.0%; --neutral-98-hsl: 261.2 calc(var(--saturation-factor, 1)*7.0%) 9.6%; --neutral-99-hsl: 260.0 calc(var(--saturation-factor, 1)*6.9%) 8.5%;
+    --neutral-100-hsl: 260.0 calc(var(--saturation-factor, 1)*11.3%) 5.2%;
+    /* the blurple ramp, as ember: flare at the light end, cooling toward blood at the dark end
+       (blurple-50 itself is set above) */
+    --blurple-1-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 93.6%; --blurple-2-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 92.7%; --blurple-3-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 91.7%;
+    --blurple-4-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 91.0%; --blurple-5-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 90.0%; --blurple-6-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 89.3%;
+    --blurple-7-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 88.4%; --blurple-8-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 87.4%; --blurple-9-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 86.8%;
+    --blurple-10-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 85.9%; --blurple-11-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 85.1%; --blurple-12-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 84.2%;
+    --blurple-13-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 83.2%; --blurple-14-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 82.5%; --blurple-15-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 81.5%;
+    --blurple-16-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 80.8%; --blurple-17-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 79.8%; --blurple-18-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 78.8%;
+    --blurple-19-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 78.0%; --blurple-20-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 77.0%; --blurple-21-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 76.1%;
+    --blurple-22-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 75.3%; --blurple-23-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 74.4%; --blurple-24-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 73.4%;
+    --blurple-25-hsl: 26.9 calc(var(--saturation-factor, 1)*100.0%) 72.7%; --blurple-26-hsl: 26.7 calc(var(--saturation-factor, 1)*100.0%) 71.6%; --blurple-27-hsl: 26.2 calc(var(--saturation-factor, 1)*100.0%) 70.7%;
+    --blurple-28-hsl: 25.9 calc(var(--saturation-factor, 1)*100.0%) 70.0%; --blurple-29-hsl: 25.4 calc(var(--saturation-factor, 1)*100.0%) 68.9%; --blurple-30-hsl: 24.9 calc(var(--saturation-factor, 1)*100.0%) 68.0%;
+    --blurple-31-hsl: 24.5 calc(var(--saturation-factor, 1)*100.0%) 67.2%; --blurple-32-hsl: 24.0 calc(var(--saturation-factor, 1)*100.0%) 66.2%; --blurple-33-hsl: 23.5 calc(var(--saturation-factor, 1)*100.0%) 65.3%;
+    --blurple-34-hsl: 23.0 calc(var(--saturation-factor, 1)*100.0%) 64.2%; --blurple-35-hsl: 22.7 calc(var(--saturation-factor, 1)*100.0%) 63.6%; --blurple-36-hsl: 22.2 calc(var(--saturation-factor, 1)*100.0%) 62.6%;
+    --blurple-37-hsl: 21.7 calc(var(--saturation-factor, 1)*100.0%) 61.6%; --blurple-38-hsl: 21.2 calc(var(--saturation-factor, 1)*100.0%) 60.7%; --blurple-39-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 60.0%;
+    --blurple-40-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 59.0%; --blurple-41-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 58.0%; --blurple-42-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 57.2%;
+    --blurple-43-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 56.2%; --blurple-44-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 55.3%; --blurple-45-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 54.6%;
+    --blurple-46-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 53.8%; --blurple-47-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 52.8%; --blurple-48-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 52.0%;
+    --blurple-49-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 51.0%; --blurple-51-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 49.0%; --blurple-52-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 47.9%;
+    --blurple-53-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 46.7%; --blurple-54-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 45.6%; --blurple-55-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 44.5%;
+    --blurple-56-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 43.3%; --blurple-57-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 42.5%; --blurple-58-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 41.3%;
+    --blurple-59-hsl: 20.9 calc(var(--saturation-factor, 1)*100.0%) 40.2%; --blurple-60-hsl: 20.5 calc(var(--saturation-factor, 1)*99.4%) 39.0%; --blurple-61-hsl: 20.1 calc(var(--saturation-factor, 1)*98.6%) 37.8%;
+    --blurple-62-hsl: 19.7 calc(var(--saturation-factor, 1)*97.9%) 36.7%; --blurple-63-hsl: 19.3 calc(var(--saturation-factor, 1)*97.2%) 35.6%; --blurple-64-hsl: 18.9 calc(var(--saturation-factor, 1)*96.6%) 34.5%;
+    --blurple-65-hsl: 18.4 calc(var(--saturation-factor, 1)*95.8%) 33.3%; --blurple-66-hsl: 18.0 calc(var(--saturation-factor, 1)*95.1%) 32.1%; --blurple-67-hsl: 17.5 calc(var(--saturation-factor, 1)*94.2%) 30.8%;
+    --blurple-68-hsl: 17.0 calc(var(--saturation-factor, 1)*93.5%) 29.6%; --blurple-69-hsl: 16.5 calc(var(--saturation-factor, 1)*92.6%) 28.2%; --blurple-70-hsl: 16.1 calc(var(--saturation-factor, 1)*91.9%) 27.1%;
+    --blurple-71-hsl: 15.7 calc(var(--saturation-factor, 1)*91.2%) 26.0%; --blurple-72-hsl: 15.3 calc(var(--saturation-factor, 1)*90.7%) 25.1%; --blurple-73-hsl: 15.1 calc(var(--saturation-factor, 1)*90.2%) 24.3%;
+    --blurple-74-hsl: 14.8 calc(var(--saturation-factor, 1)*89.8%) 23.6%; --blurple-75-hsl: 14.5 calc(var(--saturation-factor, 1)*89.2%) 22.8%; --blurple-76-hsl: 14.2 calc(var(--saturation-factor, 1)*88.7%) 21.9%;
+    --blurple-77-hsl: 14.0 calc(var(--saturation-factor, 1)*88.4%) 21.4%; --blurple-78-hsl: 13.6 calc(var(--saturation-factor, 1)*87.8%) 20.5%; --blurple-79-hsl: 13.3 calc(var(--saturation-factor, 1)*87.3%) 19.7%;
+    --blurple-80-hsl: 13.1 calc(var(--saturation-factor, 1)*86.9%) 19.0%; --blurple-81-hsl: 12.8 calc(var(--saturation-factor, 1)*86.4%) 18.2%; --blurple-82-hsl: 12.5 calc(var(--saturation-factor, 1)*85.9%) 17.4%;
+    --blurple-83-hsl: 12.1 calc(var(--saturation-factor, 1)*85.3%) 16.5%; --blurple-84-hsl: 11.9 calc(var(--saturation-factor, 1)*84.9%) 15.9%; --blurple-85-hsl: 11.7 calc(var(--saturation-factor, 1)*84.6%) 15.4%;
+    --blurple-86-hsl: 11.4 calc(var(--saturation-factor, 1)*84.1%) 14.6%; --blurple-87-hsl: 11.1 calc(var(--saturation-factor, 1)*83.6%) 13.8%; --blurple-88-hsl: 10.9 calc(var(--saturation-factor, 1)*83.2%) 13.2%;
+    --blurple-89-hsl: 10.6 calc(var(--saturation-factor, 1)*82.8%) 12.4%; --blurple-90-hsl: 10.4 calc(var(--saturation-factor, 1)*82.3%) 11.7%; --blurple-91-hsl: 10.1 calc(var(--saturation-factor, 1)*81.9%) 11.1%;
+    --blurple-92-hsl: 9.8 calc(var(--saturation-factor, 1)*81.4%) 10.3%; --blurple-93-hsl: 9.6 calc(var(--saturation-factor, 1)*81.0%) 9.6%; --blurple-94-hsl: 9.3 calc(var(--saturation-factor, 1)*80.6%) 8.9%;
+    --blurple-95-hsl: 8.9 calc(var(--saturation-factor, 1)*79.9%) 7.9%; --blurple-96-hsl: 8.6 calc(var(--saturation-factor, 1)*79.4%) 7.1%; --blurple-97-hsl: 8.2 calc(var(--saturation-factor, 1)*78.8%) 6.0%;
+    --blurple-98-hsl: 7.8 calc(var(--saturation-factor, 1)*77.9%) 4.7%; --blurple-99-hsl: 6.9 calc(var(--saturation-factor, 1)*76.6%) 2.5%; --blurple-100-hsl: 6.0 calc(var(--saturation-factor, 1)*75.0%) 0.0%;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+ * 5. Structure: the few touches tokens can't express. Hash-free selectors only
+ *    ([class*="name_"] survives Discord's daily class-hash churn); #app-mount lifts them over
+ *    Discord's state rules. If one stops matching, the tokens above still carry the look.
+ * ------------------------------------------------------------------------------------------- */
+
+/* Rain on the window: the streaks are the chat's background image, so the messages scroll over
+   them and nothing is ever drawn on top of the text. The lists, panels and popouts keep plain
+   ink. */
+#app-mount main[class*="chatContent_"] {
+    background-image: var(--hibana-streaks);
+}
+
+/* The message box (and the edit, thread and forum composers): a panel with a faint edge and a
+   lit top, and the ember glow while you type. The :not() keeps a composer nested in another from
+   getting a second edge. */
+#app-mount [class*="channelTextArea_"]:not([class*="channelTextArea_"] *) {
+    border: 1px solid var(--hibana-edge);
+    border-top-color: var(--hibana-edge-top);
+    border-radius: 8px;
+    box-shadow: var(--hibana-drop-small);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+#app-mount [class*="channelTextArea_"]:not([class*="channelTextArea_"] *):focus-within {
+    border-color: var(--hibana-ember);
+    box-shadow: var(--hibana-drop-small), var(--hibana-glow);
+}
+
+/* Modals: panels with a lit top edge (popouts, menus and tooltips get theirs from --shadow-high). */
+#app-mount [class*="rootWithShadow_"] {
+    border: 1px solid var(--hibana-edge);
+    border-top-color: var(--hibana-edge-top);
+    border-radius: 10px;
+    box-shadow: var(--hibana-drop);
+}
+
+/* The user panel: a small panel at the foot of the channel list. */
+#app-mount section[class*="panels_"] {
+    background: var(--hibana-float);
+    border: 1px solid var(--hibana-edge);
+    border-top-color: var(--hibana-edge-top);
+    border-radius: 8px;
+    box-shadow: var(--hibana-drop-small);
+}
+
+/* The selected channel (or DM): an ember marker, its warmth fading across the row. */
+#app-mount [class*="sidebarList_"] [class*="interactiveSelected_"],
+#app-mount [class*="sidebarList_"] [class*="modeSelected_"] [class*="link_"] {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--hibana-ember) 16%, transparent), color-mix(in srgb, var(--hibana-ember) 4%, transparent));
+    box-shadow: inset 2px 0 0 0 var(--hibana-ember);
+    color: var(--hibana-ink);
+}
+
+/* Unread marks in ember: the pill beside a server and the one beside a channel (both empty
+   elements, which :empty holds the rules to), and the "new" line in the chat. The server pill's
+   ember turns to blood down its length, drawn 40px tall from the top after 8px of solid ember:
+   an unread mark stays ember, and only the selected server's full-height pill shows the whole
+   ember-to-blood gradient. */
+#app-mount [class*="guilds_"] [class*="pill_"] span[class*="item_"]:empty {
+    background: linear-gradient(180deg, var(--hibana-ember) 8px, var(--hibana-blood)) top / 100% 40px no-repeat var(--hibana-ember);
+}
+#app-mount [class*="sidebarList_"] [class*="unread_"]:empty {
+    background-color: var(--hibana-ember);
+}
+#app-mount [class*="divider_"][class*="isUnread_"] {
+    border-color: var(--hibana-ember);
+}
+#app-mount [class*="unreadPill_"] {
+    background-color: var(--hibana-ember);
+    color: var(--hibana-crust);
+}
+#app-mount [class*="unreadPillCapStroke_"] {
+    color: var(--hibana-ember);
+    fill: var(--hibana-ember);
+}
+
+/* Messages that mention you: a thin rule of blood down the margin. The message you are replying
+   to gets the same rule in ember. */
+#app-mount [class*="message_"][class*="mentioned_"]::before {
+    background: var(--hibana-mention-mark);
+    width: 2px;
+}
+#app-mount [class*="message_"][class*="replying_"]::before {
+    background: var(--hibana-ember);
+    width: 2px;
+}
+
+/* Links in messages turn ember under the pointer; mentions keep their own hover. */
+#app-mount [class*="markup_"] a:not([class*="mention"], [class*="Mention"]):hover {
+    color: var(--hibana-ember);
+}
+
+/* Code blocks: panels on mantle in JetBrains Mono, with comments in italics, parameters in mauve
+   and regular expressions in sage, as hibana's editor themes have them. */
+#app-mount [class*="markup_"] pre > code {
+    border: 1px solid var(--hibana-edge);
+    border-radius: 6px;
+}
+#app-mount [class*="markup_"] code :is(.hljs-comment, .hljs-quote) {
+    font-style: italic;
+}
+#app-mount [class*="markup_"] code .hljs-params {
+    color: var(--hibana-mauve);
+}
+#app-mount [class*="markup_"] code .hljs-regexp {
+    color: var(--hibana-sage);
+}
+
+/* Avatars in chat: a faint edge. */
+#app-mount [class*="message_"] img[class*="avatar_"] {
+    box-shadow: 0 0 0 2px var(--hibana-edge);
+}
