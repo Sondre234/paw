@@ -618,6 +618,8 @@ shadows.
 - `switcher.hold = false` keeps the window switcher open once Alt comes up after Alt + Tab, until
   Return or a click on a window picks one, or Escape or a click off the switcher cancels it; Tab
   moves on without Alt. By default it is held, as before: releasing Alt picks.
+- `layout.maximize_lone_on_untile = true` maximizes a tile alone on its workspace as tiling turns
+  off, rather than floating it back to its old place and size; turning tiling on tiles it again.
 - Hyprland's dwindle controls, experimental and unbound by default (example keys in the shipped
   configuration, also in the command palette): `split_toggle` turns the split the focused tile
   shares with its neighbour from side by side to stacked or back, and keeps it so where dwindle
