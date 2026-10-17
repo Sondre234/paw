@@ -615,6 +615,9 @@ shadows.
   Shift + \` (or Alt + Shift + \`, `switcher_app_prev`) moving back. An application with one
   window opens nothing. The macOS style's switcher shows those windows' titles, or their pictures,
   in place of its icons alone, and the command palette offers it too.
+- `switcher.hold = false` keeps the window switcher open once Alt comes up after Alt + Tab, until
+  Return or a click on a window picks one, or Escape or a click off the switcher cancels it; Tab
+  moves on without Alt. By default it is held, as before: releasing Alt picks.
 - Hyprland's dwindle controls, experimental and unbound by default (example keys in the shipped
   configuration, also in the command palette): `split_toggle` turns the split the focused tile
   shares with its neighbour from side by side to stacked or back, and keeps it so where dwindle
