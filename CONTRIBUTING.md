@@ -20,9 +20,14 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+While working, run the tests of what you changed (`ctest --test-dir build -R NAME`) with each
+commit, and the whole suite before merging. `ctest --test-dir build -LE slow` leaves out the
+tests labelled slow, those of five seconds or more.
+
 `tools/check-all.sh` does that and then repeats the suite in a second build with
-AddressSanitizer, UndefinedBehaviorSanitizer and leak detection (`build-asan`); run it before
-merging larger changes. `--quick` skips the sanitizer pass, `--sanitize` runs only it, and
+AddressSanitizer, UndefinedBehaviorSanitizer and leak detection (`build-asan`); run it every
+few days and after large changes to the compositor's C rather than before each merge.
+`--quick` skips the sanitizer pass, `--sanitize` runs only it, and
 `--repeat 20` runs every test up to 20 times, which is how flaky tests are found. A test
 that only fails on a loaded machine is a bug in the test: wait for the condition through
 `tests/harness.py` instead of sleeping.

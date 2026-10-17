@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Builds and tests everything in one go: a normal build with the whole test suite, then a second
 # build with AddressSanitizer, UndefinedBehaviorSanitizer and leak detection running the suite
-# again. Everything runs headless; nothing touches a real session.
+# again. Everything runs headless; nothing touches a real session. The sanitizer pass is for
+# every few days and large changes to the compositor's C, not each merge (CONTRIBUTING.md).
 #
 #   tools/check-all.sh              both passes
 #   tools/check-all.sh --quick      only the normal pass
@@ -25,7 +26,7 @@ while [ $# -gt 0 ]; do
         --quick) sanitize=0 ;;
         --sanitize) normal=0 ;;
         --repeat) shift; repeat=(--repeat "until-fail:${1:?--repeat needs a count}") ;;
-        -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
     shift

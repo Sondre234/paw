@@ -129,14 +129,16 @@ if(BUILD_TESTING)
     paw_unit_test(wrapped LIBRARY paw_cli)
     paw_unit_test(xray LIBRARY paw_cli)
     paw_unit_test(tour LIBRARY paw_cli)
-    set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
+    set_tests_properties(config_robustness PROPERTIES TIMEOUT 900 LABELS slow)
+    set_tests_properties(child_trial PROPERTIES LABELS slow)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
-    # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
+    # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] [SLOW] ARGUMENTS...) runs
     # tests/NAME.py, or tests/FILE, with the arguments, for at most a minute or the timeout;
     # three times as long in the sanitizers' build (tools/check-all.sh), which runs many times
     # slower: minimize_smoke took 52 of its 60 seconds there, shell_gallery 94 to 120 of 120.
+    # SLOW, for a test of five seconds or more, labels it slow, which `ctest -LE slow` leaves out.
     function(paw_smoke name)
-        cmake_parse_arguments(PARSE_ARGV 1 SMOKE "" "SCRIPT;TIMEOUT" "")
+        cmake_parse_arguments(PARSE_ARGV 1 SMOKE "SLOW" "SCRIPT;TIMEOUT" "")
         if(NOT SMOKE_SCRIPT)
             set(SMOKE_SCRIPT ${name}.py)
         endif()
@@ -149,6 +151,9 @@ if(BUILD_TESTING)
         add_test(NAME ${name} COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/${SMOKE_SCRIPT}
             ${SMOKE_UNPARSED_ARGUMENTS})
         set_tests_properties(${name} PROPERTIES TIMEOUT ${SMOKE_TIMEOUT})
+        if(SMOKE_SLOW)
+            set_tests_properties(${name} PROPERTIES LABELS slow)
+        endif()
     endfunction()
     paw_smoke(docs_consistency ${CMAKE_CURRENT_SOURCE_DIR})
     paw_smoke(session_wrapper SCRIPT session_wrapper_test.py
@@ -169,6 +174,7 @@ if(BUILD_TESTING)
     paw_unit_test(config_edit ${EXAMPLE_CONFIG})
     paw_unit_test(window_features)
     paw_unit_test(import ${CMAKE_CURRENT_SOURCE_DIR}/tests/import)
+    set_tests_properties(import PROPERTIES LABELS slow)
     paw_unit_test(urgent_config)
     paw_unit_test(rule_fields_config)
     paw_unit_test(productivity)
@@ -716,7 +722,7 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(mirror_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:output_management_probe>)
-        paw_smoke(crossfade_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(crossfade_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe>)
         paw_smoke(bit_depth_smoke $<TARGET_FILE:paw> $<TARGET_FILE:output_management_probe>)
         paw_smoke(hdr_smoke $<TARGET_FILE:paw>)
@@ -727,7 +733,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(lid_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(compositor_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        paw_smoke(auto_reload_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
+        paw_smoke(auto_reload_smoke SLOW $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         # Without a personal configuration, paw runs the shipped one.
         set(EMPTY_HOME ${CMAKE_CURRENT_BINARY_DIR}/empty-home)
         file(MAKE_DIRECTORY ${EMPTY_HOME})
@@ -744,8 +750,9 @@ if(PAW_BUILD_COMPOSITOR)
             ${EXAMPLE_CONFIG})
         paw_smoke(workspace_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
-        paw_smoke(control_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            ${EXAMPLE_CONFIG} ${CMAKE_CURRENT_SOURCE_DIR}/src/compositor/query.c)
+        paw_smoke(control_fuzz_smoke SLOW TIMEOUT 120 $<TARGET_FILE:paw>
+            $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG}
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/compositor/query.c)
         paw_smoke(swallow_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(pid_at_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
@@ -764,7 +771,7 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:window_probe>)
         paw_smoke(taskbar_restore_tiling_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe>)
-        paw_smoke(minimize_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(minimize_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(tiling_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
         paw_smoke(tiling_open_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
@@ -773,7 +780,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(maximize_lone_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(maximized_tile_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        paw_smoke(screenshot_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(screenshot_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(launch_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         paw_smoke(cursor_theme_smoke $<TARGET_FILE:paw>)
@@ -822,7 +829,7 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(pointer_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
         paw_smoke(touchpad_gestures_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
-        paw_smoke(rubber_band_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(rubber_band_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(touchscreen_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
             $<TARGET_FILE:wayland_probe>)
         paw_smoke(panel_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
@@ -832,8 +839,8 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(scratchpad_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(rule_scratchpad_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        paw_smoke(scratchpad_drop_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            $<TARGET_FILE:window_probe>)
+        paw_smoke(scratchpad_drop_smoke SLOW TIMEOUT 120 $<TARGET_FILE:paw>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe>)
         paw_smoke(group_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(group_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
@@ -876,7 +883,7 @@ if(PAW_BUILD_COMPOSITOR)
         target_include_directories(decoration_tests PRIVATE include)
         target_link_libraries(decoration_tests PRIVATE PkgConfig::WLROOTS m)
         add_test(NAME decoration COMMAND decoration_tests)
-        paw_smoke(animation_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(animation_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(fullscreen_panel_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(touched_edges_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(layout_state_smoke $<TARGET_FILE:paw>)
@@ -887,19 +894,19 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(gradient_border_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")
         paw_smoke(dim_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(cursor_shake_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
+        paw_smoke(cursor_shake_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
             "${GRIM_ARGUMENT}")
         find_program(SLURP slurp)
         paw_smoke(screenshot_select_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "$<$<BOOL:${SLURP}>:${SLURP}>" "${GRIM_ARGUMENT}")
-        paw_smoke(idle_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
+        paw_smoke(idle_smoke SLOW TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> $<TARGET_FILE:window_probe>
             "${GRIM_ARGUMENT}")
         paw_smoke(idle_rule_smoke $<TARGET_FILE:paw> $<TARGET_FILE:idle_probe>
             $<TARGET_FILE:wayland_probe>)
         paw_smoke(urgent_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        paw_smoke(urgent_border_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            "${GRIM_ARGUMENT}")
+        paw_smoke(urgent_border_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw>
+            $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
         paw_smoke(window_controls_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(window_shadow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
@@ -909,20 +916,20 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:input_probe> "${GRIM_ARGUMENT}")
         paw_smoke(magnet_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(snap_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(snap_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(drag_lift_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(drag_lift_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(tile_drop_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(tile_drop_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<$<TARGET_EXISTS:x11_probe>:$<TARGET_FILE:x11_probe>>)
         paw_smoke(snap_keys_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(toggle_maximize_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(snap_assist_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
-        paw_smoke(morph_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(morph_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(night_light_smoke TIMEOUT 90 $<TARGET_FILE:paw>)
-        paw_smoke(hot_corners_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
+        paw_smoke(hot_corners_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
         paw_smoke(zoom_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(zoom_output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
@@ -956,9 +963,9 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:input_probe> "${GRIM_ARGUMENT}")
         paw_smoke(window_capture_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe>)
-        paw_smoke(window_peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(window_peek_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(switcher_peek_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(switcher_peek_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:window_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         if(SDBUS_FOUND)
             # A stand-in for logind on a private bus, so that no power test reaches the real one.
@@ -966,7 +973,7 @@ if(PAW_BUILD_COMPOSITOR)
             target_compile_definitions(fake_login1 PRIVATE PAW_SDBUS_${PAW_SDBUS}=1)
             target_link_libraries(fake_login1 PRIVATE PkgConfig::SDBUS)
             target_compile_options(fake_login1 PRIVATE -Wall -Wextra -Wno-unused-parameter)
-            paw_smoke(power_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>
+            paw_smoke(power_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>
                 $<TARGET_FILE:wayland_probe> $<TARGET_FILE:lock_probe>)
             paw_smoke(idle_suspend_smoke $<TARGET_FILE:paw> $<TARGET_FILE:fake_login1>
                 $<TARGET_FILE:lock_probe>)
@@ -981,7 +988,7 @@ if(PAW_BUILD_COMPOSITOR)
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/bench/bench.py --quick
             --compositor $<TARGET_FILE:paw> --client $<TARGET_FILE:paw-bench-client>
             --pointer-probe $<TARGET_FILE:pointer_probe>)
-        set_tests_properties(bench_smoke PROPERTIES TIMEOUT 120)
+        set_tests_properties(bench_smoke PROPERTIES TIMEOUT 120 LABELS slow)
         paw_smoke(opacity_rules_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-bench-client>
             $<TARGET_FILE:wayland_probe>)
         # XWayland coverage needs wlroots built with X support and an Xwayland binary.
@@ -1009,28 +1016,28 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(fetch_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
         paw_smoke(showcase_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG}
             "${GRIM_ARGUMENT}")
-        paw_smoke(top_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(top_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:paw-bench-client>)
-        paw_smoke(toys_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(toys_smoke SLOW TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(rice_smoke TIMEOUT 120 $<TARGET_FILE:paw>)
-        paw_smoke(cat_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(cat_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(ambient_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(ambient_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(cursor_trail_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(cursor_trail_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(wrapped_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(wrapped_smoke SLOW TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:idle_probe>)
         paw_smoke(xray_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(heatmap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
+        paw_smoke(heatmap_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
         paw_smoke(color_picker_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:input_probe> $<TARGET_FILE:pointer_probe> $<TARGET_FILE:clipboard_probe>
             $<TARGET_FILE:lock_probe>)
         # `paw tour` driving a session, its windows the probe's; and the queries it reads.
-        paw_smoke(tour_smoke TIMEOUT 180 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(tour_smoke SLOW TIMEOUT 180 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe>)
     endif()
 endif()
