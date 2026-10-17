@@ -48,6 +48,7 @@ constexpr Action actions[] = {
     {"close", Windows, "Close window"},
     {"maximize", Windows, "Maximize window"},
     {"restore", Windows, "Restore window"},
+    {"toggle_maximize", Windows, "Maximize window, or restore it"},
     {"minimize", Windows, "Minimize window"},
     {"fullscreen", Windows, "Toggle fullscreen"},
     {"toggle_floating", Windows, "Toggle floating"},

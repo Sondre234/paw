@@ -1107,6 +1107,10 @@ struct sh_toplevel {
     bool floating;   // kept out of the tiling (dialogs, or toggled by the user)
     bool placed;     // floating only because it was snapped or maximized by hand
     bool tile_sized; // first configured at its predicted tile, so it has no floating size yet
+    /* Maximized out of the tiling by toggle_maximize, which puts it back at tile_x, tile_y, the
+     * middle of the tile it had, to take the same place again. */
+    bool from_tile;
+    double tile_x, tile_y;
     /* Pseudotiled (pseudo.c): as a tile in dwindle it keeps its floating size, in the middle of
      * its tile. */
     bool pseudo;

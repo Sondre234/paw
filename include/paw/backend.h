@@ -279,6 +279,9 @@ enum sh_action {
     SH_MOVE_TO_WORKSPACE_NEXT,
     SH_MOVE_TO_WORKSPACE_PREV,
     SH_MOVE_TO_WORKSPACE_EMPTY,
+    /* Maximizes the focused window below the panels, as dropping it at the top edge does, or
+     * gives a maximized one its own size back (its tile, when maximizing floated a tile). */
+    SH_TOGGLE_MAXIMIZE,
 };
 
 /* The cat action's choices: show it or hide it, whichever it is not, or say which. */
