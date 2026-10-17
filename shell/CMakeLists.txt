@@ -500,7 +500,7 @@ if(BUILD_TESTING)
     # A reload asked while the shell starts waits for it instead of ending it.
     paw_smoke(shell_early_reload $<TARGET_FILE:paw-shell> ${EXAMPLE_CONFIG})
     # Every popup of tools/shell_gallery.py renders without a QML warning.
-    paw_smoke(shell_gallery TIMEOUT 120 ${PROJECT_SOURCE_DIR}/tools/shell_gallery.py
+    paw_smoke(shell_gallery SLOW TIMEOUT 120 ${PROJECT_SOURCE_DIR}/tools/shell_gallery.py
         ${PROJECT_BINARY_DIR} software)
     add_test(NAME shell_version COMMAND paw-shell --version)
     set_tests_properties(shell_version PROPERTIES PASS_REGULAR_EXPRESSION "^paw-shell ${PROJECT_VERSION}( \\(git [^)]+\\))?\n$")
@@ -523,7 +523,7 @@ if(BUILD_TESTING)
         # private compositor), where effects are drawn. Not under the sanitizers: now and then
         # Qt's Wayland platform leaks a surface of a preview that quits soon after showing.
         if(NOT CMAKE_CXX_FLAGS MATCHES "-fsanitize")
-            paw_smoke(shell_gallery_gpu SCRIPT shell_gallery.py TIMEOUT 120
+            paw_smoke(shell_gallery_gpu SLOW SCRIPT shell_gallery.py TIMEOUT 120
                 ${PROJECT_SOURCE_DIR}/tools/shell_gallery.py ${PROJECT_BINARY_DIR} gpu bar launcher
                 tray-menu notifications osd-volume cards switcher palette power-dialog)
         endif()
@@ -545,7 +545,7 @@ if(BUILD_TESTING)
         paw_smoke(thumbnails_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>
             "${GRIM_ARGUMENT}")
-        paw_smoke(workspace_card_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+        paw_smoke(workspace_card_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
         paw_smoke(taskbar_drag_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
@@ -567,7 +567,7 @@ if(BUILD_TESTING)
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(crossfade_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:paw-shell>)
-        paw_smoke(peek_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+        paw_smoke(peek_shell_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe>)
         paw_smoke(volume_keys_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
         paw_smoke(display_mode_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
@@ -577,8 +577,8 @@ if(BUILD_TESTING)
         paw_smoke(rice_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
         paw_smoke(caption_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
         if(PAW_DBUS)
-            paw_smoke(notifications_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
-                $<TARGET_FILE:notify_probe> $<TARGET_FILE:pointer_probe>)
+            paw_smoke(notifications_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw>
+                $<TARGET_FILE:paw-shell> $<TARGET_FILE:notify_probe> $<TARGET_FILE:pointer_probe>)
         endif()
         if(PAW_MEDIA_DBUS)
             paw_smoke(media_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
