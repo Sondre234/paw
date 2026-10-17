@@ -177,7 +177,7 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
     task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp icon_lock.hpp
     app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp wallpaper_cycle.cpp wallpaper_cycle.hpp
-    image_provider.hpp audio.cpp audio.hpp
+    image_provider.hpp audio.cpp audio.hpp bar_resize.cpp bar_resize.hpp
     system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp
     glass.cpp glass.hpp glass_blur.cpp glass_blur.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
