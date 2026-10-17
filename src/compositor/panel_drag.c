@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-/* Dragging the taskbar to another edge of the output, or its inner edge to resize it
+/* Dragging the taskbar to another edge of the output, or one of its edges to resize it
  * (shell.panel_draggable). The shell, seeing a press on its bar's empty space move, asks with
  * "panel_drag OUTPUT" while the left button is held, or with "panel_drag resize EDGE" for a press
- * on the bar's inner edge, EDGE the output's edge the bar is along; the compositor takes the
+ * on one of the bar's edges, EDGE the output's edge the drag is told from; the compositor takes the
  * pointer as it does to move a window: no surface hears it until the button is let go. A surface
  * the pointer went on to would not know the button was held (wlroots forgets the pressed buttons
  * as the focus changes) and would never hear it let go, and a bar's edge dragged outwards leaves
@@ -129,8 +129,8 @@ void panel_drag_cancel(struct sh_server *server) {
 }
 
 /* "panel_drag [OUTPUT]" takes the pointer for a drag of OUTPUT's taskbar, while the left button
- * is held; "panel_drag resize EDGE" for a drag of its inner edge, the bar being along EDGE of the
- * output under the pointer; "panel_drag cancel" ends either, leaving the bar as it is. */
+ * is held; "panel_drag resize EDGE" for a drag of one of its edges, told from EDGE of the output
+ * under the pointer; "panel_drag cancel" ends either, leaving the bar as it is. */
 void control_panel_drag(struct sh_server *server, int fd, const char *arguments) {
     const char *verb = arguments + (*arguments == ' ');
     int resize = -1;
