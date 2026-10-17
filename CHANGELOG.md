@@ -875,6 +875,9 @@ off and to find out what is wrong with it, and toys the compositor plays with th
 
 ### Fixes
 
+- A taskbar button moved, or passed by one moving, while it was still fading in (as windows open
+  together at the start of a session and their buttons go to their monitors) comes all the way
+  in, where it stayed faded out, leaving a gap on the bar.
 - A window at an opacity below 1 (`windows.opacity`, `inactive_opacity`, a rule's) is drawn at
   it, where each commit of its client put the window back to full opacity until something else
   redrew its frame, so a terminal that redraws often stayed opaque. `paw msg get opacities` ends
