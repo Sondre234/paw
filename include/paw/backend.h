@@ -564,6 +564,10 @@ struct sh_settings {
     bool overview_strip;    /* a strip of the workspaces above the grid */
     int overview_hot_corner; /* 0 none, else 1 top-left, 2 top-right, 3 bottom-left, 4 bottom-right */
     float overview_dim;     /* opacity of the backdrop behind the thumbnails */
+    /* switcher.hold: the window switcher a key binding opens stays open while the binding's
+     * modifiers are held and picks the selected window as they come up; false keeps it open
+     * until a window is picked (Return, a click) or it is cancelled (Escape, a click off it). */
+    bool switcher_hold;
     /* windows.dim_inactive: black laid over windows without focus, this opaque (0: none), fading
      * in and out over dim_duration milliseconds. */
     float dim_inactive;
