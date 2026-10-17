@@ -1851,6 +1851,7 @@ void switcher_close(struct sh_server *server, int index);
 void switcher_open(struct sh_server *server, bool backward, bool app, uint32_t modifiers,
                    xkb_keysym_t key);
 void switcher_forget(struct sh_toplevel *toplevel);
+void switcher_button(struct sh_server *server, struct wlr_pointer_button_event *event);
 void switcher_key(struct sh_server *server, uint32_t modifiers, xkb_keysym_t sym,
                   xkb_keysym_t base);
 bool switcher_ask_peek(struct sh_server *server);

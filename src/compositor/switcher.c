@@ -199,6 +199,20 @@ void switcher_open(struct sh_server *server, bool backward, bool app, uint32_t m
     wrapped_count(server, SH_WRAPPED_SWITCHER_OPENS);
 }
 
+/* A press of a pointer button while the switcher is open with no modifiers holding it
+ * (switcher.hold off, or opened from the control socket): off the shell's switcher, it cancels the
+ * switcher, which would otherwise keep the keyboard, and the press goes on to what it lands on. */
+void switcher_button(struct sh_server *server, struct wlr_pointer_button_event *event) {
+    if (!server->switcher.open || server->switcher.modifiers ||
+        event->state != WL_POINTER_BUTTON_STATE_PRESSED)
+        return;
+    struct wlr_surface *surface = server->seat->pointer_state.focused_surface;
+    struct wlr_layer_surface_v1 *layer =
+        surface ? wlr_layer_surface_v1_try_from_wlr_surface(surface) : NULL;
+    if (!layer || !layer->namespace || strcmp(layer->namespace, "paw-switcher") != 0)
+        switcher_close(server, -1);
+}
+
 /* A window closing while the switcher is open leaves its list. */
 void switcher_forget(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
