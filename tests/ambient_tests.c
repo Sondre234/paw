@@ -157,6 +157,8 @@ static void spread(const uint32_t *pixels, int side, double *xx, double *yy, dou
 
 static void test_paint(void) {
     for (int kind = SH_AMBIENT_SAKURA; kind < SH_AMBIENT_KINDS; ++kind) {
+        // A firefly's glow and an ember's add light, brighter than their alpha.
+        bool glows = kind == SH_AMBIENT_FIREFLIES || kind == SH_AMBIENT_EMBERS;
         for (int sprite = 0; sprite < sh_ambient_sprite_count(kind); ++sprite) {
             for (double scale = 1; scale <= 2; scale += 0.5) {
                 int side = (int)lround(sh_ambient_sprite_side(kind, sprite) * scale);
@@ -171,9 +173,9 @@ static void test_paint(void) {
                     uint32_t g = pixels[i] >> 8 & 0xff, b = pixels[i] & 0xff;
                     shown += a > 8;
                     solid += a > 200;
-                    if (kind != SH_AMBIENT_FIREFLIES)
+                    if (!glows)
                         CHECK(r <= a && g <= a && b <= a, "premultiplied: %08x", pixels[i]);
-                    if (!a && kind != SH_AMBIENT_FIREFLIES)
+                    if (!a && !glows)
                         CHECK(!pixels[i], "clear: %08x", pixels[i]);
                 }
                 CHECK(shown >= 3, "%s %d at %g paints something: %d", sh_ambient_kind_name(kind),
