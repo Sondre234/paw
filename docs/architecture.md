@@ -2072,8 +2072,8 @@ out (see `ambient_smoke.py`).
 ```sh
 cmake --build build --target paw          # only the compositor
 ctest --test-dir build -j8 -R sticky           # only the tests you are working on, each commit
-ctest --test-dir build -j8 -LE slow            # all but the tests labelled slow
-ctest --test-dir build -j8                     # everything, about 90 seconds, before merging
+ctest --test-dir build -j8 -LE slow            # all but the tests labelled slow, about 30 seconds
+ctest --test-dir build -j8                     # everything, about two minutes, before merging
 tools/check-all.sh --sanitize                  # the sanitizer build, every few days
 ```
 
