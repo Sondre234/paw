@@ -1544,6 +1544,9 @@ int main(int argc, char **argv) {
         require(embers.ambient == SH_AMBIENT_EMBERS && embers.ambient_count == 60 &&
                     embers.ambient_speed == 0.5F,
                 "ambient embers as given");
+        auto rain = paw::parse_config("return {appearance={ambient={kind='rain', count=150}}}")
+                        .settings;
+        require(rain.ambient == SH_AMBIENT_RAIN && rain.ambient_count == 150, "ambient rain");
         auto night = paw::parse_config(
             "return {profile='night', profiles={night={appearance={ambient={kind='fireflies'}}}}}");
         require(night.settings.ambient == SH_AMBIENT_FIREFLIES, "a profile's ambient particles");
@@ -1554,10 +1557,12 @@ int main(int argc, char **argv) {
         rejects("return {appearance={ambient={speed=9}}}", "speed");
         auto ambient = paw::parse_config(
             "return {bindings={{key='a', action='ambient', mode='embers'},"
-            "{key='b', action='ambient', mode='next'}, {key='c', action='ambient'}}}");
+            "{key='b', action='ambient', mode='next'}, {key='c', action='ambient'},"
+            "{key='d', action='ambient', mode='rain'}}}");
         require(ambient.binding(0, XKB_KEY_a)->mode == SH_AMBIENT_OFF + int{SH_AMBIENT_EMBERS} &&
                     ambient.binding(0, XKB_KEY_b)->mode == SH_AMBIENT_NEXT &&
-                    ambient.binding(0, XKB_KEY_c)->mode == SH_AMBIENT_TOGGLE,
+                    ambient.binding(0, XKB_KEY_c)->mode == SH_AMBIENT_TOGGLE &&
+                    ambient.binding(0, XKB_KEY_d)->mode == SH_AMBIENT_OFF + int{SH_AMBIENT_RAIN},
                 "ambient bindings' modes");
         rejects("return {bindings={{key='a', action='ambient', mode='confetti'}}}",
                 "ambient takes \"sakura\", \"snow\", \"fireflies\", \"embers\"");

@@ -2,12 +2,13 @@
 """Ambient particles (appearance.ambient, the ambient action): turned on, sakura petals drift over
 the output, inside it and about its edges; a fullscreen window pauses them, the output drawing no
 frames for them meanwhile, and so does the lock; the action goes through the kinds, turns them off
-(which takes them away) and back on, from a binding too, embers rising among them; a profile
+(which takes them away) and back on, from a binding too, embers rising and rain falling among
+them; a profile
 setting another kind brings it in, a reload leaves the action's choice unless the kind configured
 changes, and a new count adds or takes particles away; without input for a while
 (PAW_TEST_AMBIENT_IDLE_MS) they fade out, and input brings them back. Turned on behind a fullscreen
 window they spread over the output as it shows, and a second monitor has particles of its own.
-With grim, the screen shows petals, and embers glowing orange."""
+With grim, the screen shows petals, embers glowing orange and pale streaks of rain."""
 from pathlib import Path
 import subprocess
 import sys
@@ -126,6 +127,26 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
         orange = sum(1 for px in range(0, WIDTH, 2) for py in range(0, HEIGHT, 2)
                      if (lambda r, g, b: r > 120 and r > g + 10 and r > b + 40)(*shot.at(px, py)))
         assert orange > 10, orange
+
+    # Then rain: streaks narrower than they are tall, falling fast.
+    keys(F3)
+    wait_for(lambda: sky()["kind"] == "rain" and sky()["state"] == "shown", "rain")
+    wait_for(lambda: len(particles()) == 12 and sum(p[4] for p in particles()) > 12 * 200,
+             "every drop drawn, faded in")
+    for x, y, width, height, opacity, picture, transform in particles():
+        assert -80 < x < WIDTH + 80 and -150 < y < HEIGHT + 80, (x, y)
+        assert 3 <= width <= 20 and 8 <= height <= 70 and width < height, (width, height)
+        assert transform == 0, transform
+    high = middles()
+    wait_for(lambda: (lambda now: len(now) == len(high) and
+                      sum(b > a + 10 for a, b in zip(high, now)) >= 7)(middles()),
+             "the rain falls")
+    if grim:
+        # Pale streaks over the blue-grey background.
+        shot = harness.grab(grim, desktop.env)
+        pale = sum(1 for px in range(0, WIDTH) for py in range(0, HEIGHT, 2)
+                   if (lambda r, g, b: r > 60 and g > 72 and b > 86)(*shot.at(px, py)))
+        assert pale > 10, pale
     msg("ambient", "off")
     wait_for(lambda: sky()["state"] == "off", "off")
 
