@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Ambient particles (appearance.ambient, the ambient action): sakura petals, snow or fireflies
- * drifting over the wallpaper, under the bottom layer's panels and the windows, in a tree of
- * scene buffers for each output that takes no input. src/ambient.c moves them and paints their
+/* Ambient particles (appearance.ambient, the ambient action): sakura petals, snow, fireflies,
+ * embers or rain drifting over the wallpaper, under the bottom layer's panels and the windows, in
+ * a tree of scene buffers for each output that takes no input. src/ambient.c moves them and paints their
  * pictures, made for each output at its scale as they are first needed. A timer steps them every
  * TICK_MS while an output shows them. An output pauses, its tree off, while the session is locked
  * or on another VT, while it is off or shows a fullscreen window, and while the screens are
@@ -114,13 +114,15 @@ static struct wlr_buffer *sprite(struct sh_ambient_sky *sky, int index) {
                                                  sizeof(*sky->sprites))))
         return NULL;
     if (!sky->sprites[index]) {
-        int side = (int)lround(sh_ambient_sprite_side(kind, index) * sky->scale);
-        side = side < 1 ? 1 : side;
-        uint32_t *pixels = malloc((size_t)side * side * sizeof(*pixels));
+        int width = (int)lround(sh_ambient_sprite_width(kind, index) * sky->scale);
+        int height = (int)lround(sh_ambient_sprite_side(kind, index) * sky->scale);
+        width = width < 1 ? 1 : width;
+        height = height < 1 ? 1 : height;
+        uint32_t *pixels = malloc((size_t)width * height * sizeof(*pixels));
         if (!pixels)
             return NULL;
-        sh_ambient_paint(kind, index, pixels, side);
-        sky->sprites[index] = sh_pixel_buffer(pixels, side, side);
+        sh_ambient_paint(kind, index, pixels, width, height);
+        sky->sprites[index] = sh_pixel_buffer(pixels, width, height);
     }
     return sky->sprites[index];
 }

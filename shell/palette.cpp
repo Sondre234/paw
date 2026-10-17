@@ -71,10 +71,13 @@ constexpr Action actions[] = {
     {"ambient sakura", "Ambient: sakura petals over the wallpaper"},
     {"ambient snow", "Ambient: soft snow over the wallpaper"},
     {"ambient fireflies", "Ambient: fireflies over the wallpaper"},
+    {"ambient embers", "Ambient: embers rising over the wallpaper"},
+    {"ambient rain", "Ambient: rain over the wallpaper"},
     {"ambient off", "Ambient: off"},
     {"cursor_trail sparkles", "Cursor trail: sparkles"},
     {"cursor_trail petals", "Cursor trail: sakura petals"},
     {"cursor_trail hearts", "Cursor trail: hearts"},
+    {"cursor_trail sparks", "Cursor trail: sparks"},
     {"cursor_trail off", "Cursor trail: off"},
 };
 // The actions an empty search lists, the commonest, in this order; the rest are a word away, and

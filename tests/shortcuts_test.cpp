@@ -125,10 +125,27 @@ class ShortcutsTest : public QObject {
             " { mods = { 'Super' }, key = 'a', action = 'ambient' },"
             " { mods = { 'Super' }, key = 'b', action = 'ambient', mode = 'next' },"
             " { mods = { 'Super' }, key = 'c', action = 'ambient', mode = 'snow' },"
-            " { mods = { 'Super' }, key = 'd', action = 'ambient', mode = 'off' } } }");
+            " { mods = { 'Super' }, key = 'd', action = 'ambient', mode = 'embers' },"
+            " { mods = { 'Super' }, key = 'e', action = 'ambient', mode = 'rain' },"
+            " { mods = { 'Super' }, key = 'f', action = 'ambient', mode = 'off' } } }");
         QCOMPARE(::titles(group(shortcuts::sheet(config, {}, false), "Toys")),
                  QStringList({"Ambient particles, on or off", "Next ambient particles",
-                              "Ambient: soft snow over the wallpaper", "Ambient: off"}));
+                              "Ambient: soft snow over the wallpaper",
+                              "Ambient: embers rising over the wallpaper",
+                              "Ambient: rain over the wallpaper", "Ambient: off"}));
+    }
+    void cursorTrailTitles() {
+        // The cursor_trail action by its mode: a kind and off as the palette calls them.
+        const auto config = paw::parse_config(
+            "return { bindings = {"
+            " { mods = { 'Super' }, key = 'a', action = 'cursor_trail' },"
+            " { mods = { 'Super' }, key = 'b', action = 'cursor_trail', mode = 'next' },"
+            " { mods = { 'Super' }, key = 'c', action = 'cursor_trail', mode = 'hearts' },"
+            " { mods = { 'Super' }, key = 'd', action = 'cursor_trail', mode = 'sparks' },"
+            " { mods = { 'Super' }, key = 'e', action = 'cursor_trail', mode = 'off' } } }");
+        QCOMPARE(::titles(group(shortcuts::sheet(config, {}, false), "Toys")),
+                 QStringList({"Cursor trail, on or off", "Next cursor trail", "Cursor trail: hearts",
+                              "Cursor trail: sparks", "Cursor trail: off"}));
     }
     void titles() {
         const auto sheet = shortcuts::sheet(config_, {}, false);

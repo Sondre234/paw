@@ -373,6 +373,10 @@ QString title(const paw::Binding &binding, const QString &name, const paw::Confi
             return Palette::actionTitle("ambient snow");
         case SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES}:
             return Palette::actionTitle("ambient fireflies");
+        case SH_AMBIENT_OFF + int{SH_AMBIENT_EMBERS}:
+            return Palette::actionTitle("ambient embers");
+        case SH_AMBIENT_OFF + int{SH_AMBIENT_RAIN}:
+            return Palette::actionTitle("ambient rain");
         default:
             return Palette::actionTitle("ambient off");
         }
@@ -389,6 +393,8 @@ QString title(const paw::Binding &binding, const QString &name, const paw::Confi
             return Palette::actionTitle("cursor_trail petals");
         case SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_HEARTS}:
             return Palette::actionTitle("cursor_trail hearts");
+        case SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKS}:
+            return Palette::actionTitle("cursor_trail sparks");
         default:
             return Palette::actionTitle("cursor_trail off");
         }

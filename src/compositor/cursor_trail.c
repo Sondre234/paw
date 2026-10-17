@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The cursor trail (appearance.cursor_trail, the cursor_trail action): little sparkles, sakura
- * petals or hearts falling off the pointer as it moves and fading within a second, in a tree of
- * scene buffers over the windows and the panels and under the drag icons, the lock and the cursor
- * (which outputs draw over the scene), taking no input. src/cursor_trail.c spawns them, moves them
+ * petals or hearts falling off the pointer as it moves and fading within a second, or sparks
+ * flung off it, in a tree of scene buffers over the windows and the panels and under the drag
+ * icons, the lock and the cursor (which outputs draw over the scene), taking no input. src/cursor_trail.c spawns them, moves them
  * and paints their pictures, at the outputs' largest scale, each family's side by side in a strip
  * that the nodes of its places keep, showing the picture of the moment by their source box: the
  * renderer makes a texture for each node's buffer anew whenever it changes, which on a GPU is an
@@ -117,7 +117,7 @@ static struct wlr_buffer *strip(struct sh_cursor_trail *trail, int family) {
     enum sh_trail_kind kind = trail->trail.kind;
     int families = sh_trail_family_count(kind, trail->tints);
     int size = sh_trail_family_size(kind), first = sh_trail_family_first(kind, family);
-    if (family < 0 || family >= families || size < 1 || size > 8)
+    if (family < 0 || family >= families || size < 1 || size > SH_TRAIL_FAMILY_MOST)
         return NULL;
     if (!trail->strips) {
         trail->strips = calloc(families, sizeof(*trail->strips));
@@ -133,7 +133,7 @@ static struct wlr_buffer *strip(struct sh_cursor_trail *trail, int family) {
     }
     if (trail->strips[family])
         return trail->strips[family];
-    int sides[8], width = 0, height = 1;
+    int sides[SH_TRAIL_FAMILY_MOST], width = 0, height = 1;
     for (int k = 0; k < size; ++k) {
         sides[k] = (int)lround(sh_trail_sprite_side(kind, first + k) * trail->scale);
         sides[k] = sides[k] < 1 ? 1 : sides[k];

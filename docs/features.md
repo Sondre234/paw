@@ -2190,21 +2190,25 @@ window covers the output. `overview.hot_corner` makes one more corner, which ope
 **Ambient particles.** `appearance.ambient = { kind = "sakura" }` has sakura petals drift down
 over the wallpaper, tumbling, swaying and turning as they fall, in four pinks; `"snow"` has soft
 snow falling, the nearest flakes large and out of focus; `"fireflies"` has fireflies wandering
-about and glowing warm, now bright, now dim. A gentle wind carries the petals and the snow now
-one way, now the other. The compositor draws them over the wallpaper and under the windows and
-the panels; they take no input, and stay out of the background [blurred behind
+about and glowing warm, now bright, now dim; `"embers"` has embers rising from below, swaying and
+flickering as they go and cooling from hot amber through ember orange to a dull red until they go
+out, the nearest larger, faster and softer, with a few flakes of ash tumbling among them; and
+`"rain"` has rain falling fast in thin, faint streaks of pale grey, slanting a little, the nearest
+drops longer, brighter, faster and a little softer. A gentle wind carries the petals, the snow
+and the embers now one way, now the other. The compositor draws them over the wallpaper and under
+the windows and the panels; they take no input, and stay out of the background [blurred behind
 windows](#borders-opacity-and-rounded-corners), which shows the wallpaper alone. `count` says how
-many drift on each monitor (up to 150; unless set, 30 petals, 60 flakes or 24 fireflies) and
-`speed` how fast (1 is their own pace, 0.5 half of it). An [appearance profile](#appearance-profiles) can set them, so that each look has its
-own (a [rice](#paw-rice) takes them along), and they fade over to the new kind as the profile
-changes.
+many drift on each monitor (up to 150; unless set, 30 petals, 60 flakes, 24 fireflies, 40 embers
+or 120 drops of rain) and `speed` how fast (1 is their own pace, 0.5 half of it). An [appearance
+profile](#appearance-profiles) can set them, so that each look has its own (a [rice](#paw-rice)
+takes them along), and they fade over to the new kind as the profile changes.
 
 The `ambient` action switches them without touching the configuration: `paw msg ambient sakura`
-(or `snow`, `fireflies`, `off`), `ambient next` goes through the kinds in turn and then none, and
-`ambient` alone (`toggle`) turns them off, or back on as they were last (sakura the first time);
-bound to a key, `mode` takes the same words. The command palette offers them as "Ambient: ...".
-What the action chose stands until a reload changes `appearance.ambient.kind`, as picking a
-profile with another kind does.
+(or `snow`, `fireflies`, `embers`, `rain`, `off`), `ambient next` goes through the kinds in turn
+and then none, and `ambient` alone (`toggle`) turns them off, or back on as they were last (sakura the
+first time); bound to a key, `mode` takes the same words. The command palette offers them as
+"Ambient: ...". What the action chose stands until a reload changes `appearance.ambient.kind`, as
+picking a profile with another kind does.
 
 They draw only where they show: a monitor's particles pause while the session is locked, while
 the monitor is off or shows a fullscreen window (so a game or a video keeps the monitor to
@@ -2216,6 +2220,7 @@ wallpaper they cost next to nothing.
 
 ```lua
 appearance = { ambient = { kind = "sakura", count = 40, speed = 1 } },
+-- appearance = { ambient = { kind = "rain", count = 150 } },
 bindings = {
     { mods = { "Super", "Ctrl" }, key = "a", action = "ambient", mode = "next" },
 },
@@ -2230,17 +2235,20 @@ in thousandths, the picture and its transform.
 **Cursor trail** (experimental). `appearance.cursor_trail = { kind = "sparkles" }` has little
 four-pointed sparkles and specks of glitter fall off the pointer as it moves, twinkling as they
 drift down a little and fade within a second; `"petals"` drops tiny sakura petals that tumble and
-sway as they fall, and `"hearts"` hearts that pop out and float up. The faster the pointer moves,
-the more fall (none while it rests), and `amount` says how many (2 twice as many, 0.5 half, up to
-4). The sparkles and hearts come in `colors`, a list of up to six `#RRGGBB`; unless given, the
-focused border's colours (each of a gradient's) and `shell.accent`, with a light blue or a sakura
-pink beside them when none of them is one, so washi's trail is its light blue and pink. The petals
-are the [ambient](#effects) petals' pinks. An [appearance profile](#appearance-profiles) can set it
+sway as they fall, `"hearts"` hearts that pop out and float up, and `"sparks"` flings sparks off
+it as a grinder or a chainsaw does: tiny bright streaks thrown back the way the pointer came,
+fanning out, falling in arcs and cooling from white-hot into their colour as they fade within
+two thirds of a second. The faster the pointer moves, the more fall (none while it rests), and
+`amount` says how many (2 twice as many, 0.5 half, up to 4). The sparkles, hearts and sparks come
+in `colors`, a list of up to six `#RRGGBB`; unless given, the focused border's colours (each of a
+gradient's) and `shell.accent`, with a light blue or a sakura pink beside them when none of them
+is one, so washi's trail is its light blue and pink. The petals are the [ambient](#effects)
+petals' pinks. An [appearance profile](#appearance-profiles) can set it
 (a [rice](#paw-rice) takes it along). The trail is drawn over the windows and the panels but under
 the cursor, and takes no input.
 
 The `cursor_trail` action switches it without touching the configuration: `paw msg cursor_trail
-sparkles` (or `petals`, `hearts`, `off`), `cursor_trail next` goes through the kinds in turn and
+sparkles` (or `petals`, `hearts`, `sparks`, `off`), `cursor_trail next` goes through the kinds in turn and
 then none, and `cursor_trail` alone (`toggle`) turns it off, or back on as it was last (sparkles
 the first time); bound to a key, `mode` takes the same words. The command palette offers it as
 "Cursor trail: ...". What the action chose stands until a reload changes
@@ -2257,6 +2265,7 @@ out. A screen recording or screen sharing shows it, as it shows the windows.
 ```lua
 appearance = { cursor_trail = { kind = "sparkles", amount = 1 } },
 -- appearance = { cursor_trail = { kind = "hearts", colors = { "#f2a0be", "#8fc1ec" } } },
+-- appearance = { cursor_trail = { kind = "sparks", colors = { "#ff7a33", "#ffb070" } } },
 bindings = {
     { mods = { "Super", "Ctrl" }, key = "s", action = "cursor_trail", mode = "next" },
 },

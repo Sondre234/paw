@@ -11,26 +11,37 @@
 /* The pictures. Sparkles: in each colour, four-pointed stars reaching STAR_REACH up and down from
  * their middle (and STAR_WIDE of that to each side), then a speck of glitter. Hearts: in each
  * colour, a heart HEART_UNIT across its lobes' middles (its full width 1.2 times that). Petals:
- * the ambient particles' smallest petal, drawn PETAL_SHRINK as large. */
+ * the ambient particles' smallest petal, drawn PETAL_SHRINK as large. Sparks: in each colour, a
+ * streak SPARK_LENGTH long from its tail to its head in each of SPARK_HEATS heats, each turned in
+ * SPARK_TURNS steps of a quarter turn, as many as a petal's so that sh_ambient_petal_turn picks
+ * them too. */
 enum { STARS = 3, SPARKLE_SHAPES = STARS + 1, HEART_SIZES = 2 };
+enum { SPARK_HEATS = 3, SPARK_TURNS = SH_AMBIENT_TURNS, SPARK_SHAPES = SPARK_HEATS * SPARK_TURNS };
 static const double STAR_REACH[STARS] = {11, 8.5, 6};
 static const double STAR_WIDE = 0.8;
 static const double SPECK_SIDE = 10;
 static const double HEART_UNIT[HEART_SIZES] = {13, 10};
 static const double PETAL_SHRINK = 1;
+/* A spark's streak at each heat (shorter as it cools), the radius of its head, and how far the
+ * glow about its head reaches. */
+static const double SPARK_LENGTH[SPARK_HEATS] = {20, 15, 11};
+static const double SPARK_HEAD = 1.1, SPARK_GLOW = 3.6;
+/* How white each heat is at the head, and how strongly it glows. */
+static const double SPARK_WHITE[SPARK_HEATS] = {0.95, 0.4, 0.08};
+static const double SPARK_SHINE[SPARK_HEATS] = {1, 0.75, 0.45};
 
 /* How far the pointer goes, at amount 1, for each particle that comes off it; at most this many
  * come off one motion, however far it went. */
-static const double SPACING[SH_TRAIL_KINDS] = {0, 13, 24, 32};
+static const double SPACING[SH_TRAIL_KINDS] = {0, 13, 24, 32, 6};
 enum { MOST_AT_ONCE = 24 };
 
 /* Pulled down (or, a heart, up) in pixels per millisecond squared, and slowed by the air:
- * velocities fall to 1/e over DRAG_MS. */
-static const double GRAVITY[SH_TRAIL_KINDS] = {0, 0.00012, 0.00012, -0.00003};
-static const double DRAG_MS = 450;
+ * velocities fall to 1/e over DRAG_MS. A spark, flung hard, falls in an arc. */
+static const double GRAVITY[SH_TRAIL_KINDS] = {0, 0.00012, 0.00012, -0.00003, 0.0011};
+static const double DRAG_MS[SH_TRAIL_KINDS] = {450, 450, 450, 450, 300};
 /* Fading in over this long, and out over the last share of a particle's life. */
-static const double FADE_IN_MS[SH_TRAIL_KINDS] = {0, 30, 60, 50};
-static const double FADE_OUT_FROM[SH_TRAIL_KINDS] = {0, 0.5, 0.55, 0.55};
+static const double FADE_IN_MS[SH_TRAIL_KINDS] = {0, 30, 60, 50, 16};
+static const double FADE_OUT_FROM[SH_TRAIL_KINDS] = {0, 0.5, 0.55, 0.55, 0.45};
 
 const char *sh_trail_kind_name(enum sh_trail_kind kind) {
     switch (kind) {
@@ -40,6 +51,8 @@ const char *sh_trail_kind_name(enum sh_trail_kind kind) {
         return "petals";
     case SH_TRAIL_HEARTS:
         return "hearts";
+    case SH_TRAIL_SPARKS:
+        return "sparks";
     default:
         return "none";
     }
@@ -57,6 +70,8 @@ int sh_trail_sprite_count(enum sh_trail_kind kind, int tints) {
         return sh_ambient_sprite_count(SH_AMBIENT_SAKURA);
     case SH_TRAIL_HEARTS:
         return clamp_tints(tints) * HEART_SIZES;
+    case SH_TRAIL_SPARKS:
+        return clamp_tints(tints) * SPARK_SHAPES;
     default:
         return 0;
     }
@@ -66,6 +81,7 @@ int sh_trail_family_count(enum sh_trail_kind kind, int tints) {
     switch (kind) {
     case SH_TRAIL_SPARKLES:
     case SH_TRAIL_HEARTS:
+    case SH_TRAIL_SPARKS:
         return clamp_tints(tints);
     case SH_TRAIL_PETALS:
         return SH_AMBIENT_PETAL_TINTS;
@@ -82,6 +98,8 @@ int sh_trail_family_size(enum sh_trail_kind kind) {
         return SH_AMBIENT_TURNS;
     case SH_TRAIL_HEARTS:
         return HEART_SIZES;
+    case SH_TRAIL_SPARKS:
+        return SPARK_SHAPES;
     default:
         return 0;
     }
@@ -120,6 +138,11 @@ double sh_trail_sprite_side(enum sh_trail_kind kind, int sprite) {
         return sprite >= SH_TRAIL_TINTS * HEART_SIZES
                    ? 0
                    : ceil(1.3 * HEART_UNIT[sprite % HEART_SIZES] + 3);
+    case SH_TRAIL_SPARKS:
+        // Turned any way about its middle, its head's glow and the smoothing with room.
+        return sprite >= SH_TRAIL_TINTS * SPARK_SHAPES
+                   ? 0
+                   : ceil(SPARK_LENGTH[sprite % SPARK_SHAPES / SPARK_TURNS] + 2 * SPARK_GLOW);
     default:
         return 0;
     }
@@ -253,6 +276,55 @@ static void paint_heart(const float tint[3], int size, uint32_t *pixels, int sid
     }
 }
 
+/* A spark: a streak from a thin tail to its head, faint toward its tail, whiter toward its head
+ * the hotter it is and the colour behind, with a small glow of the colour about its head; turned
+ * clockwise (y down) by its step, its head toward the right at the first; sampled four by four a
+ * pixel. */
+static void paint_spark(const float tint[3], int shape, uint32_t *pixels, int side) {
+    int heat = shape / SPARK_TURNS;
+    double length = SPARK_LENGTH[heat], shine = SPARK_SHINE[heat], hot = SPARK_WHITE[heat];
+    double logical = sh_trail_sprite_side(SH_TRAIL_SPARKS, shape), pixel = logical / side;
+    double turn = (shape % SPARK_TURNS) * (M_PI / 2) / SPARK_TURNS;
+    double c = cos(turn), s = sin(turn);
+    double head = length / 2 - SPARK_HEAD, tail = -length / 2;
+    // Cooling, the colour deepens.
+    double deep = 1 - 0.1 * heat;
+    enum { SAMPLES = 4 };
+    for (int row = 0; row < side; ++row) {
+        for (int column = 0; column < side; ++column) {
+            double rgb[3] = {0, 0, 0}, alpha = 0;
+            for (int sy = 0; sy < SAMPLES; ++sy) {
+                for (int sx = 0; sx < SAMPLES; ++sx) {
+                    double x = (column + (sx + 0.5) / SAMPLES) * pixel - logical / 2;
+                    double y = (row + (sy + 0.5) / SAMPLES) * pixel - logical / 2;
+                    double u = x * c + y * s, v = -x * s + y * c;
+                    double t = clamp01((u - tail) / (head - tail));
+                    double radius = mix(0.25, SPARK_HEAD, pow(t, 0.8));
+                    if (hypot(u - mix(tail, head, t), v) > radius)
+                        continue;
+                    double bright = 0.12 + 0.88 * pow(t, 1.6);
+                    double white = hot * pow(t, 2.5);
+                    for (int i = 0; i < 3; ++i)
+                        rgb[i] += bright * mix(deep * tint[i], 1, white);
+                    alpha += bright;
+                }
+            }
+            double cover = alpha / (SAMPLES * SAMPLES);
+            for (int i = 0; i < 3; ++i)
+                rgb[i] /= SAMPLES * SAMPLES;
+            // The glow about its head, under the streak, gone before the picture's edge.
+            double x = (column + 0.5) * pixel - logical / 2, y = (row + 0.5) * pixel - logical / 2;
+            double d = hypot(x * c + y * s - head, -x * s + y * c);
+            double glow = 0.4 * shine * exp(-pow(d / (0.45 * SPARK_GLOW), 2)) *
+                          (1 - smoothstep(0.75 * SPARK_GLOW, SPARK_GLOW, d));
+            for (int i = 0; i < 3; ++i)
+                rgb[i] += mix(deep * tint[i], 1, 0.3 * hot) * glow * (1 - cover);
+            alpha = cover + glow * (1 - cover);
+            pixels[row * side + column] = alpha > 0 ? pack(rgb[0], rgb[1], rgb[2], alpha) : 0;
+        }
+    }
+}
+
 void sh_trail_paint(enum sh_trail_kind kind, int sprite, const float (*colors)[3], int tints,
                     uint32_t *pixels, int side) {
     if (side < 1 || sprite < 0 || sprite >= sh_trail_sprite_count(kind, tints))
@@ -268,10 +340,14 @@ void sh_trail_paint(enum sh_trail_kind kind, int sprite, const float (*colors)[3
         break;
     }
     case SH_TRAIL_PETALS:
-        sh_ambient_paint(SH_AMBIENT_SAKURA, sprite, pixels, side);
+        sh_ambient_paint(SH_AMBIENT_SAKURA, sprite, pixels, side, side);
         break;
     case SH_TRAIL_HEARTS:
         paint_heart(colors ? colors[sprite / HEART_SIZES] : white, sprite % HEART_SIZES, pixels,
+                    side);
+        break;
+    case SH_TRAIL_SPARKS:
+        paint_spark(colors ? colors[sprite / SPARK_SHAPES] : white, sprite % SPARK_SHAPES, pixels,
                     side);
         break;
     default:
@@ -328,8 +404,9 @@ static void spawn(struct sh_trail *trail, double x, double y, double ux, double 
     struct sh_trail_particle *particle = place_for(trail);
     int family = sh_trail_family_at(trail, (int)(particle - trail->particles));
     *particle = (struct sh_trail_particle){.scale = 1};
-    // Off to the side of the way a little, left behind and spreading out.
-    double aside = uniform(seed, -9, 9);
+    // Off to the side of the way a little, left behind and spreading out; sparks come off where
+    // the pointer is.
+    double aside = uniform(seed, -9, 9) * (trail->kind == SH_TRAIL_SPARKS ? 0.25 : 1);
     particle->x = x - uy * aside;
     particle->y = y + ux * aside;
     double spread = uniform(seed, 0, 2 * M_PI), back = 0, out = 0, fall = 0;
@@ -375,6 +452,19 @@ static void spawn(struct sh_trail *trail, double x, double y, double ux, double 
         particle->life = uniform(seed, 700, 1000);
         break;
     }
+    case SH_TRAIL_SPARKS: {
+        // Flung back the way the pointer came, fast, in a fan more often near straight back than
+        // to its sides, kicked up a little, as off a grinder's wheel.
+        particle->sprite = sh_trail_family_first(trail->kind, family);
+        particle->scale = uniform(seed, 0.8, 1.15);
+        double fan = uniform(seed, -0.55, 0.55) + uniform(seed, -0.35, 0.35);
+        double speed = uniform(seed, 0.15, 0.5);
+        particle->vx = speed * (-ux * cos(fan) + uy * sin(fan));
+        particle->vy = speed * (-uy * cos(fan) - ux * sin(fan)) - uniform(seed, 0, 0.1);
+        particle->rate = 2 * M_PI / uniform(seed, 60, 140);
+        particle->life = uniform(seed, 420, 680);
+        return;
+    }
     default:
         break;
     }
@@ -408,10 +498,9 @@ int sh_trail_moved(struct sh_trail *trail, double x0, double y0, double x1, doub
 int sh_trail_step(struct sh_trail *trail, double dt) {
     if (!(dt > 0))
         return trail->count;
-    double slow = exp(-dt / DRAG_MS);
-    double gravity = trail->kind > SH_TRAIL_NONE && trail->kind < SH_TRAIL_KINDS
-                         ? GRAVITY[trail->kind]
-                         : 0;
+    bool known = trail->kind > SH_TRAIL_NONE && trail->kind < SH_TRAIL_KINDS;
+    double slow = exp(-dt / DRAG_MS[known ? trail->kind : SH_TRAIL_NONE]);
+    double gravity = known ? GRAVITY[trail->kind] : 0;
     int count = 0;
     for (int i = 0; i < SH_TRAIL_MAX; ++i) {
         struct sh_trail_particle *particle = &trail->particles[i];
@@ -488,6 +577,22 @@ void sh_trail_look(const struct sh_trail *trail, const struct sh_trail_particle 
         width = height = side * (0.3 + 0.7 * pop(particle->age / 220)) *
                          (1 - 0.25 * smoothstep(0.6, 1, t));
         break;
+    case SH_TRAIL_SPARKS: {
+        // White-hot as it comes off, then hot, then cooling into its colour; turned along the
+        // way it flies, its streak longer the faster it goes, and flickering a little.
+        int heat = t < 0.18 ? 0 : t < 0.45 ? 1 : 2, step;
+        double turn = atan2(particle->vy, particle->vx), speed = hypot(particle->vx, particle->vy);
+        sh_ambient_petal_turn(turn, &step, &look->quarters);
+        look->sprite = particle->sprite + heat * SPARK_TURNS + step;
+        double stretch = (0.5 + 0.5 * smoothstep(0, 0.3, speed)) * particle->scale;
+        width = height = sh_trail_sprite_side(kind, look->sprite) * stretch;
+        // Its head where the spark is, the streak behind it.
+        double behind = (SPARK_LENGTH[heat] / 2 - SPARK_HEAD) * stretch;
+        x -= behind * cos(turn);
+        y -= behind * sin(turn);
+        opacity = 0.85 + 0.15 * cos(particle->phase);
+        break;
+    }
     default:
         break;
     }

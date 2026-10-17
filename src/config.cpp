@@ -1912,9 +1912,10 @@ void read_cursor_trail(lua_State *L, sh_settings &settings) {
           {{"none", SH_TRAIL_NONE},
            {"sparkles", SH_TRAIL_SPARKLES},
            {"petals", SH_TRAIL_PETALS},
-           {"hearts", SH_TRAIL_HEARTS}},
-          "appearance.cursor_trail.kind must be \"none\", \"sparkles\", \"petals\" or "
-          "\"hearts\"",
+           {"hearts", SH_TRAIL_HEARTS},
+           {"sparks", SH_TRAIL_SPARKS}},
+          "appearance.cursor_trail.kind must be \"none\", \"sparkles\", \"petals\", "
+          "\"hearts\" or \"sparks\"",
           "kind");
     settings.cursor_trail_amount =
         static_cast<float>(number(L, "amount", settings.cursor_trail_amount, 0.25, 4));
@@ -2039,9 +2040,11 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
                   {{"none", SH_AMBIENT_NONE},
                    {"sakura", SH_AMBIENT_SAKURA},
                    {"snow", SH_AMBIENT_SNOW},
-                   {"fireflies", SH_AMBIENT_FIREFLIES}},
-                  "appearance.ambient.kind must be \"none\", \"sakura\", \"snow\" or "
-                  "\"fireflies\"",
+                   {"fireflies", SH_AMBIENT_FIREFLIES},
+                   {"embers", SH_AMBIENT_EMBERS},
+                   {"rain", SH_AMBIENT_RAIN}},
+                  "appearance.ambient.kind must be \"none\", \"sakura\", \"snow\", "
+                  "\"fireflies\", \"embers\" or \"rain\"",
                   "kind");
             settings.ambient_count = integer(L, "count", settings.ambient_count, 1, 150);
             settings.ambient_speed =
@@ -2673,7 +2676,9 @@ sh_cat_switch parse_cat_switch(const std::string &name) {
 
 static_assert(SH_AMBIENT_ON_SAKURA == SH_AMBIENT_OFF + int{SH_AMBIENT_SAKURA} &&
               SH_AMBIENT_ON_SNOW == SH_AMBIENT_OFF + int{SH_AMBIENT_SNOW} &&
-              SH_AMBIENT_ON_FIREFLIES == SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES});
+              SH_AMBIENT_ON_FIREFLIES == SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES} &&
+              SH_AMBIENT_ON_EMBERS == SH_AMBIENT_OFF + int{SH_AMBIENT_EMBERS} &&
+              SH_AMBIENT_ON_RAIN == SH_AMBIENT_OFF + int{SH_AMBIENT_RAIN});
 sh_ambient_choice parse_ambient_choice(const std::string &name) {
     for (auto [candidate, choice] :
          {std::pair{"toggle", SH_AMBIENT_TOGGLE},
@@ -2681,16 +2686,19 @@ sh_ambient_choice parse_ambient_choice(const std::string &name) {
           {"off", SH_AMBIENT_OFF},
           {"sakura", SH_AMBIENT_ON_SAKURA},
           {"snow", SH_AMBIENT_ON_SNOW},
-          {"fireflies", SH_AMBIENT_ON_FIREFLIES}})
+          {"fireflies", SH_AMBIENT_ON_FIREFLIES},
+          {"embers", SH_AMBIENT_ON_EMBERS},
+          {"rain", SH_AMBIENT_ON_RAIN}})
         if (name == candidate)
             return choice;
-    fail("ambient takes \"sakura\", \"snow\", \"fireflies\", \"off\", \"next\" or "
-         "\"toggle\"");
+    fail("ambient takes \"sakura\", \"snow\", \"fireflies\", \"embers\", \"rain\", "
+         "\"off\", \"next\" or \"toggle\"");
 }
 
 static_assert(SH_CURSOR_TRAIL_ON_SPARKLES == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKLES} &&
               SH_CURSOR_TRAIL_ON_PETALS == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_PETALS} &&
-              SH_CURSOR_TRAIL_ON_HEARTS == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_HEARTS});
+              SH_CURSOR_TRAIL_ON_HEARTS == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_HEARTS} &&
+              SH_CURSOR_TRAIL_ON_SPARKS == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKS});
 sh_cursor_trail_choice parse_cursor_trail_choice(const std::string &name) {
     for (auto [candidate, choice] :
          {std::pair{"toggle", SH_CURSOR_TRAIL_TOGGLE},
@@ -2698,11 +2706,12 @@ sh_cursor_trail_choice parse_cursor_trail_choice(const std::string &name) {
           {"off", SH_CURSOR_TRAIL_OFF},
           {"sparkles", SH_CURSOR_TRAIL_ON_SPARKLES},
           {"petals", SH_CURSOR_TRAIL_ON_PETALS},
-          {"hearts", SH_CURSOR_TRAIL_ON_HEARTS}})
+          {"hearts", SH_CURSOR_TRAIL_ON_HEARTS},
+          {"sparks", SH_CURSOR_TRAIL_ON_SPARKS}})
         if (name == candidate)
             return choice;
-    fail("cursor_trail takes \"sparkles\", \"petals\", \"hearts\", \"off\", \"next\" or "
-         "\"toggle\"");
+    fail("cursor_trail takes \"sparkles\", \"petals\", \"hearts\", \"sparks\", \"off\", "
+         "\"next\" or \"toggle\"");
 }
 
 sh_screenshot_mode parse_screenshot_mode(const std::string &name) {

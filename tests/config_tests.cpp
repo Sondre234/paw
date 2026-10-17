@@ -1516,8 +1516,15 @@ int main(int argc, char **argv) {
         auto profiled = paw::parse_config(
             "return {profile='cute', profiles={cute={appearance={cursor_trail={kind='petals'}}}}}");
         require(profiled.settings.cursor_trail == SH_TRAIL_PETALS, "a profile's cursor trail");
+        auto sparks = paw::parse_config(
+                          "return {appearance={cursor_trail={kind='sparks', colors={'#ff7a33'}}}}")
+                          .settings;
+        require(sparks.cursor_trail == SH_TRAIL_SPARKS && sparks.cursor_trail_tints == 1 &&
+                    rgb(sparks, 0) == 0xff7a33,
+                "sparks in ember orange");
         rejects("return {appearance={cursor_trail={kind='glitter'}}}",
-                "appearance.cursor_trail.kind must be");
+                "appearance.cursor_trail.kind must be \"none\", \"sparkles\", \"petals\", "
+                "\"hearts\" or \"sparks\"");
         rejects("return {appearance={cursor_trail={amount=9}}}", "amount");
         rejects("return {appearance={cursor_trail={colors={}}}}",
                 "appearance.cursor_trail.colors must be a list of 1 to 6");
@@ -1528,12 +1535,48 @@ int main(int argc, char **argv) {
                 "appearance.cursor_trail.colors must be a list of 1 to 6");
         auto binding = paw::parse_config(
             "return {bindings={{key='t', action='cursor_trail', mode='petals'},"
-            "{key='u', action='cursor_trail'}}}");
+            "{key='u', action='cursor_trail'}, {key='v', action='cursor_trail', mode='sparks'}}}");
         require(binding.binding(0, XKB_KEY_t)->mode == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_PETALS} &&
-                    binding.binding(0, XKB_KEY_u)->mode == SH_CURSOR_TRAIL_TOGGLE,
+                    binding.binding(0, XKB_KEY_u)->mode == SH_CURSOR_TRAIL_TOGGLE &&
+                    binding.binding(0, XKB_KEY_v)->mode ==
+                        SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKS},
                 "cursor_trail bindings' modes");
         rejects("return {bindings={{key='t', action='cursor_trail', mode='glitter'}}}",
-                "cursor_trail takes");
+                "cursor_trail takes \"sparkles\", \"petals\", \"hearts\", \"sparks\"");
+        // Ambient particles: none by default, each kind's own number at its own pace; a kind,
+        // a count and a speed as given, from a profile too; a binding's mode names a kind.
+        auto calm = paw::parse_config("return {}").settings;
+        require(calm.ambient == SH_AMBIENT_NONE && calm.ambient_count == 0 &&
+                    calm.ambient_speed == 1,
+                "ambient particles' defaults: none, each kind's own number, their own pace");
+        auto embers = paw::parse_config(
+                          "return {appearance={ambient={kind='embers', count=60, speed=0.5}}}")
+                          .settings;
+        require(embers.ambient == SH_AMBIENT_EMBERS && embers.ambient_count == 60 &&
+                    embers.ambient_speed == 0.5F,
+                "ambient embers as given");
+        auto rain = paw::parse_config("return {appearance={ambient={kind='rain', count=150}}}")
+                        .settings;
+        require(rain.ambient == SH_AMBIENT_RAIN && rain.ambient_count == 150, "ambient rain");
+        auto night = paw::parse_config(
+            "return {profile='night', profiles={night={appearance={ambient={kind='fireflies'}}}}}");
+        require(night.settings.ambient == SH_AMBIENT_FIREFLIES, "a profile's ambient particles");
+        rejects("return {appearance={ambient={kind='confetti'}}}",
+                "appearance.ambient.kind must be \"none\", \"sakura\", \"snow\", "
+                "\"fireflies\", \"embers\" or \"rain\"");
+        rejects("return {appearance={ambient={count=0}}}", "count");
+        rejects("return {appearance={ambient={speed=9}}}", "speed");
+        auto ambient = paw::parse_config(
+            "return {bindings={{key='a', action='ambient', mode='embers'},"
+            "{key='b', action='ambient', mode='next'}, {key='c', action='ambient'},"
+            "{key='d', action='ambient', mode='rain'}}}");
+        require(ambient.binding(0, XKB_KEY_a)->mode == SH_AMBIENT_OFF + int{SH_AMBIENT_EMBERS} &&
+                    ambient.binding(0, XKB_KEY_b)->mode == SH_AMBIENT_NEXT &&
+                    ambient.binding(0, XKB_KEY_c)->mode == SH_AMBIENT_TOGGLE &&
+                    ambient.binding(0, XKB_KEY_d)->mode == SH_AMBIENT_OFF + int{SH_AMBIENT_RAIN},
+                "ambient bindings' modes");
+        rejects("return {bindings={{key='a', action='ambient', mode='confetti'}}}",
+                "ambient takes \"sakura\", \"snow\", \"fireflies\", \"embers\"");
         std::cout << "Configuration validation and bindings passed\n";
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';

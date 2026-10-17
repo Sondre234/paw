@@ -659,6 +659,23 @@ shadows.
   and fullscreen windows. A profile can set it (washi, sumi and mochi suggest one each in a comment), and the
   `cursor_trail` action (`paw msg cursor_trail sparkles|petals|hearts|off|next|toggle`, and the
   command palette) switches it; `paw msg get cursor_trail` says what it draws.
+- Ambient embers: `appearance.ambient = { kind = "embers" }` has glowing embers rise from below
+  over the wallpaper, swaying and flickering as they go and cooling from hot amber through ember
+  orange to a dull red until they go out, the nearest larger, faster and softer, with a few grey
+  flakes of ash tumbling among them; their glow adds light, as the fireflies' does. Forty drift
+  on each monitor unless `count` says, and `paw msg ambient embers` (and the command palette)
+  brings them.
+- Ambient rain: `appearance.ambient = { kind = "rain" }` has rain fall fast over the wallpaper in
+  thin, faint streaks of pale grey, slanting a little, the nearest drops longer, brighter, faster
+  and a little softer and the far ones short and faint. A hundred and twenty fall on each monitor
+  unless `count` says, each drawn from a picture no wider than its streak, and `paw msg ambient
+  rain` (and the command palette) brings it.
+- Cursor trail sparks: `appearance.cursor_trail = { kind = "sparks" }` flings sparks off the
+  pointer as it moves, as off a grinder or a chainsaw: tiny bright streaks thrown back the way it
+  came with some spread, falling in arcs and cooling from white-hot into the trail's `colors` (by
+  default the focused border's and the accent, as the sparkles' and hearts' are) as they fade
+  within two thirds of a second. `paw msg cursor_trail sparks` (and the command palette) brings
+  them.
 
 ### Starting and ending a session
 
