@@ -1514,8 +1514,15 @@ int main(int argc, char **argv) {
         auto profiled = paw::parse_config(
             "return {profile='cute', profiles={cute={appearance={cursor_trail={kind='petals'}}}}}");
         require(profiled.settings.cursor_trail == SH_TRAIL_PETALS, "a profile's cursor trail");
+        auto sparks = paw::parse_config(
+                          "return {appearance={cursor_trail={kind='sparks', colors={'#ff7a33'}}}}")
+                          .settings;
+        require(sparks.cursor_trail == SH_TRAIL_SPARKS && sparks.cursor_trail_tints == 1 &&
+                    rgb(sparks, 0) == 0xff7a33,
+                "sparks in ember orange");
         rejects("return {appearance={cursor_trail={kind='glitter'}}}",
-                "appearance.cursor_trail.kind must be");
+                "appearance.cursor_trail.kind must be \"none\", \"sparkles\", \"petals\", "
+                "\"hearts\" or \"sparks\"");
         rejects("return {appearance={cursor_trail={amount=9}}}", "amount");
         rejects("return {appearance={cursor_trail={colors={}}}}",
                 "appearance.cursor_trail.colors must be a list of 1 to 6");
@@ -1526,12 +1533,14 @@ int main(int argc, char **argv) {
                 "appearance.cursor_trail.colors must be a list of 1 to 6");
         auto binding = paw::parse_config(
             "return {bindings={{key='t', action='cursor_trail', mode='petals'},"
-            "{key='u', action='cursor_trail'}}}");
+            "{key='u', action='cursor_trail'}, {key='v', action='cursor_trail', mode='sparks'}}}");
         require(binding.binding(0, XKB_KEY_t)->mode == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_PETALS} &&
-                    binding.binding(0, XKB_KEY_u)->mode == SH_CURSOR_TRAIL_TOGGLE,
+                    binding.binding(0, XKB_KEY_u)->mode == SH_CURSOR_TRAIL_TOGGLE &&
+                    binding.binding(0, XKB_KEY_v)->mode ==
+                        SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKS},
                 "cursor_trail bindings' modes");
         rejects("return {bindings={{key='t', action='cursor_trail', mode='glitter'}}}",
-                "cursor_trail takes");
+                "cursor_trail takes \"sparkles\", \"petals\", \"hearts\", \"sparks\"");
         // Ambient particles: none by default, each kind's own number at its own pace; a kind,
         // a count and a speed as given, from a profile too; a binding's mode names a kind.
         auto calm = paw::parse_config("return {}").settings;

@@ -134,6 +134,19 @@ class ShortcutsTest : public QObject {
                               "Ambient: embers rising over the wallpaper",
                               "Ambient: rain over the wallpaper", "Ambient: off"}));
     }
+    void cursorTrailTitles() {
+        // The cursor_trail action by its mode: a kind and off as the palette calls them.
+        const auto config = paw::parse_config(
+            "return { bindings = {"
+            " { mods = { 'Super' }, key = 'a', action = 'cursor_trail' },"
+            " { mods = { 'Super' }, key = 'b', action = 'cursor_trail', mode = 'next' },"
+            " { mods = { 'Super' }, key = 'c', action = 'cursor_trail', mode = 'hearts' },"
+            " { mods = { 'Super' }, key = 'd', action = 'cursor_trail', mode = 'sparks' },"
+            " { mods = { 'Super' }, key = 'e', action = 'cursor_trail', mode = 'off' } } }");
+        QCOMPARE(::titles(group(shortcuts::sheet(config, {}, false), "Toys")),
+                 QStringList({"Cursor trail, on or off", "Next cursor trail", "Cursor trail: hearts",
+                              "Cursor trail: sparks", "Cursor trail: off"}));
+    }
     void titles() {
         const auto sheet = shortcuts::sheet(config_, {}, false);
         // The palette's titles, "Group: next tab" without its prefix under its heading, and the

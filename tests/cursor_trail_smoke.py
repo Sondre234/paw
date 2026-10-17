@@ -3,8 +3,9 @@
 nothing; on, a moving pointer drops particles along its way, more the further it goes, and once it
 rests they fade away and nothing more is drawn for them; a jump drops none. A fullscreen window, the
 lock and a screenshot (`cursor hide`) take them away and let none fall meanwhile. The action goes
-through the kinds, turns the trail off and back on, from a binding too, and a profile's kind comes
-in as it is picked. With grim, the screen shows the sparkles behind the pointer."""
+through the kinds, turns the trail off and back on, from a binding too, sparks flung back off the
+pointer among them, and a profile's kind comes in as it is picked. With grim, the screen shows
+the sparkles behind the pointer, and the sparks."""
 from pathlib import Path
 import sys
 
@@ -180,6 +181,27 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     wait_for(lambda: trail()["kind"] == "hearts", "the binding brings hearts")
     stroke(100, 900)
     wait_for(lambda: count() > 5, "hearts float")
+
+    # Sparks next: flung back the way the pointer came, behind it, and turned the way they fly.
+    keys(F3)
+    wait_for(lambda: trail()["kind"] == "sparks", "the binding brings sparks")
+    wait_for(lambda: count() == 0, "the hearts gone")
+    stroke(200, 900, pause=2)
+    wait_for(lambda: count() > 10, "sparks fly")
+    drawn = particles()
+    assert drawn, trail()
+    for x, y, width, height, opacity, picture, transform in drawn:
+        assert 0 < x < 950 and 200 < y < 700, (x, y)
+        assert 1 <= width <= 36 and 1 <= height <= 36 and 0 < opacity <= 1000, (width, height)
+    # Flung back to the left, falling or not yet: most are turned a quarter turn or two, to point
+    # down to the left or up to the left.
+    assert sum(transform in (1, 2) for *_, transform in drawn) > len(drawn) * 3 / 4, drawn
+    if grim:
+        stroke(900, 300, step=10, pause=4)
+        shot = harness.grab(grim, desktop.env)
+        lit = sum(1 for px in range(250, 1000) for py in range(260, 560)
+                  if sum(shot.at(px, py)) > 200)
+        assert lit > 30, lit
     msg("cursor_trail", "off")
     wait_for(lambda: trail()["state"] == "off", "off")
 
