@@ -125,10 +125,12 @@ class ShortcutsTest : public QObject {
             " { mods = { 'Super' }, key = 'a', action = 'ambient' },"
             " { mods = { 'Super' }, key = 'b', action = 'ambient', mode = 'next' },"
             " { mods = { 'Super' }, key = 'c', action = 'ambient', mode = 'snow' },"
-            " { mods = { 'Super' }, key = 'd', action = 'ambient', mode = 'off' } } }");
+            " { mods = { 'Super' }, key = 'd', action = 'ambient', mode = 'embers' },"
+            " { mods = { 'Super' }, key = 'e', action = 'ambient', mode = 'off' } } }");
         QCOMPARE(::titles(group(shortcuts::sheet(config, {}, false), "Toys")),
                  QStringList({"Ambient particles, on or off", "Next ambient particles",
-                              "Ambient: soft snow over the wallpaper", "Ambient: off"}));
+                              "Ambient: soft snow over the wallpaper",
+                              "Ambient: embers rising over the wallpaper", "Ambient: off"}));
     }
     void titles() {
         const auto sheet = shortcuts::sheet(config_, {}, false);

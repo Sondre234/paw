@@ -2,11 +2,12 @@
 """Ambient particles (appearance.ambient, the ambient action): turned on, sakura petals drift over
 the output, inside it and about its edges; a fullscreen window pauses them, the output drawing no
 frames for them meanwhile, and so does the lock; the action goes through the kinds, turns them off
-(which takes them away) and back on, from a binding too; a profile setting another kind brings it
-in, a reload leaves the action's choice unless the kind configured changes, and a new count
-adds or takes particles away; without input for a while (PAW_TEST_AMBIENT_IDLE_MS) they fade out,
-and input brings them back. Turned on behind a fullscreen window they spread over the output as
-it shows, and a second monitor has particles of its own. With grim, the screen shows petals."""
+(which takes them away) and back on, from a binding too, embers rising among them; a profile
+setting another kind brings it in, a reload leaves the action's choice unless the kind configured
+changes, and a new count adds or takes particles away; without input for a while
+(PAW_TEST_AMBIENT_IDLE_MS) they fade out, and input brings them back. Turned on behind a fullscreen
+window they spread over the output as it shows, and a second monitor has particles of its own.
+With grim, the screen shows petals, and embers glowing orange."""
 from pathlib import Path
 import subprocess
 import sys
@@ -102,6 +103,29 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     keys = desktop.keyboard()
     keys(F3)
     wait_for(lambda: sky()["kind"] == "fireflies", "the binding brings fireflies")
+
+    # Next, embers: drawn about the output, below its bottom too as they come in, and rising.
+    keys(F3)
+    wait_for(lambda: sky()["kind"] == "embers" and sky()["state"] == "shown", "embers")
+    wait_for(lambda: len(particles()) == 12 and sum(p[4] for p in particles()) > 12 * 400,
+             "every ember drawn, faded in")
+    for x, y, width, height, opacity, picture, transform in particles():
+        assert -80 < x < WIDTH + 80 and -80 < y < HEIGHT + 150, (x, y)
+        assert 3 <= width <= 60 and 3 <= height <= 60 and 0 <= transform <= 3, (width, height)
+
+    def middles():
+        return [y + height / 2 for x, y, width, height, *_ in particles()]
+
+    low = middles()
+    wait_for(lambda: (lambda now: len(now) == len(low) and
+                      sum(b < a - 4 for a, b in zip(low, now)) >= 8)(middles()),
+             "the embers rise")
+    if grim:
+        # Orange over the blue-grey background, which has none.
+        shot = harness.grab(grim, desktop.env)
+        orange = sum(1 for px in range(0, WIDTH, 2) for py in range(0, HEIGHT, 2)
+                     if (lambda r, g, b: r > 120 and r > g + 10 and r > b + 40)(*shot.at(px, py)))
+        assert orange > 10, orange
     msg("ambient", "off")
     wait_for(lambda: sky()["state"] == "off", "off")
 
