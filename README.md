@@ -75,9 +75,10 @@ by day and by night.</sub>
   the defaults instead of copying them, and switches between appearance profiles.
 - **Rices to start from:** [washi and sumi](rices/washi), paper and ink by day and by night,
   with the bar and menus framed as the windows are and printed shadows, and
-  [mochi](rices/mochi), Catppuccin Mocha under frosted glass with a soft cream cat; each with
-  themes for kitty, fastfetch, Firefox, Discord, Claude Code, Neovim and Helix that one script
-  puts in place.
+  [mochi](rices/mochi), Catppuccin Mocha under frosted glass with a soft cream cat, and
+  [hibana](rices/hibana), ink-grey glass over grey storms with ember orange burning through and
+  a little devil cat; each with themes for kitty, fastfetch, Firefox, Discord, Claude Code, Neovim
+  and Helix that one script puts in place.
   `paw import` carries over an existing Hyprland/Waybar setup, and
   [`paw rice`](docs/features.md#paw-rice) packs a look into one file to share and tries one on
   for 15 seconds before you keep it. A [colour picker](docs/features.md#colour-picker) with a

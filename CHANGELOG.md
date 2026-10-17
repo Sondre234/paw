@@ -59,6 +59,15 @@ shadows.
   background of their own, so the glass shows through) and GTK 4 / libadwaita, which its
   `install.sh` puts in place; `--fonts` adds Nunito and M PLUS Rounded 1c, `--icons` a mauve Tela
   under mochi's own icons, and `--cursor` Catppuccin's cursors.
+- A third rice ships with paw: the profile `hibana` (火花, sparks), ink-grey glass over grey
+  storms and cities in the rain, paper-white text, ember orange burning through it and a little
+  blood red, the focused border running from ember into blood, and a black devil cat with ember
+  eyes on the start button. `rices/hibana` holds seven wallpapers, `Hibana`, an icon theme of
+  horned folders and applications in ash and ember, and themes for kitty, fastfetch, Firefox (a
+  start page with rain falling, embers rising and a cat that throws sparks when patted), Discord,
+  Claude Code and cdeck, Neovim, Helix and GTK 4 / libadwaita, which its `install.sh` puts in
+  place; `--fonts` adds Barlow, Dela Gothic One and JetBrains Mono, `--icons` an ash and ember
+  Tela under hibana's own icons, and `--cursor` Bibata Modern Classic.
 - `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
   the accent colour, named as `shell.wallpaper` is.
 - `shell.wallpaper_mode` says how the wallpaper covers each monitor: `"fill"` (cropped, as

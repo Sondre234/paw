@@ -1,0 +1,126 @@
+<!doctype html>
+<!--
+  hibana start page: paw's hibana rice for Firefox. The rice's wallpaper behind dark glass, with
+  rain slanting down over it and a few embers drifting up: a clock, the date and a line of
+  Japanese, a search card that asks DuckDuckGo (or opens an address) with the black devil cat
+  lying on it, and eight glass link cards. Pat the cat, or click the night, and sparks fly.
+  No network requests and no build step: open it as a file.
+  Keys: "/" focuses search, 1-8 open the cards, Esc leaves the search box, Shift shows the numbers.
+  Edit the links below; the greeting's name and the search engine are at the top of app.js.
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>new tab</title>
+  <link rel="icon" href="hibana.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="defs" aria-hidden="true" focusable="false">
+    <defs>
+      <!-- a spark: four sharp points on curved sides, between the weekday and the date -->
+      <symbol id="spark" viewBox="0 0 24 24">
+        <path d="M12 0.5Q13 11 23.5 12Q13 13 12 23.5Q11 13 0.5 12Q11 11 12 0.5Z"/>
+      </symbol>
+      <!-- one paw print: four toe beans and a pad, for paw's own card -->
+      <symbol id="print" viewBox="44 49 168 168">
+        <ellipse cx="70" cy="110" rx="18.8" ry="22.8" transform="rotate(-28 70 110)"/>
+        <ellipse cx="106" cy="80" rx="20.1" ry="24.1" transform="rotate(-10 106 80)"/>
+        <ellipse cx="150" cy="80" rx="20.1" ry="24.1" transform="rotate(10 150 80)"/>
+        <ellipse cx="186" cy="110" rx="18.8" ry="22.8" transform="rotate(28 186 110)"/>
+        <path d="M128 128C153 128 175 151 176 176C177 195 170 207 160 207C152 207 149 200 144 200C139 200 138 210 128 210C118 210 117 200 112 200C107 200 104 207 96 207C86 207 79 195 80 176C81 151 103 128 128 128Z"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- the weather: rain and drifting embers over the wallpaper, behind the glass (app.js) -->
+  <canvas class="weather" id="weather" aria-hidden="true"></canvas>
+
+  <header class="masthead">
+    <a class="mark" href="https://github.com/Sondre234/paw" title="paw">
+      <img class="mark-face" src="hibana.svg" alt="">
+      <span class="mark-kanji" lang="ja">火花</span>
+      <span class="mark-name">hibana</span>
+      <span class="mark-sub">for paw</span>
+    </a>
+    <p class="almanac glass" id="almanac"></p>
+  </header>
+
+  <main class="sheet">
+    <p class="greeting" id="greeting">hello.</p>
+    <h1 class="clock" id="clock" aria-live="off"><span id="hours">00</span><span class="colon">:</span><span id="minutes">00</span></h1>
+    <p class="date" id="date"></p>
+    <p class="wa" id="wa" lang="ja"></p>
+
+    <form class="search glass" id="search" action="https://duckduckgo.com/" method="get" role="search" autocomplete="off">
+      <!-- the cat lies on the search card, its tail over the front; pat it -->
+      <button class="mascot" id="mascot" type="button" title="pat the cat" aria-label="pat the cat">
+        <img id="mascot-picture" src="mascot.png" alt="" draggable="false">
+        <span class="eyes" aria-hidden="true"></span>
+        <span class="mascot-hit" aria-hidden="true"></span>
+        <span class="purr glass" id="purr" aria-hidden="true"></span>
+      </button>
+      <svg class="search-spark" aria-hidden="true"><use href="#spark"/></svg>
+      <input id="q" name="q" type="text" placeholder="search the web, or type an address"
+             aria-label="Search DuckDuckGo" spellcheck="false" autofocus>
+      <kbd class="search-key" aria-hidden="true">/</kbd>
+      <button class="search-go" type="submit">search</button>
+    </form>
+
+    <nav class="cards" id="cards" aria-label="Links">
+      <a class="card glass" href="https://github.com/" style="--accent: var(--text)">
+        <span class="chip">gh</span>
+        <span class="card-text"><span class="card-name">GitHub</span><span class="card-url">github.com</span></span>
+        <kbd>1</kbd>
+      </a>
+      <a class="card glass" href="https://www.reddit.com/r/unixporn/" style="--accent: var(--ember)">
+        <span class="chip">r/</span>
+        <span class="card-text"><span class="card-name">r/unixporn</span><span class="card-url">reddit.com</span></span>
+        <kbd>2</kbd>
+      </a>
+      <a class="card glass" href="https://wiki.archlinux.org/" style="--accent: var(--rain)">
+        <span class="chip">aw</span>
+        <span class="card-text"><span class="card-name">Arch Wiki</span><span class="card-url">archlinux.org</span></span>
+        <kbd>3</kbd>
+      </a>
+      <a class="card glass" href="https://github.com/Sondre234/paw/tree/main/docs" style="--accent: var(--flare)">
+        <span class="chip"><svg aria-hidden="true"><use href="#print"/></svg></span>
+        <span class="card-text"><span class="card-name">paw docs</span><span class="card-url">github.com/…/paw</span></span>
+        <kbd>4</kbd>
+      </a>
+      <a class="card glass" href="https://www.youtube.com/" style="--accent: var(--scarlet)">
+        <span class="chip">yt</span>
+        <span class="card-text"><span class="card-name">YouTube</span><span class="card-url">youtube.com</span></span>
+        <kbd>5</kbd>
+      </a>
+      <a class="card glass" href="https://mail.google.com/" style="--accent: var(--steel)">
+        <span class="chip">@</span>
+        <span class="card-text"><span class="card-name">Mail</span><span class="card-url">mail.google.com</span></span>
+        <kbd>6</kbd>
+      </a>
+      <a class="card glass" href="https://news.ycombinator.com/" style="--accent: var(--brass)">
+        <span class="chip">hn</span>
+        <span class="card-text"><span class="card-name">Hacker News</span><span class="card-url">ycombinator.com</span></span>
+        <kbd>7</kbd>
+      </a>
+      <a class="card glass" href="https://jisho.org/" style="--accent: var(--sage)">
+        <span class="chip">ji</span>
+        <span class="card-text"><span class="card-name">jisho</span><span class="card-url">jisho.org</span></span>
+        <kbd>8</kbd>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="colophon">
+    <img src="hibana.svg" alt="">
+    <span><span lang="ja">火花</span> · sparks on ash</span>
+  </footer>
+
+  <!-- the sparks a pat throws, in front of everything (app.js) -->
+  <canvas class="sparks" id="sparks" aria-hidden="true"></canvas>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,230 @@
+# hibana (火花) for Helix: sparks on ash. Paper-white text on a grey storm, ember orange for the
+# keywords, the cursor and whatever has focus, a little blood red. The editor paints no background
+# of its own, so kitty's translucency (and paw's blur behind it) shows through the text. hibana's
+# palette is its own; the theme follows the structure of paw's mochi theme and is paw's,
+# GPL-3.0-or-later.
+# Copy it to ~/.config/helix/themes/ and set `theme = "hibana"` in config.toml. In a terminal
+# without translucency the page is the terminal's own background: set it to hibana's base, #161518.
+#
+# The large backgrounds it does paint are these six, and hibana's kitty theme lists every one of
+# them in transparent_background_colors, so they stay glass too instead of turning into slabs:
+#   #111013  mantle: popups, menus, pickers, the status line and the buffer line
+#   #232126  the cursor line and the ruler, a shade above surface0
+#   #2A272E  surface1: the menu's scrollbar track and snippet tabstops
+#   #36323A  surface2: the selected menu or picker row, the current buffer, matching brackets and
+#            highlighted lines
+#   #3D2B26  the primary selection, a smoky ember wash under text that keeps its colours
+#   #2D2220  the other selections, a fainter wash
+# Everything else it paints is a small solid mark: the cursors, the mode badge in the status line
+# and the washes of colour behind inline diagnostics.
+#
+# hibana's style: keywords in ember, functions in paper white and bold, types in brass, strings in
+# steel, numbers and constants in flare, builtins in cinder, parameters in mauve, variables in
+# subtext, operators and punctuation in overlay, comments in overlay italic; the cursor and the
+# focus in ember, links and info in rain.
+
+# Syntax ---------------------------------------------------------------------------------------
+"attribute" = "brass"
+
+"type" = "brass"
+"type.builtin" = { fg = "brass", modifiers = ["italic"] }
+"type.parameter" = { fg = "brass", modifiers = ["italic"] }
+"type.enum.variant" = "flare"
+"constructor" = "brass"
+
+"constant" = "flare"
+"constant.builtin" = "flare"
+"constant.character" = "steel"
+"constant.character.escape" = "flare"
+"constant.numeric" = "flare"
+
+"string" = "steel"
+"string.regexp" = "sage"
+"string.special" = "flare"
+"string.special.path" = { fg = "steel", underline = { style = "line" } }
+"string.special.url" = { fg = "rain", underline = { style = "line" } }
+"string.special.symbol" = "flare"
+
+"comment" = { fg = "overlay1", modifiers = ["italic"] }
+"comment.unused" = { fg = "overlay0", modifiers = ["italic"] }
+
+"variable" = "subtext1"
+"variable.builtin" = "cinder"
+"variable.parameter" = "mauve"
+"variable.other.member" = "text"
+
+"label" = "mauve"
+
+"punctuation" = "overlay2"
+"punctuation.delimiter" = "overlay2"
+"punctuation.bracket" = "overlay2"
+"punctuation.special" = "flare"
+
+"keyword" = "ember"
+"keyword.control" = "ember"
+"keyword.control.import" = "ember"
+"keyword.control.exception" = "ember"
+"keyword.operator" = "ember"
+"keyword.directive" = "cinder"
+"keyword.function" = "ember"
+"keyword.storage" = "ember"
+"keyword.storage.modifier" = "ember"
+
+"operator" = "overlay2"
+
+"function" = { fg = "text", modifiers = ["bold"] }
+"function.builtin" = { fg = "cinder", modifiers = ["bold"] }
+"function.method" = { fg = "text", modifiers = ["bold"] }
+"function.macro" = "cinder"
+"function.special" = "cinder"
+
+"tag" = "ember"
+"tag.builtin" = "ember"
+
+"namespace" = { fg = "rain", modifiers = ["italic"] }
+"special" = "ember"
+"embedded" = "text"
+
+"markup.heading" = { fg = "ember", modifiers = ["bold"] }
+"markup.heading.marker" = "overlay1"
+"markup.heading.1" = { fg = "ember", modifiers = ["bold"] }
+"markup.heading.2" = { fg = "flare", modifiers = ["bold"] }
+"markup.heading.3" = { fg = "brass", modifiers = ["bold"] }
+"markup.heading.4" = { fg = "sage", modifiers = ["bold"] }
+"markup.heading.5" = { fg = "steel", modifiers = ["bold"] }
+"markup.heading.6" = { fg = "rain", modifiers = ["bold"] }
+"markup.list" = "ember"
+"markup.list.checked" = "sage"
+"markup.list.unchecked" = "overlay1"
+"markup.bold" = { fg = "flare", modifiers = ["bold"] }
+"markup.italic" = { modifiers = ["italic"] }
+"markup.strikethrough" = { fg = "overlay2", modifiers = ["crossed_out"] }
+"markup.link.url" = { fg = "rain", modifiers = ["italic"], underline = { style = "line" } }
+"markup.link.label" = "rain"
+"markup.link.text" = "rain"
+"markup.quote" = { fg = "subtext0", modifiers = ["italic"] }
+"markup.raw" = "steel"
+"markup.raw.block" = "subtext1"
+
+"diff.plus" = "sage"
+"diff.minus" = "scarlet"
+"diff.delta" = "brass"
+"diff.delta.moved" = "rain"
+"diff.delta.conflict" = "ember"
+
+# Interface ------------------------------------------------------------------------------------
+# No background: the glass is the page.
+"ui.background" = { fg = "text" }
+"ui.background.separator" = "surface2"
+"ui.text" = "text"
+"ui.text.focus" = { fg = "text", bg = "surface2", modifiers = ["bold"] }
+"ui.text.inactive" = "overlay1"
+"ui.text.info" = "text"
+"ui.text.directory" = "rain"
+"ui.text.symlink" = "steel"
+
+"ui.cursor" = { fg = "crust", bg = "blood" }
+"ui.cursor.primary" = { fg = "crust", bg = "ember" }
+"ui.cursor.primary.insert" = { fg = "crust", bg = "sage" }
+"ui.cursor.primary.select" = { fg = "crust", bg = "rain" }
+"ui.cursor.match" = { fg = "flare", bg = "surface2", modifiers = ["bold"] }
+"ui.cursorline.primary" = { bg = "line" }
+"ui.cursorcolumn.primary" = { bg = "line" }
+
+"ui.gutter" = {}
+"ui.gutter.selected" = { bg = "line" }
+"ui.linenr" = "overlay0"
+"ui.linenr.selected" = { fg = "ember", modifiers = ["bold"] }
+
+"ui.statusline" = { fg = "subtext1", bg = "mantle" }
+"ui.statusline.inactive" = { fg = "overlay1", bg = "mantle" }
+"ui.statusline.normal" = { fg = "crust", bg = "ember", modifiers = ["bold"] }
+"ui.statusline.insert" = { fg = "crust", bg = "sage", modifiers = ["bold"] }
+"ui.statusline.select" = { fg = "crust", bg = "rain", modifiers = ["bold"] }
+"ui.statusline.separator" = "overlay0"
+
+"ui.bufferline" = { fg = "overlay1", bg = "mantle" }
+"ui.bufferline.active" = { fg = "ember", bg = "surface2", modifiers = ["bold"] }
+"ui.bufferline.background" = {}
+
+"ui.popup" = { fg = "text", bg = "mantle" }
+"ui.popup.info" = { fg = "text", bg = "mantle" }
+"ui.help" = { fg = "subtext1", bg = "mantle" }
+"ui.window" = "surface2"
+"ui.picker.header" = { bg = "mantle" }
+"ui.picker.header.column" = "overlay1"
+"ui.picker.header.column.active" = { fg = "ember", modifiers = ["bold"] }
+
+"ui.menu" = { fg = "subtext0", bg = "mantle" }
+"ui.menu.selected" = { fg = "text", bg = "surface2", modifiers = ["bold"] }
+"ui.menu.scroll" = { fg = "overlay0", bg = "surface1" }
+
+"ui.selection" = { bg = "sel2" }
+"ui.selection.primary" = { bg = "sel" }
+"ui.highlight" = { bg = "surface2", modifiers = ["bold"] }
+"ui.highlight.frameline" = { bg = "scarlet_bg" }
+
+"ui.virtual" = "ash"
+"ui.virtual.ruler" = { bg = "line" }
+"ui.virtual.whitespace" = "surface2"
+"ui.virtual.indent-guide" = "surface1"
+"ui.virtual.inlay-hint" = { fg = "ash", modifiers = ["italic"] }
+"ui.virtual.wrap" = "overlay0"
+"ui.virtual.jump-label" = { fg = "flare", modifiers = ["bold"], underline = { style = "line" } }
+
+"ui.debug.breakpoint" = "scarlet"
+"ui.debug.active" = "brass"
+
+"tabstop" = { bg = "surface1" }
+
+"error" = "scarlet"
+"warning" = "brass"
+"info" = "rain"
+"hint" = "overlay2"
+"error.diagnostic.inline" = { fg = "scarlet", bg = "scarlet_bg" }
+"warning.diagnostic.inline" = { fg = "brass", bg = "brass_bg" }
+"info.diagnostic.inline" = { fg = "rain", bg = "rain_bg" }
+"hint.diagnostic.inline" = { fg = "overlay2", bg = "hint_bg" }
+"diagnostic.error" = { underline = { color = "scarlet", style = "curl" } }
+"diagnostic.warning" = { underline = { color = "brass", style = "curl" } }
+"diagnostic.info" = { underline = { color = "rain", style = "curl" } }
+"diagnostic.hint" = { underline = { color = "overlay2", style = "curl" } }
+"diagnostic.unnecessary" = { modifiers = ["dim"] }
+"diagnostic.deprecated" = { modifiers = ["crossed_out"] }
+
+rainbow = ["ember", "brass", "steel", "mauve", "sage", "rain"]
+
+[palette]
+# The grounds, ink to paper, with a faint cool mauve tint
+crust = "#0B0A0D"
+mantle = "#111013"
+base = "#161518"
+surface0 = "#1F1D22"
+surface1 = "#2A272E"
+surface2 = "#36323A"
+overlay0 = "#4B4650"
+overlay1 = "#6E6A72"
+overlay2 = "#8F8A94"
+subtext0 = "#A8A3AB"
+subtext1 = "#C6C1C6"
+text = "#E2DDD9"
+# the accents
+ember = "#FF7A33"       # the accent: keywords, the cursor, focus
+flare = "#FFB070"       # the white-hot core of a spark: numbers and constants
+blood = "#C8443C"       # the deep red, for the other cursors
+scarlet = "#E5594D"     # the readable red: errors and deletions
+cinder = "#E0705C"      # builtins and special variables, between the two reds and ember
+brass = "#DCB36E"       # types and warnings
+sage = "#A3B58F"        # additions, regular expressions
+steel = "#8FB0B4"       # strings
+rain = "#9FB3CC"        # links, info, namespaces
+mauve = "#B39AAE"       # parameters and labels
+# blends of them
+ash = "#605C64"         # inlay hints: between overlay0 and overlay1, fainter than comments
+line = "#232126"        # the cursor line: a shade above surface0, so it still reads on glass
+sel = "#3D2B26"         # the primary selection: a smoky ember wash, as in kitty
+sel2 = "#2D2220"        # the other selections: sel at 60% over base
+scarlet_bg = "#2B1C1D"  # washes of colour behind inline diagnostics, 10% over base
+brass_bg = "#2A2521"
+rain_bg = "#24252A"
+hint_bg = "#222124"

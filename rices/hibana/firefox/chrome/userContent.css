@@ -1,0 +1,570 @@
+/* hibana (火花) for Firefox: the pages Firefox draws itself, in ink and ember.
+ *
+ * about:newtab and about:home are made to look like the hibana start page (startpage/): a rainy
+ * night over the ink base, the storm's mauve grey in the sky, faint rain slanting down and a
+ * city's fires glowing low with a few embers in the air; the cat's head, 火花 set large and
+ * heated at the foot, "hibana" spaced out under it, a glass search box and the eight shortcuts
+ * (pinned by user.js) as panes of glass that light up ember. With
+ * browser.tabs.allow_transparent_browser on (see user.js) the page is clear instead, and the
+ * window's own glass shows through it. about:blank is ink instead of a white flash, and
+ * about:preferences, about:addons and Firefox's other settings pages take the palette through
+ * their design tokens. Every colour is a --hibana-* token in the palette block; it is scoped to
+ * these pages so no website ever sees the tokens.
+ * Needs toolkit.legacyUserProfileCustomizations.stylesheets (see user.js) and a restart.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* ================================================================ palette */
+
+@-moz-document url("about:home"), url("about:newtab"), url("about:blank"), url("about:privatebrowsing"),
+  url-prefix("about:preferences"), url-prefix("about:settings"), url-prefix("about:addons"),
+  url-prefix("about:config"), url-prefix("about:support"), url-prefix("about:profiles"),
+  url-prefix("about:downloads"), url-prefix("about:logins"), url-prefix("about:protections"),
+  url-prefix("about:firefoxview"), url-prefix("about:welcome"), url-prefix("about:sessionrestore") {
+  :root {
+    --hibana-crust: #0b0a0d;
+    --hibana-mantle: #111013;
+    --hibana-base: #161518;
+    --hibana-surface0: #1f1d22;
+    --hibana-surface1: #2a272e;
+    --hibana-surface2: #36323a;
+    --hibana-overlay0: #4b4650;
+    --hibana-overlay1: #6e6a72;
+    --hibana-overlay2: #8f8a94;
+    --hibana-subtext0: #a8a3ab;
+    --hibana-subtext1: #c6c1c6;
+    --hibana-text: #e2ddd9;
+    --hibana-ember: #ff7a33;
+    --hibana-flare: #ffb070;
+    --hibana-blood: #c8443c;
+    --hibana-scarlet: #e5594d;
+    --hibana-brass: #dcb36e;
+    --hibana-sage: #a3b58f;
+    --hibana-steel: #8fb0b4;
+    --hibana-rain: #9fb3cc;
+    --hibana-mauve: #b39aae;
+
+    --hibana-ink: var(--hibana-text);
+    --hibana-muted: var(--hibana-subtext0);
+    --hibana-accent: var(--hibana-ember);
+    --hibana-accent-hover: var(--hibana-flare);
+    --hibana-on-accent: var(--hibana-crust);
+    --hibana-link: var(--hibana-rain);
+    --hibana-selection: #3d2b26;
+    --hibana-raised: color-mix(in srgb, var(--hibana-text) 7%, transparent);
+    --hibana-pressed: color-mix(in srgb, var(--hibana-text) 13%, transparent);
+    --hibana-edge: color-mix(in srgb, var(--hibana-text) 10%, transparent);
+    --hibana-glass: rgb(31 29 34 / 0.55);
+    --hibana-glass-hover: rgb(42 39 46 / 0.66);
+    --hibana-blur: blur(16px) saturate(130%);
+    --hibana-top: inset 0 1px 0 rgb(226 221 217 / 0.07);
+    --hibana-glow: 0 0 0 1px var(--hibana-ember), 0 0 12px rgb(255 122 51 / 0.3);
+    --hibana-shadow: var(--hibana-top), 0 12px 32px rgb(11 10 13 / 0.55);
+    --hibana-radius: 8px;
+    --hibana-radius-small: 6px;
+    --hibana-radius-chip: 4px;
+    --hibana-font: "Barlow", "Inter", system-ui, sans-serif;
+    --hibana-display: "Dela Gothic One", "Barlow", sans-serif;
+    --hibana-mono: "JetBrains Mono", ui-monospace, monospace;
+    /* a rainy night over the ink: a city burning low (ember, a touch of blood), the storm's
+       mauve and grey up in the sky, a few embers in the air, and fine rain slanting down at
+       -75deg, fading as it nears the fires */
+    --hibana-night: radial-gradient(70% 42% at 50% 108%, rgb(255 122 51 / 0.13), transparent 70%),
+      radial-gradient(38% 30% at 12% 104%, rgb(200 68 60 / 0.1), transparent 70%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520'%3E%3Ccircle cx='254' cy='473' r='1.2' fill='%23ff7a33' opacity='0.25'/%3E%3Ccircle cx='188' cy='167' r='0.6' fill='%23ffb070' opacity='0.45'/%3E%3Ccircle cx='399' cy='412' r='0.6' fill='%23ffb070' opacity='0.6'/%3E%3Ccircle cx='443' cy='452' r='1.5' fill='%23c8443c' opacity='0.6'/%3E%3Ccircle cx='304' cy='182' r='1.0' fill='%23c8443c' opacity='0.25'/%3E%3Ccircle cx='257' cy='511' r='0.6' fill='%23c8443c' opacity='0.45'/%3E%3Ccircle cx='238' cy='76' r='1.5' fill='%23ff7a33' opacity='0.35'/%3E%3Ccircle cx='233' cy='111' r='1.0' fill='%23ff7a33' opacity='0.35'/%3E%3Ccircle cx='82' cy='212' r='1.2' fill='%23c8443c' opacity='0.45'/%3E%3Ccircle cx='62' cy='41' r='1.2' fill='%23ffb070' opacity='0.25'/%3E%3Ccircle cx='337' cy='295' r='0.6' fill='%23ff7a33' opacity='0.25'/%3E%3Ccircle cx='208' cy='173' r='1.5' fill='%23ffb070' opacity='0.6'/%3E%3Ccircle cx='211' cy='482' r='0.6' fill='%23ff7a33' opacity='0.25'/%3E%3Ccircle cx='72' cy='250' r='1.0' fill='%23c8443c' opacity='0.35'/%3E%3C/svg%3E"),
+      radial-gradient(70% 55% at 26% -6%, rgb(179 154 174 / 0.1), transparent 70%),
+      radial-gradient(55% 48% at 88% 0%, rgb(143 138 148 / 0.09), transparent 70%),
+      linear-gradient(transparent 30%, rgb(22 21 24 / 0.9) 92%),
+      repeating-linear-gradient(-75deg, rgb(255 255 255 / 0.03) 0 1px, transparent 1px 11px);
+    --hibana-face: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'%3E%3Cdefs%3E%3ClinearGradient id='horn' gradientUnits='userSpaceOnUse' x1='0' y1='4' x2='0' y2='20'%3E%3Cstop offset='0' stop-color='%23ffb070'/%3E%3Cstop offset='.3' stop-color='%23ff7a33'/%3E%3Cstop offset='.7' stop-color='%236e6a72'/%3E%3Cstop offset='1' stop-color='%234b4650'/%3E%3C/linearGradient%3E%3CradialGradient id='eye' cx='.5' cy='.55' r='.6'%3E%3Cstop offset='0' stop-color='%23ffd2a3'/%3E%3Cstop offset='.45' stop-color='%23ffb070'/%3E%3Cstop offset='1' stop-color='%23ff7a33'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d='M6 36 C6 31 8 27 10 24 L9 11 Q9 6 13 9 L24 18 Q32 16 40 18 L51 9 Q55 6 55 11 L54 24 C56 27 58 31 58 36 C59 49 48 56 32 56 C16 56 5 49 6 36 Z' fill='%23141316' stroke='%23d6d1d4' stroke-width='3.5' stroke-linejoin='round'/%3E%3Cpath d='M13.5 14 L14 23 L20.5 19.5 Z M50.5 14 L50 23 L43.5 19.5 Z' fill='%233a2a27'/%3E%3Cpath d='M21.5 20.5 C18.5 15 18 9.5 19.5 4.5 C22.5 9 25.5 13 29.5 18.5 Z M42.5 20.5 C45.5 15 46 9.5 44.5 4.5 C41.5 9 38.5 13 34.5 18.5 Z' fill='url(%23horn)' stroke='%23141316' stroke-width='1.5' stroke-linejoin='round'/%3E%3Cg stroke='%23141316' stroke-width='1.2'%3E%3Cpath d='M12.5 34.5 Q21 31 29.5 33.5 Q28.5 42.5 21 42.5 Q13.5 42.5 12.5 34.5 Z M51.5 34.5 Q43 31 34.5 33.5 Q35.5 42.5 43 42.5 Q50.5 42.5 51.5 34.5 Z' fill='url(%23eye)'/%3E%3Ccircle cx='21' cy='37' r='3.8' fill='none'/%3E%3Ccircle cx='43' cy='37' r='3.8' fill='none'/%3E%3C/g%3E%3Cellipse cx='21' cy='37' rx='1.3' ry='2.2' fill='%23141316'/%3E%3Cellipse cx='43' cy='37' rx='1.3' ry='2.2' fill='%23141316'/%3E%3Cpath d='M27.5 46.5 Q29.75 49 32 46.5 Q34.25 49 36.5 46.5' fill='none' stroke='%23d6d1d4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M33.6 47.6 L36.2 47.4 L35.1 51 Z' fill='%23e2ddd9'/%3E%3C/svg%3E");
+  }
+}
+
+/* ================================================================ about:blank */
+
+/* ink, not a white flash; only an empty page, so about:blank frames inside sites keep their
+   own background */
+@-moz-document url("about:blank") {
+  :root:has(> body:empty) {
+    background-color: var(--hibana-base);
+    color: var(--hibana-ink);
+  }
+}
+
+/* ================================================================ about:newtab, about:home */
+
+@-moz-document url("about:home"), url("about:newtab") {
+  :root,
+  body,
+  body.activity-stream {
+    --newtab-background-color: var(--hibana-base) !important;
+    --newtab-background-color-secondary: var(--hibana-surface0) !important;
+    --newtab-background-card: var(--hibana-surface0) !important;
+    --newtab-text-primary-color: var(--hibana-ink) !important;
+    --newtab-text-secondary-color: var(--hibana-muted) !important;
+    --newtab-contextual-text-primary-color: var(--hibana-ink) !important;
+    --newtab-contextual-text-secondary-color: var(--hibana-ink) !important;
+    --newtab-primary-action-background: var(--hibana-accent) !important;
+    --newtab-primary-element-text-color: var(--hibana-on-accent) !important;
+    --newtab-element-hover-color: var(--hibana-raised) !important;
+    --newtab-element-active-color: var(--hibana-pressed) !important;
+    --newtab-button-background: var(--hibana-raised) !important;
+    --newtab-button-hover-background: var(--hibana-raised) !important;
+    --newtab-button-active-background: var(--hibana-pressed) !important;
+    --newtab-button-focus-background: var(--hibana-raised) !important;
+    --newtab-button-text: var(--hibana-ink) !important;
+    --newtab-wordmark-color: var(--hibana-ink) !important;
+    --newtab-section-card-box-shadow-color: transparent !important;
+    --newtab-wallpaper-color: var(--hibana-base) !important;
+    --background-color-canvas: var(--hibana-base) !important;
+    --background-color-box: var(--hibana-surface0) !important;
+    --text-color: var(--hibana-ink) !important;
+    --text-color-deemphasized: var(--hibana-muted) !important;
+    --color-accent-primary: var(--hibana-accent) !important;
+    --button-text-color-hover: var(--hibana-ink) !important;
+    --focus-outline-color: var(--hibana-accent) !important;
+    --border-color-card: var(--hibana-edge) !important;
+    color-scheme: dark;
+  }
+
+  :root {
+    scrollbar-color: var(--hibana-overlay0) transparent !important;
+  }
+
+  body,
+  body.activity-stream {
+    background-color: var(--hibana-base) !important;
+    background-image: var(--hibana-night) !important;
+    background-attachment: fixed !important;
+    color: var(--hibana-ink) !important;
+    font-family: var(--hibana-font) !important;
+  }
+
+  /* with a transparent browser (user.js), the window's glass is the page */
+  @media -moz-pref("browser.tabs.allow_transparent_browser") {
+    :root,
+    body,
+    body.activity-stream {
+      --newtab-background-color: transparent !important;
+      --newtab-wallpaper-color: transparent !important;
+      --background-color-canvas: transparent !important;
+      background: transparent !important;
+    }
+  }
+
+  /* Firefox's logo and wordmark give way to the start page's masthead: the cat's head, 火花
+     set large in the heavy manga-title Japanese, white-hot at the top and glowing ember at the
+     foot, and "hibana" spaced out small beneath a short burning rule */
+  .logo-and-wordmark-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    height: auto !important;
+    margin: 0 auto 10px !important;
+    padding: 0 !important;
+  }
+
+  .logo-and-wordmark-wrapper::before {
+    content: "";
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+    background: var(--hibana-face) center / contain no-repeat;
+    filter: drop-shadow(0 0 14px rgb(255 122 51 / 0.28));
+  }
+
+  .logo-and-wordmark-wrapper::after {
+    content: "火花";
+    order: 1;
+    white-space: nowrap;
+    padding: 0 0.04em 0.06em;
+    font: 400 104px/1.05 var(--hibana-display);
+    letter-spacing: 0.04em;
+    background: linear-gradient(180deg, var(--hibana-text) 38%, var(--hibana-flare) 72%, var(--hibana-ember) 92%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 22px rgb(255 122 51 / 0.22));
+  }
+
+  /* Firefox's own logo goes; its box carries the rule and "hibana" under 火花 */
+  .logo-and-wordmark {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 12px;
+    order: 2;
+    width: auto !important;
+    height: auto !important;
+    margin: 14px 0 0 !important;
+  }
+
+  .logo-and-wordmark > * {
+    display: none !important;
+  }
+
+  .logo-and-wordmark::before {
+    content: "";
+    width: 56px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--hibana-ember), var(--hibana-blood));
+    box-shadow: 0 0 10px rgb(255 122 51 / 0.45);
+  }
+
+  .logo-and-wordmark::after {
+    content: "hibana";
+    white-space: nowrap;
+    /* the spacing trails the last letter too; as much padding on the left keeps it centred */
+    padding-inline-start: 0.62em;
+    font: 500 15px/1 var(--hibana-font);
+    letter-spacing: 0.62em;
+    color: var(--hibana-subtext0);
+  }
+
+  .wallpaper-attribution {
+    display: none !important;
+  }
+
+  /* the customise button in the corner: a small glass pane */
+  .personalize-button,
+  .open-customization-button {
+    --button-background-color: var(--hibana-glass) !important;
+    --button-background-color-hover: var(--hibana-glass-hover) !important;
+    --button-background-color-active: var(--hibana-surface1) !important;
+    --button-border-color: var(--hibana-edge) !important;
+    --button-text-color: var(--hibana-ink) !important;
+    --icon-color: var(--hibana-ink) !important;
+  }
+
+  /* the search box: a pane of glass; its button lives in a shadow tree, so it is styled
+     through the variables it reads */
+  content-search-handoff-ui {
+    --content-search-handoff-ui-background-color: var(--hibana-glass) !important;
+    --content-search-handoff-ui-color: var(--hibana-ink) !important;
+    --content-search-handoff-ui-fill: var(--hibana-subtext1) !important;
+    --content-search-handoff-ui-caret-color: var(--hibana-ember) !important;
+    --content-search-handoff-ui-border-width: 1px !important;
+    --content-search-handoff-ui-border-radius: var(--hibana-radius) !important;
+    --content-search-handoff-ui-unfocused-border-color: var(--hibana-edge) !important;
+    --content-search-handoff-ui-fakefocus-border-color: var(--hibana-accent) !important;
+    --content-search-handoff-ui-fakefocus-box-shadow-inner: transparent !important;
+    --content-search-handoff-ui-fakefocus-box-shadow-outer: rgb(255 122 51 / 0.3) !important;
+    --box-shadow-level-3: var(--hibana-shadow) !important;
+    font-family: var(--hibana-font) !important;
+  }
+
+  /* (user sheets do reach into shadow trees: the button would take the system font) */
+  .search-handoff-button,
+  .search-handoff-button .fake-textbox {
+    font-family: var(--hibana-font) !important;
+    font-weight: 500 !important;
+  }
+
+  .search-handoff-button {
+    backdrop-filter: var(--hibana-blur) !important;
+    box-shadow: var(--hibana-top) !important;
+  }
+
+  .search-wrapper .search-inner-wrapper {
+    min-height: 56px !important;
+    max-width: 680px !important;
+    margin-inline: auto !important;
+  }
+
+  /* the shortcuts: the start page's glass panes, four to a row */
+  .top-sites-list {
+    grid-template-columns: repeat(4, 200px) !important;
+    gap: 16px !important;
+    margin: 8px 0 0 !important;
+  }
+
+  .top-site-outer,
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover, :focus-within, :has(.top-site-inner:hover)) {
+    width: auto !important;
+    margin: 0 !important;
+    background: none !important;
+  }
+
+  /* each one's colour for its chip: ember, rain, steel, brass, round and round */
+  .top-site-outer { --hibana-chip: var(--hibana-ember); }
+  .top-site-outer:nth-child(4n+2) { --hibana-chip: var(--hibana-rain); }
+  .top-site-outer:nth-child(4n+3) { --hibana-chip: var(--hibana-steel); }
+  .top-site-outer:nth-child(4n+4) { --hibana-chip: var(--hibana-brass); }
+
+  .top-site-outer .top-site-inner > a {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    height: auto !important;
+    gap: 13px !important;
+    padding: 12px 14px !important;
+    background-color: var(--hibana-glass) !important;
+    backdrop-filter: var(--hibana-blur) !important;
+    border: 1px solid var(--hibana-edge) !important;
+    border-radius: var(--hibana-radius) !important;
+    box-shadow: var(--hibana-top), 0 6px 20px rgb(11 10 13 / 0.3) !important;
+    transition: translate 0.15s ease-out, box-shadow 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
+  }
+
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover) .top-site-inner > a {
+    translate: 0 -2px;
+    background-color: var(--hibana-glass-hover) !important;
+    border-color: color-mix(in srgb, var(--hibana-chip) 50%, transparent) !important;
+    box-shadow: var(--hibana-top), 0 12px 28px rgb(11 10 13 / 0.4), 0 0 18px color-mix(in srgb, var(--hibana-chip) 16%, transparent) !important;
+  }
+
+  /* with the keyboard: the ember glow */
+  .top-sites-list:not(.dnd-active) .top-site-outer:focus-within .top-site-inner > a {
+    translate: 0 -2px;
+    background-color: var(--hibana-glass-hover) !important;
+    border-color: transparent !important;
+    box-shadow: var(--hibana-glow), 0 12px 28px rgb(11 10 13 / 0.4) !important;
+    outline: none !important;
+  }
+
+  .top-site-outer .tile,
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover, :focus-within) .tile {
+    flex: none !important;
+    width: 38px !important;
+    height: 38px !important;
+    margin: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: var(--hibana-radius-small) !important;
+  }
+
+  /* a site's letter, or its icon, on a square chip; the letter's chip is tinted in its colour
+     and fills with it under the pointer */
+  .top-site-outer .tile .icon-wrapper {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: var(--hibana-radius-small) !important;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out, box-shadow 0.15s ease-out;
+  }
+
+  .top-site-outer .tile .icon-wrapper.letter-fallback {
+    background-color: color-mix(in srgb, var(--hibana-chip) 16%, var(--hibana-surface0)) !important;
+    color: var(--hibana-chip) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hibana-chip) 38%, transparent);
+  }
+
+  .top-site-outer:is(:hover, :focus-within) .tile .icon-wrapper.letter-fallback {
+    background-color: var(--hibana-chip) !important;
+    color: var(--hibana-on-accent) !important;
+    box-shadow: 0 0 14px color-mix(in srgb, var(--hibana-chip) 40%, transparent);
+  }
+
+  .top-site-outer .tile .icon-wrapper.letter-fallback::before {
+    font: 700 17px/1 var(--hibana-font) !important;
+    text-transform: lowercase;
+  }
+
+  @media (max-width: 960px) {
+    .top-sites-list {
+      grid-template-columns: repeat(2, 200px) !important;
+    }
+
+    .logo-and-wordmark-wrapper::after {
+      font-size: 80px;
+    }
+  }
+
+  .top-site-outer .title {
+    flex: 1;
+    width: auto !important;
+    min-width: 0;
+    padding: 0 !important;
+    text-align: start !important;
+  }
+
+  .top-site-outer .title,
+  .top-site-outer .title span {
+    min-height: 0 !important;
+    color: var(--hibana-ink) !important;
+    font: 600 16px/1.2 var(--hibana-font) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    -webkit-line-clamp: none !important;
+  }
+
+  .top-site-outer .title-label {
+    width: auto !important;
+    max-width: 100% !important;
+  }
+
+  .top-site-outer .icon-pin-small,
+  .top-site-outer .sponsored-label {
+    display: none !important;
+  }
+
+  .top-site-outer .context-menu-button {
+    inset-block-start: 6px !important;
+    inset-inline-end: 6px !important;
+    border-radius: var(--hibana-radius-chip) !important;
+  }
+
+  /* the little menus on shortcuts */
+  .context-menu {
+    background-color: var(--hibana-base) !important;
+    color: var(--hibana-ink) !important;
+    border: 1px solid var(--hibana-edge) !important;
+    border-radius: var(--hibana-radius) !important;
+    box-shadow: var(--hibana-shadow) !important;
+  }
+
+  .context-menu > ul > li > :is(a, button) {
+    border-radius: var(--hibana-radius-chip) !important;
+  }
+
+  .context-menu > ul > li > :is(a, button):is(:hover, :focus) {
+    background-color: var(--hibana-selection) !important;
+    color: var(--hibana-ink) !important;
+    box-shadow: inset 2px 0 0 var(--hibana-accent);
+  }
+
+  /* the edit/add shortcut form */
+  .topsite-form .form-wrapper,
+  .modalOverlayInner {
+    background-color: var(--hibana-base) !important;
+    border: 1px solid var(--hibana-edge) !important;
+    border-radius: var(--hibana-radius) !important;
+    box-shadow: var(--hibana-shadow) !important;
+  }
+
+  ::selection {
+    background-color: var(--hibana-selection);
+    color: var(--hibana-ink);
+  }
+}
+
+/* ================================================================ settings and the like */
+
+@-moz-document url("about:privatebrowsing"),
+  url-prefix("about:preferences"), url-prefix("about:settings"), url-prefix("about:addons"),
+  url-prefix("about:config"), url-prefix("about:support"), url-prefix("about:profiles"),
+  url-prefix("about:downloads"), url-prefix("about:logins"), url-prefix("about:protections"),
+  url-prefix("about:firefoxview"), url-prefix("about:welcome"), url-prefix("about:sessionrestore") {
+  :root {
+    color-scheme: dark;
+    --background-color-canvas: var(--hibana-base) !important;
+    --background-color-box: var(--hibana-mantle) !important;
+    --text-color: var(--hibana-ink) !important;
+    --text-color-deemphasized: var(--hibana-muted) !important;
+    --border-color: var(--hibana-surface1) !important;
+    --border-color-card: var(--hibana-surface0) !important;
+    --border-color-interactive: var(--hibana-surface2) !important;
+    --card-border-color: var(--hibana-surface0) !important;
+    --card-background-color: var(--hibana-mantle) !important;
+    --color-accent-primary: var(--hibana-accent) !important;
+    --color-accent-primary-hover: var(--hibana-accent-hover) !important;
+    --color-accent-primary-active: var(--hibana-blood) !important;
+    --color-accent-primary-selected: var(--hibana-accent) !important;
+    --button-text-color-primary: var(--hibana-on-accent) !important;
+    --button-background-color: var(--hibana-surface0) !important;
+    --button-background-color-hover: var(--hibana-surface1) !important;
+    --button-background-color-active: var(--hibana-surface2) !important;
+    --button-text-color: var(--hibana-ink) !important;
+    --button-border-color: transparent !important;
+    --button-border-radius: var(--hibana-radius-small) !important;
+    --input-background-color: var(--hibana-surface0) !important;
+    --input-border-color: var(--hibana-surface1) !important;
+    --link-color: var(--hibana-link) !important;
+    --link-color-hover: var(--hibana-text) !important;
+    --link-color-active: var(--hibana-ember) !important;
+    --focus-outline-color: var(--hibana-accent) !important;
+    --icon-color: var(--hibana-subtext1) !important;
+    --table-row-background-color: var(--hibana-mantle) !important;
+    --table-row-background-color-alternate: var(--hibana-base) !important;
+    --in-content-page-background: var(--hibana-base) !important;
+    --in-content-page-color: var(--hibana-ink) !important;
+    --in-content-box-background: var(--hibana-mantle) !important;
+    --in-content-box-border-color: var(--hibana-surface0) !important;
+    --in-content-item-selected: var(--hibana-accent) !important;
+    --in-content-item-selected-text: var(--hibana-on-accent) !important;
+    --in-content-item-hover: var(--hibana-raised) !important;
+    --in-content-accent-color: var(--hibana-accent) !important;
+    --font-family: var(--hibana-font);
+    /* notices (message bars): ink tinted with what they mean, and their icons in that colour */
+    --background-color-information: color-mix(in srgb, var(--hibana-rain) 10%, var(--hibana-mantle)) !important;
+    --background-color-warning: color-mix(in srgb, var(--hibana-brass) 10%, var(--hibana-mantle)) !important;
+    --background-color-critical: color-mix(in srgb, var(--hibana-scarlet) 10%, var(--hibana-mantle)) !important;
+    --background-color-success: color-mix(in srgb, var(--hibana-sage) 10%, var(--hibana-mantle)) !important;
+    --icon-color-information: var(--hibana-rain) !important;
+    --icon-color-warning: var(--hibana-brass) !important;
+    --icon-color-critical: var(--hibana-scarlet) !important;
+    --icon-color-success: var(--hibana-sage) !important;
+  }
+
+  :root,
+  body {
+    background-color: var(--hibana-base) !important;
+    color: var(--hibana-ink) !important;
+    font-family: var(--hibana-font) !important;
+  }
+
+  /* scrollbars: a thumb of ash on the ink (inherited, so the side list's too) */
+  :root {
+    scrollbar-color: var(--hibana-overlay0) transparent !important;
+  }
+
+  ::selection {
+    background-color: var(--hibana-selection);
+    color: var(--hibana-ink);
+  }
+
+  /* headings in Barlow, semi-bold and a little spaced, the way the start page labels things */
+  h1,
+  .header-name,
+  .main-heading {
+    font-family: var(--hibana-font) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.01em;
+  }
+
+  /* the selected category in the settings' side list: ember text beside a thin ember strip */
+  .category[selected],
+  .category:is([selected], .selected),
+  #categories > .category[selected] {
+    color: var(--hibana-accent) !important;
+    box-shadow: inset 2px 0 0 var(--hibana-accent);
+  }
+
+  /* cards (add-ons, settings groups): mantle with a faint edge, lit along the top */
+  .card,
+  moz-card,
+  addon-card .card {
+    background-color: var(--hibana-mantle) !important;
+    border: 1px solid var(--hibana-surface0) !important;
+    border-radius: var(--hibana-radius) !important;
+    box-shadow: var(--hibana-top) !important;
+  }
+
+  /* text inputs */
+  input:is([type="text"], [type="search"], [type="url"], [type="email"], [type="password"], [type="number"], :not([type])),
+  textarea,
+  select,
+  menulist {
+    background-color: var(--hibana-surface0) !important;
+    color: var(--hibana-ink) !important;
+    border: 1px solid var(--hibana-surface1) !important;
+    border-radius: var(--hibana-radius-small) !important;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible {
+    border-color: transparent !important;
+    box-shadow: var(--hibana-glow) !important;
+  }
+
+  /* primary buttons: ember, with crust text */
+  button.primary,
+  .primary:is(button, moz-button),
+  button[default],
+  #searchbutton {
+    background-color: var(--hibana-accent) !important;
+    color: var(--hibana-on-accent) !important;
+    border: none !important;
+  }
+}

@@ -203,6 +203,47 @@ return {
                 -- wallpaper_cycle = { interval = 30 },
             },
         },
+        -- hibana (火花): sparks on ash. Ink-grey glass over grey storms and cities in the rain,
+        -- paper-white text, ember orange burning through it and a little blood red, with a black
+        -- devil cat on the start button. Its wallpapers, start button and Hibana icons sit in
+        -- rices/hibana, with themes for kitty, fastfetch, Firefox, Discord, Claude Code, editors
+        -- and GTK that its install.sh puts in place. It names Barlow (install.sh --fonts);
+        -- without it the default sans-serif stands in.
+        hibana = {
+            appearance = {
+                background = "#161518", color_scheme = "dark",
+                -- Its icons while it is in use, once rices/hibana/install.sh --icons has put them
+                -- in ~/.local/share/icons (skipped until then):
+                -- icon_theme = "Hibana",
+            },
+            windows = {
+                border_width = 2, corner_radius = 10, round = "always",
+                border_color = { "#ff7a33", "#c8443c", angle = 135 },
+                border_inactive_color = "#36323a",
+                shadow = { enabled = true, color = "#0b0a0dd9", inactive_color = "#0b0a0d80",
+                           blur = 36, offset = { 0, 12 } },
+                -- The storm frosted behind see-through windows, darker so the text on them stays
+                -- clear, with a film grain over it.
+                blur = { enabled = true, radius = 32, noise = 0.03, brightness = 0.8,
+                         saturation = 1.1 },
+                dim_inactive = 0.08,
+                urgent_color = "#e5594d",
+                magnet = { guide_color = "#ff7a33cc" },
+                snap = { color = "#ff7a3340" },
+            },
+            shell = {
+                accent = "#ff7a33", panel_color = "#161518b3", text_color = "#e2ddd9",
+                font = "Barlow", font_size = 14,
+                panel_height = 42, panel_position = "top", panel_radius = 10,
+                panel_margin = { top = 10, left = 16, right = 16 },
+                blur = { enabled = true, radius = 44, brightness = 0.8, saturation = 1.1 },
+                wallpaper = "rices/hibana/wallpaper/hibana.jpg",
+                start_icon = "rices/hibana/start/hibana.svg",
+                -- desktop_clock = { enabled = true, position = "left", greeting = "ja" },
+                -- Experimental: its seven storms in turn, a new one every half hour:
+                -- wallpaper_cycle = { interval = 30 },
+            },
+        },
     },
     -- Experimental: washi by day and sumi by night, switched at sunrise and sunset (night_light's
     -- times or latitude and longitude, even with night light off, unless sunrise and sunset are
