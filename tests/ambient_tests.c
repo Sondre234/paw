@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* Ambient particles' arithmetic and pictures: particles stay in and about their area however
  * long they drift, petals and flakes fall and come in again at the top, fireflies wander and
- * glow, what is drawn stays in bounds, and every picture paints something, its corners clear. */
+ * glow, embers rise, cool and go out and come in again at the bottom, what is drawn stays in
+ * bounds, and every picture paints something, its corners clear. */
 #include "paw/ambient.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +21,8 @@ static void test_names(void) {
     CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_SAKURA), "sakura"));
     CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_SNOW), "snow"));
     CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_FIREFLIES), "fireflies"));
+    CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_EMBERS), "embers"));
+    CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_KINDS), "none"));
     CHECK(sh_ambient_sprite_count(SH_AMBIENT_NONE) == 0);
     CHECK(sh_ambient_default_count(SH_AMBIENT_NONE) == 0);
     for (int kind = SH_AMBIENT_SAKURA; kind < SH_AMBIENT_KINDS; ++kind)
@@ -60,6 +63,15 @@ static void drift(enum sh_ambient_kind kind, double minutes) {
             if (kind == SH_AMBIENT_FIREFLIES) {
                 CHECK(p->x >= 0 && p->x <= WIDTH && p->y >= 0 && p->y <= HEIGHT,
                       "a firefly stays inside: %g %g", p->x, p->y);
+            } else if (kind == SH_AMBIENT_EMBERS) {
+                double margin = largest + 60;
+                CHECK(p->x >= -margin && p->x <= WIDTH + margin, "embers x %g at %g", p->x, t);
+                CHECK(p->y >= -margin && p->y <= HEIGHT + margin + 0.1 * HEIGHT, "embers y %g",
+                      p->y);
+                if (p->y > before[i] + 1)
+                    ++respawned; // back below the bottom
+                else
+                    CHECK(p->y <= before[i], "rises, never falls: %g to %g", before[i], p->y);
             } else {
                 double margin = largest + 60;
                 CHECK(p->x >= -margin && p->x <= WIDTH + margin, "%s x %g at %g",
@@ -96,6 +108,11 @@ static void drift(enum sh_ambient_kind kind, double minutes) {
     CHECK(highest_opacity > 0.6, "%s: they show: %g", name, highest_opacity);
     if (kind == SH_AMBIENT_FIREFLIES) {
         CHECK(fainter > 0 && brighter > 0, "fireflies glow and dim: %d %d", fainter, brighter);
+    } else if (kind == SH_AMBIENT_EMBERS) {
+        // Each goes out, or rises out of the top, and comes in again from below; some glow
+        // bright while others are going out.
+        CHECK(respawned >= COUNT, "embers come in again at the bottom: %d", respawned);
+        CHECK(fainter > 0 && brighter > 0, "embers glow and go out: %d %d", fainter, brighter);
     } else {
         // Each falls the height of the area in well under a few minutes and comes in again.
         CHECK(respawned >= COUNT, "%s: they fall through and come in at the top: %d", name,
@@ -109,6 +126,51 @@ static void test_motion(void) {
     drift(SH_AMBIENT_SAKURA, 10);
     drift(SH_AMBIENT_SNOW, 10);
     drift(SH_AMBIENT_FIREFLIES, 10);
+    drift(SH_AMBIENT_EMBERS, 10);
+}
+
+/* An ember comes in below the bottom at its hottest, rises a third of the area or more as it
+ * cools through its heats, never warming again, and has gone out by the time it comes in again;
+ * a flake of ash among them keeps its picture. */
+static void test_embers(void) {
+    struct sh_ambient_field field = {.kind = SH_AMBIENT_EMBERS, .width = WIDTH,
+                                     .height = HEIGHT, .seed = 3};
+    int sprites = sh_ambient_sprite_count(SH_AMBIENT_EMBERS), embers = 0, ashes = 0;
+    for (int n = 0; n < 40; ++n) {
+        struct sh_ambient_particle p;
+        sh_ambient_spawn(&field, &p, false);
+        CHECK(p.y > HEIGHT, "comes in below the bottom: %g", p.y);
+        struct sh_ambient_look look;
+        sh_ambient_look(&field, &p, &look);
+        // The last four pictures are ash (paw/ambient.h).
+        bool ash = p.sprite >= sprites - 4;
+        ashes += ash;
+        embers += !ash;
+        CHECK(look.sprite == p.sprite && look.opacity > 0.3, "hot as it comes in: %d %g",
+              look.sprite, look.opacity);
+        double start = p.y, opacity = look.opacity;
+        int first = p.sprite, coolest = look.sprite;
+        bool back = false;
+        for (int k = 0; k < 200000 && !back; ++k) {
+            struct sh_ambient_particle was = p;
+            sh_ambient_step(&field, &p, 1, TICK);
+            if (p.y > was.y + 1) {
+                back = true;
+                CHECK(opacity < 0.02, "gone out before it comes in again: %g", opacity);
+                CHECK(start - was.y > 0.3 * HEIGHT, "rose %g", start - was.y);
+                break;
+            }
+            sh_ambient_look(&field, &p, &look);
+            CHECK(look.sprite >= coolest && (!ash || look.sprite == p.sprite),
+                  "cools, never warming: %d after %d", look.sprite, coolest);
+            coolest = look.sprite;
+            opacity = look.opacity;
+        }
+        CHECK(back, "comes in again");
+        if (!ash)
+            CHECK(coolest == first + 5, "through its six heats: %d from %d", coolest, first);
+    }
+    CHECK(embers > 25 && ashes > 1, "embers among ash: %d, %d", embers, ashes);
 }
 
 /* The same seed, the same snowfall; a step of nothing changes nothing. */
@@ -209,6 +271,28 @@ static void test_paint(void) {
     for (int i = 0; i < 24 * 24; ++i)
         glow += (pixels[i] >> 16 & 0xff) > (pixels[i] >> 24) + 10;
     CHECK(glow > 20, "%d", glow);
+    // So does an ember's, its hottest picture paler in its middle than its coolest, which is
+    // still red; a flake of ash adds none.
+    glow = 0;
+    sh_ambient_paint(SH_AMBIENT_EMBERS, 0, pixels, 24);
+    for (int i = 0; i < 24 * 24; ++i)
+        glow += (pixels[i] >> 16 & 0xff) > (pixels[i] >> 24) + 10;
+    CHECK(glow > 20, "%d", glow);
+    uint32_t hot = pixels[12 * 24 + 12];
+    sh_ambient_paint(SH_AMBIENT_EMBERS, 5, pixels, 24);
+    uint32_t cool = pixels[12 * 24 + 12];
+    CHECK((hot >> 8 & 0xff) > (cool >> 8 & 0xff) + 60 && (cool >> 16 & 0xff) > 2 * (cool >> 8 & 0xff),
+          "%08x %08x", hot, cool);
+    int ash = sh_ambient_sprite_count(SH_AMBIENT_EMBERS) - 1;
+    side = (int)lround(sh_ambient_sprite_side(SH_AMBIENT_EMBERS, ash) * 2);
+    CHECK(side <= 40, "%d", side);
+    sh_ambient_paint(SH_AMBIENT_EMBERS, ash, pixels, side);
+    for (int i = 0; i < side * side; ++i) {
+        uint32_t a = pixels[i] >> 24;
+        CHECK((pixels[i] >> 16 & 0xff) <= a && (pixels[i] >> 8 & 0xff) <= a &&
+                  (pixels[i] & 0xff) <= a,
+              "ash adds no light: %08x", pixels[i]);
+    }
 }
 
 /* A petal's turn picks one of its pictures and the quarter turns the screen adds, whichever way
@@ -242,6 +326,7 @@ int main(void) {
     test_names();
     test_petal_turn();
     test_motion();
+    test_embers();
     test_repeatable();
     test_paint();
     if (failures)
