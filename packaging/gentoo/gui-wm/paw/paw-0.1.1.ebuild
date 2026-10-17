@@ -7,7 +7,7 @@ LUA_COMPAT=( lua5-4 )
 PYTHON_COMPAT=( python3_{12..14} )
 inherit cmake lua-single optfeature python-any-r1
 
-DESCRIPTION="Mouse-first Wayland desktop with a Qt Quick shell and Lua configuration"
+DESCRIPTION="Floating and tiling Wayland desktop with a Qt Quick shell and Lua configuration"
 HOMEPAGE="https://github.com/Sondre234/paw"
 
 if [[ ${PV} == 9999 ]]; then
