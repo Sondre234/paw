@@ -306,6 +306,29 @@ int main(int argc, char **argv) {
         resized.replace(resized.find("shell = { panel_position"), 9, "shell = { panel_height = 64,");
         require(read(config) == resized && tall(paw::load_config(config)),
                 "a resized taskbar's height not added to the shell table:\n" + read(config));
+        // save_settings writes several at once, each where it takes (the height into the profile
+        // in use, which sets it; the margin, which it does not, into the shell table); one that
+        // does not take leaves the file as it was.
+        auto lifted = [](const paw::Config &config) { return config.shell.panel_margin[2] == 10; };
+        write(config, profiles);
+        paw::save_profile("washi");
+        paw::save_settings(config, {{panel_height, "64", tall},
+                                    {{"shell", "panel_margin", "bottom"}, "10", lifted}});
+        resized = profiles;
+        resized.replace(resized.find("panel_height = 46"), 17, "panel_height = 64");
+        resized.replace(resized.find("shell = { panel_position"), 9,
+                        "shell = { panel_margin = { bottom = 10 },");
+        require(read(config) == resized && tall(paw::load_config(config)) &&
+                    lifted(paw::load_config(config)),
+                "a height and a margin not written together:\n" + read(config));
+        write(config, profiles);
+        try {
+            paw::save_settings(config, {{panel_height, "64", tall},
+                                        {position, "\"top\"", [](const paw::Config &) { return false; }}});
+            throw std::logic_error("save_settings saved edits one of which did not take");
+        } catch (const std::runtime_error &error) {
+            require(read(config) == profiles, std::string("refused saves: ") + error.what());
+        }
         // A link's target is edited, keeping its permissions, and the link stays; no file is left
         // beside it.
         std::filesystem::create_directories(directory / "real");
