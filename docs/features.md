@@ -3361,7 +3361,9 @@ SIGTERM) keeps the last one saved before it: its applications may be ending at t
 
 A control socket runs any Lua action from scripts or other tools:
 `paw msg workspace 2`, `paw msg toggle_tiling`, `paw msg spawn foot`,
-`paw msg screenshot window`, `paw msg resize_left 80`. Prefixing
+`paw msg screenshot window`, `paw msg resize_left 80`; `paw help msg` lists the actions and
+the queries. `paw msg get` alone lists the queries, one a line, and a query of no such name is
+refused as one (`no query NAME`). Prefixing
 `output NAME` makes workspace and tiling actions switch that monitor instead of the focused
 one: `paw msg output HDMI-A-1 workspace_next`. `paw msg type TEXT` types TEXT into
 what has the keyboard, as wtype does: each character on a key of a keymap made for it (200 to a
@@ -3510,7 +3512,9 @@ quarter of a second at a time, rather than failing to take one at full speed.
 
 Besides `paw msg` and `paw import`, the `paw` binary has subcommands to find the configuration,
 to show the desktop off and to find out what is wrong with it. All but `paw config` talk to the
-running session through its control socket, as `paw msg` does; `paw --help` lists them.
+running session through its control socket, as `paw msg` does. `paw help` (or `paw --help`)
+lists them all by group with a line on each, `paw help NAME` gives one's arguments and says more
+of it, and `paw help msg` lists every action and every query `paw msg` takes.
 
 ### paw config
 

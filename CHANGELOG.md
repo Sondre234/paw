@@ -778,6 +778,11 @@ shadows.
 Subcommands of `paw` besides `msg` and `import`, to find the configuration, to show the desktop
 off and to find out what is wrong with it, and toys the compositor plays with the windows.
 
+- `paw help` lists every command by group with a line on each (as `paw --help` now does too, in
+  place of a page of prose), `paw help NAME` gives one's arguments and says more of it, and
+  `paw help msg` lists every action and every query. `paw msg get` alone lists the queries, and
+  a query of no such name is refused as one rather than read as an action called `get`.
+
 - `paw config` prints the path of the configuration paw starts with, and `paw config edit` opens
   the personal one in `$VISUAL` or `$EDITOR`. Where there is none yet it makes one first, a file
   that extends the default configuration and names where that is, and once the editor exits it
