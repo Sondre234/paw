@@ -127,7 +127,7 @@ all. In short:
 | `rice.c` | A rice on trial (`paw rice try`): `rice try NAME` switching to it, the time before it goes back unless `rice keep` keeps it, and telling the shell. |
 | `profile_schedule.c` | The day and night profile schedule (`profile_schedule`): the profile the last sunrise or sunset brings (`src/profile_schedule.c` finds which came last), picked as `profile NAME` through `sh_callbacks.command` and a reload, the last one applied kept in `$XDG_STATE_HOME/paw/profile-schedule`; a timer looking at the clock each minute and after each reload, `profile_auto`, and `get profile_schedule`. |
 | `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
-| `ambient.c` | Ambient particles (`appearance.ambient`, the `ambient` action): sakura petals, snow, fireflies or embers in a tree of scene buffers for each output, over the wallpaper and under the bottom layer, taking no input; stepped every 33 ms from a timer of its own while an output shows them, `src/ambient.c` moving them and painting their pictures; paused while the session is locked, the output is off or shows a fullscreen window or the screens are dimmed, and faded out after a while without input; `get ambient`. |
+| `ambient.c` | Ambient particles (`appearance.ambient`, the `ambient` action): sakura petals, snow, fireflies, embers or rain in a tree of scene buffers for each output, over the wallpaper and under the bottom layer, taking no input; stepped every 33 ms from a timer of its own while an output shows them, `src/ambient.c` moving them and painting their pictures; paused while the session is locked, the output is off or shows a fullscreen window or the screens are dimmed, and faded out after a while without input; `get ambient`. |
 | `cursor_trail.c` | The cursor trail (`appearance.cursor_trail`, the `cursor_trail` action): sparkles, sakura petals or hearts falling off the pointer as it moves (`cursor_trail_moved`, from the pointer's motion events), in a tree of scene buffers under the drag icons, over the windows and the panels, taking no input, `src/cursor_trail.c` spawning, moving and painting them; stepped every 16 ms from a timer of its own while any are left; none while the session is locked, while the cursor is hidden (`cursor_hide` clears them, which keeps them out of screenshots) or over a fullscreen window; `get cursor_trail`. |
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
 | `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
@@ -1017,7 +1017,9 @@ the other side; petals turn and tumble, and fireflies wander, kept off the edges
 cycles of their own. Embers rise, drift and sway the same way, cooling over a life (`glow` the
 share of it gone) long enough to rise through a third of the area to all of it as they slow to
 half their pace, and come in again below once they have gone out or risen out of the top; one in
-seven is a flake of ash, which tumbles as a petal does. `sh_ambient_look` says how one is drawn:
+seven is a flake of ash, which tumbles as a petal does. Rain falls fast, the nearer drops faster,
+neither drifting nor swaying but going sideways along its streaks' slant as it falls, so that a
+gust never bends them. `sh_ambient_look` says how one is drawn:
 its picture, turned by quarter turns, its box (a petal's tumble narrows it, its other face showing
 past edge on, which is the petal mirrored) and its opacity; an ember's picture follows its heat,
 and it flickers on two quick waves and goes out over the last part of its life.
@@ -1025,8 +1027,11 @@ and it flickers on two quick waves and goes out over the last part of its life.
 distances: petals in four pinks at three lengths, each turned in SH_AMBIENT_TURNS steps of a
 quarter turn (the buffer transform turns them the other quarters), dots of snow at six sizes, a
 firefly's glow, brighter than its alpha so that it adds light, an ember's glow likewise at three
-sizes in six heats from hot amber to a dull red, the nearest out of focus, and ragged flakes of
-ash, the charcoal ones smouldering along one side.
+sizes in six heats from hot amber to a dull red, the nearest out of focus, ragged flakes of
+ash, the charcoal ones smouldering along one side, and streaks of rain at four lengths, faint
+toward their tails and sampled four by four a pixel for the thinnest's sake. Those are narrower
+than they are tall (`sh_ambient_sprite_width`), so that a drop's buffer is no wider than its
+streak: a square would be two to three and a half times as large, the rest of it empty.
 
 `ambient.c` in the compositor keeps a `struct sh_ambient_sky` for each output in the layout
 (`sh_output.ambient`; none for a mirroring one) in a tree just above the background layer

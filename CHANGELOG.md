@@ -653,6 +653,11 @@ shadows.
   flakes of ash tumbling among them; their glow adds light, as the fireflies' does. Forty drift
   on each monitor unless `count` says, and `paw msg ambient embers` (and the command palette)
   brings them.
+- Ambient rain: `appearance.ambient = { kind = "rain" }` has rain fall fast over the wallpaper in
+  thin, faint streaks of pale grey, slanting a little, the nearest drops longer, brighter, faster
+  and a little softer and the far ones short and faint. A hundred and twenty fall on each monitor
+  unless `count` says, each drawn from a picture no wider than its streak, and `paw msg ambient
+  rain` (and the command palette) brings it.
 
 ### Starting and ending a session
 
