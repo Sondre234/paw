@@ -72,6 +72,7 @@ constexpr Action actions[] = {
     {"ambient snow", "Ambient: soft snow over the wallpaper"},
     {"ambient fireflies", "Ambient: fireflies over the wallpaper"},
     {"ambient embers", "Ambient: embers rising over the wallpaper"},
+    {"ambient rain", "Ambient: rain over the wallpaper"},
     {"ambient off", "Ambient: off"},
     {"cursor_trail sparkles", "Cursor trail: sparkles"},
     {"cursor_trail petals", "Cursor trail: sakura petals"},
