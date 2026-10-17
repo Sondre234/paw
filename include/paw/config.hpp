@@ -647,8 +647,8 @@ sh_screenshot_mode parse_screenshot_mode(const std::string &name);
 sh_display_mode parse_display_mode(const std::string &name);
 // "on", "off" or "toggle", the cat action's argument; throws for other names.
 sh_cat_switch parse_cat_switch(const std::string &name);
-// "toggle", "next", "off", "sakura", "snow" or "fireflies", the ambient action's argument;
-// throws for other names.
+// "toggle", "next", "off", "sakura", "snow", "fireflies" or "embers", the ambient action's
+// argument; throws for other names.
 sh_ambient_choice parse_ambient_choice(const std::string &name);
 // "toggle", "next", "off", "sparkles", "petals" or "hearts", the cursor_trail action's argument;
 // throws for other names.

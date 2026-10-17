@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Ambient particles (appearance.ambient, the ambient action): sakura petals, snow or fireflies
- * drifting over the wallpaper, under the bottom layer's panels and the windows, in a tree of
- * scene buffers for each output that takes no input. src/ambient.c moves them and paints their
+/* Ambient particles (appearance.ambient, the ambient action): sakura petals, snow, fireflies or
+ * embers drifting over the wallpaper, under the bottom layer's panels and the windows, in a tree
+ * of scene buffers for each output that takes no input. src/ambient.c moves them and paints their
  * pictures, made for each output at its scale as they are first needed. A timer steps them every
  * TICK_MS while an output shows them. An output pauses, its tree off, while the session is locked
  * or on another VT, while it is off or shows a fullscreen window, and while the screens are

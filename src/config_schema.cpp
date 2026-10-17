@@ -81,14 +81,15 @@ const Option options[] = {
      "GNOME's setting, else GTK's `settings.ini`, else KDE's."},
     {"appearance.ambient", "table", "", "", none, none,
      "Particles drifting over the wallpaper, under the windows and panels: sakura petals "
-     "tumbling down, soft snow, or fireflies wandering and glowing. An appearance profile may "
-     "set them, and the `ambient` action switches them meanwhile. They pause while the session "
-     "is locked, while a monitor is off or shows a fullscreen window and while the screens are "
-     "dimmed, and fade out after five minutes without input until there is some."},
+     "tumbling down, soft snow, fireflies wandering and glowing, or embers rising, flickering "
+     "and cooling among flakes of ash. An appearance profile may set them, and the `ambient` "
+     "action switches them meanwhile. They pause while the session is locked, while a monitor "
+     "is off or shows a fullscreen window and while the screens are dimmed, and fade out after "
+     "five minutes without input until there is some."},
     {"appearance.ambient.kind", "enum", "\"none\"", "\"sakura\"", none, none,
-     "`\"sakura\"`, `\"snow\"` or `\"fireflies\"`; `\"none\"` for none."},
-    {"appearance.ambient.count", "integer", "30 petals, 60 flakes, 24 fireflies", "50", 1, 150,
-     "How many particles drift on each monitor."},
+     "`\"sakura\"`, `\"snow\"`, `\"fireflies\"` or `\"embers\"`; `\"none\"` for none."},
+    {"appearance.ambient.count", "integer", "30 petals, 60 flakes, 24 fireflies, 40 embers",
+     "50", 1, 150, "How many particles drift on each monitor."},
     {"appearance.ambient.speed", "number", "1", "0.6", 0.1, 5,
      "How fast they drift: 0.5 at half their own pace, 2 at twice it."},
     {"appearance.cursor_trail", "table", "", "", none, none,
@@ -787,8 +788,8 @@ const Option options[] = {
      "through them. With `cat`: `\"on\"`, `\"off\"` or `\"toggle\"`; without one, "
      "toggle. With `heatmap`: `\"toggle\"`, `\"motion\"`, `\"clicks\"` or "
      "`\"reset\"`; without one, toggle. With `ambient`: `\"sakura\"`, `\"snow\"`, "
-     "`\"fireflies\"`, `\"off\"`, `\"next\"` (each kind in turn, then none) or `\"toggle\"` "
-     "(off, or back to the last kind); without one, toggle. With `cursor_trail`: "
+     "`\"fireflies\"`, `\"embers\"`, `\"off\"`, `\"next\"` (each kind in turn, then none) or "
+     "`\"toggle\"` (off, or back to the last kind); without one, toggle. With `cursor_trail`: "
      "`\"sparkles\"`, `\"petals\"`, `\"hearts\"`, `\"off\"`, `\"next\"` or `\"toggle\"` "
      "(off, or back to the last kind, sparkles the first time); without one, toggle."},
     {"bindings[].amount", "integer", "40; 5 for volume and brightness", "", 1, 4000,

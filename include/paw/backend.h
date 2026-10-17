@@ -295,6 +295,7 @@ enum sh_ambient_choice {
     SH_AMBIENT_ON_SAKURA,
     SH_AMBIENT_ON_SNOW,
     SH_AMBIENT_ON_FIREFLIES,
+    SH_AMBIENT_ON_EMBERS,
 };
 
 /* The cursor_trail action's choices: off, or back on as it was last (sparkles the first time);
