@@ -18,10 +18,12 @@ reloads when you save it.
 [Running](#running) · [Configuration](#configuration) · [Features](docs/features.md) ·
 [Contributing](CONTRIBUTING.md)
 
-![paw in washi, one of the rices it ships with](rices/washi/screenshots/washi.jpg)
+![paw in the rices it ships with: washi, and beside it sumi, mochi and hibana](docs/assets/rices.webp)
 
-<sub><a href="rices/washi">washi</a>, one of the rices that ship with paw: paper a cat walked across,
-by day and by night.</sub>
+<sub>The rices that ship with paw: <a href="rices/washi">washi</a>, paper a cat walked across,
+and beside it, top to bottom, <a href="rices/washi">sumi</a>, the same paper by night,
+<a href="rices/mochi">mochi</a>, Catppuccin Mocha under frosted glass, and
+<a href="rices/hibana">hibana</a>, sparks on ash.</sub>
 
 </div>
 
