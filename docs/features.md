@@ -1789,7 +1789,10 @@ from the edges instead, so a single window on a wide monitor need not fill it: o
 - Turning tiling off returns every window of that monitor to its floating position and
   size. A window
   now tiled on another monitor keeps its size and its place relative to that monitor,
-  shrunk and moved to fit inside it.
+  shrunk and moved to fit inside it. With `layout.maximize_lone_on_untile = true`, a tile alone
+  on its workspace is maximized instead (on every workspace the toggle reaches); restoring it
+  floats it where it floated before, and turning tiling on again tiles it
+  (`tests/maximize_lone_smoke.py`).
 - Minimized windows leave the tiling and rejoin it when restored, as a window opening there
   does, one that floated only because it was snapped or maximized by hand too, while one
   floated on purpose stays floating (`tests/taskbar_restore_tiling_smoke.py`); windows moved to
