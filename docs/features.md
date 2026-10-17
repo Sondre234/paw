@@ -3017,7 +3017,11 @@ for kitty, fastfetch, Firefox, Discord, Claude Code and editors that its `instal
 place; and `mochi`, [Catppuccin](https://github.com/catppuccin/catppuccin) Mocha under frosted
 glass with a round cream cat on the start button, whose wallpapers and themes (the terminal,
 editors and Firefox toolbars translucent for paw to blur behind, and GTK 4 too) are in
-[`rices/mochi`](../rices/mochi/README.md) with an `install.sh` of the same kind; a file with
+[`rices/mochi`](../rices/mochi/README.md) with an `install.sh` of the same kind; and `hibana`,
+sparks on ash: ink-grey glass over grey storms and cities in the rain, paper-white text and ember
+orange burning through it, the focused border running from ember into blood red, and a little
+black devil cat on the start button, whose wallpapers, `Hibana` icons and themes for the same
+applications are in [`rices/hibana`](../rices/hibana/README.md); a file with
 `extends = "default"` gets them, and starts on `macos-light` unless it sets
 `profile`, only when it defines no `profiles` of its own. A profile wins over a theme.lua that
 `paw import` wrote, so pick `default` to see that. A rice installed with [`paw rice`](#paw-rice)
@@ -3029,7 +3033,7 @@ to `prefer-light` or `prefer-dark` through `gsettings` as the configuration load
 profile with another scheme is picked. xdg-desktop-portal passes it on, so GTK 4 and libadwaita
 applications, Firefox, Chromium and Electron applications such as Discord (with Appearance → Sync
 with computer) change at once, and washi's Firefox and Discord themes turn to sumi and back with
-it. `macos-light`, `light` and `washi` are light, `macos-dark`, `sumi` and `mochi` dark. A
+it. `macos-light`, `light` and `washi` are light, `macos-dark`, `sumi`, `mochi` and `hibana` dark. A
 profile without it leaves the preference as it is, and a choice made in other settings meanwhile
 stands until a profile with another scheme is picked. Only a login session (`--session`) sets
 it: a nested or headless paw leaves the desktop it runs in alone.
@@ -4055,9 +4059,9 @@ This needs sd-bus from libsystemd, libelogind, or basu at build time.
 
 ### The lock screen's look
 
-The stock locker, swaylock, wears the appearance profile in use, so washi, sumi, mochi and the
-other profiles lock to a screen of their own rather than swaylock's plain grey. Each time the
-screen locks, paw adds to `swaylock -f`:
+The stock locker, swaylock, wears the appearance profile in use, so washi, sumi, mochi, hibana
+and the other profiles lock to a screen of their own rather than swaylock's plain grey. Each time
+the screen locks, paw adds to `swaylock -f`:
 
 - the profile's wallpaper, the one picked from the panel or else `shell.wallpaper`, filling every
   monitor over `appearance.background`, which shows alone when there is no wallpaper or its file
