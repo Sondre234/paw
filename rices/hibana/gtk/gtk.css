@@ -1,0 +1,62 @@
+/* hibana (火花) for GTK 4 and libadwaita: ink greys and paper white through libadwaita's own
+ * colour variables, ember orange as the accent. paw's, GPL-3.0-or-later.
+ *
+ * install.sh puts these lines into ~/.config/gtk-4.0/gtk.css between `paw hibana` markers. They
+ * only recolour; every widget keeps libadwaita's shapes, so nothing fights it. They apply only
+ * while the system prefers dark (the hibana profile sets that), so a light profile's libadwaita
+ * stays light. Needs libadwaita 1.6 or newer (GTK 4.16 and its CSS variables); older versions
+ * skip the lines. GTK 3 is left alone: its Adwaita colours are compiled in, and recolouring a
+ * few named colours would leave it half hibana. */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent-bg-color: #FF7A33;            /* ember */
+    --accent-fg-color: #0B0A0D;
+    --accent-color: #FF8A4C;               /* a shade lighter, for text and icons on the window */
+    --destructive-bg-color: #E5594D;       /* scarlet */
+    --destructive-fg-color: #0B0A0D;
+    --destructive-color: #EF6E60;
+    --success-bg-color: #A3B58F;           /* sage */
+    --success-fg-color: #0B0A0D;
+    --success-color: #A3B58F;
+    --warning-bg-color: #DCB36E;           /* brass */
+    --warning-fg-color: #0B0A0D;
+    --warning-color: #DCB36E;
+    --error-bg-color: #E5594D;
+    --error-fg-color: #0B0A0D;
+    --error-color: #EF6E60;
+
+    --window-bg-color: #161518;            /* base */
+    --window-fg-color: #E2DDD9;            /* paper */
+    --view-bg-color: #111013;              /* mantle: lists, text views, a shade below the window */
+    --view-fg-color: #E2DDD9;
+    --headerbar-bg-color: #111013;         /* mantle */
+    --headerbar-fg-color: #E2DDD9;
+    --headerbar-border-color: #E2DDD9;
+    --headerbar-backdrop-color: #161518;
+    --headerbar-shade-color: rgb(11 10 13 / 0.4);
+    --headerbar-darker-shade-color: rgb(11 10 13 / 0.9);
+    --sidebar-bg-color: #111013;
+    --sidebar-fg-color: #E2DDD9;
+    --sidebar-backdrop-color: #161518;
+    --sidebar-border-color: rgb(11 10 13 / 0.4);
+    --sidebar-shade-color: rgb(11 10 13 / 0.28);
+    --secondary-sidebar-bg-color: #161518;
+    --secondary-sidebar-fg-color: #E2DDD9;
+    --secondary-sidebar-backdrop-color: #161518;
+    --secondary-sidebar-border-color: rgb(11 10 13 / 0.4);
+    --secondary-sidebar-shade-color: rgb(11 10 13 / 0.28);
+    --card-bg-color: rgb(226 221 217 / 0.05);
+    --card-fg-color: #E2DDD9;
+    --card-shade-color: rgb(11 10 13 / 0.4);
+    --dialog-bg-color: #1F1D22;            /* surface0 */
+    --dialog-fg-color: #E2DDD9;
+    --popover-bg-color: #1F1D22;
+    --popover-fg-color: #E2DDD9;
+    --popover-shade-color: rgb(11 10 13 / 0.28);
+    --thumbnail-bg-color: #1F1D22;
+    --thumbnail-fg-color: #E2DDD9;
+    --shade-color: rgb(11 10 13 / 0.4);
+    --scrollbar-outline-color: rgb(11 10 13 / 0.5);
+  }
+}
