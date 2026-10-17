@@ -49,13 +49,19 @@ ListView {
         NumberAnimation { property: "opacity"; to: 0; duration: Theme.durationFast; easing.type: Theme.easingExit }
         NumberAnimation { property: "scale"; to: Theme.growFrom; duration: Theme.durationFast; easing.type: Theme.easingExit }
     }
-    // A button displaced while it was still coming in ends whole.
+    // A button moved or displaced while it was still coming in ends whole: the move cuts its coming
+    // in short, which would leave it faded out, a gap on the bar. The one moved takes its new place
+    // at once.
+    move: Transition {
+        NumberAnimation { properties: "opacity,scale,reveal"; to: 1; duration: Theme.durationFast; easing.type: Theme.easing }
+    }
     displaced: Transition {
         NumberAnimation { property: taskList.vertical ? "y" : "x"; duration: Theme.durationNormal; easing.type: Theme.easing }
         NumberAnimation { properties: "opacity,scale,reveal"; to: 1; duration: Theme.durationNormal; easing.type: Theme.easing }
     }
     moveDisplaced: Transition {
         NumberAnimation { property: taskList.vertical ? "y" : "x"; duration: Theme.durationFast; easing.type: Theme.easing }
+        NumberAnimation { properties: "opacity,scale,reveal"; to: 1; duration: Theme.durationFast; easing.type: Theme.easing }
     }
     WheelHandler {
         // Qt takes the whole pointer for a touchpad once the compositor offers gestures
