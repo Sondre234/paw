@@ -439,6 +439,10 @@ void replace_file(const std::filesystem::path &target, const std::string &text) 
 
 void save_setting(const std::filesystem::path &path, const std::vector<std::string> &trail,
                   const std::string &literal, const std::function<bool(const Config &)> &takes) {
+    save_settings(path, {{trail, literal, takes}});
+}
+
+void save_settings(const std::filesystem::path &path, const std::vector<SettingEdit> &edits) {
     std::error_code failure;
     auto target = std::filesystem::is_symlink(path, failure) ? std::filesystem::canonical(path, failure)
                                                              : path;
@@ -454,13 +458,16 @@ void save_setting(const std::filesystem::path &path, const std::vector<std::stri
         throw std::runtime_error("cannot change the configuration while it has an error: " +
                                  std::string(error.what()));
     }
-    auto edited = edit_setting(source, trail, literal, [&](const std::string &text) {
-        try {
-            return takes(parse_config(text, name, path.parent_path(), profile, rices));
-        } catch (const std::exception &) {
-            return false;
-        }
-    });
+    auto edited = source;
+    for (const auto &edit : edits) {
+        edited = edit_setting(edited, edit.trail, edit.literal, [&](const std::string &text) {
+            try {
+                return edit.takes(parse_config(text, name, path.parent_path(), profile, rices));
+            } catch (const std::exception &) {
+                return false;
+            }
+        });
+    }
     // Unchanged, it is not written, which would reload the configuration for nothing.
     if (edited != source)
         replace_file(target, edited);

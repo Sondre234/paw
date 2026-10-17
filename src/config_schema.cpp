@@ -957,7 +957,7 @@ const Option options[] = {
      "applying to the dock)."},
     {"shell.panel_height", "integer", "52", "52", 24, 100,
      "Panel height in pixels; its width along the left or right edge. With `panel_draggable` the "
-     "taskbar's inner edge sets it too."},
+     "taskbar's inner and outer edges set it too."},
     {"shell.panel_position", "enum", "\"bottom\"", "\"bottom\"", none, none,
      "The edge of the monitor the taskbar is along: `\"top\"`, `\"bottom\"`, `\"left\"` or "
      "`\"right\"`. Along a side its buttons and widgets stack from the top down, and its popups "
@@ -981,8 +981,8 @@ const Option options[] = {
      "floating whatever the windows do; `\"maximized\"` docks it only while a window fills the "
      "monitor (maximized or fullscreen) and the monitor does not tile."},
     {"shell.panel_draggable", "boolean", "false", "true", none, none,
-     "The taskbar can be dragged to another edge of the monitor, and resized by its inner edge, "
-     "as on Windows with the taskbar unlocked: pressing an empty part of it and dragging shows "
+     "The taskbar can be dragged to another edge of the monitor, and resized by its edges, as on "
+     "Windows with the taskbar unlocked: pressing an empty part of it and dragging shows "
      "where it goes, the edge of its monitor nearest the pointer, and letting go there moves it, "
      "writing the new edge into the configuration file: that monitor's `panel_positions` entry "
      "(`panel_per_monitor`), or `panel_position` for every monitor, where it takes effect (the "
@@ -991,7 +991,11 @@ const Option options[] = {
      "resize cursor, makes it taller or shorter (wider or narrower down a side) within "
      "`panel_height`'s range, the windows making room as it goes; letting go writes the new "
      "`panel_height` the same way, every monitor's bar taking it, and Escape puts the old size "
-     "back. The macOS style's dock is neither moved nor resized."},
+     "back. While the bar does not dock, dragging one of its ends moves it in from that side of "
+     "the monitor, and dragging its outer edge moves it off the edge it is along, the bar growing "
+     "or shrinking by as much and its inner edge staying put: letting go writes those sides of "
+     "`panel_margin` (all four, for a margin given as one number). The macOS style's dock is "
+     "neither moved nor resized."},
     {"shell.mirror_menus", "boolean", "false", "false", none, none,
      "With the panel along the top, its right-click menus list their entries in reverse, so "
      "they read outwards from the bar as they do from one along the bottom: a window's begins "
@@ -999,7 +1003,8 @@ const Option options[] = {
      "Submenus keep their order."},
     {"shell.panel_margin", "integer or table", "0", "0", none, none,
      "Pixels around the panel, 0 to 200: one number, or `{ top, right, bottom, left }` by "
-     "name, to make it float."},
+     "name, to make it float. With `panel_draggable` the taskbar's ends and outer edge set them "
+     "too."},
     {"shell.panel_margin.top", "integer", "0", "0", 0, 200, "Top margin."},
     {"shell.panel_margin.right", "integer", "0", "0", 0, 200, "Right margin."},
     {"shell.panel_margin.bottom", "integer", "0", "0", 0, 200, "Bottom margin."},

@@ -188,8 +188,13 @@ edge along the bottom of the monitor): the pointer turns into a resize cursor ov
 it makes the bar taller or shorter, or wider or narrower down a side, between 24 and 100 pixels.
 Every monitor's bar follows as you drag, its buttons growing with it, and maximized and tiled
 windows make room as it goes. Let go and paw writes the new `panel_height` into your configuration
-file the way it writes the bar's edge; Escape puts the old size back. The macOS style's dock and
-the tiling bar keep their sizes.
+file the way it writes the bar's edge; Escape puts the old size back. While the bar is not docked,
+its other edges resize it too, as a window's do: drag an end and the bar moves in from that side of
+the monitor, or out to it; drag its outer edge (the bottom one along the bottom) and the bar moves
+off the monitor's edge or back onto it, its inner edge staying where it is, so that it grows or
+shrinks by as much. Let go and paw writes those sides of `panel_margin`, and the height too for
+the outer edge, in one go (a `panel_margin` of one number is written out as all four sides). The
+macOS style's dock and the tiling bar keep their sizes.
 
 A floating bar docks while a window reaches the edge of the monitor's free area it is along (a
 maximized window, one snapped or dragged against that edge, and any tile, gaps or not, so on a

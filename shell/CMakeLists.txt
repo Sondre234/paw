@@ -177,7 +177,7 @@ set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
     task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp icon_lock.hpp
     app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp wallpaper_cycle.cpp wallpaper_cycle.hpp
-    image_provider.hpp audio.cpp audio.hpp
+    image_provider.hpp audio.cpp audio.hpp bar_resize.cpp bar_resize.hpp
     system_status.cpp system_status.hpp power.cpp power.hpp restyle.cpp restyle.hpp
     glass.cpp glass.hpp glass_blur.cpp glass_blur.hpp)
 add_executable(paw-shell main.cpp preview.cpp preview.hpp ${PAW_CONTROLLER_SOURCES})
@@ -309,6 +309,10 @@ if(BUILD_TESTING)
     paw_shell_test(display_layout_test SOURCES display_layout.cpp display_layout.hpp
         LIBS Qt6::Core Qt6::Test)
     add_test(NAME shell_display_layout COMMAND display_layout_test)
+    # The taskbar resized by each of its edges (shell.panel_draggable).
+    paw_shell_test(bar_resize_test SOURCES bar_resize.cpp bar_resize.hpp
+        LIBS paw_config Qt6::Core Qt6::Test)
+    add_test(NAME shell_bar_resize COMMAND bar_resize_test)
     # The blurred wallpaper behind the frosted glass (shell.blur).
     paw_shell_test(glass_blur_test SOURCES glass_blur.cpp glass_blur.hpp LIBS Qt6::Gui Qt6::Test)
     add_test(NAME shell_glass_blur COMMAND glass_blur_test)

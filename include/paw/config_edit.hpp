@@ -35,4 +35,15 @@ std::string edit_setting(const std::string &source, const std::vector<std::strin
 // the file as it was, when the file cannot be read or written, has an error, or no edit takes.
 void save_setting(const std::filesystem::path &path, const std::vector<std::string> &trail,
                   const std::string &literal, const std::function<bool(const Config &)> &takes);
+// A setting for save_settings: `trail` set to `literal`, which takes when `takes` accepts the
+// configuration the edit gives.
+struct SettingEdit {
+    std::vector<std::string> trail;
+    std::string literal;
+    std::function<bool(const Config &)> takes;
+};
+// Sets each of `edits` in turn, as save_setting sets one, and writes the file once, so that
+// settings that go together (the taskbar's height and a margin) never load apart. Throws
+// std::runtime_error, leaving the file as it was, when any one does not take.
+void save_settings(const std::filesystem::path &path, const std::vector<SettingEdit> &edits);
 } // namespace paw

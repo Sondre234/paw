@@ -5,8 +5,10 @@ there (a real button press, driven by pointer_probe) has the compositor take the
 (panel_drag resize). As it is dragged every monitor's bar follows, and the maximized windows on
 both monitors make room at once. Let go, the configuration file's shell table gets the new
 panel_height, the rest of it as it was. The height stays within 24 to 100, and Escape during a drag
-puts the old one back. Down a side the drag changes the bar's width. Locked (panel_draggable
-false), the edge is the bar's like the rest of it."""
+puts the old one back. A floating bar's end sets the margin beyond it, and its outer edge the
+margin on its side, trading it for the height; a margin given as one number is written out as
+four. Down a side the drag changes the bar's width. Locked (panel_draggable false), the edge is
+the bar's like the rest of it."""
 from pathlib import Path
 import signal
 import sys
@@ -30,15 +32,18 @@ return {
     shell = {%s
         panel_height = %d,
         panel_draggable = %s, -- as on Windows with the taskbar unlocked
+        panel_dock = false,
     },
 }"""
 WIDTH, HEIGHT = 1280, 720
 ESCAPE = 1
 
 
-def config(height, draggable="true", left=False):
-    """CONFIG with the bar `height` tall, along the left edge with `left`, as the shell writes it."""
-    return CONFIG % ('\n        panel_position = "left",' if left else "", height, draggable)
+def config(height, draggable="true", left=False, margin=None):
+    """CONFIG with the bar `height` tall, along the left edge with `left`, `margin` (Lua) around it,
+    as the shell writes it."""
+    return CONFIG % (('\n        panel_position = "left",' if left else "") +
+                     (f"\n        panel_margin = {margin}," if margin else ""), height, draggable)
 
 
 with harness.Compositor(compositor, config(52), start=False,
@@ -133,6 +138,36 @@ with harness.Compositor(compositor, config(52), start=False,
     pointer("release", "left")
     desktop.stays(lambda: desktop.config.read_text() == config(24) and boxes() == maximized(24),
                   "Escape resized the bar", duration=.5)
+
+    # Floating 4 pixels in from every edge, 40 tall: its left end dragged 36 pixels in moves it 40
+    # in from the left, the windows staying where they are; panel_margin, one number, is written
+    # out as four.
+    desktop.reload(config(40, margin="4"))
+    panels.send_signal(signal.SIGHUP)
+    desktop.wait_for(lambda: boxes() == maximized(48), "the windows above the floating bars")
+    press_edge(5, HEIGHT - 24, "ew-resize")
+    desktop.wait_for(lambda: seat().get("pointer") == ("-", "-"), "the compositor holding the pointer")
+    pointer("move", "41", str(HEIGHT - 24))
+    pointer("release", "left")
+    four = "{ top = 4, right = 4, bottom = 4, left = %d }"
+    desktop.wait_for(lambda: desktop.config.read_text() == config(40, margin=four % 40),
+                     "panel_margin written out with the left one 40")
+    desktop.stays(lambda: boxes() == maximized(48), "the windows moved by the bar's end")
+    # Its outer edge dragged up gives the margin below the height, the windows staying; dragged
+    # down past the output's edge, it stops there, the bar 4 taller.
+    press_edge(640, HEIGHT - 6)
+    desktop.wait_for(lambda: seat().get("pointer") == ("-", "-"), "the compositor holding the pointer")
+    pointer("move", "640", str(HEIGHT - 16))
+    desktop.stays(lambda: boxes() == maximized(48), "the windows moved by the bar's outer edge",
+                  duration=.3)
+    pointer("move", "640", str(HEIGHT - 1))
+    assert desktop.config.read_text() == config(40, margin=four % 40), "written before it was let go"
+    pointer("release", "left")
+    desktop.wait_for(lambda: desktop.config.read_text() ==
+                     config(44, margin="{ top = 4, right = 4, bottom = 0, left = 40 }"),
+                     "panel_height = 44 and no bottom margin written together")
+    desktop.stays(lambda: boxes() == maximized(48), "the windows moved by the bar's outer edge")
+    assert "paw taskbar resized to 44 pixels, its margins 4 4 0 40" in shell_log.read_text()
 
     # Down the left side, its right edge changes its width.
     desktop.reload(config(24, left=True))

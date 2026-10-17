@@ -105,7 +105,7 @@ all. In short:
 | `display_mode.c` | The display_mode action (Windows' Win+P): extend, duplicate, internal, external, and the popup that steps through them. |
 | `display_settings.c` | The display settings window's monitors: the settings it kept (`src/output_state.c`), laid over `outputs.monitors`, the primary monitor, `get monitors`, and `monitors apply` trying every monitor's settings at once, kept or taken back. |
 | `layer_shell.c` | Panels and other layer surfaces. |
-| `panel_drag.c` | The taskbar dragged to another edge, or by its inner edge to resize it (`shell.panel_draggable`): `panel_drag OUTPUT` takes the pointer while the left button is held, as a window move does, and tells the shell the edge of that monitor nearest it, or for `panel_drag resize EDGE` the pointer's distance from that edge, and where it is let go. |
+| `panel_drag.c` | The taskbar dragged to another edge, or by one of its edges to resize it (`shell.panel_draggable`): `panel_drag OUTPUT` takes the pointer while the left button is held, as a window move does, and tells the shell the edge of that monitor nearest it, or for `panel_drag resize EDGE` the pointer's distance from that edge, and where it is let go. |
 | `group.c`, `scratchpad.c`, `swallow.c`, `switcher.c`, `overview.c`, `session.c` | One feature each. `session.c` also saves a login session as `last` as it ends (`session_save_last`, from the power actions and quit) and restores it after `startup` (`session_restore_last`, from `sh_run`), asking `sh_callbacks.started` which missing windows startup and autostart will open. |
 | `switches.c` | Switch devices: the lid turning a laptop's panel off and on (clamshell), switches' bindings. |
 | `effects.c` | Dimming, peeking at the desktop or at one window, night light, magnifier, hot corners. |
@@ -1273,21 +1273,27 @@ every bar moves), taking no input, and `panel-dropped` has `ShellController::mov
 monitor's `shell.panel_positions` entry, or `shell.panel_position`, with `paw::save_setting`
 (`src/config_edit.cpp`) and load the file again.
 
-A press on the bar's inner edge (the `barResizeEdge` strip in `Taskbar.qml`, under the same
-setting) resizes it the same way: `panel.startBarResize` works out how far the press is from the
-output's edge the bar is along and asks `panel_drag resize EDGE`, and the compositor's
-`panel-resize OUTPUT DISTANCE` lines, the pointer's distance from that edge of the output the
-press was on, set `ShellController::panelHeight` to the height at the press plus the distance
-travelled since, within the schema's range for `shell.panel_height`, in place of the
-configuration's until the drag ends (`barResizing`). `panelHeight`, `panelExtent` and
-`panelHeadroom` notify with `panelSizeChanged`, which every configuration loaded brings too, and
-each `ShellView` lays out its surface again on it, so every bar and the exclusive zone it reserves
-follow the drag, and the compositor makes the windows room as it goes. `panel-resized` has
-`resizePanel` write `shell.panel_height` and load the file while the bar is still drawn at that
-height, and `panel-drag-cancelled` (Escape, through `cancelBarDrag`) gives the configuration's back.
-Qt never hears the button let go, so a MouseArea pressed when the compositor took the pointer
-stays pressed and would take no new press: the strip is a `Loader`'s, made anew once the drag is
-over.
+A press on one of the bar's edges (the strips along each in `Taskbar.qml`, under the same
+setting: the inner edge's `barResizeEdge` always, the outer edge's and the ends' while the bar does
+not dock) resizes it the same way. Each edge faces a side of the output, and
+`bar_resize::measuredFrom` (`shell/bar_resize.cpp`, tested by `bar_resize_test`) says which edge of
+the output its drag is told from: the bar's own for its inner and outer edges, the side beyond it
+for an end. `panel.startBarResize` works out how far the press is from that edge and asks
+`panel_drag resize EDGE`, and the compositor's `panel-resize OUTPUT DISTANCE` lines, the pointer's
+distance from that edge of the output the press was on, set `ShellController::panelHeight` and the
+`panelMargin*` to what `bar_resize::resized` makes of the size at the press and the distance
+travelled since (the inner edge the height; an end the margin beyond it; the outer edge the margin
+on its side, traded for the height), within the schema's ranges, in place of the configuration's
+until the drag ends (`barResizing`). `panelHeight`, the margins, `panelExtent` and `panelHeadroom`
+notify with `panelSizeChanged`, which every configuration loaded brings too, and each `ShellView`
+lays out its surface again on it, so every bar and the exclusive zone it reserves follow the drag,
+and the compositor makes the windows room as it goes. `panel-resized` has `resizePanel` write
+`shell.panel_height` and the sides of `shell.panel_margin` that changed in one write
+(`paw::save_settings`; the whole table in place of a margin given as one number) and load the file
+while the bar is still drawn at that size, and `panel-drag-cancelled` (Escape, through
+`cancelBarDrag`) gives the configuration's back. Qt never hears the button let go, so a MouseArea
+pressed when the compositor took the pointer stays pressed and would take no new press: each strip
+is a `Loader`'s, made anew once the drag is over.
 
 While the panel's output tiles, with `shell.tiling_bar` on, `Panel.qml` shows the tiling bar
 (`TilingBar.qml`) instead (`tilingBarShown`). The style's bars stay meanwhile, hidden and null

@@ -1289,6 +1289,8 @@ Item {
     readonly property string edge: tilingBarShown ? (shell.tilingBar.top ? "top" : "bottom") : shellView.panelEdge
     readonly property bool vertical: !tilingBarShown && shellView.panelVertical
     readonly property bool onTop: edge === "top"
+    // The side of the output the bar's inner edge faces, the one opposite its edge.
+    readonly property string innerSide: ({ top: "bottom", bottom: "top", left: "right", right: "left" })[edge]
     // A button on the bar as it stands: Theme.barButtonWidth by barButtonHeight, or along a side
     // as wide as the bar leaves and as tall as one along the bottom is wide. The widgets stack
     // what they show along a side (vertical).
@@ -1304,11 +1306,11 @@ Item {
     // pointer, taking no input: this panel's alone, or every panel's when every bar moves
     // (shell.panelPerMonitor off). Letting go moves it there (shell.movePanel), and Escape leaves
     // it.
-    // Resizing it by its inner edge (the same setting) starts with a press there
+    // Resizing it by one of its edges (the same setting) starts with a press there
     // (startBarResize), the compositor taking the pointer too, and every bar is as tall as
-    // shell.panelHeight says as the edge is dragged (as wide down a side); letting go keeps that
-    // (shell.resizePanel), and Escape puts the old size back. The panel either started on holds
-    // the keyboard meanwhile, for Escape.
+    // shell.panelHeight says as the edge is dragged (as wide down a side), inset by the margins
+    // shell.panelMargin* say; letting go keeps that (shell.resizePanel), and Escape puts the old
+    // size back. The panel either started on holds the keyboard meanwhile, for Escape.
     readonly property bool barDragging: shell.barDragging
     readonly property bool showsBarDrop: barDragging && (!shell.panelPerMonitor || shell.barDragOutput === outputName)
     readonly property bool barResizing: shell.barResizing
@@ -1327,16 +1329,19 @@ Item {
         barDragOrigin = true
         shell.startBarDrag(outputName)
     }
-    // The bar's inner edge pressed at `point`, in the panel's coordinates: how far that is from
-    // the output's edge the bar is along, from which the bar follows the pointer.
-    function startBarResize(point) {
+    // The bar's edge facing `side` of the output pressed at `point`, in the panel's coordinates:
+    // how far that is from the output's edge the drag is told from (bar_resize::measuredFrom: the
+    // bar's own edge for its inner and outer edges, `side` for an end), from which the bar follows
+    // the pointer.
+    function startBarResize(point, side) {
         if (!shell.panelDraggable || barHeld)
             return
         closeMenus()
         barDragOrigin = true
-        shell.startBarResize(outputName,
-                             Math.round(edge === "top" ? point.y : edge === "bottom" ? height - point.y
-                                        : edge === "left" ? point.x : width - point.x))
+        var from = side === innerSide ? edge : side
+        shell.startBarResize(outputName, side,
+                             Math.round(from === "top" ? point.y : from === "bottom" ? height - point.y
+                                        : from === "left" ? point.x : width - point.x))
     }
 
     // A click on the bar's empty space closes what is open.
