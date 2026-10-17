@@ -770,6 +770,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(tiling_open_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(smart_gaps_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(maximize_lone_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(maximized_tile_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(screenshot_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
