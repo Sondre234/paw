@@ -225,10 +225,38 @@ void place_by_hand_on(struct sh_toplevel *toplevel, enum sh_action action,
     snap_assist_offer(toplevel);
 }
 
+/* Gives a maximized window its own size back, or its place in the tiling when it floated only
+ * for being maximized (a tile, or a window opening maximized where windows tile): the tile it
+ * had, when toggle_maximize took it from there. */
+static void unmaximize(struct sh_toplevel *toplevel) {
+    bool from_tile = toplevel->from_tile;
+    toplevel->from_tile = false;
+    if (toplevel->placed)
+        toplevel->floating = toplevel->placed = false;
+    if (wants_tiling(toplevel, NULL))
+        tile_toplevel_at(toplevel, NULL, NULL, from_tile, toplevel->tile_x, toplevel->tile_y);
+    else
+        restore_toplevel(toplevel);
+}
+
 void arrange_windows(struct sh_server *server, enum sh_action action) {
     struct sh_toplevel *focused = current_toplevel(server);
     if (!focused)
         return;
+    if (action == SH_TOGGLE_MAXIMIZE) {
+        if (!focused->fullscreen && !focused->tiled && focused->arranged &&
+            focused->arrangement == SH_MAXIMIZE) {
+            unmaximize(focused);
+            return;
+        }
+        focused->from_tile = focused->tiled;
+        if (focused->tiled) {
+            struct wlr_box tile = toplevel_box(focused);
+            focused->tile_x = tile.x + tile.width / 2.0;
+            focused->tile_y = tile.y + tile.height / 2.0;
+        }
+        action = SH_MAXIMIZE;
+    }
     if (action == SH_TILE && tiles_for(focused, toplevel_output(focused)))
         return; // Already tiled automatically.
     if (focused->tiled && action == SH_RESTORE)

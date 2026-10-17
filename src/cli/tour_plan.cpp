@@ -259,11 +259,11 @@ std::string client_command(const std::string &command, const std::string &title)
 
 bool acts_on_window(const std::string &request) {
     static const std::set<std::string, std::less<>> actions{
-        "close", "maximize", "restore", "minimize", "fullscreen", "toggle_floating",
-        "toggle_sticky", "toggle_above", "move_to_scratchpad", "move_to_workspace", "tile",
-        "promote", "swap_next", "swap_prev", "consume_left", "consume_right", "expel",
-        "column_widen", "column_narrow", "column_cycle_width", "center_column", "group_toggle",
-        "group_next", "group_prev", "ungroup"};
+        "close", "maximize", "restore", "toggle_maximize", "minimize", "fullscreen",
+        "toggle_floating", "toggle_sticky", "toggle_above", "move_to_scratchpad",
+        "move_to_workspace", "tile", "promote", "swap_next", "swap_prev", "consume_left",
+        "consume_right", "expel", "column_widen", "column_narrow", "column_cycle_width",
+        "center_column", "group_toggle", "group_next", "group_prev", "ungroup"};
     auto action = first_word(request);
     return actions.contains(action) || action.starts_with("snap_") ||
            action.starts_with("move_") || action.starts_with("resize_") ||
