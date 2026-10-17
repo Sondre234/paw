@@ -400,6 +400,7 @@ struct Config {
                          .xwayland = true,
                          .tiling = false,
                          .tiling_per_workspace = false,
+                         .maximize_lone_on_untile = false,
                          .tile_layout = 0,
                          .master_ratio = 0.55F,
                          .master_count = 1,

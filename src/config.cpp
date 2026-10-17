@@ -2132,6 +2132,8 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         boolean(L, "tiling", "layout.tiling", config.settings.tiling);
         boolean(L, "tiling_per_workspace", "layout.tiling_per_workspace",
                 config.settings.tiling_per_workspace);
+        boolean(L, "maximize_lone_on_untile", "layout.maximize_lone_on_untile",
+                config.settings.maximize_lone_on_untile);
         config.settings.workspaces = integer(L, "workspaces", 4, 1, 10);
         lua_getfield(L, -1, "workspace_names");
         if (!lua_isnil(L, -1)) {

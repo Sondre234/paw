@@ -221,6 +221,10 @@ const Option options[] = {
      "Toggling tiling (`toggle_tiling`, the panel button) turns it on or off for the current "
      "workspace only, instead of every workspace of the monitor; workspaces not toggled follow "
      "the monitor's setting."},
+    {"layout.maximize_lone_on_untile", "boolean", "false", "true", none, none,
+     "Turning tiling off maximizes a tiled window that is alone on its workspace, instead of "
+     "floating it back to the place and size it had before it tiled; turning tiling on again "
+     "tiles it."},
     {"layout.tile_layout", "enum", "\"dwindle\"", "\"dwindle\"", none, none,
      "Tiling layout: `\"dwindle\"`, `\"master\"`, `\"spiral\"`, `\"monocle\"`, or "
      "`\"scroll\"`."},

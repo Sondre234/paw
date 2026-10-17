@@ -525,6 +525,11 @@ int main(int argc, char **argv) {
                         .settings.floating_above_tiles,
                 "floating_above_tiles not parsed, or not off by default");
         rejects("return {layout={floating_above_tiles='yes'}}");
+        require(!gaps.settings.maximize_lone_on_untile &&
+                    paw::parse_config("return {layout={maximize_lone_on_untile=true}}")
+                        .settings.maximize_lone_on_untile,
+                "maximize_lone_on_untile not parsed, or not off by default");
+        rejects("return {layout={maximize_lone_on_untile='yes'}}");
         auto windows = paw::parse_config(
             "return {windows={border_width=2,border_color='#ff000080',"
             "border_inactive_color='#00ff00',opacity=0.95,inactive_opacity=0.8,"
