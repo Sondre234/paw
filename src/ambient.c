@@ -12,11 +12,13 @@ static const double FADE_IN_MS = 1500;
 
 /* The pictures: four pinks of petal at three lengths, each turned SH_AMBIENT_TURNS ways; dots of
  * snow at six sizes in two whites; a firefly's glow at two sizes in three colours; an ember's
- * glow at three sizes in six heats, then flakes of ash at two sizes in two greys. */
+ * glow at three sizes in six heats, then flakes of ash at two sizes in two greys; a streak of
+ * rain at four lengths in two greys. */
 enum { PETAL_TINTS = SH_AMBIENT_PETAL_TINTS, PETAL_SIZES = 3, SNOW_TINTS = 2, SNOW_SIZES = 6, GLOW_TINTS = 3,
        GLOW_SIZES = 2 };
 enum { EMBER_SIZES = 3, EMBER_HEATS = 6, EMBER_GLOWS = EMBER_SIZES * EMBER_HEATS, ASH_TINTS = 2,
        ASH_SIZES = 2 };
+enum { RAIN_TINTS = 2, RAIN_LENGTHS = 4 };
 /* A petal's length, from its stem to the notch at its tip. */
 static const double PETAL_LENGTH[PETAL_SIZES] = {16, 22, 30};
 /* A flake's radius; the two largest are soft and out of focus, near the eye. */
@@ -30,6 +32,12 @@ static const double EMBER_REACH[EMBER_SIZES] = {10, 14, 22};
 static const double EMBER_CORE[EMBER_SIZES] = {1.4, 1.9, 3.4};
 /* A flake of ash's radius, give or take its ragged edge. */
 static const double ASH_RADIUS[ASH_SIZES] = {2.0, 3.2};
+/* A streak of rain's length, from its tail to its head, and how thick it is; the longest, near
+ * the eye, is soft. A drop goes RAIN_SLANT pixels sideways for each pixel it falls, along its
+ * streak. */
+static const double RAIN_LENGTH[RAIN_LENGTHS] = {12, 20, 32, 48};
+static const double RAIN_THICKNESS[RAIN_LENGTHS] = {0.7, 0.9, 1.1, 1.6};
+static const double RAIN_SLANT = 0.18;
 
 /* Colours as 0-255 sRGB. A petal is deeper at its stem, paler toward its tip, and a little
  * deeper again along its edge, which sets it apart on pale paper. */
@@ -69,6 +77,8 @@ static const double EMBER_STRENGTH[EMBER_HEATS] = {1, 0.95, 0.86, 0.74, 0.6, 0.4
 static const double ASH_MIDDLE[ASH_TINTS][3] = {{176, 172, 168}, {74, 70, 68}};
 static const double ASH_EDGE[ASH_TINTS][3] = {{128, 124, 120}, {44, 42, 42}};
 static const double ASH_RIM[3] = {255, 122, 51};
+/* Rain, paper white and a cooler grey. */
+static const double RAIN_TINT[RAIN_TINTS][3] = {{230, 233, 238}, {192, 200, 212}};
 
 const char *sh_ambient_kind_name(enum sh_ambient_kind kind) {
     switch (kind) {
@@ -80,6 +90,8 @@ const char *sh_ambient_kind_name(enum sh_ambient_kind kind) {
         return "fireflies";
     case SH_AMBIENT_EMBERS:
         return "embers";
+    case SH_AMBIENT_RAIN:
+        return "rain";
     default:
         return "none";
     }
@@ -95,6 +107,8 @@ int sh_ambient_default_count(enum sh_ambient_kind kind) {
         return 24;
     case SH_AMBIENT_EMBERS:
         return 40;
+    case SH_AMBIENT_RAIN:
+        return 120;
     default:
         return 0;
     }
@@ -110,6 +124,8 @@ int sh_ambient_sprite_count(enum sh_ambient_kind kind) {
         return GLOW_TINTS * GLOW_SIZES;
     case SH_AMBIENT_EMBERS:
         return EMBER_GLOWS + ASH_TINTS * ASH_SIZES;
+    case SH_AMBIENT_RAIN:
+        return RAIN_TINTS * RAIN_LENGTHS;
     default:
         return 0;
     }
@@ -149,13 +165,20 @@ double sh_ambient_sprite_side(enum sh_ambient_kind kind, int sprite) {
         return sprite < EMBER_GLOWS
                    ? 2 * EMBER_REACH[sprite / EMBER_HEATS]
                    : ceil(2 * 1.6 * ASH_RADIUS[(sprite - EMBER_GLOWS) % ASH_SIZES] + 2);
+    case SH_AMBIENT_RAIN:
+        // Room past its ends for their smoothing.
+        return ceil(RAIN_LENGTH[sprite % RAIN_LENGTHS] + 4);
     default:
         return 0;
     }
 }
 
 double sh_ambient_sprite_width(enum sh_ambient_kind kind, int sprite) {
-    return sh_ambient_sprite_side(kind, sprite);
+    if (kind != SH_AMBIENT_RAIN || sprite < 0 || sprite >= sh_ambient_sprite_count(kind))
+        return sh_ambient_sprite_side(kind, sprite);
+    // As far as it slants, and its thickness with room to each side for its smoothing.
+    int size = sprite % RAIN_LENGTHS;
+    return ceil(RAIN_LENGTH[size] * RAIN_SLANT + RAIN_THICKNESS[size] + 4);
 }
 
 static double clamp01(double value) { return value < 0 ? 0 : value > 1 ? 1 : value; }
@@ -389,10 +412,58 @@ static void paint_ash(int sprite, uint32_t *pixels, int side) {
     }
 }
 
+/* A streak of rain from its tail at the top left to its head at the bottom right, faint toward
+ * its tail; sampled four by four a pixel, for the thinnest's sake. */
+static void paint_rain(int sprite, uint32_t *pixels, int width, int height) {
+    const double *tint = RAIN_TINT[sprite / RAIN_LENGTHS];
+    int size = sprite % RAIN_LENGTHS;
+    double length = RAIN_LENGTH[size], radius = RAIN_THICKNESS[size] / 2;
+    double soft = size == RAIN_LENGTHS - 1 ? 0.45 : 0;
+    double wide = sh_ambient_sprite_width(SH_AMBIENT_RAIN, sprite);
+    double tall = sh_ambient_sprite_side(SH_AMBIENT_RAIN, sprite);
+    double across = wide / width, down = tall / height; // a pixel in logical pixels
+    double ax = -length * RAIN_SLANT / 2, ay = -length / 2, bx = -ax, by = -ay;
+    double span = (bx - ax) * (bx - ax) + (by - ay) * (by - ay);
+    enum { SAMPLES = 4 };
+    for (int row = 0; row < height; ++row) {
+        for (int column = 0; column < width; ++column) {
+            double alpha = 0, head = 0;
+            for (int sy = 0; sy < SAMPLES; ++sy) {
+                for (int sx = 0; sx < SAMPLES; ++sx) {
+                    double x = (column + (sx + 0.5) / SAMPLES) * across - wide / 2;
+                    double y = (row + (sy + 0.5) / SAMPLES) * down - tall / 2;
+                    double t = clamp01(((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / span);
+                    double d = hypot(x - ax - t * (bx - ax), y - ay - t * (by - ay));
+                    double cover = soft > 0 ? 1 - smoothstep(radius - soft, radius + soft, d)
+                                            : d <= radius;
+                    double along = pow(t, 1.4) * (1 - 0.6 * smoothstep(0.93, 1, t));
+                    alpha += cover * along;
+                    head += cover * along * t;
+                }
+            }
+            alpha /= SAMPLES * SAMPLES;
+            if (alpha <= 0) {
+                pixels[row * width + column] = 0;
+                continue;
+            }
+            // A little whiter toward its head, where the drop is.
+            double white = 0.35 * head / (alpha * SAMPLES * SAMPLES);
+            double rgb[3];
+            for (int i = 0; i < 3; ++i)
+                rgb[i] = mix(tint[i], 255, white) / 255 * alpha;
+            pixels[row * width + column] = pack(rgb[0], rgb[1], rgb[2], alpha);
+        }
+    }
+}
+
 void sh_ambient_paint(enum sh_ambient_kind kind, int sprite, uint32_t *pixels, int width,
                       int height) {
     if (width < 1 || height < 1 || sprite < 0 || sprite >= sh_ambient_sprite_count(kind))
         return;
+    if (kind == SH_AMBIENT_RAIN) {
+        paint_rain(sprite, pixels, width, height);
+        return;
+    }
     // The rest are square.
     if (width != height)
         return;
@@ -489,6 +560,15 @@ void sh_ambient_spawn(struct sh_ambient_field *field, struct sh_ambient_particle
         particle->x = uniform(seed, 0.05, 0.95) * width;
         particle->y = uniform(seed, 0.08, 0.95) * height;
         return;
+    }
+    case SH_AMBIENT_RAIN: {
+        // Many far off, faint and short; a few near, longer, brighter, faster and softer.
+        double depth = particle->depth = pow(uniform(seed, 0, 1), 1.6);
+        int size = depth < 0.3 ? 0 : depth < 0.6 ? 1 : depth < 0.85 ? 2 : 3;
+        particle->sprite = (xorshift(seed) % 3 == 0 ? RAIN_LENGTHS : 0) + size;
+        particle->scale = uniform(seed, 0.85, 1.15);
+        particle->fall = (0.55 + 0.9 * depth) * uniform(seed, 0.9, 1.1);
+        break;
     }
     case SH_AMBIENT_EMBERS: {
         // More far off than near; one in seven is a flake of ash, rising slower and swaying
@@ -601,7 +681,9 @@ void sh_ambient_step(struct sh_ambient_field *field, struct sh_ambient_particle 
         particle->y += particle->fall * dt;
         double drift = field->kind == SH_AMBIENT_SAKURA ? 0.5 + 0.7 * particle->depth
                                                         : 0.3 + 0.6 * particle->depth;
-        particle->x += wind * drift * dt;
+        // Rain goes along its streaks' slant, as fast as it falls; a gust would bend them.
+        particle->x += field->kind == SH_AMBIENT_RAIN ? particle->fall * RAIN_SLANT * dt
+                                                      : wind * drift * dt;
         if (field->kind == SH_AMBIENT_SAKURA) {
             particle->angle = remainder(particle->angle + particle->spin * dt, 2 * M_PI);
             particle->tumble = remainder(particle->tumble + particle->tumble_rate * dt, 2 * M_PI);
@@ -667,6 +749,10 @@ void sh_ambient_look(const struct sh_ambient_field *field,
         look->opacity = (0.15 + 0.85 * bright) * (0.75 + 0.25 * particle->depth);
         break;
     }
+    case SH_AMBIENT_RAIN:
+        // Faint, the nearest drops a little less so.
+        look->opacity = 0.25 + 0.35 * particle->depth;
+        break;
     case SH_AMBIENT_EMBERS: {
         x += particle->reach * sin(particle->phase);
         double life = clamp01(particle->glow);
