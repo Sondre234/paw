@@ -247,23 +247,36 @@ Item {
                 onClicked: shell.clearError()
             }
         }
-        // With shell.panel_draggable, the bar's inner edge resizes it, as on Windows with the
-        // taskbar unlocked: a strip as thick as the margin the buttons leave there, under a resize
-        // cursor. A press on it has the compositor take the pointer (panel.startBarResize), and
-        // the bar follows it from there until it is let go. The strip is made anew once the drag
-        // is over: Qt never hears the button let go, which the compositor keeps, and a MouseArea
-        // still pressed would take no new press.
-        Loader {
-            active: shell.panelDraggable && !taskbar.panel.barHeld
-            readonly property int thickness: Theme.spacingS
-            x: taskbar.panel.edge === "left" ? parent.width - thickness : 0
-            y: taskbar.panel.onTop ? parent.height - thickness : 0
-            width: taskbar.vertical ? thickness : parent.width
-            height: taskbar.vertical ? parent.height : thickness
-            sourceComponent: MouseArea {
-                objectName: "barResizeEdge"
-                cursorShape: taskbar.vertical ? Qt.SizeHorCursor : Qt.SizeVerCursor
-                onPressed: (mouse) => taskbar.panel.startBarResize(mapToItem(null, mouse.x, mouse.y))
+        // With shell.panel_draggable, the bar's edges resize it, as a window's do: a strip along
+        // each, as thick as the margin the buttons leave there, under a resize cursor. The inner
+        // edge, as on Windows with the taskbar unlocked, makes the bar taller or shorter; an end
+        // moves it in from that side of the output, and the outer edge from the edge it is
+        // along, the inner edge staying put (shell.panel_margin). The ends and the outer edge are
+        // there while the bar does not dock. A press on one has the compositor take the pointer
+        // (panel.startBarResize), and the bar follows it from there until it is let go. A strip
+        // is made anew once the drag is over: Qt never hears the button let go, which the
+        // compositor keeps, and a MouseArea still pressed would take no new press.
+        Repeater {
+            model: ["top", "right", "bottom", "left"]
+            delegate: Loader {
+                id: strip
+                required property string modelData
+                readonly property bool inner: modelData === taskbar.panel.innerSide
+                readonly property bool across: modelData === "top" || modelData === "bottom"
+                readonly property int thickness: Theme.spacingS
+                active: shell.panelDraggable && !taskbar.panel.barHeld && (inner || taskbar.dock === 0)
+                // Over the ends at the corners.
+                z: inner ? 1 : 0
+                x: modelData === "right" ? parent.width - thickness : 0
+                y: modelData === "bottom" ? parent.height - thickness : 0
+                width: across ? parent.width : thickness
+                height: across ? thickness : parent.height
+                sourceComponent: MouseArea {
+                    objectName: strip.inner ? "barResizeEdge" : "barResize-" + strip.modelData
+                    cursorShape: strip.across ? Qt.SizeVerCursor : Qt.SizeHorCursor
+                    onPressed: (mouse) => taskbar.panel.startBarResize(mapToItem(null, mouse.x, mouse.y),
+                                                                       strip.modelData)
+                }
             }
         }
     }

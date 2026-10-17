@@ -203,9 +203,8 @@ int ShellController::panelHeadroom(const QString &output) const {
     const auto &settings = config_.settings;
     if (shell.macos_style)
         return panelHeight() / 2;
-    const bool floating = shell.panel_radius > 0 || shell.panel_margin[0] > 0 ||
-                          shell.panel_margin[1] > 0 || shell.panel_margin[2] > 0 ||
-                          shell.panel_margin[3] > 0;
+    const bool floating = shell.panel_radius > 0 || panelMargin(0) > 0 || panelMargin(1) > 0 ||
+                          panelMargin(2) > 0 || panelMargin(3) > 0;
     if (!shell.frame_windows || !settings.shadow || !effects_ || !floating)
         return 0;
     // A bar along the top casts its shadow down, into the output; one along the bottom, up; one
@@ -213,16 +212,16 @@ int ShellController::panelHeadroom(const QString &output) const {
     int inwards = 0, margin = 0;
     switch (panelSurfaceEdge(output)) {
     case paw::PanelEdge::Top:
-        inwards = settings.shadow_y, margin = shell.panel_margin[2];
+        inwards = settings.shadow_y, margin = panelMargin(2);
         break;
     case paw::PanelEdge::Bottom:
-        inwards = -settings.shadow_y, margin = shell.panel_margin[0];
+        inwards = -settings.shadow_y, margin = panelMargin(0);
         break;
     case paw::PanelEdge::Left:
-        inwards = settings.shadow_x, margin = shell.panel_margin[1];
+        inwards = settings.shadow_x, margin = panelMargin(1);
         break;
     case paw::PanelEdge::Right:
-        inwards = -settings.shadow_x, margin = shell.panel_margin[3];
+        inwards = -settings.shadow_x, margin = panelMargin(3);
         break;
     }
     return std::max(0, settings.shadow_blur + std::max(0, inwards) - margin);
@@ -703,11 +702,26 @@ void ShellController::cancelBarDrag() {
     if (barDragging_ || barResizing_)
         ask("panel_drag cancel\n", [](const QByteArray &) {});
 }
-void ShellController::startBarResize(const QString &output, int distance) {
-    if (!panelDraggable() || barDragging_ || barResizing_)
+namespace {
+// The edges by name, in paw::PanelEdge's order.
+const char *const edgeNames[] = {"top", "bottom", "left", "right"};
+// The range of the setting `path`, as the schema has it, or `otherwise`.
+std::pair<int, int> settingRange(std::string_view path, std::pair<int, int> otherwise) {
+    for (const auto &option : paw::config_options())
+        if (std::string_view(option.path) == path)
+            return {int(option.min), int(option.max)};
+    return otherwise;
+}
+} // namespace
+void ShellController::startBarResize(const QString &output, const QString &side, int distance) {
+    const auto named = std::find(std::begin(edgeNames), std::end(edgeNames), side.toStdString());
+    if (!panelDraggable() || barDragging_ || barResizing_ || named == std::end(edgeNames))
         return;
+    barResizeEdge_ = panelSurfaceEdge(output);
+    barResizeSide_ = paw::PanelEdge(named - std::begin(edgeNames));
     barResizeFrom_ = distance;
-    ask("panel_drag resize " + panelEdge(output).toUtf8() + "\n", [this](const QByteArray &reply) {
+    const auto from = bar_resize::measuredFrom(barResizeEdge_, barResizeSide_);
+    ask("panel_drag resize " + QByteArray(edgeNames[int(from)]) + "\n", [this](const QByteArray &reply) {
         if (reply.startsWith("ok"))
             return;
         std::cerr << "paw taskbar not resized: " << reply.trimmed().toStdString() << '\n';
@@ -715,18 +729,9 @@ void ShellController::startBarResize(const QString &output, int distance) {
             barResizeFrom_ = -1;
     });
 }
-namespace {
-// shell.panel_height's range, as the schema has it.
-std::pair<int, int> panelHeightRange() {
-    for (const auto &option : paw::config_options())
-        if (std::string_view(option.path) == "shell.panel_height")
-            return {int(option.min), int(option.max)};
-    return {24, 100};
-}
-} // namespace
 // "panel-resize OUTPUT DISTANCE" or "panel-resized OUTPUT DISTANCE", as words: the bar follows the
-// pointer from where it was pressed, or from where the compositor first says it is when the
-// shell did not ask.
+// pointer from where it was pressed, or, when the shell did not ask, by the inner edge of OUTPUT's
+// bar from where the compositor first says the pointer is.
 void ShellController::handleBarResize(const QStringList &words) {
     bool number = false;
     const int distance = words.value(2).toInt(&number);
@@ -734,23 +739,29 @@ void ShellController::handleBarResize(const QStringList &words) {
         return;
     if (!barResizing_) {
         barResizing_ = true;
-        if (barResizeFrom_ < 0)
+        if (barResizeFrom_ < 0) {
+            barResizeEdge_ = panelSurfaceEdge(words[1]);
+            barResizeSide_ = bar_resize::inner(barResizeEdge_);
             barResizeFrom_ = distance;
-        barResizeStart_ = barResizeHeight_ = config_.shell.panel_height;
+        }
+        barResizeStart_ = {config_.shell.panel_height, std::to_array(config_.shell.panel_margin)};
+        barResize_ = barResizeStart_;
         Q_EMIT barDragChanged();
     }
-    static const auto range = panelHeightRange();
-    const int height = std::clamp(barResizeStart_ + distance - barResizeFrom_, range.first, range.second);
+    static const auto heights = settingRange("shell.panel_height", {24, 100});
+    static const auto margins = settingRange("shell.panel_margin.top", {0, 200});
+    const auto size = bar_resize::resized(barResizeStart_, barResizeEdge_, barResizeSide_,
+                                          distance - barResizeFrom_, heights, margins);
     if (words[0] == "panel-resized") {
-        barResizeHeight_ = height;
-        // Written while the bar is still drawn at that height, so that it never shows the old one.
-        resizePanel(height);
+        barResize_ = size;
+        // Written while the bar is still drawn at that size, so that it never shows the old one.
+        resizePanel(size);
         barResizing_ = false;
         barResizeFrom_ = -1;
         Q_EMIT barDragChanged();
         Q_EMIT panelSizeChanged();
-    } else if (height != barResizeHeight_) {
-        barResizeHeight_ = height;
+    } else if (size != barResize_) {
+        barResize_ = size;
         Q_EMIT panelSizeChanged();
     }
 }
@@ -809,19 +820,52 @@ void ShellController::movePanel(const QString &output, const QString &edge) {
     // At once, rather than waiting for the compositor, which reloads too while it watches the file.
     reload();
 }
-void ShellController::resizePanel(int height) {
-    if (height == config_.shell.panel_height)
+void ShellController::resizePanel(const bar_resize::Size &size) {
+    const auto &shell = config_.shell;
+    const auto margin = std::to_array(shell.panel_margin);
+    if (size.height == shell.panel_height && size.margin == margin)
         return;
+    static const char *const sides[] = {"top", "right", "bottom", "left"};
+    // The height, and the sides of the margin that changed; with `whole`, all four as one table.
+    auto edits = [&](bool whole) {
+        std::vector<paw::SettingEdit> edits;
+        if (size.height != shell.panel_height)
+            edits.push_back({{"shell", "panel_height"}, std::to_string(size.height),
+                             [height = size.height](const paw::Config &config) {
+                                 return config.shell.panel_height == height;
+                             }});
+        std::string table;
+        for (int i = 0; i < 4; ++i) {
+            table += (i ? ", " : "{ ") + std::string(sides[i]) + " = " + std::to_string(size.margin[i]);
+            if (!whole && size.margin[i] != margin[i])
+                edits.push_back({{"shell", "panel_margin", sides[i]}, std::to_string(size.margin[i]),
+                                 [i, side = size.margin[i]](const paw::Config &config) {
+                                     return config.shell.panel_margin[i] == side;
+                                 }});
+        }
+        if (whole)
+            edits.push_back({{"shell", "panel_margin"}, table + " }",
+                             [wanted = size.margin](const paw::Config &config) {
+                                 return std::to_array(config.shell.panel_margin) == wanted;
+                             }});
+        return edits;
+    };
     try {
-        paw::save_setting(path_, {"shell", "panel_height"}, std::to_string(height),
-                          [&](const paw::Config &config) {
-                              return config.shell.panel_height == height;
-                          });
+        try {
+            paw::save_settings(path_, edits(false));
+        } catch (const std::runtime_error &) {
+            // A margin given as one number, for every side, has no side of its own to set.
+            if (size.margin == margin)
+                throw;
+            paw::save_settings(path_, edits(true));
+        }
     } catch (const std::exception &error) {
         report("Could not resize the taskbar: " + QString::fromUtf8(error.what()));
         return;
     }
-    std::cerr << "paw taskbar resized to " << height << " pixels\n";
+    std::cerr << "paw taskbar resized to " << size.height << " pixels, its margins " << size.margin[0]
+              << ' ' << size.margin[1] << ' ' << size.margin[2] << ' ' << size.margin[3]
+              << " (top, right, bottom, left)\n";
     reload();
 }
 void ShellController::clearError() {
