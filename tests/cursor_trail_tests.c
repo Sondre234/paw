@@ -2,13 +2,18 @@
 /* The cursor trail's arithmetic and pictures: a pointer that stays where it is drops nothing and a
  * moving one drops particles in proportion to the way it went (and the amount), up to a limit,
  * the newest by the pointer; they stay near the way, sparkles and petals drift down and hearts up,
- * fade in, out and away within about a second, whatever their kind; the same seed makes the same
- * trail; and every picture paints something, its corners clear. */
+ * fade in, out and away within about a second, whatever their kind; sparks are flung back the
+ * way the pointer came, drawn along the way they fly and cool as they fall; the same seed makes
+ * the same trail; and every picture paints something, its corners clear. */
 #include "paw/cursor_trail.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "check.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 static const float COLORS[2][3] = {{0.56f, 0.76f, 0.93f}, {0.95f, 0.63f, 0.75f}};
 static const double TICK = 16;
@@ -36,6 +41,7 @@ static void test_names(void) {
     CHECK(!strcmp(sh_trail_kind_name(SH_TRAIL_SPARKLES), "sparkles"));
     CHECK(!strcmp(sh_trail_kind_name(SH_TRAIL_PETALS), "petals"));
     CHECK(!strcmp(sh_trail_kind_name(SH_TRAIL_HEARTS), "hearts"));
+    CHECK(!strcmp(sh_trail_kind_name(SH_TRAIL_SPARKS), "sparks"));
     CHECK(!strcmp(sh_trail_kind_name(SH_TRAIL_KINDS), "none"));
     CHECK(sh_trail_sprite_count(SH_TRAIL_NONE, 2) == 0);
     CHECK(sh_trail_sprite_count(SH_TRAIL_SPARKLES, 2) == 2 * sh_trail_sprite_count(SH_TRAIL_SPARKLES, 1));
@@ -44,6 +50,10 @@ static void test_names(void) {
           sh_trail_sprite_count(SH_TRAIL_HEARTS, SH_TRAIL_TINTS));
     CHECK(sh_trail_sprite_side(SH_TRAIL_SPARKLES, -1) == 0);
     CHECK(sh_trail_sprite_side(SH_TRAIL_NONE, 0) == 0);
+    CHECK(sh_trail_sprite_count(SH_TRAIL_SPARKS, 3) == 3 * sh_trail_sprite_count(SH_TRAIL_SPARKS, 1));
+    CHECK(sh_trail_sprite_side(SH_TRAIL_SPARKS, sh_trail_sprite_count(SH_TRAIL_SPARKS, 6)) == 0);
+    for (int kind = SH_TRAIL_SPARKLES; kind < SH_TRAIL_KINDS; ++kind)
+        CHECK(sh_trail_family_size(kind) <= SH_TRAIL_FAMILY_MOST, "%d", kind);
 }
 
 /* Still, nothing; moving, particles in proportion to the way and the amount; none at all for none. */
@@ -220,6 +230,57 @@ static void test_families(void) {
     }
 }
 
+/* Sparks are flung back the way the pointer came, fast, in a fan, and fall; each is drawn along
+ * the way it flies, its streak behind it, white-hot first and cooling through its heats, never
+ * warming again. */
+static void test_sparks(void) {
+    struct sh_trail *trail = make(SH_TRAIL_SPARKS, 1);
+    int size = sh_trail_family_size(SH_TRAIL_SPARKS), turns = size / 3;
+    int spawned = sh_trail_moved(trail, 300, 400, 340, 400); // to the right
+    CHECK(spawned >= 4, "%d", spawned);
+    int back = 0;
+    for (int i = 0; i < SH_TRAIL_MAX; ++i) {
+        const struct sh_trail_particle *p = &trail->particles[i];
+        if (p->life <= 0)
+            continue;
+        back += p->vx < -0.05;
+        CHECK(hypot(p->vx, p->vy) > 0.1 && hypot(p->vx, p->vy) < 0.7, "%g %g", p->vx, p->vy);
+        CHECK(p->vx < 0.5 * fabs(p->vy) + 0.01, "never flung ahead: %g %g", p->vx, p->vy);
+        CHECK(p->life >= 300 && p->life <= 800, "%g", p->life);
+    }
+    CHECK(back >= spawned * 3 / 4, "flung back: %d of %d", back, spawned);
+    int heats[SH_TRAIL_MAX];
+    for (int i = 0; i < SH_TRAIL_MAX; ++i)
+        heats[i] = 0;
+    bool cooled = false;
+    for (double t = 0; t < 800 && trail->count; t += TICK) {
+        for (int i = 0; i < SH_TRAIL_MAX; ++i) {
+            const struct sh_trail_particle *p = &trail->particles[i];
+            if (p->life <= 0)
+                continue;
+            struct sh_trail_look look;
+            sh_trail_look(trail, p, &look);
+            int shape = look.sprite - sh_trail_family_first(SH_TRAIL_SPARKS,
+                                                            sh_trail_family_at(trail, i));
+            CHECK(shape >= 0 && shape < size, "%d", shape);
+            int heat = shape / turns;
+            CHECK(heat >= heats[i], "never warming: %d after %d", heat, heats[i]);
+            heats[i] = heat;
+            cooled |= heat == 2;
+            // Turned along the way it flies, to the nearest of its steps.
+            double drawn = (look.quarters * turns + shape % turns) * (M_PI / 2) / turns;
+            double off = remainder(drawn - atan2(p->vy, p->vx), 2 * M_PI);
+            CHECK(fabs(off) <= M_PI / 4 / turns + 1e-9, "turned %g off its way", off);
+            // Its streak behind it: the picture's middle back along the way it came.
+            double mx = look.x + look.width / 2 - p->x, my = look.y + look.height / 2 - p->y;
+            CHECK(mx * p->vx + my * p->vy < 0, "streak behind: %g %g", mx, my);
+        }
+        sh_trail_step(trail, TICK);
+    }
+    CHECK(cooled && trail->count == 0, "cooled, gone: %d left", trail->count);
+    free(trail);
+}
+
 static void test_repeatable(void) {
     struct sh_trail *a = make(SH_TRAIL_PETALS, 1), *b = make(SH_TRAIL_PETALS, 1);
     sweep(a, 0, 0, 7, 3, 60);
@@ -271,6 +332,38 @@ static void test_paint(void) {
     uint32_t heart = pixels[side / 2 * side + side / 2];
     CHECK(heart >> 24 == 255, "%08x", heart);
     free(pixels);
+    // The first spark lies along x, its head at the right, white-hot, its tail at the left faint
+    // and of its colour (light blue); its coolest picture is of its colour at its head too.
+    side = (int)lround(2 * sh_trail_sprite_side(SH_TRAIL_SPARKS, 0));
+    pixels = calloc((size_t)side * side, sizeof(*pixels));
+    sh_trail_paint(SH_TRAIL_SPARKS, 0, COLORS, 2, pixels, side);
+    uint32_t right = 0, left = 0;
+    int ahead = 0, behind = 0, beside = 0;
+    for (int i = 0; i < side * side; ++i) {
+        int dx = i % side - side / 2, dy = i / side - side / 2, a = (int)(pixels[i] >> 24);
+        if (abs(dy) <= 1 && dx > 0 && pixels[i] >> 24 > right >> 24)
+            right = pixels[i];
+        if (abs(dy) <= 1 && dx < -side / 4 && pixels[i] >> 24 > left >> 24)
+            left = pixels[i];
+        ahead += dx > 0 ? a : 0;
+        behind += dx < 0 ? a : 0;
+        beside += abs(dy) > side / 4 ? a : 0;
+    }
+    CHECK(right >> 24 > 200 && (right & 0xff) > 200, "white-hot head: %08x", right);
+    CHECK(left >> 24 > 0 && left >> 24 < 128 && (left & 0xff) > (left >> 16 & 0xff) + 4,
+          "faint tail of its colour: %08x", left);
+    CHECK(ahead > 2 * behind && beside < ahead / 10, "%d ahead, %d behind, %d beside", ahead,
+          behind, beside);
+    int coolest = sh_trail_family_size(SH_TRAIL_SPARKS) - sh_trail_family_size(SH_TRAIL_SPARKS) / 3;
+    side = (int)lround(2 * sh_trail_sprite_side(SH_TRAIL_SPARKS, coolest));
+    sh_trail_paint(SH_TRAIL_SPARKS, coolest, COLORS, 2, pixels, side);
+    uint32_t cool = 0;
+    for (int i = 0; i < side * side; ++i)
+        if (i / side == side / 2 && pixels[i] >> 24 > cool >> 24)
+            cool = pixels[i];
+    CHECK(cool >> 24 > 200 && (cool & 0xff) > (cool >> 16 & 0xff) + 40, "of its colour: %08x",
+          cool);
+    free(pixels);
 }
 
 int main(void) {
@@ -280,6 +373,7 @@ int main(void) {
     test_fade();
     test_limit();
     test_families();
+    test_sparks();
     test_repeatable();
     test_paint();
     if (failures)
