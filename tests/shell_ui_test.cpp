@@ -1574,6 +1574,8 @@ ListModel {
         if (!slowMotion(true))
             return fail("the animations were not slowed down");
         editTasks("model.append({taskId: 98, title: 'Arriving', appId: 'arriving', active: false, "
+                  "minimized: false, urgent: false}); "
+                  "model.append({taskId: 99, title: 'Arriving too', appId: 'arriving-too', active: false, "
                   "minimized: false, urgent: false})");
         // Not the button of the window closed just before, which may still be on its way out.
         QPointer<QQuickItem> arriving;
@@ -1583,12 +1585,41 @@ ListModel {
             }) ||
             arriving->opacity() == 1 || arriving->scale() == 1 || arriving->property("reveal").toReal() == 1)
             return fail("a window's button did not fade and grow in");
-        if (!waitFor([&] {
-                return arriving && arriving->opacity() == 1 && arriving->scale() == 1 &&
-                       arriving->property("reveal").toReal() == 1;
-            }))
+        // Moved, or moved past by another, on their way in, which cuts their coming in short, the
+        // buttons still come all the way in, leaving no gap on the bar.
+        auto *bar = tasks->property("model").value<QObject *>();
+        auto rowOf = [&](int taskId) {
+            int row = -1;
+            QMetaObject::invokeMethod(bar, "rowOf", Q_RETURN_ARG(int, row), Q_ARG(int, taskId));
+            return row;
+        };
+        // By its window, not its row: the bar lays a move out after the model has it.
+        auto buttonOf = [&](int taskId) -> QQuickItem * {
+            for (int row = 0; row < tasks->property("count").toInt(); ++row) {
+                QQuickItem *button = nullptr;
+                QMetaObject::invokeMethod(tasks, "itemAtIndex", Q_RETURN_ARG(QQuickItem *, button),
+                                          Q_ARG(int, row));
+                if (button && button->property("taskId").toInt() == taskId)
+                    return button;
+            }
+            return nullptr;
+        };
+        auto whole = [&](int taskId) {
+            auto *button = buttonOf(taskId);
+            return button && button->opacity() == 1 && button->scale() == 1 &&
+                   button->property("reveal").toReal() == 1;
+        };
+        // The one passing them moves, then, once the bar has laid that out, the second of them:
+        // moves of one turn the bar takes as one.
+        QMetaObject::invokeMethod(bar, "move", Q_ARG(int, rowOf(7)), Q_ARG(int, rowOf(99)));
+        if (!waitFor([&] { return buttonOf(7) && buttonOf(99) && buttonOf(7)->x() > buttonOf(99)->x(); }))
+            return fail("a window's button did not move past those coming in");
+        QMetaObject::invokeMethod(bar, "move", Q_ARG(int, rowOf(99)), Q_ARG(int, rowOf(98)));
+        if (rowOf(99) != rowOf(98) - 1 || rowOf(7) != rowOf(98) + 1)
+            return fail("windows' buttons were not moved past those coming in");
+        if (!waitFor([&] { return whole(98) && whole(99); }))
             return fail("a window's button did not come all the way in");
-        editTasks("model.remove(1)");
+        editTasks("model.remove(1, 2)");
         if (!waitFor([&] { return arriving && arriving->opacity() < 1; }) ||
             arriving->isEnabled())
             return fail("a closing window's button did not fade out, or still takes clicks");
