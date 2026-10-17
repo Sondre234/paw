@@ -647,6 +647,12 @@ shadows.
   and fullscreen windows. A profile can set it (washi, sumi and mochi suggest one each in a comment), and the
   `cursor_trail` action (`paw msg cursor_trail sparkles|petals|hearts|off|next|toggle`, and the
   command palette) switches it; `paw msg get cursor_trail` says what it draws.
+- Ambient embers: `appearance.ambient = { kind = "embers" }` has glowing embers rise from below
+  over the wallpaper, swaying and flickering as they go and cooling from hot amber through ember
+  orange to a dull red until they go out, the nearest larger, faster and softer, with a few grey
+  flakes of ash tumbling among them; their glow adds light, as the fireflies' does. Forty drift
+  on each monitor unless `count` says, and `paw msg ambient embers` (and the command palette)
+  brings them.
 
 ### Starting and ending a session
 

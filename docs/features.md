@@ -2185,21 +2185,23 @@ window covers the output. `overview.hot_corner` makes one more corner, which ope
 **Ambient particles.** `appearance.ambient = { kind = "sakura" }` has sakura petals drift down
 over the wallpaper, tumbling, swaying and turning as they fall, in four pinks; `"snow"` has soft
 snow falling, the nearest flakes large and out of focus; `"fireflies"` has fireflies wandering
-about and glowing warm, now bright, now dim. A gentle wind carries the petals and the snow now
-one way, now the other. The compositor draws them over the wallpaper and under the windows and
-the panels; they take no input, and stay out of the background [blurred behind
-windows](#borders-opacity-and-rounded-corners), which shows the wallpaper alone. `count` says how
-many drift on each monitor (up to 150; unless set, 30 petals, 60 flakes or 24 fireflies) and
-`speed` how fast (1 is their own pace, 0.5 half of it). An [appearance profile](#appearance-profiles) can set them, so that each look has its
-own (a [rice](#paw-rice) takes them along), and they fade over to the new kind as the profile
-changes.
+about and glowing warm, now bright, now dim; `"embers"` has embers rising from below, swaying and
+flickering as they go and cooling from hot amber through ember orange to a dull red until they go
+out, the nearest larger, faster and softer, with a few flakes of ash tumbling among them. A gentle
+wind carries the petals, the snow and the embers now one way, now the other. The compositor draws
+them over the wallpaper and under the windows and the panels; they take no input, and stay out of
+the background [blurred behind windows](#borders-opacity-and-rounded-corners), which shows the
+wallpaper alone. `count` says how many drift on each monitor (up to 150; unless set, 30 petals, 60
+flakes, 24 fireflies or 40 embers) and `speed` how fast (1 is their own pace, 0.5 half of it). An
+[appearance profile](#appearance-profiles) can set them, so that each look has its own (a
+[rice](#paw-rice) takes them along), and they fade over to the new kind as the profile changes.
 
 The `ambient` action switches them without touching the configuration: `paw msg ambient sakura`
-(or `snow`, `fireflies`, `off`), `ambient next` goes through the kinds in turn and then none, and
-`ambient` alone (`toggle`) turns them off, or back on as they were last (sakura the first time);
-bound to a key, `mode` takes the same words. The command palette offers them as "Ambient: ...".
-What the action chose stands until a reload changes `appearance.ambient.kind`, as picking a
-profile with another kind does.
+(or `snow`, `fireflies`, `embers`, `off`), `ambient next` goes through the kinds in turn and then
+none, and `ambient` alone (`toggle`) turns them off, or back on as they were last (sakura the
+first time); bound to a key, `mode` takes the same words. The command palette offers them as
+"Ambient: ...". What the action chose stands until a reload changes `appearance.ambient.kind`, as
+picking a profile with another kind does.
 
 They draw only where they show: a monitor's particles pause while the session is locked, while
 the monitor is off or shows a fullscreen window (so a game or a video keeps the monitor to
