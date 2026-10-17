@@ -28,7 +28,7 @@ const char *sh_ambient_kind_name(enum sh_ambient_kind kind);
  * twice as many flakes, which are smaller, fewer fireflies, and a few dozen embers. */
 int sh_ambient_default_count(enum sh_ambient_kind kind);
 
-/* The pictures a kind is drawn with, each a square: petals of four pinks at three sizes, turned
+/* The pictures a kind is drawn with, each a square (see sh_ambient_sprite_width): petals of four pinks at three sizes, turned
  * by each of SH_AMBIENT_TURNS steps of a quarter turn (a quarter turn more is the same picture
  * turned on the screen); dots of snow at six sizes, the larger ones softer, in two whites; a
  * firefly's glow at two sizes in three warm colours; and an ember's glow at three sizes, the
@@ -43,12 +43,19 @@ int sh_ambient_petal_sprite(int tint, int size);
 /* A petal drawn turned `turn` radians clockwise: the step to add to its first picture, and the
  * quarter turns more the screen gives that picture. */
 void sh_ambient_petal_turn(double turn, int *step, int *quarters);
-/* The side of picture `sprite` in logical pixels, as it is drawn face on. */
+/* The side of picture `sprite` in logical pixels, as it is drawn face on: its height, and its
+ * width too for a square one. */
 double sh_ambient_sprite_side(enum sh_ambient_kind kind, int sprite);
-/* Paints picture `sprite` of `kind`, `side` pixels square, into `pixels`: premultiplied ARGB
- * (0xAARRGGBB words), rows without padding, transparent around it. A firefly's glow and an
- * ember's are brighter than their alpha, so that they add light to what is under them. */
-void sh_ambient_paint(enum sh_ambient_kind kind, int sprite, uint32_t *pixels, int side);
+/* The width of picture `sprite` in logical pixels, as it is drawn face on, no more than its
+ * side. */
+double sh_ambient_sprite_width(enum sh_ambient_kind kind, int sprite);
+/* Paints picture `sprite` of `kind`, `width` by `height` pixels (its width and side at some
+ * scale, equal for a square picture, which paints nothing otherwise), into `pixels`:
+ * premultiplied ARGB (0xAARRGGBB words), rows without padding, transparent around it. A
+ * firefly's glow and an ember's are brighter than their alpha, so that they add light to what is
+ * under them. */
+void sh_ambient_paint(enum sh_ambient_kind kind, int sprite, uint32_t *pixels, int width,
+                      int height);
 
 /* One particle. Where it is (its middle) and how far off (`depth`, 0 far to 1 near, which makes
  * it larger, faster and more opaque); how fast it falls (pixels per millisecond), or for an

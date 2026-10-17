@@ -268,7 +268,7 @@ void sh_trail_paint(enum sh_trail_kind kind, int sprite, const float (*colors)[3
         break;
     }
     case SH_TRAIL_PETALS:
-        sh_ambient_paint(SH_AMBIENT_SAKURA, sprite, pixels, side);
+        sh_ambient_paint(SH_AMBIENT_SAKURA, sprite, pixels, side, side);
         break;
     case SH_TRAIL_HEARTS:
         paint_heart(colors ? colors[sprite / HEART_SIZES] : white, sprite % HEART_SIZES, pixels,

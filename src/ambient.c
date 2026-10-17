@@ -154,6 +154,10 @@ double sh_ambient_sprite_side(enum sh_ambient_kind kind, int sprite) {
     }
 }
 
+double sh_ambient_sprite_width(enum sh_ambient_kind kind, int sprite) {
+    return sh_ambient_sprite_side(kind, sprite);
+}
+
 static double clamp01(double value) { return value < 0 ? 0 : value > 1 ? 1 : value; }
 
 static double smoothstep(double edge0, double edge1, double x) {
@@ -385,9 +389,14 @@ static void paint_ash(int sprite, uint32_t *pixels, int side) {
     }
 }
 
-void sh_ambient_paint(enum sh_ambient_kind kind, int sprite, uint32_t *pixels, int side) {
-    if (side < 1 || sprite < 0 || sprite >= sh_ambient_sprite_count(kind))
+void sh_ambient_paint(enum sh_ambient_kind kind, int sprite, uint32_t *pixels, int width,
+                      int height) {
+    if (width < 1 || height < 1 || sprite < 0 || sprite >= sh_ambient_sprite_count(kind))
         return;
+    // The rest are square.
+    if (width != height)
+        return;
+    int side = height;
     if (kind == SH_AMBIENT_SAKURA)
         paint_petal(sprite, pixels, side);
     else if (kind == SH_AMBIENT_SNOW)
@@ -624,7 +633,8 @@ void sh_ambient_look(const struct sh_ambient_field *field,
                      const struct sh_ambient_particle *particle, struct sh_ambient_look *look) {
     double side = sh_ambient_sprite_side(field->kind, particle->sprite) * particle->scale;
     double fade = smoothstep(0, FADE_IN_MS, particle->age);
-    double x = particle->x, y = particle->y, width = side, height = side;
+    double x = particle->x, y = particle->y, height = side;
+    double width = sh_ambient_sprite_width(field->kind, particle->sprite) * particle->scale;
     *look = (struct sh_ambient_look){.sprite = particle->sprite};
     switch (field->kind) {
     case SH_AMBIENT_SAKURA: {

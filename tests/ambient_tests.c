@@ -222,15 +222,18 @@ static void test_paint(void) {
         // A firefly's glow and an ember's add light, brighter than their alpha.
         bool glows = kind == SH_AMBIENT_FIREFLIES || kind == SH_AMBIENT_EMBERS;
         for (int sprite = 0; sprite < sh_ambient_sprite_count(kind); ++sprite) {
+            CHECK(sh_ambient_sprite_width(kind, sprite) <= sh_ambient_sprite_side(kind, sprite));
             for (double scale = 1; scale <= 2; scale += 0.5) {
                 int side = (int)lround(sh_ambient_sprite_side(kind, sprite) * scale);
-                CHECK(side >= 4 && side <= 128, "%d", side);
-                uint32_t *pixels = malloc((size_t)side * side * sizeof(*pixels));
-                for (int i = 0; i < side * side; ++i)
+                int width = (int)lround(sh_ambient_sprite_width(kind, sprite) * scale);
+                CHECK(side >= 4 && side <= 128 && width >= 4, "%d %d", width, side);
+                int area = width * side;
+                uint32_t *pixels = malloc((size_t)area * sizeof(*pixels));
+                for (int i = 0; i < area; ++i)
                     pixels[i] = 0xdeadbeef;
-                sh_ambient_paint(kind, sprite, pixels, side);
+                sh_ambient_paint(kind, sprite, pixels, width, side);
                 int shown = 0, solid = 0;
-                for (int i = 0; i < side * side; ++i) {
+                for (int i = 0; i < area; ++i) {
                     uint32_t a = pixels[i] >> 24, r = pixels[i] >> 16 & 0xff;
                     uint32_t g = pixels[i] >> 8 & 0xff, b = pixels[i] & 0xff;
                     shown += a > 8;
@@ -242,12 +245,11 @@ static void test_paint(void) {
                 }
                 CHECK(shown >= 3, "%s %d at %g paints something: %d", sh_ambient_kind_name(kind),
                       sprite, scale, shown);
-                CHECK(shown < side * side * 0.8, "with room around it: %d of %d", shown,
-                      side * side);
+                CHECK(shown < area * 0.8, "with room around it: %d of %d", shown, area);
                 if (kind == SH_AMBIENT_SAKURA)
                     CHECK(solid >= 4, "a petal is nearly opaque: %d", solid);
                 for (int corner = 0; corner < 4; ++corner) {
-                    int i = (corner & 1 ? side - 1 : 0) + (corner & 2 ? side - 1 : 0) * side;
+                    int i = (corner & 1 ? width - 1 : 0) + (corner & 2 ? side - 1 : 0) * width;
                     CHECK(pixels[i] >> 24 < 4, "corners clear: %08x", pixels[i]);
                 }
                 free(pixels);
@@ -259,34 +261,39 @@ static void test_paint(void) {
     int side = 40;
     uint32_t pixels[40 * 40];
     double xx, yy, xy;
-    sh_ambient_paint(SH_AMBIENT_SAKURA, 0, pixels, side);
+    sh_ambient_paint(SH_AMBIENT_SAKURA, 0, pixels, side, side);
     spread(pixels, side, &xx, &yy, &xy);
     CHECK(xx > 1.2 * yy && fabs(xy) < 0.1 * xx, "along x: %g %g %g", xx, yy, xy);
-    sh_ambient_paint(SH_AMBIENT_SAKURA, SH_AMBIENT_TURNS / 2, pixels, side);
+    sh_ambient_paint(SH_AMBIENT_SAKURA, SH_AMBIENT_TURNS / 2, pixels, side, side);
     spread(pixels, side, &xx, &yy, &xy);
     CHECK(xy > 0.1 * xx, "turned clockwise: %g %g %g", xx, yy, xy);
+    // A square picture asked for at another shape paints nothing rather than past its pixels.
+    for (int i = 0; i < 40 * 40; ++i)
+        pixels[i] = 0xdeadbeef;
+    sh_ambient_paint(SH_AMBIENT_SNOW, 0, pixels, 12, 30);
+    CHECK(pixels[0] == 0xdeadbeef && pixels[12 * 30 - 1] == 0xdeadbeef);
     // A firefly's glow adds light: brighter than its alpha around its core.
     int glow = 0;
-    sh_ambient_paint(SH_AMBIENT_FIREFLIES, 0, pixels, 24);
+    sh_ambient_paint(SH_AMBIENT_FIREFLIES, 0, pixels, 24, 24);
     for (int i = 0; i < 24 * 24; ++i)
         glow += (pixels[i] >> 16 & 0xff) > (pixels[i] >> 24) + 10;
     CHECK(glow > 20, "%d", glow);
     // So does an ember's, its hottest picture paler in its middle than its coolest, which is
     // still red; a flake of ash adds none.
     glow = 0;
-    sh_ambient_paint(SH_AMBIENT_EMBERS, 0, pixels, 24);
+    sh_ambient_paint(SH_AMBIENT_EMBERS, 0, pixels, 24, 24);
     for (int i = 0; i < 24 * 24; ++i)
         glow += (pixels[i] >> 16 & 0xff) > (pixels[i] >> 24) + 10;
     CHECK(glow > 20, "%d", glow);
     uint32_t hot = pixels[12 * 24 + 12];
-    sh_ambient_paint(SH_AMBIENT_EMBERS, 5, pixels, 24);
+    sh_ambient_paint(SH_AMBIENT_EMBERS, 5, pixels, 24, 24);
     uint32_t cool = pixels[12 * 24 + 12];
     CHECK((hot >> 8 & 0xff) > (cool >> 8 & 0xff) + 60 && (cool >> 16 & 0xff) > 2 * (cool >> 8 & 0xff),
           "%08x %08x", hot, cool);
     int ash = sh_ambient_sprite_count(SH_AMBIENT_EMBERS) - 1;
     side = (int)lround(sh_ambient_sprite_side(SH_AMBIENT_EMBERS, ash) * 2);
     CHECK(side <= 40, "%d", side);
-    sh_ambient_paint(SH_AMBIENT_EMBERS, ash, pixels, side);
+    sh_ambient_paint(SH_AMBIENT_EMBERS, ash, pixels, side, side);
     for (int i = 0; i < side * side; ++i) {
         uint32_t a = pixels[i] >> 24;
         CHECK((pixels[i] >> 16 & 0xff) <= a && (pixels[i] >> 8 & 0xff) <= a &&

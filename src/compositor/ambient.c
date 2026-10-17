@@ -114,13 +114,15 @@ static struct wlr_buffer *sprite(struct sh_ambient_sky *sky, int index) {
                                                  sizeof(*sky->sprites))))
         return NULL;
     if (!sky->sprites[index]) {
-        int side = (int)lround(sh_ambient_sprite_side(kind, index) * sky->scale);
-        side = side < 1 ? 1 : side;
-        uint32_t *pixels = malloc((size_t)side * side * sizeof(*pixels));
+        int width = (int)lround(sh_ambient_sprite_width(kind, index) * sky->scale);
+        int height = (int)lround(sh_ambient_sprite_side(kind, index) * sky->scale);
+        width = width < 1 ? 1 : width;
+        height = height < 1 ? 1 : height;
+        uint32_t *pixels = malloc((size_t)width * height * sizeof(*pixels));
         if (!pixels)
             return NULL;
-        sh_ambient_paint(kind, index, pixels, side);
-        sky->sprites[index] = sh_pixel_buffer(pixels, side, side);
+        sh_ambient_paint(kind, index, pixels, width, height);
+        sky->sprites[index] = sh_pixel_buffer(pixels, width, height);
     }
     return sky->sprites[index];
 }
