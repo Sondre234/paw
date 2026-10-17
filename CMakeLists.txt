@@ -129,7 +129,8 @@ if(BUILD_TESTING)
     paw_unit_test(wrapped LIBRARY paw_cli)
     paw_unit_test(xray LIBRARY paw_cli)
     paw_unit_test(tour LIBRARY paw_cli)
-    set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
+    set_tests_properties(config_robustness PROPERTIES TIMEOUT 900 LABELS slow)
+    set_tests_properties(child_trial PROPERTIES LABELS slow)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] [SLOW] ARGUMENTS...) runs
     # tests/NAME.py, or tests/FILE, with the arguments, for at most a minute or the timeout;
@@ -173,6 +174,7 @@ if(BUILD_TESTING)
     paw_unit_test(config_edit ${EXAMPLE_CONFIG})
     paw_unit_test(window_features)
     paw_unit_test(import ${CMAKE_CURRENT_SOURCE_DIR}/tests/import)
+    set_tests_properties(import PROPERTIES LABELS slow)
     paw_unit_test(urgent_config)
     paw_unit_test(rule_fields_config)
     paw_unit_test(productivity)
@@ -731,7 +733,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(lid_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(compositor_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        paw_smoke(auto_reload_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
+        paw_smoke(auto_reload_smoke SLOW $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         # Without a personal configuration, paw runs the shipped one.
         set(EMPTY_HOME ${CMAKE_CURRENT_BINARY_DIR}/empty-home)
         file(MAKE_DIRECTORY ${EMPTY_HOME})
@@ -748,8 +750,9 @@ if(PAW_BUILD_COMPOSITOR)
             ${EXAMPLE_CONFIG})
         paw_smoke(workspace_drag_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
-        paw_smoke(control_fuzz_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
-            ${EXAMPLE_CONFIG} ${CMAKE_CURRENT_SOURCE_DIR}/src/compositor/query.c)
+        paw_smoke(control_fuzz_smoke SLOW TIMEOUT 120 $<TARGET_FILE:paw>
+            $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG}
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/compositor/query.c)
         paw_smoke(swallow_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(pid_at_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
@@ -777,7 +780,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(maximize_lone_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(maximized_tile_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
-        paw_smoke(screenshot_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(screenshot_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             ${EXAMPLE_CONFIG})
         paw_smoke(launch_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         paw_smoke(cursor_theme_smoke $<TARGET_FILE:paw>)
@@ -891,7 +894,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(gradient_border_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             "${GRIM_ARGUMENT}")
         paw_smoke(dim_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(cursor_shake_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
+        paw_smoke(cursor_shake_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
             "${GRIM_ARGUMENT}")
         find_program(SLURP slurp)
         paw_smoke(screenshot_select_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
@@ -1020,9 +1023,9 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(rice_smoke TIMEOUT 120 $<TARGET_FILE:paw>)
         paw_smoke(cat_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(ambient_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(ambient_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
-        paw_smoke(cursor_trail_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(cursor_trail_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(wrapped_smoke SLOW TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:idle_probe>)

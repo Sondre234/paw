@@ -276,7 +276,7 @@ if(BUILD_TESTING)
         PkgConfig::GIO PkgConfig::SHELL_WAYLAND paw_shell_qml)
     paw_shell_test(shell_ui_test LIBS paw_shell_test_core Qt6::Test)
     add_test(NAME shell_ui COMMAND shell_ui_test ${CMAKE_COMMAND})
-    set_tests_properties(shell_ui PROPERTIES TIMEOUT 240
+    set_tests_properties(shell_ui PROPERTIES TIMEOUT 240 LABELS slow
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software")
     # The sheet of keyboard shortcuts: its groups, titles, keys and search, and its model.
     paw_shell_test(shortcuts_test LIBS paw_shell_test_core Qt6::Test)
