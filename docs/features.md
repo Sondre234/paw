@@ -2229,17 +2229,20 @@ in thousandths, the picture and its transform.
 **Cursor trail** (experimental). `appearance.cursor_trail = { kind = "sparkles" }` has little
 four-pointed sparkles and specks of glitter fall off the pointer as it moves, twinkling as they
 drift down a little and fade within a second; `"petals"` drops tiny sakura petals that tumble and
-sway as they fall, and `"hearts"` hearts that pop out and float up. The faster the pointer moves,
-the more fall (none while it rests), and `amount` says how many (2 twice as many, 0.5 half, up to
-4). The sparkles and hearts come in `colors`, a list of up to six `#RRGGBB`; unless given, the
-focused border's colours (each of a gradient's) and `shell.accent`, with a light blue or a sakura
-pink beside them when none of them is one, so washi's trail is its light blue and pink. The petals
-are the [ambient](#effects) petals' pinks. An [appearance profile](#appearance-profiles) can set it
+sway as they fall, `"hearts"` hearts that pop out and float up, and `"sparks"` flings sparks off
+it as a grinder or a chainsaw does: tiny bright streaks thrown back the way the pointer came,
+fanning out, falling in arcs and cooling from white-hot into their colour as they fade within
+two thirds of a second. The faster the pointer moves, the more fall (none while it rests), and
+`amount` says how many (2 twice as many, 0.5 half, up to 4). The sparkles, hearts and sparks come
+in `colors`, a list of up to six `#RRGGBB`; unless given, the focused border's colours (each of a
+gradient's) and `shell.accent`, with a light blue or a sakura pink beside them when none of them
+is one, so washi's trail is its light blue and pink. The petals are the [ambient](#effects)
+petals' pinks. An [appearance profile](#appearance-profiles) can set it
 (a [rice](#paw-rice) takes it along). The trail is drawn over the windows and the panels but under
 the cursor, and takes no input.
 
 The `cursor_trail` action switches it without touching the configuration: `paw msg cursor_trail
-sparkles` (or `petals`, `hearts`, `off`), `cursor_trail next` goes through the kinds in turn and
+sparkles` (or `petals`, `hearts`, `sparks`, `off`), `cursor_trail next` goes through the kinds in turn and
 then none, and `cursor_trail` alone (`toggle`) turns it off, or back on as it was last (sparkles
 the first time); bound to a key, `mode` takes the same words. The command palette offers it as
 "Cursor trail: ...". What the action chose stands until a reload changes

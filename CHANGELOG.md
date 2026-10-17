@@ -658,6 +658,12 @@ shadows.
   and a little softer and the far ones short and faint. A hundred and twenty fall on each monitor
   unless `count` says, each drawn from a picture no wider than its streak, and `paw msg ambient
   rain` (and the command palette) brings it.
+- Cursor trail sparks: `appearance.cursor_trail = { kind = "sparks" }` flings sparks off the
+  pointer as it moves, as off a grinder or a chainsaw: tiny bright streaks thrown back the way it
+  came with some spread, falling in arcs and cooling from white-hot into the trail's `colors` (by
+  default the focused border's and the accent, as the sparkles' and hearts' are) as they fade
+  within two thirds of a second. `paw msg cursor_trail sparks` (and the command palette) brings
+  them.
 
 ### Starting and ending a session
 

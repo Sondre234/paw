@@ -37,9 +37,10 @@ return {
     -- set), speed (1 their own pace):
     -- appearance = { ambient = { kind = "sakura", count = 30, speed = 1 } },
     -- Experimental: a cursor trail of little sparkles, sakura petals or hearts falling off the
-    -- pointer as it moves: kind = "sparkles", "petals" or "hearts" (none unless set; a profile
-    -- may set it too), amount (1; 2 twice as many), colors for the sparkles and hearts (the
-    -- focused border's and shell.accent unless set). Try one with `paw msg cursor_trail sparkles`:
+    -- pointer as it moves, or sparks flung off it: kind = "sparkles", "petals", "hearts" or
+    -- "sparks" (none unless set; a profile may set it too), amount (1; 2 twice as many), colors
+    -- for the sparkles, hearts and sparks (the focused border's and shell.accent unless set).
+    -- Try one with `paw msg cursor_trail sparkles`:
     -- appearance = { cursor_trail = { kind = "sparkles", amount = 1 } },
     -- Appearance profiles: each lays its appearance, windows and shell settings over the rest
     -- of the configuration while it is in use. Pick one from the panel's right-click menu
@@ -726,9 +727,9 @@ return {
         -- then none (appearance.ambient sets them for good; mode = "sakura", "snow",
         -- "fireflies", "embers", "rain", "off" or "toggle" picks one):
         -- { mods = { mod, "Ctrl" }, key = "a", action = "ambient", mode = "next" },
-        -- Sparkles, sakura petals or hearts behind the pointer, each in turn and then none
-        -- (appearance.cursor_trail sets them for good; mode = "sparkles", "petals", "hearts",
-        -- "off" or "toggle" picks one):
+        -- Sparkles, sakura petals, hearts or sparks behind the pointer, each in turn and then
+        -- none (appearance.cursor_trail sets them for good; mode = "sparkles", "petals",
+        -- "hearts", "sparks", "off" or "toggle" picks one):
         -- { mods = { mod, "Ctrl" }, key = "s", action = "cursor_trail", mode = "next" },
     },
 }

@@ -128,7 +128,7 @@ all. In short:
 | `profile_schedule.c` | The day and night profile schedule (`profile_schedule`): the profile the last sunrise or sunset brings (`src/profile_schedule.c` finds which came last), picked as `profile NAME` through `sh_callbacks.command` and a reload, the last one applied kept in `$XDG_STATE_HOME/paw/profile-schedule`; a timer looking at the clock each minute and after each reload, `profile_auto`, and `get profile_schedule`. |
 | `cat.c` | The desktop cat (`paw cat`): what it sees of the windows and monitors, stepping `src/cat.c`'s state machine on a timer of its own and drawing its pixel art (`src/cat_sprite.c`) in a tree over the windows that takes no input. |
 | `ambient.c` | Ambient particles (`appearance.ambient`, the `ambient` action): sakura petals, snow, fireflies, embers or rain in a tree of scene buffers for each output, over the wallpaper and under the bottom layer, taking no input; stepped every 33 ms from a timer of its own while an output shows them, `src/ambient.c` moving them and painting their pictures; paused while the session is locked, the output is off or shows a fullscreen window or the screens are dimmed, and faded out after a while without input; `get ambient`. |
-| `cursor_trail.c` | The cursor trail (`appearance.cursor_trail`, the `cursor_trail` action): sparkles, sakura petals or hearts falling off the pointer as it moves (`cursor_trail_moved`, from the pointer's motion events), in a tree of scene buffers under the drag icons, over the windows and the panels, taking no input, `src/cursor_trail.c` spawning, moving and painting them; stepped every 16 ms from a timer of its own while any are left; none while the session is locked, while the cursor is hidden (`cursor_hide` clears them, which keeps them out of screenshots) or over a fullscreen window; `get cursor_trail`. |
+| `cursor_trail.c` | The cursor trail (`appearance.cursor_trail`, the `cursor_trail` action): sparkles, sakura petals or hearts falling off the pointer, or sparks flung off it, as it moves (`cursor_trail_moved`, from the pointer's motion events), in a tree of scene buffers under the drag icons, over the windows and the panels, taking no input, `src/cursor_trail.c` spawning, moving and painting them; stepped every 16 ms from a timer of its own while any are left; none while the session is locked, while the cursor is hidden (`cursor_hide` clears them, which keeps them out of screenshots) or over a fullscreen window; `get cursor_trail`. |
 | `wrapped.c` | Counting for `paw wrapped` (`wrapped.enabled`): a call from each place something it counts happens, the time active and idle and each application's, saved to the day's file (`src/wrapped_day.c`) and listed by `get wrapped`. |
 | `xray.c` | The exploded view (`paw xray`): the focused output's layers as live copies fanned out in a stack (`src/xray_layout.c`), which the pointer turns and the wheel spreads, and `get xray`. |
 | `heatmap.c` | The pointer heatmap: how long the pointer rested and how often it clicked in each cell of each output's grid (`src/heatmap.c`), in memory for the session alone, `get heatmap`, and the heatmap action's overlay: a picture of each grid blurred and coloured, stretched over its output under the drag icons and the lock, taking no input, with a legend in the coolest corner, drawn again twice a second from a timer while it shows and fading with `heatmap_tick` from `output_frame`. |
@@ -1060,15 +1060,22 @@ in places that stay theirs until they go, the kind, how many colours the picture
 amount and a seed. `sh_trail_moved` is told each motion of the pointer, from where to where, and
 spawns particles along the way in proportion to its length (a share of one carried over to the
 next motion), none for a pointer that stayed put and at most 24 for one motion; past the limit
-the particle nearest the end of its life gives way. `sh_trail_step` moves them on: each slows
-in the air, sparkles and petals fall a little and hearts float up, sparkles twinkle, petals sway,
-turn and tumble as the ambient ones do, and each goes as its life (half a second to a second) is
-up. `sh_trail_look` says how one is drawn: its picture and quarter turns, its box and its opacity,
-fading in over tens of milliseconds and out over the last half of its life. `sh_trail_paint`
-paints four-pointed stars, white toward the middle and the colour toward the points with a deeper
-edge, in a soft glow, sampled four by four a pixel; specks of glitter; and hearts with a deeper
-edge and a white gleam, from Inigo Quilez's signed distance; the petals are `sh_ambient_paint`'s,
-picked and turned by `sh_ambient_petal_sprite` and `sh_ambient_petal_turn`.
+the particle nearest the end of its life gives way. Sparks come off where the pointer is, flung
+back the way it came, fast, in a fan and kicked up a little. `sh_trail_step` moves them on: each
+slows in the air, sparkles and petals fall a little, hearts float up and sparks fall in arcs,
+slowed sooner, sparkles twinkle, petals sway, turn and tumble as the ambient ones do, and each
+goes as its life (under half a second to a second) is up. `sh_trail_look` says how one is drawn:
+its picture and quarter turns, its box and its opacity, fading in over tens of milliseconds and
+out over the last half of its life; a spark is turned along the way it flies, its head where it
+is and its streak behind, longer the faster it goes, white-hot, then hot, then cooling into its
+colour. `sh_trail_paint` paints four-pointed stars, white toward the middle and the colour toward
+the points with a deeper edge, in a soft glow, sampled four by four a pixel; specks of glitter;
+hearts with a deeper edge and a white gleam, from Inigo Quilez's signed distance; and sparks'
+streaks, thin and faint at the tail and whiter toward the head the hotter they are, with a small
+glow about the head, in three heats each turned in SH_AMBIENT_TURNS steps of a quarter turn, as
+petals are, so that a family of sparks holds eighteen pictures (`SH_TRAIL_FAMILY_MOST` is the
+most a strip takes); the petals are `sh_ambient_paint`'s, picked and turned by
+`sh_ambient_petal_sprite` and `sh_ambient_petal_turn`, which turns the sparks too.
 
 `cursor_trail.c` in the compositor keeps one trail for the whole layout in a tree under the drag
 icons (so over the windows, the panels and the overlays, and under the lock and the cursor, which
