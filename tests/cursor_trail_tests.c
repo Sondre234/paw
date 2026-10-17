@@ -107,7 +107,9 @@ static void test_decay(void) {
                 const struct sh_trail_particle *p = &trail->particles[i];
                 if (p->life <= 0)
                     continue;
-                CHECK(p->x > 120 && p->x < 680 && p->y > 320 && p->y < 480,
+                // Sparks, flung hard, fall further below it in their arcs.
+                double below = kind == SH_TRAIL_SPARKS ? 200 : 80;
+                CHECK(p->x > 120 && p->x < 680 && p->y > 320 && p->y < 400 + below,
                       "%s: near the way: %g %g", name, p->x, p->y);
                 struct sh_trail_look look;
                 sh_trail_look(trail, p, &look);
@@ -125,6 +127,8 @@ static void test_decay(void) {
         CHECK(shrank, "%s: only fewer once the pointer stops", name);
         if (kind == SH_TRAIL_HEARTS)
             CHECK(drift < -3, "hearts float up: %g", drift);
+        else if (kind == SH_TRAIL_SPARKS)
+            CHECK(drift > 20 && drift < 160, "sparks fall in an arc: %g", drift);
         else
             CHECK(drift > 3 && drift < 40, "%s drift down a little: %g", name, drift);
         free(trail);
