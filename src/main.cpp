@@ -1015,8 +1015,8 @@ int send_message(int argc, char **argv) {
     for (int i = 2; i < argc; ++i)
         request += (i > 2 ? " " : "") + std::string(argv[i]);
     if (request.empty() || request.find('\n') != std::string::npos)
-        throw std::runtime_error("usage: paw msg [output NAME] ACTION [ARGUMENT] | "
-                                 "get workspace|workspaces|tiling|windows|outputs|animations");
+        throw std::runtime_error("usage: paw msg [output NAME] ACTION [ARGUMENT] | get [QUERY]; "
+                                 "paw help msg lists the actions and queries");
     auto reply = paw::cli::request(request);
     if (reply.ok)
         std::cout << reply.body;
@@ -1084,70 +1084,159 @@ int import_dotfiles(int argc, char **argv) {
     (void)paw::load_config(config);
     return 0;
 }
-void usage() {
-    std::cout
-        << "Usage: paw [--config PATH] [--check-config] [--headless | --session] "
-           "[--exec PROGRAM [ARGS...]]\n"
-           "Default: nested Wayland compositor. --session: standalone DRM/libinput on a TTY.\n"
-           "Config: $XDG_CONFIG_HOME/paw/init.lua or ~/.config/paw/init.lua\n"
-           "Falls back to the installed default; use --config config/init.lua in the source tree.\n"
-           "--no-shell disables automatic shell startup; headless mode never starts it.\n"
-           "--version prints the version, and the wlroots version paw was built with.\n"
-           "SIGHUP reloads configuration; SIGINT/SIGTERM exits.\n"
-           "paw msg [output NAME] ACTION [ARGUMENT] runs an action in the running session;\n"
-           "paw msg get workspace|workspaces|tiling|windows|outputs|animations prints its state.\n"
-           "paw config prints the configuration's path; paw config edit opens the personal one\n"
-           "in $VISUAL or $EDITOR, making it first, and checks it once it is saved.\n"
-           "paw import [--config PATH] [--dry-run] DIR writes theme.lua beside the\n"
-           "configuration from the Hyprland, Waybar, wallbash, and pywal files in DIR.\n"
-           "paw doctor [--plain] [--no-color] checks the session for what often goes wrong\n"
-           "and says how to fix each; it changes nothing.\n"
-           "paw fetch [--no-logo] [--no-color] shows a paw print in the profile's colours,\n"
-           "and beside it the session's uptime, frames, windows and monitors.\n"
-           "paw showcase [--delay SECONDS] [--keep] [--output NAME] [-o FILE] takes a\n"
-           "screenshot with paw fetch open in a terminal, then puts the windows back.\n"
-           "paw top [--once] [--interval MS] [--no-color] shows the session's frames, its work\n"
-           "and the windows that make it, as htop shows processes.\n"
-           "paw shake [WINDOW] wobbles the focused window, or that numbered one; paw gravity\n"
-           "drops the windows to the bottom and back; paw party throws one. They only draw.\n"
-           "paw rice pack [PROFILE] [-o FILE] packs a profile's look, its pictures with it, into\n"
-           "one file to share; paw rice try FILE|DIR|URL tries one on, the previous look coming\n"
-           "back in 15 seconds unless paw rice keep keeps it (paw rice revert at once);\n"
-           "paw rice list lists the installed rices, and paw rice remove NAME removes one.\n"
-           "paw cat [on|off|toggle] lets the desktop cat out, or calls it in.\n"
-           "paw wrapped [--today|--week|--month|--year|--all|--since DATE] [--plain|--json]\n"
-           "reports your time at the desktop from what paw counts (wrapped.enabled).\n"
-           "paw xray [--list] takes the focused monitor apart into its layers, or prints them.\n"
-           "paw heatmap [toggle|motion|clicks|reset] shows where the pointer rested or clicked\n"
-           "over the desktop, or hides it; --term draws it in the terminal and --export FILE\n"
-           "writes it to a .png, .pam or .ppm image, with --clicks and --output NAME.\n"
-           "paw tour [--list] [--step] [--from N] [--speed FACTOR] [--no-restore] [--client CMD]\n"
-           "shows paw off in the running session, then puts everything back as it was.\n";
-}
-/* `paw NAME ...`: the subcommands, each given the whole argv. A new one is declared in
- * include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here and in usage(). */
+/* `paw NAME ...`: the subcommands, each given the whole argv, and what `paw help` says of them:
+ * the group it lists them in, the arguments, a line, and what `paw help NAME` adds. A new one is
+ * declared in include/paw/cli.hpp, written in src/cli/NAME.cpp, and named here. */
 struct Subcommand {
     const char *name;
     int (*run)(int argc, char **argv);
+    const char *group;
+    const char *arguments;
+    const char *summary;
+    const char *details;
 };
+int help(int argc, char **argv);
+constexpr const char *session = "The running session";
+constexpr const char *looks = "Configuration and looks";
+constexpr const char *fun = "Showing off";
 const Subcommand subcommands[] = {
-    {"msg", send_message},
-    {"import", import_dotfiles},
-    {"config", paw::cli::config},
-    {"doctor", paw::cli::doctor},
-    {"fetch", paw::cli::fetch},
-    {"showcase", paw::cli::showcase},
-    {"top", paw::cli::top},
-    {"shake", paw::cli::toy},
-    {"gravity", paw::cli::toy},
-    {"party", paw::cli::toy},
-    {"rice", paw::cli::rice},
-    {"cat", paw::cli::cat},
-    {"wrapped", paw::cli::wrapped},
-    {"xray", paw::cli::xray},
-    {"heatmap", paw::cli::heatmap},
-    {"tour", paw::cli::tour},
+    {"msg", send_message, session, "[output NAME] ACTION [ARGUMENT] | get [QUERY [ARGUMENTS]]",
+     "run an action in the running session, or print its state",
+     "Runs a binding action as its key would, on the focused monitor or the one output NAME\n"
+     "names, and get QUERY prints part of the session's state; get alone lists the queries."},
+    {"top", paw::cli::top, session, "[--once] [--interval MS] [--no-color]",
+     "frames and the windows that cost them, as htop shows processes", ""},
+    {"doctor", paw::cli::doctor, session, "[--plain] [--no-color]",
+     "check the session for what often goes wrong, and how to fix it",
+     "It changes nothing."},
+    {"xray", paw::cli::xray, session, "[--list]",
+     "take the focused monitor apart into its layers, or print them", ""},
+    {"heatmap", paw::cli::heatmap, session,
+     "[toggle|motion|clicks|reset] [--term] [--export FILE] [--clicks] [--output NAME]",
+     "show where the pointer rested or clicked over the desktop",
+     "--term draws it in the terminal, and --export FILE writes it to a .png, .pam or .ppm\n"
+     "image."},
+    {"wrapped", paw::cli::wrapped, session,
+     "[--today|--week|--month|--year|--all|--since DATE] [--plain|--json]",
+     "your time at the desktop, from what paw counts",
+     "paw counts it while wrapped.enabled is on."},
+    {"config", paw::cli::config, looks, "[edit]",
+     "print the configuration's path, or edit it",
+     "paw config edit opens the personal configuration in $VISUAL or $EDITOR, making it\n"
+     "first, and checks it once it is saved."},
+    {"import", import_dotfiles, looks, "[--config PATH] [--dry-run] DIR",
+     "write theme.lua from Hyprland, Waybar, wallbash and pywal files",
+     "Writes theme.lua beside the configuration from the files in DIR; --dry-run prints it\n"
+     "instead."},
+    {"rice", paw::cli::rice, looks,
+     "pack [PROFILE] [-o FILE] | try FILE|DIR|URL | keep | revert | list | remove NAME",
+     "share a profile's look, or try one on",
+     "pack packs a profile's look and its pictures into one file; try tries one on, the\n"
+     "previous look coming back in 15 seconds unless keep keeps it (revert at once); list\n"
+     "lists the installed rices, and remove removes one."},
+    {"fetch", paw::cli::fetch, fun, "[--no-logo] [--no-color]",
+     "the session's uptime, frames and windows beside a paw print",
+     "The paw print comes in the appearance profile's colours."},
+    {"showcase", paw::cli::showcase, fun, "[--delay SECONDS] [--keep] [--output NAME] [-o FILE]",
+     "a screenshot with paw fetch open in a terminal",
+     "The windows go back as they were afterwards."},
+    {"tour", paw::cli::tour, fun,
+     "[--list] [--step] [--from N] [--speed FACTOR] [--no-restore] [--client CMD]",
+     "show paw off in the running session, then put everything back", ""},
+    {"cat", paw::cli::cat, fun, "[on|off|toggle]", "let the desktop cat out, or call it in",
+     "Move the pointer slowly back and forth over it to pet it."},
+    {"shake", paw::cli::toy, fun, "[WINDOW]",
+     "wobble the focused window, or that numbered one", "It only draws."},
+    {"gravity", paw::cli::toy, fun, "", "drop the windows to the bottom, and back",
+     "It only draws."},
+    {"party", paw::cli::toy, fun, "", "throw a party", "It only draws."},
+    {"help", help, nullptr, "[COMMAND]", "list the commands, or say more of one", ""},
 };
+/* Prints `words` wrapped to 80 columns, each line indented by `indent`. */
+void print_wrapped(const std::vector<std::string> &words, std::size_t indent) {
+    std::size_t column = 0;
+    for (const auto &word : words) {
+        if (column && column + 1 + word.size() > 80) {
+            std::cout << '\n';
+            column = 0;
+        }
+        if (!column) {
+            std::cout << std::string(indent, ' ') << word;
+            column = indent + word.size();
+        } else {
+            std::cout << ' ' << word;
+            column += 1 + word.size();
+        }
+    }
+    if (column)
+        std::cout << '\n';
+}
+/* `paw help` and `paw --help`: every command in a line, by group. */
+void usage() {
+    std::cout << "paw " PAW_VERSION ", a Wayland compositor and its desktop shell\n\n"
+                 "Starting it:\n"
+                 "  paw [--config PATH] [--session | --headless] [--no-shell]\n"
+                 "      [--exec PROGRAM [ARGS...]]\n"
+                 "      runs nested in the current Wayland session, or with --session on a TTY\n"
+                 "  paw --check-config [--config PATH]   checks a configuration\n"
+                 "  paw --version                        prints the version, and wlroots'\n";
+    std::size_t width = 0;
+    for (const auto &command : subcommands)
+        width = std::max(width, std::strlen(command.name));
+    for (const char *group : {session, looks, fun, static_cast<const char *>(nullptr)}) {
+        std::cout << '\n' << (group ? group : "Help") << ":\n";
+        for (const auto &command : subcommands)
+            if (command.group == group)
+                std::cout << "  paw " << command.name
+                          << std::string(width + 2 - std::strlen(command.name), ' ')
+                          << command.summary << '\n';
+    }
+    std::cout << "\npaw help COMMAND says more of one, and paw help msg lists every action and\n"
+                 "query. The configuration is $XDG_CONFIG_HOME/paw/init.lua (paw config);\n"
+                 "docs/features.md describes it all.\n";
+}
+/* `paw help [COMMAND]`: the list, or one command's arguments and what more there is to say;
+ * for msg, every action and query too. */
+int help(int argc, char **argv) {
+    if (argc < 3) {
+        usage();
+        return 0;
+    }
+    if (argc > 3)
+        throw std::runtime_error("usage: paw help [COMMAND]");
+    const std::string_view name = argv[2];
+    const auto *command =
+        std::find_if(std::begin(subcommands), std::end(subcommands),
+                     [&](const Subcommand &command) { return name == command.name; });
+    if (command == std::end(subcommands)) {
+        std::string names;
+        for (const auto &known : subcommands)
+            names += std::string(names.empty() ? "" : ", ") + known.name;
+        throw std::runtime_error("no command " + std::string(name) + "; there are " + names);
+    }
+    std::cout << "paw " << command->name << (*command->arguments ? " " : "")
+              << command->arguments << "\n\n";
+    std::string summary = command->summary;
+    summary[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(summary[0])));
+    std::cout << summary << ".\n";
+    if (*command->details)
+        std::cout << command->details << '\n';
+    if (command->run == import_dotfiles)
+        std::cout << "\ndocs/dotfile-import.md says what it reads and how.\n";
+    else if (command->run != send_message && command->run != help)
+        std::cout << "\nThe paw " << command->name << " section of docs/features.md says more.\n";
+    if (command->run == send_message) {
+        std::cout << "\nActions (paw msg ACTION [ARGUMENT]; see Binding actions in\n"
+                     "docs/config-reference.md for their arguments):\n";
+        print_wrapped(paw::config_action_names(), 2);
+        std::vector<std::string> queries;
+        for (std::size_t i = 0; const char *query = sh_query_name(i); ++i)
+            queries.emplace_back(query);
+        std::cout << "\nQueries (paw msg get QUERY; see Control socket in docs/features.md):\n";
+        print_wrapped(queries, 2);
+    }
+    return 0;
+}
 } // namespace
 int main(int argc, char **argv) {
     try {

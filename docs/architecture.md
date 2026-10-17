@@ -1943,7 +1943,9 @@ alone. Commands answer only while the session is unlocked.
 
 Declare `int NAME(int argc, char **argv)` in `include/paw/cli.hpp`, write it in
 `src/cli/NAME.cpp` (added to `paw_cli` with a `target_sources` line of its own in
-`CMakeLists.txt`), and name it in `subcommands[]` and `usage()` in `src/main.cpp`. It talks to
+`CMakeLists.txt`), and name it in `subcommands[]` in `src/main.cpp` with its group, its
+arguments, a line and anything more for `paw help` (help_smoke checks it has a `### paw NAME`
+section in docs/features.md). It talks to
 the running session with `paw::cli::request` or `paw::cli::query` (`$PAW_SOCKET`), finds paw's
 state with `paw::cli::state_directory()`, and throws `std::runtime_error` for a usage error.
 Keep its arithmetic and formatting in pure functions a unit test (`paw_unit_test(NAME LIBRARY

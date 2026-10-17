@@ -1075,8 +1075,21 @@ static const struct {
     {"terminal", get_terminal, false},
 };
 
-/* Answers `request` if it is a query; false if it is not one. */
+const char *sh_query_name(size_t index) {
+    return index < sizeof(queries) / sizeof(*queries) ? queries[index].name : NULL;
+}
+
+/* Answers `request` if it is a query; false if it is not one. A bare "get" lists the queries,
+ * one a line, and one of no such name is refused, where it went on to be read as an action. */
 bool run_query(struct sh_server *server, int fd, const char *request) {
+    if (!strcmp(request, "get")) {
+        control_reply(fd, "ok\n");
+        for (size_t i = 0; i < sizeof(queries) / sizeof(*queries); ++i) {
+            control_reply(fd, queries[i].name);
+            control_reply(fd, "\n");
+        }
+        return true;
+    }
     if (strncmp(request, "get ", 4))
         return false;
     const char *name = request + 4;
@@ -1089,5 +1102,10 @@ bool run_query(struct sh_server *server, int fd, const char *request) {
             return true;
         }
     }
-    return false;
+    int shown = (int)strcspn(name, " ");
+    char reply[160];
+    snprintf(reply, sizeof(reply), "error: no query %.*s; paw msg get lists them\n",
+             shown < 64 ? shown : 64, name);
+    control_reply(fd, reply);
+    return true;
 }

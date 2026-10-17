@@ -348,6 +348,9 @@ paw msg spawn foot
 paw msg get windows
 ```
 
+`paw help` lists every command, `paw help msg` every action and query (`paw msg get` alone
+lists the queries the running session answers).
+
 A client that sends `subscribe` receives a line for every change of workspaces, tiling, the
 switcher, the overview, urgent windows, the keyboard layout, the binding mode and the power
 actions that may run. See [Control socket](docs/features.md#control-socket) for the queries and events.
