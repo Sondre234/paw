@@ -751,7 +751,7 @@ void sh_ambient_look(const struct sh_ambient_field *field,
     }
     case SH_AMBIENT_RAIN:
         // Faint, the nearest drops a little less so.
-        look->opacity = 0.25 + 0.35 * particle->depth;
+        look->opacity = 0.3 + 0.32 * particle->depth;
         break;
     case SH_AMBIENT_EMBERS: {
         x += particle->reach * sin(particle->phase);
