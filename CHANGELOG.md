@@ -620,6 +620,9 @@ shadows.
   moves on without Alt. By default it is held, as before: releasing Alt picks.
 - `layout.maximize_lone_on_untile = true` maximizes a tile alone on its workspace as tiling turns
   off, rather than floating it back to its old place and size; turning tiling on tiles it again.
+- Super + F maximizes the focused window below the panels, as a drop at the top edge does, and
+  gives a maximized one its own size back, or its tile (`toggle_maximize`); fullscreen, where a
+  browser hides its tabs and toolbars, moves to Super + Shift + F.
 - Hyprland's dwindle controls, experimental and unbound by default (example keys in the shipped
   configuration, also in the command palette): `split_toggle` turns the split the focused tile
   shares with its neighbour from side by side to stacked or back, and keeps it so where dwindle
