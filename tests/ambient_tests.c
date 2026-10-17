@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /* Ambient particles' arithmetic and pictures: particles stay in and about their area however
  * long they drift, petals and flakes fall and come in again at the top, fireflies wander and
- * glow, embers rise, cool and go out and come in again at the bottom, what is drawn stays in
- * bounds, and every picture paints something, its corners clear. */
+ * glow, embers rise, cool and go out and come in again at the bottom, rain falls fast along its
+ * streaks' slant, what is drawn stays in bounds, and every picture paints something, its corners
+ * clear. */
 #include "paw/ambient.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +23,7 @@ static void test_names(void) {
     CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_SNOW), "snow"));
     CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_FIREFLIES), "fireflies"));
     CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_EMBERS), "embers"));
+    CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_RAIN), "rain"));
     CHECK(!strcmp(sh_ambient_kind_name(SH_AMBIENT_KINDS), "none"));
     CHECK(sh_ambient_sprite_count(SH_AMBIENT_NONE) == 0);
     CHECK(sh_ambient_default_count(SH_AMBIENT_NONE) == 0);
@@ -104,8 +106,10 @@ static void drift(enum sh_ambient_kind kind, double minutes) {
         }
     }
     const char *name = sh_ambient_kind_name(kind);
+    // Rain is faint by design.
+    bool rain = kind == SH_AMBIENT_RAIN;
     CHECK(moved > COUNT * 100, "%s: they move: %g", name, moved);
-    CHECK(highest_opacity > 0.6, "%s: they show: %g", name, highest_opacity);
+    CHECK(highest_opacity > (rain ? 0.45 : 0.6), "%s: they show: %g", name, highest_opacity);
     if (kind == SH_AMBIENT_FIREFLIES) {
         CHECK(fainter > 0 && brighter > 0, "fireflies glow and dim: %d %d", fainter, brighter);
     } else if (kind == SH_AMBIENT_EMBERS) {
@@ -117,7 +121,8 @@ static void drift(enum sh_ambient_kind kind, double minutes) {
         // Each falls the height of the area in well under a few minutes and comes in again.
         CHECK(respawned >= COUNT, "%s: they fall through and come in at the top: %d", name,
               respawned);
-        CHECK(lowest_opacity > 0.3, "%s: never fade out falling: %g", name, lowest_opacity);
+        CHECK(lowest_opacity > (rain ? 0.2 : 0.3), "%s: never fade out falling: %g", name,
+              lowest_opacity);
     }
     (void)start_y;
 }
@@ -127,6 +132,7 @@ static void test_motion(void) {
     drift(SH_AMBIENT_SNOW, 10);
     drift(SH_AMBIENT_FIREFLIES, 10);
     drift(SH_AMBIENT_EMBERS, 10);
+    drift(SH_AMBIENT_RAIN, 10);
 }
 
 /* An ember comes in below the bottom at its hottest, rises a third of the area or more as it
@@ -202,17 +208,18 @@ static void test_repeatable(void) {
     CHECK(sum > 0);
 }
 
-/* The alpha-weighted spread of a picture: along x, along y, and together. */
-static void spread(const uint32_t *pixels, int side, double *xx, double *yy, double *xy) {
+/* The alpha-weighted spread of a picture `width` pixels wide: along x, along y, and together. */
+static void spread(const uint32_t *pixels, int width, int height, double *xx, double *yy,
+                   double *xy) {
     double total = 0, mx = 0, my = 0;
-    for (int i = 0; i < side * side; ++i) {
+    for (int i = 0; i < width * height; ++i) {
         double a = pixels[i] >> 24;
-        total += a, mx += a * (i % side), my += a * (i / side);
+        total += a, mx += a * (i % width), my += a * (i / width);
     }
     mx /= total, my /= total;
     *xx = *yy = *xy = 0;
-    for (int i = 0; i < side * side; ++i) {
-        double a = pixels[i] >> 24, dx = i % side - mx, dy = i / side - my;
+    for (int i = 0; i < width * height; ++i) {
+        double a = pixels[i] >> 24, dx = i % width - mx, dy = i / width - my;
         *xx += a * dx * dx, *yy += a * dy * dy, *xy += a * dx * dy;
     }
 }
@@ -262,10 +269,10 @@ static void test_paint(void) {
     uint32_t pixels[40 * 40];
     double xx, yy, xy;
     sh_ambient_paint(SH_AMBIENT_SAKURA, 0, pixels, side, side);
-    spread(pixels, side, &xx, &yy, &xy);
+    spread(pixels, side, side, &xx, &yy, &xy);
     CHECK(xx > 1.2 * yy && fabs(xy) < 0.1 * xx, "along x: %g %g %g", xx, yy, xy);
     sh_ambient_paint(SH_AMBIENT_SAKURA, SH_AMBIENT_TURNS / 2, pixels, side, side);
-    spread(pixels, side, &xx, &yy, &xy);
+    spread(pixels, side, side, &xx, &yy, &xy);
     CHECK(xy > 0.1 * xx, "turned clockwise: %g %g %g", xx, yy, xy);
     // A square picture asked for at another shape paints nothing rather than past its pixels.
     for (int i = 0; i < 40 * 40; ++i)
@@ -329,11 +336,66 @@ static void test_petal_turn(void) {
           sh_ambient_sprite_side(SH_AMBIENT_SAKURA, sh_ambient_petal_sprite(0, 2)));
 }
 
+/* Rain falls fast along its streaks' slant, a little to the right as it goes down, the nearer
+ * drops faster and longer; a streak's picture is narrower than it is tall, slants the same way,
+ * and is fainter toward its tail at the top than toward its head. */
+static void test_rain(void) {
+    struct sh_ambient_field field = {.kind = SH_AMBIENT_RAIN, .width = WIDTH, .height = HEIGHT,
+                                     .seed = 5};
+    struct sh_ambient_particle drops[COUNT];
+    double near_fall = 0, far_fall = 0, near_side = 0, far_side = 0;
+    int near = 0, far = 0;
+    for (int i = 0; i < COUNT; ++i) {
+        sh_ambient_spawn(&field, &drops[i], true);
+        double side = sh_ambient_sprite_side(SH_AMBIENT_RAIN, drops[i].sprite);
+        if (drops[i].depth > 0.8)
+            ++near, near_fall += drops[i].fall, near_side += side;
+        else if (drops[i].depth < 0.3)
+            ++far, far_fall += drops[i].fall, far_side += side;
+    }
+    CHECK(near > 0 && far > near, "more far than near: %d, %d", far, near);
+    if (near > 0 && far > 0) {
+        CHECK(near_fall / near > 1.5 * far_fall / far, "%g %g", near_fall / near, far_fall / far);
+        CHECK(near_side / near > 2 * far_side / far, "%g %g", near_side / near, far_side / far);
+    }
+    for (int k = 0; k < 200; ++k) {
+        struct sh_ambient_particle was[COUNT];
+        memcpy(was, drops, sizeof(was));
+        sh_ambient_step(&field, drops, COUNT, TICK);
+        for (int i = 0; i < COUNT; ++i) {
+            double dx = drops[i].x - was[i].x, dy = drops[i].y - was[i].y;
+            if (dy < 0 || fabs(dx) > 100)
+                continue; // in again at the top, or at the other side
+            CHECK(dy > 0.45 * TICK, "falls fast: %g in a tick", dy);
+            CHECK(dx > 0.1 * dy && dx < 0.3 * dy, "along its slant: %g across, %g down", dx, dy);
+        }
+    }
+    int longest = sh_ambient_sprite_count(SH_AMBIENT_RAIN) / 2 - 1;
+    int width = (int)lround(2 * sh_ambient_sprite_width(SH_AMBIENT_RAIN, longest));
+    int height = (int)lround(2 * sh_ambient_sprite_side(SH_AMBIENT_RAIN, longest));
+    CHECK(width < height / 3, "%d by %d", width, height);
+    uint32_t *pixels = calloc((size_t)width * height, sizeof(*pixels));
+    sh_ambient_paint(SH_AMBIENT_RAIN, longest, pixels, width, height);
+    double xx, yy, xy, top = 0, bottom = 0;
+    spread(pixels, width, height, &xx, &yy, &xy);
+    CHECK(yy > 20 * xx && xy > 0, "tall and slanting to the right as it goes down: %g %g %g", xx,
+          yy, xy);
+    for (int i = 0; i < width * height; ++i) {
+        if (i / width < height / 3)
+            top += pixels[i] >> 24;
+        else if (i / width >= height * 2 / 3)
+            bottom += pixels[i] >> 24;
+    }
+    CHECK(bottom > 2 * top, "faint toward its tail: %g at the top, %g at the bottom", top, bottom);
+    free(pixels);
+}
+
 int main(void) {
     test_names();
     test_petal_turn();
     test_motion();
     test_embers();
+    test_rain();
     test_repeatable();
     test_paint();
     if (failures)
