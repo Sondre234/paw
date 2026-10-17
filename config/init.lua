@@ -540,7 +540,11 @@ return {
         { mods = { mod }, key = "v", action = "toggle_floating" },
         { mods = { mod, "Shift" }, key = "v", action = "clipboard_history" }, -- copied lately
         { mods = { mod }, key = "semicolon", action = "emoji_picker" }, -- as Windows' Win + ;
-        { mods = { mod }, key = "f", action = "fullscreen" },
+        -- Super + F maximizes below the panels, as a drop at the top edge does, or gives a
+        -- maximized window its own size (or its tile) back. Fullscreen takes the same place but
+        -- tells the window it is fullscreen, so a browser hides its tabs and toolbars.
+        { mods = { mod }, key = "f", action = "toggle_maximize" },
+        { mods = { mod, "Shift" }, key = "f", action = "fullscreen" },
         { mods = { mod }, key = "t", action = "tile" },
         { mods = { mod }, key = "s", action = "toggle_tiling" },
         { mods = { mod, "Shift" }, key = "p", action = "toggle_sticky" }, -- show on every workspace
@@ -629,7 +633,8 @@ return {
         -- { mods = { mod, "Ctrl" }, key = "bracketright", action = "consume_right" },
         -- { mods = { mod }, key = "e", action = "expel" },
         -- Also available: snap_left, snap_right (half the screen), snap_top_left,
-        -- snap_top_right, snap_bottom_left, snap_bottom_right (a quarter), maximize, restore.
+        -- snap_top_right, snap_bottom_left, snap_bottom_right (a quarter), maximize, restore
+        -- (toggle_maximize, on Super + F above, is the two in one).
         -- Lock with power.lock_command (swaylock -f unless set); the power menu offers lock,
         -- suspend, hibernate, restart, power off and log out. suspend, hibernate, reboot,
         -- poweroff and logout bind directly too, without asking, e.g.:

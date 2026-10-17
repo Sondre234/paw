@@ -294,7 +294,8 @@ Edit them in [config/init.lua](config/init.lua).
 | Super + V | Float or tile the focused window |
 | Super + Shift + V | [Clipboard history](docs/features.md#clipboard-history): what was copied lately, to copy again |
 | Super + semicolon | [Emoji picker](docs/features.md#emoji-picker): an emoji typed into the focused window |
-| Super + F | Fullscreen |
+| Super + F | [Maximize](docs/features.md#snapping) the focused window, as a drop at the top edge does, or give it its size back |
+| Super + Shift + F | Fullscreen |
 | Super + T | Arrange the monitor's windows in a grid (floating mode) |
 | Super + S | [Tiling](docs/features.md#tiling) on or off for the focused monitor |
 | Super + Shift + P | Make the focused window [sticky](docs/features.md#sticky-windows), or not |

@@ -1082,10 +1082,12 @@ From the keyboard, `snap_left` and `snap_right` put the focused window into that
 monitor, `snap_top_left`, `snap_top_right`, `snap_bottom_left` and `snap_bottom_right` into that
 quarter, and `maximize` fills it; `restore` gives a snapped or maximized window its size and
 place back. Snapping a window to the half it is in already moves it to the near half of the next
-monitor that way. These float a tile, as dragging one does. `toggle_maximize` is the two in one,
-as a title bar's maximize button: it maximizes the window below the panels, as a drop at the top
-edge does (a fullscreen one leaves fullscreen first), and gives a maximized one its own size
-back, or its tile when maximizing floated a tile; a window floated on purpose floats again.
+monitor that way. These float a tile, as dragging one does. `toggle_maximize` (Super + F) is
+the two in one, as a title bar's maximize button: it maximizes the window below the panels, as a
+drop at the top edge does (a fullscreen one leaves fullscreen first), and gives a maximized one
+its own size back, or its tile when maximizing floated a tile; a window floated on purpose floats
+again. Fullscreen (Super + Shift + F) takes the same place but tells the window it is
+fullscreen, so a browser hides its tabs and toolbars.
 
 `snap_cycle_left`, `snap_cycle_right`, `snap_cycle_up` and `snap_cycle_down` (Super + Alt +
 arrows) step the focused window as Windows' Win + arrows do. Left and right put a window at its
