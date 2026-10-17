@@ -174,6 +174,29 @@ draw in some 6 µs. Behind a maximized window only the strip around washi's floa
 particles, and the scene draws only those. With a fullscreen window, the lock, a monitor off or
 the screens dimmed, and after five minutes without input, nothing runs at all.
 
+Embers and rain came later, and were measured beside the first three in other conditions: the
+headless 1920x1080 output with no shell, a plain background and no windows, over 10 seconds each,
+counting only the frames that drew something (2026-10-17, the machine in use meanwhile, so the
+numbers move by tens of percent from run to run):
+
+| Particles | Renderer | Frames drawn | Time a frame drawn (mean, p95) | Compositor CPU |
+| --- | --- | --- | --- | --- |
+| 30 petals | pixman | 26/s | 1.08 ms, 1.60 ms | 3.9 % |
+| 60 flakes | pixman | 26/s | 1.15 ms, 1.43 ms | 4.8 % |
+| 24 fireflies | pixman | 26/s | 1.11 ms, 1.44 ms | 3.9 % |
+| 40 embers | pixman | 26/s | 1.07 ms, 1.34 ms | 4.0 % |
+| 120 drops of rain | pixman | 26/s | 1.41 ms, 1.82 ms | 7.4 % |
+| 30 petals | GLES2 | 26/s | 0.56 ms, 0.86 ms | 3.5 % |
+| 40 embers | GLES2 | 26/s | 0.64 ms, 0.92 ms | 3.0 % |
+| 120 drops of rain | GLES2 | 26/s | 1.07 ms, 1.89 ms | 7.5 % |
+
+Most of the cost goes with the number of particles, each a scene buffer moved every step, and some
+with the pixels their pictures cover. Drop for drop, rain costs about what snow does and less than
+petals, its pictures no wider than its streaks (`sh_ambient_sprite_width`): with 40 of each on
+pixman, 4.0 % of the compositor's CPU, snow 3.8 % and petals 5.5 %; with 120 of each, 7.2 %, 6.2 %
+and 9.3 %. Fewer than about 120 drops on a 1920x1080 monitor no longer read as rain, though, so
+rain as it comes costs about twice what the petals do.
+
 ## Cursor trail
 
 `appearance.cursor_trail` runs only while particles are left: a timer steps them every 16 ms and
@@ -203,6 +226,21 @@ Most of the time is the region the particles cover drawn again each frame: with 
 rectangles of damage wlroots repaints their bounding box, the wallpaper and windows under the
 trail included. The machine was shared with other builds, so the numbers move by tens of percent
 from run to run.
+
+Sparks came later, and were measured beside the others with no shell, a plain background and no
+windows, the pointer sweeping as above for 8 seconds (2026-10-17, the machine in use meanwhile):
+
+| Trail | Renderer | Frames drawn | Time a frame drawn (mean, p95) | Compositor CPU |
+| --- | --- | --- | --- | --- |
+| sparkles | pixman | 56/s | 0.50 ms, 0.66 ms | 14.5 % |
+| petals | pixman | 57/s | 0.92 ms, 1.16 ms | 16.4 % |
+| hearts | pixman | 59/s | 0.33 ms, 0.42 ms | 9.7 % |
+| sparks | pixman | 57/s | 1.20 ms, 1.82 ms | 17.1 % |
+| sparkles | GLES2 | 56/s | 1.42 ms, 1.80 ms | 19.8 % |
+| sparks | GLES2 | 57/s | 1.53 ms, 1.76 ms | 19.3 % |
+
+Sparks fly further than the rest and fall in arcs, so the box their damage repaints is several
+times the sparkles' and pixman takes longer over it; on GLES2 they cost what the sparkles do.
 
 ## Not verified
 
