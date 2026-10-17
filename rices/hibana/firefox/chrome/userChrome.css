@@ -1,0 +1,779 @@
+/* hibana (火花) for Firefox: the browser chrome as ink glass, with sparks on it.
+ *
+ * The toolbars are a sheet of dark glass the wallpaper shows through (paw blurs it): rain on a
+ * window at night. The page is a card set into it with tight corners; the URL bar and the
+ * selected tab are panes of a lighter ink on the glass, lit along their top edge like a manga
+ * panel. Ember orange is the one accent: the selected tab burns along its foot, the URL bar
+ * glows when it has focus, the loading tab and the badges are embers. Menus and panels are ink
+ * with a faint edge and a deep shadow, links rain blue, and red is kept to a rare deep mark.
+ *
+ * The glass needs the `hibana.glass` pref (user.js sets it): without it, or where the window
+ * cannot be translucent, the toolbars are solid mantle. Every colour is a --hibana-* token in
+ * the palette block at the top; the rest maps them onto Firefox's own variables (156 names,
+ * with the 152-and-older and 157 names alongside) and touches as few selectors as it can.
+ * Horizontal and vertical tabs both work.
+ * Needs toolkit.legacyUserProfileCustomizations.stylesheets (see user.js) and a restart.
+ * No @namespace line: the window root is HTML now and a XUL default namespace would stop
+ * body, moz-urlbar and sidebar-main from matching.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* ================================================================ palette: hibana */
+
+:root {
+  /* the grounds, ink to paper, with the storm's faint mauve in them */
+  --hibana-crust: #0b0a0d;
+  --hibana-mantle: #111013;
+  --hibana-base: #161518;
+  --hibana-surface0: #1f1d22;
+  --hibana-surface1: #2a272e;
+  --hibana-surface2: #36323a;
+  --hibana-overlay0: #4b4650;
+  --hibana-overlay1: #6e6a72;
+  --hibana-overlay2: #8f8a94;
+  --hibana-subtext0: #a8a3ab;
+  --hibana-subtext1: #c6c1c6;
+  --hibana-text: #e2ddd9;
+
+  /* the accents */
+  --hibana-ember: #ff7a33;
+  --hibana-flare: #ffb070;
+  --hibana-blood: #c8443c;
+  --hibana-scarlet: #e5594d;
+  --hibana-brass: #dcb36e;
+  --hibana-sage: #a3b58f;
+  --hibana-steel: #8fb0b4;
+  --hibana-rain: #9fb3cc;
+  --hibana-mauve: #b39aae;
+
+  /* what each is for */
+  --hibana-glass: var(--hibana-mantle);        /* the toolbox and sidebar: solid without glass */
+  --hibana-pane: var(--hibana-surface0);       /* the URL bar, the selected tab */
+  --hibana-pane-focus: var(--hibana-surface0);
+  --hibana-panel: var(--hibana-base);          /* menus and panels */
+  --hibana-raised: color-mix(in srgb, var(--hibana-text) 7%, transparent);    /* hover */
+  --hibana-pressed: color-mix(in srgb, var(--hibana-text) 13%, transparent);  /* pressed */
+  --hibana-edge: color-mix(in srgb, var(--hibana-text) 9%, transparent);      /* a glass edge */
+  --hibana-line: var(--hibana-surface1);       /* hairlines, separators */
+  --hibana-ink: var(--hibana-text);
+  --hibana-muted: var(--hibana-subtext0);
+  --hibana-accent: var(--hibana-ember);
+  --hibana-accent-hover: var(--hibana-flare);
+  --hibana-on-accent: var(--hibana-crust);
+  --hibana-link: var(--hibana-rain);
+  --hibana-mark: var(--hibana-ember);          /* attention, the selected row's strip */
+  --hibana-selection: #3d2b26;                 /* a smoky ember wash; text keeps its colours */
+  --hibana-burn: linear-gradient(135deg, var(--hibana-ember), var(--hibana-blood));
+
+  --hibana-top: inset 0 1px 0 rgb(226 221 217 / 0.06);                    /* a panel's lit top edge */
+  --hibana-glow: 0 0 0 1px var(--hibana-ember), 0 0 12px rgb(255 122 51 / 0.3);  /* focus */
+  --hibana-shadow: var(--hibana-top), 0 12px 32px rgb(11 10 13 / 0.6);     /* panels */
+  --hibana-shadow-small: var(--hibana-top), 0 2px 10px rgb(11 10 13 / 0.45);  /* the selected tab */
+  --hibana-panel-shadow-room: 26px;                                         /* room popups leave for it */
+
+  --hibana-radius: 8px;            /* the page, the URL bar, panels */
+  --hibana-radius-small: 6px;      /* tabs, buttons, fields */
+  --hibana-radius-chip: 4px;       /* menu items, tooltips, badges */
+  --hibana-font: "Barlow", "Inter", system-ui, sans-serif;
+}
+
+/* ================================================================ the glass */
+
+/* Firefox paints the window through body with --toolbox-background-color, on a root that is
+   already transparent under Wayland: a translucent colour there lets the desktop through. */
+@media -moz-pref("hibana.glass") {
+  :root {
+    --hibana-glass: rgb(17 16 19 / 0.74);
+    --hibana-pane: rgb(42 39 46 / 0.6);
+    --hibana-pane-focus: rgb(31 29 34 / 0.92);
+    --hibana-panel: rgb(22 21 24 / 0.95);
+  }
+}
+
+/* ================================================================ Firefox's variables */
+
+:root {
+  color-scheme: dark;
+  scrollbar-color: var(--hibana-overlay0) transparent !important;   /* in menus, panels, the sidebar */
+
+  /* the toolbox and toolbars: one sheet of glass */
+  --toolbox-background-color: var(--hibana-glass) !important;
+  --toolbox-background-color-inactive: var(--hibana-glass) !important;
+  --toolbox-text-color: var(--hibana-ink) !important;
+  --toolbox-text-color-inactive: var(--hibana-subtext1) !important;
+  --toolbar-background-color: transparent !important;
+  --toolbar-text-color: var(--hibana-ink) !important;
+  --toolbox-bgcolor: var(--hibana-glass) !important;                 /* before 152 */
+  --toolbox-bgcolor-inactive: var(--hibana-glass) !important;
+  --toolbox-textcolor: var(--hibana-ink) !important;
+  --toolbox-textcolor-inactive: var(--hibana-subtext1) !important;
+  --toolbar-bgcolor: transparent !important;
+  --toolbar-color: var(--hibana-ink) !important;
+  --tabs-navbar-separator-style: none !important;
+  --tabs-navbar-separator-color: transparent !important;
+  --chrome-content-separator-color: transparent !important;
+  --content-area-shadow: none !important;
+
+  /* text fields in toolbars: the URL bar and the search bar */
+  --toolbar-field-background-color: var(--hibana-pane) !important;
+  --toolbar-field-background-color-focus: var(--hibana-pane-focus) !important;
+  --toolbar-field-text-color: var(--hibana-ink) !important;
+  --toolbar-field-text-color-focus: var(--hibana-ink) !important;
+  --toolbar-field-border-color: var(--hibana-edge) !important;
+  --toolbar-field-border-color-focus: var(--hibana-accent) !important;
+  --toolbar-field-color: var(--hibana-ink) !important;               /* before 152 */
+  --toolbar-field-focus-background-color: var(--hibana-pane-focus) !important;
+  --toolbar-field-focus-color: var(--hibana-ink) !important;
+  --toolbar-field-focus-border-color: var(--hibana-accent) !important;
+
+  /* toolbar buttons */
+  --toolbarbutton-icon-fill: var(--hibana-subtext1) !important;
+  --toolbarbutton-icon-fill-attention: var(--hibana-mark) !important;
+  --toolbarbutton-icon-fill-attention-text: var(--hibana-on-accent) !important;
+  --toolbarbutton-background-color-hover: var(--hibana-raised) !important;
+  --toolbarbutton-background-color-active: var(--hibana-pressed) !important;
+  --toolbarbutton-hover-background: var(--hibana-raised) !important;   /* before 152 */
+  --toolbarbutton-active-background: var(--hibana-pressed) !important;
+  --toolbarbutton-border-radius: var(--hibana-radius-small) !important;
+
+  /* tabs */
+  --tab-background-color-selected: var(--hibana-pane) !important;
+  --tab-selected-bgcolor: var(--hibana-pane) !important;            /* before 152 */
+  --tab-selected-textcolor: var(--hibana-ink) !important;           /* 152-156 */
+  --tab-text-color-selected: var(--hibana-ink) !important;          /* 157 */
+  --tab-background-color-hover: var(--hibana-raised) !important;
+  --tab-box-shadow-selected: none !important;
+  --tab-selected-outline-color: transparent !important;
+  --tab-hover-outline-color: transparent !important;
+  --tab-border-radius: var(--hibana-radius-small) !important;
+  --tab-loading-fill: var(--hibana-accent) !important;
+  --tab-attention-dot-color: var(--hibana-mark) !important;
+  --tab-border-color-accent: none !important;                      /* 157 (Nova) */
+
+  /* the sidebar (tools and vertical tabs) */
+  --sidebar-background-color: var(--hibana-glass) !important;
+  --sidebar-text-color: var(--hibana-ink) !important;
+  --sidebar-border-color: transparent !important;
+
+  /* what shows before a page paints (the about:blank flash) */
+  --tabpanel-background-color: var(--hibana-base) !important;
+
+  /* the design system underneath (dialogs, cards in panels, buttons, links, focus) */
+  --background-color-box: var(--hibana-base) !important;
+  --background-color-canvas: var(--hibana-base) !important;
+  --text-color: var(--hibana-ink) !important;
+  --text-color-deemphasized: var(--hibana-muted) !important;
+  --border-color: var(--hibana-line) !important;
+  --border-color-card: var(--hibana-line) !important;
+  --border-color-interactive: var(--hibana-surface2) !important;
+  --card-border-color: var(--hibana-line) !important;
+  --color-accent-primary: var(--hibana-accent) !important;
+  --color-accent-primary-hover: var(--hibana-accent-hover) !important;
+  --color-accent-primary-active: var(--hibana-blood) !important;
+  --color-accent-primary-selected: var(--hibana-accent) !important;
+  --button-text-color-primary: var(--hibana-on-accent) !important;
+  --button-background-color: var(--hibana-surface0) !important;
+  --button-background-color-hover: var(--hibana-surface1) !important;
+  --button-background-color-active: var(--hibana-surface2) !important;
+  --button-text-color: var(--hibana-ink) !important;
+  --link-color: var(--hibana-link) !important;
+  --focus-outline-color: var(--hibana-accent) !important;      /* keyboard focus: the ember */
+  --focus-outline: 2px solid var(--hibana-accent) !important;
+  --icon-color: var(--hibana-subtext1) !important;
+  /* promos (the app menu's sign-in box and the like): ink, not violet */
+  --promo-background-color: var(--hibana-surface0) !important;
+  --promo-background-color-vibrant: var(--hibana-surface0) !important;
+  --promo-message-text-color: var(--hibana-ink) !important;
+  --promo-message-text-color-vibrant: var(--hibana-ink) !important;
+  /* notices (message bars): ink tinted with what they mean, and their icons in that colour */
+  --background-color-information: color-mix(in srgb, var(--hibana-rain) 10%, var(--hibana-mantle)) !important;
+  --background-color-warning: color-mix(in srgb, var(--hibana-brass) 10%, var(--hibana-mantle)) !important;
+  --background-color-critical: color-mix(in srgb, var(--hibana-scarlet) 10%, var(--hibana-mantle)) !important;
+  --background-color-success: color-mix(in srgb, var(--hibana-sage) 10%, var(--hibana-mantle)) !important;
+  --icon-color-information: var(--hibana-rain) !important;
+  --icon-color-warning: var(--hibana-brass) !important;
+  --icon-color-critical: var(--hibana-scarlet) !important;
+  --icon-color-success: var(--hibana-sage) !important;
+}
+
+/* Menus and panels re-declare their colours on themselves, so set them there too. Not on the
+   middle-click autoscroll circle: it is a panel whose arrows are drawn by its
+   --panel-background-color, and the shadow room here is wider than half of it, so it would show
+   nothing at all. */
+:root,
+menupopup,
+panel:not(.autoscroller) {
+  --panel-background-color: var(--hibana-panel) !important;
+  --panel-text-color: var(--hibana-ink) !important;
+  --panel-border-color: var(--hibana-edge) !important;
+  --panel-description-color: var(--hibana-muted) !important;
+  --panel-separator-color: var(--hibana-line) !important;
+  --panel-item-hover-bgcolor: var(--hibana-raised) !important;
+  --panel-item-active-bgcolor: var(--hibana-pressed) !important;
+  --panel-border-radius: var(--hibana-radius) !important;
+  --panel-box-shadow: var(--hibana-shadow) !important;
+  --panel-box-shadow-margin: var(--hibana-panel-shadow-room) !important;
+  --arrowpanel-background: var(--hibana-panel) !important;          /* before 152 */
+  --arrowpanel-color: var(--hibana-ink) !important;
+  --arrowpanel-border-color: var(--hibana-edge) !important;
+  --arrowpanel-dimmed: var(--hibana-raised) !important;
+  --arrowpanel-dimmed-further: var(--hibana-pressed) !important;
+  --arrowpanel-border-radius: var(--hibana-radius) !important;
+  --menuitem-border-radius: var(--hibana-radius-chip) !important;
+  --menuitem-padding: 5px 10px !important;
+  --panel-menuitem-border-radius: var(--hibana-radius-chip) !important;
+  --panel-padding-block: 5px !important;
+}
+
+menupopup,
+panel {
+  --background-color-canvas: var(--hibana-panel) !important;
+}
+
+/* ================================================================ the type */
+
+#navigator-toolbox,
+#sidebar-box,
+#sidebar-container,
+sidebar-main,
+#tabbrowser-tabs,
+menupopup,
+panel,
+tooltip,
+#statuspanel-label,
+findbar,
+.urlbarView {
+  font-family: var(--hibana-font) !important;
+}
+
+/* ================================================================ the sheet of glass */
+
+body,
+#navigator-toolbox {
+  color: var(--hibana-ink) !important;
+}
+
+body {
+  background-color: var(--hibana-glass) !important;
+}
+
+#navigator-toolbox {
+  background-color: transparent !important;
+  border-bottom: none !important;
+}
+
+#TabsToolbar,
+#nav-bar,
+#PersonalToolbar,
+#toolbar-menubar {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* paw draws the window's frame; no minimise/maximise/close in the tab strip, and no drag
+   spaces either side of the tabs */
+.titlebar-buttonbox-container,
+#TabsToolbar .titlebar-spacer {
+  display: none !important;
+}
+
+::selection,
+#urlbar-input::selection,
+.urlbar-input::selection,
+.searchbar-textbox::selection,
+findbar .findbar-textbox::selection {
+  background-color: var(--hibana-selection) !important;
+  color: var(--hibana-ink) !important;
+}
+
+/* ================================================================ the navigation bar */
+
+#nav-bar {
+  padding-block: 5px 7px !important;
+  padding-inline: 8px !important;
+}
+
+/* toolbar buttons: quiet on the glass, a faint pane under the pointer, ember when open */
+#nav-bar toolbarbutton:not(#urlbar-container *) > .toolbarbutton-icon,
+#nav-bar toolbarbutton:not(#urlbar-container *) > .toolbarbutton-badge-stack,
+#nav-bar toolbarbutton:not(#urlbar-container *) > .toolbarbutton-text {
+  border-radius: var(--hibana-radius-small) !important;
+}
+
+#nav-bar toolbarbutton:is([open], [checked]):not(#urlbar-container *) > :is(.toolbarbutton-icon, .toolbarbutton-badge-stack, .toolbarbutton-text) {
+  background-color: color-mix(in srgb, var(--hibana-accent) 18%, transparent) !important;
+  fill: var(--hibana-accent) !important;
+}
+
+/* the badge (downloads, updates): a chip of ember */
+.toolbarbutton-badge {
+  background-color: var(--hibana-mark) !important;
+  color: var(--hibana-on-accent) !important;
+  border-radius: var(--hibana-radius-chip) !important;
+  box-shadow: 0 0 8px rgb(255 122 51 / 0.45) !important;
+}
+
+/* ================================================================ the URL bar: a pane */
+
+#urlbar,
+#searchbar,
+.urlbar {
+  /* Nova (157) outlines the input container; hibana draws one edge, on the background */
+  --urlbar-input-container-border: 0 solid transparent !important;
+  --urlbar-input-container-outline-breakout: none !important;
+  --urlbar-input-container-outline-breakout-focused: none !important;
+  --urlbar-background-border: 1px solid var(--hibana-edge) !important;
+  --urlbar-background-border-breakout: 1px solid var(--hibana-edge) !important;
+  --urlbar-background-border-focused: 1px solid var(--hibana-accent) !important;
+  --urlbar-background-outline-focused: none !important;
+  --urlbar-background-border-radius: var(--hibana-radius) !important;
+  --urlbar-border-radius: var(--hibana-radius) !important;
+  --urlbarview-border-radius: var(--hibana-radius) !important;
+  /* the boxes inside it ("Firefox" on its own pages, a site's permissions): faint panes, not
+     Firefox's white or blue-grey */
+  --urlbar-box-background-color: var(--hibana-raised) !important;
+  --urlbar-box-background-color-focus: var(--hibana-raised) !important;
+  --urlbar-box-text-color: var(--hibana-ink) !important;
+  --urlbar-box-bgcolor: var(--hibana-raised) !important;              /* before 152 */
+  --urlbar-box-background-color-hover: var(--hibana-pressed) !important;
+  --urlbar-box-background-color-active: color-mix(in srgb, var(--hibana-text) 18%, transparent) !important;
+  --urlbar-box-hover-bgcolor: var(--hibana-pressed) !important;        /* before 152 */
+  --urlbar-box-active-bgcolor: color-mix(in srgb, var(--hibana-text) 18%, transparent) !important;
+  --urlbar-box-focus-bgcolor: var(--hibana-raised) !important;
+  --urlbar-box-text-color-hover: var(--hibana-ink) !important;
+  --urlbarView-highlight-background: var(--hibana-selection) !important;
+  --urlbarView-highlight-color: var(--hibana-ink) !important;
+  --urlbarView-hover-background: var(--hibana-raised) !important;
+  --urlbarView-separator-color: var(--hibana-line) !important;
+  --urlbarView-action-color: var(--hibana-link) !important;
+  --urlbarView-url-color: var(--hibana-link) !important;
+  --urlbarView-secondary-text-color: var(--hibana-muted) !important;
+  --urlbarView-result-button-selected-color: var(--hibana-ink) !important;
+  --urlbarView-result-button-selected-background-color: var(--hibana-surface1) !important;
+  --urlbarView-result-button-hover-color: var(--hibana-ink) !important;
+  --urlbarView-result-button-hover-background-color: var(--hibana-raised) !important;
+  --urlbar-background-color: var(--hibana-pane) !important;
+  --urlbar-background-color-focus: var(--hibana-pane-focus) !important;
+  --chrome-box-shadow: transparent !important;
+}
+
+:is(#urlbar, .urlbar) > .urlbar-background,
+#searchbar {
+  background-color: var(--hibana-pane) !important;
+  border: 1px solid var(--hibana-edge) !important;
+  border-radius: var(--hibana-radius) !important;
+  box-shadow: var(--hibana-top) !important;
+  outline: none !important;
+}
+
+/* focused: a firmer pane, lit ember round its edge */
+:is(#urlbar, .urlbar)[focused] > .urlbar-background,
+#searchbar:focus-within {
+  background-color: var(--hibana-pane-focus) !important;
+  border-color: transparent !important;
+  box-shadow: var(--hibana-glow) !important;
+}
+
+/* open with results: the whole pane is a panel, floating, the ember kept only along its top */
+:is(#urlbar, .urlbar)[breakout-extend] > .urlbar-background {
+  background-color: var(--hibana-panel) !important;
+  border-color: var(--hibana-edge) !important;
+  box-shadow: inset 0 1px 0 rgb(255 122 51 / 0.55), 0 12px 32px rgb(11 10 13 / 0.6) !important;
+}
+
+:is(#urlbar, .urlbar) > .urlbar-input-container {
+  outline: none !important;
+  border: none !important;
+}
+
+#urlbar-input,
+.urlbar-input,
+#searchbar .searchbar-textbox {
+  color: var(--hibana-ink) !important;
+  font-family: var(--hibana-font) !important;
+  font-weight: 500 !important;
+}
+
+#urlbar-input::placeholder,
+.urlbar-input::placeholder {
+  color: var(--hibana-overlay1) !important;
+  opacity: 1 !important;
+}
+
+/* the result rows */
+.urlbarView-row[selected] > .urlbarView-row-inner,
+.urlbarView-row:is([selected], [aria-selected="true"]) {
+  color: var(--hibana-ink) !important;
+}
+
+.urlbarView-row:not([type="tip"], [type="dynamic"])[selected] > .urlbarView-row-inner,
+.urlbarView-row-inner[selected] {
+  background-color: var(--hibana-selection) !important;
+}
+
+.urlbarView-row-inner {
+  border-radius: var(--hibana-radius-chip) !important;
+}
+
+.urlbarView-url,
+.urlbarView-action {
+  color: var(--hibana-link) !important;
+}
+
+/* a strip of ember down the left of the selected row */
+.urlbarView-row[selected] > .urlbarView-row-inner {
+  box-shadow: inset 2px 0 0 var(--hibana-mark) !important;
+}
+
+/* ================================================================ tabs: panes on the glass */
+
+/* no space above the tabs: they reach the window's top edge, so a click at the very top of
+   the screen still switches tabs */
+#TabsToolbar {
+  padding-inline: 6px !important;
+  padding-top: 0 !important;
+}
+
+.tabbrowser-tab {
+  padding-inline: 2px !important;
+}
+
+/* unselected tabs: quiet */
+.tabbrowser-tab:not([selected], [multiselected]) {
+  color: var(--hibana-subtext0) !important;
+}
+
+.tabbrowser-tab:not([selected], [multiselected]):hover {
+  color: var(--hibana-ink) !important;
+}
+
+.tab-label {
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.tabbrowser-tab[selected] .tab-label {
+  font-weight: 600;
+}
+
+.tab-background {
+  border: 1px solid transparent !important;
+  border-radius: var(--hibana-radius-small) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.tabbrowser-tab:hover > .tab-stack > .tab-background:not([selected], [multiselected]) {
+  background-color: var(--hibana-raised) !important;
+}
+
+/* the selected tab: a pane with a glass edge, burning along its foot: a line from ember into
+   blood, and above it the line's glow, as if the tab sat on an ember */
+.tab-background:is([selected], [multiselected]) {
+  background-color: var(--hibana-pane) !important;
+  background-image:
+    linear-gradient(90deg, var(--hibana-ember), var(--hibana-blood)),
+    radial-gradient(50% 100% at 50% 100%, rgb(255 122 51 / 0.22), transparent) !important;
+  background-size: calc(100% - 20px) 2px, 100% 14px !important;
+  background-position: 10px calc(100% - 1px), 0 100% !important;
+  background-repeat: no-repeat !important;
+  border-color: var(--hibana-edge) !important;
+  box-shadow: var(--hibana-shadow-small) !important;
+}
+
+/* multiselected but not the one shown: a dashed edge, no ember */
+.tab-background[multiselected]:not([selected]) {
+  background-image: none !important;
+  border-style: dashed !important;
+  border-color: var(--hibana-surface2) !important;
+  box-shadow: none !important;
+}
+
+/* tab-strip buttons (new tab, all tabs) match the toolbar's */
+#TabsToolbar toolbarbutton > .toolbarbutton-icon,
+#TabsToolbar toolbarbutton > .toolbarbutton-badge-stack,
+#tabs-newtab-button > .toolbarbutton-icon {
+  border-radius: var(--hibana-radius-small) !important;
+}
+
+/* tab groups: their labels as small square chips */
+.tab-group-label {
+  font-family: var(--hibana-font) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  border-radius: var(--hibana-radius-chip) !important;
+}
+
+/* ================================================================ vertical tabs and the sidebar */
+
+#sidebar-main,
+#sidebar-container,
+sidebar-main,
+#vertical-tabs {
+  background-color: transparent !important;
+  color: var(--hibana-ink) !important;
+}
+
+#tabbrowser-tabs[orient="vertical"] .tabbrowser-tab {
+  padding-inline: 4px 6px !important;
+}
+
+/* vertical: the ember runs down the left edge instead, glowing to the right */
+#tabbrowser-tabs[orient="vertical"] .tab-background:is([selected], [multiselected]) {
+  background-image:
+    linear-gradient(var(--hibana-ember), var(--hibana-blood)),
+    radial-gradient(100% 50% at 0 50%, rgb(255 122 51 / 0.2), transparent) !important;
+  background-size: 2px calc(100% - 14px), 18px 100% !important;
+  background-position: 1px 7px, 0 0 !important;
+}
+
+/* the "drag tabs here to pin them" card: ink with a dashed edge in the ember, not violet */
+sidebar-pins-promo {
+  --promo-light-background: var(--hibana-surface0) !important;
+  --promo-dark-background: var(--hibana-surface0) !important;
+  --promo-light-text: var(--hibana-ink) !important;
+  --promo-dark-text: var(--hibana-ink) !important;
+  --promo-light-icon-border: var(--hibana-accent) !important;
+  --promo-dark-icon-border: var(--hibana-accent) !important;
+  font-family: var(--hibana-font) !important;
+}
+
+/* (user sheets reach into shadow trees, so the promo's icons can be tinted too) */
+sidebar-pins-promo .icon-cell > img,
+.promo-card .icon-cell > img {
+  fill: var(--hibana-accent) !important;
+}
+
+#sidebar-box {
+  background-color: transparent !important;
+  color: var(--hibana-ink) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+#sidebar-header {
+  border-bottom-color: var(--hibana-line) !important;
+}
+
+#sidebar-splitter,
+#sidebar-launcher-splitter {
+  border-color: transparent !important;
+  background-color: transparent !important;
+}
+
+/* ================================================================ the page: a card in the glass */
+
+/* padding, not margin: the expand-on-hover sidebar owns the tabbox's margin */
+#tabbrowser-tabbox {
+  background-color: transparent !important;
+  padding: 0 7px 7px !important;
+}
+
+#tabbrowser-tabpanels {
+  background-color: transparent !important;
+}
+
+.browserContainer {
+  background-color: var(--hibana-base) !important;
+  border: 1px solid var(--hibana-edge) !important;
+  border-radius: var(--hibana-radius) !important;
+  outline: none !important;
+  box-shadow: none !important;
+  overflow: clip !important;
+}
+
+/* with a transparent browser (user.js), a page that paints no background of its own (the new
+   tab page among them) shows the glass instead of the ink base */
+@media -moz-pref("browser.tabs.allow_transparent_browser") {
+  :root {
+    --tabpanel-background-color: transparent !important;
+  }
+
+  .browserContainer {
+    background-color: transparent !important;
+  }
+}
+
+/* full screen: the page alone, edge to edge */
+:root:is([inDOMFullscreen], [inFullscreen]) #tabbrowser-tabbox {
+  padding: 0 !important;
+}
+
+:root:is([inDOMFullscreen], [inFullscreen]) .browserContainer {
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+/* ================================================================ menus and panels */
+
+menupopup,
+panel {
+  color: var(--hibana-ink) !important;
+}
+
+menupopup menuitem,
+menupopup menu,
+panel menuitem {
+  border-radius: var(--hibana-radius-chip) !important;
+}
+
+/* the row under the pointer: the smoky ember wash, with a thin ember strip at its left */
+menupopup :is(menuitem, menu):where([_moz-menuactive]):not([disabled="true"]) {
+  background-color: var(--hibana-selection) !important;
+  color: var(--hibana-ink) !important;
+  box-shadow: inset 2px 0 0 var(--hibana-accent) !important;
+}
+
+menuseparator,
+toolbarseparator {
+  border-color: var(--hibana-line) !important;
+  border-top-color: var(--hibana-line) !important;
+  appearance: none !important;
+}
+
+menuseparator::before {
+  border-top-color: var(--hibana-line) !important;
+}
+
+toolbarseparator {
+  border-image: none !important;
+}
+
+/* Firefox's violet-to-pink "zap" under the account row: ember burning into blood instead */
+.proton-zap::before {
+  border-image: linear-gradient(90deg, var(--hibana-ember), var(--hibana-blood)) 1 !important;
+}
+
+/* the app menu's and other panels' items */
+.subviewbutton:not([disabled], [open], :active):is(:hover) {
+  background-color: var(--hibana-raised) !important;
+}
+
+.subviewbutton:not([disabled]):is([open], :hover:active) {
+  background-color: var(--hibana-pressed) !important;
+}
+
+.subviewbutton {
+  border-radius: var(--hibana-radius-chip) !important;
+}
+
+panelview .panel-header {
+  font-family: var(--hibana-font) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+}
+
+.panel-subview-footer-button,
+.panel-footer button {
+  border-radius: var(--hibana-radius-small) !important;
+}
+
+/* primary buttons in panels and dialogs: solid ember, flaring under the pointer */
+button.primary,
+.button-primary,
+.panel-footer button[default],
+.popup-notification-primary-button {
+  background: var(--hibana-accent) !important;
+  color: var(--hibana-on-accent) !important;
+  border: none !important;
+  border-radius: var(--hibana-radius-small) !important;
+  font-weight: 600 !important;
+}
+
+button.primary:hover,
+.button-primary:hover,
+.panel-footer button[default]:hover,
+.popup-notification-primary-button:hover {
+  background: var(--hibana-accent-hover) !important;
+  box-shadow: 0 0 12px rgb(255 122 51 / 0.3) !important;
+}
+
+button.primary:hover:active,
+.button-primary:hover:active,
+.panel-footer button[default]:hover:active,
+.popup-notification-primary-button:hover:active {
+  background: var(--hibana-burn) !important;
+}
+
+/* tooltips: small panes */
+tooltip {
+  appearance: none !important;
+  background-color: var(--hibana-mantle) !important;
+  color: var(--hibana-ink) !important;
+  border: 1px solid var(--hibana-surface1) !important;
+  border-radius: var(--hibana-radius-chip) !important;
+}
+
+/* ================================================================ the rest of the window */
+
+/* the status text at the bottom corner of a page */
+#statuspanel-label {
+  background-color: var(--hibana-mantle) !important;
+  color: var(--hibana-subtext1) !important;
+  border: 1px solid var(--hibana-surface1) !important;
+  border-radius: var(--hibana-radius-chip) !important;
+}
+
+/* find in page */
+findbar {
+  background-color: transparent !important;
+  color: var(--hibana-ink) !important;
+  border-top: none !important;
+}
+
+findbar .findbar-textbox {
+  background-color: var(--hibana-pane) !important;
+  color: var(--hibana-ink) !important;
+  border: 1px solid var(--hibana-edge) !important;
+  border-radius: var(--hibana-radius-small) !important;
+  outline-offset: 2px !important;
+}
+
+findbar .findbar-textbox:focus {
+  border-color: transparent !important;
+  box-shadow: var(--hibana-glow) !important;
+}
+
+/* notification bars above the page: they sit in the page's light or dark scheme and work out
+   their colours from it inside their shadow tree, so they get hibana's on themselves */
+moz-message-bar,
+notification-message {
+  color-scheme: dark !important;
+  --message-bar-background-color: var(--hibana-surface0) !important;
+  --message-bar-border-color: var(--hibana-edge) !important;
+  --message-bar-text-color: var(--hibana-ink) !important;
+  --message-bar-icon-color: var(--hibana-rain) !important;
+  --message-bar-icon-background-color: transparent !important;
+  --text-color: var(--hibana-ink) !important;
+  --link-color: var(--hibana-link) !important;
+  --button-background-color: var(--hibana-surface1) !important;
+  --button-background-color-hover: var(--hibana-surface2) !important;
+  --button-text-color: var(--hibana-ink) !important;
+  border-radius: var(--hibana-radius-small) !important;
+}
+
+/* the info bars over the page (a site's request, a warning): Firefox paints them through its own
+   --info-bar-* variables, with a violet, pink and yellow stripe down the edge; ink here, and the
+   stripe burns ember into blood */
+notification-message {
+  --info-bar-background-color: var(--hibana-surface0) !important;
+  --info-bar-text-color: var(--hibana-ink) !important;
+  --info-bar-box-shadow: var(--hibana-top) !important;
+}
+
+notification-message::before {
+  background-image: linear-gradient(var(--hibana-ember), var(--hibana-blood)) !important;
+}
+
+findbar {
+  color-scheme: dark !important;
+}
+
+/* the bookmarks toolbar, when shown */
+#PersonalToolbar {
+  padding-block: 0 6px !important;
+}
+
+#PersonalToolbar toolbarbutton.bookmark-item {
+  border-radius: var(--hibana-radius-chip) !important;
+}
