@@ -2215,6 +2215,7 @@ wallpaper they cost next to nothing.
 
 ```lua
 appearance = { ambient = { kind = "sakura", count = 40, speed = 1 } },
+-- appearance = { ambient = { kind = "rain", count = 150 } },
 bindings = {
     { mods = { "Super", "Ctrl" }, key = "a", action = "ambient", mode = "next" },
 },
@@ -2259,6 +2260,7 @@ out. A screen recording or screen sharing shows it, as it shows the windows.
 ```lua
 appearance = { cursor_trail = { kind = "sparkles", amount = 1 } },
 -- appearance = { cursor_trail = { kind = "hearts", colors = { "#f2a0be", "#8fc1ec" } } },
+-- appearance = { cursor_trail = { kind = "sparks", colors = { "#ff7a33", "#ffb070" } } },
 bindings = {
     { mods = { "Super", "Ctrl" }, key = "s", action = "cursor_trail", mode = "next" },
 },
