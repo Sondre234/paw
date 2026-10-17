@@ -131,12 +131,13 @@ if(BUILD_TESTING)
     paw_unit_test(tour LIBRARY paw_cli)
     set_tests_properties(config_robustness PROPERTIES TIMEOUT 900)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
-    # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] ARGUMENTS...) runs
+    # A Python test: paw_smoke(NAME [SCRIPT FILE] [TIMEOUT SECONDS] [SLOW] ARGUMENTS...) runs
     # tests/NAME.py, or tests/FILE, with the arguments, for at most a minute or the timeout;
     # three times as long in the sanitizers' build (tools/check-all.sh), which runs many times
     # slower: minimize_smoke took 52 of its 60 seconds there, shell_gallery 94 to 120 of 120.
+    # SLOW, for a test of five seconds or more, labels it slow, which `ctest -LE slow` leaves out.
     function(paw_smoke name)
-        cmake_parse_arguments(PARSE_ARGV 1 SMOKE "" "SCRIPT;TIMEOUT" "")
+        cmake_parse_arguments(PARSE_ARGV 1 SMOKE "SLOW" "SCRIPT;TIMEOUT" "")
         if(NOT SMOKE_SCRIPT)
             set(SMOKE_SCRIPT ${name}.py)
         endif()
@@ -149,6 +150,9 @@ if(BUILD_TESTING)
         add_test(NAME ${name} COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/${SMOKE_SCRIPT}
             ${SMOKE_UNPARSED_ARGUMENTS})
         set_tests_properties(${name} PROPERTIES TIMEOUT ${SMOKE_TIMEOUT})
+        if(SMOKE_SLOW)
+            set_tests_properties(${name} PROPERTIES LABELS slow)
+        endif()
     endfunction()
     paw_smoke(docs_consistency ${CMAKE_CURRENT_SOURCE_DIR})
     paw_smoke(session_wrapper SCRIPT session_wrapper_test.py
