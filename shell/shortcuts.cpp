@@ -372,6 +372,8 @@ QString title(const paw::Binding &binding, const QString &name, const paw::Confi
             return Palette::actionTitle("ambient snow");
         case SH_AMBIENT_OFF + int{SH_AMBIENT_FIREFLIES}:
             return Palette::actionTitle("ambient fireflies");
+        case SH_AMBIENT_OFF + int{SH_AMBIENT_EMBERS}:
+            return Palette::actionTitle("ambient embers");
         default:
             return Palette::actionTitle("ambient off");
         }
