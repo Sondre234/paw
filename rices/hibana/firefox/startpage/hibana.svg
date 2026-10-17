@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- hibana's cat: a little black devil cat, ash-outlined, with two horns burning at the tips,
+       ringed ember eyes and a fang; the same drawing as the start button (start/hibana.svg). The
+       start page's tab icon and mark. SPDX-License-Identifier: GPL-3.0-or-later -->
+  <defs>
+    <linearGradient id="horn" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="20">
+      <stop offset="0" stop-color="#ffb070"/>
+      <stop offset=".3" stop-color="#ff7a33"/>
+      <stop offset=".7" stop-color="#6e6a72"/>
+      <stop offset="1" stop-color="#4b4650"/>
+    </linearGradient>
+    <radialGradient id="eye" cx=".5" cy=".55" r=".6">
+      <stop offset="0" stop-color="#ffd2a3"/>
+      <stop offset=".45" stop-color="#ffb070"/>
+      <stop offset="1" stop-color="#ff7a33"/>
+    </radialGradient>
+  </defs>
+  <path d="M6 36 C6 31 8 27 10 24 L9 11 Q9 6 13 9 L24 18 Q32 16 40 18 L51 9 Q55 6 55 11 L54 24 C56 27 58 31 58 36 C59 49 48 56 32 56 C16 56 5 49 6 36 Z" fill="#141316" stroke="#d6d1d4" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M13.5 14 L14 23 L20.5 19.5 Z M50.5 14 L50 23 L43.5 19.5 Z" fill="#3a2a27"/>
+  <path d="M21.5 20.5 C18.5 15 18 9.5 19.5 4.5 C22.5 9 25.5 13 29.5 18.5 Z M42.5 20.5 C45.5 15 46 9.5 44.5 4.5 C41.5 9 38.5 13 34.5 18.5 Z" fill="url(#horn)" stroke="#141316" stroke-width="1.5" stroke-linejoin="round"/>
+  <g stroke="#141316" stroke-width="1.2">
+    <path d="M12.5 34.5 Q21 31 29.5 33.5 Q28.5 42.5 21 42.5 Q13.5 42.5 12.5 34.5 Z M51.5 34.5 Q43 31 34.5 33.5 Q35.5 42.5 43 42.5 Q50.5 42.5 51.5 34.5 Z" fill="url(#eye)"/>
+    <circle cx="21" cy="37" r="3.8" fill="none"/>
+    <circle cx="43" cy="37" r="3.8" fill="none"/>
+  </g>
+  <ellipse cx="21" cy="37" rx="1.3" ry="2.2" fill="#141316"/>
+  <ellipse cx="43" cy="37" rx="1.3" ry="2.2" fill="#141316"/>
+  <path d="M27.5 46.5 Q29.75 49 32 46.5 Q34.25 49 36.5 46.5" fill="none" stroke="#d6d1d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M33.6 47.6 L36.2 47.4 L35.1 51 Z" fill="#e2ddd9"/>
+</svg>
