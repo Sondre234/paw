@@ -559,7 +559,8 @@ return {
         { mods = { mod }, key = "n", action = "notification_history" }, -- the bell's list
         { mods = { mod, "Shift" }, key = "n", action = "dnd_toggle" }, -- do not disturb
         -- The window switcher lists every window on every monitor and workspace, most recently
-        -- used first, on the focused monitor; releasing Alt focuses the selected one. Tab and
+        -- used first, on the focused monitor; releasing Alt focuses the selected one (with
+        -- switcher = { hold = false } it stays open until Return or a click picks). Tab and
         -- the arrows move, Return picks, Escape cancels. `cycle` raises the next window at once.
         { mods = { "Alt" }, key = "Tab", action = "switcher" },
         { mods = { "Alt", "Shift" }, key = "Tab", action = "switcher_prev" },

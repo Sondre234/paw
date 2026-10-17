@@ -1253,9 +1253,11 @@ restoring it if minimized. Return picks at once, Escape cancels, and clicking a 
 it. While the switcher is open, keys do not reach applications. The compositor keeps the
 switcher and the shell draws it, only once it has been open for a moment, so a quick
 Alt + Tab flips between two windows without it flashing up; without the shell it still
-switches, unseen. Bound to a key without modifiers, or sent as
+switches, unseen. With `switcher.hold = false`, bound to a key without modifiers, or sent as
 `paw msg switcher`, it stays open until `switcher_confirm [N]` (the Nth window in the
-list), `switcher_cancel`, Return, or Escape. A minimized window's icon is faded and marked with a
+list), `switcher_cancel`, Return, Escape, or a click: on a window, which picks it, or off the
+switcher, which cancels it and goes on to what it lands on. Tab and the binding's key, without
+Alt, move on. A minimized window's icon is faded and marked with a
 dash, and the caption under the grid gives the selected window's full title, its workspace (by
 name too) and monitor, and whether it is minimized or asking for attention. `cycle` is the older action that raises the
 least recently focused window on the spot.
