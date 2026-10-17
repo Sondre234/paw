@@ -67,7 +67,8 @@ shadows.
   start page with rain falling, embers rising and a cat that throws sparks when patted), Discord,
   Claude Code and cdeck, Neovim, Helix and GTK 4 / libadwaita, which its `install.sh` puts in
   place; `--fonts` adds Barlow, Dela Gothic One and JetBrains Mono, `--icons` an ash and ember
-  Tela under hibana's own icons, and `--cursor` Bibata Modern Classic.
+  Tela under hibana's own icons, and `--cursor` Bibata Modern Classic. Its profile suggests, in
+  comments, the embers and rain and the sparks behind the pointer that came with it.
 - `shell.start_icon` puts a picture on the taskbar's start button in place of the four squares in
   the accent colour, named as `shell.wallpaper` is.
 - `shell.wallpaper_mode` says how the wallpaper covers each monitor: `"fill"` (cropped, as
