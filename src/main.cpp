@@ -491,8 +491,8 @@ struct Runtime {
      * "display_off [OUTPUT]" (and on, toggle), "display_mode [extend|duplicate|internal|
      * external]", "profile NAME|next|prev|auto", "cat [on|off|toggle]", "heatmap
      * [toggle|motion|clicks|reset]", "ambient [sakura|snow|fireflies|embers|rain|off|next|
-     * toggle]", "cursor_trail [sparkles|petals|hearts|off|next|toggle]", or "spawn PROGRAM
-     * [ARGS...]". */
+     * toggle]", "cursor_trail [sparkles|petals|hearts|sparks|off|next|toggle]", or "spawn
+     * PROGRAM [ARGS...]". */
     static sh_action command(void *data, const char *request, int *argument, char *error,
                              size_t error_size) {
         auto &self = *static_cast<Runtime *>(data);
@@ -553,7 +553,7 @@ struct Runtime {
             } else if (action == SH_CURSOR_TRAIL) {
                 if (words.size() > 2)
                     throw std::runtime_error("cursor_trail takes one word: sparkles, petals, "
-                                             "hearts, off, next or toggle");
+                                             "hearts, sparks, off, next or toggle");
                 *argument = words.size() == 2 ? paw::parse_cursor_trail_choice(words[1])
                                               : SH_CURSOR_TRAIL_TOGGLE;
             } else if (action == SH_HEATMAP) {

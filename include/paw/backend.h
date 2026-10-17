@@ -310,6 +310,7 @@ enum sh_cursor_trail_choice {
     SH_CURSOR_TRAIL_ON_SPARKLES,
     SH_CURSOR_TRAIL_ON_PETALS,
     SH_CURSOR_TRAIL_ON_HEARTS,
+    SH_CURSOR_TRAIL_ON_SPARKS,
 };
 
 /* The display_mode action's choices. */
@@ -683,7 +684,7 @@ struct sh_settings {
     float ambient_speed;
     /* appearance.cursor_trail: what falls off the pointer as it moves (enum sh_trail_kind,
      * paw/cursor_trail.h), how many (1 the usual number, 2 twice as many), and the colours the
-     * sparkles and hearts come in, the first cursor_trail_tints of cursor_trail_colors as sRGB
+     * sparkles, hearts and sparks come in, the first cursor_trail_tints of cursor_trail_colors as sRGB
      * from 0 to 1: those given, else the focused border's and shell.accent, with a light blue
      * or a sakura pink beside them when they lack one. */
     int cursor_trail;

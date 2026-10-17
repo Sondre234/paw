@@ -96,22 +96,23 @@ const Option options[] = {
      "How fast they drift: 0.5 at half their own pace, 2 at twice it."},
     {"appearance.cursor_trail", "table", "", "", none, none,
      "Experimental: a trail of little sparkles, sakura petals or hearts falling off the pointer "
-     "as it moves, twinkling or tumbling, and fading within a second, drawn over the windows "
-     "and the panels but under the cursor, and taking no input. The faster the pointer moves, "
-     "the more fall; none while it rests. An appearance profile may set it, and the "
-     "`cursor_trail` action switches it meanwhile. None fall while the session is locked, "
-     "while the cursor is hidden, over a monitor showing a fullscreen window, while a colour "
-     "is picked, or while a screenshot is taken (screen recordings show them)."},
+     "as it moves, twinkling or tumbling, and fading within a second, or of sparks flung off it "
+     "as off a grinder, falling and cooling, drawn over the windows and the panels but under the "
+     "cursor, and taking no input. The faster the pointer moves, the more fall; none while it "
+     "rests. An appearance profile may set it, and the `cursor_trail` action switches it "
+     "meanwhile. None fall while the session is locked, while the cursor is hidden, over a "
+     "monitor showing a fullscreen window, while a colour is picked, or while a screenshot is "
+     "taken (screen recordings show them)."},
     {"appearance.cursor_trail.kind", "enum", "\"none\"", "\"sparkles\"", none, none,
-     "`\"sparkles\"`, `\"petals\"` or `\"hearts\"`; `\"none\"` for none."},
+     "`\"sparkles\"`, `\"petals\"`, `\"hearts\"` or `\"sparks\"`; `\"none\"` for none."},
     {"appearance.cursor_trail.amount", "number", "1", "1.5", 0.25, 4,
      "How many fall: 2 twice as many, 0.5 half as many."},
     {"appearance.cursor_trail.colors", "list of colors",
      "the focused border's colours and `shell.accent`, with a light blue or a sakura pink "
      "beside them when none of them is one",
      "{ \"#8fc1ec\", \"#f2a0be\" }", none, none,
-     "The colours sparkles and hearts come in, 1 to 6 of `#RRGGBB`; each particle takes one. "
-     "Petals are sakura pink whatever they say."},
+     "The colours sparkles, hearts and sparks come in, 1 to 6 of `#RRGGBB`; each particle takes "
+     "one (a spark cools into it from white-hot). Petals are sakura pink whatever they say."},
 
     {"keyboard", "table", "", "", none, none, "Keyboard layout and key repeat."},
     {"keyboard.layout", "string", "\"us\"", "\"us\"", none, none,
@@ -792,9 +793,9 @@ const Option options[] = {
      "`\"reset\"`; without one, toggle. With `ambient`: `\"sakura\"`, `\"snow\"`, "
      "`\"fireflies\"`, `\"embers\"`, `\"rain\"`, `\"off\"`, `\"next\"` (each kind in turn, "
      "then none) or `\"toggle\"` (off, or back to the last kind); without one, toggle. With "
-     "`cursor_trail`: `\"sparkles\"`, `\"petals\"`, `\"hearts\"`, `\"off\"`, `\"next\"` or "
-     "`\"toggle\"` (off, or back to the last kind, sparkles the first time); without one, "
-     "toggle."},
+     "`cursor_trail`: `\"sparkles\"`, `\"petals\"`, `\"hearts\"`, `\"sparks\"`, `\"off\"`, "
+     "`\"next\"` or `\"toggle\"` (off, or back to the last kind, sparkles the first time); "
+     "without one, toggle."},
     {"bindings[].amount", "integer", "40; 5 for volume and brightness", "", 1, 4000,
      "With `resize_*`: pixels moved per press. With `volume_up`, `volume_down`, `brightness_up` "
      "and `brightness_down`: percent per press, up to 100."},

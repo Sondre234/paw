@@ -1912,9 +1912,10 @@ void read_cursor_trail(lua_State *L, sh_settings &settings) {
           {{"none", SH_TRAIL_NONE},
            {"sparkles", SH_TRAIL_SPARKLES},
            {"petals", SH_TRAIL_PETALS},
-           {"hearts", SH_TRAIL_HEARTS}},
-          "appearance.cursor_trail.kind must be \"none\", \"sparkles\", \"petals\" or "
-          "\"hearts\"",
+           {"hearts", SH_TRAIL_HEARTS},
+           {"sparks", SH_TRAIL_SPARKS}},
+          "appearance.cursor_trail.kind must be \"none\", \"sparkles\", \"petals\", "
+          "\"hearts\" or \"sparks\"",
           "kind");
     settings.cursor_trail_amount =
         static_cast<float>(number(L, "amount", settings.cursor_trail_amount, 0.25, 4));
@@ -2695,7 +2696,8 @@ sh_ambient_choice parse_ambient_choice(const std::string &name) {
 
 static_assert(SH_CURSOR_TRAIL_ON_SPARKLES == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKLES} &&
               SH_CURSOR_TRAIL_ON_PETALS == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_PETALS} &&
-              SH_CURSOR_TRAIL_ON_HEARTS == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_HEARTS});
+              SH_CURSOR_TRAIL_ON_HEARTS == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_HEARTS} &&
+              SH_CURSOR_TRAIL_ON_SPARKS == SH_CURSOR_TRAIL_OFF + int{SH_TRAIL_SPARKS});
 sh_cursor_trail_choice parse_cursor_trail_choice(const std::string &name) {
     for (auto [candidate, choice] :
          {std::pair{"toggle", SH_CURSOR_TRAIL_TOGGLE},
@@ -2703,11 +2705,12 @@ sh_cursor_trail_choice parse_cursor_trail_choice(const std::string &name) {
           {"off", SH_CURSOR_TRAIL_OFF},
           {"sparkles", SH_CURSOR_TRAIL_ON_SPARKLES},
           {"petals", SH_CURSOR_TRAIL_ON_PETALS},
-          {"hearts", SH_CURSOR_TRAIL_ON_HEARTS}})
+          {"hearts", SH_CURSOR_TRAIL_ON_HEARTS},
+          {"sparks", SH_CURSOR_TRAIL_ON_SPARKS}})
         if (name == candidate)
             return choice;
-    fail("cursor_trail takes \"sparkles\", \"petals\", \"hearts\", \"off\", \"next\" or "
-         "\"toggle\"");
+    fail("cursor_trail takes \"sparkles\", \"petals\", \"hearts\", \"sparks\", \"off\", "
+         "\"next\" or \"toggle\"");
 }
 
 sh_screenshot_mode parse_screenshot_mode(const std::string &name) {
