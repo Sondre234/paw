@@ -214,9 +214,15 @@ return {
         hibana = {
             appearance = {
                 background = "#161518", color_scheme = "dark",
-                -- Its icons while it is in use, once rices/hibana/install.sh --icons has put them
-                -- in ~/.local/share/icons (skipped until then):
+                -- Its cursor and icons while it is in use, once rices/hibana/install.sh --cursor
+                -- --icons has put them in ~/.local/share/icons (skipped until then):
+                -- cursor_theme = "Bibata-Modern-Classic",
                 -- icon_theme = "Hibana",
+                -- Embers rising through the storm, or rain falling past it:
+                -- ambient = { kind = "embers" },
+                -- ambient = { kind = "rain" },
+                -- Sparks flung off the pointer as it moves, as off a chainsaw:
+                -- cursor_trail = { kind = "sparks" },
             },
             windows = {
                 border_width = 2, corner_radius = 10, round = "always",

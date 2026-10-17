@@ -156,6 +156,11 @@ rice's `install.sh` part again). In Discord, turn on one theme at a time.
 - **`shell.blur`**, glass for the bar and every popup: the start menu, Quick Settings, the
   calendar, notifications, the command palette and Alt + Tab.
 - **Gradient borders**, ember burning down into blood red on the focused window.
+- **`appearance.ambient`** and **`appearance.cursor_trail`**, made for hibana: embers rising
+  through the storm and cooling from amber to blood red, among flakes of ash (`kind = "embers"`),
+  or faint rain slanting past (`"rain"`), and sparks flung off the pointer as off a chainsaw,
+  falling and cooling (`cursor_trail`'s `"sparks"`). The profile suggests them in comments;
+  `paw msg ambient embers` and `paw msg cursor_trail sparks` try them for the session.
 - **`shell.start_icon`** puts the devil cat on the start button.
 - **`appearance.color_scheme = "dark"`** takes GTK, Firefox and Discord into their dark styles
   with the profile.
