@@ -4,10 +4,10 @@
 
 <i><b>P</b>AW <b>A</b>rranges <b>W</b>indows</i>
 
-A mouse-first Wayland desktop.<br>
-Floating windows, edge snapping and optional Hyprland-style tiling, a Qt Quick shell laid out
-as macOS's (menu bar, dock, Launchpad) or as a taskbar, and a Lua configuration that reloads when
-you save it.
+A Wayland desktop that floats or tiles, for the mouse and the keyboard alike.<br>
+Floating windows that snap to the edges or Hyprland-style tiling, per monitor, a Qt Quick shell
+laid out as macOS's (menu bar, dock, Launchpad) or as a taskbar, and a Lua configuration that
+reloads when you save it.
 
 [![license](https://img.shields.io/badge/license-GPL--3.0--or--later-6f4324)](LICENSE)
 [![wlroots](https://img.shields.io/badge/wlroots-0.20-8b5a33)](https://gitlab.freedesktop.org/wlroots/wlroots)
@@ -18,10 +18,12 @@ you save it.
 [Running](#running) · [Configuration](#configuration) · [Features](docs/features.md) ·
 [Contributing](CONTRIBUTING.md)
 
-![paw in washi, one of the rices it ships with](rices/washi/screenshots/washi.jpg)
+![paw in the rices it ships with: washi, and beside it sumi, mochi and hibana](docs/assets/rices.webp)
 
-<sub><a href="rices/washi">washi</a>, one of the rices that ship with paw: paper a cat walked across,
-by day and by night.</sub>
+<sub>The rices that ship with paw: <a href="rices/washi">washi</a>, paper a cat walked across,
+and beside it, top to bottom, <a href="rices/washi">sumi</a>, the same paper by night,
+<a href="rices/mochi">mochi</a>, Catppuccin Mocha under frosted glass, and
+<a href="rices/hibana">hibana</a>, sparks on ash.</sub>
 
 </div>
 
@@ -33,8 +35,10 @@ by day and by night.</sub>
 
 ## Highlights
 
-- **Floating first.** Focus follows the mouse, Super + drag moves and resizes, windows snap
-  and stick to edges, and new windows are placed where they cover the least.
+- **Floating windows, by mouse or by keyboard.** Focus follows the mouse, Super + drag moves
+  and resizes, windows snap and stick to edges, and new windows are placed where they cover the
+  least; Super and the arrows focus, move and snap them as Windows' Win + arrows do, and
+  Super + F maximizes one.
 - **Tiling when you want it**, per monitor: dwindle (as in Hyprland), master, spiral, monocle,
   and a niri/PaperWM-style scrolling layout, with a [bar in Hyprland's
   style](docs/features.md#the-tiling-bar) in the taskbar's place while it tiles, its modules,

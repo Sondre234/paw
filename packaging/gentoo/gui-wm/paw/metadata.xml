@@ -2,8 +2,9 @@
 <!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
 <pkgmetadata>
 	<longdescription lang="en">
-		paw is a mouse-first Wayland desktop on wlroots: floating windows with edge
-		snapping and optional tiling, a Qt Quick shell (taskbar, launcher, notifications,
+		paw is a Wayland desktop on wlroots that floats or tiles, for the mouse and the
+		keyboard alike: floating windows with edge snapping or tiling, per monitor, a Qt
+		Quick shell (a menu bar and a dock or a taskbar, a launcher, notifications, an
 		on-screen display), and a Lua configuration that reloads when it is saved.
 	</longdescription>
 	<use>
