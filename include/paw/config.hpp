@@ -463,6 +463,7 @@ struct Config {
                          .overview_strip = true,
                          .overview_hot_corner = 0,
                          .overview_dim = 0.86F,
+                         .switcher_hold = true,
                          .dim_inactive = 0,
                          .dim_duration = 180,
                          .allow_tearing = false,

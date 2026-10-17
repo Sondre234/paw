@@ -2224,6 +2224,8 @@ Config read(lua_State *L, size_t own, const std::filesystem::path &directory) {
         }
         settings.overview_dim = static_cast<float>(number(L, "dim", settings.overview_dim, 0, 1));
     }
+    if (Section in{L, "switcher"})
+        boolean(L, "hold", "switcher.hold", config.settings.switcher_hold);
     if (Section in{L, "notifications"}) {
         auto &notifications = config.notifications;
         boolean(L, "enabled", "notifications.enabled", notifications.enabled);

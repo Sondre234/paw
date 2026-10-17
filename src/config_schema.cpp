@@ -700,6 +700,15 @@ const Option options[] = {
     {"overview.dim", "number", "0.86", "0.86", 0, 1,
      "How opaque the backdrop behind the thumbnails is, from 0 (clear) to 1."},
 
+    {"switcher", "table", "", "", none, none,
+     "The window switcher (the `switcher` and `switcher_app` actions, Alt + Tab), opened by a "
+     "key binding."},
+    {"switcher.hold", "boolean", "true", "false", none, none,
+     "Held, as on Windows: the switcher stays open while the binding's modifiers (Alt) are held "
+     "and picks the selected window as they come up. `false` keeps it open once they are let "
+     "go: Tab, the arrows and the binding's key move the selection, Return or a click on a "
+     "window picks, and Escape or a click off the switcher cancels."},
+
     {"gestures", "table", "", "", none, none,
      "Touchpad swipes the compositor takes for itself. Every other swipe, pinch and hold goes to "
      "the window under the pointer."},

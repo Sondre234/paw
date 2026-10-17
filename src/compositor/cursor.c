@@ -836,6 +836,7 @@ void server_cursor_button(struct wl_listener *listener, void *data) {
         else
             server->held_buttons &= ~bit;
     }
+    switcher_button(server, event); // a click off a switcher nothing holds open cancels it
     if (color_picker_button(server, event)) // a click picks
         return;
     if ((server->xray.open || server->xray.pressed) && xray_button(server, event))

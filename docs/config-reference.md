@@ -331,6 +331,13 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `overview.hot_corner` | enum | "none" | - | Resting the pointer in this screen corner opens the overview there, as a hot corner runs its request (see `hot_corners`), but never closes it: `"none"`, `"top-left"`, `"top-right"`, `"bottom-left"`, or `"bottom-right"`. Not a corner `hot_corners` binds. |
 | `overview.dim` | number | 0.86 | 0 to 1 | How opaque the backdrop behind the thumbnails is, from 0 (clear) to 1. |
 
+## `switcher`
+
+| Setting | Type | Default | Range | Description |
+| --- | --- | --- | --- | --- |
+| `switcher` | table | - | - | The window switcher (the `switcher` and `switcher_app` actions, Alt + Tab), opened by a key binding. |
+| `switcher.hold` | boolean | true | - | Held, as on Windows: the switcher stays open while the binding's modifiers (Alt) are held and picks the selected window as they come up. `false` keeps it open once they are let go: Tab, the arrows and the binding's key move the selection, Return or a click on a window picks, and Escape or a click off the switcher cancels. |
+
 ## `gestures`
 
 | Setting | Type | Default | Range | Description |

@@ -669,6 +669,12 @@ int main(int argc, char **argv) {
         rejects("return {overview={duration=5}}");
         rejects("return {overview={dim=1.5}}");
         rejects("return {overview={colour='red'}}");
+        // The window switcher, held open by its binding's modifiers unless told otherwise.
+        require(overview_defaults.switcher_hold &&
+                    !paw::parse_config("return {switcher={hold=false}}").settings.switcher_hold,
+                "switcher.hold not parsed");
+        rejects("return {switcher={hold='no'}}");
+        rejects("return {switcher={sticky=true}}");
         for (auto [name, action] : {std::pair{"toggle_overview", SH_OVERVIEW_TOGGLE},
                                     {"overview_confirm", SH_OVERVIEW_CONFIRM},
                                     {"overview_cancel", SH_OVERVIEW_CANCEL}})

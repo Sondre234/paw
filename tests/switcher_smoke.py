@@ -3,14 +3,15 @@
 first, on the focused output; it moves its selection, focuses the chosen window (switching its
 output's workspace), cancels, follows windows closing, and tells subscribers each step, naming
 each window by the number the window control gives it too. Alt+Tab from a keyboard confirms on
-releasing Alt."""
+releasing Alt, or with switcher.hold off stays open until a window is picked or a click off it
+cancels it."""
 from pathlib import Path
 import subprocess
 import sys
 
 import harness
 
-compositor, probe, window_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
+compositor, probe, window_probe, pointer_probe = (str(Path(p).resolve()) for p in sys.argv[1:5])
 
 CONFIG = """return {
     xwayland = false,
@@ -166,4 +167,31 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     press.up(ALT)
     expect(lambda l: "switcher-close" in l, "Escape closes")
     desktop.stays(lambda: focused() == "A", "Escape still switched")
+
+    # switcher.hold = false: Alt+Tab leaves the switcher open once Alt comes up; Tab moves on,
+    # Return picks.
+    RETURN = 28
+    desktop.reload(CONFIG.replace("    bindings = {", "    switcher = { hold = false },\n    bindings = {"))
+    events.forget()
+    press(ALT, TAB)
+    _, selected, titles, _ = opened(expect(opened, "Alt+Tab opened the switcher"))
+    assert titles == ["A", "D"] and selected == 1, (titles, selected)
+    desktop.stays(lambda: "switcher-close" not in events.lines("switcher") and focused() == "A",
+                  "the switcher closed as Alt came up", duration=.5)
+    press(TAB)
+    expect(lambda l: l == ["switcher-select 0"], "Tab moved on alone")
+    press(TAB)
+    expect(lambda l: l == ["switcher-select 1"], "Tab moved on again")
+    press(RETURN)
+    expect(lambda l: l == ["switcher-close"], "Return picked")
+    wait_for(lambda: focused() == "D", "Return focused D")
+
+    # A click off the switcher cancels it, which would otherwise keep the keyboard.
+    pointer = desktop.virtual_pointer(pointer_probe, 2560, 720)
+    pointer("move", "1900", "700")
+    press(ALT, TAB)
+    expect(opened, "Alt+Tab opened the switcher to click off")
+    pointer("click", "left")
+    expect(lambda l: "switcher-close" in l, "a click off the switcher cancelled it")
+    desktop.stays(lambda: focused() != "A", "the click off the switcher picked its selection")
 print("Window switcher passed")
