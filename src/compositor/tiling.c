@@ -261,6 +261,34 @@ static void keep_out_of_tiling(struct sh_server *server, struct wlr_output *outp
     }
 }
 
+/* Whether `toplevel`, on `output`, is the only window its workspace shows there: minimized
+ * windows, hidden members of a group and swallowed terminals aside, sticky ones counting on
+ * every workspace. */
+static bool alone_on_workspace(struct sh_toplevel *toplevel, struct wlr_output *output) {
+    struct sh_toplevel *other;
+    wl_list_for_each(other, &toplevel->server->toplevels, link) {
+        if (other != toplevel && !other->unmanaged && !other->minimized && !other->group_hidden &&
+            !other->swallowed && toplevel_mapped(other) &&
+            (other->sticky || other->workspace == toplevel->workspace) &&
+            (other->tiled ? tiled_output(other) : home_output(other)) == output)
+            return false;
+    }
+    return true;
+}
+
+/* Takes a tile out of the tiling maximized (layout.maximize_lone_on_untile), from its tile. Its
+ * floating geometry stays to restore it to; one that opened tiled, which has none, restores
+ * where its tile was, as untile_toplevel floats it. Turning tiling on again tiles it. */
+static void untile_maximized(struct sh_toplevel *toplevel) {
+    struct wlr_box tile = toplevel_box(toplevel);
+    untile_toplevel(toplevel, false);
+    if (toplevel->restore_box.width <= 0 || toplevel->restore_box.height <= 0) {
+        toplevel->restore_box.x = tile.x;
+        toplevel->restore_box.y = tile.y;
+    }
+    place_maximized(toplevel);
+}
+
 /* Tiles or floats the windows of `output` as their workspaces now say. */
 static void apply_tiling(struct sh_server *server, struct wlr_output *output) {
     // Most recently focused first, so the focused window gets the largest tile. Tiles of an
@@ -282,7 +310,11 @@ static void apply_tiling(struct sh_server *server, struct wlr_output *output) {
             // of the tiles or, lowered, behind them.
             if (toplevel->fullscreen)
                 set_fullscreen(toplevel, false);
-        } else if (!enabled && toplevel->tiled)
+        } else if (!enabled && toplevel->tiled && !toplevel->fullscreen &&
+                   server_settings(server)->maximize_lone_on_untile &&
+                   alone_on_workspace(toplevel, output))
+            untile_maximized(toplevel);
+        else if (!enabled && toplevel->tiled)
             untile_toplevel(toplevel, true);
         else if (!enabled && toplevel->arranged && toplevel->arrangement == SH_NONE)
             restore_toplevel(toplevel); // left the tiling while minimized
