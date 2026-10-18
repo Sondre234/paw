@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Drag and drop with a real button press, driven by a virtual pointer (pointer_probe): one
-window probe drags a line of text from its window, another takes it, the drag over nothing off it
-and over the bare desktop. A window activated while the drag lasts, through the taskbar protocol
-as the shell brings one forward under a drag resting on its button, comes forward at once:
-restored onto the workspace shown if minimized, else with its workspace shown. Once the drag ends it has the keyboard, which the drag held, and the pointer is on
-what lies under it at once rather than once it next moves. Dropped where nothing takes it, the drag
-is cancelled. A drag of nothing (no data source, as within one window) that the compositor turns
-down leaves the seat as it was, and is let go (under the sanitizers, the compositor's clean exit
-shows it was freed)."""
+window probe drags a line of text from its window, another takes it. The drag is over the window
+it began in at once, before the pointer moves, so that one let go there is dropped there; off a
+window over the bare desktop it is over nothing. A window activated while the drag lasts, through
+the taskbar protocol as the shell brings one forward under a drag resting on its button, comes
+forward at once: restored onto the workspace shown if minimized, else with its workspace shown.
+Once the drag ends it has the keyboard, which the drag held, and the pointer is on what lies under
+it at once rather than once it next moves. Dropped where nothing takes it, the drag is cancelled.
+A drag of nothing (no data source, as within one window) that the compositor turns down leaves the
+seat as it was, and is let go (under the sanitizers, the compositor's clean exit shows it was
+freed)."""
 from pathlib import Path
 import subprocess
 import sys
@@ -67,6 +69,8 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     pointer("move", *map(str, windows()["Source"][4]), "press", "left")
     desktop.wait_for(lambda: "drag" in seat(), "the drag under way")
     assert seat()["keyboard"] == ("window", "Source"), seat()
+    desktop.wait_for(lambda: seat()["drag"] == ("window", "Source"),
+                     "the drag over the window it began in before the pointer moved")
 
     # Mid-drag, a window on another workspace comes forward, its workspace with it.
     activate("away")
