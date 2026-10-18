@@ -38,6 +38,13 @@ AbstractButton {
         swatch = swatch < 0 ? checkedSwatch : Math.max(0, Math.min(modelData.swatches.length - 1, swatch + step))
     }
     onHighlightedChanged: if (highlighted && swatchRow && swatch < 0) swatch = checkedSwatch
+    // The swatch at `x` along the row, the nearest; a press picks it.
+    function swatchAt(x) {
+        const step = 22 + Theme.spacingM
+        return Math.max(0, Math.min(modelData.swatches.length - 1,
+                                    Math.floor((x - leftPadding - labelStart + Theme.spacingM / 2) / step)))
+    }
+    onPressed: if (swatchRow) swatch = swatchAt(pressX)
     // Whether it can be chosen: drawn from the entry, so that a menu fading out, which takes no
     // input, does not grey its rows.
     readonly property bool available: !separator && !header && !title && modelData.enabled !== false
@@ -130,6 +137,7 @@ AbstractButton {
                     id: swatch
                     required property var modelData
                     required property int index
+                    objectName: "menuSwatch:" + (modelData.name || index)
                     readonly property bool lit: row.swatch === index && (row.highlighted || row.hovered)
                     width: 22
                     height: 22
