@@ -159,6 +159,8 @@ Rectangle {
             iconMenu.open = iconMenu.entries.length > 0
         }
     }
+    // The keyboard comes to the desktop from a click while it has the icons, for their keys.
+    Binding { target: desktop.shellView; property: "keyboardOnDemand"; value: icons.active }
     // What the icons' menu offers for `tiles`, the selected icons: opening them, copying their
     // files and moving those to the trash, under a title naming them.
     function iconEntries(tiles) {

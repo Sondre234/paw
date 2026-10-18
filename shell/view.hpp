@@ -32,6 +32,10 @@ class ShellView : public QQuickView {
     Q_PROPERTY(QUrl wallpaper READ wallpaper NOTIFY wallpaperChanged)
     Q_PROPERTY(QString wallpaperFile READ wallpaperFile NOTIFY wallpaperChanged)
     Q_PROPERTY(bool ownWallpaper READ ownWallpaper NOTIFY wallpaperChanged)
+    // Whether the desktop takes the keyboard on demand: the compositor gives it the keyboard as a
+    // click lands on it, and gives it back to the windows as the pointer moves onto one, as it
+    // does for a window. Desktop.qml asks for it while it has the icons. The panel never does.
+    Q_PROPERTY(bool keyboardOnDemand READ keyboardOnDemand WRITE setKeyboardOnDemand NOTIFY keyboardOnDemandChanged)
   public:
     ShellView(ShellController &controller, QScreen *screen, bool desktop, bool preview);
     QScreen *outputScreen() const { return outputScreen_; }
@@ -66,16 +70,19 @@ class ShellView : public QQuickView {
     QUrl wallpaper() const { return controller_.wallpaperOn(outputScreen_->name()); }
     QString wallpaperFile() const { return controller_.wallpaperFileOn(outputScreen_->name()); }
     bool ownWallpaper() const { return controller_.ownWallpaper(outputScreen_->name()); }
+    bool keyboardOnDemand() const { return keyboardOnDemand_; }
+    void setKeyboardOnDemand(bool onDemand);
 
   Q_SIGNALS:
     void inputRectsChanged();
     void tilingBarChanged();
     void panelPlacementChanged();
     void wallpaperChanged();
+    void keyboardOnDemandChanged();
 
   private:
     ShellController &controller_;
-    bool desktop_, preview_, tilingBar_ = false;
+    bool desktop_, preview_, tilingBar_ = false, keyboardOnDemand_ = false;
     LayerShellQt::Window *layer_ = nullptr;
     QScreen *outputScreen_;
     QVariantList inputRects_;
