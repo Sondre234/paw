@@ -29,6 +29,7 @@ FlatButton {
             id: glyph
             objectName: "notificationGlyph"
             anchors.centerIn: parent
+            size: Theme.barIconSize
             name: bell.center.dnd ? "bell-off" : "bell"
             color: bell.center.dnd ? Theme.textMuted : Theme.text
         }
@@ -36,7 +37,7 @@ FlatButton {
         Badge {
             objectName: "notificationBadge"
             // Inside the button, however short the bar (the macOS style's menu bar).
-            x: parent.width / 2 + Theme.spacingXS; y: Math.max(-bell.topPadding, parent.height / 2 - Theme.iconSize + Theme.spacingXS)
+            x: parent.width / 2 + Theme.spacingXS; y: Math.max(-bell.topPadding, parent.height / 2 - Theme.barIconSize + Theme.spacingXS)
             count: bell.center.unread
             muted: bell.center.dnd
         }

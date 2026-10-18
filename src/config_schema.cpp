@@ -956,8 +956,8 @@ const Option options[] = {
      "`\"macos\"` (a menu bar along the top and a dock at the bottom, the panel settings "
      "applying to the dock)."},
     {"shell.panel_height", "integer", "52", "52", 24, 100,
-     "Panel height in pixels; its width along the left or right edge. With `panel_draggable` the "
-     "taskbar's inner and outer edges set it too."},
+     "Panel height in pixels; its width along the left or right edge. The taskbar's icons grow "
+     "with it. With `panel_draggable` the taskbar's inner and outer edges set it too."},
     {"shell.panel_position", "enum", "\"bottom\"", "\"bottom\"", none, none,
      "The edge of the monitor the taskbar is along: `\"top\"`, `\"bottom\"`, `\"left\"` or "
      "`\"right\"`. Along a side its buttons and widgets stack from the top down, and its popups "

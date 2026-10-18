@@ -52,13 +52,14 @@ FlatButton {
             Icon {
                 objectName: "quickSettingsNetwork"
                 visible: button.showNetwork
-                size: Theme.iconSize
+                size: Theme.barIconSize
                 name: "wifi-off"
                 color: Theme.textMuted
             }
             SpeakerIcon {
                 objectName: "quickSettingsVolume"
                 visible: button.showVolume
+                size: Theme.barIconSize
                 level: button.showVolume ? button.audio.volume : 0
                 muted: button.showVolume && button.audio.muted
                 color: muted ? Theme.textMuted : Theme.text
@@ -66,12 +67,14 @@ FlatButton {
             BatteryIcon {
                 objectName: "quickSettingsBattery"
                 visible: button.showBattery
+                size: Theme.barIconSize
                 status: button.status
             }
             // With none of those to show, a sign that settings are behind it.
             Icon {
                 objectName: "quickSettingsSliders"
                 visible: !button.showNetwork && !button.showVolume && !button.showBattery
+                size: Theme.barIconSize
                 name: "sliders-horizontal"
             }
         }

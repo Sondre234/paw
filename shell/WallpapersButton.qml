@@ -14,6 +14,6 @@ FlatButton {
     Accessible.name: "Wallpapers"
     BarTip { panel: wallpapersButton.panel; owner: wallpapersButton; text: "Wallpapers" }
     contentItem: Item {
-        Icon { anchors.centerIn: parent; name: "image"; color: wallpapersButton.active ? Theme.accent : Theme.text }
+        Icon { anchors.centerIn: parent; name: "image"; size: Theme.barIconSize; color: wallpapersButton.active ? Theme.accent : Theme.text }
     }
 }

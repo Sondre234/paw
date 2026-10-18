@@ -29,6 +29,7 @@ FlatButton {
         FadingIcon {
             objectName: "tilingIcon"
             anchors.centerIn: parent
+            size: Theme.barIconSize
             name: !tilingToggle.panel.tiling ? "copy"
                 : tilingToggle.layout !== "" ? "tiling-" + tilingToggle.layout : "layout-panel-left"
             color: tilingToggle.panel.tiling ? Theme.accent : Theme.text

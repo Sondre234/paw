@@ -890,6 +890,31 @@ int main(int argc, char **argv) {
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
     }
+    // The bar's icons grow with it (shell.panel_height): an application's, 26 pixels on a bar of
+    // 52 and 41 on one of 76, its button widening to hold it, the start button's squares, and a
+    // widget's line icon, 20 pixels and then 31.
+    {
+        auto *launcher = find(view.rootObject(), "pinned:pinned:0");
+        auto *icon = launcher ? find(launcher, "taskIcon") : nullptr;
+        auto *squares = find(view.rootObject(), "startSquares");
+        auto *line = find(view.rootObject(), "tilingIcon");
+        if (!icon || !squares || !line)
+            return fail("no icons on the bar to measure");
+        const qreal buttonWidth = launcher->width(), squaresWidth = squares->width();
+        if (icon->width() != 26 || line->width() != 20)
+            return fail("the bar's icons are not 26 and 20 pixels on a bar of 52");
+        if (!reconfigure(QString(lua).replace("shell={", "shell={panel_height=76,")))
+            return fail("could not rewrite the configuration");
+        if (!waitFor([&] {
+                return icon->width() == 41 && launcher->width() > buttonWidth &&
+                       squares->width() > squaresWidth && line->width() == 31;
+            }))
+            return fail("the bar's icons did not grow with it");
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+        if (!waitFor([&] { return icon->width() == 26 && launcher->width() == buttonWidth && line->width() == 20; }))
+            return fail("the bar's icons did not shrink back with it");
+    }
     // appearance.icon_theme: icons come from its theme at once, those the shell has drawn
     // already too, by a URL of their own (shell.iconBase), as do the icons guessed for windows
     // and the tray's; a theme that is not installed is skipped, and without one the theme the
@@ -8455,8 +8480,11 @@ ListModel {
             tasks->property("orientation").toInt() != Qt::Vertical ||
             !clock->property("text").toString().contains('\n'))
             return fail("a bar along the left edge does not stand upright, its tasks and clock in a column");
-        // The bar's menu opens beside it, by where it was pressed.
-        const QPoint empty = tasks->mapToScene(QPointF(tasks->width() / 2, tasks->height() - 10)).toPoint();
+        // The bar's menu opens beside it, by where it was pressed: in the room under the buttons.
+        const qreal below = (tasks->property("contentHeight").toReal() + tasks->height()) / 2;
+        if (tasks->height() - tasks->property("contentHeight").toReal() < 4)
+            return fail("a bar along the left has no room under its buttons to press");
+        const QPoint empty = tasks->mapToScene(QPointF(tasks->width() / 2, below)).toPoint();
         QTest::mouseClick(&view, Qt::RightButton, Qt::NoModifier, empty);
         auto *barMenu = find(root, "contextMenu");
         if (!waitFor([&] { return root->property("barMenuOpen").toBool() && barMenu && barMenu->isVisible(); }))

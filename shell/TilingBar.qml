@@ -534,6 +534,7 @@ Item {
                     delegate: TrayButton {
                         panel: tilingBar.panel
                         width: tilingBar.moduleHeight; height: tilingBar.moduleHeight
+                        iconSize: tilingBar.iconSize
                     }
                 }
             }

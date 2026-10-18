@@ -104,11 +104,18 @@ QtObject {
     readonly property int rowHeight: 36
     readonly property int headingHeight: 30
     // A button on the bar: as tall as the bar (shell.panel_height) leaves with a small margin
-    // above and below, and an icon's as wide as Windows 11's. In the macOS style the widgets are
-    // on the menu bar, and these are its buttons.
+    // above and below, and an icon's as wide as Windows 11's, wider as a taller bar's icons grow.
+    // In the macOS style the widgets are on the menu bar, and these are its buttons.
     readonly property real barButtonHeight: macos ? menuBarHeight - 2 * menuBarInset
                                                   : Math.max(0, shell.panelHeight - 2 * spacingS)
-    readonly property int barButtonWidth: macos ? menuBarIconSize + 2 * menuBarPadding - spacingS : 40
+    readonly property int barButtonWidth: macos ? menuBarIconSize + 2 * menuBarPadding - spacingS
+                                                : Math.max(40, barAppIconSize + 14)
+    // Applications' icons on the taskbar, growing and shrinking with it: 26 pixels on a bar of
+    // 52 (the default), 34 on one of 64.
+    readonly property int barAppIconSize: Math.round(barButtonHeight * 0.6)
+    // Line icons on the taskbar, the widgets' and the tray's, growing with it the same way: 20
+    // pixels on a bar of 52. On the macOS style's menu bar they keep their size.
+    readonly property int barIconSize: macos ? iconSize : Math.max(12, Math.round(barButtonHeight * 0.45))
 
     // The macOS style's menu bar and dock.
     // The menu bar: as tall as macOS's for the font size (28 pixels for 13), its items padded on
