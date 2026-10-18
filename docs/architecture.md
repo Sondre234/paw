@@ -71,7 +71,7 @@ all. In short:
 | `headless_input.c` | Input devices without hardware for tests under `--headless`: keyboards, pointers that move and make touchpad gestures, touchscreens, drawing tablets with a pen, an eraser and a pad, and lid and tablet-mode switches. |
 | `input.c` | Keyboards, key bindings, pointers' libinput settings, virtual devices, selection and drag-and-drop. |
 | `input_method.c` | Input methods (fcitx5, ibus): text-input-v3 and input-method-v2 relayed between the application with the keyboard and the input method, its keyboard grab, and its popups beside the text cursor. |
-| `key_release.c` | Key bindings with `release`, which run as their key comes up: a modifier key's (Super_L opening the launcher) only when it was tapped alone, any other key, button, wheel notch, gesture, finger or pen meanwhile (`key_release_cancel`) letting it go. |
+| `key_release.c` | Key bindings with `release`, which run as their key comes up: a modifier key's (Super_L opening the launcher) only when it was tapped alone, any other key, button, wheel notch, gesture, finger or pen meanwhile (`key_release_cancel`) letting it go, as does holding it past `TAP_MS` by the events' times, or a button or finger already down as it goes down. |
 | `keymap.c` | The keymap from the keyboard settings, given to every keyboard but virtual ones. |
 | `cursor.c` | What is under the pointer, and the tile the user moved it onto (`pointed_tile`), focus on hover, button bindings, scrolling, the cursor image, and the image the client under the pointer last asked for (`client_cursor`, heard while hidden too), which `cursor_show` gives back without entering the client anew. |
 | `cursor_hide.c` | The cursor hidden while typing (`mouse.hide_when_typing`) and once the pointer has rested (`mouse.hide_after`), as reasons of `cursor_hide`'s besides a screenshot's, until the pointer is used (`cursor_used`); never under a pointer constraint, over a client that hid the cursor itself or while the colour picker picks. |
@@ -2031,7 +2031,7 @@ whether it has, for something the compositor does another way without it, as the
   Under `--headless`, `paw msg headless_output`, `headless_keyboard`, `headless_pointer`
   and `headless_touch` plug in outputs, keyboards, pointers and touchscreens
   (`headless_keyboard key NAME CODE press [TIME]` types on one, at a given time in
-  milliseconds, see `keymap_smoke.py`;
+  milliseconds, see `keymap_smoke.py` and `key_release_smoke.py`;
   `headless_pointer swipe NAME update DX DY [TIME]` moves a touchpad gesture's fingers, at a given
   time in milliseconds, see `pointer_gestures_smoke.py`; `headless_touch down NAME ID X Y` puts a
   finger on a screen, see `touchscreen_smoke.py`), and `headless_switch` a lid or tablet-mode

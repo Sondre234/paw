@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Key bindings with `release` run as their key comes up, as Hyprland's bindr. Super_L's, as
 Windows' Start key, runs only when Super was tapped alone: not after another key (bound or not), a
-click or the wheel while it was held, and its press and release still reach the window with the
-keyboard. A key that is no modifier is the binding's from its press: the window gets neither its
+click or the wheel while it was held, not when it was held longer than a tap, nor when it went down
+while a button was held, and its press and release still reach the window with the keyboard. A key that is no modifier is the binding's from its press: the window gets neither its
 press nor its release. Subscribers hear the launcher and the other panels asked for."""
 from pathlib import Path
 import sys
@@ -23,6 +23,9 @@ CONFIG = """return {
 }"""
 # evdev's codes
 SUPER, P, W, F8 = 125, 25, 17, 66
+# Event times for the taps that wait between Super going down and coming up, so that a slow run
+# does not hold it longer than a tap (500 ms).
+TAP = 1_000_000
 
 with harness.Compositor(compositor, CONFIG) as desktop:
     log = desktop.root / "window.log"
@@ -43,10 +46,10 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     desktop.detail = lambda: f"heard: {heard.lines()}, keys: {keys()}"
 
     # A tap of Super opens the launcher as it comes up, and the window hears Super go down and up.
-    press.down(SUPER)
+    press.down(SUPER, time=TAP)
     desktop.wait_for(lambda: keys() == [f"key {SUPER} pressed"], "Super's press at the window")
     desktop.stays(lambda: asked("launcher") == 0, "no launcher while Super is held")
-    press.up(SUPER)
+    press.up(SUPER, time=TAP + 150)
     desktop.wait_for(lambda: asked("launcher") == 1, "the launcher as Super comes up")
     desktop.wait_for(lambda: keys()[-1] == f"key {SUPER} released", "Super's release too")
 
@@ -67,6 +70,18 @@ with harness.Compositor(compositor, CONFIG) as desktop:
         pointer(done)
         press.up(SUPER)
         desktop.stays(lambda: asked("launcher") == 1, f"no launcher after Super + {done}")
+
+    # Nor is Super held longer than a tap, thought better of, however still it was.
+    press.down(SUPER, time=TAP + 1000)
+    press.up(SUPER, time=TAP + 1600)
+    desktop.wait_for(lambda: keys()[-1] == f"key {SUPER} released", "Super held at the window")
+    desktop.stays(lambda: asked("launcher") == 1, "no launcher after Super held a while")
+
+    # Nor Super going down while a button is held, as dragging a window by its title.
+    pointer("press left")
+    press(SUPER)
+    pointer("release left")
+    desktop.stays(lambda: asked("launcher") == 1, "no launcher after Super during a drag")
 
     # Tapped again, it opens the launcher again.
     press(SUPER)

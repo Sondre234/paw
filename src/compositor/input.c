@@ -93,7 +93,9 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data) {
                 handled = handle_keybinding(keyboard, event->keycode, modifiers, raw[i]);
         }
         // A binding that runs as the key comes up waits for it (key_release.c).
-        handled = key_release_press(keyboard, event->keycode, modifiers, woke) || handled;
+        handled = key_release_press(keyboard, event->keycode, modifiers, woke,
+                                    event->time_msec) ||
+                  handled;
         if (event->keycode <= KEY_MAX)
             keyboard->consumed[event->keycode] = handled;
     } else if (event->keycode <= KEY_MAX) {
@@ -112,7 +114,7 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data) {
     if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED && !handled)
         cursor_typed(server, nsyms > 0 ? syms[0] : XKB_KEY_NoSymbol); // typed into an application
     if (event->state == WL_KEYBOARD_KEY_STATE_RELEASED)
-        key_release_up(keyboard, event->keycode);
+        key_release_up(keyboard, event->keycode, event->time_msec);
 }
 
 static void keyboard_handle_destroy(struct wl_listener *listener, void *data) {

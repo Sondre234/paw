@@ -2935,7 +2935,10 @@ Hyprland's `bindr` does. A modifier key alone (`Super_L`, `Alt_L`, `Control_R`, 
 binding, as Windows' Start key and KDE's Meta key are: it runs only when nothing else happened
 while the key was held, so another key (bound or not), a mouse button, the wheel, a touchpad
 gesture, a finger or a pen in the meantime lets it go, and Super + drag, Super + the wheel,
-Super + Q and the switcher stay what they were. The modifier's press and release still reach the
+Super + Q and the switcher stay what they were. Nor does it run when the key was held longer
+than half a second (xcape's limit: held that long, it was held for something else, or thought
+better of), or went down while a mouse button or a finger already was, as while a window is
+dragged by its title. The modifier's press and release still reach the
 application with the keyboard as usual. Any other key's binding has the key from its press, so
 the application hears neither. `mods` are the modifiers held as the key goes down; with a
 modifier key its own may be named or not (`mods = { "Super" }, key = "Super_L"` is the same

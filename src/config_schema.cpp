@@ -815,9 +815,10 @@ const Option options[] = {
      "as it goes down, as Hyprland's `bindr`. A modifier key (`Super_L`, `Alt_L`, ...) still "
      "reaches the application as it goes down, and its binding runs only when the key was "
      "tapped alone: not when another key, a mouse button, the wheel or a touchpad gesture was "
-     "used while it was held, so `{ key = \"Super_L\", release = true, action = \"launcher\" "
-     "}` opens the launcher as Windows' Start key does, and Super + drag and Super + Q are left "
-     "alone. `mods` are those held as the key goes down; a modifier key's own (`Super` with "
+     "used while it was held, when it was held longer than half a second, or when it went down "
+     "while a button was held, so `{ key = \"Super_L\", release = true, action = "
+     "\"launcher\" }` opens the launcher as Windows' Start key does, and Super + drag and "
+     "Super + Q are left alone. `mods` are those held as the key goes down; a modifier key's own (`Super` with "
      "`Super_L`) may be left out."},
     {"bindings[].description", "string", "the action's own title", "", none, none,
      "What the binding does, in your words, as Hyprland's `bindd`: the sheet of keyboard "
