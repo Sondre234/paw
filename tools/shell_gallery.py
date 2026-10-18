@@ -300,6 +300,7 @@ def prepare(root, theme_name, animations=True):
     env.update(XDG_RUNTIME_DIR=str(runtime), XDG_CONFIG_HOME=str(root / "config"),
                XDG_DATA_HOME=str(data), XDG_DATA_DIRS=":".join(systems) or str(root / "none"),
                XDG_STATE_HOME=str(root / "state"), XDG_CACHE_HOME=str(root / "cache"),
+               XDG_DESKTOP_DIR=str(root / "Desktop"),
                DBUS_SESSION_BUS_ADDRESS="disabled:", QT_FORCE_STDERR_LOGGING="1")
     return env
 

@@ -80,6 +80,9 @@ class DesktopIcons : public QAbstractListModel {
     Q_INVOKABLE bool openFolder();
     // Reads the folder now rather than once its changes settle.
     void rescan();
+    // Whether cells and hiding are remembered in the state folder; a preview's, on a grid of its
+    // own, are not.
+    void setRemembering(bool remembering) { remembering_ = remembering; }
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
@@ -101,7 +104,7 @@ class DesktopIcons : public QAbstractListModel {
     QStringList order_;              // the keys, launchers first, then folders and files by name
     QHash<QString, QPoint> cells_;   // where each icon was put, as remembered
     QSize grid_;                     // invalid until the desktop says
-    bool hidden_ = false;
+    bool hidden_ = false, remembering_ = true;
     QByteArray saved_;               // what the state file holds, so as to write it on a change
     QFileSystemWatcher *watcher_ = nullptr;
     QTimer settle_;                  // the folder's changes settling before it is read

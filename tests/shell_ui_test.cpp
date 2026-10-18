@@ -193,6 +193,7 @@ int main(int argc, char **argv) {
     qputenv("XDG_DATA_DIRS", screens.filePath("none").toLocal8Bit());
     qputenv("XDG_STATE_HOME", screens.filePath("state").toLocal8Bit());
     qputenv("XDG_CACHE_HOME", screens.filePath("cache").toLocal8Bit());
+    qputenv("XDG_DESKTOP_DIR", screens.filePath("Desktop").toLocal8Bit());
     const auto pins = screens.filePath("state/paw/pinned");
     QGuiApplication app(argc, argv);
     // A press held past the long-press time is held 200 ms here, rather than Qt's 800.

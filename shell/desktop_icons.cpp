@@ -373,7 +373,7 @@ void DesktopIcons::save() {
         if (const auto it = cells_.constFind(key);
             it != cells_.cend() && !key.contains('\t') && !key.contains('\n'))
             contents += QString("%1\t%2\t%3\n").arg(it->x()).arg(it->y()).arg(key).toUtf8();
-    if (contents == saved_)
+    if (contents == saved_ || !remembering_)
         return;
     if (const auto error = saveFile(statePath(), contents); !error.isEmpty()) {
         Q_EMIT failed("Could not remember the desktop's icons: " + error);
