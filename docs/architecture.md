@@ -1743,6 +1743,23 @@ a keymap of up to 200 keys made for the text's characters (`xkb_utf32_to_keysym`
 that keymap, each key pressed and released, and the seat's own keyboard, keymap and modifiers
 back after.
 
+The run launcher (`RunLauncher`, `run_launcher.cpp`; `shell.runLauncher`) is toggled by
+`run OUTPUT` from the `run` action, in a `PickerView` as the clipboard's. What it finds is pure, in
+`run_search.cpp` (tested by `run_search_test`): Apps ranks the applications with the start menu's
+own `StartMenu::searchApps`, ordered by the frecency of their launches with nothing typed; Run
+matches the commands of its `LaunchHistory` (`run-history`) and the programs on `$PATH`, which
+`run_search::programs` reads with `readdir` and `faccessat` as the launcher first needs them after
+it opens, again only once a folder of `$PATH` changed (their times kept); Windows reads the
+windows from `TaskModel`, or a stand-in's rows (`setWindows`), noting the focused one as it opens,
+before the compositor deactivates it; and `special` adds a calculation (`calculator::entry`), a
+path with what its folder has that it starts, or an address. `fuzzy::matches` says where a
+query's letters matched, which `markup` turns into the styled text a row shows. The rows are a
+`RowModel` (`RunResults`), replaced as a whole and kept in place, so that `RunLauncher.qml`'s
+`ListView` adds, moves and displaces them with its transitions rather than making them all again.
+A command runs through `sh -c` with `ShellController::startProgram`, as a configured launcher's
+does, or in the terminal the compositor's `get terminal` names (`run_search::inTerminal`); one
+whose program is not on `$PATH` (`missingProgram`) sets `problem` and runs nothing.
+
 The sheet of keyboard shortcuts (`Shortcuts`, `shortcuts.cpp`; `shell.shortcuts`) reads the
 bindings from the configuration the shell loads itself, not from the compositor. Its pure part,
 `shortcuts::sheet`, makes groups of rows from `config.bindings`, and first from the binding mode in
