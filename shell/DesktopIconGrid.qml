@@ -15,7 +15,10 @@ import QtQuick.Shapes
 // icons stay in their cells, faded, while it carries a picture of their stack (DesktopDragStack)
 // with the pointer, the files going to the window they are dropped on; over the desktop its
 // events (dropArea) move the pads, and let go there the icons come out of the stack where it was.
-// Shown and hidden from the desktop's menu, the icons ripple out from where it was opened.
+// Files dragged from another application (a file manager's, a browser's links and pictures) show
+// pads where they would land as they are carried over the desktop, and are copied there, or moved
+// where the drag's source proposes it, as a file manager takes them. Shown and hidden from the
+// desktop's menu, the icons ripple out from where it was opened.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -378,13 +381,17 @@ FocusScope {
         target: grid
         function onPressed() { grid.finishRename(grid.renameText, false) }
     }
+    // The cell under `x`, `y`, the nearest on the grid.
+    function cellAt(x, y) {
+        return Qt.point(Math.max(0, Math.min(columns - 1, Math.floor((x - area.x - margin) / cellWidth))),
+                        Math.max(0, Math.min(rows - 1, Math.floor((y - area.y - margin) / cellHeight))))
+    }
     // A new folder in the cell under `x`, `y` (or the free one nearest it), popping in with a puff
     // of sparkles, its name to type.
     function newFolder(x, y) {
-        const column = Math.max(0, Math.min(columns - 1, Math.floor((x - area.x - margin) / cellWidth)))
-        const row = Math.max(0, Math.min(rows - 1, Math.floor((y - area.y - margin) / cellHeight)))
+        const cell = cellAt(x, y)
         rippleOrigin = Qt.point(x, y)
-        const tile = tileOf(model.newFolder(column, row))
+        const tile = tileOf(model.newFolder(cell.x, cell.y))
         if (!tile)
             return
         if (Theme.duration(700) > 0)
@@ -569,30 +576,100 @@ FocusScope {
         onCanceled: grid.banding = false
     }
 
-    // The drag the compositor carries, over the desktop: the pointer moving the pads, and let go
-    // here, the icons landing as from the pointer's own drag.
+    // A drag from another application over the desktop: the addresses it holds, the picture it
+    // offers with none of a file (a browser's image, saved as a file of its type, "" for none),
+    // whether it would move the files rather than copy them, and where it is.
+    property var incoming: []
+    property string incomingPicture: ""
+    property bool incomingMove: false
+    property bool incomingOver: false
+    property point incomingAt
+    readonly property point incomingCell: cellAt(incomingAt.x, incomingAt.y)
+    onIncomingCellChanged: if (incomingOver) incomingLanding()
+    // The MIME type of the picture `formats` hold, the one that `urls`' first names by its
+    // extension or else PNG; "" with a file among `urls`, which is dropped as a file.
+    function pictureType(formats, urls) {
+        const types = formats.filter(type => type.startsWith("image/"))
+        if (types.length === 0 || urls.some(url => url.toString().startsWith("file:")))
+            return ""
+        const name = urls.length > 0 ? urls[0].toString().split(/[?#]/)[0].toLowerCase() : ""
+        const own = types.find(type => name.endsWith("." + type.slice(6)) ||
+                                       (type === "image/jpeg" && /\.jpe?g$/.test(name)))
+        return own || (types.indexOf("image/png") >= 0 ? "image/png" : types[0])
+    }
+    function incomingLanding() {
+        landing = incomingOver ? model.dropLanding(incoming.slice(0, incomingPicture !== "" ? 1 : incoming.length),
+                                                   incomingCell.x, incomingCell.y) : []
+    }
+
+    // Drags over the desktop: one the compositor carries of its icons, the pointer moving the pads
+    // and let go here landing them as from the pointer's own drag; and one from another
+    // application, taken where it holds files, web addresses or a picture, and a copy or a move.
     DropArea {
         id: dropArea
         anchors.fill: parent
         enabled: grid.shown
-        function follow(drag) {
-            if (drag.source !== grid.model || !grid.dragging || !grid.handedOver) {
+        function follow(drag, entering) {
+            if (drag.source === grid.model) {
+                if (!grid.dragging || !grid.handedOver) {
+                    drag.accepted = false
+                    return
+                }
+                grid.away = false
+                grid.dragTo(Qt.point(drag.x, drag.y))
+                drag.accept(Qt.MoveAction)
+                return
+            }
+            if (entering) {
+                grid.incoming = drag.hasUrls ? drag.urls : []
+                grid.incomingPicture = grid.pictureType(drag.formats, grid.incoming)
+                grid.incomingMove = drag.proposedAction === Qt.MoveAction
+            }
+            const takes = (drag.supportedActions & (Qt.CopyAction | Qt.MoveAction)) !== 0 &&
+                          (grid.incomingPicture !== "" || grid.incoming.some(url => /^(file|https?):/.test(url.toString())))
+            if (!takes) {
                 drag.accepted = false
                 return
             }
-            grid.away = false
-            grid.dragTo(Qt.point(drag.x, drag.y))
-            drag.accept(Qt.MoveAction)
+            grid.incomingAt = Qt.point(drag.x, drag.y)
+            if (entering) {
+                grid.incomingOver = true
+                grid.incomingLanding()
+            }
+            drag.accept(grid.incomingMove ? Qt.MoveAction : Qt.CopyAction)
         }
-        onEntered: function(drag) { follow(drag) }
-        onPositionChanged: function(drag) { follow(drag) }
-        onExited: if (grid.handedOver) grid.away = true
+        onEntered: function(drag) { follow(drag, true) }
+        onPositionChanged: function(drag) { follow(drag, false) }
+        onExited: {
+            if (grid.handedOver)
+                grid.away = true
+            if (grid.incomingOver) {
+                grid.incomingOver = false
+                grid.landing = []
+            }
+        }
         onDropped: function(drop) {
-            if (drop.source !== grid.model || !grid.dragging || !grid.handedOver)
+            if (drop.source === grid.model) {
+                if (!grid.dragging || !grid.handedOver)
+                    return
+                grid.dragTo(Qt.point(drop.x, drop.y))
+                grid.endDrag(false)
+                drop.accept(Qt.MoveAction)
                 return
-            grid.dragTo(Qt.point(drop.x, drop.y))
-            grid.endDrag(false)
-            drop.accept(Qt.MoveAction)
+            }
+            if (!grid.incomingOver)
+                return
+            const cell = grid.cellAt(drop.x, drop.y)
+            const moz = drop.formats.indexOf("text/x-moz-url") >= 0
+                ? drop.getDataAsArrayBuffer("text/x-moz-url") : new ArrayBuffer(0)
+            const taken = grid.incomingPicture !== ""
+                ? grid.model.dropPicture(drop.getDataAsArrayBuffer(grid.incomingPicture), grid.incomingPicture,
+                                         grid.incoming.length > 0 ? grid.incoming[0] : "", cell.x, cell.y) !== ""
+                : grid.model.drop(grid.incoming, cell.x, cell.y, grid.incomingMove, moz) > 0
+            grid.incomingOver = false
+            grid.landing = []
+            if (taken)
+                drop.accept(grid.incomingMove ? Qt.MoveAction : Qt.CopyAction)
         }
     }
 
