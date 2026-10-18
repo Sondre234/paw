@@ -12,7 +12,9 @@ import QtQuick.Shapes
 // gather under the pointer into a stack with their count, while dashed pads on the grid show the
 // cells they will land in, gliding from cell to cell; let go, they glide into those cells, the
 // furthest last. Shown and hidden from the desktop's menu, the icons ripple out from where it was
-// opened.
+// opened. Moved to the Trash, they shrink away, and a notice at the foot of the desktop
+// (DesktopToast) says what went, with Undo, which pops them back into the cells they left in a
+// ripple from it, each with a puff of sparkles.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -307,7 +309,8 @@ FocusScope {
                 model.open(tile.key)
         }
     }
-    // Shrinks the icons away, then moves their files to the trash.
+    // Shrinks the icons away, then moves their files to the trash, which the notice at the foot of
+    // the desktop then offers to undo.
     function trash(list) {
         const keys = list.filter(tile => tile.kind !== "launcher").map(tile => tile.key)
         for (const tile of list)
@@ -326,6 +329,26 @@ FocusScope {
                 for (const tile of tiles)
                     tile.leaving = false
         }
+    }
+    // Puts back what the last trash took: the icons pop into the cells they left in a ripple from
+    // the notice, each with a puff, and are selected. False while there is nothing to put back,
+    // or the icons are still on their way to the trash.
+    function untrash() {
+        if (trashing.running || model.trashed.length === 0)
+            return false
+        rippleOrigin = Qt.point(toast.x + toast.width / 2, toast.y + toast.height / 2)
+        const back = model.untrash().map(key => tileOf(key)).filter(tile => !!tile)
+        for (const tile of back) {
+            tile.popIn()
+            if (Theme.duration(700) > 0)
+                puff.createObject(grid, { x: tile.x + tile.width / 2, y: tile.y + Theme.spacingM + iconSize / 2,
+                                          delay: rippleDelay(tile) })
+        }
+        if (back.length > 0) {
+            select(back.map(tile => tile.key))
+            current = extendFrom = back[0].key
+        }
+        return true
     }
     function tidy() {
         tidying = true
@@ -639,14 +662,16 @@ FocusScope {
         }
     }
 
-    // A puff out of an icon that has just come, a new folder: a ring in the accent's partner
-    // spreading out, dots in both hues and four sparkles flying out and fading, gone once they
-    // have.
+    // A puff out of an icon that has just come, a new folder or one put back from the trash: a
+    // ring in the accent's partner spreading out, dots in both hues and four sparkles flying out
+    // and fading, gone once they have; after `delay`, as the icon pops in.
     Component {
         id: puff
         Item {
             id: burst
             z: 120
+            visible: progress > 0
+            property int delay: 0
             property real progress: 0
             Rectangle {
                 width: grid.iconSize * (0.5 + 1.2 * burst.progress)
@@ -689,14 +714,41 @@ FocusScope {
                     opacity: 1 - burst.progress * burst.progress
                 }
             }
-            NumberAnimation on progress {
-                to: 1
-                duration: Theme.duration(700)
-                easing.type: Easing.OutCubic
-                onFinished: burst.destroy()
+            SequentialAnimation {
+                running: true
+                PauseAnimation { duration: burst.delay }
+                NumberAnimation {
+                    target: burst; property: "progress"; to: 1
+                    duration: Theme.duration(700)
+                    easing.type: Easing.OutCubic
+                }
+                ScriptAction { script: burst.destroy() }
             }
         }
     }
+
+    // What the last trash took, at the foot of the desktop for a while: its names, and Undo,
+    // which puts it back.
+    DesktopToast {
+        id: toast
+        z: 130
+        partner: grid.partner
+        x: Math.round(grid.area.x + (grid.area.width - width) / 2)
+        y: grid.area.y + grid.area.height - height - Theme.spacingXXL
+        onActed: grid.untrash()
+        onPressed: grid.pressed()
+    }
+    Connections {
+        target: grid.model
+        function onTrashedChanged() {
+            const names = grid.model.trashed
+            if (names.length > 0 && grid.shown)
+                toast.show("Moved " + (names.length === 1 ? names[0] : names.length + " items") + " to Trash")
+            else
+                toast.hide()
+        }
+    }
+    onShownChanged: if (!shown) toast.hide()
 
     // The band, over the icons it catches.
     Item {
