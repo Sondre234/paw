@@ -3,6 +3,7 @@
 // windows, what the text typed is besides a search, and how a command runs in a terminal.
 #include "run_search.hpp"
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
@@ -95,6 +96,25 @@ class RunSearchTest : public QObject {
         QCOMPARE(found("firefox")[0].icon, QString("firefox"));
         QVERIFY(found("vim")[0].icon.startsWith("utilities-terminal"));
         QVERIFY(found("xyz").empty());
+    }
+    void staysFastWithManyPrograms() {
+        // Run mode ranks on every keystroke: a desktop's $PATH holds a few thousand programs, and
+        // the history up to 200 commands.
+        QStringList programs;
+        for (int i = 0; i < 4000; ++i)
+            programs << QString("program-%1-of-a-package").arg(i, 4, 10, QChar('0'));
+        QList<LaunchHistory::Entry> history;
+        for (int i = 0; i < 200; ++i)
+            history << ran(QString("program-%1 --with some arguments").arg(i), i % 7 + 1, i * 3600);
+        QElapsedTimer timer;
+        timer.start();
+        int found = 0;
+        for (const auto *query : {"", "p", "pr", "prog", "prog 12", "program-0042"})
+            found += int(run_search::commands(query, history, programs, {}, now).size());
+        const auto perSearch = timer.elapsed() / 6.0;
+        qInfo() << "a search of 4000 programs and 200 commands:" << perSearch << "ms";
+        QVERIFY(found > 0);
+        QVERIFY2(perSearch < 50, "Run mode is too slow to type against");
     }
     void ranksWindows() {
         const QList<run_search::Window> open{
