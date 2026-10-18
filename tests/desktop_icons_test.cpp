@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The desktop's icons: the launchers, then the desktop folder's folders and files by name; their
 // cells on the grid, remembered with whether they are hidden; the folder followed as it changes;
-// opening, copying, renaming and trashing files, new folders, and desktop entries trusted only once
-// executable.
+// opening, copying, renaming and trashing files, new folders, and desktop entries, applications'
+// and web links', trusted only once executable.
 #include "desktop_icons.hpp"
 #include <QClipboard>
 #include <QDir>
@@ -65,6 +65,14 @@ class DesktopIconsTest : public QObject {
         QVERIFY(QDir().mkpath(home_.filePath("data")));
         folder_ = home_.filePath("Desktop");
         settings_.folder = folder_;
+        // What opens pawtest: addresses, which notes that it ran; there before GIO first lists the
+        // applications.
+        QVERIFY(QDir().mkpath(home_.filePath("data/applications")));
+        QVERIFY(write(home_.filePath("data/applications/paw-link-test.desktop"),
+                      ("[Desktop Entry]\nType=Application\nName=Link test\nExec=touch " +
+                       home_.filePath("linked") + "\nMimeType=x-scheme-handler/pawtest;\n").toUtf8()));
+        QVERIFY(write(home_.filePath("data/applications/mimeapps.list"),
+                      "[Default Applications]\nx-scheme-handler/pawtest=paw-link-test.desktop\n"));
     }
     void init() {
         QDir(folder_).removeRecursively();
@@ -312,6 +320,29 @@ class DesktopIconsTest : public QObject {
         QVERIFY(!icons->open("file:b.txt"));
         QVERIFY(failed.last()[0].toString().contains("no longer there"));
         QVERIFY(!icons->open("launcher:Terminal"));
+    }
+    void opensTrustedLinks() {
+        const auto entry = folder_ + "/page.desktop";
+        QVERIFY(write(entry, "[Desktop Entry]\nType=Link\nName=A page\nURL=pawtest://page\n"));
+        QVERIFY(write(folder_ + "/drawn.desktop",
+                      "[Desktop Entry]\nType=Link\nName=Drawn\nIcon=drawn-icon\nURL=pawtest://drawn\n"));
+        auto icons = made();
+        QCOMPARE(value(*icons, "file:page.desktop", DesktopIcons::KindRole).toString(), "link");
+        QCOMPARE(value(*icons, "file:page.desktop", DesktopIcons::NameRole).toString(), "A page");
+        QVERIFY(value(*icons, "file:page.desktop", DesktopIcons::IconRole).toString().startsWith("text-html,"));
+        QCOMPARE(value(*icons, "file:drawn.desktop", DesktopIcons::IconRole).toString(), "drawn-icon");
+        // Not yet executable, it is not trusted to open what it points at.
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        QVERIFY(!icons->open("file:page.desktop"));
+        QCOMPARE(failed.count(), 1);
+        QVERIFY(failed[0][0].toString().contains("not trusted to open"));
+        QVERIFY(!QFile::exists(home_.filePath("linked")));
+        QVERIFY(QFile::setPermissions(entry, QFile::permissions(entry) | QFile::ExeOwner));
+        QVERIFY2(icons->open("file:page.desktop"), qPrintable(failed.last()[0].toString()));
+        QTRY_VERIFY(QFile::exists(home_.filePath("linked")));
+        // Its name is its Name, not its file's: it is not renamed.
+        QVERIFY(icons->rename("file:page.desktop", "other.desktop").isEmpty());
+        QCOMPARE(failed.count(), 1);
     }
 };
 
