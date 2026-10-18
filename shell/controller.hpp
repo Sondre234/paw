@@ -56,6 +56,10 @@ class ShellController : public QObject {
     Q_PROPERTY(QColor background READ background NOTIFY configChanged)
     // windows.urgent_color, the colour of whatever marks a window that asks for attention.
     Q_PROPERTY(QColor urgentColor READ urgentColor NOTIFY configChanged)
+    // The warm colour beside the accent, for touches that mark no state: the focused window
+    // border's last colour when that is a gradient (washi's sakura after its sky blue), else
+    // windows.urgent_color, the warm one of each shipped profile.
+    Q_PROPERTY(QColor blush READ blush NOTIFY configChanged)
     // The wallpaper of the monitors without one of their own: one picked from the panel for the
     // profile in use, else shell.wallpaper. wallpaperFile is the same as a path, "" for none.
     // Each ShellView has its own monitor's (wallpaperOn).
@@ -301,6 +305,7 @@ class ShellController : public QObject {
     QColor textColor() const;
     QColor background() const;
     QColor urgentColor() const;
+    QColor blush() const;
     // The windows asking for attention, longest waiting first (the first 16), as {output,
     // workspace, appId, title}, which the taskbar marks. Each output's entry in `workspaces`
     // lists the workspaces they are on, as `urgent`.

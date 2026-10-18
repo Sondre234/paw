@@ -1872,7 +1872,8 @@ Take every colour, size and duration from `Theme`: `bar`, `surface`, `surfaceRai
 `surfaceRaisedHover` for backgrounds; `hover`, `pressed` and `selected` laid over them for
 states; `border` and `divider`; `text`, `textMuted` and `textDisabled`; `accent`,
 `accentHover`, `accentSubtle` and `textOnAccent`; `danger`, `dangerFill`, `textOnDanger` and
-`dangerSurface`; `urgent` and `urgentSubtle`; `scrim`. Type is `fontFamily` with `fontSize`,
+`dangerSurface`; `urgent` and `urgentSubtle`; `blush`, the warm colour beside the accent for
+touches that mark no state; `scrim`. Type is `fontFamily` with `fontSize`,
 `fontSizeCaption`, `fontSizeSmall`, `fontSizeLarge`, `fontSizeTitle` and `fontSizeDisplay`;
 shapes `radiusSmall`, `radiusMedium` and `radiusLarge`; spacing `spacingXS` to `spacingXXL`
 (2, 4, 8, 12, 16, 20); icons `iconSizeSmall`, `iconSize`, `appIconSize` and

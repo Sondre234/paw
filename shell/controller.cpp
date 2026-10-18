@@ -201,6 +201,12 @@ QColor ShellController::urgentColor() const {
     const auto &c = config_.settings.urgent_color;
     return c[3] > 0 ? unpremultiplied(c) : QColor();
 }
+QColor ShellController::blush() const {
+    const auto &border = config_.settings.border_active_gradient;
+    if (border.count >= 2 && border.stops[border.count - 1][3] > 0)
+        return unpremultiplied(border.stops[border.count - 1]);
+    return urgentColor();
+}
 int ShellController::panelHeadroom(const QString &output) const {
     const auto &shell = config_.shell;
     const auto &settings = config_.settings;
