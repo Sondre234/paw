@@ -492,9 +492,10 @@ shadows.
   microphone and brightness keys work on the lock screen, and the steps repeat while held.
 - A key binding with `release = true` runs as its key comes up, as Hyprland's `bindr`. One of a
   modifier key alone runs only when that key was tapped, so `{ key = "Super_L", release = true,
-  action = "launcher" }` (commented out in the shipped configuration) opens the start menu, or
-  Launchpad, on a tap of Super as Windows does, while Super + a key, a click, the wheel or a
-  gesture leave it closed; the application still hears Super go down and up.
+  action = "launcher" }` (in the shipped configuration) opens the start menu, or Launchpad, on a
+  tap of Super as Windows does, while Super + a key, a click, the wheel, a gesture, a hold of more
+  than half a second or a button already held leave it closed; the application still hears Super
+  go down and up. Super + R, which opened the launcher, opens the run launcher.
 - Binding modes, as sway's modes and Hyprland's submaps: `modes` holds named lists of key bindings,
   and a binding with `action = "mode", mode = "NAME"` (or `paw msg mode NAME`) puts one in
   use, its bindings taking the place of the others until `mode = "default"`. The taskbar and the

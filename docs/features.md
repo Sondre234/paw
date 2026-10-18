@@ -61,7 +61,7 @@ the dock.
   Control + F3 on macOS) walks its icons from the keyboard as on the [taskbar](#taskbar), the
   Launchpad button and the Trash among them: the icon selected is ringed and named on its tag,
   Enter clicks it, the Menu key opens its menu, and Up goes into a stack's list of windows.
-- **Launchpad** (Super + R, the `launcher` action, or the dock's first button): every application
+- **Launchpad** (a tap of Super, the `launcher` action, or the dock's first button): every application
   on pages of a 7 × 5 grid over the whole screen. Type to search, use the arrows, Page Up and
   Page Down, the wheel, dragging or the dots to page, Enter to launch, and right-click for an
   application's actions or Keep in Dock; Escape clears the search and then closes it, as does a
@@ -646,7 +646,7 @@ low opacity, which shows on a light panel as on a dark one. Popups (the start me
 mixer, the flyouts and the rest) are drawn in the panel color made opaque, even when the bar is
 translucent, unless they are frosted glass (below): a window showing through would make them hard
 to read. They open in a surface of their own over the whole monitor, above fullscreen windows too, so
-the start menu Super + R opens shows over a video; they fade in with a short slide from the bar and
+the start menu a tap of Super opens shows over a video; they fade in with a short slide from the bar and
 fade out, and cast a soft shadow when the shell draws through the GPU. While one is open, the
 keyboard is in it and a press anywhere but on the bar or the popup closes it without reaching what
 is under it; a press on another bar button opens that one's popup at once. The overview, the
@@ -775,7 +775,7 @@ the title last. Submenus keep their order.
 
 ### Start menu
 
-The bar's first button (or Super + R) opens the start menu, after Windows 11's, above the button.
+The bar's first button (or a tap of Super) opens the start menu, after Windows 11's, above the button.
 Its search field is on top and has the keyboard, so typing searches at once; along the bottom are
 the user's name and picture and the [power button](#power). Under the search field are the
 applications pinned to the start menu, six to a row on pages of up to three rows (the wheel or the
@@ -1723,7 +1723,7 @@ start on 1. Workspace shortcuts switch the focused monitor: the one whose window
 focused, whose workspace was switched, or that was clicked last. A monitor's bare desktop
 counts as a window there: pointing at it (with focus following the mouse) or clicking it
 focuses that monitor, and the window on the other monitor loses the keyboard, so Super + minus
-or Super + R then act on the empty monitor. A window belongs to the
+or a tap of Super then act on the empty monitor. A window belongs to the
 monitor it is on; moved to another monitor, it joins the workspace showing there. The
 panel on each monitor shows that monitor's workspaces, marking the current one and those
 with windows; scrolling over it pages through them and clicking a number switches to it. Resting
@@ -3006,7 +3006,8 @@ Windows:
 { key = "Super_L", release = true, action = "launcher" },
 ```
 
-The shipped configuration has that line commented out. `key_release_smoke` tests it with a
+The shipped configuration has that line, and Super + R opens the [run launcher](#run-launcher).
+`key_release_smoke` tests it with a
 window that prints the keys it gets.
 
 ### Binding modes
@@ -3602,7 +3603,9 @@ the workspace it shows (`dwindle`, `master`, `spiral`, `monocle` or `scroll`, as
 area a window shown there reaches (`top,left`, or `-`; a floating bar docks along them), and `keyboard-layout N COUNT SHORT NAME` (the active
 [keyboard layout](#keyboard-layouts), from 1, of how many, as in `get keyboard`) after every
 change, plus `launcher OUTPUT` when the `launcher` action
-(Super + R) asks the panel on that monitor to open or close its start menu; the panel uses this. The window switcher sends `switcher OUTPUT SELECTED COUNT` followed by
+(a tap of Super) asks the panel on that monitor to open or close its start menu, and `run OUTPUT`
+when the `run` action (Super + R) asks the shell for its [run launcher](#run-launcher) there; the
+panel uses these. The window switcher sends `switcher OUTPUT SELECTED COUNT` followed by
 COUNT lines `switcher-window APP_ID TITLE OUTPUT WORKSPACE MINIMIZED URGENT ID` (tab-separated) when it
 opens or a listed window closes, `switcher-select N` as the selection moves (both counting
 from 0), and `switcher-close`. ID is the window's number, which the compositor gives each window as
