@@ -162,7 +162,7 @@ FocusScope {
     property string extendFrom: ""
     property bool keysUsed: false
     readonly property Item currentTile: { current; icons.count; return tileOf(current) }
-    readonly property bool ringShown: keysUsed && activeFocus && renaming === "" && !dragging &&
+    readonly property bool ringShown: keysUsed && activeFocus && renaming === "" && editingNote === "" && !dragging &&
                                       currentTile !== null && currentTile.visible
     onCurrentTileChanged: if (currentTile) currentCell = Qt.point(currentTile.column, currentTile.row)
     // The keys take `tile` as the current icon: alone in the selection, with those between it and
@@ -261,7 +261,7 @@ FocusScope {
     }
 
     Keys.onPressed: function(event) {
-        if (!grid.shown || grid.renaming !== "")
+        if (!grid.shown || grid.renaming !== "" || grid.editingNote !== "")
             return
         const ctrl = (event.modifiers & Qt.ControlModifier) !== 0
         const shift = (event.modifiers & Qt.ShiftModifier) !== 0
@@ -433,7 +433,54 @@ FocusScope {
     }
     Connections {
         target: grid
-        function onPressed() { grid.finishRename(grid.renameText, false) }
+        function onPressed() {
+            grid.finishRename(grid.renameText, false)
+            if (grid.pressedNote !== grid.editingNote)
+                grid.finishEditing()
+        }
+    }
+    // The notes on the grid, and the one of `key`.
+    function noteTiles() {
+        const list = []
+        for (let i = 0; i < noteItems.count; ++i)
+            if (noteItems.itemAt(i))
+                list.push(noteItems.itemAt(i))
+        return list
+    }
+    function noteOf(key) { return noteTiles().find(note => note.key === key) || null }
+    // A press on the note of `key`: the desktop's menus close as for any press, but its text, if
+    // it is being typed, stays in its field.
+    property string pressedNote: ""
+    function notePressed(key) {
+        keysUsed = false
+        pressedNote = key
+        pressed()
+        pressedNote = ""
+    }
+    // The note whose text is being typed, "" while none is, and where it was clicked, in its
+    // page's coordinates, for the caret ((-1, -1) for after the text).
+    property string editingNote: ""
+    property point editPoint: Qt.point(-1, -1)
+    // Turns the text of the note of `key` into a field, which takes the keyboard.
+    function startEditing(key, at) {
+        if (!shown || !noteOf(key))
+            return false
+        finishRename(renameText, false)
+        finishEditing()
+        select([])
+        editPoint = at || Qt.point(-1, -1)
+        editingNote = key
+        return true
+    }
+    // Lets the note being typed go (that of `key` alone, given), its text saved at once; with
+    // `keepKeys` (Escape, Tab) the keys go back to the desktop.
+    function finishEditing(key, keepKeys) {
+        if (editingNote === "" || (key !== undefined && key !== editingNote))
+            return
+        editingNote = ""
+        notes.flush()
+        if (keepKeys)
+            forceActiveFocus()
     }
     // The cell under `x`, `y`, the nearest on the grid.
     function cellAt(x, y) {
@@ -1104,7 +1151,7 @@ FocusScope {
                 toast.hide()
         }
     }
-    onShownChanged: if (!shown) toast.hide()
+    onShownChanged: if (!shown) { toast.hide(); finishEditing() }
 
     // The band, over the icons it catches.
     Item {

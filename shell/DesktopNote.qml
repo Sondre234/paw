@@ -8,8 +8,10 @@ import QtQuick.Shapes
 // goes with its colour: a cat's face on sakura, a cloud on sky, a sprout on mint, a star on lemon,
 // a heart on lavender. Its text is in a rounded hand (the board's noteFont); a line that starts
 // with "[ ]" or "- [ ]" is a checklist's, its box ticked or cleared by a click, its text struck
-// through once ticked; the first of several lines is its title. Hovered, it lifts a little and its
-// doodle wiggles. It comes and goes in the icons' ripple, and pops in as it is made.
+// through once ticked; the first of several lines is its title. A click writes on it: it lies
+// straight and lifts, its text plain in a field (`editing`), saying near the end how many more
+// characters it holds. Hovered, it lifts a little and its doodle wiggles. It comes and goes in
+// the icons' ripple, and pops in as it is made.
 Item {
     id: note
     // The grid it is on (DesktopIconGrid).
@@ -41,7 +43,9 @@ Item {
     readonly property color ink: Theme.noteInk(color)
     // How askew it is set, and where its tape is stuck, by its number.
     readonly property real tilt: [-2.2, 1.6, -1.1, 2.4, -1.7, 1.2][noteId % 6]
-    readonly property bool hovered: hover.hovered && !board.dragging && !board.banding
+    readonly property bool hovered: hover.hovered && !board.dragging && !board.banding && !editing
+    // Whether its text is being typed (DesktopIconGrid.editingNote).
+    readonly property bool editing: board.editingNote === key
     // Whether it has been in a cell: from there on it glides to new ones.
     property bool landed: false
     onPlacedChanged: if (placed) Qt.callLater(function() { note.landed = true })
@@ -51,7 +55,7 @@ Item {
     width: board.cellWidth * spanColumns
     height: board.cellHeight * spanRows
     visible: placed && reveal > 0.001
-    z: hovered ? 2 : 0
+    z: editing ? 5 : hovered ? 2 : 0
     x: board.cellX(column)
     y: board.cellY(row)
     Behavior on x { enabled: note.landed; NumberAnimation { duration: Theme.duration(380); easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
@@ -95,11 +99,27 @@ Item {
         width: note.width - 2 * Theme.spacingM
         height: note.height - y - Theme.spacingM - 2
         opacity: Math.min(1, note.reveal)
-        scale: (0.6 + 0.4 * note.reveal) * (note.hovered ? 1.015 : 1)
-        rotation: note.hovered ? note.tilt * 0.5 : note.tilt
+        scale: (0.6 + 0.4 * note.reveal) * (note.editing ? 1.02 : note.hovered ? 1.015 : 1)
+        // Written on, it lies straight.
+        rotation: note.editing ? 0 : note.hovered ? note.tilt * 0.5 : note.tilt
         Behavior on rotation { NumberAnimation { duration: Theme.durationSlow; easing.type: Easing.OutBack } }
         Behavior on scale { enabled: note.reveal === 1; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
         antialiasing: true
+
+        // A click writes on it, the caret where it was; a right press opens its menu. Under what
+        // it holds, which takes its own presses (a box, the field), and over its tape too.
+        MouseArea {
+            id: pointer
+            anchors.fill: parent
+            anchors.topMargin: -12
+            enabled: note.board.shown
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onPressed: function(mouse) { note.board.notePressed(note.key) }
+            onClicked: function(mouse) {
+                if (mouse.button === Qt.LeftButton && !note.editing)
+                    note.board.startEditing(note.key, mapToItem(page, mouse.x, mouse.y))
+            }
+        }
 
         // Its shadow: through the GPU a soft one, deeper as it lifts; else two soft layers.
         Loader {
@@ -107,8 +127,8 @@ Item {
             active: Theme.effects
             sourceComponent: Shadow {
                 radius: paper.radius
-                blur: note.hovered ? 18 : 12
-                offset: Qt.vector2d(0, note.hovered ? 8 : 5)
+                blur: note.hovered || note.editing ? 18 : 12
+                offset: Qt.vector2d(0, note.hovered || note.editing ? 8 : 5)
                 color: Qt.rgba(0, 0, 0, Theme.light ? 0.2 : 0.5)
                 Behavior on blur { NumberAnimation { duration: Theme.durationNormal } }
             }
@@ -158,10 +178,11 @@ Item {
             clip: true
             Column {
                 id: shown
+                visible: !note.editing
                 width: parent.width
                 spacing: 2
                 Repeater {
-                    model: note.lines
+                    model: note.editing ? [] : note.lines
                     delegate: Item {
                         id: line
                         required property var modelData
@@ -170,7 +191,7 @@ Item {
                         height: Math.max(words.implicitHeight, modelData.box ? box.height + 4 : 0)
                         Rectangle {
                             id: box
-                            objectName: "desktopNoteBox"
+                            objectName: line.modelData.box ? "desktopNoteBox" : ""
                             visible: line.modelData.box
                             x: line.modelData.indent * 4
                             y: Math.max(0, (noteFont.height - height) / 2)
@@ -231,14 +252,93 @@ Item {
             FontMetrics { id: noteFont; font.family: note.board.noteFont; font.pixelSize: note.board.noteFontSize }
             Text {
                 visible: note.text === ""
-                text: "Empty note"
+                text: note.editing ? "Write something…" : "Empty note"
                 color: note.ink
                 opacity: 0.45
                 font.family: note.board.noteFont
                 font.pixelSize: note.board.noteFontSize
             }
+            // Its text to type, plain, lines broken by Enter, the caret kept in view; Escape, Tab, a
+            // press elsewhere or the keyboard going to a window lets it go.
+            Loader {
+                id: editor
+                anchors.fill: parent
+                active: note.editing
+                sourceComponent: Flickable {
+                    id: flick
+                    clip: true
+                    contentWidth: width
+                    contentHeight: field.contentHeight
+                    boundsBehavior: Flickable.StopAtBounds
+                    interactive: contentHeight > height
+                    function follow(caret) {
+                        if (caret.y < contentY)
+                            contentY = caret.y
+                        else if (caret.y + caret.height > contentY + height)
+                            contentY = caret.y + caret.height - height
+                    }
+                    TextEdit {
+                        id: field
+                        objectName: "desktopNoteField"
+                        width: flick.width
+                        textFormat: TextEdit.PlainText
+                        wrapMode: TextEdit.Wrap
+                        color: note.ink
+                        selectionColor: Theme.alpha(note.ink, 0.22)
+                        selectedTextColor: note.ink
+                        selectByMouse: true
+                        font.family: note.board.noteFont
+                        font.pixelSize: note.board.noteFontSize
+                        Accessible.role: Accessible.EditableText
+                        Accessible.name: "Note"
+                        // A caret in the ink, blinking for a while after each change.
+                        cursorDelegate: Rectangle {
+                            width: 2
+                            radius: 1
+                            color: note.ink
+                            visible: field.activeFocus && field.selectionStart === field.selectionEnd && caret.lit
+                        }
+                        QtObject {
+                            id: caret
+                            property bool lit: true
+                            property int blinks: 0
+                        }
+                        Timer {
+                            interval: 530
+                            repeat: true
+                            running: field.activeFocus && caret.blinks < 20
+                            onTriggered: { caret.lit = !caret.lit; ++caret.blinks }
+                        }
+                        onCursorPositionChanged: { caret.lit = true; caret.blinks = 0 }
+                        onCursorRectangleChanged: flick.follow(cursorRectangle)
+                        Component.onCompleted: {
+                            text = note.text
+                            const at = note.board.editPoint
+                            cursorPosition = at.x >= 0 ? positionAt(at.x, at.y) : length
+                            forceActiveFocus()
+                        }
+                        // What is typed or pasted past the most a note holds is left out, and its
+                        // count shakes.
+                        onTextChanged: {
+                            const most = note.board.notes.maxLength
+                            if (length > most) {
+                                remove(Math.max(0, cursorPosition - (length - most)), cursorPosition)
+                                if (length > most)
+                                    remove(most, length)
+                                full.restart()
+                                return
+                            }
+                            note.board.notes.setText(note.key, text)
+                        }
+                        onActiveFocusChanged: if (!activeFocus) note.board.finishEditing(note.key, false)
+                        Keys.onEscapePressed: note.board.finishEditing(note.key, true)
+                        Keys.onTabPressed: note.board.finishEditing(note.key, true)
+                        Keys.onBacktabPressed: note.board.finishEditing(note.key, true)
+                    }
+                }
+            }
             Rectangle {
-                visible: shown.height > page.height
+                visible: !note.editing && shown.height > page.height
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: 22
@@ -246,6 +346,29 @@ Item {
                     GradientStop { position: 0; color: Theme.alpha(note.paperColor, 0) }
                     GradientStop { position: 1; color: note.paperColor }
                 }
+            }
+        }
+
+        // How many more characters it holds, near the end of them.
+        Text {
+            id: count
+            objectName: "desktopNoteCount"
+            readonly property int remaining: note.board.notes.maxLength - note.text.length
+            visible: note.editing && remaining <= 200
+            x: 14
+            y: paper.height - height - 10
+            text: remaining > 0 ? remaining + " left" : "Full"
+            color: note.ink
+            opacity: 0.6
+            font.family: note.board.noteFont
+            font.pixelSize: Theme.fontSizeCaption
+            property real shake: 0
+            transform: Translate { x: count.shake }
+            SequentialAnimation {
+                id: full
+                NumberAnimation { target: count; property: "shake"; to: -4; duration: Theme.duration(45) }
+                NumberAnimation { target: count; property: "shake"; to: 4; duration: Theme.duration(70) }
+                NumberAnimation { target: count; property: "shake"; to: 0; duration: Theme.duration(55) }
             }
         }
 
