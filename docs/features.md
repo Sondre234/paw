@@ -834,6 +834,12 @@ it, maximizes it below the panels, and at a side or in a corner snaps it into th
 quarter (see [Snapping](#snapping)); dragging it away again restores its earlier size. Hovering a
 window focuses it without raising it (`mouse.focus_follows = false` turns this off), except
 while dragging, while a menu or popup is open, or while a panel or launcher has the keyboard.
+The desktop has the keyboard as a window does where it asks for it, as the shell's does while it
+shows its [icons](#desktop-icons) (a layer surface below the windows taking the keyboard on
+demand): a click on it gives it the keyboard, the pointer passing over it never does, and
+hovering or clicking a window gives the keyboard back to the windows. Bindings work as before
+meanwhile. A launcher or the lock screen taking the keyboard over it gives it back as it goes,
+and switching to a workspace without windows leaves it there.
 
 A window you fullscreen with a binding or its title bar fills its monitor except the panel and
 other bars, which stay shown. Fullscreen a program asks for itself, like a video player or a
@@ -3462,8 +3468,8 @@ floating, sticky and kept above (`on`, `off`, or `-` while none decides it), and
 they hold the window to (`floating,sticky,above`, or `-`), one changed by hand being no longer
 held. `paw msg get pid_at X Y` prints the process ID of the window
 drawn at that layout point, or nothing over bare desktop. `paw msg get layers` prints one line per panel or other layer-shell surface:
-namespace, output, layer (0 background to 3 overlay), whether it is shown, and whether it holds
-the keyboard.
+namespace, output, layer (0 background to 3 overlay), whether it is shown, whether it holds
+the keyboard, and the keyboard it asks for (`none`, `exclusive` or `on_demand`).
 `paw msg get power` prints one line per power action logind carries out (`poweroff`,
 `reboot`, `suspend`, `hibernate`) with its answer: `yes`, `no`, `challenge` (after a password),
 `na`, `unknown` until it has answered, or `unavailable` without logind.
