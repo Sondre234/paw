@@ -93,10 +93,7 @@ int DesktopIcons::indexOf(const QString &key) const {
     return -1;
 }
 
-void DesktopIcons::move(const QStringList &keys, int columns, int rows) {
-    if (!grid_.isValid())
-        return;
-    QList<int> moved;
+QList<QPoint> DesktopIcons::landed(const QStringList &keys, QPoint offset, QList<int> &moved) const {
     QList<QPoint> from, others;
     for (const auto &key : keys)
         if (const int i = indexOf(key); i >= 0 && !moved.contains(i)) {
@@ -106,7 +103,24 @@ void DesktopIcons::move(const QStringList &keys, int columns, int rows) {
     for (qsizetype i = 0; i < entries_.size(); ++i)
         if (!moved.contains(int(i)))
             others.push_back(entries_[i].cell);
-    const auto landed = desktop_grid::drop(from, QPoint(columns, rows), others, grid_);
+    return desktop_grid::drop(from, offset, others, grid_);
+}
+
+QVariantList DesktopIcons::landing(const QStringList &keys, int columns, int rows) const {
+    QVariantList cells;
+    if (!grid_.isValid())
+        return cells;
+    QList<int> moved;
+    for (const auto &cell : landed(keys, QPoint(columns, rows), moved))
+        cells.push_back(QVariantMap{{"column", cell.x()}, {"row", cell.y()}});
+    return cells;
+}
+
+void DesktopIcons::move(const QStringList &keys, int columns, int rows) {
+    if (!grid_.isValid())
+        return;
+    QList<int> moved;
+    const auto landed = this->landed(keys, QPoint(columns, rows), moved);
     for (qsizetype i = 0; i < moved.size(); ++i) {
         auto &entry = entries_[moved[i]];
         cells_[entry.key] = landed[i];

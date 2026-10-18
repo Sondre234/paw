@@ -142,6 +142,15 @@ class DesktopIconsTest : public QObject {
         icons->move({"file:a10.txt"}, -2, 0);
         QCOMPARE(cell(*icons, "file:a10.txt"), QPoint(1, 0));
         QCOMPARE(cell(*icons, "launcher:Terminal"), QPoint(0, 0));
+        // Where they would land is where they land.
+        const auto landing = icons->landing({"file:Zeta", "file:nothing", "file:b.txt"}, 2, 0);
+        QCOMPARE(landing.size(), 2);
+        QCOMPARE(landing[0].toMap()["column"].toInt(), 2);
+        QCOMPARE(landing[0].toMap()["row"].toInt(), 1);
+        icons->move({"file:Zeta", "file:nothing", "file:b.txt"}, 2, 0);
+        QCOMPARE(cell(*icons, "file:Zeta"), QPoint(2, 1));
+        QCOMPARE(cell(*icons, "file:b.txt"), QPoint(landing[1].toMap()["column"].toInt(),
+                                                    landing[1].toMap()["row"].toInt()));
         // Unknown keys move nothing.
         icons->move({"file:nothing"}, 1, 1);
         QCOMPARE(icons->count(), 5);

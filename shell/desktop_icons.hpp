@@ -65,6 +65,8 @@ class DesktopIcons : public QAbstractListModel {
     // Moves the icons of `keys`, the one under the pointer first, `columns` and `rows` cells, as
     // dragged together (desktop_grid::drop).
     Q_INVOKABLE void move(const QStringList &keys, int columns, int rows);
+    // Where move() would put them: {column, row} for each of `keys` there is, in their order.
+    Q_INVOKABLE QVariantList landing(const QStringList &keys, int columns, int rows) const;
     // Lays every icon out anew down the columns: the launchers, the folders, then the files, each
     // by name.
     Q_INVOKABLE void tidy();
@@ -109,6 +111,8 @@ class DesktopIcons : public QAbstractListModel {
     QFileSystemWatcher *watcher_ = nullptr;
     QTimer settle_;                  // the folder's changes settling before it is read
     QList<Entry> read() const;
+    // The rows of `keys` (none twice), and where they land moved by `offset`.
+    QList<QPoint> landed(const QStringList &keys, QPoint offset, QList<int> &moved) const;
     void sync(QList<Entry> entries);
     void relayout();
     void watch();
