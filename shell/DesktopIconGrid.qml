@@ -20,8 +20,9 @@ import QtQuick.Shapes
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
 // icons between, with Ctrl leaving the selection as it is (Ctrl + Space picks one); letters typed
 // go to the next icon whose name starts with them, said in a bubble over it. Enter opens, Delete
-// moves to the Trash, F2 renames, Ctrl + A selects all, Ctrl + C copies, the menu key opens the
-// icons' menu and Escape lets the selection go. A name is changed on its chip, which turns into a
+// moves to the Trash and Ctrl + Z puts that back, as the notice's Undo does, F2 renames, Ctrl + A
+// selects all, Ctrl + C copies, the menu key opens the icons' menu and Escape lets the selection
+// go. A name is changed on its chip, which turns into a
 // field (`renaming`); a new folder pops in with a puff of sparkles under where the menu was opened,
 // its name there to type at once.
 FocusScope {
@@ -291,6 +292,9 @@ FocusScope {
                 grid.model.copy(files.map(tile => tile.key))
                 for (const tile of files)
                     tile.hop()
+            } else if (ctrl && event.key === Qt.Key_Z) {
+                if (!grid.untrash())
+                    return
             } else if (plain && event.text.length > 0 && event.text.trim() !== "" && event.text >= " ") {
                 grid.typeAhead(event.text)
             } else {
