@@ -160,10 +160,15 @@ void RunLauncher::refresh() {
     std::vector<run_search::Row> found;
     if (mode_ == Apps)
         found = apps();
-    else if (mode_ == Run)
-        found = run_search::commands(query_, history_.entries(), programs(), programIcons(),
-                                     QDateTime::currentDateTimeUtc(), limit);
-    else
+    else if (mode_ == Run) {
+        const auto now = QDateTime::currentDateTimeUtc();
+        found = run_search::commands(query_, history_.entries(), programs(), programIcons(), now,
+                                     limit);
+        // A command says when it last ran, as the start menu says it of an application.
+        for (auto &row : found)
+            if (const auto *entry = history_.find(row.target); entry && row.kind == "command")
+                row.subtitle += " · " + controller_.startMenu()->ago(entry->last, now);
+    } else
         found = run_search::windows(query_, windows());
     rows.insert(rows.end(), found.begin(), found.end());
     if (int(rows.size()) > limit)
