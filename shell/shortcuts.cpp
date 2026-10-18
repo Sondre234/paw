@@ -44,6 +44,7 @@ constexpr Action actions[] = {
     {"spawn", Launch, "Run a program"},
     {"terminal", Launch, "Open a terminal"},
     {"launcher", Launch, "Applications menu"},
+    {"run", Launch, "Run launcher"},
 
     {"close", Windows, "Close window"},
     {"maximize", Windows, "Maximize window"},

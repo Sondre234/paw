@@ -54,6 +54,8 @@ StartMenu::Searched::Searched(const QVariantMap &app)
             id.chop(8);
     }
     all = QStringList{name, generic, keywords, id}.join(' ');
+    foldedName = name.toCaseFolded();
+    nameWords = wordsOf(name);
     genericWords = wordsOf(generic);
     keywordWords = wordsOf(keywords);
     descriptionWords = wordsOf(description);
@@ -63,12 +65,21 @@ StartMenu::Searched::Searched(const QVariantMap &app)
 // How well an application matches the query's `parts`, negative when it does not. Its name and
 // id are matched as the palette matches, letter by letter; its generic name, keywords and comment
 // by their words, and count less, as the palette counts a subtitle; words found only across them
-// ("firefox browser") count least.
-double StartMenu::Searched::score(const QStringList &parts) const {
+// ("firefox browser") count least. A part that starts a word of the name counts as one starting
+// the whole of it does, which fuzzy::scoreWords lifts by 15: "fi" starts Mozilla Firefox as much
+// as it starts Firefox, and so beats File Manager, the generic name it starts too.
+double StartMenu::Searched::score(const QStringList &parts, bool *named) const {
     const std::tuple<const QString &, double, const QStringList *> fields[] = {
-        {name, 1, nullptr}, {generic, 0.8, &genericWords}, {keywords, 0.7, &keywordWords},
-        {id, 0.6, nullptr}, {description, 0.5, &descriptionWords}};
-    double best = -1;
+        {generic, 0.8, &genericWords}, {keywords, 0.7, &keywordWords}, {id, 0.6, nullptr},
+        {description, 0.5, &descriptionWords}};
+    double best = fuzzy::scoreWords(parts, name);
+    const bool startsName = best >= 0 && startsWords(parts, nameWords);
+    if (named)
+        *named = startsName;
+    if (startsName)
+        for (const auto &part : parts)
+            if (!foldedName.startsWith(part))
+                best += 15;
     for (const auto &[text, weight, words] : fields) {
         if (text.isEmpty() || (words && !startsWords(parts, *words)))
             continue;
@@ -263,10 +274,9 @@ void StartMenu::savePins() {
         Q_EMIT failed("Could not save the start menu's pins: " + error);
 }
 
-QVariantList StartMenu::search(const QString &query, const QVariantList &others) const {
-    if (query.trimmed().isEmpty())
-        return {};
+QVariantList StartMenu::searchApps(const QString &query) const {
     struct Found {
+        bool named;
         double score;
         int launches;
         QDateTime last;
@@ -276,7 +286,8 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
     std::vector<Found> apps;
     const auto parts = fuzzy::words(query);
     for (qsizetype i = 0; i < sorted_.size(); ++i) {
-        double value = searched_[i].score(parts);
+        bool named = false;
+        double value = searched_[i].score(parts, &named);
         if (value < 0)
             continue;
         auto app = sorted_[i].toMap();
@@ -289,15 +300,30 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
         app["title"] = app["name"];
         app["subtitle"] = generic.isEmpty() ? QString("App") : generic;
         app["score"] = value;
-        apps.push_back({value, launched ? launched->count : 0, launched ? launched->last : QDateTime(), app});
+        apps.push_back({named, value, launched ? launched->count : 0,
+                        launched ? launched->last : QDateTime(), app});
     }
+    // Those whose names the query's words start come first, as rofi's drun has them: what the
+    // name says is what was meant, before what describes an application.
     std::stable_sort(apps.begin(), apps.end(), [](const Found &a, const Found &b) {
+        if (a.named != b.named)
+            return a.named;
         if (a.score != b.score)
             return a.score > b.score;
         if (a.launches != b.launches)
             return a.launches > b.launches;
         return a.last > b.last;
     });
+    QVariantList found;
+    for (const auto &app : apps)
+        found.push_back(app.entry);
+    return found;
+}
+
+QVariantList StartMenu::search(const QString &query, const QVariantList &others) const {
+    if (query.trimmed().isEmpty())
+        return {};
+    auto apps = searchApps(query);
     // The windows, workspaces and actions, ranked as the palette ranks them.
     QVariantList candidates, windows, actions;
     for (const auto &item : others) {
@@ -327,13 +353,13 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
         return group.isEmpty() ? -1.0 : group.first().toMap().value("score").toDouble();
     };
     // What matched far worse than the best is left out: letters strewn through a long name.
-    const double best = std::max({apps.empty() ? 0.0 : apps.front().score, scoreOf(windows),
+    const double best = std::max({std::max(0.0, scoreOf(apps)), scoreOf(windows),
                                   scoreOf(actions), scoreOf(files)});
     const double least = best * 0.5;
-    std::erase_if(apps, [least](const Found &found) { return found.score < least; });
     auto weak = [least](const QVariant &item) {
         return item.toMap().value("score").toDouble() < least;
     };
+    apps.removeIf(weak);
     windows.removeIf(weak);
     actions.removeIf(weak);
     QVariantList results;
@@ -343,13 +369,12 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
     };
     // The best match is a calculation's value, else the first of whichever group matched best;
     // an application on a tie, a file only when it matched better than the rest.
-    const double app = apps.empty() ? -1 : apps.front().score;
+    const double app = scoreOf(apps);
     const double file = scoreOf(files);
     if (const auto calc = calculator::entry(query); !calc.isEmpty()) {
         add(calc, "best");
     } else if (app >= 0 && app >= scoreOf(windows) && app >= scoreOf(actions) && app >= file) {
-        add(apps.front().entry, "best");
-        apps.erase(apps.begin());
+        add(apps.takeFirst().toMap(), "best");
     } else if (scoreOf(windows) >= 0 && scoreOf(windows) >= scoreOf(actions) &&
                scoreOf(windows) >= file) {
         add(windows.takeFirst().toMap(), "best");
@@ -358,8 +383,8 @@ QVariantList StartMenu::search(const QString &query, const QVariantList &others)
     } else if (!files.isEmpty()) {
         add(files.takeFirst().toMap(), "best");
     }
-    for (size_t i = 0; i < apps.size() && i < 8; ++i)
-        add(apps[i].entry, "apps");
+    for (qsizetype i = 0; i < apps.size() && i < 8; ++i)
+        add(apps[i].toMap(), "apps");
     for (const auto &item : windows)
         add(item.toMap(), "windows");
     for (const auto &item : actions)

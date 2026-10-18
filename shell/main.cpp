@@ -115,7 +115,8 @@ int main(int argc, char **argv) {
                       "palette, palette-empty, palette-calculator, switcher, overview, "
                       "snap-assist, display-mode, palette-files, clipboard, emoji, shortcuts, "
                       "shortcuts-search, shortcuts-mode, display-settings, "
-                      "display-settings-trial, rice-trial, xray, caption or osd-color",
+                      "display-settings-trial, rice-trial, xray, caption, osd-color, run, "
+                      "run-search, run-commands or run-windows",
                       "name"});
     parser.addOption(
         {"quit-after",
@@ -276,6 +277,8 @@ int main(int argc, char **argv) {
                                                  "ClipboardPicker.qml", controller.clipboard()));
                 add(std::make_unique<PickerView>(controller, screen, "emoji", "EmojiPicker.qml",
                                                  controller.emoji()));
+                add(std::make_unique<PickerView>(controller, screen, "run", "RunLauncher.qml",
+                                                 controller.runLauncher()));
                 add(std::make_unique<PickerView>(controller, screen, "shortcuts",
                                                  "Shortcuts.qml", controller.shortcuts(), true));
                 add(std::make_unique<PowerView>(controller, screen));

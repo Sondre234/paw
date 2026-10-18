@@ -238,8 +238,8 @@ void PopoverWindow::setPanel(QQuickWindow *panel) {
 #if PAW_LAYER_SHELL
     if (view->layerShell()) {
         using W = LayerShellQt::Window;
-        // Over the panels and the windows, fullscreen ones too: the launcher asked for with
-        // Super + R must show over a video.
+        // Over the panels and the windows, fullscreen ones too: the launcher asked for with a
+        // tap of Super must show over a video.
         layer_ = makeLayer(this, screen, "paw-popover", W::LayerOverlay);
         layer_->setAnchors(W::Anchors(W::AnchorTop | W::AnchorBottom | W::AnchorLeft | W::AnchorRight));
         // The whole output, the bar's strip included: a popup is placed by the bar. The

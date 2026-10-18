@@ -71,7 +71,7 @@ all. In short:
 | `headless_input.c` | Input devices without hardware for tests under `--headless`: keyboards, pointers that move and make touchpad gestures, touchscreens, drawing tablets with a pen, an eraser and a pad, and lid and tablet-mode switches. |
 | `input.c` | Keyboards, key bindings, pointers' libinput settings, virtual devices, selection and drag-and-drop. |
 | `input_method.c` | Input methods (fcitx5, ibus): text-input-v3 and input-method-v2 relayed between the application with the keyboard and the input method, its keyboard grab, and its popups beside the text cursor. |
-| `key_release.c` | Key bindings with `release`, which run as their key comes up: a modifier key's (Super_L opening the launcher) only when it was tapped alone, any other key, button, wheel notch, gesture, finger or pen meanwhile (`key_release_cancel`) letting it go. |
+| `key_release.c` | Key bindings with `release`, which run as their key comes up: a modifier key's (Super_L opening the launcher) only when it was tapped alone, any other key, button, wheel notch, gesture, finger or pen meanwhile (`key_release_cancel`) letting it go, as does holding it past `TAP_MS` by the events' times, or a button or finger already down as it goes down. |
 | `keymap.c` | The keymap from the keyboard settings, given to every keyboard but virtual ones. |
 | `cursor.c` | What is under the pointer, and the tile the user moved it onto (`pointed_tile`), focus on hover, button bindings, scrolling, the cursor image, and the image the client under the pointer last asked for (`client_cursor`, heard while hidden too), which `cursor_show` gives back without entering the client anew. |
 | `cursor_hide.c` | The cursor hidden while typing (`mouse.hide_when_typing`) and once the pointer has rested (`mouse.hide_after`), as reasons of `cursor_hide`'s besides a screenshot's, until the pointer is used (`cursor_used`); never under a pointer constraint, over a client that hid the cursor itself or while the colour picker picks. |
@@ -1368,6 +1368,7 @@ what was there.
 | `AuthDialog.qml` | The polkit authentication dialog (`shell.authentication`), an overlay surface of its own: the request, the user to answer as, the password. |
 | `RiceTrial.qml` | The question while a rice is on trial (`shell.riceTrial`), a card in the middle of the output, an overlay surface of its own: the rice's name, author and description, the countdown, Revert and Keep. |
 | `ClipboardPicker.qml`, `EmojiPicker.qml` | The clipboard history's popup and the emoji picker, each in an overlay surface of its own (`PickerView`, `picker_view.cpp`). |
+| `RunLauncher.qml` | The run launcher (`shell.runLauncher`, `run_launcher.cpp`), in a `PickerView` of its own: the modes as pills under one with a cat's ears, the line to type in after a cat's face that follows what happens, and the rows found, their matched letters in the accent, easing in and gliding as they change, the chosen one hopping as it runs. |
 | `Shortcuts.qml` | The sheet of keyboard shortcuts (`shell.shortcuts`, `shortcuts.cpp`), in a `PickerView` that covers the output: every binding in effect as key caps beside what it does, in groups laid out in columns, with a search. |
 | `SwitcherCards.qml` | The switcher's windows as cards with their pictures, in rows, with `shell.thumbnails` outside the macOS style (in it too for one application's windows). |
 | `Xray.qml` | The names of the exploded view's sheets (`paw xray`), an overlay surface of its own over the compositor's stack: a legend of every sheet in its layer's colour, top first, and a caption for the one under the pointer. |
@@ -1753,6 +1754,23 @@ a keymap of up to 200 keys made for the text's characters (`xkb_utf32_to_keysym`
 that keymap, each key pressed and released, and the seat's own keyboard, keymap and modifiers
 back after.
 
+The run launcher (`RunLauncher`, `run_launcher.cpp`; `shell.runLauncher`) is toggled by
+`run OUTPUT` from the `run` action, in a `PickerView` as the clipboard's. What it finds is pure, in
+`run_search.cpp` (tested by `run_search_test`): Apps ranks the applications with the start menu's
+own `StartMenu::searchApps`, ordered by the frecency of their launches with nothing typed; Run
+matches the commands of its `LaunchHistory` (`run-history`) and the programs on `$PATH`, which
+`run_search::programs` reads with `readdir` and `faccessat` as the launcher first needs them after
+it opens, again only once a folder of `$PATH` changed (their times kept); Windows reads the
+windows from `TaskModel`, or a stand-in's rows (`setWindows`), noting the focused one as it opens,
+before the compositor deactivates it; and `special` adds a calculation (`calculator::entry`), a
+path with what its folder has that it starts, or an address. `fuzzy::matches` says where a
+query's letters matched, which `markup` turns into the styled text a row shows. The rows are a
+`RowModel` (`RunResults`), replaced as a whole and kept in place, so that `RunLauncher.qml`'s
+`ListView` adds, moves and displaces them with its transitions rather than making them all again.
+A command runs through `sh -c` with `ShellController::startProgram`, as a configured launcher's
+does, or in the terminal the compositor's `get terminal` names (`run_search::inTerminal`); one
+whose program is not on `$PATH` (`missingProgram`) sets `problem` and runs nothing.
+
 The sheet of keyboard shortcuts (`Shortcuts`, `shortcuts.cpp`; `shell.shortcuts`) reads the
 bindings from the configuration the shell loads itself, not from the compositor. Its pure part,
 `shortcuts::sheet`, makes groups of rows from `config.bindings`, and first from the binding mode in
@@ -1930,7 +1948,8 @@ Take every colour, size and duration from `Theme`: `bar`, `surface`, `surfaceRai
 `surfaceRaisedHover` for backgrounds; `hover`, `pressed` and `selected` laid over them for
 states; `border` and `divider`; `text`, `textMuted` and `textDisabled`; `accent`,
 `accentHover`, `accentSubtle` and `textOnAccent`; `danger`, `dangerFill`, `textOnDanger` and
-`dangerSurface`; `urgent` and `urgentSubtle`; `scrim`. Type is `fontFamily` with `fontSize`,
+`dangerSurface`; `urgent` and `urgentSubtle`; `blush`, the warm colour beside the accent for
+touches that mark no state; `scrim`. Type is `fontFamily` with `fontSize`,
 `fontSizeCaption`, `fontSizeSmall`, `fontSizeLarge`, `fontSizeTitle` and `fontSizeDisplay`;
 shapes `radiusSmall`, `radiusMedium` and `radiusLarge`; spacing `spacingXS` to `spacingXXL`
 (2, 4, 8, 12, 16, 20); icons `iconSizeSmall`, `iconSize`, `appIconSize` and
@@ -1969,7 +1988,8 @@ notifications, over the configured wallpaper (`--preview-popup` lists the names)
 style the dock and the menu bar, over the style's drawn wallpaper while none is set, with the
 menu bar's menus as `system-menu`, `app-menu`, `window-menu` and `window-submenu`. The overlay
 surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `cards`,
-`power-dialog`, `palette`, `palette-empty`, `shortcuts`, `shortcuts-search`, `shortcuts-mode`, `switcher`, `overview`, `snap-assist`, `display-mode`,
+`power-dialog`, `palette`, `palette-empty`, `shortcuts`, `shortcuts-search`, `shortcuts-mode`,
+`run`, `run-search`, `run-commands`, `run-windows`, `switcher`, `overview`, `snap-assist`, `display-mode`,
 `display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 `display-settings`, `display-settings-trial`, `xray`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
 `display-settings`, `display-settings-trial`, `caption`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
@@ -2088,7 +2108,8 @@ whether it has, for something the compositor does another way without it, as the
   `TMPDIR` of 43 characters or more.
   Under `--headless`, `paw msg headless_output`, `headless_keyboard`, `headless_pointer`
   and `headless_touch` plug in outputs, keyboards, pointers and touchscreens
-  (`headless_keyboard key NAME CODE press` types on one, see `keymap_smoke.py`;
+  (`headless_keyboard key NAME CODE press [TIME]` types on one, at a given time in
+  milliseconds, see `keymap_smoke.py` and `key_release_smoke.py`;
   `headless_pointer swipe NAME update DX DY [TIME]` moves a touchpad gesture's fingers, at a given
   time in milliseconds, see `pointer_gestures_smoke.py`; `headless_touch down NAME ID X Y` puts a
   finger on a screen, see `touchscreen_smoke.py`), and `headless_switch` a lid or tablet-mode

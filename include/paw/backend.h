@@ -241,6 +241,9 @@ enum sh_action {
     SH_CLIPBOARD_HISTORY,
     /* Asks the shell for its emoji picker on the output under the pointer, as Windows' Win+. */
     SH_EMOJI_PICKER,
+    /* Asks the shell for its run launcher on the output under the pointer, after rofi: the
+     * applications, the programs and commands to run, and the windows. */
+    SH_RUN,
     /* Picks a colour off the screen with a loupe, copied as #rrggbb (src/compositor/
      * color_picker.c), or cancels the picking under way. */
     SH_PICK_COLOR,

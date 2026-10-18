@@ -63,6 +63,9 @@ endif()
 set(PAW_START_SOURCES start_menu.cpp start_menu.hpp launch_history.cpp launch_history.hpp
     calculator.cpp calculator.hpp file_index.cpp file_index.hpp gio_launch.hpp web_search.cpp
     web_search.hpp state_files.hpp)
+# The run launcher's search: the programs on $PATH, the commands run before, the windows and what
+# the text typed is.
+set(PAW_RUN_SOURCES run_search.cpp run_search.hpp)
 # The authentication dialog's model, which the controller holds, in everything that builds it.
 set(PAW_AUTH_SOURCES authentication.cpp authentication.hpp)
 # The models of the services Quick Settings controls over D-Bus, in everything that builds the
@@ -158,6 +161,7 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     DisplayMode.qml
     ClipboardPicker.qml
     EmojiPicker.qml
+    RunLauncher.qml
     Shortcuts.qml
     DisplaySettings.qml
     RiceTrial.qml
@@ -177,9 +181,10 @@ set(PAW_TASK_PROTOCOL_SOURCES
     ${CAPTURE_SOURCE_PROTOCOL_SOURCES})
 # The controller, its models and the views: the shell's, and those of the tests that drive its QML,
 # which build them once (paw_shell_test_core).
-set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_AUTH_SOURCES}
+set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_RUN_SOURCES} ${PAW_AUTH_SOURCES}
     ${PAW_SERVICE_SOURCES} ${PAW_PICKER_SOURCES} ${PAW_TASK_PROTOCOL_SOURCES}
     controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp view.cpp view.hpp
+    run_launcher.cpp run_launcher.hpp
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
     task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp icon_lock.hpp
     app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp wallpaper_cycle.cpp wallpaper_cycle.hpp
@@ -306,6 +311,10 @@ if(BUILD_TESTING)
     # The search's last result, Search the web for “…”.
     paw_shell_test(web_search_test SOURCES web_search.cpp web_search.hpp LIBS Qt6::Core Qt6::Test)
     add_test(NAME web_search COMMAND web_search_test)
+    # The run launcher's search.
+    paw_shell_test(run_search_test SOURCES ${PAW_RUN_SOURCES} fuzzy.cpp fuzzy.hpp calculator.cpp
+        calculator.hpp launch_history.cpp launch_history.hpp state_files.hpp LIBS Qt6::Core Qt6::Test)
+    add_test(NAME run_search COMMAND run_search_test)
     # The emoji picker's table and model.
     paw_shell_test(emoji_test SOURCES emoji.cpp emoji.hpp
         DEFINES PAW_EMOJI_TABLE="${PROJECT_SOURCE_DIR}/vendor/emoji/emoji.tsv"
@@ -537,6 +546,7 @@ if(BUILD_TESTING)
             $<TARGET_FILE:clipboard_probe>)
         paw_smoke(emoji_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe>)
+        paw_smoke(run_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
         paw_smoke(shortcuts_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe>)
         # A few of the gallery's popups and overlays through the GPU (Mesa's software OpenGL, in a

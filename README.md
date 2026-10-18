@@ -213,8 +213,8 @@ applications set to start at login, the XDG autostart entries in `~/.config/auto
 
 Without `~/.config/paw/init.lua`, the installed [config/init.lua](config/init.lua) is
 used. It starts in the macOS style; the profiles in the system menu (the spiral at the top left)
-switch to dark or to the taskbar. Super + R opens Launchpad (the start menu in the taskbar),
-Super + Q opens a terminal, Super + C closes the
+switch to dark or to the taskbar. Tapping Super opens Launchpad (the start menu in the taskbar),
+Super + R the run launcher, Super + Q a terminal, Super + C closes the
 focused window, and Super + M quits; [Default bindings](#default-bindings) lists the rest. The
 terminal is `$TERMINAL` when that is set, else the first one installed (kitty, foot, alacritty,
 ...). To choose it, write a configuration that extends the default:
@@ -287,7 +287,8 @@ Edit them in [config/init.lua](config/init.lua).
 | --- | --- |
 | Super + left / right drag | Move / resize a window (on a tile: move it, or move its splits) |
 | Super + Q | [Open a terminal](docs/features.md#terminal): `terminal`, `$TERMINAL`, or the first one installed |
-| Super + R | Application menu on the monitor under the pointer |
+| Super (tapped alone) | Application menu (the [start menu](docs/features.md#start-menu), or Launchpad) on the monitor under the pointer |
+| Super + R | [Run launcher](docs/features.md#run-launcher): applications, programs and commands, windows |
 | Super + P | [Command palette](docs/features.md#command-palette) |
 | Super + / | [Every shortcut](docs/features.md#keyboard-shortcuts) in effect, on one sheet with a search |
 | Super + B | Walk the [taskbar](docs/features.md#taskbar) or the dock from the keyboard: arrows, Enter, Escape |

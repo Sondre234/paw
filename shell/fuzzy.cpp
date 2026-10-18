@@ -12,8 +12,11 @@ QStringList fuzzy::words(const QString &query) {
 
 namespace {
 // Best score of `word` as a subsequence of `text`, or a large negative number. Both are folded
-// to lower case; `original` is the text as written, for spotting word starts.
-double wordScore(const QString &word, const QString &text, const QString &original) {
+// to lower case; `original` is the text as written, for spotting word starts. `rows`, when given,
+// gets each letter's row of the scores, the best with the letters so far matched and that one at
+// each place of the text, for matched() to find where the best match went.
+double wordScore(const QString &word, const QString &text, const QString &original,
+                 std::vector<std::vector<double>> *rows = nullptr) {
     const int m = word.size(), n = text.size();
     if (m == 0)
         return 0;
@@ -63,6 +66,8 @@ double wordScore(const QString &word, const QString &text, const QString &origin
                 best = std::max(best, spread - 2.0 * (j - 1) + here);
             current[j] = best;
         }
+        if (rows)
+            rows->push_back(current);
         std::swap(previous, current);
     }
     double best = none;
@@ -76,6 +81,38 @@ double wordScore(const QString &word, const QString &text, const QString &origin
     else if (text.startsWith(word))
         best += 15;
     return best;
+}
+
+// Where in `text` the best match of `word` (as wordScore scores it) put each of its letters, in
+// order; empty when it does not match.
+QList<int> matched(const QString &word, const QString &text, const QString &original) {
+    std::vector<std::vector<double>> rows;
+    if (word.isEmpty() || wordScore(word, text, original, &rows) < -1e8)
+        return {};
+    // From the best place of the last letter back, each letter where the one after it came from:
+    // the letter just before it, or one further back less the gap's cost, as wordScore adds them.
+    QList<int> places(word.size());
+    const auto &last = rows.back();
+    int j = int(std::max_element(last.begin(), last.end()) - last.begin());
+    places.back() = j;
+    for (int i = int(word.size()) - 1; i > 0; --i) {
+        const auto &previous = rows[size_t(i) - 1];
+        int from = -1;
+        double best = -1e9;
+        for (int k = j - 1; k >= 0; --k) {
+            if (previous[size_t(k)] <= -1e9 / 2)
+                continue;
+            const double value = previous[size_t(k)] + (k == j - 1 ? 12 : -2.0 * (j - 1 - k));
+            if (value > best) {
+                best = value;
+                from = k;
+            }
+        }
+        if (from < 0)
+            return {};
+        places[i - 1] = j = from;
+    }
+    return places;
 }
 
 int kindOrder(const QString &kind) {
@@ -100,6 +137,23 @@ double fuzzy::scoreWords(const QStringList &parts, const QString &text) {
     }
     // Between equal matches the shorter text is the closer one.
     return std::max(0.0, total - std::min<qsizetype>(text.size(), 100) * 0.1);
+}
+
+QList<int> fuzzy::matches(const QStringList &parts, const QString &text) {
+    const QString folded = text.toCaseFolded();
+    // Places in the folded text are places in the text only while folding keeps its length.
+    if (parts.isEmpty() || folded.size() != text.size())
+        return {};
+    QList<int> places;
+    for (const auto &part : parts) {
+        const auto found = matched(part, folded, text);
+        if (found.isEmpty())
+            return {};
+        places += found;
+    }
+    std::sort(places.begin(), places.end());
+    places.erase(std::unique(places.begin(), places.end()), places.end());
+    return places;
 }
 
 double fuzzy::score(const QString &query, const QString &text) {
