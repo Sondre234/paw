@@ -447,6 +447,28 @@ the nearest free cell. Where each icon is, and whether they are hidden, is remem
 sessions (`~/.local/state/paw/desktop-icons`); a monitor that has grown smaller lays the icons that
 no longer fit in free cells for now, and puts them back when it grows again.
 
+The icons trade files with other windows by drag and drop. On Wayland their drag is the
+compositor's, so it reaches any window: over a window the pointer carries their fanned stack, each
+icon on a little card tinted in the accent or its pink by turns, with their count, and dropped on a
+file manager, a browser's upload area, a terminal or a chat it hands the files over as a file
+manager does (their addresses, their paths, and GNOME's list of copied files), for the window to
+copy or move them. Meanwhile the icons wait in their cells, faded, and over the desktop the pads
+show where they would land; let go there, they come out of the stack where it was. Files dragged
+from a file manager, or anything else dragging files (`text/uri-list`), and dropped on the bare
+desktop go into the desktop folder: the first in the cell under the pointer, the rest down the
+column from there and on into the next, pads showing where as they are carried over it and a
+bubble in the band's two hues counting them, with a plus while they would be copied and arrows
+while they would be moved. They are copied, a folder with all it holds, or moved where the drag
+offers only that, as GTK's file managers (Nautilus) do with Shift held; a name already there gets
+" (2)", " (3)", …, so that nothing is ever written over. The copying runs beside the
+desktop, which never waits for a large file: a puff of sparkles marks each cell as the drop lands,
+and an icon glows in the band's two hues until its file is all in. A file already in the desktop
+folder just moves its icon. A link dragged from a browser becomes a link file named from the
+page's title, or its host (a desktop entry of `Type=Link`, made executable so that the desktop opens
+it with a double-click), and a picture dragged from one is saved as a file of its type. Dragged over
+a folder's icon, files from a window or the desktop's own icons open the folder up, ringed in pink
+and wiggling, and dropped there they go into it as it gulps them down.
+
 Clicked, the desktop has the keyboard as a window would: the pointer passing over it never takes
 the keyboard, and moving onto a window, with focus following the mouse, or clicking one gives it
 back. The arrows then move a ring in the accent's second hue from icon to icon, a sparkle
