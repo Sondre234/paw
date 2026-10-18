@@ -92,10 +92,12 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     # back on it, it is Target's again.
     taken = log("source").count("drag target text/plain")
     pointer("move", "1000", "600")
-    desktop.wait_for(lambda: seat().get("drag") == ("-", "-"), "the drag off Target over the bare desktop")
+    desktop.wait_for(lambda: seat().get("drag") == ("-", "-"),
+                     "the drag off Target over the bare desktop")
     pointer("move", *map(str, windows()["Target"][4]))
     desktop.wait_for(lambda: seat().get("drag") == ("window", "Target") and
-                     log("source").count("drag target text/plain") > taken, "the drag back over Target")
+                     log("source").count("drag target text/plain") > taken,
+                     "the drag back over Target")
     assert seat()["keyboard"] == ("window", "Source"), "the keyboard left Source during the drag"
     pointer("release", "left")
     desktop.wait_for(lambda: "drop received paw drag" in log("target"), "the text dropped")

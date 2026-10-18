@@ -131,7 +131,8 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
                      "the icon's drag over the desktop")
     pointer("move", str(column(2) - 10), str(ROW), "move", str(column(2)), str(ROW),
             "release", "left")
-    desktop.wait_for(lambda: cells().get("file:note.txt") == (2, 0), "the icon dropped two cells on")
+    desktop.wait_for(lambda: cells().get("file:note.txt") == (2, 0),
+                     "the icon dropped two cells on")
     desktop.wait_for(lambda: seat().get("pointer") == ("layer", "paw-desktop"),
                      "the pointer back on the desktop")
 
@@ -148,7 +149,8 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
                      "Taker given the file's address")
     assert cells().get("file:note.txt") == (2, 0) and (folder / "note.txt").exists(), cells()
 
-    messages = "\n".join(line for line in shell_log.read_text().splitlines() if not line.startswith("["))
+    messages = "\n".join(line for line in shell_log.read_text().splitlines()
+                         if not line.startswith("["))
     for message in ("ReferenceError", "TypeError", "is not defined", "Cannot read"):
         assert message not in messages, messages
 print("Files dragged from windows land on the desktop where they are dropped, copied or moved, and "
