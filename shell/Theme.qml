@@ -307,19 +307,19 @@ QtObject {
     function notePaper(name) {
         const hue = noteHues[name] !== undefined ? noteHues[name] : noteHues.sakura
         const paper = light ? Qt.hsla(hue, name === "mint" ? 0.55 : 0.82, name === "lemon" ? 0.86 : 0.895, 1)
-                            : Qt.hsla(hue, 0.3, 0.34, 1)
-        return mix(paper, surface, light ? 0.12 : 0.18)
+                            : Qt.hsla(hue, name === "mint" ? 0.42 : name === "lemon" ? 0.72 : 0.6, name === "lemon" ? 0.77 : 0.79, 1)
+        return mix(paper, surface, light ? 0.12 : 0.08)
     }
     // Its ink: a deep shade of the paper's hue leaning to the profile's text on a light profile, a
     // pale one on a dark profile.
     function noteInk(name) {
         const hue = noteHues[name] !== undefined ? noteHues[name] : noteHues.sakura
-        return mix(light ? Qt.hsla(hue, 0.45, 0.24, 1) : Qt.hsla(hue, 0.6, 0.92, 1), text, 0.35)
+        return light ? mix(Qt.hsla(hue, 0.45, 0.24, 1), text, 0.35) : mix(Qt.hsla(hue, 0.4, 0.2, 1), surface, 0.35)
     }
     // Its tape: a see-through strip of the neighbouring pastel.
     function noteTape(name) {
         const hue = noteHues[noteTapes[name] || "sky"]
-        return light ? Qt.hsla(hue, 0.7, 0.78, 0.82) : Qt.hsla(hue, 0.42, 0.58, 0.82)
+        return light ? Qt.hsla(hue, 0.7, 0.78, 0.82) : Qt.hsla(hue, 0.55, 0.68, 0.85)
     }
 
     // `color`, a card's, laid over the glass: no more opaque than glassOpacity, and a colour more
