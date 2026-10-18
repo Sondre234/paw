@@ -155,12 +155,12 @@ Along the bar, from the left: the start button, one row of the pinned applicatio
 windows, the workspace indicator, the widgets placed on the bar, the tray, the Quick Settings
 button, the clock, and a sliver at the end that shows the desktop. A button shows a tooltip when
 the pointer rests on it, but for a window's, which shows pictures of its windows instead
-([below](#window-pictures)). Lua configures the panel's height, the edge of the monitor it is
-along (`panel_position`: top, bottom, left or right), margins that make it float (`panel_margin`,
-one number or `{ top, right, bottom, left }`), corner radius, font and text size, colors
-(`#RRGGBB`, or `#RRGGBBAA` for a translucent panel), wallpaper, a picture for the start button in
-place of its four squares (`start_icon`, an SVG, PNG or other image), and pinned commands, which
-run from your home directory.
+([below](#window-pictures)). Lua configures the panel's height (its icons grow with it), the edge
+of the monitor it is along (`panel_position`: top, bottom, left or right), margins that make it
+float (`panel_margin`, one number or `{ top, right, bottom, left }`), corner radius, font and text
+size, colors (`#RRGGBB`, or `#RRGGBBAA` for a translucent panel), wallpaper, a picture for the
+start button in place of its four squares (`start_icon`, an SVG, PNG or other image), and pinned
+commands, which run from your home directory.
 
 Along the left or right edge the bar stands upright, as Windows 10's could: the start button at
 the top, the buttons of pinned applications and windows below it as icons alone (their titles in
@@ -183,18 +183,18 @@ profile in use, when that sets it, else the `shell` table, which gains the setti
 when it lacks it. The rest of the file is left as it was, comments and all. Escape, or letting go
 at its own edge, leaves the bar where it was.
 
-The same setting lets you resize the bar by its inner edge, the one facing the desktop (its top
-edge along the bottom of the monitor): the pointer turns into a resize cursor over it, and dragging
-it makes the bar taller or shorter, or wider or narrower down a side, between 24 and 100 pixels.
-Every monitor's bar follows as you drag, its buttons growing with it, and maximized and tiled
+The same setting lets you resize the bar by its inner edge, the one facing the desktop (its top edge
+along the bottom of the monitor): the pointer turns into a resize cursor over it, and dragging it
+makes the bar taller or shorter, or wider or narrower down a side, between 24 and 100 pixels. Every
+monitor's bar follows as you drag, its buttons and icons growing with it, and maximized and tiled
 windows make room as it goes. Let go and paw writes the new `panel_height` into your configuration
 file the way it writes the bar's edge; Escape puts the old size back. While the bar is not docked,
 its other edges resize it too, as a window's do: drag an end and the bar moves in from that side of
 the monitor, or out to it; drag its outer edge (the bottom one along the bottom) and the bar moves
 off the monitor's edge or back onto it, its inner edge staying where it is, so that it grows or
-shrinks by as much. Let go and paw writes those sides of `panel_margin`, and the height too for
-the outer edge, in one go (a `panel_margin` of one number is written out as all four sides). The
-macOS style's dock and the tiling bar keep their sizes.
+shrinks by as much. Let go and paw writes those sides of `panel_margin`, and the height too for the
+outer edge, in one go (a `panel_margin` of one number is written out as all four sides). The macOS
+style's dock and the tiling bar keep their sizes.
 
 A floating bar docks while a window reaches the edge of the monitor's free area it is along (a
 maximized window, one snapped or dragged against that edge, and any tile, gaps or not, so on a
