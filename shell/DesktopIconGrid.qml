@@ -27,7 +27,8 @@ import QtQuick.Shapes
 // says what went, with Undo, which pops them back into the cells they left in a ripple from it,
 // each with a puff of sparkles. Sticky notes (DesktopNote, the model shell.desktopNotes) lie on the
 // same grid, each over a block of cells the icons go around; one dragged follows the pointer while
-// a dashed pad shows the block it will land in.
+// a dashed pad shows the block it will land in. A new note pops in under where the desktop's menu
+// was opened, written on at once, and goes again if it is let go empty.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -462,6 +463,8 @@ FocusScope {
     // page's coordinates, for the caret ((-1, -1) for after the text).
     property string editingNote: ""
     property point editPoint: Qt.point(-1, -1)
+    // A note just made from the desktop's menu, written on at once: let go empty, it goes.
+    property string freshNote: ""
     // Turns the text of the note of `key` into a field, which takes the keyboard.
     function startEditing(key, at) {
         if (!shown || !noteOf(key))
@@ -478,10 +481,30 @@ FocusScope {
     function finishEditing(key, keepKeys) {
         if (editingNote === "" || (key !== undefined && key !== editingNote))
             return
+        const done = editingNote
         editingNote = ""
-        notes.flush()
+        const fresh = freshNote === done
+        freshNote = ""
+        const note = noteOf(done)
+        if (fresh && note && note.text === "")
+            notes.discard(done)
+        else
+            notes.flush()
         if (keepKeys)
             forceActiveFocus()
+    }
+    // A new note in the block under `x`, `y` (or the free one nearest it), popping in with a puff
+    // of sparkles, to write on at once.
+    function newNote(x, y) {
+        const cell = cellAt(x, y)
+        rippleOrigin = Qt.point(x, y)
+        const note = noteOf(notes.add(cell.x, cell.y))
+        if (!note)
+            return
+        if (Theme.duration(700) > 0)
+            puff.createObject(grid, { x: note.x + note.width / 2, y: note.y + note.height / 2 })
+        startEditing(note.key)
+        freshNote = note.key
     }
     // The cell under `x`, `y`, the nearest on the grid.
     function cellAt(x, y) {

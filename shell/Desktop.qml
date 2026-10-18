@@ -222,8 +222,8 @@ Rectangle {
         return entries
     }
     // Showing the desktop, and the appearance profiles beside their entry, as the bar's menu
-    // offers them, and on the main monitor a new folder where it was opened, showing or hiding the
-    // icons, tidying them up and opening their folder; in the room the panel leaves.
+    // offers them, and on the main monitor a new folder or note where it was opened, showing or
+    // hiding the icons, tidying them up and opening their folder; in the room the panel leaves.
     PopupMenu {
         id: menu
         objectName: "desktopMenu"
@@ -238,7 +238,9 @@ Rectangle {
             .concat(icons.active ? [{ separator: true }]
                     .concat(icons.shown
                         ? [{ text: "New folder", icon: "folder-plus",
-                             run: function() { icons.newFolder(menu.anchorRect.x, menu.anchorRect.y) } }] : [])
+                             run: function() { icons.newFolder(menu.anchorRect.x, menu.anchorRect.y) } },
+                           { text: "New note", icon: "sticky-note",
+                             run: function() { icons.newNote(menu.anchorRect.x, menu.anchorRect.y) } }] : [])
                     .concat([{
                          text: icons.shown ? "Hide desktop icons" : "Show desktop icons",
                          icon: icons.shown ? "eye-off" : "eye",
