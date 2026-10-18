@@ -7558,7 +7558,8 @@ ListModel {
     // columns. A click selects one, the middle button picks another, a band selects those it
     // touches; dragged, the selected go together, onto pads showing where; the desktop's menu
     // tidies them, hides them and shows them again, and their own menu copies their files; a
-    // double-click starts a launcher. Turned off, there are none, nor their entries in the menu.
+    // double-click starts a launcher; files dragged from another application land where they are
+    // dropped. Turned off, there are none, nor their entries in the menu.
     {
         ShellView desktop(controller, app.primaryScreen(), true, true);
         desktop.show();
@@ -7882,6 +7883,88 @@ ListModel {
                 return fail("the new folder did not take the name typed");
             if (!QDir(desk + "/Snaps").removeRecursively() || !waitFor([&] { return !tile("file:Snaps"); }))
                 return fail("the new folder did not go");
+        }
+        // Files dragged from another application, as Qt's Wayland platform hands drags over: an
+        // enter and a move as they come over the desktop, pads showing where they land and a bubble
+        // counting them; dropped, they are copied down the column from the cell under the pointer,
+        // or moved where the source offers only that, as GTK's file managers do with Shift held.
+        // Over a folder's icon the folder opens up and takes them, and a drag that leaves takes
+        // its pads with it.
+        {
+            const auto outside = screens.filePath("outside");
+            if (!QDir().mkpath(outside) || !writeFile(outside + "/drop.txt", "x") ||
+                !writeFile(outside + "/second.txt", "y") || !writeFile(outside + "/moved.txt", "z") ||
+                !writeFile(outside + "/inside.txt", "w"))
+                return fail("could not write the files to drop on the desktop");
+            auto files = [&](const QStringList &names) {
+                auto *data = new QMimeData;
+                QList<QUrl> urls;
+                for (const auto &name : names)
+                    urls << QUrl::fromLocalFile(outside + "/" + name);
+                data->setUrls(urls);
+                return std::unique_ptr<QMimeData>(data);
+            };
+            auto cellAt = [&](int column, int row) {
+                QVariant x, y;
+                QMetaObject::invokeMethod(grid, "cellX", Q_RETURN_ARG(QVariant, x), Q_ARG(QVariant, column));
+                QMetaObject::invokeMethod(grid, "cellY", Q_RETURN_ARG(QVariant, y), Q_ARG(QVariant, row));
+                return QPoint(x.toInt() + 20, y.toInt() + 20);
+            };
+            // Over the desktop: what the window answers the drag's move with.
+            auto over = [&](QMimeData *data, Qt::DropActions actions, QPoint at) {
+                QDragEnterEvent enter(at, actions, data, Qt::LeftButton, Qt::NoModifier);
+                QCoreApplication::sendEvent(&desktop, &enter);
+                QDragMoveEvent move(at, actions, data, Qt::LeftButton, Qt::NoModifier);
+                if (enter.isAccepted()) {
+                    move.setDropAction(enter.dropAction());
+                    move.accept();
+                }
+                QCoreApplication::sendEvent(&desktop, &move);
+                return move.isAccepted() ? move.dropAction() : Qt::IgnoreAction;
+            };
+            auto dropAt = [&](QMimeData *data, Qt::DropActions actions, QPoint at) {
+                QDropEvent drop(at, actions, data, Qt::LeftButton, Qt::NoModifier);
+                QCoreApplication::sendEvent(&desktop, &drop);
+                return drop.isAccepted() ? drop.dropAction() : Qt::IgnoreAction;
+            };
+            auto *incoming = find(root, "desktopIncoming");
+            const auto two = files({"drop.txt", "second.txt"});
+            if (over(two.get(), Qt::CopyAction | Qt::MoveAction, cellAt(4, 0)) != Qt::CopyAction ||
+                pads() != 2 || !incoming || incoming->property("count").toInt() != 2 ||
+                !waitFor([&] { return incoming->isVisible() && incoming->scale() == 1; }))
+                return fail("files dragged over the desktop showed no pads or bubble, or were not taken as a copy");
+            QDragLeaveEvent leave;
+            QCoreApplication::sendEvent(&desktop, &leave);
+            if (pads() != 0 || !waitFor([&] { return !incoming->isVisible(); }))
+                return fail("a drag gone from the desktop left its pads or its bubble");
+            over(two.get(), Qt::CopyAction | Qt::MoveAction, cellAt(4, 0));
+            if (dropAt(two.get(), Qt::CopyAction | Qt::MoveAction, cellAt(4, 0)) != Qt::CopyAction ||
+                !waitFor([&] { return tile("file:drop.txt") && tile("file:second.txt"); }) ||
+                cellOf("file:drop.txt") != QPoint(4, 0) || cellOf("file:second.txt") != QPoint(4, 1) ||
+                !QFile::exists(outside + "/drop.txt") || pads() != 0)
+                return fail("files dropped on the desktop were not copied down the column from where they were dropped");
+            // Offered only to move, the file is moved.
+            const auto moved = files({"moved.txt"});
+            if (over(moved.get(), Qt::MoveAction, cellAt(5, 2)) != Qt::MoveAction ||
+                dropAt(moved.get(), Qt::MoveAction, cellAt(5, 2)) != Qt::MoveAction ||
+                !waitFor([&] { return tile("file:moved.txt") && !QFile::exists(outside + "/moved.txt"); }) ||
+                cellOf("file:moved.txt") != QPoint(5, 2))
+                return fail("a file whose drag offered only to move it was not moved onto the desktop");
+            // Over a folder's icon: it opens up, no pads, and it takes the file in.
+            const auto inside = files({"inside.txt"});
+            auto *folderTile = tile("file:Folder");
+            if (over(inside.get(), Qt::CopyAction | Qt::MoveAction, at("file:Folder")) != Qt::CopyAction ||
+                !folderTile->property("dropTarget").toBool() || pads() != 0 ||
+                incoming->property("glyph") != "folder-open")
+                return fail("a drag over a folder's icon did not open the folder up");
+            if (dropAt(inside.get(), Qt::CopyAction | Qt::MoveAction, at("file:Folder")) != Qt::CopyAction ||
+                !waitFor([&] { return QFile::exists(desk + "/Folder/inside.txt"); }) ||
+                folderTile->property("dropTarget").toBool() || tile("file:inside.txt"))
+                return fail("a file dropped on a folder's icon did not go into the folder");
+            for (const auto *name : {"/drop.txt", "/second.txt", "/moved.txt", "/Folder/inside.txt"})
+                QFile::remove(desk + name);
+            if (!waitFor([&] { return !tile("file:drop.txt") && !tile("file:moved.txt"); }))
+                return fail("the files dropped on the desktop did not go");
         }
         // Turned off, there are none.
         if (!reconfigure(QString(lua).replace("shell={", "shell={desktop_icons=false,")) ||
