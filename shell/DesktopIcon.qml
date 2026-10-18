@@ -228,12 +228,18 @@ Item {
                     horizontalAlignment: TextInput.AlignHCenter
                     wrapMode: TextInput.WrapAtWordBoundaryOrAnywhere
                     selectByMouse: true
-                    // A caret in the second hue, blinking for a while after each change.
-                    cursorDelegate: Rectangle {
+                    // A caret in the second hue, blinking for a while after each change; drawn left
+                    // of where the field puts it, so that it hides no narrow letter (a dot).
+                    cursorDelegate: Item {
                         width: 2
-                        radius: 1
-                        color: tile.board.partner
                         visible: input.activeFocus && input.selectionStart === input.selectionEnd && caret.lit
+                        Rectangle {
+                            x: -1
+                            width: 2
+                            height: parent.height
+                            radius: 1
+                            color: tile.board.partner
+                        }
                     }
                     QtObject {
                         id: caret
