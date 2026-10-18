@@ -522,6 +522,10 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `shell.desktop_clock.color` | color | unset | - | The time's and the date's colour, `#RRGGBB` or `#RRGGBBAA`; unset, `text_color`. The greeting is in the accent colour. |
 | `shell.desktop_clock.font` | string | unset | - | Font family; unset, `shell.font`. |
 | `shell.desktop_clock.greeting` | boolean or string | false | - | A greeting above the time by the time of day: `"en"` says Good morning (from 5), Good afternoon (from 12) and Good evening (from 18); `"ja"` おはよう, こんにちは and こんばんは. `false` says nothing. |
+| `shell.desktop_icons` | boolean or table | true | - | Icons on the main monitor's desktop: the configured `launchers`, then the files and folders of the desktop folder. A double-click opens one; they are dragged to other places on a grid, which are remembered, and the desktop's menu hides and shows them. `false` shows none. |
+| `shell.desktop_icons.enabled` | boolean | true | - | Show the icons. |
+| `shell.desktop_icons.folder` | string | unset | - | The folder whose files and folders show, absolute or starting with `~/`; unset, `XDG_DESKTOP_DIR` (`~/.config/user-dirs.dirs`), else `~/Desktop`. |
+| `shell.desktop_icons.size` | integer | 48 | 32 to 128 | The icons' size in pixels; their cells on the grid grow with them. |
 | `shell.start_icon` | string | "" | - | A picture for the taskbar's start button in place of the four squares in the accent colour: an SVG, PNG or other image, absolute or relative to the configuration file, as `shell.wallpaper` is. |
 | `shell.wallpapers` | string | unset | - | The wallpaper picker's folder, searched with its subfolders: absolute, or starting with `~/`; unset uses `$XDG_PICTURES_DIR/wallpapers`, else `$XDG_PICTURES_DIR`. |
 | `shell.widgets` | table | - | - | Panel widgets; each is switched off with `false`. One that can move takes `"bar"` to sit on the bar or `"quick"` to sit in the Quick Settings flyout instead, and `true` puts it in its default place. |

@@ -606,6 +606,28 @@ void read_desktop_clock(lua_State *L, DesktopClockConfig &clock) {
     lua_pop(L, 1);
     lua_pop(L, 1);
 }
+// shell.desktop_icons: true, false, or the icons' table, on top of the stack.
+void read_desktop_icons(lua_State *L, DesktopIconsConfig &icons) {
+    lua_getfield(L, -1, "desktop_icons");
+    if (lua_isboolean(L, -1) || lua_isnil(L, -1)) {
+        if (lua_isboolean(L, -1))
+            icons.enabled = lua_toboolean(L, -1);
+        lua_pop(L, 1);
+        return;
+    }
+    if (!lua_istable(L, -1))
+        wrong_type(L, "desktop_icons", "true, false or a table");
+    keys(L, -1, "shell.desktop_icons");
+    Named in("shell.desktop_icons");
+    boolean(L, "enabled", "shell.desktop_icons.enabled", icons.enabled);
+    if (auto folder = text(L, "folder")) {
+        if (!folder->starts_with('/') && !folder->starts_with("~/"))
+            fail("shell.desktop_icons.folder must be absolute or start with ~/", "folder");
+        icons.folder = *folder;
+    }
+    icons.size = integer(L, "size", icons.size, 32, 128);
+    lua_pop(L, 1);
+}
 // The edges a bar can be along, as shell.panel_positions names them.
 constexpr std::pair<std::string_view, PanelEdge> panel_edges[] = {
     {"top", PanelEdge::Top}, {"bottom", PanelEdge::Bottom}, {"left", PanelEdge::Left},
@@ -814,6 +836,7 @@ void read_shell(lua_State *L, ShellConfig &shell) {
            {"center", WallpaperMode::Center}, {"tile", WallpaperMode::Tile},
            {"stretch", WallpaperMode::Stretch}});
     read_desktop_clock(L, shell.desktop_clock);
+    read_desktop_icons(L, shell.desktop_icons);
     if (Section in{L, "wallpaper_cycle", "shell.wallpaper_cycle"}) {
         auto &cycle = shell.wallpaper_cycle;
         cycle.interval = integer(L, "interval", cycle.interval, 0, 1440);
