@@ -26,6 +26,7 @@
 #include "paw/config.hpp"
 #include "restyle.hpp"
 #include "rice_trial.hpp"
+#include "run_launcher.hpp"
 #include "shortcuts.hpp"
 #include "start_menu.hpp"
 #include "system_status.hpp"
@@ -258,6 +259,8 @@ class ShellController : public QObject {
     Q_PROPERTY(Authentication *authentication READ authentication CONSTANT)
     // The start menu's pins, launch history, applications by letter, search and user.
     Q_PROPERTY(StartMenu *startMenu READ startMenu CONSTANT)
+    // The run launcher (Super + R): applications, programs and commands, and windows.
+    Q_PROPERTY(RunLauncher *runLauncher READ runLauncher CONSTANT)
     // The history of what is copied (shell.clipboard), and its popup.
     Q_PROPERTY(ClipboardHistory *clipboard READ clipboard CONSTANT)
     // The emoji picker.
@@ -501,6 +504,7 @@ class ShellController : public QObject {
     // reloads follow the setting. Returns whether it is the agent.
     bool startPolkit();
     StartMenu *startMenu() { return &startMenu_; }
+    RunLauncher *runLauncher() { return &runLauncher_; }
     // The files the palette's and the start menu's search find (shell.search).
     FileIndex *files() { return &files_; }
     ClipboardHistory *clipboard() { return &clipboard_; }
@@ -738,6 +742,7 @@ class ShellController : public QObject {
     Palette palette_{*this};
     Power power_{*this};
     StartMenu startMenu_{{}, this};
+    RunLauncher runLauncher_{*this};
     ClipboardHistory clipboard_;
     EmojiPicker emoji_;
     Shortcuts shortcuts_{*this};

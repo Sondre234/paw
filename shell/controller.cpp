@@ -95,6 +95,7 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     connect(this, &ShellController::appsChanged, &startMenu_,
             [this] { startMenu_.setApps(apps(), userPins_); });
     connect(&startMenu_, &StartMenu::failed, this, &ShellController::report);
+    connect(&runLauncher_, &RunLauncher::failed, this, &ShellController::report);
     connect(&startMenu_, &StartMenu::installedChanged, this, &ShellController::refreshApps);
     startMenu_.setFiles(&files_);
     configureSearch();
@@ -1391,6 +1392,9 @@ void ShellController::subscribe() {
                 clipboard_.toggle(line.sliced(10));
             } else if (line.startsWith("emoji ")) {
                 emoji_.toggle(line.sliced(6));
+            } else if (line.startsWith("run ")) {
+                // run OUTPUT: the run launcher, opened or closed there.
+                runLauncher_.toggle(line.sliced(4));
             } else if (line.startsWith("shortcuts ")) {
                 // shortcuts OUTPUT: the sheet of keyboard shortcuts, opened or closed there.
                 shortcuts_.toggle(line.sliced(10));

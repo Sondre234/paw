@@ -181,6 +181,7 @@ set(PAW_TASK_PROTOCOL_SOURCES
 set(PAW_CONTROLLER_SOURCES ${PAW_NOTIFY_SOURCES} ${PAW_START_SOURCES} ${PAW_RUN_SOURCES} ${PAW_AUTH_SOURCES}
     ${PAW_SERVICE_SOURCES} ${PAW_PICKER_SOURCES} ${PAW_TASK_PROTOCOL_SOURCES}
     controller.cpp controller.hpp palette.cpp palette.hpp fuzzy.cpp fuzzy.hpp view.cpp view.hpp
+    run_launcher.cpp run_launcher.hpp
     task_model.cpp task_model.hpp window_pictures.cpp window_pictures.hpp task_filter.cpp
     task_filter.hpp taskbar_model.cpp taskbar_model.hpp icons.cpp icons.hpp icon_lock.hpp
     app_match.cpp app_match.hpp wallpapers.cpp wallpapers.hpp wallpaper_cycle.cpp wallpaper_cycle.hpp
