@@ -54,6 +54,8 @@ StartMenu::Searched::Searched(const QVariantMap &app)
             id.chop(8);
     }
     all = QStringList{name, generic, keywords, id}.join(' ');
+    foldedName = name.toCaseFolded();
+    nameWords = wordsOf(name);
     genericWords = wordsOf(generic);
     keywordWords = wordsOf(keywords);
     descriptionWords = wordsOf(description);
@@ -63,12 +65,21 @@ StartMenu::Searched::Searched(const QVariantMap &app)
 // How well an application matches the query's `parts`, negative when it does not. Its name and
 // id are matched as the palette matches, letter by letter; its generic name, keywords and comment
 // by their words, and count less, as the palette counts a subtitle; words found only across them
-// ("firefox browser") count least.
-double StartMenu::Searched::score(const QStringList &parts) const {
+// ("firefox browser") count least. A part that starts a word of the name counts as one starting
+// the whole of it does, which fuzzy::scoreWords lifts by 15: "fi" starts Mozilla Firefox as much
+// as it starts Firefox, and so beats File Manager, the generic name it starts too.
+double StartMenu::Searched::score(const QStringList &parts, bool *named) const {
     const std::tuple<const QString &, double, const QStringList *> fields[] = {
-        {name, 1, nullptr}, {generic, 0.8, &genericWords}, {keywords, 0.7, &keywordWords},
-        {id, 0.6, nullptr}, {description, 0.5, &descriptionWords}};
-    double best = -1;
+        {generic, 0.8, &genericWords}, {keywords, 0.7, &keywordWords}, {id, 0.6, nullptr},
+        {description, 0.5, &descriptionWords}};
+    double best = fuzzy::scoreWords(parts, name);
+    const bool startsName = best >= 0 && startsWords(parts, nameWords);
+    if (named)
+        *named = startsName;
+    if (startsName)
+        for (const auto &part : parts)
+            if (!foldedName.startsWith(part))
+                best += 15;
     for (const auto &[text, weight, words] : fields) {
         if (text.isEmpty() || (words && !startsWords(parts, *words)))
             continue;
@@ -265,6 +276,7 @@ void StartMenu::savePins() {
 
 QVariantList StartMenu::searchApps(const QString &query) const {
     struct Found {
+        bool named;
         double score;
         int launches;
         QDateTime last;
@@ -274,7 +286,8 @@ QVariantList StartMenu::searchApps(const QString &query) const {
     std::vector<Found> apps;
     const auto parts = fuzzy::words(query);
     for (qsizetype i = 0; i < sorted_.size(); ++i) {
-        double value = searched_[i].score(parts);
+        bool named = false;
+        double value = searched_[i].score(parts, &named);
         if (value < 0)
             continue;
         auto app = sorted_[i].toMap();
@@ -287,9 +300,14 @@ QVariantList StartMenu::searchApps(const QString &query) const {
         app["title"] = app["name"];
         app["subtitle"] = generic.isEmpty() ? QString("App") : generic;
         app["score"] = value;
-        apps.push_back({value, launched ? launched->count : 0, launched ? launched->last : QDateTime(), app});
+        apps.push_back({named, value, launched ? launched->count : 0,
+                        launched ? launched->last : QDateTime(), app});
     }
+    // Those whose names the query's words start come first, as rofi's drun has them: what the
+    // name says is what was meant, before what describes an application.
     std::stable_sort(apps.begin(), apps.end(), [](const Found &a, const Found &b) {
+        if (a.named != b.named)
+            return a.named;
         if (a.score != b.score)
             return a.score > b.score;
         if (a.launches != b.launches)

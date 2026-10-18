@@ -923,6 +923,10 @@ off and to find out what is wrong with it, and toys the compositor plays with th
 
 ### Fixes
 
+- The start menu's search, and the run launcher's applications, put an application whose name
+  the words start (`fi`, Mozilla Firefox) before one they find only in what describes it
+  (Dolphin's File Manager), where a word starting the generic name outranked one starting a word
+  of the name past its first.
 - A taskbar button moved, or passed by one moving, while it was still fading in (as windows open
   together at the start of a session and their buttons go to their monitors) comes all the way
   in, where it stayed faded out, leaving a gap on the bar.

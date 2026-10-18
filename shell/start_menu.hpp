@@ -76,8 +76,9 @@ class StartMenu : public QObject {
     // What `query` finds, best first, in groups: "best" (the one best match), "apps", "windows"
     // and "actions". `others` are the command palette's entries (Palette::entries), of which the
     // windows, workspaces and actions are searched as the palette searches them. Applications
-    // are found by name, generic name, keywords, desktop id and comment, those launched often a
-    // little ahead. A result is its entry, an application's being its record with `kind` "app",
+    // are found by name, generic name, keywords, desktop id and comment, those whose names the
+    // words start (each a word of the name) ahead of the rest, and those launched often a little
+    // ahead. A result is its entry, an application's being its record with `kind` "app",
     // a `title` and a `subtitle`, with its `group` and `score` added. A calculation's value
     // (calculator::entry) is the best match when there is one. Files (FileIndex::search) come
     // last, as "files", and are the best match only when they match better than the rest; a
@@ -118,9 +119,11 @@ class StartMenu : public QObject {
     // What the search reads of each of sorted_, its words split once.
     struct Searched {
         explicit Searched(const QVariantMap &app);
-        double score(const QStringList &parts) const;
-        QString name, generic, keywords, id, description, all;
-        QStringList genericWords, keywordWords, descriptionWords, allWords;
+        // How well it matches the query's `parts`, negative when it does not; `named` says whether
+        // every part starts a word of its name, which ranks it ahead of what matches elsewhere.
+        double score(const QStringList &parts, bool *named = nullptr) const;
+        QString name, foldedName, generic, keywords, id, description, all;
+        QStringList nameWords, genericWords, keywordWords, descriptionWords, allWords;
     };
     std::vector<Searched> searched_;
     // The pins, of installed applications or not, in their order; own once start-pinned exists.
