@@ -173,8 +173,11 @@ Button {
             count: task.stacked ? task.windows : 0
         }
     }
+    // Without its title, the icon alone sits in the middle, over the activity line: no spacing
+    // beside the room around it, which a button as narrow as its icon has no space for and would
+    // push the icon right.
     contentItem: RowLayout {
-        spacing: Theme.spacingS + Theme.spacingXS
+        spacing: panel.iconsOnly || task.launcher ? 0 : Theme.spacingS + Theme.spacingXS
         Item { Layout.fillWidth: panel.iconsOnly || task.launcher }
         BarAppIcon {
             objectName: "taskIcon"

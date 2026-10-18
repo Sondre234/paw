@@ -920,8 +920,9 @@ int main(int argc, char **argv) {
             return fail("could not restore the configuration");
     }
     // The bar's icons grow with it (shell.panel_height): an application's, 26 pixels on a bar of
-    // 52 and 41 on one of 76, its button widening to hold it, the start button's squares, and a
-    // widget's line icon, 20 pixels and then 31.
+    // 52 and 41 on one of 76, its button widening to hold it with the icon in its middle, over
+    // the activity line, the start button's squares, and a widget's line icon, 20 pixels and
+    // then 31.
     {
         auto *launcher = find(view.rootObject(), "pinned:pinned:0");
         auto *icon = launcher ? find(launcher, "taskIcon") : nullptr;
@@ -929,9 +930,17 @@ int main(int argc, char **argv) {
         auto *line = find(view.rootObject(), "tilingIcon");
         if (!icon || !squares || !line)
             return fail("no icons on the bar to measure");
+        // The button's layout places the icon on its next polish, which a grab runs.
+        auto centred = [&] {
+            view.grabWindow();
+            return std::abs(icon->mapToItem(launcher, QPointF(icon->width() / 2, 0)).x() -
+                            launcher->width() / 2) <= 0.5;
+        };
         const qreal buttonWidth = launcher->width(), squaresWidth = squares->width();
         if (icon->width() != 26 || line->width() != 20)
             return fail("the bar's icons are not 26 and 20 pixels on a bar of 52");
+        if (!centred())
+            return fail("an application's icon is not in the middle of its button on a bar of 52");
         if (!reconfigure(QString(lua).replace("shell={", "shell={panel_height=76,")))
             return fail("could not rewrite the configuration");
         if (!waitFor([&] {
@@ -939,6 +948,8 @@ int main(int argc, char **argv) {
                        squares->width() > squaresWidth && line->width() == 31;
             }))
             return fail("the bar's icons did not grow with it");
+        if (!centred())
+            return fail("an application's icon is not in the middle of its button on a bar of 76");
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
         if (!waitFor([&] { return icon->width() == 26 && launcher->width() == buttonWidth && line->width() == 20; }))
