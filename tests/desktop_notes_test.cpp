@@ -219,6 +219,14 @@ class DesktopNotesTest : public QObject {
         QCOMPARE(notes->restore(), b);
         QVERIFY(!notes->restorable());
         QCOMPARE(keys(*notes), QStringList{b});
+        // One let go empty goes for good, the last one deleted still there to bring back.
+        notes->remove(b);
+        const auto empty = notes->add(0, 3);
+        notes->discard(empty);
+        QCOMPARE(notes->count(), 0);
+        QCOMPARE(stored().size(), 0);
+        QVERIFY(notes->restorable());
+        QCOMPARE(notes->restore(), b);
     }
     void ticksChecklists() {
         const auto lines = DesktopNotes::linesOf("Shopping\n[ ] milk\n  - [x] eggs\n* [X]\n[x]bread\n- [ ]  two");
