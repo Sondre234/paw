@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import QtQuick.Controls.Basic
 import "WindowMenu.js" as WindowMenu
 
 Rectangle {
     id: desktop
-    // Set by the view: itself, which says where its output's bar is.
+    // Set by the view: itself, which says where its output's bar is, and its output's name.
     required property var shellView
+    required property string outputName
     color: shell.background
     // What the bars leave of the desktop, in its coordinates.
     readonly property rect free: {
@@ -140,38 +140,52 @@ Rectangle {
         anchors.fill: parent
         area: desktop.free
     }
-    // A right press opens the desktop's menu where it was; any other press closes it where it is,
-    // rather than moving it there as it fades.
-    MouseArea {
+    // The icons, on the main monitor, and every press on the desktop: a right press opens the
+    // desktop's menu where it was, or the icons' beside the selection; any other press closes them
+    // where they are, rather than moving them there as they fade.
+    DesktopIconGrid {
+        id: icons
         anchors.fill: parent
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onPressed: function(mouse) {
-            if (mouse.button === Qt.RightButton)
-                menu.anchorRect = Qt.rect(mouse.x, mouse.y, 0, 0)
-            menu.open = mouse.button === Qt.RightButton
+        area: desktop.free
+        active: shell.desktopIcons.enabled && desktop.outputName === shell.primaryOutput
+        onPressed: { menu.open = false; iconMenu.open = false }
+        onMenuRequested: function(x, y) {
+            menu.anchorRect = Qt.rect(x, y, 0, 0)
+            menu.open = true
+        }
+        onIconMenuRequested: function(x, y) {
+            iconMenu.entries = desktop.iconEntries(icons.selectedTiles())
+            iconMenu.anchorRect = Qt.rect(x, y, 0, 0)
+            iconMenu.open = iconMenu.entries.length > 0
         }
     }
-    Column {
-        x: Theme.spacingXL; y: Theme.spacingXXL + Theme.spacingS + (Theme.macos ? Theme.menuBarHeight : 0); spacing: Theme.spacingL
-        Repeater {
-            // Configured launchers only; applications pinned from the taskbar stay there.
-            model: shell.pinned.filter(function(app) { return app.configured })
-            delegate: Button {
-                required property var modelData
-                width: 88; height: 84
-                onDoubleClicked: shell.launch(modelData.appId)
-                Accessible.name: "Double-click to open " + modelData.name
-                background: Rectangle { radius: Theme.radiusSmall; color: parent.hovered ? Theme.accentSubtle : "transparent"; border.color: parent.hovered ? Theme.alpha(Theme.accent, 0.33) : "transparent" }
-                contentItem: Column {
-                    spacing: Theme.spacingS + Theme.spacingXS
-                    Image { anchors.horizontalCenter: parent.horizontalCenter; width: 40; height: 40; sourceSize: Qt.size(40, 40); source: shell.iconBase + modelData.icon }
-                    Text { width: parent.width; text: modelData.name; textFormat: Text.PlainText; color: Theme.text; font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
-                }
-            }
-        }
+    // What the icons' menu offers for `tiles`, the selected icons: opening them, copying their
+    // files and moving those to the trash, under a title naming them.
+    function iconEntries(tiles) {
+        if (tiles.length === 0)
+            return []
+        const one = tiles[0]
+        const files = tiles.filter(tile => tile.kind !== "launcher")
+        const kinds = { launcher: "Launcher", folder: "Folder", app: "Application" }
+        const suffix = one.name.lastIndexOf(".") > 0 ? one.name.slice(one.name.lastIndexOf(".") + 1).toUpperCase() : ""
+        const entries = [tiles.length === 1
+            ? { title: one.name, icon: one.picture !== "" ? one.picture : one.icon,
+                secondary: kinds[one.kind] || (suffix !== "" ? suffix + " file" : "File") }
+            : { title: tiles.length + " items", icon: "layers",
+                secondary: files.length === tiles.length ? "On the desktop" : files.length + " of them files" },
+            { text: tiles.length === 1 ? "Open" : "Open all", icon: "folder-open",
+              run: function() { icons.open(tiles) } }]
+        if (files.length > 0)
+            entries.push({ text: files.length === 1 ? "Copy" : "Copy " + files.length + " files", icon: "copy",
+                           run: function() { shell.desktopIcons.copy(files.map(tile => tile.key)) } },
+                         { separator: true },
+                         { text: "Move to Trash", icon: "trash-2", danger: true,
+                           run: function() { icons.trash(files) } })
+        return entries
     }
     // Showing the desktop, and the appearance profiles beside their entry, as the bar's menu
-    // offers them; in the room the panel leaves.
+    // offers them, and on the main monitor showing or hiding the icons, tidying them up and
+    // opening their folder; in the room the panel leaves.
     PopupMenu {
         id: menu
         objectName: "desktopMenu"
@@ -182,9 +196,32 @@ Rectangle {
         bounds: desktop.free
         onDismissed: open = false
         entries: [{ text: "Show desktop", icon: "minimize-2", run: function() { shell.tasks.showDesktop() } }]
+            .concat(icons.active ? [{ separator: true }, {
+                         text: icons.shown ? "Hide desktop icons" : "Show desktop icons",
+                         icon: icons.shown ? "eye-off" : "eye",
+                         run: function() {
+                             icons.rippleOrigin = Qt.point(menu.anchorRect.x, menu.anchorRect.y)
+                             shell.desktopIcons.setShown(!icons.shown)
+                         } }]
+                    .concat(icons.shown && shell.desktopIcons.count > 1
+                        ? [{ text: "Tidy up icons", icon: "sparkles", run: function() { icons.tidy() } }] : [])
+                    .concat([{ text: "Open desktop folder", icon: "folder-open",
+                               run: function() { shell.desktopIcons.openFolder() } }])
+                : [])
             .concat(shell.profiles.length > 0
-                ? [{ text: "Appearance", icon: "palette", secondary: shell.profile,
+                ? [{ separator: true }, { text: "Appearance", icon: "palette", secondary: shell.profile,
                      submenu: WindowMenu.profileEntries() }]
                 : [])
+    }
+    // The menu of the selected icons.
+    PopupMenu {
+        id: iconMenu
+        objectName: "desktopIconMenu"
+        entryName: "desktopIconMenuItem"
+        side: Qt.BottomEdge
+        alignment: Qt.AlignLeft
+        gap: 0
+        bounds: desktop.free
+        onDismissed: open = false
     }
 }

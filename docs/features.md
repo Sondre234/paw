@@ -15,8 +15,9 @@ have [Quick Settings](#quick-settings), the [clock's flyout](#clock-and-calendar
 [window switcher](#window-switcher), the [overview](#overview)'s text, the
 [command palette](#command-palette), the [power](#power) dialog, and the
 [notification cards and on-screen display](#notifications-and-on-screen-display). The desktop
-shows the wallpaper and the configured launchers as shortcuts, which open on a double-click; a
-right click on it offers Show desktop and the appearance profiles. A new wallpaper, from the
+shows the wallpaper and, on the main monitor, [icons](#desktop-icons) for the configured launchers
+and the desktop folder's files; a right click on it offers Show desktop, hiding or showing the
+icons, and the appearance profiles. A new wallpaper, from the
 wallpaper picker or the configuration, fades in over the one shown once it has loaded, also from
 the drawn one or to it, and one picked during the fade comes in over both. `shell.wallpaper_mode`
 says how the picture covers each monitor: cropped to fill it (`"fill"`, the default), whole and as
@@ -418,6 +419,45 @@ display, until the configuration's `enabled` changes.
 ```lua
 shell = {
     desktop_clock = { enabled = true, position = "bottom-right", greeting = "ja" },
+}
+```
+
+### Desktop icons
+
+The main monitor's desktop shows the configured `shell.launchers`, then the folders and files of
+the desktop folder (`XDG_DESKTOP_DIR`, `~/Desktop` on most systems), down the columns of a grid
+from the top left, as icons with their names on a chip of the bar's colour, so that they read on
+any wallpaper. A picture shows itself, as a little print with a white border set askew, and a
+desktop entry its application's name and icon. A double-click opens one: a folder in the file
+manager, a file in its application, a launcher's command, and a desktop entry's application once
+the entry is executable (`chmod +x`), as file managers trust one; until then it says so rather
+than run what anything saved there could pass off as a document. The folder is watched: a new
+file pops in at the first free cell, one taken away goes, and the others stay where they are.
+
+A click selects an icon, its name shown in full on the accent; a click beside them selects none.
+Dragging across the desktop draws a band in the accent colour fading into a second hue, rounded,
+with a bubble at the pointer counting what it holds, and each icon it touches hops as it is
+caught. The middle button picks one more icon, or puts one back, keeping the others. Dragged, the
+selected icons gather under the pointer into a fanned stack with their count, trailing it one
+after another, while dashed pads on the grid show the cells they will land in, gliding from cell
+to cell as the pointer goes; let go, they glide into those cells, keeping their shape, and an icon
+that would land on another goes to the nearest free cell. Where each icon is, and whether they are
+hidden, is remembered across sessions (`~/.local/state/paw/desktop-icons`); a monitor that has
+grown smaller lays the icons that no longer fit in free cells for now, and puts them back when it
+grows again.
+
+A right press on the selection opens its menu: Open, Copy (for a file manager to paste) and Move
+to Trash, under a title that names it. The desktop's own menu hides the icons or shows them again,
+in a ripple from where it was opened; tidies them up, laying them out anew in order, launchers
+first, then folders, then files by name, in a wave from the top left; and opens the desktop folder,
+making it where it is missing. The `desktop_icons` action (`paw msg desktop_icons`, or "Show or
+hide the desktop icons" in the command palette) hides or shows them as the menu does, saying so on
+the on-screen display. `shell.desktop_icons = false` shows none; `size` makes them larger
+and `folder` takes another folder's files:
+
+```lua
+shell = {
+    desktop_icons = { size = 64, folder = "~/Desktop" },
 }
 ```
 

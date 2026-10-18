@@ -164,12 +164,15 @@ class Compositor:
             self.config.write_text(config)
         self.log = self.root / "compositor.log"
         # State of its own too: the developer's saved appearance profile must not change the
-        # configuration a test runs.
+        # configuration a test runs. And a desktop folder of its own, so that the developer's
+        # files never show on its desktop.
         self.env = dict(os.environ, XDG_RUNTIME_DIR=str(self.root),
-                        XDG_STATE_HOME=str(self.root / "state"), WLR_RENDERER="pixman")
+                        XDG_STATE_HOME=str(self.root / "state"),
+                        XDG_DESKTOP_DIR=str(self.root / "Desktop"), WLR_RENDERER="pixman")
         for name in ("WAYLAND_DISPLAY", "DISPLAY", "PAW_SOCKET"):
             self.env.pop(name, None)
-        private = {name: self.env[name] for name in ("XDG_RUNTIME_DIR", "XDG_STATE_HOME")}
+        private = {name: self.env[name]
+                   for name in ("XDG_RUNTIME_DIR", "XDG_STATE_HOME", "XDG_DESKTOP_DIR")}
         self.env.update(env or {})
         # An `env` copied from os.environ hands the developer's own directories back: kept, a
         # `profile NAME` would overwrite their saved profile, and kitty-theme-sync recolours

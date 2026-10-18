@@ -1357,7 +1357,8 @@ what was there.
 | `AudioSlider.qml`, `MuteButton.qml`, `StreamRow.qml` | Controls the mixer and Quick Settings use: a volume's slider, a mute button, and an application playing sound. |
 | `StartHome.qml`, `StartAllApps.qml`, `StartSearch.qml`, `StartBestMatch.qml`, `StartTile.qml`, `StartRow.qml`, `UserAvatar.qml` | Parts of the start menu (`Launcher.qml`): its pinned and recent applications, every application from A to Z, what its search finds and the best match of it, a pinned application, a row of its lists, the user's picture. |
 | `Launchpad.qml` | The launcher of the macOS style, in the start menu's place: every application on pages of a grid over the whole output, with a search. |
-| `Desktop.qml` | The wallpaper of its output (`ShellView::wallpaper`, the output's own or every monitor's), each new one fading in over those before, the desktop clock and the desktop's launchers, on the background layer. |
+| `Desktop.qml` | The wallpaper of its output (`ShellView::wallpaper`, the output's own or every monitor's), each new one fading in over those before, the desktop clock, the desktop's icons and the desktop's menus, on the background layer. |
+| `DesktopIconGrid.qml`, `DesktopIcon.qml` | The desktop's icons (`shell.desktopIcons`) on the main monitor: their grid, which it tells the model once the desktop's size has settled, the selection and its band, a drag of the selected onto the cells the model says they land in (`landing`), and the ripple as they are shown and hidden; one icon, its picture or a print of the picture file, its name on a chip, and how it glides, trails, hops and pops in. |
 | `DrawnWallpaper.qml` | The wallpaper the macOS style draws while none is set, light or dark, from the background colour and the accent. |
 | `DesktopClock.qml` | The desktop clock (`shell.desktop_clock`, experimental): the time, the date and a greeting over the wallpaper, outside the backdrop the frosted glass takes, changing once a minute. |
 | `WallpaperPicture.qml` | The wallpaper's picture as `shell.wallpaper_mode` lays it out (cropped, fitted, stretched, centred or tiled at its own size, over the background colour where it leaves room), for the desktop, a workspace's card and Launchpad. |
@@ -1423,7 +1424,10 @@ windows lists them, and with `output` those on one monitor alone), `audio.cpp` w
 `web_search.cpp`, which the start menu's search shares), `media.cpp` with `mpris.cpp`,
 `power_mode.cpp` with `power_profiles_daemon.cpp`, `wifi.cpp` with `network_manager.cpp`,
 `bluetooth.cpp` with `bluez.cpp`, `clipboard.cpp` (the clipboard history), `desktop_clock.cpp` (the
-desktop clock's settings, and whether the `desktop_clock` action shows it), `wallpaper_cycle.cpp`
+desktop clock's settings, and whether the `desktop_clock` action shows it), `desktop_icons.cpp`
+(the desktop's icons: the launchers and the desktop folder's files, watched, each in the cell of
+the grid `desktop_grid.cpp` gives it or it was dragged to, remembered in the state folder with
+whether they are hidden, tested by `desktop_icons_test` and `desktop_grid_test`), `wallpaper_cycle.cpp`
 (the wallpaper slideshow's order and timer, `shell.wallpaper_cycle`, whose pictures
 `ShellController::stepWallpaper` picks as a picked wallpaper, tested by `wallpaper_cycle_test`).
 `preview.cpp` has

@@ -3,6 +3,8 @@
 #include "icon_lock.hpp"
 #include <QQuickImageProvider>
 
+typedef struct _GIcon GIcon;
+
 // image://icons/NAME: a theme icon by name (or the first the theme has of several names
 // separated by commas, as a file's type's icon and more generic ones), or an image file by
 // absolute path, with a drawn stand-in when neither exists; image://icons/@N/NAME the same,
@@ -12,6 +14,10 @@ class Icons : public QQuickImageProvider {
     Icons() : QQuickImageProvider(QQuickImageProvider::Image) {}
     QImage requestImage(const QString &id, QSize *size, const QSize &requested) override;
 };
+
+// What image://icons/ finds GIO's `icon` by: its first theme icon name, or its file's path;
+// `fallback` for an icon of neither kind, or none.
+QString gioIconName(GIcon *icon, const QString &fallback);
 
 // The icon theme the desktop names: GNOME's setting where the user set it (GNOME Settings,
 // gsettings, nwg-look), or $PAW_USER_ICON_THEME while paw has a profile's there, else GTK's

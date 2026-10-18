@@ -205,6 +205,15 @@ struct DesktopClockConfig {
     std::string greeting;                    // "en" or "ja" by the time of day; empty: none
 };
 
+// Lua `shell.desktop_icons`: the files and folders of the desktop folder, after the configured
+// launchers, as icons on the main monitor's desktop.
+struct DesktopIconsConfig {
+    bool enabled = true;
+    // The folder: absolute or "~/..."; empty: $XDG_DESKTOP_DIR, else ~/Desktop.
+    std::string folder;
+    int size = 48; // the icons' size in pixels
+};
+
 // Lua `shell.wallpaper_cycle` (experimental): a slideshow, the pictures of a folder taking turns
 // as the wallpaper, every `interval` minutes and at the wallpaper_next and wallpaper_prev actions.
 struct WallpaperCycleConfig {
@@ -312,6 +321,7 @@ struct ShellConfig {
     std::map<std::string, std::string> monitor_wallpapers;
     WallpaperMode wallpaper_mode = WallpaperMode::Fill;
     DesktopClockConfig desktop_clock;
+    DesktopIconsConfig desktop_icons;
     WallpaperCycleConfig wallpaper_cycle;
     // The start button's picture: a file, absolute or relative to the configuration; empty:
     // four squares in the accent colour.

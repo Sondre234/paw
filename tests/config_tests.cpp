@@ -1152,6 +1152,22 @@ int main(int argc, char **argv) {
             rejects("return {shell={desktop_clock={size=321}}}");
             rejects("return {shell={desktop_clock={color='pink'}}}");
             rejects("return {shell={desktop_clock={greeting=true}}}");
+            // The desktop icons: on, from the desktop folder XDG names, 48 pixels large.
+            const auto &icons = even.shell.desktop_icons;
+            require(icons.enabled && icons.folder.empty() && icons.size == 48,
+                    "the desktop icons' defaults are not as documented");
+            require(!paw::parse_config("return {shell={desktop_icons=false}}").shell.desktop_icons.enabled,
+                    "shell.desktop_icons = false does not hide them");
+            auto things = paw::parse_config(
+                "return {shell={desktop_icons={folder='~/Things',size=64},accent='#123456'}}");
+            require(things.shell.desktop_icons.enabled && things.shell.desktop_icons.folder == "~/Things" &&
+                        things.shell.desktop_icons.size == 64 && things.shell.accent == "#123456",
+                    "shell.desktop_icons not parsed, or what follows it lost");
+            rejects("return {shell={desktop_icons='yes'}}");
+            rejects("return {shell={desktop_icons={folder='Desktop'}}}");
+            rejects("return {shell={desktop_icons={size=31}}}");
+            rejects("return {shell={desktop_icons={size=129}}}");
+            rejects("return {shell={desktop_icons={grid=true}}}");
             rejects("return {shell={desktop_clock={greeting='fr'}}}");
             rejects("return {shell={desktop_clock={seconds=true}}}");
         }

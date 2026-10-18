@@ -48,6 +48,21 @@ QImage Icons::requestImage(const QString &asked, QSize *size, const QSize &reque
     return image;
 }
 
+QString gioIconName(GIcon *icon, const QString &fallback) {
+    if (icon && G_IS_THEMED_ICON(icon)) {
+        const char *const *names = g_themed_icon_get_names(G_THEMED_ICON(icon));
+        if (names && *names)
+            return QString::fromUtf8(*names);
+    } else if (icon && G_IS_FILE_ICON(icon)) {
+        if (char *path = g_file_get_path(g_file_icon_get_file(G_FILE_ICON(icon)))) {
+            const auto name = QString::fromUtf8(path);
+            g_free(path);
+            return name;
+        }
+    }
+    return fallback;
+}
+
 namespace {
 // GNOME's icon-theme, only where someone set it: its default (Adwaita) says nothing of what the
 // user chose, and settings.ini may name the theme while it is unset.

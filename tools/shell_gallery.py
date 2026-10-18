@@ -275,6 +275,14 @@ def prepare(root, theme_name, animations=True):
             entry += f"\n[Desktop Action {action}]\nName={title}\nExec=true\n"
             entry += f"Icon={action_icon}\n" if action_icon else ""
         (data / "applications" / f"{desktop_id}.desktop").write_text(entry)
+    # The desktop folder's own files for the desktop's icons: a folder, a note, a document and a
+    # picture, which shows itself.
+    desk = root / "Desktop"
+    (desk / "Projects").mkdir(parents=True)
+    (desk / "notes.md").write_text("# notes\n")
+    (desk / "Quarterly report.pdf").write_bytes(b"%PDF-1.4\n")
+    png(desk / "sakura.png", 64, 48,
+        lambda x, y: (250 - y, 170 + x, 205 + y // 2))
     # One of them pinned from the shell, without a window, so that pin-menu has actions to show.
     (root / "state" / "paw").mkdir(parents=True)
     (root / "state" / "paw" / "pinned").write_text("thunderbird.desktop\n")
@@ -300,6 +308,7 @@ def prepare(root, theme_name, animations=True):
     env.update(XDG_RUNTIME_DIR=str(runtime), XDG_CONFIG_HOME=str(root / "config"),
                XDG_DATA_HOME=str(data), XDG_DATA_DIRS=":".join(systems) or str(root / "none"),
                XDG_STATE_HOME=str(root / "state"), XDG_CACHE_HOME=str(root / "cache"),
+               XDG_DESKTOP_DIR=str(root / "Desktop"),
                DBUS_SESSION_BUS_ADDRESS="disabled:", QT_FORCE_STDERR_LOGGING="1")
     return env
 

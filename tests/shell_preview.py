@@ -24,7 +24,8 @@ with tempfile.TemporaryDirectory(prefix="paw-ui-") as directory:
     # would hide the QML warnings asserted on below.
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen", QT_QUICK_BACKEND="software",
                QT_FORCE_STDERR_LOGGING="1",
-               XDG_DATA_HOME=directory, XDG_DATA_DIRS=str(empty))
+               XDG_DATA_HOME=directory, XDG_DATA_DIRS=str(empty),
+               XDG_DESKTOP_DIR=str(empty))
     for desktop in (False, True):
         screenshot = root / ("desktop.png" if desktop else "panel.png")
         command = [executable, "--config", config, "--preview", "--quit-after", "300",

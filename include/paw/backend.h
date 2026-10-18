@@ -248,6 +248,8 @@ enum sh_action {
     SH_DISPLAY_SETTINGS,
     /* Shows or hides the shell's desktop clock (shell.desktop_clock). */
     SH_DESKTOP_CLOCK,
+    /* Shows or hides the shell's desktop icons (shell.desktop_icons). */
+    SH_DESKTOP_ICONS,
     /* Asks the shell for the next or the previous wallpaper of its slideshow
      * (shell.wallpaper_cycle). */
     SH_WALLPAPER_NEXT,

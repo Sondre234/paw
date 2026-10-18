@@ -45,10 +45,7 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
                           rendererInterface()->graphicsApi() != QSGRendererInterface::Null);
     // The engine is shared by every view; what differs per view goes in as initial properties.
     // outputName matches the compositor's output name, which the workspace state is keyed by.
-    if (!desktop)
-        setInitialProperties({{"shellView", QVariant::fromValue(this)}, {"outputName", screen->name()}});
-    else
-        setInitialProperties({{"shellView", QVariant::fromValue(this)}});
+    setInitialProperties({{"shellView", QVariant::fromValue(this)}, {"outputName", screen->name()}});
 #if PAW_LAYER_SHELL
     if (!preview) {
         using W = LayerShellQt::Window;

@@ -193,6 +193,7 @@ int main(int argc, char **argv) {
     qputenv("XDG_DATA_DIRS", screens.filePath("none").toLocal8Bit());
     qputenv("XDG_STATE_HOME", screens.filePath("state").toLocal8Bit());
     qputenv("XDG_CACHE_HOME", screens.filePath("cache").toLocal8Bit());
+    qputenv("XDG_DESKTOP_DIR", screens.filePath("Desktop").toLocal8Bit());
     const auto pins = screens.filePath("state/paw/pinned");
     QGuiApplication app(argc, argv);
     // A press held past the long-press time is held 200 ms here, rather than Qt's 800.
@@ -234,6 +235,12 @@ int main(int argc, char **argv) {
     QDir(files).mkpath("Archive");
     if (!writeFile(files + "/Quarterly report.txt", "quarterly\n"))
         return fail("could not write a file to search for");
+    // The desktop folder's files (XDG_DESKTOP_DIR, the test's own): a folder and three notes.
+    const auto desk = screens.filePath("Desktop");
+    QDir(desk).mkpath("Folder");
+    for (const auto *name : {"a.txt", "b.txt", "c.txt"})
+        if (!writeFile(desk + "/" + name, "note\n"))
+            return fail("could not write a file on the desktop");
     // Long Lua strings preserve paths without shell interpolation. The widgets Quick Settings
     // holds by default are on the bar, where most of this test uses them.
     const QString barWidgets = "widgets={network='bar',battery='bar',volume='bar',tiling='bar',profiles='bar'},";
@@ -7546,6 +7553,196 @@ ListModel {
             return fail("a left press beside the desktop's menu moved it there as it closed");
         if (!waitFor([&] { return !card->isVisible(); }))
             return fail("a press beside the desktop's menu did not close it");
+    }
+    // The desktop's icons: the launchers, then the desktop folder's folder and files, down the
+    // columns. A click selects one, the middle button picks another, a band selects those it
+    // touches; dragged, the selected go together, onto pads showing where; the desktop's menu
+    // tidies them, hides them and shows them again, and their own menu copies their files; a
+    // double-click starts a launcher. Turned off, there are none, nor their entries in the menu.
+    {
+        ShellView desktop(controller, app.primaryScreen(), true, true);
+        desktop.show();
+        if (!QTest::qWaitForWindowExposed(&desktop) || !desktop.rootObject())
+            return fail("the desktop never showed");
+        auto *root = desktop.rootObject();
+        auto *grid = find(root, "desktopIconGrid");
+        auto tile = [&](const QString &key) { return find(root, "desktopIcon:" + key); };
+        auto cellOf = [&](const QString &key) {
+            auto *item = tile(key);
+            return item ? QPoint(item->property("column").toInt(), item->property("row").toInt())
+                        : QPoint(-9, -9);
+        };
+        auto selected = [&](const QStringList &keys) {
+            for (const auto &key : {"launcher:Test app", "file:Folder", "file:a.txt", "file:b.txt", "file:c.txt"})
+                if (!tile(key) || tile(key)->property("selected").toBool() != keys.contains(key))
+                    return false;
+            return true;
+        };
+        auto at = [&](const QString &key) { return centre(tile(key)); };
+        const QStringList all{"launcher:Test app", "file:Folder", "file:a.txt", "file:b.txt", "file:c.txt"};
+        // Whether one is in its cell, there and not on its way.
+        auto inCell = [&](const QString &key) {
+            QVariant x, y;
+            QMetaObject::invokeMethod(grid, "cellX", Q_RETURN_ARG(QVariant, x), Q_ARG(QVariant, cellOf(key).x()));
+            QMetaObject::invokeMethod(grid, "cellY", Q_RETURN_ARG(QVariant, y), Q_ARG(QVariant, cellOf(key).y()));
+            return tile(key)->isVisible() && std::abs(tile(key)->x() - x.toReal()) < 0.5 &&
+                   std::abs(tile(key)->y() - y.toReal()) < 0.5;
+        };
+        auto laidOut = [&](int column) {
+            for (int row = 0; row < all.size(); ++row)
+                if (cellOf(all[row]) != QPoint(column, row) || !inCell(all[row]))
+                    return false;
+            return true;
+        };
+        if (!grid || !waitFor([&] { return laidOut(0); }))
+            return fail("the desktop's icons were not laid down the first column, launchers first");
+        // An entry of one of the desktop's menus, by its text.
+        auto entry = [&](const QString &menuName, const QString &text) {
+            auto *menu = find(root, menuName);
+            const QString name = menuName + "Item";
+            std::function<QQuickItem *(QQuickItem *)> walk = [&](QQuickItem *item) -> QQuickItem * {
+                for (auto *child : item->childItems()) {
+                    if (child->objectName() == name && child->property("text") == text && child->isVisible())
+                        return child;
+                    if (auto *found = walk(child))
+                        return found;
+                }
+                return nullptr;
+            };
+            return menu ? walk(menu) : nullptr;
+        };
+        auto choose = [&](const QString &menuName, const QString &text) {
+            QQuickItem *item = nullptr;
+            if (!waitFor([&] { return (item = entry(menuName, text)) != nullptr; }))
+                return false;
+            click(item);
+            return true;
+        };
+        const QPoint empty(700, 300);
+        // A click selects one, a click beside the icons none.
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:a.txt"));
+        if (!selected({"file:a.txt"}))
+            return fail("a click on a desktop icon did not select it alone");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+        if (!selected({}))
+            return fail("a click beside the desktop's icons did not clear the selection");
+        // A band from beside the folder down across the first column's middle selects the folder
+        // and the two notes it touches, the launcher above and the note below left out.
+        const auto folder = tile("file:Folder"), b = tile("file:b.txt");
+        const QPoint bandFrom(folder->mapToScene(QPointF(folder->width() + 30, 10)).toPoint());
+        const QPoint bandTo(b->mapToScene(QPointF(10, b->height() / 2)).toPoint());
+        QTest::mousePress(&desktop, Qt::LeftButton, Qt::NoModifier, bandFrom);
+        QTest::mouseMove(&desktop, (bandFrom + bandTo) / 2);
+        QTest::mouseMove(&desktop, bandTo);
+        auto *band = find(root, "desktopSelectionBand");
+        if (!band || !band->isVisible() || !selected({"file:Folder", "file:a.txt", "file:b.txt"}))
+            return fail("a band across the desktop did not select the icons it touches");
+        QTest::mouseRelease(&desktop, Qt::LeftButton, Qt::NoModifier, bandTo);
+        if (band->isVisible() || !selected({"file:Folder", "file:a.txt", "file:b.txt"}))
+            return fail("the band did not go as it was let go, or took the selection with it");
+        // The middle button picks one more, and puts it back.
+        QTest::mouseClick(&desktop, Qt::MiddleButton, Qt::NoModifier, at("file:c.txt"));
+        if (!selected({"file:Folder", "file:a.txt", "file:b.txt", "file:c.txt"}))
+            return fail("the middle button did not pick another desktop icon");
+        QTest::mouseClick(&desktop, Qt::MiddleButton, Qt::NoModifier, at("file:c.txt"));
+        if (!selected({"file:Folder", "file:a.txt", "file:b.txt"}))
+            return fail("the middle button did not put a picked desktop icon back");
+        // Dragged by one of them two cells to the right, the three go together, pads showing
+        // where they land, and that is remembered.
+        const int cellWidth = grid->property("cellWidth").toInt();
+        const QPoint from = at("file:a.txt"), to = from + QPoint(2 * cellWidth, 0);
+        QTest::mousePress(&desktop, Qt::LeftButton, Qt::NoModifier, from);
+        for (int step = 1; step <= 8; ++step)
+            QTest::mouseMove(&desktop, from + (to - from) * step / 8);
+        auto pads = [&] {
+            int count = 0;
+            std::function<void(QQuickItem *)> walk = [&](QQuickItem *item) {
+                for (auto *child : item->childItems()) {
+                    count += child->objectName() == "desktopLanding";
+                    walk(child);
+                }
+            };
+            walk(grid);
+            return count;
+        };
+        if (!grid->property("dragging").toBool() || pads() != 3)
+            return fail("dragging desktop icons did not show a pad for each where it lands");
+        QTest::mouseRelease(&desktop, Qt::LeftButton, Qt::NoModifier, to);
+        if (cellOf("file:Folder") != QPoint(2, 1) || cellOf("file:a.txt") != QPoint(2, 2) ||
+            cellOf("file:b.txt") != QPoint(2, 3) || cellOf("file:c.txt") != QPoint(0, 4) || pads() != 0)
+            return fail("desktop icons dragged together did not land together");
+        const auto statePath = screens.filePath("state/paw/desktop-icons");
+        auto remembered = [&] {
+            QFile state(statePath);
+            return state.open(QIODevice::ReadOnly) ? QString::fromUtf8(state.readAll()) : QString();
+        };
+        if (!remembered().contains("2\t2\tfile:a.txt\n"))
+            return fail("where a desktop icon was dragged to was not remembered");
+        if (!waitFor([&] { return inCell("file:a.txt") && inCell("file:Folder") && inCell("file:b.txt"); }))
+            return fail("dropped desktop icons did not glide into their cells");
+        // Their own menu: a right press on one of them names them, and copies their files.
+        QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, at("file:b.txt"));
+        QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, at("file:b.txt"));
+        if (!waitFor([&] { return entry("desktopIconMenu", "Open all") && entry("desktopIconMenu", "Move to Trash"); }))
+            return fail("a right press on the selected desktop icons did not open their menu");
+        if (!choose("desktopIconMenu", "Copy 3 files") ||
+            !waitFor([&] {
+                const auto *copied = QGuiApplication::clipboard()->mimeData();
+                return copied && copied->urls() == QList<QUrl>{QUrl::fromLocalFile(desk + "/Folder"),
+                                                               QUrl::fromLocalFile(desk + "/a.txt"),
+                                                               QUrl::fromLocalFile(desk + "/b.txt")};
+            }))
+            return fail("the desktop icons' menu did not copy their files");
+        // The desktop's menu tidies them back into the first column.
+        QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, empty);
+        QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, empty);
+        if (!waitFor([&] { return entry("desktopMenu", "Open desktop folder") != nullptr; }))
+            return fail("the desktop's menu did not offer the desktop folder");
+        if (!choose("desktopMenu", "Tidy up icons") || !waitFor([&] { return laidOut(0); }) ||
+            remembered().contains("2\t2\tfile:a.txt\n"))
+            return fail("tidying the desktop's icons up did not lay them out anew");
+        // It hides them, remembered, and shows them again.
+        QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, empty);
+        QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, empty);
+        if (!choose("desktopMenu", "Hide desktop icons") ||
+            !waitFor([&] { return !tile("file:a.txt")->isVisible() && !tile("launcher:Test app")->isVisible(); }) ||
+            !remembered().startsWith("hidden\n"))
+            return fail("the desktop's menu did not hide its icons");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:a.txt"));
+        if (!selected({}))
+            return fail("a hidden desktop icon took a click");
+        QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, empty);
+        QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, empty);
+        if (entry("desktopMenu", "Tidy up icons") || !choose("desktopMenu", "Show desktop icons") ||
+            !waitFor([&] { return laidOut(0) && tile("file:c.txt")->opacity() == 1; }) ||
+            remembered().startsWith("hidden"))
+            return fail("the desktop's menu did not show its icons again");
+        // The desktop_icons action's lines hide and show them too, saying so.
+        subscriber->write("desktop-icons toggle\n");
+        if (!waitFor([&] { return !tile("file:a.txt")->isVisible(); }) ||
+            controller.osd()->text() != "Desktop icons hidden")
+            return fail("desktop-icons toggle did not hide the desktop's icons, saying so");
+        subscriber->write("desktop-icons on\n");
+        if (!waitFor([&] { return laidOut(0); }) || controller.osd()->text() != "Desktop icons shown")
+            return fail("desktop-icons on did not show the desktop's icons, saying so");
+        // A double-click starts a launcher.
+        QFile::remove(marker);
+        QTest::mouseDClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("launcher:Test app"));
+        if (!waitFor([&] { return QFile::exists(marker); }))
+            return fail("a double-click on a launcher's desktop icon did not start it");
+        QFile::remove(marker);
+        // Turned off, there are none.
+        if (!reconfigure(QString(lua).replace("shell={", "shell={desktop_icons=false,")) ||
+            !waitFor([&] { return !tile("file:a.txt"); }))
+            return fail("shell.desktop_icons = false left icons on the desktop");
+        QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, empty);
+        QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, empty);
+        if (!waitFor([&] { return entry("desktopMenu", "Show desktop") != nullptr; }) ||
+            entry("desktopMenu", "Hide desktop icons") || entry("desktopMenu", "Open desktop folder"))
+            return fail("the desktop's menu offered icons that are turned off");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+        if (!reconfigure(lua) || !waitFor([&] { return laidOut(0); }))
+            return fail("the desktop's icons did not come back with the configuration");
     }
     // The wallpaper: a new one is laid over the one shown and fades in once it has loaded, the
     // one under it going as it is covered; one picked during that is laid over both.
