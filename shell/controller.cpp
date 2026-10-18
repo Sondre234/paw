@@ -109,6 +109,11 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     configureDesktopClock();
     connect(&desktopIcons_, &DesktopIcons::failed, this, &ShellController::report);
     configureDesktopIcons();
+    // A note keeps clear of the icons as it is made or moved, and they go around it.
+    desktopNotes_.setTaken([this] { return desktopIcons_.cells(); });
+    connect(&desktopNotes_, &DesktopNotes::cellsChanged, this,
+            [this] { desktopIcons_.setBlocked(desktopNotes_.cells()); });
+    connect(&desktopNotes_, &DesktopNotes::failed, this, &ShellController::report);
     connect(&wallpaperCycle_, &WallpaperCycle::due, this, [this] { stepWallpaper(1, false); });
     configureWallpaperCycle();
     connect(&displayModes_, &DisplayModes::request, this, &ShellController::send);

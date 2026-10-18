@@ -10,6 +10,7 @@
 #include "clipboard.hpp"
 #include "desktop_clock.hpp"
 #include "desktop_icons.hpp"
+#include "desktop_notes.hpp"
 #include "display_modes.hpp"
 #include "display_settings.hpp"
 #include "emoji.hpp"
@@ -218,6 +219,8 @@ class ShellController : public QObject {
     // The desktop's icons (shell.desktop_icons), which its menu and the `desktop_icons` action
     // show and hide.
     Q_PROPERTY(DesktopIcons *desktopIcons READ desktopIcons CONSTANT)
+    // The desktop's sticky notes, on the icons' grid, which the icons go around.
+    Q_PROPERTY(DesktopNotes *desktopNotes READ desktopNotes CONSTANT)
     // The display mode popup (Windows' Win+P), which the compositor opens and steps.
     Q_PROPERTY(DisplayModes *displayModes READ displayModes CONSTANT)
     // The display settings window: the monitors' settings, tried and kept.
@@ -549,6 +552,7 @@ class ShellController : public QObject {
     Caption *caption() { return &caption_; }
     DesktopClock *desktopClock() { return &desktopClock_; }
     DesktopIcons *desktopIcons() { return &desktopIcons_; }
+    DesktopNotes *desktopNotes() { return &desktopNotes_; }
     DisplayModes *displayModes() { return &displayModes_; }
     DisplaySettings *displaySettings() { return &displaySettings_; }
     RiceTrial *riceTrial() { return &riceTrial_; }
@@ -760,6 +764,7 @@ class ShellController : public QObject {
     Caption caption_;
     DesktopClock desktopClock_;
     DesktopIcons desktopIcons_;
+    DesktopNotes desktopNotes_;
     WallpaperCycle wallpaperCycle_;
     DisplayModes displayModes_;
     DisplaySettings displaySettings_{[this](const QByteArray &line,
