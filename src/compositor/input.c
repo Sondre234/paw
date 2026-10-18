@@ -355,6 +355,10 @@ void seat_request_start_drag(struct wl_listener *listener, void *data) {
 static void drag_ended(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, drag_end);
     wl_list_remove(&server->drag_end.link);
+    if (server->drag_enter) {
+        wl_event_source_remove(server->drag_enter);
+        server->drag_enter = NULL;
+    }
     if (!server->running)
         return; // clients going away at shutdown
     struct wlr_seat *seat = server->seat;
@@ -368,6 +372,18 @@ static void drag_ended(struct wl_listener *listener, void *data) {
     process_cursor_motion(server, (uint32_t)now_ms());
 }
 
+/* wlroots starts a drag over nothing, the pointer taken from every surface, until the pointer next
+ * moves: a drag a client starts a moment after the pointer came to rest (the shell's desktop takes
+ * a picture of what it carries first) and let go there would be dropped on nothing. It is given
+ * the surface under the pointer at once, from an idle callback, after every listener of the
+ * seat's start_drag has heard of it: XWayland's window manager follows the drag's focus. */
+static void drag_entering(void *data) {
+    struct sh_server *server = data;
+    server->drag_enter = NULL;
+    if (server->seat->drag && !server->seat->drag->focus)
+        process_cursor_motion(server, (uint32_t)now_ms());
+}
+
 void seat_start_drag(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, start_drag);
     struct wlr_drag *drag = data;
@@ -376,6 +392,9 @@ void seat_start_drag(struct wl_listener *listener, void *data) {
     if (drag->icon)
         wlr_scene_drag_icon_create(server->drag_icons, drag->icon);
     add_listener(&drag->events.destroy, &server->drag_end, drag_ended);
+    if (!server->drag_enter)
+        server->drag_enter = wl_event_loop_add_idle(wl_display_get_event_loop(server->wl_display),
+                                                    drag_entering, server);
 }
 
 /* Pointer constraints (games, remote desktops, pointer lock in browsers) apply to the
