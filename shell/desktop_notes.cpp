@@ -276,6 +276,18 @@ void DesktopNotes::remove(const QString &key) {
     save();
 }
 
+void DesktopNotes::discard(const QString &key) {
+    const int i = indexOf(key);
+    if (i < 0)
+        return;
+    beginRemoveRows({}, i, i);
+    notes_.removeAt(i);
+    endRemoveRows();
+    Q_EMIT countChanged();
+    Q_EMIT cellsChanged();
+    save();
+}
+
 QString DesktopNotes::restore() {
     if (!removed_)
         return {};

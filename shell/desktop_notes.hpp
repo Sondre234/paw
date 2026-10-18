@@ -80,6 +80,9 @@ class DesktopNotes : public QAbstractListModel {
     Q_INVOKABLE void copy(const QString &key);
     // Deletes `key`'s note, which restore() can bring back until another is deleted.
     Q_INVOKABLE void remove(const QString &key);
+    // Deletes `key`'s note for good, as one made and let go empty: restore() still brings back the
+    // last one remove() took.
+    Q_INVOKABLE void discard(const QString &key);
     // Brings the last note deleted back, to its place, else to the free block nearest it; its
     // key, or "" when there is none.
     Q_INVOKABLE QString restore();
