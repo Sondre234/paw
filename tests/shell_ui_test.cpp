@@ -181,7 +181,7 @@ int main(int argc, char **argv) {
                    "StartupWMClass=Fake\n"))
         return fail("could not write the fake application");
     if (!writeFile(screens.filePath("data/applications/paw-test-other.desktop"),
-                   "[Desktop Entry]\nType=Application\nName=Other app\nExec=true\n"))
+                   "[Desktop Entry]\nType=Application\nName=Other app\nExec=true\nMimeType=text/csv;\n"))
         return fail("could not write the other application");
     // One the menus leave out, whose icon its windows still get.
     if (!writeFile(screens.filePath("data/applications/paw-test-hidden.desktop"),
@@ -220,6 +220,22 @@ int main(int argc, char **argv) {
                        .arg(QString::fromLocal8Bit(argv[1]), actionMarker)
                        .toUtf8()))
         return fail("could not write the application with actions");
+    // Applications for CSV, for the desktop icons' Open with: the default one, which the menus
+    // leave out and which copies the files it is given into `opened`, and Other app. GIO reads
+    // which take a type from the folder's cache, and the default from its mimeapps.list. Nothing
+    // takes plain text or folders, which the palette's files count on.
+    const auto opened = directory.filePath("opened");
+    QDir().mkpath(opened);
+    if (!writeFile(screens.filePath("data/applications/paw-test-viewer.desktop"),
+                   QString("[Desktop Entry]\nType=Application\nName=Viewer app\nNoDisplay=true\n"
+                           "MimeType=text/csv;\nExec=\"%1\" -E copy %F \"%2\"\n")
+                       .arg(QString::fromLocal8Bit(argv[1]), opened)
+                       .toUtf8()) ||
+        !writeFile(screens.filePath("data/applications/mimeinfo.cache"),
+                   "[MIME Cache]\ntext/csv=paw-test-viewer.desktop;paw-test-other.desktop;\n") ||
+        !writeFile(screens.filePath("data/applications/mimeapps.list"),
+                   "[Default Applications]\ntext/csv=paw-test-viewer.desktop\n"))
+        return fail("could not write the applications for CSV");
     // Two pictures for the wallpaper picker, in two subfolders.
     const auto walls = directory.filePath("walls");
     for (const auto *name : {"a/one.png", "b/two.png"}) {
@@ -8022,6 +8038,47 @@ ListModel {
                 return fail("Ctrl + Z did not put the desktop files back in their cells");
             if (!waitFor([&] { return !tile("file:old.txt"); }))
                 return fail("the desktop file put back did not go again");
+        }
+        // Open with, for files and folders: a submenu of the applications that open every one
+        // selected, the default first and saying so; one chosen opens them all. A launcher has
+        // none, and a file nothing opens says so, greyed out.
+        {
+            auto row = [&](const QString &text) { return entry("desktopIconMenu", text); };
+            auto secondary = [&](const QString &text) {
+                return row(text) ? row(text)->property("modelData").toMap()["secondary"].toString() : "(none)";
+            };
+            auto menuAt = [&](const QString &key) {
+                QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, at(key));
+                QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, at(key));
+            };
+            if (!writeFile(desk + "/one.csv", "a,b\n") || !writeFile(desk + "/two.csv", "c,d\n") ||
+                !waitFor([&] { return tile("file:one.csv") && inCell("file:one.csv") && tile("file:two.csv") && inCell("file:two.csv"); }))
+                return fail("new files on the desktop did not show");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:one.csv"));
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::ControlModifier, at("file:two.csv"));
+            menuAt("file:two.csv");
+            if (!choose("desktopIconMenu", "Open with") ||
+                !waitFor([&] { return row("Viewer app") && row("Other app"); }) ||
+                row("Viewer app")->property("index").toInt() != 0 || secondary("Viewer app") != "Default" ||
+                row("Other app")->property("index").toInt() != 1 || secondary("Other app") != "")
+                return fail("Open with did not list the applications for the desktop's tables, the default first");
+            if (!choose("desktopIconMenu", "Viewer app") ||
+                !waitFor([&] { return QFile::exists(opened + "/one.csv") && QFile::exists(opened + "/two.csv"); }))
+                return fail("the application chosen in Open with did not open the selected desktop files");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+            menuAt("launcher:Test app");
+            if (!waitFor([&] { return row("Open") != nullptr; }) || row("Open with"))
+                return fail("the desktop icons' menu offered Open with for a launcher");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:c.txt"));
+            menuAt("file:c.txt");
+            if (!choose("desktopIconMenu", "Open with") ||
+                !waitFor([&] { return row("No other apps") && !row("No other apps")->isEnabled(); }))
+                return fail("Open with did not say, greyed out, that no application opens the desktop file");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+            if (!QFile::remove(desk + "/one.csv") || !QFile::remove(desk + "/two.csv") ||
+                !waitFor([&] { return !tile("file:one.csv") && !tile("file:two.csv"); }))
+                return fail("the desktop's tables did not go");
         }
         // Renaming: F2 turns the name into a field, the part before the extension selected, which
         // Escape leaves as it was; Enter gives the name typed, the icon keeping its cell; a name
