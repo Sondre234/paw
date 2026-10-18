@@ -45,6 +45,7 @@ Item {
 
     function reset() {
         launching = false
+        pointerSeen = false
         input.text = launcher.query
         list.positionViewAtBeginning()
         input.forceActiveFocus()
@@ -57,8 +58,9 @@ Item {
         function onSelectedChanged() { list.positionViewAtIndex(root.launcher.selected, ListView.Contain) }
     }
     // Where the pointer last was over the card, so that a row the list moves under a pointer at
-    // rest is not selected: only the pointer moving selects.
+    // rest is not selected: only the pointer moving selects, not where it is as the card opens.
     property point pointer: Qt.point(-1, -1)
+    property bool pointerSeen: false
     // Runs what Enter asks for, the chosen row hopping first when it is what runs.
     function run(how) {
         var row = list.currentItem
@@ -119,8 +121,15 @@ Item {
                 x: at ? at.x : 0
                 width: at ? at.width : 0
                 height: parent.height
-                Behavior on x { NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
-                Behavior on width { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
+                // It slides once the card is in: opening, it is in the first mode at once.
+                Behavior on x {
+                    enabled: root.progress > 0.99
+                    NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+                }
+                Behavior on width {
+                    enabled: root.progress > 0.99
+                    NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing }
+                }
                 readonly property color fromColor: Theme.mix(Theme.popupSurface, Theme.accent, Theme.light ? 0.32 : 0.5)
                 readonly property color toColor: Theme.mix(Theme.popupSurface, Theme.blush, Theme.light ? 0.36 : 0.52)
                 // The ears, standing up from the pill's top edge a little in from its ends.
@@ -378,10 +387,11 @@ Item {
                     hoverEnabled: true
                     onPositionChanged: (mouse) => {
                         var at = mapToItem(root, mouse.x, mouse.y)
-                        if (at.x !== root.pointer.x || at.y !== root.pointer.y) {
-                            root.pointer = at
+                        var moved = root.pointerSeen && (at.x !== root.pointer.x || at.y !== root.pointer.y)
+                        root.pointer = at
+                        root.pointerSeen = true
+                        if (moved)
                             root.launcher.selected = row.index
-                        }
                     }
                     onClicked: { root.launcher.selected = row.index; root.run("chosen") }
                 }
