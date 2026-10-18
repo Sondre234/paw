@@ -25,6 +25,7 @@ FlatButton {
         horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
         BatteryIcon {
             id: icon
+            size: Theme.barIconSize
             status: battery.status
             levelName: "batteryLevel"
         }

@@ -67,6 +67,7 @@ FlatButton {
             BatteryIcon {
                 objectName: "quickSettingsBattery"
                 visible: button.showBattery
+                size: Theme.barIconSize
                 status: button.status
             }
             // With none of those to show, a sign that settings are behind it.
