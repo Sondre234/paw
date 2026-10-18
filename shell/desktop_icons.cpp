@@ -611,6 +611,14 @@ int DesktopIcons::dropInto(const QString &key, const QList<QUrl> &urls, bool mov
     return int(list.size());
 }
 
+int DesktopIcons::moveInto(const QString &key, const QStringList &keys) {
+    QList<QUrl> urls;
+    for (const auto &moved : keys)
+        if (const int i = indexOf(moved); i >= 0 && !entries_[i].path.isEmpty() && moved != key)
+            urls.push_back(QUrl::fromLocalFile(entries_[i].path));
+    return dropInto(key, urls, true);
+}
+
 QString DesktopIcons::dropPicture(const QByteArray &data, const QString &type, const QUrl &from,
                                   int column, int row) {
     if (data.isEmpty() || !grid_.isValid() || !settings_.enabled || settings_.folder.isEmpty())

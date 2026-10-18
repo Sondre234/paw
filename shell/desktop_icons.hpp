@@ -128,6 +128,8 @@ class DesktopIcons : public QAbstractListModel {
     // the desktop folder; one there already, or the folder itself, is left where it is.
     Q_INVOKABLE int dropInto(const QString &key, const QList<QUrl> &urls, bool move,
                              const QByteArray &mozUrl = {});
+    // Moves the files of `keys`, icons on the desktop, into the folder of `key`, as dropInto() does.
+    Q_INVOKABLE int moveInto(const QString &key, const QStringList &keys);
     // Saves `data`, a picture of the MIME type `type` dragged from a browser, in the desktop
     // folder in the cell at `column` and `row`, named from `from`, its address, with the type's
     // extension ("Picture" without one); its key, or "" when there is nothing to save.
