@@ -2030,7 +2030,8 @@ whether it has, for something the compositor does another way without it, as the
   `TMPDIR` of 43 characters or more.
   Under `--headless`, `paw msg headless_output`, `headless_keyboard`, `headless_pointer`
   and `headless_touch` plug in outputs, keyboards, pointers and touchscreens
-  (`headless_keyboard key NAME CODE press` types on one, see `keymap_smoke.py`;
+  (`headless_keyboard key NAME CODE press [TIME]` types on one, at a given time in
+  milliseconds, see `keymap_smoke.py`;
   `headless_pointer swipe NAME update DX DY [TIME]` moves a touchpad gesture's fingers, at a given
   time in milliseconds, see `pointer_gestures_smoke.py`; `headless_touch down NAME ID X Y` puts a
   finger on a screen, see `touchscreen_smoke.py`), and `headless_switch` a lid or tablet-mode

@@ -99,17 +99,25 @@ static void remove_headless_keyboard(struct sh_headless_keyboard *keyboard) {
     free(keyboard);
 }
 
+/* Keyboards: "headless_keyboard add NAME", "headless_keyboard remove NAME" and
+ * "headless_keyboard key NAME CODE press|release [TIME]", the key's evdev code with an optional
+ * event time in milliseconds last, so that a test can say how long a key is held. */
 void control_headless_keyboard(struct sh_server *server, int fd, const char *arguments) {
+    static const char *usage = "error: usage: headless_keyboard add NAME | key NAME CODE "
+                               "press|release [TIME] | remove NAME\n";
     if (!headless_backend(server)) {
         control_reply(fd, "error: headless_keyboard needs --headless\n");
         return;
     }
-    char verb[16] = "", name[64] = "", state[16] = "", extra;
-    unsigned code = 0;
-    int fields = sscanf(arguments, "%15s %63s %u %15s %c", verb, name, &code, state, &extra);
-    struct sh_headless_keyboard *keyboard =
-        fields >= 2 ? find_headless(server, WLR_INPUT_DEVICE_KEYBOARD, name) : NULL;
-    if (!strcmp(verb, "add") && fields == 2) {
+    char words[6][64];
+    int count = split_words(arguments, words, 6);
+    if (count < 2 || count > 5) {
+        control_reply(fd, usage);
+        return;
+    }
+    const char *verb = words[0], *name = words[1];
+    struct sh_headless_keyboard *keyboard = find_headless(server, WLR_INPUT_DEVICE_KEYBOARD, name);
+    if (!strcmp(verb, "add") && count == 2) {
         if (keyboard) {
             control_reply(fd, "error: a keyboard with that name exists\n");
             return;
@@ -124,18 +132,22 @@ void control_headless_keyboard(struct sh_server *server, int fd, const char *arg
         control_reply(fd, "ok\n");
         return;
     }
-    if ((!strcmp(verb, "remove") && fields == 2) || (!strcmp(verb, "key") && fields == 4)) {
+    if ((!strcmp(verb, "remove") && count == 2) || (!strcmp(verb, "key") && count >= 4)) {
+        const char *state = count >= 4 ? words[3] : "";
         bool pressed = !strcmp(state, "press");
+        unsigned code = 0;
+        uint32_t time = 0;
         if (!keyboard) {
             control_reply(fd, "error: no such keyboard\n");
         } else if (!strcmp(verb, "remove")) {
             remove_headless_keyboard(keyboard);
             control_reply(fd, "ok\n");
-        } else if (code > KEY_MAX || (!pressed && strcmp(state, "release"))) {
-            control_reply(fd, "error: usage: headless_keyboard key NAME CODE press|release\n");
+        } else if (!parse_unsigned(words[2], &code) || code > KEY_MAX ||
+                   (!pressed && strcmp(state, "release")) || !event_time(words, count, 4, &time)) {
+            control_reply(fd, usage);
         } else {
             struct wlr_keyboard_key_event event = {
-                .time_msec = (uint32_t)now_ms(),
+                .time_msec = time,
                 .keycode = code,
                 .update_state = true,
                 .state = pressed ? WL_KEYBOARD_KEY_STATE_PRESSED : WL_KEYBOARD_KEY_STATE_RELEASED,
@@ -145,8 +157,7 @@ void control_headless_keyboard(struct sh_server *server, int fd, const char *arg
         }
         return;
     }
-    control_reply(fd, "error: usage: headless_keyboard add NAME | key NAME CODE press|release | "
-                      "remove NAME\n");
+    control_reply(fd, usage);
 }
 
 /* Pointers: "headless_pointer add NAME", "headless_pointer remove NAME",
