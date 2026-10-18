@@ -255,32 +255,34 @@ QList<DesktopIcons::Entry> DesktopIcons::read() const {
     });
     if (files.size() > maxFiles)
         files.resize(maxFiles);
-    static const auto pictures = QImageReader::supportedMimeTypes();
-    QMimeDatabase types;
-    for (const auto &file : files) {
-        Entry entry{"file:" + file.fileName(), file.fileName(), {}, {}, file.absoluteFilePath(),
-                    "file", {}};
-        if (file.isDir()) {
-            entry.kind = "folder";
-            entry.icon = "folder";
-        } else if (file.suffix() == "desktop") {
-            if (GDesktopAppInfo *info =
-                    g_desktop_app_info_new_from_filename(entry.path.toUtf8().constData())) {
-                entry.kind = "app";
-                entry.name = QString::fromUtf8(g_app_info_get_display_name(G_APP_INFO(info)));
-                entry.icon = gioIconName(g_app_info_get_icon(G_APP_INFO(info)), "application-x-executable");
-                g_object_unref(info);
-            }
-        }
-        if (entry.kind == "file") {
-            const auto type = types.mimeTypeForFile(file);
-            entry.icon = type.iconName() + ',' + type.genericIconName() + ",text-x-generic";
-            if (pictures.contains(type.name().toLatin1()) && file.size() <= maxPicture)
-                entry.picture = QUrl::fromLocalFile(entry.path).toString();
-        }
-        entries.push_back(entry);
-    }
+    for (const auto &file : files)
+        entries.push_back(fileEntry(file));
     return entries;
+}
+
+DesktopIcons::Entry DesktopIcons::fileEntry(const QFileInfo &file) {
+    static const auto pictures = QImageReader::supportedMimeTypes();
+    Entry entry{"file:" + file.fileName(), file.fileName(), {}, {}, file.absoluteFilePath(),
+                "file", {}};
+    if (file.isDir()) {
+        entry.kind = "folder";
+        entry.icon = "folder";
+    } else if (file.suffix() == "desktop") {
+        if (GDesktopAppInfo *info =
+                g_desktop_app_info_new_from_filename(entry.path.toUtf8().constData())) {
+            entry.kind = "app";
+            entry.name = QString::fromUtf8(g_app_info_get_display_name(G_APP_INFO(info)));
+            entry.icon = gioIconName(g_app_info_get_icon(G_APP_INFO(info)), "application-x-executable");
+            g_object_unref(info);
+        }
+    }
+    if (entry.kind == "file") {
+        const auto type = QMimeDatabase().mimeTypeForFile(file);
+        entry.icon = type.iconName() + ',' + type.genericIconName() + ",text-x-generic";
+        if (pictures.contains(type.name().toLatin1()) && file.size() <= maxPicture)
+            entry.picture = QUrl::fromLocalFile(entry.path).toString();
+    }
+    return entry;
 }
 
 void DesktopIcons::rescan() {

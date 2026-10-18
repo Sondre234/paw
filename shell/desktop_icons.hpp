@@ -8,6 +8,7 @@
 #include <QStringList>
 #include <QTimer>
 
+class QFileInfo;
 class QFileSystemWatcher;
 
 // The icons on the desktop (shell.desktop_icons): the configured launchers, then the folders and
@@ -111,6 +112,8 @@ class DesktopIcons : public QAbstractListModel {
     QFileSystemWatcher *watcher_ = nullptr;
     QTimer settle_;                  // the folder's changes settling before it is read
     QList<Entry> read() const;
+    // A file's or folder's entry, without a cell.
+    static Entry fileEntry(const QFileInfo &file);
     // The rows of `keys` (none twice), and where they land moved by `offset`.
     QList<QPoint> landed(const QStringList &keys, QPoint offset, QList<int> &moved) const;
     void sync(QList<Entry> entries);
