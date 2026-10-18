@@ -8507,6 +8507,17 @@ ListModel {
             press(Qt::Key_Left);
             if (current() != "launcher:Test app")
                 return fail("Left from the desktop note did not go back to the launcher");
+            // Hidden with the icons, taking no clicks, and shown again with them.
+            const QPoint noteAt = centre(note(key));
+            subscriber->write("desktop-icons off\n");
+            if (!waitFor([&] { return !note(key)->isVisible() && !tile("launcher:Test app")->isVisible(); }))
+                return fail("hiding the desktop's icons left its notes showing");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, noteAt);
+            if (field())
+                return fail("a hidden desktop note was written on");
+            subscriber->write("desktop-icons on\n");
+            if (!waitFor([&] { return note(key)->isVisible() && note(key)->property("reveal").toReal() == 1; }))
+                return fail("showing the desktop's icons did not bring their notes back");
             notes->remove(key);
             if (!waitFor([&] { return !note(key); }))
                 return fail("the desktop note did not go");
