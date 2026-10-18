@@ -86,9 +86,14 @@ struct probe {
     // what it hears (see the data source's and data device's listeners). =bare: a press drags
     // nothing, with no data source and an icon, as a drag within one window does; the first
     // with a serial the press did not give, which the compositor turns down. Each prints
-    // "bare drag asked" once the compositor has had the request.
+    // "bare drag asked" once the compositor has had the request. PAW_PROBE_DRAG_MIME is what a
+    // source offers and a target takes in place of a line of text (text/uri-list for files),
+    // PAW_PROBE_DRAG_TEXT what a source sends, and PAW_PROBE_DRAG_ACTIONS=move has a source offer
+    // only to move it, as GTK's file managers do with Shift held.
     bool drag_source, drag_target, drag_bare;
     int bare_drags;
+    const char *drag_mime, *drag_text;
+    uint32_t drag_actions;
     struct wl_data_device_manager *data_manager;
     struct wl_data_device *data_device;
     struct wl_data_offer *offer; // the drag's offer while it is over the window
@@ -249,8 +254,8 @@ static void source_target(void *data, struct wl_data_source *source, const char 
     say("drag target %s", mime ? mime : "-");
 }
 static void source_send(void *data, struct wl_data_source *source, const char *mime, int32_t fd) {
-    static const char text[] = "paw drag";
-    if (write(fd, text, sizeof(text) - 1) < 0)
+    struct probe *probe = data;
+    if (write(fd, probe->drag_text, strlen(probe->drag_text)) < 0)
         die("cannot send the dragged text");
     close(fd);
 }
@@ -272,14 +277,12 @@ static const struct wl_data_source_listener source_listener = {
     .target = source_target, .send = source_send, .cancelled = source_cancelled,
     .dnd_drop_performed = source_dropped, .dnd_finished = source_finished,
     .action = source_action};
-static const char drag_mime[] = "text/plain;charset=utf-8";
 /* Starts dragging from the window, for the press that `serial` names. */
 static void start_drag(struct probe *probe, uint32_t serial) {
     struct wl_data_source *source = wl_data_device_manager_create_data_source(probe->data_manager);
     wl_data_source_add_listener(source, &source_listener, probe);
-    wl_data_source_offer(source, drag_mime);
-    wl_data_source_set_actions(source, WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY |
-                                           WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE);
+    wl_data_source_offer(source, probe->drag_mime);
+    wl_data_source_set_actions(source, probe->drag_actions);
     wl_data_device_start_drag(probe->data_device, source, probe->surface, NULL, serial);
 }
 /* The compositor has had the request: the drag is under way or turned down, and its icon (which
@@ -318,7 +321,7 @@ static void device_enter(void *data, struct wl_data_device *device, uint32_t ser
     probe->offer = offer;
     if (!offer || !probe->drag_target)
         return;
-    wl_data_offer_accept(offer, serial, drag_mime);
+    wl_data_offer_accept(offer, serial, probe->drag_mime);
     wl_data_offer_set_actions(offer, WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY,
                               WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
     say("drop offered");
@@ -336,16 +339,20 @@ static void device_drop(void *data, struct wl_data_device *device) {
     int fds[2];
     if (!probe->offer || !probe->drag_target || pipe(fds) < 0)
         return;
-    wl_data_offer_receive(probe->offer, drag_mime, fds[1]);
+    wl_data_offer_receive(probe->offer, probe->drag_mime, fds[1]);
     close(fds[1]);
     wl_display_flush(wl_proxy_get_display((struct wl_proxy *)device));
-    char text[64];
+    char text[4096];
     size_t length = 0;
     ssize_t count;
     while (length < sizeof(text) - 1 && (count = read(fds[0], text + length, sizeof(text) - 1 - length)) > 0)
         length += (size_t)count;
     close(fds[0]);
     text[length] = '\0';
+    // A list's lines on one line, by spaces.
+    for (char *c = text; *c; ++c)
+        if (*c == '\r' || *c == '\n')
+            *c = ' ';
     say("drop received %s", text);
     wl_data_offer_finish(probe->offer);
     wl_data_offer_destroy(probe->offer);
@@ -1004,6 +1011,13 @@ int main(int argc, char **argv) {
     probe.drag_source = drag && !strcmp(drag, "source");
     probe.drag_target = drag && !strcmp(drag, "target");
     probe.drag_bare = drag && !strcmp(drag, "bare");
+    const char *drag_mime = getenv("PAW_PROBE_DRAG_MIME"), *drag_text = getenv("PAW_PROBE_DRAG_TEXT");
+    const char *drag_actions = getenv("PAW_PROBE_DRAG_ACTIONS");
+    probe.drag_mime = drag_mime && *drag_mime ? drag_mime : "text/plain;charset=utf-8";
+    probe.drag_text = drag_text ? drag_text : "paw drag";
+    probe.drag_actions = drag_actions && !strcmp(drag_actions, "move")
+                             ? WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE
+                             : WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY | WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE;
     if (probe.drag_source || probe.drag_target || probe.drag_bare) {
         if (!probe.data_manager)
             die("wl_data_device_manager version 3 is not advertised");

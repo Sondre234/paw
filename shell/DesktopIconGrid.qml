@@ -11,10 +11,21 @@ import QtQuick.Shapes
 // counting what it holds, each icon it catches hopping as it does. Dragged, the selected icons
 // gather under the pointer into a stack with their count, while dashed pads on the grid show the
 // cells they will land in, gliding from cell to cell; let go, they glide into those cells, the
-// furthest last. Shown and hidden from the desktop's menu, the icons ripple out from where it was
-// opened. Moved to the Trash, they shrink away, and a notice at the foot of the desktop
-// (DesktopToast) says what went, with Undo, which pops them back into the cells they left in a
-// ripple from it, each with a puff of sparkles.
+// furthest last. On Wayland the drag is the compositor's, so that it reaches any window: the
+// icons stay in their cells, faded, while it carries a picture of their stack (DesktopDragStack)
+// with the pointer, the files going to the window they are dropped on; over the desktop its
+// events (dropArea) move the pads, and let go there the icons come out of the stack where it was.
+// Files dragged from another application (a file manager's, a browser's links and pictures) show
+// pads where they would land as they are carried over the desktop, and are copied there, or moved
+// where the drag's source proposes it, as a file manager takes them. A drag over a folder's icon,
+// of the desktop's own icons or another application's files, opens it up instead, and dropped there
+// the files go into the folder, which gulps them down. Another application's drag has a bubble by
+// the pointer in the band's two hues, counting what it brings, with a plus to copy, arrows to move,
+// or an open folder over a folder's icon; dropped, a puff of sparkles marks each cell the files
+// land in. Shown and hidden from the desktop's menu, the icons ripple out from where it was opened.
+// Moved to the Trash, they shrink away, and a notice at the foot of the desktop (DesktopToast)
+// says what went, with Undo, which pops them back into the cells they left in a ripple from it,
+// each with a puff of sparkles.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -351,9 +362,7 @@ FocusScope {
         const back = model.untrash().map(key => tileOf(key)).filter(tile => !!tile)
         for (const tile of back) {
             tile.popIn()
-            if (Theme.duration(700) > 0)
-                puff.createObject(grid, { x: tile.x + tile.width / 2, y: tile.y + Theme.spacingM + iconSize / 2,
-                                          delay: rippleDelay(tile) })
+            puffAt(tile.x, tile.y, rippleDelay(tile))
         }
         if (back.length > 0) {
             select(back.map(tile => tile.key))
@@ -409,23 +418,38 @@ FocusScope {
         target: grid
         function onPressed() { grid.finishRename(grid.renameText, false) }
     }
+    // The cell under `x`, `y`, the nearest on the grid.
+    function cellAt(x, y) {
+        return Qt.point(Math.max(0, Math.min(columns - 1, Math.floor((x - area.x - margin) / cellWidth))),
+                        Math.max(0, Math.min(rows - 1, Math.floor((y - area.y - margin) / cellHeight))))
+    }
     // A new folder in the cell under `x`, `y` (or the free one nearest it), popping in with a puff
     // of sparkles, its name to type.
     function newFolder(x, y) {
-        const column = Math.max(0, Math.min(columns - 1, Math.floor((x - area.x - margin) / cellWidth)))
-        const row = Math.max(0, Math.min(rows - 1, Math.floor((y - area.y - margin) / cellHeight)))
+        const cell = cellAt(x, y)
         rippleOrigin = Qt.point(x, y)
-        const tile = tileOf(model.newFolder(column, row))
+        const tile = tileOf(model.newFolder(cell.x, cell.y))
         if (!tile)
             return
-        if (Theme.duration(700) > 0)
-            puff.createObject(grid, { x: tile.x + tile.width / 2, y: tile.y + Theme.spacingM + iconSize / 2 })
+        puffAt(tile.x, tile.y)
         startRename(tile.key)
     }
 
     // The drag of the selected icons: `anchorKey` under the pointer, the others in `dragKeys`
     // after it; where the pointer went down and is now; and where they would land.
     property bool dragging: false
+    // Whether a drag of files is the compositor's (a drag of Wayland's, out to any window): on
+    // Qt's Wayland platform. Elsewhere, as on the tests' offscreen one, the icons follow the
+    // pointer over the desktop alone.
+    readonly property bool handsOver: Qt.platform.pluginName === "wayland"
+    // The drag handed over: the icons faded in their cells while their stack's picture is taken,
+    // and the compositor has it (`carried`) until it ends (`model.dragEnded`); whether it is over
+    // something other than the desktop (`away`), and whether the icons are coming out of the stack
+    // where it was let go (`snapping`).
+    property bool handedOver: false
+    property bool carried: false
+    property bool away: false
+    property bool snapping: false
     property var dragKeys: []
     property int anchorColumn: 0
     property int anchorRow: 0
@@ -439,7 +463,22 @@ FocusScope {
     readonly property int dragRows: Math.round((dragY - area.y - margin) / cellHeight) - anchorRow
     onDragColumnsChanged: updateLanding()
     onDragRowsChanged: updateLanding()
-    function updateLanding() { landing = dragging ? model.landing(dragKeys, dragColumns, dragRows) : [] }
+    function updateLanding() {
+        landing = dragging && !away && dropFolder === "" ? model.landing(dragKeys, dragColumns, dragRows) : []
+    }
+    onAwayChanged: updateLanding()
+    // The folder icon a drag is over, which takes in what is dropped on it: its key, "" for none.
+    property string dropFolder: ""
+    onDropFolderChanged: if (incomingOver) incomingLanding(); else updateLanding()
+    // The folder's icon under `x`, `y`, not one of those dragged; "" for none.
+    function folderAt(x, y) {
+        for (const tile of tiles())
+            if (tile.visible && tile.placed && tile.kind === "folder" && !tile.dragged && !tile.leaving &&
+                x >= tile.x + Theme.spacingXS && x < tile.x + tile.width - Theme.spacingXS &&
+                y >= tile.y + Theme.spacingXS && y < tile.y + tile.height - Theme.spacingXS)
+                return tile.key
+        return ""
+    }
     function beginDrag(tile, at) {
         dragKeys = [tile.key].concat(selectionOrder.filter(key => key !== tile.key))
         anchorColumn = tile.column
@@ -449,17 +488,95 @@ FocusScope {
         dragPointer = at
         gliding = false
         tidying = false
+        away = false
+        // Launchers alone stay on the desktop.
+        handedOver = handsOver && dragKeys.some(key => { const t = tileOf(key); return t && t.kind !== "launcher" })
         dragging = true
         updateLanding()
+        if (handedOver) {
+            dragStack.tiles = dragKeys.map(key => tileOf(key)).filter(t => !!t)
+            dragStack.wanted = true
+            dragStack.take()
+        }
     }
-    function dragTo(at) { dragPointer = at }
+    function dragTo(at) {
+        dragPointer = at
+        dropFolder = folderAt(at.x, at.y)
+    }
+    // The stack's picture is taken: the compositor carries it, the pointer at the place on it of
+    // where the icon was pressed. A drag it never got (the button let go meanwhile, or nothing to
+    // hand over) goes on as the pointer's.
+    function carry(image, scale) {
+        if (!dragging || !handedOver)
+            return
+        const hotSpot = Qt.point(dragStack.origin.x + dragStart.x - anchorHome.x,
+                                 dragStack.origin.y + dragStart.y - anchorHome.y)
+        carried = model.drag(dragKeys, image, hotSpot, scale)
+        handedOver = carried
+    }
+    Connections {
+        target: grid.model
+        // Dropped on another window, or let go nowhere: the icons fade back in in their cells.
+        function onDragEnded(action) {
+            grid.carried = false
+            if (grid.dragging && grid.handedOver)
+                grid.endDrag(true)
+        }
+    }
     function endDrag(cancelled) {
+        const into = cancelled ? "" : dropFolder
+        dropFolder = ""
+        // Let go on the desktop, a stack the compositor carried comes out where it was let go,
+        // its icons gliding from there.
+        if (handedOver && !cancelled && into === "") {
+            snapping = true
+            handedOver = false
+            snapping = false
+        }
+        handedOver = false
+        dragStack.wanted = false
         gliding = true
         settleGlide.restart()
-        if (!cancelled)
+        if (into !== "")
+            dropInto(into, dragKeys)
+        else if (!cancelled)
             model.move(dragKeys, dragColumns, dragRows)
         dragging = false
+        away = false
         landing = []
+    }
+    // The files of `keys`, icons dropped on the folder icon of `key`, go into it: they shrink away
+    // as it gulps them down, and come back should their files stay.
+    function dropInto(key, keys) {
+        const files = keys.map(k => tileOf(k)).filter(t => t && t.kind !== "launcher" && t.key !== key)
+        if (model.moveInto(key, files.map(t => t.key)) === 0)
+            return
+        for (const t of files)
+            t.leaving = true
+        gulp(key)
+        stayed.restart()
+    }
+    Timer {
+        id: stayed
+        interval: 1500
+        onTriggered: {
+            for (const tile of grid.tiles())
+                tile.leaving = false
+        }
+    }
+    // The folder icon of `key` takes in what was dropped on it.
+    function gulp(key) {
+        const tile = tileOf(key)
+        if (!tile)
+            return
+        tile.gulp()
+        puffAt(tile.x, tile.y)
+    }
+    // A puff where the icon of a cell whose top left is at `x`, `y` is, after `delay` milliseconds.
+    function puffAt(x, y, delay) {
+        if (Theme.duration(700) > 0)
+            puff.createObject(grid, { x: x + cellWidth / 2, y: y + Theme.spacingM + iconSize / 2,
+                                      delay: delay || 0 })
     }
     // Whether the icons are gliding into cells they were dropped on or tidied into, rather than
     // trailing the pointer.
@@ -545,6 +662,132 @@ FocusScope {
         }
         onReleased: grid.banding = false
         onCanceled: grid.banding = false
+    }
+
+    // A drag from another application over the desktop: the addresses it holds, the picture it
+    // offers with none of a file (a browser's image, saved as a file of its type, "" for none),
+    // whether it would move the files rather than copy them, and where it is.
+    property var incoming: []
+    property string incomingPicture: ""
+    property bool incomingMove: false
+    property bool incomingOver: false
+    property point incomingAt
+    readonly property point incomingCell: cellAt(incomingAt.x, incomingAt.y)
+    onIncomingCellChanged: if (incomingOver) incomingLanding()
+    // The MIME type of the picture `formats` hold, the one that `urls`' first names by its
+    // extension or else PNG; "" with a file among `urls`, which is dropped as a file.
+    function pictureType(formats, urls) {
+        const types = formats.filter(type => type.startsWith("image/"))
+        if (types.length === 0 || urls.some(url => url.toString().startsWith("file:")))
+            return ""
+        const name = urls.length > 0 ? urls[0].toString().split(/[?#]/)[0].toLowerCase() : ""
+        const own = types.find(type => name.endsWith("." + type.slice(6)) ||
+                                       (type === "image/jpeg" && /\.jpe?g$/.test(name)))
+        return own || (types.indexOf("image/png") >= 0 ? "image/png" : types[0])
+    }
+    function incomingLanding() {
+        landing = incomingOver && dropFolder === "" ? model.dropLanding(incoming.slice(0, incomingPicture !== "" ? 1 : incoming.length),
+                                                   incomingCell.x, incomingCell.y) : []
+    }
+
+    // Drags over the desktop: one the compositor carries of its icons, the pointer moving the pads
+    // and let go here landing them as from the pointer's own drag; and one from another
+    // application, taken where it holds files, web addresses or a picture, and a copy or a move.
+    DropArea {
+        id: dropArea
+        anchors.fill: parent
+        enabled: grid.shown
+        function follow(drag, entering) {
+            if (drag.source === grid.model) {
+                if (!grid.dragging || !grid.handedOver) {
+                    drag.accepted = false
+                    return
+                }
+                grid.away = false
+                grid.dragTo(Qt.point(drag.x, drag.y))
+                drag.accept(Qt.MoveAction)
+                return
+            }
+            if (entering) {
+                grid.incoming = drag.hasUrls ? drag.urls : []
+                grid.incomingPicture = grid.pictureType(drag.formats, grid.incoming)
+                grid.incomingMove = drag.proposedAction === Qt.MoveAction
+            }
+            const takes = (drag.supportedActions & (Qt.CopyAction | Qt.MoveAction)) !== 0 &&
+                          (grid.incomingPicture !== "" || grid.incoming.some(url => /^(file|https?):/.test(url.toString())))
+            if (!takes) {
+                drag.accepted = false
+                return
+            }
+            grid.incomingAt = Qt.point(drag.x, drag.y)
+            grid.dropFolder = grid.incomingPicture === "" ? grid.folderAt(drag.x, drag.y) : ""
+            if (entering) {
+                grid.incomingOver = true
+                grid.incomingLanding()
+            }
+            drag.accept(grid.incomingMove ? Qt.MoveAction : Qt.CopyAction)
+        }
+        onEntered: function(drag) { follow(drag, true) }
+        onPositionChanged: function(drag) { follow(drag, false) }
+        onExited: {
+            if (grid.handedOver)
+                grid.away = true
+            if (grid.incomingOver) {
+                grid.incomingOver = false
+                grid.landing = []
+            }
+            grid.dropFolder = ""
+        }
+        onDropped: function(drop) {
+            if (drop.source === grid.model) {
+                if (!grid.dragging || !grid.handedOver)
+                    return
+                grid.dragTo(Qt.point(drop.x, drop.y))
+                grid.endDrag(false)
+                drop.accept(Qt.MoveAction)
+                return
+            }
+            if (!grid.incomingOver)
+                return
+            const cell = grid.cellAt(drop.x, drop.y)
+            const moz = drop.formats.indexOf("text/x-moz-url") >= 0
+                ? drop.getDataAsArrayBuffer("text/x-moz-url") : new ArrayBuffer(0)
+            const into = grid.dropFolder
+            const cells = grid.landing
+            const taken = into !== "" ? grid.model.dropInto(into, grid.incoming, grid.incomingMove, moz) > 0
+                : grid.incomingPicture !== ""
+                ? grid.model.dropPicture(drop.getDataAsArrayBuffer(grid.incomingPicture), grid.incomingPicture,
+                                         grid.incoming.length > 0 ? grid.incoming[0] : "", cell.x, cell.y) !== ""
+                : grid.model.drop(grid.incoming, cell.x, cell.y, grid.incomingMove, moz) > 0
+            grid.incomingOver = false
+            grid.dropFolder = ""
+            grid.landing = []
+            if (taken && into !== "")
+                grid.gulp(into)
+            else if (taken)
+                for (const cell of cells.slice(0, 12))
+                    grid.puffAt(grid.cellX(cell.column), grid.cellY(cell.row))
+            if (taken)
+                drop.accept(grid.incomingMove ? Qt.MoveAction : Qt.CopyAction)
+        }
+    }
+
+    // The picture of the dragged stack the compositor carries.
+    DesktopDragStack {
+        id: dragStack
+        board: grid
+        // Taken once every picture in it has loaded.
+        property bool wanted: false
+        onReadyChanged: take()
+        function take() {
+            if (!wanted || !ready)
+                return
+            wanted = false
+            const scale = Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1
+            if (!grabToImage(function(result) { grid.carry(result.image, scale) },
+                             Qt.size(Math.ceil(width * scale), Math.ceil(height * scale))))
+                grid.handedOver = false
+        }
     }
 
     // The cells the dragged icons will land in.
@@ -734,6 +977,85 @@ FocusScope {
                     easing.type: Easing.OutCubic
                 }
                 ScriptAction { script: burst.destroy() }
+            }
+        }
+    }
+
+    // What another application's drag brings, by the pointer: how many, and what dropping them
+    // does. It pops in as the drag comes, and hops as that changes, a sparkle twinkling on its
+    // corner.
+    Item {
+        id: arrival
+        objectName: "desktopIncoming"
+        readonly property int count: grid.incomingPicture !== "" ? 1
+            : grid.incoming.filter(url => /^(file|https?):/.test(url.toString())).length
+        readonly property string glyph: grid.dropFolder !== "" ? "folder-open" : grid.incomingMove ? "move" : "plus"
+        readonly property color ink: Theme.contrast(Theme.mix(Theme.accent, grid.partner, 0.5), "#ffffff") >= 3
+                                     ? "#ffffff" : Theme.text
+        z: 130
+        width: arrivalPill.width
+        height: arrivalPill.height
+        x: Math.max(Theme.spacingS, Math.min(grid.width - width - Theme.spacingS, grid.incomingAt.x + 14))
+        y: Math.max(Theme.spacingS, grid.incomingAt.y - height - 12)
+        visible: scale > 0.01
+        scale: grid.incomingOver ? 1 : 0
+        Behavior on scale { NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack; easing.overshoot: 2.2 } }
+        onGlyphChanged: if (visible) arrivalHop.restart()
+        onCountChanged: if (visible) arrivalHop.restart()
+        Rectangle {
+            id: arrivalPill
+            height: 24
+            width: Math.max(height, arrivalMark.width + arrivalTally.implicitWidth + 3 * Theme.spacingS + 2)
+            radius: height / 2
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: Theme.accent }
+                GradientStop { position: 1; color: grid.partner }
+            }
+            border.color: Theme.surface
+            border.width: 2
+            Icon {
+                id: arrivalMark
+                name: arrival.glyph
+                size: 12
+                color: arrival.ink
+                x: Theme.spacingS + 2
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            Text {
+                id: arrivalTally
+                x: arrivalMark.x + arrivalMark.width + Theme.spacingXS
+                anchors.verticalCenter: parent.verticalCenter
+                text: arrival.count
+                color: arrival.ink
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeCaption
+                font.bold: true
+            }
+            SequentialAnimation on scale {
+                id: arrivalHop
+                running: false
+                NumberAnimation { to: 1.2; duration: Theme.duration(80); easing.type: Easing.OutQuad }
+                NumberAnimation { to: 1; duration: Theme.duration(200); easing.type: Easing.OutBack }
+            }
+        }
+        Icon {
+            name: "sparkles"
+            size: 11
+            color: grid.partner
+            x: arrivalPill.width - width / 2 - 1
+            y: -height / 2 + 1
+            SequentialAnimation on scale {
+                running: arrival.visible && Theme.duration(100) > 0
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.7; to: 1.15; duration: Theme.duration(520); easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.7; duration: Theme.duration(520); easing.type: Easing.InOutSine }
+            }
+            RotationAnimation on rotation {
+                running: arrival.visible && Theme.duration(100) > 0
+                loops: Animation.Infinite
+                from: 0; to: 360
+                duration: Theme.duration(4000)
             }
         }
     }

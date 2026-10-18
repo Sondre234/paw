@@ -22,6 +22,11 @@ QPoint nearestFree(QSize grid, QPoint wanted, const QList<QPoint> &taken);
 // are placed before the others, so that an icon remembered somewhere keeps its place from a new
 // one; keys past the grid's last cell go on down columns beyond it.
 QList<QPoint> arrange(const QStringList &keys, const QHash<QString, QPoint> &saved, QSize grid);
+// The cells of `count` icons dropped together on `from` from elsewhere (a file manager's files):
+// the free ones from `from` down its column, then down each column after it from the same row on,
+// a block growing down and to the right; once those run out, the free ones nearest `from`. None of
+// `taken`.
+QList<QPoint> flow(QSize grid, QPoint from, int count, const QList<QPoint> &taken);
 // Where icons dragged together land, `offset` cells from `cells`, where they are: each in the cell
 // it is dragged to while that is on the grid and none of `others` (the icons left where they are)
 // or of those of `cells` before it has it, else the free cell nearest it. The first of `cells`

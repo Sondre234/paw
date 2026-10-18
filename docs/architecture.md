@@ -1358,7 +1358,7 @@ what was there.
 | `StartHome.qml`, `StartAllApps.qml`, `StartSearch.qml`, `StartBestMatch.qml`, `StartTile.qml`, `StartRow.qml`, `UserAvatar.qml` | Parts of the start menu (`Launcher.qml`): its pinned and recent applications, every application from A to Z, what its search finds and the best match of it, a pinned application, a row of its lists, the user's picture. |
 | `Launchpad.qml` | The launcher of the macOS style, in the start menu's place: every application on pages of a grid over the whole output, with a search. |
 | `Desktop.qml` | The wallpaper of its output (`ShellView::wallpaper`, the output's own or every monitor's), each new one fading in over those before, the desktop clock, the desktop's icons and the desktop's menus (the icons' Open with listing the model's `openers` as it opens), on the background layer, taking the keyboard on demand while it has the icons (`ShellView::keyboardOnDemand`, which the compositor gives it from a click, as to a window). |
-| `DesktopIconGrid.qml`, `DesktopIcon.qml` | The desktop's icons (`shell.desktopIcons`) on the main monitor: their grid, which it tells the model once the desktop's size has settled, the selection (Ctrl + click and Shift + click too) and its band, a drag of the selected onto the cells the model says they land in (`landing`), and the ripple as they are shown and hidden; the keys while the desktop has the keyboard, a `FocusScope`: the current icon (`current`) and its ring, type-ahead, and the name being typed (`renaming`), given to the model's `rename` as Enter is pressed, the field loses the keyboard or a press lands elsewhere; a new folder from the model's `newFolder`, with its puff; the files put back by the model's `untrash` (the notice's Undo, Ctrl + Z), each popping in again with a puff in a ripple from the notice; Open with's choice handed to the model's `openWith`; one icon, its picture or a print of the picture file, its name on a chip, which turns into the field, and how it glides, trails, hops and pops in. |
+| `DesktopIconGrid.qml`, `DesktopIcon.qml`, `DesktopIconArt.qml`, `DesktopDragStack.qml` | The desktop's icons (`shell.desktopIcons`) on the main monitor: their grid, which it tells the model once the desktop's size has settled, the selection (Ctrl + click and Shift + click too) and its band, a drag of the selected onto the cells the model says they land in (`landing`), on Wayland the compositor's, carrying a picture of their stack (`DesktopDragStack`), drops from other applications (`dropArea`) with their pads, bubble and puffs, and a folder's icon taking what is dropped on it (`dropFolder`), and the ripple as they are shown and hidden; the keys while the desktop has the keyboard, a `FocusScope`: the current icon (`current`) and its ring, type-ahead, and the name being typed (`renaming`), given to the model's `rename` as Enter is pressed, the field loses the keyboard or a press lands elsewhere; a new folder from the model's `newFolder`, with its puff; the files put back by the model's `untrash` (the notice's Undo, Ctrl + Z), each popping in again with a puff in a ripple from the notice; Open with's choice handed to the model's `openWith`; one icon, its picture or a print of the picture file (`DesktopIconArt`), its name on a chip, which turns into the field, and how it glides, trails, hops and pops in. |
 | `DesktopToast.qml` | The notice at the foot of the desktop's icons after a move to the Trash: what went, Undo (the grid's `untrash`) and a cross, on a chip rimmed in the band's two hues, a ring draining around its badge for the time it stays, held while the pointer rests on it; it never takes the keyboard. |
 | `DrawnWallpaper.qml` | The wallpaper the macOS style draws while none is set, light or dark, from the background colour and the accent. |
 | `DesktopClock.qml` | The desktop clock (`shell.desktop_clock`, experimental): the time, the date and a greeting over the wallpaper, outside the backdrop the frosted glass takes, changing once a minute. |
@@ -1440,7 +1440,8 @@ GIO, for each selected file's type, for its default, recommended and other appli
 keeps those that take every type, grouped; `openWith` hands GIO the files' URIs at once, which
 starts the application once for them all when its command takes several. Tested by
 `desktop_icons_test`, on applications, associations and a trash of its own, and
-`desktop_grid_test`), `wallpaper_cycle.cpp`
+`desktop_grid_test`. Files dropped on the desktop or into a folder of it, and the files a drag out
+of it hands over, are the next section's), `wallpaper_cycle.cpp`
 (the wallpaper slideshow's order and timer, `shell.wallpaper_cycle`, whose pictures
 `ShellController::stepWallpaper` picks as a picked wallpaper, tested by `wallpaper_cycle_test`).
 `preview.cpp` has
@@ -1604,7 +1605,15 @@ so that a drag enters it only as it comes onto the surface, when Qt follows the 
 at once; an item entered by a later move would answer that move with its enter, which takes the
 drag. `shell_ui_test` hands the windows drag events as Qt's Wayland platform does. A drag holds the keyboard in the compositor, and wlroots
 lets no focus change through it: `drag_ended` (`input.c`) gives the keyboard to the window
-focused meanwhile once the drag ends, and the pointer to the surface under it.
+focused meanwhile once the drag ends, and the pointer to the surface under it. wlroots also starts
+a drag over nothing, until the pointer next moves, so that one a client starts a moment after the
+pointer came to rest (the desktop's, which first takes a picture of what it carries) and let go
+there would be dropped on nothing: `seat_start_drag` gives it the surface under the pointer at
+once, from an idle callback (`drag_entering`), after every listener of the seat's `start_drag`,
+XWayland's window manager among them, has heard of it. The pointer taken off every surface (over
+the bare desktop, a window's controls, its resize band) leaves through the pointer's grab
+(`wlr_seat_pointer_notify_clear_focus` in `process_pointer_target`), so that a drag there is over
+nothing rather than the surface it was last over.
 
 The speaker on a picture's tile is a `WindowSound` (`audio.cpp`), which the tile makes with the
 panel's `audioSource` and `taskSource` and its window's `pid` (`TaskModel`'s role, from the window
@@ -1784,6 +1793,53 @@ word typed; `tests/shortcuts_test.cpp` tests both and the model. `shortcuts OUTP
 `shortcuts` action toggles it, in a `PickerView` that covers the output (`cover`: anchored to
 every edge, an exclusive zone of -1, its root sized to it), where `Shortcuts.qml` lays the groups
 out in as many columns as the width allows, each group in the shortest so far.
+
+### The desktop's drag and drop
+
+On Wayland the compositor sends a drag's events to the surface under the pointer, whichever
+client's it is, and gives a surface the pointer only while it is over it, a button held or not: a
+drag the desktop followed with its own pointer events could never reach a window. So once the
+icons begin to move (`beginDrag`, in `DesktopIconGrid.qml`), while files are among them and Qt's
+platform is Wayland's (`handsOver`), the grid hands the drag over: the icons stay in their cells,
+faded (`lifted`), a `DesktopDragStack` that never shows itself draws them fanned on cards, and once
+its pictures have loaded its `grabToImage` picture goes to `DesktopIcons::drag`, which starts a
+`QDrag` with what `copy()` puts on the clipboard (`fileData`: `text/uri-list`, `text/plain` paths
+and `x-special/gnome-copied-files`) from the event loop, `QDrag::exec` running a loop of its own
+until it ends with `dragEnded`. The drag starts from the desktop's background layer surface like
+any other client's; while the compositor has it (`carried`), every icon's `MouseArea` is disabled,
+as Qt never hears the button let go. Over the desktop the drag comes back as drag events, which a
+`DropArea` over the grid (`dropArea`) follows when its `source` is the model: they move the pads,
+`away` hides them while it is over something else, and a drop there lands the icons as the
+pointer's own drag would, coming out of the stack where it was (`snapping` places them there
+without a glide, then they glide into their cells). Under the tests' offscreen platform, where a
+`QDrag` ends at once, the icons follow the pointer's own events as before, which `shell_ui_test`
+drives.
+
+A drag from another application is taken where it holds files or web addresses (`incoming`, from
+`text/uri-list`) or a browser's picture with no file among them (`incomingPicture`, the `image/*`
+type its address names, else PNG), as a copy, or as a move where the drag's proposed action is one
+(a source offering only to move, as GTK's file managers do with Shift held). Qt's Wayland platform
+reads the offer's data from the source as the drag enters. Its pads come from
+`DesktopIcons::dropLanding` as the cell under it changes, the cells `desktop_grid::flow` gives,
+from that cell down its column and on into the next from the same row; dropped, `drop` copies or
+moves the files there, `dropPicture` saves the picture, and a folder's icon under the drag
+(`dropFolder`, one not being dragged) takes them in through `dropInto` (the desktop's own icons
+through `moveInto`), with no pads meanwhile. The model never overwrites: each item is a `Transfer`
+into a folder under a name free there, numbered " (2)", " (3)", ... before its extension as file
+managers number copies (`numbered`), its cell taken at once in the desktop folder's case
+(`arriving_` holds those whose file is not all in yet, the `arriving` role). One thread of its own
+(`transfers_`, a `QThreadPool` of one, so that drops land one after another) carries them out
+(`carry`): a move is `renameat2` without replacing, and across file systems a copy then the
+original removed; a copy (`copyTree`) makes each name exclusively (`O_EXCL`, `mkdir`, `symlink`),
+keeps permissions and modification times, copies links as links, leaves pipes, sockets and devices
+out, refuses a folder into itself, stops between chunks once the model is going (`stopping_`, its
+destructor waiting for the thread), and removes what it made of one that failed; a name taken
+meanwhile moves on to the next number. Each ends in `arrived` on the GUI thread, which moves the
+cell to the name it took, says what failed, and reads the folder again. A web address becomes a
+desktop entry of `Type=Link` (named from its title in `text/x-moz-url`, UTF-16 from Firefox and
+Chromium, else its host), written executable so that `open` trusts it, as it trusts an
+application's entry (`readLink`, the `link` kind). A file already in the desktop folder just
+moves its icon.
 
 ### Frosted glass
 
@@ -2073,7 +2129,10 @@ whether it has, for something the compositor does another way without it, as the
   keymap an application gets. A `wayland_probe` window with
   `PAW_PROBE_DRAG=source` drags a line of text on a button press of `pointer_probe`'s, and
   one with `=target` takes it, each printing what it hears; `get seat` says where the drag is
-  (see `drag_focus_smoke.py`). One with `=bare` drags nothing, without a data source, the first
+  (see `drag_focus_smoke.py`). `PAW_PROBE_DRAG_MIME` names what a source offers and a target
+  takes instead (`text/uri-list` for files), `PAW_PROBE_DRAG_TEXT` what a source sends, and
+  `PAW_PROBE_DRAG_ACTIONS=move` has a source offer only to move it (see
+  `desktop_dnd_shell_smoke.py`). One with `=bare` drags nothing, without a data source, the first
   time for a serial the press did not give, which the compositor turns down (see
   `drag_focus_smoke.py` and `xwayland_drag_smoke.py`). `headless_output capture NAME PATH` writes a mirroring output's
 picture to a PPM file (see `mirror_smoke.py`), and `PAW_TEST_REFUSE_10BIT=NAME,...` makes

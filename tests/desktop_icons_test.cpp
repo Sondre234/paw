@@ -2,8 +2,10 @@
 // The desktop's icons: the launchers, then the desktop folder's folders and files by name; their
 // cells on the grid, remembered with whether they are hidden; the folder followed as it changes;
 // opening, copying, renaming and trashing files and putting them back, new folders, and desktop
-// entries trusted only once executable.
+// entries, applications' and web links', trusted only once executable; files, folders, web links
+// and pictures dropped on the desktop or into a folder of it.
 #include "desktop_icons.hpp"
+#include <QBuffer>
 #include <QClipboard>
 #include <QDir>
 #include <QFile>
@@ -53,6 +55,17 @@ class DesktopIconsTest : public QObject {
         const auto column = value(icons, key, DesktopIcons::ColumnRole);
         return column.isValid() ? QPoint(column.toInt(), value(icons, key, DesktopIcons::RowRole).toInt())
                                 : QPoint(-9, -9);
+    }
+    // Whether the icon of `key` is there, its file all in.
+    static bool arrived(const DesktopIcons &icons, const QString &key) {
+        const auto arriving = value(icons, key, DesktopIcons::ArrivingRole);
+        return arriving.isValid() && !arriving.toBool();
+    }
+    static QList<QUrl> files(const QStringList &paths) {
+        QList<QUrl> urls;
+        for (const auto &path : paths)
+            urls.push_back(QUrl::fromLocalFile(path));
+        return urls;
     }
     static QStringList keys(const DesktopIcons &icons) {
         QStringList list;
@@ -117,10 +130,20 @@ class DesktopIconsTest : public QObject {
                       "[Default Applications]\ntext/markdown=paw-viewer.desktop\ntext/plain=paw-editor.desktop\n"));
         folder_ = home_.filePath("Desktop");
         settings_.folder = folder_;
+        // What opens pawtest: addresses, which notes that it ran; there before GIO first lists the
+        // applications.
+        QVERIFY(QDir().mkpath(home_.filePath("data/applications")));
+        QVERIFY(write(home_.filePath("data/applications/paw-link-test.desktop"),
+                      ("[Desktop Entry]\nType=Application\nName=Link test\nExec=touch " +
+                       home_.filePath("linked") + "\nMimeType=x-scheme-handler/pawtest;\n").toUtf8()));
+        QVERIFY(write(home_.filePath("data/applications/mimeapps.list"),
+                      "[Default Applications]\nx-scheme-handler/pawtest=paw-link-test.desktop\n"));
     }
     void init() {
         QDir(folder_).removeRecursively();
         QDir(home_.filePath("state")).removeRecursively();
+        QDir(home_.filePath("outside")).removeRecursively();
+        QVERIFY(QDir().mkpath(home_.filePath("outside")));
         QDir(home_.filePath("data/Trash")).removeRecursively();
         QVERIFY(QDir().mkpath(folder_ + "/Zeta"));
         for (const auto *name : {"b.txt", "a10.txt", "a2.txt", ".hidden"})
@@ -238,6 +261,18 @@ class DesktopIconsTest : public QObject {
         icons.configure(settings, launchers_);
         QCOMPARE(icons.count(), 0);
         QVERIFY(!icons.shown());
+    }
+    void dragsFilesOut() {
+        auto icons = made();
+        QSignalSpy ended(icons.get(), &DesktopIcons::dragEnded);
+        QImage picture(12, 12, QImage::Format_ARGB32_Premultiplied);
+        picture.fill(Qt::magenta);
+        // A launcher alone is no file to hand over.
+        QVERIFY(!icons->drag({"launcher:Terminal", "file:nothing"}, picture, QPointF(6, 6), 2));
+        QVERIFY(icons->drag({"launcher:Terminal", "file:a2.txt"}, picture, QPointF(6, 6), 2));
+        // Without a display that takes drags it is over at once, nothing taking it.
+        QTRY_COMPARE(ended.count(), 1);
+        QCOMPARE(ended[0][0].toInt(), int(Qt::IgnoreAction));
     }
     void copiesAndTrashesFiles() {
         auto icons = made();
@@ -551,6 +586,150 @@ class DesktopIconsTest : public QObject {
         QVERIFY(!icons->open("file:b.txt"));
         QVERIFY(failed.last()[0].toString().contains("no longer there"));
         QVERIFY(!icons->open("launcher:Terminal"));
+    }
+    void dropsFilesOnTheDesktop() {
+        const auto outside = home_.filePath("outside");
+        QVERIFY(write(outside + "/report.txt", "report\n"));
+        QVERIFY(QDir().mkpath(outside + "/Album/deep"));
+        QVERIFY(write(outside + "/Album/one.txt", "one\n"));
+        QVERIFY(write(outside + "/Album/deep/two.txt", "two\n"));
+        QVERIFY(QFile::link("one.txt", outside + "/Album/link"));
+        QVERIFY(QFile::setPermissions(outside + "/Album/one.txt",
+                                      QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        auto icons = made();
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        // Where they would land: the first in the free cell under the pointer, the next below it.
+        const auto landing = icons->dropLanding(files({outside + "/report.txt", outside + "/Album"}), 3, 0);
+        QCOMPARE(landing.size(), 2);
+        QCOMPARE(landing[0].toMap()["column"].toInt(), 3);
+        QCOMPARE(landing[1].toMap()["column"].toInt(), 3);
+        QCOMPARE(landing[1].toMap()["row"].toInt(), 1);
+        // Copied in, a folder with all it holds, each in its cell; the originals stay.
+        QCOMPARE(icons->drop(files({outside + "/report.txt", outside + "/Album"}), 3, 0, false), 2);
+        QTRY_VERIFY(arrived(*icons, "file:report.txt") && arrived(*icons, "file:Album"));
+        QCOMPARE(cell(*icons, "file:report.txt"), QPoint(3, 0));
+        QCOMPARE(cell(*icons, "file:Album"), QPoint(3, 1));
+        QFile copied(folder_ + "/Album/deep/two.txt");
+        QVERIFY(copied.open(QIODevice::ReadOnly) && copied.readAll() == "two\n");
+        QCOMPARE(QFileInfo(folder_ + "/Album/link").symLinkTarget(), folder_ + "/Album/one.txt");
+        QVERIFY(QFileInfo(folder_ + "/Album/one.txt").isExecutable());
+        QVERIFY(QFile::exists(outside + "/report.txt") && QFile::exists(outside + "/Album/one.txt"));
+        // Dropped again, nothing is written over: the copies are numbered.
+        QCOMPARE(icons->drop(files({outside + "/report.txt", outside + "/Album"}), 3, 2, false), 2);
+        QTRY_VERIFY(arrived(*icons, "file:report (2).txt") && arrived(*icons, "file:Album (2)"));
+        QCOMPARE(cell(*icons, "file:report (2).txt"), QPoint(3, 2));
+        QVERIFY(QFile::exists(folder_ + "/Album (2)/deep/two.txt"));
+        QFile kept(folder_ + "/report.txt");
+        QVERIFY(kept.open(QIODevice::ReadOnly) && kept.readAll() == "report\n");
+        // Moved, as a source proposing it asks, the original goes.
+        QVERIFY(write(outside + "/moved.txt"));
+        QCOMPARE(icons->drop(files({outside + "/moved.txt"}), 1, 2, true), 1);
+        QTRY_VERIFY(arrived(*icons, "file:moved.txt"));
+        QVERIFY(!QFile::exists(outside + "/moved.txt"));
+        QCOMPARE(cell(*icons, "file:moved.txt"), QPoint(1, 2));
+        // One on the desktop already just moves its icon, copying nothing.
+        const int before = icons->count();
+        QCOMPARE(icons->drop(files({folder_ + "/b.txt"}), 2, 1, false), 1);
+        QCOMPARE(cell(*icons, "file:b.txt"), QPoint(2, 1));
+        icons->rescan();
+        QCOMPARE(icons->count(), before);
+        QVERIFY(!QFile::exists(folder_ + "/b (2).txt"));
+        QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+        // Where they landed is remembered.
+        QCOMPARE(cell(*made(), "file:report.txt"), QPoint(3, 0));
+        // A folder that holds the desktop folder cannot go into it; nor do addresses of nothing.
+        QCOMPARE(icons->drop(files({home_.path(), outside + "/nothing"}) << QUrl("trash:///x"), 0, 0, false), 1);
+        QTRY_COMPARE(failed.count(), 1);
+        QVERIFY(failed[0][0].toString().contains("cannot go into itself"));
+    }
+    void numbersNamesAsFileManagersDo() {
+        const auto outside = home_.filePath("outside");
+        for (const auto *name : {"backup.tar.gz", ".profile", "notes.v2.md"}) {
+            QVERIFY(write(outside + "/" + name));
+            QVERIFY(write(folder_ + "/" + name));
+        }
+        auto icons = made(6, 4);
+        QCOMPARE(icons->drop(files({outside + "/backup.tar.gz", outside + "/.profile",
+                                    outside + "/notes.v2.md", outside + "/notes.v2.md"}), 5, 0, false), 4);
+        for (const auto *name : {"backup (2).tar.gz", ".profile (2)", "notes.v2 (2).md", "notes.v2 (3).md"})
+            QTRY_VERIFY2(QFile::exists(folder_ + "/" + name), name);
+    }
+    void dropsIntoFolders() {
+        const auto outside = home_.filePath("outside");
+        QVERIFY(write(outside + "/x.txt"));
+        QVERIFY(write(folder_ + "/Zeta/kept.txt"));
+        auto icons = made();
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        QCOMPARE(icons->dropInto("file:Zeta", files({outside + "/x.txt"}), false), 1);
+        QTRY_VERIFY(QFile::exists(folder_ + "/Zeta/x.txt"));
+        QCOMPARE(icons->dropInto("file:Zeta", files({outside + "/x.txt"}), false), 1);
+        QTRY_VERIFY(QFile::exists(folder_ + "/Zeta/x (2).txt"));
+        // A file there already, and the folder itself, stay where they are; nor is a file a folder
+        // to drop into.
+        QCOMPARE(icons->dropInto("file:Zeta", files({folder_ + "/Zeta/kept.txt", folder_ + "/Zeta"}), false), 0);
+        QCOMPARE(icons->dropInto("file:b.txt", files({outside + "/x.txt"}), false), 0);
+        // Desktop files moved in leave the desktop; a launcher, or the folder itself, stays.
+        QCOMPARE(icons->dropInto("file:Zeta", files({folder_ + "/a2.txt"}), true), 1);
+        QTRY_VERIFY(!keys(*icons).contains("file:a2.txt"));
+        QVERIFY(QFile::exists(folder_ + "/Zeta/a2.txt"));
+        QCOMPARE(icons->moveInto("file:Zeta", {"file:a10.txt", "launcher:Terminal", "file:Zeta"}), 1);
+        QTRY_VERIFY(!keys(*icons).contains("file:a10.txt"));
+        QVERIFY(QFile::exists(folder_ + "/Zeta/a10.txt") && keys(*icons).contains("launcher:Terminal"));
+        QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+    }
+    void makesLinksAndPictures() {
+        auto icons = made();
+        // Named from the title a browser gives it, else from its host; executable, so that it opens.
+        const QString moz = "https://www.example.com/page\nAn example/page\n";
+        const QByteArray utf16(reinterpret_cast<const char *>(moz.utf16()), moz.size() * 2);
+        QCOMPARE(icons->drop({QUrl("https://www.example.com/page"), QUrl("http://paw.test/x")}, 3, 0,
+                             false, utf16), 2);
+        QTRY_VERIFY(arrived(*icons, "file:An example-page.desktop") && arrived(*icons, "file:paw.test.desktop"));
+        QCOMPARE(value(*icons, "file:An example-page.desktop", DesktopIcons::KindRole).toString(), "link");
+        QCOMPARE(value(*icons, "file:An example-page.desktop", DesktopIcons::NameRole).toString(), "An example/page");
+        QCOMPARE(value(*icons, "file:paw.test.desktop", DesktopIcons::NameRole).toString(), "paw.test");
+        QVERIFY(QFileInfo(folder_ + "/paw.test.desktop").isExecutable());
+        QCOMPARE(cell(*icons, "file:An example-page.desktop"), QPoint(3, 0));
+        QFile link(folder_ + "/paw.test.desktop");
+        QVERIFY(link.open(QIODevice::ReadOnly) && link.readAll().contains("\nURL=http://paw.test/x\n"));
+        // A picture is saved under its own name, with its type's extension.
+        QImage picture(4, 4, QImage::Format_RGB32);
+        picture.fill(Qt::cyan);
+        QByteArray png;
+        QBuffer buffer(&png);
+        QVERIFY(buffer.open(QIODevice::WriteOnly) && picture.save(&buffer, "PNG"));
+        QCOMPARE(icons->dropPicture(png, "image/png", QUrl("https://paw.test/cat.jpg?size=2"), 3, 2),
+                 QString("file:cat.png"));
+        QCOMPARE(icons->dropPicture(png, "image/png", QUrl("https://paw.test/"), 3, 2), QString("file:Picture.png"));
+        QCOMPARE(icons->dropPicture(png, "image/png", QUrl("https://paw.test/again/cat.png"), 3, 2),
+                 QString("file:cat (2).png"));
+        QTRY_VERIFY(arrived(*icons, "file:cat (2).png"));
+        QCOMPARE(cell(*icons, "file:cat.png"), QPoint(3, 2));
+        QVERIFY(!value(*icons, "file:cat.png", DesktopIcons::PictureRole).toString().isEmpty());
+        QVERIFY(QImage(folder_ + "/Picture.png").pixelColor(0, 0) == QColor(Qt::cyan));
+    }
+    void opensTrustedLinks() {
+        const auto entry = folder_ + "/page.desktop";
+        QVERIFY(write(entry, "[Desktop Entry]\nType=Link\nName=A page\nURL=pawtest://page\n"));
+        QVERIFY(write(folder_ + "/drawn.desktop",
+                      "[Desktop Entry]\nType=Link\nName=Drawn\nIcon=drawn-icon\nURL=pawtest://drawn\n"));
+        auto icons = made();
+        QCOMPARE(value(*icons, "file:page.desktop", DesktopIcons::KindRole).toString(), "link");
+        QCOMPARE(value(*icons, "file:page.desktop", DesktopIcons::NameRole).toString(), "A page");
+        QVERIFY(value(*icons, "file:page.desktop", DesktopIcons::IconRole).toString().startsWith("text-html,"));
+        QCOMPARE(value(*icons, "file:drawn.desktop", DesktopIcons::IconRole).toString(), "drawn-icon");
+        // Not yet executable, it is not trusted to open what it points at.
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        QVERIFY(!icons->open("file:page.desktop"));
+        QCOMPARE(failed.count(), 1);
+        QVERIFY(failed[0][0].toString().contains("not trusted to open"));
+        QVERIFY(!QFile::exists(home_.filePath("linked")));
+        QVERIFY(QFile::setPermissions(entry, QFile::permissions(entry) | QFile::ExeOwner));
+        QVERIFY2(icons->open("file:page.desktop"), qPrintable(failed.last()[0].toString()));
+        QTRY_VERIFY(QFile::exists(home_.filePath("linked")));
+        // Its name is its Name, not its file's: it is not renamed.
+        QVERIFY(icons->rename("file:page.desktop", "other.desktop").isEmpty());
+        QCOMPARE(failed.count(), 1);
     }
 };
 

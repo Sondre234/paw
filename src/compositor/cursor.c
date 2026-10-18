@@ -532,7 +532,10 @@ void process_cursor_motion(struct sh_server *server, uint32_t time) {
     server->hit.caching = false;
 }
 
-/* What the pointer is over after moving: window, controls, tabs, resize band, focus. */
+/* What the pointer is over after moving: window, controls, tabs, resize band, focus. Taken off
+ * every surface (over the bare desktop, a window's controls or its resize band), it leaves through
+ * the pointer's grab: a drag is then over nothing, not over the surface it was last over, where it
+ * would be dropped. */
 static void process_pointer_target(struct sh_server *server, uint32_t time) {
     double sx, sy;
     struct wlr_seat *seat = server->seat;
@@ -561,7 +564,7 @@ static void process_pointer_target(struct sh_server *server, uint32_t time) {
     set_deco_hovered(server, decorated, decorated ? part : SH_DECO_NONE);
     if (decorated) {
         set_default_cursor(server);
-        wlr_seat_pointer_clear_focus(seat);
+        wlr_seat_pointer_notify_clear_focus(seat);
         return;
     }
     int tab;
@@ -569,7 +572,7 @@ static void process_pointer_target(struct sh_server *server, uint32_t time) {
     set_tabs_hovered(server, tabbed, tabbed ? tab : -1);
     if (tabbed) {
         set_default_cursor(server);
-        wlr_seat_pointer_clear_focus(seat);
+        wlr_seat_pointer_notify_clear_focus(seat);
         return;
     }
     uint32_t band_edges;
@@ -579,7 +582,7 @@ static void process_pointer_target(struct sh_server *server, uint32_t time) {
             server->shown_edges = band_edges;
             show_xcursor(server, wlr_xcursor_get_resize_name(band_edges));
         }
-        wlr_seat_pointer_clear_focus(seat);
+        wlr_seat_pointer_notify_clear_focus(seat);
         return;
     }
     if (toplevel && hover_focuses(server, toplevel))
@@ -592,7 +595,7 @@ static void process_pointer_target(struct sh_server *server, uint32_t time) {
     // A drag's text or file goes to the window there: the strip is for a press that moves it.
     if (!seat->drag && drag_strip_at(toplevel, surface, server->cursor->y)) {
         set_default_cursor(server);
-        wlr_seat_pointer_clear_focus(seat);
+        wlr_seat_pointer_notify_clear_focus(seat);
         return;
     }
     if (surface) {
@@ -601,7 +604,7 @@ static void process_pointer_target(struct sh_server *server, uint32_t time) {
         update_resize_cursor(server, toplevel);
     } else {
         set_default_cursor(server);
-        wlr_seat_pointer_clear_focus(seat);
+        wlr_seat_pointer_notify_clear_focus(seat);
     }
 }
 

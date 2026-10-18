@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The desktop icons' grid: icons laid down the columns, remembered cells kept, and where icons
-// dragged together land.
+// dragged together, or dropped together from elsewhere, land.
 #include "desktop_grid.hpp"
 #include <QTest>
 
@@ -66,6 +66,24 @@ class DesktopGridTest : public QObject {
         QCOMPARE(drop({{0, 0}, {0, 1}}, {0, 1}, {}, grid), (QList<QPoint>{{0, 1}, {0, 2}}));
         // Not moved at all, nothing changes.
         QCOMPARE(drop({{4, 4}, {0, 0}}, {0, 0}, {{1, 1}}, grid), (QList<QPoint>{{4, 4}, {0, 0}}));
+    }
+    void flowsDroppedIconsDownFromTheDrop() {
+        const QSize grid(4, 3);
+        // Down the column from where they are dropped, then down the next from the same row.
+        QCOMPARE(flow(grid, {1, 1}, 4, {}), (QList<QPoint>{{1, 1}, {1, 2}, {2, 1}, {2, 2}}));
+        // Past an icon in the way.
+        QCOMPARE(flow(grid, {1, 1}, 3, {{1, 2}}), (QList<QPoint>{{1, 1}, {2, 1}, {2, 2}}));
+        // Dropped on an icon in the last cell, beside it.
+        QCOMPARE(flow(grid, {3, 2}, 1, {{3, 2}}), (QList<QPoint>{{2, 2}}));
+        // In the corner: the one there, then the free cells nearest it.
+        QCOMPARE(flow(grid, {3, 2}, 3, {}), (QList<QPoint>{{3, 2}, {2, 2}, {3, 1}}));
+        QCOMPARE(flow(grid, {0, 0}, 0, {}), QList<QPoint>{});
+        // Every cell taken: on the cell dropped on, as nearestFree has it.
+        QList<QPoint> all;
+        for (int column = 0; column < 2; ++column)
+            for (int row = 0; row < 2; ++row)
+                all.push_back({column, row});
+        QCOMPARE(flow(QSize(2, 2), {1, 0}, 1, all), (QList<QPoint>{{1, 0}}));
     }
 };
 

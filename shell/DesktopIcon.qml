@@ -6,10 +6,13 @@ import QtQuick
 // shows its icon. The name sits on a chip of the bar's colour, so that it reads on any wallpaper,
 // filled with the accent while selected, when it also shows in full. Hovered, it lifts a little.
 // Dragged, it follows the pointer, and the others dragged with it trail after it into a fanned
-// stack; let go, they glide into their new cells. It comes and goes in a ripple as the grid's
-// icons are shown and hidden, and a new file pops in. Renamed, its chip pops into a field on the
-// surface's colour, rimmed in the band's two hues, with a pencil on its corner, the name selected
-// but for its extension; a name refused shakes it.
+// stack; let go, they glide into their new cells. A drag the compositor carries leaves it in its
+// cell, faded (`lifted`), until it comes out of the stack where it was let go. A folder with a drag
+// over it opens up, ringed in the second hue, wiggling, and gulps down what is dropped on it. While
+// its file is still being copied in, a glow in the band's two hues breathes behind it. It comes and
+// goes in a ripple as the grid's icons are shown and hidden, and a new file pops in. Renamed, its
+// chip pops into a field on the surface's colour, rimmed in the band's two hues, with a pencil on
+// its corner, the name selected but for its extension; a name refused shakes it.
 Item {
     id: tile
     // The grid it is on (DesktopIconGrid).
@@ -23,6 +26,7 @@ Item {
     required property string appId
     required property int column
     required property int row
+    required property bool arriving
     objectName: "desktopIcon:" + key
     Accessible.role: Accessible.Button
     Accessible.name: name
@@ -30,6 +34,9 @@ Item {
 
     readonly property bool selected: board.selection[key] === true
     readonly property bool dragged: board.dragging && selected
+    // Its picture in the stack the compositor carries, it stays in its cell, faded.
+    readonly property bool lifted: dragged && board.handedOver
+    readonly property bool following: dragged && !board.handedOver
     // Its place in the dragged stack: 0 under the pointer, then as they were selected.
     readonly property int rank: dragged ? board.dragKeys.indexOf(key) : 0
     readonly property bool placed: column >= 0 && row >= 0
@@ -41,17 +48,19 @@ Item {
     readonly property bool editing: board.renaming === key
     // How far it is in view: 0 hidden, 1 shown, past 1 for a moment as it pops in.
     property real reveal: 1
-    // Going to the trash: it shrinks away before the file goes.
+    // Going to the trash, or into a folder: it shrinks away before the file goes.
     property bool leaving: false
+    // A folder with a drag over it, which takes in what is dropped (DesktopIconGrid.dropFolder).
+    readonly property bool dropTarget: board.dropFolder === key
 
     width: board.cellWidth
     height: board.cellHeight
     visible: placed && reveal > 0.001
     z: dragged ? 100 - rank : editing ? 4 : hovered ? 2 : selected ? 1 : 0
-    x: dragged ? board.dragX + Math.min(rank, 3) * 7 : board.cellX(column)
-    y: dragged ? board.dragY - Math.min(rank, 3) * 5 : board.cellY(row)
-    Behavior on x { enabled: tile.landed; NumberAnimation { duration: board.glideDuration(tile); easing.type: tile.dragged ? Easing.OutCubic : Easing.OutBack; easing.overshoot: 1.1 } }
-    Behavior on y { enabled: tile.landed; NumberAnimation { duration: board.glideDuration(tile); easing.type: tile.dragged ? Easing.OutCubic : Easing.OutBack; easing.overshoot: 1.1 } }
+    x: following ? board.dragX + Math.min(rank, 3) * 7 : board.cellX(column)
+    y: following ? board.dragY - Math.min(rank, 3) * 5 : board.cellY(row)
+    Behavior on x { enabled: tile.landed && !tile.board.snapping; NumberAnimation { duration: board.glideDuration(tile); easing.type: tile.dragged ? Easing.OutCubic : Easing.OutBack; easing.overshoot: 1.1 } }
+    Behavior on y { enabled: tile.landed && !tile.board.snapping; NumberAnimation { duration: board.glideDuration(tile); easing.type: tile.dragged ? Easing.OutCubic : Easing.OutBack; easing.overshoot: 1.1 } }
 
     // Shown and hidden in a ripple from where the menu was opened.
     Connections {
@@ -85,6 +94,8 @@ Item {
     }
     // Opening: a squash and a bounce back.
     function boing() { squash.restart() }
+    // Taking in what was dropped on it: a deeper squash.
+    function gulp() { gulping.restart() }
     // Caught by the selection band: a little hop.
     function hop() { if (!board.dragging) hopping.restart() }
     onSelectedChanged: if (selected && board.banding) hop()
@@ -92,12 +103,15 @@ Item {
     Item {
         id: body
         anchors.fill: parent
-        opacity: Math.min(1, tile.reveal) * (tile.leaving ? 0 : 1)
-        scale: (0.55 + 0.45 * tile.reveal) * (tile.leaving ? 0.4 : 1) * press
-        // The open squash and the hop multiply in here.
+        opacity: Math.min(1, tile.reveal) * (tile.leaving ? 0 : 1) * (0.35 + 0.65 * (1 - lift))
+        scale: (0.55 + 0.45 * tile.reveal) * (tile.leaving ? 0.4 : 1) * press * (1 - 0.08 * lift)
+        // The open squash and the hop multiply in here, and how far it is faded into the stack the
+        // compositor carries.
         property real press: 1
+        property real lift: tile.lifted ? 1 : 0
+        Behavior on lift { NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutCubic } }
         transformOrigin: Item.Center
-        rotation: tile.leaving ? 12 : tile.dragged ? [0, -7, 6, -4][Math.min(tile.rank, 3)] : 0
+        rotation: tile.leaving ? 12 : tile.following ? [0, -7, 6, -4][Math.min(tile.rank, 3)] : 0
         Behavior on rotation { NumberAnimation { duration: Theme.durationSlow; easing.type: Easing.OutBack } }
         Behavior on opacity { enabled: tile.leaving; NumberAnimation { duration: Theme.duration(160); easing.type: Easing.InCubic } }
         Behavior on scale { enabled: tile.leaving; NumberAnimation { duration: Theme.duration(160); easing.type: Easing.InCubic } }
@@ -108,59 +122,74 @@ Item {
             anchors.fill: parent
             anchors.margins: Theme.spacingXS
             radius: Theme.radiusLarge
-            color: tile.selected ? Theme.alpha(Theme.accent, tile.dragged ? 0 : 0.2)
+            color: tile.dropTarget ? Theme.alpha(tile.board.partner, 0.24)
+                 : tile.selected ? Theme.alpha(Theme.accent, tile.following ? 0 : 0.2)
                  : tile.hovered ? Theme.alpha(Theme.surface, 0.32) : "transparent"
-            border.width: 1
-            border.color: tile.selected && !tile.dragged ? Theme.alpha(Theme.accent, 0.6)
+            border.width: tile.dropTarget ? 2 : 1
+            border.color: tile.dropTarget ? tile.board.partner
+                        : tile.selected && !tile.following ? Theme.alpha(Theme.accent, 0.6)
                         : tile.hovered ? Theme.alpha(Theme.text, 0.12) : "transparent"
             Behavior on color { ColorAnimation { duration: Theme.durationFast } }
         }
 
+        // The glow while its file comes in, a soft halo round a brighter heart, turning slowly as
+        // it breathes.
         Item {
+            id: glow
+            anchors.centerIn: art
+            width: art.width * 1.3
+            height: width
+            visible: opacity > 0.01
+            opacity: tile.arriving ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: Theme.durationSlow } }
+            Repeater {
+                model: [[1.3, 0.14], [1, 0.3], [0.72, 0.22]]
+                delegate: Rectangle {
+                    required property var modelData
+                    anchors.centerIn: parent
+                    width: glow.width * modelData[0]
+                    height: width
+                    radius: width / 2
+                    gradient: Gradient {
+                        GradientStop { position: 0; color: Theme.alpha(Theme.accent, modelData[1]) }
+                        GradientStop { position: 1; color: Theme.alpha(tile.board.partner, modelData[1]) }
+                    }
+                }
+            }
+            SequentialAnimation on scale {
+                running: glow.visible && Theme.duration(100) > 0
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.8; to: 1.08; duration: Theme.duration(650); easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.8; duration: Theme.duration(650); easing.type: Easing.InOutSine }
+            }
+            RotationAnimation on rotation {
+                running: glow.visible && Theme.duration(100) > 0
+                loops: Animation.Infinite
+                from: 0; to: 360
+                duration: Theme.duration(2600)
+            }
+        }
+        DesktopIconArt {
             id: art
             width: tile.board.iconSize
             height: tile.board.iconSize
             x: Math.round((tile.width - width) / 2)
             y: Theme.spacingM + (tile.hovered ? -3 : 0)
             Behavior on y { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
-
-            Image {
-                anchors.fill: parent
-                visible: tile.picture === ""
-                source: tile.picture === "" && tile.icon !== "" ? shell.iconBase + tile.icon : ""
-                sourceSize: Qt.size(width, height)
-                smooth: true
-            }
-            // A picture as a print: a white border, wider at the foot, set askew by its name.
-            Rectangle {
-                id: snapshot
-                visible: tile.picture !== ""
-                anchors.centerIn: parent
-                width: Math.round(parent.width * 0.86)
-                height: Math.round(width * 1.12)
-                color: "#fbfaf6"
-                radius: 2
-                rotation: [-5, 3, -2, 4, -3, 2][(tile.name.length + tile.name.charCodeAt(0)) % 6]
-                antialiasing: true
-                // Its shadow on the desktop.
-                Rectangle {
-                    z: -1
-                    x: 1.5; y: 2.5
-                    width: parent.width; height: parent.height
-                    radius: parent.radius
-                    color: Qt.rgba(0, 0, 0, 0.22)
-                }
-                Image {
-                    x: 3; y: 3
-                    width: parent.width - 6
-                    height: parent.height - 3 - Math.round(parent.height * 0.16)
-                    source: tile.picture
-                    sourceSize: Qt.size(width * 2, height * 2)
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: true
-                    cache: false
-                    smooth: true
-                }
+            icon: tile.icon
+            picture: tile.picture
+            name: tile.name
+            // A folder with a drag over it opens up and wiggles, waiting for what it is to take.
+            scale: tile.dropTarget ? 1.16 : 1
+            Behavior on scale { NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+            SequentialAnimation on rotation {
+                running: tile.dropTarget && Theme.duration(100) > 0
+                loops: Animation.Infinite
+                onRunningChanged: if (!running) art.rotation = 0
+                NumberAnimation { to: -5; duration: Theme.duration(140); easing.type: Easing.InOutSine }
+                NumberAnimation { to: 5; duration: Theme.duration(280); easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0; duration: Theme.duration(140); easing.type: Easing.InOutSine }
+                PauseAnimation { duration: Theme.duration(260) }
             }
         }
 
@@ -183,7 +212,7 @@ Item {
                  : tile.selected ? Theme.accent : Theme.alpha(Theme.surface, Theme.light ? 0.8 : 0.72)
             Behavior on color { ColorAnimation { duration: Theme.durationFast } }
             // In the dragged stack only the icon under the pointer keeps its name.
-            opacity: tile.dragged && tile.rank > 0 ? 0 : 1
+            opacity: tile.following && tile.rank > 0 ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: Theme.durationFast } }
             TextMetrics { id: metrics; font: label.font; text: tile.name }
             TextMetrics { id: typedMetrics; font: label.font; text: tile.editing ? tile.board.renameText : "" }
@@ -210,7 +239,7 @@ Item {
                 textFormat: Text.PlainText
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                maximumLineCount: tile.selected && !tile.dragged ? 5 : 2
+                maximumLineCount: tile.selected && !tile.following ? 5 : 2
                 elide: Text.ElideRight
                 color: tile.selected ? Theme.textOnAccent : Theme.text
                 font.family: Theme.fontFamily
@@ -297,7 +326,7 @@ Item {
 
         // How many go with it, on the icon under the pointer.
         Rectangle {
-            visible: tile.dragged && tile.rank === 0 && tile.board.dragKeys.length > 1
+            visible: tile.following && tile.rank === 0 && tile.board.dragKeys.length > 1
             x: art.x + art.width - width / 2
             y: art.y - height / 3
             height: 20
@@ -318,6 +347,11 @@ Item {
         }
     }
 
+    SequentialAnimation {
+        id: gulping
+        NumberAnimation { target: body; property: "press"; to: 0.74; duration: Theme.duration(110); easing.type: Easing.OutQuad }
+        NumberAnimation { target: body; property: "press"; to: 1; duration: Theme.duration(520); easing.type: Easing.OutElastic; easing.amplitude: 1.3; easing.period: 0.4 }
+    }
     SequentialAnimation {
         id: squash
         NumberAnimation { target: body; property: "press"; to: 0.86; duration: Theme.duration(90); easing.type: Easing.OutQuad }
@@ -354,7 +388,8 @@ Item {
         z: -1
         anchors.fill: parent
         anchors.margins: Theme.spacingXS
-        enabled: tile.board.shown && !tile.leaving
+        // Not while the compositor carries a drag, as Qt never hears the button let go then.
+        enabled: tile.board.shown && !tile.leaving && !tile.board.carried
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
         // Where the left button went down, in the grid's coordinates, whether that may drag, and
@@ -410,7 +445,8 @@ Item {
             if (mouse.button !== Qt.LeftButton)
                 return
             if (moved) {
-                tile.board.endDrag(false)
+                if (!tile.board.carried)
+                    tile.board.endDrag(false)
             } else if (armed && alone) {
                 tile.board.select([tile.key]) // a click on one of several takes it alone
                 tile.board.extendFrom = tile.key
@@ -418,7 +454,7 @@ Item {
             moved = armed = false
         }
         onCanceled: {
-            if (moved)
+            if (moved && !tile.board.carried)
                 tile.board.endDrag(true)
             moved = armed = false
         }
