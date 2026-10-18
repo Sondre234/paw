@@ -979,8 +979,12 @@ void ShellController::configureDesktopIcons() {
     settings.folder = QString::fromStdString(icons.folder);
     if (settings.folder.startsWith("~/"))
         settings.folder = QDir::homePath() + settings.folder.sliced(1);
-    else if (settings.folder.isEmpty())
-        settings.folder = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+    // Unset, the environment's XDG_DESKTOP_DIR, else the one user-dirs.dirs names.
+    if (settings.folder.isEmpty()) {
+        settings.folder = qEnvironmentVariable("XDG_DESKTOP_DIR");
+        if (settings.folder.isEmpty() || QDir::isRelativePath(settings.folder))
+            settings.folder = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+    }
     settings.folder = QDir::cleanPath(settings.folder);
     // The launchers as refreshApps lists them, by their places.
     QList<DesktopIcons::Launcher> launchers;

@@ -1202,7 +1202,8 @@ const Option options[] = {
     {"shell.desktop_icons.enabled", "boolean", "true", "false", none, none, "Show the icons."},
     {"shell.desktop_icons.folder", "string", "unset", "\"~/Desktop\"", none, none,
      "The folder whose files and folders show, absolute or starting with `~/`; unset, "
-     "`XDG_DESKTOP_DIR` (`~/.config/user-dirs.dirs`), else `~/Desktop`."},
+     "`XDG_DESKTOP_DIR` (the environment's, else `~/.config/user-dirs.dirs`'), else "
+     "`~/Desktop`."},
     {"shell.desktop_icons.size", "integer", "48", "64", 32, 128,
      "The icons' size in pixels; their cells on the grid grow with them."},
     {"shell.start_icon", "string", "\"\"", "\"neko.svg\"", none, none,
