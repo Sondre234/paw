@@ -6,7 +6,8 @@ import QtQuick
 // shows its icon. The name sits on a chip of the bar's colour, so that it reads on any wallpaper,
 // filled with the accent while selected, when it also shows in full. Hovered, it lifts a little.
 // Dragged, it follows the pointer, and the others dragged with it trail after it into a fanned
-// stack; let go, they glide into their new cells. It comes and goes in a ripple as the grid's
+// stack; let go, they glide into their new cells. A drag the compositor carries leaves it in its
+// cell, faded (`lifted`), until it comes out of the stack where it was let go. It comes and goes in a ripple as the grid's
 // icons are shown and hidden, and a new file pops in. Renamed, its chip pops into a field on the
 // surface's colour, rimmed in the band's two hues, with a pencil on its corner, the name selected
 // but for its extension; a name refused shakes it.
@@ -30,6 +31,9 @@ Item {
 
     readonly property bool selected: board.selection[key] === true
     readonly property bool dragged: board.dragging && selected
+    // Its picture in the stack the compositor carries, it stays in its cell, faded.
+    readonly property bool lifted: dragged && board.handedOver
+    readonly property bool following: dragged && !board.handedOver
     // Its place in the dragged stack: 0 under the pointer, then as they were selected.
     readonly property int rank: dragged ? board.dragKeys.indexOf(key) : 0
     readonly property bool placed: column >= 0 && row >= 0
@@ -48,10 +52,10 @@ Item {
     height: board.cellHeight
     visible: placed && reveal > 0.001
     z: dragged ? 100 - rank : editing ? 4 : hovered ? 2 : selected ? 1 : 0
-    x: dragged ? board.dragX + Math.min(rank, 3) * 7 : board.cellX(column)
-    y: dragged ? board.dragY - Math.min(rank, 3) * 5 : board.cellY(row)
-    Behavior on x { enabled: tile.landed; NumberAnimation { duration: board.glideDuration(tile); easing.type: tile.dragged ? Easing.OutCubic : Easing.OutBack; easing.overshoot: 1.1 } }
-    Behavior on y { enabled: tile.landed; NumberAnimation { duration: board.glideDuration(tile); easing.type: tile.dragged ? Easing.OutCubic : Easing.OutBack; easing.overshoot: 1.1 } }
+    x: following ? board.dragX + Math.min(rank, 3) * 7 : board.cellX(column)
+    y: following ? board.dragY - Math.min(rank, 3) * 5 : board.cellY(row)
+    Behavior on x { enabled: tile.landed && !tile.board.snapping; NumberAnimation { duration: board.glideDuration(tile); easing.type: tile.dragged ? Easing.OutCubic : Easing.OutBack; easing.overshoot: 1.1 } }
+    Behavior on y { enabled: tile.landed && !tile.board.snapping; NumberAnimation { duration: board.glideDuration(tile); easing.type: tile.dragged ? Easing.OutCubic : Easing.OutBack; easing.overshoot: 1.1 } }
 
     // Shown and hidden in a ripple from where the menu was opened.
     Connections {
@@ -86,12 +90,15 @@ Item {
     Item {
         id: body
         anchors.fill: parent
-        opacity: Math.min(1, tile.reveal) * (tile.leaving ? 0 : 1)
-        scale: (0.55 + 0.45 * tile.reveal) * (tile.leaving ? 0.4 : 1) * press
-        // The open squash and the hop multiply in here.
+        opacity: Math.min(1, tile.reveal) * (tile.leaving ? 0 : 1) * (0.35 + 0.65 * (1 - lift))
+        scale: (0.55 + 0.45 * tile.reveal) * (tile.leaving ? 0.4 : 1) * press * (1 - 0.08 * lift)
+        // The open squash and the hop multiply in here, and how far it is faded into the stack the
+        // compositor carries.
         property real press: 1
+        property real lift: tile.lifted ? 1 : 0
+        Behavior on lift { NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutCubic } }
         transformOrigin: Item.Center
-        rotation: tile.leaving ? 12 : tile.dragged ? [0, -7, 6, -4][Math.min(tile.rank, 3)] : 0
+        rotation: tile.leaving ? 12 : tile.following ? [0, -7, 6, -4][Math.min(tile.rank, 3)] : 0
         Behavior on rotation { NumberAnimation { duration: Theme.durationSlow; easing.type: Easing.OutBack } }
         Behavior on opacity { enabled: tile.leaving; NumberAnimation { duration: Theme.duration(160); easing.type: Easing.InCubic } }
         Behavior on scale { enabled: tile.leaving; NumberAnimation { duration: Theme.duration(160); easing.type: Easing.InCubic } }
@@ -102,10 +109,10 @@ Item {
             anchors.fill: parent
             anchors.margins: Theme.spacingXS
             radius: Theme.radiusLarge
-            color: tile.selected ? Theme.alpha(Theme.accent, tile.dragged ? 0 : 0.2)
+            color: tile.selected ? Theme.alpha(Theme.accent, tile.following ? 0 : 0.2)
                  : tile.hovered ? Theme.alpha(Theme.surface, 0.32) : "transparent"
             border.width: 1
-            border.color: tile.selected && !tile.dragged ? Theme.alpha(Theme.accent, 0.6)
+            border.color: tile.selected && !tile.following ? Theme.alpha(Theme.accent, 0.6)
                         : tile.hovered ? Theme.alpha(Theme.text, 0.12) : "transparent"
             Behavior on color { ColorAnimation { duration: Theme.durationFast } }
         }
@@ -141,7 +148,7 @@ Item {
                  : tile.selected ? Theme.accent : Theme.alpha(Theme.surface, Theme.light ? 0.8 : 0.72)
             Behavior on color { ColorAnimation { duration: Theme.durationFast } }
             // In the dragged stack only the icon under the pointer keeps its name.
-            opacity: tile.dragged && tile.rank > 0 ? 0 : 1
+            opacity: tile.following && tile.rank > 0 ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: Theme.durationFast } }
             TextMetrics { id: metrics; font: label.font; text: tile.name }
             TextMetrics { id: typedMetrics; font: label.font; text: tile.editing ? tile.board.renameText : "" }
@@ -168,7 +175,7 @@ Item {
                 textFormat: Text.PlainText
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-                maximumLineCount: tile.selected && !tile.dragged ? 5 : 2
+                maximumLineCount: tile.selected && !tile.following ? 5 : 2
                 elide: Text.ElideRight
                 color: tile.selected ? Theme.textOnAccent : Theme.text
                 font.family: Theme.fontFamily
@@ -255,7 +262,7 @@ Item {
 
         // How many go with it, on the icon under the pointer.
         Rectangle {
-            visible: tile.dragged && tile.rank === 0 && tile.board.dragKeys.length > 1
+            visible: tile.following && tile.rank === 0 && tile.board.dragKeys.length > 1
             x: art.x + art.width - width / 2
             y: art.y - height / 3
             height: 20
@@ -312,7 +319,8 @@ Item {
         z: -1
         anchors.fill: parent
         anchors.margins: Theme.spacingXS
-        enabled: tile.board.shown && !tile.leaving
+        // Not while the compositor carries a drag, as Qt never hears the button let go then.
+        enabled: tile.board.shown && !tile.leaving && !tile.board.carried
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
         // Where the left button went down, in the grid's coordinates, whether that may drag, and
@@ -368,7 +376,8 @@ Item {
             if (mouse.button !== Qt.LeftButton)
                 return
             if (moved) {
-                tile.board.endDrag(false)
+                if (!tile.board.carried)
+                    tile.board.endDrag(false)
             } else if (armed && alone) {
                 tile.board.select([tile.key]) // a click on one of several takes it alone
                 tile.board.extendFrom = tile.key
@@ -376,7 +385,7 @@ Item {
             moved = armed = false
         }
         onCanceled: {
-            if (moved)
+            if (moved && !tile.board.carried)
                 tile.board.endDrag(true)
             moved = armed = false
         }

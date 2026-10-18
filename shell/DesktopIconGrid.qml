@@ -11,8 +11,11 @@ import QtQuick.Shapes
 // counting what it holds, each icon it catches hopping as it does. Dragged, the selected icons
 // gather under the pointer into a stack with their count, while dashed pads on the grid show the
 // cells they will land in, gliding from cell to cell; let go, they glide into those cells, the
-// furthest last. Shown and hidden from the desktop's menu, the icons ripple out from where it was
-// opened.
+// furthest last. On Wayland the drag is the compositor's, so that it reaches any window: the
+// icons stay in their cells, faded, while it carries a picture of their stack (DesktopDragStack)
+// with the pointer, the files going to the window they are dropped on; over the desktop its
+// events (dropArea) move the pads, and let go there the icons come out of the stack where it was.
+// Shown and hidden from the desktop's menu, the icons ripple out from where it was opened.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -392,6 +395,18 @@ FocusScope {
     // The drag of the selected icons: `anchorKey` under the pointer, the others in `dragKeys`
     // after it; where the pointer went down and is now; and where they would land.
     property bool dragging: false
+    // Whether a drag of files is the compositor's (a drag of Wayland's, out to any window): on
+    // Qt's Wayland platform. Elsewhere, as on the tests' offscreen one, the icons follow the
+    // pointer over the desktop alone.
+    readonly property bool handsOver: Qt.platform.pluginName === "wayland"
+    // The drag handed over: the icons faded in their cells while their stack's picture is taken,
+    // and the compositor has it (`carried`) until it ends (`model.dragEnded`); whether it is over
+    // something other than the desktop (`away`), and whether the icons are coming out of the stack
+    // where it was let go (`snapping`).
+    property bool handedOver: false
+    property bool carried: false
+    property bool away: false
+    property bool snapping: false
     property var dragKeys: []
     property int anchorColumn: 0
     property int anchorRow: 0
@@ -405,7 +420,10 @@ FocusScope {
     readonly property int dragRows: Math.round((dragY - area.y - margin) / cellHeight) - anchorRow
     onDragColumnsChanged: updateLanding()
     onDragRowsChanged: updateLanding()
-    function updateLanding() { landing = dragging ? model.landing(dragKeys, dragColumns, dragRows) : [] }
+    function updateLanding() {
+        landing = dragging && !away ? model.landing(dragKeys, dragColumns, dragRows) : []
+    }
+    onAwayChanged: updateLanding()
     function beginDrag(tile, at) {
         dragKeys = [tile.key].concat(selectionOrder.filter(key => key !== tile.key))
         anchorColumn = tile.column
@@ -415,16 +433,54 @@ FocusScope {
         dragPointer = at
         gliding = false
         tidying = false
+        away = false
+        // Launchers alone stay on the desktop.
+        handedOver = handsOver && dragKeys.some(key => { const t = tileOf(key); return t && t.kind !== "launcher" })
         dragging = true
         updateLanding()
+        if (handedOver) {
+            dragStack.tiles = dragKeys.map(key => tileOf(key)).filter(t => !!t)
+            dragStack.wanted = true
+            dragStack.take()
+        }
     }
     function dragTo(at) { dragPointer = at }
+    // The stack's picture is taken: the compositor carries it, the pointer at the place on it of
+    // where the icon was pressed. A drag it never got (the button let go meanwhile, or nothing to
+    // hand over) goes on as the pointer's.
+    function carry(image, scale) {
+        if (!dragging || !handedOver)
+            return
+        const hotSpot = Qt.point(dragStack.origin.x + dragStart.x - anchorHome.x,
+                                 dragStack.origin.y + dragStart.y - anchorHome.y)
+        carried = model.drag(dragKeys, image, hotSpot, scale)
+        handedOver = carried
+    }
+    Connections {
+        target: grid.model
+        // Dropped on another window, or let go nowhere: the icons fade back in in their cells.
+        function onDragEnded(action) {
+            grid.carried = false
+            if (grid.dragging && grid.handedOver)
+                grid.endDrag(true)
+        }
+    }
     function endDrag(cancelled) {
+        // Let go on the desktop, a stack the compositor carried comes out where it was let go,
+        // its icons gliding from there.
+        if (handedOver && !cancelled) {
+            snapping = true
+            handedOver = false
+            snapping = false
+        }
+        handedOver = false
+        dragStack.wanted = false
         gliding = true
         settleGlide.restart()
         if (!cancelled)
             model.move(dragKeys, dragColumns, dragRows)
         dragging = false
+        away = false
         landing = []
     }
     // Whether the icons are gliding into cells they were dropped on or tidied into, rather than
@@ -511,6 +567,51 @@ FocusScope {
         }
         onReleased: grid.banding = false
         onCanceled: grid.banding = false
+    }
+
+    // The drag the compositor carries, over the desktop: the pointer moving the pads, and let go
+    // here, the icons landing as from the pointer's own drag.
+    DropArea {
+        id: dropArea
+        anchors.fill: parent
+        enabled: grid.shown
+        function follow(drag) {
+            if (drag.source !== grid.model || !grid.dragging || !grid.handedOver) {
+                drag.accepted = false
+                return
+            }
+            grid.away = false
+            grid.dragTo(Qt.point(drag.x, drag.y))
+            drag.accept(Qt.MoveAction)
+        }
+        onEntered: function(drag) { follow(drag) }
+        onPositionChanged: function(drag) { follow(drag) }
+        onExited: if (grid.handedOver) grid.away = true
+        onDropped: function(drop) {
+            if (drop.source !== grid.model || !grid.dragging || !grid.handedOver)
+                return
+            grid.dragTo(Qt.point(drop.x, drop.y))
+            grid.endDrag(false)
+            drop.accept(Qt.MoveAction)
+        }
+    }
+
+    // The picture of the dragged stack the compositor carries.
+    DesktopDragStack {
+        id: dragStack
+        board: grid
+        // Taken once every picture in it has loaded.
+        property bool wanted: false
+        onReadyChanged: take()
+        function take() {
+            if (!wanted || !ready)
+                return
+            wanted = false
+            const scale = Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1
+            if (!grabToImage(function(result) { grid.carry(result.image, scale) },
+                             Qt.size(Math.ceil(width * scale), Math.ceil(height * scale))))
+                grid.handedOver = false
+        }
     }
 
     // The cells the dragged icons will land in.
