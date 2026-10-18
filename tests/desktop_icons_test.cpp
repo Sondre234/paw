@@ -232,6 +232,48 @@ class DesktopIconsTest : public QObject {
         icons->move({"file:nothing"}, 1, 1);
         QCOMPARE(icons->count(), 5);
     }
+    void goesAroundNotes() {
+        auto icons = made();
+        // A note over the top left corner: the icons under it go to free cells for now, a2.txt
+        // staying where it is.
+        icons->setBlocked({{0, 0}, {0, 1}, {1, 0}, {1, 1}});
+        QCOMPARE(cell(*icons, "launcher:Terminal"), QPoint(1, 2));
+        QCOMPARE(cell(*icons, "file:Zeta"), QPoint(2, 0));
+        QCOMPARE(cell(*icons, "file:a2.txt"), QPoint(0, 2));
+        QCOMPARE(cell(*icons, "file:a10.txt"), QPoint(2, 1));
+        QCOMPARE(cell(*icons, "file:b.txt"), QPoint(2, 2));
+        const auto cells = icons->cells();
+        QCOMPARE(QSet<QPoint>(cells.begin(), cells.end()), (QSet<QPoint>{{1, 2}, {2, 0}, {0, 2}, {2, 1}, {2, 2}}));
+        // Dragged onto it, an icon lands in the free cell nearest it.
+        const auto landing = icons->landing({"file:a2.txt"}, 1, -1);
+        QCOMPARE(landing.size(), 1);
+        QCOMPARE(QPoint(landing[0].toMap()["column"].toInt(), landing[0].toMap()["row"].toInt()), QPoint(0, 2));
+        // So does a web link dropped on it from elsewhere, down the columns from where it is
+        // dropped past the icons.
+        const auto dropped = icons->dropLanding({QUrl("https://example.org/")}, 1, 1);
+        QCOMPARE(dropped.size(), 1);
+        QCOMPARE(QPoint(dropped[0].toMap()["column"].toInt(), dropped[0].toMap()["row"].toInt()), QPoint(3, 1));
+        // A new folder asked for under it goes beside it.
+        QCOMPARE(icons->newFolder(1, 1), "file:New folder");
+        QCOMPARE(cell(*icons, "file:New folder"), QPoint(3, 1));
+        // The note gone, they are back in their own cells.
+        icons->setBlocked({});
+        QCOMPARE(cell(*icons, "launcher:Terminal"), QPoint(0, 0));
+        QCOMPARE(cell(*icons, "file:Zeta"), QPoint(0, 1));
+        QCOMPARE(cell(*icons, "file:a10.txt"), QPoint(1, 0));
+        QCOMPARE(cell(*icons, "file:b.txt"), QPoint(1, 1));
+        QCOMPARE(cell(*icons, "file:New folder"), QPoint(3, 1));
+        // Tidied up, they are laid down the columns around a note, which stays where it is.
+        icons->setBlocked({{1, 0}, {1, 1}, {2, 0}, {2, 1}});
+        icons->tidy();
+        QCOMPARE(keys(*icons).size(), 6);
+        QCOMPARE(cell(*icons, "launcher:Terminal"), QPoint(0, 0));
+        QCOMPARE(cell(*icons, "file:New folder"), QPoint(0, 1));
+        QCOMPARE(cell(*icons, "file:Zeta"), QPoint(0, 2));
+        QCOMPARE(cell(*icons, "file:a2.txt"), QPoint(1, 2));
+        QCOMPARE(cell(*icons, "file:a10.txt"), QPoint(2, 2));
+        QCOMPARE(cell(*icons, "file:b.txt"), QPoint(3, 0));
+    }
     void followsTheFolder() {
         auto icons = made();
         const auto before = cell(*icons, "file:b.txt");
