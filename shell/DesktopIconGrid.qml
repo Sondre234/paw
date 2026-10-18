@@ -19,8 +19,10 @@ import QtQuick.Shapes
 // pads where they would land as they are carried over the desktop, and are copied there, or moved
 // where the drag's source proposes it, as a file manager takes them. A drag over a folder's icon,
 // of the desktop's own icons or another application's files, opens it up instead, and dropped there
-// the files go into the folder, which gulps them down. Shown and hidden from the desktop's menu,
-// the icons ripple out from where it was opened.
+// the files go into the folder, which gulps them down. Another application's drag has a bubble by
+// the pointer in the band's two hues, counting what it brings, with a plus to copy, arrows to move,
+// or an open folder over a folder's icon. Shown and hidden from the desktop's menu, the icons
+// ripple out from where it was opened.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -928,6 +930,84 @@ FocusScope {
                 duration: Theme.duration(700)
                 easing.type: Easing.OutCubic
                 onFinished: burst.destroy()
+            }
+        }
+    }
+
+    // What another application's drag brings, by the pointer: how many, and what dropping them does.
+    // It pops in as the drag comes, and hops as that changes, a sparkle twinkling on its corner.
+    Item {
+        id: arrival
+        objectName: "desktopIncoming"
+        readonly property int count: grid.incomingPicture !== "" ? 1
+            : grid.incoming.filter(url => /^(file|https?):/.test(url.toString())).length
+        readonly property string glyph: grid.dropFolder !== "" ? "folder-open" : grid.incomingMove ? "move" : "plus"
+        readonly property color ink: Theme.contrast(Theme.mix(Theme.accent, grid.partner, 0.5), "#ffffff") >= 3
+                                     ? "#ffffff" : Theme.text
+        z: 130
+        width: arrivalPill.width
+        height: arrivalPill.height
+        x: Math.max(Theme.spacingS, Math.min(grid.width - width - Theme.spacingS, grid.incomingAt.x + 14))
+        y: Math.max(Theme.spacingS, grid.incomingAt.y - height - 12)
+        visible: scale > 0.01
+        scale: grid.incomingOver ? 1 : 0
+        Behavior on scale { NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack; easing.overshoot: 2.2 } }
+        onGlyphChanged: if (visible) arrivalHop.restart()
+        onCountChanged: if (visible) arrivalHop.restart()
+        Rectangle {
+            id: arrivalPill
+            height: 24
+            width: Math.max(height, arrivalMark.width + arrivalTally.implicitWidth + 3 * Theme.spacingS + 2)
+            radius: height / 2
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: Theme.accent }
+                GradientStop { position: 1; color: grid.partner }
+            }
+            border.color: Theme.surface
+            border.width: 2
+            Icon {
+                id: arrivalMark
+                name: arrival.glyph
+                size: 12
+                color: arrival.ink
+                x: Theme.spacingS + 2
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            Text {
+                id: arrivalTally
+                x: arrivalMark.x + arrivalMark.width + Theme.spacingXS
+                anchors.verticalCenter: parent.verticalCenter
+                text: arrival.count
+                color: arrival.ink
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeCaption
+                font.bold: true
+            }
+            SequentialAnimation on scale {
+                id: arrivalHop
+                running: false
+                NumberAnimation { to: 1.2; duration: Theme.duration(80); easing.type: Easing.OutQuad }
+                NumberAnimation { to: 1; duration: Theme.duration(200); easing.type: Easing.OutBack }
+            }
+        }
+        Icon {
+            name: "sparkles"
+            size: 11
+            color: grid.partner
+            x: arrivalPill.width - width / 2 - 1
+            y: -height / 2 + 1
+            SequentialAnimation on scale {
+                running: arrival.visible && Theme.duration(100) > 0
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.7; to: 1.15; duration: Theme.duration(520); easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.7; duration: Theme.duration(520); easing.type: Easing.InOutSine }
+            }
+            RotationAnimation on rotation {
+                running: arrival.visible && Theme.duration(100) > 0
+                loops: Animation.Infinite
+                from: 0; to: 360
+                duration: Theme.duration(4000)
             }
         }
     }
