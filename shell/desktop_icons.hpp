@@ -4,9 +4,13 @@
 #include <QHash>
 #include <QList>
 #include <QPoint>
+#include <QSet>
 #include <QSize>
 #include <QStringList>
+#include <QThreadPool>
 #include <QTimer>
+#include <QUrl>
+#include <atomic>
 
 class QFileInfo;
 class QFileSystemWatcher;
@@ -16,7 +20,9 @@ class QFileSystemWatcher;
 // for (desktop_grid). An icon keeps the cell it was given or dragged to, remembered across
 // sessions in the state folder's desktop-icons with whether they are hidden; a new one takes the
 // first free cell down the columns. The folder is watched and read again as it changes, its
-// rows changed in place, so that an icon's delegate stays as it moves.
+// rows changed in place, so that an icon's delegate stays as it moves. Files dropped on the
+// desktop are copied or moved into the folder on a thread of its own, one drop after another,
+// each icon showing in the cell it was dropped on as its file comes.
 class DesktopIcons : public QAbstractListModel {
     Q_OBJECT
     // Whether the configuration shows icons, and whether they show now: not while the desktop's
@@ -38,6 +44,7 @@ class DesktopIcons : public QAbstractListModel {
         AppIdRole,   // a launcher's id, for ShellController::launch
         ColumnRole,
         RowRole,
+        ArrivingRole, // whether its file is being copied or moved in, dropped on the desktop
     };
     struct Launcher {
         QString appId, name, icon;
@@ -48,6 +55,8 @@ class DesktopIcons : public QAbstractListModel {
         int size = 48;
     };
     explicit DesktopIcons(QObject *parent = nullptr);
+    // Waits for the copy under way, which stops at the next of its files.
+    ~DesktopIcons() override;
     // From each configuration loaded, with its launchers.
     void configure(const Settings &settings, const QList<Launcher> &launchers);
     // "toggle", "on" or "off", as the compositor's `desktop-icons` line has it; false, changing
@@ -92,6 +101,29 @@ class DesktopIcons : public QAbstractListModel {
     Q_INVOKABLE QString newFolder(int column, int row);
     // Opens the folder in the file manager, making it first where it is missing.
     Q_INVOKABLE bool openFolder();
+    // Where a drop of `urls` on the cell at `column` and `row` puts them: {column, row} for each
+    // it takes (a file or folder, or a web address), in their order, the first in that cell while
+    // it is free and each after it in the free cell nearest it then. One already in the desktop
+    // folder is moved from its own cell, which is free to it.
+    Q_INVOKABLE QVariantList dropLanding(const QList<QUrl> &urls, int column, int row) const;
+    // Drops `urls` on the cell at `column` and `row`, each where dropLanding() says: a file or
+    // folder already in the desktop folder just moves there; one from elsewhere is copied in, a
+    // folder with all it holds, or moved with `move`, as a file manager takes a drag whose source
+    // proposes moving it; a web address becomes a link file (a desktop entry of `Type=Link`, made
+    // executable so that the desktop opens it) named from its title in `mozUrl`, a browser's
+    // text/x-moz-url, or its host. A name taken there gets " (2)", " (3)", ...: nothing is ever
+    // overwritten. How many it takes; what could not be copied or moved, `failed` says.
+    Q_INVOKABLE int drop(const QList<QUrl> &urls, int column, int row, bool move,
+                         const QByteArray &mozUrl = {});
+    // Drops `urls` into the folder of `key`, a folder in the desktop folder, as drop() does into
+    // the desktop folder; one there already, or the folder itself, is left where it is.
+    Q_INVOKABLE int dropInto(const QString &key, const QList<QUrl> &urls, bool move,
+                             const QByteArray &mozUrl = {});
+    // Saves `data`, a picture of the MIME type `type` dragged from a browser, in the desktop
+    // folder in the cell at `column` and `row`, named from `from`, its address, with the type's
+    // extension ("Picture" without one); its key, or "" when there is nothing to save.
+    Q_INVOKABLE QString dropPicture(const QByteArray &data, const QString &type, const QUrl &from,
+                                    int column, int row);
     // Reads the folder now rather than once its changes settle.
     void rescan();
     // Whether cells and hiding are remembered in the state folder; a preview's, on a grid of its
@@ -112,6 +144,19 @@ class DesktopIcons : public QAbstractListModel {
         QString key, name, icon, picture, path, kind, appId;
         QPoint cell{-1, -1};
     };
+    // A file dropped on the desktop or a folder of it, as the copying thread takes it: copied or
+    // moved from `from` (a folder with all it holds with `directory`), or written from `data` (a
+    // link file, a picture), into the folder `into` as `name`, numbered from `number` on while that
+    // is taken (" (2)", " (3)", ...); `here` when it is in `into` already, where its icon just
+    // moves.
+    struct Transfer {
+        QString from;
+        QByteArray data;
+        QString into, name;
+        int number = 1;
+        bool move = false, executable = false, here = false, directory = false;
+        QString named(int n) const;
+    };
     Settings settings_;
     QList<Launcher> launchers_;
     QList<Entry> entries_;
@@ -122,6 +167,9 @@ class DesktopIcons : public QAbstractListModel {
     QByteArray saved_;               // what the state file holds, so as to write it on a change
     QFileSystemWatcher *watcher_ = nullptr;
     QTimer settle_;                  // the folder's changes settling before it is read
+    QSet<QString> arriving_;         // the keys of the files being copied or moved in
+    QThreadPool transfers_;          // the drops' copies and moves, one after another
+    std::atomic_bool stopping_{false};
     QList<Entry> read() const;
     // A file's or folder's entry, without a cell.
     static Entry fileEntry(const QFileInfo &file);
@@ -132,4 +180,20 @@ class DesktopIcons : public QAbstractListModel {
     void watch();
     void save();
     int indexOf(const QString &key) const;
+    // The cells a drop of `count` new icons at `cell` takes, the icons of `moving` (keys) free to
+    // move.
+    QList<QPoint> dropCells(int count, QPoint cell, const QStringList &moving) const;
+    // What drop() and dropInto() make of `urls` dropped into `folder`, in their order: a transfer
+    // for each they take.
+    QList<Transfer> transfers(const QList<QUrl> &urls, const QString &folder, bool move,
+                              const QByteArray &mozUrl) const;
+    // Carries `transfer` out, on the copying thread, under its name or the first free one like it:
+    // the name it took, or "" with `error`.
+    static QString carry(const Transfer &transfer, const std::atomic_bool &stop, QString &error);
+    // Copies or moves `list` in on the copying thread, those into the desktop folder under names
+    // free there, showing in the cells of `cells`, by their order, as they come; their keys.
+    QStringList start(QList<Transfer> list, const QList<QPoint> &cells);
+    // `transfer` is over, its file called `name` (a file may have taken the name it was to have
+    // since), or with `error`, why it could not be.
+    void arrived(const Transfer &transfer, const QString &name, const QString &error);
 };
