@@ -652,7 +652,7 @@ FocusScope {
         return own || (types.indexOf("image/png") >= 0 ? "image/png" : types[0])
     }
     function incomingLanding() {
-        landing = incomingOver ? model.dropLanding(incoming.slice(0, incomingPicture !== "" ? 1 : incoming.length),
+        landing = incomingOver && dropFolder === "" ? model.dropLanding(incoming.slice(0, incomingPicture !== "" ? 1 : incoming.length),
                                                    incomingCell.x, incomingCell.y) : []
     }
 
