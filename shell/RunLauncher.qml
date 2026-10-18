@@ -21,12 +21,11 @@ Item {
     readonly property string query: launcher.query.trim()
     // Enter was pressed: the cat cheers and the chosen row hops as the card goes.
     property bool launching: false
-    // The cat's face, by what is going on.
-    readonly property string face: launching ? "\\(=^▽^=)/"
-                                 : launcher.problem !== "" ? "(=TωT=)"
-                                 : query !== "" && list.count === 0 ? "(=;ω;=)"
-                                 : query !== "" ? "(=ↀωↀ=)"
-                                 : "(=^·ω·^=)"
+    // The cat's faces: waiting, watching what is typed, finding nothing, finding a program
+    // missing, and cheering what was chosen on; and the one it makes, by what is going on.
+    readonly property var faces: ["(=^·ω·^=)", "(=ↀωↀ=)", "(=;ω;=)", "(=TωT=)", "\\(=^▽^=)/"]
+    readonly property string face: faces[launching ? 4 : launcher.problem !== "" ? 3
+                                         : query !== "" && list.count === 0 ? 2 : query !== "" ? 1 : 0]
     readonly property var placeholders: ["Launch an application…", "Run a command…", "Go to a window…"]
     readonly property var modeIcons: ["layout-grid", "terminal", "app-window"]
     width: card.width + 2 * Theme.shadowMargin
@@ -226,12 +225,21 @@ Item {
             x: root.padding; y: modes.y + modes.height + Theme.spacingM
             width: card.width - 2 * root.padding
             height: Theme.fieldHeight
+            // As wide as the widest face, so that the text after it stays put as the face changes.
+            Column {
+                id: widest
+                visible: false
+                Repeater {
+                    model: root.faces
+                    Text { required property string modelData; text: modelData; font: faceText.font }
+                }
+            }
             Rectangle {
                 id: bubble
                 objectName: "runFace"
                 property alias text: faceText.text
                 anchors.verticalCenter: parent.verticalCenter
-                width: faceText.implicitWidth + 2 * Theme.spacingL
+                width: widest.implicitWidth + 2 * Theme.spacingL
                 height: Theme.fieldHeight - 2 * Theme.spacingS
                 radius: height / 2
                 color: Theme.alpha(Theme.blush, Theme.light ? 0.22 : 0.18)
