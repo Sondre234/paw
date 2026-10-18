@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Key bindings with `release` run as their key comes up, as Hyprland's bindr. Super_L's, as
 Windows' Start key, runs only when Super was tapped alone: not after another key (bound or not), a
-click or the wheel while it was held, not when it was held longer than a tap, nor when it went down
-while a button was held, and its press and release still reach the window with the keyboard. A key that is no modifier is the binding's from its press: the window gets neither its
+click, a drag, the wheel or a touchpad swipe while it was held, not when it was held longer than a
+tap, nor when it went down while a button was held, and its press and release still reach the
+window with the keyboard. A key that is no modifier is the binding's from its press: the window gets neither its
 press nor its release. Subscribers hear the launcher and the other panels asked for."""
 from pathlib import Path
 import sys
@@ -62,14 +63,20 @@ with harness.Compositor(compositor, CONFIG) as desktop:
                      "Super + W at the window")
     desktop.stays(lambda: asked("launcher") == 1, "no launcher after Super + a key")
 
-    # Nor is Super held through a click or the wheel.
+    # Nor is Super held through a click, a drag of the window (Super + drag moves it), the wheel
+    # or a touchpad swipe.
     pointer = desktop.virtual_pointer(pointer_probe, 1280, 720)
     pointer("move 640 360")
-    for done in ("click left", "scroll 15"):
+    desktop.msg("headless_pointer", "add", "pad")
+    swipe = lambda: (desktop.msg("headless_pointer", "swipe", "pad", "begin", "3"),
+                     desktop.msg("headless_pointer", "swipe", "pad", "end"))
+    for name, done in (("a click", lambda: pointer("click left")),
+                       ("a drag", lambda: pointer("press left", "move 700 400", "release left")),
+                       ("the wheel", lambda: pointer("scroll 15")), ("a swipe", swipe)):
         press.down(SUPER)
-        pointer(done)
+        done()
         press.up(SUPER)
-        desktop.stays(lambda: asked("launcher") == 1, f"no launcher after Super + {done}")
+        desktop.stays(lambda: asked("launcher") == 1, f"no launcher after Super and {name}")
 
     # Nor is Super held longer than a tap, thought better of, however still it was.
     press.down(SUPER, time=TAP + 1000)
