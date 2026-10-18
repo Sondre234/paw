@@ -125,6 +125,7 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     DesktopIconArt.qml
     DesktopDragStack.qml
     DesktopToast.qml
+    DesktopNote.qml
     StartHome.qml
     StartAllApps.qml
     StartSearch.qml

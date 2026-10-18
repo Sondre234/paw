@@ -25,7 +25,8 @@ import QtQuick.Shapes
 // land in. Shown and hidden from the desktop's menu, the icons ripple out from where it was opened.
 // Moved to the Trash, they shrink away, and a notice at the foot of the desktop (DesktopToast)
 // says what went, with Undo, which pops them back into the cells they left in a ripple from it,
-// each with a puff of sparkles.
+// each with a puff of sparkles. Sticky notes (DesktopNote, the model shell.desktopNotes) lie on the
+// same grid, each over a block of cells the icons go around.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -45,6 +46,7 @@ FocusScope {
     // Whether this output's desktop has the icons: the main monitor's.
     property bool active: false
     readonly property var model: shell.desktopIcons
+    readonly property var notes: shell.desktopNotes
     readonly property bool shown: active && model.shown
     readonly property int iconSize: model.iconSize
     // A cell: the icon, the gap under it and two lines of its name, with room around.
@@ -69,14 +71,29 @@ FocusScope {
     signal iconMenuRequested(real x, real y, bool byKeyboard)
 
     FontMetrics { id: nameFont; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+    // The notes' hand: the first rounded font there is, else the shell's.
+    readonly property string noteFont: {
+        const families = Qt.fontFamilies()
+        for (const family of ["Nunito", "M PLUS Rounded 1c", "Rounded Mplus 1c", "Varela Round", "Quicksand",
+                              "Comfortaa", "Kosugi Maru"])
+            if (families.indexOf(family) >= 0)
+                return family
+        return Theme.fontFamily
+    }
+    readonly property int noteFontSize: Theme.fontSize + 1
 
     // The grid is said once the desktop's size has settled: a new icon keeps the cell it is given
     // first, which a size the window passes through on its way would leave it in.
     Timer {
         id: layOut
         interval: 100
-        onTriggered: if (grid.active && grid.area.width > 0 && grid.area.height > 0)
-                         grid.model.setGrid(grid.columns, grid.rows)
+        // The notes first, which the icons go around.
+        onTriggered: {
+            if (!grid.active || grid.area.width <= 0 || grid.area.height <= 0)
+                return
+            grid.notes.setGrid(grid.columns, grid.rows)
+            grid.model.setGrid(grid.columns, grid.rows)
+        }
     }
     onColumnsChanged: layOut.restart()
     onRowsChanged: layOut.restart()
@@ -819,6 +836,12 @@ FocusScope {
         id: icons
         model: grid.active ? grid.model : null
         delegate: DesktopIcon { board: grid }
+    }
+
+    Repeater {
+        id: noteItems
+        model: grid.active ? grid.notes : null
+        delegate: DesktopNote { board: grid }
     }
 
     // The ring of the current icon while the keys move it: in the second hue with a soft halo,
