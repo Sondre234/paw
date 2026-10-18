@@ -177,9 +177,10 @@ Button {
         spacing: Theme.spacingS + Theme.spacingXS
         Item { Layout.fillWidth: panel.iconsOnly || task.launcher }
         BarAppIcon {
+            objectName: "taskIcon"
             name: task.iconName
             pressed: task.pressed
-            size: Math.min(Theme.appIconSize, task.availableHeight)
+            size: Math.min(Theme.barAppIconSize, task.availableHeight)
             Layout.preferredWidth: size; Layout.preferredHeight: size
         }
         Text { visible: !panel.iconsOnly && !task.launcher; text: task.title; textFormat: Text.PlainText; color: Theme.text; elide: Text.ElideRight; Layout.fillWidth: true; font.pixelSize: Theme.fontSize; font.family: Theme.fontFamily }
