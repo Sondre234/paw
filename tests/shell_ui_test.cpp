@@ -7958,21 +7958,48 @@ ListModel {
         if (!selected({"file:Folder", "file:a.txt", "file:b.txt"}))
             return fail("Shift + click did not take the desktop icons from the one clicked before");
         // Delete moves the selected files to the Trash (with a home on the test's own file system,
-        // whose trash is the test's data folder's).
+        // whose trash is the test's data folder's), and a notice at the foot of the desktop says
+        // so, whose Undo puts the file back in the cell it left, selected.
         {
             const auto home = qgetenv("HOME");
             qputenv("HOME", screens.path().toLocal8Bit());
             if (!writeFile(desk + "/old.txt", "x") || !waitFor([&] { return tile("file:old.txt") && inCell("file:old.txt"); }))
                 return fail("a new file on the desktop did not show");
+            const QPoint oldCell = cellOf("file:old.txt");
+            const auto trashFolder = screens.filePath("data/Trash");
+            auto *toast = find(root, "desktopToast");
+            auto toastSays = [&](const QString &text) {
+                auto *line = find(root, "desktopToastText");
+                return toast && toast->isVisible() && toast->property("shown").toBool() &&
+                       toast->property("reveal").toReal() == 1 && line && line->property("text") == text;
+            };
             QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:old.txt"));
             press(Qt::Key_Delete);
             const bool trashed = waitFor([&] {
-                return !tile("file:old.txt") && QFile::exists(screens.filePath("data/Trash/files/old.txt"));
+                return !tile("file:old.txt") && QFile::exists(trashFolder + "/files/old.txt");
             });
+            const bool told = trashed && waitFor([&] { return toastSays("Moved old.txt to Trash"); });
+            bool undone = false;
+            if (told) {
+                click(find(root, "desktopToastAction"));
+                undone = waitFor([&] {
+                    return tile("file:old.txt") && cellOf("file:old.txt") == oldCell && inCell("file:old.txt") &&
+                           tile("file:old.txt")->property("selected").toBool() &&
+                           !QFile::exists(trashFolder + "/files/old.txt") &&
+                           !QFile::exists(trashFolder + "/info/old.txt.trashinfo") && !toast->isVisible();
+                });
+            }
             qputenv("HOME", home);
-            QDir(screens.filePath("data/Trash")).removeRecursively();
+            QDir(trashFolder).removeRecursively();
+            QFile::remove(desk + "/old.txt");
             if (!trashed)
                 return fail("Delete did not move the selected desktop file to the Trash");
+            if (!told)
+                return fail("no notice on the desktop said a file was moved to the Trash");
+            if (!undone)
+                return fail("the notice's Undo did not put the desktop file back in the cell it left");
+            if (!waitFor([&] { return !tile("file:old.txt"); }))
+                return fail("the desktop file put back did not go again");
         }
         // Renaming: F2 turns the name into a field, the part before the extension selected, which
         // Escape leaves as it was; Enter gives the name typed, the icon keeping its cell; a name
