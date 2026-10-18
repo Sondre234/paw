@@ -337,7 +337,7 @@ Item {
                 SequentialAnimation {
                     id: arriving
                     PropertyAction { target: content; property: "opacity"; value: Theme.durationNormal > 0 ? 0 : 1 }
-                    PauseAnimation { duration: Theme.duration(Math.min(row.index, 8) * 18) }
+                    PauseAnimation { duration: Theme.duration(Math.max(0, Math.min(row.index, 8)) * 18) }
                     ParallelAnimation {
                         NumberAnimation { target: content; property: "opacity"; to: 1; duration: Theme.durationNormal; easing.type: Theme.easing }
                         NumberAnimation { target: content; property: "x"; from: Theme.spacingM; to: 0; duration: Theme.durationNormal; easing.type: Theme.easing }
