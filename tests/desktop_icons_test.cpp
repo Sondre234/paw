@@ -429,10 +429,13 @@ class DesktopIconsTest : public QObject {
         // to drop into.
         QCOMPARE(icons->dropInto("file:Zeta", files({folder_ + "/Zeta/kept.txt", folder_ + "/Zeta"}), false), 0);
         QCOMPARE(icons->dropInto("file:b.txt", files({outside + "/x.txt"}), false), 0);
-        // Desktop files moved in leave the desktop.
+        // Desktop files moved in leave the desktop; a launcher, or the folder itself, stays.
         QCOMPARE(icons->dropInto("file:Zeta", files({folder_ + "/a2.txt"}), true), 1);
         QTRY_VERIFY(!keys(*icons).contains("file:a2.txt"));
         QVERIFY(QFile::exists(folder_ + "/Zeta/a2.txt"));
+        QCOMPARE(icons->moveInto("file:Zeta", {"file:a10.txt", "launcher:Terminal", "file:Zeta"}), 1);
+        QTRY_VERIFY(!keys(*icons).contains("file:a10.txt"));
+        QVERIFY(QFile::exists(folder_ + "/Zeta/a10.txt") && keys(*icons).contains("launcher:Terminal"));
         QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
     }
     void makesLinksAndPictures() {
