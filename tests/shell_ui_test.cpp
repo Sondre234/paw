@@ -8459,6 +8459,54 @@ ListModel {
             press(Qt::Key_Z, Qt::ControlModifier);
             if (!waitFor(back))
                 return fail("Ctrl + Z did not bring the deleted desktop note back");
+            // The keys go round the notes among the icons: Right from the launcher lands on the
+            // note level with it, ringed; Enter writes on it and Escape lets it go, the keys still
+            // there; Ctrl + C copies its text, the menu key opens its menu, Delete deletes it and
+            // Ctrl + Z brings it back; Left goes back to the launcher.
+            QMetaObject::invokeMethod(grid, "tidy");
+            if (!waitFor([&] { return laidOut(0); }))
+                return fail("the desktop's icons were not tidied up around the note");
+            notes->move(key, 3 - noteCell().x(), -noteCell().y());
+            if (noteCell() != QPoint(3, 0) || !waitFor(noteInCell))
+                return fail("the desktop note did not move to the top of the fourth column");
+            auto ringOnNote = [&] {
+                return waitFor([&] {
+                    return ring->isVisible() && ring->opacity() == 1 && note(key) &&
+                           std::abs(ring->x() - note(key)->x()) < 0.5 && std::abs(ring->y() - note(key)->y()) < 0.5 &&
+                           ring->width() == note(key)->width();
+                });
+            };
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("launcher:Test app"));
+            press(Qt::Key_Right);
+            if (current() != key || !ringOnNote() || !selected({}))
+                return fail("Right from an icon did not go on to the desktop note level with it, ringed");
+            press(Qt::Key_Return);
+            if (!waitFor([&] { return field() && field()->hasActiveFocus(); }))
+                return fail("Enter on the desktop note did not write on it");
+            typeText("!");
+            press(Qt::Key_Escape);
+            if (field() || noteText(key) != "Plans\n[ ] tea!" || current() != key || !ringOnNote())
+                return fail("Escape did not leave the keys at the desktop note, its text as typed");
+            QGuiApplication::clipboard()->clear();
+            press(Qt::Key_C, Qt::ControlModifier);
+            if (!waitFor([&] { return QGuiApplication::clipboard()->text() == "Plans\n[ ] tea!"; }))
+                return fail("Ctrl + C on the desktop note did not copy its text");
+            press(Qt::Key_Menu);
+            if (!waitFor([&] { return entry("desktopNoteMenu", "Delete note") != nullptr; }))
+                return fail("the menu key on the desktop note did not open its menu");
+            press(Qt::Key_Escape);
+            if (!waitFor([&] { return !entry("desktopNoteMenu", "Delete note") && grid->hasActiveFocus(); }))
+                return fail("Escape did not close the desktop note's menu, the keys back on the desktop");
+            press(Qt::Key_Delete);
+            if (!waitFor([&] { return !note(key); }) || current() != "launcher:Test app")
+                return fail("Delete on the desktop note did not delete it, the keys going on to the nearest icon");
+            press(Qt::Key_Z, Qt::ControlModifier);
+            if (!waitFor([&] { return note(key) && note(key)->property("reveal").toReal() == 1; }))
+                return fail("Ctrl + Z did not bring back the desktop note Delete deleted");
+            press(Qt::Key_Right);
+            press(Qt::Key_Left);
+            if (current() != "launcher:Test app")
+                return fail("Left from the desktop note did not go back to the launcher");
             notes->remove(key);
             if (!waitFor([&] { return !note(key); }))
                 return fail("the desktop note did not go");
