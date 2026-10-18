@@ -142,27 +142,36 @@ Rectangle {
     }
     // The icons, on the main monitor, and every press on the desktop: a right press opens the
     // desktop's menu where it was, or the icons' beside the selection; any other press closes them
-    // where they are, rather than moving them there as they fade.
+    // where they are, rather than moving them there as they fade. The menu key opens them too,
+    // the first entry highlighted, and a menu closing gives the keys back to the icons.
     DesktopIconGrid {
         id: icons
         anchors.fill: parent
         area: desktop.free
         active: shell.desktopIcons.enabled && desktop.outputName === shell.primaryOutput
         onPressed: { menu.open = false; iconMenu.open = false }
-        onMenuRequested: function(x, y) {
+        onMenuRequested: function(x, y, byKeyboard) {
             menu.anchorRect = Qt.rect(x, y, 0, 0)
+            menu.initialIndex = byKeyboard ? 0 : -1
             menu.open = true
         }
-        onIconMenuRequested: function(x, y) {
+        onIconMenuRequested: function(x, y, byKeyboard) {
             iconMenu.entries = desktop.iconEntries(icons.selectedTiles())
             iconMenu.anchorRect = Qt.rect(x, y, 0, 0)
+            iconMenu.initialIndex = byKeyboard ? 0 : -1
             iconMenu.open = iconMenu.entries.length > 0
         }
+    }
+    // A menu closed gives the keys back to the icons, unless what was chosen took them (a name
+    // to type).
+    function keysBack(menu) {
+        if (!menu.open && !icons.activeFocus)
+            icons.forceActiveFocus()
     }
     // The keyboard comes to the desktop from a click while it has the icons, for their keys.
     Binding { target: desktop.shellView; property: "keyboardOnDemand"; value: icons.active }
     // What the icons' menu offers for `tiles`, the selected icons: opening them, copying their
-    // files and moving those to the trash, under a title naming them.
+    // files and moving those to the trash, under a title naming them, each with its key.
     function iconEntries(tiles) {
         if (tiles.length === 0)
             return []
@@ -175,13 +184,14 @@ Rectangle {
                 secondary: kinds[one.kind] || (suffix !== "" ? suffix + " file" : "File") }
             : { title: tiles.length + " items", icon: "layers",
                 secondary: files.length === tiles.length ? "On the desktop" : files.length + " of them files" },
-            { text: tiles.length === 1 ? "Open" : "Open all", icon: "folder-open",
+            { text: tiles.length === 1 ? "Open" : "Open all", icon: "folder-open", secondary: "Enter",
               run: function() { icons.open(tiles) } }]
         if (files.length > 0)
             entries.push({ text: files.length === 1 ? "Copy" : "Copy " + files.length + " files", icon: "copy",
+                           secondary: "Ctrl+C",
                            run: function() { shell.desktopIcons.copy(files.map(tile => tile.key)) } },
                          { separator: true },
-                         { text: "Move to Trash", icon: "trash-2", danger: true,
+                         { text: "Move to Trash", icon: "trash-2", danger: true, secondary: "Delete",
                            run: function() { icons.trash(files) } })
         return entries
     }
@@ -197,6 +207,7 @@ Rectangle {
         gap: 0
         bounds: desktop.free
         onDismissed: open = false
+        onOpenChanged: desktop.keysBack(menu)
         entries: [{ text: "Show desktop", icon: "minimize-2", run: function() { shell.tasks.showDesktop() } }]
             .concat(icons.active ? [{ separator: true }, {
                          text: icons.shown ? "Hide desktop icons" : "Show desktop icons",
@@ -225,5 +236,6 @@ Rectangle {
         gap: 0
         bounds: desktop.free
         onDismissed: open = false
+        onOpenChanged: desktop.keysBack(iconMenu)
     }
 }

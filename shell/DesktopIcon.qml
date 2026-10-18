@@ -228,29 +228,46 @@ Item {
         enabled: tile.board.shown && !tile.leaving
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
-        // Where the left button went down, in the grid's coordinates, and whether it has moved
-        // far enough since to drag.
+        // Where the left button went down, in the grid's coordinates, whether that may drag, and
+        // whether it has moved far enough since to; and whether the click takes the icon alone.
         property point pressedAt
+        property bool armed: false
         property bool moved: false
+        property bool alone: true
         onPressed: function(mouse) {
             const at = mapToItem(tile.board, mouse.x, mouse.y)
-            tile.board.pressed()
-            // The middle button picks an icon or puts it back, keeping the others selected.
-            if (mouse.button === Qt.MiddleButton) {
-                tile.board.toggle(tile.key)
+            const board = tile.board
+            board.pressed()
+            board.keysUsed = false
+            armed = false
+            board.current = tile.key
+            // The middle button, or Ctrl with the left, picks an icon or puts it back, keeping the
+            // others selected.
+            if (mouse.button === Qt.MiddleButton ||
+                (mouse.button === Qt.LeftButton && (mouse.modifiers & Qt.ControlModifier))) {
+                board.toggle(tile.key)
+                board.extendFrom = tile.key
                 return
             }
-            if (!tile.selected)
-                tile.board.select([tile.key])
+            // Shift with the left takes those from the icon clicked before to this one.
+            alone = !(mouse.button === Qt.LeftButton && (mouse.modifiers & Qt.ShiftModifier))
+            if (!alone) {
+                board.selectBetween(board.extendFrom !== "" && board.tileOf(board.extendFrom) ? board.extendFrom : tile.key,
+                                    tile.key)
+            } else if (!tile.selected) {
+                board.select([tile.key])
+                board.extendFrom = tile.key
+            }
             if (mouse.button === Qt.RightButton) {
-                tile.board.iconMenuRequested(at.x, at.y)
+                board.iconMenuRequested(at.x, at.y, false)
                 return
             }
             pressedAt = at
+            armed = true
             moved = false
         }
         onPositionChanged: function(mouse) {
-            if (!(pressedButtons & Qt.LeftButton))
+            if (!armed || !(pressedButtons & Qt.LeftButton))
                 return
             const at = mapToItem(tile.board, mouse.x, mouse.y)
             if (!moved && Math.hypot(at.x - pressedAt.x, at.y - pressedAt.y) >= Qt.styleHints.startDragDistance) {
@@ -263,19 +280,22 @@ Item {
         onReleased: function(mouse) {
             if (mouse.button !== Qt.LeftButton)
                 return
-            if (moved)
+            if (moved) {
                 tile.board.endDrag(false)
-            else
+            } else if (armed && alone) {
                 tile.board.select([tile.key]) // a click on one of several takes it alone
-            moved = false
+                tile.board.extendFrom = tile.key
+            }
+            moved = armed = false
         }
         onCanceled: {
             if (moved)
                 tile.board.endDrag(true)
-            moved = false
+            moved = armed = false
         }
         onDoubleClicked: function(mouse) {
-            if (mouse.button === Qt.LeftButton)
+            if (mouse.button === Qt.LeftButton &&
+                !(mouse.modifiers & (Qt.ControlModifier | Qt.ShiftModifier)))
                 tile.board.open([tile])
         }
     }

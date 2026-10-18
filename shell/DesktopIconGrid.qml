@@ -3,17 +3,27 @@ import QtQuick
 import QtQuick.Shapes
 
 // The desktop's icons (shell.desktop_icons, the model shell.desktopIcons) on a grid in `area`, the
-// room the bars leave, on the main monitor (`active`), and the presses on the desktop around them.
-// A click selects an icon, the middle button picks one more or puts one back, and a drag across
-// the desktop selects every icon its band touches: a band in the accent colour fading into a
-// second hue, with rounded corners and a bubble at the pointer counting what it holds, each icon
-// it catches hopping as it does. Dragged, the selected icons gather under the pointer into a stack
-// with their count, while dashed pads on the grid show the cells they will land in, gliding
-// from cell to cell; let go, they glide into those cells, the furthest last. Shown and hidden from
-// the desktop's menu, the icons ripple out from where it was opened.
-Item {
+// room the bars leave, on the main monitor (`active`), and the presses and keys on the desktop
+// around them. A click selects an icon, Ctrl + click or the middle button picks one more or puts
+// one back, Shift + click takes the icons in the rectangle from the one clicked before, and a drag
+// across the desktop selects every icon its band touches (with Ctrl or Shift, adding them): a band
+// in the accent colour fading into a second hue, with rounded corners and a bubble at the pointer
+// counting what it holds, each icon it catches hopping as it does. Dragged, the selected icons
+// gather under the pointer into a stack with their count, while dashed pads on the grid show the
+// cells they will land in, gliding from cell to cell; let go, they glide into those cells, the
+// furthest last. Shown and hidden from the desktop's menu, the icons ripple out from where it was
+// opened.
+//
+// Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
+// icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
+// icons between, with Ctrl leaving the selection as it is (Ctrl + Space picks one); letters typed
+// go to the next icon whose name starts with them, said in a bubble over it. Enter opens, Delete
+// moves to the Trash, Ctrl + A selects all, Ctrl + C copies, the menu key opens the
+// icons' menu and Escape lets the selection go.
+FocusScope {
     id: grid
     objectName: "desktopIconGrid"
+    focus: true
     // The room on the desktop the bars leave, in its coordinates.
     property rect area
     // Whether this output's desktop has the icons: the main monitor's.
@@ -39,8 +49,8 @@ Item {
     // A press anywhere on the desktop, for its menus to close; a right press beside the icons, and
     // one on the selection, for its menus to open there.
     signal pressed()
-    signal menuRequested(real x, real y)
-    signal iconMenuRequested(real x, real y)
+    signal menuRequested(real x, real y, bool byKeyboard)
+    signal iconMenuRequested(real x, real y, bool byKeyboard)
 
     FontMetrics { id: nameFont; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
 
@@ -82,14 +92,202 @@ Item {
         const all = tiles()
         return selectionOrder.map(key => all.find(tile => tile.key === key)).filter(tile => !!tile)
     }
-    // An icon gone from the folder leaves the selection.
+    function tileOf(key) {
+        for (let i = 0; i < icons.count; ++i)
+            if (icons.itemAt(i) && icons.itemAt(i).key === key)
+                return icons.itemAt(i)
+        return null
+    }
+    // The icons in their cells, down each column before the next, as they fill the grid.
+    function ordered() {
+        return tiles().filter(tile => tile.placed).sort((a, b) => a.column - b.column || a.row - b.row)
+    }
+    // An icon gone from the folder leaves the selection, and the keyboard goes on to the icon
+    // nearest where it was.
     Connections {
         target: grid.model
         function onCountChanged() {
             const kept = grid.selectedTiles().map(tile => tile.key)
             if (kept.length !== grid.selectionOrder.length)
                 grid.select(kept)
+            if (grid.current === "" || grid.currentTile)
+                return
+            let nearest = null
+            for (const tile of grid.ordered())
+                if (!nearest || Math.hypot(tile.column - grid.currentCell.x, tile.row - grid.currentCell.y) <
+                                Math.hypot(nearest.column - grid.currentCell.x, nearest.row - grid.currentCell.y))
+                    nearest = tile
+            grid.current = nearest ? nearest.key : ""
         }
+    }
+
+    // The keyboard's current icon (its key) and its cell, the icon Shift takes those between from,
+    // and whether the keys are in use, which shows the ring: from a key moving it until the
+    // pointer is pressed.
+    property string current: ""
+    property point currentCell
+    property string extendFrom: ""
+    property bool keysUsed: false
+    readonly property Item currentTile: { current; icons.count; return tileOf(current) }
+    readonly property bool ringShown: keysUsed && activeFocus && !dragging && currentTile !== null &&
+                                      currentTile.visible
+    onCurrentTileChanged: if (currentTile) currentCell = Qt.point(currentTile.column, currentTile.row)
+    // The keys take `tile` as the current icon: alone in the selection, with those between it and
+    // `extendFrom` (`extend`), or leaving the selection as it is (`keep`).
+    function moveTo(tile, extend, keep) {
+        if (extend && (extendFrom === "" || !tileOf(extendFrom)))
+            extendFrom = currentTile ? current : tile.key
+        current = tile.key
+        keysUsed = true
+        if (extend) {
+            selectBetween(extendFrom, tile.key)
+        } else if (!keep) {
+            select([tile.key])
+            extendFrom = tile.key
+        }
+    }
+    // Selects the icons in the rectangle of cells from `fromKey`'s to `toKey`'s, `fromKey`'s first.
+    function selectBetween(fromKey, toKey) {
+        const from = tileOf(fromKey), to = tileOf(toKey)
+        if (!from || !to)
+            return
+        const left = Math.min(from.column, to.column), right = Math.max(from.column, to.column)
+        const top = Math.min(from.row, to.row), bottom = Math.max(from.row, to.row)
+        const inside = ordered().filter(tile => tile.column >= left && tile.column <= right &&
+                                                tile.row >= top && tile.row <= bottom && tile.key !== fromKey)
+        select([fromKey].concat(inside.map(tile => tile.key)))
+    }
+    // An arrow: the nearest icon that way, one level with the current first (in its row, or in its
+    // column), then by the distance between their cells. The first key of all lands on the current
+    // icon, or the first.
+    function step(dx, dy, extend, keep) {
+        const from = currentTile
+        if (!from || !from.placed || (!keysUsed && selectionOrder.length === 0)) {
+            const first = from && from.placed ? from : ordered()[0]
+            if (first)
+                moveTo(first, false, keep)
+            return
+        }
+        let best = null, bestLevel = false, bestDistance = 0
+        for (const tile of ordered()) {
+            const along = dx !== 0 ? (tile.column - from.column) * dx : (tile.row - from.row) * dy
+            if (tile === from || along <= 0)
+                continue
+            const level = dx !== 0 ? tile.row === from.row : tile.column === from.column
+            const distance = Math.hypot(tile.column - from.column, tile.row - from.row)
+            if (!best || (level && !bestLevel) || (level === bestLevel && distance < bestDistance)) {
+                best = tile
+                bestLevel = level
+                bestDistance = distance
+            }
+        }
+        if (best)
+            moveTo(best, extend, keep)
+        keysUsed = true
+    }
+    // What Enter opens: the selected icons, else the current one.
+    function chosen() {
+        return selectionOrder.length > 0 ? selectedTiles() : currentTile ? [currentTile] : []
+    }
+    // The icons' menu from the keyboard, beside the current icon, which it takes alone when
+    // nothing is selected; the desktop's, with no icons, at their corner.
+    function keyMenu() {
+        if (selectionOrder.length === 0 && currentTile)
+            select([current])
+        const tile = selectionOrder.indexOf(current) >= 0 ? currentTile : selectedTiles()[0]
+        if (tile)
+            iconMenuRequested(tile.x + tile.width / 2, tile.y + tile.height - Theme.spacingS, true)
+        else
+            menuRequested(area.x + margin, area.y + margin, true)
+    }
+
+    // Type-ahead: what was typed in the last second, said in a bubble over the icon it found.
+    property string typed: ""
+    Timer { id: typing; interval: 1000; onTriggered: grid.typed = "" }
+    // Letters typed go to the next icon whose name starts with them, from the current icon on; one
+    // letter again and again steps through those starting with it.
+    function typeAhead(text) {
+        const next = typed + text
+        typed = next
+        typing.restart()
+        const lower = next.toLocaleLowerCase()
+        const again = lower.length > 1 && lower.split("").every(c => c === lower[0])
+        const prefix = again ? lower[0] : lower
+        const list = ordered()
+        const at = list.findIndex(tile => tile.key === current)
+        // A new letter looks past the current icon; more of a name may stay on it.
+        const from = at < 0 ? 0 : next.length === 1 || again ? at + 1 : at
+        for (let i = 0; i < list.length; ++i) {
+            const tile = list[(from + i) % list.length]
+            if (tile.name.toLocaleLowerCase().startsWith(prefix)) {
+                moveTo(tile, false, false)
+                return
+            }
+        }
+        keysUsed = true
+    }
+
+    Keys.onPressed: function(event) {
+        if (!grid.shown)
+            return
+        const ctrl = (event.modifiers & Qt.ControlModifier) !== 0
+        const shift = (event.modifiers & Qt.ShiftModifier) !== 0
+        const plain = (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)) === 0
+        switch (event.key) {
+        case Qt.Key_Left: grid.step(-1, 0, shift, ctrl); break
+        case Qt.Key_Right: grid.step(1, 0, shift, ctrl); break
+        case Qt.Key_Up: grid.step(0, -1, shift, ctrl); break
+        case Qt.Key_Down: grid.step(0, 1, shift, ctrl); break
+        case Qt.Key_Home:
+        case Qt.Key_End: {
+            const list = grid.ordered()
+            if (list.length > 0)
+                grid.moveTo(list[event.key === Qt.Key_Home ? 0 : list.length - 1], shift, ctrl)
+            break
+        }
+        case Qt.Key_Return:
+        case Qt.Key_Enter: grid.open(grid.chosen()); break
+        case Qt.Key_Delete: grid.trash(grid.selectedTiles()); break
+        case Qt.Key_Menu: grid.keyMenu(); break
+        case Qt.Key_F10:
+            if (!shift)
+                return
+            grid.keyMenu()
+            break
+        case Qt.Key_Escape:
+            if (grid.selectionOrder.length === 0 && grid.typed === "")
+                return
+            grid.select([])
+            grid.typed = ""
+            break
+        case Qt.Key_Space:
+            if (ctrl && grid.currentTile) {
+                grid.toggle(grid.current)
+                grid.extendFrom = grid.current
+                grid.keysUsed = true
+            } else if (plain && grid.typed !== "") {
+                grid.typeAhead(" ")
+            } else {
+                return
+            }
+            break
+        default:
+            if (ctrl && event.key === Qt.Key_A) {
+                grid.select(grid.ordered().map(tile => tile.key))
+            } else if (ctrl && event.key === Qt.Key_C) {
+                const files = grid.selectedTiles().filter(tile => tile.kind !== "launcher")
+                if (files.length === 0)
+                    return
+                grid.model.copy(files.map(tile => tile.key))
+                for (const tile of files)
+                    tile.hop()
+            } else if (plain && event.text.length > 0 && event.text.trim() !== "" && event.text >= " ") {
+                grid.typeAhead(event.text)
+            } else {
+                return
+            }
+        }
+        event.accepted = true
     }
 
     function open(list) {
@@ -190,6 +388,8 @@ Item {
     property point bandTo
     readonly property rect band: Qt.rect(Math.min(bandFrom.x, bandTo.x), Math.min(bandFrom.y, bandTo.y),
                                          Math.abs(bandTo.x - bandFrom.x), Math.abs(bandTo.y - bandFrom.y))
+    // What was selected as the band began: kept, with Ctrl or Shift held.
+    property var bandBase: []
     function bandSelect() {
         const inside = []
         for (const tile of tiles()) {
@@ -201,9 +401,10 @@ Item {
             if (left < band.x + band.width && right > band.x && top < band.y + band.height && bottom > band.y)
                 inside.push(tile.key)
         }
-        // Those caught before stay first, in their order.
-        const kept = selectionOrder.filter(key => inside.indexOf(key) >= 0)
-        select(kept.concat(inside.filter(key => kept.indexOf(key) < 0)))
+        // Those caught before stay first, in their order, after those it began with.
+        const base = bandBase
+        const kept = selectionOrder.filter(key => inside.indexOf(key) >= 0 && base.indexOf(key) < 0)
+        select(base.concat(kept, inside.filter(key => kept.indexOf(key) < 0 && base.indexOf(key) < 0)))
     }
 
     // The ripple: from where the menu was opened, an icon further away coming or going later.
@@ -222,9 +423,14 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onPressed: function(mouse) {
             grid.pressed()
-            grid.select([])
+            grid.keysUsed = false
+            const adding = mouse.button === Qt.LeftButton &&
+                           (mouse.modifiers & (Qt.ControlModifier | Qt.ShiftModifier)) !== 0
+            grid.bandBase = adding ? grid.selectionOrder.slice() : []
+            if (!adding)
+                grid.select([])
             if (mouse.button === Qt.RightButton) {
-                grid.menuRequested(mouse.x, mouse.y)
+                grid.menuRequested(mouse.x, mouse.y, false)
                 return
             }
             grid.bandFrom = grid.bandTo = Qt.point(mouse.x, mouse.y)
@@ -272,6 +478,101 @@ Item {
         id: icons
         model: grid.active ? grid.model : null
         delegate: DesktopIcon { board: grid }
+    }
+
+    // The ring of the current icon while the keys move it: in the second hue with a soft halo,
+    // hopping from icon to icon, a sparkle on its corner twinkling as it lands; over it, what was
+    // typed to find it.
+    Item {
+        id: ring
+        objectName: "desktopFocusRing"
+        readonly property Item tile: grid.currentTile
+        z: 3
+        width: grid.cellWidth
+        height: grid.cellHeight
+        visible: opacity > 0
+        opacity: grid.ringShown ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: Theme.durationFast } }
+        // Hidden, it follows the current icon at once, and comes in where that is; shown, it glides.
+        property bool landed: false
+        onVisibleChanged: {
+            if (!visible) {
+                landed = false
+                return
+            }
+            starPop.restart()
+            Qt.callLater(function() { ring.landed = ring.visible })
+        }
+        x: tile ? tile.x : 0
+        y: tile ? tile.y : 0
+        Behavior on x { enabled: ring.landed; NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+        Behavior on y { enabled: ring.landed; NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack; easing.overshoot: 1.6 } }
+        onTileChanged: if (visible) starPop.restart()
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: Theme.spacingXS - 3
+            radius: Theme.radiusLarge + 3
+            color: "transparent"
+            border.width: 3
+            border.color: Theme.alpha(grid.partner, 0.3)
+        }
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: Theme.spacingXS
+            radius: Theme.radiusLarge
+            color: "transparent"
+            border.width: Theme.focusRingWidth
+            border.color: grid.partner
+        }
+        Rectangle {
+            id: star
+            width: 16
+            height: 16
+            radius: 8
+            x: parent.width - Theme.spacingXS - width / 2 - 3
+            y: Theme.spacingXS - height / 2 + 3
+            color: Theme.surface
+            border.color: grid.partner
+            border.width: 1
+            Icon {
+                anchors.centerIn: parent
+                name: "sparkles"
+                size: 10
+                color: grid.partner
+            }
+            SequentialAnimation {
+                id: starPop
+                ParallelAnimation {
+                    NumberAnimation { target: star; property: "scale"; from: 0.3; to: 1.25; duration: Theme.duration(140); easing.type: Easing.OutQuad }
+                    NumberAnimation { target: star; property: "rotation"; from: -60; to: 8; duration: Theme.duration(140); easing.type: Easing.OutQuad }
+                }
+                ParallelAnimation {
+                    NumberAnimation { target: star; property: "scale"; to: 1; duration: Theme.duration(220); easing.type: Easing.OutBack }
+                    NumberAnimation { target: star; property: "rotation"; to: 0; duration: Theme.duration(220); easing.type: Easing.OutBack }
+                }
+            }
+        }
+        Rectangle {
+            objectName: "desktopTypeAhead"
+            visible: grid.typed !== ""
+            height: 20
+            width: Math.max(height, typedText.implicitWidth + 2 * Theme.spacingM)
+            radius: height / 2
+            x: Math.round((parent.width - width) / 2)
+            y: Theme.spacingXS - height / 2
+            color: grid.partner
+            border.color: Theme.surface
+            border.width: 2
+            Text {
+                id: typedText
+                anchors.centerIn: parent
+                text: grid.typed
+                color: Theme.contrast(grid.partner, "#ffffff") >= 3 ? "#ffffff" : Theme.text
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeCaption
+                font.bold: true
+            }
+        }
     }
 
     // The band, over the icons it catches.
