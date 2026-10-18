@@ -263,14 +263,14 @@ Item {
                     Keys.onEscapePressed: tile.board.finishRename(undefined)
                 }
             }
-            // A pencil on its corner while the name is typed.
+            // A pencil on its corner while the name is typed, clear of the name.
             Rectangle {
                 visible: tile.editing
                 width: 18
                 height: 18
                 radius: 9
-                x: chip.width - width + 5
-                y: -height / 2 + 1
+                x: chip.width - width / 2 - 2
+                y: -height / 2 - 1
                 color: tile.board.partner
                 border.color: Theme.surface
                 border.width: 2
