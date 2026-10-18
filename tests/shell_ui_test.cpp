@@ -8269,6 +8269,64 @@ ListModel {
             if (!waitFor([&] { return !tile("file:drop.txt") && !tile("file:moved.txt") && !tile("file:cat.png"); }))
                 return fail("the files dropped on the desktop did not go");
         }
+        // Sticky notes. A click writes on one, the text plain in a field: Enter is a new line,
+        // Escape lets it go, and the text is kept; a click on a checklist's box ticks it, and a press
+        // beside the note lets its field go too. It holds no more than its most.
+        {
+            auto *notes = controller.desktopNotes();
+            auto note = [&](const QString &key) { return find(root, "desktopNote:" + key); };
+            auto field = [&] { return find(root, "desktopNoteField"); };
+            auto noteText = [&](const QString &key) {
+                for (int i = 0; i < notes->rowCount(); ++i)
+                    if (notes->data(notes->index(i), DesktopNotes::KeyRole) == key)
+                        return notes->data(notes->index(i), DesktopNotes::TextRole).toString();
+                return QString("(none)");
+            };
+            auto kept = [&](const QByteArray &text) {
+                QFile state(screens.filePath("state/paw/desktop-notes"));
+                return state.open(QIODevice::ReadOnly) && state.readAll().contains(text);
+            };
+            const auto key = notes->add(3, 0);
+            if (key.isEmpty() || !waitFor([&] { return note(key) && note(key)->isVisible(); }))
+                return fail("a note made on the desktop did not show");
+            click(note(key));
+            if (!waitFor([&] { return field() && field()->hasActiveFocus(); }) ||
+                !note(key)->property("editing").toBool())
+                return fail("a click on a desktop note did not let its text be typed");
+            typeText("milk");
+            press(Qt::Key_Return);
+            typeText("[ ] eggs");
+            press(Qt::Key_Escape);
+            if (field() || noteText(key) != "milk\n[ ] eggs" || !grid->hasActiveFocus())
+                return fail("Escape did not let the desktop note's text go, as it was typed");
+            if (!waitFor([&] { return kept(R"("text": "milk\n[ ] eggs")"); }))
+                return fail("the desktop note's text was not kept");
+            QQuickItem *box = nullptr;
+            if (!waitFor([&] { return (box = find(note(key), "desktopNoteBox")) && box->isVisible(); }))
+                return fail("the desktop note's checklist line had no box");
+            click(box);
+            if (noteText(key) != "milk\n[x] eggs" || field() || !kept(R"("text": "milk\n[x] eggs")"))
+                return fail("a click on the box of a desktop note's checklist did not tick it");
+            click(note(key));
+            if (!waitFor([&] { return field() && field()->property("text") == "milk\n[x] eggs"; }))
+                return fail("a second click on the desktop note did not write on it again");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+            if (field() || note(key)->property("editing").toBool())
+                return fail("a press beside the desktop note did not let its text go");
+            notes->setText(key, QString(notes->maxLength() - 1, 'z'));
+            click(note(key));
+            if (!waitFor([&] { return field() && field()->hasActiveFocus(); }))
+                return fail("the long desktop note was not written on");
+            typeText("ab");
+            auto *count = find(note(key), "desktopNoteCount");
+            if (noteText(key).size() != notes->maxLength() || field()->property("length").toInt() != notes->maxLength() ||
+                !count || !count->isVisible() || count->property("text") != "Full")
+                return fail("a desktop note took more than its most, or did not say it is full");
+            press(Qt::Key_Escape);
+            notes->remove(key);
+            if (!waitFor([&] { return !note(key); }))
+                return fail("the desktop note did not go");
+        }
         // Turned off, there are none.
         if (!reconfigure(QString(lua).replace("shell={", "shell={desktop_icons=false,")) ||
             !waitFor([&] { return !tile("file:a.txt"); }))
