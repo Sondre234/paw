@@ -544,6 +544,7 @@ if(BUILD_TESTING)
             $<TARGET_FILE:clipboard_probe>)
         paw_smoke(emoji_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe>)
+        paw_smoke(run_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>)
         paw_smoke(shortcuts_shell_smoke $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe>)
         # A few of the gallery's popups and overlays through the GPU (Mesa's software OpenGL, in a
