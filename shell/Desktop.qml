@@ -178,7 +178,7 @@ Rectangle {
             return []
         const one = tiles[0]
         const files = tiles.filter(tile => tile.kind !== "launcher")
-        const kinds = { launcher: "Launcher", folder: "Folder", app: "Application" }
+        const kinds = { launcher: "Launcher", folder: "Folder", app: "Application", link: "Web link" }
         const suffix = one.name.lastIndexOf(".") > 0 ? one.name.slice(one.name.lastIndexOf(".") + 1).toUpperCase() : ""
         const entries = [tiles.length === 1
             ? { title: one.name, icon: one.picture !== "" ? one.picture : one.icon,
