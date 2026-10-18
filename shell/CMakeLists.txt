@@ -94,6 +94,8 @@ list(APPEND PAW_NOTIFY_SOURCES caption.cpp caption.hpp)
 list(APPEND PAW_NOTIFY_SOURCES desktop_clock.cpp desktop_clock.hpp)
 # The desktop's icons: the desktop folder's files and the launchers, on a grid.
 list(APPEND PAW_NOTIFY_SOURCES desktop_icons.cpp desktop_icons.hpp desktop_grid.cpp desktop_grid.hpp)
+# The desktop's sticky notes, on the icons' grid.
+list(APPEND PAW_NOTIFY_SOURCES desktop_notes.cpp desktop_notes.hpp)
 # The QML is compiled ahead of time into the binary (qmlcachegen), so starting the shell parses
 # and compiles none of it. It lives at qrc:/shell/PawShell/*.qml.
 qt_add_library(paw_shell_qml STATIC)
