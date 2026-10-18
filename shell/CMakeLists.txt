@@ -115,6 +115,8 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     DrawnWallpaper.qml
     WallpaperPicture.qml
     DesktopClock.qml
+    DesktopIconGrid.qml
+    DesktopIcon.qml
     StartHome.qml
     StartAllApps.qml
     StartSearch.qml
