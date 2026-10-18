@@ -7959,7 +7959,7 @@ ListModel {
             return fail("Shift + click did not take the desktop icons from the one clicked before");
         // Delete moves the selected files to the Trash (with a home on the test's own file system,
         // whose trash is the test's data folder's), and a notice at the foot of the desktop says
-        // so, whose Undo puts the file back in the cell it left, selected.
+        // so, whose Undo puts the file back in the cell it left, selected; so does Ctrl + Z.
         {
             const auto home = qgetenv("HOME");
             qputenv("HOME", screens.path().toLocal8Bit());
@@ -7989,6 +7989,24 @@ ListModel {
                            !QFile::exists(trashFolder + "/info/old.txt.trashinfo") && !toast->isVisible();
                 });
             }
+            // Two at once are counted; Ctrl + Z puts them back as Undo does.
+            bool counted = false, keyed = false;
+            if (undone) {
+                const QPoint cCell = cellOf("file:c.txt");
+                QTest::mouseClick(&desktop, Qt::LeftButton, Qt::ControlModifier, at("file:c.txt"));
+                press(Qt::Key_Delete);
+                counted = waitFor([&] {
+                    return !tile("file:old.txt") && !tile("file:c.txt") && toastSays("Moved 2 items to Trash");
+                });
+                if (counted)
+                    press(Qt::Key_Z, Qt::ControlModifier);
+                keyed = counted && waitFor([&] {
+                    return tile("file:old.txt") && tile("file:c.txt") && cellOf("file:old.txt") == oldCell &&
+                           cellOf("file:c.txt") == cCell && inCell("file:c.txt") &&
+                           selected({"file:c.txt"}) && tile("file:old.txt")->property("selected").toBool() &&
+                           QDir(trashFolder + "/files").isEmpty() && !toast->isVisible();
+                });
+            }
             qputenv("HOME", home);
             QDir(trashFolder).removeRecursively();
             QFile::remove(desk + "/old.txt");
@@ -7998,6 +8016,10 @@ ListModel {
                 return fail("no notice on the desktop said a file was moved to the Trash");
             if (!undone)
                 return fail("the notice's Undo did not put the desktop file back in the cell it left");
+            if (!counted)
+                return fail("the notice did not count two desktop files moved to the Trash");
+            if (!keyed)
+                return fail("Ctrl + Z did not put the desktop files back in their cells");
             if (!waitFor([&] { return !tile("file:old.txt"); }))
                 return fail("the desktop file put back did not go again");
         }
