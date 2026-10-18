@@ -296,6 +296,32 @@ QtObject {
     readonly property color switcherSurface: macos ? alpha(popupSurface, 0.88) : surface
     readonly property color switcherSelection: macos ? alpha(text, 0.16) : accentSubtle
 
+    // The desktop's sticky notes (DesktopNotes.colors): the hue of each colour of paper, and the one
+    // of the washi tape across its top, a neighbour that sets it off (sky blue on sakura pink).
+    readonly property var noteHues: ({ sakura: 0.955, sky: 0.575, mint: 0.42, lemon: 0.13, lavender: 0.745 })
+    readonly property var noteTapes: ({ sakura: "sky", sky: "sakura", mint: "lavender", lemon: "sakura",
+                                        lavender: "mint" })
+    // A note's paper: a soft pastel on a light profile, and on a dark one the same sheet by
+    // moonlight, dusky and quiet; each tinted a little toward the surface, so that it sits with
+    // the profile's colours.
+    function notePaper(name) {
+        const hue = noteHues[name] !== undefined ? noteHues[name] : noteHues.sakura
+        const paper = light ? Qt.hsla(hue, name === "mint" ? 0.55 : 0.82, name === "lemon" ? 0.86 : 0.895, 1)
+                            : Qt.hsla(hue, 0.3, 0.34, 1)
+        return mix(paper, surface, light ? 0.12 : 0.18)
+    }
+    // Its ink: a deep shade of the paper's hue leaning to the profile's text on a light profile, a
+    // pale one on a dark profile.
+    function noteInk(name) {
+        const hue = noteHues[name] !== undefined ? noteHues[name] : noteHues.sakura
+        return mix(light ? Qt.hsla(hue, 0.45, 0.24, 1) : Qt.hsla(hue, 0.6, 0.92, 1), text, 0.35)
+    }
+    // Its tape: a see-through strip of the neighbouring pastel.
+    function noteTape(name) {
+        const hue = noteHues[noteTapes[name] || "sky"]
+        return light ? Qt.hsla(hue, 0.7, 0.78, 0.82) : Qt.hsla(hue, 0.42, 0.58, 0.82)
+    }
+
     // `color`, a card's, laid over the glass: no more opaque than glassOpacity, and a colour more
     // translucent than that (the macOS style's switcher's) as it is.
     function onGlass(color) { return Qt.rgba(color.r, color.g, color.b, Math.min(color.a, glassOpacity)) }
