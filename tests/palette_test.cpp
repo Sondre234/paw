@@ -49,6 +49,26 @@ class PaletteTest : public QObject {
         QVERIFY(fuzzy::score("dwin layout", "Layout: dwindle") >= 0);  // in any order
         QVERIFY(fuzzy::score("layout spiral", "Layout: dwindle") < 0);
     }
+    void findsWhereLettersMatched() {
+        using List = QList<int>;
+        auto places = [](const QString &query, const QString &text) {
+            return fuzzy::matches(fuzzy::words(query), text);
+        };
+        QCOMPARE(places("fire", "Firefox"), (List{0, 1, 2, 3}));
+        // The best match, not the first: word starts and runs of letters.
+        QCOMPARE(places("gc", "Google Chrome"), (List{0, 7}));
+        QCOMPARE(places("term", "xterm Terminal"), (List{6, 7, 8, 9}));
+        QCOMPARE(places("fx", "Firefox"), (List{0, 6}));
+        // Every word's letters, once each, in order; case does not matter.
+        QCOMPARE(places("TER kit", "kitty terminal"), (List{0, 1, 2, 6, 7, 8}));
+        QCOMPARE(places("ki kit", "kitty"), (List{0, 1, 2}));
+        // Nothing for a word that does not match, nor for nothing typed.
+        QVERIFY(places("fire xyz", "Firefox").isEmpty());
+        QVERIFY(places("", "Firefox").isEmpty());
+        // Nor where folding changes the text's length, which would put them out of place.
+        QVERIFY(places("ss", "Straße").isEmpty());
+        QCOMPARE(places("é", "Café"), (List{3}));
+    }
     void handlesUnusualText() {
         QVERIFY(fuzzy::score("é", "Café") >= 0);
         (void)fuzzy::score("straße", "STRASSE"); // must not crash on folding
