@@ -307,7 +307,7 @@ QtObject {
     function notePaper(name) {
         const hue = noteHues[name] !== undefined ? noteHues[name] : noteHues.sakura
         const paper = light ? Qt.hsla(hue, name === "mint" ? 0.55 : 0.82, name === "lemon" ? 0.86 : 0.895, 1)
-                            : Qt.hsla(hue, name === "mint" ? 0.42 : name === "lemon" ? 0.72 : 0.6, name === "lemon" ? 0.77 : 0.79, 1)
+                            : Qt.hsla(hue, name === "mint" ? 0.42 : name === "lemon" ? 0.66 : 0.6, name === "lemon" ? 0.8 : 0.79, 1)
         return mix(paper, surface, light ? 0.12 : 0.08)
     }
     // Its ink: a deep shade of the paper's hue leaning to the profile's text on a light profile, a
