@@ -21,8 +21,8 @@ import QtQuick.Shapes
 // of the desktop's own icons or another application's files, opens it up instead, and dropped there
 // the files go into the folder, which gulps them down. Another application's drag has a bubble by
 // the pointer in the band's two hues, counting what it brings, with a plus to copy, arrows to move,
-// or an open folder over a folder's icon. Shown and hidden from the desktop's menu, the icons
-// ripple out from where it was opened.
+// or an open folder over a folder's icon; dropped, a puff of sparkles marks each cell the files land
+// in. Shown and hidden from the desktop's menu, the icons ripple out from where it was opened.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -398,8 +398,7 @@ FocusScope {
         const tile = tileOf(model.newFolder(cell.x, cell.y))
         if (!tile)
             return
-        if (Theme.duration(700) > 0)
-            puff.createObject(grid, { x: tile.x + tile.width / 2, y: tile.y + Theme.spacingM + iconSize / 2 })
+        puffAt(tile.x, tile.y)
         startRename(tile.key)
     }
 
@@ -538,8 +537,12 @@ FocusScope {
         if (!tile)
             return
         tile.gulp()
+        puffAt(tile.x, tile.y)
+    }
+    // A puff where the icon of a cell whose top left is at `x`, `y` is.
+    function puffAt(x, y) {
         if (Theme.duration(700) > 0)
-            puff.createObject(grid, { x: tile.x + tile.width / 2, y: tile.y + Theme.spacingM + iconSize / 2 })
+            puff.createObject(grid, { x: x + cellWidth / 2, y: y + Theme.spacingM + iconSize / 2 })
     }
     // Whether the icons are gliding into cells they were dropped on or tidied into, rather than
     // trailing the pointer.
@@ -716,6 +719,7 @@ FocusScope {
             const moz = drop.formats.indexOf("text/x-moz-url") >= 0
                 ? drop.getDataAsArrayBuffer("text/x-moz-url") : new ArrayBuffer(0)
             const into = grid.dropFolder
+            const cells = grid.landing
             const taken = into !== "" ? grid.model.dropInto(into, grid.incoming, grid.incomingMove, moz) > 0
                 : grid.incomingPicture !== ""
                 ? grid.model.dropPicture(drop.getDataAsArrayBuffer(grid.incomingPicture), grid.incomingPicture,
@@ -726,6 +730,9 @@ FocusScope {
             grid.landing = []
             if (taken && into !== "")
                 grid.gulp(into)
+            else if (taken)
+                for (const cell of cells.slice(0, 12))
+                    grid.puffAt(grid.cellX(cell.column), grid.cellY(cell.row))
             if (taken)
                 drop.accept(grid.incomingMove ? Qt.MoveAction : Qt.CopyAction)
         }
