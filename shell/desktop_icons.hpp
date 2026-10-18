@@ -78,6 +78,16 @@ class DesktopIcons : public QAbstractListModel {
     // entry's application when the entry is executable, as file managers trust one. False, with
     // `failed`, when it did not start; a launcher is the controller's to start.
     Q_INVOKABLE bool open(const QString &key);
+    // The applications that open every file and folder of `keys`, for the icons' Open with:
+    // {id (a desktop id), name, icon, group}, none twice. The default application for them all
+    // comes first, its group "default"; then those recommended for each one's type
+    // ("recommended", in GIO's order); then the others that take them all, as one for a type they
+    // are a kind of ("other", by name). None for a launcher or a desktop entry among them.
+    Q_INVOKABLE QVariantList openers(const QStringList &keys) const;
+    // Opens the files and folders of `keys` in the application `appId`, a desktop id of
+    // openers(): all in one go when it takes several, as GIO starts it. False, with `failed`, when
+    // it did not start.
+    Q_INVOKABLE bool openWith(const QStringList &keys, const QString &appId);
     // Puts the files of `keys` on the clipboard, for a file manager to paste copies of.
     Q_INVOKABLE void copy(const QStringList &keys);
     // Moves the files of `keys` to the trash; how many went. What went can be put back with
@@ -151,6 +161,9 @@ class DesktopIcons : public QAbstractListModel {
     QList<Entry> read() const;
     // A file's or folder's entry, without a cell.
     static Entry fileEntry(const QFileInfo &file);
+    // The paths of the files and folders of `keys`, each once; none when one of them is a
+    // launcher, a desktop entry or not there.
+    QStringList filePaths(const QStringList &keys) const;
     // The rows of `keys` (none twice), and where they land moved by `offset`.
     QList<QPoint> landed(const QStringList &keys, QPoint offset, QList<int> &moved) const;
     void sync(QList<Entry> entries);
