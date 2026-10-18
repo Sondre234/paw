@@ -362,9 +362,7 @@ FocusScope {
         const back = model.untrash().map(key => tileOf(key)).filter(tile => !!tile)
         for (const tile of back) {
             tile.popIn()
-            if (Theme.duration(700) > 0)
-                puff.createObject(grid, { x: tile.x + tile.width / 2, y: tile.y + Theme.spacingM + iconSize / 2,
-                                          delay: rippleDelay(tile) })
+            puffAt(tile.x, tile.y, rippleDelay(tile))
         }
         if (back.length > 0) {
             select(back.map(tile => tile.key))
@@ -574,10 +572,11 @@ FocusScope {
         tile.gulp()
         puffAt(tile.x, tile.y)
     }
-    // A puff where the icon of a cell whose top left is at `x`, `y` is.
-    function puffAt(x, y) {
+    // A puff where the icon of a cell whose top left is at `x`, `y` is, after `delay` milliseconds.
+    function puffAt(x, y, delay) {
         if (Theme.duration(700) > 0)
-            puff.createObject(grid, { x: x + cellWidth / 2, y: y + Theme.spacingM + iconSize / 2 })
+            puff.createObject(grid, { x: x + cellWidth / 2, y: y + Theme.spacingM + iconSize / 2,
+                                      delay: delay || 0 })
     }
     // Whether the icons are gliding into cells they were dropped on or tidied into, rather than
     // trailing the pointer.
