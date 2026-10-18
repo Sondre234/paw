@@ -8477,8 +8477,11 @@ ListModel {
             tasks->property("orientation").toInt() != Qt::Vertical ||
             !clock->property("text").toString().contains('\n'))
             return fail("a bar along the left edge does not stand upright, its tasks and clock in a column");
-        // The bar's menu opens beside it, by where it was pressed.
-        const QPoint empty = tasks->mapToScene(QPointF(tasks->width() / 2, tasks->height() - 10)).toPoint();
+        // The bar's menu opens beside it, by where it was pressed: in the room under the buttons.
+        const qreal below = (tasks->property("contentHeight").toReal() + tasks->height()) / 2;
+        if (tasks->height() - tasks->property("contentHeight").toReal() < 4)
+            return fail("a bar along the left has no room under its buttons to press");
+        const QPoint empty = tasks->mapToScene(QPointF(tasks->width() / 2, below)).toPoint();
         QTest::mouseClick(&view, Qt::RightButton, Qt::NoModifier, empty);
         auto *barMenu = find(root, "contextMenu");
         if (!waitFor([&] { return root->property("barMenuOpen").toBool() && barMenu && barMenu->isVisible(); }))
