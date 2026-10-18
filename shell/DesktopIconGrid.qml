@@ -542,9 +542,10 @@ FocusScope {
             notes.discard(done)
         else
             notes.flush()
-        // Let go by a key, the keys go on from it.
+        // Let go by a key, the keys go on from it, unless it went.
         if (keepKeys) {
-            current = done
+            if (noteOf(done))
+                current = done
             forceActiveFocus()
         }
     }
