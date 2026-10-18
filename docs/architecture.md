@@ -1593,7 +1593,15 @@ so that a drag enters it only as it comes onto the surface, when Qt follows the 
 at once; an item entered by a later move would answer that move with its enter, which takes the
 drag. `shell_ui_test` hands the windows drag events as Qt's Wayland platform does. A drag holds the keyboard in the compositor, and wlroots
 lets no focus change through it: `drag_ended` (`input.c`) gives the keyboard to the window
-focused meanwhile once the drag ends, and the pointer to the surface under it.
+focused meanwhile once the drag ends, and the pointer to the surface under it. wlroots also starts
+a drag over nothing, until the pointer next moves, so that one a client starts a moment after the
+pointer came to rest (the desktop's, which first takes a picture of what it carries) and let go
+there would be dropped on nothing: `seat_start_drag` gives it the surface under the pointer at
+once, from an idle callback (`drag_entering`), after every listener of the seat's `start_drag`,
+XWayland's window manager among them, has heard of it. The pointer taken off every surface (over
+the bare desktop, a window's controls, its resize band) leaves through the pointer's grab
+(`wlr_seat_pointer_notify_clear_focus` in `process_pointer_target`), so that a drag there is over
+nothing rather than the surface it was last over.
 
 The speaker on a picture's tile is a `WindowSound` (`audio.cpp`), which the tile makes with the
 panel's `audioSource` and `taskSource` and its window's `pid` (`TaskModel`'s role, from the window
