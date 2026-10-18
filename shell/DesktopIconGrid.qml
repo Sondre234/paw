@@ -17,8 +17,10 @@ import QtQuick.Shapes
 // events (dropArea) move the pads, and let go there the icons come out of the stack where it was.
 // Files dragged from another application (a file manager's, a browser's links and pictures) show
 // pads where they would land as they are carried over the desktop, and are copied there, or moved
-// where the drag's source proposes it, as a file manager takes them. Shown and hidden from the
-// desktop's menu, the icons ripple out from where it was opened.
+// where the drag's source proposes it, as a file manager takes them. A drag over a folder's icon,
+// of the desktop's own icons or another application's files, opens it up instead, and dropped there
+// the files go into the folder, which gulps them down. Shown and hidden from the desktop's menu,
+// the icons ripple out from where it was opened.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -428,9 +430,21 @@ FocusScope {
     onDragColumnsChanged: updateLanding()
     onDragRowsChanged: updateLanding()
     function updateLanding() {
-        landing = dragging && !away ? model.landing(dragKeys, dragColumns, dragRows) : []
+        landing = dragging && !away && dropFolder === "" ? model.landing(dragKeys, dragColumns, dragRows) : []
     }
     onAwayChanged: updateLanding()
+    // The folder icon a drag is over, which takes in what is dropped on it: its key, "" for none.
+    property string dropFolder: ""
+    onDropFolderChanged: if (incomingOver) incomingLanding(); else updateLanding()
+    // The folder's icon under `x`, `y`, not one of those dragged; "" for none.
+    function folderAt(x, y) {
+        for (const tile of tiles())
+            if (tile.visible && tile.placed && tile.kind === "folder" && !tile.dragged && !tile.leaving &&
+                x >= tile.x + Theme.spacingXS && x < tile.x + tile.width - Theme.spacingXS &&
+                y >= tile.y + Theme.spacingXS && y < tile.y + tile.height - Theme.spacingXS)
+                return tile.key
+        return ""
+    }
     function beginDrag(tile, at) {
         dragKeys = [tile.key].concat(selectionOrder.filter(key => key !== tile.key))
         anchorColumn = tile.column
@@ -451,7 +465,10 @@ FocusScope {
             dragStack.take()
         }
     }
-    function dragTo(at) { dragPointer = at }
+    function dragTo(at) {
+        dragPointer = at
+        dropFolder = folderAt(at.x, at.y)
+    }
     // The stack's picture is taken: the compositor carries it, the pointer at the place on it of
     // where the icon was pressed. A drag it never got (the button let go meanwhile, or nothing to
     // hand over) goes on as the pointer's.
@@ -473,9 +490,11 @@ FocusScope {
         }
     }
     function endDrag(cancelled) {
+        const into = cancelled ? "" : dropFolder
+        dropFolder = ""
         // Let go on the desktop, a stack the compositor carried comes out where it was let go,
         // its icons gliding from there.
-        if (handedOver && !cancelled) {
+        if (handedOver && !cancelled && into === "") {
             snapping = true
             handedOver = false
             snapping = false
@@ -484,11 +503,41 @@ FocusScope {
         dragStack.wanted = false
         gliding = true
         settleGlide.restart()
-        if (!cancelled)
+        if (into !== "")
+            dropInto(into, dragKeys)
+        else if (!cancelled)
             model.move(dragKeys, dragColumns, dragRows)
         dragging = false
         away = false
         landing = []
+    }
+    // The files of `keys`, icons dropped on the folder icon of `key`, go into it: they shrink away
+    // as it gulps them down, and come back should their files stay.
+    function dropInto(key, keys) {
+        const files = keys.map(k => tileOf(k)).filter(t => t && t.kind !== "launcher" && t.key !== key)
+        if (model.moveInto(key, files.map(t => t.key)) === 0)
+            return
+        for (const t of files)
+            t.leaving = true
+        gulp(key)
+        stayed.restart()
+    }
+    Timer {
+        id: stayed
+        interval: 1500
+        onTriggered: {
+            for (const tile of grid.tiles())
+                tile.leaving = false
+        }
+    }
+    // The folder icon of `key` takes in what was dropped on it.
+    function gulp(key) {
+        const tile = tileOf(key)
+        if (!tile)
+            return
+        tile.gulp()
+        if (Theme.duration(700) > 0)
+            puff.createObject(grid, { x: tile.x + tile.width / 2, y: tile.y + Theme.spacingM + iconSize / 2 })
     }
     // Whether the icons are gliding into cells they were dropped on or tidied into, rather than
     // trailing the pointer.
@@ -632,6 +681,7 @@ FocusScope {
                 return
             }
             grid.incomingAt = Qt.point(drag.x, drag.y)
+            grid.dropFolder = grid.incomingPicture === "" ? grid.folderAt(drag.x, drag.y) : ""
             if (entering) {
                 grid.incomingOver = true
                 grid.incomingLanding()
@@ -647,6 +697,7 @@ FocusScope {
                 grid.incomingOver = false
                 grid.landing = []
             }
+            grid.dropFolder = ""
         }
         onDropped: function(drop) {
             if (drop.source === grid.model) {
@@ -662,12 +713,17 @@ FocusScope {
             const cell = grid.cellAt(drop.x, drop.y)
             const moz = drop.formats.indexOf("text/x-moz-url") >= 0
                 ? drop.getDataAsArrayBuffer("text/x-moz-url") : new ArrayBuffer(0)
-            const taken = grid.incomingPicture !== ""
+            const into = grid.dropFolder
+            const taken = into !== "" ? grid.model.dropInto(into, grid.incoming, grid.incomingMove, moz) > 0
+                : grid.incomingPicture !== ""
                 ? grid.model.dropPicture(drop.getDataAsArrayBuffer(grid.incomingPicture), grid.incomingPicture,
                                          grid.incoming.length > 0 ? grid.incoming[0] : "", cell.x, cell.y) !== ""
                 : grid.model.drop(grid.incoming, cell.x, cell.y, grid.incomingMove, moz) > 0
             grid.incomingOver = false
+            grid.dropFolder = ""
             grid.landing = []
+            if (taken && into !== "")
+                grid.gulp(into)
             if (taken)
                 drop.accept(grid.incomingMove ? Qt.MoveAction : Qt.CopyAction)
         }

@@ -7,7 +7,8 @@ import QtQuick
 // filled with the accent while selected, when it also shows in full. Hovered, it lifts a little.
 // Dragged, it follows the pointer, and the others dragged with it trail after it into a fanned
 // stack; let go, they glide into their new cells. A drag the compositor carries leaves it in its
-// cell, faded (`lifted`), until it comes out of the stack where it was let go. It comes and goes in a ripple as the grid's
+// cell, faded (`lifted`), until it comes out of the stack where it was let go. A folder with a drag
+// over it opens up, ringed in the second hue, wiggling, and gulps down what is dropped on it. It comes and goes in a ripple as the grid's
 // icons are shown and hidden, and a new file pops in. Renamed, its chip pops into a field on the
 // surface's colour, rimmed in the band's two hues, with a pencil on its corner, the name selected
 // but for its extension; a name refused shakes it.
@@ -45,8 +46,10 @@ Item {
     readonly property bool editing: board.renaming === key
     // How far it is in view: 0 hidden, 1 shown, past 1 for a moment as it pops in.
     property real reveal: 1
-    // Going to the trash: it shrinks away before the file goes.
+    // Going to the trash, or into a folder: it shrinks away before the file goes.
     property bool leaving: false
+    // A folder with a drag over it, which takes in what is dropped (DesktopIconGrid.dropFolder).
+    readonly property bool dropTarget: board.dropFolder === key
 
     width: board.cellWidth
     height: board.cellHeight
@@ -83,6 +86,8 @@ Item {
 
     // Opening: a squash and a bounce back.
     function boing() { squash.restart() }
+    // Taking in what was dropped on it: a deeper squash.
+    function gulp() { gulping.restart() }
     // Caught by the selection band: a little hop.
     function hop() { if (!board.dragging) hopping.restart() }
     onSelectedChanged: if (selected && board.banding) hop()
@@ -109,10 +114,12 @@ Item {
             anchors.fill: parent
             anchors.margins: Theme.spacingXS
             radius: Theme.radiusLarge
-            color: tile.selected ? Theme.alpha(Theme.accent, tile.following ? 0 : 0.2)
+            color: tile.dropTarget ? Theme.alpha(tile.board.partner, 0.24)
+                 : tile.selected ? Theme.alpha(Theme.accent, tile.following ? 0 : 0.2)
                  : tile.hovered ? Theme.alpha(Theme.surface, 0.32) : "transparent"
-            border.width: 1
-            border.color: tile.selected && !tile.following ? Theme.alpha(Theme.accent, 0.6)
+            border.width: tile.dropTarget ? 2 : 1
+            border.color: tile.dropTarget ? tile.board.partner
+                        : tile.selected && !tile.following ? Theme.alpha(Theme.accent, 0.6)
                         : tile.hovered ? Theme.alpha(Theme.text, 0.12) : "transparent"
             Behavior on color { ColorAnimation { duration: Theme.durationFast } }
         }
@@ -127,6 +134,18 @@ Item {
             icon: tile.icon
             picture: tile.picture
             name: tile.name
+            // A folder with a drag over it opens up and wiggles, waiting for what it is to take.
+            scale: tile.dropTarget ? 1.16 : 1
+            Behavior on scale { NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+            SequentialAnimation on rotation {
+                running: tile.dropTarget && Theme.duration(100) > 0
+                loops: Animation.Infinite
+                onRunningChanged: if (!running) art.rotation = 0
+                NumberAnimation { to: -5; duration: Theme.duration(140); easing.type: Easing.InOutSine }
+                NumberAnimation { to: 5; duration: Theme.duration(280); easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0; duration: Theme.duration(140); easing.type: Easing.InOutSine }
+                PauseAnimation { duration: Theme.duration(260) }
+            }
         }
 
         // The name on its chip.
@@ -283,6 +302,11 @@ Item {
         }
     }
 
+    SequentialAnimation {
+        id: gulping
+        NumberAnimation { target: body; property: "press"; to: 0.74; duration: Theme.duration(110); easing.type: Easing.OutQuad }
+        NumberAnimation { target: body; property: "press"; to: 1; duration: Theme.duration(520); easing.type: Easing.OutElastic; easing.amplitude: 1.3; easing.period: 0.4 }
+    }
     SequentialAnimation {
         id: squash
         NumberAnimation { target: body; property: "press"; to: 0.86; duration: Theme.duration(90); easing.type: Easing.OutQuad }
