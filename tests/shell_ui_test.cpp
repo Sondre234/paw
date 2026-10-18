@@ -8411,6 +8411,54 @@ ListModel {
                 if (pad.x() < 0 || covered(pad) || cellOf("file:c.txt") != pad)
                     return fail("an icon dragged onto a desktop note did not land beside it");
             }
+            // A right press opens its menu, under a title of its first line: a swatch gives it
+            // another colour, Copy text copies its text, and Delete note crumples it away, which
+            // the notice's Undo brings back to its place, as Ctrl + Z does.
+            notes->setText(key, "Plans\n[ ] tea");
+            auto noteMenuAt = [&] {
+                QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, centre(note(key)));
+                QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, centre(note(key)));
+            };
+            auto noteColor = [&] { return note(key) ? note(key)->property("color").toString() : QString(); };
+            noteMenuAt();
+            if (!waitFor([&] { return entry("desktopNoteMenu", "Plans") && entry("desktopNoteMenu", "Delete note"); }))
+                return fail("a right press on a desktop note did not open its menu, its first line for its title");
+            QQuickItem *mint = nullptr;
+            if (!waitFor([&] { return (mint = find(root, "menuSwatch:Mint")) && mint->isVisible(); }) ||
+                !find(root, "menuSwatch:" + QString(noteColor() == "sakura" ? "Sakura" : "Sky")))
+                return fail("the desktop note's menu did not offer its colours");
+            click(mint);
+            if (!waitFor([&] { return noteColor() == "mint" && kept(R"("color": "mint")"); }))
+                return fail("a swatch in the desktop note's menu did not give it that colour");
+            noteMenuAt();
+            if (!choose("desktopNoteMenu", "Copy text") ||
+                !waitFor([&] { return QGuiApplication::clipboard()->text() == "Plans\n[ ] tea"; }))
+                return fail("Copy text in the desktop note's menu did not copy its text");
+            const QPoint home = noteCell();
+            auto *toast = find(root, "desktopToast");
+            auto told = [&](const QString &text) {
+                auto *line = find(root, "desktopToastText");
+                return toast && toast->property("shown").toBool() && toast->property("reveal").toReal() == 1 &&
+                       line && line->property("text") == text;
+            };
+            auto back = [&] {
+                return note(key) && note(key)->property("reveal").toReal() == 1 && noteCell() == home &&
+                       noteInCell() && noteColor() == "mint" &&
+                       noteText(key) == "Plans\n[ ] tea" && kept(R"("text": "Plans\n[ ] tea")");
+            };
+            noteMenuAt();
+            if (!choose("desktopNoteMenu", "Delete note") || !waitFor([&] { return !note(key) && !kept("Plans"); }) ||
+                !waitFor([&] { return told("Deleted “Plans”"); }))
+                return fail("Delete note did not delete the desktop note, saying so");
+            click(find(root, "desktopToastAction"));
+            if (!waitFor(back) || !waitFor([&] { return !toast->isVisible(); }))
+                return fail("the notice's Undo did not bring the deleted desktop note back to its place");
+            noteMenuAt();
+            if (!choose("desktopNoteMenu", "Delete note") || !waitFor([&] { return !note(key); }))
+                return fail("Delete note did not delete the desktop note again");
+            press(Qt::Key_Z, Qt::ControlModifier);
+            if (!waitFor(back))
+                return fail("Ctrl + Z did not bring the deleted desktop note back");
             notes->remove(key);
             if (!waitFor([&] { return !note(key); }))
                 return fail("the desktop note did not go");
