@@ -7,12 +7,14 @@
 #include <QClipboard>
 #include <QCollator>
 #include <QDir>
+#include <QDrag>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
 #include <QGuiApplication>
 #include <QImageReader>
 #include <QMimeData>
 #include <QMimeDatabase>
+#include <QPixmap>
 #include <QSet>
 #include <QUrl>
 #include <algorithm>
@@ -350,7 +352,7 @@ bool DesktopIcons::open(const QString &key) {
     return false;
 }
 
-void DesktopIcons::copy(const QStringList &keys) {
+QMimeData *DesktopIcons::fileData(const QStringList &keys) const {
     QList<QUrl> urls;
     QStringList paths;
     for (const auto &key : keys)
@@ -359,7 +361,7 @@ void DesktopIcons::copy(const QStringList &keys) {
             paths.push_back(entries_[i].path);
         }
     if (urls.isEmpty())
-        return;
+        return nullptr;
     auto *data = new QMimeData;
     data->setUrls(urls);
     // What GTK's file managers paste files from.
@@ -368,7 +370,31 @@ void DesktopIcons::copy(const QStringList &keys) {
         copied += '\n' + url.toEncoded();
     data->setData("x-special/gnome-copied-files", copied);
     data->setText(paths.join('\n'));
-    QGuiApplication::clipboard()->setMimeData(data);
+    return data;
+}
+
+void DesktopIcons::copy(const QStringList &keys) {
+    if (auto *data = fileData(keys))
+        QGuiApplication::clipboard()->setMimeData(data);
+}
+
+bool DesktopIcons::drag(const QStringList &keys, const QImage &picture, QPointF hotSpot,
+                        qreal scale) {
+    auto *data = fileData(keys);
+    if (!data)
+        return false;
+    auto *drag = new QDrag(this);
+    drag->setMimeData(data);
+    QImage image = picture;
+    image.setDevicePixelRatio(scale > 0 ? scale : 1);
+    drag->setPixmap(QPixmap::fromImage(image));
+    drag->setHotSpot(hotSpot.toPoint());
+    // exec() runs an event loop of its own until the drag is over, and Qt deletes the drag.
+    QTimer::singleShot(0, this, [this, drag] {
+        Q_EMIT dragEnded(
+            drag->exec(Qt::CopyAction | Qt::MoveAction | Qt::LinkAction, Qt::CopyAction));
+    });
+    return true;
 }
 
 int DesktopIcons::trash(const QStringList &keys) {

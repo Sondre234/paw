@@ -14,6 +14,8 @@
 
 class QFileInfo;
 class QFileSystemWatcher;
+class QImage;
+class QMimeData;
 
 // The icons on the desktop (shell.desktop_icons): the configured launchers, then the folders and
 // the files of the desktop folder, each in a cell of the grid the main monitor's desktop has room
@@ -87,6 +89,13 @@ class DesktopIcons : public QAbstractListModel {
     Q_INVOKABLE bool open(const QString &key);
     // Puts the files of `keys` on the clipboard, for a file manager to paste copies of.
     Q_INVOKABLE void copy(const QStringList &keys);
+    // Drags the files of `keys` out of the desktop as a file manager drags them, holding what
+    // copy() puts on the clipboard, `picture` (`scale` of its pixels to a point) under the pointer
+    // at `hotSpot`: for the window it is dropped on to copy, move or link, a move being the
+    // window's to make. It starts from the event loop once the call has returned, and `dragEnded`
+    // says how it went. False, starting nothing, when none of them is a file.
+    Q_INVOKABLE bool drag(const QStringList &keys, const QImage &picture, QPointF hotSpot,
+                          qreal scale);
     // Moves the files of `keys` to the trash; how many went.
     Q_INVOKABLE int trash(const QStringList &keys);
     // Renames the file or folder of `key` to `name`, in the desktop folder; its icon keeps its cell
@@ -138,6 +147,9 @@ class DesktopIcons : public QAbstractListModel {
     void countChanged();
     // Something asked of it went wrong, in a sentence for the panel.
     void failed(const QString &message);
+    // A drag() is over: the Qt::DropAction the window it was dropped on took, else
+    // Qt::IgnoreAction.
+    void dragEnded(int action);
 
   private:
     struct Entry {
@@ -171,6 +183,9 @@ class DesktopIcons : public QAbstractListModel {
     QThreadPool transfers_;          // the drops' copies and moves, one after another
     std::atomic_bool stopping_{false};
     QList<Entry> read() const;
+    // The files of `keys` as copy() and drag() hand them over: their addresses, their paths, and
+    // GTK's x-special/gnome-copied-files; null when none of them is a file.
+    QMimeData *fileData(const QStringList &keys) const;
     // A file's or folder's entry, without a cell.
     static Entry fileEntry(const QFileInfo &file);
     // The rows of `keys` (none twice), and where they land moved by `offset`.
