@@ -89,7 +89,7 @@ class DesktopNotes : public QAbstractListModel {
     Q_INVOKABLE QVariantList lines(const QString &text) const { return linesOf(text); }
     static QVariantList linesOf(const QString &text);
     // Writes now what is waiting to be saved.
-    void flush();
+    Q_INVOKABLE void flush();
     // Whether the notes are written to the state folder; a preview's are not.
     void setRemembering(bool remembering) { remembering_ = remembering; }
     int rowCount(const QModelIndex &parent = {}) const override;
