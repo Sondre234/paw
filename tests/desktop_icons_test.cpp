@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The desktop's icons: the launchers, then the desktop folder's folders and files by name; their
 // cells on the grid, remembered with whether they are hidden; the folder followed as it changes;
-// opening, copying and trashing files, and desktop entries trusted only once executable.
+// opening, copying, renaming and trashing files, new folders, and desktop entries trusted only once
+// executable.
 #include "desktop_icons.hpp"
 #include <QClipboard>
 #include <QDir>
@@ -202,6 +203,93 @@ class DesktopIconsTest : public QObject {
         QVERIFY(!QFile::exists(folder_ + "/a2.txt"));
         QVERIFY(!keys(*icons).contains("file:a2.txt"));
         QVERIFY(QFile::exists(home_.filePath("data/Trash/files/a2.txt")));
+    }
+    void renamesKeepingTheCell() {
+        {
+            auto icons = made();
+            icons->move({"file:b.txt"}, 2, 1);
+            QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+            QCOMPARE(icons->rename("file:b.txt", "plan.md"), QString("file:plan.md"));
+            QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+            QVERIFY(!QFile::exists(folder_ + "/b.txt") && QFile::exists(folder_ + "/plan.md"));
+            // At once, in its row, with what the new name makes of it.
+            QVERIFY(!keys(*icons).contains("file:b.txt"));
+            QCOMPARE(cell(*icons, "file:plan.md"), QPoint(3, 2));
+            QCOMPARE(value(*icons, "file:plan.md", DesktopIcons::NameRole).toString(), "plan.md");
+            QCOMPARE(value(*icons, "file:plan.md", DesktopIcons::PathRole).toString(), folder_ + "/plan.md");
+            QVERIFY(value(*icons, "file:plan.md", DesktopIcons::IconRole).toString().startsWith("text-markdown,"));
+            // A folder too, and its own name again is no change.
+            QCOMPARE(icons->rename("file:Zeta", "Alpha"), QString("file:Alpha"));
+            QVERIFY(QFileInfo(folder_ + "/Alpha").isDir());
+            QCOMPARE(value(*icons, "file:Alpha", DesktopIcons::KindRole).toString(), "folder");
+            QCOMPARE(icons->rename("file:Alpha", "Alpha"), QString("file:Alpha"));
+            // Read again as the folder changes, it stays where it is.
+            icons->rescan();
+            QCOMPARE(cell(*icons, "file:plan.md"), QPoint(3, 2));
+            QCOMPARE(icons->count(), 5);
+        }
+        // Remembered under its new name.
+        QCOMPARE(cell(*made(), "file:plan.md"), QPoint(3, 2));
+    }
+    void refusesNamesItCannotGive() {
+        auto icons = made();
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        auto refused = [&](const QString &name, const QString &why) {
+            const int before = int(failed.count());
+            if (!icons->rename("file:a2.txt", name).isEmpty() || failed.count() != before + 1)
+                return false;
+            const auto message = failed.last()[0].toString();
+            return message.startsWith("Could not rename a2.txt: ") && message.contains(why);
+        };
+        QVERIFY(refused("", "empty"));
+        QVERIFY(refused("x/y.txt", "/"));
+        QVERIFY(refused(".", "not a name"));
+        QVERIFY(refused("..", "not a name"));
+        QVERIFY(refused("b.txt", "something called b.txt"));
+        QVERIFY(refused("Zeta", "something called Zeta"));
+        QVERIFY(QFile::exists(folder_ + "/a2.txt") && keys(*icons).contains("file:a2.txt"));
+        // A launcher's name is the configuration's, a desktop entry's its Name: neither is
+        // renamed, nor is anything not there.
+        QVERIFY(write(folder_ + "/thing.desktop", "[Desktop Entry]\nType=Application\nName=Thing\nExec=true\n"));
+        icons->rescan();
+        const int before = int(failed.count());
+        QVERIFY(icons->rename("launcher:Terminal", "Shell").isEmpty());
+        QVERIFY(icons->rename("file:thing.desktop", "other.desktop").isEmpty());
+        QVERIFY(icons->rename("file:nothing", "else").isEmpty());
+        QCOMPARE(failed.count(), before);
+        QVERIFY(QFile::exists(folder_ + "/thing.desktop"));
+        // One whose file went since says why.
+        QVERIFY(QFile::remove(folder_ + "/b.txt"));
+        QVERIFY(icons->rename("file:b.txt", "c.txt").isEmpty());
+        QCOMPARE(failed.count(), before + 1);
+    }
+    void makesNewFolders() {
+        {
+            auto icons = made();
+            QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+            // In the free cell asked for, at once.
+            QCOMPARE(icons->newFolder(3, 1), QString("file:New folder"));
+            QVERIFY(QFileInfo(folder_ + "/New folder").isDir());
+            QCOMPARE(value(*icons, "file:New folder", DesktopIcons::KindRole).toString(), "folder");
+            QCOMPARE(cell(*icons, "file:New folder"), QPoint(3, 1));
+            // The next takes the next name, and beside it, its cell being taken; one off the grid
+            // comes onto it.
+            QCOMPARE(icons->newFolder(3, 1), QString("file:New folder 2"));
+            QCOMPARE(cell(*icons, "file:New folder 2"), QPoint(2, 1));
+            QCOMPARE(icons->newFolder(9, 9), QString("file:New folder 3"));
+            QCOMPARE(cell(*icons, "file:New folder 3"), QPoint(3, 2));
+            QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+            // The others stay where they were.
+            QCOMPARE(cell(*icons, "file:b.txt"), QPoint(1, 1));
+        }
+        QCOMPARE(cell(*made(), "file:New folder 2"), QPoint(2, 1));
+        // A desktop folder not there yet is made first.
+        settings_.folder = home_.filePath("Fresh");
+        auto fresh = made();
+        QCOMPARE(fresh->newFolder(0, 0), QString("file:New folder"));
+        QVERIFY(QFileInfo(settings_.folder + "/New folder").isDir());
+        QCOMPARE(cell(*fresh, "file:New folder"), QPoint(0, 1));
+        settings_.folder = folder_;
     }
     void trustsExecutableDesktopEntries() {
         const auto marker = home_.filePath("started");

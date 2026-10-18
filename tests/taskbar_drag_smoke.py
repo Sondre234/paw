@@ -65,7 +65,7 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
 
     def card():
         """Whether the popover, which shows the card, is up."""
-        return ["paw-popover", "HEADLESS-1", "3", "1", "0"] in desktop.rows("layers")
+        return ["paw-popover", "HEADLESS-1", "3", "1", "0"] in [row[:5] for row in desktop.rows("layers")]
 
     def log(name):
         return (root / f"{name}.log").read_text()

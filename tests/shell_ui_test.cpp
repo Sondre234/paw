@@ -7881,6 +7881,158 @@ ListModel {
         if (!waitFor([&] { return QFile::exists(marker); }))
             return fail("a double-click on a launcher's desktop icon did not start it");
         QFile::remove(marker);
+        // The keys, once the desktop has the keyboard: the first arrow lands on the icon clicked
+        // last, ringed, and the arrows go on from there; Shift takes the icons between, Ctrl moves
+        // alone and Ctrl + Space picks, Ctrl + A takes all, Escape none, letters typed go to the
+        // icon whose name starts with them, Ctrl + C copies and Enter opens.
+        auto press = [&](Qt::Key key, Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+            QTest::keyClick(&desktop, key, modifiers);
+        };
+        auto typeText = [&](const QString &text) {
+            for (const auto &c : text)
+                QTest::keyClick(&desktop, c.toLatin1());
+        };
+        auto *ring = find(root, "desktopFocusRing");
+        auto current = [&] { return grid->property("current").toString(); };
+        auto ringAt = [&](const QString &key) {
+            return waitFor([&] {
+                return ring && ring->isVisible() && ring->opacity() == 1 && tile(key) &&
+                       std::abs(ring->x() - tile(key)->x()) < 0.5 && std::abs(ring->y() - tile(key)->y()) < 0.5;
+            });
+        };
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+        press(Qt::Key_Down);
+        if (current() != "launcher:Test app" || !selected({"launcher:Test app"}) || !ringAt("launcher:Test app"))
+            return fail("the first arrow on the desktop did not land on the icon clicked last, ringed");
+        press(Qt::Key_Down);
+        press(Qt::Key_Down);
+        if (!selected({"file:a.txt"}) || !ringAt("file:a.txt"))
+            return fail("Down did not move the ring and the selection down the column");
+        press(Qt::Key_Down, Qt::ShiftModifier);
+        if (current() != "file:b.txt" || !selected({"file:a.txt", "file:b.txt"}))
+            return fail("Shift + Down did not take the icon below too");
+        press(Qt::Key_Up, Qt::ControlModifier);
+        press(Qt::Key_Up, Qt::ControlModifier);
+        press(Qt::Key_Space, Qt::ControlModifier);
+        if (current() != "file:Folder" || !selected({"file:Folder", "file:a.txt", "file:b.txt"}))
+            return fail("Ctrl + Up and Ctrl + Space did not pick another icon, keeping the others");
+        press(Qt::Key_A, Qt::ControlModifier);
+        if (!selected(all))
+            return fail("Ctrl + A did not select every desktop icon");
+        press(Qt::Key_Escape);
+        if (!selected({}))
+            return fail("Escape did not let the desktop's selection go");
+        typeText("c");
+        auto *typed = find(root, "desktopTypeAhead");
+        if (current() != "file:c.txt" || !selected({"file:c.txt"}) || !typed || !typed->isVisible() ||
+            !ringAt("file:c.txt"))
+            return fail("a letter typed did not go to the icon whose name starts with it, saying what was typed");
+        press(Qt::Key_C, Qt::ControlModifier);
+        if (!waitFor([&] {
+                const auto *copied = QGuiApplication::clipboard()->mimeData();
+                return copied && copied->urls() == QList<QUrl>{QUrl::fromLocalFile(desk + "/c.txt")};
+            }))
+            return fail("Ctrl + C did not copy the selected desktop icon's file");
+        press(Qt::Key_Escape);
+        typeText("te");
+        if (current() != "launcher:Test app" || !selected({"launcher:Test app"}))
+            return fail("the letters typed did not go to the launcher whose name starts with them");
+        press(Qt::Key_Return);
+        if (!waitFor([&] { return QFile::exists(marker); }))
+            return fail("Enter did not open the desktop icon the keys are at");
+        QFile::remove(marker);
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+        if (!waitFor([&] { return !ring->isVisible(); }))
+            return fail("the desktop's ring stayed as the pointer took over");
+        // Ctrl + click picks one more and puts it back, Shift + click takes those from the icon
+        // clicked before.
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:Folder"));
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::ControlModifier, at("file:c.txt"));
+        if (!selected({"file:Folder", "file:c.txt"}))
+            return fail("Ctrl + click did not pick another desktop icon");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::ControlModifier, at("file:c.txt"));
+        if (!selected({"file:Folder"}))
+            return fail("Ctrl + click did not put a picked desktop icon back");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:Folder"));
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::ShiftModifier, at("file:b.txt"));
+        if (!selected({"file:Folder", "file:a.txt", "file:b.txt"}))
+            return fail("Shift + click did not take the desktop icons from the one clicked before");
+        // Delete moves the selected files to the Trash (with a home on the test's own file system,
+        // whose trash is the test's data folder's).
+        {
+            const auto home = qgetenv("HOME");
+            qputenv("HOME", screens.path().toLocal8Bit());
+            if (!writeFile(desk + "/old.txt", "x") || !waitFor([&] { return tile("file:old.txt") && inCell("file:old.txt"); }))
+                return fail("a new file on the desktop did not show");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:old.txt"));
+            press(Qt::Key_Delete);
+            const bool trashed = waitFor([&] {
+                return !tile("file:old.txt") && QFile::exists(screens.filePath("data/Trash/files/old.txt"));
+            });
+            qputenv("HOME", home);
+            QDir(screens.filePath("data/Trash")).removeRecursively();
+            if (!trashed)
+                return fail("Delete did not move the selected desktop file to the Trash");
+        }
+        // Renaming: F2 turns the name into a field, the part before the extension selected, which
+        // Escape leaves as it was; Enter gives the name typed, the icon keeping its cell; a name
+        // taken is refused, saying so, the field staying. A press elsewhere gives the name typed
+        // too, here from the icon's menu, which offers it for one file and not for a launcher.
+        auto field = [&] { return find(root, "desktopRenameField"); };
+        const QPoint aCell = cellOf("file:a.txt");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:a.txt"));
+        press(Qt::Key_F2);
+        if (!field() || field()->property("selectedText") != "a" || !field()->hasActiveFocus())
+            return fail("F2 did not turn the desktop icon's name into a field, its extension left out");
+        press(Qt::Key_Escape);
+        if (field() || !QFile::exists(desk + "/a.txt") || !selected({"file:a.txt"}))
+            return fail("Escape did not leave the desktop icon's name as it was");
+        press(Qt::Key_F2);
+        typeText("plan");
+        press(Qt::Key_Return);
+        if (field() || !QFile::exists(desk + "/plan.txt") || QFile::exists(desk + "/a.txt") ||
+            cellOf("file:plan.txt") != aCell || !tile("file:plan.txt")->property("selected").toBool())
+            return fail("Enter did not rename the desktop icon's file, keeping it in its cell");
+        press(Qt::Key_F2);
+        typeText("b");
+        press(Qt::Key_Return);
+        if (!field() || field()->property("text") != "b.txt" || !QFile::exists(desk + "/plan.txt") ||
+            !controller.error().startsWith("Could not rename plan.txt: "))
+            return fail("a name another desktop file has was not refused, the field staying on it");
+        press(Qt::Key_Escape);
+        QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, at("launcher:Test app"));
+        QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, at("launcher:Test app"));
+        if (!waitFor([&] { return entry("desktopIconMenu", "Open") != nullptr; }) || entry("desktopIconMenu", "Rename…"))
+            return fail("the desktop icons' menu offered to rename a launcher");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+        QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, at("file:plan.txt"));
+        QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, at("file:plan.txt"));
+        if (!choose("desktopIconMenu", "Rename…") || !waitFor([&] { return field() && field()->hasActiveFocus(); }))
+            return fail("the desktop icon's menu did not rename it");
+        typeText("a");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+        if (field() || !QFile::exists(desk + "/a.txt") || cellOf("file:a.txt") != aCell)
+            return fail("a press beside the desktop icon being renamed did not give it the name typed");
+        // New folder, from the desktop's menu: in the cell under where it was opened, its name
+        // selected to type at once.
+        {
+            QVariant x, y;
+            QMetaObject::invokeMethod(grid, "cellX", Q_RETURN_ARG(QVariant, x), Q_ARG(QVariant, 3));
+            QMetaObject::invokeMethod(grid, "cellY", Q_RETURN_ARG(QVariant, y), Q_ARG(QVariant, 1));
+            const QPoint where(x.toInt() + 10, y.toInt() + 10);
+            QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, where);
+            QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, where);
+            if (!choose("desktopMenu", "New folder") || !QFileInfo(desk + "/New folder").isDir() ||
+                cellOf("file:New folder") != QPoint(3, 1) || !waitFor([&] { return field() && field()->hasActiveFocus(); }) ||
+                field()->property("selectedText") != "New folder")
+                return fail("the desktop's menu did not make a new folder where it was opened, its name to type");
+            typeText("Snaps");
+            press(Qt::Key_Return);
+            if (field() || !QFileInfo(desk + "/Snaps").isDir() || cellOf("file:Snaps") != QPoint(3, 1))
+                return fail("the new folder did not take the name typed");
+            if (!QDir(desk + "/Snaps").removeRecursively() || !waitFor([&] { return !tile("file:Snaps"); }))
+                return fail("the new folder did not go");
+        }
         // Turned off, there are none.
         if (!reconfigure(QString(lua).replace("shell={", "shell={desktop_icons=false,")) ||
             !waitFor([&] { return !tile("file:a.txt"); }))

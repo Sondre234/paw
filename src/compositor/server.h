@@ -646,6 +646,10 @@ struct sh_server {
     struct wl_list layers;
     struct wl_listener new_layer_surface;
     struct sh_layer *focused_layer;
+    /* The layer surface below the windows that holds the keyboard as a window would (focus.c),
+     * or would but for the panel in focused_layer, or the lock, holding it over it: given it
+     * back as they let go. NULL while a window has the keyboard. */
+    struct sh_layer *focused_desktop;
     struct sh_toplevel *focused_toplevel;
     struct wlr_foreign_toplevel_manager_v1 *foreign_manager;
     uint32_t last_window_id; // the number the last window published was given
@@ -1430,9 +1434,11 @@ bool hover_focuses(struct sh_server *server, struct sh_toplevel *toplevel);
 void focus_previous(struct sh_server *server);
 void focus_last(struct sh_server *server);
 void focus_top_on(struct sh_server *server, struct wlr_output *output);
+bool focus_on(struct sh_server *server, struct wlr_output *output);
 void refocus_if_hidden(struct sh_server *server);
 void focus_desktop(struct sh_server *server, struct wlr_output *output);
 void focus_layer(struct sh_layer *layer);
+void forget_focused_layer(struct sh_layer *layer);
 struct sh_toplevel *current_toplevel(struct sh_server *server);
 struct sh_toplevel *toplevel_toward(struct sh_toplevel *from_toplevel, bool horizontal,
                                     int sign, bool tiles_only);

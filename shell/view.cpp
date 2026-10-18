@@ -92,6 +92,20 @@ ShellView::ShellView(ShellController &controller, QScreen *screen, bool desktop,
             applyInput();
     });
 }
+void ShellView::setKeyboardOnDemand(bool onDemand) {
+    if (onDemand == keyboardOnDemand_ || !desktop_)
+        return;
+    keyboardOnDemand_ = onDemand;
+    Q_EMIT keyboardOnDemandChanged();
+#if PAW_LAYER_SHELL
+    if (layer_) {
+        using W = LayerShellQt::Window;
+        layer_->setKeyboardInteractivity(onDemand ? W::KeyboardInteractivityOnDemand
+                                                  : W::KeyboardInteractivityNone);
+        update(); // the surface's state, sent with its next frame
+    }
+#endif
+}
 PopoverWindow *ShellView::popover() const {
     return rootObject() ? rootObject()->findChild<PopoverWindow *>() : nullptr;
 }
