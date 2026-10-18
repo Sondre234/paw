@@ -891,25 +891,28 @@ int main(int argc, char **argv) {
             return fail("could not restore the configuration");
     }
     // The bar's icons grow with it (shell.panel_height): an application's, 26 pixels on a bar of
-    // 52 and 41 on one of 76, its button widening to hold it, and the start button's squares.
+    // 52 and 41 on one of 76, its button widening to hold it, the start button's squares, and a
+    // widget's line icon, 20 pixels and then 31.
     {
         auto *launcher = find(view.rootObject(), "pinned:pinned:0");
         auto *icon = launcher ? find(launcher, "taskIcon") : nullptr;
         auto *squares = find(view.rootObject(), "startSquares");
-        if (!icon || !squares)
+        auto *line = find(view.rootObject(), "tilingIcon");
+        if (!icon || !squares || !line)
             return fail("no icons on the bar to measure");
         const qreal buttonWidth = launcher->width(), squaresWidth = squares->width();
-        if (icon->width() != 26)
-            return fail("an application's icon on the bar is not 26 pixels on a bar of 52");
+        if (icon->width() != 26 || line->width() != 20)
+            return fail("the bar's icons are not 26 and 20 pixels on a bar of 52");
         if (!reconfigure(QString(lua).replace("shell={", "shell={panel_height=76,")))
             return fail("could not rewrite the configuration");
         if (!waitFor([&] {
-                return icon->width() == 41 && launcher->width() > buttonWidth && squares->width() > squaresWidth;
+                return icon->width() == 41 && launcher->width() > buttonWidth &&
+                       squares->width() > squaresWidth && line->width() == 31;
             }))
             return fail("the bar's icons did not grow with it");
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
-        if (!waitFor([&] { return icon->width() == 26 && launcher->width() == buttonWidth; }))
+        if (!waitFor([&] { return icon->width() == 26 && launcher->width() == buttonWidth && line->width() == 20; }))
             return fail("the bar's icons did not shrink back with it");
     }
     // appearance.icon_theme: icons come from its theme at once, those the shell has drawn
