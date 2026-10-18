@@ -99,6 +99,23 @@ class DesktopGridTest : public QObject {
                 all.push_back({column, row});
         QCOMPARE(flow(QSize(2, 2), {1, 0}, 1, all), (QList<QPoint>{{1, 0}}));
     }
+    void findsFreeBlocks() {
+        const QSize grid(6, 4), size(2, 2);
+        const QPoint none(-9, -9);
+        QCOMPARE(block({1, 2}, size), (QList<QPoint>{{1, 2}, {1, 3}, {2, 2}, {2, 3}}));
+        QCOMPARE(freeBlock(grid, {2, 1}, size, {}).value_or(none), QPoint(2, 1));
+        // An icon under it: the nearest block clear of it, the one in the column before rather
+        // than the one above, as near and later down the columns.
+        QCOMPARE(freeBlock(grid, {2, 1}, size, {{3, 2}}).value_or(none), QPoint(1, 1));
+        // Another block in the way, as a note is.
+        QCOMPARE(freeBlock(grid, {0, 0}, size, block({1, 1}, size)).value_or(none), QPoint(3, 0));
+        // Off the grid, or over its edge: the nearest that fits on it.
+        QCOMPARE(freeBlock(grid, {5, 3}, size, {}).value_or(none), QPoint(4, 2));
+        QCOMPARE(freeBlock(grid, {-3, 1}, size, {}).value_or(none), QPoint(0, 1));
+        // No room: none, on a grid too small for a block or too full.
+        QVERIFY(!freeBlock(QSize(1, 5), {0, 0}, size, {}));
+        QVERIFY(!freeBlock(QSize(3, 3), {0, 0}, size, {{1, 1}}));
+    }
 };
 
 QTEST_GUILESS_MAIN(DesktopGridTest)
