@@ -450,19 +450,8 @@ void ShellController::refreshApps() {
         auto *info = G_APP_INFO(item->data);
         if (!g_app_info_get_id(info))
             continue;
-        QString icon = "application-x-executable";
         GIcon *gicon = g_app_info_get_icon(info);
-        if (gicon && G_IS_THEMED_ICON(gicon)) {
-            const char *const *names = g_themed_icon_get_names(G_THEMED_ICON(gicon));
-            if (names && *names)
-                icon = QString::fromUtf8(*names);
-        } else if (gicon && G_IS_FILE_ICON(gicon)) {
-            char *path = g_file_get_path(g_file_icon_get_file(G_FILE_ICON(gicon)));
-            if (path) {
-                icon = QString::fromUtf8(path);
-                g_free(path);
-            }
-        }
+        const QString icon = gioIconName(gicon, "application-x-executable");
         const auto id = QString::fromUtf8(g_app_info_get_id(info));
         const char *wmClass = G_IS_DESKTOP_APP_INFO(info)
                                   ? g_desktop_app_info_get_startup_wm_class(G_DESKTOP_APP_INFO(info))
