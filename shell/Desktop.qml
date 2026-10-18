@@ -141,7 +141,7 @@ Rectangle {
         area: desktop.free
     }
     // The icons, on the main monitor, and every press on the desktop: a right press opens the
-    // desktop's menu where it was, or the icons' beside the selection; any other press closes them
+    // desktop's menu where it was, the icons' beside the selection, or a note's; any other press closes them
     // where they are, rather than moving them there as they fade. The menu key opens them too,
     // the first entry highlighted, and a menu closing gives the keys back to the icons.
     DesktopIconGrid {
@@ -149,11 +149,17 @@ Rectangle {
         anchors.fill: parent
         area: desktop.free
         active: shell.desktopIcons.enabled && desktop.outputName === shell.primaryOutput
-        onPressed: { menu.open = false; iconMenu.open = false }
+        onPressed: { menu.open = false; iconMenu.open = false; noteMenu.open = false }
         onMenuRequested: function(x, y, byKeyboard) {
             menu.anchorRect = Qt.rect(x, y, 0, 0)
             menu.initialIndex = byKeyboard ? 0 : -1
             menu.open = true
+        }
+        onNoteMenuRequested: function(key, x, y, byKeyboard) {
+            noteMenu.entries = desktop.noteEntries(key)
+            noteMenu.anchorRect = Qt.rect(x, y, 0, 0)
+            noteMenu.initialIndex = byKeyboard ? 0 : -1
+            noteMenu.open = noteMenu.entries.length > 0
         }
         onIconMenuRequested: function(x, y, byKeyboard) {
             iconMenu.entries = desktop.iconEntries(icons.selectedTiles())
@@ -202,6 +208,28 @@ Rectangle {
                          { text: "Move to Trash", icon: "trash-2", danger: true, secondary: "Delete",
                            run: function() { icons.trash(files) } })
         return entries
+    }
+    // What a note's menu offers for the note of `key`: its colour in a row of swatches, writing on
+    // it, copying its text and deleting it, under a title of its first line.
+    function noteEntries(key) {
+        const note = icons.noteOf(key)
+        if (!note)
+            return []
+        const colors = shell.desktopNotes.colors
+        const names = { sakura: "Sakura", sky: "Sky", mint: "Mint", lemon: "Lemon", lavender: "Lavender" }
+        return [{ title: note.name !== "" ? note.name : "Empty note", icon: "sticky-note",
+                  secondary: (names[note.color] || note.color) + " note" },
+                { text: "Colour",
+                  swatches: colors.map(color => ({ color: Theme.notePaper(color), ink: Theme.noteInk(color),
+                                                   name: names[color] || color, checked: color === note.color })),
+                  run: function(index) { if (index >= 0) icons.recolorNote(key, colors[index]) } },
+                { text: "Edit note", icon: "pencil", secondary: "Enter",
+                  run: function() { icons.startEditing(key) } },
+                { text: "Copy text", icon: "copy", secondary: "Ctrl+C", enabled: note.text !== "",
+                  run: function() { icons.copyNote(key) } },
+                { separator: true },
+                { text: "Delete note", icon: "trash-2", danger: true, secondary: "Delete",
+                  run: function() { icons.deleteNote(key) } }]
     }
     // Open with's entries for `tiles`, read as it opens: the applications that open them all, with
     // their icons, the default one first and saying so, then those recommended for them, then past
@@ -257,6 +285,18 @@ Rectangle {
                 ? [{ separator: true }, { text: "Appearance", icon: "palette", secondary: shell.profile,
                      submenu: WindowMenu.profileEntries() }]
                 : [])
+    }
+    // The menu of a note.
+    PopupMenu {
+        id: noteMenu
+        objectName: "desktopNoteMenu"
+        entryName: "desktopNoteMenuItem"
+        side: Qt.BottomEdge
+        alignment: Qt.AlignLeft
+        gap: 0
+        bounds: desktop.free
+        onDismissed: open = false
+        onOpenChanged: desktop.keysBack(noteMenu)
     }
     // The menu of the selected icons.
     PopupMenu {

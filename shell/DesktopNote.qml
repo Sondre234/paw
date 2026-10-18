@@ -11,7 +11,8 @@ import QtQuick.Shapes
 // through once ticked; the first of several lines is its title. A click writes on it: it lies
 // straight and lifts, its text plain in a field (`editing`), saying near the end how many more
 // characters it holds. Dragged, it swings further askew under the pointer, and let go it glides
-// into the block of cells the board's pad showed. Hovered, it lifts a little and its doodle wiggles. It comes and goes in
+// into the block of cells the board's pad showed. Deleted, it twists and crumples away. Hovered, it
+// lifts a little and its doodle wiggles. It comes and goes in
 // the icons' ripple, and pops in as it is made.
 Item {
     id: note
@@ -54,6 +55,8 @@ Item {
     onPlacedChanged: if (placed) Qt.callLater(function() { note.landed = true })
     // How far it is in view: 0 hidden, 1 shown, past 1 for a moment as it pops in.
     property real reveal: 1
+    // Deleted: it crumples away before it goes.
+    property bool leaving: false
 
     width: board.cellWidth * spanColumns
     height: board.cellHeight * spanRows
@@ -93,6 +96,13 @@ Item {
         reveal = 0
         revealing.restart()
     }
+    // A little hop, as its text is copied or its colour changes.
+    function hop() { hopping.restart() }
+    SequentialAnimation {
+        id: hopping
+        NumberAnimation { target: sheet; property: "press"; to: 1.06; duration: Theme.duration(90); easing.type: Easing.OutQuad }
+        NumberAnimation { target: sheet; property: "press"; to: 1; duration: Theme.duration(300); easing.type: Easing.OutBack; easing.overshoot: 2 }
+    }
 
     // The note, inside the block with room for its tape above it and its shadow around it.
     Item {
@@ -101,13 +111,17 @@ Item {
         y: Theme.spacingM + 6
         width: note.width - 2 * Theme.spacingM
         height: note.height - y - Theme.spacingM - 2
-        opacity: Math.min(1, note.reveal)
-        scale: (0.6 + 0.4 * note.reveal) * (note.dragged ? 1.05 : note.editing ? 1.02 : note.hovered ? 1.015 : 1)
-        // Written on, it lies straight; picked up, it swings further askew.
-        rotation: note.dragged ? note.tilt * 2 + (note.tilt < 0 ? -2 : 2)
+        opacity: Math.min(1, note.reveal) * (note.leaving ? 0 : 1)
+        scale: (0.6 + 0.4 * note.reveal) * press * (note.leaving ? 0.3
+               : note.dragged ? 1.05 : note.editing ? 1.02 : note.hovered ? 1.015 : 1)
+        // The hop multiplies in here.
+        property real press: 1
+        // Written on, it lies straight; picked up, it swings further askew; deleted, it twists away.
+        rotation: note.leaving ? note.tilt + 24 : note.dragged ? note.tilt * 2 + (note.tilt < 0 ? -2 : 2)
                 : note.editing ? 0 : note.hovered ? note.tilt * 0.5 : note.tilt
         Behavior on rotation { NumberAnimation { duration: Theme.durationSlow; easing.type: Easing.OutBack } }
-        Behavior on scale { enabled: note.reveal === 1; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
+        Behavior on scale { enabled: note.reveal === 1 && !hopping.running; NumberAnimation { duration: note.leaving ? Theme.duration(200) : Theme.durationNormal; easing.type: note.leaving ? Easing.InBack : Theme.easing } }
+        Behavior on opacity { enabled: note.leaving; NumberAnimation { duration: Theme.duration(200); easing.type: Easing.InCubic } }
         antialiasing: true
 
         // A click writes on it, the caret where it was; a right press opens its menu; dragged, by
@@ -117,7 +131,7 @@ Item {
             id: pointer
             anchors.fill: parent
             anchors.topMargin: -12
-            enabled: note.board.shown
+            enabled: note.board.shown && !note.leaving
             acceptedButtons: Qt.LeftButton | Qt.RightButton
             // Where the left button went down, in the board's coordinates, and whether it has
             // moved far enough since to drag.
@@ -129,6 +143,8 @@ Item {
                 armed = mouse.button === Qt.LeftButton
                 moved = false
                 pressedAt = mapToItem(note.board, mouse.x, mouse.y)
+                if (mouse.button === Qt.RightButton)
+                    note.board.noteMenuRequested(note.key, pressedAt.x, pressedAt.y, false)
             }
             onPositionChanged: function(mouse) {
                 if (!armed || !(pressedButtons & Qt.LeftButton))

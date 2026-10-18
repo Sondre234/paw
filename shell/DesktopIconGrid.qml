@@ -28,7 +28,8 @@ import QtQuick.Shapes
 // each with a puff of sparkles. Sticky notes (DesktopNote, the model shell.desktopNotes) lie on the
 // same grid, each over a block of cells the icons go around; one dragged follows the pointer while
 // a dashed pad shows the block it will land in. A new note pops in under where the desktop's menu
-// was opened, written on at once, and goes again if it is let go empty.
+// was opened, written on at once, and goes again if it is let go empty. Deleted from its menu, a
+// note crumples away, and the notice says so with Undo, which pops it back into its place.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -71,6 +72,8 @@ FocusScope {
     signal pressed()
     signal menuRequested(real x, real y, bool byKeyboard)
     signal iconMenuRequested(real x, real y, bool byKeyboard)
+    // A right press on a note, or the menu key on it, for its menu to open there.
+    signal noteMenuRequested(string key, real x, real y, bool byKeyboard)
 
     FontMetrics { id: nameFont; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
     // The notes' hand: the first rounded font there is, else the shell's.
@@ -323,7 +326,7 @@ FocusScope {
                 for (const tile of files)
                     tile.hop()
             } else if (ctrl && event.key === Qt.Key_Z) {
-                if (!grid.untrash())
+                if (!grid.undo())
                     return
             } else if (plain && event.text.length > 0 && event.text.trim() !== "" && event.text >= " ") {
                 grid.typeAhead(event.text)
@@ -492,6 +495,58 @@ FocusScope {
             notes.flush()
         if (keepKeys)
             forceActiveFocus()
+    }
+    // Copies the note's text, with a hop, and gives it another colour (DesktopNotes.colors), with
+    // another.
+    function copyNote(key) {
+        notes.copy(key)
+        const note = noteOf(key)
+        if (note)
+            note.hop()
+    }
+    function recolorNote(key, color) {
+        notes.setColor(key, color)
+        const note = noteOf(key)
+        if (note)
+            note.hop()
+    }
+    // Crumples the note away, then deletes it, which the notice at the foot of the desktop then
+    // offers to undo.
+    function deleteNote(key) {
+        finishEditing(key)
+        const note = noteOf(key)
+        if (!note || deletingNote.running)
+            return
+        note.leaving = true
+        deletingNote.key = key
+        deletingNote.restart()
+    }
+    Timer {
+        id: deletingNote
+        property string key
+        interval: Theme.duration(200)
+        onTriggered: grid.notes.remove(key)
+    }
+    // Brings the last note deleted back, popping into its place with a puff, in the ripple from
+    // the notice. False while there is none, or it is still on its way out.
+    function restoreNote() {
+        if (deletingNote.running || !notes.restorable)
+            return false
+        rippleOrigin = Qt.point(toast.x + toast.width / 2, toast.y + toast.height / 2)
+        const note = noteOf(notes.restore())
+        if (note) {
+            note.popIn()
+            if (Theme.duration(700) > 0)
+                puff.createObject(grid, { x: note.x + note.width / 2, y: note.y + note.height / 2,
+                                          delay: rippleDelay(note) })
+        }
+        return true
+    }
+    // What Ctrl + Z and the notice's Undo take back: the last move to the Trash or the last note
+    // deleted, whichever came last ("trash", "note"), then the other.
+    property string undoing: ""
+    function undo() {
+        return undoing === "note" ? restoreNote() || untrash() : untrash() || restoreNote()
     }
     // A new note in the block under `x`, `y` (or the free one nearest it), popping in with a puff
     // of sparkles, to write on at once.
@@ -1210,25 +1265,42 @@ FocusScope {
         }
     }
 
-    // What the last trash took, at the foot of the desktop for a while: its names, and Undo,
-    // which puts it back.
+    // What the last trash or note deleted took, at the foot of the desktop for a while: its names,
+    // and Undo, which puts it back.
     DesktopToast {
         id: toast
         z: 130
         partner: grid.partner
         x: Math.round(grid.area.x + (grid.area.width - width) / 2)
         y: grid.area.y + grid.area.height - height - Theme.spacingXXL
-        onActed: grid.untrash()
+        onActed: grid.undo()
         onPressed: grid.pressed()
     }
     Connections {
         target: grid.model
         function onTrashedChanged() {
             const names = grid.model.trashed
-            if (names.length > 0 && grid.shown)
+            if (names.length > 0 && grid.shown) {
+                grid.undoing = "trash"
+                toast.icon = "trash-2"
                 toast.show("Moved " + (names.length === 1 ? names[0] : names.length + " items") + " to Trash")
-            else
+            } else if (toast.icon === "trash-2") {
                 toast.hide()
+            }
+        }
+    }
+    // A note deleted is said by its first line, and Undo brings it back.
+    Connections {
+        target: grid.notes
+        function onRemovedChanged() {
+            if (grid.notes.restorable && grid.shown) {
+                grid.undoing = "note"
+                const first = grid.notes.lines(grid.notes.removedText)[0].text.trim()
+                toast.icon = "sticky-note"
+                toast.show(first !== "" ? "Deleted “" + first + "”" : "Deleted an empty note")
+            } else if (toast.icon === "sticky-note") {
+                toast.hide()
+            }
         }
     }
     onShownChanged: if (!shown) { toast.hide(); finishEditing() }
