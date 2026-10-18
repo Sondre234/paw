@@ -160,7 +160,7 @@ static void xwayland_set_geometry(struct wl_listener *listener, void *data) {
 
 static void xwayland_request_activate(struct wl_listener *listener, void *data) {
     struct sh_toplevel *toplevel = wl_container_of(listener, toplevel, x_activate);
-    if (xwayland_managed(toplevel))
+    if (xwayland_managed(toplevel) && !bring_to_launch(toplevel))
         activation_requested(toplevel);
 }
 

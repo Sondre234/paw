@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Windows that ask for attention (xdg-activation) while unfocused: windows.activation decides
 between marking them urgent, focusing them and ignoring the request; `get urgent`, the
-subscription and focus_urgent report and use the marks; and focusing clears them. The border's
-pulse is urgent_border_smoke's."""
+subscription and focus_urgent report and use the marks; and focusing clears them. A window that
+asks just after a program was started from an empty workspace is brought there instead. The
+border's pulse is urgent_border_smoke's."""
 from pathlib import Path
 import re
 import subprocess
@@ -16,7 +17,7 @@ compositor, probe = (str(Path(p).resolve()) for p in sys.argv[1:3])
 def settings(activation):
     return f"""return {{
     xwayland = false,
-    layout = {{ tiling = false }},
+    layout = {{ tiling = false, workspaces = 8 }},
     windows = {{ activation = "{activation}" }},
 }}"""
 
@@ -167,4 +168,37 @@ with harness.Compositor(compositor, settings("urgent")) as desktop:
     msg("focus_urgent")
     wait_for(lambda: focused() == ["urgent-b"] and urgent() == [], "b shown by focus_urgent")
     assert [w.minimized for w in desktop.windows() if w.app_id == "urgent-b"] == [False]
+
+    # A program started from an empty workspace that hands off to its running instance (a second
+    # `discord` clicking its tray icon) has that instance's window brought there, focused.
+    def where(app_id):
+        """(output, workspace, focused) of the window of `app_id`."""
+        return next((w.output, w.workspace, w.focused) for w in desktop.windows()
+                    if w.app_id == app_id)
+
+    msg("workspace", "6")
+    msg("spawn", "true")
+    ask(c)
+    wait_for(lambda: where("urgent-c") == ("HEADLESS-1", 6, True), "c brought to workspace 6")
+    assert int(msg("get", "workspace")) == 6 and urgent() == []
+    # One window answers a launch: without another, a request is the policy's again.
+    msg("workspace", "7")
+    ask(c)
+    wait_for(lambda: urgent() == [("urgent-c", 6, False)], "c only urgent without a launch")
+    # Nor does a window come onto a workspace that holds one.
+    msg("workspace", "4")
+    msg("spawn", "true")
+    ask(d)
+    wait_for(lambda: [u[0] for u in urgent()] == ["urgent-c", "urgent-d"], "d only urgent")
+    assert where("urgent-d") == ("HEADLESS-1", 2, False)
+    # It comes to the monitor under the pointer, where a new window would have opened.
+    msg("headless_output", "add", "HEADLESS-2", "800x600")
+    wait_for(lambda: any(r[0] == "HEADLESS-2" for r in desktop.rows("outputs")), "HEADLESS-2")
+    x, y = next((int(r[2]), int(r[3])) for r in desktop.rows("outputs") if r[0] == "HEADLESS-2")
+    msg("headless_pointer", "add", "mouse")
+    msg("headless_pointer", "move", "mouse", str(x + 400), str(y + 300))
+    msg("spawn", "true")
+    ask(c)
+    wait_for(lambda: where("urgent-c")[::2] == ("HEADLESS-2", True), "c brought to HEADLESS-2")
+    assert [u[0] for u in urgent()] == ["urgent-d"]
 print("Activation requests mark, focus, or are ignored by policy; focus_urgent works")

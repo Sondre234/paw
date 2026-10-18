@@ -351,7 +351,9 @@ const Option options[] = {
      "What an unfocused application asking for attention (xdg-activation, an X11 urgency "
      "hint) gets: `\"urgent\"` marks the window (border, taskbar, workspace indicator) and "
      "leaves focus alone, `\"focus\"` focuses it and switches to its workspace, `\"ignore\"` "
-     "drops the request. `focus_urgent` jumps to the oldest urgent window."},
+     "drops the request. `focus_urgent` jumps to the oldest urgent window. A window that a "
+     "program just started from an empty workspace hands off to (a second `discord`) is brought "
+     "there and focused instead, unless `\"ignore\"`."},
     {"windows.urgent_color", "color", "\"#ff9e64\"", "\"#ff9e64\"", none, none,
      "Border of an urgent window, `#RRGGBB` or `#RRGGBBAA`; it pulses for a few seconds, "
      "also on windows without a `border_width`."},

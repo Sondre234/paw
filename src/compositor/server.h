@@ -629,6 +629,13 @@ struct sh_server {
      * redraws their pulsing borders while they pulse. */
     unsigned urgent_serial;
     struct wl_event_source *urgent_timer;
+    /* The last program a binding or `spawn` started (focus.c's note_launch): when, 0 once a
+     * window has answered it, and the output under the pointer with the workspace it showed. */
+    struct {
+        int64_t at;
+        char output[64];
+        int workspace;
+    } launch;
     /* Configuration files changing: the watch, and a short wait so that a burst of writes
      * (an editor saving through a temporary file) reloads once. */
     struct wl_event_source *config_watch;
@@ -1430,6 +1437,8 @@ float urgent_pulse(struct sh_toplevel *toplevel, int64_t now);
 int urgent_tick(void *data);
 void set_urgent(struct sh_toplevel *toplevel, bool urgent);
 void activation_requested(struct sh_toplevel *toplevel);
+void note_launch(struct sh_server *server);
+bool bring_to_launch(struct sh_toplevel *toplevel);
 void focus_urgent(struct sh_server *server);
 bool hover_focuses(struct sh_server *server, struct sh_toplevel *toplevel);
 void focus_previous(struct sh_server *server);
@@ -1697,6 +1706,7 @@ void evacuate_output(struct sh_server *server, const char *name, struct wlr_box 
 void schedule_evacuation(struct sh_server *server, struct sh_output *output);
 void return_home_windows(struct sh_server *server);
 void move_toplevel_to_output(struct sh_toplevel *toplevel, struct wlr_output *to);
+void bring_toplevel(struct sh_toplevel *toplevel, struct wlr_output *to);
 void move_workspace_to_output(struct sh_server *server, const char *target);
 void swap_output_workspaces(struct sh_server *server, const char *target);
 
@@ -1706,6 +1716,7 @@ void output_power_set_mode(struct wl_listener *listener, void *data);
 bool display_action(enum sh_action action);
 bool display_power(struct sh_server *server, enum sh_action action, char *error,
                    size_t error_size);
+void bring_toplevel(struct sh_toplevel *toplevel, struct wlr_output *to);
 bool wake_displays(struct sh_server *server);
 
 /* overview.c */
