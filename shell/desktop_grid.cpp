@@ -33,9 +33,10 @@ QPoint nearestFree(QSize grid, QPoint wanted, const QList<QPoint> &taken) {
             std::clamp(wanted.y(), 0, std::max(0, grid.height() - 1))};
 }
 
-QList<QPoint> arrange(const QStringList &keys, const QHash<QString, QPoint> &saved, QSize grid) {
+QList<QPoint> arrange(const QStringList &keys, const QHash<QString, QPoint> &saved, QSize grid,
+                      const QList<QPoint> &blocked) {
     QList<QPoint> cells(keys.size(), QPoint(-1, -1));
-    QSet<QPoint> taken;
+    QSet<QPoint> taken(blocked.begin(), blocked.end());
     for (qsizetype i = 0; i < keys.size(); ++i) {
         const auto it = saved.constFind(keys[i]);
         if (it != saved.cend() && contains(grid, *it) && !taken.contains(*it)) {
