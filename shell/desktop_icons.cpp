@@ -17,6 +17,7 @@
 #include <QUrl>
 #include <algorithm>
 #include <gio/gdesktopappinfo.h>
+#include <utility>
 
 namespace {
 // Where the icons' cells are remembered: a line `hidden` while they are hidden, and a line for
@@ -195,14 +196,17 @@ void DesktopIcons::copy(const QStringList &keys) {
 }
 
 int DesktopIcons::trash(const QStringList &keys) {
-    int moved = 0;
+    QList<Trashed> moved;
     QStringList refused;
     QString why;
     for (const auto &key : keys)
         if (const int i = indexOf(key); i >= 0 && !entries_[i].path.isEmpty()) {
+            // Once moved, the file is named by where the trash keeps it (the home trash, or the
+            // trash of the mount it is on), as QFile::moveToTrash(path, &pathInTrash) would say,
+            // keeping the reason it failed besides.
             QFile file(entries_[i].path);
             if (file.moveToTrash()) {
-                ++moved;
+                moved.push_back({entries_[i].path, file.fileName(), cells_.value(key, entries_[i].cell)});
             } else {
                 refused.push_back(entries_[i].name);
                 why = file.errorString();
@@ -210,9 +214,94 @@ int DesktopIcons::trash(const QStringList &keys) {
         }
     if (!refused.isEmpty())
         Q_EMIT failed("Could not move " + refused.join(", ") + " to the Trash: " + why);
-    if (moved > 0)
+    if (moved.isEmpty())
+        return 0;
+    trashed_ = moved;
+    rescan();
+    Q_EMIT trashedChanged();
+    return int(moved.size());
+}
+
+QStringList DesktopIcons::trashed() const {
+    QStringList names;
+    for (const auto &file : trashed_)
+        names.push_back(QFileInfo(file.path).fileName());
+    return names;
+}
+
+QStringList DesktopIcons::untrash() {
+    const auto trashed = std::exchange(trashed_, {});
+    if (trashed.isEmpty())
+        return {};
+    // The cells the icons there are in now, which those put back go beside.
+    QList<QPoint> taken;
+    for (const auto &entry : entries_)
+        taken.push_back(entry.cell);
+    QStringList keys, refused;
+    QString why;
+    for (const auto &file : trashed) {
+        const QFileInfo was(file.path), kept(file.inTrash);
+        if (!kept.exists() && !kept.isSymLink()) {
+            refused.push_back(was.fileName());
+            why = "it is no longer in the Trash";
+            continue;
+        }
+        const auto folder = was.path();
+        const auto name = freeName(folder, was.fileName(), kept.isDir());
+        QFile moved(file.inTrash);
+        if (!QDir().mkpath(folder) || !moved.rename(QDir(folder).filePath(name))) {
+            refused.push_back(was.fileName());
+            why = moved.errorString();
+            continue;
+        }
+        QFile::remove(trashInfo(file.inTrash));
+        // Its cell is remembered again, under the name it came back as. One it left off a grid
+        // that has shrunk stays remembered as it was.
+        const QString key = "file:" + name;
+        QPoint cell = file.cell;
+        if (grid_.isValid() && desktop_grid::contains(grid_, cell))
+            cell = desktop_grid::nearestFree(grid_, cell, taken);
+        if (cell.x() >= 0 && cell.y() >= 0) {
+            cells_.insert(key, cell);
+            taken.push_back(cell);
+        }
+        keys.push_back(key);
+    }
+    if (!refused.isEmpty())
+        Q_EMIT failed("Could not put " + refused.join(", ") + " back from the Trash: " + why);
+    Q_EMIT trashedChanged();
+    if (!keys.isEmpty()) {
+        watch();
         rescan();
-    return moved;
+        save();
+    }
+    return keys;
+}
+
+QString DesktopIcons::trashInfo(const QString &inTrash) {
+    const QFileInfo file(inTrash);
+    return QFileInfo(file.path()).path() + "/info/" + file.fileName() + ".trashinfo";
+}
+
+QString DesktopIcons::freeName(const QString &folder, const QString &name, bool isFolder) {
+    const QDir dir(folder);
+    auto taken = [&dir](const QString &name) {
+        const QFileInfo file(dir.filePath(name));
+        return file.exists() || file.isSymLink();
+    };
+    if (!taken(name))
+        return name;
+    // The extension as the type knows it ("tar.gz"), else what follows the last dot; a leading
+    // dot (".profile") is no extension.
+    QString suffix = isFolder ? QString() : QMimeDatabase().suffixForFileName(name);
+    if (!isFolder && suffix.isEmpty() && name.lastIndexOf('.') > 0)
+        suffix = name.sliced(name.lastIndexOf('.') + 1);
+    const auto stem = suffix.isEmpty() || suffix.size() + 1 >= name.size()
+                          ? name : name.first(name.size() - suffix.size() - 1);
+    const auto end = stem == name ? QString() : "." + name.sliced(stem.size() + 1);
+    for (int n = 2;; ++n)
+        if (const auto numbered = QString("%1 (%2)%3").arg(stem, QString::number(n), end); !taken(numbered))
+            return numbered;
 }
 
 QString DesktopIcons::rename(const QString &key, const QString &name) {
