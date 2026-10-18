@@ -173,7 +173,7 @@ class ShellController : public QObject {
     Q_PROPERTY(QString bindingMode READ bindingMode NOTIFY bindingModeChanged)
     Q_PROPERTY(QVariantList pinned READ pinned NOTIFY appsChanged)
     // Configured launchers and installed applications, as {appId, name, icon, pinned (to the
-    // taskbar), configured, genericName, keywords, description}.
+    // taskbar), configured, genericName, keywords, description, program}.
     Q_PROPERTY(QVariantList apps READ apps NOTIFY appsChanged)
     // Counts the changes of `apps`, for QML that reads one record with appRecord() to follow
     // them without making all of them.
@@ -698,6 +698,9 @@ class ShellController : public QObject {
         QString genericName = {};
         QStringList keywords = {};
         QString description = {};
+        // The program it runs, by its file name (app_match::program of its Exec line, or a
+        // configured launcher's command's first word), for the run launcher's programs.
+        QString program = {};
     };
     // Loads the configuration, or the default one with configError_ set when it has an error.
     // `reloading`, one that could not be checked in time or memory throws paw::ConfigTrialError

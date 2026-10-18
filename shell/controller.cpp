@@ -442,9 +442,13 @@ void ShellController::clearApps() {
 void ShellController::refreshApps() {
     clearApps();
     int index = 0;
-    for (const auto &launcher : config_.shell.launchers)
+    for (const auto &launcher : config_.shell.launchers) {
         apps_.push_back({QString("pinned:%1").arg(index++), QString::fromStdString(launcher.name),
                          QString::fromStdString(launcher.icon), launcher.command, nullptr, true, {}});
+        if (!launcher.command.empty())
+            apps_.back().program =
+                QFileInfo(QString::fromStdString(launcher.command.front())).fileName();
+    }
     QList<app_match::Entry> entries, hidden;
     hiddenIcons_.clear();
     GList *list = g_app_info_get_all();
@@ -480,8 +484,9 @@ void ShellController::refreshApps() {
                 app.keywords.push_back(QString::fromUtf8(*keyword));
         }
         app.description = QString::fromUtf8(g_app_info_get_description(info));
-        entries.push_back({id, app.wmClass, QString::fromUtf8(g_app_info_get_commandline(info)),
-                           app.name});
+        const auto commandLine = QString::fromUtf8(g_app_info_get_commandline(info));
+        app.program = app_match::program(commandLine);
+        entries.push_back({id, app.wmClass, commandLine, app.name});
     }
     g_list_free_full(list, g_object_unref);
     appIndex_ = app_match::Index(entries);
@@ -589,7 +594,8 @@ QVariantMap ShellController::record(const App &app) {
             {"configured", !app.command.empty()},
             {"genericName", app.genericName},
             {"keywords", app.keywords},
-            {"description", app.description}};
+            {"description", app.description},
+            {"program", app.program}};
 }
 QVariantList ShellController::apps() const {
     QVariantList list;
