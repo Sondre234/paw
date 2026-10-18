@@ -264,6 +264,20 @@ void DesktopIcons::setGrid(int columns, int rows) {
     relayout();
 }
 
+void DesktopIcons::setBlocked(const QList<QPoint> &cells) {
+    if (cells == blocked_)
+        return;
+    blocked_ = cells;
+    relayout();
+}
+
+QList<QPoint> DesktopIcons::cells() const {
+    QList<QPoint> cells;
+    for (const auto &entry : entries_)
+        cells.push_back(entry.cell);
+    return cells;
+}
+
 int DesktopIcons::indexOf(const QString &key) const {
     for (qsizetype i = 0; i < entries_.size(); ++i)
         if (entries_[i].key == key)
@@ -272,7 +286,7 @@ int DesktopIcons::indexOf(const QString &key) const {
 }
 
 QList<QPoint> DesktopIcons::landed(const QStringList &keys, QPoint offset, QList<int> &moved) const {
-    QList<QPoint> from, others;
+    QList<QPoint> from, others = blocked_;
     for (const auto &key : keys)
         if (const int i = indexOf(key); i >= 0 && !moved.contains(i)) {
             moved.push_back(i);
@@ -563,10 +577,9 @@ QStringList DesktopIcons::untrash() {
     const auto trashed = std::exchange(trashed_, {});
     if (trashed.isEmpty())
         return {};
-    // The cells the icons there are in now, which those put back go beside.
-    QList<QPoint> taken;
-    for (const auto &entry : entries_)
-        taken.push_back(entry.cell);
+    // The cells the icons there are in now and those the notes cover, which those put back go
+    // beside.
+    QList<QPoint> taken = cells() + blocked_;
     QStringList keys, refused;
     QString why;
     for (const auto &file : trashed) {
@@ -674,12 +687,8 @@ QString DesktopIcons::newFolder(int column, int row) {
         return {};
     }
     const QString key = "file:" + name;
-    if (grid_.isValid()) {
-        QList<QPoint> taken;
-        for (const auto &entry : entries_)
-            taken.push_back(entry.cell);
-        cells_.insert(key, desktop_grid::nearestFree(grid_, QPoint(column, row), taken));
-    }
+    if (grid_.isValid())
+        cells_.insert(key, desktop_grid::nearestFree(grid_, QPoint(column, row), cells() + blocked_));
     watch();
     rescan();
     save();
@@ -744,7 +753,8 @@ QList<DesktopIcons::Transfer> DesktopIcons::transfers(const QList<QUrl> &urls,
 }
 
 QList<QPoint> DesktopIcons::dropCells(int count, QPoint cell, const QStringList &moving) const {
-    QList<QPoint> taken;
+    // The notes' cells, and those of the icons staying where they are.
+    QList<QPoint> taken = blocked_;
     for (const auto &entry : entries_)
         if (!moving.contains(entry.key))
             taken.push_back(entry.cell);
@@ -1062,7 +1072,7 @@ void DesktopIcons::sync(QList<Entry> entries) {
 void DesktopIcons::relayout() {
     if (!grid_.isValid())
         return;
-    const auto cells = desktop_grid::arrange(order_, cells_, grid_);
+    const auto cells = desktop_grid::arrange(order_, cells_, grid_, blocked_);
     bool placed = false;
     for (qsizetype n = 0; n < order_.size(); ++n) {
         const int i = indexOf(order_[n]);
