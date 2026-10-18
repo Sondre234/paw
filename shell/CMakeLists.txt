@@ -307,6 +307,10 @@ if(BUILD_TESTING)
     # The search's last result, Search the web for “…”.
     paw_shell_test(web_search_test SOURCES web_search.cpp web_search.hpp LIBS Qt6::Core Qt6::Test)
     add_test(NAME web_search COMMAND web_search_test)
+    # The run launcher's search.
+    paw_shell_test(run_search_test SOURCES ${PAW_RUN_SOURCES} fuzzy.cpp fuzzy.hpp calculator.cpp
+        calculator.hpp launch_history.cpp launch_history.hpp state_files.hpp LIBS Qt6::Core Qt6::Test)
+    add_test(NAME run_search COMMAND run_search_test)
     # The emoji picker's table and model.
     paw_shell_test(emoji_test SOURCES emoji.cpp emoji.hpp
         DEFINES PAW_EMOJI_TABLE="${PROJECT_SOURCE_DIR}/vendor/emoji/emoji.tsv"
