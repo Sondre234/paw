@@ -113,6 +113,9 @@ QtObject {
     // Applications' icons on the taskbar, growing and shrinking with it: 26 pixels on a bar of
     // 52 (the default), 34 on one of 64.
     readonly property int barAppIconSize: Math.round(barButtonHeight * 0.6)
+    // Line icons on the taskbar, the widgets' and the tray's, growing with it the same way: 20
+    // pixels on a bar of 52. On the macOS style's menu bar they keep their size.
+    readonly property int barIconSize: macos ? iconSize : Math.max(12, Math.round(barButtonHeight * 0.45))
 
     // The macOS style's menu bar and dock.
     // The menu bar: as tall as macOS's for the font size (28 pixels for 13), its items padded on
