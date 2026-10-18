@@ -170,9 +170,9 @@ Rectangle {
     }
     // The keyboard comes to the desktop from a click while it has the icons, for their keys.
     Binding { target: desktop.shellView; property: "keyboardOnDemand"; value: icons.active }
-    // What the icons' menu offers for `tiles`, the selected icons: opening them, copying their
-    // files, renaming one file or folder, and moving the files to the trash, under a title naming
-    // them, each with its key.
+    // What the icons' menu offers for `tiles`, the selected icons: opening them, opening files and
+    // folders with another application, copying their files, renaming one file or folder, and
+    // moving the files to the trash, under a title naming them, each with its key.
     function iconEntries(tiles) {
         if (tiles.length === 0)
             return []
@@ -187,6 +187,9 @@ Rectangle {
                 secondary: files.length === tiles.length ? "On the desktop" : files.length + " of them files" },
             { text: tiles.length === 1 ? "Open" : "Open all", icon: "folder-open", secondary: "Enter",
               run: function() { icons.open(tiles) } }]
+        if (tiles.every(tile => tile.kind === "file" || tile.kind === "folder"))
+            entries.push({ text: "Open with", icon: "app-window",
+                           submenu: function() { return desktop.openWithEntries(tiles) } })
         if (files.length > 0)
             entries.push({ text: files.length === 1 ? "Copy" : "Copy " + files.length + " files", icon: "copy",
                            secondary: "Ctrl+C",
@@ -198,6 +201,24 @@ Rectangle {
             entries.push({ separator: true },
                          { text: "Move to Trash", icon: "trash-2", danger: true, secondary: "Delete",
                            run: function() { icons.trash(files) } })
+        return entries
+    }
+    // Open with's entries for `tiles`, read as it opens: the applications that open them all, with
+    // their icons, the default one first and saying so, then those recommended for them, then past
+    // a line the others; "No other apps", greyed out, when none does.
+    function openWithEntries(tiles) {
+        const apps = shell.desktopIcons.openers(tiles.map(tile => tile.key))
+        if (apps.length === 0)
+            return [{ text: "No other apps", enabled: false }]
+        const entries = []
+        for (let i = 0; i < apps.length; ++i) {
+            const app = apps[i]
+            if (i > 0 && app.group === "other" && apps[i - 1].group !== "other")
+                entries.push({ separator: true })
+            entries.push({ text: app.name, icon: shell.iconBase + app.icon,
+                           secondary: app.group === "default" ? "Default" : "",
+                           run: function() { icons.openWith(tiles, app.id) } })
+        }
         return entries
     }
     // Showing the desktop, and the appearance profiles beside their entry, as the bar's menu

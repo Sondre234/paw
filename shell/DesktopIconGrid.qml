@@ -313,6 +313,13 @@ FocusScope {
                 model.open(tile.key)
         }
     }
+    // Opens the icons' files and folders with the application `appId` (DesktopIcons.openers), all
+    // at once where it takes several, each squashing as it does.
+    function openWith(list, appId) {
+        for (const tile of list)
+            tile.boing()
+        model.openWith(list.map(tile => tile.key), appId)
+    }
     // Shrinks the icons away, then moves their files to the trash, which the notice at the foot of
     // the desktop then offers to undo.
     function trash(list) {
