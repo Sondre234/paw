@@ -111,9 +111,9 @@ class DesktopIcons : public QAbstractListModel {
     // Opens the folder in the file manager, making it first where it is missing.
     Q_INVOKABLE bool openFolder();
     // Where a drop of `urls` on the cell at `column` and `row` puts them: {column, row} for each
-    // it takes (a file or folder, or a web address), in their order, the first in that cell while
-    // it is free and each after it in the free cell nearest it then. One already in the desktop
-    // folder is moved from its own cell, which is free to it.
+    // it takes (a file or folder, or a web address), in their order, from that cell on down the
+    // columns (desktop_grid::flow). One already in the desktop folder is moved from its own cell,
+    // which is free to it.
     Q_INVOKABLE QVariantList dropLanding(const QList<QUrl> &urls, int column, int row) const;
     // Drops `urls` on the cell at `column` and `row`, each where dropLanding() says: a file or
     // folder already in the desktop folder just moves there; one from elsewhere is copied in, a

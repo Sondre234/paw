@@ -359,17 +359,17 @@ class DesktopIconsTest : public QObject {
                                       QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
         auto icons = made();
         QSignalSpy failed(icons.get(), &DesktopIcons::failed);
-        // Where they would land: the first in the free cell under the pointer, the next beside it.
+        // Where they would land: the first in the free cell under the pointer, the next below it.
         const auto landing = icons->dropLanding(files({outside + "/report.txt", outside + "/Album"}), 3, 0);
         QCOMPARE(landing.size(), 2);
         QCOMPARE(landing[0].toMap()["column"].toInt(), 3);
-        QCOMPARE(landing[1].toMap()["column"].toInt(), 2);
-        QCOMPARE(landing[1].toMap()["row"].toInt(), 0);
+        QCOMPARE(landing[1].toMap()["column"].toInt(), 3);
+        QCOMPARE(landing[1].toMap()["row"].toInt(), 1);
         // Copied in, a folder with all it holds, each in its cell; the originals stay.
         QCOMPARE(icons->drop(files({outside + "/report.txt", outside + "/Album"}), 3, 0, false), 2);
         QTRY_VERIFY(arrived(*icons, "file:report.txt") && arrived(*icons, "file:Album"));
         QCOMPARE(cell(*icons, "file:report.txt"), QPoint(3, 0));
-        QCOMPARE(cell(*icons, "file:Album"), QPoint(2, 0));
+        QCOMPARE(cell(*icons, "file:Album"), QPoint(3, 1));
         QFile copied(folder_ + "/Album/deep/two.txt");
         QVERIFY(copied.open(QIODevice::ReadOnly) && copied.readAll() == "two\n");
         QCOMPARE(QFileInfo(folder_ + "/Album/link").symLinkTarget(), folder_ + "/Album/one.txt");
@@ -390,8 +390,8 @@ class DesktopIconsTest : public QObject {
         QCOMPARE(cell(*icons, "file:moved.txt"), QPoint(1, 2));
         // One on the desktop already just moves its icon, copying nothing.
         const int before = icons->count();
-        QCOMPARE(icons->drop(files({folder_ + "/b.txt"}), 3, 1, false), 1);
-        QCOMPARE(cell(*icons, "file:b.txt"), QPoint(3, 1));
+        QCOMPARE(icons->drop(files({folder_ + "/b.txt"}), 2, 1, false), 1);
+        QCOMPARE(cell(*icons, "file:b.txt"), QPoint(2, 1));
         icons->rescan();
         QCOMPARE(icons->count(), before);
         QVERIFY(!QFile::exists(folder_ + "/b (2).txt"));

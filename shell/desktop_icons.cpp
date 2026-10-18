@@ -540,7 +540,7 @@ QList<DesktopIcons::Transfer> DesktopIcons::transfers(const QList<QUrl> &urls,
 }
 
 QList<QPoint> DesktopIcons::dropCells(int count, QPoint cell, const QStringList &moving) const {
-    QList<QPoint> taken, cells;
+    QList<QPoint> taken;
     for (const auto &entry : entries_)
         if (!moving.contains(entry.key))
             taken.push_back(entry.cell);
@@ -548,11 +548,7 @@ QList<QPoint> DesktopIcons::dropCells(int count, QPoint cell, const QStringList 
     for (const auto &key : arriving_)
         if (indexOf(key) < 0 && cells_.contains(key))
             taken.push_back(cells_.value(key));
-    for (int i = 0; i < count; ++i) {
-        cells.push_back(desktop_grid::nearestFree(grid_, cell, taken));
-        taken.push_back(cells.back());
-    }
-    return cells;
+    return desktop_grid::flow(grid_, cell, count, taken);
 }
 
 QVariantList DesktopIcons::dropLanding(const QList<QUrl> &urls, int column, int row) const {
