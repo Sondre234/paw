@@ -171,7 +171,8 @@ Rectangle {
     // The keyboard comes to the desktop from a click while it has the icons, for their keys.
     Binding { target: desktop.shellView; property: "keyboardOnDemand"; value: icons.active }
     // What the icons' menu offers for `tiles`, the selected icons: opening them, copying their
-    // files and moving those to the trash, under a title naming them, each with its key.
+    // files, renaming one file or folder, and moving the files to the trash, under a title naming
+    // them, each with its key.
     function iconEntries(tiles) {
         if (tiles.length === 0)
             return []
@@ -189,8 +190,12 @@ Rectangle {
         if (files.length > 0)
             entries.push({ text: files.length === 1 ? "Copy" : "Copy " + files.length + " files", icon: "copy",
                            secondary: "Ctrl+C",
-                           run: function() { shell.desktopIcons.copy(files.map(tile => tile.key)) } },
-                         { separator: true },
+                           run: function() { shell.desktopIcons.copy(files.map(tile => tile.key)) } })
+        if (tiles.length === 1 && (one.kind === "file" || one.kind === "folder"))
+            entries.push({ text: "Rename…", icon: "pencil", secondary: "F2",
+                           run: function() { icons.startRename(one.key) } })
+        if (files.length > 0)
+            entries.push({ separator: true },
                          { text: "Move to Trash", icon: "trash-2", danger: true, secondary: "Delete",
                            run: function() { icons.trash(files) } })
         return entries

@@ -7,7 +7,9 @@ import QtQuick
 // filled with the accent while selected, when it also shows in full. Hovered, it lifts a little.
 // Dragged, it follows the pointer, and the others dragged with it trail after it into a fanned
 // stack; let go, they glide into their new cells. It comes and goes in a ripple as the grid's
-// icons are shown and hidden, and a new file pops in.
+// icons are shown and hidden, and a new file pops in. Renamed, its chip pops into a field on the
+// surface's colour, rimmed in the band's two hues, with a pencil on its corner, the name selected
+// but for its extension; a name refused shakes it.
 Item {
     id: tile
     // The grid it is on (DesktopIconGrid).
@@ -34,7 +36,9 @@ Item {
     // Whether it has been in a cell: from there on it glides to new ones, but it takes its first at once.
     property bool landed: false
     onPlacedChanged: if (placed) Qt.callLater(function() { tile.landed = true })
-    readonly property bool hovered: pointer.containsMouse && !board.dragging && !board.banding
+    readonly property bool hovered: pointer.containsMouse && !board.dragging && !board.banding && !editing
+    // Whether its name is being typed (DesktopIconGrid.renaming).
+    readonly property bool editing: board.renaming === key
     // How far it is in view: 0 hidden, 1 shown, past 1 for a moment as it pops in.
     property real reveal: 1
     // Going to the trash: it shrinks away before the file goes.
@@ -43,7 +47,7 @@ Item {
     width: board.cellWidth
     height: board.cellHeight
     visible: placed && reveal > 0.001
-    z: dragged ? 100 - rank : hovered ? 2 : selected ? 1 : 0
+    z: dragged ? 100 - rank : editing ? 4 : hovered ? 2 : selected ? 1 : 0
     x: dragged ? board.dragX + Math.min(rank, 3) * 7 : board.cellX(column)
     y: dragged ? board.dragY - Math.min(rank, 3) * 5 : board.cellY(row)
     Behavior on x { enabled: tile.landed; NumberAnimation { duration: board.glideDuration(tile); easing.type: tile.dragged ? Easing.OutCubic : Easing.OutBack; easing.overshoot: 1.1 } }
@@ -158,20 +162,41 @@ Item {
         Rectangle {
             id: chip
             readonly property real widest: tile.width - 2 * Theme.spacingXS
-            // A pixel or two to spare, as the text lays out a little wider than it measures.
-            width: Math.min(widest, Math.ceil(metrics.advanceWidth) + 2 * Theme.spacingM + 2)
-            height: label.height + 2 * Theme.spacingXS
-            x: Math.round((tile.width - width) / 2)
+            // A pixel or two to spare, as the text lays out a little wider than it measures; while
+            // it is typed, what is typed and room for the caret, never narrower than a few letters.
+            width: Math.min(widest, tile.editing
+                ? Math.max(3 * Theme.spacingL, Math.ceil(typedMetrics.advanceWidth) + 2 * Theme.spacingM + 6)
+                : Math.ceil(metrics.advanceWidth) + 2 * Theme.spacingM + 2)
+            height: (field.item ? field.item.height : label.height) + 2 * Theme.spacingXS
+            // Shaken from side to side as a name is refused.
+            property real shake: 0
+            x: Math.round((tile.width - width) / 2) + shake
             y: art.y + art.height + Theme.spacingS + (tile.hovered ? 3 : 0)
             radius: Math.min(height / 2, Theme.radiusMedium)
-            color: tile.selected ? Theme.accent : Theme.alpha(Theme.surface, Theme.light ? 0.8 : 0.72)
+            color: tile.editing ? Theme.surface
+                 : tile.selected ? Theme.accent : Theme.alpha(Theme.surface, Theme.light ? 0.8 : 0.72)
             Behavior on color { ColorAnimation { duration: Theme.durationFast } }
             // In the dragged stack only the icon under the pointer keeps its name.
             opacity: tile.dragged && tile.rank > 0 ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: Theme.durationFast } }
             TextMetrics { id: metrics; font: label.font; text: tile.name }
+            TextMetrics { id: typedMetrics; font: label.font; text: tile.editing ? tile.board.renameText : "" }
+            // Its rim while the name is typed, from the accent into its partner, as the band's.
+            Rectangle {
+                z: -1
+                visible: tile.editing
+                anchors.fill: parent
+                anchors.margins: -1.5
+                radius: parent.radius + 1.5
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0; color: Theme.accent }
+                    GradientStop { position: 1; color: tile.board.partner }
+                }
+            }
             Text {
                 id: label
+                visible: !tile.editing
                 x: Theme.spacingM
                 y: Theme.spacingXS
                 width: chip.width - 2 * Theme.spacingM
@@ -184,6 +209,77 @@ Item {
                 color: tile.selected ? Theme.textOnAccent : Theme.text
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeSmall
+            }
+            // The field the name is typed in, which takes the keyboard: Enter gives the name,
+            // Escape keeps the old one, and losing the keyboard or a press elsewhere gives it too.
+            Loader {
+                id: field
+                active: tile.editing
+                x: Theme.spacingM
+                y: Theme.spacingXS
+                sourceComponent: TextInput {
+                    id: input
+                    objectName: "desktopRenameField"
+                    width: chip.width - 2 * Theme.spacingM
+                    color: Theme.text
+                    selectionColor: Theme.alpha(tile.board.partner, 0.45)
+                    selectedTextColor: Theme.text
+                    font: label.font
+                    horizontalAlignment: TextInput.AlignHCenter
+                    wrapMode: TextInput.WrapAtWordBoundaryOrAnywhere
+                    selectByMouse: true
+                    // A caret in the second hue, blinking for a while after each change.
+                    cursorDelegate: Rectangle {
+                        width: 2
+                        radius: 1
+                        color: tile.board.partner
+                        visible: input.activeFocus && input.selectionStart === input.selectionEnd && caret.lit
+                    }
+                    QtObject {
+                        id: caret
+                        property bool lit: true
+                        property int blinks: 0
+                    }
+                    Timer {
+                        interval: 530
+                        repeat: true
+                        running: input.activeFocus && caret.blinks < 20
+                        onTriggered: { caret.lit = !caret.lit; ++caret.blinks }
+                    }
+                    function woken() { caret.lit = true; caret.blinks = 0 }
+                    onCursorPositionChanged: woken()
+                    onTextChanged: { woken(); tile.board.renameText = text }
+                    // The name selected but for its extension (a file's after its last dot).
+                    Component.onCompleted: {
+                        text = tile.board.renameText
+                        const dot = tile.kind === "file" ? text.lastIndexOf(".") : -1
+                        select(0, dot > 0 ? dot : text.length)
+                        forceActiveFocus()
+                    }
+                    onActiveFocusChanged: if (!activeFocus) tile.board.finishRename(text, false)
+                    Keys.onReturnPressed: tile.board.finishRename(text, true)
+                    Keys.onEnterPressed: tile.board.finishRename(text, true)
+                    Keys.onTabPressed: tile.board.finishRename(text, false)
+                    Keys.onEscapePressed: tile.board.finishRename(undefined)
+                }
+            }
+            // A pencil on its corner while the name is typed.
+            Rectangle {
+                visible: tile.editing
+                width: 18
+                height: 18
+                radius: 9
+                x: chip.width - width + 5
+                y: -height / 2 + 1
+                color: tile.board.partner
+                border.color: Theme.surface
+                border.width: 2
+                Icon {
+                    anchors.centerIn: parent
+                    name: "pencil"
+                    size: 10
+                    color: Theme.contrast(tile.board.partner, "#ffffff") >= 3 ? "#ffffff" : Theme.text
+                }
             }
         }
 
@@ -215,6 +311,25 @@ Item {
         NumberAnimation { target: body; property: "press"; to: 0.86; duration: Theme.duration(90); easing.type: Easing.OutQuad }
         NumberAnimation { target: body; property: "press"; to: 1; duration: Theme.duration(360); easing.type: Easing.OutElastic; easing.amplitude: 1.2; easing.period: 0.45 }
     }
+    // The chip popping into a field, and shaken as a name is refused.
+    onEditingChanged: if (editing) popping.restart()
+    SequentialAnimation {
+        id: popping
+        NumberAnimation { target: chip; property: "scale"; to: 1.08; duration: Theme.duration(90); easing.type: Easing.OutQuad }
+        NumberAnimation { target: chip; property: "scale"; to: 1; duration: Theme.duration(240); easing.type: Easing.OutBack }
+    }
+    Connections {
+        target: tile.board
+        function onRenameRefused() { if (tile.editing) shaking.restart() }
+    }
+    SequentialAnimation {
+        id: shaking
+        NumberAnimation { target: chip; property: "shake"; to: -6; duration: Theme.duration(45) }
+        NumberAnimation { target: chip; property: "shake"; to: 6; duration: Theme.duration(70) }
+        NumberAnimation { target: chip; property: "shake"; to: -4; duration: Theme.duration(65) }
+        NumberAnimation { target: chip; property: "shake"; to: 3; duration: Theme.duration(60) }
+        NumberAnimation { target: chip; property: "shake"; to: 0; duration: Theme.duration(55) }
+    }
     SequentialAnimation {
         id: hopping
         NumberAnimation { target: body; property: "press"; to: 1.1; duration: Theme.duration(90); easing.type: Easing.OutQuad }
@@ -223,6 +338,8 @@ Item {
 
     MouseArea {
         id: pointer
+        // Under the icon, which takes no presses but on the field its name is typed in.
+        z: -1
         anchors.fill: parent
         anchors.margins: Theme.spacingXS
         enabled: tile.board.shown && !tile.leaving

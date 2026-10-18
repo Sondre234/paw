@@ -18,8 +18,9 @@ import QtQuick.Shapes
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
 // icons between, with Ctrl leaving the selection as it is (Ctrl + Space picks one); letters typed
 // go to the next icon whose name starts with them, said in a bubble over it. Enter opens, Delete
-// moves to the Trash, Ctrl + A selects all, Ctrl + C copies, the menu key opens the
-// icons' menu and Escape lets the selection go.
+// moves to the Trash, F2 renames, Ctrl + A selects all, Ctrl + C copies, the menu key opens the
+// icons' menu and Escape lets the selection go. A name is changed on its chip, which turns into a
+// field (`renaming`).
 FocusScope {
     id: grid
     objectName: "desktopIconGrid"
@@ -129,8 +130,8 @@ FocusScope {
     property string extendFrom: ""
     property bool keysUsed: false
     readonly property Item currentTile: { current; icons.count; return tileOf(current) }
-    readonly property bool ringShown: keysUsed && activeFocus && !dragging && currentTile !== null &&
-                                      currentTile.visible
+    readonly property bool ringShown: keysUsed && activeFocus && renaming === "" && !dragging &&
+                                      currentTile !== null && currentTile.visible
     onCurrentTileChanged: if (currentTile) currentCell = Qt.point(currentTile.column, currentTile.row)
     // The keys take `tile` as the current icon: alone in the selection, with those between it and
     // `extendFrom` (`extend`), or leaving the selection as it is (`keep`).
@@ -228,7 +229,7 @@ FocusScope {
     }
 
     Keys.onPressed: function(event) {
-        if (!grid.shown)
+        if (!grid.shown || grid.renaming !== "")
             return
         const ctrl = (event.modifiers & Qt.ControlModifier) !== 0
         const shift = (event.modifiers & Qt.ShiftModifier) !== 0
@@ -248,6 +249,12 @@ FocusScope {
         case Qt.Key_Return:
         case Qt.Key_Enter: grid.open(grid.chosen()); break
         case Qt.Key_Delete: grid.trash(grid.selectedTiles()); break
+        case Qt.Key_F2: {
+            const one = grid.selectionOrder.length === 1 ? grid.selectionOrder[0]
+                      : grid.selectionOrder.length === 0 ? grid.current : ""
+            grid.startRename(one)
+            break
+        }
         case Qt.Key_Menu: grid.keyMenu(); break
         case Qt.Key_F10:
             if (!shift)
@@ -325,6 +332,48 @@ FocusScope {
         model.tidy()
     }
 
+    // The icon whose name is being typed, "" while none is, and what its field holds.
+    property string renaming: ""
+    property string renameText: ""
+    // A name Enter gave was refused: the field stays, and shakes.
+    signal renameRefused()
+    // Turns the name of the file or folder of `key` into a field, holding `text` (its name unless
+    // given), which takes the keyboard. Launchers' names are the configuration's.
+    function startRename(key, text) {
+        const tile = tileOf(key)
+        if (!tile || !shown || (tile.kind !== "file" && tile.kind !== "folder"))
+            return false
+        select([key])
+        current = extendFrom = key
+        renameText = text === undefined ? tile.name : text
+        renaming = key
+        return true
+    }
+    // Ends the renaming: with `text` through the model, or as it was without (`text` undefined,
+    // as Escape ends it). A name the model refuses (saying why across the panel) keeps the field on
+    // it with `keep`, as Enter does; the field losing the keyboard, or a press elsewhere, lets it go
+    // as file managers do.
+    function finishRename(text, keep) {
+        const key = renaming
+        if (key === "")
+            return
+        renaming = ""
+        forceActiveFocus()
+        const tile = tileOf(key)
+        if (text === undefined || !tile || text === tile.name)
+            return
+        const renamed = model.rename(key, text)
+        if (renamed !== "") {
+            select([renamed])
+            current = extendFrom = renamed
+        } else if (keep && startRename(key, text)) {
+            renameRefused()
+        }
+    }
+    Connections {
+        target: grid
+        function onPressed() { grid.finishRename(grid.renameText, false) }
+    }
     // The drag of the selected icons: `anchorKey` under the pointer, the others in `dragKeys`
     // after it; where the pointer went down and is now; and where they would land.
     property bool dragging: false
