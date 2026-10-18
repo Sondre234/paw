@@ -110,52 +110,16 @@ Item {
             Behavior on color { ColorAnimation { duration: Theme.durationFast } }
         }
 
-        Item {
+        DesktopIconArt {
             id: art
             width: tile.board.iconSize
             height: tile.board.iconSize
             x: Math.round((tile.width - width) / 2)
             y: Theme.spacingM + (tile.hovered ? -3 : 0)
             Behavior on y { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
-
-            Image {
-                anchors.fill: parent
-                visible: tile.picture === ""
-                source: tile.picture === "" && tile.icon !== "" ? shell.iconBase + tile.icon : ""
-                sourceSize: Qt.size(width, height)
-                smooth: true
-            }
-            // A picture as a print: a white border, wider at the foot, set askew by its name.
-            Rectangle {
-                id: snapshot
-                visible: tile.picture !== ""
-                anchors.centerIn: parent
-                width: Math.round(parent.width * 0.86)
-                height: Math.round(width * 1.12)
-                color: "#fbfaf6"
-                radius: 2
-                rotation: [-5, 3, -2, 4, -3, 2][(tile.name.length + tile.name.charCodeAt(0)) % 6]
-                antialiasing: true
-                // Its shadow on the desktop.
-                Rectangle {
-                    z: -1
-                    x: 1.5; y: 2.5
-                    width: parent.width; height: parent.height
-                    radius: parent.radius
-                    color: Qt.rgba(0, 0, 0, 0.22)
-                }
-                Image {
-                    x: 3; y: 3
-                    width: parent.width - 6
-                    height: parent.height - 3 - Math.round(parent.height * 0.16)
-                    source: tile.picture
-                    sourceSize: Qt.size(width * 2, height * 2)
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: true
-                    cache: false
-                    smooth: true
-                }
-            }
+            icon: tile.icon
+            picture: tile.picture
+            name: tile.name
         }
 
         // The name on its chip.
