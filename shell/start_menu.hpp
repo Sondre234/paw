@@ -118,9 +118,11 @@ class StartMenu : public QObject {
     // What the search reads of each of sorted_, its words split once.
     struct Searched {
         explicit Searched(const QVariantMap &app);
-        double score(const QStringList &parts) const;
-        QString name, generic, keywords, id, description, all;
-        QStringList genericWords, keywordWords, descriptionWords, allWords;
+        // How well it matches the query's `parts`, negative when it does not; `named` says whether
+        // every part starts a word of its name, which ranks it ahead of what matches elsewhere.
+        double score(const QStringList &parts, bool *named = nullptr) const;
+        QString name, foldedName, generic, keywords, id, description, all;
+        QStringList nameWords, genericWords, keywordWords, descriptionWords, allWords;
     };
     std::vector<Searched> searched_;
     // The pins, of installed applications or not, in their order; own once start-pinned exists.
