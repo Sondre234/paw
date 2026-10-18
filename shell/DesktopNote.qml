@@ -9,11 +9,11 @@ import QtQuick.Shapes
 // a heart on lavender. Its text is in a rounded hand (the board's noteFont); a line that starts
 // with "[ ]" or "- [ ]" is a checklist's, its box ticked or cleared by a click, its text struck
 // through once ticked; the first of several lines is its title. A click writes on it: it lies
-// straight and lifts, its text plain in a field (`editing`), saying near the end how many more
-// characters it holds. Dragged, it swings further askew under the pointer, and let go it glides
-// into the block of cells the board's pad showed. Deleted, it twists and crumples away. Hovered, it
-// lifts a little and its doodle wiggles. It comes and goes in
-// the icons' ripple, and pops in as it is made.
+// straight and lifts, a pencil on its corner, its text plain in a field (`editing`), saying near
+// the end how many more characters it holds. Dragged, it swings further askew under the pointer,
+// and let go it glides into the block of cells the board's pad showed. Deleted, it twists and
+// crumples away. Hovered, it lifts a little and its doodle wiggles. It comes and goes in the icons'
+// ripple, and pops in as it is made.
 Item {
     id: note
     // The grid it is on (DesktopIconGrid).
@@ -399,6 +399,27 @@ Item {
                     GradientStop { position: 0; color: Theme.alpha(note.paperColor, 0) }
                     GradientStop { position: 1; color: note.paperColor }
                 }
+            }
+        }
+
+        // A pencil on its corner while it is written on, as on a name being typed, popping in.
+        Rectangle {
+            visible: scale > 0.01
+            scale: note.editing ? 1 : 0
+            Behavior on scale { NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack; easing.overshoot: 2 } }
+            width: 22
+            height: 22
+            radius: 11
+            x: paper.width - width / 2 - 4
+            y: -height / 2 + 4
+            color: note.board.partner
+            border.color: Theme.surface
+            border.width: 2
+            Icon {
+                anchors.centerIn: parent
+                name: "pencil"
+                size: 12
+                color: Theme.contrast(note.board.partner, "#ffffff") >= 3 ? "#ffffff" : Theme.text
             }
         }
 
