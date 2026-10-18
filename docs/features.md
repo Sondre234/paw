@@ -1578,6 +1578,58 @@ English keywords, under the Unicode License v3; `vendor/emoji/README.md` says ho
 Emoji, say); without one some show as boxes. `tests/emoji_test.cpp` tests the table and the search,
 and `tests/emoji_shell_smoke.py` the picker typing into a window.
 
+## Run launcher
+
+`run` (Super + R, or `paw msg run`) opens the shell's run launcher, after rofi, on the monitor
+under the pointer: a compact card near the top of the screen, made to be driven from the keyboard.
+Along its top are its modes as pills, the one in use under a pill in the accent fading into the
+blush (`Theme.blush`: the focused border's last colour when that is a gradient, so washi's sky
+blue into sakura) with a cat's ears, which slides to the next; under them the line to type in,
+after a cat whose face follows what happens (`(=^·ω·^=)` waiting, `(=ↀωↀ=)` watching what is
+typed, `(=;ω;=)` when nothing is found, `(=TωT=)` when a program is not there, `\(=^▽^=)/` as
+what was chosen runs); under that what the text finds, the letters it matched in the accent.
+The rows ease in one after another as it opens, a new one slides in as typing finds it and the
+others glide to their places, and the chosen one gives a little hop as it runs. The card keeps
+its height while typing, so that nothing jumps.
+
+- **Apps**, the mode it opens in: the installed applications and configured launchers, found as
+  the [start menu](#start-menu) finds them (name, generic name, keywords, desktop id, comment),
+  with nothing typed those launched most and lately first (their launches' frecency, below), the
+  rest by name. Enter launches one, counted as every launch from the shell is.
+- **Run**: the programs on `$PATH`, the commands run from it before coming first. With nothing
+  typed, the commands by frecency, as zoxide weighs it (each run counts four times within the
+  hour, twice within the day, half within the week and a quarter after), each saying how many
+  times and when it last ran, then every program by name. A word matches the commands and the
+  programs alike, a command run often a little ahead of as close a match; words after the first
+  are the program's arguments, so `git status` offers git with them, and a command already run is
+  not offered twice. A program is shown with its application's icon where one runs it.
+- **Windows**: the open windows by title and application, with nothing typed every one, those
+  asking for attention first and the focused one last; Enter focuses the one chosen, showing its
+  workspace and bringing it back from minimized.
+
+Tab and Shift + Tab go through the modes, and a click on a pill picks one. In Apps and Run, what
+the text is besides words comes first: a calculation's value, as the [calculator](#calculator)
+has it (`=1+2`, `5 km in mi`), which Enter copies; a path starting with `/`, `~/` or `~` alone
+that is there, to open (a folder in the file manager, a file in its application) or, when it is
+a program, to run, and after it up to six in its folder whose names start with what follows the
+last `/` (folders first; the hidden ones once that starts with a dot); and an address starting
+with `http://`, `https://` or `www.`, to open in the browser.
+
+Up and Down, Ctrl + N and Ctrl + P, Ctrl + J and Ctrl + K, or the pointer choose (wrapping), Page
+Up and Page Down move a page; Enter runs what is chosen, or with nothing found the text as a
+command; Ctrl + Enter runs the text as it is typed, whatever is chosen; Shift + Enter runs the
+chosen command (else the text) in the terminal the `terminal` action opens, followed by your
+`$SHELL`, so that its window stays to read what the command said; Escape, or clicking elsewhere,
+closes it. A command runs through `sh -c` in the home folder. One whose program is not on
+`$PATH` (a plain first word that is no shell builtin, path or assignment) does not run: the
+launcher stays open and says so. The commands run are remembered in
+`$XDG_STATE_HOME/paw/run-history`, a command, how many times and when last a line, the 200 most
+recent kept; the applications' launches are the start menu's `launches`.
+
+It shows at most 100 rows, typing finding the rest, and opens and filters at once: the programs
+on `$PATH` are read as it first needs them, and again only once one of `$PATH`'s folders has
+changed. `tests/run_search_test.cpp` tests the search.
+
 ## Colour picker
 
 `pick_color` (unbound by default; `paw msg pick_color`, or "Pick a colour from the screen" in the

@@ -165,6 +165,7 @@ static const struct {
     {SH_NOTIFICATION_HISTORY, .open = "notifications"},
     {SH_CLIPBOARD_HISTORY, .open = "clipboard"},
     {SH_EMOJI_PICKER, .open = "emoji"},
+    {SH_RUN, .open = "run"},
     {SH_POWER_MENU, .open = "power-menu"},
     {SH_DISPLAY_SETTINGS, .open = "display-settings"},
     {SH_DND_TOGGLE, .line = "dnd toggle\n"},
