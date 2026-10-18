@@ -1628,7 +1628,9 @@ recent kept; the applications' launches are the start menu's `launches`.
 
 It shows at most 100 rows, typing finding the rest, and opens and filters at once: the programs
 on `$PATH` are read as it first needs them, and again only once one of `$PATH`'s folders has
-changed. `tests/run_search_test.cpp` tests the search.
+changed. `tests/run_search_test.cpp` tests the search, `tests/shell_ui_test.cpp` the card and
+its keys, and `tests/run_shell_smoke.py` the action opening it in a session and a command typed
+into it running.
 
 ## Colour picker
 
