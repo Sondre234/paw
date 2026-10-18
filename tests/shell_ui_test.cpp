@@ -7824,6 +7824,45 @@ ListModel {
             if (!trashed)
                 return fail("Delete did not move the selected desktop file to the Trash");
         }
+        // Renaming: F2 turns the name into a field, the part before the extension selected, which
+        // Escape leaves as it was; Enter gives the name typed, the icon keeping its cell; a name
+        // taken is refused, saying so, the field staying. A press elsewhere gives the name typed
+        // too, here from the icon's menu, which offers it for one file and not for a launcher.
+        auto field = [&] { return find(root, "desktopRenameField"); };
+        const QPoint aCell = cellOf("file:a.txt");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("file:a.txt"));
+        press(Qt::Key_F2);
+        if (!field() || field()->property("selectedText") != "a" || !field()->hasActiveFocus())
+            return fail("F2 did not turn the desktop icon's name into a field, its extension left out");
+        press(Qt::Key_Escape);
+        if (field() || !QFile::exists(desk + "/a.txt") || !selected({"file:a.txt"}))
+            return fail("Escape did not leave the desktop icon's name as it was");
+        press(Qt::Key_F2);
+        typeText("plan");
+        press(Qt::Key_Return);
+        if (field() || !QFile::exists(desk + "/plan.txt") || QFile::exists(desk + "/a.txt") ||
+            cellOf("file:plan.txt") != aCell || !tile("file:plan.txt")->property("selected").toBool())
+            return fail("Enter did not rename the desktop icon's file, keeping it in its cell");
+        press(Qt::Key_F2);
+        typeText("b");
+        press(Qt::Key_Return);
+        if (!field() || field()->property("text") != "b.txt" || !QFile::exists(desk + "/plan.txt") ||
+            !controller.error().startsWith("Could not rename plan.txt: "))
+            return fail("a name another desktop file has was not refused, the field staying on it");
+        press(Qt::Key_Escape);
+        QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, at("launcher:Test app"));
+        QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, at("launcher:Test app"));
+        if (!waitFor([&] { return entry("desktopIconMenu", "Open") != nullptr; }) || entry("desktopIconMenu", "Rename…"))
+            return fail("the desktop icons' menu offered to rename a launcher");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+        QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, at("file:plan.txt"));
+        QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, at("file:plan.txt"));
+        if (!choose("desktopIconMenu", "Rename…") || !waitFor([&] { return field() && field()->hasActiveFocus(); }))
+            return fail("the desktop icon's menu did not rename it");
+        typeText("a");
+        QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+        if (field() || !QFile::exists(desk + "/a.txt") || cellOf("file:a.txt") != aCell)
+            return fail("a press beside the desktop icon being renamed did not give it the name typed");
         // Turned off, there are none.
         if (!reconfigure(QString(lua).replace("shell={", "shell={desktop_icons=false,")) ||
             !waitFor([&] { return !tile("file:a.txt"); }))
