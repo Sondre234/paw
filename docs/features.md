@@ -1353,6 +1353,15 @@ xdg-activation, X11 clients with `_NET_WM_STATE_DEMANDS_ATTENTION` or the urgenc
 | `"focus"` | The window is focused, switching to its workspace, as before this setting existed. |
 | `"ignore"` | The request is dropped. |
 
+A program a binding or `paw msg spawn` starts may hand off to an instance of it already running
+instead of opening a window, as a second `discord` or `steam` does, and that instance asks to be
+activated. Started from an empty workspace, its window comes there: the first window that asks
+within five seconds, while the workspace the monitor under the pointer showed as the program
+started (where a new window would have opened) still shows and holds no window, is moved onto it
+and focused, rather than marked urgent or shown where it is. So a binding that starts Discord,
+pressed on an empty workspace while Discord is open on another, brings Discord to it. Not under
+`"ignore"`, nor for a sticky window or one in the scratchpad.
+
 An urgent window's border pulses for four seconds in `windows.urgent_color` (orange by default)
 and then holds it, also on windows without a `border_width`, where a two pixel frame is drawn
 inside the window's edge without moving anything. Its taskbar button (or the stack it is in) gets
