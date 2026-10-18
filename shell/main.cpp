@@ -276,6 +276,8 @@ int main(int argc, char **argv) {
                                                  "ClipboardPicker.qml", controller.clipboard()));
                 add(std::make_unique<PickerView>(controller, screen, "emoji", "EmojiPicker.qml",
                                                  controller.emoji()));
+                add(std::make_unique<PickerView>(controller, screen, "run", "RunLauncher.qml",
+                                                 controller.runLauncher()));
                 add(std::make_unique<PickerView>(controller, screen, "shortcuts",
                                                  "Shortcuts.qml", controller.shortcuts(), true));
                 add(std::make_unique<PowerView>(controller, screen));
