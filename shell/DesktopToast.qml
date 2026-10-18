@@ -46,6 +46,8 @@ Item {
     width: pill.width
     height: pill.height
     visible: reveal > 0.001
+    Accessible.role: Accessible.AlertMessage
+    Accessible.name: text
     opacity: Math.min(1, reveal)
     Behavior on reveal {
         NumberAnimation {
@@ -231,6 +233,7 @@ Item {
                 objectName: "desktopToastClose"
                 anchors.verticalCenter: parent.verticalCenter
                 size: 24
+                Accessible.name: "Dismiss"
                 onClicked: toast.hide()
             }
         }
