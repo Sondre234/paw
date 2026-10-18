@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The desktop's icons: the launchers, then the desktop folder's folders and files by name; their
 // cells on the grid, remembered with whether they are hidden; the folder followed as it changes;
-// opening, copying, renaming and trashing files, new folders, and desktop entries trusted only once
-// executable.
+// opening, copying, renaming and trashing files and putting them back, new folders, and desktop
+// entries trusted only once executable.
 #include "desktop_icons.hpp"
 #include <QClipboard>
 #include <QDir>
@@ -10,6 +10,7 @@
 #include <QGuiApplication>
 #include <QImage>
 #include <QMimeData>
+#include <QSet>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -19,6 +20,10 @@ namespace {
 bool write(const QString &path, const QByteArray &contents = "x\n") {
     QFile file(path);
     return file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(contents) == contents.size();
+}
+QByteArray read(const QString &path) {
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray("(none)");
 }
 } // namespace
 
@@ -53,6 +58,10 @@ class DesktopIconsTest : public QObject {
             list << icons.data(icons.index(i), DesktopIcons::KeyRole).toString();
         return list;
     }
+    // What the test's trash (the data folder's) holds in its files and info folders.
+    QStringList inTrash(const QString &folder = "files") const {
+        return QDir(home_.filePath("data/Trash/" + folder)).entryList(QDir::AllEntries | QDir::NoDotAndDotDot);
+    }
 
   private Q_SLOTS:
     void initTestCase() {
@@ -69,6 +78,7 @@ class DesktopIconsTest : public QObject {
     void init() {
         QDir(folder_).removeRecursively();
         QDir(home_.filePath("state")).removeRecursively();
+        QDir(home_.filePath("data/Trash")).removeRecursively();
         QVERIFY(QDir().mkpath(folder_ + "/Zeta"));
         for (const auto *name : {"b.txt", "a10.txt", "a2.txt", ".hidden"})
             QVERIFY(write(folder_ + "/" + name));
@@ -203,6 +213,129 @@ class DesktopIconsTest : public QObject {
         QVERIFY(!QFile::exists(folder_ + "/a2.txt"));
         QVERIFY(!keys(*icons).contains("file:a2.txt"));
         QVERIFY(QFile::exists(home_.filePath("data/Trash/files/a2.txt")));
+    }
+    void putsTrashedFilesBackInTheirCells() {
+        {
+            auto icons = made();
+            icons->move({"file:b.txt"}, 2, 1);
+            QCOMPARE(cell(*icons, "file:b.txt"), QPoint(3, 2));
+            QCOMPARE(cell(*icons, "file:Zeta"), QPoint(0, 1));
+            QSignalSpy changed(icons.get(), &DesktopIcons::trashedChanged);
+            QCOMPARE(icons->trash({"file:b.txt", "file:Zeta", "launcher:Terminal"}), 2);
+            QCOMPARE(icons->trashed(), (QStringList{"b.txt", "Zeta"}));
+            QCOMPARE(changed.count(), 1);
+            QCOMPARE(inTrash(), (QStringList{"b.txt", "Zeta"}));
+            QCOMPARE(inTrash("info"), (QStringList{"b.txt.trashinfo", "Zeta.trashinfo"}));
+            // The cells they left are forgotten as they go: a new file takes the first free one.
+            QVERIFY(write(folder_ + "/c.txt"));
+            icons->rescan();
+            QCOMPARE(cell(*icons, "file:c.txt"), QPoint(0, 1));
+            QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+            QCOMPARE(icons->untrash(), (QStringList{"file:b.txt", "file:Zeta"}));
+            QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+            // Where they were, at once, and nothing of them is left in the trash.
+            QCOMPARE(read(folder_ + "/b.txt"), "x\n");
+            QVERIFY(QFileInfo(folder_ + "/Zeta").isDir());
+            QVERIFY(keys(*icons).contains("file:b.txt") && keys(*icons).contains("file:Zeta"));
+            QVERIFY(inTrash().isEmpty() && inTrash("info").isEmpty());
+            // b.txt in the cell it left; Zeta's taken since, it is in the free cell nearest it.
+            QCOMPARE(cell(*icons, "file:b.txt"), QPoint(3, 2));
+            QCOMPARE(cell(*icons, "file:c.txt"), QPoint(0, 1));
+            QCOMPARE(cell(*icons, "file:Zeta"), QPoint(1, 1));
+            QVERIFY(icons->trashed().isEmpty());
+            QCOMPARE(changed.count(), 2);
+            // Nothing is put back twice.
+            QVERIFY(icons->untrash().isEmpty());
+            QCOMPARE(changed.count(), 2);
+        }
+        // Their cells are remembered again.
+        auto again = made();
+        QCOMPARE(cell(*again, "file:b.txt"), QPoint(3, 2));
+        QCOMPARE(cell(*again, "file:Zeta"), QPoint(1, 1));
+    }
+    void putsBackBesideWhatTookTheName() {
+        auto icons = made();
+        QCOMPARE(icons->trash({"file:a2.txt", "file:Zeta"}), 2);
+        // Others take their names meanwhile, and the first number too.
+        QVERIFY(write(folder_ + "/a2.txt", "new\n"));
+        QVERIFY(write(folder_ + "/a2 (2).txt", "newer\n"));
+        QVERIFY(QDir().mkpath(folder_ + "/Zeta"));
+        icons->rescan();
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        QCOMPARE(icons->untrash(), (QStringList{"file:a2 (3).txt", "file:Zeta (2)"}));
+        QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+        // Nothing is written over.
+        QCOMPARE(read(folder_ + "/a2.txt"), "new\n");
+        QCOMPARE(read(folder_ + "/a2 (2).txt"), "newer\n");
+        QCOMPARE(read(folder_ + "/a2 (3).txt"), "x\n");
+        QVERIFY(QFileInfo(folder_ + "/Zeta (2)").isDir());
+        QCOMPARE(value(*icons, "file:a2 (3).txt", DesktopIcons::NameRole).toString(), "a2 (3).txt");
+        QVERIFY(inTrash().isEmpty() && inTrash("info").isEmpty());
+        // Each in a cell of its own.
+        QSet<QPoint> cells;
+        for (const auto &key : keys(*icons))
+            cells.insert(cell(*icons, key));
+        QCOMPARE(cells.size(), icons->count());
+    }
+    void putsBackOnlyWhatTheLastTrashMoved() {
+        auto icons = made();
+        QCOMPARE(icons->trash({"file:a2.txt"}), 1);
+        // Another a2.txt, which the trash keeps apart from the first.
+        QVERIFY(write(folder_ + "/a2.txt", "second\n"));
+        icons->rescan();
+        QSignalSpy changed(icons.get(), &DesktopIcons::trashedChanged);
+        QCOMPARE(icons->trash({"file:a2.txt", "file:b.txt", "file:a10.txt"}), 3);
+        QCOMPARE(icons->trashed(), (QStringList{"a2.txt", "b.txt", "a10.txt"}));
+        QCOMPARE(inTrash().size(), 4);
+        // Nothing moved replaces nothing.
+        QCOMPARE(icons->trash({"launcher:Terminal", "file:nothing"}), 0);
+        QCOMPARE(icons->trashed().size(), 3);
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(icons->untrash(), (QStringList{"file:a2.txt", "file:b.txt", "file:a10.txt"}));
+        QCOMPARE(read(folder_ + "/a2.txt"), "second\n");
+        QCOMPARE(inTrash(), QStringList{"a2.txt"});
+        QCOMPARE(inTrash("info"), QStringList{"a2.txt.trashinfo"});
+        // One emptied from the trash since says so; the others come back.
+        QCOMPARE(icons->trash({"file:b.txt", "file:a10.txt"}), 2);
+        const auto kept = QDir(home_.filePath("data/Trash/files"))
+                              .entryList({"b.txt*"}, QDir::Files);
+        QCOMPARE(kept.size(), 1);
+        QVERIFY(QFile::remove(home_.filePath("data/Trash/files/" + kept[0])));
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        QCOMPARE(icons->untrash(), QStringList{"file:a10.txt"});
+        QCOMPARE(failed.count(), 1);
+        QCOMPARE(failed[0][0].toString(), "Could not put b.txt back from the Trash: it is no longer in the Trash");
+        QVERIFY(!QFile::exists(folder_ + "/b.txt") && QFile::exists(folder_ + "/a10.txt"));
+        QVERIFY(icons->trashed().isEmpty());
+    }
+    void namesFreeNamesAndTrashInfo() {
+        QVERIFY(write(folder_ + "/notes.txt"));
+        QVERIFY(write(folder_ + "/archive.tar.gz"));
+        QVERIFY(write(folder_ + "/.profile"));
+        QVERIFY(write(folder_ + "/data.zzqx"));
+        QVERIFY(write(folder_ + "/b (2).txt"));
+        QVERIFY(QDir().mkpath(folder_ + "/v1.2"));
+        QVERIFY(QFile::link(home_.filePath("nowhere"), folder_ + "/gone.txt"));
+        QCOMPARE(DesktopIcons::freeName(folder_, "free.txt", false), "free.txt");
+        QCOMPARE(DesktopIcons::freeName(folder_, "notes.txt", false), "notes (2).txt");
+        QCOMPARE(DesktopIcons::freeName(folder_, "archive.tar.gz", false), "archive (2).tar.gz");
+        QCOMPARE(DesktopIcons::freeName(folder_, ".profile", false), ".profile (2)");
+        QCOMPARE(DesktopIcons::freeName(folder_, "data.zzqx", false), "data (2).zzqx");
+        QCOMPARE(DesktopIcons::freeName(folder_, "b.txt", false), "b (3).txt");
+        QCOMPARE(DesktopIcons::freeName(folder_, "v1.2", true), "v1.2 (2)");
+        QCOMPARE(DesktopIcons::freeName(folder_, "Zeta", true), "Zeta (2)");
+        // A link to nothing has its name too.
+        QCOMPARE(DesktopIcons::freeName(folder_, "gone.txt", false), "gone (2).txt");
+        // A name with what QString::arg reads as its own places in it.
+        QVERIFY(write(folder_ + "/100%1 %2.txt"));
+        QCOMPARE(DesktopIcons::freeName(folder_, "100%1 %2.txt", false), "100%1 %2 (2).txt");
+        // The home trash's, and those of other mounts.
+        QCOMPARE(DesktopIcons::trashInfo(home_.filePath("data/Trash/files/a2.txt")),
+                 home_.filePath("data/Trash/info/a2.txt.trashinfo"));
+        QCOMPARE(DesktopIcons::trashInfo("/run/media/me/usb/.Trash-1000/files/photo (1).png"),
+                 "/run/media/me/usb/.Trash-1000/info/photo (1).png.trashinfo");
+        QCOMPARE(DesktopIcons::trashInfo("/mnt/disk/.Trash/1000/files/Notes"),
+                 "/mnt/disk/.Trash/1000/info/Notes.trashinfo");
     }
     void renamesKeepingTheCell() {
         {
