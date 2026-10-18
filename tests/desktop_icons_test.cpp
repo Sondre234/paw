@@ -12,8 +12,10 @@
 #include <QMimeData>
 #include <QSet>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <array>
 #include <memory>
 
 namespace {
@@ -66,12 +68,53 @@ class DesktopIconsTest : public QObject {
   private Q_SLOTS:
     void initTestCase() {
         QVERIFY(home_.isValid());
+        // The applications GIO finds are the test's alone: the system's data folders stand in
+        // for by one holding the system's MIME types and nothing else, which say what a type is a
+        // kind of, and the defaults are the test's configuration's. GLib reads these once, so they
+        // are set before anything asks it.
+        const auto mime = QStandardPaths::locate(QStandardPaths::GenericDataLocation, "mime",
+                                                 QStandardPaths::LocateDirectory);
+        QVERIFY(QDir().mkpath(home_.filePath("system")));
+        if (!mime.isEmpty())
+            QVERIFY(QFile::link(mime, home_.filePath("system/mime")));
+        qputenv("XDG_DATA_DIRS", home_.filePath("system").toLocal8Bit());
+        qputenv("XDG_CONFIG_HOME", home_.filePath("config").toLocal8Bit());
+        qputenv("XDG_CONFIG_DIRS", home_.filePath("config-dirs").toLocal8Bit());
         qputenv("XDG_STATE_HOME", home_.filePath("state").toLocal8Bit());
         qputenv("XDG_DATA_HOME", home_.filePath("data").toLocal8Bit());
         // A home on the temporary folder's file system, whose trash is then the data folder's,
         // which is there as ~/.local/share is.
         qputenv("HOME", home_.path().toLocal8Bit());
-        QVERIFY(QDir().mkpath(home_.filePath("data")));
+        QVERIFY(QDir().mkpath(home_.filePath("data/applications")));
+        QVERIFY(QDir().mkpath(home_.filePath("config")));
+        // Applications for Markdown, plain text (which Markdown is a kind of) and folders. Two
+        // write down the files they are given, one line each, then "--": Editor all at once
+        // (%F), Single one at a time (%f).
+        const auto record = home_.filePath("record");
+        QVERIFY(write(record, "#!/bin/sh\nout=\"$1\"; shift\nprintf '%s\\n' \"$@\" -- >> \"$out\"\n"));
+        QVERIFY(QFile::setPermissions(record, QFile::permissions(record) | QFile::ExeOwner));
+        const QList<std::array<const char *, 4>> apps{
+            {"paw-writer", "Writer", "text/markdown;", "true"},
+            {"paw-viewer", "Viewer", "text/markdown;image/png;", "true"},
+            {"paw-editor", "Editor", "text/plain;", "%R editor.out %F"},
+            {"paw-alpha", "Alpha pad", "text/plain;", "true"},
+            {"paw-single", "Single", "text/plain;", "%R single.out %f"},
+            {"paw-folders", "Folders", "inode/directory;", "true"},
+        };
+        for (const auto &[id, name, types, exec] : apps)
+            QVERIFY(write(home_.filePath("data/applications/%1.desktop").arg(id),
+                          QString("[Desktop Entry]\nType=Application\nName=%1\nIcon=%2-icon\nMimeType=%3\nExec=%4\n")
+                              .arg(name, id, types, QString(exec).replace("%R", record)
+                                                        .replace("editor.out", home_.filePath("editor.out"))
+                                                        .replace("single.out", home_.filePath("single.out")))
+                              .toUtf8()));
+        // GIO reads which take a type from the folder's cache, as update-desktop-database writes it.
+        QVERIFY(write(home_.filePath("data/applications/mimeinfo.cache"),
+                      "[MIME Cache]\ntext/markdown=paw-writer.desktop;paw-viewer.desktop;\n"
+                      "text/plain=paw-editor.desktop;paw-alpha.desktop;paw-single.desktop;\n"
+                      "image/png=paw-viewer.desktop;\ninode/directory=paw-folders.desktop;\n"));
+        QVERIFY(write(home_.filePath("config/mimeapps.list"),
+                      "[Default Applications]\ntext/markdown=paw-viewer.desktop\ntext/plain=paw-editor.desktop\n"));
         folder_ = home_.filePath("Desktop");
         settings_.folder = folder_;
     }
@@ -423,6 +466,69 @@ class DesktopIconsTest : public QObject {
         QVERIFY(QFileInfo(settings_.folder + "/New folder").isDir());
         QCOMPARE(cell(*fresh, "file:New folder"), QPoint(0, 1));
         settings_.folder = folder_;
+    }
+    void listsTheApplicationsThatOpenFiles() {
+        if (!QFileInfo::exists(home_.filePath("system/mime")))
+            QSKIP("no shared MIME database, which says Markdown is a kind of plain text");
+        QVERIFY(write(folder_ + "/notes.md", "# notes\n"));
+        QVERIFY(write(folder_ + "/thing.desktop", "[Desktop Entry]\nType=Application\nName=Thing\nExec=true\n"));
+        auto icons = made();
+        auto ids = [&](const QStringList &keys, const QString &group = {}) {
+            QStringList list;
+            for (const auto &app : icons->openers(keys))
+                if (group.isEmpty() || app.toMap()["group"] == group)
+                    list << app.toMap()["id"].toString();
+            return list;
+        };
+        // Markdown: its default first, then the others recommended for it, then those of plain
+        // text by name; the default once.
+        QCOMPARE(ids({"file:notes.md"}), (QStringList{"paw-viewer.desktop", "paw-writer.desktop", "paw-alpha.desktop",
+                                                      "paw-editor.desktop", "paw-single.desktop"}));
+        QCOMPARE(ids({"file:notes.md"}, "default"), QStringList{"paw-viewer.desktop"});
+        QCOMPARE(ids({"file:notes.md"}, "recommended"), QStringList{"paw-writer.desktop"});
+        const auto viewer = icons->openers({"file:notes.md"}).value(0).toMap();
+        QCOMPARE(viewer["name"].toString(), "Viewer");
+        QCOMPARE(viewer["icon"].toString(), "paw-viewer-icon");
+        // Plain text: its default, then the others recommended for it, in GIO's order.
+        QCOMPARE(ids({"file:a2.txt"}), (QStringList{"paw-editor.desktop", "paw-alpha.desktop", "paw-single.desktop"}));
+        QCOMPARE(ids({"file:a2.txt"}, "default"), QStringList{"paw-editor.desktop"});
+        QCOMPARE(ids({"file:a2.txt"}, "recommended"), (QStringList{"paw-alpha.desktop", "paw-single.desktop"}));
+        // Several: only what opens them all; two notes of a type, as one.
+        QCOMPARE(ids({"file:notes.md", "file:a2.txt"}), (QStringList{"paw-alpha.desktop", "paw-editor.desktop",
+                                                                     "paw-single.desktop"}));
+        QCOMPARE(ids({"file:notes.md", "file:a2.txt"}, "other").size(), 3);
+        QCOMPARE(ids({"file:a2.txt", "file:b.txt", "file:a10.txt"}), ids({"file:a2.txt"}));
+        // A folder; and nothing opens a folder and a note both.
+        QCOMPARE(ids({"file:Zeta"}), QStringList{"paw-folders.desktop"});
+        QCOMPARE(ids({"file:Zeta"}, "default"), QStringList{"paw-folders.desktop"});
+        QVERIFY(ids({"file:Zeta", "file:a2.txt"}).isEmpty());
+        // None for a launcher, a desktop entry or what is not there, alone or among files.
+        QVERIFY(ids({"launcher:Terminal"}).isEmpty());
+        QVERIFY(ids({"file:thing.desktop"}).isEmpty());
+        QVERIFY(ids({"file:a2.txt", "launcher:Terminal"}).isEmpty());
+        QVERIFY(ids({"file:nothing"}).isEmpty());
+        QVERIFY(ids({}).isEmpty());
+    }
+    void opensFilesWithAnApplication() {
+        auto icons = made();
+        const auto editor = home_.filePath("editor.out"), single = home_.filePath("single.out");
+        QFile::remove(editor);
+        QFile::remove(single);
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        // All at once in one that takes several, one at a time in one that takes one.
+        QVERIFY(icons->openWith({"file:a2.txt", "file:b.txt"}, "paw-editor.desktop"));
+        QTRY_COMPARE(read(editor), (folder_ + "/a2.txt\n" + folder_ + "/b.txt\n--\n").toUtf8());
+        QVERIFY(icons->openWith({"file:a2.txt", "file:b.txt"}, "paw-single.desktop"));
+        QTRY_COMPARE(read(single).count("--"), 2);
+        QVERIFY(read(single).contains((folder_ + "/a2.txt\n--\n").toUtf8()));
+        QVERIFY(read(single).contains((folder_ + "/b.txt\n--\n").toUtf8()));
+        QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+        // An application not there says so; a launcher opens with nothing.
+        QVERIFY(!icons->openWith({"file:a2.txt"}, "paw-nothing.desktop"));
+        QCOMPARE(failed.count(), 1);
+        QVERIFY(failed[0][0].toString().startsWith("Could not open a2.txt: "));
+        QVERIFY(!icons->openWith({"launcher:Terminal"}, "paw-editor.desktop"));
+        QCOMPARE(failed.count(), 1);
     }
     void trustsExecutableDesktopEntries() {
         const auto marker = home_.filePath("started");
