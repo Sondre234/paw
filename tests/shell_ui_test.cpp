@@ -8323,9 +8323,70 @@ ListModel {
                 !count || !count->isVisible() || count->property("text") != "Full")
                 return fail("a desktop note took more than its most, or did not say it is full");
             press(Qt::Key_Escape);
+            // Dragged two cells right and one down, a pad shows the block it will land in, and it
+            // glides there, which is kept. Dragged onto the icons, it lands clear of them, and an
+            // icon dragged onto it lands beside it.
+            const int cellWidth = grid->property("cellWidth").toInt(), cellHeight = grid->property("cellHeight").toInt();
+            auto noteCell = [&] {
+                return note(key) ? QPoint(note(key)->property("column").toInt(), note(key)->property("row").toInt())
+                                 : QPoint(-9, -9);
+            };
+            auto noteInCell = [&] {
+                QVariant x, y;
+                QMetaObject::invokeMethod(grid, "cellX", Q_RETURN_ARG(QVariant, x), Q_ARG(QVariant, noteCell().x()));
+                QMetaObject::invokeMethod(grid, "cellY", Q_RETURN_ARG(QVariant, y), Q_ARG(QVariant, noteCell().y()));
+                return std::abs(note(key)->x() - x.toReal()) < 0.5 && std::abs(note(key)->y() - y.toReal()) < 0.5;
+            };
+            auto dragNote = [&](QPoint by, const std::function<bool()> &meanwhile) {
+                const QPoint from = centre(note(key)), to = from + by;
+                QTest::mousePress(&desktop, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 8; ++step)
+                    QTest::mouseMove(&desktop, from + (to - from) * step / 8);
+                const bool held = meanwhile();
+                QTest::mouseRelease(&desktop, Qt::LeftButton, Qt::NoModifier, to);
+                return held;
+            };
+            auto *notePad = find(root, "desktopNoteLanding");
+            const QPoint start = noteCell();
+            auto padAt = [&](QPoint cell) {
+                const auto landing = grid->property("noteLanding").toMap();
+                return notePad && notePad->isVisible() && note(key)->property("dragged").toBool() &&
+                       QPoint(landing["column"].toInt(), landing["row"].toInt()) == cell;
+            };
+            if (!dragNote({2 * cellWidth, cellHeight}, [&] { return padAt(start + QPoint(2, 1)); }))
+                return fail("a desktop note dragged did not show a pad where it will land");
+            if (noteCell() != start + QPoint(2, 1) || notePad->isVisible() || !waitFor(noteInCell) ||
+                !kept(QString("\"column\": %1").arg(start.x() + 2).toUtf8()))
+                return fail("a desktop note dragged did not glide into its new cells, kept");
+            const QStringList iconKeys{"launcher:Test app", "file:Folder", "file:a.txt", "file:b.txt", "file:c.txt"};
+            QList<QPoint> iconCells;
+            for (const auto &icon : iconKeys)
+                iconCells << cellOf(icon);
+            auto covered = [&](QPoint cell) {
+                return QRect(noteCell(), QSize(notes->columns(), notes->rows())).contains(cell);
+            };
+            dragNote(QPoint(-noteCell().x() * cellWidth, 0), [] { return true; });
+            for (int i = 0; i < iconKeys.size(); ++i)
+                if (covered(iconCells[i]) || cellOf(iconKeys[i]) != iconCells[i])
+                    return fail("a desktop note dragged onto the icons covered one, or moved it");
+            {
+                const QPoint from = at("file:c.txt"), to = centre(note(key)) - QPoint(cellWidth / 2, cellHeight / 2);
+                QTest::mousePress(&desktop, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 8; ++step)
+                    QTest::mouseMove(&desktop, from + (to - from) * step / 8);
+                const auto landing = grid->property("landing").toList();
+                const QPoint pad = landing.isEmpty() ? QPoint(-9, -9)
+                    : QPoint(landing[0].toMap()["column"].toInt(), landing[0].toMap()["row"].toInt());
+                QTest::mouseRelease(&desktop, Qt::LeftButton, Qt::NoModifier, to);
+                if (pad.x() < 0 || covered(pad) || cellOf("file:c.txt") != pad)
+                    return fail("an icon dragged onto a desktop note did not land beside it");
+            }
             notes->remove(key);
             if (!waitFor([&] { return !note(key); }))
                 return fail("the desktop note did not go");
+            QMetaObject::invokeMethod(grid, "tidy");
+            if (!waitFor([&] { return laidOut(0); }))
+                return fail("the desktop's icons were not tidied up after the note");
         }
         // Turned off, there are none.
         if (!reconfigure(QString(lua).replace("shell={", "shell={desktop_icons=false,")) ||
