@@ -16,8 +16,8 @@ have [Quick Settings](#quick-settings), the [clock's flyout](#clock-and-calendar
 [command palette](#command-palette), the [power](#power) dialog, and the
 [notification cards and on-screen display](#notifications-and-on-screen-display). The desktop
 shows the wallpaper and, on the main monitor, [icons](#desktop-icons) for the configured launchers
-and the desktop folder's files; a right click on it offers Show desktop, hiding or showing the
-icons, and the appearance profiles. A new wallpaper, from the
+and the desktop folder's files, and [sticky notes](#desktop-notes); a right click on it offers
+Show desktop, a new folder or note, hiding or showing the icons, and the appearance profiles. A new wallpaper, from the
 wallpaper picker or the configuration, fades in over the one shown once it has loaded, also from
 the drawn one or to it, and one picked during the fade comes in over both. `shell.wallpaper_mode`
 says how the picture covers each monitor: cropped to fill it (`"fill"`, the default), whole and as
@@ -525,6 +525,44 @@ shell = {
     desktop_icons = { size = 64, folder = "~/Desktop" },
 }
 ```
+
+### Desktop notes
+
+Sticky notes lie on the main monitor's desktop among its icons, on the same grid: each covers a
+block two cells wide and two tall, and the icons go around it, laying themselves down the columns
+past it, landing beside it when dragged or dropped onto it, and stepping aside for a while should
+the grid grow too small for it, back in their own cells once it is free. A note is soft pastel
+paper, sakura pink, sky blue, mint, lemon or lavender, light on a light profile and pale as by
+moonlight on a dark one, set a little askew as the icons' prints are, held on by a strip of
+washi tape in the neighbouring pastel across its top, with a soft shadow and a doodle in its
+corner that goes with its colour: a cat's face on sakura, a cloud on sky, a sprout on mint, a star
+on lemon, a heart on lavender. It is written in the first rounded font installed (Nunito, M PLUS
+Rounded 1c, Varela Round, Quicksand, ...), else the shell's.
+
+The desktop's menu makes a New note in the cell where it was opened, or the free block nearest it,
+clear of the icons and the other notes; it pops in with a puff of sparkles, ready to write on, and
+goes again if it is let go empty. A click on a note writes on it: it lies straight, a pencil on its
+corner, the caret where it was clicked. The text is plain, Enter starts a new line, and Escape,
+Tab, a click elsewhere or the keyboard going to a window lets it go. The first of several lines is
+its title, and a line that starts with `[ ]` or `- [ ]` is a checklist's: shown with a box that a
+click ticks (`[x]`) or clears, its text struck through once ticked. A note holds 2000 characters,
+and says how many more it takes as it nears them. Dragged, by its paper or, while it is written
+on, by its tape, a note swings askew under the pointer while a dashed pad shows the block it will
+land in, and snaps into it as it is let go; where icons or another note are in the way, it lands
+in the free block nearest.
+
+A right press on a note opens its menu: its colours as a row of swatches, Edit note, Copy text
+and Delete note. A note deleted crumples away, and the notice at the foot of the desktop says so,
+with Undo, which pops it back into its place, as Ctrl + Z does until another is deleted (after a
+move to the Trash, Ctrl + Z puts back whichever came last first). The keys walk the notes with the
+icons: the arrows reach a note as they would a large icon, ringed, and on it Enter or F2 writes on
+it, Delete deletes it, Ctrl + C copies its text and the menu key opens its menu. Tidying the icons
+up leaves the notes where they are.
+
+The notes hide and show with the icons, and are kept with their text, colour and place in
+`~/.local/state/paw/desktop-notes`, a JSON file written a moment after typing stops and at once
+after anything else, and as the shell quits; a file that cannot be read is kept beside it as
+`desktop-notes.broken` rather than written over. A preview (`paw-shell --preview`) writes nothing.
 
 ### A wallpaper for each monitor
 

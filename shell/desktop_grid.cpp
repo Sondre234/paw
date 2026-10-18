@@ -33,9 +33,10 @@ QPoint nearestFree(QSize grid, QPoint wanted, const QList<QPoint> &taken) {
             std::clamp(wanted.y(), 0, std::max(0, grid.height() - 1))};
 }
 
-QList<QPoint> arrange(const QStringList &keys, const QHash<QString, QPoint> &saved, QSize grid) {
+QList<QPoint> arrange(const QStringList &keys, const QHash<QString, QPoint> &saved, QSize grid,
+                      const QList<QPoint> &blocked) {
     QList<QPoint> cells(keys.size(), QPoint(-1, -1));
-    QSet<QPoint> taken;
+    QSet<QPoint> taken(blocked.begin(), blocked.end());
     for (qsizetype i = 0; i < keys.size(); ++i) {
         const auto it = saved.constFind(keys[i]);
         if (it != saved.cend() && contains(grid, *it) && !taken.contains(*it)) {
@@ -74,6 +75,39 @@ QList<QPoint> flow(QSize grid, QPoint from, int count, const QList<QPoint> &take
         busy.push_back(cells.back());
     }
     return cells;
+}
+
+QList<QPoint> block(QPoint corner, QSize size) {
+    QList<QPoint> cells;
+    for (int column = 0; column < size.width(); ++column)
+        for (int row = 0; row < size.height(); ++row)
+            cells.push_back(corner + QPoint(column, row));
+    return cells;
+}
+
+std::optional<QPoint> freeBlock(QSize grid, QPoint wanted, QSize size, const QList<QPoint> &taken) {
+    const QSet<QPoint> busy(taken.begin(), taken.end());
+    auto free = [&](QPoint corner) {
+        if (corner.x() < 0 || corner.y() < 0 || corner.x() + size.width() > grid.width() ||
+            corner.y() + size.height() > grid.height())
+            return false;
+        const auto cells = block(corner, size);
+        return std::none_of(cells.cbegin(), cells.cend(), [&](QPoint cell) { return busy.contains(cell); });
+    };
+    if (free(wanted))
+        return wanted;
+    std::optional<QPoint> best;
+    long long nearest = std::numeric_limits<long long>::max();
+    for (int column = 0; column + size.width() <= grid.width(); ++column)
+        for (int row = 0; row + size.height() <= grid.height(); ++row) {
+            const QPoint corner(column, row);
+            const long long dx = column - wanted.x(), dy = row - wanted.y();
+            if (dx * dx + dy * dy < nearest && free(corner)) {
+                nearest = dx * dx + dy * dy;
+                best = corner;
+            }
+        }
+    return best;
 }
 
 QList<QPoint> drop(const QList<QPoint> &cells, QPoint offset, const QList<QPoint> &others, QSize grid) {

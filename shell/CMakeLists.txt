@@ -94,6 +94,8 @@ list(APPEND PAW_NOTIFY_SOURCES caption.cpp caption.hpp)
 list(APPEND PAW_NOTIFY_SOURCES desktop_clock.cpp desktop_clock.hpp)
 # The desktop's icons: the desktop folder's files and the launchers, on a grid.
 list(APPEND PAW_NOTIFY_SOURCES desktop_icons.cpp desktop_icons.hpp desktop_grid.cpp desktop_grid.hpp)
+# The desktop's sticky notes, on the icons' grid.
+list(APPEND PAW_NOTIFY_SOURCES desktop_notes.cpp desktop_notes.hpp)
 # The QML is compiled ahead of time into the binary (qmlcachegen), so starting the shell parses
 # and compiles none of it. It lives at qrc:/shell/PawShell/*.qml.
 qt_add_library(paw_shell_qml STATIC)
@@ -123,6 +125,7 @@ qt_add_qml_module(paw_shell_qml URI PawShell VERSION 1.0 RESOURCE_PREFIX /shell
     DesktopIconArt.qml
     DesktopDragStack.qml
     DesktopToast.qml
+    DesktopNote.qml
     StartHome.qml
     StartAllApps.qml
     StartSearch.qml
@@ -339,6 +342,13 @@ if(BUILD_TESTING)
     add_test(NAME shell_desktop_icons COMMAND desktop_icons_test)
     set_tests_properties(shell_desktop_icons PROPERTIES TIMEOUT 60
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # The desktop's sticky notes: their blocks on the grid, their text and colours remembered,
+    # deleted and brought back, their checklists.
+    paw_shell_test(desktop_notes_test
+        SOURCES desktop_notes.cpp desktop_notes.hpp desktop_grid.cpp desktop_grid.hpp state_files.hpp
+        LIBS Qt6::Gui Qt6::Test)
+    add_test(NAME shell_desktop_notes COMMAND desktop_notes_test)
+    set_tests_properties(shell_desktop_notes PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # The blurred wallpaper behind the frosted glass (shell.blur).
     paw_shell_test(glass_blur_test SOURCES glass_blur.cpp glass_blur.hpp LIBS Qt6::Gui Qt6::Test)
     add_test(NAME shell_glass_blur COMMAND glass_blur_test)

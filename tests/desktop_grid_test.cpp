@@ -34,6 +34,20 @@ class DesktopGridTest : public QObject {
         // A cell for a key that is gone keeps nobody out.
         QCOMPARE(arrange({"a"}, {{"gone", {0, 0}}}, QSize(4, 3)), (QList<QPoint>{{0, 0}}));
     }
+    void goesAroundBlockedCells() {
+        const QStringList keys{"a", "b", "c", "d"};
+        const QList<QPoint> note{{0, 0}, {0, 1}, {1, 0}, {1, 1}};
+        // A note in the top left corner: the icons fill down the columns past it.
+        QCOMPARE(arrange(keys, {}, QSize(3, 3), note), (QList<QPoint>{{0, 2}, {1, 2}, {2, 0}, {2, 1}}));
+        // One remembered under it is placed as one without a cell; the others keep theirs.
+        QCOMPARE(arrange(keys, {{"a", {1, 1}}, {"b", {2, 2}}}, QSize(3, 3), note),
+                 (QList<QPoint>{{0, 2}, {2, 2}, {1, 2}, {2, 0}}));
+        // Every cell blocked: on down the columns beyond the grid, as when it is full.
+        QCOMPARE(arrange({"a"}, {}, QSize(1, 2), {{0, 0}, {0, 1}}), (QList<QPoint>{{1, 0}}));
+        // Dragged onto a note, an icon lands in the free cell nearest it.
+        QCOMPARE(drop({{0, 0}}, {2, 0}, {{2, 0}, {2, 1}, {3, 0}, {3, 1}}, QSize(6, 5)),
+                 (QList<QPoint>{{1, 0}}));
+    }
     void findsTheNearestFreeCell() {
         const QSize grid(5, 4);
         QCOMPARE(nearestFree(grid, {2, 2}, {}), QPoint(2, 2));
@@ -84,6 +98,23 @@ class DesktopGridTest : public QObject {
             for (int row = 0; row < 2; ++row)
                 all.push_back({column, row});
         QCOMPARE(flow(QSize(2, 2), {1, 0}, 1, all), (QList<QPoint>{{1, 0}}));
+    }
+    void findsFreeBlocks() {
+        const QSize grid(6, 4), size(2, 2);
+        const QPoint none(-9, -9);
+        QCOMPARE(block({1, 2}, size), (QList<QPoint>{{1, 2}, {1, 3}, {2, 2}, {2, 3}}));
+        QCOMPARE(freeBlock(grid, {2, 1}, size, {}).value_or(none), QPoint(2, 1));
+        // An icon under it: the nearest block clear of it, the one in the column before rather
+        // than the one above, as near and later down the columns.
+        QCOMPARE(freeBlock(grid, {2, 1}, size, {{3, 2}}).value_or(none), QPoint(1, 1));
+        // Another block in the way, as a note is.
+        QCOMPARE(freeBlock(grid, {0, 0}, size, block({1, 1}, size)).value_or(none), QPoint(3, 0));
+        // Off the grid, or over its edge: the nearest that fits on it.
+        QCOMPARE(freeBlock(grid, {5, 3}, size, {}).value_or(none), QPoint(4, 2));
+        QCOMPARE(freeBlock(grid, {-3, 1}, size, {}).value_or(none), QPoint(0, 1));
+        // No room: none, on a grid too small for a block or too full.
+        QVERIFY(!freeBlock(QSize(1, 5), {0, 0}, size, {}));
+        QVERIFY(!freeBlock(QSize(3, 3), {0, 0}, size, {{1, 1}}));
     }
 };
 

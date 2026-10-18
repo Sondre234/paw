@@ -23,6 +23,7 @@ however short it is.
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+import json
 import os
 from pathlib import Path
 import re
@@ -286,6 +287,12 @@ def prepare(root, theme_name, animations=True):
     # One of them pinned from the shell, without a window, so that pin-menu has actions to show.
     (root / "state" / "paw").mkdir(parents=True)
     (root / "state" / "paw" / "pinned").write_text("thunderbird.desktop\n")
+    # Two sticky notes beside the icons: a checklist on sakura paper and a line on sky blue.
+    (root / "state" / "paw" / "desktop-notes").write_text(json.dumps({"notes": [
+        {"id": 1, "color": "sakura", "column": 2, "row": 0,
+         "text": "Today\n[x] water the plants\n[ ] tea with Mika\n[ ] cat food"},
+        {"id": 2, "color": "sky", "column": 4, "row": 0, "text": "Call the vet on Monday \u2661"},
+    ]}))
     # The applications are the ones above, but the icons are the desktop's: the user's and the
     # system's icon folders are linked into the private data folders.
     home = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share")

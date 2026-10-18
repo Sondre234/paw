@@ -8269,6 +8269,262 @@ ListModel {
             if (!waitFor([&] { return !tile("file:drop.txt") && !tile("file:moved.txt") && !tile("file:cat.png"); }))
                 return fail("the files dropped on the desktop did not go");
         }
+        // Sticky notes, made from the desktop's menu. A click writes on one, the text plain in a
+        // field: Enter is a new line, Escape lets it go, and the text is kept; a click on a
+        // checklist's box ticks it, and a press beside the note lets its field go too. It holds no
+        // more than its most.
+        {
+            auto *notes = controller.desktopNotes();
+            auto note = [&](const QString &key) { return find(root, "desktopNote:" + key); };
+            auto field = [&] { return find(root, "desktopNoteField"); };
+            auto noteText = [&](const QString &key) {
+                for (int i = 0; i < notes->rowCount(); ++i)
+                    if (notes->data(notes->index(i), DesktopNotes::KeyRole) == key)
+                        return notes->data(notes->index(i), DesktopNotes::TextRole).toString();
+                return QString("(none)");
+            };
+            auto kept = [&](const QByteArray &text) {
+                QFile state(screens.filePath("state/paw/desktop-notes"));
+                return state.open(QIODevice::ReadOnly) && state.readAll().contains(text);
+            };
+            // New note, from the desktop's menu: in the cell under where it was opened, written on
+            // at once; let go empty, it goes.
+            auto menuAtCell = [&](int column, int row) {
+                QVariant x, y;
+                QMetaObject::invokeMethod(grid, "cellX", Q_RETURN_ARG(QVariant, x), Q_ARG(QVariant, column));
+                QMetaObject::invokeMethod(grid, "cellY", Q_RETURN_ARG(QVariant, y), Q_ARG(QVariant, row));
+                const QPoint where(x.toInt() + 10, y.toInt() + 10);
+                QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, where);
+                QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, where);
+            };
+            auto firstKey = [&] { return notes->data(notes->index(0), DesktopNotes::KeyRole).toString(); };
+            menuAtCell(4, 1);
+            if (!choose("desktopMenu", "New note") || notes->count() != 1 ||
+                !waitFor([&] { return field() && field()->hasActiveFocus(); }))
+                return fail("the desktop's menu did not make a new note to write on");
+            const auto made = firstKey();
+            if (!note(made) || note(made)->property("column").toInt() != 4 || note(made)->property("row").toInt() != 1)
+                return fail("the new note was not in the cell under where the desktop's menu was opened");
+            press(Qt::Key_Escape);
+            if (notes->count() != 0 || !waitFor([&] { return !note(made); }))
+                return fail("a new note let go empty stayed on the desktop");
+            menuAtCell(4, 1);
+            if (!choose("desktopMenu", "New note") || !waitFor([&] { return field() && field()->hasActiveFocus(); }))
+                return fail("the desktop's menu did not make a second new note");
+            typeText("hello");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+            if (notes->count() != 1 || noteText(firstKey()) != "hello" || field())
+                return fail("a new note written on did not stay as it was written");
+            notes->remove(firstKey());
+            const auto key = notes->add(3, 0);
+            if (key.isEmpty() || !waitFor([&] { return note(key) && note(key)->isVisible(); }))
+                return fail("a note made on the desktop did not show");
+            click(note(key));
+            if (!waitFor([&] { return field() && field()->hasActiveFocus(); }) ||
+                !note(key)->property("editing").toBool())
+                return fail("a click on a desktop note did not let its text be typed");
+            typeText("milk");
+            press(Qt::Key_Return);
+            typeText("[ ] eggs");
+            press(Qt::Key_Escape);
+            if (field() || noteText(key) != "milk\n[ ] eggs" || !grid->hasActiveFocus())
+                return fail("Escape did not let the desktop note's text go, as it was typed");
+            if (!waitFor([&] { return kept(R"("text": "milk\n[ ] eggs")"); }))
+                return fail("the desktop note's text was not kept");
+            QQuickItem *box = nullptr;
+            if (!waitFor([&] { return (box = find(note(key), "desktopNoteBox")) && box->isVisible(); }))
+                return fail("the desktop note's checklist line had no box");
+            click(box);
+            if (noteText(key) != "milk\n[x] eggs" || field() || !kept(R"("text": "milk\n[x] eggs")"))
+                return fail("a click on the box of a desktop note's checklist did not tick it");
+            click(note(key));
+            if (!waitFor([&] { return field() && field()->property("text") == "milk\n[x] eggs"; }))
+                return fail("a second click on the desktop note did not write on it again");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+            if (field() || note(key)->property("editing").toBool())
+                return fail("a press beside the desktop note did not let its text go");
+            notes->setText(key, QString(notes->maxLength() - 1, 'z'));
+            click(note(key));
+            if (!waitFor([&] { return field() && field()->hasActiveFocus(); }))
+                return fail("the long desktop note was not written on");
+            typeText("ab");
+            auto *count = find(note(key), "desktopNoteCount");
+            if (noteText(key).size() != notes->maxLength() || field()->property("length").toInt() != notes->maxLength() ||
+                !count || !count->isVisible() || count->property("text") != "Full")
+                return fail("a desktop note took more than its most, or did not say it is full");
+            press(Qt::Key_Escape);
+            // Dragged two cells right and one down, a pad shows the block it will land in, and it
+            // glides there, which is kept. Dragged onto the icons, it lands clear of them, and an
+            // icon dragged onto it lands beside it.
+            const int cellWidth = grid->property("cellWidth").toInt(), cellHeight = grid->property("cellHeight").toInt();
+            auto noteCell = [&] {
+                return note(key) ? QPoint(note(key)->property("column").toInt(), note(key)->property("row").toInt())
+                                 : QPoint(-9, -9);
+            };
+            auto noteInCell = [&] {
+                QVariant x, y;
+                QMetaObject::invokeMethod(grid, "cellX", Q_RETURN_ARG(QVariant, x), Q_ARG(QVariant, noteCell().x()));
+                QMetaObject::invokeMethod(grid, "cellY", Q_RETURN_ARG(QVariant, y), Q_ARG(QVariant, noteCell().y()));
+                return std::abs(note(key)->x() - x.toReal()) < 0.5 && std::abs(note(key)->y() - y.toReal()) < 0.5;
+            };
+            auto dragNote = [&](QPoint by, const std::function<bool()> &meanwhile) {
+                const QPoint from = centre(note(key)), to = from + by;
+                QTest::mousePress(&desktop, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 8; ++step)
+                    QTest::mouseMove(&desktop, from + (to - from) * step / 8);
+                const bool held = meanwhile();
+                QTest::mouseRelease(&desktop, Qt::LeftButton, Qt::NoModifier, to);
+                return held;
+            };
+            auto *notePad = find(root, "desktopNoteLanding");
+            const QPoint start = noteCell();
+            auto padAt = [&](QPoint cell) {
+                const auto landing = grid->property("noteLanding").toMap();
+                return notePad && notePad->isVisible() && note(key)->property("dragged").toBool() &&
+                       QPoint(landing["column"].toInt(), landing["row"].toInt()) == cell;
+            };
+            if (!dragNote({2 * cellWidth, cellHeight}, [&] { return padAt(start + QPoint(2, 1)); }))
+                return fail("a desktop note dragged did not show a pad where it will land");
+            if (noteCell() != start + QPoint(2, 1) || notePad->isVisible() || !waitFor(noteInCell) ||
+                !kept(QString("\"column\": %1").arg(start.x() + 2).toUtf8()))
+                return fail("a desktop note dragged did not glide into its new cells, kept");
+            const QStringList iconKeys{"launcher:Test app", "file:Folder", "file:a.txt", "file:b.txt", "file:c.txt"};
+            QList<QPoint> iconCells;
+            for (const auto &icon : iconKeys)
+                iconCells << cellOf(icon);
+            auto covered = [&](QPoint cell) {
+                return QRect(noteCell(), QSize(notes->columns(), notes->rows())).contains(cell);
+            };
+            dragNote(QPoint(-noteCell().x() * cellWidth, 0), [] { return true; });
+            for (int i = 0; i < iconKeys.size(); ++i)
+                if (covered(iconCells[i]) || cellOf(iconKeys[i]) != iconCells[i])
+                    return fail("a desktop note dragged onto the icons covered one, or moved it");
+            {
+                const QPoint from = at("file:c.txt"), to = centre(note(key)) - QPoint(cellWidth / 2, cellHeight / 2);
+                QTest::mousePress(&desktop, Qt::LeftButton, Qt::NoModifier, from);
+                for (int step = 1; step <= 8; ++step)
+                    QTest::mouseMove(&desktop, from + (to - from) * step / 8);
+                const auto landing = grid->property("landing").toList();
+                const QPoint pad = landing.isEmpty() ? QPoint(-9, -9)
+                    : QPoint(landing[0].toMap()["column"].toInt(), landing[0].toMap()["row"].toInt());
+                QTest::mouseRelease(&desktop, Qt::LeftButton, Qt::NoModifier, to);
+                if (pad.x() < 0 || covered(pad) || cellOf("file:c.txt") != pad)
+                    return fail("an icon dragged onto a desktop note did not land beside it");
+            }
+            // A right press opens its menu, under a title of its first line: a swatch gives it
+            // another colour, Copy text copies its text, and Delete note crumples it away, which
+            // the notice's Undo brings back to its place, as Ctrl + Z does.
+            notes->setText(key, "Plans\n[ ] tea");
+            auto noteMenuAt = [&] {
+                QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, centre(note(key)));
+                QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, centre(note(key)));
+            };
+            auto noteColor = [&] { return note(key) ? note(key)->property("color").toString() : QString(); };
+            noteMenuAt();
+            if (!waitFor([&] { return entry("desktopNoteMenu", "Plans") && entry("desktopNoteMenu", "Delete note"); }))
+                return fail("a right press on a desktop note did not open its menu, its first line for its title");
+            QQuickItem *mint = nullptr;
+            if (!waitFor([&] { return (mint = find(root, "menuSwatch:Mint")) && mint->isVisible(); }) ||
+                !find(root, "menuSwatch:" + QString(noteColor() == "sakura" ? "Sakura" : "Sky")))
+                return fail("the desktop note's menu did not offer its colours");
+            click(mint);
+            if (!waitFor([&] { return noteColor() == "mint" && kept(R"("color": "mint")"); }))
+                return fail("a swatch in the desktop note's menu did not give it that colour");
+            noteMenuAt();
+            if (!choose("desktopNoteMenu", "Copy text") ||
+                !waitFor([&] { return QGuiApplication::clipboard()->text() == "Plans\n[ ] tea"; }))
+                return fail("Copy text in the desktop note's menu did not copy its text");
+            const QPoint home = noteCell();
+            auto *toast = find(root, "desktopToast");
+            auto told = [&](const QString &text) {
+                auto *line = find(root, "desktopToastText");
+                return toast && toast->property("shown").toBool() && toast->property("reveal").toReal() == 1 &&
+                       line && line->property("text") == text;
+            };
+            auto back = [&] {
+                return note(key) && note(key)->property("reveal").toReal() == 1 && noteCell() == home &&
+                       noteInCell() && noteColor() == "mint" &&
+                       noteText(key) == "Plans\n[ ] tea" && kept(R"("text": "Plans\n[ ] tea")");
+            };
+            noteMenuAt();
+            if (!choose("desktopNoteMenu", "Delete note") || !waitFor([&] { return !note(key) && !kept("Plans"); }) ||
+                !waitFor([&] { return told("Deleted “Plans”"); }))
+                return fail("Delete note did not delete the desktop note, saying so");
+            click(find(root, "desktopToastAction"));
+            if (!waitFor(back) || !waitFor([&] { return !toast->isVisible(); }))
+                return fail("the notice's Undo did not bring the deleted desktop note back to its place");
+            noteMenuAt();
+            if (!choose("desktopNoteMenu", "Delete note") || !waitFor([&] { return !note(key); }))
+                return fail("Delete note did not delete the desktop note again");
+            press(Qt::Key_Z, Qt::ControlModifier);
+            if (!waitFor(back))
+                return fail("Ctrl + Z did not bring the deleted desktop note back");
+            // The keys go round the notes among the icons: Right from the launcher lands on the
+            // note level with it, ringed; Enter writes on it and Escape lets it go, the keys still
+            // there; Ctrl + C copies its text, the menu key opens its menu, Delete deletes it and
+            // Ctrl + Z brings it back; Left goes back to the launcher.
+            QMetaObject::invokeMethod(grid, "tidy");
+            if (!waitFor([&] { return laidOut(0); }))
+                return fail("the desktop's icons were not tidied up around the note");
+            notes->move(key, 3 - noteCell().x(), -noteCell().y());
+            if (noteCell() != QPoint(3, 0) || !waitFor(noteInCell))
+                return fail("the desktop note did not move to the top of the fourth column");
+            auto ringOnNote = [&] {
+                return waitFor([&] {
+                    return ring->isVisible() && ring->opacity() == 1 && note(key) &&
+                           std::abs(ring->x() - note(key)->x()) < 0.5 && std::abs(ring->y() - note(key)->y()) < 0.5 &&
+                           ring->width() == note(key)->width();
+                });
+            };
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("launcher:Test app"));
+            press(Qt::Key_Right);
+            if (current() != key || !ringOnNote() || !selected({}))
+                return fail("Right from an icon did not go on to the desktop note level with it, ringed");
+            press(Qt::Key_Return);
+            if (!waitFor([&] { return field() && field()->hasActiveFocus(); }))
+                return fail("Enter on the desktop note did not write on it");
+            typeText("!");
+            press(Qt::Key_Escape);
+            if (field() || noteText(key) != "Plans\n[ ] tea!" || current() != key || !ringOnNote())
+                return fail("Escape did not leave the keys at the desktop note, its text as typed");
+            QGuiApplication::clipboard()->clear();
+            press(Qt::Key_C, Qt::ControlModifier);
+            if (!waitFor([&] { return QGuiApplication::clipboard()->text() == "Plans\n[ ] tea!"; }))
+                return fail("Ctrl + C on the desktop note did not copy its text");
+            press(Qt::Key_Menu);
+            if (!waitFor([&] { return entry("desktopNoteMenu", "Delete note") != nullptr; }))
+                return fail("the menu key on the desktop note did not open its menu");
+            press(Qt::Key_Escape);
+            if (!waitFor([&] { return !entry("desktopNoteMenu", "Delete note") && grid->hasActiveFocus(); }))
+                return fail("Escape did not close the desktop note's menu, the keys back on the desktop");
+            press(Qt::Key_Delete);
+            if (!waitFor([&] { return !note(key); }) || current() != "launcher:Test app")
+                return fail("Delete on the desktop note did not delete it, the keys going on to the nearest icon");
+            press(Qt::Key_Z, Qt::ControlModifier);
+            if (!waitFor([&] { return note(key) && note(key)->property("reveal").toReal() == 1; }))
+                return fail("Ctrl + Z did not bring back the desktop note Delete deleted");
+            press(Qt::Key_Right);
+            press(Qt::Key_Left);
+            if (current() != "launcher:Test app")
+                return fail("Left from the desktop note did not go back to the launcher");
+            // Hidden with the icons, taking no clicks, and shown again with them.
+            const QPoint noteAt = centre(note(key));
+            subscriber->write("desktop-icons off\n");
+            if (!waitFor([&] { return !note(key)->isVisible() && !tile("launcher:Test app")->isVisible(); }))
+                return fail("hiding the desktop's icons left its notes showing");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, noteAt);
+            if (field())
+                return fail("a hidden desktop note was written on");
+            subscriber->write("desktop-icons on\n");
+            if (!waitFor([&] { return note(key)->isVisible() && note(key)->property("reveal").toReal() == 1; }))
+                return fail("showing the desktop's icons did not bring their notes back");
+            notes->remove(key);
+            if (!waitFor([&] { return !note(key); }))
+                return fail("the desktop note did not go");
+            QMetaObject::invokeMethod(grid, "tidy");
+            if (!waitFor([&] { return laidOut(0); }))
+                return fail("the desktop's icons were not tidied up after the note");
+        }
         // Turned off, there are none.
         if (!reconfigure(QString(lua).replace("shell={", "shell={desktop_icons=false,")) ||
             !waitFor([&] { return !tile("file:a.txt"); }))

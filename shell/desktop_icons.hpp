@@ -77,6 +77,11 @@ class DesktopIcons : public QAbstractListModel {
     // The grid the desktop has room for, `columns` by `rows` cells; until it is set no icon has a
     // cell (both -1).
     Q_INVOKABLE void setGrid(int columns, int rows);
+    // The cells no icon takes, those the desktop's notes cover (DesktopNotes::cells): an icon in one
+    // goes to a free cell while it is covered, and back to its own once it is not.
+    void setBlocked(const QList<QPoint> &cells);
+    // The cells the icons are in.
+    QList<QPoint> cells() const;
     // Moves the icons of `keys`, the one under the pointer first, `columns` and `rows` cells, as
     // dragged together (desktop_grid::drop).
     Q_INVOKABLE void move(const QStringList &keys, int columns, int rows);
@@ -212,6 +217,7 @@ class DesktopIcons : public QAbstractListModel {
     QList<Entry> entries_;
     QStringList order_;              // the keys, launchers first, then folders and files by name
     QHash<QString, QPoint> cells_;   // where each icon was put, as remembered
+    QList<QPoint> blocked_;          // the cells the notes cover
     QList<Trashed> trashed_;         // what untrash() puts back
     QSize grid_;                     // invalid until the desktop says
     bool hidden_ = false, remembering_ = true;

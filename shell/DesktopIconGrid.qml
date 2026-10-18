@@ -25,10 +25,15 @@ import QtQuick.Shapes
 // land in. Shown and hidden from the desktop's menu, the icons ripple out from where it was opened.
 // Moved to the Trash, they shrink away, and a notice at the foot of the desktop (DesktopToast)
 // says what went, with Undo, which pops them back into the cells they left in a ripple from it,
-// each with a puff of sparkles.
+// each with a puff of sparkles. Sticky notes (DesktopNote, the model shell.desktopNotes) lie on the
+// same grid, each over a block of cells the icons go around; one dragged follows the pointer while
+// a dashed pad shows the block it will land in. A new note pops in under where the desktop's menu
+// was opened, written on at once, and goes again if it is let go empty. Deleted from its menu, a
+// note crumples away, and the notice says so with Undo, which pops it back into its place.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
-// icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
+// icon, which a ring in the second hue shows as it hops from icon to icon and to the notes among
+// them (which Enter and F2 write on, Delete deletes, Ctrl + C copies), with Shift taking the
 // icons between, with Ctrl leaving the selection as it is (Ctrl + Space picks one); letters typed
 // go to the next icon whose name starts with them, said in a bubble over it. Enter opens, Delete
 // moves to the Trash and Ctrl + Z puts that back, as the notice's Undo does, F2 renames, Ctrl + A
@@ -45,6 +50,7 @@ FocusScope {
     // Whether this output's desktop has the icons: the main monitor's.
     property bool active: false
     readonly property var model: shell.desktopIcons
+    readonly property var notes: shell.desktopNotes
     readonly property bool shown: active && model.shown
     readonly property int iconSize: model.iconSize
     // A cell: the icon, the gap under it and two lines of its name, with room around.
@@ -67,16 +73,33 @@ FocusScope {
     signal pressed()
     signal menuRequested(real x, real y, bool byKeyboard)
     signal iconMenuRequested(real x, real y, bool byKeyboard)
+    // A right press on a note, or the menu key on it, for its menu to open there.
+    signal noteMenuRequested(string key, real x, real y, bool byKeyboard)
 
     FontMetrics { id: nameFont; font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeSmall }
+    // The notes' hand: the first rounded font there is, else the shell's.
+    readonly property string noteFont: {
+        const families = Qt.fontFamilies()
+        for (const family of ["Nunito", "M PLUS Rounded 1c", "Rounded Mplus 1c", "Varela Round", "Quicksand",
+                              "Comfortaa", "Kosugi Maru"])
+            if (families.indexOf(family) >= 0)
+                return family
+        return Theme.fontFamily
+    }
+    readonly property int noteFontSize: Theme.fontSize + 1
 
     // The grid is said once the desktop's size has settled: a new icon keeps the cell it is given
     // first, which a size the window passes through on its way would leave it in.
     Timer {
         id: layOut
         interval: 100
-        onTriggered: if (grid.active && grid.area.width > 0 && grid.area.height > 0)
-                         grid.model.setGrid(grid.columns, grid.rows)
+        // The notes first, which the icons go around.
+        onTriggered: {
+            if (!grid.active || grid.area.width <= 0 || grid.area.height <= 0)
+                return
+            grid.notes.setGrid(grid.columns, grid.rows)
+            grid.model.setGrid(grid.columns, grid.rows)
+        }
     }
     onColumnsChanged: layOut.restart()
     onRowsChanged: layOut.restart()
@@ -114,27 +137,39 @@ FocusScope {
                 return icons.itemAt(i)
         return null
     }
-    // The icons in their cells, down each column before the next, as they fill the grid.
+    // The icons in their cells, down each column before the next, as they fill the grid; and with
+    // the notes among them, the way the keys go round the desktop.
     function ordered() {
         return tiles().filter(tile => tile.placed).sort((a, b) => a.column - b.column || a.row - b.row)
     }
-    // An icon gone from the folder leaves the selection, and the keyboard goes on to the icon
-    // nearest where it was.
+    function walk() {
+        return tiles().concat(noteTiles()).filter(tile => tile.placed)
+                      .sort((a, b) => a.column - b.column || a.row - b.row)
+    }
+    // An icon gone from the folder leaves the selection, and the keyboard goes on to the icon or
+    // note nearest where it was; so it does from a note deleted.
     Connections {
         target: grid.model
         function onCountChanged() {
             const kept = grid.selectedTiles().map(tile => tile.key)
             if (kept.length !== grid.selectionOrder.length)
                 grid.select(kept)
-            if (grid.current === "" || grid.currentTile)
-                return
-            let nearest = null
-            for (const tile of grid.ordered())
-                if (!nearest || Math.hypot(tile.column - grid.currentCell.x, tile.row - grid.currentCell.y) <
-                                Math.hypot(nearest.column - grid.currentCell.x, nearest.row - grid.currentCell.y))
-                    nearest = tile
-            grid.current = nearest ? nearest.key : ""
+            grid.keepCurrent()
         }
+    }
+    Connections {
+        target: grid.notes
+        function onCountChanged() { grid.keepCurrent() }
+    }
+    function keepCurrent() {
+        if (current === "" || currentTile)
+            return
+        let nearest = null
+        for (const tile of walk())
+            if (!nearest || Math.hypot(tile.column - currentCell.x, tile.row - currentCell.y) <
+                            Math.hypot(nearest.column - currentCell.x, nearest.row - currentCell.y))
+                nearest = tile
+        current = nearest ? nearest.key : ""
     }
 
     // The keyboard's current icon (its key) and its cell, the icon Shift takes those between from,
@@ -144,15 +179,25 @@ FocusScope {
     property point currentCell
     property string extendFrom: ""
     property bool keysUsed: false
-    readonly property Item currentTile: { current; icons.count; return tileOf(current) }
-    readonly property bool ringShown: keysUsed && activeFocus && renaming === "" && !dragging &&
+    readonly property Item currentTile: { current; icons.count; noteItems.count; return tileOf(current) || noteOf(current) }
+    // The note the keys are at, which they then act on alone.
+    readonly property Item currentNote: currentTile && currentTile.isNote === true ? currentTile : null
+    readonly property bool ringShown: keysUsed && activeFocus && renaming === "" && editingNote === "" && !dragging &&
                                       currentTile !== null && currentTile.visible
     onCurrentTileChanged: if (currentTile) currentCell = Qt.point(currentTile.column, currentTile.row)
     // The keys take `tile` as the current icon: alone in the selection, with those between it and
     // `extendFrom` (`extend`), or leaving the selection as it is (`keep`).
     function moveTo(tile, extend, keep) {
+        // A note is never selected: on one, the keys act on it alone.
+        if (tile.isNote === true) {
+            current = tile.key
+            keysUsed = true
+            if (!keep)
+                select([])
+            return
+        }
         if (extend && (extendFrom === "" || !tileOf(extendFrom)))
-            extendFrom = currentTile ? current : tile.key
+            extendFrom = currentTile && !currentNote ? current : tile.key
         current = tile.key
         keysUsed = true
         if (extend) {
@@ -173,24 +218,29 @@ FocusScope {
                                                 tile.row >= top && tile.row <= bottom && tile.key !== fromKey)
         select([fromKey].concat(inside.map(tile => tile.key)))
     }
-    // An arrow: the nearest icon that way, one level with the current first (in its row, or in its
-    // column), then by the distance between their cells. The first key of all lands on the current
-    // icon, or the first.
+    // An arrow: the nearest icon or note that way, one level with the current first (in its rows,
+    // or in its columns), then by the distance between their middles. The first key of all lands on
+    // the current icon, or the first.
     function step(dx, dy, extend, keep) {
         const from = currentTile
         if (!from || !from.placed || (!keysUsed && selectionOrder.length === 0)) {
-            const first = from && from.placed ? from : ordered()[0]
+            const first = from && from.placed ? from : walk()[0]
             if (first)
                 moveTo(first, false, keep)
             return
         }
+        // A note covers several cells, an icon one.
+        const across = tile => tile.spanColumns || 1, down = tile => tile.spanRows || 1
+        const fromX = from.column + across(from) / 2, fromY = from.row + down(from) / 2
         let best = null, bestLevel = false, bestDistance = 0
-        for (const tile of ordered()) {
-            const along = dx !== 0 ? (tile.column - from.column) * dx : (tile.row - from.row) * dy
+        for (const tile of walk()) {
+            const x = tile.column + across(tile) / 2, y = tile.row + down(tile) / 2
+            const along = dx !== 0 ? (x - fromX) * dx : (y - fromY) * dy
             if (tile === from || along <= 0)
                 continue
-            const level = dx !== 0 ? tile.row === from.row : tile.column === from.column
-            const distance = Math.hypot(tile.column - from.column, tile.row - from.row)
+            const level = dx !== 0 ? tile.row < from.row + down(from) && from.row < tile.row + down(tile)
+                                   : tile.column < from.column + across(from) && from.column < tile.column + across(tile)
+            const distance = Math.hypot(x - fromX, y - fromY)
             if (!best || (level && !bestLevel) || (level === bestLevel && distance < bestDistance)) {
                 best = tile
                 bestLevel = level
@@ -208,6 +258,11 @@ FocusScope {
     // The icons' menu from the keyboard, beside the current icon, which it takes alone when
     // nothing is selected; the desktop's, with no icons, at their corner.
     function keyMenu() {
+        if (currentNote) {
+            noteMenuRequested(current, currentNote.x + currentNote.width / 2,
+                              currentNote.y + currentNote.height - Theme.spacingL, true)
+            return
+        }
         if (selectionOrder.length === 0 && currentTile)
             select([current])
         const tile = selectionOrder.indexOf(current) >= 0 ? currentTile : selectedTiles()[0]
@@ -229,7 +284,7 @@ FocusScope {
         const lower = next.toLocaleLowerCase()
         const again = lower.length > 1 && lower.split("").every(c => c === lower[0])
         const prefix = again ? lower[0] : lower
-        const list = ordered()
+        const list = walk()
         const at = list.findIndex(tile => tile.key === current)
         // A new letter looks past the current icon; more of a name may stay on it.
         const from = at < 0 ? 0 : next.length === 1 || again ? at + 1 : at
@@ -244,7 +299,7 @@ FocusScope {
     }
 
     Keys.onPressed: function(event) {
-        if (!grid.shown || grid.renaming !== "")
+        if (!grid.shown || grid.renaming !== "" || grid.editingNote !== "")
             return
         const ctrl = (event.modifiers & Qt.ControlModifier) !== 0
         const shift = (event.modifiers & Qt.ShiftModifier) !== 0
@@ -256,15 +311,29 @@ FocusScope {
         case Qt.Key_Down: grid.step(0, 1, shift, ctrl); break
         case Qt.Key_Home:
         case Qt.Key_End: {
-            const list = grid.ordered()
+            const list = grid.walk()
             if (list.length > 0)
                 grid.moveTo(list[event.key === Qt.Key_Home ? 0 : list.length - 1], shift, ctrl)
             break
         }
         case Qt.Key_Return:
-        case Qt.Key_Enter: grid.open(grid.chosen()); break
-        case Qt.Key_Delete: grid.trash(grid.selectedTiles()); break
+        case Qt.Key_Enter:
+            if (grid.currentNote)
+                grid.startEditing(grid.current)
+            else
+                grid.open(grid.chosen())
+            break
+        case Qt.Key_Delete:
+            if (grid.currentNote)
+                grid.deleteNote(grid.current)
+            else
+                grid.trash(grid.selectedTiles())
+            break
         case Qt.Key_F2: {
+            if (grid.currentNote) {
+                grid.startEditing(grid.current)
+                break
+            }
             const one = grid.selectionOrder.length === 1 ? grid.selectionOrder[0]
                       : grid.selectionOrder.length === 0 ? grid.current : ""
             grid.startRename(one)
@@ -283,7 +352,7 @@ FocusScope {
             grid.typed = ""
             break
         case Qt.Key_Space:
-            if (ctrl && grid.currentTile) {
+            if (ctrl && grid.currentTile && !grid.currentNote) {
                 grid.toggle(grid.current)
                 grid.extendFrom = grid.current
                 grid.keysUsed = true
@@ -296,6 +365,8 @@ FocusScope {
         default:
             if (ctrl && event.key === Qt.Key_A) {
                 grid.select(grid.ordered().map(tile => tile.key))
+            } else if (ctrl && event.key === Qt.Key_C && grid.currentNote) {
+                grid.copyNote(grid.current)
             } else if (ctrl && event.key === Qt.Key_C) {
                 const files = grid.selectedTiles().filter(tile => tile.kind !== "launcher")
                 if (files.length === 0)
@@ -304,7 +375,7 @@ FocusScope {
                 for (const tile of files)
                     tile.hop()
             } else if (ctrl && event.key === Qt.Key_Z) {
-                if (!grid.untrash())
+                if (!grid.undo())
                     return
             } else if (plain && event.text.length > 0 && event.text.trim() !== "" && event.text >= " ") {
                 grid.typeAhead(event.text)
@@ -416,7 +487,131 @@ FocusScope {
     }
     Connections {
         target: grid
-        function onPressed() { grid.finishRename(grid.renameText, false) }
+        function onPressed() {
+            grid.finishRename(grid.renameText, false)
+            if (grid.pressedNote !== grid.editingNote)
+                grid.finishEditing()
+        }
+    }
+    // The notes on the grid, and the one of `key`.
+    function noteTiles() {
+        const list = []
+        for (let i = 0; i < noteItems.count; ++i)
+            if (noteItems.itemAt(i))
+                list.push(noteItems.itemAt(i))
+        return list
+    }
+    function noteOf(key) { return noteTiles().find(note => note.key === key) || null }
+    // A press on the note of `key`: the desktop's menus close as for any press, but its text, if
+    // it is being typed, stays in its field.
+    property string pressedNote: ""
+    function notePressed(key) {
+        keysUsed = false
+        pressedNote = key
+        pressed()
+        pressedNote = ""
+    }
+    // The note whose text is being typed, "" while none is, and where it was clicked, in its
+    // page's coordinates, for the caret ((-1, -1) for after the text).
+    property string editingNote: ""
+    property point editPoint: Qt.point(-1, -1)
+    // A note just made from the desktop's menu, written on at once: let go empty, it goes.
+    property string freshNote: ""
+    // Turns the text of the note of `key` into a field, which takes the keyboard.
+    function startEditing(key, at) {
+        if (!shown || !noteOf(key))
+            return false
+        finishRename(renameText, false)
+        finishEditing()
+        select([])
+        editPoint = at || Qt.point(-1, -1)
+        editingNote = key
+        return true
+    }
+    // Lets the note being typed go (that of `key` alone, given), its text saved at once; with
+    // `keepKeys` (Escape, Tab) the keys go back to the desktop.
+    function finishEditing(key, keepKeys) {
+        if (editingNote === "" || (key !== undefined && key !== editingNote))
+            return
+        const done = editingNote
+        editingNote = ""
+        const fresh = freshNote === done
+        freshNote = ""
+        const note = noteOf(done)
+        if (fresh && note && note.text === "")
+            notes.discard(done)
+        else
+            notes.flush()
+        // Let go by a key, the keys go on from it, unless it went.
+        if (keepKeys) {
+            if (noteOf(done))
+                current = done
+            forceActiveFocus()
+        }
+    }
+    // Copies the note's text, and gives it another colour (DesktopNotes.colors), each with a hop.
+    function copyNote(key) {
+        notes.copy(key)
+        const note = noteOf(key)
+        if (note)
+            note.hop()
+    }
+    function recolorNote(key, color) {
+        notes.setColor(key, color)
+        const note = noteOf(key)
+        if (note)
+            note.hop()
+    }
+    // Crumples the note away, then deletes it, which the notice at the foot of the desktop then
+    // offers to undo.
+    function deleteNote(key) {
+        finishEditing(key)
+        const note = noteOf(key)
+        if (!note || deletingNote.running)
+            return
+        note.leaving = true
+        deletingNote.key = key
+        deletingNote.restart()
+    }
+    Timer {
+        id: deletingNote
+        property string key
+        interval: Theme.duration(200)
+        onTriggered: grid.notes.remove(key)
+    }
+    // Brings the last note deleted back, popping into its place with a puff, in the ripple from
+    // the notice. False while there is none, or it is still on its way out.
+    function restoreNote() {
+        if (deletingNote.running || !notes.restorable)
+            return false
+        rippleOrigin = Qt.point(toast.x + toast.width / 2, toast.y + toast.height / 2)
+        const note = noteOf(notes.restore())
+        if (note) {
+            note.popIn()
+            if (Theme.duration(700) > 0)
+                puff.createObject(grid, { x: note.x + note.width / 2, y: note.y + note.height / 2,
+                                          delay: rippleDelay(note) })
+        }
+        return true
+    }
+    // What Ctrl + Z and the notice's Undo take back: the last move to the Trash or the last note
+    // deleted, whichever came last ("trash", "note"), then the other.
+    property string undoing: ""
+    function undo() {
+        return undoing === "note" ? restoreNote() || untrash() : untrash() || restoreNote()
+    }
+    // A new note in the block under `x`, `y` (or the free one nearest it), popping in with a puff
+    // of sparkles, to write on at once.
+    function newNote(x, y) {
+        const cell = cellAt(x, y)
+        rippleOrigin = Qt.point(x, y)
+        const note = noteOf(notes.add(cell.x, cell.y))
+        if (!note)
+            return
+        if (Theme.duration(700) > 0)
+            puff.createObject(grid, { x: note.x + note.width / 2, y: note.y + note.height / 2 })
+        startEditing(note.key)
+        freshNote = note.key
     }
     // The cell under `x`, `y`, the nearest on the grid.
     function cellAt(x, y) {
@@ -595,6 +790,39 @@ FocusScope {
         if (tidying)
             return Theme.duration(320 + 22 * Math.min(tile.column + tile.row, 24))
         return Theme.duration(300 + 45 * Math.min(dragKeys.indexOf(tile.key) + 1, 8))
+    }
+
+    // A note dragged: its key, its cell and where it was drawn as the pointer went down, where the
+    // pointer was then and is now, and the block it would land in ({column, row}, null for none).
+    property string noteDrag: ""
+    property point noteStart
+    property point noteHome
+    property point noteFrom
+    property point notePointer
+    property var noteLanding: null
+    readonly property real noteDragX: noteHome.x + notePointer.x - noteFrom.x
+    readonly property real noteDragY: noteHome.y + notePointer.y - noteFrom.y
+    readonly property int noteColumns: Math.round((noteDragX - area.x - margin) / cellWidth) - noteStart.x
+    readonly property int noteRows: Math.round((noteDragY - area.y - margin) / cellHeight) - noteStart.y
+    onNoteColumnsChanged: updateNoteLanding()
+    onNoteRowsChanged: updateNoteLanding()
+    function updateNoteLanding() {
+        noteLanding = noteDrag !== "" ? notes.landing(noteDrag, noteColumns, noteRows) : null
+    }
+    function beginNoteDrag(note, at) {
+        noteStart = Qt.point(note.column, note.row)
+        noteHome = Qt.point(cellX(note.column), cellY(note.row))
+        noteFrom = notePointer = at
+        noteDrag = note.key
+        updateNoteLanding()
+    }
+    function noteDragTo(at) { notePointer = at }
+    // Let go, it glides into the block the pad shows; cancelled, back into its own.
+    function endNoteDrag(cancelled) {
+        if (!cancelled)
+            notes.move(noteDrag, noteColumns, noteRows)
+        noteDrag = ""
+        noteLanding = null
     }
 
     // The band a drag across the desktop draws, from where it started to the pointer.
@@ -815,10 +1043,39 @@ FocusScope {
         }
     }
 
+    // The block a dragged note will land in.
+    Shape {
+        id: notePad
+        objectName: "desktopNoteLanding"
+        readonly property var block: grid.noteLanding
+        visible: block !== null
+        x: block ? grid.cellX(block.column) + Theme.spacingXS : 0
+        y: block ? grid.cellY(block.row) + Theme.spacingXS : 0
+        width: grid.cellWidth * grid.notes.columns - 2 * Theme.spacingXS
+        height: grid.cellHeight * grid.notes.rows - 2 * Theme.spacingXS
+        Behavior on x { enabled: notePad.visible; NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack } }
+        Behavior on y { enabled: notePad.visible; NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack } }
+        preferredRendererType: Shape.CurveRenderer
+        ShapePath {
+            strokeColor: Theme.alpha(Theme.accent, 0.85)
+            strokeWidth: 1.5
+            strokeStyle: ShapePath.DashLine
+            dashPattern: [3, 3]
+            fillColor: Theme.alpha(Theme.accent, 0.12)
+            PathRectangle { width: notePad.width; height: notePad.height; radius: Theme.radiusLarge }
+        }
+    }
+
     Repeater {
         id: icons
         model: grid.active ? grid.model : null
         delegate: DesktopIcon { board: grid }
+    }
+
+    Repeater {
+        id: noteItems
+        model: grid.active ? grid.notes : null
+        delegate: DesktopNote { board: grid }
     }
 
     // The ring of the current icon while the keys move it: in the second hue with a soft halo,
@@ -829,8 +1086,8 @@ FocusScope {
         objectName: "desktopFocusRing"
         readonly property Item tile: grid.currentTile
         z: 3
-        width: grid.cellWidth
-        height: grid.cellHeight
+        width: tile ? tile.width : grid.cellWidth
+        height: tile ? tile.height : grid.cellHeight
         visible: opacity > 0
         opacity: grid.ringShown ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: Theme.durationFast } }
@@ -1060,28 +1317,45 @@ FocusScope {
         }
     }
 
-    // What the last trash took, at the foot of the desktop for a while: its names, and Undo,
-    // which puts it back.
+    // What the last trash or note deleted took, at the foot of the desktop for a while: its names,
+    // and Undo, which puts it back.
     DesktopToast {
         id: toast
         z: 130
         partner: grid.partner
         x: Math.round(grid.area.x + (grid.area.width - width) / 2)
         y: grid.area.y + grid.area.height - height - Theme.spacingXXL
-        onActed: grid.untrash()
+        onActed: grid.undo()
         onPressed: grid.pressed()
     }
     Connections {
         target: grid.model
         function onTrashedChanged() {
             const names = grid.model.trashed
-            if (names.length > 0 && grid.shown)
+            if (names.length > 0 && grid.shown) {
+                grid.undoing = "trash"
+                toast.icon = "trash-2"
                 toast.show("Moved " + (names.length === 1 ? names[0] : names.length + " items") + " to Trash")
-            else
+            } else if (toast.icon === "trash-2") {
                 toast.hide()
+            }
         }
     }
-    onShownChanged: if (!shown) toast.hide()
+    // A note deleted is said by its first line, and Undo brings it back.
+    Connections {
+        target: grid.notes
+        function onRemovedChanged() {
+            if (grid.notes.restorable && grid.shown) {
+                grid.undoing = "note"
+                const first = grid.notes.lines(grid.notes.removedText)[0].text.trim()
+                toast.icon = "sticky-note"
+                toast.show(first !== "" ? "Deleted “" + first + "”" : "Deleted an empty note")
+            } else if (toast.icon === "sticky-note") {
+                toast.hide()
+            }
+        }
+    }
+    onShownChanged: if (!shown) { toast.hide(); finishEditing() }
 
     // The band, over the icons it catches.
     Item {

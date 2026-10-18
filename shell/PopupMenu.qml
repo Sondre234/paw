@@ -11,6 +11,8 @@ import QtQuick.Controls.Basic
 //   { title: "Name", icon, secondary }   the menu's own heading, above its entries: the icon
 //                           large, the name, and the secondary text under it (a window's title),
 //                           elided to the width the entries need rather than widening the menu
+//   { swatches: [{ color, ink, name, checked }], run }   a row of colours, one of which the
+//                           pointer, or Left and Right, picks: run is called with its index
 //
 // - text: the label. icon: a line icon Icon.qml draws ("power"), else a theme icon's name
 //   ("window-new") or an image's URL. secondary: muted text at the end of the row, such as a
@@ -69,8 +71,8 @@ Item {
         var submenu = entry ? entry.submenu : undefined
         return typeof submenu === "function" ? submenu() : (submenu || [])
     }
-    function choose(entry) {
-        var keep = entry.run ? entry.run() === true : false
+    function choose(entry, swatch) {
+        var keep = entry.run ? entry.run(swatch) === true : false
         if (!keep)
             dismissed()
     }
@@ -121,11 +123,13 @@ Item {
                 level.activate(level.current, true)
             break
         case Qt.Key_Right:
-            if (level.current >= 0 && level.hasSubmenu(level.current))
-                level.openChild(level.current, true)
-            break
         case Qt.Key_Left:
-            if (level.parentLevel)
+            var row = level.current >= 0 ? level.rowAt(level.current) : null
+            if (row && row.swatchRow)
+                row.stepSwatch(event.key === Qt.Key_Right ? 1 : -1)
+            else if (event.key === Qt.Key_Right && level.current >= 0 && level.hasSubmenu(level.current))
+                level.openChild(level.current, true)
+            else if (event.key === Qt.Key_Left && level.parentLevel)
                 level.parentLevel.closeChild()
             break
         case Qt.Key_Escape:
@@ -163,6 +167,7 @@ Item {
             return !!e && !e.separator && !e.header && !e.title && e.enabled !== false
         }
         function hasSubmenu(index) { return selectable(index) && !!entries[index].submenu }
+        function rowAt(index) { return rows.itemAtIndex(index) }
         function move(step) {
             var count = entries.length
             var index = current
@@ -179,10 +184,11 @@ Item {
             if (!selectable(index))
                 return
             current = index
+            var row = rows.itemAtIndex(index)
             if (hasSubmenu(index))
                 openChild(index, byKeyboard)
             else
-                level.menu.choose(entries[index])
+                level.menu.choose(entries[index], row && row.swatchRow ? row.swatch : undefined)
         }
         function openChild(index, byKeyboard) {
             stopResting()
@@ -348,6 +354,11 @@ Item {
                     continue
                 if (e.header) {
                     label = Math.max(label, headingFont.advanceWidth(e.header))
+                    continue
+                }
+                if (e.swatches) {
+                    label = Math.max(label, e.swatches.length * (22 + Theme.spacingM) -
+                                     (iconColumn ? Theme.iconSizeSmall + Theme.menuIconGap : 0))
                     continue
                 }
                 if (e.title) {

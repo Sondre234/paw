@@ -181,8 +181,10 @@ int main(int argc, char **argv) {
         if (!preview && !controller.clipboard()->connectDisplay())
             std::cerr << "The compositor offers no ext-data-control-v1: no clipboard history\n";
         qmlRegisterUncreatableType<TaskModel>("Paw", 1, 0, "TaskModel", "Provided by the shell");
-        // A preview's desktop icons are laid out on its own grid, which the session's never are.
+        // A preview's desktop icons and notes are laid out on its own grid, which the session's
+        // never are, and what is typed on its notes is not kept.
         controller.desktopIcons()->setRemembering(!preview);
+        controller.desktopNotes()->setRemembering(!preview);
         // Made before the views, which refer to it, and so destroyed after them.
         std::unique_ptr<PreviewData> previewData;
         if (parser.isSet("preview-popup"))

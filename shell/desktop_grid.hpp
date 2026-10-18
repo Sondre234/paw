@@ -6,6 +6,7 @@
 #include <QSize>
 #include <QString>
 #include <QStringList>
+#include <optional>
 
 // The arithmetic of the desktop's icons on their grid (shell.desktop_icons). A cell is a QPoint,
 // its column in x and its row in y, from the top left of a grid `grid.width()` columns by
@@ -20,13 +21,22 @@ QPoint nearestFree(QSize grid, QPoint wanted, const QList<QPoint> &taken);
 // A cell for each of `keys`, in their order: the cell `saved` has for it while that is on the grid
 // and no other key has it first, else the first free cell down the columns. Keys with saved cells
 // are placed before the others, so that an icon remembered somewhere keeps its place from a new
-// one; keys past the grid's last cell go on down columns beyond it.
-QList<QPoint> arrange(const QStringList &keys, const QHash<QString, QPoint> &saved, QSize grid);
+// one; keys past the grid's last cell go on down columns beyond it. No key takes a cell of
+// `blocked` (the desktop's notes cover them): one saved there is placed as one without a cell.
+QList<QPoint> arrange(const QStringList &keys, const QHash<QString, QPoint> &saved, QSize grid,
+                      const QList<QPoint> &blocked = {});
 // The cells of `count` icons dropped together on `from` from elsewhere (a file manager's files):
 // the free ones from `from` down its column, then down each column after it from the same row on,
 // a block growing down and to the right; once those run out, the free ones nearest `from`. None of
 // `taken`.
 QList<QPoint> flow(QSize grid, QPoint from, int count, const QList<QPoint> &taken);
+// The cells of a block `size` cells wide and tall whose top left cell is `corner`, down each
+// column before the next.
+QList<QPoint> block(QPoint corner, QSize size);
+// The top left cell nearest `wanted` of a block `size` cells large that lies wholly on the grid and
+// covers none of `taken`: nearest by the distance between those cells, the earlier down the
+// columns between two as near; `wanted` itself when its block is free. None when no block is.
+std::optional<QPoint> freeBlock(QSize grid, QPoint wanted, QSize size, const QList<QPoint> &taken);
 // Where icons dragged together land, `offset` cells from `cells`, where they are: each in the cell
 // it is dragged to while that is on the grid and none of `others` (the icons left where they are)
 // or of those of `cells` before it has it, else the free cell nearest it. The first of `cells`

@@ -5,7 +5,8 @@ import QtQuick.Layouts
 
 // One row of a PopupMenu, drawn from its entry (`modelData`, see PopupMenu.qml): a separator, a
 // section header, the menu's title (a large icon, the name, and a line under it), or an entry with
-// its check mark, radio dot or icon, its label, its secondary text and, for a submenu, a chevron. `highlighted` is the row the pointer or the keyboard is at,
+// its check mark, radio dot or icon, its label, its secondary text and, for a submenu, a chevron;
+// or a row of colours to pick from (`swatches`). `highlighted` is the row the pointer or the keyboard is at,
 // `expanded` the one whose submenu is open; a disabled row is greyed out and cannot be chosen, and
 // a destructive one (`danger`) is in the danger colour.
 AbstractButton {
@@ -28,6 +29,22 @@ AbstractButton {
     readonly property string toggle: modelData.toggle === "checkmark" ? "check" : (modelData.toggle || "")
     readonly property bool marked: modelData.checked === true
     readonly property bool danger: modelData.danger === true
+    // A row of colours, each {color, ink, name, checked}: the one the pointer or the keys are at
+    // (`swatch`) grows, ringed, and choosing the row picks it; the one checked holds a check mark.
+    readonly property bool swatchRow: !separator && !!modelData.swatches
+    property int swatch: -1
+    readonly property int checkedSwatch: swatchRow ? Math.max(0, modelData.swatches.findIndex(s => s.checked === true)) : -1
+    function stepSwatch(step) {
+        swatch = swatch < 0 ? checkedSwatch : Math.max(0, Math.min(modelData.swatches.length - 1, swatch + step))
+    }
+    onHighlightedChanged: if (highlighted && swatchRow && swatch < 0) swatch = checkedSwatch
+    // The swatch at `x` along the row, the nearest; a press picks it.
+    function swatchAt(x) {
+        const step = 22 + Theme.spacingM
+        return Math.max(0, Math.min(modelData.swatches.length - 1,
+                                    Math.floor((x - leftPadding - labelStart + Theme.spacingM / 2) / step)))
+    }
+    onPressed: if (swatchRow) swatch = swatchAt(pressX)
     // Whether it can be chosen: drawn from the entry, so that a menu fading out, which takes no
     // input, does not grey its rows.
     readonly property bool available: !separator && !header && !title && modelData.enabled !== false
@@ -52,7 +69,7 @@ AbstractButton {
 
     background: Rectangle {
         radius: Theme.menuRowRadius
-        color: !row.available ? "transparent"
+        color: !row.available || row.swatchRow ? "transparent"
                : row.pressed ? Theme.menuPressed
                : row.highlighted || row.expanded ? Theme.menuHighlight : "transparent"
         Rectangle {
@@ -109,9 +126,54 @@ AbstractButton {
                 }
             }
         }
+        Row {
+            visible: row.swatchRow
+            x: row.labelStart
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Theme.spacingM
+            Repeater {
+                model: row.swatchRow ? row.modelData.swatches : []
+                delegate: Rectangle {
+                    id: swatch
+                    required property var modelData
+                    required property int index
+                    objectName: "menuSwatch:" + (modelData.name || index)
+                    readonly property bool lit: row.swatch === index && (row.highlighted || row.hovered)
+                    width: 22
+                    height: 22
+                    radius: 11
+                    color: modelData.color
+                    border.width: 1
+                    border.color: Theme.alpha(Theme.text, 0.2)
+                    scale: lit ? 1.15 : 1
+                    Behavior on scale { NumberAnimation { duration: Theme.durationFast; easing.type: Easing.OutBack } }
+                    Accessible.role: Accessible.RadioButton
+                    Accessible.name: modelData.name || ""
+                    Accessible.checkable: true
+                    Accessible.checked: modelData.checked === true
+                    Rectangle {
+                        visible: swatch.lit
+                        anchors.fill: parent
+                        anchors.margins: -3
+                        radius: width / 2
+                        color: "transparent"
+                        border.width: 1.5
+                        border.color: Theme.accent
+                    }
+                    Icon {
+                        visible: swatch.modelData.checked === true
+                        anchors.centerIn: parent
+                        name: "check"
+                        size: 13
+                        color: swatch.modelData.ink || Theme.text
+                    }
+                    HoverHandler { onHoveredChanged: if (hovered) row.swatch = swatch.index }
+                }
+            }
+        }
         RowLayout {
             anchors.fill: parent
-            visible: !row.separator && !row.title
+            visible: !row.separator && !row.title && !row.swatchRow
             spacing: Theme.menuIconGap
             // A check mark, a radio button's dot, or the entry's icon: a line icon Icon knows, else
             // a theme icon's name or an image's URL.
