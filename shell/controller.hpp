@@ -609,6 +609,10 @@ class ShellController : public QObject {
     QVariantList xraySheets() const { return xray_.sheets; }
     int xrayHovered() const { return xray_.hovered; }
     Q_INVOKABLE bool launch(const QString &id);
+    // Starts the program `command` (its words) in the home folder, with the environment of a
+    // configured launcher's, detached from the shell; a failure shows across the panel as one of
+    // `name`'s.
+    bool startProgram(const QStringList &command, const QString &name);
     bool trashFull() const { return trashFull_; }
     // Opens the trash in the file manager, as `gio open trash:///` does, or its folder where
     // nothing opens trash:///; a failure shows across the panel.

@@ -890,18 +890,23 @@ bool ShellController::launch(const QString &id) {
         startMenu_.record(id);
         return true;
     }
+    QStringList command;
+    for (const auto &word : it->command)
+        command << QString::fromStdString(word);
+    return startProgram(command, it->name);
+}
+bool ShellController::startProgram(const QStringList &command, const QString &name) {
+    if (command.isEmpty())
+        return false;
     QProcess process;
     auto env = QProcessEnvironment::systemEnvironment();
     env.remove("QT_WAYLAND_SHELL_INTEGRATION");
     process.setProcessEnvironment(env);
     process.setWorkingDirectory(QDir::homePath());
-    process.setProgram(QString::fromStdString(it->command.front()));
-    QStringList arguments;
-    for (size_t i = 1; i < it->command.size(); ++i)
-        arguments << QString::fromStdString(it->command[i]);
-    process.setArguments(arguments);
+    process.setProgram(command.front());
+    process.setArguments(command.mid(1));
     if (!process.startDetached()) {
-        report("Could not launch " + it->name + ": " + process.errorString());
+        report("Could not launch " + name + ": " + process.errorString());
         return false;
     }
     clearError();
