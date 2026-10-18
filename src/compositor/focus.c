@@ -240,6 +240,52 @@ void activation_requested(struct sh_toplevel *toplevel) {
     }
 }
 
+/* A program a binding or `spawn` starts may hand off to an instance of it already running, as a
+ * second `discord` or `steam` does, and that instance asks to be activated rather than opening a
+ * window. Started from an empty workspace, its window comes there, as a new one would have opened
+ * there: note_launch keeps where (the output under the pointer, where new windows open, and the
+ * workspace it shows) and when, and bring_to_launch moves the first window that asks within
+ * LAUNCH_HANDOFF_MS while that workspace still shows and holds no window. */
+enum { LAUNCH_HANDOFF_MS = 5000 };
+
+void note_launch(struct sh_server *server) {
+    struct wlr_output *output = pointer_output(server);
+    server->launch.at = output ? now_ms() : 0;
+    if (!output)
+        return;
+    snprintf(server->launch.output, sizeof(server->launch.output), "%s", output->name);
+    server->launch.workspace = *output_workspace(server, output->name);
+}
+
+/* Whether `output` shows no window. */
+static bool output_bare(struct sh_server *server, struct wlr_output *output) {
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &server->toplevels, link) {
+        if (!toplevel->unmanaged && toplevel_mapped(toplevel) && toplevel_visible(toplevel) &&
+            !strcmp(toplevel->output, output->name))
+            return false;
+    }
+    return true;
+}
+
+/* A client asks to activate `toplevel` (xdg-activation, _NET_ACTIVE_WINDOW): brought to the
+ * empty workspace a program was just started from, and focused, unless windows.activation
+ * ignores requests. True if it was; else the request is the policy's (activation_requested). */
+bool bring_to_launch(struct sh_toplevel *toplevel) {
+    struct sh_server *server = toplevel->server;
+    struct wlr_output *output = find_output(server, server->launch.output);
+    if (!server->launch.at || now_ms() - server->launch.at > LAUNCH_HANDOFF_MS || !output ||
+        server->locked || !toplevel_can_be_urgent(toplevel) || toplevel->sticky ||
+        toplevel->scratchpad || server_settings(server)->activation == SH_ACTIVATION_IGNORE ||
+        *output_workspace(server, output->name) != server->launch.workspace ||
+        !output_bare(server, output))
+        return false;
+    server->launch.at = 0; // one window answers a launch
+    bring_toplevel(toplevel, output);
+    focus_toplevel(toplevel);
+    return true;
+}
+
 /* The window that has been urgent the longest, or NULL. */
 static struct sh_toplevel *oldest_urgent(struct sh_server *server) {
     struct sh_toplevel *toplevel, *oldest = NULL;
@@ -573,11 +619,12 @@ static struct sh_toplevel *toplevel_for_surface(struct sh_server *server,
 /* xdg-activation: an application asks to be raised, e.g. a browser opening a link from chat.
  * wlroots expires and validates tokens. Tokens made without an input serial are honoured too:
  * a browser handed a link by another process often has nothing better. What the window then
- * gets depends on windows.activation. */
+ * gets depends on windows.activation, unless a program just started hands off to it
+ * (bring_to_launch). */
 void request_activate(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, request_activate);
     struct wlr_xdg_activation_v1_request_activate_event *event = data;
     struct sh_toplevel *toplevel = toplevel_for_surface(server, event->surface);
-    if (toplevel)
+    if (toplevel && !bring_to_launch(toplevel))
         activation_requested(toplevel);
 }
