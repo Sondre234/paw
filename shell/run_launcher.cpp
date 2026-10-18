@@ -134,9 +134,13 @@ std::vector<run_search::Row> RunLauncher::apps() const {
     return rows;
 }
 
+QAbstractItemModel *RunLauncher::windowSource() const {
+    return windows_ ? windows_.data() : controller_.tasks();
+}
+
 QList<run_search::Window> RunLauncher::windows() const {
     QList<run_search::Window> list;
-    auto *tasks = controller_.tasks();
+    auto *tasks = windowSource();
     // By the roles' names, as the palette reads them.
     const auto roles = tasks->roleNames();
     auto value = [&](int row, const QByteArray &role) {
@@ -226,7 +230,7 @@ void RunLauncher::toggle(const QString &output) {
     programsChecked_ = false;
     // The window focused now, before the launcher takes the keyboard from it.
     focused_ = -1;
-    auto *tasks = controller_.tasks();
+    auto *tasks = windowSource();
     const auto roles = tasks->roleNames();
     for (int row = 0; row < tasks->rowCount(); ++row)
         if (tasks->data(tasks->index(row, 0), roles.key("active", -1)).toBool())
@@ -268,8 +272,13 @@ bool RunLauncher::activate(int index) {
     close(); // the keyboard goes back before what was chosen takes it
     if (kind == "app")
         controller_.launch(target);
-    else if (kind == "window" && !current) // the focused one would minimize
-        controller_.tasks()->activate(target.toInt());
+    else if (kind == "window" && !current) { // the focused one would minimize
+        auto *source = windowSource();
+        if (source == controller_.tasks())
+            controller_.tasks()->activate(target.toInt());
+        else if (source->metaObject()->indexOfMethod("activate(QVariant)") >= 0)
+            QMetaObject::invokeMethod(source, "activate", Q_ARG(QVariant, target.toInt()));
+    }
     else if (kind == "folder" || kind == "file")
         controller_.openFile(target);
     else if (kind == "url")

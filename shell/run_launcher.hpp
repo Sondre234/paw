@@ -6,8 +6,10 @@
 #include <QDateTime>
 #include <QHash>
 #include <QObject>
+#include <QPointer>
 #include <QStringList>
 
+class QAbstractItemModel;
 class ShellController;
 
 // The rows the run launcher lists, kept in place as they change (RowModel): a row still there as
@@ -87,6 +89,10 @@ class RunLauncher : public QObject {
     // For a preview: these commands as run before and these programs on $PATH instead, kept only
     // in memory from now on, so that nothing the preview does is saved.
     void preview(const QList<LaunchHistory::Entry> &history, const QStringList &programs);
+    // The windows its Windows mode lists, a model with TaskModel's roles: the controller's
+    // TaskModel, unless a stand-in is given (a preview's, a test's), whose activate(id) choosing
+    // one calls as it calls TaskModel's.
+    void setWindows(QAbstractItemModel *windows) { windows_ = windows; }
     // The commands run, the most recent first.
     const LaunchHistory &history() const { return history_; }
   Q_SIGNALS:
@@ -107,6 +113,8 @@ class RunLauncher : public QObject {
     int focused_ = -1;
     RunResults results_;
     LaunchHistory history_;
+    QPointer<QAbstractItemModel> windows_;
+    QAbstractItemModel *windowSource() const;
     bool previewOnly_ = false;
     // The programs on $PATH, read again as it opens once a folder of $PATH changed, and the
     // folders and the times they changed as they were read.
