@@ -60,6 +60,22 @@ QList<QPoint> arrange(const QStringList &keys, const QHash<QString, QPoint> &sav
     return cells;
 }
 
+QList<QPoint> flow(QSize grid, QPoint from, int count, const QList<QPoint> &taken) {
+    QList<QPoint> busy = taken, cells;
+    const QSet<QPoint> held(taken.begin(), taken.end());
+    for (int column = std::max(0, from.x()); column < grid.width() && cells.size() < count; ++column)
+        for (int row = std::max(0, from.y()); row < grid.height() && cells.size() < count; ++row)
+            if (!held.contains(QPoint(column, row))) {
+                cells.push_back(QPoint(column, row));
+                busy.push_back(cells.back());
+            }
+    while (cells.size() < count) {
+        cells.push_back(nearestFree(grid, from, busy));
+        busy.push_back(cells.back());
+    }
+    return cells;
+}
+
 QList<QPoint> drop(const QList<QPoint> &cells, QPoint offset, const QList<QPoint> &others, QSize grid) {
     QList<QPoint> taken = others, landed;
     for (const auto &cell : cells) {
