@@ -215,6 +215,44 @@ int DesktopIcons::trash(const QStringList &keys) {
     return moved;
 }
 
+QString DesktopIcons::rename(const QString &key, const QString &name) {
+    const int i = indexOf(key);
+    if (i < 0 || (entries_[i].kind != "file" && entries_[i].kind != "folder"))
+        return {};
+    const QString old = entries_[i].name;
+    if (name == old)
+        return key;
+    const QFileInfo target(QFileInfo(entries_[i].path).dir().filePath(name));
+    QString why;
+    if (name.isEmpty())
+        why = "a name cannot be empty";
+    else if (name.contains('/'))
+        why = "a name cannot have a / in it";
+    else if (name == "." || name == "..")
+        why = name + " is not a name a file can have";
+    // Only its letters' case changed, it may be the same file there (QFile tells).
+    else if ((target.exists() || target.isSymLink()) && name.compare(old, Qt::CaseInsensitive) != 0)
+        why = "there is something called " + name + " already";
+    QFile file(entries_[i].path);
+    if (why.isEmpty() && !file.rename(target.filePath()))
+        why = file.errorString();
+    if (!why.isEmpty()) {
+        Q_EMIT failed("Could not rename " + old + ": " + why);
+        return {};
+    }
+    // It stays where it is, under its new key, without waiting for the folder to be read again.
+    auto entry = fileEntry(QFileInfo(target.filePath()));
+    entry.cell = entries_[i].cell;
+    if (cells_.contains(key))
+        cells_.insert(entry.key, cells_.take(key));
+    if (const auto at = order_.indexOf(key); at >= 0)
+        order_[at] = entry.key;
+    entries_[i] = entry;
+    Q_EMIT dataChanged(index(i), index(i));
+    save();
+    return entry.key;
+}
+
 bool DesktopIcons::openFolder() {
     if (!QDir().mkpath(settings_.folder)) {
         Q_EMIT failed("Could not make the desktop folder " + settings_.folder);

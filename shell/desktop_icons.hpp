@@ -79,6 +79,11 @@ class DesktopIcons : public QAbstractListModel {
     Q_INVOKABLE void copy(const QStringList &keys);
     // Moves the files of `keys` to the trash; how many went.
     Q_INVOKABLE int trash(const QStringList &keys);
+    // Renames the file or folder of `key` to `name`, in the desktop folder; its icon keeps its cell
+    // under its new key, which it returns. "" with `failed` when the name is empty, has a / in it,
+    // is . or .., or is another file's there, or the file could not be renamed; "" alone for a
+    // launcher or a desktop entry, whose name is not its file's.
+    Q_INVOKABLE QString rename(const QString &key, const QString &name);
     // Opens the folder in the file manager, making it first where it is missing.
     Q_INVOKABLE bool openFolder();
     // Reads the folder now rather than once its changes settle.
