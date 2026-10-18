@@ -890,6 +890,28 @@ int main(int argc, char **argv) {
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
     }
+    // The bar's icons grow with it (shell.panel_height): an application's, 26 pixels on a bar of
+    // 52 and 41 on one of 76, its button widening to hold it, and the start button's squares.
+    {
+        auto *launcher = find(view.rootObject(), "pinned:pinned:0");
+        auto *icon = launcher ? find(launcher, "taskIcon") : nullptr;
+        auto *squares = find(view.rootObject(), "startSquares");
+        if (!icon || !squares)
+            return fail("no icons on the bar to measure");
+        const qreal buttonWidth = launcher->width(), squaresWidth = squares->width();
+        if (icon->width() != 26)
+            return fail("an application's icon on the bar is not 26 pixels on a bar of 52");
+        if (!reconfigure(QString(lua).replace("shell={", "shell={panel_height=76,")))
+            return fail("could not rewrite the configuration");
+        if (!waitFor([&] {
+                return icon->width() == 41 && launcher->width() > buttonWidth && squares->width() > squaresWidth;
+            }))
+            return fail("the bar's icons did not grow with it");
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+        if (!waitFor([&] { return icon->width() == 26 && launcher->width() == buttonWidth; }))
+            return fail("the bar's icons did not shrink back with it");
+    }
     // appearance.icon_theme: icons come from its theme at once, those the shell has drawn
     // already too, by a URL of their own (shell.iconBase), as do the icons guessed for windows
     // and the tray's; a theme that is not installed is skipped, and without one the theme the
