@@ -9,10 +9,10 @@ import QtQuick
 // stack; let go, they glide into their new cells. A drag the compositor carries leaves it in its
 // cell, faded (`lifted`), until it comes out of the stack where it was let go. A folder with a drag
 // over it opens up, ringed in the second hue, wiggling, and gulps down what is dropped on it. While
-// its file is still being copied in, a glow in the band's two hues breathes behind it. It comes and goes in a ripple as the grid's
-// icons are shown and hidden, and a new file pops in. Renamed, its chip pops into a field on the
-// surface's colour, rimmed in the band's two hues, with a pencil on its corner, the name selected
-// but for its extension; a name refused shakes it.
+// its file is still being copied in, a glow in the band's two hues breathes behind it. It comes and
+// goes in a ripple as the grid's icons are shown and hidden, and a new file pops in. Renamed, its
+// chip pops into a field on the surface's colour, rimmed in the band's two hues, with a pencil on
+// its corner, the name selected but for its extension; a name refused shakes it.
 Item {
     id: tile
     // The grid it is on (DesktopIconGrid).

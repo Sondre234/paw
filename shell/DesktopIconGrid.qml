@@ -21,8 +21,8 @@ import QtQuick.Shapes
 // of the desktop's own icons or another application's files, opens it up instead, and dropped there
 // the files go into the folder, which gulps them down. Another application's drag has a bubble by
 // the pointer in the band's two hues, counting what it brings, with a plus to copy, arrows to move,
-// or an open folder over a folder's icon; dropped, a puff of sparkles marks each cell the files land
-// in. Shown and hidden from the desktop's menu, the icons ripple out from where it was opened.
+// or an open folder over a folder's icon; dropped, a puff of sparkles marks each cell the files
+// land in. Shown and hidden from the desktop's menu, the icons ripple out from where it was opened.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -941,8 +941,9 @@ FocusScope {
         }
     }
 
-    // What another application's drag brings, by the pointer: how many, and what dropping them does.
-    // It pops in as the drag comes, and hops as that changes, a sparkle twinkling on its corner.
+    // What another application's drag brings, by the pointer: how many, and what dropping them
+    // does. It pops in as the drag comes, and hops as that changes, a sparkle twinkling on its
+    // corner.
     Item {
         id: arrival
         objectName: "desktopIncoming"
