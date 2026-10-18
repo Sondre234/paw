@@ -567,6 +567,8 @@ if(BUILD_TESTING)
             "${GRIM_ARGUMENT}")
         paw_smoke(workspace_card_smoke SLOW TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe> "${GRIM_ARGUMENT}")
+        paw_smoke(desktop_dnd_shell_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
+            $<TARGET_FILE:wayland_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(taskbar_drag_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
             $<TARGET_FILE:wayland_probe> $<TARGET_FILE:window_probe> $<TARGET_FILE:pointer_probe>)
         paw_smoke(taskbar_keyboard_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:paw-shell>
