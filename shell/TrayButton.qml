@@ -16,6 +16,9 @@ FlatButton {
     required property bool hasMenu
     // The panel it is on, which opens its menu.
     required property Item panel
+    // How large its icon is: as the taskbar's line icons, or on the macOS style's menu bar as its
+    // own.
+    property int iconSize: Theme.macos ? Theme.menuBarIconSize : Theme.barIconSize
     objectName: "trayItem"
     visible: status !== "Passive"
     width: panel.vertical ? panel.barItemWidth : Theme.barButtonWidth - Theme.spacingM
@@ -28,8 +31,7 @@ FlatButton {
     contentItem: Item {
         Image {
             objectName: "trayIcon"
-            readonly property int size: Theme.macos ? Theme.menuBarIconSize
-                                        : Math.max(Theme.spacingL, Math.min(Theme.iconSize, Theme.barButtonHeight - 2 * Theme.spacingM))
+            readonly property int size: trayButton.iconSize
             anchors.centerIn: parent
             width: size; height: size
             source: trayButton.image; sourceSize: Qt.size(size, size)
