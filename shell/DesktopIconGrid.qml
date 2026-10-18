@@ -26,7 +26,8 @@ import QtQuick.Shapes
 // Moved to the Trash, they shrink away, and a notice at the foot of the desktop (DesktopToast)
 // says what went, with Undo, which pops them back into the cells they left in a ripple from it,
 // each with a puff of sparkles. Sticky notes (DesktopNote, the model shell.desktopNotes) lie on the
-// same grid, each over a block of cells the icons go around.
+// same grid, each over a block of cells the icons go around; one dragged follows the pointer while
+// a dashed pad shows the block it will land in.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
 // icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
@@ -661,6 +662,39 @@ FocusScope {
         return Theme.duration(300 + 45 * Math.min(dragKeys.indexOf(tile.key) + 1, 8))
     }
 
+    // A note dragged: its key, its cell and where it was drawn as the pointer went down, where the
+    // pointer was then and is now, and the block it would land in ({column, row}, null for none).
+    property string noteDrag: ""
+    property point noteStart
+    property point noteHome
+    property point noteFrom
+    property point notePointer
+    property var noteLanding: null
+    readonly property real noteDragX: noteHome.x + notePointer.x - noteFrom.x
+    readonly property real noteDragY: noteHome.y + notePointer.y - noteFrom.y
+    readonly property int noteColumns: Math.round((noteDragX - area.x - margin) / cellWidth) - noteStart.x
+    readonly property int noteRows: Math.round((noteDragY - area.y - margin) / cellHeight) - noteStart.y
+    onNoteColumnsChanged: updateNoteLanding()
+    onNoteRowsChanged: updateNoteLanding()
+    function updateNoteLanding() {
+        noteLanding = noteDrag !== "" ? notes.landing(noteDrag, noteColumns, noteRows) : null
+    }
+    function beginNoteDrag(note, at) {
+        noteStart = Qt.point(note.column, note.row)
+        noteHome = Qt.point(cellX(note.column), cellY(note.row))
+        noteFrom = notePointer = at
+        noteDrag = note.key
+        updateNoteLanding()
+    }
+    function noteDragTo(at) { notePointer = at }
+    // Let go, it glides into the block the pad shows; cancelled, back into its own.
+    function endNoteDrag(cancelled) {
+        if (!cancelled)
+            notes.move(noteDrag, noteColumns, noteRows)
+        noteDrag = ""
+        noteLanding = null
+    }
+
     // The band a drag across the desktop draws, from where it started to the pointer.
     property bool banding: false
     property point bandFrom
@@ -876,6 +910,29 @@ FocusScope {
                 fillColor: Theme.alpha(Theme.accent, 0.12)
                 PathRectangle { width: pad.width; height: pad.height; radius: Theme.radiusLarge }
             }
+        }
+    }
+
+    // The block a dragged note will land in.
+    Shape {
+        id: notePad
+        objectName: "desktopNoteLanding"
+        readonly property var block: grid.noteLanding
+        visible: block !== null
+        x: block ? grid.cellX(block.column) + Theme.spacingXS : 0
+        y: block ? grid.cellY(block.row) + Theme.spacingXS : 0
+        width: grid.cellWidth * grid.notes.columns - 2 * Theme.spacingXS
+        height: grid.cellHeight * grid.notes.rows - 2 * Theme.spacingXS
+        Behavior on x { enabled: notePad.visible; NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack } }
+        Behavior on y { enabled: notePad.visible; NumberAnimation { duration: Theme.durationNormal; easing.type: Easing.OutBack } }
+        preferredRendererType: Shape.CurveRenderer
+        ShapePath {
+            strokeColor: Theme.alpha(Theme.accent, 0.85)
+            strokeWidth: 1.5
+            strokeStyle: ShapePath.DashLine
+            dashPattern: [3, 3]
+            fillColor: Theme.alpha(Theme.accent, 0.12)
+            PathRectangle { width: notePad.width; height: notePad.height; radius: Theme.radiusLarge }
         }
     }
 

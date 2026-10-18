@@ -10,7 +10,8 @@ import QtQuick.Shapes
 // with "[ ]" or "- [ ]" is a checklist's, its box ticked or cleared by a click, its text struck
 // through once ticked; the first of several lines is its title. A click writes on it: it lies
 // straight and lifts, its text plain in a field (`editing`), saying near the end how many more
-// characters it holds. Hovered, it lifts a little and its doodle wiggles. It comes and goes in
+// characters it holds. Dragged, it swings further askew under the pointer, and let go it glides
+// into the block of cells the board's pad showed. Hovered, it lifts a little and its doodle wiggles. It comes and goes in
 // the icons' ripple, and pops in as it is made.
 Item {
     id: note
@@ -43,7 +44,9 @@ Item {
     readonly property color ink: Theme.noteInk(color)
     // How askew it is set, and where its tape is stuck, by its number.
     readonly property real tilt: [-2.2, 1.6, -1.1, 2.4, -1.7, 1.2][noteId % 6]
-    readonly property bool hovered: hover.hovered && !board.dragging && !board.banding && !editing
+    readonly property bool hovered: hover.hovered && !board.dragging && !board.banding && !editing && board.noteDrag === ""
+    // Whether it follows the pointer, dragged (DesktopIconGrid.noteDrag).
+    readonly property bool dragged: board.noteDrag === key
     // Whether its text is being typed (DesktopIconGrid.editingNote).
     readonly property bool editing: board.editingNote === key
     // Whether it has been in a cell: from there on it glides to new ones.
@@ -55,11 +58,11 @@ Item {
     width: board.cellWidth * spanColumns
     height: board.cellHeight * spanRows
     visible: placed && reveal > 0.001
-    z: editing ? 5 : hovered ? 2 : 0
-    x: board.cellX(column)
-    y: board.cellY(row)
-    Behavior on x { enabled: note.landed; NumberAnimation { duration: Theme.duration(380); easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
-    Behavior on y { enabled: note.landed; NumberAnimation { duration: Theme.duration(380); easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
+    z: dragged ? 110 : editing ? 5 : hovered ? 2 : 0
+    x: dragged ? board.noteDragX : board.cellX(column)
+    y: dragged ? board.noteDragY : board.cellY(row)
+    Behavior on x { enabled: note.landed && !note.dragged; NumberAnimation { duration: Theme.duration(380); easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
+    Behavior on y { enabled: note.landed && !note.dragged; NumberAnimation { duration: Theme.duration(380); easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
 
     HoverHandler { id: hover }
 
@@ -99,25 +102,58 @@ Item {
         width: note.width - 2 * Theme.spacingM
         height: note.height - y - Theme.spacingM - 2
         opacity: Math.min(1, note.reveal)
-        scale: (0.6 + 0.4 * note.reveal) * (note.editing ? 1.02 : note.hovered ? 1.015 : 1)
-        // Written on, it lies straight.
-        rotation: note.editing ? 0 : note.hovered ? note.tilt * 0.5 : note.tilt
+        scale: (0.6 + 0.4 * note.reveal) * (note.dragged ? 1.05 : note.editing ? 1.02 : note.hovered ? 1.015 : 1)
+        // Written on, it lies straight; picked up, it swings further askew.
+        rotation: note.dragged ? note.tilt * 2 + (note.tilt < 0 ? -2 : 2)
+                : note.editing ? 0 : note.hovered ? note.tilt * 0.5 : note.tilt
         Behavior on rotation { NumberAnimation { duration: Theme.durationSlow; easing.type: Easing.OutBack } }
         Behavior on scale { enabled: note.reveal === 1; NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
         antialiasing: true
 
-        // A click writes on it, the caret where it was; a right press opens its menu. Under what
-        // it holds, which takes its own presses (a box, the field), and over its tape too.
+        // A click writes on it, the caret where it was; a right press opens its menu; dragged, by
+        // the paper or by its tape while it is written on, it moves. Under what it holds, which
+        // takes its own presses (a box, the field), and over its tape too.
         MouseArea {
             id: pointer
             anchors.fill: parent
             anchors.topMargin: -12
             enabled: note.board.shown
             acceptedButtons: Qt.LeftButton | Qt.RightButton
-            onPressed: function(mouse) { note.board.notePressed(note.key) }
-            onClicked: function(mouse) {
-                if (mouse.button === Qt.LeftButton && !note.editing)
+            // Where the left button went down, in the board's coordinates, and whether it has
+            // moved far enough since to drag.
+            property point pressedAt
+            property bool armed: false
+            property bool moved: false
+            onPressed: function(mouse) {
+                note.board.notePressed(note.key)
+                armed = mouse.button === Qt.LeftButton
+                moved = false
+                pressedAt = mapToItem(note.board, mouse.x, mouse.y)
+            }
+            onPositionChanged: function(mouse) {
+                if (!armed || !(pressedButtons & Qt.LeftButton))
+                    return
+                const at = mapToItem(note.board, mouse.x, mouse.y)
+                if (!moved && Math.hypot(at.x - pressedAt.x, at.y - pressedAt.y) >= Qt.styleHints.startDragDistance) {
+                    moved = true
+                    note.board.beginNoteDrag(note, pressedAt)
+                }
+                if (moved)
+                    note.board.noteDragTo(at)
+            }
+            onReleased: function(mouse) {
+                if (mouse.button !== Qt.LeftButton)
+                    return
+                if (moved)
+                    note.board.endNoteDrag(false)
+                else if (armed && !note.editing)
                     note.board.startEditing(note.key, mapToItem(page, mouse.x, mouse.y))
+                moved = armed = false
+            }
+            onCanceled: {
+                if (moved)
+                    note.board.endNoteDrag(true)
+                moved = armed = false
             }
         }
 
@@ -127,8 +163,8 @@ Item {
             active: Theme.effects
             sourceComponent: Shadow {
                 radius: paper.radius
-                blur: note.hovered || note.editing ? 18 : 12
-                offset: Qt.vector2d(0, note.hovered || note.editing ? 8 : 5)
+                blur: note.dragged ? 28 : note.hovered || note.editing ? 18 : 12
+                offset: Qt.vector2d(0, note.dragged ? 14 : note.hovered || note.editing ? 8 : 5)
                 color: Qt.rgba(0, 0, 0, Theme.light ? 0.2 : 0.5)
                 Behavior on blur { NumberAnimation { duration: Theme.durationNormal } }
             }
