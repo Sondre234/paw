@@ -209,6 +209,18 @@ class DesktopIconsTest : public QObject {
         QCOMPARE(icons.count(), 0);
         QVERIFY(!icons.shown());
     }
+    void dragsFilesOut() {
+        auto icons = made();
+        QSignalSpy ended(icons.get(), &DesktopIcons::dragEnded);
+        QImage picture(12, 12, QImage::Format_ARGB32_Premultiplied);
+        picture.fill(Qt::magenta);
+        // A launcher alone is no file to hand over.
+        QVERIFY(!icons->drag({"launcher:Terminal", "file:nothing"}, picture, QPointF(6, 6), 2));
+        QVERIFY(icons->drag({"launcher:Terminal", "file:a2.txt"}, picture, QPointF(6, 6), 2));
+        // Without a display that takes drags it is over at once, nothing taking it.
+        QTRY_COMPARE(ended.count(), 1);
+        QCOMPARE(ended[0][0].toInt(), int(Qt::IgnoreAction));
+    }
     void copiesAndTrashesFiles() {
         auto icons = made();
         icons->copy({"file:a2.txt", "launcher:Terminal", "file:b.txt"});
