@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Drag and drop with a real button press, driven by a virtual pointer (pointer_probe): one
-window probe drags a line of text from its window, another takes it. A window activated while the
-drag lasts, through the taskbar protocol as the shell brings one forward under a drag resting on
-its button, comes forward at once: restored onto the workspace shown if minimized, else with its
-workspace shown. Once the drag ends it has the keyboard, which the drag held, and the pointer is on
+window probe drags a line of text from its window, another takes it, the drag over nothing off it
+and over the bare desktop. A window activated while the drag lasts, through the taskbar protocol
+as the shell brings one forward under a drag resting on its button, comes forward at once:
+restored onto the workspace shown if minimized, else with its workspace shown. Once the drag ends it has the keyboard, which the drag held, and the pointer is on
 what lies under it at once rather than once it next moves. Dropped where nothing takes it, the drag
 is cancelled. A drag of nothing (no data source, as within one window) that the compositor turns
 down leaves the seat as it was, and is let go (under the sanitizers, the compositor's clean exit
@@ -84,6 +84,14 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     pointer("move", *map(str, windows()["Target"][4]))
     desktop.wait_for(lambda: seat().get("drag") == ("window", "Target"), "the drag over Target")
     desktop.wait_for(lambda: "drag target text/plain" in log("source"), "Target taking the drag")
+    # Off it over the bare desktop, it is over nothing, where letting go would drop it nowhere;
+    # back on it, it is Target's again.
+    taken = log("source").count("drag target text/plain")
+    pointer("move", "1000", "600")
+    desktop.wait_for(lambda: seat().get("drag") == ("-", "-"), "the drag off Target over the bare desktop")
+    pointer("move", *map(str, windows()["Target"][4]))
+    desktop.wait_for(lambda: seat().get("drag") == ("window", "Target") and
+                     log("source").count("drag target text/plain") > taken, "the drag back over Target")
     assert seat()["keyboard"] == ("window", "Source"), "the keyboard left Source during the drag"
     pointer("release", "left")
     desktop.wait_for(lambda: "drop received paw drag" in log("target"), "the text dropped")
