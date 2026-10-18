@@ -7863,6 +7863,26 @@ ListModel {
         QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
         if (field() || !QFile::exists(desk + "/a.txt") || cellOf("file:a.txt") != aCell)
             return fail("a press beside the desktop icon being renamed did not give it the name typed");
+        // New folder, from the desktop's menu: in the cell under where it was opened, its name
+        // selected to type at once.
+        {
+            QVariant x, y;
+            QMetaObject::invokeMethod(grid, "cellX", Q_RETURN_ARG(QVariant, x), Q_ARG(QVariant, 3));
+            QMetaObject::invokeMethod(grid, "cellY", Q_RETURN_ARG(QVariant, y), Q_ARG(QVariant, 1));
+            const QPoint where(x.toInt() + 10, y.toInt() + 10);
+            QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, where);
+            QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, where);
+            if (!choose("desktopMenu", "New folder") || !QFileInfo(desk + "/New folder").isDir() ||
+                cellOf("file:New folder") != QPoint(3, 1) || !waitFor([&] { return field() && field()->hasActiveFocus(); }) ||
+                field()->property("selectedText") != "New folder")
+                return fail("the desktop's menu did not make a new folder where it was opened, its name to type");
+            typeText("Snaps");
+            press(Qt::Key_Return);
+            if (field() || !QFileInfo(desk + "/Snaps").isDir() || cellOf("file:Snaps") != QPoint(3, 1))
+                return fail("the new folder did not take the name typed");
+            if (!QDir(desk + "/Snaps").removeRecursively() || !waitFor([&] { return !tile("file:Snaps"); }))
+                return fail("the new folder did not go");
+        }
         // Turned off, there are none.
         if (!reconfigure(QString(lua).replace("shell={", "shell={desktop_icons=false,")) ||
             !waitFor([&] { return !tile("file:a.txt"); }))
