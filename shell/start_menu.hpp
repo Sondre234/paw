@@ -76,8 +76,9 @@ class StartMenu : public QObject {
     // What `query` finds, best first, in groups: "best" (the one best match), "apps", "windows"
     // and "actions". `others` are the command palette's entries (Palette::entries), of which the
     // windows, workspaces and actions are searched as the palette searches them. Applications
-    // are found by name, generic name, keywords, desktop id and comment, those launched often a
-    // little ahead. A result is its entry, an application's being its record with `kind` "app",
+    // are found by name, generic name, keywords, desktop id and comment, those whose names the
+    // words start (each a word of the name) ahead of the rest, and those launched often a little
+    // ahead. A result is its entry, an application's being its record with `kind` "app",
     // a `title` and a `subtitle`, with its `group` and `score` added. A calculation's value
     // (calculator::entry) is the best match when there is one. Files (FileIndex::search) come
     // last, as "files", and are the best match only when they match better than the rest; a

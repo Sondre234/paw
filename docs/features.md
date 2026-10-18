@@ -810,7 +810,9 @@ comment, open windows, workspaces and actions as the [command palette](#command-
 Actions and Files, with Search the web last (see [Web search](#web-search)). The best
 match is on a card of its own, with an application's desktop actions ("New Private Window") as
 buttons beside Open; a calculation's value is the best match, with Copy (see
-[Calculator](#calculator)). Among equal matches, what is launched more often comes first; what matches
+[Calculator](#calculator)). An application whose name the words start, each a word of it (`fi`
+for Mozilla Firefox), comes before one they find only in what describes it (Dolphin's File
+Manager), as rofi's drun has them. Among equal matches, what is launched more often comes first; what matches
 far worse than the best match is left out. A search that finds nothing offers the web search as
 its best match, or, without one, says it found nothing, with the prefixes that narrow a search.
 
