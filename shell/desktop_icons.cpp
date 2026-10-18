@@ -39,18 +39,20 @@ constexpr int maxFiles = 512;
 // A picture larger than this shows its type's icon rather than itself.
 constexpr qint64 maxPicture = 32 * 1024 * 1024;
 
-// `name` as the `n`th of its name in a folder, as file managers number a copy: " (n)" before its
-// extension, a file's after its last dot ("notes (2).txt", "backup (2).tar.gz"), a folder's at the
-// end ("Photos (2)"); the first is `name` itself.
+// `name` as the `n`th of its name in a folder, as file managers number a copy: " (n)" before a
+// file's extension, as the type knows it ("backup (2).tar.gz") or else what follows the last dot
+// ("notes.v2 (2).md"), a leading dot being none (".profile (2)"), and at a folder's end
+// ("Photos (2)"); the first is `name` itself.
 QString numbered(const QString &name, int n, bool folder) {
     if (n <= 1)
         return name;
-    qsizetype dot = folder ? -1 : name.lastIndexOf('.');
-    if (dot > 0 && name.left(dot).endsWith(".tar"))
-        dot -= 4;
-    if (dot <= 0) // none, or a hidden file's
-        dot = name.size();
-    return name.left(dot) + " (" + QString::number(n) + ")" + name.mid(dot);
+    QString suffix = folder ? QString() : QMimeDatabase().suffixForFileName(name);
+    if (!folder && suffix.isEmpty() && name.lastIndexOf('.') > 0)
+        suffix = name.sliced(name.lastIndexOf('.') + 1);
+    const auto stem = suffix.isEmpty() || suffix.size() + 1 >= name.size()
+                          ? name
+                          : name.first(name.size() - suffix.size() - 1);
+    return stem + " (" + QString::number(n) + ")" + name.sliced(stem.size());
 }
 
 // Why the last system call failed, in a sentence.
@@ -613,23 +615,11 @@ QString DesktopIcons::trashInfo(const QString &inTrash) {
 
 QString DesktopIcons::freeName(const QString &folder, const QString &name, bool isFolder) {
     const QDir dir(folder);
-    auto taken = [&dir](const QString &name) {
-        const QFileInfo file(dir.filePath(name));
-        return file.exists() || file.isSymLink();
-    };
-    if (!taken(name))
-        return name;
-    // The extension as the type knows it ("tar.gz"), else what follows the last dot; a leading
-    // dot (".profile") is no extension.
-    QString suffix = isFolder ? QString() : QMimeDatabase().suffixForFileName(name);
-    if (!isFolder && suffix.isEmpty() && name.lastIndexOf('.') > 0)
-        suffix = name.sliced(name.lastIndexOf('.') + 1);
-    const auto stem = suffix.isEmpty() || suffix.size() + 1 >= name.size()
-                          ? name : name.first(name.size() - suffix.size() - 1);
-    const auto end = stem == name ? QString() : "." + name.sliced(stem.size() + 1);
-    for (int n = 2;; ++n)
-        if (const auto numbered = QString("%1 (%2)%3").arg(stem, QString::number(n), end); !taken(numbered))
-            return numbered;
+    for (int n = 1;; ++n) {
+        const QFileInfo file(dir.filePath(numbered(name, n, isFolder)));
+        if (!file.exists() && !file.isSymLink())
+            return file.fileName();
+    }
 }
 
 QString DesktopIcons::rename(const QString &key, const QString &name) {
