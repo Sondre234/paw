@@ -86,6 +86,12 @@ Item {
             reveal = board.shown ? 1 : 0
     }
 
+    // Put back from the trash: it pops in again, in the ripple from the board's origin, now that
+    // it is in its cell.
+    function popIn() {
+        reveal = 0
+        revealing.restart()
+    }
     // Opening: a squash and a bounce back.
     function boing() { squash.restart() }
     // Taking in what was dropped on it: a deeper squash.
