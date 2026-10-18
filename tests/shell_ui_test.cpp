@@ -8269,9 +8269,10 @@ ListModel {
             if (!waitFor([&] { return !tile("file:drop.txt") && !tile("file:moved.txt") && !tile("file:cat.png"); }))
                 return fail("the files dropped on the desktop did not go");
         }
-        // Sticky notes. A click writes on one, the text plain in a field: Enter is a new line,
-        // Escape lets it go, and the text is kept; a click on a checklist's box ticks it, and a press
-        // beside the note lets its field go too. It holds no more than its most.
+        // Sticky notes, made from the desktop's menu. A click writes on one, the text plain in a
+        // field: Enter is a new line, Escape lets it go, and the text is kept; a click on a
+        // checklist's box ticks it, and a press beside the note lets its field go too. It holds no
+        // more than its most.
         {
             auto *notes = controller.desktopNotes();
             auto note = [&](const QString &key) { return find(root, "desktopNote:" + key); };
@@ -8286,6 +8287,35 @@ ListModel {
                 QFile state(screens.filePath("state/paw/desktop-notes"));
                 return state.open(QIODevice::ReadOnly) && state.readAll().contains(text);
             };
+            // New note, from the desktop's menu: in the cell under where it was opened, written on
+            // at once; let go empty, it goes.
+            auto menuAtCell = [&](int column, int row) {
+                QVariant x, y;
+                QMetaObject::invokeMethod(grid, "cellX", Q_RETURN_ARG(QVariant, x), Q_ARG(QVariant, column));
+                QMetaObject::invokeMethod(grid, "cellY", Q_RETURN_ARG(QVariant, y), Q_ARG(QVariant, row));
+                const QPoint where(x.toInt() + 10, y.toInt() + 10);
+                QTest::mousePress(&desktop, Qt::RightButton, Qt::NoModifier, where);
+                QTest::mouseRelease(&desktop, Qt::RightButton, Qt::NoModifier, where);
+            };
+            auto firstKey = [&] { return notes->data(notes->index(0), DesktopNotes::KeyRole).toString(); };
+            menuAtCell(4, 1);
+            if (!choose("desktopMenu", "New note") || notes->count() != 1 ||
+                !waitFor([&] { return field() && field()->hasActiveFocus(); }))
+                return fail("the desktop's menu did not make a new note to write on");
+            const auto made = firstKey();
+            if (!note(made) || note(made)->property("column").toInt() != 4 || note(made)->property("row").toInt() != 1)
+                return fail("the new note was not in the cell under where the desktop's menu was opened");
+            press(Qt::Key_Escape);
+            if (notes->count() != 0 || !waitFor([&] { return !note(made); }))
+                return fail("a new note let go empty stayed on the desktop");
+            menuAtCell(4, 1);
+            if (!choose("desktopMenu", "New note") || !waitFor([&] { return field() && field()->hasActiveFocus(); }))
+                return fail("the desktop's menu did not make a second new note");
+            typeText("hello");
+            QTest::mouseClick(&desktop, Qt::LeftButton, Qt::NoModifier, empty);
+            if (notes->count() != 1 || noteText(firstKey()) != "hello" || field())
+                return fail("a new note written on did not stay as it was written");
+            notes->remove(firstKey());
             const auto key = notes->add(3, 0);
             if (key.isEmpty() || !waitFor([&] { return note(key) && note(key)->isVisible(); }))
                 return fail("a note made on the desktop did not show");
