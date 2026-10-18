@@ -223,8 +223,9 @@ static void slide_in_workspace(struct sh_server *server, struct wlr_output *outp
     }
 }
 
-/* Switches only `output`. Focus moves along when it was on that output (or nowhere), so paging
- * another monitor from its panel leaves the focused window alone. */
+/* Switches only `output`. Focus moves along when it was on that output (a window there or its
+ * desktop) or nowhere, so paging another monitor from its panel leaves the focused window
+ * alone. */
 void switch_workspace(struct sh_server *server, struct wlr_output *output, int workspace) {
     int count = server_settings(server)->workspaces;
     if (!output || workspace < 0 || workspace >= count ||
@@ -232,8 +233,7 @@ void switch_workspace(struct sh_server *server, struct wlr_output *output, int w
         return;
     end_grab_on(server, output);
     bool carried = carry_grabbed(server, output, workspace);
-    struct sh_toplevel *focused = server->focused_toplevel;
-    bool refocus = !focused || find_output(server, focused->output) == output;
+    bool refocus = focus_on(server, output);
     if (refocus)
         deactivate_toplevel(server);
     int from = *output_workspace(server, output->name);
@@ -441,8 +441,7 @@ void workspace_swipe_end(struct sh_server *server, struct sh_workspace_swipe *sw
     }
     drop_swipe_copies(swipe);
     bool carried = carry_grabbed(server, output, target);
-    struct sh_toplevel *focused = server->focused_toplevel;
-    bool refocus = !focused || find_output(server, focused->output) == output;
+    bool refocus = focus_on(server, output);
     if (refocus)
         deactivate_toplevel(server);
     show_workspace(server, output->name, target);

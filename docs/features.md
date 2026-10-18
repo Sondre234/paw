@@ -436,20 +436,41 @@ file pops in at the first free cell, one taken away goes, and the others stay wh
 
 A click selects an icon, its name shown in full on the accent; a click beside them selects none.
 Dragging across the desktop draws a band in the accent colour fading into a second hue, rounded,
-with a bubble at the pointer counting what it holds, and each icon it touches hops as it is
-caught. The middle button picks one more icon, or puts one back, keeping the others. Dragged, the
-selected icons gather under the pointer into a fanned stack with their count, trailing it one
-after another, while dashed pads on the grid show the cells they will land in, gliding from cell
-to cell as the pointer goes; let go, they glide into those cells, keeping their shape, and an icon
-that would land on another goes to the nearest free cell. Where each icon is, and whether they are
-hidden, is remembered across sessions (`~/.local/state/paw/desktop-icons`); a monitor that has
-grown smaller lays the icons that no longer fit in free cells for now, and puts them back when it
-grows again.
+with a bubble at the pointer counting what it holds, and each icon it touches hops as it is caught;
+with Ctrl or Shift held the band adds them to those selected. Ctrl + click, or the middle button,
+picks one more icon, or puts one back, keeping the others, and Shift + click takes every icon in
+the rectangle from the one clicked before to this one. Dragged, the selected icons gather under the
+pointer into a fanned stack with their count, trailing it one after another, while dashed pads on
+the grid show the cells they will land in, gliding from cell to cell as the pointer goes; let go,
+they glide into those cells, keeping their shape, and an icon that would land on another goes to
+the nearest free cell. Where each icon is, and whether they are hidden, is remembered across
+sessions (`~/.local/state/paw/desktop-icons`); a monitor that has grown smaller lays the icons that
+no longer fit in free cells for now, and puts them back when it grows again.
 
-A right press on the selection opens its menu: Open, Copy (for a file manager to paste) and Move
-to Trash, under a title that names it. The desktop's own menu hides the icons or shows them again,
-in a ripple from where it was opened; tidies them up, laying them out anew in order, launchers
-first, then folders, then files by name, in a wave from the top left; and opens the desktop folder,
+Clicked, the desktop has the keyboard as a window would: the pointer passing over it never takes
+the keyboard, and moving onto a window, with focus following the mouse, or clicking one gives it
+back. The arrows then move a ring in the accent's second hue from icon to icon, a sparkle
+twinkling on its corner, selecting the icon it lands on (the first arrow lands on the icon clicked
+last); with Shift they take the icons between too, with Ctrl they leave the selection as it is,
+and Ctrl + Space picks the icon the ring is on or puts it back. Letters typed go to the next icon
+whose name starts with them, said in a bubble over it, the same letter again stepping through
+those that start with it. Enter opens the selection, Delete moves its files to the Trash (it never
+deletes anything for good), F2 renames, Ctrl + A selects every icon, Ctrl + C copies the files, the
+menu key or Shift + F10 opens the selection's menu, and Escape lets the selection go.
+
+A right press on the selection opens its menu: Open, Copy (for a file manager to paste), Rename…
+for one file or folder, and Move to Trash, under a title that names it, each with its key.
+Renaming turns the name into a field on its chip, rimmed in the band's two hues, with a pencil on
+its corner and the name selected but for its extension. Enter renames the file, the icon keeping
+its cell; Escape leaves the name as it was; a click elsewhere, or the keyboard going to a window,
+renames it as typed, as file managers do. A name that is empty, holds a /, is `.` or `..`, or is
+another file's in the folder is refused, saying why across the panel, and with Enter the field
+stays on it, shaking. A launcher's name is the configuration's and a desktop entry shows its
+`Name`, so neither is renamed there. The desktop's own menu makes a New folder ("New folder 2", …
+while that is taken) in the cell where it was opened, or the free one nearest it, popping in with
+a ring and a puff of sparkles, its name ready to type; hides the icons or shows them again, in a
+ripple from where it was opened; tidies them up, laying them out anew in order, launchers first,
+then folders, then files by name, in a wave from the top left; and opens the desktop folder,
 making it where it is missing. The `desktop_icons` action (`paw msg desktop_icons`, or "Show or
 hide the desktop icons" in the command palette) hides or shows them as the menu does, saying so on
 the on-screen display. `shell.desktop_icons = false` shows none; `size` makes them larger
@@ -834,6 +855,12 @@ it, maximizes it below the panels, and at a side or in a corner snaps it into th
 quarter (see [Snapping](#snapping)); dragging it away again restores its earlier size. Hovering a
 window focuses it without raising it (`mouse.focus_follows = false` turns this off), except
 while dragging, while a menu or popup is open, or while a panel or launcher has the keyboard.
+The desktop has the keyboard as a window does where it asks for it, as the shell's does while it
+shows its [icons](#desktop-icons) (a layer surface below the windows taking the keyboard on
+demand): a click on it gives it the keyboard, the pointer passing over it never does, and
+hovering or clicking a window gives the keyboard back to the windows. Bindings work as before
+meanwhile. A launcher or the lock screen taking the keyboard over it gives it back as it goes,
+and switching to a workspace without windows leaves it there.
 
 A window you fullscreen with a binding or its title bar fills its monitor except the panel and
 other bars, which stay shown. Fullscreen a program asks for itself, like a video player or a
@@ -3462,8 +3489,8 @@ floating, sticky and kept above (`on`, `off`, or `-` while none decides it), and
 they hold the window to (`floating,sticky,above`, or `-`), one changed by hand being no longer
 held. `paw msg get pid_at X Y` prints the process ID of the window
 drawn at that layout point, or nothing over bare desktop. `paw msg get layers` prints one line per panel or other layer-shell surface:
-namespace, output, layer (0 background to 3 overlay), whether it is shown, and whether it holds
-the keyboard.
+namespace, output, layer (0 background to 3 overlay), whether it is shown, whether it holds
+the keyboard, and the keyboard it asks for (`none`, `exclusive` or `on_demand`).
 `paw msg get power` prints one line per power action logind carries out (`poweroff`,
 `reboot`, `suspend`, `hibernate`) with its answer: `yes`, `no`, `challenge` (after a password),
 `na`, `unknown` until it has answered, or `unavailable` without logind.

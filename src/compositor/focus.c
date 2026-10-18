@@ -3,6 +3,26 @@
  * desktop of an output), and urgent windows that ask for it. */
 #include "server.h"
 
+/* A layer surface below the windows (the background or bottom layer) that takes the keyboard, as
+ * a desktop with icons does, takes it as a window does, as layer shell allows there: from a
+ * click (never from the pointer passing over it), giving it up to a window the pointer moves onto
+ * with focus following the mouse, and getting it back after a panel or launcher that held it
+ * over it lets go (server->focused_desktop). A layer surface above the windows (the top or
+ * overlay layer) holds the keyboard until it lets go, or a click elsewhere takes it. */
+static bool below_windows(struct sh_layer *layer) {
+    return layer->surface->current.layer < ZWLR_LAYER_SHELL_V1_LAYER_TOP;
+}
+
+static bool takes_keyboard(struct sh_layer *layer) {
+    return layer->surface->surface->mapped && layer->surface->current.keyboard_interactive !=
+                                                  ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE;
+}
+
+/* Whether a panel or launcher holds the keyboard, rather than a window or the desktop. */
+static bool panel_holds_keyboard(struct sh_server *server) {
+    return server->focused_layer && server->focused_layer != server->focused_desktop;
+}
+
 /* Takes the focus from the focused window, for deactivate_toplevel or a window taking it. */
 static void unfocus_toplevel(struct sh_server *server) {
     if (!server->focused_toplevel)
@@ -74,7 +94,7 @@ void focus_toplevel_raise(struct sh_toplevel *toplevel, bool raise) {
         show_workspace(server, toplevel->output, toplevel->workspace);
     }
     unfocus_toplevel(server);
-    server->focused_layer = NULL;
+    server->focused_layer = server->focused_desktop = NULL;
     server->focused_toplevel = toplevel;
     wrapped_follow(server);
     bool was_urgent = toplevel->urgent;
@@ -265,12 +285,13 @@ static bool fullscreen_lowered(struct sh_toplevel *toplevel) {
 }
 
 /* Whether hovering `toplevel` may focus it: not during a drag, a popup or menu grab, or while
- * a panel or launcher holds the keyboard. Nor a fullscreen window another one was raised over:
- * focus would bring it back in front, so it takes a click, the taskbar or the keyboard. */
+ * a panel or launcher holds the keyboard (the desktop holding it gives it up). Nor a fullscreen
+ * window another one was raised over: focus would bring it back in front, so it takes a click,
+ * the taskbar or the keyboard. */
 bool hover_focuses(struct sh_server *server, struct sh_toplevel *toplevel) {
     struct wlr_seat *seat = server->seat;
     if (!server_settings(server)->focus_follows_mouse || server->locked ||
-        toplevel == server->focused_toplevel || server->focused_layer ||
+        toplevel == server->focused_toplevel || panel_holds_keyboard(server) ||
         !toplevel_visible(toplevel) || fullscreen_lowered(toplevel) ||
         seat->pointer_state.button_count > 0 || wlr_seat_pointer_has_grab(seat) ||
         wlr_seat_keyboard_has_grab(seat))
@@ -289,6 +310,13 @@ void focus_previous(struct sh_server *server) {
     server->focused_layer = NULL;
     if (server->locked)
         return;
+    // The desktop had the keyboard before the panel that held it over it, or the lock.
+    struct sh_layer *desktop = server->focused_desktop;
+    if (desktop && takes_keyboard(desktop)) {
+        focus_layer(desktop);
+        return;
+    }
+    server->focused_desktop = NULL;
     struct sh_toplevel *top = topmost_visible(server);
     if (top) {
         focus_toplevel(top);
@@ -332,7 +360,8 @@ static struct sh_toplevel *topmost_on(struct sh_server *server, struct wlr_outpu
     return NULL;
 }
 
-/* Focuses the topmost visible window on `output`, else nothing. */
+/* Focuses the topmost visible window on `output`, else nothing but the desktop there, which
+ * keeps the keyboard it had. */
 void focus_top_on(struct sh_server *server, struct wlr_output *output) {
     server->focused_layer = NULL;
     struct sh_toplevel *top = topmost_on(server, output);
@@ -340,27 +369,47 @@ void focus_top_on(struct sh_server *server, struct wlr_output *output) {
         focus_toplevel(top);
         return;
     }
+    struct sh_layer *desktop = server->focused_desktop;
+    if (desktop && desktop->surface->output == output && takes_keyboard(desktop)) {
+        focus_layer(desktop);
+        return;
+    }
+    server->focused_desktop = NULL;
     deactivate_toplevel(server);
     wlr_seat_keyboard_clear_focus(server->seat);
     notify_subscribers(server);
+}
+
+/* Whether the focus is on `output`, the focused window or the desktop holding the keyboard
+ * there, or nowhere: switching the workspace it shows takes the focus along. */
+bool focus_on(struct sh_server *server, struct wlr_output *output) {
+    if (server->focused_toplevel)
+        return find_output(server, server->focused_toplevel->output) == output;
+    return !server->focused_desktop || server->focused_desktop->surface->output == output;
 }
 
 /* The bare desktop of an output counts as a window there: pointing at it (with focus following
  * the mouse) or clicking it on another output than the focused window's makes that output the
- * focused one and takes the keyboard from the window, as sway focuses an empty workspace. */
+ * focused one and takes the keyboard from the window, as sway focuses an empty workspace, or
+ * from the desktop of another output that holds it. */
 void focus_desktop(struct sh_server *server, struct wlr_output *output) {
-    if (!output || server->locked || server->focused_layer)
+    if (!output || server->locked || panel_holds_keyboard(server))
         return;
     struct sh_toplevel *focused = server->focused_toplevel;
+    struct sh_layer *desktop = server->focused_desktop;
     if (focused ? find_output(server, focused->output) == output
-                : !strcmp(server->active_output, output->name))
+        : desktop ? desktop->surface->output == output
+                  : !strcmp(server->active_output, output->name))
         return;
     set_active_output(server, output->name);
     deactivate_toplevel(server);
+    server->focused_layer = server->focused_desktop = NULL;
     wlr_seat_keyboard_clear_focus(server->seat);
     notify_subscribers(server);
 }
 
+/* Gives the layer surface the keyboard, if it takes it: a click on it, or one above the windows
+ * asking for all of it (arrange_layers). */
 void focus_layer(struct sh_layer *layer) {
     if (layer->server->locked || layer->surface->current.keyboard_interactive ==
                                      ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE)
@@ -368,7 +417,18 @@ void focus_layer(struct sh_layer *layer) {
     struct sh_server *server = layer->server;
     deactivate_toplevel(server);
     server->focused_layer = layer;
+    if (below_windows(layer))
+        server->focused_desktop = layer;
     keyboard_enter(server->seat, layer->surface->surface);
+}
+
+/* A layer surface going: the desktop that held the keyboard holds it no longer. */
+void forget_focused_layer(struct sh_layer *layer) {
+    struct sh_server *server = layer->server;
+    if (server->focused_desktop == layer)
+        server->focused_desktop = NULL;
+    if (server->focused_layer == layer)
+        focus_previous(server);
 }
 
 /* The window keyboard actions apply to: the focused one, else the topmost visible. */

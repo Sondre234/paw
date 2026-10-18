@@ -51,16 +51,18 @@ static void get_urgent(struct sh_server *server, int fd, const char *arguments) 
 static void get_layers(struct sh_server *server, int fd, const char *arguments) {
     control_reply(fd, "ok\n");
     struct sh_layer *layer;
-    // namespace, output, layer (0 background to 3 overlay), shown, holds the keyboard — one per
-    // line.
+    // namespace, output, layer (0 background to 3 overlay), shown, holds the keyboard, and the
+    // keyboard it asks for: "none", "exclusive" or "on_demand" (focus.c) — one per line.
+    static const char *const keyboard[] = {"none", "exclusive", "on_demand"};
     wl_list_for_each_reverse(layer, &server->layers, link) {
         struct wlr_layer_surface_v1 *surface = layer->surface;
         char namespace[256], line[512];
         copy_field(namespace, sizeof(namespace), surface->namespace);
-        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\n", namespace,
+        unsigned interactive = surface->current.keyboard_interactive;
+        snprintf(line, sizeof(line), "%s\t%s\t%d\t%d\t%d\t%s\n", namespace,
                  surface->output ? surface->output->name : "", surface->current.layer,
                  surface->surface->mapped && layer->scene->tree->node.enabled,
-                 server->focused_layer == layer);
+                 server->focused_layer == layer, interactive < 3 ? keyboard[interactive] : "-");
         control_reply(fd, line);
     }
 }

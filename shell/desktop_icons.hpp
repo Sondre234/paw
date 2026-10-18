@@ -8,6 +8,7 @@
 #include <QStringList>
 #include <QTimer>
 
+class QFileInfo;
 class QFileSystemWatcher;
 
 // The icons on the desktop (shell.desktop_icons): the configured launchers, then the folders and
@@ -78,6 +79,16 @@ class DesktopIcons : public QAbstractListModel {
     Q_INVOKABLE void copy(const QStringList &keys);
     // Moves the files of `keys` to the trash; how many went.
     Q_INVOKABLE int trash(const QStringList &keys);
+    // Renames the file or folder of `key` to `name`, in the desktop folder; its icon keeps its cell
+    // under its new key, which it returns. "" with `failed` when the name is empty, has a / in it,
+    // is . or .., or is another file's there, or the file could not be renamed; "" alone for a
+    // launcher or a desktop entry, whose name is not its file's.
+    Q_INVOKABLE QString rename(const QString &key, const QString &name);
+    // Makes a folder called "New folder" ("New folder 2", ... while that is taken) in the desktop
+    // folder, making that first where it is missing, and shows it at once in the cell at `column`
+    // and `row` while that is free, else in the free cell nearest it; its key, or "" with
+    // `failed`.
+    Q_INVOKABLE QString newFolder(int column, int row);
     // Opens the folder in the file manager, making it first where it is missing.
     Q_INVOKABLE bool openFolder();
     // Reads the folder now rather than once its changes settle.
@@ -111,6 +122,8 @@ class DesktopIcons : public QAbstractListModel {
     QFileSystemWatcher *watcher_ = nullptr;
     QTimer settle_;                  // the folder's changes settling before it is read
     QList<Entry> read() const;
+    // A file's or folder's entry, without a cell.
+    static Entry fileEntry(const QFileInfo &file);
     // The rows of `keys` (none twice), and where they land moved by `offset`.
     QList<QPoint> landed(const QStringList &keys, QPoint offset, QList<int> &moved) const;
     void sync(QList<Entry> entries);
