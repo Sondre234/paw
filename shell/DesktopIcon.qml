@@ -8,7 +8,8 @@ import QtQuick
 // Dragged, it follows the pointer, and the others dragged with it trail after it into a fanned
 // stack; let go, they glide into their new cells. A drag the compositor carries leaves it in its
 // cell, faded (`lifted`), until it comes out of the stack where it was let go. A folder with a drag
-// over it opens up, ringed in the second hue, wiggling, and gulps down what is dropped on it. It comes and goes in a ripple as the grid's
+// over it opens up, ringed in the second hue, wiggling, and gulps down what is dropped on it. While
+// its file is still being copied in, a glow in the band's two hues breathes behind it. It comes and goes in a ripple as the grid's
 // icons are shown and hidden, and a new file pops in. Renamed, its chip pops into a field on the
 // surface's colour, rimmed in the band's two hues, with a pencil on its corner, the name selected
 // but for its extension; a name refused shakes it.
@@ -25,6 +26,7 @@ Item {
     required property string appId
     required property int column
     required property int row
+    required property bool arriving
     objectName: "desktopIcon:" + key
     Accessible.role: Accessible.Button
     Accessible.name: name
@@ -124,6 +126,43 @@ Item {
             Behavior on color { ColorAnimation { duration: Theme.durationFast } }
         }
 
+        // The glow while its file comes in, a soft halo round a brighter heart, turning slowly as
+        // it breathes.
+        Item {
+            id: glow
+            anchors.centerIn: art
+            width: art.width * 1.3
+            height: width
+            visible: opacity > 0.01
+            opacity: tile.arriving ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: Theme.durationSlow } }
+            Repeater {
+                model: [[1.3, 0.14], [1, 0.3], [0.72, 0.22]]
+                delegate: Rectangle {
+                    required property var modelData
+                    anchors.centerIn: parent
+                    width: glow.width * modelData[0]
+                    height: width
+                    radius: width / 2
+                    gradient: Gradient {
+                        GradientStop { position: 0; color: Theme.alpha(Theme.accent, modelData[1]) }
+                        GradientStop { position: 1; color: Theme.alpha(tile.board.partner, modelData[1]) }
+                    }
+                }
+            }
+            SequentialAnimation on scale {
+                running: glow.visible && Theme.duration(100) > 0
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.8; to: 1.08; duration: Theme.duration(650); easing.type: Easing.InOutSine }
+                NumberAnimation { to: 0.8; duration: Theme.duration(650); easing.type: Easing.InOutSine }
+            }
+            RotationAnimation on rotation {
+                running: glow.visible && Theme.duration(100) > 0
+                loops: Animation.Infinite
+                from: 0; to: 360
+                duration: Theme.duration(2600)
+            }
+        }
         DesktopIconArt {
             id: art
             width: tile.board.iconSize
