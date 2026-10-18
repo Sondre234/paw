@@ -455,11 +455,33 @@ last); with Shift they take the icons between too, with Ctrl they leave the sele
 and Ctrl + Space picks the icon the ring is on or puts it back. Letters typed go to the next icon
 whose name starts with them, said in a bubble over it, the same letter again stepping through
 those that start with it. Enter opens the selection, Delete moves its files to the Trash (it never
-deletes anything for good), F2 renames, Ctrl + A selects every icon, Ctrl + C copies the files, the
-menu key or Shift + F10 opens the selection's menu, and Escape lets the selection go.
+deletes anything for good) and Ctrl + Z puts them back, F2 renames, Ctrl + A selects every icon,
+Ctrl + C copies the files, the menu key or Shift + F10 opens the selection's menu, and Escape lets
+the selection go.
 
-A right press on the selection opens its menu: Open, Copy (for a file manager to paste), Rename…
-for one file or folder, and Move to Trash, under a title that names it, each with its key.
+A right press on the selection opens its menu: Open, Open with for files and folders, Copy (for a
+file manager to paste), Rename… for one file or folder, and Move to Trash, under a title that names
+it, each with its key. Open with lists the applications that open every file selected, with their
+icons, as GIO and file managers know them (the types installed applications take, and the defaults
+of `mimeapps.list`): the default one first, saying so, then those recommended for the files' types,
+then past a line the others that take them as files of a type they are a kind of (a text editor
+for a script), by name.
+One chosen opens the selection, all in one go when it takes several files; with none to offer it
+says No other apps. Launchers and desktop entries have no Open with.
+
+Moved to the Trash, from the menu or with Delete, the icons shrink away, and a notice at the foot
+of the desktop says what went ("Moved notes.md to Trash", or how many items), with Undo and a
+cross: a chip of the bar's colour rimmed in the band's two hues, its badge's ring draining over the
+eight seconds it stays, which the pointer resting on it holds. The next move to the Trash takes its
+place. Undo, or Ctrl + Z while the desktop has the keyboard (also once the notice has gone, until
+the next move), puts back what that move took, as file managers restore from the Trash: each file
+or folder where it was under its own name, or as "name (2)" where something has taken the name
+since, never over anything; its record in the Trash gone, from the home Trash or the one of the
+mount it was on; and its icon popping back into the cell it left with a puff of sparkles, in a
+ripple from the notice, or into the free cell nearest it when another icon has that one now,
+selected. One that has left the Trash since, emptied or restored elsewhere, is said across the
+panel. The notice is the desktop's own, under the windows, and never takes the keyboard from one.
+
 Renaming turns the name into a field on its chip, rimmed in the band's two hues, with a pencil on
 its corner and the name selected but for its extension. Enter renames the file, the icon keeping
 its cell; Escape leaves the name as it was; a click elsewhere, or the keyboard going to a window,

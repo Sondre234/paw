@@ -1357,8 +1357,9 @@ what was there.
 | `AudioSlider.qml`, `MuteButton.qml`, `StreamRow.qml` | Controls the mixer and Quick Settings use: a volume's slider, a mute button, and an application playing sound. |
 | `StartHome.qml`, `StartAllApps.qml`, `StartSearch.qml`, `StartBestMatch.qml`, `StartTile.qml`, `StartRow.qml`, `UserAvatar.qml` | Parts of the start menu (`Launcher.qml`): its pinned and recent applications, every application from A to Z, what its search finds and the best match of it, a pinned application, a row of its lists, the user's picture. |
 | `Launchpad.qml` | The launcher of the macOS style, in the start menu's place: every application on pages of a grid over the whole output, with a search. |
-| `Desktop.qml` | The wallpaper of its output (`ShellView::wallpaper`, the output's own or every monitor's), each new one fading in over those before, the desktop clock, the desktop's icons and the desktop's menus, on the background layer, taking the keyboard on demand while it has the icons (`ShellView::keyboardOnDemand`, which the compositor gives it from a click, as to a window). |
-| `DesktopIconGrid.qml`, `DesktopIcon.qml` | The desktop's icons (`shell.desktopIcons`) on the main monitor: their grid, which it tells the model once the desktop's size has settled, the selection (Ctrl + click and Shift + click too) and its band, a drag of the selected onto the cells the model says they land in (`landing`), and the ripple as they are shown and hidden; the keys while the desktop has the keyboard, a `FocusScope`: the current icon (`current`) and its ring, type-ahead, and the name being typed (`renaming`), given to the model's `rename` as Enter is pressed, the field loses the keyboard or a press lands elsewhere; a new folder from the model's `newFolder`, with its puff; one icon, its picture or a print of the picture file, its name on a chip, which turns into the field, and how it glides, trails, hops and pops in. |
+| `Desktop.qml` | The wallpaper of its output (`ShellView::wallpaper`, the output's own or every monitor's), each new one fading in over those before, the desktop clock, the desktop's icons and the desktop's menus (the icons' Open with listing the model's `openers` as it opens), on the background layer, taking the keyboard on demand while it has the icons (`ShellView::keyboardOnDemand`, which the compositor gives it from a click, as to a window). |
+| `DesktopIconGrid.qml`, `DesktopIcon.qml` | The desktop's icons (`shell.desktopIcons`) on the main monitor: their grid, which it tells the model once the desktop's size has settled, the selection (Ctrl + click and Shift + click too) and its band, a drag of the selected onto the cells the model says they land in (`landing`), and the ripple as they are shown and hidden; the keys while the desktop has the keyboard, a `FocusScope`: the current icon (`current`) and its ring, type-ahead, and the name being typed (`renaming`), given to the model's `rename` as Enter is pressed, the field loses the keyboard or a press lands elsewhere; a new folder from the model's `newFolder`, with its puff; the files put back by the model's `untrash` (the notice's Undo, Ctrl + Z), each popping in again with a puff in a ripple from the notice; Open with's choice handed to the model's `openWith`; one icon, its picture or a print of the picture file, its name on a chip, which turns into the field, and how it glides, trails, hops and pops in. |
+| `DesktopToast.qml` | The notice at the foot of the desktop's icons after a move to the Trash: what went, Undo (the grid's `untrash`) and a cross, on a chip rimmed in the band's two hues, a ring draining around its badge for the time it stays, held while the pointer rests on it; it never takes the keyboard. |
 | `DrawnWallpaper.qml` | The wallpaper the macOS style draws while none is set, light or dark, from the background colour and the accent. |
 | `DesktopClock.qml` | The desktop clock (`shell.desktop_clock`, experimental): the time, the date and a greeting over the wallpaper, outside the backdrop the frosted glass takes, changing once a minute. |
 | `WallpaperPicture.qml` | The wallpaper's picture as `shell.wallpaper_mode` lays it out (cropped, fitted, stretched, centred or tiled at its own size, over the background colour where it leaves room), for the desktop, a workspace's card and Launchpad. |
@@ -1430,7 +1431,16 @@ desktop clock's settings, and whether the `desktop_clock` action shows it), `des
 the grid `desktop_grid.cpp` gives it or it was dragged to, remembered in the state folder with
 whether they are hidden; a file or folder renamed keeps its row and its cell under its new key,
 and a new folder takes the free cell nearest the one asked for, both without waiting for the
-folder to be read again; tested by `desktop_icons_test` and `desktop_grid_test`), `wallpaper_cycle.cpp`
+folder to be read again. What the last trash moved, `trashed`, is kept with where
+`QFile::moveToTrash` put each file (the home trash or a mount's own) and the cell it left, which
+the saved cells forget as it goes: `untrash` moves each back under its name or a free one
+(`freeName`), never over anything, removes its `.trashinfo` (`trashInfo`, beside the trash's
+files folder), gives it that cell again or the free one nearest it, and saves. `openers` asks
+GIO, for each selected file's type, for its default, recommended and other applications, and
+keeps those that take every type, grouped; `openWith` hands GIO the files' URIs at once, which
+starts the application once for them all when its command takes several. Tested by
+`desktop_icons_test`, on applications, associations and a trash of its own, and
+`desktop_grid_test`), `wallpaper_cycle.cpp`
 (the wallpaper slideshow's order and timer, `shell.wallpaper_cycle`, whose pictures
 `ShellController::stepWallpaper` picks as a picked wallpaper, tested by `wallpaper_cycle_test`).
 `preview.cpp` has

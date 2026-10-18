@@ -27,6 +27,9 @@ class DesktopIcons : public QAbstractListModel {
     Q_PROPERTY(int iconSize READ iconSize NOTIFY configured)
     Q_PROPERTY(QString folder READ folder NOTIFY configured)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
+    // The names of the files and folders the last trash() moved, while untrash() can put them
+    // back: until it has, or another trash() moves others.
+    Q_PROPERTY(QStringList trashed READ trashed NOTIFY trashedChanged)
   public:
     enum Role {
         KeyRole = Qt::UserRole + 1, // "launcher:NAME" or "file:NAME", NAME the file's
@@ -75,10 +78,28 @@ class DesktopIcons : public QAbstractListModel {
     // entry's application when the entry is executable, as file managers trust one. False, with
     // `failed`, when it did not start; a launcher is the controller's to start.
     Q_INVOKABLE bool open(const QString &key);
+    // The applications that open every file and folder of `keys`, for the icons' Open with:
+    // {id (a desktop id), name, icon, group}, none twice. The default application for them all
+    // comes first, its group "default"; then those recommended for each one's type
+    // ("recommended", in GIO's order); then the others that take them all, as one for a type they
+    // are a kind of ("other", by name). None for a launcher or a desktop entry among them.
+    Q_INVOKABLE QVariantList openers(const QStringList &keys) const;
+    // Opens the files and folders of `keys` in the application `appId`, a desktop id of
+    // openers(): all in one go when it takes several, as GIO starts it. False, with `failed`, when
+    // it did not start.
+    Q_INVOKABLE bool openWith(const QStringList &keys, const QString &appId);
     // Puts the files of `keys` on the clipboard, for a file manager to paste copies of.
     Q_INVOKABLE void copy(const QStringList &keys);
-    // Moves the files of `keys` to the trash; how many went.
+    // Moves the files of `keys` to the trash; how many went. What went can be put back with
+    // untrash() until the next trash() that moves something.
     Q_INVOKABLE int trash(const QStringList &keys);
+    // Puts back what the last trash() moved, as file managers restore from the trash: each file
+    // or folder where it was, under its name, or "name (2)" while something else has that now
+    // (never over anything), its .trashinfo gone, and its icon in the cell it left, or the free
+    // cell nearest it while that is taken. The keys of those put back, at once; one gone from the
+    // trash since is said with `failed`.
+    Q_INVOKABLE QStringList untrash();
+    QStringList trashed() const;
     // Renames the file or folder of `key` to `name`, in the desktop folder; its icon keeps its cell
     // under its new key, which it returns. "" with `failed` when the name is empty, has a / in it,
     // is . or .., or is another file's there, or the file could not be renamed; "" alone for a
@@ -93,6 +114,13 @@ class DesktopIcons : public QAbstractListModel {
     Q_INVOKABLE bool openFolder();
     // Reads the folder now rather than once its changes settle.
     void rescan();
+    // The .trashinfo of the file a trash keeps at `inTrash`, in its files folder: the one of the
+    // same name in the info folder beside that, whether the trash is the home one or a mount's own
+    // ($topdir/.Trash/$uid, $topdir/.Trash-$uid).
+    static QString trashInfo(const QString &inTrash);
+    // A name for `name` in `folder` that nothing there has: itself while it is free, else
+    // numbered before its extension (a folder's whole name), "notes (2).txt", "Photos (3)".
+    static QString freeName(const QString &folder, const QString &name, bool isFolder);
     // Whether cells and hiding are remembered in the state folder; a preview's, on a grid of its
     // own, are not.
     void setRemembering(bool remembering) { remembering_ = remembering; }
@@ -103,6 +131,8 @@ class DesktopIcons : public QAbstractListModel {
     void configured();
     void shownChanged();
     void countChanged();
+    // A trash() moved something (each time, even the same names), or untrash() put it back.
+    void trashedChanged();
     // Something asked of it went wrong, in a sentence for the panel.
     void failed(const QString &message);
 
@@ -111,11 +141,18 @@ class DesktopIcons : public QAbstractListModel {
         QString key, name, icon, picture, path, kind, appId;
         QPoint cell{-1, -1};
     };
+    // A file the last trash() moved: where it was, where the trash keeps it, and the cell its
+    // icon left, which the saved cells forget as it goes.
+    struct Trashed {
+        QString path, inTrash;
+        QPoint cell{-1, -1};
+    };
     Settings settings_;
     QList<Launcher> launchers_;
     QList<Entry> entries_;
     QStringList order_;              // the keys, launchers first, then folders and files by name
     QHash<QString, QPoint> cells_;   // where each icon was put, as remembered
+    QList<Trashed> trashed_;         // what untrash() puts back
     QSize grid_;                     // invalid until the desktop says
     bool hidden_ = false, remembering_ = true;
     QByteArray saved_;               // what the state file holds, so as to write it on a change
@@ -124,6 +161,9 @@ class DesktopIcons : public QAbstractListModel {
     QList<Entry> read() const;
     // A file's or folder's entry, without a cell.
     static Entry fileEntry(const QFileInfo &file);
+    // The paths of the files and folders of `keys`, each once; none when one of them is a
+    // launcher, a desktop entry or not there.
+    QStringList filePaths(const QStringList &keys) const;
     // The rows of `keys` (none twice), and where they land moved by `offset`.
     QList<QPoint> landed(const QStringList &keys, QPoint offset, QList<int> &moved) const;
     void sync(QList<Entry> entries);

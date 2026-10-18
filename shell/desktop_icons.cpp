@@ -17,6 +17,7 @@
 #include <QUrl>
 #include <algorithm>
 #include <gio/gdesktopappinfo.h>
+#include <utility>
 
 namespace {
 // Where the icons' cells are remembered: a line `hidden` while they are hidden, and a line for
@@ -173,6 +174,131 @@ bool DesktopIcons::open(const QString &key) {
     return false;
 }
 
+QStringList DesktopIcons::filePaths(const QStringList &keys) const {
+    QStringList paths;
+    for (const auto &key : keys) {
+        const int i = indexOf(key);
+        if (i < 0 || (entries_[i].kind != "file" && entries_[i].kind != "folder"))
+            return {};
+        if (!paths.contains(entries_[i].path))
+            paths.push_back(entries_[i].path);
+    }
+    return paths;
+}
+
+QVariantList DesktopIcons::openers(const QStringList &keys) const {
+    QStringList types;
+    const QMimeDatabase mime;
+    for (const auto &path : filePaths(keys))
+        if (const auto type = mime.mimeTypeForFile(path).name(); !types.contains(type))
+            types.push_back(type);
+    if (types.isEmpty())
+        return {};
+    struct App {
+        QString id, name, icon;
+    };
+    // For each type, the applications that take it, each once: its default, those recommended
+    // for it, then the rest GIO has for it (those of the types it is a kind of, text/plain's for
+    // a script's).
+    struct Takers {
+        QList<App> apps;
+        QString preferred;
+        QSet<QString> recommended;
+        bool take(const QString &id) const {
+            return std::any_of(apps.cbegin(), apps.cend(), [&id](const App &app) { return app.id == id; });
+        }
+    };
+    QList<Takers> takers;
+    for (const auto &type : types) {
+        Takers each;
+        auto add = [&each](GAppInfo *info, bool recommended) {
+            const char *id = g_app_info_get_id(info);
+            if (!id)
+                return;
+            const auto name = QString::fromUtf8(id);
+            if (recommended)
+                each.recommended.insert(name);
+            if (!each.take(name))
+                each.apps.push_back({name, QString::fromUtf8(g_app_info_get_display_name(info)),
+                                     gioIconName(g_app_info_get_icon(info), "application-x-executable")});
+        };
+        const auto content = type.toUtf8();
+        if (GAppInfo *preferred = g_app_info_get_default_for_type(content.constData(), FALSE)) {
+            add(preferred, true);
+            if (const char *id = g_app_info_get_id(preferred))
+                each.preferred = QString::fromUtf8(id);
+            g_object_unref(preferred);
+        }
+        GList *recommended = g_app_info_get_recommended_for_type(content.constData());
+        for (GList *it = recommended; it; it = it->next)
+            add(G_APP_INFO(it->data), true);
+        g_list_free_full(recommended, g_object_unref);
+        GList *all = g_app_info_get_all_for_type(content.constData());
+        for (GList *it = all; it; it = it->next)
+            add(G_APP_INFO(it->data), false);
+        g_list_free_full(all, g_object_unref);
+        takers.push_back(each);
+    }
+    // Those that take every type, in the first's order: the default for them all, those
+    // recommended for each, then the others by name.
+    QList<App> preferred, recommended, others;
+    for (const auto &app : takers[0].apps) {
+        bool everyType = true, everyDefault = true, everyRecommended = true;
+        for (const auto &each : takers) {
+            everyType = everyType && each.take(app.id);
+            everyDefault = everyDefault && each.preferred == app.id;
+            everyRecommended = everyRecommended && each.recommended.contains(app.id);
+        }
+        if (everyType)
+            (everyDefault ? preferred : everyRecommended ? recommended : others).push_back(app);
+    }
+    QCollator names;
+    names.setNumericMode(true);
+    names.setCaseSensitivity(Qt::CaseInsensitive);
+    std::stable_sort(others.begin(), others.end(),
+                     [&names](const App &a, const App &b) { return names.compare(a.name, b.name) < 0; });
+    QVariantList list;
+    auto put = [&list](const QList<App> &apps, const QString &group) {
+        for (const auto &app : apps)
+            list.push_back(QVariantMap{{"id", app.id}, {"name", app.name}, {"icon", app.icon}, {"group", group}});
+    };
+    put(preferred, "default");
+    put(recommended, "recommended");
+    put(others, "other");
+    return list;
+}
+
+bool DesktopIcons::openWith(const QStringList &keys, const QString &appId) {
+    const auto paths = filePaths(keys);
+    if (paths.isEmpty())
+        return false;
+    const auto what = paths.size() == 1 ? QFileInfo(paths[0]).fileName()
+                                        : QString::number(paths.size()) + " files";
+    GDesktopAppInfo *info = g_desktop_app_info_new(appId.toUtf8().constData());
+    if (!info) {
+        Q_EMIT failed("Could not open " + what + ": there is no application " + appId);
+        return false;
+    }
+    // Their URIs, all handed over at once: GIO starts the application once for them all when its
+    // command takes several (%F, %U), else once for each.
+    QList<QByteArray> uris;
+    GList *list = nullptr;
+    for (const auto &path : paths)
+        uris.push_back(QUrl::fromLocalFile(path).toEncoded());
+    for (const auto &uri : uris)
+        list = g_list_append(list, const_cast<char *>(uri.constData()));
+    const auto error = gioLaunch([info, list](GAppLaunchContext *context, GError **gerror) {
+        return g_app_info_launch_uris(G_APP_INFO(info), list, context, gerror);
+    });
+    const auto name = QString::fromUtf8(g_app_info_get_display_name(G_APP_INFO(info)));
+    g_list_free(list);
+    g_object_unref(info);
+    if (error.isEmpty())
+        return true;
+    Q_EMIT failed("Could not open " + what + " with " + name + ": " + error);
+    return false;
+}
+
 void DesktopIcons::copy(const QStringList &keys) {
     QList<QUrl> urls;
     QStringList paths;
@@ -195,14 +321,17 @@ void DesktopIcons::copy(const QStringList &keys) {
 }
 
 int DesktopIcons::trash(const QStringList &keys) {
-    int moved = 0;
+    QList<Trashed> moved;
     QStringList refused;
     QString why;
     for (const auto &key : keys)
         if (const int i = indexOf(key); i >= 0 && !entries_[i].path.isEmpty()) {
+            // Once moved, the file is named by where the trash keeps it (the home trash, or the
+            // trash of the mount it is on), as QFile::moveToTrash(path, &pathInTrash) would say,
+            // keeping the reason it failed besides.
             QFile file(entries_[i].path);
             if (file.moveToTrash()) {
-                ++moved;
+                moved.push_back({entries_[i].path, file.fileName(), cells_.value(key, entries_[i].cell)});
             } else {
                 refused.push_back(entries_[i].name);
                 why = file.errorString();
@@ -210,9 +339,94 @@ int DesktopIcons::trash(const QStringList &keys) {
         }
     if (!refused.isEmpty())
         Q_EMIT failed("Could not move " + refused.join(", ") + " to the Trash: " + why);
-    if (moved > 0)
+    if (moved.isEmpty())
+        return 0;
+    trashed_ = moved;
+    rescan();
+    Q_EMIT trashedChanged();
+    return int(moved.size());
+}
+
+QStringList DesktopIcons::trashed() const {
+    QStringList names;
+    for (const auto &file : trashed_)
+        names.push_back(QFileInfo(file.path).fileName());
+    return names;
+}
+
+QStringList DesktopIcons::untrash() {
+    const auto trashed = std::exchange(trashed_, {});
+    if (trashed.isEmpty())
+        return {};
+    // The cells the icons there are in now, which those put back go beside.
+    QList<QPoint> taken;
+    for (const auto &entry : entries_)
+        taken.push_back(entry.cell);
+    QStringList keys, refused;
+    QString why;
+    for (const auto &file : trashed) {
+        const QFileInfo was(file.path), kept(file.inTrash);
+        if (!kept.exists() && !kept.isSymLink()) {
+            refused.push_back(was.fileName());
+            why = "it is no longer in the Trash";
+            continue;
+        }
+        const auto folder = was.path();
+        const auto name = freeName(folder, was.fileName(), kept.isDir());
+        QFile moved(file.inTrash);
+        if (!QDir().mkpath(folder) || !moved.rename(QDir(folder).filePath(name))) {
+            refused.push_back(was.fileName());
+            why = moved.errorString();
+            continue;
+        }
+        QFile::remove(trashInfo(file.inTrash));
+        // Its cell is remembered again, under the name it came back as. One it left off a grid
+        // that has shrunk stays remembered as it was.
+        const QString key = "file:" + name;
+        QPoint cell = file.cell;
+        if (grid_.isValid() && desktop_grid::contains(grid_, cell))
+            cell = desktop_grid::nearestFree(grid_, cell, taken);
+        if (cell.x() >= 0 && cell.y() >= 0) {
+            cells_.insert(key, cell);
+            taken.push_back(cell);
+        }
+        keys.push_back(key);
+    }
+    if (!refused.isEmpty())
+        Q_EMIT failed("Could not put " + refused.join(", ") + " back from the Trash: " + why);
+    Q_EMIT trashedChanged();
+    if (!keys.isEmpty()) {
+        watch();
         rescan();
-    return moved;
+        save();
+    }
+    return keys;
+}
+
+QString DesktopIcons::trashInfo(const QString &inTrash) {
+    const QFileInfo file(inTrash);
+    return QFileInfo(file.path()).path() + "/info/" + file.fileName() + ".trashinfo";
+}
+
+QString DesktopIcons::freeName(const QString &folder, const QString &name, bool isFolder) {
+    const QDir dir(folder);
+    auto taken = [&dir](const QString &name) {
+        const QFileInfo file(dir.filePath(name));
+        return file.exists() || file.isSymLink();
+    };
+    if (!taken(name))
+        return name;
+    // The extension as the type knows it ("tar.gz"), else what follows the last dot; a leading
+    // dot (".profile") is no extension.
+    QString suffix = isFolder ? QString() : QMimeDatabase().suffixForFileName(name);
+    if (!isFolder && suffix.isEmpty() && name.lastIndexOf('.') > 0)
+        suffix = name.sliced(name.lastIndexOf('.') + 1);
+    const auto stem = suffix.isEmpty() || suffix.size() + 1 >= name.size()
+                          ? name : name.first(name.size() - suffix.size() - 1);
+    const auto end = stem == name ? QString() : "." + name.sliced(stem.size() + 1);
+    for (int n = 2;; ++n)
+        if (const auto numbered = QString("%1 (%2)%3").arg(stem, QString::number(n), end); !taken(numbered))
+            return numbered;
 }
 
 QString DesktopIcons::rename(const QString &key, const QString &name) {

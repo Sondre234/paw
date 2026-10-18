@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The desktop's icons: the launchers, then the desktop folder's folders and files by name; their
 // cells on the grid, remembered with whether they are hidden; the folder followed as it changes;
-// opening, copying, renaming and trashing files, new folders, and desktop entries trusted only once
-// executable.
+// opening, copying, renaming and trashing files and putting them back, new folders, and desktop
+// entries trusted only once executable.
 #include "desktop_icons.hpp"
 #include <QClipboard>
 #include <QDir>
@@ -10,15 +10,22 @@
 #include <QGuiApplication>
 #include <QImage>
 #include <QMimeData>
+#include <QSet>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <array>
 #include <memory>
 
 namespace {
 bool write(const QString &path, const QByteArray &contents = "x\n") {
     QFile file(path);
     return file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(contents) == contents.size();
+}
+QByteArray read(const QString &path) {
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray("(none)");
 }
 } // namespace
 
@@ -53,22 +60,68 @@ class DesktopIconsTest : public QObject {
             list << icons.data(icons.index(i), DesktopIcons::KeyRole).toString();
         return list;
     }
+    // What the test's trash (the data folder's) holds in its files and info folders.
+    QStringList inTrash(const QString &folder = "files") const {
+        return QDir(home_.filePath("data/Trash/" + folder)).entryList(QDir::AllEntries | QDir::NoDotAndDotDot);
+    }
 
   private Q_SLOTS:
     void initTestCase() {
         QVERIFY(home_.isValid());
+        // The applications GIO finds are the test's alone: the system's data folders stand in
+        // for by one holding the system's MIME types and nothing else, which say what a type is a
+        // kind of, and the defaults are the test's configuration's. GLib reads these once, so they
+        // are set before anything asks it.
+        const auto mime = QStandardPaths::locate(QStandardPaths::GenericDataLocation, "mime",
+                                                 QStandardPaths::LocateDirectory);
+        QVERIFY(QDir().mkpath(home_.filePath("system")));
+        if (!mime.isEmpty())
+            QVERIFY(QFile::link(mime, home_.filePath("system/mime")));
+        qputenv("XDG_DATA_DIRS", home_.filePath("system").toLocal8Bit());
+        qputenv("XDG_CONFIG_HOME", home_.filePath("config").toLocal8Bit());
+        qputenv("XDG_CONFIG_DIRS", home_.filePath("config-dirs").toLocal8Bit());
         qputenv("XDG_STATE_HOME", home_.filePath("state").toLocal8Bit());
         qputenv("XDG_DATA_HOME", home_.filePath("data").toLocal8Bit());
         // A home on the temporary folder's file system, whose trash is then the data folder's,
         // which is there as ~/.local/share is.
         qputenv("HOME", home_.path().toLocal8Bit());
-        QVERIFY(QDir().mkpath(home_.filePath("data")));
+        QVERIFY(QDir().mkpath(home_.filePath("data/applications")));
+        QVERIFY(QDir().mkpath(home_.filePath("config")));
+        // Applications for Markdown, plain text (which Markdown is a kind of) and folders. Two
+        // write down the files they are given, one line each, then "--": Editor all at once
+        // (%F), Single one at a time (%f).
+        const auto record = home_.filePath("record");
+        QVERIFY(write(record, "#!/bin/sh\nout=\"$1\"; shift\nprintf '%s\\n' \"$@\" -- >> \"$out\"\n"));
+        QVERIFY(QFile::setPermissions(record, QFile::permissions(record) | QFile::ExeOwner));
+        const QList<std::array<const char *, 4>> apps{
+            {"paw-writer", "Writer", "text/markdown;", "true"},
+            {"paw-viewer", "Viewer", "text/markdown;image/png;", "true"},
+            {"paw-editor", "Editor", "text/plain;", "%R editor.out %F"},
+            {"paw-alpha", "Alpha pad", "text/plain;", "true"},
+            {"paw-single", "Single", "text/plain;", "%R single.out %f"},
+            {"paw-folders", "Folders", "inode/directory;", "true"},
+        };
+        for (const auto &[id, name, types, exec] : apps)
+            QVERIFY(write(home_.filePath("data/applications/%1.desktop").arg(id),
+                          QString("[Desktop Entry]\nType=Application\nName=%1\nIcon=%2-icon\nMimeType=%3\nExec=%4\n")
+                              .arg(name, id, types, QString(exec).replace("%R", record)
+                                                        .replace("editor.out", home_.filePath("editor.out"))
+                                                        .replace("single.out", home_.filePath("single.out")))
+                              .toUtf8()));
+        // GIO reads which take a type from the folder's cache, as update-desktop-database writes it.
+        QVERIFY(write(home_.filePath("data/applications/mimeinfo.cache"),
+                      "[MIME Cache]\ntext/markdown=paw-writer.desktop;paw-viewer.desktop;\n"
+                      "text/plain=paw-editor.desktop;paw-alpha.desktop;paw-single.desktop;\n"
+                      "image/png=paw-viewer.desktop;\ninode/directory=paw-folders.desktop;\n"));
+        QVERIFY(write(home_.filePath("config/mimeapps.list"),
+                      "[Default Applications]\ntext/markdown=paw-viewer.desktop\ntext/plain=paw-editor.desktop\n"));
         folder_ = home_.filePath("Desktop");
         settings_.folder = folder_;
     }
     void init() {
         QDir(folder_).removeRecursively();
         QDir(home_.filePath("state")).removeRecursively();
+        QDir(home_.filePath("data/Trash")).removeRecursively();
         QVERIFY(QDir().mkpath(folder_ + "/Zeta"));
         for (const auto *name : {"b.txt", "a10.txt", "a2.txt", ".hidden"})
             QVERIFY(write(folder_ + "/" + name));
@@ -204,6 +257,129 @@ class DesktopIconsTest : public QObject {
         QVERIFY(!keys(*icons).contains("file:a2.txt"));
         QVERIFY(QFile::exists(home_.filePath("data/Trash/files/a2.txt")));
     }
+    void putsTrashedFilesBackInTheirCells() {
+        {
+            auto icons = made();
+            icons->move({"file:b.txt"}, 2, 1);
+            QCOMPARE(cell(*icons, "file:b.txt"), QPoint(3, 2));
+            QCOMPARE(cell(*icons, "file:Zeta"), QPoint(0, 1));
+            QSignalSpy changed(icons.get(), &DesktopIcons::trashedChanged);
+            QCOMPARE(icons->trash({"file:b.txt", "file:Zeta", "launcher:Terminal"}), 2);
+            QCOMPARE(icons->trashed(), (QStringList{"b.txt", "Zeta"}));
+            QCOMPARE(changed.count(), 1);
+            QCOMPARE(inTrash(), (QStringList{"b.txt", "Zeta"}));
+            QCOMPARE(inTrash("info"), (QStringList{"b.txt.trashinfo", "Zeta.trashinfo"}));
+            // The cells they left are forgotten as they go: a new file takes the first free one.
+            QVERIFY(write(folder_ + "/c.txt"));
+            icons->rescan();
+            QCOMPARE(cell(*icons, "file:c.txt"), QPoint(0, 1));
+            QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+            QCOMPARE(icons->untrash(), (QStringList{"file:b.txt", "file:Zeta"}));
+            QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+            // Where they were, at once, and nothing of them is left in the trash.
+            QCOMPARE(read(folder_ + "/b.txt"), "x\n");
+            QVERIFY(QFileInfo(folder_ + "/Zeta").isDir());
+            QVERIFY(keys(*icons).contains("file:b.txt") && keys(*icons).contains("file:Zeta"));
+            QVERIFY(inTrash().isEmpty() && inTrash("info").isEmpty());
+            // b.txt in the cell it left; Zeta's taken since, it is in the free cell nearest it.
+            QCOMPARE(cell(*icons, "file:b.txt"), QPoint(3, 2));
+            QCOMPARE(cell(*icons, "file:c.txt"), QPoint(0, 1));
+            QCOMPARE(cell(*icons, "file:Zeta"), QPoint(1, 1));
+            QVERIFY(icons->trashed().isEmpty());
+            QCOMPARE(changed.count(), 2);
+            // Nothing is put back twice.
+            QVERIFY(icons->untrash().isEmpty());
+            QCOMPARE(changed.count(), 2);
+        }
+        // Their cells are remembered again.
+        auto again = made();
+        QCOMPARE(cell(*again, "file:b.txt"), QPoint(3, 2));
+        QCOMPARE(cell(*again, "file:Zeta"), QPoint(1, 1));
+    }
+    void putsBackBesideWhatTookTheName() {
+        auto icons = made();
+        QCOMPARE(icons->trash({"file:a2.txt", "file:Zeta"}), 2);
+        // Others take their names meanwhile, and the first number too.
+        QVERIFY(write(folder_ + "/a2.txt", "new\n"));
+        QVERIFY(write(folder_ + "/a2 (2).txt", "newer\n"));
+        QVERIFY(QDir().mkpath(folder_ + "/Zeta"));
+        icons->rescan();
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        QCOMPARE(icons->untrash(), (QStringList{"file:a2 (3).txt", "file:Zeta (2)"}));
+        QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+        // Nothing is written over.
+        QCOMPARE(read(folder_ + "/a2.txt"), "new\n");
+        QCOMPARE(read(folder_ + "/a2 (2).txt"), "newer\n");
+        QCOMPARE(read(folder_ + "/a2 (3).txt"), "x\n");
+        QVERIFY(QFileInfo(folder_ + "/Zeta (2)").isDir());
+        QCOMPARE(value(*icons, "file:a2 (3).txt", DesktopIcons::NameRole).toString(), "a2 (3).txt");
+        QVERIFY(inTrash().isEmpty() && inTrash("info").isEmpty());
+        // Each in a cell of its own.
+        QSet<QPoint> cells;
+        for (const auto &key : keys(*icons))
+            cells.insert(cell(*icons, key));
+        QCOMPARE(cells.size(), icons->count());
+    }
+    void putsBackOnlyWhatTheLastTrashMoved() {
+        auto icons = made();
+        QCOMPARE(icons->trash({"file:a2.txt"}), 1);
+        // Another a2.txt, which the trash keeps apart from the first.
+        QVERIFY(write(folder_ + "/a2.txt", "second\n"));
+        icons->rescan();
+        QSignalSpy changed(icons.get(), &DesktopIcons::trashedChanged);
+        QCOMPARE(icons->trash({"file:a2.txt", "file:b.txt", "file:a10.txt"}), 3);
+        QCOMPARE(icons->trashed(), (QStringList{"a2.txt", "b.txt", "a10.txt"}));
+        QCOMPARE(inTrash().size(), 4);
+        // Nothing moved replaces nothing.
+        QCOMPARE(icons->trash({"launcher:Terminal", "file:nothing"}), 0);
+        QCOMPARE(icons->trashed().size(), 3);
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(icons->untrash(), (QStringList{"file:a2.txt", "file:b.txt", "file:a10.txt"}));
+        QCOMPARE(read(folder_ + "/a2.txt"), "second\n");
+        QCOMPARE(inTrash(), QStringList{"a2.txt"});
+        QCOMPARE(inTrash("info"), QStringList{"a2.txt.trashinfo"});
+        // One emptied from the trash since says so; the others come back.
+        QCOMPARE(icons->trash({"file:b.txt", "file:a10.txt"}), 2);
+        const auto kept = QDir(home_.filePath("data/Trash/files"))
+                              .entryList({"b.txt*"}, QDir::Files);
+        QCOMPARE(kept.size(), 1);
+        QVERIFY(QFile::remove(home_.filePath("data/Trash/files/" + kept[0])));
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        QCOMPARE(icons->untrash(), QStringList{"file:a10.txt"});
+        QCOMPARE(failed.count(), 1);
+        QCOMPARE(failed[0][0].toString(), "Could not put b.txt back from the Trash: it is no longer in the Trash");
+        QVERIFY(!QFile::exists(folder_ + "/b.txt") && QFile::exists(folder_ + "/a10.txt"));
+        QVERIFY(icons->trashed().isEmpty());
+    }
+    void namesFreeNamesAndTrashInfo() {
+        QVERIFY(write(folder_ + "/notes.txt"));
+        QVERIFY(write(folder_ + "/archive.tar.gz"));
+        QVERIFY(write(folder_ + "/.profile"));
+        QVERIFY(write(folder_ + "/data.zzqx"));
+        QVERIFY(write(folder_ + "/b (2).txt"));
+        QVERIFY(QDir().mkpath(folder_ + "/v1.2"));
+        QVERIFY(QFile::link(home_.filePath("nowhere"), folder_ + "/gone.txt"));
+        QCOMPARE(DesktopIcons::freeName(folder_, "free.txt", false), "free.txt");
+        QCOMPARE(DesktopIcons::freeName(folder_, "notes.txt", false), "notes (2).txt");
+        QCOMPARE(DesktopIcons::freeName(folder_, "archive.tar.gz", false), "archive (2).tar.gz");
+        QCOMPARE(DesktopIcons::freeName(folder_, ".profile", false), ".profile (2)");
+        QCOMPARE(DesktopIcons::freeName(folder_, "data.zzqx", false), "data (2).zzqx");
+        QCOMPARE(DesktopIcons::freeName(folder_, "b.txt", false), "b (3).txt");
+        QCOMPARE(DesktopIcons::freeName(folder_, "v1.2", true), "v1.2 (2)");
+        QCOMPARE(DesktopIcons::freeName(folder_, "Zeta", true), "Zeta (2)");
+        // A link to nothing has its name too.
+        QCOMPARE(DesktopIcons::freeName(folder_, "gone.txt", false), "gone (2).txt");
+        // A name with what QString::arg reads as its own places in it.
+        QVERIFY(write(folder_ + "/100%1 %2.txt"));
+        QCOMPARE(DesktopIcons::freeName(folder_, "100%1 %2.txt", false), "100%1 %2 (2).txt");
+        // The home trash's, and those of other mounts.
+        QCOMPARE(DesktopIcons::trashInfo(home_.filePath("data/Trash/files/a2.txt")),
+                 home_.filePath("data/Trash/info/a2.txt.trashinfo"));
+        QCOMPARE(DesktopIcons::trashInfo("/run/media/me/usb/.Trash-1000/files/photo (1).png"),
+                 "/run/media/me/usb/.Trash-1000/info/photo (1).png.trashinfo");
+        QCOMPARE(DesktopIcons::trashInfo("/mnt/disk/.Trash/1000/files/Notes"),
+                 "/mnt/disk/.Trash/1000/info/Notes.trashinfo");
+    }
     void renamesKeepingTheCell() {
         {
             auto icons = made();
@@ -290,6 +466,69 @@ class DesktopIconsTest : public QObject {
         QVERIFY(QFileInfo(settings_.folder + "/New folder").isDir());
         QCOMPARE(cell(*fresh, "file:New folder"), QPoint(0, 1));
         settings_.folder = folder_;
+    }
+    void listsTheApplicationsThatOpenFiles() {
+        if (!QFileInfo::exists(home_.filePath("system/mime")))
+            QSKIP("no shared MIME database, which says Markdown is a kind of plain text");
+        QVERIFY(write(folder_ + "/notes.md", "# notes\n"));
+        QVERIFY(write(folder_ + "/thing.desktop", "[Desktop Entry]\nType=Application\nName=Thing\nExec=true\n"));
+        auto icons = made();
+        auto ids = [&](const QStringList &keys, const QString &group = {}) {
+            QStringList list;
+            for (const auto &app : icons->openers(keys))
+                if (group.isEmpty() || app.toMap()["group"] == group)
+                    list << app.toMap()["id"].toString();
+            return list;
+        };
+        // Markdown: its default first, then the others recommended for it, then those of plain
+        // text by name; the default once.
+        QCOMPARE(ids({"file:notes.md"}), (QStringList{"paw-viewer.desktop", "paw-writer.desktop", "paw-alpha.desktop",
+                                                      "paw-editor.desktop", "paw-single.desktop"}));
+        QCOMPARE(ids({"file:notes.md"}, "default"), QStringList{"paw-viewer.desktop"});
+        QCOMPARE(ids({"file:notes.md"}, "recommended"), QStringList{"paw-writer.desktop"});
+        const auto viewer = icons->openers({"file:notes.md"}).value(0).toMap();
+        QCOMPARE(viewer["name"].toString(), "Viewer");
+        QCOMPARE(viewer["icon"].toString(), "paw-viewer-icon");
+        // Plain text: its default, then the others recommended for it, in GIO's order.
+        QCOMPARE(ids({"file:a2.txt"}), (QStringList{"paw-editor.desktop", "paw-alpha.desktop", "paw-single.desktop"}));
+        QCOMPARE(ids({"file:a2.txt"}, "default"), QStringList{"paw-editor.desktop"});
+        QCOMPARE(ids({"file:a2.txt"}, "recommended"), (QStringList{"paw-alpha.desktop", "paw-single.desktop"}));
+        // Several: only what opens them all; two notes of a type, as one.
+        QCOMPARE(ids({"file:notes.md", "file:a2.txt"}), (QStringList{"paw-alpha.desktop", "paw-editor.desktop",
+                                                                     "paw-single.desktop"}));
+        QCOMPARE(ids({"file:notes.md", "file:a2.txt"}, "other").size(), 3);
+        QCOMPARE(ids({"file:a2.txt", "file:b.txt", "file:a10.txt"}), ids({"file:a2.txt"}));
+        // A folder; and nothing opens a folder and a note both.
+        QCOMPARE(ids({"file:Zeta"}), QStringList{"paw-folders.desktop"});
+        QCOMPARE(ids({"file:Zeta"}, "default"), QStringList{"paw-folders.desktop"});
+        QVERIFY(ids({"file:Zeta", "file:a2.txt"}).isEmpty());
+        // None for a launcher, a desktop entry or what is not there, alone or among files.
+        QVERIFY(ids({"launcher:Terminal"}).isEmpty());
+        QVERIFY(ids({"file:thing.desktop"}).isEmpty());
+        QVERIFY(ids({"file:a2.txt", "launcher:Terminal"}).isEmpty());
+        QVERIFY(ids({"file:nothing"}).isEmpty());
+        QVERIFY(ids({}).isEmpty());
+    }
+    void opensFilesWithAnApplication() {
+        auto icons = made();
+        const auto editor = home_.filePath("editor.out"), single = home_.filePath("single.out");
+        QFile::remove(editor);
+        QFile::remove(single);
+        QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+        // All at once in one that takes several, one at a time in one that takes one.
+        QVERIFY(icons->openWith({"file:a2.txt", "file:b.txt"}, "paw-editor.desktop"));
+        QTRY_COMPARE(read(editor), (folder_ + "/a2.txt\n" + folder_ + "/b.txt\n--\n").toUtf8());
+        QVERIFY(icons->openWith({"file:a2.txt", "file:b.txt"}, "paw-single.desktop"));
+        QTRY_COMPARE(read(single).count("--"), 2);
+        QVERIFY(read(single).contains((folder_ + "/a2.txt\n--\n").toUtf8()));
+        QVERIFY(read(single).contains((folder_ + "/b.txt\n--\n").toUtf8()));
+        QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+        // An application not there says so; a launcher opens with nothing.
+        QVERIFY(!icons->openWith({"file:a2.txt"}, "paw-nothing.desktop"));
+        QCOMPARE(failed.count(), 1);
+        QVERIFY(failed[0][0].toString().startsWith("Could not open a2.txt: "));
+        QVERIFY(!icons->openWith({"launcher:Terminal"}, "paw-editor.desktop"));
+        QCOMPARE(failed.count(), 1);
     }
     void trustsExecutableDesktopEntries() {
         const auto marker = home_.filePath("started");
