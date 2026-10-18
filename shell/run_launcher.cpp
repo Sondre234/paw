@@ -76,13 +76,28 @@ const QStringList &RunLauncher::programs() {
 }
 
 const QHash<QString, QString> &RunLauncher::programIcons() {
-    if (programIcons_.isEmpty())
-        for (const auto &app : controller_.apps()) {
-            const auto record = app.toMap();
-            const auto program = record["program"].toString();
-            if (!program.isEmpty() && !programIcons_.contains(program))
-                programIcons_.insert(program, record["icon"].toString());
-        }
+    if (!programIcons_.isEmpty())
+        return programIcons_;
+    // By the program each runs, then, for one whose program says nothing (a wrapper's, a
+    // flatpak's), by its desktop id's last part (org.kde.dolphin's dolphin).
+    const auto apps = controller_.apps();
+    for (const auto &app : apps) {
+        const auto record = app.toMap();
+        const auto program = record["program"].toString();
+        if (!program.isEmpty() && !programIcons_.contains(program))
+            programIcons_.insert(program, record["icon"].toString());
+    }
+    for (const auto &app : apps) {
+        const auto record = app.toMap();
+        auto id = record["appId"].toString();
+        if (record["configured"].toBool())
+            continue;
+        if (id.endsWith(".desktop"))
+            id.chop(8);
+        id = id.section('.', -1).toLower();
+        if (!id.isEmpty() && !programIcons_.contains(id))
+            programIcons_.insert(id, record["icon"].toString());
+    }
     return programIcons_;
 }
 
