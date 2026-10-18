@@ -84,6 +84,11 @@ class DesktopIcons : public QAbstractListModel {
     // is . or .., or is another file's there, or the file could not be renamed; "" alone for a
     // launcher or a desktop entry, whose name is not its file's.
     Q_INVOKABLE QString rename(const QString &key, const QString &name);
+    // Makes a folder called "New folder" ("New folder 2", ... while that is taken) in the desktop
+    // folder, making that first where it is missing, and shows it at once in the cell at `column`
+    // and `row` while that is free, else in the free cell nearest it; its key, or "" with
+    // `failed`.
+    Q_INVOKABLE QString newFolder(int column, int row);
     // Opens the folder in the file manager, making it first where it is missing.
     Q_INVOKABLE bool openFolder();
     // Reads the folder now rather than once its changes settle.

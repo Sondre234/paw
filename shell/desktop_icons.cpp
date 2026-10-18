@@ -253,6 +253,32 @@ QString DesktopIcons::rename(const QString &key, const QString &name) {
     return entry.key;
 }
 
+QString DesktopIcons::newFolder(int column, int row) {
+    const QDir folder(settings_.folder);
+    auto had = [&folder](const QString &name) {
+        const QFileInfo file(folder.filePath(name));
+        return file.exists() || file.isSymLink();
+    };
+    QString name = "New folder";
+    for (int n = 2; had(name); ++n)
+        name = "New folder " + QString::number(n);
+    if (settings_.folder.isEmpty() || !QDir().mkpath(settings_.folder) || !folder.mkdir(name)) {
+        Q_EMIT failed("Could not make a folder in the desktop folder " + settings_.folder);
+        return {};
+    }
+    const QString key = "file:" + name;
+    if (grid_.isValid()) {
+        QList<QPoint> taken;
+        for (const auto &entry : entries_)
+            taken.push_back(entry.cell);
+        cells_.insert(key, desktop_grid::nearestFree(grid_, QPoint(column, row), taken));
+    }
+    watch();
+    rescan();
+    save();
+    return key;
+}
+
 bool DesktopIcons::openFolder() {
     if (!QDir().mkpath(settings_.folder)) {
         Q_EMIT failed("Could not make the desktop folder " + settings_.folder);
