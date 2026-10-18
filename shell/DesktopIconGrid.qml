@@ -549,8 +549,7 @@ FocusScope {
             forceActiveFocus()
         }
     }
-    // Copies the note's text, with a hop, and gives it another colour (DesktopNotes.colors), with
-    // another.
+    // Copies the note's text, and gives it another colour (DesktopNotes.colors), each with a hop.
     function copyNote(key) {
         notes.copy(key)
         const note = noteOf(key)
