@@ -30,6 +30,7 @@ Item {
     Accessible.name: name !== "" ? "Note: " + name : "Empty note"
     Accessible.description: color + " sticky note"
 
+    readonly property bool isNote: true
     // How many cells it covers, across and down.
     readonly property int spanColumns: board.notes.columns
     readonly property int spanRows: board.notes.rows

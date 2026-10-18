@@ -32,7 +32,8 @@ import QtQuick.Shapes
 // note crumples away, and the notice says so with Undo, which pops it back into its place.
 //
 // Clicked, the desktop has the keyboard (ShellView.keyboardOnDemand). The arrows move the current
-// icon, which a ring in the second hue shows as it hops from icon to icon, with Shift taking the
+// icon, which a ring in the second hue shows as it hops from icon to icon and to the notes among
+// them (which Enter and F2 write on, Delete deletes, Ctrl + C copies), with Shift taking the
 // icons between, with Ctrl leaving the selection as it is (Ctrl + Space picks one); letters typed
 // go to the next icon whose name starts with them, said in a bubble over it. Enter opens, Delete
 // moves to the Trash and Ctrl + Z puts that back, as the notice's Undo does, F2 renames, Ctrl + A
@@ -136,27 +137,39 @@ FocusScope {
                 return icons.itemAt(i)
         return null
     }
-    // The icons in their cells, down each column before the next, as they fill the grid.
+    // The icons in their cells, down each column before the next, as they fill the grid; and with
+    // the notes among them, the way the keys go round the desktop.
     function ordered() {
         return tiles().filter(tile => tile.placed).sort((a, b) => a.column - b.column || a.row - b.row)
     }
-    // An icon gone from the folder leaves the selection, and the keyboard goes on to the icon
-    // nearest where it was.
+    function walk() {
+        return tiles().concat(noteTiles()).filter(tile => tile.placed)
+                      .sort((a, b) => a.column - b.column || a.row - b.row)
+    }
+    // An icon gone from the folder leaves the selection, and the keyboard goes on to the icon or
+    // note nearest where it was; so it does from a note deleted.
     Connections {
         target: grid.model
         function onCountChanged() {
             const kept = grid.selectedTiles().map(tile => tile.key)
             if (kept.length !== grid.selectionOrder.length)
                 grid.select(kept)
-            if (grid.current === "" || grid.currentTile)
-                return
-            let nearest = null
-            for (const tile of grid.ordered())
-                if (!nearest || Math.hypot(tile.column - grid.currentCell.x, tile.row - grid.currentCell.y) <
-                                Math.hypot(nearest.column - grid.currentCell.x, nearest.row - grid.currentCell.y))
-                    nearest = tile
-            grid.current = nearest ? nearest.key : ""
+            grid.keepCurrent()
         }
+    }
+    Connections {
+        target: grid.notes
+        function onCountChanged() { grid.keepCurrent() }
+    }
+    function keepCurrent() {
+        if (current === "" || currentTile)
+            return
+        let nearest = null
+        for (const tile of walk())
+            if (!nearest || Math.hypot(tile.column - currentCell.x, tile.row - currentCell.y) <
+                            Math.hypot(nearest.column - currentCell.x, nearest.row - currentCell.y))
+                nearest = tile
+        current = nearest ? nearest.key : ""
     }
 
     // The keyboard's current icon (its key) and its cell, the icon Shift takes those between from,
@@ -166,15 +179,25 @@ FocusScope {
     property point currentCell
     property string extendFrom: ""
     property bool keysUsed: false
-    readonly property Item currentTile: { current; icons.count; return tileOf(current) }
+    readonly property Item currentTile: { current; icons.count; noteItems.count; return tileOf(current) || noteOf(current) }
+    // The note the keys are at, which they then act on alone.
+    readonly property Item currentNote: currentTile && currentTile.isNote === true ? currentTile : null
     readonly property bool ringShown: keysUsed && activeFocus && renaming === "" && editingNote === "" && !dragging &&
                                       currentTile !== null && currentTile.visible
     onCurrentTileChanged: if (currentTile) currentCell = Qt.point(currentTile.column, currentTile.row)
     // The keys take `tile` as the current icon: alone in the selection, with those between it and
     // `extendFrom` (`extend`), or leaving the selection as it is (`keep`).
     function moveTo(tile, extend, keep) {
+        // A note is never selected: on one, the keys act on it alone.
+        if (tile.isNote === true) {
+            current = tile.key
+            keysUsed = true
+            if (!keep)
+                select([])
+            return
+        }
         if (extend && (extendFrom === "" || !tileOf(extendFrom)))
-            extendFrom = currentTile ? current : tile.key
+            extendFrom = currentTile && !currentNote ? current : tile.key
         current = tile.key
         keysUsed = true
         if (extend) {
@@ -195,24 +218,29 @@ FocusScope {
                                                 tile.row >= top && tile.row <= bottom && tile.key !== fromKey)
         select([fromKey].concat(inside.map(tile => tile.key)))
     }
-    // An arrow: the nearest icon that way, one level with the current first (in its row, or in its
-    // column), then by the distance between their cells. The first key of all lands on the current
-    // icon, or the first.
+    // An arrow: the nearest icon or note that way, one level with the current first (in its rows,
+    // or in its columns), then by the distance between their middles. The first key of all lands on
+    // the current icon, or the first.
     function step(dx, dy, extend, keep) {
         const from = currentTile
         if (!from || !from.placed || (!keysUsed && selectionOrder.length === 0)) {
-            const first = from && from.placed ? from : ordered()[0]
+            const first = from && from.placed ? from : walk()[0]
             if (first)
                 moveTo(first, false, keep)
             return
         }
+        // A note covers several cells, an icon one.
+        const across = tile => tile.spanColumns || 1, down = tile => tile.spanRows || 1
+        const fromX = from.column + across(from) / 2, fromY = from.row + down(from) / 2
         let best = null, bestLevel = false, bestDistance = 0
-        for (const tile of ordered()) {
-            const along = dx !== 0 ? (tile.column - from.column) * dx : (tile.row - from.row) * dy
+        for (const tile of walk()) {
+            const x = tile.column + across(tile) / 2, y = tile.row + down(tile) / 2
+            const along = dx !== 0 ? (x - fromX) * dx : (y - fromY) * dy
             if (tile === from || along <= 0)
                 continue
-            const level = dx !== 0 ? tile.row === from.row : tile.column === from.column
-            const distance = Math.hypot(tile.column - from.column, tile.row - from.row)
+            const level = dx !== 0 ? tile.row < from.row + down(from) && from.row < tile.row + down(tile)
+                                   : tile.column < from.column + across(from) && from.column < tile.column + across(tile)
+            const distance = Math.hypot(x - fromX, y - fromY)
             if (!best || (level && !bestLevel) || (level === bestLevel && distance < bestDistance)) {
                 best = tile
                 bestLevel = level
@@ -230,6 +258,11 @@ FocusScope {
     // The icons' menu from the keyboard, beside the current icon, which it takes alone when
     // nothing is selected; the desktop's, with no icons, at their corner.
     function keyMenu() {
+        if (currentNote) {
+            noteMenuRequested(current, currentNote.x + currentNote.width / 2,
+                              currentNote.y + currentNote.height - Theme.spacingL, true)
+            return
+        }
         if (selectionOrder.length === 0 && currentTile)
             select([current])
         const tile = selectionOrder.indexOf(current) >= 0 ? currentTile : selectedTiles()[0]
@@ -251,7 +284,7 @@ FocusScope {
         const lower = next.toLocaleLowerCase()
         const again = lower.length > 1 && lower.split("").every(c => c === lower[0])
         const prefix = again ? lower[0] : lower
-        const list = ordered()
+        const list = walk()
         const at = list.findIndex(tile => tile.key === current)
         // A new letter looks past the current icon; more of a name may stay on it.
         const from = at < 0 ? 0 : next.length === 1 || again ? at + 1 : at
@@ -278,15 +311,29 @@ FocusScope {
         case Qt.Key_Down: grid.step(0, 1, shift, ctrl); break
         case Qt.Key_Home:
         case Qt.Key_End: {
-            const list = grid.ordered()
+            const list = grid.walk()
             if (list.length > 0)
                 grid.moveTo(list[event.key === Qt.Key_Home ? 0 : list.length - 1], shift, ctrl)
             break
         }
         case Qt.Key_Return:
-        case Qt.Key_Enter: grid.open(grid.chosen()); break
-        case Qt.Key_Delete: grid.trash(grid.selectedTiles()); break
+        case Qt.Key_Enter:
+            if (grid.currentNote)
+                grid.startEditing(grid.current)
+            else
+                grid.open(grid.chosen())
+            break
+        case Qt.Key_Delete:
+            if (grid.currentNote)
+                grid.deleteNote(grid.current)
+            else
+                grid.trash(grid.selectedTiles())
+            break
         case Qt.Key_F2: {
+            if (grid.currentNote) {
+                grid.startEditing(grid.current)
+                break
+            }
             const one = grid.selectionOrder.length === 1 ? grid.selectionOrder[0]
                       : grid.selectionOrder.length === 0 ? grid.current : ""
             grid.startRename(one)
@@ -305,7 +352,7 @@ FocusScope {
             grid.typed = ""
             break
         case Qt.Key_Space:
-            if (ctrl && grid.currentTile) {
+            if (ctrl && grid.currentTile && !grid.currentNote) {
                 grid.toggle(grid.current)
                 grid.extendFrom = grid.current
                 grid.keysUsed = true
@@ -318,6 +365,8 @@ FocusScope {
         default:
             if (ctrl && event.key === Qt.Key_A) {
                 grid.select(grid.ordered().map(tile => tile.key))
+            } else if (ctrl && event.key === Qt.Key_C && grid.currentNote) {
+                grid.copyNote(grid.current)
             } else if (ctrl && event.key === Qt.Key_C) {
                 const files = grid.selectedTiles().filter(tile => tile.kind !== "launcher")
                 if (files.length === 0)
@@ -493,8 +542,11 @@ FocusScope {
             notes.discard(done)
         else
             notes.flush()
-        if (keepKeys)
+        // Let go by a key, the keys go on from it.
+        if (keepKeys) {
+            current = done
             forceActiveFocus()
+        }
     }
     // Copies the note's text, with a hop, and gives it another colour (DesktopNotes.colors), with
     // another.
@@ -1034,8 +1086,8 @@ FocusScope {
         objectName: "desktopFocusRing"
         readonly property Item tile: grid.currentTile
         z: 3
-        width: grid.cellWidth
-        height: grid.cellHeight
+        width: tile ? tile.width : grid.cellWidth
+        height: tile ? tile.height : grid.cellHeight
         visible: opacity > 0
         opacity: grid.ringShown ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: Theme.durationFast } }
