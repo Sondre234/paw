@@ -436,20 +436,41 @@ file pops in at the first free cell, one taken away goes, and the others stay wh
 
 A click selects an icon, its name shown in full on the accent; a click beside them selects none.
 Dragging across the desktop draws a band in the accent colour fading into a second hue, rounded,
-with a bubble at the pointer counting what it holds, and each icon it touches hops as it is
-caught. The middle button picks one more icon, or puts one back, keeping the others. Dragged, the
-selected icons gather under the pointer into a fanned stack with their count, trailing it one
-after another, while dashed pads on the grid show the cells they will land in, gliding from cell
-to cell as the pointer goes; let go, they glide into those cells, keeping their shape, and an icon
-that would land on another goes to the nearest free cell. Where each icon is, and whether they are
-hidden, is remembered across sessions (`~/.local/state/paw/desktop-icons`); a monitor that has
-grown smaller lays the icons that no longer fit in free cells for now, and puts them back when it
-grows again.
+with a bubble at the pointer counting what it holds, and each icon it touches hops as it is caught;
+with Ctrl or Shift held the band adds them to those selected. Ctrl + click, or the middle button,
+picks one more icon, or puts one back, keeping the others, and Shift + click takes every icon in
+the rectangle from the one clicked before to this one. Dragged, the selected icons gather under the
+pointer into a fanned stack with their count, trailing it one after another, while dashed pads on
+the grid show the cells they will land in, gliding from cell to cell as the pointer goes; let go,
+they glide into those cells, keeping their shape, and an icon that would land on another goes to
+the nearest free cell. Where each icon is, and whether they are hidden, is remembered across
+sessions (`~/.local/state/paw/desktop-icons`); a monitor that has grown smaller lays the icons that
+no longer fit in free cells for now, and puts them back when it grows again.
 
-A right press on the selection opens its menu: Open, Copy (for a file manager to paste) and Move
-to Trash, under a title that names it. The desktop's own menu hides the icons or shows them again,
-in a ripple from where it was opened; tidies them up, laying them out anew in order, launchers
-first, then folders, then files by name, in a wave from the top left; and opens the desktop folder,
+Clicked, the desktop has the keyboard as a window would: the pointer passing over it never takes
+the keyboard, and moving onto a window, with focus following the mouse, or clicking one gives it
+back. The arrows then move a ring in the accent's second hue from icon to icon, a sparkle
+twinkling on its corner, selecting the icon it lands on (the first arrow lands on the icon clicked
+last); with Shift they take the icons between too, with Ctrl they leave the selection as it is,
+and Ctrl + Space picks the icon the ring is on or puts it back. Letters typed go to the next icon
+whose name starts with them, said in a bubble over it, the same letter again stepping through
+those that start with it. Enter opens the selection, Delete moves its files to the Trash (it never
+deletes anything for good), F2 renames, Ctrl + A selects every icon, Ctrl + C copies the files, the
+menu key or Shift + F10 opens the selection's menu, and Escape lets the selection go.
+
+A right press on the selection opens its menu: Open, Copy (for a file manager to paste), Rename…
+for one file or folder, and Move to Trash, under a title that names it, each with its key.
+Renaming turns the name into a field on its chip, rimmed in the band's two hues, with a pencil on
+its corner and the name selected but for its extension. Enter renames the file, the icon keeping
+its cell; Escape leaves the name as it was; a click elsewhere, or the keyboard going to a window,
+renames it as typed, as file managers do. A name that is empty, holds a /, is `.` or `..`, or is
+another file's in the folder is refused, saying why across the panel, and with Enter the field
+stays on it, shaking. A launcher's name is the configuration's and a desktop entry shows its
+`Name`, so neither is renamed there. The desktop's own menu makes a New folder ("New folder 2", …
+while that is taken) in the cell where it was opened, or the free one nearest it, popping in with
+a ring and a puff of sparkles, its name ready to type; hides the icons or shows them again, in a
+ripple from where it was opened; tidies them up, laying them out anew in order, launchers first,
+then folders, then files by name, in a wave from the top left; and opens the desktop folder,
 making it where it is missing. The `desktop_icons` action (`paw msg desktop_icons`, or "Show or
 hide the desktop icons" in the command palette) hides or shows them as the menu does, saying so on
 the on-screen display. `shell.desktop_icons = false` shows none; `size` makes them larger
