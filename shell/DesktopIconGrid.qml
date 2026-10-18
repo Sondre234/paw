@@ -590,18 +590,18 @@ FocusScope {
         }
         Rectangle {
             id: star
-            width: 16
-            height: 16
-            radius: 8
+            width: 20
+            height: 20
+            radius: 10
             x: parent.width - Theme.spacingXS - width / 2 - 3
             y: Theme.spacingXS - height / 2 + 3
             color: Theme.surface
             border.color: grid.partner
-            border.width: 1
+            border.width: 1.5
             Icon {
                 anchors.centerIn: parent
                 name: "sparkles"
-                size: 10
+                size: 13
                 color: grid.partner
             }
             SequentialAnimation {
