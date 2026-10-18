@@ -115,7 +115,8 @@ int main(int argc, char **argv) {
                       "palette, palette-empty, palette-calculator, switcher, overview, "
                       "snap-assist, display-mode, palette-files, clipboard, emoji, shortcuts, "
                       "shortcuts-search, shortcuts-mode, display-settings, "
-                      "display-settings-trial, rice-trial, xray, caption or osd-color",
+                      "display-settings-trial, rice-trial, xray, caption, osd-color, run, "
+                      "run-search, run-commands or run-windows",
                       "name"});
     parser.addOption(
         {"quit-after",
