@@ -384,7 +384,7 @@ FocusScope {
         const tile = tileOf(model.newFolder(column, row))
         if (!tile)
             return
-        if (Theme.duration(620) > 0)
+        if (Theme.duration(700) > 0)
             puff.createObject(grid, { x: tile.x + tile.width / 2, y: tile.y + Theme.spacingM + iconSize / 2 })
         startRename(tile.key)
     }
@@ -639,21 +639,32 @@ FocusScope {
         }
     }
 
-    // A puff out of an icon that has just come, a new folder: dots in the accent and its partner
-    // and two sparkles flying out and fading, gone once they have.
+    // A puff out of an icon that has just come, a new folder: a ring in the accent's partner
+    // spreading out, dots in both hues and four sparkles flying out and fading, gone once they
+    // have.
     Component {
         id: puff
         Item {
             id: burst
             z: 120
             property real progress: 0
+            Rectangle {
+                width: grid.iconSize * (0.5 + 1.2 * burst.progress)
+                height: width
+                x: -width / 2
+                y: -height / 2
+                radius: width / 2
+                color: "transparent"
+                border.width: 0.5 + 2.5 * (1 - burst.progress)
+                border.color: Theme.alpha(grid.partner, 0.8 * (1 - burst.progress))
+            }
             Repeater {
                 model: 8
                 delegate: Rectangle {
                     required property int index
                     readonly property real angle: (index + 0.5) * Math.PI / 4
-                    readonly property real reach: grid.iconSize * (index % 2 ? 0.62 : 0.85) * burst.progress
-                    width: index % 2 ? 5 : 7
+                    readonly property real reach: grid.iconSize * (index % 2 ? 0.7 : 1) * burst.progress
+                    width: index % 2 ? 6 : 8
                     height: width
                     radius: width / 2
                     color: index % 2 ? grid.partner : Theme.accent
@@ -664,21 +675,23 @@ FocusScope {
                 }
             }
             Repeater {
-                model: [[-0.75, -0.8, 14], [0.8, -0.55, 11]]
+                model: [[-0.8, -0.85, 15], [0.9, -0.6, 12], [-0.95, 0.4, 10], [0.75, 0.8, 11]]
                 delegate: Icon {
                     required property var modelData
+                    required property int index
                     name: "sparkles"
                     size: modelData[2]
-                    color: grid.partner
+                    color: index % 2 ? Theme.accent : grid.partner
                     x: modelData[0] * grid.iconSize * burst.progress - size / 2
                     y: modelData[1] * grid.iconSize * burst.progress - size / 2
                     rotation: 90 * burst.progress
+                    scale: 0.6 + 0.6 * Math.sin(Math.PI * Math.min(1, burst.progress * 1.4))
                     opacity: 1 - burst.progress * burst.progress
                 }
             }
             NumberAnimation on progress {
                 to: 1
-                duration: Theme.duration(620)
+                duration: Theme.duration(700)
                 easing.type: Easing.OutCubic
                 onFinished: burst.destroy()
             }
