@@ -2098,7 +2098,10 @@ whether it has, for something the compositor does another way without it, as the
   keymap an application gets. A `wayland_probe` window with
   `PAW_PROBE_DRAG=source` drags a line of text on a button press of `pointer_probe`'s, and
   one with `=target` takes it, each printing what it hears; `get seat` says where the drag is
-  (see `drag_focus_smoke.py`). One with `=bare` drags nothing, without a data source, the first
+  (see `drag_focus_smoke.py`). `PAW_PROBE_DRAG_MIME` names what a source offers and a target
+  takes instead (`text/uri-list` for files), `PAW_PROBE_DRAG_TEXT` what a source sends, and
+  `PAW_PROBE_DRAG_ACTIONS=move` has a source offer only to move it (see
+  `desktop_dnd_shell_smoke.py`). One with `=bare` drags nothing, without a data source, the first
   time for a serial the press did not give, which the compositor turns down (see
   `drag_focus_smoke.py` and `xwayland_drag_smoke.py`). `headless_output capture NAME PATH` writes a mirroring output's
 picture to a PPM file (see `mirror_smoke.py`), and `PAW_TEST_REFUSE_10BIT=NAME,...` makes
