@@ -21,6 +21,16 @@ QString quoted(const QString &path) {
         return path;
     return "'" + QString(path).replace("'", "'\\''") + "'";
 }
+
+// The command line a row runs, for one that runs a command: a command run before or a program
+// with its arguments as they are, a program typed as its path quoted; empty for the others.
+QString commandOf(const run_search::Row &row) {
+    if (row.kind == "command")
+        return row.target;
+    if (row.kind == "program")
+        return row.target.startsWith('/') ? quoted(row.target) : row.target;
+    return {};
+}
 } // namespace
 
 QVariant RunResults::data(const QModelIndex &index, int role) const {
@@ -162,9 +172,9 @@ void RunLauncher::refresh() {
     if (mode_ != Windows)
         rows = run_search::special(query_, QDir::homePath());
     std::vector<run_search::Row> found;
-    if (mode_ == Apps)
+    if (mode_ == Apps) {
         found = apps();
-    else if (mode_ == Run) {
+    } else if (mode_ == Run) {
         const auto now = QDateTime::currentDateTimeUtc();
         found = run_search::commands(query_, history_.entries(), programs(), programIcons(), now,
                                      limit);
@@ -172,8 +182,9 @@ void RunLauncher::refresh() {
         for (auto &row : found)
             if (const auto *entry = history_.find(row.target); entry && row.kind == "command")
                 row.subtitle += " · " + controller_.startMenu()->ago(entry->last, now);
-    } else
+    } else {
         found = run_search::windows(query_, windows());
+    }
     rows.insert(rows.end(), found.begin(), found.end());
     if (int(rows.size()) > limit)
         rows.resize(limit);
@@ -265,26 +276,26 @@ bool RunLauncher::activate(int index) {
     const auto *row = results_.row(index < 0 ? selected_ : index);
     if (!row)
         return mode_ != Windows && runTyped();
+    if (const auto command = commandOf(*row); !command.isEmpty())
+        return runCommand(command, false);
     const auto kind = row->kind, target = row->target;
-    if (kind == "command" || kind == "program")
-        return runCommand(kind == "program" && target.startsWith('/') ? quoted(target) : target, false);
     const bool current = row->current;
     close(); // the keyboard goes back before what was chosen takes it
-    if (kind == "app")
+    if (kind == "app") {
         controller_.launch(target);
-    else if (kind == "window" && !current) { // the focused one would minimize
+    } else if (kind == "window" && !current) { // the focused one would minimize
         auto *source = windowSource();
         if (source == controller_.tasks())
             controller_.tasks()->activate(target.toInt());
         else if (source->metaObject()->indexOfMethod("activate(QVariant)") >= 0)
             QMetaObject::invokeMethod(source, "activate", Q_ARG(QVariant, target.toInt()));
-    }
-    else if (kind == "folder" || kind == "file")
+    } else if (kind == "folder" || kind == "file") {
         controller_.openFile(target);
-    else if (kind == "url")
+    } else if (kind == "url") {
         controller_.openUrl(target);
-    else if (kind == "calc")
+    } else if (kind == "calc") {
         QGuiApplication::clipboard()->setText(target);
+    }
     return true;
 }
 
@@ -294,9 +305,8 @@ bool RunLauncher::runTyped() {
 
 bool RunLauncher::runInTerminal(int index) {
     const auto *row = results_.row(index < 0 ? selected_ : index);
-    if (row && (row->kind == "command" || row->kind == "program"))
-        return runCommand(row->target.startsWith('/') ? quoted(row->target) : row->target, true);
-    return runCommand(query_, true);
+    const auto command = row ? commandOf(*row) : QString();
+    return runCommand(command.isEmpty() ? query_ : command, true);
 }
 
 bool RunLauncher::runCommand(const QString &command, bool terminal) {
