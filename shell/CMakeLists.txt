@@ -341,6 +341,13 @@ if(BUILD_TESTING)
     add_test(NAME shell_desktop_icons COMMAND desktop_icons_test)
     set_tests_properties(shell_desktop_icons PROPERTIES TIMEOUT 60
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # The desktop's sticky notes: their blocks on the grid, their text and colours remembered,
+    # deleted and brought back, their checklists.
+    paw_shell_test(desktop_notes_test
+        SOURCES desktop_notes.cpp desktop_notes.hpp desktop_grid.cpp desktop_grid.hpp state_files.hpp
+        LIBS Qt6::Gui Qt6::Test)
+    add_test(NAME shell_desktop_notes COMMAND desktop_notes_test)
+    set_tests_properties(shell_desktop_notes PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # The blurred wallpaper behind the frosted glass (shell.blur).
     paw_shell_test(glass_blur_test SOURCES glass_blur.cpp glass_blur.hpp LIBS Qt6::Gui Qt6::Test)
     add_test(NAME shell_glass_blur COMMAND glass_blur_test)
