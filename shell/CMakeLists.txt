@@ -313,6 +313,9 @@ if(BUILD_TESTING)
     paw_shell_test(bar_resize_test SOURCES bar_resize.cpp bar_resize.hpp
         LIBS paw_config Qt6::Core Qt6::Test)
     add_test(NAME shell_bar_resize COMMAND bar_resize_test)
+    # The desktop icons' grid (shell.desktop_icons): their cells, and where dragged ones land.
+    paw_shell_test(desktop_grid_test SOURCES desktop_grid.cpp desktop_grid.hpp LIBS Qt6::Core Qt6::Test)
+    add_test(NAME shell_desktop_grid COMMAND desktop_grid_test)
     # The blurred wallpaper behind the frosted glass (shell.blur).
     paw_shell_test(glass_blur_test SOURCES glass_blur.cpp glass_blur.hpp LIBS Qt6::Gui Qt6::Test)
     add_test(NAME shell_glass_blur COMMAND glass_blur_test)
