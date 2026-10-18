@@ -15,15 +15,16 @@
  *   tool wheel DEGREES CLICKS | tool button CODE pressed|released | tool frame
  *   pad enter | pad leave | pad button N pressed|released
  * (pressure, distance and the slider in 65535ths). Usage: input_probe [--no-gestures]
- * [--no-touch] [--no-tablet] [--layer] [--overlay] [--background] [--keys] [--inhibit]
- * [--commands] [--text-input [--no-enable]] [TITLE]:
+ * [--no-touch] [--no-tablet] [--layer] [--overlay] [--background [--on-demand]] [--keys]
+ * [--inhibit] [--commands] [--text-input [--no-enable]] [TITLE]:
  * without the gestures, touch or tablets it never binds them, as most applications; with --layer
  * it is a panel along the bottom of the output, 60 pixels high, rather than a window, and with
  * --overlay such a panel on the overlay layer, as the shell's overlays are. With --background it
  * is a wallpaper on the background layer, filling the output: its left half blue and its right
- * half orange, which the command "swap" swaps (with --commands). --keys prints the
- * keyboard's events too:
- *   keyboard enter | keyboard leave | key CODE pressed|released (an evdev code)
+ * half orange, which the command "swap" swaps (with --commands); with --on-demand it takes the
+ * keyboard on demand, as a desktop with icons does. --keys prints the keyboard's events too:
+ *   keyboard enter | keyboard leave | key CODE pressed|released (an evdev code) |
+ *   modifiers DEPRESSED (the modifiers held, as the wl_keyboard's mask)
  * --inhibit asks for the compositor's shortcuts as it is ready
  * (keyboard-shortcuts-inhibit-unstable-v1), as a virtual machine's window does, and prints what
  * the compositor says of it:
@@ -103,6 +104,7 @@ struct probe {
     char surrounding[256];
     int cursor[4];
     bool wallpaper, swapped; // --background, and its halves swapped
+    bool on_demand;          // --on-demand: it takes the keyboard on demand
     // --cursor: its own cursor image (1) or none (-1) set as the pointer enters; 0 sets none.
     int cursor_image;
     struct wl_surface *cursor_surface;
@@ -401,7 +403,11 @@ static void keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t seri
 }
 static void keyboard_modifiers(void *data, struct wl_keyboard *keyboard, uint32_t serial,
                                uint32_t depressed, uint32_t latched, uint32_t locked,
-                               uint32_t group) {}
+                               uint32_t group) {
+    struct probe *probe = data;
+    if (!probe->text)
+        say("modifiers %u", depressed);
+}
 static void keyboard_repeat_info(void *data, struct wl_keyboard *keyboard, int32_t rate,
                                  int32_t delay) {}
 static const struct wl_keyboard_listener keyboard_listener = {.keymap = keyboard_keymap,
@@ -552,7 +558,9 @@ static void global(void *data, struct wl_registry *registry, uint32_t name, cons
     } else if (!strcmp(interface, zwp_tablet_manager_v2_interface.name)) {
         probe->tablets = wl_registry_bind(registry, name, &zwp_tablet_manager_v2_interface, 1);
     } else if (!strcmp(interface, zwlr_layer_shell_v1_interface.name)) {
-        probe->layer_shell = wl_registry_bind(registry, name, &zwlr_layer_shell_v1_interface, 1);
+        // Version 4 has the keyboard on demand.
+        probe->layer_shell = wl_registry_bind(registry, name, &zwlr_layer_shell_v1_interface,
+                                              version < 4 ? version : 4);
     } else if (!strcmp(interface, zwp_keyboard_shortcuts_inhibit_manager_v1_interface.name)) {
         probe->inhibit_manager = wl_registry_bind(
             registry, name, &zwp_keyboard_shortcuts_inhibit_manager_v1_interface, 1);
@@ -703,7 +711,8 @@ int main(int argc, char **argv) {
         } else if (!strcmp(argv[i], "--background")) {
             layer = probe.wallpaper = true;
             level = ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND;
-        }
+        } else if (!strcmp(argv[i], "--on-demand"))
+            probe.on_demand = true;
         else if (!strcmp(argv[i], "--keys"))
             probe.want_keys = true;
         else if (!strcmp(argv[i], "--inhibit"))
@@ -779,6 +788,9 @@ int main(int argc, char **argv) {
                                                               ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
                                                               ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
             zwlr_layer_surface_v1_set_exclusive_zone(probe.layer, -1);
+            if (probe.on_demand)
+                zwlr_layer_surface_v1_set_keyboard_interactivity(
+                    probe.layer, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_ON_DEMAND);
         } else if (probe.text) { // a search field
             zwlr_layer_surface_v1_set_size(probe.layer, 400, 60);
             zwlr_layer_surface_v1_set_anchor(probe.layer, ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP);
