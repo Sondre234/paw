@@ -157,8 +157,9 @@ Item {
                 onClicked: taskbar.panel.launcherOpen = !taskbar.panel.launcherOpen
                 Accessible.name: "Applications"
                 BarTip { panel: taskbar.panel; owner: start; text: "Start" }
-                // Four squares in the accent colour, or the picture shell.start_icon names, which
-                // shrink a little while pressed as an application's icon does.
+                // Four squares in the accent colour, together as large as an application's icon,
+                // or the picture shell.start_icon names, a little larger; they grow with the bar,
+                // and shrink a little while pressed as an application's icon does.
                 contentItem: Item {
                     Item {
                         anchors.centerIn: parent
@@ -168,15 +169,18 @@ Item {
                         Behavior on scale { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
                         Grid {
                             id: squares
-                            anchors.centerIn: parent; columns: 2; spacing: 3
+                            objectName: "startSquares"
+                            readonly property int square: Math.floor((Theme.barAppIconSize - spacing) / 2)
+                            anchors.centerIn: parent; columns: 2
+                            spacing: Math.max(3, Math.round(Theme.barAppIconSize / 8))
                             visible: !startIcon.visible
-                            Repeater { model: 4; Rectangle { width: 9; height: 9; radius: 2; color: Theme.accent } }
+                            Repeater { model: 4; Rectangle { width: squares.square; height: width; radius: 2; color: Theme.accent } }
                         }
                         Image {
                             id: startIcon
                             objectName: "startIcon"
                             anchors.centerIn: parent
-                            readonly property int side: Math.min(26, start.height - 4)
+                            readonly property int side: Math.min(Theme.barAppIconSize + 4, start.height - 4)
                             width: side; height: side
                             sourceSize: Qt.size(side * 2, side * 2)
                             source: shell.startIcon
