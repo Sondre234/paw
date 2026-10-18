@@ -34,6 +34,20 @@ class DesktopGridTest : public QObject {
         // A cell for a key that is gone keeps nobody out.
         QCOMPARE(arrange({"a"}, {{"gone", {0, 0}}}, QSize(4, 3)), (QList<QPoint>{{0, 0}}));
     }
+    void goesAroundBlockedCells() {
+        const QStringList keys{"a", "b", "c", "d"};
+        const QList<QPoint> note{{0, 0}, {0, 1}, {1, 0}, {1, 1}};
+        // A note in the top left corner: the icons fill down the columns past it.
+        QCOMPARE(arrange(keys, {}, QSize(3, 3), note), (QList<QPoint>{{0, 2}, {1, 2}, {2, 0}, {2, 1}}));
+        // One remembered under it is placed as one without a cell; the others keep theirs.
+        QCOMPARE(arrange(keys, {{"a", {1, 1}}, {"b", {2, 2}}}, QSize(3, 3), note),
+                 (QList<QPoint>{{0, 2}, {2, 2}, {1, 2}, {2, 0}}));
+        // Every cell blocked: on down the columns beyond the grid, as when it is full.
+        QCOMPARE(arrange({"a"}, {}, QSize(1, 2), {{0, 0}, {0, 1}}), (QList<QPoint>{{1, 0}}));
+        // Dragged onto a note, an icon lands in the free cell nearest it.
+        QCOMPARE(drop({{0, 0}}, {2, 0}, {{2, 0}, {2, 1}, {3, 0}, {3, 1}}, QSize(6, 5)),
+                 (QList<QPoint>{{1, 0}}));
+    }
     void findsTheNearestFreeCell() {
         const QSize grid(5, 4);
         QCOMPARE(nearestFree(grid, {2, 2}, {}), QPoint(2, 2));
