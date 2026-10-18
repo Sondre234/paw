@@ -34,7 +34,7 @@ class DesktopIcons : public QAbstractListModel {
         IconRole,    // for image://icons/: a theme icon's names by commas, or a path
         PictureRole, // a picture file's URL, drawn in place of its icon; "" for others
         PathRole,    // the file's absolute path; "" for a launcher
-        KindRole,    // "launcher", "folder", "file" or "app" (a desktop entry)
+        KindRole,    // "launcher", "folder", "file", "app" (a desktop entry) or "link" (a web link)
         AppIdRole,   // a launcher's id, for ShellController::launch
         ColumnRole,
         RowRole,
@@ -72,8 +72,9 @@ class DesktopIcons : public QAbstractListModel {
     // by name.
     Q_INVOKABLE void tidy();
     // Opens the file of `key`: a folder in the file manager, a file in its application, a desktop
-    // entry's application when the entry is executable, as file managers trust one. False, with
-    // `failed`, when it did not start; a launcher is the controller's to start.
+    // entry's application, or a link's address in the browser, when the entry is executable, as
+    // file managers trust one. False, with `failed`, when it did not start; a launcher is the
+    // controller's to start.
     Q_INVOKABLE bool open(const QString &key);
     // Puts the files of `keys` on the clipboard, for a file manager to paste copies of.
     Q_INVOKABLE void copy(const QStringList &keys);

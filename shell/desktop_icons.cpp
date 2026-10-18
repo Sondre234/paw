@@ -26,6 +26,28 @@ QString statePath() { return stateDir() + "/desktop-icons"; }
 constexpr int maxFiles = 512;
 // A picture larger than this shows its type's icon rather than itself.
 constexpr qint64 maxPicture = 32 * 1024 * 1024;
+
+// A desktop entry of `Type=Link`: its name, icon and address, all empty for any other file.
+struct LinkEntry {
+    QString name, icon, url;
+};
+LinkEntry readLink(const QString &path) {
+    LinkEntry link;
+    GKeyFile *keys = g_key_file_new();
+    auto value = [keys](const char *key, bool localized) {
+        gchar *text =
+            localized ? g_key_file_get_locale_string(keys, "Desktop Entry", key, nullptr, nullptr)
+                      : g_key_file_get_string(keys, "Desktop Entry", key, nullptr);
+        const auto string = QString::fromUtf8(text ? text : "");
+        g_free(text);
+        return string;
+    };
+    if (g_key_file_load_from_file(keys, path.toUtf8().constData(), G_KEY_FILE_NONE, nullptr) &&
+        value("Type", false) == "Link")
+        link = {value("Name", true), value("Icon", false), value("URL", false)};
+    g_key_file_free(keys);
+    return link;
+}
 } // namespace
 
 DesktopIcons::DesktopIcons(QObject *parent) : QAbstractListModel(parent) {
@@ -147,14 +169,18 @@ bool DesktopIcons::open(const QString &key) {
     QString error;
     if (!file.exists() && !file.isSymLink()) {
         error = "it is no longer there";
+    } else if ((entry.kind == "app" || entry.kind == "link") && !file.isExecutable()) {
+        // As file managers do, an entry not marked executable is not trusted to run its command,
+        // nor to open its address: anything saved to the desktop could otherwise pass itself off
+        // as a document.
+        const QString verb = entry.kind == "app" ? "start" : "open";
+        Q_EMIT failed(entry.name + " is not trusted to " + verb + ": make " + file.fileName() +
+                      " executable to " + verb + " it from the desktop");
+        return false;
+    } else if (entry.kind == "link") {
+        const auto url = readLink(entry.path).url;
+        error = url.isEmpty() ? QString("its desktop entry cannot be read") : gioOpen(url.toUtf8());
     } else if (entry.kind == "app") {
-        // As file managers do, an entry not marked executable is not trusted to run its command:
-        // anything saved to the desktop could otherwise pass itself off as a document.
-        if (!file.isExecutable()) {
-            Q_EMIT failed(entry.name + " is not trusted to start: make " + file.fileName() +
-                          " executable to start it from the desktop");
-            return false;
-        }
         GDesktopAppInfo *info = g_desktop_app_info_new_from_filename(entry.path.toUtf8().constData());
         if (!info) {
             error = "its desktop entry cannot be read";
@@ -338,6 +364,11 @@ DesktopIcons::Entry DesktopIcons::fileEntry(const QFileInfo &file) {
             entry.name = QString::fromUtf8(g_app_info_get_display_name(G_APP_INFO(info)));
             entry.icon = gioIconName(g_app_info_get_icon(G_APP_INFO(info)), "application-x-executable");
             g_object_unref(info);
+        } else if (const auto link = readLink(entry.path); !link.url.isEmpty()) {
+            entry.kind = "link";
+            entry.name = link.name.isEmpty() ? file.completeBaseName() : link.name;
+            entry.icon =
+                link.icon.isEmpty() ? "text-html,applications-internet,text-x-generic" : link.icon;
         }
     }
     if (entry.kind == "file") {
