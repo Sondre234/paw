@@ -1706,6 +1706,7 @@ void output_power_set_mode(struct wl_listener *listener, void *data);
 bool display_action(enum sh_action action);
 bool display_power(struct sh_server *server, enum sh_action action, char *error,
                    size_t error_size);
+void bring_toplevel(struct sh_toplevel *toplevel, struct wlr_output *to);
 bool wake_displays(struct sh_server *server);
 
 /* overview.c */

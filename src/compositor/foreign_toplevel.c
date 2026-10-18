@@ -10,10 +10,8 @@ static void taskbar_focus_toplevel(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
     struct wlr_output *output = focused_output(server);
     if (toplevel->minimized && !toplevel->scratchpad && !toplevel->sticky && output &&
-        !server->locked) {
-        move_toplevel_to_output(toplevel, output); // onto the workspace it shows
-        move_toplevel_to_workspace(server, toplevel, *output_workspace(server, output->name));
-    }
+        !server->locked)
+        bring_toplevel(toplevel, output);
     focus_toplevel(toplevel);
 }
 

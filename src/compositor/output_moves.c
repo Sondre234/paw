@@ -110,6 +110,13 @@ void move_toplevel_to_output(struct sh_toplevel *toplevel, struct wlr_output *to
     wlr_log(WLR_INFO, "Window moved from %s to %s", from->name, to->name);
 }
 
+/* Moves a window onto the workspace `to` shows, from whichever output and workspace it is on. */
+void bring_toplevel(struct sh_toplevel *toplevel, struct wlr_output *to) {
+    move_toplevel_to_output(toplevel, to); // onto the workspace it shows
+    move_toplevel_to_workspace(toplevel->server, toplevel,
+                               *output_workspace(toplevel->server, to->name));
+}
+
 /* An output is going away: its windows move to the nearest one that is left, keeping their
  * workspace numbers, and remember where they came from so they can return with it. Without
  * another output they stay as they are, as they do when a VT switch takes every output. */
