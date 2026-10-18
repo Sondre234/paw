@@ -450,7 +450,9 @@ A right press on the selection opens its menu: Open, Copy (for a file manager to
 to Trash, under a title that names it. The desktop's own menu hides the icons or shows them again,
 in a ripple from where it was opened; tidies them up, laying them out anew in order, launchers
 first, then folders, then files by name, in a wave from the top left; and opens the desktop folder,
-making it where it is missing. `shell.desktop_icons = false` shows none; `size` makes them larger
+making it where it is missing. The `desktop_icons` action (`paw msg desktop_icons`, or "Show or
+hide the desktop icons" in the command palette) hides or shows them as the menu does, saying so on
+the on-screen display. `shell.desktop_icons = false` shows none; `size` makes them larger
 and `folder` takes another folder's files:
 
 ```lua

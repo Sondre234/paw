@@ -2488,6 +2488,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"display_mode", SH_DISPLAY_MODE},
         {"display_settings", SH_DISPLAY_SETTINGS},
         {"desktop_clock", SH_DESKTOP_CLOCK},
+        {"desktop_icons", SH_DESKTOP_ICONS},
         {"wallpaper_next", SH_WALLPAPER_NEXT},
         {"wallpaper_prev", SH_WALLPAPER_PREV},
         {"scroll_left", SH_SCROLL_LEFT},

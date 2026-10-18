@@ -171,6 +171,7 @@ static const struct {
     {SH_DND_ON, .line = "dnd on\n"},
     {SH_DND_OFF, .line = "dnd off\n"},
     {SH_DESKTOP_CLOCK, .line = "desktop-clock toggle\n"},
+    {SH_DESKTOP_ICONS, .line = "desktop-icons toggle\n"},
     {SH_WALLPAPER_NEXT, .line = "wallpaper-cycle next\n"},
     {SH_WALLPAPER_PREV, .line = "wallpaper-cycle prev\n"},
     {SH_MEDIA_PLAY_PAUSE, .line = "media play-pause\n"},

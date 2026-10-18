@@ -158,6 +158,7 @@ constexpr Action actions[] = {
     {"emoji_picker", Shell, "Emoji picker"},
     {"display_settings", Shell, "Display settings"},
     {"desktop_clock", Shell, "Show or hide the desktop clock"},
+    {"desktop_icons", Shell, "Show or hide the desktop icons"},
     {"wallpaper_next", Shell, "Next wallpaper"},
     {"wallpaper_prev", Shell, "Previous wallpaper"},
 

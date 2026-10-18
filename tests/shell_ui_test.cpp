@@ -7717,6 +7717,14 @@ ListModel {
             !waitFor([&] { return laidOut(0) && tile("file:c.txt")->opacity() == 1; }) ||
             remembered().startsWith("hidden"))
             return fail("the desktop's menu did not show its icons again");
+        // The desktop_icons action's lines hide and show them too, saying so.
+        subscriber->write("desktop-icons toggle\n");
+        if (!waitFor([&] { return !tile("file:a.txt")->isVisible(); }) ||
+            controller.osd()->text() != "Desktop icons hidden")
+            return fail("desktop-icons toggle did not hide the desktop's icons, saying so");
+        subscriber->write("desktop-icons on\n");
+        if (!waitFor([&] { return laidOut(0); }) || controller.osd()->text() != "Desktop icons shown")
+            return fail("desktop-icons on did not show the desktop's icons, saying so");
         // A double-click starts a launcher.
         QFile::remove(marker);
         QTest::mouseDClick(&desktop, Qt::LeftButton, Qt::NoModifier, at("launcher:Test app"));

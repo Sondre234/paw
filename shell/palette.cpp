@@ -62,6 +62,7 @@ constexpr Action actions[] = {
     {"shortcuts", "Keyboard shortcuts"},
     {"display_settings", "Display settings"},
     {"desktop_clock", "Show or hide the desktop clock"},
+    {"desktop_icons", "Show or hide the desktop icons"},
     {"wallpaper_next", "Next wallpaper"},
     {"wallpaper_prev", "Previous wallpaper"},
     {"reload", "Reload configuration"},
