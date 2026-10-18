@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The desktop's icons: the launchers, then the desktop folder's folders and files by name; their
 // cells on the grid, remembered with whether they are hidden; the folder followed as it changes;
-// opening, copying, renaming and trashing files, and desktop entries trusted only once executable.
+// opening, copying, renaming and trashing files, new folders, and desktop entries trusted only once
+// executable.
 #include "desktop_icons.hpp"
 #include <QClipboard>
 #include <QDir>
@@ -261,6 +262,34 @@ class DesktopIconsTest : public QObject {
         QVERIFY(QFile::remove(folder_ + "/b.txt"));
         QVERIFY(icons->rename("file:b.txt", "c.txt").isEmpty());
         QCOMPARE(failed.count(), before + 1);
+    }
+    void makesNewFolders() {
+        {
+            auto icons = made();
+            QSignalSpy failed(icons.get(), &DesktopIcons::failed);
+            // In the free cell asked for, at once.
+            QCOMPARE(icons->newFolder(3, 1), QString("file:New folder"));
+            QVERIFY(QFileInfo(folder_ + "/New folder").isDir());
+            QCOMPARE(value(*icons, "file:New folder", DesktopIcons::KindRole).toString(), "folder");
+            QCOMPARE(cell(*icons, "file:New folder"), QPoint(3, 1));
+            // The next takes the next name, and beside it, its cell being taken; one off the grid
+            // comes onto it.
+            QCOMPARE(icons->newFolder(3, 1), QString("file:New folder 2"));
+            QCOMPARE(cell(*icons, "file:New folder 2"), QPoint(2, 1));
+            QCOMPARE(icons->newFolder(9, 9), QString("file:New folder 3"));
+            QCOMPARE(cell(*icons, "file:New folder 3"), QPoint(3, 2));
+            QVERIFY2(failed.isEmpty(), qPrintable(failed.value(0).value(0).toString()));
+            // The others stay where they were.
+            QCOMPARE(cell(*icons, "file:b.txt"), QPoint(1, 1));
+        }
+        QCOMPARE(cell(*made(), "file:New folder 2"), QPoint(2, 1));
+        // A desktop folder not there yet is made first.
+        settings_.folder = home_.filePath("Fresh");
+        auto fresh = made();
+        QCOMPARE(fresh->newFolder(0, 0), QString("file:New folder"));
+        QVERIFY(QFileInfo(settings_.folder + "/New folder").isDir());
+        QCOMPARE(cell(*fresh, "file:New folder"), QPoint(0, 1));
+        settings_.folder = folder_;
     }
     void trustsExecutableDesktopEntries() {
         const auto marker = home_.filePath("started");
