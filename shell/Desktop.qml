@@ -201,8 +201,8 @@ Rectangle {
         return entries
     }
     // Showing the desktop, and the appearance profiles beside their entry, as the bar's menu
-    // offers them, and on the main monitor showing or hiding the icons, tidying them up and
-    // opening their folder; in the room the panel leaves.
+    // offers them, and on the main monitor a new folder where it was opened, showing or hiding the
+    // icons, tidying them up and opening their folder; in the room the panel leaves.
     PopupMenu {
         id: menu
         objectName: "desktopMenu"
@@ -214,13 +214,17 @@ Rectangle {
         onDismissed: open = false
         onOpenChanged: desktop.keysBack(menu)
         entries: [{ text: "Show desktop", icon: "minimize-2", run: function() { shell.tasks.showDesktop() } }]
-            .concat(icons.active ? [{ separator: true }, {
+            .concat(icons.active ? [{ separator: true }]
+                    .concat(icons.shown
+                        ? [{ text: "New folder", icon: "folder-plus",
+                             run: function() { icons.newFolder(menu.anchorRect.x, menu.anchorRect.y) } }] : [])
+                    .concat([{
                          text: icons.shown ? "Hide desktop icons" : "Show desktop icons",
                          icon: icons.shown ? "eye-off" : "eye",
                          run: function() {
                              icons.rippleOrigin = Qt.point(menu.anchorRect.x, menu.anchorRect.y)
                              shell.desktopIcons.setShown(!icons.shown)
-                         } }]
+                         } }])
                     .concat(icons.shown && shell.desktopIcons.count > 1
                         ? [{ text: "Tidy up icons", icon: "sparkles", run: function() { icons.tidy() } }] : [])
                     .concat([{ text: "Open desktop folder", icon: "folder-open",

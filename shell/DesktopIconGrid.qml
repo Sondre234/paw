@@ -20,7 +20,8 @@ import QtQuick.Shapes
 // go to the next icon whose name starts with them, said in a bubble over it. Enter opens, Delete
 // moves to the Trash, F2 renames, Ctrl + A selects all, Ctrl + C copies, the menu key opens the
 // icons' menu and Escape lets the selection go. A name is changed on its chip, which turns into a
-// field (`renaming`).
+// field (`renaming`); a new folder pops in with a puff of sparkles under where the menu was opened,
+// its name there to type at once.
 FocusScope {
     id: grid
     objectName: "desktopIconGrid"
@@ -374,6 +375,20 @@ FocusScope {
         target: grid
         function onPressed() { grid.finishRename(grid.renameText, false) }
     }
+    // A new folder in the cell under `x`, `y` (or the free one nearest it), popping in with a puff
+    // of sparkles, its name to type.
+    function newFolder(x, y) {
+        const column = Math.max(0, Math.min(columns - 1, Math.floor((x - area.x - margin) / cellWidth)))
+        const row = Math.max(0, Math.min(rows - 1, Math.floor((y - area.y - margin) / cellHeight)))
+        rippleOrigin = Qt.point(x, y)
+        const tile = tileOf(model.newFolder(column, row))
+        if (!tile)
+            return
+        if (Theme.duration(620) > 0)
+            puff.createObject(grid, { x: tile.x + tile.width / 2, y: tile.y + Theme.spacingM + iconSize / 2 })
+        startRename(tile.key)
+    }
+
     // The drag of the selected icons: `anchorKey` under the pointer, the others in `dragKeys`
     // after it; where the pointer went down and is now; and where they would land.
     property bool dragging: false
@@ -620,6 +635,52 @@ FocusScope {
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeCaption
                 font.bold: true
+            }
+        }
+    }
+
+    // A puff out of an icon that has just come, a new folder: dots in the accent and its partner
+    // and two sparkles flying out and fading, gone once they have.
+    Component {
+        id: puff
+        Item {
+            id: burst
+            z: 120
+            property real progress: 0
+            Repeater {
+                model: 8
+                delegate: Rectangle {
+                    required property int index
+                    readonly property real angle: (index + 0.5) * Math.PI / 4
+                    readonly property real reach: grid.iconSize * (index % 2 ? 0.62 : 0.85) * burst.progress
+                    width: index % 2 ? 5 : 7
+                    height: width
+                    radius: width / 2
+                    color: index % 2 ? grid.partner : Theme.accent
+                    x: Math.cos(angle) * reach - width / 2
+                    y: Math.sin(angle) * reach - height / 2
+                    opacity: 1 - burst.progress * burst.progress
+                    scale: 1 - 0.5 * burst.progress
+                }
+            }
+            Repeater {
+                model: [[-0.75, -0.8, 14], [0.8, -0.55, 11]]
+                delegate: Icon {
+                    required property var modelData
+                    name: "sparkles"
+                    size: modelData[2]
+                    color: grid.partner
+                    x: modelData[0] * grid.iconSize * burst.progress - size / 2
+                    y: modelData[1] * grid.iconSize * burst.progress - size / 2
+                    rotation: 90 * burst.progress
+                    opacity: 1 - burst.progress * burst.progress
+                }
+            }
+            NumberAnimation on progress {
+                to: 1
+                duration: Theme.duration(620)
+                easing.type: Easing.OutCubic
+                onFinished: burst.destroy()
             }
         }
     }
