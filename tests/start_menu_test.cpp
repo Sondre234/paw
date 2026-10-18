@@ -380,6 +380,44 @@ class StartMenuTest : public QObject {
                                         "Kalk", "LibreOffice Writer"}));
         QCOMPARE(menu.searchApps("kate").first().toMap()["kind"].toString(), QString("app"));
     }
+    void ranksANameAheadOfWhatDescribesIt() {
+        QTemporaryDir state;
+        StartMenu menu(state.path());
+        auto described = [](const QString &id, const QString &name, const QString &generic,
+                            const QStringList &keywords = {}) {
+            auto record = app(id, name).toMap();
+            record["genericName"] = generic;
+            record["keywords"] = keywords;
+            return QVariant(record);
+        };
+        menu.setApps({described("org.kde.dolphin.desktop", "Dolphin", "File Manager", {"files", "finder"}),
+                      described("firefox-bin.desktop", "Mozilla Firefox (bin)", "Web Browser"),
+                      described("writer.desktop", "LibreOffice Writer", "Word Processor"),
+                      described("org.gnome.Firefly.desktop", "A Very Long Application Name Indeed "
+                                                             "With Firefly At Its End", "Game")},
+                     {});
+        auto apps = [&](const QString &query) {
+            QStringList list;
+            for (const auto &result : menu.searchApps(query))
+                list << result.toMap()["title"].toString();
+            return list;
+        };
+        // A word of the query starting a word of the name ("Fi" of Firefox) is what was meant,
+        // ahead of one starting only the generic name or a keyword (Dolphin's File Manager), and
+        // so of the start menu's best match too; however late in a long name.
+        QCOMPARE(apps("fi").mid(0, 3), (QStringList{"Mozilla Firefox (bin)",
+                                                    "A Very Long Application Name Indeed With Firefly At Its End",
+                                                    "Dolphin"}));
+        QCOMPARE(menu.search("fi", {}).first().toMap()["title"].toString(), QString("Mozilla Firefox (bin)"));
+        QCOMPARE(apps("f").first(), QString("Mozilla Firefox (bin)"));
+        QCOMPARE(apps("fire").first(), QString("Mozilla Firefox (bin)"));
+        // Letters strewn through a word of the name ("Office") are no such match, behind a word
+        // the generic name starts.
+        QVERIFY(apps("fi").indexOf("Dolphin") < apps("fi").indexOf("LibreOffice Writer"));
+        // What only describes it still finds it.
+        QCOMPARE(apps("manager"), QStringList{"Dolphin"});
+        QCOMPARE(apps("finder"), QStringList{"Dolphin"});
+    }
     void knowsTheUser() {
         QTemporaryDir state;
         StartMenu menu(state.path());
