@@ -5120,6 +5120,18 @@ ListModel {
         if (!closed() ||
             !waitFor([&] { return read() == "-e\nsh\n-c\nsh -c 'exit 0'\nexec \"$0\"\n" + shell + "\n"; }))
             return fail(("Shift+Enter did not run the command in the terminal: " + read().toStdString()).c_str());
+        // A command run before goes as it is, its program's path and arguments, unquoted; the
+        // one just run in the terminal is as frecent and more recent, first.
+        if (!openLauncher())
+            return fail("the run launcher did not open for a command in the terminal");
+        QTest::keyClick(&runView, Qt::Key_Tab);
+        if (!waitFor([&] { return title(0) == "sh -c 'exit 0'" && title(1) == command; }))
+            return fail("the commands run before were not first, the latest first");
+        QTest::keyClick(&runView, Qt::Key_Down);
+        QTest::keyClick(&runView, Qt::Key_Return, Qt::ShiftModifier);
+        if (!closed() ||
+            !waitFor([&] { return read() == "-e\nsh\n-c\n" + command + "\nexec \"$0\"\n" + shell + "\n"; }))
+            return fail(("Shift+Enter did not run the command run before as it was: " + read().toStdString()).c_str());
         // The windows, a click on their pill away.
         launcher->setWindows(qobject_cast<QAbstractItemModel *>(fakeModel));
         if (!openLauncher())
