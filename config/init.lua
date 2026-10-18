@@ -579,11 +579,14 @@ return {
         { mods = { mod }, button = "wheel_up", action = "workspace_next" },
         { mods = { mod }, button = "wheel_down", action = "workspace_prev" },
         { mods = { mod }, key = "q", action = "terminal" },
-        { mods = { mod }, key = "r", action = "launcher" },
+        -- The run launcher, after rofi: the applications, the programs on $PATH and the commands
+        -- run before, and the open windows, a Tab apart.
+        { mods = { mod }, key = "r", action = "run" },
         -- Tap Super alone for the launcher (the start menu, or Launchpad in the macOS style), as
         -- Windows' Start key: `release = true` runs a binding as its key comes up, a modifier
-        -- key's only when nothing else was pressed, clicked or scrolled while it was held.
-        -- { key = "Super_L", release = true, action = "launcher" },
+        -- key's only when nothing else was pressed, clicked or scrolled while it was held, nor
+        -- when it was held longer than half a second.
+        { key = "Super_L", release = true, action = "launcher" },
         { mods = { mod }, key = "c", action = "close" },
         { mods = { mod }, key = "m", action = "quit" },
         { mods = { mod }, key = "v", action = "toggle_floating" },

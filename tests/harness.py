@@ -372,11 +372,12 @@ class Compositor:
         """Plugs in a headless keyboard. Returns a function that types on it: each argument an
         evdev key code, pressed in that order and released the other way round, so that
         press(125, 15) is Super+Tab; press.down(code) and press.up(code) hold a key and let it
-        go."""
+        go, at `time` (the event's, in milliseconds) when one is given rather than now."""
         self.msg("headless_keyboard", "add", name)
 
-        def key(code, state):
-            self.msg("headless_keyboard", "key", name, str(code), state)
+        def key(code, state, time=None):
+            self.msg("headless_keyboard", "key", name, str(code), state,
+                     *([] if time is None else [str(time)]))
 
         def press(*codes):
             for code in codes:
@@ -384,8 +385,8 @@ class Compositor:
             for code in reversed(codes):
                 key(code, "release")
 
-        press.down = lambda code: key(code, "press")
-        press.up = lambda code: key(code, "release")
+        press.down = lambda code, time=None: key(code, "press", time)
+        press.up = lambda code, time=None: key(code, "release", time)
         return press
 
     def private_bus(self):

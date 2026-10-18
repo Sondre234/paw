@@ -816,11 +816,12 @@ struct sh_server {
     xkb_layout_index_t keyboard_layout;
     bool syncing_keyboards;
     /* A key binding with `release` (key_release.c) waiting for the key with evdev code
-     * `keycode` on `keyboard` (NULL for none) to come up: its keysym and the modifiers held as
-     * it went down, and whether it is a modifier key's, which only a tap runs. */
+     * `keycode` on `keyboard` (NULL for none) to come up: its keysym, the modifiers held as it
+     * went down and when it did (the event's time), and whether it is a modifier key's, which only
+     * a tap runs. */
     struct {
         struct sh_keyboard *keyboard;
-        uint32_t keycode, modifiers;
+        uint32_t keycode, modifiers, time;
         xkb_keysym_t sym;
         bool tap;
     } key_release;
@@ -1567,8 +1568,8 @@ void seat_keyboard_focus_change(struct wl_listener *listener, void *data);
 
 /* key_release.c */
 bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t modifiers,
-                       bool woke);
-void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode);
+                       bool woke, uint32_t time);
+void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t time);
 void key_release_cancel(struct sh_server *server);
 void key_release_forget(struct sh_keyboard *keyboard);
 

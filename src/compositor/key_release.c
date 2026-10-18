@@ -2,8 +2,14 @@
 /* Key bindings with `release` (Hyprland's bindr): the action runs as the key comes up. One of a
  * modifier key, such as Super_L opening the launcher as Windows' Start key does, runs only when
  * the key was tapped: another key, a mouse button, the wheel, a touchpad gesture, a finger or a
- * pen while it is held lets it go, so Super + drag and Super + Q stay what they are. */
+ * pen while it is held lets it go, so Super + drag and Super + Q stay what they are, and so does
+ * holding it longer than a tap, or going down while a button or a finger already is (a window
+ * dragged by its title). */
 #include "server.h"
+
+/* How long a modifier key may be held and still be tapped, as xcape's default: held longer, it
+ * was held for something else, or thought better of. */
+#define TAP_MS 500
 
 static unsigned flags_of_last(struct sh_server *server) {
     return server->callbacks->binding_flags
@@ -30,11 +36,17 @@ static bool may_run(struct sh_server *server) {
            !shortcuts_inhibited(server);
 }
 
-/* A key went down, after the bindings that run as keys go down had their turn: it lets go of a
- * tap waiting, and with a release binding of its own waits to come up. True when the press is the
- * binding's, as for any key but a modifier, whose press goes on to the application. */
+/* Whether a button or a finger is down: a modifier key going down then is no tap. */
+static bool pointer_busy(struct sh_server *server) {
+    return server->held_buttons || !wl_list_empty(&server->seat->touch_state.touch_points);
+}
+
+/* A key went down at `time` (the event's, in milliseconds), after the bindings that run as keys
+ * go down had their turn: it lets go of a tap waiting, and with a release binding of its own waits
+ * to come up. True when the press is the binding's, as for any key but a modifier, whose press
+ * goes on to the application. */
 bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t modifiers,
-                       bool woke) {
+                       bool woke, uint32_t time) {
     struct sh_server *server = keyboard->server;
     key_release_cancel(server);
     if (woke)
@@ -56,22 +68,29 @@ bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t 
         if (!may_run(server))
             return false;
         bool tap = keysym_is_modifier(sym);
+        if (tap && pointer_busy(server))
+            return false;
         server->key_release.keyboard = keyboard;
         server->key_release.keycode = keycode;
         server->key_release.modifiers = modifiers;
         server->key_release.sym = sym;
         server->key_release.tap = tap;
+        server->key_release.time = time;
         return !tap;
     }
     return false;
 }
 
-/* A key came up: the release binding waiting for it runs. */
-void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode) {
+/* A key came up at `time`: the release binding waiting for it runs, a tap's only when it came up
+ * soon enough. */
+void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t time) {
     struct sh_server *server = keyboard->server;
     if (server->key_release.keyboard != keyboard || server->key_release.keycode != keycode)
         return;
     server->key_release.keyboard = NULL;
+    // Unsigned, so that the clock's wrap around 49 days apart counts the same.
+    if (server->key_release.tap && time - server->key_release.time > TAP_MS)
+        return;
     // Looked up again: what else ran meanwhile changed the configuration's last binding.
     int argument = 0;
     enum sh_action action = release_binding(server, server->key_release.modifiers,

@@ -26,6 +26,7 @@
 #include "paw/config.hpp"
 #include "restyle.hpp"
 #include "rice_trial.hpp"
+#include "run_launcher.hpp"
 #include "shortcuts.hpp"
 #include "start_menu.hpp"
 #include "system_status.hpp"
@@ -55,6 +56,10 @@ class ShellController : public QObject {
     Q_PROPERTY(QColor background READ background NOTIFY configChanged)
     // windows.urgent_color, the colour of whatever marks a window that asks for attention.
     Q_PROPERTY(QColor urgentColor READ urgentColor NOTIFY configChanged)
+    // The warm colour beside the accent, for touches that mark no state: the focused window
+    // border's last colour when that is a gradient (washi's sakura after its sky blue), else
+    // windows.urgent_color, the warm one of each shipped profile.
+    Q_PROPERTY(QColor blush READ blush NOTIFY configChanged)
     // The wallpaper of the monitors without one of their own: one picked from the panel for the
     // profile in use, else shell.wallpaper. wallpaperFile is the same as a path, "" for none.
     // Each ShellView has its own monitor's (wallpaperOn).
@@ -173,7 +178,7 @@ class ShellController : public QObject {
     Q_PROPERTY(QString bindingMode READ bindingMode NOTIFY bindingModeChanged)
     Q_PROPERTY(QVariantList pinned READ pinned NOTIFY appsChanged)
     // Configured launchers and installed applications, as {appId, name, icon, pinned (to the
-    // taskbar), configured, genericName, keywords, description}.
+    // taskbar), configured, genericName, keywords, description, program}.
     Q_PROPERTY(QVariantList apps READ apps NOTIFY appsChanged)
     // Counts the changes of `apps`, for QML that reads one record with appRecord() to follow
     // them without making all of them.
@@ -258,6 +263,8 @@ class ShellController : public QObject {
     Q_PROPERTY(Authentication *authentication READ authentication CONSTANT)
     // The start menu's pins, launch history, applications by letter, search and user.
     Q_PROPERTY(StartMenu *startMenu READ startMenu CONSTANT)
+    // The run launcher (Super + R): applications, programs and commands, and windows.
+    Q_PROPERTY(RunLauncher *runLauncher READ runLauncher CONSTANT)
     // The history of what is copied (shell.clipboard), and its popup.
     Q_PROPERTY(ClipboardHistory *clipboard READ clipboard CONSTANT)
     // The emoji picker.
@@ -298,6 +305,7 @@ class ShellController : public QObject {
     QColor textColor() const;
     QColor background() const;
     QColor urgentColor() const;
+    QColor blush() const;
     // The windows asking for attention, longest waiting first (the first 16), as {output,
     // workspace, appId, title}, which the taskbar marks. Each output's entry in `workspaces`
     // lists the workspaces they are on, as `urgent`.
@@ -501,6 +509,7 @@ class ShellController : public QObject {
     // reloads follow the setting. Returns whether it is the agent.
     bool startPolkit();
     StartMenu *startMenu() { return &startMenu_; }
+    RunLauncher *runLauncher() { return &runLauncher_; }
     // The files the palette's and the start menu's search find (shell.search).
     FileIndex *files() { return &files_; }
     ClipboardHistory *clipboard() { return &clipboard_; }
@@ -609,6 +618,10 @@ class ShellController : public QObject {
     QVariantList xraySheets() const { return xray_.sheets; }
     int xrayHovered() const { return xray_.hovered; }
     Q_INVOKABLE bool launch(const QString &id);
+    // Starts the program `command` (its words) in the home folder, with the environment of a
+    // configured launcher's, detached from the shell; a failure shows across the panel as one of
+    // `name`'s.
+    bool startProgram(const QStringList &command, const QString &name);
     bool trashFull() const { return trashFull_; }
     // Opens the trash in the file manager, as `gio open trash:///` does, or its folder where
     // nothing opens trash:///; a failure shows across the panel.
@@ -698,6 +711,9 @@ class ShellController : public QObject {
         QString genericName = {};
         QStringList keywords = {};
         QString description = {};
+        // The program it runs, by its file name (app_match::program of its Exec line, or a
+        // configured launcher's command's first word), for the run launcher's programs.
+        QString program = {};
     };
     // Loads the configuration, or the default one with configError_ set when it has an error.
     // `reloading`, one that could not be checked in time or memory throws paw::ConfigTrialError
@@ -731,6 +747,7 @@ class ShellController : public QObject {
     Palette palette_{*this};
     Power power_{*this};
     StartMenu startMenu_{{}, this};
+    RunLauncher runLauncher_{*this};
     ClipboardHistory clipboard_;
     EmojiPicker emoji_;
     Shortcuts shortcuts_{*this};

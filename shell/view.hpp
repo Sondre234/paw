@@ -99,7 +99,7 @@ class ShellView : public QQuickView {
 // surface keeps its size whatever opens, and a popup can be as large as the output. Panel.qml
 // declares it, so its popups stay in the panel's QML tree and state; its coordinates are the
 // output's. With layer shell it is a layer surface above everything but the lock screen (above a
-// fullscreen video too, for the launcher Super + R opens); without, an ordinary window as large
+// fullscreen video too, for the launcher a tap of Super opens); without, an ordinary window as large
 // as a preview's output.
 //
 // It is shown while `open`, holds the keyboard while `keyboard`, and takes the pointer only within

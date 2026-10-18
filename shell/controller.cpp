@@ -95,6 +95,7 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     connect(this, &ShellController::appsChanged, &startMenu_,
             [this] { startMenu_.setApps(apps(), userPins_); });
     connect(&startMenu_, &StartMenu::failed, this, &ShellController::report);
+    connect(&runLauncher_, &RunLauncher::failed, this, &ShellController::report);
     connect(&startMenu_, &StartMenu::installedChanged, this, &ShellController::refreshApps);
     startMenu_.setFiles(&files_);
     configureSearch();
@@ -199,6 +200,12 @@ static QColor unpremultiplied(const float (&c)[4]) {
 QColor ShellController::urgentColor() const {
     const auto &c = config_.settings.urgent_color;
     return c[3] > 0 ? unpremultiplied(c) : QColor();
+}
+QColor ShellController::blush() const {
+    const auto &border = config_.settings.border_active_gradient;
+    if (border.count >= 2 && border.stops[border.count - 1][3] > 0)
+        return unpremultiplied(border.stops[border.count - 1]);
+    return urgentColor();
 }
 int ShellController::panelHeadroom(const QString &output) const {
     const auto &shell = config_.shell;
@@ -442,9 +449,13 @@ void ShellController::clearApps() {
 void ShellController::refreshApps() {
     clearApps();
     int index = 0;
-    for (const auto &launcher : config_.shell.launchers)
+    for (const auto &launcher : config_.shell.launchers) {
         apps_.push_back({QString("pinned:%1").arg(index++), QString::fromStdString(launcher.name),
                          QString::fromStdString(launcher.icon), launcher.command, nullptr, true, {}});
+        if (!launcher.command.empty())
+            apps_.back().program =
+                QFileInfo(QString::fromStdString(launcher.command.front())).fileName();
+    }
     QList<app_match::Entry> entries, hidden;
     hiddenIcons_.clear();
     GList *list = g_app_info_get_all();
@@ -480,8 +491,9 @@ void ShellController::refreshApps() {
                 app.keywords.push_back(QString::fromUtf8(*keyword));
         }
         app.description = QString::fromUtf8(g_app_info_get_description(info));
-        entries.push_back({id, app.wmClass, QString::fromUtf8(g_app_info_get_commandline(info)),
-                           app.name});
+        const auto commandLine = QString::fromUtf8(g_app_info_get_commandline(info));
+        app.program = app_match::program(commandLine);
+        entries.push_back({id, app.wmClass, commandLine, app.name});
     }
     g_list_free_full(list, g_object_unref);
     appIndex_ = app_match::Index(entries);
@@ -589,7 +601,8 @@ QVariantMap ShellController::record(const App &app) {
             {"configured", !app.command.empty()},
             {"genericName", app.genericName},
             {"keywords", app.keywords},
-            {"description", app.description}};
+            {"description", app.description},
+            {"program", app.program}};
 }
 QVariantList ShellController::apps() const {
     QVariantList list;
@@ -884,18 +897,23 @@ bool ShellController::launch(const QString &id) {
         startMenu_.record(id);
         return true;
     }
+    QStringList command;
+    for (const auto &word : it->command)
+        command << QString::fromStdString(word);
+    return startProgram(command, it->name);
+}
+bool ShellController::startProgram(const QStringList &command, const QString &name) {
+    if (command.isEmpty())
+        return false;
     QProcess process;
     auto env = QProcessEnvironment::systemEnvironment();
     env.remove("QT_WAYLAND_SHELL_INTEGRATION");
     process.setProcessEnvironment(env);
     process.setWorkingDirectory(QDir::homePath());
-    process.setProgram(QString::fromStdString(it->command.front()));
-    QStringList arguments;
-    for (size_t i = 1; i < it->command.size(); ++i)
-        arguments << QString::fromStdString(it->command[i]);
-    process.setArguments(arguments);
+    process.setProgram(command.front());
+    process.setArguments(command.mid(1));
     if (!process.startDetached()) {
-        report("Could not launch " + it->name + ": " + process.errorString());
+        report("Could not launch " + name + ": " + process.errorString());
         return false;
     }
     clearError();
@@ -1380,6 +1398,9 @@ void ShellController::subscribe() {
                 clipboard_.toggle(line.sliced(10));
             } else if (line.startsWith("emoji ")) {
                 emoji_.toggle(line.sliced(6));
+            } else if (line.startsWith("run ")) {
+                // run OUTPUT: the run launcher, opened or closed there.
+                runLauncher_.toggle(line.sliced(4));
             } else if (line.startsWith("shortcuts ")) {
                 // shortcuts OUTPUT: the sheet of keyboard shortcuts, opened or closed there.
                 shortcuts_.toggle(line.sliced(10));

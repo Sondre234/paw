@@ -365,6 +365,20 @@ class StartMenuTest : public QObject {
         QCOMPARE(found("ka").mid(0, 2), (QStringList{"best:Kalk", "apps:Kate"}));
         menu.record("kate.desktop", at(1000));
         QCOMPARE(found("ka").mid(0, 2), (QStringList{"best:Kate", "apps:Kalk"}));
+        // The applications alone, as the run launcher lists them: every one that matches, those
+        // the search leaves out as far behind too, without the rest; with nothing typed, every
+        // one, the one launched first and the others by name.
+        auto apps = [&](const QString &query) {
+            QStringList list;
+            for (const auto &result : menu.searchApps(query))
+                list << result.toMap()["title"].toString();
+            return list;
+        };
+        QCOMPARE(apps("fire"), (QStringList{"Firefox", "LibreOffice Writer"}));
+        QCOMPARE(apps("lock"), QStringList{"Clocks"});
+        QCOMPARE(apps(""), (QStringList{"Kate", "Calculator", "Clocks", "Files", "Firefox", "Foot",
+                                        "Kalk", "LibreOffice Writer"}));
+        QCOMPARE(menu.searchApps("kate").first().toMap()["kind"].toString(), QString("app"));
     }
     void knowsTheUser() {
         QTemporaryDir state;

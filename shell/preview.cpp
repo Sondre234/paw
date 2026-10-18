@@ -519,13 +519,14 @@ QStringList PreviewData::surfaces() {
             "palette", "switcher", "overview", "palette-empty", "auth-dialog", "snap-assist",
             "osd-microphone", "display-mode", "palette-calculator", "palette-files", "clipboard",
             "emoji", "display-settings", "display-settings-trial", "rice-trial", "xray",
-            "caption", "shortcuts", "shortcuts-search", "shortcuts-mode", "osd-color"};
+            "caption", "shortcuts", "shortcuts-search", "shortcuts-mode", "osd-color", "run",
+            "run-search", "run-commands", "run-windows"};
 }
 
 namespace {
-// The sheet of shortcuts' stand-in bindings: the shipped configuration's, after a file manager's
-// with a description, a command without one, Super tapped alone for the launcher, a mouse
-// button's over terminals and a resize mode's way in, and that mode.
+// The sheet of shortcuts' stand-in bindings: the shipped configuration's (Super tapped alone for
+// the launcher among them), after a file manager's with a description, a command without one, a
+// mouse button's over terminals and a resize mode's way in, and that mode.
 paw::Config shortcutsStandIn() {
     std::string error;
     auto config = paw::load_config_or_default({}, error);
@@ -540,7 +541,6 @@ paw::Config shortcutsStandIn() {
         "   description = 'Files' },"
         " { mods = { 'Super', 'Shift' }, key = 'b', action = 'spawn',"
         "   command = { '/usr/bin/firefox', '--private-window' } },"
-        " { key = 'Super_L', release = true, action = 'launcher' },"
         " { button = 'side', app_id = '^(kitty|foot)$', desktop = true, action = 'close' },"
         " { mods = { 'Super', 'Alt' }, key = 'r', action = 'mode', mode = 'resize' } } }");
     config.bindings.insert(config.bindings.begin(), extra.bindings.begin(), extra.bindings.end());
@@ -718,6 +718,28 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
         // Some picked lately, which open the picker on their tab.
         controller_.emoji()->preview({"👍", "🎉", "😂", "❤️", "🙏", "🚀", "☕"}, 0);
         controller_.emoji()->toggle(output);
+    } else if (name.startsWith("run")) {
+        // The run launcher: the applications as it opens, a search of them, the commands run
+        // lately and the programs on a $PATH of stand-ins, or the stand-in windows.
+        file = "RunLauncher.qml";
+        properties = {{"screenSize", ShellView::previewSize()}, {"shown", true}};
+        auto *run = controller_.runLauncher();
+        const auto now = QDateTime::currentDateTimeUtc();
+        run->preview({{"cmake --build build", 22, now.addSecs(-10 * 60)},
+                      {"htop", 12, now.addSecs(-3 * 3600)},
+                      {"git pull --rebase", 30, now.addDays(-2)},
+                      {"ssh pi@garden.local", 4, now.addDays(-9)}},
+                     {"btop", "cmake", "firefox", "fish", "gimp", "git", "htop", "kitty", "mpv",
+                      "nvim", "ssh", "yazi"});
+        if (auto *windows = qobject_cast<QAbstractItemModel *>(tasks_))
+            run->setWindows(windows);
+        run->toggle(output);
+        if (name == "run-search")
+            run->setQuery("fi");
+        else if (name == "run-commands")
+            run->setMode(RunLauncher::Run);
+        else if (name == "run-windows")
+            run->setMode(RunLauncher::Windows);
     } else if (name.startsWith("shortcuts")) {
         // The sheet of shortcuts over the whole output, of stand-in bindings: all of them, those a
         // search finds, or the resize mode's first while it is in use.
@@ -809,7 +831,7 @@ bool PreviewData::showSurface(QScreen *screen, const QString &name) {
     if (surface_->status() != QQuickView::Ready)
         return false;
     // As the palette's PickerView does before it shows, and PowerView once it shows.
-    if (file == "Palette.qml")
+    if (file == "Palette.qml" || file == "RunLauncher.qml")
         QMetaObject::invokeMethod(surface_->rootObject(), "reset");
     // Where it is on the output, for its frosted glass to find the wallpaper behind it there.
     auto place = [this] {
@@ -844,7 +866,7 @@ QPoint PreviewData::surfacePlace(QSize size) const {
         at = QPoint((output.width() - size.width()) / 2,
                     output.height() - controller_.osdBottom() - size.height());
     } else if (surfaceName_.startsWith("palette") || surfaceName_ == "clipboard" ||
-               surfaceName_ == "emoji") {
+               surfaceName_ == "emoji" || surfaceName_.startsWith("run")) {
         // PickerView: centred, below the bars by ShellController::paletteDrop.
         at = QPoint(usable.left() + (usable.width() - size.width()) / 2,
                     usable.top() + controller_.paletteDrop(output.height()));

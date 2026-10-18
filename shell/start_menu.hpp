@@ -84,6 +84,10 @@ class StartMenu : public QObject {
     // leading / finds only files. Search the web for “…” (web_search::entry) is the very last,
     // as "web", and the best match when nothing else is found.
     Q_INVOKABLE QVariantList search(const QString &query, const QVariantList &others) const;
+    // The applications `query` finds, as search() finds and ranks them before it thins them
+    // out and groups them: every one that matches, best first, each its record with `kind`
+    // "app", a `title`, a `subtitle` and its `score`. The run launcher's applications.
+    QVariantList searchApps(const QString &query) const;
     // When `then` was, said from `now`: "Just now", "5 min ago", "2 hours ago", "Yesterday", a
     // day of the week, or a date.
     Q_INVOKABLE QString ago(const QDateTime &then, const QDateTime &now) const;

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include <QList>
 #include <QString>
 #include <QVariantList>
 
@@ -13,6 +14,10 @@ double score(const QString &query, const QString &text);
 QStringList words(const QString &query);
 // score() for a query already split into its words(), to match many texts against.
 double scoreWords(const QStringList &words, const QString &text);
+// Where in `text` the letters of `words` (a query's words()) are as scoreWords() matches them
+// best, in order and each once, for a search to show them; empty when a word does not match, or
+// when folding the text to lower case changes its length (ß).
+QList<int> matches(const QStringList &words, const QString &text);
 // The entries ({kind, title, subtitle, ...}) matching `query`, best first, each with its `score`
 // added. A leading > @ # or % keeps only actions, windows, workspaces, or sessions. With no
 // words, all of them in their given order (windows, sessions, workspaces, actions, applications

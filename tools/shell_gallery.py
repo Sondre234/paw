@@ -41,7 +41,7 @@ POPUPS = ["bar", "launcher", "power", "bar-menu", "bar-submenu", "task-menu", "s
 POPUPS += ["osd-volume", "osd-text", "cards", "power-dialog", "palette", "switcher",
            "overview", "palette-empty", "auth-dialog", "snap-assist", "osd-microphone",
            "palette-calculator", "palette-files", "clipboard", "emoji", "shortcuts",
-           "shortcuts-search", "shortcuts-mode"]
+           "shortcuts-search", "shortcuts-mode", "run", "run-search", "run-commands", "run-windows"]
 # The start menu's other views and its menus.
 POPUPS += ["display-mode", "display-settings", "display-settings-trial"]
 POPUPS += ["rice-trial"]

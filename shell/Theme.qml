@@ -76,6 +76,10 @@ QtObject {
     readonly property color urgent: shell.urgentColor
     readonly property color urgentSubtle: alpha(urgent, 0.24)
 
+    // The warm colour beside the accent (shell.blush: washi's sakura beside its sky blue), for
+    // small touches that mark no state, as the run launcher's cat and its chosen row are drawn.
+    readonly property color blush: shell.blush
+
     // Type, from shell.font and shell.font_size: body text, then smaller for secondary text and
     // captions, larger for list entries and popup headings, a title for a dialog or an overlay's
     // input, and the launcher's heading.

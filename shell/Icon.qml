@@ -95,6 +95,8 @@ Item {
         "leaf": "M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12",
         "gauge": "M12 14l4-4 M3.34 19a10 10 0 1 1 17.32 0",
         "zap": "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+        // The run launcher's Run mode.
+        "terminal": "M4 17l6-6-6-6 M12 19h8",
         // The macOS style's menu bar: the system menu's spiral, and Quick Settings' two switches
         // (drawn in Lucide's manner, not one of its icons).
         "shell": "M14 11a2 2 0 1 1-4 0 4 4 0 0 1 8 0 6 6 0 0 1-12 0 8 8 0 0 1 16 0 10 10 0 1 1-20 0 11.93 11.93 0 0 1 2.42-7.22 2 2 0 1 1 3.16 2.44",

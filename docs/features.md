@@ -61,7 +61,7 @@ the dock.
   Control + F3 on macOS) walks its icons from the keyboard as on the [taskbar](#taskbar), the
   Launchpad button and the Trash among them: the icon selected is ringed and named on its tag,
   Enter clicks it, the Menu key opens its menu, and Up goes into a stack's list of windows.
-- **Launchpad** (Super + R, the `launcher` action, or the dock's first button): every application
+- **Launchpad** (a tap of Super, the `launcher` action, or the dock's first button): every application
   on pages of a 7 × 5 grid over the whole screen. Type to search, use the arrows, Page Up and
   Page Down, the wheel, dragging or the dots to page, Enter to launch, and right-click for an
   application's actions or Keep in Dock; Escape clears the search and then closes it, as does a
@@ -667,7 +667,7 @@ low opacity, which shows on a light panel as on a dark one. Popups (the start me
 mixer, the flyouts and the rest) are drawn in the panel color made opaque, even when the bar is
 translucent, unless they are frosted glass (below): a window showing through would make them hard
 to read. They open in a surface of their own over the whole monitor, above fullscreen windows too, so
-the start menu Super + R opens shows over a video; they fade in with a short slide from the bar and
+the start menu a tap of Super opens shows over a video; they fade in with a short slide from the bar and
 fade out, and cast a soft shadow when the shell draws through the GPU. While one is open, the
 keyboard is in it and a press anywhere but on the bar or the popup closes it without reaching what
 is under it; a press on another bar button opens that one's popup at once. The overview, the
@@ -796,7 +796,7 @@ the title last. Submenus keep their order.
 
 ### Start menu
 
-The bar's first button (or Super + R) opens the start menu, after Windows 11's, above the button.
+The bar's first button (or a tap of Super) opens the start menu, after Windows 11's, above the button.
 Its search field is on top and has the keyboard, so typing searches at once; along the bottom are
 the user's name and picture and the [power button](#power). Under the search field are the
 applications pinned to the start menu, six to a row on pages of up to three rows (the wheel or the
@@ -1605,6 +1605,60 @@ English keywords, under the Unicode License v3; `vendor/emoji/README.md` says ho
 Emoji, say); without one some show as boxes. `tests/emoji_test.cpp` tests the table and the search,
 and `tests/emoji_shell_smoke.py` the picker typing into a window.
 
+## Run launcher
+
+`run` (Super + R, or `paw msg run`) opens the shell's run launcher, after rofi, on the monitor
+under the pointer: a compact card near the top of the screen, made to be driven from the keyboard.
+Along its top are its modes as pills, the one in use under a pill in the accent fading into the
+blush (`Theme.blush`: the focused border's last colour when that is a gradient, so washi's sky
+blue into sakura) with a cat's ears, which slides to the next; under them the line to type in,
+after a cat whose face follows what happens (`(=^·ω·^=)` waiting, `(=ↀωↀ=)` watching what is
+typed, `(=;ω;=)` when nothing is found, `(=TωT=)` when a program is not there, `\(=^▽^=)/` as
+what was chosen runs); under that what the text finds, the letters it matched in the accent.
+The rows ease in one after another as it opens, a new one slides in as typing finds it and the
+others glide to their places, and the chosen one gives a little hop as it runs. The card keeps
+its height while typing, so that nothing jumps.
+
+- **Apps**, the mode it opens in: the installed applications and configured launchers, found as
+  the [start menu](#start-menu) finds them (name, generic name, keywords, desktop id, comment),
+  with nothing typed those launched most and lately first (their launches' frecency, below), the
+  rest by name. Enter launches one, counted as every launch from the shell is.
+- **Run**: the programs on `$PATH`, the commands run from it before coming first. With nothing
+  typed, the commands by frecency, as zoxide weighs it (each run counts four times within the
+  hour, twice within the day, half within the week and a quarter after), each saying how many
+  times and when it last ran, then every program by name. A word matches the commands and the
+  programs alike, a command run often a little ahead of as close a match; words after the first
+  are the program's arguments, so `git status` offers git with them, and a command already run is
+  not offered twice. A program is shown with its application's icon where one runs it.
+- **Windows**: the open windows by title and application, with nothing typed every one, those
+  asking for attention first and the focused one last; Enter focuses the one chosen, showing its
+  workspace and bringing it back from minimized.
+
+Tab and Shift + Tab go through the modes, and a click on a pill picks one. In Apps and Run, what
+the text is besides words comes first: a calculation's value, as the [calculator](#calculator)
+has it (`=1+2`, `5 km in mi`), which Enter copies; a path starting with `/`, `~/` or `~` alone
+that is there, to open (a folder in the file manager, a file in its application) or, when it is
+a program, to run, and after it up to six in its folder whose names start with what follows the
+last `/` (folders first; the hidden ones once that starts with a dot); and an address starting
+with `http://`, `https://` or `www.`, to open in the browser.
+
+Up and Down, Ctrl + N and Ctrl + P, Ctrl + J and Ctrl + K, or the pointer choose (wrapping), Page
+Up and Page Down move a page; Enter runs what is chosen, or with nothing found the text as a
+command; Ctrl + Enter runs the text as it is typed, whatever is chosen; Shift + Enter runs the
+chosen command (else the text) in the terminal the `terminal` action opens, followed by your
+`$SHELL`, so that its window stays to read what the command said; Escape, or clicking elsewhere,
+closes it. A command runs through `sh -c` in the home folder. One whose program is not on
+`$PATH` (a plain first word that is no shell builtin, path or assignment) does not run: the
+launcher stays open and says so. The commands run are remembered in
+`$XDG_STATE_HOME/paw/run-history`, a command, how many times and when last a line, the 200 most
+recent kept; the applications' launches are the start menu's `launches`.
+
+It shows at most 100 rows, typing finding the rest, and opens and filters at once: the programs
+on `$PATH` are read as it first needs them, and again only once one of `$PATH`'s folders has
+changed. `tests/run_search_test.cpp` tests the search, `tests/shell_ui_test.cpp` the card and
+its keys, and `tests/run_shell_smoke.py` the action opening it in a session and a command typed
+into it running.
+
 ## Colour picker
 
 `pick_color` (unbound by default; `paw msg pick_color`, or "Pick a colour from the screen" in the
@@ -1696,7 +1750,7 @@ start on 1. Workspace shortcuts switch the focused monitor: the one whose window
 focused, whose workspace was switched, or that was clicked last. A monitor's bare desktop
 counts as a window there: pointing at it (with focus following the mouse) or clicking it
 focuses that monitor, and the window on the other monitor loses the keyboard, so Super + minus
-or Super + R then act on the empty monitor. A window belongs to the
+or a tap of Super then act on the empty monitor. A window belongs to the
 monitor it is on; moved to another monitor, it joins the workspace showing there. The
 panel on each monitor shows that monitor's workspaces, marking the current one and those
 with windows; scrolling over it pages through them and clicking a number switches to it. Resting
@@ -2962,7 +3016,10 @@ Hyprland's `bindr` does. A modifier key alone (`Super_L`, `Alt_L`, `Control_R`, 
 binding, as Windows' Start key and KDE's Meta key are: it runs only when nothing else happened
 while the key was held, so another key (bound or not), a mouse button, the wheel, a touchpad
 gesture, a finger or a pen in the meantime lets it go, and Super + drag, Super + the wheel,
-Super + Q and the switcher stay what they were. The modifier's press and release still reach the
+Super + Q and the switcher stay what they were. Nor does it run when the key was held longer
+than half a second (xcape's limit: held that long, it was held for something else, or thought
+better of), or went down while a mouse button or a finger already was, as while a window is
+dragged by its title. The modifier's press and release still reach the
 application with the keyboard as usual. Any other key's binding has the key from its press, so
 the application hears neither. `mods` are the modifiers held as the key goes down; with a
 modifier key its own may be named or not (`mods = { "Super" }, key = "Super_L"` is the same
@@ -2976,7 +3033,8 @@ Windows:
 { key = "Super_L", release = true, action = "launcher" },
 ```
 
-The shipped configuration has that line commented out. `key_release_smoke` tests it with a
+The shipped configuration has that line, and Super + R opens the [run launcher](#run-launcher).
+`key_release_smoke` tests it with a
 window that prints the keys it gets.
 
 ### Binding modes
@@ -3572,7 +3630,9 @@ the workspace it shows (`dwindle`, `master`, `spiral`, `monocle` or `scroll`, as
 area a window shown there reaches (`top,left`, or `-`; a floating bar docks along them), and `keyboard-layout N COUNT SHORT NAME` (the active
 [keyboard layout](#keyboard-layouts), from 1, of how many, as in `get keyboard`) after every
 change, plus `launcher OUTPUT` when the `launcher` action
-(Super + R) asks the panel on that monitor to open or close its start menu; the panel uses this. The window switcher sends `switcher OUTPUT SELECTED COUNT` followed by
+(a tap of Super) asks the panel on that monitor to open or close its start menu, and `run OUTPUT`
+when the `run` action (Super + R) asks the shell for its [run launcher](#run-launcher) there; the
+panel uses these. The window switcher sends `switcher OUTPUT SELECTED COUNT` followed by
 COUNT lines `switcher-window APP_ID TITLE OUTPUT WORKSPACE MINIMIZED URGENT ID` (tab-separated) when it
 opens or a listed window closes, `switcher-select N` as the selection moves (both counting
 from 0), and `switcher-close`. ID is the window's number, which the compositor gives each window as

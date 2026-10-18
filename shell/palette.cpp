@@ -59,6 +59,7 @@ constexpr Action actions[] = {
     {"move_to_workspace_prev", "Move window to the previous workspace"},
     {"move_to_workspace_empty", "Move window to an empty workspace"},
     {"launcher", "Applications menu"},
+    {"run", "Run launcher: apps, commands and windows"},
     {"shortcuts", "Keyboard shortcuts"},
     {"display_settings", "Display settings"},
     {"desktop_clock", "Show or hide the desktop clock"},

@@ -2502,6 +2502,7 @@ constexpr std::pair<std::string_view, sh_action> action_table[] = {
         {"center_column", SH_CENTER_COLUMN},
         {"toggle_floating", SH_TOGGLE_FLOATING},
         {"launcher", SH_LAUNCHER},
+        {"run", SH_RUN},
         {"taskbar_focus", SH_TASKBAR_FOCUS},
         {"volume_up", SH_VOLUME_UP},
         {"volume_down", SH_VOLUME_DOWN},

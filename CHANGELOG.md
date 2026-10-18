@@ -328,6 +328,18 @@ shadows.
 - `paw msg type TEXT` types text into what has the keyboard, emoji and accents too, on a
   keymap made for it, as wtype does.
 
+### The run launcher
+
+- `run` opens a run launcher after rofi, a compact card made for the keyboard: its modes Apps,
+  Run (the programs on `$PATH`, the commands run before first by frecency, kept in
+  `$XDG_STATE_HOME/paw/run-history`) and Windows as pills along its top, which Tab and Shift + Tab
+  go through, a line to type in and fuzzy matches under it, their matched letters in the accent.
+  Enter runs what is chosen, Ctrl + Enter the text as typed, Shift + Enter in the terminal; a
+  path, an address and a calculation are offered as they are typed. In its own clothes: the pill
+  in use has a cat's ears and slides between the modes, a cat's face beside the text follows
+  what happens, rows ease in and glide, and the chosen one hops as it runs. `Theme.blush`, the
+  warm colour beside the accent (washi's sakura), draws its touches.
+
 ### The colour picker
 
 - `pick_color` picks a colour off the screen, as hyprpicker does: the cursor becomes a crosshair
@@ -480,9 +492,10 @@ shadows.
   microphone and brightness keys work on the lock screen, and the steps repeat while held.
 - A key binding with `release = true` runs as its key comes up, as Hyprland's `bindr`. One of a
   modifier key alone runs only when that key was tapped, so `{ key = "Super_L", release = true,
-  action = "launcher" }` (commented out in the shipped configuration) opens the start menu, or
-  Launchpad, on a tap of Super as Windows does, while Super + a key, a click, the wheel or a
-  gesture leave it closed; the application still hears Super go down and up.
+  action = "launcher" }` (in the shipped configuration) opens the start menu, or Launchpad, on a
+  tap of Super as Windows does, while Super + a key, a click, the wheel, a gesture, a hold of more
+  than half a second or a button already held leave it closed; the application still hears Super
+  go down and up. Super + R, which opened the launcher, opens the run launcher.
 - Binding modes, as sway's modes and Hyprland's submaps: `modes` holds named lists of key bindings,
   and a binding with `action = "mode", mode = "NAME"` (or `paw msg mode NAME`) puts one in
   use, its bindings taking the place of the others until `mode = "default"`. The taskbar and the

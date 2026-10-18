@@ -299,6 +299,8 @@ int main(int argc, char **argv) {
     // with ("" for a trial).
     QByteArray monitorsReply;
     QString monitorsRefusal;
+    // What `get terminal` answers after its "ok": the terminal action's command line.
+    QByteArray terminalReply;
     // What the compositor does with "profile NAME": saves it and reloads the shell.
     std::function<void(const QString &)> pickProfile;
     // The profiles the shell said it has drawn (profile_drawn), for the compositor's crossfade.
@@ -373,6 +375,9 @@ int main(int argc, char **argv) {
                 client->disconnectFromServer();
             } else if (request == "get monitors\n") {
                 client->write("ok\n" + monitorsReply);
+                client->disconnectFromServer();
+            } else if (request == "get terminal\n") {
+                client->write("ok\n" + terminalReply);
                 client->disconnectFromServer();
             } else if (request.startsWith("monitors ")) {
                 requests.push_back(QString::fromUtf8(request).trimmed());
@@ -5007,6 +5012,151 @@ ListModel {
         QTest::keyClick(&emojiView, Qt::Key_Escape);
         if (!waitFor([&] { return !emojiView.isVisible(); }) || !picker->output().isEmpty())
             return fail("Escape did not close the emoji picker");
+    }
+    // The run launcher: the run action opens it on an output in Apps mode with nothing typed, the
+    // first row chosen and the cat waiting; the keys choose and go through the modes, typing finds
+    // the applications, their letters marked, and Enter launches the one chosen, closing it. In
+    // Run, Ctrl+Enter runs what is typed as it is and remembers it, first among the commands the
+    // next time; a program that is not there is said instead, the launcher staying open; and
+    // Shift+Enter runs the command in the compositor's terminal, the user's shell after it. A
+    // click on the Windows pill lists the windows, and Enter focuses the one chosen; Escape closes
+    // it, as does the action again.
+    {
+        PickerView runView(controller, app.primaryScreen(), "run", "RunLauncher.qml",
+                           controller.runLauncher());
+        if (runView.status() != QQuickView::Ready) {
+            for (const auto &error : runView.errors())
+                std::cerr << error.toString().toStdString() << '\n';
+            return 1;
+        }
+        auto *launcher = controller.runLauncher();
+        auto *results = launcher->results();
+        auto *root = runView.rootObject();
+        auto title = [&](int index) {
+            const auto *row = results->row(index);
+            return row ? row->title : QString();
+        };
+        auto face = [&] { return find(root, "runFace")->property("text").toString(); };
+        auto type = [&](const QString &text) {
+            for (const auto &c : text)
+                QTest::keyClick(&runView, c.toLatin1());
+        };
+        auto openLauncher = [&] {
+            subscriber->write(("run " + output + "\n").toUtf8());
+            return waitFor([&] { return runView.isVisible() && launcher->output() == output; }) &&
+                   waitFor([&] { return find(root, "runInput")->hasActiveFocus(); });
+        };
+        auto closed = [&] {
+            return waitFor([&] { return !runView.isVisible() && launcher->output().isEmpty(); });
+        };
+        if (!openLauncher())
+            return fail("the run action did not open the run launcher");
+        if (launcher->mode() != RunLauncher::Apps || results->count() < 3 ||
+            launcher->selected() != 0 || face() != "(=^·ω·^=)")
+            return fail("the run launcher did not open on the applications, the cat waiting");
+        QTest::keyClick(&runView, Qt::Key_Down);
+        QTest::keyClick(&runView, Qt::Key_J, Qt::ControlModifier);
+        if (launcher->selected() != 2)
+            return fail("Down and Ctrl+J did not move the run launcher's selection down");
+        QTest::keyClick(&runView, Qt::Key_P, Qt::ControlModifier);
+        QTest::keyClick(&runView, Qt::Key_Up);
+        if (launcher->selected() != 0)
+            return fail("Ctrl+P and Up did not move the run launcher's selection back up");
+        QTest::keyClick(&runView, Qt::Key_Backtab);
+        if (launcher->mode() != RunLauncher::Windows)
+            return fail("Shift+Tab did not go round to the run launcher's last mode");
+        QTest::keyClick(&runView, Qt::Key_Tab);
+        if (launcher->mode() != RunLauncher::Apps)
+            return fail("Tab did not go round to the run launcher's first mode");
+        type("other");
+        if (!waitFor([&] { return title(0) == "Other app"; }) ||
+            results->row(0)->matches != QList<int>({0, 1, 2, 3, 4}) || face() != "(=ↀωↀ=)")
+            return fail("the run launcher's search did not find Other app first, its letters marked");
+        QTest::keyClick(&runView, Qt::Key_Return);
+        if (!closed() ||
+            controller.startMenu()->recent().value(0).toMap()["appId"] != "paw-test-other.desktop")
+            return fail("Enter did not launch the application chosen and close the run launcher");
+        // A command, as typed: run, and remembered.
+        const auto ran = directory.filePath("ran");
+        const auto command = QString::fromLocal8Bit(argv[1]) + " -E touch " + ran;
+        if (!openLauncher())
+            return fail("the run launcher did not open again");
+        QTest::keyClick(&runView, Qt::Key_Tab);
+        if (launcher->mode() != RunLauncher::Run || !find(root, "runMode:Run"))
+            return fail("Tab did not go on to the run launcher's Run mode");
+        type(command);
+        QTest::keyClick(&runView, Qt::Key_Return, Qt::ControlModifier);
+        if (!closed() || !waitFor([&] { return QFile::exists(ran); }) ||
+            launcher->history().entries().value(0).id != command)
+            return fail("Ctrl+Enter did not run what was typed and remember it");
+        if (!openLauncher())
+            return fail("the run launcher did not open a third time");
+        QTest::keyClick(&runView, Qt::Key_Tab);
+        if (!waitFor([&] { return title(0) == command; }) || results->row(0)->kind != "command" ||
+            !results->row(0)->subtitle.startsWith("1 run"))
+            return fail("the command run was not first among the commands the next time");
+        // A program that is not there is said, nothing runs and the launcher stays.
+        type("paw-no-such-program --now");
+        QTest::keyClick(&runView, Qt::Key_Return);
+        if (!waitFor([&] { return launcher->problem().contains("“paw-no-such-program”"); }) ||
+            !runView.isVisible() || !find(root, "runProblem")->isVisible() || face() != "(=TωT=)")
+            return fail("a program that is not there did not keep the run launcher open, saying so");
+        // In the terminal the compositor names, a stand-in that writes down what it is told.
+        const auto told = directory.filePath("terminal-told");
+        const auto terminal = directory.filePath("terminal.sh");
+        if (!writeFile(terminal, ("#!/bin/sh\nprintf '%s\\n' \"$@\" > '" + told + "'\n").toUtf8()) ||
+            !QFile::setPermissions(terminal, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner))
+            return fail("could not write the stand-in terminal");
+        terminalReply = terminal.toUtf8() + "\n";
+        find(root, "runInput")->setProperty("text", "sh -c 'exit 0'");
+        if (!waitFor([&] { return title(0) == "sh -c 'exit 0'" && launcher->problem().isEmpty(); }))
+            return fail("the run launcher did not offer sh with its arguments");
+        QTest::keyClick(&runView, Qt::Key_Return, Qt::ShiftModifier);
+        const auto shell = qEnvironmentVariable("SHELL", "/bin/sh");
+        auto read = [&] {
+            QFile file(told);
+            return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString();
+        };
+        if (!closed() ||
+            !waitFor([&] { return read() == "-e\nsh\n-c\nsh -c 'exit 0'\nexec \"$0\"\n" + shell + "\n"; }))
+            return fail(("Shift+Enter did not run the command in the terminal: " + read().toStdString()).c_str());
+        // A command run before goes as it is, its program's path and arguments, unquoted; the
+        // one just run in the terminal is as frecent and more recent, first.
+        if (!openLauncher())
+            return fail("the run launcher did not open for a command in the terminal");
+        QTest::keyClick(&runView, Qt::Key_Tab);
+        if (!waitFor([&] { return title(0) == "sh -c 'exit 0'" && title(1) == command; }))
+            return fail("the commands run before were not first, the latest first");
+        QTest::keyClick(&runView, Qt::Key_Down);
+        QTest::keyClick(&runView, Qt::Key_Return, Qt::ShiftModifier);
+        if (!closed() ||
+            !waitFor([&] { return read() == "-e\nsh\n-c\n" + command + "\nexec \"$0\"\n" + shell + "\n"; }))
+            return fail(("Shift+Enter did not run the command run before as it was: " + read().toStdString()).c_str());
+        // The windows, a click on their pill away.
+        launcher->setWindows(qobject_cast<QAbstractItemModel *>(fakeModel));
+        if (!openLauncher())
+            return fail("the run launcher did not open a fourth time");
+        click(find(root, "runMode:Windows"));
+        if (!waitFor([&] { return launcher->mode() == RunLauncher::Windows && results->count() > 0; }) ||
+            results->row(0)->kind != "window")
+            return fail("a click on the Windows pill did not list the windows");
+        const auto *first = results->row(0);
+        const auto expected = first->current ? QString() : "activate " + first->target;
+        taskRequests();
+        QTest::keyClick(&runView, Qt::Key_Return);
+        if (!closed() || taskRequests() != expected)
+            return fail("Enter did not focus the window chosen");
+        launcher->setWindows(nullptr);
+        if (!openLauncher())
+            return fail("the run launcher did not open a fifth time");
+        QTest::keyClick(&runView, Qt::Key_Escape);
+        if (!closed())
+            return fail("Escape did not close the run launcher");
+        if (!openLauncher())
+            return fail("the run launcher did not open a sixth time");
+        subscriber->write(("run " + output + "\n").toUtf8());
+        if (!closed())
+            return fail("the run action did not close the run launcher it opened");
     }
     // The sheet of keyboard shortcuts: the shortcuts action opens it over the whole output, the
     // configuration's bindings in groups with their keys as caps, Super + 1 and 2 as one row;
