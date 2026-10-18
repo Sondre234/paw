@@ -89,6 +89,8 @@ list(APPEND PAW_NOTIFY_SOURCES rice_trial.cpp rice_trial.hpp)
 list(APPEND PAW_NOTIFY_SOURCES caption.cpp caption.hpp)
 # The desktop clock's settings, and whether it shows.
 list(APPEND PAW_NOTIFY_SOURCES desktop_clock.cpp desktop_clock.hpp)
+# The desktop's icons: the desktop folder's files and the launchers, on a grid.
+list(APPEND PAW_NOTIFY_SOURCES desktop_icons.cpp desktop_icons.hpp desktop_grid.cpp desktop_grid.hpp)
 # The QML is compiled ahead of time into the binary (qmlcachegen), so starting the shell parses
 # and compiles none of it. It lives at qrc:/shell/PawShell/*.qml.
 qt_add_library(paw_shell_qml STATIC)
@@ -316,6 +318,13 @@ if(BUILD_TESTING)
     # The desktop icons' grid (shell.desktop_icons): their cells, and where dragged ones land.
     paw_shell_test(desktop_grid_test SOURCES desktop_grid.cpp desktop_grid.hpp LIBS Qt6::Core Qt6::Test)
     add_test(NAME shell_desktop_grid COMMAND desktop_grid_test)
+    # The desktop icons' model: the folder's files, their cells remembered, opening and trashing.
+    paw_shell_test(desktop_icons_test
+        SOURCES desktop_icons.cpp desktop_icons.hpp desktop_grid.cpp desktop_grid.hpp icons.cpp icons.hpp
+        LIBS Qt6::Gui Qt6::Quick Qt6::Test PkgConfig::GIO)
+    add_test(NAME shell_desktop_icons COMMAND desktop_icons_test)
+    set_tests_properties(shell_desktop_icons PROPERTIES TIMEOUT 60
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # The blurred wallpaper behind the frosted glass (shell.blur).
     paw_shell_test(glass_blur_test SOURCES glass_blur.cpp glass_blur.hpp LIBS Qt6::Gui Qt6::Test)
     add_test(NAME shell_glass_blur COMMAND glass_blur_test)

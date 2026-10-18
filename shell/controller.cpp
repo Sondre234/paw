@@ -106,6 +106,8 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     notifications_.configure(config_.notifications);
     osd_.configure(config_.osd);
     configureDesktopClock();
+    connect(&desktopIcons_, &DesktopIcons::failed, this, &ShellController::report);
+    configureDesktopIcons();
     connect(&wallpaperCycle_, &WallpaperCycle::due, this, [this] { stepWallpaper(1, false); });
     configureWallpaperCycle();
     connect(&displayModes_, &DisplayModes::request, this, &ShellController::send);
@@ -969,6 +971,25 @@ void ShellController::configureDesktopClock() {
     const auto &clock = config_.shell.desktop_clock;
     desktopClock_.configure(clock, color(clock.color.empty() ? config_.shell.text_color : clock.color));
 }
+void ShellController::configureDesktopIcons() {
+    const auto &icons = config_.shell.desktop_icons;
+    DesktopIcons::Settings settings;
+    settings.enabled = icons.enabled;
+    settings.size = icons.size;
+    settings.folder = QString::fromStdString(icons.folder);
+    if (settings.folder.startsWith("~/"))
+        settings.folder = QDir::homePath() + settings.folder.sliced(1);
+    else if (settings.folder.isEmpty())
+        settings.folder = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+    settings.folder = QDir::cleanPath(settings.folder);
+    // The launchers as refreshApps lists them, by their places.
+    QList<DesktopIcons::Launcher> launchers;
+    int index = 0;
+    for (const auto &launcher : config_.shell.launchers)
+        launchers.push_back({QString("pinned:%1").arg(index++), QString::fromStdString(launcher.name),
+                             QString::fromStdString(launcher.icon)});
+    desktopIcons_.configure(settings, launchers);
+}
 void ShellController::configureClipboard() {
     const auto &clipboard = config_.shell.clipboard;
     ClipboardHistory::Settings settings;
@@ -1090,6 +1111,7 @@ void ShellController::reload() {
         notifications_.configure(config_.notifications);
         osd_.configure(config_.osd);
         configureDesktopClock();
+        configureDesktopIcons();
         configureWallpaperCycle();
         power_.setCountdown(config_.power.countdown);
         configureSearch();
@@ -1516,6 +1538,11 @@ void ShellController::subscribe() {
                 if (desktopClock_.handle(line.sliced(14)))
                     osd_.show(overlayOutput(), desktopClock_.shown() ? "Desktop clock on"
                                                                      : "Desktop clock off", -1);
+            } else if (line.startsWith("desktop-icons ")) {
+                // desktop-icons toggle|on|off: the desktop_icons action.
+                if (desktopIcons_.handle(line.sliced(14)))
+                    osd_.show(overlayOutput(), desktopIcons_.shown() ? "Desktop icons shown"
+                                                                     : "Desktop icons hidden", -1);
             }
         }
         if (outputs && workspaces_ != nextWorkspaces_) {
