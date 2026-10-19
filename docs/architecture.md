@@ -1295,8 +1295,9 @@ while the bar is still drawn at that size, and `panel-drag-cancelled` (Escape, t
 pressed when the compositor took the pointer stays pressed and would take no new press: each strip
 is a `Loader`'s, made anew once the drag is over.
 
-While the panel's output tiles, with `shell.tiling_bar` on, `Panel.qml` shows the tiling bar
-(`TilingBar.qml`) instead (`tilingBarShown`). The style's bars stay meanwhile, hidden and null
+While the panel's output tiles (or always, with `shell.tiling_bar.always`), with
+`shell.tiling_bar` on, `Panel.qml` shows the tiling bar (`TilingBar.qml`) instead
+(`tilingBarShown`). The style's bars stay meanwhile, hidden and null
 through `taskbar`, `dock` and `menuBar`, so that bars switch at once as tiling goes on and off,
 and `macos` reads false, so that the popups are placed as on the taskbar while drawn in the
 style's own way. The panel sets its `ShellView`'s `tilingBar`, which lays the surface along the

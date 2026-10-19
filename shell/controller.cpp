@@ -653,6 +653,7 @@ QVariantMap ShellController::tilingBar() const {
     };
     const auto accent = own(bar.accent, shell.accent);
     return {{"enabled", bar.enabled},
+            {"always", bar.always},
             {"top", bar.top},
             {"height", bar.height},
             {"marginTop", bar.margin[0]},

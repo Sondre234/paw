@@ -476,6 +476,7 @@ void read_tiling_bar(lua_State *L, TilingBar &bar) {
     keys(L, -1, "shell.tiling_bar");
     Named in("shell.tiling_bar");
     boolean(L, "enabled", "shell.tiling_bar.enabled", bar.enabled);
+    boolean(L, "always", "shell.tiling_bar.always", bar.always);
     named(L, "position", nullptr, bar.top, {{"top", true}, {"bottom", false}},
           "shell.tiling_bar.position must be \"top\" or \"bottom\"", "position");
     bar.height = integer(L, "height", bar.height, 20, 100);

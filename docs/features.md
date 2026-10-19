@@ -88,7 +88,9 @@ While a monitor [tiles](#tiling), its taskbar (or the macOS style's dock and men
 the tiling bar, a bar in Hyprland's style as Waybar draws it: thin, floating along the top, with
 the workspaces at the left, the focused window's title in the middle and the system's state at
 the right. Turning tiling off brings the taskbar back at once; with
-`layout.tiling_per_workspace`, the bar follows the workspace shown. The windows tile in the room it
+`layout.tiling_per_workspace`, the bar follows the workspace shown. With `always = true` it stays
+whether the monitor tiles or not, and the taskbar never shows: its `tiling` module, dimmed while
+the windows float, turns tiling on again, and the `layout` module hides until it does. The windows tile in the room it
 leaves, and its popups are the taskbar's: the start menu, Quick Settings, the clock's flyout with
 the calendar and the notifications, the volume's, the Wi-Fi networks, the tray's menus, the
 appearance profiles and the wallpapers, each opening by its module, and a right click beside the
@@ -115,7 +117,7 @@ leaves out being empty:
 | `volume` | The volume: a click shows each application's, a right click the outputs, a middle click mutes, the wheel turns it. |
 | `battery` | The charge, only where there is a battery. |
 | `notifications` | A bell with the unread count; a click opens them, a right click toggles do-not-disturb. |
-| `tiling` | Tiling, which a click turns off. |
+| `tiling` | Tiling, which a click turns off (and, with `always = true`, on again). |
 | `profiles`, `wallpapers` | The [appearance profiles](#appearance-profiles) (with two or more) and the wallpaper picker. |
 | `quick_settings` | [Quick Settings](#quick-settings). |
 | `power` | The [power](#power) menu by it. |
@@ -123,6 +125,7 @@ leaves out being empty:
 ```lua
 shell = {
     tiling_bar = {
+        always = false,           -- true: shown while the windows float too, never the taskbar
         position = "top",         -- or "bottom"
         height = 34,              -- 20 to 100
         margin = { top = 6, right = 8, bottom = 0, left = 8 }, -- or one number all round

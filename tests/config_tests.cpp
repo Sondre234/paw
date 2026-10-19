@@ -1244,6 +1244,10 @@ int main(int argc, char **argv) {
                         !paw::parse_config("return {shell={tiling_bar={enabled=false}}}")
                              .shell.tiling_bar.enabled,
                     "shell.tiling_bar = false does not keep the taskbar");
+            require(!even.shell.tiling_bar.always &&
+                        paw::parse_config("return {shell={tiling_bar={always=true}}}")
+                            .shell.tiling_bar.always,
+                    "shell.tiling_bar.always not parsed");
             auto riced = paw::parse_config(
                 "return {shell={tiling_bar={position='bottom',height=28,margin={left=4,right=4},"
                 "radius=0,style='islands',color='#1e1e2ecc',text_color='#cdd6f4',"
@@ -1281,6 +1285,7 @@ int main(int argc, char **argv) {
                     "the tiling bar's pills not parsed");
             rejects("return {shell={tiling_bar='yes'}}");
             rejects("return {shell={tiling_bar={position='left'}}}");
+            rejects("return {shell={tiling_bar={always='yes'}}}");
             rejects("return {shell={tiling_bar={height=19}}}");
             rejects("return {shell={tiling_bar={margin=-1}}}");
             rejects("return {shell={tiling_bar={margin={middle=1}}}}");

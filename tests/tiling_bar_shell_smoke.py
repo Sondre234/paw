@@ -4,7 +4,8 @@ bar along the top, its surface reserving the bar and its margins, so a tile alon
 As its settings change the strip follows: along the bottom, thinner, without margins. With
 tiling_bar = false the taskbar stays at the bottom while tiling. With layout.tiling_per_workspace,
 a workspace that floats has the taskbar and one that tiles the tiling bar, switching with the
-workspace shown; and with tiling turned off, a maximized window ends above the taskbar again."""
+workspace shown; and with tiling turned off, a maximized window ends above the taskbar again, or
+below the tiling bar with tiling_bar.always."""
 from pathlib import Path
 import signal
 import sys
@@ -85,9 +86,13 @@ with harness.Compositor(compositor, config(), start=False) as desktop:
     msg("maximize")
     desktop.wait_for(lambda: box("Tile") == (0, 0, WIDTH, HEIGHT - TASKBAR),
                      "a maximized window above the taskbar once tiling is off")
+    # With always = true the bar stays without tiling, the maximized window below it.
+    reconfigure(config("\n        tiling_bar = { always = true },"))
+    desktop.wait_for(lambda: box("Tile") == (0, STRIP, WIDTH, HEIGHT - STRIP),
+                     "a maximized window below the tiling bar kept with always = true")
 
     messages = "\n".join(line for line in shell_log.read_text().splitlines() if not line.startswith("["))
     for message in ("ReferenceError", "TypeError", "is not defined", "Cannot read"):
         assert message not in messages, messages
 print("The tiling bar stands in for the taskbar while the monitor tiles, reserving its own strip, "
-      "and the taskbar comes back as tiling goes or with tiling_bar = false")
+      "and the taskbar comes back as tiling goes (unless always = true) or with tiling_bar = false")
