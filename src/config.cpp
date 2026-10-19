@@ -522,6 +522,16 @@ void read_tiling_bar(lua_State *L, TilingBar &bar) {
     bar.spacing = integer(L, "spacing", bar.spacing, 0, 40);
     named(L, "workspace_style", nullptr, bar.workspace_dots, {{"numbers", false}, {"dots", true}},
           "shell.tiling_bar.workspace_style must be \"numbers\" or \"dots\"", "workspace_style");
+    lua_getfield(L, -1, "workspace_icons");
+    if (!lua_isnil(L, -1)) {
+        bar.workspace_icons = strings(L, 10, "shell.tiling_bar.workspace_icons");
+        for (const auto &icon : bar.workspace_icons)
+            if (icon.empty())
+                fail("shell.tiling_bar.workspace_icons names a picture with an empty path",
+                     "workspace_icons");
+    }
+    lua_pop(L, 1);
+    bar.launcher_size = integer(L, "launcher_size", bar.launcher_size, 8, 100);
     if (auto format = text(L, "clock_format")) {
         if (format->empty() || format->size() > 64)
             fail("shell.tiling_bar.clock_format must have 1 to 64 bytes", "clock_format");

@@ -1323,6 +1323,16 @@ const Option options[] = {
      "`\"numbers\"`: each workspace's number, or its name from `layout.workspace_names`, the "
      "current one on a pill in the accent colour; `\"dots\"`: a dot for each, the current one "
      "drawn long, those with windows brighter."},
+    {"shell.tiling_bar.workspace_icons", "list of strings", "unset",
+     "{ \"ws1.png\", \"ws2.png\", \"ws3.png\" }", none, none,
+     "Pictures for the workspaces in place of `workspace_style`, at most 10: the first for "
+     "workspace 1, the second for 2, starting over past the last. Each is a round button, the "
+     "current one's picture larger on a ring in the accent colour, those without windows "
+     "fainter; a path relative to the configuration's folder is read from there."},
+    {"shell.tiling_bar.launcher_size", "integer", "unset", "32", 8, 100,
+     "Size in pixels of the `launcher` module's picture (`shell.start_icon`) or icon; unset, "
+     "a little larger than the text. Past the module's height it reaches into the bar's own "
+     "edges, and never past the bar."},
     {"shell.tiling_bar.clock_format", "string", "\"HH:mm\"", "\"ddd d MMM  HH:mm\"", none, none,
      "The clock's text, in Qt's date and time format (`HH:mm:ss`, `h:mm AP`, `dddd d MMMM`), 1 to "
      "64 bytes."},
