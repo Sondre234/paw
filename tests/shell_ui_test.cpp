@@ -1157,6 +1157,23 @@ int main(int argc, char **argv) {
         click(tiling);
         if (!waitFor([&] { return toggled && shown("tilingBar") && view.height() == 34 + 6; }))
             return fail("the tiling bar did not come back as tiling did");
+        // shell.tiling_bar.always keeps the bar as tiling goes off, its tiling module dimmed and
+        // turning tiling on again; the layout, which floating windows have none of, hides.
+        if (!reconfigure(QString(lua).replace(
+                keepTaskbar, "tiling_bar={always=true,modules={left={'layout'},right={'tiling'}}},")))
+            return fail("could not rewrite the configuration");
+        if (!waitFor([&] { return shown("tilingLayout") && shown("tilingBarToggle"); }))
+            return fail("the tiling bar with always = true did not show while tiling");
+        click(item("tilingBarToggle"));
+        if (!waitFor([&] { return !toggled && !panelTiling(); }) || !shown("tilingBar") ||
+            !view.tilingBar() || view.height() != 34 + 6 || strip->isVisible() ||
+            shown("tilingLayout") ||
+            !item("tilingBarToggle")->property("tip").toString().startsWith("Tiling off"))
+            return fail("the tiling bar with always = true did not stay as tiling went off");
+        click(item("tilingBarToggle"));
+        if (!waitFor([&] { return toggled && panelTiling() && shown("tilingLayout"); }) ||
+            !shown("tilingBar"))
+            return fail("the tiling bar's tiling module did not turn tiling on again");
         // tiling_bar = false keeps the taskbar while tiling.
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
