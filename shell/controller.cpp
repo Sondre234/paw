@@ -318,10 +318,11 @@ QString ShellController::wallpaperMode() const {
     return "fill";
 }
 QUrl ShellController::wallpaper() const { return wallpaperOn({}); }
-QUrl ShellController::startIcon() const {
-    if (config_.shell.start_icon.empty())
+QUrl ShellController::startIcon() const { return configuredFile(config_.shell.start_icon); }
+QUrl ShellController::configuredFile(const std::string &name) const {
+    if (name.empty())
         return {};
-    std::filesystem::path file(config_.shell.start_icon);
+    std::filesystem::path file(name);
     if (file.is_relative())
         file = std::filesystem::absolute(path_).parent_path() / file;
     return QUrl::fromLocalFile(QString::fromStdString(file.string()));
@@ -652,6 +653,9 @@ QVariantMap ShellController::tilingBar() const {
         return list;
     };
     const auto accent = own(bar.accent, shell.accent);
+    QVariantList icons;
+    for (const auto &icon : bar.workspace_icons)
+        icons << configuredFile(icon);
     return {{"enabled", bar.enabled},
             {"always", bar.always},
             {"top", bar.top},
@@ -673,6 +677,8 @@ QVariantMap ShellController::tilingBar() const {
             {"fontSize", bar.font_size > 0 ? bar.font_size : shell.font_size},
             {"spacing", bar.spacing},
             {"dots", bar.workspace_dots},
+            {"workspaceIcons", icons},
+            {"launcherSize", bar.launcher_size},
             {"clockFormat", QString::fromStdString(bar.clock_format)},
             {"left", names(bar.left)},
             {"center", names(bar.center)},

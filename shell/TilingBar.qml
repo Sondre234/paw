@@ -261,31 +261,37 @@ Item {
     }
 
     // The start menu (Launchpad in the macOS style), its button showing shell.start_icon as the
-    // taskbar's start button does, else a grid in the accent colour.
+    // taskbar's start button does, else a grid in the accent colour; shell.tiling_bar.launcher_size
+    // sizes either, up to the bar's height, a size past the module's reaching into the bar's edges.
     Component {
         id: launcherModule
         Module {
             id: launcher
             host: tilingBar
             objectName: "tilingLauncher"
+            readonly property int size: tilingBar.config.launcherSize > 0
+                                        ? Math.min(tilingBar.config.launcherSize, tilingBar.config.height)
+                                        : tilingBar.iconSize
             active: tilingBar.panel.launcherOpen
             tip: "Applications"
-            leftPadding: (tilingBar.moduleHeight - tilingBar.iconSize) / 2
+            leftPadding: Math.max(2, (tilingBar.moduleHeight - size) / 2)
             rightPadding: leftPadding
             onClicked: tilingBar.panel.launcherOpen = !tilingBar.panel.launcherOpen
             contentItem: Item {
-                implicitWidth: tilingBar.iconSize; implicitHeight: tilingBar.iconSize
+                implicitWidth: launcher.size; implicitHeight: launcher.size
                 scale: launcher.pressed ? Theme.pressScale : 1
                 Behavior on scale { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easing } }
                 Icon {
                     anchors.centerIn: parent
                     visible: !picture.visible
-                    name: "layout-grid"; color: tilingBar.accent; size: tilingBar.iconSize
+                    name: "layout-grid"; color: tilingBar.accent; size: launcher.size
                 }
                 Image {
                     id: picture
+                    objectName: "tilingLauncherPicture"
                     anchors.centerIn: parent
-                    width: Math.round(tilingBar.iconSize * 1.2); height: width
+                    width: tilingBar.config.launcherSize > 0 ? launcher.size : Math.round(tilingBar.iconSize * 1.2)
+                    height: width
                     sourceSize: Qt.size(width * 2, height * 2)
                     source: shell.startIcon
                     fillMode: Image.PreserveAspectFit
@@ -297,8 +303,10 @@ Item {
     }
 
     // This output's workspaces (shell.workspaces_shown of them, around the current one): numbers
-    // or names with the current one on a pill in the accent colour, or dots with the current one
-    // drawn long; those with windows brighter, those asking for attention in the urgent colour.
+    // or names with the current one on a pill in the accent colour, dots with the current one
+    // drawn long, or pictures (shell.tiling_bar.workspace_icons) on round buttons, the current
+    // one's larger on a ring in the accent colour; those with windows brighter, those asking for
+    // attention in the urgent colour.
     Component {
         id: workspacesModule
         Module {
@@ -311,7 +319,9 @@ Item {
                                                                   : shell.workspaceCount
             readonly property int first: Math.max(1, Math.min(shell.workspaceCount - count + 1,
                                                                workspaceState.current - Math.floor((count - 1) / 2)))
-            readonly property bool dots: tilingBar.config.dots
+            readonly property var icons: tilingBar.config.workspaceIcons || []
+            readonly property bool pictures: icons.length > 0
+            readonly property bool dots: !pictures && tilingBar.config.dots
             shown: shell.workspaceCount > 1
             leftPadding: tilingBar.pills ? tilingBar.padding / 2 : 0
             rightPadding: leftPadding
@@ -327,6 +337,9 @@ Item {
                         readonly property bool occupied: workspaces.workspaceState.occupied.indexOf(number) >= 0
                         readonly property bool urgent: (workspaces.workspaceState.urgent || []).indexOf(number) >= 0
                         readonly property string name: shell.workspaceNames[number - 1] || ""
+                        // Its picture, the list starting over past its last one.
+                        readonly property url picture: workspaces.pictures ? workspaces.icons[(number - 1) % workspaces.icons.length] : ""
+                        readonly property bool pictured: workspaces.pictures && workspacePicture.status !== Image.Error
                         readonly property color tint: urgent && !current ? Theme.urgent
                                                     : current ? (workspaces.dots ? tilingBar.accent : tilingBar.onAccent)
                                                     : occupied || hovered ? tilingBar.foreground : tilingBar.muted
@@ -337,9 +350,12 @@ Item {
                         anchors.verticalCenter: parent ? parent.verticalCenter : undefined
                         hoverEnabled: true
                         padding: 0
-                        implicitHeight: workspaces.dots ? tilingBar.moduleHeight : cell
-                        implicitWidth: workspaces.dots ? (current ? 3 * dot : dot) + Math.round(tilingBar.fontSize / 3)
+                        implicitHeight: workspaces.dots || pictured ? tilingBar.moduleHeight : cell
+                        implicitWidth: pictured ? tilingBar.moduleHeight
+                                     : workspaces.dots ? (current ? 3 * dot : dot) + Math.round(tilingBar.fontSize / 3)
                                      : Math.max(cell, workspaceText.implicitWidth + cell / 2) + (current ? Math.round(cell / 2) : 0)
+                        opacity: !pictured || current || urgent ? 1 : occupied || hovered ? 0.9 : 0.55
+                        Behavior on opacity { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
                         Behavior on implicitWidth { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
                         onClicked: {
                             tilingBar.panel.closeMenus()
@@ -358,16 +374,39 @@ Item {
                         }
                         background: Rectangle {
                             visible: !workspaces.dots
-                            radius: Math.min(tilingBar.moduleRadius, height / 2)
-                            color: workspace.current ? tilingBar.accent
+                            radius: workspace.pictured ? height / 2 : Math.min(tilingBar.moduleRadius, height / 2)
+                            // A picture keeps its colours: the current one's button is a ring
+                            // round a light wash of the accent.
+                            color: workspace.pictured
+                                   ? (workspace.urgent && !workspace.current ? Theme.alpha(Theme.urgent, 0.35)
+                                      : workspace.current ? Theme.alpha(tilingBar.accent, 0.2)
+                                      : workspace.pressed ? tilingBar.pressedFill
+                                      : workspace.hovered ? Theme.alpha(tilingBar.accent, 0.14) : Theme.alpha(tilingBar.accent, 0))
+                                 : workspace.current ? tilingBar.accent
                                  : workspace.pressed ? tilingBar.pressedFill
                                  : workspace.hovered ? tilingBar.hoverFill : Theme.alpha(tilingBar.hoverFill, 0)
+                            border.width: workspace.pictured && (workspace.current || workspace.hovered) ? 1 : 0
+                            border.color: Theme.alpha(tilingBar.accent, workspace.current ? 0.75 : 0.5)
                             Behavior on color { ColorAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
                         }
                         contentItem: Item {
+                            Image {
+                                id: workspacePicture
+                                objectName: "tilingWorkspacePicture"
+                                visible: workspace.pictured
+                                anchors.centerIn: parent
+                                // 22 and 28 of Waybar's 30-pixel buttons: the current one in bloom.
+                                width: Math.round(tilingBar.moduleHeight * (workspace.current ? 0.93 : 0.73))
+                                height: width
+                                sourceSize: Qt.size(2 * tilingBar.moduleHeight, 2 * tilingBar.moduleHeight)
+                                source: workspace.picture
+                                fillMode: Image.PreserveAspectFit
+                                smooth: true; mipmap: true
+                                Behavior on width { NumberAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
+                            }
                             Text {
                                 id: workspaceText
-                                visible: !workspaces.dots
+                                visible: !workspaces.dots && !workspace.pictured
                                 anchors.centerIn: parent
                                 text: workspace.name || workspace.number
                                 textFormat: Text.PlainText
