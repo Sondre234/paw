@@ -155,6 +155,9 @@ shadows.
   font, style (one bar, islands or pills), workspace numbers or dots, clock format and which
   modules go where; `shell.tiling_bar = false` keeps the taskbar. Subscribers to the control
   socket hear each monitor's tiling layout as `layout NAME LAYOUT`.
+- `shell.tiling_bar.always = true` keeps the tiling bar whether the monitor tiles or not, the
+  taskbar never showing; its `tiling` module, dimmed while the windows float, turns tiling on
+  again, and the `layout` module hides meanwhile.
 
 ### The taskbar
 
