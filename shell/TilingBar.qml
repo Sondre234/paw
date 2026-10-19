@@ -4,7 +4,8 @@ import QtQuick.Controls.Basic
 import Paw
 
 // The tiling bar (shell.tiling_bar): the bar a monitor shows in place of the taskbar, or the macOS
-// style's dock and menu bar, while it tiles, in Hyprland's style as Waybar draws it. Its modules
+// style's dock and menu bar, while it tiles (or always, shell.tiling_bar.always), in Hyprland's style
+// as Waybar draws it. Its modules
 // stand in three groups, from its left end, in its middle and up to its right end, in the colours,
 // type and shape the setting gives: one bar across, an island for each group with the wallpaper
 // between them, or a pill for each module. It fills the panel's surface, inset by its margins.
@@ -402,7 +403,8 @@ Item {
             host: tilingBar
             objectName: "tilingLayout"
             readonly property string name: (shell.workspaces[tilingBar.panel.outputName] || {}).layout || ""
-            shown: name !== ""
+            // Floating windows, under shell.tiling_bar.always, have no layout to show.
+            shown: name !== "" && tilingBar.panel.tiling
             glyph: name === "monocle" ? "square" : name === "master" ? "layout-panel-left"
                 : name === "scroll" ? "app-window" : "layout-grid"
             label: name
@@ -692,7 +694,8 @@ Item {
     }
 
     // Tiling on this monitor, which a click turns off, the taskbar coming back with the windows
-    // floating.
+    // floating; with shell.tiling_bar.always the bar stays, the module dimmed, and a click turns
+    // tiling on again.
     Component {
         id: tilingModule
         Module {
@@ -700,8 +703,9 @@ Item {
             objectName: "tilingBarToggle"
             enabled: shell.tilingAvailable
             glyph: "layout-panel-left"
-            tint: tilingBar.accent
-            tip: "Tiling on: click for floating windows"
+            tint: tilingBar.panel.tiling ? tilingBar.accent : tilingBar.muted
+            tip: tilingBar.panel.tiling ? "Tiling on: click for floating windows"
+                                        : "Tiling off: click to tile the windows"
             onClicked: { tilingBar.panel.closeMenus(); shell.toggleTiling(tilingBar.panel.outputName) }
         }
     }

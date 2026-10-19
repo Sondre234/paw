@@ -533,12 +533,13 @@ Item {
     onGroupOpenChanged: if (!groupOpen && barKeys.active && !barKeys.menuOpened) barKeys.window = -1
     // The bars the style has: the taskbar (Taskbar.qml), or in the macOS style the dock
     // (Dock.qml) in the panel's surface and the menu bar (TopMenuBar.qml) in a surface of its own
-    // along the output's top edge. While the output tiles, the tiling bar (TilingBar.qml,
-    // shell.tiling_bar) stands in for them in the panel's surface, along its own edge, and
+    // along the output's top edge. While the output tiles (or always, with
+    // shell.tiling_bar.always), the tiling bar (TilingBar.qml, shell.tiling_bar) stands in for
+    // them in the panel's surface, along its own edge, and
     // `macos` is false: the popups are placed as on the taskbar, drawn in the style's own way.
     // The style's bars are kept meanwhile, hidden and null here, so that tiling turned on and off
     // (or workspaces that tile and those that do not) switch bars at once.
-    readonly property bool tilingBarShown: shell.tilingBar.enabled && tiling
+    readonly property bool tilingBarShown: shell.tilingBar.enabled && (tiling || shell.tilingBar.always)
     readonly property bool macos: Theme.macos && !tilingBarShown
     readonly property Item taskbar: tilingBarShown ? null : taskbarLoader.item
     readonly property Item dock: tilingBarShown ? null : dockLoader.item
@@ -1610,7 +1611,7 @@ Item {
     }
 
     // The taskbar along the panel's edge, or the dock, as the style has it, hidden while the
-    // tiling bar stands in for them as the output tiles.
+    // tiling bar stands in for them as the output tiles (or for good, shell.tiling_bar.always).
     Loader {
         id: taskbarLoader
         anchors.fill: parent

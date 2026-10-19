@@ -160,7 +160,7 @@ class ShellController : public QObject {
     // "" (hidden).
     Q_PROPERTY(QVariantMap widgets READ widgets NOTIFY configChanged)
     // shell.tiling_bar, the bar in Hyprland's style shown in place of the taskbar on a monitor
-    // while it tiles: {enabled, top, height, marginTop, marginRight, marginBottom, marginLeft,
+    // while it tiles (or always): {enabled, always, top, height, marginTop, marginRight, marginBottom, marginLeft,
     // radius, style ("bar", "islands" or "pills"), color, textColor, accent, borderColor,
     // borderWidth, font, fontSize, spacing, dots, clockFormat, and left, center and right, the
     // module names of each group}. The colours and the type are the shell's where it sets none,
