@@ -1281,6 +1281,10 @@ const Option options[] = {
      "`false` keeps the taskbar whether the monitor tiles or not."},
     {"shell.tiling_bar.enabled", "boolean", "true", "true", none, none,
      "Show the bar while tiling; `false` is `tiling_bar = false`, the table kept."},
+    {"shell.tiling_bar.always", "boolean", "false", "true", none, none,
+     "Show the bar whether the monitor tiles or not, in place of the taskbar (or the macOS "
+     "style's dock and menu bar) for good; its `tiling` module then turns tiling on as well "
+     "as off."},
     {"shell.tiling_bar.position", "enum", "\"top\"", "\"bottom\"", none, none,
      "The monitor's edge it is along: `\"top\"` or `\"bottom\"`, whatever `panel_position` "
      "says for the taskbar."},

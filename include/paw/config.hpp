@@ -240,6 +240,7 @@ enum class TilingBarStyle { Bar, Islands, Pills };
 // among tiling_bar_modules(), in three groups along it.
 struct TilingBar {
     bool enabled = true; // false (or `tiling_bar = false`): the taskbar stays while tiling
+    bool always = false; // true: shown whether the monitor tiles or not, the taskbar never
     bool top = true;     // position = "top"; false along the bottom
     int height = 34;
     // top, right, bottom, left; unset: 6 from the monitor's edge, 8 from its sides and none
