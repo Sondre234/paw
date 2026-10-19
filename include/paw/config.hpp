@@ -256,6 +256,9 @@ struct TilingBar {
     int font_size = 0; // in pixels; 0: shell.font_size
     int spacing = 4;   // pixels between modules
     bool workspace_dots = false; // workspace_style = "dots": a dot for each, the current one long
+    // Pictures for workspaces 1, 2, ..., starting over past the last; empty: numbers or dots.
+    std::vector<std::string> workspace_icons;
+    int launcher_size = 0; // the launcher's picture or icon, in pixels; 0: by the font size
     std::string clock_format = "HH:mm"; // Qt's date and time format
     std::vector<std::string> left{"launcher", "workspaces", "layout", "mode"};
     std::vector<std::string> center{"window"};

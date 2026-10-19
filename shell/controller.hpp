@@ -162,8 +162,9 @@ class ShellController : public QObject {
     // shell.tiling_bar, the bar in Hyprland's style shown in place of the taskbar on a monitor
     // while it tiles (or always): {enabled, always, top, height, marginTop, marginRight, marginBottom, marginLeft,
     // radius, style ("bar", "islands" or "pills"), color, textColor, accent, borderColor,
-    // borderWidth, font, fontSize, spacing, dots, clockFormat, and left, center and right, the
-    // module names of each group}. The colours and the type are the shell's where it sets none,
+    // borderWidth, font, fontSize, spacing, dots, workspaceIcons (the pictures' URLs),
+    // launcherSize (0 for the default), clockFormat, and left, center and right, the module
+    // names of each group}. The colours and the type are the shell's where it sets none,
     // but the font, "" for Qt's default as Theme has it.
     Q_PROPERTY(QVariantMap tilingBar READ tilingBar NOTIFY configChanged)
     // The compositor's active keyboard layout: {number (from 1), count, short ("us"), name}, or
@@ -705,6 +706,8 @@ class ShellController : public QObject {
     void taskbarRequested(const QString &output);
 
   private:
+    // A file the configuration names, relative to its folder unless absolute; empty for "".
+    QUrl configuredFile(const std::string &name) const;
     struct App {
         QString id, name, icon;
         paw::Command command;

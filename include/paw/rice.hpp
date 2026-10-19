@@ -65,7 +65,8 @@ struct Rice {
     std::string description; // "" when it has none
     // The profile's settings: a table with `appearance`, `windows` and `shell` tables.
     RiceData profile;
-    // The pictures its settings name (shell.wallpaper, shell.start_icon), and the extra files
+    // The pictures its settings name (shell.wallpaper, shell.start_icon,
+    // shell.tiling_bar.workspace_icons), and the extra files
     // it brings for other programs, each relative to its directory.
     std::vector<std::string> pictures;
     std::vector<std::string> extras;

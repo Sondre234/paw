@@ -1283,6 +1283,20 @@ int main(int argc, char **argv) {
             require(paw::parse_config("return {shell={tiling_bar={style='pills'}}}")
                             .shell.tiling_bar.style == paw::TilingBarStyle::Pills,
                     "the tiling bar's pills not parsed");
+            auto pictured = paw::parse_config(
+                "return {shell={tiling_bar={workspace_icons={'/a/ws1.png','ws2.png'},"
+                "launcher_size=32}}}").shell.tiling_bar;
+            require(pictured.workspace_icons ==
+                            std::vector<std::string>{"/a/ws1.png", "ws2.png"} &&
+                        pictured.launcher_size == 32 && even.shell.tiling_bar.launcher_size == 0 &&
+                        even.shell.tiling_bar.workspace_icons.empty(),
+                    "shell.tiling_bar.workspace_icons and launcher_size not parsed");
+            rejects("return {shell={tiling_bar={workspace_icons='ws1.png'}}}");
+            rejects("return {shell={tiling_bar={workspace_icons={''}}}}");
+            rejects("return {shell={tiling_bar={workspace_icons={'1','2','3','4','5','6','7','8',"
+                    "'9','10','11'}}}}");
+            rejects("return {shell={tiling_bar={launcher_size=7}}}");
+            rejects("return {shell={tiling_bar={launcher_size=101}}}");
             rejects("return {shell={tiling_bar='yes'}}");
             rejects("return {shell={tiling_bar={position='left'}}}");
             rejects("return {shell={tiling_bar={always='yes'}}}");

@@ -23,6 +23,7 @@ CONFIG = """return {
         dark = { shell = { accent = "#112233" } },
         light = { appearance = { background = "#f2f4f8" },
                   shell = { accent = "#3366cc", wallpaper = "day.png",
+                            tiling_bar = { workspace_icons = { "ws1.png", "two.svg" } },
                             launchers = { { name = "x", command = { "true" } } } } },
     },
 }"""
@@ -60,6 +61,7 @@ with harness.Compositor(compositor, CONFIG, start=False,
     saved = state / "profile"
     desktop.env["XDG_CONFIG_HOME"] = str(root / "config-home")
     (root / "day.png").write_bytes(b"\x89PNG day")
+    (root / "ws1.png").write_bytes(b"\x89PNG one")
     washi = root / "washi"
     washi.mkdir()
     (washi / "rice.lua").write_text(rice_lua())
@@ -88,14 +90,23 @@ with harness.Compositor(compositor, CONFIG, start=False,
 
     desktop.detail = lambda: f"trial {trial()}, profile {profile()}, rices {installed()}"
 
-    # Packing takes the profile's look, its wallpaper with it, and leaves the rest out.
+    # Packing takes the profile's look, its wallpaper with it, and leaves the rest out: the
+    # tiling bar's workspace pictures too while one of them is missing, all or none.
     packed = root / "light.rice.tar"
+    out = rice("pack", "light", "-o", str(packed))
+    assert "shell.tiling_bar.workspace_icons" in out and "two.svg" in out, out
+    with tarfile.open(packed) as archive:
+        assert not [name for name in archive.getnames() if "workspaces" in name]
+        assert "workspace_icons" not in archive.extractfile("light/rice.lua").read().decode()
+    (root / "two.svg").write_bytes(b"<svg/>")
     out = rice("pack", "light", "-o", str(packed), "--description", "Daylight.")
     assert "wallpaper.png" in out and "shell.launchers" in out, out
     with tarfile.open(packed) as archive:
         names = archive.getnames()
         manifest = archive.extractfile("light/rice.lua").read().decode()
     assert "light/wallpaper.png" in names, names
+    assert "light/workspaces/1.png" in names and "light/workspaces/2.svg" in names, names
+    assert '"workspaces/1.png"' in manifest and '"workspaces/2.svg"' in manifest, manifest
     assert 'accent = "#3366cc"' in manifest and "launchers" not in manifest, manifest
     assert 'description = "Daylight."' in manifest, manifest
 
@@ -152,6 +163,7 @@ with harness.Compositor(compositor, CONFIG, start=False,
     out = rice("try", str(packed))
     assert "Trying light-2" in out, out
     assert (rices / "light-2/wallpaper.png").read_bytes() == b"\x89PNG day"
+    assert (rices / "light-2/workspaces/1.png").read_bytes() == b"\x89PNG one"
     rice("revert")
     desktop.wait_for(lambda: trial() == "-" and profile() == "dark", "light-2 reverted")
 

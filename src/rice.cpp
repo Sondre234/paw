@@ -780,25 +780,39 @@ Rice parse_rice(const std::string &source) {
     std::vector<std::string> setting;
     check_look(*profile, setting);
     rice.profile = *profile;
-    if (const auto *shell = profile->field("shell"))
+    // A picture a setting names, `label`, is a file inside the rice.
+    auto inside = [&](const RiceData &picture, const std::string &label) {
+        if (!picture.is_string())
+            throw std::runtime_error(label + " must be a string");
+        auto lower = picture.string;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](char c) { return std::tolower(static_cast<unsigned char>(c)); });
+        if (!rice_path_valid(picture.string) ||
+            std::none_of(picture_types.begin(), picture_types.end(),
+                         [&](const std::string &type) { return lower.ends_with(type); }))
+            throw std::runtime_error(label +
+                                     " must name a PNG, JPEG, WebP or SVG picture inside the "
+                                     "rice, as \"wallpaper.jpg\": " +
+                                     write_rice_data(picture));
+        rice.pictures.push_back(picture.string);
+    };
+    if (const auto *shell = profile->field("shell")) {
         for (const auto &key : picture_settings) {
             const auto *picture = shell->field(key);
             if (!picture || (picture->is_string() && picture->string.empty()))
                 continue;
-            if (!picture->is_string())
-                throw std::runtime_error("shell." + key + " must be a string");
-            auto lower = picture->string;
-            std::transform(lower.begin(), lower.end(), lower.begin(),
-                           [](char c) { return std::tolower(static_cast<unsigned char>(c)); });
-            if (!rice_path_valid(picture->string) ||
-                std::none_of(picture_types.begin(), picture_types.end(),
-                             [&](const std::string &type) { return lower.ends_with(type); }))
-                throw std::runtime_error(
-                    "shell." + key +
-                    " must name a PNG, JPEG, WebP or SVG picture inside the rice, as "
-                    "\"wallpaper.jpg\": " + write_rice_data(*picture));
-            rice.pictures.push_back(picture->string);
+            inside(*picture, "shell." + key);
         }
+        // The tiling bar's workspace pictures, a list of them.
+        const auto *bar = shell->field("tiling_bar");
+        if (const auto *icons = bar && bar->is_table() ? bar->field("workspace_icons") : nullptr) {
+            if (!icons->is_table() || !icons->fields.empty())
+                throw std::runtime_error(
+                    "shell.tiling_bar.workspace_icons must be a list of pictures");
+            for (const auto &icon : icons->items)
+                inside(icon, "shell.tiling_bar.workspace_icons");
+        }
+    }
     if (const auto *extras = data.field("extras")) {
         if (!extras->is_table() || !extras->fields.empty() ||
             extras->items.size() > max_rice_extras)
@@ -887,10 +901,15 @@ std::filesystem::path stage_rice(const std::map<std::string, std::string> &files
 
 RiceData rice_profile(const Rice &rice) {
     auto profile = rice.profile;
-    if (auto *shell = profile.field("shell"))
+    if (auto *shell = profile.field("shell")) {
         for (const auto &key : picture_settings)
             if (auto *picture = shell->field(key); picture && !picture->string.empty())
                 picture->string = (rice.directory / picture->string).string();
+        auto *bar = shell->field("tiling_bar");
+        if (auto *icons = bar && bar->is_table() ? bar->field("workspace_icons") : nullptr)
+            for (auto &icon : icons->items)
+                icon.string = (rice.directory / icon.string).string();
+    }
     return profile;
 }
 

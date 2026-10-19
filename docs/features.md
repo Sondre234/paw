@@ -105,8 +105,8 @@ leaves out being empty:
 
 | Module | What it shows, and does |
 | --- | --- |
-| `launcher` | The start menu (Launchpad in the macOS style), as `shell.start_icon`, else a grid in the accent colour. |
-| `workspaces` | The monitor's workspaces (`shell.workspaces_shown` of them), the current one on a pill in the accent colour (`workspace_style = "numbers"`, their names from `layout.workspace_names`) or drawn long (`"dots"`); a click shows one, and resting on one shows a [picture of it](#workspace-pictures). |
+| `launcher` | The start menu (Launchpad in the macOS style), as `shell.start_icon`, else a grid in the accent colour; `launcher_size` sets its size in pixels, up to the bar's height. |
+| `workspaces` | The monitor's workspaces (`shell.workspaces_shown` of them), the current one on a pill in the accent colour (`workspace_style = "numbers"`, their names from `layout.workspace_names`) or drawn long (`"dots"`); or with `workspace_icons`, a picture for each on a round button, the current one's larger on a ring in the accent colour and those without windows fainter, the list starting over past its last picture. A click shows one, and resting on one shows a [picture of it](#workspace-pictures). |
 | `layout` | The [tiling layout](#tiling-layouts) of the workspace shown: a click steps to the next, a right click to the one before, the wheel either way. |
 | `mode` | The [binding mode](#binding-modes), while it is not the default one; a click leaves it. |
 | `window` | The focused window's title, cut short past a third of the bar. |
@@ -139,6 +139,9 @@ shell = {
         font = "JetBrainsMono Nerd Font", font_size = 13,
         spacing = 4,
         workspace_style = "dots", -- or "numbers"
+        -- Or a picture for each workspace in place of numbers or dots, the list starting over:
+        -- workspace_icons = { "flowers/ws1.png", "flowers/ws2.png", "flowers/ws3.png" },
+        launcher_size = 24,       -- the launcher's picture or icon; unset: by the font size
         clock_format = "ddd d MMM  HH:mm",
         modules = {
             left = { "workspaces", "layout", "mode", "window" },
@@ -4046,8 +4049,10 @@ clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and 
 are refused, and `paw rice pack` leaves them out. The pictures and other files it names are paths
 inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor through one;
 an archive holding a link, a device or a path out of it is refused whole, and only the files
-`rice.lua` names are taken from it. Its pictures are PNG, JPEG, WebP or SVG, which the shell opens
-as it opens any wallpaper. Files for other programs, such as a terminal's colours, stay in its
+`rice.lua` names are taken from it. Its pictures (the wallpaper, the start button and the tiling
+bar's `workspace_icons`) are PNG, JPEG, WebP or SVG, which the shell opens as it opens any
+wallpaper; `paw rice pack` puts the workspace pictures in as `workspaces/1.png`, `2.png`, ...,
+all of them or, while one is missing, none. Files for other programs, such as a terminal's colours, stay in its
 directory for you to put in place; `paw rice try` says where.
 ### paw cat
 
