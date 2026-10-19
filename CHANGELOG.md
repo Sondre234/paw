@@ -158,6 +158,10 @@ shadows.
 - `shell.tiling_bar.always = true` keeps the tiling bar whether the monitor tiles or not, the
   taskbar never showing; its `tiling` module, dimmed while the windows float, turns tiling on
   again, and the `layout` module hides meanwhile.
+- `shell.tiling_bar.workspace_icons` draws a picture for each workspace on the tiling bar, as
+  Waybar themes do with flowers or kanji: round buttons, the current one's picture larger on a
+  ring in the accent colour, empty workspaces fainter. `paw rice pack` takes the pictures along.
+  `shell.tiling_bar.launcher_size` sizes the launcher's picture, up to the bar's height.
 
 ### The taskbar
 
