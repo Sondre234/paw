@@ -153,7 +153,8 @@ int main() {
             << "return {shell={wallpaper='plain.png'}, profile='night', profiles={"
                "night={shell={wallpaper='rices/night/wallpaper.png',"
                "start_icon='rices/night/cat.svg',wallpaper_cycle={folder='rices/night/sky'},"
-               "monitor_wallpapers={['DP-1']='rices/night/left.png',['DP-2']='/srv/right.png'}}},"
+               "monitor_wallpapers={['DP-1']='rices/night/left.png',['DP-2']='/srv/right.png'},"
+               "tiling_bar={workspace_icons={'rices/night/ws1.png','/srv/ws2.png'}}}},"
                "home={shell={wallpaper_cycle={folder='~/Pictures/sky'}}},"
                "fixed={shell={wallpaper='/srv/fixed.png'}}, bare={}}}";
         setenv("PAW_DEFAULT_CONFIG", (shipped / "init.lua").c_str(), 1);
@@ -173,6 +174,10 @@ int main() {
                         {"DP-1", (shipped / "rices/night/left.png").string()},
                         {"DP-2", "/srv/right.png"}},
                 "a shipped profile's monitor wallpapers not found beside the default configuration");
+        require(paw::load_config(extending).shell.tiling_bar.workspace_icons ==
+                    std::vector<std::string>{(shipped / "rices/night/ws1.png").string(),
+                                             "/srv/ws2.png"},
+                "a shipped profile's workspace pictures not found beside the default configuration");
         paw::save_profile("home");
         require(paw::load_config(extending).shell.wallpaper_cycle.folder == "~/Pictures/sky",
                 "a slideshow folder in the home folder moved");

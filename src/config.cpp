@@ -3178,9 +3178,9 @@ void anchor_file(lua_State *L, const char *key, const std::filesystem::path &dir
     }
     lua_pop(L, 1);
 }
-// Makes `shell.wallpaper`, `shell.monitor_wallpapers`' pictures, `shell.start_icon` and
-// `shell.wallpaper_cycle.folder` in the table at `index` absolute when they name a file relative
-// to `directory`.
+// Makes `shell.wallpaper`, `shell.monitor_wallpapers`' pictures, `shell.start_icon`,
+// `shell.tiling_bar.workspace_icons` and `shell.wallpaper_cycle.folder` in the table at `index`
+// absolute when they name a file relative to `directory`.
 void anchor_files(lua_State *L, int index, const std::filesystem::path &directory) {
     lua_getfield(L, index, "shell");
     if (lua_istable(L, -1)) {
@@ -3190,6 +3190,27 @@ void anchor_files(lua_State *L, int index, const std::filesystem::path &director
         if (lua_istable(L, -1))
             anchor_file(L, "folder", directory, true);
         lua_pop(L, 1);
+        lua_getfield(L, -1, "tiling_bar");
+        if (lua_istable(L, -1)) {
+            lua_getfield(L, -1, "workspace_icons");
+            if (lua_istable(L, -1)) {
+                auto size = static_cast<lua_Integer>(lua_rawlen(L, -1));
+                for (lua_Integer i = 1; i <= size; ++i) {
+                    lua_rawgeti(L, -1, i);
+                    if (lua_type(L, -1) == LUA_TSTRING) {
+                        std::filesystem::path file = lua_tostring(L, -1);
+                        if (!file.empty() && file.is_relative()) {
+                            lua_pushstring(L, (directory / file).c_str());
+                            lua_rawseti(L, -3, i);
+                        }
+                    }
+                    lua_pop(L, 1);
+                }
+            }
+            lua_pop(L, 2);
+        } else {
+            lua_pop(L, 1);
+        }
         lua_getfield(L, -1, "monitor_wallpapers");
         if (lua_istable(L, -1)) {
             std::vector<std::string> names;
