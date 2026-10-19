@@ -1174,6 +1174,39 @@ int main(int argc, char **argv) {
         if (!waitFor([&] { return toggled && panelTiling() && shown("tilingLayout"); }) ||
             !shown("tilingBar"))
             return fail("the tiling bar's tiling module did not turn tiling on again");
+        // workspace_icons draw pictures for the workspaces, starting over past the last, one that
+        // does not load showing the number; the current one's is larger. launcher_size sizes the
+        // launcher's picture.
+        if (!reconfigure(QString(lua).replace("shell={", "shell={start_icon='cat.png',").replace(
+                keepTaskbar, "tiling_bar={workspace_icons={'cat.png','missing.png'},launcher_size=30,"
+                             "modules={left={'launcher','workspaces'}}},")))
+            return fail("could not rewrite the configuration");
+        auto picture = [&](int number) {
+            auto *button = item(("tilingWorkspace" + std::to_string(number)).c_str());
+            return button ? find(button, "tilingWorkspacePicture") : nullptr;
+        };
+        auto pictured = [&](int number) {
+            auto *button = item(("tilingWorkspace" + std::to_string(number)).c_str());
+            return button && button->property("pictured").toBool();
+        };
+        auto *launcherPicture = item("tilingLauncherPicture");
+        if (!waitFor([&] {
+                return pictured(1) && pictured(3) && !pictured(2) && picture(1) &&
+                       picture(1)->isVisible() &&
+                       picture(1)->property("source").toUrl() ==
+                           QUrl::fromLocalFile(directory.filePath("cat.png")) &&
+                       picture(3)->property("source").toUrl() == picture(1)->property("source").toUrl();
+            }))
+            return fail("shell.tiling_bar.workspace_icons did not draw the workspaces' pictures");
+        if (!launcherPicture || !launcherPicture->isVisible() || launcherPicture->width() != 30)
+            return fail("shell.tiling_bar.launcher_size did not size the launcher's picture");
+        const auto resting = picture(1)->width();
+        click(item("tilingWorkspace1"));
+        if (!waitFor([&] { return picture(1)->width() > resting && picture(3)->width() == resting; }))
+            return fail("the current workspace's picture is not the larger");
+        click(item("tilingWorkspace4"));
+        if (!waitFor([&] { return item("tilingWorkspace4")->property("current").toBool(); }))
+            return fail("could not switch back to the last workspace from the pictures");
         // tiling_bar = false keeps the taskbar while tiling.
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
