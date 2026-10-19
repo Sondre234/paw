@@ -218,6 +218,41 @@ int pack(const std::vector<std::string> &words, const std::filesystem::path &giv
                                error.what() + ")");
         }
     }
+    // The tiling bar's workspace pictures, as workspaces/1.png, 2.png, ...: all of them, or none
+    // with the setting left out, so that none lands on another's workspace.
+    auto *bar = shell.field("tiling_bar");
+    if (auto *icons = bar && bar->is_table() ? bar->field("workspace_icons") : nullptr) {
+        std::map<std::string, std::string> pictures;
+        std::vector<std::pair<std::string, std::string>> from;
+        std::filesystem::path path;
+        try {
+            if (!icons->is_table())
+                throw std::runtime_error("not a list of pictures");
+            for (auto &icon : icons->items) {
+                if (!icon.is_string())
+                    throw std::runtime_error("not a list of pictures");
+                path = icon.string;
+                if (path.is_relative())
+                    path = config_path.parent_path() / path;
+                auto type = lower(path.extension().string());
+                if (std::find(picture_types.begin(), picture_types.end(), type) ==
+                    picture_types.end())
+                    throw std::runtime_error("not a PNG, JPEG, WebP or SVG picture");
+                auto file = "workspaces/" + std::to_string(pictures.size() + 1) + type;
+                pictures[file] = read_file(path, max_rice_file);
+                from.emplace_back(file, shown(path));
+            }
+            for (size_t i = 0; i < icons->items.size(); ++i)
+                icons->items[i] = RiceData::string_of(from[i].first);
+            files.merge(pictures);
+            went_in.insert(went_in.end(), from.begin(), from.end());
+        } catch (const std::exception &error) {
+            std::erase_if(bar->fields, [](const auto &field) { return field.key == "workspace_icons"; });
+            left_out.push_back("shell.tiling_bar.workspace_icons (" +
+                               (path.empty() ? std::string() : shown(path) + ": ") +
+                               error.what() + ")");
+        }
+    }
     // A kitty theme named for the profile, and the extras asked for.
     RiceData extra_list;
     auto add_extra = [&](const std::filesystem::path &from, const std::string &file) {
