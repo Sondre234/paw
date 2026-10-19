@@ -186,6 +186,20 @@ void manifests_are_checked() {
                   "the wallpaper %s", path);
     CHECK(with("profile = { shell = { wallpaper = \"\" } }").empty(), "no wallpaper at all");
     CHECK(mentions(with("profile = { shell = { start_icon = 3 } }"), "must be a string"));
+    // The tiling bar's workspace pictures are pictures inside the rice too, found beside it.
+    auto pictured = paw::parse_rice(
+        "return { format = 1, name = \"r\", profile = { shell = { tiling_bar = { "
+        "workspace_icons = { \"workspaces/1.png\", \"workspaces/2.svg\" } } } } }");
+    CHECK(pictured.pictures ==
+          (std::vector<std::string>{"workspaces/1.png", "workspaces/2.svg"}));
+    pictured.directory = "/rices/r";
+    CHECK(paw::rice_profile(pictured).field("shell")->field("tiling_bar")->field("workspace_icons")
+              ->items[1].string == "/rices/r/workspaces/2.svg");
+    CHECK(mentions(with("profile = { shell = { tiling_bar = { workspace_icons = "
+                        "{ \"/etc/passwd.png\" } } } }"),
+                   "inside the rice"));
+    CHECK(mentions(with("profile = { shell = { tiling_bar = { workspace_icons = \"ws.png\" } } }"),
+                   "list of pictures"));
     for (const char *path : {"/etc/shadow", "../../.bashrc", "kitty/../../x"})
         CHECK(mentions(with("profile = {}, extras = { \"" + std::string(path) + "\" }"),
                        "inside the rice"),
