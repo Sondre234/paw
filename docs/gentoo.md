@@ -1,7 +1,7 @@
 # Running paw on Gentoo
 
 I develop paw on my own Gentoo machine, and it is my everyday desktop there (NVIDIA
-RTX 4090, three monitors; see the [daily use checkpoint](verification.md#daily-use-on-gentoo)).
+RTX 4090 on the proprietary driver, three monitors at mixed scales).
 It runs nested or as a standalone session from a TTY. There is no dependency on systemd in
 paw itself.
 
@@ -200,8 +200,10 @@ Enter takes the one used last. `-p NAME` skips the question, and `-n` runs a fre
 session from the example configuration alone, as a first install sees it.
 
 The backend has run on a laptop (amdgpu, single eDP panel, touchpad) and a
-desktop (NVIDIA proprietary driver, three monitors). Hybrid-GPU outputs, hotplug,
-and VT switching on NVIDIA are untested. Start it from the console, not over SSH:
+desktop (NVIDIA proprietary driver, three monitors). Daily use is not a targeted
+test, so these remain unchecked on real hardware: hybrid-GPU outputs, monitors unplugged
+or woken through DRM, VT switching on NVIDIA, suspend and resume, a laptop lid, and
+brightness keys. Start it from the console, not over SSH:
 a process outside the console's logind session cannot switch VTs.
 Keep another TTY available while testing. Set monitor order with `outputs.order`
 and `outputs.primary`; per-monitor modes and scaling are not configurable yet; this is not ready to
