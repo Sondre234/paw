@@ -555,12 +555,23 @@ int uninstall(const std::vector<std::string> &words) {
         throw std::runtime_error(name + " is in use; pick another profile first");
     std::filesystem::remove_all(directory);
     std::cout << "Removed " << name << ".\n";
-    // The session forgets it as it reads the configuration again.
+    // The session forgets it as it reads the configuration again. The rice is gone either way,
+    // so a session that did not hear of it is a warning, not a failure of the removal.
     if (const auto *socket = std::getenv("PAW_SOCKET"); socket && *socket) {
+        std::string why;
         try {
-            (void)request("reload");
-        } catch (const std::exception &) {
+            if (auto reply = request("reload"); !reply.ok)
+                why = reply.body;
+        } catch (const std::exception &failure) {
+            why = failure.what();
         }
+        if (why.starts_with("error: "))
+            why.erase(0, 7);
+        while (!why.empty() && why.back() == '\n')
+            why.pop_back();
+        if (!why.empty())
+            std::cerr << "The session did not reload (" << why << ") and still shows " << name
+                      << "; reload it with paw msg reload.\n";
     }
     return 0;
 }
