@@ -688,9 +688,10 @@ struct ConfigTrialError : std::runtime_error {
 };
 // load_config, except that a configuration with an error gives the default one instead
 // ($PAW_DEFAULT_CONFIG, else the installed one, else the source tree's when paw runs
-// uninstalled, else the built-in values). `error` receives what was wrong, or "" when `path`
-// loaded. `reloading` (the configuration of a running desktop read again) throws a
-// ConfigTrialError instead, for the caller to keep the configuration it has.
+// uninstalled, else the built-in values). `error` receives what was wrong, and what was wrong
+// with each default that failed to load too, or "" when `path` loaded. `reloading` (the
+// configuration of a running desktop read again) throws a ConfigTrialError instead, for the
+// caller to keep the configuration it has.
 Config load_config_or_default(const std::filesystem::path &path, std::string &error,
                               bool reloading = false);
 // `profiles` lay settings over everything else: the one named `chosen` when there is such a

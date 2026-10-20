@@ -3643,7 +3643,9 @@ Config load_config_or_default(const std::filesystem::path &path, std::string &er
             continue;
         try {
             return load_from(fallback, false);
-        } catch (const std::exception &) {
+        } catch (const std::exception &failure) {
+            error += "; the default configuration " + fallback.string() +
+                     " failed too: " + failure.what();
         }
     }
     return Config{};
