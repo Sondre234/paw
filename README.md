@@ -30,8 +30,7 @@ and beside it, top to bottom, <a href="rices/washi">sumi</a>, the same paper by 
 > **Status:** beta; the latest release is 0.1.1. It is my everyday desktop on Gentoo,
 > as a session started from a display manager or a TTY, and it also runs nested in another
 > Wayland session. It has been used on few machines so far, so expect rough edges on hardware
-> it has not met: [docs/verification.md](docs/verification.md) records what has been checked,
-> and [Reporting bugs](#reporting-bugs) says what to send.
+> it has not met; [Reporting bugs](#reporting-bugs) says what to send.
 
 ## Highlights
 
@@ -182,8 +181,7 @@ By default paw opens as a window inside the current Wayland session. Other modes
 
 - `--session` runs it standalone on DRM/libinput from a TTY. It is in daily use on an NVIDIA
   desktop with three monitors at mixed scales and has run on an AMD laptop; hotplug is tested
-  only with virtual outputs, and suspend is unchecked. See [docs/gentoo.md](docs/gentoo.md) and
-  [docs/verification.md](docs/verification.md).
+  only with virtual outputs, and suspend is unchecked. See [docs/gentoo.md](docs/gentoo.md).
 - `--headless` runs without any display, for tests.
 
 The shell starts with the compositor unless you pass `--no-shell` or set
@@ -367,8 +365,7 @@ actions that may run. See [Control socket](docs/features.md#control-socket) for 
 The test suite needs no display: it covers configuration validation, the layouts, and a
 headless compositor with real xdg-shell and X11 clients, the shell rendered offscreen, and the
 notification daemon and the system tray on a private D-Bus. `tools/check-all.sh` runs it again
-under ASan and UBSan. [docs/verification.md](docs/verification.md) records what has been tested, on which
-hardware, and what has not.
+under ASan and UBSan.
 
 To work on the shell UI without LayerShellQt, build the preview:
 
