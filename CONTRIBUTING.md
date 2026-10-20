@@ -50,7 +50,8 @@ working state. Stage only the files that belong to the change (`git add <paths>`
 subject line ("Group an application's windows into one taskbar button"), and mention the
 GitHub issue when there is one.
 
-Add a line to [CHANGELOG.md](CHANGELOG.md) for changes users will notice, and keep
+For a change a user would notice, add one line under Unreleased in [CHANGELOG.md](CHANGELOG.md)
+(nothing for tests, refactors or tooling), and keep
 [README.md](README.md) and [docs/features.md](docs/features.md) in step with behavior
 changes (settings, bindings, messages). The `docs_consistency` and `example_snippets` tests
 check that every binding action is mentioned there and that every Lua example is accepted.
