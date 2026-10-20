@@ -71,7 +71,7 @@ commits that have already been pushed, and never force-push.
 
 The automated tests run headless. Anything that needs a real display, GPU, or input
 device (`--session` on a TTY, multiple monitors, real applications) has to be checked
-by hand; record what was and was not checked in [docs/verification.md](docs/verification.md).
+by hand; say in the commit message what you checked, and on which hardware.
 
 ## Keeping private details out
 
