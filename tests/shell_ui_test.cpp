@@ -6194,6 +6194,21 @@ ListModel {
         view.rootObject()->setProperty("statusSource", QVariant::fromValue(&fake));
         if (!waitFor([&] { return shows(true, true, true, false); }))
             return fail("the Quick Settings button did not show the link going down");
+        // A right click lists the outputs, the one in use marked, as on the volume control.
+        click(button, Qt::RightButton);
+        QQuickItem *outputs = nullptr;
+        if (!waitFor([&] {
+                outputs = find(view.rootObject(), "audioOutputs");
+                return outputs && inPopover(outputs);
+            }) ||
+            !button->property("active").toBool())
+            return fail("right-clicking the Quick Settings button did not list the outputs");
+        auto *headset = findNamed(outputs, "audioOutputItem", "Headset");
+        if (!headset || !headset->property("marked").toBool())
+            return fail("the outputs from Quick Settings do not mark the one in use");
+        QTest::keyClick(outputs->window(), Qt::Key_Escape);
+        if (!waitFor([&] { return !popover->isVisible(); }))
+            return fail("the outputs from Quick Settings did not close");
         click(button);
         auto *quick = find(view.rootObject(), "quickSettings");
         if (!quick || !waitFor([&] { return inPopover(quick); }))
