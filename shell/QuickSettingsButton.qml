@@ -5,8 +5,8 @@ import QtQuick.Layouts
 // The Quick Settings button, left of the clock as on Windows 11: the status of the widgets
 // shell.widgets puts in Quick Settings ("quick") in small icons (the volume, the battery with its
 // charge, and the network only while its link is down), there while any widget is placed there.
-// Clicking opens the flyout; the wheel changes the volume and a middle click mutes it, as on the
-// volume control.
+// Clicking opens the flyout; the wheel changes the volume, a middle click mutes it and a right
+// click lists the outputs, as on the volume control.
 FlatButton {
     id: button
     required property var panel
@@ -37,7 +37,9 @@ FlatButton {
     Layout.preferredWidth: panel.vertical ? panel.barItemWidth : icons.implicitWidth + 2 * Theme.spacingM
     Layout.preferredHeight: panel.vertical ? icons.implicitHeight + 2 * Theme.spacingM : Theme.barButtonHeight
     hoverEnabled: true
-    active: panel.audioPopup === "quick"
+    // The bar's own volume control is gone while the volume sits here, so the outputs are this
+    // button's.
+    active: panel.audioPopup === "quick" || (showVolume && panel.audioPopup === "outputs")
     onClicked: panel.toggleAudioPopup("quick", button)
     Accessible.name: "Quick settings: " + description
     BarTip { panel: button.panel; owner: button; text: button.description }
@@ -81,8 +83,16 @@ FlatButton {
     }
     MouseArea {
         anchors.fill: parent
-        acceptedButtons: Qt.MiddleButton
-        onClicked: if (button.showVolume) button.audio.toggleMute()
+        acceptedButtons: Qt.RightButton | Qt.MiddleButton
+        enabled: button.showVolume
+        onPressed: (mouse) => {
+            if (mouse.button === Qt.RightButton)
+                button.panel.toggleAudioPopup("outputs", button)
+        }
+        onClicked: (mouse) => {
+            if (mouse.button === Qt.MiddleButton)
+                button.audio.toggleMute()
+        }
     }
     // Five percent a wheel notch, up for louder.
     NotchWheel {
