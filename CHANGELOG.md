@@ -34,6 +34,8 @@ tablet input, power saving when idle and HDR.
   was left.
 - New commands: `paw doctor` finds what is wrong with a session, `paw config`, `paw top`,
   `paw fetch`, and toys such as `paw cat`, `paw wrapped` and `paw tour`.
+- A right click on the Quick Settings button lists the sound outputs to switch to, as one on the
+  bar's volume does.
 
 ## 0.1.1 (2026-10-05)
 

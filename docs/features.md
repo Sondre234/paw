@@ -615,8 +615,9 @@ shell = {
 
 Left of the clock, as on Windows 11, the Quick Settings button shows the volume and the battery in
 small icons, and the network only while its link is down, dimmed and struck through as a warning
-(a link that is up shows only in Quick Settings); its wheel changes the volume and a middle click
-mutes. Clicking it opens Quick Settings at the bar's right end: what is playing
+(a link that is up shows only in Quick Settings); its wheel changes the volume, a middle click
+mutes and a right click lists the outputs to play through. Clicking it opens Quick Settings at
+the bar's right end: what is playing
 ([media controls](#media-controls)), tiles for [Wi-Fi](#wi-fi) where NetworkManager has a Wi-Fi
 device, [Bluetooth](#bluetooth) while BlueZ has an adapter, do-not-disturb, night light (on or off
 against its schedule, through the compositor), [keep awake](#power-saving-when-idle) (no dimming,
