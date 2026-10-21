@@ -2,8 +2,9 @@
 """A tile moved with the pointer keeps its place in the tiling, which the snap preview shows: the
 other tiles stay where they are as it is lifted, and once the pointer rests a moment on another
 tile they glide aside to open the place a drop there would give it, without the clients being
-asked for a new size at every motion; dropped, it tiles there. Leaving the tiling, for a monitor
-that floats or the top edge that maximizes, closes its place; a drag cut short does too. The
+asked for a new size at every motion; dropped, it tiles there. Leaving the tiling for a monitor
+that floats closes its place, as a drag cut short does; taken by its top, as by a drag strip, and
+along the top edge, where windows.snap.maximize_tiles would maximize it, it keeps it. The
 layouts that keep a list open it at the end, and the scrolling layout keeps no place. A grab
 another starts meanwhile (an X11 window asking to be moved, with x11_probe) ends it first. Driven
 by a virtual pointer and keyboard (pointer_probe), Alt + drag."""
@@ -133,16 +134,16 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
     release()
     wait_for(lambda: windows()["A"][:5] == (*LEFT, True), "A tiled again")
 
-    # At the top edge it is to be maximized: its place closes, and it floats maximized.
-    press("A")
-    pointer("move", "640", "0")
-    wait_for(lambda: windows()["B"][:4] == (0, 0, 1280, 720), "B filling for the top edge")
+    # Taken by its top and along the top edge it holds a place as anywhere over the tiling.
+    press("A", dy=2)
+    wait_for(lambda: preview() == (True, LEFT), "the preview on A's place at the top edge")
+    desktop.stays(lambda: windows()["B"][:4] == RIGHT, "B moved as A was taken by its top")
+    pointer("move", "1100", "0")
+    wait_for(lambda: windows()["B"][:4] == LEFT, "B aside at the top edge")
     release()
-    wait_for(lambda: windows()["A"][:5] == (0, 0, 1280, 720, False), "A maximized")
+    wait_for(lambda: windows()["A"][:5] == (*RIGHT, True), "A tiled from the top edge")
 
     # A drag cut short (the window sent to another workspace) closes its place too.
-    desktop.msg("toggle_floating")  # A tiles again; B and A share the monitor
-    wait_for(lambda: windows()["A"][4] and windows()["B"][4], "both tiled")
     press("B")
     desktop.msg("move_to_workspace", "2")
     wait_for(lambda: not desktop.rows("snap")[0][6] == "1", "the move cut short")

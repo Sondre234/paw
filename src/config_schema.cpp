@@ -394,7 +394,7 @@ const Option options[] = {
      "edge of its monitor fills that half, in a corner that quarter, and at the top edge it is "
      "maximized; a translucent preview shows where while the pointer is there. Edges shared "
      "with another monitor do not snap. On a monitor that tiles, a window lifted out of the "
-     "tiling splits the tile it is dropped on instead, but for the top edge."},
+     "tiling splits the tile it is dropped on instead, at the edges too."},
     {"windows.snap.enabled", "boolean", "true", "true", none, none,
      "`false` turns snapping by dragging off, at the top edge too; the snap actions still "
      "work."},
@@ -407,6 +407,10 @@ const Option options[] = {
     {"windows.snap.color", "color", "`border_color`, a quarter opaque", "\"#7da8ff40\"", none,
      none,
      "The preview's fill, `#RRGGBBAA`; its outline is the same colour, more opaque."},
+    {"windows.snap.maximize_tiles", "boolean", "false", "true", none, none,
+     "On a monitor that tiles, the top edge maximizes a tile dropped there, floating, as it "
+     "does a floating window. Off, the tiling takes it there as anywhere else, so that a tile "
+     "dragged by its top edge goes on holding its place in the tiling."},
     {"windows.snap.assist", "boolean", "true", "true", none, none,
      "Snap Assist: after a window snaps into a half or a quarter, by dragging or from the "
      "keyboard, the free part of the monitor beside it shows the monitor's other windows; "

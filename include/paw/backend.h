@@ -620,6 +620,9 @@ struct sh_settings {
     bool snap_corners;
     bool snap_preview;
     float snap_color[4]; /* premultiplied RGBA */
+    /* windows.snap.maximize_tiles: the top edge maximizes a window a drop would put into a
+     * tiling too, instead of the tiling taking it there like anywhere else. */
+    bool snap_maximize_tiles;
     /* windows.snap.assist: after a window snaps into a half or a quarter, by the pointer or the
      * keyboard, the free part of its output beside it lists the output's other windows to fill
      * it with (Windows' Snap Assist). */

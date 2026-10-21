@@ -50,7 +50,8 @@ static uint32_t shared_edges(struct sh_server *server, struct wlr_output *output
 /* Where dropping the grabbed window now would snap it, and on which output; SH_NONE where it
  * would not. The pointer decides, not the window: clients such as Firefox draw their tab strip
  * above their reported geometry. A window going into the tiling where it is dropped splits the
- * tile there instead, unless it is dropped at the top. */
+ * tile there instead, at the top too unless windows.snap.maximize_tiles: a tile's top edge,
+ * where its drag strip is, lies within the top zone. */
 static enum sh_action snap_zone(struct sh_server *server, struct wlr_output **where) {
     struct sh_toplevel *toplevel = server->grabbed_toplevel;
     const struct sh_settings *settings = server_settings(server);
@@ -65,7 +66,8 @@ static enum sh_action snap_zone(struct sh_server *server, struct wlr_output **wh
     enum sh_action zone =
         sh_snap_zone(usable_area(server, output), x, y, settings->snap_distance,
                      settings->snap_corners, shared_edges(server, output, x, y));
-    if (zone != SH_NONE && zone != SH_MAXIMIZE && drop_tiles(server, output))
+    if (zone != SH_NONE && (zone != SH_MAXIMIZE || !settings->snap_maximize_tiles) &&
+        drop_tiles(server, output))
         zone = SH_NONE;
     if (zone != SH_NONE)
         *where = output;

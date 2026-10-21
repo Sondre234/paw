@@ -4,8 +4,9 @@ right edge of its monitor fills that half, in a corner that quarter, at the top 
 a panel along an edge counting as the edge; restoring it puts it back where it floated before
 the drag, and dragging a snapped window away gives it its size back. Edges shared with another
 monitor do not snap, the monitor under the pointer is the one snapped on, a tile lifted out of a
-tiling monitor goes back into the tiling where it is dropped but at the top, and the settings
-turn it off, widen the edges and leave the corners to the sides. Driven by a virtual pointer
+tiling monitor goes back into the tiling where it is dropped, at the top too unless
+maximize_tiles, and the settings turn it off, widen the edges and leave the corners to the
+sides. Driven by a virtual pointer
 (pointer_probe); the window asks for the move as a client-decorated one does (wayland_probe with
 PAW_PROBE_MOVE)."""
 from pathlib import Path
@@ -173,8 +174,8 @@ with harness.Compositor(compositor, config(), env={"WLR_HEADLESS_OUTPUTS": "2"})
     placed("W", (0, 0, 640, 720))
     assert windows()["W"][5] == "HEADLESS-1", windows()
 
-# A tiling monitor takes a tile dragged to its edge back into its tiling, where the pointer is;
-# the top still maximizes it.
+# A tiling monitor takes a tile dragged to its edge back into its tiling, where the pointer is,
+# at the top too; with maximize_tiles the top maximizes it.
 with harness.Compositor(compositor, config(tiling="true"),
                        env={"WLR_HEADLESS_OUTPUTS": "1"}) as desktop:
     windows, snap, pointer, press, to, release, placed = session(desktop, SCREEN)
@@ -193,6 +194,12 @@ with harness.Compositor(compositor, config(tiling="true"),
     release()
     desktop.wait_for(lambda: windows()[right][4] and windows()[right][0] == 0,
                      "the tile dropped at the left edge tiled on the left")
+    alt_press(right)
+    to(1000, 0, "none")
+    release()
+    desktop.wait_for(lambda: windows()[right][4] and windows()[right][0] == 640,
+                     "the tile dropped at the top edge tiled on the right")
+    desktop.reload(config("maximize_tiles = true", tiling="true"))
     alt_press(right)
     assert to(640, 0, "maximize") == (0, 0, 1280, 720)
     release()
