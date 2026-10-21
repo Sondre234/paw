@@ -70,18 +70,19 @@ int main() {
         rejects("return {windows={magnet={dist=3}}}");
         rejects("return {windows={magnet=false}}");
         // Snapping by dragging is on, 8 pixels from the edge, with corners and a preview in the
-        // focused border's colour, a quarter opaque, unless given one.
+        // focused border's colour, a quarter opaque, unless given one; tiles do not maximize.
         require(defaults.settings.snap && defaults.settings.snap_distance == 8 &&
                     defaults.settings.snap_corners && defaults.settings.snap_preview &&
                     defaults.settings.snap_color[3] > 0.24F &&
-                    defaults.settings.snap_color[3] < 0.26F && defaults.settings.snap_assist,
+                    defaults.settings.snap_color[3] < 0.26F && defaults.settings.snap_assist &&
+                    !defaults.settings.snap_maximize_tiles,
                 "snap defaults changed");
         auto snap = paw::parse_config(
             "return {windows={snap={enabled=false,distance=20,corners=false,preview=false,"
-            "color='#ff000080',assist=false}}}");
+            "color='#ff000080',assist=false,maximize_tiles=true}}}");
         require(!snap.settings.snap && snap.settings.snap_distance == 20 &&
                     !snap.settings.snap_corners && !snap.settings.snap_preview &&
-                    !snap.settings.snap_assist &&
+                    !snap.settings.snap_assist && snap.settings.snap_maximize_tiles &&
                     snap.settings.snap_color[0] > 0.49F && snap.settings.snap_color[0] < 0.51F &&
                     snap.settings.snap_color[1] == 0,
                 "snap settings not read (premultiplied color)");
