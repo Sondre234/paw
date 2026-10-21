@@ -460,7 +460,7 @@ the slot (`placed_slot`, `placement.c`) and the preview, a tree of two rectangle
 `windows` just under the dragged window while it shows and among the guides while it does not,
 easing through an `sh_tween` of five values (place, size, opacity). `finish_grab` asks
 `snap_drop` first; a drop that would take the window into a tiling (`drop_tiles`, `grab.c`)
-snaps nowhere but at the top. `place_by_hand_on` puts a window into a slot of a given output,
+snaps nowhere, but at the top with `snap_maximize_tiles`. `place_by_hand_on` puts a window into a slot of a given output,
 and `snap_assist_offer` follows every snap into a half or a quarter. Snap Assist is the overview
 in a mode of its own (`overview_assist`, `overview.c`, with `assist` set): its area is the slot,
 it lists other windows, has no strip, draws its backdrop over the slot alone, leaves the pointer

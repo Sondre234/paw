@@ -521,6 +521,7 @@ struct Config {
                          .snap_corners = true,
                          .snap_preview = true,
                          .snap_color = {0.49F * 0.25F, 0.66F * 0.25F, 0.25F, 0.25F},
+                         .snap_maximize_tiles = false,
                          .snap_assist = true,
                          .placement = SH_PLACE_CASCADE,
                          .drag_strip = 6,

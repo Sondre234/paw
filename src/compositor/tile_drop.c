@@ -33,7 +33,8 @@ static bool place_at_pointer(struct sh_server *server, struct sh_drop_place *pla
     int held_workspace;
     struct wlr_output *held = held_in(toplevel, &held_workspace);
     *place = (struct sh_drop_place){0};
-    // Into a tiling where a drop tiles it, but for the top edge, where it is maximized.
+    // Into a tiling where a drop tiles it, but where it would snap (the top edge, with
+    // windows.snap.maximize_tiles).
     if (!output || server->snap.zone != SH_NONE || !drop_tiles(server, output))
         return held != NULL;
     int workspace = *output_workspace(server, output->name);

@@ -36,6 +36,8 @@ tablet input, power saving when idle and HDR.
   `paw fetch`, and toys such as `paw cat`, `paw wrapped` and `paw tour`.
 - A right click on the Quick Settings button lists the sound outputs to switch to, as one on the
   bar's volume does.
+- A tile dragged by its top edge moves within the tiling instead of floating to be maximized at
+  the top of the screen; `windows.snap.maximize_tiles = true` maximizes it there as before.
 
 ## 0.1.1 (2026-10-05)
 

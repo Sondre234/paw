@@ -1256,7 +1256,7 @@ void read_magnet(lua_State *L, Config &config) {
             settings.magnet_bypass = *name == "none" ? 0 : modifier(*name);
     }
 }
-// `windows.snap = { enabled, distance, corners, preview, color, assist }`. The preview's colour follows
+// `windows.snap = { enabled, distance, corners, preview, color, maximize_tiles, assist }`. The preview's colour follows
 // the focused window's border, a quarter opaque, unless it is given.
 void read_snap(lua_State *L, Config &config) {
     auto &settings = config.settings;
@@ -1266,6 +1266,8 @@ void read_snap(lua_State *L, Config &config) {
         settings.snap_distance = integer(L, "distance", settings.snap_distance, 1, 100);
         boolean(L, "corners", "windows.snap.corners", settings.snap_corners);
         boolean(L, "preview", "windows.snap.preview", settings.snap_preview);
+        boolean(L, "maximize_tiles", "windows.snap.maximize_tiles",
+                settings.snap_maximize_tiles);
         boolean(L, "assist", "windows.snap.assist", settings.snap_assist);
         if (auto color = text(L, "color")) {
             premultiplied(*color, "color", settings.snap_color);
