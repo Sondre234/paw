@@ -1235,11 +1235,12 @@ pointer crosses it, and a window snaps on the monitor under the pointer, even on
 lies beside. Dragging a snapped or maximized window gives it back the size it had before as
 it starts to move, the pointer keeping its place across it, and `restore` puts a window snapped
 by dragging back where it floated before the drag. On a monitor that tiles, a tile lifted out
-with Super + drag goes back into the tiling where it is dropped, splitting the tile under the
-pointer, at a side edge too; dropping it at the top edge still maximizes it, floating. A window
-floating on purpose there snaps as on any other monitor. The magnetic edges below work
-alongside: the window sticks to an edge while it is dragged, and the pointer decides the snap
-when it is dropped.
+with Super + drag or its top edge goes back into the tiling where it is dropped, splitting the
+tile under the pointer, at the edges too, so that a tile taken by its top edge, which lies in the
+top edge's zone, moves within the tiling; with `windows.snap.maximize_tiles = true` dropping it
+at the top edge maximizes it, floating. A window floating on purpose there snaps as on any other
+monitor. The magnetic edges below work alongside: the window sticks to an edge while it is
+dragged, and the pointer decides the snap when it is dropped.
 
 From the keyboard, `snap_left` and `snap_right` put the focused window into that half of its
 monitor, `snap_top_left`, `snap_top_right`, `snap_bottom_left` and `snap_bottom_right` into that
@@ -1994,18 +1995,18 @@ from the edges instead, so a single window on a wide monitor need not fill it: o
   opens, not at every motion. Dropping it puts it in the place it holds, at once where the
   pointer is if the tiles have not moved yet; dropped back on its own place, it is as it was.
   Over another monitor that tiles the place opens there; taken to a monitor that does not tile,
-  or to the top edge, which maximizes it, the place closes and the tiles fill it again, as they
-  do when the move is cut short (locking, or the window sent to another workspace), the window
-  floating then where it is. Its monitor switching workspace meanwhile takes it along, still
-  moved: its place closes, and one opens in the tiling of the workspace shown (see
-  [Workspaces](#workspaces)). In the master, spiral and monocle layouts the place opens at the
-  end of the list, and dropping a tile where it was lifted from keeps its place there too. The
-  scrolling layout keeps no place: its tile leaves the strip as it is lifted, and a drop gives
-  it a column of its own, at the end of the strip on its own monitor and right of the focused
-  column on another, or at the start of the strip when dropped over the first column. A window
-  dropped on another monitor that tiles joins the tiling there even if snapping or maximizing,
-  or its old monitor not tiling, had floated it; one floated with Super + V stays floating. A
-  tile dropped on a monitor that does not tile floats there.
+  or to the top edge with `windows.snap.maximize_tiles`, which maximizes it, the place closes
+  and the tiles fill it again, as they do when the move is cut short (locking, or the window
+  sent to another workspace), the window floating then where it is. Its monitor switching
+  workspace meanwhile takes it along, still moved: its place closes, and one opens in the tiling
+  of the workspace shown (see [Workspaces](#workspaces)). In the master, spiral and monocle
+  layouts the place opens at the end of the list, and dropping a tile where it was lifted from
+  keeps its place there too. The scrolling layout keeps no place: its tile leaves the strip as
+  it is lifted, and a drop gives it a column of its own, at the end of the strip on its own
+  monitor and right of the focused column on another, or at the start of the strip when dropped
+  over the first column. A window dropped on another monitor that tiles joins the tiling there
+  even if snapping or maximizing, or its old monitor not tiling, had floated it; one floated
+  with Super + V stays floating. A tile dropped on a monitor that does not tile floats there.
 - Dialogs and fixed-size windows float. Super + V (`toggle_floating`) floats
   or tiles the focused window; snapping or maximizing a tile also floats it. A window
   opening into the tiling of a workspace, or restored into it from minimized, brings the
