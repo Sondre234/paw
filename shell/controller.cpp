@@ -122,6 +122,13 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
     connect(notifications_.cards(), &NotificationModel::countChanged, this,
             &ShellController::updateCards);
     connect(&notifications_, &NotificationCenter::received, this, &ShellController::updateCards);
+    // A notice of an application running on without a window stays in the history until the
+    // application no longer does (setWindowless).
+    connect(&notifications_, &NotificationCenter::actionInvoked, this,
+            [this](uint id, const QString &key) {
+                if (key == "kill" && windowlessNotices_.contains(id))
+                    killWindowless(windowlessNotices_.value(id));
+            });
     connect(audio_.get(), &Audio::changed, this, &ShellController::showVolume);
     connect(&backlight_, &Backlight::changed, this, [this](int percent) {
         if (config_.osd.brightness)
@@ -907,12 +914,94 @@ bool ShellController::launch(const QString &id) {
         if (!start(it->info, it->name))
             return false;
         startMenu_.record(id);
+        watchLaunch(id);
         return true;
     }
     QStringList command;
     for (const auto &word : it->command)
         command << QString::fromStdString(word);
-    return startProgram(command, it->name);
+    if (!startProgram(command, it->name))
+        return false;
+    watchLaunch(id);
+    return true;
+}
+bool ShellController::belongsTo(const QString &windowAppId, const QString &id) const {
+    return !windowAppId.isEmpty() && (pinnedAppFor(windowAppId) == id || appFor(windowAppId) == id);
+}
+QVariantList ShellController::windowlessPids(const QString &id) const {
+    QVariantList pids;
+    for (const auto &item : windowless_) {
+        const auto process = item.toMap();
+        if (belongsTo(process.value("appId").toString(), id))
+            pids.push_back(process.value("pid"));
+    }
+    return pids;
+}
+void ShellController::killWindowless(const QString &id) {
+    const auto app = appRecord(id).toMap().value("name").toString();
+    for (const auto &pid : windowlessPids(id)) {
+        ask(("windowless kill " + QString::number(pid.toInt()) + "\n").toUtf8(),
+            [this, app](const QByteArray &reply) {
+                if (!reply.startsWith("ok"))
+                    report("Could not kill " + (app.isEmpty() ? "the process" : app) + ": " +
+                           QString::fromUtf8(reply).trimmed().remove(QRegularExpression("^error: ")));
+            });
+    }
+}
+void ShellController::setWindowless(const QVariantList &windowless) {
+    if (windowless == windowless_)
+        return;
+    windowless_ = windowless;
+    // A notice whose application no longer runs without a window asks nothing any more.
+    QList<uint> answered;
+    for (const auto &[notice, id] : windowlessNotices_.asKeyValueRange())
+        if (windowlessPids(id).isEmpty())
+            answered.push_back(notice);
+    for (const auto notice : answered) {
+        windowlessNotices_.remove(notice);
+        notifications_.closeFromApplication(notice);
+    }
+    Q_EMIT windowlessChanged();
+}
+namespace {
+// How long a launch waits for a window of its application before saying that a process of it
+// running on without a window took it.
+constexpr int launchPatienceMs = 5000;
+} // namespace
+void ShellController::watchLaunch(const QString &id) {
+    const auto pids = windowlessPids(id);
+    if (pids.isEmpty())
+        return;
+    // The application's windows as it starts, by the task model's ids.
+    auto windows = [this, id] {
+        QSet<int> ids;
+        for (int row = 0; row < tasks_.rowCount(); ++row) {
+            const auto index = tasks_.index(row);
+            if (belongsTo(tasks_.data(index, TaskModel::AppId).toString(), id))
+                ids.insert(tasks_.data(index, TaskModel::TaskId).toInt());
+        }
+        return ids;
+    };
+    QTimer::singleShot(launchPatienceMs, this, [this, id, pids, windows, before = windows()] {
+        const auto still = windowlessPids(id);
+        if (!windows().subtract(before).isEmpty() ||
+            std::none_of(pids.begin(), pids.end(), [&still](const QVariant &pid) { return still.contains(pid); }))
+            return;
+        const auto app = appRecord(id).toMap();
+        const auto summary = app.value("name").toString() + " is running without a window";
+        Notification notification;
+        notification.app = "paw";
+        notification.icon = app.value("icon").toString();
+        notification.summary = summary;
+        notification.body = "It took the launch but shows nothing, and may be stuck. Killing it lets "
+                            "it start again.";
+        notification.actions = {{"kill", "Kill"}, {"wait", "Wait"}};
+        // A launch again replaces the notice rather than adding one.
+        notification.tag = "windowless " + id;
+        windowlessNotices_.insert(notifications_.notify(std::move(notification)), id);
+        if (!notifications_.enabled() || notifications_.dnd())
+            osd_.show(overlayOutput(), summary, -1);
+    });
 }
 bool ShellController::startProgram(const QStringList &command, const QString &name) {
     if (command.isEmpty())
@@ -1111,6 +1200,7 @@ bool ShellController::launchAction(const QString &id, const QString &action) {
         });
         clearError();
         startMenu_.record(id);
+        watchLaunch(id);
         return true;
     }
     // GIO would start any other action with nowhere to say that it failed. Started as an entry of
@@ -1132,8 +1222,10 @@ bool ShellController::launchAction(const QString &id, const QString &action) {
     }
     const bool started = start(G_APP_INFO(entry), it->name);
     g_object_unref(entry);
-    if (started)
+    if (started) {
         startMenu_.record(id);
+        watchLaunch(id);
+    }
     return started;
 }
 void ShellController::reload() {
@@ -1254,6 +1346,8 @@ void ShellController::subscribe() {
     connect(state_, &QLocalSocket::connected, this, [this] { state_->write("subscribe shell\n"); });
     connect(state_, &QLocalSocket::readyRead, this, [this] {
         bool outputs = false, urgentSeen = false;
+        // The windowless lines end a state, which may come in more than one read.
+        bool windowlessSeen = false;
         while (state_->canReadLine()) {
             const auto raw = QString::fromUtf8(state_->readLine());
             const auto line = raw.trimmed();
@@ -1266,7 +1360,8 @@ void ShellController::subscribe() {
                 tilingKnown_ = true;
                 nextWorkspaces_.clear();
                 nextUrgentWindows_.clear();
-                urgentSeen = true;
+                nextWindowless_.clear();
+                urgentSeen = windowlessSeen = true;
                 outputs = true;
                 Q_EMIT tilingChanged();
             } else if (line.startsWith("output ")) {
@@ -1327,6 +1422,13 @@ void ShellController::subscribe() {
                                                              {"appId", fields[2]},
                                                              {"title", fields[3]}});
                 }
+            } else if (line.startsWith("windowless ")) {
+                // windowless PID APP_ID: a process running on without a window, with the app
+                // ID of its last window, "-" for none.
+                const auto appId = line.section(' ', 2);
+                nextWindowless_.push_back(QVariantMap{{"pid", line.section(' ', 1, 1).toInt()},
+                                                      {"appId", appId == "-" ? QString() : appId}});
+                windowlessSeen = true;
             } else if (line.startsWith("cursor-theme ")) {
                 // cursor-theme SIZE NAME: the cursor the compositor draws, which the programs
                 // the shell starts draw over their windows too.
@@ -1595,6 +1697,8 @@ void ShellController::subscribe() {
             }
             tasks_.setUrgent(windows);
         }
+        if (windowlessSeen)
+            setWindowless(nextWindowless_);
     });
     connect(state_, &QLocalSocket::disconnected, this, [this] {
         subscribed_ = false;
@@ -1612,6 +1716,7 @@ void ShellController::subscribe() {
             urgentWindows_.clear();
             tasks_.setUrgent({});
         }
+        setWindowless({});
         Q_EMIT tilingChanged();
         if (!switcher_.output.isEmpty()) {
             switcher_.output.clear();

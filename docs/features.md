@@ -64,9 +64,10 @@ the dock.
 - **Launchpad** (a tap of Super, the `launcher` action, or the dock's first button): every application
   on pages of a 7 × 5 grid over the whole screen. Type to search, use the arrows, Page Up and
   Page Down, the wheel, dragging or the dots to page, Enter to launch, and right-click for an
-  application's actions or Keep in Dock; Escape clears the search and then closes it, as does a
-  click beside the icons. Past the first or last page a drag stretches the pages like a rubber
-  band and the wheel bumps them, rather than stop dead.
+  application's actions, Keep in Dock, and Force Quit while it
+  [runs on without a window](#applications-running-without-a-window); Escape clears the search
+  and then closes it, as does a click beside the icons. Past the first or last page a drag
+  stretches the pages like a rubber band and the wheel bumps them, rather than stop dead.
 - **Spotlight** is the command palette (Super + P) as a large search field a quarter of the way
   down the screen, its results grouped by kind under headings after the top hit; **Control Center** is Quick Settings as
   rounded modules, with Display and Sound under their own headings; notifications show as banners
@@ -876,7 +877,9 @@ A stacked button's menu is about all its windows: its title counts them, and it 
 marked when they share it), **Close all 2 windows**, and **Kill process** (or **Kill 2
 processes** when they come from more than one). Right-clicking a window in its hover
 list opens that window's own menu. A pinned application's button without windows offers its
-desktop actions, **Open** and **Unpin from taskbar**; the bar's own menu has icons too.
+desktop actions, **Open** and **Unpin from taskbar**, and **Kill process** while a process of it
+[runs on without a window](#applications-running-without-a-window); the bar's own menu has icons
+too.
 
 These menus open away from the bar, so along the top the title is nearest it and **Kill
 process** farthest. `shell.mirror_menus = true` turns them around there, so they read outwards
@@ -889,10 +892,23 @@ An application whose last window closed while its process went on runs without a
 hidden to a tray that shows no item for it, or one whose window died with its connection while
 the process did not, as an IDE can when the compositor restarts under it. Still running, it may
 keep a single-instance lock, so that starting it again hands the launch to it and nothing opens.
-The compositor keeps track of such processes until they end. `paw msg get windowless` prints a
-line for each, the oldest first: its process ID and the app ID of its last window (`-` for
-none). `paw msg windowless kill PID` ends one with `SIGKILL` (never another process that took
-its process ID since). Only the user's own processes count, and never the compositor's.
+The compositor keeps track of such processes until they end, and the shell shows them where the
+application is launched from:
+
+- Its menu on the taskbar (a pinned application's button), in the start menu and on the dock
+  ends with **Kill process** (**Kill 2 processes** for two), or **Force Quit** on the dock and
+  in Launchpad, which ends them with `SIGKILL`.
+- Starting it again from the shell while it runs on without a window waits five seconds for
+  a window of it. When none opens and the process is still there, a notification says that it
+  is running without a window and may be stuck, with **Kill** and **Wait**. It goes by itself
+  once the process has ended or has a window again. With notifications off or do not disturb on,
+  the on-screen display says it instead.
+
+`paw msg get windowless` prints a line for each such process, the oldest first: its process ID
+and the app ID of its last window (`-` for none). `paw msg windowless kill PID` ends one with
+`SIGKILL` (never another process that took its process ID since). Only the user's own processes
+count, and never the compositor's. The process an application left running is known by its
+windows: one that never had a window in this session or the last is not.
 
 A standalone session hands them on as it ends: the processes of the windows still open and of
 those already without one. The next session, after a restart in place too, keeps track of those
@@ -926,7 +942,8 @@ Enter opens what the keyboard is at (the best match, as the search starts); at t
 Right and Tab move on to its buttons (Open, then its desktop actions) and Left back, Enter
 pressing the one ringed. Escape clears the search, then closes the menu. Right-clicking an
 application, or the menu key, gives its menu: Open, its desktop actions, Pin to Start or Unpin
-from Start, a tile's Move to front, and Pin to taskbar or Unpin from taskbar.
+from Start, a tile's Move to front, and Pin to taskbar or Unpin from taskbar, then Kill process
+while it [runs on without a window](#applications-running-without-a-window).
 
 The start menu's pins are its own, as on Windows, kept in `$XDG_STATE_HOME/paw/start-pinned`,
 a desktop id per line. Until they are first changed they are the taskbar's pins, then common

@@ -8,7 +8,8 @@ import "WindowMenu.js" as WindowMenu
 // it. It opens where the bar was pressed. A window's begins with its application's icon and name
 // over its title, then offers what the application starts, what can be done to the window (by its
 // state, and where it is), pinning and closing it; a stacked button's acts on all its windows. A
-// pinned application's offers what it starts, and unpinning it. On the dock of the macOS style it
+// pinned application's offers what it starts, unpinning it, and killing its processes left
+// running without a window. On the dock of the macOS style it
 // opens above the icon pressed, and an application's is macOS's: its windows to bring up, what it
 // starts, keeping it in the dock, hiding and quitting it. Each ends with killing the processes
 // of its windows. On a bar along the top with shell.mirrorMenus, the first level runs the other
@@ -166,12 +167,15 @@ PopupMenu {
     function menuEntries() {
         if (panel.taskMenuId >= 0)
             return panel.macos ? dockEntries(panel.taskMenuId, panel.taskSource) : taskEntries(panel.taskMenuId, panel.taskSource)
-        // A pinned application without windows; on the dock without a title, as macOS's.
+        // A pinned application without windows; on the dock without a title, as macOS's. Either
+        // may still run on without one.
         var app = panel.pinMenuApp
         if (app !== null)
-            return panel.macos ? WindowMenu.sections([bare(launchEntries(app, "Open")), app.configured ? [] : [panel.pinAction(app.appId)]])
+            return panel.macos ? WindowMenu.sections([bare(launchEntries(app, "Open")), app.configured ? [] : [panel.pinAction(app.appId)],
+                                                      WindowMenu.windowlessEntries(app.appId, true, "contextMenuKill")])
                                : WindowMenu.sections([[titleEntry(app, app.appId, "")], launchEntries(app, "Open"),
-                                           app.configured ? [] : [panel.pinAction(app.appId)]])
+                                           (app.configured ? [] : [panel.pinAction(app.appId)])
+                                               .concat(WindowMenu.windowlessEntries(app.appId, false, "contextMenuKill"))])
         // Icons of what each entry leads to: floating windows or tiles, as the tiling button shows.
         return [{ text: panel.tiling ? "Turn tiling off" : "Turn tiling on",
                   icon: panel.tiling ? "copy" : "layout-panel-left", enabled: shell.tilingAvailable,

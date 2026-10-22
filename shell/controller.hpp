@@ -185,6 +185,10 @@ class ShellController : public QObject {
     // Counts the changes of `apps`, for QML that reads one record with appRecord() to follow
     // them without making all of them.
     Q_PROPERTY(int appsRevision READ appsRevision NOTIFY appsChanged)
+    // The processes running on without a window, as the compositor tracks them, oldest first (the
+    // first 16), as {pid, appId}: the app ID of the last window each had. For QML that asks
+    // windowlessPids() to follow them.
+    Q_PROPERTY(QVariantList windowless READ windowless NOTIFY windowlessChanged)
     // Where QML finds an icon by name or path: "image://icons/" + name. It changes with the icon
     // theme (appearance.icon_theme), so that every image of one is looked up anew rather than
     // taken from Qt Quick's cache.
@@ -622,7 +626,17 @@ class ShellController : public QObject {
     int xrayLegend() const { return xray_.legend; }
     QVariantList xraySheets() const { return xray_.sheets; }
     int xrayHovered() const { return xray_.hovered; }
+    // Starts an application, a failure shown across the panel. Started while a process of it runs
+    // on without a window, it asks with a notice whether to kill that process once a while has
+    // gone by without a new window of it: a single-instance application hands such a launch to
+    // that process, and nothing opens.
     Q_INVOKABLE bool launch(const QString &id);
+    QVariantList windowless() const { return windowless_; }
+    // The process IDs of the application `id`'s processes running on without a window: those
+    // whose last window's app ID belongs to it, as a window's does to its button.
+    Q_INVOKABLE QVariantList windowlessPids(const QString &id) const;
+    // Has the compositor kill them, a failure shown across the panel.
+    Q_INVOKABLE void killWindowless(const QString &id);
     // Starts the program `command` (its words) in the home folder, with the environment of a
     // configured launcher's, detached from the shell; a failure shows across the panel as one of
     // `name`'s.
@@ -677,6 +691,7 @@ class ShellController : public QObject {
     void wallpaperChanged();
     void wallpapersChanged();
     void appsChanged();
+    void windowlessChanged();
     void iconThemeChanged();
     void errorChanged();
     void disabled();
@@ -851,6 +866,17 @@ class ShellController : public QObject {
     bool subscribed_ = false, tiling_ = false, tilingKnown_ = false;
     QVariantMap workspaces_, nextWorkspaces_;
     QVariantList urgentWindows_, nextUrgentWindows_;
+    QVariantList windowless_, nextWindowless_;
+    // The notices asking whether to kill an application running on without a window, by
+    // notification id: the application's id.
+    QHash<uint, QString> windowlessNotices_;
+    // Whether a window with this app ID belongs to the application `id`, as its button's does.
+    bool belongsTo(const QString &windowAppId, const QString &id) const;
+    // After launch(): notices, once a while has gone by, that the application is running on
+    // without a window when none of its windows opened and a process of it that ran on without
+    // one as it started still does.
+    void watchLaunch(const QString &id);
+    void setWindowless(const QVariantList &windowless);
     // What the switcher and the overview show (their properties above), and what comes in for
     // them line by line until all of it has (`switcherPending_`, `overviewPending_` lines to go).
     struct Switcher {

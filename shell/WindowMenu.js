@@ -90,3 +90,16 @@ function aboveEntries(window, tasks, text, objectName) {
     return [{ text: text, toggle: "check", checked: window.above === true, objectName: objectName,
               run: function() { tasks.setAbove(window.taskId, window.above !== true) } }]
 }
+// Killing the processes of the application `appId` that run on without a window, which have no
+// window to close and may hold its launches, as the taskbar kills a window's: Kill process (Kill
+// 2 processes), or with `macos` Force Quit without an icon; none while it has none.
+function windowlessEntries(appId, macos, objectName) {
+    void shell.windowless // read again as they change
+    var count = shell.windowlessPids(appId).length
+    if (count === 0)
+        return []
+    var kill = function() { shell.killWindowless(appId) }
+    return [macos ? { text: "Force Quit", objectName: objectName, run: kill }
+                  : { text: count > 1 ? "Kill " + count + " processes" : "Kill process",
+                      icon: "octagon-x", danger: true, objectName: objectName, run: kill }]
+}

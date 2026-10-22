@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
+import "WindowMenu.js" as WindowMenu
 
 // The start menu, after Windows 11's: a search field on top, the applications under it, and
 // along the bottom who is logged in and the power button, in the bottom-right corner, with its
@@ -126,16 +127,18 @@ PopupCard {
         menuApp = app
     }
     // Open, what its desktop entry offers besides (New Window, ...), then pinning it to the start
-    // menu or the taskbar, or unpinning it, and a pinned tile's Move to front. A configured
-    // launcher is only opened: the configuration pins it to the taskbar.
+    // menu or the taskbar, or unpinning it, a pinned tile's Move to front, and killing its
+    // processes left running without a window. A configured launcher is only opened, or killed:
+    // the configuration pins it to the taskbar.
     function appMenuEntries(app, tile) {
         if (!app)
             return []
         var id = app.appId
         var entries = [{ text: "Open", icon: "app-window", objectName: "startMenu:open",
                          run: function() { launcher.launch(id) } }]
+        var kill = WindowMenu.windowlessEntries(id, false, "startMenu:kill")
         if (app.configured)
-            return entries
+            return WindowMenu.sections([entries, kill])
         entries = entries.concat(shell.appActions(id).map(function(action) {
             return { text: action.name, icon: action.icon, objectName: "startMenu:action:" + action.action,
                      run: function() { launcher.launchAction(id, action.action) } }
@@ -158,7 +161,7 @@ PopupCard {
         var taskbar = panel.pinAction(id)
         taskbar.objectName = "startMenu:taskbar"
         entries.push(taskbar)
-        return entries
+        return entries.concat(kill)
     }
     // For a preview (Panel.previewPopup): shows "launcher-all", every application,
     // "launcher-search", what a search finds, "launcher-empty", a search finding nothing, or

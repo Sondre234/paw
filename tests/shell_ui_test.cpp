@@ -289,15 +289,18 @@ int main(int argc, char **argv) {
     // screen's, as if another monitor had focus, so the panel must show its own.
     const auto output = app.primaryScreen()->name();
     QString urgentLines; // what a state says about windows asking for attention
+    // What it says about processes running on without a window, by PID: the line of each.
+    QMap<int, QString> windowless;
+    QStringList kills; // the "windowless kill PID" requests, which end the process
     QString tileLayout = "dwindle"; // the output's tiling layout, which layout_next steps
-    auto state = [&output, &urgentLines, &tileLayout](bool tiling, int workspace) {
+    auto state = [&output, &urgentLines, &windowless, &tileLayout](bool tiling, int workspace) {
         return (QString("tiling %1\nworkspace %2\noutput %3 %2 1,2 %4\nlayout %3 %5\n")
                     .arg(tiling ? "off" : "on")
                     .arg(workspace)
                     .arg(output)
                     .arg(tiling ? "on" : "off")
                     .arg(tileLayout) +
-                urgentLines)
+                urgentLines + QStringList(windowless.values()).join(""))
             .toUtf8();
     };
     QLocalServer compositor;
@@ -434,6 +437,13 @@ int main(int argc, char **argv) {
                 nudges.push_back(QString::fromUtf8(request).trimmed());
                 client->write("ok\n");
                 client->disconnectFromServer();
+            } else if (request.startsWith("windowless kill ")) {
+                // The process ends, and the next state no longer lists it.
+                kills.push_back(QString::fromUtf8(request).trimmed());
+                const bool known = windowless.remove(request.trimmed().sliced(16).toInt()) > 0;
+                client->write(known ? "ok\n" : "error: no process without a window has that PID\n");
+                client->disconnectFromServer();
+                subscriber->write(state(toggled, currentWorkspace));
             } else if (request.startsWith("output ") || request.startsWith("session ") ||
                        request.startsWith("switcher_confirm ") ||
                        request == "toggle_tiling\n" || request == "layout_monocle\n" ||
@@ -2183,6 +2193,63 @@ ListModel {
         click(pinned(), Qt::RightButton);
         if (!waitFor([&] { return menuShown() && menuItem("Unpin from taskbar"); }))
             return fail("the pinned application's menu did not open again");
+    }
+    // A process of it that runs on without a window (as an IDE's can after its window died with
+    // the compositor) is offered to be killed, last and in the danger colour, by the compositor.
+    {
+        QTest::keyClick(popover, Qt::Key_Escape);
+        windowless[4242] = "windowless 4242 fake\n";
+        subscriber->write(state(toggled, currentWorkspace));
+        if (!waitFor([&] { return controller.windowlessPids("paw-test-app.desktop") == QVariantList{4242}; }))
+            return fail("the shell did not take in a process running on without a window");
+        click(pinned(), Qt::RightButton);
+        if (!waitFor([&] { return menuShown() && menuItem("Kill process"); }))
+            return fail("a pinned application running on without a window does not offer to kill it");
+        const auto entries = menu->property("entries").value<QJSValue>();
+        const auto last = entries.property(entries.property("length").toUInt() - 1);
+        if (last.property("text").toString() != "Kill process" ||
+            !menuItem("Kill process")->property("danger").toBool())
+            return fail("killing a pinned application's process is not the last entry of its menu, in the danger colour");
+        click(menuItem("Kill process"));
+        if (!waitFor([&] {
+                return kills == QStringList{"windowless kill 4242"} &&
+                       controller.windowlessPids("paw-test-app.desktop").isEmpty() && !popover->isVisible();
+            }))
+            return fail("killing a pinned application's process did not ask the compositor and close the menu");
+    }
+    // Launched while a process of it runs on without a window, with no window of it opening, it
+    // says so after a while with a notice offering to kill that process, or to wait; the notice
+    // goes by itself once the process has.
+    {
+        windowless[4242] = "windowless 4242 fake\n";
+        windowless[4343] = "windowless 4343 paw-test-other\n";
+        subscriber->write(state(toggled, currentWorkspace));
+        if (!waitFor([&] { return controller.windowlessPids("paw-test-other.desktop") == QVariantList{4343}; }))
+            return fail("the shell did not take in two processes running on without a window");
+        const auto &history = controller.notifications()->history()->items();
+        auto noticeOf = [&](const QString &name) -> const Notification * {
+            for (const auto &notification : history)
+                if (notification.summary == name + " is running without a window")
+                    return &notification;
+            return nullptr;
+        };
+        if (!controller.launch("paw-test-app.desktop") || !controller.launch("paw-test-other.desktop"))
+            return fail("the applications running on without a window did not launch");
+        if (!waitFor([&] { return noticeOf("Fake app") && noticeOf("Other app"); }, 10000))
+            return fail("launching an application running on without a window did not say so");
+        const auto *notice = noticeOf("Fake app");
+        if (notice->actions != std::vector<std::pair<QString, QString>>{{"kill", "Kill"}, {"wait", "Wait"}})
+            return fail("the notice of an application running on without a window does not offer Kill and Wait");
+        controller.notifications()->invoke(notice->id, "kill");
+        if (!waitFor([&] { return kills.count("windowless kill 4242") == 2 && !noticeOf("Fake app"); }))
+            return fail("the notice's Kill did not ask the compositor to kill the process");
+        windowless.remove(4343);
+        subscriber->write(state(toggled, currentWorkspace));
+        if (!waitFor([&] { return !noticeOf("Other app"); }))
+            return fail("the notice of an application running on without a window stayed after its process ended");
+        click(pinned(), Qt::RightButton);
+        if (!waitFor([&] { return menuShown() && menuItem("Unpin from taskbar"); }) || menuItem("Kill process"))
+            return fail("the pinned application's menu still offers to kill a process that ended");
     }
     click(menuItem("Unpin from taskbar"));
     if (!waitFor([&] { return pinned() == nullptr; }) || !readPins().isEmpty() ||
@@ -5394,6 +5461,14 @@ ListModel {
                                       "paw-test-actions.desktop\n";
             }))
             return fail(("Move to front did not move the tile first: " + startPins().toStdString()).c_str());
+        // Running on without a window, it is offered to be killed, last.
+        windowless[4343] = "windowless 4343 paw-test-other\n";
+        subscriber->write(state(toggled, currentWorkspace));
+        if (!menuFor("startTile:paw-test-other.desktop") ||
+            !waitFor([&] { return shown("startMenu:kill"); }) ||
+            item("startMenu:kill")->property("text") != "Kill process" || !choose("startMenu:kill") ||
+            !waitFor([&] { return kills.endsWith("windowless kill 4343"); }))
+            return fail("the start menu does not offer to kill an application running on without a window");
         if (!menuFor("startTile:paw-test-other.desktop") || shown("startMenu:front") ||
             !choose("startMenu:unpin") ||
             !waitFor([&] { return !item("startTile:paw-test-other.desktop"); }) ||
@@ -7712,11 +7787,19 @@ ListModel {
         auto *other = find(root, "launchpadApp:paw-test-other.desktop");
         if (!other)
             return fail("Launchpad does not show the other application");
+        // Running on without a window, it offers Force Quit.
+        windowless[4343] = "windowless 4343 paw-test-other\n";
+        subscriber->write(state(toggled, currentWorkspace));
+        if (!waitFor([&] { return !controller.windowlessPids("paw-test-other.desktop").isEmpty(); }))
+            return fail("the shell did not take in a process running on without a window");
         click(other, Qt::RightButton);
         auto *appMenu = find(root, "launchpadMenu");
         if (!appMenu || !waitFor([&] { return inPopover(appMenu); }) ||
-            !find(root, "launchpad:open") || !find(root, "launchpad:dock"))
-            return fail("a right click on an application in Launchpad did not open its menu");
+            !find(root, "launchpad:open") || !find(root, "launchpad:dock") ||
+            !find(root, "launchpad:kill") || find(root, "launchpad:kill")->property("text") != "Force Quit")
+            return fail("a right click on an application in Launchpad did not open its menu, with Force Quit");
+        windowless.remove(4343);
+        subscriber->write(state(toggled, currentWorkspace));
         press(Qt::Key_Escape);
         if (!waitFor([&] { return !appMenu->property("open").toBool(); }) ||
             !root->property("launcherOpen").toBool())

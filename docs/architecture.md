@@ -1228,6 +1228,12 @@ its control socket and holds the models; QML reaches it as the context property 
 starts applications: `shell.launch(id)`, and `shell.appActions(id)` with
 `shell.launchAction(id, action)` for the actions a desktop entry offers besides starting it
 (`[Desktop Action …]`, listed as `{action, name, icon}`), each failure shown across the panel.
+It keeps the processes running on without a window from the compositor's `windowless` lines
+(`shell.windowless`), which `windowlessPids(id)` gives an application as its windows' app IDs
+belong to it, for the menus' Kill process (`WindowMenu.windowlessEntries`), and `killWindowless`
+asks the compositor to kill; a launch while there are some (`watchLaunch`) waits a while for a
+window of the application, then posts a notification with Kill and Wait, which goes by itself as
+the process does (`setWindowless`).
 `view.cpp` makes one Qt Quick window per surface and output (a layer surface each), all in one
 QML engine. The QML is compiled into the binary (`qt_add_qml_module` in `shell/CMakeLists.txt`,
 which lists every file).

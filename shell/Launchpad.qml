@@ -2,6 +2,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import Paw
+import "WindowMenu.js" as WindowMenu
 
 // Launchpad, the launcher of the macOS style (Launcher.qml is the taskbar style's): every
 // application over the whole output, on pages of a grid, with the wallpaper dimmed behind them, a
@@ -182,15 +183,17 @@ Item {
         menuApp = app
     }
     // Open and what its desktop entry offers besides (New Window, ...), then keeping it in the dock
-    // or taking it out. A configured launcher is only opened: the configuration pins it.
+    // or taking it out, and Force Quit for its processes left running without a window. A
+    // configured launcher is only opened, or quit: the configuration pins it.
     function appMenuEntries(app) {
         if (!app)
             return []
         var id = app.appId
         var entries = [{ text: "Open", icon: "app-window", objectName: "launchpad:open",
                          run: function() { launchpad.launch(id) } }]
+        var quit = WindowMenu.windowlessEntries(id, true, "launchpad:kill")
         if (app.configured)
-            return entries
+            return WindowMenu.sections([entries, quit])
         var actions = shell.appActions(id)
         if (actions.length > 0)
             entries.push({ separator: true })
@@ -208,7 +211,7 @@ Item {
         dock.objectName = "launchpad:dock"
         entries.push({ separator: true })
         entries.push(dock)
-        return entries
+        return WindowMenu.sections([entries, quit])
     }
     // For a preview (Panel.previewPopup), as the start menu's views are named: "launcher-all", the
     // keyboard at an application on the last page, "launcher-search", what a search finds,
