@@ -238,9 +238,16 @@ body,
   box-shadow: none !important;
 }
 
-/* paw draws the window's frame; no minimise/maximise/close in the tab strip, and no drag
-   spaces either side of the tabs */
-.titlebar-buttonbox-container,
+/* No minimise/maximise/close of Firefox's own: paw draws its window controls over the window's
+   corner as the pointer nears it (the window rule `controls = true`, see the README). Their place
+   stays empty, as wide as paw's strip and its margins, so that paw's cover none of the tab strip's
+   buttons. No drag spaces either side of the tabs. */
+.titlebar-buttonbox {
+  display: none !important;
+}
+.titlebar-buttonbox-container {
+  min-width: 108px !important;
+}
 #TabsToolbar .titlebar-spacer {
   display: none !important;
 }
