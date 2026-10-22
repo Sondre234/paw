@@ -2177,8 +2177,10 @@ out (see `ambient_smoke.py`).
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless
   compositor start as a standalone session does, running XDG autostart from the directories
   `XDG_CONFIG_HOME` and `XDG_CONFIG_DIRS` name (see `autostart_smoke.py`), and saving and
-  restoring the last session in `XDG_STATE_HOME` (see `session_restore_smoke.py`); without it only
-  `--session` does, so no test starts the developer's own autostart entries.
+  restoring the last session in `XDG_STATE_HOME` (see `session_restore_smoke.py`). The harness
+  then points both at empty directories of the test's own unless the test names its own, so no
+  test starts the developer's autostart entries (`/etc/xdg`'s PipeWire launcher restarts their
+  PipeWire).
   `PAW_TEST_WRAPPED=1` has a headless compositor count for paw wrapped as a standalone session
   does, `PAW_TEST_WRAPPED_SAVE_MS` and `PAW_TEST_WRAPPED_IDLE_MS` shorten the time between its
   saves and the time without input after which it counts idle time, and
