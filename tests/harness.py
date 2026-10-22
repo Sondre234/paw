@@ -236,6 +236,15 @@ class Compositor:
             self.config.write_text(config)
         for name in ("WAYLAND_DISPLAY", "DISPLAY", "PAW_SOCKET"):
             self.env.pop(name, None)
+        # A login session runs XDG autostart. From the developer's own directories that starts
+        # their programs: /etc/xdg's gentoo-pipewire-launcher entry restarts their PipeWire
+        # under the test's runtime directory. A test that wants entries names its directories.
+        if self.env.get("PAW_LOGIN_SESSION"):
+            for name in ("XDG_CONFIG_HOME", "XDG_CONFIG_DIRS"):
+                if self.env.get(name) in (None, os.environ.get(name)):
+                    folder = self.root / name.lower()
+                    folder.mkdir(exist_ok=True)
+                    self.env[name] = str(folder)
         with self.log.open("w") as output:
             self.server = subprocess.Popen(
                 [self.binary, "--headless", "--config", str(self.config)], env=self.env,
