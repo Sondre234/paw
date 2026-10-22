@@ -38,6 +38,8 @@ tablet input, power saving when idle and HDR.
   bar's volume does.
 - A tile dragged by its top edge moves within the tiling instead of floating to be maximized at
   the top of the screen; `windows.snap.maximize_tiles = true` maximizes it there as before.
+- A window rule's `controls = true` puts paw's window controls over a window drawing its own
+  frame, as over kitty: for Firefox, whose own buttons the rices hide. `false` takes them off one.
 
 ## 0.1.1 (2026-10-05)
 
