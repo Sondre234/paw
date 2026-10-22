@@ -92,14 +92,16 @@ Firefox and Discord show washi or sumi as the system's light or dark style says,
 profiles set that style themselves (`appearance.color_scheme`), so picking sumi in paw turns
 them to sumi too; in Discord, set Appearance to Sync with computer.
 
-Firefox picks the theme up when it restarts. The first tab and every new tab show Firefox's own
-new tab page, styled to match the start page; to open the start page itself at home instead,
-uncomment its line in `user.js` (new tabs stay as they are, as no setting points them at a
-file). Discord itself cannot load a theme: `install.sh` puts it in the themes folder of Vencord,
-Vesktop, Equicord, Equibop or BetterDiscord where one is installed, and you turn it on in their
-settings. Client mods are against Discord's terms. The theme loads Space Grotesk from Google
-Fonts; delete its `@import` line if the font is installed or you would rather Discord did not
-ask Google for it.
+Firefox picks the theme up when it restarts. The first tab and every new tab show Firefox's own new
+tab page, styled to match the start page; to open the start page itself at home instead, uncomment
+its line in `user.js` (new tabs stay as they are, as no setting points them at a file). Firefox's
+own minimise, maximise and close buttons are hidden, their place kept for paw's: the window rule `{
+app_id = "^firefox", controls = true }` in `windows.rules` puts paw's controls there, shown as the
+pointer nears the corner, as over kitty. Discord itself cannot load a theme: `install.sh` puts it in
+the themes folder of Vencord, Vesktop, Equicord, Equibop or BetterDiscord where one is installed,
+and you turn it on in their settings. Client mods are against Discord's terms. The theme loads Space
+Grotesk from Google Fonts; delete its `@import` line if the font is installed or you would rather
+Discord did not ask Google for it.
 
 ## What paw does for it
 

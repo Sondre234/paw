@@ -140,12 +140,20 @@ static void raise_frame_node(struct sh_toplevel *toplevel, struct wlr_scene_node
     wlr_scene_node_raise_to_top(node);
 }
 
+/* Whether the window gets the controls: a rule's `controls` says, else whether it leaves its
+ * frame to us. A rule gives them to one that draws its own frame without buttons in it, as
+ * Firefox does with them hidden. */
+static bool shows_controls(struct sh_toplevel *toplevel) {
+    int rule = window_rule_now(toplevel)->controls;
+    return rule >= 0 ? rule : wants_decoration(toplevel);
+}
+
 /* Adds, removes, or updates a window's controls to match what it asks for and its state. */
 void refresh_decoration(struct sh_toplevel *toplevel) {
     struct sh_server *server = toplevel->server;
     if (!toplevel->scene_tree)
         return;
-    if (!toplevel_mapped(toplevel) || !wants_decoration(toplevel)) {
+    if (!toplevel_mapped(toplevel) || !shows_controls(toplevel)) {
         if (toplevel->deco)
             wlr_scene_node_destroy(&toplevel->deco->node);
         toplevel->deco = NULL;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Configuration of the window rules' look, idle inhibition and scratchpad: shadow, border,
-// border_color, border_inactive_color, corner_radius, idle_inhibit and scratchpad.
+// controls, border_color, border_inactive_color, corner_radius, idle_inhibit and scratchpad.
 #include "paw/config.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -17,7 +17,8 @@ int main() {
         auto plain = paw::parse_config("return {windows={rules={{app_id='^x$',floating=true}}}}")
                          .window_actions("x", "")
                          .to_c();
-        require(plain.shadow == -1 && plain.border == -1 && plain.corner_radius == -1 &&
+        require(plain.shadow == -1 && plain.border == -1 && plain.controls == -1 &&
+                    plain.corner_radius == -1 &&
                     plain.border_color.count == 0 && plain.border_inactive_color.count == 0 &&
                     plain.idle_inhibit == SH_IDLE_RULE_UNSET && !plain.scratchpad,
                 "a rule without the new fields set them");
@@ -30,6 +31,7 @@ int main() {
             "{app_id='^kitty$',border_color='#ff0000',"
             "border_inactive_color={'#00ff0080','#0000ff',angle=90},corner_radius=16},"
             "{app_id='^dropterm$',scratchpad=true,idle_inhibit='focus'},"
+            "{app_id='^firefox$',controls=true},{app_id='^firefox$',title='Video',controls=false},"
             "{title='^Game',idle_inhibit='fullscreen'},{title='^Board',idle_inhibit='visible'}}}}");
         auto mpv = ruled.window_actions("mpv", "Film").to_c();
         require(mpv.shadow == 0 && mpv.border == 0 && mpv.corner_radius == 0 &&
@@ -51,6 +53,10 @@ int main() {
         require(kitty.shadow == -1 && kitty.border == -1 &&
                     kitty.idle_inhibit == SH_IDLE_RULE_UNSET,
                 "a rule set what it does not say");
+        require(ruled.window_actions("firefox", "").to_c().controls == 1 &&
+                    ruled.window_actions("firefox", "Video").to_c().controls == 0 &&
+                    kitty.controls == -1,
+                "a rule's controls");
         auto drop = ruled.window_actions("dropterm", "").to_c();
         require(drop.scratchpad && drop.idle_inhibit == SH_IDLE_RULE_FOCUS, "scratchpad rule");
         require(ruled.window_actions("x", "Game").to_c().idle_inhibit == SH_IDLE_RULE_FULLSCREEN &&
@@ -78,6 +84,8 @@ int main() {
                 "windows.rules[1].shadow must be a boolean");
         rejects("return {windows={rules={{app_id='x',border=0}}}}",
                 "windows.rules[1].border must be a boolean");
+        rejects("return {windows={rules={{app_id='x',controls='flat'}}}}",
+                "windows.rules[1].controls must be a boolean");
         rejects("return {windows={rules={{app_id='x',scratchpad=1}}}}",
                 "windows.rules[1].scratchpad must be a boolean");
         rejects("return {windows={rules={{app_id='x',corner_radius=41}}}}",

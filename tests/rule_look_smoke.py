@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Window rules' look: `shadow`, `border`, `border_color`, `border_inactive_color` (a gradient
-too) and `corner_radius` give the windows they match their own, read through `get frames`. Unlike
+too), `corner_radius` and `controls` (paw's window controls over a window drawing its own frame,
+as the probe does) give the windows they match their own, read through `get frames`. Unlike
 the actions, they follow the window's title as it changes and the rules as they are reloaded. A
 build without the rounded-corners patch rounds nothing, which the test then only checks."""
 from pathlib import Path
@@ -25,9 +26,9 @@ CONFIG = """return {
 RULES = """
             { app_id = "^bare$", shadow = false, border = false, corner_radius = 0 },
             { app_id = "^red$", border_color = "#ff0000", border_inactive_color = "#00ff00",
-              corner_radius = 4 },
+              corner_radius = 4, controls = true },
             { app_id = "^rainbow$", border_color = { "#ff0000", "#0000ff", angle = 45 } },
-            { title = "Paused$", shadow = false, border_color = "#ffff00" },"""
+            { title = "Paused$", shadow = false, border_color = "#ffff00", controls = true },"""
 
 with harness.Compositor(compositor, CONFIG % RULES) as desktop:
     msg, wait_for = desktop.msg, desktop.wait_for
@@ -35,6 +36,10 @@ with harness.Compositor(compositor, CONFIG % RULES) as desktop:
     def frames():
         """app_id -> (corner radius, shadow drawn, border drawn as, border colour)."""
         return {r[0]: (int(r[5]), r[6] == "1", r[12], r[13]) for r in desktop.rows("frames")}
+
+    def controls():
+        """app_id -> the style of the controls drawn over it, or "none"."""
+        return {r[0]: r[3] for r in desktop.rows("frames")}
 
     desktop.detail = lambda: f"frames: {msg('get', 'frames')}"
     clients = {}
@@ -67,6 +72,8 @@ with harness.Compositor(compositor, CONFIG % RULES) as desktop:
         "red": (radius(4), True, "color", "#00ff00ff"),
         "rainbow": (radius(10), True, "gradient", "-"),
     }, "the rules' look")
+    assert controls() == {"plain": "none", "bare": "none", "red": "flat", "rainbow": "none"}, \
+        controls()
     focus("red")
     wait_for(lambda: frames()["red"][3] == "#ff0000ff" and frames()["rainbow"][2] == "gradient",
              "red's own focused border")
@@ -80,10 +87,12 @@ with harness.Compositor(compositor, CONFIG % RULES) as desktop:
     clients["plain"].stdin.flush()
     wait_for(lambda: frames()["plain"] == (radius(10), False, "color", "#ffff00ff"),
              "the look of the title's rule")
+    assert controls()["plain"] == "flat", controls()
     clients["plain"].stdin.write("title Film\n")
     clients["plain"].stdin.flush()
     wait_for(lambda: frames()["plain"] == (radius(10), True, "color", "#7da8ffff"),
              "the window's own look back with its title")
+    assert controls()["plain"] == "none", controls()
 
     # A reload applies the rules as they are now: red loses its own colours, bare draws a shadow
     # where windows.shadow is off, and the others none.
@@ -96,4 +105,5 @@ with harness.Compositor(compositor, CONFIG % RULES) as desktop:
         "red": (radius(10), False, "color", "#404a5cff"),
         "rainbow": (radius(10), False, "color", "#404a5cff"),
     }, "the reloaded rules' look")
+    assert controls()["red"] == "none", controls()
 print("Window rules' look applied" + ("" if rounded else " (wlroots without rounded corners)"))

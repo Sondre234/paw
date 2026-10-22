@@ -1179,6 +1179,7 @@ WindowRule window_rule(lua_State *L, int workspaces) {
     actions.scratchpad = optional_boolean(L, "scratchpad");
     actions.shadow = optional_boolean(L, "shadow");
     actions.border = optional_boolean(L, "border");
+    actions.controls = optional_boolean(L, "controls");
     if (present(L, "corner_radius"))
         actions.corner_radius = integer(L, "corner_radius", 0, 0, 40);
     actions.border_color = rule_border_color(L, "border_color");
@@ -2794,8 +2795,8 @@ bool WindowRule::matches(const std::string &app_id, const std::string &title) co
 
 bool WindowActions::empty() const {
     return !floating && !fullscreen && !maximize && !focus && !sticky && !above && !allow_tearing &&
-           !blur && !scratchpad && !shadow && !border && !corner_radius && !border_color &&
-           !border_inactive_color && !idle_inhibit &&
+           !blur && !scratchpad && !shadow && !border && !controls && !corner_radius &&
+           !border_color && !border_inactive_color && !idle_inhibit &&
            !workspace && !output && !size && position == Position::Unset && !shortcuts_inhibit;
 }
 
@@ -2811,7 +2812,8 @@ void WindowActions::merge(const WindowActions &other) {
                                   {&blur, &other.blur},
                                   {&scratchpad, &other.scratchpad},
                                   {&shadow, &other.shadow},
-                                  {&border, &other.border}})
+                                  {&border, &other.border},
+                                  {&controls, &other.controls}})
         if (*source)
             *target = *source;
     for (auto [target, source] : {std::pair{&border_color, &other.border_color},
@@ -2860,6 +2862,7 @@ sh_window_rule WindowActions::to_c() const {
     rule.shadow = shadow ? *shadow : -1;
     rule.border = border ? *border : -1;
     rule.corner_radius = corner_radius.value_or(-1);
+    rule.controls = controls ? *controls : -1;
     if (border_color)
         rule.border_color = *border_color;
     if (border_inactive_color)

@@ -85,8 +85,9 @@ struct WindowActions {
     std::optional<bool> shortcuts_inhibit; // false: the window's inhibitors are refused
     std::optional<bool> scratchpad;        // opens hidden in the scratchpad
     // Its look, which follows its title and app ID: a shadow and a border drawn or not, whatever
-    // windows.shadow and border_width say, its corners' radius, and its border's colours.
-    std::optional<bool> shadow, border;
+    // windows.shadow and border_width say, paw's window controls drawn or not, whatever its
+    // decorations, its corners' radius, and its border's colours.
+    std::optional<bool> shadow, border, controls;
     std::optional<int> corner_radius;
     std::optional<sh_gradient> border_color, border_inactive_color;
     std::optional<sh_idle_rule> idle_inhibit; // which follows them too
