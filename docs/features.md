@@ -938,7 +938,9 @@ no focus and showing their symbols while the pointer is on one. Dragging the win
 window over it goes to the window. In a terminal, holding the middle button and dragging moves
 the window from anywhere on it, while a middle click let go in place still pastes
 (`mouse.middle_drag` lists the windows; a modifier held passes the press to the terminal). Other
-windows, and windows that ask to draw their own frame, decorate themselves. The `minimize` action (`paw msg minimize`, or a binding) minimizes the focused window
+windows, and windows that ask to draw their own frame, decorate themselves; a window rule's
+`controls = true` puts the controls over one of them all the same, for Firefox with its own
+buttons hidden as the rices' Firefox styles hide them (see [Window rules](#window-rules)). The `minimize` action (`paw msg minimize`, or a binding) minimizes the focused window
 as its minimize button does, into its taskbar button (see [Animations](#animations)).
 
 Dropping a dragged window with the pointer at the top edge of the screen, or on a panel along
@@ -1147,13 +1149,14 @@ ID as they change, and a reload applies them anew.
 | `border = false` | Draws no border around it. The room `border_width` keeps for a border stays: a tile is no larger without one. |
 | `border_color`, `border_inactive_color` | Its border with and without the focus, a colour or a gradient as `windows.border_color` takes. An urgent window's is still the urgent colour. |
 | `corner_radius = N` | The radius of its corners, 0 to 40, wherever `windows.round` rounds it; 0 keeps it square. |
+| `controls = true` / `false` | Draws paw's [window controls](#decorations-focus-and-fullscreen) over a window that draws its own frame, shown as the pointer nears their corner as over kitty: for Firefox with its own buttons hidden. `false` leaves them off a window that leaves its frame to paw. The drag strip along the top stays a window's without a frame of its own. |
 | `idle_inhibit = "MODE"` | Keeps the machine awake (no [idle](#power-saving-when-idle) step, idle daemons told the seat is inhibited) while the window is open, shown or not (`"always"`), shows (`"visible"`), has the focus (`"focus"`) or is fullscreen and shows (`"fullscreen"`), never behind the lock. `"none"` refuses the window's own idle inhibitors instead, as a browser holds one while any tab plays sound; Hyprland's `none` leaves them be. |
 
 ```lua
 windows = {
     rules = {
         { app_id = ".*", idle_inhibit = "fullscreen" },
-        { app_id = "^firefox$", idle_inhibit = "none" },
+        { app_id = "^firefox$", idle_inhibit = "none", controls = true },
         { app_id = "^firefox$", title = "YouTube", idle_inhibit = "visible" },
         { title = "^Picture-in-Picture$", sticky = true, border = false, shadow = false },
         { app_id = "^kitty$", border_color = { "#f5c2e7", "#89b4fa", angle = 45 },
