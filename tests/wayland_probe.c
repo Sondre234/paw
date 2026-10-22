@@ -473,11 +473,24 @@ static void orphan_popup(struct probe *probe) {
     printf("orphan popup made\n");
     fflush(stdout);
 }
+/* Closes the connection, the window going with it, and runs on without one until standard input
+ * closes, as an application whose connection broke but whose process did not; says
+ * "disconnected" first. */
+static void disconnect(struct probe *probe) {
+    wl_display_disconnect(probe->display);
+    printf("disconnected\n");
+    fflush(stdout);
+    char byte;
+    while (read(0, &byte, 1) > 0)
+        ;
+    exit(0);
+}
 /* One line of standard input: "activate", "title TEXT", "app_id TEXT", "icon SPEC" (see
  * set_icon), "hold" (configures wait), "ack" (the last one held, or the next, acknowledged with
  * the size drawn before), "answer" (the size it asked for drawn, and configures answered), "draw
  * WIDTH HEIGHT" (the window draws itself at that size, unasked, as a client may), "fullscreen
- * 1|0" (it asks to be fullscreen, or no longer) or "orphan_popup" (see orphan_popup). */
+ * 1|0" (it asks to be fullscreen, or no longer), "orphan_popup" (see orphan_popup) or
+ * "disconnect" (see disconnect). */
 static void run_command(struct probe *probe, char *line) {
     line[strcspn(line, "\n")] = '\0';
     int width, height, on;
@@ -495,6 +508,8 @@ static void run_command(struct probe *probe, char *line) {
         request_activation(probe);
     else if (!strcmp(line, "orphan_popup"))
         orphan_popup(probe);
+    else if (!strcmp(line, "disconnect"))
+        disconnect(probe);
     else if (!strncmp(line, "title ", 6))
         xdg_toplevel_set_title(probe->toplevel, line + 6);
     else if (!strncmp(line, "app_id ", 7))

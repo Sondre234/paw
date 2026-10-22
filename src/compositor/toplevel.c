@@ -367,6 +367,7 @@ void map_toplevel(struct sh_toplevel *toplevel, bool fullscreen, bool maximized)
     else
         toplevel_set_position(toplevel, x, y);
     wl_list_insert(&toplevel->server->toplevels, &toplevel->link);
+    windowless_window_opened(toplevel);
 
     publish_toplevel(toplevel);
     toplevel->floating = toplevel_is_dialog(toplevel);
@@ -499,6 +500,7 @@ void unmap_toplevel(struct sh_toplevel *toplevel) {
         deactivate_toplevel(toplevel->server);
     unpublish_toplevel(toplevel);
     wl_list_remove(&toplevel->link);
+    windowless_window_closed(toplevel);
     if (was_focused)
         focus_previous(toplevel->server);
     notify_subscribers(toplevel->server);

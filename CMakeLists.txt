@@ -366,6 +366,7 @@ if(PAW_BUILD_COMPOSITOR)
         src/compositor/color_picker.c
         src/compositor/cube.c
         src/compositor/blur.c
+        src/compositor/windowless.c
     )
     add_executable(paw src/main.cpp ${PAW_COMPOSITOR_SOURCES} src/decoration.c src/shadow.c src/animation.c src/effects_scene.c src/sleep.c src/login1.c
         ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.h ${WLR_PROTOCOL_HEADERS})
@@ -759,6 +760,7 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(placement_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(sticky_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe> ${EXAMPLE_CONFIG})
         paw_smoke(popup_parent_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
+        paw_smoke(windowless_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(dynamic_rules_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(stacking_smoke TIMEOUT 90 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)

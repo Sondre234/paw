@@ -404,6 +404,7 @@ static const struct {
     {"cursor", control_cursor},
     {"rice", control_rice},
     {"caption", control_caption},
+    {"windowless", control_windowless},
 };
 
 static void control_handle(struct sh_server *server, int fd, const char *request) {
@@ -561,8 +562,8 @@ static struct wlr_output *primary_output(struct sh_server *server) {
  * holding windows ("1,3", or "-"), and whether it tiles ("on" or "off"), "layout NAME LAYOUT",
  * the tiling layout of its current workspace ("dwindle", ...), and "touched NAME EDGES", the
  * edges of its usable area a window reaches; then the urgent
- * windows, the keyboard layout, night light and keep awake, as described below, and the power
- * actions that may run. */
+ * windows, the keyboard layout, night light and keep awake, as described below, the power
+ * actions that may run, and the processes running on without a window. */
 static void describe_state(struct sh_server *server, char *state, size_t size) {
     struct wlr_output *focused = focused_output(server), *primary = primary_output(server);
     size_t length = 0;
@@ -676,6 +677,17 @@ static void describe_state(struct sh_server *server, char *state, size_t size) {
     char actions[128];
     power_available(server, actions, sizeof(actions));
     append(state, size, &length, "power %s\n", actions);
+    // "windowless PID APP_ID" for each process running on without a window (windowless.c), the
+    // oldest first, with the app ID of its last window ("-" for none); last, so that many of them
+    // never crowd out the rest.
+    struct sh_windowless *process;
+    unsigned listed = 0;
+    wl_list_for_each(process, &server->windowless, link) {
+        if (listed++ == 16)
+            break;
+        append(state, size, &length, "windowless %d %s\n", (int)process->pid,
+               process->app_id[0] ? process->app_id : "-");
+    }
 }
 
 /* Subscribers get the state after each change, and "launcher OUTPUT" or "palette OUTPUT" when a

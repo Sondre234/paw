@@ -114,6 +114,7 @@ all. In short:
 | `idle.c` | Power saving after a while without input: dimming, monitors off, locking, suspending. |
 | `power.c` | The power actions: suspend, hibernate, reboot and power off through logind (`src/login1.c`), locking first, closing windows first, log out. |
 | `foreign_toplevel.c` | Window lists for taskbars and single-window capture. |
+| `windowless.c` | Processes left running without a window: a process whose last window unmaps (`windowless_window_closed`, from `unmap_toplevel`) is watched through a pidfd on the event loop until it ends or maps a window again, listed by `get windowless` and in the state (`windowless PID APP_ID`, for the shell's launchers), and killed through its pidfd by `windowless kill PID`. A login session writes its processes, with their start times, to `$XDG_RUNTIME_DIR/paw-windowless` as it ends (`windowless_save`), and the next takes in those still running with the same start time (`windowless_init`). |
 | `window_control.c` | The shell's window menu, window pictures and windows' own icons, and the windows each workspace shows: paw-window-control-v1, which names a window by its taskbar handle. |
 | `minimize.c` | Minimizing into the taskbar and restoring out of it: where taskbars show each window on each output (wlr-foreign-toplevel's `set_rectangle`, the window control's), the box a window shrinks into, and the copy of it that does. |
 | `scaled_capture.c` | The capture source for a window's picture: the window scaled down to fit a size on the renderer, smoothly. |
@@ -1227,6 +1228,12 @@ its control socket and holds the models; QML reaches it as the context property 
 starts applications: `shell.launch(id)`, and `shell.appActions(id)` with
 `shell.launchAction(id, action)` for the actions a desktop entry offers besides starting it
 (`[Desktop Action …]`, listed as `{action, name, icon}`), each failure shown across the panel.
+It keeps the processes running on without a window from the compositor's `windowless` lines
+(`shell.windowless`), which `windowlessPids(id)` gives an application as its windows' app IDs
+belong to it, for the menus' Kill process (`WindowMenu.windowlessEntries`), and `killWindowless`
+asks the compositor to kill; a launch while there are some (`watchLaunch`) waits a while for a
+window of the application, then posts a notification with Kill and Wait, which goes by itself as
+the process does (`setWindowless`).
 `view.cpp` makes one Qt Quick window per surface and output (a layer surface each), all in one
 QML engine. The QML is compiled into the binary (`qt_add_qml_module` in `shell/CMakeLists.txt`,
 which lists every file).

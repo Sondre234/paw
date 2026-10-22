@@ -40,6 +40,10 @@ tablet input, power saving when idle and HDR.
   the top of the screen; `windows.snap.maximize_tiles = true` maximizes it there as before.
 - A window rule's `controls = true` puts paw's window controls over a window drawing its own
   frame, as over kitty: for Firefox, whose own buttons the rices hide. `false` takes them off one.
+- An application left running without a window (an IDE whose window died as paw restarted,
+  still holding its single-instance lock) can be killed from its taskbar, start menu, dock or
+  Launchpad menu, and launching it says that it is running without a window, with Kill and Wait;
+  `paw msg get windowless` lists them and a restart in place keeps track of them (#26).
 
 ## 0.1.1 (2026-10-05)
 
