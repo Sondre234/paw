@@ -178,7 +178,8 @@ bool window_rule(struct sh_toplevel *toplevel, struct sh_window_rule *rule) {
     const struct sh_callbacks *callbacks = toplevel->server->callbacks;
     const char *app_id = toplevel_app_id(toplevel), *title = toplevel_title(toplevel);
     *rule = (struct sh_window_rule){
-        .floating = -1, .blur = -1, .shadow = -1, .border = -1, .corner_radius = -1};
+        .floating = -1, .blur = -1, .shadow = -1, .border = -1, .corner_radius = -1,
+        .controls = -1};
     return callbacks->window_rule &&
            callbacks->window_rule(callbacks->userdata, app_id ? app_id : "", title ? title : "",
                                   rule);
