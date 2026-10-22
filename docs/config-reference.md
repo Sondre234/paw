@@ -223,6 +223,7 @@ Ranges are inclusive. Colors are `"#RRGGBB"` (with `#RRGGBBAA` where noted).
 | `windows.rules[].blur` | boolean | unset | - | `false` draws no blur behind the window (see `windows.blur`), `true` draws one even with `windows.blur.enabled` off. |
 | `windows.rules[].shadow` | boolean | unset | - | `false` draws no shadow under the window (see `windows.shadow`), `true` draws one even with `windows.shadow.enabled` off. |
 | `windows.rules[].border` | boolean | unset | - | `false` draws no border around the window; the room `border_width` keeps for it stays. |
+| `windows.rules[].controls` | boolean | unset | - | `true` draws paw's window controls (`windows.controls`) over a window that draws its own frame, shown as the pointer nears their corner, for Firefox with its own buttons hidden; `false` leaves them off a window that leaves its frame to paw. |
 | `windows.rules[].border_color` | color or gradient | `windows.border_color` | - | The window's border while it has the focus, as `windows.border_color`. |
 | `windows.rules[].border_inactive_color` | color or gradient | `windows.border_inactive_color` | - | Its border without the focus, as `windows.border_inactive_color`. |
 | `windows.rules[].corner_radius` | integer | `windows.corner_radius` | 0 to 40 | Radius of the window's corners, wherever `windows.round` rounds it; 0 keeps it square. |

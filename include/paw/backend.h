@@ -761,6 +761,9 @@ struct sh_window_rule {
      * colours focused and not (count 0 unset). */
     int shadow, border, corner_radius;
     struct sh_gradient border_color, border_inactive_color;
+    /* paw's window controls over it (-1 unset: only over a window that leaves its frame to the
+     * server), which follow them too. */
+    int controls;
     int idle_inhibit; /* enum sh_idle_rule, which follows them too */
 };
 

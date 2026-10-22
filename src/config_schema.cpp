@@ -527,6 +527,10 @@ const Option options[] = {
      "with `windows.shadow.enabled` off."},
     {"windows.rules[].border", "boolean", "unset", "", none, none,
      "`false` draws no border around the window; the room `border_width` keeps for it stays."},
+    {"windows.rules[].controls", "boolean", "unset", "", none, none,
+     "`true` draws paw's window controls (`windows.controls`) over a window that draws its own "
+     "frame, shown as the pointer nears their corner, for Firefox with its own buttons hidden; "
+     "`false` leaves them off a window that leaves its frame to paw."},
     {"windows.rules[].border_color", "color or gradient", "`windows.border_color`", "", none,
      none, "The window's border while it has the focus, as `windows.border_color`."},
     {"windows.rules[].border_inactive_color", "color or gradient",
