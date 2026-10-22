@@ -136,9 +136,12 @@ and put this in QuickCSS:
 0 is solid (the default, and the right value without window transparency), 1 hibana's glass,
 and values in between work too. Client mods are against Discord's terms.
 
-**Firefox** picks the theme up when it restarts. The first tab and every new tab show Firefox's
-own new tab page, styled to match the start page; to open the start page itself at home instead,
+**Firefox** picks the theme up when it restarts. The first tab and every new tab show Firefox's own
+new tab page, styled to match the start page; to open the start page itself at home instead,
 uncomment its line in `user.js`. hibana's Firefox chrome is dark whatever the system prefers.
+Firefox's own minimise, maximise and close buttons are hidden, their place kept for paw's: the
+window rule `{ app_id = "^firefox", controls = true }` in `windows.rules` puts paw's controls there,
+shown as the pointer nears the corner, as over kitty.
 
 **GTK.** The lines `install.sh` adds to `~/.config/gtk-4.0/gtk.css` recolour libadwaita 1.6
 and newer through its colour variables while the system prefers dark, and leave its shapes
