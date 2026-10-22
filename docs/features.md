@@ -883,6 +883,22 @@ process** farthest. `shell.mirror_menus = true` turns them around there, so they
 from the bar as they do along the bottom: **Kill process** and **Close window** nearest the bar,
 the title last. Submenus keep their order.
 
+### Applications running without a window
+
+An application whose last window closed while its process went on runs without a window: one
+hidden to a tray that shows no item for it, or one whose window died with its connection while
+the process did not, as an IDE can when the compositor restarts under it. Still running, it may
+keep a single-instance lock, so that starting it again hands the launch to it and nothing opens.
+The compositor keeps track of such processes until they end. `paw msg get windowless` prints a
+line for each, the oldest first: its process ID and the app ID of its last window (`-` for
+none). `paw msg windowless kill PID` ends one with `SIGKILL` (never another process that took
+its process ID since). Only the user's own processes count, and never the compositor's.
+
+A standalone session hands them on as it ends: the processes of the windows still open and of
+those already without one. The next session, after a restart in place too, keeps track of those
+still running without a window, so an application that outlived the restart without its window
+is known there as well.
+
 ### Start menu
 
 The bar's first button (or a tap of Super) opens the start menu, after Windows 11's, above the button.

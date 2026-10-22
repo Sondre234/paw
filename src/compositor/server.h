@@ -742,6 +742,7 @@ struct sh_server {
     struct wl_listener new_xdg_popup;
     struct wl_listener new_decoration;
     struct wl_list toplevels;
+    struct wl_list windowless; /* sh_windowless.link, the oldest first */
 
     struct wlr_cursor *cursor;
     /* cursor_hide: no image until cursor_show, whatever asks for one; the sh_cursor_hidden bits
@@ -1059,6 +1060,17 @@ struct sh_drop {
     int place_x, place_y;
     bool ring;
     struct wlr_box ring_rest, ring_set;
+};
+
+/* A process that runs on without a window (windowless.c), watched until it ends. */
+struct sh_windowless {
+    struct wl_list link; /* sh_server.windowless */
+    struct sh_server *server;
+    pid_t pid;
+    unsigned long long started; /* when it started, in clock ticks after boot */
+    char app_id[128];           /* its last window's */
+    int pidfd;
+    struct wl_event_source *ended; /* the pidfd turning readable */
 };
 
 /* The clips frame.c gives a window's trees (window_clip), kept so that a drop's cut can be laid
@@ -2155,6 +2167,19 @@ void color_picker_cancel(struct sh_server *server);
 void color_picker_forget_output(struct sh_output *output);
 void color_picker_finish(struct sh_server *server);
 void describe_color_picker(struct sh_server *server, int fd, const char *arguments);
+
+/* windowless.c */
+/* Reads what the last login session handed over, after login_session is known. */
+void windowless_init(struct sh_server *server);
+/* Hands this login session's processes to the next one, as it ends with its windows still open. */
+void windowless_save(struct sh_server *server);
+void windowless_finish(struct sh_server *server);
+/* A window mapped: its process has one again. */
+void windowless_window_opened(struct sh_toplevel *toplevel);
+/* A window unmapped, out of server->toplevels: its process, with no window left, is watched. */
+void windowless_window_closed(struct sh_toplevel *toplevel);
+void describe_windowless(struct sh_server *server, int fd, const char *arguments);
+void control_windowless(struct sh_server *server, int fd, const char *arguments);
 
 /* blur.c */
 void blur_reload(struct sh_server *server);

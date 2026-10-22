@@ -385,6 +385,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     server.scene_layout = wlr_scene_attach_output_layout(server.scene, server.output_layout);
 
     wl_list_init(&server.toplevels);
+    wl_list_init(&server.windowless);
     struct wlr_xdg_shell *xdg_shell = wlr_xdg_shell_create(server.wl_display, 3);
     add_listener(&xdg_shell->events.new_toplevel, &server.new_xdg_toplevel,
                  server_new_xdg_toplevel);
@@ -532,6 +533,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     server.running = true;
     server.login_session = mode == SH_BACKEND_SESSION ||
                            (getenv("PAW_LOGIN_SESSION") && *getenv("PAW_LOGIN_SESSION"));
+    windowless_init(&server); // before the shell starts, which hears of them with the state
     update_color_scheme(&server);
     profile_themes_reload(&server); // before the shell starts, which reads what it set
     callbacks->startup(callbacks->userdata);
@@ -540,6 +542,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     wlr_log(WLR_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s", socket);
     wl_display_run(server.wl_display);
     server.running = false;
+    windowless_save(&server);
     status = 0;
 
 #if WLR_HAS_XWAYLAND
@@ -630,6 +633,7 @@ finish:
     toys_end(&server);
     cube_end(&server);
     rice_finish(&server);
+    windowless_finish(&server);
     profile_schedule_finish(&server);
     cat_finish(&server);
     cursor_trail_finish(&server);

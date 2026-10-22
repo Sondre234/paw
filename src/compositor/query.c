@@ -1075,6 +1075,7 @@ static const struct {
     {"profiles", get_profiles, false},
     {"profile_schedule", describe_profile_schedule, false},
     {"terminal", get_terminal, false},
+    {"windowless", describe_windowless, false},
 };
 
 const char *sh_query_name(size_t index) {
