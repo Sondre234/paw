@@ -1,12 +1,13 @@
 // tekketsu start page: the clock, the greeting, the date in English and in Japanese, the search
 // box (DuckDuckGo, or an address straight away), number keys for the cards, the summoning
 // circle's rim of marks, the ash (flakes of it falling past the wallpaper, turning as they go,
-// a few cinders among them dying out), and the sigils: click the dark and a small circle is drawn
+// a few cinders among them dying out), the sigils (click the dark and a small circle is drawn
 // there, a star turning in it, and gives off a few motes of blood-red light as it fades, while
-// the big circle's marks flare. The ash and the sigils are two canvases drawn with
-// requestAnimationFrame, the ash at 30 frames a second with at most 44 flakes and the sigils
-// only while there are some; both stop while the tab is hidden, and with prefers-reduced-motion
-// there is no ash and a sigil only glows where it is drawn.
+// the big circle's marks flare), and the elf mage on the search card: pat her and she starts,
+// her wings flick, the marks flare and motes rise off her. The ash and the sigils are two
+// canvases drawn with requestAnimationFrame, the ash at 30 frames a second with at most 44
+// flakes and the sigils only while there are some; both stop while the tab is hidden, and with
+// prefers-reduced-motion there is no ash and a sigil only glows where it is drawn.
 // No network requests; nothing is stored.
 // SPDX-License-Identifier: GPL-3.0-or-later
 "use strict";
@@ -525,4 +526,38 @@ document.addEventListener("pointerdown", (event) => {
   if (event.target instanceof Element && event.target.closest("a, button, input, form, kbd")) return;
   draw(event.clientX, event.clientY, 34);
   stir();
+});
+
+// ------------------------------------------------------------------ the elf mage
+
+const mascot = $("mascot");
+const picture = $("mascot-picture");
+const says = $("says");
+const SAYS = ["…", "hm.", "don't.", "again?", "fine.", "that tickles.", "ふん。"];
+
+// No picture (the file is missing): no mage, and the search card sits where it would anyway.
+function hideMage() { mascot.hidden = true; }
+picture.addEventListener("error", hideMage);
+if (picture.complete && picture.naturalWidth === 0) hideMage();
+
+// Patted, she starts and her wings flick (the wings are whole again once they settle, so the
+// flick ends on a timer rather than an animation, which reduced motion has none of), the
+// circle's marks flare, and motes of red light rise off her shoulders.
+let said = -1;
+let settled = 0;
+mascot.addEventListener("click", () => {
+  mascot.classList.remove("flick", "lit");
+  says.classList.remove("show");
+  void mascot.offsetWidth;                    // restart the animations on a quick second pat
+  mascot.classList.add("flick", "lit");
+  clearTimeout(settled);
+  settled = setTimeout(() => mascot.classList.remove("flick", "lit"), 850);
+  let say;
+  do { say = Math.floor(Math.random() * SAYS.length); } while (say === said && SAYS.length > 1);
+  said = say;
+  says.textContent = SAYS[say];
+  says.classList.add("show");
+  stir();
+  const box = mascot.getBoundingClientRect();
+  motes(box.left + box.width * 0.5, box.top + box.height * 0.36, 10, box.width * 0.45);
 });

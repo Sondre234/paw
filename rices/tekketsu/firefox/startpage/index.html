@@ -3,7 +3,8 @@
   tekketsu start page: paw's tekketsu rice for Firefox. The rice's wallpaper behind black glass,
   a summoning circle drawn faintly in blood turning slowly behind the clock and ash falling past
   it: a clock whose colon beats like a heart, the date and a line of Japanese, a search card that
-  asks DuckDuckGo (or opens an address), and eight riveted iron link cards. Click the dark and a
+  asks DuckDuckGo (or opens an address) with the elf mage sitting on its edge, and eight riveted
+  iron link cards. Pat her and her wings flick and the circle's marks flare; click the dark and a
   small circle is drawn where you clicked.
   No network requests and no build step: open it as a file.
   Keys: "/" focuses search, 1-8 open the cards, Esc leaves the search box, Shift shows the numbers.
@@ -86,6 +87,14 @@
     <p class="wa" id="wa" lang="ja"></p>
 
     <form class="search glass" id="search" action="https://duckduckgo.com/" method="get" role="search" autocomplete="off">
+      <!-- the elf mage sits on the search card's edge, her legs hanging over its front; pat her -->
+      <button class="mascot" id="mascot" type="button" title="pat her" aria-label="pat the elf mage">
+        <img class="mascot-body" id="mascot-picture" src="mascot.png" alt="" draggable="false">
+        <img class="wing wing-left" src="mascot.png" alt="" draggable="false" aria-hidden="true">
+        <img class="wing wing-right" src="mascot.png" alt="" draggable="false" aria-hidden="true">
+        <span class="mascot-hit" aria-hidden="true"></span>
+        <span class="says glass" id="says" aria-hidden="true"></span>
+      </button>
       <img class="search-sigil" src="tekketsu.svg" alt="">
       <input id="q" name="q" type="text" placeholder="search the web, or type an address"
              aria-label="Search DuckDuckGo" spellcheck="false" autofocus>
