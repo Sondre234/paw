@@ -152,7 +152,8 @@ int main() {
         std::ofstream(shipped / "init.lua")
             << "return {shell={wallpaper='plain.png'}, profile='night', profiles={"
                "night={shell={wallpaper='rices/night/wallpaper.png',"
-               "start_icon='rices/night/cat.svg',wallpaper_cycle={folder='rices/night/sky'},"
+               "start_icon='rices/night/cat.svg',bar_icons='rices/night/bar',"
+               "wallpaper_cycle={folder='rices/night/sky'},"
                "monitor_wallpapers={['DP-1']='rices/night/left.png',['DP-2']='/srv/right.png'},"
                "tiling_bar={workspace_icons={'rices/night/ws1.png','/srv/ws2.png'}}}},"
                "home={shell={wallpaper_cycle={folder='~/Pictures/sky'}}},"
@@ -166,6 +167,8 @@ int main() {
         require(paw::load_config(extending).shell.start_icon ==
                     (shipped / "rices/night/cat.svg").string(),
                 "a shipped profile's start button not found beside the default configuration");
+        require(paw::load_config(extending).shell.bar_icons == (shipped / "rices/night/bar").string(),
+                "a shipped profile's bar icons not found beside the default configuration");
         require(paw::load_config(extending).shell.wallpaper_cycle.folder ==
                     (shipped / "rices/night/sky").string(),
                 "a shipped profile's slideshow folder not found beside the default configuration");
