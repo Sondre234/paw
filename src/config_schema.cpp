@@ -770,7 +770,8 @@ const Option options[] = {
      "opens and closes the overview with a tap of either Super key, and "
      "`{ mods = { \"Alt\", \"Shift\" }, release = true, action = \"switch_layout\" }` switches "
      "the layout with a tap of Alt + Shift while Alt + Shift + X still reaches the "
-     "application."},
+     "application. A key's own binding comes before its chord's: beside the shipped tap of "
+     "`Super_L` for the launcher, a chord of Super alone takes only the right Super key."},
     {"bindings[].button", "enum", "", "", none, none,
      "A mouse button: `left`, `right`, `middle`, `side`, `extra`, `forward`, `back`; or "
      "`wheel_up`, `wheel_down`, the wheel turning that way, the binding running once a notch "
