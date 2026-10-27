@@ -340,6 +340,9 @@ struct ShellConfig {
     // The start button's picture: a file, absolute or relative to the configuration; empty:
     // four squares in the accent colour.
     std::string start_icon;
+    // A folder of pictures for the bar's line icons, each named after the icon it replaces:
+    // absolute, "~/..." or relative to the configuration; empty: the drawings.
+    std::string bar_icons;
     std::string wallpapers; // the picker's folder: absolute or "~/..."; empty: $XDG_PICTURES_DIR/wallpapers
     ShellWidgets widgets;
     TilingBar tiling_bar;

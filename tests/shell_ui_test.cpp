@@ -929,6 +929,30 @@ int main(int argc, char **argv) {
         if (!reconfigure(lua))
             return fail("could not restore the configuration");
     }
+    // shell.bar_icons, a folder named relative to the configuration, puts the picture named after
+    // one of the bar's icons in its place; without the setting the drawing is back.
+    {
+        auto *tiling = find(view.rootObject(), "tilingIcon");
+        if (!tiling)
+            return fail("no tiling icon on the bar");
+        const auto file = directory.filePath("bar/" + tiling->property("name").toString() + ".png");
+        QImage picture(32, 32, QImage::Format_ARGB32);
+        picture.fill(Qt::red);
+        if (!QDir(directory.path()).mkpath("bar") || !picture.save(file))
+            return fail("could not write the bar icon's picture");
+        if (!reconfigure(QString(lua).replace("shell={", "shell={bar_icons='bar',")))
+            return fail("could not rewrite the configuration");
+        if (!waitFor([&] {
+                auto *shown = find(tiling, "barIconPicture");
+                return shown && shown->isVisible() &&
+                       shown->property("source").toUrl() == QUrl::fromLocalFile(file);
+            }))
+            return fail("shell.bar_icons did not put its picture in place of the tiling icon");
+        if (!reconfigure(lua))
+            return fail("could not restore the configuration");
+        if (!waitFor([&] { return !find(tiling, "barIconPicture"); }))
+            return fail("the tiling icon's picture stayed after shell.bar_icons was removed");
+    }
     // The bar's icons grow with it (shell.panel_height): an application's, 26 pixels on a bar of
     // 52 and 41 on one of 76, its button widening to hold it with the icon in its middle, over
     // the activity line, the start button's squares, and a widget's line icon, 20 pixels and

@@ -63,7 +63,7 @@ start page, sitting on the edge of the search card with her legs dangling.
 
 | Part | Files | What it does |
 | --- | --- | --- |
-| paw | the `tekketsu` profile in [`config/init.lua`](../../config/init.lua), and [`start/`](start) | The black-iron glass bar, blood-to-gore borders, deep shadows, colours, font, wallpaper and a summoning circle on the start button (`shell.start_icon`; a horned iron helm, `start/kabuto.png`, waits beside it). Shipped with paw. |
+| paw | the `tekketsu` profile in [`config/init.lua`](../../config/init.lua), [`start/`](start) and [`bar/`](bar) | The black-iron glass bar, blood-to-gore borders, deep shadows, colours, font, wallpaper, a summoning circle on the start button (`shell.start_icon`; a horned iron helm, `start/kabuto.png`, waits beside it), and the bar's own icons stamped in bone and blood (`shell.bar_icons`): the bell, the network, the volume, Quick Settings, the wallpapers, the tiling layouts and the power button. Shipped with paw. |
 | Wallpapers | [`wallpaper/`](wallpaper) | Ten, each drawn as a different printed or inked thing: `tekketsu.jpg` (the mage asleep under her wings), *yokogao* (a face half turned away), *mihiraki* (a manga spread, an iron hand in the circle), *kaidan* (an old anime cel, the mage small at the foot of the stairs), *hanga* (a woodcut demon), *donsu* (a damask of thorns and wings), *sabi* (cracked iron with one seam of blood, calm enough to work on), *tsuki* (a blood moon over a crown of thorns), *dokuro* (a skull that was once a machine) and *hane* (the wings alone). |
 | kitty | [`kitty/tekketsu.conf`](kitty/tekketsu.conf) | Black-iron glass at 80% with the editors' floats and status lines kept glass too (`transparent_background_colors`), JetBrains Mono, bone text, a blood-red cursor smearing gore, iron tabs with the current one cut in blood, and sixteen colours where the reds carry the blood. |
 | fastfetch | [`fastfetch/`](fastfetch) | The mage, shown through kitty's graphics protocol, beside a spec sheet in a box, the hardware under *karakuri* (the mechanism), and the palette in a row behind a dagger. |
@@ -168,7 +168,8 @@ rice's `install.sh` part again). In Discord, turn on one theme at a time.
   blood-red sparks flung off the pointer as off a grinder (`cursor_trail`'s `"sparks"` with
   tekketsu's reds as its `colors`). The profile suggests them in comments;
   `paw msg ambient embers` and `paw msg cursor_trail sparks` try them for the session.
-- **`shell.start_icon`** puts the summoning circle on the start button.
+- **`shell.start_icon`** puts the summoning circle on the start button, and **`shell.bar_icons`**
+  the bone-and-blood pictures in place of the bar's line icons, on the taskbar and the tiling bar.
 - **`appearance.color_scheme = "dark"`** takes GTK, Firefox and Discord into their dark styles
   with the profile.
 - **Profiles** switch all of it at once.
@@ -176,8 +177,9 @@ rice's `install.sh` part again). In Discord, turn on one theme at a time.
 ## Credits
 
 The palette, the themes and everything else here are paw's and under its licence,
-GPL-3.0-or-later; the wallpapers, the start button, the fastfetch picture, the start page's mage
-and the `Tekketsu` icons are made for paw, the pictures with OpenAI's image model through Codex.
+GPL-3.0-or-later; the wallpapers, the start button, the fastfetch picture, the start page's
+mage, the `Tekketsu` icons and the bar's icons are made for paw, the pictures with OpenAI's image
+model through Codex.
 The look was inspired by black-metal band merch and by fan art of an anime's elf mage; the mage
 here is paw's own, and no name, logo or mark of either is used. The wallpapers are 1672 by 941
 for now, the size that model draws. Nothing else is bundled: the fonts (Chakra Petch by

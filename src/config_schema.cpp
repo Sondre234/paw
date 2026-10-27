@@ -1245,6 +1245,16 @@ const Option options[] = {
      "A picture for the taskbar's start button in place of the four squares in the accent "
      "colour: an SVG, PNG or other image, absolute or relative to the configuration file, as "
      "`shell.wallpaper` is."},
+    {"shell.bar_icons", "string", "\"\"", "\"rices/tekketsu/bar\"", none, none,
+     "A folder of pictures for the bar's own icons in place of their line drawings, as "
+     "`shell.start_icon` is for the start button: a picture named after an icon (`bell.png`, "
+     "`volume-2.svg`) stands in for it on the taskbar and the tiling bar, in its own colours. "
+     "Absolute, starting with `~/`, or relative to the configuration file. The names: `bell`, "
+     "`bell-off`, `wifi`, `wifi-high`, `wifi-low`, `wifi-zero`, `wifi-off`, `ethernet-port`, "
+     "`volume-1`, `volume-2`, `volume-x`, `image`, `toggles`, `sliders-horizontal`, `power`, "
+     "`keyboard`, `copy` (tiling off), `layout-grid`, `layout-panel-left`, `square`, "
+     "`app-window`, and `tiling-` with a layout's name; an icon without a picture keeps its "
+     "drawing."},
     {"shell.wallpapers", "string", "unset", "\"~/Pictures/wallpapers\"", none, none,
      "The wallpaper picker's folder, searched with its subfolders: absolute, or starting with "
      "`~/`; unset uses `$XDG_PICTURES_DIR/wallpapers`, else `$XDG_PICTURES_DIR`."},

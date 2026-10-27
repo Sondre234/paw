@@ -34,6 +34,7 @@ FlatButton {
     contentItem: Item {
         FadingIcon {
             anchors.centerIn: parent
+            bar: true
             size: Theme.barIconSize
             readonly property int strength: network.managed && network.wifi.ssid !== "" ? network.wifi.strength : 100
             name: network.kind === "ethernet" ? "ethernet-port" : network.linkDown ? "wifi-off"

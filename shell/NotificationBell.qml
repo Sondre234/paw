@@ -29,6 +29,7 @@ FlatButton {
             id: glyph
             objectName: "notificationGlyph"
             anchors.centerIn: parent
+            bar: true
             size: Theme.barIconSize
             name: bell.center.dnd ? "bell-off" : "bell"
             color: bell.center.dnd ? Theme.textMuted : Theme.text

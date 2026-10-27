@@ -54,6 +54,7 @@ FlatButton {
             Icon {
                 objectName: "quickSettingsNetwork"
                 visible: button.showNetwork
+                bar: true
                 size: Theme.barIconSize
                 name: "wifi-off"
                 color: Theme.textMuted
@@ -61,6 +62,7 @@ FlatButton {
             SpeakerIcon {
                 objectName: "quickSettingsVolume"
                 visible: button.showVolume
+                bar: true
                 size: Theme.barIconSize
                 level: button.showVolume ? button.audio.volume : 0
                 muted: button.showVolume && button.audio.muted
@@ -76,6 +78,7 @@ FlatButton {
             Icon {
                 objectName: "quickSettingsSliders"
                 visible: !button.showNetwork && !button.showVolume && !button.showBattery
+                bar: true
                 size: Theme.barIconSize
                 name: "sliders-horizontal"
             }

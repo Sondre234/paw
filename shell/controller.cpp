@@ -1291,6 +1291,27 @@ void ShellController::loadConfig(bool reloading) {
         std::cerr << "Shell configuration error; using the default configuration: " << error
                   << '\n';
     followIconTheme();
+    findBarIcons();
+}
+void ShellController::findBarIcons() {
+    barIcons_.clear();
+    const auto &setting = config_.shell.bar_icons;
+    if (setting.empty())
+        return;
+    const auto folder = setting.starts_with("~/")
+                            ? QDir::homePath() + QString::fromStdString(setting.substr(1))
+                            : configuredFile(setting).toLocalFile();
+    if (!QFileInfo(folder).isDir()) {
+        std::cerr << "shell.bar_icons: no folder " << folder.toStdString()
+                  << "; the bar keeps its drawings\n";
+        return;
+    }
+    // "volume-2.png" replaces the icon named volume-2.
+    const auto pictures = QDir(folder).entryInfoList({"*.svg", "*.png", "*.jpg", "*.jpeg", "*.webp"},
+                                                     QDir::Files | QDir::Readable, QDir::Name);
+    for (const auto &picture : pictures)
+        barIcons_.insert(picture.completeBaseName(),
+                         QUrl::fromLocalFile(picture.absoluteFilePath()).toString());
 }
 void ShellController::followIconTheme() {
     // Only as the setting changes: a theme set meanwhile otherwise (a test's, the preview's)

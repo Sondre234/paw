@@ -22,7 +22,7 @@ FlatButton {
             anchors.centerIn: parent; spacing: Theme.spacingS
             columns: panel.vertical ? 1 : 2
             horizontalItemAlignment: Grid.AlignHCenter; verticalItemAlignment: Grid.AlignVCenter
-            SpeakerIcon { size: Theme.barIconSize; level: audioWidget.panel.audioSource.volume; muted: audioWidget.panel.audioSource.muted; color: audioWidget.panel.audioSource.muted ? Theme.textMuted : Theme.text }
+            SpeakerIcon { bar: true; size: Theme.barIconSize; level: audioWidget.panel.audioSource.volume; muted: audioWidget.panel.audioSource.muted; color: audioWidget.panel.audioSource.muted ? Theme.textMuted : Theme.text }
             Text {
                 text: audioWidget.panel.audioSource.volume + "%"
                 color: audioWidget.panel.audioSource.muted ? Theme.textMuted : Theme.text

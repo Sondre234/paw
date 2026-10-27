@@ -814,11 +814,12 @@ void read_shell(lua_State *L, ShellConfig &shell) {
                                {"panel_color", &shell.panel_color},
                                {"text_color", &shell.text_color},
                                {"wallpaper", &shell.wallpaper},
-                               {"start_icon", &shell.start_icon}}) {
+                               {"start_icon", &shell.start_icon},
+                               {"bar_icons", &shell.bar_icons}}) {
         if (auto value = text(L, key)) {
             *target = *value;
             if (target != &shell.wallpaper && target != &shell.start_icon &&
-                !is_color(*target, true))
+                target != &shell.bar_icons && !is_color(*target, true))
                 fail(std::string(key) + " must be #RRGGBB or #RRGGBBAA");
         }
     }
@@ -3250,13 +3251,14 @@ void anchor_file(lua_State *L, const char *key, const std::filesystem::path &dir
     lua_pop(L, 1);
 }
 // Makes `shell.wallpaper`, `shell.monitor_wallpapers`' pictures, `shell.start_icon`,
-// `shell.tiling_bar.workspace_icons` and `shell.wallpaper_cycle.folder` in the table at `index`
-// absolute when they name a file relative to `directory`.
+// `shell.bar_icons`, `shell.tiling_bar.workspace_icons` and `shell.wallpaper_cycle.folder` in the
+// table at `index` absolute when they name a file relative to `directory`.
 void anchor_files(lua_State *L, int index, const std::filesystem::path &directory) {
     lua_getfield(L, index, "shell");
     if (lua_istable(L, -1)) {
         for (const char *key : {"wallpaper", "start_icon"})
             anchor_file(L, key, directory);
+        anchor_file(L, "bar_icons", directory, true);
         lua_getfield(L, -1, "wallpaper_cycle");
         if (lua_istable(L, -1))
             anchor_file(L, "folder", directory, true);
