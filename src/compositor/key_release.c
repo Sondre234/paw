@@ -6,7 +6,9 @@
  * holding it longer than a tap, or going down while a button or a finger already is (a window
  * dragged by its title). A pair (`press` and `release`) runs its press as the key goes down, and
  * then its release as it comes up whatever happened meanwhile, so that push-to-talk always mutes
- * the microphone again. */
+ * the microphone again. A chord (a binding without a key) is its modifiers held on either side's
+ * keys: it goes down with the last of them and comes up with the first, a tap as a modifier key's
+ * is. */
 #include "server.h"
 
 /* How long a modifier key may be held and still be tapped, as xcape's default: held longer, it
@@ -60,9 +62,48 @@ static bool pointer_busy(struct sh_server *server) {
     return server->held_buttons || !wl_list_empty(&server->seat->touch_state.touch_points);
 }
 
-/* The binding of `sym` with `modifiers` held, as the key with `keycode` on `keyboard` goes down at
- * `time`: a pair's press runs and its release waits, as does a binding with `release`, `taken`
- * saying whether either does now. False without one. */
+/* The keysyms of the key with `keycode` on `keyboard`, as the other bindings take them: those the
+ * layout gives, `count` of them, then those of the key's first level, `raw_count`. */
+static void key_syms(struct sh_keyboard *keyboard, uint32_t keycode, const xkb_keysym_t **syms,
+                     int *count, const xkb_keysym_t **raw, int *raw_count) {
+    struct xkb_state *state = keyboard->wlr_keyboard->xkb_state;
+    uint32_t xkb_keycode = keycode + 8;
+    *count = xkb_state_key_get_syms(state, xkb_keycode, syms);
+    *raw_count = xkb_keymap_key_get_syms_by_level(keyboard->wlr_keyboard->keymap, xkb_keycode,
+                                                  xkb_state_key_get_layout(state, xkb_keycode),
+                                                  0, raw);
+}
+
+/* The modifier the key with `keycode` gives among those bindings take (WLR_MODIFIER_LOGO for
+ * Super_L), else 0. */
+static uint32_t modifier_of(struct sh_keyboard *keyboard, uint32_t keycode) {
+    const xkb_keysym_t *syms, *raw;
+    int count, raw_count;
+    key_syms(keyboard, keycode, &syms, &count, &raw, &raw_count);
+    for (int i = 0; i < count + raw_count; ++i) {
+        switch (i < count ? syms[i] : raw[i - count]) {
+        case XKB_KEY_Shift_L:
+        case XKB_KEY_Shift_R:
+            return WLR_MODIFIER_SHIFT;
+        case XKB_KEY_Control_L:
+        case XKB_KEY_Control_R:
+            return WLR_MODIFIER_CTRL;
+        case XKB_KEY_Alt_L:
+        case XKB_KEY_Alt_R:
+        case XKB_KEY_Meta_L:
+        case XKB_KEY_Meta_R:
+            return WLR_MODIFIER_ALT;
+        case XKB_KEY_Super_L:
+        case XKB_KEY_Super_R:
+            return WLR_MODIFIER_LOGO;
+        }
+    }
+    return 0;
+}
+
+/* The binding of `sym` (NoSymbol for a chord's) with `modifiers` held, as the key with `keycode`
+ * on `keyboard` goes down at `time`: a pair's press runs and its release waits, as does a binding
+ * with `release`, `taken` saying whether either does now. False without one. */
 static bool key_bound(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t modifiers,
                       xkb_keysym_t sym, uint32_t time, bool *taken) {
     struct sh_server *server = keyboard->server;
@@ -81,7 +122,7 @@ static bool key_bound(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t m
     }
     if (release_binding(server, modifiers, sym, &argument) == SH_NONE)
         return false;
-    bool tap = keysym_is_modifier(sym);
+    bool tap = sym == XKB_KEY_NoSymbol || keysym_is_modifier(sym);
     *taken = may_run(server) && !(tap && pointer_busy(server));
     if (*taken)
         *slot = (struct sh_key_release){keyboard, keycode, modifiers, time, sym, tap, false};
@@ -90,29 +131,36 @@ static bool key_bound(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t m
 
 /* A key went down at `time` (the event's, in milliseconds), after the bindings that run as keys
  * go down had their turn: it lets go of the taps waiting, and with a release binding or a pair of
- * its own waits to come up. True when the press is the binding's, as for any key but a modifier,
- * whose press goes on to the application. */
+ * its own waits to come up. A modifier key without one may make a chord of the modifiers then
+ * held, whose binding runs as it goes down and whose release binding or pair waits as a key's.
+ * True when the press is the binding's, as for any key but a modifier, whose press goes on to the
+ * application. */
 bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t modifiers,
                        bool woke, uint32_t time) {
     struct sh_server *server = keyboard->server;
     key_release_cancel(server);
     if (woke)
         return false; // a key that woke the monitors does nothing else
-    struct xkb_state *state = keyboard->wlr_keyboard->xkb_state;
-    uint32_t xkb_keycode = keycode + 8;
-    const xkb_keysym_t *syms;
-    int nsyms = xkb_state_key_get_syms(state, xkb_keycode, &syms);
-    // As for the other bindings, the keysym the layout gives, else the key's first level's.
-    const xkb_keysym_t *raw = NULL;
-    int nraw = xkb_keymap_key_get_syms_by_level(keyboard->wlr_keyboard->keymap, xkb_keycode,
-                                                xkb_state_key_get_layout(state, xkb_keycode), 0,
-                                                &raw);
-    for (int i = 0; i < nsyms + nraw; ++i) {
-        xkb_keysym_t sym = i < nsyms ? syms[i] : raw[i - nsyms];
-        bool taken = false;
+    const xkb_keysym_t *syms, *raw;
+    int count, raw_count;
+    key_syms(keyboard, keycode, &syms, &count, &raw, &raw_count);
+    bool taken = false;
+    for (int i = 0; i < count + raw_count; ++i) {
+        xkb_keysym_t sym = i < count ? syms[i] : raw[i - count];
         if (key_bound(keyboard, keycode, modifiers, sym, time, &taken))
             return taken && !keysym_is_modifier(sym);
     }
+    uint32_t own = modifier_of(keyboard, keycode);
+    if (!own || (modifiers & own))
+        return false;
+    modifiers |= own;
+    // A chord's binding that runs as it goes down, which handle_keybinding never sees.
+    int argument = 0;
+    enum sh_action action = server->callbacks->key(server->callbacks->userdata, modifiers,
+                                                   XKB_KEY_NoSymbol, &argument);
+    if (action != SH_NONE && may_run(server))
+        run_action(server, action, argument);
+    key_bound(keyboard, keycode, modifiers, XKB_KEY_NoSymbol, time, &taken);
     return false;
 }
 
@@ -125,13 +173,16 @@ static void release_held(struct sh_server *server, int i) {
         run_action(server, action, argument);
 }
 
-/* A key came up at `time`: the release bindings waiting for it run, a tap's only when it came up
- * soon enough. */
+/* A key came up at `time`: the release bindings waiting for it run, a chord's as the first of its
+ * modifiers comes up, and a tap's only when it came up soon enough. */
 void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t time) {
     struct sh_server *server = keyboard->server;
+    uint32_t own = modifier_of(keyboard, keycode);
     for (int i = 0; i < SH_KEY_RELEASES; ++i) {
         struct sh_key_release waiting = server->key_releases[i];
-        if (waiting.keyboard != keyboard || waiting.keycode != keycode)
+        bool up = waiting.sym == XKB_KEY_NoSymbol ? (waiting.modifiers & own) != 0
+                                                  : waiting.keycode == keycode;
+        if (waiting.keyboard != keyboard || !up)
             continue;
         server->key_releases[i].keyboard = NULL;
         if (waiting.held) {
