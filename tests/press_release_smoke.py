@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """A key binding with `press` and `release` (a pair, as push-to-talk) runs its press as its key
 goes down and its release as it comes up, whatever happened while it was held: another key's
-binding, the overview opening, the session locking, a reload without the binding. A key that is no
+binding, the overview opening, the session locking, a reload without the binding, paw quitting
+(the release spawning a program that leaves a file behind). A key that is no
 modifier is the pair's, the window getting neither its press nor its release. Do not disturb going
 on and off stands in for the microphone: subscribers hear each. A binding without a key is a chord
 of its modifiers on either side's keys, which still reach the window: it goes down with the last
@@ -155,5 +156,16 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     press.down(SUPER, time=TAP + 3000)
     press.up(SUPER, time=TAP + 3100)
     desktop.wait_for(lambda: overview() == "closed", "the overview closed by a tap of Super")
+
+    # And paw quitting with F9 held: the release runs as it stops.
+    released = desktop.root / "released"
+    desktop.reload(CONFIG.replace('release = { action = "dnd_off" }',
+                                  f'release = {{ action = "spawn", command = {{ "touch", '
+                                  f'"{released}" }} }}'))
+    press.down(F9)
+    desktop.wait_for(lambda: len(heard_dnd()) == 11, "the press before quitting")
+    desktop.stop()
+    # The window's client has gone with paw: only the file is waited for.
+    harness.wait_for(released.exists, [], "the release as paw quits")
 print("A pair's release runs after its press whatever happened meanwhile, chords of modifiers "
       "alone, and a tap of Super toggling the overview, passed")
