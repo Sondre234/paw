@@ -1664,18 +1664,32 @@ void instruction_limit(lua_State *L, lua_Debug *) {
         luaL_error(L, "configuration exceeded its instruction budget");
     }
 }
-// The key binding among `bindings` for these modifiers and keysym, or nothing; with `release`,
-// the one that runs as the key comes up (a key may have one of each).
+When when_of(const Binding &binding) {
+    return binding.then ? When::pair : binding.release ? When::release : When::press;
+}
+// The key binding among `bindings` for these modifiers and keysym (0 for a chord), or nothing; the
+// one for `when`, as a key may have one that runs as it goes down and one as it comes up, or a
+// pair.
 const Binding *find_key(const std::vector<Binding> &bindings, uint32_t modifiers, uint32_t keysym,
-                        bool release = false) {
+                        When when = When::press) {
     constexpr uint32_t relevant = SH_SHIFT | SH_CTRL | SH_ALT | SH_LOGO;
     modifiers &= relevant; // CapsLock and NumLock do not disable shortcuts.
     keysym = xkb_keysym_to_lower(keysym);
     for (const auto &binding : bindings)
         if (!binding.button && binding.switch_type < 0 && binding.modifiers == modifiers &&
-            binding.keysym == keysym && binding.release == release)
+            binding.keysym == keysym && when_of(binding) == when)
             return &binding;
     return nullptr;
+}
+// Whether `bindings` has a key binding for the keys of `binding` that runs when it does, a pair
+// running both as they go down and as they come up.
+bool key_taken(const std::vector<Binding> &bindings, const Binding &binding) {
+    auto taken = [&](When when) {
+        return find_key(bindings, binding.modifiers, binding.keysym, when) != nullptr;
+    };
+    if (binding.then)
+        return taken(When::press) || taken(When::release) || taken(When::pair);
+    return taken(when_of(binding)) || taken(When::pair);
 }
 // The modifier a modifier key gives (SH_LOGO for Super_L), else 0.
 uint32_t own_modifier(uint32_t keysym) {
@@ -1705,6 +1719,118 @@ const Binding *find_switch(const std::vector<Binding> &bindings, sh_switch type,
             return &binding;
     return nullptr;
 }
+// What a binding's action takes besides its name, which a pair's `press` and `release` each have.
+constexpr const char *action_fields[] = {"action", "mode",   "command", "workspace",
+                                         "output", "layout", "amount"};
+// Reads the action of the binding (or of its `press` or `release`) on top of the stack, and the
+// fields that go with it, into `binding`.
+void read_action(lua_State *L, Config &config, Binding &binding) {
+    auto action = field(L, "action");
+    binding.action = action == "none" ? SH_NONE : parse_action(action);
+    lua_getfield(L, -1, "command");
+    if (binding.action == SH_SPAWN)
+        binding.command = command(L);
+    else if (!lua_isnil(L, -1))
+        fail("command is only valid with spawn");
+    lua_pop(L, 1);
+    if (action_takes_workspace(binding.action)) {
+        lua_getfield(L, -1, "workspace");
+        bool named = lua_type(L, -1) == LUA_TSTRING;
+        if (named) {
+            auto name = string(L, -1, "workspace");
+            binding.workspace = config.workspace_number(name);
+            if (!binding.workspace)
+                fail("no workspace named '" + name + "' in layout.workspace_names");
+        }
+        lua_pop(L, 1);
+        if (!named)
+            binding.workspace = integer(L, "workspace", 0, 1, config.settings.workspaces);
+        if (binding.workspace == 0)
+            fail("workspace actions need a workspace number");
+    } else if (present(L, "workspace")) {
+        fail("workspace is only valid with workspace actions");
+    }
+    lua_getfield(L, -1, "output");
+    if (action_takes_output(binding.action)) {
+        binding.output = lua_isnil(L, -1) ? (binding.action == SH_SWAP_WORKSPACES ? "next" : "")
+                                          : string(L, -1, "output");
+        if (!valid_output_target(binding.output))
+            fail(std::string(binding.action == SH_SWAP_WORKSPACES ? "swap_workspaces"
+                                                                   : "move_workspace_to_output") +
+                 " needs an output: \"left\", \"right\", \"next\", \"prev\", or a "
+                 "connector name");
+    } else if (action_takes_display(binding.action)) {
+        // Without one, every monitor.
+        if (!lua_isnil(L, -1)) {
+            binding.output = string(L, -1, "output");
+            if (!valid_output_target(binding.output))
+                fail("output must be a monitor's connector name or \"desc:\" and the "
+                     "start of its description");
+        }
+    } else if (!lua_isnil(L, -1)) {
+        fail("output is only valid with move_workspace_to_output, swap_workspaces and "
+             "the display_* actions");
+    }
+    lua_pop(L, 1);
+    lua_getfield(L, -1, "mode");
+    if (binding.action == SH_MODE) {
+        // Every mode's name is known by now, read before any binding.
+        auto name = lua_isnil(L, -1) ? std::string() : string(L, -1, "mode");
+        binding.mode = config.mode_number(name);
+        if (binding.mode < 0 && name.empty())
+            fail("the mode action needs mode = \"default\" or the name of one of modes");
+        if (binding.mode < 0)
+            unknown("mode", name, config.mode_names(), "=" + name);
+    } else if (binding.action == SH_DISPLAY_MODE) {
+        // Without one, the popup that steps through them.
+        if (!lua_isnil(L, -1))
+            binding.mode = parse_display_mode(string(L, -1, "mode"));
+    } else if (binding.action == SH_CAT) {
+        binding.mode = lua_isnil(L, -1) ? SH_CAT_TOGGLE
+                                        : parse_cat_switch(string(L, -1, "mode"));
+    } else if (binding.action == SH_HEATMAP) {
+        // Without one, it toggles.
+        if (!lua_isnil(L, -1))
+            binding.mode = parse_heatmap_choice(string(L, -1, "mode"));
+    } else if (binding.action == SH_AMBIENT) {
+        binding.mode = lua_isnil(L, -1) ? SH_AMBIENT_TOGGLE
+                                        : parse_ambient_choice(string(L, -1, "mode"));
+    } else if (binding.action == SH_CURSOR_TRAIL) {
+        binding.mode = lua_isnil(L, -1) ? SH_CURSOR_TRAIL_TOGGLE
+                                        : parse_cursor_trail_choice(string(L, -1, "mode"));
+    } else if (!lua_isnil(L, -1)) {
+        if (binding.action != SH_SCREENSHOT)
+            fail("mode is only valid with screenshot, mode, display_mode, cat, heatmap, "
+                 "ambient and cursor_trail");
+        binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
+    }
+    lua_pop(L, 1);
+    lua_getfield(L, -1, "layout");
+    bool has_layout = !lua_isnil(L, -1), numbered = lua_type(L, -1) == LUA_TNUMBER;
+    if (has_layout && !numbered && lua_type(L, -1) != LUA_TSTRING)
+        wrong_type(L, "layout", "\"next\", \"prev\" or a number");
+    auto choice = has_layout && !numbered ? string(L, -1, "layout") : "";
+    lua_pop(L, 1);
+    if (has_layout && binding.action != SH_SWITCH_LAYOUT)
+        fail("layout is only valid with switch_layout");
+    if (numbered)
+        binding.layout = integer(L, "layout", 0, 1, max_layouts);
+    else if (has_layout)
+        binding.layout = parse_layout_choice(choice);
+    if (present(L, "amount") && !action_takes_amount(binding.action))
+        fail("amount is only valid with resize, volume and brightness actions");
+    binding.amount =
+        integer(L, "amount", default_amount(binding.action), 1, max_amount(binding.action));
+}
+// Reads the binding's `press` or `release` table, `name`, into `binding`, as its action.
+void read_half(lua_State *L, Config &config, const char *name, Binding &binding) {
+    lua_getfield(L, -1, name);
+    Named in(current_section + "." + name);
+    keys_among(L, -1, std::vector<std::string>(std::begin(action_fields), std::end(action_fields)),
+               current_section);
+    read_action(L, config, binding);
+    lua_pop(L, 1);
+}
 // Reads the list of bindings on top of the stack, when there is one, into `into`; `in_mode` for a
 // mode's, which take keys alone.
 void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, size_t own,
@@ -1726,7 +1852,7 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
             if (is_switch) {
                 read_switch_binding(L, binding);
                 // A switch's binding runs while the session is locked, and never repeats.
-                for (const char *only : {"locked", "repeats", "release"})
+                for (const char *only : {"locked", "repeats", "release", "press"})
                     if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
             } else if (is_button) {
@@ -1735,25 +1861,26 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                 binding.button = mouse_button(field(L, "button"));
                 binding.pattern = pattern_field(L, "app_id", binding.app_id);
                 boolean(L, "desktop", "desktop", binding.desktop);
-                for (const char *only : {"locked", "repeats", "release"})
+                for (const char *only : {"locked", "repeats", "release", "press"})
                     if (present(L, only))
                         fail(std::string(only) + " is only valid with a key");
             } else {
                 for (const char *only : {"app_id", "desktop"})
                     if (present(L, only))
                         fail(std::string(only) + " is only valid with a button");
-                auto key = field(L, "key");
-                binding.keysym =
-                    xkb_keysym_to_lower(xkb_keysym_from_name(key.c_str(), XKB_KEYSYM_NO_FLAGS));
-                if (binding.keysym == XKB_KEY_NoSymbol)
-                    fail("unknown key '" + key + "'");
+                // Without a key, a binding with mods is a chord of them alone.
+                if (present(L, "key") || !present(L, "mods")) {
+                    auto key = field(L, "key");
+                    binding.keysym = xkb_keysym_to_lower(
+                        xkb_keysym_from_name(key.c_str(), XKB_KEYSYM_NO_FLAGS));
+                    if (binding.keysym == XKB_KEY_NoSymbol)
+                        fail("unknown key '" + key + "'");
+                }
             }
             if (!is_switch && present(L, "state"))
                 fail("state is only valid with a switch");
             if (auto description = text(L, "description"))
                 binding.description = *description;
-            auto action = field(L, "action");
-            binding.action = action == "none" ? SH_NONE : parse_action(action);
             lua_getfield(L, -1, "mods");
             if (!lua_isnil(L, -1))
                 for (const auto &name : strings(L, 4, "modifier")) {
@@ -1763,121 +1890,59 @@ void read_bindings(lua_State *L, Config &config, std::vector<Binding> &into, siz
                     binding.modifiers |= bit;
                 }
             lua_pop(L, 1);
-            lua_getfield(L, -1, "command");
-            if (binding.action == SH_SPAWN)
-                binding.command = command(L);
-            else if (!lua_isnil(L, -1))
-                fail("command is only valid with spawn");
+            if (!is_switch && !is_button && !binding.keysym && !binding.modifiers)
+                fail("a binding without a key needs mods, the modifiers it is a chord of");
+            // A table for `press`, `release` or both holds the action in place of the binding.
+            lua_getfield(L, -1, "press");
+            bool press = !lua_isnil(L, -1);
+            if (press)
+                table(L, -1, "press");
             lua_pop(L, 1);
-            if (action_takes_workspace(binding.action)) {
-                lua_getfield(L, -1, "workspace");
-                bool named = lua_type(L, -1) == LUA_TSTRING;
-                if (named) {
-                    auto name = string(L, -1, "workspace");
-                    binding.workspace = config.workspace_number(name);
-                    if (!binding.workspace)
-                        fail("no workspace named '" + name + "' in layout.workspace_names");
+            lua_getfield(L, -1, "release");
+            bool release = lua_istable(L, -1);
+            if (!release && !lua_isnil(L, -1) && !lua_isboolean(L, -1))
+                wrong_type(L, "release", "true, false or a table");
+            if (press && lua_isboolean(L, -1) && lua_toboolean(L, -1))
+                fail("with press, release is a table with the action to run as the keys come up");
+            lua_pop(L, 1);
+            if (press || release) {
+                for (const char *name : action_fields)
+                    if (present(L, name))
+                        fail(std::string(name) + " goes in press and release, not beside them");
+                if (press)
+                    read_half(L, config, "press", binding);
+                if (press && release) {
+                    Binding then{};
+                    read_half(L, config, "release", then);
+                    binding.then = std::make_shared<const Binding>(std::move(then));
+                } else if (release) {
+                    read_half(L, config, "release", binding);
+                    binding.release = true;
                 }
-                lua_pop(L, 1);
-                if (!named)
-                    binding.workspace = integer(L, "workspace", 0, 1, config.settings.workspaces);
-                if (binding.workspace == 0)
-                    fail("workspace actions need a workspace number");
-            } else if (present(L, "workspace")) {
-                fail("workspace is only valid with workspace actions");
+            } else {
+                read_action(L, config, binding);
+                boolean(L, "release", "release", binding.release);
             }
-            lua_getfield(L, -1, "output");
-            if (action_takes_output(binding.action)) {
-                binding.output = lua_isnil(L, -1) ? (binding.action == SH_SWAP_WORKSPACES ? "next" : "")
-                                                  : string(L, -1, "output");
-                if (!valid_output_target(binding.output))
-                    fail(std::string(binding.action == SH_SWAP_WORKSPACES ? "swap_workspaces"
-                                                                           : "move_workspace_to_output") +
-                         " needs an output: \"left\", \"right\", \"next\", \"prev\", or a "
-                         "connector name");
-            } else if (action_takes_display(binding.action)) {
-                // Without one, every monitor.
-                if (!lua_isnil(L, -1)) {
-                    binding.output = string(L, -1, "output");
-                    if (!valid_output_target(binding.output))
-                        fail("output must be a monitor's connector name or \"desc:\" and the "
-                             "start of its description");
-                }
-            } else if (!lua_isnil(L, -1)) {
-                fail("output is only valid with move_workspace_to_output, swap_workspaces and "
-                     "the display_* actions");
-            }
-            lua_pop(L, 1);
-            lua_getfield(L, -1, "mode");
-            if (binding.action == SH_MODE) {
-                // Every mode's name is known by now, read before any binding.
-                auto name = lua_isnil(L, -1) ? std::string() : string(L, -1, "mode");
-                binding.mode = config.mode_number(name);
-                if (binding.mode < 0 && name.empty())
-                    fail("the mode action needs mode = \"default\" or the name of one of modes");
-                if (binding.mode < 0)
-                    unknown("mode", name, config.mode_names(), "=" + name);
-            } else if (binding.action == SH_DISPLAY_MODE) {
-                // Without one, the popup that steps through them.
-                if (!lua_isnil(L, -1))
-                    binding.mode = parse_display_mode(string(L, -1, "mode"));
-            } else if (binding.action == SH_CAT) {
-                binding.mode = lua_isnil(L, -1) ? SH_CAT_TOGGLE
-                                                : parse_cat_switch(string(L, -1, "mode"));
-            } else if (binding.action == SH_HEATMAP) {
-                // Without one, it toggles.
-                if (!lua_isnil(L, -1))
-                    binding.mode = parse_heatmap_choice(string(L, -1, "mode"));
-            } else if (binding.action == SH_AMBIENT) {
-                binding.mode = lua_isnil(L, -1) ? SH_AMBIENT_TOGGLE
-                                                : parse_ambient_choice(string(L, -1, "mode"));
-            } else if (binding.action == SH_CURSOR_TRAIL) {
-                binding.mode = lua_isnil(L, -1)
-                                   ? SH_CURSOR_TRAIL_TOGGLE
-                                   : parse_cursor_trail_choice(string(L, -1, "mode"));
-            } else if (!lua_isnil(L, -1)) {
-                if (binding.action != SH_SCREENSHOT)
-                    fail("mode is only valid with screenshot, mode, display_mode, cat, heatmap, "
-                         "ambient and cursor_trail");
-                binding.screenshot = parse_screenshot_mode(string(L, -1, "mode"));
-            }
-            lua_pop(L, 1);
-            lua_getfield(L, -1, "layout");
-            bool has_layout = !lua_isnil(L, -1), numbered = lua_type(L, -1) == LUA_TNUMBER;
-            if (has_layout && !numbered && lua_type(L, -1) != LUA_TSTRING)
-                wrong_type(L, "layout", "\"next\", \"prev\" or a number");
-            auto choice = has_layout && !numbered ? string(L, -1, "layout") : "";
-            lua_pop(L, 1);
-            if (has_layout && binding.action != SH_SWITCH_LAYOUT)
-                fail("layout is only valid with switch_layout");
-            if (numbered)
-                binding.layout = integer(L, "layout", 0, 1, max_layouts);
-            else if (has_layout)
-                binding.layout = parse_layout_choice(choice);
-            if (present(L, "amount") && !action_takes_amount(binding.action))
-                fail("amount is only valid with resize, volume and brightness actions");
-            binding.amount = integer(L, "amount", default_amount(binding.action), 1,
-                                     max_amount(binding.action));
-            boolean(L, "release", "release", binding.release);
+            const bool waits = binding.release || binding.then;
             // Keyboard resizing repeats unless told not to; other actions only when told.
-            binding.repeats = !binding.button && !is_switch && !binding.release &&
-                              binding.action >= SH_RESIZE_LEFT && binding.action <= SH_RESIZE_DOWN;
+            binding.repeats = binding.keysym && !waits && binding.action >= SH_RESIZE_LEFT &&
+                              binding.action <= SH_RESIZE_DOWN;
             boolean(L, "locked", "locked", binding.locked);
             boolean(L, "repeats", "repeats", binding.repeats);
-            if (binding.release && binding.repeats)
+            if (waits && binding.repeats)
                 fail("a binding that runs on release does not repeat");
+            if (!binding.keysym && binding.repeats)
+                fail("repeats is only valid with a key");
             // A modifier key's own modifier is not yet held as it goes down: Super + Super_L is
             // Super_L.
-            if (binding.release)
+            if (waits)
                 binding.modifiers &= ~own_modifier(binding.keysym);
             // Bindings past `own` come from the defaults a configuration extends; its own
             // bindings, "none" included, take their keys first.
             // Button bindings may share a button: the first whose target matches wins.
             bool taken = is_switch ? find_switch(into, static_cast<sh_switch>(binding.switch_type),
                                                  binding.switch_on) != nullptr
-                                   : !binding.button &&
-                                         find_key(into, binding.modifiers, binding.keysym,
-                                                  binding.release);
+                                   : !binding.button && key_taken(into, binding);
             if (!taken)
                 into.push_back(std::move(binding));
             else if (i <= own)
@@ -2913,16 +2978,15 @@ WindowActions Config::dynamic_actions(const std::string &app_id, const std::stri
     return result;
 }
 
-const Binding *Config::binding(uint32_t modifiers, uint32_t keysym, bool release) const {
-    return find_key(bindings, modifiers, keysym, release);
+const Binding *Config::binding(uint32_t modifiers, uint32_t keysym, When when) const {
+    return find_key(bindings, modifiers, keysym, when);
 }
 
 const Binding *Config::mode_binding(int mode, uint32_t modifiers, uint32_t keysym,
-                                    bool release) const {
+                                    When when) const {
     if (mode < 1 || static_cast<std::size_t>(mode) > modes.size())
-        return binding(modifiers, keysym, release);
-    return find_key(modes[static_cast<std::size_t>(mode) - 1].bindings, modifiers, keysym,
-                    release);
+        return binding(modifiers, keysym, when);
+    return find_key(modes[static_cast<std::size_t>(mode) - 1].bindings, modifiers, keysym, when);
 }
 
 int Config::mode_number(const std::string &name) const {
@@ -2952,6 +3016,8 @@ std::string Config::binding_keys(sh_action action) const {
                                      {SH_ALT, "Alt"}, {SH_SHIFT, "Shift"}})
             if (binding.modifiers & bit)
                 keys += std::string(modifier) + " + ";
+        if (!binding.keysym) // a chord of the modifiers alone
+            return keys.substr(0, keys.size() - 3);
         // A letter as printed on the key.
         if (!name[1])
             name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0])));

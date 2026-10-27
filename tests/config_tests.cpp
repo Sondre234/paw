@@ -217,9 +217,10 @@ int main(int argc, char **argv) {
             require(b.size() == 4 && b[0].release && b[0].modifiers == 0 && !b[1].release &&
                         b[2].release && b[2].modifiers == 0 && b[3].release && !b[3].repeats,
                     "release not parsed");
-            require(released.binding(0, XKB_KEY_Super_L, true)->action == SH_LAUNCHER &&
+            constexpr auto up = paw::When::release;
+            require(released.binding(0, XKB_KEY_Super_L, up)->action == SH_LAUNCHER &&
                         released.binding(0, XKB_KEY_Super_L)->action == SH_PALETTE &&
-                        released.binding(SH_LOGO, XKB_KEY_Left, true) &&
+                        released.binding(SH_LOGO, XKB_KEY_Left, up) &&
                         !released.binding(SH_LOGO, XKB_KEY_Left),
                     "release bindings not apart from the others");
             rejects("return {bindings={{key='a',action='close',release=true,repeats=true}}}",
@@ -234,6 +235,73 @@ int main(int argc, char **argv) {
             rejects("return {bindings={{key='Super_L',release=true,action='launcher'},"
                     "{mods={'Super'},key='Super_L',release=true,action='palette'}}}",
                     "duplicate keyboard binding");
+        }
+        {
+            // `press` and `release` tables hold a pair's actions, each with its own fields; a
+            // `release` table alone is `release = true`. Without a key, `mods` are a chord.
+            auto paired = paw::parse_config(
+                "return {bindings={{key='Alt_L',mods={'Ctrl','Alt'},locked=true,"
+                "press={action='spawn',command={'unmute'}},"
+                "release={action='workspace',workspace=2}},"
+                "{mods={'Super'},release={action='toggle_overview'}},"
+                "{mods={'Alt','Shift'},release=true,action='switch_layout',layout='prev'},"
+                "{mods={'Ctrl'},press={action='palette'}},"
+                "{key='F13',press={action='spawn',command={'on'}},"
+                "release={action='spawn',command={'off'}}}}}");
+            const auto &b = paired.bindings;
+            require(b.size() == 5, "pairs and chords not all read");
+            require(b[0].keysym == XKB_KEY_Alt_L && b[0].modifiers == SH_CTRL && b[0].locked &&
+                        b[0].action == SH_SPAWN && b[0].command == paw::Command{"unmute"} &&
+                        b[0].then && b[0].then->action == SH_WORKSPACE &&
+                        b[0].then->workspace == 2 && !b[0].release,
+                    "a pair not parsed");
+            require(b[1].keysym == 0 && b[1].modifiers == SH_LOGO && b[1].release && !b[1].then &&
+                        b[1].action == SH_OVERVIEW_TOGGLE,
+                    "a release table alone not parsed");
+            require(b[2].keysym == 0 && b[2].modifiers == (SH_ALT | SH_SHIFT) && b[2].release &&
+                        b[2].layout == -1,
+                    "a chord not parsed");
+            require(b[3].keysym == 0 && !b[3].release && !b[3].then && b[3].action == SH_PALETTE,
+                    "a press table alone not parsed");
+            require(b[4].then && b[4].then->command == paw::Command{"off"} && !b[4].repeats,
+                    "a pair on a key not parsed");
+            using paw::When;
+            require(paired.binding(SH_CTRL, XKB_KEY_Alt_L, When::pair) == &b[0] &&
+                        !paired.binding(SH_CTRL, XKB_KEY_Alt_L) &&
+                        !paired.binding(SH_CTRL, XKB_KEY_Alt_L, When::release) &&
+                        paired.binding(SH_LOGO, 0, When::release) == &b[1] &&
+                        paired.binding(SH_ALT | SH_SHIFT, 0, When::release) == &b[2] &&
+                        paired.binding(SH_CTRL, 0) == &b[3] &&
+                        !paired.binding(SH_CTRL, 0, When::pair),
+                    "pairs and chords not looked up apart");
+            require(paired.binding_keys(SH_SWITCH_LAYOUT) == "Alt + Shift",
+                    "a chord's keys not named");
+            // A pair takes its key's press and release both; a press and a release do not clash.
+            rejects("return {bindings={{key='F13',press={action='close'},release={action='close'}},"
+                    "{key='F13',action='close'}}}",
+                    "duplicate keyboard binding");
+            rejects("return {bindings={{key='F13',release=true,action='close'},"
+                    "{key='F13',press={action='close'},release={action='close'}}}}",
+                    "duplicate keyboard binding");
+            paw::parse_config("return {bindings={{mods={'Super'},action='launcher'},"
+                              "{mods={'Super'},release=true,action='palette'}}}");
+            rejects("return {bindings={{key='a',action='close',press={action='close'}}}}",
+                    "not beside them");
+            rejects("return {bindings={{key='a',press={action='close'},release=true}}}",
+                    "release is a table");
+            rejects("return {bindings={{key='a',press={action='close',locked=true}}}}",
+                    "unknown setting 'locked'");
+            rejects("return {bindings={{key='a',press={}}}}", "action must be a string");
+            rejects("return {bindings={{key='a',press='close'}}}", "must be a table");
+            rejects("return {bindings={{key='a',release='yes'}}}", "true, false or a table");
+            rejects("return {bindings={{key='a',press={action='close'},release={action='close'},"
+                    "repeats=true}}}",
+                    "does not repeat");
+            rejects("return {bindings={{mods={'Ctrl'},action='resize_left',repeats=true}}}",
+                    "only valid with a key");
+            rejects("return {bindings={{mods={},release=true,action='close'}}}", "needs mods");
+            rejects("return {bindings={{button='side',press={action='close'}}}}",
+                    "only valid with a key");
         }
         {
             // `description` names what a binding does for the sheet of shortcuts, a key's, a
@@ -312,7 +380,7 @@ int main(int argc, char **argv) {
                 many += "m" + std::to_string(i) + "={" + leave + "},";
             rejects(many + "}}");
         }
-        auto *launcher = config.binding(0, XKB_KEY_Super_L, true);
+        auto *launcher = config.binding(0, XKB_KEY_Super_L, paw::When::release);
         require(launcher && launcher->action == SH_LAUNCHER, "launcher binding missing");
         require(paw::parse_action("toggle_floating") == SH_TOGGLE_FLOATING,
                 "toggle_floating action missing");

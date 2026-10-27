@@ -433,7 +433,8 @@ struct Runtime {
     static sh_action key_released(void *data, uint32_t modifiers, uint32_t keysym,
                                   int *argument) {
         auto &self = *static_cast<Runtime *>(data);
-        return self.take(self.config.mode_binding(self.mode, modifiers, keysym, true), argument);
+        return self.take(
+            self.config.mode_binding(self.mode, modifiers, keysym, paw::When::release), argument);
     }
     static unsigned binding_flags(void *data) { return static_cast<Runtime *>(data)->flags; }
     static const char *set_mode(void *data, int mode) {
