@@ -7,7 +7,7 @@ all the work that led up to it.
 
 The shell, redesigned after Windows 11: a start menu, a clock flyout, Quick Settings, restyled
 menus and overlays, and motion throughout. And a second style after macOS, where paw now
-starts. Three rices ship with paw, and the compositor learned Windows' snapping, touch and
+starts. Four rices ship with paw, and the compositor learned Windows' snapping, touch and
 tablet input, power saving when idle and HDR.
 
 - The macOS style (`shell.style = "macos"`), where the shipped configuration now starts: a menu
@@ -16,9 +16,9 @@ tablet input, power saving when idle and HDR.
 - The Windows 11 style: a start menu with pins and search, a clock flyout with the notifications
   over the calendar, Quick Settings (volume, brightness, media, Wi-Fi through NetworkManager,
   Bluetooth through BlueZ, power mode), and window pictures on the taskbar and in Alt + Tab.
-- The rices `washi` and `sumi`, `mochi` and `hibana`, and what they are made of: blur, shadows,
-  gradient borders, wallpapers per monitor, a profile's own cursor and icons, and a tiling bar
-  in Hyprland's style while a monitor tiles. `paw rice pack` shares a look as one file.
+- The rices `washi` and `sumi`, `mochi`, `hibana` and `tekketsu`, and what they are made of:
+  blur, shadows, gradient borders, wallpapers per monitor, a profile's own cursor and icons, and
+  a tiling bar in Hyprland's style while a monitor tiles. `paw rice pack` shares a look as one file.
 - Snapping as on Windows: dragging to an edge or a corner, Super + Alt + arrows through halves
   and quarters, and Snap Assist offering the other windows for the space left.
 - A clipboard history (Super + Shift + V), an emoji picker (Super + semicolon), a run launcher

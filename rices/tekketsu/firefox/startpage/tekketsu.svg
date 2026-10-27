@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- tekketsu's sigil: a summoning circle in blood on a disc of black iron, a ring of bone
+       marks between its two rings and a five-pointed star drawn through it, the heart of the
+       star darkened to gore. The start page's tab icon and mark.
+       SPDX-License-Identifier: GPL-3.0-or-later -->
+  <circle cx="32" cy="32" r="30.4" fill="#100e0e"/>
+  <circle cx="32" cy="32" r="28.6" fill="none" stroke="#c42b23" stroke-width="2.8"/>
+  <circle cx="32" cy="32" r="25.6" fill="none" stroke="#e4dbc4" stroke-opacity=".6" stroke-width="2.2" stroke-dasharray="0.9 5.802"/>
+  <circle cx="32" cy="32" r="23" fill="none" stroke="#c42b23" stroke-width="1.3"/>
+  <path d="M37.16 24.89 L40.36 34.71 L32 40.79 L23.64 34.71 L26.84 24.89 Z" fill="#6e1712"/>
+  <path d="M32 9 L45.52 50.61 L10.13 24.89 L53.87 24.89 L18.48 50.61 Z" fill="none" stroke="#c42b23" stroke-width="2.4" stroke-linejoin="miter" stroke-miterlimit="10"/>
+</svg>

@@ -1,0 +1,233 @@
+# tekketsu (鉄血) for Helix: iron and blood. Bone text on cracked black iron, crimson for the
+# keywords, blood red for the cursor and whatever has focus, brass, the violet gunmetal of
+# mechanical arms and the green of an elf's eyes for the rest. The editor paints no background
+# of its own, so kitty's translucency (and paw's blur behind it) shows through the text.
+# tekketsu's palette is its own; the theme follows the structure of paw's mochi theme and is
+# paw's, GPL-3.0-or-later.
+# Copy it to ~/.config/helix/themes/ and set `theme = "tekketsu"` in config.toml. In a terminal
+# without translucency the page is the terminal's own background: set it to tekketsu's base,
+# #100e0e.
+#
+# The large backgrounds it does paint are these six, and tekketsu's kitty theme lists every one
+# of them in transparent_background_colors, so they stay glass too instead of turning into slabs:
+#   #0B0A0A  mantle: popups, menus, pickers, the status line and the buffer line
+#   #1E1A1A  the cursor line and the ruler, a shade above surface0
+#   #231F1F  surface1: the menu's scrollbar track and snippet tabstops
+#   #2F2929  surface2: the selected menu or picker row, the current buffer, matching brackets and
+#            highlighted lines
+#   #3C1714  the primary selection, a dried-blood wash under text that keeps its colours
+#   #2A1312  the other selections, a fainter wash
+# Everything else it paints is a small solid mark: the cursors, the mode badge in the status line
+# and the washes of colour behind inline diagnostics.
+#
+# tekketsu's style: keywords in crimson, functions in bone and bold (their definitions in
+# parchment), types in brass, strings in steel, numbers and constants in rose, builtins in ichor,
+# parameters in elf green, variables in subtext, operators and punctuation in overlay, comments
+# in overlay italic; the cursor and the focus in blood, links and info in frost.
+
+# Syntax ---------------------------------------------------------------------------------------
+"attribute" = "brass"
+
+"type" = "brass"
+"type.builtin" = { fg = "brass", modifiers = ["italic"] }
+"type.parameter" = { fg = "brass", modifiers = ["italic"] }
+"type.enum.variant" = "rose"
+"constructor" = "brass"
+
+"constant" = "rose"
+"constant.builtin" = "rose"
+"constant.character" = "steel"
+"constant.character.escape" = "rose"
+"constant.numeric" = "rose"
+
+"string" = "steel"
+"string.regexp" = "elf"
+"string.special" = "rose"
+"string.special.path" = { fg = "steel", underline = { style = "line" } }
+"string.special.url" = { fg = "frost", underline = { style = "line" } }
+"string.special.symbol" = "rose"
+
+"comment" = { fg = "overlay1", modifiers = ["italic"] }
+"comment.unused" = { fg = "overlay0", modifiers = ["italic"] }
+
+"variable" = "subtext1"
+"variable.builtin" = "ichor"
+"variable.parameter" = "elf"
+"variable.other.member" = "text"
+
+"label" = "bruise"
+
+"punctuation" = "overlay2"
+"punctuation.delimiter" = "overlay2"
+"punctuation.bracket" = "overlay2"
+"punctuation.special" = "rose"
+
+"keyword" = "crimson"
+"keyword.control" = "crimson"
+"keyword.control.import" = "crimson"
+"keyword.control.exception" = "crimson"
+"keyword.operator" = "crimson"
+"keyword.directive" = "ichor"
+"keyword.function" = "crimson"
+"keyword.storage" = "crimson"
+"keyword.storage.modifier" = "crimson"
+
+"operator" = "overlay2"
+
+"function" = { fg = "parchment", modifiers = ["bold"] }
+"function.builtin" = { fg = "ichor", modifiers = ["bold"] }
+"function.method" = { fg = "parchment", modifiers = ["bold"] }
+"function.macro" = "ichor"
+"function.special" = "ichor"
+
+"tag" = "crimson"
+"tag.builtin" = "crimson"
+
+"namespace" = { fg = "frost", modifiers = ["italic"] }
+"special" = "crimson"
+"embedded" = "text"
+
+"markup.heading" = { fg = "crimson", modifiers = ["bold"] }
+"markup.heading.marker" = "overlay1"
+"markup.heading.1" = { fg = "crimson", modifiers = ["bold"] }
+"markup.heading.2" = { fg = "rose", modifiers = ["bold"] }
+"markup.heading.3" = { fg = "brass", modifiers = ["bold"] }
+"markup.heading.4" = { fg = "elf", modifiers = ["bold"] }
+"markup.heading.5" = { fg = "steel", modifiers = ["bold"] }
+"markup.heading.6" = { fg = "frost", modifiers = ["bold"] }
+"markup.list" = "crimson"
+"markup.list.checked" = "elf"
+"markup.list.unchecked" = "overlay1"
+"markup.bold" = { fg = "parchment", modifiers = ["bold"] }
+"markup.italic" = { modifiers = ["italic"] }
+"markup.strikethrough" = { fg = "overlay2", modifiers = ["crossed_out"] }
+"markup.link.url" = { fg = "frost", modifiers = ["italic"], underline = { style = "line" } }
+"markup.link.label" = "frost"
+"markup.link.text" = "frost"
+"markup.quote" = { fg = "subtext0", modifiers = ["italic"] }
+"markup.raw" = "steel"
+"markup.raw.block" = "subtext1"
+
+"diff.plus" = "elf"
+"diff.minus" = "crimson"
+"diff.delta" = "brass"
+"diff.delta.moved" = "frost"
+"diff.delta.conflict" = "ichor"
+
+# Interface ------------------------------------------------------------------------------------
+# No background: the glass is the page.
+"ui.background" = { fg = "text" }
+"ui.background.separator" = "surface2"
+"ui.text" = "text"
+"ui.text.focus" = { fg = "text", bg = "surface2", modifiers = ["bold"] }
+"ui.text.inactive" = "overlay1"
+"ui.text.info" = "text"
+"ui.text.directory" = "frost"
+"ui.text.symlink" = "steel"
+
+"ui.cursor" = { fg = "text", bg = "gore" }
+"ui.cursor.primary" = { fg = "text", bg = "blood" }
+"ui.cursor.primary.insert" = { fg = "crust", bg = "elf" }
+"ui.cursor.primary.select" = { fg = "crust", bg = "frost" }
+"ui.cursor.match" = { fg = "rose", bg = "surface2", modifiers = ["bold"] }
+"ui.cursorline.primary" = { bg = "line" }
+"ui.cursorcolumn.primary" = { bg = "line" }
+
+"ui.gutter" = {}
+"ui.gutter.selected" = { bg = "line" }
+"ui.linenr" = "overlay0"
+"ui.linenr.selected" = { fg = "crimson", modifiers = ["bold"] }
+
+"ui.statusline" = { fg = "subtext1", bg = "mantle" }
+"ui.statusline.inactive" = { fg = "overlay1", bg = "mantle" }
+"ui.statusline.normal" = { fg = "text", bg = "blood", modifiers = ["bold"] }
+"ui.statusline.insert" = { fg = "crust", bg = "elf", modifiers = ["bold"] }
+"ui.statusline.select" = { fg = "crust", bg = "frost", modifiers = ["bold"] }
+"ui.statusline.separator" = "overlay0"
+
+"ui.bufferline" = { fg = "overlay1", bg = "mantle" }
+"ui.bufferline.active" = { fg = "crimson", bg = "surface2", modifiers = ["bold"] }
+"ui.bufferline.background" = {}
+
+"ui.popup" = { fg = "text", bg = "mantle" }
+"ui.popup.info" = { fg = "text", bg = "mantle" }
+"ui.help" = { fg = "subtext1", bg = "mantle" }
+"ui.window" = "surface2"
+"ui.picker.header" = { bg = "mantle" }
+"ui.picker.header.column" = "overlay1"
+"ui.picker.header.column.active" = { fg = "crimson", modifiers = ["bold"] }
+
+"ui.menu" = { fg = "subtext0", bg = "mantle" }
+"ui.menu.selected" = { fg = "text", bg = "surface2", modifiers = ["bold"] }
+"ui.menu.scroll" = { fg = "overlay0", bg = "surface1" }
+
+"ui.selection" = { bg = "sel2" }
+"ui.selection.primary" = { bg = "sel" }
+"ui.highlight" = { bg = "surface2", modifiers = ["bold"] }
+"ui.highlight.frameline" = { bg = "crimson_bg" }
+
+"ui.virtual" = "ash"
+"ui.virtual.ruler" = { bg = "line" }
+"ui.virtual.whitespace" = "surface2"
+"ui.virtual.indent-guide" = "surface1"
+"ui.virtual.inlay-hint" = { fg = "ash", modifiers = ["italic"] }
+"ui.virtual.wrap" = "overlay0"
+"ui.virtual.jump-label" = { fg = "rose", modifiers = ["bold"], underline = { style = "line" } }
+
+"ui.debug.breakpoint" = "crimson"
+"ui.debug.active" = "brass"
+
+"tabstop" = { bg = "surface1" }
+
+"error" = "crimson"
+"warning" = "brass"
+"info" = "frost"
+"hint" = "overlay2"
+"error.diagnostic.inline" = { fg = "crimson", bg = "crimson_bg" }
+"warning.diagnostic.inline" = { fg = "brass", bg = "brass_bg" }
+"info.diagnostic.inline" = { fg = "frost", bg = "frost_bg" }
+"hint.diagnostic.inline" = { fg = "overlay2", bg = "hint_bg" }
+"diagnostic.error" = { underline = { color = "crimson", style = "curl" } }
+"diagnostic.warning" = { underline = { color = "brass", style = "curl" } }
+"diagnostic.info" = { underline = { color = "frost", style = "curl" } }
+"diagnostic.hint" = { underline = { color = "overlay2", style = "curl" } }
+"diagnostic.unnecessary" = { modifiers = ["dim"] }
+"diagnostic.deprecated" = { modifiers = ["crossed_out"] }
+
+rainbow = ["crimson", "brass", "steel", "elf", "frost", "bruise"]
+
+[palette]
+# The grounds, cracked black iron to bone, a warm near-neutral black
+crust = "#060505"
+mantle = "#0B0A0A"
+base = "#100E0E"
+surface0 = "#191616"
+surface1 = "#231F1F"
+surface2 = "#2F2929"
+overlay0 = "#463D3D"
+overlay1 = "#6B605E"
+overlay2 = "#8E827D"
+subtext0 = "#AB9F90"
+subtext1 = "#CBBFA8"
+text = "#E4DBC4"
+# the accents
+blood = "#C42B23"       # the accent: the cursor, focus, the mode badge
+gore = "#6E1712"        # deep red, for the other cursors
+crimson = "#E5483D"     # the readable red: keywords, errors and deletions
+ichor = "#FF6A5C"       # the brightest red: builtins, macros and directives
+parchment = "#E6DEB1"   # function definitions, bold text
+brass = "#CFA772"       # types and warnings
+elf = "#A7B98C"         # parameters, additions, regular expressions
+steel = "#A196AD"       # strings
+frost = "#9CB2C9"       # links, info, namespaces
+bruise = "#8C6F8F"      # labels, sparingly
+# blends of them
+rose = "#F49786"        # numbers and constants: ichor paled with bone, blood on bone
+ash = "#584E4D"         # inlay hints: between overlay0 and overlay1, fainter than comments
+line = "#1E1A1A"        # the cursor line: a shade above surface0, so it still reads on glass
+sel = "#3C1714"         # the primary selection: a dried-blood wash, as in kitty
+sel2 = "#2A1312"        # the other selections: sel at 60% over base
+crimson_bg = "#251413"  # washes of colour behind inline diagnostics, 10% over base
+brass_bg = "#231D18"
+frost_bg = "#1E1E21"
+hint_bg = "#1D1A19"

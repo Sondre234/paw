@@ -1,0 +1,67 @@
+/* tekketsu (鉄血, iron and blood) for GTK 4 and libadwaita: cracked black iron and bone-cream
+ * text through libadwaita's own colour variables, blood red as the accent. paw's,
+ * GPL-3.0-or-later.
+ *
+ * install.sh puts these lines into ~/.config/gtk-4.0/gtk.css between `paw tekketsu` markers.
+ * They only recolour; every widget keeps libadwaita's shapes, so nothing fights it. They apply
+ * only while the system prefers dark (the tekketsu profile sets that), so a light profile's
+ * libadwaita stays light. Needs libadwaita 1.6 or newer (GTK 4.16 and its CSS variables); older
+ * versions skip the lines. GTK 3 is left alone: its Adwaita colours are compiled in, and
+ * recolouring a few named colours would leave it half tekketsu.
+ *
+ * Blood is too dark to carry dark text, so accented buttons and switches have bone on blood;
+ * where the accent is text or an icon on the window it brightens to crimson, which reads on
+ * black. Destructive actions take crimson with black text, a step louder than the accent. */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent-bg-color: #C42B23;            /* blood */
+    --accent-fg-color: #E4DBC4;            /* bone */
+    --accent-color: #E5483D;               /* crimson, for text and icons on the window */
+    --destructive-bg-color: #E5483D;       /* crimson */
+    --destructive-fg-color: #060505;
+    --destructive-color: #FF6A5C;          /* ichor */
+    --success-bg-color: #A7B98C;           /* elf */
+    --success-fg-color: #060505;
+    --success-color: #A7B98C;
+    --warning-bg-color: #CFA772;           /* brass */
+    --warning-fg-color: #060505;
+    --warning-color: #CFA772;
+    --error-bg-color: #E5483D;
+    --error-fg-color: #060505;
+    --error-color: #FF6A5C;
+
+    --window-bg-color: #100E0E;            /* base */
+    --window-fg-color: #E4DBC4;            /* bone */
+    --view-bg-color: #0B0A0A;              /* mantle: lists, text views, a shade below the window */
+    --view-fg-color: #E4DBC4;
+    --headerbar-bg-color: #0B0A0A;         /* mantle */
+    --headerbar-fg-color: #E4DBC4;
+    --headerbar-border-color: #E4DBC4;
+    --headerbar-backdrop-color: #100E0E;
+    --headerbar-shade-color: rgb(6 5 5 / 0.45);
+    --headerbar-darker-shade-color: rgb(6 5 5 / 0.9);
+    --sidebar-bg-color: #0B0A0A;
+    --sidebar-fg-color: #E4DBC4;
+    --sidebar-backdrop-color: #100E0E;
+    --sidebar-border-color: rgb(6 5 5 / 0.45);
+    --sidebar-shade-color: rgb(6 5 5 / 0.3);
+    --secondary-sidebar-bg-color: #100E0E;
+    --secondary-sidebar-fg-color: #E4DBC4;
+    --secondary-sidebar-backdrop-color: #100E0E;
+    --secondary-sidebar-border-color: rgb(6 5 5 / 0.45);
+    --secondary-sidebar-shade-color: rgb(6 5 5 / 0.3);
+    --card-bg-color: rgb(228 219 196 / 0.05);
+    --card-fg-color: #E4DBC4;
+    --card-shade-color: rgb(6 5 5 / 0.45);
+    --dialog-bg-color: #191616;            /* surface0 */
+    --dialog-fg-color: #E4DBC4;
+    --popover-bg-color: #191616;
+    --popover-fg-color: #E4DBC4;
+    --popover-shade-color: rgb(6 5 5 / 0.3);
+    --thumbnail-bg-color: #191616;
+    --thumbnail-fg-color: #E4DBC4;
+    --shade-color: rgb(6 5 5 / 0.45);
+    --scrollbar-outline-color: rgb(6 5 5 / 0.55);
+  }
+}

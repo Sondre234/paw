@@ -1,0 +1,585 @@
+/* tekketsu (鉄血) for Firefox: the pages Firefox draws itself, in black iron and blood.
+ *
+ * about:newtab and about:home are made to look like the tekketsu start page (startpage/): a sheet
+ * of cracked black iron, a summoning circle drawn faintly in blood behind the heading, a little
+ * ash settled on it and a dull red light from below, as if the circle were still warm; the
+ * sigil, 鉄血 set large in a brush hand, bone at the top and pooling into blood at the foot,
+ * "tekketsu" in blackletter under a short cut, a glass search box and the eight shortcuts (pinned
+ * by user.js) as riveted iron plates that light up in their colour. With
+ * browser.tabs.allow_transparent_browser on (see user.js) the page is clear instead, and the
+ * window's own glass shows through it. about:blank is iron instead of a white flash, and
+ * about:preferences, about:addons and Firefox's other settings pages take the palette through
+ * their design tokens. Every colour is a --tekketsu-* token in the palette block; it is scoped
+ * to these pages so no website ever sees the tokens.
+ * Needs toolkit.legacyUserProfileCustomizations.stylesheets (see user.js) and a restart.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* ================================================================ palette */
+
+@-moz-document url("about:home"), url("about:newtab"), url("about:blank"), url("about:privatebrowsing"),
+  url-prefix("about:preferences"), url-prefix("about:settings"), url-prefix("about:addons"),
+  url-prefix("about:config"), url-prefix("about:support"), url-prefix("about:profiles"),
+  url-prefix("about:downloads"), url-prefix("about:logins"), url-prefix("about:protections"),
+  url-prefix("about:firefoxview"), url-prefix("about:welcome"), url-prefix("about:sessionrestore") {
+  :root {
+    --tekketsu-crust: #060505;
+    --tekketsu-mantle: #0b0a0a;
+    --tekketsu-base: #100e0e;
+    --tekketsu-surface0: #191616;
+    --tekketsu-surface1: #231f1f;
+    --tekketsu-surface2: #2f2929;
+    --tekketsu-overlay0: #463d3d;
+    --tekketsu-overlay1: #6b605e;
+    --tekketsu-overlay2: #8e827d;
+    --tekketsu-subtext0: #ab9f90;
+    --tekketsu-subtext1: #cbbfa8;
+    --tekketsu-text: #e4dbc4;
+    --tekketsu-blood: #c42b23;
+    --tekketsu-gore: #6e1712;
+    --tekketsu-crimson: #e5483d;
+    --tekketsu-ichor: #ff6a5c;
+    --tekketsu-brass: #cfa772;
+    --tekketsu-parchment: #e6deb1;
+    --tekketsu-elf: #a7b98c;
+    --tekketsu-steel: #a196ad;
+    --tekketsu-frost: #9cb2c9;
+    --tekketsu-bruise: #8c6f8f;
+
+    --tekketsu-ink: var(--tekketsu-text);
+    --tekketsu-muted: var(--tekketsu-subtext0);
+    --tekketsu-accent: var(--tekketsu-blood);
+    --tekketsu-accent-hover: var(--tekketsu-crimson);
+    --tekketsu-on-accent: var(--tekketsu-text);
+    --tekketsu-link: var(--tekketsu-frost);
+    --tekketsu-selection: #3c1714;
+    --tekketsu-raised: color-mix(in srgb, var(--tekketsu-text) 6%, transparent);
+    --tekketsu-pressed: color-mix(in srgb, var(--tekketsu-text) 12%, transparent);
+    --tekketsu-edge: color-mix(in srgb, var(--tekketsu-text) 10%, transparent);
+    --tekketsu-glass: rgb(25 22 22 / 0.62);
+    --tekketsu-glass-hover: rgb(35 31 31 / 0.72);
+    --tekketsu-blur: blur(16px) saturate(120%);
+    --tekketsu-top: inset 0 1px 0 rgb(228 219 196 / 0.06);
+    --tekketsu-glow: 0 0 0 1px var(--tekketsu-blood), 0 0 14px rgb(196 43 35 / 0.35);
+    --tekketsu-shadow: var(--tekketsu-top), 0 14px 34px rgb(6 5 5 / 0.65);
+    --tekketsu-cut: linear-gradient(90deg, transparent, var(--tekketsu-gore) 12%, var(--tekketsu-blood) 40%, var(--tekketsu-crimson) 55%, var(--tekketsu-blood) 72%, var(--tekketsu-gore) 90%, transparent);
+    --tekketsu-radius: 6px;
+    --tekketsu-radius-small: 4px;
+    --tekketsu-radius-chip: 3px;
+    --tekketsu-font: "Chakra Petch", "Rajdhani", system-ui, sans-serif;
+    --tekketsu-blackletter: "UnifrakturMaguntia", "UnifrakturCook", "Old English Text MT", serif;
+    --tekketsu-brush: "Yuji Syuku", "Noto Serif CJK JP", "Noto Serif JP", serif;
+    --tekketsu-mono: "JetBrains Mono", ui-monospace, monospace;
+    /* the iron: fine cracks across it in bone, a summoning circle in faint blood, a scatter of
+       ash and a few cinders, and the warm red light from below */
+    --tekketsu-cracks: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 1000' preserveAspectRatio='xMidYMid slice'%3E%3Cpath d='M369 428 361 456 356 477 349 502 342 529 338 543 M376 451 398 470 404 488 414 512 425 535 440 544 M356 386 369 428 376 451 388 483 399 515 413 545 M496 352 477 340 467 321 467 299 462 277 M634 270 659 288 687 298 710 296 734 301 M494 387 496 352 506 317 523 295 555 267 590 264 614 272 634 270 M-20 180 10 177 43 192 86 218 109 245 142 281 165 302 204 332 242 359 278 368 307 377 356 386 412 396 453 403 494 387 545 390 586 426 630 463 M1566 131 1537 153 1512 172 1494 211 1470 244 M1470 50 1442 53 1428 56 1403 46 1382 40 1356 37 M1524 123 1516 91 1486 66 1470 50 1447 26 1426 -13 1405 -51 M1445 84 1437 56 1425 17 1415 -5 1408 -24 M1214 228 1209 253 1205 270 1214 281 1228 292 M1264 210 1238 220 1214 228 1183 248 1144 270 M1317 375 1316 389 1324 412 1328 426 1331 455 1329 479 M1259 250 1265 269 1278 301 1298 325 1306 349 1317 375 M1172 308 1154 341 1128 354 1117 389 1101 417 1092 436 1091 472 1088 493 M1620 120 1566 131 1524 123 1494 120 1445 84 1398 66 1370 82 1334 129 1303 157 1276 184 1264 210 1259 250 1228 294 1172 308 1139 318 1089 332 1046 348 1025 380 1021 411 M426 381 449 401 480 426 506 459 538 479 572 477 M380 -20 391 37 410 61 417 118 402 148 394 190 376 242 397 299 416 345 426 381 442 416 456 449 472 477 487 522 500 576 528 606 569 618 M866 520 868 495 853 469 845 450 840 433 838 416 M942 576 925 566 893 540 866 520 841 509 M860 409 827 403 783 398 755 403 735 384 M1180 1020 1173 975 1169 922 1144 877 1108 832 1083 781 1074 752 1068 708 1033 669 1007 633 951 606 942 576 931 539 926 505 915 474 881 432 860 409 861 362 856 311 858 269 813 228 M117 834 128 859 136 877 142 891 160 905 168 919 M166 855 169 870 177 887 185 902 200 914 M42 751 58 782 88 806 117 834 145 843 166 855 M277 697 260 674 244 649 217 636 214 620 200 602 187 574 M349 731 320 724 302 713 277 697 241 671 223 638 208 606 201 582 M-20 760 42 751 80 777 129 795 184 813 206 833 244 833 275 829 307 823 343 778 349 731 327 677 330 619 344 577 368 531 398 496 442 494 M1498 779 1473 751 1455 711 1445 684 1453 653 M1296 414 1310 409 1327 403 1341 402 M1265 545 1264 518 1269 474 1280 438 1296 414 1309 378 1316 353 M1009 573 996 561 981 545 960 538 M1164 496 1144 506 1122 516 1097 533 1079 544 1049 556 1009 573 M974 493 963 506 946 524 928 544 906 561 M932 488 909 469 897 459 885 449 864 436 M1133 513 1098 511 1054 503 1024 496 997 494 974 493 932 488 M1620 820 1591 812 1534 809 1498 779 1489 744 1472 711 1439 664 1394 620 1349 591 1301 567 1265 545 1239 532 1196 507 1164 496 1133 513 1095 510 1057 503 1028 504 972 504 939 524 M970 280 974 304 961 327 955 355 952 381 947 400 M869 242 908 257 945 268 970 280 1014 283 1051 268 M820 -20 828 25 828 65 844 97 853 126 862 182 869 242 863 277 856 305 839 355 819 385 798 430 769 482 758 517 768 552 768 585 766 632 759 692 747 721 751 752 761 802' fill='none' stroke='%23e4dbc4' stroke-opacity='.07' stroke-width='1.2' stroke-linejoin='miter'/%3E%3C/svg%3E");
+    --tekketsu-circle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%23c42b23' stroke-opacity='.16'%3E %3Ccircle cx='100' cy='100' r='96' stroke-width='.5'/%3E%3Ccircle cx='100' cy='100' r='92' stroke-width='.9'/%3E %3Ccircle cx='100' cy='100' r='86' stroke-width='3' stroke-dasharray='0.6 6.905'/%3E %3Ccircle cx='100' cy='100' r='80' stroke-width='.9'/%3E%3Cpath d='M100.0 20.0 L147.0 164.7 L23.9 75.3 L176.1 75.3 L53.0 164.7 Z' stroke-width='.9'/%3E %3Ccircle cx='100' cy='100' r='31' stroke-width='.6'/%3E%3Ccircle cx='100' cy='100' r='27' stroke-width='.4' stroke-dasharray='1 3'/%3E%3C/g%3E%3C/svg%3E");
+    --tekketsu-ash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420'%3E%3Cpath d='M99.3 228.3 L100.5 228.0 L101.3 228.5 L100.2 229.8 L99.0 229.1Z' fill='%238e827d' opacity='0.23'/%3E%3Cpath d='M62.8 388.0 L64.5 388.5 L64.7 389.7 L62.7 389.4Z' fill='%23ab9f90' opacity='0.34'/%3E%3Cpath d='M388.0 165.2 L388.0 166.8 L386.0 167.3 L385.4 164.8 L386.9 164.1Z' fill='%236b605e' opacity='0.26'/%3E%3Cpath d='M247.3 244.5 L247.6 246.2 L244.0 246.4 L244.4 244.2Z' fill='%238e827d' opacity='0.32'/%3E%3Cpath d='M415.4 111.9 L415.6 112.5 L415.2 112.8 L414.1 112.2 L414.3 111.7Z' fill='%238e827d' opacity='0.26'/%3E%3Cpath d='M245.0 230.8 L245.3 230.0 L247.0 230.3 L247.7 232.3 L246.2 232.4Z' fill='%23ab9f90' opacity='0.25'/%3E%3Cpath d='M403.4 375.6 L403.2 377.0 L402.0 377.7 L401.6 377.0 L402.2 375.3Z' fill='%23ab9f90' opacity='0.40'/%3E%3Cpath d='M219.4 230.2 L219.0 230.8 L218.4 230.6 L218.2 230.0 L219.0 229.9Z' fill='%23ab9f90' opacity='0.18'/%3E%3Cpath d='M24.0 282.9 L25.7 282.7 L27.4 284.7 L26.1 285.8 L24.0 285.3Z' fill='%236b605e' opacity='0.33'/%3E%3Cpath d='M55.6 211.2 L54.3 210.2 L54.3 209.2 L56.1 209.1 L56.1 210.5Z' fill='%23ab9f90' opacity='0.34'/%3E%3Cpath d='M92.2 239.2 L91.1 239.6 L90.9 238.3 L91.9 238.2Z' fill='%236b605e' opacity='0.26'/%3E%3Cpath d='M53.2 122.8 L54.0 121.7 L55.2 121.7 L56.2 123.3 L54.2 124.1Z' fill='%236b605e' opacity='0.39'/%3E%3Cpath d='M388.0 92.3 L390.0 91.4 L390.4 92.6 L391.0 94.1 L388.9 94.2Z' fill='%23ab9f90' opacity='0.31'/%3E%3Cpath d='M5.9 313.7 L4.8 313.7 L5.0 312.7 L6.2 312.5 L6.0 313.3Z' fill='%238e827d' opacity='0.22'/%3E%3Cpath d='M225.5 342.8 L225.3 343.4 L224.2 343.5 L223.9 343.1 L224.4 342.3Z' fill='%23ab9f90' opacity='0.25'/%3E%3Cpath d='M346.0 360.8 L343.3 360.4 L343.3 359.1 L345.0 358.9Z' fill='%236b605e' opacity='0.27'/%3E%3Cpath d='M129.1 112.7 L127.3 112.4 L126.2 111.4 L127.6 109.3 L129.4 110.2Z' fill='%236b605e' opacity='0.38'/%3E%3Cpath d='M21.0 264.0 L21.0 262.8 L22.8 262.7 L23.6 263.6 L22.1 265.4Z' fill='%23ab9f90' opacity='0.39'/%3E%3Ccircle cx='235' cy='366' r='0.8' fill='%23e5483d' opacity='0.44'/%3E%3Ccircle cx='394' cy='307' r='1.1' fill='%23e5483d' opacity='0.41'/%3E%3Ccircle cx='158' cy='46' r='0.9' fill='%23e5483d' opacity='0.41'/%3E%3C/svg%3E");
+    --tekketsu-face: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'%3E %3Ccircle cx='32' cy='32' r='30.4' fill='%23100e0e'/%3E %3Ccircle cx='32' cy='32' r='28.6' fill='none' stroke='%23c42b23' stroke-width='2.8'/%3E %3Ccircle cx='32' cy='32' r='25.6' fill='none' stroke='%23e4dbc4' stroke-opacity='.6' stroke-width='2.2' stroke-dasharray='0.9 5.802'/%3E %3Ccircle cx='32' cy='32' r='23' fill='none' stroke='%23c42b23' stroke-width='1.3'/%3E %3Cpath d='M37.16 24.89 L40.36 34.71 L32 40.79 L23.64 34.71 L26.84 24.89 Z' fill='%236e1712'/%3E %3Cpath d='M32 9 L45.52 50.61 L10.13 24.89 L53.87 24.89 L18.48 50.61 Z' fill='none' stroke='%23c42b23' stroke-width='2.4' stroke-linejoin='miter' stroke-miterlimit='10'/%3E %3C/svg%3E");
+    /* four rivets, one in each corner of a plate */
+    --tekketsu-rivet: radial-gradient(circle, rgb(228 219 196 / 0.22) 0 0.9px, rgb(6 5 5 / 0.7) 1.4px, transparent 2px);
+  }
+}
+
+/* ================================================================ about:blank */
+
+/* iron, not a white flash; only an empty page, so about:blank frames inside sites keep their
+   own background */
+@-moz-document url("about:blank") {
+  :root:has(> body:empty) {
+    background-color: var(--tekketsu-base);
+    color: var(--tekketsu-ink);
+  }
+}
+
+/* ================================================================ about:newtab, about:home */
+
+@-moz-document url("about:home"), url("about:newtab") {
+  :root,
+  body,
+  body.activity-stream {
+    --newtab-background-color: var(--tekketsu-base) !important;
+    --newtab-background-color-secondary: var(--tekketsu-surface0) !important;
+    --newtab-background-card: var(--tekketsu-surface0) !important;
+    --newtab-text-primary-color: var(--tekketsu-ink) !important;
+    --newtab-text-secondary-color: var(--tekketsu-muted) !important;
+    --newtab-contextual-text-primary-color: var(--tekketsu-ink) !important;
+    --newtab-contextual-text-secondary-color: var(--tekketsu-ink) !important;
+    --newtab-primary-action-background: var(--tekketsu-accent) !important;
+    --newtab-primary-element-text-color: var(--tekketsu-on-accent) !important;
+    --newtab-element-hover-color: var(--tekketsu-raised) !important;
+    --newtab-element-active-color: var(--tekketsu-pressed) !important;
+    --newtab-button-background: var(--tekketsu-raised) !important;
+    --newtab-button-hover-background: var(--tekketsu-raised) !important;
+    --newtab-button-active-background: var(--tekketsu-pressed) !important;
+    --newtab-button-focus-background: var(--tekketsu-raised) !important;
+    --newtab-button-text: var(--tekketsu-ink) !important;
+    --newtab-wordmark-color: var(--tekketsu-ink) !important;
+    --newtab-section-card-box-shadow-color: transparent !important;
+    --newtab-wallpaper-color: var(--tekketsu-base) !important;
+    --background-color-canvas: var(--tekketsu-base) !important;
+    --background-color-box: var(--tekketsu-surface0) !important;
+    --text-color: var(--tekketsu-ink) !important;
+    --text-color-deemphasized: var(--tekketsu-muted) !important;
+    --color-accent-primary: var(--tekketsu-accent) !important;
+    --button-text-color-hover: var(--tekketsu-ink) !important;
+    --focus-outline-color: var(--tekketsu-accent) !important;
+    --border-color-card: var(--tekketsu-edge) !important;
+    color-scheme: dark;
+  }
+
+  :root {
+    scrollbar-color: var(--tekketsu-overlay0) transparent !important;
+  }
+
+  /* the iron, its circle centred behind the heading and the search, the ash tiled over it */
+  body,
+  body.activity-stream {
+    background-color: var(--tekketsu-base) !important;
+    background-image:
+      radial-gradient(120% 90% at 50% 38%, transparent 45%, rgb(6 5 5 / 0.72)),
+      radial-gradient(60% 38% at 50% 108%, rgb(196 43 35 / 0.13), transparent 70%),
+      var(--tekketsu-ash),
+      var(--tekketsu-circle),
+      radial-gradient(closest-side at 50% 50%, rgb(110 23 18 / 0.16), transparent),
+      var(--tekketsu-cracks) !important;
+    background-size: auto, auto, 420px 420px, min(92vh, 860px) min(92vh, 860px),
+      min(92vh, 860px) min(92vh, 860px), cover !important;
+    background-position: center, center, 0 0, 50% 34%, 50% 34%, center !important;
+    background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat, no-repeat !important;
+    background-attachment: fixed !important;
+    color: var(--tekketsu-ink) !important;
+    font-family: var(--tekketsu-font) !important;
+  }
+
+  /* with a transparent browser (user.js), the window's glass is the page */
+  @media -moz-pref("browser.tabs.allow_transparent_browser") {
+    :root,
+    body,
+    body.activity-stream {
+      --newtab-background-color: transparent !important;
+      --newtab-wallpaper-color: transparent !important;
+      --background-color-canvas: transparent !important;
+      background: transparent !important;
+    }
+  }
+
+  /* Firefox's logo and wordmark give way to the start page's masthead: the sigil, 鉄血 set large
+     in a brush hand, bone at the top and pooling into blood at the foot, and "tekketsu" in
+     blackletter beneath a short cut */
+  .logo-and-wordmark-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    height: auto !important;
+    margin: 0 auto 10px !important;
+    padding: 0 !important;
+  }
+
+  .logo-and-wordmark-wrapper::before {
+    content: "";
+    width: 50px;
+    height: 50px;
+    margin-bottom: 10px;
+    background: var(--tekketsu-face) center / contain no-repeat;
+    filter: drop-shadow(0 0 14px rgb(196 43 35 / 0.4));
+  }
+
+  .logo-and-wordmark-wrapper::after {
+    content: "鉄血";
+    order: 1;
+    white-space: nowrap;
+    padding: 0 0.04em 0.08em;
+    font: 400 108px/1.05 var(--tekketsu-brush);
+    letter-spacing: 0.06em;
+    background: linear-gradient(180deg, var(--tekketsu-text) 34%, var(--tekketsu-parchment) 56%, var(--tekketsu-crimson) 80%, var(--tekketsu-blood) 92%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 4px 18px rgb(6 5 5 / 0.8)) drop-shadow(0 0 26px rgb(196 43 35 / 0.18));
+  }
+
+  /* Firefox's own logo goes; its box carries the cut and "tekketsu" under 鉄血 */
+  .logo-and-wordmark {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 10px;
+    order: 2;
+    width: auto !important;
+    height: auto !important;
+    margin: 12px 0 0 !important;
+  }
+
+  .logo-and-wordmark > * {
+    display: none !important;
+  }
+
+  .logo-and-wordmark::before {
+    content: "";
+    width: 64px;
+    height: 2px;
+    background: var(--tekketsu-cut);
+    box-shadow: 0 0 10px rgb(196 43 35 / 0.4);
+  }
+
+  .logo-and-wordmark::after {
+    content: "Tekketsu";
+    white-space: nowrap;
+    font: 400 26px/1 var(--tekketsu-blackletter);
+    letter-spacing: 0.04em;
+    color: var(--tekketsu-subtext1);
+    text-shadow: 0 2px 10px rgb(6 5 5 / 0.8);
+  }
+
+  .wallpaper-attribution {
+    display: none !important;
+  }
+
+  /* the customise button in the corner: a small iron plate */
+  .personalize-button,
+  .open-customization-button {
+    --button-background-color: var(--tekketsu-glass) !important;
+    --button-background-color-hover: var(--tekketsu-glass-hover) !important;
+    --button-background-color-active: var(--tekketsu-surface1) !important;
+    --button-border-color: var(--tekketsu-edge) !important;
+    --button-text-color: var(--tekketsu-ink) !important;
+    --icon-color: var(--tekketsu-ink) !important;
+  }
+
+  /* the search box: a plate of black glass; its button lives in a shadow tree, so it is styled
+     through the variables it reads */
+  content-search-handoff-ui {
+    --content-search-handoff-ui-background-color: var(--tekketsu-glass) !important;
+    --content-search-handoff-ui-color: var(--tekketsu-ink) !important;
+    --content-search-handoff-ui-fill: var(--tekketsu-subtext1) !important;
+    --content-search-handoff-ui-caret-color: var(--tekketsu-crimson) !important;
+    --content-search-handoff-ui-border-width: 1px !important;
+    --content-search-handoff-ui-border-radius: var(--tekketsu-radius) !important;
+    --content-search-handoff-ui-unfocused-border-color: var(--tekketsu-edge) !important;
+    --content-search-handoff-ui-fakefocus-border-color: var(--tekketsu-accent) !important;
+    --content-search-handoff-ui-fakefocus-box-shadow-inner: transparent !important;
+    --content-search-handoff-ui-fakefocus-box-shadow-outer: rgb(196 43 35 / 0.35) !important;
+    --box-shadow-level-3: var(--tekketsu-shadow) !important;
+    font-family: var(--tekketsu-font) !important;
+  }
+
+  /* (user sheets do reach into shadow trees: the button would take the system font) */
+  .search-handoff-button,
+  .search-handoff-button .fake-textbox {
+    font-family: var(--tekketsu-font) !important;
+    font-weight: 500 !important;
+  }
+
+  .search-handoff-button {
+    backdrop-filter: var(--tekketsu-blur) !important;
+    box-shadow: var(--tekketsu-top) !important;
+  }
+
+  .search-wrapper .search-inner-wrapper {
+    min-height: 56px !important;
+    max-width: 680px !important;
+    margin-inline: auto !important;
+  }
+
+  /* the shortcuts: the start page's riveted plates, four to a row */
+  .top-sites-list {
+    grid-template-columns: repeat(4, 200px) !important;
+    gap: 16px !important;
+    margin: 8px 0 0 !important;
+  }
+
+  .top-site-outer,
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover, :focus-within, :has(.top-site-inner:hover)) {
+    width: auto !important;
+    margin: 0 !important;
+    background: none !important;
+  }
+
+  /* each one's colour for its chip: crimson, frost, steel, brass, round and round */
+  .top-site-outer { --tekketsu-chip: var(--tekketsu-crimson); }
+  .top-site-outer:nth-child(4n+2) { --tekketsu-chip: var(--tekketsu-frost); }
+  .top-site-outer:nth-child(4n+3) { --tekketsu-chip: var(--tekketsu-steel); }
+  .top-site-outer:nth-child(4n+4) { --tekketsu-chip: var(--tekketsu-brass); }
+
+  .top-site-outer .top-site-inner > a {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    height: auto !important;
+    gap: 13px !important;
+    padding: 12px 14px !important;
+    background-color: var(--tekketsu-glass) !important;
+    background-image: var(--tekketsu-rivet), var(--tekketsu-rivet), var(--tekketsu-rivet), var(--tekketsu-rivet) !important;
+    background-size: 5px 5px !important;
+    background-position: left 4px top 4px, right 4px top 4px, left 4px bottom 4px, right 4px bottom 4px !important;
+    background-repeat: no-repeat !important;
+    backdrop-filter: var(--tekketsu-blur) !important;
+    border: 1px solid var(--tekketsu-edge) !important;
+    border-radius: var(--tekketsu-radius) !important;
+    box-shadow: var(--tekketsu-top), 0 6px 20px rgb(6 5 5 / 0.4) !important;
+    transition: translate 0.15s ease-out, box-shadow 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
+  }
+
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover) .top-site-inner > a {
+    translate: 0 -2px;
+    background-color: var(--tekketsu-glass-hover) !important;
+    border-color: color-mix(in srgb, var(--tekketsu-chip) 50%, transparent) !important;
+    box-shadow: var(--tekketsu-top), 0 12px 28px rgb(6 5 5 / 0.5), 0 0 18px color-mix(in srgb, var(--tekketsu-chip) 16%, transparent) !important;
+  }
+
+  /* with the keyboard: the blood ring */
+  .top-sites-list:not(.dnd-active) .top-site-outer:focus-within .top-site-inner > a {
+    translate: 0 -2px;
+    background-color: var(--tekketsu-glass-hover) !important;
+    border-color: transparent !important;
+    box-shadow: var(--tekketsu-glow), 0 12px 28px rgb(6 5 5 / 0.5) !important;
+    outline: none !important;
+  }
+
+  .top-site-outer .tile,
+  .top-sites-list:not(.dnd-active) .top-site-outer:is(.active, :hover, :focus-within) .tile {
+    flex: none !important;
+    width: 38px !important;
+    height: 38px !important;
+    margin: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: var(--tekketsu-radius-small) !important;
+  }
+
+  /* a site's letter, or its icon, on a square chip; the letter's chip is tinted in its colour
+     and fills with it under the pointer */
+  .top-site-outer .tile .icon-wrapper {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: var(--tekketsu-radius-small) !important;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out, box-shadow 0.15s ease-out;
+  }
+
+  .top-site-outer .tile .icon-wrapper.letter-fallback {
+    background-color: color-mix(in srgb, var(--tekketsu-chip) 16%, var(--tekketsu-surface0)) !important;
+    color: var(--tekketsu-chip) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tekketsu-chip) 38%, transparent);
+  }
+
+  .top-site-outer:is(:hover, :focus-within) .tile .icon-wrapper.letter-fallback {
+    background-color: var(--tekketsu-chip) !important;
+    color: var(--tekketsu-crust) !important;
+    box-shadow: 0 0 14px color-mix(in srgb, var(--tekketsu-chip) 40%, transparent);
+  }
+
+  .top-site-outer .tile .icon-wrapper.letter-fallback::before {
+    font: 700 17px/1 var(--tekketsu-font) !important;
+    text-transform: lowercase;
+  }
+
+  @media (max-width: 960px) {
+    .top-sites-list {
+      grid-template-columns: repeat(2, 200px) !important;
+    }
+
+    .logo-and-wordmark-wrapper::after {
+      font-size: 82px;
+    }
+  }
+
+  .top-site-outer .title {
+    flex: 1;
+    width: auto !important;
+    min-width: 0;
+    padding: 0 !important;
+    text-align: start !important;
+  }
+
+  .top-site-outer .title,
+  .top-site-outer .title span {
+    min-height: 0 !important;
+    color: var(--tekketsu-ink) !important;
+    font: 600 16px/1.2 var(--tekketsu-font) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    -webkit-line-clamp: none !important;
+  }
+
+  .top-site-outer .title-label {
+    width: auto !important;
+    max-width: 100% !important;
+  }
+
+  .top-site-outer .icon-pin-small,
+  .top-site-outer .sponsored-label {
+    display: none !important;
+  }
+
+  .top-site-outer .context-menu-button {
+    inset-block-start: 6px !important;
+    inset-inline-end: 6px !important;
+    border-radius: var(--tekketsu-radius-chip) !important;
+  }
+
+  /* the little menus on shortcuts */
+  .context-menu {
+    background-color: var(--tekketsu-base) !important;
+    color: var(--tekketsu-ink) !important;
+    border: 1px solid var(--tekketsu-edge) !important;
+    border-radius: var(--tekketsu-radius) !important;
+    box-shadow: var(--tekketsu-shadow) !important;
+  }
+
+  .context-menu > ul > li > :is(a, button) {
+    border-radius: var(--tekketsu-radius-chip) !important;
+  }
+
+  .context-menu > ul > li > :is(a, button):is(:hover, :focus) {
+    background-color: var(--tekketsu-selection) !important;
+    color: var(--tekketsu-ink) !important;
+    box-shadow: inset 2px 0 0 var(--tekketsu-accent);
+  }
+
+  /* the edit/add shortcut form */
+  .topsite-form .form-wrapper,
+  .modalOverlayInner {
+    background-color: var(--tekketsu-base) !important;
+    border: 1px solid var(--tekketsu-edge) !important;
+    border-radius: var(--tekketsu-radius) !important;
+    box-shadow: var(--tekketsu-shadow) !important;
+  }
+
+  ::selection {
+    background-color: var(--tekketsu-selection);
+    color: var(--tekketsu-ink);
+  }
+}
+
+/* ================================================================ settings and the like */
+
+@-moz-document url("about:privatebrowsing"),
+  url-prefix("about:preferences"), url-prefix("about:settings"), url-prefix("about:addons"),
+  url-prefix("about:config"), url-prefix("about:support"), url-prefix("about:profiles"),
+  url-prefix("about:downloads"), url-prefix("about:logins"), url-prefix("about:protections"),
+  url-prefix("about:firefoxview"), url-prefix("about:welcome"), url-prefix("about:sessionrestore") {
+  :root {
+    color-scheme: dark;
+    --background-color-canvas: var(--tekketsu-base) !important;
+    --background-color-box: var(--tekketsu-mantle) !important;
+    --text-color: var(--tekketsu-ink) !important;
+    --text-color-deemphasized: var(--tekketsu-muted) !important;
+    --border-color: var(--tekketsu-surface1) !important;
+    --border-color-card: var(--tekketsu-surface0) !important;
+    --border-color-interactive: var(--tekketsu-surface2) !important;
+    --card-border-color: var(--tekketsu-surface0) !important;
+    --card-background-color: var(--tekketsu-mantle) !important;
+    --color-accent-primary: var(--tekketsu-accent) !important;
+    --color-accent-primary-hover: var(--tekketsu-accent-hover) !important;
+    --color-accent-primary-active: var(--tekketsu-gore) !important;
+    --color-accent-primary-selected: var(--tekketsu-accent) !important;
+    --button-text-color-primary: var(--tekketsu-on-accent) !important;
+    --button-background-color: var(--tekketsu-surface0) !important;
+    --button-background-color-hover: var(--tekketsu-surface1) !important;
+    --button-background-color-active: var(--tekketsu-surface2) !important;
+    --button-text-color: var(--tekketsu-ink) !important;
+    --button-border-color: transparent !important;
+    --button-border-radius: var(--tekketsu-radius-small) !important;
+    --input-background-color: var(--tekketsu-surface0) !important;
+    --input-border-color: var(--tekketsu-surface1) !important;
+    --link-color: var(--tekketsu-link) !important;
+    --link-color-hover: var(--tekketsu-text) !important;
+    --link-color-active: var(--tekketsu-crimson) !important;
+    --focus-outline-color: var(--tekketsu-accent) !important;
+    --icon-color: var(--tekketsu-subtext1) !important;
+    --table-row-background-color: var(--tekketsu-mantle) !important;
+    --table-row-background-color-alternate: var(--tekketsu-base) !important;
+    --in-content-page-background: var(--tekketsu-base) !important;
+    --in-content-page-color: var(--tekketsu-ink) !important;
+    --in-content-box-background: var(--tekketsu-mantle) !important;
+    --in-content-box-border-color: var(--tekketsu-surface0) !important;
+    --in-content-item-selected: var(--tekketsu-accent) !important;
+    --in-content-item-selected-text: var(--tekketsu-on-accent) !important;
+    --in-content-item-hover: var(--tekketsu-raised) !important;
+    --in-content-accent-color: var(--tekketsu-accent) !important;
+    --font-family: var(--tekketsu-font);
+    /* notices (message bars): iron tinted with what they mean, and their icons in that colour */
+    --background-color-information: color-mix(in srgb, var(--tekketsu-frost) 10%, var(--tekketsu-mantle)) !important;
+    --background-color-warning: color-mix(in srgb, var(--tekketsu-brass) 10%, var(--tekketsu-mantle)) !important;
+    --background-color-critical: color-mix(in srgb, var(--tekketsu-crimson) 12%, var(--tekketsu-mantle)) !important;
+    --background-color-success: color-mix(in srgb, var(--tekketsu-elf) 10%, var(--tekketsu-mantle)) !important;
+    --icon-color-information: var(--tekketsu-frost) !important;
+    --icon-color-warning: var(--tekketsu-brass) !important;
+    --icon-color-critical: var(--tekketsu-crimson) !important;
+    --icon-color-success: var(--tekketsu-elf) !important;
+  }
+
+  :root,
+  body {
+    background-color: var(--tekketsu-base) !important;
+    color: var(--tekketsu-ink) !important;
+    font-family: var(--tekketsu-font) !important;
+  }
+
+  /* scrollbars: a thumb of iron on the black (inherited, so the side list's too) */
+  :root {
+    scrollbar-color: var(--tekketsu-overlay0) transparent !important;
+  }
+
+  ::selection {
+    background-color: var(--tekketsu-selection);
+    color: var(--tekketsu-ink);
+  }
+
+  /* headings in Chakra Petch, semi-bold and a little spaced, the way the start page labels things */
+  h1,
+  .header-name,
+  .main-heading {
+    font-family: var(--tekketsu-font) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em;
+  }
+
+  /* the selected category in the settings' side list: crimson text beside a thin blood strip */
+  .category[selected],
+  .category:is([selected], .selected),
+  #categories > .category[selected] {
+    color: var(--tekketsu-crimson) !important;
+    box-shadow: inset 2px 0 0 var(--tekketsu-accent);
+  }
+
+  /* cards (add-ons, settings groups): mantle with a faint edge, lit along the top */
+  .card,
+  moz-card,
+  addon-card .card {
+    background-color: var(--tekketsu-mantle) !important;
+    border: 1px solid var(--tekketsu-surface0) !important;
+    border-radius: var(--tekketsu-radius) !important;
+    box-shadow: var(--tekketsu-top) !important;
+  }
+
+  /* text inputs */
+  input:is([type="text"], [type="search"], [type="url"], [type="email"], [type="password"], [type="number"], :not([type])),
+  textarea,
+  select,
+  menulist {
+    background-color: var(--tekketsu-surface0) !important;
+    color: var(--tekketsu-ink) !important;
+    border: 1px solid var(--tekketsu-surface1) !important;
+    border-radius: var(--tekketsu-radius-small) !important;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible {
+    border-color: transparent !important;
+    box-shadow: var(--tekketsu-glow) !important;
+  }
+
+  /* primary buttons: blood, with bone text */
+  button.primary,
+  .primary:is(button, moz-button),
+  button[default],
+  #searchbutton {
+    background-color: var(--tekketsu-accent) !important;
+    color: var(--tekketsu-on-accent) !important;
+    border: none !important;
+  }
+}
