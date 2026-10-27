@@ -39,14 +39,18 @@ static enum sh_action pair_binding(struct sh_server *server, uint32_t modifiers,
                                        (int)(slot - server->key_releases), argument);
 }
 
-/* Whether a release binding may wait for its key now, or a pair's press run: not while something
- * takes the keys for itself (the switcher, the overview, the exploded view, an application
- * holding the shortcuts), nor on the lock screen unless it is `locked`. */
-static bool may_run(struct sh_server *server) {
+/* Whether a release binding of `action` may wait for its key now and run, or a pair's press of
+ * `action` run: not while something takes the keys for itself (the switcher, an application
+ * holding the shortcuts, the overview and the exploded view but for their own action, so that a
+ * tap closes what a tap opened), nor on the lock screen unless it is `locked`. */
+static bool may_run(struct sh_server *server, enum sh_action action) {
     if (server->locked)
         return flags_of_last(server) & SH_BINDING_LOCKED;
-    return !server->switcher.open && !server->overview.open && !server->xray.open &&
-           !shortcuts_inhibited(server);
+    if (server->overview.open)
+        return action == SH_OVERVIEW_TOGGLE;
+    if (server->xray.open)
+        return action == SH_XRAY;
+    return !server->switcher.open && !shortcuts_inhibited(server);
 }
 
 /* A slot for a binding to wait in, NULL when every one is taken. */
@@ -113,17 +117,18 @@ static bool key_bound(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t m
     int argument = 0;
     enum sh_action press = pair_binding(server, modifiers, sym, slot, &argument);
     if (press != SH_NONE) {
-        *taken = may_run(server);
+        *taken = may_run(server, press);
         if (*taken) {
             *slot = (struct sh_key_release){keyboard, keycode, modifiers, time, sym, false, true};
             run_action(server, press, argument);
         }
         return true;
     }
-    if (release_binding(server, modifiers, sym, &argument) == SH_NONE)
+    enum sh_action release = release_binding(server, modifiers, sym, &argument);
+    if (release == SH_NONE)
         return false;
     bool tap = sym == XKB_KEY_NoSymbol || keysym_is_modifier(sym);
-    *taken = may_run(server) && !(tap && pointer_busy(server));
+    *taken = may_run(server, release) && !(tap && pointer_busy(server));
     if (*taken)
         *slot = (struct sh_key_release){keyboard, keycode, modifiers, time, sym, tap, false};
     return true;
@@ -158,7 +163,7 @@ bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t 
     int argument = 0;
     enum sh_action action = server->callbacks->key(server->callbacks->userdata, modifiers,
                                                    XKB_KEY_NoSymbol, &argument);
-    if (action != SH_NONE && may_run(server))
+    if (action != SH_NONE && may_run(server, action))
         run_action(server, action, argument);
     key_bound(keyboard, keycode, modifiers, XKB_KEY_NoSymbol, time, &taken);
     return false;
@@ -196,7 +201,7 @@ void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t tim
         int argument = 0;
         enum sh_action action =
             release_binding(server, waiting.modifiers, waiting.sym, &argument);
-        if (action != SH_NONE && may_run(server))
+        if (action != SH_NONE && may_run(server, action))
             run_action(server, action, argument);
     }
 }
