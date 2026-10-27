@@ -826,13 +826,14 @@ struct sh_server {
     bool syncing_keyboards;
     /* Key bindings with `release` (key_release.c) waiting for their keys to come up, each for the
      * key with evdev code `keycode` on `keyboard` (NULL for a free slot): its keysym, the
-     * modifiers held as it went down and when it did (the event's time), and whether it is a
-     * modifier key's, which only a tap runs. */
+     * modifiers held as it went down and when it did (the event's time), whether it is a
+     * modifier key's, which only a tap runs, and whether it is a pair's, its release kept as this
+     * slot (sh_callbacks.key_pair), which always runs. */
     struct sh_key_release {
         struct sh_keyboard *keyboard;
         uint32_t keycode, modifiers, time;
         xkb_keysym_t sym;
-        bool tap;
+        bool tap, held;
     } key_releases[SH_KEY_RELEASES];
     /* The devices tests plug in with "headless_keyboard add" and the like (headless_input.c). */
     struct wl_list headless_devices;
@@ -1594,6 +1595,7 @@ bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t 
 void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t time);
 void key_release_cancel(struct sh_server *server);
 void key_release_forget(struct sh_keyboard *keyboard);
+void key_release_finish(struct sh_server *server);
 
 /* cursor_hide.c */
 void cursor_typed(struct sh_server *server, xkb_keysym_t sym);

@@ -773,7 +773,8 @@ struct sh_dynamic_rule {
     int floating, sticky, above;
 };
 
-/* How many key bindings that run as their keys come up may wait for them at once. */
+/* How many key bindings that run as their keys come up may wait for them at once (the slots of
+ * sh_callbacks.key_pair). */
 enum { SH_KEY_RELEASES = 8 };
 
 /* What a key binding asks for besides its action (sh_callbacks.binding_flags). */
@@ -791,6 +792,13 @@ struct sh_callbacks {
     /* The same for the binding with `release` that runs as the key comes up, `modifiers` being
      * those held as it went down; binding_flags then gives its flags. */
     enum sh_action (*key_released)(void *, uint32_t modifiers, uint32_t keysym, int *argument);
+    /* The same for a pair (a binding with both `press` and `release`) as its keys go down: the
+     * press's action, its release kept as `slot`, below SH_KEY_RELEASES, for held_release, which
+     * a reload or another binding mode meanwhile leaves as it is. */
+    enum sh_action (*key_pair)(void *, uint32_t modifiers, uint32_t keysym, int slot,
+                               int *argument);
+    /* The action of the release key_pair kept as `slot`, as `key` gives one. */
+    enum sh_action (*held_release)(void *, int slot, int *argument);
     /* The same for a pressed mouse button (a Linux BTN_* code) or a notch of the wheel
      * (enum sh_wheel_button) over `target`; `app_id` is the window's, or "". SH_NONE leaves the
      * click or the wheel to the application. */

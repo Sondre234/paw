@@ -9,6 +9,7 @@
 #include <wlr/version.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <charconv>
 #include <cstdio>
@@ -18,6 +19,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <set>
 #include <signal.h>
@@ -320,6 +322,8 @@ struct Runtime {
     std::string terminal_line{}; // what `get terminal` prints
     int mode = 0;         // the binding mode `key` looks in: 0 outside any, else modes[mode - 1]
     paw::Command program{}; // the program of the spawn action last resolved
+    // The releases of the pairs whose keys are down, by the compositor's slot (key_pair).
+    std::array<std::shared_ptr<const paw::Binding>, SH_KEY_RELEASES> held{};
     bool watch = false; // whether saving a configuration file reloads (off in headless tests)
     int watch_fd = -1;
     // Why power.lock_command cannot lock ("" when it can), worked out once per load.
@@ -435,6 +439,19 @@ struct Runtime {
         auto &self = *static_cast<Runtime *>(data);
         return self.take(
             self.config.mode_binding(self.mode, modifiers, keysym, paw::When::release), argument);
+    }
+    static sh_action key_pair(void *data, uint32_t modifiers, uint32_t keysym, int slot,
+                              int *argument) {
+        auto &self = *static_cast<Runtime *>(data);
+        const auto *pair = self.config.mode_binding(self.mode, modifiers, keysym, paw::When::pair);
+        if (pair)
+            self.held[static_cast<std::size_t>(slot)] = pair->then;
+        return self.take(pair, argument);
+    }
+    static sh_action held_release(void *data, int slot, int *argument) {
+        auto &self = *static_cast<Runtime *>(data);
+        auto release = std::move(self.held[static_cast<std::size_t>(slot)]);
+        return self.take(release.get(), argument);
     }
     static unsigned binding_flags(void *data) { return static_cast<Runtime *>(data)->flags; }
     static const char *set_mode(void *data, int mode) {
@@ -1319,7 +1336,7 @@ int main(int argc, char **argv) {
         follow_desktop_cursor();
         const sh_callbacks callbacks{
             &runtime,           Runtime::settings, Runtime::key,          Runtime::key_released,
-            Runtime::button,
+            Runtime::key_pair,  Runtime::held_release, Runtime::button,
             Runtime::command,   Runtime::reload,   Runtime::startup,      Runtime::child_exited,
             Runtime::opacity,   Runtime::screenshot, Runtime::window_rule,
             Runtime::hot_corner, Runtime::action_target, Runtime::config_watch,
