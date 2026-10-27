@@ -824,16 +824,16 @@ struct sh_server {
     bool keymap_from_file; // keyboard.file, rather than the names
     xkb_layout_index_t keyboard_layout;
     bool syncing_keyboards;
-    /* A key binding with `release` (key_release.c) waiting for the key with evdev code
-     * `keycode` on `keyboard` (NULL for none) to come up: its keysym, the modifiers held as it
-     * went down and when it did (the event's time), and whether it is a modifier key's, which only
-     * a tap runs. */
-    struct {
+    /* Key bindings with `release` (key_release.c) waiting for their keys to come up, each for the
+     * key with evdev code `keycode` on `keyboard` (NULL for a free slot): its keysym, the
+     * modifiers held as it went down and when it did (the event's time), and whether it is a
+     * modifier key's, which only a tap runs. */
+    struct sh_key_release {
         struct sh_keyboard *keyboard;
         uint32_t keycode, modifiers, time;
         xkb_keysym_t sym;
         bool tap;
-    } key_release;
+    } key_releases[SH_KEY_RELEASES];
     /* The devices tests plug in with "headless_keyboard add" and the like (headless_input.c). */
     struct wl_list headless_devices;
     /* Switch devices (switches.c), and whether any says the lid is closed. */

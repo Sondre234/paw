@@ -36,14 +36,22 @@ static bool may_run(struct sh_server *server) {
            !shortcuts_inhibited(server);
 }
 
+/* A slot for a binding to wait in, NULL when every one is taken. */
+static struct sh_key_release *free_slot(struct sh_server *server) {
+    for (int i = 0; i < SH_KEY_RELEASES; ++i)
+        if (!server->key_releases[i].keyboard)
+            return &server->key_releases[i];
+    return NULL;
+}
+
 /* Whether a button or a finger is down: a modifier key going down then is no tap. */
 static bool pointer_busy(struct sh_server *server) {
     return server->held_buttons || !wl_list_empty(&server->seat->touch_state.touch_points);
 }
 
 /* A key went down at `time` (the event's, in milliseconds), after the bindings that run as keys
- * go down had their turn: it lets go of a tap waiting, and with a release binding of its own waits
- * to come up. True when the press is the binding's, as for any key but a modifier, whose press
+ * go down had their turn: it lets go of the taps waiting, and with a release binding of its own
+ * waits to come up. True when the press is the binding's, as for any key but a modifier, whose press
  * goes on to the application. */
 bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t modifiers,
                        bool woke, uint32_t time) {
@@ -68,47 +76,47 @@ bool key_release_press(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t 
         if (!may_run(server))
             return false;
         bool tap = keysym_is_modifier(sym);
-        if (tap && pointer_busy(server))
+        struct sh_key_release *slot = free_slot(server);
+        if ((tap && pointer_busy(server)) || !slot)
             return false;
-        server->key_release.keyboard = keyboard;
-        server->key_release.keycode = keycode;
-        server->key_release.modifiers = modifiers;
-        server->key_release.sym = sym;
-        server->key_release.tap = tap;
-        server->key_release.time = time;
+        *slot = (struct sh_key_release){keyboard, keycode, modifiers, time, sym, tap};
         return !tap;
     }
     return false;
 }
 
-/* A key came up at `time`: the release binding waiting for it runs, a tap's only when it came up
+/* A key came up at `time`: the release bindings waiting for it run, a tap's only when it came up
  * soon enough. */
 void key_release_up(struct sh_keyboard *keyboard, uint32_t keycode, uint32_t time) {
     struct sh_server *server = keyboard->server;
-    if (server->key_release.keyboard != keyboard || server->key_release.keycode != keycode)
-        return;
-    server->key_release.keyboard = NULL;
-    // Unsigned, so that the clock's wrap around 49 days apart counts the same.
-    if (server->key_release.tap && time - server->key_release.time > TAP_MS)
-        return;
-    // Looked up again: what else ran meanwhile changed the configuration's last binding.
-    int argument = 0;
-    enum sh_action action = release_binding(server, server->key_release.modifiers,
-                                            server->key_release.sym, &argument);
-    if (action == SH_NONE || !may_run(server))
-        return;
-    run_action(server, action, argument);
+    for (int i = 0; i < SH_KEY_RELEASES; ++i) {
+        struct sh_key_release waiting = server->key_releases[i];
+        if (waiting.keyboard != keyboard || waiting.keycode != keycode)
+            continue;
+        server->key_releases[i].keyboard = NULL;
+        // Unsigned, so that the clock's wrap around 49 days apart counts the same.
+        if (waiting.tap && time - waiting.time > TAP_MS)
+            continue;
+        // Looked up again: what else ran meanwhile changed the configuration's last binding.
+        int argument = 0;
+        enum sh_action action =
+            release_binding(server, waiting.modifiers, waiting.sym, &argument);
+        if (action != SH_NONE && may_run(server))
+            run_action(server, action, argument);
+    }
 }
 
 /* Something else happened (a key, a button, the wheel, a gesture): a modifier key's tap waiting
  * will not run. */
 void key_release_cancel(struct sh_server *server) {
-    if (server->key_release.keyboard && server->key_release.tap)
-        server->key_release.keyboard = NULL;
+    for (int i = 0; i < SH_KEY_RELEASES; ++i)
+        if (server->key_releases[i].tap)
+            server->key_releases[i].keyboard = NULL;
 }
 
 /* A keyboard going away takes what waits on its keys with it. */
 void key_release_forget(struct sh_keyboard *keyboard) {
-    if (keyboard->server->key_release.keyboard == keyboard)
-        keyboard->server->key_release.keyboard = NULL;
+    for (int i = 0; i < SH_KEY_RELEASES; ++i)
+        if (keyboard->server->key_releases[i].keyboard == keyboard)
+            keyboard->server->key_releases[i].keyboard = NULL;
 }

@@ -773,6 +773,9 @@ struct sh_dynamic_rule {
     int floating, sticky, above;
 };
 
+/* How many key bindings that run as their keys come up may wait for them at once. */
+enum { SH_KEY_RELEASES = 8 };
+
 /* What a key binding asks for besides its action (sh_callbacks.binding_flags). */
 enum sh_binding_flag {
     SH_BINDING_LOCKED = 1,  /* it runs while the session is locked too */
