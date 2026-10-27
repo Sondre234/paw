@@ -1850,7 +1850,8 @@ mode). Bindings alike but for their key are one row: Super and the arrows focusi
 + 1 to 4 going to workspaces 1 to 4. A mouse button's binding says where it acts (over kitty or
 foot windows and the desktop), and the lid's and tablet mode's show too. A modifier key bound
 with `release` shows as its cap with "tap" (Super tapped alone), and another key bound so says
-"on release". In the taskbar style
+"on release"; a chord shows as its modifiers' caps, and a pair says "held", with both its
+actions (unmute / mute). In the taskbar style
 Super's cap has the Windows logo; the macOS style writes the modifiers as a Mac does, ⌃ ⌥ ⇧ ⌘
 (Super is ⌘), and the footer says which is which. While a [binding mode](#binding-modes) is in
 use, its bindings come first, under its name in the accent colour.
@@ -3161,10 +3162,11 @@ application with the keyboard as usual. Any other key's binding has the key from
 the application hears neither. `mods` are the modifiers held as the key goes down; with a
 modifier key its own may be named or not (`mods = { "Super" }, key = "Super_L"` is the same
 binding). A key may have a binding of each kind, `release` does not go with `repeats`, and
-mouse buttons and switches take none. While the switcher, the overview or the exploded view has
-the keys, or an application holds the shortcuts, nothing waits for a release; on the lock screen
-only a `locked` one does. Tapping Super for the start menu (Launchpad in the macOS style), as on
-Windows:
+mouse buttons and switches take none. While the switcher has the keys, or an application holds
+the shortcuts, nothing waits for a release, nor while the overview or the exploded view is open
+but for its own action (`toggle_overview`, `xray`), so that a tap can close what a tap opened; on
+the lock screen only a `locked` one does. Tapping Super for the start menu (Launchpad in the
+macOS style), as on Windows:
 
 ```lua
 { key = "Super_L", release = true, action = "launcher" },
@@ -3172,7 +3174,45 @@ Windows:
 
 The shipped configuration has that line, and Super + R opens the [run launcher](#run-launcher).
 `key_release_smoke` tests it with a
-window that prints the keys it gets.
+window that prints the keys it gets. Tapping Super for the overview instead, a tap opening it and
+the next closing it, as niri does:
+
+```lua
+{ key = "Super_L", release = true, action = "toggle_overview" },
+```
+
+A binding without a `key` is a chord of its `mods` alone, on either side's keys: Ctrl + Alt is
+either Ctrl key with either Alt key. It goes down as the last of them does and comes up as the
+first of them does, and with `release` it is a tap as a modifier key's is, so Alt + Shift tapped
+can switch the keyboard layout while Alt + Shift + X still reaches the application. A key's own
+binding comes before its chord's: beside the shipped tap of Super_L, a chord of `{ "Super" }`
+takes only the right Super key.
+
+```lua
+{ mods = { "Alt", "Shift" }, release = true, action = "switch_layout" },
+```
+
+A pair runs one action as its keys go down and another as they come up: `press` and `release`,
+each a table with an action and the fields that go with it (`command`, `workspace`, ...). The
+press runs only where any binding would (on the lock screen with `locked`, not while the switcher
+or an application has the keys). Once it has run, the release runs as the keys come up whatever
+happened meanwhile: another key or a click, the session locking, the
+overview opening, an application taking the shortcuts, a reload or another binding mode (the
+release is kept as it was when the keys went down), or paw quitting. That makes push-to-talk
+safe, the microphone always muted again:
+
+```lua
+{
+    mods = { "Ctrl", "Alt" },
+    press = { action = "spawn", command = { "wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "0" } },
+    release = { action = "spawn", command = { "wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "1" } },
+},
+```
+
+A modifier key's or a chord's keys still reach the application, so Ctrl + Alt + T is still
+Ctrl + Alt + T to it; another key in a pair (F13, say) is the pair's, its press and release both.
+A `release` table alone is `release = true` with its action, and a `press` table alone a binding
+as any other. `press_release_smoke` tests pairs, chords and the overview's tap.
 
 ### Binding modes
 

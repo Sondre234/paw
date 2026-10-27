@@ -226,6 +226,32 @@ class ShortcutsTest : public QObject {
         QCOMPARE(row(sheet, "Focus the window to the left")["when"].toString(), QString());
         QCOMPARE(shortcuts::rows(shortcuts::filter(sheet, "tap")), 1);
     }
+    void chordsAndPairs() {
+        // A chord shows as its modifiers' caps alone, "tap" with `release`; a pair is "held",
+        // titled by its press and its release, a command only when both are.
+        const auto config = paw::parse_config(
+            "return { bindings = {"
+            " { mods = { 'Shift', 'Alt' }, release = true, action = 'launcher' },"
+            " { mods = { 'Super' }, key = 'Left', press = { action = 'focus_left' },"
+            "   release = { action = 'focus_right' } },"
+            " { mods = { 'Ctrl', 'Alt' }, press = { action = 'spawn', command = { 'unmute' } },"
+            "   release = { action = 'spawn', command = { 'mute' } } } } }");
+        const auto sheet = shortcuts::sheet(config, {}, false);
+        const auto tap = row(sheet, "Applications menu");
+        QCOMPARE(strings(tap["mods"]), QStringList({"Alt", "Shift"}));
+        QCOMPARE(strings(tap["keys"]), QStringList());
+        QCOMPARE(tap["when"].toString(), QString("tap"));
+        QVERIFY(!tap["search"].toString().contains("nosymbol"));
+        const auto pair = row(sheet, "Focus the window to the left / Focus the window to the right");
+        QCOMPARE(pair["when"].toString(), QString("held"));
+        QCOMPARE(strings(pair["keys"]), QStringList{"←"});
+        QVERIFY(!pair["command"].toBool());
+        const auto spawns = row(sheet, "unmute / mute");
+        QCOMPARE(strings(spawns["mods"]), QStringList({"Ctrl", "Alt"}));
+        QCOMPARE(strings(spawns["keys"]), QStringList());
+        QVERIFY(spawns["command"].toBool());
+        QCOMPARE(shortcuts::rows(shortcuts::filter(sheet, "mute held")), 1);
+    }
     void keyNames() {
         QCOMPARE(shortcuts::keyName(XKB_KEY_Return, false), QString("Enter"));
         QCOMPARE(shortcuts::keyName(XKB_KEY_Return, true), QString("Return"));

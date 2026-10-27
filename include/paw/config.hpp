@@ -9,6 +9,7 @@
 #include <array>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <regex>
 #include <span>
@@ -29,7 +30,8 @@ constexpr int max_layouts = 32;
 
 struct Binding {
     uint32_t modifiers;
-    uint32_t keysym; // 0 for a mouse button binding
+    // 0 for a mouse button binding, or for a chord of `modifiers` alone (a binding without `key`)
+    uint32_t keysym;
     uint32_t button = 0; // a Linux BTN_* code; 0 for a key binding
     // A button binding acts only over a window whose app ID matches `pattern` (its `app_id`, an
     // ECMAScript regex, searched) or, with `desktop`, over the bare desktop; with neither,
@@ -48,8 +50,11 @@ struct Binding {
     bool locked = false;
     bool repeats = false;
     // Key bindings only: `release` runs as the key comes up (Hyprland's bindr); one of a modifier
-    // key alone (Super_L) only when nothing else happened while it was held, a tap.
+    // key alone (Super_L) or of a chord only when nothing else happened while it was held, a tap.
     bool release = false;
+    // With both `press` and `release` tables, a pair: the action and its fields above run as the
+    // keys go down, and `then`'s as they come up, whatever happened meanwhile.
+    std::shared_ptr<const Binding> then;
     int mode = 0; // for mode: 0 for the bindings outside any mode, else modes[mode - 1]; for
                   // display_mode, an sh_display_mode; for cat, an sh_cat_switch; for
                   // ambient, an sh_ambient_choice; for cursor_trail, an
@@ -62,6 +67,10 @@ struct Binding {
     // `pattern` as written, for the sheet of shortcuts to say where a button binding acts.
     std::string app_id;
 };
+
+// Which of a key's bindings a lookup wants: the one that runs as it goes down, the one with
+// `release` that runs as it comes up, or a pair of both, which a key has in place of either.
+enum class When { press, release, pair };
 
 // A binding mode, as sway's modes and Hyprland's submaps: key bindings that take the place of
 // `bindings` while the mode is in use.
@@ -608,12 +617,12 @@ struct Config {
     // "N" or "N name": how a workspace is labelled.
     std::string workspace_label(int workspace) const;
 
-    // The key binding pressed with these modifiers, or with `release` the one that runs as the
-    // key comes up, the modifiers being those held as it went down.
-    const Binding *binding(uint32_t modifiers, uint32_t keysym, bool release = false) const;
+    // The key binding pressed with these modifiers, or the one that runs as the key comes up, or
+    // the pair, the modifiers being those held as it went down; keysym 0 for a chord's.
+    const Binding *binding(uint32_t modifiers, uint32_t keysym, When when = When::press) const;
     // The key binding of mode `mode` (0, or a number no mode has: the bindings outside any).
     const Binding *mode_binding(int mode, uint32_t modifiers, uint32_t keysym,
-                                bool release = false) const;
+                                When when = When::press) const;
     // 0 for "default", a mode's number for its name, else -1.
     int mode_number(const std::string &name) const;
     // "default" and every mode's name.

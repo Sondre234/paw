@@ -5,10 +5,12 @@
 #include <QHash>
 #include <QRegularExpression>
 #include <QStringList>
+#include <algorithm>
 #include <linux/input-event-codes.h>
 #include <paw/ambient.h>
 #include <paw/config.hpp>
 #include <paw/config_schema.hpp>
+#include <vector>
 #include <xkbcommon/xkbcommon.h>
 
 namespace {
@@ -434,8 +436,8 @@ struct Row {
     QString title, detail;
     QStringList mods, keys;
     bool range = false, button = false, command = false;
-    // "tap" for a modifier key's binding that runs as it comes up alone (Super_L, release),
-    // "on release" for another key's that runs as it comes up.
+    // "tap" for a modifier key's or a chord's binding that runs as it comes up alone (Super_L,
+    // release), "on release" for another key's that runs as it comes up, "held" for a pair's.
     QString when;
     // Rows of one family (focus_left and focus_right; workspace 1 and 2) with the same modifiers
     // become one; `number` is a workspace's, `digit` its key's, for a run of them.
@@ -483,18 +485,27 @@ Row row(const paw::Binding &binding, const paw::Config &config, bool macos) {
     const auto name = actionNames().value(binding.action);
     const auto *action = find(name);
     row.group = action ? action->group : Other;
+    // A pair's press, then its release: "Do not disturb on / Do not disturb off".
+    std::vector<const paw::Binding *> halves{&binding};
+    if (binding.then)
+        halves.push_back(binding.then.get());
+    QStringList doing;
+    for (const auto *half : halves) {
+        const auto named = actionNames().value(half->action);
+        doing << (half->action == SH_SPAWN ? shortCommand(half->command)
+                                           : title(*half, named, config));
+        if (half->action == SH_SPAWN)
+            for (const auto &word : half->command)
+                row.words << QString::fromStdString(word);
+        row.words << named << QString(named).replace('_', ' ');
+    }
     if (!binding.description.empty()) {
         row.title = QString::fromStdString(binding.description).simplified();
-    } else if (binding.action == SH_SPAWN) {
-        row.title = shortCommand(binding.command);
-        row.command = true;
     } else {
-        row.title = title(binding, name, config);
+        row.title = doing.join(" / ");
+        row.command = std::all_of(halves.begin(), halves.end(),
+                                  [](const auto *half) { return half->action == SH_SPAWN; });
     }
-    if (binding.action == SH_SPAWN)
-        for (const auto &word : binding.command)
-            row.words << QString::fromStdString(word);
-    row.words << name << QString(name).replace('_', ' ');
     row.actions << name;
     // A modifier key bound itself (Super_L tapped for the launcher) shows as its modifier's cap.
     uint32_t held = binding.modifiers;
@@ -520,16 +531,20 @@ Row row(const paw::Binding &binding, const paw::Config &config, bool macos) {
         row.keys << buttonName(binding.button);
         row.detail = buttonPlace(binding);
     } else {
-        if (!own)
+        // A chord of modifiers alone (no keysym) shows as their caps.
+        if (!own && binding.keysym)
             row.keys << shortcuts::keyName(binding.keysym, macos);
-        if (binding.release)
-            row.when = own ? "tap" : "on release";
+        if (binding.then)
+            row.when = "held";
+        else if (binding.release)
+            row.when = own || !binding.keysym ? "tap" : "on release";
         char raw[64];
-        if (xkb_keysym_get_name(binding.keysym, raw, sizeof(raw)) > 0)
+        if (binding.keysym && xkb_keysym_get_name(binding.keysym, raw, sizeof(raw)) > 0)
             row.words << raw;
         // Bindings that differ only in their key: the ways of one family, and workspaces whose
         // numbers and keys' digits run on together; not those that run as their key comes up.
-        const bool plain = binding.description.empty() && !binding.release;
+        const bool plain = binding.description.empty() && !binding.release && !binding.then &&
+                           binding.keysym;
         if (const auto ways = way(name); !ways.isEmpty() && plain) {
             for (const auto &family : families)
                 if (name.startsWith(family.prefix) && name.sliced(qstrlen(family.prefix)) == ways)

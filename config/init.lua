@@ -587,6 +587,12 @@ return {
         -- key's only when nothing else was pressed, clicked or scrolled while it was held, nor
         -- when it was held longer than half a second.
         { key = "Super_L", release = true, action = "launcher" },
+        -- Without a key, a binding is a chord of its mods on either side's keys, and `press` and
+        -- `release` tables make a pair, whose release always runs after its press: push-to-talk.
+        -- { mods = { "Ctrl", "Alt" }, press = { action = "spawn",
+        --     command = { "wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "0" } }, release = {
+        --     action = "spawn",
+        --     command = { "wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "1" } } },
         { mods = { mod }, key = "c", action = "close" },
         { mods = { mod }, key = "m", action = "quit" },
         { mods = { mod }, key = "v", action = "toggle_floating" },

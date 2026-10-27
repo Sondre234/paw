@@ -963,6 +963,8 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(locked_bindings_smoke $<TARGET_FILE:paw> $<TARGET_FILE:lock_probe>)
         paw_smoke(key_release_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
             $<TARGET_FILE:pointer_probe>)
+        paw_smoke(press_release_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>
+            $<TARGET_FILE:lock_probe>)
         paw_smoke(shortcuts_inhibit_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_probe>)
         paw_smoke(input_method_smoke $<TARGET_FILE:paw> $<TARGET_FILE:input_method_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:input_probe> "${GRIM_ARGUMENT}")

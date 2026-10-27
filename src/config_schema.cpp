@@ -756,14 +756,22 @@ const Option options[] = {
      "argument, or `spawn PROGRAM ARGS`; `\"none\"` takes the swipe and does nothing."},
 
     {"bindings", "list of tables", "unset", "", none, none,
-     "Shortcuts, at most 512, checked in order. A binding has a `key` or a `button`, an "
-     "`action`, and optionally `mods`. Keyboard bindings must not repeat a key and modifier "
-     "combination."},
+     "Shortcuts, at most 512, checked in order. A binding has a `key`, a `button`, or `mods` "
+     "alone (a chord), an `action` (or `press` and `release`), and optionally `mods`. Keyboard "
+     "bindings must not repeat a key and modifier combination, but for one that runs as the "
+     "key goes down and one with `release`."},
     {"bindings[].mods", "list of strings", "{}", "", none, none,
      "Up to four of `Alt`, `Super`, `Ctrl`, `Shift`, without repeats."},
     {"bindings[].key", "string", "", "", none, none,
      "An XKB keysym name, e.g. `\"q\"`, `\"Left\"`, `\"Print\"`, `\"minus\"`. Not with `button` "
-     "or `switch`."},
+     "or `switch`. Without one, a binding is a chord of its `mods` alone, on either side's keys: "
+     "its `action` (or `press`) runs as the last of them goes down, and `release` as the first "
+     "comes up, so `{ mods = { \"Super\" }, release = true, action = \"toggle_overview\" }` "
+     "opens and closes the overview with a tap of either Super key, and "
+     "`{ mods = { \"Alt\", \"Shift\" }, release = true, action = \"switch_layout\" }` switches "
+     "the layout with a tap of Alt + Shift while Alt + Shift + X still reaches the "
+     "application. A key's own binding comes before its chord's: beside the shipped tap of "
+     "`Super_L` for the launcher, a chord of Super alone takes only the right Super key."},
     {"bindings[].button", "enum", "", "", none, none,
      "A mouse button: `left`, `right`, `middle`, `side`, `extra`, `forward`, `back`; or "
      "`wheel_up`, `wheel_down`, the wheel turning that way, the binding running once a notch "
@@ -813,23 +821,39 @@ const Option options[] = {
      "With `switch_layout` only: `\"next\"` or `\"prev\"` (wrapping), or a layout's number "
      "from 1, in the order of `keyboard.layout`."},
     {"bindings[].locked", "boolean", "false", "", none, none,
-     "With `key` only: the binding runs while the session is locked too, as Hyprland's `bindl`; "
-     "every other key goes to the lock screen then. An action with nothing to do while the "
-     "session is locked (focusing, moving windows, the switcher, the overview) does nothing."},
+     "With `key` or a chord only: the binding runs while the session is locked too, as "
+     "Hyprland's `bindl`; every other key goes to the lock screen then. An action with nothing "
+     "to do while the session is locked (focusing, moving windows, the switcher, the overview) "
+     "does nothing."},
     {"bindings[].repeats", "boolean", "true for `resize_*`, else false", "", none, none,
      "With `key` only: while the key is held, the action runs again at `keyboard.repeat_rate` "
      "after `keyboard.repeat_delay`, as Hyprland's `binde`. (Lua keeps `repeat` for its own "
      "loops.)"},
-    {"bindings[].release", "boolean", "false", "", none, none,
-     "With `key` only, and not with `repeats`: the action runs as the key comes up rather than "
-     "as it goes down, as Hyprland's `bindr`. A modifier key (`Super_L`, `Alt_L`, ...) still "
-     "reaches the application as it goes down, and its binding runs only when the key was "
-     "tapped alone: not when another key, a mouse button, the wheel or a touchpad gesture was "
-     "used while it was held, when it was held longer than half a second, or when it went down "
-     "while a button was held, so `{ key = \"Super_L\", release = true, action = "
-     "\"launcher\" }` opens the launcher as Windows' Start key does, and Super + drag and "
-     "Super + Q are left alone. `mods` are those held as the key goes down; a modifier key's own (`Super` with "
-     "`Super_L`) may be left out."},
+    {"bindings[].press", "table", "", "", none, none,
+     "With `key` or a chord only: the action to run as the keys go down, in a table with the "
+     "fields that go with it (`action`, `command`, `workspace`, `mode`, `output`, `layout`, "
+     "`amount`) in place of the binding's own. With a `release` table too, the binding is a "
+     "pair: a modifier key's or a chord's press still reaches the application, and once the "
+     "press has run, the release runs as the keys come up whatever happened meanwhile (another "
+     "key, a click, the session locking, the overview opening, a reload), so "
+     "`{ mods = { \"Ctrl\", \"Alt\" }, press = { action = \"spawn\", command = { \"wpctl\", "
+     "\"set-mute\", \"@DEFAULT_AUDIO_SOURCE@\", \"0\" } }, release = { action = \"spawn\", "
+     "command = { \"wpctl\", \"set-mute\", \"@DEFAULT_AUDIO_SOURCE@\", \"1\" } } }` is "
+     "push-to-talk that always mutes the microphone again. Not with `repeats`."},
+    {"bindings[].release", "boolean or table", "false", "", none, none,
+     "With `key` or a chord only, and not with `repeats`: the action runs as the key comes up "
+     "rather than as it goes down, as Hyprland's `bindr`. A modifier key (`Super_L`, `Alt_L`, "
+     "...) still reaches the application as it goes down, and its binding, like a chord's, runs "
+     "only when the key was tapped alone: not when another key, a mouse button, the wheel or a "
+     "touchpad gesture was used while it was held, when it was held longer than half a second, "
+     "or when it went down while a button was held, so `{ key = \"Super_L\", release = true, "
+     "action = \"launcher\" }` opens the launcher as Windows' Start key does, and Super + drag "
+     "and Super + Q are left alone. `mods` are those held as the key goes down; a modifier key's "
+     "own (`Super` with `Super_L`) may be left out. While the overview or the exploded view is "
+     "open, only a binding of its own action (`toggle_overview`, `xray`) runs, so a tap can close "
+     "what a tap opened. A table in place of `true` holds the action and its fields, as `press` "
+     "does: alone, the same as `release = true` beside them; with `press`, a pair, whose release "
+     "always runs."},
     {"bindings[].description", "string", "the action's own title", "", none, none,
      "What the binding does, in your words, as Hyprland's `bindd`: the sheet of keyboard "
      "shortcuts (the `shortcuts` action) shows it in place of the action's title, e.g. "

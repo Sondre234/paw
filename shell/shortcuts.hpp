@@ -27,8 +27,9 @@ class ShellController;
 //   focusing that way), the first and the last with `range` for a run of workspaces (Super and
 //   1 to 4);
 // - `when` is "tap" for a modifier key's binding that runs as it comes up alone (Super_L with
-//   `release`, its cap among `mods` and no `keys`), "on release" for another key's that runs as
-//   it comes up, else "";
+//   `release`, its cap among `mods` and no `keys`) or a chord's (`mods` alone), "on release" for
+//   another key's that runs as it comes up, "held" for a pair's (`press` and `release`, its title
+//   both of theirs), else "";
 // - `search` is the lower-case text a search looks in.
 namespace shortcuts {
 // A key's name as its cap shows it: a letter or a sign as printed ("Q", ";", "/"), an arrow,

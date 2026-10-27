@@ -542,6 +542,7 @@ int sh_run(const struct sh_callbacks *callbacks, enum sh_backend_mode mode) {
     wlr_log(WLR_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s", socket);
     wl_display_run(server.wl_display);
     server.running = false;
+    key_release_finish(&server);
     windowless_save(&server);
     status = 0;
 

@@ -44,6 +44,10 @@ tablet input, power saving when idle and HDR.
   still holding its single-instance lock) can be killed from its taskbar, start menu, dock or
   Launchpad menu, and launching it says that it is running without a window, with Kill and Wait;
   `paw msg get windowless` lists them and a restart in place keeps track of them (#26).
+- Key bindings with `press` and `release` tables run one action as their keys go down and
+  another as they come up, the release always following the press, as for push-to-talk; a
+  binding without a `key` is a chord of its modifiers on either side's keys (Ctrl + Alt), and a
+  tap of Super bound to `toggle_overview` closes the overview it opened (#27).
 
 ## 0.1.1 (2026-10-05)
 
