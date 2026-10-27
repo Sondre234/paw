@@ -294,6 +294,9 @@ return {
                 blur = { enabled = true, radius = 44, brightness = 0.7, saturation = 1.0 },
                 wallpaper = "rices/tekketsu/wallpaper/tekketsu.jpg",
                 start_icon = "rices/tekketsu/start/tekketsu.png",
+                -- The bar's own icons, the bell, the network, the volume and the rest, stamped in
+                -- bone and blood:
+                bar_icons = "rices/tekketsu/bar",
                 -- desktop_clock = { enabled = true, position = "left", greeting = "ja" },
                 -- Experimental: its ten wallpapers in turn, a new one every half hour:
                 -- wallpaper_cycle = { interval = 30 },
