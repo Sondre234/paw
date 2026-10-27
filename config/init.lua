@@ -252,6 +252,53 @@ return {
                 -- wallpaper_cycle = { interval = 30 },
             },
         },
+        -- tekketsu (鉄血): iron and blood. Black-iron glass over cracked black, bone-white text,
+        -- blood red as the one hot colour, with a summoning circle on the start button and an
+        -- elf mage with iron arms in fastfetch and on the Firefox start page. Its wallpapers,
+        -- start button and Tekketsu icons sit in rices/tekketsu, with themes for kitty,
+        -- fastfetch, Firefox, Discord, Claude Code, editors and GTK that its install.sh puts in
+        -- place. It names Chakra Petch (install.sh --fonts); without it the default sans-serif
+        -- stands in.
+        tekketsu = {
+            appearance = {
+                background = "#100e0e", color_scheme = "dark",
+                -- Its cursor and icons while it is in use, once rices/tekketsu/install.sh
+                -- --cursor --icons has put them in ~/.local/share/icons (skipped until then):
+                -- cursor_theme = "Bibata-Modern-Classic",
+                -- icon_theme = "Tekketsu",
+                -- Ash drifting down through the dark, a few embers still alight in it:
+                -- ambient = { kind = "embers", count = 24, speed = 0.6 },
+                -- Blood-red sparks flung off the pointer as it moves, as off a grinder:
+                -- cursor_trail = { kind = "sparks", colors = { "#c42b23", "#e5483d", "#6e1712" } },
+            },
+            windows = {
+                border_width = 2, corner_radius = 6, round = "always",
+                border_color = { "#c42b23", "#6e1712", angle = 135 },
+                border_inactive_color = "#2f2929",
+                shadow = { enabled = true, color = "#060505d9", inactive_color = "#06050580",
+                           blur = 32, offset = { 0, 10 } },
+                -- The wallpaper frosted behind see-through windows and darkened, so bone text
+                -- stays clear over the red in it.
+                blur = { enabled = true, radius = 32, noise = 0.04, brightness = 0.7,
+                         saturation = 1.0 },
+                dim_inactive = 0.1,
+                urgent_color = "#e5483d",
+                magnet = { guide_color = "#c42b23cc" },
+                snap = { color = "#c42b2340" },
+            },
+            shell = {
+                accent = "#c42b23", panel_color = "#100e0eb8", text_color = "#e4dbc4",
+                font = "Chakra Petch", font_size = 14,
+                panel_height = 42, panel_position = "top", panel_radius = 6,
+                panel_margin = { top = 10, left = 16, right = 16 },
+                blur = { enabled = true, radius = 44, brightness = 0.7, saturation = 1.0 },
+                wallpaper = "rices/tekketsu/wallpaper/tekketsu.jpg",
+                start_icon = "rices/tekketsu/start/tekketsu.png",
+                -- desktop_clock = { enabled = true, position = "left", greeting = "ja" },
+                -- Experimental: its ten wallpapers in turn, a new one every half hour:
+                -- wallpaper_cycle = { interval = 30 },
+            },
+        },
     },
     -- Experimental: washi by day and sumi by night, switched at sunrise and sunset (night_light's
     -- times or latitude and longitude, even with night light off, unless sunrise and sunset are
