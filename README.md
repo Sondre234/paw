@@ -80,8 +80,9 @@ and beside it, top to bottom, <a href="rices/washi">sumi</a>, the same paper by 
   with the bar and menus framed as the windows are and printed shadows, and
   [mochi](rices/mochi), Catppuccin Mocha under frosted glass with a soft cream cat, and
   [hibana](rices/hibana), ink-grey glass over grey storms with ember orange burning through and
-  a little devil cat; each with themes for kitty, fastfetch, Firefox, Discord, Claude Code, Neovim
-  and Helix that one script puts in place.
+  a little devil cat, and [tekketsu](rices/tekketsu), black iron and blood red over cracked
+  black, with an elf mage whose arms are iron; each with themes for kitty, fastfetch, Firefox,
+  Discord, Claude Code, Neovim and Helix that one script puts in place.
   `paw import` carries over an existing Hyprland/Waybar setup, and
   [`paw rice`](docs/features.md#paw-rice) packs a look into one file to share and tries one on
   for 15 seconds before you keep it. A [colour picker](docs/features.md#colour-picker) with a
