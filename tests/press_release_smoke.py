@@ -5,7 +5,8 @@ binding, the overview opening, the session locking, a reload without the binding
 modifier is the pair's, the window getting neither its press nor its release. Do not disturb going
 on and off stands in for the microphone: subscribers hear each. A binding without a key is a chord
 of its modifiers on either side's keys, which still reach the window: it goes down with the last
-of them and comes up with the first, and one with `release` runs only when tapped alone."""
+of them and comes up with the first, and one with `release` runs only when tapped alone. A tap of
+Super toggles the overview, closing it too, which takes the keys while it is open."""
 from pathlib import Path
 import sys
 
@@ -24,6 +25,7 @@ CONFIG = """return {
         { mods = { "Ctrl", "Alt" }, press = { action = "wallpaper_next" },
           release = { action = "wallpaper_prev" } },
         { mods = { "Alt", "Shift" }, release = true, action = "notification_history" },
+        { mods = { "Super" }, release = true, action = "toggle_overview" },
     },
 }"""
 # evdev's codes
@@ -140,5 +142,18 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     press.up(LEFT_ALT, time=TAP + 1750)
     desktop.stays(lambda: len(heard.lines("notifications ")) == 1,
                   "no tap after Alt + Shift + X, nor held a while")
-print("A pair's release runs after its press whatever happened meanwhile, and chords of "
-      "modifiers alone, passed")
+
+    # A tap of Super opens the overview, Super + P leaves it open, and a tap closes it again.
+    def overview():
+        return desktop.msg("get", "overview").split(" ")[0]
+
+    press.down(SUPER, time=TAP + 2000)
+    press.up(SUPER, time=TAP + 2100)
+    desktop.wait_for(lambda: overview() == "open", "the overview from a tap of Super")
+    press(SUPER, P)
+    desktop.stays(lambda: overview() == "open", "the overview after Super + P")
+    press.down(SUPER, time=TAP + 3000)
+    press.up(SUPER, time=TAP + 3100)
+    desktop.wait_for(lambda: overview() == "closed", "the overview closed by a tap of Super")
+print("A pair's release runs after its press whatever happened meanwhile, chords of modifiers "
+      "alone, and a tap of Super toggling the overview, passed")
