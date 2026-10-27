@@ -167,8 +167,11 @@ the pointer rests on it, but for a window's, which shows pictures of its windows
 of the monitor it is along (`panel_position`: top, bottom, left or right), margins that make it
 float (`panel_margin`, one number or `{ top, right, bottom, left }`), corner radius, font and text
 size, colors (`#RRGGBB`, or `#RRGGBBAA` for a translucent panel), wallpaper, a picture for the
-start button in place of its four squares (`start_icon`, an SVG, PNG or other image), and pinned
-commands, which run from your home directory.
+start button in place of its four squares (`start_icon`, an SVG, PNG or other image), pictures
+for the bar's own line icons (`bar_icons`, a folder in which `bell.png`, `volume-2.png`,
+`power.svg` and the like each replace the icon of their name on the taskbar and the tiling bar,
+as tekketsu's stamped bone-and-blood icons do), and pinned commands, which run from your home
+directory.
 
 Along the left or right edge the bar stands upright, as Windows 10's could: the start button at
 the top, the buttons of pinned applications and windows below it as icons alone (their titles in
