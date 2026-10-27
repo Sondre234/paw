@@ -1,0 +1,566 @@
+/* tekketsu start page: black glass and riveted iron over the rice's wallpaper, cut with blood.
+ * Plates of translucent black with a real backdrop blur, a faint edge, a lit top edge and a rivet
+ * in each corner, barely rounded; text in bone, blood red as the one hot colour (focus, the
+ * clock's colon, the search button, the circle), frost for links, crimson where blood must be
+ * read as text, and each link card's chip in one of the palette's colours. Behind it all a
+ * summoning circle in faint blood turns slowly and ash falls. Every colour is a token in the
+ * block below. Fonts are the installed ones (Chakra Petch, Yuji Syuku for 鉄血, UnifrakturMaguntia
+ * for the name, JetBrains Mono) with fallbacks; a file:// page cannot load ~/.local/share/fonts
+ * by path, so nothing is fetched.
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+
+:root {
+  color-scheme: dark;
+  /* the grounds: cracked black iron, a warm black like old lacquer, up to bone */
+  --crust: #060505;
+  --mantle: #0b0a0a;
+  --base: #100e0e;
+  --surface0: #191616;
+  --surface1: #231f1f;
+  --surface2: #2f2929;
+  --overlay0: #463d3d;
+  --overlay1: #6b605e;
+  --overlay2: #8e827d;
+  --subtext0: #ab9f90;
+  --subtext1: #cbbfa8;
+  --text: #e4dbc4;
+  /* the accents */
+  --blood: #c42b23;
+  --gore: #6e1712;
+  --crimson: #e5483d;
+  --ichor: #ff6a5c;
+  --brass: #cfa772;
+  --parchment: #e6deb1;
+  --elf: #a7b98c;
+  --steel: #a196ad;
+  --frost: #9cb2c9;
+  --bruise: #8c6f8f;
+
+  /* the glass: a plate of black, blurred behind, lit along its top edge, riveted at its corners */
+  --pane: linear-gradient(160deg, rgb(35 31 31 / 0.66), rgb(11 10 10 / 0.62));
+  --pane-hover: linear-gradient(160deg, rgb(47 41 41 / 0.72), rgb(16 14 14 / 0.68));
+  --pane-firm: linear-gradient(160deg, rgb(35 31 31 / 0.84), rgb(11 10 10 / 0.82));
+  --blur: blur(16px) saturate(120%);
+  --edge: rgb(228 219 196 / 0.1);
+  --top: inset 0 1px 0 rgb(228 219 196 / 0.07);
+  --shadow: var(--top), 0 12px 32px rgb(6 5 5 / 0.55);
+  --glow: 0 0 0 1px var(--blood), 0 0 14px rgb(196 43 35 / 0.38);
+  --rivet: radial-gradient(circle, rgb(228 219 196 / 0.24) 0 0.9px, rgb(6 5 5 / 0.75) 1.4px, transparent 2px);
+  /* a fresh cut: dark at its ends, bright where it is deepest */
+  --cut: linear-gradient(90deg, transparent, var(--gore) 12%, var(--blood) 40%, var(--crimson) 55%, var(--blood) 72%, var(--gore) 90%, transparent);
+  --selection: #3c1714;            /* a dried-blood wash; text keeps its colours */
+  /* the wallpaper, dimmed: most at the top, where the clock is, and at the foot */
+  --veil: radial-gradient(60% 46% at 50% 34%, rgb(6 5 5 / 0.32), transparent 72%),
+    linear-gradient(rgb(6 5 5 / 0.58), rgb(6 5 5 / 0.32) 40%, rgb(6 5 5 / 0.32) 68%, rgb(6 5 5 / 0.66));
+  --wallpaper: url("../../wallpaper/tekketsu.jpg");
+  /* without the wallpaper: black iron of the palette's own, a dull red light from below and
+     the dark closing in at the edges */
+  --iron: radial-gradient(120% 90% at 50% 40%, transparent 45%, rgb(6 5 5 / 0.75)),
+    radial-gradient(60% 40% at 50% 108%, rgb(196 43 35 / 0.16), transparent 70%),
+    radial-gradient(50% 45% at 50% 42%, rgb(110 23 18 / 0.14), transparent 75%),
+    linear-gradient(var(--base), var(--mantle));
+
+  --font-ui: "Chakra Petch", "Rajdhani", system-ui, sans-serif;
+  --font-brush: "Yuji Syuku", "Noto Serif CJK JP", "Noto Serif JP", serif;
+  --font-blackletter: "UnifrakturMaguntia", "UnifrakturCook", "Old English Text MT", serif;
+  --font-mono: "JetBrains Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-chip: 3px;
+}
+
+/* ---------------------------------------------------------------- the dark */
+
+* { box-sizing: border-box; }
+
+html {
+  min-height: 100%;
+  background-color: var(--base);
+  /* the rice's wallpaper behind everything; black iron of tekketsu's own if it is missing */
+  background-image: var(--veil), var(--wallpaper), var(--iron);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* no wallpaper where it should be (app.js notices): the palette's own iron, unveiled */
+html.no-wallpaper {
+  background-image: var(--iron);
+  background-size: auto;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  color: var(--text);
+  font: 500 16px/1.4 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* the circle and the ash sit on the wallpaper, under the glass; the sigils a click draws are in
+   front of everything */
+.ash,
+.sigils {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ash { z-index: 0; }
+.sigils { z-index: 20; }
+
+.masthead,
+.sheet,
+.colophon {
+  position: relative;
+  z-index: 1;
+}
+
+::selection { background: var(--selection); color: var(--text); }
+
+:focus-visible {
+  outline: 2px solid var(--blood);
+  outline-offset: 3px;
+}
+
+kbd {
+  font: 500 11px/1 var(--font-mono);
+  color: var(--subtext0);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-chip);
+  padding: 3px 5px 2px;
+  background: rgb(6 5 5 / 0.45);
+}
+
+svg.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* a plate of black glass, a rivet in each corner */
+.glass {
+  background: var(--rivet) left 4px top 4px / 5px 5px no-repeat,
+    var(--rivet) right 4px top 4px / 5px 5px no-repeat,
+    var(--rivet) left 4px bottom 4px / 5px 5px no-repeat,
+    var(--rivet) right 4px bottom 4px / 5px 5px no-repeat,
+    var(--pane);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--edge);
+  box-shadow: var(--shadow);
+}
+
+/* ---------------------------------------------------------------- the circle */
+
+/* centred on the clock, as tall as most of the window; its rim, star and heart turn at their own
+   slow speeds, the star against the others */
+.circle {
+  position: fixed;
+  z-index: 0;
+  left: 50%;
+  top: 44%;
+  width: min(94vh, 92vw, 980px);
+  height: min(94vh, 92vw, 980px);
+  translate: -50% -50%;
+  overflow: visible;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--blood);
+  stroke-width: 0.7;
+  opacity: 0.2;
+  transition: opacity 1.2s ease-out;
+}
+.circle .hair { stroke-width: 0.35; }
+.circle .ticks { stroke-width: 2.4; stroke-dasharray: 0.5 3.584; }
+.circle .runes use { stroke: var(--crimson); stroke-width: 1.3; stroke-linecap: square; }
+
+.circle-rim { animation: turn 420s linear infinite; }
+.circle-star { animation: turn 640s linear infinite reverse; }
+.circle-heart { animation: turn 260s linear infinite; }
+
+@keyframes turn {
+  to { rotate: 360deg; }
+}
+
+/* stirred (a pat, a click): the whole circle brightens and its marks burn, then cool */
+.circle.flare { opacity: 0.42; transition-duration: 0.15s; }
+.circle.flare .runes { animation: burn 1.8s ease-out; }
+
+@keyframes burn {
+  0%   { filter: none; }
+  15%  { filter: drop-shadow(0 0 2px rgb(255 106 92 / 0.9)) brightness(1.6); }
+  100% { filter: none; }
+}
+
+/* ---------------------------------------------------------------- masthead */
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 30px 0;
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.mark-face {
+  width: 32px;
+  height: 32px;
+  filter: drop-shadow(0 0 10px rgb(196 43 35 / 0.4));
+  transition: rotate 0.6s ease-out;
+}
+.mark:hover .mark-face { rotate: 72deg; }
+
+/* the name as a logotype: 鉄血 in a brush hand, "Tekketsu" in blackletter after it */
+.mark-kanji {
+  font: 400 24px/1 var(--font-brush);
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 14px rgb(196 43 35 / 0.4);
+}
+
+.mark-name {
+  font: 400 21px/1 var(--font-blackletter);
+  letter-spacing: 0.02em;
+  color: var(--subtext1);
+}
+
+.mark-sub {
+  font: 400 12px/1 var(--font-mono);
+  color: var(--subtext0);
+  padding-top: 3px;
+}
+
+.almanac {
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font: 400 12px/1 var(--font-mono);
+  color: var(--subtext1);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+.almanac b { color: var(--crimson); font-weight: 600; }
+
+/* ---------------------------------------------------------------- clock and date */
+
+.sheet {
+  align-self: center;
+  justify-self: center;
+  width: min(920px, 100% - 48px);
+  padding: 8px 0 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.greeting {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--subtext1);
+  text-shadow: 0 2px 12px rgb(6 5 5 / 0.8);
+}
+.greeting b { color: var(--crimson); font-weight: 600; }
+
+/* light squared digits, tall, in bone, stamped into the dark */
+.clock {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-weight: 300;
+  font-size: clamp(108px, min(16vw, 25vh), 236px);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  text-shadow: 0 0 46px rgb(196 43 35 / 0.14), 0 4px 24px rgb(6 5 5 / 0.7);
+  user-select: none;
+}
+
+/* the colon is blood: it beats, twice and then rests, like a heart */
+.colon {
+  display: inline-block;
+  padding: 0 0.04em;
+  translate: 0 -0.06em;
+  color: var(--blood);
+  text-shadow: 0 0 22px rgb(196 43 35 / 0.7), 0 0 6px rgb(229 72 61 / 0.5);
+  animation: beat 2.2s ease-out infinite;
+}
+
+@keyframes beat {
+  0%, 100% { opacity: 0.6; scale: 1; }
+  6%       { opacity: 1; scale: 1.06; }
+  14%      { opacity: 0.72; scale: 1; }
+  22%      { opacity: 1; scale: 1.04; }
+  42%      { opacity: 0.6; scale: 1; }
+}
+
+.date {
+  margin: 14px 0 0;
+  padding: 7px 14px;
+  border-radius: var(--radius-chip);
+  font: 600 13px/1 var(--font-ui);
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--subtext1);
+  background: rgb(6 5 5 / 0.42);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--top);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.date svg {
+  width: 12px;
+  height: 12px;
+  fill: var(--blood);
+  filter: drop-shadow(0 0 4px rgb(196 43 35 / 0.8));
+}
+
+/* the date again in Japanese, and the day's omen: ash, then blood */
+.wa {
+  margin: 10px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--subtext0);
+  text-shadow: 0 1px 10px rgb(6 5 5 / 0.85);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wa b { color: var(--crimson); font: 400 15px/1 var(--font-brush); letter-spacing: 0.12em; }
+.wa svg { width: 9px; height: 9px; fill: var(--blood); }
+
+/* ---------------------------------------------------------------- search card */
+
+.search {
+  position: relative;
+  margin-top: 44px;
+  width: min(680px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 7px 7px 14px;
+  border-radius: var(--radius);
+  transition: box-shadow 0.15s ease-out, border-color 0.15s ease-out, background 0.15s ease-out;
+}
+
+.search:focus-within {
+  background: var(--rivet) left 4px top 4px / 5px 5px no-repeat,
+    var(--rivet) right 4px top 4px / 5px 5px no-repeat,
+    var(--rivet) left 4px bottom 4px / 5px 5px no-repeat,
+    var(--rivet) right 4px bottom 4px / 5px 5px no-repeat,
+    var(--pane-firm);
+  border-color: transparent;
+  box-shadow: var(--shadow), var(--glow);
+}
+
+.search-sigil {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  filter: drop-shadow(0 0 6px rgb(196 43 35 / 0.5));
+  transition: rotate 0.6s ease-out;
+}
+.search:focus-within .search-sigil { rotate: 36deg; }
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  caret-color: var(--crimson);
+  font: 500 18px/1.2 var(--font-ui);
+  letter-spacing: 0.02em;
+  padding: 10px 0;
+}
+.search input::placeholder { color: var(--overlay2); opacity: 1; }
+
+.search-key { flex: none; }
+.search:focus-within .search-key { visibility: hidden; }
+
+/* a plate of blood with bone stamped on it */
+.search-go {
+  flex: none;
+  font: 600 13px/1 var(--font-ui);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: linear-gradient(160deg, var(--blood) 30%, var(--gore) 150%);
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 13px 18px 13px 21px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 4px 14px rgb(196 43 35 / 0.28);
+  transition: translate 0.12s ease-out, box-shadow 0.12s ease-out, background 0.12s ease-out;
+}
+.search-go:hover {
+  translate: 0 -1px;
+  background: linear-gradient(160deg, var(--crimson), var(--blood) 90%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 6px 20px rgb(196 43 35 / 0.42);
+}
+.search-go:active {
+  translate: 0 1px;
+  background: linear-gradient(160deg, var(--blood), var(--gore));
+  box-shadow: 0 2px 8px rgb(196 43 35 / 0.3);
+}
+
+/* ---------------------------------------------------------------- link cards */
+
+.cards {
+  margin-top: 36px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card {
+  --accent: var(--crimson);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  padding: 12px 14px;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius);
+  transition: translate 0.15s ease-out, box-shadow 0.15s ease-out, border-color 0.15s ease-out, background 0.15s ease-out;
+}
+
+.card:hover {
+  translate: 0 -2px;
+  background: var(--rivet) left 4px top 4px / 5px 5px no-repeat,
+    var(--rivet) right 4px top 4px / 5px 5px no-repeat,
+    var(--rivet) left 4px bottom 4px / 5px 5px no-repeat,
+    var(--rivet) right 4px bottom 4px / 5px 5px no-repeat,
+    var(--pane-hover);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: var(--shadow), 0 0 22px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.card:active {
+  translate: 0 0;
+}
+/* with the keyboard: the blood ring, whatever the card's colour */
+.card:focus-visible {
+  translate: 0 -2px;
+  outline: none;
+  border-color: transparent;
+  box-shadow: var(--shadow), var(--glow);
+}
+
+/* a square chip tinted in the card's own colour, filling with it under the pointer */
+.chip {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 15%, rgb(25 22 22 / 0.85));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 36%, transparent);
+  color: var(--accent);
+  font: 700 16px/1 var(--font-ui);
+  letter-spacing: 0.02em;
+  transition: background 0.15s ease-out, color 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+.chip svg { width: 20px; height: 20px; fill: currentColor; }
+.card:is(:hover, :focus-visible) .chip {
+  background: var(--accent);
+  color: var(--crust);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.card-name {
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-url {
+  font: 400 11px/1.2 var(--font-mono);
+  color: var(--subtext0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card kbd {
+  position: absolute;
+  top: 8px;
+  right: 11px;
+  padding: 2px 4px 1px;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.card:hover kbd,
+.card:focus-visible kbd,
+body.keys .card kbd { opacity: 1; }
+
+/* ---------------------------------------------------------------- colophon */
+
+.colophon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 0 22px;
+  font: 500 13px/1 var(--font-ui);
+  color: var(--subtext1);
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 8px rgb(6 5 5 / 0.85);
+}
+.colophon img { width: 18px; height: 18px; }
+.colophon [lang="ja"] { color: var(--crimson); font-family: var(--font-brush); letter-spacing: 0.12em; }
+
+/* ---------------------------------------------------------------- smaller windows */
+
+@media (max-width: 900px) {
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .masthead { padding: 16px 20px 0; }
+}
+
+@media (max-height: 820px) {
+  .masthead { padding-top: 14px; }
+  .sheet { padding-bottom: 20px; }
+  .wa { margin-top: 8px; }
+  .search { margin-top: 28px; }
+  .cards { margin-top: 24px; gap: 12px; }
+  .colophon { padding-bottom: 14px; }
+}
+
+@media (max-width: 520px) {
+  .almanac, .mark-sub, .mark-name, .search-key { display: none; }
+  .search-go { padding: 11px 12px; }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* no motion: no ash, no turning or beating (app.js keeps the canvases still) */
+@media (prefers-reduced-motion: reduce) {
+  .colon, .circle-rim, .circle-star, .circle-heart, .circle.flare .runes { animation: none; }
+  .ash { display: none; }
+  * { transition: none !important; }
+}
