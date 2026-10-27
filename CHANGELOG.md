@@ -17,8 +17,9 @@ tablet input, power saving when idle and HDR.
   over the calendar, Quick Settings (volume, brightness, media, Wi-Fi through NetworkManager,
   Bluetooth through BlueZ, power mode), and window pictures on the taskbar and in Alt + Tab.
 - The rices `washi` and `sumi`, `mochi`, `hibana` and `tekketsu`, and what they are made of:
-  blur, shadows, gradient borders, wallpapers per monitor, a profile's own cursor and icons, and
-  a tiling bar in Hyprland's style while a monitor tiles. `paw rice pack` shares a look as one file.
+  blur, shadows, gradient borders, wallpapers per monitor, a profile's own cursor and icons,
+  pictures for the bar's own icons (`shell.bar_icons`), and a tiling bar in Hyprland's style
+  while a monitor tiles. `paw rice pack` shares a look as one file.
 - Snapping as on Windows: dragging to an edge or a corner, Super + Alt + arrows through halves
   and quarters, and Snap Assist offering the other windows for the space left.
 - A clipboard history (Super + Shift + V), an emoji picker (Super + semicolon), a run launcher
