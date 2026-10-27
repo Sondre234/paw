@@ -464,8 +464,8 @@ Item {
                             font.family: Theme.fontFamily; font.pixelSize: Theme.fontSizeCaption
                         }
                     }
-                    // "tap" for a modifier key tapped alone, "on release" for a key's as it
-                    // comes up.
+                    // "tap" for a modifier key or a chord tapped alone, "on release" for a key's
+                    // as it comes up, "held" for a pair's.
                     Text {
                         id: when
                         visible: text !== ""
