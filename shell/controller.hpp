@@ -75,6 +75,8 @@ class ShellController : public QObject {
     Q_PROPERTY(QString wallpaperFolder READ wallpaperFolder NOTIFY configChanged)
     // shell.start_icon, the start button's picture; empty for the four squares.
     Q_PROPERTY(QUrl startIcon READ startIcon NOTIFY configChanged)
+    // shell.bar_icons' pictures, as URLs by the name of the bar icon each replaces.
+    Q_PROPERTY(QVariantMap barIcons READ barIcons NOTIFY configChanged)
     // How the shell is laid out (shell.style): "taskbar" or "macos".
     Q_PROPERTY(QString style READ style NOTIFY configChanged)
     // shell.panel_height, or while the bar is resized by an edge (barResizing) the height it is
@@ -324,6 +326,7 @@ class ShellController : public QObject {
     QVariantList wallpapers() const { return wallpapers_; }
     QString wallpaperFolder() const;
     QUrl startIcon() const;
+    QVariantMap barIcons() const { return barIcons_; }
     // Reads the picker's folder again.
     Q_INVOKABLE void findWallpapers();
     // Shows `path` as the wallpaper of the profile in use on every monitor, remembered across
@@ -747,6 +750,9 @@ class ShellController : public QObject {
     QString iconThemeBase_;   // the theme the shell started with
     QString iconThemeWanted_; // appearance.icon_theme as last followed, "" for none
     int iconGeneration_ = 0;  // the icon theme changes so far, in iconBase
+    // Reads shell.bar_icons' folder into barIcons_ as the configuration loads.
+    void findBarIcons();
+    QVariantMap barIcons_;
     // Hands the file index and the start menu shell.search's settings.
     void configureSearch();
     // Hands the clipboard history shell.clipboard's.

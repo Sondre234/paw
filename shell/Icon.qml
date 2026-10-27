@@ -13,6 +13,10 @@ Item {
     width: size; height: size
     // Whether `name` is one of the icons below.
     readonly property bool known: paths[name] !== undefined
+    // On the bar, a picture of the same name in shell.bar_icons' folder stands in for the drawing,
+    // in its own colours.
+    property bool bar: false
+    readonly property string barPicture: bar ? shell.barIcons[name] || "" : ""
 
     readonly property var paths: ({
         "check": "M20 6L9 17l-5-5",
@@ -119,7 +123,19 @@ Item {
         "move": "M12 2v20 M15 19l-3 3-3-3 M19 9l3 3-3 3 M2 12h20 M5 9l-3 3 3 3 M9 5l3-3 3 3"
     })
 
+    Loader {
+        active: icon.barPicture !== ""
+        anchors.fill: parent
+        sourceComponent: Image {
+            objectName: "barIconPicture"
+            source: icon.barPicture
+            sourceSize: Qt.size(icon.size * 2, icon.size * 2)
+            fillMode: Image.PreserveAspectFit
+            smooth: true; mipmap: true
+        }
+    }
     Shape {
+        visible: icon.barPicture === ""
         width: 24; height: 24
         scale: icon.size / 24
         transformOrigin: Item.TopLeft

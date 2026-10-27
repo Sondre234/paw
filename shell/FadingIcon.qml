@@ -9,6 +9,8 @@ Item {
     property string name
     property color color: Theme.text
     property real size: Theme.iconSize
+    // On the bar: shell.bar_icons' pictures stand in (Icon.qml).
+    property bool bar: false
     width: size; height: size
     Behavior on color { ColorAnimation { duration: Theme.durationNormal; easing.type: Theme.easing } }
     // The icon shown, and the one fading out while the new one fades in ("" when none is).
@@ -34,6 +36,7 @@ Item {
         name: fading.name
         color: fading.color
         size: fading.size
+        bar: fading.bar
         opacity: fading.progress
     }
     Loader {
@@ -42,6 +45,7 @@ Item {
             name: fading.leaving
             color: fading.color
             size: fading.size
+            bar: fading.bar
             opacity: 1 - fading.progress
         }
     }

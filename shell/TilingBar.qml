@@ -245,6 +245,7 @@ Item {
             FadingIcon {
                 visible: module.glyph !== ""
                 anchors.verticalCenter: parent.verticalCenter
+                bar: true
                 name: module.glyph
                 color: module.tint
                 size: module.host.iconSize
@@ -284,6 +285,7 @@ Item {
                 Icon {
                     anchors.centerIn: parent
                     visible: !picture.visible
+                    bar: true
                     name: "layout-grid"; color: tilingBar.accent; size: launcher.size
                 }
                 Image {
