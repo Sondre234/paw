@@ -3,7 +3,9 @@
 goes down and its release as it comes up, whatever happened while it was held: another key's
 binding, the overview opening, the session locking, a reload without the binding. A key that is no
 modifier is the pair's, the window getting neither its press nor its release. Do not disturb going
-on and off stands in for the microphone: subscribers hear each."""
+on and off stands in for the microphone: subscribers hear each. A binding without a key is a chord
+of its modifiers on either side's keys, which still reach the window: it goes down with the last
+of them and comes up with the first, and one with `release` runs only when tapped alone."""
 from pathlib import Path
 import sys
 
@@ -19,10 +21,17 @@ CONFIG = """return {
     bindings = {
         { key = "F9", press = { action = "dnd_on" }, release = { action = "dnd_off" } },
         { mods = { "Super" }, key = "p", action = "palette" },
+        { mods = { "Ctrl", "Alt" }, press = { action = "wallpaper_next" },
+          release = { action = "wallpaper_prev" } },
+        { mods = { "Alt", "Shift" }, release = true, action = "notification_history" },
     },
 }"""
 # evdev's codes
-F9, SUPER, P = 67, 125, 25
+F9, SUPER, P, X = 67, 125, 25, 45
+LEFT_CTRL, RIGHT_CTRL, LEFT_ALT, RIGHT_ALT, LEFT_SHIFT = 29, 97, 56, 100, 42
+# Event times for the taps that wait between their keys going down and coming up, so that a slow
+# run does not hold them longer than a tap (500 ms).
+TAP = 1_000_000
 
 with harness.Compositor(compositor, CONFIG) as desktop:
     log = desktop.root / "window.log"
@@ -89,4 +98,47 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     press(F9)
     desktop.wait_for(lambda: keys()[-1:] == [f"key {F9} released"], "F9 at the window, unbound")
     assert len(heard_dnd()) == 10, heard_dnd()
-print("A pair's release runs after its press whatever happened meanwhile, passed")
+
+    # Ctrl + Alt as a chord: the press as the second of them goes down, either side's, the release
+    # as the first comes up, and the window hears every key.
+    def wallpaper():
+        return heard.lines("wallpaper-cycle ")
+
+    def pressed(*codes):
+        return keys()[-len(codes):] == [f"key {code} pressed" for code in codes]
+
+    for first, second in ((LEFT_CTRL, RIGHT_ALT), (LEFT_ALT, RIGHT_CTRL)):
+        before = len(wallpaper())
+        press.down(first)
+        desktop.stays(lambda: len(wallpaper()) == before, "no chord with one modifier")
+        press.down(second)
+        desktop.wait_for(lambda: wallpaper()[before:] == ["wallpaper-cycle next"],
+                         "the chord's press")
+        assert pressed(first, second), keys()
+        press.up(first)
+        desktop.wait_for(lambda: wallpaper()[before:] == ["wallpaper-cycle next",
+                                                         "wallpaper-cycle prev"],
+                         "the chord's release as the first of its keys comes up")
+        press.up(second)
+        desktop.stays(lambda: len(wallpaper()) == before + 2, "nothing as the second comes up")
+
+    # Alt + Shift tapped runs as the first of them comes up; with a key between, the key reaches
+    # the window and the chord does nothing, and nor does it held longer than a tap.
+    press.down(LEFT_ALT, time=TAP)
+    press.down(LEFT_SHIFT, time=TAP + 50)
+    desktop.stays(lambda: not heard.lines("notifications "), "nothing while Alt + Shift is held")
+    press.up(LEFT_SHIFT, time=TAP + 150)
+    desktop.wait_for(lambda: len(heard.lines("notifications ")) == 1, "the tap of Alt + Shift")
+    press.up(LEFT_ALT, time=TAP + 200)
+    press(LEFT_ALT, LEFT_SHIFT, X)
+    desktop.wait_for(lambda: keys()[-3:] == [f"key {X} released", f"key {LEFT_SHIFT} released",
+                                             f"key {LEFT_ALT} released"], "Alt + Shift + X")
+    assert f"key {X} pressed" in keys(), keys()
+    press.down(LEFT_ALT, time=TAP + 1000)
+    press.down(LEFT_SHIFT, time=TAP + 1050)
+    press.up(LEFT_SHIFT, time=TAP + 1700)
+    press.up(LEFT_ALT, time=TAP + 1750)
+    desktop.stays(lambda: len(heard.lines("notifications ")) == 1,
+                  "no tap after Alt + Shift + X, nor held a while")
+print("A pair's release runs after its press whatever happened meanwhile, and chords of "
+      "modifiers alone, passed")
