@@ -474,7 +474,9 @@ if(PAW_BUILD_COMPOSITOR)
     # script that drew washi's wallpapers.
     install(DIRECTORY rices/ DESTINATION ${CMAKE_INSTALL_DATADIR}/paw/rices USE_SOURCE_PERMISSIONS
         PATTERN screenshots EXCLUDE PATTERN generate.py EXCLUDE)
-    # docs/ keeps the README's links to them working in the installed copy.
+    # Beside the README, so that its links to the changelog and to these docs work in the
+    # installed copy; its links into the rest of the source tree (init.lua, the rices, the other
+    # docs) do not.
     install(FILES README.md CHANGELOG.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
     install(FILES docs/features.md docs/config-reference.md docs/dotfile-import.md docs/gentoo.md
         DESTINATION ${CMAKE_INSTALL_DOCDIR}/docs)
