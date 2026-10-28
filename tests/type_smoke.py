@@ -34,7 +34,7 @@ with harness.Compositor(compositor, "return { xwayland = false }") as desktop:
     for state in ("press", "release"):
         msg("headless_keyboard", "key", "keys", str(KEY_A), state)
     desktop.wait_for(lambda: written() == text + "a", "a key typing as before", detail=written)
-    # More different characters than one keymap holds (200), within a request's 512 bytes.
+    # More different characters than one keymap holds (200), within a request's 4096 bytes.
     many = "".join(chr(code) for code in range(0x100, 0x100 + 210))
     msg("type", many)
     desktop.wait_for(lambda: written() == text + "a" + many, "the long text typed",
