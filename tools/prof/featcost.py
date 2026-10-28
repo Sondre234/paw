@@ -3,15 +3,16 @@
 """What each feature costs the compositor per frame, from `get frame_times`.
 
 usage: tools/prof/featcost.py BUILD_DIR [--renderer pixman|gles2 ...] [--frames N]
-                              [--windows N] [--only FEATURE ...]
+                              [--windows N] [--warmup N] [--only FEATURE ...]
 
 For each renderer, starts a headless paw (tests/harness.py's: nothing of the real session;
 gles2 renders on the GPU through its render node, which needs no display), opens --windows
 windows of which one redraws on every frame, so that the output draws every frame, and for
 each feature turns it on, takes the time paw spent drawing each of the next --frames frames
 (inside output_frame, `get frame_times HEADLESS-1`) and turns it off again. The baseline is the
-same windows with nothing on. Prints the median, the 95th percentile and the worst frame, and
-the median's difference from the baseline's.
+same windows with nothing on, taken after --warmup frames and again at the end ("baseline end",
+which shows what drifted meanwhile). Prints the median, the 95th percentile and the worst frame,
+and the median's difference from the baseline's.
 
 This is the compositor's CPU time per frame; with gles2 the GPU's own time is not in it.
 Compare runs made one after the other on the same machine: times below a millisecond move by
@@ -97,7 +98,7 @@ def measure(desktop, frames, warmup=3):
     return spent[-min(total - start, len(spent)):]
 
 
-def run(build, renderer, features, windows, frames):
+def run(build, renderer, features, windows, frames, warmup):
     """{feature: [frame times]} with this renderer, or None if paw would not start."""
     env = {"WLR_RENDERER": renderer}
     results = {}
@@ -116,6 +117,11 @@ def run(build, renderer, features, windows, frames):
                            *(["--animate"] if i == 0 else [])])
             desktop.wait_for(lambda: any(w.title == title for w in desktop.windows()),
                              f"{title} mapped")
+        # A GPU's clocks settle some seconds into a steady load: with gles2, a baseline taken
+        # before they did read 270 us where every feature after it read 380 us or more.
+        start, _ = frame_times(desktop)
+        desktop.wait_for(lambda: frame_times(desktop)[0] >= start + warmup,
+                         f"{warmup} warm-up frames", timeout=60 + warmup / 30)
         for name in features:
             on, off = FEATURES[name]
             desktop.wait_for(lambda: pawprobe.settled(desktop), f"{name}: settled before")
@@ -128,6 +134,8 @@ def run(build, renderer, features, windows, frames):
                 desktop.wait_for(lambda: desktop.rows("toys")[0][1] == "none", f"{name} over",
                                  timeout=30)
             print(f"  {renderer} {name}: {len(results[name])} frames", file=sys.stderr)
+        desktop.wait_for(lambda: pawprobe.settled(desktop), "settled at the end")
+        results["baseline end"] = measure(desktop, frames)
     return results
 
 
@@ -143,6 +151,8 @@ def main():
     parser.add_argument("--renderer", nargs="+", default=["pixman"], choices=["pixman", "gles2"])
     parser.add_argument("--frames", type=int, default=120, help="frames per feature (120)")
     parser.add_argument("--windows", type=int, default=4, help="windows open (default 4)")
+    parser.add_argument("--warmup", type=int, default=600,
+                        help="frames drawn before the baseline (600, about 10 s)")
     parser.add_argument("--only", nargs="+", choices=list(FEATURES)[1:], metavar="FEATURE",
                         help=f"measure only these: {', '.join(list(FEATURES)[1:])}")
     args = parser.parse_args()
@@ -150,7 +160,7 @@ def main():
     features = ["baseline", *(args.only or list(FEATURES)[1:])]
 
     for renderer in args.renderer:
-        results = run(build, renderer, features, args.windows, args.frames)
+        results = run(build, renderer, features, args.windows, args.frames, args.warmup)
         if results is None:
             continue
         base = statistics.median(results["baseline"])
