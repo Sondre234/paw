@@ -854,7 +854,6 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(dwindle_split_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        paw_smoke(scroll_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_bound_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_cube_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_enter_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
