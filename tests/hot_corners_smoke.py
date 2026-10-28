@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Hot corners run their request after the pointer has rested in the corner, once per visit;
-a pass through does nothing. The pointer is a virtual one (pointer_probe)."""
+"""Hot corners run their request once the pointer has rested in their corner, each its own, a
+spawn too; one with nothing bound does nothing, and a reload without them turns them off. When a
+rest counts (after the delay, once a visit) is effects_tests', and overview_pointer_smoke's in a
+session. The pointer is a virtual one (pointer_probe)."""
 from pathlib import Path
 import sys
 
@@ -36,23 +38,9 @@ with harness.Compositor(compositor, start=False) as desktop:
     desktop.detail = lambda: f"workspace {workspace()}"
     right, bottom = str(SCREEN[0] - 1), str(SCREEN[1] - 1)
 
-    # Rest in the top-left corner: nothing at first, then the request runs.
+    # Resting in the top-left corner runs its request, and the top-right corner runs its own.
     pointer("move", "0", "0")
-    desktop.stays(lambda: workspace() == 1, "ran before the delay", duration=.1)
     desktop.wait_for(lambda: workspace() == 2, "top-left corner")
-
-    # Staying, even moving inside the corner, does not run it again.
-    msg("workspace", "1")
-    pointer("move", "3", "3", "move", "0", "0")
-    desktop.stays(lambda: workspace() == 1, "ran twice in one visit", duration=QUIET)
-
-    # A pass through the corner without resting does nothing.
-    pointer("move", "400", "300", "move", "0", "0", "move", "400", "300")
-    desktop.stays(lambda: workspace() == 1, "ran without the delay", duration=QUIET)
-
-    # Coming back runs it again; the top-right corner runs its own request.
-    pointer("move", "0", "0")
-    desktop.wait_for(lambda: workspace() == 2, "top-left corner again")
     pointer("move", right, "0")
     desktop.wait_for(lambda: workspace() == 3, "top-right corner")
 
