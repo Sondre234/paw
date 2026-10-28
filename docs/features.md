@@ -3326,9 +3326,10 @@ profiles = {
 },
 ```
 
-Pick one from the panel: the profile button beside the tiling button (three swatches of the
-current accent, background and text colours) lists them, the one in use marked, whenever there
-are two or more (`shell.widgets.profiles = false` hides it). Right-clicking empty bar space and
+Pick one from the panel: the Appearance tile in Quick Settings lists them, the one in use marked,
+whenever there are two or more; with `shell.widgets.profiles = "bar"` a button beside the tiling
+button (three swatches of the current accent, background and text colours) lists them instead,
+and `false` hides both. Right-clicking empty bar space and
 pointing at **Appearance** lists them too, beside the menu (the one in use is marked). The command palette (Super + P) lists them as
 **Appearance: NAME** too, and scripts and hot corners can use `paw msg profile NAME`, or
 `profile next` and `profile prev` to step through them in name order. A pick is saved in
