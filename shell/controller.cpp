@@ -1758,8 +1758,9 @@ void ShellController::subscribe() {
             setWindowless(nextWindowless_);
     });
     connect(state_, &QLocalSocket::disconnected, this, [this, path] {
+        const bool wasSubscribed = subscribed_;
         std::cerr << "paw shell: the compositor closed its control socket " << path.toStdString()
-                  << (subscribed_ ? "" : " before the shell had subscribed") << '\n';
+                  << (wasSubscribed ? "" : " before the shell had subscribed") << '\n';
         subscribed_ = false;
         if (!keyboardLayout_.isEmpty()) {
             keyboardLayout_.clear();
@@ -1784,6 +1785,12 @@ void ShellController::subscribe() {
         }
         clearOverview();
         clearXray();
+        // Once more, a moment later, after a subscription the compositor dropped (one that fell
+        // behind): never after one that did not get that far, nor after an attempt that failed,
+        // so that it cannot spin. As paw quits, the shell's Wayland connection breaks and ends it
+        // well within that moment.
+        if (wasSubscribed)
+            QTimer::singleShot(1000, this, [this, path] { state_->connectToServer(path); });
     });
     // The compositor closing it is told by disconnected above.
     connect(state_, &QLocalSocket::errorOccurred, this,
