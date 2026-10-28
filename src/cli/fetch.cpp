@@ -551,13 +551,12 @@ namespace {
 using fetch::Field;
 using fetch::Rows;
 
-// A query's rows, or nothing when the session cannot answer it (an older compositor).
+// A query's rows, or nothing when the session refuses it (an older compositor without it).
 std::optional<Rows> ask(const std::string &name) {
-    try {
-        return query(name);
-    } catch (const std::exception &) {
+    auto reply = request("get " + name);
+    if (!reply.ok)
         return std::nullopt;
-    }
+    return rows(reply.body);
 }
 
 std::string value_of(const Rows &rows, const std::string &name) {
@@ -637,7 +636,7 @@ int fetch(int argc, char **argv) {
     try {
         if (auto reply = request("get about"); reply.ok)
             about = rows(reply.body);
-    } catch (const std::exception &) {
+    } catch (const SessionUnreachable &) {
         session = false;
     }
     std::string profile;
