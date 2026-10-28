@@ -4263,8 +4263,8 @@ The `xray` action takes the focused monitor apart into the layers paw draws, so 
 over what shows, and closes it again; bind it as `{ mods = { "Super" }, key = "x", action = "xray"
 }`. The picture comes apart into a stack of sheets, bottom to top: the background (the desktop's
 colour and the wallpaper), the bottom layer, the windows, floating windows (with
-`layout.floating_above_tiles`), windows kept above, fullscreen windows, the panels (the top
-layer), a fullscreen window covering the panels, X11 menus and the overlays. A layer with nothing
+`layout.floating_above_tiles`), windows kept above, fullscreen windows, a window peeked at, the
+panels (the top layer), a fullscreen window covering the panels, X11 menus and the overlays. A layer with nothing
 on that monitor has no sheet, and while six windows or fewer show, each has a sheet of its own.
 Each sheet is a live copy of what its layer draws there, scaled down, on a card edged in the
 layer's colour with a shadow, fanned out from the one under it like a deck of cards seen from the
