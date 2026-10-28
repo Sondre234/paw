@@ -2170,7 +2170,8 @@ layout = {
 ```
 
 A workspace keeps the layout, ratio and master count it was given until the compositor
-restarts; a reload changes the starting values only for workspaces that have not chosen
+restarts, where a [saved session](#sessions) brings them back (a standalone session's
+[last one](#the-last-session) does at login); a reload changes the starting values only for workspaces that have not chosen
 one.
 
 Each monitor can start with its own values in `layout.outputs`, keyed by connector name or
