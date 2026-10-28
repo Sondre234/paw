@@ -1436,7 +1436,8 @@ one application with the same title are told apart only by their order.
 With `windows.swallow = { enabled = true }` a window started from a terminal takes the terminal's
 place and hides it, as in Hyprland and dwm's swallow patch: run `mpv clip.mkv` or `imv photo.png`
 in a terminal and the player opens in the terminal's tile (or floating rectangle, size and
-place), and closing it brings the terminal back there, with focus. It is off by default.
+place), and closing it brings the terminal back there, with focus if it had it. It is off by
+default.
 
 The match is by process ancestry, not by guessing: the new window's process (its Wayland
 client's pid, or the X11 window's) has to descend from the process of a terminal's window, however many shells and
@@ -1454,8 +1455,9 @@ follows its window to another workspace or monitor; the window is an ordinary on
 floated, moved and resized), and the terminal returns to wherever it is when it closes. If the
 terminal closes first, the window keeps the place. `swallow_toggle` (no default binding; it
 works with `enabled = false` too) does it by hand: pressed on a window that swallowed a terminal it
-gives the terminal a place beside it again, otherwise the window takes the place of the terminal
-it was started from, or of the terminal last focused on the workspace. `paw msg get swallow`
+gives the terminal a place beside it again, otherwise the window takes the place of the window
+it was started from (that of its nearest ancestor process with one, a terminal or not), or of the
+terminal last focused on the workspace. `paw msg get swallow`
 lists each window with whether it is swallowed and its partner. Only applications that stay
 descendants of the terminal can be swallowed: one that hands the request to a running instance
 (a browser opening a new window) belongs to the other process. This is checked headless with
