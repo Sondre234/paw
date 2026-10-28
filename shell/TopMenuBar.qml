@@ -53,9 +53,9 @@ Rectangle {
     onHoldingChanged: if (!holding) focusSync.restart()
     Component.onCompleted: focusedTask = activeTask
     Timer { id: focusSync; interval: 400; onTriggered: menuBar.syncFocus() }
-    // Its application, as shell.apps has it (null for one without an entry), and its name: the
-    // entry's, else the app id's last part capitalised, else the window's title; "Desktop" while
-    // no window is focused.
+    // Its application, as shell.appRecord has it (null for one without an entry), and its name:
+    // the entry's, else the app id's last part capitalised, else the window's title; "Desktop"
+    // while no window is focused.
     readonly property var appRecord: focusedWindow ? panel.appRecord(focusedWindow.appId) : null
     readonly property string appName: {
         if (!focusedWindow)

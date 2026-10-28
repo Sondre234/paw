@@ -629,7 +629,7 @@ Item {
         return [Qt.rect(0, top, w, barTop - top), Qt.rect(0, dockBottom, w, h - dockBottom),
                 Qt.rect(0, barTop, left, bar.height), Qt.rect(right, barTop, w - right, bar.height)]
     }
-    // An application's record in shell.apps for a window's app id: the application whose pinned
+    // An application's record (shell.appRecord) for a window's app id: the application whose pinned
     // slot it takes (a configured launcher too), else the installed one; null when there is none.
     function appRecord(windowAppId) {
         // Read again as the applications change.
