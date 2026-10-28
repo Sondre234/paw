@@ -22,7 +22,9 @@ bool RiceTrial::handle(const QString &line) {
             const auto rice = paw::read_rice(paw::rices_directory() / words[2].toStdString());
             author = QString::fromStdString(rice.author);
             description = QString::fromStdString(rice.description);
-        } catch (const std::exception &) {
+        } catch (const std::exception &error) {
+            qWarning("paw-shell: the rice on trial, %s, could not be read (%s); shown by its name",
+                     qPrintable(words[2]), error.what());
         }
         start(words[1].toInt(), words[2], author, description);
         return true;
