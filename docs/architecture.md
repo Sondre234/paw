@@ -2022,9 +2022,8 @@ menu bar's menus as `system-menu`, `app-menu`, `window-menu` and `window-submenu
 surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `cards`,
 `power-dialog`, `palette`, `palette-empty`, `shortcuts`, `shortcuts-search`, `shortcuts-mode`,
 `run`, `run-search`, `run-commands`, `run-windows`, `switcher`, `overview`, `snap-assist`, `display-mode`,
-`display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
-`display-settings`, `display-settings-trial`, `xray`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
-`display-settings`, `display-settings-trial`, `caption`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
+`display-settings`, `display-settings-trial`, `rice-trial`, `xray`, `caption`): `PreviewData` in
+`preview.cpp` shows one in a window of its own over the
 bar alone, with stand-ins for what the compositor would tell it, and the screenshot draws it where
 its layer surface would be (the overview over stand-ins for the compositor's thumbnails, the
 exploded view's names over its sheets as `src/xray_layout.c` lays them out).
