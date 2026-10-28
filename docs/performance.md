@@ -484,9 +484,10 @@ leak in 40 cycles.
 - **`featcost.py BUILD`** measures what each feature costs per frame: with four windows, one
   redrawing on every frame, the time paw spends in `output_frame` (`get frame_times`) over 120
   frames with the shadows, the blur, tiling, the overview, the switcher, the exploded view, the
-  heatmap, zoom, night light, the party or gravity on, against the same windows with nothing on.
-  `--renderer pixman gles2` measures with both; gles2 renders headless on the GPU's render node
-  and needs no display.
+  heatmap, zoom, night light, the party or gravity on, against the same windows with nothing on,
+  measured after 600 frames of warm-up (a GPU's clocks settle some seconds into the load) and
+  again at the end, as "baseline end", to show what drifted. `--renderer pixman gles2` measures
+  with both; gles2 renders headless on the GPU's render node and needs no display.
 
 ```sh
 python3 tools/prof/soak.py build --cycles 20         # about 4 minutes
