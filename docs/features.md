@@ -1349,8 +1349,8 @@ beginning with an `overview-assist` line (the slot, in the monitor's coordinates
 
 ### Magnetic edges
 
-A floating window that is dragged (Alt + left drag, or a client-decorated window's own title
-bar) or resized (Alt + right drag, or its border) sticks to nearby edges, so windows line up
+A floating window that is dragged (Super + left drag, or a client-decorated window's own title
+bar) or resized (Super + right drag, or its border) sticks to nearby edges, so windows line up
 without pixel hunting. Within `windows.magnet.distance` (12 px by default) an edge of the window
 lands on the edge of the output, of the area the panels leave free, or of another window, and a
 translucent guide line (`guide_color`) is drawn along the edge that holds it, from one window to
