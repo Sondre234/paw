@@ -21,7 +21,10 @@ with harness.Compositor(compositor, source, start=False) as desktop:
     env.update(QT_QPA_PLATFORM="wayland", QT_QUICK_BACKEND="software",
                QT_FORCE_STDERR_LOGGING="1", XDG_DATA_HOME=str(root), XDG_DATA_DIRS=str(root),
                PAW_DEFAULT_CONFIG=example,
-               DBUS_SESSION_BUS_ADDRESS="disabled:")  # the shell must not use the real session bus
+               DBUS_SESSION_BUS_ADDRESS="disabled:",  # the shell must not use the real session bus
+               # A shell that sent its subscription only once its views had loaded (some 150 ms
+               # on, here) would be dropped this soon, and deaf to the launcher action below.
+               PAW_TEST_CONTROL_REQUEST_MS="100")
     shell_log = root / "shell.log"
     desktop.start()
     panels = desktop.spawn([shell, "--config", str(config)], log="shell.log")
