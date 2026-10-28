@@ -457,7 +457,8 @@ Where a window dragged to an edge snaps (`sh_snap_zone`), a step of the Win+arro
 halves' and quarters' geometry (`sh_placement`), with unit tests in `tests/layout_tests.cpp`.
 `snap.c` follows a move with the pointer (`snap_follow`, from `process_cursor_move`): the zone,
 the slot (`placed_slot`, `placement.c`) and the preview, a tree of two rectangles that sits in
-`windows` just under the dragged window while it shows and among the guides while it does not,
+the dragged window's own tree of windows (`windows`, `floating_windows` or `above_windows`) just
+under it while it shows and among the guides while it does not,
 easing through an `sh_tween` of five values (place, size, opacity). `finish_grab` asks
 `snap_drop` first; a drop that would take the window into a tiling (`drop_tiles`, `grab.c`)
 snaps nowhere, but at the top with `snap_maximize_tiles`. `place_by_hand_on` puts a window into a slot of a given output,
