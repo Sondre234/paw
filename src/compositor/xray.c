@@ -691,7 +691,7 @@ static int glide_span(const struct sh_settings *settings, double factor) {
     return (int)(settings->animation_styles[SH_ANIM_MINIMIZE].duration * factor / speed);
 }
 
-void xray_open(struct sh_server *server) {
+static void xray_open(struct sh_server *server) {
     struct sh_xray *xray = &server->xray;
     if (xray->open || server->locked)
         return;

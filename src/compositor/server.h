@@ -1730,7 +1730,6 @@ void output_power_set_mode(struct wl_listener *listener, void *data);
 bool display_action(enum sh_action action);
 bool display_power(struct sh_server *server, enum sh_action action, char *error,
                    size_t error_size);
-void bring_toplevel(struct sh_toplevel *toplevel, struct wlr_output *to);
 bool wake_displays(struct sh_server *server);
 
 /* overview.c */
@@ -2077,7 +2076,6 @@ void xwayland_give_cursor(struct sh_server *server);
 #endif
 
 /* toys.c */
-void toys_shake(struct sh_server *server, struct sh_toplevel *toplevel);
 void toys_start(struct sh_server *server, enum sh_action action, int argument);
 void toys_tick(struct sh_server *server);
 void toys_press(struct sh_server *server);
@@ -2136,7 +2134,6 @@ void cursor_trail_clear(struct sh_server *server);
 void describe_cursor_trail(struct sh_server *server, int fd, const char *arguments);
 /* xray.c */
 void xray_touch(struct sh_server *server);
-void xray_open(struct sh_server *server);
 void xray_close(struct sh_server *server, struct sh_toplevel *chosen);
 void xray_dismiss(struct sh_server *server);
 void xray_toggle(struct sh_server *server);
