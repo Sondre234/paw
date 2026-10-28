@@ -7,6 +7,7 @@
 #include "xdg-shell-client-protocol.h"
 #include "xdg-toplevel-icon-v1-client-protocol.h"
 #include "tearing-control-v1-client-protocol.h"
+#include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -110,6 +111,15 @@ struct probe {
 static void die(const char *message) {
     fprintf(stderr, "wayland probe: %s\n", message);
     exit(1);
+}
+/* Every test ends the compositor with its windows still open, as a session ends: that hang-up
+ * (EPIPE or ECONNRESET) ends the probe quietly, and only another failure, a protocol error above
+ * all, is printed. */
+static void dispatch_failed(struct wl_display *display) {
+    int error = wl_display_get_error(display);
+    if (error == EPIPE || error == ECONNRESET)
+        exit(1);
+    die("dispatch failed");
 }
 static void ping(void *data, struct xdg_wm_base *shell, uint32_t serial) {
     xdg_wm_base_pong(shell, serial);
@@ -548,9 +558,9 @@ static void run_commands(struct wl_display *display, struct probe *probe) {
         if (ready < 0 || !(fds[0].revents & POLLIN))
             wl_display_cancel_read(display);
         else if (wl_display_read_events(display) < 0)
-            die("dispatch failed");
+            dispatch_failed(display);
         if (wl_display_dispatch_pending(display) < 0)
-            die("dispatch failed");
+            dispatch_failed(display);
         if (ready > 0 && (fds[1].revents & (POLLIN | POLLHUP))) {
             ssize_t count = read(0, pending + length, sizeof(pending) - 1 - length);
             if (count <= 0)
@@ -1066,7 +1076,7 @@ int main(int argc, char **argv) {
         run_commands(display, &probe);
     while (!probe.done)
         if (wl_display_dispatch(display) < 0)
-            die("dispatch failed");
+            dispatch_failed(display);
     wl_surface_attach(probe.surface, NULL, 0, 0);
     wl_surface_commit(probe.surface);
     if (wl_display_roundtrip(display) < 0)
