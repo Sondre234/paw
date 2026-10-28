@@ -480,8 +480,8 @@ and an icon glows in the band's two hues until its file is all in. A file alread
 folder just moves its icon. A link dragged from a browser becomes a link file named from the
 page's title, or its host (a desktop entry of `Type=Link`, made executable so that the desktop opens
 it with a double-click), and a picture dragged from one is saved as a file of its type. Dragged over
-a folder's icon, files from a window or the desktop's own icons open the folder up, ringed in pink
-and wiggling, and dropped there they go into it as it gulps them down.
+a folder's icon, files from a window or the desktop's own icons open the folder up, ringed in the
+accent's second hue and wiggling, and dropped there they go into it as it gulps them down.
 
 Clicked, the desktop has the keyboard as a window would: the pointer passing over it never takes
 the keyboard, and moving onto a window, with focus following the mouse, or clicking one gives it
