@@ -1389,7 +1389,13 @@ void ShellController::subscribe() {
         return;
     state_ = new QLocalSocket(this);
     // As the shell, which carries out the volume keys the compositor would otherwise hand to wpctl.
-    connect(state_, &QLocalSocket::connected, this, [this] { state_->write("subscribe shell\n"); });
+    // Flushed at once: this runs before the views load, long before the event loop would send it,
+    // and the compositor drops a connection that sends no request within 5 seconds, which a slow
+    // start (a loaded machine, a sanitizer build) takes.
+    connect(state_, &QLocalSocket::connected, this, [this] {
+        state_->write("subscribe shell\n");
+        state_->flush();
+    });
     connect(state_, &QLocalSocket::readyRead, this, [this] {
         bool outputs = false, urgentSeen = false;
         // The windowless lines end a state, which may come in more than one read.
