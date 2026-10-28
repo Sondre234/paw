@@ -163,8 +163,8 @@ shows.
 ### Taskbar
 
 Along the bar, from the left: the start button, one row of the pinned applications and the open
-windows, the workspace indicator, the widgets placed on the bar, the tray, the Quick Settings
-button, the clock, and a sliver at the end that shows the desktop. A button shows a tooltip when
+windows, the workspace indicator, the widgets placed on the bar with the tray among them, the
+Quick Settings button, the clock, and a sliver at the end that shows the desktop. A button shows a tooltip when
 the pointer rests on it, but for a window's, which shows pictures of its windows instead
 ([below](#window-pictures)). Lua configures the panel's height (its icons grow with it), the edge
 of the monitor it is along (`panel_position`: top, bottom, left or right), margins that make it
