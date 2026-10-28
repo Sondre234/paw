@@ -102,10 +102,10 @@ Requirements:
 - CMake 3.25+, C11 and C++20 compilers, pkg-config, Ninja (used below)
 - Lua 5.4, xkbcommon
 - wlroots **0.20.x** (its API changes between release series), wayland-server,
-  wayland-protocols, wayland-scanner
+  wayland-protocols, wayland-scanner, pixman
 - For the shell: Qt 6.9+ (Core, Gui, Network, Qml, Quick, Quick Controls Basic, Quick Layouts,
-  Quick Effects, the Wayland platform plugin, and DBus for notifications, the tray, the media
-  controls, the power mode, Wi-Fi and Bluetooth),
+  Quick Effects, Quick Shapes, SVG for the icons, the Wayland platform plugin, and DBus for
+  notifications, the tray, the media controls, the power mode, Wi-Fi and Bluetooth),
   LayerShellQt 6.6+, GLib/GIO, wayland-client
 - libinput and xcb (with xcb-xfixes and xcb-ewmh) when wlroots is built with its libinput
   backend or with XWayland; optionally sd-bus (libsystemd, libelogind or basu) for the
