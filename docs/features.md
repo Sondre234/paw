@@ -8,7 +8,8 @@ and every Lua setting, with its type, default and range, is in the
 
 `paw-shell` draws the desktop and, on every monitor, either a menu bar and a dock in
 [the macOS style](#the-macos-style), where the shipped configuration starts, or a taskbar with its
-[start menu](#start-menu) (`shell.style = "taskbar"`, the profiles `default` and `light`). Both
+[start menu](#start-menu) (`shell.style = "taskbar"`, the profiles `default`, `light`, `washi`,
+`sumi`, `mochi`, `hibana` and `tekketsu`). Both
 have [Quick Settings](#quick-settings), the [clock's flyout](#clock-and-calendar) and the
 [system tray](#system-tray). While a monitor [tiles](#tiling), its bars give way to the
 [tiling bar](#the-tiling-bar), a bar in Hyprland's style. The shell draws the overlays the compositor asks for: the
