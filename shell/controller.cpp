@@ -1401,15 +1401,20 @@ void ShellController::subscribe() {
                 subscribed_ = true;
                 Q_EMIT tilingChanged();
             } else if (line.startsWith("tiling ")) {
-                // Each state starts with this line and lists every output after it.
-                tiling_ = line == "tiling on";
+                // Each state starts with this line and lists every output after it. Every
+                // binding on tiling (the menus' entries among them) runs again as it is told,
+                // so it is told only of a change.
+                const bool tiling = line == "tiling on";
+                const bool changed = !tilingKnown_ || tiling != tiling_;
+                tiling_ = tiling;
                 tilingKnown_ = true;
                 nextWorkspaces_.clear();
                 nextUrgentWindows_.clear();
                 nextWindowless_.clear();
                 urgentSeen = windowlessSeen = true;
                 outputs = true;
-                Q_EMIT tilingChanged();
+                if (changed)
+                    Q_EMIT tilingChanged();
             } else if (line.startsWith("output ")) {
                 outputs = true;
                 // output NAME CURRENT OCCUPIED TILING, where OCCUPIED is "1,3" or "-" and
