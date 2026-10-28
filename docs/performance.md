@@ -174,6 +174,12 @@ draw in some 6 µs. Behind a maximized window only the strip around washi's floa
 particles, and the scene draws only those. With a fullscreen window, the lock, a monitor off or
 the screens dimmed, and after five minutes without input, nothing runs at all.
 
+A frosted window (`windows.blur`) hides the particles beneath it, but its blur is all but opaque so
+that the scene still draws what lies under it, and each step drew the window and its blur again
+for nothing that shows. The particles it hides are now left out. With tekketsu, 24 embers and a
+maximized window at 0.9 opacity on the headless 1920x1080 output with pixman, as kitty is in that
+rice, the compositor took 48.5 % of a core (frames of 8.7 ms, 20 ms at p95) before and 0.3 % after.
+
 Embers and rain came later, and were measured beside the first three in other conditions: the
 headless 1920x1080 output with no shell, a plain background and no windows, over 10 seconds each,
 counting only the frames that drew something (2026-10-17, the machine in use meanwhile, so the
