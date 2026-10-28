@@ -33,6 +33,10 @@ CONFIG = """return {
         },
     },
 }"""
+# Where only a fold's start and end count, a quarter of a second does, and a shorter peek.
+SHORT = CONFIG.replace("duration = 900", "duration = 250").replace("duration = 1500",
+                                                                   "duration = 500")
+assert SHORT.count("duration = 250") == 1 and "duration = 500" in SHORT
 
 with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) as desktop:
     msg, wait_for = desktop.msg, desktop.wait_for
@@ -163,6 +167,10 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     taskbar("restore", "A")
     assert (a, "minimize") not in folds(), folds()
     wait_for(settled, "A back at once")
+
+    # From here on the folds are looked at as they set off, from the same connection, and as they
+    # end: short ones will do.
+    desktop.reload(SHORT)
 
     # A window peeked at, as the taskbar's picture and the switcher do, is shown where it is
     # already: restored, it stays there rather than coming out of its button; and so does one
@@ -304,6 +312,9 @@ with harness.Compositor(compositor, CONFIG, env={"WLR_HEADLESS_OUTPUTS": "2"}) a
     taskbar("destroy", "A")
     assert minimize_state()[0] == {}, minimize_state()
     taskbar.finish()
+
+    # Programs started for each request below find the fold still on its way only if it is slow.
+    desktop.reload(CONFIG)
 
     # A panel's own rectangle, wlr-foreign-toplevel's set_rectangle on its surface: the panel
     # along the bottom of an output, 48 tall, has the button 4 down from its top. A window
