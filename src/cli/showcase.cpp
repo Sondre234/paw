@@ -364,12 +364,8 @@ struct Showcase {
             throw std::runtime_error("no monitor to take");
         partial = file;
         partial += ".part";
-        try {
-            send("cursor hide");
-            hidden = true;
-        } catch (const std::exception &) {
-            // An older paw shows the cursor, as grim -c would.
-        }
+        send("cursor hide");
+        hidden = true;
         pid_t grim = start({"grim", "-t", "png", "-o", output, partial.string()}, false);
         int status = 0;
         bool done = false;
