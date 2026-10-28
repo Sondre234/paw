@@ -54,7 +54,8 @@ the dock.
 - **Dock**, centred along the bottom: the Launchpad button, the pinned applications, the running
   ones that are not pinned, and the Trash (which opens `trash:///`). A dot sits under each running
   application and its name shows above it on hover. A click starts an application, its icon
-  bouncing until a window opens, or brings its windows forward; one asking for attention bounces
+  bouncing until a window opens, or brings its windows up one at a time, the next after the
+  focused one; one asking for attention bounces
   three times. A right click lists its windows and actions, Keep in Dock or Remove from Dock, Hide,
   Quit and Force Quit, which kills its processes as the taskbar's Kill process does. Something dragged from an application and resting on an icon brings its window
   forward, or lists its windows to rest on one, as on the [taskbar](#taskbar), its name showing
