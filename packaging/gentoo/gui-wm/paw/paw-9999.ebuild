@@ -18,8 +18,9 @@ else
 	KEYWORDS="~amd64"
 fi
 
-# GPL-3+ for paw; MIT for the TinyWL-derived adapter and the wlr protocol files.
-LICENSE="GPL-3+ MIT"
+# GPL-3+ for paw; MIT for the TinyWL-derived adapter and the wlr protocol files; Unicode-3.0
+# for the emoji picker's table compiled into the shell.
+LICENSE="GPL-3+ MIT shell? ( Unicode-3.0 )"
 SLOT="0"
 IUSE="X +notifications +polkit +pulseaudio +shell test"
 REQUIRED_USE="

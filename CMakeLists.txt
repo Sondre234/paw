@@ -480,6 +480,11 @@ if(PAW_BUILD_COMPOSITOR)
     install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/paw)
     install(FILES vendor/tinywl/LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/paw
         RENAME TinyWL-LICENSE)
+    # paw-shell has Unicode's emoji data compiled in (vendor/emoji).
+    if(PAW_BUILD_SHELL AND NOT PAW_SHELL_PREVIEW_ONLY)
+        install(FILES vendor/emoji/LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/paw
+            RENAME Unicode-LICENSE)
+    endif()
     install(DIRECTORY protocols/ DESTINATION ${CMAKE_INSTALL_DATADIR}/paw/protocols)
     install(FILES packaging/paw-portals.conf
         DESTINATION ${CMAKE_INSTALL_DATADIR}/xdg-desktop-portal)
