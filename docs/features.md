@@ -752,8 +752,8 @@ interface. Both follow the kernel's notices of changes as they come. Where Netwo
 the network shows the connection the machine goes out through instead, its bars following the
 Wi-Fi signal and its tip naming the network, and a click lists the [Wi-Fi](#wi-fi) networks. With
 two or more
-[keyboard layouts](#keyboard-layouts), the active one's short name (`us`, `no`) sits beside the
-clock, and clicking it switches every keyboard to the next.
+[keyboard layouts](#keyboard-layouts), the active one's short name (`us`, `no`) sits before the
+Quick Settings button and the clock, and clicking it switches every keyboard to the next.
 
 ### Look and feel
 
