@@ -621,8 +621,9 @@ wlr-output-management change waits for it), and taking an output out of the layo
 `publish_output_configuration` reports such an output as enabled, as sway does, and
 `send_locked_if_presented` waits for no frame from it. wlroots' `wlr_output_power_manager_v1`
 reports the mode from `wlr_output->enabled` on every commit that changes it, so clients hear of
-the actions' changes too. `input_activity` (`input.c`), which every key, button, scroll and motion
-event calls, wakes them through `wake_displays` once every output in the layout is off.
+the actions' changes too. `input_activity` (`input.c`), which every input event calls (keys,
+buttons, scrolling, motion, touchpad gestures, pens, tablet pads, fingers and switches), wakes them
+through `wake_displays` once every output in the layout is off.
 
 ### Mirroring
 
@@ -841,11 +842,10 @@ schedule wants, which the shell's Appearance tile and profile menus show.
 ### Power saving when idle
 
 `idle.c` takes the `idle` steps (`enum sh_idle_step`: dim, display_off, lock, suspend) with one
-timer, `sh_server.idle`. `input_activity` calls `idle_activity` on every key, button, scroll, motion
-and switch event (not a touchpad gesture's, a pen's or a finger's on a surface that takes touch,
-which only tell `ext-idle-notify-v1`), which only notes the time while no step has been taken; the
-timer, set for the next step's time on either power source's table, finds when it fires whether
-input came meanwhile and sets itself again.
+timer, `sh_server.idle`. `input_activity` calls `idle_activity` on every key, button, scroll,
+motion, touchpad gesture, pen, tablet pad, finger and switch event, which only notes the time while
+no step has been taken; the timer, set for the next step's time on either power source's table,
+finds when it fires whether input came meanwhile and sets itself again.
 Each step taken sets its bit in `done` and is not taken again until input clears them, which
 also fades the dimming out and turns on the outputs the display_off step turned off (`idle_off`
 on `sh_output`, cleared whenever an output is turned on another way). The dimming is a stretched
