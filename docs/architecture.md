@@ -2183,6 +2183,8 @@ resting pointer counts in the heatmap (see `heatmap_smoke.py`).
 out (see `ambient_smoke.py`).
 `PAW_TEST_URGENT_PULSE_MS` sets how long an urgent window's border pulses (see
 `urgent_border_smoke.py`).
+`PAW_TEST_CONTROL_REQUEST_MS` sets how long a control connection has to send its request before
+it is dropped (see `shell_integration.py`).
 `PAW_PROBE_ICON` gives a `wayland_probe` window an icon
   through xdg-toplevel-icon-v1 and an `x11_probe` window `_NET_WM_ICON`, and their commands
   change it (see `window_icon_smoke.py`). `PAW_LOGIN_SESSION=1` makes a headless

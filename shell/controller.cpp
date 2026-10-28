@@ -1389,7 +1389,13 @@ void ShellController::subscribe() {
         return;
     state_ = new QLocalSocket(this);
     // As the shell, which carries out the volume keys the compositor would otherwise hand to wpctl.
-    connect(state_, &QLocalSocket::connected, this, [this] { state_->write("subscribe shell\n"); });
+    // Flushed at once: this runs before the views load, long before the event loop would send it,
+    // and the compositor drops a connection that sends no request within 5 seconds, which a slow
+    // start (a loaded machine, a sanitizer build) takes.
+    connect(state_, &QLocalSocket::connected, this, [this] {
+        state_->write("subscribe shell\n");
+        state_->flush();
+    });
     connect(state_, &QLocalSocket::readyRead, this, [this] {
         bool outputs = false, urgentSeen = false;
         // The windowless lines end a state, which may come in more than one read.
@@ -1751,7 +1757,10 @@ void ShellController::subscribe() {
         if (windowlessSeen)
             setWindowless(nextWindowless_);
     });
-    connect(state_, &QLocalSocket::disconnected, this, [this] {
+    connect(state_, &QLocalSocket::disconnected, this, [this, path] {
+        const bool wasSubscribed = subscribed_;
+        std::cerr << "paw shell: the compositor closed its control socket " << path.toStdString()
+                  << (wasSubscribed ? "" : " before the shell had subscribed") << '\n';
         subscribed_ = false;
         if (!keyboardLayout_.isEmpty()) {
             keyboardLayout_.clear();
@@ -1776,7 +1785,21 @@ void ShellController::subscribe() {
         }
         clearOverview();
         clearXray();
+        // Once more, a moment later, after a subscription the compositor dropped (one that fell
+        // behind): never after one that did not get that far, nor after an attempt that failed,
+        // so that it cannot spin. As paw quits, the shell's Wayland connection breaks and ends it
+        // well within that moment.
+        if (wasSubscribed)
+            QTimer::singleShot(1000, this, [this, path] { state_->connectToServer(path); });
     });
+    // The compositor closing it is told by disconnected above.
+    connect(state_, &QLocalSocket::errorOccurred, this,
+            [this, path](QLocalSocket::LocalSocketError error) {
+                if (error != QLocalSocket::PeerClosedError)
+                    std::cerr << "paw shell: cannot subscribe at the control socket "
+                              << path.toStdString() << ": " << state_->errorString().toStdString()
+                              << '\n';
+            });
     state_->connectToServer(path);
 }
 void ShellController::setBindingMode(const QString &mode) {

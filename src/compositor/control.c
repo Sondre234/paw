@@ -827,7 +827,7 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
 
 /* A connection has this long to send its whole request, so that ones that never do cannot pile
  * up until paw runs out of file descriptors (and no new window can connect). Every client sends
- * its request as it connects. */
+ * its request as it connects. Under --headless, PAW_TEST_CONTROL_REQUEST_MS sets it for tests. */
 #define CONTROL_REQUEST_MS 5000
 /* At most this many wait for their request at once: past it, the one waiting longest goes. */
 #define CONTROL_PENDING_MAX 64
@@ -835,6 +835,12 @@ static int control_client_readable(int fd, uint32_t mask, void *data) {
  * rather than try again on every pass of the event loop, at full speed, paw stops watching the
  * socket for this long, connections waiting in its backlog meanwhile. */
 #define CONTROL_BACKOFF_MS 250
+
+static int control_request_ms(struct sh_server *server) {
+    const char *test = getenv("PAW_TEST_CONTROL_REQUEST_MS");
+    int ms = test && headless_backend(server) ? atoi(test) : 0;
+    return ms > 0 ? ms : CONTROL_REQUEST_MS;
+}
 
 /* Closes a connection still waiting for its request, telling it why if it listens. */
 static void control_client_drop(struct sh_control_client *client, const char *why) {
@@ -887,7 +893,7 @@ static int control_accept(int fd, uint32_t mask, void *data) {
         wl_event_loop_add_fd(loop, client_fd, WL_EVENT_READABLE, control_client_readable, client);
     client->timer = wl_event_loop_add_timer(loop, control_client_late, client);
     if (!client->source || !client->timer ||
-        wl_event_source_timer_update(client->timer, CONTROL_REQUEST_MS) < 0) {
+        wl_event_source_timer_update(client->timer, control_request_ms(server)) < 0) {
         if (client->source)
             wl_event_source_remove(client->source);
         if (client->timer)
