@@ -643,6 +643,17 @@ int main(int argc, char **argv) {
     QTest::mouseClick(&view, Qt::LeftButton, Qt::NoModifier, toggle);
     if (!waitFor([&] { return toggled && panelTiling(); }))
         return fail("the tiling button did not toggle tiling");
+    // States that leave tiling as it was do not say it changed: each binding on it would run
+    // again, the hidden menus building their rows anew on every workspace switch.
+    {
+        QSignalSpy told(&controller, &ShellController::tilingChanged);
+        QSignalSpy workspaces(&controller, &ShellController::workspacesChanged);
+        subscriber->write(state(toggled, 3));
+        bool switched = waitFor([&] { return workspaces.count() == 1; });
+        subscriber->write(state(toggled, currentWorkspace));
+        if (!switched || !waitFor([&] { return workspaces.count() == 2; }) || !told.isEmpty())
+            return fail("a state that left tiling as it was said tiling changed");
+    }
     // The workspace indicator shows this output's state and switches it.
     auto workspace = [&](int number) {
         return find(view.rootObject(), QString("workspace%1").arg(number));
