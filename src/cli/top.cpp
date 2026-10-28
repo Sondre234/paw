@@ -367,18 +367,6 @@ const char *glyph(double value, size_t row, size_t height, double top) {
     return blocks[std::clamp<long>(level - below, 0, 8)];
 }
 
-std::vector<std::string> graph(const std::vector<uint32_t> &values, size_t width, size_t height,
-                               double top) {
-    std::vector<std::string> lines(height);
-    size_t shown = std::min(values.size(), width);
-    for (size_t row = 0; row < height; ++row) {
-        lines[row].assign(width - shown, ' ');
-        for (size_t i = values.size() - shown; i < values.size(); ++i)
-            lines[row] += glyph(values[i], row, height, top);
-    }
-    return lines;
-}
-
 double scale(double worst, double budget) {
     double wanted = std::max({worst, budget / 4, 1.0});
     double magnitude = std::pow(10, std::floor(std::log10(wanted)));

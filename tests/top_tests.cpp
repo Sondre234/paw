@@ -152,12 +152,11 @@ int main() {
     NEAR(refresh_of("2560x1440@143.912"), 143.912, 1e-9);
     CHECK(refresh_of("1280x720") == 0);
 
-    // Graphs: eighths of a column, at least a sliver, blank before the first value.
-    CHECK(graph({0, 50, 100, 200}, 4, 1, 100) == (std::vector<std::string>{"▁▄██"}));
-    CHECK(graph({100}, 3, 1, 100) == (std::vector<std::string>{"  █"}));
-    CHECK(graph({25, 75, 100}, 2, 2, 100) == (std::vector<std::string>{"▄█", "██"}),
-          "the newest two, over two rows");
-    CHECK(graph({30}, 1, 2, 100) == (std::vector<std::string>{" ", "▅"}));
+    // Graphs: eighths of a column, at least a sliver.
+    CHECK(std::string(glyph(50, 0, 1, 100)) == "▄" && std::string(glyph(200, 0, 1, 100)) == "█");
+    CHECK(std::string(glyph(75, 0, 2, 100)) == "▄" && std::string(glyph(75, 1, 2, 100)) == "█",
+          "over two rows");
+    CHECK(std::string(glyph(30, 0, 2, 100)) == " " && std::string(glyph(30, 1, 2, 100)) == "▅");
     CHECK(std::string(glyph(0, 0, 3, 100)) == " " && std::string(glyph(0, 2, 3, 100)) == "▁");
     CHECK(scale(1000, 16667) == 5000, "a quarter of the budget at least, made round");
     CHECK(scale(20001, 16667) == 25000);
