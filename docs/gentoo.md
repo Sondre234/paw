@@ -92,8 +92,8 @@ USE flags. X11 applications additionally need wlroots with the `X` USE flag and
 windows' icons) and enables XWayland automatically (the XWM waker also needs `xcb-xfixes`, part
 of libxcb). To fix wlroots' lost X11 windows at the source, copy
 `packaging/patches/wlroots-xwm-drain.patch` into `/etc/portage/patches/gui-libs/wlroots/`,
-re-emerge wlroots, and configure paw with `-DPAW_XWM_WAKER=OFF`. Rounded corners on
-tiled windows (`windows.corner_radius`) need
+re-emerge wlroots, and configure paw with `-DPAW_XWM_WAKER=OFF`. Rounded window corners
+(`windows.corner_radius`, on the windows `windows.round` picks) need
 `packaging/patches/wlroots-rounded-corners.patch` in the same directory; paw finds the
 patched wlroots by itself when it is next configured, and keeps windows square without it.
 Portage applies these patches only when it builds from source: with binary packages enabled,
@@ -119,8 +119,8 @@ in Qt 6.11, in [qtwayland](https://packages.gentoo.org/packages/dev-qt/qtwayland
 releases), and [LayerShellQt](https://packages.gentoo.org/packages/kde-plasma/layer-shell-qt).
 It does not require running Plasma. Use Qt with OpenGL/Wayland support for normal
 GPU rendering. An installed icon theme supplies application icons; missing icons
-have a built-in fallback. `xdg-open` and a file manager are optional for the Home
-shortcut; edit the Lua launcher commands to match your installed applications.
+have a built-in fallback. `xdg-open` is optional: notifications open their links with it, and
+`paw config edit` opens the configuration with it when neither `$VISUAL` nor `$EDITOR` is set.
 
 These are instructions for the target machine; paw's build does not run
 Portage, modify USE flags, install services, or alter your session configuration.
@@ -206,8 +206,9 @@ or woken through DRM, VT switching on NVIDIA, suspend and resume, a laptop lid, 
 brightness keys. Start it from the console, not over SSH:
 a process outside the console's logind session cannot switch VTs.
 Keep another TTY available while testing. Set monitor order with `outputs.order`
-and `outputs.primary`; per-monitor modes and scaling are not configurable yet; this is not ready to
-replace a secured daily session.
+and `outputs.primary`, and each monitor's mode, scale and position with `outputs.monitors` or
+the [display settings](features.md#display-settings) window; this is not ready to replace a
+secured daily session.
 
 References:
 [Gentoo wlroots package](https://packages.gentoo.org/packages/gui-libs/wlroots),
