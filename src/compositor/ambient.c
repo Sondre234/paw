@@ -238,7 +238,60 @@ static struct sh_ambient_sky *make_sky(struct sh_ambient *ambient, struct sh_out
     return sky;
 }
 
+/* The blur under a window (blur.c) is all but opaque, so that the scene still draws what lies
+ * beneath it: a particle there would have the window and its blur drawn again on every step,
+ * for nothing that shows. Those are not drawn. */
+enum { COVERS = 32 };
+static const float HIDING = 0.99f; // a blur this opaque hides what is under it
+
+/* Where a blurred window hides what is beneath: the box of its blur as drawn now, in the sky's
+ * coordinates, with the corners its rounded clip cuts. */
+struct cover {
+    struct wlr_box box;
+    int radius;
+};
+
+static int find_covers(struct sh_ambient_sky *sky, struct cover covers[COVERS]) {
+    int count = 0;
+    struct sh_toplevel *toplevel;
+    wl_list_for_each(toplevel, &sky->output->server->toplevels, link) {
+        if (count == COVERS)
+            break;
+        struct wlr_scene_buffer *blur = toplevel->blur;
+        int x, y;
+        if (!blur || blur->opacity < HIDING || !wlr_scene_node_coords(&blur->node, &x, &y))
+            continue; // none, fading (a peek), or not shown
+        covers[count++] = (struct cover){
+            {x - sky->tree->node.x, y - sky->tree->node.y, blur->dst_width, blur->dst_height},
+            toplevel->corner_radius};
+    }
+    return count;
+}
+
+/* Whether a particle's `box` shows nowhere: what of it lies on the output is under a cover, clear
+ * of its corners. One off the output damages nothing as it is. */
+static bool covered(const struct sh_ambient_sky *sky, const struct cover *covers, int count,
+                    struct wlr_box box) {
+    struct wlr_box output = {0, 0, (int)sky->field.width, (int)sky->field.height}, on;
+    if (!wlr_box_intersection(&on, &box, &output))
+        return false;
+    for (int i = 0; i < count; ++i) {
+        const struct wlr_box *c = &covers[i].box;
+        int r = covers[i].radius;
+        if (on.x < c->x || on.y < c->y || on.x + on.width > c->x + c->width ||
+            on.y + on.height > c->y + c->height)
+            continue;
+        bool side = on.x < c->x + r || on.x + on.width > c->x + c->width - r;
+        bool end = on.y < c->y + r || on.y + on.height > c->y + c->height - r;
+        if (!(side && end))
+            return true;
+    }
+    return false;
+}
+
 static void draw(struct sh_ambient_sky *sky) {
+    struct cover covers[COVERS];
+    int covering = find_covers(sky, covers);
     // The scene works out what shows after each change to a node it shows: a few for each
     // particle. They change out of its sight instead, and come back together.
     wlr_scene_node_set_enabled(&sky->tree->node, false);
@@ -248,7 +301,12 @@ static void draw(struct sh_ambient_sky *sky) {
         sh_ambient_look(&sky->field, &sky->particles[i], &look);
         struct wlr_scene_buffer *node = sky->nodes[i];
         float opacity = (float)(look.opacity * presence);
-        struct wlr_buffer *buffer = opacity > 0.004f ? sprite(sky, look.sprite) : NULL;
+        int width = (int)lround(look.width), height = (int)lround(look.height);
+        struct wlr_box box = {(int)lround(look.x), (int)lround(look.y), width < 1 ? 1 : width,
+                              height < 1 ? 1 : height};
+        struct wlr_buffer *buffer = opacity > 0.004f && !covered(sky, covers, covering, box)
+                                        ? sprite(sky, look.sprite)
+                                        : NULL;
         wlr_scene_node_set_enabled(&node->node, buffer != NULL);
         if (!buffer)
             continue;
@@ -257,9 +315,8 @@ static void draw(struct sh_ambient_sky *sky) {
             sky->drawn[i] = look.sprite;
         }
         wlr_scene_buffer_set_transform(node, quarter_transform(look.quarters));
-        int width = (int)lround(look.width), height = (int)lround(look.height);
-        wlr_scene_buffer_set_dest_size(node, width < 1 ? 1 : width, height < 1 ? 1 : height);
-        wlr_scene_node_set_position(&node->node, (int)lround(look.x), (int)lround(look.y));
+        wlr_scene_buffer_set_dest_size(node, box.width, box.height);
+        wlr_scene_node_set_position(&node->node, box.x, box.y);
         wlr_scene_buffer_set_opacity(node, opacity > 1 ? 1 : opacity);
     }
     wlr_scene_node_set_enabled(&sky->tree->node, true);
