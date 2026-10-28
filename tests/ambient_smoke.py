@@ -26,6 +26,7 @@ CONFIG = """return {{
     profiles = {{
         night = {{ appearance = {{ ambient = {{ kind = "fireflies" }} }} }},
         plain = {{}},
+        frosted = {{ windows = {{ opacity = 0.9, blur = {{ enabled = true }} }} }},
     }},
 }}"""
 F3 = 61  # evdev key code
@@ -83,6 +84,18 @@ with harness.Compositor(compositor, CONFIG.format(kind="none")) as desktop:
     desktop.stays(lambda: frames() - before <= 2, "no frames for the particles", duration=1)
     msg("fullscreen")
     wait_for(lambda: sky()["state"] == "shown", "shown again")
+
+    # Under a frosted window, whose blur hides what lies beneath though the scene would still
+    # draw it, none is drawn, and nothing of them draws a frame.
+    msg("profile", "frosted")
+    msg("maximize")
+    wait_for(lambda: particles() == [], "no petal drawn under the frosted window")
+    assert sky()["state"] == "shown", sky()
+    before = frames()
+    desktop.stays(lambda: frames() - before <= 2, "no frames for the hidden petals", duration=1)
+    msg("restore")
+    msg("profile", "plain")
+    wait_for(lambda: len(particles()) == 12, "the petals drawn again")
 
     # So does the lock.
     locker = desktop.spawn([lock_probe, "hold", str(desktop.root / "locker.log")])
