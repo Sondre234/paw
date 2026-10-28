@@ -503,6 +503,8 @@ with harness.Compositor(compositor, MORPHS) as desktop:
     wait_for(settled, "W opened")
     start = drawn()[0]
     msg("maximize")
+    # `get windows` has W's new place at once, but its new size only once the client has drawn it.
+    wait_for(lambda: windows()["W"].box[2:] != start[2:], "W drawn at its maximized size")
     full = windows()["W"].box
     wait_for(lambda: start[2] + 200 < drawn()[0][2] < 1000, "W growing to fill the output")
     before = drawn()[0]
