@@ -22,10 +22,11 @@ fi
 # for the emoji picker's table compiled into the shell.
 LICENSE="GPL-3+ MIT shell? ( Unicode-3.0 )"
 SLOT="0"
-IUSE="X +notifications +polkit +pulseaudio +shell test"
+IUSE="X +dbus +notifications +polkit +pulseaudio +shell test"
 REQUIRED_USE="
 	${LUA_REQUIRED_USE}
-	notifications? ( shell )
+	dbus? ( shell )
+	notifications? ( dbus )
 	polkit? ( shell )
 	pulseaudio? ( shell )
 "
@@ -54,7 +55,7 @@ COMMON_DEPEND="
 		>=dev-qt/qtbase-6.9:6[gui,network,wayland]
 		>=dev-qt/qtdeclarative-6.9:6
 		>=kde-plasma/layer-shell-qt-6.6:6
-		notifications? ( dev-qt/qtbase:6[dbus] )
+		dbus? ( dev-qt/qtbase:6[dbus] )
 		polkit? ( sys-auth/polkit )
 		pulseaudio? ( media-libs/libpulse )
 	)
@@ -85,11 +86,19 @@ src_configure() {
 	local mycmakeargs=(
 		-DPAW_BUILD_COMPOSITOR=ON
 		-DPAW_BUILD_SHELL=$(usex shell)
+		-DPAW_SHELL_PREVIEW_ONLY=OFF
 		-DPAW_INSTALL_SESSION=ON
 		-DBUILD_TESTING=$(usex test)
 	)
+	use X && mycmakeargs+=( -DPAW_XWM_WAKER=ON )
+	# The shell builds each D-Bus service whenever Qt has D-Bus, unless told otherwise.
 	use shell && mycmakeargs+=(
 		-DPAW_NOTIFICATIONS=$(usex notifications)
+		-DPAW_TRAY=$(usex dbus)
+		-DPAW_MEDIA=$(usex dbus)
+		-DPAW_POWER_PROFILES=$(usex dbus)
+		-DPAW_NETWORKMANAGER=$(usex dbus)
+		-DPAW_BLUETOOTH=$(usex dbus)
 		-DPAW_POLKIT=$(usex polkit)
 		-DPAW_PULSEAUDIO=$(usex pulseaudio)
 	)
@@ -123,4 +132,9 @@ pkg_postinst() {
 	optfeature "idle timeouts" gui-apps/swayidle
 	optfeature "application icons in the shell" x11-themes/adwaita-icon-theme \
 		kde-frameworks/breeze-icons
+	if use dbus; then
+		optfeature "Wi-Fi in Quick Settings and the network widget" net-misc/networkmanager
+		optfeature "Bluetooth in Quick Settings" net-wireless/bluez
+		optfeature "the power mode in Quick Settings" sys-power/power-profiles-daemon
+	fi
 }
