@@ -97,10 +97,10 @@ class Audio : public QObject {
     // Makes `name` the default output and moves the playing applications to it.
     Q_INVOKABLE void setOutput(const QString &name);
     Q_INVOKABLE void setStreamVolume(int id, int percent);
-    Q_INVOKABLE void setStreamMuted(int id, bool muted);
+    void setStreamMuted(int id, bool muted);
     Q_INVOKABLE void toggleStreamMute(int id);
     // Mutes the default input, or unmutes it.
-    Q_INVOKABLE void toggleInputMute();
+    void toggleInputMute();
   Q_SIGNALS:
     void changed();
 
