@@ -4142,8 +4142,9 @@ but read by a parser of Lua's table syntax alone, which takes strings, numbers, 
 and refuses names, calls and operators, so `os.execute`, `io.open`, `require` or `load` in it are
 errors, not calls. It sets only how the desktop looks: colours, borders, corners, opacity, shadows,
 the blur behind windows, the bar's style, size, place, font and widgets, the tiling bar, the
-wallpaper, the start button, and the cursor and icon themes by name (one you have installed). Launchers, window rules, the search's folders and web address, the
-clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other section
+wallpaper, the start button, the ambient particles and the cursor trail, and the cursor and icon
+themes by name (one you have installed). Launchers, window rules, the search's folders and web
+address, the clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other section
 are refused, and `paw rice pack` leaves them out. The pictures and other files it names are paths
 inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor through one;
 an archive holding a link, a device or a path out of it is refused whole, and only the files
