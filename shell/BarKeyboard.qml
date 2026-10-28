@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import QtQuick
-import Paw
 
 // The keyboard on the bar, as Windows' Win+T has it: the taskbar_focus action asks the panel on
 // the focused monitor for it (`taskbar OUTPUT`), and the popover takes the keyboard for this item,

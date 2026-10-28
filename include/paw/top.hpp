@@ -82,12 +82,9 @@ const char *sort_name(Sort sort);
 // after it that has them, for one that opened since), sorted.
 std::vector<Row> rows(const std::vector<Sample> &history, double window, Sort sort);
 
-// A bar graph of the last `width` of `values` (the newest on the right), `height` text rows of
-// block elements top row first; a value of `top` or more fills its column, and any value shows at
-// least a sliver. Columns left of the oldest value are blank.
-std::vector<std::string> graph(const std::vector<uint32_t> &values, size_t width, size_t height,
-                               double top);
-// The block element a column for `value` has in text row `row` (0 at the top) of such a graph.
+// The block element a column for `value` has in text row `row` (0 at the top) of a bar graph
+// `height` text rows of block elements high: a value of `top` or more fills its column, and any
+// value shows at least a sliver.
 const char *glyph(double value, size_t row, size_t height, double top);
 // The top of a graph's scale: a round number of microseconds at or over `worst`, and over a
 // quarter of `budget` so that small frames look small.

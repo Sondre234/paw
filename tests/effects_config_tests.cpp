@@ -49,25 +49,24 @@ int main() {
         // Night light.
         const auto &night = defaults.settings.effects;
         require(!night.night_light && night.day_kelvin == 6500 && night.night_kelvin == 3400 &&
-                    night.sunrise == 420 && night.sunset == 1200 && !night.located &&
-                    night.transition == 30,
+                    night.sunrise == 420 && night.sunset == 1200 && night.transition == 30,
                 "night light defaults");
         auto timed = paw::parse_config(
             "return {night_light={enabled=true,day_temperature=6000,night_temperature=2500,"
             "sunrise='06:15',sunset='21:45',transition=0}}");
         const auto &t = timed.settings.effects;
         require(t.night_light && t.day_kelvin == 6000 && t.night_kelvin == 2500 &&
-                    t.sunrise == 375 && t.sunset == 1305 && t.transition == 0 && !t.located,
+                    t.sunrise == 375 && t.sunset == 1305 && t.transition == 0,
                 "night light times not parsed");
         auto located = paw::parse_config(
             "return {night_light={latitude=59.9,longitude=10.7}}").settings.effects;
-        require(located.located && located.sunrise < 0 && located.sunset < 0 &&
+        require(located.sunrise == -1 && located.sunset == -1 &&
                     located.latitude > 59.8F && located.longitude > 10.6F,
                 "a location replaces the default times");
         auto both = paw::parse_config(
             "return {night_light={latitude=59.9,longitude=10.7,sunrise='05:00',sunset='22:00'}}")
                         .settings.effects;
-        require(both.located && both.sunrise == 300 && both.sunset == 1320,
+        require(both.sunrise == 300 && both.sunset == 1320 && both.latitude > 59.8F,
                 "written-out times win over the location");
         rejects("return {night_light={latitude=91,longitude=0}}");
         rejects("return {night_light={latitude=0,longitude=181}}");

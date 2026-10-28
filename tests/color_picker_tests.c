@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-/* The colour picker's loupe (src/color_picker.c): hex in and out, its layout in whole pixels at
+/* The colour picker's loupe (src/color_picker.c): hex out, its layout in whole pixels at
  * whole and fractional scales on every side of the crosshair, what it paints where, the label's
  * text, and an HDR monitor's colours taken back to sRGB. */
 #include "paw/color_picker.h"
@@ -22,12 +22,6 @@ static void test_hex(void) {
     CHECK(!strcmp(text, "#417bc4"), "%s", text);
     sh_color_hex(0xff00abcd, text);
     CHECK(!strcmp(text, "#00abcd"), "the alpha is no part of it: %s", text);
-    uint32_t rgb = 0;
-    CHECK(sh_color_parse("#417BC4", &rgb) && rgb == 0x417bc4);
-    CHECK(sh_color_parse("#000000", &rgb) && rgb == 0);
-    CHECK(!sh_color_parse("417bc4", &rgb) && !sh_color_parse("#417bc", &rgb) &&
-          !sh_color_parse("#417bc4f", &rgb) && !sh_color_parse("#41zbc4", &rgb) &&
-          !sh_color_parse(NULL, &rgb));
 }
 
 static void test_layout(void) {

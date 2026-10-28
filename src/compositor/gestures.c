@@ -148,7 +148,7 @@ static void swipe_begin(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, swipe_begin);
     struct wlr_pointer_swipe_begin_event *event = data;
     struct sh_gesture *gesture = &server->gesture;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, true);
     key_release_cancel(server);
     if (gesture->mode != SH_SWIPE_IDLE && gesture->mode != SH_SWIPE_PASSED)
         finish_swipe(server, event->time_msec, true); // another device's, given up
@@ -171,7 +171,7 @@ static void swipe_update(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, swipe_update);
     struct wlr_pointer_swipe_update_event *event = data;
     struct sh_gesture *gesture = &server->gesture;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, true);
     switch (gesture->mode) {
     case SH_SWIPE_IDLE:
         break;
@@ -200,7 +200,7 @@ static void swipe_end(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, swipe_end);
     struct wlr_pointer_swipe_end_event *event = data;
     struct sh_gesture *gesture = &server->gesture;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, false);
     if (gesture->mode == SH_SWIPE_WAITING)
         pass_on(server, event->time_msec); // too short to have a way: the window's, whole
     if (gesture->mode == SH_SWIPE_PASSED) {
@@ -215,7 +215,7 @@ static void swipe_end(struct wl_listener *listener, void *data) {
 static void pinch_begin(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, pinch_begin);
     struct wlr_pointer_pinch_begin_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, true);
     key_release_cancel(server);
     wrapped_count(server, SH_WRAPPED_GESTURES);
     wlr_pointer_gestures_v1_send_pinch_begin(server->pointer_gestures, server->seat,
@@ -225,7 +225,7 @@ static void pinch_begin(struct wl_listener *listener, void *data) {
 static void pinch_update(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, pinch_update);
     struct wlr_pointer_pinch_update_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, true);
     wlr_pointer_gestures_v1_send_pinch_update(server->pointer_gestures, server->seat,
                                               event->time_msec, event->dx, event->dy,
                                               event->scale, event->rotation);
@@ -234,7 +234,7 @@ static void pinch_update(struct wl_listener *listener, void *data) {
 static void pinch_end(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, pinch_end);
     struct wlr_pointer_pinch_end_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, false);
     wlr_pointer_gestures_v1_send_pinch_end(server->pointer_gestures, server->seat,
                                            event->time_msec, event->cancelled);
 }
@@ -243,7 +243,7 @@ static void pinch_end(struct wl_listener *listener, void *data) {
 static void hold_begin(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, hold_begin);
     struct wlr_pointer_hold_begin_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, true);
     key_release_cancel(server);
     wlr_pointer_gestures_v1_send_hold_begin(server->pointer_gestures, server->seat,
                                             event->time_msec, event->fingers);
@@ -252,7 +252,7 @@ static void hold_begin(struct wl_listener *listener, void *data) {
 static void hold_end(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, hold_end);
     struct wlr_pointer_hold_end_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, false);
     wlr_pointer_gestures_v1_send_hold_end(server->pointer_gestures, server->seat,
                                           event->time_msec, event->cancelled);
 }

@@ -4,9 +4,9 @@ the bar (up from a bottom bar, down from under a top bar, down from the top with
 in, while focus, the pointer and `get windows` have it in its place at once; hidden, it slides
 back out that way, passed over by the pointer, and hides as it ends. Shown and hidden again part
 way, it turns back from where it is drawn. Where clips are drawn (PAW_TEST_DROP_CLIP stands in for
-the GLES2 renderer) it is cut inside the bar, as deep as its corners reach; without them it goes
-no further than its own monitor's edge when another monitor lies beyond. With animations off it
-shows and hides at once."""
+the GLES2 renderer) it is cut inside the bar, as deep as its corners reach, and square at its own
+monitor's edge when another monitor lies beyond (where it stops without clips is dropdown_tests').
+With animations off it shows and hides at once."""
 from pathlib import Path
 import subprocess
 import sys
@@ -266,48 +266,44 @@ def top_bar(desktop, top):
     assert not d.drawn and (d.box, d.radius, d.ring) == whole, d
 
 
-def monitor_above(clipped):
-    """No bar and HEADLESS-2 above: cut at the monitor's top where clips are drawn, else
-    stopping there."""
-    def check(desktop, top):
-        msg, drop, window, pid_at, open_scratch, settled = tools(desktop)
-        desktop.open_window(probe, "S", focused=True)
-        desktop.wait_for(lambda: window().output == "HEADLESS-1", "S on HEADLESS-1")
-        msg("move_to_scratchpad")
-        desktop.wait_for(lambda: settled() and not drop().drawn, "hidden")
-        msg("scratchpad_show")
-        s, d = window(), drop()
-        assert d.drop == "in" and d.edge == "top", d
-        rounded = corner(desktop)
-        if clipped and rounded:
-            # The whole way, from wholly above the monitor's top: well past where it would stop.
-            assert top == 720 and d.cut == top and d.dy < top - (s.y - BORDER) - 100, (d, s)
-            # No bar hides the cut, so crossing it, it is cut square, its border's rounded rect
-            # left out, rather than show rounded corners and a border along the monitor's edge.
-            crossing = None
-            while (d := drop()).drop == "in":
-                drawn = s.y + d.dy
-                if d.box[3] > 1 and drawn < top:
-                    crossing = d
-                    assert d.box[1] == top and d.radius == 0 and d.ring[2:] == (0, 0), (d, s)
-                elif drawn - BORDER >= top:
-                    assert d.radius == rounded - BORDER and \
-                        d.ring[2:] == (s.width + 2 * BORDER, s.height + 2 * BORDER), (d, s)
-            assert crossing, "seen crossing the cut"
-        else:
-            assert top == 720 and d.cut is None and top - (s.y - BORDER) <= d.dy < 0, (d, s)
-        desktop.wait_for(lambda: settled() and drop().dy == 0, "in place")
-        # Hidden, it slides out absent for the pointer, also over where it slides to.
-        cut = clipped and corner(desktop)
-        target = top - (s.y + s.height + BORDER) if cut else top - (s.y - BORDER)
-        msg("scratchpad_show")
-        assert pid_at(s.x + 10, s.y + target + 20) == "" and drop().drop == "out", drop()
-        desktop.wait_for(lambda: settled() and not drop().drawn, "hidden")
-    return check
+def monitor_above(desktop, top):
+    """No bar and HEADLESS-2 above: cut at the monitor's top, or, where this wlroots has no
+    rounded clips, stopping there."""
+    msg, drop, window, pid_at, open_scratch, settled = tools(desktop)
+    desktop.open_window(probe, "S", focused=True)
+    desktop.wait_for(lambda: window().output == "HEADLESS-1", "S on HEADLESS-1")
+    msg("move_to_scratchpad")
+    desktop.wait_for(lambda: settled() and not drop().drawn, "hidden")
+    msg("scratchpad_show")
+    s, d = window(), drop()
+    assert d.drop == "in" and d.edge == "top", d
+    rounded = corner(desktop)
+    if rounded:
+        # The whole way, from wholly above the monitor's top: well past where it would stop.
+        assert top == 720 and d.cut == top and d.dy < top - (s.y - BORDER) - 100, (d, s)
+        # No bar hides the cut, so crossing it, it is cut square, its border's rounded rect
+        # left out, rather than show rounded corners and a border along the monitor's edge.
+        crossing = None
+        while (d := drop()).drop == "in":
+            drawn = s.y + d.dy
+            if d.box[3] > 1 and drawn < top:
+                crossing = d
+                assert d.box[1] == top and d.radius == 0 and d.ring[2:] == (0, 0), (d, s)
+            elif drawn - BORDER >= top:
+                assert d.radius == rounded - BORDER and \
+                    d.ring[2:] == (s.width + 2 * BORDER, s.height + 2 * BORDER), (d, s)
+        assert crossing, "seen crossing the cut"
+    else:
+        assert top == 720 and d.cut is None and top - (s.y - BORDER) <= d.dy < 0, (d, s)
+    desktop.wait_for(lambda: settled() and drop().dy == 0, "in place")
+    # Hidden, it slides out absent for the pointer, also over where it slides to.
+    target = top - (s.y + s.height + BORDER) if rounded else top - (s.y - BORDER)
+    msg("scratchpad_show")
+    assert pid_at(s.x + 10, s.y + target + 20) == "" and drop().drop == "out", drop()
+    desktop.wait_for(lambda: settled() and not drop().drawn, "hidden")
 
 
 run(1, {}, bottom_bar)
 run(1, {"PAW_TEST_DROP_CLIP": "1"}, top_bar)
-run(2, {}, monitor_above(False))
-run(2, {"PAW_TEST_DROP_CLIP": "1"}, monitor_above(True))
+run(2, {"PAW_TEST_DROP_CLIP": "1"}, monitor_above)
 print("Scratchpad windows dropped in and out, turned back, and were cut at the bar")

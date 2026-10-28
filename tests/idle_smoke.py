@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Power saving without an idle daemon (`idle`): after so long without input the screens dim (with
-grim, the screen shows it), the monitors turn off and the screen locks, each once; input undoes the
-dimming and turns on the monitors it turned off, the key that does it doing nothing else. An idle
-inhibitor holds every step off, one on a window only while the window shows (not on another
-workspace, minimized, on a monitor turned off or behind the lock), the steps on battery apply
-while a fake /sys/class/power_supply says the machine runs on it, and an ext-idle-notify-v1 client
-(as swayidle is) hears of idleness as before. Keep awake holds every step off too, and has the
-client hear the seat is inhibited, until turned off."""
+grim, the screen shows it), the monitors turn off and the screen locks, each once; input (keys, the
+pointer, touchpad gestures, pens and fingers alike) undoes the dimming and turns on the monitors it
+turned off, the key that does it doing nothing else. An idle inhibitor holds every step off, one on
+a window only while the window shows (not on another workspace, minimized, on a monitor turned off
+or behind the lock), the steps on battery apply while a fake /sys/class/power_supply says the
+machine runs on it, and an ext-idle-notify-v1 client (as swayidle is) hears of idleness as before.
+Keep awake holds every step off too, and has the client hear the seat is inhibited, until turned
+off."""
 import os
 from pathlib import Path
 import signal
@@ -272,6 +273,23 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     assert heard() == "idled"
     wait_for(lambda: done("dim"), "the screens dimmed once keep awake went off")
     assert not idle()["keep_awake"] and events.last("keep-awake ") == "keep-awake off"
+
+    # A swipe on a touchpad, a pen coming near a tablet and a finger moving on a touchscreen are
+    # input as keys and the pointer are: each brightens the dimmed screens.
+    msg("headless_pointer", "add", "touchpad")
+    msg("headless_tablet", "add", "wacom")
+    msg("headless_touch", "add", "screen")
+    msg("headless_touch", "down", "screen", "0", "0.5", "0.5")  # the finger the pointer follows
+    for name, *request in (("a swipe", "headless_pointer", "swipe", "touchpad", "begin", "3"),
+                           ("a pen", "headless_tablet", "in", "wacom", "pen", "0.5", "0.5"),
+                           ("a finger", "headless_touch", "motion", "screen", "0", "0.6", "0.6")):
+        wait_for(lambda: done("dim"), f"the screens dimmed before {name}")
+        msg(*request)
+        state = idle()
+        assert state["dim_level"] == 0 and not state["dim"][1], (name, state)
+    msg("headless_pointer", "swipe", "touchpad", "end")
+    msg("headless_tablet", "out", "wacom", "pen")
+    msg("headless_touch", "up", "screen", "0")
 print("Idle steps dim, turn off, lock, are held by inhibitors shown and keep awake, and follow "
       "the power source"
       + ("" if grim else " (pixels not checked: grim missing)"))

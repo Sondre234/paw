@@ -34,10 +34,14 @@ ink shadow on ink would vanish, and the start button is the neko's twin, a kuron
 | The desktop, washi | The desktop, sumi |
 | ![Firefox in washi](screenshots/washi-firefox.jpg) | ![Firefox in sumi](screenshots/sumi-firefox.jpg) |
 | Firefox and its start page | The same at night |
-| ![the overview](screenshots/washi-overview.jpg) | ![Alt + Tab](screenshots/washi-alt-tab.jpg) |
-| The overview, in the profile's colours | Alt + Tab with live pictures of the windows |
-| ![the start menu](screenshots/washi-start-menu.jpg) | ![sumi at work](screenshots/sumi.jpg) |
-| The start menu, framed as the windows are | sumi at work |
+| ![the overview](screenshots/washi-overview.jpg) | ![the overview in sumi](screenshots/sumi-overview.jpg) |
+| The overview, in the profile's colours | The same at night |
+| ![Alt + Tab](screenshots/washi-alt-tab.jpg) | ![Alt + Tab in sumi](screenshots/sumi-alt-tab.jpg) |
+| Alt + Tab with live pictures of the windows | The same at night |
+| ![the start menu](screenshots/washi-start-menu.jpg) | ![the start menu in sumi](screenshots/sumi-start-menu.jpg) |
+| The start menu, framed as the windows are | The same at night, its button a kuroneko |
+
+![sumi at work](screenshots/sumi.jpg)
 
 ![the palettes](screenshots/palette.png)
 

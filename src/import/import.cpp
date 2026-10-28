@@ -239,10 +239,7 @@ class Translator {
             }
         fraction("decoration:active_opacity", {"windows", "opacity"}, 0.05, 1);
         fraction("decoration:inactive_opacity", {"windows", "inactive_opacity"}, 0.05, 1);
-        if (auto *rounding = option("decoration:rounding");
-            rounding && parse_number(rounding->text).value_or(0) > 0)
-            report_.skip(files_, rounding->origin,
-                         "rounded corners need a renderer paw lacks so far");
+        whole("decoration:rounding", {"windows", "corner_radius"}, 0, 40);
         for (const char *effect : {"blur", "shadow"}) {
             auto prefix = std::string("decoration:") + effect + ":";
             bool blur = std::string_view(effect) == "blur";

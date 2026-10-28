@@ -405,12 +405,10 @@ if(PAW_BUILD_COMPOSITOR)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake
         BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/version.h)
     add_dependencies(paw paw_version)
-    # paw fetch names the build it is part of: version.h, and wlroots' version header.
+    # paw fetch and paw top name the build they are part of: version.h, and for fetch
+    # wlroots' version header.
     add_dependencies(paw_cli paw_version)
     target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${WLROOTS_INCLUDE_DIRS})
-    # paw top names the version too, where a build of the compositor makes version.h.
-    add_dependencies(paw_cli paw_version)
-    target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_options(paw PRIVATE -Wall -Wextra -Wno-unused-parameter)
     # A compositor function shared between files is declared in src/compositor/server.h; any
     # other is static. This flags one that is neither.
@@ -472,16 +470,24 @@ if(PAW_BUILD_COMPOSITOR)
     install(PROGRAMS packaging/paw-session DESTINATION ${CMAKE_INSTALL_BINDIR})
     install(FILES config/init.lua DESTINATION ${CMAKE_INSTALL_DATADIR}/paw)
     # The rices beside it, whose profiles in init.lua name their wallpapers relative to it, with
-    # the themes and install.sh for the applications around paw; not their screenshots.
+    # the themes and install.sh for the applications around paw; not their screenshots, nor the
+    # script that drew washi's wallpapers.
     install(DIRECTORY rices/ DESTINATION ${CMAKE_INSTALL_DATADIR}/paw/rices USE_SOURCE_PERMISSIONS
-        PATTERN screenshots EXCLUDE)
-    # docs/ keeps the README's links to them working in the installed copy.
+        PATTERN screenshots EXCLUDE PATTERN generate.py EXCLUDE)
+    # Beside the README, so that its links to the changelog and to these docs work in the
+    # installed copy; its links into the rest of the source tree (init.lua, the rices, the other
+    # docs) do not.
     install(FILES README.md CHANGELOG.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
     install(FILES docs/features.md docs/config-reference.md docs/dotfile-import.md docs/gentoo.md
         DESTINATION ${CMAKE_INSTALL_DOCDIR}/docs)
     install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/paw)
     install(FILES vendor/tinywl/LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/paw
         RENAME TinyWL-LICENSE)
+    # paw-shell has Unicode's emoji data compiled in (vendor/emoji).
+    if(PAW_BUILD_SHELL AND NOT PAW_SHELL_PREVIEW_ONLY)
+        install(FILES vendor/emoji/LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/paw
+            RENAME Unicode-LICENSE)
+    endif()
     install(DIRECTORY protocols/ DESTINATION ${CMAKE_INSTALL_DATADIR}/paw/protocols)
     install(FILES packaging/paw-portals.conf
         DESTINATION ${CMAKE_INSTALL_DATADIR}/xdg-desktop-portal)
@@ -804,7 +810,6 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:wayland_probe>)
         paw_smoke(move_window_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(focus_output_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        paw_smoke(workspace_names_smoke $<TARGET_FILE:paw>)
         paw_smoke(profile_smoke $<TARGET_FILE:paw>)
         paw_smoke(profile_schedule_smoke $<TARGET_FILE:paw>)
         paw_smoke(session_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
@@ -854,7 +859,6 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(dwindle_split_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe>)
         paw_smoke(scroll_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
-        paw_smoke(scroll_follow_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_bound_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_cube_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(scroll_enter_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
@@ -862,14 +866,10 @@ if(PAW_BUILD_COMPOSITOR)
         paw_smoke(volume_keys_smoke $<TARGET_FILE:paw>)
         paw_smoke(keymap_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> ${EXAMPLE_CONFIG})
-        paw_smoke(media_keys_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
-        paw_smoke(desktop_clock_smoke $<TARGET_FILE:paw>)
-        paw_smoke(desktop_icons_smoke $<TARGET_FILE:paw>)
+        paw_smoke(shell_actions_smoke $<TARGET_FILE:paw> ${EXAMPLE_CONFIG})
         paw_smoke(help_smoke $<TARGET_FILE:paw>)
-        paw_smoke(wallpaper_cycle_smoke $<TARGET_FILE:paw>)
         paw_smoke(type_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(keyboard_layout_smoke $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>)
-        paw_smoke(window_style_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(window_round_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(window_rules_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)
         paw_smoke(rule_look_smoke $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>)

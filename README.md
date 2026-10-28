@@ -18,9 +18,9 @@ reloads when you save it.
 [Running](#running) · [Configuration](#configuration) · [Features](docs/features.md) ·
 [Contributing](CONTRIBUTING.md)
 
-![paw in the rices it ships with: washi, and beside it sumi, mochi and hibana](docs/assets/rices.webp)
+![paw in four of the rices it ships with: washi, and beside it sumi, mochi and hibana](docs/assets/rices.webp)
 
-<sub>The rices that ship with paw: <a href="rices/washi">washi</a>, paper a cat walked across,
+<sub>Four of the rices that ship with paw: <a href="rices/washi">washi</a>, paper a cat walked across,
 and beside it, top to bottom, <a href="rices/washi">sumi</a>, the same paper by night,
 <a href="rices/mochi">mochi</a>, Catppuccin Mocha under frosted glass, and
 <a href="rices/hibana">hibana</a>, sparks on ash.</sub>
@@ -35,9 +35,9 @@ and beside it, top to bottom, <a href="rices/washi">sumi</a>, the same paper by 
 ## Highlights
 
 - **Floating windows, by mouse or by keyboard.** Focus follows the mouse, Super + drag moves
-  and resizes, windows snap and stick to edges, and new windows are placed where they cover the
-  least; Super and the arrows focus, move and snap them as Windows' Win + arrows do, and
-  Super + F maximizes one.
+  and resizes, windows snap and stick to edges, and new windows cascade or, with
+  `windows.placement = "smart"`, open where they cover the least; Super and the arrows focus,
+  move and snap them as Windows' Win + arrows do, and Super + F maximizes one.
 - **Tiling when you want it**, per monitor: dwindle (as in Hyprland), master, spiral, monocle,
   and a niri/PaperWM-style scrolling layout, with a [bar in Hyprland's
   style](docs/features.md#the-tiling-bar) in the taskbar's place while it tiles, its modules,
@@ -102,10 +102,10 @@ Requirements:
 - CMake 3.25+, C11 and C++20 compilers, pkg-config, Ninja (used below)
 - Lua 5.4, xkbcommon
 - wlroots **0.20.x** (its API changes between release series), wayland-server,
-  wayland-protocols, wayland-scanner
+  wayland-protocols, wayland-scanner, pixman
 - For the shell: Qt 6.9+ (Core, Gui, Network, Qml, Quick, Quick Controls Basic, Quick Layouts,
-  Quick Effects, the Wayland platform plugin, and DBus for notifications, the tray, the media
-  controls, the power mode, Wi-Fi and Bluetooth),
+  Quick Effects, Quick Shapes, SVG for the icons, the Wayland platform plugin, and DBus for
+  notifications, the tray, the media controls, the power mode, Wi-Fi and Bluetooth),
   LayerShellQt 6.6+, GLib/GIO, wayland-client
 - libinput and xcb (with xcb-xfixes and xcb-ewmh) when wlroots is built with its libinput
   backend or with XWayland; optionally sd-bus (libsystemd, libelogind or basu) for the
@@ -125,7 +125,7 @@ debug build.
 | --- | --- | --- |
 | `PAW_BUILD_COMPOSITOR` | `ON` | Build the wlroots compositor; `OFF` builds only the configuration, placement and tiling code and tests |
 | `PAW_BUILD_SHELL` | `ON` | Build the Qt Quick shell |
-| `PAW_SHELL_PREVIEW_ONLY` | `OFF` | Build only a shell UI preview, without LayerShellQt (see [Development](#development)) |
+| `PAW_SHELL_PREVIEW_ONLY` | `OFF` | Build the shell as a UI preview, without LayerShellQt (see [Development](#development)); the shell is built with the compositor, so this still needs wlroots and `PAW_BUILD_COMPOSITOR` left on |
 | `PAW_NOTIFICATIONS` | `ON` | Build the shell's notification daemon (needs Qt DBus) |
 | `PAW_PULSEAUDIO` | `ON` | Build the panel's volume control (needs libpulse, which PipeWire also serves) |
 | `PAW_TRAY` | `ON` | Build the panel's system tray (needs Qt DBus) |
@@ -146,7 +146,8 @@ sudo cmake --install build
 ```
 
 This installs `paw`, `paw-session` (see [First run](#first-run)) and `paw-shell`,
-the default configuration (`share/paw/init.lua`), `paw-portals.conf` for
+the default configuration (`share/paw/init.lua`) and the rices its profiles use
+(`share/paw/rices`), `paw-portals.conf` for
 xdg-desktop-portal, the documentation, and with `PAW_INSTALL_SESSION` the session entry
 display managers list. Choose the prefix
 when configuring, as above: paw looks for its default configuration under it, so
@@ -190,8 +191,9 @@ The shell starts with the compositor unless you pass `--no-shell` or set
 command, run without a shell, that inherits the compositor's Wayland socket.
 
 When nested, the host may keep shortcuts for itself: a host that grabs Super (Hyprland, GNOME)
-needs `mod = "Alt"` in the configuration. Applications that reuse an existing process or D-Bus
-service may also open in the host session instead.
+needs `local mod = "Alt"` at the top of a copy of [config/init.lua](config/init.lua), whose
+bindings use it (`mod` is not a setting of its own). Applications that reuse an existing
+process or D-Bus service may also open in the host session instead.
 
 ### First run
 
@@ -368,7 +370,8 @@ headless compositor with real xdg-shell and X11 clients, the shell rendered offs
 notification daemon and the system tray on a private D-Bus. `tools/check-all.sh` runs it again
 under ASan and UBSan.
 
-To work on the shell UI without LayerShellQt, build the preview:
+To work on the shell UI without LayerShellQt, build the preview. It is built with the
+compositor, so it still needs wlroots:
 
 ```sh
 cmake -S . -B build-preview -G Ninja -DPAW_SHELL_PREVIEW_ONLY=ON

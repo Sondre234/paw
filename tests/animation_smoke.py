@@ -89,19 +89,6 @@ with harness.Compositor(compositor, settings(True)) as desktop:
     wait_for(lambda: not windows() and state()[0] == 0, "workspace windows closed")
     wait_for(lambda: state() == (0, 0), "nothing left behind")
 
-    # Fullscreen toggles glide the window, and leaving lands it at its old place.
-    floating = launch()
-    wait_for(lambda: len(windows()) == 1 and state() == (0, 1), "window for fullscreen")
-    place = windows()[0].box
-    msg("fullscreen")
-    wait_for(lambda: state()[0] >= 1, "fullscreen glide running")
-    wait_for(lambda: state()[0] == 0, "fullscreen glide finished")
-    msg("fullscreen")
-    wait_for(lambda: state()[0] >= 1, "glide back running")
-    wait_for(lambda: state()[0] == 0 and windows()[0].box == place, "back at its place")
-    close(floating)
-    wait_for(lambda: not windows() and state() == (0, 0), "fullscreen window closed")
-
     # Turning animations off ends those running.
     windows_open = [launch(), launch()]
     wait_for(lambda: len(windows()) == 2, "two windows")

@@ -14,10 +14,11 @@ import harness
 
 compositor, probe, lock_probe = (str(Path(p).resolve()) for p in sys.argv[1:4])
 
-# A speed of a quarter makes the fade 1.6 seconds, long enough to look at it on the way.
+# A speed of a quarter makes the fade 1.6 seconds, long enough to look at it on the way; where
+# only its start and end count, the usual 0.4 seconds do.
 CONFIG = """return {{
     xwayland = false,
-    animations = {{ enabled = {animations}, speed = 0.25 }},
+    animations = {{ enabled = {animations}, speed = {speed} }},
     idle = {{ display_off = 0 }},
     outputs = {{
         order = {{ "HEADLESS-1", "HEADLESS-2" }},
@@ -76,7 +77,7 @@ def shot(desktop):
 
 with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2", "PAW_TEST_CROSSFADE_HOLD_MS": "3000"}) as desktop:
     desktop.env["XDG_STATE_HOME"] = str(desktop.root / "state")
-    desktop.start(CONFIG.format(animations="true", first=""))
+    desktop.start(CONFIG.format(animations="true", first="", speed=0.25))
     msg, wait_for, stays = desktop.msg, desktop.wait_for, desktop.stays
 
     def crossfade():
@@ -141,6 +142,8 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
              "the hold given up on the shell", timeout=6)
     assert "did not draw profile red in time" in desktop.log.read_text()
     wait_for(lambda: crossfade() == {} and near(colour(), RED), "the red background")
+    # From here on only where a fade starts and that it ends count.
+    desktop.reload(CONFIG.format(animations="true", first="", speed=1))
 
     # A magnified monitor's picture is magnified as the monitor was: the window in its corner
     # as large and where it showed.
@@ -255,13 +258,13 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
     shell = desktop.subscribe(shell=True)
     msg("profile", "blue")
     assert crossfade(), crossfade()
-    desktop.reload(CONFIG.format(animations="false", first=""))
+    desktop.reload(CONFIG.format(animations="false", first="", speed=1))
     msg("profile", "red")
     assert crossfade() == {}, crossfade()
-    desktop.reload(CONFIG.format(animations="true", first=""))
+    desktop.reload(CONFIG.format(animations="true", first="", speed=1))
     msg("profile", "green")
     assert crossfade(), crossfade()
-    unprofiled = CONFIG.format(animations="true", first="")
+    unprofiled = CONFIG.format(animations="true", first="", speed=1)
     unprofiled = unprofiled[:unprofiled.index("    profile = ")] + "}"
     desktop.reload(unprofiled)
     assert crossfade() == {}, crossfade()
@@ -270,7 +273,7 @@ with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2
 # A monitor turned and scaled holds a picture of itself that lies exactly where it showed.
 with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2", "PAW_TEST_CROSSFADE_HOLD_MS": "3000"}) as desktop:
     desktop.env["XDG_STATE_HOME"] = str(desktop.root / "state")
-    desktop.start(CONFIG.format(animations="true", first=", transform = 1, scale = 2"))
+    desktop.start(CONFIG.format(animations="true", first=", transform = 1, scale = 2", speed=1))
     desktop.msg("headless_output", "add", "HEADLESS-3", "1280x720")
     desktop.open_window(probe, "corner")
     desktop.wait_for(lambda: [w.box for w in desktop.windows()] == [(30, 50, 200, 300)],
@@ -291,7 +294,7 @@ DIMMING = CONFIG.replace("idle = {{ display_off = 0 }}", "idle = {{ dim = 1, dis
 with harness.Compositor(compositor, start=False, env={"WLR_HEADLESS_OUTPUTS": "2",
                                                       "PAW_TEST_CROSSFADE_HOLD_MS": "3000"}) as desktop:
     desktop.env["XDG_STATE_HOME"] = str(desktop.root / "state")
-    desktop.start(DIMMING.format(animations="true", first=""))
+    desktop.start(DIMMING.format(animations="true", first="", speed=1))
     desktop.msg("headless_output", "add", "HEADLESS-3", "1280x720")
     desktop.wait_for(lambda: desktop.rows("idle")[0][4] == "500", "the screens dimmed",
                      detail=lambda: f"{desktop.rows('idle')}")

@@ -167,19 +167,27 @@ void focus_toplevel(struct sh_toplevel *toplevel) { focus_toplevel_raise(topleve
  * focus_urgent goes to the one that asked first. Focusing it, or unmapping it, ends it. */
 enum { URGENT_PULSE_MS = 4000, URGENT_PULSE_PERIOD_MS = 1200, URGENT_TICK_MS = 40 };
 
+/* How long the border pulses; under --headless, PAW_TEST_URGENT_PULSE_MS sets that for tests. */
+static int pulse_ms(struct sh_server *server) {
+    const char *test = getenv("PAW_TEST_URGENT_PULSE_MS");
+    int ms = test && headless_backend(server) ? atoi(test) : 0;
+    return ms > 0 ? ms : URGENT_PULSE_MS;
+}
+
 /* How bright an urgent window's border is now: it starts at full strength and pulses down and
- * up for URGENT_PULSE_MS, then holds. Without animations it holds at once. */
+ * up for pulse_ms, then holds. Without animations it holds at once. */
 float urgent_pulse(struct sh_toplevel *toplevel, int64_t now) {
     if (!toplevel->urgent || !server_settings(toplevel->server)->animations)
         return 1;
     int64_t elapsed = now - toplevel->urgent_since;
-    if (elapsed < 0 || elapsed >= URGENT_PULSE_MS)
+    if (elapsed < 0 || elapsed >= pulse_ms(toplevel->server))
         return 1;
     return 0.65F + 0.35F * cosf((float)(2 * M_PI * (double)elapsed / URGENT_PULSE_PERIOD_MS));
 }
 
 static bool urgent_pulsing(struct sh_toplevel *toplevel, int64_t now) {
-    return toplevel->urgent && now - toplevel->urgent_since < URGENT_PULSE_MS + URGENT_TICK_MS;
+    return toplevel->urgent &&
+           now - toplevel->urgent_since < pulse_ms(toplevel->server) + URGENT_TICK_MS;
 }
 
 /* Redraws the borders of the windows that pulse while any does; the tick after the last one

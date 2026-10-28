@@ -128,17 +128,17 @@ paw before it can be imported, **won't** = deliberately not carried over.
 | Border width | `general:border_size` | `windows.border_width` | done | yes |
 | Border colors (active/inactive) | `col.active_border`, `col.inactive_border` | `windows.border_color`, `border_inactive_color` | done | yes |
 | Gradient borders | `rgba(…) rgba(…) 45deg`, Lua `{ colors, angle }` | `windows.border_color = { "#…", "#…", angle = 45 }` (up to 10 colors) | done | yes |
-| Corner rounding | `decoration:rounding` | — | blocked: needs scenefx or a custom renderer | no |
+| Corner rounding | `decoration:rounding` | `windows.corner_radius` (with wlroots patched by `packaging/patches/wlroots-rounded-corners.patch`) | done | yes |
 | Active / inactive opacity | `decoration:active_opacity`, `inactive_opacity` | `windows.opacity`, `inactive_opacity` | done | yes |
 | Per-app opacity | `windowrule = opacity A B, class:…` | `windows.rules` (`app_id` regex) | done | yes |
-| Blur | `decoration:blur` (as with `xray = true`) | `windows.blur` | missing (set by hand) | no |
-| Shadows | `decoration:shadow` | `windows.shadow` | missing (set by hand) | no |
+| Blur | `decoration:blur` (as with `xray = true`) | `windows.blur` | done (set by hand) | no |
+| Shadows | `decoration:shadow` | `windows.shadow` | done (set by hand) | no |
 | Animations on/off | `animations:enabled` | `animations.enabled` | done | yes |
 | Focus a window that asks for it | `misc:focus_on_activate` | `windows.activation` (`"focus"`; unset keeps the default `"urgent"`, which marks the window instead) | done | yes |
 | Tearing for games | `general:allow_tearing`, `windowrule = immediate, class:…` | `windows.allow_tearing`, `windows.rules` (`allow_tearing = true`) | done (untested on hardware) | yes |
 | Per-app look | `windowrule = noshadow`, `noborder`, `rounding N`, `bordercolor C [C]`, `class:…` | `windows.rules` (`shadow = false`, `border = false`, `corner_radius`, `border_color`, `border_inactive_color`) | done | yes |
 | Per-app idle inhibition | `windowrule = idleinhibit always\|focus\|fullscreen, class:…` | `windows.rules` (`idle_inhibit`; Hyprland's `none` is left out, as paw's refuses the window's own inhibitors) | done | yes |
-| Animation styles, speeds, curves | `animation`, `bezier` | — (fixed fade, scale, and glide; `animations.duration`) | won't (for now) | — |
+| Animation styles, speeds, curves | `animation`, `bezier` | `animations.speed`, and each kind's `duration` and `curve` (`"bezier(x1, y1, x2, y2)"` among them) | done (set by hand) | no |
 
 ### Input
 

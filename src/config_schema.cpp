@@ -1592,8 +1592,11 @@ std::string config_reference_markdown() {
         first = false;
     }
     out << "\n\n`spawn` needs `command`; `workspace` and `move_to_workspace` need `workspace`; "
-           "`screenshot`, `cat`, `heatmap`, `ambient` and `cursor_trail` take `mode` and `mode` needs it; `resize_*`, `volume_up`, `volume_down`, "
-           "`brightness_up` and `brightness_down` take `amount`; a `switch` needs `state`.\n\n"
+           "`move_workspace_to_output` needs `output`, and `swap_workspaces`, `display_off`, "
+           "`display_on` and `display_toggle` take it; `screenshot`, `display_mode`, `cat`, "
+           "`heatmap`, `ambient` and `cursor_trail` take `mode` and `mode` needs it; `resize_*`, "
+           "`volume_up`, `volume_down`, `brightness_up` and `brightness_down` take `amount`; a "
+           "`switch` needs `state`.\n\n"
            "Modifiers: ";
     first = true;
     for (const auto &name : config_modifier_names()) {

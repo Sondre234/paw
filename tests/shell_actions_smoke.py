@@ -1,8 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The media keys: the default configuration binds XF86AudioPlay, XF86AudioPause, XF86AudioNext,
-XF86AudioPrev and XF86AudioStop to the media actions, which hand them to the shell as "media
-VERB" lines on the control socket's stream; `paw msg media_next` does the same. The shell's
-part, sending them on to a player, is media_smoke's."""
+"""Actions the shell carries out reach it as lines on the control socket's stream. The media
+keys: the default configuration binds XF86AudioPlay, XF86AudioPause, XF86AudioNext, XF86AudioPrev
+and XF86AudioStop to the media actions, which hand them to the shell as "media VERB" lines; `paw
+msg media_next` does the same. desktop_clock and desktop_icons send "desktop-clock toggle" and
+"desktop-icons toggle", which show or hide the desktop's clock and icons (shell.desktop_clock,
+shell.desktop_icons), and wallpaper_next and wallpaper_prev "wallpaper-cycle next" and
+"wallpaper-cycle prev", which step its slideshow (shell.wallpaper_cycle). None takes an argument.
+The shell's part is media_smoke's for the media keys and shell_ui's for the rest."""
 from pathlib import Path
 import sys
 
@@ -46,3 +50,16 @@ with harness.Compositor(compositor, CONFIG,
                          detail=heard)
     # They take no argument.
     assert "takes no argument" in msg("media_next", "now", ok=False)
+
+    # The desktop's clock, icons and slideshow, each a line of its own.
+    for action, line in (("desktop_clock", "desktop-clock toggle"),
+                         ("desktop_icons", "desktop-icons toggle"),
+                         ("wallpaper_next", "wallpaper-cycle next"),
+                         ("wallpaper_prev", "wallpaper-cycle prev")):
+        prefix, verb = line.split(" ")
+        before = subscriber.values(prefix + " ")
+        msg(action)
+        desktop.wait_for(lambda: subscriber.values(prefix + " ") == before + [verb],
+                         f"{action} sent on", detail=lambda: subscriber.values(prefix + " "))
+        assert "takes no argument" in msg(action, "on", ok=False)
+print("The media keys and the desktop's actions reached the shell")

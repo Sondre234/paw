@@ -38,6 +38,7 @@ void hyprlang(const fs::path &root) {
     require(s.gap_inner == 6 && s.gap_outer == 5,
             "gaps: gaps_in doubles, gaps_out takes its first value");
     require(s.border_width == 2, "border_size not imported");
+    require(s.corner_radius == 8, "rounding not imported");
     // $accent's rgba(ff8800ee) is the first color of the gradient; borders are premultiplied.
     require(near(s.border_active[3], 0xee / 255.0F) && near(s.border_active[0], 0xee / 255.0F),
             "active border color not taken from the gradient's first color");
@@ -126,7 +127,7 @@ void hyprlang(const fs::path &root) {
 
     const auto &report = result.report;
     for (const char *expected :
-         {"rounded corners", "set windows.blur by hand", "some-mouse", "source /etc/hostname", "scale 1ab",
+         {"set windows.blur by hand", "some-mouse", "source /etc/hostname", "scale 1ab",
           "HDMI-A-3: mirror HDMI-A-3 is not another monitor's name",
           "HDMI-A-4: bitdepth 12 is not 8 or 10", "HDMI-A-4: cm wide is not supported",
           "DP-4: sdrbrightness is not supported",

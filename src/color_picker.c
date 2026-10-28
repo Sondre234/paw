@@ -347,24 +347,6 @@ void sh_color_hex(uint32_t rgb, char text[8]) {
     snprintf(text, 8, "#%06x", (unsigned)(rgb & 0xffffff));
 }
 
-bool sh_color_parse(const char *text, uint32_t *rgb) {
-    if (!text || text[0] != '#' || strlen(text) != 7)
-        return false;
-    uint32_t value = 0;
-    for (int i = 1; i < 7; ++i) {
-        char c = text[i];
-        int digit = c >= '0' && c <= '9'   ? c - '0'
-                    : c >= 'a' && c <= 'f' ? c - 'a' + 10
-                    : c >= 'A' && c <= 'F' ? c - 'A' + 10
-                                           : -1;
-        if (digit < 0)
-            return false;
-        value = value << 4 | (uint32_t)digit;
-    }
-    *rgb = value;
-    return true;
-}
-
 /* ST 2084's PQ: an encoded value to light, 1 for 10000 cd/m². */
 static double pq_decode(double encoded) {
     const double m1 = 2610.0 / 16384, m2 = 2523.0 / 4096 * 128;
