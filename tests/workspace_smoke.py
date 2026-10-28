@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Drive workspaces through the control socket; taskbar switching is workspace_back_smoke's."""
+"""Drive workspaces through the control socket, by number and by name; taskbar switching is
+workspace_back_smoke's."""
 from pathlib import Path
 import sys
 
@@ -45,4 +46,14 @@ with harness.Compositor(compositor, source) as desktop:
     msg("close")
     assert desktop.reap(window) == 0
     assert windows() == {}
-print("Workspaces, control socket, and scoped actions passed")
+
+    # Workspaces named in layout.workspace_names are reached by name, one of several words too
+    # (workspace_number's other cases are productivity_tests').
+    desktop.reload('return { xwayland = false, layout = { workspaces = 4, '
+                   'workspace_names = { "web", "code", "", "chat room" } } }')
+    msg("workspace", "chat", "room")
+    assert msg("get", "workspace") == "4\n"
+    msg("workspace", "code")
+    assert msg("get", "workspace") == "2\n"
+    assert "workspace name" in msg("workspace", "nope", ok=False)
+print("Workspaces, control socket, names, and scoped actions passed")
