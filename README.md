@@ -36,8 +36,8 @@ and beside it, top to bottom, <a href="rices/washi">sumi</a>, the same paper by 
 
 - **Floating windows, by mouse or by keyboard.** Focus follows the mouse, Super + drag moves
   and resizes, windows snap and stick to edges, and new windows cascade or, with
-  `windows.placement = "smart"`, open where they cover the least; Super and the arrows focus, move and snap them as Windows' Win + arrows do, and
-  Super + F maximizes one.
+  `windows.placement = "smart"`, open where they cover the least; Super and the arrows focus,
+  move and snap them as Windows' Win + arrows do, and Super + F maximizes one.
 - **Tiling when you want it**, per monitor: dwindle (as in Hyprland), master, spiral, monocle,
   and a niri/PaperWM-style scrolling layout, with a [bar in Hyprland's
   style](docs/features.md#the-tiling-bar) in the taskbar's place while it tiles, its modules,
