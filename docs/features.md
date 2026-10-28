@@ -3807,10 +3807,9 @@ wrapped](#paw-wrapped) counts, `enabled yes`, or `enabled no` and why, and while
 for (`day YYYY-MM-DD`), how many times this session saved and when it last did (`saves N`, `saved
 SECONDS` since 1970, 0 for never), what the time counts as now (`state active`, `idle` or `away`),
 the focused application and its streak so far in seconds (`focus APP SECONDS`, `-` for none), and
-then what it counted and has not saved yet, as the lines of a day file. A client
-each monitor's frames do (see [Tearing](#tearing)). `paw msg get actions` prints a line per
-action the configuration knows: its name and the keys of its first key binding outside any
-[binding mode](#binding-modes), as `Super + Tab`, or `-` for none. `paw msg get profiles` prints
+then what it counted and has not saved yet, as the lines of a day file. `paw msg get actions`
+prints a line per action the configuration knows: its name and the keys of its first key binding
+outside any [binding mode](#binding-modes), as `Super + Tab`, or `-` for none. `paw msg get profiles` prints
 a line per [appearance profile](#appearance-profiles), in name order: its name and `1` for the one
 in use, else `0`; and `paw msg get terminal` the command line the `terminal` action starts, its
 words separated by tabs, or nothing when there is no terminal to start. A client
