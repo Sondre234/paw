@@ -206,8 +206,9 @@ or woken through DRM, VT switching on NVIDIA, suspend and resume, a laptop lid, 
 brightness keys. Start it from the console, not over SSH:
 a process outside the console's logind session cannot switch VTs.
 Keep another TTY available while testing. Set monitor order with `outputs.order`
-and `outputs.primary`; per-monitor modes and scaling are not configurable yet; this is not ready to
-replace a secured daily session.
+and `outputs.primary`, and each monitor's mode, scale and position with `outputs.monitors` or
+the [display settings](features.md#display-settings) window; this is not ready to replace a
+secured daily session.
 
 References:
 [Gentoo wlroots package](https://packages.gentoo.org/packages/gui-libs/wlroots),
