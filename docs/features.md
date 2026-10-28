@@ -3712,8 +3712,8 @@ refused as one (`no query NAME`). Prefixing
 one: `paw msg output HDMI-A-1 workspace_next`. `paw msg type TEXT` types TEXT into
 what has the keyboard, as wtype does: each character on a key of a keymap made for it (200 to a
 keymap; a longer text takes several), the window's own keymap back after, so that accents, emoji
-and their sequences come out as they are whatever the keyboard layout; the request is a line of at
-most 512 bytes, and it says when nothing has the keyboard. `paw msg workspace_nudge OUTPUT
+and their sequences come out as they are whatever the keyboard layout; the request is a line
+shorter than 4096 bytes, and it says when nothing has the keyboard. `paw msg workspace_nudge OUTPUT
 next|prev` nudges that monitor's windows as a step to its next or previous workspace would start
 to slide them, and back, as the panel's wheel does past either end (see
 [Workspaces](#workspaces)). The query
