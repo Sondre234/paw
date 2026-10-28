@@ -1086,8 +1086,8 @@ either colour is a gradient, every border is drawn in pieces: a strip along each
 colours along it, which the compositor stretches over the side, as a border hardly changes across
 its width, and a square at each corner painted pixel by pixel, rounded with the window. A border
 eases from the inactive gradient to the active one as its window is focused; an urgent window's
-stays in the urgent colour. `paw msg get frames` ends each line with how the border is
-drawn: `none`, `color` or `gradient`.
+stays in the urgent colour. `paw msg get frames` says on each line how the border is drawn,
+`none`, `color` or `gradient`, before the colour it ends with.
 
 `windows.shadow = { enabled = true }` draws a soft shadow under each window that has none of its
 own, following its corners: `color` under the focused window, the lighter `inactive_color`
