@@ -3835,9 +3835,10 @@ share a title. The shell sends `switcher_peek` once it has drawn the switcher, w
 window then peeks once the selection rests ([above](#window-switcher)); while the switcher is
 closed the request is refused. The state tells whether [keep awake](#power-saving-when-idle) holds
 the idle steps off, `keep-awake on|off`, and whether the session is locked, `locked on|off`, again as it locks
-and unlocks (the shell's clipboard history records nothing meanwhile), and ends with
-`power ACTIONS`, the power actions that may
-run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power
+and unlocks (the shell's clipboard history records nothing meanwhile), then `power ACTIONS`, the
+power actions that may run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them,
+or `-`), and ends with a `windowless PID APP_ID` line for each of the first 16 processes
+[running without a window](#applications-running-without-a-window), the oldest first. A power
 action that fails or is cancelled after it was accepted sends `power-error MESSAGE`, a program
 that `spawn` or `terminal` could not start sends `spawn-error MESSAGE`, a reload turned down,
 the configuration kept as it was, sends `config-error MESSAGE` (the panel shows any of these
