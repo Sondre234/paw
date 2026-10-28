@@ -1806,9 +1806,9 @@ whose program is not on `$PATH` (`missingProgram`) sets `problem` and runs nothi
 The sheet of keyboard shortcuts (`Shortcuts`, `shortcuts.cpp`; `shell.shortcuts`) reads the
 bindings from the configuration the shell loads itself, not from the compositor. Its pure part,
 `shortcuts::sheet`, makes groups of rows from `config.bindings`, and first from the binding mode in
-use (`bindingMode`): an action's group and title come from a table there, the title from the
-command palette's own where it has one (`Palette::actionTitle`), or from the binding's
-`description`, or for a `spawn` its command shortened; the keys are named by `keyName`, for the
+use (`bindingMode`): an action's group comes from a table there, and its title from the
+binding's `description`, else the command palette's own where it has one
+(`Palette::actionTitle`), else that table, or for a `spawn` its command shortened; the keys are named by `keyName`, for the
 style in use, and bindings alike but for their key (the directions of one family, workspaces on
 running digits) become one row. `shortcuts::filter` keeps the rows whose `search` text holds every
 word typed; `tests/shortcuts_test.cpp` tests both and the model. `shortcuts OUTPUT` from the
