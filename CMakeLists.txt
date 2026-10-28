@@ -1036,7 +1036,7 @@ if(PAW_BUILD_COMPOSITOR)
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(wrapped_smoke SLOW TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> $<TARGET_FILE:idle_probe>)
-        paw_smoke(xray_smoke TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
+        paw_smoke(xray_smoke SLOW TIMEOUT 120 $<TARGET_FILE:paw> $<TARGET_FILE:wayland_probe>
             $<TARGET_FILE:pointer_probe> $<TARGET_FILE:lock_probe> "${GRIM_ARGUMENT}")
         paw_smoke(heatmap_smoke SLOW $<TARGET_FILE:paw> $<TARGET_FILE:pointer_probe>
             $<TARGET_FILE:lock_probe> $<TARGET_FILE:wayland_probe> "${GRIM_ARGUMENT}")
