@@ -617,8 +617,6 @@ struct Config {
 
     // The workspace number, from 1, named `name` (or written as a number in range), else 0.
     int workspace_number(const std::string &name) const;
-    // "N" or "N name": how a workspace is labelled.
-    std::string workspace_label(int workspace) const;
 
     // The key binding pressed with these modifiers, or the one that runs as the key comes up, or
     // the pair, the modifiers being those held as it went down; keysym 0 for a chord's.

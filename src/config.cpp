@@ -2690,14 +2690,6 @@ int Config::workspace_number(const std::string &name) const {
     return 0;
 }
 
-std::string Config::workspace_label(int workspace) const {
-    std::string label = std::to_string(workspace);
-    if (workspace >= 1 && static_cast<std::size_t>(workspace) <= workspace_names.size() &&
-        !workspace_names[static_cast<std::size_t>(workspace) - 1].empty())
-        label += " " + workspace_names[static_cast<std::size_t>(workspace) - 1];
-    return label;
-}
-
 bool action_takes_workspace(sh_action action) {
     return action == SH_WORKSPACE || action == SH_MOVE_TO_WORKSPACE;
 }

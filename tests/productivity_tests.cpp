@@ -31,9 +31,6 @@ void workspace_names() {
     require(!config.workspace_number("6") && !config.workspace_number("nope") &&
                 !config.workspace_number("") && !config.workspace_number("0"),
             "bad workspace resolved");
-    require(config.workspace_label(1) == "1 web" && config.workspace_label(3) == "3" &&
-                config.workspace_label(5) == "5" && config.workspace_label(9) == "9",
-            "labels wrong");
     require(config.binding(SH_LOGO, XKB_KEY_w)->workspace == 2 &&
                 config.binding(SH_LOGO, XKB_KEY_e)->workspace == 4 &&
                 config.binding(SH_LOGO, XKB_KEY_r)->workspace == 3,
