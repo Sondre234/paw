@@ -20,11 +20,14 @@ PopupCard {
             if (seen.indexOf(list[i].folder) < 0) seen.push(list[i].folder)
         return seen
     }
+    // shell.wallpaperFoldersUsed as the picker opened: the tabs keep their places until it closes,
+    // so that none moves from under the pointer.
+    property var foldersUsedAtOpen: []
     // The tabs, "" for All: those filtered by before first, the last one leftmost, then the rest
     // in order. Pictures directly in the folder show under All.
     readonly property var tabs: {
         var all = [""].concat(folders.filter(function(f) { return f !== "" }))
-        var used = shell.wallpaperFoldersUsed.filter(function(f) { return all.indexOf(f) >= 0 })
+        var used = foldersUsedAtOpen.filter(function(f) { return all.indexOf(f) >= 0 })
         return used.concat(all.filter(function(f) { return used.indexOf(f) < 0 }))
     }
     readonly property var shown: {
@@ -41,11 +44,6 @@ PopupCard {
     // Whether this monitor had a wallpaper of its own as the picker opened, which offers the
     // choice with one monitor too, until it closes.
     property bool ownAtOpen: false
-    function useFolder(name) {
-        folder = name
-        shell.useWallpaperFolder(name)
-        folderTabs.positionViewAtBeginning()
-    }
     function pick(path) {
         if (scope === "monitor")
             shell.pickWallpaperOn(path, panel.outputName)
@@ -56,6 +54,8 @@ PopupCard {
         shell.findWallpapers()
         ownAtOpen = panel.shellView.ownWallpaper
         scope = ownAtOpen ? "monitor" : "all"
+        foldersUsedAtOpen = shell.wallpaperFoldersUsed
+        folderTabs.positionViewAtBeginning()
     }
     initialFocus: filter
     implicitWidth: 880
@@ -132,7 +132,7 @@ PopupCard {
                 contentItem: Item { Icon { anchors.centerIn: parent; name: "shuffle"; size: 16 } }
             }
         }
-        // The subfolders, as tabs, the one filtered by last leftmost.
+        // The subfolders, as tabs, the one filtered by last leftmost as the picker opens.
         ListView {
             id: folderTabs
             Layout.fillWidth: true; Layout.preferredHeight: 28
@@ -145,7 +145,10 @@ PopupCard {
                 required property string modelData
                 readonly property bool current: modelData === wallpaperPicker.folder
                 height: 28
-                onClicked: wallpaperPicker.useFolder(modelData)
+                onClicked: {
+                    wallpaperPicker.folder = modelData
+                    shell.useWallpaperFolder(modelData)
+                }
                 background: Rectangle {
                     radius: 14
                     color: folderTab.current ? Theme.accent : (folderTab.hovered ? Theme.selected : Theme.hover)
