@@ -405,12 +405,10 @@ if(PAW_BUILD_COMPOSITOR)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake
         BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/version.h)
     add_dependencies(paw paw_version)
-    # paw fetch names the build it is part of: version.h, and wlroots' version header.
+    # paw fetch and paw top name the build they are part of: version.h, and for fetch
+    # wlroots' version header.
     add_dependencies(paw_cli paw_version)
     target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${WLROOTS_INCLUDE_DIRS})
-    # paw top names the version too, where a build of the compositor makes version.h.
-    add_dependencies(paw_cli paw_version)
-    target_include_directories(paw_cli PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
     target_compile_options(paw PRIVATE -Wall -Wextra -Wno-unused-parameter)
     # A compositor function shared between files is declared in src/compositor/server.h; any
     # other is static. This flags one that is neither.
