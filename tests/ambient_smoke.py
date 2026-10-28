@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Ambient particles (appearance.ambient, the ambient action): turned on, sakura petals drift over
 the output, inside it and about its edges; a fullscreen window pauses them, the output drawing no
-frames for them meanwhile, and so does the lock; the action goes through the kinds, turns them off
+frames for them meanwhile, and so does the lock; none is drawn, nor a frame for them, under a
+frosted window, whose blur hides them; the action goes through the kinds, turns them off
 (which takes them away) and back on, from a binding too, embers rising and rain falling among
 them; a profile
 setting another kind brings it in, a reload leaves the action's choice unless the kind configured
