@@ -9,6 +9,7 @@ leak:tests/idle_probe.c
 leak:tests/x11_probe.c
 leak:tests/clipboard_probe.c
 leak:tests/task_model_test.cpp
+leak:tools/bench/bench_client.c
 # shell_ui_test is not among them: it runs the shell's QML in its own process and frees all
 # of it, so what it leaks the shell leaks.
 # fontconfig's pattern cache, filled through Qt's font fallback and never freed; neither the
