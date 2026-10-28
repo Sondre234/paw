@@ -2,15 +2,13 @@
 """The desktop cat (`cat`, `paw cat`): let out, it turns up over the focused window and lands on its
 top, taking no input there; it falls onto the window below as that window is minimized, and on to
 the floor above the taskbar as that one is; nobody using the computer (PAW_TEST_CAT_SLEEP_MS), it
-sleeps, drawing a frame only now and then, purrs in its sleep and sleeps on as the pointer strokes
-it, and other input wakes it; a pointer flicked past it sets it running, and stroked awake it
-purrs, sending up pink hearts; it hides behind a fullscreen window, under the overview and under
+sleeps, drawing a frame only now and then, and input wakes it; a pointer flicked past it sets it
+running, and stroked awake it purrs, sending up pink hearts; it hides behind a fullscreen window, under the overview and under
 the lock; it pats the top of a window that asks for attention; and it goes as it is called in, by
 `paw cat`, a binding or cat.enabled changing in a reload. With grim, the screen shows it."""
 from pathlib import Path
 import subprocess
 import sys
-import time
 
 import harness
 
@@ -91,7 +89,8 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
     assert cat()["y"] == 672, cat()
 
     # Nobody has used the computer since it started: it sleeps, and the output draws only for its
-    # breaths, one every 2.2 seconds, each change costing a headless output two frames.
+    # breaths, one every 2.2 seconds, each change costing a headless output two frames: four at
+    # most over a breath's time.
     wait_for(lambda: cat()["state"] == "sleep", "the cat sleeps", timeout=30)
     assert cat()["frame"] in ("sleep_1", "sleep_2"), cat()
 
@@ -99,8 +98,9 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
         return int(desktop.rows("output_frames")[0][1])
 
     before = frames()
-    time.sleep(4.5)
-    assert cat()["state"] == "sleep" and frames() - before <= 6, (frames() - before, cat())
+    desktop.stays(lambda: cat()["state"] == "sleep" and frames() - before <= 4,
+                  "the sleeping cat drawn only for its breaths", duration=2.3,
+                  detail=lambda: (frames() - before, cat()))
 
     pointer = desktop.virtual_pointer(pointer_probe, 1280, 720)
 
@@ -115,21 +115,7 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
         for start in range(0, len(sweep), 10):
             pointer(*(f"move {x + offset} {y} sleep 25" for offset in sweep[start:start + 10]))
 
-    # Stroked in its sleep, it purrs in its sleep: the input does not wake it, and it sleeps on
-    # once the strokes stop.
-    seen = set()
-
-    def purring_asleep():
-        stroke()
-        seen.add(cat()["state"])
-        return cat()["state"] == "purr"
-
-    wait_for(purring_asleep, "the sleeping cat purrs as it is stroked")
-    assert cat()["frame"] in ("sleep_1", "sleep_2"), cat()
-    wait_for(lambda: seen.add(cat()["state"]) or cat()["state"] == "sleep", "it sleeps on")
-    assert seen <= {"sleep", "purr"}, seen
-
-    # Other input wakes it, and a flick of the pointer past it sets it running after the pointer.
+    # Input wakes it, and a flick of the pointer past it sets it running after the pointer.
     pointer("move 1200 100")
     wait_for(lambda: cat()["state"] in ("wake", "sit", "look", "walk", "groom", "scratch",
                                         "jump", "land", "yawn"), "the cat wakes")
@@ -139,8 +125,8 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
     wait_for(lambda: cat()["state"] in ("chase", "pounce", "fall"), "the cat chases the pointer")
     wait_for(lambda: cat()["on"] != "-", "the cat comes down again")
 
-    # Stroked awake, it purrs with its eyes shut, sending up hearts over its ears, and stops two
-    # seconds after the strokes do.
+    # Stroked awake, it purrs with its eyes shut, sending up hearts over its ears. (Purring in its
+    # sleep, and stopping after the strokes do, are cat_tests'.)
     calm = ("sit", "look", "walk", "groom", "scratch")
     wait_for(lambda: cat()["state"] in calm and (stroke() or cat()["state"] == "purr"),
              "the cat purrs as it is stroked")
@@ -154,8 +140,6 @@ with harness.Compositor(compositor, CONFIG.format(enabled="false"),
                        if (lambda r, g, b: r > 180 and r - g > 60 and b > g)(*shot.at(px, py)))
 
         wait_for(lambda: hearts() >= 12, "hearts float up from the purring cat")
-    wait_for(lambda: cat()["state"] != "purr", "the cat stops purring", timeout=5)
-    assert cat()["state"] == "sit", cat()
 
     # A fullscreen window hides it, and so do the overview and the lock.
     msg("fullscreen")
