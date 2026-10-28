@@ -40,9 +40,11 @@ the dock.
 - **Menu bar**, along the top of every monitor. A spiral at the left opens the system menu:
   Appearance (the profiles), Wallpaper…, Displays… (the [display
   settings](#display-settings)), Sleep, Hibernate, Restart…, Shut Down…, Lock Screen and Log
-  Out… (those the system allows); the `power_menu` action opens it too. The focused application's name, in bold ("Desktop" when
+  Out… (those the system allows); the `power_menu` action opens it too. The focused application's
+  name, in bold ("Desktop" when
   no window has focus), opens its menu: New Window (unless one of its desktop actions is one),
-  its desktop actions, Hide, Hide Others and Quit. The **Window** menu acts on the focused window: Minimize, Zoom, Tile Window to Left or
+  its desktop actions, Hide, Hide Others and Quit. The **Window** menu acts on the focused window:
+  Minimize, Zoom, Tile Window to Left or
   Right of Screen, Enter Full Screen, Float, Keep on All Workspaces, Keep Above Others (checked
   while the window is [kept above](#keeping-windows-above)), Move to a workspace or monitor, the
   application's other windows, and Close Window. While one menu is open, pointing at
@@ -165,7 +167,8 @@ shows.
 
 Along the bar, from the left: the start button, one row of the pinned applications and the open
 windows, the workspace indicator, the widgets placed on the bar with the tray among them, the
-Quick Settings button, the clock, and a sliver at the end that shows the desktop. A button shows a tooltip when
+Quick Settings button, the clock, and a sliver at the end that shows the desktop. A button shows a
+tooltip when
 the pointer rests on it, but for a window's, which shows pictures of its windows instead
 ([below](#window-pictures)). Lua configures the panel's height (its icons grow with it), the edge
 of the monitor it is along (`panel_position`: top, bottom, left or right), margins that make it
@@ -1388,7 +1391,8 @@ window, one segment per member with the shown one lit. A click on a segment brin
 forward. The strip carries no titles: the compositor has no text rendering, so the taskbar (which
 lists every member, and switches tabs when a hidden one is activated) and the window switcher
 name the windows. `paw msg get windows` gives each window's group number (0 for none), next to
-last on its line. Hidden members are off the screen, in no tiling, and follow the shown window to another
+last on its line. Hidden members are off the screen, in no tiling, and follow the shown window to
+another
 workspace or monitor. `features.groups = false` turns the actions off and dissolves every group
 on reload. `session save` keeps only the shown window of a group, not the group.
 
@@ -2028,7 +2032,8 @@ border. A second tile brings `gap_inner` and `gap_outer` back for both, and they
 closes, floats or leaves (`layout.smart_gaps`, on by default, like sway's `smart_gaps`; `false`
 keeps the gaps around a lone tile too). A window group is one tile; floating, sticky and
 maximized windows are not tiles, and two windows in monocle keep their gaps. A lone column of the
-scroll layout loses its gaps and fills the screen (`layout.scroll.fill_lone`). `layout.lone_margin` keeps a lone tile that far
+scroll layout loses its gaps and fills the screen (`layout.scroll.fill_lone`). `layout.lone_margin`
+keeps a lone tile that far
 from the edges instead, so a single window on a wide monitor need not fill it: one number, or
 `{ top, right, bottom, left }`, e.g. wide at the sides and narrow above and below.
 
@@ -2176,7 +2181,8 @@ layout = {
 
 A workspace keeps the layout, ratio and master count it was given until the compositor
 restarts, where a [saved session](#sessions) brings them back (a standalone session's
-[last one](#the-last-session) does at login); a reload changes the starting values only for workspaces that have not chosen
+[last one](#the-last-session) does at login); a reload changes the starting values only for
+workspaces that have not chosen
 one.
 
 Each monitor can start with its own values in `layout.outputs`, keyed by connector name or
@@ -3750,7 +3756,8 @@ answered, or `unavailable` without logind; for locking `yes` when there is a loc
 or says `-`.
 `paw msg get animations` prints the number of running animations and of window trees in
 the scene (closing and minimizing windows count until their animation ends), and of fades
-running (focus fades, frames fading in and out, the snap preview), mainly for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
+running (focus fades, frames fading in and out, the snap preview), mainly for tests;
+`paw msg get drawn` where each window is drawn while it glides to a new place
 and size (see [Animations](#animations)), and `paw msg get output_frames` each monitor's name and
 how many frames it has drawn. `paw msg get frame_times OUTPUT` prints how many frames that
 monitor has drawn, then a line for each of its last 512: the time drawing it took and the time
@@ -3811,7 +3818,8 @@ SECONDS` since 1970, 0 for never), what the time counts as now (`state active`, 
 the focused application and its streak so far in seconds (`focus APP SECONDS`, `-` for none), and
 then what it counted and has not saved yet, as the lines of a day file. `paw msg get actions`
 prints a line per action the configuration knows: its name and the keys of its first key binding
-outside any [binding mode](#binding-modes), as `Super + Tab`, or `-` for none. `paw msg get profiles` prints
+outside any [binding mode](#binding-modes), as `Super + Tab`, or `-` for none.
+`paw msg get profiles` prints
 a line per [appearance profile](#appearance-profiles), in name order: its name and `1` for the one
 in use, else `0`; and `paw msg get terminal` the command line the `terminal` action starts, its
 words separated by tabs, or nothing when there is no terminal to start. A client
@@ -3828,7 +3836,8 @@ change, plus `launcher OUTPUT` when the `launcher` action
 (a tap of Super) asks the panel on that monitor to open or close its start menu, and `run OUTPUT`
 when the `run` action (Super + R) asks the shell for its [run launcher](#run-launcher) there; the
 panel uses these. The window switcher sends `switcher OUTPUT SELECTED COUNT` (ending with `app`
-when it lists [one application's windows](#one-applications-windows)) followed by COUNT lines `switcher-window APP_ID TITLE OUTPUT WORKSPACE MINIMIZED URGENT ID` (tab-separated) when it
+when it lists [one application's windows](#one-applications-windows)) followed by COUNT lines
+`switcher-window APP_ID TITLE OUTPUT WORKSPACE MINIMIZED URGENT ID` (tab-separated) when it
 opens or a listed window closes, `switcher-select N` as the selection moves (both counting
 from 0), and `switcher-close`. ID is the window's number, which the compositor gives each window as
 it appears and never gives another; a taskbar gets the same number for its handle of the window
@@ -4144,7 +4153,8 @@ errors, not calls. It sets only how the desktop looks: colours, borders, corners
 the blur behind windows, the bar's style, size, place, font and widgets, the tiling bar, the
 wallpaper, the start button, the ambient particles and the cursor trail, and the cursor and icon
 themes by name (one you have installed). Launchers, window rules, the search's folders and web
-address, the clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other section
+address, the clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every
+other section
 are refused, and `paw rice pack` leaves them out. The pictures and other files it names are paths
 inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor through one;
 an archive holding a link, a device or a path out of it is refused whole, and only the files
@@ -4264,7 +4274,8 @@ over what shows, and closes it again; bind it as `{ mods = { "Super" }, key = "x
 }`. The picture comes apart into a stack of sheets, bottom to top: the background (the desktop's
 colour and the wallpaper), the bottom layer, the windows, floating windows (with
 `layout.floating_above_tiles`), windows kept above, fullscreen windows, a window peeked at, the
-panels (the top layer), a fullscreen window covering the panels, X11 menus and the overlays. A layer with nothing
+panels (the top layer), a fullscreen window covering the panels, X11 menus and the overlays. A layer
+with nothing
 on that monitor has no sheet, and while six windows or fewer show, each has a sheet of its own.
 Each sheet is a live copy of what its layer draws there, scaled down, on a card edged in the
 layer's colour with a shadow, fanned out from the one under it like a deck of cards seen from the
