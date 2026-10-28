@@ -463,8 +463,8 @@ return {
         -- Sway's scratchpad: move_to_scratchpad (Super+Shift+minus) and scratchpad_show
         -- (Super+minus); false turns them off, and a reload brings hidden windows back.
         scratchpad = true,
-        -- toggle_sticky (Super+P) pins a window to every workspace of its monitor; false turns
-        -- the action off and returns sticky windows to their monitor's current workspace.
+        -- toggle_sticky (Super+Shift+P) pins a window to every workspace of its monitor; false
+        -- turns the action off and returns sticky windows to their monitor's current workspace.
         sticky = true,
         -- resize_left/right/up/down (Super+Ctrl+Shift+arrows); false turns them off.
         keyboard_resize = true,
