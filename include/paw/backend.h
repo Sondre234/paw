@@ -384,13 +384,12 @@ struct sh_effect_settings {
     float peek_opacity; /* what windows fade to while peeking, 0 to 0.9 */
     int peek_duration;  /* milliseconds */
     bool peek_switcher; /* the window selected in the switcher or the palette peeks */
-    /* night_light: minutes after midnight for sunrise and sunset, or -1 to take them from the
-     * location (`located`) for the day. */
+    /* night_light: minutes after midnight for sunrise and sunset, or -1 to work them out for the
+     * day from `latitude` and `longitude`. */
     bool night_light;
     int day_kelvin, night_kelvin;
     double sunrise, sunset;
     double latitude, longitude;
-    bool located;
     double transition; /* minutes */
     /* hot_corners: the corner square in pixels, how long the pointer must stay in it in
      * milliseconds, and a bit per corner (sh_corner order) that has something to run. */

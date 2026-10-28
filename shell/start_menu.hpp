@@ -66,7 +66,6 @@ class StartMenu : public QObject {
     // ignored.
     void setUser(const QString &name, const QUrl &icon);
 
-    Q_INVOKABLE bool isPinned(const QString &id) const;
     // Pins an installed application at the end, or unpins it. Configured launchers have no
     // place here: they belong to the taskbar.
     Q_INVOKABLE void pin(const QString &id);

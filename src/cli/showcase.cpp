@@ -184,14 +184,16 @@ std::vector<std::string> arrangement() {
 }
 
 // The terminal as the terminal action opens it: the configured one, else $TERMINAL, else the
-// first one installed.
+// first one installed. A configuration with an error gives the default one's, as paw starts with
+// that one then.
 std::vector<std::string> configured_terminal() {
-    try {
-        auto config = load_config(configuration_path());
-        if (!config.terminal.empty())
-            return config.terminal;
-    } catch (const std::exception &) {
-    }
+    std::string error;
+    auto config = load_config_or_default(configuration_path(), error);
+    if (!error.empty())
+        std::cerr << "paw: the configuration has an error, so the default one names the terminal: "
+                  << error << '\n';
+    if (!config.terminal.empty())
+        return config.terminal;
     if (const char *name = std::getenv("TERMINAL"); name && *name && executable(name))
         return {name};
     for (const char *name : known_terminals)
@@ -364,12 +366,8 @@ struct Showcase {
             throw std::runtime_error("no monitor to take");
         partial = file;
         partial += ".part";
-        try {
-            send("cursor hide");
-            hidden = true;
-        } catch (const std::exception &) {
-            // An older paw shows the cursor, as grim -c would.
-        }
+        send("cursor hide");
+        hidden = true;
         pid_t grim = start({"grim", "-t", "png", "-o", output, partial.string()}, false);
         int status = 0;
         bool done = false;

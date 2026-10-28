@@ -3,7 +3,6 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Effects
 import QtQuick.Layouts
-import Paw
 
 // The card of the workspace of the indicator the pointer rests on, with shell.thumbnails (the
 // panel's workspaceCardOpen): above it (below a bar along the top), as the card of a button's

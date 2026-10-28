@@ -128,7 +128,7 @@ paw before it can be imported, **won't** = deliberately not carried over.
 | Border width | `general:border_size` | `windows.border_width` | done | yes |
 | Border colors (active/inactive) | `col.active_border`, `col.inactive_border` | `windows.border_color`, `border_inactive_color` | done | yes |
 | Gradient borders | `rgba(…) rgba(…) 45deg`, Lua `{ colors, angle }` | `windows.border_color = { "#…", "#…", angle = 45 }` (up to 10 colors) | done | yes |
-| Corner rounding | `decoration:rounding` | `windows.corner_radius` (with wlroots patched by `packaging/patches/wlroots-rounded-corners.patch`) | done (set by hand) | no |
+| Corner rounding | `decoration:rounding` | `windows.corner_radius` (with wlroots patched by `packaging/patches/wlroots-rounded-corners.patch`) | done | yes |
 | Active / inactive opacity | `decoration:active_opacity`, `inactive_opacity` | `windows.opacity`, `inactive_opacity` | done | yes |
 | Per-app opacity | `windowrule = opacity A B, class:…` | `windows.rules` (`app_id` regex) | done | yes |
 | Blur | `decoration:blur` (as with `xray = true`) | `windows.blur` | done (set by hand) | no |

@@ -61,11 +61,6 @@ class ShellController : public QObject {
     // border's last colour when that is a gradient (washi's sakura after its sky blue), else
     // windows.urgent_color, the warm one of each shipped profile.
     Q_PROPERTY(QColor blush READ blush NOTIFY configChanged)
-    // The wallpaper of the monitors without one of their own: one picked from the panel for the
-    // profile in use, else shell.wallpaper. wallpaperFile is the same as a path, "" for none.
-    // Each ShellView has its own monitor's (wallpaperOn).
-    Q_PROPERTY(QUrl wallpaper READ wallpaper NOTIFY wallpaperChanged)
-    Q_PROPERTY(QString wallpaperFile READ wallpaperFile NOTIFY wallpaperChanged)
     // shell.wallpaper_mode, how the wallpaper covers the output: "fill", "fit", "center", "tile"
     // or "stretch".
     Q_PROPERTY(QString wallpaperMode READ wallpaperMode NOTIFY configChanged)
@@ -184,10 +179,7 @@ class ShellController : public QObject {
     // The binding mode in use, "" outside any.
     Q_PROPERTY(QString bindingMode READ bindingMode NOTIFY bindingModeChanged)
     Q_PROPERTY(QVariantList pinned READ pinned NOTIFY appsChanged)
-    // Configured launchers and installed applications, as {appId, name, icon, pinned (to the
-    // taskbar), configured, genericName, keywords, description, program}.
-    Q_PROPERTY(QVariantList apps READ apps NOTIFY appsChanged)
-    // Counts the changes of `apps`, for QML that reads one record with appRecord() to follow
+    // Counts the changes of apps(), for QML that reads one record with appRecord() to follow
     // them without making all of them.
     Q_PROPERTY(int appsRevision READ appsRevision NOTIFY appsChanged)
     // The processes running on without a window, as the compositor tracks them, oldest first (the
@@ -300,12 +292,10 @@ class ShellController : public QObject {
     // Snap Assist: the overview in the free slot beside a window just snapped, `overviewArea`
     // being that slot; it has no strip and no search.
     Q_PROPERTY(bool overviewAssist READ overviewAssist NOTIFY overviewChanged)
-    // The compositor's exploded view (paw xray): the output showing it, empty while closed; the
-    // area its stack of sheets keeps to and the width of the column left of it for a legend (0
-    // for none), in the output's coordinates; the sheets, bottom first, as {layer, colour, name,
-    // detail}; and the one under the pointer (-1 for none). The compositor draws the sheets; the
-    // shell names them.
-    Q_PROPERTY(QString xrayOutput READ xrayOutput NOTIFY xrayChanged)
+    // The compositor's exploded view (paw xray): the area its stack of sheets keeps to and the
+    // width of the column left of it for a legend (0 for none), in the output's coordinates; the
+    // sheets, bottom first, as {layer, colour, name, detail}; and the one under the pointer (-1
+    // for none). The compositor draws the sheets; the shell names them.
     Q_PROPERTY(QRect xrayArea READ xrayArea NOTIFY xrayChanged)
     Q_PROPERTY(int xrayLegend READ xrayLegend NOTIFY xrayChanged)
     Q_PROPERTY(QVariantList xraySheets READ xraySheets NOTIFY xrayChanged)
@@ -323,6 +313,9 @@ class ShellController : public QObject {
     // workspace, appId, title}, which the taskbar marks. Each output's entry in `workspaces`
     // lists the workspaces they are on, as `urgent`.
     QVariantList urgentWindows() const { return urgentWindows_; }
+    // The wallpaper of the monitors without one of their own: one picked from the panel for the
+    // profile in use, else shell.wallpaper. wallpaperFile is the same as a path, "" for none.
+    // Each ShellView has its own monitor's (wallpaperOn).
     QUrl wallpaper() const;
     QString wallpaperFile() const { return wallpaperFileOn({}); }
     QString wallpaperMode() const;
@@ -348,16 +341,16 @@ class ShellController : public QObject {
     // the configuration gives it the wallpaper it did then, else its shell.monitor_wallpapers
     // entry, else shell.wallpaper; a path, "" for none. wallpaperFile is a monitor's without
     // anything of its own.
-    Q_INVOKABLE QString wallpaperFileOn(const QString &output) const;
+    QString wallpaperFileOn(const QString &output) const;
     QUrl wallpaperOn(const QString &output) const;
     // Whether monitor `output` shows a wallpaper picked for it alone, not the one picked for
     // every monitor.
-    Q_INVOKABLE bool ownWallpaper(const QString &output) const;
+    bool ownWallpaper(const QString &output) const;
     // The wallpaper slideshow (shell.wallpaper_cycle): picks the picture after the one shown
     // (`direction` 1) or before it (-1) in its folder, as the wallpaper_next and wallpaper_prev
     // actions and its timer do, for every monitor or with per_monitor for each monitor alone, from
     // the left; with `tell`, says so when the folder has none (the timer does not).
-    Q_INVOKABLE void stepWallpaper(int direction, bool tell = true);
+    void stepWallpaper(int direction, bool tell = true);
     // The slideshow's folder: shell.wallpaper_cycle.folder, else the folder of shell.wallpaper,
     // else the picker's.
     QString wallpaperCycleFolder() const;
@@ -411,7 +404,7 @@ class ShellController : public QObject {
     // else as shell.panel_position, where it takes effect (the profile in use when that sets it),
     // and loads the file again, as the compositor does once it sees the file change. A failure
     // leaves the file as it was and is shown across the panel.
-    Q_INVOKABLE void movePanel(const QString &output, const QString &edge);
+    void movePanel(const QString &output, const QString &edge);
     // Sizes the taskbar as `size` says, as movePanel moves it: writes shell.panel_height and the
     // sides of shell.panel_margin that changed where they take effect, in one write (all four
     // sides for a margin given as one number), and loads the file again.
@@ -505,13 +498,15 @@ class ShellController : public QObject {
     // What the compositor says of night light; the preview's stand-in says it too.
     void setNightLight(bool on, const QString &mode);
     QVariantList pinned() const;
+    // Configured launchers and installed applications, as {appId, name, icon, pinned (to the
+    // taskbar), configured, genericName, keywords, description, program}.
     QVariantList apps() const;
     int appsRevision() const { return appsRevision_; }
     QString iconBase() const;
     // The icon theme in use: appearance.icon_theme where it is installed, else the one the shell
     // started with.
     QString iconTheme() const;
-    // The record of the application `id`, as `apps` has it; undefined in QML for none.
+    // The record of the application `id`, as apps() has it; undefined in QML for none.
     Q_INVOKABLE QVariant appRecord(const QString &id) const;
     QString error() const { return error_; }
     QString configError() const { return configError_; }
@@ -537,11 +532,11 @@ class ShellController : public QObject {
     const paw::Config &config() const { return config_; }
     // Opens a file in its default application, or with `folder` the folder that holds it; a
     // failure shows across the panel.
-    Q_INVOKABLE bool openFile(const QString &path, bool folder = false);
+    bool openFile(const QString &path, bool folder = false);
     // shell.search.web: the search engine's address, %s where the words go; empty for none.
     QString webSearch() const { return QString::fromStdString(config_.shell.search.web); }
     // Opens an address in the default browser; a failure shows across the panel.
-    Q_INVOKABLE bool openUrl(const QString &url);
+    bool openUrl(const QString &url);
     // Sends the compositor a request (an action, or "session restore NAME"), as `paw msg`
     // would; `done` gets its whole reply. Without a session, `done` is not called.
     void ask(const QByteArray &line, std::function<void(const QByteArray &)> done);
@@ -631,6 +626,7 @@ class ShellController : public QObject {
     QRect overviewArea() const { return overview_.area; }
     int overviewSelected() const { return overview_.selected; }
     bool overviewAssist() const { return overview_.assist; }
+    // The output showing the exploded view, empty while closed.
     QString xrayOutput() const { return xray_.output; }
     QRect xrayArea() const { return xray_.area; }
     int xrayLegend() const { return xray_.legend; }
@@ -674,14 +670,14 @@ class ShellController : public QObject {
     void orderPins(const QStringList &order);
     // The installed application a window's app id belongs to, or empty when none matches.
     Q_INVOKABLE QString appFor(const QString &windowAppId) const;
-    Q_INVOKABLE bool isPinned(const QString &id) const;
+    bool isPinned(const QString &id) const;
     // The pinned application whose taskbar slot a window with this app id takes over, or empty.
     Q_INVOKABLE QString pinnedAppFor(const QString &windowAppId) const;
     // The icon of a window's application, else of a desktop entry the menus leave out that it
     // matches, else an icon the theme has by a name guessed from its app id, else
     // application-x-executable.
     Q_INVOKABLE QString iconFor(const QString &windowAppId) const;
-    Q_INVOKABLE void reload();
+    void reload();
     Q_INVOKABLE void clearError();
     // Toggles tiling on `output`, or on the focused output when it is empty.
     Q_INVOKABLE void toggleTiling(const QString &output = {});

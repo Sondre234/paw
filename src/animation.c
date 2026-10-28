@@ -821,17 +821,6 @@ static void rest_anim(struct sh_anim *anim) {
         rest_hold(anim);
 }
 
-static void rest_lifts(struct sh_animator *animator, bool at, double px, double py);
-static void rest_poses(struct sh_animator *animator, bool at, double px, double py);
-
-void sh_animator_rest(struct sh_animator *animator) {
-    struct sh_anim *anim;
-    wl_list_for_each(anim, &animator->running, link) rest_anim(anim);
-    wl_list_for_each(anim, &animator->held, link) rest_anim(anim);
-    rest_lifts(animator, false, 0, 0);
-    rest_poses(animator, false, 0, 0);
-}
-
 /* The record `anim` keeps of `node`, NULL for none or no `anim`. */
 static const struct sh_anim_record *record_of(const struct sh_anim *anim,
                                               const struct wlr_scene_node *node) {
@@ -884,14 +873,13 @@ static bool tree_covers(const struct sh_anim *rest, const struct wlr_scene_tree 
     return false;
 }
 
-/* Lifted windows at their own size for a lookup, with `at` only those that could be found at
- * (px, py): drawn lifted, a window covers all it covers at rest, where it rests or where a glide
- * draws it. */
-static void rest_lifts(struct sh_animator *animator, bool at, double px, double py) {
+/* Lifted windows at their own size for a lookup, only those that could be found at (px, py):
+ * drawn lifted, a window covers all it covers at rest, where it rests or where a glide draws it. */
+static void rest_lifts(struct sh_animator *animator, double px, double py) {
     struct sh_anim *anim;
     wl_list_for_each(anim, &animator->lifted, lift_link) {
         int cx, cy;
-        if (at && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
+        if (wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
             double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
             if (!tree_covers(NULL, anim->tree, cx, cy, px, py) &&
                 !tree_covers(anim, anim->tree, parent_x + anim->base_x, parent_y + anim->base_y,
@@ -903,13 +891,13 @@ static void rest_lifts(struct sh_animator *animator, bool at, double px, double 
     }
 }
 
-/* Posed windows where they rest for a lookup, with `at` only those that could be found at
- * (px, py), drawn posed or at rest. */
-static void rest_poses(struct sh_animator *animator, bool at, double px, double py) {
+/* Posed windows where they rest for a lookup, only those that could be found at (px, py), drawn
+ * posed or at rest. */
+static void rest_poses(struct sh_animator *animator, double px, double py) {
     struct sh_anim *anim;
     wl_list_for_each(anim, &animator->posed, pose_link) {
         int cx, cy;
-        if (at && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
+        if (wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
             double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
             if (!tree_covers(NULL, anim->tree, cx, cy, px, py) &&
                 !tree_covers(anim, anim->tree, parent_x + anim->base_x, parent_y + anim->base_y,
@@ -948,8 +936,8 @@ void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
             rest_anim(anim);
     }
     wl_list_for_each(anim, &animator->held, link) rest_anim(anim);
-    rest_lifts(animator, true, px, py);
-    rest_poses(animator, true, px, py);
+    rest_lifts(animator, px, py);
+    rest_poses(animator, px, py);
 }
 
 void sh_animator_resume(struct sh_animator *animator) {
@@ -1083,8 +1071,7 @@ static int timer_fired(void *data) {
     return 0;
 }
 
-static void start(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree,
-                  int duration) {
+static void start(struct sh_animator *animator, struct sh_anim *anim, struct wlr_scene_tree *tree) {
     end_pose(anim, true); // a toy gives way to any animation
     if (anim->animator && anim->tree != tree)
         sh_anim_finish(anim);
@@ -1105,7 +1092,6 @@ static void start(struct sh_animator *animator, struct sh_anim *anim, struct wlr
     }
     if (!animator->last_tick)
         animator->last_tick = now_ms(animator);
-    (void)duration; // the timer ticks until it ends, however long
     keep_ticking(animator);
 }
 
@@ -1172,7 +1158,7 @@ static void glide_setup(struct sh_animator *animator, struct sh_anim *anim, int 
 static void glide_begin(struct sh_animator *animator, struct sh_anim *anim,
                         struct wlr_scene_tree *tree, int dx, int dy, enum sh_anim_kind kind,
                         int duration, int width, int height) {
-    start(animator, anim, tree, duration);
+    start(animator, anim, tree);
     int64_t now = now_ms(animator);
     glide_setup(animator, anim, dx, dy, kind, duration, width, height, now);
     step(anim, now);
@@ -1329,7 +1315,7 @@ void sh_anim_open(struct sh_animator *animator, struct sh_anim *anim, struct wlr
     int duration = animator->config.enabled ? duration_of(animator, SH_ANIM_OPEN) : 0;
     if (!duration)
         return;
-    start(animator, anim, tree, duration);
+    start(animator, anim, tree);
     fx_begin(animator, anim, SH_ANIM_OPEN, duration, SMALL, 1, 0, 1, cx, cy);
     step(anim, anim->fx_start);
 }
@@ -1339,7 +1325,7 @@ void sh_anim_slide(struct sh_animator *animator, struct sh_anim *anim, struct wl
     int duration = animator->config.enabled ? duration_of(animator, SH_ANIM_WORKSPACE) : 0;
     if (!duration)
         return;
-    start(animator, anim, tree, duration);
+    start(animator, anim, tree);
     if (dx || dy)
         glide_begin(animator, anim, tree, dx, dy, SH_ANIM_WORKSPACE, duration, anim->rest_width,
                     anim->rest_height);
@@ -1375,7 +1361,7 @@ static struct sh_anim *snapshot(struct sh_animator *animator, struct wlr_scene_n
                                 struct wlr_scene_tree *content, int duration) {
     struct sh_anim *anim = make_copy(window, content);
     if (anim)
-        start(animator, anim, anim->tree, duration);
+        start(animator, anim, anim->tree);
     return anim;
 }
 
@@ -1463,7 +1449,7 @@ void sh_anim_slide_from(struct sh_animator *animator, struct sh_anim *anim,
     int duration = slide_duration(animator, share);
     if (!duration || (dx == 0 && dy == 0 && alpha >= 1))
         return;
-    start(animator, anim, tree, duration);
+    start(animator, anim, tree);
     if (dx || dy)
         glide_begin(animator, anim, tree, dx, dy, SH_ANIM_WORKSPACE, duration, anim->rest_width,
                     anim->rest_height);
@@ -1487,7 +1473,7 @@ void sh_anim_slide_away(struct sh_animator *animator, struct sh_anim *anim, int 
         anim->animator = NULL;
         anim->held = false;
     }
-    start(animator, anim, anim->tree, duration);
+    start(animator, anim, anim->tree);
     // It rests where it slides to, and starts from where it was held, back from there.
     anim->base_x += dx;
     anim->base_y += dy;
@@ -1561,7 +1547,7 @@ struct sh_anim *sh_anim_fold_away(struct sh_animator *animator, struct wlr_scene
     }
     anim->owned = true;
     anim->tree = copy;
-    start(animator, anim, copy, duration);
+    start(animator, anim, copy);
     fold_begin(animator, anim, fold, scale, cx, cy, from, 1, duration);
     anim->ref = ref;
     if (ref)
@@ -1582,7 +1568,7 @@ bool sh_anim_unfold(struct sh_animator *animator, struct sh_anim *anim, struct w
         sh_anim_finish(anim); // a gesture's hold, or another tree's animation, lands
     else
         sh_anim_settle(anim); // a glide goes on beneath the fold
-    start(animator, anim, tree, duration);
+    start(animator, anim, tree);
     fold_begin(animator, anim, fold, scale, cx, cy, from, 0, duration);
     step(anim, anim->fold_start);
     return true;
@@ -1728,7 +1714,7 @@ void sh_anim_spring_back(struct sh_animator *animator, struct sh_anim *anim,
     bool moved = lround(dx) || lround(dy);
     if (!duration || (!moved && alpha >= 1))
         return;
-    start(animator, anim, tree, duration);
+    start(animator, anim, tree);
     int64_t now = now_ms(animator);
     if (moved) {
         anim->glide_x = tree->node.x - anim->base_x + dx;
@@ -1763,7 +1749,7 @@ void sh_anim_nudge(struct sh_animator *animator, struct sh_anim *anim, struct wl
         if (vx * dx + vy * dy > 0)
             return; // on its way there already
     }
-    start(animator, anim, tree, duration);
+    start(animator, anim, tree);
     // From where it is drawn: what is left of that offset at the turning point, a third of the
     // way through, plus the push makes (dx, dy) there. A glide with no offset of its own and a
     // starting speed v goes out to v * duration * 4/27 at that point and comes back to rest.
@@ -1852,7 +1838,7 @@ static bool drop(struct sh_animator *animator, struct sh_anim *anim, struct wlr_
         glide_axis(anim, anim->glide_y, anim->glide_vy, now - anim->glide_start, &y, &vy);
     }
     int from_x = moving || out ? tree->node.x : dx, from_y = moving || out ? tree->node.y : dy;
-    start(animator, anim, tree, duration);
+    start(animator, anim, tree);
     anim->base_x = out ? dx : 0;
     anim->base_y = out ? dy : 0;
     anim->glide_x = from_x - anim->base_x;

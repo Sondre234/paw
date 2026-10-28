@@ -7,6 +7,7 @@
  * error or a failure, which main prints as "paw: WHAT". */
 #include <filesystem>
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -17,8 +18,14 @@ struct Reply {
     std::string body; // what follows the "ok" or "error" line
 };
 
+// What request() throws when there is no session to reach: $PAW_SOCKET is not set, or nothing
+// listens there. A subcommand that also works outside a session catches this alone.
+struct SessionUnreachable : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
 // Sends one request line (no newline) to the control socket $PAW_SOCKET names and returns the
-// reply. Throws if the session cannot be reached.
+// reply. Throws SessionUnreachable if the session cannot be reached, std::runtime_error if the
+// request cannot be sent.
 Reply request(const std::string &line);
 // The tab-separated fields of each line of a reply's body.
 std::vector<std::vector<std::string>> rows(const std::string &body);

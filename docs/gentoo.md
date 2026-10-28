@@ -35,7 +35,10 @@ while Gentoo's default Lua target is 5.1.
 USE flags:
 
 - `shell` (on by default): `paw-shell`, with Qt 6 and LayerShellQt
-- `notifications` (on): the shell's notification daemon, through Qt's D-Bus module
+- `dbus` (on, in the live ebuild): the shell's services on D-Bus, through Qt's D-Bus module: the
+  system tray, media players (MPRIS), and Quick Settings' Wi-Fi (NetworkManager), Bluetooth
+  (BlueZ) and power mode (power-profiles-daemon)
+- `notifications` (on): the shell's notification daemon, which needs `dbus` in the live ebuild
 - `polkit` (on, in the live ebuild): the shell's polkit authentication agent, which asks for the
   password `pkexec`, GParted or an updater needs, through `sys-auth/polkit`'s agent library
 - `pulseaudio` (on): the panel's volume control, through libpulse (PipeWire serves it too)
@@ -45,7 +48,8 @@ USE flags:
 
 The ebuild needs wlroots built with `drm`, `libinput` and `session` (its defaults), installs
 the display-manager session entry (which runs `paw-session`), and when it finishes lists the optional programs paw
-uses (a terminal, screenshot tools, portals, a locker, an icon theme). To build with the
+uses (a terminal, screenshot tools, portals, a locker, an icon theme, and the services Quick
+Settings talks to). To build with the
 wlroots patches described below, put them in `/etc/portage/patches/gui-libs/wlroots/`,
 re-emerge wlroots, then re-emerge paw so it finds them; for the XWM patch, also turn the
 waker off for paw with a `package.env` file setting
@@ -64,7 +68,8 @@ between release series. Relevant Gentoo packages are:
 - `dev-util/wayland-scanner` and `x11-libs/libxkbcommon`
 - `dev-qt/qtbase:6`, 6.9 or newer, with the `wayland` USE flag (Qt 6.11, the version in the
   tree, carries the Wayland platform plugin there; older releases had it in
-  `dev-qt/qtwayland:6`), its default `network` flag, and `dbus` for the notification daemon;
+  `dev-qt/qtwayland:6`), its default `network` flag, and `dbus` for the notification daemon,
+  the tray and Quick Settings' services;
   `dev-qt/qtdeclarative:6` of the same version, whose Quick Effects draw the popups' shadows;
   and `dev-qt/qtsvg:6`, which the icons of most icon themes need
 - `kde-plasma/layer-shell-qt:6` (6.6+) and `dev-libs/glib:2` for the desktop shell

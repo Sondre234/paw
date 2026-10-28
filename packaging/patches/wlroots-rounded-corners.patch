@@ -15,8 +15,6 @@ edges, which the vertex shader computes. Small where they matter, these stay
 precise at mediump, which NVIDIA runs the shaders at (it leaves
 GL_FRAGMENT_PRECISION_HIGH undefined): buffer coordinates there lose the
 fractions past 1024 px, which stair-stepped the corners.
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 ---
  include/render/gles2.h                 |  10 ++
  include/wlr/render/interface.h         |   5 +

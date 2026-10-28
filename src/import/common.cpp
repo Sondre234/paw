@@ -2,6 +2,7 @@
 #include "common.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <cstdio>
 #include <cstdlib>
@@ -149,7 +150,8 @@ std::string trim(std::string_view text) {
 }
 
 std::string lower(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), ::tolower);
+    std::transform(text.begin(), text.end(), text.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return text;
 }
 
