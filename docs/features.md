@@ -2023,7 +2023,7 @@ border. A second tile brings `gap_inner` and `gap_outer` back for both, and they
 closes, floats or leaves (`layout.smart_gaps`, on by default, like sway's `smart_gaps`; `false`
 keeps the gaps around a lone tile too). A window group is one tile; floating, sticky and
 maximized windows are not tiles, and two windows in monocle keep their gaps. A lone column of the
-scroll layout loses its gaps and keeps its width. `layout.lone_margin` keeps a lone tile that far
+scroll layout loses its gaps and fills the screen (`layout.scroll.fill_lone`). `layout.lone_margin` keeps a lone tile that far
 from the edges instead, so a single window on a wide monitor need not fill it: one number, or
 `{ top, right, bottom, left }`, e.g. wide at the sides and narrow above and below.
 
