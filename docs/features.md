@@ -3749,8 +3749,8 @@ answered, or `unavailable` without logind; for locking `yes` when there is a loc
 `no`, and for logging out `yes`. A last line, `pending`, names the action under way and its step,
 or says `-`.
 `paw msg get animations` prints the number of running animations and of window trees in
-the scene (closing and minimizing windows count until their animation ends), and of focus fades,
-mainly for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
+the scene (closing and minimizing windows count until their animation ends), and of fades
+running (focus fades, frames fading in and out, the snap preview), mainly for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
 and size (see [Animations](#animations)), and `paw msg get output_frames` each monitor's name and
 how many frames it has drawn. `paw msg get frame_times OUTPUT` prints how many frames that
 monitor has drawn, then a line for each of its last 512: the time drawing it took and the time
