@@ -3860,8 +3860,9 @@ quarter of a second at a time, rather than failing to take one at full speed.
 ## Commands
 
 Besides `paw msg` and `paw import`, the `paw` binary has subcommands to find the configuration,
-to show the desktop off and to find out what is wrong with it. All but `paw config` talk to the
-running session through its control socket, as `paw msg` does. `paw help` (or `paw --help`)
+to show the desktop off and to find out what is wrong with it. All but `paw config`, `paw rice
+pack` and `paw rice list` talk to the running session through its control socket, as `paw msg`
+does (`paw wrapped` when there is one). `paw help` (or `paw --help`)
 lists them all by group with a line on each, `paw help NAME` gives one's arguments and says more
 of it, and `paw help msg` lists every action and every query `paw msg` takes.
 
