@@ -1467,8 +1467,8 @@ process ancestry through a shell, and with an X11 window (`tests/swallow_smoke.p
 Alt + Tab (`switcher`) opens the window switcher in the middle of the focused monitor. It
 lists every window, on every monitor and workspace and including minimized ones, most
 recently focused first, with the window focused before the current one selected. Keep Alt
-held and press Tab to move on (Shift + Tab, `switcher_prev`, or the arrow keys, to move
-back); releasing Alt focuses the selected window, switching its monitor to its workspace and
+held and press Tab to move on (Shift + Tab, `switcher_prev`, Left or Up to move back, Right or
+Down on); releasing Alt focuses the selected window, switching its monitor to its workspace and
 restoring it if minimized. Return picks at once, Escape cancels, and clicking a window picks
 it. While the switcher is open, keys do not reach applications. The compositor keeps the
 switcher and the shell draws it, only once it has been open for a moment, so a quick
