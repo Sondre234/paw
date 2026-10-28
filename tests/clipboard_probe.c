@@ -6,8 +6,10 @@
  *                                      prints "set" once it is copied, and hands it to whoever
  *                                      pastes until something else is copied, in a plain
  *                                      blocking write loop, printing "sent TYPE" each time
- *   clipboard_probe get TYPE [PAUSE]   prints what is copied as TYPE, exit 1 when nothing is;
- *                                      with PAUSE, reading 64 KiB at a time, PAUSE ms apart
+ *   clipboard_probe get TYPE [PAUSE [TIMES]]
+ *                                      prints what is copied as TYPE, exit 1 when nothing is;
+ *                                      with PAUSE, reading 64 KiB at a time, PAUSE ms apart, the
+ *                                      first TIMES reads only when given
  *   clipboard_probe stall TYPE         asks for what is copied as TYPE but reads none of it,
  *                                      printing "asked"; once the program that copied it gives
  *                                      up and closes its end, prints "closed N", N the bytes it
@@ -158,9 +160,10 @@ int main(int argc, char **argv) {
         (strcmp(argv[1], "set") && strcmp(argv[1], "get") && strcmp(argv[1], "stall") &&
          strcmp(argv[1], "types")) ||
         (!strcmp(argv[1], "set") && argc < 3) ||
-        (!strcmp(argv[1], "get") && argc != 3 && argc != 4) ||
+        (!strcmp(argv[1], "get") && (argc < 3 || argc > 5)) ||
         (!strcmp(argv[1], "stall") && argc != 3))
-        die("usage: clipboard_probe set TYPE=VALUE... | get TYPE [PAUSE] | stall TYPE | types");
+        die("usage: clipboard_probe set TYPE=VALUE... | get TYPE [PAUSE [TIMES]] | stall TYPE | "
+            "types");
     struct probe probe = {0};
     probe.display = wl_display_connect(NULL);
     if (!probe.display)
@@ -237,7 +240,8 @@ int main(int argc, char **argv) {
         printf("closed %zu\n", total);
         return 0;
     }
-    const int pause = argc == 4 ? atoi(argv[3]) : 0;
+    const int pause = argc >= 4 ? atoi(argv[3]) : 0;
+    int pauses = argc == 5 ? atoi(argv[4]) : -1; // -1: after every read
     // Reading waits for the program that copied it to write it all and close.
     while ((count = read(fds[0], chunk, sizeof(chunk))) != 0) {
         if (count < 0 && errno == EINTR)
@@ -245,8 +249,11 @@ int main(int argc, char **argv) {
         if (count < 0)
             die("reading failed");
         fwrite(chunk, 1, (size_t)count, stdout);
-        if (pause > 0)
+        if (pause > 0 && pauses != 0) {
             usleep((useconds_t)pause * 1000);
+            if (pauses > 0)
+                --pauses;
+        }
     }
     return 0;
 }

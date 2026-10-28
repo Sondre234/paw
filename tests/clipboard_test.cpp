@@ -238,9 +238,11 @@ class ClipboardTest : public QObject {
         QVERIFY(QTest::qWaitFor([&] { return stalled.state() == QProcess::NotRunning; }));
         QCOMPARE(stalled.exitCode(), 0);
 
-        // A pause between reads shorter than the timeout, but all of them longer.
+        // A pause between reads shorter than the timeout, but six of them longer, the rest of it
+        // read at once. Pausing after every read would take as long as the pipe is small: a user
+        // whose pipes pass fs.pipe-user-pages-soft gets new ones of two pages, 64 reads of it.
         QProcess slow;
-        slow.start(probe, {"get", "text/plain", "150"});
+        slow.start(probe, {"get", "text/plain", "150", "6"});
         QVERIFY(QTest::qWaitFor([&] { return slow.state() == QProcess::NotRunning; }, 30000));
         QCOMPARE(slow.readAllStandardOutput(), text);
     }
