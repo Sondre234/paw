@@ -821,17 +821,6 @@ static void rest_anim(struct sh_anim *anim) {
         rest_hold(anim);
 }
 
-static void rest_lifts(struct sh_animator *animator, bool at, double px, double py);
-static void rest_poses(struct sh_animator *animator, bool at, double px, double py);
-
-void sh_animator_rest(struct sh_animator *animator) {
-    struct sh_anim *anim;
-    wl_list_for_each(anim, &animator->running, link) rest_anim(anim);
-    wl_list_for_each(anim, &animator->held, link) rest_anim(anim);
-    rest_lifts(animator, false, 0, 0);
-    rest_poses(animator, false, 0, 0);
-}
-
 /* The record `anim` keeps of `node`, NULL for none or no `anim`. */
 static const struct sh_anim_record *record_of(const struct sh_anim *anim,
                                               const struct wlr_scene_node *node) {
@@ -884,14 +873,13 @@ static bool tree_covers(const struct sh_anim *rest, const struct wlr_scene_tree 
     return false;
 }
 
-/* Lifted windows at their own size for a lookup, with `at` only those that could be found at
- * (px, py): drawn lifted, a window covers all it covers at rest, where it rests or where a glide
- * draws it. */
-static void rest_lifts(struct sh_animator *animator, bool at, double px, double py) {
+/* Lifted windows at their own size for a lookup, only those that could be found at (px, py):
+ * drawn lifted, a window covers all it covers at rest, where it rests or where a glide draws it. */
+static void rest_lifts(struct sh_animator *animator, double px, double py) {
     struct sh_anim *anim;
     wl_list_for_each(anim, &animator->lifted, lift_link) {
         int cx, cy;
-        if (at && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
+        if (wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
             double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
             if (!tree_covers(NULL, anim->tree, cx, cy, px, py) &&
                 !tree_covers(anim, anim->tree, parent_x + anim->base_x, parent_y + anim->base_y,
@@ -903,13 +891,13 @@ static void rest_lifts(struct sh_animator *animator, bool at, double px, double 
     }
 }
 
-/* Posed windows where they rest for a lookup, with `at` only those that could be found at
- * (px, py), drawn posed or at rest. */
-static void rest_poses(struct sh_animator *animator, bool at, double px, double py) {
+/* Posed windows where they rest for a lookup, only those that could be found at (px, py), drawn
+ * posed or at rest. */
+static void rest_poses(struct sh_animator *animator, double px, double py) {
     struct sh_anim *anim;
     wl_list_for_each(anim, &animator->posed, pose_link) {
         int cx, cy;
-        if (at && wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
+        if (wlr_scene_node_coords(&anim->tree->node, &cx, &cy)) {
             double parent_x = cx - anim->tree->node.x, parent_y = cy - anim->tree->node.y;
             if (!tree_covers(NULL, anim->tree, cx, cy, px, py) &&
                 !tree_covers(anim, anim->tree, parent_x + anim->base_x, parent_y + anim->base_y,
@@ -948,8 +936,8 @@ void sh_animator_rest_at(struct sh_animator *animator, double px, double py) {
             rest_anim(anim);
     }
     wl_list_for_each(anim, &animator->held, link) rest_anim(anim);
-    rest_lifts(animator, true, px, py);
-    rest_poses(animator, true, px, py);
+    rest_lifts(animator, px, py);
+    rest_poses(animator, px, py);
 }
 
 void sh_animator_resume(struct sh_animator *animator) {
