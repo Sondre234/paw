@@ -641,25 +641,18 @@ void Tour::survey() {
         else if (!spare)
             spare = number;
     }
-    // An older compositor without these queries offers less.
-    try {
-        for (const auto &row : query("actions"))
-            if (row.size() >= 2) {
-                bindings_[row[0]] = row[1];
-                offer_.actions.insert(row[0]);
-            }
-    } catch (const std::runtime_error &) {
-    }
-    std::vector<std::string> profiles;
-    try {
-        for (const auto &row : query("profiles")) {
-            if (row.size() < 2)
-                continue;
-            profiles.push_back(row[0]);
-            if (row[1] == "1")
-                profile_ = row[0];
+    for (const auto &row : query("actions"))
+        if (row.size() >= 2) {
+            bindings_[row[0]] = row[1];
+            offer_.actions.insert(row[0]);
         }
-    } catch (const std::runtime_error &) {
+    std::vector<std::string> profiles;
+    for (const auto &row : query("profiles")) {
+        if (row.size() < 2)
+            continue;
+        profiles.push_back(row[0]);
+        if (row[1] == "1")
+            profile_ = row[0];
     }
     auto other = other_profile(profiles, profile_);
     offer_.other_profile = !other.empty();
