@@ -71,13 +71,27 @@ static bool frame_own_shadow(struct sh_toplevel *toplevel, bool framed) {
     return toplevel->own_shadow;
 }
 
+/* A picture made once for nodes to show again and again, held so that the scene goes on naming
+ * it. A GPU renderer copies a picture in memory into a texture and lets go of it, and the scene
+ * then forgets the buffer (scene_buffer->buffer turns NULL): a node compared with the picture
+ * would look unset and be set again, which throws its texture away and uploads it anew. */
+struct wlr_buffer *keep_buffer(struct wlr_buffer *buffer) {
+    return buffer ? wlr_buffer_lock(buffer) : NULL; // NULL when it could not be made
+}
+
+/* Lets go of a picture keep_buffer held; nodes showing it keep their texture till replaced. */
+void drop_kept_buffer(struct wlr_buffer *buffer) {
+    wlr_buffer_drop(buffer);
+    wlr_buffer_unlock(buffer);
+}
+
 /* The shared buffer for a look of the controls, drawn when first needed and again once an
  * output's scale asks for more pixels. */
 static struct wlr_buffer *deco_buffer(struct sh_server *server, struct sh_deco_look look) {
     int scale = pixel_scale(server);
     if (scale != server->deco_scale) {
         for (size_t i = 0; i < sizeof(server->deco_buffers) / sizeof(*server->deco_buffers); ++i) {
-            wlr_buffer_drop(server->deco_buffers[i]); // windows showing one keep it till replaced
+            drop_kept_buffer(server->deco_buffers[i]);
             server->deco_buffers[i] = NULL;
         }
         server->deco_scale = scale;
@@ -88,7 +102,7 @@ static struct wlr_buffer *deco_buffer(struct sh_server *server, struct sh_deco_l
     size_t index = (((size_t)look.style * 2 + look.focused) * PARTS + look.hovered) * PARTS +
                    look.pressed;
     if (!server->deco_buffers[index])
-        server->deco_buffers[index] = sh_decoration_render(scale, &look);
+        server->deco_buffers[index] = keep_buffer(sh_decoration_render(scale, &look));
     return server->deco_buffers[index];
 }
 
@@ -222,10 +236,10 @@ struct sh_shadow_image *shadow_image(struct sh_server *server, const struct sh_s
         free(pixels);
         return NULL;
     }
-    struct wlr_buffer *buffer = sh_pixel_buffer(pixels, pixel_width, pixel_height);
+    struct wlr_buffer *buffer = keep_buffer(sh_pixel_buffer(pixels, pixel_width, pixel_height));
     if (!buffer)
         return NULL; // it freed the pixels
-    wlr_buffer_drop(oldest->buffer); // windows showing it keep it until they change
+    drop_kept_buffer(oldest->buffer);
     *oldest = (struct sh_shadow_image){*look, width, height, scale, buffer, ++server->shadow_uses};
     return oldest;
 }
