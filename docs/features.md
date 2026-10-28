@@ -39,10 +39,10 @@ the dock.
 
 - **Menu bar**, along the top of every monitor. A spiral at the left opens the system menu:
   Appearance (the profiles), Wallpaper…, Displays… (the [display
-  settings](#display-settings)), Sleep, Restart…, Shut Down…, Lock Screen and Log Out…;
-  the `power_menu` action opens it too. The focused application's name, in bold ("Desktop" when
-  no window has focus), opens its menu: its desktop actions, New Window, Hide, Hide Others and
-  Quit. The **Window** menu acts on the focused window: Minimize, Zoom, Tile Window to Left or
+  settings](#display-settings)), Sleep, Hibernate, Restart…, Shut Down…, Lock Screen and Log
+  Out… (those the system allows); the `power_menu` action opens it too. The focused application's name, in bold ("Desktop" when
+  no window has focus), opens its menu: New Window (unless one of its desktop actions is one),
+  its desktop actions, Hide, Hide Others and Quit. The **Window** menu acts on the focused window: Minimize, Zoom, Tile Window to Left or
   Right of Screen, Enter Full Screen, Float, Keep on All Workspaces, Keep Above Others (checked
   while the window is [kept above](#keeping-windows-above)), Move to a workspace or monitor, the
   application's other windows, and Close Window. While one menu is open, pointing at
