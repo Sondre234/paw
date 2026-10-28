@@ -470,9 +470,10 @@ if(PAW_BUILD_COMPOSITOR)
     install(PROGRAMS packaging/paw-session DESTINATION ${CMAKE_INSTALL_BINDIR})
     install(FILES config/init.lua DESTINATION ${CMAKE_INSTALL_DATADIR}/paw)
     # The rices beside it, whose profiles in init.lua name their wallpapers relative to it, with
-    # the themes and install.sh for the applications around paw; not their screenshots.
+    # the themes and install.sh for the applications around paw; not their screenshots, nor the
+    # script that drew washi's wallpapers.
     install(DIRECTORY rices/ DESTINATION ${CMAKE_INSTALL_DATADIR}/paw/rices USE_SOURCE_PERMISSIONS
-        PATTERN screenshots EXCLUDE)
+        PATTERN screenshots EXCLUDE PATTERN generate.py EXCLUDE)
     # docs/ keeps the README's links to them working in the installed copy.
     install(FILES README.md CHANGELOG.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
     install(FILES docs/features.md docs/config-reference.md docs/dotfile-import.md docs/gentoo.md
