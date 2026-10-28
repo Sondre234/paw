@@ -7809,7 +7809,13 @@ ListModel {
         if (!openLaunchpad())
             return fail("Launchpad did not open a third time");
         auto *other = find(root, "launchpadApp:paw-test-other.desktop");
-        if (!other)
+        // It is on the second page, past the window's edge while the first one shows, where a
+        // click would reach it though nobody could.
+        press(Qt::Key_PageDown);
+        if (!other || !waitFor([&] {
+                const QRectF rect = other->mapRectToScene(QRectF(0, 0, other->width(), other->height()));
+                return QRectF(QPointF(0, 0), QSizeF(popover->size())).contains(rect);
+            }))
             return fail("Launchpad does not show the other application");
         // Running on without a window, it offers Force Quit.
         windowless[4343] = "windowless 4343 paw-test-other\n";
