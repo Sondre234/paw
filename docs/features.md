@@ -3740,9 +3740,12 @@ held. `paw msg get pid_at X Y` prints the process ID of the window
 drawn at that layout point, or nothing over bare desktop. `paw msg get layers` prints one line per panel or other layer-shell surface:
 namespace, output, layer (0 background to 3 overlay), whether it is shown, whether it holds
 the keyboard, and the keyboard it asks for (`none`, `exclusive` or `on_demand`).
-`paw msg get power` prints one line per power action logind carries out (`poweroff`,
-`reboot`, `suspend`, `hibernate`) with its answer: `yes`, `no`, `challenge` (after a password),
-`na`, `unknown` until it has answered, or `unavailable` without logind.
+`paw msg get power` prints one line per power action, in the menu's order (`lock`, `suspend`,
+`hibernate`, `reboot`, `poweroff`, `logout`), with whether it may run: for the four logind carries
+out its answer, `yes`, `no`, `challenge` (after a password), `na`, `unknown` until it has
+answered, or `unavailable` without logind; for locking `yes` when there is a locker to start, else
+`no`, and for logging out `yes`. A last line, `pending`, names the action under way and its step,
+or says `-`.
 `paw msg get animations` prints the number of running animations and of window trees in
 the scene (closing and minimizing windows count until their animation ends), and of focus fades,
 mainly for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
