@@ -28,13 +28,25 @@ Item {
 
     // The room above the bar for both cards, the gap between them and their margins.
     readonly property real room: panel.popupArea.height - 2 * calendar.margin - notifications.gap
+    // Each card's place, for the other to line up with, copied once the events at hand are
+    // handled. As the style changes, the card that lined up with the other turns to be lined up
+    // with, and bound straight to each other's places the two would chase each other for that
+    // moment: a binding loop on both anchors.
+    property rect calendarPlace
+    property rect notificationsPlace
+    Binding on calendarPlace {
+        value: Qt.rect(calendar.x, calendar.y, calendar.width, calendar.height)
+        delayed: true
+    }
+    Binding on notificationsPlace {
+        value: Qt.rect(notifications.x, notifications.y, notifications.width, notifications.height)
+        delayed: true
+    }
     CalendarPopup {
         id: calendar
         panel: flyout.panel
         open: flyout.open && flyout.showCalendar
-        anchorRect: Theme.macos && flyout.showNotifications
-            ? Qt.rect(notifications.x, notifications.y, notifications.width, notifications.height)
-            : flyout.barEnd
+        anchorRect: Theme.macos && flyout.showNotifications ? flyout.notificationsPlace : flyout.barEnd
         compact: Theme.macos || flyout.showNotifications && calendar.fullHeight + notifications.implicitHeight > flyout.room
     }
     NotificationHistory {
@@ -42,8 +54,7 @@ Item {
         panel: flyout.panel
         open: flyout.open && flyout.showNotifications
         implicitWidth: calendar.implicitWidth
-        anchorRect: flyout.showCalendar && !Theme.macos ? Qt.rect(calendar.x, calendar.y, calendar.width, calendar.height)
-                                                        : flyout.barEnd
+        anchorRect: flyout.showCalendar && !Theme.macos ? flyout.calendarPlace : flyout.barEnd
         // Above the calendar beside a bar along a side, as away from one along the top or bottom.
         side: flyout.panel.vertical && flyout.showCalendar ? Qt.TopEdge : flyout.panel.popupSide
         maximumHeight: Theme.macos && flyout.showCalendar ? flyout.room - calendar.implicitHeight : Infinity
