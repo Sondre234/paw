@@ -238,8 +238,6 @@ void StartMenu::setFiles(FileIndex *files) {
     });
 }
 
-bool StartMenu::isPinned(const QString &id) const { return pins_.contains(id); }
-
 void StartMenu::pin(const QString &id) {
     if (!installed(id) || pins_.contains(id))
         return;

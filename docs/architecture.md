@@ -23,8 +23,7 @@ covers branches, building, testing and committing; [features.md](features.md) de
 | Where | Language | What |
 | --- | --- | --- |
 | `src/compositor/` | C | The compositor proper, on wlroots. Shares one private header, `server.h`. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, the desktop cat's ways and its pixel art. Several are unit tested. |
-| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip, which strokes of the pointer make a shake and how large the cursor grows, how ambient particles drift and what they look like, what falls off the pointer in a cursor trail. Several are unit tested. |
+| `src/*.c`, `include/paw/*.h` | C | Pieces the compositor uses that stand on their own: animations, window controls, shadows and tab strips (pixels), effect arithmetic, touchpad swipes' arithmetic, overview thumbnails, session files, the monitors' settings kept from the display settings window, the logind client, what dynamic window rules hold and give back, where the scratchpad's drop-down slides and is cut, where the exploded view's sheets go, where the scrolling layout's cube draws its strip, which strokes of the pointer make a shake and how large the cursor grows, how ambient particles drift and what they look like, what falls off the pointer in a cursor trail, the desktop cat's ways and its pixel art. Several are unit tested. |
 | `src/config.cpp`, `src/config_schema.cpp`, `src/config_edit.cpp` | C++ | The Lua configuration: parsing, validation, the action table and the settings schema, and writing a setting back into the file, where it takes effect (the file's own, or the profile's in use), its comments and layout kept. |
 | `src/tiling.cpp`, `src/layout.cpp`, `src/window_placement.cpp`, `src/overview_layout.cpp` | C++ | Pure geometry (tiling layouts, snapping, placement, the overview grid), with a C interface in `backend.h` and unit tests. |
 | `src/import/` | C++ | `paw import` from Hyprland and Waybar. |
@@ -458,7 +457,8 @@ Where a window dragged to an edge snaps (`sh_snap_zone`), a step of the Win+arro
 halves' and quarters' geometry (`sh_placement`), with unit tests in `tests/layout_tests.cpp`.
 `snap.c` follows a move with the pointer (`snap_follow`, from `process_cursor_move`): the zone,
 the slot (`placed_slot`, `placement.c`) and the preview, a tree of two rectangles that sits in
-`windows` just under the dragged window while it shows and among the guides while it does not,
+the dragged window's own tree of windows (`windows`, `floating_windows` or `above_windows`) just
+under it while it shows and among the guides while it does not,
 easing through an `sh_tween` of five values (place, size, opacity). `finish_grab` asks
 `snap_drop` first; a drop that would take the window into a tiling (`drop_tiles`, `grab.c`)
 snaps nowhere, but at the top with `snap_maximize_tiles`. `place_by_hand_on` puts a window into a slot of a given output,
@@ -841,9 +841,11 @@ schedule wants, which the shell's Appearance tile and profile menus show.
 ### Power saving when idle
 
 `idle.c` takes the `idle` steps (`enum sh_idle_step`: dim, display_off, lock, suspend) with one
-timer, `sh_server.idle`. `input_activity` calls `idle_activity` on every input event, which only
-notes the time while no step has been taken; the timer, set for the next step's time on either
-power source's table, finds when it fires whether input came meanwhile and sets itself again.
+timer, `sh_server.idle`. `input_activity` calls `idle_activity` on every key, button, scroll, motion
+and switch event (not a touchpad gesture's, a pen's or a finger's on a surface that takes touch,
+which only tell `ext-idle-notify-v1`), which only notes the time while no step has been taken; the
+timer, set for the next step's time on either power source's table, finds when it fires whether
+input came meanwhile and sets itself again.
 Each step taken sets its bit in `done` and is not taken again until input clears them, which
 also fades the dimming out and turns on the outputs the display_off step turned off (`idle_off`
 on `sh_output`, cleared whenever an output is turned on another way). The dimming is a stretched
@@ -1104,7 +1106,7 @@ the kind, the count and the state, and `get cursor_trail particles` lists them a
 `wrapped_axis` take the cursor's events, `wrapped_grab_done` (from `finish_grab`) tells a move or
 resize from a press let go in place, and nothing is allocated per event. Time is counted lazily, with
 no timer of its own: `settle` counts the time since it last did by what held since, input on
-every input event (`wrapped_input`, from `input_activity`), and `wrapped_follow` settles before
+every event `input_activity` hears (`wrapped_input`), and `wrapped_follow` settles before
 taking in what changed: the focus, the lock, an idle inhibitor or the VT (`idle_hold_changed`),
 monitors turned off or on. `sh_wrapped_active` says how much of a span was active: up to two
 minutes after the last input, all of it while an inhibitor holds the session, none of it while
@@ -1743,10 +1745,10 @@ launcher of the macOS style, which the launcher's loader in `Panel.qml` makes in
 place, reads it too: every application by name, and what its search finds of them.
 
 Both searches find files through the controller's `FileIndex` (`file_index.cpp`, `files()`),
-which `ShellController::configureFiles` hands `shell.search`. `search()` matches the names read
+which `ShellController::configureSearch` hands `shell.search`. `search()` matches the names read
 last, on the GUI thread, and starts reading them again when they are out of date: never read, the
-settings changed, five minutes old, or ten seconds after a `QFileSystemWatcher` on a root but the
-home folder or on `recently-used.xbel` saw a change. `scan()`, a static function the tests call
+settings changed, five minutes old, or ten seconds old once a `QFileSystemWatcher` on a root but
+the home folder or on `recently-used.xbel` saw a change. `scan()`, a static function the tests call
 too, runs on a `QThread` of its own at the lowest priority: the recent files, then the roots
 breadth first with `openat`/`readdir`, never following a link below a root nor crossing to another
 device. The result comes back with the thread's `finished`, is dropped if the settings changed
@@ -1807,9 +1809,10 @@ whose program is not on `$PATH` (`missingProgram`) sets `problem` and runs nothi
 The sheet of keyboard shortcuts (`Shortcuts`, `shortcuts.cpp`; `shell.shortcuts`) reads the
 bindings from the configuration the shell loads itself, not from the compositor. Its pure part,
 `shortcuts::sheet`, makes groups of rows from `config.bindings`, and first from the binding mode in
-use (`bindingMode`): an action's group and title come from a table there, the title from the
-command palette's own where it has one (`Palette::actionTitle`), or from the binding's
-`description`, or for a `spawn` its command shortened; the keys are named by `keyName`, for the
+use (`bindingMode`): an action's group comes from a table there, and its title from the
+binding's `description`, else the command palette's own where it has one
+(`Palette::actionTitle`), else that table, or for a `spawn` its command shortened; the keys are
+named by `keyName`, for the
 style in use, and bindings alike but for their key (the directions of one family, workspaces on
 running digits) become one row. `shortcuts::filter` keeps the rows whose `search` text holds every
 word typed; `tests/shortcuts_test.cpp` tests both and the model. `shortcuts OUTPUT` from the
@@ -2023,9 +2026,8 @@ menu bar's menus as `system-menu`, `app-menu`, `window-menu` and `window-submenu
 surfaces have names there too (`osd-volume`, `osd-text`, `osd-microphone`, `cards`,
 `power-dialog`, `palette`, `palette-empty`, `shortcuts`, `shortcuts-search`, `shortcuts-mode`,
 `run`, `run-search`, `run-commands`, `run-windows`, `switcher`, `overview`, `snap-assist`, `display-mode`,
-`display-settings`, `display-settings-trial`, `rice-trial`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
-`display-settings`, `display-settings-trial`, `xray`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
-`display-settings`, `display-settings-trial`, `caption`): `PreviewData` in `preview.cpp` shows one in a window of its own over the
+`display-settings`, `display-settings-trial`, `rice-trial`, `xray`, `caption`): `PreviewData` in
+`preview.cpp` shows one in a window of its own over the
 bar alone, with stand-ins for what the compositor would tell it, and the screenshot draws it where
 its layer surface would be (the overview over stand-ins for the compositor's thumbnails, the
 exploded view's names over its sheets as `src/xray_layout.c` lays them out).

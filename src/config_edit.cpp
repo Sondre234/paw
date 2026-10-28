@@ -460,13 +460,25 @@ void save_settings(const std::filesystem::path &path, const std::vector<SettingE
     }
     auto edited = source;
     for (const auto &edit : edits) {
-        edited = edit_setting(edited, edit.trail, edit.literal, [&](const std::string &text) {
-            try {
-                return edit.takes(parse_config(text, name, path.parent_path(), profile, rices));
-            } catch (const std::exception &) {
-                return false;
-            }
-        });
+        // An edit that does not load is not taken; when none is, the first one's error says why,
+        // as for a value the configuration refuses wherever it goes.
+        std::string refused;
+        try {
+            edited = edit_setting(edited, edit.trail, edit.literal, [&](const std::string &text) {
+                try {
+                    return edit.takes(parse_config(text, name, path.parent_path(), profile, rices));
+                } catch (const std::exception &error) {
+                    if (refused.empty())
+                        refused = error.what();
+                    return false;
+                }
+            });
+        } catch (const std::runtime_error &error) {
+            if (refused.empty())
+                throw;
+            throw std::runtime_error(std::string(error.what()) + "; the first place tried gave: " +
+                                     refused);
+        }
     }
     // Unchanged, it is not written, which would reload the configuration for nothing.
     if (edited != source)

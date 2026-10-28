@@ -125,7 +125,7 @@ debug build.
 | --- | --- | --- |
 | `PAW_BUILD_COMPOSITOR` | `ON` | Build the wlroots compositor; `OFF` builds only the configuration, placement and tiling code and tests |
 | `PAW_BUILD_SHELL` | `ON` | Build the Qt Quick shell |
-| `PAW_SHELL_PREVIEW_ONLY` | `OFF` | Build only a shell UI preview, without LayerShellQt (see [Development](#development)) |
+| `PAW_SHELL_PREVIEW_ONLY` | `OFF` | Build the shell as a UI preview, without LayerShellQt (see [Development](#development)); the shell is built with the compositor, so this still needs wlroots and `PAW_BUILD_COMPOSITOR` left on |
 | `PAW_NOTIFICATIONS` | `ON` | Build the shell's notification daemon (needs Qt DBus) |
 | `PAW_PULSEAUDIO` | `ON` | Build the panel's volume control (needs libpulse, which PipeWire also serves) |
 | `PAW_TRAY` | `ON` | Build the panel's system tray (needs Qt DBus) |
@@ -370,7 +370,8 @@ headless compositor with real xdg-shell and X11 clients, the shell rendered offs
 notification daemon and the system tray on a private D-Bus. `tools/check-all.sh` runs it again
 under ASan and UBSan.
 
-To work on the shell UI without LayerShellQt, build the preview:
+To work on the shell UI without LayerShellQt, build the preview. It is built with the
+compositor, so it still needs wlroots:
 
 ```sh
 cmake -S . -B build-preview -G Ninja -DPAW_SHELL_PREVIEW_ONLY=ON

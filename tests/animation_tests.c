@@ -305,7 +305,7 @@ static void test_rest_for_input(void) {
     // The rect rests at (10, 20), 200 by 100; a glide draws it 300 pixels to the right.
     sh_anim_glide(rig.animator, &rig.anim, rig.content, 300, 0);
     CHECK(wlr_scene_node_at(&rig.scene->tree.node, 50, 50, &sx, &sy) == NULL, "not drawn at rest");
-    sh_animator_rest(rig.animator);
+    sh_animator_rest_at(rig.animator, 50, 50);
     struct wlr_scene_node *hit = wlr_scene_node_at(&rig.scene->tree.node, 50, 50, &sx, &sy);
     CHECK(hit == &rig.rect->node, "input sees the final place");
     sh_animator_resume(rig.animator);
@@ -314,14 +314,14 @@ static void test_rest_for_input(void) {
     // Closing snapshots are hidden for the lookup and shown after.
     sh_anim_close(rig.animator, &rig.window->node, rig.content, 100, 50);
     struct wlr_scene_node *snapshot = wl_container_of(rig.window->node.link.next, snapshot, link);
-    sh_animator_rest(rig.animator);
+    sh_animator_rest_at(rig.animator, 50, 50);
     CHECK(!snapshot->enabled, "snapshot hidden");
     sh_animator_resume(rig.animator);
     CHECK(snapshot->enabled, "snapshot shown again");
     // An opening window is measured at full size.
     sh_animator_finish_all(rig.animator);
     sh_anim_open(rig.animator, &rig.anim, rig.content, 100, 50);
-    sh_animator_rest(rig.animator);
+    sh_animator_rest_at(rig.animator, 50, 50);
     CHECK(rig.rect->width == 200 && fabsf(rig.rect->color[3] - 1) < 1e-6F, "full size at rest");
     sh_animator_resume(rig.animator);
     CHECK(rig.rect->width < 200 && rig.rect->color[3] < 0.01F, "small and faded again");
@@ -490,7 +490,7 @@ static void test_hold_and_slide_from(void) {
     sh_anim_hold(rig.animator, &rig.anim, rig.content, -60, 0, 0.25F);
     CHECK(rig.content->node.x == -60 && fabsf(rig.rect->color[3] - 0.25F) < 1e-6F, "held further");
     // Hit testing sees it at rest, and it is held again afterwards.
-    sh_animator_rest(rig.animator);
+    sh_animator_rest_at(rig.animator, 50, 50);
     CHECK(rig.content->node.x == 0 && fabsf(rig.rect->color[3] - 1) < 1e-6F, "at rest for input");
     sh_animator_resume(rig.animator);
     CHECK(rig.content->node.x == -60, "held again");
@@ -548,7 +548,7 @@ static void test_hold_copy(void) {
     CHECK(copy->tree->node.x == 535 && fabsf(shown->color[3] - 0.6F) < 1e-6F, "held nearer");
     advance(&rig, 1000);
     CHECK(copy->tree->node.x == 535, "a held copy stays");
-    sh_animator_rest(rig.animator);
+    sh_animator_rest_at(rig.animator, 600, 100);
     CHECK(!copy->tree->node.enabled, "no copy in the way of input");
     sh_animator_resume(rig.animator);
     CHECK(copy->tree->node.enabled && copy->tree->node.x == 535, "back");
@@ -617,7 +617,7 @@ static void test_lift(void) {
     CHECK(rig.rect->width == 330 && rig.rect->height == 110, "a new size lifted: %d",
           rig.rect->width);
     // Input sees it at its own size.
-    sh_animator_rest(rig.animator);
+    sh_animator_rest_at(rig.animator, 50, 50);
     CHECK(rig.rect->width == 300 && rig.rect->height == 100, "at rest for input");
     sh_animator_resume(rig.animator);
     CHECK(rig.rect->width == 330, "lifted again");
@@ -1228,7 +1228,7 @@ static void test_morph_rest_and_finish(void) {
     CHECK(copy && copy->node.enabled, "copy shown");
     // Input sees the window where it will be, at the size the client drew, its frame (the
     // window's controls) around that, and no copy.
-    sh_animator_rest(m.rig.animator);
+    sh_animator_rest_at(m.rig.animator, 50, 50);
     CHECK(m.rig.content->node.x == 0 && m.surface->width == 400, "at rest for input");
     CHECK(m.heard_width == 0 && m.frame->width == 404, "the frame too: %d", m.frame->width);
     CHECK(copy && !copy->node.enabled, "copy hidden");
@@ -1941,7 +1941,7 @@ static void test_pose(void) {
     CHECK(rig.rect->node.x == 0 && rig.rect->width == 330, "%d %d", rig.rect->node.x,
           rig.rect->width);
     // A lookup finds it at rest.
-    sh_animator_rest(rig.animator);
+    sh_animator_rest_at(rig.animator, 50, 50);
     CHECK(rig.content->node.x == 0 && rig.content->node.y == 0);
     CHECK(rig.rect->node.x == 10 && rig.rect->width == 300 && rig.rect->height == 100);
     sh_animator_resume(rig.animator);
@@ -1999,7 +1999,7 @@ static void test_pose_fade(void) {
     CHECK(fabsf(rig.rect->color[3] - 0.5F * opaque[3]) < 1e-6F && rig.rect->width == 100,
           "%f %d", rig.rect->color[3], rig.rect->width);
     // A lookup finds it at rest, at its full look.
-    sh_animator_rest(rig.animator);
+    sh_animator_rest_at(rig.animator, 50, 50);
     CHECK(sh_anim_alpha(&rig.anim) == 1 && rig.rect->color[3] == opaque[3]);
     sh_animator_resume(rig.animator);
     pose = (struct sh_pose){.dx = 5, .sx = 1, .sy = 1};

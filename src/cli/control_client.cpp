@@ -19,18 +19,19 @@ Reply request(const std::string &line) {
         throw std::runtime_error("a request is one line");
     const char *path = std::getenv("PAW_SOCKET");
     if (!path || !*path)
-        throw std::runtime_error("PAW_SOCKET is not set; run inside a paw session");
+        throw SessionUnreachable("PAW_SOCKET is not set; run inside a paw session");
     sockaddr_un address{};
     address.sun_family = AF_UNIX;
     if (std::strlen(path) >= sizeof(address.sun_path))
         throw std::runtime_error("control socket path is too long");
     std::strcpy(address.sun_path, path);
     int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-    if (fd < 0 || connect(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) {
+    if (fd < 0)
+        throw std::runtime_error(std::string("cannot make a socket: ") + std::strerror(errno));
+    if (connect(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) {
         int error = errno;
-        if (fd >= 0)
-            close(fd);
-        throw std::runtime_error(std::string("cannot connect to ") + path + ": " +
+        close(fd);
+        throw SessionUnreachable(std::string("cannot connect to ") + path + ": " +
                                  std::strerror(error));
     }
     std::string message = line + '\n';

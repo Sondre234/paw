@@ -175,15 +175,14 @@ struct sh_animator_config {
 void sh_animator_configure(struct sh_animator *animator, const struct sh_animator_config *config);
 /* Replaces the clock (milliseconds, monotonic) for tests; NULL restores the real one. */
 void sh_animator_set_clock(struct sh_animator *animator, int64_t (*now)(void *), void *data);
-/* Puts every running animation's nodes at their final place, so hit testing and other input
- * sees where windows will be rather than where they are drawn; closing snapshots are hidden.
- * `sh_animator_resume` puts the animations back at the current time. Nothing is rendered in
- * between, so it is invisible; call them around a lookup only. */
-void sh_animator_rest(struct sh_animator *animator);
-/* As sh_animator_rest for a lookup at (x, y) in layout coordinates: only the animations that
- * could change what is found there are put at rest, since each one costs the scene an update
- * and again on resume. Gliding windows count when they are drawn or will rest over the point;
- * fading and growing ones and closing snapshots count when they might be. */
+/* Puts the running animations' nodes that could change what a lookup at (x, y) in layout
+ * coordinates finds at their final place, so hit testing and other input sees where windows will
+ * be rather than where they are drawn; closing snapshots are hidden. Only those animations are
+ * put at rest, since each one costs the scene an update and again on resume. Gliding windows
+ * count when they are drawn or will rest over the point; fading and growing ones and closing
+ * snapshots count when they might be. `sh_animator_resume` puts the animations back at the
+ * current time. Nothing is rendered in between, so it is invisible; call them around a lookup
+ * only. */
 void sh_animator_rest_at(struct sh_animator *animator, double x, double y);
 void sh_animator_resume(struct sh_animator *animator);
 /* Jumps every running animation to its end; closing snapshots go. */

@@ -165,7 +165,7 @@ class StartMenuTest : public QObject {
             menu.movePin("gimp.desktop", "kate.desktop");
             QCOMPARE(ids(menu.pinned()), (QStringList{"foot.desktop", "kate.desktop", "gimp.desktop"}));
             menu.unpin("foot.desktop");
-            QVERIFY(!menu.isPinned("foot.desktop") && menu.isPinned("kate.desktop"));
+            QCOMPARE(ids(menu.pinned()), (QStringList{"kate.desktop", "gimp.desktop"}));
             QCOMPARE(read(file), QString("kate.desktop\ngimp.desktop\n"));
         }
         // Read back; an application that is not installed keeps its place but is not shown.

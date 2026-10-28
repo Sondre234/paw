@@ -219,7 +219,7 @@ static void start(struct sh_server *server, enum sh_action kind, struct sh_tople
 
 /* Shakes `toplevel` from side to side: "this one". Nothing happens to a window that is not on
  * the screen, or is fullscreen. */
-void toys_shake(struct sh_server *server, struct sh_toplevel *toplevel) {
+static void toys_shake(struct sh_server *server, struct sh_toplevel *toplevel) {
     if (playable(toplevel))
         start(server, SH_SHAKE, toplevel, find_output(server, toplevel->output));
 }
