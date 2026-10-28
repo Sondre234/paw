@@ -92,8 +92,8 @@ USE flags. X11 applications additionally need wlroots with the `X` USE flag and
 windows' icons) and enables XWayland automatically (the XWM waker also needs `xcb-xfixes`, part
 of libxcb). To fix wlroots' lost X11 windows at the source, copy
 `packaging/patches/wlroots-xwm-drain.patch` into `/etc/portage/patches/gui-libs/wlroots/`,
-re-emerge wlroots, and configure paw with `-DPAW_XWM_WAKER=OFF`. Rounded corners on
-tiled windows (`windows.corner_radius`) need
+re-emerge wlroots, and configure paw with `-DPAW_XWM_WAKER=OFF`. Rounded window corners
+(`windows.corner_radius`, on the windows `windows.round` picks) need
 `packaging/patches/wlroots-rounded-corners.patch` in the same directory; paw finds the
 patched wlroots by itself when it is next configured, and keeps windows square without it.
 Portage applies these patches only when it builds from source: with binary packages enabled,
