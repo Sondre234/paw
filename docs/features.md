@@ -3049,7 +3049,7 @@ gestures = {
         { fingers = 3, direction = "right", action = "workspace_prev" },
         { fingers = 3, direction = "up", action = "toggle_overview" },
         { fingers = 3, direction = "down", action = "overview_cancel" },
-        { fingers = 4, direction = "down", action = "peek_toggle" },
+        { fingers = 4, direction = "down", action = "peek_toggle" }, -- added: not a default
     },
 },
 ```
