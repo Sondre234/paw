@@ -146,7 +146,8 @@ sudo cmake --install build
 ```
 
 This installs `paw`, `paw-session` (see [First run](#first-run)) and `paw-shell`,
-the default configuration (`share/paw/init.lua`), `paw-portals.conf` for
+the default configuration (`share/paw/init.lua`) and the rices its profiles use
+(`share/paw/rices`), `paw-portals.conf` for
 xdg-desktop-portal, the documentation, and with `PAW_INSTALL_SESSION` the session entry
 display managers list. Choose the prefix
 when configuring, as above: paw looks for its default configuration under it, so
