@@ -119,8 +119,8 @@ in Qt 6.11, in [qtwayland](https://packages.gentoo.org/packages/dev-qt/qtwayland
 releases), and [LayerShellQt](https://packages.gentoo.org/packages/kde-plasma/layer-shell-qt).
 It does not require running Plasma. Use Qt with OpenGL/Wayland support for normal
 GPU rendering. An installed icon theme supplies application icons; missing icons
-have a built-in fallback. `xdg-open` and a file manager are optional for the Home
-shortcut; edit the Lua launcher commands to match your installed applications.
+have a built-in fallback. `xdg-open` is optional: notifications open their links with it, and
+`paw config edit` opens the configuration with it when neither `$VISUAL` nor `$EDITOR` is set.
 
 These are instructions for the target machine; paw's build does not run
 Portage, modify USE flags, install services, or alter your session configuration.
