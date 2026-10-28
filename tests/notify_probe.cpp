@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A notification client for the end-to-end tests, on the session bus named by
 // $DBUS_SESSION_BUS_ADDRESS:
-//   notify_probe notify SUMMARY [--body TEXT] [--app NAME] [--icon NAME] [--action KEY=LABEL]...
-//                       [--urgency 0|1|2] [--timeout MS] [--replaces ID] [--value PERCENT]
-//                       [--tag TEXT]   prints the id
+//   notify_probe notify SUMMARY [--action KEY=LABEL]... [--urgency 0|1|2] [--timeout MS]
+//                       [--replaces ID]   prints the id
 //   notify_probe close ID
 //   notify_probe info                  prints the server's name and spec version
 //   notify_probe watch                 prints "closed ID REASON" and "action ID KEY" as they come
@@ -60,28 +59,23 @@ int main(int argc, char **argv) {
         return 0;
     }
     if (args[0] == "notify" && args.size() >= 2) {
-        QString body, application = "probe", icon;
         QStringList actions;
         QVariantMap hints;
         int timeout = -1;
         uint replaces = 0;
         for (qsizetype i = 2; i + 1 < args.size(); i += 2) {
             const QString &flag = args[i], &value = args[i + 1];
-            if (flag == "--body") body = value;
-            else if (flag == "--app") application = value;
-            else if (flag == "--icon") icon = value;
-            else if (flag == "--action") actions << value.section('=', 0, 0) << value.section('=', 1);
+            if (flag == "--action") actions << value.section('=', 0, 0) << value.section('=', 1);
             else if (flag == "--urgency") hints["urgency"] = QVariant::fromValue<uchar>(uchar(value.toInt()));
             else if (flag == "--timeout") timeout = value.toInt();
             else if (flag == "--replaces") replaces = value.toUInt();
-            else if (flag == "--value") hints["value"] = value.toInt();
-            else if (flag == "--tag") hints["x-canonical-private-synchronous"] = value;
             else {
                 std::fputs("unknown option\n", stderr);
                 return 2;
             }
         }
-        const auto reply = call("Notify", {application, replaces, icon, args[1], body, actions, hints, timeout});
+        const auto reply = call("Notify", {QString("probe"), replaces, QString(), args[1], QString(),
+                                           actions, hints, timeout});
         if (reply.type() != QDBusMessage::ReplyMessage) {
             std::fputs(qPrintable(reply.errorMessage() + '\n'), stderr);
             return 1;
