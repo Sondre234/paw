@@ -841,9 +841,11 @@ schedule wants, which the shell's Appearance tile and profile menus show.
 ### Power saving when idle
 
 `idle.c` takes the `idle` steps (`enum sh_idle_step`: dim, display_off, lock, suspend) with one
-timer, `sh_server.idle`. `input_activity` calls `idle_activity` on every input event, which only
-notes the time while no step has been taken; the timer, set for the next step's time on either
-power source's table, finds when it fires whether input came meanwhile and sets itself again.
+timer, `sh_server.idle`. `input_activity` calls `idle_activity` on every key, button, scroll, motion
+and switch event (not a touchpad gesture's, a pen's or a finger's on a surface that takes touch,
+which only tell `ext-idle-notify-v1`), which only notes the time while no step has been taken; the
+timer, set for the next step's time on either power source's table, finds when it fires whether
+input came meanwhile and sets itself again.
 Each step taken sets its bit in `done` and is not taken again until input clears them, which
 also fades the dimming out and turns on the outputs the display_off step turned off (`idle_off`
 on `sh_output`, cleared whenever an output is turned on another way). The dimming is a stretched
@@ -1104,7 +1106,7 @@ the kind, the count and the state, and `get cursor_trail particles` lists them a
 `wrapped_axis` take the cursor's events, `wrapped_grab_done` (from `finish_grab`) tells a move or
 resize from a press let go in place, and nothing is allocated per event. Time is counted lazily, with
 no timer of its own: `settle` counts the time since it last did by what held since, input on
-every input event (`wrapped_input`, from `input_activity`), and `wrapped_follow` settles before
+every event `input_activity` hears (`wrapped_input`), and `wrapped_follow` settles before
 taking in what changed: the focus, the lock, an idle inhibitor or the VT (`idle_hold_changed`),
 monitors turned off or on. `sh_wrapped_active` says how much of a span was active: up to two
 minutes after the last input, all of it while an inhibitor holds the session, none of it while
