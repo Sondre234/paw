@@ -113,7 +113,7 @@ void focus_pressed(struct sh_server *server, double x, double y, struct sh_node 
 static void touch_down(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, touch_down);
     struct wlr_touch_down_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, true);
     key_release_cancel(server);
     double x, y, sx = 0, sy = 0;
     wlr_cursor_absolute_to_layout_coords(server->cursor, &event->touch->base, event->x, event->y,
@@ -150,7 +150,7 @@ static void touch_down(struct wl_listener *listener, void *data) {
 static void touch_motion(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, touch_motion);
     struct wlr_touch_motion_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, true);
     if (event->touch_id == server->touch.pointer_id) {
         pointer_move(server, event->touch, event->time_msec, event->x, event->y);
         return;
@@ -169,7 +169,7 @@ static void touch_motion(struct wl_listener *listener, void *data) {
 static void touch_up(struct wl_listener *listener, void *data) {
     struct sh_server *server = wl_container_of(listener, server, touch_up);
     struct wlr_touch_up_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, false);
     if (event->touch_id == server->touch.pointer_id) {
         release_pointer(server, event->time_msec);
         return;

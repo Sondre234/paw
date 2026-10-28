@@ -179,7 +179,7 @@ static void tool_proximity(struct wl_listener *listener, void *data) {
     struct sh_tablet_tool *tool = find_tool(server, event->tool);
     if (!tablet || !tool)
         return;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, event->state == WLR_TABLET_TOOL_PROXIMITY_IN);
     if (event->state == WLR_TABLET_TOOL_PROXIMITY_OUT) {
         release_pointer(tool, event->time_msec);
         wlr_tablet_v2_tablet_tool_notify_proximity_out(tool->tool_v2);
@@ -197,7 +197,7 @@ static void tool_axis(struct wl_listener *listener, void *data) {
     struct sh_tablet_tool *tool = find_tool(server, event->tool);
     if (!tablet || !tool)
         return;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, true);
     uint32_t axes = event->updated_axes;
     if (axes & (WLR_TABLET_TOOL_AXIS_X | WLR_TABLET_TOOL_AXIS_Y))
         tool_moved(server, tablet, tool, event->time_msec, event->x, event->y);
@@ -229,7 +229,7 @@ static void tool_tip(struct wl_listener *listener, void *data) {
     struct sh_tablet_tool *tool = find_tool(server, event->tool);
     if (!tablet || !tool)
         return;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, event->state == WLR_TABLET_TOOL_TIP_DOWN);
     struct wlr_tablet_v2_tablet_tool *tool_v2 = tool->tool_v2;
     if (event->state == WLR_TABLET_TOOL_TIP_DOWN) {
         key_release_cancel(server);
@@ -260,7 +260,7 @@ static void tool_button(struct wl_listener *listener, void *data) {
     struct sh_tablet_tool *tool = find_tool(server, event->tool);
     if (!tool)
         return;
-    wlr_idle_notifier_v1_notify_activity(server->idle_notifier, server->seat);
+    input_activity(server, event->state == WLR_BUTTON_PRESSED);
     if (!tool->pointer && tool->tool_v2->focused_surface) {
         wlr_tablet_v2_tablet_tool_notify_button(tool->tool_v2, event->button,
                                                 (enum zwp_tablet_pad_v2_button_state)event->state);
@@ -330,7 +330,7 @@ static bool pad_focused(struct sh_tablet_pad *pad) {
 static void pad_button(struct wl_listener *listener, void *data) {
     struct sh_tablet_pad *pad = wl_container_of(listener, pad, button);
     struct wlr_tablet_pad_button_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(pad->server->idle_notifier, pad->server->seat);
+    input_activity(pad->server, event->state == WLR_BUTTON_PRESSED);
     if (!pad_focused(pad))
         return;
     wlr_tablet_v2_tablet_pad_notify_button(pad->pad_v2, event->button, event->time_msec,
@@ -340,7 +340,7 @@ static void pad_button(struct wl_listener *listener, void *data) {
 static void pad_ring(struct wl_listener *listener, void *data) {
     struct sh_tablet_pad *pad = wl_container_of(listener, pad, ring);
     struct wlr_tablet_pad_ring_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(pad->server->idle_notifier, pad->server->seat);
+    input_activity(pad->server, true);
     if (!pad_focused(pad))
         return;
     wlr_tablet_v2_tablet_pad_notify_ring(pad->pad_v2, event->ring, event->position,
@@ -351,7 +351,7 @@ static void pad_ring(struct wl_listener *listener, void *data) {
 static void pad_strip(struct wl_listener *listener, void *data) {
     struct sh_tablet_pad *pad = wl_container_of(listener, pad, strip);
     struct wlr_tablet_pad_strip_event *event = data;
-    wlr_idle_notifier_v1_notify_activity(pad->server->idle_notifier, pad->server->seat);
+    input_activity(pad->server, true);
     if (!pad_focused(pad))
         return;
     wlr_tablet_v2_tablet_pad_notify_strip(pad->pad_v2, event->strip, event->position,
