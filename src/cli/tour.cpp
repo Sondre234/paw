@@ -212,13 +212,24 @@ class Subscription {
         const char *path = std::getenv("PAW_SOCKET");
         sockaddr_un address{};
         address.sun_family = AF_UNIX;
-        if (!path || std::strlen(path) >= sizeof(address.sun_path))
-            throw std::runtime_error("PAW_SOCKET is not set; run inside a paw session");
+        if (!path || !*path)
+            throw SessionUnreachable("PAW_SOCKET is not set; run inside a paw session");
+        if (std::strlen(path) >= sizeof(address.sun_path))
+            throw std::runtime_error("control socket path is too long");
         std::strcpy(address.sun_path, path);
         fd_ = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-        if (fd_ < 0 || connect(fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0 ||
-            write(fd_, "subscribe\n", 10) != 10)
+        if (fd_ < 0)
+            throw std::runtime_error(std::string("cannot make a socket: ") + std::strerror(errno));
+        if (connect(fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) {
+            int error = errno;
+            close(fd_);
+            throw SessionUnreachable(std::string("cannot connect to ") + path + ": " +
+                                     std::strerror(error));
+        }
+        if (write(fd_, "subscribe\n", 10) != 10) {
+            close(fd_);
             throw std::runtime_error(std::string("cannot subscribe to ") + path);
+        }
         fcntl(fd_, F_SETFL, fcntl(fd_, F_GETFL) | O_NONBLOCK);
         // The state comes at once, ending with the power actions that may run.
         auto start = Clock::now();
@@ -889,7 +900,7 @@ int Tour::list() {
     try {
         survey();
         asked = true;
-    } catch (const std::exception &) {
+    } catch (const SessionUnreachable &) {
     }
     double seconds = 0;
     for (size_t i = 0; i < steps_.size(); ++i) {
