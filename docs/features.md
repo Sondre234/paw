@@ -3460,7 +3460,7 @@ wallpaper. It runs
 configuration, and reports where each value came from and what it skipped. `init.lua` loads
 it with `theme = "theme.lua"` and overrides any of it; `--dry-run` only prints. See
 [docs/dotfile-import.md](dotfile-import.md) for the details and for what it does not carry
-over yet (rounding, shadows, blur), which are set by hand.
+over yet (shadows, blur), which are set by hand.
 
 ## Notifications and on-screen display
 
