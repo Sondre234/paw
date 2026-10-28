@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """mouse.shake_to_find: shaking the pointer quickly from side to side grows the cursor to three
-times its size for a moment, then back to its size and its image; moving across the screen,
-strokes too slow or too narrow, and a shake with a button held grow nothing, and neither does a
-shake with the setting off. `get cursor_size` says the size it is drawn at, and with grim the
+times its size for a moment, then back to its size and its image; a shake with a button held
+grows nothing, and neither does one with the setting off (which strokes make a shake, and how long
+it lasts, is shake_tests'). `get cursor_size` says the size it is drawn at, and with grim the
 screen shows the cursor drawn that large."""
 from pathlib import Path
 import sys
@@ -19,10 +19,10 @@ CONFIG = """return {
 }"""
 
 
-def shake(x=400, width=300, strokes=7):
+def shake():
     """A line of moves from side to side, quick as the probe sends them, after a rest that has the
     compositor start counting strokes afresh."""
-    return "sleep 150 " + " ".join(f"move {x + width * (i % 2)} 360" for i in range(strokes))
+    return "sleep 150 " + " ".join(f"move {400 + 300 * (i % 2)} 360" for i in range(7))
 
 
 with harness.Compositor(compositor, CONFIG % "true") as desktop:
@@ -46,13 +46,6 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     shown = image()
     covered = drawn() if grim else 0
 
-    # Moving across the screen and back, a slow back and forth (as stroking the desktop cat) and
-    # strokes too narrow grow nothing.
-    pointer("sleep 150 move 100 100 sleep 150 move 1200 600 sleep 150 move 100 100")
-    pointer("sleep 150 " + " ".join(f"move {600 + 30 * (i % 2)} 360 sleep 60" for i in range(8)))
-    pointer(shake(width=30, strokes=10))
-    desktop.stays(lambda: size() == base, "the cursor at its size after ordinary motion")
-
     # A shake grows it to three times its size (src/shake.c's tests have it grow smoothly), still
     # naming the image it shows, and it comes back to that size and image about a second later.
     pointer(shake())
@@ -65,14 +58,6 @@ with harness.Compositor(compositor, CONFIG % "true") as desktop:
     assert image() == shown, image()
     if grim:
         assert drawn() < 2 * covered, (drawn(), covered)
-
-    # Shaking on keeps it grown past the time one shake does.
-    pointer(shake())
-    desktop.wait_for(lambda: size() == 3 * base, "grown again")
-    for _ in range(6):
-        pointer(shake(x=410).removeprefix("sleep 150 ") + " sleep 50")
-    assert size() == 3 * base, "still grown while the shaking goes on"
-    desktop.wait_for(lambda: size() == base, "back once the shaking stops", timeout=5)
 
     # A button held makes it a drag, not a shake.
     pointer("move 400 360 press left " + shake() + " release left")
