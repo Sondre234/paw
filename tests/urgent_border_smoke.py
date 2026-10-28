@@ -33,7 +33,9 @@ def near(pixel, want, tolerance=3):
     return all(abs(a - b) <= tolerance for a, b in zip(pixel, want))
 
 
-with harness.Compositor(compositor, settings(3)) as desktop:
+# Two of the pulse's periods of 1.2 seconds, not the four seconds it lasts in a session.
+with harness.Compositor(compositor, settings(3),
+                        env={"PAW_TEST_URGENT_PULSE_MS": "2400"}) as desktop:
     msg = desktop.msg
 
     def windows():
@@ -78,8 +80,8 @@ with harness.Compositor(compositor, settings(3)) as desktop:
     ask(a)
     desktop.wait_for(lambda: urgent_count() == 1, "a urgent")
     # Looked at for a second and a half at least, and on until it has gone darker and brighter
-    # past the first looks (which may catch the fade from the inactive color): within the four
-    # seconds the pulse lasts, however few looks a loaded machine takes in that time.
+    # past the first looks (which may catch the fade from the inactive color): within the 2.4
+    # seconds the pulse lasts here, however few looks a loaded machine takes in that time.
     seen, start_time = [], time.monotonic()
 
     def pulsed():

@@ -118,11 +118,12 @@ with harness.Compositor(compositor, CONFIG) as desktop:
     unchanged()
 
     # Interrupted once the monitor tiles, in the middle of the tour, it puts everything back.
-    process = tour("--speed", "2", log="interrupted.log")
+    process = tour("--speed", "2", "--from", "6", log="interrupted.log")
     desktop.detail = lambda: (root / "interrupted.log").read_text()
     desktop.wait_for(lambda: "[6/19]" in (root / "interrupted.log").read_text(),
                      "the tour reached the scrolling layout", timeout=60)
-    assert desktop.rows("workspaces")[0][4] == "on" and len(tour_windows()) == 3
+    desktop.wait_for(lambda: desktop.rows("workspaces")[0][4] == "on" and
+                     len(tour_windows()) == 3, "the tour's windows tiled")
     process.send_signal(signal.SIGINT)
     assert process.wait(timeout=60) == 130, (root / "interrupted.log").read_text()
     assert "Stopping: interrupted." in (root / "interrupted.log").read_text()

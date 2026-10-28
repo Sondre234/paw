@@ -74,11 +74,12 @@ with harness.Compositor(compositor, CONFIG, start=False) as desktop:
 
     # Where the workspaces are on the bar, which fonts and widgets decide: the pointer moves
     # along the bar from its end until resting there has the shell ask for a workspace, a quarter
-    # of the delay in.
+    # of the delay in. Its steps are shorter than a button and its spacing (30 pixels, below), so
+    # that one of them lands on one of the four buttons, if not on the first.
     pointer = desktop.virtual_pointer(pointer_probe, WIDTH, HEIGHT)
     middle = HEIGHT - BAR // 2
     found = None
-    for x in range(WIDTH - 10, WIDTH // 3, -12):
+    for x in range(WIDTH - 10, WIDTH // 3, -24):
         pointer("move", str(x), str(middle))
         try:
             harness.wait_for(lambda: views(), desktop.processes, "a workspace asked for",

@@ -16,7 +16,7 @@
  *   pad enter | pad leave | pad button N pressed|released
  * (pressure, distance and the slider in 65535ths). Usage: input_probe [--no-gestures]
  * [--no-touch] [--no-tablet] [--layer] [--overlay] [--background [--on-demand]] [--keys]
- * [--inhibit] [--commands] [--text-input [--no-enable]] [TITLE]:
+ * [--inhibit] [--commands] [--text-input] [TITLE]:
  * without the gestures, touch or tablets it never binds them, as most applications; with --layer
  * it is a panel along the bottom of the output, 60 pixels high, rather than a window, and with
  * --overlay such a panel on the overlay layer, as the shell's overlays are. With --background it
@@ -39,8 +39,8 @@
  *
  * With --text-input it is instead a window that takes text through text-input-unstable-v3, as
  * GTK and Qt applications do, for the input method tests, and hears no pointer, gestures, touch
- * or tablet. As its text input enters the window it enables it (unless --no-enable), with
- * surrounding text, a content type and the text cursor's rectangle, and prints what it hears:
+ * or tablet. As its text input enters the window it enables it, with surrounding text, a content
+ * type and the text cursor's rectangle, and prints what it hears:
  *   enter | leave | preedit TEXT BEGIN END | commit TEXT | delete BEFORE AFTER | done
  *   key CODE pressed|released (the wl_keyboard's, an evdev code)
  * (TEXT "-" for none). Lines on standard input change what it tells: "enable" and "disable",
@@ -100,7 +100,6 @@ struct probe {
     bool text;
     struct zwp_text_input_manager_v3 *text_manager;
     struct zwp_text_input_v3 *text_input;
-    bool enable_on_enter;
     char surrounding[256];
     int cursor[4];
     bool wallpaper, swapped; // --background, and its halves swapped
@@ -451,8 +450,7 @@ static void text_enter(void *data, struct zwp_text_input_v3 *text_input,
                        struct wl_surface *surface) {
     struct probe *probe = data;
     say("enter");
-    if (probe->enable_on_enter)
-        enable(probe, true);
+    enable(probe, true);
 }
 static void text_leave(void *data, struct zwp_text_input_v3 *text_input,
                        struct wl_surface *surface) {
@@ -690,7 +688,6 @@ int main(int argc, char **argv) {
                           .want_tablet = true,
                           .width = 400,
                           .height = 300,
-                          .enable_on_enter = true,
                           .surrounding = "hello",
                           .cursor = {40, 50, 2, 20}};
     const char *title = NULL;
@@ -721,8 +718,6 @@ int main(int argc, char **argv) {
             commands = true;
         else if (!strcmp(argv[i], "--text-input"))
             probe.text = true;
-        else if (!strcmp(argv[i], "--no-enable"))
-            probe.enable_on_enter = false;
         else if (!strcmp(argv[i], "--cursor"))
             probe.cursor_image = 1;
         else if (!strcmp(argv[i], "--no-cursor"))

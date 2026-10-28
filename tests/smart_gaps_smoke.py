@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """layout.smart_gaps: a tiled window alone on its workspace has no gaps and fills the usable area
 inside its border, from its first configure on; a second tile brings the gaps back for both, and
-they go again as it closes or floats. Turned off, a lone tile keeps them. layout.lone_margin
-frames a lone tile instead."""
+they go again as it closes or floats, and follow gap_inner, gap_outer and border_width as they are
+reloaded. Turned off, a lone tile keeps them. layout.lone_margin frames a lone tile instead."""
 from pathlib import Path
 import re
 import subprocess
@@ -29,8 +29,6 @@ def config(extra=""):
 # A lone tile: the whole output (the probes draw no panel) less the border.
 ALONE = (BORDER, BORDER, WIDTH - 2 * BORDER, HEIGHT - 2 * BORDER)
 EDGE = OUTER + BORDER
-# With the gaps: two tiles side by side, gap_outer at the edges and gap_inner between them.
-LEFT_EDGE, RIGHT_EDGE = EDGE, WIDTH - EDGE
 
 with harness.Compositor(compositor, config()) as desktop:
     root, msg = desktop.root, desktop.msg
@@ -59,11 +57,13 @@ with harness.Compositor(compositor, config()) as desktop:
                          f"window {index} tiled")
         return process
 
-    def gapped(left, right):
-        """Whether two tiles stand side by side inside the gaps."""
-        return (left[0] == LEFT_EDGE and left[1] == EDGE and right[1] == EDGE and
-                right[0] + right[2] == RIGHT_EDGE and left[3] == right[3] == HEIGHT - 2 * EDGE and
-                right[0] - (left[0] + left[2]) == INNER + 2 * BORDER)
+    def gapped(left, right, inner=INNER, outer=OUTER, border=BORDER):
+        """Whether two tiles stand side by side inside the gaps: gap_outer at the edges and
+        gap_inner between them, their borders inside."""
+        edge = outer + border
+        return (left[0] == edge and left[1] == edge and right[1] == edge and
+                right[0] + right[2] == WIDTH - edge and left[3] == right[3] == HEIGHT - 2 * edge and
+                right[0] - (left[0] + left[2]) == inner + 2 * border)
 
     # Alone, the first window fills the output, and its first configure already says so.
     first = launch()
@@ -94,6 +94,15 @@ with harness.Compositor(compositor, config()) as desktop:
     desktop.wait_for(lambda: windows() == [framed, framed], "monocle tiles inside the gaps")
     msg("layout_dwindle")
     desktop.wait_for(lambda: gapped(*sorted(windows())), "dwindle again")
+
+    # Other gaps and borders, reloaded, reach the tiles open: without borders, and without an
+    # inner gap.
+    for inner, outer, border in ((10, 0, 0), (0, 12, 5)):
+        desktop.reload(CONFIG % (inner, outer, "", border, WIDTH, HEIGHT))
+        desktop.wait_for(lambda: gapped(*sorted(windows()), inner, outer, border),
+                         f"gap_inner {inner}, gap_outer {outer} and border_width {border}")
+    desktop.reload(config())
+    desktop.wait_for(lambda: gapped(*sorted(windows())), "the gaps as before")
 
     # Closing the second drops the gaps.
     assert focused() == 1, desktop.windows()
