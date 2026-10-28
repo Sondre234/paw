@@ -70,8 +70,6 @@ void sh_loupe_paint_cells(uint32_t *pixels, const struct sh_loupe_layout *layout
 
 /* `rgb` (0xRRGGBB, anything above ignored) as "#rrggbb", lowercase. */
 void sh_color_hex(uint32_t rgb, char text[8]);
-/* "#rrggbb" or "#RRGGBB" back to 0xRRGGBB; false for anything else. */
-bool sh_color_parse(const char *text, uint32_t *rgb);
 
 /* A pixel of an HDR monitor's frame, its colours in BT.2020 encoded with PQ (as the scene draws
  * SDR white at 203 cd/m²), back in sRGB's primaries with the gamma 2.2 an SDR monitor's frames
