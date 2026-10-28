@@ -629,7 +629,7 @@ void check_look(const RiceData &data, std::vector<std::string> &setting) {
     for (const auto &[key, value] : data.fields) {
         setting.push_back(key);
         auto name = joined(setting);
-        if (look_settings.contains(name)) {
+        if (rice_setting_allowed(setting)) {
             check_keys(value, name);
         } else {
             if (!value.is_table() || !holds_allowed(name))
@@ -976,7 +976,7 @@ RiceData look_of(const RiceData &data, std::vector<std::string> &setting,
     for (const auto &[key, value] : data.fields) {
         setting.push_back(key);
         auto name = joined(setting);
-        if (look_settings.contains(name)) {
+        if (rice_setting_allowed(setting)) {
             result.fields.emplace_back(key, value);
         } else if (value.is_table() && value.items.empty() && holds_allowed(name)) {
             auto inner = look_of(value, setting, left_out);
