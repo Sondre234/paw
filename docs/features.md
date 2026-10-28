@@ -8,7 +8,8 @@ and every Lua setting, with its type, default and range, is in the
 
 `paw-shell` draws the desktop and, on every monitor, either a menu bar and a dock in
 [the macOS style](#the-macos-style), where the shipped configuration starts, or a taskbar with its
-[start menu](#start-menu) (`shell.style = "taskbar"`, the profiles `default` and `light`). Both
+[start menu](#start-menu) (`shell.style = "taskbar"`, the profiles `default`, `light`, `washi`,
+`sumi`, `mochi`, `hibana` and `tekketsu`). Both
 have [Quick Settings](#quick-settings), the [clock's flyout](#clock-and-calendar) and the
 [system tray](#system-tray). While a monitor [tiles](#tiling), its bars give way to the
 [tiling bar](#the-tiling-bar), a bar in Hyprland's style. The shell draws the overlays the compositor asks for: the
@@ -38,10 +39,12 @@ the dock.
 
 - **Menu bar**, along the top of every monitor. A spiral at the left opens the system menu:
   Appearance (the profiles), Wallpaper…, Displays… (the [display
-  settings](#display-settings)), Sleep, Restart…, Shut Down…, Lock Screen and Log Out…;
-  the `power_menu` action opens it too. The focused application's name, in bold ("Desktop" when
-  no window has focus), opens its menu: its desktop actions, New Window, Hide, Hide Others and
-  Quit. The **Window** menu acts on the focused window: Minimize, Zoom, Tile Window to Left or
+  settings](#display-settings)), Sleep, Hibernate, Restart…, Shut Down…, Lock Screen and Log
+  Out… (those the system allows); the `power_menu` action opens it too. The focused application's
+  name, in bold ("Desktop" when
+  no window has focus), opens its menu: New Window (unless one of its desktop actions is one),
+  its desktop actions, Hide, Hide Others and Quit. The **Window** menu acts on the focused window:
+  Minimize, Zoom, Tile Window to Left or
   Right of Screen, Enter Full Screen, Float, Keep on All Workspaces, Keep Above Others (checked
   while the window is [kept above](#keeping-windows-above)), Move to a workspace or monitor, the
   application's other windows, and Close Window. While one menu is open, pointing at
@@ -53,7 +56,8 @@ the dock.
 - **Dock**, centred along the bottom: the Launchpad button, the pinned applications, the running
   ones that are not pinned, and the Trash (which opens `trash:///`). A dot sits under each running
   application and its name shows above it on hover. A click starts an application, its icon
-  bouncing until a window opens, or brings its windows forward; one asking for attention bounces
+  bouncing until a window opens, or brings its windows up one at a time, the next after the
+  focused one; one asking for attention bounces
   three times. A right click lists its windows and actions, Keep in Dock or Remove from Dock, Hide,
   Quit and Force Quit, which kills its processes as the taskbar's Kill process does. Something dragged from an application and resting on an icon brings its window
   forward, or lists its windows to rest on one, as on the [taskbar](#taskbar), its name showing
@@ -162,8 +166,9 @@ shows.
 ### Taskbar
 
 Along the bar, from the left: the start button, one row of the pinned applications and the open
-windows, the workspace indicator, the widgets placed on the bar, the tray, the Quick Settings
-button, the clock, and a sliver at the end that shows the desktop. A button shows a tooltip when
+windows, the workspace indicator, the widgets placed on the bar with the tray among them, the
+Quick Settings button, the clock, and a sliver at the end that shows the desktop. A button shows a
+tooltip when
 the pointer rests on it, but for a window's, which shows pictures of its windows instead
 ([below](#window-pictures)). Lua configures the panel's height (its icons grow with it), the edge
 of the monitor it is along (`panel_position`: top, bottom, left or right), margins that make it
@@ -478,8 +483,8 @@ and an icon glows in the band's two hues until its file is all in. A file alread
 folder just moves its icon. A link dragged from a browser becomes a link file named from the
 page's title, or its host (a desktop entry of `Type=Link`, made executable so that the desktop opens
 it with a double-click), and a picture dragged from one is saved as a file of its type. Dragged over
-a folder's icon, files from a window or the desktop's own icons open the folder up, ringed in pink
-and wiggling, and dropped there they go into it as it gulps them down.
+a folder's icon, files from a window or the desktop's own icons open the folder up, ringed in the
+accent's second hue and wiggling, and dropped there they go into it as it gulps them down.
 
 Clicked, the desktop has the keyboard as a window would: the pointer passing over it never takes
 the keyboard, and moving onto a window, with focus following the mouse, or clicking one gives it
@@ -751,8 +756,8 @@ interface. Both follow the kernel's notices of changes as they come. Where Netwo
 the network shows the connection the machine goes out through instead, its bars following the
 Wi-Fi signal and its tip naming the network, and a click lists the [Wi-Fi](#wi-fi) networks. With
 two or more
-[keyboard layouts](#keyboard-layouts), the active one's short name (`us`, `no`) sits beside the
-clock, and clicking it switches every keyboard to the next.
+[keyboard layouts](#keyboard-layouts), the active one's short name (`us`, `no`) sits before the
+Quick Settings button and the clock, and clicking it switches every keyboard to the next.
 
 ### Look and feel
 
@@ -1086,8 +1091,8 @@ either colour is a gradient, every border is drawn in pieces: a strip along each
 colours along it, which the compositor stretches over the side, as a border hardly changes across
 its width, and a square at each corner painted pixel by pixel, rounded with the window. A border
 eases from the inactive gradient to the active one as its window is focused; an urgent window's
-stays in the urgent colour. `paw msg get frames` ends each line with how the border is
-drawn: `none`, `color` or `gradient`.
+stays in the urgent colour. `paw msg get frames` says on each line how the border is drawn,
+`none`, `color` or `gradient`, before the colour it ends with.
 
 `windows.shadow = { enabled = true }` draws a soft shadow under each window that has none of its
 own, following its corners: `color` under the focused window, the lighter `inactive_color`
@@ -1171,7 +1176,8 @@ tiled window keeps `size` and `position` as the place it floats to when toggled.
 app ID and title the window has when it opens; later title changes do not apply them again,
 but for opacity, the look and `idle_inhibit` below, which follow the title and app ID as they
 change, and dynamic rules.
-`features = { window_rules = false }` turns the actions off and leaves opacity rules working.
+`features = { window_rules = false }` turns the actions off, the look and `idle_inhibit` with
+them, and leaves opacity rules working.
 Rules match in time that grows no faster than a title's length, whatever their patterns. In a
 title or app ID over 1 KiB, as a client may set, they search the first and last 512 bytes: `^`
 still finds its start and `$` its end, but a pattern held to both matches no title that long.
@@ -1349,8 +1355,8 @@ beginning with an `overview-assist` line (the slot, in the monitor's coordinates
 
 ### Magnetic edges
 
-A floating window that is dragged (Alt + left drag, or a client-decorated window's own title
-bar) or resized (Alt + right drag, or its border) sticks to nearby edges, so windows line up
+A floating window that is dragged (Super + left drag, or a client-decorated window's own title
+bar) or resized (Super + right drag, or its border) sticks to nearby edges, so windows line up
 without pixel hunting. Within `windows.magnet.distance` (12 px by default) an edge of the window
 lands on the edge of the output, of the area the panels leave free, or of another window, and a
 translucent guide line (`guide_color`) is drawn along the edge that holds it, from one window to
@@ -1384,8 +1390,9 @@ The group's windows are drawn as a strip of tabs, a thin bar over the top edge o
 window, one segment per member with the shown one lit. A click on a segment brings that window
 forward. The strip carries no titles: the compositor has no text rendering, so the taskbar (which
 lists every member, and switches tabs when a hidden one is activated) and the window switcher
-name the windows. `paw msg get windows` ends each line with the window's group number (0 for
-none). Hidden members are off the screen, in no tiling, and follow the shown window to another
+name the windows. `paw msg get windows` gives each window's group number (0 for none), next to
+last on its line. Hidden members are off the screen, in no tiling, and follow the shown window to
+another
 workspace or monitor. `features.groups = false` turns the actions off and dissolves every group
 on reload. `session save` keeps only the shown window of a group, not the group.
 
@@ -1435,7 +1442,8 @@ one application with the same title are told apart only by their order.
 With `windows.swallow = { enabled = true }` a window started from a terminal takes the terminal's
 place and hides it, as in Hyprland and dwm's swallow patch: run `mpv clip.mkv` or `imv photo.png`
 in a terminal and the player opens in the terminal's tile (or floating rectangle, size and
-place), and closing it brings the terminal back there, with focus. It is off by default.
+place), and closing it brings the terminal back there, with focus if it had it. It is off by
+default.
 
 The match is by process ancestry, not by guessing: the new window's process (its Wayland
 client's pid, or the X11 window's) has to descend from the process of a terminal's window, however many shells and
@@ -1453,8 +1461,9 @@ follows its window to another workspace or monitor; the window is an ordinary on
 floated, moved and resized), and the terminal returns to wherever it is when it closes. If the
 terminal closes first, the window keeps the place. `swallow_toggle` (no default binding; it
 works with `enabled = false` too) does it by hand: pressed on a window that swallowed a terminal it
-gives the terminal a place beside it again, otherwise the window takes the place of the terminal
-it was started from, or of the terminal last focused on the workspace. `paw msg get swallow`
+gives the terminal a place beside it again, otherwise the window takes the place of the window
+it was started from (that of its nearest ancestor process with one, a terminal or not), or of the
+terminal last focused on the workspace. `paw msg get swallow`
 lists each window with whether it is swallowed and its partner. Only applications that stay
 descendants of the terminal can be swallowed: one that hands the request to a running instance
 (a browser opening a new window) belongs to the other process. This is checked headless with
@@ -1466,8 +1475,8 @@ process ancestry through a shell, and with an X11 window (`tests/swallow_smoke.p
 Alt + Tab (`switcher`) opens the window switcher in the middle of the focused monitor. It
 lists every window, on every monitor and workspace and including minimized ones, most
 recently focused first, with the window focused before the current one selected. Keep Alt
-held and press Tab to move on (Shift + Tab, `switcher_prev`, or the arrow keys, to move
-back); releasing Alt focuses the selected window, switching its monitor to its workspace and
+held and press Tab to move on (Shift + Tab, `switcher_prev`, Left or Up to move back, Right or
+Down on); releasing Alt focuses the selected window, switching its monitor to its workspace and
 restoring it if minimized. Return picks at once, Escape cancels, and clicking a window picks
 it. While the switcher is open, keys do not reach applications. The compositor keeps the
 switcher and the shell draws it, only once it has been open for a moment, so a quick
@@ -2023,7 +2032,8 @@ border. A second tile brings `gap_inner` and `gap_outer` back for both, and they
 closes, floats or leaves (`layout.smart_gaps`, on by default, like sway's `smart_gaps`; `false`
 keeps the gaps around a lone tile too). A window group is one tile; floating, sticky and
 maximized windows are not tiles, and two windows in monocle keep their gaps. A lone column of the
-scroll layout loses its gaps and keeps its width. `layout.lone_margin` keeps a lone tile that far
+scroll layout loses its gaps and fills the screen (`layout.scroll.fill_lone`). `layout.lone_margin`
+keeps a lone tile that far
 from the edges instead, so a single window on a wide monitor need not fill it: one number, or
 `{ top, right, bottom, left }`, e.g. wide at the sides and narrow above and below.
 
@@ -2170,7 +2180,9 @@ layout = {
 ```
 
 A workspace keeps the layout, ratio and master count it was given until the compositor
-restarts; a reload changes the starting values only for workspaces that have not chosen
+restarts, where a [saved session](#sessions) brings them back (a standalone session's
+[last one](#the-last-session) does at login); a reload changes the starting values only for
+workspaces that have not chosen
 one.
 
 Each monitor can start with its own values in `layout.outputs`, keyed by connector name or
@@ -3048,7 +3060,7 @@ gestures = {
         { fingers = 3, direction = "right", action = "workspace_prev" },
         { fingers = 3, direction = "up", action = "toggle_overview" },
         { fingers = 3, direction = "down", action = "overview_cancel" },
-        { fingers = 4, direction = "down", action = "peek_toggle" },
+        { fingers = 4, direction = "down", action = "peek_toggle" }, -- added: not a default
     },
 },
 ```
@@ -3166,12 +3178,12 @@ dragged by its title. The modifier's press and release still reach the
 application with the keyboard as usual. Any other key's binding has the key from its press, so
 the application hears neither. `mods` are the modifiers held as the key goes down; with a
 modifier key its own may be named or not (`mods = { "Super" }, key = "Super_L"` is the same
-binding). A key may have a binding of each kind, `release` does not go with `repeats`, and
-mouse buttons and switches take none. While the switcher has the keys, or an application holds
-the shortcuts, nothing waits for a release, nor while the overview or the exploded view is open
-but for its own action (`toggle_overview`, `xray`), so that a tap can close what a tap opened; on
-the lock screen only a `locked` one does. Tapping Super for the start menu (Launchpad in the
-macOS style), as on Windows:
+binding). A key may have one binding as it goes down and one as it comes up (a pair, below, is
+both), `release` does not go with `repeats`, and mouse buttons and switches take none. While the
+switcher has the keys, or an application holds the shortcuts, nothing waits for a release, nor while
+the overview or the exploded view is open but for its own action (`toggle_overview`, `xray`), so
+that a tap can close what a tap opened; on the lock screen only a `locked` one does. Tapping Super
+for the start menu (Launchpad in the macOS style), as on Windows:
 
 ```lua
 { key = "Super_L", release = true, action = "launcher" },
@@ -3322,9 +3334,10 @@ profiles = {
 },
 ```
 
-Pick one from the panel: the profile button beside the tiling button (three swatches of the
-current accent, background and text colours) lists them, the one in use marked, whenever there
-are two or more (`shell.widgets.profiles = false` hides it). Right-clicking empty bar space and
+Pick one from the panel: the Appearance tile in Quick Settings lists them, the one in use marked,
+whenever there are two or more; with `shell.widgets.profiles = "bar"` a button beside the tiling
+button (three swatches of the current accent, background and text colours) lists them instead,
+and `false` hides both. Right-clicking empty bar space and
 pointing at **Appearance** lists them too, beside the menu (the one in use is marked). The command palette (Super + P) lists them as
 **Appearance: NAME** too, and scripts and hot corners can use `paw msg profile NAME`, or
 `profile next` and `profile prev` to step through them in name order. A pick is saved in
@@ -3446,8 +3459,8 @@ wallpaper. It runs
 `hyprland.lua` in a sandbox (or parses `hyprland.conf`), writes `theme.lua` beside the
 configuration, and reports where each value came from and what it skipped. `init.lua` loads
 it with `theme = "theme.lua"` and overrides any of it; `--dry-run` only prints. See
-[docs/dotfile-import.md](dotfile-import.md) for the details and for the settings paw
-still lacks (rounding, shadows).
+[docs/dotfile-import.md](dotfile-import.md) for the details and for what it does not carry
+over yet (rounding, shadows, blur), which are set by hand.
 
 ## Notifications and on-screen display
 
@@ -3707,8 +3720,8 @@ refused as one (`no query NAME`). Prefixing
 one: `paw msg output HDMI-A-1 workspace_next`. `paw msg type TEXT` types TEXT into
 what has the keyboard, as wtype does: each character on a key of a keymap made for it (200 to a
 keymap; a longer text takes several), the window's own keymap back after, so that accents, emoji
-and their sequences come out as they are whatever the keyboard layout; the request is a line of at
-most 512 bytes, and it says when nothing has the keyboard. `paw msg workspace_nudge OUTPUT
+and their sequences come out as they are whatever the keyboard layout; the request is a line
+shorter than 4096 bytes, and it says when nothing has the keyboard. `paw msg workspace_nudge OUTPUT
 next|prev` nudges that monitor's windows as a step to its next or previous workspace would start
 to slide them, and back, as the panel's wheel does past either end (see
 [Workspaces](#workspaces)). The query
@@ -3735,12 +3748,16 @@ held. `paw msg get pid_at X Y` prints the process ID of the window
 drawn at that layout point, or nothing over bare desktop. `paw msg get layers` prints one line per panel or other layer-shell surface:
 namespace, output, layer (0 background to 3 overlay), whether it is shown, whether it holds
 the keyboard, and the keyboard it asks for (`none`, `exclusive` or `on_demand`).
-`paw msg get power` prints one line per power action logind carries out (`poweroff`,
-`reboot`, `suspend`, `hibernate`) with its answer: `yes`, `no`, `challenge` (after a password),
-`na`, `unknown` until it has answered, or `unavailable` without logind.
+`paw msg get power` prints one line per power action, in the menu's order (`lock`, `suspend`,
+`hibernate`, `reboot`, `poweroff`, `logout`), with whether it may run: for the four logind carries
+out its answer, `yes`, `no`, `challenge` (after a password), `na`, `unknown` until it has
+answered, or `unavailable` without logind; for locking `yes` when there is a locker to start, else
+`no`, and for logging out `yes`. A last line, `pending`, names the action under way and its step,
+or says `-`.
 `paw msg get animations` prints the number of running animations and of window trees in
-the scene (closing and minimizing windows count until their animation ends), and of focus fades,
-mainly for tests; `paw msg get drawn` where each window is drawn while it glides to a new place
+the scene (closing and minimizing windows count until their animation ends), and of fades
+running (focus fades, frames fading in and out, the snap preview), mainly for tests;
+`paw msg get drawn` where each window is drawn while it glides to a new place
 and size (see [Animations](#animations)), and `paw msg get output_frames` each monitor's name and
 how many frames it has drawn. `paw msg get frame_times OUTPUT` prints how many frames that
 monitor has drawn, then a line for each of its last 512: the time drawing it took and the time
@@ -3799,10 +3816,10 @@ wrapped](#paw-wrapped) counts, `enabled yes`, or `enabled no` and why, and while
 for (`day YYYY-MM-DD`), how many times this session saved and when it last did (`saves N`, `saved
 SECONDS` since 1970, 0 for never), what the time counts as now (`state active`, `idle` or `away`),
 the focused application and its streak so far in seconds (`focus APP SECONDS`, `-` for none), and
-then what it counted and has not saved yet, as the lines of a day file. A client
-each monitor's frames do (see [Tearing](#tearing)). `paw msg get actions` prints a line per
-action the configuration knows: its name and the keys of its first key binding outside any
-[binding mode](#binding-modes), as `Super + Tab`, or `-` for none. `paw msg get profiles` prints
+then what it counted and has not saved yet, as the lines of a day file. `paw msg get actions`
+prints a line per action the configuration knows: its name and the keys of its first key binding
+outside any [binding mode](#binding-modes), as `Super + Tab`, or `-` for none.
+`paw msg get profiles` prints
 a line per [appearance profile](#appearance-profiles), in name order: its name and `1` for the one
 in use, else `0`; and `paw msg get terminal` the command line the `terminal` action starts, its
 words separated by tabs, or nothing when there is no terminal to start. A client
@@ -3818,8 +3835,9 @@ area a window shown there reaches (`top,left`, or `-`; a floating bar docks alon
 change, plus `launcher OUTPUT` when the `launcher` action
 (a tap of Super) asks the panel on that monitor to open or close its start menu, and `run OUTPUT`
 when the `run` action (Super + R) asks the shell for its [run launcher](#run-launcher) there; the
-panel uses these. The window switcher sends `switcher OUTPUT SELECTED COUNT` followed by
-COUNT lines `switcher-window APP_ID TITLE OUTPUT WORKSPACE MINIMIZED URGENT ID` (tab-separated) when it
+panel uses these. The window switcher sends `switcher OUTPUT SELECTED COUNT` (ending with `app`
+when it lists [one application's windows](#one-applications-windows)) followed by COUNT lines
+`switcher-window APP_ID TITLE OUTPUT WORKSPACE MINIMIZED URGENT ID` (tab-separated) when it
 opens or a listed window closes, `switcher-select N` as the selection moves (both counting
 from 0), and `switcher-close`. ID is the window's number, which the compositor gives each window as
 it appears and never gives another; a taskbar gets the same number for its handle of the window
@@ -3828,9 +3846,10 @@ share a title. The shell sends `switcher_peek` once it has drawn the switcher, w
 window then peeks once the selection rests ([above](#window-switcher)); while the switcher is
 closed the request is refused. The state tells whether [keep awake](#power-saving-when-idle) holds
 the idle steps off, `keep-awake on|off`, and whether the session is locked, `locked on|off`, again as it locks
-and unlocks (the shell's clipboard history records nothing meanwhile), and ends with
-`power ACTIONS`, the power actions that may
-run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them, or `-`), a power
+and unlocks (the shell's clipboard history records nothing meanwhile), then `power ACTIONS`, the
+power actions that may run (`lock,suspend,reboot,poweroff,logout`, in the order menus list them,
+or `-`), and ends with a `windowless PID APP_ID` line for each of the first 16 processes
+[running without a window](#applications-running-without-a-window), the oldest first. A power
 action that fails or is cancelled after it was accepted sends `power-error MESSAGE`, a program
 that `spawn` or `terminal` could not start sends `spawn-error MESSAGE`, a reload turned down,
 the configuration kept as it was, sends `config-error MESSAGE` (the panel shows any of these
@@ -3852,8 +3871,9 @@ quarter of a second at a time, rather than failing to take one at full speed.
 ## Commands
 
 Besides `paw msg` and `paw import`, the `paw` binary has subcommands to find the configuration,
-to show the desktop off and to find out what is wrong with it. All but `paw config` talk to the
-running session through its control socket, as `paw msg` does. `paw help` (or `paw --help`)
+to show the desktop off and to find out what is wrong with it. All but `paw config`, `paw rice
+pack` and `paw rice list` talk to the running session through its control socket, as `paw msg`
+does (`paw wrapped` when there is one). `paw help` (or `paw --help`)
 lists them all by group with a line on each, `paw help NAME` gives one's arguments and says more
 of it, and `paw help msg` lists every action and every query `paw msg` takes.
 
@@ -4131,8 +4151,10 @@ but read by a parser of Lua's table syntax alone, which takes strings, numbers, 
 and refuses names, calls and operators, so `os.execute`, `io.open`, `require` or `load` in it are
 errors, not calls. It sets only how the desktop looks: colours, borders, corners, opacity, shadows,
 the blur behind windows, the bar's style, size, place, font and widgets, the tiling bar, the
-wallpaper, the start button, and the cursor and icon themes by name (one you have installed). Launchers, window rules, the search's folders and web address, the
-clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every other section
+wallpaper, the start button, the ambient particles and the cursor trail, and the cursor and icon
+themes by name (one you have installed). Launchers, window rules, the search's folders and web
+address, the clipboard, the wallpaper picker's folder, the rest of `windows` and `shell` and every
+other section
 are refused, and `paw rice pack` leaves them out. The pictures and other files it names are paths
 inside it, of letters, digits, `.`, `-` and `_`, without `..`, and neither links nor through one;
 an archive holding a link, a device or a path out of it is refused whole, and only the files
@@ -4251,8 +4273,9 @@ The `xray` action takes the focused monitor apart into the layers paw draws, so 
 over what shows, and closes it again; bind it as `{ mods = { "Super" }, key = "x", action = "xray"
 }`. The picture comes apart into a stack of sheets, bottom to top: the background (the desktop's
 colour and the wallpaper), the bottom layer, the windows, floating windows (with
-`layout.floating_above_tiles`), windows kept above, fullscreen windows, the panels (the top
-layer), a fullscreen window covering the panels, X11 menus and the overlays. A layer with nothing
+`layout.floating_above_tiles`), windows kept above, fullscreen windows, a window peeked at, the
+panels (the top layer), a fullscreen window covering the panels, X11 menus and the overlays. A layer
+with nothing
 on that monitor has no sheet, and while six windows or fewer show, each has a sheet of its own.
 Each sheet is a live copy of what its layer draws there, scaled down, on a card edged in the
 layer's colour with a shadow, fanned out from the one under it like a deck of cards seen from the
