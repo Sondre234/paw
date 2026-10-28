@@ -73,6 +73,9 @@ class ShellController : public QObject {
     // findWallpapers(), and the folder they come from.
     Q_PROPERTY(QVariantList wallpapers READ wallpapers NOTIFY wallpapersChanged)
     Q_PROPERTY(QString wallpaperFolder READ wallpaperFolder NOTIFY configChanged)
+    // The picker's folders by when it last filtered by each (useWallpaperFolder), the most recent
+    // first; "" is all of them.
+    Q_PROPERTY(QStringList wallpaperFoldersUsed READ wallpaperFoldersUsed NOTIFY wallpaperFoldersUsedChanged)
     // shell.start_icon, the start button's picture; empty for the four squares.
     Q_PROPERTY(QUrl startIcon READ startIcon NOTIFY configChanged)
     // shell.bar_icons' pictures, as URLs by the name of the bar icon each replaces.
@@ -325,10 +328,14 @@ class ShellController : public QObject {
     QString wallpaperMode() const;
     QVariantList wallpapers() const { return wallpapers_; }
     QString wallpaperFolder() const;
+    QStringList wallpaperFoldersUsed() const { return wallpaperFoldersUsed_; }
     QUrl startIcon() const;
     QVariantMap barIcons() const { return barIcons_; }
     // Reads the picker's folder again.
     Q_INVOKABLE void findWallpapers();
+    // Notes that the picker filtered by `folder` ("" for all of them), first in
+    // wallpaperFoldersUsed, remembered across sessions.
+    Q_INVOKABLE void useWallpaperFolder(const QString &folder);
     // Shows `path` as the wallpaper of the profile in use on every monitor, remembered across
     // sessions until the configured wallpaper changes; an empty path goes back to the configured
     // one.
@@ -693,6 +700,7 @@ class ShellController : public QObject {
     void effectsChanged();
     void wallpaperChanged();
     void wallpapersChanged();
+    void wallpaperFoldersUsedChanged();
     void appsChanged();
     void windowlessChanged();
     void iconThemeChanged();
@@ -948,5 +956,7 @@ class ShellController : public QObject {
     void notePick(const QString &path, const QString &output);
     QVariantList wallpapers_;
     static QString pickedWallpapersPath();
+    QStringList wallpaperFoldersUsed_;
+    static QString wallpaperFoldersUsedPath();
     static QVariantMap record(const App &app);
 };

@@ -20,6 +20,13 @@ PopupCard {
             if (seen.indexOf(list[i].folder) < 0) seen.push(list[i].folder)
         return seen
     }
+    // The tabs, "" for All: those filtered by before first, the last one leftmost, then the rest
+    // in order. Pictures directly in the folder show under All.
+    readonly property var tabs: {
+        var all = [""].concat(folders.filter(function(f) { return f !== "" }))
+        var used = shell.wallpaperFoldersUsed.filter(function(f) { return all.indexOf(f) >= 0 })
+        return used.concat(all.filter(function(f) { return used.indexOf(f) < 0 }))
+    }
     readonly property var shown: {
         var words = filter.text.toLowerCase().split(/\s+/).filter(function(w) { return w.length > 0 })
         var folder = wallpaperPicker.folder
@@ -34,6 +41,11 @@ PopupCard {
     // Whether this monitor had a wallpaper of its own as the picker opened, which offers the
     // choice with one monitor too, until it closes.
     property bool ownAtOpen: false
+    function useFolder(name) {
+        folder = name
+        shell.useWallpaperFolder(name)
+        folderTabs.positionViewAtBeginning()
+    }
     function pick(path) {
         if (scope === "monitor")
             shell.pickWallpaperOn(path, panel.outputName)
@@ -120,20 +132,20 @@ PopupCard {
                 contentItem: Item { Icon { anchors.centerIn: parent; name: "shuffle"; size: 16 } }
             }
         }
-        // The subfolders, as tabs.
+        // The subfolders, as tabs, the one filtered by last leftmost.
         ListView {
             id: folderTabs
             Layout.fillWidth: true; Layout.preferredHeight: 28
             visible: wallpaperPicker.folders.length > 1
             orientation: ListView.Horizontal; spacing: 6; clip: true
             boundsBehavior: Flickable.StopAtBounds
-            model: [""].concat(wallpaperPicker.folders)
+            model: wallpaperPicker.tabs
             delegate: Button {
                 id: folderTab
                 required property string modelData
                 readonly property bool current: modelData === wallpaperPicker.folder
                 height: 28
-                onClicked: wallpaperPicker.folder = modelData
+                onClicked: wallpaperPicker.useFolder(modelData)
                 background: Rectangle {
                     radius: 14
                     color: folderTab.current ? Theme.accent : (folderTab.hovered ? Theme.selected : Theme.hover)

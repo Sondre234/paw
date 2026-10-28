@@ -91,6 +91,16 @@ ShellController::ShellController(std::filesystem::path path, QObject *parent)
                 !fields[2].isEmpty())
                 pickedWallpapers_[fields[0]][fields.value(3)] = {fields[1], fields[2]};
         }
+    // A folder a line, the most recent first; an empty line is all of them.
+    QFile foldersUsed(wallpaperFoldersUsedPath());
+    if (foldersUsed.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        auto lines = QString::fromUtf8(foldersUsed.readAll()).split('\n');
+        if (lines.last().isEmpty())
+            lines.removeLast();
+        for (const auto &line : lines)
+            if (!wallpaperFoldersUsed_.contains(line))
+                wallpaperFoldersUsed_.push_back(line);
+    }
     // The start menu follows the applications and the taskbar's pins, which seed its own.
     connect(this, &ShellController::appsChanged, &startMenu_,
             [this] { startMenu_.setApps(apps(), userPins_); });
@@ -349,6 +359,21 @@ void ShellController::findWallpapers() {
 }
 QString ShellController::pickedWallpapersPath() {
     return QFileInfo(pinsPath()).path() + "/wallpapers";
+}
+void ShellController::useWallpaperFolder(const QString &folder) {
+    if (!wallpaperFoldersUsed_.isEmpty() && wallpaperFoldersUsed_.first() == folder)
+        return;
+    wallpaperFoldersUsed_.removeAll(folder);
+    wallpaperFoldersUsed_.prepend(folder);
+    Q_EMIT wallpaperFoldersUsedChanged();
+    QByteArray lines;
+    for (const auto &used : wallpaperFoldersUsed_)
+        lines += used.toUtf8() + '\n';
+    if (const auto error = saveFile(wallpaperFoldersUsedPath(), lines); !error.isEmpty())
+        report("Could not save the wallpaper folders used: " + error);
+}
+QString ShellController::wallpaperFoldersUsedPath() {
+    return QFileInfo(pinsPath()).path() + "/wallpaper-folders";
 }
 void ShellController::pickWallpaper(const QString &path) {
     // Every monitor shows it: those picked for alone too, and those the configuration gives a
