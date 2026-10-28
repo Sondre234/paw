@@ -1148,15 +1148,18 @@ const Subcommand subcommands[] = {
      "Writes theme.lua beside the configuration from the files in DIR; --dry-run prints it\n"
      "instead."},
     {"rice", paw::cli::rice, looks,
-     "pack [PROFILE] [-o FILE] | try FILE|DIR|URL | keep | revert | list | remove NAME",
+     "pack [PROFILE] [-o|--output FILE] [--name NAME] [--author TEXT]\n"
+     "         [--description TEXT] [--extra FILE]... [--config PATH]\n"
+     "         | try FILE|DIR|URL [--config PATH] | keep | revert | list | remove NAME",
      "share a profile's look, or try one on",
      "pack packs a profile's look and its pictures into one file; try tries one on, the\n"
      "previous look coming back in 15 seconds unless keep keeps it (revert at once); list\n"
      "lists the installed rices, and remove removes one."},
-    {"fetch", paw::cli::fetch, fun, "[--no-logo] [--no-color]",
+    {"fetch", paw::cli::fetch, fun, "[--no-logo] [--no-color] [--config PATH]",
      "the session's uptime, frames and windows beside a paw print",
      "The paw print comes in the appearance profile's colours."},
-    {"showcase", paw::cli::showcase, fun, "[--delay SECONDS] [--keep] [--output NAME] [-o FILE]",
+    {"showcase", paw::cli::showcase, fun,
+     "[--delay SECONDS] [--keep] [--output NAME] [-o FILE] [--terminal COMMAND]",
      "a screenshot with paw fetch open in a terminal",
      "The windows go back as they were afterwards."},
     {"tour", paw::cli::tour, fun,
