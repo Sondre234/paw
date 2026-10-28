@@ -2,7 +2,7 @@
 // A tray item for the end-to-end tests, on the session bus named by $DBUS_SESSION_BUS_ADDRESS:
 // a StatusNotifierItem with a solid square for an icon and a menu of every kind of entry (see
 // tests/tray_fake_item.hpp). It registers with the watcher once there is one, as applications do.
-//   tray_probe [--path] [--no-getall] [--no-activate] [--color #RRGGBB] [--title TEXT]
+//   tray_probe [--path] [--no-activate] [--color #RRGGBB] [--title TEXT]
 // --path registers by object path, as Ayatana's library does, instead of by bus name.
 // Prints "registered SERVICE PATH", then a line for each call the host makes ("activate X Y",
 // "secondary X Y", "context X Y", "scroll DELTA ORIENTATION", "abouttoshow ID", "event ID TYPE",
@@ -34,7 +34,6 @@ int main(int argc, char **argv) {
     const QString path = byPath ? "/org/ayatana/NotificationItem/tray_probe" : "/StatusNotifierItem";
     faketray::Item item(bus, path);
     faketray::Menu menu(bus, "/MenuBar");
-    item.getAll = args.removeAll("--no-getall") == 0;
     item.activate = args.removeAll("--no-activate") == 0;
     QColor color("#ff00ff");
     QString title = "Tray probe";
