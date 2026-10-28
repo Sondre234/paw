@@ -1757,7 +1757,9 @@ void ShellController::subscribe() {
         if (windowlessSeen)
             setWindowless(nextWindowless_);
     });
-    connect(state_, &QLocalSocket::disconnected, this, [this] {
+    connect(state_, &QLocalSocket::disconnected, this, [this, path] {
+        std::cerr << "paw shell: the compositor closed its control socket " << path.toStdString()
+                  << (subscribed_ ? "" : " before the shell had subscribed") << '\n';
         subscribed_ = false;
         if (!keyboardLayout_.isEmpty()) {
             keyboardLayout_.clear();
@@ -1783,6 +1785,14 @@ void ShellController::subscribe() {
         clearOverview();
         clearXray();
     });
+    // The compositor closing it is told by disconnected above.
+    connect(state_, &QLocalSocket::errorOccurred, this,
+            [this, path](QLocalSocket::LocalSocketError error) {
+                if (error != QLocalSocket::PeerClosedError)
+                    std::cerr << "paw shell: cannot subscribe at the control socket "
+                              << path.toStdString() << ": " << state_->errorString().toStdString()
+                              << '\n';
+            });
     state_->connectToServer(path);
 }
 void ShellController::setBindingMode(const QString &mode) {
