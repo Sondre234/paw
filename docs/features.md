@@ -1384,8 +1384,8 @@ The group's windows are drawn as a strip of tabs, a thin bar over the top edge o
 window, one segment per member with the shown one lit. A click on a segment brings that window
 forward. The strip carries no titles: the compositor has no text rendering, so the taskbar (which
 lists every member, and switches tabs when a hidden one is activated) and the window switcher
-name the windows. `paw msg get windows` ends each line with the window's group number (0 for
-none). Hidden members are off the screen, in no tiling, and follow the shown window to another
+name the windows. `paw msg get windows` gives each window's group number (0 for none), next to
+last on its line. Hidden members are off the screen, in no tiling, and follow the shown window to another
 workspace or monitor. `features.groups = false` turns the actions off and dissolves every group
 on reload. `session save` keeps only the shown window of a group, not the group.
 
