@@ -3451,8 +3451,8 @@ wallpaper. It runs
 `hyprland.lua` in a sandbox (or parses `hyprland.conf`), writes `theme.lua` beside the
 configuration, and reports where each value came from and what it skipped. `init.lua` loads
 it with `theme = "theme.lua"` and overrides any of it; `--dry-run` only prints. See
-[docs/dotfile-import.md](dotfile-import.md) for the details and for the settings paw
-still lacks (rounding, shadows).
+[docs/dotfile-import.md](dotfile-import.md) for the details and for what it does not carry
+over yet (rounding, shadows, blur), which are set by hand.
 
 ## Notifications and on-screen display
 
