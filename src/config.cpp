@@ -1497,13 +1497,13 @@ void read_effects(lua_State *L, Config &config) {
                 (rise ? seen_sunrise : seen_sunset) = true;
             }
         }
-        if (present(L, "latitude") || present(L, "longitude")) {
+        bool located = present(L, "latitude") || present(L, "longitude");
+        if (located) {
             effects.latitude = number(L, "latitude", effects.latitude, -90, 90);
             effects.longitude = number(L, "longitude", effects.longitude, -180, 180);
-            effects.located = true;
         }
         // A location gives the times, unless both were written out.
-        if (effects.located && !(seen_sunrise && seen_sunset))
+        if (located && !(seen_sunrise && seen_sunset))
             effects.sunrise = effects.sunset = -1;
     }
     if (Section in{L, "hot_corners"}) {

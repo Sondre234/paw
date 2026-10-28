@@ -507,7 +507,6 @@ struct Config {
                                      .sunset = 20 * 60,
                                      .latitude = 0,
                                      .longitude = 0,
-                                     .located = false,
                                      .transition = 30,
                                      .corner_size = 2,
                                      .corner_delay = 150,
