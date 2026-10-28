@@ -1742,7 +1742,7 @@ launcher of the macOS style, which the launcher's loader in `Panel.qml` makes in
 place, reads it too: every application by name, and what its search finds of them.
 
 Both searches find files through the controller's `FileIndex` (`file_index.cpp`, `files()`),
-which `ShellController::configureFiles` hands `shell.search`. `search()` matches the names read
+which `ShellController::configureSearch` hands `shell.search`. `search()` matches the names read
 last, on the GUI thread, and starts reading them again when they are out of date: never read, the
 settings changed, five minutes old, or ten seconds after a `QFileSystemWatcher` on a root but the
 home folder or on `recently-used.xbel` saw a change. `scan()`, a static function the tests call
