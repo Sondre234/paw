@@ -70,9 +70,9 @@ static void drop_buffers(struct sh_cat_view *view) {
         wlr_buffer_drop(view->frames[i]);
         view->frames[i] = NULL;
     }
-    wlr_buffer_drop(view->z_buffer);
+    drop_kept_buffer(view->z_buffer);
     view->z_buffer = NULL;
-    wlr_buffer_drop(view->heart_buffer);
+    drop_kept_buffer(view->heart_buffer);
     view->heart_buffer = NULL;
     view->drawn_frame = -1;
 }
@@ -316,7 +316,7 @@ static void draw(struct sh_cat_view *view, int64_t now) {
             uint32_t *pixels = malloc(SH_CAT_Z_SIZE * SH_CAT_Z_SIZE * sizeof(*pixels));
             if (pixels) {
                 sh_cat_paint_z(pixels, view->coat);
-                view->z_buffer = sh_pixel_buffer(pixels, SH_CAT_Z_SIZE, SH_CAT_Z_SIZE);
+                view->z_buffer = keep_buffer(sh_pixel_buffer(pixels, SH_CAT_Z_SIZE, SH_CAT_Z_SIZE));
             }
         }
         if (view->z->buffer != view->z_buffer)
@@ -336,7 +336,8 @@ static void draw(struct sh_cat_view *view, int64_t now) {
         uint32_t *pixels = malloc(SH_CAT_HEART_WIDTH * SH_CAT_HEART_HEIGHT * sizeof(*pixels));
         if (pixels) {
             sh_cat_paint_heart(pixels);
-            view->heart_buffer = sh_pixel_buffer(pixels, SH_CAT_HEART_WIDTH, SH_CAT_HEART_HEIGHT);
+            view->heart_buffer =
+                keep_buffer(sh_pixel_buffer(pixels, SH_CAT_HEART_WIDTH, SH_CAT_HEART_HEIGHT));
         }
     }
     for (int i = 0; i < SH_CAT_HEARTS; ++i) {

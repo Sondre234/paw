@@ -605,3 +605,9 @@ GPU 0.06 and 0.3 ms. The exploded view and the party cost one to two millisecond
 either renderer, so it is not the drawing; for the party, the profile above shows the confetti's
 scene updates. The heatmap's median frame costs nothing more, but its picture, drawn again twice
 a second, makes the p95 frames 2 to 10 ms.
+
+On the GPU the exploded view's time was mostly its sheets' shadows uploaded again on every step: a
+GPU renderer copies a picture in memory into a texture and lets go of it, and wlroots' scene then
+forgets the buffer, so a node compared with the cached picture looked unset and was set again,
+throwing its texture away. The caches of shadow and controls pictures now hold them; the exploded
+view went from 3.9 to 4.1 ms a frame (p50) to 0.5 ms with gles2, and stayed at 1.15 ms with pixman.
