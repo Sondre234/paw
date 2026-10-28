@@ -191,8 +191,9 @@ The shell starts with the compositor unless you pass `--no-shell` or set
 command, run without a shell, that inherits the compositor's Wayland socket.
 
 When nested, the host may keep shortcuts for itself: a host that grabs Super (Hyprland, GNOME)
-needs `mod = "Alt"` in the configuration. Applications that reuse an existing process or D-Bus
-service may also open in the host session instead.
+needs `local mod = "Alt"` at the top of a copy of [config/init.lua](config/init.lua), whose
+bindings use it (`mod` is not a setting of its own). Applications that reuse an existing
+process or D-Bus service may also open in the host session instead.
 
 ### First run
 
